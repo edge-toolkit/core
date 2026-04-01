@@ -1,1 +1,47 @@
 # edge-toolkit core
+
+## mise
+
+Please install [`mise`](https://mise.jdx.dev/).
+It is needed for all use of this repository.
+
+## Contributing
+
+Use `mise run fmt` and `mise run check` to run formatters and checkers.
+
+## Run e2e
+
+Run the end-to-end tests using Chrome:
+
+```bash
+mise run ws-e2e-chrome
+```
+
+## Run ws agent in browser
+
+Download the onnx from https://modelnova.ai/models/details/human-activity-recognition ,
+and save it as `services/ws-server/static/models/human_activity_recognition.onnx`
+
+```bash
+mise run build-ws-wasm-agent
+mise run ws-server
+```
+
+Find the IP address of your laptop in the local network,
+which will normally be something like 192.168.1.x.
+
+Then on your phone, open Chrome and type in https://192.168.1.x:8433/
+
+Click "Load HAR model" and then "Start sensors".
+
+## Grant
+
+This repository is part of a grant managed by the School of EECMS, Curtin University.
+
+```text
+ABN 99 143 842 569.
+
+CRICOS Provider Code 00301J.
+
+TEQSA PRV12158
+```

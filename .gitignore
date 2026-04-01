@@ -1,0 +1,5 @@
+target/
+Cargo.lock
+.DS_Store
+services/ws-wasm-agent/pkg/
+services/ws-server/static/models/

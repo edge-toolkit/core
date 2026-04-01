@@ -1,0 +1,7 @@
+# https://rust-lang.github.io/rustfmt/?version=v1.5.1&search=#group_imports is
+# only available in "nightly"
+
+edition = "2021"
+error_on_line_overflow = true
+group_imports = "StdExternalCrate"
+max_width = 120
