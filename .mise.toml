@@ -21,6 +21,7 @@ depends = ["cargo-fmt", "taplo-fmt"]
 description = "Run repository checks"
 depends = [
   "cargo-check",
+  "cargo-clippy",
   "cargo-fmt-check",
   "typos",
   "taplo-check",
@@ -35,6 +36,9 @@ run = "cargo +nightly fmt"
 
 [tasks.cargo-fmt-check]
 run = "cargo +nightly fmt -- --check"
+
+[tasks.cargo-clippy]
+run = "cargo clippy --workspace"
 
 [tasks.taplo-fmt]
 run = "taplo format"
