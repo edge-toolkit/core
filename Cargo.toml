@@ -22,13 +22,23 @@ members = [
   "services/ws-modules/video1",
   "services/ws-server",
   "services/ws-wasm-agent",
+  "utilities/onnx",
 ]
 resolver = "2"
 
 [workspace.dependencies]
+base64 = "0.22.1"
 chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4.4", features = ["derive"] }
 et-web = { path = "libs/web" }
+log = "0.4"
+onnx-extractor = "0.3"
+rstest = "0.26"
+secrecy = { version = "0.10.3", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
+serde-env = "0.3"
+serde-inline-default = "1.0"
+serde_default = "0.2"
 serde_json = "1"
 tracing = "0.1"
 uuid = { version = "1", features = ["v4", "v7"] }

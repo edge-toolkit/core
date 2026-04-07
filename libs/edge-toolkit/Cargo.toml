@@ -7,5 +7,12 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+base64.workspace = true
+secrecy.workspace = true
 serde.workspace = true
+serde-env.workspace = true
+serde_default.workspace = true
 serde_json.workspace = true
+
+[dev-dependencies]
+rstest.workspace = true

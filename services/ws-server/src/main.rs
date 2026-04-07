@@ -4,10 +4,13 @@ use actix_web::middleware::Logger;
 use actix_web::{App, HttpServer, web};
 use clap::Parser;
 use et_ws_server::{AgentRegistry, browser_static_dir, configure_app, wasm_modules_dir, wasm_pkg_dir, workspace_root};
-use opentelemetry::global;
-use opentelemetry_sdk::trace::SdkTracerProvider as TracerProvider;
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+mod config;
+mod otlp;
+
+use crate::config::Config;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -15,13 +18,6 @@ struct Args {
     /// Path to agent registry YAML file
     #[arg(short, long, default_value = "registry.yaml")]
     agent_registry: PathBuf,
-}
-
-// Initialize OpenTelemetry
-fn init_tracing() -> opentelemetry_sdk::trace::SdkTracerProvider {
-    let provider = TracerProvider::builder().build();
-    global::set_tracer_provider(provider.clone());
-    provider
 }
 
 fn tls_config() -> std::io::Result<rustls::ServerConfig> {
@@ -44,23 +40,40 @@ fn tls_config() -> std::io::Result<rustls::ServerConfig> {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let args = Args::parse();
-    let _provider = init_tracing();
 
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info,ws_server=debug,actix_web=info".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    let env = serde_env::from_env::<Config>().unwrap();
+
+    eprintln!("Starting with env vars {env:#?}");
+
+    if let Some(otlp_config) = &env.otlp {
+        info!("OpenTelemetry configuration detected, initializing tracing...");
+        let _provider = crate::otlp::init(otlp_config);
+    } else {
+        info!("No OpenTelemetry configuration detected, using default tracing settings...");
+        tracing_subscriber::registry()
+            .with(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| "info,et_ws_server=debug".into()),
+            )
+            .with(tracing_subscriber::fmt::layer())
+            .init();
+    }
 
     let tls_config = tls_config()?;
 
     let network_ip = local_ip_address::local_ip()
         .map(|ip| ip.to_string())
         .unwrap_or_else(|_| "127.0.0.1".to_string());
-    let https_url = format!("https://{}:8443", network_ip);
-    info!("Starting WebSocket server on http://{}:8080", network_ip);
+    let https_url = format!(
+        "https://{}:{}",
+        network_ip,
+        edge_toolkit::ports::Services::SecureWebSocketServer.port()
+    );
+    info!(
+        "Starting WebSocket server on http://{}:{}",
+        network_ip,
+        edge_toolkit::ports::Services::InsecureWebSocketServer.port()
+    );
     info!("Starting WebSocket server on {}", https_url);
     info!("Scan this QR code to open the browser interface:");
     if let Err(e) = qr2term::print_qr(&https_url) {
@@ -85,8 +98,11 @@ async fn main() -> std::io::Result<()> {
             .wrap(Logger::default())
             .configure(|cfg| configure_app(cfg, registry, storage))
     })
-    .bind(("0.0.0.0", 8080))?
-    .bind_rustls_0_23(("0.0.0.0", 8443), tls_config)?
+    .bind(("0.0.0.0", edge_toolkit::ports::Services::InsecureWebSocketServer.port()))?
+    .bind_rustls_0_23(
+        ("0.0.0.0", edge_toolkit::ports::Services::SecureWebSocketServer.port()),
+        tls_config,
+    )?
     .run();
 
     let handle = server.handle();
