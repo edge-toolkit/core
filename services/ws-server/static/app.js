@@ -142,15 +142,18 @@ const configureOnnxRuntimeWasm = () => {
   }
 
   const distBaseUrl = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ortVersion}/dist`;
-  window.ort.env.wasm.proxy = false;
-  window.ort.env.wasm.numThreads = 1;
+  const supportsWasmThreads =
+    window.crossOriginIsolated === true &&
+    typeof SharedArrayBuffer !== "undefined";
+
+  window.ort.env.wasm.numThreads = supportsWasmThreads ? 0 : 1;
   window.ort.env.wasm.wasmPaths = {
     mjs: `${distBaseUrl}/ort-wasm-simd-threaded.mjs`,
     wasm: `${distBaseUrl}/ort-wasm-simd-threaded.wasm`,
   };
 
   append(
-    `onnxruntime-web configured: version=${ortVersion} wasm=${window.ort.env.wasm.wasmPaths.wasm} threads=1`
+    `onnxruntime-web configured: version=${ortVersion} wasm=${window.ort.env.wasm.wasmPaths.wasm} threads=${window.ort.env.wasm.numThreads === 1 ? "disabled" : "auto"}`
   );
 };
 
