@@ -131,6 +131,29 @@ const formatNumber = (value, digits = 3) => (
   Number.isFinite(value) ? value.toFixed(digits) : "n/a"
 );
 
+const configureOnnxRuntimeWasm = () => {
+  if (!window.ort?.env?.wasm) {
+    throw new Error("onnxruntime-web environment is unavailable.");
+  }
+
+  const ortVersion = window.ort.env.versions?.web;
+  if (typeof ortVersion !== "string" || ortVersion.length === 0) {
+    throw new Error("onnxruntime-web version is unavailable.");
+  }
+
+  const distBaseUrl = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ortVersion}/dist`;
+  window.ort.env.wasm.proxy = false;
+  window.ort.env.wasm.numThreads = 1;
+  window.ort.env.wasm.wasmPaths = {
+    mjs: `${distBaseUrl}/ort-wasm-simd-threaded.mjs`,
+    wasm: `${distBaseUrl}/ort-wasm-simd-threaded.wasm`,
+  };
+
+  append(
+    `onnxruntime-web configured: version=${ortVersion} wasm=${window.ort.env.wasm.wasmPaths.wasm} threads=1`
+  );
+};
+
 const degreesToRadians = (value) => (
   Number.isFinite(value) ? (value * Math.PI) / 180 : 0
 );
@@ -796,6 +819,8 @@ try {
       if (!window.ort) {
         throw new Error("onnxruntime-web did not load.");
       }
+
+      configureOnnxRuntimeWasm();
 
       harButton.disabled = true;
       harButton.textContent = "Loading HAR...";
