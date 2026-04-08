@@ -3,6 +3,8 @@ name: check
 
 "on":
   pull_request:
+  push:
+  # TODO: remove this after the workflow is verified to work on pull requests
 
 permissions:
   id-token: write
