@@ -16,7 +16,15 @@ rust = "latest"
 typos = "latest"
 
 # grex is just a convenient way to depends on all of the checker tools at once
-grex = { depends = ["rust", "dprint", "editorconfig-checker", "cargo:taplo-cli", "typos", "osv-scanner"], "version" = "latest" }
+grex = { depends = [
+  "cargo:taplo-cli",
+  "dprint",
+  "editorconfig-checker",
+  "osv-scanner",
+  "rust",
+  "rust@nightly",
+  "typos",
+], "version" = "latest" }
 
 [tasks]
 dprint-check = "dprint check"
@@ -27,16 +35,22 @@ editorconfig-check = "ec"
 depends = ["cargo-fmt", "dprint-fmt", "taplo-fmt"]
 description = "Run repository formatters"
 
-[tasks.check]
+[tasks.check-phase-1]
 depends = [
   "cargo-check",
   "cargo-clippy",
   "cargo-fmt-check",
   "dprint-check",
   "editorconfig-check",
-  "osv-scanner",
   "taplo-check",
   "typos",
+]
+description = "Run repository checks (phase 1: even if no Cargo.lock exists)"
+
+[tasks.check]
+depends = [
+  "check-phase-1",
+  "osv-scanner",
 ]
 description = "Run repository checks"
 
@@ -45,9 +59,11 @@ run = "cargo check --workspace"
 
 [tasks.cargo-fmt]
 run = "cargo +nightly fmt"
+tools.rust = "nightly"
 
 [tasks.cargo-fmt-check]
 run = "cargo +nightly fmt -- --check"
+tools.rust = "nightly"
 
 [tasks.cargo-clippy]
 run = "cargo clippy --workspace"
