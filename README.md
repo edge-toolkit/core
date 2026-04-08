@@ -27,6 +27,8 @@ mise run build-ws-wasm-agent
 mise run ws-server
 ```
 
+The WASM build disables WebAssembly reference types so it can still load on older browsers such as Chrome 95.
+
 Find the IP address of your laptop in the local network,
 which will normally be something like 192.168.1.x.
 
