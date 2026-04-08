@@ -1,4 +1,5 @@
 [tools]
+action-validator = "latest"
 "cargo:taplo-cli" = "latest"
 "cargo:wasm-pack" = "latest"
 "chromedriver" = "146"
@@ -13,6 +14,9 @@ pipx = "latest"
 protoc = "latest"
 rust = "latest"
 typos = "latest"
+
+# grex is just a convenient way to depends on all of the checker tools at once
+grex = { depends = ["rust", "dprint", "editorconfig-checker", "cargo:taplo-cli", "typos", "osv-scanner"], "version" = "latest" }
 
 [tasks]
 dprint-check = "dprint check"
