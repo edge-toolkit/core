@@ -1,4 +1,5 @@
 [tools]
+action-validator = "latest"
 "cargo:taplo-cli" = "latest"
 "cargo:wasm-pack" = "latest"
 "chromedriver" = "146"
@@ -11,7 +12,7 @@ osv-scanner = "latest"
 pipx = "latest"
 "pipx:cmake" = "latest"
 protoc = "latest"
-rust = "latest"
+rust = { version = "latest", components = "clippy" }
 typos = "latest"
 
 [tasks]
@@ -22,6 +23,9 @@ editorconfig-check = "ec"
 [tasks.fmt]
 depends = ["cargo-fmt", "dprint-fmt", "taplo-fmt"]
 description = "Run repository formatters"
+
+[tasks.install-nightly]
+run = "rustup toolchain install nightly --component rustfmt"
 
 [tasks.check]
 depends = [
@@ -40,9 +44,11 @@ description = "Run repository checks"
 run = "cargo check --workspace"
 
 [tasks.cargo-fmt]
+depends = ["install-nightly"]
 run = "cargo +nightly fmt"
 
 [tasks.cargo-fmt-check]
+depends = ["install-nightly"]
 run = "cargo +nightly fmt -- --check"
 
 [tasks.cargo-clippy]
@@ -58,6 +64,7 @@ run = "taplo lint"
 run = "typos"
 
 [tasks.osv-scanner]
+depends = ["cargo-check"]
 run = "osv-scanner --lockfile Cargo.lock"
 
 [tasks.ws-server]
