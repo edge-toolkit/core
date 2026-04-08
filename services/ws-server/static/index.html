@@ -138,14 +138,23 @@
         <button id="nfc-button" type="button">Scan NFC</button>
         <button id="sensors-button" type="button">Start sensors</button>
         <button id="har-button" type="button">Load HAR model</button>
+        <button id="video-model-button" type="button">
+          Load video CV model
+        </button>
+        <button id="video-output-button" type="button">
+          Show video output
+        </button>
         <button id="har-export-button" type="button">Export HAR window</button>
       </p>
       <video id="video-preview" autoplay playsinline muted hidden></video>
+      <canvas id="video-output-canvas" hidden></canvas>
       <div class="status-grid">
         <textarea id="sensor-output" readonly
         >Waiting for device motion/orientation data…</textarea>
         <textarea id="har-output" readonly
         >Human activity recognition model not loaded.</textarea>
+        <textarea id="video-output" readonly
+        >Video CV model not loaded.</textarea>
       </div>
       <pre id="log">Booting…</pre>
     </main>
