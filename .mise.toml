@@ -12,7 +12,7 @@ osv-scanner = "latest"
 pipx = "latest"
 "pipx:cmake" = "latest"
 protoc = "latest"
-rust = "latest"
+rust = { version = "latest", components = "clippy" }
 typos = "latest"
 
 # grex is just a convenient way to depends on all of the checker tools at once
@@ -35,22 +35,24 @@ editorconfig-check = "ec"
 depends = ["cargo-fmt", "dprint-fmt", "taplo-fmt"]
 description = "Run repository formatters"
 
+[tasks.install-nightly]
+run = "rustup toolchain install nightly --component rustfmt"
+
+
 [tasks.check-phase-1]
+depends = ["cargo-check", "cargo-clippy", "dprint-check", "editorconfig-check", "taplo-check", "typos"]
+description = "Run repository checks (phase 1: even if no Cargo.lock exists)"
+
+[tasks.check]
 depends = [
   "cargo-check",
   "cargo-clippy",
   "cargo-fmt-check",
   "dprint-check",
   "editorconfig-check",
+  "osv-scanner",
   "taplo-check",
   "typos",
-]
-description = "Run repository checks (phase 1: even if no Cargo.lock exists)"
-
-[tasks.check]
-depends = [
-  "check-phase-1",
-  "osv-scanner",
 ]
 description = "Run repository checks"
 
@@ -58,12 +60,22 @@ description = "Run repository checks"
 run = "cargo check --workspace"
 
 [tasks.cargo-fmt]
+depends = ["install-nightly"]
 run = "cargo +nightly fmt"
-tools.rust = "nightly"
+
+# Not accepted per https://mise.jdx.dev/tasks/task-configuration.html :
+
+#[tasks.cargo-fmt.tools.rust]
+#version = "nightly"
+#components = "rustfmt"
 
 [tasks.cargo-fmt-check]
+depends = ["install-nightly"]
 run = "cargo +nightly fmt -- --check"
-tools.rust = "nightly"
+
+#[tasks.cargo-fmt-check.tools.rust]
+#version = "nightly"
+#components = "rustfmt"
 
 [tasks.cargo-clippy]
 run = "cargo clippy --workspace"
@@ -78,6 +90,7 @@ run = "taplo lint"
 run = "typos"
 
 [tasks.osv-scanner]
+depends = ["cargo-check"]
 run = "osv-scanner --lockfile Cargo.lock"
 
 [tasks.ws-server]
