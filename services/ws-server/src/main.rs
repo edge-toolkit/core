@@ -1,8 +1,9 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
-use actix::{Actor, StreamHandler};
+use actix::{Actor, ActorContext, AsyncContext, StreamHandler};
 use actix_files::{Files, NamedFile};
 use actix_web::{web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
@@ -19,6 +20,13 @@ use tracing::{error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
 
+/// Maximum time the server allows a websocket connection to remain idle before closing it.
+/// This should remain comfortably higher than the client's `Alive` message interval.
+const CONNECTION_TIMEOUT: Duration = Duration::from_secs(15);
+/// How often the server checks whether a websocket connection has exceeded `CONNECTION_TIMEOUT`.
+/// This is only the check cadence, not the allowed idle duration.
+const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
+
 // Initialize OpenTelemetry
 fn init_tracing() -> opentelemetry_sdk::trace::SdkTracerProvider {
     let provider = TracerProvider::builder().build();
@@ -34,6 +42,7 @@ struct AgentRegistry {
 // WebSocket actor for handling connections
 struct WebSocketActor {
     agent_id: Option<String>,
+    last_activity: Instant,
     registry: AgentRegistry,
 }
 
@@ -42,12 +51,38 @@ impl WebSocketActor {
         info!("New WebSocket actor created without assigned agent_id");
         Self {
             agent_id: None,
+            last_activity: Instant::now(),
             registry,
         }
     }
 
     fn current_agent_id(&self) -> &str {
         self.agent_id.as_deref().unwrap_or("unassigned")
+    }
+
+    fn mark_activity(&mut self) {
+        self.last_activity = Instant::now();
+    }
+
+    fn start_heartbeat(&self, ctx: &mut ws::WebsocketContext<Self>) {
+        ctx.run_interval(HEARTBEAT_INTERVAL, |act, ctx| {
+            let idle_for = Instant::now().saturating_duration_since(act.last_activity);
+            if idle_for > CONNECTION_TIMEOUT {
+                warn!(
+                    "WebSocket connection timed out for client {} after {:?} of inactivity",
+                    act.current_agent_id(),
+                    idle_for
+                );
+                ctx.close(Some(ws::CloseReason {
+                    code: ws::CloseCode::Policy,
+                    description: Some(format!(
+                        "connection timed out after {:?} of inactivity",
+                        CONNECTION_TIMEOUT
+                    )),
+                }));
+                ctx.stop();
+            }
+        });
     }
 
     fn assign_or_reconnect_agent(&mut self, requested_id: Option<String>) -> (String, ConnectStatus) {
@@ -74,7 +109,8 @@ impl WebSocketActor {
 impl Actor for WebSocketActor {
     type Context = ws::WebsocketContext<Self>;
 
-    fn started(&mut self, _ctx: &mut Self::Context) {
+    fn started(&mut self, ctx: &mut Self::Context) {
+        self.start_heartbeat(ctx);
         info!(
             "WebSocket connection established for client: {}",
             self.current_agent_id()
@@ -89,9 +125,14 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
     fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         match msg {
             Ok(ws::Message::Ping(ping)) => {
+                self.mark_activity();
                 ctx.pong(&ping);
             }
+            Ok(ws::Message::Pong(_)) => {
+                self.mark_activity();
+            }
             Ok(ws::Message::Text(text)) => {
+                self.mark_activity();
                 let tracer = global::tracer("ws-server");
                 let mut span = tracer.start("ws.message.received");
                 info!("Received message from client {}: {:?}", self.current_agent_id(), text);
@@ -107,12 +148,17 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                             );
                             let response = WsMessage::ConnectAck {
                                 agent_id: assigned_id,
-                                status,
+                                status: status.clone(),
                             };
                             if let Ok(json) = serde_json::to_string(&response) {
                                 ctx.text(json);
                                 let mut sent_span = tracer.start("ws.message.sent");
                                 sent_span.end();
+                                info!(
+                                    "WebSocket connection ready for client {} with status {:?}",
+                                    self.current_agent_id(),
+                                    status
+                                );
                             }
                         }
                         WsMessage::Alive { timestamp } => {
@@ -159,6 +205,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                 span.end();
             }
             Ok(ws::Message::Close(reason)) => {
+                self.mark_activity();
                 info!(
                     "WebSocket close request from client: {} reason: {:?}",
                     self.current_agent_id(),
@@ -168,13 +215,15 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                 let mut span = tracer.start("ws.disconnect");
                 span.end();
             }
+            Ok(ws::Message::Binary(_)) | Ok(ws::Message::Continuation(_)) | Ok(ws::Message::Nop) => {
+                self.mark_activity();
+            }
             Err(e) => {
                 error!("WebSocket error for client {}: {:?}", self.current_agent_id(), e);
                 let tracer = global::tracer("ws-server");
                 let mut span = tracer.start("ws.error");
                 span.end();
             }
-            _ => {}
         }
     }
 }

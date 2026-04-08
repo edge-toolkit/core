@@ -1,5 +1,6 @@
 use std::cell::Cell;
 use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::rc::Rc;
 
 use edge_toolkit::ws::{ConnectStatus, WsMessage};
@@ -9,6 +10,11 @@ use wasm_bindgen_futures::JsFuture;
 use web_sys::{Event, MediaStream, MediaStreamConstraints, MessageEvent, WebSocket};
 
 const STORED_AGENT_ID_KEY: &str = "ws_wasm_agent.agent_id";
+const STORED_LAST_OFFLINE_AT_KEY: &str = "ws_wasm_agent.last_offline_at";
+const MAX_OFFLINE_QUEUE_LEN: usize = 1000;
+/// Default cadence for client-side app-level `Alive` messages sent to the websocket server.
+/// This should remain comfortably lower than the server's idle connection timeout.
+const DEFAULT_ALIVE_INTERVAL_MS: u32 = 5_000;
 
 // Initialize logging for WASM
 #[wasm_bindgen(start)]
@@ -1096,7 +1102,7 @@ impl WsClientConfig {
     pub fn new(server_url: String) -> WsClientConfig {
         WsClientConfig {
             server_url,
-            alive_interval_ms: 5000,
+            alive_interval_ms: DEFAULT_ALIVE_INTERVAL_MS,
             max_reconnect_attempts: 10,
             initial_reconnect_delay_ms: 1000,
         }
@@ -1122,7 +1128,10 @@ impl WsClientConfig {
 struct SharedState {
     socket: Option<WebSocket>,
     state: ConnectionState,
-    _alive_interval_id: Option<JsValue>,
+    alive_interval_id: Option<i32>,
+    reconnect_timeout_id: Option<i32>,
+    offline_queue: VecDeque<String>,
+    manual_disconnect: bool,
     reconnect_attempts: u32,
     reconnect_delay_ms: u32,
     on_message_callback: Option<JsValue>,
@@ -1147,7 +1156,10 @@ impl WsClient {
         let shared = Rc::new(RefCell::new(SharedState {
             socket: None,
             state: ConnectionState::Disconnected,
-            _alive_interval_id: None,
+            alive_interval_id: None,
+            reconnect_timeout_id: None,
+            offline_queue: VecDeque::with_capacity(MAX_OFFLINE_QUEUE_LEN),
+            manual_disconnect: false,
             reconnect_attempts: 0,
             reconnect_delay_ms: 1000,
             on_message_callback: None,
@@ -1178,6 +1190,7 @@ impl WsClient {
             let mut s = self.shared.borrow_mut();
             s.socket = Some(socket.clone());
             s.state = ConnectionState::Connecting;
+            s.manual_disconnect = false;
         }
         self.notify_state_change();
 
@@ -1193,11 +1206,17 @@ impl WsClient {
                     s.state = ConnectionState::Connected;
                     s.reconnect_attempts = 0;
                     s.reconnect_delay_ms = initial_delay;
+                    if let Some(timeout_id) = s.reconnect_timeout_id.take() {
+                        if let Some(window) = web_sys::window() {
+                            window.clear_timeout_with_handle(timeout_id);
+                        }
+                    }
                 }
                 cli_ptr.notify_state_change();
                 if let Err(error) = cli_ptr.send_connect_message() {
                     error!("Failed to send connect message: {:?}", error);
                 }
+                cli_ptr.flush_offline_queue();
                 cli_ptr.start_alive_interval();
             }
         }) as Box<dyn FnMut(Event)>);
@@ -1291,8 +1310,11 @@ impl WsClient {
     pub fn disconnect(&mut self) {
         info!("Disconnecting WebSocket client");
         self.stop_alive_interval();
+        self.cancel_reconnect();
+        self.record_offline();
         {
             let mut s = self.shared.borrow_mut();
+            s.manual_disconnect = true;
             if let Some(ref socket) = s.socket {
                 let _ = socket.close();
             }
@@ -1329,19 +1351,38 @@ impl WsClient {
     /// Send a custom message to the server
     #[wasm_bindgen]
     pub fn send(&self, message: &str) -> Result<(), JsValue> {
-        let s = self.shared.borrow();
-        if s.state != ConnectionState::Connected {
-            return Err(JsValue::from_str("Not connected"));
+        let should_queue = {
+            let s = self.shared.borrow();
+            s.state != ConnectionState::Connected || s.socket.is_none()
+        };
+
+        if should_queue {
+            self.enqueue_offline_message(message);
+            return Ok(());
         }
 
-        if let Some(ref socket) = s.socket {
-            socket
+        let send_result = {
+            let s = self.shared.borrow();
+            s.socket
+                .as_ref()
+                .ok_or_else(|| JsValue::from_str("No websocket available"))?
                 .send_with_str(message)
-                .map_err(|e| JsValue::from_str(&format!("Failed to send message: {:?}", e)))?;
-            info!("Message sent: {}", message);
-        }
+        };
 
-        Ok(())
+        match send_result {
+            Ok(()) => {
+                info!("Message sent: {}", message);
+                Ok(())
+            }
+            Err(error) => {
+                warn!("Send failed while online, queueing message for retry: {:?}", error);
+                self.enqueue_offline_message(message);
+                Err(JsValue::from_str(&format!(
+                    "Failed to send message immediately; queued for retry: {:?}",
+                    error
+                )))
+            }
+        }
     }
 
     /// Get the current connection state
@@ -1376,21 +1417,61 @@ impl WsClient {
     // Internal methods
 
     fn start_alive_interval(&self) {
-        info!("Starting alive interval");
-        // Note: In a real implementation, we'd use set_interval with Closure
+        self.stop_alive_interval();
+
+        let Some(window) = web_sys::window() else {
+            warn!("No window available to start alive interval");
+            return;
+        };
+
+        let interval_ms = self.config.alive_interval_ms as i32;
+        let cli_ptr = self.clone();
+        let interval_closure = Closure::wrap(Box::new(move || {
+            if let Err(error) = cli_ptr.send_alive() {
+                warn!("Failed to send alive keepalive: {:?}", error);
+            }
+        }) as Box<dyn FnMut()>);
+
+        match window.set_interval_with_callback_and_timeout_and_arguments_0(
+            interval_closure.as_ref().unchecked_ref(),
+            interval_ms,
+        ) {
+            Ok(interval_id) => {
+                self.shared.borrow_mut().alive_interval_id = Some(interval_id);
+                info!("Started alive interval at {}ms", self.config.alive_interval_ms);
+                interval_closure.forget();
+            }
+            Err(error) => {
+                warn!("Failed to start alive interval: {:?}", error);
+            }
+        }
     }
 
     fn stop_alive_interval(&self) {
-        info!("Stopping alive interval");
+        let mut s = self.shared.borrow_mut();
+        if let Some(interval_id) = s.alive_interval_id.take() {
+            if let Some(window) = web_sys::window() {
+                window.clear_interval_with_handle(interval_id);
+            }
+            info!("Stopped alive interval");
+        }
     }
 
     fn handle_disconnect(&mut self) {
         self.stop_alive_interval();
-        {
+        let manual_disconnect = {
             let mut s = self.shared.borrow_mut();
+            s.socket = None;
             s.state = ConnectionState::Disconnected;
-        }
+            s.manual_disconnect
+        };
+        self.record_offline();
         self.notify_state_change();
+
+        if manual_disconnect {
+            info!("Manual websocket disconnect; skipping reconnect");
+            return;
+        }
 
         // Attempt reconnection with exponential backoff
         let mut do_reconnect = false;
@@ -1410,6 +1491,7 @@ impl WsClient {
         if do_reconnect {
             self.notify_state_change();
             info!("Attempting reconnection {} in {}ms", curr_attempt, next_delay);
+            self.schedule_reconnect(next_delay as i32);
         } else {
             error!("Max reconnection attempts reached");
         }
@@ -1442,6 +1524,105 @@ impl WsClient {
         }
 
         Ok(())
+    }
+
+    fn enqueue_offline_message(&self, message: &str) {
+        let mut s = self.shared.borrow_mut();
+        if s.offline_queue.len() == MAX_OFFLINE_QUEUE_LEN {
+            s.offline_queue.pop_front();
+            warn!(
+                "Offline websocket queue reached {} messages; dropping oldest entry",
+                MAX_OFFLINE_QUEUE_LEN
+            );
+        }
+        s.offline_queue.push_back(message.to_string());
+        info!(
+            "Queued websocket message while offline (queue_len={}): {}",
+            s.offline_queue.len(),
+            message
+        );
+    }
+
+    fn flush_offline_queue(&self) {
+        loop {
+            let next_message = {
+                let mut s = self.shared.borrow_mut();
+                if s.state != ConnectionState::Connected || s.socket.is_none() {
+                    return;
+                }
+                s.offline_queue.pop_front()
+            };
+
+            let Some(message) = next_message else {
+                return;
+            };
+
+            let send_result = {
+                let s = self.shared.borrow();
+                s.socket
+                    .as_ref()
+                    .ok_or_else(|| JsValue::from_str("No websocket available"))
+                    .and_then(|socket| {
+                        socket
+                            .send_with_str(&message)
+                            .map_err(|error| JsValue::from_str(&format!("Failed to flush queued message: {:?}", error)))
+                    })
+            };
+
+            if let Err(error) = send_result {
+                warn!("Failed to flush queued websocket message; re-queueing: {:?}", error);
+                let mut s = self.shared.borrow_mut();
+                s.offline_queue.push_front(message);
+                return;
+            }
+
+            info!("Flushed queued websocket message: {}", message);
+        }
+    }
+
+    fn record_offline(&self) {
+        let timestamp = chrono::Utc::now().to_rfc3339();
+        match store_last_offline_at(&timestamp) {
+            Ok(()) => info!("Recorded websocket offline transition at {}", timestamp),
+            Err(error) => warn!("Failed to record websocket offline transition: {:?}", error),
+        }
+    }
+
+    fn schedule_reconnect(&self, delay_ms: i32) {
+        self.cancel_reconnect();
+
+        let Some(window) = web_sys::window() else {
+            warn!("No window available to schedule reconnect");
+            return;
+        };
+
+        let mut cli_ptr = self.clone();
+        let reconnect_closure = Closure::once(Box::new(move || {
+            if let Err(error) = cli_ptr.connect() {
+                error!("Reconnect attempt failed: {:?}", error);
+            }
+        }) as Box<dyn FnOnce()>);
+
+        match window
+            .set_timeout_with_callback_and_timeout_and_arguments_0(reconnect_closure.as_ref().unchecked_ref(), delay_ms)
+        {
+            Ok(timeout_id) => {
+                self.shared.borrow_mut().reconnect_timeout_id = Some(timeout_id);
+                reconnect_closure.forget();
+            }
+            Err(error) => {
+                warn!("Failed to schedule reconnect: {:?}", error);
+            }
+        }
+    }
+
+    fn cancel_reconnect(&self) {
+        let mut s = self.shared.borrow_mut();
+        if let Some(timeout_id) = s.reconnect_timeout_id.take() {
+            if let Some(window) = web_sys::window() {
+                window.clear_timeout_with_handle(timeout_id);
+            }
+        }
     }
 }
 
@@ -1482,4 +1663,12 @@ fn store_agent_id(agent_id: &str) -> Result<(), JsValue> {
         .local_storage()?
         .ok_or_else(|| JsValue::from_str("No localStorage available"))?;
     storage.set_item(STORED_AGENT_ID_KEY, agent_id)
+}
+
+fn store_last_offline_at(timestamp: &str) -> Result<(), JsValue> {
+    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
+    let storage = window
+        .local_storage()?
+        .ok_or_else(|| JsValue::from_str("No localStorage available"))?;
+    storage.set_item(STORED_LAST_OFFLINE_AT_KEY, timestamp)
 }

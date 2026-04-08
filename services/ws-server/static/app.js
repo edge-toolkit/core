@@ -33,7 +33,9 @@ let harSampleBuffer = [];
 let harInferencePending = false;
 let lastInferenceAt = 0;
 let harSamplerId = null;
+let lastHarClassLabel = null;
 let gravityEstimate = { x: 0, y: 0, z: 0 };
+let sendClientEvent = () => {};
 const HAR_SEQUENCE_LENGTH = 512;
 const HAR_FEATURE_COUNT = 9;
 const HAR_SAMPLE_INTERVAL_MS = 20;
@@ -279,14 +281,29 @@ const inferHarPrediction = async () => {
     const probabilities = softmax(logits);
     const bestProbability = Math.max(...probabilities);
     const bestIndex = probabilities.indexOf(bestProbability);
+    const bestLabel = HAR_CLASS_LABELS[bestIndex] ?? `class_${bestIndex}`;
     const allScores = probabilities.map((probability, index) => {
       const label = HAR_CLASS_LABELS[index] ?? `class_${index}`;
       const logit = logits[index] ?? 0;
       return `${label}: p=${probability.toFixed(4)} logit=${logit.toFixed(4)}`;
     });
 
+    if (bestLabel !== lastHarClassLabel) {
+      sendClientEvent("har", "class_changed", {
+        detected_class: bestLabel,
+        previous_class: lastHarClassLabel,
+        class_index: bestIndex,
+        confidence: bestProbability,
+        probabilities,
+        logits,
+        buffered_samples: harSampleBuffer.length,
+        detected_at: new Date().toISOString(),
+      });
+      lastHarClassLabel = bestLabel;
+    }
+
     updateHarStatus([
-      `prediction: ${HAR_CLASS_LABELS[bestIndex] ?? `class_${bestIndex}`}`,
+      `prediction: ${bestLabel}`,
       `confidence: ${bestProbability.toFixed(4)}`,
       "all classes:",
       ...allScores,
@@ -319,6 +336,7 @@ const stopHarSampler = () => {
     window.clearInterval(harSamplerId);
     harSamplerId = null;
   }
+  lastHarClassLabel = null;
 };
 
 const startHarSampler = () => {
@@ -419,7 +437,7 @@ try {
   const config = new WsClientConfig(wsUrl);
   const client = new WsClient(config);
 
-  const sendClientEvent = (capability, action, details) => {
+  sendClientEvent = (capability, action, details) => {
     const payload = JSON.stringify({
       type: "client_event",
       capability,
