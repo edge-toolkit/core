@@ -2,31 +2,39 @@
 "cargo:taplo-cli" = "latest"
 "cargo:wasm-pack" = "latest"
 "chromedriver" = "146"
-"github:block/goose" = "latest"
-"pipx:cmake" = "latest"
 cmake = "latest"
+dprint = "latest"
 editorconfig-checker = "latest"
+"github:block/goose" = "latest"
 ollama = "latest"
 osv-scanner = "latest"
 pipx = "latest"
+"pipx:cmake" = "latest"
 protoc = "latest"
 rust = "latest"
 typos = "latest"
 
+[tasks]
+dprint-check = "dprint check"
+dprint-fmt = "dprint fmt"
+editorconfig-check = "ec"
+
 [tasks.fmt]
+depends = ["cargo-fmt", "dprint-fmt", "taplo-fmt"]
 description = "Run repository formatters"
-depends = ["cargo-fmt", "taplo-fmt"]
 
 [tasks.check]
-description = "Run repository checks"
 depends = [
   "cargo-check",
   "cargo-clippy",
   "cargo-fmt-check",
-  "typos",
-  "taplo-check",
+  "dprint-check",
+  "editorconfig-check",
   "osv-scanner",
+  "taplo-check",
+  "typos",
 ]
+description = "Run repository checks"
 
 [tasks.cargo-check]
 run = "cargo check --workspace"
@@ -68,8 +76,8 @@ dir = "services/ws-wasm-agent"
 run = "wasm-pack test --headless --firefox"
 
 [tasks.ws-e2e-firefox]
+depends = ["test-ws-wasm-agent-firefox", "ws-server"]
 description = "Run both the ws-server and ws-wasm-agent using Firefox"
-depends = ["ws-server", "test-ws-wasm-agent-firefox"]
 
 [tasks.test-ws-wasm-agent-chrome]
 description = "Run headless Chrome tests for the WebSocket WASM client"
@@ -77,5 +85,5 @@ dir = "services/ws-wasm-agent"
 run = "env CHROMEDRIVER=\"$(mise where chromedriver)/bin/chromedriver\" wasm-pack test --headless --chrome"
 
 [tasks.ws-e2e-chrome]
+depends = ["test-ws-wasm-agent-chrome", "ws-server"]
 description = "Run both the ws-server and ws-wasm-agent using Chrome"
-depends = ["ws-server", "test-ws-wasm-agent-chrome"]
