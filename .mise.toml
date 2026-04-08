@@ -6,6 +6,7 @@ cmake = "latest"
 dprint = "latest"
 editorconfig-checker = "latest"
 "github:block/goose" = "latest"
+"github:wasm-bindgen/wasm-bindgen" = "0.2.114"
 ollama = "latest"
 osv-scanner = "latest"
 pipx = "latest"
@@ -13,7 +14,6 @@ pipx = "latest"
 protoc = "latest"
 rust = "latest"
 typos = "latest"
-"github:wasm-bindgen/wasm-bindgen" = "0.2.114"
 
 [tasks]
 dprint-check = "dprint check"
@@ -72,8 +72,8 @@ dir = "services/ws-wasm-agent"
 run = "wasm-pack build . --target web -- -Z build-std=std,panic_abort"
 
 [tasks.build-ws-wasm-agent.env]
-RUSTUP_TOOLCHAIN = "nightly"
 RUSTFLAGS = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint"
+RUSTUP_TOOLCHAIN = "nightly"
 
 [tasks.test-ws-wasm-agent-firefox]
 description = "Run headless Firefox tests for the WebSocket WASM client"
