@@ -47,19 +47,9 @@ run = "cargo check --workspace"
 depends = ["install-nightly"]
 run = "cargo +nightly fmt"
 
-# Not accepted per https://mise.jdx.dev/tasks/task-configuration.html :
-
-#[tasks.cargo-fmt.tools.rust]
-#version = "nightly"
-#components = "rustfmt"
-
 [tasks.cargo-fmt-check]
 depends = ["install-nightly"]
 run = "cargo +nightly fmt -- --check"
-
-#[tasks.cargo-fmt-check.tools.rust]
-#version = "nightly"
-#components = "rustfmt"
 
 [tasks.cargo-clippy]
 run = "cargo clippy --workspace"
