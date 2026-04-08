@@ -3,10 +3,16 @@ name: check
 
 "on":
   pull_request:
+  workflow_dispatch:
 
 permissions:
   id-token: write
   contents: write
+
+# this allows a subsequently queued workflow run to interrupt previous runs in pull requests only
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 
 jobs:
   check:
