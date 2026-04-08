@@ -1,4 +1,16 @@
-import init, { BluetoothAccess, GeolocationReading, GpuInfo, GraphicsSupport, MicrophoneAccess, NfcScanResult, SpeechRecognitionSession, VideoCapture, WebGpuProbeResult, WsClient, WsClientConfig } from "/pkg/et_ws_wasm_agent.js";
+import init, {
+  BluetoothAccess,
+  GeolocationReading,
+  GpuInfo,
+  GraphicsSupport,
+  MicrophoneAccess,
+  NfcScanResult,
+  SpeechRecognitionSession,
+  VideoCapture,
+  WebGpuProbeResult,
+  WsClient,
+  WsClientConfig,
+} from "/pkg/et_ws_wasm_agent.js";
 
 const logEl = document.getElementById("log");
 const micButton = document.getElementById("mic-button");
@@ -157,13 +169,19 @@ const renderSensorOutput = () => {
   lines.push("motion");
   if (motionState) {
     lines.push(
-      `acceleration: x=${formatNumber(motionState.acceleration?.x)} y=${formatNumber(motionState.acceleration?.y)} z=${formatNumber(motionState.acceleration?.z)}`
+      `acceleration: x=${formatNumber(motionState.acceleration?.x)} y=${formatNumber(motionState.acceleration?.y)} z=${
+        formatNumber(motionState.acceleration?.z)
+      }`,
     );
     lines.push(
-      `acceleration including gravity: x=${formatNumber(motionState.accelerationIncludingGravity?.x)} y=${formatNumber(motionState.accelerationIncludingGravity?.y)} z=${formatNumber(motionState.accelerationIncludingGravity?.z)}`
+      `acceleration including gravity: x=${formatNumber(motionState.accelerationIncludingGravity?.x)} y=${
+        formatNumber(motionState.accelerationIncludingGravity?.y)
+      } z=${formatNumber(motionState.accelerationIncludingGravity?.z)}`,
     );
     lines.push(
-      `rotation rate: alpha=${formatNumber(motionState.rotationRate?.alpha)} beta=${formatNumber(motionState.rotationRate?.beta)} gamma=${formatNumber(motionState.rotationRate?.gamma)}`
+      `rotation rate: alpha=${formatNumber(motionState.rotationRate?.alpha)} beta=${
+        formatNumber(motionState.rotationRate?.beta)
+      } gamma=${formatNumber(motionState.rotationRate?.gamma)}`,
     );
     lines.push(`interval: ${formatNumber(motionState.interval, 1)} ms`);
   } else {
@@ -248,11 +266,11 @@ const exportHarWindow = () => {
 
 const inferHarPrediction = async () => {
   if (
-    !harSession ||
-    !harInputName ||
-    !harOutputName ||
-    harInferencePending ||
-    harSampleBuffer.length < HAR_SEQUENCE_LENGTH
+    !harSession
+    || !harInputName
+    || !harOutputName
+    || harInferencePending
+    || harSampleBuffer.length < HAR_SEQUENCE_LENGTH
   ) {
     updateHarStatus();
     return;
@@ -270,7 +288,7 @@ const inferHarPrediction = async () => {
     const input = new window.ort.Tensor(
       "float32",
       Float32Array.from(flattenSamplesForModel()),
-      [1, HAR_SEQUENCE_LENGTH, HAR_FEATURE_COUNT]
+      [1, HAR_SEQUENCE_LENGTH, HAR_FEATURE_COUNT],
     );
 
     const result = await harSession.run({ [harInputName]: input });
@@ -341,10 +359,10 @@ const handleOrientation = (event) => {
 const handleMotion = (event) => {
   const accelerationIncludingGravity = event.accelerationIncludingGravity
     ? {
-        x: event.accelerationIncludingGravity.x ?? 0,
-        y: event.accelerationIncludingGravity.y ?? 0,
-        z: event.accelerationIncludingGravity.z ?? 0,
-      }
+      x: event.accelerationIncludingGravity.x ?? 0,
+      y: event.accelerationIncludingGravity.y ?? 0,
+      z: event.accelerationIncludingGravity.z ?? 0,
+    }
     : null;
 
   if (accelerationIncludingGravity) {
@@ -358,18 +376,18 @@ const handleMotion = (event) => {
   motionState = {
     acceleration: event.acceleration
       ? {
-          x: event.acceleration.x,
-          y: event.acceleration.y,
-          z: event.acceleration.z,
-        }
+        x: event.acceleration.x,
+        y: event.acceleration.y,
+        z: event.acceleration.z,
+      }
       : null,
     accelerationIncludingGravity,
     rotationRate: event.rotationRate
       ? {
-          alpha: event.rotationRate.alpha,
-          beta: event.rotationRate.beta,
-          gamma: event.rotationRate.gamma,
-        }
+        alpha: event.rotationRate.alpha,
+        beta: event.rotationRate.beta,
+        gamma: event.rotationRate.gamma,
+      }
       : null,
     interval: event.interval,
   };
@@ -410,7 +428,7 @@ updateAgentCard(
   retainedAgentId
     ? "Found retained agent ID in local storage. It will be re-used on connect."
     : "No retained agent ID found. Waiting for server assignment.",
-  retainedAgentId
+  retainedAgentId,
 );
 
 try {
@@ -440,11 +458,20 @@ try {
     if (state === "connecting") {
       updateAgentCard("Connecting to websocket server...", client.get_client_id() || readStoredAgentId());
     } else if (state === "connected") {
-      updateAgentCard("Socket connected. Waiting for server identity acknowledgement...", client.get_client_id() || readStoredAgentId());
+      updateAgentCard(
+        "Socket connected. Waiting for server identity acknowledgement...",
+        client.get_client_id() || readStoredAgentId(),
+      );
     } else if (state === "reconnecting") {
-      updateAgentCard("Disconnected. Trying to re-use retained agent ID...", client.get_client_id() || readStoredAgentId());
+      updateAgentCard(
+        "Disconnected. Trying to re-use retained agent ID...",
+        client.get_client_id() || readStoredAgentId(),
+      );
     } else if (state === "disconnected") {
-      updateAgentCard("Socket disconnected. Retained agent ID will be re-used on next connect.", client.get_client_id() || readStoredAgentId());
+      updateAgentCard(
+        "Socket disconnected. Retained agent ID will be re-used on next connect.",
+        client.get_client_id() || readStoredAgentId(),
+      );
     }
   });
   client.set_on_message((message) => {
@@ -457,7 +484,7 @@ try {
     retainedAgentId
       ? "Attempting websocket connect with retained agent ID from local storage."
       : "Attempting first websocket connect. Waiting for server-assigned agent ID.",
-    client.get_client_id() || retainedAgentId
+    client.get_client_id() || retainedAgentId,
   );
   append(`client_id: ${client.get_client_id() || "(awaiting server assignment)"}`);
 
@@ -525,7 +552,7 @@ try {
     try {
       bluetoothDevice = await BluetoothAccess.request();
       append(
-        `bluetooth selected: name=${bluetoothDevice.name()} id=${bluetoothDevice.id()}`
+        `bluetooth selected: name=${bluetoothDevice.name()} id=${bluetoothDevice.id()}`,
       );
       window.bluetoothDevice = bluetoothDevice;
       sendClientEvent("bluetooth", "selected", {
@@ -546,7 +573,7 @@ try {
     try {
       const location = await GeolocationReading.request();
       append(
-        `geolocation: lat=${location.latitude()} lon=${location.longitude()} accuracy=${location.accuracyMeters()}m`
+        `geolocation: lat=${location.latitude()} lon=${location.longitude()} accuracy=${location.accuracyMeters()}m`,
       );
       sendClientEvent("geolocation", "reading", {
         latitude: location.latitude(),
@@ -567,7 +594,10 @@ try {
     try {
       const graphics = GraphicsSupport.detect();
       append(
-        `graphics: webgl=${graphics.webglSupported()} webgl2=${graphics.webgl2Supported()} webgpu=${graphics.webgpuSupported()} webnn=${graphics.webnnSupported()}`
+        `graphics: webgl=${graphics.webglSupported()} `
+          + `webgl2=${graphics.webgl2Supported()} `
+          + `webgpu=${graphics.webgpuSupported()} `
+          + `webnn=${graphics.webnnSupported()}`,
       );
       sendClientEvent("graphics", "detected", {
         webgl_supported: graphics.webglSupported(),
@@ -589,7 +619,7 @@ try {
     try {
       const probe = await WebGpuProbeResult.test();
       append(
-        `webgpu probe: adapter_found=${probe.adapterFound()} device_created=${probe.deviceCreated()}`
+        `webgpu probe: adapter_found=${probe.adapterFound()} device_created=${probe.deviceCreated()}`,
       );
       sendClientEvent("webgpu", "probe", {
         adapter_found: probe.adapterFound(),
@@ -609,7 +639,9 @@ try {
     try {
       const gpuInfo = await GpuInfo.detect();
       append(
-        `gpu info: source=${gpuInfo.source()} vendor=${gpuInfo.vendor()} renderer=${gpuInfo.renderer()} architecture=${gpuInfo.architecture()} description=${gpuInfo.description()}`
+        `gpu info: source=${gpuInfo.source()} vendor=${gpuInfo.vendor()} `
+          + `renderer=${gpuInfo.renderer()} architecture=${gpuInfo.architecture()} `
+          + `description=${gpuInfo.description()}`,
       );
       sendClientEvent("gpu", "info", {
         source: gpuInfo.source(),
@@ -648,7 +680,7 @@ try {
       speechButton.textContent = "Stop speech";
       const speech = await speechSession.start();
       append(
-        `speech: transcript="${speech.transcript()}" confidence=${speech.confidence()}`
+        `speech: transcript="${speech.transcript()}" confidence=${speech.confidence()}`,
       );
       sendClientEvent("speech", "recognized", {
         transcript: speech.transcript(),
@@ -704,8 +736,8 @@ try {
       }
 
       if (
-        typeof window.DeviceOrientationEvent === "undefined" &&
-        typeof window.DeviceMotionEvent === "undefined"
+        typeof window.DeviceOrientationEvent === "undefined"
+        && typeof window.DeviceMotionEvent === "undefined"
       ) {
         throw new Error("Device orientation and motion APIs are not supported in this browser.");
       }
@@ -716,11 +748,11 @@ try {
       ]);
 
       if (
-        orientationPermission !== "granted" ||
-        motionPermission !== "granted"
+        orientationPermission !== "granted"
+        || motionPermission !== "granted"
       ) {
         throw new Error(
-          `Sensor permission denied (orientation=${orientationPermission}, motion=${motionPermission})`
+          `Sensor permission denied (orientation=${orientationPermission}, motion=${motionPermission})`,
         );
       }
 
@@ -755,7 +787,7 @@ try {
         "/static/models/human_activity_recognition.onnx",
         {
           executionProviders: ["wasm"],
-        }
+        },
       );
 
       harInputName = harSession.inputNames[0] ?? null;
@@ -775,7 +807,9 @@ try {
         startHarSampler();
       }
       append(
-        `har model loaded: input=${harInputName} output=${harOutputName} runtime_dims=${JSON.stringify(runtimeDimensions)} expected_dims=["batch",512,9]`
+        `har model loaded: input=${harInputName} output=${harOutputName} runtime_dims=${
+          JSON.stringify(runtimeDimensions)
+        } expected_dims=["batch",512,9]`,
       );
       updateHarStatus([
         `runtime dimensions: ${JSON.stringify(runtimeDimensions)}`,

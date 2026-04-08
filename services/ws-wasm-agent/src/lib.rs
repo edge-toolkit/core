@@ -272,7 +272,7 @@ impl GeolocationReading {
         let geolocation = js_sys::Reflect::get(&navigator, &JsValue::from_str("geolocation"))?;
         if geolocation.is_undefined() || geolocation.is_null() {
             return Err(JsValue::from_str(
-                "navigator.geolocation is unavailable. Use Chrome on https://... or http://localhost and allow location access.",
+                "navigator.geolocation is unavailable. Use https://... or http://localhost and allow access.",
             ));
         }
 
@@ -819,7 +819,7 @@ fn get_media_devices(navigator: &web_sys::Navigator) -> Result<web_sys::MediaDev
 
     if media_devices.is_undefined() || media_devices.is_null() {
         return Err(JsValue::from_str(
-            "navigator.mediaDevices is unavailable. Use Chrome on https://... or http://localhost, and trigger capture from a user gesture.",
+            "navigator.mediaDevices is unavailable. Use https://... or http://localhost and allow access.",
         ));
     }
 

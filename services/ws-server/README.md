@@ -3,6 +3,7 @@
 A Rust service using `actix-web` with WebSocket support.
 
 **Features:**
+
 - WebSocket endpoint at `/ws`
 - Health check endpoint at `/health`
 - OpenTelemetry tracing for all WebSocket operations

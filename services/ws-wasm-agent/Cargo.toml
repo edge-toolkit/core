@@ -8,38 +8,38 @@ license = "Apache-2.0 or MIT"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
+chrono.workspace = true
 edge-toolkit = { path = "../../libs/edge-toolkit" }
-web-sys = { version = "0.3", features = [
-  "WebSocket",
-  "MessageEvent",
-  "console",
-  "DomError",
-  "EventTarget",
-  "AddEventListenerOptions",
-  "Event",
-  "Window",
-  "BinaryType",
-  "Navigator",
-  "MediaDevices",
-  "MediaStream",
-  "MediaStreamConstraints",
-  "MediaStreamTrack",
-  "Document",
-  "HtmlCanvasElement",
-  "Storage",
-] }
 js-sys = "0.3"
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 tracing-wasm = "0.2"
-chrono.workspace = true
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
+  "AddEventListenerOptions",
+  "BinaryType",
+  "Document",
+  "DomError",
+  "Event",
+  "EventTarget",
+  "HtmlCanvasElement",
+  "MediaDevices",
+  "MediaStream",
+  "MediaStreamConstraints",
+  "MediaStreamTrack",
+  "MessageEvent",
+  "Navigator",
+  "Storage",
+  "WebSocket",
+  "Window",
+  "console",
+] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
 
 [profile.release]
-opt-level = "s"
 lto = true
+opt-level = "s"
