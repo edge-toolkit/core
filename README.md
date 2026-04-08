@@ -19,8 +19,17 @@ mise run ws-e2e-chrome
 
 ## Run ws agent in browser
 
+### HAR model setup
+
 Download the onnx from https://modelnova.ai/models/details/human-activity-recognition ,
 and save it as `services/ws-server/static/models/human_activity_recognition.onnx`
+
+### Face detection setup
+
+Download the onnx from https://huggingface.co/amd/retinaface and save it in
+`services/ws-server/static/models/` and rename the file to `video_cv.onnx`.
+
+### Build and run the agent
 
 ```bash
 mise run build-ws-wasm-agent
@@ -35,6 +44,7 @@ which will normally be something like 192.168.1.x.
 Then on your phone, open Chrome and type in https://192.168.1.x:8433/
 
 Click "Load HAR model" and then "Start sensors".
+For webcam inference, click "Load video CV model" and then "Start video".
 
 ## Grant
 

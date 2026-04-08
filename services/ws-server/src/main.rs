@@ -177,6 +177,27 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                             action,
                             details,
                         } => {
+                            if capability == "video_cv" && action == "inference" {
+                                let detected_class = details
+                                    .get("detected_class")
+                                    .and_then(|value| value.as_str())
+                                    .unwrap_or("unknown");
+                                let confidence = details
+                                    .get("confidence")
+                                    .and_then(|value| value.as_f64())
+                                    .unwrap_or_default();
+                                let processed_at = details
+                                    .get("processed_at")
+                                    .and_then(|value| value.as_str())
+                                    .unwrap_or("unknown");
+                                info!(
+                                    "Video inference received from {}: class={} confidence={:.4} processed_at={}",
+                                    self.current_agent_id(),
+                                    detected_class,
+                                    confidence,
+                                    processed_at
+                                );
+                            }
                             info!(
                                 "Client event from {}: capability={} action={} details={}",
                                 self.current_agent_id(),
