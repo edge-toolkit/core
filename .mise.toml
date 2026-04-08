@@ -15,17 +15,6 @@ protoc = "latest"
 rust = { version = "latest", components = "clippy" }
 typos = "latest"
 
-# grex is just a convenient way to depends on all of the checker tools at once
-grex = { depends = [
-  "cargo:taplo-cli",
-  "dprint",
-  "editorconfig-checker",
-  "osv-scanner",
-  "rust",
-  "rust@nightly",
-  "typos",
-], "version" = "latest" }
-
 [tasks]
 dprint-check = "dprint check"
 dprint-fmt = "dprint fmt"
@@ -37,11 +26,6 @@ description = "Run repository formatters"
 
 [tasks.install-nightly]
 run = "rustup toolchain install nightly --component rustfmt"
-
-
-[tasks.check-phase-1]
-depends = ["cargo-check", "cargo-clippy", "dprint-check", "editorconfig-check", "taplo-check", "typos"]
-description = "Run repository checks (phase 1: even if no Cargo.lock exists)"
 
 [tasks.check]
 depends = [

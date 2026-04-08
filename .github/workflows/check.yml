@@ -25,10 +25,10 @@ jobs:
         with:
           tool: mise
 
-      - name: Install mise checker tools
+      - name: Install mise tools
         run: |
           mise settings add idiomatic_version_file_enable_tools "[]"
-          mise install grex
+          mise install
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
