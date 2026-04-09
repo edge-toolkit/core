@@ -26,14 +26,16 @@ and save it as `services/ws-server/static/models/human_activity_recognition.onnx
 
 ### Face detection setup
 
-Download the onnx from https://huggingface.co/amd/retinaface and save it in
-`services/ws-server/static/models/` and rename the file to `video_cv.onnx`.
+1. Download RetinaFace_int.onnx from https://huggingface.co/amd/retinaface/tree/main/weights
+2. Save it in `services/ws-server/static/models/`
+3. Rename the file to `video_cv.onnx`.
 
 ### Build and run the agent
 
 ```bash
 mise run build-ws-wasm-agent
 mise run build-ws-har1-module
+mise run build-ws-face-detection-module
 mise run ws-server
 ```
 
@@ -46,7 +48,7 @@ Then on your phone, open Chrome and type in https://192.168.1.x:8433/
 
 Click "har demo".
 
-For webcam inference, click "Load video CV model" and then "Start video".
+For webcam inference, click "face demo".
 
 ## Grant
 
