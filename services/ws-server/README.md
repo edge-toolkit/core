@@ -9,5 +9,6 @@ A Rust service using `actix-web` with WebSocket support.
 - OpenTelemetry tracing for all WebSocket operations
 - JSON message protocol
 - Connection lifecycle management
-- Browser demo page at `/`
-- Static WASM package `../ws-wasm-agent` served from `/pkg`.
+- Browser interface page at `/`
+- Static WASM package `../ws-wasm-agent/pkg` served from `/pkg`.
+- WASM workflow modules under `../ws-modules` served from `/modules`.

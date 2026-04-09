@@ -1,5 +1,5 @@
 [workspace]
-members = ["libs/edge-toolkit", "services/ws-server", "services/ws-wasm-agent"]
+members = ["libs/edge-toolkit", "services/ws-modules/har1", "services/ws-server", "services/ws-wasm-agent"]
 resolver = "2"
 
 [workspace.dependencies]

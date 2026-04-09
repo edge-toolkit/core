@@ -33,6 +33,7 @@ Download the onnx from https://huggingface.co/amd/retinaface and save it in
 
 ```bash
 mise run build-ws-wasm-agent
+mise run build-ws-har1-module
 mise run ws-server
 ```
 
@@ -43,7 +44,8 @@ which will normally be something like 192.168.1.x.
 
 Then on your phone, open Chrome and type in https://192.168.1.x:8433/
 
-Click "Load HAR model" and then "Start sensors".
+Click "har demo".
+
 For webcam inference, click "Load video CV model" and then "Start video".
 
 ## Grant
