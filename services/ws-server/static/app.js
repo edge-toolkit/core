@@ -3,6 +3,7 @@ import init, {
   GeolocationReading,
   GpuInfo,
   GraphicsSupport,
+  initTracing,
   MicrophoneAccess,
   NfcScanResult,
   SpeechRecognitionSession,
@@ -13,6 +14,7 @@ import init, {
 } from "/pkg/et_ws_wasm_agent.js";
 
 const logEl = document.getElementById("log");
+const runHarButton = document.getElementById("run-har-button");
 const micButton = document.getElementById("mic-button");
 const videoButton = document.getElementById("video-button");
 const bluetoothButton = document.getElementById("bluetooth-button");
@@ -23,14 +25,11 @@ const gpuInfoButton = document.getElementById("gpu-info-button");
 const speechButton = document.getElementById("speech-button");
 const nfcButton = document.getElementById("nfc-button");
 const sensorsButton = document.getElementById("sensors-button");
-const harButton = document.getElementById("har-button");
 const videoModelButton = document.getElementById("video-model-button");
 const videoOutputButton = document.getElementById("video-output-button");
-const harExportButton = document.getElementById("har-export-button");
 const agentStatusEl = document.getElementById("agent-status");
 const agentIdEl = document.getElementById("agent-id");
 const sensorOutputEl = document.getElementById("sensor-output");
-const harOutputEl = document.getElementById("har-output");
 const videoOutputEl = document.getElementById("video-output");
 const videoPreview = document.getElementById("video-preview");
 const videoOutputCanvas = document.getElementById("video-output-canvas");
@@ -42,14 +41,6 @@ let speechListening = false;
 let sensorsActive = false;
 let orientationState = null;
 let motionState = null;
-let harSession = null;
-let harInputName = null;
-let harOutputName = null;
-let harSampleBuffer = [];
-let harInferencePending = false;
-let lastInferenceAt = 0;
-let harSamplerId = null;
-let lastHarClassLabel = null;
 let videoCvSession = null;
 let videoCvInputName = null;
 let videoCvOutputName = null;
@@ -63,11 +54,7 @@ let videoOverlayContext = videoOutputCanvas.getContext("2d");
 let videoOutputVisible = false;
 let videoRenderFrameId = null;
 let lastVideoInferenceSummary = null;
-let gravityEstimate = { x: 0, y: 0, z: 0 };
 let sendClientEvent = () => {};
-const HAR_SEQUENCE_LENGTH = 512;
-const HAR_FEATURE_COUNT = 9;
-const HAR_SAMPLE_INTERVAL_MS = 20;
 const VIDEO_INFERENCE_INTERVAL_MS = 750;
 const VIDEO_RENDER_SCORE_THRESHOLD = 0.35;
 const VIDEO_MODEL_PATH = "/static/models/video_cv.onnx";
@@ -80,33 +67,16 @@ const RETINAFACE_VARIANCES = [0.1, 0.2];
 const RETINAFACE_MIN_SIZES = [[16, 32], [64, 128], [256, 512]];
 const RETINAFACE_STEPS = [8, 16, 32];
 const RETINAFACE_MEAN_BGR = [104, 117, 123];
-const STANDARD_GRAVITY = 9.80665;
-const GRAVITY_FILTER_ALPHA = 0.8;
-const HAR_CLASS_LABELS = [
-  "class_0",
-  "class_1",
-  "class_2",
-  "class_3",
-  "class_4",
-  "class_5",
-];
-const HAR_CHANNEL_NAMES = [
-  "body_acc_x",
-  "body_acc_y",
-  "body_acc_z",
-  "body_gyro_x",
-  "body_gyro_y",
-  "body_gyro_z",
-  "total_acc_x",
-  "total_acc_y",
-  "total_acc_z",
-];
 const STORED_AGENT_ID_KEY = "ws_wasm_agent.agent_id";
 let currentAgentId = null;
 
 const append = (line) => {
   logEl.textContent += `\n${line}`;
 };
+
+const describeError = (error) => (
+  error instanceof Error ? error.message : String(error)
+);
 
 const updateAgentCard = (status, agentId = currentAgentId) => {
   currentAgentId = agentId || null;
@@ -160,52 +130,6 @@ const formatNumber = (value, digits = 3) => (
   Number.isFinite(value) ? value.toFixed(digits) : "n/a"
 );
 
-const configureOnnxRuntimeWasm = () => {
-  if (!window.ort?.env?.wasm) {
-    throw new Error("onnxruntime-web environment is unavailable.");
-  }
-
-  const ortVersion = window.ort.env.versions?.web;
-  if (typeof ortVersion !== "string" || ortVersion.length === 0) {
-    throw new Error("onnxruntime-web version is unavailable.");
-  }
-
-  const distBaseUrl = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ortVersion}/dist`;
-  const supportsWasmThreads = window.crossOriginIsolated === true
-    && typeof SharedArrayBuffer !== "undefined";
-
-  window.ort.env.wasm.numThreads = supportsWasmThreads ? 0 : 1;
-  window.ort.env.wasm.wasmPaths = {
-    mjs: `${distBaseUrl}/ort-wasm-simd-threaded.mjs`,
-    wasm: `${distBaseUrl}/ort-wasm-simd-threaded.wasm`,
-  };
-
-  append(
-    `onnxruntime-web configured: version=${ortVersion} wasm=${window.ort.env.wasm.wasmPaths.wasm} threads=${
-      window.ort.env.wasm.numThreads === 1 ? "disabled" : "auto"
-    }`,
-  );
-};
-
-const degreesToRadians = (value) => (
-  Number.isFinite(value) ? (value * Math.PI) / 180 : 0
-);
-
-const softmax = (values) => {
-  if (!values.length) {
-    return [];
-  }
-
-  const maxValue = Math.max(...values);
-  const exps = values.map((value) => Math.exp(value - maxValue));
-  const sum = exps.reduce((accumulator, value) => accumulator + value, 0);
-  return exps.map((value) => value / sum);
-};
-
-const toG = (value) => (
-  Number.isFinite(value) ? value / STANDARD_GRAVITY : 0
-);
-
 const renderSensorOutput = () => {
   const lines = [
     "Device sensor stream",
@@ -249,25 +173,8 @@ const renderSensorOutput = () => {
   sensorOutputEl.value = lines.join("\n");
 };
 
-const setHarOutput = (lines) => {
-  harOutputEl.value = Array.isArray(lines) ? lines.join("\n") : String(lines);
-};
-
 const setVideoOutput = (lines) => {
   videoOutputEl.value = Array.isArray(lines) ? lines.join("\n") : String(lines);
-};
-
-const updateHarStatus = (extraLines = []) => {
-  const lines = [
-    `model: ${harSession ? "loaded" : "not loaded"}`,
-    `input: ${harInputName ?? "n/a"}`,
-    `output: ${harOutputName ?? "n/a"}`,
-    "layout: [batch, time, features]",
-    `window: ${HAR_SEQUENCE_LENGTH}`,
-    `features: ${HAR_FEATURE_COUNT}`,
-    `buffered samples: ${harSampleBuffer.length}`,
-  ];
-  setHarOutput(lines.concat("", extraLines));
 };
 
 const updateVideoStatus = (extraLines = []) => {
@@ -291,160 +198,6 @@ const updateVideoStatus = (extraLines = []) => {
   setVideoOutput(lines.concat("", extraLines));
 };
 
-const getFeatureVector = () => {
-  const totalAcceleration = motionState?.accelerationIncludingGravity ?? { x: 0, y: 0, z: 0 };
-  const bodyAcceleration = {
-    x: totalAcceleration.x - gravityEstimate.x,
-    y: totalAcceleration.y - gravityEstimate.y,
-    z: totalAcceleration.z - gravityEstimate.z,
-  };
-
-  return [
-    toG(bodyAcceleration.x),
-    toG(bodyAcceleration.y),
-    toG(bodyAcceleration.z),
-    degreesToRadians(motionState?.rotationRate?.beta),
-    degreesToRadians(motionState?.rotationRate?.gamma),
-    degreesToRadians(motionState?.rotationRate?.alpha),
-    toG(totalAcceleration.x),
-    toG(totalAcceleration.y),
-    toG(totalAcceleration.z),
-  ];
-};
-
-const flattenSamplesForModel = () => {
-  return harSampleBuffer.slice(-HAR_SEQUENCE_LENGTH).flat();
-};
-
-const exportHarWindow = () => {
-  if (harSampleBuffer.length < HAR_SEQUENCE_LENGTH) {
-    throw new Error(`Need ${HAR_SEQUENCE_LENGTH} samples before export.`);
-  }
-
-  const samples = harSampleBuffer.slice(-HAR_SEQUENCE_LENGTH);
-  const columns = [];
-
-  for (let timeIndex = 0; timeIndex < HAR_SEQUENCE_LENGTH; timeIndex += 1) {
-    for (const channelName of HAR_CHANNEL_NAMES) {
-      columns.push(`t${timeIndex}_${channelName}`);
-    }
-  }
-
-  const values = [];
-  for (let timeIndex = 0; timeIndex < HAR_SEQUENCE_LENGTH; timeIndex += 1) {
-    for (let channelIndex = 0; channelIndex < HAR_CHANNEL_NAMES.length; channelIndex += 1) {
-      values.push(String(samples[timeIndex][channelIndex] ?? 0));
-    }
-  }
-
-  const csv = `${columns.join(",")},true_label\n${values.join(",")},\n`;
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "har_window.csv";
-  link.click();
-  URL.revokeObjectURL(url);
-};
-
-const inferHarPrediction = async () => {
-  if (
-    !harSession
-    || !harInputName
-    || !harOutputName
-    || harInferencePending
-    || harSampleBuffer.length < HAR_SEQUENCE_LENGTH
-  ) {
-    updateHarStatus();
-    return;
-  }
-
-  const now = Date.now();
-  if (now - lastInferenceAt < 250) {
-    return;
-  }
-
-  harInferencePending = true;
-  lastInferenceAt = now;
-
-  try {
-    const input = new window.ort.Tensor(
-      "float32",
-      Float32Array.from(flattenSamplesForModel()),
-      [1, HAR_SEQUENCE_LENGTH, HAR_FEATURE_COUNT],
-    );
-
-    const result = await harSession.run({ [harInputName]: input });
-    const output = result[harOutputName];
-    const logits = Array.from(output.data ?? []);
-    const probabilities = softmax(logits);
-    const bestProbability = Math.max(...probabilities);
-    const bestIndex = probabilities.indexOf(bestProbability);
-    const bestLabel = HAR_CLASS_LABELS[bestIndex] ?? `class_${bestIndex}`;
-    const allScores = probabilities.map((probability, index) => {
-      const label = HAR_CLASS_LABELS[index] ?? `class_${index}`;
-      const logit = logits[index] ?? 0;
-      return `${label}: p=${probability.toFixed(4)} logit=${logit.toFixed(4)}`;
-    });
-
-    if (bestLabel !== lastHarClassLabel) {
-      sendClientEvent("har", "class_changed", {
-        detected_class: bestLabel,
-        previous_class: lastHarClassLabel,
-        class_index: bestIndex,
-        confidence: bestProbability,
-        probabilities,
-        logits,
-        buffered_samples: harSampleBuffer.length,
-        detected_at: new Date().toISOString(),
-      });
-      lastHarClassLabel = bestLabel;
-    }
-
-    updateHarStatus([
-      `prediction: ${bestLabel}`,
-      `confidence: ${bestProbability.toFixed(4)}`,
-      "all classes:",
-      ...allScores,
-    ]);
-  } catch (error) {
-    updateHarStatus([
-      `inference error: ${error instanceof Error ? error.message : String(error)}`,
-    ]);
-    console.error(error);
-  } finally {
-    harInferencePending = false;
-  }
-};
-
-const pushHarSample = () => {
-  if (!harSession || !sensorsActive || !motionState) {
-    return;
-  }
-
-  harSampleBuffer.push(getFeatureVector());
-  if (harSampleBuffer.length > HAR_SEQUENCE_LENGTH) {
-    harSampleBuffer.shift();
-  }
-
-  void inferHarPrediction();
-};
-
-const stopHarSampler = () => {
-  if (harSamplerId !== null) {
-    window.clearInterval(harSamplerId);
-    harSamplerId = null;
-  }
-  lastHarClassLabel = null;
-};
-
-const startHarSampler = () => {
-  stopHarSampler();
-  harSamplerId = window.setInterval(() => {
-    pushHarSample();
-  }, HAR_SAMPLE_INTERVAL_MS);
-};
-
 const handleOrientation = (event) => {
   orientationState = {
     alpha: event.alpha,
@@ -463,14 +216,6 @@ const handleMotion = (event) => {
       z: event.accelerationIncludingGravity.z ?? 0,
     }
     : null;
-
-  if (accelerationIncludingGravity) {
-    gravityEstimate = {
-      x: GRAVITY_FILTER_ALPHA * gravityEstimate.x + (1 - GRAVITY_FILTER_ALPHA) * accelerationIncludingGravity.x,
-      y: GRAVITY_FILTER_ALPHA * gravityEstimate.y + (1 - GRAVITY_FILTER_ALPHA) * accelerationIncludingGravity.y,
-      z: GRAVITY_FILTER_ALPHA * gravityEstimate.z + (1 - GRAVITY_FILTER_ALPHA) * accelerationIncludingGravity.z,
-    };
-  }
 
   motionState = {
     acceleration: event.acceleration
@@ -491,7 +236,6 @@ const handleMotion = (event) => {
     interval: event.interval,
   };
   renderSensorOutput();
-  pushHarSample();
 };
 
 const requestSensorPermission = async (permissionTarget) => {
@@ -500,6 +244,46 @@ const requestSensorPermission = async (permissionTarget) => {
   }
 
   return permissionTarget.requestPermission();
+};
+
+const stopSensorsFlow = () => {
+  window.removeEventListener("deviceorientation", handleOrientation);
+  window.removeEventListener("devicemotion", handleMotion);
+  sensorsActive = false;
+  sensorsButton.textContent = "Start sensors";
+  append("device sensors stopped");
+};
+
+const startSensorsFlow = async () => {
+  if (
+    typeof window.DeviceOrientationEvent === "undefined"
+    && typeof window.DeviceMotionEvent === "undefined"
+  ) {
+    throw new Error("Device orientation and motion APIs are not supported in this browser.");
+  }
+
+  const [orientationPermission, motionPermission] = await Promise.all([
+    requestSensorPermission(window.DeviceOrientationEvent),
+    requestSensorPermission(window.DeviceMotionEvent),
+  ]);
+
+  if (
+    orientationPermission !== "granted"
+    || motionPermission !== "granted"
+  ) {
+    throw new Error(
+      `Sensor permission denied (orientation=${orientationPermission}, motion=${motionPermission})`,
+    );
+  }
+
+  orientationState = null;
+  motionState = null;
+  renderSensorOutput();
+  window.addEventListener("deviceorientation", handleOrientation);
+  window.addEventListener("devicemotion", handleMotion);
+  sensorsActive = true;
+  sensorsButton.textContent = "Stop sensors";
+  append("device sensors started; streaming locally to textbox");
 };
 
 const getTopK = (values, limit = 3) => {
@@ -1469,24 +1253,10 @@ const syncVideoCvLoop = () => {
 };
 
 renderSensorOutput();
-updateHarStatus([
-  "local-only inference path",
-  "model file: /static/models/human_activity_recognition.onnx",
-]);
 updateVideoStatus([
   `model file: ${VIDEO_MODEL_PATH}`,
   "load the model, then start video capture to process frames in-browser.",
 ]);
-
-harExportButton.addEventListener("click", () => {
-  try {
-    exportHarWindow();
-    append("exported current HAR window to har_window.csv");
-  } catch (error) {
-    append(`har export error: ${error instanceof Error ? error.message : String(error)}`);
-    console.error(error);
-  }
-});
 
 const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
@@ -1502,6 +1272,7 @@ updateAgentCard(
 
 try {
   await init();
+  initTracing();
 
   const config = new WsClientConfig(wsUrl);
   const client = new WsClient(config);
@@ -1799,114 +1570,40 @@ try {
   sensorsButton.addEventListener("click", async () => {
     try {
       if (sensorsActive) {
-        window.removeEventListener("deviceorientation", handleOrientation);
-        window.removeEventListener("devicemotion", handleMotion);
-        stopHarSampler();
-        sensorsActive = false;
-        sensorsButton.textContent = "Start sensors";
-        append("device sensors stopped");
+        stopSensorsFlow();
         return;
       }
 
-      if (
-        typeof window.DeviceOrientationEvent === "undefined"
-        && typeof window.DeviceMotionEvent === "undefined"
-      ) {
-        throw new Error("Device orientation and motion APIs are not supported in this browser.");
-      }
-
-      const [orientationPermission, motionPermission] = await Promise.all([
-        requestSensorPermission(window.DeviceOrientationEvent),
-        requestSensorPermission(window.DeviceMotionEvent),
-      ]);
-
-      if (
-        orientationPermission !== "granted"
-        || motionPermission !== "granted"
-      ) {
-        throw new Error(
-          `Sensor permission denied (orientation=${orientationPermission}, motion=${motionPermission})`,
-        );
-      }
-
-      orientationState = null;
-      motionState = null;
-      gravityEstimate = { x: 0, y: 0, z: 0 };
-      harSampleBuffer = [];
-      renderSensorOutput();
-      window.addEventListener("deviceorientation", handleOrientation);
-      window.addEventListener("devicemotion", handleMotion);
-      startHarSampler();
-      sensorsActive = true;
-      sensorsButton.textContent = "Stop sensors";
-      append("device sensors started; streaming locally to textbox");
+      await startSensorsFlow();
     } catch (error) {
-      append(`sensor error: ${error instanceof Error ? error.message : String(error)}`);
+      append(`sensor error: ${describeError(error)}`);
       console.error(error);
     }
   });
 
-  harButton.addEventListener("click", async () => {
+  runHarButton.addEventListener("click", async () => {
+    runHarButton.disabled = true;
+    runHarButton.textContent = "Running har demo...";
+
     try {
-      if (!window.ort) {
-        throw new Error("onnxruntime-web did not load.");
-      }
-
-      configureOnnxRuntimeWasm();
-
-      harButton.disabled = true;
-      harButton.textContent = "Loading HAR...";
-      updateHarStatus(["loading model..."]);
-
-      harSession = await window.ort.InferenceSession.create(
-        "/static/models/human_activity_recognition.onnx",
-        {
-          executionProviders: ["wasm"],
-        },
-      );
-
-      harInputName = harSession.inputNames[0] ?? null;
-      harOutputName = harSession.outputNames[0] ?? null;
-
-      const inputMetadata = harInputName
-        ? harSession.inputMetadata?.[harInputName]
-        : null;
-      const runtimeDimensions = Array.isArray(inputMetadata?.dimensions)
-        ? inputMetadata.dimensions
-        : [];
-
-      harSampleBuffer = [];
-      gravityEstimate = { x: 0, y: 0, z: 0 };
-      harButton.textContent = "Reload HAR model";
-      if (sensorsActive) {
-        startHarSampler();
-      }
-      append(
-        `har model loaded: input=${harInputName} output=${harOutputName} runtime_dims=${
-          JSON.stringify(runtimeDimensions)
-        } expected_dims=["batch",512,9]`,
-      );
-      updateHarStatus([
-        `runtime dimensions: ${JSON.stringify(runtimeDimensions)}`,
-        "expected dimensions: [batch, 512, 9]",
-        "feature order: body_acc xyz, body_gyro xyz, total_acc xyz",
-        "sampling target: 50 Hz from DeviceMotion events",
-        "predictions remain browser-local and are not sent over the websocket.",
-      ]);
+      const cacheBust = Date.now();
+      const moduleUrl = `/modules/har1/pkg/et_ws_har1.js?v=${cacheBust}`;
+      const wasmUrl = `/modules/har1/pkg/et_ws_har1_bg.wasm?v=${cacheBust}`;
+      append(`har1 module: importing ${moduleUrl}`);
+      const har1Module = await import(moduleUrl);
+      append(`har1 module: initializing ${wasmUrl}`);
+      await har1Module.default(wasmUrl);
+      append("har1 module: calling run()");
+      const runPromise = har1Module.run();
+      append("har1 module: run() started");
+      await runPromise;
+      append("har1 module completed");
     } catch (error) {
-      harSession = null;
-      harInputName = null;
-      harOutputName = null;
-      harSampleBuffer = [];
-      stopHarSampler();
-      updateHarStatus([
-        `model load error: ${error instanceof Error ? error.message : String(error)}`,
-      ]);
-      append(`har error: ${error instanceof Error ? error.message : String(error)}`);
+      append(`har1 module error: ${describeError(error)}`);
       console.error(error);
     } finally {
-      harButton.disabled = false;
-      harButton.textContent = harSession ? "Reload HAR model" : "Load HAR model";
+      runHarButton.disabled = false;
+      runHarButton.textContent = "har demo";
     }
   });
 
@@ -1963,6 +1660,7 @@ try {
 
   window.client = client;
   window.sendAlive = () => client.send_alive();
+  window.runHarModule = () => runHarButton.click();
 } catch (error) {
   append(`error: ${error instanceof Error ? error.message : String(error)}`);
   console.error(error);

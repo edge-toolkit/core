@@ -275,16 +275,20 @@ fn wasm_pkg_dir() -> PathBuf {
     workspace_root().join("services/ws-wasm-agent/pkg")
 }
 
+fn wasm_modules_dir() -> PathBuf {
+    workspace_root().join("services/ws-modules")
+}
+
 fn browser_static_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("static")
 }
 
 async fn browser_index() -> Result<NamedFile, Error> {
     let path = browser_static_dir().join("index.html");
-    info!("Serving browser demo page: {:?}", path);
+    info!("Serving browser interface page: {:?}", path);
 
     NamedFile::open(path).map_err(|e| {
-        error!("Failed to open browser demo page: {}", e);
+        error!("Failed to open browser interface page: {}", e);
         actix_web::error::ErrorNotFound(e)
     })
 }
@@ -365,6 +369,7 @@ async fn main() -> std::io::Result<()> {
     info!("Starting WebSocket server on https://localhost:8443");
     info!("Serving browser assets from {:?}", browser_static_dir());
     info!("Serving wasm package from {:?}", wasm_pkg_dir());
+    info!("Serving wasm modules from {:?}", wasm_modules_dir());
     info!("HTTPS uses an in-memory self-signed localhost certificate for development");
     let agent_registry = web::Data::new(AgentRegistry::default());
 
@@ -377,6 +382,7 @@ async fn main() -> std::io::Result<()> {
             .route("/health", web::get().to(health))
             .route("/ws", web::get().to(ws_handler))
             .route("/files/{filename}", web::get().to(file_handler))
+            .service(Files::new("/modules", wasm_modules_dir()).prefer_utf8(true))
             .service(Files::new("/pkg", wasm_pkg_dir()).prefer_utf8(true))
             .service(Files::new("/static", browser_static_dir()).prefer_utf8(true))
     })
