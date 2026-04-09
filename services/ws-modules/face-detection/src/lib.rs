@@ -679,10 +679,10 @@ async fn face_attach_stream(stream: JsValue) -> Result<(), JsValue> {
         return Err(JsValue::from_str("Video stream metadata did not load"));
     }
 
-    if let Ok(play_result) = method(video.as_ref(), "play").and_then(|play| play.call0(video.as_ref())) {
-        if let Ok(play_promise) = play_result.dyn_into::<Promise>() {
-            let _ = JsFuture::from(play_promise).await;
-        }
+    if let Ok(play_result) = method(video.as_ref(), "play").and_then(|play| play.call0(video.as_ref()))
+        && let Ok(play_promise) = play_result.dyn_into::<Promise>()
+    {
+        let _ = JsFuture::from(play_promise).await;
     }
 
     Ok(())
@@ -730,9 +730,7 @@ fn face_capture_input_tensor() -> Result<FaceCaptureTensor, JsValue> {
     };
 
     let resized_width = (source_width * resize_ratio).round().clamp(1.0, FACE_INPUT_WIDTH_F64);
-    let resized_height = (source_height * resize_ratio)
-        .round()
-        .clamp(1.0, FACE_INPUT_HEIGHT_F64);
+    let resized_height = (source_height * resize_ratio).round().clamp(1.0, FACE_INPUT_HEIGHT_F64);
     context.clear_rect(0.0, 0.0, FACE_INPUT_WIDTH_F64, FACE_INPUT_HEIGHT_F64);
     context.draw_image_with_html_video_element_and_dw_and_dh(&video, 0.0, 0.0, resized_width, resized_height)?;
 
