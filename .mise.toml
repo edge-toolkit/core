@@ -17,16 +17,23 @@ rust = { version = "latest", components = "clippy" }
 typos = "latest"
 
 [tasks]
-dprint-check = "dprint check"
-dprint-fmt = "dprint fmt"
 editorconfig-check = "ec"
+
+[tasks.dprint-check]
+run = "dprint check"
+
+[tasks.dprint-check.env]
+DPRINT_CACHE_DIR = "/tmp/dprint-cache"
+
+[tasks.dprint-fmt]
+run = "dprint fmt"
 
 [tasks.fmt]
 depends = ["cargo-clippy-fix", "cargo-fmt", "dprint-fmt", "taplo-fmt"]
 description = "Run repository formatters"
 
 [tasks.install-nightly]
-run = "rustup toolchain install nightly --component rustfmt"
+run = "cargo +nightly fmt --version >/dev/null 2>&1 || rustup toolchain install nightly --component rustfmt"
 
 [tasks.check]
 depends = [

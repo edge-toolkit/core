@@ -8,6 +8,7 @@ use tracing::info;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{JsFuture, spawn_local};
+use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, HtmlVideoElement, ImageData, MediaStream};
 
 const FACE_MODEL_PATH: &str = "/static/models/video_cv.onnx";
 const FACE_INPUT_WIDTH: usize = 640;
@@ -21,193 +22,6 @@ const RETINAFACE_NMS_THRESHOLD: f64 = 0.4;
 const RETINAFACE_VARIANCES: [f64; 2] = [0.1, 0.2];
 const RETINAFACE_MIN_SIZES: [&[f64]; 3] = [&[16.0, 32.0], &[64.0, 128.0], &[256.0, 512.0]];
 const RETINAFACE_STEPS: [f64; 3] = [8.0, 16.0, 32.0];
-
-#[wasm_bindgen(inline_js = r##"
-export async function face_attach_stream(stream) {
-  const video = document.getElementById("face-video-preview");
-  if (!video) {
-    throw new Error("Missing #face-video-preview element");
-  }
-
-  video.srcObject = stream;
-  video.hidden = false;
-
-  if (!video.videoWidth || !video.videoHeight) {
-    await new Promise((resolve, reject) => {
-      const onLoaded = () => {
-        cleanup();
-        resolve();
-      };
-      const onError = () => {
-        cleanup();
-        reject(new Error("Video stream metadata did not load"));
-      };
-      const cleanup = () => {
-        video.removeEventListener("loadedmetadata", onLoaded);
-        video.removeEventListener("error", onError);
-      };
-      video.addEventListener("loadedmetadata", onLoaded, { once: true });
-      video.addEventListener("error", onError, { once: true });
-    });
-  }
-
-  const playResult = video.play?.();
-  if (playResult?.catch) {
-    try {
-      await playResult;
-    } catch {
-      // Browsers may reject autoplay even after a gesture; metadata is enough for capture.
-    }
-  }
-}
-
-export function face_detach_stream() {
-  const video = document.getElementById("face-video-preview");
-  const canvas = document.getElementById("face-video-output-canvas");
-  if (video) {
-    video.pause?.();
-    video.srcObject = null;
-    video.hidden = true;
-  }
-  if (canvas) {
-    canvas.hidden = true;
-    const context = canvas.getContext("2d");
-    context?.clearRect(0, 0, canvas.width, canvas.height);
-  }
-}
-
-export function face_set_status(message) {
-  const output = document.getElementById("face-output");
-  if (output) {
-    output.value = String(message);
-  }
-}
-
-export function face_log(message) {
-  const line = `[face-detection] ${message}`;
-  console.log(line);
-  const logEl = document.getElementById("log");
-  if (!logEl) {
-    return;
-  }
-  const current = logEl.textContent ?? "";
-  logEl.textContent = current ? `${current}\n${line}` : line;
-}
-
-export function face_capture_input_tensor() {
-  const video = document.getElementById("face-video-preview");
-  if (!video?.videoWidth || !video?.videoHeight) {
-    throw new Error("Video stream is not ready yet.");
-  }
-
-  const width = 640;
-  const height = 608;
-  const mean = [104, 117, 123];
-  const canvas = globalThis.__etFacePreprocessCanvas ?? document.createElement("canvas");
-  globalThis.__etFacePreprocessCanvas = canvas;
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-  if (!context) {
-    throw new Error("Unable to create face preprocessing canvas context.");
-  }
-
-  canvas.width = width;
-  canvas.height = height;
-
-  const sourceWidth = video.videoWidth;
-  const sourceHeight = video.videoHeight;
-  const targetRatio = height / width;
-  let resizeRatio;
-  if (sourceHeight / sourceWidth <= targetRatio) {
-    resizeRatio = width / sourceWidth;
-  } else {
-    resizeRatio = height / sourceHeight;
-  }
-
-  const resizedWidth = Math.max(1, Math.min(width, Math.round(sourceWidth * resizeRatio)));
-  const resizedHeight = Math.max(1, Math.min(height, Math.round(sourceHeight * resizeRatio)));
-  context.clearRect(0, 0, width, height);
-  context.drawImage(video, 0, 0, resizedWidth, resizedHeight);
-
-  const rgba = context.getImageData(0, 0, width, height).data;
-  const tensorData = new Float32Array(width * height * 3);
-
-  for (let pixelIndex = 0; pixelIndex < width * height; pixelIndex += 1) {
-    const rgbaIndex = pixelIndex * 4;
-    const red = rgba[rgbaIndex];
-    const green = rgba[rgbaIndex + 1];
-    const blue = rgba[rgbaIndex + 2];
-    const tensorIndex = pixelIndex * 3;
-    tensorData[tensorIndex] = blue - mean[0];
-    tensorData[tensorIndex + 1] = green - mean[1];
-    tensorData[tensorIndex + 2] = red - mean[2];
-  }
-
-  return {
-    data: tensorData,
-    resizeRatio,
-    sourceWidth,
-    sourceHeight,
-  };
-}
-
-export function face_render(detections) {
-  const video = document.getElementById("face-video-preview");
-  const canvas = document.getElementById("face-video-output-canvas");
-  if (!video?.videoWidth || !video?.videoHeight || !canvas) {
-    return;
-  }
-
-  const context = canvas.getContext("2d");
-  if (!context) {
-    throw new Error("Unable to create face output canvas context.");
-  }
-
-  const width = video.videoWidth;
-  const height = video.videoHeight;
-  if (canvas.width !== width || canvas.height !== height) {
-    canvas.width = width;
-    canvas.height = height;
-  }
-
-  canvas.hidden = false;
-  context.drawImage(video, 0, 0, width, height);
-  context.lineWidth = 3;
-  context.font = "16px ui-monospace, monospace";
-
-  for (const entry of detections ?? []) {
-    const [x1, y1, x2, y2] = entry.box ?? [];
-    const left = Number(x1 ?? 0);
-    const top = Number(y1 ?? 0);
-    const right = Number(x2 ?? 0);
-    const bottom = Number(y2 ?? 0);
-    const boxWidth = Math.max(1, right - left);
-    const boxHeight = Math.max(1, bottom - top);
-    context.strokeStyle = "#ef8f35";
-    context.strokeRect(left, top, boxWidth, boxHeight);
-
-    const label = `${entry.label ?? "face"} ${((entry.score ?? 0) * 100).toFixed(1)}%`;
-    const textWidth = context.measureText(label).width + 10;
-    context.fillStyle = "#182028";
-    context.fillRect(left, Math.max(0, top - 24), textWidth, 22);
-    context.fillStyle = "#fffdfa";
-    context.fillText(label, left + 5, Math.max(16, top - 8));
-  }
-}
-"##)]
-extern "C" {
-    #[wasm_bindgen(catch)]
-    async fn face_attach_stream(stream: JsValue) -> Result<JsValue, JsValue>;
-    #[wasm_bindgen]
-    fn face_detach_stream();
-    #[wasm_bindgen]
-    fn face_set_status(message: &str);
-    #[wasm_bindgen]
-    fn face_log(message: &str);
-    #[wasm_bindgen(catch)]
-    fn face_capture_input_tensor() -> Result<JsValue, JsValue>;
-    #[wasm_bindgen(catch)]
-    fn face_render(detections: &JsValue) -> Result<(), JsValue>;
-}
 
 #[derive(Clone)]
 struct Detection {
@@ -224,6 +38,13 @@ struct DetectionSummary {
     processed_at: String,
 }
 
+struct FaceCaptureTensor {
+    data: Vec<f32>,
+    resize_ratio: f64,
+    source_width: f64,
+    source_height: f64,
+}
+
 struct FaceDetectionRuntime {
     client: WsClient,
     capture: VideoCapture,
@@ -235,6 +56,7 @@ struct FaceDetectionRuntime {
 
 thread_local! {
     static FACE_RUNTIME: RefCell<Option<FaceDetectionRuntime>> = const { RefCell::new(None) };
+    static FACE_PREPROCESS_CANVAS: RefCell<Option<HtmlCanvasElement>> = const { RefCell::new(None) };
 }
 
 #[wasm_bindgen(start)]
@@ -249,7 +71,7 @@ pub fn is_running() -> bool {
 }
 
 #[wasm_bindgen]
-pub async fn start() -> Result<(), JsValue> {
+pub async fn run() -> Result<(), JsValue> {
     if is_running() {
         return Ok(());
     }
@@ -347,8 +169,8 @@ pub async fn start() -> Result<(), JsValue> {
         let detections = render_last_summary
             .borrow()
             .as_ref()
-            .map(|summary| detections_to_js(&summary.detections))
-            .unwrap_or_else(|| Array::new().into());
+            .map(|summary| summary.detections.clone())
+            .unwrap_or_default();
         let _ = face_render(&detections);
     }) as Box<dyn FnMut()>);
 
@@ -385,6 +207,11 @@ pub async fn start() -> Result<(), JsValue> {
 }
 
 #[wasm_bindgen]
+pub async fn start() -> Result<(), JsValue> {
+    run().await
+}
+
+#[wasm_bindgen]
 pub fn stop() -> Result<(), JsValue> {
     FACE_RUNTIME.with(|runtime| {
         let Some(mut runtime) = runtime.borrow_mut().take() else {
@@ -411,18 +238,7 @@ async fn infer_once(
     last_has_detection: &Cell<bool>,
 ) -> Result<DetectionSummary, JsValue> {
     let capture = face_capture_input_tensor()?;
-    let tensor_data = Reflect::get(&capture, &JsValue::from_str("data"))?;
-    let resize_ratio = Reflect::get(&capture, &JsValue::from_str("resizeRatio"))?
-        .as_f64()
-        .ok_or_else(|| JsValue::from_str("face capture resizeRatio was unavailable"))?;
-    let source_width = Reflect::get(&capture, &JsValue::from_str("sourceWidth"))?
-        .as_f64()
-        .ok_or_else(|| JsValue::from_str("face capture sourceWidth was unavailable"))?;
-    let source_height = Reflect::get(&capture, &JsValue::from_str("sourceHeight"))?
-        .as_f64()
-        .ok_or_else(|| JsValue::from_str("face capture sourceHeight was unavailable"))?;
-
-    let tensor = create_tensor(&Float32Array::new(&tensor_data))?;
+    let tensor = create_tensor(&Float32Array::from(capture.data.as_slice()))?;
     let feeds = js_sys::Object::new();
     Reflect::set(&feeds, &JsValue::from_str(input_name), &tensor)?;
 
@@ -434,7 +250,13 @@ async fn infer_once(
     )
     .await?;
 
-    let summary = decode_retinaface_outputs(&outputs, output_names, resize_ratio, source_width, source_height)?;
+    let summary = decode_retinaface_outputs(
+        &outputs,
+        output_names,
+        capture.resize_ratio,
+        capture.source_width,
+        capture.source_height,
+    )?;
     let has_detection = !summary.detections.is_empty();
     let changed = last_has_detection.get() != has_detection;
     last_has_detection.set(has_detection);
@@ -463,8 +285,8 @@ async fn infer_once(
             "input_name": input_name,
             "output_names": output_names,
             "source_resolution": {
-                "width": source_width,
-                "height": source_height,
+                "width": capture.source_width,
+                "height": capture.source_height,
             },
         }),
     )?;
@@ -492,32 +314,6 @@ fn update_face_status(input_name: &str, output_names: &[String], summary: &Detec
     }
 
     face_set_status(&lines.join("\n"));
-}
-
-fn detections_to_js(detections: &[Detection]) -> JsValue {
-    let array = Array::new();
-
-    for detection in detections {
-        let object = js_sys::Object::new();
-        let box_values = Array::new();
-        for value in detection.box_coords {
-            box_values.push(&JsValue::from_f64(value));
-        }
-        let _ = Reflect::set(
-            &object,
-            &JsValue::from_str("label"),
-            &JsValue::from_str(&detection.label),
-        );
-        let _ = Reflect::set(
-            &object,
-            &JsValue::from_str("score"),
-            &JsValue::from_f64(detection.score),
-        );
-        let _ = Reflect::set(&object, &JsValue::from_str("box"), &box_values);
-        array.push(&object);
-    }
-
-    array.into()
 }
 
 fn decode_retinaface_outputs(
@@ -844,6 +640,237 @@ fn describe_js_error(error: &JsValue) -> String {
 }
 
 fn log(message: &str) -> Result<(), JsValue> {
-    face_log(message);
+    let line = format!("[face-detection] {message}");
+    web_sys::console::log_1(&JsValue::from_str(&line));
+
+    if let Some(window) = web_sys::window()
+        && let Some(document) = window.document()
+        && let Some(log_el) = document.get_element_by_id("log")
+    {
+        let current = log_el.text_content().unwrap_or_default();
+        let next = if current.is_empty() {
+            line
+        } else {
+            format!("{current}\n{line}")
+        };
+        log_el.set_text_content(Some(&next));
+    }
+
     Ok(())
+}
+
+async fn face_attach_stream(stream: JsValue) -> Result<(), JsValue> {
+    let video = face_video_element()?;
+    let stream = stream
+        .dyn_into::<MediaStream>()
+        .map_err(|_| JsValue::from_str("Video capture stream was not a MediaStream"))?;
+
+    Reflect::set(video.as_ref(), &JsValue::from_str("srcObject"), stream.as_ref())?;
+    set_hidden(video.as_ref(), false)?;
+
+    for _ in 0..50 {
+        if video.video_width() > 0 && video.video_height() > 0 {
+            break;
+        }
+        sleep_ms(100).await?;
+    }
+
+    if video.video_width() == 0 || video.video_height() == 0 {
+        return Err(JsValue::from_str("Video stream metadata did not load"));
+    }
+
+    if let Ok(play_result) = method(video.as_ref(), "play").and_then(|play| play.call0(video.as_ref()))
+        && let Ok(play_promise) = play_result.dyn_into::<Promise>()
+    {
+        let _ = JsFuture::from(play_promise).await;
+    }
+
+    Ok(())
+}
+
+fn face_detach_stream() {
+    if let Ok(video) = face_video_element() {
+        if let Ok(pause) = method(video.as_ref(), "pause") {
+            let _ = pause.call0(video.as_ref());
+        }
+        let _ = Reflect::set(video.as_ref(), &JsValue::from_str("srcObject"), &JsValue::NULL);
+        let _ = set_hidden(video.as_ref(), true);
+    }
+
+    if let Ok(canvas) = face_output_canvas_element() {
+        let _ = set_hidden(canvas.as_ref(), true);
+        if let Ok(context) = canvas_2d_context(&canvas) {
+            context.clear_rect(0.0, 0.0, f64::from(canvas.width()), f64::from(canvas.height()));
+        }
+    }
+}
+
+fn face_set_status(message: &str) {
+    let _ = set_textarea_value("face-output", message);
+}
+
+fn face_capture_input_tensor() -> Result<FaceCaptureTensor, JsValue> {
+    let video = face_video_element()?;
+    let source_width = f64::from(video.video_width());
+    let source_height = f64::from(video.video_height());
+    if source_width <= 0.0 || source_height <= 0.0 {
+        return Err(JsValue::from_str("Video stream is not ready yet."));
+    }
+
+    let canvas = face_preprocess_canvas()?;
+    canvas.set_width(FACE_INPUT_WIDTH as u32);
+    canvas.set_height(FACE_INPUT_HEIGHT as u32);
+    let context = canvas_2d_context(&canvas)?;
+
+    let target_ratio = FACE_INPUT_HEIGHT_F64 / FACE_INPUT_WIDTH_F64;
+    let resize_ratio = if source_height / source_width <= target_ratio {
+        FACE_INPUT_WIDTH_F64 / source_width
+    } else {
+        FACE_INPUT_HEIGHT_F64 / source_height
+    };
+
+    let resized_width = (source_width * resize_ratio).round().clamp(1.0, FACE_INPUT_WIDTH_F64);
+    let resized_height = (source_height * resize_ratio).round().clamp(1.0, FACE_INPUT_HEIGHT_F64);
+    context.clear_rect(0.0, 0.0, FACE_INPUT_WIDTH_F64, FACE_INPUT_HEIGHT_F64);
+    context.draw_image_with_html_video_element_and_dw_and_dh(&video, 0.0, 0.0, resized_width, resized_height)?;
+
+    let image_data = context.get_image_data(0.0, 0.0, FACE_INPUT_WIDTH_F64, FACE_INPUT_HEIGHT_F64)?;
+    let tensor_data = image_data_to_tensor(&image_data);
+
+    Ok(FaceCaptureTensor {
+        data: tensor_data,
+        resize_ratio,
+        source_width,
+        source_height,
+    })
+}
+
+fn face_render(detections: &[Detection]) -> Result<(), JsValue> {
+    let video = face_video_element()?;
+    let width = video.video_width();
+    let height = video.video_height();
+    if width == 0 || height == 0 {
+        return Ok(());
+    }
+
+    let canvas = face_output_canvas_element()?;
+    let context = canvas_2d_context(&canvas)?;
+    if canvas.width() != width || canvas.height() != height {
+        canvas.set_width(width);
+        canvas.set_height(height);
+    }
+
+    set_hidden(canvas.as_ref(), false)?;
+    context.draw_image_with_html_video_element_and_dw_and_dh(&video, 0.0, 0.0, f64::from(width), f64::from(height))?;
+    context.set_line_width(3.0);
+    context.set_font("16px ui-monospace, monospace");
+
+    for detection in detections {
+        let left = detection.box_coords[0];
+        let top = detection.box_coords[1];
+        let right = detection.box_coords[2];
+        let bottom = detection.box_coords[3];
+        let box_width = (right - left).max(1.0);
+        let box_height = (bottom - top).max(1.0);
+
+        context.set_stroke_style_str("#ef8f35");
+        context.stroke_rect(left, top, box_width, box_height);
+
+        let label = format!("{} {:.1}%", detection.label, detection.score * 100.0);
+        let text_width = context.measure_text(&label)?.width() + 10.0;
+        context.set_fill_style_str("#182028");
+        context.fill_rect(left, (top - 24.0).max(0.0), text_width, 22.0);
+        context.set_fill_style_str("#fffdfa");
+        context.fill_text(&label, left + 5.0, (top - 8.0).max(16.0))?;
+    }
+
+    Ok(())
+}
+
+fn image_data_to_tensor(image_data: &ImageData) -> Vec<f32> {
+    const CHANNEL_MEAN: [f32; 3] = [104.0, 117.0, 123.0];
+
+    let rgba = image_data.data().to_vec();
+    let mut tensor_data = vec![0.0_f32; FACE_INPUT_WIDTH * FACE_INPUT_HEIGHT * 3];
+
+    for pixel_index in 0..(FACE_INPUT_WIDTH * FACE_INPUT_HEIGHT) {
+        let rgba_index = pixel_index * 4;
+        let tensor_index = pixel_index * 3;
+        let red = rgba[rgba_index] as f32;
+        let green = rgba[rgba_index + 1] as f32;
+        let blue = rgba[rgba_index + 2] as f32;
+
+        tensor_data[tensor_index] = blue - CHANNEL_MEAN[0];
+        tensor_data[tensor_index + 1] = green - CHANNEL_MEAN[1];
+        tensor_data[tensor_index + 2] = red - CHANNEL_MEAN[2];
+    }
+
+    tensor_data
+}
+
+fn set_textarea_value(element_id: &str, message: &str) -> Result<(), JsValue> {
+    if let Some(window) = web_sys::window()
+        && let Some(document) = window.document()
+        && let Some(output) = document.get_element_by_id(element_id)
+    {
+        Reflect::set(
+            output.as_ref(),
+            &JsValue::from_str("value"),
+            &JsValue::from_str(message),
+        )?;
+    }
+
+    Ok(())
+}
+
+fn face_video_element() -> Result<HtmlVideoElement, JsValue> {
+    let document = web_sys::window()
+        .and_then(|window| window.document())
+        .ok_or_else(|| JsValue::from_str("No document available"))?;
+    document
+        .get_element_by_id("face-video-preview")
+        .ok_or_else(|| JsValue::from_str("Missing #face-video-preview element"))?
+        .dyn_into::<HtmlVideoElement>()
+        .map_err(|_| JsValue::from_str("#face-video-preview was not a video element"))
+}
+
+fn face_output_canvas_element() -> Result<HtmlCanvasElement, JsValue> {
+    let document = web_sys::window()
+        .and_then(|window| window.document())
+        .ok_or_else(|| JsValue::from_str("No document available"))?;
+    document
+        .get_element_by_id("face-video-output-canvas")
+        .ok_or_else(|| JsValue::from_str("Missing #face-video-output-canvas element"))?
+        .dyn_into::<HtmlCanvasElement>()
+        .map_err(|_| JsValue::from_str("#face-video-output-canvas was not a canvas element"))
+}
+
+fn face_preprocess_canvas() -> Result<HtmlCanvasElement, JsValue> {
+    FACE_PREPROCESS_CANVAS.with(|slot| {
+        if let Some(canvas) = slot.borrow().as_ref() {
+            return Ok(canvas.clone());
+        }
+
+        let document = web_sys::window()
+            .and_then(|window| window.document())
+            .ok_or_else(|| JsValue::from_str("No document available"))?;
+        let canvas = document
+            .create_element("canvas")?
+            .dyn_into::<HtmlCanvasElement>()
+            .map_err(|_| JsValue::from_str("Unable to create preprocessing canvas"))?;
+        *slot.borrow_mut() = Some(canvas.clone());
+        Ok(canvas)
+    })
+}
+
+fn canvas_2d_context(canvas: &HtmlCanvasElement) -> Result<CanvasRenderingContext2d, JsValue> {
+    canvas
+        .get_context("2d")?
+        .ok_or_else(|| JsValue::from_str("2d canvas context was unavailable"))?
+        .dyn_into::<CanvasRenderingContext2d>()
+        .map_err(|_| JsValue::from_str("Canvas context was not 2d"))
+}
+
+fn set_hidden(target: &JsValue, hidden: bool) -> Result<(), JsValue> {
+    Reflect::set(target, &JsValue::from_str("hidden"), &JsValue::from_bool(hidden)).map(|_| ())
 }

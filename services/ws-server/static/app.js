@@ -1635,8 +1635,8 @@ try {
         return;
       }
 
-      append("face detection module: calling start()");
-      await faceDetectionModule.start();
+      append("face detection module: calling run()");
+      await faceDetectionModule.run();
       append("face detection module started");
       runFaceDetectionButton.textContent = "stop face demo";
     } catch (error) {
