@@ -1,0 +1,31 @@
+[package]
+name = "et-ws-face-detection"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+et-ws-wasm-agent = { path = "../../ws-wasm-agent" }
+js-sys = "0.3"
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-wasm = "0.2"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
+  "BinaryType",
+  "Document",
+  "Event",
+  "EventTarget",
+  "MessageEvent",
+  "Storage",
+  "WebSocket",
+  "Window",
+  "console",
+] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"

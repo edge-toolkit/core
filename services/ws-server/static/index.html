@@ -122,6 +122,7 @@
       </div>
       <p>
         <button id="run-har-button" type="button">har demo</button>
+        <button id="run-face-detection-button" type="button">face demo</button>
         <button id="mic-button" type="button">Start microphone</button>
         <button id="video-button" type="button">Start video</button>
         <button id="bluetooth-button" type="button">
@@ -138,13 +139,12 @@
         <button id="speech-button" type="button">Recognize speech</button>
         <button id="nfc-button" type="button">Scan NFC</button>
         <button id="sensors-button" type="button">Start sensors</button>
-        <button id="video-model-button" type="button">
-          Load video CV model
-        </button>
         <button id="video-output-button" type="button">
           Show video output
         </button>
       </p>
+      <video id="face-video-preview" autoplay playsinline muted hidden></video>
+      <canvas id="face-video-output-canvas" hidden></canvas>
       <video id="video-preview" autoplay playsinline muted hidden></video>
       <canvas id="video-output-canvas" hidden></canvas>
       <div class="status-grid">
@@ -152,6 +152,8 @@
         >Waiting for device motion/orientation data…</textarea>
         <textarea id="har-output" readonly
         >Human activity recognition model not loaded.</textarea>
+        <textarea id="face-output" readonly
+        >Face detection demo not running.</textarea>
         <textarea id="video-output" readonly
         >Video CV model not loaded.</textarea>
       </div>

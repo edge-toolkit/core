@@ -15,6 +15,7 @@ import init, {
 
 const logEl = document.getElementById("log");
 const runHarButton = document.getElementById("run-har-button");
+const runFaceDetectionButton = document.getElementById("run-face-detection-button");
 const micButton = document.getElementById("mic-button");
 const videoButton = document.getElementById("video-button");
 const bluetoothButton = document.getElementById("bluetooth-button");
@@ -25,7 +26,6 @@ const gpuInfoButton = document.getElementById("gpu-info-button");
 const speechButton = document.getElementById("speech-button");
 const nfcButton = document.getElementById("nfc-button");
 const sensorsButton = document.getElementById("sensors-button");
-const videoModelButton = document.getElementById("video-model-button");
 const videoOutputButton = document.getElementById("video-output-button");
 const agentStatusEl = document.getElementById("agent-status");
 const agentIdEl = document.getElementById("agent-id");
@@ -54,6 +54,8 @@ let videoOverlayContext = videoOutputCanvas.getContext("2d");
 let videoOutputVisible = false;
 let videoRenderFrameId = null;
 let lastVideoInferenceSummary = null;
+let faceDetectionModule = null;
+let faceDetectionModuleInitialized = false;
 let sendClientEvent = () => {};
 const VIDEO_INFERENCE_INTERVAL_MS = 750;
 const VIDEO_RENDER_SCORE_THRESHOLD = 0.35;
@@ -1607,49 +1609,42 @@ try {
     }
   });
 
-  videoModelButton.addEventListener("click", async () => {
+  runFaceDetectionButton.addEventListener("click", async () => {
+    runFaceDetectionButton.disabled = true;
+
     try {
-      if (!window.ort) {
-        throw new Error("onnxruntime-web did not load.");
+      if (!faceDetectionModule) {
+        const cacheBust = Date.now();
+        const moduleUrl = `/modules/face-detection/pkg/et_ws_face_detection.js?v=${cacheBust}`;
+        const wasmUrl = `/modules/face-detection/pkg/et_ws_face_detection_bg.wasm?v=${cacheBust}`;
+        append(`face detection module: importing ${moduleUrl}`);
+        faceDetectionModule = await import(moduleUrl);
+        append(`face detection module: initializing ${wasmUrl}`);
+        await faceDetectionModule.default(wasmUrl);
+        faceDetectionModuleInitialized = true;
       }
 
-      configureOnnxRuntimeWasm();
+      if (!faceDetectionModuleInitialized) {
+        throw new Error("face detection module failed to initialize");
+      }
 
-      videoModelButton.disabled = true;
-      videoModelButton.textContent = "Loading video model...";
-      updateVideoStatus(["loading model..."]);
+      if (faceDetectionModule.is_running()) {
+        faceDetectionModule.stop();
+        append("face detection module stopped");
+        runFaceDetectionButton.textContent = "face demo";
+        return;
+      }
 
-      videoCvSession = await window.ort.InferenceSession.create(
-        VIDEO_MODEL_PATH,
-        {
-          executionProviders: ["wasm"],
-        },
-      );
-
-      videoCvInputName = selectVideoModelInputName(videoCvSession);
-      videoCvOutputName = selectVideoModelOutputName(videoCvSession);
-      lastVideoCvLabel = null;
-      lastVideoInferenceSummary = null;
-      append(
-        `video cv model loaded: input=${videoCvInputName} output=${videoCvOutputName} input_dims=${
-          JSON.stringify(videoCvSession.inputMetadata?.[videoCvInputName]?.dimensions ?? [])
-        }`,
-      );
-      syncVideoCvLoop();
+      append("face detection module: calling start()");
+      await faceDetectionModule.start();
+      append("face detection module started");
+      runFaceDetectionButton.textContent = "stop face demo";
     } catch (error) {
-      videoCvSession = null;
-      videoCvInputName = null;
-      videoCvOutputName = null;
-      stopVideoCvLoop();
-      lastVideoInferenceSummary = null;
-      updateVideoStatus([
-        `model load error: ${error instanceof Error ? error.message : String(error)}`,
-      ]);
-      append(`video cv error: ${error instanceof Error ? error.message : String(error)}`);
+      append(`face detection module error: ${describeError(error)}`);
       console.error(error);
+      runFaceDetectionButton.textContent = "face demo";
     } finally {
-      videoModelButton.disabled = false;
-      videoModelButton.textContent = videoCvSession ? "Reload video CV model" : "Load video CV model";
+      runFaceDetectionButton.disabled = false;
     }
   });
 
@@ -1661,6 +1656,7 @@ try {
   window.client = client;
   window.sendAlive = () => client.send_alive();
   window.runHarModule = () => runHarButton.click();
+  window.runFaceDetectionModule = () => runFaceDetectionButton.click();
 } catch (error) {
   append(`error: ${error instanceof Error ? error.message : String(error)}`);
   console.error(error);
