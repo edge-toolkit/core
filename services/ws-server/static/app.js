@@ -61,14 +61,6 @@ const VIDEO_INFERENCE_INTERVAL_MS = 750;
 const VIDEO_RENDER_SCORE_THRESHOLD = 0.35;
 const VIDEO_MODEL_PATH = "/static/models/video_cv.onnx";
 const VIDEO_FALLBACK_INPUT_SIZE = 224;
-const RETINAFACE_INPUT_HEIGHT = 608;
-const RETINAFACE_INPUT_WIDTH = 640;
-const RETINAFACE_CONFIDENCE_THRESHOLD = 0.75;
-const RETINAFACE_NMS_THRESHOLD = 0.4;
-const RETINAFACE_VARIANCES = [0.1, 0.2];
-const RETINAFACE_MIN_SIZES = [[16, 32], [64, 128], [256, 512]];
-const RETINAFACE_STEPS = [8, 16, 32];
-const RETINAFACE_MEAN_BGR = [104, 117, 123];
 const STORED_AGENT_ID_KEY = "ws_wasm_agent.agent_id";
 let currentAgentId = null;
 
@@ -320,21 +312,6 @@ const ensureVideoOverlayContext = () => {
   return videoOverlayContext;
 };
 
-const isRetinaFaceSession = (session = videoCvSession) => {
-  if (!session) {
-    return false;
-  }
-
-  const inputNames = Array.isArray(session.inputNames) ? session.inputNames : [];
-  const outputNames = Array.isArray(session.outputNames) ? session.outputNames : [];
-  const allNames = inputNames.concat(outputNames).map((name) => String(name).toLowerCase());
-  if (allNames.some((name) => name.includes("retinaface"))) {
-    return true;
-  }
-
-  return outputNames.length === 3 && inputNames.length === 1;
-};
-
 const selectVideoModelInputName = (session) => {
   const inputNames = Array.isArray(session?.inputNames) ? session.inputNames : [];
   if (!inputNames.length) {
@@ -402,18 +379,6 @@ const resolveVideoModelLayout = () => {
     throw new Error("Video CV model is not loaded.");
   }
 
-  if (isRetinaFaceSession(videoCvSession)) {
-    return {
-      dataType: "float32",
-      channels: 3,
-      width: RETINAFACE_INPUT_WIDTH,
-      height: RETINAFACE_INPUT_HEIGHT,
-      tensorDimensions: [1, RETINAFACE_INPUT_HEIGHT, RETINAFACE_INPUT_WIDTH, 3],
-      layout: "nhwc",
-      profile: "retinaface",
-    };
-  }
-
   const metadata = videoCvSession.inputMetadata?.[videoCvInputName];
   const dataType = metadata?.type ?? "float32";
   if (dataType !== "float32" && dataType !== "uint8") {
@@ -469,7 +434,6 @@ const resolveVideoModelLayout = () => {
       height,
       tensorDimensions: [1, channels, height, width],
       layout: "nchw",
-      profile: "generic",
     };
   }
 
@@ -485,7 +449,6 @@ const resolveVideoModelLayout = () => {
     height,
     tensorDimensions: [1, height, width, channels],
     layout: "nhwc",
-    profile: "generic",
   };
 };
 
@@ -505,29 +468,11 @@ const buildVideoInputTensor = () => {
     height,
     tensorDimensions,
     layout,
-    profile,
   } = resolveVideoModelLayout();
   const context = ensureVideoCvCanvas();
   videoCvCanvas.width = width;
   videoCvCanvas.height = height;
-  let resizeRatio = 1;
-  if (profile === "retinaface") {
-    const sourceWidth = videoPreview.videoWidth;
-    const sourceHeight = videoPreview.videoHeight;
-    const targetRatio = height / width;
-    if (sourceHeight / sourceWidth <= targetRatio) {
-      resizeRatio = width / sourceWidth;
-    } else {
-      resizeRatio = height / sourceHeight;
-    }
-
-    const resizedWidth = Math.max(1, Math.min(width, Math.round(sourceWidth * resizeRatio)));
-    const resizedHeight = Math.max(1, Math.min(height, Math.round(sourceHeight * resizeRatio)));
-    context.clearRect(0, 0, width, height);
-    context.drawImage(videoPreview, 0, 0, resizedWidth, resizedHeight);
-  } else {
-    context.drawImage(videoPreview, 0, 0, width, height);
-  }
+  context.drawImage(videoPreview, 0, 0, width, height);
 
   const rgba = context.getImageData(0, 0, width, height).data;
   const elementCount = width * height * channels;
@@ -540,14 +485,6 @@ const buildVideoInputTensor = () => {
     const red = rgba[rgbaIndex];
     const green = rgba[rgbaIndex + 1];
     const blue = rgba[rgbaIndex + 2];
-
-    if (profile === "retinaface") {
-      const tensorIndex = pixelIndex * channels;
-      tensorData[tensorIndex] = blue - RETINAFACE_MEAN_BGR[0];
-      tensorData[tensorIndex + 1] = green - RETINAFACE_MEAN_BGR[1];
-      tensorData[tensorIndex + 2] = red - RETINAFACE_MEAN_BGR[2];
-      continue;
-    }
 
     if (channels === 1) {
       const grayscale = Math.round(0.299 * red + 0.587 * green + 0.114 * blue);
@@ -581,17 +518,7 @@ const buildVideoInputTensor = () => {
     }
   }
 
-  return {
-    tensor: new window.ort.Tensor(dataType, tensorData, tensorDimensions),
-    preprocess: {
-      profile,
-      inputWidth: width,
-      inputHeight: height,
-      resizeRatio,
-      sourceWidth: videoPreview.videoWidth,
-      sourceHeight: videoPreview.videoHeight,
-    },
-  };
+  return new window.ort.Tensor(dataType, tensorData, tensorDimensions);
 };
 
 const looksLikeBoxes = (tensor) => {
@@ -640,155 +567,6 @@ const normalizeBox = (boxValues, format = "xyxy") => {
   ));
 
   return normalized;
-};
-
-const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-
-const buildRetinaFacePriors = (imageHeight, imageWidth) => {
-  const priors = [];
-  RETINAFACE_STEPS.forEach((step, index) => {
-    const featureMapHeight = Math.ceil(imageHeight / step);
-    const featureMapWidth = Math.ceil(imageWidth / step);
-    const minSizes = RETINAFACE_MIN_SIZES[index];
-
-    for (let row = 0; row < featureMapHeight; row += 1) {
-      for (let column = 0; column < featureMapWidth; column += 1) {
-        minSizes.forEach((minSize) => {
-          priors.push([
-            ((column + 0.5) * step) / imageWidth,
-            ((row + 0.5) * step) / imageHeight,
-            minSize / imageWidth,
-            minSize / imageHeight,
-          ]);
-        });
-      }
-    }
-  });
-  return priors;
-};
-
-const decodeRetinaFaceBox = (loc, prior) => {
-  const centerX = prior[0] + loc[0] * RETINAFACE_VARIANCES[0] * prior[2];
-  const centerY = prior[1] + loc[1] * RETINAFACE_VARIANCES[0] * prior[3];
-  const width = prior[2] * Math.exp(loc[2] * RETINAFACE_VARIANCES[1]);
-  const height = prior[3] * Math.exp(loc[3] * RETINAFACE_VARIANCES[1]);
-  return [
-    centerX - width / 2,
-    centerY - height / 2,
-    centerX + width / 2,
-    centerY + height / 2,
-  ];
-};
-
-const computeIoU = (left, right) => {
-  const x1 = Math.max(left.box[0], right.box[0]);
-  const y1 = Math.max(left.box[1], right.box[1]);
-  const x2 = Math.min(left.box[2], right.box[2]);
-  const y2 = Math.min(left.box[3], right.box[3]);
-  const width = Math.max(0, x2 - x1 + 1);
-  const height = Math.max(0, y2 - y1 + 1);
-  const intersection = width * height;
-  const leftArea = Math.max(0, left.box[2] - left.box[0] + 1) * Math.max(0, left.box[3] - left.box[1] + 1);
-  const rightArea = Math.max(0, right.box[2] - right.box[0] + 1) * Math.max(0, right.box[3] - right.box[1] + 1);
-  return intersection / Math.max(1e-6, leftArea + rightArea - intersection);
-};
-
-const applyNms = (detections, threshold) => {
-  const sorted = [...detections].sort((left, right) => right.score - left.score);
-  const kept = [];
-
-  sorted.forEach((candidate) => {
-    if (kept.every((accepted) => computeIoU(candidate, accepted) <= threshold)) {
-      kept.push(candidate);
-    }
-  });
-
-  return kept;
-};
-
-const decodeRetinaFaceOutputs = (outputs, preprocess) => {
-  if (!preprocess || preprocess.profile !== "retinaface") {
-    return null;
-  }
-
-  const outputNames = Array.isArray(videoCvSession?.outputNames) ? videoCvSession.outputNames : [];
-  if (outputNames.length < 3) {
-    return null;
-  }
-
-  const locTensor = outputs[outputNames[0]];
-  const confTensor = outputs[outputNames[1]];
-  const landmTensor = outputs[outputNames[2]];
-  if (!locTensor || !confTensor || !landmTensor) {
-    return null;
-  }
-
-  const locValues = flattenFinite(locTensor);
-  const confValues = flattenFinite(confTensor);
-  const landmValues = flattenFinite(landmTensor);
-  const priorCount = locValues.length / 4;
-  if (priorCount <= 0 || confValues.length / 2 !== priorCount || landmValues.length / 10 !== priorCount) {
-    return null;
-  }
-
-  const priors = buildRetinaFacePriors(preprocess.inputHeight, preprocess.inputWidth);
-  if (priors.length !== priorCount) {
-    return null;
-  }
-
-  const detections = [];
-  for (let index = 0; index < priorCount; index += 1) {
-    const score = softmax(confValues.slice(index * 2, index * 2 + 2))[1] ?? 0;
-    if (score < RETINAFACE_CONFIDENCE_THRESHOLD) {
-      continue;
-    }
-
-    const decoded = decodeRetinaFaceBox(
-      locValues.slice(index * 4, index * 4 + 4),
-      priors[index],
-    );
-    const scaledBox = [
-      clamp((decoded[0] * preprocess.inputWidth) / preprocess.resizeRatio, 0, preprocess.sourceWidth),
-      clamp((decoded[1] * preprocess.inputHeight) / preprocess.resizeRatio, 0, preprocess.sourceHeight),
-      clamp((decoded[2] * preprocess.inputWidth) / preprocess.resizeRatio, 0, preprocess.sourceWidth),
-      clamp((decoded[3] * preprocess.inputHeight) / preprocess.resizeRatio, 0, preprocess.sourceHeight),
-    ];
-
-    detections.push({
-      label: "face",
-      class_index: 0,
-      score,
-      box: scaledBox,
-    });
-  }
-
-  const filtered = applyNms(detections, RETINAFACE_NMS_THRESHOLD);
-  if (!filtered.length) {
-    return {
-      mode: "detection",
-      detections: [],
-      detected_class: "no_detection",
-      class_index: -1,
-      confidence: 0,
-      probabilities: [],
-      top_classes: [],
-    };
-  }
-
-  const best = filtered[0];
-  return {
-    mode: "detection",
-    detections: filtered,
-    detected_class: best.label,
-    class_index: best.class_index,
-    confidence: best.score,
-    probabilities: filtered.map((entry) => entry.score),
-    top_classes: filtered.slice(0, 3).map((entry) => ({
-      label: entry.label,
-      index: entry.class_index,
-      probability: entry.score,
-    })),
-  };
 };
 
 const findDetectionTensor = (entries, patterns, predicate = () => true) => {
@@ -1007,12 +785,7 @@ const decodeClassificationOutputs = (output) => {
   };
 };
 
-const summarizeVideoOutput = (outputMap, preprocess = null) => {
-  const retinaFaceSummary = decodeRetinaFaceOutputs(outputMap, preprocess);
-  if (retinaFaceSummary) {
-    return retinaFaceSummary;
-  }
-
+const summarizeVideoOutput = (outputMap) => {
   const detectionSummary = decodeDetectionOutputs(outputMap);
   if (detectionSummary) {
     return detectionSummary;
@@ -1154,10 +927,10 @@ const inferVideoPrediction = async () => {
   lastVideoInferenceAt = now;
 
   try {
-    const { tensor: input, preprocess } = buildVideoInputTensor();
+    const input = buildVideoInputTensor();
     const outputMap = await videoCvSession.run({ [videoCvInputName]: input });
     const output = outputMap[videoCvOutputName];
-    const summary = summarizeVideoOutput(outputMap, preprocess);
+    const summary = summarizeVideoOutput(outputMap);
     const labelChanged = summary.detected_class !== lastVideoCvLabel;
     lastVideoCvLabel = summary.detected_class;
     lastVideoInferenceSummary = summary;
