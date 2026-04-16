@@ -42,7 +42,9 @@ struct ServerEnvelope {
     message: WsMessage,
 }
 
-#[derive(Debug, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct PendingDirectMessage {
     message_id: String,
     from_agent_id: String,
@@ -50,11 +52,13 @@ struct PendingDirectMessage {
     message: serde_json::Value,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct AgentRecord {
     state: AgentConnectionState,
     last_known_ip: Option<String>,
+    #[serde(skip)]
     session: Option<Addr<WebSocketActor>>,
+    #[serde(default)]
     pending_direct_messages: BTreeMap<String, PendingDirectMessage>,
 }
 
@@ -86,6 +90,27 @@ enum AckResult {
 }
 
 impl AgentRegistry {
+    fn save(&self, path: &Path) -> std::io::Result<()> {
+        let agents = self.agents.lock().expect("agent registry lock poisoned");
+        let yaml = serde_yaml::to_string(&*agents).map_err(std::io::Error::other)?;
+        std::fs::write(path, yaml)?;
+        info!("Agent registry saved to {:?}", path);
+        Ok(())
+    }
+
+    fn load(path: &Path) -> std::io::Result<Self> {
+        if !path.exists() {
+            warn!("Registry file {:?} does not exist, starting with empty registry", path);
+            return Ok(Self::default());
+        }
+        let yaml = std::fs::read_to_string(path)?;
+        let agents: BTreeMap<String, AgentRecord> = serde_yaml::from_str(&yaml).map_err(std::io::Error::other)?;
+        info!("Loaded {} agents from registry {:?}", agents.len(), path);
+        Ok(Self {
+            agents: Arc::new(Mutex::new(agents)),
+        })
+    }
+
     fn connect_agent(
         &self,
         requested_id: Option<String>,
@@ -639,6 +664,36 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                                 details
                             );
                         }
+                        WsMessage::StoreFile { filename } => {
+                            let Some(agent_id) = self.assigned_agent_id() else {
+                                Self::send_invalid(ctx, None, "agent must connect before storing files");
+                                span.end();
+                                return;
+                            };
+                            let url = format!("/storage/{}/{}", agent_id, filename);
+                            info!("Agent {} requested storage URL for {}: {}", agent_id, filename, url);
+                            Self::send_json(
+                                ctx,
+                                &WsMessage::Response {
+                                    message: format!("PUT to {}", url),
+                                },
+                            );
+                        }
+                        WsMessage::FetchFile { agent_id, filename } => {
+                            let url = format!("/storage/{}/{}", agent_id, filename);
+                            info!(
+                                "Agent {} requested fetch URL for {}/{}",
+                                self.current_agent_id(),
+                                agent_id,
+                                filename
+                            );
+                            Self::send_json(
+                                ctx,
+                                &WsMessage::Response {
+                                    message: format!("GET from {}", url),
+                                },
+                            );
+                        }
                         WsMessage::ConnectAck { .. }
                         | WsMessage::ListAgentsResponse { .. }
                         | WsMessage::AgentMessage { .. }
@@ -802,27 +857,58 @@ fn tls_config() -> std::io::Result<ServerConfig> {
         .map_err(|e| std::io::Error::other(format!("failed to configure TLS: {e}")))
 }
 
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Path to agent registry YAML file
+    #[arg(short, long, default_value = "registry.yaml")]
+    agent_registry: PathBuf,
+}
+
+use actix_web::middleware::Logger;
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    let args = Args::parse();
     let _provider = init_tracing();
 
     tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info,ws_server=debug".into()))
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "info,ws_server=debug,actix_web=info".into()),
+        )
         .with(tracing_subscriber::fmt::layer())
         .init();
 
     let tls_config = tls_config()?;
 
-    info!("Starting WebSocket server on http://0.0.0.0:8080");
-    info!("Starting WebSocket server on https://localhost:8443");
+    let network_ip = local_ip_address::local_ip()
+        .map(|ip| ip.to_string())
+        .unwrap_or_else(|_| "127.0.0.1".to_string());
+    let https_url = format!("https://{}:8443", network_ip);
+    info!("Starting WebSocket server on http://{}:8080", network_ip);
+    info!("Starting WebSocket server on {}", https_url);
+    info!("Scan this QR code to open the browser interface:");
+    if let Err(e) = qr2term::print_qr(&https_url) {
+        error!("Failed to generate QR code: {}", e);
+    }
     info!("Serving browser assets from {:?}", browser_static_dir());
     info!("Serving wasm package from {:?}", wasm_pkg_dir());
     info!("Serving wasm modules from {:?}", wasm_modules_dir());
     info!("HTTPS uses an in-memory self-signed localhost certificate for development");
-    let agent_registry = web::Data::new(AgentRegistry::default());
 
-    HttpServer::new(move || {
+    let agent_registry = web::Data::new(AgentRegistry::load(&args.agent_registry)?);
+    let registry_clone = agent_registry.clone();
+    let registry_path = args.agent_registry.clone();
+
+    let storage_dir = workspace_root().join("services/ws-server/storage");
+    std::fs::create_dir_all(&storage_dir)?;
+
+    let server = HttpServer::new(move || {
         App::new()
+            .wrap(Logger::default())
             .app_data(agent_registry.clone())
             .route("/", web::get().to(browser_index))
             .route("/index.html", web::get().to(browser_index))
@@ -830,12 +916,71 @@ async fn main() -> std::io::Result<()> {
             .route("/health", web::get().to(health))
             .route("/ws", web::get().to(ws_handler))
             .route("/files/{filename}", web::get().to(file_handler))
+            .route("/storage/{agent_id}/{filename}", web::put().to(agent_put_file))
+            .service(
+                Files::new("/storage", &storage_dir)
+                    .show_files_listing()
+                    .use_etag(true)
+                    .use_last_modified(true),
+            )
             .service(Files::new("/modules", wasm_modules_dir()).prefer_utf8(true))
             .service(Files::new("/pkg", wasm_pkg_dir()).prefer_utf8(true))
             .service(Files::new("/static", browser_static_dir()).prefer_utf8(true))
     })
     .bind(("0.0.0.0", 8080))?
     .bind_rustls_0_23(("0.0.0.0", 8443), tls_config)?
-    .run()
-    .await
+    .run();
+
+    let handle = server.handle();
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.unwrap();
+        info!("Shutdown signal received, saving registry...");
+        if let Err(e) = registry_clone.save(&registry_path) {
+            error!("Failed to save registry on shutdown: {}", e);
+        }
+        handle.stop(true).await;
+    });
+
+    server.await
+}
+
+async fn agent_put_file(
+    req: HttpRequest,
+    mut payload: web::Payload,
+    registry: web::Data<AgentRegistry>,
+) -> Result<HttpResponse, Error> {
+    let agent_id: String = req.match_info().query("agent_id").parse().unwrap();
+    let filename: PathBuf = req
+        .match_info()
+        .query("filename")
+        .parse()
+        .map_err(|_| actix_web::error::ErrorBadRequest("invalid filename"))?;
+
+    // Validate agent exists
+    {
+        let agents = registry.agents.lock().expect("lock poisoned");
+        if !agents.contains_key(&agent_id) {
+            return Err(actix_web::error::ErrorNotFound("agent not found"));
+        }
+    }
+
+    if filename.components().count() != 1 {
+        return Err(actix_web::error::ErrorBadRequest("invalid filename"));
+    }
+
+    let storage_dir = workspace_root().join("services/ws-server/storage");
+    let agent_dir = storage_dir.join(&agent_id);
+    std::fs::create_dir_all(&agent_dir)?;
+
+    let path = agent_dir.join(&filename);
+    info!("Agent {} storing file: {:?}", agent_id, path);
+
+    use futures_util::StreamExt;
+    let mut file = tokio::fs::File::create(path).await?;
+    while let Some(chunk) = payload.next().await {
+        let chunk = chunk?;
+        tokio::io::copy(&mut &chunk[..], &mut file).await?;
+    }
+
+    Ok(HttpResponse::Ok().finish())
 }

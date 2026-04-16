@@ -8,6 +8,7 @@ rust-version = "1.87.0"
 members = [
   "libs/edge-toolkit",
   "services/ws-modules/comm1",
+  "services/ws-modules/data1",
   "services/ws-modules/face-detection",
   "services/ws-modules/har1",
   "services/ws-server",
