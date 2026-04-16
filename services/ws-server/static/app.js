@@ -87,6 +87,11 @@ const WORKFLOW_MODULES = {
     moduleUrl: "/modules/comm1/pkg/et_ws_comm1.js",
     wasmUrl: "/modules/comm1/pkg/et_ws_comm1_bg.wasm",
   },
+  data1: {
+    label: "data1",
+    moduleUrl: "/modules/data1/pkg/et_ws_data1.js",
+    wasmUrl: "/modules/data1/pkg/et_ws_data1_bg.wasm",
+  },
 };
 
 const updateAgentCard = (status, agentId = currentAgentId) => {

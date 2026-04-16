@@ -94,6 +94,11 @@ run = "wasm-pack build . --target web -- -Z build-std=std,panic_abort"
 RUSTFLAGS = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint"
 RUSTUP_TOOLCHAIN = "nightly"
 
+[tasks.build-ws-data1-module]
+description = "Build the data1 workflow WASM module"
+dir = "services/ws-modules/data1"
+run = "wasm-pack build . --target web"
+
 [tasks.build-ws-har1-module]
 description = "Build the har1 workflow WASM module"
 dir = "services/ws-modules/har1"
@@ -110,7 +115,13 @@ dir = "services/ws-modules/comm1"
 run = "wasm-pack build . --target web"
 
 [tasks.build-wasm]
-depends = ["build-ws-comm1-module", "build-ws-face-detection-module", "build-ws-har1-module", "build-ws-wasm-agent"]
+depends = [
+  "build-ws-comm1-module",
+  "build-ws-data1-module",
+  "build-ws-face-detection-module",
+  "build-ws-har1-module",
+  "build-ws-wasm-agent",
+]
 description = "Build all WebAssembly modules"
 
 [tasks.test-ws-wasm-agent-firefox]

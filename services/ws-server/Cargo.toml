@@ -19,11 +19,16 @@ rcgen = "0.14"
 rustls = "0.23"
 serde.workspace = true
 serde_json.workspace = true
+serde_yaml = "0.9"
 tokio = { version = "1", features = ["full"] }
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 #opentelemetry-actix-web = "0.10"
 chrono.workspace = true
+clap = { version = "4.4", features = ["derive"] }
+futures-util = "0.3"
+local-ip-address = "0.6"
+qr2term = "0.3"
 uuid.workspace = true
 
 [dependencies.actix-rt]

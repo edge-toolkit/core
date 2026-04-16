@@ -1608,6 +1608,9 @@ impl WsClient {
                             WsMessage::Connect { .. } => {
                                 warn!("Unexpected connect message from server");
                             }
+                            WsMessage::StoreFile { .. } | WsMessage::FetchFile { .. } => {
+                                warn!("Unexpected file storage request from server");
+                            }
                         }
                     }
                     // Notify callback if set

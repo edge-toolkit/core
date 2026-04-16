@@ -37,14 +37,11 @@ mise run build-wasm
 mise run ws-server
 ```
 
-The WASM build disables WebAssembly reference types, so it can still load on older browsers such as Chrome 95.
+Scan the QR-Code with a smart-phone camera and open the URL.
 
-Find the IP address of your laptop in the local network,
-which will normally be something like 192.168.1.x.
+Select the module to run in the drop-down, then click "Run module" button.
 
-Then on your phone, open Chrome and type in https://192.168.1.x:8433/
-
-Select the module to run in the drop down, then click "Run module" button.
+Note: The WASM build disables WebAssembly reference types, so it can still load on older browsers such as Chrome 95.
 
 ## Grant
 

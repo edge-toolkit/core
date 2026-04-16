@@ -85,6 +85,13 @@ pub enum WsMessage {
         action: String,
         details: serde_json::Value,
     },
+    StoreFile {
+        filename: String,
+    },
+    FetchFile {
+        agent_id: String,
+        filename: String,
+    },
     Response {
         message: String,
     },
