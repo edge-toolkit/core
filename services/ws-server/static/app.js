@@ -14,8 +14,8 @@ import init, {
 } from "/pkg/et_ws_wasm_agent.js";
 
 const logEl = document.getElementById("log");
-const runHarButton = document.getElementById("run-har-button");
-const runFaceDetectionButton = document.getElementById("run-face-detection-button");
+const moduleSelect = document.getElementById("module-select");
+const runModuleButton = document.getElementById("run-module-button");
 const micButton = document.getElementById("mic-button");
 const videoButton = document.getElementById("video-button");
 const bluetoothButton = document.getElementById("bluetooth-button");
@@ -30,7 +30,7 @@ const videoOutputButton = document.getElementById("video-output-button");
 const agentStatusEl = document.getElementById("agent-status");
 const agentIdEl = document.getElementById("agent-id");
 const sensorOutputEl = document.getElementById("sensor-output");
-const videoOutputEl = document.getElementById("video-output");
+const videoOutputEl = document.getElementById("ml-debug-output");
 const videoPreview = document.getElementById("video-preview");
 const videoOutputCanvas = document.getElementById("video-output-canvas");
 let microphone = null;
@@ -54,8 +54,7 @@ let videoOverlayContext = videoOutputCanvas.getContext("2d");
 let videoOutputVisible = false;
 let videoRenderFrameId = null;
 let lastVideoInferenceSummary = null;
-let faceDetectionModule = null;
-let faceDetectionModuleInitialized = false;
+const loadedWorkflowModules = new Map();
 let sendClientEvent = () => {};
 const VIDEO_INFERENCE_INTERVAL_MS = 750;
 const VIDEO_RENDER_SCORE_THRESHOLD = 0.35;
@@ -71,6 +70,24 @@ const append = (line) => {
 const describeError = (error) => (
   error instanceof Error ? error.message : String(error)
 );
+
+const WORKFLOW_MODULES = {
+  har1: {
+    label: "har1",
+    moduleUrl: "/modules/har1/pkg/et_ws_har1.js",
+    wasmUrl: "/modules/har1/pkg/et_ws_har1_bg.wasm",
+  },
+  "face-detection": {
+    label: "face detection",
+    moduleUrl: "/modules/face-detection/pkg/et_ws_face_detection.js",
+    wasmUrl: "/modules/face-detection/pkg/et_ws_face_detection_bg.wasm",
+  },
+  comm1: {
+    label: "comm1",
+    moduleUrl: "/modules/comm1/pkg/et_ws_comm1.js",
+    wasmUrl: "/modules/comm1/pkg/et_ws_comm1_bg.wasm",
+  },
+};
 
 const updateAgentCard = (status, agentId = currentAgentId) => {
   currentAgentId = agentId || null;
@@ -93,6 +110,42 @@ const writeStoredAgentId = (agentId) => {
   } catch (error) {
     append(`agent storage write error: ${error instanceof Error ? error.message : String(error)}`);
   }
+};
+
+const loadWorkflowModule = async (moduleKey) => {
+  const moduleConfig = WORKFLOW_MODULES[moduleKey];
+  if (!moduleConfig) {
+    throw new Error(`unknown workflow module: ${moduleKey}`);
+  }
+
+  if (loadedWorkflowModules.has(moduleKey)) {
+    return loadedWorkflowModules.get(moduleKey);
+  }
+
+  const cacheBust = Date.now();
+  const moduleUrl = `${moduleConfig.moduleUrl}?v=${cacheBust}`;
+  const wasmUrl = `${moduleConfig.wasmUrl}?v=${cacheBust}`;
+  append(`${moduleConfig.label} module: importing ${moduleUrl}`);
+  const loadedModule = await import(moduleUrl);
+  append(`${moduleConfig.label} module: initializing ${wasmUrl}`);
+  await loadedModule.default(wasmUrl);
+  loadedWorkflowModules.set(moduleKey, loadedModule);
+  return loadedModule;
+};
+
+const runSelectedWorkflowModule = async () => {
+  const moduleKey = moduleSelect.value;
+  const moduleConfig = WORKFLOW_MODULES[moduleKey];
+  if (!moduleConfig) {
+    throw new Error(`unknown workflow module: ${moduleKey}`);
+  }
+
+  const loadedModule = await loadWorkflowModule(moduleKey);
+  append(`${moduleConfig.label} module: calling run()`);
+  const runPromise = loadedModule.run();
+  append(`${moduleConfig.label} module: run() started`);
+  await runPromise;
+  append(`${moduleConfig.label} module completed`);
 };
 
 const handleProtocolMessage = (message) => {
@@ -1356,68 +1409,23 @@ try {
     }
   });
 
-  runHarButton.addEventListener("click", async () => {
-    runHarButton.disabled = true;
-    runHarButton.textContent = "Running har demo...";
+  runModuleButton.addEventListener("click", async () => {
+    const selectedModule = WORKFLOW_MODULES[moduleSelect.value];
+    runModuleButton.disabled = true;
+    moduleSelect.disabled = true;
+    runModuleButton.textContent = selectedModule
+      ? `Running ${selectedModule.label}...`
+      : "Running module...";
 
     try {
-      const cacheBust = Date.now();
-      const moduleUrl = `/modules/har1/pkg/et_ws_har1.js?v=${cacheBust}`;
-      const wasmUrl = `/modules/har1/pkg/et_ws_har1_bg.wasm?v=${cacheBust}`;
-      append(`har1 module: importing ${moduleUrl}`);
-      const har1Module = await import(moduleUrl);
-      append(`har1 module: initializing ${wasmUrl}`);
-      await har1Module.default(wasmUrl);
-      append("har1 module: calling run()");
-      const runPromise = har1Module.run();
-      append("har1 module: run() started");
-      await runPromise;
-      append("har1 module completed");
+      await runSelectedWorkflowModule();
     } catch (error) {
-      append(`har1 module error: ${describeError(error)}`);
+      append(`${selectedModule?.label ?? "workflow"} module error: ${describeError(error)}`);
       console.error(error);
     } finally {
-      runHarButton.disabled = false;
-      runHarButton.textContent = "har demo";
-    }
-  });
-
-  runFaceDetectionButton.addEventListener("click", async () => {
-    runFaceDetectionButton.disabled = true;
-
-    try {
-      if (!faceDetectionModule) {
-        const cacheBust = Date.now();
-        const moduleUrl = `/modules/face-detection/pkg/et_ws_face_detection.js?v=${cacheBust}`;
-        const wasmUrl = `/modules/face-detection/pkg/et_ws_face_detection_bg.wasm?v=${cacheBust}`;
-        append(`face detection module: importing ${moduleUrl}`);
-        faceDetectionModule = await import(moduleUrl);
-        append(`face detection module: initializing ${wasmUrl}`);
-        await faceDetectionModule.default(wasmUrl);
-        faceDetectionModuleInitialized = true;
-      }
-
-      if (!faceDetectionModuleInitialized) {
-        throw new Error("face detection module failed to initialize");
-      }
-
-      if (faceDetectionModule.is_running()) {
-        faceDetectionModule.stop();
-        append("face detection module stopped");
-        runFaceDetectionButton.textContent = "face demo";
-        return;
-      }
-
-      append("face detection module: calling run()");
-      await faceDetectionModule.run();
-      append("face detection module started");
-      runFaceDetectionButton.textContent = "stop face demo";
-    } catch (error) {
-      append(`face detection module error: ${describeError(error)}`);
-      console.error(error);
-      runFaceDetectionButton.textContent = "face demo";
-    } finally {
-      runFaceDetectionButton.disabled = false;
+      runModuleButton.disabled = false;
+      moduleSelect.disabled = false;
+      runModuleButton.textContent = "Run module";
     }
   });
 
@@ -1428,8 +1436,15 @@ try {
 
   window.client = client;
   window.sendAlive = () => client.send_alive();
-  window.runHarModule = () => runHarButton.click();
-  window.runFaceDetectionModule = () => runFaceDetectionButton.click();
+  window.runWorkflowModule = (moduleKey) => {
+    if (moduleKey && WORKFLOW_MODULES[moduleKey]) {
+      moduleSelect.value = moduleKey;
+    }
+    return runSelectedWorkflowModule();
+  };
+  window.runHarModule = () => window.runWorkflowModule("har1");
+  window.runFaceDetectionModule = () => window.runWorkflowModule("face-detection");
+  window.runComm1Module = () => window.runWorkflowModule("comm1");
 } catch (error) {
   append(`error: ${error instanceof Error ? error.message : String(error)}`);
   console.error(error);

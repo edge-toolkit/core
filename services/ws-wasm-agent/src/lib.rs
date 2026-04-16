@@ -1237,11 +1237,7 @@ fn js_string_field(value: &JsValue, field: &str) -> String {
 }
 
 fn string_or_unknown(value: String) -> String {
-    if value.is_empty() {
-        "unknown".to_string()
-    } else {
-        value
-    }
+    if value.is_empty() { "unknown".to_string() } else { value }
 }
 
 async fn request_sensor_permission(target: JsValue) -> Result<String, JsValue> {
@@ -1520,10 +1516,10 @@ impl WsClient {
                     s.state = ConnectionState::Connected;
                     s.reconnect_attempts = 0;
                     s.reconnect_delay_ms = initial_delay;
-                    if let Some(timeout_id) = s.reconnect_timeout_id.take() {
-                        if let Some(window) = web_sys::window() {
-                            window.clear_timeout_with_handle(timeout_id);
-                        }
+                    if let Some(timeout_id) = s.reconnect_timeout_id.take()
+                        && let Some(window) = web_sys::window()
+                    {
+                        window.clear_timeout_with_handle(timeout_id);
                     }
                 }
                 cli_ptr.notify_state_change();
@@ -1566,6 +1562,43 @@ impl WsClient {
                             WsMessage::Response { message } => {
                                 info!("Server response: {}", message);
                             }
+                            WsMessage::ListAgents => {
+                                warn!("Unexpected list_agents message from server");
+                            }
+                            WsMessage::ListAgentsResponse { agents } => {
+                                info!("Server returned {} agents", agents.len());
+                            }
+                            WsMessage::SendAgentMessage { .. } => {
+                                warn!("Unexpected send_agent_message request from server");
+                            }
+                            WsMessage::BroadcastMessage { .. } => {
+                                warn!("Unexpected broadcast_message request from server");
+                            }
+                            WsMessage::AgentMessage {
+                                message_id,
+                                from_agent_id,
+                                scope,
+                                server_received_at,
+                                ..
+                            } => {
+                                info!(
+                                    "Received {:?} agent message {} from {} at {}",
+                                    scope, message_id, from_agent_id, server_received_at
+                                );
+                            }
+                            WsMessage::MessageAck { .. } => {
+                                warn!("Unexpected message_ack from server");
+                            }
+                            WsMessage::MessageStatus {
+                                message_id,
+                                status,
+                                detail,
+                            } => {
+                                info!("Message status update {:?} {:?}: {}", message_id, status, detail);
+                            }
+                            WsMessage::Invalid { message_id, detail } => {
+                                warn!("Invalid server message {:?}: {}", message_id, detail);
+                            }
                             WsMessage::Alive { .. } => {
                                 warn!("Unexpected alive message from server");
                             }
@@ -1579,10 +1612,10 @@ impl WsClient {
                     }
                     // Notify callback if set
                     let s = shared.borrow();
-                    if let Some(ref callback) = s.on_message_callback {
-                        if let Some(function) = callback.dyn_ref::<js_sys::Function>() {
-                            let _ = function.call1(&JsValue::NULL, &JsValue::from_str(&data));
-                        }
+                    if let Some(ref callback) = s.on_message_callback
+                        && let Some(function) = callback.dyn_ref::<js_sys::Function>()
+                    {
+                        let _ = function.call1(&JsValue::NULL, &JsValue::from_str(&data));
                     }
                 }
             }
@@ -1814,10 +1847,10 @@ impl WsClient {
     fn notify_state_change(&self) {
         let state = self.get_state();
         let s = self.shared.borrow();
-        if let Some(ref callback) = s.on_state_change_callback {
-            if let Some(function) = callback.dyn_ref::<js_sys::Function>() {
-                let _ = function.call1(&JsValue::NULL, &JsValue::from_str(&state));
-            }
+        if let Some(ref callback) = s.on_state_change_callback
+            && let Some(function) = callback.dyn_ref::<js_sys::Function>()
+        {
+            let _ = function.call1(&JsValue::NULL, &JsValue::from_str(&state));
         }
     }
 
@@ -1932,15 +1965,40 @@ impl WsClient {
 
     fn cancel_reconnect(&self) {
         let mut s = self.shared.borrow_mut();
-        if let Some(timeout_id) = s.reconnect_timeout_id.take() {
-            if let Some(window) = web_sys::window() {
-                window.clear_timeout_with_handle(timeout_id);
-            }
+        if let Some(timeout_id) = s.reconnect_timeout_id.take()
+            && let Some(window) = web_sys::window()
+        {
+            window.clear_timeout_with_handle(timeout_id);
         }
     }
 }
 
 impl WsClient {
+    pub fn request_list_agents(&self) -> Result<(), JsValue> {
+        let payload = serde_json::to_string(&WsMessage::ListAgents)
+            .map_err(|error| JsValue::from_str(&format!("Failed to serialize list_agents: {error}")))?;
+        self.send(&payload)
+    }
+
+    pub fn broadcast_message(&self, message: serde_json::Value) -> Result<(), JsValue> {
+        let payload = serde_json::to_string(&WsMessage::BroadcastMessage { message })
+            .map_err(|error| JsValue::from_str(&format!("Failed to serialize broadcast message: {error}")))?;
+        self.send(&payload)
+    }
+
+    pub fn send_agent_message(
+        &self,
+        to_agent_id: impl Into<String>,
+        message: serde_json::Value,
+    ) -> Result<(), JsValue> {
+        let payload = serde_json::to_string(&WsMessage::SendAgentMessage {
+            to_agent_id: to_agent_id.into(),
+            message,
+        })
+        .map_err(|error| JsValue::from_str(&format!("Failed to serialize direct message: {error}")))?;
+        self.send(&payload)
+    }
+
     pub fn send_client_event(
         &self,
         capability: impl Into<String>,
@@ -2003,4 +2061,52 @@ fn store_last_offline_at(timestamp: &str) -> Result<(), JsValue> {
         .local_storage()?
         .ok_or_else(|| JsValue::from_str("No localStorage available"))?;
     storage.set_item(STORED_LAST_OFFLINE_AT_KEY, timestamp)
+}
+
+#[wasm_bindgen(js_name = set_textarea_value)]
+pub fn set_textarea_value(element_id: &str, message: &str) -> Result<(), JsValue> {
+    if let Some(window) = web_sys::window()
+        && let Some(document) = window.document()
+        && let Some(output) = document.get_element_by_id(element_id)
+    {
+        js_sys::Reflect::set(
+            output.as_ref(),
+            &JsValue::from_str("value"),
+            &JsValue::from_str(message),
+        )?;
+    }
+
+    Ok(())
+}
+
+#[wasm_bindgen(js_name = append_to_textarea)]
+pub fn append_to_textarea(element_id: &str, message: &str) -> Result<(), JsValue> {
+    if let Some(window) = web_sys::window()
+        && let Some(document) = window.document()
+        && let Some(output) = document.get_element_by_id(element_id)
+    {
+        let current_value = js_sys::Reflect::get(output.as_ref(), &JsValue::from_str("value"))?
+            .as_string()
+            .unwrap_or_default();
+        let next_value = if current_value.is_empty() || current_value.starts_with("Workflow module") {
+            message.to_string()
+        } else {
+            format!("{current_value}\n{message}")
+        };
+
+        js_sys::Reflect::set(
+            output.as_ref(),
+            &JsValue::from_str("value"),
+            &JsValue::from_str(&next_value),
+        )?;
+
+        // Auto-scroll to bottom
+        js_sys::Reflect::set(
+            output.as_ref(),
+            &JsValue::from_str("scrollTop"),
+            &js_sys::Reflect::get(output.as_ref(), &JsValue::from_str("scrollHeight"))?,
+        )?;
+    }
+
+    Ok(())
 }

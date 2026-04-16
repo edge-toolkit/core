@@ -30,25 +30,21 @@ and save it as `services/ws-server/static/models/human_activity_recognition.onnx
 2. Save it in `services/ws-server/static/models/`
 3. Rename the file to `video_cv.onnx`.
 
-### Build and run the agent
+### Build WASM and run the WS server
 
 ```bash
-mise run build-ws-wasm-agent
-mise run build-ws-har1-module
-mise run build-ws-face-detection-module
+mise run build-wasm
 mise run ws-server
 ```
 
-The WASM build disables WebAssembly reference types so it can still load on older browsers such as Chrome 95.
+The WASM build disables WebAssembly reference types, so it can still load on older browsers such as Chrome 95.
 
 Find the IP address of your laptop in the local network,
 which will normally be something like 192.168.1.x.
 
 Then on your phone, open Chrome and type in https://192.168.1.x:8433/
 
-Click "har demo".
-
-For webcam inference, click "face demo".
+Select the module to run in the drop down, then click "Run module" button.
 
 ## Grant
 

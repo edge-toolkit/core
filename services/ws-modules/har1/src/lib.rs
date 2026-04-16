@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use et_ws_wasm_agent::{DeviceSensors, MotionReading, WsClient, WsClientConfig};
+use et_ws_wasm_agent::{DeviceSensors, MotionReading, WsClient, WsClientConfig, set_textarea_value};
 use js_sys::{Array, Float32Array, Function, Promise, Reflect};
 use serde_json::json;
 use tracing::info;
@@ -262,22 +262,7 @@ fn log(message: &str) -> Result<(), JsValue> {
 }
 
 fn set_har_status(message: &str) -> Result<(), JsValue> {
-    set_textarea_value("har-output", message)
-}
-
-fn set_textarea_value(element_id: &str, message: &str) -> Result<(), JsValue> {
-    if let Some(window) = web_sys::window()
-        && let Some(document) = window.document()
-        && let Some(output) = document.get_element_by_id(element_id)
-    {
-        js_sys::Reflect::set(
-            output.as_ref(),
-            &JsValue::from_str("value"),
-            &JsValue::from_str(message),
-        )?;
-    }
-
-    Ok(())
+    set_textarea_value("module-output", message)
 }
 
 fn format_number(value: f64, digits: usize) -> String {
