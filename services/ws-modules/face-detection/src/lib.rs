@@ -1,7 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use et_ws_wasm_agent::{VideoCapture, WsClient, WsClientConfig};
+use et_ws_wasm_agent::{VideoCapture, WsClient, WsClientConfig, set_textarea_value};
 use js_sys::{Array, Float32Array, Function, Promise, Reflect};
 use serde_json::json;
 use tracing::info;
@@ -706,7 +706,7 @@ fn face_detach_stream() {
 }
 
 fn face_set_status(message: &str) {
-    let _ = set_textarea_value("face-output", message);
+    let _ = set_textarea_value("module-output", message);
 }
 
 fn face_capture_input_tensor() -> Result<FaceCaptureTensor, JsValue> {
@@ -806,21 +806,6 @@ fn image_data_to_tensor(image_data: &ImageData) -> Vec<f32> {
     }
 
     tensor_data
-}
-
-fn set_textarea_value(element_id: &str, message: &str) -> Result<(), JsValue> {
-    if let Some(window) = web_sys::window()
-        && let Some(document) = window.document()
-        && let Some(output) = document.get_element_by_id(element_id)
-    {
-        Reflect::set(
-            output.as_ref(),
-            &JsValue::from_str("value"),
-            &JsValue::from_str(message),
-        )?;
-    }
-
-    Ok(())
 }
 
 fn face_video_element() -> Result<HtmlVideoElement, JsValue> {

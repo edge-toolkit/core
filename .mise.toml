@@ -4,8 +4,10 @@ action-validator = "latest"
 "cargo:wasm-pack" = "latest"
 "chromedriver" = "146"
 cmake = "latest"
+codex = "latest"
 dprint = "latest"
 editorconfig-checker = "latest"
+gemini-cli = "latest"
 "github:block/goose" = "latest"
 "github:wasm-bindgen/wasm-bindgen" = "0.2.114"
 ollama = "latest"
@@ -102,8 +104,13 @@ description = "Build the face detection workflow WASM module"
 dir = "services/ws-modules/face-detection"
 run = "wasm-pack build . --target web"
 
-[tasks.build]
-depends = ["build-ws-face-detection-module", "build-ws-har1-module", "build-ws-wasm-agent"]
+[tasks.build-ws-comm1-module]
+description = "Build the comm1 workflow WASM module"
+dir = "services/ws-modules/comm1"
+run = "wasm-pack build . --target web"
+
+[tasks.build-wasm]
+depends = ["build-ws-comm1-module", "build-ws-face-detection-module", "build-ws-har1-module", "build-ws-wasm-agent"]
 description = "Build all WebAssembly modules"
 
 [tasks.test-ws-wasm-agent-firefox]

@@ -1,21 +1,23 @@
-use std::collections::HashSet;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use actix::{Actor, ActorContext, AsyncContext, StreamHandler};
+use actix::{Actor, ActorContext, Addr, AsyncContext, Handler, Message, StreamHandler};
 use actix_files::{Files, NamedFile};
-use actix_web::{web, App, Error, HttpRequest, HttpResponse, HttpServer};
+use actix_web::{App, Error, HttpRequest, HttpResponse, HttpServer, web};
 use actix_web_actors::ws;
 use chrono::Utc;
-use edge_toolkit::ws::{ConnectStatus, WsMessage};
+use edge_toolkit::ws::{
+    AgentConnectionState, AgentSummary, ConnectStatus, MessageDeliveryStatus, MessageScope, WsMessage,
+};
 use opentelemetry::{
     global,
     trace::{Span, Tracer},
 };
 use opentelemetry_sdk::trace::SdkTracerProvider as TracerProvider;
-use rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
 use rustls::ServerConfig;
+use rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
 use tracing::{error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
@@ -34,30 +36,233 @@ fn init_tracing() -> opentelemetry_sdk::trace::SdkTracerProvider {
     provider
 }
 
+#[derive(Message)]
+#[rtype(result = "()")]
+struct ServerEnvelope {
+    message: WsMessage,
+}
+
+#[derive(Debug, Clone)]
+struct PendingDirectMessage {
+    message_id: String,
+    from_agent_id: String,
+    server_received_at: String,
+    message: serde_json::Value,
+}
+
+#[derive(Debug, Clone)]
+struct AgentRecord {
+    state: AgentConnectionState,
+    last_known_ip: Option<String>,
+    session: Option<Addr<WebSocketActor>>,
+    pending_direct_messages: BTreeMap<String, PendingDirectMessage>,
+}
+
 #[derive(Clone, Default)]
 struct AgentRegistry {
-    issued_agent_ids: Arc<Mutex<HashSet<String>>>,
+    agents: Arc<Mutex<BTreeMap<String, AgentRecord>>>,
+}
+
+enum DirectSendResult {
+    Delivered {
+        pending: PendingDirectMessage,
+        recipient_addr: Addr<WebSocketActor>,
+    },
+    Queued {
+        pending: PendingDirectMessage,
+    },
+}
+
+enum AckResult {
+    Acknowledged {
+        message_id: String,
+        sender_addr: Option<Addr<WebSocketActor>>,
+        sender_agent_id: String,
+        recipient_agent_id: String,
+    },
+    Invalid {
+        detail: String,
+    },
+}
+
+impl AgentRegistry {
+    fn connect_agent(
+        &self,
+        requested_id: Option<String>,
+        client_ip: &str,
+        session: Addr<WebSocketActor>,
+    ) -> (String, ConnectStatus) {
+        let mut agents = self.agents.lock().expect("agent registry lock poisoned");
+
+        if let Some(requested_id) = requested_id
+            && let Some(record) = agents.get_mut(&requested_id)
+        {
+            record.state = AgentConnectionState::Connected;
+            record.last_known_ip = Some(client_ip.to_string());
+            record.session = Some(session);
+            return (requested_id, ConnectStatus::Reconnected);
+        }
+
+        let assigned_id = Uuid::now_v7().to_string();
+        agents.insert(
+            assigned_id.clone(),
+            AgentRecord {
+                state: AgentConnectionState::Connected,
+                last_known_ip: Some(client_ip.to_string()),
+                session: Some(session),
+                pending_direct_messages: BTreeMap::new(),
+            },
+        );
+        (assigned_id, ConnectStatus::Assigned)
+    }
+
+    fn mark_disconnected(&self, agent_id: &str) {
+        let mut agents = self.agents.lock().expect("agent registry lock poisoned");
+        if let Some(record) = agents.get_mut(agent_id) {
+            record.state = AgentConnectionState::Disconnected;
+            record.session = None;
+        }
+    }
+
+    fn list_agents(&self) -> Vec<AgentSummary> {
+        let agents = self.agents.lock().expect("agent registry lock poisoned");
+        let mut summaries = agents
+            .iter()
+            .map(|(agent_id, record)| AgentSummary {
+                agent_id: agent_id.clone(),
+                state: record.state.clone(),
+                last_known_ip: record.last_known_ip.clone(),
+            })
+            .collect::<Vec<_>>();
+        summaries.sort_by(|left, right| left.agent_id.cmp(&right.agent_id));
+        summaries
+    }
+
+    fn queue_or_deliver_direct(
+        &self,
+        from_agent_id: &str,
+        to_agent_id: &str,
+        server_received_at: String,
+        message: serde_json::Value,
+    ) -> DirectSendResult {
+        let mut agents = self.agents.lock().expect("agent registry lock poisoned");
+        let recipient = agents
+            .get_mut(to_agent_id)
+            .expect("queue_or_deliver_direct called for unknown target agent");
+
+        let pending = PendingDirectMessage {
+            message_id: Uuid::now_v7().to_string(),
+            from_agent_id: from_agent_id.to_string(),
+            server_received_at,
+            message,
+        };
+        recipient
+            .pending_direct_messages
+            .insert(from_agent_id.to_string(), pending);
+
+        if let Some(recipient_addr) = recipient.session.clone() {
+            DirectSendResult::Delivered {
+                pending: recipient
+                    .pending_direct_messages
+                    .get(from_agent_id)
+                    .expect("pending direct message was just inserted")
+                    .clone(),
+                recipient_addr,
+            }
+        } else {
+            DirectSendResult::Queued {
+                pending: recipient
+                    .pending_direct_messages
+                    .get(from_agent_id)
+                    .expect("pending direct message was just inserted")
+                    .clone(),
+            }
+        }
+    }
+
+    fn pending_messages_for(&self, agent_id: &str) -> Vec<PendingDirectMessage> {
+        let agents = self.agents.lock().expect("agent registry lock poisoned");
+        agents
+            .get(agent_id)
+            .map(|record| {
+                let mut pending = record.pending_direct_messages.values().cloned().collect::<Vec<_>>();
+                pending.sort_by(|left, right| left.message_id.cmp(&right.message_id));
+                pending
+            })
+            .unwrap_or_default()
+    }
+
+    fn acknowledge_message(&self, recipient_agent_id: &str, message_id: &str) -> AckResult {
+        let mut agents = self.agents.lock().expect("agent registry lock poisoned");
+        let Some(recipient) = agents.get_mut(recipient_agent_id) else {
+            return AckResult::Invalid {
+                detail: format!("unknown acknowledging agent {}", recipient_agent_id),
+            };
+        };
+
+        let Some(sender_agent_id) = recipient
+            .pending_direct_messages
+            .iter()
+            .find_map(|(sender_agent_id, pending)| (pending.message_id == message_id).then(|| sender_agent_id.clone()))
+        else {
+            return AckResult::Invalid {
+                detail: "no pending message to acknowledge".to_string(),
+            };
+        };
+
+        let pending = recipient
+            .pending_direct_messages
+            .remove(&sender_agent_id)
+            .expect("pending direct message disappeared during acknowledgement");
+        let sender_addr = agents.get(&sender_agent_id).and_then(|record| record.session.clone());
+
+        AckResult::Acknowledged {
+            message_id: pending.message_id,
+            sender_addr,
+            sender_agent_id,
+            recipient_agent_id: recipient_agent_id.to_string(),
+        }
+    }
+
+    fn connected_recipient_addrs(&self, excluding_agent_id: &str) -> Vec<(String, Addr<WebSocketActor>)> {
+        let agents = self.agents.lock().expect("agent registry lock poisoned");
+        agents
+            .iter()
+            .filter_map(|(agent_id, record)| {
+                if agent_id == excluding_agent_id {
+                    return None;
+                }
+                record.session.clone().map(|addr| (agent_id.clone(), addr))
+            })
+            .collect()
+    }
 }
 
 // WebSocket actor for handling connections
 struct WebSocketActor {
     agent_id: Option<String>,
     last_activity: Instant,
+    client_ip: String,
     registry: AgentRegistry,
 }
 
 impl WebSocketActor {
-    fn new(registry: AgentRegistry) -> Self {
-        info!("New WebSocket actor created without assigned agent_id");
+    fn new(registry: AgentRegistry, client_ip: String) -> Self {
+        info!("New WebSocket actor created for client IP {}", client_ip);
         Self {
             agent_id: None,
             last_activity: Instant::now(),
+            client_ip,
             registry,
         }
     }
 
     fn current_agent_id(&self) -> &str {
         self.agent_id.as_deref().unwrap_or("unassigned")
+    }
+
+    fn assigned_agent_id(&self) -> Option<&str> {
+        self.agent_id.as_deref()
     }
 
     fn mark_activity(&mut self) {
@@ -85,24 +290,78 @@ impl WebSocketActor {
         });
     }
 
-    fn assign_or_reconnect_agent(&mut self, requested_id: Option<String>) -> (String, ConnectStatus) {
-        let mut issued_agent_ids = self
-            .registry
-            .issued_agent_ids
-            .lock()
-            .expect("agent registry lock poisoned");
+    fn assign_or_reconnect_agent(
+        &mut self,
+        requested_id: Option<String>,
+        session: Addr<WebSocketActor>,
+    ) -> (String, ConnectStatus) {
+        let (assigned_id, status) = self.registry.connect_agent(requested_id, &self.client_ip, session);
+        self.agent_id = Some(assigned_id.clone());
+        (assigned_id, status)
+    }
 
-        if let Some(requested_id) = requested_id {
-            if issued_agent_ids.contains(&requested_id) {
-                self.agent_id = Some(requested_id.clone());
-                return (requested_id, ConnectStatus::Reconnected);
+    fn send_json(ctx: &mut ws::WebsocketContext<Self>, response: &WsMessage) {
+        match serde_json::to_string(response) {
+            Ok(json) => {
+                ctx.text(json);
+                let tracer = global::tracer("ws-server");
+                let mut sent_span = tracer.start("ws.message.sent");
+                sent_span.end();
+            }
+            Err(error) => {
+                error!("Failed to serialize websocket response: {}", error);
             }
         }
+    }
 
-        let assigned_id = Uuid::now_v7().to_string();
-        issued_agent_ids.insert(assigned_id.clone());
-        self.agent_id = Some(assigned_id.clone());
-        (assigned_id, ConnectStatus::Assigned)
+    fn send_status(
+        ctx: &mut ws::WebsocketContext<Self>,
+        message_id: Option<String>,
+        status: MessageDeliveryStatus,
+        detail: impl Into<String>,
+    ) {
+        Self::send_json(
+            ctx,
+            &WsMessage::MessageStatus {
+                message_id,
+                status,
+                detail: detail.into(),
+            },
+        );
+    }
+
+    fn send_invalid(ctx: &mut ws::WebsocketContext<Self>, message_id: Option<String>, detail: impl Into<String>) {
+        Self::send_json(
+            ctx,
+            &WsMessage::Invalid {
+                message_id,
+                detail: detail.into(),
+            },
+        );
+    }
+
+    fn deliver_pending_messages(&self, ctx: &mut ws::WebsocketContext<Self>) {
+        let Some(agent_id) = self.assigned_agent_id() else {
+            return;
+        };
+        let pending_messages = self.registry.pending_messages_for(agent_id);
+        if pending_messages.is_empty() {
+            return;
+        }
+        for pending in pending_messages {
+            info!(
+                "Delivering pending message {} to agent {} from {}",
+                pending.message_id, agent_id, pending.from_agent_id
+            );
+            let message = WsMessage::AgentMessage {
+                message_id: pending.message_id,
+                from_agent_id: pending.from_agent_id,
+                scope: MessageScope::Direct,
+                server_received_at: pending.server_received_at,
+                message: pending.message,
+            };
+            Self::send_json(ctx, &message);
+        }
     }
 }
 
@@ -112,12 +371,33 @@ impl Actor for WebSocketActor {
     fn started(&mut self, ctx: &mut Self::Context) {
         self.start_heartbeat(ctx);
         info!(
-            "WebSocket connection established for client: {}",
+            "WebSocket connection established for client IP {} with agent {}",
+            self.client_ip,
             self.current_agent_id()
         );
         let tracer = global::tracer("ws-server");
         let mut span = tracer.start("ws.connect");
         span.end();
+    }
+
+    fn stopped(&mut self, _ctx: &mut Self::Context) {
+        if let Some(agent_id) = self.agent_id.as_deref() {
+            self.registry.mark_disconnected(agent_id);
+            info!("Agent {} disconnected; last known IP {}", agent_id, self.client_ip);
+        } else {
+            info!(
+                "WebSocket connection closed before agent assignment for client IP {}",
+                self.client_ip
+            );
+        }
+    }
+}
+
+impl Handler<ServerEnvelope> for WebSocketActor {
+    type Result = ();
+
+    fn handle(&mut self, msg: ServerEnvelope, ctx: &mut Self::Context) -> Self::Result {
+        Self::send_json(ctx, &msg.message);
     }
 }
 
@@ -141,35 +421,188 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                     match msg {
                         WsMessage::Connect { agent_id } => {
                             let requested_id = agent_id.clone();
-                            let (assigned_id, status) = self.assign_or_reconnect_agent(agent_id);
                             info!(
-                                "Connect message: requested_agent_id={:?} assigned_agent_id={} status={:?}",
-                                requested_id, assigned_id, status
+                                "Connect message: requested_agent_id={:?} client_ip={}",
+                                requested_id, self.client_ip
                             );
-                            let response = WsMessage::ConnectAck {
-                                agent_id: assigned_id,
-                                status: status.clone(),
-                            };
-                            if let Ok(json) = serde_json::to_string(&response) {
-                                ctx.text(json);
-                                let mut sent_span = tracer.start("ws.message.sent");
-                                sent_span.end();
-                                info!(
-                                    "WebSocket connection ready for client {} with status {:?}",
-                                    self.current_agent_id(),
-                                    status
-                                );
-                            }
+                            let (assigned_id, status) = self.assign_or_reconnect_agent(agent_id, ctx.address());
+                            info!(
+                                "Agent {} status {:?}connected from IP {}",
+                                assigned_id, status, self.client_ip
+                            );
+                            Self::send_json(
+                                ctx,
+                                &WsMessage::ConnectAck {
+                                    agent_id: assigned_id,
+                                    status: status.clone(),
+                                },
+                            );
+                            info!(
+                                "WebSocket connection ready for client {} with status {:?}",
+                                self.current_agent_id(),
+                                status
+                            );
+                            self.deliver_pending_messages(ctx);
                         }
                         WsMessage::Alive { timestamp } => {
                             info!("Alive message from client {} at {}", self.current_agent_id(), timestamp);
-                            let response = WsMessage::Response {
-                                message: format!("Alive message received at {}", Utc::now().to_rfc3339()),
+                            Self::send_json(
+                                ctx,
+                                &WsMessage::Response {
+                                    message: format!("Alive message received at {}", Utc::now().to_rfc3339()),
+                                },
+                            );
+                        }
+                        WsMessage::ListAgents => {
+                            let agents = self.registry.list_agents();
+                            info!(
+                                "Agent {} requested list_agents; returning {} agents",
+                                self.current_agent_id(),
+                                agents.len()
+                            );
+                            Self::send_json(ctx, &WsMessage::ListAgentsResponse { agents });
+                        }
+                        WsMessage::SendAgentMessage { to_agent_id, message } => {
+                            let Some(from_agent_id) = self.assigned_agent_id().map(str::to_string) else {
+                                Self::send_invalid(ctx, None, "agent must connect before sending messages");
+                                span.end();
+                                return;
                             };
-                            if let Ok(json) = serde_json::to_string(&response) {
-                                ctx.text(json);
-                                let mut sent_span = tracer.start("ws.message.sent");
-                                sent_span.end();
+
+                            if from_agent_id == to_agent_id {
+                                Self::send_invalid(ctx, None, "agent cannot send a direct message to itself");
+                                span.end();
+                                return;
+                            }
+
+                            if !self
+                                .registry
+                                .list_agents()
+                                .iter()
+                                .any(|agent| agent.agent_id == to_agent_id)
+                            {
+                                Self::send_invalid(ctx, None, format!("unknown target agent {}", to_agent_id));
+                                span.end();
+                                return;
+                            }
+
+                            let server_received_at = Utc::now().to_rfc3339();
+                            match self.registry.queue_or_deliver_direct(
+                                &from_agent_id,
+                                &to_agent_id,
+                                server_received_at.clone(),
+                                message,
+                            ) {
+                                DirectSendResult::Delivered {
+                                    pending,
+                                    recipient_addr,
+                                } => {
+                                    let message_id = pending.message_id.clone();
+                                    info!(
+                                        "Direct message {} delivered from {} to {}",
+                                        message_id, from_agent_id, to_agent_id
+                                    );
+                                    recipient_addr.do_send(ServerEnvelope {
+                                        message: WsMessage::AgentMessage {
+                                            message_id: message_id.clone(),
+                                            from_agent_id: from_agent_id.clone(),
+                                            scope: MessageScope::Direct,
+                                            server_received_at: pending.server_received_at,
+                                            message: pending.message,
+                                        },
+                                    });
+                                    Self::send_status(
+                                        ctx,
+                                        Some(message_id),
+                                        MessageDeliveryStatus::Delivered,
+                                        format!("message delivered to agent {}", to_agent_id),
+                                    );
+                                }
+                                DirectSendResult::Queued { pending } => {
+                                    let message_id = pending.message_id;
+                                    info!(
+                                        "Direct message {} queued from {} to disconnected agent {}",
+                                        message_id, from_agent_id, to_agent_id
+                                    );
+                                    Self::send_status(
+                                        ctx,
+                                        Some(message_id),
+                                        MessageDeliveryStatus::Queued,
+                                        format!("message queued for agent {}", to_agent_id),
+                                    );
+                                }
+                            }
+                        }
+                        WsMessage::BroadcastMessage { message } => {
+                            let Some(from_agent_id) = self.assigned_agent_id().map(str::to_string) else {
+                                Self::send_invalid(ctx, None, "agent must connect before broadcasting messages");
+                                span.end();
+                                return;
+                            };
+
+                            let recipients = self.registry.connected_recipient_addrs(&from_agent_id);
+                            let message_id = Uuid::now_v7().to_string();
+                            let server_received_at = Utc::now().to_rfc3339();
+                            for (recipient_id, recipient_addr) in &recipients {
+                                info!(
+                                    "Broadcast message {} from {} to {}",
+                                    message_id, from_agent_id, recipient_id
+                                );
+                                recipient_addr.do_send(ServerEnvelope {
+                                    message: WsMessage::AgentMessage {
+                                        message_id: message_id.clone(),
+                                        from_agent_id: from_agent_id.clone(),
+                                        scope: MessageScope::Broadcast,
+                                        server_received_at: server_received_at.clone(),
+                                        message: message.clone(),
+                                    },
+                                });
+                            }
+                            Self::send_status(
+                                ctx,
+                                Some(message_id),
+                                MessageDeliveryStatus::Broadcast,
+                                format!("broadcast sent to {} connected agents", recipients.len()),
+                            );
+                        }
+                        WsMessage::MessageAck { message_id } => {
+                            let Some(recipient_agent_id) = self.assigned_agent_id().map(str::to_string) else {
+                                Self::send_invalid(ctx, None, "agent must connect before acknowledging messages");
+                                span.end();
+                                return;
+                            };
+
+                            match self.registry.acknowledge_message(&recipient_agent_id, &message_id) {
+                                AckResult::Acknowledged {
+                                    message_id,
+                                    sender_addr,
+                                    sender_agent_id,
+                                    recipient_agent_id,
+                                } => {
+                                    info!(
+                                        "Agent {} acknowledged direct message {} from {}",
+                                        recipient_agent_id, message_id, sender_agent_id
+                                    );
+                                    Self::send_status(
+                                        ctx,
+                                        Some(message_id.clone()),
+                                        MessageDeliveryStatus::Acknowledged,
+                                        "message acknowledged",
+                                    );
+                                    if let Some(sender_addr) = sender_addr {
+                                        sender_addr.do_send(ServerEnvelope {
+                                            message: WsMessage::MessageStatus {
+                                                message_id: Some(message_id),
+                                                status: MessageDeliveryStatus::Acknowledged,
+                                                detail: format!("agent {} acknowledged receipt", recipient_agent_id),
+                                            },
+                                        });
+                                    }
+                                }
+                                AckResult::Invalid { detail } => {
+                                    warn!("Invalid ack from {} for {}: {}", recipient_agent_id, message_id, detail);
+                                    Self::send_invalid(ctx, Some(message_id), detail);
+                                }
                             }
                         }
                         WsMessage::ClientEvent {
@@ -206,14 +639,16 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                                 details
                             );
                         }
-                        WsMessage::ConnectAck { .. } => {
+                        WsMessage::ConnectAck { .. }
+                        | WsMessage::ListAgentsResponse { .. }
+                        | WsMessage::AgentMessage { .. }
+                        | WsMessage::MessageStatus { .. }
+                        | WsMessage::Invalid { .. }
+                        | WsMessage::Response { .. } => {
                             warn!(
-                                "Unexpected connect_ack message from client: {}",
+                                "Unexpected server-originated message from client {}",
                                 self.current_agent_id()
                             );
-                        }
-                        WsMessage::Response { .. } => {
-                            warn!("Unexpected response message from client: {}", self.current_agent_id());
                         }
                     }
                 } else {
@@ -235,6 +670,8 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                 let tracer = global::tracer("ws-server");
                 let mut span = tracer.start("ws.disconnect");
                 span.end();
+                ctx.close(reason);
+                ctx.stop();
             }
             Ok(ws::Message::Binary(_)) | Ok(ws::Message::Continuation(_)) | Ok(ws::Message::Nop) => {
                 self.mark_activity();
@@ -258,7 +695,18 @@ async fn ws_handler(
     let tracer = global::tracer("ws-server");
     let mut span = tracer.start("ws.connect");
 
-    let result = ws::start(WebSocketActor::new(registry.get_ref().clone()), &req, stream);
+    let client_ip = req
+        .peer_addr()
+        .map(|addr| addr.ip().to_string())
+        .or_else(|| {
+            req.connection_info()
+                .realip_remote_addr()
+                .and_then(|addr| addr.split(':').next().map(str::to_string))
+        })
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let actor = WebSocketActor::new(registry.get_ref().clone(), client_ip);
+    let result = ws::start(actor, &req, stream);
 
     span.end();
     result

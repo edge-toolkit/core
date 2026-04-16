@@ -121,8 +121,29 @@
         <code id="agent-id">unassigned</code>
       </div>
       <p>
-        <button id="run-har-button" type="button">har demo</button>
-        <button id="run-face-detection-button" type="button">face demo</button>
+        <label for="module-select">Workflow module</label>
+        <select id="module-select">
+          <option value="comm1">comm1</option>
+          <option value="face-detection">face-detection</option>
+          <option value="har1">har1</option>
+        </select>
+        <button id="run-module-button" type="button">Run module</button>
+      </p>
+      <video id="face-video-preview" autoplay playsinline muted hidden></video>
+      <canvas id="face-video-output-canvas" hidden></canvas>
+      <video id="video-preview" autoplay playsinline muted hidden></video>
+      <canvas id="video-output-canvas" hidden></canvas>
+      <div class="status-grid">
+        <textarea id="module-output" readonly
+        >Workflow module not running.</textarea>
+        <textarea id="ml-debug-output" readonly
+        >ML model debugging output not available.</textarea>
+        <textarea id="sensor-output" readonly
+        >Waiting for device sensor data…</textarea>
+      </div>
+      <pre id="log">Booting…</pre>
+
+      <p>
         <button id="mic-button" type="button">Start microphone</button>
         <button id="video-button" type="button">Start video</button>
         <button id="bluetooth-button" type="button">
@@ -143,21 +164,6 @@
           Show video output
         </button>
       </p>
-      <video id="face-video-preview" autoplay playsinline muted hidden></video>
-      <canvas id="face-video-output-canvas" hidden></canvas>
-      <video id="video-preview" autoplay playsinline muted hidden></video>
-      <canvas id="video-output-canvas" hidden></canvas>
-      <div class="status-grid">
-        <textarea id="sensor-output" readonly
-        >Waiting for device motion/orientation data…</textarea>
-        <textarea id="har-output" readonly
-        >Human activity recognition model not loaded.</textarea>
-        <textarea id="face-output" readonly
-        >Face detection demo not running.</textarea>
-        <textarea id="video-output" readonly
-        >Video CV model not loaded.</textarea>
-      </div>
-      <pre id="log">Booting…</pre>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>

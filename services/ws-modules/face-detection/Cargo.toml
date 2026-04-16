@@ -1,7 +1,9 @@
 [package]
 name = "et-ws-face-detection"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [lib]
 crate-type = ["cdylib", "rlib"]
