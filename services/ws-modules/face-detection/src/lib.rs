@@ -61,7 +61,7 @@ thread_local! {
 
 #[wasm_bindgen(start)]
 pub fn init() {
-    tracing_wasm::set_as_global_default();
+    let _ = tracing_wasm::try_set_as_global_default();
     info!("face detection workflow module initialized");
 }
 
@@ -859,3 +859,6 @@ fn canvas_2d_context(canvas: &HtmlCanvasElement) -> Result<CanvasRenderingContex
 fn set_hidden(target: &JsValue, hidden: bool) -> Result<(), JsValue> {
     Reflect::set(target, &JsValue::from_str("hidden"), &JsValue::from_bool(hidden)).map(|_| ())
 }
+
+#[cfg(test)]
+mod test_face_detection;
