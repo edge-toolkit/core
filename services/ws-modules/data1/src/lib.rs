@@ -4,6 +4,7 @@ use std::rc::Rc;
 use edge_toolkit::ws::WsMessage;
 use et_ws_wasm_agent::{WsClient, WsClientConfig, append_to_textarea};
 use js_sys::{Promise, Reflect};
+use serde_json::json;
 use tracing::info;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
@@ -13,6 +14,16 @@ use web_sys::{Request, RequestInit, RequestMode, Response};
 pub fn init() {
     tracing_wasm::set_as_global_default();
     info!("data1 workflow module initialized");
+}
+
+#[wasm_bindgen]
+pub fn metadata() -> JsValue {
+    serde_wasm_bindgen::to_value(&json!({
+        "name": env!("CARGO_PKG_NAME"),
+        "description": env!("CARGO_PKG_DESCRIPTION"),
+        "version": env!("CARGO_PKG_VERSION"),
+    }))
+    .unwrap_or(JsValue::NULL)
 }
 
 #[wasm_bindgen]
