@@ -102,6 +102,23 @@
       margin: 0;
       min-height: 180px;
     }
+
+    video,
+    canvas {
+      box-sizing: border-box;
+      display: block;
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: min(42vh, 420px);
+      margin: 12px auto 0;
+      background: #182028;
+      object-fit: contain;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
     </style>
   </head>
   <body>
@@ -125,8 +142,6 @@
         <select id="module-select"></select>
         <button id="run-module-button" type="button">Run module</button>
       </p>
-      <video id="face-video-preview" autoplay playsinline muted hidden></video>
-      <canvas id="face-video-output-canvas" hidden></canvas>
       <video id="video-preview" autoplay playsinline muted hidden></video>
       <canvas id="video-output-canvas" hidden></canvas>
       <div class="status-grid">
@@ -156,9 +171,6 @@
         <button id="speech-button" type="button">Recognize speech</button>
         <button id="nfc-button" type="button">Scan NFC</button>
         <button id="sensors-button" type="button">Start sensors</button>
-        <button id="video-output-button" type="button">
-          Show video output
-        </button>
       </p>
     </main>
 

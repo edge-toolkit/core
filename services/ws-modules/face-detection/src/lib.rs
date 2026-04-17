@@ -823,10 +823,10 @@ fn face_video_element() -> Result<HtmlVideoElement, JsValue> {
         .and_then(|window| window.document())
         .ok_or_else(|| JsValue::from_str("No document available"))?;
     document
-        .get_element_by_id("face-video-preview")
-        .ok_or_else(|| JsValue::from_str("Missing #face-video-preview element"))?
+        .get_element_by_id("video-preview")
+        .ok_or_else(|| JsValue::from_str("Missing #video-preview element"))?
         .dyn_into::<HtmlVideoElement>()
-        .map_err(|_| JsValue::from_str("#face-video-preview was not a video element"))
+        .map_err(|_| JsValue::from_str("#video-preview was not a video element"))
 }
 
 fn face_output_canvas_element() -> Result<HtmlCanvasElement, JsValue> {
@@ -834,10 +834,10 @@ fn face_output_canvas_element() -> Result<HtmlCanvasElement, JsValue> {
         .and_then(|window| window.document())
         .ok_or_else(|| JsValue::from_str("No document available"))?;
     document
-        .get_element_by_id("face-video-output-canvas")
-        .ok_or_else(|| JsValue::from_str("Missing #face-video-output-canvas element"))?
+        .get_element_by_id("video-output-canvas")
+        .ok_or_else(|| JsValue::from_str("Missing #video-output-canvas element"))?
         .dyn_into::<HtmlCanvasElement>()
-        .map_err(|_| JsValue::from_str("#face-video-output-canvas was not a canvas element"))
+        .map_err(|_| JsValue::from_str("#video-output-canvas was not a canvas element"))
 }
 
 fn face_preprocess_canvas() -> Result<HtmlCanvasElement, JsValue> {
