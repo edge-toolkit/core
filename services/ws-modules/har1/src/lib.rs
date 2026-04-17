@@ -18,7 +18,7 @@ const HAR_CLASS_LABELS: [&str; 6] = ["class_0", "class_1", "class_2", "class_3",
 
 #[wasm_bindgen(start)]
 pub fn init() {
-    tracing_wasm::set_as_global_default();
+    let _ = tracing_wasm::try_set_as_global_default();
     info!("har1 workflow module initialized");
 }
 
@@ -528,3 +528,6 @@ async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
     });
     JsFuture::from(promise).await.map(|_| ())
 }
+
+#[cfg(test)]
+mod test_har1;
