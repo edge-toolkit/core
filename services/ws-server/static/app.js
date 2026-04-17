@@ -13,6 +13,8 @@ import init, {
   WsClientConfig,
 } from "/pkg/et_ws_wasm_agent.js";
 
+console.log("app.js: module loading started");
+
 const logEl = document.getElementById("log");
 const moduleSelect = document.getElementById("module-select");
 const runModuleButton = document.getElementById("run-module-button");
@@ -33,6 +35,7 @@ const sensorOutputEl = document.getElementById("sensor-output");
 const videoOutputEl = document.getElementById("ml-debug-output");
 const videoPreview = document.getElementById("video-preview");
 const videoOutputCanvas = document.getElementById("video-output-canvas");
+
 let microphone = null;
 let videoCapture = null;
 let bluetoothDevice = null;
@@ -71,27 +74,54 @@ const describeError = (error) => (
   error instanceof Error ? error.message : String(error)
 );
 
-const WORKFLOW_MODULES = {
-  har1: {
-    label: "har1",
-    moduleUrl: "/modules/har1/pkg/et_ws_har1.js",
-    wasmUrl: "/modules/har1/pkg/et_ws_har1_bg.wasm",
-  },
-  "face-detection": {
-    label: "face detection",
-    moduleUrl: "/modules/face-detection/pkg/et_ws_face_detection.js",
-    wasmUrl: "/modules/face-detection/pkg/et_ws_face_detection_bg.wasm",
-  },
-  comm1: {
-    label: "comm1",
-    moduleUrl: "/modules/comm1/pkg/et_ws_comm1.js",
-    wasmUrl: "/modules/comm1/pkg/et_ws_comm1_bg.wasm",
-  },
-  data1: {
-    label: "data1",
-    moduleUrl: "/modules/data1/pkg/et_ws_data1.js",
-    wasmUrl: "/modules/data1/pkg/et_ws_data1_bg.wasm",
-  },
+const WORKFLOW_MODULES = new Map();
+
+const populateModuleDropdown = async () => {
+  append("Discovering modules via /api/modules...");
+  const resp = await fetch("/api/modules");
+  if (!resp.ok) {
+    append(`Failed to fetch module list from server: ${resp.status} ${resp.statusText}`);
+    return;
+  }
+  const moduleNames = await resp.json();
+  append(`Found ${moduleNames.length} potential modules: ${moduleNames.join(", ")}`);
+
+  // Clear current options
+  moduleSelect.innerHTML = "";
+
+  for (const name of moduleNames) {
+    try {
+      const moduleKey = name;
+      const moduleUrl = `/modules/${name}/pkg/et_ws_${name.replace(/-/g, "_")}.js`;
+      const wasmUrl = `/modules/${name}/pkg/et_ws_${name.replace(/-/g, "_")}_bg.wasm`;
+
+      append(`Loading metadata for ${name}...`);
+      const loadedModule = await import(`${moduleUrl}?v=${Date.now()}`);
+      await loadedModule.default(wasmUrl);
+
+      let metadata = { name, description: "", version: "" };
+      if (typeof loadedModule.metadata === "function") {
+        metadata = loadedModule.metadata();
+      }
+
+      WORKFLOW_MODULES.set(moduleKey, {
+        label: metadata.description || metadata.name || name,
+        moduleUrl,
+        wasmUrl,
+        loaded: loadedModule,
+      });
+
+      const option = document.createElement("option");
+      option.value = moduleKey;
+      option.textContent = WORKFLOW_MODULES.get(moduleKey).label;
+      moduleSelect.appendChild(option);
+
+      append(`Successfully discovered module: ${name} (${metadata.version})`);
+    } catch (error) {
+      append(`Error discovering module ${name}: ${describeError(error)}`);
+      console.error(`discovery error for ${name}:`, error);
+    }
+  }
 };
 
 const updateAgentCard = (status, agentId = currentAgentId) => {
@@ -118,15 +148,17 @@ const writeStoredAgentId = (agentId) => {
 };
 
 const loadWorkflowModule = async (moduleKey) => {
-  const moduleConfig = WORKFLOW_MODULES[moduleKey];
+  const moduleConfig = WORKFLOW_MODULES.get(moduleKey);
   if (!moduleConfig) {
     throw new Error(`unknown workflow module: ${moduleKey}`);
   }
 
-  if (loadedWorkflowModules.has(moduleKey)) {
-    return loadedWorkflowModules.get(moduleKey);
+  if (moduleConfig.loaded) {
+    return moduleConfig.loaded;
   }
 
+  // This part is mostly handled by populateModuleDropdown now
+  // but kept for robustness if called separately.
   const cacheBust = Date.now();
   const moduleUrl = `${moduleConfig.moduleUrl}?v=${cacheBust}`;
   const wasmUrl = `${moduleConfig.wasmUrl}?v=${cacheBust}`;
@@ -134,13 +166,13 @@ const loadWorkflowModule = async (moduleKey) => {
   const loadedModule = await import(moduleUrl);
   append(`${moduleConfig.label} module: initializing ${wasmUrl}`);
   await loadedModule.default(wasmUrl);
-  loadedWorkflowModules.set(moduleKey, loadedModule);
+  moduleConfig.loaded = loadedModule;
   return loadedModule;
 };
 
 const runSelectedWorkflowModule = async () => {
   const moduleKey = moduleSelect.value;
-  const moduleConfig = WORKFLOW_MODULES[moduleKey];
+  const moduleConfig = WORKFLOW_MODULES.get(moduleKey);
   if (!moduleConfig) {
     throw new Error(`unknown workflow module: ${moduleKey}`);
   }
@@ -627,6 +659,13 @@ const normalizeBox = (boxValues, format = "xyxy") => {
   return normalized;
 };
 
+const softmax = (logits) => {
+  const maxLogit = Math.max(...logits);
+  const scores = logits.map((l) => Math.exp(l - maxLogit));
+  const sumScores = scores.reduce((a, b) => a + b, 0);
+  return scores.map((s) => s / sumScores);
+};
+
 const findDetectionTensor = (entries, patterns, predicate = () => true) => {
   return entries.find(([name, tensor]) => {
     const normalizedName = String(name).toLowerCase();
@@ -1104,6 +1143,13 @@ updateAgentCard(
 );
 
 try {
+  try {
+    await populateModuleDropdown();
+  } catch (error) {
+    append(`Module discovery failed: ${describeError(error)}`);
+    console.error("populateModuleDropdown error:", error);
+  }
+
   await init();
   initTracing();
 
@@ -1415,7 +1461,7 @@ try {
   });
 
   runModuleButton.addEventListener("click", async () => {
-    const selectedModule = WORKFLOW_MODULES[moduleSelect.value];
+    const selectedModule = WORKFLOW_MODULES.get(moduleSelect.value);
     runModuleButton.disabled = true;
     moduleSelect.disabled = true;
     runModuleButton.textContent = selectedModule
@@ -1442,7 +1488,7 @@ try {
   window.client = client;
   window.sendAlive = () => client.send_alive();
   window.runWorkflowModule = (moduleKey) => {
-    if (moduleKey && WORKFLOW_MODULES[moduleKey]) {
+    if (moduleKey && WORKFLOW_MODULES.has(moduleKey)) {
       moduleSelect.value = moduleKey;
     }
     return runSelectedWorkflowModule();

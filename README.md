@@ -41,6 +41,8 @@ Scan the QR-Code with a smart-phone camera and open the URL.
 
 Select the module to run in the drop-down, then click "Run module" button.
 
+The module list is dynamically populated from the modules in [services/ws-modules](services/ws-modules).
+
 Note: The WASM build disables WebAssembly reference types, so it can still load on older browsers such as Chrome 95.
 
 ## Grant

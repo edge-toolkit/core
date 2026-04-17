@@ -19,6 +19,16 @@ pub fn init() {
 }
 
 #[wasm_bindgen]
+pub fn metadata() -> JsValue {
+    serde_wasm_bindgen::to_value(&json!({
+        "name": env!("CARGO_PKG_NAME"),
+        "description": env!("CARGO_PKG_DESCRIPTION"),
+        "version": env!("CARGO_PKG_VERSION"),
+    }))
+    .unwrap_or(JsValue::NULL)
+}
+
+#[wasm_bindgen]
 pub async fn run() -> Result<(), JsValue> {
     log("comm1: entered run()")?;
 
