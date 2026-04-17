@@ -1,11 +1,17 @@
+use std::cell::RefCell;
 use std::collections::VecDeque;
+use std::rc::Rc;
 
-use et_ws_wasm_agent::{DeviceSensors, MotionReading, WsClient, WsClientConfig, set_textarea_value};
+use et_web::{SENSOR_PERMISSION_GRANTED, request_sensor_permission};
+use et_ws_wasm_agent::{
+    WsClient, WsClientConfig, js_bool_field, js_nested_object, js_number_field, set_textarea_value,
+};
 use js_sys::{Array, Float32Array, Function, Promise, Reflect};
 use serde_json::json;
 use tracing::info;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
+use web_sys::Event;
 
 const HAR_MODEL_PATH: &str = "/static/models/human_activity_recognition.onnx";
 const HAR_SEQUENCE_LENGTH: usize = 512;
@@ -15,6 +21,276 @@ const HAR_INFERENCE_INTERVAL_MS: f64 = 250.0;
 const STANDARD_GRAVITY: f64 = 9.80665;
 const GRAVITY_FILTER_ALPHA: f64 = 0.8;
 const HAR_CLASS_LABELS: [&str; 6] = ["class_0", "class_1", "class_2", "class_3", "class_4", "class_5"];
+
+#[derive(Clone, Default)]
+struct OrientationReadingState {
+    alpha: Option<f64>,
+    beta: Option<f64>,
+    gamma: Option<f64>,
+    absolute: Option<bool>,
+}
+
+#[derive(Clone, Default)]
+struct MotionReadingState {
+    acceleration_x: Option<f64>,
+    acceleration_y: Option<f64>,
+    acceleration_z: Option<f64>,
+    acceleration_including_gravity_x: Option<f64>,
+    acceleration_including_gravity_y: Option<f64>,
+    acceleration_including_gravity_z: Option<f64>,
+    rotation_rate_alpha: Option<f64>,
+    rotation_rate_beta: Option<f64>,
+    rotation_rate_gamma: Option<f64>,
+    interval_ms: Option<f64>,
+}
+
+#[wasm_bindgen]
+pub struct OrientationReading {
+    inner: OrientationReadingState,
+}
+
+#[wasm_bindgen]
+impl OrientationReading {
+    pub fn alpha(&self) -> f64 {
+        self.inner.alpha.unwrap_or(0.0)
+    }
+
+    pub fn beta(&self) -> f64 {
+        self.inner.beta.unwrap_or(0.0)
+    }
+
+    pub fn gamma(&self) -> f64 {
+        self.inner.gamma.unwrap_or(0.0)
+    }
+
+    pub fn absolute(&self) -> bool {
+        self.inner.absolute.unwrap_or(false)
+    }
+}
+
+#[wasm_bindgen]
+pub struct MotionReading {
+    inner: MotionReadingState,
+}
+
+#[wasm_bindgen]
+impl MotionReading {
+    #[wasm_bindgen(js_name = accelerationX)]
+    pub fn acceleration_x(&self) -> f64 {
+        self.inner.acceleration_x.unwrap_or(0.0)
+    }
+
+    #[wasm_bindgen(js_name = accelerationY)]
+    pub fn acceleration_y(&self) -> f64 {
+        self.inner.acceleration_y.unwrap_or(0.0)
+    }
+
+    #[wasm_bindgen(js_name = accelerationZ)]
+    pub fn acceleration_z(&self) -> f64 {
+        self.inner.acceleration_z.unwrap_or(0.0)
+    }
+
+    #[wasm_bindgen(js_name = accelerationIncludingGravityX)]
+    pub fn acceleration_including_gravity_x(&self) -> f64 {
+        self.inner.acceleration_including_gravity_x.unwrap_or(0.0)
+    }
+
+    #[wasm_bindgen(js_name = accelerationIncludingGravityY)]
+    pub fn acceleration_including_gravity_y(&self) -> f64 {
+        self.inner.acceleration_including_gravity_y.unwrap_or(0.0)
+    }
+
+    #[wasm_bindgen(js_name = accelerationIncludingGravityZ)]
+    pub fn acceleration_including_gravity_z(&self) -> f64 {
+        self.inner.acceleration_including_gravity_z.unwrap_or(0.0)
+    }
+
+    #[wasm_bindgen(js_name = rotationRateAlpha)]
+    pub fn rotation_rate_alpha(&self) -> f64 {
+        self.inner.rotation_rate_alpha.unwrap_or(0.0)
+    }
+
+    #[wasm_bindgen(js_name = rotationRateBeta)]
+    pub fn rotation_rate_beta(&self) -> f64 {
+        self.inner.rotation_rate_beta.unwrap_or(0.0)
+    }
+
+    #[wasm_bindgen(js_name = rotationRateGamma)]
+    pub fn rotation_rate_gamma(&self) -> f64 {
+        self.inner.rotation_rate_gamma.unwrap_or(0.0)
+    }
+
+    #[wasm_bindgen(js_name = intervalMs)]
+    pub fn interval_ms(&self) -> f64 {
+        self.inner.interval_ms.unwrap_or(0.0)
+    }
+}
+
+#[wasm_bindgen]
+pub struct DeviceSensors {
+    active: bool,
+    orientation_state: Rc<RefCell<Option<OrientationReadingState>>>,
+    motion_state: Rc<RefCell<Option<MotionReadingState>>>,
+    orientation_listener: Option<Closure<dyn FnMut(Event)>>,
+    motion_listener: Option<Closure<dyn FnMut(Event)>>,
+}
+
+impl Default for DeviceSensors {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[wasm_bindgen]
+impl DeviceSensors {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> DeviceSensors {
+        DeviceSensors {
+            active: false,
+            orientation_state: Rc::new(RefCell::new(None)),
+            motion_state: Rc::new(RefCell::new(None)),
+            orientation_listener: None,
+            motion_listener: None,
+        }
+    }
+
+    pub async fn start(&mut self) -> Result<(), JsValue> {
+        if self.active {
+            return Ok(());
+        }
+
+        let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
+
+        if js_sys::Reflect::get(&window, &JsValue::from_str("DeviceOrientationEvent"))?.is_undefined()
+            && js_sys::Reflect::get(&window, &JsValue::from_str("DeviceMotionEvent"))?.is_undefined()
+        {
+            return Err(JsValue::from_str(
+                "Device orientation and motion APIs are not supported in this browser.",
+            ));
+        }
+
+        let orientation_permission = request_sensor_permission(js_sys::Reflect::get(
+            &window,
+            &JsValue::from_str("DeviceOrientationEvent"),
+        )?)
+        .await?;
+        let motion_permission =
+            request_sensor_permission(js_sys::Reflect::get(&window, &JsValue::from_str("DeviceMotionEvent"))?).await?;
+
+        if orientation_permission != SENSOR_PERMISSION_GRANTED || motion_permission != SENSOR_PERMISSION_GRANTED {
+            return Err(JsValue::from_str(&format!(
+                "Sensor permission denied (orientation={orientation_permission}, motion={motion_permission})"
+            )));
+        }
+
+        *self.orientation_state.borrow_mut() = None;
+        *self.motion_state.borrow_mut() = None;
+
+        let orientation_state = self.orientation_state.clone();
+        let orientation_listener = Closure::wrap(Box::new(move |event: Event| {
+            let value: JsValue = event.into();
+            *orientation_state.borrow_mut() = Some(OrientationReadingState {
+                alpha: js_number_field(&value, "alpha"),
+                beta: js_number_field(&value, "beta"),
+                gamma: js_number_field(&value, "gamma"),
+                absolute: js_bool_field(&value, "absolute"),
+            });
+        }) as Box<dyn FnMut(Event)>);
+
+        let motion_state = self.motion_state.clone();
+        let motion_listener = Closure::wrap(Box::new(move |event: Event| {
+            let value: JsValue = event.into();
+            let acceleration = js_nested_object(&value, "acceleration");
+            let acceleration_including_gravity = js_nested_object(&value, "accelerationIncludingGravity");
+            let rotation_rate = js_nested_object(&value, "rotationRate");
+
+            *motion_state.borrow_mut() = Some(MotionReadingState {
+                acceleration_x: acceleration.as_ref().and_then(|v| js_number_field(v, "x")),
+                acceleration_y: acceleration.as_ref().and_then(|v| js_number_field(v, "y")),
+                acceleration_z: acceleration.as_ref().and_then(|v| js_number_field(v, "z")),
+                acceleration_including_gravity_x: acceleration_including_gravity
+                    .as_ref()
+                    .and_then(|v| js_number_field(v, "x")),
+                acceleration_including_gravity_y: acceleration_including_gravity
+                    .as_ref()
+                    .and_then(|v| js_number_field(v, "y")),
+                acceleration_including_gravity_z: acceleration_including_gravity
+                    .as_ref()
+                    .and_then(|v| js_number_field(v, "z")),
+                rotation_rate_alpha: rotation_rate.as_ref().and_then(|v| js_number_field(v, "alpha")),
+                rotation_rate_beta: rotation_rate.as_ref().and_then(|v| js_number_field(v, "beta")),
+                rotation_rate_gamma: rotation_rate.as_ref().and_then(|v| js_number_field(v, "gamma")),
+                interval_ms: js_number_field(&value, "interval"),
+            });
+        }) as Box<dyn FnMut(Event)>);
+
+        let target: &web_sys::EventTarget = window.as_ref();
+        target.add_event_listener_with_callback("deviceorientation", orientation_listener.as_ref().unchecked_ref())?;
+        target.add_event_listener_with_callback("devicemotion", motion_listener.as_ref().unchecked_ref())?;
+
+        self.orientation_listener = Some(orientation_listener);
+        self.motion_listener = Some(motion_listener);
+        self.active = true;
+        info!("Device sensors started");
+        Ok(())
+    }
+
+    pub fn stop(&mut self) -> Result<(), JsValue> {
+        if !self.active {
+            return Ok(());
+        }
+
+        let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
+        let target: &web_sys::EventTarget = window.as_ref();
+
+        if let Some(listener) = self.orientation_listener.as_ref() {
+            target.remove_event_listener_with_callback("deviceorientation", listener.as_ref().unchecked_ref())?;
+        }
+
+        if let Some(listener) = self.motion_listener.as_ref() {
+            target.remove_event_listener_with_callback("devicemotion", listener.as_ref().unchecked_ref())?;
+        }
+
+        self.orientation_listener = None;
+        self.motion_listener = None;
+        self.active = false;
+        info!("Device sensors stopped");
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = isActive)]
+    pub fn is_active(&self) -> bool {
+        self.active
+    }
+
+    #[wasm_bindgen(js_name = hasOrientation)]
+    pub fn has_orientation(&self) -> bool {
+        self.orientation_state.borrow().is_some()
+    }
+
+    #[wasm_bindgen(js_name = hasMotion)]
+    pub fn has_motion(&self) -> bool {
+        self.motion_state.borrow().is_some()
+    }
+
+    #[wasm_bindgen(js_name = orientationSnapshot)]
+    pub fn orientation_snapshot(&self) -> Result<OrientationReading, JsValue> {
+        self.orientation_state
+            .borrow()
+            .clone()
+            .map(|inner| OrientationReading { inner })
+            .ok_or_else(|| JsValue::from_str("No orientation reading available yet"))
+    }
+
+    #[wasm_bindgen(js_name = motionSnapshot)]
+    pub fn motion_snapshot(&self) -> Result<MotionReading, JsValue> {
+        self.motion_state
+            .borrow()
+            .clone()
+            .map(|inner| MotionReading { inner })
+            .ok_or_else(|| JsValue::from_str("No motion reading available yet"))
+    }
+}
 
 #[wasm_bindgen(start)]
 pub fn init() {

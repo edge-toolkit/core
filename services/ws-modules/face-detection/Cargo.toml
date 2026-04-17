@@ -10,6 +10,7 @@ repository.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+et-web.workspace = true
 et-ws-wasm-agent = { path = "../../ws-wasm-agent" }
 js-sys = "0.3"
 serde.workspace = true

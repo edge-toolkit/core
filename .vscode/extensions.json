@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "davidanson.vscode-markdownlint",
+    "editorconfig.editorconfig",
+    "fill-labs.dependi",
+    "github.vscode-github-actions",
+    "ms-azuretools.vscode-docker",
+    "rust-lang.rust-analyzer",
+    "streetsidesoftware.code-spell-checker",
+    "tamasfe.even-better-toml",
+    "yzhang.markdown-all-in-one"
+  ]
+}
