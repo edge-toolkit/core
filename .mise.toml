@@ -114,12 +114,60 @@ description = "Build the comm1 workflow WASM module"
 dir = "services/ws-modules/comm1"
 run = "wasm-pack build . --target web"
 
+[tasks.build-ws-sensor1-module]
+description = "Build the sensor1 workflow WASM module"
+dir = "services/ws-modules/sensor1"
+run = "wasm-pack build . --target web"
+
+[tasks.build-ws-audio1-module]
+description = "Build the audio1 workflow WASM module"
+dir = "services/ws-modules/audio1"
+run = "wasm-pack build . --target web"
+
+[tasks.build-ws-video1-module]
+description = "Build the video1 workflow WASM module"
+dir = "services/ws-modules/video1"
+run = "wasm-pack build . --target web"
+
+[tasks.build-ws-bluetooth-module]
+description = "Build the bluetooth workflow WASM module"
+dir = "services/ws-modules/bluetooth"
+run = "wasm-pack build . --target web"
+
+[tasks.build-ws-geolocation-module]
+description = "Build the geolocation workflow WASM module"
+dir = "services/ws-modules/geolocation"
+run = "wasm-pack build . --target web"
+
+[tasks.build-ws-graphics-info-module]
+description = "Build the graphics info workflow WASM module"
+dir = "services/ws-modules/graphics-info"
+run = "wasm-pack build . --target web"
+
+[tasks.build-ws-speech-recognition-module]
+description = "Build the speech recognition workflow WASM module"
+dir = "services/ws-modules/speech-recognition"
+run = "wasm-pack build . --target web"
+
+[tasks.build-ws-nfc-module]
+description = "Build the nfc workflow WASM module"
+dir = "services/ws-modules/nfc"
+run = "wasm-pack build . --target web"
+
 [tasks.build-wasm]
 depends = [
+  "build-ws-audio1-module",
+  "build-ws-bluetooth-module",
   "build-ws-comm1-module",
   "build-ws-data1-module",
   "build-ws-face-detection-module",
+  "build-ws-geolocation-module",
+  "build-ws-graphics-info-module",
   "build-ws-har1-module",
+  "build-ws-nfc-module",
+  "build-ws-sensor1-module",
+  "build-ws-speech-recognition-module",
+  "build-ws-video1-module",
   "build-ws-wasm-agent",
 ]
 description = "Build all WebAssembly modules"

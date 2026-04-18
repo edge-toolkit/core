@@ -1,13 +1,15 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use et_ws_wasm_agent::{VideoCapture, WsClient, WsClientConfig, set_textarea_value};
+use et_web::get_media_devices;
+use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value};
 use js_sys::{Array, Float32Array, Function, Promise, Reflect};
 use serde_json::json;
 use tracing::info;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{JsFuture, spawn_local};
+use web_sys::MediaStreamConstraints;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, HtmlVideoElement, ImageData, MediaStream};
 
 const FACE_MODEL_PATH: &str = "/static/models/video_cv.onnx";
@@ -52,6 +54,57 @@ struct FaceDetectionRuntime {
     render_interval_id: i32,
     _inference_closure: Closure<dyn FnMut()>,
     _render_closure: Closure<dyn FnMut()>,
+}
+
+#[wasm_bindgen]
+pub struct VideoCapture {
+    stream: MediaStream,
+}
+
+#[wasm_bindgen]
+impl VideoCapture {
+    #[wasm_bindgen(js_name = request)]
+    pub async fn request() -> Result<VideoCapture, JsValue> {
+        let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
+        let media_devices = get_media_devices(&window.navigator())?;
+
+        let constraints = MediaStreamConstraints::new();
+        constraints.set_audio(&JsValue::FALSE);
+        constraints.set_video(&JsValue::TRUE);
+
+        let promise = media_devices.get_user_media_with_constraints(&constraints)?;
+        let stream = JsFuture::from(promise).await?;
+        let stream: MediaStream = stream
+            .dyn_into()
+            .map_err(|_| JsValue::from_str("getUserMedia did not return a MediaStream"))?;
+
+        info!(
+            "Video capture granted with {} video track(s)",
+            stream.get_video_tracks().length()
+        );
+
+        Ok(VideoCapture { stream })
+    }
+
+    #[wasm_bindgen(js_name = trackCount)]
+    pub fn track_count(&self) -> u32 {
+        self.stream.get_video_tracks().length()
+    }
+
+    #[wasm_bindgen(js_name = rawStream)]
+    pub fn raw_stream(&self) -> JsValue {
+        self.stream.clone().into()
+    }
+
+    pub fn stop(&self) {
+        let tracks = self.stream.get_tracks();
+        for index in 0..tracks.length() {
+            if let Some(track) = tracks.get(index).dyn_ref::<web_sys::MediaStreamTrack>() {
+                track.stop();
+            }
+        }
+        info!("Video capture tracks stopped");
+    }
 }
 
 thread_local! {
@@ -133,6 +186,7 @@ pub async fn run() -> Result<(), JsValue> {
     let last_summary: Rc<RefCell<Option<DetectionSummary>>> = Rc::new(RefCell::new(None));
     let inference_pending = Rc::new(Cell::new(false));
     let last_has_detection = Rc::new(Cell::new(false));
+    let inference_count = Rc::new(Cell::new(0));
 
     let inference_session = session.clone();
     let inference_input_name = input_name.clone();
@@ -141,8 +195,13 @@ pub async fn run() -> Result<(), JsValue> {
     let inference_last_summary = last_summary.clone();
     let inference_pending_flag = inference_pending.clone();
     let inference_last_has_detection = last_has_detection.clone();
+    let inference_count_ref = inference_count.clone();
     let inference_closure = Closure::wrap(Box::new(move || {
         if inference_pending_flag.get() {
+            return;
+        }
+
+        if inference_count_ref.get() >= 20 {
             return;
         }
 
@@ -154,14 +213,23 @@ pub async fn run() -> Result<(), JsValue> {
         let last_summary = inference_last_summary.clone();
         let pending_flag = inference_pending_flag.clone();
         let last_has_detection = inference_last_has_detection.clone();
+        let count_ref = inference_count_ref.clone();
 
         spawn_local(async move {
             let outcome = infer_once(&session, &input_name, &output_names, &client, &last_has_detection).await;
 
             match outcome {
                 Ok(summary) => {
+                    let count = count_ref.get() + 1;
+                    count_ref.set(count);
+
                     update_face_status(&input_name, &output_names, &summary);
                     *last_summary.borrow_mut() = Some(summary);
+
+                    if count >= 20 {
+                        let _ = log("workflow finished automatically after 20 inferences");
+                        let _ = stop();
+                    }
                 }
                 Err(error) => {
                     let message = describe_js_error(&error);
@@ -193,6 +261,14 @@ pub async fn run() -> Result<(), JsValue> {
         render_closure.as_ref().unchecked_ref(),
         FACE_RENDER_INTERVAL_MS,
     )?;
+
+    let stop_callback = Closure::once_into_js(move || {
+        if is_running() {
+            let _ = log("workflow finished automatically after 30 seconds");
+            let _ = stop();
+        }
+    });
+    window.set_timeout_with_callback_and_timeout_and_arguments_0(stop_callback.unchecked_ref(), 30000)?;
 
     let startup_summary = DetectionSummary {
         detections: Vec::new(),

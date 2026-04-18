@@ -7,10 +7,19 @@ rust-version = "1.87.0"
 [workspace]
 members = [
   "libs/edge-toolkit",
+  "libs/web",
+  "services/ws-modules/audio1",
+  "services/ws-modules/bluetooth",
   "services/ws-modules/comm1",
   "services/ws-modules/data1",
   "services/ws-modules/face-detection",
+  "services/ws-modules/geolocation",
+  "services/ws-modules/graphics-info",
   "services/ws-modules/har1",
+  "services/ws-modules/nfc",
+  "services/ws-modules/sensor1",
+  "services/ws-modules/speech-recognition",
+  "services/ws-modules/video1",
   "services/ws-server",
   "services/ws-wasm-agent",
 ]
@@ -18,6 +27,7 @@ resolver = "2"
 
 [workspace.dependencies]
 chrono = { version = "0.4", features = ["serde"] }
+et-web = { path = "libs/web" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tracing = "0.1"

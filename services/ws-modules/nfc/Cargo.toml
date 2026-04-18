@@ -1,6 +1,6 @@
 [package]
-description = "human activity recognition 1"
-name = "et-ws-har1"
+description = "nfc module"
+name = "et-ws-nfc"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
@@ -10,7 +10,6 @@ repository.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-et-web.workspace = true
 et-ws-wasm-agent = { path = "../../ws-wasm-agent" }
 js-sys = "0.3"
 serde.workspace = true
@@ -20,25 +19,7 @@ tracing.workspace = true
 tracing-wasm = "0.2"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
-web-sys = { version = "0.3", features = [
-  "AddEventListenerOptions",
-  "BinaryType",
-  "Document",
-  "DomError",
-  "Event",
-  "EventTarget",
-  "HtmlCanvasElement",
-  "MediaDevices",
-  "MediaStream",
-  "MediaStreamConstraints",
-  "MediaStreamTrack",
-  "MessageEvent",
-  "Navigator",
-  "Storage",
-  "WebSocket",
-  "Window",
-  "console",
-] }
+web-sys = { version = "0.3", features = ["Window", "console"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
