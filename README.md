@@ -32,6 +32,14 @@ and save it as `services/ws-server/static/models/human_activity_recognition.onnx
 
 ### Build WASM and run the WS server
 
+In a separate terminal start OpenObserve (o2) and leave it running.
+
+```bash
+mise run o2
+```
+
+Then start the server
+
 ```bash
 mise run build-wasm
 mise run ws-server
@@ -44,6 +52,14 @@ Select the module to run in the drop-down, then click "Run module" button.
 The module list is dynamically populated from the modules in [services/ws-modules](services/ws-modules).
 
 Note: The WASM build disables WebAssembly reference types, so it can still load on older browsers such as Chrome 95.
+
+In a separate terminal, open the OpenObserve UX using:
+
+```bash
+mise run open-o2
+```
+
+The server logs appear in the Logs section.
 
 ## Grant
 

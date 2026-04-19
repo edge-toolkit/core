@@ -85,6 +85,10 @@ description = "Run the WebSocket server"
 dir = "services/ws-server"
 run = "cargo run"
 
+[tasks.ws-server.env]
+OTLP_AUTH_PASSWORD = "1234"
+OTLP_AUTH_USERNAME = "root@example.com"
+
 [tasks.build-ws-wasm-agent]
 description = "Build the WebSocket WASM client"
 dir = "services/ws-wasm-agent"
@@ -189,3 +193,13 @@ run = "env CHROMEDRIVER=\"$(mise where chromedriver)/bin/chromedriver\" wasm-pac
 [tasks.ws-e2e-chrome]
 depends = ["test-ws-wasm-agent-chrome", "ws-server"]
 description = "Run both the ws-server and ws-wasm-agent using Chrome"
+
+[tasks.openobserve]
+alias = "o2"
+run = "docker run --rm -it --name openobserve -p 5080:5080 --env-file config/o2.env openobserve/openobserve:v0.70.3"
+
+[tasks.demo]
+depends = ["openobserve", "ws-server"]
+
+[tasks.open-o2]
+run = "open http://localhost:5080/"

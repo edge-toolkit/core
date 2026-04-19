@@ -8,28 +8,47 @@ repository.workspace = true
 [dependencies]
 actix = "0.13"
 actix-files = "0.6"
+actix-rt = "2"
 actix-web = { version = "4", features = ["rustls-0_23"] }
 actix-web-actors = "4"
+chrono.workspace = true
+clap.workspace = true
 edge-toolkit = { path = "../../libs/edge-toolkit" }
-# mime = "0.3"
+futures-util = "0.3"
+hostname = "0.4"
+local-ip-address = "0.6"
+log.workspace = true
+onnx-extractor.workspace = true
 opentelemetry = "0.31"
-opentelemetry-otlp = { version = "0.31", default-features = false, features = ["logs", "metrics", "trace"] }
+opentelemetry-appender-tracing = "0.31"
+opentelemetry-otlp = { version = "0.31", default-features = false, features = [
+  "http-json",
+  "http-proto",
+  "logs",
+  "metrics",
+  "reqwest-blocking-client",
+  "trace",
+] }
 opentelemetry_sdk = "0.31"
+qr2term = "0.3"
 rcgen = "0.14"
+regex = { version = "1.12", default-features = false }
 rustls = "0.23"
+secrecy.workspace = true
 serde.workspace = true
+serde-env.workspace = true
+serde-inline-default.workspace = true
+serde_default.workspace = true
 serde_json.workspace = true
 serde_yaml = "0.9"
 tokio = { version = "1", features = ["full"] }
 tracing.workspace = true
+tracing-actix-web = { version = "0.7", default-features = false, features = [
+  "emit_event_on_error",
+  "opentelemetry_0_31",
+  "uuid_v7",
+] }
+tracing-log = "0.2"
+tracing-opentelemetry = "0.32"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-#opentelemetry-actix-web = "0.10"
-chrono.workspace = true
-clap = { version = "4.4", features = ["derive"] }
-futures-util = "0.3"
-local-ip-address = "0.6"
-qr2term = "0.3"
 uuid.workspace = true
-
-[dependencies.actix-rt]
-version = "2"
