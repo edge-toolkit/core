@@ -13,14 +13,15 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::Event;
 
-const HAR_MODEL_PATH: &str = "/static/models/human_activity_recognition.onnx";
-const HAR_SEQUENCE_LENGTH: usize = 512;
-const HAR_FEATURE_COUNT: usize = 9;
+const HAR_MODEL_PATH: &str = "/static/models/har-motion1.onnx";
+const HAR_SEQUENCE_LENGTH: usize = 150;
+const HAR_FEATURE_COUNT: usize = 8;
+const HAR_FEAT_INPUT_SIZE: usize = 36;
 const HAR_SAMPLE_INTERVAL_MS: i32 = 20;
 const HAR_INFERENCE_INTERVAL_MS: f64 = 250.0;
 const STANDARD_GRAVITY: f64 = 9.80665;
 const GRAVITY_FILTER_ALPHA: f64 = 0.8;
-const HAR_CLASS_LABELS: [&str; 6] = ["class_0", "class_1", "class_2", "class_3", "class_4", "class_5"];
+const HAR_CLASS_LABELS: [&str; 4] = ["class_0", "class_1", "class_2", "class_3"];
 
 #[derive(Clone, Default)]
 struct OrientationReadingState {
@@ -356,13 +357,16 @@ async fn run_inner(client: &WsClient, sensors: &mut DeviceSensors) -> Result<(),
     set_har_status("har1: loading HAR model")?;
     log(&format!("loading HAR model from {HAR_MODEL_PATH}"))?;
     let session = create_har_session(HAR_MODEL_PATH).await?;
-    let input_name = first_string_entry(&session, "inputNames")?;
+    let feat_input_name = nth_string_entry(&session, "inputNames", 0)?;
+    let raw_input_name = nth_string_entry(&session, "inputNames", 1)?;
     let output_name = first_string_entry(&session, "outputNames")?;
 
     set_har_status(&format!(
-        "har1: HAR model loaded\npath: {HAR_MODEL_PATH}\ninput: {input_name}\noutput: {output_name}"
+        "model loaded\npath: {HAR_MODEL_PATH}\ninputs: {feat_input_name}, {raw_input_name}\noutput: {output_name}"
     ))?;
-    log(&format!("HAR model loaded: input={input_name} output={output_name}"))?;
+    log(&format!(
+        "HAR model loaded: feat_input={feat_input_name} raw_input={raw_input_name} output={output_name}"
+    ))?;
 
     log("requesting sensor access")?;
     sensors.start().await?;
@@ -419,7 +423,14 @@ async fn run_inner(client: &WsClient, sensors: &mut DeviceSensors) -> Result<(),
         }
         last_inference_at = now;
 
-        let prediction = infer_prediction(&session, &input_name, &output_name, &sample_buffer).await?;
+        let prediction = infer_prediction(
+            &session,
+            &feat_input_name,
+            &raw_input_name,
+            &output_name,
+            &sample_buffer,
+        )
+        .await?;
         if last_class_label.as_deref() == Some(prediction.best_label.as_str()) {
             continue;
         }
@@ -674,23 +685,32 @@ fn configure_onnx_runtime_wasm(window: &web_sys::Window, ort: &JsValue) -> Resul
 }
 
 fn first_string_entry(target: &JsValue, field: &str) -> Result<String, JsValue> {
+    nth_string_entry(target, field, 0)
+}
+
+fn nth_string_entry(target: &JsValue, field: &str, index: usize) -> Result<String, JsValue> {
     let values = Reflect::get(target, &JsValue::from_str(field))?;
-    let first = Reflect::get(&values, &JsValue::from_f64(0.0))?;
-    first
+    let entry = Reflect::get(&values, &JsValue::from_f64(index as f64))?;
+    entry
         .as_string()
-        .ok_or_else(|| JsValue::from_str(&format!("Missing first entry for {field}")))
+        .ok_or_else(|| JsValue::from_str(&format!("Missing entry {index} for {field}")))
 }
 
 async fn infer_prediction(
     session: &JsValue,
-    input_name: &str,
+    feat_input_name: &str,
+    raw_input_name: &str,
     output_name: &str,
     sample_buffer: &VecDeque<[f32; HAR_FEATURE_COUNT]>,
 ) -> Result<Prediction, JsValue> {
     let flat_samples = flatten_samples(sample_buffer);
-    let tensor = create_tensor(&flat_samples)?;
+    let raw_tensor = create_raw_tensor(&flat_samples)?;
+    let feat_features = compute_feat_input(sample_buffer);
+    let feat_tensor = create_feat_tensor(&feat_features)?;
+
     let feeds = js_sys::Object::new();
-    Reflect::set(&feeds, &JsValue::from_str(input_name), &tensor)?;
+    Reflect::set(&feeds, &JsValue::from_str(feat_input_name), &feat_tensor)?;
+    Reflect::set(&feeds, &JsValue::from_str(raw_input_name), &raw_tensor)?;
 
     let run_value = method(session, "run")?.call1(session, &feeds)?;
     let result = JsFuture::from(
@@ -702,9 +722,8 @@ async fn infer_prediction(
 
     let output = Reflect::get(&result, &JsValue::from_str(output_name))?;
     let data = Reflect::get(&output, &JsValue::from_str("data"))?;
-    let logits_f32 = Float32Array::new(&data).to_vec();
-    let logits: Vec<f64> = logits_f32.into_iter().map(f64::from).collect();
-    let probabilities = softmax(&logits);
+    let probs_f32 = Float32Array::new(&data).to_vec();
+    let probabilities: Vec<f64> = probs_f32.into_iter().map(f64::from).collect();
     let (best_index, best_probability) = probabilities
         .iter()
         .copied()
@@ -721,12 +740,12 @@ async fn infer_prediction(
         best_index,
         best_label,
         best_probability,
-        probabilities,
-        logits,
+        probabilities: probabilities.clone(),
+        logits: probabilities,
     })
 }
 
-fn create_tensor(values: &[f32]) -> Result<JsValue, JsValue> {
+fn create_raw_tensor(values: &[f32]) -> Result<JsValue, JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let ort = Reflect::get(window.as_ref(), &JsValue::from_str("ort"))?;
     let tensor_ctor = Reflect::get(&ort, &JsValue::from_str("Tensor"))?
@@ -744,6 +763,63 @@ fn create_tensor(values: &[f32]) -> Result<JsValue, JsValue> {
     args.push(&dims.into());
 
     Reflect::construct(&tensor_ctor, &args)
+}
+
+fn create_feat_tensor(values: &[f32]) -> Result<JsValue, JsValue> {
+    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
+    let ort = Reflect::get(window.as_ref(), &JsValue::from_str("ort"))?;
+    let tensor_ctor = Reflect::get(&ort, &JsValue::from_str("Tensor"))?
+        .dyn_into::<Function>()
+        .map_err(|_| JsValue::from_str("ort.Tensor is not callable"))?;
+
+    let dims = Array::new();
+    dims.push(&JsValue::from_f64(1.0));
+    dims.push(&JsValue::from_f64(HAR_FEAT_INPUT_SIZE as f64));
+
+    let args = Array::new();
+    args.push(&JsValue::from_str("float32"));
+    args.push(&Float32Array::from(values).into());
+    args.push(&dims.into());
+
+    Reflect::construct(&tensor_ctor, &args)
+}
+
+/// Compute 36 hand-crafted features from the sample buffer:
+/// 8 channels × 4 stats (mean, std, min, max) = 32, plus 4 stats on the
+/// per-sample vector magnitude (mean, std, min, max) = 36 total.
+fn compute_feat_input(sample_buffer: &VecDeque<[f32; HAR_FEATURE_COUNT]>) -> [f32; HAR_FEAT_INPUT_SIZE] {
+    let n = sample_buffer.len() as f32;
+    let mut out = [0.0f32; HAR_FEAT_INPUT_SIZE];
+
+    // Per-channel stats (32 values)
+    for ch in 0..HAR_FEATURE_COUNT {
+        let vals: Vec<f32> = sample_buffer.iter().map(|s| s[ch]).collect();
+        let mean = vals.iter().sum::<f32>() / n;
+        let std = (vals.iter().map(|v| (v - mean).powi(2)).sum::<f32>() / n).sqrt();
+        let min = vals.iter().cloned().fold(f32::INFINITY, f32::min);
+        let max = vals.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let base = ch * 4;
+        out[base] = mean;
+        out[base + 1] = std;
+        out[base + 2] = min;
+        out[base + 3] = max;
+    }
+
+    // Magnitude stats (4 values, indices 32–35)
+    let mags: Vec<f32> = sample_buffer
+        .iter()
+        .map(|s| s.iter().map(|v| v * v).sum::<f32>().sqrt())
+        .collect();
+    let mean = mags.iter().sum::<f32>() / n;
+    let std = (mags.iter().map(|v| (v - mean).powi(2)).sum::<f32>() / n).sqrt();
+    let min = mags.iter().cloned().fold(f32::INFINITY, f32::min);
+    let max = mags.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+    out[32] = mean;
+    out[33] = std;
+    out[34] = min;
+    out[35] = max;
+
+    out
 }
 
 fn flatten_samples(sample_buffer: &VecDeque<[f32; HAR_FEATURE_COUNT]>) -> Vec<f32> {
@@ -776,7 +852,6 @@ fn feature_vector(reading: &MotionReading, gravity_estimate: &mut [f64; 3]) -> [
         degrees_to_radians(reading.rotation_rate_alpha()) as f32,
         to_g(total_acceleration[0]) as f32,
         to_g(total_acceleration[1]) as f32,
-        to_g(total_acceleration[2]) as f32,
     ]
 }
 
@@ -786,17 +861,6 @@ fn degrees_to_radians(value: f64) -> f64 {
 
 fn to_g(value: f64) -> f64 {
     value / STANDARD_GRAVITY
-}
-
-fn softmax(values: &[f64]) -> Vec<f64> {
-    if values.is_empty() {
-        return Vec::new();
-    }
-
-    let max_value = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    let exps: Vec<f64> = values.iter().map(|value| (value - max_value).exp()).collect();
-    let sum: f64 = exps.iter().sum();
-    exps.into_iter().map(|value| value / sum).collect()
 }
 
 async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {

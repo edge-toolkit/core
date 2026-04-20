@@ -15,6 +15,7 @@ osv-scanner = "latest"
 pipx = "latest"
 "pipx:cmake" = "latest"
 protoc = "latest"
+rclone = "latest"
 rust = { version = "latest", components = "clippy" }
 typos = "latest"
 
@@ -203,3 +204,19 @@ depends = ["openobserve", "ws-server"]
 
 [tasks.open-o2]
 run = "open http://localhost:5080/"
+
+[tasks.fetch-face1-rclone]
+run = """
+    rclone copyto :http:amd/retinaface/blob/main/weights/RetinaFace_int.onnx \
+        services/ws-server/static/models/video_cv.onnx --http-url https://huggingface.co --progress
+"""
+
+[tasks.fetch-har-motion1-rclone]
+run = """
+    rclone copyto \
+        :http:acd17sk/MET-Metabolic-Equivalent-of-Task-AI-Android-APP/raw/refs/heads/main/Models/onnx/hybrid_met.onnx \
+        services/ws-server/static/models/har-motion1.onnx --http-url https://github.com --progress
+"""
+
+[tasks.download-models]
+depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone"]
