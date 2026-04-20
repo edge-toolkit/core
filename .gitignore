@@ -1,4 +1,5 @@
 target/
+verification/
 Cargo.lock
 .DS_Store
 services/ws-wasm-agent/pkg/
