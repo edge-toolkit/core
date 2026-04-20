@@ -67,6 +67,35 @@ Most of the module are built from Rust using `wasm-pack build --target web`.
 
 The module `pydata1` uses [pyodide](https://pyodide.org/) to run a Python script.
 
+## Run an example demo scenario using et-cli
+
+```bash
+cargo install --path utilities/cli --force
+et-cli generate-deployment \
+  --input-file verification/local/input/facility-security-scenario.yaml \
+  --output-dir verification/local/output/facility-security-scenario
+```
+
+This will generate a `mise.toml` file under
+`verification/local/output/facility-security-scenario`. Run the following
+command to start the demo scenario:
+
+```bash
+mise run generated-scenario
+```
+
+The generated scenario config only selects which prebuilt modules `ws-server`
+serves. Module builds are expected to be handled separately from the repository
+root.
+
+To regenerate all checked-in verification outputs from
+`verification/*/input`, writing each scenario to
+the matching `verification/*/output/<input-file-stem>` folder:
+
+```bash
+et-cli regen-verification
+```
+
 ## Grant
 
 This repository is part of a grant managed by the School of EECMS, Curtin University.

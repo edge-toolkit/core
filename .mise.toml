@@ -75,6 +75,7 @@ depends = [
   "dotnet-check",
   "dprint-check",
   "editorconfig-check",
+  "generated-scenarios-check",
   "osv-scanner",
   "taplo-check",
   "typos",
@@ -111,6 +112,15 @@ run = "typos"
 [tasks.osv-scanner]
 depends = ["cargo-check"]
 run = "osv-scanner --lockfile Cargo.lock"
+
+[tasks.regenerate-verification]
+description = "Regenerate checked-in verification output files"
+run = "cargo run -p et-cli -- regen-verification"
+
+[tasks.generated-scenarios-check]
+depends = ["regenerate-verification"]
+description = "Fail if generated scenario output files are stale"
+run = "git diff --exit-code -- verification"
 
 [tasks.ws-server]
 description = "Run the WebSocket server"
