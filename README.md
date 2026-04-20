@@ -19,17 +19,6 @@ mise run ws-e2e-chrome
 
 ## Run ws agent in browser
 
-### HAR model setup
-
-Download the onnx from https://modelnova.ai/models/details/human-activity-recognition ,
-and save it as `services/ws-server/static/models/human_activity_recognition.onnx`
-
-### Face detection setup
-
-1. Download RetinaFace_int.onnx from https://huggingface.co/amd/retinaface/tree/main/weights
-2. Save it in `services/ws-server/static/models/`
-3. Rename the file to `video_cv.onnx`.
-
 ### Build WASM and run the WS server
 
 In a separate terminal start OpenObserve (o2) and leave it running.
@@ -38,9 +27,10 @@ In a separate terminal start OpenObserve (o2) and leave it running.
 mise run o2
 ```
 
-Then start the server
+Then start the fetch the ONNX models and run the server
 
 ```bash
+mise run download-models
 mise run build-wasm
 mise run ws-server
 ```
