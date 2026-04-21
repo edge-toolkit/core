@@ -1,0 +1,13 @@
+name: et_dart_comm1
+description: dart-comm1 workflow module
+version: 0.1.0
+repository: https://github.com/edge-toolkit/core
+
+environment:
+  sdk: ^3.11.5
+
+dependencies:
+  web: ^1.1.0
+
+dev_dependencies:
+  lints: ^6.0.0

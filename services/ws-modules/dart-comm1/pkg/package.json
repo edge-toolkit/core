@@ -1,0 +1,8 @@
+{
+  "name": "et-ws-dart-comm1",
+  "type": "module",
+  "description": "dart comm1",
+  "version": "0.1.0",
+  "license": "Apache-2.0 OR MIT",
+  "main": "et_ws_dart_comm1.js"
+}
