@@ -16,11 +16,15 @@ pipx = "latest"
 "pipx:cmake" = "latest"
 protoc = "latest"
 rclone = "latest"
+ruff = "latest"
 rust = { version = "latest", components = "clippy" }
 typos = "latest"
+uv = "latest"
 
 [tasks]
 editorconfig-check = "ec"
+ruff-check = "ruff check services/ws-modules/"
+ruff-fmt = "ruff format services/ws-modules/"
 
 [tasks.dprint-check]
 run = "dprint check"
@@ -32,7 +36,7 @@ DPRINT_CACHE_DIR = "/tmp/dprint-cache"
 run = "dprint fmt"
 
 [tasks.fmt]
-depends = ["cargo-clippy-fix", "cargo-fmt", "dprint-fmt", "taplo-fmt"]
+depends = ["cargo-clippy-fix", "cargo-fmt", "dprint-fmt", "ruff-fmt", "taplo-fmt"]
 description = "Run repository formatters"
 
 [tasks.install-nightly]
@@ -46,6 +50,7 @@ depends = [
   "dprint-check",
   "editorconfig-check",
   "osv-scanner",
+  "ruff-check",
   "taplo-check",
   "typos",
 ]
@@ -159,7 +164,15 @@ description = "Build the nfc workflow WASM module"
 dir = "services/ws-modules/nfc"
 run = "wasm-pack build . --target web"
 
-[tasks.build-wasm]
+[tasks.build-ws-pydata1-module]
+description = "Build the pydata1 Python workflow module"
+dir = "services/ws-modules/pydata1"
+run = """
+uv build --wheel --out-dir pkg
+cargo run -p pyproject-to-package-json
+"""
+
+[tasks.build-modules]
 depends = [
   "build-ws-audio1-module",
   "build-ws-bluetooth-module",
@@ -170,6 +183,7 @@ depends = [
   "build-ws-graphics-info-module",
   "build-ws-har1-module",
   "build-ws-nfc-module",
+  "build-ws-pydata1-module",
   "build-ws-sensor1-module",
   "build-ws-speech-recognition-module",
   "build-ws-video1-module",
