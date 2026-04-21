@@ -3,7 +3,6 @@ use std::rc::Rc;
 
 use et_web::{SENSOR_PERMISSION_GRANTED, request_sensor_permission};
 use et_ws_wasm_agent::{js_bool_field, js_nested_object, js_number_field, set_textarea_value};
-use serde_json::json;
 use tracing::info;
 use wasm_bindgen::prelude::*;
 use web_sys::Event;
@@ -294,16 +293,6 @@ thread_local! {
 pub fn init() {
     let _ = tracing_wasm::try_set_as_global_default();
     info!("sensor stream workflow module initialized");
-}
-
-#[wasm_bindgen]
-pub fn metadata() -> JsValue {
-    serde_wasm_bindgen::to_value(&json!({
-        "name": env!("CARGO_PKG_NAME"),
-        "description": env!("CARGO_PKG_DESCRIPTION"),
-        "version": env!("CARGO_PKG_VERSION"),
-    }))
-    .unwrap_or(JsValue::NULL)
 }
 
 #[wasm_bindgen]

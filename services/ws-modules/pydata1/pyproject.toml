@@ -1,0 +1,18 @@
+[project]
+dependencies = []
+description = "Python data 1"
+license = "Apache-2.0 OR MIT"
+name = "et-ws-pydata1"
+requires-python = ">=3.10"
+version = "0.1.0"
+
+[build-system]
+build-backend = "uv_build"
+requires = ["uv_build>=0.10.2,<0.11.0"]
+
+[tool.uv.build-backend]
+module-name = "pydata1"
+module-root = ""
+
+[tool.ws-module]
+js-main = "et_ws_pydata1.js"

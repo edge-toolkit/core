@@ -35,32 +35,24 @@ const populateModuleDropdown = async () => {
 
   for (const name of moduleNames) {
     try {
-      const moduleKey = name;
-      const moduleUrl = `/modules/${name}/pkg/et_ws_${name.replace(/-/g, "_")}.js`;
-      const wasmUrl = `/modules/${name}/pkg/et_ws_${name.replace(/-/g, "_")}_bg.wasm`;
-
-      append(`Loading metadata for ${name}...`);
-      const loadedModule = await import(`${moduleUrl}?v=${Date.now()}`);
-      await loadedModule.default(wasmUrl);
-
-      let metadata = { name, description: "", version: "" };
-      if (typeof loadedModule.metadata === "function") {
-        metadata = loadedModule.metadata();
+      const pkgResp = await fetch(`/modules/${name}/pkg/package.json`);
+      if (!pkgResp.ok) {
+        append(`Skipping ${name}: no package.json (${pkgResp.status})`);
+        continue;
       }
+      const pkg = await pkgResp.json();
 
-      WORKFLOW_MODULES.set(moduleKey, {
-        label: metadata.description || metadata.name || name,
-        moduleUrl,
-        wasmUrl,
-        loaded: loadedModule,
-      });
+      const moduleUrl = `/modules/${name}/pkg/${pkg.main}`;
+
+      const label = pkg.description || pkg.name || name;
+      WORKFLOW_MODULES.set(name, { label, moduleUrl, loaded: null });
 
       const option = document.createElement("option");
-      option.value = moduleKey;
-      option.textContent = WORKFLOW_MODULES.get(moduleKey).label;
+      option.value = name;
+      option.textContent = label;
       moduleSelect.appendChild(option);
 
-      append(`Successfully discovered module: ${name} (${metadata.version})`);
+      append(`Discovered module: ${name} (${pkg.version})`);
     } catch (error) {
       append(`Error discovering module ${name}: ${describeError(error)}`);
       console.error(`discovery error for ${name}:`, error);
@@ -103,11 +95,9 @@ const loadWorkflowModule = async (moduleKey) => {
 
   const cacheBust = Date.now();
   const moduleUrl = `${moduleConfig.moduleUrl}?v=${cacheBust}`;
-  const wasmUrl = `${moduleConfig.wasmUrl}?v=${cacheBust}`;
   append(`${moduleConfig.label} module: importing ${moduleUrl}`);
   const loadedModule = await import(moduleUrl);
-  append(`${moduleConfig.label} module: initializing ${wasmUrl}`);
-  await loadedModule.default(wasmUrl);
+  await loadedModule.default();
   moduleConfig.loaded = loadedModule;
   return loadedModule;
 };

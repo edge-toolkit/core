@@ -19,7 +19,7 @@ mise run ws-e2e-chrome
 
 ## Run ws agent in browser
 
-### Build WASM and run the WS server
+### Build modules and run the WS server
 
 In a separate terminal start OpenObserve (o2) and leave it running.
 
@@ -31,15 +31,13 @@ Then start the fetch the ONNX models and run the server
 
 ```bash
 mise run download-models
-mise run build-wasm
+mise run build-modules
 mise run ws-server
 ```
 
 Scan the QR-Code with a smart-phone camera and open the URL.
 
 Select the module to run in the drop-down, then click "Run module" button.
-
-The module list is dynamically populated from the modules in [services/ws-modules](services/ws-modules).
 
 Note: The WASM build disables WebAssembly reference types, so it can still load on older browsers such as Chrome 95.
 
@@ -50,6 +48,17 @@ mise run open-o2
 ```
 
 The server logs appear in the Logs section.
+
+## Modules
+
+The module list is dynamically populated from the modules in [services/ws-modules](services/ws-modules).
+
+Each module must be a directory `pkg` containing a `package.json` that defines a `main` which contains a JavaScript file
+that can load and run the module.
+
+Most of the module are built from Rust using `wasm-pack build --target web`.
+
+The module `pydata1` uses [pyodide](https://pyodide.org/) to run a Python script.
 
 ## Grant
 
