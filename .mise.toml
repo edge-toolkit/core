@@ -15,7 +15,6 @@ osv-scanner = "latest"
 pipx = "latest"
 "pipx:cmake" = "latest"
 protoc = "latest"
-python = "latest"
 rclone = "latest"
 ruff = "latest"
 rust = { version = "latest", components = "clippy" }
