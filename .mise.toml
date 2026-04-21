@@ -5,6 +5,7 @@ action-validator = "latest"
 "chromedriver" = "146"
 cmake = "latest"
 codex = "latest"
+dart = { version = "latest", url = "https://storage.googleapis.com/dart-archive/channels/stable/release/{{ version }}/sdk/dartsdk-{{ os() }}-{{ arch() }}-release.zip", version_expr = 'fromJSON(body).prefixes | filter({ # matches "^channels/stable/release/(\\d+\\.\\d+\\.\\d+)/$" }) | map({split(#, "/")[3]}) | sortVersions()', version_list_url = "https://storage.googleapis.com/storage/v1/b/dart-archive/o?prefix=channels/stable/release/&delimiter=/" }
 dprint = "latest"
 editorconfig-checker = "latest"
 gemini-cli = "latest"
@@ -22,6 +23,7 @@ typos = "latest"
 uv = "latest"
 
 [tasks]
+ec = "ec"
 editorconfig-check = "ec"
 ruff-check = "ruff check services/ws-modules/"
 ruff-fmt = "ruff format services/ws-modules/"
@@ -36,17 +38,24 @@ DPRINT_CACHE_DIR = "/tmp/dprint-cache"
 run = "dprint fmt"
 
 [tasks.fmt]
-depends = ["cargo-clippy-fix", "cargo-fmt", "dprint-fmt", "ruff-fmt", "taplo-fmt"]
+depends = ["cargo-clippy-fix", "cargo-fmt", "dart-fmt", "dprint-fmt", "ruff-fmt", "taplo-fmt"]
 description = "Run repository formatters"
 
 [tasks.install-nightly]
 run = "cargo +nightly fmt --version >/dev/null 2>&1 || rustup toolchain install nightly --component rustfmt"
+
+[tasks.dart-check]
+run = "dart analyze services/ws-modules/dart-comm1/"
+
+[tasks.dart-fmt]
+run = "dart format services/ws-modules/dart-comm1/"
 
 [tasks.check]
 depends = [
   "cargo-check",
   "cargo-clippy",
   "cargo-fmt-check",
+  "dart-check",
   "dprint-check",
   "editorconfig-check",
   "osv-scanner",
@@ -164,6 +173,11 @@ description = "Build the nfc workflow WASM module"
 dir = "services/ws-modules/nfc"
 run = "wasm-pack build . --target web"
 
+[tasks.build-ws-dart-comm1-module]
+description = "Build the dart-comm1 workflow module"
+dir = "services/ws-modules/dart-comm1"
+run = "dart compile js lib/dart_comm1.dart -o pkg/et_ws_dart_comm1_compiled.js --no-source-maps"
+
 [tasks.build-ws-pydata1-module]
 description = "Build the pydata1 Python workflow module"
 dir = "services/ws-modules/pydata1"
@@ -177,6 +191,7 @@ depends = [
   "build-ws-audio1-module",
   "build-ws-bluetooth-module",
   "build-ws-comm1-module",
+  "build-ws-dart-comm1-module",
   "build-ws-data1-module",
   "build-ws-face-detection-module",
   "build-ws-geolocation-module",
