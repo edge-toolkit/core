@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use actix_web::middleware::Logger;
+use actix_web::middleware::{DefaultHeaders, Logger};
 use actix_web::{App, HttpServer, web};
 use clap::Parser;
 use et_ws_server::config::Config;
@@ -96,6 +96,11 @@ async fn main() -> std::io::Result<()> {
         let modules = modules_config.clone();
         App::new()
             .wrap(Logger::default())
+            .wrap(
+                DefaultHeaders::new()
+                    .add(("Cross-Origin-Opener-Policy", "same-origin"))
+                    .add(("Cross-Origin-Embedder-Policy", "require-corp")),
+            )
             .configure(|cfg| configure_app(cfg, registry, storage, modules))
     })
     .bind(("0.0.0.0", edge_toolkit::ports::Services::InsecureWebSocketServer.port()))?

@@ -21,6 +21,7 @@ ruff = "latest"
 rust = { version = "latest", components = "clippy" }
 typos = "latest"
 uv = "latest"
+zig = "latest"
 
 [tasks]
 ec = "ec"
@@ -186,6 +187,11 @@ uv build --wheel --out-dir pkg
 cargo run -p pyproject-to-package-json
 """
 
+[tasks.build-ws-zig-data1-module]
+description = "Build the zig-data1 workflow WASM module"
+dir = "services/ws-modules/zig-data1"
+run = "zig build -Doptimize=ReleaseSmall"
+
 [tasks.build-modules]
 depends = [
   "build-ws-audio1-module",
@@ -203,6 +209,7 @@ depends = [
   "build-ws-speech-recognition-module",
   "build-ws-video1-module",
   "build-ws-wasm-agent",
+  "build-ws-zig-data1-module",
 ]
 description = "Build all WebAssembly modules"
 
