@@ -8,6 +8,8 @@ repository.workspace = true
 
 [dependencies]
 base64.workspace = true
+lets_find_up.workspace = true
+log.workspace = true
 secrecy.workspace = true
 serde.workspace = true
 serde-env.workspace = true

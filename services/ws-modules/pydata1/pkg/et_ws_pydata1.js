@@ -41,7 +41,7 @@ export async function run() {
   const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
 
-  const { WsClient, WsClientConfig } = await import("/pkg/et_ws_wasm_agent.js");
+  const { WsClient, WsClientConfig } = await import("/modules/ws-wasm-agent/et_ws_wasm_agent.js");
   const client = new WsClient(new WsClientConfig(wsUrl));
 
   let responseResolvers = [];

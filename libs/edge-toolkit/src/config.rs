@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde_default::DefaultFromSerde;
 
@@ -7,6 +9,24 @@ use crate::ports::Services;
 
 /// Localhost address 127.0.0.1 .
 pub const LOCALHOST: &str = "127.0.0.1";
+
+/// Helper to find repository root.
+#[expect(clippy::missing_panics_doc)]
+#[expect(clippy::unwrap_used)]
+#[must_use]
+pub fn get_project_root() -> PathBuf {
+    match lets_find_up::find_up(".taplo.toml") {
+        Ok(Some(mut path)) => {
+            assert!(path.pop(), "Failed to drop the filename");
+            path
+        }
+        Ok(None) => std::env::current_dir().unwrap(),
+        Err(err) => {
+            log::error!("{err}");
+            std::env::current_dir().unwrap()
+        }
+    }
+}
 
 /// Default port for the otlp http collector.
 #[must_use]
