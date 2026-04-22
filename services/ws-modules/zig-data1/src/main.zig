@@ -17,6 +17,9 @@ extern fn js_sleep_ms(ms: u32) void;
 extern fn js_get_ws_url(buf: [*]u8, max: usize) usize;
 extern fn js_get_iso_timestamp(buf: [*]u8, max: usize) usize;
 
+// Declared in src/util.c
+extern fn byte_sum(buf: [*]const u8, len: usize) u8;
+
 var heap: [64 * 1024]u8 = undefined;
 var fba = std.heap.FixedBufferAllocator.init(&heap);
 const alloc = fba.allocator();
@@ -97,6 +100,9 @@ export fn run() i32 {
 
     const content = std.fmt.allocPrint(alloc, "Hello from zig-data1 at {s}!", .{timestamp}) catch return -1;
     defer alloc.free(content);
+
+    const cksum = byte_sum(content.ptr, content.len);
+    log("content checksum (byte_sum from C): {d}", .{cksum});
 
     // 1. Request store URL
     const store_msg = std.fmt.allocPrint(alloc,
