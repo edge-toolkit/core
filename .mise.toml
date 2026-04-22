@@ -34,7 +34,7 @@ zig-check = "zig fmt --check services/ws-modules/"
 zig-fmt = "zig fmt services/ws-modules/"
 
 [tasks.dprint-check]
-run = "dprint check"
+run = "dprint check --log-level debug"
 
 [tasks.dprint-check.env]
 DPRINT_CACHE_DIR = "/tmp/dprint-cache"
