@@ -12,7 +12,7 @@ use wasm_bindgen_futures::{JsFuture, spawn_local};
 use web_sys::MediaStreamConstraints;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, HtmlVideoElement, ImageData, MediaStream};
 
-const FACE_MODEL_PATH: &str = "/static/models/video_cv.onnx";
+const FACE_MODEL_PATH: &str = "/modules/model-face1/video_cv.onnx";
 const FACE_INPUT_WIDTH: usize = 640;
 const FACE_INPUT_HEIGHT: usize = 608;
 const FACE_INPUT_WIDTH_F64: f64 = FACE_INPUT_WIDTH as f64;

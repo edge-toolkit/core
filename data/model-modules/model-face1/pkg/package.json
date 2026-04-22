@@ -1,0 +1,8 @@
+{
+  "description": "Face detection model",
+  "name": "et-model-face1",
+  "version": "0.1.0",
+  "files": [
+    "video_cv.onnx"
+  ]
+}
