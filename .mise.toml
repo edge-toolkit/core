@@ -28,6 +28,8 @@ ec = "ec"
 editorconfig-check = "ec"
 ruff-check = "ruff check services/ws-modules/"
 ruff-fmt = "ruff format services/ws-modules/"
+zig-check = "zig fmt --check services/ws-modules/"
+zig-fmt = "zig fmt services/ws-modules/"
 
 [tasks.dprint-check]
 run = "dprint check"
@@ -39,7 +41,7 @@ DPRINT_CACHE_DIR = "/tmp/dprint-cache"
 run = "dprint fmt"
 
 [tasks.fmt]
-depends = ["cargo-clippy-fix", "cargo-fmt", "dart-fmt", "dprint-fmt", "ruff-fmt", "taplo-fmt"]
+depends = ["cargo-clippy-fix", "cargo-fmt", "dart-fmt", "dprint-fmt", "ruff-fmt", "taplo-fmt", "zig-fmt"]
 description = "Run repository formatters"
 
 [tasks.install-nightly]
@@ -63,6 +65,7 @@ depends = [
   "ruff-check",
   "taplo-check",
   "typos",
+  "zig-check",
 ]
 description = "Run repository checks"
 

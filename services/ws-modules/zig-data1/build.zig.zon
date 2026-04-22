@@ -1,0 +1,9 @@
+.{
+    .name = .et_ws_zig_data1,
+    .version = "0.1.0",
+    .description = "zig data 1",
+    .license = "Apache-2.0 or MIT",
+    .main = "et_ws_zig_data1.js",
+    .fingerprint = 0x8c5646f08b8cd4b1,
+    .paths = .{""},
+}
