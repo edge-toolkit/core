@@ -1,0 +1,8 @@
+{
+  "description": "HAR motion model",
+  "name": "et-model-har-motion1",
+  "version": "0.1.0",
+  "files": [
+    "har-motion1.onnx"
+  ]
+}

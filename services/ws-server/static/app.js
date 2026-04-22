@@ -42,6 +42,11 @@ const populateModuleDropdown = async () => {
       }
       const pkg = await pkgResp.json();
 
+      if (!pkg.main) {
+        append(`Skipping ${name}: no main in package.json`);
+        continue;
+      }
+
       const moduleUrl = `/modules/${name}/${pkg.main}`;
 
       const label = pkg.description || pkg.name || name;

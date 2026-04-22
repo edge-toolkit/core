@@ -21,6 +21,7 @@ ruff = "latest"
 rust = { version = "latest", components = "clippy" }
 typos = "latest"
 uv = "latest"
+yq = "latest"
 zig = "latest"
 
 [tasks]
@@ -125,12 +126,18 @@ run = "wasm-pack build . --target web"
 [tasks.build-ws-har1-module]
 description = "Build the har1 workflow WASM module"
 dir = "services/ws-modules/har1"
-run = "wasm-pack build . --target web"
+run = """
+wasm-pack build . --target web
+yq eval-all -i 'select(fileIndex == 0) * select(fileIndex == 1)' pkg/package.json package.json
+"""
 
 [tasks.build-ws-face-detection-module]
 description = "Build the face detection workflow WASM module"
 dir = "services/ws-modules/face-detection"
-run = "wasm-pack build . --target web"
+run = """
+wasm-pack build . --target web
+yq eval-all -i 'select(fileIndex == 0) * select(fileIndex == 1)' pkg/package.json package.json
+"""
 
 [tasks.build-ws-comm1-module]
 description = "Build the comm1 workflow WASM module"
@@ -246,15 +253,15 @@ run = "open http://localhost:5080/"
 
 [tasks.fetch-face1-rclone]
 run = """
-    rclone copyto :http:amd/retinaface/blob/main/weights/RetinaFace_int.onnx \
-        services/ws-server/static/models/video_cv.onnx --http-url https://huggingface.co --progress
+    rclone copyto :http:amd/retinaface/resolve/main/weights/RetinaFace_int.onnx \
+        data/model-modules/model-face1/pkg/video_cv.onnx --http-url https://huggingface.co --progress
 """
 
 [tasks.fetch-har-motion1-rclone]
 run = """
     rclone copyto \
         :http:acd17sk/MET-Metabolic-Equivalent-of-Task-AI-Android-APP/raw/refs/heads/main/Models/onnx/hybrid_met.onnx \
-        services/ws-server/static/models/har-motion1.onnx --http-url https://github.com --progress
+        data/model-modules/model-har-motion1/pkg/har-motion1.onnx --http-url https://github.com --progress
 """
 
 [tasks.download-models]

@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use actix::{Actor, ActorContext, Addr, AsyncContext, Handler, Message, StreamHandler};
-use actix_files::{Files, NamedFile};
+use actix_files::Files;
 use actix_web::{Error, HttpRequest, HttpResponse, web};
 use actix_web_actors::ws;
 use chrono::Utc;
@@ -764,50 +764,8 @@ pub fn browser_static_dir() -> PathBuf {
     Path::new(".").join("static")
 }
 
-pub async fn browser_index() -> Result<NamedFile, Error> {
-    let path = browser_static_dir().join("index.html");
-    info!("Serving browser interface page: {:?}", path);
-
-    NamedFile::open(path).map_err(|e| {
-        error!("Failed to open browser interface page: {}", e);
-        actix_web::error::ErrorNotFound(e)
-    })
-}
-
 pub async fn no_content() -> HttpResponse {
     HttpResponse::NoContent().finish()
-}
-
-/// Static file handler — serves a named binary file from the ws-server static directory.
-/// Example: GET /files/firmware.bin  → services/ws-server/static/firmware.bin
-pub async fn file_handler(req: HttpRequest) -> Result<NamedFile, Error> {
-    // Extract the filename segment from the URL path.
-    let filename: PathBuf = req
-        .match_info()
-        .query("filename")
-        .parse()
-        .map_err(|_| actix_web::error::ErrorBadRequest("invalid filename"))?;
-
-    // Prevent directory traversal: reject any path containing a separator.
-    if filename.components().count() != 1 {
-        return Err(actix_web::error::ErrorBadRequest("invalid filename"));
-    }
-
-    let path = browser_static_dir().join(&filename);
-
-    info!("Serving static file: {:?}", path);
-
-    let file = NamedFile::open(&path).map_err(|e| {
-        error!("Failed to open static file {:?}: {}", path, e);
-        actix_web::error::ErrorNotFound(e)
-    })?;
-
-    // Treat every file as an opaque binary stream so browsers don't
-    // try to render or sniff the content type.
-    Ok(file
-        .use_etag(true)
-        .use_last_modified(true)
-        .set_content_type(actix_web::mime::APPLICATION_OCTET_STREAM))
 }
 
 pub async fn health() -> HttpResponse {
@@ -818,6 +776,7 @@ pub async fn health() -> HttpResponse {
 }
 
 /// Scan all configured module paths and return a sorted list of (name, pkg_dir) pairs.
+///
 /// Each entry is a module whose `<dir>/pkg/` subdirectory exists.
 pub fn list_modules(config: &ModulesConfig) -> Vec<(String, PathBuf)> {
     let mut modules: Vec<(String, PathBuf)> = Vec::new();
@@ -916,22 +875,23 @@ pub fn configure_app(
     let modules = list_modules(&modules_config);
     cfg.app_data(agent_registry)
         .app_data(web::Data::new(modules_config))
-        .route("/", web::get().to(browser_index))
-        .route("/index.html", web::get().to(browser_index))
         .route("/favicon.ico", web::get().to(no_content))
         .route("/health", web::get().to(health))
         .route("/api/modules", web::get().to(api_list_modules))
         .route("/ws", web::get().to(ws_handler))
-        .route("/files/{filename}", web::get().to(file_handler))
         .route("/storage/{agent_id}/{filename}", web::put().to(agent_put_file))
         .service(
             Files::new("/storage", storage_dir)
                 .show_files_listing()
                 .use_etag(true)
                 .use_last_modified(true),
-        )
-        .service(Files::new("/static", browser_static_dir()).prefer_utf8(true));
+        );
     for (name, pkg_dir) in modules {
-        cfg.service(Files::new(&format!("/modules/{name}"), pkg_dir).prefer_utf8(true));
+        cfg.service(Files::new(&format!("/modules/{name}"), pkg_dir));
     }
+    cfg.service(
+        Files::new("/", browser_static_dir())
+            .index_file("index.html")
+            .prefer_utf8(true),
+    );
 }

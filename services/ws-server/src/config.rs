@@ -11,6 +11,7 @@ pub fn default_modules_folder() -> Vec<std::path::PathBuf> {
     let project_root = edge_toolkit::config::get_project_root();
     vec![
         project_root.join("services/ws-wasm-agent"),
+        project_root.join("data").join("model-modules"),
         project_root.join("services").join("ws-modules"),
     ]
 }
