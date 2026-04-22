@@ -1,4 +1,4 @@
-import init, { initTracing, WsClient, WsClientConfig } from "/pkg/et_ws_wasm_agent.js";
+import init, { initTracing, WsClient, WsClientConfig } from "/modules/ws-wasm-agent/et_ws_wasm_agent.js";
 
 console.log("app.js: module loading started");
 
@@ -35,14 +35,14 @@ const populateModuleDropdown = async () => {
 
   for (const name of moduleNames) {
     try {
-      const pkgResp = await fetch(`/modules/${name}/pkg/package.json`);
+      const pkgResp = await fetch(`/modules/${name}/package.json`);
       if (!pkgResp.ok) {
         append(`Skipping ${name}: no package.json (${pkgResp.status})`);
         continue;
       }
       const pkg = await pkgResp.json();
 
-      const moduleUrl = `/modules/${name}/pkg/${pkg.main}`;
+      const moduleUrl = `/modules/${name}/${pkg.main}`;
 
       const label = pkg.description || pkg.name || name;
       WORKFLOW_MODULES.set(name, { label, moduleUrl, loaded: null });
@@ -157,7 +157,8 @@ const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
 const retainedAgentId = readStoredAgentId();
 
-logEl.textContent = `Initializing WASM from /pkg/et_ws_wasm_agent_bg.wasm\nWebSocket endpoint: ${wsUrl}`;
+logEl.textContent =
+  `Initializing WASM from /modules/ws-wasm-agent/et_ws_wasm_agent_bg.wasm\nWebSocket endpoint: ${wsUrl}`;
 updateAgentCard(
   retainedAgentId
     ? "Found retained agent ID in local storage. It will be re-used on connect."

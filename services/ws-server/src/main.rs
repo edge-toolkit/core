@@ -3,14 +3,12 @@ use std::path::PathBuf;
 use actix_web::middleware::Logger;
 use actix_web::{App, HttpServer, web};
 use clap::Parser;
+use et_ws_server::config::Config;
 use et_ws_server::{AgentRegistry, browser_static_dir, configure_app, wasm_modules_dir, wasm_pkg_dir, workspace_root};
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-mod config;
 mod otlp;
-
-use crate::config::Config;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -91,12 +89,14 @@ async fn main() -> std::io::Result<()> {
     let storage_dir = workspace_root().join("services/ws-server/storage");
     std::fs::create_dir_all(&storage_dir)?;
 
+    let modules_config = env.modules.clone();
     let server = HttpServer::new(move || {
         let registry = agent_registry.clone();
         let storage = storage_dir.clone();
+        let modules = modules_config.clone();
         App::new()
             .wrap(Logger::default())
-            .configure(|cfg| configure_app(cfg, registry, storage))
+            .configure(|cfg| configure_app(cfg, registry, storage, modules))
     })
     .bind(("0.0.0.0", edge_toolkit::ports::Services::InsecureWebSocketServer.port()))?
     .bind_rustls_0_23(

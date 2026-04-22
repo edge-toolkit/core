@@ -32,6 +32,7 @@ base64 = "0.22.1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive"] }
 et-web = { path = "libs/web" }
+lets_find_up = "0.0.4"
 log = "0.4"
 onnx-extractor = "0.3"
 rstest = "0.26"
