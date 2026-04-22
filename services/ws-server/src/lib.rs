@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-use crate::config::ModulesConfig;
+use crate::config::{Config, ModulesConfig};
 
 /// Maximum time the server allows a websocket connection to remain idle before closing it.
 /// This should remain comfortably higher than the client's `Alive` message interval.
@@ -792,6 +792,7 @@ pub fn list_modules(config: &ModulesConfig) -> Vec<(String, PathBuf)> {
             for entry in entries.flatten() {
                 if let Ok(file_type) = entry.file_type()
                     && file_type.is_dir()
+                    && !config.paths.contains(&entry.path())
                     && let Some(name) = entry.file_name().to_str()
                 {
                     let pkg_dir = entry.path().join("pkg");
@@ -806,8 +807,8 @@ pub fn list_modules(config: &ModulesConfig) -> Vec<(String, PathBuf)> {
     modules
 }
 
-async fn api_list_modules(modules_config: web::Data<ModulesConfig>) -> HttpResponse {
-    let names: Vec<String> = list_modules(&modules_config)
+async fn api_list_modules(config: web::Data<Config>) -> HttpResponse {
+    let names: Vec<String> = list_modules(&config.modules)
         .into_iter()
         .map(|(name, _)| name)
         .filter(|name| name != "ws-wasm-agent")
@@ -815,22 +816,11 @@ async fn api_list_modules(modules_config: web::Data<ModulesConfig>) -> HttpRespo
     HttpResponse::Ok().json(names)
 }
 
-pub fn workspace_root() -> PathBuf {
-    edge_toolkit::config::get_project_root()
-}
-
-pub fn wasm_pkg_dir() -> PathBuf {
-    workspace_root().join("services/ws-wasm-agent/pkg")
-}
-
-pub fn wasm_modules_dir() -> PathBuf {
-    workspace_root().join("services/ws-modules")
-}
-
 pub async fn agent_put_file(
     req: HttpRequest,
     mut payload: web::Payload,
     registry: web::Data<AgentRegistry>,
+    config: web::Data<Config>,
 ) -> Result<HttpResponse, Error> {
     let agent_id: String = req.match_info().query("agent_id").parse().unwrap();
     let filename: PathBuf = req
@@ -850,7 +840,7 @@ pub async fn agent_put_file(
         return Err(actix_web::error::ErrorBadRequest("invalid filename"));
     }
 
-    let storage_dir = Path::new(".").join("storage");
+    let storage_dir = &config.storage.path;
     let agent_dir = storage_dir.join(&agent_id);
     std::fs::create_dir_all(&agent_dir)?;
 
@@ -866,15 +856,11 @@ pub async fn agent_put_file(
     Ok(HttpResponse::Ok().finish())
 }
 
-pub fn configure_app(
-    cfg: &mut web::ServiceConfig,
-    agent_registry: web::Data<AgentRegistry>,
-    storage_dir: PathBuf,
-    modules_config: ModulesConfig,
-) {
-    let modules = list_modules(&modules_config);
+pub fn configure_app(cfg: &mut web::ServiceConfig, agent_registry: web::Data<AgentRegistry>, config: Config) {
+    let modules = list_modules(&config.modules);
+    let storage_dir = config.storage.path.clone();
     cfg.app_data(agent_registry)
-        .app_data(web::Data::new(modules_config))
+        .app_data(web::Data::new(config))
         .route("/favicon.ico", web::get().to(no_content))
         .route("/health", web::get().to(health))
         .route("/api/modules", web::get().to(api_list_modules))

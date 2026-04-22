@@ -4,7 +4,7 @@ use actix_web::middleware::{DefaultHeaders, Logger};
 use actix_web::{App, HttpServer, web};
 use clap::Parser;
 use et_ws_server::config::Config;
-use et_ws_server::{AgentRegistry, browser_static_dir, configure_app, wasm_modules_dir, wasm_pkg_dir, workspace_root};
+use et_ws_server::{AgentRegistry, browser_static_dir, configure_app, list_modules};
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -78,22 +78,20 @@ async fn main() -> std::io::Result<()> {
         error!("Failed to generate QR code: {}", e);
     }
     info!("Serving browser assets from {:?}", browser_static_dir());
-    info!("Serving wasm package from {:?}", wasm_pkg_dir());
-    info!("Serving wasm modules from {:?}", wasm_modules_dir());
     info!("HTTPS uses an in-memory self-signed localhost certificate for development");
 
     let agent_registry = web::Data::new(AgentRegistry::load(&args.agent_registry)?);
     let registry_clone = agent_registry.clone();
     let registry_path = args.agent_registry.clone();
 
-    let storage_dir = workspace_root().join("services/ws-server/storage");
-    std::fs::create_dir_all(&storage_dir)?;
+    std::fs::create_dir_all(&env.storage.path)?;
 
-    let modules_config = env.modules.clone();
+    for (name, pkg_dir) in list_modules(&env.modules) {
+        info!("Loading module {name} at {}", pkg_dir.display());
+    }
     let server = HttpServer::new(move || {
         let registry = agent_registry.clone();
-        let storage = storage_dir.clone();
-        let modules = modules_config.clone();
+        let config = env.clone();
         App::new()
             .wrap(Logger::default())
             .wrap(
@@ -101,7 +99,7 @@ async fn main() -> std::io::Result<()> {
                     .add(("Cross-Origin-Opener-Policy", "same-origin"))
                     .add(("Cross-Origin-Embedder-Policy", "require-corp")),
             )
-            .configure(|cfg| configure_app(cfg, registry, storage, modules))
+            .configure(|cfg| configure_app(cfg, registry, config))
     })
     .bind(("0.0.0.0", edge_toolkit::ports::Services::InsecureWebSocketServer.port()))?
     .bind_rustls_0_23(

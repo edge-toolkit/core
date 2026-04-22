@@ -1,0 +1,8 @@
+bin/
+obj/
+*.wasm
+*.dll
+*.pdb
+dotnet.js
+dotnet.runtime.js
+dotnet.native.js
