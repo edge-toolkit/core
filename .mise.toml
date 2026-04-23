@@ -36,8 +36,16 @@ ruff-fmt = "ruff format services/ws-modules/"
 zig-check = "zig fmt --check services/ws-modules/"
 zig-fmt = "zig fmt services/ws-modules/"
 
+[tasks.dotnet-fmt]
+description = "Format dotnet C# code"
+run = "dotnet format"
+
+[tasks.dotnet-check]
+description = "Check dotnet C# formatting"
+run = "dotnet format --verify-no-changes"
+
 [tasks.dprint-check]
-run = "dprint check --log-level debug"
+run = "dprint check"
 
 [tasks.dprint-check.env]
 DPRINT_CACHE_DIR = "/tmp/dprint-cache"
@@ -46,7 +54,7 @@ DPRINT_CACHE_DIR = "/tmp/dprint-cache"
 run = "dprint fmt"
 
 [tasks.fmt]
-depends = ["cargo-clippy-fix", "cargo-fmt", "dart-fmt", "dprint-fmt", "taplo-fmt", "zig-fmt"]
+depends = ["cargo-clippy-fix", "cargo-fmt", "dart-fmt", "dotnet-fmt", "dprint-fmt", "taplo-fmt", "zig-fmt"]
 description = "Run repository formatters"
 
 [tasks.install-nightly]
@@ -64,6 +72,7 @@ depends = [
   "cargo-clippy",
   "cargo-fmt-check",
   "dart-check",
+  "dotnet-check",
   "dprint-check",
   "editorconfig-check",
   "osv-scanner",

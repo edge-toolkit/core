@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/services/" />
+  <Folder Name="/services/ws-modules/">
+    <Project Path="services/ws-modules/dotnet-data1/dotnet-data1.csproj" />
+  </Folder>
+</Solution>

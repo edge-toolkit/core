@@ -5,6 +5,13 @@
 Please install [`mise`](https://mise.jdx.dev/).
 It is needed for all use of this repository.
 
+Configure it with
+
+```bash
+mise settings experimental=true
+mise settings set cargo.binstall true
+```
+
 ## Contributing
 
 Use `mise run fmt` and `mise run check` to run formatters and checkers.
