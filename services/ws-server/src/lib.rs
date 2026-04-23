@@ -775,17 +775,34 @@ pub async fn health() -> HttpResponse {
     }))
 }
 
+/// Read the `name` field from a `package.json` file, returning `None` on any error.
+fn read_package_name(package_json: &std::path::Path) -> Option<String> {
+    let content = std::fs::read_to_string(package_json).ok()?;
+    let v: serde_json::Value = serde_json::from_str(&content).ok()?;
+    v.get("name")?.as_str().map(str::to_string)
+}
+
 /// Scan all configured module paths and return a sorted list of (name, pkg_dir) pairs.
 ///
-/// Each entry is a module whose `<dir>/pkg/` subdirectory exists.
+/// Each entry is a module whose `<dir>/pkg/` subdirectory exists, or whose directory
+/// directly contains a `package.json`.
 pub fn list_modules(config: &ModulesConfig) -> Vec<(String, PathBuf)> {
     let mut modules: Vec<(String, PathBuf)> = Vec::new();
     for path in &config.paths {
         let pkg_dir = path.join("pkg");
         if pkg_dir.is_dir() {
             // This path is itself a single module (e.g. ws-wasm-agent).
-            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                modules.push((name.to_string(), pkg_dir));
+            let name = read_package_name(&pkg_dir.join("package.json"))
+                .or_else(|| path.file_name().and_then(|n| n.to_str()).map(str::to_string));
+            if let Some(name) = name {
+                modules.push((name, pkg_dir));
+            }
+        } else if path.join("package.json").is_file() {
+            // This path directly contains a package.json.
+            let name = read_package_name(&path.join("package.json"))
+                .or_else(|| path.file_name().and_then(|n| n.to_str()).map(str::to_string));
+            if let Some(name) = name {
+                modules.push((name, path.clone()));
             }
         } else if let Ok(entries) = std::fs::read_dir(path) {
             // This path is a directory of modules (e.g. ws-modules).
@@ -793,11 +810,21 @@ pub fn list_modules(config: &ModulesConfig) -> Vec<(String, PathBuf)> {
                 if let Ok(file_type) = entry.file_type()
                     && file_type.is_dir()
                     && !config.paths.contains(&entry.path())
-                    && let Some(name) = entry.file_name().to_str()
                 {
-                    let pkg_dir = entry.path().join("pkg");
+                    let entry_path = entry.path();
+                    let pkg_dir = entry_path.join("pkg");
                     if pkg_dir.is_dir() {
-                        modules.push((name.to_string(), pkg_dir));
+                        let name = read_package_name(&pkg_dir.join("package.json"))
+                            .or_else(|| entry.file_name().to_str().map(str::to_string));
+                        if let Some(name) = name {
+                            modules.push((name, pkg_dir));
+                        }
+                    } else if entry_path.join("package.json").is_file() {
+                        let name = read_package_name(&entry_path.join("package.json"))
+                            .or_else(|| entry.file_name().to_str().map(str::to_string));
+                        if let Some(name) = name {
+                            modules.push((name, entry_path));
+                        }
                     }
                 }
             }
@@ -811,7 +838,6 @@ async fn api_list_modules(config: web::Data<Config>) -> HttpResponse {
     let names: Vec<String> = list_modules(&config.modules)
         .into_iter()
         .map(|(name, _)| name)
-        .filter(|name| name != "ws-wasm-agent")
         .collect();
     HttpResponse::Ok().json(names)
 }
@@ -859,6 +885,18 @@ pub async fn agent_put_file(
 pub fn configure_app(cfg: &mut web::ServiceConfig, agent_registry: web::Data<AgentRegistry>, config: Config) {
     let modules = list_modules(&config.modules);
     let storage_dir = config.storage.path.clone();
+
+    let root_module_dir: PathBuf = modules
+        .iter()
+        .find(|(name, _)| name == &config.modules.root)
+        .map(|(_, path)| path.clone())
+        .unwrap_or_else(|| {
+            panic!(
+                "Root module '{}' not found among configured modules paths",
+                config.modules.root
+            );
+        });
+
     cfg.app_data(agent_registry)
         .app_data(web::Data::new(config))
         .route("/favicon.ico", web::get().to(no_content))
@@ -872,11 +910,13 @@ pub fn configure_app(cfg: &mut web::ServiceConfig, agent_registry: web::Data<Age
                 .use_etag(true)
                 .use_last_modified(true),
         );
-    for (name, pkg_dir) in modules {
+
+    for (name, pkg_dir) in &modules {
         cfg.service(Files::new(&format!("/modules/{name}"), pkg_dir));
     }
+
     cfg.service(
-        Files::new("/", browser_static_dir())
+        Files::new("/", root_module_dir)
             .index_file("index.html")
             .prefer_utf8(true),
     );

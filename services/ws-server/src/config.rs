@@ -1,19 +1,9 @@
 use std::path::PathBuf;
 
-use edge_toolkit::config::OtlpConfig;
+use edge_toolkit::config::{OtlpConfig, default_modules_folders};
 use serde::Deserialize;
 use serde_default::DefaultFromSerde;
-
-/// Default modules directory.
-#[must_use]
-pub fn default_modules_folders() -> Vec<std::path::PathBuf> {
-    let project_root = edge_toolkit::config::get_project_root();
-    vec![
-        project_root.join("services/ws-wasm-agent"),
-        project_root.join("data").join("model-modules"),
-        project_root.join("services").join("ws-modules"),
-    ]
-}
+use serde_inline_default::serde_inline_default;
 
 /// Default modules directory.
 #[must_use]
@@ -23,10 +13,13 @@ pub fn default_storage_folder() -> std::path::PathBuf {
 }
 
 /// Modules config.
+#[serde_inline_default]
 #[derive(Clone, Debug, DefaultFromSerde, Deserialize)]
 pub struct ModulesConfig {
     #[serde(default = "default_modules_folders")]
     pub paths: Vec<PathBuf>,
+    #[serde_inline_default(String::from("et-ws-server-static"))]
+    pub root: String,
 }
 
 /// Storage config.

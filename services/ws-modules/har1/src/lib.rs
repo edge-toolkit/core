@@ -13,7 +13,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::Event;
 
-const HAR_MODEL_PATH: &str = "/modules/model-har-motion1/har-motion1.onnx";
+const HAR_MODEL_PATH: &str = "/modules/et-model-har-motion1/har-motion1.onnx";
 const HAR_SEQUENCE_LENGTH: usize = 150;
 const HAR_FEATURE_COUNT: usize = 8;
 const HAR_FEAT_INPUT_SIZE: usize = 36;

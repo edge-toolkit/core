@@ -1,6 +1,14 @@
-import init, { initTracing, WsClient, WsClientConfig } from "/modules/ws-wasm-agent/et_ws_wasm_agent.js";
+import init, { initTracing, WsClient, WsClientConfig } from "/modules/et-ws-wasm-agent/et_ws_wasm_agent.js";
 
 console.log("app.js: module loading started");
+
+await new Promise((resolve, reject) => {
+  const s = document.createElement("script");
+  s.src = "/modules/onnxruntime-web/dist/ort.min.js";
+  s.onload = resolve;
+  s.onerror = reject;
+  document.head.appendChild(s);
+});
 
 const logEl = document.getElementById("log");
 const moduleSelect = document.getElementById("module-select");
@@ -8,7 +16,7 @@ const runModuleButton = document.getElementById("run-module-button");
 const agentStatusEl = document.getElementById("agent-status");
 const agentIdEl = document.getElementById("agent-id");
 
-const STORED_AGENT_ID_KEY = "ws_wasm_agent.agent_id";
+const STORED_AGENT_ID_KEY = "et_ws_wasm_agent.agent_id";
 let currentAgentId = null;
 
 const append = (line) => {
@@ -35,6 +43,14 @@ const populateModuleDropdown = async () => {
 
   for (const name of moduleNames) {
     try {
+      if (name === "et-ws-wasm-agent") {
+        append(`Skipping ${name}: already loaded as the main WASM agent module`);
+        continue;
+      }
+      if (name === "onnxruntime-web") {
+        append(`Skipping ${name}: already loaded as a dependency`);
+        continue;
+      }
       const pkgResp = await fetch(`/modules/${name}/package.json`);
       if (!pkgResp.ok) {
         append(`Skipping ${name}: no package.json (${pkgResp.status})`);
@@ -163,7 +179,7 @@ const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
 const retainedAgentId = readStoredAgentId();
 
 logEl.textContent =
-  `Initializing WASM from /modules/ws-wasm-agent/et_ws_wasm_agent_bg.wasm\nWebSocket endpoint: ${wsUrl}`;
+  `Initializing WASM from /modules/et-ws-wasm-agent/et_ws_wasm_agent_bg.wasm\nWebSocket endpoint: ${wsUrl}`;
 updateAgentCard(
   retainedAgentId
     ? "Found retained agent ID in local storage. It will be re-used on connect."

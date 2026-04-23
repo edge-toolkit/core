@@ -1,0 +1,39 @@
+---
+name: test
+
+"on":
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install mise
+        uses: taiki-e/install-action@v2
+        with:
+          tool: mise
+
+      - name: Install mise tools
+        run: |
+          mise settings add idiomatic_version_file_enable_tools "[]"
+          mise settings experimental=true
+          mise settings set cargo.binstall true
+          mise use -g cargo-binstall
+          mise install
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Build WASM modules
+        run: mise run build-modules
+
+      - name: Run tests
+        run: mise run test

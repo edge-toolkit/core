@@ -16,7 +16,7 @@ export async function run() {
   }
   // Dart @JS() interop resolves against globalThis, so expose the wasm-agent
   // classes there for the duration of the call.
-  const { WsClient, WsClientConfig } = await import("/modules/ws-wasm-agent/et_ws_wasm_agent.js");
+  const { WsClient, WsClientConfig } = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
   globalThis.WsClient = WsClient;
   globalThis.WsClientConfig = WsClientConfig;
   try {

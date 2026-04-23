@@ -172,12 +172,18 @@ fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result
     let output_abs = absolute_from(&workspace_root, output_dir);
     let ws_server_dir = workspace_root.join("services/ws-server");
     let workspace_rel = relative_path_from(&output_abs, &workspace_root).display().to_string();
-    let openobserve_env_file_rel = relative_path_from(&output_abs, &workspace_root.join("config/o2.env"))
-        .display()
-        .to_string();
+    let openobserve_env_file_rel = "config/o2.env";
     let module_names = cluster_module_names(cluster);
-    let module_paths = scenario_module_paths(&ws_server_dir, &workspace_root, &module_names);
-    let module_paths_value = module_paths.join(",");
+    let module_paths = scenario_module_paths(&ws_server_dir, &module_names);
+    let module_paths_lines = module_paths
+        .iter()
+        .map(|p| format!("  {p}"))
+        .collect::<Vec<_>>()
+        .join(",\\\n");
+    let ws_server_run = format!(
+        "MODULES_PATHS=\"\\\n{},\\\n  $(mise where npm:onnxruntime-web)/lib/node_modules\"\ncargo run\n",
+        module_paths_lines
+    );
     let ws_server_rel = relative_path_from(&output_abs, &ws_server_dir).display().to_string();
 
     let mut root = Table::new();
@@ -203,9 +209,9 @@ fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result
             None,
             Some("Run the WebSocket server"),
             Some(&ws_server_rel),
-            Some("cargo run"),
+            Some(&ws_server_run),
             None,
-            Some(mise_env(&module_paths_value)),
+            Some(mise_env()),
         )),
     );
     tasks.insert(
@@ -235,7 +241,7 @@ fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result
 
     let content = format_mise_toml(
         toml::to_string(&Value::Table(root)).context("Failed to serialize mise TOML")?,
-        &openobserve_env_file_rel,
+        openobserve_env_file_rel,
     );
     fs::write(&output_path, content).with_context(|| format!("Failed to write output file: {:?}", output_path))?;
     fs::write(&readme_path, generated_readme(cluster, &module_names))
@@ -285,9 +291,9 @@ fn format_mise_toml(content: String, openobserve_env_file_rel: &str) -> String {
     let wrapped_openobserve_run = format!(
         concat!(
             "run = \"\"\"\n",
-            "docker run --rm -it --name openobserve -p 5080:5080 \\\n",
-            "--env-file {} \\\n",
-            "openobserve/openobserve:v0.70.3\n",
+            "docker run --rm --name openobserve -p 5080:5080 \\\n",
+            "  --env-file {} \\\n",
+            "  openobserve/openobserve:v0.70.3\n",
             "\"\"\""
         ),
         openobserve_env_file_rel
@@ -327,9 +333,8 @@ fn mise_task(
     task
 }
 
-fn mise_env(module_paths: &str) -> Table {
+fn mise_env() -> Table {
     let mut env = Table::new();
-    env.insert("MODULES_PATHS".to_string(), Value::String(module_paths.to_string()));
     env.insert("OTLP_AUTH_PASSWORD".to_string(), Value::String("1234".to_string()));
     env.insert(
         "OTLP_AUTH_USERNAME".to_string(),
@@ -352,26 +357,19 @@ fn mise_depends<const N: usize>(depends: [&str; N]) -> Table {
     extra
 }
 
-fn scenario_module_paths(ws_server_dir: &Path, workspace_root: &Path, module_names: &[String]) -> Vec<String> {
-    let mut paths = Vec::with_capacity(module_names.len() + 2);
-    paths.push(
-        relative_path_from(ws_server_dir, &workspace_root.join("services/ws-wasm-agent"))
-            .display()
-            .to_string(),
-    );
-    paths.push(
-        relative_path_from(ws_server_dir, &workspace_root.join("data/model-modules"))
-            .display()
-            .to_string(),
-    );
+fn scenario_module_paths(ws_server_dir: &Path, module_names: &[String]) -> Vec<String> {
+    let project_root = edge_toolkit::config::get_project_root();
+    let ws_modules_dir = project_root.join("services/ws-modules");
+    let mut paths: Vec<String> = edge_toolkit::config::default_modules_folders()
+        .into_iter()
+        .filter(|p| p != &ws_modules_dir && p.starts_with(&project_root))
+        .map(|p| relative_path_from(ws_server_dir, &p).display().to_string())
+        .collect();
     for module_name in module_names {
         paths.push(
-            relative_path_from(
-                ws_server_dir,
-                &workspace_root.join("services/ws-modules").join(module_name),
-            )
-            .display()
-            .to_string(),
+            relative_path_from(ws_server_dir, &ws_modules_dir.join(module_name))
+                .display()
+                .to_string(),
         );
     }
     paths
