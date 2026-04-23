@@ -1,0 +1,11 @@
+cluster_name: "facility-security-scenario"
+deployment_type: "mise"
+
+agents:
+  - name: "entrance-security-camera"
+    resources:
+      - type: "face-detection"
+
+  - name: "worker-health-tracker"
+    resources:
+      - type: "har1"
