@@ -1,11 +1,15 @@
 [tools]
 action-validator = "latest"
+cargo-binstall = "latest"
 "cargo:taplo-cli" = "latest"
 "cargo:wasm-pack" = "latest"
 "chromedriver" = "146"
 cmake = "latest"
 codex = "latest"
 dart = { version = "latest", url = "https://storage.googleapis.com/dart-archive/channels/stable/release/{{ version }}/sdk/dartsdk-{{ os() }}-{{ arch() }}-release.zip", version_expr = 'fromJSON(body).prefixes | filter({ # matches "^channels/stable/release/(\\d+\\.\\d+\\.\\d+)/$" }) | map({split(#, "/")[3]}) | sortVersions()', version_list_url = "https://storage.googleapis.com/storage/v1/b/dart-archive/o?prefix=channels/stable/release/&delimiter=/" }
+dotnet = "latest"
+dotnet-core = "latest"
+"dotnet:roslynator.dotnet.cli" = "latest"
 dprint = "latest"
 editorconfig-checker = "latest"
 gemini-cli = "latest"
@@ -32,6 +36,14 @@ ruff-fmt = "ruff format services/ws-modules/"
 zig-check = "zig fmt --check services/ws-modules/"
 zig-fmt = "zig fmt services/ws-modules/"
 
+[tasks.dotnet-fmt]
+description = "Format dotnet C# code"
+run = "dotnet format"
+
+[tasks.dotnet-check]
+description = "Check dotnet C# formatting"
+run = "dotnet format --verify-no-changes"
+
 [tasks.dprint-check]
 run = "dprint check"
 
@@ -42,7 +54,7 @@ DPRINT_CACHE_DIR = "/tmp/dprint-cache"
 run = "dprint fmt"
 
 [tasks.fmt]
-depends = ["cargo-clippy-fix", "cargo-fmt", "dart-fmt", "dprint-fmt", "ruff-fmt", "taplo-fmt", "zig-fmt"]
+depends = ["cargo-clippy-fix", "cargo-fmt", "dart-fmt", "dotnet-fmt", "dprint-fmt", "taplo-fmt", "zig-fmt"]
 description = "Run repository formatters"
 
 [tasks.install-nightly]
@@ -60,10 +72,10 @@ depends = [
   "cargo-clippy",
   "cargo-fmt-check",
   "dart-check",
+  "dotnet-check",
   "dprint-check",
   "editorconfig-check",
   "osv-scanner",
-  "ruff-check",
   "taplo-check",
   "typos",
   "zig-check",
@@ -188,6 +200,17 @@ run = "wasm-pack build . --target web"
 description = "Build the dart-comm1 workflow module"
 dir = "services/ws-modules/dart-comm1"
 run = "dart compile js lib/dart_comm1.dart -o pkg/et_ws_dart_comm1_compiled.js --no-source-maps"
+
+[tasks.build-ws-dotnet-data1-module]
+description = "Build the dotnet-data1 C# WASM workflow module"
+dir = "services/ws-modules/dotnet-data1"
+run = '''
+dotnet workload install wasm-tools --skip-manifest-update
+dotnet publish -c Release
+
+PUBLISH=bin/Release/net10.0/publish/wwwroot/_framework
+cp "$PUBLISH"/*.js "$PUBLISH"/*.wasm "$PUBLISH"/*.dat pkg/
+'''
 
 [tasks.build-ws-pydata1-module]
 description = "Build the pydata1 Python workflow module"

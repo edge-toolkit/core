@@ -32,6 +32,9 @@ jobs:
       - name: Install mise tools
         run: |
           mise settings add idiomatic_version_file_enable_tools "[]"
+          mise settings experimental=true
+          mise settings set cargo.binstall true
+          mise use -g cargo-binstall
           mise install
         env:
           GITHUB_TOKEN: ${{ github.token }}
