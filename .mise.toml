@@ -19,6 +19,7 @@ pipx = "latest"
 "pipx:cmake" = "latest"
 protoc = "latest"
 rclone = "latest"
+ruff = "latest"
 rust = { version = "latest", components = "clippy" }
 typos = "latest"
 uv = "latest"
