@@ -1,33 +1,6 @@
 use super::*;
 
 #[test]
-fn softmax_distribution_preserves_order_and_normalizes() {
-    let logits = vec![2.0, 1.0, 0.1];
-    let probs = softmax(&logits);
-
-    assert_eq!(probs.len(), 3);
-    let sum: f64 = probs.iter().sum();
-    assert!((sum - 1.0).abs() < 1e-6);
-    assert!(probs[0] > probs[1]);
-    assert!(probs[1] > probs[2]);
-}
-
-#[test]
-fn softmax_handles_empty_equal_and_large_values() {
-    assert!(softmax(&[]).is_empty());
-
-    let equal = softmax(&[7.0, 7.0, 7.0]);
-    assert!(equal.iter().all(|value| (*value - (1.0 / 3.0)).abs() < 1e-6));
-
-    let large = softmax(&[1000.0, 1001.0, 999.0]);
-    assert_eq!(large.len(), 3);
-    assert!(large.iter().all(|value| value.is_finite()));
-    assert!((large.iter().sum::<f64>() - 1.0).abs() < 1e-6);
-    assert!(large[1] > large[0]);
-    assert!(large[0] > large[2]);
-}
-
-#[test]
 fn gravity_and_rotation_conversions_handle_positive_negative_and_zero() {
     assert_eq!(to_g(0.0), 0.0);
     assert!((to_g(9.80665) - 1.0).abs() < 1e-6);

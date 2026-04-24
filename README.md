@@ -2,7 +2,7 @@
 
 ## mise
 
-Please install [`mise`](https://mise.jdx.dev/).
+Please install [`mise`](https://mise.jdx.dev/), including the shell integration.
 It is needed for all use of this repository.
 
 Configure it with
@@ -15,14 +15,6 @@ mise settings set cargo.binstall true
 ## Contributing
 
 Use `mise run fmt` and `mise run check` to run formatters and checkers.
-
-## Run e2e
-
-Run the end-to-end tests using Chrome:
-
-```bash
-mise run ws-e2e-chrome
-```
 
 ## Run ws agent in browser
 
@@ -60,14 +52,36 @@ The server logs appear in the Logs section.
 
 The module list is dynamically populated from the modules in [services/ws-modules](services/ws-modules).
 
-Each module must be a directory `pkg` containing a `package.json` that defines a `main` which contains a JavaScript file
+Each module must have a `package.json` that defines a `main` which contains a JavaScript file
 that can load and run the module.
+
+Under each module in `ws-modules`, the package can be found in a subdirectory `pkg`.
 
 Most of the module are built from Rust using `wasm-pack build --target web`.
 
-The module `pydata1` uses [pyodide](https://pyodide.org/) to run a Python script.
+There are also modules written in:
 
-## Run an example demo scenario using et-cli
+- Python, using [pyodide](https://pyodide.org/)
+- .Net C#
+- Dart
+- Zig, including C code.
+
+## Root module
+
+The default UX in the web-browser is also a loadable module located in
+[services/ws-server/static](services/ws-server/static).
+
+A custom UX module can be used by setting the `ws-server` environment variable `MODULES_ROOT`.
+
+## Run e2e
+
+Run the end-to-end tests using Chrome:
+
+```bash
+mise run ws-e2e-chrome
+```
+
+Run an example demo scenario using et-cli
 
 ```bash
 cargo install --path utilities/cli --force
@@ -93,7 +107,7 @@ To regenerate all checked-in verification outputs from
 the matching `verification/*/output/<input-file-stem>` folder:
 
 ```bash
-et-cli regen-verification
+mise run regen-verification
 ```
 
 ## Grant

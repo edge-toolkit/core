@@ -1,30 +1,25 @@
-use std::path::PathBuf;
-
 use actix_web::{App, test, web};
-use et_ws_server::config::ModulesConfig;
+use et_ws_server::config::Config;
 use et_ws_server::{AgentRegistry, configure_app};
 
 #[actix_rt::test]
-async fn test_list_modules() {
+async fn list_modules() {
     let agent_registry = web::Data::new(AgentRegistry::default());
-    let storage_dir = PathBuf::from("/tmp/et-ws-test-storage");
 
-    let app = test::init_service(App::new().configure(|cfg| {
-        configure_app(
-            cfg,
-            agent_registry.clone(),
-            storage_dir.clone(),
-            ModulesConfig::default(),
-        )
-    }))
-    .await;
+    let app =
+        test::init_service(App::new().configure(|cfg| configure_app(cfg, agent_registry.clone(), Config::default())))
+            .await;
 
     let req = test::TestRequest::get().uri("/api/modules").to_request();
     let resp: Vec<String> = test::call_and_read_body_json(&app, req).await;
 
     // We expect at least the modules we know exist
-    assert!(resp.contains(&"comm1".to_string()));
-    assert!(resp.contains(&"data1".to_string()));
-    assert!(resp.contains(&"har1".to_string()));
-    assert!(resp.contains(&"face-detection".to_string()));
+    assert!(resp.contains(&"et-ws-server-static".to_string()));
+    assert!(resp.contains(&"et-ws-wasm-agent".to_string()));
+    assert!(resp.contains(&"et-ws-comm1".to_string()));
+    assert!(resp.contains(&"et-ws-data1".to_string()));
+    assert!(resp.contains(&"et-ws-har1".to_string()));
+    assert!(resp.contains(&"et-ws-face-detection".to_string()));
+    assert!(resp.contains(&"et-model-har-motion1".to_string()));
+    assert!(resp.contains(&"onnxruntime-web".to_string()));
 }

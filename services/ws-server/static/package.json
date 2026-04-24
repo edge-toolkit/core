@@ -1,0 +1,15 @@
+{
+  "description": "edge-toolkit static assets",
+  "name": "et-ws-server-static",
+  "version": "0.1.0",
+  "files": [
+    "app.js",
+    "favicon.png",
+    "index.html",
+    "style.css"
+  ],
+  "dependencies": {
+    "et-ws-wasm-agent": "*",
+    "onnxruntime-web": "*"
+  }
+}

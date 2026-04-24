@@ -1,6 +1,7 @@
 [tools]
 action-validator = "latest"
 cargo-binstall = "latest"
+"cargo:aube" = "latest"
 "cargo:taplo-cli" = "latest"
 "cargo:wasm-pack" = "latest"
 "chromedriver" = "146"
@@ -15,6 +16,7 @@ editorconfig-checker = "latest"
 gemini-cli = "latest"
 "github:block/goose" = "latest"
 "github:wasm-bindgen/wasm-bindgen" = "0.2.114"
+"npm:onnxruntime-web" = "latest"
 ollama = "latest"
 osv-scanner = "latest"
 pipx = "latest"
@@ -22,7 +24,10 @@ pipx = "latest"
 protoc = "latest"
 rclone = "latest"
 ruff = "latest"
-rust = { version = "latest", components = "clippy" }
+rust = [
+  { version = "latest", components = "clippy", targets = "wasm32-unknown-unknown" },
+  { version = "nightly", components = "rust-src,rustfmt", targets = "wasm32-unknown-unknown" },
+]
 typos = "latest"
 uv = "latest"
 yq = "latest"
@@ -33,6 +38,7 @@ ec = "ec"
 editorconfig-check = "ec"
 ruff-check = "ruff check services/ws-modules/"
 ruff-fmt = "ruff format services/ws-modules/"
+test = "cargo test --workspace"
 zig-check = "zig fmt --check services/ws-modules/"
 zig-fmt = "zig fmt services/ws-modules/"
 
@@ -57,9 +63,6 @@ run = "dprint fmt"
 depends = ["cargo-clippy-fix", "cargo-fmt", "dart-fmt", "dotnet-fmt", "dprint-fmt", "taplo-fmt", "zig-fmt"]
 description = "Run repository formatters"
 
-[tasks.install-nightly]
-run = "cargo +nightly fmt --version >/dev/null 2>&1 || rustup toolchain install nightly --component rustfmt"
-
 [tasks.dart-check]
 run = "dart analyze services/ws-modules/dart-comm1/"
 
@@ -75,10 +78,10 @@ depends = [
   "dotnet-check",
   "dprint-check",
   "editorconfig-check",
-  "generated-scenarios-check",
   "osv-scanner",
   "taplo-check",
   "typos",
+  "verification-check",
   "zig-check",
 ]
 description = "Run repository checks"
@@ -87,11 +90,9 @@ description = "Run repository checks"
 run = "cargo check --workspace"
 
 [tasks.cargo-fmt]
-depends = ["install-nightly"]
 run = "cargo +nightly fmt"
 
 [tasks.cargo-fmt-check]
-depends = ["install-nightly"]
 run = "cargo +nightly fmt -- --check"
 
 [tasks.cargo-clippy]
@@ -114,10 +115,11 @@ depends = ["cargo-check"]
 run = "osv-scanner --lockfile Cargo.lock"
 
 [tasks.regenerate-verification]
+alias = "regen-verification"
 description = "Regenerate checked-in verification output files"
 run = "cargo run -p et-cli -- regen-verification"
 
-[tasks.generated-scenarios-check]
+[tasks.verification-check]
 depends = ["regenerate-verification"]
 description = "Fail if generated scenario output files are stale"
 run = "git diff --exit-code -- verification"

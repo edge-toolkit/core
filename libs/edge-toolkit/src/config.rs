@@ -28,6 +28,46 @@ pub fn get_project_root() -> PathBuf {
     }
 }
 
+/// Returns the default module search paths for ws-server.
+///
+/// Includes the standard workspace paths and any npm packages installed via mise.
+#[must_use]
+pub fn default_modules_folders() -> Vec<PathBuf> {
+    let project_root = get_project_root();
+    let mut paths = vec![
+        project_root.join("services/ws-server/static"),
+        project_root.join("services/ws-wasm-agent"),
+        project_root.join("data/model-modules"),
+        project_root.join("services/ws-modules"),
+    ];
+    if let Some(p) = mise_npm_modules_path("onnxruntime-web") {
+        paths.push(p);
+    }
+    paths
+}
+
+/// Returns the install path for a `mise` tool, e.g. `mise where npm:onnxruntime-web`.
+#[must_use]
+pub fn mise_where(tool: &str) -> Option<PathBuf> {
+    let output = std::process::Command::new("mise").args(["where", tool]).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let s = std::str::from_utf8(&output.stdout).ok()?;
+    let p = PathBuf::from(s.trim());
+    p.is_dir().then_some(p)
+}
+
+/// Returns the `lib/node_modules` path within a mise npm tool install root.
+///
+/// This directory contains all npm packages installed by mise and can be used
+/// as a modules search path.
+#[must_use]
+pub fn mise_npm_modules_path(package: &str) -> Option<PathBuf> {
+    let p = mise_where(&format!("npm:{package}"))?.join("lib/node_modules");
+    p.is_dir().then_some(p)
+}
+
 /// Default port for the otlp http collector.
 #[must_use]
 const fn default_otlp_collector_port() -> u16 {
