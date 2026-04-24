@@ -1,0 +1,6 @@
+target/
+.git/
+.ruff_cache/
+.vscode/
+services/ws-server/storage/
+**/.DS_Store

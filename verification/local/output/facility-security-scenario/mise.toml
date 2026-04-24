@@ -19,7 +19,7 @@ docker run --rm --name openobserve -p 5080:5080 \
 description = "Run the WebSocket server"
 dir = "../../../../services/ws-server"
 run = '''
-MODULES_PATHS="\
+export MODULES_PATHS="\
   static,\
   ../ws-wasm-agent,\
   ../../data/model-modules,\

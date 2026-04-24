@@ -1,0 +1,45 @@
+services:
+  openobserve:
+    image: openobserve/openobserve:v0.70.3
+    healthcheck:
+      test:
+        - CMD
+        - /openobserve
+        - node
+        - status
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    ports:
+      - 5080:5080
+    env_file:
+      - ../../../../config/o2.env
+    environment:
+      ZO_DATA_DIR: /data
+    volumes:
+      - openobserve-data:/data
+  ws-server:
+    build:
+      context: ../../../..
+      dockerfile: services/ws-server/Dockerfile
+    network_mode: host
+    environment:
+      MODULES_PATHS: "/app/services/ws-server/static,\
+        /app/services/ws-wasm-agent,\
+        /app/data/model-modules,\
+        /app/node_modules/onnxruntime-web,\
+        /app/services/ws-modules/face-detection,\
+        /app/services/ws-modules/har1"
+      OTLP_AUTH_PASSWORD: "1234"
+      OTLP_AUTH_USERNAME: root@example.com
+      OTLP_COLLECTOR_URL: http://127.0.0.1:5080/api/default/v1
+      STORAGE_PATH: /app/storage
+    volumes:
+      - ws-server-storage:/app/storage
+    depends_on:
+      openobserve:
+        condition: service_healthy
+volumes:
+  openobserve-data: {}
+  ws-server-storage: {}

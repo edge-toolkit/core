@@ -101,13 +101,28 @@ command to start the demo scenario:
 mise run generated-scenario
 ```
 
+To generate a Docker Compose deployment instead, pass
+`--output-type docker-compose` or set `deployment_type: docker-compose` in the
+scenario input YAML. This writes `compose.yaml` to the output directory:
+
+```bash
+et-cli generate-deployment \
+  --input-file verification/local/input/facility-security-scenario.yaml \
+  --output-dir verification/local/output/facility-security-scenario \
+  --output-type docker-compose
+cd verification/local/output/facility-security-scenario
+docker compose up --build
+```
+
 The generated scenario config only selects which prebuilt modules `ws-server`
 serves. Module builds are expected to be handled separately from the repository
 root.
 
 To regenerate all checked-in verification outputs from
 `verification/*/input`, writing each scenario to
-the matching `verification/*/output/<input-file-stem>` folder:
+the matching `verification/*/output/<input-file-stem>` folder. This generates
+all supported deployment files for each scenario, currently `mise.toml` and
+`compose.yaml`:
 
 ```bash
 mise run regen-verification
