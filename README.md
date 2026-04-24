@@ -12,6 +12,8 @@ mise settings experimental=true
 mise settings set cargo.binstall true
 ```
 
+The mise configuration is stored in [`.mise.toml`](.mise.toml).
+
 ## Contributing
 
 Use `mise run fmt` and `mise run check` to run formatters and checkers.
@@ -61,9 +63,10 @@ Most of the module are built from Rust using `wasm-pack build --target web`.
 
 There are also modules written in:
 
-- Python, using [pyodide](https://pyodide.org/)
-- .Net C#
 - Dart
+- Java
+- .Net C#
+- Python, using [pyodide](https://pyodide.org/)
 - Zig, including C code.
 
 ## Root module

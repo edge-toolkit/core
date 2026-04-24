@@ -16,6 +16,8 @@ editorconfig-checker = "latest"
 gemini-cli = "latest"
 "github:block/goose" = "latest"
 "github:wasm-bindgen/wasm-bindgen" = "0.2.114"
+java = "latest"
+maven = "latest"
 "npm:onnxruntime-web" = "latest"
 ollama = "latest"
 osv-scanner = "latest"
@@ -232,6 +234,10 @@ uv build --wheel --out-dir pkg
 cargo run -p pyproject-to-package-json
 """
 
+[tasks.build-ws-java-data1-module]
+description = "Build the java-data1 workflow module"
+run = "mvn package"
+
 [tasks.build-ws-zig-data1-module]
 description = "Build the zig-data1 workflow WASM module"
 dir = "services/ws-modules/zig-data1"
@@ -248,6 +254,7 @@ depends = [
   "build-ws-geolocation-module",
   "build-ws-graphics-info-module",
   "build-ws-har1-module",
+  "build-ws-java-data1-module",
   "build-ws-nfc-module",
   "build-ws-pydata1-module",
   "build-ws-sensor1-module",
