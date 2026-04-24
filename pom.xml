@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project
+  xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+>
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>au.edu.curtin.et</groupId>
+  <artifactId>java-data1</artifactId>
+  <version>0.1.0</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <maven.compiler.release>11</maven.compiler.release>
+    <teavm.version>0.13.1</teavm.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.teavm</groupId>
+      <artifactId>teavm-classlib</artifactId>
+      <version>${teavm.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.teavm</groupId>
+      <artifactId>teavm-jso-apis</artifactId>
+      <version>${teavm.version}</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <sourceDirectory>${project.basedir}/services/ws-modules/java-data1/src/main/java</sourceDirectory>
+    <plugins>
+      <plugin>
+        <groupId>org.teavm</groupId>
+        <artifactId>teavm-maven-plugin</artifactId>
+        <version>${teavm.version}</version>
+        <executions>
+          <execution>
+            <id>build-js</id>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+            <phase>package</phase>
+            <configuration>
+              <mainClass>au.edu.curtin.et.Data1</mainClass>
+              <targetDirectory>${project.basedir}/services/ws-modules/java-data1/pkg</targetDirectory>
+              <targetFileName>classes.js</targetFileName>
+              <targetType>JAVASCRIPT</targetType>
+              <moduleType>ES2015</moduleType>
+              <optimizationLevel>ADVANCED</optimizationLevel>
+              <minifying>true</minifying>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

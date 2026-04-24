@@ -1,0 +1,8 @@
+{
+  "name": "et-ws-java-data1",
+  "type": "module",
+  "description": "java data 1",
+  "version": "0.1.0",
+  "license": "Apache-2.0 OR MIT",
+  "main": "et_ws_java_data1.js"
+}

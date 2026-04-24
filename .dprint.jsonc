@@ -1,4 +1,6 @@
 {
+  "java": {
+  },
   "json": {
   },
   "malva": {
@@ -16,6 +18,7 @@
     "**/*-lock.json",
   ],
   "plugins": [
+    "https://github.com/speakeasy-api/dprint-plugin-java/releases/latest/download/dprint_plugin_java.wasm",
     "https://plugins.dprint.dev/g-plane/malva-v0.15.2.wasm",
     "https://plugins.dprint.dev/g-plane/markup_fmt-v0.27.0.wasm",
     "https://plugins.dprint.dev/g-plane/pretty_yaml-v0.6.0.wasm",
