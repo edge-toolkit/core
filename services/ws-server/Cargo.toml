@@ -7,18 +7,18 @@ repository.workspace = true
 
 [dependencies]
 actix = "0.13"
-actix-files = "0.6"
 actix-rt = "2"
 actix-web = { version = "4", features = ["rustls-0_23"] }
-actix-web-actors = "4"
 chrono.workspace = true
 clap.workspace = true
 edge-toolkit = { path = "../../libs/edge-toolkit" }
+et-modules-service = { path = "../modules" }
+et-storage-service = { path = "../storage" }
+et-ws-service = { path = "../ws" }
 futures-util = "0.3"
 hostname = "0.4"
 local-ip-address = "0.6"
 log.workspace = true
-onnx-extractor.workspace = true
 opentelemetry = "0.31"
 opentelemetry-appender-tracing = "0.31"
 opentelemetry-otlp = { version = "0.31", default-features = false, features = [

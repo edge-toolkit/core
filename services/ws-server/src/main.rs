@@ -3,8 +3,10 @@ use std::path::PathBuf;
 use actix_web::middleware::{DefaultHeaders, Logger};
 use actix_web::{App, HttpServer, web};
 use clap::Parser;
+use et_modules_service::list_modules;
 use et_ws_server::config::Config;
-use et_ws_server::{AgentRegistry, browser_static_dir, configure_app, list_modules};
+use et_ws_server::{browser_static_dir, configure_app};
+use et_ws_service::load_registry;
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -80,7 +82,7 @@ async fn main() -> std::io::Result<()> {
     info!("Serving browser assets from {:?}", browser_static_dir());
     info!("HTTPS uses an in-memory self-signed localhost certificate for development");
 
-    let agent_registry = web::Data::new(AgentRegistry::load(&args.agent_registry)?);
+    let agent_registry = web::Data::new(load_registry(&args.agent_registry)?);
     let registry_clone = agent_registry.clone();
     let registry_path = args.agent_registry.clone();
 
