@@ -4,3 +4,4 @@ pub mod config;
 pub mod input;
 pub mod ports;
 pub mod ws;
+pub mod ws_server;

@@ -1,0 +1,16 @@
+[package]
+name = "et-modules-service"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+actix-files = "0.6"
+actix-web = "4"
+edge-toolkit = { path = "../../libs/edge-toolkit" }
+serde_json.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+actix-rt = "2"

@@ -30,8 +30,8 @@ const describeError = (error) => (
 const WORKFLOW_MODULES = new Map();
 
 const populateModuleDropdown = async () => {
-  append("Discovering modules via /api/modules...");
-  const resp = await fetch("/api/modules");
+  append("Discovering modules via /modules...");
+  const resp = await fetch("/modules/");
   if (!resp.ok) {
     append(`Failed to fetch module list from server: ${resp.status} ${resp.statusText}`);
     return;
