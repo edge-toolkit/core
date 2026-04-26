@@ -4,3 +4,4 @@ target/
 services/ws-wasm-agent/pkg/
 services/ws-server/static/models/
 .zig-cache/
+*.pem

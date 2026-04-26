@@ -21,7 +21,7 @@ pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
 pub type WsAgentRegistry = AgentRegistry<Addr<WebSocketActor>>;
 
 /// Load a registry from disk. Sessions are not persisted, so they are initialised to `None`.
-pub fn load_registry(path: &std::path::Path) -> std::io::Result<WsAgentRegistry> {
+pub fn load_registry(path: &std::path::Path) -> Result<WsAgentRegistry, std::io::Error> {
     use edge_toolkit::ws::AgentConnectionState;
     if !path.exists() {
         warn!("Registry file {:?} does not exist, starting with empty registry", path);

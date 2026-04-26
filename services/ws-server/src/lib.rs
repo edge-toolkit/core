@@ -1,15 +1,9 @@
-pub mod config;
-
-use std::path::{Path, PathBuf};
-
 use actix_web::{HttpResponse, web};
 pub use et_ws_service::{WebSocketActor, WsAgentRegistry};
 
-use crate::config::Config;
+pub mod config;
 
-pub fn browser_static_dir() -> PathBuf {
-    Path::new(".").join("static")
-}
+use crate::config::Config;
 
 pub async fn no_content() -> HttpResponse {
     HttpResponse::NoContent().finish()
