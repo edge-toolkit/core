@@ -2,7 +2,20 @@ use std::path::PathBuf;
 
 use actix_files::Files;
 use actix_web::{HttpResponse, web};
-use edge_toolkit::ws_server::{Config, ModulesConfig};
+use edge_toolkit::config::default_modules_folders;
+use serde::Deserialize;
+use serde_default::DefaultFromSerde;
+use serde_inline_default::serde_inline_default;
+
+/// Modules config.
+#[serde_inline_default]
+#[derive(Clone, Debug, DefaultFromSerde, Deserialize)]
+pub struct ModulesConfig {
+    #[serde(default = "default_modules_folders")]
+    pub paths: Vec<PathBuf>,
+    #[serde_inline_default(String::from("et-ws-server-static"))]
+    pub root: String,
+}
 
 fn read_package_name(package_json: &std::path::Path) -> Option<String> {
     let content = std::fs::read_to_string(package_json).ok()?;
@@ -56,24 +69,21 @@ pub fn list_modules(config: &ModulesConfig) -> Vec<(String, PathBuf)> {
     modules
 }
 
-async fn list_modules_handler(config: web::Data<Config>) -> HttpResponse {
-    let names: Vec<String> = list_modules(&config.modules)
-        .into_iter()
-        .map(|(name, _)| name)
-        .collect();
+async fn list_modules_handler(config: web::Data<ModulesConfig>) -> HttpResponse {
+    let names: Vec<String> = list_modules(&config).into_iter().map(|(name, _)| name).collect();
     HttpResponse::Ok().json(names)
 }
 
 /// Register `GET /modules/` (JSON list), `GET /modules/{name}/...` (static files),
 /// and `GET /` (root module).
-pub fn configure(cfg: &mut web::ServiceConfig, config: &Config) {
-    let modules = list_modules(&config.modules);
+pub fn configure(cfg: &mut web::ServiceConfig, config: &ModulesConfig) {
+    let modules = list_modules(config);
 
     let root_module_dir = modules
         .iter()
-        .find(|(name, _)| name == &config.modules.root)
+        .find(|(name, _)| name == &config.root)
         .map(|(_, path)| path.clone())
-        .unwrap_or_else(|| panic!("Root module '{}' not found", config.modules.root));
+        .unwrap_or_else(|| panic!("Root module '{}' not found", config.root));
 
     cfg.route("/modules/", web::get().to(list_modules_handler));
     for (name, pkg_dir) in &modules {

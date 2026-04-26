@@ -11,7 +11,6 @@ struct Args {
 }
 
 fn main() {
-    //} -> std::io::Result<()> {
     let args = Args::parse();
 
     let model = onnx_extractor::OnnxModel::load_from_file(&args.filename.to_string_lossy()).unwrap();

@@ -2,15 +2,31 @@ use std::path::PathBuf;
 
 use actix_files::Files;
 use actix_web::{Error, HttpRequest, HttpResponse, web};
-use edge_toolkit::ws_server::{AgentRegistry, Config};
+use edge_toolkit::ws_server::AgentRegistry;
 use futures_util::StreamExt;
+use serde::Deserialize;
+use serde_default::DefaultFromSerde;
 use tracing::info;
+
+/// Default storage directory.
+#[must_use]
+pub fn default_storage_folder() -> PathBuf {
+    let project_root = edge_toolkit::config::get_project_root();
+    project_root.join("services/ws-server/storage")
+}
+
+/// Storage config.
+#[derive(Clone, Debug, DefaultFromSerde, Deserialize)]
+pub struct StorageConfig {
+    #[serde(default = "default_storage_folder")]
+    pub path: PathBuf,
+}
 
 pub async fn agent_put_file<S: Clone + Send + 'static>(
     req: HttpRequest,
     mut payload: web::Payload,
     registry: web::Data<AgentRegistry<S>>,
-    config: web::Data<Config>,
+    config: web::Data<StorageConfig>,
 ) -> Result<HttpResponse, Error> {
     let agent_id: String = req.match_info().query("agent_id").parse().unwrap();
     let filename: PathBuf = req
@@ -30,7 +46,7 @@ pub async fn agent_put_file<S: Clone + Send + 'static>(
         return Err(actix_web::error::ErrorBadRequest("invalid filename"));
     }
 
-    let storage_dir = &config.storage.path;
+    let storage_dir = &config.path;
     let agent_dir = storage_dir.join(&agent_id);
     std::fs::create_dir_all(&agent_dir)?;
 
@@ -47,8 +63,8 @@ pub async fn agent_put_file<S: Clone + Send + 'static>(
 }
 
 /// Register `PUT /storage/{agent_id}/{filename}` and `GET /storage/...` (static file serving).
-pub fn configure<S: Clone + Send + 'static>(cfg: &mut web::ServiceConfig, config: &Config) {
-    let storage_dir = config.storage.path.clone();
+pub fn configure<S: Clone + Send + 'static>(cfg: &mut web::ServiceConfig, config: &StorageConfig) {
+    let storage_dir = config.path.clone();
     cfg.route("/storage/{agent_id}/{filename}", web::put().to(agent_put_file::<S>))
         .service(
             Files::new("/storage", storage_dir)

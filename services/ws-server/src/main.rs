@@ -5,12 +5,13 @@ use actix_web::{App, HttpServer, web};
 use clap::Parser;
 use et_modules_service::list_modules;
 use et_ws_server::config::Config;
-use et_ws_server::{browser_static_dir, configure_app};
+use et_ws_server::configure_app;
 use et_ws_service::load_registry;
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod otlp;
+mod tls;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -20,25 +21,8 @@ struct Args {
     agent_registry: PathBuf,
 }
 
-fn tls_config() -> std::io::Result<rustls::ServerConfig> {
-    let certified = rcgen::generate_simple_self_signed(vec![
-        "localhost".to_string(),
-        "127.0.0.1".to_string(),
-        "::1".to_string(),
-    ])
-    .map_err(|e| std::io::Error::other(format!("failed to generate dev certificate: {e}")))?;
-
-    let cert_der: rustls::pki_types::CertificateDer<'static> = certified.cert.der().clone();
-    let key_der = rustls::pki_types::PrivatePkcs8KeyDer::from(certified.signing_key.serialize_der());
-
-    rustls::ServerConfig::builder()
-        .with_no_client_auth()
-        .with_single_cert(vec![cert_der], key_der.into())
-        .map_err(|e| std::io::Error::other(format!("failed to configure TLS: {e}")))
-}
-
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
 
     let env = serde_env::from_env::<Config>().unwrap();
@@ -59,11 +43,24 @@ async fn main() -> std::io::Result<()> {
             .init();
     }
 
-    let tls_config = tls_config()?;
-
     let network_ip = local_ip_address::local_ip()
         .map(|ip| ip.to_string())
         .unwrap_or_else(|_| "127.0.0.1".to_string());
+
+    let cert_filename = &env.tls.cert_file;
+    let key_filename = &env.tls.key_file;
+    let (cert_der, key_der) = if cert_filename.exists() && key_filename.exists() {
+        info!("Loading TLS certificate from {:?}", cert_filename);
+        tls::load_tls_certs(cert_filename, key_filename)
+    } else {
+        info!(
+            "Generated self-signed localhost certificate to {:?} and key to {:?}",
+            cert_filename, key_filename
+        );
+        tls::generate_tls_certs(cert_filename, key_filename)
+    };
+    let rustls_config = tls::build_tls_server_config(cert_der, key_der);
+
     let https_url = format!(
         "https://{}:{}",
         network_ip,
@@ -79,14 +76,12 @@ async fn main() -> std::io::Result<()> {
     if let Err(e) = qr2term::print_qr(&https_url) {
         error!("Failed to generate QR code: {}", e);
     }
-    info!("Serving browser assets from {:?}", browser_static_dir());
-    info!("HTTPS uses an in-memory self-signed localhost certificate for development");
 
-    let agent_registry = web::Data::new(load_registry(&args.agent_registry)?);
+    let agent_registry = web::Data::new(load_registry(&args.agent_registry).unwrap());
     let registry_clone = agent_registry.clone();
     let registry_path = args.agent_registry.clone();
 
-    std::fs::create_dir_all(&env.storage.path)?;
+    std::fs::create_dir_all(&env.storage.path).unwrap();
 
     for (name, pkg_dir) in list_modules(&env.modules) {
         info!("Loading module {name} at {}", pkg_dir.display());
@@ -101,12 +96,12 @@ async fn main() -> std::io::Result<()> {
                     .add(("Cross-Origin-Opener-Policy", "same-origin"))
                     .add(("Cross-Origin-Embedder-Policy", "require-corp")),
             )
-            .configure(|cfg| configure_app(cfg, registry, config))
+            .configure(|cfg| configure_app(cfg, registry, &config))
     })
     .bind(("0.0.0.0", edge_toolkit::ports::Services::InsecureWebSocketServer.port()))?
     .bind_rustls_0_23(
         ("0.0.0.0", edge_toolkit::ports::Services::SecureWebSocketServer.port()),
-        tls_config,
+        rustls_config,
     )?
     .run();
 
