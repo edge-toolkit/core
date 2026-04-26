@@ -968,6 +968,9 @@ dependencies = [
  "actix-rt",
  "actix-web",
  "edge-toolkit",
+ "serde",
+ "serde-inline-default",
+ "serde_default",
  "serde_json",
  "tracing",
 ]
@@ -988,6 +991,9 @@ dependencies = [
  "actix-web",
  "edge-toolkit",
  "futures-util",
+ "serde",
+ "serde-inline-default",
+ "serde_default",
  "tokio",
  "tracing",
 ]

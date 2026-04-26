@@ -101,7 +101,7 @@ async fn main() -> std::io::Result<()> {
                     .add(("Cross-Origin-Opener-Policy", "same-origin"))
                     .add(("Cross-Origin-Embedder-Policy", "require-corp")),
             )
-            .configure(|cfg| configure_app(cfg, registry, config))
+            .configure(|cfg| configure_app(cfg, registry, &config))
     })
     .bind(("0.0.0.0", edge_toolkit::ports::Services::InsecureWebSocketServer.port()))?
     .bind_rustls_0_23(

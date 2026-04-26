@@ -562,6 +562,6 @@ pub async fn ws_handler(
     result
 }
 
-pub fn configure(cfg: &mut web::ServiceConfig, _config: &edge_toolkit::ws_server::Config) {
+pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.route("/ws", web::get().to(ws_handler));
 }
