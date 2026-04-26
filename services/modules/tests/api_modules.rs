@@ -1,10 +1,10 @@
 use actix_web::{App, test, web};
-use edge_toolkit::ws_server::{AgentRegistry, Config};
-use et_modules_service::configure;
+use edge_toolkit::ws_server::AgentRegistry;
+use et_modules_service::{ModulesConfig, configure};
 
 #[actix_rt::test]
 async fn list_modules_api() {
-    let config = Config::default();
+    let config = ModulesConfig::default();
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(AgentRegistry::<()>::default()))
