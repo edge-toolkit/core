@@ -46,7 +46,7 @@ fn main() -> Result<()> {
                 summary.agent_templates,
                 summary.module_names.join(", ")
             );
-            println!("Generated: {:?}", output_dir.join("mise.toml"));
+            println!("Generated: {:?}", output_dir.join(output_type.output_file_name()));
             println!("See the generated README.md in {:?} for instructions.", output_dir);
         }
         Commands::RegenVerification { verification_root } => {

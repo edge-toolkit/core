@@ -2,7 +2,7 @@ use std::fs;
 
 use tempfile::tempdir;
 
-use crate::{generate_deployment, regenerate_verification};
+use crate::{docker_image_module_paths, generate_deployment, regenerate_verification, scenario_module_paths};
 
 #[test]
 fn generate_deployment_rejects_unsupported_deployment_type() {
@@ -26,7 +26,38 @@ agents: []
 }
 
 #[test]
-fn regenerate_verification_uses_input_name_for_output_folder() {
+fn docker_image_module_paths_include_static_root_module() {
+    let paths = docker_image_module_paths(&["face-detection".to_string()]);
+
+    assert_eq!(paths[0], "/app/services/ws-server/static");
+    assert!(paths.contains(&"/app/services/ws-wasm-agent".to_string()));
+    assert!(paths.contains(&"/app/data/model-modules".to_string()));
+    assert!(paths.contains(&"/app/node_modules/onnxruntime-web".to_string()));
+    assert!(paths.contains(&"/app/services/ws-modules/face-detection".to_string()));
+}
+
+#[test]
+fn scenario_module_paths_include_only_selected_workflow_modules() {
+    let project_root = edge_toolkit::config::get_project_root();
+    let ws_server_dir = project_root.join("services/ws-server");
+    let paths = scenario_module_paths(&ws_server_dir, &["face-detection".to_string(), "har1".to_string()]);
+
+    assert_eq!(
+        paths,
+        vec![
+            "static".to_string(),
+            "../ws-wasm-agent".to_string(),
+            "../../data/model-modules".to_string(),
+            "../ws-modules/face-detection".to_string(),
+            "../ws-modules/har1".to_string(),
+        ],
+    );
+    assert!(!paths.contains(&"../ws-modules".to_string()));
+    assert!(!paths.contains(&"../ws-modules/data1".to_string()));
+}
+
+#[test]
+fn regenerate_verification_generates_all_deployment_types() {
     let test_root = tempdir().unwrap();
     let verification_root = test_root.path().join("verification");
     let input_dir = verification_root.join("local/input");
@@ -54,7 +85,15 @@ agents:
     assert_eq!(regenerated[0].output_dir, output_dir);
     assert_eq!(regenerated[0].summary.cluster_name, "manifest-cluster");
     assert!(output_dir.join("mise.toml").exists());
+    assert!(output_dir.join("compose.yaml").exists());
     assert!(output_dir.join("README.md").exists());
+    let mise = fs::read_to_string(output_dir.join("mise.toml")).unwrap();
+    assert!(mise.contains("export MODULES_PATHS="));
+    let readme = fs::read_to_string(output_dir.join("README.md")).unwrap();
+    assert!(readme.contains("`mise.toml`"));
+    assert!(readme.contains("`compose.yaml`"));
+    assert!(readme.contains("mise run generated-scenario"));
+    assert!(readme.contains("docker compose up"));
 }
 
 #[test]
@@ -96,5 +135,7 @@ agents: []
     assert_eq!(regenerated[1].input_file, local_input);
     assert_eq!(regenerated[1].output_dir, local_output_dir);
     assert!(local_output_dir.join("mise.toml").exists());
+    assert!(local_output_dir.join("compose.yaml").exists());
     assert!(ci_output_dir.join("mise.toml").exists());
+    assert!(ci_output_dir.join("compose.yaml").exists());
 }
