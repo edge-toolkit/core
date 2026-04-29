@@ -33,6 +33,7 @@ fn docker_image_module_paths_include_static_root_module() {
     assert!(paths.contains(&"/app/services/ws-wasm-agent".to_string()));
     assert!(paths.contains(&"/app/data/model-modules".to_string()));
     assert!(paths.contains(&"/app/node_modules/onnxruntime-web".to_string()));
+    assert!(paths.contains(&"/app/node_modules/pyodide".to_string()));
     assert!(paths.contains(&"/app/services/ws-modules/face-detection".to_string()));
 }
 

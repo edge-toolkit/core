@@ -14,7 +14,7 @@ WORKDIR /workspace
 
 COPY . .
 
-RUN npm install --omit=dev --prefix /workspace/runtime-deps onnxruntime-web
+RUN npm install --omit=dev --prefix /workspace/runtime-deps onnxruntime-web pyodide
 RUN cargo build -p et-ws-server --release --locked
 
 FROM debian:bookworm-slim AS runtime
@@ -32,6 +32,7 @@ COPY --from=builder /workspace/services/ws-wasm-agent/pkg ./services/ws-wasm-age
 COPY --from=builder /workspace/services/ws-modules ./services/ws-modules
 COPY --from=builder /workspace/data/model-modules ./data/model-modules
 COPY --from=builder /workspace/runtime-deps/node_modules/onnxruntime-web ./node_modules/onnxruntime-web
+COPY --from=builder /workspace/runtime-deps/node_modules/pyodide ./node_modules/pyodide
 
 RUN mkdir -p /app/storage \
     && chown -R app:app /app

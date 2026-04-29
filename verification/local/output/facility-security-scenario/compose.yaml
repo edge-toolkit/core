@@ -29,6 +29,7 @@ services:
         /app/services/ws-wasm-agent,\
         /app/data/model-modules,\
         /app/node_modules/onnxruntime-web,\
+        /app/node_modules/pyodide,\
         /app/services/ws-modules/face-detection,\
         /app/services/ws-modules/har1"
       OTLP_AUTH_PASSWORD: "1234"

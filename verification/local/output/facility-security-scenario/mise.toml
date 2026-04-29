@@ -25,7 +25,8 @@ export MODULES_PATHS="\
   ../../data/model-modules,\
   ../ws-modules/face-detection,\
   ../ws-modules/har1,\
-  $(mise where npm:onnxruntime-web)/lib/node_modules"
+  $(mise where npm:onnxruntime-web)/lib/node_modules,\
+  $(mise where npm:pyodide)/lib/node_modules"
 cargo run
 '''
 
