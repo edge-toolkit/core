@@ -47,7 +47,7 @@ const populateModuleDropdown = async () => {
         append(`Skipping ${name}: already loaded as the main WASM agent module`);
         continue;
       }
-      if (name === "onnxruntime-web") {
+      if (name === "onnxruntime-web" || name === "pyodide") {
         append(`Skipping ${name}: already loaded as a dependency`);
         continue;
       }

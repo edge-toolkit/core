@@ -43,6 +43,9 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
     if let Some(p) = mise_npm_modules_path("onnxruntime-web") {
         paths.push(p);
     }
+    if let Some(p) = mise_npm_modules_path("pyodide") {
+        paths.push(p);
+    }
     paths
 }
 

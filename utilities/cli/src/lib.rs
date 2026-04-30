@@ -231,10 +231,14 @@ fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result
         .map(|p| format!("  {p}"))
         .collect::<Vec<_>>()
         .join(",\\\n");
-    let ws_server_run = format!(
-        "export MODULES_PATHS=\"\\\n{},\\\n  $(mise where npm:onnxruntime-web)/lib/node_modules\"\ncargo run\n",
-        module_paths_lines
-    );
+    let mise_dependency_paths = [
+        "$(mise where npm:onnxruntime-web)/lib/node_modules",
+        "$(mise where npm:pyodide)/lib/node_modules",
+    ]
+    .map(|path| format!("  {path}"))
+    .join(",\\\n");
+    let ws_server_run =
+        format!("export MODULES_PATHS=\"\\\n{module_paths_lines},\\\n{mise_dependency_paths}\"\ncargo run\n");
     let ws_server_rel = relative_path_from(&output_abs, &ws_server_dir).display().to_string();
 
     let mut root = Table::new();
@@ -725,11 +729,12 @@ fn scenario_module_paths(ws_server_dir: &Path, module_names: &[String]) -> Vec<S
 }
 
 fn docker_image_module_paths(module_names: &[String]) -> Vec<String> {
-    let mut paths = Vec::with_capacity(module_names.len() + 4);
+    let mut paths = Vec::with_capacity(module_names.len() + 5);
     paths.push("/app/services/ws-server/static".to_string());
     paths.push("/app/services/ws-wasm-agent".to_string());
     paths.push("/app/data/model-modules".to_string());
     paths.push("/app/node_modules/onnxruntime-web".to_string());
+    paths.push("/app/node_modules/pyodide".to_string());
     for module_name in module_names {
         paths.push(format!("/app/services/ws-modules/{module_name}"));
     }

@@ -21,6 +21,7 @@ java = "latest"
 maven = "latest"
 mprocs = "latest"
 "npm:onnxruntime-web" = "latest"
+"npm:pyodide" = "0.29.3"
 ollama = "latest"
 osv-scanner = "latest"
 pipx = "latest"
@@ -236,6 +237,15 @@ uv build --wheel --out-dir pkg
 cargo run -p pyproject-to-package-json
 """
 
+[tasks.build-ws-pyface1-module]
+description = "Build the pyface1 Python face detection workflow module"
+dir = "services/ws-modules/pyface1"
+run = """
+uv build --wheel --out-dir pkg
+cargo run -p pyproject-to-package-json
+yq eval-all -i 'select(fileIndex == 0) * select(fileIndex == 1)' pkg/package.json package.json
+"""
+
 [tasks.build-ws-java-data1-module]
 description = "Build the java-data1 workflow module"
 run = "mvn package"
@@ -259,6 +269,7 @@ depends = [
   "build-ws-java-data1-module",
   "build-ws-nfc-module",
   "build-ws-pydata1-module",
+  "build-ws-pyface1-module",
   "build-ws-sensor1-module",
   "build-ws-speech-recognition-module",
   "build-ws-video1-module",
