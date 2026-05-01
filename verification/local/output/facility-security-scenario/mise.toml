@@ -22,11 +22,13 @@ run = '''
 export MODULES_PATHS="\
   static,\
   ../ws-wasm-agent,\
-  ../../data/model-modules,\
   ../ws-modules/face-detection,\
   ../ws-modules/har1,\
-  $(mise where npm:onnxruntime-web)/lib/node_modules,\
-  $(mise where npm:pyodide)/lib/node_modules"
+  ../ws-modules/pyface1,\
+  ../../data/model-modules/model-face1,\
+  $(mise where npm:onnxruntime-web)/lib/node_modules/onnxruntime-web,\
+  ../../data/model-modules/model-har-motion1,\
+  $(mise where npm:pyodide)/lib/node_modules/pyodide"
 cargo run
 '''
 

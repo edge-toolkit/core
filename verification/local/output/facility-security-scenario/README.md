@@ -3,7 +3,7 @@
 This directory contains generated deployment configs for the `facility-security-scenario` scenario.
 Files: `mise.toml`, `compose.yaml`.
 
-The scenario exposes these workflow modules: face-detection, har1.
+The scenario exposes these workflow modules: face-detection, har1, pyface1.
 
 ## Run With Mise
 

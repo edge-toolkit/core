@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -49,6 +49,20 @@ pub struct RegeneratedScenario {
     pub input_file: PathBuf,
     pub output_dir: PathBuf,
     pub summary: DeploymentSummary,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct PackageJson {
+    name: Option<String>,
+    #[serde(default)]
+    dependencies: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone)]
+struct ModuleRegistryEntry {
+    mise_path: String,
+    docker_path: String,
+    dependencies: BTreeSet<String>,
 }
 
 pub fn generate_deployment(
@@ -225,20 +239,13 @@ fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result
     let workspace_rel = relative_path_from(&output_abs, &workspace_root).display().to_string();
     let openobserve_env_file_rel = "config/o2.env";
     let module_names = cluster_module_names(cluster);
-    let module_paths = scenario_module_paths(&ws_server_dir, &module_names);
+    let module_paths = scenario_module_paths(&ws_server_dir, &module_names)?;
     let module_paths_lines = module_paths
         .iter()
         .map(|p| format!("  {p}"))
         .collect::<Vec<_>>()
         .join(",\\\n");
-    let mise_dependency_paths = [
-        "$(mise where npm:onnxruntime-web)/lib/node_modules",
-        "$(mise where npm:pyodide)/lib/node_modules",
-    ]
-    .map(|path| format!("  {path}"))
-    .join(",\\\n");
-    let ws_server_run =
-        format!("export MODULES_PATHS=\"\\\n{module_paths_lines},\\\n{mise_dependency_paths}\"\ncargo run\n");
+    let ws_server_run = format!("export MODULES_PATHS=\"\\\n{module_paths_lines}\"\ncargo run\n");
     let ws_server_rel = relative_path_from(&output_abs, &ws_server_dir).display().to_string();
 
     let mut root = Table::new();
@@ -313,7 +320,7 @@ fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &Path)
         .display()
         .to_string();
     let module_names = cluster_module_names(cluster);
-    let module_paths = docker_image_module_paths(&module_names);
+    let module_paths = docker_image_module_paths(&module_names)?;
     let compose = ComposeFile {
         services: vec![
             (
@@ -704,9 +711,8 @@ fn mise_depends<const N: usize>(depends: [&str; N]) -> Table {
     extra
 }
 
-fn scenario_module_paths(ws_server_dir: &Path, module_names: &[String]) -> Vec<String> {
+fn scenario_module_paths(ws_server_dir: &Path, module_names: &[String]) -> Result<Vec<String>> {
     let project_root = edge_toolkit::config::get_project_root();
-    let ws_modules_dir = project_root.join("services/ws-modules");
     let mut paths = vec![
         relative_path_from(ws_server_dir, &project_root.join("services/ws-server/static"))
             .display()
@@ -714,31 +720,160 @@ fn scenario_module_paths(ws_server_dir: &Path, module_names: &[String]) -> Vec<S
         relative_path_from(ws_server_dir, &project_root.join("services/ws-wasm-agent"))
             .display()
             .to_string(),
-        relative_path_from(ws_server_dir, &project_root.join("data/model-modules"))
-            .display()
-            .to_string(),
     ];
-    for module_name in module_names {
-        paths.push(
-            relative_path_from(ws_server_dir, &ws_modules_dir.join(module_name))
-                .display()
-                .to_string(),
-        );
-    }
-    paths
+    let registry = module_registry(&project_root, ws_server_dir);
+    paths.extend(resolve_module_paths(&registry, module_names, |entry| {
+        entry.mise_path.clone()
+    })?);
+    Ok(paths)
 }
 
-fn docker_image_module_paths(module_names: &[String]) -> Vec<String> {
-    let mut paths = Vec::with_capacity(module_names.len() + 5);
+fn docker_image_module_paths(module_names: &[String]) -> Result<Vec<String>> {
+    let project_root = edge_toolkit::config::get_project_root();
+    let ws_server_dir = project_root.join("services/ws-server");
+    let mut paths = Vec::with_capacity(module_names.len() + 2);
     paths.push("/app/services/ws-server/static".to_string());
     paths.push("/app/services/ws-wasm-agent".to_string());
-    paths.push("/app/data/model-modules".to_string());
-    paths.push("/app/node_modules/onnxruntime-web".to_string());
-    paths.push("/app/node_modules/pyodide".to_string());
-    for module_name in module_names {
-        paths.push(format!("/app/services/ws-modules/{module_name}"));
+    let registry = module_registry(&project_root, &ws_server_dir);
+    paths.extend(resolve_module_paths(&registry, module_names, |entry| {
+        entry.docker_path.clone()
+    })?);
+    Ok(paths)
+}
+
+fn module_registry(project_root: &Path, ws_server_dir: &Path) -> BTreeMap<String, ModuleRegistryEntry> {
+    let mut registry = BTreeMap::new();
+
+    register_modules_under(
+        &mut registry,
+        &project_root.join("services/ws-modules"),
+        ws_server_dir,
+        "/app/services/ws-modules",
+    );
+    register_modules_under(
+        &mut registry,
+        &project_root.join("data/model-modules"),
+        ws_server_dir,
+        "/app/data/model-modules",
+    );
+
+    register_external_module(
+        &mut registry,
+        "onnxruntime-web",
+        "$(mise where npm:onnxruntime-web)/lib/node_modules/onnxruntime-web",
+        "/app/node_modules/onnxruntime-web",
+    );
+    register_external_module(
+        &mut registry,
+        "pyodide",
+        "$(mise where npm:pyodide)/lib/node_modules/pyodide",
+        "/app/node_modules/pyodide",
+    );
+
+    registry
+}
+
+fn register_modules_under(
+    registry: &mut BTreeMap<String, ModuleRegistryEntry>,
+    root: &Path,
+    ws_server_dir: &Path,
+    docker_root: &str,
+) {
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+
+    for entry in entries.flatten() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if !file_type.is_dir() {
+            continue;
+        }
+
+        let module_path = entry.path();
+        let Some(directory_name) = module_path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        let package = module_package_json(&module_path);
+        let entry = ModuleRegistryEntry {
+            mise_path: relative_path_from(ws_server_dir, &module_path).display().to_string(),
+            docker_path: format!("{docker_root}/{directory_name}"),
+            dependencies: package
+                .as_ref()
+                .map(|package| package.dependencies.keys().cloned().collect())
+                .unwrap_or_default(),
+        };
+
+        registry.insert(directory_name.to_string(), entry.clone());
+        if let Some(package_name) = package.and_then(|package| package.name) {
+            registry.insert(package_name, entry);
+        }
     }
-    paths
+}
+
+fn register_external_module(
+    registry: &mut BTreeMap<String, ModuleRegistryEntry>,
+    package_name: &str,
+    mise_path: &str,
+    docker_path: &str,
+) {
+    registry.insert(
+        package_name.to_string(),
+        ModuleRegistryEntry {
+            mise_path: mise_path.to_string(),
+            docker_path: docker_path.to_string(),
+            dependencies: BTreeSet::new(),
+        },
+    );
+}
+
+fn module_package_json(module_path: &Path) -> Option<PackageJson> {
+    let mut package = read_package_json(&module_path.join("pkg/package.json"))
+        .or_else(|| read_package_json(&module_path.join("package.json")))?;
+    if let Some(root_package) = read_package_json(&module_path.join("package.json")) {
+        package.dependencies.extend(root_package.dependencies);
+        if package.name.is_none() {
+            package.name = root_package.name;
+        }
+    }
+    Some(package)
+}
+
+fn read_package_json(path: &Path) -> Option<PackageJson> {
+    let content = fs::read_to_string(path).ok()?;
+    serde_json::from_str(&content).ok()
+}
+
+fn resolve_module_paths<F>(
+    registry: &BTreeMap<String, ModuleRegistryEntry>,
+    module_names: &[String],
+    path_for: F,
+) -> Result<Vec<String>>
+where
+    F: Fn(&ModuleRegistryEntry) -> String,
+{
+    let mut paths = Vec::new();
+    let mut queued: VecDeque<String> = module_names.iter().cloned().collect();
+    let mut seen_keys = BTreeSet::new();
+    let mut seen_paths = BTreeSet::new();
+
+    while let Some(module_name) = queued.pop_front() {
+        if !seen_keys.insert(module_name.clone()) {
+            continue;
+        }
+
+        let entry = registry
+            .get(&module_name)
+            .ok_or_else(|| anyhow!("No local module or runtime package found for dependency {module_name:?}"))?;
+        let path = path_for(entry);
+        if seen_paths.insert(path.clone()) {
+            paths.push(path);
+        }
+        queued.extend(entry.dependencies.iter().cloned());
+    }
+
+    Ok(paths)
 }
 
 fn absolute_from(base: &Path, path: &Path) -> PathBuf {

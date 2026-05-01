@@ -955,6 +955,7 @@ dependencies = [
  "clap",
  "edge-toolkit",
  "serde",
+ "serde_json",
  "serde_yaml",
  "tempfile",
  "toml",
