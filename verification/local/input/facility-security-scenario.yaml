@@ -6,6 +6,10 @@ agents:
     resources:
       - type: "face-detection"
 
+  - name: "hallway-security-camera"
+    resources:
+      - type: "pyface1"
+
   - name: "worker-health-tracker"
     resources:
       - type: "har1"
