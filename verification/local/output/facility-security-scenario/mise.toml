@@ -9,16 +9,18 @@ run = "open http://localhost:5080/"
 [tasks.openobserve]
 alias = "o2"
 dir = "../../../.."
-run = """
+run = '''
 docker run --rm --name openobserve -p 5080:5080 \
   --env-file config/o2.env \
   openobserve/openobserve:v0.70.3
-"""
+'''
 
 [tasks.ws-server]
 description = "Run the WebSocket server"
 dir = "../../../../services/ws-server"
 run = '''
+waitup -t 10s 127.0.0.1:5080
+sleep 1
 export MODULES_PATHS="\
   static,\
   ../ws-wasm-agent,\

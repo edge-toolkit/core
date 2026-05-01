@@ -268,7 +268,9 @@ fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result
         .map(|p| format!("  {p}"))
         .collect::<Vec<_>>()
         .join(",\\\n");
-    let ws_server_run = format!("export MODULES_PATHS=\"\\\n{module_paths_lines}\"\ncargo run\n");
+    let ws_server_run = format!(
+        "waitup -t 10s 127.0.0.1:5080\nsleep 1\nexport MODULES_PATHS=\"\\\n{module_paths_lines}\"\ncargo run\n"
+    );
     let ws_server_rel = relative_path_from(&output_abs, &ws_server_dir).display().to_string();
 
     let mut root = Table::new();
@@ -281,7 +283,11 @@ fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result
             None,
             Some(&workspace_rel),
             Some(&format!(
-                "docker run --rm -it --name openobserve -p 5080:5080 --env-file {} openobserve/openobserve:v0.70.3",
+                concat!(
+                    "docker run --rm --name openobserve -p 5080:5080 \\\n",
+                    "  --env-file {} \\\n",
+                    "  openobserve/openobserve:v0.70.3\n"
+                ),
                 openobserve_env_file_rel
             )),
             None,
@@ -324,10 +330,7 @@ fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result
 
     root.insert("tasks".to_string(), Value::Table(tasks));
 
-    let content = format_mise_toml(
-        toml::to_string(&Value::Table(root)).context("Failed to serialize mise TOML")?,
-        openobserve_env_file_rel,
-    );
+    let content = toml::to_string(&Value::Table(root)).context("Failed to serialize mise TOML")?;
     fs::write(&output_path, content).with_context(|| format!("Failed to write output file: {:?}", output_path))?;
 
     Ok(())
@@ -655,27 +658,6 @@ fn generated_run_instructions(output_type: OutputType) -> String {
         )
         .to_string(),
     }
-}
-
-fn format_mise_toml(content: String, openobserve_env_file_rel: &str) -> String {
-    let openobserve_run = format!(
-        concat!(
-            "run = \"docker run --rm -it --name openobserve -p 5080:5080 --env-file {} ",
-            "openobserve/openobserve:v0.70.3\""
-        ),
-        openobserve_env_file_rel
-    );
-    let wrapped_openobserve_run = format!(
-        concat!(
-            "run = \"\"\"\n",
-            "docker run --rm --name openobserve -p 5080:5080 \\\n",
-            "  --env-file {} \\\n",
-            "  openobserve/openobserve:v0.70.3\n",
-            "\"\"\""
-        ),
-        openobserve_env_file_rel
-    );
-    content.replace(&openobserve_run, &wrapped_openobserve_run)
 }
 
 fn mise_task(
