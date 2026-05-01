@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "et-model-face1": "*"
+    "et-model-face1": "*",
+    "onnxruntime-web": "*"
   }
 }

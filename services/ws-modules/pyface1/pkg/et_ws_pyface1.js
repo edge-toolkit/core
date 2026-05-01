@@ -1,7 +1,7 @@
 // et_ws_pyface1.js - Browser adapter for the Pyodide workflow.
 // Interface: default(), run(), start(), stop(), is_running()
 
-const PYODIDE_BASE_URL = "/modules/pyodide/";
+const PYODIDE_BASE_PATH = "/modules/pyodide/";
 
 let pyodide;
 let py;
@@ -14,14 +14,14 @@ export default async function init() {
   if (!globalThis.loadPyodide) {
     await new Promise((resolve, reject) => {
       const script = document.createElement("script");
-      script.src = `${PYODIDE_BASE_URL}pyodide.js`;
+      script.src = `${PYODIDE_BASE_PATH}pyodide.js`;
       script.onload = resolve;
       script.onerror = reject;
       document.head.appendChild(script);
     });
   }
 
-  pyodide = await globalThis.loadPyodide({ indexURL: PYODIDE_BASE_URL });
+  pyodide = await globalThis.loadPyodide({ indexURL: PYODIDE_BASE_PATH });
   const pkg = await fetch(new URL("package.json", import.meta.url)).then((r) => r.json());
   const wheel = `${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
   const wheelBytes = new Uint8Array(await fetch(new URL(wheel, import.meta.url)).then((r) => r.arrayBuffer()));
