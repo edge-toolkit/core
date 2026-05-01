@@ -163,6 +163,10 @@ agents:
     assert!(output_dir.join("compose.yaml").exists());
     assert!(output_dir.join("README.md").exists());
     let mise = fs::read_to_string(output_dir.join("mise.toml")).unwrap();
+    assert!(mise.contains("depends = [\"openobserve\", \"ws-server\"]"));
+    assert!(mise.contains("[tasks.openobserve-ready]"));
+    assert!(mise.contains("run = \"waitup http://127.0.0.1:5080/healthz\""));
+    assert!(mise.contains("[tasks.ws-server]\ndepends = [\"openobserve-ready\"]"));
     assert!(mise.contains("export MODULES_PATHS="));
     let readme = fs::read_to_string(output_dir.join("README.md")).unwrap();
     assert!(readme.contains("`mise.toml`"));
