@@ -26,6 +26,7 @@ ollama = "latest"
 osv-scanner = "latest"
 pipx = "latest"
 "pipx:cmake" = "latest"
+"pipx:pytest" = "latest"
 protoc = "latest"
 rclone = "latest"
 ruff = "latest"
@@ -43,7 +44,6 @@ ec = "ec"
 editorconfig-check = "ec"
 ruff-check = "ruff check services/ws-modules/"
 ruff-fmt = "ruff format services/ws-modules/"
-test = "cargo test --workspace"
 zig-check = "zig fmt --check services/ws-modules/"
 zig-fmt = "zig fmt services/ws-modules/"
 
@@ -321,3 +321,14 @@ run = """
 
 [tasks.download-models]
 depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone"]
+
+[tasks.cargo-test]
+run = "cargo test --workspace"
+
+[tasks.test-pyface1]
+run = "uv run pytest"
+dir = "services/ws-modules/pyface1"
+
+[tasks.test]
+depends = ["test-pyface1", "cargo-test"]
+description = "Run all tests"

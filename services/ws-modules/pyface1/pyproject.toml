@@ -16,3 +16,8 @@ module-root = ""
 
 [tool.ws-module]
 js-main = "et_ws_pyface1.js"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+# Optional: helps with modern import resolution
+addopts = ["--import-mode=importlib"]
