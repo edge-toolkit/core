@@ -51,9 +51,32 @@ pub struct RegeneratedScenario {
     pub summary: DeploymentSummary,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 struct PackageJson {
     name: Option<String>,
+    #[serde(default)]
+    dependencies: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct PyprojectPackage {
+    project: Option<PyprojectProject>,
+    tool: Option<PyprojectTool>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct PyprojectProject {
+    name: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct PyprojectTool {
+    #[serde(rename = "ws-module")]
+    ws_module: Option<PyprojectWsModule>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct PyprojectWsModule {
     #[serde(default)]
     dependencies: BTreeMap<String, String>,
 }
@@ -829,12 +852,26 @@ fn register_external_module(
 }
 
 fn module_package_json(module_path: &Path) -> Option<PackageJson> {
-    let mut package = read_package_json(&module_path.join("pkg/package.json"))
-        .or_else(|| read_package_json(&module_path.join("package.json")))?;
-    if let Some(root_package) = read_package_json(&module_path.join("package.json")) {
+    let pkg_package = read_package_json(&module_path.join("pkg/package.json"));
+    let root_package = read_package_json(&module_path.join("package.json"));
+    let pyproject = read_pyproject_package(&module_path.join("pyproject.toml"));
+    if pkg_package.is_none() && root_package.is_none() && pyproject.is_none() {
+        return None;
+    }
+
+    let mut package = pkg_package.or_else(|| root_package.clone()).unwrap_or_default();
+    if let Some(root_package) = root_package {
         package.dependencies.extend(root_package.dependencies);
         if package.name.is_none() {
             package.name = root_package.name;
+        }
+    }
+    if let Some(pyproject) = pyproject {
+        if let Some(ws_module) = pyproject.tool.and_then(|tool| tool.ws_module) {
+            package.dependencies.extend(ws_module.dependencies);
+        }
+        if package.name.is_none() {
+            package.name = pyproject.project.and_then(|project| project.name);
         }
     }
     Some(package)
@@ -843,6 +880,11 @@ fn module_package_json(module_path: &Path) -> Option<PackageJson> {
 fn read_package_json(path: &Path) -> Option<PackageJson> {
     let content = fs::read_to_string(path).ok()?;
     serde_json::from_str(&content).ok()
+}
+
+fn read_pyproject_package(path: &Path) -> Option<PyprojectPackage> {
+    let content = fs::read_to_string(path).ok()?;
+    toml::from_str(&content).ok()
 }
 
 fn resolve_module_paths<F>(

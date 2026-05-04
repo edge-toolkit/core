@@ -243,7 +243,6 @@ dir = "services/ws-modules/pyface1"
 run = """
 uv build --wheel --out-dir pkg
 cargo run -p pyproject-to-package-json
-yq eval-all -i 'select(fileIndex == 0) * select(fileIndex == 1)' pkg/package.json package.json
 """
 
 [tasks.build-ws-java-data1-module]
