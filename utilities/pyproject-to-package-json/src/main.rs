@@ -1,8 +1,9 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 
 #[derive(Deserialize)]
 struct Project {
@@ -16,6 +17,8 @@ struct Project {
 struct WsModule {
     #[serde(rename = "js-main")]
     js_main: String,
+    #[serde(default)]
+    dependencies: BTreeMap<String, String>,
 }
 
 #[derive(Deserialize)]
@@ -38,14 +41,18 @@ fn main() {
     let pyproject: Pyproject = toml::from_str(&src).unwrap_or_else(|e| panic!("Failed to parse pyproject.toml: {e}"));
 
     let p = &pyproject.project;
-    let pkg: Value = json!({
-        "name": p.name,
-        "type": "module",
-        "description": p.description.as_deref().unwrap_or(""),
-        "version": p.version,
-        "license": p.license.as_deref().unwrap_or(""),
-        "main": pyproject.tool.ws_module.js_main,
-    });
+    let mut pkg = Map::from_iter([
+        ("name".to_string(), json!(p.name)),
+        ("type".to_string(), json!("module")),
+        ("description".to_string(), json!(p.description.as_deref().unwrap_or(""))),
+        ("version".to_string(), json!(p.version)),
+        ("license".to_string(), json!(p.license.as_deref().unwrap_or(""))),
+        ("main".to_string(), json!(pyproject.tool.ws_module.js_main)),
+    ]);
+    if !pyproject.tool.ws_module.dependencies.is_empty() {
+        pkg.insert("dependencies".to_string(), json!(pyproject.tool.ws_module.dependencies));
+    }
+    let pkg = Value::Object(pkg);
 
     let out_path = PathBuf::from("pkg/package.json");
     fs::create_dir_all(out_path.parent().unwrap()).unwrap();

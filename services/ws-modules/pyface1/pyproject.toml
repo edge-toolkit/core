@@ -17,6 +17,11 @@ module-root = ""
 [tool.ws-module]
 js-main = "et_ws_pyface1.js"
 
+[tool.ws-module.dependencies]
+et-model-face1 = "*"
+onnxruntime-web = "*"
+pyodide = "*"
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 # Optional: helps with modern import resolution

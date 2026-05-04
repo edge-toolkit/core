@@ -1,7 +1,0 @@
-{
-  "dependencies": {
-    "et-model-face1": "*",
-    "onnxruntime-web": "*",
-    "pyodide": "*"
-  }
-}

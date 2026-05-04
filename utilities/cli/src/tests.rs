@@ -2,7 +2,9 @@ use std::fs;
 
 use tempfile::tempdir;
 
-use crate::{docker_image_module_paths, generate_deployment, regenerate_verification, scenario_module_paths};
+use crate::{
+    docker_image_module_paths, generate_deployment, module_package_json, regenerate_verification, scenario_module_paths,
+};
 
 #[test]
 fn generate_deployment_rejects_unsupported_deployment_type() {
@@ -69,6 +71,36 @@ fn scenario_module_paths_include_pyface1_python_runtime_dependencies() {
     assert!(paths.contains(&"../../data/model-modules/model-face1".to_string()));
     assert!(paths.contains(&"$(mise where npm:onnxruntime-web)/lib/node_modules/onnxruntime-web".to_string()));
     assert!(paths.contains(&"$(mise where npm:pyodide)/lib/node_modules/pyodide".to_string()));
+}
+
+#[test]
+fn module_package_json_reads_pyproject_ws_module_dependencies() {
+    let test_root = tempdir().unwrap();
+    let module_dir = test_root.path().join("python-module");
+    fs::create_dir_all(&module_dir).unwrap();
+    fs::write(
+        module_dir.join("pyproject.toml"),
+        r#"[project]
+name = "et-ws-python-module"
+
+[tool.ws-module.dependencies]
+et-model-face1 = "*"
+onnxruntime-web = "*"
+"#,
+    )
+    .unwrap();
+
+    let package = module_package_json(&module_dir).unwrap();
+
+    assert_eq!(package.name.as_deref(), Some("et-ws-python-module"));
+    assert_eq!(
+        package.dependencies.get("et-model-face1").map(String::as_str),
+        Some("*")
+    );
+    assert_eq!(
+        package.dependencies.get("onnxruntime-web").map(String::as_str),
+        Some("*")
+    );
 }
 
 #[test]
