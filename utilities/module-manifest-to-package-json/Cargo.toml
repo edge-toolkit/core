@@ -1,13 +1,13 @@
 [package]
-name = "pyproject-to-package-json"
-description = "Generate pkg/package.json from a Python ws-module's pyproject.toml"
+name = "module-manifest-to-package-json"
+description = "Generate pkg/package.json from ws-module project metadata"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [[bin]]
-name = "pyproject-to-package-json"
+name = "module-manifest-to-package-json"
 path = "src/main.rs"
 
 [dependencies]

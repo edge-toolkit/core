@@ -9,6 +9,10 @@ repository.workspace = true
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[package.metadata.ws-module.dependencies]
+et-model-face1 = "*"
+onnxruntime-web = "*"
+
 [dependencies]
 et-web.workspace = true
 et-ws-wasm-agent = { path = "../../ws-wasm-agent" }

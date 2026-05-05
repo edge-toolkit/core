@@ -27,7 +27,7 @@ members = [
   "services/ws-wasm-agent",
   "utilities/cli",
   "utilities/onnx",
-  "utilities/pyproject-to-package-json",
+  "utilities/module-manifest-to-package-json",
 ]
 resolver = "2"
 
