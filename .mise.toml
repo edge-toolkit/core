@@ -35,7 +35,7 @@ rust = [
   { version = "nightly", components = "rust-src,rustfmt", targets = "wasm32-unknown-unknown" },
 ]
 typos = "latest"
-uv = "latest"
+uv = "0.11.8"
 yq = "latest"
 zig = "latest"
 
@@ -157,7 +157,7 @@ description = "Build the har1 workflow WASM module"
 dir = "services/ws-modules/har1"
 run = """
 wasm-pack build . --target web
-yq eval-all -i 'select(fileIndex == 0) * select(fileIndex == 1)' pkg/package.json package.json
+cargo run -p module-manifest-to-package-json
 """
 
 [tasks.build-ws-face-detection-module]
@@ -165,7 +165,7 @@ description = "Build the face detection workflow WASM module"
 dir = "services/ws-modules/face-detection"
 run = """
 wasm-pack build . --target web
-yq eval-all -i 'select(fileIndex == 0) * select(fileIndex == 1)' pkg/package.json package.json
+cargo run -p module-manifest-to-package-json
 """
 
 [tasks.build-ws-comm1-module]
@@ -234,7 +234,7 @@ description = "Build the pydata1 Python workflow module"
 dir = "services/ws-modules/pydata1"
 run = """
 uv build --wheel --out-dir pkg
-cargo run -p pyproject-to-package-json
+cargo run -p module-manifest-to-package-json
 """
 
 [tasks.build-ws-pyface1-module]
@@ -242,7 +242,7 @@ description = "Build the pyface1 Python face detection workflow module"
 dir = "services/ws-modules/pyface1"
 run = """
 uv build --wheel --out-dir pkg
-cargo run -p pyproject-to-package-json
+cargo run -p module-manifest-to-package-json
 """
 
 [tasks.build-ws-java-data1-module]

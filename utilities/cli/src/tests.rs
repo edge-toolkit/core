@@ -104,6 +104,33 @@ onnxruntime-web = "*"
 }
 
 #[test]
+fn module_package_json_reads_cargo_ws_module_dependencies() {
+    let test_root = tempdir().unwrap();
+    let module_dir = test_root.path().join("rust-module");
+    fs::create_dir_all(&module_dir).unwrap();
+    fs::write(
+        module_dir.join("Cargo.toml"),
+        r#"[package]
+name = "et-ws-rust-module"
+version = "0.1.0"
+edition = "2024"
+
+[package.metadata.ws-module.dependencies]
+et-model-har-motion1 = "*"
+"#,
+    )
+    .unwrap();
+
+    let package = module_package_json(&module_dir).unwrap();
+
+    assert_eq!(package.name.as_deref(), Some("et-ws-rust-module"));
+    assert_eq!(
+        package.dependencies.get("et-model-har-motion1").map(String::as_str),
+        Some("*")
+    );
+}
+
+#[test]
 fn regenerate_verification_generates_all_deployment_types() {
     let test_root = tempdir().unwrap();
     let verification_root = test_root.path().join("verification");

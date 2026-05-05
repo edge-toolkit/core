@@ -81,6 +81,29 @@ struct PyprojectWsModule {
     dependencies: BTreeMap<String, String>,
 }
 
+#[derive(Debug, Default, Deserialize)]
+struct CargoPackage {
+    package: Option<CargoPackageMetadata>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct CargoPackageMetadata {
+    name: Option<String>,
+    metadata: Option<CargoMetadata>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct CargoMetadata {
+    #[serde(rename = "ws-module")]
+    ws_module: Option<CargoWsModule>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct CargoWsModule {
+    #[serde(default)]
+    dependencies: BTreeMap<String, String>,
+}
+
 #[derive(Debug, Clone)]
 struct ModuleRegistryEntry {
     mise_path: String,
@@ -855,7 +878,8 @@ fn module_package_json(module_path: &Path) -> Option<PackageJson> {
     let pkg_package = read_package_json(&module_path.join("pkg/package.json"));
     let root_package = read_package_json(&module_path.join("package.json"));
     let pyproject = read_pyproject_package(&module_path.join("pyproject.toml"));
-    if pkg_package.is_none() && root_package.is_none() && pyproject.is_none() {
+    let cargo_package = read_cargo_package(&module_path.join("Cargo.toml"));
+    if pkg_package.is_none() && root_package.is_none() && pyproject.is_none() && cargo_package.is_none() {
         return None;
     }
 
@@ -874,6 +898,14 @@ fn module_package_json(module_path: &Path) -> Option<PackageJson> {
             package.name = pyproject.project.and_then(|project| project.name);
         }
     }
+    if let Some(cargo_package) = cargo_package.and_then(|cargo_package| cargo_package.package) {
+        if let Some(ws_module) = cargo_package.metadata.and_then(|metadata| metadata.ws_module) {
+            package.dependencies.extend(ws_module.dependencies);
+        }
+        if package.name.is_none() {
+            package.name = cargo_package.name;
+        }
+    }
     Some(package)
 }
 
@@ -883,6 +915,11 @@ fn read_package_json(path: &Path) -> Option<PackageJson> {
 }
 
 fn read_pyproject_package(path: &Path) -> Option<PyprojectPackage> {
+    let content = fs::read_to_string(path).ok()?;
+    toml::from_str(&content).ok()
+}
+
+fn read_cargo_package(path: &Path) -> Option<CargoPackage> {
     let content = fs::read_to_string(path).ok()?;
     toml::from_str(&content).ok()
 }
