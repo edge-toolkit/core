@@ -5,6 +5,7 @@ cargo-binstall = "latest"
 "cargo:taplo-cli" = "latest"
 "cargo:wasm-pack" = "latest"
 "chromedriver" = "146"
+claude = "latest"
 cmake = "latest"
 codex = "latest"
 dart = { version = "latest", url = "https://storage.googleapis.com/dart-archive/channels/stable/release/{{ version }}/sdk/dartsdk-{{ os() }}-{{ arch() }}-release.zip", version_expr = 'fromJSON(body).prefixes | filter({ # matches "^channels/stable/release/(\\d+\\.\\d+\\.\\d+)/$" }) | map({split(#, "/")[3]}) | sortVersions()', version_list_url = "https://storage.googleapis.com/storage/v1/b/dart-archive/o?prefix=channels/stable/release/&delimiter=/" }
@@ -325,9 +326,9 @@ depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone"]
 run = "cargo test --workspace"
 
 [tasks.test-pyface1]
-run = "uv run pytest"
 dir = "services/ws-modules/pyface1"
+run = "uv run pytest"
 
 [tasks.test]
-depends = ["test-pyface1", "cargo-test"]
+depends = ["cargo-test", "test-pyface1"]
 description = "Run all tests"
