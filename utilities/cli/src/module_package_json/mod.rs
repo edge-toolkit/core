@@ -16,8 +16,13 @@ struct Project {
 
 #[derive(Deserialize)]
 struct WsModule {
-    #[serde(rename = "js-main")]
-    js_main: String,
+    #[serde(rename = "js-main", default)]
+    js_main: Option<String>,
+    /// WASI component file (relative to `pkg/`). Set this for modules whose
+    /// `main` artifact is a WASI Preview 2 component executed by
+    /// `et-ws-wasi-runner` rather than a browser-side JS entry.
+    #[serde(rename = "wasi-main", default)]
+    wasi_main: Option<String>,
     #[serde(default)]
     dependencies: BTreeMap<String, String>,
 }
@@ -85,16 +90,30 @@ fn package_json_from_pyproject(module_dir: &Path) -> Result<Value> {
     let pyproject_path = module_dir.join("pyproject.toml");
     let pyproject: Pyproject = read_toml(&pyproject_path)?;
     let p = &pyproject.project;
+    let ws_module = &pyproject.tool.ws_module;
+
+    // `main` is what every module-fetcher expects to see. Prefer the JS
+    // entry (browser modules); fall back to the WASI component (WASI-only
+    // modules like wasi-graphics-info).
+    let main = ws_module
+        .js_main
+        .clone()
+        .or_else(|| ws_module.wasi_main.clone())
+        .ok_or_else(|| anyhow!("[tool.ws-module] in {:?} must set js-main or wasi-main", pyproject_path))?;
+
     let mut pkg = Map::from_iter([
         ("name".to_string(), json!(p.name)),
         ("type".to_string(), json!("module")),
         ("description".to_string(), json!(p.description.as_deref().unwrap_or(""))),
         ("version".to_string(), json!(p.version)),
         ("license".to_string(), json!(p.license.as_deref().unwrap_or(""))),
-        ("main".to_string(), json!(pyproject.tool.ws_module.js_main)),
+        ("main".to_string(), json!(main)),
     ]);
-    if !pyproject.tool.ws_module.dependencies.is_empty() {
-        pkg.insert("dependencies".to_string(), json!(pyproject.tool.ws_module.dependencies));
+    if let Some(wasi_main) = &ws_module.wasi_main {
+        pkg.insert("wasi-main".to_string(), json!(wasi_main));
+    }
+    if !ws_module.dependencies.is_empty() {
+        pkg.insert("dependencies".to_string(), json!(ws_module.dependencies));
     }
     Ok(Value::Object(pkg))
 }

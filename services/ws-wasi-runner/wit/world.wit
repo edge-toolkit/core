@@ -1,0 +1,61 @@
+package et:ws-wasi@0.1.0;
+
+/// WebSocket client bound to ws-server. The host owns the socket; the guest
+/// drives it through these calls. `recv` returns at most one inbound text
+/// message per call, returning `none` after `timeout-ms` if nothing arrived.
+interface ws {
+    type ws-error = string;
+
+    enum state {
+        connecting,
+        connected,
+        closing,
+        closed,
+    }
+
+    connect: func() -> result<_, ws-error>;
+    get-state: func() -> state;
+    client-id: func() -> string;
+    send-event: func(category: string, kind: string, body-json: string) -> result<_, ws-error>;
+    send-text: func(text: string) -> result<_, ws-error>;
+    recv: func(timeout-ms: u32) -> result<option<string>, ws-error>;
+    disconnect: func();
+}
+
+/// The export every WASI module must implement: a single async-equivalent
+/// entry point. Returning `err` aborts the runner non-zero.
+interface entry {
+    run: func() -> result<_, string>;
+}
+
+/// What the runner's own `wasmtime::component::bindgen!` consumes. Note
+/// `wasi:nn/*` and `wasi:clocks/*` + `wasi:io/poll` are *deliberately absent*
+/// from this list: the wasi-nn impls come from `wasmtime-wasi-nn`'s own
+/// `add_to_linker` (see `src/host/wasi_nn.rs`), and the clocks + io::poll
+/// impls come from `wasmtime_wasi::p2::add_to_linker_async`. The trimmed
+/// subset of WebAssembly/wasi-gfx (`wasi:webgpu`) lives under
+/// `wit/deps/wasi-webgpu/`; host impls in `src/host/wasi_webgpu.rs` are
+/// wgpu-backed for the matmul subset and trap on everything else.
+world runner {
+    import wasi:logging/logging@0.1.0-draft;
+    import wasi:keyvalue/store@0.2.0-draft;
+    import ws;
+    import wasi:webgpu/webgpu@0.0.1;
+    export entry;
+}
+
+/// What guest WASI modules running under `et-ws-wasi-runner` target.
+/// Mirrors `runner` and additionally pulls in the standardised WASI Preview 2
+/// clocks + io::poll (wired by `wasmtime_wasi::p2::add_to_linker_async`) and
+/// the wasi-nn interfaces (wired through `wasmtime-wasi-nn`). componentize-py
+/// generates Python bindings for every import here.
+world module {
+    include runner;
+    import wasi:clocks/wall-clock@0.2.6;
+    import wasi:clocks/monotonic-clock@0.2.6;
+    import wasi:io/poll@0.2.6;
+    import wasi:nn/tensor@0.2.0-rc-2024-10-28;
+    import wasi:nn/graph@0.2.0-rc-2024-10-28;
+    import wasi:nn/inference@0.2.0-rc-2024-10-28;
+    import wasi:nn/errors@0.2.0-rc-2024-10-28;
+}

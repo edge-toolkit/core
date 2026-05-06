@@ -14,6 +14,12 @@ mise settings set cargo.binstall true
 
 The mise configuration is stored in [`.mise.toml`](.mise.toml).
 
+Before installing dependencies, please install openssl development files.
+
+```bash
+mise install
+```
+
 ## Contributing
 
 Use `mise run fmt` and `mise run check` to run formatters and checkers.

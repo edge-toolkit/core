@@ -67,11 +67,59 @@ Languages:
 - **C# (.NET WASM)**: dotnet-data1
 - **Java (TeaVM → JS)**: java-data1
 - **Zig → WASM**: zig-data1
+- **Python (componentize-py → WASI Preview 2 component)**: wasi-graphics-info — runs in
+  `et-ws-wasi-runner` rather than the browser. The WIT world the component implements is at
+  `services/ws-wasi-runner/wit/world.wit` and is mirrored under the module's own `wit/`.
+  Drives two standardised WASI interfaces end-to-end: (1) `wasi:webgpu/webgpu` (trimmed subset
+  of WebAssembly/wasi-gfx) for a real 4x4 compute matmul through a host wgpu device, and
+  (2) `wasi:nn/{graph, tensor, inference}` for MNIST inference. Bundles `mnist-12.onnx` (served
+  from `pkg/` as a static asset; the guest fetches it via the `storage` host import because
+  componentize-py 0.23 doesn't bundle non-Python data files), then runs inference through ONNX
+  Runtime via `wasi:nn/graph.load` + `inference.compute` and verifies the predicted class.
 
 ### Libraries (`libs/`)
 
 - **edge-toolkit** — Common utilities, config, serialization (shared across services)
 - **web** — WASM web helpers (Canvas, MediaStream, WebSocket bindings for browser modules)
+
+### WASI Runner (`services/ws-wasi-runner/`)
+
+`et-ws-wasi-runner` — runs ws-modules compiled to **WASI Preview 2 components** (rather than
+browser WASM modules). It fetches the module's `pkg/package.json` from the ws-server, downloads
+the `.wasm` named by the `wasi-main` field, instantiates it under `wasmtime` with async support,
+and calls the exported `entry.run` function.
+
+Host imports (defined in `wit/world.wit`, package `et:ws-wasi@0.1.0`):
+
+- `log` — `log` and `set-status` for guest output
+- `clock` — `sleep-ms`, `now-ms`
+- `storage` — `put-file`/`get-file` proxied to the ws-server's storage service via reqwest
+- `ws` — websocket client backed by `tokio-tungstenite`; mirrors the wire format of
+  `et-ws-wasm-agent` so events look the same on the server
+
+Plus, attached to the same Linker but defined by external WIT packages:
+
+- `wasi:webgpu/webgpu@0.0.1` — trimmed subset of WebAssembly/wasi-gfx, vendored under
+  `wit/deps/wasi-webgpu/`. Compute-only (render pipelines, textures, samplers, canvas/surface,
+  query sets, async pipeline creation are stripped; the trimmed surface is just what's needed
+  to run a compute pipeline through to a mappable readback buffer). The host impl in
+  `src/host/wasi_webgpu.rs` is wgpu-backed (Metal / Vulkan / DX12) for the matmul path;
+  every other kept method traps with `unimplemented!`. We carry this divergence from upstream
+  because wasi-gfx isn't published to crates.io — replace this whole tree with the upstream
+  WIT plus its matching host crate once it ships.
+- `wasi:nn/{tensor, graph, inference, errors}` — standardised ML inference. The host wires
+  `wasmtime-wasi-nn` with the ONNX Runtime backend (`ort` 2.0.0-rc.10, pinned because rc.11+
+  moved API surface that wasmtime-wasi-nn 44 still uses). Guests load model bytes via
+  `graph.load`, build `Tensor`s, and call `compute` — the same shape of calls Spin / wasmCloud
+  / Fermyon production wasi-nn workloads use. CUDA dispatch is opt-in via the runner's
+  `cuda` cargo feature (`cargo build -p et-ws-wasi-runner --features cuda` or
+  `RUNNER_FEATURES=cuda mise run ws-wasi-runner`); the default build is CPU-only because
+  Pyke's `ort` download-binaries CUDA prebuilt only exists for some triples (notably
+  Linux x86_64). CoreML-on-macOS would need a wasmtime-wasi-nn patch (its `onnx.rs` only
+  knows the CUDA provider for `ExecutionTarget::Gpu`).
+
+`RUNNER_MODULE` selects the module (e.g. `wasi-graphics-info`). `WS_SERVER_URL` defaults to
+`ws://localhost:8080/ws`.
 
 ### Utilities (`utilities/`)
 
@@ -92,6 +140,10 @@ and must stay in sync — `mise run check` will fail if they drift. Regenerate w
 - WASM agent (nightly, MVP target): uses `RUSTFLAGS="-C target-cpu=mvp ..."` and `RUSTUP_TOOLCHAIN=nightly`
 - `har1` and `face-detection`: after wasm-pack, merge extra `package.json` fields with `yq`
 - Python modules: `uv build --wheel` then `cargo run -p et-cli -- module-package-json`
+- WASI Python modules (`wasi-graphics-info`): `componentize-py -d wit -w module bindings .` then
+  `componentize-py -d wit -w module componentize <pkg> -o pkg/<pkg>.wasm` then
+  `cargo run -p et-cli -- module-package-json`. The `[tool.ws-module] wasi-main` field flows to
+  `package.json` so `et-ws-wasi-runner` knows which file to fetch.
 - Rust modules needing dependency injection: `cargo run -p et-cli -- module-package-json`
   merges `[package.metadata.ws-module.dependencies]` from `Cargo.toml` into `pkg/package.json`
 - `et-cli module-package-json` reads `pyproject.toml` (Python modules, via `[tool.ws-module]`)

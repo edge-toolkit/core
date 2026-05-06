@@ -1,0 +1,63 @@
+[package]
+name = "et-ws-wasi-runner"
+description = "Native runner that fetches a ws-module WASI component from the server and executes it via wasmtime"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "et_ws_wasi_runner"
+path = "src/lib.rs"
+
+[[bin]]
+name = "et-ws-wasi-runner"
+path = "src/main.rs"
+
+[features]
+default = []
+# Enable wasmtime-wasi-nn's `onnx-cuda` feature, which flips the cfg in its
+# ONNX backend so `ExecutionTarget::Gpu` dispatches to `CUDAExecutionProvider`
+# instead of warning and falling back to CPU. `onnx-cuda` transitively turns
+# on `ort/cuda` too, so the EP is compiled into ort. Opt-in because
+# `ort/download-binaries` then pulls the CUDA-flavoured ONNX Runtime prebuilt,
+# which only exists for some host triples (Linux x86_64 reliably; Linux
+# aarch64 / macOS are not covered by Pyke's mirror at this version).
+# Build on CUDA hosts with:
+#     cargo build -p et-ws-wasi-runner --features cuda
+cuda = ["wasmtime-wasi-nn/onnx-cuda"]
+
+[dependencies]
+anyhow.workspace = true
+async-trait = "0.1"
+bytemuck = { version = "1.16", features = ["derive"] }
+edge-toolkit.workspace = true
+et-otlp.workspace = true
+futures-util = "0.3"
+opentelemetry.workspace = true
+opentelemetry-http = "0.31"
+pollster = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+serde.workspace = true
+serde-env.workspace = true
+serde_json.workspace = true
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
+tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect"] }
+tracing.workspace = true
+tracing-opentelemetry.workspace = true
+tracing-subscriber.workspace = true
+wasmtime = { version = "44", features = ["async", "component-model"] }
+wasmtime-wasi = "44"
+# wasi-nn standardised ML inference. `default-features = false` drops
+# `openvino` + `winml` which we don't use and which need system libs.
+wasmtime-wasi-nn = { version = "44", default-features = false, features = ["onnx"] }
+# Pin `ort` to rc.10 because wasmtime-wasi-nn 44.0.1 was built against that
+# specific prerelease; rc.11+ moved `ort::session::{Input, Output}` and
+# `ort::tensor`, and the cargo resolver would otherwise pick the latest rc.
+ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dylibs", "download-binaries"] }
+wgpu = { version = "29", default-features = false, features = ["dx12", "metal", "vulkan", "wgsl"] }
+
+[dev-dependencies]
+et-ws-test-server = { path = "../ws-test-server" }
+otlp-mock = { path = "../../libs/otlp-mock" }
+rstest.workspace = true

@@ -1,0 +1,16 @@
+# componentize-py outputs (regenerated each `bindings .` run). The world's
+# bindings package is `wit_world/`; the runtime/types/poll-loop helpers and
+# async-support shim are written alongside.
+/wit_world/
+/componentize_py_async_support/
+/componentize_py_runtime.pyi
+/componentize_py_types.py
+/poll_loop.py
+
+# Build artefacts populated by mise run build-ws-wasi-graphics-info-module.
+/pkg/*.wasm
+/pkg/*.onnx
+/pkg/package.json
+
+# Python build cache.
+**/__pycache__/

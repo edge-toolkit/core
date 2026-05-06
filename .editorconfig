@@ -17,3 +17,16 @@ max_line_length = off
 
 [*.dart]
 max_line_length = off
+
+[*.wit]
+max_line_length = 300
+
+# Binary file formats that should be ignored
+[*.onnx]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
+indent_size = unset
+indent_style = unset
+trim_trailing_whitespace = unset
+max_line_length = unset

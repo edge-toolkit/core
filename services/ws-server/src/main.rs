@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use actix_web::middleware::{DefaultHeaders, Logger};
+use actix_web::middleware::DefaultHeaders;
 use actix_web::{App, HttpServer, web};
 use clap::Parser;
 use et_modules_service::list_modules;
@@ -8,9 +8,9 @@ use et_ws_server::config::Config;
 use et_ws_server::configure_app;
 use et_ws_service::load_registry;
 use tracing::{error, info};
+use tracing_actix_web::TracingLogger;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-mod otlp;
 mod tls;
 
 #[derive(Parser, Debug)]
@@ -29,9 +29,9 @@ async fn main() -> Result<(), std::io::Error> {
 
     eprintln!("Starting with env vars {env:#?}");
 
-    if let Some(otlp_config) = &env.otlp {
+    let otel_handles = if let Some(otlp_config) = &env.otlp {
         info!("OpenTelemetry configuration detected, initializing tracing...");
-        let _provider = crate::otlp::init(otlp_config);
+        Some(et_otlp::init(otlp_config))
     } else {
         info!("No OpenTelemetry configuration detected, using default tracing settings...");
         tracing_subscriber::registry()
@@ -41,7 +41,8 @@ async fn main() -> Result<(), std::io::Error> {
             )
             .with(tracing_subscriber::fmt::layer())
             .init();
-    }
+        None
+    };
 
     let network_ip = local_ip_address::local_ip()
         .map(|ip| ip.to_string())
@@ -89,8 +90,13 @@ async fn main() -> Result<(), std::io::Error> {
     let server = HttpServer::new(move || {
         let registry = agent_registry.clone();
         let config = env.clone();
+        // `TracingLogger` extracts the W3C `traceparent` header from
+        // incoming requests (via the `opentelemetry_0_31` feature) and uses
+        // it as the parent context of the per-request span — that's how
+        // traces propagate from the wasi-runner (or any client that injects
+        // `traceparent`) into the server.
         App::new()
-            .wrap(Logger::default())
+            .wrap(TracingLogger::default())
             .wrap(
                 DefaultHeaders::new()
                     .add(("Cross-Origin-Opener-Policy", "same-origin"))
@@ -115,5 +121,11 @@ async fn main() -> Result<(), std::io::Error> {
         handle.stop(true).await;
     });
 
-    server.await
+    let result = server.await;
+    // Flush batched spans/logs before exit; otherwise short-lived runs lose
+    // the tail of the trace.
+    if let Some(handles) = otel_handles {
+        handles.shutdown();
+    }
+    result
 }

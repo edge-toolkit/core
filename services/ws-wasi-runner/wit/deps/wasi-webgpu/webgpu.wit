@@ -1,0 +1,480 @@
+package wasi:webgpu@0.0.1;
+
+// Trimmed from upstream WebAssembly/wasi-gfx@03c3e95 (main as of 2026-05-11).
+// The preserved surface is what `services/ws-modules/wasi-graphics-info` needs
+// to run a 4x4 compute matmul on the host GPU: request an adapter+device,
+// create buffers / a shader module / a compute pipeline / bind group(s),
+// submit a compute pass, read back results. Everything else (render pipelines,
+// textures, samplers, canvas/surface presentation, render bundles, query sets,
+// async pipeline creation, error-scope / lost-device machinery, debug markers,
+// indirect dispatch) is stripped. Removed items are noted inline as
+// `// TRIMMED: ...` so re-syncing with upstream stays mechanical.
+//
+// NOTE: this file is *not wire-compatible* with the unmodified wasi-webgpu;
+// it's deliberately a subset. If wasi-gfx publishes on crates.io as proper
+// versioned crates, replace this whole vendored tree with upstream WIT plus
+// the matching wasmtime host crate instead of carrying the divergence.
+
+// TRIMMED: use wasi:io/poll@0.2.0.{ pollable } - only referenced by
+//          gpu-device.onuncapturederror-subscribe, which is trimmed.
+// TRIMMED: use wasi:graphics-context/graphics-context@0.0.1.{ context, abstract-buffer }
+//          - feeds gpu-device.connect-graphics-context and
+//          gpu-texture.from-graphics-buffer, both trimmed.
+
+interface webgpu {
+  resource gpu-supported-limits {
+    max-texture-dimension1-d: func() -> u32;
+    max-texture-dimension2-d: func() -> u32;
+    max-texture-dimension3-d: func() -> u32;
+    max-texture-array-layers: func() -> u32;
+    max-bind-groups: func() -> u32;
+    max-bind-groups-plus-vertex-buffers: func() -> u32;
+    max-bindings-per-bind-group: func() -> u32;
+    max-dynamic-uniform-buffers-per-pipeline-layout: func() -> u32;
+    max-dynamic-storage-buffers-per-pipeline-layout: func() -> u32;
+    max-sampled-textures-per-shader-stage: func() -> u32;
+    max-samplers-per-shader-stage: func() -> u32;
+    max-storage-buffers-per-shader-stage: func() -> u32;
+    max-storage-textures-per-shader-stage: func() -> u32;
+    max-uniform-buffers-per-shader-stage: func() -> u32;
+    max-uniform-buffer-binding-size: func() -> u64;
+    max-storage-buffer-binding-size: func() -> u64;
+    min-uniform-buffer-offset-alignment: func() -> u32;
+    min-storage-buffer-offset-alignment: func() -> u32;
+    max-vertex-buffers: func() -> u32;
+    max-buffer-size: func() -> u64;
+    max-vertex-attributes: func() -> u32;
+    max-vertex-buffer-array-stride: func() -> u32;
+    max-inter-stage-shader-variables: func() -> u32;
+    max-color-attachments: func() -> u32;
+    max-color-attachment-bytes-per-sample: func() -> u32;
+    max-compute-workgroup-storage-size: func() -> u32;
+    max-compute-invocations-per-workgroup: func() -> u32;
+    max-compute-workgroup-size-x: func() -> u32;
+    max-compute-workgroup-size-y: func() -> u32;
+    max-compute-workgroup-size-z: func() -> u32;
+    max-compute-workgroups-per-dimension: func() -> u32;
+  }
+  resource gpu-supported-features {
+    has: func(value: string) -> bool;
+  }
+  // TRIMMED resource wgsl-language-features (queried via gpu.wgsl-language-features, trimmed).
+  resource gpu-adapter-info {
+    vendor: func() -> string;
+    architecture: func() -> string;
+    device: func() -> string;
+    description: func() -> string;
+    subgroup-min-size: func() -> u32;
+    subgroup-max-size: func() -> u32;
+  }
+  resource gpu {
+    request-adapter: func(options: option<gpu-request-adapter-options>) -> option<gpu-adapter>;
+    // TRIMMED: get-preferred-canvas-format (canvas presentation not used).
+    // TRIMMED: wgsl-language-features (no shader feature querying needed).
+  }
+  enum gpu-power-preference {
+    low-power,
+    high-performance,
+  }
+  record gpu-request-adapter-options {
+    feature-level: option<string>,
+    power-preference: option<gpu-power-preference>,
+    force-fallback-adapter: option<bool>,
+    xr-compatible: option<bool>,
+  }
+  resource gpu-adapter {
+    features: func() -> gpu-supported-features;
+    limits: func() -> gpu-supported-limits;
+    info: func() -> gpu-adapter-info;
+    is-fallback-adapter: func() -> bool;
+    request-device: func(descriptor: option<gpu-device-descriptor>) -> result<gpu-device, request-device-error>;
+  }
+  resource record-option-gpu-size64 {
+    constructor();
+    add: func(key: string, value: option<gpu-size64>);
+    get: func(key: string) -> option<option<gpu-size64>>;
+    has: func(key: string) -> bool;
+    remove: func(key: string);
+    keys: func() -> list<string>;
+    values: func() -> list<option<gpu-size64>>;
+    entries: func() -> list<tuple<string, option<gpu-size64>>>;
+  }
+  enum gpu-feature-name {
+    depth-clip-control,
+    depth32float-stencil8,
+    texture-compression-bc,
+    texture-compression-bc-sliced3d,
+    texture-compression-etc2,
+    texture-compression-astc,
+    texture-compression-astc-sliced3d,
+    timestamp-query,
+    indirect-first-instance,
+    shader-f16,
+    rg11b10ufloat-renderable,
+    bgra8unorm-storage,
+    float32-filterable,
+    float32-blendable,
+    clip-distances,
+    dual-source-blending,
+    subgroups,
+  }
+  resource gpu-device {
+    features: func() -> gpu-supported-features;
+    limits: func() -> gpu-supported-limits;
+    adapter-info: func() -> gpu-adapter-info;
+    queue: func() -> gpu-queue;
+    destroy: func();
+    create-buffer: func(descriptor: gpu-buffer-descriptor) -> gpu-buffer;
+    // TRIMMED: create-texture (no texture pipeline in this subset).
+    // TRIMMED: create-sampler (textures/samplers trimmed).
+    create-bind-group-layout: func(descriptor: gpu-bind-group-layout-descriptor) -> gpu-bind-group-layout;
+    create-pipeline-layout: func(descriptor: gpu-pipeline-layout-descriptor) -> gpu-pipeline-layout;
+    create-bind-group: func(descriptor: gpu-bind-group-descriptor) -> gpu-bind-group;
+    create-shader-module: func(descriptor: gpu-shader-module-descriptor) -> gpu-shader-module;
+    create-compute-pipeline: func(descriptor: gpu-compute-pipeline-descriptor) -> gpu-compute-pipeline;
+    // TRIMMED: create-render-pipeline, create-compute-pipeline-async,
+    //          create-render-pipeline-async (no render path; sync compute
+    //          pipeline creation is enough for the matmul demo).
+    create-command-encoder: func(descriptor: option<gpu-command-encoder-descriptor>) -> gpu-command-encoder;
+    // TRIMMED: create-render-bundle-encoder, create-query-set
+    //          (no rendering, no GPU timing queries).
+    label: func() -> string;
+    set-label: func(label: string);
+    // TRIMMED: lost, push-error-scope, pop-error-scope,
+    //          onuncapturederror-subscribe (error-scope / device-lost flow not
+    //          exposed; failures surface via the per-call result<_, *-error>).
+    // TRIMMED: connect-graphics-context (no presentation surface).
+  }
+  resource gpu-buffer {
+    size: func() -> gpu-size64-out;
+    usage: func() -> gpu-flags-constant;
+    map-state: func() -> gpu-buffer-map-state;
+    map-async: func(mode: gpu-map-mode-flags, offset: option<gpu-size64>, size: option<gpu-size64>) -> result<_, map-async-error>;
+    get-mapped-range-get-with-copy: func(offset: option<gpu-size64>, size: option<gpu-size64>) -> result<list<u8>, get-mapped-range-error>;
+    unmap: func() -> result<_, unmap-error>;
+    destroy: func();
+    label: func() -> string;
+    set-label: func(label: string);
+    get-mapped-range-set-with-copy: func(data: list<u8>, offset: option<gpu-size64>, size: option<gpu-size64>) -> result<_, get-mapped-range-error>;
+  }
+  enum gpu-buffer-map-state {
+    unmapped,
+    pending,
+    mapped,
+  }
+  type gpu-buffer-usage-flags = u32;
+  resource gpu-buffer-usage {
+    MAP-READ: static func() -> gpu-flags-constant;
+    MAP-WRITE: static func() -> gpu-flags-constant;
+    COPY-SRC: static func() -> gpu-flags-constant;
+    COPY-DST: static func() -> gpu-flags-constant;
+    INDEX: static func() -> gpu-flags-constant;
+    VERTEX: static func() -> gpu-flags-constant;
+    UNIFORM: static func() -> gpu-flags-constant;
+    STORAGE: static func() -> gpu-flags-constant;
+    INDIRECT: static func() -> gpu-flags-constant;
+    QUERY-RESOLVE: static func() -> gpu-flags-constant;
+  }
+  type gpu-map-mode-flags = u32;
+  resource gpu-map-mode {
+    READ: static func() -> gpu-flags-constant;
+    WRITE: static func() -> gpu-flags-constant;
+  }
+  // TRIMMED resource gpu-texture and its descriptors/views/usage/dimension/
+  //         aspect/format enums (no textures in the compute-only subset).
+  // TRIMMED enum gpu-texture-dimension, gpu-texture-view-dimension,
+  //         gpu-texture-aspect, gpu-texture-format (96 variants).
+  // TRIMMED type gpu-texture-usage-flags, resource gpu-texture-usage,
+  //         resource gpu-texture-view.
+  // TRIMMED resource gpu-sampler and its descriptor/binding/layout records
+  //         plus gpu-address-mode, gpu-filter-mode, gpu-mipmap-filter-mode,
+  //         gpu-compare-function, gpu-sampler-binding-type,
+  //         gpu-texture-sample-type, gpu-storage-texture-access.
+  resource gpu-bind-group-layout {
+    label: func() -> string;
+    set-label: func(label: string);
+  }
+  type gpu-shader-stage-flags = u32;
+  resource gpu-shader-stage {
+    VERTEX: static func() -> gpu-flags-constant;
+    FRAGMENT: static func() -> gpu-flags-constant;
+    COMPUTE: static func() -> gpu-flags-constant;
+  }
+  enum gpu-buffer-binding-type {
+    uniform,
+    storage,
+    read-only-storage,
+  }
+  // TRIMMED record gpu-sampler-binding-layout, gpu-texture-binding-layout,
+  //         gpu-storage-texture-binding-layout (only buffer bindings used).
+  resource gpu-bind-group {
+    label: func() -> string;
+    set-label: func(label: string);
+  }
+  resource gpu-pipeline-layout {
+    label: func() -> string;
+    set-label: func(label: string);
+  }
+  record gpu-pipeline-layout-descriptor {
+    bind-group-layouts: list<option<borrow<gpu-bind-group-layout>>>,
+    label: option<string>,
+  }
+  resource gpu-shader-module {
+    label: func() -> string;
+    set-label: func(label: string);
+    // TRIMMED: get-compilation-info (no compile-time diagnostic surfacing;
+    //          shader errors trap during create-compute-pipeline instead).
+  }
+  // TRIMMED resource gpu-compilation-message, gpu-compilation-info,
+  //         enum gpu-compilation-message-type (paired with get-compilation-info).
+  enum gpu-pipeline-error-reason {
+    validation,
+    internal,
+  }
+  variant gpu-layout-mode {
+    specific(borrow<gpu-pipeline-layout>),
+    auto,
+  }
+  record gpu-shader-module-compilation-hint {
+    entry-point: string,
+    layout: option<gpu-layout-mode>,
+  }
+  record gpu-shader-module-descriptor {
+    code: string,
+    compilation-hints: option<list<gpu-shader-module-compilation-hint>>,
+    label: option<string>,
+  }
+  resource record-gpu-pipeline-constant-value {
+    constructor();
+    add: func(key: string, value: gpu-pipeline-constant-value);
+    get: func(key: string) -> option<gpu-pipeline-constant-value>;
+    has: func(key: string) -> bool;
+    remove: func(key: string);
+    keys: func() -> list<string>;
+    values: func() -> list<gpu-pipeline-constant-value>;
+    entries: func() -> list<tuple<string, gpu-pipeline-constant-value>>;
+  }
+  record gpu-programmable-stage {
+    module: borrow<gpu-shader-module>,
+    entry-point: option<string>,
+    constants: option<record-gpu-pipeline-constant-value>,
+  }
+  type gpu-pipeline-constant-value = f64;
+  resource gpu-compute-pipeline {
+    label: func() -> string;
+    set-label: func(label: string);
+    get-bind-group-layout: func(index: u32) -> gpu-bind-group-layout;
+  }
+  record gpu-compute-pipeline-descriptor {
+    compute: gpu-programmable-stage,
+    layout: gpu-layout-mode,
+    label: option<string>,
+  }
+  // TRIMMED resource gpu-render-pipeline plus the entire render pipeline
+  //         descriptor tree: gpu-render-pipeline-descriptor, gpu-vertex-state,
+  //         gpu-vertex-buffer-layout, gpu-vertex-attribute, gpu-fragment-state,
+  //         gpu-color-target-state, gpu-blend-state, gpu-blend-component,
+  //         gpu-primitive-state, gpu-depth-stencil-state, gpu-stencil-face-state,
+  //         gpu-multisample-state; and their supporting enums
+  //         (gpu-primitive-topology, gpu-front-face, gpu-cull-mode,
+  //         gpu-blend-factor, gpu-blend-operation, gpu-stencil-operation,
+  //         gpu-index-format, gpu-vertex-format, gpu-vertex-step-mode);
+  //         and gpu-color-write flags resource / type.
+  resource gpu-command-buffer {
+    label: func() -> string;
+    set-label: func(label: string);
+  }
+  record gpu-command-buffer-descriptor {
+    label: option<string>,
+  }
+  resource gpu-command-encoder {
+    // TRIMMED: begin-render-pass (no render passes).
+    begin-compute-pass: func(descriptor: option<gpu-compute-pass-descriptor>) -> gpu-compute-pass-encoder;
+    copy-buffer-to-buffer: func(source: borrow<gpu-buffer>, source-offset: gpu-size64, destination: borrow<gpu-buffer>, destination-offset: gpu-size64, size: gpu-size64);
+    // TRIMMED: copy-buffer-to-texture, copy-texture-to-buffer,
+    //          copy-texture-to-texture (no textures in this subset).
+    // TRIMMED: clear-buffer (not used; write-buffer-with-copy serves init).
+    // TRIMMED: resolve-query-set (no query sets).
+    finish: func(descriptor: option<gpu-command-buffer-descriptor>) -> gpu-command-buffer;
+    label: func() -> string;
+    set-label: func(label: string);
+    // TRIMMED: push-debug-group, pop-debug-group, insert-debug-marker
+    //          (debug markers unused; can be re-added without functional impact).
+  }
+  record gpu-command-encoder-descriptor {
+    label: option<string>,
+  }
+  resource gpu-compute-pass-encoder {
+    set-pipeline: func(pipeline: borrow<gpu-compute-pipeline>);
+    dispatch-workgroups: func(workgroup-count-x: gpu-size32, workgroup-count-y: option<gpu-size32>, workgroup-count-z: option<gpu-size32>);
+    // TRIMMED: dispatch-workgroups-indirect (no indirect buffers).
+    end: func();
+    label: func() -> string;
+    set-label: func(label: string);
+    // TRIMMED: push-debug-group, pop-debug-group, insert-debug-marker.
+    set-bind-group: func(index: gpu-index32, bind-group: option<borrow<gpu-bind-group>>, dynamic-offsets-data: option<list<gpu-buffer-dynamic-offset>>, dynamic-offsets-data-start: option<gpu-size64>, dynamic-offsets-data-length: option<gpu-size32>) -> result<_, set-bind-group-error>;
+  }
+  // TRIMMED resource gpu-render-pass-encoder and all render-pass primitives
+  //         (set-viewport, set-scissor-rect, set-blend-constant,
+  //         set-stencil-reference, begin/end-occlusion-query, execute-bundles,
+  //         set-index-buffer, set-vertex-buffer, draw / draw-indexed /
+  //         draw-indirect / draw-indexed-indirect).
+  // TRIMMED enum gpu-load-op, gpu-store-op (only used by render-pass attachments).
+  // TRIMMED resource gpu-render-bundle, gpu-render-bundle-encoder and their
+  //         descriptors gpu-render-bundle-descriptor,
+  //         gpu-render-bundle-encoder-descriptor.
+  record gpu-queue-descriptor {
+    label: option<string>,
+  }
+  record gpu-device-descriptor {
+    required-features: option<list<gpu-feature-name>>,
+    required-limits: option<record-option-gpu-size64>,
+    default-queue: option<gpu-queue-descriptor>,
+    label: option<string>,
+  }
+  resource gpu-queue {
+    submit: func(command-buffers: list<borrow<gpu-command-buffer>>);
+    // TRIMMED: on-submitted-work-done (no completion pollables in this subset).
+    write-buffer-with-copy: func(buffer: borrow<gpu-buffer>, buffer-offset: gpu-size64, data: list<u8>, data-offset: option<gpu-size64>, size: option<gpu-size64>) -> result<_, write-buffer-error>;
+    // TRIMMED: write-texture-with-copy (no textures).
+    label: func() -> string;
+    set-label: func(label: string);
+  }
+  // TRIMMED resource gpu-query-set, enum gpu-query-type,
+  //         record gpu-query-set-descriptor (no GPU-side timestamping queries).
+  // TRIMMED resource gpu-canvas-context and all canvas presentation records:
+  //         gpu-canvas-configuration, gpu-canvas-configuration-owned,
+  //         gpu-canvas-tone-mapping, gpu-canvas-alpha-mode,
+  //         gpu-canvas-tone-mapping-mode, predefined-color-space.
+  // TRIMMED enum gpu-device-lost-reason, resource gpu-device-lost-info
+  //         (device.lost trimmed).
+  // TRIMMED resource gpu-error, enum gpu-error-filter, variant gpu-error-kind,
+  //         resource gpu-uncaptured-error-event, record pop-error-scope-error,
+  //         variant pop-error-scope-error-kind (error-scope flow trimmed).
+  type gpu-buffer-dynamic-offset = u32;
+  // TRIMMED type gpu-stencil-value, gpu-sample-mask, gpu-depth-bias,
+  //         gpu-signed-offset32, gpu-integer-coordinate, gpu-integer-coordinate-out
+  //         (only referenced by render / texture / query primitives).
+  // TRIMMED record gpu-render-pass-depth-stencil-attachment,
+  //         gpu-render-pass-color-attachment, gpu-render-pass-descriptor,
+  //         gpu-render-pass-timestamp-writes.
+  type gpu-size64 = u64;
+  record gpu-buffer-descriptor {
+    size: gpu-size64,
+    usage: gpu-buffer-usage-flags,
+    mapped-at-creation: option<bool>,
+    label: option<string>,
+  }
+  record gpu-buffer-binding-layout {
+    %type: option<gpu-buffer-binding-type>,
+    has-dynamic-offset: option<bool>,
+    min-binding-size: option<gpu-size64>,
+  }
+  record gpu-buffer-binding {
+    buffer: borrow<gpu-buffer>,
+    offset: option<gpu-size64>,
+    size: option<gpu-size64>,
+  }
+  variant gpu-binding-resource {
+    gpu-buffer-binding(gpu-buffer-binding),
+    // TRIMMED: gpu-sampler(borrow<gpu-sampler>),
+    //          gpu-texture-view(borrow<gpu-texture-view>) - resources trimmed.
+  }
+  // TRIMMED record gpu-texture-view-descriptor, gpu-texture-descriptor,
+  //         gpu-texel-copy-buffer-layout, gpu-texel-copy-buffer-info,
+  //         gpu-texel-copy-texture-info, gpu-origin3-d, gpu-extent3-d.
+  type gpu-index32 = u32;
+  record gpu-bind-group-layout-entry {
+    binding: gpu-index32,
+    visibility: gpu-shader-stage-flags,
+    buffer: option<gpu-buffer-binding-layout>,
+    // TRIMMED: sampler: option<gpu-sampler-binding-layout>,
+    //          texture: option<gpu-texture-binding-layout>,
+    //          storage-texture: option<gpu-storage-texture-binding-layout>
+    //          - non-buffer binding kinds not used.
+  }
+  record gpu-bind-group-layout-descriptor {
+    entries: list<gpu-bind-group-layout-entry>,
+    label: option<string>,
+  }
+  record gpu-bind-group-entry {
+    binding: gpu-index32,
+    %resource: gpu-binding-resource,
+  }
+  record gpu-bind-group-descriptor {
+    layout: borrow<gpu-bind-group-layout>,
+    entries: list<gpu-bind-group-entry>,
+    label: option<string>,
+  }
+  // TRIMMED record gpu-vertex-attribute, gpu-vertex-buffer-layout,
+  //         gpu-vertex-state, gpu-multisample-state,
+  //         gpu-render-pipeline-descriptor (render path).
+  // TRIMMED record gpu-compute-pass-timestamp-writes (no query sets to write to).
+  record gpu-compute-pass-descriptor {
+    // TRIMMED: timestamp-writes: option<gpu-compute-pass-timestamp-writes>
+    //          - referenced gpu-query-set which is trimmed.
+    label: option<string>,
+  }
+  type gpu-size32 = u32;
+  type gpu-size64-out = u64;
+  type gpu-size32-out = u32;
+  type gpu-flags-constant = u32;
+  // TRIMMED record gpu-color (only used by render-pass blend constants).
+  get-gpu: func() -> gpu;
+  variant request-device-error-kind {
+    type-error,
+    operation-error,
+  }
+  record request-device-error {
+    kind: request-device-error-kind,
+    message: string,
+  }
+  variant create-pipeline-error-kind {
+    gpu-pipeline-error(gpu-pipeline-error-reason),
+  }
+  record create-pipeline-error {
+    kind: create-pipeline-error-kind,
+    message: string,
+  }
+  // TRIMMED variant create-query-set-error-kind, record create-query-set-error
+  //         (no create-query-set).
+  variant map-async-error-kind {
+    operation-error,
+    range-error,
+    abort-error,
+  }
+  record map-async-error {
+    kind: map-async-error-kind,
+    message: string,
+  }
+  variant get-mapped-range-error-kind {
+    operation-error,
+    range-error,
+    type-error,
+  }
+  record get-mapped-range-error {
+    kind: get-mapped-range-error-kind,
+    message: string,
+  }
+  variant unmap-error-kind {
+    abort-error,
+  }
+  record unmap-error {
+    kind: unmap-error-kind,
+    message: string,
+  }
+  variant set-bind-group-error-kind {
+    range-error,
+  }
+  record set-bind-group-error {
+    kind: set-bind-group-error-kind,
+    message: string,
+  }
+  variant write-buffer-error-kind {
+    operation-error,
+  }
+  record write-buffer-error {
+    kind: write-buffer-error-kind,
+    message: string,
+  }
+}
