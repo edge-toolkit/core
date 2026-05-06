@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 
 [package.metadata.ws-module.dependencies]
 et-model-har-motion1 = "*"
+onnxruntime-web = "*"
 
 [dependencies]
 et-web.workspace = true

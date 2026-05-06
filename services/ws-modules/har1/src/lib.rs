@@ -642,11 +642,7 @@ fn configure_onnx_runtime_wasm(window: &web_sys::Window, ort: &JsValue) -> Resul
         return Err(JsValue::from_str("onnxruntime-web environment is unavailable"));
     }
 
-    let versions = Reflect::get(&env, &JsValue::from_str("versions"))?;
-    let ort_version = Reflect::get(&versions, &JsValue::from_str("web"))?
-        .as_string()
-        .ok_or_else(|| JsValue::from_str("onnxruntime-web version is unavailable"))?;
-    let dist_base_url = format!("https://cdn.jsdelivr.net/npm/onnxruntime-web@{ort_version}/dist");
+    let dist_base_url = "/modules/onnxruntime-web/dist";
 
     let supports_threads = Reflect::get(window.as_ref(), &JsValue::from_str("crossOriginIsolated"))?
         .as_bool()
