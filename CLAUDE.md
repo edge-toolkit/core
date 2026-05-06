@@ -73,6 +73,23 @@ Languages:
 - **edge-toolkit** — Common utilities, config, serialization (shared across services)
 - **web** — WASM web helpers (Canvas, MediaStream, WebSocket bindings for browser modules)
 
+### Worker (`services/ws-worker/`)
+
+`et-ws-worker` — runs any ws-module outside a browser. It fetches the module's JS package from the
+running ws-server, patches it for Node.js compatibility (redirects the WASM agent import to a
+pure-JS shim, fixes `import.meta.url` to an HTTP URL so Pyodide wheel fetches work), then
+executes it via Node.js.
+
+Two patches are applied to every downloaded module JS before execution:
+
+- `"/modules/et-ws-wasm-agent/et_ws_wasm_agent.js"` → `"./ws_client.mjs"` (pure-JS `WsClient`
+  in `runner/ws_client.mjs`)
+- `import.meta.url` → the server's HTTP URL for that file (so `new URL(...)` resolves wheel and
+  package.json via HTTP)
+
+`WORKER_MODULE` selects the module (default: `pydata1`). `WS_SERVER_URL` sets the server
+(default: `ws://localhost:8080/ws`).
+
 ### Utilities (`utilities/`)
 
 - **cli** (`et-cli`) — Scenario and module tooling. Reads scenario YAML and outputs `mise.toml` or `compose.yaml`;
