@@ -1,7 +1,7 @@
 // et_ws_pydata1.js — Pyodide-based Python module shim
 // Interface: default(wasmUrl), metadata(), run()
 
-const PYODIDE_CDN = "https://cdn.jsdelivr.net/pyodide/v0.29.3/full/pyodide.js";
+const PYODIDE_CDN = "/modules/pyodide/pyodide.js";
 
 let pyodide = null;
 let pyMod = null;
