@@ -1,10 +1,9 @@
 use std::fs;
 
-use tempfile::tempdir;
-
-use crate::{
+use et_cli::{
     docker_image_module_paths, generate_deployment, module_package_json, regenerate_verification, scenario_module_paths,
 };
+use tempfile::tempdir;
 
 #[test]
 fn generate_deployment_rejects_unsupported_deployment_type() {
