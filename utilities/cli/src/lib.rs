@@ -7,7 +7,12 @@ use anyhow::{Context, Result, anyhow};
 use clap::ValueEnum;
 use edge_toolkit::input::ClusterInput;
 use serde::Deserialize;
-use toml::{Table, Value};
+
+mod docker_compose;
+mod mise;
+
+pub use docker_compose::{docker_image_module_paths, generate_docker_compose_deployment};
+pub use mise::{generate_mise_deployment, scenario_module_paths};
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq, ValueEnum)]
 #[serde(rename_all = "lowercase")]
@@ -52,10 +57,10 @@ pub struct RegeneratedScenario {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-struct PackageJson {
-    name: Option<String>,
+pub struct PackageJson {
+    pub name: Option<String>,
     #[serde(default)]
-    dependencies: BTreeMap<String, String>,
+    pub dependencies: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -105,10 +110,10 @@ struct CargoWsModule {
 }
 
 #[derive(Debug, Clone)]
-struct ModuleRegistryEntry {
-    mise_path: String,
-    docker_path: String,
-    dependencies: BTreeSet<String>,
+pub struct ModuleRegistryEntry {
+    pub mise_path: String,
+    pub docker_path: String,
+    pub dependencies: BTreeSet<String>,
 }
 
 pub fn generate_deployment(
@@ -276,328 +281,6 @@ fn discover_verification_scenarios(verification_root: &Path) -> Result<Vec<(Path
     Ok(scenarios)
 }
 
-fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<()> {
-    let output_path = output_dir.join("mise.toml");
-    let workspace_root =
-        std::env::current_dir().with_context(|| "Failed to resolve current working directory for mise tasks")?;
-    let output_abs = absolute_from(&workspace_root, output_dir);
-    let ws_server_dir = workspace_root.join("services/ws-server");
-    let workspace_rel = relative_path_from(&output_abs, &workspace_root).display().to_string();
-    let openobserve_env_file_rel = "config/o2.env";
-    let module_names = cluster_module_names(cluster);
-    let module_paths = scenario_module_paths(&ws_server_dir, &module_names)?;
-    let module_paths_lines = module_paths
-        .iter()
-        .map(|p| format!("  {p}"))
-        .collect::<Vec<_>>()
-        .join(",\\\n");
-    let ws_server_run = format!("export MODULES_PATHS=\"\\\n{module_paths_lines}\"\ncargo run\n");
-    let ws_server_rel = relative_path_from(&output_abs, &ws_server_dir).display().to_string();
-
-    let mut root = Table::new();
-    let mut tasks = Table::new();
-
-    tasks.insert(
-        "openobserve".to_string(),
-        Value::Table(mise_task(
-            Some("o2"),
-            None,
-            Some(&workspace_rel),
-            Some(&format!(
-                "docker run --rm -it --name openobserve -p 5080:5080 --env-file {} openobserve/openobserve:v0.70.3",
-                openobserve_env_file_rel
-            )),
-            None,
-            None,
-        )),
-    );
-    tasks.insert(
-        "ws-server".to_string(),
-        Value::Table(mise_task(
-            None,
-            Some("Run the WebSocket server"),
-            Some(&ws_server_rel),
-            Some(&ws_server_run),
-            None,
-            Some(mise_env()),
-        )),
-    );
-    tasks.insert(
-        "generated-scenario".to_string(),
-        Value::Table(mise_task(
-            None,
-            Some(&format!("Run generated scenario for {}", cluster.cluster_name)),
-            None,
-            None,
-            Some(mise_depends(["openobserve", "ws-server"])),
-            None,
-        )),
-    );
-    tasks.insert(
-        "open-o2".to_string(),
-        Value::Table(mise_task(
-            None,
-            Some("Open the OpenObserve UI"),
-            None,
-            Some("open http://localhost:5080/"),
-            None,
-            None,
-        )),
-    );
-
-    root.insert("tasks".to_string(), Value::Table(tasks));
-
-    let content = format_mise_toml(
-        toml::to_string(&Value::Table(root)).context("Failed to serialize mise TOML")?,
-        openobserve_env_file_rel,
-    );
-    fs::write(&output_path, content).with_context(|| format!("Failed to write output file: {:?}", output_path))?;
-
-    Ok(())
-}
-
-fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<()> {
-    let output_path = output_dir.join(OutputType::DockerCompose.output_file_name());
-    let workspace_root =
-        std::env::current_dir().with_context(|| "Failed to resolve current working directory for compose services")?;
-    let output_abs = absolute_from(&workspace_root, output_dir);
-    let workspace_rel = relative_path_from(&output_abs, &workspace_root).display().to_string();
-    let openobserve_env_file_rel = relative_path_from(&output_abs, &workspace_root.join("config/o2.env"))
-        .display()
-        .to_string();
-    let module_names = cluster_module_names(cluster);
-    let module_paths = docker_image_module_paths(&module_names)?;
-    let compose = ComposeFile {
-        services: vec![
-            (
-                "openobserve".to_string(),
-                ComposeService {
-                    image: Some("openobserve/openobserve:v0.70.3".to_string()),
-                    healthcheck: Some(ComposeHealthcheck {
-                        test: vec![
-                            "CMD".to_string(),
-                            "/openobserve".to_string(),
-                            "node".to_string(),
-                            "status".to_string(),
-                        ],
-                        interval: "5s".to_string(),
-                        timeout: "3s".to_string(),
-                        retries: 20,
-                        start_period: "10s".to_string(),
-                    }),
-                    ports: vec!["5080:5080".to_string()],
-                    env_file: vec![openobserve_env_file_rel],
-                    environment: vec![("ZO_DATA_DIR".to_string(), ComposeValue::Plain("/data".to_string()))],
-                    volumes: vec!["openobserve-data:/data".to_string()],
-                    ..ComposeService::default()
-                },
-            ),
-            (
-                "ws-server".to_string(),
-                ComposeService {
-                    build: Some(ComposeBuild {
-                        context: workspace_rel,
-                        dockerfile: "services/ws-server/Dockerfile".to_string(),
-                    }),
-                    network_mode: Some("host".to_string()),
-                    environment: vec![
-                        (
-                            "MODULES_PATHS".to_string(),
-                            ComposeValue::WrappedDoubleQuoted(module_paths),
-                        ),
-                        (
-                            "OTLP_AUTH_PASSWORD".to_string(),
-                            ComposeValue::DoubleQuoted("1234".to_string()),
-                        ),
-                        (
-                            "OTLP_AUTH_USERNAME".to_string(),
-                            ComposeValue::Plain("root@example.com".to_string()),
-                        ),
-                        (
-                            "OTLP_COLLECTOR_URL".to_string(),
-                            ComposeValue::Plain("http://127.0.0.1:5080/api/default/v1".to_string()),
-                        ),
-                        (
-                            "STORAGE_PATH".to_string(),
-                            ComposeValue::Plain("/app/storage".to_string()),
-                        ),
-                    ],
-                    volumes: vec!["ws-server-storage:/app/storage".to_string()],
-                    depends_on: vec![(
-                        "openobserve".to_string(),
-                        ComposeDependsOnCondition {
-                            condition: "service_healthy".to_string(),
-                        },
-                    )],
-                    ..ComposeService::default()
-                },
-            ),
-        ],
-        volumes: vec![
-            ("openobserve-data".to_string(), ComposeVolume),
-            ("ws-server-storage".to_string(), ComposeVolume),
-        ],
-    };
-    let content = render_compose_yaml(&compose);
-    fs::write(&output_path, content).with_context(|| format!("Failed to write output file: {:?}", output_path))?;
-
-    Ok(())
-}
-
-#[derive(Debug, Default)]
-struct ComposeFile {
-    services: Vec<(String, ComposeService)>,
-    volumes: Vec<(String, ComposeVolume)>,
-}
-
-#[derive(Debug, Default)]
-struct ComposeService {
-    build: Option<ComposeBuild>,
-    image: Option<String>,
-    healthcheck: Option<ComposeHealthcheck>,
-    network_mode: Option<String>,
-    ports: Vec<String>,
-    env_file: Vec<String>,
-    environment: Vec<(String, ComposeValue)>,
-    volumes: Vec<String>,
-    depends_on: Vec<(String, ComposeDependsOnCondition)>,
-}
-
-#[derive(Debug)]
-struct ComposeBuild {
-    context: String,
-    dockerfile: String,
-}
-
-#[derive(Debug)]
-struct ComposeHealthcheck {
-    test: Vec<String>,
-    interval: String,
-    timeout: String,
-    retries: u32,
-    start_period: String,
-}
-
-#[derive(Debug)]
-struct ComposeDependsOnCondition {
-    condition: String,
-}
-
-#[derive(Debug, Default)]
-struct ComposeVolume;
-
-#[derive(Debug)]
-enum ComposeValue {
-    Plain(String),
-    DoubleQuoted(String),
-    WrappedDoubleQuoted(Vec<String>),
-}
-
-fn render_compose_yaml(compose: &ComposeFile) -> String {
-    let mut renderer = ComposeRenderer::default();
-    renderer.push_line(0, "services:");
-    for (name, service) in &compose.services {
-        renderer.render_service(name, service);
-    }
-    renderer.push_line(0, "volumes:");
-    for (name, _) in &compose.volumes {
-        renderer.push_line(1, &format!("{name}: {{}}"));
-    }
-    renderer.finish()
-}
-
-#[derive(Default)]
-struct ComposeRenderer {
-    output: String,
-}
-
-impl ComposeRenderer {
-    fn finish(self) -> String {
-        self.output
-    }
-
-    fn push_line(&mut self, indent: usize, line: &str) {
-        self.output.push_str(&"  ".repeat(indent));
-        self.output.push_str(line);
-        self.output.push('\n');
-    }
-
-    fn render_service(&mut self, name: &str, service: &ComposeService) {
-        self.push_line(1, &format!("{name}:"));
-        if let Some(image) = &service.image {
-            self.push_line(2, &format!("image: {image}"));
-        }
-        if let Some(healthcheck) = &service.healthcheck {
-            self.push_line(2, "healthcheck:");
-            self.push_line(3, "test:");
-            for item in &healthcheck.test {
-                self.push_line(4, &format!("- {item}"));
-            }
-            self.push_line(3, &format!("interval: {}", healthcheck.interval));
-            self.push_line(3, &format!("timeout: {}", healthcheck.timeout));
-            self.push_line(3, &format!("retries: {}", healthcheck.retries));
-            self.push_line(3, &format!("start_period: {}", healthcheck.start_period));
-        }
-        if !service.ports.is_empty() {
-            self.push_line(2, "ports:");
-            for port in &service.ports {
-                self.push_line(3, &format!("- {port}"));
-            }
-        }
-        if !service.env_file.is_empty() {
-            self.push_line(2, "env_file:");
-            for env_file in &service.env_file {
-                self.push_line(3, &format!("- {env_file}"));
-            }
-        }
-        if let Some(build) = &service.build {
-            self.push_line(2, "build:");
-            self.push_line(3, &format!("context: {}", build.context));
-            self.push_line(3, &format!("dockerfile: {}", build.dockerfile));
-        }
-        if let Some(network_mode) = &service.network_mode {
-            self.push_line(2, &format!("network_mode: {network_mode}"));
-        }
-        if !service.environment.is_empty() {
-            self.push_line(2, "environment:");
-            for (key, value) in &service.environment {
-                self.render_environment_value(key, value);
-            }
-        }
-        if !service.volumes.is_empty() {
-            self.push_line(2, "volumes:");
-            for volume in &service.volumes {
-                self.push_line(3, &format!("- {volume}"));
-            }
-        }
-        if !service.depends_on.is_empty() {
-            self.push_line(2, "depends_on:");
-            for (name, condition) in &service.depends_on {
-                self.push_line(3, &format!("{name}:"));
-                self.push_line(4, &format!("condition: {}", condition.condition));
-            }
-        }
-    }
-
-    fn render_environment_value(&mut self, key: &str, value: &ComposeValue) {
-        match value {
-            ComposeValue::Plain(value) => self.push_line(3, &format!("{key}: {value}")),
-            ComposeValue::DoubleQuoted(value) => self.push_line(3, &format!("{key}: \"{value}\"")),
-            ComposeValue::WrappedDoubleQuoted(parts) => {
-                if let Some((first, rest)) = parts.split_first() {
-                    self.push_line(3, &format!("{key}: \"{first},\\"));
-                    for (index, part) in rest.iter().enumerate() {
-                        let suffix = if index + 1 == rest.len() { "\"" } else { ",\\" };
-                        self.push_line(4, &format!("{part}{suffix}"));
-                    }
-                } else {
-                    self.push_line(3, &format!("{key}: \"\""));
-                }
-            }
-        }
-    }
-}
-
 fn generated_readme(cluster: &ClusterInput, module_names: &[String], output_types: &[OutputType]) -> String {
     let module_summary = if module_names.is_empty() {
         "No workflow modules were selected in the scenario input.".to_string()
@@ -680,114 +363,7 @@ fn generated_run_instructions(output_type: OutputType) -> String {
     }
 }
 
-fn format_mise_toml(content: String, openobserve_env_file_rel: &str) -> String {
-    let openobserve_run = format!(
-        concat!(
-            "run = \"docker run --rm -it --name openobserve -p 5080:5080 --env-file {} ",
-            "openobserve/openobserve:v0.70.3\""
-        ),
-        openobserve_env_file_rel
-    );
-    let wrapped_openobserve_run = format!(
-        concat!(
-            "run = \"\"\"\n",
-            "docker run --rm --name openobserve -p 5080:5080 \\\n",
-            "  --env-file {} \\\n",
-            "  openobserve/openobserve:v0.70.3\n",
-            "\"\"\""
-        ),
-        openobserve_env_file_rel
-    );
-    content.replace(&openobserve_run, &wrapped_openobserve_run)
-}
-
-fn mise_task(
-    alias: Option<&str>,
-    description: Option<&str>,
-    dir: Option<&str>,
-    run: Option<&str>,
-    extra: Option<Table>,
-    env: Option<Table>,
-) -> Table {
-    let mut task = Table::new();
-    if let Some(alias) = alias {
-        task.insert("alias".to_string(), Value::String(alias.to_string()));
-    }
-    if let Some(description) = description {
-        task.insert("description".to_string(), Value::String(description.to_string()));
-    }
-    if let Some(dir) = dir {
-        task.insert("dir".to_string(), Value::String(dir.to_string()));
-    }
-    if let Some(run) = run {
-        task.insert("run".to_string(), Value::String(run.to_string()));
-    }
-    if let Some(extra) = extra {
-        for (key, value) in extra {
-            task.insert(key, value);
-        }
-    }
-    if let Some(env) = env {
-        task.insert("env".to_string(), Value::Table(env));
-    }
-    task
-}
-
-fn mise_env() -> Table {
-    let mut env = Table::new();
-    env.insert("OTLP_AUTH_PASSWORD".to_string(), Value::String("1234".to_string()));
-    env.insert(
-        "OTLP_AUTH_USERNAME".to_string(),
-        Value::String("root@example.com".to_string()),
-    );
-    env
-}
-
-fn mise_depends<const N: usize>(depends: [&str; N]) -> Table {
-    let mut extra = Table::new();
-    extra.insert(
-        "depends".to_string(),
-        Value::Array(
-            depends
-                .into_iter()
-                .map(|dependency| Value::String(dependency.to_string()))
-                .collect(),
-        ),
-    );
-    extra
-}
-
-fn scenario_module_paths(ws_server_dir: &Path, module_names: &[String]) -> Result<Vec<String>> {
-    let project_root = edge_toolkit::config::get_project_root();
-    let mut paths = vec![
-        relative_path_from(ws_server_dir, &project_root.join("services/ws-server/static"))
-            .display()
-            .to_string(),
-        relative_path_from(ws_server_dir, &project_root.join("services/ws-wasm-agent"))
-            .display()
-            .to_string(),
-    ];
-    let registry = module_registry(&project_root, ws_server_dir);
-    paths.extend(resolve_module_paths(&registry, module_names, |entry| {
-        entry.mise_path.clone()
-    })?);
-    Ok(paths)
-}
-
-fn docker_image_module_paths(module_names: &[String]) -> Result<Vec<String>> {
-    let project_root = edge_toolkit::config::get_project_root();
-    let ws_server_dir = project_root.join("services/ws-server");
-    let mut paths = Vec::with_capacity(module_names.len() + 2);
-    paths.push("/app/services/ws-server/static".to_string());
-    paths.push("/app/services/ws-wasm-agent".to_string());
-    let registry = module_registry(&project_root, &ws_server_dir);
-    paths.extend(resolve_module_paths(&registry, module_names, |entry| {
-        entry.docker_path.clone()
-    })?);
-    Ok(paths)
-}
-
-fn module_registry(project_root: &Path, ws_server_dir: &Path) -> BTreeMap<String, ModuleRegistryEntry> {
+pub fn module_registry(project_root: &Path, ws_server_dir: &Path) -> BTreeMap<String, ModuleRegistryEntry> {
     let mut registry = BTreeMap::new();
 
     register_modules_under(
@@ -874,7 +450,7 @@ fn register_external_module(
     );
 }
 
-fn module_package_json(module_path: &Path) -> Option<PackageJson> {
+pub fn module_package_json(module_path: &Path) -> Option<PackageJson> {
     let pkg_package = read_package_json(&module_path.join("pkg/package.json"));
     let root_package = read_package_json(&module_path.join("package.json"));
     let pyproject = read_pyproject_package(&module_path.join("pyproject.toml"));
@@ -924,7 +500,7 @@ fn read_cargo_package(path: &Path) -> Option<CargoPackage> {
     toml::from_str(&content).ok()
 }
 
-fn resolve_module_paths<F>(
+pub fn resolve_module_paths<F>(
     registry: &BTreeMap<String, ModuleRegistryEntry>,
     module_names: &[String],
     path_for: F,
@@ -955,7 +531,7 @@ where
     Ok(paths)
 }
 
-fn absolute_from(base: &Path, path: &Path) -> PathBuf {
+pub fn absolute_from(base: &Path, path: &Path) -> PathBuf {
     if path.is_absolute() {
         normalize_path(path)
     } else {
@@ -963,7 +539,7 @@ fn absolute_from(base: &Path, path: &Path) -> PathBuf {
     }
 }
 
-fn relative_path_from(from_dir: &Path, target: &Path) -> PathBuf {
+pub fn relative_path_from(from_dir: &Path, target: &Path) -> PathBuf {
     let from_components = normal_components(&normalize_path(from_dir));
     let target_components = normal_components(&normalize_path(target));
     let common_len = from_components
@@ -1012,7 +588,7 @@ fn normalize_path(path: &Path) -> PathBuf {
     normalized
 }
 
-fn cluster_module_names(cluster: &ClusterInput) -> Vec<String> {
+pub fn cluster_module_names(cluster: &ClusterInput) -> Vec<String> {
     cluster
         .agents
         .iter()
@@ -1027,6 +603,3 @@ fn cluster_module_names(cluster: &ClusterInput) -> Vec<String> {
         .into_iter()
         .collect()
 }
-
-#[cfg(test)]
-mod tests;
