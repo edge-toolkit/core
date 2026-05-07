@@ -75,11 +75,11 @@ Languages:
 
 ### Utilities (`utilities/`)
 
-- **cli** (`et-cli`) — Deployment generator: reads scenario YAML, outputs `mise.toml` or `compose.yaml`
+- **cli** (`et-cli`) — Scenario and module tooling. Reads scenario YAML and outputs `mise.toml` or `compose.yaml`;
+  also generates module `pkg/package.json` files with `et-cli module-package-json`.
+  Deployment-specific generators live under `utilities/cli/src/deployment_types/`.
+  Module package JSON generation lives under `utilities/cli/src/module_package_json/`.
 - **onnx** — ONNX model utilities
-- **module-manifest-to-package-json** — Generates `pkg/package.json` from module metadata.
-  Reads `pyproject.toml` (Python modules, via `[tool.ws-module]`)
-  or `Cargo.toml` (Rust modules, via `[package.metadata.ws-module]`).
 
 ### Verification (`verification/`)
 
@@ -91,9 +91,11 @@ and must stay in sync — `mise run check` will fail if they drift. Regenerate w
 - Most Rust modules: `wasm-pack build . --target web` from the module directory
 - WASM agent (nightly, MVP target): uses `RUSTFLAGS="-C target-cpu=mvp ..."` and `RUSTUP_TOOLCHAIN=nightly`
 - `har1` and `face-detection`: after wasm-pack, merge extra `package.json` fields with `yq`
-- Python modules: `uv build --wheel` then `cargo run -p module-manifest-to-package-json`
-- Rust modules needing dependency injection: `cargo run -p module-manifest-to-package-json`
+- Python modules: `uv build --wheel` then `cargo run -p et-cli -- module-package-json`
+- Rust modules needing dependency injection: `cargo run -p et-cli -- module-package-json`
   merges `[package.metadata.ws-module.dependencies]` from `Cargo.toml` into `pkg/package.json`
+- `et-cli module-package-json` reads `pyproject.toml` (Python modules, via `[tool.ws-module]`)
+  or `Cargo.toml` (Rust modules, via `[package.metadata.ws-module]`).
 - Java: `mvn package` from repo root (uses `pom.xml`)
 
 ## Observability

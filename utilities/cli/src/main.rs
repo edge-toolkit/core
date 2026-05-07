@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use et_cli::{OutputType, generate_deployment, regenerate_verification};
+use et_cli::{OutputType, generate_deployment, generate_module_package_json, regenerate_verification};
 
 #[derive(Parser)]
 struct Cli {
@@ -25,6 +25,11 @@ enum Commands {
     RegenVerification {
         #[arg(long, default_value = "verification")]
         verification_root: PathBuf,
+    },
+    /// Generate pkg/package.json from module metadata.
+    ModulePackageJson {
+        #[arg(long, default_value = ".")]
+        module_dir: PathBuf,
     },
 }
 
@@ -63,6 +68,10 @@ fn main() -> Result<()> {
                 );
             }
             println!("Regenerated {} verification scenario output set(s).", regenerated.len());
+        }
+        Commands::ModulePackageJson { module_dir } => {
+            let output_path = generate_module_package_json(module_dir)?;
+            println!("Wrote {}", output_path.display());
         }
     }
 

@@ -27,7 +27,6 @@ members = [
   "services/ws-wasm-agent",
   "utilities/cli",
   "utilities/onnx",
-  "utilities/module-manifest-to-package-json",
 ]
 resolver = "2"
 
