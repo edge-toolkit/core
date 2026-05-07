@@ -6,12 +6,12 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-actix = "0.13"
-actix-rt = "2"
-actix-web = { version = "4", features = ["rustls-0_23"] }
+actix.workspace = true
+actix-rt.workspace = true
+actix-web.workspace = true
 chrono.workspace = true
 clap.workspace = true
-edge-toolkit = { path = "../../libs/edge-toolkit" }
+edge-toolkit.workspace = true
 et-modules-service = { path = "../modules" }
 et-storage-service = { path = "../storage" }
 et-ws-service = { path = "../ws" }

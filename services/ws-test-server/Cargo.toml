@@ -1,0 +1,16 @@
+[package]
+name = "et-ws-test-server"
+description = "In-process ws-server for integration tests"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+actix.workspace = true
+actix-rt.workspace = true
+actix-web.workspace = true
+et-modules-service = { path = "../modules" }
+et-storage-service = { path = "../storage" }
+et-ws-service = { path = "../ws" }
+tempfile.workspace = true

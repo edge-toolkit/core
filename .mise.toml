@@ -21,6 +21,7 @@ gemini-cli = "latest"
 java = "latest"
 maven = "latest"
 mprocs = "latest"
+node = "22"
 "npm:onnxruntime-web" = "latest"
 "npm:pyodide" = "0.29.3"
 ollama = "latest"
@@ -32,7 +33,7 @@ protoc = "latest"
 rclone = "latest"
 ruff = "latest"
 rust = [
-  { version = "latest", components = "clippy", targets = "wasm32-unknown-unknown" },
+  { version = "latest", components = "clippy,rust-analyzer", targets = "wasm32-unknown-unknown" },
   { version = "nightly", components = "rust-src,rustfmt", targets = "wasm32-unknown-unknown" },
 ]
 typos = "latest"
@@ -102,10 +103,10 @@ run = "cargo +nightly fmt"
 run = "cargo +nightly fmt -- --check"
 
 [tasks.cargo-clippy]
-run = "cargo clippy --workspace"
+run = "cargo clippy --workspace --tests"
 
 [tasks.cargo-clippy-fix]
-run = "cargo clippy --fix --allow-dirty --allow-staged --workspace"
+run = "cargo clippy --fix --allow-dirty --allow-staged --workspace --tests"
 
 [tasks.taplo-fmt]
 run = "taplo format"
@@ -138,6 +139,11 @@ run = "cargo run"
 [tasks.ws-server.env]
 OTLP_AUTH_PASSWORD = "1234"
 OTLP_AUTH_USERNAME = "root@example.com"
+
+[tasks.ws-worker]
+description = "Run the WebSocket worker (set WORKER_MODULE to select module, default: pydata1)"
+dir = "services/ws-worker"
+run = "cargo run"
 
 [tasks.build-ws-wasm-agent]
 description = "Build the WebSocket WASM client"

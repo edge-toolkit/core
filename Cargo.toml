@@ -25,28 +25,35 @@ members = [
   "services/ws",
   "services/ws-server",
   "services/ws-wasm-agent",
+  "services/ws-worker",
+  "services/ws-test-server",
   "utilities/cli",
   "utilities/onnx",
 ]
 resolver = "2"
 
 [workspace.dependencies]
+actix = "0.13"
+actix-rt = "2"
+actix-web = { version = "4", features = ["rustls-0_23"] }
 anyhow = "1.0"
 base64 = "0.22.1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive"] }
+edge-toolkit = { path = "libs/edge-toolkit" }
 et-web = { path = "libs/web" }
 lets_find_up = "0.0.4"
 log = "0.4"
 onnx-extractor = "0.3"
 rstest = "0.26"
 secrecy = { version = "0.10.3", features = ["serde"] }
-serde = { version = "1", features = ["derive"] }
+serde = { version = "=1.0.219", features = ["derive"] }
 serde-env = "0.3"
 serde-inline-default = "1.0"
 serde_default = "0.2"
 serde_json = "1"
 serde_yaml = "0.9"
+tempfile = "3"
 toml = "0.8"
 tracing = "0.1"
 uuid = { version = "1", features = ["serde", "v4", "v7"] }
