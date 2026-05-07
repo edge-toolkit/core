@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use anyhow::{Context, Result, anyhow};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
@@ -56,27 +57,33 @@ struct CargoWsModule {
     dependencies: BTreeMap<String, String>,
 }
 
-fn main() {
-    let out_path = PathBuf::from("pkg/package.json");
-    let package_json = if Path::new("pyproject.toml").is_file() {
-        package_json_from_pyproject()
-    } else if Path::new("Cargo.toml").is_file() {
-        package_json_from_cargo(&out_path)
+pub fn generate_module_package_json(module_dir: &Path) -> Result<PathBuf> {
+    let out_path = module_dir.join("pkg/package.json");
+    let package_json = if module_dir.join("pyproject.toml").is_file() {
+        package_json_from_pyproject(module_dir)?
+    } else if module_dir.join("Cargo.toml").is_file() {
+        package_json_from_cargo(module_dir, &out_path)?
     } else {
-        panic!("Expected pyproject.toml or Cargo.toml in the current directory");
+        return Err(anyhow!(
+            "Expected pyproject.toml or Cargo.toml in module directory {:?}",
+            module_dir
+        ));
     };
 
-    fs::create_dir_all(out_path.parent().unwrap()).unwrap();
-    let mut out = serde_json::to_string_pretty(&package_json).unwrap();
+    let parent = out_path
+        .parent()
+        .ok_or_else(|| anyhow!("Output path {:?} has no parent directory", out_path))?;
+    fs::create_dir_all(parent).with_context(|| format!("Failed to create output directory: {:?}", parent))?;
+    let mut out = serde_json::to_string_pretty(&package_json).context("Failed to serialize package JSON")?;
     out.push('\n');
-    fs::write(&out_path, &out).unwrap_or_else(|e| panic!("Failed to write {}: {e}", out_path.display()));
+    fs::write(&out_path, &out).with_context(|| format!("Failed to write {}", out_path.display()))?;
 
-    println!("Wrote {}", out_path.display());
+    Ok(out_path)
 }
 
-fn package_json_from_pyproject() -> Value {
-    let pyproject_path = PathBuf::from("pyproject.toml");
-    let pyproject: Pyproject = read_toml(&pyproject_path);
+fn package_json_from_pyproject(module_dir: &Path) -> Result<Value> {
+    let pyproject_path = module_dir.join("pyproject.toml");
+    let pyproject: Pyproject = read_toml(&pyproject_path)?;
     let p = &pyproject.project;
     let mut pkg = Map::from_iter([
         ("name".to_string(), json!(p.name)),
@@ -89,12 +96,12 @@ fn package_json_from_pyproject() -> Value {
     if !pyproject.tool.ws_module.dependencies.is_empty() {
         pkg.insert("dependencies".to_string(), json!(pyproject.tool.ws_module.dependencies));
     }
-    Value::Object(pkg)
+    Ok(Value::Object(pkg))
 }
 
-fn package_json_from_cargo(out_path: &Path) -> Value {
-    let cargo_toml: CargoPackage = read_toml(Path::new("Cargo.toml"));
-    let mut pkg = read_package_json(out_path).unwrap_or_else(|| {
+fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value> {
+    let cargo_toml: CargoPackage = read_toml(&module_dir.join("Cargo.toml"))?;
+    let mut pkg = read_package_json(out_path)?.unwrap_or_else(|| {
         let mut pkg = Map::new();
         pkg.insert("name".to_string(), json!(cargo_toml.package.name));
         pkg.insert("type".to_string(), json!("module"));
@@ -106,7 +113,7 @@ fn package_json_from_cargo(out_path: &Path) -> Value {
     }
 
     let Some(ws_module) = cargo_toml.package.metadata.and_then(|metadata| metadata.ws_module) else {
-        return Value::Object(pkg);
+        return Ok(Value::Object(pkg));
     };
 
     if !ws_module.dependencies.is_empty() {
@@ -115,29 +122,33 @@ fn package_json_from_cargo(out_path: &Path) -> Value {
             .or_insert_with(|| Value::Object(Map::new()));
         let dependency_map = dependencies
             .as_object_mut()
-            .unwrap_or_else(|| panic!("{} contains a non-object dependencies field", out_path.display()));
+            .ok_or_else(|| anyhow!("{} contains a non-object dependencies field", out_path.display()))?;
         for (name, version) in ws_module.dependencies {
             dependency_map.insert(name, json!(version));
         }
     }
 
-    Value::Object(pkg)
+    Ok(Value::Object(pkg))
 }
 
-fn read_toml<T>(path: &Path) -> T
+fn read_toml<T>(path: &Path) -> Result<T>
 where
     T: for<'de> Deserialize<'de>,
 {
-    let src = fs::read_to_string(path).unwrap_or_else(|e| panic!("Failed to read {}: {e}", path.display()));
-    toml::from_str(&src).unwrap_or_else(|e| panic!("Failed to parse {}: {e}", path.display()))
+    let src = fs::read_to_string(path).with_context(|| format!("Failed to read {}", path.display()))?;
+    toml::from_str(&src).with_context(|| format!("Failed to parse {}", path.display()))
 }
 
-fn read_package_json(path: &Path) -> Option<Map<String, Value>> {
-    let src = fs::read_to_string(path).ok()?;
-    let Value::Object(pkg) =
-        serde_json::from_str(&src).unwrap_or_else(|e| panic!("Failed to parse {}: {e}", path.display()))
-    else {
-        panic!("{} must contain a JSON object", path.display());
+fn read_package_json(path: &Path) -> Result<Option<Map<String, Value>>> {
+    let src = match fs::read_to_string(path) {
+        Ok(src) => src,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error).with_context(|| format!("Failed to read {}", path.display())),
     };
-    Some(pkg)
+    let Value::Object(pkg) =
+        serde_json::from_str(&src).with_context(|| format!("Failed to parse {}", path.display()))?
+    else {
+        return Err(anyhow!("{} must contain a JSON object", path.display()));
+    };
+    Ok(Some(pkg))
 }

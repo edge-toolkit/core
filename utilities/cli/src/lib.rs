@@ -8,11 +8,13 @@ use clap::ValueEnum;
 use edge_toolkit::input::ClusterInput;
 use serde::Deserialize;
 
-mod docker_compose;
-mod mise;
+mod deployment_types;
+mod module_package_json;
 
-pub use docker_compose::{docker_image_module_paths, generate_docker_compose_deployment};
-pub use mise::{generate_mise_deployment, scenario_module_paths};
+pub use deployment_types::{
+    docker_image_module_paths, generate_docker_compose_deployment, generate_mise_deployment, scenario_module_paths,
+};
+pub use module_package_json::generate_module_package_json;
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq, ValueEnum)]
 #[serde(rename_all = "lowercase")]

@@ -158,7 +158,7 @@ description = "Build the har1 workflow WASM module"
 dir = "services/ws-modules/har1"
 run = """
 wasm-pack build . --target web
-cargo run -p module-manifest-to-package-json
+cargo run -p et-cli -- module-package-json
 """
 
 [tasks.build-ws-face-detection-module]
@@ -166,7 +166,7 @@ description = "Build the face detection workflow WASM module"
 dir = "services/ws-modules/face-detection"
 run = """
 wasm-pack build . --target web
-cargo run -p module-manifest-to-package-json
+cargo run -p et-cli -- module-package-json
 """
 
 [tasks.build-ws-comm1-module]
@@ -235,7 +235,7 @@ description = "Build the pydata1 Python workflow module"
 dir = "services/ws-modules/pydata1"
 run = """
 uv build --wheel --out-dir pkg
-cargo run -p module-manifest-to-package-json
+cargo run -p et-cli -- module-package-json
 """
 
 [tasks.build-ws-pyface1-module]
@@ -243,7 +243,7 @@ description = "Build the pyface1 Python face detection workflow module"
 dir = "services/ws-modules/pyface1"
 run = """
 uv build --wheel --out-dir pkg
-cargo run -p module-manifest-to-package-json
+cargo run -p et-cli -- module-package-json
 """
 
 [tasks.build-ws-java-data1-module]

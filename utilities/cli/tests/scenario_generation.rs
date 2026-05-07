@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use std::fs;
 
 use et_cli::{
