@@ -6,7 +6,6 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-actix = "0.13"
 actix-rt = "2"
 actix-web = { version = "4", features = ["rustls-0_23"] }
 chrono.workspace = true
