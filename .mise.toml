@@ -268,11 +268,14 @@ description = "Build the Rust WASI data1 module as a WASI Preview 2 component"
 # Standalone workspace under a target.wasm32-wasip2 cargo config, so `cargo
 # build` from inside the dir picks up the right target automatically. The
 # resulting component is copied into pkg/ so et-modules-service can serve it.
-# et-cli is invoked from the repo root to avoid the per-module wasm32-wasip2
-# cargo config from forcing it to build/run as a wasm component.
+# pkg/ is created on demand — git doesn't track empty directories, so a
+# fresh checkout won't have it. et-cli is invoked from the repo root to
+# avoid the per-module wasm32-wasip2 cargo config from forcing it to
+# build/run as a wasm component.
 dir = "services/ws-modules/wasi-data1"
 run = """
 cargo build --release
+mkdir -p pkg
 cp target/wasm32-wasip2/release/et_ws_wasi_data1.wasm pkg/et_ws_wasi_data1.wasm
 ( cd ../../.. && cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi-data1 )
 """
@@ -282,6 +285,7 @@ description = "Build the Rust WASI comm1 module as a WASI Preview 2 component"
 dir = "services/ws-modules/wasi-comm1"
 run = """
 cargo build --release
+mkdir -p pkg
 cp target/wasm32-wasip2/release/et_ws_wasi_comm1.wasm pkg/et_ws_wasi_comm1.wasm
 ( cd ../../.. && cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi-comm1 )
 """

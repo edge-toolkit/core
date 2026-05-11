@@ -131,11 +131,12 @@ async fn resolve_component_url(http_base: &str, module_name: &str) -> Result<Str
         .error_for_status()?
         .json()
         .await?;
-    let main = pkg.get("main").and_then(|v| v.as_str()).ok_or_else(|| {
-        RunnerError::PackageJsonMissingMain {
+    let main = pkg
+        .get("main")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| RunnerError::PackageJsonMissingMain {
             module: module_name.to_string(),
-        }
-    })?;
+        })?;
     Ok(format!("{http_base}/modules/{module_name}/{main}"))
 }
 
