@@ -5,6 +5,8 @@
 use rstest::rstest;
 
 #[rstest]
+#[case::wasi_comm1("et-ws-wasi-comm1")]
+#[case::wasi_data1("et-ws-wasi-data1")]
 #[case::wasi_graphics_info("et-ws-wasi-graphics-info")]
 fn module_runs_successfully(#[case] module: &str) {
     let server = et_ws_test_server::start();

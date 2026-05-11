@@ -34,8 +34,8 @@ protoc = "latest"
 rclone = "latest"
 ruff = "latest"
 rust = [
-  { version = "latest", components = "clippy,rust-analyzer", targets = "wasm32-unknown-unknown" },
-  { version = "nightly", components = "rust-src,rustfmt", targets = "wasm32-unknown-unknown" },
+  { version = "latest", components = "clippy,rust-analyzer", targets = "wasm32-unknown-unknown,wasm32-wasip2" },
+  { version = "nightly", components = "rust-src,rustfmt", targets = "wasm32-unknown-unknown,wasm32-wasip2" },
 ]
 typos = "latest"
 uv = "0.11.8"
@@ -260,6 +260,29 @@ componentize-py -d ../../ws-wasi-runner/wit -w module componentize wasi_graphics
 cargo run -p et-cli -- module-package-json
 """
 
+[tasks.build-ws-wasi-data1-module]
+description = "Build the Rust WASI data1 module as a WASI Preview 2 component"
+# Standalone workspace under a target.wasm32-wasip2 cargo config, so `cargo
+# build` from inside the dir picks up the right target automatically. The
+# resulting component is copied into pkg/ so et-modules-service can serve it.
+# et-cli is invoked from the repo root to avoid the per-module wasm32-wasip2
+# cargo config from forcing it to build/run as a wasm component.
+dir = "services/ws-modules/wasi-data1"
+run = """
+cargo build --release
+cp target/wasm32-wasip2/release/et_ws_wasi_data1.wasm pkg/et_ws_wasi_data1.wasm
+( cd ../../.. && cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi-data1 )
+"""
+
+[tasks.build-ws-wasi-comm1-module]
+description = "Build the Rust WASI comm1 module as a WASI Preview 2 component"
+dir = "services/ws-modules/wasi-comm1"
+run = """
+cargo build --release
+cp target/wasm32-wasip2/release/et_ws_wasi_comm1.wasm pkg/et_ws_wasi_comm1.wasm
+( cd ../../.. && cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi-comm1 )
+"""
+
 [tasks.build-ws-pydata1-module]
 description = "Build the pydata1 Python workflow module"
 dir = "services/ws-modules/pydata1"
@@ -303,6 +326,8 @@ depends = [
   "build-ws-sensor1-module",
   "build-ws-speech-recognition-module",
   "build-ws-video1-module",
+  "build-ws-wasi-comm1-module",
+  "build-ws-wasi-data1-module",
   "build-ws-wasi-graphics-info-module",
   "build-ws-wasm-agent",
   "build-ws-zig-data1-module",

@@ -58,6 +58,12 @@ struct CargoMetadata {
 
 #[derive(Deserialize)]
 struct CargoWsModule {
+    /// WASI component file (relative to `pkg/`). Set this for Rust modules
+    /// whose `main` artifact is a WASI Preview 2 component executed by
+    /// `et-ws-wasi-runner` rather than a browser-side JS entry built by
+    /// wasm-pack.
+    #[serde(rename = "wasi-main", default)]
+    wasi_main: Option<String>,
     #[serde(default)]
     dependencies: BTreeMap<String, String>,
 }
@@ -134,6 +140,11 @@ fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value> 
     let Some(ws_module) = cargo_toml.package.metadata.and_then(|metadata| metadata.ws_module) else {
         return Ok(Value::Object(pkg));
     };
+
+    if let Some(wasi_main) = &ws_module.wasi_main {
+        pkg.insert("main".to_string(), json!(wasi_main));
+        pkg.insert("wasi-main".to_string(), json!(wasi_main));
+    }
 
     if !ws_module.dependencies.is_empty() {
         let dependencies = pkg

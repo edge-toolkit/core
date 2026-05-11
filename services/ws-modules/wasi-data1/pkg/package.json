@@ -1,0 +1,6 @@
+{
+  "main": "et_ws_wasi_data1.wasm",
+  "name": "et-ws-wasi-data1",
+  "type": "module",
+  "wasi-main": "et_ws_wasi_data1.wasm"
+}
