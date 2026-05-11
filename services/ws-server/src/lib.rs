@@ -1,5 +1,5 @@
 use actix_web::{HttpResponse, web};
-pub use et_ws_service::{WebSocketActor, WsAgentRegistry};
+pub use et_ws_service::{AgentSession, WsAgentRegistry};
 
 pub mod config;
 
@@ -25,7 +25,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig, agent_registry: web::Data<WsA
         .route("/health", web::get().to(health));
 
     et_ws_service::configure(cfg);
-    et_storage_service::configure::<actix::Addr<WebSocketActor>>(cfg, &config.storage);
+    et_storage_service::configure::<AgentSession>(cfg, &config.storage);
     // Must be last: registers a catch-all Files::new("/", ...) for the root module.
     et_modules_service::configure(cfg, &config.modules);
 }

@@ -2,23 +2,25 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use actix::{Actor, ActorContext, Addr, AsyncContext, Handler, Message, StreamHandler};
 use actix_web::{Error, HttpRequest, HttpResponse, web};
-use actix_web_actors::ws;
+use actix_ws::{AggregatedMessage, AggregatedMessageStream, CloseCode, CloseReason, Session};
 use chrono::Utc;
 use edge_toolkit::ws::{ConnectStatus, MessageDeliveryStatus, MessageScope, WsMessage};
 use edge_toolkit::ws_server::{AgentRecord, AgentRegistry, PendingDirectMessage};
+use futures_util::StreamExt as _;
 use opentelemetry::{
     global,
     trace::{Span, Tracer},
 };
+use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
 pub const CONNECTION_TIMEOUT: Duration = Duration::from_secs(15);
 pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
 
-pub type WsAgentRegistry = AgentRegistry<Addr<WebSocketActor>>;
+pub type AgentSession = UnboundedSender<WsMessage>;
+pub type WsAgentRegistry = AgentRegistry<AgentSession>;
 
 /// Load a registry from disk. Sessions are not persisted, so they are initialised to `None`.
 pub fn load_registry(path: &std::path::Path) -> Result<WsAgentRegistry, std::io::Error> {
@@ -57,83 +59,59 @@ pub fn load_registry(path: &std::path::Path) -> Result<WsAgentRegistry, std::io:
     })
 }
 
-#[derive(Message)]
-#[rtype(result = "()")]
-pub struct ServerEnvelope {
-    pub message: WsMessage,
+struct Connection {
+    agent_id: Option<String>,
+    last_activity: Instant,
+    client_ip: String,
+    registry: WsAgentRegistry,
+    session: Session,
+    outbox: AgentSession,
 }
 
-pub struct WebSocketActor {
-    pub agent_id: Option<String>,
-    pub last_activity: Instant,
-    pub client_ip: String,
-    pub registry: WsAgentRegistry,
-}
-
-impl WebSocketActor {
-    pub fn new(registry: WsAgentRegistry, client_ip: String) -> Self {
-        info!("New WebSocket actor created for client IP {}", client_ip);
+impl Connection {
+    fn new(registry: WsAgentRegistry, client_ip: String, session: Session, outbox: AgentSession) -> Self {
+        info!("New WebSocket connection for client IP {}", client_ip);
         Self {
             agent_id: None,
             last_activity: Instant::now(),
             client_ip,
             registry,
+            session,
+            outbox,
         }
     }
 
-    pub fn current_agent_id(&self) -> &str {
+    fn current_agent_id(&self) -> &str {
         self.agent_id.as_deref().unwrap_or("unassigned")
     }
 
-    pub fn assigned_agent_id(&self) -> Option<&str> {
+    fn assigned_agent_id(&self) -> Option<&str> {
         self.agent_id.as_deref()
     }
 
-    pub fn mark_activity(&mut self) {
+    fn mark_activity(&mut self) {
         self.last_activity = Instant::now();
     }
 
-    pub fn start_heartbeat(&self, ctx: &mut ws::WebsocketContext<Self>) {
-        ctx.run_interval(HEARTBEAT_INTERVAL, |act, ctx| {
-            let idle_for = Instant::now().saturating_duration_since(act.last_activity);
-            if idle_for > CONNECTION_TIMEOUT {
-                warn!(
-                    "WebSocket connection timed out for client {} after {:?} of inactivity",
-                    act.current_agent_id(),
-                    idle_for
-                );
-                ctx.close(Some(ws::CloseReason {
-                    code: ws::CloseCode::Policy,
-                    description: Some(format!(
-                        "connection timed out after {:?} of inactivity",
-                        CONNECTION_TIMEOUT
-                    )),
-                }));
-                ctx.stop();
-            }
-        });
-    }
-
-    fn assign_or_reconnect_agent(
-        &mut self,
-        requested_id: Option<String>,
-        session: Addr<WebSocketActor>,
-    ) -> (String, ConnectStatus) {
+    fn assign_or_reconnect_agent(&mut self, requested_id: Option<String>) -> (String, ConnectStatus) {
         let new_id = Uuid::now_v7().to_string();
-        let (assigned_id, status) = self
-            .registry
-            .connect_agent(requested_id, new_id, &self.client_ip, session);
+        let (assigned_id, status) =
+            self.registry
+                .connect_agent(requested_id, new_id, &self.client_ip, self.outbox.clone());
         self.agent_id = Some(assigned_id.clone());
         (assigned_id, status)
     }
 
-    fn send_json(ctx: &mut ws::WebsocketContext<Self>, response: &WsMessage) {
+    async fn send_json(&mut self, response: &WsMessage) {
         match serde_json::to_string(response) {
             Ok(json) => {
-                ctx.text(json);
-                let tracer = global::tracer("ws-server");
-                let mut sent_span = tracer.start("ws.message.sent");
-                sent_span.end();
+                if let Err(err) = self.session.text(json).await {
+                    warn!("Failed to send message to {}: {:?}", self.current_agent_id(), err);
+                } else {
+                    let tracer = global::tracer("ws-server");
+                    let mut sent_span = tracer.start("ws.message.sent");
+                    sent_span.end();
+                }
             }
             Err(error) => {
                 error!("Failed to serialize websocket response: {}", error);
@@ -141,58 +119,51 @@ impl WebSocketActor {
         }
     }
 
-    fn send_status(
-        ctx: &mut ws::WebsocketContext<Self>,
+    async fn send_status(
+        &mut self,
         message_id: Option<String>,
         status: MessageDeliveryStatus,
         detail: impl Into<String>,
     ) {
-        Self::send_json(
-            ctx,
-            &WsMessage::MessageStatus {
-                message_id,
-                status,
-                detail: detail.into(),
-            },
-        );
+        self.send_json(&WsMessage::MessageStatus {
+            message_id,
+            status,
+            detail: detail.into(),
+        })
+        .await;
     }
 
-    fn send_invalid(ctx: &mut ws::WebsocketContext<Self>, message_id: Option<String>, detail: impl Into<String>) {
-        Self::send_json(
-            ctx,
-            &WsMessage::Invalid {
-                message_id,
-                detail: detail.into(),
-            },
-        );
+    async fn send_invalid(&mut self, message_id: Option<String>, detail: impl Into<String>) {
+        self.send_json(&WsMessage::Invalid {
+            message_id,
+            detail: detail.into(),
+        })
+        .await;
     }
 
-    fn deliver_pending_messages(&self, ctx: &mut ws::WebsocketContext<Self>) {
-        let Some(agent_id) = self.assigned_agent_id() else {
+    async fn deliver_pending_messages(&mut self) {
+        let Some(agent_id) = self.assigned_agent_id().map(str::to_string) else {
             return;
         };
-        for pending in self.registry.pending_messages_for(agent_id) {
+        for pending in self.registry.pending_messages_for(&agent_id) {
             info!(
                 "Delivering pending message {} to agent {} from {}",
                 pending.message_id, agent_id, pending.from_agent_id
             );
-            Self::send_json(
-                ctx,
-                &WsMessage::AgentMessage {
-                    message_id: pending.message_id,
-                    from_agent_id: pending.from_agent_id,
-                    scope: MessageScope::Direct,
-                    server_received_at: pending.server_received_at,
-                    message: pending.message,
-                },
-            );
+            self.send_json(&WsMessage::AgentMessage {
+                message_id: pending.message_id,
+                from_agent_id: pending.from_agent_id,
+                scope: MessageScope::Direct,
+                server_received_at: pending.server_received_at,
+                message: pending.message,
+            })
+            .await;
         }
     }
 
-    fn handle_send_direct(
-        &self,
-        ctx: &mut ws::WebsocketContext<Self>,
-        span: &mut impl opentelemetry::trace::Span,
+    async fn handle_send_direct(
+        &mut self,
+        span: &mut impl Span,
         from_agent_id: String,
         to_agent_id: String,
         message: serde_json::Value,
@@ -207,89 +178,66 @@ impl WebSocketActor {
         );
         let message_id = pending.message_id.clone();
 
-        if let Some(recipient_addr) = recipient_session {
+        if let Some(recipient) = recipient_session {
             info!(
                 "Direct message {} delivered from {} to {}",
                 message_id, from_agent_id, to_agent_id
             );
-            recipient_addr.do_send(ServerEnvelope {
-                message: WsMessage::AgentMessage {
-                    message_id: message_id.clone(),
-                    from_agent_id,
-                    scope: MessageScope::Direct,
-                    server_received_at: pending.server_received_at,
-                    message: pending.message,
-                },
+            let _ = recipient.send(WsMessage::AgentMessage {
+                message_id: message_id.clone(),
+                from_agent_id,
+                scope: MessageScope::Direct,
+                server_received_at: pending.server_received_at,
+                message: pending.message,
             });
-            Self::send_status(
-                ctx,
+            self.send_status(
                 Some(message_id),
                 MessageDeliveryStatus::Delivered,
                 format!("message delivered to agent {}", to_agent_id),
-            );
+            )
+            .await;
         } else {
             info!(
                 "Direct message {} queued from {} to disconnected agent {}",
                 message_id, from_agent_id, to_agent_id
             );
-            Self::send_status(
-                ctx,
+            self.send_status(
                 Some(message_id),
                 MessageDeliveryStatus::Queued,
                 format!("message queued for agent {}", to_agent_id),
-            );
+            )
+            .await;
         }
         span.end();
     }
-}
 
-impl Actor for WebSocketActor {
-    type Context = ws::WebsocketContext<Self>;
-
-    fn started(&mut self, ctx: &mut Self::Context) {
-        self.start_heartbeat(ctx);
-        info!(
-            "WebSocket connection established for client IP {} with agent {}",
-            self.client_ip,
-            self.current_agent_id()
-        );
-        let tracer = global::tracer("ws-server");
-        let mut span = tracer.start("ws.connect");
-        span.end();
-    }
-
-    fn stopped(&mut self, _ctx: &mut Self::Context) {
-        if let Some(agent_id) = self.agent_id.as_deref() {
-            self.registry.mark_disconnected(agent_id);
-            info!("Agent {} disconnected; last known IP {}", agent_id, self.client_ip);
-        } else {
-            info!(
-                "WebSocket connection closed before agent assignment for client IP {}",
-                self.client_ip
-            );
-        }
-    }
-}
-
-impl Handler<ServerEnvelope> for WebSocketActor {
-    type Result = ();
-
-    fn handle(&mut self, msg: ServerEnvelope, ctx: &mut Self::Context) -> Self::Result {
-        Self::send_json(ctx, &msg.message);
-    }
-}
-
-impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
-    fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
+    /// Returns `false` when the connection should terminate.
+    async fn handle_inbound(&mut self, msg: AggregatedMessage) -> bool {
         match msg {
-            Ok(ws::Message::Ping(ping)) => {
+            AggregatedMessage::Ping(ping) => {
                 self.mark_activity();
-                ctx.pong(&ping);
+                let _ = self.session.pong(&ping).await;
             }
-            Ok(ws::Message::Pong(_)) => {
+            AggregatedMessage::Pong(_) => {
                 self.mark_activity();
             }
-            Ok(ws::Message::Text(text)) => {
+            AggregatedMessage::Binary(_) => {
+                self.mark_activity();
+            }
+            AggregatedMessage::Close(reason) => {
+                self.mark_activity();
+                info!(
+                    "WebSocket close request from client: {} reason: {:?}",
+                    self.current_agent_id(),
+                    reason
+                );
+                let tracer = global::tracer("ws-server");
+                let mut span = tracer.start("ws.disconnect");
+                span.end();
+                let _ = self.session.clone().close(reason).await;
+                return false;
+            }
+            AggregatedMessage::Text(text) => {
                 self.mark_activity();
                 let tracer = global::tracer("ws-server");
                 let mut span = tracer.start("ws.message.received");
@@ -303,33 +251,29 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                                 "Connect message: requested_agent_id={:?} client_ip={}",
                                 requested_id, self.client_ip
                             );
-                            let (assigned_id, status) = self.assign_or_reconnect_agent(agent_id, ctx.address());
+                            let (assigned_id, status) = self.assign_or_reconnect_agent(agent_id);
                             info!(
                                 "Agent {} status {:?}connected from IP {}",
                                 assigned_id, status, self.client_ip
                             );
-                            Self::send_json(
-                                ctx,
-                                &WsMessage::ConnectAck {
-                                    agent_id: assigned_id,
-                                    status: status.clone(),
-                                },
-                            );
+                            self.send_json(&WsMessage::ConnectAck {
+                                agent_id: assigned_id,
+                                status: status.clone(),
+                            })
+                            .await;
                             info!(
                                 "WebSocket connection ready for client {} with status {:?}",
                                 self.current_agent_id(),
                                 status
                             );
-                            self.deliver_pending_messages(ctx);
+                            self.deliver_pending_messages().await;
                         }
                         WsMessage::Alive { timestamp } => {
                             info!("Alive message from client {} at {}", self.current_agent_id(), timestamp);
-                            Self::send_json(
-                                ctx,
-                                &WsMessage::Response {
-                                    message: format!("Alive message received at {}", Utc::now().to_rfc3339()),
-                                },
-                            );
+                            self.send_json(&WsMessage::Response {
+                                message: format!("Alive message received at {}", Utc::now().to_rfc3339()),
+                            })
+                            .await;
                         }
                         WsMessage::ListAgents => {
                             let agents = self.registry.list_agents();
@@ -338,67 +282,71 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                                 self.current_agent_id(),
                                 agents.len()
                             );
-                            Self::send_json(ctx, &WsMessage::ListAgentsResponse { agents });
+                            self.send_json(&WsMessage::ListAgentsResponse { agents }).await;
                         }
                         WsMessage::SendAgentMessage { to_agent_id, message } => {
                             let Some(from_agent_id) = self.assigned_agent_id().map(str::to_string) else {
-                                Self::send_invalid(ctx, None, "agent must connect before sending messages");
+                                self.send_invalid(None, "agent must connect before sending messages")
+                                    .await;
                                 span.end();
-                                return;
+                                return true;
                             };
 
                             if from_agent_id == to_agent_id {
-                                Self::send_invalid(ctx, None, "agent cannot send a direct message to itself");
+                                self.send_invalid(None, "agent cannot send a direct message to itself")
+                                    .await;
                                 span.end();
-                                return;
+                                return true;
                             }
 
                             if !self.registry.list_agents().iter().any(|a| a.agent_id == to_agent_id) {
-                                Self::send_invalid(ctx, None, format!("unknown target agent {}", to_agent_id));
+                                self.send_invalid(None, format!("unknown target agent {}", to_agent_id))
+                                    .await;
                                 span.end();
-                                return;
+                                return true;
                             }
 
-                            self.handle_send_direct(ctx, &mut span, from_agent_id, to_agent_id, message);
-                            return;
+                            self.handle_send_direct(&mut span, from_agent_id, to_agent_id, message)
+                                .await;
+                            return true;
                         }
                         WsMessage::BroadcastMessage { message } => {
                             let Some(from_agent_id) = self.assigned_agent_id().map(str::to_string) else {
-                                Self::send_invalid(ctx, None, "agent must connect before broadcasting messages");
+                                self.send_invalid(None, "agent must connect before broadcasting messages")
+                                    .await;
                                 span.end();
-                                return;
+                                return true;
                             };
 
                             let recipients = self.registry.connected_sessions(&from_agent_id);
                             let message_id = Uuid::now_v7().to_string();
                             let server_received_at = Utc::now().to_rfc3339();
-                            for (recipient_id, recipient_addr) in &recipients {
+                            for (recipient_id, recipient) in &recipients {
                                 info!(
                                     "Broadcast message {} from {} to {}",
                                     message_id, from_agent_id, recipient_id
                                 );
-                                recipient_addr.do_send(ServerEnvelope {
-                                    message: WsMessage::AgentMessage {
-                                        message_id: message_id.clone(),
-                                        from_agent_id: from_agent_id.clone(),
-                                        scope: MessageScope::Broadcast,
-                                        server_received_at: server_received_at.clone(),
-                                        message: message.clone(),
-                                    },
+                                let _ = recipient.send(WsMessage::AgentMessage {
+                                    message_id: message_id.clone(),
+                                    from_agent_id: from_agent_id.clone(),
+                                    scope: MessageScope::Broadcast,
+                                    server_received_at: server_received_at.clone(),
+                                    message: message.clone(),
                                 });
                             }
-                            Self::send_status(
-                                ctx,
+                            self.send_status(
                                 Some(message_id),
                                 MessageDeliveryStatus::Broadcast,
                                 format!("broadcast sent to {} connected agents", recipients.len()),
-                            );
+                            )
+                            .await;
                         }
                         WsMessage::MessageAck { message_id } => {
                             let Some(recipient_agent_id) = self.assigned_agent_id().map(str::to_string) else {
-                                Self::send_invalid(ctx, None, "agent must connect before acknowledging messages");
+                                self.send_invalid(None, "agent must connect before acknowledging messages")
+                                    .await;
                                 span.end();
-                                return;
+                                return true;
                             };
 
                             match self.registry.acknowledge_message(&recipient_agent_id, &message_id) {
@@ -407,25 +355,23 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                                         "Agent {} acknowledged direct message {} from {}",
                                         recipient_agent_id, message_id, sender_agent_id
                                     );
-                                    Self::send_status(
-                                        ctx,
+                                    self.send_status(
                                         Some(message_id.clone()),
                                         MessageDeliveryStatus::Acknowledged,
                                         "message acknowledged",
-                                    );
-                                    if let Some(sender_addr) = sender_session {
-                                        sender_addr.do_send(ServerEnvelope {
-                                            message: WsMessage::MessageStatus {
-                                                message_id: Some(message_id),
-                                                status: MessageDeliveryStatus::Acknowledged,
-                                                detail: format!("agent {} acknowledged receipt", recipient_agent_id),
-                                            },
+                                    )
+                                    .await;
+                                    if let Some(sender) = sender_session {
+                                        let _ = sender.send(WsMessage::MessageStatus {
+                                            message_id: Some(message_id),
+                                            status: MessageDeliveryStatus::Acknowledged,
+                                            detail: format!("agent {} acknowledged receipt", recipient_agent_id),
                                         });
                                     }
                                 }
                                 Err(detail) => {
                                     warn!("Invalid ack from {} for {}: {}", recipient_agent_id, message_id, detail);
-                                    Self::send_invalid(ctx, Some(message_id), detail);
+                                    self.send_invalid(Some(message_id), detail).await;
                                 }
                             }
                         }
@@ -461,19 +407,17 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                             );
                         }
                         WsMessage::StoreFile { filename } => {
-                            let Some(agent_id) = self.assigned_agent_id() else {
-                                Self::send_invalid(ctx, None, "agent must connect before storing files");
+                            let Some(agent_id) = self.assigned_agent_id().map(str::to_string) else {
+                                self.send_invalid(None, "agent must connect before storing files").await;
                                 span.end();
-                                return;
+                                return true;
                             };
                             let url = format!("/storage/{}/{}", agent_id, filename);
                             info!("Agent {} requested storage URL for {}: {}", agent_id, filename, url);
-                            Self::send_json(
-                                ctx,
-                                &WsMessage::Response {
-                                    message: format!("PUT to {}", url),
-                                },
-                            );
+                            self.send_json(&WsMessage::Response {
+                                message: format!("PUT to {}", url),
+                            })
+                            .await;
                         }
                         WsMessage::FetchFile { agent_id, filename } => {
                             let url = format!("/storage/{}/{}", agent_id, filename);
@@ -483,12 +427,10 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                                 agent_id,
                                 filename
                             );
-                            Self::send_json(
-                                ctx,
-                                &WsMessage::Response {
-                                    message: format!("GET from {}", url),
-                                },
-                            );
+                            self.send_json(&WsMessage::Response {
+                                message: format!("GET from {}", url),
+                            })
+                            .await;
                         }
                         WsMessage::ConnectAck { .. }
                         | WsMessage::ListAgentsResponse { .. }
@@ -511,35 +453,80 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocketActor {
                 }
                 span.end();
             }
-            Ok(ws::Message::Close(reason)) => {
-                self.mark_activity();
-                info!(
-                    "WebSocket close request from client: {} reason: {:?}",
-                    self.current_agent_id(),
-                    reason
-                );
-                let tracer = global::tracer("ws-server");
-                let mut span = tracer.start("ws.disconnect");
-                span.end();
-                ctx.close(reason);
-                ctx.stop();
+        }
+        true
+    }
+
+    async fn run(mut self, mut stream: AggregatedMessageStream, mut outbound: UnboundedReceiver<WsMessage>) {
+        let tracer = global::tracer("ws-server");
+        let mut connect_span = tracer.start("ws.connect");
+        info!(
+            "WebSocket connection established for client IP {} with agent {}",
+            self.client_ip,
+            self.current_agent_id()
+        );
+        connect_span.end();
+
+        let mut heartbeat = tokio::time::interval(HEARTBEAT_INTERVAL);
+        heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+        loop {
+            tokio::select! {
+                msg = stream.next() => {
+                    match msg {
+                        Some(Ok(msg)) => {
+                            if !self.handle_inbound(msg).await {
+                                break;
+                            }
+                        }
+                        Some(Err(e)) => {
+                            error!("WebSocket error for client {}: {:?}", self.current_agent_id(), e);
+                            let mut err_span = tracer.start("ws.error");
+                            err_span.end();
+                            break;
+                        }
+                        None => break,
+                    }
+                }
+                Some(envelope) = outbound.recv() => {
+                    self.send_json(&envelope).await;
+                }
+                _ = heartbeat.tick() => {
+                    let idle_for = Instant::now().saturating_duration_since(self.last_activity);
+                    if idle_for > CONNECTION_TIMEOUT {
+                        warn!(
+                            "WebSocket connection timed out for client {} after {:?} of inactivity",
+                            self.current_agent_id(),
+                            idle_for
+                        );
+                        let _ = self.session.clone().close(Some(CloseReason {
+                            code: CloseCode::Policy,
+                            description: Some(format!(
+                                "connection timed out after {:?} of inactivity",
+                                CONNECTION_TIMEOUT
+                            )),
+                        })).await;
+                        break;
+                    }
+                }
             }
-            Ok(ws::Message::Binary(_)) | Ok(ws::Message::Continuation(_)) | Ok(ws::Message::Nop) => {
-                self.mark_activity();
-            }
-            Err(e) => {
-                error!("WebSocket error for client {}: {:?}", self.current_agent_id(), e);
-                let tracer = global::tracer("ws-server");
-                let mut span = tracer.start("ws.error");
-                span.end();
-            }
+        }
+
+        if let Some(agent_id) = self.agent_id.as_deref() {
+            self.registry.mark_disconnected(agent_id);
+            info!("Agent {} disconnected; last known IP {}", agent_id, self.client_ip);
+        } else {
+            info!(
+                "WebSocket connection closed before agent assignment for client IP {}",
+                self.client_ip
+            );
         }
     }
 }
 
 pub async fn ws_handler(
     req: HttpRequest,
-    stream: web::Payload,
+    body: web::Payload,
     registry: web::Data<WsAgentRegistry>,
 ) -> Result<HttpResponse, Error> {
     let tracer = global::tracer("ws-server");
@@ -555,11 +542,18 @@ pub async fn ws_handler(
         })
         .unwrap_or_else(|| "unknown".to_string());
 
-    let actor = WebSocketActor::new(registry.get_ref().clone(), client_ip);
-    let result = ws::start(actor, &req, stream);
+    let (response, session, msg_stream) = actix_ws::handle(&req, body)?;
+    let stream = msg_stream.max_frame_size(64 * 1024).aggregate_continuations();
+
+    let (tx, rx) = mpsc::unbounded_channel::<WsMessage>();
+    let conn = Connection::new(registry.get_ref().clone(), client_ip, session, tx);
+
+    actix_web::rt::spawn(async move {
+        conn.run(stream, rx).await;
+    });
 
     span.end();
-    result
+    Ok(response)
 }
 
 pub fn configure(cfg: &mut web::ServiceConfig) {

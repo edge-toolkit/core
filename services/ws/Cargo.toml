@@ -6,14 +6,15 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-actix = "0.13"
 actix-web = "4"
-actix-web-actors = "4"
+actix-ws = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
 edge-toolkit = { path = "../../libs/edge-toolkit" }
+futures-util = "0.3"
 opentelemetry = "0.31"
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml = "0.9"
+tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
 tracing.workspace = true
 uuid.workspace = true
