@@ -16,6 +16,13 @@
 //! `libs/edge-toolkit/src/ws.rs` but avoids depending on that crate (its
 //! transitive deps don't all compile to wasm32-wasip2).
 
+// Crate-level cfg gate: wit-bindgen's generated extern declarations only
+// resolve on `wasm32-wasip2`. Gating the whole module on `target_os = "wasi"`
+// lets the crate sit in the parent workspace — `cargo check --workspace`
+// from the repo root produces an empty cdylib for the host target without
+// linker errors.
+#![cfg(target_os = "wasi")]
+
 wit_bindgen::generate!({
     path: "../../ws-wasi-runner/wit",
     world: "module",

@@ -22,6 +22,8 @@ members = [
   "services/ws-modules/sensor1",
   "services/ws-modules/speech-recognition",
   "services/ws-modules/video1",
+  "services/ws-modules/wasi-comm1",
+  "services/ws-modules/wasi-data1",
   "services/modules",
   "services/storage",
   "services/ws",

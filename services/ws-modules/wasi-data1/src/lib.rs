@@ -12,6 +12,14 @@
 //! own `agent_id`, which maps host-side to `/storage/{agent_id}/{key}` —
 //! same backend store, same auth boundary (writes only succeed inside
 //! one's own bucket), one fewer protocol hop.
+//!
+//! Crate-level cfg gate: the wit-bindgen-generated extern declarations
+//! reference WASI imports that only resolve on `wasm32-wasip2`. Gating the
+//! whole module on `target_os = "wasi"` lets the crate sit in the parent
+//! workspace — `cargo check --workspace` from the repo root produces an
+//! empty cdylib for the host target without linker errors.
+
+#![cfg(target_os = "wasi")]
 
 wit_bindgen::generate!({
     path: "../../ws-wasi-runner/wit",

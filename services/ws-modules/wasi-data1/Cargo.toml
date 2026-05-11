@@ -8,16 +8,13 @@ license = "Apache-2.0 OR MIT"
 [lib]
 crate-type = ["cdylib"]
 
-[dependencies]
+# Scope the wit-bindgen + serde_json deps to wasi targets so a host
+# `cargo check --workspace` doesn't pull them in. The lib body is gated
+# the same way (`#![cfg(target_os = "wasi")]` at the top of src/lib.rs),
+# so on the host target the crate compiles to an empty cdylib.
+[target.'cfg(target_os = "wasi")'.dependencies]
 serde_json = "1"
 wit-bindgen = "0.57"
-
-# This module produces a WASI Preview 2 component and depends on
-# wit-bindgen-generated extern symbols that don't exist on the host target.
-# Keep it out of the parent workspace so `cargo check --workspace` at the
-# repo root skips it entirely; the dedicated mise task drives `cargo build
-# --target wasm32-wasip2` from inside this directory.
-[workspace]
 
 [package.metadata.ws-module]
 wasi-main = "et_ws_wasi_data1.wasm"
