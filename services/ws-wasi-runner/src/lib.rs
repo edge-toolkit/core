@@ -8,12 +8,41 @@
 //!
 //! See `wit/world.wit` for the host/guest contract.
 
-use anyhow::{Context, Result};
 use opentelemetry_http::HeaderInjector;
+use thiserror::Error;
 use tracing::Instrument;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use wasmtime::component::{Component, HasSelf, Linker};
 use wasmtime::{Config, Engine, Store};
+
+/// Errors `run_module` can fail with. `reqwest::Error` is forwarded
+/// transparently — it already carries the URL it failed on. wasmtime's
+/// `Error` (an alias for `anyhow::Error` upstream) doesn't nest cleanly
+/// through `std::error::Error`, so the `From` impl flattens it to its
+/// formatted chain via `{err:#}`.
+#[derive(Debug, Error)]
+pub enum RunnerError {
+    #[error("could not derive HTTP base from WS_SERVER_URL={ws_url}")]
+    InvalidWsUrl { ws_url: String },
+
+    #[error(transparent)]
+    Http(#[from] reqwest::Error),
+
+    #[error("module {module} package.json missing `main` field")]
+    PackageJsonMissingMain { module: String },
+
+    #[error("wasm component model: {0}")]
+    Wasm(String),
+
+    #[error("module run() returned err: {0}")]
+    Guest(String),
+}
+
+impl From<wasmtime::Error> for RunnerError {
+    fn from(err: wasmtime::Error) -> Self {
+        RunnerError::Wasm(format!("{err:#}"))
+    }
+}
 
 pub mod bindings {
     wasmtime::component::bindgen!({
@@ -88,56 +117,51 @@ pub fn derive_http_base(ws_url: &str) -> Option<String> {
 
 /// Where to find the .wasm component for a given module.
 ///
-/// Resolved against `package.json` from the ws-server. We prefer the
-/// `wasi-main` field (set by Python WASI modules) and fall back to `main` so
-/// that components named like `et_ws_*.wasm` Just Work.
-/// Wasmtime's error type isn't `std::error::Error`, so anyhow's `Context`
-/// trait can't attach extra context to it directly. Convert via `Display`.
-fn into_anyhow(err: wasmtime::Error) -> anyhow::Error {
-    anyhow::anyhow!("{err:#}")
-}
-
-async fn resolve_component_url(http_base: &str, module_name: &str) -> Result<String> {
+/// Resolved against `package.json`'s `main` field as served by the ws-server.
+/// Browser modules and WASI components share the same field — for WASI
+/// modules, et-cli takes `[tool.ws-module] wasi-main` (Python) or
+/// `[package.metadata.ws-module] wasi-main` (Rust) and writes it as `main`,
+/// so the runner doesn't need a WASI-specific lookup.
+async fn resolve_component_url(http_base: &str, module_name: &str) -> Result<String, RunnerError> {
     let pkg_url = format!("{http_base}/modules/{module_name}/package.json");
     let pkg: serde_json::Value = inject_traceparent(reqwest::Client::new().get(&pkg_url))
         .send()
         .instrument(tracing::info_span!("fetch_package_json", url = %pkg_url))
-        .await
-        .with_context(|| format!("GET {pkg_url}"))?
+        .await?
         .error_for_status()?
         .json()
         .await?;
-    let wasi_main = pkg
-        .get("wasi-main")
-        .and_then(|v| v.as_str())
-        .or_else(|| pkg.get("main").and_then(|v| v.as_str()))
-        .with_context(|| format!("module {module_name} package.json has neither wasi-main nor main"))?;
-    Ok(format!("{http_base}/modules/{module_name}/{wasi_main}"))
+    let main = pkg.get("main").and_then(|v| v.as_str()).ok_or_else(|| {
+        RunnerError::PackageJsonMissingMain {
+            module: module_name.to_string(),
+        }
+    })?;
+    Ok(format!("{http_base}/modules/{module_name}/{main}"))
 }
 
 /// Download, link, and run the WASI component for `module_name`. Returns when
 /// the guest's exported `entry.run` finishes (either by returning `ok` or
-/// trapping). Guest `err` returns are surfaced as `anyhow::Error`.
+/// trapping). Guest `err` returns are surfaced as `RunnerError::Guest`.
 ///
 /// The whole call is wrapped in a `run_module` span — every outgoing
 /// request inherits its trace context, and ws-server's request span ends
 /// up as a child of it.
-pub async fn run_module(module_name: &str, ws_url: &str) -> Result<()> {
+pub async fn run_module(module_name: &str, ws_url: &str) -> Result<(), RunnerError> {
     let span = tracing::info_span!("run_module", module = module_name);
     run_module_inner(module_name, ws_url).instrument(span).await
 }
 
-async fn run_module_inner(module_name: &str, ws_url: &str) -> Result<()> {
-    let http_base =
-        derive_http_base(ws_url).with_context(|| format!("could not derive HTTP base from WS_SERVER_URL={ws_url}"))?;
+async fn run_module_inner(module_name: &str, ws_url: &str) -> Result<(), RunnerError> {
+    let http_base = derive_http_base(ws_url).ok_or_else(|| RunnerError::InvalidWsUrl {
+        ws_url: ws_url.to_string(),
+    })?;
 
     let wasm_url = resolve_component_url(&http_base, module_name).await?;
     tracing::info!(%wasm_url, "fetching WASI component");
     let wasm_bytes = inject_traceparent(reqwest::Client::new().get(&wasm_url))
         .send()
         .instrument(tracing::info_span!("fetch_component", url = %wasm_url))
-        .await
-        .with_context(|| format!("GET {wasm_url}"))?
+        .await?
         .error_for_status()?
         .bytes()
         .await?;
@@ -146,25 +170,19 @@ async fn run_module_inner(module_name: &str, ws_url: &str) -> Result<()> {
     config.wasm_component_model(true);
     let engine = Engine::new(&config)?;
 
-    let component = Component::from_binary(&engine, &wasm_bytes).map_err(into_anyhow)?;
+    let component = Component::from_binary(&engine, &wasm_bytes)?;
 
     let mut linker: Linker<HostState> = Linker::new(&engine);
-    wasmtime_wasi::p2::add_to_linker_async(&mut linker).map_err(into_anyhow)?;
-    bindings::Runner::add_to_linker::<HostState, HasSelf<HostState>>(&mut linker, |s| s).map_err(into_anyhow)?;
-    wasmtime_wasi_nn::wit::add_to_linker(&mut linker, host::wasi_nn::view).map_err(into_anyhow)?;
+    wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
+    bindings::Runner::add_to_linker::<HostState, HasSelf<HostState>>(&mut linker, |s| s)?;
+    wasmtime_wasi_nn::wit::add_to_linker(&mut linker, host::wasi_nn::view)?;
 
-    let host_state = HostState::new(http_base, ws_url.to_string()).await?;
+    let host_state = HostState::new(http_base, ws_url.to_string()).await;
     let mut store = Store::new(&engine, host_state);
 
-    let module = bindings::Runner::instantiate_async(&mut store, &component, &linker)
-        .await
-        .map_err(into_anyhow)?;
+    let module = bindings::Runner::instantiate_async(&mut store, &component, &linker).await?;
 
-    let guest_result = module
-        .et_ws_wasi_entry()
-        .call_run(&mut store)
-        .await
-        .map_err(into_anyhow)?;
+    let guest_result = module.et_ws_wasi_entry().call_run(&mut store).await?;
 
-    guest_result.map_err(|e| anyhow::anyhow!("module run() returned err: {e}"))
+    guest_result.map_err(RunnerError::Guest)
 }

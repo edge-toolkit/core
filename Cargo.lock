@@ -1786,7 +1786,6 @@ dependencies = [
 name = "et-ws-wasi-runner"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "async-trait",
  "bytemuck",
  "edge-toolkit",
@@ -1803,6 +1802,7 @@ dependencies = [
  "serde",
  "serde-env",
  "serde_json",
+ "thiserror 2.0.18",
  "tokio",
  "tokio-tungstenite",
  "tracing",

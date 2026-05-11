@@ -115,9 +115,6 @@ fn package_json_from_pyproject(module_dir: &Path) -> Result<Value> {
         ("license".to_string(), json!(p.license.as_deref().unwrap_or(""))),
         ("main".to_string(), json!(main)),
     ]);
-    if let Some(wasi_main) = &ws_module.wasi_main {
-        pkg.insert("wasi-main".to_string(), json!(wasi_main));
-    }
     if !ws_module.dependencies.is_empty() {
         pkg.insert("dependencies".to_string(), json!(ws_module.dependencies));
     }
@@ -143,8 +140,10 @@ fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value> 
 
     if let Some(wasi_main) = &ws_module.wasi_main {
         pkg.insert("main".to_string(), json!(wasi_main));
-        pkg.insert("wasi-main".to_string(), json!(wasi_main));
     }
+    // Drop the legacy `wasi-main` field if a prior build wrote it; the
+    // runner now reads only `main`.
+    pkg.remove("wasi-main");
 
     if !ws_module.dependencies.is_empty() {
         let dependencies = pkg

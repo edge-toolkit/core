@@ -209,7 +209,7 @@ pub async fn run() -> Result<(), JsValue> {
         let mut client = WsClient::new(WsClientConfig::new(ws_url));
         client.connect()?;
         wait_for_connected(&client).await?;
-        log(&format!("websocket connected with agent_id={}", client.get_client_id()))?;
+        log(&format!("websocket connected with agent_id={}", client.get_agent_id()))?;
 
         log("waiting for NFC tap (60 second timeout)...")?;
         set_module_status("nfc: Waiting for NFC tap...\nPlease hold your device near an NFC tag.")?;

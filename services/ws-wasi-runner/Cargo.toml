@@ -28,7 +28,6 @@ default = []
 cuda = ["wasmtime-wasi-nn/onnx-cuda"]
 
 [dependencies]
-anyhow.workspace = true
 async-trait = "0.1"
 bytemuck = { version = "1.16", features = ["derive"] }
 edge-toolkit.workspace = true
@@ -41,6 +40,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 serde.workspace = true
 serde-env.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
 tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect"] }
 tracing.workspace = true

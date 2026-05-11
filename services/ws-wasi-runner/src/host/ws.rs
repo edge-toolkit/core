@@ -40,7 +40,7 @@ impl WsBackend {
             .map_err(|e| format!("ws connect {ws_url}: {e}"))?;
         let (mut sink, mut stream) = stream.split();
 
-        // Drive the registration handshake immediately so the client_id is
+        // Drive the registration handshake immediately so the agent_id is
         // known by the time `connect()` returns.
         let connect_msg = serde_json::to_string(&WsMessage::Connect { agent_id: None })
             .map_err(|e| format!("serialize connect: {e}"))?;
@@ -98,7 +98,7 @@ impl WsBackend {
         *self.connection_state.lock().await
     }
 
-    async fn current_client_id(&self) -> String {
+    async fn current_agent_id(&self) -> String {
         self.agent_id.lock().await.clone().unwrap_or_default()
     }
 
@@ -120,7 +120,7 @@ impl Host for HostState {
         }
         let backend = WsBackend::connect(&self.ws_url).await?;
         // Wait briefly for ConnectAck before returning, so guests can call
-        // client_id() right after connect() and get a value.
+        // agent_id() right after connect() and get a value.
         for _ in 0..50 {
             if matches!(backend.current_state().await, State::Connected) {
                 break;
@@ -139,10 +139,10 @@ impl Host for HostState {
         }
     }
 
-    async fn client_id(&mut self) -> String {
+    async fn agent_id(&mut self) -> String {
         let slot = self.ws.lock().await;
         match slot.as_ref() {
-            Some(b) => b.current_client_id().await,
+            Some(b) => b.current_agent_id().await,
             None => String::new(),
         }
     }

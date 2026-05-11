@@ -204,21 +204,21 @@ try {
   client.set_on_state_change((state) => {
     append(`state: ${state}`);
     if (state === "connecting") {
-      updateAgentCard("Connecting to websocket server...", client.get_client_id() || readStoredAgentId());
+      updateAgentCard("Connecting to websocket server...", client.get_agent_id() || readStoredAgentId());
     } else if (state === "connected") {
       updateAgentCard(
         "Socket connected. Waiting for server identity acknowledgement...",
-        client.get_client_id() || readStoredAgentId(),
+        client.get_agent_id() || readStoredAgentId(),
       );
     } else if (state === "reconnecting") {
       updateAgentCard(
         "Disconnected. Trying to re-use retained agent ID...",
-        client.get_client_id() || readStoredAgentId(),
+        client.get_agent_id() || readStoredAgentId(),
       );
     } else if (state === "disconnected") {
       updateAgentCard(
         "Socket disconnected. Retained agent ID will be re-used on next connect.",
-        client.get_client_id() || readStoredAgentId(),
+        client.get_agent_id() || readStoredAgentId(),
       );
     }
   });
@@ -232,9 +232,9 @@ try {
     retainedAgentId
       ? "Attempting websocket connect with retained agent ID from local storage."
       : "Attempting first websocket connect. Waiting for server-assigned agent ID.",
-    client.get_client_id() || retainedAgentId,
+    client.get_agent_id() || retainedAgentId,
   );
-  append(`client_id: ${client.get_client_id() || "(awaiting server assignment)"}`);
+  append(`agent_id: ${client.get_agent_id() || "(awaiting server assignment)"}`);
 
   runModuleButton.addEventListener("click", async () => {
     const selectedModule = WORKFLOW_MODULES.get(moduleSelect.value);

@@ -136,7 +136,7 @@ pub async fn run() -> Result<(), JsValue> {
     let mut client = WsClient::new(WsClientConfig::new(ws_url.clone()));
     client.connect()?;
     wait_for_connected(&client).await?;
-    log(&format!("websocket connected with agent_id={}", client.get_client_id()))?;
+    log(&format!("websocket connected with agent_id={}", client.get_agent_id()))?;
 
     let capture = match VideoCapture::request().await {
         Ok(capture) => capture,

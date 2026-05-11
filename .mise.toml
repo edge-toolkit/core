@@ -253,8 +253,11 @@ dir = "services/ws-modules/wasi-graphics-info"
 # is fetched into `pkg/` by `mise run download-models` (see
 # `fetch-mnist-rclone`); componentize-py 0.23 doesn't bundle arbitrary
 # data files inside the component image, so the guest fetches it via the
-# `storage` host import from the ws-server at runtime.
+# `wasi:keyvalue/store` host import from the ws-server at runtime.
+# componentize-py 0.23's `bindings` subcommand refuses to overwrite an
+# existing output dir, so we wipe it first.
 run = """
+rm -rf wit_world
 componentize-py -d ../../ws-wasi-runner/wit -w module bindings .
 componentize-py -d ../../ws-wasi-runner/wit -w module componentize wasi_graphics_info -o pkg/et_ws_wasi_graphics_info.wasm
 cargo run -p et-cli -- module-package-json

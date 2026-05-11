@@ -1,4 +1,3 @@
-use anyhow::Context;
 use edge_toolkit::config::OtlpConfig;
 use et_ws_wasi_runner::run_module;
 use serde::Deserialize;
@@ -12,7 +11,7 @@ struct EnvConfig {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let env_config = serde_env::from_env::<EnvConfig>().unwrap_or_default();
 
     let otel_handles = if let Some(otlp_config) = &env_config.otlp {
@@ -24,7 +23,7 @@ async fn main() -> anyhow::Result<()> {
         None
     };
 
-    let module_name = std::env::var("RUNNER_MODULE").context("RUNNER_MODULE not set")?;
+    let module_name = std::env::var("RUNNER_MODULE").map_err(|_| "RUNNER_MODULE not set")?;
     let ws_url = std::env::var("WS_SERVER_URL").unwrap_or_else(|_| {
         format!(
             "ws://localhost:{}/ws",

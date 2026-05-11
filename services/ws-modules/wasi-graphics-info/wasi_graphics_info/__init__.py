@@ -427,8 +427,8 @@ class Entry:
         if not _wait_for_connected():
             _log("websocket did not reach connected state")
 
-        client_id = ws.client_id()
-        _log(f"websocket connected with agent_id={client_id}")
+        agent_id = ws.agent_id()
+        _log(f"websocket connected with agent_id={agent_id}")
 
         gpu_block = _run_matmul()
         # No browser-level detection in WASI; report the wasi-webgpu fact as

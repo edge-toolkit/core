@@ -167,7 +167,7 @@ async fn wait_for_connected(client: &WsClient) -> Result<(), JsValue> {
 
 async fn wait_for_agent_id(client: &WsClient) -> Result<String, JsValue> {
     for _ in 0..100 {
-        let agent_id = client.get_client_id();
+        let agent_id = client.get_agent_id();
         if !agent_id.is_empty() {
             return Ok(agent_id);
         }

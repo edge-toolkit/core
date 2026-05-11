@@ -7,7 +7,6 @@
 
 use std::sync::Arc;
 
-use anyhow::Result;
 use tokio::sync::Mutex;
 use wasmtime::component::ResourceTable;
 use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
@@ -37,10 +36,10 @@ pub struct HostState {
 }
 
 impl HostState {
-    pub async fn new(http_base: String, ws_url: String) -> Result<Self> {
+    pub async fn new(http_base: String, ws_url: String) -> Self {
         let wasi_ctx = WasiCtxBuilder::new().inherit_stdio().inherit_env().build();
 
-        Ok(Self {
+        Self {
             wasi_ctx,
             resource_table: ResourceTable::new(),
             http_base,
@@ -48,7 +47,7 @@ impl HostState {
             http: reqwest::Client::new(),
             ws: Arc::new(Mutex::new(None)),
             wasi_nn_ctx: wasi_nn::new_ctx(),
-        })
+        }
     }
 }
 

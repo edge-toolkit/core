@@ -15,7 +15,7 @@ interface ws {
 
     connect: func() -> result<_, ws-error>;
     get-state: func() -> state;
-    client-id: func() -> string;
+    agent-id: func() -> string;
     send-event: func(category: string, kind: string, body-json: string) -> result<_, ws-error>;
     send-text: func(text: string) -> result<_, ws-error>;
     recv: func(timeout-ms: u32) -> result<option<string>, ws-error>;

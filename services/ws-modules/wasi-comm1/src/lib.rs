@@ -26,7 +26,7 @@ use exports::et::ws_wasi::entry::Guest;
 use serde_json::{Value, json};
 use wasi::logging::logging::{self, Level};
 
-const LOG_CONTEXT: &str = "wasi-comm1";
+const LOG_CONTEXT: &str = env!("CARGO_PKG_NAME");
 /// Total time we'll wait for a `list_agents_response`. The server replies
 /// immediately under normal load, but we leave headroom for the inbox queue.
 const LIST_AGENTS_TIMEOUT_MS: u32 = 2_000;
@@ -42,7 +42,7 @@ impl Guest for Component {
         info("entered run()");
 
         et::ws_wasi::ws::connect().map_err(|e| format!("ws connect failed: {e}"))?;
-        let agent_id = wait_for_client_id().ok_or_else(|| "did not receive agent_id".to_string())?;
+        let agent_id = wait_for_agent_id().ok_or_else(|| "did not receive agent_id".to_string())?;
         info(&format!("websocket connected with agent_id={agent_id}"));
 
         send_message(&json!({ "type": "list_agents" }))?;
@@ -106,9 +106,9 @@ fn wait_for_message_kind(kind: &str, total_timeout_ms: u32) -> Option<Value> {
     None
 }
 
-fn wait_for_client_id() -> Option<String> {
+fn wait_for_agent_id() -> Option<String> {
     for _ in 0..100 {
-        let id = et::ws_wasi::ws::client_id();
+        let id = et::ws_wasi::ws::agent_id();
         if !id.is_empty() {
             return Some(id);
         }

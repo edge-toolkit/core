@@ -401,9 +401,9 @@ impl WsClient {
         }
     }
 
-    /// Get the client ID
+    /// Get the agent ID assigned by the server on connect.
     #[wasm_bindgen]
-    pub fn get_client_id(&self) -> String {
+    pub fn get_agent_id(&self) -> String {
         self.agent_id.borrow().clone().unwrap_or_default()
     }
 

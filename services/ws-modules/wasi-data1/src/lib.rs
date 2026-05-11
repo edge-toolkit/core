@@ -9,7 +9,7 @@
 //!
 //! The WASI runner doesn't expose generic HTTP; the equivalent here uses
 //! `wasi:keyvalue/store` directly. The bucket identifier is the agent's
-//! own `client_id`, which maps host-side to `/storage/{agent_id}/{key}` —
+//! own `agent_id`, which maps host-side to `/storage/{agent_id}/{key}` —
 //! same backend store, same auth boundary (writes only succeed inside
 //! one's own bucket), one fewer protocol hop.
 
@@ -23,7 +23,7 @@ use exports::et::ws_wasi::entry::Guest;
 use wasi::keyvalue::store;
 use wasi::logging::logging::{self, Level};
 
-const LOG_CONTEXT: &str = "wasi-data1";
+const LOG_CONTEXT: &str = env!("CARGO_PKG_NAME");
 const FILENAME: &str = "test_data.txt";
 
 fn info(message: &str) {
@@ -37,7 +37,7 @@ impl Guest for Component {
         info("entered run()");
 
         et::ws_wasi::ws::connect().map_err(|e| format!("ws connect failed: {e}"))?;
-        let agent_id = wait_for_client_id().ok_or_else(|| "did not receive agent_id".to_string())?;
+        let agent_id = wait_for_agent_id().ok_or_else(|| "did not receive agent_id".to_string())?;
         info(&format!("websocket connected with agent_id={agent_id}"));
 
         let bucket = store::open(&agent_id).map_err(|e| format!("store.open({agent_id}): {e:?}"))?;
@@ -70,11 +70,11 @@ impl Guest for Component {
 }
 
 /// `ws.connect` waits briefly for the `ConnectAck` server message, but the
-/// host returns once that wait expires regardless. Poll `client_id` to be
+/// host returns once that wait expires regardless. Poll `agent_id` to be
 /// safe under load.
-fn wait_for_client_id() -> Option<String> {
+fn wait_for_agent_id() -> Option<String> {
     for _ in 0..100 {
-        let id = et::ws_wasi::ws::client_id();
+        let id = et::ws_wasi::ws::agent_id();
         if !id.is_empty() {
             return Some(id);
         }
