@@ -5,20 +5,61 @@ use anyhow::{Context, Result};
 use edge_toolkit::input::ClusterInput;
 
 use crate::{
-    OutputType, absolute_from, cluster_module_names, module_registry, relative_path_from, resolve_module_paths,
+    DeploymentMode, DeploymentOptions, OutputType, absolute_from, cluster_module_names, module_registry,
+    relative_path_from, resolve_module_paths,
 };
 
-pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<()> {
+pub fn generate_docker_compose_deployment(
+    cluster: &ClusterInput,
+    output_dir: &Path,
+    options: &DeploymentOptions,
+) -> Result<()> {
     let output_path = output_dir.join(OutputType::DockerCompose.output_file_name());
-    let workspace_root =
-        std::env::current_dir().with_context(|| "Failed to resolve current working directory for compose services")?;
-    let output_abs = absolute_from(&workspace_root, output_dir);
-    let workspace_rel = relative_path_from(&output_abs, &workspace_root).display().to_string();
-    let openobserve_env_file_rel = relative_path_from(&output_abs, &workspace_root.join("config/o2.env"))
-        .display()
-        .to_string();
+    let resolved = options.resolve()?;
+    let runtime_root = resolved.runtime_root;
+    let output_abs = absolute_from(&runtime_root, output_dir);
+    let runtime_rel = relative_path_from(&output_abs, &runtime_root).display().to_string();
+    let openobserve_env_file = match resolved.mode {
+        DeploymentMode::Local => relative_path_from(&output_abs, &runtime_root.join("config/o2.env"))
+            .display()
+            .to_string(),
+        DeploymentMode::Published => runtime_root.join("config/o2.env").display().to_string(),
+    };
     let module_names = cluster_module_names(cluster);
-    let module_paths = docker_image_module_paths(&module_names)?;
+    let module_paths = docker_image_module_paths_from(&runtime_root, &module_names)?;
+    let ws_server = match resolved.mode {
+        DeploymentMode::Local => ComposeService {
+            build: Some(ComposeBuild {
+                context: runtime_rel,
+                dockerfile: "services/ws-server/Dockerfile".to_string(),
+            }),
+            network_mode: Some("host".to_string()),
+            environment: ws_server_environment(module_paths),
+            volumes: vec!["ws-server-storage:/app/storage".to_string()],
+            depends_on: vec![(
+                "openobserve".to_string(),
+                ComposeDependsOnCondition {
+                    condition: "service_healthy".to_string(),
+                },
+            )],
+            ..ComposeService::default()
+        },
+        DeploymentMode::Published => ComposeService {
+            image: Some("ubuntu:24.04".to_string()),
+            command: Some("/usr/local/bin/et-ws-server".to_string()),
+            working_dir: Some("/app".to_string()),
+            network_mode: Some("host".to_string()),
+            environment: ws_server_environment(module_paths),
+            volumes: published_ws_server_volumes(&runtime_root),
+            depends_on: vec![(
+                "openobserve".to_string(),
+                ComposeDependsOnCondition {
+                    condition: "service_healthy".to_string(),
+                },
+            )],
+            ..ComposeService::default()
+        },
+    };
     let compose = ComposeFile {
         services: vec![
             (
@@ -38,52 +79,13 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
                         start_period: "10s".to_string(),
                     }),
                     ports: vec!["5080:5080".to_string()],
-                    env_file: vec![openobserve_env_file_rel],
+                    env_file: vec![openobserve_env_file],
                     environment: vec![("ZO_DATA_DIR".to_string(), ComposeValue::Plain("/data".to_string()))],
                     volumes: vec!["openobserve-data:/data".to_string()],
                     ..ComposeService::default()
                 },
             ),
-            (
-                "ws-server".to_string(),
-                ComposeService {
-                    build: Some(ComposeBuild {
-                        context: workspace_rel,
-                        dockerfile: "services/ws-server/Dockerfile".to_string(),
-                    }),
-                    network_mode: Some("host".to_string()),
-                    environment: vec![
-                        (
-                            "MODULES_PATHS".to_string(),
-                            ComposeValue::WrappedDoubleQuoted(module_paths),
-                        ),
-                        (
-                            "OTLP_AUTH_PASSWORD".to_string(),
-                            ComposeValue::DoubleQuoted("1234".to_string()),
-                        ),
-                        (
-                            "OTLP_AUTH_USERNAME".to_string(),
-                            ComposeValue::Plain("root@example.com".to_string()),
-                        ),
-                        (
-                            "OTLP_COLLECTOR_URL".to_string(),
-                            ComposeValue::Plain("http://127.0.0.1:5080/api/default/v1".to_string()),
-                        ),
-                        (
-                            "STORAGE_PATH".to_string(),
-                            ComposeValue::Plain("/app/storage".to_string()),
-                        ),
-                    ],
-                    volumes: vec!["ws-server-storage:/app/storage".to_string()],
-                    depends_on: vec![(
-                        "openobserve".to_string(),
-                        ComposeDependsOnCondition {
-                            condition: "service_healthy".to_string(),
-                        },
-                    )],
-                    ..ComposeService::default()
-                },
-            ),
+            ("ws-server".to_string(), ws_server),
         ],
         volumes: vec![
             ("openobserve-data".to_string(), ComposeVolume),
@@ -98,6 +100,10 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
 
 pub fn docker_image_module_paths(module_names: &[String]) -> Result<Vec<String>> {
     let project_root = edge_toolkit::config::get_project_root();
+    docker_image_module_paths_from(&project_root, module_names)
+}
+
+fn docker_image_module_paths_from(project_root: &Path, module_names: &[String]) -> Result<Vec<String>> {
     let ws_server_dir = project_root.join("services/ws-server");
     let mut paths = Vec::with_capacity(module_names.len() + 2);
     paths.push("/app/services/ws-server/static".to_string());
@@ -107,6 +113,46 @@ pub fn docker_image_module_paths(module_names: &[String]) -> Result<Vec<String>>
         entry.docker_path.clone()
     })?);
     Ok(paths)
+}
+
+fn ws_server_environment(module_paths: Vec<String>) -> Vec<(String, ComposeValue)> {
+    vec![
+        (
+            "MODULES_PATHS".to_string(),
+            ComposeValue::WrappedDoubleQuoted(module_paths),
+        ),
+        (
+            "OTLP_AUTH_PASSWORD".to_string(),
+            ComposeValue::DoubleQuoted("1234".to_string()),
+        ),
+        (
+            "OTLP_AUTH_USERNAME".to_string(),
+            ComposeValue::Plain("root@example.com".to_string()),
+        ),
+        (
+            "OTLP_COLLECTOR_URL".to_string(),
+            ComposeValue::Plain("http://127.0.0.1:5080/api/default/v1".to_string()),
+        ),
+        (
+            "STORAGE_PATH".to_string(),
+            ComposeValue::Plain("/app/storage".to_string()),
+        ),
+    ]
+}
+
+fn published_ws_server_volumes(runtime_root: &Path) -> Vec<String> {
+    [
+        ("target/release/et-ws-server", "/usr/local/bin/et-ws-server"),
+        ("services/ws-server/static", "/app/services/ws-server/static"),
+        ("services/ws-wasm-agent", "/app/services/ws-wasm-agent"),
+        ("services/ws-modules", "/app/services/ws-modules"),
+        ("data/model-modules", "/app/data/model-modules"),
+        ("node_modules", "/app/node_modules"),
+    ]
+    .into_iter()
+    .map(|(host, container)| format!("{}:{container}:ro", runtime_root.join(host).display()))
+    .chain(["ws-server-storage:/app/storage".to_string()])
+    .collect()
 }
 
 #[derive(Debug, Default)]
@@ -119,6 +165,8 @@ struct ComposeFile {
 struct ComposeService {
     build: Option<ComposeBuild>,
     image: Option<String>,
+    command: Option<String>,
+    working_dir: Option<String>,
     healthcheck: Option<ComposeHealthcheck>,
     network_mode: Option<String>,
     ports: Vec<String>,
@@ -191,6 +239,12 @@ impl ComposeRenderer {
         self.push_line(1, &format!("{name}:"));
         if let Some(image) = &service.image {
             self.push_line(2, &format!("image: {image}"));
+        }
+        if let Some(command) = &service.command {
+            self.push_line(2, &format!("command: {command}"));
+        }
+        if let Some(working_dir) = &service.working_dir {
+            self.push_line(2, &format!("working_dir: {working_dir}"));
         }
         if let Some(healthcheck) = &service.healthcheck {
             self.push_line(2, "healthcheck:");

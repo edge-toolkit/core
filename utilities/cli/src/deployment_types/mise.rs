@@ -5,25 +5,37 @@ use anyhow::{Context, Result};
 use edge_toolkit::input::ClusterInput;
 use toml::{Table, Value};
 
-use crate::{absolute_from, cluster_module_names, module_registry, relative_path_from, resolve_module_paths};
+use crate::{
+    DeploymentMode, DeploymentOptions, absolute_from, cluster_module_names, module_registry, relative_path_from,
+    resolve_module_paths,
+};
 
-pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<()> {
+pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path, options: &DeploymentOptions) -> Result<()> {
     let output_path = output_dir.join("mise.toml");
-    let workspace_root =
-        std::env::current_dir().with_context(|| "Failed to resolve current working directory for mise tasks")?;
-    let output_abs = absolute_from(&workspace_root, output_dir);
-    let ws_server_dir = workspace_root.join("services/ws-server");
-    let workspace_rel = relative_path_from(&output_abs, &workspace_root).display().to_string();
-    let openobserve_env_file_rel = "config/o2.env";
+    let resolved = options.resolve()?;
+    let runtime_root = resolved.runtime_root;
+    let output_abs = absolute_from(&runtime_root, output_dir);
+    let ws_server_dir = runtime_root.join("services/ws-server");
+    let runtime_rel = relative_path_from(&output_abs, &runtime_root).display().to_string();
+    let ws_server_task_dir = match resolved.mode {
+        DeploymentMode::Local => relative_path_from(&output_abs, &ws_server_dir).display().to_string(),
+        DeploymentMode::Published => runtime_root.display().to_string(),
+    };
+    let openobserve_env_file_rel = match resolved.mode {
+        DeploymentMode::Local => "config/o2.env".to_string(),
+        DeploymentMode::Published => runtime_root.join("config/o2.env").display().to_string(),
+    };
     let module_names = cluster_module_names(cluster);
-    let module_paths = scenario_module_paths(&ws_server_dir, &module_names)?;
+    let module_paths = match resolved.mode {
+        DeploymentMode::Local => scenario_module_paths_from(&runtime_root, &ws_server_dir, &module_names)?,
+        DeploymentMode::Published => scenario_module_paths_absolute(&runtime_root, &module_names)?,
+    };
     let module_paths_lines = module_paths
         .iter()
         .map(|p| format!("  {p}"))
         .collect::<Vec<_>>()
         .join(",\\\n");
-    let ws_server_run = format!("export MODULES_PATHS=\"\\\n{module_paths_lines}\"\ncargo run\n");
-    let ws_server_rel = relative_path_from(&output_abs, &ws_server_dir).display().to_string();
+    let ws_server_run = ws_server_run(resolved.mode, &runtime_root, &module_paths_lines);
 
     let mut root = Table::new();
     let mut tasks = Table::new();
@@ -33,7 +45,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
         Value::Table(mise_task(
             Some("o2"),
             None,
-            Some(&workspace_rel),
+            Some(&runtime_rel),
             Some(&format!(
                 "docker run --rm -it --name openobserve -p 5080:5080 --env-file {} openobserve/openobserve:v0.70.3",
                 openobserve_env_file_rel
@@ -47,7 +59,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
         Value::Table(mise_task(
             None,
             Some("Run the WebSocket server"),
-            Some(&ws_server_rel),
+            Some(&ws_server_task_dir),
             Some(&ws_server_run),
             None,
             Some(mise_env()),
@@ -80,7 +92,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
 
     let content = format_mise_toml(
         toml::to_string(&Value::Table(root)).context("Failed to serialize mise TOML")?,
-        openobserve_env_file_rel,
+        &openobserve_env_file_rel,
     );
     fs::write(&output_path, content).with_context(|| format!("Failed to write output file: {:?}", output_path))?;
 
@@ -89,6 +101,14 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
 
 pub fn scenario_module_paths(ws_server_dir: &Path, module_names: &[String]) -> Result<Vec<String>> {
     let project_root = edge_toolkit::config::get_project_root();
+    scenario_module_paths_from(&project_root, ws_server_dir, module_names)
+}
+
+fn scenario_module_paths_from(
+    project_root: &Path,
+    ws_server_dir: &Path,
+    module_names: &[String],
+) -> Result<Vec<String>> {
     let mut paths = vec![
         relative_path_from(ws_server_dir, &project_root.join("services/ws-server/static"))
             .display()
@@ -100,6 +120,31 @@ pub fn scenario_module_paths(ws_server_dir: &Path, module_names: &[String]) -> R
     let registry = module_registry(&project_root, ws_server_dir);
     paths.extend(resolve_module_paths(&registry, module_names, |entry| {
         entry.mise_path.clone()
+    })?);
+    Ok(paths)
+}
+
+fn ws_server_run(mode: DeploymentMode, runtime_root: &Path, module_paths_lines: &str) -> String {
+    let command = match mode {
+        DeploymentMode::Local => "cargo run".to_string(),
+        DeploymentMode::Published => runtime_root.join("target/release/et-ws-server").display().to_string(),
+    };
+    format!("export MODULES_PATHS=\"\\\n{module_paths_lines}\"\n{command}\n")
+}
+
+fn scenario_module_paths_absolute(project_root: &Path, module_names: &[String]) -> Result<Vec<String>> {
+    let mut paths = vec![
+        project_root.join("services/ws-server/static").display().to_string(),
+        project_root.join("services/ws-wasm-agent").display().to_string(),
+    ];
+    let ws_server_dir = project_root.join("services/ws-server");
+    let registry = module_registry(project_root, &ws_server_dir);
+    paths.extend(resolve_module_paths(&registry, module_names, |entry| {
+        entry
+            .docker_path
+            .strip_prefix("/app/")
+            .map(|path| project_root.join(path).display().to_string())
+            .unwrap_or_else(|| entry.mise_path.clone())
     })?);
     Ok(paths)
 }

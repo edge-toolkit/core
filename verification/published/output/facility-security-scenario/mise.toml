@@ -1,0 +1,35 @@
+[tasks.generated-scenario]
+depends = ["openobserve", "ws-server"]
+description = "Run generated scenario for facility-security-scenario"
+
+[tasks.open-o2]
+description = "Open the OpenObserve UI"
+run = "open http://localhost:5080/"
+
+[tasks.openobserve]
+alias = "o2"
+dir = "../../../.."
+run = """
+docker run --rm --name openobserve -p 5080:5080 \
+  --env-file /opt/edge-toolkit-release/config/o2.env \
+  openobserve/openobserve:v0.70.3
+"""
+
+[tasks.ws-server]
+description = "Run the WebSocket server"
+dir = "/opt/edge-toolkit-release"
+run = '''
+export MODULES_PATHS="\
+  /opt/edge-toolkit-release/services/ws-server/static,\
+  /opt/edge-toolkit-release/services/ws-wasm-agent,\
+  /opt/edge-toolkit-release/services/ws-modules/face-detection,\
+  /opt/edge-toolkit-release/services/ws-modules/har1,\
+  /opt/edge-toolkit-release/data/model-modules/model-face1,\
+  /opt/edge-toolkit-release/node_modules/onnxruntime-web,\
+  /opt/edge-toolkit-release/data/model-modules/model-har-motion1"
+/opt/edge-toolkit-release/target/release/et-ws-server
+'''
+
+[tasks.ws-server.env]
+OTLP_AUTH_PASSWORD = "1234"
+OTLP_AUTH_USERNAME = "root@example.com"

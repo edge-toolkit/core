@@ -19,11 +19,38 @@ et-cli generate-deployment --help
 et-cli regen-verification --help
 ```
 
+## Deployment Modes
+
+Deployment generation supports two runtime modes:
+
+- `local` is the default. Use it when running from the `core` source checkout.
+  It resolves the
+  repository root and generates deployment files that use the source-tree
+  layout.
+- `published` is for running `et-cli` outside the `core` source checkout. In
+  this mode, pass `--edge-toolkit-path` to the installed Edge Toolkit runtime
+  bundle root. The generated `mise.toml` runs
+  `<edge-toolkit-path>/target/release/et-ws-server` instead of `cargo run`.
+
+If `--mode published` is used without `--edge-toolkit-path`, the path still
+defaults to `../../libs/edge-toolkit`.
+
+For example:
+
+```bash
+et-cli generate-deployment \
+  --mode published \
+  --edge-toolkit-path <edge-toolkit-path> \
+  --input-file ./scenario.yaml \
+  --output-dir ./output \
+  --output-type mise
+```
+
 ## Generate a Mise Deployment
 
 Run `generate-deployment` with `--output-type mise` to generate a
-`mise.toml` file, specifying the input YAML file and output directory as
-follows:
+`mise.toml` file in local mode, specifying the input YAML file and output
+directory as follows:
 
 ```bash
 et-cli generate-deployment \
@@ -40,8 +67,11 @@ mise run generated-scenario
 
 The generated `ws-server` tasks set `MODULES_PATHS` so the server only exposes
 the scenario's selected workflow modules plus `ws-wasm-agent`, using the
-configurable module-path logic in `ws-server`. The generated `mise.toml` does
-not build modules; it assumes builds are handled externally.
+configurable module-path logic in `ws-server`. In local mode, the generated
+`mise.toml` runs `cargo run` from the repository `services/ws-server` directory.
+In published mode, it runs `target/release/et-ws-server` from
+`--edge-toolkit-path`. It does not build modules; it assumes builds are handled
+externally.
 
 ## Generate a Docker Compose Deployment
 
@@ -61,19 +91,22 @@ Then, to run the deployment from the output directory:
 docker compose up --build
 ```
 
-The generated compose stack starts OpenObserve and builds `ws-server` from the
-repository Dockerfile. Native build dependencies such as `protoc` are installed
-in the image build stage, so the runtime container does not depend on host Rust,
-Cargo caches, or `mise` tools. The generated service sets `MODULES_PATHS`,
-OpenTelemetry auth, and the in-compose OpenObserve collector URL for the
-selected scenario.
+In local mode, the generated compose stack starts OpenObserve and builds
+`ws-server` from the repository Dockerfile. Native build dependencies such as
+`protoc` are installed in the image build stage, so the runtime container does
+not depend on host Rust, Cargo caches, or `mise` tools. In published mode, the
+generated service bind-mounts
+`<edge-toolkit-path>/target/release/et-ws-server` to
+`/usr/local/bin/et-ws-server` in the container. The generated service sets
+`MODULES_PATHS`, OpenTelemetry auth, and the in-compose OpenObserve collector
+URL for the selected scenario.
 
 ## Regenerate Verification Outputs
 
-Run `regen-verification` to regenerate all checked-in verification outputs from
-the verification root. By default it reads `verification`, discovers scenario
-files under `verification/*/input`, and writes every supported deployment type
-to the matching `verification/*/output/<input-file-stem>` folder.
+Run `regen-verification` to regenerate checked-in verification outputs from the
+verification root. By default it runs in local mode, reads scenario files under
+`verification/local/input`, and writes every supported deployment type to the
+matching `verification/local/output/<input-file-stem>` folder.
 
 Currently this writes both `mise.toml` and `compose.yaml`. Future deployment
 types should be added to the shared supported output type list so
@@ -83,10 +116,18 @@ types should be added to the shared supported output type list so
 et-cli regen-verification
 ```
 
+Use published mode to regenerate only `verification/published`. Published
+verification regeneration requires `--edge-toolkit-path`:
+
+```bash
+et-cli regen-verification \
+  --mode published \
+  --edge-toolkit-path <edge-toolkit-path>
+```
+
 For example, `verification/local/input/facility-security-scenario.yaml`
-regenerates all deployment outputs into
-`verification/local/output/facility-security-scenario`, and a scenario under
-`verification/ci/input/...` would regenerate into `verification/ci/output/...`.
+regenerates local deployment outputs into
+`verification/local/output/facility-security-scenario`.
 
 ## Input YAML
 
@@ -113,6 +154,9 @@ Optional fields:
 
 - `deployment_type`: `mise` or `docker-compose`; defaults to `mise` when
   omitted.
+- `deployment_mode`: `local` or `published`; used by
+  `regen-verification` as a consistency check against the selected verification
+  set.
 
 The generated deployment config uses `agents[].resources[].type` values to
 decide which module directories to expose through `MODULES_PATHS`. It only
@@ -134,6 +178,26 @@ agents:
 
 If both are present, the command-line `--output-type` value wins over
 `deployment_type` in the input file.
+
+#### Notes on deployment_mode
+
+Verification scenario inputs can choose the generation mode with
+`deployment_mode`.
+
+```yaml
+cluster_name: example
+deployment_mode: published
+agents:
+  - name: camera
+    resources:
+      - type: face-detection
+```
+
+The `deployment_mode` field is used as a consistency check for
+`regen-verification`: scenarios under `verification/local/input` should say
+`deployment_mode: local`, and scenarios under `verification/published/input`
+should say `deployment_mode: published`. Run `regen-verification --mode
+published --edge-toolkit-path <path>` to regenerate published scenarios.
 
 ## Use Without Installing
 

@@ -89,6 +89,7 @@ Run an example demo scenario using et-cli
 ```bash
 cargo install --path utilities/cli --force
 et-cli generate-deployment \
+  --mode local \
   --input-file verification/local/input/facility-security-scenario.yaml \
   --output-dir verification/local/output/facility-security-scenario
 ```
@@ -113,6 +114,23 @@ et-cli generate-deployment \
 cd verification/local/output/facility-security-scenario
 docker compose up --build
 ```
+
+`et-cli generate-deployment` defaults to `--mode local`, which is intended for
+running inside the `core` source checkout. To generate deployments from an
+installed Edge Toolkit runtime bundle outside the repository, use
+`--mode published` and pass the bundle root with `--edge-toolkit-path`:
+
+```bash
+et-cli generate-deployment \
+  --mode published \
+  --edge-toolkit-path <edge-toolkit-path> \
+  --input-file ./facility-security-scenario.yaml \
+  --output-dir ./facility-security-scenario \
+  --output-type mise
+```
+
+In published mode, generated `mise` deployments run
+`<edge-toolkit-path>/target/release/et-ws-server` instead of `cargo run`.
 
 The generated scenario config only selects which prebuilt modules `ws-server`
 serves. Module builds are expected to be handled separately from the repository

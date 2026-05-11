@@ -1,15 +1,11 @@
 cluster_name: "facility-security-scenario"
 deployment_type: "mise"
-deployment_mode: "local"
+deployment_mode: "published"
 
 agents:
   - name: "entrance-security-camera"
     resources:
       - type: "face-detection"
-
-  - name: "hallway-security-camera"
-    resources:
-      - type: "pyface1"
 
   - name: "worker-health-tracker"
     resources:

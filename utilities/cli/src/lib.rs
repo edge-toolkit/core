@@ -16,6 +16,8 @@ pub use deployment_types::{
 };
 pub use module_package_json::generate_module_package_json;
 
+const DEFAULT_PUBLISHED_EDGE_TOOLKIT_PATH: &str = "../../libs/edge-toolkit";
+
 #[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum OutputType {
@@ -34,6 +36,69 @@ impl OutputType {
             Self::DockerCompose => "compose.yaml",
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
+pub enum DeploymentMode {
+    /// Run from the core source checkout.
+    #[default]
+    Local,
+    /// Run from an installed release bundle outside the core source checkout.
+    Published,
+}
+
+impl DeploymentMode {
+    const fn verification_set_name(self) -> &'static str {
+        match self {
+            Self::Local => "local",
+            Self::Published => "published",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeploymentOptions {
+    pub mode: DeploymentMode,
+    pub edge_toolkit_path: Option<PathBuf>,
+}
+
+impl Default for DeploymentOptions {
+    fn default() -> Self {
+        Self {
+            mode: DeploymentMode::Local,
+            edge_toolkit_path: None,
+        }
+    }
+}
+
+impl DeploymentOptions {
+    pub fn published_default_path() -> PathBuf {
+        PathBuf::from(DEFAULT_PUBLISHED_EDGE_TOOLKIT_PATH)
+    }
+
+    pub(crate) fn resolve(&self) -> Result<ResolvedDeploymentOptions> {
+        match self.mode {
+            DeploymentMode::Local => Ok(ResolvedDeploymentOptions {
+                mode: DeploymentMode::Local,
+                runtime_root: edge_toolkit::config::get_project_root(),
+            }),
+            DeploymentMode::Published => Ok(ResolvedDeploymentOptions {
+                mode: DeploymentMode::Published,
+                runtime_root: absolute_from(
+                    &std::env::current_dir()?,
+                    &self
+                        .edge_toolkit_path
+                        .clone()
+                        .unwrap_or_else(Self::published_default_path),
+                ),
+            }),
+        }
+    }
+}
+
+pub(crate) struct ResolvedDeploymentOptions {
+    pub mode: DeploymentMode,
+    pub runtime_root: PathBuf,
 }
 
 fn generated_output_files(output_types: &[OutputType]) -> Vec<&'static str> {
@@ -63,6 +128,11 @@ pub struct PackageJson {
     pub name: Option<String>,
     #[serde(default)]
     pub dependencies: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct ScenarioGenerationConfig {
+    deployment_mode: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -123,6 +193,15 @@ pub fn generate_deployment(
     output_dir: &Path,
     output_type: Option<OutputType>,
 ) -> Result<DeploymentSummary> {
+    generate_deployment_with_options(input_file, output_dir, output_type, &DeploymentOptions::default())
+}
+
+pub fn generate_deployment_with_options(
+    input_file: &Path,
+    output_dir: &Path,
+    output_type: Option<OutputType>,
+    options: &DeploymentOptions,
+) -> Result<DeploymentSummary> {
     let cluster = load_cluster_input(input_file)?;
     let output_type = output_type
         .map(Ok)
@@ -130,7 +209,7 @@ pub fn generate_deployment(
         .unwrap_or(Ok(OutputType::Mise))?;
 
     let module_names = cluster_module_names(&cluster);
-    generate_deployment_outputs(&cluster, output_dir, &[output_type])?;
+    generate_deployment_outputs(&cluster, output_dir, &[output_type], options)?;
 
     Ok(deployment_summary(
         cluster.cluster_name,
@@ -146,11 +225,32 @@ pub fn load_cluster_input(input_file: &Path) -> Result<ClusterInput> {
     serde_yaml::from_str(&content).with_context(|| "Failed to parse cluster input YAML")
 }
 
+fn load_scenario_generation_config(input_file: &Path) -> Result<ScenarioGenerationConfig> {
+    let content =
+        fs::read_to_string(input_file).with_context(|| format!("Failed to read input file: {:?}", input_file))?;
+
+    serde_yaml::from_str(&content).with_context(|| "Failed to parse scenario generation YAML")
+}
+
 pub fn regenerate_verification(
     verification_root: &Path,
     output_type: Option<OutputType>,
 ) -> Result<Vec<RegeneratedScenario>> {
-    let scenarios = discover_verification_scenarios(verification_root)?;
+    regenerate_verification_with_options(verification_root, output_type, &DeploymentOptions::default())
+}
+
+pub fn regenerate_verification_with_options(
+    verification_root: &Path,
+    output_type: Option<OutputType>,
+    options: &DeploymentOptions,
+) -> Result<Vec<RegeneratedScenario>> {
+    if options.mode == DeploymentMode::Published && options.edge_toolkit_path.is_none() {
+        return Err(anyhow!(
+            "Published verification regeneration requires --edge-toolkit-path <path>"
+        ));
+    }
+
+    let scenarios = discover_verification_scenarios(verification_root, options.mode)?;
 
     let mut regenerated = Vec::with_capacity(scenarios.len());
     let mut seen_output_dirs = BTreeSet::new();
@@ -164,12 +264,13 @@ pub fn regenerate_verification(
         }
         let cluster = load_cluster_input(&input_file)?;
         let module_names = cluster_module_names(&cluster);
+        validate_scenario_deployment_mode(&input_file, options.mode)?;
         let output_types = match &output_type {
             Some(output_type) => std::slice::from_ref(output_type),
             None => OutputType::ALL,
         };
 
-        generate_deployment_outputs(&cluster, &output_dir, output_types)?;
+        generate_deployment_outputs(&cluster, &output_dir, output_types, options)?;
         let summary = deployment_summary(cluster.cluster_name, cluster.agents.len(), module_names);
         regenerated.push(RegeneratedScenario {
             input_file,
@@ -179,6 +280,22 @@ pub fn regenerate_verification(
     }
 
     Ok(regenerated)
+}
+
+fn validate_scenario_deployment_mode(input_file: &Path, expected_mode: DeploymentMode) -> Result<()> {
+    let Some(deployment_mode) = load_scenario_generation_config(input_file)?.deployment_mode else {
+        return Ok(());
+    };
+    let actual_mode = deployment_mode_from_input(&deployment_mode)?;
+    if actual_mode != expected_mode {
+        return Err(anyhow!(
+            "Verification scenario {:?} has deployment_mode {:?}, but regen-verification is running in {:?} mode",
+            input_file,
+            deployment_mode,
+            expected_mode
+        ));
+    }
+    Ok(())
 }
 
 pub fn output_type_from_input(value: &str) -> Result<OutputType> {
@@ -194,6 +311,19 @@ pub fn output_type_from_input(value: &str) -> Result<OutputType> {
     }
 }
 
+pub fn deployment_mode_from_input(value: &str) -> Result<DeploymentMode> {
+    if value.eq_ignore_ascii_case("local") {
+        Ok(DeploymentMode::Local)
+    } else if value.eq_ignore_ascii_case("published") {
+        Ok(DeploymentMode::Published)
+    } else {
+        Err(anyhow!(
+            "Unsupported deployment_mode {:?}. Supported values are currently: local, published",
+            value
+        ))
+    }
+}
+
 fn deployment_summary(cluster_name: String, agent_templates: usize, module_names: Vec<String>) -> DeploymentSummary {
     DeploymentSummary {
         cluster_name,
@@ -202,7 +332,12 @@ fn deployment_summary(cluster_name: String, agent_templates: usize, module_names
     }
 }
 
-fn generate_deployment_outputs(cluster: &ClusterInput, output_dir: &Path, output_types: &[OutputType]) -> Result<()> {
+fn generate_deployment_outputs(
+    cluster: &ClusterInput,
+    output_dir: &Path,
+    output_types: &[OutputType],
+    options: &DeploymentOptions,
+) -> Result<()> {
     if !output_dir.exists() {
         fs::create_dir_all(output_dir)
             .with_context(|| format!("Failed to create output directory: {:?}", output_dir))?;
@@ -210,8 +345,8 @@ fn generate_deployment_outputs(cluster: &ClusterInput, output_dir: &Path, output
 
     for output_type in output_types {
         match output_type {
-            OutputType::Mise => generate_mise_deployment(cluster, output_dir)?,
-            OutputType::DockerCompose => generate_docker_compose_deployment(cluster, output_dir)?,
+            OutputType::Mise => generate_mise_deployment(cluster, output_dir, options)?,
+            OutputType::DockerCompose => generate_docker_compose_deployment(cluster, output_dir, options)?,
         }
     }
 
@@ -223,59 +358,46 @@ fn generate_deployment_outputs(cluster: &ClusterInput, output_dir: &Path, output
     Ok(())
 }
 
-fn discover_verification_scenarios(verification_root: &Path) -> Result<Vec<(PathBuf, PathBuf)>> {
+fn discover_verification_scenarios(
+    verification_root: &Path,
+    deployment_mode: DeploymentMode,
+) -> Result<Vec<(PathBuf, PathBuf)>> {
     let mut scenarios = Vec::new();
-    let verification_sets = fs::read_dir(verification_root)
-        .with_context(|| format!("Failed to read verification root directory: {:?}", verification_root))?;
-
-    for entry in verification_sets {
-        let entry = entry.with_context(|| format!("Failed to read entry from {:?}", verification_root))?;
-        let set_root = entry.path();
+    let set_root = verification_root.join(deployment_mode.verification_set_name());
+    let input_dir = set_root.join("input");
+    let output_root = set_root.join("output");
+    let entries = fs::read_dir(&input_dir)
+        .with_context(|| format!("Failed to read verification input directory: {:?}", input_dir))?;
+    for entry in entries {
+        let entry = entry.with_context(|| format!("Failed to read entry from {:?}", input_dir))?;
+        let path = entry.path();
         if !entry
             .file_type()
-            .with_context(|| format!("Failed to read file type for {:?}", set_root))?
-            .is_dir()
+            .with_context(|| format!("Failed to read file type for {:?}", path))?
+            .is_file()
         {
             continue;
         }
 
-        let input_dir = set_root.join("input");
-        let output_root = set_root.join("output");
-        if !input_dir.is_dir() {
+        let Some(extension) = path.extension().and_then(|ext| ext.to_str()) else {
+            continue;
+        };
+        if !matches!(extension, "yaml" | "yml") {
             continue;
         }
 
-        let entries = fs::read_dir(&input_dir)
-            .with_context(|| format!("Failed to read verification input directory: {:?}", input_dir))?;
-        for entry in entries {
-            let entry = entry.with_context(|| format!("Failed to read entry from {:?}", input_dir))?;
-            let path = entry.path();
-            if !entry
-                .file_type()
-                .with_context(|| format!("Failed to read file type for {:?}", path))?
-                .is_file()
-            {
-                continue;
-            }
-
-            let Some(extension) = path.extension().and_then(|ext| ext.to_str()) else {
-                continue;
-            };
-            if !matches!(extension, "yaml" | "yml") {
-                continue;
-            }
-
-            let Some(stem) = path.file_stem().map(PathBuf::from) else {
-                return Err(anyhow!("Verification input file {:?} has no file stem", path));
-            };
-            scenarios.push((path, output_root.join(stem)));
-        }
+        let Some(stem) = path.file_stem().map(PathBuf::from) else {
+            return Err(anyhow!("Verification input file {:?} has no file stem", path));
+        };
+        scenarios.push((path, output_root.join(stem)));
     }
 
     if scenarios.is_empty() {
         return Err(anyhow!(
-            "Verification root {:?} does not contain any scenario files under */input/*.yaml or */input/*.yml",
-            verification_root
+            "Verification root {:?} does not contain any scenario files under {}/input/*.yaml or {}/input/*.yml",
+            verification_root,
+            deployment_mode.verification_set_name(),
+            deployment_mode.verification_set_name()
         ));
     }
 
