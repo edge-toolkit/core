@@ -29,7 +29,7 @@ struct WsModule {
 
 #[derive(Deserialize)]
 struct Tool {
-    #[serde(rename = "ws-module")]
+    #[serde(rename = "ws-module", default)]
     ws_module: WsModule,
 }
 
