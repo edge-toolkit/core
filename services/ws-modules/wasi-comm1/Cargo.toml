@@ -4,6 +4,7 @@ description = "WASI Preview 2 port of the comm1 module — list-agents + broadca
 version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0 OR MIT"
+repository.workspace = true
 
 [lib]
 crate-type = ["cdylib"]

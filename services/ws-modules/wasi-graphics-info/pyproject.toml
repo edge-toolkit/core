@@ -6,6 +6,9 @@ name = "et-ws-wasi-graphics-info"
 requires-python = ">=3.10"
 version = "0.1.0"
 
+[project.urls]
+repository = "https://github.com/edge-toolkit/core"
+
 [build-system]
 build-backend = "uv_build"
 requires = ["uv_build>=0.10.2,<0.11.0"]

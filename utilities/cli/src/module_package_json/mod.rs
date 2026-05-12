@@ -12,6 +12,8 @@ struct Project {
     version: String,
     description: Option<String>,
     license: Option<String>,
+    #[serde(default)]
+    urls: BTreeMap<String, String>,
 }
 
 /// Shared shape of `[tool.ws-module]` (pyproject.toml) and
@@ -41,13 +43,16 @@ struct Pyproject {
 }
 
 #[derive(Deserialize)]
-struct CargoPackage {
-    package: CargoPackageMetadata,
+struct CargoToml {
+    package: Option<CargoPackageMetadata>,
+    workspace: Option<CargoWorkspace>,
 }
 
 #[derive(Deserialize)]
 struct CargoPackageMetadata {
     name: String,
+    version: Option<MaybeInherited>,
+    repository: Option<MaybeInherited>,
     metadata: Option<CargoMetadata>,
 }
 
@@ -55,6 +60,30 @@ struct CargoPackageMetadata {
 struct CargoMetadata {
     #[serde(rename = "ws-module")]
     ws_module: Option<WsModule>,
+}
+
+#[derive(Deserialize)]
+struct CargoWorkspace {
+    package: Option<WorkspacePackage>,
+}
+
+#[derive(Deserialize, Default)]
+struct WorkspacePackage {
+    version: Option<String>,
+    repository: Option<String>,
+}
+
+/// A Cargo `[package]` field that can be either a literal value
+/// (`version = "0.1.0"`) or inherited from the workspace
+/// (`version.workspace = true`).
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum MaybeInherited {
+    Direct(String),
+    Workspace {
+        #[allow(dead_code)]
+        workspace: bool,
+    },
 }
 
 pub fn generate_module_package_json(module_dir: &Path) -> Result<PathBuf> {
@@ -99,20 +128,38 @@ fn package_json_from_pyproject(module_dir: &Path) -> Result<Value> {
         ("license".to_string(), json!(p.license.as_deref().unwrap_or(""))),
         ("main".to_string(), json!(main)),
     ]);
+    if let Some(repo) = project_repository(&p.urls) {
+        pkg.insert("repository".to_string(), repository_json(repo));
+    }
     if !ws_module.dependencies.is_empty() {
         pkg.insert("dependencies".to_string(), json!(ws_module.dependencies));
     }
     Ok(Value::Object(pkg))
 }
 
+/// PEP 621 `[project.urls]` is a free-form map keyed by display name. The
+/// PyPI-recommended convention is to call the source-of-truth URL one of
+/// these (case-sensitive); we accept all of them.
+fn project_repository(urls: &BTreeMap<String, String>) -> Option<&str> {
+    ["Repository", "repository", "Source", "source"]
+        .iter()
+        .find_map(|key| urls.get(*key))
+        .map(String::as_str)
+}
+
 fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value> {
     let cargo_toml_path = module_dir.join("Cargo.toml");
     let cargo_toml_src = fs::read_to_string(&cargo_toml_path)
         .with_context(|| format!("Failed to read {}", cargo_toml_path.display()))?;
-    let cargo_toml: CargoPackage =
+    let cargo_toml: CargoToml =
         toml::from_str(&cargo_toml_src).with_context(|| format!("Failed to parse {}", cargo_toml_path.display()))?;
-    let crate_name = cargo_toml.package.name;
+    let package = cargo_toml
+        .package
+        .ok_or_else(|| anyhow!("{} has no [package] section", cargo_toml_path.display()))?;
+    let crate_name = package.name;
     let kind = detect_cargo_kind(&cargo_toml_src);
+    let workspace = find_workspace_package(module_dir)?;
+
     let mut pkg = read_package_json(out_path)?.unwrap_or_else(|| {
         let mut pkg = Map::new();
         pkg.insert("name".to_string(), json!(crate_name));
@@ -123,9 +170,18 @@ fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value> 
     if !pkg.contains_key("name") {
         pkg.insert("name".to_string(), json!(crate_name));
     }
+    if !pkg.contains_key("version") {
+        if let Some(version) = resolve_inherited(package.version.as_ref(), workspace.as_ref().and_then(|w| w.version.as_deref())) {
+            pkg.insert("version".to_string(), json!(version));
+        }
+    }
+    if !pkg.contains_key("repository") {
+        if let Some(repo) = resolve_inherited(package.repository.as_ref(), workspace.as_ref().and_then(|w| w.repository.as_deref())) {
+            pkg.insert("repository".to_string(), repository_json(&repo));
+        }
+    }
 
-    let ws_module = cargo_toml
-        .package
+    let ws_module = package
         .metadata
         .and_then(|metadata| metadata.ws_module)
         .unwrap_or_default();
@@ -149,6 +205,42 @@ fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value> 
     }
 
     Ok(Value::Object(pkg))
+}
+
+/// Resolve a `[package]` field that may be inherited from the workspace.
+/// `direct` is the value read from the crate's Cargo.toml; `workspace`
+/// is the corresponding `[workspace.package]` value (if any). Returns
+/// the literal direct value, or the workspace value when the crate
+/// declares `field.workspace = true`.
+fn resolve_inherited(direct: Option<&MaybeInherited>, workspace: Option<&str>) -> Option<String> {
+    match direct {
+        Some(MaybeInherited::Direct(s)) => Some(s.clone()),
+        Some(MaybeInherited::Workspace { .. }) => workspace.map(str::to_string),
+        None => None,
+    }
+}
+
+/// Walk parents of `start` looking for a Cargo.toml containing a
+/// `[workspace]` table; return its `[workspace.package]` if present.
+fn find_workspace_package(start: &Path) -> Result<Option<WorkspacePackage>> {
+    for dir in start.ancestors().skip(1) {
+        let cargo = dir.join("Cargo.toml");
+        if !cargo.is_file() {
+            continue;
+        }
+        let toml: CargoToml = read_toml(&cargo)?;
+        if let Some(ws) = toml.workspace {
+            return Ok(ws.package);
+        }
+    }
+    Ok(None)
+}
+
+/// npm's `repository` field accepts either a bare URL string or the
+/// object form. The object form matches what wasm-pack emits, so we use
+/// that for visual consistency across generated package.json files.
+fn repository_json(url: &str) -> Value {
+    json!({ "type": "git", "url": url })
 }
 
 /// Whether a module is built as a WASI Preview 2 component or as JS that

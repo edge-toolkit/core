@@ -54,7 +54,7 @@ export async function run() {
     client.connect();
     for (let i = 0; client.get_state() !== "connected" && i < 100; i++) await sleep(100);
     if (client.get_state() !== "connected") throw new Error("Timed out waiting for websocket connection");
-    log(`websocket connected with agent_id=${client.get_client_id()}`);
+    log(`websocket connected with agent_id=${client.get_agent_id()}`);
 
     stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
     const video = element("video-preview", HTMLVideoElement);

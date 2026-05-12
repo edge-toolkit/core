@@ -74,7 +74,7 @@ export async function run() {
 
   let agentId = "";
   for (let i = 0; i < 100; i++) {
-    agentId = client.get_client_id();
+    agentId = client.get_agent_id();
     if (agentId) break;
     await sleep(100);
     if (i === 99) throw new Error("Timeout waiting for agent_id");
