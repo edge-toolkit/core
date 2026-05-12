@@ -1,0 +1,11 @@
+backup/
+codegen.path-b-backup/
+codegen-mcunet/
+codegen-mbv2/
+codegen-proxyless/
+vendor/
+triplets/
+.model/
+.sample-pack-cache/
+pkg/demo/sample-pack/
+.tvm-macos/

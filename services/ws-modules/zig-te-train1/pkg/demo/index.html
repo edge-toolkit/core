@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>TinyEngine VWW Training Demo</title>
+    <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 16px;
+      background: #1a1a1a;
+      color: #eee;
+      font-family:
+        -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 17px;
+      line-height: 1.45;
+    }
+    h1 {
+      margin: 0 0 4px 0;
+      font-size: 22px;
+    }
+    .sub {
+      color: #888;
+      font-size: 14px;
+      margin: 0 0 16px 0;
+    }
+    .row {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .top-row {
+      display: grid;
+      grid-template-columns: minmax(360px, 1fr) minmax(320px, 1fr);
+      gap: 16px;
+      align-items: start;
+      min-width: 0;
+    }
+    .bottom-row {
+      display: grid;
+      grid-template-columns: 240px minmax(320px, 1fr);
+      gap: 16px;
+      align-items: start;
+      margin-top: 16px;
+      min-width: 0;
+    }
+    .panel {
+      background: #242424;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 12px;
+    }
+    .dataset-panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .dataset-panel {
+      min-width: 0;
+      height: var(--controls-panel-height, clamp(320px, 46vh, 560px));
+    }
+    .controls-panel {
+      min-width: 0;
+    }
+    .dataset-scroll {
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .dataset-scroll {
+      flex: 1;
+    }
+    @media (max-width: 860px) {
+      .top-row,
+      .bottom-row {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .dataset-panel {
+        height: var(--controls-panel-height, 360px);
+      }
+    }
+    .panel h2 {
+      margin: 0 0 8px 0;
+      font-size: 15px;
+      color: #ccc;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    button {
+      background: #2a5d2a;
+      color: #fff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 17px;
+    }
+    button:disabled {
+      background: #3a3a3a;
+      color: #777;
+      cursor: not-allowed;
+    }
+    button.secondary {
+      background: #2a4a6d;
+    }
+    button.warn {
+      background: #6d2a2a;
+    }
+    label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-right: 12px;
+      font-size: 16px;
+    }
+    input[type="number"] {
+      width: 60px;
+      background: #111;
+      color: #eee;
+      border: 1px solid #444;
+      padding: 4px 6px;
+      border-radius: 3px;
+      font-size: 16px;
+    }
+    input[type="file"], select {
+      max-width: 180px;
+      font-size: 16px;
+    }
+    .control-group {
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #333;
+    }
+    .control-group:last-child {
+      border-bottom: 0;
+    }
+    .control-title {
+      display: block;
+      margin-bottom: 6px;
+      color: #bbb;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .file-grid {
+      display: grid;
+      grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr);
+      gap: 6px 10px;
+    }
+    .file-grid label {
+      display: flex;
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 3px;
+      margin: 0;
+    }
+    .file-count {
+      color: #888;
+      font-size: 15px;
+    }
+    #gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, 96px);
+      gap: 6px;
+    }
+    #gallery .tile {
+      position: relative;
+      width: 96px;
+      height: 96px;
+      border: 2px solid #333;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    #gallery .tile canvas {
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+    }
+    #gallery .tile .lbl {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      font-size: 14px;
+      text-align: center;
+      padding: 1px 0;
+    }
+    #gallery .tile.correct {
+      border-color: #2a5d2a;
+    }
+    #gallery .tile.wrong {
+      border-color: #6d2a2a;
+    }
+    #gallery .tile.untouched {
+      border-color: #333;
+    }
+    #loss-curve, #sram-curve {
+      background: #111;
+      border-radius: 4px;
+    }
+
+    /* Live per-step training panel — ported from webapp/index.html */
+    #step-canvas {
+      width: 192px;
+      height: 192px;
+      background: #000;
+      border-radius: 6px;
+      image-rendering: pixelated;
+      display: block;
+    }
+    .step-labels {
+      display: flex;
+      gap: 12px;
+      align-items: baseline;
+      margin-top: 6px;
+      font-size: 16px;
+    }
+    .step-labels .k {
+      color: #888;
+    }
+    .step-labels .v {
+      font-weight: 600;
+    }
+    .pred-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin-top: 8px;
+    }
+    .bar-row {
+      display: grid;
+      grid-template-columns: 56px 1fr 46px;
+      gap: 6px;
+      align-items: center;
+      font-size: 15px;
+      font-family: ui-monospace, monospace;
+    }
+    .bar-label {
+      color: #ccc;
+    }
+    .bar-track {
+      height: 12px;
+      background: #2a2a2a;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      transition: width 0.15s;
+    }
+    .bar-pct {
+      color: #999;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    #log {
+      background: #111;
+      color: #9f9;
+      font-family: ui-monospace, monospace;
+      font-size: 15px;
+      padding: 8px;
+      border-radius: 4px;
+      height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0;
+    }
+    .metrics {
+      display: flex;
+      gap: 16px;
+      font-size: 16px;
+      color: #aaa;
+      margin-bottom: 6px;
+    }
+    .metric {
+      display: flex;
+      flex-direction: column;
+    }
+    .metric .v {
+      color: #fff;
+      font-size: 22px;
+      font-weight: 600;
+      font-family: ui-monospace, monospace;
+    }
+    .agent-status {
+      font-size: 13px;
+      color: #888;
+    }
+    .agent-status.ok {
+      color: #6fc06f;
+    }
+    .model-indicator {
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 10px;
+      padding: 3px 10px;
+      background: #2a4a6d;
+      color: #cce0ff;
+      border-radius: 999px;
+      font-size: 14px;
+      font-family: ui-monospace, monospace;
+      font-weight: normal;
+      letter-spacing: 0.02em;
+    }
+    </style>
+  </head>
+  <body>
+    <h1>
+      TinyEngine VWW Training Demo
+      <span
+        id="model-indicator"
+        class="model-indicator"
+        title="Backbone running in this demo (set by the floating UI's model dropdown)"
+      >…</span>
+    </h1>
+    <p class="sub">
+      Built on the TinyEngine sparse-update graph
+      (128×128 RGB input)
+    </p>
+    <p class="sub agent-status" id="agent-status">connecting wasm worker…</p>
+
+    <div class="row top-row">
+      <div class="panel dataset-panel">
+        <h2 id="dataset-title">Dataset</h2>
+        <p class="sub" id="dataset-summary" style="margin: 0 0 8px 0">
+          Class&nbsp;0 and Class&nbsp;1 are picked by the dataset selector.
+          Training items feed gradient; validation/test items are only inferred
+          at end-of-epoch. Validation/test tiles use a yellow dashed outline and
+          prefix <code>V</code>. Tile border:
+          <span style="color: #6fc06f">green</span> correct,
+          <span style="color: #d4a0a0">red</span> wrong.
+        </p>
+        <div class="dataset-scroll">
+          <div id="gallery"></div>
+        </div>
+      </div>
+      <div class="panel controls-panel">
+        <h2>Controls</h2>
+          <div class="control-group">
+            <span class="control-title">Task</span>
+            <label>Dataset
+              <select
+                id="cfg-dataset"
+                style="background: #111; color: #eee; border: 1px solid #444; border-radius: 3px; padding: 2px 4px"
+              >
+                <option value="person-vs-scene">person vs scene</option>
+                <option value="circle-vs-square">circle vs square</option>
+                <option value="vstripes-vs-hstripes">
+                  vertical vs horizontal stripes
+                </option>
+              </select>
+            </label>
+          </div>
+          <div class="control-group">
+            <span class="control-title">Synthetic data per class</span>
+            <label>Train <input
+                type="number"
+                id="cfg-synth-train"
+                value="20"
+                min="0"
+                max="500"
+              ></label>
+            <label>Validation <input
+                type="number"
+                id="cfg-synth-test"
+                value="5"
+                min="0"
+                max="500"
+              ></label>
+            <button
+              id="btn-load-sample-pack"
+              class="secondary"
+              title="Load the local gitignored person-vs-scene sample pack if it exists."
+            >
+              Load sample pack
+            </button>
+          </div>
+          <div class="control-group">
+            <span class="control-title">Upload training data</span>
+            <div class="file-grid">
+              <label><span id="upload-train-a-label">Class 0</span><input
+                  type="file"
+                  id="upload-train-a"
+                  accept="image/*"
+                  multiple
+                ><span class="file-count" id="upload-train-a-count"
+                >0 files</span></label>
+              <label><span id="upload-train-b-label">Class 1</span><input
+                  type="file"
+                  id="upload-train-b"
+                  accept="image/*"
+                  multiple
+                ><span class="file-count" id="upload-train-b-count"
+                >0 files</span></label>
+            </div>
+          </div>
+          <div class="control-group">
+            <span class="control-title">Upload validation/test data</span>
+            <div class="file-grid">
+              <label><span id="upload-test-a-label">Class 0</span><input
+                  type="file"
+                  id="upload-test-a"
+                  accept="image/*"
+                  multiple
+                ><span class="file-count" id="upload-test-a-count"
+                >0 files</span></label>
+              <label><span id="upload-test-b-label">Class 1</span><input
+                  type="file"
+                  id="upload-test-b"
+                  accept="image/*"
+                  multiple
+                ><span class="file-count" id="upload-test-b-count"
+                >0 files</span></label>
+            </div>
+          </div>
+          <div class="control-group">
+            <span class="control-title">Training</span>
+            <label>Epochs <input
+                type="number"
+                id="cfg-epochs"
+                value="20"
+                min="1"
+                max="200"
+              ></label>
+            <label>Seed <input
+                type="number"
+                id="cfg-seed"
+                value="42"
+                min="0"
+              ></label>
+            <br>
+            <label>Proto LR <input
+                type="number"
+                id="cfg-binary-lr"
+                value="0.005"
+                step="0.001"
+                min="0"
+                style="width: 90px"
+                title="Compatibility field for the fp32 prototype head. Prototype training uses running class means, so it does not need an aggressive learning rate."
+              ></label>
+            <!-- Hidden compatibility shims: the wasm's set_lr envelope still
+               accepts lr/blr keys from older UI code, but this demo only
+               exposes binary_lr. -->
+            <input type="hidden" id="cfg-lr" value="0">
+            <input type="hidden" id="cfg-blr" value="0">
+          </div>
+          <div style="margin-bottom: 12px">
+            <button id="btn-regenerate" class="secondary">
+              🔄 Regenerate dataset
+            </button>
+            <button id="btn-reset-model" class="secondary" disabled>
+              ↺ Reset model
+            </button>
+            <button id="btn-verify" class="secondary" disabled>
+              🔬 Verify input
+            </button>
+            <button
+              id="btn-extremes"
+              class="secondary"
+              disabled
+              title="Push solid-black and solid-white 128×128 frames through the backbone and compare logits/features."
+            >
+              Verify extremes
+            </button>
+            <button
+              id="btn-eval"
+              class="secondary"
+              disabled
+              title="Run inference on every held-out test sample and report per-class accuracy. Doesn't train, doesn't reset — useful for checking what the built-in pretrained head predicts before / after / instead of training."
+            >
+              📏 Evaluate test
+            </button>
+            <button id="btn-train" disabled>▶ Start training</button>
+            <button id="btn-stop" class="warn" disabled>⏹ Stop</button>
+          </div>
+          <div class="metrics">
+            <div class="metric">
+              <span>Epoch</span><span class="v" id="m-epoch">—</span>
+            </div>
+            <div class="metric">
+              <span>Step</span><span class="v" id="m-step">—</span>
+            </div>
+            <div class="metric">
+              <span>Acc</span><span class="v" id="m-acc">—</span>
+            </div>
+            <div class="metric">
+              <span>Avg loss</span><span class="v" id="m-loss">—</span>
+            </div>
+            <div class="metric">
+              <span>Peak SRAM</span><span class="v" id="m-sram">—</span>
+            </div>
+            <div class="metric">
+              <span>Arena used</span><span class="v" id="m-arena">—</span>
+            </div>
+          </div>
+          <label
+            style="display: block; font-size: 14px; color: #aaa; margin-bottom: 4px"
+          >Loss scale
+            <select
+              id="loss-scale"
+              style="background: #111; color: #eee; border: 1px solid #444; border-radius: 3px; padding: 2px 4px"
+            >
+              <option value="linear">linear</option>
+              <option value="log">log</option>
+            </select>
+          </label>
+          <canvas id="loss-curve" width="320" height="120"></canvas>
+          <canvas id="sram-curve" width="320" height="120"></canvas>
+      </div>
+    </div>
+
+    <div class="bottom-row">
+      <!-- Live per-step prediction panel — ports webapp/index.html's
+         preview-canvas + pred-bars block. Shows the sample the wasm just
+         trained on, with green/red border for correctness, the model's
+         softmax probabilities over the two VWW classes, and the live loss. -->
+      <div class="panel" style="min-width: 240px">
+        <h2>Current step</h2>
+        <canvas id="step-canvas" width="128" height="128"></canvas>
+        <div class="step-labels">
+          <span><span class="k">true</span> <span class="v" id="step-true"
+            >—</span></span>
+          <span><span class="k">pred</span> <span class="v" id="step-pred"
+            >—</span></span>
+          <span><span class="k">loss</span> <span class="v" id="step-loss"
+            >—</span></span>
+        </div>
+        <div class="pred-bars" id="pred-bars"></div>
+      </div>
+      <div class="panel" style="flex: 1">
+        <h2>Log</h2>
+        <pre id="log"></pre>
+      </div>
+    </div>
+
+    <script type="module" src="./app.js?v=dataset-height-sync-20260730"></script>
+  </body>
+</html>

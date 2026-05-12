@@ -1,0 +1,16 @@
+[workspace]
+channels = ["conda-forge"]
+name = "zig-te-train1-tvm-macos"
+platforms = ["osx-arm64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+python = "3.9.*"
+pip = "*"
+git = "*"
+cmake = ">=3.18"
+ninja = "*"
+llvmdev = "14.*"
+pkg-config = "*"

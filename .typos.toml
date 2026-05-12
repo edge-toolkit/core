@@ -1,0 +1,6 @@
+[default.extend-words]
+pathc = "pathc"
+sur = "sur"
+SUR = "SUR"
+unparseable = "unparseable"
+

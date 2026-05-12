@@ -1,0 +1,8 @@
+{
+  "name": "et-ws-zig-te-train1",
+  "type": "module",
+  "description": "TinyEngine MCUNetV3 VWW training agent (10-class, tutorial defaults)",
+  "version": "0.1.0",
+  "license": "Apache-2.0 or MIT",
+  "main": "et_ws_zig_te_train1.js"
+}

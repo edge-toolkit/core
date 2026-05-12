@@ -76,6 +76,7 @@ Languages:
   from `pkg/` as a static asset; the guest fetches it via the `storage` host import because
   componentize-py 0.23 doesn't bundle non-Python data files), then runs inference through ONNX
   Runtime via `wasi:nn/graph.load` + `inference.compute` and verifies the predicted class.
+- **Zig → WASM**: zig-data1, zig-te-train1
 
 ### Libraries (`libs/`)
 

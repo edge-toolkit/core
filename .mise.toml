@@ -84,6 +84,16 @@ ruff-fmt = "ruff format services/ws-modules/"
 zig-check = "zig fmt --check services/ws-modules/"
 zig-fmt = "zig fmt services/ws-modules/"
 
+[tasks.pull-zig-te-train1-vendor]
+description = "Refresh zig-te-train1 TinyEngine vendor sources from the pinned upstream snapshot"
+dir = "services/ws-modules/zig-te-train1"
+run = "mise run pull-vendor"
+
+[tasks.setup-ws-zig-te-train1-module]
+description = "Set up zig-te-train1: clone upstream, install Pixi env, regenerate triplets/codegen, and build"
+dir = "services/ws-modules/zig-te-train1"
+run = "mise run setup"
+
 [tasks.dotnet-fmt]
 description = "Format dotnet C# code"
 run = "dotnet format"
@@ -390,6 +400,11 @@ description = "Build the zig-data1 workflow WASM module"
 dir = "services/ws-modules/zig-data1"
 run = "zig build -Doptimize=ReleaseSmall"
 
+[tasks.build-ws-zig-te-train1-module]
+description = "Build the zig-te-train1 TinyEngine VWW training WASM module"
+dir = "services/ws-modules/zig-te-train1"
+run = "mise run setup-ws-zig-te-train1-module"
+
 [tasks.build-modules]
 depends = [
   "build-ws-audio1-module",
@@ -413,6 +428,7 @@ depends = [
   "build-ws-wasi-graphics-info-module",
   "build-ws-wasm-agent",
   "build-ws-zig-data1-module",
+  "build-ws-zig-te-train1-module",
 ]
 description = "Build all WebAssembly modules"
 

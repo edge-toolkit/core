@@ -1,0 +1,478 @@
+# ════════════════════════════════════════════════════════════════════════════
+# zig-te-train1 — mise tasks
+#
+# This project is mise-centric: all build/codegen/triplet logic lives here as
+# inline tasks (no standalone shell scripts). Tasks that use bash features
+# (arrays, pipefail) set `shell = "bash -c"` because mise's default shell is sh.
+#
+# Pipeline:
+#   setup:upstream → clone upstream repos into vendor/upstream/
+#   pull-vendor  → pull runtime vendor subset into vendor/{tinyengine,cmsis}
+#   env:create   → install the platform env for triplets/codegen
+#                  linux-64: locked Pixi env; osx-arm64: local TVM source build
+#   triplets:regen [model] → Stage 1: generate IR triplets from upstream
+#   codegen [model]        → Stage 2: emit codegen-MODEL/ from triplets
+#   build        → zig build → pkg/*.wasm
+#   setup:sample-pack → optional public COCO val2014 sample pack for pkg/demo/
+#   smoke        → headless verifier
+#   setup        → runs the whole chain in order
+#
+# Patches live in patches/{tinyengine,tiny-training}/ as separate WRAPPER files.
+# No file under vendor/upstream/ is ever modified.
+# ════════════════════════════════════════════════════════════════════════════
+
+[tools]
+pixi = "0.70.0"
+
+[tasks.pull-vendor]
+description = "Refresh TinyEngine runtime kernel sources from the pinned upstream snapshot"
+shell = "bash -c"
+run = """
+set -euo pipefail
+
+repo="https://github.com/mit-han-lab/tinyengine.git"
+commit="47bb283ce9d7e33c6fea623b3792726046dc9cfa"
+
+rm -rf vendor/cmsis vendor/tinyengine vendor/_pullstaging
+mkdir -p vendor
+git init --quiet vendor/_pullstaging
+git -C vendor/_pullstaging remote add origin "${repo}"
+git -C vendor/_pullstaging fetch --quiet --depth=1 --filter=blob:none origin "${commit}"
+
+git -C vendor/_pullstaging sparse-checkout init --cone
+git -C vendor/_pullstaging sparse-checkout set \
+  TinyEngine/include \
+  TinyEngine/src/kernels/fp_backward_op \
+  TinyEngine/src/kernels/fp_requantize_op \
+  TinyEngine/src/kernels/int_forward_op \
+  TinyEngine/third_party/CMSIS
+git -C vendor/_pullstaging checkout --quiet FETCH_HEAD
+git -C vendor/_pullstaging submodule update --init --depth=1 -- TinyEngine/third_party/CMSIS
+
+mkdir -p vendor/tinyengine/kernels vendor/cmsis
+cp -R vendor/_pullstaging/TinyEngine/include vendor/tinyengine/include
+cp -R vendor/_pullstaging/TinyEngine/src/kernels/fp_backward_op vendor/tinyengine/kernels/fp_backward_op
+cp -R vendor/_pullstaging/TinyEngine/src/kernels/fp_requantize_op vendor/tinyengine/kernels/fp_requantize_op
+cp -R vendor/_pullstaging/TinyEngine/src/kernels/int_forward_op vendor/tinyengine/kernels/int_forward_op
+cp -R vendor/_pullstaging/TinyEngine/third_party/CMSIS/CMSIS/Core vendor/cmsis/Core
+cp -R vendor/_pullstaging/TinyEngine/third_party/CMSIS/CMSIS/NN vendor/cmsis/NN
+rm -rf vendor/_pullstaging
+echo "── pull-vendor complete ───────────────────────────────────────────"
+"""
+
+# ── Stage 0: clone upstream ──────────────────────────────────────────────────
+# `pull-vendor` above only pulls the runtime kernel subset the Zig build links
+# against. `setup` clones the full upstream trees (code_generator/, examples/,
+# compilation/, assets/...) needed by the codegen + triplet pipeline.
+
+[tasks."setup:upstream"]
+description = "Clone full tinyengine + tiny-training repos into vendor/upstream/ (needed for codegen + triplets:regen)"
+shell = "bash -c"
+run = """
+set -euo pipefail
+mkdir -p vendor/upstream
+
+if [ ! -d vendor/upstream/tinyengine/.git ]; then
+  echo "→ cloning tinyengine into vendor/upstream/tinyengine"
+  git clone --depth=1 https://github.com/mit-han-lab/tinyengine.git vendor/upstream/tinyengine
+else
+  echo "✓ vendor/upstream/tinyengine already present (skipping clone)"
+fi
+
+if [ ! -d vendor/upstream/tiny-training/.git ]; then
+  echo "→ cloning tiny-training into vendor/upstream/tiny-training"
+  git clone --depth=1 https://github.com/mit-han-lab/tiny-training.git vendor/upstream/tiny-training
+else
+  echo "✓ vendor/upstream/tiny-training already present (skipping clone)"
+fi
+
+# The codegen task writes triplet inputs here before invoking the wrapper.
+mkdir -p vendor/upstream/tinyengine/assets
+echo "── setup complete ─────────────────────────────────────────────────"
+"""
+
+# ── Stage 0b: Python env for triplet/codegen regeneration ────────────────────
+
+[tasks."env:create"]
+description = "Install the platform Python env needed for triplets:regen and codegen"
+shell = "bash -c"
+usage = 'flag "--force" help="Reinstall the Pixi env even if it already exists"'
+run = '''
+set -euo pipefail
+force_arg=""
+if [ "{{flag(name="force")}}" = "true" ]; then
+  force_arg="--force"
+fi
+
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64)
+    mise run env:create:linux ${force_arg:+"$force_arg"}
+    ;;
+  Darwin-arm64)
+    mise run env:create:macos ${force_arg:+"$force_arg"}
+    ;;
+  *)
+    echo "✗ unsupported host for automatic env setup: $(uname -s)-$(uname -m)" >&2
+    echo "  Supported: linux-64 and osx-arm64. Or set PYTHON to a compatible env manually." >&2
+    exit 2
+    ;;
+esac
+'''
+
+[tasks."env:create:linux"]
+description = "Install the locked linux-64 Pixi env from pixi.lock"
+shell = "bash -c"
+usage = 'flag "--force" help="Reinstall the Pixi env even if it already exists"'
+run = '''
+set -euo pipefail
+if [ ! -f pixi.toml ]; then
+  echo "✗ pixi.toml not found" >&2; exit 2
+fi
+if [ ! -f pixi.lock ]; then
+  echo "✗ pixi.lock not found" >&2
+  echo "  Run 'pixi lock' after changing pixi.toml." >&2
+  exit 2
+fi
+
+if [ "{{flag(name="force")}}" = "true" ]; then
+  echo "→ reinstalling locked Pixi env"
+  pixi reinstall --locked
+else
+  echo "→ installing locked Pixi env"
+  pixi install --locked
+fi
+
+echo "→ verifying tvm + torch are importable"
+pixi run python -c "
+import tvm, torch, numpy
+print(f'  tvm     {tvm.__version__}')
+print(f'  torch   {torch.__version__}')
+print(f'  numpy   {numpy.__version__}')
+" || { echo "✗ Pixi env installed but tvm/torch imports failed" >&2; exit 3; }
+echo "── env:create:linux complete ──────────────────────────────────────"
+'''
+
+[tasks."env:create:macos"]
+description = "Build a local gitignored TVM env for native macOS arm64 without Homebrew"
+shell = "bash -c"
+usage = 'flag "--force" help="Delete and rebuild .tvm-macos"'
+run = '''
+set -euo pipefail
+if [ "$(uname -s)" != "Darwin" ] || [ "$(uname -m)" != "arm64" ]; then
+  echo "✗ env:create:macos only supports native macOS arm64" >&2
+  exit 2
+fi
+if [ ! -f tools/tvm-macos-env/pixi.toml ]; then
+  echo "✗ tools/tvm-macos-env/pixi.toml not found" >&2
+  exit 2
+fi
+if ! xcode-select -p >/dev/null 2>&1; then
+  echo "✗ Xcode Command Line Tools are required for the Apple compiler toolchain" >&2
+  echo "  Install them with: xcode-select --install" >&2
+  exit 2
+fi
+
+force_arg=""
+if [ "{{flag(name="force")}}" = "true" ]; then
+  force_arg="--force"
+fi
+
+(
+  cd tools/tvm-macos-env
+  pixi run python ../setup_tvm_macos.py --root ../../.tvm-macos ${force_arg:+"$force_arg"}
+)
+echo "── env:create:macos complete ──────────────────────────────────────"
+'''
+
+# ── Stage 1: triplet regeneration ────────────────────────────────────────────
+# linux-64 uses the locked apache-tvm wheel. osx-arm64 uses .tvm-macos/, which
+# builds TVM 0.11.1 from source because no matching macOS arm64 wheel exists.
+# The produced triplets are platform-independent (used by Stage 2 anywhere).
+#
+#   PYTHON     point at a python directly (takes precedence over Pixi/Conda)
+#   CONDA_ENV  optional fallback conda env (default: tiny-training)
+#   TINY_TRAINING_DIR  override the upstream clone (default: vendor/upstream/tiny-training)
+
+[tasks."triplets:regen"]
+description = "Stage 1: refresh triplets/MODEL/ from upstream tiny-training. MODEL=mcunet|mbv2|proxyless|all (default all). Needs apache-tvm."
+shell = "bash -c"
+usage = 'arg "<model>" help="mcunet|mbv2|proxyless|all" default="all"'
+run = '''
+set -euo pipefail
+MODEL="{{arg(name="model")}}"
+TINY_TRAINING_DIR="${TINY_TRAINING_DIR:-$PWD/vendor/upstream/tiny-training}"
+CONDA_ENV="${CONDA_ENV:-tiny-training}"
+
+if [ ! -d "$TINY_TRAINING_DIR" ]; then
+  echo "✗ TINY_TRAINING_DIR not found: $TINY_TRAINING_DIR" >&2
+  echo "  Run 'mise run setup:upstream' first." >&2; exit 2
+fi
+if [ ! -f "$TINY_TRAINING_DIR/compilation/mcu_ir_gen.py" ] || \
+   [ ! -f "$TINY_TRAINING_DIR/compilation/ir2json.py" ]; then
+  echo "✗ $TINY_TRAINING_DIR doesn't look like a tiny-training repo" >&2; exit 2
+fi
+
+if [ -n "${PYTHON:-}" ]; then
+  PY=("$PYTHON")
+elif [ "$(uname -s)-$(uname -m)" = "Darwin-arm64" ] && [ -x "$PWD/.tvm-macos/venv/bin/python" ]; then
+  export TVM_LIBRARY_PATH="$PWD/.tvm-macos/tvm/build"
+  export DYLD_LIBRARY_PATH="$PWD/.tvm-macos/tvm/build:${DYLD_LIBRARY_PATH:-}"
+  PY=("$PWD/.tvm-macos/venv/bin/python")
+elif [ "$(uname -s)-$(uname -m)" = "Darwin-arm64" ]; then
+  echo "✗ macOS TVM env not found at .tvm-macos/venv" >&2
+  echo "  Run 'mise run env:create' first, or set PYTHON to a compatible TVM env." >&2
+  exit 2
+elif command -v pixi >/dev/null 2>&1; then
+  PY=(pixi run python)
+elif command -v conda >/dev/null 2>&1; then
+  PY=(conda run --no-capture-output -n "$CONDA_ENV" python)
+else
+  echo "✗ no PYTHON set and neither pixi nor conda is on PATH. Stage 1 needs python 3.9 + apache-tvm." >&2
+  echo "  Run 'mise run env:create' or set PYTHON." >&2; exit 2
+fi
+
+case "$MODEL" in
+  all)                   MODELS=(mcunet mbv2 proxyless) ;;
+  mcunet|mbv2|proxyless) MODELS=("$MODEL") ;;
+  *) echo "✗ unknown model: $MODEL (expected mcunet|mbv2|proxyless|all)" >&2; exit 2 ;;
+esac
+
+failures=""
+for model in "${MODELS[@]}"; do
+  echo "── triplets:regen for $model ─────────────────────────────────────"
+  out_dir="triplets/$model"
+  mkdir -p "$out_dir"
+  TINY_TRAINING_DIR="$TINY_TRAINING_DIR" \
+  "${PY[@]}" patches/tiny-training/stage1_wrapper.py "$model" "$out_dir" \
+    || { failures="$failures $model:stage1_failed"; continue; }
+  for f in graph.json params.pkl scale.json; do
+    [ -s "$out_dir/$f" ] || { echo "✗ stage1 produced no $f for $model" >&2; failures="$failures $model:no_output_$f"; }
+  done
+  echo "✓ triplets/$model/ refreshed — run 'mise run codegen $model' next"
+done
+
+if [ -n "$failures" ]; then
+  echo "── triplets:regen complete with errors ──────────────────────────"
+  for f in $failures; do echo "  ✗ $f"; done
+  exit 3
+fi
+echo "── triplets:regen complete ─────────────────────────────────────────"
+'''
+
+# ── Stage 2: codegen ─────────────────────────────────────────────────────────
+#   PYTHON     point at a python directly (takes precedence over Pixi/Conda)
+#   CONDA_ENV  optional fallback conda env (default: tinyengine)
+#   TINYENGINE_DIR  override the upstream clone (default: vendor/upstream/tinyengine)
+
+[tasks.codegen]
+description = "Stage 2: regenerate codegen-MODEL/ from triplets/MODEL/. MODEL=mcunet|mbv2|proxyless|all (default all)."
+shell = "bash -c"
+usage = 'arg "<model>" help="mcunet|mbv2|proxyless|all" default="all"'
+run = '''
+set -euo pipefail
+MODEL="{{arg(name="model")}}"
+TINYENGINE_DIR="${TINYENGINE_DIR:-$PWD/vendor/upstream/tinyengine}"
+CONDA_ENV="${CONDA_ENV:-tinyengine}"
+
+if [ ! -d "$TINYENGINE_DIR" ]; then
+  echo "✗ TINYENGINE_DIR not found: $TINYENGINE_DIR" >&2
+  echo "  Run 'mise run setup:upstream' first." >&2; exit 2
+fi
+
+if [ -n "${PYTHON:-}" ]; then
+  PY=("$PYTHON")
+elif [ "$(uname -s)-$(uname -m)" = "Darwin-arm64" ] && [ -x "$PWD/.tvm-macos/venv/bin/python" ]; then
+  export TVM_LIBRARY_PATH="$PWD/.tvm-macos/tvm/build"
+  export DYLD_LIBRARY_PATH="$PWD/.tvm-macos/tvm/build:${DYLD_LIBRARY_PATH:-}"
+  PY=("$PWD/.tvm-macos/venv/bin/python")
+elif [ "$(uname -s)-$(uname -m)" = "Darwin-arm64" ]; then
+  echo "✗ macOS Python env not found at .tvm-macos/venv" >&2
+  echo "  Run 'mise run env:create' first, or set PYTHON to a compatible env." >&2
+  exit 2
+elif command -v pixi >/dev/null 2>&1; then
+  PY=(pixi run python)
+elif command -v conda >/dev/null 2>&1; then
+  PY=(conda run --no-capture-output -n "$CONDA_ENV" python)
+else
+  echo "✗ no PYTHON set and neither pixi nor conda is on PATH." >&2
+  echo "  Run 'mise run env:create', install conda + the '$CONDA_ENV' env, or set PYTHON." >&2; exit 2
+fi
+
+case "$MODEL" in
+  all)                   MODELS=(mcunet mbv2 proxyless) ;;
+  mcunet|mbv2|proxyless) MODELS=("$MODEL") ;;
+  *) echo "✗ unknown model: $MODEL (expected mcunet|mbv2|proxyless|all)" >&2; exit 2 ;;
+esac
+
+failures=""
+for model in "${MODELS[@]}"; do
+  echo "── codegen for $model ────────────────────────────────────────────"
+  src="triplets/$model"
+  if [ ! -f "$src/graph.json" ] || [ ! -f "$src/params.pkl" ] || [ ! -f "$src/scale.json" ]; then
+    echo "✗ missing triplet for $model in $src/" >&2
+    echo "  Regenerate with 'mise run triplets:regen $model'." >&2
+    failures="$failures $model:missing_triplet"; continue
+  fi
+
+  cp "$src/graph.json"  "$TINYENGINE_DIR/assets/49kb-int8-graph.json"
+  cp "$src/params.pkl"  "$TINYENGINE_DIR/assets/full-int8-params.pkl"
+  cp "$src/scale.json"  "$TINYENGINE_DIR/assets/scale.json"
+  rm -rf "$TINYENGINE_DIR/codegen"
+
+  TINYENGINE_DIR="$TINYENGINE_DIR" \
+  "${PY[@]}" patches/tinyengine/stage2_wrapper.py \
+      "$TINYENGINE_DIR/assets/49kb-int8-graph.json" \
+      "$TINYENGINE_DIR/assets/full-int8-params.pkl" \
+      "$TINYENGINE_DIR/assets/scale.json" \
+    || { failures="$failures $model:stage2_failed"; continue; }
+
+  if [ ! -f "$TINYENGINE_DIR/codegen/Source/genModel.c" ]; then
+    echo "✗ stage2 produced no codegen output for $model" >&2
+    failures="$failures $model:no_output"; continue
+  fi
+
+  rm -rf "codegen-$model"
+  cp -r "$TINYENGINE_DIR/codegen" "codegen-$model"
+
+  # Normalize tinyengine's PascalCase output dirs to lowercase (the rest of
+  # this project — build.zig, extract_snapshot.py — expects source/ + include/).
+  mv "codegen-$model/Source"  "codegen-$model/source"
+  mv "codegen-$model/Include" "codegen-$model/include"
+
+  "${PY[@]}" tools/extract_snapshot.py "$model" \
+    || { failures="$failures $model:snapshot_extract"; continue; }
+
+  "${PY[@]}" tools/compute_flash.py "$model" \
+    || { failures="$failures $model:flash_compute"; continue; }
+
+  # Inject helpers_prelude.c (extern prototypes) right after the last #include
+  # in genModel.c, then append helpers_block.c (te_* helpers) at the end. The
+  # prelude must precede the kernel call sites — placed after, C creates an
+  # implicit declaration on first call and our explicit prototype conflicts.
+  awk -v prelude_file="tools/helpers_prelude.c" '
+    BEGIN { injected = 0 }
+    /^#include / { last_include_line = NR }
+    { lines[NR] = $0 }
+    END {
+      for (i = 1; i <= NR; i++) {
+        print lines[i]
+        if (i == last_include_line && !injected) {
+          while ((getline line < prelude_file) > 0) print line
+          close(prelude_file)
+          injected = 1
+        }
+      }
+    }
+  ' "codegen-$model/source/genModel.c" > "codegen-$model/source/genModel.c.tmp"
+  mv "codegen-$model/source/genModel.c.tmp" "codegen-$model/source/genModel.c"
+  cat tools/helpers_block.c >> "codegen-$model/source/genModel.c"
+  echo "✓ codegen-$model/ ready"
+done
+
+if [ -n "$failures" ]; then
+  echo "── codegen complete with errors ─────────────────────────────────"
+  for f in $failures; do echo "  ✗ $f"; done
+  exit 3
+fi
+echo "── codegen complete ────────────────────────────────────────────────"
+'''
+
+# ── Build + verify ───────────────────────────────────────────────────────────
+
+[tasks.build]
+description = "Build the wasm artifacts in ReleaseSmall (depends on codegen-* dirs existing)"
+shell = "bash -c"
+run = '''
+set -euo pipefail
+
+if [ ! -f vendor/tinyengine/kernels/fp_backward_op/add_fp.c ] || \
+   [ ! -f vendor/cmsis/Core/Include/cmsis_compiler.h ] || \
+   [ ! -f vendor/cmsis/NN/Include/arm_nnfunctions.h ]; then
+  echo "→ runtime vendor subset missing; running pull-vendor"
+  mise run pull-vendor
+fi
+
+zig build -Doptimize=ReleaseSmall
+'''
+
+[tasks.smoke]
+description = "Run the Path C smoke verifier (checks pool max Δ > 1, sparse update fires)"
+run = "node tools/smoke_pathc.mjs pkg/et_ws_zig_te_train1-mcunet.wasm"
+
+[tasks."setup:sample-pack"]
+description = "Populate pkg/demo/sample-pack/ from public COCO val2014: 40+40 train and 10+10 validation images"
+shell = "bash -c"
+usage = '''
+flag "--force-download" help="Redownload COCO annotations/images even if .sample-pack-cache exists"
+arg "<seed>" help="Random seed for sampling" default="42"
+'''
+run = '''
+set -euo pipefail
+if [ ! -f pixi.toml ]; then
+  echo "✗ run this task from services/ws-modules/zig-te-train1" >&2; exit 2
+fi
+
+case "$(uname -s)-$(uname -m)" in
+  Darwin-arm64)
+    if [ ! -x "$PWD/.tvm-macos/venv/bin/python" ]; then
+      echo "→ macOS Python env missing; running env:create for Pillow"
+      mise run env:create
+    fi
+    ;;
+  *)
+    if [ ! -d .pixi ]; then
+      echo "→ Pixi env missing; running env:create for Pillow"
+      mise run env:create
+    fi
+    ;;
+esac
+
+force_download_arg=""
+if [ "{{flag(name="force-download")}}" = "true" ]; then
+  force_download_arg="--force-download"
+fi
+
+if [ "$(uname -s)-$(uname -m)" = "Darwin-arm64" ] && [ -x "$PWD/.tvm-macos/venv/bin/python" ]; then
+  PY=("$PWD/.tvm-macos/venv/bin/python")
+else
+  PY=(pixi run python)
+fi
+
+"${PY[@]}" tools/prepare_sample_pack.py \
+  --seed "{{arg(name="seed")}}" \
+  --train-person 40 \
+  --train-scene 40 \
+  --val-person 10 \
+  --val-scene 10 \
+  ${force_download_arg:+"$force_download_arg"}
+'''
+
+# ── One-shot: fresh checkout → working wasm ──────────────────────────────────
+
+[tasks.setup]
+description = "One-shot for a fresh checkout: setup → pull-vendor → env:create → triplets:regen → codegen → build (each step idempotent)"
+shell = "bash -c"
+run = '''
+set -euo pipefail
+echo "════ 1/6: clone upstream ═══════════════════════════════════════════"
+mise run setup:upstream
+echo; echo "════ 2/6: pull runtime vendor subset ══════════════════════════════"
+mise run pull-vendor
+echo; echo "════ 3/6: install Pixi env ════════════════════════════════════════"
+mise run env:create
+echo; echo "════ 4/6: regenerate triplets (Stage 1) ═══════════════════════════"
+mise run triplets:regen
+echo; echo "════ 5/6: regenerate codegen (Stage 2) ════════════════════════════"
+mise run codegen
+echo; echo "════ 6/6: build wasm artifacts ════════════════════════════════════"
+mise run build
+if [ "${WITH_SAMPLE_PACK:-0}" = "1" ]; then
+  echo; echo "════ optional: prepare COCO Demo sample pack ══════════════════════"
+  mise run setup:sample-pack
+else
+  echo; echo "Optional Demo sample pack: run 'mise run setup:sample-pack'"
+  echo "Or include it in setup with: WITH_SAMPLE_PACK=1 mise run setup"
+fi
+echo; echo "════ setup complete ════════════════════════════════════════════════"
+echo "Verify with: mise run smoke"
+'''

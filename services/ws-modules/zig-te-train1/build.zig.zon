@@ -1,0 +1,9 @@
+.{
+    .name = .et_ws_zig_te_train1,
+    .version = "0.1.0",
+    .description = "TinyEngine MCUNetV3 VWW training agent (10-class, tutorial defaults)",
+    .license = "Apache-2.0 or MIT",
+    .main = "et_ws_zig_te_train1.js",
+    .fingerprint = 0x1c9ebb96d7d35a71,
+    .paths = .{""},
+}

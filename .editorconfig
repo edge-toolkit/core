@@ -21,6 +21,15 @@ max_line_length = off
 [*.wit]
 max_line_length = 300
 
+# The zig-te-train1 module contains checked-in generated TinyEngine output,
+# vendored shims, and a local mise task file with upstream-style formatting.
+[services/ws-modules/zig-te-train1/**]
+indent_size = unset
+indent_style = unset
+max_line_length = unset
+trim_trailing_whitespace = unset
+insert_final_newline = unset
+
 # Binary file formats that should be ignored
 [*.onnx]
 charset = unset

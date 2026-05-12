@@ -5,6 +5,7 @@ target/
 .DS_Store
 services/ws-wasm-agent/pkg/
 services/ws-server/static/models/
+services/ws-modules/zig-te-train1/pkg/demo/sample-pack/
 .zig-cache/
 *.pem
 mprocs.log
