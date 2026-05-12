@@ -306,8 +306,10 @@ fn generated_readme(cluster: &ClusterInput, module_names: &[String], output_type
             .collect::<Vec<_>>()
             .join(", ");
         format!(
-            "This directory contains generated deployment configs for the `{}` scenario.\n\
-Files: {}.",
+            concat!(
+                "This directory contains generated deployment configs for the `{}` scenario.\n",
+                "Files: {}.",
+            ),
             cluster.cluster_name, output_files
         )
     };
@@ -318,10 +320,12 @@ Files: {}.",
         .join("\n");
 
     format!(
-        "# {name}\n\n\
-{output_summary}\n\n\
-{module_summary}\n\n\
-{run_instructions}",
+        concat!(
+            "# {name}\n\n",
+            "{output_summary}\n\n",
+            "{module_summary}\n\n",
+            "{run_instructions}",
+        ),
         name = cluster.cluster_name,
         output_summary = output_summary,
         module_summary = module_summary,

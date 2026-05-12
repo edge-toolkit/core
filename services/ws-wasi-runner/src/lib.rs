@@ -118,10 +118,6 @@ pub fn derive_http_base(ws_url: &str) -> Option<String> {
 /// Where to find the .wasm component for a given module.
 ///
 /// Resolved against `package.json`'s `main` field as served by the ws-server.
-/// Browser modules and WASI components share the same field — for WASI
-/// modules, et-cli takes `[tool.ws-module] wasi-main` (Python) or
-/// `[package.metadata.ws-module] wasi-main` (Rust) and writes it as `main`,
-/// so the runner doesn't need a WASI-specific lookup.
 async fn resolve_component_url(http_base: &str, module_name: &str) -> Result<String, RunnerError> {
     let pkg_url = format!("{http_base}/modules/{module_name}/package.json");
     let pkg: serde_json::Value = inject_traceparent(reqwest::Client::new().get(&pkg_url))

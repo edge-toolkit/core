@@ -1,5 +1,6 @@
 [tools]
 action-validator = "latest"
+"cargo:ast-grep" = "latest"
 cargo-binstall = "latest"
 "cargo:aube" = "latest"
 "cargo:taplo-cli" = "latest"
@@ -80,6 +81,7 @@ run = "dart format services/ws-modules/dart-comm1/"
 
 [tasks.check]
 depends = [
+  "ast-grep-check",
   "cargo-check",
   "cargo-clippy",
   "cargo-fmt-check",
@@ -94,6 +96,10 @@ depends = [
   "zig-check",
 ]
 description = "Run repository checks"
+
+[tasks.ast-grep-check]
+description = "Run ast-grep structural-search rules"
+run = "ast-grep scan --error -c config/ast-grep/sgconfig.yml"
 
 [tasks.cargo-check]
 run = "cargo check --workspace"

@@ -13,8 +13,3 @@ requires = ["uv_build>=0.10.2,<0.11.0"]
 [tool.uv.build-backend]
 module-name = "wasi_graphics_info"
 module-root = ""
-
-[tool.ws-module]
-# Where the generated WASI component lands in pkg/, so ws-wasi-runner can
-# fetch it via package.json's `wasi-main`.
-wasi-main = "et_ws_wasi_graphics_info.wasm"

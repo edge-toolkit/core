@@ -13,10 +13,12 @@
 //! resource — i.e. the runner's outgoing `traceparent` was extracted by
 //! the server's `TracingLogger`, so the two processes share a trace.
 //!
-//! The wasi-graphics-info module makes two HTTP calls (GET package.json,
-//! GET .wasm) before exiting, so even though the test only runs one
-//! module, we should see ≥2 server spans and ≥3 runner spans (the
-//! `run_module` parent + two child fetch spans) on a successful run.
+//! The wasi-data1 module makes two HTTP calls (GET package.json, GET
+//! .wasm) before exiting, so even though the test only runs one module,
+//! we should see ≥2 server spans and ≥3 runner spans (the `run_module`
+//! parent + two child fetch spans) on a successful run. It's used here
+//! instead of wasi-graphics-info because it's the cheapest WASI module
+//! to exercise — no wgpu / wasi-nn work.
 
 use std::collections::HashSet;
 use std::time::Duration;
@@ -50,7 +52,7 @@ fn trace_ids_propagate_between_runner_and_server() {
     //    `serde_env::from_env::<EnvConfig>()` call.
     let bin = env!("CARGO_BIN_EXE_et-ws-wasi-runner");
     let status = std::process::Command::new(bin)
-        .env("RUNNER_MODULE", "et-ws-wasi-graphics-info")
+        .env("RUNNER_MODULE", "et-ws-wasi-data1")
         .env("WS_SERVER_URL", &server.ws_url)
         .env("OTLP_COLLECTOR_URL", &mock.collector_url)
         .env("OTLP_PROTOCOL", "JSON")

@@ -1,0 +1,9 @@
+id: no-rust-line-continuation
+language: Rust
+severity: error
+message: |
+  Trailing backslash line-continuation is forbidden in Rust string literals.
+  Use `concat!("a", "b")` or a single long line instead.
+rule:
+  kind: string_literal
+  regex: '\\\n'
