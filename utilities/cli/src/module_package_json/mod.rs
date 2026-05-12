@@ -170,13 +170,15 @@ fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value> 
     if !pkg.contains_key("name") {
         pkg.insert("name".to_string(), json!(crate_name));
     }
+    let ws_version = workspace.as_ref().and_then(|w| w.version.as_deref());
+    let ws_repository = workspace.as_ref().and_then(|w| w.repository.as_deref());
     if !pkg.contains_key("version") {
-        if let Some(version) = resolve_inherited(package.version.as_ref(), workspace.as_ref().and_then(|w| w.version.as_deref())) {
+        if let Some(version) = resolve_inherited(package.version.as_ref(), ws_version) {
             pkg.insert("version".to_string(), json!(version));
         }
     }
     if !pkg.contains_key("repository") {
-        if let Some(repo) = resolve_inherited(package.repository.as_ref(), workspace.as_ref().and_then(|w| w.repository.as_deref())) {
+        if let Some(repo) = resolve_inherited(package.repository.as_ref(), ws_repository) {
             pkg.insert("repository".to_string(), repository_json(&repo));
         }
     }
