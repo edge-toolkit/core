@@ -17,6 +17,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install Mesa Vulkan drivers (lavapipe)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mesa-vulkan-drivers
+
       - name: Install mise
         uses: taiki-e/install-action@v2
         with:
@@ -31,6 +36,9 @@ jobs:
           mise install
         env:
           GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Fetch MNIST model
+        run: mise run fetch-mnist-rclone
 
       - name: Build WASM modules
         run: mise run build-modules

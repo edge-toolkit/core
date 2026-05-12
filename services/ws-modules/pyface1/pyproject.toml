@@ -14,9 +14,6 @@ requires = ["uv_build>=0.10.2,<0.11.0"]
 module-name = "pyface1"
 module-root = ""
 
-[tool.ws-module]
-js-main = "et_ws_pyface1.js"
-
 [tool.ws-module.dependencies]
 et-model-face1 = "*"
 onnxruntime-web = "*"

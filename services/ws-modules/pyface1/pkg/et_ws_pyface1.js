@@ -46,13 +46,15 @@ export async function run() {
   let state = null;
 
   try {
-    const { WsClient, WsClientConfig } = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
+    const wasmAgent = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
+    await wasmAgent.default();
+    const { WsClient, WsClientConfig } = wasmAgent;
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     client = new WsClient(new WsClientConfig(`${protocol}//${window.location.host}/ws`));
     client.connect();
     for (let i = 0; client.get_state() !== "connected" && i < 100; i++) await sleep(100);
     if (client.get_state() !== "connected") throw new Error("Timed out waiting for websocket connection");
-    log(`websocket connected with agent_id=${client.get_client_id()}`);
+    log(`websocket connected with agent_id=${client.get_agent_id()}`);
 
     stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
     const video = element("video-preview", HTMLVideoElement);

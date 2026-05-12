@@ -313,7 +313,7 @@ pub async fn run() -> Result<(), JsValue> {
         log("connecting websocket client")?;
         client.connect()?;
         wait_for_connected(&client).await?;
-        log(&format!("websocket connected with agent_id={}", client.get_client_id()))?;
+        log(&format!("websocket connected with agent_id={}", client.get_agent_id()))?;
 
         let mut sensors = DeviceSensors::new();
         log("starting har1 workflow")?;

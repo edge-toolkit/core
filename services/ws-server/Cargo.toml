@@ -6,29 +6,18 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-actix-rt = "2"
-actix-web = { version = "4", features = ["rustls-0_23"] }
+actix-rt.workspace = true
+actix-web.workspace = true
 chrono.workspace = true
 clap.workspace = true
-edge-toolkit = { path = "../../libs/edge-toolkit" }
+edge-toolkit.workspace = true
 et-modules-service = { path = "../modules" }
+et-otlp.workspace = true
 et-storage-service = { path = "../storage" }
 et-ws-service = { path = "../ws" }
 futures-util = "0.3"
-hostname = "0.4"
 local-ip-address = "0.6"
 log.workspace = true
-opentelemetry = "0.31"
-opentelemetry-appender-tracing = "0.31"
-opentelemetry-otlp = { version = "0.31", default-features = false, features = [
-  "http-json",
-  "http-proto",
-  "logs",
-  "metrics",
-  "reqwest-blocking-client",
-  "trace",
-] }
-opentelemetry_sdk = "0.31"
 qr2term = "0.3"
 rcgen = "0.14"
 regex = { version = "1.12", default-features = false }
@@ -42,12 +31,6 @@ serde_json.workspace = true
 serde_yaml = "0.9"
 tokio = { version = "1", features = ["full"] }
 tracing.workspace = true
-tracing-actix-web = { version = "0.7", default-features = false, features = [
-  "emit_event_on_error",
-  "opentelemetry_0_31",
-  "uuid_v7",
-] }
-tracing-log = "0.2"
-tracing-opentelemetry = "0.32"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-actix-web.workspace = true
+tracing-subscriber.workspace = true
 uuid.workspace = true

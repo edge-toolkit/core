@@ -1,0 +1,26 @@
+[package]
+name = "et-otlp"
+description = "Shared OTLP tracing setup for edge-toolkit services"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+edge-toolkit.workspace = true
+hostname = "0.4"
+log.workspace = true
+opentelemetry.workspace = true
+opentelemetry-appender-tracing = "0.31"
+opentelemetry-otlp = { version = "0.31", default-features = false, features = [
+  "http-json",
+  "http-proto",
+  "logs",
+  "reqwest-blocking-client",
+  "trace",
+] }
+opentelemetry_sdk = "0.31"
+tracing.workspace = true
+tracing-log = "0.2"
+tracing-opentelemetry.workspace = true
+tracing-subscriber.workspace = true

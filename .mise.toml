@@ -1,5 +1,6 @@
 [tools]
 action-validator = "latest"
+"cargo:ast-grep" = "latest"
 cargo-binstall = "latest"
 "cargo:aube" = "latest"
 "cargo:taplo-cli" = "latest"
@@ -21,22 +22,25 @@ gemini-cli = "latest"
 java = "latest"
 maven = "latest"
 mprocs = "latest"
+node = "22"
 "npm:onnxruntime-web" = "latest"
 "npm:pyodide" = "0.29.3"
 ollama = "latest"
 osv-scanner = "latest"
 pipx = "latest"
 "pipx:cmake" = "latest"
+"pipx:componentize-py" = "latest"
 "pipx:pytest" = "latest"
 protoc = "latest"
 rclone = "latest"
 ruff = "latest"
 rust = [
-  { version = "latest", components = "clippy", targets = "wasm32-unknown-unknown" },
-  { version = "nightly", components = "rust-src,rustfmt", targets = "wasm32-unknown-unknown" },
+  { version = "latest", components = "clippy,rust-analyzer", targets = "wasm32-unknown-unknown,wasm32-wasip2" },
+  { version = "nightly", components = "rust-src,rustfmt", targets = "wasm32-unknown-unknown,wasm32-wasip2" },
 ]
 typos = "latest"
 uv = "0.11.8"
+wasm-tools = "latest"
 yq = "latest"
 zig = "latest"
 
@@ -77,6 +81,7 @@ run = "dart format services/ws-modules/dart-comm1/"
 
 [tasks.check]
 depends = [
+  "ast-grep-check",
   "cargo-check",
   "cargo-clippy",
   "cargo-fmt-check",
@@ -92,6 +97,10 @@ depends = [
 ]
 description = "Run repository checks"
 
+[tasks.ast-grep-check]
+description = "Run ast-grep structural-search rules"
+run = "ast-grep scan --error -c config/ast-grep/sgconfig.yml"
+
 [tasks.cargo-check]
 run = "cargo check --workspace"
 
@@ -102,10 +111,10 @@ run = "cargo +nightly fmt"
 run = "cargo +nightly fmt -- --check"
 
 [tasks.cargo-clippy]
-run = "cargo clippy --workspace"
+run = "cargo clippy --workspace --tests"
 
 [tasks.cargo-clippy-fix]
-run = "cargo clippy --fix --allow-dirty --allow-staged --workspace"
+run = "cargo clippy --fix --allow-dirty --allow-staged --workspace --tests"
 
 [tasks.taplo-fmt]
 run = "taplo format"
@@ -138,6 +147,17 @@ run = "cargo run"
 [tasks.ws-server.env]
 OTLP_AUTH_PASSWORD = "1234"
 OTLP_AUTH_USERNAME = "root@example.com"
+
+[tasks.ws-wasi-runner]
+description = "Run the WebSocket WASI runner (set RUNNER_MODULE to a WASI module, e.g. wasi-graphics-info; set RUNNER_FEATURES=cuda on CUDA hosts)"
+dir = "services/ws-wasi-runner"
+run = """
+if [ -n "${RUNNER_FEATURES:-}" ]; then
+  cargo run --features "$RUNNER_FEATURES"
+else
+  cargo run
+fi
+"""
 
 [tasks.build-ws-wasm-agent]
 description = "Build the WebSocket WASM client"
@@ -230,6 +250,48 @@ PUBLISH=bin/Release/net10.0/publish/wwwroot/_framework
 cp "$PUBLISH"/*.js "$PUBLISH"/*.wasm "$PUBLISH"/*.dat pkg/
 '''
 
+[tasks.build-ws-wasi-graphics-info-module]
+description = "Build the WASI graphics-info Python module as a WASI Preview 2 component"
+dir = "services/ws-modules/wasi-graphics-info"
+# WIT lives once in services/ws-wasi-runner/wit/ - the runner's `runner`
+# world is what its bindgen consumes; the `module` world (which `include`s
+# `runner` and adds wasi-nn) is what guest modules target. `mnist-12.onnx`
+# is fetched into `pkg/` by `mise run download-models` (see
+# `fetch-mnist-rclone`); componentize-py 0.23 doesn't bundle arbitrary
+# data files inside the component image, so the guest fetches it via the
+# `wasi:keyvalue/store` host import from the ws-server at runtime.
+# componentize-py 0.23's `bindings` subcommand refuses to overwrite an
+# existing output dir, so we wipe it first.
+run = """
+rm -rf wit_world
+componentize-py -d ../../ws-wasi-runner/wit -w module bindings .
+componentize-py -d ../../ws-wasi-runner/wit -w module componentize wasi_graphics_info -o pkg/et_ws_wasi_graphics_info.wasm
+cargo run -p et-cli -- module-package-json
+"""
+
+[tasks.build-ws-wasi-data1-module]
+description = "Build the Rust WASI data1 module as a WASI Preview 2 component"
+# The crate is a regular workspace member but its lib body is gated on
+# `#![cfg(target_os = "wasi")]`, so cargo check from the host target gets
+# an empty cdylib while this task explicitly requests wasm32-wasip2. The
+# .wasm artifact lands in the workspace-shared `target/` and is then
+# copied into the module's pkg/ for et-modules-service to serve.
+run = """
+cargo build --release -p et-ws-wasi-data1 --target wasm32-wasip2
+mkdir -p services/ws-modules/wasi-data1/pkg
+cp target/wasm32-wasip2/release/et_ws_wasi_data1.wasm services/ws-modules/wasi-data1/pkg/et_ws_wasi_data1.wasm
+cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi-data1
+"""
+
+[tasks.build-ws-wasi-comm1-module]
+description = "Build the Rust WASI comm1 module as a WASI Preview 2 component"
+run = """
+cargo build --release -p et-ws-wasi-comm1 --target wasm32-wasip2
+mkdir -p services/ws-modules/wasi-comm1/pkg
+cp target/wasm32-wasip2/release/et_ws_wasi_comm1.wasm services/ws-modules/wasi-comm1/pkg/et_ws_wasi_comm1.wasm
+cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi-comm1
+"""
+
 [tasks.build-ws-pydata1-module]
 description = "Build the pydata1 Python workflow module"
 dir = "services/ws-modules/pydata1"
@@ -273,6 +335,9 @@ depends = [
   "build-ws-sensor1-module",
   "build-ws-speech-recognition-module",
   "build-ws-video1-module",
+  "build-ws-wasi-comm1-module",
+  "build-ws-wasi-data1-module",
+  "build-ws-wasi-graphics-info-module",
   "build-ws-wasm-agent",
   "build-ws-zig-data1-module",
 ]
@@ -319,8 +384,20 @@ run = """
         data/model-modules/model-har-motion1/pkg/har-motion1.onnx --http-url https://github.com --progress
 """
 
+[tasks.fetch-mnist-rclone]
+# MNIST classifier used by services/ws-modules/wasi-graphics-info to exercise
+# wasi-nn end-to-end. Sourced from the canonical ONNX Model Zoo; size 26143
+# bytes. Lands under the module's gitignored pkg/ so et-modules-service can
+# serve it statically alongside the .wasm.
+run = """
+    rclone copyto \
+        :http:onnx/models/raw/main/validated/vision/classification/mnist/model/mnist-12.onnx \
+        services/ws-modules/wasi-graphics-info/pkg/mnist-12.onnx \
+        --http-url https://github.com --progress
+"""
+
 [tasks.download-models]
-depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone"]
+depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "fetch-mnist-rclone"]
 
 [tasks.cargo-test]
 run = "cargo test --workspace"

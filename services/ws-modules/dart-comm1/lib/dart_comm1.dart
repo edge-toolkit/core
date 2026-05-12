@@ -15,7 +15,7 @@ extension type WsClient._(JSObject _) implements JSObject {
   // ignore: non_constant_identifier_names
   external String get_state();
   // ignore: non_constant_identifier_names
-  external String get_client_id();
+  external String get_agent_id();
   external void send(String message);
   // ignore: non_constant_identifier_names
   external void set_on_message(JSFunction callback);
@@ -70,7 +70,7 @@ Future<void> waitForConnected(WsClient client) async {
 
 Future<String> waitForAgentId(WsClient client) async {
   for (var i = 0; i < 100; i++) {
-    final id = client.get_client_id();
+    final id = client.get_agent_id();
     if (id.isNotEmpty) return id;
     await sleep(100);
   }

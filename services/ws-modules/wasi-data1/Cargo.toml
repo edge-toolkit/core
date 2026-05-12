@@ -1,0 +1,18 @@
+[package]
+name = "et-ws-wasi-data1"
+description = "WASI Preview 2 port of the data1 module — keyvalue store roundtrip"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0 OR MIT"
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+# Scope the wit-bindgen + serde_json deps to wasi targets so a host
+# `cargo check --workspace` doesn't pull them in. The lib body is gated
+# the same way (`#![cfg(target_os = "wasi")]` at the top of src/lib.rs),
+# so on the host target the crate compiles to an empty cdylib.
+[target.'cfg(target_os = "wasi")'.dependencies]
+serde_json = "1"
+wit-bindgen = "0.57"

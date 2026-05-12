@@ -9,9 +9,9 @@ repository.workspace = true
 actix-web = "4"
 actix-ws = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
-edge-toolkit = { path = "../../libs/edge-toolkit" }
+edge-toolkit.workspace = true
 futures-util = "0.3"
-opentelemetry = "0.31"
+opentelemetry.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml = "0.9"

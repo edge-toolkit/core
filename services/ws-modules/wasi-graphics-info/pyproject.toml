@@ -1,0 +1,18 @@
+[project]
+dependencies = []
+description = "Python graphics-info WASI component via componentize-py"
+license = "Apache-2.0 OR MIT"
+name = "et-ws-wasi-graphics-info"
+requires-python = ">=3.10"
+version = "0.1.0"
+
+[project.urls]
+repository = "https://github.com/edge-toolkit/core"
+
+[build-system]
+build-backend = "uv_build"
+requires = ["uv_build>=0.10.2,<0.11.0"]
+
+[tool.uv.build-backend]
+module-name = "wasi_graphics_info"
+module-root = ""

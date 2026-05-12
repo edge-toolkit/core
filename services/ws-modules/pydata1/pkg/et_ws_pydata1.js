@@ -41,7 +41,9 @@ export async function run() {
   const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
 
-  const { WsClient, WsClientConfig } = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
+  const wasmAgent = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
+  await wasmAgent.default();
+  const { WsClient, WsClientConfig } = wasmAgent;
   const client = new WsClient(new WsClientConfig(wsUrl));
 
   let responseResolvers = [];
@@ -72,7 +74,7 @@ export async function run() {
 
   let agentId = "";
   for (let i = 0; i < 100; i++) {
-    agentId = client.get_client_id();
+    agentId = client.get_agent_id();
     if (agentId) break;
     await sleep(100);
     if (i === 99) throw new Error("Timeout waiting for agent_id");

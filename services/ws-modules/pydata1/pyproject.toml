@@ -13,6 +13,3 @@ requires = ["uv_build>=0.10.2,<0.11.0"]
 [tool.uv.build-backend]
 module-name = "pydata1"
 module-root = ""
-
-[tool.ws-module]
-js-main = "et_ws_pydata1.js"
