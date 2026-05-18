@@ -20,6 +20,9 @@ Before installing dependencies, please install openssl development files.
 mise install
 ```
 
+It may be necessary to first run `mise install node`, so that `mise install` can use nodejs
+in order to install other tools.
+
 ## Contributing
 
 Use `mise run fmt` and `mise run check` to run formatters and checkers.

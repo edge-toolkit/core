@@ -1664,6 +1664,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "et-ws-pyo3-runner"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "edge-toolkit",
+ "et-ws-test-server",
+ "futures-util",
+ "pyo3",
+ "pyo3-build-config",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-tungstenite",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "et-ws-pyo3-split-learning-mit"
 version = "0.1.0"
 dependencies = [

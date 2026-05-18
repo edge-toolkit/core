@@ -1,0 +1,40 @@
+[package]
+name = "et-ws-pyo3-runner"
+description = "Generic edge-toolkit agent runtime that hosts a user-supplied Python module via PyO3"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "et_ws_pyo3_runner"
+path = "src/lib.rs"
+
+[[bin]]
+name = "et-ws-pyo3-runner"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+edge-toolkit.workspace = true
+futures-util = "0.3"
+# PyO3 0.28 supports CPython 3.14 (current versions of mise's Python envs).
+# `auto-initialize` spins up the embedded interpreter on first
+# `Python::attach`; we never call `Py_Initialize` ourselves.
+pyo3 = { version = "0.28", features = ["auto-initialize"] }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect"] }
+tracing.workspace = true
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[build-dependencies]
+# Same pyo3 release as the runtime dep so both halves resolve the
+# interpreter the same way.
+pyo3-build-config = "0.28"
+
+[dev-dependencies]
+base64.workspace = true
+et-ws-test-server = { path = "../ws-test-server" }

@@ -28,6 +28,7 @@ members = [
   "services/modules",
   "services/storage",
   "services/ws",
+  "services/ws-pyo3-runner",
   "services/ws-server",
   "services/ws-wasm-agent",
   "services/ws-wasi-runner",
