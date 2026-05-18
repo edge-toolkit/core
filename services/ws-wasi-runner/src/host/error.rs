@@ -100,3 +100,13 @@ impl<T, E: std::fmt::Display> WsDecodeErrExt<T> for Result<T, E> {
         self.map_err(|err| WsError::Decode(format!("{context}: {err}")))
     }
 }
+
+/// Transparent conversion so `et_ws_runner_common::connect_and_register`'s error
+/// cascades through `?` in `WsBackend::connect` -- no `.map_err` closure at the
+/// call site. `WsError` is WIT-generated, so this hand `From` impl stands in for
+/// a thiserror `#[from]`.
+impl From<et_ws_runner_common::ConnectError> for WsError {
+    fn from(err: et_ws_runner_common::ConnectError) -> Self {
+        Self::Transport(format!("ws connect/register: {err}"))
+    }
+}

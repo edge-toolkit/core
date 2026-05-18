@@ -5,11 +5,10 @@
     reason = "test code: setup failures and missing JSON fields should fail the test"
 )]
 
-use std::fs;
-
 use et_cli::{
     docker_image_module_paths, generate_deployment, module_package_json, regenerate_verification, scenario_module_paths,
 };
+use fs_err as fs;
 use tempfile::tempdir;
 
 #[test]

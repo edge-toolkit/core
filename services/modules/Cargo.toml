@@ -16,6 +16,7 @@ openapi-spec = ["dep:utoipa"]
 actix-files.workspace = true
 actix-web.workspace = true
 edge-toolkit.workspace = true
+fs-err.workspace = true
 serde.workspace = true
 serde-inline-default.workspace = true
 serde_default.workspace = true

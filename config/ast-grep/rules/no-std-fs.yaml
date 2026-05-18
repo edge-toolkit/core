@@ -1,0 +1,11 @@
+id: no-std-fs
+language: Rust
+severity: error
+message: |
+  `std::fs` is forbidden -- its `io::Error`s carry no path, so a failure
+  reads "No such file or directory" with no clue which file. Use `fs_err`
+  (`fs-err` workspace dep), whose drop-in wrappers attach the offending path
+  to every error. Import it as `use fs_err as fs;` and call `fs::read`,
+  `fs::write`, `fs::File::open`, etc., exactly as you would `std::fs`.
+rule:
+  pattern: std::fs

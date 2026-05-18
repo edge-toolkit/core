@@ -6,6 +6,10 @@
 "pipx:componentize-py" = "latest"
 "pipx:datamodel-code-generator" = { version = "latest", extras = "ruff" }
 "pipx:openapi-python-client" = "0.29.0"
+# PyTorch, for the et-ws-pyo3-runner `torch_inference` test. Python-only (not in
+# the always-loaded config) -- it's a large optional dependency, and the test
+# skips itself when torch isn't among the mise-installed packages on sys.path.
+"pipx:torch" = "latest"
 "pipx:pytest" = "latest"
 ruff = "latest"
 

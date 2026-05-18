@@ -12,17 +12,24 @@ doctest = false
 actix-web.workspace = true
 actix-ws.workspace = true
 bytes.workspace = true
+bytesize.workspace = true
 chrono.workspace = true
 edge-toolkit.workspace = true
 fs-err.workspace = true
 futures-util.workspace = true
 opentelemetry.workspace = true
 serde.workspace = true
+serde-inline-default.workspace = true
+serde_default.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
 tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
 tracing.workspace = true
 uuid.workspace = true
+
+[dev-dependencies]
+serde-env.workspace = true
+temp-env.workspace = true
 
 [lints]
 workspace = true

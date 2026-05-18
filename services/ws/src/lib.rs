@@ -12,12 +12,75 @@ use opentelemetry::{
     global,
     trace::{Span, Tracer as _},
 };
+use serde::Deserialize;
+use serde_default::DefaultFromSerde;
+use serde_inline_default::serde_inline_default;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-pub const CONNECTION_TIMEOUT: Duration = Duration::from_secs(15);
+/// Default idle timeout before the hub closes a quiet connection.
+pub const DEFAULT_CONNECTION_TIMEOUT: Duration = Duration::from_secs(15);
 pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
+
+/// Default max WebSocket frame size (64 MiB).
+///
+/// Large binary payloads fanned out via default broadcast (e.g. tensors)
+/// easily blow past actix-ws's 64 KiB default. Override via the
+/// `WS_MAX_FRAME_SIZE` env var, as a human byte size (`serde-env` translates
+/// `[ws] max_frame_size` to `WS_MAX_FRAME_SIZE`).
+pub const DEFAULT_MAX_FRAME_SIZE: usize = 64 * 1024 * 1024;
+
+/// Runtime knobs for the WebSocket hub. Populated by `serde-env` in
+/// `et-ws-server::main`, then handed to `configure`.
+#[serde_inline_default]
+#[derive(Clone, Debug, DefaultFromSerde, Deserialize)]
+#[non_exhaustive]
+pub struct WsConfig {
+    /// Largest single WebSocket frame the hub will accept. Frames above this
+    /// are dropped by actix-ws before they reach the handler, so callers
+    /// shipping big tensors / blobs need to raise it above their payload size.
+    /// `WS_MAX_FRAME_SIZE` takes a human byte size (e.g. `64MiB`, `64MB`,
+    /// `512KiB`) or a plain byte count; unset defaults to 64 MiB.
+    #[serde(default = "default_max_frame_size", deserialize_with = "deserialize_byte_size")]
+    pub max_frame_size: usize,
+
+    /// Idle period before the hub closes a connection, as a humantime
+    /// duration (e.g. `15s`, `1m30s`). Unset defaults to 15s;
+    /// `none`/`off`/`disabled` turns the idle timeout off (the hub never closes
+    /// a connection for inactivity), which suits a frontend that sits idle.
+    #[serde(
+        default = "default_connection_timeout",
+        deserialize_with = "edge_toolkit::config::deserialize_optional_humantime"
+    )]
+    pub connection_timeout: Option<Duration>,
+}
+
+const fn default_max_frame_size() -> usize {
+    DEFAULT_MAX_FRAME_SIZE
+}
+
+/// Parse `WS_MAX_FRAME_SIZE` as a human byte size (e.g. `64MiB`, `64MB`,
+/// `512KiB`) or a plain byte count, via `bytesize`.
+fn deserialize_byte_size<'de, D>(deserializer: D) -> Result<usize, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    // `bytesize`'s own `Deserialize` parses the human size ("64MiB", "512KiB",
+    // a bare byte count); its `D::Error` cascades through `?`, no `.map_err`.
+    // `usize::try_from` only narrows on 32-bit hosts, where clamping a frame
+    // cap to `usize::MAX` is harmless.
+    let size = <bytesize::ByteSize as serde::Deserialize>::deserialize(deserializer)?;
+    Ok(usize::try_from(size.as_u64()).unwrap_or(usize::MAX))
+}
+
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "serde default fn must return the field type Option<Duration>; the default is always Some"
+)]
+const fn default_connection_timeout() -> Option<Duration> {
+    Some(DEFAULT_CONNECTION_TIMEOUT)
+}
 
 /// Outbound envelope written to an agent's websocket session.
 ///
@@ -82,11 +145,19 @@ struct Connection {
     registry: WsAgentRegistry,
     session: Session,
     outbox: AgentSession,
+    /// Idle timeout for this connection, or `None` to never time out.
+    idle_timeout: Option<Duration>,
 }
 
 impl Connection {
     #[expect(clippy::single_call_fn, reason = "inherent constructor; used once by ws_handler")]
-    fn new(registry: WsAgentRegistry, client_ip: String, session: Session, outbox: AgentSession) -> Self {
+    fn new(
+        registry: WsAgentRegistry,
+        client_ip: String,
+        session: Session,
+        outbox: AgentSession,
+        idle_timeout: Option<Duration>,
+    ) -> Self {
         info!("New WebSocket connection for client IP {}", client_ip);
         Self {
             agent_id: None,
@@ -95,6 +166,7 @@ impl Connection {
             registry,
             session,
             outbox,
+            idle_timeout,
         }
     }
 
@@ -117,6 +189,23 @@ impl Connection {
                 .connect_agent(requested_id, new_id, &self.client_ip, self.outbox.clone());
         self.agent_id = Some(assigned_id.clone());
         (assigned_id, status)
+    }
+
+    /// This connection's agent id, auto-registering one on first use.
+    ///
+    /// A client that never sends `et-connect` -- e.g. a frontend that speaks
+    /// only its own protocol -- still joins the hub relay: its first
+    /// unrecognised frame implicitly registers the session, so the frame is
+    /// broadcast to the other agents and this client then receives the
+    /// relayed replies. et-protocol agents send `et-connect` first, so they
+    /// are already assigned by the time they relay and this is a no-op.
+    fn ensure_assigned_agent(&mut self) -> String {
+        if let Some(id) = self.assigned_agent_id() {
+            return id.to_string();
+        }
+        let (id, _status) = self.assign_or_reconnect_agent(None);
+        info!("Auto-registered relay client {} as agent {id}", self.client_ip);
+        id
     }
 
     async fn send_json(&mut self, response: &ServerMessage) {
@@ -286,14 +375,8 @@ impl Connection {
             }
             AggregatedMessage::Binary(bytes) => {
                 self.mark_activity();
-                if let Some(from_agent_id) = self.assigned_agent_id().map(str::to_string) {
-                    self.broadcast_raw_binary(&from_agent_id, &bytes);
-                } else {
-                    warn!(
-                        "Dropping binary frame from unassigned client {}: agent must connect first",
-                        self.client_ip
-                    );
-                }
+                let from_agent_id = self.ensure_assigned_agent();
+                self.broadcast_raw_binary(&from_agent_id, &bytes);
             }
             AggregatedMessage::Close(reason) => {
                 self.mark_activity();
@@ -491,14 +574,8 @@ impl Connection {
                             );
                         }
                         ClientMessage::RelayText { content } => {
-                            if let Some(from_agent_id) = self.assigned_agent_id().map(str::to_string) {
-                                self.broadcast_raw_text(&from_agent_id, &content);
-                            } else {
-                                warn!(
-                                    "Dropping relay-text from unassigned client {}: agent must connect first",
-                                    self.client_ip
-                                );
-                            }
+                            let from_agent_id = self.ensure_assigned_agent();
+                            self.broadcast_raw_text(&from_agent_id, &content);
                         }
                         ClientMessage::RelayBinary { content } => {
                             // A binary tungstenite frame is dispatched
@@ -507,14 +584,8 @@ impl Connection {
                             // `{"type":"et-relay-binary",...}` as a
                             // text frame, honour it by relaying the
                             // payload as a binary frame.
-                            if let Some(from_agent_id) = self.assigned_agent_id().map(str::to_string) {
-                                self.broadcast_raw_binary(&from_agent_id, &Bytes::from(content));
-                            } else {
-                                warn!(
-                                    "Dropping relay-binary from unassigned client {}: agent must connect first",
-                                    self.client_ip
-                                );
-                            }
+                            let from_agent_id = self.ensure_assigned_agent();
+                            self.broadcast_raw_binary(&from_agent_id, &Bytes::from(content));
                         }
                     },
                 }
@@ -569,20 +640,22 @@ impl Connection {
                     }
                 }
                 _ = heartbeat.tick() => {
-                    let idle_for = Instant::now().saturating_duration_since(self.last_activity);
-                    if idle_for > CONNECTION_TIMEOUT {
-                        warn!(
-                            "WebSocket connection timed out for client {} after {:?} of inactivity",
-                            self.current_agent_id(),
-                            idle_for
-                        );
-                        let _closed: Result<(), actix_ws::Closed> = self.session.clone().close(Some(CloseReason {
-                            code: CloseCode::Policy,
-                            description: Some(format!(
-                                "connection timed out after {CONNECTION_TIMEOUT:?} of inactivity"
-                            )),
-                        })).await;
-                        break;
+                    if let Some(timeout) = self.idle_timeout {
+                        let idle_for = Instant::now().saturating_duration_since(self.last_activity);
+                        if idle_for > timeout {
+                            warn!(
+                                "WebSocket connection timed out for client {} after {:?} of inactivity",
+                                self.current_agent_id(),
+                                idle_for
+                            );
+                            let _closed: Result<(), actix_ws::Closed> = self.session.clone().close(Some(CloseReason {
+                                code: CloseCode::Policy,
+                                description: Some(format!(
+                                    "connection timed out after {timeout:?} of inactivity"
+                                )),
+                            })).await;
+                            break;
+                        }
                     }
                 }
             }
@@ -608,6 +681,7 @@ pub async fn ws_handler(
     req: HttpRequest,
     body: web::Payload,
     registry: web::Data<WsAgentRegistry>,
+    config: web::Data<WsConfig>,
 ) -> Result<HttpResponse, Error> {
     let tracer = global::tracer("ws-server");
     let mut span = tracer.start("ws.connect");
@@ -623,10 +697,18 @@ pub async fn ws_handler(
         .unwrap_or_else(|| "unknown".to_string());
 
     let (response, session, msg_stream) = actix_ws::handle(&req, body)?;
-    let stream = msg_stream.max_frame_size(64 * 1024).aggregate_continuations();
+    let stream = msg_stream
+        .max_frame_size(config.max_frame_size)
+        .aggregate_continuations();
 
     let (tx, rx) = mpsc::unbounded_channel::<SessionMessage>();
-    let conn = Connection::new(registry.get_ref().clone(), client_ip, session, tx);
+    let conn = Connection::new(
+        registry.get_ref().clone(),
+        client_ip,
+        session,
+        tx,
+        config.connection_timeout,
+    );
 
     let _join = actix_web::rt::spawn(async move {
         conn.run(stream, rx).await;
@@ -636,6 +718,8 @@ pub async fn ws_handler(
     Ok(response)
 }
 
-pub fn configure(cfg: &mut web::ServiceConfig) {
-    let _routed = cfg.route("/ws", web::get().to(ws_handler));
+pub fn configure(cfg: &mut web::ServiceConfig, config: &WsConfig) {
+    let _routed = cfg
+        .app_data(web::Data::new(config.clone()))
+        .route("/ws", web::get().to(ws_handler));
 }

@@ -29,6 +29,7 @@ members = [
   "services/modules",
   "services/storage",
   "services/ws",
+  "services/ws-pyo3-runner",
   "services/ws-server",
   "services/ws-wasm-agent",
   "services/ws-wasi-runner",
@@ -53,6 +54,7 @@ asyncapi-rust = "0.2"
 base64 = "0.22.1"
 bytemuck = { version = "1.16", features = ["derive"] }
 bytes = "1"
+bytesize = { version = "2", features = ["serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive"] }
 deno_core = "0.402.0"
@@ -105,11 +107,18 @@ pretty_yaml = "0.6"
 prettyplease = "0.2"
 progenitor = "0.14"
 progenitor-client = "0.14"
+# `auto-initialize` starts the embedded CPython interpreter on first use; the
+# pyo3 runner never calls `Py_Initialize` itself.
+pyo3 = { version = "0.28", features = ["auto-initialize"] }
+# Build-script half of pyo3; kept on the same release so both resolve the
+# interpreter identically.
+pyo3-build-config = "0.28"
 qr2term = "0.3"
 quote = "1"
 rcgen = "0.14"
 regex = { version = "1.12", default-features = false }
 reqwest = { version = "0.13", default-features = false }
+retry-policies = "0.5"
 rstest = "0.26"
 rustls = "0.23"
 schemars = { version = "1.1", features = ["derive"] }

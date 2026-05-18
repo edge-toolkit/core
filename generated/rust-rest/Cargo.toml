@@ -33,8 +33,15 @@ tracing-opentelemetry = { workspace = true, optional = true }
 
 # `rustls` and `stream` are native-only — WASM reqwest dispatches via the
 # browser's `fetch()` and has no notion of a TLS stack.
+#
+# `retry-policies` + `tokio` back the generator-injected `ClientHooks::exec`
+# backoff retry (see `utilities/int-gen/src/openapi.rs::inject_retry_exec`).
+# Native-only: that hook is `#[cfg(not(wasm32))]`, and `tokio::time::sleep` /
+# `SystemTime` don't work under `wasm32-unknown-unknown`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 reqwest = { workspace = true, features = ["json", "query", "rustls", "stream"] }
+retry-policies.workspace = true
+tokio = { workspace = true, features = ["time"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 reqwest = { workspace = true, features = ["json"] }

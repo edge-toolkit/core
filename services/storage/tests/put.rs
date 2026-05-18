@@ -108,7 +108,7 @@ async fn writes_file_for_registered_agent() {
     let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), StatusCode::OK);
-    let written = std::fs::read(tmp.path().join("agent-1").join("payload.txt")).unwrap();
+    let written = fs_err::read(tmp.path().join("agent-1").join("payload.txt")).unwrap();
     assert_eq!(written, body);
 }
 
@@ -120,7 +120,7 @@ async fn surfaces_io_failure_as_500() {
     // `StorageError::Io` and the derived `ResponseError` impl returns 500.
     let tmp = tempfile::tempdir().unwrap();
     let blocker = tmp.path().join("blocker");
-    std::fs::write(&blocker, b"i am a file, not a directory").unwrap();
+    fs_err::write(&blocker, b"i am a file, not a directory").unwrap();
     let config = StorageConfig::new(blocker);
     let registry = registry_with_agent("agent-1");
     let app = test::init_service(

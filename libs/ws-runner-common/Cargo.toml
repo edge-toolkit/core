@@ -1,6 +1,6 @@
 [package]
 name = "et-ws-runner-common"
-description = "Shared helpers for the ws-module runners (et-ws-wasi-runner, et-ws-web-runner)"
+description = "Shared helpers + constants for the native ws-server agent runners"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
@@ -16,16 +16,20 @@ et-rest-client.workspace = true
 futures-util.workspace = true
 humantime-serde.workspace = true
 reqwest.workspace = true
+retry-policies.workspace = true
 serde.workspace = true
 serde-inline-default.workspace = true
 serde_default.workspace = true
 serde_json.workspace = true
 serde_path_to_error.workspace = true
 thiserror.workspace = true
+tokio = { workspace = true, features = ["time"] }
+tokio-tungstenite = { workspace = true, features = ["connect"] }
 tracing.workspace = true
 
 [dev-dependencies]
 serde-env.workspace = true
+temp-env.workspace = true
 
 [lints]
 workspace = true

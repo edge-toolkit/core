@@ -9,6 +9,8 @@
 //! standard web platform extensions (fetch, `WebSocket`, `WebStorage`, timers,
 //! crypto, WebGPU).
 
+use std::time::Duration;
+
 use et_ws_runner_common::{derive_http_base, fetch_main_field};
 
 pub mod config;
@@ -32,7 +34,7 @@ pub async fn run_module(module_name: &str, ws_url: &str) -> Result<(), RunnerErr
     let _ignore = deno_runtime::deno_tls::rustls::crypto::aws_lc_rs::default_provider().install_default();
     let http_base = derive_http_base(ws_url)?;
 
-    let rest = et_rest_client::Client::new(&http_base);
+    let rest = build_rest_client(&http_base)?;
     let main = fetch_main_field(&rest, module_name).await?;
 
     let module_base_url = format!("{http_base}/modules/{module_name}");
@@ -42,4 +44,41 @@ pub async fn run_module(module_name: &str, ws_url: &str) -> Result<(), RunnerErr
 
     runtime::run_js_module(&entry_url, &http_base, ws_url, rest).await?;
     Ok(())
+}
+
+/// Build the REST client with a reqwest retry policy that replays transport-
+/// level send failures.
+///
+/// The pooled keep-alive race: the ws-server can close an idle connection while
+/// the slow `MainWorker` bootstrap runs, so the next `send()` fails with "error
+/// sending request". reqwest's default `ProtocolNacks` policy does NOT cover
+/// this -- it only retries h2 `REFUSED_STREAM` / h3 timeouts, and we build
+/// reqwest without the `http2` feature, so it's a no-op for these h1 fetches.
+/// So classify any transport error (a send that produced no response) as
+/// retryable, scoped to the ws-server host, with no budget so the idempotent,
+/// low-volume module GETs always get their retry.
+#[expect(
+    clippy::single_call_fn,
+    clippy::result_large_err,
+    reason = "split out of run_module for readability; RunnerError::Common wraps a ~136 B BootstrapError"
+)]
+fn build_rest_client(http_base: &str) -> Result<et_rest_client::Client, RunnerError> {
+    let host = reqwest::Url::parse(http_base)
+        .ok()
+        .and_then(|url| url.host_str().map(str::to_owned))
+        .unwrap_or_default();
+    let retry = reqwest::retry::for_host(host).no_budget().classify_fn(|req_rep| {
+        if req_rep.error().is_some() {
+            req_rep.retryable()
+        } else {
+            req_rep.success()
+        }
+    });
+    let dur = Duration::from_secs(15);
+    let client = reqwest::Client::builder()
+        .connect_timeout(dur)
+        .timeout(dur)
+        .retry(retry)
+        .build()?;
+    Ok(et_rest_client::Client::new_with_client(http_base, client))
 }

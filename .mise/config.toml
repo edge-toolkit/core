@@ -56,6 +56,10 @@ osv-scanner = "latest"
 # `python -m pip install pipx` separately so the `pipx:*` entries below
 # still resolve through whatever pipx is already on PATH.
 pipx = { version = "latest", os = ["linux", "macos"] }
+# Pure-Python fixture for the et-ws-pyo3-runner `cowsay` test: proves a
+# mise-installed python package lands on the embedded interpreter's sys.path
+# (see `edge_toolkit::config::mise_python_site_packages`).
+"pipx:cowsay" = "latest"
 # semgrep lints Cargo.toml style (see `semgrep-check`), so it stays in the
 # always-loaded config alongside the other repo-wide linters.
 "pipx:semgrep" = "latest"

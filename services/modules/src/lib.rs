@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use actix_files::Files;
 use actix_web::web;
 use edge_toolkit::config::default_modules_folders;
+use fs_err as fs;
 use serde::Deserialize;
 use serde_default::DefaultFromSerde;
 use serde_inline_default::serde_inline_default;
@@ -30,7 +31,7 @@ impl ModulesConfig {
 }
 
 fn read_package_name(package_json: &std::path::Path) -> Option<String> {
-    let content = std::fs::read_to_string(package_json).ok()?;
+    let content = fs::read_to_string(package_json).ok()?;
     let value: serde_json::Value = serde_json::from_str(&content).ok()?;
     value.get("name")?.as_str().map(str::to_string)
 }
@@ -53,7 +54,7 @@ pub fn list_modules(config: &ModulesConfig) -> Vec<(String, PathBuf)> {
             if let Some(name) = name {
                 modules.push((name, path.clone()));
             }
-        } else if let Ok(entries) = std::fs::read_dir(path) {
+        } else if let Ok(entries) = fs::read_dir(path) {
             for entry in entries.flatten() {
                 // `Path::is_dir` follows symlinks; `entry.file_type().is_dir()`
                 // would skip them. mise's aube npm backend lays out

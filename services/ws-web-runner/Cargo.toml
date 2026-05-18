@@ -25,6 +25,10 @@ edge-toolkit.workspace = true
 et-rest-client = { workspace = true, features = ["tracing"] }
 et-ws-runner-common.workspace = true
 futures-util.workspace = true
+# Direct dep so we can configure the REST client's reqwest retry policy: the
+# default `ProtocolNacks` policy doesn't cover the HTTP/1 keep-alive race (see
+# lib.rs `build_rest_client`). Features match et-rest-client's native build.
+reqwest = { workspace = true, features = ["json", "query", "rustls", "stream"] }
 serde.workspace = true
 serde-env.workspace = true
 sys_traits.workspace = true
