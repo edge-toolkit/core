@@ -1,23 +1,32 @@
 """Split-learning server-side agent for `et-ws-pyo3-runner`.
 
-This is a port of the MIT split-learning-demo's `scripts/server.py` to the
-generic pyo3-runner contract:
+Port of the MIT split-learning-demo's `scripts/server.py` to the generic
+pyo3-runner contract:
 
-    state = init()
-    set_agent_id(state, agent_id)
-    reply = handle_binary(state, frame)   # per inbound binary frame
-    shutdown(state)
+    init(send)
+    on_connect(agent_id)
+    reply = on_binary_frame(frame)   # per inbound binary frame
+    on_shutdown()
+
+The model serves request/response (one inbound activations frame → one
+outbound grads / logits frame), so `on_binary_frame` uses reply-by-
+return for the actual training/inference response. The `send` argument
+is stashed in `_send` for completeness; a future enhancement (e.g.
+periodic loss telemetry, a "training_started" announcement) would push
+through it independently.
 
 The wire format (base64-encoded JSON envelope with base64-encoded tensor
 blobs inside `raw`) is decoded and encoded here in Python — the Rust
-runner only shuttles raw bytes. That keeps the runner agnostic and the
-demo protocol self-contained on the Python side.
+runner only shuttles raw bytes. State (model, optimizer, fabric handle)
+lives in module-level globals, mirroring the singleton-server model the
+demo's `server.py` already assumed.
 
 Configuration via environment variables (all optional):
 
   SPLIT_LEARNING_ONNX_PATH   — where to load/save server weights (ONNX).
-                               If the file exists it's loaded on init; if
-                               training happened, it's written on shutdown.
+                               If the file exists it's loaded on init;
+                               if training happened, it's written on
+                               shutdown.
   SPLIT_LEARNING_LEARNING_RATE
                              — SGD learning rate, default 1e-4
   SPLIT_LEARNING_ACCELERATOR — Lightning Fabric accelerator backend
@@ -34,20 +43,15 @@ To run end-to-end against et-ws-server:
 
 from __future__ import annotations
 
-import base64
-import json
 import logging
 import os
 from pathlib import Path
-from typing import Any
 
 import lightning as L
 import onnx
 import torch
 from onnx import numpy_helper
 from torch import nn
-
-import numpy as np
 
 # split_learning lives in the upstream demo's package — caller is expected
 # to put its `src/` on PYO3_AGENT_PYTHONPATH so this import resolves.
@@ -63,8 +67,24 @@ from split_learning.utils.serde import (
 _logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Weight load/save — straight port of the helpers in scripts/server.py.
+# --- module state ----------------------------------------------------------
+# `init()` populates these; every handler reads them. There's exactly one
+# split-learning server per process (it owns the weights file), so a
+# module-level singleton is the natural fit.
+
+_agent_id: str | None = None
+_send = None  # type: WsSender | None — kept for future push-style telemetry
+_fabric: L.Fabric | None = None
+_model: nn.Module | None = None
+_unwrapped_model: nn.Module | None = None
+_optimizer: torch.optim.Optimizer | None = None
+_criterion: nn.Module | None = None
+_onnx_path: Path | None = None
+_trained: bool = False
+
+
+# --- weight load/save — straight port of helpers in scripts/server.py ------
+
 
 def _load_onnx_weights(model: nn.Module, onnx_path: Path) -> list[str]:
     onnx_model = onnx.load(str(onnx_path))
@@ -105,66 +125,59 @@ def _export_onnx(model: nn.Module, onnx_path: Path, example_input: torch.Tensor)
         model.train(was_training)
 
 
-# ---------------------------------------------------------------------------
-# Runner contract.
+# --- runner hooks ----------------------------------------------------------
 
-def init() -> dict[str, Any]:
+
+def init(send) -> None:
     """Build the server-side split-learning model.
 
-    Returns the state dict carried through the rest of the lifecycle. The
-    `unwrapped_model` reference is preserved so `shutdown` can export the
-    untouched module — `fabric.setup` would otherwise wrap it and leak the
-    wrapper into the ONNX graph.
+    Reads config from env. `_unwrapped_model` is preserved so
+    `on_shutdown` can export the untouched module — `fabric.setup` wraps
+    it and would otherwise leak the wrapper into the saved ONNX graph.
     """
+    global _send, _fabric, _model, _unwrapped_model, _optimizer, _criterion, _onnx_path
+    _send = send
+
     learning_rate = float(os.environ.get("SPLIT_LEARNING_LEARNING_RATE", "1e-4"))
     accelerator = os.environ.get("SPLIT_LEARNING_ACCELERATOR", "auto")
     onnx_path_env = os.environ.get("SPLIT_LEARNING_ONNX_PATH")
-    onnx_path = Path(onnx_path_env) if onnx_path_env else None
+    _onnx_path = Path(onnx_path_env) if onnx_path_env else None
 
-    fabric = L.Fabric(accelerator=accelerator, precision="32-true")
-    fabric.launch()
+    _fabric = L.Fabric(accelerator=accelerator, precision="32-true")
+    _fabric.launch()
 
     backbone = CNN2D(in_channels=1, dim_out=10, img_size=28, dropout=0.15)
     model = CNN2DServer(in_channels=1, dim_out=10, img_size=28, model=backbone)
 
-    if onnx_path is not None and onnx_path.exists():
-        unmatched = _load_onnx_weights(model, onnx_path)
+    if _onnx_path is not None and _onnx_path.exists():
+        unmatched = _load_onnx_weights(model, _onnx_path)
         if unmatched:
             _logger.warning("ONNX weights not loaded for: %s", unmatched)
         else:
-            _logger.info("Loaded server weights from %s", onnx_path)
-    elif onnx_path is not None:
-        _logger.info("No server weights at %s; starting from random", onnx_path)
+            _logger.info("Loaded server weights from %s", _onnx_path)
+    elif _onnx_path is not None:
+        _logger.info("No server weights at %s; starting from random", _onnx_path)
     else:
         _logger.info("SPLIT_LEARNING_ONNX_PATH not set; starting from random; weights won't be saved")
 
-    unwrapped_model = model
+    _unwrapped_model = model
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
-    criterion = nn.CrossEntropyLoss()
-    model, optimizer = fabric.setup(model, optimizer)
-
-    return {
-        "agent_id": None,
-        "fabric": fabric,
-        "model": model,
-        "unwrapped_model": unwrapped_model,
-        "optimizer": optimizer,
-        "criterion": criterion,
-        "onnx_path": onnx_path,
-        "trained": False,
-    }
+    _criterion = nn.CrossEntropyLoss()
+    _model, _optimizer = _fabric.setup(model, optimizer)
 
 
-def set_agent_id(state: dict[str, Any], agent_id: str) -> None:
-    state["agent_id"] = agent_id
+def on_connect(agent_id: str) -> None:
+    global _agent_id
+    _agent_id = agent_id
     _logger.info("split-learning agent registered as %s", agent_id)
 
 
-def handle_binary(state: dict[str, Any], frame: bytes) -> bytes | None:
+def on_binary_frame(frame: bytes) -> bytes | None:
     """Process one binary frame from the demo client.
 
-    Frames are base64(utf8(json(WSMessage))) — same envelope server.py reads.
-    Returns the encoded response frame, or None for messages we don't act on.
+    Frames are base64(utf8(json(WSMessage))) — same envelope server.py
+    reads. Returns the encoded response frame, or None for messages we
+    don't act on.
     """
     try:
         message = decode_message_b64(frame)
@@ -173,56 +186,51 @@ def handle_binary(state: dict[str, Any], frame: bytes) -> bytes | None:
         return None
 
     if message.type == MessageType.ACTIVATIONS_AND_LABELS:
-        return _step_training(state, message)
+        return _step_training(message)
     if message.type == MessageType.ACTIVATIONS:
-        return _step_inference(state, message)
+        return _step_inference(message)
 
     _logger.debug("ignoring frame of type %s", message.type)
     return None
 
 
-def shutdown(state: dict[str, Any]) -> None:
+def on_shutdown() -> None:
     """Persist trained weights on disconnect — mirrors server.py's
     WebSocketDisconnect handler."""
-    if not state.get("trained"):
+    if not _trained:
         _logger.info("no training happened; skipping ONNX export")
         return
-    onnx_path = state.get("onnx_path")
-    if onnx_path is None:
+    if _onnx_path is None:
         _logger.warning("trained but SPLIT_LEARNING_ONNX_PATH unset; weights discarded")
         return
-    fabric = state["fabric"]
-    model = state["unwrapped_model"]
-    example_input = torch.zeros(1, 16, 7, 7, device=fabric.device)
-    _export_onnx(model, onnx_path, example_input)
-    _logger.info("saved trained server weights to %s", onnx_path)
+    assert _fabric is not None and _unwrapped_model is not None
+    example_input = torch.zeros(1, 16, 7, 7, device=_fabric.device)
+    _export_onnx(_unwrapped_model, _onnx_path, example_input)
+    _logger.info("saved trained server weights to %s", _onnx_path)
 
 
-# ---------------------------------------------------------------------------
-# Per-message step logic. Lifted from server.py but rewritten as pure
-# functions over `state` so we don't carry a global mutable session.
+# --- per-message step logic — lifted from server.py ------------------------
 
-def _step_training(state: dict[str, Any], message: WSMessage) -> bytes:
-    fabric = state["fabric"]
-    model = state["model"]
-    optimizer = state["optimizer"]
-    criterion = state["criterion"]
+
+def _step_training(message: WSMessage) -> bytes:
+    global _trained
+    assert _fabric is not None and _model is not None and _optimizer is not None and _criterion is not None
 
     activations = deserialize_tensor(message.raw["tensor"], dtype=torch.float32)
     labels = deserialize_tensor(message.raw["labels"], dtype=torch.int64)
 
-    activations = activations.to(fabric.device)
+    activations = activations.to(_fabric.device)
     activations = activations.reshape(*message.data["tensor_shape"])
-    labels = labels.to(fabric.device)
+    labels = labels.to(_fabric.device)
 
-    optimizer.zero_grad()
-    model.train()
-    state["trained"] = True
+    _optimizer.zero_grad()
+    _model.train()
+    _trained = True
     activations.requires_grad = True
-    outputs = model(activations)
-    loss = criterion(outputs, labels)
-    fabric.backward(loss)
-    optimizer.step()
+    outputs = _model(activations)
+    loss = _criterion(outputs, labels)
+    _fabric.backward(loss)
+    _optimizer.step()
 
     grads = activations.grad
     client_grads = grads.detach().clone()
@@ -235,17 +243,16 @@ def _step_training(state: dict[str, Any], message: WSMessage) -> bytes:
     return encode_message_b64(response)
 
 
-def _step_inference(state: dict[str, Any], message: WSMessage) -> bytes:
-    fabric = state["fabric"]
-    model = state["model"]
+def _step_inference(message: WSMessage) -> bytes:
+    assert _fabric is not None and _model is not None
 
     activations = deserialize_tensor(message.raw["tensor"], dtype=torch.float32)
-    activations = activations.to(fabric.device)
+    activations = activations.to(_fabric.device)
     activations = activations.reshape(*message.data["tensor_shape"])
 
-    model.eval()
+    _model.eval()
     with torch.no_grad():
-        outputs = model(activations)
+        outputs = _model(activations)
 
     logits = outputs.detach().clone()
     serialized = serialize_tensor(logits.cpu())
@@ -255,10 +262,3 @@ def _step_inference(state: dict[str, Any], message: WSMessage) -> bytes:
         raw={"tensor": serialized},
     )
     return encode_message_b64(response)
-
-
-# Silence unused-import warnings if static analysers ever scan this file;
-# `base64`, `json`, `np` are deliberately kept as they document the
-# transport assumptions even though the demo's serde helpers cover the
-# actual codec.
-_unused = (base64, json, np)

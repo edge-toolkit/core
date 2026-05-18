@@ -5,17 +5,27 @@ optional — if your module doesn't define it, the runner skips that hook.
 
 Lifecycle, in order:
 
-  state = init()                   # once, before the websocket connects
-  set_agent_id(state, agent_id)    # once, after et-connect-ack
-  handle_text(state, text)         # per inbound text frame the et hub didn't
+  init(send)                       # once, at startup; `send` is a WsSender
+  on_connect(agent_id)             # once, after et-connect-ack
+  on_text_frame(text)              # per inbound text frame the et hub didn't
                                    # recognise as a typed et-* WsMessage
-  handle_binary(state, frame)      # per inbound binary frame
-  shutdown(state)                  # once, after the websocket closes
+  on_binary_frame(frame)           # per inbound binary frame
+  on_shutdown()                    # once, after the websocket closes
 
-`handle_text` / `handle_binary` may return a `str` or `bytes` respectively to
-send a reply, or `None` for silence. The reply is sent as the same kind of
-frame the runner received; under the aligned et-ws-server protocol an
-unrecognised reply is default-broadcast back to every other connected agent.
+Two ways to emit outbound frames:
+
+* **Simple case (this file uses it):** return `str` from `on_text_frame`
+  or `bytes` from `on_binary_frame`. The runner sends that single frame
+  back. `return None` for silence.
+
+* **Fan-out case:** call `send.text(...)` / `send.binary(...)` any
+  number of times during a handler — or later from a background thread.
+  Both styles compose: anything you `send.*()` during a handler goes
+  out *before* the value you `return`, in submission order.
+
+State lives in module-level globals. The runner instantiates one copy
+per process, so this is the same as a singleton — no classes, no state
+threading across the FFI boundary.
 
 To use this module:
 
@@ -31,31 +41,44 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
+# --- module state ----------------------------------------------------------
 
-def init() -> dict:
-    """Build the agent state. Return any object — the runner treats it as
-    opaque and passes it back on every subsequent call."""
+_agent_id: str | None = None
+_send = None  # type: WsSender | None — stashed for fan-out, unused here
+_echoed: int = 0
+
+
+# --- runner hooks ----------------------------------------------------------
+
+
+def init(send) -> None:
+    """Stash the WsSender. Even modules that only use reply-by-return
+    should accept and keep `send` — it's how you'd push frames later
+    (e.g. from a background thread)."""
+    global _send
+    _send = send
     _logger.info("echo agent initialised")
-    return {"agent_id": None, "echoed": 0}
 
 
-def set_agent_id(state: dict, agent_id: str) -> None:
-    """Receive the agent_id assigned by et-ws-server."""
-    state["agent_id"] = agent_id
+def on_connect(agent_id: str) -> None:
+    global _agent_id
+    _agent_id = agent_id
     _logger.info("echo agent registered as %s", agent_id)
 
 
-def handle_text(state: dict, text: str) -> str | None:
-    """Echo the incoming text frame back verbatim."""
-    state["echoed"] += 1
+def on_text_frame(text: str) -> str | None:
+    """Echo the incoming text frame back verbatim (return-style)."""
+    global _echoed
+    _echoed += 1
     return text
 
 
-def handle_binary(state: dict, frame: bytes) -> bytes | None:
-    """Echo the incoming binary frame back verbatim."""
-    state["echoed"] += 1
+def on_binary_frame(frame: bytes) -> bytes | None:
+    """Echo the incoming binary frame back verbatim (return-style)."""
+    global _echoed
+    _echoed += 1
     return frame
 
 
-def shutdown(state: dict) -> None:
-    _logger.info("echo agent shutting down after %d frames", state["echoed"])
+def on_shutdown() -> None:
+    _logger.info("echo agent shutting down after %d frames", _echoed)

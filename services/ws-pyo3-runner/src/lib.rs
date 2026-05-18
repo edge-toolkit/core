@@ -5,8 +5,10 @@
 //!
 //! Everything that matters lives in Python — Rust just handles the
 //! WebSocket transport, the et-* registration handshake, and dispatch
-//! into `init` / `set_agent_id` / `handle_text` / `handle_binary` /
-//! `shutdown`. See `python/echo.py` for the contract.
+//! into `init` / `on_connect` / `on_text_frame` / `on_binary_frame` /
+//! `on_shutdown`. The user module owns its state via module-level
+//! globals; the runner never marshals state across the FFI boundary.
+//! See `python/echo.py` for the contract.
 
 pub mod agent;
 pub mod python;

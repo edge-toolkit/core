@@ -2,9 +2,11 @@
 //!
 //! Same handshake as `et-ws-wasi-runner`: send `et-connect`, wait for
 //! `et-connect-ack`, capture the assigned `agent_id`, and forward every
-//! inbound frame to the user's Python module. The runner deliberately
-//! makes no assumptions about the wire format — text and binary frames are
-//! passed through verbatim — so all encoding lives Python-side.
+//! inbound frame to the user's Python module. Frames the module wants
+//! to send go through a `WsSender` it received at `init()` time; the
+//! WS loop drains the channel in parallel with the inbound stream via
+//! `tokio::select!`, so Python can push frames whenever (during a
+//! handler, after, or from a background thread).
 
 use std::time::Duration;
 
@@ -12,10 +14,11 @@ use anyhow::{Context, Result, anyhow};
 use edge_toolkit::ws::{ConnectStatus, WsMessage};
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
+use tokio::sync::mpsc;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite};
 use tracing::{info, warn};
 
-use crate::python::Dispatcher;
+use crate::python::{Dispatcher, OutboundFrame, WsSender};
 
 /// How long we'll wait for the server's `et-connect-ack` before giving up.
 const CONNECT_ACK_TIMEOUT: Duration = Duration::from_secs(10);
@@ -25,29 +28,61 @@ pub struct AgentConfig {
     /// Optional `agent_id` to request on connect. `None` lets the server
     /// assign a fresh one.
     pub requested_agent_id: Option<String>,
-    pub dispatcher: Dispatcher,
 }
 
-pub async fn run(config: AgentConfig) -> Result<()> {
-    let AgentConfig {
-        ws_url,
-        requested_agent_id,
+pub struct InitializedAgent {
+    pub config: AgentConfig,
+    pub dispatcher: Dispatcher,
+    /// Reply-by-return path. `drive()` clones this each handler call so a
+    /// returned `bytes` / `str` lands on the same outbound queue Python's
+    /// `WsSender` writes to.
+    pub outbound_tx: mpsc::UnboundedSender<OutboundFrame>,
+    pub outbound_rx: mpsc::UnboundedReceiver<OutboundFrame>,
+}
+
+/// Build the outbound channel + Sender, then import the Python module.
+///
+/// The Sender is built first so it can be handed to the module's
+/// `init()` hook. The receiver stays with the caller — `run()` consumes
+/// it inside the WS loop.
+pub fn initialize(
+    module_name: &str,
+    python_path_extras: &[std::path::PathBuf],
+    config: AgentConfig,
+) -> Result<InitializedAgent> {
+    let (tx, rx) = mpsc::unbounded_channel::<OutboundFrame>();
+    let sender = WsSender::new(tx.clone());
+    let dispatcher = Dispatcher::import(module_name, python_path_extras, sender)
+        .map_err(|e| anyhow!("import python module `{module_name}`: {e}"))?;
+    Ok(InitializedAgent {
+        config,
         dispatcher,
-    } = config;
+        outbound_tx: tx,
+        outbound_rx: rx,
+    })
+}
 
-    info!("connecting to {ws_url}");
-    let (mut socket, _) = connect_async(&ws_url)
+pub async fn run(agent: InitializedAgent) -> Result<()> {
+    let InitializedAgent {
+        config,
+        dispatcher,
+        outbound_tx,
+        mut outbound_rx,
+    } = agent;
+
+    info!("connecting to {}", config.ws_url);
+    let (mut socket, _) = connect_async(&config.ws_url)
         .await
-        .with_context(|| format!("connect to {ws_url}"))?;
+        .with_context(|| format!("connect to {}", config.ws_url))?;
 
-    let agent_id = register(&mut socket, requested_agent_id).await?;
-    if let Err(err) = dispatcher.set_agent_id(&agent_id) {
-        warn!("set_agent_id hook failed: {err}");
+    let agent_id = register(&mut socket, config.requested_agent_id).await?;
+    if let Err(err) = dispatcher.on_connect(&agent_id) {
+        warn!("on_connect hook failed: {err}");
     }
 
-    let result = drive(&mut socket, &dispatcher).await;
-    if let Err(err) = dispatcher.shutdown() {
-        warn!("shutdown hook failed: {err}");
+    let result = drive(&mut socket, &dispatcher, &outbound_tx, &mut outbound_rx).await;
+    if let Err(err) = dispatcher.on_shutdown() {
+        warn!("on_shutdown hook failed: {err}");
     }
     let _ = socket.send(tungstenite::Message::Close(None)).await;
     result
@@ -92,40 +127,58 @@ async fn register(
     Ok(agent_id)
 }
 
-/// Inbound loop. Each frame is forwarded into Python; whatever the module
-/// returns (if anything) is sent back as the same kind of frame. Errors
-/// from Python don't terminate the connection — we log and continue.
-async fn drive(socket: &mut WebSocketStream<MaybeTlsStream<TcpStream>>, dispatcher: &Dispatcher) -> Result<()> {
-    while let Some(frame) = socket.next().await {
-        let frame = frame.context("ws recv")?;
-        match frame {
-            tungstenite::Message::Binary(bytes) => match dispatcher.handle_binary(&bytes) {
-                Ok(Some(reply)) => {
-                    socket
-                        .send(tungstenite::Message::Binary(reply.into()))
-                        .await
-                        .context("send binary reply")?;
+/// Drive the socket in both directions. Inbound frames go to Python;
+/// outbound frames Python pushed via `WsSender` come back through the
+/// channel and out to the socket. Python errors are logged but don't
+/// terminate the connection.
+async fn drive(
+    socket: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
+    dispatcher: &Dispatcher,
+    outbound_tx: &mpsc::UnboundedSender<OutboundFrame>,
+    outbound_rx: &mut mpsc::UnboundedReceiver<OutboundFrame>,
+) -> Result<()> {
+    loop {
+        tokio::select! {
+            // Inbound: read a frame from the server and dispatch to Python.
+            // Any reply the handler returns is appended to the same outbound
+            // queue Python pushes to via WsSender, so multi-send + reply
+            // compose in submission order.
+            frame = socket.next() => match frame {
+                Some(Ok(tungstenite::Message::Binary(bytes))) => {
+                    match dispatcher.on_binary_frame(&bytes) {
+                        Ok(Some(reply)) => {
+                            let _ = outbound_tx.send(OutboundFrame::Binary(reply));
+                        }
+                        Ok(None) => {}
+                        Err(err) => warn!("on_binary_frame raised: {err}"),
+                    }
                 }
-                Ok(None) => {}
-                Err(err) => warn!("handle_binary raised: {err}"),
-            },
-            tungstenite::Message::Text(text) => match dispatcher.handle_text(&text) {
-                Ok(Some(reply)) => {
-                    socket
-                        .send(tungstenite::Message::Text(reply.into()))
-                        .await
-                        .context("send text reply")?;
+                Some(Ok(tungstenite::Message::Text(text))) => {
+                    match dispatcher.on_text_frame(&text) {
+                        Ok(Some(reply)) => {
+                            let _ = outbound_tx.send(OutboundFrame::Text(reply));
+                        }
+                        Ok(None) => {}
+                        Err(err) => warn!("on_text_frame raised: {err}"),
+                    }
                 }
-                Ok(None) => {}
-                Err(err) => warn!("handle_text raised: {err}"),
+                Some(Ok(tungstenite::Message::Close(_))) => {
+                    info!("server closed connection");
+                    return Ok(());
+                }
+                Some(Ok(tungstenite::Message::Ping(_) | tungstenite::Message::Pong(_) | tungstenite::Message::Frame(_))) => {}
+                Some(Err(e)) => return Err(e).context("ws recv"),
+                None => return Ok(()),
             },
-            tungstenite::Message::Close(_) => {
-                info!("server closed connection");
-                return Ok(());
+            // Outbound: drain anything Python pushed via WsSender or via
+            // return-value replies enqueued above.
+            Some(out) = outbound_rx.recv() => {
+                let msg = match out {
+                    OutboundFrame::Text(text) => tungstenite::Message::Text(text.into()),
+                    OutboundFrame::Binary(bytes) => tungstenite::Message::Binary(bytes.into()),
+                };
+                socket.send(msg).await.context("send queued frame")?;
             }
-            tungstenite::Message::Ping(_) | tungstenite::Message::Pong(_) => {}
-            tungstenite::Message::Frame(_) => {}
         }
     }
-    Ok(())
 }

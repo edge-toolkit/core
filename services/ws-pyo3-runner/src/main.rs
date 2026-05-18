@@ -8,9 +8,8 @@
 
 use std::path::PathBuf;
 
-use anyhow::{Context, Result, anyhow};
-use et_ws_pyo3_runner::agent::{AgentConfig, run as run_agent};
-use et_ws_pyo3_runner::python::Dispatcher;
+use anyhow::{Result, anyhow};
+use et_ws_pyo3_runner::agent::{AgentConfig, initialize, run as run_agent};
 use tracing::info;
 
 fn parse_pythonpath(raw: &str) -> Vec<PathBuf> {
@@ -41,17 +40,17 @@ async fn main() -> Result<()> {
 
     info!("module={module_name} python_path={python_path:?} ws_url={ws_url}");
 
-    let dispatcher = Dispatcher::import(&module_name, &python_path)
-        .with_context(|| format!("import python module `{module_name}`"))?;
-
-    let config = AgentConfig {
-        ws_url,
-        requested_agent_id,
-        dispatcher,
-    };
+    let agent = initialize(
+        &module_name,
+        &python_path,
+        AgentConfig {
+            ws_url,
+            requested_agent_id,
+        },
+    )?;
 
     tokio::select! {
-        result = run_agent(config) => result,
+        result = run_agent(agent) => result,
         _ = tokio::signal::ctrl_c() => {
             info!("interrupted; shutting down");
             Ok(())
