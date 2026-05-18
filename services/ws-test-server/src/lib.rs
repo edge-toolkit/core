@@ -3,7 +3,7 @@ use std::net::TcpListener;
 use actix_web::{App, HttpServer, web};
 use et_modules_service::{ModulesConfig, configure as configure_modules};
 use et_storage_service::{StorageConfig, configure as configure_storage};
-use et_ws_service::{AgentSession, WsAgentRegistry, configure as configure_ws};
+use et_ws_service::{AgentSession, WsAgentRegistry, WsConfig, configure as configure_ws};
 use tempfile::TempDir;
 use tracing_actix_web::TracingLogger;
 
@@ -33,6 +33,7 @@ pub fn start() -> TestServer {
             let registry = web::Data::new(WsAgentRegistry::default());
             let storage = web::Data::new(storage_config);
             let modules = modules_config;
+            let ws_config = WsConfig::default();
             HttpServer::new(move || {
                 // `TracingLogger` mirrors the real ws-server's pipeline:
                 // extracts `traceparent` from incoming requests so server
@@ -41,7 +42,7 @@ pub fn start() -> TestServer {
                     .wrap(TracingLogger::default())
                     .app_data(registry.clone())
                     .app_data(storage.clone())
-                    .configure(configure_ws)
+                    .configure(|cfg| configure_ws(cfg, &ws_config))
                     .configure(|cfg| configure_storage::<AgentSession>(cfg, &storage))
                     .configure(|cfg| configure_modules(cfg, &modules))
             })

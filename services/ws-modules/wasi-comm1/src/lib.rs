@@ -5,9 +5,11 @@
 //! integration test only spins up a single runner, so the WASI port instead
 //! exercises the message round-trip with the server itself:
 //!   1. Connect and capture our agent_id.
-//!   2. Send `list_agents`, recv a `list_agents_response`, assert the list
-//!      contains our agent_id (we're at least in our own roster).
-//!   3. Send a `broadcast_message` (fire-and-forget when no peer is online).
+//!   2. Send `et-list-agents`, recv an `et-list-agents-response`, assert the
+//!      list contains our agent_id (we're at least in our own roster).
+//!   3. Send a default-broadcast frame (fire-and-forget when no peer is
+//!      online). Default broadcasts are just unrecognised JSON; the server
+//!      relays them as-is to other connected agents.
 //!   4. Disconnect cleanly.
 //!
 //! Wire-format messages are built with `serde_json::json!` and serialised
@@ -52,10 +54,10 @@ impl Guest for Component {
         let agent_id = wait_for_agent_id().ok_or_else(|| "did not receive agent_id".to_string())?;
         info(&format!("websocket connected with agent_id={agent_id}"));
 
-        send_message(&json!({ "type": "list_agents" }))?;
+        send_message(&json!({ "type": "et-list-agents" }))?;
 
-        let response = wait_for_message_kind("list_agents_response", LIST_AGENTS_TIMEOUT_MS)
-            .ok_or_else(|| "no list_agents_response within timeout".to_string())?;
+        let response = wait_for_message_kind("et-list-agents-response", LIST_AGENTS_TIMEOUT_MS)
+            .ok_or_else(|| "no et-list-agents-response within timeout".to_string())?;
         let agents = response
             .get("agents")
             .and_then(Value::as_array)
@@ -70,13 +72,12 @@ impl Guest for Component {
         }
         info("self present in roster");
 
+        // Default broadcast: any frame the server doesn't recognise as an
+        // et-typed WsMessage is fanned out to every other connected agent.
         send_message(&json!({
-            "type": "broadcast_message",
-            "message": {
-                "module": "wasi-comm1",
-                "from_agent_id": agent_id,
-                "message": "wasi-comm1 broadcast — likely peerless under the runner test",
-            }
+            "module": "wasi-comm1",
+            "from_agent_id": agent_id,
+            "message": "wasi-comm1 broadcast — likely peerless under the runner test",
         }))?;
         info("broadcast sent");
 

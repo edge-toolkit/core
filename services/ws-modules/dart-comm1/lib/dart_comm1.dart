@@ -90,7 +90,7 @@ Future<void> run() async {
       final data = raw.toDart;
       try {
         // Parse type field manually to avoid a JSON dep
-        if (data.contains('"list_agents_response"')) {
+        if (data.contains('"et-list-agents-response"')) {
           // Extract first other connected agent id
           final idMatches = RegExp(
             r'"agent_id"\s*:\s*"([^"]+)"',
@@ -102,8 +102,8 @@ Future<void> run() async {
               break;
             }
           }
-        } else if (data.contains('"agent_message"') ||
-            data.contains('"message_status"')) {
+        } else if (data.contains('"et-agent-message"') ||
+            data.contains('"et-message-status"')) {
           log('received: $data');
           appendOutput(data);
         }
@@ -118,20 +118,22 @@ Future<void> run() async {
 
   // Poll for a peer agent
   while (targetAgentId == null) {
-    client.send('{"type":"list_agents"}');
+    client.send('{"type":"et-list-agents"}');
     await sleep(1000);
   }
 
+  // Default broadcast: send an arbitrary JSON payload — the server forwards
+  // any frame it doesn't recognise as an et-typed WsMessage.
   log('found peer $targetAgentId, sending broadcast');
   client.send(
-    '{"type":"broadcast_message","message":{"module":"dart-comm1","step":"broadcast","from_agent_id":"$selfAgentId","message":"dart-comm1 broadcast to all other connected agents"}}',
+    '{"module":"dart-comm1","step":"broadcast","from_agent_id":"$selfAgentId","message":"dart-comm1 broadcast to all other connected agents"}',
   );
 
   await sleep(3000);
 
   log('sending direct message to $targetAgentId');
   client.send(
-    '{"type":"send_agent_message","to_agent_id":"$targetAgentId","message":{"module":"dart-comm1","step":"direct","from_agent_id":"$selfAgentId","message":"dart-comm1 direct message"}}',
+    '{"type":"et-send-agent-message","to_agent_id":"$targetAgentId","message":{"module":"dart-comm1","step":"direct","from_agent_id":"$selfAgentId","message":"dart-comm1 direct message"}}',
   );
 
   await sleep(3000);

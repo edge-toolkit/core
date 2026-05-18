@@ -179,7 +179,7 @@ def detections_json(detections: list[Detection]) -> str:
 def client_event_json(details: dict[str, object]) -> str:
     return json.dumps(
         {
-            "type": "client_event",
+            "type": "et-client-event",
             "capability": "face_detection",
             "action": "inference",
             "details": details,

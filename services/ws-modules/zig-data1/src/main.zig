@@ -106,7 +106,7 @@ export fn run() i32 {
 
     // 1. Request store URL
     const store_msg = std.fmt.allocPrint(alloc,
-        \\{{"type":"store_file","filename":"{s}"}}
+        \\{{"type":"et-store-file","filename":"{s}"}}
     , .{filename}) catch return -1;
     defer alloc.free(store_msg);
     log("requesting store URL", .{});
@@ -125,7 +125,7 @@ export fn run() i32 {
 
     // 2. Request fetch URL
     const fetch_msg = std.fmt.allocPrint(alloc,
-        \\{{"type":"fetch_file","agent_id":"{s}","filename":"{s}"}}
+        \\{{"type":"et-fetch-file","agent_id":"{s}","filename":"{s}"}}
     , .{ agent_id, filename }) catch return -1;
     defer alloc.free(fetch_msg);
     log("requesting fetch URL", .{});

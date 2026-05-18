@@ -13,6 +13,8 @@ edge-toolkit.workspace = true
 futures-util = "0.3"
 opentelemetry.workspace = true
 serde.workspace = true
+serde-inline-default.workspace = true
+serde_default.workspace = true
 serde_json.workspace = true
 serde_yaml = "0.9"
 tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }

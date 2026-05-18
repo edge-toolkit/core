@@ -15,7 +15,7 @@ async def run(
 
     # 1. Request Store URL
     log("pydata1: requesting store URL")
-    ws_send(json.dumps({"type": "store_file", "filename": filename}))
+    ws_send(json.dumps({"type": "et-store-file", "filename": filename}))
     store_response = await wait_for_response("PUT to ")
     store_url = store_response.replace("PUT to ", "")
 
@@ -27,7 +27,7 @@ async def run(
 
     # 3. Request Fetch URL
     log("pydata1: requesting fetch URL")
-    ws_send(json.dumps({"type": "fetch_file", "filename": filename}))
+    ws_send(json.dumps({"type": "et-fetch-file", "filename": filename}))
     fetch_response = await wait_for_response("GET from ")
     fetch_url = fetch_response.replace("GET from ", "")
 

@@ -24,7 +24,7 @@ pub fn configure_app(cfg: &mut web::ServiceConfig, agent_registry: web::Data<WsA
         .route("/favicon.ico", web::get().to(no_content))
         .route("/health", web::get().to(health));
 
-    et_ws_service::configure(cfg);
+    et_ws_service::configure(cfg, &config.ws);
     et_storage_service::configure::<AgentSession>(cfg, &config.storage);
     // Must be last: registers a catch-all Files::new("/", ...) for the root module.
     et_modules_service::configure(cfg, &config.modules);

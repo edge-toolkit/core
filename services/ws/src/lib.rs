@@ -12,6 +12,9 @@ use opentelemetry::{
     global,
     trace::{Span, Tracer},
 };
+use serde::Deserialize;
+use serde_default::DefaultFromSerde;
+use serde_inline_default::serde_inline_default;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tracing::{error, info, warn};
 use uuid::Uuid;
@@ -19,7 +22,51 @@ use uuid::Uuid;
 pub const CONNECTION_TIMEOUT: Duration = Duration::from_secs(15);
 pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
 
-pub type AgentSession = UnboundedSender<WsMessage>;
+/// Default max WebSocket frame size (64 MiB).
+///
+/// Matches the split-learning demo's `ws_max_size`; activation / gradient
+/// tensors fanned out via default broadcast easily blow past actix-ws's
+/// 64 KiB default. Override via the `WS_MAX_FRAME_SIZE` env var
+/// (`serde-env` translates `[ws] max_frame_size` to `WS_MAX_FRAME_SIZE`).
+pub const DEFAULT_MAX_FRAME_SIZE: usize = 64 * 1024 * 1024;
+
+/// Runtime knobs for the WebSocket hub. Populated by `serde-env` in
+/// `et-ws-server::main`, then handed to `configure`.
+#[serde_inline_default]
+#[derive(Clone, Debug, DefaultFromSerde, Deserialize)]
+pub struct WsConfig {
+    /// Largest single WebSocket frame the hub will accept (bytes). Frames
+    /// above this are dropped by actix-ws before they reach the handler, so
+    /// callers shipping big tensors / blobs need to raise this above their
+    /// payload size.
+    #[serde_inline_default(DEFAULT_MAX_FRAME_SIZE)]
+    pub max_frame_size: usize,
+}
+
+/// One frame queued on an agent's outbound channel.
+///
+/// Carries either an et-typed `WsMessage` (the protocol envelope) or a raw
+/// WebSocket frame that the server is relaying unchanged. The latter is how
+/// default broadcasting works: when a peer sends a frame the server doesn't
+/// recognise as a `WsMessage`, the server fans it out to other connected
+/// agents as the original `Text` / `Binary` frame.
+#[derive(Debug, Clone)]
+pub enum OutboundFrame {
+    /// An et-typed protocol message; serialised to JSON and sent as a text frame.
+    Message(WsMessage),
+    /// Raw text frame forwarded as-is (default broadcast of an unrecognised text payload).
+    Text(String),
+    /// Raw binary frame forwarded as-is (default broadcast of a binary payload).
+    Binary(Vec<u8>),
+}
+
+impl From<WsMessage> for OutboundFrame {
+    fn from(message: WsMessage) -> Self {
+        Self::Message(message)
+    }
+}
+
+pub type AgentSession = UnboundedSender<OutboundFrame>;
 pub type WsAgentRegistry = AgentRegistry<AgentSession>;
 
 /// Load a registry from disk. Sessions are not persisted, so they are initialised to `None`.
@@ -183,13 +230,13 @@ impl Connection {
                 "Direct message {} delivered from {} to {}",
                 message_id, from_agent_id, to_agent_id
             );
-            let _ = recipient.send(WsMessage::AgentMessage {
+            let _ = recipient.send(OutboundFrame::Message(WsMessage::AgentMessage {
                 message_id: message_id.clone(),
                 from_agent_id,
                 scope: MessageScope::Direct,
                 server_received_at: pending.server_received_at,
                 message: pending.message,
-            });
+            }));
             self.send_status(
                 Some(message_id),
                 MessageDeliveryStatus::Delivered,
@@ -211,6 +258,24 @@ impl Connection {
         span.end();
     }
 
+    /// Forward a raw frame to every other connected agent.
+    ///
+    /// This is the default broadcast path: any text frame the server can't
+    /// parse as an et-typed `WsMessage`, and every binary frame, ends up
+    /// here. Frames are relayed unchanged so foreign schemas (the
+    /// split-learning demo's base64-encoded tensor payloads, etc.) pass
+    /// through without re-wrapping.
+    fn broadcast_raw_frame(&self, frame: OutboundFrame) -> usize {
+        let Some(from_agent_id) = self.assigned_agent_id() else {
+            return 0;
+        };
+        let recipients = self.registry.connected_sessions(from_agent_id);
+        for (_, recipient) in &recipients {
+            let _ = recipient.send(frame.clone());
+        }
+        recipients.len()
+    }
+
     /// Returns `false` when the connection should terminate.
     async fn handle_inbound(&mut self, msg: AggregatedMessage) -> bool {
         match msg {
@@ -221,8 +286,23 @@ impl Connection {
             AggregatedMessage::Pong(_) => {
                 self.mark_activity();
             }
-            AggregatedMessage::Binary(_) => {
+            AggregatedMessage::Binary(bytes) => {
                 self.mark_activity();
+                let tracer = global::tracer("ws-server");
+                let mut span = tracer.start("ws.message.received");
+                let Some(from_agent_id) = self.assigned_agent_id().map(str::to_string) else {
+                    self.send_invalid(None, "agent must connect before sending binary frames")
+                        .await;
+                    span.end();
+                    return true;
+                };
+                let len = bytes.len();
+                let count = self.broadcast_raw_frame(OutboundFrame::Binary(bytes.to_vec()));
+                info!(
+                    "Default-broadcast {}-byte binary frame from {} to {} agent(s)",
+                    len, from_agent_id, count
+                );
+                span.end();
             }
             AggregatedMessage::Close(reason) => {
                 self.mark_activity();
@@ -243,7 +323,8 @@ impl Connection {
                 let mut span = tracer.start("ws.message.received");
                 info!("Received message from client {}: {:?}", self.current_agent_id(), text);
 
-                if let Ok(msg) = serde_json::from_str::<WsMessage>(&text) {
+                let parsed = serde_json::from_str::<WsMessage>(&text);
+                if let Ok(msg) = parsed {
                     match msg {
                         WsMessage::Connect { agent_id } => {
                             let requested_id = agent_id.clone();
@@ -310,37 +391,6 @@ impl Connection {
                                 .await;
                             return true;
                         }
-                        WsMessage::BroadcastMessage { message } => {
-                            let Some(from_agent_id) = self.assigned_agent_id().map(str::to_string) else {
-                                self.send_invalid(None, "agent must connect before broadcasting messages")
-                                    .await;
-                                span.end();
-                                return true;
-                            };
-
-                            let recipients = self.registry.connected_sessions(&from_agent_id);
-                            let message_id = Uuid::now_v7().to_string();
-                            let server_received_at = Utc::now().to_rfc3339();
-                            for (recipient_id, recipient) in &recipients {
-                                info!(
-                                    "Broadcast message {} from {} to {}",
-                                    message_id, from_agent_id, recipient_id
-                                );
-                                let _ = recipient.send(WsMessage::AgentMessage {
-                                    message_id: message_id.clone(),
-                                    from_agent_id: from_agent_id.clone(),
-                                    scope: MessageScope::Broadcast,
-                                    server_received_at: server_received_at.clone(),
-                                    message: message.clone(),
-                                });
-                            }
-                            self.send_status(
-                                Some(message_id),
-                                MessageDeliveryStatus::Broadcast,
-                                format!("broadcast sent to {} connected agents", recipients.len()),
-                            )
-                            .await;
-                        }
                         WsMessage::MessageAck { message_id } => {
                             let Some(recipient_agent_id) = self.assigned_agent_id().map(str::to_string) else {
                                 self.send_invalid(None, "agent must connect before acknowledging messages")
@@ -362,11 +412,11 @@ impl Connection {
                                     )
                                     .await;
                                     if let Some(sender) = sender_session {
-                                        let _ = sender.send(WsMessage::MessageStatus {
+                                        let _ = sender.send(OutboundFrame::Message(WsMessage::MessageStatus {
                                             message_id: Some(message_id),
                                             status: MessageDeliveryStatus::Acknowledged,
                                             detail: format!("agent {} acknowledged receipt", recipient_agent_id),
-                                        });
+                                        }));
                                     }
                                 }
                                 Err(detail) => {
@@ -445,10 +495,18 @@ impl Connection {
                         }
                     }
                 } else {
-                    warn!(
-                        "Received unrecognized message from client {}: {}",
-                        self.current_agent_id(),
-                        text
+                    // Default broadcast: forward unrecognised text frames as-is
+                    // so foreign protocols (e.g. split-learning) flow through.
+                    let Some(from_agent_id) = self.assigned_agent_id().map(str::to_string) else {
+                        self.send_invalid(None, "agent must connect before broadcasting messages")
+                            .await;
+                        span.end();
+                        return true;
+                    };
+                    let count = self.broadcast_raw_frame(OutboundFrame::Text(text.to_string()));
+                    info!(
+                        "Default-broadcast unrecognised text frame from {} to {} agent(s)",
+                        from_agent_id, count
                     );
                 }
                 span.end();
@@ -457,7 +515,27 @@ impl Connection {
         true
     }
 
-    async fn run(mut self, mut stream: AggregatedMessageStream, mut outbound: UnboundedReceiver<WsMessage>) {
+    async fn send_frame(&mut self, frame: OutboundFrame) {
+        match frame {
+            OutboundFrame::Message(msg) => self.send_json(&msg).await,
+            OutboundFrame::Text(text) => {
+                if let Err(err) = self.session.text(text).await {
+                    warn!("Failed to forward text frame to {}: {:?}", self.current_agent_id(), err);
+                }
+            }
+            OutboundFrame::Binary(bytes) => {
+                if let Err(err) = self.session.binary(bytes).await {
+                    warn!(
+                        "Failed to forward binary frame to {}: {:?}",
+                        self.current_agent_id(),
+                        err
+                    );
+                }
+            }
+        }
+    }
+
+    async fn run(mut self, mut stream: AggregatedMessageStream, mut outbound: UnboundedReceiver<OutboundFrame>) {
         let tracer = global::tracer("ws-server");
         let mut connect_span = tracer.start("ws.connect");
         info!(
@@ -488,8 +566,8 @@ impl Connection {
                         None => break,
                     }
                 }
-                Some(envelope) = outbound.recv() => {
-                    self.send_json(&envelope).await;
+                Some(frame) = outbound.recv() => {
+                    self.send_frame(frame).await;
                 }
                 _ = heartbeat.tick() => {
                     let idle_for = Instant::now().saturating_duration_since(self.last_activity);
@@ -528,6 +606,7 @@ pub async fn ws_handler(
     req: HttpRequest,
     body: web::Payload,
     registry: web::Data<WsAgentRegistry>,
+    config: web::Data<WsConfig>,
 ) -> Result<HttpResponse, Error> {
     let tracer = global::tracer("ws-server");
     let mut span = tracer.start("ws.connect");
@@ -543,9 +622,11 @@ pub async fn ws_handler(
         .unwrap_or_else(|| "unknown".to_string());
 
     let (response, session, msg_stream) = actix_ws::handle(&req, body)?;
-    let stream = msg_stream.max_frame_size(64 * 1024).aggregate_continuations();
+    let stream = msg_stream
+        .max_frame_size(config.max_frame_size)
+        .aggregate_continuations();
 
-    let (tx, rx) = mpsc::unbounded_channel::<WsMessage>();
+    let (tx, rx) = mpsc::unbounded_channel::<OutboundFrame>();
     let conn = Connection::new(registry.get_ref().clone(), client_ip, session, tx);
 
     actix_web::rt::spawn(async move {
@@ -556,6 +637,7 @@ pub async fn ws_handler(
     Ok(response)
 }
 
-pub fn configure(cfg: &mut web::ServiceConfig) {
-    cfg.route("/ws", web::get().to(ws_handler));
+pub fn configure(cfg: &mut web::ServiceConfig, config: &WsConfig) {
+    cfg.app_data(web::Data::new(config.clone()))
+        .route("/ws", web::get().to(ws_handler));
 }

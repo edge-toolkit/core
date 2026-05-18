@@ -226,9 +226,6 @@ impl WsClient {
                             WsMessage::SendAgentMessage { .. } => {
                                 warn!("Unexpected send_agent_message request from server");
                             }
-                            WsMessage::BroadcastMessage { .. } => {
-                                warn!("Unexpected broadcast_message request from server");
-                            }
                             WsMessage::AgentMessage {
                                 message_id,
                                 from_agent_id,
@@ -638,8 +635,15 @@ impl WsClient {
         self.send(&payload)
     }
 
+    /// Default-broadcast a payload to every other connected agent.
+    ///
+    /// Sends `message` as-is over the socket. Because the server doesn't
+    /// recognise an arbitrary application payload as an et-typed `WsMessage`,
+    /// it forwards the frame to every other agent. Callers should give their
+    /// payload a discriminator field (e.g. `module`, `type`) of their own so
+    /// recipients can tell broadcasts apart from one another.
     pub fn broadcast_message(&self, message: serde_json::Value) -> Result<(), JsValue> {
-        let payload = serde_json::to_string(&WsMessage::BroadcastMessage { message })
+        let payload = serde_json::to_string(&message)
             .map_err(|error| JsValue::from_str(&format!("Failed to serialize broadcast message: {error}")))?;
         self.send(&payload)
     }

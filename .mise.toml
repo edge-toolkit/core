@@ -43,6 +43,7 @@ uv = "0.11.8"
 wasm-tools = "latest"
 yq = "latest"
 zig = "latest"
+"conda:openssl" = "latest"
 
 [tasks]
 ec = "ec"

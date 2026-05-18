@@ -58,7 +58,7 @@ public partial class DotnetData1
 
     // 1. Request store URL
     Host.Log("[dotnet-data1] requesting store URL");
-    Host.WsSend($$"""{"type":"store_file","filename":"{{filename}}"}""");
+    Host.WsSend($$"""{"type":"et-store-file","filename":"{{filename}}"}""");
     var storeUrl = await WaitForResponse("PUT to ");
     storeUrl = storeUrl.Replace("PUT to ", "");
 
@@ -70,7 +70,7 @@ public partial class DotnetData1
 
     // 3. Request fetch URL
     Host.Log("[dotnet-data1] requesting fetch URL");
-    Host.WsSend($$"""{"type":"fetch_file","agent_id":"{{agentId}}","filename":"{{filename}}"}""");
+    Host.WsSend($$"""{"type":"et-fetch-file","agent_id":"{{agentId}}","filename":"{{filename}}"}""");
     var fetchUrl = await WaitForResponse("GET from ");
     fetchUrl = fetchUrl.Replace("GET from ", "");
 
