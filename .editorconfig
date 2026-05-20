@@ -21,6 +21,14 @@ max_line_length = off
 [*.wit]
 max_line_length = 300
 
+# License files use the canonical upstream formatting (centred headers, odd
+# indent widths, etc.) — leave them alone.
+[LICENSE-*]
+indent_size = unset
+indent_style = unset
+max_line_length = unset
+trim_trailing_whitespace = unset
+
 # Binary file formats that should be ignored
 [*.onnx]
 charset = unset
@@ -37,3 +45,28 @@ indent_size = unset
 indent_style = unset
 max_line_length = unset
 trim_trailing_whitespace = unset
+
+# Upstream WIT packages fetched verbatim — their formatting is whatever the
+# upstream repos use and shouldn't be normalised on our side.
+[generated/specs/wit/deps/wasi-*/**]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
+indent_size = unset
+indent_style = unset
+trim_trailing_whitespace = unset
+max_line_length = unset
+
+# openapi-python-client emits framework-boilerplate docstrings (e.g. the
+# "errors.UnexpectedStatus: If the server returns an undocumented status code
+# …" line in every operation) that exceed 120 chars. ruff format doesn't
+# reflow plain-text docstrings, so we can't fix this short of patching the
+# generator's templates — drop the line-length check for this tree.
+[generated/python-rest/**]
+max_line_length = unset
+
+# Same story for openapi2zig: a handful of helpers (SSE parsing, query-string
+# encoding) emit lines that exceed 120 chars and `zig fmt` won't reflow them.
+# The generator is the source of truth; we don't edit its output by hand.
+[generated/zig-rest/**]
+max_line_length = unset

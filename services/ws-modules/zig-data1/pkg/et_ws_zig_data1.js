@@ -1,12 +1,13 @@
 // et_ws_zig_data1.js — zig-data1 WASM module
-// Runs WASM in a Web Worker; main thread proxies WebSocket + fetch via SharedArrayBuffer.
-// Shared memory layout (Int32 offsets):
+// Runs WASM in a Web Worker; main thread proxies WebSocket + fetch via
+// SharedArrayBuffer. Shared memory layout (Int32 offsets):
 //   [0] signal: 0=idle, 1=request-pending
-//   [1] request type: 0=sleep, 1=ws_connect, 2=ws_send, 3=ws_get_state, 4=ws_get_agent_id,
-//                     5=ws_pop_response, 6=put_file, 7=get_file, 8=ws_disconnect,
-//                     9=log, 10=set_status, 11=get_ws_url, 12=get_iso_timestamp
-//   [2] payload length (also response length)
-//   [3] aux length (for put_file body)
+//   [1] request type: 0=sleep, 1=ws_connect, 2=ws_get_state, 3=ws_get_agent_id,
+//                     6=ws_disconnect, 7=log, 8=set_status, 9=get_ws_url,
+//                     10=get_iso_timestamp, 11=rest_request
+//   [2] payload length (also response length; -1 on rest_request failure)
+//   [3] aux length (binary request body for rest_request; UTF-8 ignored
+//                  for other types)
 // Data area starts at byte offset 16.
 
 export default async function init() {}
@@ -32,8 +33,21 @@ export async function run() {
     Atomics.notify(ctrl, 0);
   };
 
+  const respondBytes = (bytes) => {
+    data.set(bytes);
+    Atomics.store(ctrl, 2, bytes.length);
+    Atomics.store(ctrl, 0, 0);
+    Atomics.notify(ctrl, 0);
+  };
+
+  const respondError = () => {
+    Atomics.store(ctrl, 2, -1);
+    Atomics.store(ctrl, 0, 0);
+    Atomics.notify(ctrl, 0);
+  };
+
   return new Promise((resolve, reject) => {
-    let ws = null, wsState = "disconnected", agentId = "", lastResponse = null;
+    let ws = null, wsState = "disconnected", agentId = "";
 
     const poll = () => {
       if (Atomics.load(ctrl, 0) !== 1) {
@@ -44,9 +58,7 @@ export async function run() {
       const type = Atomics.load(ctrl, 1);
       const plen = Atomics.load(ctrl, 2);
       const alen = Atomics.load(ctrl, 3);
-      const copy = (off, len) => dec.decode(Uint8Array.from(data.subarray(off, off + len)));
-      const payload = copy(0, plen);
-      const aux = alen ? copy(plen, alen) : "";
+      const payload = dec.decode(Uint8Array.from(data.subarray(0, plen)));
 
       switch (type) {
         case 0:
@@ -60,13 +72,12 @@ export async function run() {
           wsState = "connecting";
           ws.onopen = () => {
             wsState = "connected";
-            ws.send(JSON.stringify({ type: "connect" }));
+            ws.send(JSON.stringify({ type: "et-connect" }));
           };
           ws.onmessage = (e) => {
             try {
               const msg = JSON.parse(e.data);
-              if (msg.type === "connect_ack" && msg.agent_id) agentId = msg.agent_id;
-              else if (msg.type === "response" && msg.message) lastResponse = msg.message;
+              if (msg.type === "et-connect-ack" && msg.agent_id) agentId = msg.agent_id;
             } catch {}
           };
           ws.onclose = ws.onerror = () => {
@@ -75,63 +86,59 @@ export async function run() {
           respond();
           break;
         case 2:
-          ws?.send(payload);
-          respond();
-          break;
-        case 3:
           respond(wsState);
           break;
-        case 4:
+        case 3:
           respond(agentId);
           break;
-        case 5: {
-          const r = lastResponse ?? "";
-          lastResponse = null;
-          respond(r);
-          break;
-        }
         case 6:
-          fetch(payload, { method: "PUT", body: aux })
-            .then(() => {
-              respond();
-              poll();
-            }).catch(() => {
-              respond();
-              poll();
-            });
-          return;
-        case 7:
-          fetch(payload).then(r => r.text())
-            .then(t => {
-              respond(t);
-              poll();
-            }).catch(() => {
-              respond();
-              poll();
-            });
-          return;
-        case 8:
           ws?.close();
           wsState = "disconnected";
           respond();
           break;
-        case 9:
+        case 7:
           console.log(payload);
           appendOutput(payload);
           respond();
           break;
-        case 10:
+        case 8:
           appendOutput(payload);
           respond();
           break;
-        case 11: {
+        case 9: {
           const p = location.protocol === "https:" ? "wss:" : "ws:";
           respond(`${p}//${location.host}/ws`);
           break;
         }
-        case 12:
+        case 10:
           respond(new Date().toISOString());
           break;
+        case 11: {
+          // payload = "METHOD url", aux = binary body. Response is the raw
+          // body bytes; signal failures with respondError() so the Zig
+          // extern returns -1.
+          const spaceIdx = payload.indexOf(" ");
+          const method = payload.substring(0, spaceIdx);
+          const url = payload.substring(spaceIdx + 1);
+          const opts = { method };
+          if (alen > 0) {
+            opts.body = new Uint8Array(data.subarray(plen, plen + alen)).slice();
+          }
+          fetch(url, opts)
+            .then((r) => {
+              if (!r.ok) throw new Error(`HTTP ${r.status}`);
+              return r.arrayBuffer();
+            })
+            .then((buf) => {
+              respondBytes(new Uint8Array(buf));
+              poll();
+            })
+            .catch(() => {
+              respondError();
+              poll();
+            });
+          return;
+        }
         default:
           respond();
           break;

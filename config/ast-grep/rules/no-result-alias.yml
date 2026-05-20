@@ -1,0 +1,15 @@
+id: no-result-alias
+language: Rust
+severity: error
+message: |
+  Defining a `type Result<...>` alias shadows `std::result::Result` at file
+  scope and makes every `Result<T>` ambiguous to readers. Spell the error
+  type at each call site instead (`Result<T, my::Error>`).
+rule:
+  all:
+    - kind: type_item
+    - has:
+        kind: type_identifier
+        regex: "^Result$"
+ignores:
+  - generated/**

@@ -1,0 +1,255 @@
+//! Translates a `schemars` JSON Schema for `WsMessage` into the
+//! `et:ws-messages@0.1.0` WIT package. Built with `wit-encoder` so the
+//! output format is canonical and the construction is type-checked —
+//! we never produce manual `writeln!` lines.
+//!
+//! Mapping rules:
+//!   * Variant rename `et-foo-bar` → variant case `foo-bar`. The `et-`
+//!     prefix is dropped because the WIT package namespace (`et:`)
+//!     already carries it.
+//!   * `serde_json::Value` fields → `string` (the host serializes the
+//!     opaque JSON when shipping to/from the guest).
+//!   * `Option<T>` → `option<T>`. `Vec<T>` → `list<T>`. `String` →
+//!     `string`. Integers → `s64` (the wire format never narrows).
+//!   * `#[serde(rename_all = "snake_case")]` enums map directly to WIT
+//!     `enum` with kebab-case case names.
+
+use std::collections::HashSet;
+
+use heck::ToKebabCase;
+use schemars::Schema;
+use wit_encoder::{EnumCase, Field, Ident, Interface, Package, PackageName, Type, TypeDef, VariantCase};
+
+use crate::Error;
+
+/// Wire identifiers (`WsConnectAck`, `agent_id`, `et-connect-ack`, …) →
+/// canonical WIT kebab-case (`ws-connect-ack`, `agent-id`, `connect-ack`).
+/// The `et-` prefix is dropped because the `et:ws-messages` WIT package
+/// namespace already carries it.
+fn to_kebab(input: &str) -> String {
+    input.strip_prefix("et-").unwrap_or(input).to_kebab_case()
+}
+
+type EnumSet = HashSet<String>;
+
+pub fn render(root_schema: &Schema) -> Result<String, Error> {
+    let root = root_schema.as_value();
+    let mut interface = Interface::new("messages");
+    interface.set_docs(Some(
+        "Typed WS protocol messages — each `ws-message` case maps 1:1 to a Rust `WsMessage` variant on the wire.",
+    ));
+
+    let enums = collect_enum_names(root);
+    emit_enum_defs(root, &mut interface)?;
+    emit_record_defs(root, &mut interface, &enums)?;
+    emit_variant_payloads(root, &mut interface, &enums)?;
+    emit_top_level_variant(root, &mut interface)?;
+
+    let mut package = Package::new(PackageName::new(
+        "et",
+        "ws-messages",
+        Some(semver::Version::parse("0.1.0").expect("valid semver")),
+    ));
+    package.interface(interface);
+
+    Ok(package.to_string())
+}
+
+fn collect_enum_names(root: &serde_json::Value) -> EnumSet {
+    root.get("$defs")
+        .and_then(|v| v.as_object())
+        .map(|defs| {
+            defs.iter()
+                .filter(|(_, def)| def.get("enum").is_some())
+                .map(|(name, _)| name.clone())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn emit_enum_defs(root: &serde_json::Value, interface: &mut Interface) -> Result<(), Error> {
+    let Some(defs) = root.get("$defs").and_then(|v| v.as_object()) else {
+        return Ok(());
+    };
+    let mut names: Vec<&String> = defs.keys().collect();
+    names.sort();
+    for name in names {
+        let def = &defs[name];
+        let Some(values) = def.get("enum").and_then(|v| v.as_array()) else {
+            continue;
+        };
+        let cases: Vec<EnumCase> = values
+            .iter()
+            .map(|v| {
+                v.as_str()
+                    .ok_or_else(|| Error::EnumValueNotString(name.clone()))
+                    .map(|raw| EnumCase::new(to_kebab(raw)))
+            })
+            .collect::<Result<_, Error>>()?;
+        interface.type_def(TypeDef::enum_(to_kebab(name), cases));
+    }
+    Ok(())
+}
+
+fn emit_record_defs(root: &serde_json::Value, interface: &mut Interface, enums: &EnumSet) -> Result<(), Error> {
+    let Some(defs) = root.get("$defs").and_then(|v| v.as_object()) else {
+        return Ok(());
+    };
+    let mut names: Vec<&String> = defs.keys().collect();
+    names.sort();
+    for name in names {
+        let def = &defs[name];
+        if def.get("enum").is_some() || def.get("type").and_then(|t| t.as_str()) != Some("object") {
+            continue;
+        }
+        interface.type_def(build_record(name, def, enums, false)?);
+    }
+    Ok(())
+}
+
+fn emit_variant_payloads(root: &serde_json::Value, interface: &mut Interface, enums: &EnumSet) -> Result<(), Error> {
+    let variants = root
+        .get("oneOf")
+        .and_then(|v| v.as_array())
+        .ok_or(Error::SchemaMalformed("WsMessage schema missing `oneOf`"))?;
+    for variant in variants {
+        if !variant_has_payload(variant) {
+            continue;
+        }
+        let tag = variant_tag(variant)?;
+        let record_name = format!("{}-payload", to_kebab(&tag));
+        interface.type_def(build_record(&record_name, variant, enums, true)?);
+    }
+    Ok(())
+}
+
+fn emit_top_level_variant(root: &serde_json::Value, interface: &mut Interface) -> Result<(), Error> {
+    let variants = root
+        .get("oneOf")
+        .and_then(|v| v.as_array())
+        .ok_or(Error::SchemaMalformed("WsMessage schema missing `oneOf`"))?;
+    let cases: Vec<VariantCase> = variants
+        .iter()
+        .map(|variant| {
+            let tag = variant_tag(variant)?;
+            let case_name: Ident = to_kebab(&tag).into();
+            if variant_has_payload(variant) {
+                let payload_name: Ident = format!("{}-payload", to_kebab(&tag)).into();
+                Ok(VariantCase::value(case_name, Type::Named(payload_name)))
+            } else {
+                Ok(VariantCase::empty(case_name))
+            }
+        })
+        .collect::<Result<_, Error>>()?;
+    let mut variant_def = TypeDef::variant("ws-message", cases);
+    variant_def.set_docs(Some("Tagged union covering every wire-format WS message."));
+    interface.type_def(variant_def);
+    Ok(())
+}
+
+fn build_record(
+    name: &str,
+    schema: &serde_json::Value,
+    enums: &EnumSet,
+    skip_type_discriminator: bool,
+) -> Result<TypeDef, Error> {
+    let props = schema.get("properties").and_then(|v| v.as_object());
+    let required: HashSet<&str> = schema
+        .get("required")
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter_map(|v| v.as_str()).collect())
+        .unwrap_or_default();
+    let mut fields: Vec<Field> = Vec::new();
+    if let Some(props) = props {
+        let mut keys: Vec<&String> = props
+            .keys()
+            .filter(|k| !skip_type_discriminator || k.as_str() != "type")
+            .collect();
+        keys.sort();
+        for key in keys {
+            let prop_schema = &props[key];
+            let optional = !required.contains(key.as_str());
+            let ty = wit_type_from(prop_schema, optional, enums)?;
+            fields.push(Field::new(to_kebab(key), ty));
+        }
+    }
+    Ok(TypeDef::record(to_kebab(name), fields))
+}
+
+fn variant_tag(variant: &serde_json::Value) -> Result<String, Error> {
+    variant
+        .get("properties")
+        .and_then(|p| p.get("type"))
+        .and_then(|t| t.get("const"))
+        .and_then(|c| c.as_str())
+        .map(str::to_string)
+        .ok_or(Error::SchemaMalformed("variant missing const `type` discriminator"))
+}
+
+fn variant_has_payload(variant: &serde_json::Value) -> bool {
+    variant
+        .get("properties")
+        .and_then(|p| p.as_object())
+        .map(|p| p.keys().any(|k| k.as_str() != "type"))
+        .unwrap_or(false)
+}
+
+fn wit_type_from(schema: &serde_json::Value, force_optional: bool, enums: &EnumSet) -> Result<Type, Error> {
+    if let Some(reference) = schema.get("$ref").and_then(|v| v.as_str()) {
+        let name = reference
+            .rsplit('/')
+            .next()
+            .ok_or(Error::SchemaMalformed("malformed $ref"))?;
+        let _ = enums; // enums set tracked for future use (e.g. payload typing)
+        return Ok(wrap_optional(Type::Named(to_kebab(name).into()), force_optional));
+    }
+    if let Some(any_of) = schema.get("anyOf").and_then(|v| v.as_array()) {
+        let non_null: Vec<&serde_json::Value> = any_of
+            .iter()
+            .filter(|s| s.get("type").and_then(|t| t.as_str()) != Some("null"))
+            .collect();
+        if non_null.len() == 1 {
+            let inner = wit_type_from(non_null[0], false, enums)?;
+            return Ok(Type::option(inner));
+        }
+    }
+    if let Some(types) = schema.get("type").and_then(|v| v.as_array()) {
+        let primary = types
+            .iter()
+            .find_map(|t| t.as_str().filter(|t| *t != "null"))
+            .ok_or(Error::SchemaMalformed("type array had no non-null entry"))?;
+        let nullable = types.iter().any(|t| t.as_str() == Some("null"));
+        let base = primitive(primary, schema, enums)?;
+        return Ok(wrap_optional(base, force_optional || nullable));
+    }
+    if let Some(t) = schema.get("type").and_then(|v| v.as_str()) {
+        return Ok(wrap_optional(primitive(t, schema, enums)?, force_optional));
+    }
+    // `serde_json::Value` fields hit this branch via the `any_json_schema`
+    // hook — no `type` keyword, just a description. Ship them as opaque
+    // JSON strings so the host can round-trip arbitrary payloads.
+    Ok(wrap_optional(Type::String, force_optional))
+}
+
+fn primitive(t: &str, schema: &serde_json::Value, enums: &EnumSet) -> Result<Type, Error> {
+    Ok(match t {
+        "string" => Type::String,
+        "integer" => Type::S64,
+        "number" => Type::F64,
+        "boolean" => Type::Bool,
+        "array" => {
+            let items = schema
+                .get("items")
+                .ok_or(Error::SchemaMalformed("array schema missing items"))?;
+            let inner = wit_type_from(items, false, enums)?;
+            Type::list(inner)
+        }
+        // serde_json::Value-shaped opaque object → JSON string.
+        "object" => Type::String,
+        other => return Err(Error::UnsupportedSchemaType(other.to_string())),
+    })
+}
+
+fn wrap_optional(t: Type, optional: bool) -> Type {
+    if optional { Type::option(t) } else { t }
+}

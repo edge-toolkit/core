@@ -1,11 +1,17 @@
 use std::path::PathBuf;
 
 use actix_files::Files;
-use actix_web::{HttpResponse, web};
+use actix_web::web;
 use edge_toolkit::config::default_modules_folders;
 use serde::Deserialize;
 use serde_default::DefaultFromSerde;
 use serde_inline_default::serde_inline_default;
+
+mod openapi;
+
+pub use self::openapi::list_modules_handler;
+#[cfg(feature = "openapi-spec")]
+pub use self::openapi::{__path_get_module_file, __path_list_modules_handler, get_module_file};
 
 /// Modules config.
 #[serde_inline_default]
@@ -82,15 +88,6 @@ pub fn list_modules(config: &ModulesConfig) -> Vec<(String, PathBuf)> {
     }
     modules.sort_by(|lhs, rhs| lhs.0.cmp(&rhs.0));
     modules
-}
-
-#[expect(
-    clippy::single_call_fn,
-    reason = "actix-web route handler; registered via web::get().to(...)"
-)]
-async fn list_modules_handler(config: web::Data<ModulesConfig>) -> HttpResponse {
-    let names: Vec<String> = list_modules(&config).into_iter().map(|(name, _)| name).collect();
-    HttpResponse::Ok().json(names)
 }
 
 /// Register `GET /modules/` (JSON list), `GET /modules/{name}/...` (static files),

@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import math
-import json
 import time
 from datetime import datetime
 from functools import lru_cache
 from typing import Iterable, Sequence, TypedDict
+
+from et_ws.messages import WsClientEvent
 
 FACE_MODEL_PATH = "/modules/et-model-face1/video_cv.onnx"
 FACE_INPUT_WIDTH = 640
@@ -169,18 +170,21 @@ def preprocess_geometry(source_width: float, source_height: float) -> dict[str, 
 
 
 def detections_json(detections: list[Detection]) -> str:
+    import json
+
     return json.dumps(detections)
 
 
 def client_event_json(details: dict[str, object]) -> str:
-    return json.dumps(
-        {
-            "type": "client_event",
-            "capability": "face_detection",
-            "action": "inference",
-            "details": details,
-        }
-    )
+    # Use the generated `WsClientEvent` Pydantic model so the wire shape stays
+    # in lock-step with `edge_toolkit::ws::WsMessage::ClientEvent`. Regenerate
+    # via `mise run gen-python-ws` if the protocol changes.
+    return WsClientEvent(
+        type="et-client-event",
+        capability="face_detection",
+        action="inference",
+        details=details,
+    ).model_dump_json()
 
 
 def decode_outputs(

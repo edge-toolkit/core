@@ -1,38 +1,33 @@
 //! Implements `wasi:keyvalue/store` against the ws-server's storage and
-//! modules services. The bucket identifier names a path-prefix:
+//! modules services via the typed `et-rest-client`. The bucket identifier
+//! names a namespace:
 //!
-//! * `<agent-uuid>` → bucket prefix `/storage/{agent-uuid}/`. Reads work for
-//!   any agent's bucket (the server static-serves everything under
-//!   `/storage/`); writes only succeed when the runner's own agent owns the
-//!   bucket (server enforces `agent_id` is registered).
-//! * `modules/<module-name>` → bucket prefix `/modules/<module-name>/`. Used
-//!   by guests to fetch their own static assets bundled in `pkg/`. Writes
-//!   return `access-denied` since et-modules-service serves files static.
-//!
-//! The `Bucket` resource is just a thin owner of the prefix string; the
-//! HTTP work happens in `get` / `set`.
+//! * `<agent-uuid>` → per-agent storage bucket. Reads work for any agent's
+//!   bucket (server static-serves everything under `/storage/`); writes only
+//!   succeed when the runner's own agent owns the bucket (server enforces
+//!   `agent_id` is registered).
+//! * `modules/<module-name>` → module asset bucket. Used by guests to fetch
+//!   their own static assets bundled in `pkg/`. Writes return
+//!   `access-denied` since et-modules-service serves files static.
 
+use futures_util::StreamExt as _;
 use wasmtime::component::Resource;
 
 use crate::HostState;
 use crate::bindings::wasi::keyvalue::store::{Error, Host, HostBucket, KeyResponse};
 use crate::host::{KvErrExt as _, kv_not_implemented};
 
-pub struct Bucket {
-    /// URL path-prefix on the ws-server, including the leading slash and
-    /// trailing slash. Keys are appended verbatim.
-    prefix: String,
-    /// Whether this bucket accepts writes. False for `modules/...` buckets.
-    writable: bool,
+/// Bucket-kind discriminator. The wire prefix on the ws-server is implied by
+/// the variant; the typed REST client picks the right operation.
+#[non_exhaustive]
+pub enum Bucket {
+    /// `/storage/{agent_id}/` — writable, owned by the named agent.
+    Storage { agent_id: String },
+    /// `/modules/{module_name}/` — read-only static module assets.
+    Modules { module_name: String },
 }
 
-impl Bucket {
-    fn url(&self, http_base: &str, key: &str) -> String {
-        format!("{http_base}{}{key}", self.prefix)
-    }
-}
-
-/// Map a `store.open` identifier to a bucket prefix and writability.
+/// Map a `store.open` identifier to a bucket variant.
 #[expect(
     clippy::single_call_fn,
     reason = "named identifier parser; used once by <HostState as Host>::open"
@@ -44,18 +39,31 @@ fn bucket_from_identifier(identifier: &str) -> Result<Bucket, Error> {
                 "invalid module bucket identifier: {identifier:?}"
             )));
         }
-        return Ok(Bucket {
-            prefix: format!("/modules/{module_name}/"),
-            writable: false,
+        return Ok(Bucket::Modules {
+            module_name: module_name.to_string(),
         });
     }
     if identifier.is_empty() || identifier.contains('/') {
         return Err(Error::Other(format!("invalid bucket identifier: {identifier:?}")));
     }
-    Ok(Bucket {
-        prefix: format!("/storage/{identifier}/"),
-        writable: true,
+    Ok(Bucket::Storage {
+        agent_id: identifier.to_string(),
     })
+}
+
+/// Drain a progenitor `ByteStream` into a `Vec<u8>`. Used by both bucket
+/// kinds since the wasi:keyvalue/store interface returns whole values.
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper; used once by <HostState as HostBucket>::get"
+)]
+async fn collect_stream(mut stream: et_rest_client::ByteStream) -> Result<Vec<u8>, Error> {
+    let mut out = Vec::new();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.kv_context("stream chunk")?;
+        out.extend_from_slice(&chunk);
+    }
+    Ok(out)
 }
 
 impl Host for HostState {
@@ -69,46 +77,42 @@ impl Host for HostState {
 impl HostBucket for HostState {
     async fn get(&mut self, self_: Resource<Bucket>, key: String) -> Result<Option<Vec<u8>>, Error> {
         let bucket = self.resource_table.get(&self_).kv_context("bucket handle")?;
-        let url = bucket.url(&self.http_base, &key);
-        let resp = self.http.get(&url).send().await.kv_context(&format!("GET {url}"))?;
-        if resp.status() == reqwest::StatusCode::NOT_FOUND {
-            return Ok(None);
+        let result = match bucket {
+            Bucket::Storage { agent_id } => self.rest.get_file(agent_id, &key).await,
+            Bucket::Modules { module_name } => self.rest.get_module_file(module_name, &key).await,
+        };
+        match result {
+            Ok(response) => Ok(Some(collect_stream(response.into_inner()).await?)),
+            // The OpenAPI spec gives both endpoints a 404 variant, so progenitor
+            // surfaces "no such key" as `Error::ErrorResponse`.
+            Err(et_rest_client::Error::ErrorResponse(_)) => Ok(None),
+            Err(e) => Err(Error::Other(format!("GET {key}: {e}"))),
         }
-        if !resp.status().is_success() {
-            return Err(Error::Other(format!("GET {url}: HTTP {}", resp.status())));
-        }
-        let bytes = resp.bytes().await.kv_context(&format!("GET {url} body"))?;
-        Ok(Some(bytes.to_vec()))
     }
 
     async fn set(&mut self, self_: Resource<Bucket>, key: String, value: Vec<u8>) -> Result<(), Error> {
         let bucket = self.resource_table.get(&self_).kv_context("bucket handle")?;
-        if !bucket.writable {
-            return Err(Error::AccessDenied);
-        }
-        let url = bucket.url(&self.http_base, &key);
-        let resp = self
-            .http
-            .put(&url)
-            .body(value)
-            .send()
+        let agent_id = match bucket {
+            Bucket::Storage { agent_id } => agent_id.clone(),
+            Bucket::Modules { .. } => return Err(Error::AccessDenied),
+        };
+        let _response = self
+            .rest
+            .put_file(&agent_id, &key, value)
             .await
-            .kv_context(&format!("PUT {url}"))?;
-        if !resp.status().is_success() {
-            return Err(Error::Other(format!("PUT {url}: HTTP {}", resp.status())));
-        }
+            .kv_context(&format!("PUT {key}"))?;
         Ok(())
     }
 
-    async fn delete(&mut self, _rep: Resource<Bucket>, _key: String) -> Result<(), Error> {
+    async fn delete(&mut self, _self_: Resource<Bucket>, _key: String) -> Result<(), Error> {
         Err(kv_not_implemented("delete"))
     }
 
-    async fn exists(&mut self, _rep: Resource<Bucket>, _key: String) -> Result<bool, Error> {
+    async fn exists(&mut self, _self_: Resource<Bucket>, _key: String) -> Result<bool, Error> {
         Err(kv_not_implemented("exists"))
     }
 
-    async fn list_keys(&mut self, _rep: Resource<Bucket>, _cursor: Option<String>) -> Result<KeyResponse, Error> {
+    async fn list_keys(&mut self, _self_: Resource<Bucket>, _cursor: Option<String>) -> Result<KeyResponse, Error> {
         Err(kv_not_implemented("list-keys"))
     }
 

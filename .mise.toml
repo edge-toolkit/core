@@ -6,6 +6,7 @@ aube = { version = "latest", os = ["linux", "windows", "macos/arm64"] }
 "cargo:aube" = { version = "latest", os = ["macos/x64"] }
 "cargo:cargo-expand" = "latest"
 "cargo:cargo-unmaintained" = "latest"
+"cargo:dart-typegen" = "latest"
 "cargo:taplo-cli" = "latest"
 "cargo:wasm-pack" = "latest"
 "cargo:watchexec-cli" = "latest"
@@ -23,6 +24,7 @@ dotnet-core = "latest"
 "dotnet:roslynator.dotnet.cli" = "latest"
 dprint = "latest"
 editorconfig-checker = "latest"
+"github:christianhelle/openapi2zig" = "latest"
 "github:grok-rs/waitup" = "latest"
 "github:wasm-bindgen/wasm-bindgen" = "0.2.114"
 # Use the GitHub release tarball, not `npm:pyodide`. The npm package is only
@@ -46,6 +48,8 @@ osv-scanner = "latest"
 pipx = { version = "latest", os = ["linux", "macos"] }
 "pipx:cmake" = "latest"
 "pipx:componentize-py" = "latest"
+"pipx:datamodel-code-generator" = { version = "latest", extras = "ruff" }
+"pipx:openapi-python-client" = "0.29.0"
 "pipx:pytest" = "latest"
 # The default aqua backend has no darwin/amd64 prebuilt; fall back to
 # `npm:pnpm` on Intel Mac (node is already a mise tool above).
@@ -79,10 +83,14 @@ MAVEN_ARGS = "--no-transfer-progress"
 [tasks]
 ec = "ec"
 editorconfig-check = "ec"
-ruff-check = "ruff check services/ws-modules/"
-ruff-fmt = "ruff format services/ws-modules/"
-zig-check = "zig fmt --check services/ws-modules/"
-zig-fmt = "zig fmt services/ws-modules/"
+# `wit_world` and `componentize_py_async_support` are componentize-py outputs
+# (gitignored, regenerated each build) under wasi-graphics-info — ruff would
+# flag 200+ issues in code we don't own and don't ship.
+ruff-check = "ruff check --exclude wit_world --exclude componentize_py_async_support services/ws-modules/ generated/python-ws/ generated/python-rest/"
+ruff-fmt = "ruff format --exclude wit_world --exclude componentize_py_async_support services/ws-modules/ generated/python-ws/ generated/python-rest/"
+ruff-fmt-check = "ruff format --check --exclude wit_world --exclude componentize_py_async_support services/ws-modules/ generated/python-ws/ generated/python-rest/"
+zig-check = "zig fmt --check services/ws-modules/ generated/zig-rest/"
+zig-fmt = "zig fmt services/ws-modules/ generated/zig-rest/"
 
 [tasks.dotnet-fmt]
 description = "Format dotnet C# code"
@@ -102,14 +110,35 @@ DPRINT_CACHE_DIR = "/tmp/dprint-cache"
 run = "dprint fmt"
 
 [tasks.fmt]
-depends = ["cargo-clippy-fix", "cargo-fmt", "dart-fmt", "dotnet-fmt", "dprint-fmt", "taplo-fmt", "zig-fmt"]
+depends = ["cargo-clippy-fix", "cargo-fmt", "dart-fmt", "dotnet-fmt", "dprint-fmt", "ruff-fmt", "taplo-fmt", "zig-fmt"]
 description = "Run repository formatters"
 
+[tasks.dart-pub-get]
+# `dart format` and `dart analyze` walk up to find pubspec.yaml *and* read
+# `.dart_tool/package_config.json` if present. With package_config.json, the
+# formatter picks the package's exact language version; without it, it
+# falls back to a different default — same source file, different output.
+# That mismatch is invisible locally (we accumulate .dart_tool/ over time)
+# but bites CI's fresh checkout. Run `dart pub get` for every Dart package
+# before any dart-* task so .dart_tool/ exists and the format is stable.
+run = """
+dart pub get --directory generated/dart-ws
+dart pub get --directory services/ws-modules/dart-comm1
+"""
+
 [tasks.dart-check]
-run = "dart analyze services/ws-modules/dart-comm1/"
+depends = ["dart-pub-get"]
+run = "dart analyze services/ws-modules/dart-comm1/ generated/dart-ws/"
 
 [tasks.dart-fmt]
-run = "dart format services/ws-modules/dart-comm1/"
+depends = ["dart-pub-get"]
+run = "dart format services/ws-modules/dart-comm1/ generated/dart-ws/"
+
+[tasks.dart-fmt-check]
+depends = ["dart-pub-get"]
+# Parallel of cargo-fmt-check: fail if any tracked Dart source would be
+# reformatted, so CI enforces the same formatting `dart-fmt` applies.
+run = "dart format --output=none --set-exit-if-changed services/ws-modules/dart-comm1/ generated/dart-ws/"
 
 [tasks.check]
 depends = [
@@ -119,10 +148,14 @@ depends = [
   "cargo-doc-check",
   "cargo-fmt-check",
   "dart-check",
+  "dart-fmt-check",
   "dotnet-check",
   "dprint-check",
   "editorconfig-check",
+  "gen-specs-check",
   "osv-scanner",
+  "ruff-check",
+  "ruff-fmt-check",
   "taplo-check",
   "typos",
   "verification-check",
@@ -189,6 +222,7 @@ zig build --fetch --build-file services/ws-modules/zig-data1/build.zig
 # `link:` was wired up). Treat `mise run prefetch` as a CI-style batch.
 [tasks.prefetch.env]
 CI = "true"
+#UV_PYTHON = "cpython"
 
 [tasks.regenerate-verification]
 alias = "regen-verification"
@@ -199,6 +233,115 @@ run = "cargo run -p et-cli -- regen-verification"
 depends = ["regenerate-verification"]
 description = "Fail if generated scenario output files are stale"
 run = "git diff --exit-code -- verification"
+
+[tasks.fetch-wit-deps]
+description = "Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions. Run by hand when bumping a package version; gen-specs-check catches drift."
+run = "cargo run -q -p et-int-gen --bin et-int-gen -- fetch-deps"
+
+[tasks.gen-ws-spec]
+description = "Run et-int-gen: emit the WS protocol's AsyncAPI YAML, OpenAPI YAML, WIT package, KDL schema, and Rust REST client from edge_toolkit::ws::WsMessage and the service handlers"
+# et-int-gen runs progenitor + prettyplease to produce
+# generated/rust-rest/src/lib.rs. prettyplease's style disagrees with our
+# nightly rustfmt (different import grouping + line width), so the workspace
+# `mise run fmt` would reformat it and `mise run gen-specs-check` would see
+# drift on the next regen. Make rustfmt the canonical formatter by running
+# it here as a post-process — the committed file is then a fixed point of
+# both tools.
+run = """
+cargo run -q -p et-int-gen --bin et-int-gen
+cargo +nightly fmt -p et-rest-client
+zig fmt generated/zig-rest/src/et_rest_client.zig
+"""
+
+[tasks.gen-dart-ws]
+depends = ["gen-ws-spec"]
+description = "Emit Dart sealed-class client for the WS protocol via dart-typegen (consumes target/int-gen/ws.kdl emitted by gen-ws-spec)"
+run = """
+mkdir -p generated/dart-ws/lib
+dart-typegen generate -i target/int-gen/ws.kdl -o generated/dart-ws/lib/ws_messages.dart
+dart format generated/dart-ws/lib/ws_messages.dart
+"""
+
+[tasks.gen-python-rest]
+depends = ["gen-ws-spec"]
+description = "Emit typed Python REST client for the ws-server API via openapi-python-client (consumes generated/specs/rest.yaml)"
+run = """
+mkdir -p generated/python-rest/et_rest_client
+openapi-python-client generate \
+  --path generated/specs/rest.yaml \
+  --meta none \
+  --overwrite \
+  --output-path generated/python-rest/et_rest_client
+# openapi-python-client drops a .ruff_cache next to the generated source; we
+# don't want that committed.
+rm -rf generated/python-rest/et_rest_client/.ruff_cache
+# openapi-python-client runs `ruff format` internally but not `ruff check`,
+# so isort-style import sorting ("I" rules in our ruff.toml) isn't applied.
+# Re-run from the repo to match.
+ruff check --fix generated/python-rest/et_rest_client
+"""
+
+[tasks.gen-python-ws]
+depends = ["gen-ws-spec"]
+description = "Emit Pydantic models for the WS protocol via datamodel-code-generator"
+run = """
+mkdir -p generated/python-ws/et_ws
+# `--custom-file-header "#"` is the only way to suppress datamodel-codegen's
+# "generated by datamodel-codegen / filename: …" banner (an empty string is
+# treated as "no override" and the default banner returns). Strip the
+# remaining lone `#` line below so the file starts cleanly.
+# `--formatters ruff-format ruff-check` opts in to the new ruff-based
+# formatter stack — silences the FutureWarning about black/isort being
+# replaced and gives us a single formatter (ruff) end-to-end. The `[ruff]`
+# extra on the pipx install (in [tools]) puts ruff in datamodel-codegen's
+# venv so it can find it.
+datamodel-codegen \
+  --input target/int-gen/ws.schema.json \
+  --input-file-type jsonschema \
+  --output generated/python-ws/et_ws/messages.py \
+  --output-model-type pydantic_v2.BaseModel \
+  --target-python-version 3.10 \
+  --use-schema-description \
+  --use-title-as-name \
+  --use-double-quotes \
+  --use-union-operator \
+  --field-constraints \
+  --disable-timestamp \
+  --formatters ruff-format ruff-check \
+  --custom-file-header '#'
+sed -i.bak -e '1{/^#$/d;}' -e '2{/^$/d;}' generated/python-ws/et_ws/messages.py
+rm generated/python-ws/et_ws/messages.py.bak
+# datamodel-codegen's ruff formatter runs without our repo ruff.toml, so
+# line-length defaults differ and imports aren't isort-grouped. Re-run
+# ruff from the repo to apply both — `check --fix` for import sorting
+# ("I" rules in ruff.toml), then `format` for whitespace.
+ruff check --fix generated/python-ws/et_ws/messages.py
+ruff format generated/python-ws/et_ws/messages.py
+"""
+
+[tasks.gen-specs]
+depends = ["gen-dart-ws", "gen-python-rest", "gen-python-ws", "gen-ws-spec"]
+description = "Regenerate every spec artifact under generated/ (AsyncAPI YAML, OpenAPI YAML, WIT, Dart, Python, Rust)"
+
+[tasks.gen-specs-check]
+depends = ["gen-specs"]
+description = "Fail if any checked-in artifact under generated/ is stale"
+# All et-int-gen outputs land under generated/. The runner's
+# wit/deps/et-ws-messages is a symlink into that tree, so a single diff
+# against generated/ covers everything.
+run = "git diff --exit-code -- generated"
+
+[tasks.build-et-ws-wheel]
+depends = ["gen-python-ws"]
+description = "Build the generated et-ws Python package as a wheel"
+dir = "generated/python-ws"
+run = "uv build --wheel --out-dir dist"
+
+[tasks.build-et-rest-client-wheel]
+depends = ["gen-python-rest"]
+description = "Build the generated et-rest-client Python package as a wheel"
+dir = "generated/python-rest"
+run = "uv build --wheel --out-dir dist"
 
 # `cargo-watch` is unmaintained; `watchexec` is its successor (and what
 # `cargo-watch` always called under the hood). Restart on .rs/.toml
@@ -310,7 +453,10 @@ run = "wasm-pack build . --target web"
 [tasks.build-ws-dart-comm1-module]
 description = "Build the dart-comm1 workflow module"
 dir = "services/ws-modules/dart-comm1"
-run = "dart compile js lib/dart_comm1.dart -o pkg/et_ws_dart_comm1_compiled.js --no-source-maps"
+run = """
+dart pub get
+dart compile js lib/dart_comm1.dart -o pkg/et_ws_dart_comm1_compiled.js --no-source-maps
+"""
 
 [tasks.build-ws-dotnet-data1-module]
 description = "Build the dotnet-data1 C# WASM workflow module"
@@ -326,10 +472,10 @@ cp "$PUBLISH"/*.js "$PUBLISH"/*.wasm "$PUBLISH"/*.dat pkg/
 [tasks.build-ws-wasi-graphics-info-module]
 description = "Build the WASI graphics-info Python module as a WASI Preview 2 component"
 dir = "services/ws-modules/wasi-graphics-info"
-# WIT lives once in services/ws-wasi-runner/wit/ - the runner's `runner`
-# world is what its bindgen consumes; the `module` world (which `include`s
-# `runner` and adds wasi-nn) is what guest modules target. `mnist-12.onnx`
-# is fetched into `pkg/` by `mise run download-models` (see
+# WIT lives once at generated/specs/wit/ — the runner's `runner` world is
+# what its bindgen consumes; the `module` world (which `include`s `runner`
+# and adds wasi-nn) is what guest modules target. `mnist-12.onnx` is
+# fetched into `pkg/` by `mise run download-models` (see
 # `fetch-mnist-rclone`); componentize-py 0.23 doesn't bundle arbitrary
 # data files inside the component image, so the guest fetches it via the
 # `wasi:keyvalue/store` host import from the ws-server at runtime.
@@ -337,8 +483,8 @@ dir = "services/ws-modules/wasi-graphics-info"
 # existing output dir, so we wipe it first.
 run = """
 rm -rf wit_world
-componentize-py -d ../../ws-wasi-runner/wit -w module bindings .
-componentize-py -d ../../ws-wasi-runner/wit -w module componentize wasi_graphics_info -o pkg/et_ws_wasi_graphics_info.wasm
+componentize-py -d ../../../generated/specs/wit -w module bindings .
+componentize-py -d ../../../generated/specs/wit -w module componentize wasi_graphics_info -o pkg/et_ws_wasi_graphics_info.wasm
 cargo run -p et-cli -- module-package-json
 """
 
@@ -366,18 +512,22 @@ cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi
 """
 
 [tasks.build-ws-pydata1-module]
+depends = ["build-et-rest-client-wheel"]
 description = "Build the pydata1 Python workflow module"
 dir = "services/ws-modules/pydata1"
 run = """
 uv build --wheel --out-dir pkg
+cp ../../../generated/python-rest/dist/et_rest_client-*.whl pkg/
 cargo run -p et-cli -- module-package-json
 """
 
 [tasks.build-ws-pyface1-module]
+depends = ["build-et-ws-wheel"]
 description = "Build the pyface1 Python face detection workflow module"
 dir = "services/ws-modules/pyface1"
 run = """
 uv build --wheel --out-dir pkg
+cp ../../../generated/python-ws/dist/et_ws-*.whl pkg/
 cargo run -p et-cli -- module-package-json
 """
 
@@ -478,6 +628,9 @@ run = "cargo test --workspace"
 [tasks.test-pyface1]
 dir = "services/ws-modules/pyface1"
 run = "uv run pytest"
+
+[tasks.test-pyface1.env]
+UV_PYTHON = "{{exec(command='mise where python')}}/bin/python3"
 
 [tasks.test]
 depends = ["cargo-test", "test-pyface1"]

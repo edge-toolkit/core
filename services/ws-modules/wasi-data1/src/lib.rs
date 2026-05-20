@@ -28,13 +28,12 @@
 #![expect(unsafe_code)]
 
 wit_bindgen::generate!({
-    path: "../../ws-wasi-runner/wit",
+    path: "../../../generated/specs/wit",
     world: "module",
     generate_all,
 });
 
-use et::ws_wasi::ws::WsError;
-use exports::et::ws_wasi::entry::{Guest, RunError};
+use exports::et::ws_wasi::entry::Guest;
 use wasi::keyvalue::store;
 use wasi::logging::logging::{self, Level};
 
@@ -45,48 +44,45 @@ fn info(message: &str) {
     logging::log(Level::Info, LOG_CONTEXT, message);
 }
 
-// Flatten typed host-import errors into the matching `RunError(String)`
-// variant. Plain `From` rather than thiserror's `#[from]` because the
-// bindgen-generated `WsError` / `store::Error` don't impl `Error`.
-impl From<WsError> for RunError {
-    fn from(source: WsError) -> Self {
-        RunError::Ws(format!("{source:?}"))
-    }
-}
-
-impl From<store::Error> for RunError {
-    fn from(source: store::Error) -> Self {
-        RunError::Store(format!("{source:?}"))
-    }
-}
-
 struct Component;
 
 impl Guest for Component {
-    fn run() -> Result<(), RunError> {
+    fn run() -> Result<(), String> {
         info("entered run()");
 
+        // `ws::connect`'s error is already a string alias, so `?` flows into
+        // the outer `Result<_, String>` directly.
         et::ws_wasi::ws::connect()?;
-        let agent_id = wait_for_agent_id().ok_or_else(|| RunError::Precondition("did not receive agent_id".into()))?;
+        let agent_id = wait_for_agent_id().ok_or_else(|| "did not receive agent_id".to_string())?;
         info(&format!("websocket connected with agent_id={agent_id}"));
 
-        let bucket = store::open(&agent_id)?;
+        // `store::Error` is a wit-bindgen variant with `Debug` (no `Display`),
+        // so the foreign-to-foreign conversion has to happen at the match arm
+        // — no orphan-rule-friendly `From` impl is available.
+        let bucket = match store::open(&agent_id) {
+            Ok(bucket) => bucket,
+            Err(e) => return Err(format!("store.open({agent_id}): {e:?}")),
+        };
 
         let test_content = format!("Hello from wasi-data1, agent={agent_id}!").into_bytes();
         info(&format!("storing {} bytes to key {FILENAME}", test_content.len()));
-        bucket.set(FILENAME, &test_content)?;
+        if let Err(e) = bucket.set(FILENAME, &test_content) {
+            return Err(format!("bucket.set({FILENAME}): {e:?}"));
+        }
 
         info(&format!("fetching key {FILENAME}"));
-        let fetched = bucket
-            .get(FILENAME)?
-            .ok_or_else(|| RunError::Precondition(format!("bucket.get({FILENAME}) returned none after set")))?;
+        let fetched = match bucket.get(FILENAME) {
+            Ok(Some(bytes)) => bytes,
+            Ok(None) => return Err(format!("bucket.get({FILENAME}) returned none after set")),
+            Err(e) => return Err(format!("bucket.get({FILENAME}): {e:?}")),
+        };
 
         if fetched != test_content {
-            return Err(RunError::Precondition(format!(
+            return Err(format!(
                 "data mismatch: sent {} bytes, got {} bytes",
                 test_content.len(),
                 fetched.len()
-            )));
+            ));
         }
         info("VERIFICATION SUCCESS — keyvalue roundtrip matches");
 

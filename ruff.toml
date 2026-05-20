@@ -1,0 +1,15 @@
+# Match the repo-wide 120 line-length set in .editorconfig. Without this, ruff
+# would use its default of 88, so files that ruff considered "already
+# formatted" could still trip the editorconfig-check.
+line-length = 120
+
+[lint]
+# Add isort-style import sorting on top of the default rule set (E, F).
+# `ruff format` only handles whitespace; the "I" rules give us deterministic
+# import grouping. datamodel-codegen's ruff formatter doesn't sort imports
+# on its own, so without this the generated messages.py drifts between
+# regens. Use `extend-select`, not `select`, so we keep the default F401
+# (unused-import) rule that openapi-python-client relies on internally — it
+# generates speculative imports and trims them by re-running ruff with the
+# default rules.
+extend-select = ["I"]

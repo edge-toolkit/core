@@ -24,11 +24,18 @@ import json
 import struct
 
 from componentize_py_types import Err
-from wit_world.exports.entry import RunError_Other, RunError_Precondition, RunError_Store, RunError_Ws
-from wit_world.imports import logging, monotonic_clock, poll, store, webgpu, ws
-from wit_world.imports.logging import Level
 from wit_world.imports import graph as nn_graph
+from wit_world.imports import (
+    logging,
+    messages,
+    monotonic_clock,
+    poll,
+    store,
+    webgpu,
+    ws,
+)
 from wit_world.imports.graph import ExecutionTarget, GraphEncoding
+from wit_world.imports.logging import Level
 from wit_world.imports.tensor import Tensor, TensorType
 from wit_world.imports.webgpu import (
     GpuBindGroupDescriptor,
@@ -49,7 +56,6 @@ from wit_world.imports.webgpu import (
     GpuShaderModuleDescriptor,
     GpuShaderStage,
 )
-
 
 # An all-zero 28x28 input is the simplest reproducible MNIST query - bytes
 # don't drift across rebuilds and we don't have to ship a real digit image.
@@ -132,7 +138,15 @@ def _log(message: str) -> None:
 
 
 def _send_event(category: str, kind: str, body: dict) -> None:
-    ws.send_event(category, kind, json.dumps(body))
+    ws.send(
+        messages.WsMessage_ClientEvent(
+            messages.ClientEventPayload(
+                capability=category,
+                action=kind,
+                details=json.dumps(body),
+            )
+        )
+    )
 
 
 def _now_ms() -> int:
@@ -402,16 +416,6 @@ def _mnist_inference() -> dict:
     }
 
 
-# `WsError` and `store.Error` are typing.Union aliases (no runtime
-# class), so `isinstance` against them is meaningless — match against
-# the concrete variant dataclasses instead.
-_WS_ERROR_VARIANTS = (
-    ws.WsError_NotConnected,
-    ws.WsError_AlreadyConnected,
-    ws.WsError_InboxClosed,
-    ws.WsError_Transport,
-    ws.WsError_Protocol,
-)
 _STORE_ERROR_VARIANTS = (
     store.Error_NoSuchStore,
     store.Error_AccessDenied,
@@ -420,25 +424,24 @@ _STORE_ERROR_VARIANTS = (
 
 
 class Entry:
-    """Implements the `entry` interface exported by the world."""
+    """Implements the `entry` interface exported by the world.
+
+    WIT signature is `run: func() -> result<_, string>`. componentize-py
+    renders the success path as `-> None` and failures as
+    `raise Err("...")`. Workflow code lives in `_run_workflow`; this
+    wrapper flattens host-import errors (`ws.WsError` is now a string
+    alias, `store.Error` is still a variant) into a single string for
+    the WIT crossing.
+    """
 
     def run(self) -> None:
-        """WIT signature is `run: func() -> result<_, run-error>`.
-        componentize-py renders the success path as `-> None` and
-        failures as `raise Err(RunError_*(...))`. Workflow code lives
-        in `_run_workflow`; this wrapper buckets the WIT errors raised
-        by the host imports (`ws.WsError`, `store.Error`) into the
-        matching `RunError_*` variant.
-        """
         try:
             _run_workflow()
         except Err as exc:
             value = exc.value
-            if isinstance(value, _WS_ERROR_VARIANTS):
-                raise Err(RunError_Ws(str(value))) from exc
             if isinstance(value, _STORE_ERROR_VARIANTS):
-                raise Err(RunError_Store(str(value))) from exc
-            raise Err(RunError_Other(str(value))) from exc
+                raise Err(f"store error: {value}") from exc
+            raise Err(str(value)) from exc
 
 
 def _run_workflow() -> None:
@@ -446,7 +449,7 @@ def _run_workflow() -> None:
 
     ws.connect()
     if not _wait_for_connected():
-        raise Err(RunError_Precondition("websocket did not reach connected state"))
+        raise Err("websocket did not reach connected state")
 
     agent_id = ws.agent_id()
     _log(f"websocket connected with agent_id={agent_id}")

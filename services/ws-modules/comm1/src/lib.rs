@@ -157,8 +157,6 @@ fn handle_incoming_message(
         | WsMessage::BroadcastMessage { .. }
         | WsMessage::MessageAck { .. }
         | WsMessage::ClientEvent { .. }
-        | WsMessage::StoreFile { .. }
-        | WsMessage::FetchFile { .. }
         | WsMessage::Response { .. } => {}
     }
 }

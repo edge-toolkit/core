@@ -1,0 +1,15 @@
+[project]
+dependencies = ["pydantic>=2"]
+description = "Generated Pydantic models for the Edge Toolkit WS protocol"
+license = "Apache-2.0 OR MIT"
+name = "et-ws"
+requires-python = ">=3.10"
+version = "0.1.0"
+
+[build-system]
+build-backend = "uv_build"
+requires = ["uv_build>=0.10.2,<0.11.0"]
+
+[tool.uv.build-backend]
+module-name = "et_ws"
+module-root = ""

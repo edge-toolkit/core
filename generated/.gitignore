@@ -1,0 +1,6 @@
+# Local build artifacts — checked-in generated source lives in
+# {dart-ws,docs/asyncapi,python-ws}/ and is committed.
+dart-ws/.dart_tool/
+dart-ws/pubspec.lock
+python-ws/dist/
+python-ws/.venv/

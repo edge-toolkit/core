@@ -20,4 +20,12 @@ ignores:
   # WIT-bindgen host impls return `Result<_, String>` because the WIT
   # `ws-error` / etc. on the host side is generated as a String alias.
   # The helper trait that builds that shape lives here.
+  - services/ws-wasi-runner/src/error.rs
   - services/ws-wasi-runner/src/host/error.rs
+  # WIT-bindgen guest impls: the `entry.run` WIT signature is
+  # `result<_, string>`, so the `Guest::run` trait method literally has to
+  # be `fn run() -> Result<(), String>`. Same applies to the internal
+  # `wit_to_et` / `et_to_wit` converters in the runner host, which return
+  # the WIT-shaped error directly.
+  - services/ws-modules/wasi-comm1/src/lib.rs
+  - services/ws-modules/wasi-data1/src/lib.rs

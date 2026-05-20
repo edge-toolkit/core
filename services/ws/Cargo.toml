@@ -11,6 +11,7 @@ doctest = false
 [dependencies]
 actix-web = "4"
 actix-ws = "0.3"
+bytes.workspace = true
 chrono = { version = "0.4", features = ["serde"] }
 edge-toolkit.workspace = true
 futures-util = "0.3"

@@ -7,7 +7,7 @@ export default async function init() {
   const { dotnet } = await import(new URL("dotnet.js", import.meta.url).href);
   const { getAssemblyExports, setModuleImports } = await dotnet.create();
 
-  let ws = null, wsState = "disconnected", agentId = "", lastResponse = null;
+  let ws = null, wsState = "disconnected", agentId = "";
 
   setModuleImports("dotnet-data1", {
     wsConnect: (url) => {
@@ -15,13 +15,12 @@ export default async function init() {
       wsState = "connecting";
       ws.onopen = () => {
         wsState = "connected";
-        ws.send(JSON.stringify({ type: "connect" }));
+        ws.send(JSON.stringify({ type: "et-connect" }));
       };
       ws.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data);
-          if (msg.type === "connect_ack" && msg.agent_id) agentId = msg.agent_id;
-          else if (msg.type === "response" && msg.message) lastResponse = msg.message;
+          if (msg.type === "et-connect-ack" && msg.agent_id) agentId = msg.agent_id;
         } catch {}
       };
       ws.onclose = ws.onerror = () => {
@@ -32,14 +31,8 @@ export default async function init() {
       ws?.close();
       wsState = "disconnected";
     },
-    wsSend: (msg) => ws?.send(msg),
     wsGetState: () => wsState,
     wsGetAgentId: () => agentId ?? "",
-    wsPopResponse: () => {
-      const r = lastResponse ?? "";
-      lastResponse = null;
-      return r;
-    },
     putFile: (url, body) =>
       fetch(url, { method: "PUT", body }).then(r => {
         if (!r.ok) throw new Error(`PUT failed: ${r.status}`);

@@ -1,0 +1,91 @@
+package et:ws-messages@0.1.0;
+
+/// Typed WS protocol messages — each `ws-message` case maps 1:1 to a Rust `WsMessage` variant on the wire.
+interface messages {
+  enum agent-connection-state {
+    connected,
+    disconnected,
+  }
+  enum connect-status {
+    assigned,
+    reconnected,
+  }
+  enum message-delivery-status {
+    delivered,
+    queued,
+    acknowledged,
+    broadcast,
+  }
+  enum message-scope {
+    direct,
+    broadcast,
+  }
+  record agent-summary {
+    agent-id: string,
+    last-known-ip: option<string>,
+    state: agent-connection-state,
+  }
+  record connect-payload {
+    agent-id: option<string>,
+  }
+  record connect-ack-payload {
+    agent-id: string,
+    status: connect-status,
+  }
+  record alive-payload {
+    timestamp: string,
+  }
+  record list-agents-response-payload {
+    agents: list<agent-summary>,
+  }
+  record send-agent-message-payload {
+    message: string,
+    to-agent-id: string,
+  }
+  record broadcast-message-payload {
+    message: string,
+  }
+  record agent-message-payload {
+    from-agent-id: string,
+    message: string,
+    message-id: string,
+    scope: message-scope,
+    server-received-at: string,
+  }
+  record message-ack-payload {
+    message-id: string,
+  }
+  record message-status-payload {
+    detail: string,
+    message-id: option<string>,
+    status: message-delivery-status,
+  }
+  record invalid-payload {
+    detail: string,
+    message-id: option<string>,
+  }
+  record client-event-payload {
+    action: string,
+    capability: string,
+    details: string,
+  }
+  record response-payload {
+    message: string,
+  }
+  /// Tagged union covering every wire-format WS message.
+  variant ws-message {
+    connect(connect-payload),
+    connect-ack(connect-ack-payload),
+    alive(alive-payload),
+    list-agents,
+    list-agents-response(list-agents-response-payload),
+    send-agent-message(send-agent-message-payload),
+    broadcast-message(broadcast-message-payload),
+    agent-message(agent-message-payload),
+    message-ack(message-ack-payload),
+    message-status(message-status-payload),
+    invalid(invalid-payload),
+    client-event(client-event-payload),
+    response(response-payload),
+  }
+}

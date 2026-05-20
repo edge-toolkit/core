@@ -1,18 +1,18 @@
 // zig-data1: replicates data1 workflow in Zig compiled to WASM.
 // All browser I/O is provided by JS imports; Zig owns the workflow logic.
+// HTTP goes through the generated `et_rest_client` typed client (which
+// bottoms out in a single `extern fn js_rest_request` import implemented
+// by the worker shim via SharedArrayBuffer + Atomics).
 
 const std = @import("std");
+const rest = @import("et_rest_client");
 
 extern fn js_log(ptr: [*]const u8, len: usize) void;
 extern fn js_set_status(ptr: [*]const u8, len: usize) void;
 extern fn js_ws_connect(url_ptr: [*]const u8, url_len: usize) void;
-extern fn js_ws_send(ptr: [*]const u8, len: usize) void;
 extern fn js_ws_disconnect() void;
 extern fn js_ws_get_state(buf: [*]u8, max: usize) usize;
 extern fn js_ws_get_agent_id(buf: [*]u8, max: usize) usize;
-extern fn js_ws_pop_response(buf: [*]u8, max: usize) usize;
-extern fn js_put_file(url_ptr: [*]const u8, url_len: usize, body_ptr: [*]const u8, body_len: usize) void;
-extern fn js_get_file(url_ptr: [*]const u8, url_len: usize, buf: [*]u8, max: usize) usize;
 extern fn js_sleep_ms(ms: u32) void;
 extern fn js_get_ws_url(buf: [*]u8, max: usize) usize;
 extern fn js_get_iso_timestamp(buf: [*]u8, max: usize) usize;
@@ -20,7 +20,9 @@ extern fn js_get_iso_timestamp(buf: [*]u8, max: usize) usize;
 // Declared in src/util.c
 extern fn byte_sum(buf: [*]const u8, len: usize) u8;
 
-var heap: [64 * 1024]u8 = undefined;
+// Bumped from 64K because the REST client allocates a 64K response buffer
+// per request and the workflow runs several round-trips before completing.
+var heap: [256 * 1024]u8 = undefined;
 var fba = std.heap.FixedBufferAllocator.init(&heap);
 const alloc = fba.allocator();
 
@@ -52,16 +54,6 @@ fn wait_agent_id(buf: []u8) usize {
     while (i < 100) : (i += 1) {
         const n = js_ws_get_agent_id(buf.ptr, buf.len);
         if (n > 0) return n;
-        js_sleep_ms(100);
-    }
-    return 0;
-}
-
-fn wait_response(prefix: []const u8, buf: []u8) usize {
-    var i: u32 = 0;
-    while (i < 50) : (i += 1) {
-        const n = js_ws_pop_response(buf.ptr, buf.len);
-        if (n > 0 and std.mem.startsWith(u8, buf[0..n], prefix)) return n;
         js_sleep_ms(100);
     }
     return 0;
@@ -104,47 +96,28 @@ export fn run() i32 {
     const cksum = byte_sum(content.ptr, content.len);
     log("content checksum (byte_sum from C): {d}", .{cksum});
 
-    // 1. Request store URL
-    const store_msg = std.fmt.allocPrint(alloc,
-        \\{{"type":"store_file","filename":"{s}"}}
-    , .{filename}) catch return -1;
-    defer alloc.free(store_msg);
-    log("requesting store URL", .{});
-    js_ws_send(store_msg.ptr, store_msg.len);
+    // The REST client targets the same origin we were served from, so an
+    // empty base_url leaves it with relative paths like `/storage/{id}/{f}`
+    // — the browser resolves those against the page origin via fetch().
+    var client = rest.Client.init(alloc, undefined, "");
+    defer client.deinit();
 
-    var resp_buf: [512]u8 = undefined;
-    const store_resp_len = wait_response("PUT to ", &resp_buf);
-    if (store_resp_len == 0) {
-        log("timed out waiting for store URL", .{});
+    log("storing data to /storage/{s}/{s}", .{ agent_id, filename });
+    set_status("zig-data1: storing data to /storage/{s}/{s}", .{ agent_id, filename });
+    rest.put_file(&client, agent_id, filename, content) catch {
+        log("put_file failed", .{});
         return -1;
-    }
-    const store_url = resp_buf[7..store_resp_len]; // strip "PUT to "
-    log("storing data to {s}", .{store_url});
-    set_status("zig-data1: storing data to {s}", .{store_url});
-    js_put_file(store_url.ptr, store_url.len, content.ptr, content.len);
+    };
 
-    // 2. Request fetch URL
-    const fetch_msg = std.fmt.allocPrint(alloc,
-        \\{{"type":"fetch_file","agent_id":"{s}","filename":"{s}"}}
-    , .{ agent_id, filename }) catch return -1;
-    defer alloc.free(fetch_msg);
-    log("requesting fetch URL", .{});
-    js_ws_send(fetch_msg.ptr, fetch_msg.len);
-
-    const fetch_resp_len = wait_response("GET from ", &resp_buf);
-    if (fetch_resp_len == 0) {
-        log("timed out waiting for fetch URL", .{});
+    log("fetching data from /storage/{s}/{s}", .{ agent_id, filename });
+    set_status("zig-data1: fetching data from /storage/{s}/{s}", .{ agent_id, filename });
+    var raw = rest.get_fileRaw(&client, agent_id, filename) catch {
+        log("get_file failed", .{});
         return -1;
-    }
-    const fetch_url = resp_buf[9..fetch_resp_len]; // strip "GET from "
-    log("fetching data from {s}", .{fetch_url});
-    set_status("zig-data1: fetching data from {s}", .{fetch_url});
+    };
+    defer raw.deinit();
 
-    var get_buf: [512]u8 = undefined;
-    const got_len = js_get_file(fetch_url.ptr, fetch_url.len, &get_buf, get_buf.len);
-    const got = get_buf[0..got_len];
-
-    if (std.mem.eql(u8, got, content)) {
+    if (std.mem.eql(u8, raw.body, content)) {
         log("VERIFICATION SUCCESS - data matches!", .{});
         set_status("zig-data1: VERIFICATION SUCCESS - data matches!", .{});
     } else {

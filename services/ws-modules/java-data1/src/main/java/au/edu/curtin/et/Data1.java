@@ -2,17 +2,11 @@ package au.edu.curtin.et;
 
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSExport;
-import org.teavm.jso.JSFunctor;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.core.JSPromise;
 import org.teavm.jso.function.JSConsumer;
 
 public final class Data1 {
-
-    @JSFunctor
-    interface StringCallback extends JSObject {
-        void call(String value);
-    }
 
     @JSBody(params = {"msg"}, script = "host.log(msg);")
     static native void log(String msg);
@@ -29,17 +23,11 @@ public final class Data1 {
     @JSBody(script = "host.wsDisconnect();")
     static native void wsDisconnect();
 
-    @JSBody(params = {"msg"}, script = "host.wsSend(msg);")
-    static native void wsSend(String msg);
-
     @JSBody(script = "return host.wsGetState();")
     static native String wsGetState();
 
     @JSBody(script = "return host.wsGetAgentId();")
     static native String wsGetAgentId();
-
-    @JSBody(script = "return host.wsPopResponse();")
-    static native String wsPopResponse();
 
     @JSBody(params = {"ms"}, script = "return host.sleep(ms);")
     static native JSPromise<JSObject> sleep(int ms);
@@ -96,7 +84,7 @@ public final class Data1 {
             String msg = "[java-data1] connected as " + agentId;
             log(msg);
             setStatus(msg);
-            doStoreRequest(agentId, resolve, reject);
+            doStore(agentId, resolve, reject);
             return;
         }
         sleep(100).then(v -> {
@@ -105,41 +93,28 @@ public final class Data1 {
         });
     }
 
-    private static void doStoreRequest(String agentId, JSConsumer<JSObject> resolve, JSConsumer<Object> reject) {
+    private static void doStore(String agentId, JSConsumer<JSObject> resolve, JSConsumer<Object> reject) {
         String filename = "test_data.txt";
         String testContent = "Hello from java-data1 at " + getIsoTimestamp() + "!";
-        log("[java-data1] requesting store URL");
-        wsSend("{\"type\":\"store_file\",\"filename\":\"" + filename + "\"}");
-        waitForResponse(0, "PUT to ", storeResponse -> {
-            String storeUrl = storeResponse.replace("PUT to ", "");
-            String msg = "[java-data1] storing data to " + storeUrl;
-            log(msg);
-            setStatus(msg);
-            putFile(storeUrl, testContent).then(v -> {
-                doFetchRequest(agentId, filename, testContent, resolve, reject);
-                return null;
-            });
-        }, reject);
+        String storageUrl = "/storage/" + agentId + "/" + filename;
+        String msg = "[java-data1] storing data to " + storageUrl;
+        log(msg);
+        setStatus(msg);
+        putFile(storageUrl, testContent).then(v -> {
+            doFetch(storageUrl, testContent, resolve, reject);
+            return null;
+        });
     }
 
-    private static void doFetchRequest(
-            String agentId,
-            String filename,
-            String testContent,
-            JSConsumer<JSObject> resolve,
-            JSConsumer<Object> reject) {
-        log("[java-data1] requesting fetch URL");
-        wsSend("{\"type\":\"fetch_file\",\"agent_id\":\"" + agentId + "\",\"filename\":\"" + filename + "\"}");
-        waitForResponse(0, "GET from ", fetchResponse -> {
-            String fetchUrl = fetchResponse.replace("GET from ", "");
-            String msg = "[java-data1] fetching data from " + fetchUrl;
-            log(msg);
-            setStatus(msg);
-            getFile(fetchUrl).then(result -> {
-                verifyAndFinish(testContent, jsObjectToString(result), resolve, reject);
-                return null;
-            });
-        }, reject);
+    private static void doFetch(
+            String storageUrl, String testContent, JSConsumer<JSObject> resolve, JSConsumer<Object> reject) {
+        String msg = "[java-data1] fetching data from " + storageUrl;
+        log(msg);
+        setStatus(msg);
+        getFile(storageUrl).then(result -> {
+            verifyAndFinish(testContent, jsObjectToString(result), resolve, reject);
+            return null;
+        });
     }
 
     private static void verifyAndFinish(
@@ -161,23 +136,6 @@ public final class Data1 {
             log(done);
             setStatus(done);
             resolve.accept(null);
-            return null;
-        });
-    }
-
-    private static void waitForResponse(
-            int attempt, String prefix, StringCallback onResult, JSConsumer<Object> reject) {
-        if (attempt >= 50) {
-            reject.accept(jsError("Timeout waiting for response: " + prefix));
-            return;
-        }
-        String r = wsPopResponse();
-        if (r != null && r.startsWith(prefix)) {
-            onResult.call(r);
-            return;
-        }
-        sleep(100).then(v -> {
-            waitForResponse(attempt + 1, prefix, onResult, reject);
             return null;
         });
     }

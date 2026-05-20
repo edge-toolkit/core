@@ -1,0 +1,11 @@
+.{
+    .name = .et_rest_client,
+    .version = "0.1.0",
+    .description = "Typed Zig REST client for ws-server (src/et_rest_client.zig is regenerated).",
+    .license = "Apache-2.0 or MIT",
+    .fingerprint = 0xa1d2f70ec4cd9512,
+    .paths = .{
+        "build.zig.zon",
+        "src",
+    },
+}

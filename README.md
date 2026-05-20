@@ -102,6 +102,26 @@ The default UX in the web-browser is also a loadable module located in
 
 A custom UX module can be used by setting the `ws-server` environment variable `MODULES_ROOT`.
 
+## Protocol & API specs
+
+The WebSocket protocol and the ws-server REST surface are described by
+machine-readable specs regenerated from their Rust sources of truth by
+`mise run gen-specs`:
+
+- **WebSocket** (AsyncAPI 3.0): [`generated/specs/ws.yaml`](generated/specs/ws.yaml).
+  Source: `WsMessage` in `libs/edge-toolkit/src/ws.rs`. Generated clients:
+  [`generated/dart-ws/`](generated/dart-ws/),
+  [`generated/python-ws/`](generated/python-ws/), and the
+  `et:ws-messages` WIT under `generated/specs/wit/deps/`.
+- **REST** (OpenAPI 3.0): [`generated/specs/rest.yaml`](generated/specs/rest.yaml).
+  Source: `#[utoipa::path]` annotations on the handlers in
+  `services/{ws-server,modules,storage}`. Typed Rust client at
+  [`generated/rust-rest/`](generated/rust-rest/) (consumed by
+  `et-ws-wasi-runner` and the browser `data1` module).
+
+See [`generated/README.md`](generated/README.md) for a full catalogue
+of what's regenerated vs. hand-maintained under `generated/`.
+
 ## Run e2e
 
 Run the end-to-end tests using Chrome:

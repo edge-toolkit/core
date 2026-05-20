@@ -22,7 +22,7 @@ use actix_web::http::StatusCode;
 use actix_web::{App, FromRequest as _, test, web};
 use edge_toolkit::ws::AgentConnectionState;
 use edge_toolkit::ws_server::{AgentRecord, AgentRegistry};
-use et_storage_service::{StorageConfig, StorageError, agent_put_file, configure};
+use et_storage_service::{StorageConfig, StorageError, configure, put_file};
 use tempfile::TempDir;
 
 /// Build a registry with a single connected agent.
@@ -80,7 +80,7 @@ async fn rejects_multi_component_filename_with_400() {
     let mut payload = DevPayload::None;
     let payload = web::Payload::from_request(&http_req, &mut payload).await.unwrap();
 
-    let result = agent_put_file::<()>(http_req, payload, web::Data::new(registry), web::Data::new(config)).await;
+    let result = put_file::<()>(http_req, payload, web::Data::new(registry), web::Data::new(config)).await;
 
     let err = result.expect_err("multi-component filename must be rejected");
     assert!(matches!(err, StorageError::InvalidFilename));

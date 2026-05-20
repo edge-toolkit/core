@@ -21,5 +21,12 @@ tempfile.workspace = true
 # in-process see server-side spans parented on the propagated traceparent.
 tracing-actix-web.workspace = true
 
+[dev-dependencies]
+edge-toolkit.workspace = true
+futures-util = "0.3"
+serde_json.workspace = true
+tokio = { version = "1", features = ["macros", "rt", "time"] }
+tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect"] }
+
 [lints]
 workspace = true

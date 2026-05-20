@@ -10,9 +10,11 @@ repository.workspace = true
 doctest = false
 
 [dependencies]
+asyncapi-rust = { workspace = true, optional = true }
 base64.workspace = true
 lets_find_up.workspace = true
 log.workspace = true
+schemars = { workspace = true, optional = true }
 secrecy.workspace = true
 serde.workspace = true
 serde-env.workspace = true
@@ -21,6 +23,11 @@ serde_default.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
 thiserror.workspace = true
+
+[features]
+# Opt-in derives for emitting JSON Schema / AsyncAPI from the WS protocol types.
+# Off by default so wasm and runtime crates don't pull schemars + asyncapi-rust.
+schema-export = ["dep:asyncapi-rust", "dep:schemars"]
 
 [dev-dependencies]
 rstest.workspace = true

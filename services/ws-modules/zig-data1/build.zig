@@ -26,6 +26,16 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    // Generated REST client (path-pinned, lives under generated/zig-rest/).
+    // The single `extern fn js_rest_request` it relies on is satisfied by
+    // the worker shim in pkg/.
+    const rest_module = b.createModule(.{
+        .root_source_file = b.path("../../../generated/zig-rest/src/et_rest_client.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    root_module.addImport("et_rest_client", rest_module);
+
     const lib = b.addExecutable(.{
         .name = name,
         .root_module = root_module,

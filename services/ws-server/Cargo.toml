@@ -13,6 +13,11 @@ doctest = false
 name = "et-ws-server"
 path = "src/main.rs"
 
+[features]
+# OpenAPI metadata for `et-int-gen` to harvest into generated/specs/rest.yaml.
+# Production binaries don't need it; enable only when generating the spec.
+openapi-spec = ["dep:utoipa", "et-modules-service/openapi-spec", "et-storage-service/openapi-spec"]
+
 [dependencies]
 actix-rt.workspace = true
 actix-web.workspace = true
@@ -41,6 +46,7 @@ tokio = { version = "1", features = ["full"] }
 tracing.workspace = true
 tracing-actix-web.workspace = true
 tracing-subscriber.workspace = true
+utoipa = { workspace = true, optional = true }
 uuid.workspace = true
 
 [lints]

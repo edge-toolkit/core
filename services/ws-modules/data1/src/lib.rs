@@ -4,17 +4,14 @@
     reason = "browser WASM module: JsFuture is !Send; module-local helpers like wait_for_* are single-use by design"
 )]
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use edge_toolkit::ws::WsMessage;
-use et_web::{JsCastExt as _, JsResultExt as _};
+use et_web::JsResultExt as _;
 use et_ws_wasm_agent::{WsClient, WsClientConfig, append_to_textarea};
+use futures_util::StreamExt as _;
 use js_sys::{Promise, Reflect};
 use tracing::info;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{Request, RequestInit, RequestMode, Response};
 
 #[wasm_bindgen(start)]
 pub fn init() {
@@ -31,6 +28,7 @@ pub async fn run() -> Result<(), JsValue> {
     let ws_url = websocket_url()?;
     let mut client = WsClient::new(WsClientConfig::new(ws_url));
 
+    /*
     let last_response: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
     let on_message_boxed: Box<dyn FnMut(JsValue)> = Box::new({
         let last_response = Rc::clone(&last_response);
@@ -47,6 +45,19 @@ pub async fn run() -> Result<(), JsValue> {
         }
     });
     let on_message = Closure::wrap(on_message_boxed);
+
+    */
+    #[expect(
+        clippy::as_conversions,
+        reason = "wasm-bindgen's Closure::wrap takes a `Box<dyn FnMut(...)>`; the cast is required to unsize the Box"
+    )]
+    let on_message = Closure::wrap(Box::new(move |value: JsValue| {
+        let Some(data) = value.as_string() else {
+            return;
+        };
+        drop(serde_json::from_str::<WsMessage>(&data));
+    }) as Box<dyn FnMut(JsValue)>);
+
     client.set_on_message(on_message.as_ref().clone());
 
     client.connect()?;
@@ -59,40 +70,25 @@ pub async fn run() -> Result<(), JsValue> {
     let filename = "test_data.txt";
     let test_content = format!("Hello from data1 at {}!", js_sys::Date::new_0().to_iso_string());
 
-    // 1. Request Store URL
-    log("data1: requesting store URL");
-    let store_payload = serde_json::to_string(&WsMessage::StoreFile {
-        filename: filename.to_string(),
-    })
-    .js_context("serialize StoreFile")?;
-    client.send(&store_payload)?;
-    let store_url = wait_for_response(&last_response, "PUT to ")
-        .await?
-        .replace("PUT to ", "");
+    // The typed REST client runs against the page origin — every browser
+    // module is served from the same ws-server that owns its storage, so
+    // an empty base URL (relative paths) is what we want.
+    let rest = et_rest_client::Client::new("");
 
-    // 2. Perform PUT
-    let msg = format!("data1: storing data to {store_url}");
+    let msg = format!("data1: storing data to /storage/{agent_id}/{filename}");
     log(&msg);
     set_module_status(&msg)?;
-    put_file(&store_url, &test_content).await?;
+    let _put_response = rest
+        .put_file(&agent_id, filename, test_content.clone())
+        .await
+        .js_context("PUT failed")?;
 
-    // 3. Request Fetch URL
-    log("data1: requesting fetch URL");
-    let fetch_payload = serde_json::to_string(&WsMessage::FetchFile {
-        agent_id: agent_id.clone(),
-        filename: filename.to_string(),
-    })
-    .js_context("serialize FetchFile")?;
-    client.send(&fetch_payload)?;
-    let fetch_url = wait_for_response(&last_response, "GET from ")
-        .await?
-        .replace("GET from ", "");
-
-    // 4. Perform GET and Verify
-    let msg = format!("data1: fetching data from {fetch_url}");
+    let msg = format!("data1: fetching data from /storage/{agent_id}/{filename}");
     log(&msg);
     set_module_status(&msg)?;
-    let retrieved_content = get_file(&fetch_url).await?;
+    let response = rest.get_file(&agent_id, filename).await.js_context("GET failed")?;
+    let retrieved_bytes = collect_stream(response.into_inner()).await?;
+    let retrieved_content = String::from_utf8(retrieved_bytes).js_context("non-UTF-8 body")?;
 
     if retrieved_content == test_content {
         let msg = "data1: VERIFICATION SUCCESS - data matches!";
@@ -114,50 +110,13 @@ pub async fn run() -> Result<(), JsValue> {
     Ok(())
 }
 
-async fn put_file(url: &str, content: &str) -> Result<(), JsValue> {
-    let opts = RequestInit::new();
-    opts.set_method("PUT");
-    opts.set_mode(RequestMode::Cors);
-    opts.set_body(&JsValue::from_str(content));
-
-    let request = Request::new_with_str_and_init(url, &opts)?;
-    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
-    let resp_value = JsFuture::from(window.fetch_with_request(&request)).await?;
-    let resp: Response = resp_value.dyn_into_msg("PUT response was not a Response")?;
-
-    if resp.status() == 200 {
-        Ok(())
-    } else {
-        Err(JsValue::from_str(&format!("PUT failed with status {}", resp.status())))
+async fn collect_stream(mut stream: et_rest_client::ByteStream) -> Result<Vec<u8>, JsValue> {
+    let mut buf = Vec::new();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.js_context("stream chunk")?;
+        buf.extend_from_slice(&chunk);
     }
-}
-
-async fn get_file(url: &str) -> Result<String, JsValue> {
-    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
-    let resp_value = JsFuture::from(window.fetch_with_str(url)).await?;
-    let resp: Response = resp_value.dyn_into_msg("GET response was not a Response")?;
-
-    if resp.status() != 200 {
-        return Err(JsValue::from_str(&format!("GET failed with status {}", resp.status())));
-    }
-
-    let text_promise = resp.text()?;
-    let text = JsFuture::from(text_promise).await?;
-    Ok(text.as_string().unwrap_or_default())
-}
-
-async fn wait_for_response(cell: &Rc<RefCell<Option<String>>>, prefix: &str) -> Result<String, JsValue> {
-    for _ in 0_u32..50 {
-        let val = cell.borrow().clone();
-        if let Some(message) = val
-            && message.starts_with(prefix)
-        {
-            *cell.borrow_mut() = None;
-            return Ok(message);
-        }
-        sleep_ms(100).await?;
-    }
-    Err(JsValue::from_str("Timeout waiting for server response"))
+    Ok(buf)
 }
 
 fn log(message: &str) {

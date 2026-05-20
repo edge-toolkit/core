@@ -1,0 +1,304 @@
+asyncapi: 3.0.0
+channels:
+  ws:
+    address: /ws
+components:
+  messages:
+    et-agent-message:
+      contentType: application/json
+      name: et-agent-message
+      payload:
+        properties:
+          from_agent_id:
+            type: string
+          message:
+            description: Arbitrary JSON value (opaque to the protocol)
+          message_id:
+            type: string
+          scope:
+            $ref: "#/components/schemas/MessageScope"
+          server_received_at:
+            type: string
+          type:
+            const: et-agent-message
+            type: string
+        required:
+          - type
+          - message_id
+          - from_agent_id
+          - scope
+          - server_received_at
+          - message
+        title: WsAgentMessage
+        type: object
+      title: et-agent-message
+    et-alive:
+      contentType: application/json
+      name: et-alive
+      payload:
+        properties:
+          timestamp:
+            type: string
+          type:
+            const: et-alive
+            type: string
+        required:
+          - type
+          - timestamp
+        title: WsAlive
+        type: object
+      title: et-alive
+    et-broadcast-message:
+      contentType: application/json
+      name: et-broadcast-message
+      payload:
+        properties:
+          message:
+            description: Arbitrary JSON value (opaque to the protocol)
+          type:
+            const: et-broadcast-message
+            type: string
+        required:
+          - type
+          - message
+        title: WsBroadcastMessage
+        type: object
+      title: et-broadcast-message
+    et-client-event:
+      contentType: application/json
+      name: et-client-event
+      payload:
+        properties:
+          action:
+            type: string
+          capability:
+            type: string
+          details:
+            description: Arbitrary JSON value (opaque to the protocol)
+          type:
+            const: et-client-event
+            type: string
+        required:
+          - type
+          - capability
+          - action
+          - details
+        title: WsClientEvent
+        type: object
+      title: et-client-event
+    et-connect:
+      contentType: application/json
+      name: et-connect
+      payload:
+        properties:
+          agent_id:
+            type:
+              - string
+              - "null"
+          type:
+            const: et-connect
+            type: string
+        required:
+          - type
+        title: WsConnect
+        type: object
+      title: et-connect
+    et-connect-ack:
+      contentType: application/json
+      name: et-connect-ack
+      payload:
+        properties:
+          agent_id:
+            type: string
+          status:
+            $ref: "#/components/schemas/ConnectStatus"
+          type:
+            const: et-connect-ack
+            type: string
+        required:
+          - type
+          - agent_id
+          - status
+        title: WsConnectAck
+        type: object
+      title: et-connect-ack
+    et-invalid:
+      contentType: application/json
+      name: et-invalid
+      payload:
+        properties:
+          detail:
+            type: string
+          message_id:
+            type:
+              - string
+              - "null"
+          type:
+            const: et-invalid
+            type: string
+        required:
+          - type
+          - detail
+        title: WsInvalid
+        type: object
+      title: et-invalid
+    et-list-agents:
+      contentType: application/json
+      name: et-list-agents
+      payload:
+        properties:
+          type:
+            const: et-list-agents
+            type: string
+        required:
+          - type
+        title: WsListAgents
+        type: object
+      title: et-list-agents
+    et-list-agents-response:
+      contentType: application/json
+      name: et-list-agents-response
+      payload:
+        properties:
+          agents:
+            items:
+              $ref: "#/components/schemas/AgentSummary"
+            type: array
+          type:
+            const: et-list-agents-response
+            type: string
+        required:
+          - type
+          - agents
+        title: WsListAgentsResponse
+        type: object
+      title: et-list-agents-response
+    et-message-ack:
+      contentType: application/json
+      name: et-message-ack
+      payload:
+        properties:
+          message_id:
+            type: string
+          type:
+            const: et-message-ack
+            type: string
+        required:
+          - type
+          - message_id
+        title: WsMessageAck
+        type: object
+      title: et-message-ack
+    et-message-status:
+      contentType: application/json
+      name: et-message-status
+      payload:
+        properties:
+          detail:
+            type: string
+          message_id:
+            type:
+              - string
+              - "null"
+          status:
+            $ref: "#/components/schemas/MessageDeliveryStatus"
+          type:
+            const: et-message-status
+            type: string
+        required:
+          - type
+          - status
+          - detail
+        title: WsMessageStatus
+        type: object
+      title: et-message-status
+    et-response:
+      contentType: application/json
+      name: et-response
+      payload:
+        properties:
+          message:
+            type: string
+          type:
+            const: et-response
+            type: string
+        required:
+          - type
+          - message
+        title: WsResponse
+        type: object
+      title: et-response
+    et-send-agent-message:
+      contentType: application/json
+      name: et-send-agent-message
+      payload:
+        properties:
+          message:
+            description: Arbitrary JSON value (opaque to the protocol)
+          to_agent_id:
+            type: string
+          type:
+            const: et-send-agent-message
+            type: string
+        required:
+          - type
+          - to_agent_id
+          - message
+        title: WsSendAgentMessage
+        type: object
+      title: et-send-agent-message
+  schemas:
+    AgentConnectionState:
+      enum:
+        - connected
+        - disconnected
+      type: string
+    AgentSummary:
+      properties:
+        agent_id:
+          type: string
+        last_known_ip:
+          type:
+            - string
+            - "null"
+        state:
+          $ref: "#/components/schemas/AgentConnectionState"
+      required:
+        - agent_id
+        - state
+      type: object
+    ConnectStatus:
+      enum:
+        - assigned
+        - reconnected
+      type: string
+    MessageDeliveryStatus:
+      enum:
+        - delivered
+        - queued
+        - acknowledged
+        - broadcast
+      type: string
+    MessageScope:
+      enum:
+        - direct
+        - broadcast
+      type: string
+info:
+  description: Hub-style WebSocket protocol. Generated from edge_toolkit::ws::WsMessage.
+  title: Edge Toolkit WebSocket Protocol
+  version: 0.1.0
+operations:
+  receiveWsMessage:
+    action: receive
+    channel:
+      $ref: "#/channels/ws"
+  sendWsMessage:
+    action: send
+    channel:
+      $ref: "#/channels/ws"
+servers:
+  local:
+    description: Default ws-server bind address (mise run ws-server)
+    host: localhost:8080
+    protocol: ws

@@ -1,0 +1,156 @@
+openapi: 3.0.3
+info:
+  title: Edge Toolkit REST API
+  description: "ws-server HTTP surface: health probe, module discovery, module assets, per-agent storage."
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080
+    description: Default ws-server bind address
+paths:
+  /health:
+    get:
+      tags:
+        - et_ws_server
+      summary: |-
+        Liveness probe. Returns a small JSON document identifying the service
+        so external monitors can confirm the server is reachable and serving
+        requests.
+      operationId: health
+      responses:
+        "200":
+          description: Server is up
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /modules/:
+    get:
+      tags:
+        - et_modules_service
+      summary: List the names of every module the server is currently serving.
+      operationId: list_modules_handler
+      responses:
+        "200":
+          description: Names of available modules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+  /modules/{name}/{path}:
+    get:
+      tags:
+        - et_modules_service
+      summary: |-
+        Fetch a file from a module's bundled static assets. `path` is resolved
+        relative to the module's bundle root; an unknown module or missing file
+        returns 404.
+      operationId: get_module_file
+      parameters:
+        - in: path
+          name: name
+          description: Module name
+          required: true
+          schema:
+            type: string
+          style: simple
+        - in: path
+          name: path
+          description: Path of the file within the module bundle
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        "200":
+          description: Static module asset
+          content:
+            application/octet-stream: {}
+        "404":
+          description: No such module or file
+  /storage/{agent_id}/{filename}:
+    get:
+      tags:
+        - et_storage_service
+      summary: Download a file previously written to the named agent's storage bucket.
+      operationId: get_file
+      parameters:
+        - in: path
+          name: agent_id
+          description: Agent identifier
+          required: true
+          schema:
+            type: string
+          style: simple
+        - in: path
+          name: filename
+          description: Stored filename
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        "200":
+          description: Stored file contents
+          content:
+            application/octet-stream: {}
+        "404":
+          description: No such file
+    put:
+      tags:
+        - et_storage_service
+      summary: |-
+        Upload a file to the named agent's storage bucket. Only the agent that
+        owns the bucket may write to it (the agent must currently be
+        connected); the path component must be a single filename, not a nested
+        path.
+      operationId: put_file
+      parameters:
+        - in: path
+          name: agent_id
+          description: Agent identifier (must be a connected agent)
+          required: true
+          schema:
+            type: string
+          style: simple
+        - in: path
+          name: filename
+          description: Single-segment filename to write
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        description: Raw file bytes
+        content:
+          application/octet-stream:
+            schema:
+              description: |-
+                Phantom type used to label binary request/response bodies as `string`/`binary`.
+
+                Never constructed at runtime; only exists under the `openapi-spec` feature
+                so the `utoipa::ToSchema` derive has something to attach to.
+              type: string
+              format: binary
+        required: true
+      responses:
+        "200":
+          description: File stored
+        "400":
+          description: Invalid filename
+        "404":
+          description: Agent not found
+components:
+  schemas:
+    HealthResponse:
+      description: Server liveness probe response. Returned by `GET /health`.
+      type: object
+      properties:
+        service:
+          type: string
+        status:
+          type: string
+      required:
+        - status
+        - service

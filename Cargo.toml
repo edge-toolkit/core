@@ -31,8 +31,10 @@ members = [
   "services/ws-wasm-agent",
   "services/ws-wasi-runner",
   "services/ws-test-server",
+  "utilities/int-gen",
   "utilities/cli",
   "utilities/onnx",
+  "generated/rust-rest",
 ]
 resolver = "2"
 
@@ -41,24 +43,36 @@ actix = "0.13"
 actix-rt = "2"
 actix-web = { version = "4", features = ["rustls-0_23"] }
 actix-web-thiserror = "0.2"
+asyncapi-rust = "0.2"
 base64 = "0.22.1"
+bytes = "1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive"] }
 edge-toolkit = { path = "libs/edge-toolkit" }
 et-modules-service = { path = "services/modules" }
 et-otlp = { path = "libs/et-otlp" }
+et-rest-client = { path = "generated/rust-rest", default-features = false }
 et-storage-service = { path = "services/storage" }
 et-web = { path = "libs/web" }
+et-ws-server = { path = "services/ws-server" }
 et-ws-service = { path = "services/ws" }
 et-ws-test-server = { path = "services/ws-test-server" }
 et-ws-wasm-agent = { path = "services/ws-wasm-agent" }
 fs-err = "3"
+heck = "0.5"
+kdl = { version = "6", features = ["v1"] }
 lets_find_up = "0.0.4"
 log = "0.4"
 onnx-extractor = "0.3"
+openapiv3 = "2"
 opentelemetry = "0.31"
 otlp-mock = { path = "libs/otlp-mock" }
+pretty_yaml = "0.6"
+prettyplease = "0.2"
+progenitor = "0.14"
+quote = "1"
 rstest = "0.26"
+schemars = { version = "1.1", features = ["derive"] }
 secrecy = { version = "0.10.3", features = ["serde"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde-env = "0.3"
@@ -66,6 +80,7 @@ serde-inline-default = "1.0"
 serde_default = "0.2"
 serde_json = "1"
 serde_yaml = "0.9"
+syn = "2"
 temp-env = "0.3"
 tempfile = "3"
 testing_logger = "0.1"
@@ -79,7 +94,12 @@ tracing-actix-web = { version = "0.7", default-features = false, features = [
 ] }
 tracing-opentelemetry = "0.32"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tree-sitter = "0.25"
+tree-sitter-zig = "1"
+ureq = "2"
+utoipa = { version = "5", features = ["actix_extras", "yaml"] }
 uuid = { version = "1", features = ["serde", "v4", "v7"] }
+wit-encoder = "0.249"
 
 [profile.release.package.et-ws-wasm-agent]
 opt-level = "s"

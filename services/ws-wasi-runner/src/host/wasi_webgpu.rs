@@ -198,13 +198,6 @@ pub struct RecordGpuPipelineConstantValue {
     pub map: BTreeMap<String, f64>,
 }
 
-// =============================================================================
-// Adapter / device construction. The wasi-webgpu contract is that guests
-// request these explicitly, so each `request-adapter` call builds its own
-// `wgpu::Instance` and adapter. This is cheap (no compiled shaders cached
-// at the instance level) and avoids long-lived host-side GPU state.
-// =============================================================================
-
 /// Build a fresh adapter from a new instance. `request-adapter` could be
 /// called multiple times by a guest; each call gets its own adapter handle,
 /// even if they all back onto the same underlying GPU.
@@ -283,19 +276,11 @@ fn buffer_binding_type(t: Option<wg::GpuBufferBindingType>) -> wgpu::BufferBindi
     }
 }
 
-// =============================================================================
-// Top-level interface `Host` — only `get_gpu` is exported as a free function.
-// =============================================================================
-
 impl Host for HostState {
     async fn get_gpu(&mut self) -> Resource<Gpu> {
         self.resource_table.push(Gpu).expect("resource table push")
     }
 }
-
-// =============================================================================
-// `gpu` resource — entry point for adapter requests.
-// =============================================================================
 
 impl HostGpu for HostState {
     async fn request_adapter(
@@ -318,10 +303,6 @@ impl HostGpu for HostState {
         Ok(())
     }
 }
-
-// =============================================================================
-// `gpu-adapter` — info + request-device. Other accessors trap.
-// =============================================================================
 
 impl HostGpuAdapter for HostState {
     async fn info(&mut self, rep: Resource<GpuAdapter>) -> Resource<GpuAdapterInfo> {
@@ -379,11 +360,6 @@ impl HostGpuAdapter for HostState {
     }
 }
 
-// =============================================================================
-// `gpu-adapter-info` — the four string accessors used by the guest's status
-// reporting; the subgroup-size getters trap.
-// =============================================================================
-
 impl HostGpuAdapterInfo for HostState {
     async fn vendor(&mut self, rep: Resource<GpuAdapterInfo>) -> String {
         let info = &self.resource_table.get(&rep).expect("info handle").info;
@@ -433,11 +409,6 @@ fn vendor_name(id: u32) -> String {
         other => format!("0x{other:04x}"),
     }
 }
-
-// =============================================================================
-// `gpu-supported-features` / `gpu-supported-limits` — both stubs in this
-// subset; the matmul flow doesn't query them.
-// =============================================================================
 
 impl HostGpuSupportedFeatures for HostState {
     async fn has(&mut self, _rep: Resource<GpuSupportedFeatures>, _value: String) -> bool {
@@ -550,10 +521,6 @@ impl HostGpuSupportedLimits for HostState {
         unimplemented!()
     }
 }
-
-// =============================================================================
-// `gpu-device` — buffer / shader / pipeline / encoder / bind-group creation.
-// =============================================================================
 
 impl HostGpuDevice for HostState {
     async fn queue(&mut self, rep: Resource<GpuDevice>) -> Resource<GpuQueue> {
@@ -817,12 +784,6 @@ impl HostGpuDevice for HostState {
     }
 }
 
-// =============================================================================
-// `gpu-buffer` — map-async / get-mapped-range / unmap. wgpu's `map_async`
-// callback fires when `device.poll(Wait)` runs; we do that synchronously
-// from a blocking task so the host call returns after the readback is real.
-// =============================================================================
-
 impl HostGpuBuffer for HostState {
     async fn map_async(
         &mut self,
@@ -929,11 +890,6 @@ impl HostGpuBuffer for HostState {
     }
 }
 
-// =============================================================================
-// Static flag resources — bindgen surfaces these as methods on the host
-// trait that take no `Resource<>` self handle.
-// =============================================================================
-
 impl HostGpuBufferUsage for HostState {
     async fn map_read(&mut self) -> u32 {
         Usage::MAP_READ
@@ -1002,10 +958,6 @@ impl HostGpuShaderStage for HostState {
         Ok(())
     }
 }
-
-// =============================================================================
-// Resources with only label/set-label survivors after trimming.
-// =============================================================================
 
 impl HostGpuBindGroupLayout for HostState {
     async fn label(&mut self, _rep: Resource<GpuBindGroupLayout>) -> String {
@@ -1092,13 +1044,6 @@ impl HostGpuCommandBuffer for HostState {
     }
 }
 
-// =============================================================================
-// `gpu-command-encoder` — begin-compute-pass starts a buffered pass; the
-// pass commands are replayed against a real `wgpu::ComputePass` inside
-// `compute-pass.end()`. copy-buffer-to-buffer and finish are straight
-// passthroughs to the wgpu encoder.
-// =============================================================================
-
 impl HostGpuCommandEncoder for HostState {
     async fn begin_compute_pass(
         &mut self,
@@ -1170,11 +1115,6 @@ impl HostGpuCommandEncoder for HostState {
         Ok(())
     }
 }
-
-// =============================================================================
-// `gpu-compute-pass-encoder` — record commands onto the parent encoder's
-// pending list; `end()` opens a real wgpu pass and replays them.
-// =============================================================================
 
 fn encoder_from_pass_rep(state: &mut HostState, pass: &Resource<GpuComputePassEncoder>) -> u32 {
     state.resource_table.get(pass).expect("pass handle").encoder_rep
@@ -1285,10 +1225,6 @@ impl HostGpuComputePassEncoder for HostState {
     }
 }
 
-// =============================================================================
-// `gpu-queue` — submit + write-buffer-with-copy.
-// =============================================================================
-
 impl HostGpuQueue for HostState {
     async fn submit(&mut self, rep: Resource<GpuQueue>, command_buffers: Vec<Resource<wg::GpuCommandBuffer>>) {
         let queue = self.resource_table.get(&rep).expect("queue handle").queue.clone();
@@ -1341,11 +1277,6 @@ impl HostGpuQueue for HostState {
         Ok(())
     }
 }
-
-// =============================================================================
-// Associative-record resources kept for WIT round-trip compatibility but
-// not used by the matmul flow.
-// =============================================================================
 
 impl HostRecordOptionGpuSize64 for HostState {
     async fn new(&mut self) -> Resource<RecordOptionGpuSize64> {

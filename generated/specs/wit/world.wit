@@ -1,0 +1,41 @@
+package et:ws-wasi@0.1.0;
+
+interface ws {
+  use et:ws-messages/messages@0.1.0.{ ws-message };
+  type ws-error = string;
+  enum state {
+    connecting,
+    connected,
+    closing,
+    closed,
+  }
+  connect: func() -> result<_, ws-error>;
+  get-state: func() -> state;
+  agent-id: func() -> string;
+  send: func(message: ws-message) -> result<_, ws-error>;
+  recv: func(timeout-ms: u32) -> result<option<ws-message>, ws-error>;
+  disconnect: func();
+}
+
+interface entry {
+  run: func() -> result<_, string>;
+}
+
+world runner {
+  import wasi:logging/logging@0.1.0-draft;
+  import wasi:keyvalue/store@0.2.0-draft;
+  import ws;
+  import wasi:webgpu/webgpu@0.0.1;
+  export entry;
+}
+
+world module {
+  include runner;
+  import wasi:clocks/wall-clock@0.2.6;
+  import wasi:clocks/monotonic-clock@0.2.6;
+  import wasi:io/poll@0.2.6;
+  import wasi:nn/tensor@0.2.0-rc-2024-10-28;
+  import wasi:nn/graph@0.2.0-rc-2024-10-28;
+  import wasi:nn/inference@0.2.0-rc-2024-10-28;
+  import wasi:nn/errors@0.2.0-rc-2024-10-28;
+}

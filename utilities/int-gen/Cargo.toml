@@ -1,0 +1,42 @@
+[package]
+name = "et-int-gen"
+description = "Internal repo-only code generator emitting artifacts under generated/ from Rust sources of truth"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+default-run = "et-int-gen"
+
+# `int` = "internal" — this crate is for in-repo use only and isn't published
+# alongside the public `et-*` libraries.
+[[bin]]
+name = "et-int-gen"
+path = "src/bin/int-gen.rs"
+
+[dependencies]
+asyncapi-rust.workspace = true
+clap.workspace = true
+edge-toolkit = { workspace = true, features = ["schema-export"] }
+et-modules-service = { workspace = true, features = ["openapi-spec"] }
+et-storage-service = { workspace = true, features = ["openapi-spec"] }
+et-ws-server = { workspace = true, features = ["openapi-spec"] }
+heck.workspace = true
+kdl.workspace = true
+openapiv3.workspace = true
+pretty_yaml.workspace = true
+prettyplease.workspace = true
+progenitor.workspace = true
+quote.workspace = true
+schemars.workspace = true
+semver = "1"
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+syn.workspace = true
+thiserror.workspace = true
+tree-sitter.workspace = true
+tree-sitter-zig.workspace = true
+ureq.workspace = true
+utoipa.workspace = true
+wit-encoder = { workspace = true, features = ["from-parser"] }
+wit-parser = "0.249"

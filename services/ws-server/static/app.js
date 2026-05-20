@@ -158,7 +158,7 @@ const handleProtocolMessage = (message) => {
     return;
   }
 
-  if (parsed?.type !== "connect_ack" || typeof parsed.agent_id !== "string") {
+  if (parsed?.type !== "et-connect-ack" || typeof parsed.agent_id !== "string") {
     return;
   }
 

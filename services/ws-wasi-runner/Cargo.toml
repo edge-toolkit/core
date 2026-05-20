@@ -34,11 +34,12 @@ async-trait = "0.1"
 bytemuck = { version = "1.16", features = ["derive"] }
 edge-toolkit.workspace = true
 et-otlp.workspace = true
+et-rest-client = { workspace = true, features = ["tracing"] }
 futures-util = "0.3"
 opentelemetry.workspace = true
 opentelemetry-http = "0.31"
 pollster = "0.4"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "stream"] }
 serde.workspace = true
 serde-env.workspace = true
 serde_json.workspace = true
