@@ -18,7 +18,9 @@ use tokio::sync::mpsc;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite};
 use tracing::{info, warn};
 
-use crate::python::{Dispatcher, OutboundFrame, WsSender};
+use std::sync::{Arc, Mutex};
+
+use crate::python::{AgentIdSlot, Dispatcher, OutboundFrame, StorageOp, WsSender, WsStorage};
 
 /// How long we'll wait for the server's `et-connect-ack` before giving up.
 const CONNECT_ACK_TIMEOUT: Duration = Duration::from_secs(10);
@@ -38,13 +40,24 @@ pub struct InitializedAgent {
     /// `WsSender` writes to.
     pub outbound_tx: mpsc::UnboundedSender<OutboundFrame>,
     pub outbound_rx: mpsc::UnboundedReceiver<OutboundFrame>,
+    /// Shared cell `WsStorage.put()` reads to know our agent_id. The
+    /// runner populates it after `et-connect-ack`.
+    pub agent_id_slot: AgentIdSlot,
+    /// Receiver half of the storage op channel — drained by the
+    /// dedicated worker task in `run()`.
+    pub storage_rx: mpsc::UnboundedReceiver<StorageOp>,
+    /// Base URL for storage requests, e.g. `http://127.0.0.1:8080`.
+    pub http_base: String,
 }
 
-/// Build the outbound channel + Sender, then import the Python module.
+/// Build the outbound channel + Sender + Storage, then import the
+/// Python module.
 ///
-/// The Sender is built first so it can be handed to the module's
-/// `init()` hook. The receiver stays with the caller — `run()` consumes
-/// it inside the WS loop.
+/// The Sender and Storage are built first so they can be handed to the
+/// module's `init(send, storage)` hook. The Storage's `agent_id` is
+/// initially `None`; the runner fills it in after the server replies
+/// with `et-connect-ack`. Storage ops are dispatched through an mpsc
+/// channel into a worker task that owns the reqwest client.
 pub fn initialize(
     module_name: &str,
     python_path_extras: &[std::path::PathBuf],
@@ -52,14 +65,44 @@ pub fn initialize(
 ) -> Result<InitializedAgent> {
     let (tx, rx) = mpsc::unbounded_channel::<OutboundFrame>();
     let sender = WsSender::new(tx.clone());
-    let dispatcher = Dispatcher::import(module_name, python_path_extras, sender)
+
+    let http_base = http_base_from_ws_url(&config.ws_url)?;
+    let agent_id_slot: AgentIdSlot = Arc::new(Mutex::new(None));
+    let (storage_tx, storage_rx) = mpsc::unbounded_channel::<StorageOp>();
+    let storage = WsStorage::new(Arc::clone(&agent_id_slot), storage_tx);
+
+    let dispatcher = Dispatcher::import(module_name, python_path_extras, sender, storage)
         .map_err(|e| anyhow!("import python module `{module_name}`: {e}"))?;
     Ok(InitializedAgent {
         config,
         dispatcher,
         outbound_tx: tx,
         outbound_rx: rx,
+        agent_id_slot,
+        storage_rx,
+        http_base,
     })
+}
+
+/// Translate the WebSocket URL the runner connects to into the HTTP base
+/// `WsStorage` should use for `/storage/*` requests. ws-server serves
+/// both protocols on the same port (insecure :8080, TLS :8443 by
+/// default in this repo) and the only protocol token we need to swap is
+/// the URL scheme.
+fn http_base_from_ws_url(ws_url: &str) -> Result<String> {
+    let parsed = url::Url::parse(ws_url).with_context(|| format!("parse ws_url `{ws_url}`"))?;
+    let http_scheme = match parsed.scheme() {
+        "ws" => "http",
+        "wss" => "https",
+        other => return Err(anyhow!("unsupported ws_url scheme `{other}` (expected ws|wss)")),
+    };
+    let host = parsed.host_str().ok_or_else(|| anyhow!("ws_url `{ws_url}` has no host"))?;
+    let mut base = format!("{http_scheme}://{host}");
+    if let Some(port) = parsed.port() {
+        base.push(':');
+        base.push_str(&port.to_string());
+    }
+    Ok(base)
 }
 
 pub async fn run(agent: InitializedAgent) -> Result<()> {
@@ -68,7 +111,16 @@ pub async fn run(agent: InitializedAgent) -> Result<()> {
         dispatcher,
         outbound_tx,
         mut outbound_rx,
+        agent_id_slot,
+        storage_rx,
+        http_base,
     } = agent;
+
+    // Spawn the storage worker first so it's ready by the time Python's
+    // `init(send, storage)` returns. The worker outlives `run()` until
+    // the channel is dropped — i.e. when WsStorage (held by Python) is
+    // dropped at process exit.
+    let storage_task = tokio::spawn(storage_worker(http_base, storage_rx));
 
     info!("connecting to {}", config.ws_url);
     let (mut socket, _) = connect_async(&config.ws_url)
@@ -76,6 +128,9 @@ pub async fn run(agent: InitializedAgent) -> Result<()> {
         .with_context(|| format!("connect to {}", config.ws_url))?;
 
     let agent_id = register(&mut socket, config.requested_agent_id).await?;
+    // Populate the slot before calling `on_connect` so Python sees a
+    // valid `storage.agent_id` from the first instant it can act.
+    *agent_id_slot.lock().unwrap() = Some(agent_id.clone());
     if let Err(err) = dispatcher.on_connect(&agent_id) {
         warn!("on_connect hook failed: {err}");
     }
@@ -85,7 +140,42 @@ pub async fn run(agent: InitializedAgent) -> Result<()> {
         warn!("on_shutdown hook failed: {err}");
     }
     let _ = socket.send(tungstenite::Message::Close(None)).await;
+    storage_task.abort();
     result
+}
+
+/// Run forever, draining `StorageOp`s from the channel and resolving
+/// each via reqwest. One worker handles all storage I/O for the agent —
+/// the operations are infrequent (load on connect, save on shutdown for
+/// the typical model-weights case) so serial execution is fine.
+async fn storage_worker(http_base: String, mut rx: mpsc::UnboundedReceiver<StorageOp>) {
+    let client = reqwest::Client::new();
+    while let Some(op) = rx.recv().await {
+        match op {
+            StorageOp::Get { agent_id, key, reply } => {
+                let url = format!("{http_base}/storage/{agent_id}/{key}");
+                let outcome = match client.get(&url).send().await {
+                    Ok(resp) if resp.status() == reqwest::StatusCode::NOT_FOUND => Ok(None),
+                    Ok(resp) if resp.status().is_success() => match resp.bytes().await {
+                        Ok(bytes) => Ok(Some(bytes.to_vec())),
+                        Err(e) => Err(format!("GET {url} body: {e}")),
+                    },
+                    Ok(resp) => Err(format!("GET {url}: HTTP {}", resp.status())),
+                    Err(e) => Err(format!("GET {url}: {e}")),
+                };
+                let _ = reply.send(outcome);
+            }
+            StorageOp::Put { agent_id, key, data, reply } => {
+                let url = format!("{http_base}/storage/{agent_id}/{key}");
+                let outcome = match client.put(&url).body(data).send().await {
+                    Ok(resp) if resp.status().is_success() => Ok(()),
+                    Ok(resp) => Err(format!("PUT {url}: HTTP {}", resp.status())),
+                    Err(e) => Err(format!("PUT {url}: {e}")),
+                };
+                let _ = reply.send(outcome);
+            }
+        }
+    }
 }
 
 async fn register(

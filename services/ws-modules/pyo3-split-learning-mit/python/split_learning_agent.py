@@ -3,34 +3,31 @@
 Port of the MIT split-learning-demo's `scripts/server.py` to the generic
 pyo3-runner contract:
 
-    init(send)
-    on_connect(agent_id)
-    reply = on_binary_frame(frame)   # per inbound binary frame
-    on_shutdown()
+    init(send, storage)
+    on_connect(agent_id)              # load weights via storage.get
+    reply = on_binary_frame(frame)    # per inbound binary frame
+    on_shutdown()                     # persist weights via storage.put
 
-The model serves request/response (one inbound activations frame → one
-outbound grads / logits frame), so `on_binary_frame` uses reply-by-
-return for the actual training/inference response. The `send` argument
-is stashed in `_send` for completeness; a future enhancement (e.g.
-periodic loss telemetry, a "training_started" announcement) would push
-through it independently.
-
-The wire format (base64-encoded JSON envelope with base64-encoded tensor
-blobs inside `raw`) is decoded and encoded here in Python — the Rust
-runner only shuttles raw bytes. State (model, optimizer, fabric handle)
-lives in module-level globals, mirroring the singleton-server model the
-demo's `server.py` already assumed.
+Persistence runs through et-ws-server's `/storage` HTTP API rather than
+the local filesystem. The Python module asks the storage handle for our
+weights blob on connect and uploads the trained blob on shutdown. A
+temp file is still used as an intermediary because torch's ONNX exporter
+and `onnx.load` only accept paths — but the durable copy lives on the
+ws-server, scoped under the agent's own `/storage/<agent_id>/` prefix.
 
 Configuration via environment variables (all optional):
 
-  SPLIT_LEARNING_ONNX_PATH   — where to load/save server weights (ONNX).
-                               If the file exists it's loaded on init;
-                               if training happened, it's written on
-                               shutdown.
-  SPLIT_LEARNING_LEARNING_RATE
-                             — SGD learning rate, default 1e-4
-  SPLIT_LEARNING_ACCELERATOR — Lightning Fabric accelerator backend
-                               (auto|cpu|gpu|cuda|mps|tpu), default auto
+  SPLIT_LEARNING_WEIGHTS_KEY      — storage key for the weights blob,
+                                    default `server_mnist.onnx`. Lives
+                                    under `/storage/<our-agent-id>/<key>`.
+  SPLIT_LEARNING_SOURCE_AGENT_ID  — if set, load initial weights from
+                                    this agent's storage namespace
+                                    instead of our own. Useful for
+                                    bootstrapping a new agent_id from
+                                    weights an earlier run uploaded.
+  SPLIT_LEARNING_LEARNING_RATE    — SGD learning rate, default 1e-4
+  SPLIT_LEARNING_ACCELERATOR      — Lightning Fabric accelerator backend
+                                    (auto|cpu|gpu|cuda|mps|tpu), default auto
 
 To run end-to-end against et-ws-server:
 
@@ -45,6 +42,7 @@ from __future__ import annotations
 
 import logging
 import os
+import tempfile
 from pathlib import Path
 
 import lightning as L
@@ -68,22 +66,21 @@ _logger = logging.getLogger(__name__)
 
 
 # --- module state ----------------------------------------------------------
-# `init()` populates these; every handler reads them. There's exactly one
-# split-learning server per process (it owns the weights file), so a
-# module-level singleton is the natural fit.
 
 _agent_id: str | None = None
 _send = None  # type: WsSender | None — kept for future push-style telemetry
+_storage = None  # type: WsStorage | None — set in init()
 _fabric: L.Fabric | None = None
 _model: nn.Module | None = None
 _unwrapped_model: nn.Module | None = None
 _optimizer: torch.optim.Optimizer | None = None
 _criterion: nn.Module | None = None
-_onnx_path: Path | None = None
+_weights_key: str = "server_mnist.onnx"
+_source_agent_id: str | None = None
 _trained: bool = False
 
 
-# --- weight load/save — straight port of helpers in scripts/server.py ------
+# --- ONNX helpers — same logic as scripts/server.py, but path-based --------
 
 
 def _load_onnx_weights(model: nn.Module, onnx_path: Path) -> list[str]:
@@ -128,37 +125,25 @@ def _export_onnx(model: nn.Module, onnx_path: Path, example_input: torch.Tensor)
 # --- runner hooks ----------------------------------------------------------
 
 
-def init(send) -> None:
-    """Build the server-side split-learning model.
-
-    Reads config from env. `_unwrapped_model` is preserved so
-    `on_shutdown` can export the untouched module — `fabric.setup` wraps
-    it and would otherwise leak the wrapper into the saved ONNX graph.
-    """
-    global _send, _fabric, _model, _unwrapped_model, _optimizer, _criterion, _onnx_path
+def init(send, storage) -> None:
+    """Build the (untrained) server-side model. Weight loading happens
+    in `on_connect` because `storage.put`/`storage.get` need an agent_id
+    that isn't known until et-connect-ack."""
+    global _send, _storage, _fabric, _model, _unwrapped_model, _optimizer, _criterion
+    global _weights_key, _source_agent_id
     _send = send
+    _storage = storage
 
     learning_rate = float(os.environ.get("SPLIT_LEARNING_LEARNING_RATE", "1e-4"))
     accelerator = os.environ.get("SPLIT_LEARNING_ACCELERATOR", "auto")
-    onnx_path_env = os.environ.get("SPLIT_LEARNING_ONNX_PATH")
-    _onnx_path = Path(onnx_path_env) if onnx_path_env else None
+    _weights_key = os.environ.get("SPLIT_LEARNING_WEIGHTS_KEY", "server_mnist.onnx")
+    _source_agent_id = os.environ.get("SPLIT_LEARNING_SOURCE_AGENT_ID") or None
 
     _fabric = L.Fabric(accelerator=accelerator, precision="32-true")
     _fabric.launch()
 
     backbone = CNN2D(in_channels=1, dim_out=10, img_size=28, dropout=0.15)
     model = CNN2DServer(in_channels=1, dim_out=10, img_size=28, model=backbone)
-
-    if _onnx_path is not None and _onnx_path.exists():
-        unmatched = _load_onnx_weights(model, _onnx_path)
-        if unmatched:
-            _logger.warning("ONNX weights not loaded for: %s", unmatched)
-        else:
-            _logger.info("Loaded server weights from %s", _onnx_path)
-    elif _onnx_path is not None:
-        _logger.info("No server weights at %s; starting from random", _onnx_path)
-    else:
-        _logger.info("SPLIT_LEARNING_ONNX_PATH not set; starting from random; weights won't be saved")
 
     _unwrapped_model = model
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
@@ -167,9 +152,39 @@ def init(send) -> None:
 
 
 def on_connect(agent_id: str) -> None:
+    """Look up cached weights in /storage and load them if present."""
     global _agent_id
     _agent_id = agent_id
     _logger.info("split-learning agent registered as %s", agent_id)
+
+    assert _storage is not None and _unwrapped_model is not None
+    source_agent = _source_agent_id or agent_id
+    blob = _storage.get(source_agent, _weights_key)
+    if blob is None:
+        _logger.info(
+            "no cached weights at /storage/%s/%s; starting from random",
+            source_agent,
+            _weights_key,
+        )
+        return
+
+    # onnx.load only takes paths — buffer to a temp file, then drop it.
+    with tempfile.NamedTemporaryFile(suffix=".onnx", delete=False) as tmp:
+        tmp.write(blob)
+        tmp_path = Path(tmp.name)
+    try:
+        unmatched = _load_onnx_weights(_unwrapped_model, tmp_path)
+        if unmatched:
+            _logger.warning("ONNX weights not loaded for: %s", unmatched)
+        else:
+            _logger.info(
+                "loaded %d-byte server weights from /storage/%s/%s",
+                len(blob),
+                source_agent,
+                _weights_key,
+            )
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
 def on_binary_frame(frame: bytes) -> bytes | None:
@@ -195,18 +210,33 @@ def on_binary_frame(frame: bytes) -> bytes | None:
 
 
 def on_shutdown() -> None:
-    """Persist trained weights on disconnect — mirrors server.py's
-    WebSocketDisconnect handler."""
+    """Persist trained weights via storage.put — mirrors server.py's
+    WebSocketDisconnect handler, but the durable copy lives on the
+    ws-server instead of the runner's local disk."""
     if not _trained:
-        _logger.info("no training happened; skipping ONNX export")
+        _logger.info("no training happened; skipping ONNX upload")
         return
-    if _onnx_path is None:
-        _logger.warning("trained but SPLIT_LEARNING_ONNX_PATH unset; weights discarded")
+    if _storage is None or _unwrapped_model is None or _fabric is None:
+        _logger.warning("trained but runner not fully initialised; weights discarded")
         return
-    assert _fabric is not None and _unwrapped_model is not None
-    example_input = torch.zeros(1, 16, 7, 7, device=_fabric.device)
-    _export_onnx(_unwrapped_model, _onnx_path, example_input)
-    _logger.info("saved trained server weights to %s", _onnx_path)
+
+    # torch.onnx.export wants a path. We dump into a temp file, then
+    # stream the bytes up to /storage and drop the file.
+    with tempfile.NamedTemporaryFile(suffix=".onnx", delete=False) as tmp:
+        tmp_path = Path(tmp.name)
+    try:
+        example_input = torch.zeros(1, 16, 7, 7, device=_fabric.device)
+        _export_onnx(_unwrapped_model, tmp_path, example_input)
+        blob = tmp_path.read_bytes()
+        _storage.put(_weights_key, blob)
+        _logger.info(
+            "uploaded %d-byte trained weights to /storage/%s/%s",
+            len(blob),
+            _storage.agent_id,
+            _weights_key,
+        )
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
 # --- per-message step logic — lifted from server.py ------------------------

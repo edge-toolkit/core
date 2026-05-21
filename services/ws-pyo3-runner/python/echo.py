@@ -45,18 +45,21 @@ _logger = logging.getLogger(__name__)
 
 _agent_id: str | None = None
 _send = None  # type: WsSender | None — stashed for fan-out, unused here
+_storage = None  # type: WsStorage | None — stashed for completeness
 _echoed: int = 0
 
 
 # --- runner hooks ----------------------------------------------------------
 
 
-def init(send) -> None:
-    """Stash the WsSender. Even modules that only use reply-by-return
-    should accept and keep `send` — it's how you'd push frames later
-    (e.g. from a background thread)."""
-    global _send
+def init(send, storage) -> None:
+    """Stash the WsSender and WsStorage. Even modules that only use
+    reply-by-return should accept and keep `send` — it's how you'd push
+    frames later (e.g. from a background thread). `storage` is the
+    ws-server's `/storage` API; this example doesn't use it."""
+    global _send, _storage
     _send = send
+    _storage = storage
     _logger.info("echo agent initialised")
 
 

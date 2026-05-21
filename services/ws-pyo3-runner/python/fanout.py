@@ -16,9 +16,10 @@ _logger = logging.getLogger(__name__)
 _send = None  # WsSender, set in init()
 
 
-def init(send) -> None:
+def init(send, storage) -> None:
     global _send
     _send = send
+    # `storage` ignored — fanout doesn't persist anything.
     _logger.info("fanout agent initialised")
 
 

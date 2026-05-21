@@ -22,6 +22,11 @@ futures-util = "0.3"
 # `auto-initialize` spins up the embedded interpreter on first
 # `Python::attach`; we never call `Py_Initialize` ourselves.
 pyo3 = { version = "0.28", features = ["auto-initialize"] }
+# Async reqwest. Python's `WsStorage.get/put` look synchronous, but they
+# dispatch the op to a worker task on the runtime via an mpsc channel and
+# `blocking_recv` on a oneshot — works because main.rs runs a
+# multi_thread runtime so blocking one task doesn't stall the rest.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
@@ -29,6 +34,7 @@ tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "signal
 tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect"] }
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+url = "2"
 
 [build-dependencies]
 # Same pyo3 release as the runtime dep so both halves resolve the

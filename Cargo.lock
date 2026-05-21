@@ -1674,6 +1674,7 @@ dependencies = [
  "futures-util",
  "pyo3",
  "pyo3-build-config",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -1681,6 +1682,7 @@ dependencies = [
  "tokio-tungstenite",
  "tracing",
  "tracing-subscriber",
+ "url",
 ]
 
 [[package]]

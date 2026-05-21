@@ -19,7 +19,11 @@ fn parse_pythonpath(raw: &str) -> Vec<PathBuf> {
         .collect()
 }
 
-#[tokio::main(flavor = "current_thread")]
+// Multi-threaded runtime so Python's sync `WsStorage.get/put` (which
+// `blocking_recv` on a oneshot reply) doesn't stall the WS loop —
+// another worker thread keeps polling the storage task while one
+// thread is parked on Python.
+#[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
