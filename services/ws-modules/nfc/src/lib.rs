@@ -1,4 +1,4 @@
-use et_web::JsCastExt;
+use et_web::{JsFunctionExt, JsPromiseExt};
 use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value};
 use js_sys::{Promise, Reflect};
 use serde_json::json;
@@ -29,14 +29,11 @@ impl NfcScanResult {
             .filter(|value| !value.is_undefined() && !value.is_null())
             .ok_or_else(|| JsValue::from_str("Web NFC is not available in this browser context"))?;
 
-        let constructor: js_sys::Function = ndef_ctor.dyn_into_msg("NDEFReader constructor is not callable")?;
+        let constructor = ndef_ctor.into_function("NDEFReader constructor")?;
         let reader = js_sys::Reflect::construct(&constructor, &js_sys::Array::new())?;
 
-        let scan: js_sys::Function = js_sys::Reflect::get(&reader, &JsValue::from_str("scan"))?
-            .dyn_into_msg("NDEFReader.scan is not callable")?;
-        let scan_promise: js_sys::Promise = scan
-            .call0(&reader)?
-            .dyn_into_msg("NDEFReader.scan did not return a Promise")?;
+        let scan = js_sys::Reflect::get(&reader, &JsValue::from_str("scan"))?.into_function("NDEFReader.scan")?;
+        let scan_promise = scan.call0(&reader)?.into_promise("NDEFReader.scan")?;
         let _ = JsFuture::from(scan_promise).await?;
 
         let promise = js_sys::Promise::new(&mut |resolve, reject| {

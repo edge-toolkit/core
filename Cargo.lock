@@ -1417,6 +1417,7 @@ dependencies = [
  "serde_default",
  "serde_json",
  "serde_yaml",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1538,10 +1539,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "et-wasi"
-version = "0.1.0"
-
-[[package]]
 name = "et-web"
 version = "0.1.0"
 dependencies = [
@@ -1645,6 +1642,7 @@ dependencies = [
 name = "et-ws-geolocation"
 version = "0.1.0"
 dependencies = [
+ "et-web",
  "et-ws-wasm-agent",
  "js-sys",
  "serde",
@@ -1836,7 +1834,6 @@ dependencies = [
 name = "et-ws-wasi-comm1"
 version = "0.1.0"
 dependencies = [
- "et-wasi",
  "serde_json",
  "wit-bindgen 0.57.1",
 ]
@@ -1845,7 +1842,6 @@ dependencies = [
 name = "et-ws-wasi-data1"
 version = "0.1.0"
 dependencies = [
- "et-wasi",
  "serde_json",
  "wit-bindgen 0.57.1",
 ]
@@ -1858,7 +1854,6 @@ dependencies = [
  "bytemuck",
  "edge-toolkit",
  "et-otlp",
- "et-wasi",
  "et-ws-test-server",
  "futures-util",
  "opentelemetry",

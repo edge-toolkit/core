@@ -4,7 +4,25 @@ package et:ws-wasi@0.1.0;
 /// drives it through these calls. `recv` returns at most one inbound text
 /// message per call, returning `none` after `timeout-ms` if nothing arrived.
 interface ws {
-    type ws-error = string;
+    /// Structured failure mode. Guests can branch on the variant
+    /// (e.g. retry on `not-connected`, give up on `protocol`); the
+    /// payload strings inside `transport` / `protocol` are diagnostic
+    /// detail only.
+    variant ws-error {
+        /// An operation that requires an active connection was called
+        /// before `connect` or after `disconnect`.
+        not-connected,
+        /// `connect` was called while a connection is already active.
+        already-connected,
+        /// The reader pump observed end-of-stream; no more inbound
+        /// messages will arrive on this connection.
+        inbox-closed,
+        /// The underlying tcp / tls / websocket transport failed.
+        transport(string),
+        /// JSON serialization or deserialization of a wire message
+        /// failed.
+        protocol(string),
+    }
 
     enum state {
         connecting,
@@ -23,9 +41,26 @@ interface ws {
 }
 
 /// The export every WASI module must implement: a single async-equivalent
-/// entry point. Returning `err` aborts the runner non-zero.
+/// entry point.
 interface entry {
-    run: func() -> result<_, string>;
+    /// What the guest's `run` reports when it fails. The structured
+    /// variants categorise the kind of failure so the host can
+    /// distinguish (e.g.) an infrastructure outage from a workflow
+    /// assertion; the payload string carries diagnostic detail.
+    /// `other` is the explicit fallback for anything that doesn't fit
+    /// the named cases.
+    variant run-error {
+        /// A websocket op in `et:ws-wasi/ws` failed.
+        ws(string),
+        /// A `wasi:keyvalue/store` op failed.
+        store(string),
+        /// The workflow reached an unexpected state — an expected
+        /// message didn't arrive, a verification check failed, etc.
+        precondition(string),
+        /// Catch-all for anything else.
+        other(string),
+    }
+    run: func() -> result<_, run-error>;
 }
 
 /// What the runner's own `wasmtime::component::bindgen!` consumes. Note

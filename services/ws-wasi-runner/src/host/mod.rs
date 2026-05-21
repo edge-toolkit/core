@@ -18,9 +18,7 @@ pub mod wasi_nn;
 pub mod wasi_webgpu;
 mod ws;
 
-pub use et_wasi::error::WitErrExt;
-
-pub use self::error::{KvErrExt, RequestDeviceErrExt};
+pub use self::error::{KvErrExt, RequestDeviceErrExt, WitErrExt, WsProtocolErrExt, WsTransportErrExt};
 pub use self::ws::WsBackend;
 
 pub struct HostState {

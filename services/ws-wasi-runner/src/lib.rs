@@ -15,10 +15,14 @@ use tracing_opentelemetry::OpenTelemetrySpanExt;
 use wasmtime::component::{Component, HasSelf, Linker};
 use wasmtime::{Config, Engine, Store};
 
-/// Errors `run_module` can fail with. Both `reqwest::Error` and
-/// `wasmtime::Error` already carry enough context (the failing URL,
-/// the wasmtime error chain) to be useful on their own, so they're
-/// forwarded transparently.
+pub mod bindings;
+
+use self::bindings::exports::et::ws_wasi::entry::RunError;
+
+/// Errors `run_module` can fail with. `reqwest::Error` and
+/// `wasmtime::Error` already carry enough context to be useful on
+/// their own, so they're forwarded transparently. `RunError` is the
+/// WIT-defined variant the guest returns from `entry.run`.
 #[derive(Debug, Error)]
 pub enum RunnerError {
     #[error("could not derive HTTP base from WS_SERVER_URL={ws_url}")]
@@ -33,11 +37,19 @@ pub enum RunnerError {
     #[error(transparent)]
     Wasm(#[from] wasmtime::Error),
 
-    #[error("module run() returned err: {0}")]
-    Guest(String),
+    #[error("module run() returned err: {0:?}")]
+    Guest(RunError),
 }
 
-pub mod bindings;
+// `RunError` is wit-bindgen-generated and doesn't implement `Error`, so
+// thiserror's `#[from]` can't drive this. Hand-written `From` lets `?`
+// flatten the inner `Result<_, RunError>` from `call_run` straight into
+// `RunnerError::Guest`.
+impl From<RunError> for RunnerError {
+    fn from(source: RunError) -> Self {
+        RunnerError::Guest(source)
+    }
+}
 
 pub mod host;
 
@@ -136,10 +148,5 @@ async fn run_module_inner(module_name: &str, ws_url: &str) -> Result<(), RunnerE
 
     let module = bindings::Runner::instantiate_async(&mut store, &component, &linker).await?;
 
-    let guest_result = module.et_ws_wasi_entry().call_run(&mut store).await?;
-
-    if let Err(msg) = guest_result {
-        return Err(RunnerError::Guest(msg));
-    }
-    Ok(())
+    Ok(module.et_ws_wasi_entry().call_run(&mut store).await??)
 }

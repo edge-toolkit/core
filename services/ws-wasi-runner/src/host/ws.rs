@@ -19,8 +19,8 @@ use tokio::task::JoinHandle;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, tungstenite};
 
 use crate::HostState;
-use crate::bindings::et::ws_wasi::ws::{Host, State};
-use crate::host::WitErrExt;
+use crate::bindings::et::ws_wasi::ws::{Host, State, WsError};
+use crate::host::{WsProtocolErrExt, WsTransportErrExt};
 
 type WsSink = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, tungstenite::Message>;
 
@@ -35,19 +35,19 @@ pub struct WsBackend {
 }
 
 impl WsBackend {
-    async fn connect(ws_url: &str) -> Result<Self, String> {
+    async fn connect(ws_url: &str) -> Result<Self, WsError> {
         let (stream, _) = tokio_tungstenite::connect_async(ws_url)
             .await
-            .wit_context(&format!("ws connect {ws_url}"))?;
+            .ws_transport(&format!("ws connect {ws_url}"))?;
         let (mut sink, mut stream) = stream.split();
 
         // Drive the registration handshake immediately so the agent_id is
         // known by the time `connect()` returns.
         let connect_msg =
-            serde_json::to_string(&WsMessage::Connect { agent_id: None }).wit_context("serialize connect")?;
+            serde_json::to_string(&WsMessage::Connect { agent_id: None }).ws_protocol("serialize connect")?;
         sink.send(tungstenite::Message::text(connect_msg))
             .await
-            .wit_context("send connect")?;
+            .ws_transport("send connect")?;
 
         let (tx, rx) = mpsc::unbounded_channel::<String>();
         let agent_id = Arc::new(Mutex::new(None));
@@ -88,11 +88,11 @@ impl WsBackend {
         })
     }
 
-    async fn send_text(&self, text: String) -> Result<(), String> {
+    async fn send_text(&self, text: String) -> Result<(), WsError> {
         let mut sink = self.sink.lock().await;
         sink.send(tungstenite::Message::text(text))
             .await
-            .wit_context("send text")
+            .ws_transport("send text")
     }
 
     async fn current_state(&self) -> State {
@@ -103,21 +103,21 @@ impl WsBackend {
         self.agent_id.lock().await.clone().unwrap_or_default()
     }
 
-    async fn recv(&self, timeout_ms: u32) -> Result<Option<String>, String> {
+    async fn recv(&self, timeout_ms: u32) -> Result<Option<String>, WsError> {
         let mut inbox = self.inbox.lock().await;
         match tokio::time::timeout(Duration::from_millis(timeout_ms as u64), inbox.recv()).await {
             Ok(Some(text)) => Ok(Some(text)),
-            Ok(None) => Err("ws inbox closed".into()),
+            Ok(None) => Err(WsError::InboxClosed),
             Err(_) => Ok(None),
         }
     }
 }
 
 impl Host for HostState {
-    async fn connect(&mut self) -> Result<(), String> {
+    async fn connect(&mut self) -> Result<(), WsError> {
         let mut slot = self.ws.lock().await;
         if slot.is_some() {
-            return Err("already connected".into());
+            return Err(WsError::AlreadyConnected);
         }
         let backend = WsBackend::connect(&self.ws_url).await?;
         // Wait briefly for ConnectAck before returning, so guests can call
@@ -148,29 +148,29 @@ impl Host for HostState {
         }
     }
 
-    async fn send_event(&mut self, category: String, kind: String, body_json: String) -> Result<(), String> {
-        let body: serde_json::Value = serde_json::from_str(&body_json).wit_context("body-json is not valid JSON")?;
+    async fn send_event(&mut self, category: String, kind: String, body_json: String) -> Result<(), WsError> {
+        let body: serde_json::Value = serde_json::from_str(&body_json).ws_protocol("body-json is not valid JSON")?;
         let payload = serde_json::to_string(&WsMessage::ClientEvent {
             capability: category,
             action: kind,
             details: body,
         })
-        .wit_context("serialize client_event")?;
+        .ws_protocol("serialize client_event")?;
         self.send_text(payload).await
     }
 
-    async fn send_text(&mut self, text: String) -> Result<(), String> {
+    async fn send_text(&mut self, text: String) -> Result<(), WsError> {
         let slot = self.ws.lock().await;
         let Some(backend) = slot.as_ref() else {
-            return Err("not connected".into());
+            return Err(WsError::NotConnected);
         };
         backend.send_text(text).await
     }
 
-    async fn recv(&mut self, timeout_ms: u32) -> Result<Option<String>, String> {
+    async fn recv(&mut self, timeout_ms: u32) -> Result<Option<String>, WsError> {
         let slot = self.ws.lock().await;
         let Some(backend) = slot.as_ref() else {
-            return Err("not connected".into());
+            return Err(WsError::NotConnected);
         };
         backend.recv(timeout_ms).await
     }

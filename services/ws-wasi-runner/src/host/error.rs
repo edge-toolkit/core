@@ -1,14 +1,25 @@
-//! Bindgen-specific error helpers for the runner's host impls.
-//!
-//! The generic `WitErrExt` (which maps any `Display` error to
-//! `Result<_, String>`) lives in the shared `et-wit-err` crate so the
-//! WASI guest modules can use the same trait without duplicating it.
-//! This file is just the home of the helpers that reference the runner's
-//! own bindgen-generated WIT error types — those types can't be reached
-//! from a leaf workspace crate without pulling in the runner itself.
+//! Error helpers for the runner's host impls. Each trait carries the
+//! only `.map_err(...)` for the pattern it covers; every host file
+//! reaches the conversions through one of the `.ws_transport(...)` /
+//! `.ws_protocol(...)` / `.kv_context(...)` / `.request_device_err()`
+//! / `.wit_context(...)` shorthands.
 
+use crate::bindings::et::ws_wasi::ws::WsError;
 use crate::bindings::wasi::keyvalue::store::Error as KvError;
 use crate::bindings::wasi::webgpu::webgpu::{RequestDeviceError, RequestDeviceErrorKind};
+
+/// Generic fallback: maps any `Display` error to `Result<_, String>`.
+/// Used in spots (e.g. inside `tokio::task::spawn_blocking`) where the
+/// scope is small enough that a typed enum would be overkill.
+pub trait WitErrExt<T> {
+    fn wit_context(self, context: &str) -> Result<T, String>;
+}
+
+impl<T, E: std::fmt::Display> WitErrExt<T> for Result<T, E> {
+    fn wit_context(self, context: &str) -> Result<T, String> {
+        self.map_err(|err| format!("{context}: {err}"))
+    }
+}
 
 /// Maps any `Display` error into `wasi:keyvalue/store`'s
 /// `error.other(message)` variant.
@@ -34,5 +45,29 @@ impl<T, E: std::fmt::Display> RequestDeviceErrExt<T> for Result<T, E> {
             kind: RequestDeviceErrorKind::OperationError,
             message: format!("{err}"),
         })
+    }
+}
+
+/// Maps a foreign transport error (tcp, tls, websocket frame) into
+/// `et:ws-wasi/ws.ws-error.transport(message)`.
+pub trait WsTransportErrExt<T> {
+    fn ws_transport(self, context: &str) -> Result<T, WsError>;
+}
+
+impl<T, E: std::fmt::Display> WsTransportErrExt<T> for Result<T, E> {
+    fn ws_transport(self, context: &str) -> Result<T, WsError> {
+        self.map_err(|err| WsError::Transport(format!("{context}: {err}")))
+    }
+}
+
+/// Maps a foreign serialization / deserialization error into
+/// `et:ws-wasi/ws.ws-error.protocol(message)`.
+pub trait WsProtocolErrExt<T> {
+    fn ws_protocol(self, context: &str) -> Result<T, WsError>;
+}
+
+impl<T, E: std::fmt::Display> WsProtocolErrExt<T> for Result<T, E> {
+    fn ws_protocol(self, context: &str) -> Result<T, WsError> {
+        self.map_err(|err| WsError::Protocol(format!("{context}: {err}")))
     }
 }

@@ -1,7 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use et_web::{JsCastExt, get_media_devices};
+use et_web::{JsCastExt, JsFunctionExt, JsPromiseExt, get_media_devices};
 use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value};
 use js_sys::{Array, Float32Array, Function, Promise, Reflect};
 use serde_json::json;
@@ -317,8 +317,7 @@ async fn infer_once(
     Reflect::set(&feeds, &JsValue::from_str(input_name), &tensor)?;
 
     let run_value = method(session, "run")?.call1(session, &feeds)?;
-    let outputs =
-        JsFuture::from(run_value.dyn_into_msg::<Promise>("InferenceSession.run did not return a Promise")?).await?;
+    let outputs = JsFuture::from(run_value.into_promise("InferenceSession.run")?).await?;
 
     let summary = decode_retinaface_outputs(
         &outputs,
@@ -547,7 +546,7 @@ fn clamp(value: f64, min: f64, max: f64) -> f64 {
 }
 
 fn method(target: &JsValue, name: &str) -> Result<Function, JsValue> {
-    Reflect::get(target, &JsValue::from_str(name))?.dyn_into_msg(&format!("{name} is not callable"))
+    Reflect::get(target, &JsValue::from_str(name))?.into_function(name)
 }
 
 fn first_string_entry(target: &JsValue, field: &str) -> Result<String, JsValue> {
@@ -616,7 +615,7 @@ async fn create_face_session(model_path: &str) -> Result<JsValue, JsValue> {
     )?;
 
     let value = create.call2(&inference_session, &JsValue::from_str(model_path), &options)?;
-    JsFuture::from(value.dyn_into_msg::<Promise>("InferenceSession.create did not return a Promise")?).await
+    JsFuture::from(value.into_promise("InferenceSession.create")?).await
 }
 
 fn configure_onnx_runtime_wasm(window: &web_sys::Window, ort: &JsValue) -> Result<(), JsValue> {
@@ -657,8 +656,7 @@ fn configure_onnx_runtime_wasm(window: &web_sys::Window, ort: &JsValue) -> Resul
 fn create_tensor(values: &Float32Array) -> Result<JsValue, JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let ort = Reflect::get(window.as_ref(), &JsValue::from_str("ort"))?;
-    let tensor_ctor: Function =
-        Reflect::get(&ort, &JsValue::from_str("Tensor"))?.dyn_into_msg("ort.Tensor is not callable")?;
+    let tensor_ctor = Reflect::get(&ort, &JsValue::from_str("Tensor"))?.into_function("ort.Tensor")?;
 
     let dims = Array::new();
     dims.push(&JsValue::from_f64(1.0));

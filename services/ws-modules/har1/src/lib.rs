@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-use et_web::{JsCastExt, SENSOR_PERMISSION_GRANTED, request_sensor_permission};
+use et_web::{JsFunctionExt, JsPromiseExt, SENSOR_PERMISSION_GRANTED, request_sensor_permission};
 use et_ws_wasm_agent::{
     WsClient, WsClientConfig, js_bool_field, js_nested_object, js_number_field, set_textarea_value,
 };
@@ -568,7 +568,7 @@ fn describe_js_error(error: &JsValue) -> String {
 }
 
 fn method(target: &JsValue, name: &str) -> Result<Function, JsValue> {
-    Reflect::get(target, &JsValue::from_str(name))?.dyn_into_msg(&format!("{name} is not callable"))
+    Reflect::get(target, &JsValue::from_str(name))?.into_function(name)
 }
 
 async fn wait_for_connected(client: &WsClient) -> Result<(), JsValue> {
@@ -625,7 +625,7 @@ async fn create_har_session(model_path: &str) -> Result<JsValue, JsValue> {
     )?;
 
     let value = create.call2(&inference_session, &JsValue::from_str(model_path), &options)?;
-    JsFuture::from(value.dyn_into_msg::<Promise>("InferenceSession.create did not return a Promise")?).await
+    JsFuture::from(value.into_promise("InferenceSession.create")?).await
 }
 
 fn configure_onnx_runtime_wasm(window: &web_sys::Window, ort: &JsValue) -> Result<(), JsValue> {
@@ -692,8 +692,7 @@ async fn infer_prediction(
     Reflect::set(&feeds, &JsValue::from_str(raw_input_name), &raw_tensor)?;
 
     let run_value = method(session, "run")?.call1(session, &feeds)?;
-    let result =
-        JsFuture::from(run_value.dyn_into_msg::<Promise>("InferenceSession.run did not return a Promise")?).await?;
+    let result = JsFuture::from(run_value.into_promise("InferenceSession.run")?).await?;
 
     let output = Reflect::get(&result, &JsValue::from_str(output_name))?;
     let data = Reflect::get(&output, &JsValue::from_str("data"))?;
@@ -723,8 +722,7 @@ async fn infer_prediction(
 fn create_raw_tensor(values: &[f32]) -> Result<JsValue, JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let ort = Reflect::get(window.as_ref(), &JsValue::from_str("ort"))?;
-    let tensor_ctor: Function =
-        Reflect::get(&ort, &JsValue::from_str("Tensor"))?.dyn_into_msg("ort.Tensor is not callable")?;
+    let tensor_ctor = Reflect::get(&ort, &JsValue::from_str("Tensor"))?.into_function("ort.Tensor")?;
 
     let dims = Array::new();
     dims.push(&JsValue::from_f64(1.0));
@@ -742,8 +740,7 @@ fn create_raw_tensor(values: &[f32]) -> Result<JsValue, JsValue> {
 fn create_feat_tensor(values: &[f32]) -> Result<JsValue, JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let ort = Reflect::get(window.as_ref(), &JsValue::from_str("ort"))?;
-    let tensor_ctor: Function =
-        Reflect::get(&ort, &JsValue::from_str("Tensor"))?.dyn_into_msg("ort.Tensor is not callable")?;
+    let tensor_ctor = Reflect::get(&ort, &JsValue::from_str("Tensor"))?.into_function("ort.Tensor")?;
 
     let dims = Array::new();
     dims.push(&JsValue::from_f64(1.0));

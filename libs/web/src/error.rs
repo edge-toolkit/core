@@ -37,3 +37,33 @@ impl<T, E: std::fmt::Debug> JsResultExt<T> for Result<T, E> {
         self.map_err(|err| JsValue::from_str(&format!("{context}: {err:?}")))
     }
 }
+
+/// `.into_promise("op")` shortcut for the WASM modules' recurring
+/// `.dyn_into_msg::<Promise>("op did not return a Promise")` pattern.
+/// Pass the JS-side operation name (e.g. `"requestAdapter"`); the trait
+/// formats the standard "did not return a Promise" message itself.
+pub trait JsPromiseExt {
+    fn into_promise(self, op: &str) -> Result<js_sys::Promise, JsValue>;
+}
+
+impl<S: JsCast> JsPromiseExt for S {
+    fn into_promise(self, op: &str) -> Result<js_sys::Promise, JsValue> {
+        self.dyn_into::<js_sys::Promise>()
+            .map_err(|_| JsValue::from_str(&format!("{op} did not return a Promise")))
+    }
+}
+
+/// `.into_function("op")` shortcut for the WASM modules' recurring
+/// `.dyn_into_msg::<Function>("op is not callable")` pattern. Pass the
+/// JS-side identifier (e.g. `"requestPermission"`); the trait formats
+/// the standard "is not callable" message itself.
+pub trait JsFunctionExt {
+    fn into_function(self, op: &str) -> Result<js_sys::Function, JsValue>;
+}
+
+impl<S: JsCast> JsFunctionExt for S {
+    fn into_function(self, op: &str) -> Result<js_sys::Function, JsValue> {
+        self.dyn_into::<js_sys::Function>()
+            .map_err(|_| JsValue::from_str(&format!("{op} is not callable")))
+    }
+}

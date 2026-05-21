@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::PoisonError;
 
 use actix_files::Files;
 use actix_web::{HttpRequest, HttpResponse, web};
@@ -34,11 +35,22 @@ pub enum StorageError {
     #[response(status = 404, reason = "NOT_FOUND")]
     AgentNotFound,
 
+    #[error("agent registry lock poisoned")]
+    AgentRegistryPoisoned,
+
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
     #[error(transparent)]
     Payload(#[from] actix_web::error::PayloadError),
+}
+
+// `PoisonError<T>` is generic over the guard type; a generic `From` impl
+// lets `?` drop the `T` and surface the variant directly.
+impl<T> From<PoisonError<T>> for StorageError {
+    fn from(_: PoisonError<T>) -> Self {
+        StorageError::AgentRegistryPoisoned
+    }
 }
 
 pub async fn agent_put_file<S: Clone + Send + 'static>(
@@ -47,7 +59,7 @@ pub async fn agent_put_file<S: Clone + Send + 'static>(
     registry: web::Data<AgentRegistry<S>>,
     config: web::Data<StorageConfig>,
 ) -> Result<HttpResponse, StorageError> {
-    let agent_id: String = req.match_info().query("agent_id").parse().unwrap();
+    let agent_id = req.match_info().query("agent_id").to_string();
     let filename = req
         .match_info()
         .query("filename")
@@ -56,11 +68,8 @@ pub async fn agent_put_file<S: Clone + Send + 'static>(
         .filter(|filename| filename.components().count() == 1)
         .ok_or(StorageError::InvalidFilename)?;
 
-    {
-        let agents = registry.agents.lock().expect("lock poisoned");
-        if !agents.contains_key(&agent_id) {
-            return Err(StorageError::AgentNotFound);
-        }
+    if !registry.agents.lock()?.contains_key(&agent_id) {
+        return Err(StorageError::AgentNotFound);
     }
 
     let storage_dir = &config.path;

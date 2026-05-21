@@ -6,7 +6,7 @@ use actix_web::{Error, HttpRequest, HttpResponse, web};
 use actix_ws::{AggregatedMessage, AggregatedMessageStream, CloseCode, CloseReason, Session};
 use chrono::Utc;
 use edge_toolkit::ws::{ConnectStatus, MessageDeliveryStatus, MessageScope, WsMessage};
-use edge_toolkit::ws_server::{AgentRecord, AgentRegistry, PendingDirectMessage};
+use edge_toolkit::ws_server::{AgentRecord, AgentRegistry, PendingDirectMessage, RegistryError};
 use futures_util::StreamExt as _;
 use opentelemetry::{
     global,
@@ -23,7 +23,7 @@ pub type AgentSession = UnboundedSender<WsMessage>;
 pub type WsAgentRegistry = AgentRegistry<AgentSession>;
 
 /// Load a registry from disk. Sessions are not persisted, so they are initialised to `None`.
-pub fn load_registry(path: &std::path::Path) -> Result<WsAgentRegistry, std::io::Error> {
+pub fn load_registry(path: &std::path::Path) -> Result<WsAgentRegistry, RegistryError> {
     use edge_toolkit::ws::AgentConnectionState;
     if !path.exists() {
         warn!("Registry file {:?} does not exist, starting with empty registry", path);
@@ -38,10 +38,7 @@ pub fn load_registry(path: &std::path::Path) -> Result<WsAgentRegistry, std::io:
         #[serde(default)]
         pending_direct_messages: BTreeMap<String, PendingDirectMessage>,
     }
-    let bare: BTreeMap<String, BareRecord> = match serde_yaml::from_str(&yaml) {
-        Ok(bare) => bare,
-        Err(source) => return Err(std::io::Error::other(source)),
-    };
+    let bare: BTreeMap<String, BareRecord> = serde_yaml::from_str(&yaml)?;
     let agents = bare
         .into_iter()
         .map(|(id, r)| {
@@ -372,9 +369,9 @@ impl Connection {
                                         });
                                     }
                                 }
-                                Err(detail) => {
-                                    warn!("Invalid ack from {} for {}: {}", recipient_agent_id, message_id, detail);
-                                    self.send_invalid(Some(message_id), detail).await;
+                                Err(error) => {
+                                    warn!("Invalid ack from {} for {}: {}", recipient_agent_id, message_id, error);
+                                    self.send_invalid(Some(message_id), error.to_string()).await;
                                 }
                             }
                         }

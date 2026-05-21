@@ -1,4 +1,4 @@
-use et_web::JsCastExt;
+use et_web::{JsCastExt, JsFunctionExt, JsPromiseExt};
 use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value};
 use js_sys::{Promise, Reflect};
 use serde_json::json;
@@ -87,12 +87,10 @@ impl WebGpuProbeResult {
             });
         }
 
-        let request_adapter: js_sys::Function = js_sys::Reflect::get(&gpu, &JsValue::from_str("requestAdapter"))?
-            .dyn_into_msg("navigator.gpu.requestAdapter is not callable")?;
+        let request_adapter = js_sys::Reflect::get(&gpu, &JsValue::from_str("requestAdapter"))?
+            .into_function("navigator.gpu.requestAdapter")?;
 
-        let adapter_promise: js_sys::Promise = request_adapter
-            .call0(&gpu)?
-            .dyn_into_msg("requestAdapter did not return a Promise")?;
+        let adapter_promise = request_adapter.call0(&gpu)?.into_promise("requestAdapter")?;
         let adapter = JsFuture::from(adapter_promise).await?;
 
         if adapter.is_null() || adapter.is_undefined() {
@@ -103,12 +101,10 @@ impl WebGpuProbeResult {
             });
         }
 
-        let request_device: js_sys::Function = js_sys::Reflect::get(&adapter, &JsValue::from_str("requestDevice"))?
-            .dyn_into_msg("adapter.requestDevice is not callable")?;
+        let request_device = js_sys::Reflect::get(&adapter, &JsValue::from_str("requestDevice"))?
+            .into_function("adapter.requestDevice")?;
 
-        let device_promise: js_sys::Promise = request_device
-            .call0(&adapter)?
-            .dyn_into_msg("requestDevice did not return a Promise")?;
+        let device_promise = request_device.call0(&adapter)?.into_promise("requestDevice")?;
         let device = JsFuture::from(device_promise).await?;
 
         let device_created = !device.is_null() && !device.is_undefined();
@@ -507,9 +503,7 @@ async fn detect_webgpu_info() -> Result<Option<GpuInfo>, JsValue> {
         None => return Ok(None),
     };
 
-    let adapter_promise: js_sys::Promise = request_adapter
-        .call0(&gpu)?
-        .dyn_into_msg("requestAdapter did not return a Promise")?;
+    let adapter_promise = request_adapter.call0(&gpu)?.into_promise("requestAdapter")?;
     let adapter = JsFuture::from(adapter_promise).await?;
 
     if adapter.is_null() || adapter.is_undefined() {
@@ -521,9 +515,9 @@ async fn detect_webgpu_info() -> Result<Option<GpuInfo>, JsValue> {
             .ok()
             .and_then(|value| value.dyn_into::<js_sys::Function>().ok())
     {
-        let info_promise: js_sys::Promise = request_adapter_info
+        let info_promise = request_adapter_info
             .call0(&adapter)?
-            .dyn_into_msg("requestAdapterInfo did not return a Promise")?;
+            .into_promise("requestAdapterInfo")?;
         JsFuture::from(info_promise).await?
     } else {
         js_sys::Reflect::get(&adapter, &JsValue::from_str("info"))?

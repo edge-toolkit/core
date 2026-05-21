@@ -2,7 +2,7 @@ use wasm_bindgen::prelude::*;
 
 mod error;
 
-pub use self::error::{JsCastExt, JsResultExt};
+pub use self::error::{JsCastExt, JsFunctionExt, JsPromiseExt, JsResultExt};
 
 pub const SENSOR_PERMISSION_GRANTED: &str = "granted";
 
@@ -28,10 +28,8 @@ pub async fn request_sensor_permission(target: JsValue) -> Result<String, JsValu
         return Ok(SENSOR_PERMISSION_GRANTED.to_string());
     }
 
-    let request_permission: js_sys::Function = request_permission.dyn_into_msg("requestPermission is not callable")?;
-    let promise: js_sys::Promise = request_permission
-        .call0(&target)?
-        .dyn_into_msg("requestPermission did not return a Promise")?;
+    let request_permission = request_permission.into_function("requestPermission")?;
+    let promise = request_permission.call0(&target)?.into_promise("requestPermission")?;
     let result = wasm_bindgen_futures::JsFuture::from(promise).await?;
     Ok(result
         .as_string()
