@@ -1,16 +1,16 @@
-use std::fs;
 use std::path::Path;
 
 use edge_toolkit::input::ClusterInput;
+use fs_err as fs;
 
-use crate::error::{CliError, IoOp, IoResultExt, current_dir_for};
+use crate::error::CliError;
 use crate::{
     OutputType, absolute_from, cluster_module_names, module_registry, relative_path_from, resolve_module_paths,
 };
 
 pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
     let output_path = output_dir.join(OutputType::DockerCompose.output_file_name());
-    let workspace_root = current_dir_for("compose services")?;
+    let workspace_root = std::env::current_dir()?;
     let output_abs = absolute_from(&workspace_root, output_dir);
     let workspace_rel = relative_path_from(&output_abs, &workspace_root).display().to_string();
     let openobserve_env_file_rel = relative_path_from(&output_abs, &workspace_root.join("config/o2.env"))
@@ -90,7 +90,7 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
         ],
     };
     let content = render_compose_yaml(&compose);
-    fs::write(&output_path, content).io_context(IoOp::Write, &output_path)?;
+    fs::write(&output_path, content)?;
 
     Ok(())
 }

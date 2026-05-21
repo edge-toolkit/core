@@ -39,10 +39,9 @@ fn info(message: &str) {
     logging::log(Level::Info, LOG_CONTEXT, message);
 }
 
-// wit-bindgen-generated error types don't implement `Error`, so
-// thiserror's `#[from]` can't drive these conversions. Handwritten
-// `From` impls let `?` flatten host-import errors straight into the
-// matching `RunError` variant.
+// Flatten typed host-import errors into the matching `RunError(String)`
+// variant. Plain `From` rather than thiserror's `#[from]` because the
+// bindgen-generated `WsError` / `store::Error` don't impl `Error`.
 impl From<WsError> for RunError {
     fn from(source: WsError) -> Self {
         RunError::Ws(format!("{source:?}"))

@@ -41,10 +41,9 @@ pub enum RunnerError {
     Guest(RunError),
 }
 
-// `RunError` is wit-bindgen-generated and doesn't implement `Error`, so
-// thiserror's `#[from]` can't drive this. Hand-written `From` lets `?`
-// flatten the inner `Result<_, RunError>` from `call_run` straight into
-// `RunnerError::Guest`.
+// Lets `?` flatten the inner `Result<_, RunError>` from `call_run` into
+// `RunnerError::Guest` — `#[from]` doesn't work because `RunError`,
+// being wit-bindgen-generated, doesn't implement `Error`.
 impl From<RunError> for RunnerError {
     fn from(source: RunError) -> Self {
         RunnerError::Guest(source)

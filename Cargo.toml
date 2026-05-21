@@ -47,6 +47,7 @@ clap = { version = "4.4", features = ["derive"] }
 edge-toolkit = { path = "libs/edge-toolkit" }
 et-otlp = { path = "libs/et-otlp" }
 et-web = { path = "libs/web" }
+fs-err = "3"
 lets_find_up = "0.0.4"
 log = "0.4"
 onnx-extractor = "0.3"

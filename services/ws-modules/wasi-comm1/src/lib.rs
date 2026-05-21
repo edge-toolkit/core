@@ -43,18 +43,12 @@ fn info(message: &str) {
     logging::log(Level::Info, LOG_CONTEXT, message);
 }
 
-// `WsError` is wit-bindgen-generated (no `Error` impl) and `serde_json::Error`
-// is a foreign type, so we wire `?` into the right `RunError` variant with
-// handwritten `From` impls.
+// Flatten the typed host-import error into `RunError::Ws(String)`.
+// Plain `From` rather than thiserror's `#[from]` because the
+// bindgen-generated `WsError` doesn't impl `Error`.
 impl From<WsError> for RunError {
     fn from(source: WsError) -> Self {
         RunError::Ws(format!("{source:?}"))
-    }
-}
-
-impl From<serde_json::Error> for RunError {
-    fn from(source: serde_json::Error) -> Self {
-        RunError::Other(format!("{source}"))
     }
 }
 
@@ -105,8 +99,11 @@ impl Guest for Component {
 }
 
 fn send_message(value: &Value) -> Result<(), RunError> {
-    let text = serde_json::to_string(value)?;
-    et::ws_wasi::ws::send_text(&text)?;
+    // `Value::to_string` is infallible (uses `Display`) — `serde_json::to_string`
+    // would only fail on cases `Value` can't represent: non-string map keys,
+    // non-finite floats, or self-recursion. The two `json!()` literals in
+    // this file hit none of them.
+    et::ws_wasi::ws::send_text(&value.to_string())?;
     Ok(())
 }
 
