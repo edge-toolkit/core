@@ -1,6 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use et_web::JsCastExt;
 use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value};
 use js_sys::{Promise, Reflect};
 use serde_json::json;
@@ -51,9 +52,8 @@ impl SpeechRecognitionSession {
                     .filter(|value| !value.is_undefined() && !value.is_null())
             })
             .ok_or_else(|| JsValue::from_str("Web Speech API recognition is not available in this browser context"))?;
-        let constructor = speech_recognition_ctor
-            .dyn_into::<js_sys::Function>()
-            .map_err(|_| JsValue::from_str("SpeechRecognition constructor is not callable"))?;
+        let constructor: js_sys::Function =
+            speech_recognition_ctor.dyn_into_msg("SpeechRecognition constructor is not callable")?;
         let recognition = js_sys::Reflect::construct(&constructor, &js_sys::Array::new())?;
 
         js_sys::Reflect::set(&recognition, &JsValue::from_str("lang"), &JsValue::from_str("en-US"))?;
@@ -198,9 +198,8 @@ impl SpeechRecognitionSession {
 
     pub fn stop(&self) -> Result<(), JsValue> {
         self.stop_requested.set(true);
-        let stop = js_sys::Reflect::get(&self.recognition, &JsValue::from_str("stop"))?
-            .dyn_into::<js_sys::Function>()
-            .map_err(|_| JsValue::from_str("SpeechRecognition.stop is not callable"))?;
+        let stop: js_sys::Function = js_sys::Reflect::get(&self.recognition, &JsValue::from_str("stop"))?
+            .dyn_into_msg("SpeechRecognition.stop is not callable")?;
         stop.call0(&self.recognition)?;
         Ok(())
     }

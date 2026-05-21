@@ -27,6 +27,7 @@ wit_bindgen::generate!({
     generate_all,
 });
 
+use et_wasi::error::{WitErrDebugExt, WitErrExt};
 use exports::et::ws_wasi::entry::Guest;
 use wasi::keyvalue::store;
 use wasi::logging::logging::{self, Level};
@@ -44,22 +45,22 @@ impl Guest for Component {
     fn run() -> Result<(), String> {
         info("entered run()");
 
-        et::ws_wasi::ws::connect().map_err(|e| format!("ws connect failed: {e}"))?;
+        et::ws_wasi::ws::connect().wit_context("ws connect failed")?;
         let agent_id = wait_for_agent_id().ok_or_else(|| "did not receive agent_id".to_string())?;
         info(&format!("websocket connected with agent_id={agent_id}"));
 
-        let bucket = store::open(&agent_id).map_err(|e| format!("store.open({agent_id}): {e:?}"))?;
+        let bucket = store::open(&agent_id).wit_context_debug(&format!("store.open({agent_id})"))?;
 
         let test_content = format!("Hello from wasi-data1, agent={agent_id}!").into_bytes();
         info(&format!("storing {} bytes to key {FILENAME}", test_content.len()));
         bucket
             .set(FILENAME, &test_content)
-            .map_err(|e| format!("bucket.set({FILENAME}): {e:?}"))?;
+            .wit_context_debug(&format!("bucket.set({FILENAME})"))?;
 
         info(&format!("fetching key {FILENAME}"));
         let fetched = bucket
             .get(FILENAME)
-            .map_err(|e| format!("bucket.get({FILENAME}): {e:?}"))?
+            .wit_context_debug(&format!("bucket.get({FILENAME})"))?
             .ok_or_else(|| format!("bucket.get({FILENAME}) returned none after set"))?;
 
         if fetched != test_content {

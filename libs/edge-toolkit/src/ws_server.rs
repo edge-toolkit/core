@@ -43,7 +43,10 @@ impl<S: Clone + Default + Send + 'static> AgentRegistry<S> {
             return Ok(Self::default());
         }
         let yaml = std::fs::read_to_string(path)?;
-        let agents: BTreeMap<String, AgentRecord<S>> = serde_yaml::from_str(&yaml).map_err(std::io::Error::other)?;
+        let agents: BTreeMap<String, AgentRecord<S>> = match serde_yaml::from_str(&yaml) {
+            Ok(agents) => agents,
+            Err(source) => return Err(std::io::Error::other(source)),
+        };
         log::info!("Loaded {} agents from registry {:?}", agents.len(), path);
         Ok(Self {
             agents: Arc::new(Mutex::new(agents)),
@@ -54,7 +57,10 @@ impl<S: Clone + Default + Send + 'static> AgentRegistry<S> {
 impl<S: Clone + Send + 'static> AgentRegistry<S> {
     pub fn save(&self, path: &std::path::Path) -> std::io::Result<()> {
         let agents = self.agents.lock().expect("agent registry lock poisoned");
-        let yaml = serde_yaml::to_string(&*agents).map_err(std::io::Error::other)?;
+        let yaml = match serde_yaml::to_string(&*agents) {
+            Ok(yaml) => yaml,
+            Err(source) => return Err(std::io::Error::other(source)),
+        };
         std::fs::write(path, yaml)?;
         log::info!("Agent registry saved to {:?}", path);
         Ok(())

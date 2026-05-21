@@ -1,11 +1,13 @@
 use std::path::PathBuf;
 
 use actix_files::Files;
-use actix_web::{Error, HttpRequest, HttpResponse, web};
+use actix_web::{HttpRequest, HttpResponse, web};
+use actix_web_thiserror::ResponseError;
 use edge_toolkit::ws_server::AgentRegistry;
 use futures_util::StreamExt;
 use serde::Deserialize;
 use serde_default::DefaultFromSerde;
+use thiserror::Error;
 use tracing::info;
 
 /// Default storage directory.
@@ -22,28 +24,43 @@ pub struct StorageConfig {
     pub path: PathBuf,
 }
 
+#[derive(Debug, Error, ResponseError)]
+pub enum StorageError {
+    #[error("invalid filename")]
+    #[response(status = 400, reason = "BAD_REQUEST")]
+    InvalidFilename,
+
+    #[error("agent not found")]
+    #[response(status = 404, reason = "NOT_FOUND")]
+    AgentNotFound,
+
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+
+    #[error(transparent)]
+    Payload(#[from] actix_web::error::PayloadError),
+}
+
 pub async fn agent_put_file<S: Clone + Send + 'static>(
     req: HttpRequest,
     mut payload: web::Payload,
     registry: web::Data<AgentRegistry<S>>,
     config: web::Data<StorageConfig>,
-) -> Result<HttpResponse, Error> {
+) -> Result<HttpResponse, StorageError> {
     let agent_id: String = req.match_info().query("agent_id").parse().unwrap();
-    let filename: PathBuf = req
+    let filename = req
         .match_info()
         .query("filename")
-        .parse()
-        .map_err(|_| actix_web::error::ErrorBadRequest("invalid filename"))?;
+        .parse::<PathBuf>()
+        .ok()
+        .filter(|filename| filename.components().count() == 1)
+        .ok_or(StorageError::InvalidFilename)?;
 
     {
         let agents = registry.agents.lock().expect("lock poisoned");
         if !agents.contains_key(&agent_id) {
-            return Err(actix_web::error::ErrorNotFound("agent not found"));
+            return Err(StorageError::AgentNotFound);
         }
-    }
-
-    if filename.components().count() != 1 {
-        return Err(actix_web::error::ErrorBadRequest("invalid filename"));
     }
 
     let storage_dir = &config.path;

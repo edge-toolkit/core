@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 
 use edge_toolkit::ws::{ConnectStatus, WsMessage};
+use et_web::JsResultExt;
 use tracing::{error, info, warn};
 use wasm_bindgen::prelude::*;
 use web_sys::{Event, MessageEvent, WebSocket};
@@ -144,8 +145,7 @@ impl WsClient {
         info!("Connecting to WebSocket server: {}", self.config.server_url);
 
         let _window = web_sys::window().ok_or("No window available")?;
-        let socket = WebSocket::new(&self.config.server_url)
-            .map_err(|e| JsValue::from_str(&format!("Failed to create WebSocket: {:?}", e)))?;
+        let socket = WebSocket::new(&self.config.server_url).js_context("Failed to create WebSocket")?;
 
         // Set binary type to arraybuffer
         socket.set_binary_type(web_sys::BinaryType::Arraybuffer);
@@ -340,13 +340,10 @@ impl WsClient {
         let timestamp = chrono::Utc::now().to_rfc3339();
         let msg = WsMessage::Alive { timestamp };
 
-        let json = serde_json::to_string(&msg)
-            .map_err(|e| JsValue::from_str(&format!("Failed to serialize message: {}", e)))?;
+        let json = serde_json::to_string(&msg).js_context("Failed to serialize message")?;
 
         if let Some(ref socket) = s.socket {
-            socket
-                .send_with_str(&json)
-                .map_err(|e| JsValue::from_str(&format!("Failed to send message: {:?}", e)))?;
+            socket.send_with_str(&json).js_context("Failed to send message")?;
             info!("Alive message sent: {}", json);
         }
 
@@ -518,13 +515,12 @@ impl WsClient {
             agent_id: self.agent_id.borrow().clone(),
         };
 
-        let json = serde_json::to_string(&msg)
-            .map_err(|e| JsValue::from_str(&format!("Failed to serialize connect message: {}", e)))?;
+        let json = serde_json::to_string(&msg).js_context("Failed to serialize connect message")?;
 
         if let Some(ref socket) = s.socket {
             socket
                 .send_with_str(&json)
-                .map_err(|e| JsValue::from_str(&format!("Failed to send connect message: {:?}", e)))?;
+                .js_context("Failed to send connect message")?;
             info!("Connect message sent: {}", json);
         }
 
@@ -570,7 +566,7 @@ impl WsClient {
                     .and_then(|socket| {
                         socket
                             .send_with_str(&message)
-                            .map_err(|error| JsValue::from_str(&format!("Failed to flush queued message: {:?}", error)))
+                            .js_context("Failed to flush queued message")
                     })
             };
 
@@ -633,14 +629,13 @@ impl WsClient {
 
 impl WsClient {
     pub fn request_list_agents(&self) -> Result<(), JsValue> {
-        let payload = serde_json::to_string(&WsMessage::ListAgents)
-            .map_err(|error| JsValue::from_str(&format!("Failed to serialize list_agents: {error}")))?;
+        let payload = serde_json::to_string(&WsMessage::ListAgents).js_context("Failed to serialize list_agents")?;
         self.send(&payload)
     }
 
     pub fn broadcast_message(&self, message: serde_json::Value) -> Result<(), JsValue> {
         let payload = serde_json::to_string(&WsMessage::BroadcastMessage { message })
-            .map_err(|error| JsValue::from_str(&format!("Failed to serialize broadcast message: {error}")))?;
+            .js_context("Failed to serialize broadcast message")?;
         self.send(&payload)
     }
 
@@ -653,7 +648,7 @@ impl WsClient {
             to_agent_id: to_agent_id.into(),
             message,
         })
-        .map_err(|error| JsValue::from_str(&format!("Failed to serialize direct message: {error}")))?;
+        .js_context("Failed to serialize direct message")?;
         self.send(&payload)
     }
 
@@ -668,8 +663,7 @@ impl WsClient {
             action: action.into(),
             details,
         };
-        let payload = serde_json::to_string(&message)
-            .map_err(|error| JsValue::from_str(&format!("Failed to serialize client event: {error}")))?;
+        let payload = serde_json::to_string(&message).js_context("Failed to serialize client event")?;
         self.send(&payload)
     }
 }

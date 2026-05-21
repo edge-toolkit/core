@@ -1,3 +1,4 @@
+use et_web::JsCastExt;
 use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value};
 use js_sys::{Promise, Reflect};
 use serde_json::json;
@@ -26,13 +27,11 @@ impl BluetoothAccess {
         let options = js_sys::Object::new();
         js_sys::Reflect::set(&options, &JsValue::from_str("acceptAllDevices"), &JsValue::TRUE)?;
 
-        let request_device = js_sys::Reflect::get(&bluetooth, &JsValue::from_str("requestDevice"))?
-            .dyn_into::<js_sys::Function>()
-            .map_err(|_| JsValue::from_str("navigator.bluetooth.requestDevice is not callable"))?;
-        let promise = request_device
+        let request_device: js_sys::Function = js_sys::Reflect::get(&bluetooth, &JsValue::from_str("requestDevice"))?
+            .dyn_into_msg("navigator.bluetooth.requestDevice is not callable")?;
+        let promise: js_sys::Promise = request_device
             .call1(&bluetooth, &options)?
-            .dyn_into::<js_sys::Promise>()
-            .map_err(|_| JsValue::from_str("requestDevice did not return a Promise"))?;
+            .dyn_into_msg("requestDevice did not return a Promise")?;
         let device = JsFuture::from(promise).await?;
 
         info!(
@@ -77,13 +76,11 @@ impl BluetoothAccess {
             return Err(JsValue::from_str("Selected device has no GATT server"));
         }
 
-        let connect = js_sys::Reflect::get(&gatt, &JsValue::from_str("connect"))?
-            .dyn_into::<js_sys::Function>()
-            .map_err(|_| JsValue::from_str("device.gatt.connect is not callable"))?;
-        let promise = connect
+        let connect: js_sys::Function = js_sys::Reflect::get(&gatt, &JsValue::from_str("connect"))?
+            .dyn_into_msg("device.gatt.connect is not callable")?;
+        let promise: js_sys::Promise = connect
             .call0(&gatt)?
-            .dyn_into::<js_sys::Promise>()
-            .map_err(|_| JsValue::from_str("device.gatt.connect did not return a Promise"))?;
+            .dyn_into_msg("device.gatt.connect did not return a Promise")?;
         let _server = JsFuture::from(promise).await?;
         info!("Connected to Bluetooth GATT server for {}", self.name());
         Ok(())

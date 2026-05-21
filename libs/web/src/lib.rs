@@ -1,5 +1,9 @@
 use wasm_bindgen::prelude::*;
 
+mod error;
+
+pub use self::error::{JsCastExt, JsResultExt};
+
 pub const SENSOR_PERMISSION_GRANTED: &str = "granted";
 
 pub fn get_media_devices(navigator: &web_sys::Navigator) -> Result<web_sys::MediaDevices, JsValue> {
@@ -11,9 +15,7 @@ pub fn get_media_devices(navigator: &web_sys::Navigator) -> Result<web_sys::Medi
         ));
     }
 
-    media_devices
-        .dyn_into::<web_sys::MediaDevices>()
-        .map_err(|_| JsValue::from_str("navigator.mediaDevices is not accessible in this browser"))
+    media_devices.dyn_into_msg("navigator.mediaDevices is not accessible in this browser")
 }
 
 pub async fn request_sensor_permission(target: JsValue) -> Result<String, JsValue> {
@@ -26,13 +28,10 @@ pub async fn request_sensor_permission(target: JsValue) -> Result<String, JsValu
         return Ok(SENSOR_PERMISSION_GRANTED.to_string());
     }
 
-    let request_permission = request_permission
-        .dyn_into::<js_sys::Function>()
-        .map_err(|_| JsValue::from_str("requestPermission is not callable"))?;
-    let promise = request_permission
+    let request_permission: js_sys::Function = request_permission.dyn_into_msg("requestPermission is not callable")?;
+    let promise: js_sys::Promise = request_permission
         .call0(&target)?
-        .dyn_into::<js_sys::Promise>()
-        .map_err(|_| JsValue::from_str("requestPermission did not return a Promise"))?;
+        .dyn_into_msg("requestPermission did not return a Promise")?;
     let result = wasm_bindgen_futures::JsFuture::from(promise).await?;
     Ok(result
         .as_string()

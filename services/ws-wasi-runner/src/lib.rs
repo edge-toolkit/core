@@ -41,7 +41,7 @@ pub mod bindings;
 
 pub mod host;
 
-pub use host::HostState;
+pub use self::host::HostState;
 
 /// Inject the W3C `traceparent` (and any `tracestate`) for the current span
 /// into `req`. Downstream HTTP servers running `tracing-actix-web`'s
@@ -138,5 +138,8 @@ async fn run_module_inner(module_name: &str, ws_url: &str) -> Result<(), RunnerE
 
     let guest_result = module.et_ws_wasi_entry().call_run(&mut store).await?;
 
-    guest_result.map_err(RunnerError::Guest)
+    if let Err(msg) = guest_result {
+        return Err(RunnerError::Guest(msg));
+    }
+    Ok(())
 }

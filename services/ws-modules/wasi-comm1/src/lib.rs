@@ -29,6 +29,7 @@ wit_bindgen::generate!({
     generate_all,
 });
 
+use et_wasi::error::WitErrExt;
 use exports::et::ws_wasi::entry::Guest;
 use serde_json::{Value, json};
 use wasi::logging::logging::{self, Level};
@@ -48,7 +49,7 @@ impl Guest for Component {
     fn run() -> Result<(), String> {
         info("entered run()");
 
-        et::ws_wasi::ws::connect().map_err(|e| format!("ws connect failed: {e}"))?;
+        et::ws_wasi::ws::connect().wit_context("ws connect failed")?;
         let agent_id = wait_for_agent_id().ok_or_else(|| "did not receive agent_id".to_string())?;
         info(&format!("websocket connected with agent_id={agent_id}"));
 
@@ -87,8 +88,8 @@ impl Guest for Component {
 }
 
 fn send_message(value: &Value) -> Result<(), String> {
-    let text = serde_json::to_string(value).map_err(|e| format!("serialize message: {e}"))?;
-    et::ws_wasi::ws::send_text(&text).map_err(|e| format!("ws.send_text: {e}"))
+    let text = serde_json::to_string(value).wit_context("serialize message")?;
+    et::ws_wasi::ws::send_text(&text).wit_context("ws.send_text")
 }
 
 /// Drain the recv inbox until we see a message whose `type` matches `kind`.

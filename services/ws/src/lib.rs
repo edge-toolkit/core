@@ -38,7 +38,10 @@ pub fn load_registry(path: &std::path::Path) -> Result<WsAgentRegistry, std::io:
         #[serde(default)]
         pending_direct_messages: BTreeMap<String, PendingDirectMessage>,
     }
-    let bare: BTreeMap<String, BareRecord> = serde_yaml::from_str(&yaml).map_err(std::io::Error::other)?;
+    let bare: BTreeMap<String, BareRecord> = match serde_yaml::from_str(&yaml) {
+        Ok(bare) => bare,
+        Err(source) => return Err(std::io::Error::other(source)),
+    };
     let agents = bare
         .into_iter()
         .map(|(id, r)| {

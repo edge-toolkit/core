@@ -30,9 +30,10 @@ use crate::bindings::wasi::webgpu::webgpu::{
     HostGpuCommandBuffer, HostGpuCommandEncoder, HostGpuComputePassEncoder, HostGpuComputePipeline, HostGpuDevice,
     HostGpuMapMode, HostGpuPipelineLayout, HostGpuQueue, HostGpuShaderModule, HostGpuShaderStage,
     HostGpuSupportedFeatures, HostGpuSupportedLimits, HostRecordGpuPipelineConstantValue, HostRecordOptionGpuSize64,
-    MapAsyncError, MapAsyncErrorKind, RequestDeviceError, RequestDeviceErrorKind, SetBindGroupError,
-    SetBindGroupErrorKind, UnmapError, UnmapErrorKind, WriteBufferError, WriteBufferErrorKind,
+    MapAsyncError, MapAsyncErrorKind, RequestDeviceError, SetBindGroupError, SetBindGroupErrorKind, UnmapError,
+    UnmapErrorKind, WriteBufferError, WriteBufferErrorKind,
 };
+use crate::host::{RequestDeviceErrExt, WitErrExt};
 
 /// wgpu buffer-usage flags as the host wire-format. The WIT-side
 /// `gpu-buffer-usage.STORAGE()` style accessors return these constants and
@@ -323,10 +324,7 @@ impl HostGpuAdapter for HostState {
                 experimental_features: wgpu::ExperimentalFeatures::default(),
             })
             .await
-            .map_err(|e| RequestDeviceError {
-                kind: RequestDeviceErrorKind::OperationError,
-                message: format!("{e}"),
-            })?;
+            .request_device_err()?;
         let device = Arc::new(device);
         let queue = Arc::new(queue);
         let res = self
@@ -827,10 +825,8 @@ impl HostGpuBuffer for HostState {
                     submission_index: None,
                     timeout: None,
                 })
-                .map_err(|e| format!("device poll: {e:?}"))?;
-            rx.recv()
-                .map_err(|e| format!("map_async channel: {e}"))?
-                .map_err(|e| format!("map_async: {e}"))
+                .wit_context("device poll")?;
+            rx.recv().wit_context("map_async channel")?.wit_context("map_async")
         })
         .await;
         match result {

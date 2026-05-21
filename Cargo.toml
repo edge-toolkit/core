@@ -9,6 +9,7 @@ members = [
   "libs/edge-toolkit",
   "libs/et-otlp",
   "libs/otlp-mock",
+  "libs/wasi",
   "libs/web",
   "services/ws-modules/audio1",
   "services/ws-modules/bluetooth",
@@ -40,11 +41,13 @@ resolver = "2"
 actix = "0.13"
 actix-rt = "2"
 actix-web = { version = "4", features = ["rustls-0_23"] }
+actix-web-thiserror = "0.2"
 base64 = "0.22.1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive"] }
 edge-toolkit = { path = "libs/edge-toolkit" }
 et-otlp = { path = "libs/et-otlp" }
+et-wasi = { path = "libs/wasi" }
 et-web = { path = "libs/web" }
 lets_find_up = "0.0.4"
 log = "0.4"
