@@ -1,0 +1,21 @@
+id: no-anyhow
+language: Rust
+severity: error
+message: |
+  The `anyhow` crate is forbidden.
+  Define an error enum with `thiserror`.
+rule:
+  any:
+    - all:
+        - kind: use_declaration
+        - regex: '\banyhow\b'
+    - all:
+        - kind: scoped_identifier
+        - regex: "^anyhow::"
+    - all:
+        - kind: scoped_use_list
+        - regex: '\banyhow\b'
+    - kind: macro_invocation
+      pattern: anyhow!($$$ARGS)
+ignores:
+  - generated/**

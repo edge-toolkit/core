@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
-use anyhow::Result;
 use clap::{Parser, Subcommand};
-use et_cli::{OutputType, generate_deployment, generate_module_package_json, regenerate_verification};
+use et_cli::{CliError, OutputType, generate_deployment, generate_module_package_json, regenerate_verification};
 
 #[derive(Parser)]
 struct Cli {
@@ -33,7 +32,7 @@ enum Commands {
     },
 }
 
-fn main() -> Result<()> {
+fn main() -> Result<(), CliError> {
     let cli = Cli::parse();
 
     match &cli.command {

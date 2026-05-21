@@ -3,17 +3,18 @@ use std::ffi::OsString;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-use anyhow::{Context, Result, anyhow};
 use clap::ValueEnum;
 use edge_toolkit::input::ClusterInput;
 use serde::Deserialize;
 
 mod deployment_types;
+mod error;
 mod module_package_json;
 
 pub use deployment_types::{
     docker_image_module_paths, generate_docker_compose_deployment, generate_mise_deployment, scenario_module_paths,
 };
+pub use error::CliError;
 pub use module_package_json::generate_module_package_json;
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq, ValueEnum)]
@@ -122,7 +123,7 @@ pub fn generate_deployment(
     input_file: &Path,
     output_dir: &Path,
     output_type: Option<OutputType>,
-) -> Result<DeploymentSummary> {
+) -> Result<DeploymentSummary, CliError> {
     let cluster = load_cluster_input(input_file)?;
     let output_type = output_type
         .map(Ok)
@@ -139,28 +140,29 @@ pub fn generate_deployment(
     ))
 }
 
-pub fn load_cluster_input(input_file: &Path) -> Result<ClusterInput> {
-    let content =
-        fs::read_to_string(input_file).with_context(|| format!("Failed to read input file: {:?}", input_file))?;
+pub fn load_cluster_input(input_file: &Path) -> Result<ClusterInput, CliError> {
+    let content = fs::read_to_string(input_file).map_err(|source| CliError::ReadInput {
+        path: input_file.to_path_buf(),
+        source,
+    })?;
 
-    serde_yaml::from_str(&content).with_context(|| "Failed to parse cluster input YAML")
+    serde_yaml::from_str(&content).map_err(CliError::ParseClusterYaml)
 }
 
 pub fn regenerate_verification(
     verification_root: &Path,
     output_type: Option<OutputType>,
-) -> Result<Vec<RegeneratedScenario>> {
+) -> Result<Vec<RegeneratedScenario>, CliError> {
     let scenarios = discover_verification_scenarios(verification_root)?;
 
     let mut regenerated = Vec::with_capacity(scenarios.len());
     let mut seen_output_dirs = BTreeSet::new();
     for (input_file, output_dir) in scenarios {
         if !seen_output_dirs.insert(output_dir.clone()) {
-            return Err(anyhow!(
-                "Verification root {:?} maps multiple scenario inputs to the same output directory {:?}",
-                verification_root,
-                output_dir
-            ));
+            return Err(CliError::DuplicateScenarioOutput {
+                root: verification_root.to_path_buf(),
+                output: output_dir,
+            });
         }
         let cluster = load_cluster_input(&input_file)?;
         let module_names = cluster_module_names(&cluster);
@@ -181,16 +183,13 @@ pub fn regenerate_verification(
     Ok(regenerated)
 }
 
-pub fn output_type_from_input(value: &str) -> Result<OutputType> {
+pub fn output_type_from_input(value: &str) -> Result<OutputType, CliError> {
     if value.eq_ignore_ascii_case("mise") {
         Ok(OutputType::Mise)
     } else if matches!(value.to_ascii_lowercase().as_str(), "docker-compose" | "docker_compose") {
         Ok(OutputType::DockerCompose)
     } else {
-        Err(anyhow!(
-            "Unsupported deployment_type {:?}. Supported values are currently: mise, docker-compose",
-            value
-        ))
+        Err(CliError::UnsupportedDeploymentType(value.to_string()))
     }
 }
 
@@ -202,10 +201,16 @@ fn deployment_summary(cluster_name: String, agent_templates: usize, module_names
     }
 }
 
-fn generate_deployment_outputs(cluster: &ClusterInput, output_dir: &Path, output_types: &[OutputType]) -> Result<()> {
+fn generate_deployment_outputs(
+    cluster: &ClusterInput,
+    output_dir: &Path,
+    output_types: &[OutputType],
+) -> Result<(), CliError> {
     if !output_dir.exists() {
-        fs::create_dir_all(output_dir)
-            .with_context(|| format!("Failed to create output directory: {:?}", output_dir))?;
+        fs::create_dir_all(output_dir).map_err(|source| CliError::CreateOutputDir {
+            path: output_dir.to_path_buf(),
+            source,
+        })?;
     }
 
     for output_type in output_types {
@@ -217,23 +222,35 @@ fn generate_deployment_outputs(cluster: &ClusterInput, output_dir: &Path, output
 
     let readme_path = output_dir.join("README.md");
     let module_names = cluster_module_names(cluster);
-    fs::write(&readme_path, generated_readme(cluster, &module_names, output_types))
-        .with_context(|| format!("Failed to write output file: {:?}", readme_path))?;
+    fs::write(&readme_path, generated_readme(cluster, &module_names, output_types)).map_err(|source| {
+        CliError::WriteOutput {
+            path: readme_path.clone(),
+            source,
+        }
+    })?;
 
     Ok(())
 }
 
-fn discover_verification_scenarios(verification_root: &Path) -> Result<Vec<(PathBuf, PathBuf)>> {
+fn discover_verification_scenarios(verification_root: &Path) -> Result<Vec<(PathBuf, PathBuf)>, CliError> {
     let mut scenarios = Vec::new();
-    let verification_sets = fs::read_dir(verification_root)
-        .with_context(|| format!("Failed to read verification root directory: {:?}", verification_root))?;
+    let verification_sets = fs::read_dir(verification_root).map_err(|source| CliError::ReadVerificationRoot {
+        path: verification_root.to_path_buf(),
+        source,
+    })?;
 
     for entry in verification_sets {
-        let entry = entry.with_context(|| format!("Failed to read entry from {:?}", verification_root))?;
+        let entry = entry.map_err(|source| CliError::ReadDirEntry {
+            path: verification_root.to_path_buf(),
+            source,
+        })?;
         let set_root = entry.path();
         if !entry
             .file_type()
-            .with_context(|| format!("Failed to read file type for {:?}", set_root))?
+            .map_err(|source| CliError::ReadFileType {
+                path: set_root.clone(),
+                source,
+            })?
             .is_dir()
         {
             continue;
@@ -245,14 +262,22 @@ fn discover_verification_scenarios(verification_root: &Path) -> Result<Vec<(Path
             continue;
         }
 
-        let entries = fs::read_dir(&input_dir)
-            .with_context(|| format!("Failed to read verification input directory: {:?}", input_dir))?;
+        let entries = fs::read_dir(&input_dir).map_err(|source| CliError::ReadVerificationInputDir {
+            path: input_dir.clone(),
+            source,
+        })?;
         for entry in entries {
-            let entry = entry.with_context(|| format!("Failed to read entry from {:?}", input_dir))?;
+            let entry = entry.map_err(|source| CliError::ReadDirEntry {
+                path: input_dir.clone(),
+                source,
+            })?;
             let path = entry.path();
             if !entry
                 .file_type()
-                .with_context(|| format!("Failed to read file type for {:?}", path))?
+                .map_err(|source| CliError::ReadFileType {
+                    path: path.clone(),
+                    source,
+                })?
                 .is_file()
             {
                 continue;
@@ -266,17 +291,14 @@ fn discover_verification_scenarios(verification_root: &Path) -> Result<Vec<(Path
             }
 
             let Some(stem) = path.file_stem().map(PathBuf::from) else {
-                return Err(anyhow!("Verification input file {:?} has no file stem", path));
+                return Err(CliError::MissingFileStem(path));
             };
             scenarios.push((path, output_root.join(stem)));
         }
     }
 
     if scenarios.is_empty() {
-        return Err(anyhow!(
-            "Verification root {:?} does not contain any scenario files under */input/*.yaml or */input/*.yml",
-            verification_root
-        ));
+        return Err(CliError::NoScenarios(verification_root.to_path_buf()));
     }
 
     scenarios.sort_by(|(left, _), (right, _)| left.cmp(right));
@@ -510,7 +532,7 @@ pub fn resolve_module_paths<F>(
     registry: &BTreeMap<String, ModuleRegistryEntry>,
     module_names: &[String],
     path_for: F,
-) -> Result<Vec<String>>
+) -> Result<Vec<String>, CliError>
 where
     F: Fn(&ModuleRegistryEntry) -> String,
 {
@@ -526,7 +548,7 @@ where
 
         let entry = registry
             .get(&module_name)
-            .ok_or_else(|| anyhow!("No local module or runtime package found for dependency {module_name:?}"))?;
+            .ok_or_else(|| CliError::UnknownDependency(module_name.clone()))?;
         let path = path_for(entry);
         if seen_paths.insert(path.clone()) {
             paths.push(path);

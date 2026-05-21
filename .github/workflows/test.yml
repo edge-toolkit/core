@@ -36,6 +36,9 @@ jobs:
           mise install
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          # Match check.yml: bump mise's 30s HTTP timeout so GitHub-release
+          # downloads don't fail the install on transient slowness.
+          MISE_HTTP_TIMEOUT: "120"
 
       - name: Fetch MNIST model
         run: mise run fetch-mnist-rclone

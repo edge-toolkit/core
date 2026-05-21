@@ -3,6 +3,12 @@
   },
   "json": {
   },
+  // Match the repo-wide 120 line-length set in .editorconfig and ruff.toml,
+  // otherwise dprint's bundled ruff would reformat Python files to its
+  // default and fight with `mise run ruff-fmt`.
+  "ruff": {
+    "lineLength": 120,
+  },
   "malva": {
   },
   "markdown": {

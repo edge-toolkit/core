@@ -1,22 +1,18 @@
 [tools]
 action-validator = "latest"
-"cargo:ast-grep" = "latest"
 cargo-binstall = "latest"
+"cargo:ast-grep" = "latest"
 "cargo:aube" = "latest"
 "cargo:taplo-cli" = "latest"
 "cargo:wasm-pack" = "latest"
 "chromedriver" = "146"
-claude = "latest"
 cmake = "latest"
-codex = "latest"
 dart = { version = "latest", url = "https://storage.googleapis.com/dart-archive/channels/stable/release/{{ version }}/sdk/dartsdk-{{ os() }}-{{ arch() }}-release.zip", version_expr = 'fromJSON(body).prefixes | filter({ # matches "^channels/stable/release/(\\d+\\.\\d+\\.\\d+)/$" }) | map({split(#, "/")[3]}) | sortVersions()', version_list_url = "https://storage.googleapis.com/storage/v1/b/dart-archive/o?prefix=channels/stable/release/&delimiter=/" }
 dotnet = "latest"
 dotnet-core = "latest"
 "dotnet:roslynator.dotnet.cli" = "latest"
 dprint = "latest"
 editorconfig-checker = "latest"
-gemini-cli = "latest"
-"github:block/goose" = "latest"
 "github:grok-rs/waitup" = "latest"
 "github:wasm-bindgen/wasm-bindgen" = "0.2.114"
 java = "latest"
@@ -25,7 +21,6 @@ mprocs = "latest"
 node = "22"
 "npm:onnxruntime-web" = "latest"
 "npm:pyodide" = "0.29.3"
-ollama = "latest"
 osv-scanner = "latest"
 pipx = "latest"
 "pipx:cmake" = "latest"
@@ -128,6 +123,20 @@ run = "typos"
 [tasks.osv-scanner]
 depends = ["cargo-check"]
 run = "osv-scanner --lockfile Cargo.lock"
+
+[tasks.prefetch]
+depends = ["download-models"]
+description = "Pre-download all dependencies and models (Rust crates, Dart packages, Python envs, Java/Maven, .NET, Node, WIT)"
+run = """
+cargo check --workspace
+dart pub get --directory services/ws-modules/dart-comm1
+uv sync --directory services/ws-modules/pydata1
+uv sync --directory services/ws-modules/pyface1
+mvn dependency:resolve --quiet
+dotnet restore
+npm install --prefix services/ws-server/static
+zig build --fetch --build-file services/ws-modules/zig-data1/build.zig
+"""
 
 [tasks.regenerate-verification]
 alias = "regen-verification"

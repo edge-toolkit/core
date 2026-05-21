@@ -1430,13 +1430,13 @@ dependencies = [
 name = "et-cli"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "clap",
  "edge-toolkit",
  "serde",
  "serde_json",
  "serde_yaml",
  "tempfile",
+ "thiserror 2.0.18",
  "toml 0.8.23",
 ]
 

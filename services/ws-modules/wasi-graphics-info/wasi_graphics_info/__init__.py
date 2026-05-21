@@ -178,9 +178,7 @@ def _entry(binding: int, read_only: bool) -> GpuBindGroupLayoutEntry:
         binding=binding,
         visibility=GpuShaderStage.compute(),
         buffer=GpuBufferBindingLayout(
-            type=GpuBufferBindingType.READ_ONLY_STORAGE
-            if read_only
-            else GpuBufferBindingType.STORAGE,
+            type=GpuBufferBindingType.READ_ONLY_STORAGE if read_only else GpuBufferBindingType.STORAGE,
             has_dynamic_offset=False,
             min_binding_size=None,
         ),
@@ -280,15 +278,11 @@ def _run_matmul() -> dict:
             label="matmul-bgl",
         )
     )
-    pl = device.create_pipeline_layout(
-        GpuPipelineLayoutDescriptor(bind_group_layouts=[bgl], label="matmul-pl")
-    )
+    pl = device.create_pipeline_layout(GpuPipelineLayoutDescriptor(bind_group_layouts=[bgl], label="matmul-pl"))
 
     pipeline = device.create_compute_pipeline(
         GpuComputePipelineDescriptor(
-            compute=GpuProgrammableStage(
-                module=shader, entry_point="main", constants=None
-            ),
+            compute=GpuProgrammableStage(module=shader, entry_point="main", constants=None),
             layout=GpuLayoutMode_Specific(value=pl),
             label="matmul-pipeline",
         )
@@ -325,9 +319,7 @@ def _run_matmul() -> dict:
 
     result_c00 = struct.unpack("<f", bytes(data[:4]))[0]
     if abs(result_c00 - EXPECTED_C00) > 1e-4:
-        raise RuntimeError(
-            f"wasi-webgpu: matmul produced C[0][0]={result_c00}, expected {EXPECTED_C00}"
-        )
+        raise RuntimeError(f"wasi-webgpu: matmul produced C[0][0]={result_c00}, expected {EXPECTED_C00}")
     _log(f"wasi-webgpu matmul: C[0][0]={result_c00:.4f} in {elapsed_ms:.2f}ms")
 
     return {
@@ -380,9 +372,7 @@ def _mnist_inference() -> dict:
 
     out_name, out_tensor = outputs[0]
     if out_name != MNIST_OUTPUT_NAME:
-        _log(
-            f"warning: output name {out_name!r} differs from expected {MNIST_OUTPUT_NAME!r}"
-        )
+        _log(f"warning: output name {out_name!r} differs from expected {MNIST_OUTPUT_NAME!r}")
 
     raw = out_tensor.data()
     arr = array.array("f")
@@ -396,9 +386,7 @@ def _mnist_inference() -> dict:
     _log(f"predicted class: {predicted}, logits: {[round(v, 3) for v in logits]}")
 
     if predicted != EXPECTED_MNIST_CLASS:
-        raise RuntimeError(
-            f"MNIST verification FAILED: predicted {predicted}, expected {EXPECTED_MNIST_CLASS}"
-        )
+        raise RuntimeError(f"MNIST verification FAILED: predicted {predicted}, expected {EXPECTED_MNIST_CLASS}")
     _log("MNIST verification: ok")
 
     return {

@@ -1,16 +1,18 @@
 use std::fs;
 use std::path::Path;
 
-use anyhow::{Context, Result};
 use edge_toolkit::input::ClusterInput;
 use toml::{Table, Value};
 
+use crate::error::CliError;
 use crate::{absolute_from, cluster_module_names, module_registry, relative_path_from, resolve_module_paths};
 
-pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<()> {
+pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
     let output_path = output_dir.join("mise.toml");
-    let workspace_root =
-        std::env::current_dir().with_context(|| "Failed to resolve current working directory for mise tasks")?;
+    let workspace_root = std::env::current_dir().map_err(|source| CliError::CurrentDir {
+        context: "mise tasks",
+        source,
+    })?;
     let output_abs = absolute_from(&workspace_root, output_dir);
     let ws_server_dir = workspace_root.join("services/ws-server");
     let workspace_rel = relative_path_from(&output_abs, &workspace_root).display().to_string();
@@ -79,15 +81,18 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
     root.insert("tasks".to_string(), Value::Table(tasks));
 
     let content = format_mise_toml(
-        toml::to_string(&Value::Table(root)).context("Failed to serialize mise TOML")?,
+        toml::to_string(&Value::Table(root)).map_err(CliError::SerializeToml)?,
         openobserve_env_file_rel,
     );
-    fs::write(&output_path, content).with_context(|| format!("Failed to write output file: {:?}", output_path))?;
+    fs::write(&output_path, content).map_err(|source| CliError::WriteOutput {
+        path: output_path.clone(),
+        source,
+    })?;
 
     Ok(())
 }
 
-pub fn scenario_module_paths(ws_server_dir: &Path, module_names: &[String]) -> Result<Vec<String>> {
+pub fn scenario_module_paths(ws_server_dir: &Path, module_names: &[String]) -> Result<Vec<String>, CliError> {
     let project_root = edge_toolkit::config::get_project_root();
     let mut paths = vec![
         relative_path_from(ws_server_dir, &project_root.join("services/ws-server/static"))
