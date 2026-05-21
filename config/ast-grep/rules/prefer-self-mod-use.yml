@@ -1,0 +1,26 @@
+id: prefer-self-mod-use
+language: Rust
+severity: error
+message: |
+  This file declares `mod $X` and references it via `use $X::...`.
+  Write `use self::$X::...` to make the local reference explicit.
+rule:
+  any:
+    - pattern: use $X::$$$REST;
+    - pattern: use $X::{$$$REST};
+    - pattern: pub use $X::$$$REST;
+    - pattern: pub use $X::{$$$REST};
+    - pattern: pub(crate) use $X::$$$REST;
+    - pattern: pub(crate) use $X::{$$$REST};
+    - pattern: pub(super) use $X::$$$REST;
+    - pattern: pub(super) use $X::{$$$REST};
+  inside:
+    kind: source_file
+    has:
+      any:
+        - pattern: mod $X;
+        - pattern: pub mod $X;
+        - pattern: pub(crate) mod $X;
+        - pattern: pub(super) mod $X;
+ignores:
+  - generated/**

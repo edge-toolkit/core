@@ -42,11 +42,13 @@ pub fn list_modules(config: &ModulesConfig) -> Vec<(String, PathBuf)> {
             }
         } else if let Ok(entries) = std::fs::read_dir(path) {
             for entry in entries.flatten() {
-                if let Ok(file_type) = entry.file_type()
-                    && file_type.is_dir()
-                    && !config.paths.contains(&entry.path())
-                {
-                    let entry_path = entry.path();
+                // `Path::is_dir` follows symlinks; `entry.file_type().is_dir()`
+                // would skip them. mise's aube npm backend lays out
+                // `node_modules/.aube/node_modules/<pkg>` as a symlink farm,
+                // so the symlink-following variant is required to discover
+                // those packages.
+                let entry_path = entry.path();
+                if entry_path.is_dir() && !config.paths.contains(&entry_path) {
                     let pkg_dir = entry_path.join("pkg");
                     if pkg_dir.is_dir() {
                         let name = read_package_name(&pkg_dir.join("package.json"))

@@ -23,7 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    let module_name = std::env::var("RUNNER_MODULE").map_err(|_| "RUNNER_MODULE not set")?;
+    let module_name = std::env::var("RUNNER_MODULE").or(Err("RUNNER_MODULE not set"))?;
     let ws_url = std::env::var("WS_SERVER_URL").unwrap_or_else(|_| {
         format!(
             "ws://localhost:{}/ws",

@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use actix_web::{App, test, web};
 use edge_toolkit::ws_server::AgentRegistry;
 use et_modules_service::{ModulesConfig, configure};

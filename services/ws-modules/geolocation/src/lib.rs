@@ -1,3 +1,4 @@
+use et_web::JsFunctionExt;
 use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value};
 use js_sys::{Promise, Reflect};
 use serde_json::json;
@@ -40,22 +41,20 @@ impl GeolocationReading {
                 let _ = reject_for_callback.call1(&JsValue::NULL, &error);
             }) as Box<dyn FnOnce(JsValue)>);
 
-            let get_current_position = js_sys::Reflect::get(&geolocation, &JsValue::from_str("getCurrentPosition"))
-                .ok()
-                .and_then(|value| value.dyn_into::<js_sys::Function>().ok());
-
-            if let Some(get_current_position) = get_current_position {
-                let _ = get_current_position.call3(
-                    &geolocation,
-                    success.as_ref().unchecked_ref(),
-                    failure.as_ref().unchecked_ref(),
-                    &options,
-                );
-            } else {
-                let _ = reject.call1(
-                    &JsValue::NULL,
-                    &JsValue::from_str("navigator.geolocation.getCurrentPosition is not callable"),
-                );
+            match js_sys::Reflect::get(&geolocation, &JsValue::from_str("getCurrentPosition"))
+                .and_then(|value| value.into_function("navigator.geolocation.getCurrentPosition"))
+            {
+                Ok(get_current_position) => {
+                    let _ = get_current_position.call3(
+                        &geolocation,
+                        success.as_ref().unchecked_ref(),
+                        failure.as_ref().unchecked_ref(),
+                        &options,
+                    );
+                }
+                Err(err) => {
+                    let _ = reject.call1(&JsValue::NULL, &err);
+                }
             }
 
             success.forget();

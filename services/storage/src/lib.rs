@@ -1,11 +1,14 @@
 use std::path::PathBuf;
+use std::sync::PoisonError;
 
 use actix_files::Files;
-use actix_web::{Error, HttpRequest, HttpResponse, web};
+use actix_web::{HttpRequest, HttpResponse, web};
+use actix_web_thiserror::ResponseError;
 use edge_toolkit::ws_server::AgentRegistry;
 use futures_util::StreamExt;
 use serde::Deserialize;
 use serde_default::DefaultFromSerde;
+use thiserror::Error;
 use tracing::info;
 
 /// Default storage directory.
@@ -22,28 +25,51 @@ pub struct StorageConfig {
     pub path: PathBuf,
 }
 
+#[derive(Debug, Error, ResponseError)]
+pub enum StorageError {
+    #[error("invalid filename")]
+    #[response(status = 400, reason = "BAD_REQUEST")]
+    InvalidFilename,
+
+    #[error("agent not found")]
+    #[response(status = 404, reason = "NOT_FOUND")]
+    AgentNotFound,
+
+    #[error("agent registry lock poisoned")]
+    AgentRegistryPoisoned,
+
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+
+    #[error(transparent)]
+    Payload(#[from] actix_web::error::PayloadError),
+}
+
+// `PoisonError<T>` is generic over the guard type; a generic `From` impl
+// lets `?` drop the `T` and surface the variant directly.
+impl<T> From<PoisonError<T>> for StorageError {
+    fn from(_: PoisonError<T>) -> Self {
+        StorageError::AgentRegistryPoisoned
+    }
+}
+
 pub async fn agent_put_file<S: Clone + Send + 'static>(
     req: HttpRequest,
     mut payload: web::Payload,
     registry: web::Data<AgentRegistry<S>>,
     config: web::Data<StorageConfig>,
-) -> Result<HttpResponse, Error> {
-    let agent_id: String = req.match_info().query("agent_id").parse().unwrap();
-    let filename: PathBuf = req
+) -> Result<HttpResponse, StorageError> {
+    let agent_id = req.match_info().query("agent_id").to_string();
+    let filename = req
         .match_info()
         .query("filename")
-        .parse()
-        .map_err(|_| actix_web::error::ErrorBadRequest("invalid filename"))?;
+        .parse::<PathBuf>()
+        .ok()
+        .filter(|filename| filename.components().count() == 1)
+        .ok_or(StorageError::InvalidFilename)?;
 
-    {
-        let agents = registry.agents.lock().expect("lock poisoned");
-        if !agents.contains_key(&agent_id) {
-            return Err(actix_web::error::ErrorNotFound("agent not found"));
-        }
-    }
-
-    if filename.components().count() != 1 {
-        return Err(actix_web::error::ErrorBadRequest("invalid filename"));
+    if !registry.agents.lock()?.contains_key(&agent_id) {
+        return Err(StorageError::AgentNotFound);
     }
 
     let storage_dir = &config.path;

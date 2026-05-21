@@ -6,6 +6,8 @@
 //!     mise run ws-server      # in one terminal
 //!     mise run ws-wasi-runner # in another, with RUNNER_MODULE=wasi-graphics-info
 
+#![cfg(test)]
+
 use et_ws_wasi_runner::derive_http_base;
 
 #[test]

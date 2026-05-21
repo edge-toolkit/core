@@ -1,21 +1,21 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::ffi::OsString;
-use std::fs;
 use std::path::{Component, Path, PathBuf};
 
 use clap::ValueEnum;
 use edge_toolkit::input::ClusterInput;
+use fs_err as fs;
 use serde::Deserialize;
 
 mod deployment_types;
 mod error;
 mod module_package_json;
 
-pub use deployment_types::{
+pub use self::deployment_types::{
     docker_image_module_paths, generate_docker_compose_deployment, generate_mise_deployment, scenario_module_paths,
 };
-pub use error::CliError;
-pub use module_package_json::generate_module_package_json;
+pub use self::error::CliError;
+pub use self::module_package_json::generate_module_package_json;
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq, ValueEnum)]
 #[serde(rename_all = "lowercase")]
@@ -141,12 +141,9 @@ pub fn generate_deployment(
 }
 
 pub fn load_cluster_input(input_file: &Path) -> Result<ClusterInput, CliError> {
-    let content = fs::read_to_string(input_file).map_err(|source| CliError::ReadInput {
-        path: input_file.to_path_buf(),
-        source,
-    })?;
+    let content = fs::read_to_string(input_file)?;
 
-    serde_yaml::from_str(&content).map_err(CliError::ParseClusterYaml)
+    Ok(serde_yaml::from_str(&content)?)
 }
 
 pub fn regenerate_verification(
@@ -164,6 +161,7 @@ pub fn regenerate_verification(
                 output: output_dir,
             });
         }
+
         let cluster = load_cluster_input(&input_file)?;
         let module_names = cluster_module_names(&cluster);
         let output_types = match &output_type {
@@ -207,10 +205,7 @@ fn generate_deployment_outputs(
     output_types: &[OutputType],
 ) -> Result<(), CliError> {
     if !output_dir.exists() {
-        fs::create_dir_all(output_dir).map_err(|source| CliError::CreateOutputDir {
-            path: output_dir.to_path_buf(),
-            source,
-        })?;
+        fs::create_dir_all(output_dir)?;
     }
 
     for output_type in output_types {
@@ -222,37 +217,19 @@ fn generate_deployment_outputs(
 
     let readme_path = output_dir.join("README.md");
     let module_names = cluster_module_names(cluster);
-    fs::write(&readme_path, generated_readme(cluster, &module_names, output_types)).map_err(|source| {
-        CliError::WriteOutput {
-            path: readme_path.clone(),
-            source,
-        }
-    })?;
+    fs::write(&readme_path, generated_readme(cluster, &module_names, output_types))?;
 
     Ok(())
 }
 
 fn discover_verification_scenarios(verification_root: &Path) -> Result<Vec<(PathBuf, PathBuf)>, CliError> {
     let mut scenarios = Vec::new();
-    let verification_sets = fs::read_dir(verification_root).map_err(|source| CliError::ReadVerificationRoot {
-        path: verification_root.to_path_buf(),
-        source,
-    })?;
+    let verification_sets = fs::read_dir(verification_root)?;
 
     for entry in verification_sets {
-        let entry = entry.map_err(|source| CliError::ReadDirEntry {
-            path: verification_root.to_path_buf(),
-            source,
-        })?;
+        let entry = entry?;
         let set_root = entry.path();
-        if !entry
-            .file_type()
-            .map_err(|source| CliError::ReadFileType {
-                path: set_root.clone(),
-                source,
-            })?
-            .is_dir()
-        {
+        if !entry.file_type()?.is_dir() {
             continue;
         }
 
@@ -262,24 +239,11 @@ fn discover_verification_scenarios(verification_root: &Path) -> Result<Vec<(Path
             continue;
         }
 
-        let entries = fs::read_dir(&input_dir).map_err(|source| CliError::ReadVerificationInputDir {
-            path: input_dir.clone(),
-            source,
-        })?;
+        let entries = fs::read_dir(&input_dir)?;
         for entry in entries {
-            let entry = entry.map_err(|source| CliError::ReadDirEntry {
-                path: input_dir.clone(),
-                source,
-            })?;
+            let entry = entry?;
             let path = entry.path();
-            if !entry
-                .file_type()
-                .map_err(|source| CliError::ReadFileType {
-                    path: path.clone(),
-                    source,
-                })?
-                .is_file()
-            {
+            if !entry.file_type()?.is_file() {
                 continue;
             }
 

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use actix_web::middleware::DefaultHeaders;
+use actix_web::middleware::{DefaultHeaders, Logger};
 use actix_web::{App, HttpServer, web};
 use clap::Parser;
 use et_modules_service::list_modules;
@@ -96,6 +96,14 @@ async fn main() -> Result<(), std::io::Error> {
         // traces propagate from the wasi-runner (or any client that injects
         // `traceparent`) into the server.
         App::new()
+            // `Logger::default()` emits one `actix_web` INFO log line per
+            // request (method, path, status, duration). The
+            // tracing-subscriber default has `tracing-log` enabled, so the
+            // `log` records show up in the same console as tracing events
+            // — invaluable when an actix-files 404 would otherwise be
+            // silent (TracingLogger only creates the span, it doesn't emit
+            // events on success).
+            .wrap(Logger::default())
             .wrap(TracingLogger::default())
             .wrap(
                 DefaultHeaders::new()

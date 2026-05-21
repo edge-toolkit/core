@@ -15,10 +15,14 @@ use tracing_opentelemetry::OpenTelemetrySpanExt;
 use wasmtime::component::{Component, HasSelf, Linker};
 use wasmtime::{Config, Engine, Store};
 
-/// Errors `run_module` can fail with. Both `reqwest::Error` and
-/// `wasmtime::Error` already carry enough context (the failing URL,
-/// the wasmtime error chain) to be useful on their own, so they're
-/// forwarded transparently.
+pub mod bindings;
+
+use self::bindings::exports::et::ws_wasi::entry::RunError;
+
+/// Errors `run_module` can fail with. `reqwest::Error` and
+/// `wasmtime::Error` already carry enough context to be useful on
+/// their own, so they're forwarded transparently. `RunError` is the
+/// WIT-defined variant the guest returns from `entry.run`.
 #[derive(Debug, Error)]
 pub enum RunnerError {
     #[error("could not derive HTTP base from WS_SERVER_URL={ws_url}")]
@@ -33,15 +37,22 @@ pub enum RunnerError {
     #[error(transparent)]
     Wasm(#[from] wasmtime::Error),
 
-    #[error("module run() returned err: {0}")]
-    Guest(String),
+    #[error("module run() returned err: {0:?}")]
+    Guest(RunError),
 }
 
-pub mod bindings;
+// Lets `?` flatten the inner `Result<_, RunError>` from `call_run` into
+// `RunnerError::Guest` — `#[from]` doesn't work because `RunError`,
+// being wit-bindgen-generated, doesn't implement `Error`.
+impl From<RunError> for RunnerError {
+    fn from(source: RunError) -> Self {
+        RunnerError::Guest(source)
+    }
+}
 
 pub mod host;
 
-pub use host::HostState;
+pub use self::host::HostState;
 
 /// Inject the W3C `traceparent` (and any `tracestate`) for the current span
 /// into `req`. Downstream HTTP servers running `tracing-actix-web`'s
@@ -136,7 +147,5 @@ async fn run_module_inner(module_name: &str, ws_url: &str) -> Result<(), RunnerE
 
     let module = bindings::Runner::instantiate_async(&mut store, &component, &linker).await?;
 
-    let guest_result = module.et_ws_wasi_entry().call_run(&mut store).await?;
-
-    guest_result.map_err(RunnerError::Guest)
+    Ok(module.et_ws_wasi_entry().call_run(&mut store).await??)
 }

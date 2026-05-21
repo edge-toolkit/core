@@ -1,7 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use et_web::get_media_devices;
+use et_web::{JsCastExt, JsFunctionExt, JsPromiseExt, get_media_devices};
 use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value};
 use js_sys::{Array, Float32Array, Function, Promise, Reflect};
 use serde_json::json;
@@ -74,9 +74,7 @@ impl VideoCapture {
 
         let promise = media_devices.get_user_media_with_constraints(&constraints)?;
         let stream = JsFuture::from(promise).await?;
-        let stream: MediaStream = stream
-            .dyn_into()
-            .map_err(|_| JsValue::from_str("getUserMedia did not return a MediaStream"))?;
+        let stream: MediaStream = stream.dyn_into_msg("getUserMedia did not return a MediaStream")?;
 
         info!(
             "Video capture granted with {} video track(s)",
@@ -319,12 +317,7 @@ async fn infer_once(
     Reflect::set(&feeds, &JsValue::from_str(input_name), &tensor)?;
 
     let run_value = method(session, "run")?.call1(session, &feeds)?;
-    let outputs = JsFuture::from(
-        run_value
-            .dyn_into::<Promise>()
-            .map_err(|_| JsValue::from_str("InferenceSession.run did not return a Promise"))?,
-    )
-    .await?;
+    let outputs = JsFuture::from(run_value.into_promise("InferenceSession.run")?).await?;
 
     let summary = decode_retinaface_outputs(
         &outputs,
@@ -553,9 +546,7 @@ fn clamp(value: f64, min: f64, max: f64) -> f64 {
 }
 
 fn method(target: &JsValue, name: &str) -> Result<Function, JsValue> {
-    Reflect::get(target, &JsValue::from_str(name))?
-        .dyn_into::<Function>()
-        .map_err(|_| JsValue::from_str(&format!("{name} is not callable")))
+    Reflect::get(target, &JsValue::from_str(name))?.into_function(name)
 }
 
 fn first_string_entry(target: &JsValue, field: &str) -> Result<String, JsValue> {
@@ -624,12 +615,7 @@ async fn create_face_session(model_path: &str) -> Result<JsValue, JsValue> {
     )?;
 
     let value = create.call2(&inference_session, &JsValue::from_str(model_path), &options)?;
-    JsFuture::from(
-        value
-            .dyn_into::<Promise>()
-            .map_err(|_| JsValue::from_str("InferenceSession.create did not return a Promise"))?,
-    )
-    .await
+    JsFuture::from(value.into_promise("InferenceSession.create")?).await
 }
 
 fn configure_onnx_runtime_wasm(window: &web_sys::Window, ort: &JsValue) -> Result<(), JsValue> {
@@ -670,9 +656,7 @@ fn configure_onnx_runtime_wasm(window: &web_sys::Window, ort: &JsValue) -> Resul
 fn create_tensor(values: &Float32Array) -> Result<JsValue, JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let ort = Reflect::get(window.as_ref(), &JsValue::from_str("ort"))?;
-    let tensor_ctor = Reflect::get(&ort, &JsValue::from_str("Tensor"))?
-        .dyn_into::<Function>()
-        .map_err(|_| JsValue::from_str("ort.Tensor is not callable"))?;
+    let tensor_ctor = Reflect::get(&ort, &JsValue::from_str("Tensor"))?.into_function("ort.Tensor")?;
 
     let dims = Array::new();
     dims.push(&JsValue::from_f64(1.0));
@@ -733,9 +717,7 @@ fn log(message: &str) -> Result<(), JsValue> {
 
 async fn face_attach_stream(stream: JsValue) -> Result<(), JsValue> {
     let video = face_video_element()?;
-    let stream = stream
-        .dyn_into::<MediaStream>()
-        .map_err(|_| JsValue::from_str("Video capture stream was not a MediaStream"))?;
+    let stream: MediaStream = stream.dyn_into_msg("Video capture stream was not a MediaStream")?;
 
     Reflect::set(video.as_ref(), &JsValue::from_str("srcObject"), stream.as_ref())?;
     set_hidden(video.as_ref(), false)?;
@@ -887,8 +869,7 @@ fn face_video_element() -> Result<HtmlVideoElement, JsValue> {
     document
         .get_element_by_id("video-preview")
         .ok_or_else(|| JsValue::from_str("Missing #video-preview element"))?
-        .dyn_into::<HtmlVideoElement>()
-        .map_err(|_| JsValue::from_str("#video-preview was not a video element"))
+        .dyn_into_msg("#video-preview was not a video element")
 }
 
 fn face_output_canvas_element() -> Result<HtmlCanvasElement, JsValue> {
@@ -898,8 +879,7 @@ fn face_output_canvas_element() -> Result<HtmlCanvasElement, JsValue> {
     document
         .get_element_by_id("video-output-canvas")
         .ok_or_else(|| JsValue::from_str("Missing #video-output-canvas element"))?
-        .dyn_into::<HtmlCanvasElement>()
-        .map_err(|_| JsValue::from_str("#video-output-canvas was not a canvas element"))
+        .dyn_into_msg("#video-output-canvas was not a canvas element")
 }
 
 fn face_preprocess_canvas() -> Result<HtmlCanvasElement, JsValue> {
@@ -911,10 +891,9 @@ fn face_preprocess_canvas() -> Result<HtmlCanvasElement, JsValue> {
         let document = web_sys::window()
             .and_then(|window| window.document())
             .ok_or_else(|| JsValue::from_str("No document available"))?;
-        let canvas = document
+        let canvas: HtmlCanvasElement = document
             .create_element("canvas")?
-            .dyn_into::<HtmlCanvasElement>()
-            .map_err(|_| JsValue::from_str("Unable to create preprocessing canvas"))?;
+            .dyn_into_msg("Unable to create preprocessing canvas")?;
         *slot.borrow_mut() = Some(canvas.clone());
         Ok(canvas)
     })
@@ -924,8 +903,7 @@ fn canvas_2d_context(canvas: &HtmlCanvasElement) -> Result<CanvasRenderingContex
     canvas
         .get_context("2d")?
         .ok_or_else(|| JsValue::from_str("2d canvas context was unavailable"))?
-        .dyn_into::<CanvasRenderingContext2d>()
-        .map_err(|_| JsValue::from_str("Canvas context was not 2d"))
+        .dyn_into_msg("Canvas context was not 2d")
 }
 
 fn set_hidden(target: &JsValue, hidden: bool) -> Result<(), JsValue> {

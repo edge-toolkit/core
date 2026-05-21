@@ -23,6 +23,8 @@ import array
 import json
 import struct
 
+from componentize_py_types import Err
+from wit_world.exports.entry import RunError_Other, RunError_Precondition, RunError_Store, RunError_Ws
 from wit_world.imports import logging, monotonic_clock, poll, store, webgpu, ws
 from wit_world.imports.logging import Level
 from wit_world.imports import graph as nn_graph
@@ -400,41 +402,72 @@ def _mnist_inference() -> dict:
     }
 
 
+# `WsError` and `store.Error` are typing.Union aliases (no runtime
+# class), so `isinstance` against them is meaningless — match against
+# the concrete variant dataclasses instead.
+_WS_ERROR_VARIANTS = (
+    ws.WsError_NotConnected,
+    ws.WsError_AlreadyConnected,
+    ws.WsError_InboxClosed,
+    ws.WsError_Transport,
+    ws.WsError_Protocol,
+)
+_STORE_ERROR_VARIANTS = (
+    store.Error_NoSuchStore,
+    store.Error_AccessDenied,
+    store.Error_Other,
+)
+
+
 class Entry:
     """Implements the `entry` interface exported by the world."""
 
     def run(self) -> None:
-        _log("entered run()")
-
+        """WIT signature is `run: func() -> result<_, run-error>`.
+        componentize-py renders the success path as `-> None` and
+        failures as `raise Err(RunError_*(...))`. Workflow code lives
+        in `_run_workflow`; this wrapper buckets the WIT errors raised
+        by the host imports (`ws.WsError`, `store.Error`) into the
+        matching `RunError_*` variant.
+        """
         try:
-            ws.connect()
-        except Exception as e:  # noqa: BLE001 - bindings raise generic exceptions
-            _log(f"ws connect failed: {e}")
-            raise
+            _run_workflow()
+        except Err as exc:
+            value = exc.value
+            if isinstance(value, _WS_ERROR_VARIANTS):
+                raise Err(RunError_Ws(str(value))) from exc
+            if isinstance(value, _STORE_ERROR_VARIANTS):
+                raise Err(RunError_Store(str(value))) from exc
+            raise Err(RunError_Other(str(value))) from exc
 
-        if not _wait_for_connected():
-            _log("websocket did not reach connected state")
 
-        agent_id = ws.agent_id()
-        _log(f"websocket connected with agent_id={agent_id}")
+def _run_workflow() -> None:
+    _log("entered run()")
 
-        gpu_block = _run_matmul()
-        # No browser-level detection in WASI; report the wasi-webgpu fact as
-        # the only WebGPU signal and the legacy WebGL / WebNN flags as False.
-        support = {"webgl": False, "webgl2": False, "webgpu": True, "webnn": False}
+    ws.connect()
+    if not _wait_for_connected():
+        raise Err(RunError_Precondition("websocket did not reach connected state"))
 
-        mnist_result = _mnist_inference()
+    agent_id = ws.agent_id()
+    _log(f"websocket connected with agent_id={agent_id}")
 
-        _send_event(
-            "graphics",
-            "info_detected",
-            {
-                "support": support,
-                "webgpu_probe": gpu_block["webgpu_probe"],
-                "gpu": gpu_block["gpu_info"],
-                "gpu_compute": gpu_block["gpu_compute"],
-                "mnist_inference": mnist_result,
-            },
-        )
+    gpu_block = _run_matmul()
+    # No browser-level detection in WASI; report the wasi-webgpu fact as
+    # the only WebGPU signal and the legacy WebGL / WebNN flags as False.
+    support = {"webgl": False, "webgl2": False, "webgpu": True, "webnn": False}
 
-        ws.disconnect()
+    mnist_result = _mnist_inference()
+
+    _send_event(
+        "graphics",
+        "info_detected",
+        {
+            "support": support,
+            "webgpu_probe": gpu_block["webgpu_probe"],
+            "gpu": gpu_block["gpu_info"],
+            "gpu_compute": gpu_block["gpu_compute"],
+            "mnist_inference": mnist_result,
+        },
+    )
+
+    ws.disconnect()

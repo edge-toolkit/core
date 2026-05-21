@@ -1,7 +1,7 @@
-use std::fs;
 use std::path::Path;
 
 use edge_toolkit::input::ClusterInput;
+use fs_err as fs;
 use toml::{Table, Value};
 
 use crate::error::CliError;
@@ -9,10 +9,7 @@ use crate::{absolute_from, cluster_module_names, module_registry, relative_path_
 
 pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
     let output_path = output_dir.join("mise.toml");
-    let workspace_root = std::env::current_dir().map_err(|source| CliError::CurrentDir {
-        context: "mise tasks",
-        source,
-    })?;
+    let workspace_root = std::env::current_dir()?;
     let output_abs = absolute_from(&workspace_root, output_dir);
     let ws_server_dir = workspace_root.join("services/ws-server");
     let workspace_rel = relative_path_from(&output_abs, &workspace_root).display().to_string();
@@ -80,14 +77,8 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
 
     root.insert("tasks".to_string(), Value::Table(tasks));
 
-    let content = format_mise_toml(
-        toml::to_string(&Value::Table(root)).map_err(CliError::SerializeToml)?,
-        openobserve_env_file_rel,
-    );
-    fs::write(&output_path, content).map_err(|source| CliError::WriteOutput {
-        path: output_path.clone(),
-        source,
-    })?;
+    let content = format_mise_toml(toml::to_string(&Value::Table(root))?, openobserve_env_file_rel);
+    fs::write(&output_path, content)?;
 
     Ok(())
 }

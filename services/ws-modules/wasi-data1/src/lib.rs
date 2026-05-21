@@ -27,7 +27,8 @@ wit_bindgen::generate!({
     generate_all,
 });
 
-use exports::et::ws_wasi::entry::Guest;
+use et::ws_wasi::ws::WsError;
+use exports::et::ws_wasi::entry::{Guest, RunError};
 use wasi::keyvalue::store;
 use wasi::logging::logging::{self, Level};
 
@@ -38,36 +39,48 @@ fn info(message: &str) {
     logging::log(Level::Info, LOG_CONTEXT, message);
 }
 
+// Flatten typed host-import errors into the matching `RunError(String)`
+// variant. Plain `From` rather than thiserror's `#[from]` because the
+// bindgen-generated `WsError` / `store::Error` don't impl `Error`.
+impl From<WsError> for RunError {
+    fn from(source: WsError) -> Self {
+        RunError::Ws(format!("{source:?}"))
+    }
+}
+
+impl From<store::Error> for RunError {
+    fn from(source: store::Error) -> Self {
+        RunError::Store(format!("{source:?}"))
+    }
+}
+
 struct Component;
 
 impl Guest for Component {
-    fn run() -> Result<(), String> {
+    fn run() -> Result<(), RunError> {
         info("entered run()");
 
-        et::ws_wasi::ws::connect().map_err(|e| format!("ws connect failed: {e}"))?;
-        let agent_id = wait_for_agent_id().ok_or_else(|| "did not receive agent_id".to_string())?;
+        et::ws_wasi::ws::connect()?;
+        let agent_id = wait_for_agent_id().ok_or_else(|| RunError::Precondition("did not receive agent_id".into()))?;
         info(&format!("websocket connected with agent_id={agent_id}"));
 
-        let bucket = store::open(&agent_id).map_err(|e| format!("store.open({agent_id}): {e:?}"))?;
+        let bucket = store::open(&agent_id)?;
 
         let test_content = format!("Hello from wasi-data1, agent={agent_id}!").into_bytes();
         info(&format!("storing {} bytes to key {FILENAME}", test_content.len()));
-        bucket
-            .set(FILENAME, &test_content)
-            .map_err(|e| format!("bucket.set({FILENAME}): {e:?}"))?;
+        bucket.set(FILENAME, &test_content)?;
 
         info(&format!("fetching key {FILENAME}"));
         let fetched = bucket
-            .get(FILENAME)
-            .map_err(|e| format!("bucket.get({FILENAME}): {e:?}"))?
-            .ok_or_else(|| format!("bucket.get({FILENAME}) returned none after set"))?;
+            .get(FILENAME)?
+            .ok_or_else(|| RunError::Precondition(format!("bucket.get({FILENAME}) returned none after set")))?;
 
         if fetched != test_content {
-            return Err(format!(
+            return Err(RunError::Precondition(format!(
                 "data mismatch: sent {} bytes, got {} bytes",
                 test_content.len(),
                 fetched.len()
-            ));
+            )));
         }
         info("VERIFICATION SUCCESS — keyvalue roundtrip matches");
 

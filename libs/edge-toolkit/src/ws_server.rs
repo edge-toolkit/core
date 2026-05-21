@@ -1,9 +1,50 @@
 use std::collections::BTreeMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use crate::ws::{AgentConnectionState, AgentSummary, ConnectStatus};
+
+#[derive(Debug, Error)]
+pub enum RegistryError {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+
+    #[error("failed to (de)serialize registry YAML")]
+    Yaml(#[from] serde_yaml::Error),
+
+    #[error("agent registry lock poisoned")]
+    LockPoisoned,
+}
+
+impl<T> From<PoisonError<T>> for RegistryError {
+    fn from(_: PoisonError<T>) -> Self {
+        RegistryError::LockPoisoned
+    }
+}
+
+/// Why an `acknowledge_message` call rejected the ack. The variant
+/// itself describes *what* went wrong; the optional payload is the
+/// recipient/sender id the caller can quote back in a wire-level
+/// status message.
+#[derive(Debug, Error)]
+pub enum AcknowledgeError {
+    #[error("unknown acknowledging agent {0}")]
+    UnknownAgent(String),
+
+    #[error("no pending message to acknowledge")]
+    NoPendingMessage,
+
+    #[error("agent registry lock poisoned")]
+    LockPoisoned,
+}
+
+impl<T> From<PoisonError<T>> for AcknowledgeError {
+    fn from(_: PoisonError<T>) -> Self {
+        AcknowledgeError::LockPoisoned
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PendingDirectMessage {
@@ -37,13 +78,13 @@ impl<S> Default for AgentRegistry<S> {
 }
 
 impl<S: Clone + Default + Send + 'static> AgentRegistry<S> {
-    pub fn load(path: &std::path::Path) -> std::io::Result<Self> {
+    pub fn load(path: &std::path::Path) -> Result<Self, RegistryError> {
         if !path.exists() {
             log::warn!("Registry file {:?} does not exist, starting with empty registry", path);
             return Ok(Self::default());
         }
         let yaml = std::fs::read_to_string(path)?;
-        let agents: BTreeMap<String, AgentRecord<S>> = serde_yaml::from_str(&yaml).map_err(std::io::Error::other)?;
+        let agents: BTreeMap<String, AgentRecord<S>> = serde_yaml::from_str(&yaml)?;
         log::info!("Loaded {} agents from registry {:?}", agents.len(), path);
         Ok(Self {
             agents: Arc::new(Mutex::new(agents)),
@@ -52,9 +93,9 @@ impl<S: Clone + Default + Send + 'static> AgentRegistry<S> {
 }
 
 impl<S: Clone + Send + 'static> AgentRegistry<S> {
-    pub fn save(&self, path: &std::path::Path) -> std::io::Result<()> {
-        let agents = self.agents.lock().expect("agent registry lock poisoned");
-        let yaml = serde_yaml::to_string(&*agents).map_err(std::io::Error::other)?;
+    pub fn save(&self, path: &std::path::Path) -> Result<(), RegistryError> {
+        let agents = self.agents.lock()?;
+        let yaml = serde_yaml::to_string(&*agents)?;
         std::fs::write(path, yaml)?;
         log::info!("Agent registry saved to {:?}", path);
         Ok(())
@@ -156,29 +197,30 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
             .unwrap_or_default()
     }
 
-    /// Returns `(message_id, sender_session, sender_agent_id)` on success, or an error detail string.
+    /// Returns `(message_id, sender_session, sender_agent_id)` on success.
     pub fn acknowledge_message(
         &self,
         recipient_agent_id: &str,
         message_id: &str,
-    ) -> Result<(String, Option<S>, String), String> {
-        let mut agents = self.agents.lock().expect("agent registry lock poisoned");
-        let Some(recipient) = agents.get_mut(recipient_agent_id) else {
-            return Err(format!("unknown acknowledging agent {}", recipient_agent_id));
-        };
+    ) -> Result<(String, Option<S>, String), AcknowledgeError> {
+        let mut agents = self.agents.lock()?;
+        let recipient = agents
+            .get_mut(recipient_agent_id)
+            .ok_or_else(|| AcknowledgeError::UnknownAgent(recipient_agent_id.to_string()))?;
 
-        let Some(sender_agent_id) = recipient
+        let sender_agent_id = recipient
             .pending_direct_messages
             .iter()
             .find_map(|(id, p)| (p.message_id == message_id).then(|| id.clone()))
-        else {
-            return Err("no pending message to acknowledge".to_string());
-        };
-
+            .ok_or(AcknowledgeError::NoPendingMessage)?;
+        // The `find_map` above drops its iterator before we re-borrow
+        // `pending_direct_messages` mutably for the removal. The double
+        // lookup costs O(log n) but lets us share the `NoPendingMessage`
+        // error with the find-side case instead of asserting an invariant.
         let pending = recipient
             .pending_direct_messages
             .remove(&sender_agent_id)
-            .expect("pending direct message disappeared during acknowledgement");
+            .ok_or(AcknowledgeError::NoPendingMessage)?;
         let sender_session = agents.get(&sender_agent_id).and_then(|r| r.session.clone());
 
         Ok((pending.message_id, sender_session, sender_agent_id))

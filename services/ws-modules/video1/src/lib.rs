@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use et_web::get_media_devices;
+use et_web::{JsCastExt, get_media_devices};
 use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value};
 use js_sys::{Promise, Reflect};
 use serde_json::json;
@@ -27,9 +27,7 @@ impl VideoCapture {
 
         let promise = media_devices.get_user_media_with_constraints(&constraints)?;
         let stream = JsFuture::from(promise).await?;
-        let stream: MediaStream = stream
-            .dyn_into()
-            .map_err(|_| JsValue::from_str("getUserMedia did not return a MediaStream"))?;
+        let stream: MediaStream = stream.dyn_into_msg("getUserMedia did not return a MediaStream")?;
 
         info!(
             "Video capture granted with {} video track(s)",

@@ -1,6 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use et_web::JsFunctionExt;
 use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value};
 use js_sys::{Promise, Reflect};
 use serde_json::json;
@@ -51,9 +52,7 @@ impl SpeechRecognitionSession {
                     .filter(|value| !value.is_undefined() && !value.is_null())
             })
             .ok_or_else(|| JsValue::from_str("Web Speech API recognition is not available in this browser context"))?;
-        let constructor = speech_recognition_ctor
-            .dyn_into::<js_sys::Function>()
-            .map_err(|_| JsValue::from_str("SpeechRecognition constructor is not callable"))?;
+        let constructor = speech_recognition_ctor.into_function("SpeechRecognition constructor")?;
         let recognition = js_sys::Reflect::construct(&constructor, &js_sys::Array::new())?;
 
         js_sys::Reflect::set(&recognition, &JsValue::from_str("lang"), &JsValue::from_str("en-US"))?;
@@ -166,16 +165,15 @@ impl SpeechRecognitionSession {
                 on_end.as_ref().unchecked_ref(),
             );
 
-            if let Some(start) = js_sys::Reflect::get(&recognition, &JsValue::from_str("start"))
-                .ok()
-                .and_then(|value| value.dyn_into::<js_sys::Function>().ok())
+            match js_sys::Reflect::get(&recognition, &JsValue::from_str("start"))
+                .and_then(|value| value.into_function("SpeechRecognition.start"))
             {
-                let _ = start.call0(&recognition);
-            } else {
-                let _ = reject.call1(
-                    &JsValue::NULL,
-                    &JsValue::from_str("SpeechRecognition.start is not callable"),
-                );
+                Ok(start) => {
+                    let _ = start.call0(&recognition);
+                }
+                Err(err) => {
+                    let _ = reject.call1(&JsValue::NULL, &err);
+                }
             }
 
             on_result.forget();
@@ -199,8 +197,7 @@ impl SpeechRecognitionSession {
     pub fn stop(&self) -> Result<(), JsValue> {
         self.stop_requested.set(true);
         let stop = js_sys::Reflect::get(&self.recognition, &JsValue::from_str("stop"))?
-            .dyn_into::<js_sys::Function>()
-            .map_err(|_| JsValue::from_str("SpeechRecognition.stop is not callable"))?;
+            .into_function("SpeechRecognition.stop")?;
         stop.call0(&self.recognition)?;
         Ok(())
     }

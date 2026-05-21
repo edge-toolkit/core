@@ -11,13 +11,15 @@ use tokio::sync::Mutex;
 use wasmtime::component::ResourceTable;
 use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 
+mod error;
 mod log;
 pub mod wasi_keyvalue;
 pub mod wasi_nn;
 pub mod wasi_webgpu;
 mod ws;
 
-pub use ws::WsBackend;
+pub use self::error::{KvErrExt, RequestDeviceErrExt, WitErrExt, WsProtocolErrExt, WsTransportErrExt};
+pub use self::ws::WsBackend;
 
 pub struct HostState {
     pub wasi_ctx: WasiCtx,

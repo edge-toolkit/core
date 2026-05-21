@@ -2,6 +2,9 @@
 //! via et-ws-wasi-runner. Mirror of `services/ws-worker/tests/modules.rs`'s
 //! removed predecessor — same shape, but the spawned binary runs WASI
 //! components rather than browser-targeted JS.
+
+#![cfg(test)]
+
 use rstest::rstest;
 
 #[rstest]

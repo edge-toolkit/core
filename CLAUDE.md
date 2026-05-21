@@ -167,6 +167,8 @@ Tests must live in a `tests/` directory or in source files prefixed `test_`.
 Do not use inline `#[cfg(test)]` modules.
 If a function is private but needs testing, add a `[lib]` target to the crate and export it so `tests/` can reach it.
 
+Every file under `tests/` must start with `#![cfg(test)]` (placed after the file's `//!` doc comment, if any).
+
 ## Rust Workspace
 
 Single Cargo workspace (`Cargo.toml`).

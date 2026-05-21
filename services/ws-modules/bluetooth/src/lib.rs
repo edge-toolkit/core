@@ -1,3 +1,4 @@
+use et_web::{JsFunctionExt, JsPromiseExt};
 use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value};
 use js_sys::{Promise, Reflect};
 use serde_json::json;
@@ -27,12 +28,10 @@ impl BluetoothAccess {
         js_sys::Reflect::set(&options, &JsValue::from_str("acceptAllDevices"), &JsValue::TRUE)?;
 
         let request_device = js_sys::Reflect::get(&bluetooth, &JsValue::from_str("requestDevice"))?
-            .dyn_into::<js_sys::Function>()
-            .map_err(|_| JsValue::from_str("navigator.bluetooth.requestDevice is not callable"))?;
+            .into_function("navigator.bluetooth.requestDevice")?;
         let promise = request_device
             .call1(&bluetooth, &options)?
-            .dyn_into::<js_sys::Promise>()
-            .map_err(|_| JsValue::from_str("requestDevice did not return a Promise"))?;
+            .into_promise("requestDevice")?;
         let device = JsFuture::from(promise).await?;
 
         info!(
@@ -77,13 +76,9 @@ impl BluetoothAccess {
             return Err(JsValue::from_str("Selected device has no GATT server"));
         }
 
-        let connect = js_sys::Reflect::get(&gatt, &JsValue::from_str("connect"))?
-            .dyn_into::<js_sys::Function>()
-            .map_err(|_| JsValue::from_str("device.gatt.connect is not callable"))?;
-        let promise = connect
-            .call0(&gatt)?
-            .dyn_into::<js_sys::Promise>()
-            .map_err(|_| JsValue::from_str("device.gatt.connect did not return a Promise"))?;
+        let connect =
+            js_sys::Reflect::get(&gatt, &JsValue::from_str("connect"))?.into_function("device.gatt.connect")?;
+        let promise = connect.call0(&gatt)?.into_promise("device.gatt.connect")?;
         let _server = JsFuture::from(promise).await?;
         info!("Connected to Bluetooth GATT server for {}", self.name());
         Ok(())

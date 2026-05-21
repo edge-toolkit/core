@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 
+use fs_err as fs;
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
-use crate::error::CliError;
+use crate::error::{CliError, parse_json, parse_toml, serialize_json_pretty};
 
 #[derive(Deserialize)]
 struct Project {
@@ -100,16 +100,10 @@ pub fn generate_module_package_json(module_dir: &Path) -> Result<PathBuf, CliErr
     let parent = out_path
         .parent()
         .ok_or_else(|| CliError::NoParentDir(out_path.clone()))?;
-    fs::create_dir_all(parent).map_err(|source| CliError::CreateOutputDir {
-        path: parent.to_path_buf(),
-        source,
-    })?;
-    let mut out = serde_json::to_string_pretty(&package_json).map_err(CliError::SerializeJson)?;
+    fs::create_dir_all(parent)?;
+    let mut out = serialize_json_pretty(&package_json)?;
     out.push('\n');
-    fs::write(&out_path, &out).map_err(|source| CliError::WriteFile {
-        path: out_path.clone(),
-        source,
-    })?;
+    fs::write(&out_path, &out)?;
 
     Ok(out_path)
 }
@@ -153,14 +147,8 @@ fn project_repository(urls: &BTreeMap<String, String>) -> Option<&str> {
 
 fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value, CliError> {
     let cargo_toml_path = module_dir.join("Cargo.toml");
-    let cargo_toml_src = fs::read_to_string(&cargo_toml_path).map_err(|source| CliError::ReadFile {
-        path: cargo_toml_path.clone(),
-        source,
-    })?;
-    let cargo_toml: CargoToml = toml::from_str(&cargo_toml_src).map_err(|source| CliError::ParseToml {
-        path: cargo_toml_path.clone(),
-        source,
-    })?;
+    let cargo_toml_src = fs::read_to_string(&cargo_toml_path)?;
+    let cargo_toml: CargoToml = parse_toml(&cargo_toml_path, &cargo_toml_src)?;
     let package = cargo_toml
         .package
         .ok_or_else(|| CliError::MissingPackageSection(cargo_toml_path.clone()))?;
@@ -335,32 +323,17 @@ fn read_toml<T>(path: &Path) -> Result<T, CliError>
 where
     T: for<'de> Deserialize<'de>,
 {
-    let src = fs::read_to_string(path).map_err(|source| CliError::ReadFile {
-        path: path.to_path_buf(),
-        source,
-    })?;
-    toml::from_str(&src).map_err(|source| CliError::ParseToml {
-        path: path.to_path_buf(),
-        source,
-    })
+    let src = fs::read_to_string(path)?;
+    parse_toml(path, &src)
 }
 
 fn read_package_json(path: &Path) -> Result<Option<Map<String, Value>>, CliError> {
     let src = match fs::read_to_string(path) {
         Ok(src) => src,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(source) => {
-            return Err(CliError::ReadFile {
-                path: path.to_path_buf(),
-                source,
-            });
-        }
+        Err(source) => return Err(CliError::Io(source)),
     };
-    let Value::Object(pkg) = serde_json::from_str(&src).map_err(|source| CliError::ParseJson {
-        path: path.to_path_buf(),
-        source,
-    })?
-    else {
+    let Value::Object(pkg) = parse_json(path, &src)? else {
         return Err(CliError::NonObjectPackageJson(path.to_path_buf()));
     };
     Ok(Some(pkg))

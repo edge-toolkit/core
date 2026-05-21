@@ -1,84 +1,19 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use thiserror::Error;
 
 /// Errors returned by `et-cli` operations. Variants carry the path or
 /// value they failed on so users can see *what* went wrong, not just the
-/// underlying `io::Error` text.
+/// underlying error text. `Io` is `#[from]`-forwarded — the inner
+/// `std::io::Error` arrives from `fs_err`, which already embeds the
+/// failing path in its `Display`, so we don't need a path field here.
 #[derive(Debug, Error)]
 pub enum CliError {
-    #[error("Failed to read input file: {path:?}")]
-    ReadInput {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-
-    #[error("Failed to read {path}")]
-    ReadFile {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-
-    #[error("Failed to write {path}")]
-    WriteFile {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-
-    #[error("Failed to write output file: {path:?}")]
-    WriteOutput {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-
-    #[error("Failed to create output directory: {path:?}")]
-    CreateOutputDir {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-
-    #[error("Failed to read verification root directory: {path:?}")]
-    ReadVerificationRoot {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-
-    #[error("Failed to read verification input directory: {path:?}")]
-    ReadVerificationInputDir {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-
-    #[error("Failed to read entry from {path:?}")]
-    ReadDirEntry {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-
-    #[error("Failed to read file type for {path:?}")]
-    ReadFileType {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-
-    #[error("Failed to resolve current working directory for {context}")]
-    CurrentDir {
-        context: &'static str,
-        #[source]
-        source: std::io::Error,
-    },
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 
     #[error("Failed to parse cluster input YAML")]
-    ParseClusterYaml(#[source] serde_yaml::Error),
+    ParseClusterYaml(#[from] serde_yaml::Error),
 
     #[error("Failed to parse {path}")]
     ParseToml {
@@ -98,7 +33,7 @@ pub enum CliError {
     SerializeJson(#[source] serde_json::Error),
 
     #[error("Failed to serialize mise TOML")]
-    SerializeToml(#[source] toml::ser::Error),
+    SerializeToml(#[from] toml::ser::Error),
 
     #[error("Expected pyproject.toml or Cargo.toml in module directory {0:?}")]
     MissingManifest(PathBuf),
@@ -142,4 +77,42 @@ pub enum CliError {
 
     #[error("No local module or runtime package found for dependency {0:?}")]
     UnknownDependency(String),
+}
+
+/// Parse `src` as TOML into `T`, attaching `path` to the error on failure.
+/// Replaces a `.map_err(...)` at every call site.
+pub fn parse_toml<T>(path: impl AsRef<Path>, src: &str) -> Result<T, CliError>
+where
+    T: for<'de> serde::Deserialize<'de>,
+{
+    match toml::from_str(src) {
+        Ok(value) => Ok(value),
+        Err(source) => Err(CliError::ParseToml {
+            path: path.as_ref().to_path_buf(),
+            source,
+        }),
+    }
+}
+
+/// Parse `src` as JSON into `T`, attaching `path` to the error on failure.
+pub fn parse_json<T>(path: impl AsRef<Path>, src: &str) -> Result<T, CliError>
+where
+    T: for<'de> serde::Deserialize<'de>,
+{
+    match serde_json::from_str(src) {
+        Ok(value) => Ok(value),
+        Err(source) => Err(CliError::ParseJson {
+            path: path.as_ref().to_path_buf(),
+            source,
+        }),
+    }
+}
+
+/// Serialize `value` as pretty JSON, surfacing the failure as
+/// [`CliError::SerializeJson`]. There's no input path to attach.
+pub fn serialize_json_pretty<T: serde::Serialize>(value: &T) -> Result<String, CliError> {
+    match serde_json::to_string_pretty(value) {
+        Ok(out) => Ok(out),
+        Err(source) => Err(CliError::SerializeJson(source)),
+    }
 }

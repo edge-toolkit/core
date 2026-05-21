@@ -1,4 +1,6 @@
+#![cfg(test)]
 #![cfg(target_arch = "wasm32")]
+
 use et_ws_face_detection::{init, is_running, run, stop};
 use wasm_bindgen_test::*;
 

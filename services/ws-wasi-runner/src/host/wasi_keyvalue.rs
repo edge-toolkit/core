@@ -16,6 +16,7 @@ use wasmtime::component::Resource;
 
 use crate::HostState;
 use crate::bindings::wasi::keyvalue::store::{Error, Host, HostBucket, KeyResponse};
+use crate::host::KvErrExt;
 
 pub struct Bucket {
     /// URL path-prefix on the ws-server, including the leading slash and
@@ -56,45 +57,28 @@ fn bucket_from_identifier(identifier: &str) -> Result<Bucket, Error> {
 impl Host for HostState {
     async fn open(&mut self, identifier: String) -> Result<Resource<Bucket>, Error> {
         let bucket = bucket_from_identifier(&identifier)?;
-        let res = self
-            .resource_table
-            .push(bucket)
-            .map_err(|e| Error::Other(format!("resource table push: {e}")))?;
+        let res = self.resource_table.push(bucket).kv_context("resource table push")?;
         Ok(res)
     }
 }
 
 impl HostBucket for HostState {
     async fn get(&mut self, rep: Resource<Bucket>, key: String) -> Result<Option<Vec<u8>>, Error> {
-        let bucket = self
-            .resource_table
-            .get(&rep)
-            .map_err(|e| Error::Other(format!("bucket handle: {e}")))?;
+        let bucket = self.resource_table.get(&rep).kv_context("bucket handle")?;
         let url = bucket.url(&self.http_base, &key);
-        let resp = self
-            .http
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| Error::Other(format!("GET {url}: {e}")))?;
+        let resp = self.http.get(&url).send().await.kv_context(&format!("GET {url}"))?;
         if resp.status() == reqwest::StatusCode::NOT_FOUND {
             return Ok(None);
         }
         if !resp.status().is_success() {
             return Err(Error::Other(format!("GET {url}: HTTP {}", resp.status())));
         }
-        let bytes = resp
-            .bytes()
-            .await
-            .map_err(|e| Error::Other(format!("GET {url} body: {e}")))?;
+        let bytes = resp.bytes().await.kv_context(&format!("GET {url} body"))?;
         Ok(Some(bytes.to_vec()))
     }
 
     async fn set(&mut self, rep: Resource<Bucket>, key: String, value: Vec<u8>) -> Result<(), Error> {
-        let bucket = self
-            .resource_table
-            .get(&rep)
-            .map_err(|e| Error::Other(format!("bucket handle: {e}")))?;
+        let bucket = self.resource_table.get(&rep).kv_context("bucket handle")?;
         if !bucket.writable {
             return Err(Error::AccessDenied);
         }
@@ -105,7 +89,7 @@ impl HostBucket for HostState {
             .body(value)
             .send()
             .await
-            .map_err(|e| Error::Other(format!("PUT {url}: {e}")))?;
+            .kv_context(&format!("PUT {url}"))?;
         if !resp.status().is_success() {
             return Err(Error::Other(format!("PUT {url}: HTTP {}", resp.status())));
         }

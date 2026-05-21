@@ -29,7 +29,8 @@ wit_bindgen::generate!({
     generate_all,
 });
 
-use exports::et::ws_wasi::entry::Guest;
+use et::ws_wasi::ws::WsError;
+use exports::et::ws_wasi::entry::{Guest, RunError};
 use serde_json::{Value, json};
 use wasi::logging::logging::{self, Level};
 
@@ -42,31 +43,42 @@ fn info(message: &str) {
     logging::log(Level::Info, LOG_CONTEXT, message);
 }
 
+// Flatten the typed host-import error into `RunError::Ws(String)`.
+// Plain `From` rather than thiserror's `#[from]` because the
+// bindgen-generated `WsError` doesn't impl `Error`.
+impl From<WsError> for RunError {
+    fn from(source: WsError) -> Self {
+        RunError::Ws(format!("{source:?}"))
+    }
+}
+
 struct Component;
 
 impl Guest for Component {
-    fn run() -> Result<(), String> {
+    fn run() -> Result<(), RunError> {
         info("entered run()");
 
-        et::ws_wasi::ws::connect().map_err(|e| format!("ws connect failed: {e}"))?;
-        let agent_id = wait_for_agent_id().ok_or_else(|| "did not receive agent_id".to_string())?;
+        et::ws_wasi::ws::connect()?;
+        let agent_id = wait_for_agent_id().ok_or_else(|| RunError::Precondition("did not receive agent_id".into()))?;
         info(&format!("websocket connected with agent_id={agent_id}"));
 
         send_message(&json!({ "type": "list_agents" }))?;
 
         let response = wait_for_message_kind("list_agents_response", LIST_AGENTS_TIMEOUT_MS)
-            .ok_or_else(|| "no list_agents_response within timeout".to_string())?;
+            .ok_or_else(|| RunError::Precondition("no list_agents_response within timeout".into()))?;
         let agents = response
             .get("agents")
             .and_then(Value::as_array)
-            .ok_or_else(|| "list_agents_response missing `agents` array".to_string())?;
+            .ok_or_else(|| RunError::Precondition("list_agents_response missing `agents` array".into()))?;
         info(&format!("list_agents_response: {} agent(s) registered", agents.len()));
 
         let self_listed = agents
             .iter()
             .any(|a| a.get("agent_id").and_then(Value::as_str) == Some(agent_id.as_str()));
         if !self_listed {
-            return Err(format!("own agent_id {agent_id} missing from list_agents_response"));
+            return Err(RunError::Precondition(format!(
+                "own agent_id {agent_id} missing from list_agents_response"
+            )));
         }
         info("self present in roster");
 
@@ -86,9 +98,13 @@ impl Guest for Component {
     }
 }
 
-fn send_message(value: &Value) -> Result<(), String> {
-    let text = serde_json::to_string(value).map_err(|e| format!("serialize message: {e}"))?;
-    et::ws_wasi::ws::send_text(&text).map_err(|e| format!("ws.send_text: {e}"))
+fn send_message(value: &Value) -> Result<(), RunError> {
+    // `Value::to_string` is infallible (uses `Display`) — `serde_json::to_string`
+    // would only fail on cases `Value` can't represent: non-string map keys,
+    // non-finite floats, or self-recursion. The two `json!()` literals in
+    // this file hit none of them.
+    et::ws_wasi::ws::send_text(&value.to_string())?;
+    Ok(())
 }
 
 /// Drain the recv inbox until we see a message whose `type` matches `kind`.
