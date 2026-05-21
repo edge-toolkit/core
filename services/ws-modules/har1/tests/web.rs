@@ -1,4 +1,6 @@
+#![cfg(test)]
 #![cfg(target_arch = "wasm32")]
+
 use et_ws_har1::{init, run};
 use wasm_bindgen_test::*;
 

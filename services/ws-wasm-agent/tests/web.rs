@@ -1,3 +1,4 @@
+#![cfg(test)]
 #![cfg(target_arch = "wasm32")]
 
 use et_ws_wasm_agent::{WsClient, WsClientConfig};

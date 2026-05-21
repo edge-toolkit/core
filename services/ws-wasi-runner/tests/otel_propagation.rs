@@ -20,6 +20,8 @@
 //! instead of wasi-graphics-info because it's the cheapest WASI module
 //! to exercise — no wgpu / wasi-nn work.
 
+#![cfg(test)]
+
 use std::collections::HashSet;
 use std::time::Duration;
 

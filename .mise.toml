@@ -6,8 +6,10 @@ cargo-binstall = "latest"
 "cargo:cargo-expand" = "latest"
 "cargo:taplo-cli" = "latest"
 "cargo:wasm-pack" = "latest"
+"cargo:watchexec-cli" = "latest"
 "chromedriver" = "146"
 cmake = "latest"
+"conda:lld" = "latest"
 dart = { version = "latest", url = "https://storage.googleapis.com/dart-archive/channels/stable/release/{{ version }}/sdk/dartsdk-{{ os() }}-{{ arch() }}-release.zip", version_expr = 'fromJSON(body).prefixes | filter({ # matches "^channels/stable/release/(\\d+\\.\\d+\\.\\d+)/$" }) | map({split(#, "/")[3]}) | sortVersions()', version_list_url = "https://storage.googleapis.com/storage/v1/b/dart-archive/o?prefix=channels/stable/release/&delimiter=/" }
 dotnet = "latest"
 dotnet-core = "latest"
@@ -16,18 +18,27 @@ dprint = "latest"
 editorconfig-checker = "latest"
 "github:grok-rs/waitup" = "latest"
 "github:wasm-bindgen/wasm-bindgen" = "0.2.114"
+# Use the GitHub release tarball, not `npm:pyodide`. The npm package is only
+# the runtime (pyodide.js, .wasm, stdlib, micropip) ~5 MB — it's designed for
+# JS apps that fetch the rest from JsDelivr's Pyodide custom-CDN namespace
+# (https://www.jsdelivr.com/oss-cdn) at runtime. We need the ~200 MB "full"
+# distribution served locally so browser modules work offline; that's only
+# published as a tarball on GitHub releases. The extracted tarball contains a
+# top-level `pyodide/` directory the modules service picks up — see
+# `default_modules_folders` in libs/edge-toolkit/src/config.rs.
+"http:pyodide" = { version = "0.29.3", url = "https://github.com/pyodide/pyodide/releases/download/{{ version }}/pyodide-{{ version }}.tar.bz2" }
 java = "latest"
 maven = "latest"
 mprocs = "latest"
 node = "22"
 "npm:onnxruntime-web" = "latest"
-"npm:pyodide" = "0.29.3"
 osv-scanner = "latest"
 pipx = "latest"
 "pipx:cmake" = "latest"
 "pipx:componentize-py" = "latest"
 "pipx:pytest" = "latest"
 protoc = "latest"
+python = "3.13"
 rclone = "latest"
 ruff = "latest"
 rust = [
@@ -39,6 +50,16 @@ uv = "0.11.8"
 wasm-tools = "latest"
 yq = "latest"
 zig = "latest"
+
+# Recent Apple `ld` versions trip an assertion on long mangled symbols emitted
+# by some deep-dep crates (notably dart-typegen, installed below). Routing the
+# link step through LLVM's `ld64.lld` avoids the bug — `lld` is on PATH via the
+# `conda:lld` mise tool. We set this here so `mise install cargo:dart-typegen`
+# also picks it up (cargo install runs in a tempdir and doesn't read project
+# `.cargo/config.toml`).
+[env]
+CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld=lld"
+CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld=lld"
 
 [tasks]
 ec = "ec"
@@ -149,10 +170,16 @@ depends = ["regenerate-verification"]
 description = "Fail if generated scenario output files are stale"
 run = "git diff --exit-code -- verification"
 
+# `cargo-watch` is unmaintained; `watchexec` is its successor (and what
+# `cargo-watch` always called under the hood). Restart on .rs/.toml
+# changes so a workspace-wide edit (any library, any service the server
+# depends on) triggers a rebuild. `--clear` wipes the terminal between
+# runs so cargo output starts at the top of the screen; `--restart`
+# kills the running `cargo run` before kicking off a fresh one.
+# Respects `.gitignore`, so `target/` and friends are skipped.
 [tasks.ws-server]
-description = "Run the WebSocket server"
-dir = "services/ws-server"
-run = "cargo run"
+description = "Run the WebSocket server, restarting on .rs/.toml changes"
+run = "watchexec --restart --clear --exts rs,toml -i '**/tests/**' -- cargo run -p et-ws-server"
 
 [tasks.ws-server.env]
 OTLP_AUTH_PASSWORD = "1234"

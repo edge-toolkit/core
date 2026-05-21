@@ -21,3 +21,6 @@ thiserror.workspace = true
 
 [dev-dependencies]
 rstest.workspace = true
+temp-env = "0.3"
+tempfile.workspace = true
+testing_logger = "0.1"
