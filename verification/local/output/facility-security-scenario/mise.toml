@@ -15,7 +15,12 @@ docker run --rm --name openobserve -p 5080:5080 \
   openobserve/openobserve:v0.70.3
 """
 
+[tasks.openobserve-ready]
+description = "Wait for OpenObserve to accept connections"
+run = "waitup http://127.0.0.1:5080/healthz"
+
 [tasks.ws-server]
+depends = ["openobserve-ready"]
 description = "Run the WebSocket server"
 dir = "../../../../services/ws-server"
 run = '''

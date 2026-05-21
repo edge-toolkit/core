@@ -49,8 +49,19 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
             Some("Run the WebSocket server"),
             Some(&ws_server_rel),
             Some(&ws_server_run),
-            None,
+            Some(mise_depends(["openobserve-ready"])),
             Some(mise_env()),
+        )),
+    );
+    tasks.insert(
+        "openobserve-ready".to_string(),
+        Value::Table(mise_task(
+            None,
+            Some("Wait for OpenObserve to accept connections"),
+            None,
+            Some("waitup http://127.0.0.1:5080/healthz"),
+            None,
+            None,
         )),
     );
     tasks.insert(
