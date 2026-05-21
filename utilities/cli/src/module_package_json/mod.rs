@@ -2,9 +2,10 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, anyhow};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
+
+use crate::error::CliError;
 
 #[derive(Deserialize)]
 struct Project {
@@ -86,31 +87,34 @@ enum MaybeInherited {
     },
 }
 
-pub fn generate_module_package_json(module_dir: &Path) -> Result<PathBuf> {
+pub fn generate_module_package_json(module_dir: &Path) -> Result<PathBuf, CliError> {
     let out_path = module_dir.join("pkg/package.json");
     let package_json = if module_dir.join("pyproject.toml").is_file() {
         package_json_from_pyproject(module_dir)?
     } else if module_dir.join("Cargo.toml").is_file() {
         package_json_from_cargo(module_dir, &out_path)?
     } else {
-        return Err(anyhow!(
-            "Expected pyproject.toml or Cargo.toml in module directory {:?}",
-            module_dir
-        ));
+        return Err(CliError::MissingManifest(module_dir.to_path_buf()));
     };
 
     let parent = out_path
         .parent()
-        .ok_or_else(|| anyhow!("Output path {:?} has no parent directory", out_path))?;
-    fs::create_dir_all(parent).with_context(|| format!("Failed to create output directory: {:?}", parent))?;
-    let mut out = serde_json::to_string_pretty(&package_json).context("Failed to serialize package JSON")?;
+        .ok_or_else(|| CliError::NoParentDir(out_path.clone()))?;
+    fs::create_dir_all(parent).map_err(|source| CliError::CreateOutputDir {
+        path: parent.to_path_buf(),
+        source,
+    })?;
+    let mut out = serde_json::to_string_pretty(&package_json).map_err(CliError::SerializeJson)?;
     out.push('\n');
-    fs::write(&out_path, &out).with_context(|| format!("Failed to write {}", out_path.display()))?;
+    fs::write(&out_path, &out).map_err(|source| CliError::WriteFile {
+        path: out_path.clone(),
+        source,
+    })?;
 
     Ok(out_path)
 }
 
-fn package_json_from_pyproject(module_dir: &Path) -> Result<Value> {
+fn package_json_from_pyproject(module_dir: &Path) -> Result<Value, CliError> {
     let pyproject_path = module_dir.join("pyproject.toml");
     let pyproject: Pyproject = read_toml(&pyproject_path)?;
     let p = &pyproject.project;
@@ -147,15 +151,19 @@ fn project_repository(urls: &BTreeMap<String, String>) -> Option<&str> {
         .map(String::as_str)
 }
 
-fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value> {
+fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value, CliError> {
     let cargo_toml_path = module_dir.join("Cargo.toml");
-    let cargo_toml_src = fs::read_to_string(&cargo_toml_path)
-        .with_context(|| format!("Failed to read {}", cargo_toml_path.display()))?;
-    let cargo_toml: CargoToml =
-        toml::from_str(&cargo_toml_src).with_context(|| format!("Failed to parse {}", cargo_toml_path.display()))?;
+    let cargo_toml_src = fs::read_to_string(&cargo_toml_path).map_err(|source| CliError::ReadFile {
+        path: cargo_toml_path.clone(),
+        source,
+    })?;
+    let cargo_toml: CargoToml = toml::from_str(&cargo_toml_src).map_err(|source| CliError::ParseToml {
+        path: cargo_toml_path.clone(),
+        source,
+    })?;
     let package = cargo_toml
         .package
-        .ok_or_else(|| anyhow!("{} has no [package] section", cargo_toml_path.display()))?;
+        .ok_or_else(|| CliError::MissingPackageSection(cargo_toml_path.clone()))?;
     let crate_name = package.name;
     let kind = detect_cargo_kind(&cargo_toml_src);
     let workspace = find_workspace_package(module_dir)?;
@@ -200,7 +208,7 @@ fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value> 
             .or_insert_with(|| Value::Object(Map::new()));
         let dependency_map = dependencies
             .as_object_mut()
-            .ok_or_else(|| anyhow!("{} contains a non-object dependencies field", out_path.display()))?;
+            .ok_or_else(|| CliError::NonObjectDependencies(out_path.to_path_buf()))?;
         for (name, version) in ws_module.dependencies {
             dependency_map.insert(name, json!(version));
         }
@@ -224,7 +232,7 @@ fn resolve_inherited(direct: Option<&MaybeInherited>, workspace: Option<&str>) -
 
 /// Walk parents of `start` looking for a Cargo.toml containing a
 /// `[workspace]` table; return its `[workspace.package]` if present.
-fn find_workspace_package(start: &Path) -> Result<Option<WorkspacePackage>> {
+fn find_workspace_package(start: &Path) -> Result<Option<WorkspacePackage>, CliError> {
     for dir in start.ancestors().skip(1) {
         let cargo = dir.join("Cargo.toml");
         if !cargo.is_file() {
@@ -291,10 +299,13 @@ fn detect_cargo_kind(cargo_toml_src: &str) -> ModuleKind {
 /// is derived from `name` by trying both its `_` and `-` variants with the
 /// extension dictated by `kind` (`.wasm` for WASI, `.js` for browser/Pyodide).
 /// The resolved file must exist in `pkg_dir`; this errors otherwise.
-fn resolve_main(pkg_dir: &Path, name: &str, kind: ModuleKind, main_override: Option<&str>) -> Result<String> {
+fn resolve_main(pkg_dir: &Path, name: &str, kind: ModuleKind, main_override: Option<&str>) -> Result<String, CliError> {
     if let Some(main) = main_override {
         if !pkg_dir.join(main).is_file() {
-            return Err(anyhow!("main = {:?} does not exist in {}", main, pkg_dir.display()));
+            return Err(CliError::MissingMainFile {
+                main: main.to_string(),
+                dir: pkg_dir.to_path_buf(),
+            });
         }
         return Ok(main.to_string());
     }
@@ -312,30 +323,45 @@ fn resolve_main(pkg_dir: &Path, name: &str, kind: ModuleKind, main_override: Opt
             return Ok(candidate);
         }
     }
-    Err(anyhow!(
-        "No main file in {}; expected {underscored}.{ext} or {hyphenated}.{ext} (override with [ws-module] main)",
-        pkg_dir.display()
-    ))
+    Err(CliError::UnresolvedMainFile {
+        dir: pkg_dir.to_path_buf(),
+        underscored,
+        hyphenated,
+        ext,
+    })
 }
 
-fn read_toml<T>(path: &Path) -> Result<T>
+fn read_toml<T>(path: &Path) -> Result<T, CliError>
 where
     T: for<'de> Deserialize<'de>,
 {
-    let src = fs::read_to_string(path).with_context(|| format!("Failed to read {}", path.display()))?;
-    toml::from_str(&src).with_context(|| format!("Failed to parse {}", path.display()))
+    let src = fs::read_to_string(path).map_err(|source| CliError::ReadFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    toml::from_str(&src).map_err(|source| CliError::ParseToml {
+        path: path.to_path_buf(),
+        source,
+    })
 }
 
-fn read_package_json(path: &Path) -> Result<Option<Map<String, Value>>> {
+fn read_package_json(path: &Path) -> Result<Option<Map<String, Value>>, CliError> {
     let src = match fs::read_to_string(path) {
         Ok(src) => src,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(error).with_context(|| format!("Failed to read {}", path.display())),
+        Err(source) => {
+            return Err(CliError::ReadFile {
+                path: path.to_path_buf(),
+                source,
+            });
+        }
     };
-    let Value::Object(pkg) =
-        serde_json::from_str(&src).with_context(|| format!("Failed to parse {}", path.display()))?
+    let Value::Object(pkg) = serde_json::from_str(&src).map_err(|source| CliError::ParseJson {
+        path: path.to_path_buf(),
+        source,
+    })?
     else {
-        return Err(anyhow!("{} must contain a JSON object", path.display()));
+        return Err(CliError::NonObjectPackageJson(path.to_path_buf()));
     };
     Ok(Some(pkg))
 }

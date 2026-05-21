@@ -38,30 +38,33 @@ use crate::bindings::wasi::webgpu::webgpu::{
 /// `gpu-buffer-usage.STORAGE()` style accessors return these constants and
 /// the guest ORs them into `gpu-buffer-descriptor.usage`. Matches the
 /// WebGPU spec values so we can hand them directly to `wgpu::BufferUsages`.
-mod usage {
-    pub const MAP_READ: u32 = 0x0001;
-    pub const MAP_WRITE: u32 = 0x0002;
-    pub const COPY_SRC: u32 = 0x0004;
-    pub const COPY_DST: u32 = 0x0008;
-    pub const INDEX: u32 = 0x0010;
-    pub const VERTEX: u32 = 0x0020;
-    pub const UNIFORM: u32 = 0x0040;
-    pub const STORAGE: u32 = 0x0080;
-    pub const INDIRECT: u32 = 0x0100;
-    pub const QUERY_RESOLVE: u32 = 0x0200;
+struct Usage;
+impl Usage {
+    const MAP_READ: u32 = 0x0001;
+    const MAP_WRITE: u32 = 0x0002;
+    const COPY_SRC: u32 = 0x0004;
+    const COPY_DST: u32 = 0x0008;
+    const INDEX: u32 = 0x0010;
+    const VERTEX: u32 = 0x0020;
+    const UNIFORM: u32 = 0x0040;
+    const STORAGE: u32 = 0x0080;
+    const INDIRECT: u32 = 0x0100;
+    const QUERY_RESOLVE: u32 = 0x0200;
 }
 
 /// gpu-map-mode flag bits (WebGPU spec values).
-mod map_mode {
-    pub const READ: u32 = 0x0001;
-    pub const WRITE: u32 = 0x0002;
+struct MapMode;
+impl MapMode {
+    const READ: u32 = 0x0001;
+    const WRITE: u32 = 0x0002;
 }
 
 /// gpu-shader-stage flag bits (WebGPU spec values).
-mod shader_stage {
-    pub const VERTEX: u32 = 0x1;
-    pub const FRAGMENT: u32 = 0x2;
-    pub const COMPUTE: u32 = 0x4;
+struct ShaderStage;
+impl ShaderStage {
+    const VERTEX: u32 = 0x1;
+    const FRAGMENT: u32 = 0x2;
+    const COMPUTE: u32 = 0x4;
 }
 
 /// Top-level handle: no per-instance state — `request-adapter` constructs a
@@ -200,34 +203,34 @@ async fn request_adapter_inner(_options: Option<GpuRequestAdapterOptions>) -> Op
 
 fn buffer_usage_from_flags(flags: u32) -> wgpu::BufferUsages {
     let mut out = wgpu::BufferUsages::empty();
-    if flags & usage::MAP_READ != 0 {
+    if flags & Usage::MAP_READ != 0 {
         out |= wgpu::BufferUsages::MAP_READ;
     }
-    if flags & usage::MAP_WRITE != 0 {
+    if flags & Usage::MAP_WRITE != 0 {
         out |= wgpu::BufferUsages::MAP_WRITE;
     }
-    if flags & usage::COPY_SRC != 0 {
+    if flags & Usage::COPY_SRC != 0 {
         out |= wgpu::BufferUsages::COPY_SRC;
     }
-    if flags & usage::COPY_DST != 0 {
+    if flags & Usage::COPY_DST != 0 {
         out |= wgpu::BufferUsages::COPY_DST;
     }
-    if flags & usage::INDEX != 0 {
+    if flags & Usage::INDEX != 0 {
         out |= wgpu::BufferUsages::INDEX;
     }
-    if flags & usage::VERTEX != 0 {
+    if flags & Usage::VERTEX != 0 {
         out |= wgpu::BufferUsages::VERTEX;
     }
-    if flags & usage::UNIFORM != 0 {
+    if flags & Usage::UNIFORM != 0 {
         out |= wgpu::BufferUsages::UNIFORM;
     }
-    if flags & usage::STORAGE != 0 {
+    if flags & Usage::STORAGE != 0 {
         out |= wgpu::BufferUsages::STORAGE;
     }
-    if flags & usage::INDIRECT != 0 {
+    if flags & Usage::INDIRECT != 0 {
         out |= wgpu::BufferUsages::INDIRECT;
     }
-    if flags & usage::QUERY_RESOLVE != 0 {
+    if flags & Usage::QUERY_RESOLVE != 0 {
         out |= wgpu::BufferUsages::QUERY_RESOLVE;
     }
     out
@@ -235,13 +238,13 @@ fn buffer_usage_from_flags(flags: u32) -> wgpu::BufferUsages {
 
 fn shader_stages_from_flags(flags: u32) -> wgpu::ShaderStages {
     let mut out = wgpu::ShaderStages::empty();
-    if flags & shader_stage::VERTEX != 0 {
+    if flags & ShaderStage::VERTEX != 0 {
         out |= wgpu::ShaderStages::VERTEX;
     }
-    if flags & shader_stage::FRAGMENT != 0 {
+    if flags & ShaderStage::FRAGMENT != 0 {
         out |= wgpu::ShaderStages::FRAGMENT;
     }
-    if flags & shader_stage::COMPUTE != 0 {
+    if flags & ShaderStage::COMPUTE != 0 {
         out |= wgpu::ShaderStages::COMPUTE;
     }
     out
@@ -913,34 +916,34 @@ impl HostGpuBuffer for HostState {
 
 impl HostGpuBufferUsage for HostState {
     async fn map_read(&mut self) -> u32 {
-        usage::MAP_READ
+        Usage::MAP_READ
     }
     async fn map_write(&mut self) -> u32 {
-        usage::MAP_WRITE
+        Usage::MAP_WRITE
     }
     async fn copy_src(&mut self) -> u32 {
-        usage::COPY_SRC
+        Usage::COPY_SRC
     }
     async fn copy_dst(&mut self) -> u32 {
-        usage::COPY_DST
+        Usage::COPY_DST
     }
     async fn index(&mut self) -> u32 {
-        usage::INDEX
+        Usage::INDEX
     }
     async fn vertex(&mut self) -> u32 {
-        usage::VERTEX
+        Usage::VERTEX
     }
     async fn uniform(&mut self) -> u32 {
-        usage::UNIFORM
+        Usage::UNIFORM
     }
     async fn storage(&mut self) -> u32 {
-        usage::STORAGE
+        Usage::STORAGE
     }
     async fn indirect(&mut self) -> u32 {
-        usage::INDIRECT
+        Usage::INDIRECT
     }
     async fn query_resolve(&mut self) -> u32 {
-        usage::QUERY_RESOLVE
+        Usage::QUERY_RESOLVE
     }
 
     async fn drop(&mut self, rep: Resource<GpuBufferUsage>) -> wasmtime::Result<()> {
@@ -951,10 +954,10 @@ impl HostGpuBufferUsage for HostState {
 
 impl HostGpuMapMode for HostState {
     async fn read(&mut self) -> u32 {
-        map_mode::READ
+        MapMode::READ
     }
     async fn write(&mut self) -> u32 {
-        map_mode::WRITE
+        MapMode::WRITE
     }
 
     async fn drop(&mut self, rep: Resource<GpuMapMode>) -> wasmtime::Result<()> {
@@ -965,13 +968,13 @@ impl HostGpuMapMode for HostState {
 
 impl HostGpuShaderStage for HostState {
     async fn vertex(&mut self) -> u32 {
-        shader_stage::VERTEX
+        ShaderStage::VERTEX
     }
     async fn fragment(&mut self) -> u32 {
-        shader_stage::FRAGMENT
+        ShaderStage::FRAGMENT
     }
     async fn compute(&mut self) -> u32 {
-        shader_stage::COMPUTE
+        ShaderStage::COMPUTE
     }
 
     async fn drop(&mut self, rep: Resource<GpuShaderStage>) -> wasmtime::Result<()> {

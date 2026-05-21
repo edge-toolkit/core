@@ -7,3 +7,5 @@ message: |
 rule:
   kind: string_literal
   regex: '\\\n'
+ignores:
+  - generated/**

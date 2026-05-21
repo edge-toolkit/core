@@ -1,0 +1,12 @@
+id: no-inline-mod
+language: Rust
+severity: error
+message: |
+  Inline `mod X { ... }` blocks are forbidden. Move the module body into a
+  separate file (`X.rs` or `X/mod.rs`) and declare it with `mod X;` instead.
+rule:
+  kind: mod_item
+  has:
+    kind: declaration_list
+ignores:
+  - generated/**

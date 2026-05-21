@@ -163,12 +163,8 @@ def preprocess_geometry(source_width: float, source_height: float) -> dict[str, 
     )
     return {
         "resize_ratio": resize_ratio,
-        "resized_width": float(
-            int(clamp(round(source_width * resize_ratio), 1, FACE_INPUT_WIDTH))
-        ),
-        "resized_height": float(
-            int(clamp(round(source_height * resize_ratio), 1, FACE_INPUT_HEIGHT))
-        ),
+        "resized_width": float(int(clamp(round(source_width * resize_ratio), 1, FACE_INPUT_WIDTH))),
+        "resized_height": float(int(clamp(round(source_height * resize_ratio), 1, FACE_INPUT_HEIGHT))),
     }
 
 
@@ -205,11 +201,7 @@ def decode_outputs(
     landm = output_values(landm_values, "landm", 10)
     prior_count = len(loc) // 4
 
-    if (
-        prior_count == 0
-        or len(conf) != prior_count * 2
-        or len(landm) != prior_count * 10
-    ):
+    if prior_count == 0 or len(conf) != prior_count * 2 or len(landm) != prior_count * 10:
         raise ValueError("RetinaFace outputs had unexpected shapes")
 
     priors = model_priors()
@@ -256,9 +248,7 @@ def decode_outputs(
     }
 
 
-def status_text(
-    input_name: str, output_names: Iterable[object], summary: DetectionSummary
-) -> str:
+def status_text(input_name: str, output_names: Iterable[object], summary: DetectionSummary) -> str:
     """Render the browser status text used by the face detection demo."""
     outputs = ", ".join(str(name) for name in output_names)
     lines = [

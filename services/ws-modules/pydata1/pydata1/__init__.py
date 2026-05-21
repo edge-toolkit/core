@@ -4,9 +4,7 @@ import json
 from datetime import datetime, timezone
 
 
-async def run(
-    ws_send, wait_for_response, put_file, get_file, sleep_ms, log, set_status
-) -> None:
+async def run(ws_send, wait_for_response, put_file, get_file, sleep_ms, log, set_status) -> None:
     """Execute the data1 workflow: connect, store, fetch, verify."""
     log("pydata1: entered run()")
 

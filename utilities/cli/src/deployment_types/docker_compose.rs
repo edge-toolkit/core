@@ -1,17 +1,19 @@
 use std::fs;
 use std::path::Path;
 
-use anyhow::{Context, Result};
 use edge_toolkit::input::ClusterInput;
 
+use crate::error::CliError;
 use crate::{
     OutputType, absolute_from, cluster_module_names, module_registry, relative_path_from, resolve_module_paths,
 };
 
-pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<()> {
+pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
     let output_path = output_dir.join(OutputType::DockerCompose.output_file_name());
-    let workspace_root =
-        std::env::current_dir().with_context(|| "Failed to resolve current working directory for compose services")?;
+    let workspace_root = std::env::current_dir().map_err(|source| CliError::CurrentDir {
+        context: "compose services",
+        source,
+    })?;
     let output_abs = absolute_from(&workspace_root, output_dir);
     let workspace_rel = relative_path_from(&output_abs, &workspace_root).display().to_string();
     let openobserve_env_file_rel = relative_path_from(&output_abs, &workspace_root.join("config/o2.env"))
@@ -91,12 +93,15 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
         ],
     };
     let content = render_compose_yaml(&compose);
-    fs::write(&output_path, content).with_context(|| format!("Failed to write output file: {:?}", output_path))?;
+    fs::write(&output_path, content).map_err(|source| CliError::WriteOutput {
+        path: output_path.clone(),
+        source,
+    })?;
 
     Ok(())
 }
 
-pub fn docker_image_module_paths(module_names: &[String]) -> Result<Vec<String>> {
+pub fn docker_image_module_paths(module_names: &[String]) -> Result<Vec<String>, CliError> {
     let project_root = edge_toolkit::config::get_project_root();
     let ws_server_dir = project_root.join("services/ws-server");
     let mut paths = Vec::with_capacity(module_names.len() + 2);
