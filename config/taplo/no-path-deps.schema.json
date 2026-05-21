@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Workspace member Cargo.toml — no path dependencies",
+  "description": "Forbids `path = ...` deps outside workspace root; `const` is a hack so taplo prints it as the error.",
+  "definitions": {
+    "depTable": {
+      "type": "object",
+      "additionalProperties": {
+        "properties": {
+          "path": {
+            "const": "forbidden outside workspace root; declare in [workspace.dependencies] and use `.workspace = true`"
+          }
+        }
+      }
+    }
+  },
+  "type": "object",
+  "patternProperties": {
+    "^(dev-|build-)?dependencies$": { "$ref": "#/definitions/depTable" }
+  },
+  "properties": {
+    "target": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "patternProperties": {
+          "^(dev-|build-)?dependencies$": { "$ref": "#/definitions/depTable" }
+        }
+      }
+    }
+  }
+}

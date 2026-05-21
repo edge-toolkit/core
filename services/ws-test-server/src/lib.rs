@@ -1,3 +1,10 @@
+#![expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "in-process test ws-server; bind/startup failures should fail the test fast"
+)]
+
 use std::net::TcpListener;
 
 use actix_web::{App, HttpServer, web};
@@ -8,6 +15,7 @@ use tempfile::TempDir;
 use tracing_actix_web::TracingLogger;
 
 /// A running test server. The temporary storage directory is cleaned up on drop.
+#[non_exhaustive]
 pub struct TestServer {
     pub base_url: String,
     pub ws_url: String,
@@ -17,6 +25,7 @@ pub struct TestServer {
 /// Start an in-process ws-server on a free port with a temporary storage directory.
 ///
 /// Serves modules from the default module paths (same as production).
+#[must_use]
 pub fn start() -> TestServer {
     let storage_dir = TempDir::new().expect("failed to create temp storage dir");
     let storage_path = storage_dir.path().to_path_buf();
@@ -24,11 +33,11 @@ pub fn start() -> TestServer {
     // Bind to port 0 to get a free port, then drop the listener so the server can bind it.
     let port = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
 
-    let storage_config = StorageConfig { path: storage_path };
+    let storage_config = StorageConfig::new(storage_path);
     let modules_config = ModulesConfig::default();
     let addr = format!("127.0.0.1:{port}");
 
-    std::thread::spawn(move || {
+    let _server_thread = std::thread::spawn(move || {
         actix_rt::System::new().block_on(async move {
             let registry = web::Data::new(WsAgentRegistry::default());
             let storage = web::Data::new(storage_config);
@@ -53,7 +62,7 @@ pub fn start() -> TestServer {
         });
     });
 
-    for _ in 0..50 {
+    for _ in 0_u32..50 {
         if std::net::TcpStream::connect(format!("127.0.0.1:{port}")).is_ok() {
             return TestServer {
                 base_url: format!("http://127.0.0.1:{port}"),

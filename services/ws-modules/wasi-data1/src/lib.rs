@@ -20,6 +20,12 @@
 //! empty cdylib for the host target without linker errors.
 
 #![cfg(target_os = "wasi")]
+// wit_bindgen::generate! emits `unsafe fn` and `#[export_name]` items;
+// `export!(Component)` does the same. Both trip workspace
+// `unsafe_code = "deny"` lint; expect it at crate scope because outer
+// `#[expect]` on the macro invocations themselves doesn't propagate to
+// the items they expand into.
+#![expect(unsafe_code)]
 
 wit_bindgen::generate!({
     path: "../../ws-wasi-runner/wit",
@@ -106,7 +112,7 @@ fn wait_for_agent_id() -> Option<String> {
 
 fn sleep_ms(ms: u64) {
     let pollable = wasi::clocks::monotonic_clock::subscribe_duration(ms * 1_000_000);
-    wasi::io::poll::poll(&[&pollable]);
+    drop(wasi::io::poll::poll(&[&pollable]));
 }
 
 export!(Component);

@@ -98,7 +98,7 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
 pub fn docker_image_module_paths(module_names: &[String]) -> Result<Vec<String>, CliError> {
     let project_root = edge_toolkit::config::get_project_root();
     let ws_server_dir = project_root.join("services/ws-server");
-    let mut paths = Vec::with_capacity(module_names.len() + 2);
+    let mut paths = Vec::with_capacity(module_names.len().saturating_add(2));
     paths.push("/app/services/ws-server/static".to_string());
     paths.push("/app/services/ws-wasm-agent".to_string());
     let registry = module_registry(&project_root, &ws_server_dir);
@@ -250,8 +250,9 @@ impl ComposeRenderer {
             ComposeValue::WrappedDoubleQuoted(parts) => {
                 if let Some((first, rest)) = parts.split_first() {
                     self.push_line(3, &format!("{key}: \"{first},\\"));
+                    let last_index = rest.len().saturating_sub(1);
                     for (index, part) in rest.iter().enumerate() {
-                        let suffix = if index + 1 == rest.len() { "\"" } else { ",\\" };
+                        let suffix = if index == last_index { "\"" } else { ",\\" };
                         self.push_line(4, &format!("{part}{suffix}"));
                     }
                 } else {

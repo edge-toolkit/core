@@ -11,6 +11,10 @@
 //! silently passing.
 
 #![cfg(test)]
+#![expect(
+    clippy::panic,
+    reason = "test code: missing mise install and unreadable install dir should fail loudly with a clear hint"
+)]
 
 use std::collections::HashSet;
 use std::fs;
@@ -53,7 +57,7 @@ fn http_pyodide_install_contains_full_wheel_set() {
         .unwrap_or_else(|err| panic!("failed to read http:pyodide install dir {}: {err}", install.display()));
 
     let wheel_names: HashSet<String> = entries
-        .filter_map(|entry| entry.ok())
+        .filter_map(Result::ok)
         .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "whl"))
         .map(|entry| entry.file_name().to_string_lossy().into_owned())
         .collect();

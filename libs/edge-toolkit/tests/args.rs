@@ -7,7 +7,7 @@
 fn executable_name(#[case] args: Vec<&str>) {
     let args: Vec<String> = args.into_iter().map(String::from).collect();
     assert_eq!(
-        edge_toolkit::args::executable_name_inner(args),
+        edge_toolkit::args::executable_name_inner(&args),
         "et-ws-server".to_string()
     );
 }

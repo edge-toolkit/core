@@ -1,8 +1,23 @@
+#![expect(
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::default_numeric_fallback,
+    clippy::float_arithmetic,
+    clippy::future_not_send,
+    clippy::indexing_slicing,
+    clippy::single_call_fn,
+    clippy::suboptimal_flops,
+    unused_results,
+    reason = "browser WASM HAR module: tensor math, sensor buffers, JsFuture, Reflect::set, inline f64 are inherent"
+)]
+
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-use et_web::{JsFunctionExt, JsPromiseExt, SENSOR_PERMISSION_GRANTED, request_sensor_permission};
+use et_web::{JsFunctionExt as _, JsPromiseExt as _, SENSOR_PERMISSION_GRANTED, request_sensor_permission};
 use et_ws_wasm_agent::{
     WsClient, WsClientConfig, js_bool_field, js_nested_object, js_number_field, set_textarea_value,
 };
@@ -52,18 +67,22 @@ pub struct OrientationReading {
 
 #[wasm_bindgen]
 impl OrientationReading {
+    #[must_use]
     pub fn alpha(&self) -> f64 {
         self.inner.alpha.unwrap_or(0.0)
     }
 
+    #[must_use]
     pub fn beta(&self) -> f64 {
         self.inner.beta.unwrap_or(0.0)
     }
 
+    #[must_use]
     pub fn gamma(&self) -> f64 {
         self.inner.gamma.unwrap_or(0.0)
     }
 
+    #[must_use]
     pub fn absolute(&self) -> bool {
         self.inner.absolute.unwrap_or(false)
     }
@@ -76,51 +95,61 @@ pub struct MotionReading {
 
 #[wasm_bindgen]
 impl MotionReading {
+    #[must_use]
     #[wasm_bindgen(js_name = accelerationX)]
     pub fn acceleration_x(&self) -> f64 {
         self.inner.acceleration_x.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = accelerationY)]
     pub fn acceleration_y(&self) -> f64 {
         self.inner.acceleration_y.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = accelerationZ)]
     pub fn acceleration_z(&self) -> f64 {
         self.inner.acceleration_z.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = accelerationIncludingGravityX)]
     pub fn acceleration_including_gravity_x(&self) -> f64 {
         self.inner.acceleration_including_gravity_x.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = accelerationIncludingGravityY)]
     pub fn acceleration_including_gravity_y(&self) -> f64 {
         self.inner.acceleration_including_gravity_y.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = accelerationIncludingGravityZ)]
     pub fn acceleration_including_gravity_z(&self) -> f64 {
         self.inner.acceleration_including_gravity_z.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = rotationRateAlpha)]
     pub fn rotation_rate_alpha(&self) -> f64 {
         self.inner.rotation_rate_alpha.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = rotationRateBeta)]
     pub fn rotation_rate_beta(&self) -> f64 {
         self.inner.rotation_rate_beta.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = rotationRateGamma)]
     pub fn rotation_rate_gamma(&self) -> f64 {
         self.inner.rotation_rate_gamma.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = intervalMs)]
     pub fn interval_ms(&self) -> f64 {
         self.inner.interval_ms.unwrap_or(0.0)
@@ -144,9 +173,10 @@ impl Default for DeviceSensors {
 
 #[wasm_bindgen]
 impl DeviceSensors {
+    #[must_use]
     #[wasm_bindgen(constructor)]
-    pub fn new() -> DeviceSensors {
-        DeviceSensors {
+    pub fn new() -> Self {
+        Self {
             active: false,
             orientation_state: Rc::new(RefCell::new(None)),
             motion_state: Rc::new(RefCell::new(None)),
@@ -187,8 +217,8 @@ impl DeviceSensors {
         *self.orientation_state.borrow_mut() = None;
         *self.motion_state.borrow_mut() = None;
 
-        let orientation_state = self.orientation_state.clone();
-        let orientation_listener = Closure::wrap(Box::new(move |event: Event| {
+        let orientation_state = Rc::clone(&self.orientation_state);
+        let orientation_listener_box: Box<dyn FnMut(Event)> = Box::new(move |event: Event| {
             let value: JsValue = event.into();
             *orientation_state.borrow_mut() = Some(OrientationReadingState {
                 alpha: js_number_field(&value, "alpha"),
@@ -196,34 +226,42 @@ impl DeviceSensors {
                 gamma: js_number_field(&value, "gamma"),
                 absolute: js_bool_field(&value, "absolute"),
             });
-        }) as Box<dyn FnMut(Event)>);
+        });
+        let orientation_listener = Closure::wrap(orientation_listener_box);
 
-        let motion_state = self.motion_state.clone();
-        let motion_listener = Closure::wrap(Box::new(move |event: Event| {
+        let motion_state = Rc::clone(&self.motion_state);
+        let motion_listener_box: Box<dyn FnMut(Event)> = Box::new(move |event: Event| {
             let value: JsValue = event.into();
             let acceleration = js_nested_object(&value, "acceleration");
             let acceleration_including_gravity = js_nested_object(&value, "accelerationIncludingGravity");
             let rotation_rate = js_nested_object(&value, "rotationRate");
 
             *motion_state.borrow_mut() = Some(MotionReadingState {
-                acceleration_x: acceleration.as_ref().and_then(|v| js_number_field(v, "x")),
-                acceleration_y: acceleration.as_ref().and_then(|v| js_number_field(v, "y")),
-                acceleration_z: acceleration.as_ref().and_then(|v| js_number_field(v, "z")),
+                acceleration_x: acceleration.as_ref().and_then(|reading| js_number_field(reading, "x")),
+                acceleration_y: acceleration.as_ref().and_then(|reading| js_number_field(reading, "y")),
+                acceleration_z: acceleration.as_ref().and_then(|reading| js_number_field(reading, "z")),
                 acceleration_including_gravity_x: acceleration_including_gravity
                     .as_ref()
-                    .and_then(|v| js_number_field(v, "x")),
+                    .and_then(|reading| js_number_field(reading, "x")),
                 acceleration_including_gravity_y: acceleration_including_gravity
                     .as_ref()
-                    .and_then(|v| js_number_field(v, "y")),
+                    .and_then(|reading| js_number_field(reading, "y")),
                 acceleration_including_gravity_z: acceleration_including_gravity
                     .as_ref()
-                    .and_then(|v| js_number_field(v, "z")),
-                rotation_rate_alpha: rotation_rate.as_ref().and_then(|v| js_number_field(v, "alpha")),
-                rotation_rate_beta: rotation_rate.as_ref().and_then(|v| js_number_field(v, "beta")),
-                rotation_rate_gamma: rotation_rate.as_ref().and_then(|v| js_number_field(v, "gamma")),
+                    .and_then(|reading| js_number_field(reading, "z")),
+                rotation_rate_alpha: rotation_rate
+                    .as_ref()
+                    .and_then(|reading| js_number_field(reading, "alpha")),
+                rotation_rate_beta: rotation_rate
+                    .as_ref()
+                    .and_then(|reading| js_number_field(reading, "beta")),
+                rotation_rate_gamma: rotation_rate
+                    .as_ref()
+                    .and_then(|reading| js_number_field(reading, "gamma")),
                 interval_ms: js_number_field(&value, "interval"),
             });
-        }) as Box<dyn FnMut(Event)>);
+        });
+        let motion_listener = Closure::wrap(motion_listener_box);
 
         let target: &web_sys::EventTarget = window.as_ref();
         target.add_event_listener_with_callback("deviceorientation", orientation_listener.as_ref().unchecked_ref())?;
@@ -259,16 +297,20 @@ impl DeviceSensors {
         Ok(())
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = isActive)]
+    #[expect(clippy::missing_const_for_fn, reason = "wasm_bindgen rejects const fns")]
     pub fn is_active(&self) -> bool {
         self.active
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = hasOrientation)]
     pub fn has_orientation(&self) -> bool {
         self.orientation_state.borrow().is_some()
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = hasMotion)]
     pub fn has_motion(&self) -> bool {
         self.motion_state.borrow().is_some()
@@ -295,28 +337,28 @@ impl DeviceSensors {
 
 #[wasm_bindgen(start)]
 pub fn init() {
-    let _ = tracing_wasm::try_set_as_global_default();
+    drop(tracing_wasm::try_set_as_global_default());
     info!("har1 workflow module initialized");
 }
 
 #[wasm_bindgen]
 pub async fn run() -> Result<(), JsValue> {
     set_har_status("har1: entered run()")?;
-    log("entered run()")?;
-    log("using existing tracing setup")?;
+    log("entered run()");
+    log("using existing tracing setup");
 
     let outcome = async {
         let ws_url = websocket_url()?;
         set_har_status(&format!("har1: resolved websocket URL\n{ws_url}"))?;
-        log(&format!("resolved websocket URL: {ws_url}"))?;
+        log(&format!("resolved websocket URL: {ws_url}"));
         let mut client = WsClient::new(WsClientConfig::new(ws_url));
-        log("connecting websocket client")?;
+        log("connecting websocket client");
         client.connect()?;
         wait_for_connected(&client).await?;
-        log(&format!("websocket connected with agent_id={}", client.get_agent_id()))?;
+        log(&format!("websocket connected with agent_id={}", client.get_agent_id()));
 
         let mut sensors = DeviceSensors::new();
-        log("starting har1 workflow")?;
+        log("starting har1 workflow");
 
         let result = run_inner(&client, &mut sensors).await;
         let stop_result = sensors.stop();
@@ -324,28 +366,30 @@ pub async fn run() -> Result<(), JsValue> {
 
         match (result, stop_result) {
             (Ok(()), Ok(())) => {
-                log("har1 workflow finished")?;
+                log("har1 workflow finished");
                 Ok(())
             }
-            (Err(error), Ok(())) => Err(error),
-            (Ok(()), Err(error)) => Err(error),
-            (Err(error), Err(_)) => Err(error),
+            (Err(error), Ok(()) | Err(_)) | (Ok(()), Err(error)) => Err(error),
         }
     }
     .await;
 
     if let Err(error) = &outcome {
         let message = describe_js_error(error);
-        let _ = set_har_status(&format!("har1: error\n{message}"));
-        let _ = log(&format!("error: {message}"));
+        drop(set_har_status(&format!("har1: error\n{message}")));
+        log(&format!("error: {message}"));
     }
 
     outcome
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "single-method wiring of model load, sensor start, sample buffering, inference loop with class tracking"
+)]
 async fn run_inner(client: &WsClient, sensors: &mut DeviceSensors) -> Result<(), JsValue> {
     set_har_status("har1: loading HAR model")?;
-    log(&format!("loading HAR model from {HAR_MODEL_PATH}"))?;
+    log(&format!("loading HAR model from {HAR_MODEL_PATH}"));
     let session = create_har_session(HAR_MODEL_PATH).await?;
     let feat_input_name = nth_string_entry(&session, "inputNames", 0)?;
     let raw_input_name = nth_string_entry(&session, "inputNames", 1)?;
@@ -356,15 +400,15 @@ async fn run_inner(client: &WsClient, sensors: &mut DeviceSensors) -> Result<(),
     ))?;
     log(&format!(
         "HAR model loaded: feat_input={feat_input_name} raw_input={raw_input_name} output={output_name}"
-    ))?;
+    ));
 
-    log("requesting sensor access")?;
+    log("requesting sensor access");
     sensors.start().await?;
-    log("sensors started")?;
+    log("sensors started");
     render_sensor_output(sensors)?;
-    log("waiting for first motion sample")?;
+    log("waiting for first motion sample");
     wait_for_motion_sample(sensors).await?;
-    log("first motion sample received")?;
+    log("first motion sample received");
 
     let mut gravity_estimate = [0.0_f64; 3];
     let mut sample_buffer: VecDeque<[f32; HAR_FEATURE_COUNT]> = VecDeque::with_capacity(HAR_SEQUENCE_LENGTH);
@@ -395,7 +439,7 @@ async fn run_inner(client: &WsClient, sensors: &mut DeviceSensors) -> Result<(),
                 "buffering HAR samples: {}/{}",
                 sample_buffer.len(),
                 HAR_SEQUENCE_LENGTH
-            ))?;
+            ));
         }
 
         if sample_buffer.len() < HAR_SEQUENCE_LENGTH {
@@ -404,7 +448,7 @@ async fn run_inner(client: &WsClient, sensors: &mut DeviceSensors) -> Result<(),
 
         if sample_buffer.len() == HAR_SEQUENCE_LENGTH {
             set_har_status("har1: HAR sample window full; inference loop active")?;
-            log("HAR sample window full; starting inference loop")?;
+            log("HAR sample window full; starting inference loop");
         }
 
         let now = js_sys::Date::now();
@@ -446,7 +490,7 @@ async fn run_inner(client: &WsClient, sensors: &mut DeviceSensors) -> Result<(),
             class_change_count,
             last_class_label.as_deref().unwrap_or("none"),
             prediction.best_label
-        ))?;
+        ));
         set_har_status(&format!(
             "har1: inference running\nlatest class: {}\nclass changes: {}/3\nbuffered samples: {}",
             prediction.best_label,
@@ -528,7 +572,7 @@ struct Prediction {
     logits: Vec<f64>,
 }
 
-fn log(message: &str) -> Result<(), JsValue> {
+fn log(message: &str) {
     let line = format!("[har1] {message}");
     web_sys::console::log_1(&JsValue::from_str(&line));
 
@@ -544,8 +588,6 @@ fn log(message: &str) -> Result<(), JsValue> {
         };
         log_el.set_text_content(Some(&next));
     }
-
-    Ok(())
 }
 
 fn set_har_status(message: &str) -> Result<(), JsValue> {
@@ -572,7 +614,7 @@ fn method(target: &JsValue, name: &str) -> Result<Function, JsValue> {
 }
 
 async fn wait_for_connected(client: &WsClient) -> Result<(), JsValue> {
-    for _ in 0..100 {
+    for _ in 0_u32..100 {
         if client.get_state() == "connected" {
             return Ok(());
         }
@@ -583,7 +625,7 @@ async fn wait_for_connected(client: &WsClient) -> Result<(), JsValue> {
 }
 
 async fn wait_for_motion_sample(sensors: &DeviceSensors) -> Result<(), JsValue> {
-    for _ in 0..100 {
+    for _ in 0_u32..100 {
         if sensors.has_motion() {
             return Ok(());
         }
@@ -758,17 +800,17 @@ fn create_feat_tensor(values: &[f32]) -> Result<JsValue, JsValue> {
 /// 8 channels × 4 stats (mean, std, min, max) = 32, plus 4 stats on the
 /// per-sample vector magnitude (mean, std, min, max) = 36 total.
 fn compute_feat_input(sample_buffer: &VecDeque<[f32; HAR_FEATURE_COUNT]>) -> [f32; HAR_FEAT_INPUT_SIZE] {
-    let n = sample_buffer.len() as f32;
+    let sample_count = sample_buffer.len() as f32;
     let mut out = [0.0f32; HAR_FEAT_INPUT_SIZE];
 
     // Per-channel stats (32 values)
-    for ch in 0..HAR_FEATURE_COUNT {
-        let vals: Vec<f32> = sample_buffer.iter().map(|s| s[ch]).collect();
-        let mean = vals.iter().sum::<f32>() / n;
-        let std = (vals.iter().map(|v| (v - mean).powi(2)).sum::<f32>() / n).sqrt();
-        let min = vals.iter().cloned().fold(f32::INFINITY, f32::min);
-        let max = vals.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-        let base = ch * 4;
+    for channel in 0..HAR_FEATURE_COUNT {
+        let vals: Vec<f32> = sample_buffer.iter().map(|sample| sample[channel]).collect();
+        let mean = vals.iter().sum::<f32>() / sample_count;
+        let std = (vals.iter().map(|val| (val - mean).powi(2)).sum::<f32>() / sample_count).sqrt();
+        let min = vals.iter().copied().fold(f32::INFINITY, f32::min);
+        let max = vals.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        let base = channel * 4;
         out[base] = mean;
         out[base + 1] = std;
         out[base + 2] = min;
@@ -778,12 +820,12 @@ fn compute_feat_input(sample_buffer: &VecDeque<[f32; HAR_FEATURE_COUNT]>) -> [f3
     // Magnitude stats (4 values, indices 32–35)
     let mags: Vec<f32> = sample_buffer
         .iter()
-        .map(|s| s.iter().map(|v| v * v).sum::<f32>().sqrt())
+        .map(|sample| sample.iter().map(|val| val * val).sum::<f32>().sqrt())
         .collect();
-    let mean = mags.iter().sum::<f32>() / n;
-    let std = (mags.iter().map(|v| (v - mean).powi(2)).sum::<f32>() / n).sqrt();
-    let min = mags.iter().cloned().fold(f32::INFINITY, f32::min);
-    let max = mags.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+    let mean = mags.iter().sum::<f32>() / sample_count;
+    let std = (mags.iter().map(|val| (val - mean).powi(2)).sum::<f32>() / sample_count).sqrt();
+    let min = mags.iter().copied().fold(f32::INFINITY, f32::min);
+    let max = mags.iter().copied().fold(f32::NEG_INFINITY, f32::max);
     out[32] = mean;
     out[33] = std;
     out[34] = min;
@@ -837,13 +879,13 @@ async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let promise = Promise::new(&mut |resolve, reject| {
         let callback = Closure::once_into_js(move || {
-            let _ = resolve.call0(&JsValue::NULL);
+            drop(resolve.call0(&JsValue::NULL));
         });
 
         if let Err(error) =
             window.set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), duration_ms)
         {
-            let _ = reject.call1(&JsValue::NULL, &error);
+            drop(reject.call1(&JsValue::NULL, &error));
         }
     });
     JsFuture::from(promise).await.map(|_| ())

@@ -8,10 +8,12 @@ repository.workspace = true
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+doctest = false
 
 [dependencies]
-edge-toolkit = { path = "../../../libs/edge-toolkit" }
-et-ws-wasm-agent = { path = "../../ws-wasm-agent" }
+edge-toolkit.workspace = true
+et-web.workspace = true
+et-ws-wasm-agent.workspace = true
 js-sys = "0.3"
 serde.workspace = true
 serde-wasm-bindgen = "0.6"
@@ -34,3 +36,6 @@ web-sys = { version = "0.3", features = [
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
+
+[lints]
+workspace = true

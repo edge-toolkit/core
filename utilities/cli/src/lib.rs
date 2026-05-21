@@ -1,3 +1,8 @@
+#![expect(
+    clippy::single_call_fn,
+    reason = "et-cli decomposes scenario generation into named pipeline stages; each invoked once for readability"
+)]
+
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::ffi::OsString;
 use std::path::{Component, Path, PathBuf};
@@ -17,6 +22,10 @@ pub use self::deployment_types::{
 pub use self::error::CliError;
 pub use self::module_package_json::generate_module_package_json;
 
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "OutputType enumerates the supported deployment formats; downstream code matches exhaustively"
+)]
 #[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum OutputType {
@@ -29,6 +38,7 @@ pub enum OutputType {
 impl OutputType {
     pub const ALL: &'static [Self] = &[Self::Mise, Self::DockerCompose];
 
+    #[must_use]
     pub const fn output_file_name(self) -> &'static str {
         match self {
             Self::Mise => "mise.toml",
@@ -46,6 +56,7 @@ fn generated_output_files(output_types: &[OutputType]) -> Vec<&'static str> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct DeploymentSummary {
     pub cluster_name: String,
     pub agent_templates: usize,
@@ -53,6 +64,7 @@ pub struct DeploymentSummary {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct RegeneratedScenario {
     pub input_file: PathBuf,
     pub output_dir: PathBuf,
@@ -60,6 +72,7 @@ pub struct RegeneratedScenario {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+#[non_exhaustive]
 pub struct PackageJson {
     pub name: Option<String>,
     #[serde(default)]
@@ -113,6 +126,7 @@ struct CargoWsModule {
 }
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ModuleRegistryEntry {
     pub mise_path: String,
     pub docker_path: String,
@@ -164,10 +178,7 @@ pub fn regenerate_verification(
 
         let cluster = load_cluster_input(&input_file)?;
         let module_names = cluster_module_names(&cluster);
-        let output_types = match &output_type {
-            Some(output_type) => std::slice::from_ref(output_type),
-            None => OutputType::ALL,
-        };
+        let output_types = output_type.as_ref().map_or(OutputType::ALL, std::slice::from_ref);
 
         generate_deployment_outputs(&cluster, &output_dir, output_types)?;
         let summary = deployment_summary(cluster.cluster_name, cluster.agents.len(), module_names);
@@ -191,7 +202,11 @@ pub fn output_type_from_input(value: &str) -> Result<OutputType, CliError> {
     }
 }
 
-fn deployment_summary(cluster_name: String, agent_templates: usize, module_names: Vec<String>) -> DeploymentSummary {
+const fn deployment_summary(
+    cluster_name: String,
+    agent_templates: usize,
+    module_names: Vec<String>,
+) -> DeploymentSummary {
     DeploymentSummary {
         cluster_name,
         agent_templates,
@@ -243,7 +258,12 @@ fn discover_verification_scenarios(verification_root: &Path) -> Result<Vec<(Path
         for entry in entries {
             let entry = entry?;
             let path = entry.path();
-            if !entry.file_type()?.is_file() {
+            #[expect(
+                clippy::filetype_is_file,
+                reason = "scenario inputs are regular files only; dirs and symlinks are intentionally skipped"
+            )]
+            let is_regular_file = entry.file_type()?.is_file();
+            if !is_regular_file {
                 continue;
             }
 
@@ -280,15 +300,15 @@ fn generated_readme(cluster: &ClusterInput, module_names: &[String], output_type
     };
 
     let output_files = generated_output_files(output_types);
-    let output_summary = if output_files.len() == 1 {
+    let output_summary = if let [only_file] = output_files.as_slice() {
         format!(
-            "This directory contains the generated `{}` for the `{}` scenario.",
-            output_files[0], cluster.cluster_name
+            "This directory contains the generated `{only_file}` for the `{}` scenario.",
+            cluster.cluster_name
         )
     } else {
         let output_files = output_files
             .iter()
-            .map(|output_file| format!("`{}`", output_file))
+            .map(|output_file| format!("`{output_file}`"))
             .collect::<Vec<_>>()
             .join(", ");
         format!(
@@ -355,6 +375,7 @@ fn generated_run_instructions(output_type: OutputType) -> String {
     }
 }
 
+#[must_use]
 pub fn module_registry(project_root: &Path, ws_server_dir: &Path) -> BTreeMap<String, ModuleRegistryEntry> {
     let mut registry = BTreeMap::new();
 
@@ -419,9 +440,9 @@ fn register_modules_under(
                 .unwrap_or_default(),
         };
 
-        registry.insert(directory_name.to_string(), entry.clone());
+        let _previous: Option<ModuleRegistryEntry> = registry.insert(directory_name.to_string(), entry.clone());
         if let Some(package_name) = package.and_then(|package| package.name) {
-            registry.insert(package_name, entry);
+            let _previous: Option<ModuleRegistryEntry> = registry.insert(package_name, entry);
         }
     }
 }
@@ -432,7 +453,7 @@ fn register_external_module(
     mise_path: &str,
     docker_path: &str,
 ) {
-    registry.insert(
+    let _previous: Option<ModuleRegistryEntry> = registry.insert(
         package_name.to_string(),
         ModuleRegistryEntry {
             mise_path: mise_path.to_string(),
@@ -442,6 +463,7 @@ fn register_external_module(
     );
 }
 
+#[must_use]
 pub fn module_package_json(module_path: &Path) -> Option<PackageJson> {
     let pkg_package = read_package_json(&module_path.join("pkg/package.json"));
     let root_package = read_package_json(&module_path.join("package.json"));
@@ -523,6 +545,7 @@ where
     Ok(paths)
 }
 
+#[must_use]
 pub fn absolute_from(base: &Path, path: &Path) -> PathBuf {
     if path.is_absolute() {
         normalize_path(path)
@@ -531,6 +554,7 @@ pub fn absolute_from(base: &Path, path: &Path) -> PathBuf {
     }
 }
 
+#[must_use]
 pub fn relative_path_from(from_dir: &Path, target: &Path) -> PathBuf {
     let from_components = normal_components(&normalize_path(from_dir));
     let target_components = normal_components(&normalize_path(target));
@@ -559,7 +583,7 @@ fn normal_components(path: &Path) -> Vec<OsString> {
     path.components()
         .filter_map(|component| match component {
             Component::Normal(value) => Some(value.to_os_string()),
-            _ => None,
+            Component::Prefix(_) | Component::RootDir | Component::CurDir | Component::ParentDir => None,
         })
         .collect()
 }
@@ -572,7 +596,7 @@ fn normalize_path(path: &Path) -> PathBuf {
             Component::RootDir => normalized.push(Path::new("/")),
             Component::CurDir => {}
             Component::ParentDir => {
-                normalized.pop();
+                let _popped = normalized.pop();
             }
             Component::Normal(value) => normalized.push(value),
         }
@@ -580,6 +604,7 @@ fn normalize_path(path: &Path) -> PathBuf {
     normalized
 }
 
+#[must_use]
 pub fn cluster_module_names(cluster: &ClusterInput) -> Vec<String> {
     cluster
         .agents

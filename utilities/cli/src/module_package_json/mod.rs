@@ -1,3 +1,8 @@
+#![expect(
+    unused_results,
+    reason = "serde_json::Map::insert discards the prior Value at each key, which is the intended overwrite"
+)]
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -82,7 +87,10 @@ struct WorkspacePackage {
 enum MaybeInherited {
     Direct(String),
     Workspace {
-        #[allow(dead_code)]
+        #[expect(
+            dead_code,
+            reason = "field exists only to make serde's untagged deserializer pick this variant"
+        )]
         workspace: bool,
     },
 }
@@ -111,22 +119,25 @@ pub fn generate_module_package_json(module_dir: &Path) -> Result<PathBuf, CliErr
 fn package_json_from_pyproject(module_dir: &Path) -> Result<Value, CliError> {
     let pyproject_path = module_dir.join("pyproject.toml");
     let pyproject: Pyproject = read_toml(&pyproject_path)?;
-    let p = &pyproject.project;
-    let ws_module = pyproject.tool.map(|t| t.ws_module).unwrap_or_default();
+    let project = &pyproject.project;
+    let ws_module = pyproject.tool.map(|tool| tool.ws_module).unwrap_or_default();
 
     let pkg_dir = module_dir.join("pkg");
     let kind = detect_python_kind(module_dir);
-    let main = resolve_main(&pkg_dir, &p.name, kind, ws_module.main.as_deref())?;
+    let main = resolve_main(&pkg_dir, &project.name, kind, ws_module.main.as_deref())?;
 
     let mut pkg = Map::from_iter([
-        ("name".to_string(), json!(p.name)),
+        ("name".to_string(), json!(project.name)),
         ("type".to_string(), json!("module")),
-        ("description".to_string(), json!(p.description.as_deref().unwrap_or(""))),
-        ("version".to_string(), json!(p.version)),
-        ("license".to_string(), json!(p.license.as_deref().unwrap_or(""))),
+        (
+            "description".to_string(),
+            json!(project.description.as_deref().unwrap_or("")),
+        ),
+        ("version".to_string(), json!(project.version)),
+        ("license".to_string(), json!(project.license.as_deref().unwrap_or(""))),
         ("main".to_string(), json!(main)),
     ]);
-    if let Some(repo) = project_repository(&p.urls) {
+    if let Some(repo) = project_repository(&project.urls) {
         pkg.insert("repository".to_string(), repository_json(repo));
     }
     if !ws_module.dependencies.is_empty() {
@@ -166,8 +177,8 @@ fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value, 
     if !pkg.contains_key("name") {
         pkg.insert("name".to_string(), json!(crate_name));
     }
-    let ws_version = workspace.as_ref().and_then(|w| w.version.as_deref());
-    let ws_repository = workspace.as_ref().and_then(|w| w.repository.as_deref());
+    let ws_version = workspace.as_ref().and_then(|ws| ws.version.as_deref());
+    let ws_repository = workspace.as_ref().and_then(|ws| ws.repository.as_deref());
     if !pkg.contains_key("version")
         && let Some(version) = resolve_inherited(package.version.as_ref(), ws_version)
     {
@@ -184,7 +195,7 @@ fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value, 
         .and_then(|metadata| metadata.ws_module)
         .unwrap_or_default();
 
-    let existing_main = pkg.get("main").and_then(|v| v.as_str()).map(str::to_string);
+    let existing_main = pkg.get("main").and_then(|value| value.as_str()).map(str::to_string);
     let main_override = ws_module.main.as_deref().or(existing_main.as_deref());
     let pkg_dir = module_dir.join("pkg");
     let main = resolve_main(&pkg_dir, &crate_name, kind, main_override)?;
@@ -212,7 +223,7 @@ fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value, 
 /// declares `field.workspace = true`.
 fn resolve_inherited(direct: Option<&MaybeInherited>, workspace: Option<&str>) -> Option<String> {
     match direct {
-        Some(MaybeInherited::Direct(s)) => Some(s.clone()),
+        Some(MaybeInherited::Direct(value)) => Some(value.clone()),
         Some(MaybeInherited::Workspace { .. }) => workspace.map(str::to_string),
         None => None,
     }
@@ -250,10 +261,10 @@ enum ModuleKind {
 }
 
 impl ModuleKind {
-    fn extension(self) -> &'static str {
+    const fn extension(self) -> &'static str {
         match self {
-            ModuleKind::Wasi => "wasm",
-            ModuleKind::Js => "js",
+            Self::Wasi => "wasm",
+            Self::Js => "js",
         }
     }
 }

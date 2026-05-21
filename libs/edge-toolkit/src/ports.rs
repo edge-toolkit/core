@@ -18,7 +18,7 @@ use Services::{InsecureWebSocketServer, OtlpCollector, SecureWebSocketServer};
 impl Services {
     /// Get the allocation port for the service.
     #[must_use]
-    pub const fn port(&self) -> u16 {
+    pub const fn port(self) -> u16 {
         match self {
             // OpenObserve specific http port
             OtlpCollector => 5080,

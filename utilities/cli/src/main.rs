@@ -1,3 +1,5 @@
+#![expect(clippy::print_stdout, reason = "CLI tool: println! is the intended UX")]
+
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
@@ -41,26 +43,32 @@ fn main() -> Result<(), CliError> {
             output_dir,
             output_type,
         } => {
-            println!("Reading cluster input from: {:?}", input_file);
+            println!("Reading cluster input from: {}", input_file.display());
             let summary = generate_deployment(input_file, output_dir, Some(*output_type))?;
             println!(
-                "Scenario summary: input={:?}, cluster={}, agents={}, resources={}",
-                input_file,
+                "Scenario summary: input={}, cluster={}, agents={}, resources={}",
+                input_file.display(),
                 summary.cluster_name,
                 summary.agent_templates,
                 summary.module_names.join(", ")
             );
-            println!("Generated: {:?}", output_dir.join(output_type.output_file_name()));
-            println!("See the generated README.md in {:?} for instructions.", output_dir);
+            println!(
+                "Generated: {}",
+                output_dir.join(output_type.output_file_name()).display()
+            );
+            println!(
+                "See the generated README.md in {} for instructions.",
+                output_dir.display()
+            );
         }
         Commands::RegenVerification { verification_root } => {
-            println!("Reading verification scenarios from: {:?}", verification_root);
+            println!("Reading verification scenarios from: {}", verification_root.display());
             let regenerated = regenerate_verification(verification_root, None)?;
             for scenario in &regenerated {
                 println!(
-                    "Regenerated: input={:?}, output={:?}, cluster={}, agents={}, resources={}",
-                    scenario.input_file,
-                    scenario.output_dir,
+                    "Regenerated: input={}, output={}, cluster={}, agents={}, resources={}",
+                    scenario.input_file.display(),
+                    scenario.output_dir.display(),
                     scenario.summary.cluster_name,
                     scenario.summary.agent_templates,
                     scenario.summary.module_names.join(", ")

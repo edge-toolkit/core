@@ -1,12 +1,33 @@
+#![expect(
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::default_numeric_fallback,
+    clippy::float_arithmetic,
+    clippy::future_not_send,
+    clippy::indexing_slicing,
+    clippy::integer_division,
+    clippy::integer_division_remainder_used,
+    clippy::let_underscore_must_use,
+    clippy::let_underscore_untyped,
+    clippy::single_call_fn,
+    clippy::suboptimal_flops,
+    let_underscore_drop,
+    unused_results,
+    reason = "browser WASM CV module: tensor math, JsFuture, Reflect::set discards, inline f64 literals are inherent"
+)]
+
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use et_web::{JsCastExt, JsFunctionExt, JsPromiseExt, get_media_devices};
+use et_web::{JsCastExt as _, JsFunctionExt as _, JsPromiseExt as _, get_media_devices};
 use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value};
 use js_sys::{Array, Float32Array, Function, Promise, Reflect};
 use serde_json::json;
 use tracing::info;
-use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 use web_sys::MediaStreamConstraints;
@@ -64,7 +85,7 @@ pub struct VideoCapture {
 #[wasm_bindgen]
 impl VideoCapture {
     #[wasm_bindgen(js_name = request)]
-    pub async fn request() -> Result<VideoCapture, JsValue> {
+    pub async fn request() -> Result<Self, JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
         let media_devices = get_media_devices(&window.navigator())?;
 
@@ -81,14 +102,16 @@ impl VideoCapture {
             stream.get_video_tracks().length()
         );
 
-        Ok(VideoCapture { stream })
+        Ok(Self { stream })
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = trackCount)]
     pub fn track_count(&self) -> u32 {
         self.stream.get_video_tracks().length()
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = rawStream)]
     pub fn raw_stream(&self) -> JsValue {
         self.stream.clone().into()
@@ -116,11 +139,16 @@ pub fn init() {
     info!("face detection workflow module initialized");
 }
 
+#[must_use]
 #[wasm_bindgen]
 pub fn is_running() -> bool {
     FACE_RUNTIME.with(|runtime| runtime.borrow().is_some())
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "single-method wiring of model load, capture, inference + render timers; splitting fragments closures"
+)]
 #[wasm_bindgen]
 pub async fn run() -> Result<(), JsValue> {
     if is_running() {
@@ -128,13 +156,13 @@ pub async fn run() -> Result<(), JsValue> {
     }
 
     face_set_status("face detection: starting");
-    log(&format!("loading RetinaFace model from {FACE_MODEL_PATH}"))?;
+    log(&format!("loading RetinaFace model from {FACE_MODEL_PATH}"));
 
     let ws_url = websocket_url()?;
     let mut client = WsClient::new(WsClientConfig::new(ws_url.clone()));
     client.connect()?;
     wait_for_connected(&client).await?;
-    log(&format!("websocket connected with agent_id={}", client.get_agent_id()))?;
+    log(&format!("websocket connected with agent_id={}", client.get_agent_id()));
 
     let capture = match VideoCapture::request().await {
         Ok(capture) => capture,
@@ -176,15 +204,15 @@ pub async fn run() -> Result<(), JsValue> {
     let last_has_detection = Rc::new(Cell::new(false));
     let inference_count = Rc::new(Cell::new(0));
 
-    let inference_session = session.clone();
+    let inference_session = session;
     let inference_input_name = input_name.clone();
     let inference_output_names = output_names.clone();
     let inference_client = client.clone();
-    let inference_last_summary = last_summary.clone();
-    let inference_pending_flag = inference_pending.clone();
-    let inference_last_has_detection = last_has_detection.clone();
-    let inference_count_ref = inference_count.clone();
-    let inference_closure = Closure::wrap(Box::new(move || {
+    let inference_last_summary = Rc::clone(&last_summary);
+    let inference_pending_flag = Rc::clone(&inference_pending);
+    let inference_last_has_detection = Rc::clone(&last_has_detection);
+    let inference_count_ref = Rc::clone(&inference_count);
+    let inference_closure_box: Box<dyn FnMut()> = Box::new(move || {
         if inference_pending_flag.get() {
             return;
         }
@@ -198,10 +226,10 @@ pub async fn run() -> Result<(), JsValue> {
         let input_name = inference_input_name.clone();
         let output_names = inference_output_names.clone();
         let client = inference_client.clone();
-        let last_summary = inference_last_summary.clone();
-        let pending_flag = inference_pending_flag.clone();
-        let last_has_detection = inference_last_has_detection.clone();
-        let count_ref = inference_count_ref.clone();
+        let last_summary = Rc::clone(&inference_last_summary);
+        let pending_flag = Rc::clone(&inference_pending_flag);
+        let last_has_detection = Rc::clone(&inference_last_has_detection);
+        let count_ref = Rc::clone(&inference_count_ref);
 
         spawn_local(async move {
             let outcome = infer_once(&session, &input_name, &output_names, &client, &last_has_detection).await;
@@ -215,30 +243,31 @@ pub async fn run() -> Result<(), JsValue> {
                     *last_summary.borrow_mut() = Some(summary);
 
                     if count >= 20 {
-                        let _ = log("workflow finished automatically after 20 inferences");
+                        log("workflow finished automatically after 20 inferences");
                         let _ = stop();
                     }
                 }
                 Err(error) => {
                     let message = describe_js_error(&error);
                     face_set_status(&format!("face detection: inference error\n{message}"));
-                    let _ = log(&format!("inference error: {message}"));
+                    log(&format!("inference error: {message}"));
                 }
             }
 
             pending_flag.set(false);
         });
-    }) as Box<dyn FnMut()>);
+    });
+    let inference_closure = Closure::wrap(inference_closure_box);
 
-    let render_last_summary = last_summary.clone();
-    let render_closure = Closure::wrap(Box::new(move || {
+    let render_last_summary = Rc::clone(&last_summary);
+    let render_closure_box: Box<dyn FnMut()> = Box::new(move || {
         let detections = render_last_summary
             .borrow()
             .as_ref()
-            .map(|summary| summary.detections.clone())
-            .unwrap_or_default();
+            .map_or_else(Vec::new, |summary| summary.detections.clone());
         let _ = face_render(&detections);
-    }) as Box<dyn FnMut()>);
+    });
+    let render_closure = Closure::wrap(render_closure_box);
 
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let inference_interval_id = window.set_interval_with_callback_and_timeout_and_arguments_0(
@@ -252,7 +281,7 @@ pub async fn run() -> Result<(), JsValue> {
 
     let stop_callback = Closure::once_into_js(move || {
         if is_running() {
-            let _ = log("workflow finished automatically after 30 seconds");
+            log("workflow finished automatically after 30 seconds");
             let _ = stop();
         }
     });
@@ -264,7 +293,7 @@ pub async fn run() -> Result<(), JsValue> {
         processed_at: String::from("waiting for first inference"),
     };
     update_face_status(&input_name, &output_names, &startup_summary);
-    log("face detection demo started")?;
+    log("face detection demo started");
 
     FACE_RUNTIME.with(|runtime| {
         *runtime.borrow_mut() = Some(FaceDetectionRuntime {
@@ -299,7 +328,7 @@ pub fn stop() -> Result<(), JsValue> {
         runtime.client.disconnect();
         face_detach_stream();
         face_set_status("face detection demo stopped.");
-        log("face detection demo stopped")?;
+        log("face detection demo stopped");
         Ok(())
     })
 }
@@ -392,9 +421,12 @@ fn decode_retinaface_outputs(
     source_width: f64,
     source_height: f64,
 ) -> Result<DetectionSummary, JsValue> {
-    let loc_tensor = Reflect::get(outputs, &JsValue::from_str(&output_names[0]))?;
-    let conf_tensor = Reflect::get(outputs, &JsValue::from_str(&output_names[1]))?;
-    let landm_tensor = Reflect::get(outputs, &JsValue::from_str(&output_names[2]))?;
+    let [loc_name, conf_name, landm_name, ..] = output_names else {
+        return Err(JsValue::from_str("RetinaFace session must expose 3 output names"));
+    };
+    let loc_tensor = Reflect::get(outputs, &JsValue::from_str(loc_name))?;
+    let conf_tensor = Reflect::get(outputs, &JsValue::from_str(conf_name))?;
+    let landm_tensor = Reflect::get(outputs, &JsValue::from_str(landm_name))?;
 
     let loc_values = tensor_f32_values(&loc_tensor)?;
     let conf_values = tensor_f32_values(&conf_tensor)?;
@@ -441,7 +473,7 @@ fn decode_retinaface_outputs(
     }
 
     let detections = apply_nms(detections, RETINAFACE_NMS_THRESHOLD);
-    let confidence = detections.first().map(|entry| entry.score).unwrap_or(0.0);
+    let confidence = detections.first().map_or(0.0, |entry| entry.score);
     Ok(DetectionSummary {
         detections,
         confidence,
@@ -541,8 +573,12 @@ fn softmax(values: &[f64]) -> Vec<f64> {
     exps.into_iter().map(|value| value / sum).collect()
 }
 
+#[expect(
+    clippy::missing_const_for_fn,
+    reason = "f64::clamp is not yet const-stable as of Rust 1.95"
+)]
 fn clamp(value: f64, min: f64, max: f64) -> f64 {
-    value.max(min).min(max)
+    value.clamp(min, max)
 }
 
 fn method(target: &JsValue, name: &str) -> Result<Function, JsValue> {
@@ -695,7 +731,7 @@ fn describe_js_error(error: &JsValue) -> String {
         .unwrap_or_else(|| format!("{error:?}"))
 }
 
-fn log(message: &str) -> Result<(), JsValue> {
+fn log(message: &str) {
     let line = format!("[face-detection] {message}");
     web_sys::console::log_1(&JsValue::from_str(&line));
 
@@ -711,8 +747,6 @@ fn log(message: &str) -> Result<(), JsValue> {
         };
         log_el.set_text_content(Some(&next));
     }
-
-    Ok(())
 }
 
 async fn face_attach_stream(stream: JsValue) -> Result<(), JsValue> {

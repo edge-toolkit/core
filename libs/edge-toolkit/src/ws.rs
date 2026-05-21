@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
 
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "wire protocol enum: variants exhaustively describe the JSON shape, downstream matches are exhaustive"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ConnectStatus {
@@ -7,6 +11,10 @@ pub enum ConnectStatus {
     Reconnected,
 }
 
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "wire protocol enum: variants exhaustively describe the JSON shape, downstream matches are exhaustive"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum MessageDeliveryStatus {
@@ -16,6 +24,10 @@ pub enum MessageDeliveryStatus {
     Broadcast,
 }
 
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "wire protocol enum: variants exhaustively describe the JSON shape, downstream matches are exhaustive"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum MessageScope {
@@ -23,6 +35,10 @@ pub enum MessageScope {
     Broadcast,
 }
 
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "wire protocol enum: variants exhaustively describe the JSON shape, downstream matches are exhaustive"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentConnectionState {
@@ -31,12 +47,28 @@ pub enum AgentConnectionState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct AgentSummary {
     pub agent_id: String,
     pub state: AgentConnectionState,
     pub last_known_ip: Option<String>,
 }
 
+impl AgentSummary {
+    #[must_use]
+    pub const fn new(agent_id: String, state: AgentConnectionState, last_known_ip: Option<String>) -> Self {
+        Self {
+            agent_id,
+            state,
+            last_known_ip,
+        }
+    }
+}
+
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "wire protocol enum: variants exhaustively describe the JSON shape, downstream matches are exhaustive"
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum WsMessage {

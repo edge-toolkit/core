@@ -4,6 +4,7 @@ cargo-binstall = "latest"
 "cargo:ast-grep" = "latest"
 "cargo:aube" = "latest"
 "cargo:cargo-expand" = "latest"
+"cargo:cargo-unmaintained" = "latest"
 "cargo:taplo-cli" = "latest"
 "cargo:wasm-pack" = "latest"
 "cargo:watchexec-cli" = "latest"
@@ -101,6 +102,7 @@ depends = [
   "ast-grep-check",
   "cargo-check",
   "cargo-clippy",
+  "cargo-doc-check",
   "cargo-fmt-check",
   "dart-check",
   "dotnet-check",
@@ -129,6 +131,11 @@ run = "cargo +nightly fmt -- --check"
 
 [tasks.cargo-clippy]
 run = "cargo clippy --workspace --tests"
+
+[tasks.cargo-doc-check]
+description = "Build rustdoc with -D warnings to fail on any doc issues"
+env = { RUSTDOCFLAGS = "-D warnings" }
+run = "cargo doc --workspace --no-deps --document-private-items"
 
 [tasks.cargo-clippy-fix]
 run = "cargo clippy --fix --allow-dirty --allow-staged --workspace --tests"

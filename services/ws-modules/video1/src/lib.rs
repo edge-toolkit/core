@@ -1,6 +1,12 @@
+#![expect(
+    clippy::future_not_send,
+    clippy::single_call_fn,
+    reason = "browser WASM module: JsFuture is !Send; module-local helpers like wait_for_* are single-use by design"
+)]
+
 use std::cell::RefCell;
 
-use et_web::{JsCastExt, get_media_devices};
+use et_web::{JsCastExt as _, get_media_devices};
 use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value};
 use js_sys::{Promise, Reflect};
 use serde_json::json;
@@ -17,7 +23,7 @@ pub struct VideoCapture {
 #[wasm_bindgen]
 impl VideoCapture {
     #[wasm_bindgen(js_name = request)]
-    pub async fn request() -> Result<VideoCapture, JsValue> {
+    pub async fn request() -> Result<Self, JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
         let media_devices = get_media_devices(&window.navigator())?;
 
@@ -34,14 +40,16 @@ impl VideoCapture {
             stream.get_video_tracks().length()
         );
 
-        Ok(VideoCapture { stream })
+        Ok(Self { stream })
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = trackCount)]
     pub fn track_count(&self) -> u32 {
         self.stream.get_video_tracks().length()
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = rawStream)]
     pub fn raw_stream(&self) -> JsValue {
         self.stream.clone().into()
@@ -69,10 +77,11 @@ thread_local! {
 
 #[wasm_bindgen(start)]
 pub fn init() {
-    let _ = tracing_wasm::try_set_as_global_default();
+    drop(tracing_wasm::try_set_as_global_default());
     info!("video-capture module initialized");
 }
 
+#[must_use]
 #[wasm_bindgen]
 pub fn is_running() -> bool {
     VIDEO_CAPTURE_RUNTIME.with(|runtime| runtime.borrow().is_some())
@@ -85,26 +94,26 @@ pub async fn run() -> Result<(), JsValue> {
     }
 
     set_module_status("video-capture: entered run()")?;
-    log("entered run()")?;
+    log("entered run()");
 
     let outcome = async {
         let ws_url = websocket_url()?;
         let mut client = WsClient::new(WsClientConfig::new(ws_url));
         client.connect()?;
         wait_for_connected(&client).await?;
-        log(&format!("websocket connected with agent_id={}", client.get_agent_id()))?;
+        log(&format!("websocket connected with agent_id={}", client.get_agent_id()));
 
-        log("requesting video capture access")?;
+        log("requesting video capture access");
         let capture = VideoCapture::request().await?;
         let tracks = capture.track_count();
-        log(&format!("video capture granted: {} tracks", tracks))?;
+        log(&format!("video capture granted: {tracks} tracks"));
 
         // Set up preview
         if let Some(window) = web_sys::window()
             && let Some(document) = window.document()
             && let Some(preview_el) = document.get_element_by_id("video-preview")
         {
-            Reflect::set(&preview_el, &JsValue::from_str("srcObject"), &capture.raw_stream())?;
+            let _: bool = Reflect::set(&preview_el, &JsValue::from_str("srcObject"), &capture.raw_stream())?;
             if let Some(html_el) = preview_el.dyn_ref::<web_sys::HtmlElement>() {
                 html_el.style().set_property("display", "block")?;
             }
@@ -121,17 +130,19 @@ pub async fn run() -> Result<(), JsValue> {
         set_module_status("video-capture: running")?;
 
         VIDEO_CAPTURE_RUNTIME.with(|runtime| {
-            runtime.borrow_mut().replace(VideoCaptureRuntime { client, capture });
+            let _previous: Option<VideoCaptureRuntime> =
+                runtime.borrow_mut().replace(VideoCaptureRuntime { client, capture });
         });
 
         let stop_callback = Closure::once_into_js(move || {
             if is_running() {
-                let _ = log("workflow finished automatically after 10 seconds");
-                let _ = stop();
+                log("workflow finished automatically after 10 seconds");
+                drop(stop());
             }
         });
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
-        window.set_timeout_with_callback_and_timeout_and_arguments_0(stop_callback.unchecked_ref(), 10000)?;
+        let _id: i32 =
+            window.set_timeout_with_callback_and_timeout_and_arguments_0(stop_callback.unchecked_ref(), 10000)?;
 
         Ok(())
     }
@@ -139,8 +150,8 @@ pub async fn run() -> Result<(), JsValue> {
 
     if let Err(error) = &outcome {
         let message = describe_js_error(error);
-        let _ = set_module_status(&format!("video-capture: error\n{}", message));
-        let _ = log(&format!("error: {}", message));
+        drop(set_module_status(&format!("video-capture: error\n{message}")));
+        log(&format!("error: {message}"));
     }
 
     outcome
@@ -158,13 +169,13 @@ pub fn stop() -> Result<(), JsValue> {
                 && let Some(document) = window.document()
                 && let Some(preview_el) = document.get_element_by_id("video-preview")
             {
-                Reflect::set(&preview_el, &JsValue::from_str("srcObject"), &JsValue::NULL)?;
+                let _: bool = Reflect::set(&preview_el, &JsValue::from_str("srcObject"), &JsValue::NULL)?;
                 if let Some(html_el) = preview_el.dyn_ref::<web_sys::HtmlElement>() {
                     html_el.style().set_property("display", "none")?;
                 }
             }
 
-            log("video-capture stopped")?;
+            log("video-capture stopped");
         }
         Ok::<(), JsValue>(())
     })?;
@@ -173,8 +184,8 @@ pub fn stop() -> Result<(), JsValue> {
     Ok(())
 }
 
-fn log(message: &str) -> Result<(), JsValue> {
-    let line = format!("[video-capture] {}", message);
+fn log(message: &str) {
+    let line = format!("[video-capture] {message}");
     web_sys::console::log_1(&JsValue::from_str(&line));
 
     if let Some(window) = web_sys::window()
@@ -185,12 +196,10 @@ fn log(message: &str) -> Result<(), JsValue> {
         let next = if current.is_empty() {
             line
         } else {
-            format!("{}\n{}", current, line)
+            format!("{current}\n{line}")
         };
         log_el.set_text_content(Some(&next));
     }
-
-    Ok(())
 }
 
 fn set_module_status(message: &str) -> Result<(), JsValue> {
@@ -201,11 +210,11 @@ fn describe_js_error(error: &JsValue) -> String {
     error
         .as_string()
         .or_else(|| js_sys::JSON::stringify(error).ok().map(String::from))
-        .unwrap_or_else(|| format!("{:?}", error))
+        .unwrap_or_else(|| format!("{error:?}"))
 }
 
 async fn wait_for_connected(client: &WsClient) -> Result<(), JsValue> {
-    for _ in 0..100 {
+    for _ in 0_u32..100 {
         if client.get_state() == "connected" {
             return Ok(());
         }
@@ -219,13 +228,13 @@ async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let promise = Promise::new(&mut |resolve, reject| {
         let callback = Closure::once_into_js(move || {
-            let _ = resolve.call0(&JsValue::NULL);
+            drop(resolve.call0(&JsValue::NULL));
         });
 
         if let Err(error) =
             window.set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), duration_ms)
         {
-            let _ = reject.call1(&JsValue::NULL, &error);
+            drop(reject.call1(&JsValue::NULL, &error));
         }
     });
     JsFuture::from(promise).await.map(|_| ())
@@ -241,5 +250,5 @@ fn websocket_url() -> Result<String, JsValue> {
         .as_string()
         .ok_or_else(|| JsValue::from_str("window.location.host is unavailable"))?;
     let ws_protocol = if protocol == "https:" { "wss:" } else { "ws:" };
-    Ok(format!("{}//{}/ws", ws_protocol, host))
+    Ok(format!("{ws_protocol}//{host}/ws"))
 }

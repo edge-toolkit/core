@@ -2,12 +2,15 @@ use std::path::{Path, PathBuf};
 
 use thiserror::Error;
 
-/// Errors returned by `et-cli` operations. Variants carry the path or
-/// value they failed on so users can see *what* went wrong, not just the
-/// underlying error text. `Io` is `#[from]`-forwarded — the inner
-/// `std::io::Error` arrives from `fs_err`, which already embeds the
-/// failing path in its `Display`, so we don't need a path field here.
+/// Errors returned by `et-cli` operations.
+///
+/// Variants carry the path or value they failed on so users can see *what*
+/// went wrong, not just the underlying error text. `Io` is
+/// `#[from]`-forwarded — the inner `std::io::Error` arrives from `fs_err`,
+/// which already embeds the failing path in its `Display`, so we don't need
+/// a path field here.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum CliError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -81,7 +84,7 @@ pub enum CliError {
 
 /// Parse `src` as TOML into `T`, attaching `path` to the error on failure.
 /// Replaces a `.map_err(...)` at every call site.
-pub fn parse_toml<T>(path: impl AsRef<Path>, src: &str) -> Result<T, CliError>
+pub fn parse_toml<T, P: AsRef<Path>>(path: P, src: &str) -> Result<T, CliError>
 where
     T: for<'de> serde::Deserialize<'de>,
 {
@@ -95,7 +98,7 @@ where
 }
 
 /// Parse `src` as JSON into `T`, attaching `path` to the error on failure.
-pub fn parse_json<T>(path: impl AsRef<Path>, src: &str) -> Result<T, CliError>
+pub fn parse_json<T, P: AsRef<Path>>(path: P, src: &str) -> Result<T, CliError>
 where
     T: for<'de> serde::Deserialize<'de>,
 {

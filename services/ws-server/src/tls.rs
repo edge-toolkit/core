@@ -1,6 +1,12 @@
+#![expect(
+    clippy::single_call_fn,
+    clippy::unwrap_used,
+    reason = "TLS bootstrap helpers are single-use by main() and panic on invalid PEM / cert-gen failure intentionally"
+)]
+
 use std::path::Path;
 
-use rustls::pki_types::pem::PemObject;
+use rustls::pki_types::pem::PemObject as _;
 
 type CertKeyPair = (
     rustls::pki_types::CertificateDer<'static>,

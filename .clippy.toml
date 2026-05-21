@@ -1,0 +1,35 @@
+allowed-idents-below-min-chars = [
+  # clippy defaults
+  "Eq",
+  "Err",
+  "Ge",
+  "Gt",
+  "Le",
+  "Lt",
+  "Ne",
+  "Ok",
+  # standard Rust idioms
+  "'_", # elided lifetime
+  "Rc", # std::rc::Rc, peer of Arc
+  "cx", # async Context (Future::poll convention)
+  "e",  # error binding in `Err(e)`
+  "fs", # `use std::fs` / `use fs_err as fs` alias
+  "ip", # IP address (networking)
+  "rx", # tokio/std mpsc transmit/receive convention
+  "tx",
+  # math/engineering conventions
+  "t0",
+  "t1", # timestamps
+  "x1",
+  "x2", # bounding-box coords
+  "y1",
+  "y2",
+  # workspace conventions
+  "Io", # io::Error #[from] variant
+  "Js", # ModuleKind::Js variant (peer of Wasi)
+  "et", # `et:ws-wasi` WIT package — appears in generated `bindings::et::…`
+  "id", # short alias for identifier inside closures
+  "op", # operation-name parameter in et-web JS-interop traits
+  "ws", # edge_toolkit::ws module (websocket types)
+]
+min-ident-chars-threshold = 2

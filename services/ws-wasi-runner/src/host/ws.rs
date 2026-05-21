@@ -11,8 +11,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use edge_toolkit::ws::WsMessage;
-use futures_util::SinkExt;
-use futures_util::stream::{SplitSink, StreamExt};
+use futures_util::SinkExt as _;
+use futures_util::stream::{SplitSink, StreamExt as _};
 use tokio::net::TcpStream;
 use tokio::sync::{Mutex, mpsc};
 use tokio::task::JoinHandle;
@@ -20,7 +20,7 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, tungstenite};
 
 use crate::HostState;
 use crate::bindings::et::ws_wasi::ws::{Host, State, WsError};
-use crate::host::{WsProtocolErrExt, WsTransportErrExt};
+use crate::host::{WsProtocolErrExt as _, WsTransportErrExt as _};
 
 type WsSink = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, tungstenite::Message>;
 
@@ -35,6 +35,10 @@ pub struct WsBackend {
 }
 
 impl WsBackend {
+    #[expect(
+        clippy::single_call_fn,
+        reason = "inherent constructor; used once by <HostState as Host>::connect"
+    )]
     async fn connect(ws_url: &str) -> Result<Self, WsError> {
         let (stream, _) = tokio_tungstenite::connect_async(ws_url)
             .await
@@ -55,8 +59,8 @@ impl WsBackend {
 
         // Reader pump: route ConnectAck into `agent_id` + `connection_state`,
         // forward all other text messages to the guest via `inbox`.
-        let agent_id_clone = agent_id.clone();
-        let state_clone = connection_state.clone();
+        let agent_id_clone = Arc::clone(&agent_id);
+        let state_clone = Arc::clone(&connection_state);
         let reader = tokio::spawn(async move {
             while let Some(msg) = stream.next().await {
                 let Ok(msg) = msg else {
@@ -65,7 +69,7 @@ impl WsBackend {
                 let tungstenite::Message::Text(text) = msg else {
                     continue;
                 };
-                let text = text.to_string();
+                let text: String = text.as_str().to_owned();
                 if let Ok(parsed) = serde_json::from_str::<WsMessage>(&text)
                     && let WsMessage::ConnectAck { agent_id, .. } = &parsed
                 {
@@ -88,13 +92,6 @@ impl WsBackend {
         })
     }
 
-    async fn send_text(&self, text: String) -> Result<(), WsError> {
-        let mut sink = self.sink.lock().await;
-        sink.send(tungstenite::Message::text(text))
-            .await
-            .ws_transport("send text")
-    }
-
     async fn current_state(&self) -> State {
         *self.connection_state.lock().await
     }
@@ -102,40 +99,36 @@ impl WsBackend {
     async fn current_agent_id(&self) -> String {
         self.agent_id.lock().await.clone().unwrap_or_default()
     }
-
-    async fn recv(&self, timeout_ms: u32) -> Result<Option<String>, WsError> {
-        let mut inbox = self.inbox.lock().await;
-        match tokio::time::timeout(Duration::from_millis(timeout_ms as u64), inbox.recv()).await {
-            Ok(Some(text)) => Ok(Some(text)),
-            Ok(None) => Err(WsError::InboxClosed),
-            Err(_) => Ok(None),
-        }
-    }
 }
 
 impl Host for HostState {
     async fn connect(&mut self) -> Result<(), WsError> {
-        let mut slot = self.ws.lock().await;
-        if slot.is_some() {
-            return Err(WsError::AlreadyConnected);
+        {
+            let slot = self.ws.lock().await;
+            if slot.is_some() {
+                return Err(WsError::AlreadyConnected);
+            }
         }
         let backend = WsBackend::connect(&self.ws_url).await?;
         // Wait briefly for ConnectAck before returning, so guests can call
         // agent_id() right after connect() and get a value.
-        for _ in 0..50 {
+        for _ in 0_u32..50 {
             if matches!(backend.current_state().await, State::Connected) {
                 break;
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
-        *slot = Some(backend);
+        {
+            let mut slot = self.ws.lock().await;
+            *slot = Some(backend);
+        }
         Ok(())
     }
 
     async fn get_state(&mut self) -> State {
         let slot = self.ws.lock().await;
         match slot.as_ref() {
-            Some(b) => b.current_state().await,
+            Some(bridge) => bridge.current_state().await,
             None => State::Closed,
         }
     }
@@ -143,7 +136,7 @@ impl Host for HostState {
     async fn agent_id(&mut self) -> String {
         let slot = self.ws.lock().await;
         match slot.as_ref() {
-            Some(b) => b.current_agent_id().await,
+            Some(bridge) => bridge.current_agent_id().await,
             None => String::new(),
         }
     }
@@ -164,7 +157,13 @@ impl Host for HostState {
         let Some(backend) = slot.as_ref() else {
             return Err(WsError::NotConnected);
         };
-        backend.send_text(text).await
+        let sink = Arc::clone(&backend.sink);
+        drop(slot);
+        let mut sink_guard = sink.lock().await;
+        sink_guard
+            .send(tungstenite::Message::text(text))
+            .await
+            .ws_transport("send text")
     }
 
     async fn recv(&mut self, timeout_ms: u32) -> Result<Option<String>, WsError> {
@@ -172,14 +171,21 @@ impl Host for HostState {
         let Some(backend) = slot.as_ref() else {
             return Err(WsError::NotConnected);
         };
-        backend.recv(timeout_ms).await
+        let inbox = Arc::clone(&backend.inbox);
+        drop(slot);
+        let mut inbox_guard = inbox.lock().await;
+        match tokio::time::timeout(Duration::from_millis(u64::from(timeout_ms)), inbox_guard.recv()).await {
+            Ok(Some(text)) => Ok(Some(text)),
+            Ok(None) => Err(WsError::InboxClosed),
+            Err(_unused) => Ok(None),
+        }
     }
 
     async fn disconnect(&mut self) {
         let mut slot = self.ws.lock().await;
         if let Some(backend) = slot.as_ref() {
             *backend.connection_state.lock().await = State::Closing;
-            let _ = backend.sink.lock().await.close().await;
+            let _closed: Result<(), _> = backend.sink.lock().await.close().await;
         }
         *slot = None;
     }

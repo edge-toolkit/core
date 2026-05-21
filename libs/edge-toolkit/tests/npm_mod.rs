@@ -4,6 +4,7 @@
 //! verifies the resolver picks the right `node_modules` directory.
 
 #![cfg(test)]
+#![expect(clippy::unwrap_used, reason = "test code: failed tempdir setup should fail the test")]
 
 use std::fs;
 
