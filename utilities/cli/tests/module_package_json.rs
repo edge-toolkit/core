@@ -1,4 +1,9 @@
 #![cfg(test)]
+#![expect(
+    clippy::unwrap_used,
+    clippy::indexing_slicing,
+    reason = "test code: setup failures and missing JSON fields should fail the test"
+)]
 
 use std::fs;
 

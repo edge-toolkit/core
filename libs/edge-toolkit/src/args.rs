@@ -7,11 +7,15 @@
 /// which may happen if the invoking environment is not similar to a "std" environment.
 #[must_use]
 pub fn executable_name() -> String {
-    executable_name_inner(std::env::args().collect())
+    executable_name_inner(&std::env::args().collect::<Vec<_>>())
 }
 
-#[expect(clippy::unwrap_used)]
-pub fn executable_name_inner(args: Vec<String>) -> String {
+#[must_use]
+#[expect(
+    clippy::unwrap_used,
+    reason = "argv[0] and file_stem are guaranteed under a std environment"
+)]
+pub fn executable_name_inner(args: &[String]) -> String {
     let path = args.first().unwrap();
     let path = std::path::PathBuf::from(path);
     path.file_stem().unwrap().to_string_lossy().to_string()

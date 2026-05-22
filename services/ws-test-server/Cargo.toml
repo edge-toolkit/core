@@ -6,14 +6,20 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+doctest = false
+
 [dependencies]
 actix.workspace = true
 actix-rt.workspace = true
 actix-web.workspace = true
-et-modules-service = { path = "../modules" }
-et-storage-service = { path = "../storage" }
-et-ws-service = { path = "../ws" }
+et-modules-service.workspace = true
+et-storage-service.workspace = true
+et-ws-service.workspace = true
 tempfile.workspace = true
 # Same TracingLogger setup as the real ws-server, so tests that init OTLP
 # in-process see server-side spans parented on the propagated traceparent.
 tracing-actix-web.workspace = true
+
+[lints]
+workspace = true

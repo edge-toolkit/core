@@ -7,10 +7,12 @@ license.workspace = true
 repository.workspace = true
 
 [lib]
+doctest = false
 name = "et_ws_wasi_runner"
 path = "src/lib.rs"
 
 [[bin]]
+doctest = false
 name = "et-ws-wasi-runner"
 path = "src/main.rs"
 
@@ -58,6 +60,9 @@ ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dy
 wgpu = { version = "29", default-features = false, features = ["dx12", "metal", "vulkan", "wgsl"] }
 
 [dev-dependencies]
-et-ws-test-server = { path = "../ws-test-server" }
-otlp-mock = { path = "../../libs/otlp-mock" }
+et-ws-test-server.workspace = true
+otlp-mock.workspace = true
 rstest.workspace = true
+
+[lints]
+workspace = true

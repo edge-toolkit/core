@@ -16,7 +16,7 @@ use wasmtime::component::Resource;
 
 use crate::HostState;
 use crate::bindings::wasi::keyvalue::store::{Error, Host, HostBucket, KeyResponse};
-use crate::host::KvErrExt;
+use crate::host::{KvErrExt as _, kv_not_implemented};
 
 pub struct Bucket {
     /// URL path-prefix on the ws-server, including the leading slash and
@@ -33,6 +33,10 @@ impl Bucket {
 }
 
 /// Map a `store.open` identifier to a bucket prefix and writability.
+#[expect(
+    clippy::single_call_fn,
+    reason = "named identifier parser; used once by <HostState as Host>::open"
+)]
 fn bucket_from_identifier(identifier: &str) -> Result<Bucket, Error> {
     if let Some(module_name) = identifier.strip_prefix("modules/") {
         if module_name.is_empty() || module_name.contains('/') {
@@ -63,8 +67,8 @@ impl Host for HostState {
 }
 
 impl HostBucket for HostState {
-    async fn get(&mut self, rep: Resource<Bucket>, key: String) -> Result<Option<Vec<u8>>, Error> {
-        let bucket = self.resource_table.get(&rep).kv_context("bucket handle")?;
+    async fn get(&mut self, self_: Resource<Bucket>, key: String) -> Result<Option<Vec<u8>>, Error> {
+        let bucket = self.resource_table.get(&self_).kv_context("bucket handle")?;
         let url = bucket.url(&self.http_base, &key);
         let resp = self.http.get(&url).send().await.kv_context(&format!("GET {url}"))?;
         if resp.status() == reqwest::StatusCode::NOT_FOUND {
@@ -77,8 +81,8 @@ impl HostBucket for HostState {
         Ok(Some(bytes.to_vec()))
     }
 
-    async fn set(&mut self, rep: Resource<Bucket>, key: String, value: Vec<u8>) -> Result<(), Error> {
-        let bucket = self.resource_table.get(&rep).kv_context("bucket handle")?;
+    async fn set(&mut self, self_: Resource<Bucket>, key: String, value: Vec<u8>) -> Result<(), Error> {
+        let bucket = self.resource_table.get(&self_).kv_context("bucket handle")?;
         if !bucket.writable {
             return Err(Error::AccessDenied);
         }
@@ -97,19 +101,19 @@ impl HostBucket for HostState {
     }
 
     async fn delete(&mut self, _rep: Resource<Bucket>, _key: String) -> Result<(), Error> {
-        Err(Error::Other("delete not implemented".into()))
+        Err(kv_not_implemented("delete"))
     }
 
     async fn exists(&mut self, _rep: Resource<Bucket>, _key: String) -> Result<bool, Error> {
-        Err(Error::Other("exists not implemented".into()))
+        Err(kv_not_implemented("exists"))
     }
 
     async fn list_keys(&mut self, _rep: Resource<Bucket>, _cursor: Option<String>) -> Result<KeyResponse, Error> {
-        Err(Error::Other("list-keys not implemented".into()))
+        Err(kv_not_implemented("list-keys"))
     }
 
     async fn drop(&mut self, rep: Resource<Bucket>) -> wasmtime::Result<()> {
-        self.resource_table.delete(rep)?;
+        let _removed: Bucket = self.resource_table.delete(rep)?;
         Ok(())
     }
 }

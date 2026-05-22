@@ -8,14 +8,18 @@
 //! what wires the route into the test app.
 
 #![cfg(test)]
+#![expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test code: setup and route invocation failures should fail the test"
+)]
 
 use std::collections::BTreeMap;
-use std::sync::{Arc, Mutex};
 
 use actix_web::dev::Payload as DevPayload;
-use actix_web::error::ResponseError;
+use actix_web::error::ResponseError as _;
 use actix_web::http::StatusCode;
-use actix_web::{App, FromRequest, test, web};
+use actix_web::{App, FromRequest as _, test, web};
 use edge_toolkit::ws::AgentConnectionState;
 use edge_toolkit::ws_server::{AgentRecord, AgentRegistry};
 use et_storage_service::{StorageConfig, StorageError, agent_put_file, configure};
@@ -24,24 +28,15 @@ use tempfile::TempDir;
 /// Build a registry with a single connected agent.
 fn registry_with_agent(agent_id: &str) -> AgentRegistry<()> {
     let mut agents = BTreeMap::new();
-    agents.insert(
+    let _previous: Option<AgentRecord<()>> = agents.insert(
         agent_id.to_string(),
-        AgentRecord {
-            state: AgentConnectionState::Connected,
-            last_known_ip: None,
-            session: Some(()),
-            pending_direct_messages: BTreeMap::new(),
-        },
+        AgentRecord::new(AgentConnectionState::Connected, None, Some(())),
     );
-    AgentRegistry {
-        agents: Arc::new(Mutex::new(agents)),
-    }
+    AgentRegistry::from_agents(agents)
 }
 
 fn storage_config(tmp: &TempDir) -> StorageConfig {
-    StorageConfig {
-        path: tmp.path().to_path_buf(),
-    }
+    StorageConfig::new(tmp.path().to_path_buf())
 }
 
 #[actix_rt::test]
@@ -126,7 +121,7 @@ async fn surfaces_io_failure_as_500() {
     let tmp = tempfile::tempdir().unwrap();
     let blocker = tmp.path().join("blocker");
     std::fs::write(&blocker, b"i am a file, not a directory").unwrap();
-    let config = StorageConfig { path: blocker };
+    let config = StorageConfig::new(blocker);
     let registry = registry_with_agent("agent-1");
     let app = test::init_service(
         App::new()

@@ -1,4 +1,4 @@
-//! Shared OpenTelemetry / OTLP setup for edge-toolkit services.
+//! Shared `OpenTelemetry` / OTLP setup for edge-toolkit services.
 //!
 //! Wires up:
 //! - The W3C tracecontext propagator (so `traceparent` headers cross
@@ -7,28 +7,35 @@
 //! - An OTLP/HTTP log exporter, exposed through `tracing` so `info!` and
 //!   friends are forwarded.
 //! - A `tracing` subscriber that fans `info!`/`error!` out to stdout *and*
-//!   the OTel pipeline.
+//!   the `OTel` pipeline.
 //!
 //! Returns an `OtelHandles` which the caller must `shutdown()` before exit
 //! so batched spans/logs are flushed — otherwise short-lived processes
 //! (e.g. the wasi-runner, which exits as soon as a module finishes) drop
 //! their tail-end spans.
+#![expect(
+    clippy::expect_used,
+    reason = "init runs once at startup; exporter build / RUST_LOG / subscriber failures should crash early"
+)]
 
 use edge_toolkit::config::{OtlpConfig, OtlpProtocol};
 use opentelemetry::{KeyValue, trace::TracerProvider as _};
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
-use opentelemetry_otlp::{LogExporter, WithExportConfig, WithHttpConfig};
+use opentelemetry_otlp::{LogExporter, WithExportConfig as _, WithHttpConfig as _};
 use opentelemetry_sdk::logs::SdkLoggerProvider;
 use opentelemetry_sdk::trace::SdkTracerProvider;
 use opentelemetry_sdk::{Resource, propagation::TraceContextPropagator};
 use tracing::subscriber::set_global_default;
 use tracing_opentelemetry::OpenTelemetryLayer;
-use tracing_subscriber::{EnvFilter, Registry, layer::SubscriberExt};
+use tracing_subscriber::{EnvFilter, Registry, layer::SubscriberExt as _};
 
 pub const RUST_LOG: &str = "RUST_LOG";
 
-/// Handles for the spans + logs pipelines. Drop alone won't flush — call
-/// [`OtelHandles::shutdown`] at the end of `main()` (or in a Drop guard).
+/// Handles for the spans + logs pipelines.
+///
+/// Drop alone won't flush — call [`OtelHandles::shutdown`] at the end of
+/// `main()` (or in a Drop guard).
+#[non_exhaustive]
 pub struct OtelHandles {
     pub tracer_provider: SdkTracerProvider,
     pub logger_provider: SdkLoggerProvider,
@@ -38,18 +45,20 @@ impl OtelHandles {
     /// Flush any buffered spans/logs and tear down the exporters.
     pub fn shutdown(self) {
         // Errors here are non-fatal — the process is exiting anyway.
-        let _ = self.tracer_provider.shutdown();
-        let _ = self.logger_provider.shutdown();
+        drop(self.tracer_provider.shutdown());
+        drop(self.logger_provider.shutdown());
     }
 }
 
-/// Initialise the global tracing subscriber + OTel pipeline against
-/// `config`. Call exactly once per process; subsequent calls panic via
+/// Initialise the global tracing subscriber + `OTel` pipeline against `config`.
+///
+/// Call exactly once per process; subsequent calls panic via
 /// `set_global_default`.
+#[must_use]
 pub fn init(config: &OtlpConfig) -> OtelHandles {
     // tracing_log forwards `log` crate records (used by transitive deps)
     // through the tracing subscriber.
-    let _ = tracing_log::LogTracer::init();
+    drop(tracing_log::LogTracer::init());
 
     let mut headers = std::collections::HashMap::new();
     if let Some(auth) = &config.auth {
@@ -74,7 +83,7 @@ pub fn init(config: &OtlpConfig) -> OtelHandles {
         .expect("build OTLP span exporter");
 
     let mut service_descriptors = vec![KeyValue::new("service.version", env!("CARGO_PKG_VERSION").to_string())];
-    if let Some(hostname) = hostname::get().ok().and_then(|h| h.into_string().ok()) {
+    if let Some(hostname) = hostname::get().ok().and_then(|host| host.into_string().ok()) {
         service_descriptors.push(KeyValue::new("service.instance", hostname));
     }
     let resource = Resource::builder()

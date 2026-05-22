@@ -10,6 +10,7 @@ use serde_inline_default::serde_inline_default;
 /// TLS certificate and key paths.
 #[serde_inline_default]
 #[derive(Clone, Debug, DefaultFromSerde, Deserialize)]
+#[non_exhaustive]
 pub struct TlsConfig {
     #[serde_inline_default(PathBuf::from("cert.pem"))]
     pub cert_file: PathBuf,
@@ -19,6 +20,7 @@ pub struct TlsConfig {
 
 /// Application config shared across ws-server services.
 #[derive(Clone, Debug, DefaultFromSerde, Deserialize)]
+#[non_exhaustive]
 pub struct Config {
     /// OpenTelemetry config.
     #[serde(default)]

@@ -1,4 +1,10 @@
-use et_web::{JsFunctionExt, JsPromiseExt};
+#![expect(
+    clippy::future_not_send,
+    clippy::single_call_fn,
+    reason = "browser WASM module: JsFuture is !Send; module-local helpers like wait_for_* are single-use by design"
+)]
+
+use et_web::{JsFunctionExt as _, JsPromiseExt as _};
 use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value};
 use js_sys::{Promise, Reflect};
 use serde_json::json;
@@ -17,12 +23,12 @@ pub struct NfcScanResult {
 #[wasm_bindgen]
 impl NfcScanResult {
     #[wasm_bindgen(js_name = scanOnce)]
-    pub async fn scan_once() -> Result<NfcScanResult, JsValue> {
+    pub async fn scan_once() -> Result<Self, JsValue> {
         Self::scan_once_with_timeout(NFC_SCAN_TIMEOUT_MS).await
     }
 
     #[wasm_bindgen(js_name = scanOnceWithTimeout)]
-    pub async fn scan_once_with_timeout(timeout_ms: i32) -> Result<NfcScanResult, JsValue> {
+    pub async fn scan_once_with_timeout(timeout_ms: i32) -> Result<Self, JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
         let ndef_ctor = js_sys::Reflect::get(&window, &JsValue::from_str("NDEFReader"))
             .ok()
@@ -34,27 +40,34 @@ impl NfcScanResult {
 
         let scan = js_sys::Reflect::get(&reader, &JsValue::from_str("scan"))?.into_function("NDEFReader.scan")?;
         let scan_promise = scan.call0(&reader)?.into_promise("NDEFReader.scan")?;
-        let _ = JsFuture::from(scan_promise).await?;
+        let _scan_result: JsValue = JsFuture::from(scan_promise).await?;
 
         let promise = js_sys::Promise::new(&mut |resolve, reject| {
             let reject_for_timeout = reject.clone();
-            let timeout_closure = Closure::once(Box::new(move || {
-                let _ = reject_for_timeout.call1(
+            #[expect(
+                clippy::integer_division,
+                clippy::integer_division_remainder_used,
+                reason = "convert ms timeout to seconds for human-readable error message; not a crypto context"
+            )]
+            let timeout_seconds = timeout_ms / 1000_i32;
+            let timeout_box: Box<dyn FnOnce()> = Box::new(move || {
+                drop(reject_for_timeout.call1(
                     &JsValue::NULL,
-                    &JsValue::from_str(&format!("NFC scan timed out after {} seconds", timeout_ms / 1000)),
-                );
-            }) as Box<dyn FnOnce()>);
+                    &JsValue::from_str(&format!("NFC scan timed out after {timeout_seconds} seconds")),
+                ));
+            });
+            let timeout_closure = Closure::once(timeout_box);
 
             if let Some(window) = web_sys::window() {
-                let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(
+                drop(window.set_timeout_with_callback_and_timeout_and_arguments_0(
                     timeout_closure.as_ref().unchecked_ref(),
                     timeout_ms,
-                );
+                ));
             }
 
-            let reject_for_error = reject.clone();
+            let reject_for_error = reject;
 
-            let on_reading = Closure::once(Box::new(move |event: JsValue| {
+            let on_reading_box: Box<dyn FnOnce(JsValue)> = Box::new(move |event: JsValue| {
                 let serial_number = js_sys::Reflect::get(&event, &JsValue::from_str("serialNumber"))
                     .ok()
                     .and_then(|value| value.as_string())
@@ -62,37 +75,43 @@ impl NfcScanResult {
                 let record_summary = summarize_ndef_records(&event);
 
                 let payload = js_sys::Object::new();
-                let _ = js_sys::Reflect::set(
+                let _: bool = js_sys::Reflect::set(
                     &payload,
                     &JsValue::from_str("serialNumber"),
                     &JsValue::from_str(&serial_number),
-                );
-                let _ = js_sys::Reflect::set(
+                )
+                .unwrap_or(false);
+                let _: bool = js_sys::Reflect::set(
                     &payload,
                     &JsValue::from_str("recordSummary"),
                     &JsValue::from_str(&record_summary),
-                );
-                let _ = resolve.call1(&JsValue::NULL, &payload);
-            }) as Box<dyn FnOnce(JsValue)>);
+                )
+                .unwrap_or(false);
+                drop(resolve.call1(&JsValue::NULL, &payload));
+            });
+            let on_reading = Closure::once(on_reading_box);
 
-            let on_reading_error = Closure::once(Box::new(move |event: JsValue| {
+            let on_reading_error_box: Box<dyn FnOnce(JsValue)> = Box::new(move |event: JsValue| {
                 let message = js_sys::Reflect::get(&event, &JsValue::from_str("message"))
                     .ok()
                     .and_then(|value| value.as_string())
                     .unwrap_or_else(|| "NFC reading failed".to_string());
-                let _ = reject_for_error.call1(&JsValue::NULL, &JsValue::from_str(&message));
-            }) as Box<dyn FnOnce(JsValue)>);
+                drop(reject_for_error.call1(&JsValue::NULL, &JsValue::from_str(&message)));
+            });
+            let on_reading_error = Closure::once(on_reading_error_box);
 
-            let _ = js_sys::Reflect::set(
+            let _: bool = js_sys::Reflect::set(
                 &reader,
                 &JsValue::from_str("onreading"),
                 on_reading.as_ref().unchecked_ref(),
-            );
-            let _ = js_sys::Reflect::set(
+            )
+            .unwrap_or(false);
+            let _: bool = js_sys::Reflect::set(
                 &reader,
                 &JsValue::from_str("onreadingerror"),
                 on_reading_error.as_ref().unchecked_ref(),
-            );
+            )
+            .unwrap_or(false);
 
             on_reading.forget();
             on_reading_error.forget();
@@ -112,45 +131,50 @@ impl NfcScanResult {
             serial_number, record_summary
         );
 
-        Ok(NfcScanResult {
+        Ok(Self {
             serial_number,
             record_summary,
         })
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = serialNumber)]
     pub fn serial_number(&self) -> String {
         self.serial_number.clone()
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = recordSummary)]
     pub fn record_summary(&self) -> String {
         self.record_summary.clone()
     }
 }
 
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "JS number→u32 array length conversion via f64; no native u32 type"
+)]
 fn summarize_ndef_records(event: &JsValue) -> String {
-    let message = match js_sys::Reflect::get(event, &JsValue::from_str("message")) {
-        Ok(message) => message,
-        Err(_) => return "no message".to_string(),
+    let Ok(message) = js_sys::Reflect::get(event, &JsValue::from_str("message")) else {
+        return "no message".to_string();
     };
-    let records = match js_sys::Reflect::get(&message, &JsValue::from_str("records")) {
-        Ok(records) => records,
-        Err(_) => return "no records".to_string(),
+    let Ok(records) = js_sys::Reflect::get(&message, &JsValue::from_str("records")) else {
+        return "no records".to_string();
     };
-    let length = match js_sys::Reflect::get(&records, &JsValue::from_str("length"))
+    let Some(length) = js_sys::Reflect::get(&records, &JsValue::from_str("length"))
         .ok()
         .and_then(|value| value.as_f64())
-    {
-        Some(length) => length as u32,
-        None => return "no records".to_string(),
+        .map(|len| len as u32)
+    else {
+        return "no records".to_string();
     };
 
     let mut summary = Vec::new();
     for index in 0..length {
-        let record = match js_sys::Reflect::get(&records, &JsValue::from_f64(index as f64)) {
-            Ok(record) => record,
-            Err(_) => continue,
+        let Ok(record) = js_sys::Reflect::get(&records, &JsValue::from_f64(f64::from(index))) else {
+            continue;
         };
         let record_type = js_sys::Reflect::get(&record, &JsValue::from_str("recordType"))
             .ok()
@@ -184,11 +208,16 @@ fn summarize_ndef_records(event: &JsValue) -> String {
 
 #[wasm_bindgen(start)]
 pub fn init() {
-    let _ = tracing_wasm::try_set_as_global_default();
+    drop(tracing_wasm::try_set_as_global_default());
     info!("nfc module initialized");
 }
 
+#[must_use]
 #[wasm_bindgen]
+#[expect(
+    clippy::missing_const_for_fn,
+    reason = "wasm_bindgen rejects const fns; cannot be marked const"
+)]
 pub fn is_running() -> bool {
     false
 }
@@ -196,22 +225,22 @@ pub fn is_running() -> bool {
 #[wasm_bindgen]
 pub async fn run() -> Result<(), JsValue> {
     set_module_status("nfc: Starting NFC scan...\nPlease tap an NFC tag within 60 seconds.")?;
-    log("entered run()")?;
+    log("entered run()");
 
     let outcome = async {
         let ws_url = websocket_url()?;
         let mut client = WsClient::new(WsClientConfig::new(ws_url));
         client.connect()?;
         wait_for_connected(&client).await?;
-        log(&format!("websocket connected with agent_id={}", client.get_agent_id()))?;
+        log(&format!("websocket connected with agent_id={}", client.get_agent_id()));
 
-        log("waiting for NFC tap (60 second timeout)...")?;
+        log("waiting for NFC tap (60 second timeout)...");
         set_module_status("nfc: Waiting for NFC tap...\nPlease hold your device near an NFC tag.")?;
 
         let result = NfcScanResult::scan_once().await?;
         let serial = result.serial_number();
         let summary = result.record_summary();
-        log(&format!("NFC scan captured: serial={} summary={}", serial, summary))?;
+        log(&format!("NFC scan captured: serial={serial} summary={summary}"));
 
         client.send_client_event(
             "nfc",
@@ -222,7 +251,7 @@ pub async fn run() -> Result<(), JsValue> {
             }),
         )?;
 
-        set_module_status(&format!("nfc: Scan captured\nSerial: {}\nSummary: {}", serial, summary))?;
+        set_module_status(&format!("nfc: Scan captured\nSerial: {serial}\nSummary: {summary}"))?;
 
         client.disconnect();
         Ok(())
@@ -232,25 +261,22 @@ pub async fn run() -> Result<(), JsValue> {
     if let Err(error) = &outcome {
         let message = describe_js_error(error);
         let error_display = if message.contains("not available") || message.contains("not supported") {
-            format!(
-                "nfc: Not available\nWeb NFC requires: Chrome/Edge on Android, HTTPS connection\nError: {}",
-                message
-            )
+            format!("nfc: Not available\nWeb NFC requires: Chrome/Edge on Android, HTTPS connection\nError: {message}")
         } else if message.contains("timed out") || message.contains("timeout") {
             "nfc: Timeout\n\nNo NFC tag was detected within 60 seconds.\nPlease try again and tap an NFC tag."
                 .to_string()
         } else {
-            format!("nfc: Error\n\n{}", message)
+            format!("nfc: Error\n\n{message}")
         };
-        let _ = set_module_status(&error_display);
-        let _ = log(&format!("error: {}", message));
+        drop(set_module_status(&error_display));
+        log(&format!("error: {message}"));
     }
 
     outcome
 }
 
-fn log(message: &str) -> Result<(), JsValue> {
-    let line = format!("[nfc] {}", message);
+fn log(message: &str) {
+    let line = format!("[nfc] {message}");
     web_sys::console::log_1(&JsValue::from_str(&line));
 
     if let Some(window) = web_sys::window()
@@ -261,12 +287,10 @@ fn log(message: &str) -> Result<(), JsValue> {
         let next = if current.is_empty() {
             line
         } else {
-            format!("{}\n{}", current, line)
+            format!("{current}\n{line}")
         };
         log_el.set_text_content(Some(&next));
     }
-
-    Ok(())
 }
 
 fn set_module_status(message: &str) -> Result<(), JsValue> {
@@ -274,8 +298,8 @@ fn set_module_status(message: &str) -> Result<(), JsValue> {
 }
 
 fn describe_js_error(error: &JsValue) -> String {
-    if let Some(s) = error.as_string() {
-        return s;
+    if let Some(text) = error.as_string() {
+        return text;
     }
 
     if let Some(obj) = error.dyn_ref::<js_sys::Object>()
@@ -287,12 +311,12 @@ fn describe_js_error(error: &JsValue) -> String {
 
     js_sys::JSON::stringify(error)
         .ok()
-        .and_then(|s| s.as_string())
+        .and_then(|json| json.as_string())
         .unwrap_or_else(|| "Unknown error".to_string())
 }
 
 async fn wait_for_connected(client: &WsClient) -> Result<(), JsValue> {
-    for _ in 0..100 {
+    for _ in 0_u32..100 {
         if client.get_state() == "connected" {
             return Ok(());
         }
@@ -306,13 +330,13 @@ async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let promise = Promise::new(&mut |resolve, reject| {
         let callback = Closure::once_into_js(move || {
-            let _ = resolve.call0(&JsValue::NULL);
+            drop(resolve.call0(&JsValue::NULL));
         });
 
         if let Err(error) =
             window.set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), duration_ms)
         {
-            let _ = reject.call1(&JsValue::NULL, &error);
+            drop(reject.call1(&JsValue::NULL, &error));
         }
     });
     JsFuture::from(promise).await.map(|_| ())
@@ -328,5 +352,5 @@ fn websocket_url() -> Result<String, JsValue> {
         .as_string()
         .ok_or_else(|| JsValue::from_str("window.location.host is unavailable"))?;
     let ws_protocol = if protocol == "https:" { "wss:" } else { "ws:" };
-    Ok(format!("{}//{}/ws", ws_protocol, host))
+    Ok(format!("{ws_protocol}//{host}/ws"))
 }

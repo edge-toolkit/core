@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use serde_default::DefaultFromSerde;
+use serde_inline_default::serde_inline_default;
 
 use crate::args::executable_name;
 use crate::auth::BasicAuth;
@@ -48,9 +49,9 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
         return paths;
     }
     match mise_npm_modules_path("onnxruntime-web") {
-        Some(p) => {
-            log::info!("Resolved npm:onnxruntime-web modules path: {}", p.display());
-            paths.push(p);
+        Some(path) => {
+            log::info!("Resolved npm:onnxruntime-web modules path: {}", path.display());
+            paths.push(path);
         }
         None => {
             log::warn!(
@@ -72,9 +73,9 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
     // runtime (no `micropip.install` of non-stdlib wheels) still work, and
     // contributors who don't need the full set can skip the 200 MB download.
     match mise_where("http:pyodide").or_else(|| mise_npm_modules_path("pyodide")) {
-        Some(p) => {
-            log::info!("Resolved pyodide modules path: {}", p.display());
-            paths.push(p);
+        Some(path) => {
+            log::info!("Resolved pyodide modules path: {}", path.display());
+            paths.push(path);
         }
         None => {
             log::warn!(
@@ -104,17 +105,18 @@ pub fn mise_where(tool: &str) -> Option<PathBuf> {
     if !output.status.success() {
         return None;
     }
-    let s = std::str::from_utf8(&output.stdout).ok()?;
-    let p = PathBuf::from(s.trim());
-    p.is_dir().then_some(p)
+    let stdout = std::str::from_utf8(&output.stdout).ok()?;
+    let path = PathBuf::from(stdout.trim());
+    path.is_dir().then_some(path)
 }
 
-/// Returns the directory containing `<package>` for an `npm:<package>` mise
-/// install — i.e. the `node_modules` directory you'd point `MODULES_PATHS`
-/// at. Calls `mise where npm:<package>` to find the install root, then
-/// delegates to [`find_npm_modules_path_in`] to handle the per-backend
-/// layout differences. Returns `None` if `mise where` fails or the
-/// package isn't present in any supported layout.
+/// Returns the directory containing `<package>` for an `npm:<package>` mise install.
+///
+/// I.e. the `node_modules` directory you'd point `MODULES_PATHS` at. Calls
+/// `mise where npm:<package>` to find the install root, then delegates to
+/// [`find_npm_modules_path_in`] to handle the per-backend layout differences.
+/// Returns `None` if `mise where` fails or the package isn't present in any
+/// supported layout.
 #[must_use]
 pub fn mise_npm_modules_path(package: &str) -> Option<PathBuf> {
     let install = mise_where(&format!("npm:{package}"))?;
@@ -140,26 +142,14 @@ pub fn find_npm_modules_path_in(install: &Path, package: &str) -> Option<PathBuf
     let aube_root = install.join("global-aube");
     if let Ok(entries) = std::fs::read_dir(&aube_root) {
         for entry in entries.flatten() {
-            let nm = entry.path().join("node_modules/.aube/node_modules");
-            if nm.join(package).is_dir() {
-                return Some(nm);
+            let node_modules = entry.path().join("node_modules/.aube/node_modules");
+            if node_modules.join(package).is_dir() {
+                return Some(node_modules);
             }
         }
     }
 
     None
-}
-
-/// Default port for the otlp http collector.
-#[must_use]
-const fn default_otlp_collector_port() -> u16 {
-    Services::OtlpCollector.port()
-}
-
-/// Default url for the otlp collector. This is the tracing endpoint path for OpenObserve trace collection.
-#[must_use]
-pub fn default_otlp_collector_url() -> String {
-    format!("http://{LOCALHOST}:{}/api/default/v1", default_otlp_collector_port())
 }
 
 /// Default service label name for use in OpenTelemetry.
@@ -185,11 +175,12 @@ pub enum OtlpProtocol {
 }
 
 /// OpenTelemetry service config.
+#[serde_inline_default]
 #[derive(Clone, Debug, DefaultFromSerde, Deserialize)]
 #[non_exhaustive]
 pub struct OtlpConfig {
     /// OpenTelemetry collector URL.
-    #[serde(default = "default_otlp_collector_url")]
+    #[serde_inline_default(format!("http://{LOCALHOST}:{}/api/default/v1", Services::OtlpCollector.port()))]
     pub collector_url: String,
     /// OpenTelemetry protocol.
     #[serde(default)]

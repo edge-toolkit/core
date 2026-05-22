@@ -5,6 +5,7 @@
 //! warnings at startup.
 
 #![cfg(test)]
+#![expect(clippy::unwrap_used, reason = "test code: failed tempdir setup should fail the test")]
 
 use std::path::PathBuf;
 
@@ -41,8 +42,8 @@ fn returns_only_workspace_paths_when_mise_missing() {
     // host-dependent — just check the suffixes are right.
     let suffixes: Vec<PathBuf> = paths
         .iter()
-        .map(|p| {
-            p.components()
+        .map(|path| {
+            path.components()
                 .rev()
                 .take(2)
                 .collect::<Vec<_>>()
@@ -61,7 +62,7 @@ fn returns_only_workspace_paths_when_mise_missing() {
         assert!(
             suffixes
                 .iter()
-                .any(|s| s.ends_with(&expected_path) || s == &expected_path),
+                .any(|suffix| suffix.ends_with(&expected_path) || suffix == &expected_path),
             "expected a path ending in {expected:?}, got {paths:?}",
         );
     }
@@ -72,7 +73,10 @@ fn returns_only_workspace_paths_when_mise_missing() {
         assert!(
             records.is_empty(),
             "expected no log records when mise is unavailable, got {:?}",
-            records.iter().map(|r| (r.level, r.body.as_str())).collect::<Vec<_>>(),
+            records
+                .iter()
+                .map(|record| (record.level, record.body.as_str()))
+                .collect::<Vec<_>>(),
         );
     });
 }

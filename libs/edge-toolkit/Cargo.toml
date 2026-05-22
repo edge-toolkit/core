@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+doctest = false
+
 [dependencies]
 base64.workspace = true
 lets_find_up.workspace = true
@@ -21,6 +24,9 @@ thiserror.workspace = true
 
 [dev-dependencies]
 rstest.workspace = true
-temp-env = "0.3"
+temp-env.workspace = true
 tempfile.workspace = true
-testing_logger = "0.1"
+testing_logger.workspace = true
+
+[lints]
+workspace = true

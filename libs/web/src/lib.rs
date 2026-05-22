@@ -18,6 +18,10 @@ pub fn get_media_devices(navigator: &web_sys::Navigator) -> Result<web_sys::Medi
     media_devices.dyn_into_msg("navigator.mediaDevices is not accessible in this browser")
 }
 
+#[expect(
+    clippy::future_not_send,
+    reason = "wasm_bindgen_futures::JsFuture is Rc-backed and never Send; runs in single-threaded browser WASM"
+)]
 pub async fn request_sensor_permission(target: JsValue) -> Result<String, JsValue> {
     if target.is_null() || target.is_undefined() {
         return Ok(SENSOR_PERMISSION_GRANTED.to_string());

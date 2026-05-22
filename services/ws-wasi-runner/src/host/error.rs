@@ -33,6 +33,13 @@ impl<T, E: std::fmt::Display> KvErrExt<T> for Result<T, E> {
     }
 }
 
+/// Build a `wasi:keyvalue/store.error.other("<op> not implemented")` — the
+/// closest thing the WIT-spec enum has to a `NotImplemented` variant.
+#[must_use]
+pub fn kv_not_implemented(operation: &str) -> KvError {
+    KvError::Other(format!("{operation} not implemented"))
+}
+
 /// Maps any `Display` error into `wasi:webgpu/webgpu`'s
 /// `request-device-error.operation-error` variant.
 pub trait RequestDeviceErrExt<T> {

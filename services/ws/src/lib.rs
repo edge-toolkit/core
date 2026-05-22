@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use actix_web::{Error, HttpRequest, HttpResponse, web};
@@ -10,7 +9,7 @@ use edge_toolkit::ws_server::{AgentRecord, AgentRegistry, PendingDirectMessage, 
 use futures_util::StreamExt as _;
 use opentelemetry::{
     global,
-    trace::{Span, Tracer},
+    trace::{Span, Tracer as _},
 };
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tracing::{error, info, warn};
@@ -22,41 +21,38 @@ pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
 pub type AgentSession = UnboundedSender<WsMessage>;
 pub type WsAgentRegistry = AgentRegistry<AgentSession>;
 
+// Deserialize using a session-less record type, then convert.
+#[derive(serde::Deserialize)]
+struct BareRecord {
+    state: edge_toolkit::ws::AgentConnectionState,
+    last_known_ip: Option<String>,
+    #[serde(default)]
+    pending_direct_messages: BTreeMap<String, PendingDirectMessage>,
+}
+
 /// Load a registry from disk. Sessions are not persisted, so they are initialised to `None`.
 pub fn load_registry(path: &std::path::Path) -> Result<WsAgentRegistry, RegistryError> {
-    use edge_toolkit::ws::AgentConnectionState;
     if !path.exists() {
-        warn!("Registry file {:?} does not exist, starting with empty registry", path);
+        warn!(
+            "Registry file {} does not exist, starting with empty registry",
+            path.display()
+        );
         return Ok(WsAgentRegistry::default());
     }
     let yaml = std::fs::read_to_string(path)?;
-    // Deserialize using a session-less record type, then convert.
-    #[derive(serde::Deserialize)]
-    struct BareRecord {
-        state: AgentConnectionState,
-        last_known_ip: Option<String>,
-        #[serde(default)]
-        pending_direct_messages: BTreeMap<String, PendingDirectMessage>,
-    }
     let bare: BTreeMap<String, BareRecord> = serde_yaml::from_str(&yaml)?;
     let agents = bare
         .into_iter()
-        .map(|(id, r)| {
+        .map(|(id, record)| {
             (
                 id,
-                AgentRecord {
-                    state: r.state,
-                    last_known_ip: r.last_known_ip,
-                    session: None,
-                    pending_direct_messages: r.pending_direct_messages,
-                },
+                AgentRecord::new(record.state, record.last_known_ip, None)
+                    .with_pending_direct_messages(record.pending_direct_messages),
             )
         })
         .collect();
-    info!("Loaded registry from {:?}", path);
-    Ok(WsAgentRegistry {
-        agents: Arc::new(Mutex::new(agents)),
-    })
+    info!("Loaded registry from {}", path.display());
+    Ok(WsAgentRegistry::from_agents(agents))
 }
 
 struct Connection {
@@ -69,6 +65,7 @@ struct Connection {
 }
 
 impl Connection {
+    #[expect(clippy::single_call_fn, reason = "inherent constructor; used once by ws_handler")]
     fn new(registry: WsAgentRegistry, client_ip: String, session: Session, outbox: AgentSession) -> Self {
         info!("New WebSocket connection for client IP {}", client_ip);
         Self {
@@ -183,17 +180,17 @@ impl Connection {
                 "Direct message {} delivered from {} to {}",
                 message_id, from_agent_id, to_agent_id
             );
-            let _ = recipient.send(WsMessage::AgentMessage {
+            drop(recipient.send(WsMessage::AgentMessage {
                 message_id: message_id.clone(),
                 from_agent_id,
                 scope: MessageScope::Direct,
                 server_received_at: pending.server_received_at,
                 message: pending.message,
-            });
+            }));
             self.send_status(
                 Some(message_id),
                 MessageDeliveryStatus::Delivered,
-                format!("message delivered to agent {}", to_agent_id),
+                format!("message delivered to agent {to_agent_id}"),
             )
             .await;
         } else {
@@ -204,7 +201,7 @@ impl Connection {
             self.send_status(
                 Some(message_id),
                 MessageDeliveryStatus::Queued,
-                format!("message queued for agent {}", to_agent_id),
+                format!("message queued for agent {to_agent_id}"),
             )
             .await;
         }
@@ -212,16 +209,18 @@ impl Connection {
     }
 
     /// Returns `false` when the connection should terminate.
+    #[expect(
+        clippy::cognitive_complexity,
+        clippy::too_many_lines,
+        reason = "single dispatcher for inbound WsMessage variants; splitting scatters handlers into trivial helpers"
+    )]
     async fn handle_inbound(&mut self, msg: AggregatedMessage) -> bool {
         match msg {
             AggregatedMessage::Ping(ping) => {
                 self.mark_activity();
-                let _ = self.session.pong(&ping).await;
+                let _pong: Result<(), actix_ws::Closed> = self.session.pong(&ping).await;
             }
-            AggregatedMessage::Pong(_) => {
-                self.mark_activity();
-            }
-            AggregatedMessage::Binary(_) => {
+            AggregatedMessage::Pong(_) | AggregatedMessage::Binary(_) => {
                 self.mark_activity();
             }
             AggregatedMessage::Close(reason) => {
@@ -234,7 +233,7 @@ impl Connection {
                 let tracer = global::tracer("ws-server");
                 let mut span = tracer.start("ws.disconnect");
                 span.end();
-                let _ = self.session.clone().close(reason).await;
+                let _closed: Result<(), actix_ws::Closed> = self.session.clone().close(reason).await;
                 return false;
             }
             AggregatedMessage::Text(text) => {
@@ -299,8 +298,13 @@ impl Connection {
                                 return true;
                             }
 
-                            if !self.registry.list_agents().iter().any(|a| a.agent_id == to_agent_id) {
-                                self.send_invalid(None, format!("unknown target agent {}", to_agent_id))
+                            if !self
+                                .registry
+                                .list_agents()
+                                .iter()
+                                .any(|agent| agent.agent_id == to_agent_id)
+                            {
+                                self.send_invalid(None, format!("unknown target agent {to_agent_id}"))
                                     .await;
                                 span.end();
                                 return true;
@@ -326,13 +330,13 @@ impl Connection {
                                     "Broadcast message {} from {} to {}",
                                     message_id, from_agent_id, recipient_id
                                 );
-                                let _ = recipient.send(WsMessage::AgentMessage {
+                                drop(recipient.send(WsMessage::AgentMessage {
                                     message_id: message_id.clone(),
                                     from_agent_id: from_agent_id.clone(),
                                     scope: MessageScope::Broadcast,
                                     server_received_at: server_received_at.clone(),
                                     message: message.clone(),
-                                });
+                                }));
                             }
                             self.send_status(
                                 Some(message_id),
@@ -362,11 +366,11 @@ impl Connection {
                                     )
                                     .await;
                                     if let Some(sender) = sender_session {
-                                        let _ = sender.send(WsMessage::MessageStatus {
+                                        drop(sender.send(WsMessage::MessageStatus {
                                             message_id: Some(message_id),
                                             status: MessageDeliveryStatus::Acknowledged,
-                                            detail: format!("agent {} acknowledged receipt", recipient_agent_id),
-                                        });
+                                            detail: format!("agent {recipient_agent_id} acknowledged receipt"),
+                                        }));
                                     }
                                 }
                                 Err(error) => {
@@ -383,12 +387,15 @@ impl Connection {
                             if capability == "video_cv" && action == "inference" {
                                 let detected_class = details
                                     .get("detected_class")
-                                    .and_then(|v| v.as_str())
+                                    .and_then(|value| value.as_str())
                                     .unwrap_or("unknown");
-                                let confidence = details.get("confidence").and_then(|v| v.as_f64()).unwrap_or_default();
+                                let confidence = details
+                                    .get("confidence")
+                                    .and_then(serde_json::Value::as_f64)
+                                    .unwrap_or_default();
                                 let processed_at = details
                                     .get("processed_at")
-                                    .and_then(|v| v.as_str())
+                                    .and_then(|value| value.as_str())
                                     .unwrap_or("unknown");
                                 info!(
                                     "Video inference received from {}: class={} confidence={:.4} processed_at={}",
@@ -412,15 +419,15 @@ impl Connection {
                                 span.end();
                                 return true;
                             };
-                            let url = format!("/storage/{}/{}", agent_id, filename);
+                            let url = format!("/storage/{agent_id}/{filename}");
                             info!("Agent {} requested storage URL for {}: {}", agent_id, filename, url);
                             self.send_json(&WsMessage::Response {
-                                message: format!("PUT to {}", url),
+                                message: format!("PUT to {url}"),
                             })
                             .await;
                         }
                         WsMessage::FetchFile { agent_id, filename } => {
-                            let url = format!("/storage/{}/{}", agent_id, filename);
+                            let url = format!("/storage/{agent_id}/{filename}");
                             info!(
                                 "Agent {} requested fetch URL for {}/{}",
                                 self.current_agent_id(),
@@ -428,7 +435,7 @@ impl Connection {
                                 filename
                             );
                             self.send_json(&WsMessage::Response {
-                                message: format!("GET from {}", url),
+                                message: format!("GET from {url}"),
                             })
                             .await;
                         }
@@ -457,6 +464,12 @@ impl Connection {
         true
     }
 
+    #[expect(
+        clippy::cognitive_complexity,
+        clippy::future_not_send,
+        clippy::integer_division_remainder_used,
+        reason = "actix-ws AggregatedMessageStream is Rc-backed and !Send; tokio::select! macro uses % internally"
+    )]
     async fn run(mut self, mut stream: AggregatedMessageStream, mut outbound: UnboundedReceiver<WsMessage>) {
         let tracer = global::tracer("ws-server");
         let mut connect_span = tracer.start("ws.connect");
@@ -499,11 +512,10 @@ impl Connection {
                             self.current_agent_id(),
                             idle_for
                         );
-                        let _ = self.session.clone().close(Some(CloseReason {
+                        let _closed: Result<(), actix_ws::Closed> = self.session.clone().close(Some(CloseReason {
                             code: CloseCode::Policy,
                             description: Some(format!(
-                                "connection timed out after {:?} of inactivity",
-                                CONNECTION_TIMEOUT
+                                "connection timed out after {CONNECTION_TIMEOUT:?} of inactivity"
                             )),
                         })).await;
                         break;
@@ -524,6 +536,10 @@ impl Connection {
     }
 }
 
+#[expect(
+    clippy::future_not_send,
+    reason = "actix-web HttpRequest and Payload are Rc-backed and !Send; handler runs on actix's single thread"
+)]
 pub async fn ws_handler(
     req: HttpRequest,
     body: web::Payload,
@@ -548,7 +564,7 @@ pub async fn ws_handler(
     let (tx, rx) = mpsc::unbounded_channel::<WsMessage>();
     let conn = Connection::new(registry.get_ref().clone(), client_ip, session, tx);
 
-    actix_web::rt::spawn(async move {
+    let _join = actix_web::rt::spawn(async move {
         conn.run(stream, rx).await;
     });
 
@@ -557,5 +573,5 @@ pub async fn ws_handler(
 }
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
-    cfg.route("/ws", web::get().to(ws_handler));
+    let _routed = cfg.route("/ws", web::get().to(ws_handler));
 }

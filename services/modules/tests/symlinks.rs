@@ -11,6 +11,12 @@
 
 #![cfg(test)]
 #![cfg(unix)]
+#![expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::deref_by_slicing,
+    reason = "test code: fixture setup failures should fail the test"
+)]
 
 use std::fs;
 use std::os::unix::fs::symlink;
@@ -55,10 +61,7 @@ fn aube_layout_fixture() -> (TempDir, TempDir, ModulesConfig) {
     symlink(&real_pkg, scan.path().join("onnxruntime-web")).unwrap();
     symlink(&static_root, scan.path().join("et-ws-server-static")).unwrap();
 
-    let config = ModulesConfig {
-        paths: vec![scan.path().to_path_buf()],
-        root: "et-ws-server-static".to_string(),
-    };
+    let config = ModulesConfig::new(vec![scan.path().to_path_buf()], "et-ws-server-static".to_string());
     (store, scan, config)
 }
 
@@ -73,7 +76,8 @@ async fn list_modules_follows_symlinks_to_package_dirs() {
 
     // Both packages — the symlinked target onnxruntime-web and the
     // symlinked stub root module — should be discovered.
-    let by_name: std::collections::HashMap<&str, &PathBuf> = found.iter().map(|(n, p)| (n.as_str(), p)).collect();
+    let by_name: std::collections::HashMap<&str, &PathBuf> =
+        found.iter().map(|(name, path)| (name.as_str(), path)).collect();
     let pkg_path = by_name
         .get("onnxruntime-web")
         .expect("symlinked onnxruntime-web should be discovered");

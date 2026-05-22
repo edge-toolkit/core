@@ -14,6 +14,10 @@ struct EnvConfig {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let env_config = serde_env::from_env::<EnvConfig>().unwrap_or_default();
 
+    #[expect(
+        clippy::option_if_let_else,
+        reason = "None branch installs an alternate tracing subscriber as a side effect; map_or_else hides it"
+    )]
     let otel_handles = if let Some(otlp_config) = &env_config.otlp {
         Some(et_otlp::init(otlp_config))
     } else {

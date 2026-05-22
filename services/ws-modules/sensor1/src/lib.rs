@@ -1,3 +1,8 @@
+#![expect(
+    clippy::future_not_send,
+    reason = "browser WASM module: JsFuture is Rc-backed and !Send; runs on the wasm single-threaded event loop"
+)]
+
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -38,18 +43,22 @@ pub struct OrientationReading {
 
 #[wasm_bindgen]
 impl OrientationReading {
+    #[must_use]
     pub fn alpha(&self) -> f64 {
         self.inner.alpha.unwrap_or(0.0)
     }
 
+    #[must_use]
     pub fn beta(&self) -> f64 {
         self.inner.beta.unwrap_or(0.0)
     }
 
+    #[must_use]
     pub fn gamma(&self) -> f64 {
         self.inner.gamma.unwrap_or(0.0)
     }
 
+    #[must_use]
     pub fn absolute(&self) -> bool {
         self.inner.absolute.unwrap_or(false)
     }
@@ -62,51 +71,61 @@ pub struct MotionReading {
 
 #[wasm_bindgen]
 impl MotionReading {
+    #[must_use]
     #[wasm_bindgen(js_name = accelerationX)]
     pub fn acceleration_x(&self) -> f64 {
         self.inner.acceleration_x.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = accelerationY)]
     pub fn acceleration_y(&self) -> f64 {
         self.inner.acceleration_y.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = accelerationZ)]
     pub fn acceleration_z(&self) -> f64 {
         self.inner.acceleration_z.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = accelerationIncludingGravityX)]
     pub fn acceleration_including_gravity_x(&self) -> f64 {
         self.inner.acceleration_including_gravity_x.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = accelerationIncludingGravityY)]
     pub fn acceleration_including_gravity_y(&self) -> f64 {
         self.inner.acceleration_including_gravity_y.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = accelerationIncludingGravityZ)]
     pub fn acceleration_including_gravity_z(&self) -> f64 {
         self.inner.acceleration_including_gravity_z.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = rotationRateAlpha)]
     pub fn rotation_rate_alpha(&self) -> f64 {
         self.inner.rotation_rate_alpha.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = rotationRateBeta)]
     pub fn rotation_rate_beta(&self) -> f64 {
         self.inner.rotation_rate_beta.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = rotationRateGamma)]
     pub fn rotation_rate_gamma(&self) -> f64 {
         self.inner.rotation_rate_gamma.unwrap_or(0.0)
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = intervalMs)]
     pub fn interval_ms(&self) -> f64 {
         self.inner.interval_ms.unwrap_or(0.0)
@@ -130,9 +149,10 @@ impl Default for DeviceSensors {
 
 #[wasm_bindgen]
 impl DeviceSensors {
+    #[must_use]
     #[wasm_bindgen(constructor)]
-    pub fn new() -> DeviceSensors {
-        DeviceSensors {
+    pub fn new() -> Self {
+        Self {
             active: false,
             orientation_state: Rc::new(RefCell::new(None)),
             motion_state: Rc::new(RefCell::new(None)),
@@ -173,8 +193,8 @@ impl DeviceSensors {
         *self.orientation_state.borrow_mut() = None;
         *self.motion_state.borrow_mut() = None;
 
-        let orientation_state = self.orientation_state.clone();
-        let orientation_listener = Closure::wrap(Box::new(move |event: Event| {
+        let orientation_state = Rc::clone(&self.orientation_state);
+        let orientation_boxed: Box<dyn FnMut(Event)> = Box::new(move |event: Event| {
             let value: JsValue = event.into();
             *orientation_state.borrow_mut() = Some(OrientationReadingState {
                 alpha: js_number_field(&value, "alpha"),
@@ -182,34 +202,42 @@ impl DeviceSensors {
                 gamma: js_number_field(&value, "gamma"),
                 absolute: js_bool_field(&value, "absolute"),
             });
-        }) as Box<dyn FnMut(Event)>);
+        });
+        let orientation_listener = Closure::wrap(orientation_boxed);
 
-        let motion_state = self.motion_state.clone();
-        let motion_listener = Closure::wrap(Box::new(move |event: Event| {
+        let motion_state = Rc::clone(&self.motion_state);
+        let motion_boxed: Box<dyn FnMut(Event)> = Box::new(move |event: Event| {
             let value: JsValue = event.into();
             let acceleration = js_nested_object(&value, "acceleration");
             let acceleration_including_gravity = js_nested_object(&value, "accelerationIncludingGravity");
             let rotation_rate = js_nested_object(&value, "rotationRate");
 
             *motion_state.borrow_mut() = Some(MotionReadingState {
-                acceleration_x: acceleration.as_ref().and_then(|v| js_number_field(v, "x")),
-                acceleration_y: acceleration.as_ref().and_then(|v| js_number_field(v, "y")),
-                acceleration_z: acceleration.as_ref().and_then(|v| js_number_field(v, "z")),
+                acceleration_x: acceleration.as_ref().and_then(|reading| js_number_field(reading, "x")),
+                acceleration_y: acceleration.as_ref().and_then(|reading| js_number_field(reading, "y")),
+                acceleration_z: acceleration.as_ref().and_then(|reading| js_number_field(reading, "z")),
                 acceleration_including_gravity_x: acceleration_including_gravity
                     .as_ref()
-                    .and_then(|v| js_number_field(v, "x")),
+                    .and_then(|reading| js_number_field(reading, "x")),
                 acceleration_including_gravity_y: acceleration_including_gravity
                     .as_ref()
-                    .and_then(|v| js_number_field(v, "y")),
+                    .and_then(|reading| js_number_field(reading, "y")),
                 acceleration_including_gravity_z: acceleration_including_gravity
                     .as_ref()
-                    .and_then(|v| js_number_field(v, "z")),
-                rotation_rate_alpha: rotation_rate.as_ref().and_then(|v| js_number_field(v, "alpha")),
-                rotation_rate_beta: rotation_rate.as_ref().and_then(|v| js_number_field(v, "beta")),
-                rotation_rate_gamma: rotation_rate.as_ref().and_then(|v| js_number_field(v, "gamma")),
+                    .and_then(|reading| js_number_field(reading, "z")),
+                rotation_rate_alpha: rotation_rate
+                    .as_ref()
+                    .and_then(|reading| js_number_field(reading, "alpha")),
+                rotation_rate_beta: rotation_rate
+                    .as_ref()
+                    .and_then(|reading| js_number_field(reading, "beta")),
+                rotation_rate_gamma: rotation_rate
+                    .as_ref()
+                    .and_then(|reading| js_number_field(reading, "gamma")),
                 interval_ms: js_number_field(&value, "interval"),
             });
-        }) as Box<dyn FnMut(Event)>);
+        });
+        let motion_listener = Closure::wrap(motion_boxed);
 
         let target: &web_sys::EventTarget = window.as_ref();
         target.add_event_listener_with_callback("deviceorientation", orientation_listener.as_ref().unchecked_ref())?;
@@ -245,16 +273,23 @@ impl DeviceSensors {
         Ok(())
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = isActive)]
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "wasm_bindgen rejects const fns; methods cannot be marked const"
+    )]
     pub fn is_active(&self) -> bool {
         self.active
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = hasOrientation)]
     pub fn has_orientation(&self) -> bool {
         self.orientation_state.borrow().is_some()
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = hasMotion)]
     pub fn has_motion(&self) -> bool {
         self.motion_state.borrow().is_some()
@@ -291,10 +326,11 @@ thread_local! {
 
 #[wasm_bindgen(start)]
 pub fn init() {
-    let _ = tracing_wasm::try_set_as_global_default();
+    drop(tracing_wasm::try_set_as_global_default());
     info!("sensor stream workflow module initialized");
 }
 
+#[must_use]
 #[wasm_bindgen]
 pub fn is_running() -> bool {
     SENSOR_STREAM_RUNTIME.with(|runtime| runtime.borrow().is_some())
@@ -311,16 +347,17 @@ pub async fn run() -> Result<(), JsValue> {
     sensors.start().await?;
     render_sensor_output(&sensors)?;
 
-    let render_closure = Closure::wrap(Box::new(move || {
+    let render_boxed: Box<dyn FnMut()> = Box::new(move || {
         SENSOR_STREAM_RUNTIME.with(|runtime| {
             let runtime_ref = runtime.borrow();
             let Some(runtime) = runtime_ref.as_ref() else {
                 return;
             };
 
-            let _ = render_sensor_output(&runtime.sensors);
+            drop(render_sensor_output(&runtime.sensors));
         });
-    }) as Box<dyn FnMut()>);
+    });
+    let render_closure = Closure::wrap(render_boxed);
 
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let render_interval_id = window.set_interval_with_callback_and_timeout_and_arguments_0(
@@ -329,7 +366,7 @@ pub async fn run() -> Result<(), JsValue> {
     )?;
 
     SENSOR_STREAM_RUNTIME.with(|runtime| {
-        runtime.borrow_mut().replace(SensorStreamRuntime {
+        let _previous: Option<SensorStreamRuntime> = runtime.borrow_mut().replace(SensorStreamRuntime {
             sensors,
             render_interval_id,
             _render_closure: render_closure,
@@ -338,11 +375,14 @@ pub async fn run() -> Result<(), JsValue> {
 
     let stop_callback = Closure::once_into_js(move || {
         if is_running() {
-            let _ = stop();
-            let _ = set_sensor_status("sensor stream: finished automatically after 15 seconds");
+            drop(stop());
+            drop(set_sensor_status(
+                "sensor stream: finished automatically after 15 seconds",
+            ));
         }
     });
-    window.set_timeout_with_callback_and_timeout_and_arguments_0(stop_callback.unchecked_ref(), 15000)?;
+    let _id: i32 =
+        window.set_timeout_with_callback_and_timeout_and_arguments_0(stop_callback.unchecked_ref(), 15000)?;
 
     set_sensor_status("sensor stream: running")?;
     Ok(())

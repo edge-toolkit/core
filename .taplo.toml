@@ -12,3 +12,11 @@ keys = ["package"]
 [[rule]]
 formatting = { reorder_arrays = false }
 keys = ["workspace"]
+
+# Forbid `path = "..."` dependencies in non-root Cargo.toml files. The root
+# Cargo.toml's `[workspace.dependencies]` is the only legitimate place for
+# path deps; member crates reference them via `dep.workspace = true`.
+[[rule]]
+exclude = ["Cargo.toml"]
+include = ["**/Cargo.toml"]
+schema = { path = "config/taplo/no-path-deps.schema.json" }

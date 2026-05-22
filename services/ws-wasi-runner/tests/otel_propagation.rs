@@ -21,6 +21,13 @@
 //! to exercise — no wgpu / wasi-nn work.
 
 #![cfg(test)]
+#![expect(
+    clippy::expect_used,
+    clippy::non_ascii_literal,
+    clippy::uninlined_format_args,
+    clippy::needless_collect,
+    reason = "test code: assertions include captured span dumps in failure messages; em-dash matches existing style"
+)]
 
 use std::collections::HashSet;
 use std::time::Duration;
@@ -41,7 +48,7 @@ fn trace_ids_propagate_between_runner_and_server() {
     // OtlpConfig is `non_exhaustive`, so build via Default + field
     // assignment.
     let mut server_otlp = OtlpConfig::default();
-    server_otlp.collector_url = mock.collector_url.clone();
+    server_otlp.collector_url = mock.collector_url().to_owned();
     server_otlp.protocol = OtlpProtocol::JSON;
     server_otlp.service_label = "et-ws-test".to_string();
     server_otlp.auth = None;
@@ -56,7 +63,7 @@ fn trace_ids_propagate_between_runner_and_server() {
     let status = std::process::Command::new(bin)
         .env("RUNNER_MODULE", "et-ws-wasi-data1")
         .env("WS_SERVER_URL", &server.ws_url)
-        .env("OTLP_COLLECTOR_URL", &mock.collector_url)
+        .env("OTLP_COLLECTOR_URL", mock.collector_url())
         .env("OTLP_PROTOCOL", "JSON")
         .env("OTLP_SERVICE_LABEL", "et-ws-wasi-runner")
         .status()
@@ -81,7 +88,8 @@ fn trace_ids_propagate_between_runner_and_server() {
 
     let trace_ids_by_service: std::collections::HashMap<String, HashSet<String>> =
         spans.iter().fold(std::collections::HashMap::new(), |mut acc, span| {
-            acc.entry(span.service_name.clone())
+            let _inserted: bool = acc
+                .entry(span.service_name.clone())
                 .or_default()
                 .insert(span.trace_id.clone());
             acc
@@ -121,14 +129,14 @@ fn trace_ids_propagate_between_runner_and_server() {
     // the propagation direction (runner → server).
     let server_with_parent = spans
         .iter()
-        .filter(|s| s.service_name == "et-ws-test" && !s.parent_span_id.is_empty())
+        .filter(|span| span.service_name == "et-ws-test" && !span.parent_span_id.is_empty())
         .count();
     assert!(
         server_with_parent > 0,
         "no server span had a non-empty parentSpanId: TracingLogger didnt extract `traceparent`. server spans: {:#?}",
         spans
             .iter()
-            .filter(|s| s.service_name == "et-ws-test")
+            .filter(|span| span.service_name == "et-ws-test")
             .collect::<Vec<_>>()
     );
 }

@@ -6,6 +6,14 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[[bin]]
+doctest = false
+name = "et-onnx"
+path = "src/main.rs"
+
 [dependencies]
 clap.workspace = true
 onnx-extractor.workspace = true
+
+[lints]
+workspace = true

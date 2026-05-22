@@ -1,4 +1,10 @@
-use et_web::{JsFunctionExt, JsPromiseExt};
+#![expect(
+    clippy::future_not_send,
+    clippy::single_call_fn,
+    reason = "browser WASM module: JsFuture is !Send; module-local helpers like wait_for_* are single-use by design"
+)]
+
+use et_web::{JsFunctionExt as _, JsPromiseExt as _};
 use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value};
 use js_sys::{Promise, Reflect};
 use serde_json::json;
@@ -14,7 +20,7 @@ pub struct BluetoothAccess {
 #[wasm_bindgen]
 impl BluetoothAccess {
     #[wasm_bindgen(js_name = request)]
-    pub async fn request() -> Result<BluetoothAccess, JsValue> {
+    pub async fn request() -> Result<Self, JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
         let navigator = window.navigator();
         let bluetooth = js_sys::Reflect::get(&navigator, &JsValue::from_str("bluetooth"))?;
@@ -25,7 +31,7 @@ impl BluetoothAccess {
         }
 
         let options = js_sys::Object::new();
-        js_sys::Reflect::set(&options, &JsValue::from_str("acceptAllDevices"), &JsValue::TRUE)?;
+        let _: bool = js_sys::Reflect::set(&options, &JsValue::from_str("acceptAllDevices"), &JsValue::TRUE)?;
 
         let request_device = js_sys::Reflect::get(&bluetooth, &JsValue::from_str("requestDevice"))?
             .into_function("navigator.bluetooth.requestDevice")?;
@@ -42,9 +48,10 @@ impl BluetoothAccess {
                 .unwrap_or_else(|| "unknown".to_string())
         );
 
-        Ok(BluetoothAccess { device })
+        Ok(Self { device })
     }
 
+    #[must_use]
     pub fn id(&self) -> String {
         js_sys::Reflect::get(&self.device, &JsValue::from_str("id"))
             .ok()
@@ -52,6 +59,7 @@ impl BluetoothAccess {
             .unwrap_or_default()
     }
 
+    #[must_use]
     pub fn name(&self) -> String {
         js_sys::Reflect::get(&self.device, &JsValue::from_str("name"))
             .ok()
@@ -59,6 +67,7 @@ impl BluetoothAccess {
             .unwrap_or_else(|| "unknown".to_string())
     }
 
+    #[must_use]
     #[wasm_bindgen(js_name = gattConnected)]
     pub fn gatt_connected(&self) -> bool {
         js_sys::Reflect::get(&self.device, &JsValue::from_str("gatt"))
@@ -79,7 +88,7 @@ impl BluetoothAccess {
         let connect =
             js_sys::Reflect::get(&gatt, &JsValue::from_str("connect"))?.into_function("device.gatt.connect")?;
         let promise = connect.call0(&gatt)?.into_promise("device.gatt.connect")?;
-        let _server = JsFuture::from(promise).await?;
+        let _server: JsValue = JsFuture::from(promise).await?;
         info!("Connected to Bluetooth GATT server for {}", self.name());
         Ok(())
     }
@@ -87,11 +96,16 @@ impl BluetoothAccess {
 
 #[wasm_bindgen(start)]
 pub fn init() {
-    let _ = tracing_wasm::try_set_as_global_default();
+    drop(tracing_wasm::try_set_as_global_default());
     info!("bluetooth module initialized");
 }
 
+#[must_use]
 #[wasm_bindgen]
+#[expect(
+    clippy::missing_const_for_fn,
+    reason = "wasm_bindgen rejects const fns; cannot be marked const"
+)]
 pub fn is_running() -> bool {
     false
 }
@@ -99,20 +113,20 @@ pub fn is_running() -> bool {
 #[wasm_bindgen]
 pub async fn run() -> Result<(), JsValue> {
     set_module_status("bluetooth: entered run()")?;
-    log("entered run()")?;
+    log("entered run()");
 
     let outcome = async {
         let ws_url = websocket_url()?;
         let mut client = WsClient::new(WsClientConfig::new(ws_url));
         client.connect()?;
         wait_for_connected(&client).await?;
-        log(&format!("websocket connected with agent_id={}", client.get_agent_id()))?;
+        log(&format!("websocket connected with agent_id={}", client.get_agent_id()));
 
-        log("requesting bluetooth access")?;
+        log("requesting bluetooth access");
         let access = BluetoothAccess::request().await?;
         let id = access.id();
         let name = access.name();
-        log(&format!("bluetooth device selected: {} ({})", name, id))?;
+        log(&format!("bluetooth device selected: {name} ({id})"));
 
         client.send_client_event(
             "bluetooth",
@@ -123,7 +137,7 @@ pub async fn run() -> Result<(), JsValue> {
             }),
         )?;
 
-        set_module_status(&format!("bluetooth: device selected\n{} ({})", name, id))?;
+        set_module_status(&format!("bluetooth: device selected\n{name} ({id})"))?;
 
         client.disconnect();
         Ok(())
@@ -132,15 +146,15 @@ pub async fn run() -> Result<(), JsValue> {
 
     if let Err(error) = &outcome {
         let message = describe_js_error(error);
-        let _ = set_module_status(&format!("bluetooth: error\n{}", message));
-        let _ = log(&format!("error: {}", message));
+        drop(set_module_status(&format!("bluetooth: error\n{message}")));
+        log(&format!("error: {message}"));
     }
 
     outcome
 }
 
-fn log(message: &str) -> Result<(), JsValue> {
-    let line = format!("[bluetooth] {}", message);
+fn log(message: &str) {
+    let line = format!("[bluetooth] {message}");
     web_sys::console::log_1(&JsValue::from_str(&line));
 
     if let Some(window) = web_sys::window()
@@ -151,12 +165,10 @@ fn log(message: &str) -> Result<(), JsValue> {
         let next = if current.is_empty() {
             line
         } else {
-            format!("{}\n{}", current, line)
+            format!("{current}\n{line}")
         };
         log_el.set_text_content(Some(&next));
     }
-
-    Ok(())
 }
 
 fn set_module_status(message: &str) -> Result<(), JsValue> {
@@ -167,11 +179,11 @@ fn describe_js_error(error: &JsValue) -> String {
     error
         .as_string()
         .or_else(|| js_sys::JSON::stringify(error).ok().map(String::from))
-        .unwrap_or_else(|| format!("{:?}", error))
+        .unwrap_or_else(|| format!("{error:?}"))
 }
 
 async fn wait_for_connected(client: &WsClient) -> Result<(), JsValue> {
-    for _ in 0..100 {
+    for _ in 0_u32..100 {
         if client.get_state() == "connected" {
             return Ok(());
         }
@@ -185,13 +197,13 @@ async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let promise = Promise::new(&mut |resolve, reject| {
         let callback = Closure::once_into_js(move || {
-            let _ = resolve.call0(&JsValue::NULL);
+            drop(resolve.call0(&JsValue::NULL));
         });
 
         if let Err(error) =
             window.set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), duration_ms)
         {
-            let _ = reject.call1(&JsValue::NULL, &error);
+            drop(reject.call1(&JsValue::NULL, &error));
         }
     });
     JsFuture::from(promise).await.map(|_| ())
@@ -207,5 +219,5 @@ fn websocket_url() -> Result<String, JsValue> {
         .as_string()
         .ok_or_else(|| JsValue::from_str("window.location.host is unavailable"))?;
     let ws_protocol = if protocol == "https:" { "wss:" } else { "ws:" };
-    Ok(format!("{}//{}/ws", ws_protocol, host))
+    Ok(format!("{ws_protocol}//{host}/ws"))
 }

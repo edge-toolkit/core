@@ -10,11 +10,12 @@ struct Args {
     filename: PathBuf,
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    let model = onnx_extractor::OnnxModel::load_from_file(&args.filename.to_string_lossy()).unwrap();
+    let model = onnx_extractor::OnnxModel::load_from_file(&args.filename.to_string_lossy())?;
 
     model.print_summary();
     model.print_model_info();
+    Ok(())
 }

@@ -14,6 +14,30 @@
 //! buffer pass commands on the encoder resource and replay them inside
 //! `end()`, so the real `ComputePass` lives only for the duration of one
 //! synchronous block.
+#![expect(
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::clone_on_ref_ptr,
+    clippy::default_trait_access,
+    clippy::doc_markdown,
+    clippy::exhaustive_enums,
+    clippy::exhaustive_structs,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::let_underscore_must_use,
+    clippy::let_underscore_untyped,
+    clippy::min_ident_chars,
+    clippy::needless_pass_by_ref_mut,
+    clippy::redundant_clone,
+    clippy::renamed_function_params,
+    clippy::single_call_fn,
+    clippy::too_long_first_doc_paragraph,
+    clippy::unimplemented,
+    let_underscore_drop,
+    unused_results,
+    reason = "trimmed wasi-webgpu host: only matmul path is wired, others trap; to be replaced by upstream"
+)]
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -33,7 +57,7 @@ use crate::bindings::wasi::webgpu::webgpu::{
     MapAsyncError, MapAsyncErrorKind, RequestDeviceError, SetBindGroupError, SetBindGroupErrorKind, UnmapError,
     UnmapErrorKind, WriteBufferError, WriteBufferErrorKind,
 };
-use crate::host::{RequestDeviceErrExt, WitErrExt};
+use crate::host::{RequestDeviceErrExt as _, WitErrExt as _};
 
 /// wgpu buffer-usage flags as the host wire-format. The WIT-side
 /// `gpu-buffer-usage.STORAGE()` style accessors return these constants and
@@ -1182,7 +1206,7 @@ impl HostGpuComputePassEncoder for HostState {
         _dynamic_offsets_data_start: Option<u64>,
         _dynamic_offsets_data_length: Option<u32>,
     ) -> Result<(), SetBindGroupError> {
-        let bg = bind_group.ok_or(SetBindGroupError {
+        let bg = bind_group.ok_or_else(|| SetBindGroupError {
             kind: SetBindGroupErrorKind::RangeError,
             message: "set-bind-group with None not supported in matmul subset".into(),
         })?;
@@ -1294,10 +1318,7 @@ impl HostGpuQueue for HostState {
         let queue = self.resource_table.get(&rep).expect("queue handle").queue.clone();
         let buf = self.resource_table.get(&buffer).expect("buffer handle").buffer.clone();
         let data_offset = data_offset.unwrap_or(0) as usize;
-        let end = match size {
-            Some(s) => data_offset + s as usize,
-            None => data.len(),
-        };
+        let end = size.map_or(data.len(), |s| data_offset + s as usize);
         if end > data.len() {
             return Err(WriteBufferError {
                 kind: WriteBufferErrorKind::OperationError,

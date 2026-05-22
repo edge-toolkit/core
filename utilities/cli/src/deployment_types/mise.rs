@@ -18,7 +18,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
     let module_paths = scenario_module_paths(&ws_server_dir, &module_names)?;
     let module_paths_lines = module_paths
         .iter()
-        .map(|p| format!("  {p}"))
+        .map(|path| format!("  {path}"))
         .collect::<Vec<_>>()
         .join(",\\\n");
     let ws_server_run = format!("export MODULES_PATHS=\"\\\n{module_paths_lines}\"\ncargo run\n");
@@ -27,21 +27,24 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
     let mut root = Table::new();
     let mut tasks = Table::new();
 
-    tasks.insert(
+    let _previous: Option<Value> = tasks.insert(
         "openobserve".to_string(),
         Value::Table(mise_task(
             Some("o2"),
             None,
             Some(&workspace_rel),
             Some(&format!(
-                "docker run --rm -it --name openobserve -p 5080:5080 --env-file {} openobserve/openobserve:v0.70.3",
+                concat!(
+                    "docker run --rm -it --name openobserve -p 5080:5080 ",
+                    "--env-file {} openobserve/openobserve:v0.70.3",
+                ),
                 openobserve_env_file_rel
             )),
             None,
             None,
         )),
     );
-    tasks.insert(
+    let _previous: Option<Value> = tasks.insert(
         "ws-server".to_string(),
         Value::Table(mise_task(
             None,
@@ -52,7 +55,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
             Some(mise_env()),
         )),
     );
-    tasks.insert(
+    let _previous: Option<Value> = tasks.insert(
         "generated-scenario".to_string(),
         Value::Table(mise_task(
             None,
@@ -63,7 +66,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
             None,
         )),
     );
-    tasks.insert(
+    let _previous: Option<Value> = tasks.insert(
         "open-o2".to_string(),
         Value::Table(mise_task(
             None,
@@ -75,9 +78,9 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
         )),
     );
 
-    root.insert("tasks".to_string(), Value::Table(tasks));
+    let _previous: Option<Value> = root.insert("tasks".to_string(), Value::Table(tasks));
 
-    let content = format_mise_toml(toml::to_string(&Value::Table(root))?, openobserve_env_file_rel);
+    let content = format_mise_toml(&toml::to_string(&Value::Table(root))?, openobserve_env_file_rel);
     fs::write(&output_path, content)?;
 
     Ok(())
@@ -100,11 +103,11 @@ pub fn scenario_module_paths(ws_server_dir: &Path, module_names: &[String]) -> R
     Ok(paths)
 }
 
-fn format_mise_toml(content: String, openobserve_env_file_rel: &str) -> String {
+fn format_mise_toml(content: &str, openobserve_env_file_rel: &str) -> String {
     let openobserve_run = format!(
         concat!(
-            "run = \"docker run --rm -it --name openobserve -p 5080:5080 --env-file {} ",
-            "openobserve/openobserve:v0.70.3\""
+            "run = \"docker run --rm -it --name openobserve -p 5080:5080 ",
+            "--env-file {0} openobserve/openobserve:v0.70.3\"",
         ),
         openobserve_env_file_rel
     );
@@ -131,32 +134,32 @@ fn mise_task(
 ) -> Table {
     let mut task = Table::new();
     if let Some(alias) = alias {
-        task.insert("alias".to_string(), Value::String(alias.to_string()));
+        let _previous: Option<Value> = task.insert("alias".to_string(), Value::String(alias.to_string()));
     }
     if let Some(description) = description {
-        task.insert("description".to_string(), Value::String(description.to_string()));
+        let _previous: Option<Value> = task.insert("description".to_string(), Value::String(description.to_string()));
     }
     if let Some(dir) = dir {
-        task.insert("dir".to_string(), Value::String(dir.to_string()));
+        let _previous: Option<Value> = task.insert("dir".to_string(), Value::String(dir.to_string()));
     }
     if let Some(run) = run {
-        task.insert("run".to_string(), Value::String(run.to_string()));
+        let _previous: Option<Value> = task.insert("run".to_string(), Value::String(run.to_string()));
     }
     if let Some(extra) = extra {
         for (key, value) in extra {
-            task.insert(key, value);
+            let _previous: Option<Value> = task.insert(key, value);
         }
     }
     if let Some(env) = env {
-        task.insert("env".to_string(), Value::Table(env));
+        let _previous: Option<Value> = task.insert("env".to_string(), Value::Table(env));
     }
     task
 }
 
 fn mise_env() -> Table {
     let mut env = Table::new();
-    env.insert("OTLP_AUTH_PASSWORD".to_string(), Value::String("1234".to_string()));
-    env.insert(
+    let _previous: Option<Value> = env.insert("OTLP_AUTH_PASSWORD".to_string(), Value::String("1234".to_string()));
+    let _previous: Option<Value> = env.insert(
         "OTLP_AUTH_USERNAME".to_string(),
         Value::String("root@example.com".to_string()),
     );
@@ -165,7 +168,7 @@ fn mise_env() -> Table {
 
 fn mise_depends<const N: usize>(depends: [&str; N]) -> Table {
     let mut extra = Table::new();
-    extra.insert(
+    let _previous: Option<Value> = extra.insert(
         "depends".to_string(),
         Value::Array(
             depends

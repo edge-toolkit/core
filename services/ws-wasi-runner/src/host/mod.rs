@@ -18,9 +18,12 @@ pub mod wasi_nn;
 pub mod wasi_webgpu;
 mod ws;
 
-pub use self::error::{KvErrExt, RequestDeviceErrExt, WitErrExt, WsProtocolErrExt, WsTransportErrExt};
+pub use self::error::{
+    KvErrExt, RequestDeviceErrExt, WitErrExt, WsProtocolErrExt, WsTransportErrExt, kv_not_implemented,
+};
 pub use self::ws::WsBackend;
 
+#[non_exhaustive]
 pub struct HostState {
     pub wasi_ctx: WasiCtx,
     pub resource_table: ResourceTable,
@@ -38,7 +41,12 @@ pub struct HostState {
 }
 
 impl HostState {
-    pub async fn new(http_base: String, ws_url: String) -> Self {
+    #[must_use]
+    #[expect(
+        clippy::same_name_method,
+        reason = "convention: HostState::new mirrors WasiCtxBuilder/ResourceTable/Client constructors used here"
+    )]
+    pub fn new(http_base: String, ws_url: String) -> Self {
         let wasi_ctx = WasiCtxBuilder::new().inherit_stdio().inherit_env().build();
 
         Self {

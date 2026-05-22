@@ -1,3 +1,9 @@
+#![expect(
+    clippy::future_not_send,
+    clippy::single_call_fn,
+    reason = "browser WASM module: JsFuture is !Send; module-local helpers like wait_for_* are single-use by design"
+)]
+
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -20,82 +26,29 @@ pub fn init() {
 
 #[wasm_bindgen]
 pub async fn run() -> Result<(), JsValue> {
-    log("comm1: entered run()")?;
+    log("comm1: entered run()");
 
     let ws_url = websocket_url()?;
-    log(&format!("comm1: resolved websocket URL: {ws_url}"))?;
+    log(&format!("comm1: resolved websocket URL: {ws_url}"));
 
     let mut client = WsClient::new(WsClientConfig::new(ws_url));
     let self_agent_id = Rc::new(RefCell::new(String::new()));
     let other_connected_agents: Rc<RefCell<Vec<AgentSummary>>> = Rc::new(RefCell::new(Vec::new()));
 
-    let on_message = Closure::wrap(Box::new({
-        let self_agent_id = self_agent_id.clone();
-        let other_connected_agents = other_connected_agents.clone();
-        move |value: JsValue| {
-            let Some(data) = value.as_string() else {
-                return;
-            };
-
-            let Ok(message) = serde_json::from_str::<WsMessage>(&data) else {
-                return;
-            };
-
-            match message {
-                WsMessage::ListAgentsResponse { agents } => {
-                    let own_id = self_agent_id.borrow().clone();
-                    let others = agents
-                        .into_iter()
-                        .filter(|agent| {
-                            agent.state == AgentConnectionState::Connected
-                                && !own_id.is_empty()
-                                && agent.agent_id != own_id
-                        })
-                        .collect::<Vec<_>>();
-                    *other_connected_agents.borrow_mut() = others;
-                }
-                WsMessage::AgentMessage {
-                    message_id,
-                    from_agent_id,
-                    scope,
-                    server_received_at,
-                    message,
-                } => {
-                    let summary =
-                        serde_json::to_string(&message).unwrap_or_else(|_| String::from("<unprintable message>"));
-                    let line = format!(
-                        "comm1: received {:?} message {} from {} at {}: {}",
-                        scope, message_id, from_agent_id, server_received_at, summary
-                    );
-                    web_sys::console::log_1(&JsValue::from_str(&line));
-                    let _ = set_module_status(&line);
-                }
-                WsMessage::MessageStatus {
-                    message_id,
-                    status,
-                    detail,
-                } => {
-                    let line = format!("comm1: message status update {:?} {:?}: {}", message_id, status, detail);
-                    web_sys::console::log_1(&JsValue::from_str(&line));
-                    let _ = set_module_status(&line);
-                }
-                WsMessage::Invalid { message_id, detail } => {
-                    let line = format!("comm1: invalid server response {:?}: {}", message_id, detail);
-                    web_sys::console::warn_1(&JsValue::from_str(&line));
-                    let _ = set_module_status(&line);
-                }
-                _ => {}
-            }
-        }
-    }) as Box<dyn FnMut(JsValue)>);
+    let on_message_boxed: Box<dyn FnMut(JsValue)> = Box::new({
+        let self_agent_id = Rc::clone(&self_agent_id);
+        let other_connected_agents = Rc::clone(&other_connected_agents);
+        move |value: JsValue| handle_incoming_message(&self_agent_id, &other_connected_agents, &value)
+    });
+    let on_message = Closure::wrap(on_message_boxed);
     client.set_on_message(on_message.as_ref().clone());
 
     client.connect()?;
     wait_for_connected(&client).await?;
     let agent_id = wait_for_agent_id(&client).await?;
-    *self_agent_id.borrow_mut() = agent_id.clone();
+    agent_id.clone_into(&mut self_agent_id.borrow_mut());
     let msg = format!("comm1: websocket connected with agent_id={agent_id}");
-    log(&msg)?;
+    log(&msg);
     set_module_status(&msg)?;
 
     let target_agent = loop {
@@ -112,7 +65,7 @@ pub async fn run() -> Result<(), JsValue> {
         "comm1: found connected peer agent {}; sending broadcast",
         target_agent.agent_id
     );
-    log(&msg)?;
+    log(&msg);
     set_module_status(&msg)?;
     client.broadcast_message(json!({
         "module": "comm1",
@@ -124,7 +77,7 @@ pub async fn run() -> Result<(), JsValue> {
     sleep_ms(MESSAGE_PAUSE_MS).await?;
 
     let msg = format!("comm1: sending direct message to {}", target_agent.agent_id);
-    log(&msg)?;
+    log(&msg);
     set_module_status(&msg)?;
     client.send_agent_message(
         target_agent.agent_id.clone(),
@@ -139,15 +92,80 @@ pub async fn run() -> Result<(), JsValue> {
     sleep_ms(MESSAGE_PAUSE_MS).await?;
     client.disconnect();
     let msg = "comm1: workflow complete";
-    log(msg)?;
+    log(msg);
     set_module_status(msg)?;
     Ok(())
 }
 
-fn log(message: &str) -> Result<(), JsValue> {
+fn handle_incoming_message(
+    self_agent_id: &Rc<RefCell<String>>,
+    other_connected_agents: &Rc<RefCell<Vec<AgentSummary>>>,
+    value: &JsValue,
+) {
+    let Some(data) = value.as_string() else {
+        return;
+    };
+
+    let Ok(message) = serde_json::from_str::<WsMessage>(&data) else {
+        return;
+    };
+
+    match message {
+        WsMessage::ListAgentsResponse { agents } => {
+            let own_id = self_agent_id.borrow().clone();
+            let others = agents
+                .into_iter()
+                .filter(|agent| {
+                    agent.state == AgentConnectionState::Connected && !own_id.is_empty() && agent.agent_id != own_id
+                })
+                .collect::<Vec<_>>();
+            *other_connected_agents.borrow_mut() = others;
+        }
+        WsMessage::AgentMessage {
+            message_id,
+            from_agent_id,
+            scope,
+            server_received_at,
+            message,
+        } => {
+            let summary = serde_json::to_string(&message).unwrap_or_else(|_| String::from("<unprintable message>"));
+            let line = format!(
+                "comm1: received {scope:?} message {message_id} from {from_agent_id} at {server_received_at}: {summary}"
+            );
+            web_sys::console::log_1(&JsValue::from_str(&line));
+            drop(set_module_status(&line));
+        }
+        WsMessage::MessageStatus {
+            message_id,
+            status,
+            detail,
+        } => {
+            let line = format!("comm1: message status update {message_id:?} {status:?}: {detail}");
+            web_sys::console::log_1(&JsValue::from_str(&line));
+            drop(set_module_status(&line));
+        }
+        WsMessage::Invalid { message_id, detail } => {
+            let line = format!("comm1: invalid server response {message_id:?}: {detail}");
+            web_sys::console::warn_1(&JsValue::from_str(&line));
+            drop(set_module_status(&line));
+        }
+        WsMessage::Connect { .. }
+        | WsMessage::ConnectAck { .. }
+        | WsMessage::Alive { .. }
+        | WsMessage::ListAgents
+        | WsMessage::SendAgentMessage { .. }
+        | WsMessage::BroadcastMessage { .. }
+        | WsMessage::MessageAck { .. }
+        | WsMessage::ClientEvent { .. }
+        | WsMessage::StoreFile { .. }
+        | WsMessage::FetchFile { .. }
+        | WsMessage::Response { .. } => {}
+    }
+}
+
+fn log(message: &str) {
     let line = format!("[comm1] {message}");
     web_sys::console::log_1(&JsValue::from_str(&line));
-    Ok(())
 }
 
 fn set_module_status(message: &str) -> Result<(), JsValue> {
@@ -155,7 +173,7 @@ fn set_module_status(message: &str) -> Result<(), JsValue> {
 }
 
 async fn wait_for_connected(client: &WsClient) -> Result<(), JsValue> {
-    for _ in 0..100 {
+    for _ in 0_u32..100 {
         if client.get_state() == "connected" {
             return Ok(());
         }
@@ -166,7 +184,7 @@ async fn wait_for_connected(client: &WsClient) -> Result<(), JsValue> {
 }
 
 async fn wait_for_agent_id(client: &WsClient) -> Result<String, JsValue> {
-    for _ in 0..100 {
+    for _ in 0_u32..100 {
         let agent_id = client.get_agent_id();
         if !agent_id.is_empty() {
             return Ok(agent_id);
@@ -181,13 +199,13 @@ async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let promise = Promise::new(&mut |resolve, reject| {
         let callback = Closure::once_into_js(move || {
-            let _ = resolve.call0(&JsValue::NULL);
+            drop(resolve.call0(&JsValue::NULL));
         });
 
         if let Err(error) =
             window.set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), duration_ms)
         {
-            let _ = reject.call1(&JsValue::NULL, &error);
+            drop(reject.call1(&JsValue::NULL, &error));
         }
     });
     JsFuture::from(promise).await.map(|_| ())

@@ -4,6 +4,15 @@
 //! crate root: the macro generates a `mod`-shaped tree of types, which
 //! would otherwise have to be wrapped in `pub mod bindings { ... }` at
 //! the `lib.rs` top level.
+#![expect(
+    clippy::error_impl_error,
+    clippy::exhaustive_enums,
+    clippy::exhaustive_structs,
+    clippy::impl_trait_in_params,
+    clippy::integer_division_remainder_used,
+    clippy::missing_asserts_for_indexing,
+    reason = "wasmtime::component::bindgen! generates the API surface from WIT; we don't control its lints"
+)]
 
 wasmtime::component::bindgen!({
     path: "wit",

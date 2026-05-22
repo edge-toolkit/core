@@ -45,13 +45,19 @@ base64 = "0.22.1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive"] }
 edge-toolkit = { path = "libs/edge-toolkit" }
+et-modules-service = { path = "services/modules" }
 et-otlp = { path = "libs/et-otlp" }
+et-storage-service = { path = "services/storage" }
 et-web = { path = "libs/web" }
+et-ws-service = { path = "services/ws" }
+et-ws-test-server = { path = "services/ws-test-server" }
+et-ws-wasm-agent = { path = "services/ws-wasm-agent" }
 fs-err = "3"
 lets_find_up = "0.0.4"
 log = "0.4"
 onnx-extractor = "0.3"
 opentelemetry = "0.31"
+otlp-mock = { path = "libs/otlp-mock" }
 rstest = "0.26"
 secrecy = { version = "0.10.3", features = ["serde"] }
 serde = { version = "1.0.228", features = ["derive"] }
@@ -60,7 +66,9 @@ serde-inline-default = "1.0"
 serde_default = "0.2"
 serde_json = "1"
 serde_yaml = "0.9"
+temp-env = "0.3"
 tempfile = "3"
+testing_logger = "0.1"
 thiserror = "2"
 toml = "0.8"
 tracing = "0.1"
@@ -72,3 +80,135 @@ tracing-actix-web = { version = "0.7", default-features = false, features = [
 tracing-opentelemetry = "0.32"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1", features = ["serde", "v4", "v7"] }
+
+[profile.release.package.et-ws-wasm-agent]
+opt-level = "s"
+
+[workspace.lints.rust]
+# groups
+unused = { level = "deny", priority = -1 }
+# specific lints
+dead_code = "deny"
+let_underscore = { level = "deny", priority = -1 }
+macro_use_extern_crate = "deny"
+non_ascii_idents = "deny"
+# Allowing private_bounds & private_interfaces & unnameable_types reduces the noise of using `visibility` crate.
+private_bounds = "allow"
+private_interfaces = "allow"
+unnameable_types = "allow"
+
+redundant_imports = "deny"
+redundant_lifetimes = "deny"
+trivial_numeric_casts = "deny"
+# raises an error on unmet expect statements so they are easily found and fixed
+unfulfilled_lint_expectations = "deny"
+unsafe_attr_outside_unsafe = "deny"
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "deny"
+# unused_crate_dependencies fires per test binary: dev-deps declared once but consumed by only a
+# subset of `tests/*.rs` files (each compiled as its own crate) are flagged as unused in the
+# sibling test crates that don't import them. Tracked at rust-lang/rust#95513; re-enable when
+# rustc gains a workspace-aware view.
+# unused_crate_dependencies = "deny"
+unused_results = "warn"
+
+[workspace.lints.rustdoc]
+private_intra_doc_links = { level = "deny", priority = 8 }
+
+[workspace.lints.clippy]
+# priority numbers are arbitrary ints; higher overrides lower.
+# blanket clippy category rules appear at the top, while sub category lints appear below with priority levels
+all = { level = "deny", priority = -1 }
+complexity = { level = "deny", priority = -1 }
+correctness = { level = "deny", priority = -1 }
+implicit_return = { level = "allow", priority = 8 }
+nursery = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+perf = { level = "deny", priority = -1 }
+restriction = { level = "deny", priority = -1 }
+style = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+# blanket_clippy_restriction_lints allows the above blanket deny
+blanket_clippy_restriction_lints = { level = "allow", priority = 8 }
+# allow lint groups to override priorities
+integer_division_remainder_used = { level = "deny", priority = 8 }
+lint_groups_priority = { level = "allow", priority = 8 }
+# Allowing question_mark_used is an explicit implementation choice.
+question_mark_used = { level = "allow", priority = 8 }
+# Allowing std_instead_of_alloc as we have no reason yet to choose alloc,core over std
+single_call_fn = { level = "deny", priority = 4 }
+std_instead_of_alloc = { level = "allow", priority = 8 }
+std_instead_of_core = { level = "allow", priority = 8 }
+str_to_string = { level = "allow", priority = 4 }
+struct_excessive_bools = { level = "allow", priority = 8 }
+# Allowing shadow_reuse, shadow_same & shadow_unrelated is an explicit style choice, preferring to allow
+# developers to reuse a name even if its type changes.
+semicolon_if_nothing_returned = { level = "deny", priority = 4 }
+shadow_reuse = { level = "allow", priority = 4 }
+shadow_same = { level = "allow", priority = 4 }
+shadow_unrelated = { level = "allow", priority = 4 }
+# Block-scoped statements like `{ *guard = ...; }` use the closing brace to drop borrows;
+# moving the `;` outside risks extending MutexGuard lifetimes past the intended scope.
+semicolon_outside_block = { level = "allow", priority = 4 }
+# Allowing separated_literal_suffix & unseparated_literal_suffix is an explicit style choice.
+separated_literal_suffix = { level = "allow", priority = 4 }
+unseparated_literal_suffix = { level = "allow", priority = 4 }
+# Allowing absolute_paths is an explicit style choice.
+absolute_paths = { level = "allow", priority = 4 }
+# Allowing pub_use is an explicit style choice to streamline coding.
+impl_trait_in_params = { level = "deny", priority = 4 }
+pub_use = { level = "allow", priority = 4 }
+# Allowing module_name_repetitions & mod_module_files are an explicit code layout choice.
+mod_module_files = { level = "allow", priority = 4 }
+module_name_repetitions = { level = "allow", priority = 4 }
+self_named_module_files = { level = "deny", priority = 4 }
+# Allowing missing_docs_in_private_items is an explicit but temporary choice to focus on documentation of public items.
+missing_docs_in_private_items = { level = "allow", priority = 2 }
+# missing_inline_in_public_items forces use of `#[inline]` on public items, which is not desirable.
+missing_inline_in_public_items = { level = "allow", priority = 4 }
+# Allowing missing_errors_doc as fixing unwrap's is the more important task.
+future_not_send = { level = "deny", priority = 4 }
+missing_errors_doc = { level = "allow", priority = 4 }
+# pattern_type_mismatch fights with idiomatic match ergonomics (e.g. `for (k, v) in &map`,
+# `if let Some(x) = &option`).
+pattern_type_mismatch = { level = "allow", priority = 4 }
+unused_async = { level = "deny", priority = 2 }
+# as_conversions & cast_lossless & cast_possible_wrap should be replaced with safer wrapped conversion
+as_conversions = "deny"
+cast_lossless = "deny"
+cast_possible_wrap = "deny"
+clone_on_ref_ptr = { level = "deny", priority = 4 }
+infinite_loop = "deny"
+too_many_arguments = { level = "deny", priority = 2 }
+# Allowing missing_trait_methods to avoid forcing explicit implementation of default trait methods
+missing_trait_methods = { level = "allow", priority = 4 }
+pub_with_shorthand = { level = "allow", priority = 4 }
+pub_without_shorthand = { level = "deny", priority = 4 }
+# clippy removing pub(crate) is quite confusing at times
+redundant_pub_crate = { level = "allow", priority = 4 }
+
+type_complexity = { level = "deny", priority = 4 }
+
+min_ident_chars = { level = "deny", priority = 4 }
+
+# Allowing arbitrary_source_item_ordering: strict alphabetical ordering destroys semantic grouping
+# (e.g. WsMessage variants in connection-lifecycle order, struct fields ordered by importance).
+arbitrary_source_item_ordering = { level = "allow", priority = 4 }
+
+# Force use of #[expect(..)] instead of #[allow(..)]
+allow_attributes = { level = "deny", priority = 4 }
+# This lint also covers #[expect] without a reason, so allow this to prevent silly reason values.
+allow_attributes_without_reason = { level = "allow", priority = 4 }
+
+let_underscore_must_use = { level = "deny", priority = 4 }
+let_underscore_untyped = { level = "deny", priority = 4 }
+missing_panics_doc = { level = "allow", priority = 4 }
+
+[workspace.metadata.unmaintained]
+ignore = [
+  # It is a hg repo, which is not supported by cargo-unmaintained
+  "oorandom",
+  # https://github.com/rustsec/advisory-db/issues/2132
+  "serde_yaml",
+  "unsafe-libyaml",
+]

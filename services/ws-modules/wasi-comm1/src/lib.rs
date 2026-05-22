@@ -4,15 +4,15 @@
 //! be connected, then exchanges broadcast and direct messages with it. The
 //! integration test only spins up a single runner, so the WASI port instead
 //! exercises the message round-trip with the server itself:
-//!   1. Connect and capture our agent_id.
+//!   1. Connect and capture our `agent_id`.
 //!   2. Send `list_agents`, recv a `list_agents_response`, assert the list
-//!      contains our agent_id (we're at least in our own roster).
+//!      contains our `agent_id` (we're at least in our own roster).
 //!   3. Send a `broadcast_message` (fire-and-forget when no peer is online).
 //!   4. Disconnect cleanly.
 //!
 //! Wire-format messages are built with `serde_json::json!` and serialised
 //! before going through `ws.send-text`; recv'd frames are parsed with
-//! `serde_json::Value`. This mirrors the WsMessage enum in
+//! `serde_json::Value`. This mirrors the `WsMessage` enum in
 //! `libs/edge-toolkit/src/ws.rs` but avoids depending on that crate (its
 //! transitive deps don't all compile to wasm32-wasip2).
 
@@ -22,6 +22,12 @@
 // from the repo root produces an empty cdylib for the host target without
 // linker errors.
 #![cfg(target_os = "wasi")]
+// wit_bindgen::generate! emits `unsafe fn` and `#[export_name]` items;
+// `export!(Component)` does the same. Both trip workspace
+// `unsafe_code = "deny"` lint; expect it at crate scope because outer
+// `#[expect]` on the macro invocations themselves doesn't propagate to
+// the items they expand into.
+#![expect(unsafe_code)]
 
 wit_bindgen::generate!({
     path: "../../ws-wasi-runner/wit",
@@ -142,7 +148,7 @@ fn wait_for_agent_id() -> Option<String> {
 
 fn sleep_ms(ms: u64) {
     let pollable = wasi::clocks::monotonic_clock::subscribe_duration(ms * 1_000_000);
-    wasi::io::poll::poll(&[&pollable]);
+    drop(wasi::io::poll::poll(&[&pollable]));
 }
 
 export!(Component);

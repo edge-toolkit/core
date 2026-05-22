@@ -4,6 +4,10 @@
 //! components rather than browser-targeted JS.
 
 #![cfg(test)]
+#![expect(
+    clippy::expect_used,
+    reason = "test code: process spawn failure should fail the test"
+)]
 
 use rstest::rstest;
 

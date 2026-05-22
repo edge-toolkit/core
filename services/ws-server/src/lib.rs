@@ -17,7 +17,8 @@ pub async fn health() -> HttpResponse {
 }
 
 pub fn configure_app(cfg: &mut web::ServiceConfig, agent_registry: web::Data<WsAgentRegistry>, config: &Config) {
-    cfg.app_data(agent_registry)
+    let _configured = cfg
+        .app_data(agent_registry)
         .app_data(web::Data::new(config.clone()))
         .app_data(web::Data::new(config.modules.clone()))
         .app_data(web::Data::new(config.storage.clone()))

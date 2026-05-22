@@ -1,3 +1,10 @@
+#![expect(
+    clippy::print_stderr,
+    clippy::unwrap_used,
+    clippy::use_debug,
+    reason = "server entry point: bootstrap crashes are intentional; eprintln! + Debug env dump precede tracing setup"
+)]
+
 use std::path::PathBuf;
 
 use actix_web::middleware::{DefaultHeaders, Logger};
@@ -9,14 +16,14 @@ use et_ws_server::configure_app;
 use et_ws_service::load_registry;
 use tracing::{error, info};
 use tracing_actix_web::TracingLogger;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
 mod tls;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Path to agent registry YAML file
+    /// Path to agent registry YAML file.
     #[arg(short, long, default_value = "registry.yaml")]
     agent_registry: PathBuf,
 }
@@ -29,6 +36,10 @@ async fn main() -> Result<(), std::io::Error> {
 
     eprintln!("Starting with env vars {env:#?}");
 
+    #[expect(
+        clippy::option_if_let_else,
+        reason = "both branches log and configure distinct tracing subscribers; map_or_else hides the structure"
+    )]
     let otel_handles = if let Some(otlp_config) = &env.otlp {
         info!("OpenTelemetry configuration detected, initializing tracing...");
         Some(et_otlp::init(otlp_config))
@@ -44,9 +55,7 @@ async fn main() -> Result<(), std::io::Error> {
         None
     };
 
-    let network_ip = local_ip_address::local_ip()
-        .map(|ip| ip.to_string())
-        .unwrap_or_else(|_| "127.0.0.1".to_string());
+    let network_ip = local_ip_address::local_ip().map_or_else(|_unused| "127.0.0.1".to_string(), |ip| ip.to_string());
 
     let cert_filename = &env.tls.cert_file;
     let key_filename = &env.tls.key_file;
@@ -120,7 +129,7 @@ async fn main() -> Result<(), std::io::Error> {
     .run();
 
     let handle = server.handle();
-    tokio::spawn(async move {
+    let _shutdown_task = tokio::spawn(async move {
         tokio::signal::ctrl_c().await.unwrap();
         info!("Shutdown signal received, saving registry...");
         if let Err(e) = registry_clone.save(&registry_path) {

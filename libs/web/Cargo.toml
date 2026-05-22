@@ -8,6 +8,7 @@ repository.workspace = true
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+doctest = false
 
 [dependencies]
 js-sys = "0.3"
@@ -21,3 +22,6 @@ web-sys = { version = "0.3", features = [
   "MessageEvent",
   "Navigator",
 ] }
+
+[lints]
+workspace = true
