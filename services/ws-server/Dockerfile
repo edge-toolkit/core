@@ -8,13 +8,20 @@ RUN apt-get update \
         npm \
         pkg-config \
         protobuf-compiler \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && npm install -g pnpm
 
 WORKDIR /workspace
 
 COPY . .
 
-RUN npm install --omit=dev --prefix /workspace/runtime-deps onnxruntime-web pyodide
+# `--config.node-linker=hoisted` writes packages directly under
+# `node_modules/` instead of symlinking into `.pnpm/`, so the downstream
+# `COPY --from=builder /workspace/runtime-deps/node_modules/onnxruntime-web`
+# step picks up a real directory.
+RUN pnpm add --prod --dir /workspace/runtime-deps --config.node-linker=hoisted \
+        --ignore-scripts --config.ignoredBuiltDependencies=protobufjs \
+        onnxruntime-web pyodide
 RUN cargo build -p et-ws-server --release --locked
 
 FROM debian:bookworm-slim AS runtime

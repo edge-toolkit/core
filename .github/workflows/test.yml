@@ -43,6 +43,9 @@ jobs:
       - name: Fetch MNIST model
         run: mise run fetch-mnist-rclone
 
+      - name: Prefetch dependencies
+        run: mise run prefetch
+
       - name: Build WASM modules
         run: mise run build-modules
 
