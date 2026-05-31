@@ -9,7 +9,7 @@
     "style.css"
   ],
   "dependencies": {
-    "et-ws-wasm-agent": "*",
+    "et-ws-wasm-agent": "link:../../ws-wasm-agent/pkg",
     "onnxruntime-web": "*"
   }
 }

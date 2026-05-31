@@ -12,3 +12,5 @@ __pycache__/
 .pytest_cache/
 .python-version
 uv.lock
+node_modules/
+pnpm-lock.yaml

@@ -38,6 +38,7 @@ pipx = "latest"
 "pipx:cmake" = "latest"
 "pipx:componentize-py" = "latest"
 "pipx:pytest" = "latest"
+pnpm = "latest"
 protoc = "latest"
 python = "3.13"
 rclone = "latest"
@@ -154,7 +155,10 @@ depends = ["cargo-check"]
 run = "osv-scanner --lockfile Cargo.lock"
 
 [tasks.prefetch]
-depends = ["download-models"]
+# `build-ws-wasm-agent` produces `services/ws-wasm-agent/pkg/`, which the
+# static workspace references via a `link:` path. Run it before `pnpm install`
+# so the link target exists.
+depends = ["download-models", "build-ws-wasm-agent"]
 description = "Pre-download all dependencies and models (Rust crates, Dart packages, Python envs, Java/Maven, .NET, Node, WIT)"
 run = """
 cargo check --workspace
@@ -163,9 +167,15 @@ uv sync --directory services/ws-modules/pydata1
 uv sync --directory services/ws-modules/pyface1
 mvn dependency:resolve --quiet
 dotnet restore
-npm install --prefix services/ws-server/static
+pnpm install --dir services/ws-server/static --ignore-scripts --config.ignoredBuiltDependencies=protobufjs
 zig build --fetch --build-file services/ws-modules/zig-data1/build.zig
 """
+
+# pnpm refuses non-TTY destructive node_modules cleanup unless `CI=true`,
+# which fires when an earlier install left a different layout (e.g. before
+# `link:` was wired up). Treat `mise run prefetch` as a CI-style batch.
+[tasks.prefetch.env]
+CI = "true"
 
 [tasks.regenerate-verification]
 alias = "regen-verification"
