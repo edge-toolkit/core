@@ -18,3 +18,10 @@ requires = ["uv_build>=0.10.2,<0.11.0"]
 [tool.uv.build-backend]
 module-name = "pydata1"
 module-root = ""
+
+# `et-rest-client` isn't published, so `uv sync` would fail to resolve it
+# from PyPI. Point uv at the generated client directory — same pattern as
+# pyface1 with `et-ws`. At browser runtime, the JS shim still installs the
+# pre-built wheel from pkg/ (built by `build-et-rest-client-wheel`).
+[tool.uv.sources]
+et-rest-client = { path = "../../../generated/python-rest" }
