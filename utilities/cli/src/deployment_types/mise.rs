@@ -12,7 +12,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
     let workspace_root = std::env::current_dir()?;
     let output_abs = absolute_from(&workspace_root, output_dir);
     let ws_server_dir = workspace_root.join("services/ws-server");
-    let workspace_rel = relative_path_from(&output_abs, &workspace_root).display().to_string();
+    let workspace_rel = relative_path_from(&output_abs, &workspace_root);
     let openobserve_env_file_rel = "config/o2.env";
     let module_names = cluster_module_names(cluster);
     let module_paths = scenario_module_paths(&ws_server_dir, &module_names)?;
@@ -22,7 +22,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
         .collect::<Vec<_>>()
         .join(",\\\n");
     let ws_server_run = format!("export MODULES_PATHS=\"\\\n{module_paths_lines}\"\ncargo run\n");
-    let ws_server_rel = relative_path_from(&output_abs, &ws_server_dir).display().to_string();
+    let ws_server_rel = relative_path_from(&output_abs, &ws_server_dir);
 
     let mut root = Table::new();
     let mut tasks = Table::new();
@@ -89,12 +89,8 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
 pub fn scenario_module_paths(ws_server_dir: &Path, module_names: &[String]) -> Result<Vec<String>, CliError> {
     let project_root = edge_toolkit::config::get_project_root();
     let mut paths = vec![
-        relative_path_from(ws_server_dir, &project_root.join("services/ws-server/static"))
-            .display()
-            .to_string(),
-        relative_path_from(ws_server_dir, &project_root.join("services/ws-wasm-agent"))
-            .display()
-            .to_string(),
+        relative_path_from(ws_server_dir, &project_root.join("services/ws-server/static")),
+        relative_path_from(ws_server_dir, &project_root.join("services/ws-wasm-agent")),
     ];
     let registry = module_registry(&project_root, ws_server_dir);
     paths.extend(resolve_module_paths(&registry, module_names, |entry| {
