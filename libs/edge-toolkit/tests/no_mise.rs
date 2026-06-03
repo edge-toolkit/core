@@ -1,5 +1,5 @@
 //! Verifies `default_modules_folders` degrades gracefully when `mise`
-//! isn't on PATH: it returns just the four hardcoded workspace paths
+//! isn't on PATH: it returns just the hardcoded workspace paths
 //! and emits no warning log records. Without this, every deployment
 //! that doesn't use mise would see misleading `mise install ...`
 //! warnings at startup.
@@ -29,17 +29,26 @@ fn returns_only_workspace_paths_when_mise_missing() {
 
     let paths = temp_env::with_var("PATH", Some(path.as_str()), default_modules_folders);
 
-    // Four hardcoded workspace paths, zero mise-resolved paths.
+    // Hardcoded workspace paths only, zero mise-resolved paths.
+    let expected_suffixes = [
+        "ws-server/static",
+        "services/ws-wasm-agent",
+        "data/model-modules",
+        "services/ws-modules",
+        "generated/python-ws",
+        "generated/python-rest",
+    ];
     assert_eq!(
         paths.len(),
-        4,
-        "expected only the 4 workspace paths when mise is unavailable, got {paths:?}",
+        expected_suffixes.len(),
+        "expected only the {} workspace paths when mise is unavailable, got {paths:?}",
+        expected_suffixes.len(),
     );
 
     // Each returned path is under the project root and matches one of
-    // the four constants the function pushes unconditionally. We
-    // don't pin exact strings because `get_project_root` is
-    // host-dependent — just check the suffixes are right.
+    // the constants the function pushes unconditionally. We don't pin
+    // exact strings because `get_project_root` is host-dependent —
+    // just check the suffixes are right.
     let suffixes: Vec<PathBuf> = paths
         .iter()
         .map(|path| {
@@ -52,12 +61,7 @@ fn returns_only_workspace_paths_when_mise_missing() {
                 .collect::<PathBuf>()
         })
         .collect();
-    for expected in [
-        "ws-server/static",
-        "services/ws-wasm-agent",
-        "data/model-modules",
-        "services/ws-modules",
-    ] {
+    for expected in expected_suffixes {
         let expected_path = PathBuf::from(expected);
         assert!(
             suffixes
