@@ -2,11 +2,6 @@
 action-validator = "latest"
 cargo-binstall = "latest"
 "cargo:ast-grep" = "latest"
-# Aube publishes prebuilt release binaries for every triple except
-# x86_64-apple-darwin (upstream dropped Intel-Mac CI). Pull the GitHub
-# release on the platforms that have one, and fall back to a from-source
-# `cargo install` only on Intel Mac — where it then needs the
-# `conda:openssl` workaround below.
 aube = { version = "latest", os = ["linux", "windows", "macos/arm64"] }
 "cargo:aube" = { version = "latest", os = ["macos/x64"] }
 "cargo:cargo-expand" = "latest"
@@ -45,7 +40,10 @@ pipx = "latest"
 "pipx:cmake" = "latest"
 "pipx:componentize-py" = "latest"
 "pipx:pytest" = "latest"
-pnpm = "latest"
+# The default aqua backend has no darwin/amd64 prebuilt; fall back to
+# `npm:pnpm` on Intel Mac (node is already a mise tool above).
+pnpm = { version = "latest", os = ["linux", "windows", "macos/arm64"] }
+"npm:pnpm" = { version = "latest", os = ["macos/x64"] }
 protoc = "latest"
 python = "3.13"
 rclone = "latest"
@@ -60,21 +58,8 @@ wasm-tools = "latest"
 yq = "latest"
 zig = "latest"
 
-# Recent Apple `ld` versions trip an assertion on long mangled symbols emitted
-# by some deep-dep crates (notably dart-typegen, installed below). Routing the
-# link step through LLVM's `ld64.lld` avoids the bug — `lld` is on PATH via the
-# `conda:lld` mise tool. We set this here so `mise install cargo:dart-typegen`
-# also picks it up (cargo install runs in a tempdir and doesn't read project
-# `.cargo/config.toml`).
 [env]
-# Aube (and any other Cargo crate that links openssl-sys) can't build on a
-# fresh Mac because Apple ships LibreSSL, not OpenSSL. The `conda:openssl`
-# mise tool installs a real OpenSSL; `OPENSSL_DIR` points openssl-sys at it
-# for the build, and `-Wl,-rpath,…` embeds the dylib dir into every binary
-# we link so dyld can resolve `@rpath/libssl.3.dylib` at runtime. We can't
-# template `{{ exec(command='mise where …') }}` here because `mise where`
-# re-reads `.mise.toml`, which sends template evaluation into infinite
-# recursion — so we point at mise's stable `latest` symlink directly.
+# Use the conda:openssl install for Rust's OPENSSL_DIR so openssl-sys crate builds.
 OPENSSL_DIR = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest"
 CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest/lib"
 CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest/lib"
