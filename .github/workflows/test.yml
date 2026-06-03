@@ -19,9 +19,9 @@ jobs:
         # `conda:openssl` branch. macos-latest (Apple Silicon) covers the
         # github-prebuilt `aube` branch.
         os:
-          - ubuntu-latest
+          # ubuntu-latest
           # macos-13
-          # macos-latest
+          - macos-latest
     timeout-minutes: 25
     steps:
       - name: Checkout
