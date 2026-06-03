@@ -110,5 +110,17 @@ jobs:
       - name: Build WASM modules
         run: mise run build-modules
 
+      - name: Diagnose WASI module pkg/ contents (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          for m in wasi-comm1 wasi-data1 wasi-graphics-info; do
+            echo "==== $m ===="
+            ls -la "services/ws-modules/$m/pkg/" || echo "(missing)"
+            if [ -f "services/ws-modules/$m/pkg/package.json" ]; then
+              echo "---- package.json ----"
+              cat "services/ws-modules/$m/pkg/package.json"
+            fi
+          done
+
       - name: Run tests
         run: mise run test
