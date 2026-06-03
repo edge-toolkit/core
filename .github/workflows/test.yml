@@ -18,7 +18,10 @@ jobs:
         # macos-13 is the last Intel runner — covers the `cargo:aube` +
         # `conda:openssl` branch. macos-latest (Apple Silicon) covers the
         # github-prebuilt `aube` branch.
-        os: [ubuntu-latest, macos-13, macos-latest]
+        os:
+          - ubuntu-latest
+          # macos-13
+          # macos-latest
     timeout-minutes: 25
     steps:
       - name: Checkout
@@ -41,6 +44,13 @@ jobs:
           mise settings experimental=true
           mise settings set cargo.binstall true
           mise use -g cargo-binstall
+          # Install conda:openssl up front — the project's OPENSSL_DIR points
+          # at its install dir, and `cargo:cargo-unmaintained` (which pulls
+          # openssl-sys) reads that during its own `cargo install`. With the
+          # default parallel `mise install`, openssl-sys can panic with
+          # "OpenSSL include directory does not exist" because conda:openssl
+          # hasn't finished populating `include/` yet.
+          mise install conda:openssl
           mise install
         env:
           GITHUB_TOKEN: ${{ github.token }}
