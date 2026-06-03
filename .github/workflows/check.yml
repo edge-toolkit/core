@@ -14,6 +14,10 @@ concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   check:
     runs-on: ubuntu-latest
