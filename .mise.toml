@@ -65,6 +65,16 @@ wasm-tools = "latest"
 yq = "latest"
 zig = "latest"
 
+# Our task scripts use bashisms (mkdir -p, cp, multi-line `set -e` semantics).
+# Mise defaults to `cmd /D /S /C` on Windows, which silently no-ops `cp` and
+# the rest — the build-ws-wasi-*-module tasks then "succeed" without ever
+# writing `pkg/package.json`, and the modules service registers the modules
+# under their dir name instead of the cargo crate name, causing 404s in the
+# wasi runner tests. Git Bash is on the windows-latest runner's PATH.
+[settings]
+windows_default_inline_shell_args = "bash -c"
+windows_default_file_shell_args = "bash"
+
 [env]
 # Use the conda:openssl install for Rust's OPENSSL_DIR so openssl-sys crate builds.
 OPENSSL_DIR = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest"
