@@ -20,7 +20,7 @@ jobs:
         # github-prebuilt `aube` branch.
         os:
           # ubuntu-latest
-          - macos-13
+          - macos-26-intel
           # macos-latest
     timeout-minutes: 25
     steps:
