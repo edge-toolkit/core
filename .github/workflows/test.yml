@@ -12,6 +12,7 @@ name: test
         options:
           - all
           - ubuntu-latest
+          - ubuntu-24.04-arm
           - macos-latest
           - macos-26-intel
           - windows-latest
@@ -32,10 +33,9 @@ jobs:
       fail-fast: false
       # `matrix` context isn't available in job-level `if:`, so we compute the
       # OS list right here in the strategy block (where `github.*` IS in scope):
-      #   pull_request       → ubuntu + macos-latest  (skip Intel Mac & Windows)
-      #   workflow_dispatch  → the OS picked in the dropdown, or all four
-      # The `include:` list then attaches the per-OS timeout to whichever
-      # entries actually got selected.
+      #   pull_request       → ubuntu-latest + ubuntu-24.04-arm + macos-latest
+      #                        (skip slow Intel Mac & Windows)
+      #   workflow_dispatch  → the OS picked in the dropdown, or all of them
       # The combos are emitted as a fully-formed list of `{os, timeout}`
       # objects so the `include:` "unmatched entries append as new jobs"
       # behavior doesn't bring back the OSes we just filtered out.
@@ -43,20 +43,23 @@ jobs:
         include: ${{ fromJSON(
           github.event_name == 'workflow_dispatch' && (
           github.event.inputs.os == 'all' && format(
-          '[{0},{1},{2},{3}]',
+          '[{0},{1},{2},{3},{4}]',
           '{"os":"ubuntu-latest","timeout":25}',
+          '{"os":"ubuntu-24.04-arm","timeout":25}',
           '{"os":"macos-latest","timeout":25}',
           '{"os":"macos-26-intel","timeout":60}',
           '{"os":"windows-latest","timeout":40}'
           )
           || github.event.inputs.os == 'ubuntu-latest' && '[{"os":"ubuntu-latest","timeout":25}]'
+          || github.event.inputs.os == 'ubuntu-24.04-arm' && '[{"os":"ubuntu-24.04-arm","timeout":25}]'
           || github.event.inputs.os == 'macos-latest' && '[{"os":"macos-latest","timeout":25}]'
           || github.event.inputs.os == 'macos-26-intel' && '[{"os":"macos-26-intel","timeout":60}]'
           || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":40}]'
           )
           || format(
-          '[{0},{1}]',
+          '[{0},{1},{2}]',
           '{"os":"ubuntu-latest","timeout":25}',
+          '{"os":"ubuntu-24.04-arm","timeout":25}',
           '{"os":"macos-latest","timeout":25}'
           )
           ) }}

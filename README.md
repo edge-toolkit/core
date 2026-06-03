@@ -5,16 +5,36 @@
 Please install [`mise`](https://mise.jdx.dev/), including the shell integration.
 It is needed for all use of this repository.
 
-Configure it with
+The following works for Linux, macOS and Windows.
+
+Configure it with:
 
 ```bash
 mise settings experimental=true
 mise settings set cargo.binstall true
 ```
 
+Pre-install `cargo-install`, which can be done using:
+
+```bash
+mise use -g cargo-binstall
+```
+
+On Windows only, `pipx` also needs to be pre-installed.
+See the Windows section of [pipx instructions](https://pipx.pypa.io/stable/how-to/install-pipx/).
+
 The mise configuration is stored in [`.mise.toml`](.mise.toml).
 
-Before installing dependencies, please install openssl development files.
+After checking out this repository
+
+Before installing dependencies, please the install openssl development files
+separately:
+
+```bash
+mise install conda:openssl
+```
+
+Then install the remaining dependencies:
 
 ```bash
 mise install
