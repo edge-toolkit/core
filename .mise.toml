@@ -63,6 +63,11 @@ zig = "latest"
 OPENSSL_DIR = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest"
 CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest/lib"
 CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest/lib"
+# Silence Maven's per-artifact download/upload progress lines (the
+# "Downloading from central:" / "Downloaded" spam). Build output and real
+# errors still print. MAVEN_ARGS is honored by Maven 3.9+ and prepends to
+# every `mvn` invocation.
+MAVEN_ARGS = "--no-transfer-progress"
 
 [tasks]
 ec = "ec"
