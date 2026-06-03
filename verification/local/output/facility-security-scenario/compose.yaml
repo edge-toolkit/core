@@ -33,6 +33,7 @@ services:
         /app/data/model-modules/model-face1,\
         /app/node_modules/onnxruntime-web,\
         /app/data/model-modules/model-har-motion1,\
+        /app/generated/python-ws,\
         /app/node_modules/pyodide"
       OTLP_AUTH_PASSWORD: "1234"
       OTLP_AUTH_USERNAME: root@example.com

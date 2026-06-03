@@ -26,6 +26,7 @@ et-ws = { path = "../../../generated/python-ws" }
 
 [tool.ws-module.dependencies]
 et-model-face1 = "*"
+et-ws = "*"
 onnxruntime-web = "*"
 pyodide = "*"
 

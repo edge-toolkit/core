@@ -21,7 +21,14 @@ module-root = ""
 
 # `et-rest-client` isn't published, so `uv sync` would fail to resolve it
 # from PyPI. Point uv at the generated client directory — same pattern as
-# pyface1 with `et-ws`. At browser runtime, the JS shim still installs the
-# pre-built wheel from pkg/ (built by `build-et-rest-client-wheel`).
+# pyface1 with `et-ws`. At browser runtime the wheel is served from
+# /modules/et-rest-client/ (declared in [tool.ws-module.dependencies]).
 [tool.uv.sources]
 et-rest-client = { path = "../../../generated/python-rest" }
+
+# Browser-side module dependencies: each entry resolves to a sibling
+# /modules/<name>/ mount (other ws-modules in services/ws-modules/ plus
+# the generated et-rest-client at generated/python-rest/).
+[tool.ws-module.dependencies]
+et-rest-client = "*"
+pyodide = "*"

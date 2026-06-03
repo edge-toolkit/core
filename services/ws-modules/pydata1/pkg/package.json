@@ -1,4 +1,8 @@
 {
+  "dependencies": {
+    "et-rest-client": "*",
+    "pyodide": "*"
+  },
   "description": "Python data 1",
   "license": "Apache-2.0 OR MIT",
   "main": "et_ws_pydata1.js",

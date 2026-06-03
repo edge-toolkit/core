@@ -28,6 +28,7 @@ export MODULES_PATHS="\
   ../../data/model-modules/model-face1,\
   $(mise where npm:onnxruntime-web)/lib/node_modules/onnxruntime-web,\
   ../../data/model-modules/model-har-motion1,\
+  ../../generated/python-ws,\
   $(mise where npm:pyodide)/lib/node_modules/pyodide"
 cargo run
 '''

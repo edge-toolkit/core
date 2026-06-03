@@ -25,20 +25,23 @@ export default async function init() {
   // dependency at runtime.
   pyodide = await globalThis.loadPyodide({ indexURL: PYODIDE_BASE_PATH });
 
-  // pydata1's runtime stack is split between PyPI deps (httpx + attrs power
+  // pydata1's runtime stack: PyPI deps via micropip (httpx + attrs power
   // the generated client; pyodide-http rewires httpx to use the browser's
-  // fetch()) and two local wheels: the generated et-rest-client and pydata1
-  // itself. We bring the PyPI deps in via micropip (which resolves
-  // transitively), then sys.path-inject the local wheels — same pattern as
-  // pyface1. Going through micropip for the local wheels would make it look
-  // up "et-rest-client" on PyPI, which we deliberately don't publish.
-  // Pyodide unvendors `ssl` from the stdlib (loaded on demand via loadPackage)
-  // and our generated httpx-based client imports it at module top-level.
+  // fetch()), plus two local wheels — pydata1 itself (next to this shim)
+  // and the generated et-rest-client wheel served by its own ws-module
+  // mount at /modules/et-rest-client/. Going through micropip for the
+  // local wheels would make it look up "et-rest-client" on PyPI, which we
+  // deliberately don't publish. Pyodide unvendors `ssl` from the stdlib
+  // (loaded on demand via loadPackage) and our generated httpx-based
+  // client imports it at module top-level.
   await pyodide.loadPackage(["micropip", "ssl"]);
   const micropip = pyodide.pyimport("micropip");
   await micropip.install("httpx");
   await micropip.install("attrs");
   await micropip.install("pyodide-http");
+
+  const { installWheel: installEtRestClient } = await import("/modules/et-rest-client/et_rest_client.js");
+  await installEtRestClient(pyodide);
 
   const injectWheel = async (wheelName) => {
     const bytes = new Uint8Array(await fetch(new URL(wheelName, import.meta.url)).then(r => r.arrayBuffer()));
@@ -47,7 +50,6 @@ export default async function init() {
   };
   const pkg = await fetch(new URL("package.json", import.meta.url)).then(r => r.json());
   const ownWheel = `${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
-  await injectWheel("et_rest_client-0.1.0-py3-none-any.whl");
   await injectWheel(ownWheel);
 
   const pydata1 = pyodide.pyimport("pydata1");

@@ -391,6 +391,23 @@ pub fn module_registry(project_root: &Path, ws_server_dir: &Path) -> BTreeMap<St
         ws_server_dir,
         "/app/data/model-modules",
     );
+    // Generated Python ws-modules: each generated/python-{ws,rest}/ holds
+    // its own pkg/package.json after `mise run build-et-{ws,rest-client}-
+    // wheel`. They're listed individually because the parent `generated/`
+    // also contains non-module artifacts (rust-rest, dart-ws, zig-rest,
+    // specs, docs).
+    register_module_at(
+        &mut registry,
+        &project_root.join("generated/python-ws"),
+        ws_server_dir,
+        "/app/generated/python-ws",
+    );
+    register_module_at(
+        &mut registry,
+        &project_root.join("generated/python-rest"),
+        ws_server_dir,
+        "/app/generated/python-rest",
+    );
 
     register_external_module(
         &mut registry,
@@ -430,20 +447,51 @@ fn register_modules_under(
         let Some(directory_name) = module_path.file_name().and_then(|name| name.to_str()) else {
             continue;
         };
-        let package = module_package_json(&module_path);
-        let entry = ModuleRegistryEntry {
-            mise_path: relative_path_from(ws_server_dir, &module_path),
-            docker_path: format!("{docker_root}/{directory_name}"),
-            dependencies: package
-                .as_ref()
-                .map(|package| package.dependencies.keys().cloned().collect())
-                .unwrap_or_default(),
-        };
+        register_module(
+            registry,
+            &module_path,
+            directory_name,
+            ws_server_dir,
+            &format!("{docker_root}/{directory_name}"),
+        );
+    }
+}
 
-        let _previous: Option<ModuleRegistryEntry> = registry.insert(directory_name.to_string(), entry.clone());
-        if let Some(package_name) = package.and_then(|package| package.name) {
-            let _previous: Option<ModuleRegistryEntry> = registry.insert(package_name, entry);
-        }
+/// Register a single module by its filesystem path (not a parent dir).
+/// Used for modules that don't live under `services/ws-modules/` —
+/// currently the generated python clients under `generated/`.
+fn register_module_at(
+    registry: &mut BTreeMap<String, ModuleRegistryEntry>,
+    module_path: &Path,
+    ws_server_dir: &Path,
+    docker_path: &str,
+) {
+    let Some(directory_name) = module_path.file_name().and_then(|name| name.to_str()) else {
+        return;
+    };
+    register_module(registry, module_path, directory_name, ws_server_dir, docker_path);
+}
+
+fn register_module(
+    registry: &mut BTreeMap<String, ModuleRegistryEntry>,
+    module_path: &Path,
+    directory_name: &str,
+    ws_server_dir: &Path,
+    docker_path: &str,
+) {
+    let package = module_package_json(module_path);
+    let entry = ModuleRegistryEntry {
+        mise_path: relative_path_from(ws_server_dir, module_path).display().to_string(),
+        docker_path: docker_path.to_string(),
+        dependencies: package
+            .as_ref()
+            .map(|package| package.dependencies.keys().cloned().collect())
+            .unwrap_or_default(),
+    };
+
+    let _previous: Option<ModuleRegistryEntry> = registry.insert(directory_name.to_string(), entry.clone());
+    if let Some(package_name) = package.and_then(|package| package.name) {
+        let _previous: Option<ModuleRegistryEntry> = registry.insert(package_name, entry);
     }
 }
 

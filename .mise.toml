@@ -340,15 +340,26 @@ run = "git diff --exit-code -- generated"
 
 [tasks.build-et-ws-wheel]
 depends = ["gen-python-ws"]
-description = "Build the generated et-ws Python package as a wheel"
+description = "Build the generated et-ws Python package as a wheel + ws-module pkg/"
 dir = "generated/python-ws"
-run = "uv build --wheel --out-dir dist"
+# Wheel goes straight into pkg/ alongside the committed et_ws.js shim so the
+# whole dir is what et-modules-service mounts at /modules/et-ws/. Delete
+# stale wheels first — uv build leaves prior versions in place.
+run = """
+rm -f pkg/*.whl
+uv build --wheel --out-dir pkg
+cargo run -p et-cli -- module-package-json
+"""
 
 [tasks.build-et-rest-client-wheel]
 depends = ["gen-python-rest"]
-description = "Build the generated et-rest-client Python package as a wheel"
+description = "Build the generated et-rest-client Python package as a wheel + ws-module pkg/"
 dir = "generated/python-rest"
-run = "uv build --wheel --out-dir dist"
+run = """
+rm -f pkg/*.whl
+uv build --wheel --out-dir pkg
+cargo run -p et-cli -- module-package-json
+"""
 
 # `cargo-watch` is unmaintained; `watchexec` is its successor (and what
 # `cargo-watch` always called under the hood). Restart on .rs/.toml
@@ -522,9 +533,13 @@ cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi
 depends = ["build-et-rest-client-wheel"]
 description = "Build the pydata1 Python workflow module"
 dir = "services/ws-modules/pydata1"
+# et-rest-client is its own ws-module mounted at /modules/et-rest-client/;
+# pydata1 declares it under [tool.ws-module.dependencies] and loads the
+# wheel at runtime from that mount via the shim's `installWheel` helper —
+# no need to copy the wheel here.
 run = """
+rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
-cp ../../../generated/python-rest/dist/et_rest_client-*.whl pkg/
 cargo run -p et-cli -- module-package-json
 """
 
@@ -532,9 +547,13 @@ cargo run -p et-cli -- module-package-json
 depends = ["build-et-ws-wheel"]
 description = "Build the pyface1 Python face detection workflow module"
 dir = "services/ws-modules/pyface1"
+# et-ws is its own ws-module mounted at /modules/et-ws/; pyface1 declares
+# it under [tool.ws-module.dependencies] and loads the wheel at runtime
+# from that mount via the shim's `installWheel` helper — no need to copy
+# the wheel here.
 run = """
+rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
-cp ../../../generated/python-ws/dist/et_ws-*.whl pkg/
 cargo run -p et-cli -- module-package-json
 """
 

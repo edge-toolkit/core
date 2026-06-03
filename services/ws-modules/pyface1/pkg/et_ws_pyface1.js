@@ -30,9 +30,8 @@ export default async function init() {
   const micropip = pyodide.pyimport("micropip");
   await micropip.install("pydantic");
 
-  // The pyface1 module ships two wheels in its pkg/: its own, and the
-  // generated et_ws wheel (copied in by the build task).
-  const installWheel = async (path) => {
+  // Install the pyface1 wheel from pkg/ next to this shim.
+  const installLocalWheel = async (path) => {
     const bytes = new Uint8Array(await fetch(new URL(path, import.meta.url)).then((r) => r.arrayBuffer()));
     pyodide.FS.writeFile(`/tmp/${path}`, bytes);
     pyodide.runPython(`import sys\nsys.path.insert(0, "/tmp/${path}")`);
@@ -40,10 +39,13 @@ export default async function init() {
 
   const pkg = await fetch(new URL("package.json", import.meta.url)).then((r) => r.json());
   const pyfaceWheel = `${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
-  await installWheel(pyfaceWheel);
-  // The et_ws wheel ships with a stable name; bump the version in lock-step
-  // when generated/python-ws/pyproject.toml changes.
-  await installWheel("et_ws-0.1.0-py3-none-any.whl");
+  await installLocalWheel(pyfaceWheel);
+  // The generated et-ws Pydantic-models wheel is its own ws-module mounted
+  // at /modules/et-ws/. We declare it in [tool.ws-module.dependencies] and
+  // delegate wheel install to its shim — version lives in its own
+  // package.json so a bump there doesn't require touching this file.
+  const { installWheel: installEtWs } = await import("/modules/et-ws/et_ws.js");
+  await installEtWs(pyodide);
   py = pyodide.pyimport("pyface1");
   cfg = py.config().toJs({ dict_converter: Object.fromEntries });
 }
