@@ -26,21 +26,25 @@ defaults:
 
 jobs:
   rust:
-    # On PRs: always skip macos-26-intel (slow) and windows-latest.
-    # On workflow_dispatch: run the OS(es) the user picked from the dropdown,
-    # or all of them if they left "all" selected.
-    if: >-
-      (github.event_name == 'pull_request' && matrix.os != 'macos-26-intel' && matrix.os != 'windows-latest')
-      || (github.event_name == 'workflow_dispatch' && (github.event.inputs.os == 'all' || github.event.inputs.os == matrix.os))
     runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.timeout }}
     strategy:
       fail-fast: false
+      # `matrix` context isn't available in job-level `if:`, so we compute the
+      # OS list right here in the strategy block (where `github.*` IS in scope):
+      #   pull_request       → ubuntu + macos-latest  (skip Intel Mac & Windows)
+      #   workflow_dispatch  → the OS picked in the dropdown, or all four
+      # The `include:` list then attaches the per-OS timeout to whichever
+      # entries actually got selected.
       matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - macos-26-intel
-          - windows-latest
+        os: ${{ fromJSON(
+            github.event_name == 'workflow_dispatch' && (
+              github.event.inputs.os == 'all'
+                && '["ubuntu-latest","macos-latest","macos-26-intel","windows-latest"]'
+                || format('["{0}"]', github.event.inputs.os)
+            )
+            || '["ubuntu-latest","macos-latest"]'
+          ) }}
         include:
           - os: ubuntu-latest
             timeout: 25
@@ -50,7 +54,6 @@ jobs:
             timeout: 60
           - os: windows-latest
             timeout: 40
-    timeout-minutes: ${{ matrix.timeout }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
