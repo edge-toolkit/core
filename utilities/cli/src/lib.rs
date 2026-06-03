@@ -432,7 +432,7 @@ fn register_modules_under(
         };
         let package = module_package_json(&module_path);
         let entry = ModuleRegistryEntry {
-            mise_path: relative_path_from(ws_server_dir, &module_path).display().to_string(),
+            mise_path: relative_path_from(ws_server_dir, &module_path),
             docker_path: format!("{docker_root}/{directory_name}"),
             dependencies: package
                 .as_ref()
@@ -554,8 +554,13 @@ pub fn absolute_from(base: &Path, path: &Path) -> PathBuf {
     }
 }
 
+/// Build a relative path from `from_dir` to `target`, always joined with `/`.
+///
+/// The result is rendered as a POSIX string regardless of host OS, because
+/// every caller writes it into generated `mise.toml` / `docker-compose.yaml`
+/// output — both of which expect forward-slash separators even on Windows.
 #[must_use]
-pub fn relative_path_from(from_dir: &Path, target: &Path) -> PathBuf {
+pub fn relative_path_from(from_dir: &Path, target: &Path) -> String {
     let from_components = normal_components(&normalize_path(from_dir));
     let target_components = normal_components(&normalize_path(target));
     let common_len = from_components
@@ -564,18 +569,18 @@ pub fn relative_path_from(from_dir: &Path, target: &Path) -> PathBuf {
         .take_while(|(from, target)| from == target)
         .count();
 
-    let mut relative = PathBuf::new();
+    let mut parts: Vec<String> = Vec::new();
     for _ in common_len..from_components.len() {
-        relative.push("..");
+        parts.push("..".to_string());
     }
     for component in target_components.iter().skip(common_len) {
-        relative.push(component);
+        parts.push(component.to_string_lossy().into_owned());
     }
 
-    if relative.as_os_str().is_empty() {
-        PathBuf::from(".")
+    if parts.is_empty() {
+        ".".to_string()
     } else {
-        relative
+        parts.join("/")
     }
 }
 

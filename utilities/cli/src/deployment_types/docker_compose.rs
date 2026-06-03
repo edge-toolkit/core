@@ -12,10 +12,8 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
     let output_path = output_dir.join(OutputType::DockerCompose.output_file_name());
     let workspace_root = std::env::current_dir()?;
     let output_abs = absolute_from(&workspace_root, output_dir);
-    let workspace_rel = relative_path_from(&output_abs, &workspace_root).display().to_string();
-    let openobserve_env_file_rel = relative_path_from(&output_abs, &workspace_root.join("config/o2.env"))
-        .display()
-        .to_string();
+    let workspace_rel = relative_path_from(&output_abs, &workspace_root);
+    let openobserve_env_file_rel = relative_path_from(&output_abs, &workspace_root.join("config/o2.env"));
     let module_names = cluster_module_names(cluster);
     let module_paths = docker_image_module_paths(&module_names)?;
     let compose = ComposeFile {

@@ -4,20 +4,71 @@ name: test
 "on":
   pull_request:
   workflow_dispatch:
+    inputs:
+      os:
+        description: "OS(es) to run"
+        type: choice
+        default: all
+        options:
+          - all
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-latest
+          - macos-26-intel
+          - windows-latest
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   rust:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      # `matrix` context isn't available in job-level `if:`, so we compute the
+      # OS list right here in the strategy block (where `github.*` IS in scope):
+      #   pull_request       → ubuntu-latest + ubuntu-24.04-arm + macos-latest
+      #                        (skip slow Intel Mac & Windows)
+      #   workflow_dispatch  → the OS picked in the dropdown, or all of them
+      # The combos are emitted as a fully-formed list of `{os, timeout}`
+      # objects so the `include:` "unmatched entries append as new jobs"
+      # behavior doesn't bring back the OSes we just filtered out.
+      matrix:
+        include: ${{ fromJSON(
+          github.event_name == 'workflow_dispatch' && (
+          github.event.inputs.os == 'all' && format(
+          '[{0},{1},{2},{3},{4}]',
+          '{"os":"ubuntu-latest","timeout":25}',
+          '{"os":"ubuntu-24.04-arm","timeout":25}',
+          '{"os":"macos-latest","timeout":25}',
+          '{"os":"macos-26-intel","timeout":60}',
+          '{"os":"windows-latest","timeout":40}'
+          )
+          || github.event.inputs.os == 'ubuntu-latest' && '[{"os":"ubuntu-latest","timeout":25}]'
+          || github.event.inputs.os == 'ubuntu-24.04-arm' && '[{"os":"ubuntu-24.04-arm","timeout":25}]'
+          || github.event.inputs.os == 'macos-latest' && '[{"os":"macos-latest","timeout":25}]'
+          || github.event.inputs.os == 'macos-26-intel' && '[{"os":"macos-26-intel","timeout":60}]'
+          || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":40}]'
+          )
+          || format(
+          '[{0},{1},{2}]',
+          '{"os":"ubuntu-latest","timeout":25}',
+          '{"os":"ubuntu-24.04-arm","timeout":25}',
+          '{"os":"macos-latest","timeout":25}'
+          )
+          ) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install Mesa Vulkan drivers (lavapipe)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y mesa-vulkan-drivers
@@ -25,14 +76,24 @@ jobs:
       - name: Install mise
         uses: taiki-e/install-action@v2
         with:
-          tool: mise
+          tool: cargo-binstall,mise
+
+      - name: Install pipx (Windows only — aqua has no Windows build)
+        if: runner.os == 'Windows'
+        run: python -m pip install pipx
 
       - name: Install mise tools
         run: |
           mise settings add idiomatic_version_file_enable_tools "[]"
           mise settings experimental=true
           mise settings set cargo.binstall true
-          mise use -g cargo-binstall
+          # Install conda:openssl up front — the project's OPENSSL_DIR points
+          # at its install dir, and `cargo:cargo-unmaintained` (which pulls
+          # openssl-sys) reads that during its own `cargo install`. With the
+          # default parallel `mise install`, openssl-sys can panic with
+          # "OpenSSL include directory does not exist" because conda:openssl
+          # hasn't finished populating `include/` yet.
+          mise install conda:openssl
           mise install
         env:
           GITHUB_TOKEN: ${{ github.token }}
