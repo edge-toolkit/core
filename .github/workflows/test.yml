@@ -36,24 +36,21 @@ jobs:
       #   workflow_dispatch  → the OS picked in the dropdown, or all four
       # The `include:` list then attaches the per-OS timeout to whichever
       # entries actually got selected.
+      # The combos are emitted as a fully-formed list of `{os, timeout}`
+      # objects so the `include:` "unmatched entries append as new jobs"
+      # behavior doesn't bring back the OSes we just filtered out.
       matrix:
-        os: ${{ fromJSON(
+        include: ${{ fromJSON(
             github.event_name == 'workflow_dispatch' && (
               github.event.inputs.os == 'all'
-                && '["ubuntu-latest","macos-latest","macos-26-intel","windows-latest"]'
-                || format('["{0}"]', github.event.inputs.os)
+                && '[{"os":"ubuntu-latest","timeout":25},{"os":"macos-latest","timeout":25},{"os":"macos-26-intel","timeout":60},{"os":"windows-latest","timeout":40}]'
+                || github.event.inputs.os == 'ubuntu-latest' && '[{"os":"ubuntu-latest","timeout":25}]'
+                || github.event.inputs.os == 'macos-latest' && '[{"os":"macos-latest","timeout":25}]'
+                || github.event.inputs.os == 'macos-26-intel' && '[{"os":"macos-26-intel","timeout":60}]'
+                || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":40}]'
             )
-            || '["ubuntu-latest","macos-latest"]'
+            || '[{"os":"ubuntu-latest","timeout":25},{"os":"macos-latest","timeout":25}]'
           ) }}
-        include:
-          - os: ubuntu-latest
-            timeout: 25
-          - os: macos-latest
-            timeout: 25
-          - os: macos-26-intel
-            timeout: 60
-          - os: windows-latest
-            timeout: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v4
