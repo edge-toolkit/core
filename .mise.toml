@@ -235,7 +235,13 @@ dir = "services/ws-wasm-agent"
 run = "wasm-pack build . --target web -- -Z build-std=std,panic_abort"
 
 [tasks.build-ws-wasm-agent.env]
-RUSTFLAGS = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint"
+# Scope these flags to the wasm target rather than setting plain `RUSTFLAGS`:
+# wasm-pack auto-installs a matching `wasm-bindgen-cli` (when the version in
+# `Cargo.lock` differs from the one on PATH) by shelling out to `cargo
+# install`, which inherits this env. A plain `RUSTFLAGS` with `target-cpu=mvp`
+# and `+mutable-globals` then leaks into that host build and rustc rejects
+# them with "'mvp' is not a recognized processor for this target".
+CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint"
 RUSTUP_TOOLCHAIN = "nightly"
 
 [tasks.build-ws-data1-module]
