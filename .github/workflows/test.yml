@@ -29,9 +29,9 @@ jobs:
     # On PRs: always skip macos-26-intel (slow) and windows-latest.
     # On workflow_dispatch: run the OS(es) the user picked from the dropdown,
     # or all of them if they left "all" selected.
-    if: |
+    if: >-
       (github.event_name == 'pull_request' && matrix.os != 'macos-26-intel' && matrix.os != 'windows-latest')
-      || (github.event_name == 'workflow_dispatch' && (inputs.os == 'all' || inputs.os == matrix.os))
+      || (github.event_name == 'workflow_dispatch' && (github.event.inputs.os == 'all' || github.event.inputs.os == matrix.os))
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
