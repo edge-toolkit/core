@@ -24,6 +24,13 @@ use crate::host::{WsProtocolErrExt as _, WsTransportErrExt as _};
 
 type WsSink = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, tungstenite::Message>;
 
+/// How often the heartbeat task pings the server. Server-side
+/// `CONNECTION_TIMEOUT` (services/ws/src/lib.rs:18) is 15 s; pinging at 5 s
+/// gives 3x headroom so a slow runner (CI ARM, debug build, large model)
+/// still keeps the connection alive across long compute gaps between
+/// `connect()` and the first `ClientEvent` the guest sends.
+const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
+
 /// Live state for an open websocket connection. Owned by `HostState` behind a
 /// `Mutex`; replaced on disconnect.
 pub struct WsBackend {
@@ -32,6 +39,7 @@ pub struct WsBackend {
     agent_id: Arc<Mutex<Option<String>>>,
     connection_state: Arc<Mutex<State>>,
     _reader: JoinHandle<()>,
+    _pinger: JoinHandle<()>,
 }
 
 impl WsBackend {
@@ -83,12 +91,39 @@ impl WsBackend {
             *state_clone.lock().await = State::Closed;
         });
 
+        let sink_arc = Arc::new(Mutex::new(sink));
+
+        // Heartbeat: server `last_activity` only bumps on inbound frames, so
+        // a guest that does multi-second compute between `connect()` and
+        // its first send would otherwise trip the 15s idle close. The
+        // server's `handle_inbound` counts Ping as activity.
+        let pinger_sink = Arc::clone(&sink_arc);
+        let pinger_state = Arc::clone(&connection_state);
+        let pinger = tokio::spawn(async move {
+            let mut interval = tokio::time::interval(HEARTBEAT_INTERVAL);
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            // First tick fires immediately; skip it so we don't ping before
+            // the connect handshake even sees a Connected state.
+            let _: tokio::time::Instant = interval.tick().await;
+            loop {
+                let _: tokio::time::Instant = interval.tick().await;
+                if !matches!(*pinger_state.lock().await, State::Connecting | State::Connected) {
+                    break;
+                }
+                let mut guard = pinger_sink.lock().await;
+                if guard.send(tungstenite::Message::Ping(Vec::new())).await.is_err() {
+                    break;
+                }
+            }
+        });
+
         Ok(Self {
-            sink: Arc::new(Mutex::new(sink)),
+            sink: sink_arc,
             inbox: Arc::new(Mutex::new(rx)),
             agent_id,
             connection_state,
             _reader: reader,
+            _pinger: pinger,
         })
     }
 
