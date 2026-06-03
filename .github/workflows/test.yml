@@ -17,9 +17,9 @@ jobs:
       matrix:
         # macos-26-intel is slow; it should be turned off after shown to work.
         os:
-          - ubuntu-latest
-          - macos-latest
           - macos-26-intel
+          # ubuntu-latest
+          # macos-latest
     timeout-minutes: 25
     steps:
       - name: Checkout
