@@ -34,7 +34,12 @@ use std::time::Duration;
 
 use edge_toolkit::config::{OtlpConfig, OtlpProtocol};
 
+// Skipped on Windows: this test spawns the runner against the wasi-data1
+// module via ws-test-server, so it hits the same `pkg/package.json` 404
+// that disables `modules::module_runs_successfully` there. Re-enable once
+// the Windows task-shell story is sorted.
 #[test]
+#[cfg_attr(windows, ignore = "pkg/package.json 404 on Windows — see comment above")]
 fn trace_ids_propagate_between_runner_and_server() {
     // 1. Start the mock collector. Both processes will export to it.
     let mock = otlp_mock::start();
