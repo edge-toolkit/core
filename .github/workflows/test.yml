@@ -66,6 +66,10 @@ jobs:
         with:
           tool: cargo-binstall,mise
 
+      - name: Install pipx (Windows only — aqua has no Windows build)
+        if: runner.os == 'Windows'
+        run: python -m pip install pipx
+
       - name: Install mise tools
         run: |
           mise settings add idiomatic_version_file_enable_tools "[]"

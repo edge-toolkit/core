@@ -36,7 +36,10 @@ mprocs = "latest"
 node = "22"
 "npm:onnxruntime-web" = "latest"
 osv-scanner = "latest"
-pipx = "latest"
+# Aqua has no pipx build for windows/amd64. On Windows the workflow runs
+# `python -m pip install pipx` separately so the `pipx:*` entries below
+# still resolve through whatever pipx is already on PATH.
+pipx = { version = "latest", os = ["linux", "macos"] }
 "pipx:cmake" = "latest"
 "pipx:componentize-py" = "latest"
 "pipx:pytest" = "latest"
