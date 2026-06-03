@@ -9,7 +9,11 @@ aube = { version = "latest", os = ["linux", "windows", "macos/arm64"] }
 "cargo:taplo-cli" = "latest"
 "cargo:wasm-pack" = "latest"
 "cargo:watchexec-cli" = "latest"
-"chromedriver" = "146"
+# vfox-chromedriver's PostInstall hook fails on Windows ("syntax of the
+# command is incorrect"). Chromedriver is only used by the
+# `test-ws-wasm-agent-chrome` / `ws-e2e-chrome` tasks, neither of which run
+# in the standard CI `test` flow, so skip it on Windows entirely.
+"chromedriver" = { version = "146", os = ["linux", "macos"] }
 cmake = "latest"
 "conda:lld" = "latest"
 "conda:openssl" = "latest"
