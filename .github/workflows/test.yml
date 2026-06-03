@@ -11,13 +11,21 @@ concurrency:
 
 jobs:
   rust:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-13 is the last Intel runner — covers the `cargo:aube` +
+        # `conda:openssl` branch. macos-latest (Apple Silicon) covers the
+        # github-prebuilt `aube` branch.
+        os: [ubuntu-latest, macos-13, macos-latest]
     timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install Mesa Vulkan drivers (lavapipe)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y mesa-vulkan-drivers

@@ -2,7 +2,13 @@
 action-validator = "latest"
 cargo-binstall = "latest"
 "cargo:ast-grep" = "latest"
-"cargo:aube" = "latest"
+# Aube publishes prebuilt release binaries for every triple except
+# x86_64-apple-darwin (upstream dropped Intel-Mac CI). Pull the GitHub
+# release on the platforms that have one, and fall back to a from-source
+# `cargo install` only on Intel Mac — where it then needs the
+# `conda:openssl` workaround below.
+aube = { version = "latest", os = ["linux", "windows", "macos/arm64"] }
+"cargo:aube" = { version = "latest", os = ["macos/x64"] }
 "cargo:cargo-expand" = "latest"
 "cargo:cargo-unmaintained" = "latest"
 "cargo:taplo-cli" = "latest"
@@ -11,6 +17,7 @@ cargo-binstall = "latest"
 "chromedriver" = "146"
 cmake = "latest"
 "conda:lld" = "latest"
+"conda:openssl" = "latest"
 dart = { version = "latest", url = "https://storage.googleapis.com/dart-archive/channels/stable/release/{{ version }}/sdk/dartsdk-{{ os() }}-{{ arch() }}-release.zip", version_expr = 'fromJSON(body).prefixes | filter({ # matches "^channels/stable/release/(\\d+\\.\\d+\\.\\d+)/$" }) | map({split(#, "/")[3]}) | sortVersions()', version_list_url = "https://storage.googleapis.com/storage/v1/b/dart-archive/o?prefix=channels/stable/release/&delimiter=/" }
 dotnet = "latest"
 dotnet-core = "latest"
@@ -60,8 +67,17 @@ zig = "latest"
 # also picks it up (cargo install runs in a tempdir and doesn't read project
 # `.cargo/config.toml`).
 [env]
-CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld=lld"
-CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld=lld"
+# Aube (and any other Cargo crate that links openssl-sys) can't build on a
+# fresh Mac because Apple ships LibreSSL, not OpenSSL. The `conda:openssl`
+# mise tool installs a real OpenSSL; `OPENSSL_DIR` points openssl-sys at it
+# for the build, and `-Wl,-rpath,…` embeds the dylib dir into every binary
+# we link so dyld can resolve `@rpath/libssl.3.dylib` at runtime. We can't
+# template `{{ exec(command='mise where …') }}` here because `mise where`
+# re-reads `.mise.toml`, which sends template evaluation into infinite
+# recursion — so we point at mise's stable `latest` symlink directly.
+OPENSSL_DIR = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest"
+CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest/lib"
+CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest/lib"
 
 [tasks]
 ec = "ec"
