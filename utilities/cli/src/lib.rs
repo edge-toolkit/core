@@ -481,7 +481,7 @@ fn register_module(
 ) {
     let package = module_package_json(module_path);
     let entry = ModuleRegistryEntry {
-        mise_path: relative_path_from(ws_server_dir, module_path).display().to_string(),
+        mise_path: relative_path_from(ws_server_dir, module_path),
         docker_path: docker_path.to_string(),
         dependencies: package
             .as_ref()
