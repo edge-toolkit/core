@@ -52,7 +52,7 @@ jobs:
           )
           || github.event.inputs.os == 'ubuntu-latest' && '[{"os":"ubuntu-latest","timeout":25}]'
           || github.event.inputs.os == 'ubuntu-24.04-arm' && '[{"os":"ubuntu-24.04-arm","timeout":25}]'
-          || github.event.inputs.os == 'macos-latest' && '[{"os":"macos-latest","timeout":25}]'
+          || github.event.inputs.os == 'macos-latest' && '[{"os":"macos-latest","timeout":35}]'
           || github.event.inputs.os == 'macos-26-intel' && '[{"os":"macos-26-intel","timeout":60}]'
           || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":40}]'
           )
