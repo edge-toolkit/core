@@ -13,6 +13,7 @@
 #![cfg(test)]
 #![expect(
     clippy::panic,
+    clippy::unwrap_used,
     reason = "test code: missing mise install and unreadable install dir should fail loudly with a clear hint"
 )]
 

@@ -212,7 +212,7 @@ run = "cargo +nightly fmt"
 run = "cargo +nightly fmt -- --check"
 
 [tasks.cargo-clippy]
-run = "cargo clippy --workspace --tests"
+run = "cargo clippy --keep-going --workspace --tests"
 
 [tasks.cargo-doc-check]
 description = "Build rustdoc with -D warnings to fail on any doc issues"
@@ -220,7 +220,7 @@ env = { RUSTDOCFLAGS = "-D warnings" }
 run = "cargo doc --workspace --no-deps --document-private-items"
 
 [tasks.cargo-clippy-fix]
-run = "cargo clippy --fix --allow-dirty --allow-staged --workspace --tests"
+run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace --tests"
 
 [tasks.taplo-fmt]
 run = "taplo format"
