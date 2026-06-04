@@ -1,6 +1,12 @@
-# `zig fmt --check` normalizes to LF, so on Windows checkouts with
-# `core.autocrlf=true` it flags every Zig file as "would be reformatted"
-# (printing only the path, no diff). Pin LF for Zig sources so the check
-# behaves identically across OSes.
-*.zig text eol=lf
-*.zon text eol=lf
+# Force LF on every text file at checkout, regardless of platform.
+#
+# Windows runners default to `core.autocrlf=true`, which rewrites LF to
+# CRLF at checkout. Multiple formatters in this repo (zig fmt, dprint)
+# read CRLF as a diff against their LF-normalized output and report
+# every file as "would be reformatted" — with no diff, just paths.
+# Pinning `eol=lf` workspace-wide makes the checked-out tree match the
+# committed bytes on every OS, so the formatters behave identically.
+* text=auto eol=lf
+
+# Binaries tracked in this repo — never run text conversion on these.
+*.png binary
