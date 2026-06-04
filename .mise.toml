@@ -389,13 +389,18 @@ openapi-python-client generate \
   --meta none \
   --overwrite \
   --output-path generated/python-rest/et_rest_client
-# openapi-python-client drops a .ruff_cache next to the generated source; we
-# don't want that committed.
+# openapi-python-client / our follow-up ruff drop a .ruff_cache next to
+# the generated source; we don't want that committed.
 rm -rf generated/python-rest/et_rest_client/.ruff_cache
-# openapi-python-client runs `ruff format` internally but not `ruff check`,
-# so isort-style import sorting ("I" rules in our ruff.toml) isn't applied.
-# Re-run from the repo to match.
+# openapi-python-client's built-in post-hooks (`ruff check --fix-only`
+# + `ruff format`) are disabled via config/openapi-python-client.yaml
+# because they emit "ruff is not in PATH" on Windows where ruff doesn't
+# sit alongside openapi-python-client in pipx's venv. Run both passes
+# ourselves from the workspace's `ruff` install: check first to apply
+# fixable lints (including isort's "I" rules from ruff.toml), then
+# format so the final output stays canonical.
 ruff check --fix generated/python-rest/et_rest_client
+ruff format generated/python-rest/et_rest_client
 """
 
 [tasks.gen-python-ws]
