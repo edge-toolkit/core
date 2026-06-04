@@ -8,7 +8,7 @@ name: test
       os:
         description: "OS(es) to run"
         type: choice
-        default: all
+        default: windows-latest
         options:
           - all
           - ubuntu-latest
