@@ -270,6 +270,8 @@ missing_panics_doc = { level = "allow", priority = 4 }
 
 [workspace.metadata.unmaintained]
 ignore = [
+  # Archived upstream at matklad/countme.
+  "countme",
   # 1853 days since last update at xdg-rs/dirs.
   "dirs-sys-next",
   # cargo-unmaintained doesn't follow `hg` repositories.
@@ -284,6 +286,8 @@ ignore = [
   "serde_yaml",
   # 700 days since last update at dalek-cryptography/subtle.
   "subtle",
+  # Archived upstream at rust-analyzer/text-size.
+  "text-size",
   # Declared repository toml-rs/toml hosts `toml_writer` (with the `r`),
   # not `toml_write`. The crate is effectively orphaned upstream.
   "toml_write",

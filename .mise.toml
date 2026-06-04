@@ -94,6 +94,16 @@ CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld={{ env.HOME }
 # errors still print. MAVEN_ARGS is honored by Maven 3.9+ and prepends to
 # every `mvn` invocation.
 MAVEN_ARGS = "--no-transfer-progress"
+# rclone retry tuning for the `fetch-*-rclone` model-download tasks.
+# Hugging Face / GitHub raw responded HTTP 429 ("Too Many Requests") at
+# least once with all three of rclone's default high-level retries
+# failing inside the same second (no Retry-After honoured at the
+# default `--retries-sleep 0s`). Force a 30 s pause between retries
+# and bump the count. `RCLONE_*` env vars are rclone's own alternative
+# to CLI flags — `rclone.conf` only configures named remotes, not
+# global retry policy.
+RCLONE_RETRIES = "10"
+RCLONE_RETRIES_SLEEP = "30s"
 
 [tasks]
 ec = "ec"
@@ -119,7 +129,7 @@ run = "dotnet format --verify-no-changes"
 run = "dprint check"
 
 [tasks.dprint-check.env]
-DPRINT_CACHE_DIR = "/tmp/dprint-cache"
+DPRINT_CACHE_DIR = "{{ config_root }}/target/dprint-cache"
 
 [tasks.dprint-fmt]
 run = "dprint fmt"
@@ -156,6 +166,11 @@ depends = ["dart-pub-get"]
 run = "dart format --output=none --set-exit-if-changed services/ws-modules/dart-comm1/ generated/dart-ws/"
 
 [tasks.check]
+# `osv-scanner` is intentionally absent — it (and the other dep-audit
+# tools, cargo-deny + cargo-unmaintained) run in the standalone
+# `.github/workflows/dependencies.yml` workflow so they only fire when
+# Cargo.lock / Cargo.toml / deny.toml change. The `[tasks.osv-scanner]`
+# definition stays for ad-hoc local invocation.
 depends = [
   "ast-grep-check",
   "cargo-check",
@@ -168,7 +183,6 @@ depends = [
   "dprint-check",
   "editorconfig-check",
   "gen-specs-check",
-  "osv-scanner",
   "ruff-check",
   "ruff-fmt-check",
   "taplo-check",
