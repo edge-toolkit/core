@@ -1,8 +1,8 @@
 [tools]
 action-validator = "latest"
+aube = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 cargo-binstall = "latest"
 "cargo:ast-grep" = "latest"
-aube = { version = "latest", os = ["linux", "windows", "macos/arm64"] }
 "cargo:aube" = { version = "latest", os = ["macos/x64"] }
 "cargo:cargo-expand" = "latest"
 "cargo:cargo-unmaintained" = "latest"
@@ -58,8 +58,8 @@ pipx = { version = "latest", os = ["linux", "macos"] }
 "pipx:pytest" = "latest"
 # The default aqua backend has no darwin/amd64 prebuilt; fall back to
 # `npm:pnpm` on Intel Mac (node is already a mise tool above).
-pnpm = { version = "latest", os = ["linux", "windows", "macos/arm64"] }
 "npm:pnpm" = { version = "latest", os = ["macos/x64"] }
+pnpm = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 protoc = "latest"
 python = "3.13"
 rclone = "latest"
@@ -227,7 +227,7 @@ run = "osv-scanner --lockfile Cargo.lock"
 # `build-ws-wasm-agent` produces `services/ws-wasm-agent/pkg/`, which the
 # static workspace references via a `link:` path. Run it before `pnpm install`
 # so the link target exists.
-depends = ["download-models", "build-ws-wasm-agent"]
+depends = ["build-ws-wasm-agent", "download-models"]
 description = "Pre-download all dependencies and models (Rust crates, Dart packages, Python envs, Java/Maven, .NET, Node, WIT)"
 run = """
 cargo check --workspace

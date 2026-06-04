@@ -223,7 +223,7 @@ pub fn run(project_root: &Path) -> Result<(), Error> {
 
 #[expect(
     clippy::single_call_fn,
-    reason = "named helper called once by run(); the per-package fetch/write split keeps the WebGPU-specific path (strip + re-emit) in its own function"
+    reason = "named helper called once by run(); the per-package fetch/write split lives apart from the WebGPU path"
 )]
 #[expect(
     clippy::print_stdout,
@@ -254,7 +254,7 @@ fn fetch_one(deps_root: &Path, pkg: &UpstreamPackage) -> Result<(), Error> {
 
 #[expect(
     clippy::single_call_fn,
-    reason = "named helper called once by run(); the WebGPU branch needs strip_webgpu() so it lives apart from the simpler fetch_one()"
+    reason = "named helper called once by run(); the WebGPU branch needs strip_webgpu(), kept apart from fetch_one()"
 )]
 #[expect(
     clippy::print_stdout,
@@ -279,17 +279,17 @@ fn fetch_and_trim_webgpu(deps_root: &Path) -> Result<(), Error> {
 /// down to our compute-only subset, and re-emit using `wit-encoder`.
 #[expect(
     clippy::unnecessary_wraps,
-    reason = "the signature lets the caller use `?` and matches the surrounding fetch_* helpers, even though every current branch returns Ok"
+    reason = "signature lets the caller use `?` and matches the surrounding fetch_* helpers"
 )]
 #[expect(
     clippy::single_call_fn,
-    reason = "named helper called once by fetch_and_trim_webgpu(); the WIT-parse / filter / re-emit pipeline is one logical step"
+    reason = "named helper called once by fetch_and_trim_webgpu(); one logical step (parse / filter / re-emit)"
 )]
 #[expect(
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::unwrap_in_result,
-    reason = "wit-parser::Resolve returns anyhow::Error which doesn't impl std::error::Error (coherence), and the stub literals + the produced package list are fixed by build-time invariants — a failure means a developer typo, not a runtime condition"
+    reason = "wit-parser yields anyhow::Error (no std::error::Error impl); inputs are compile-time literals"
 )]
 fn strip_webgpu(raw: &str) -> Result<String, Error> {
     let mut resolve = wit_parser::Resolve::default();
@@ -318,7 +318,7 @@ fn strip_webgpu(raw: &str) -> Result<String, Error> {
 
 #[expect(
     clippy::single_call_fn,
-    reason = "named helper called once by strip_webgpu(); the keep/drop filtering rules are its own scoped responsibility"
+    reason = "named helper called once by strip_webgpu(); scopes the keep/drop filtering rules"
 )]
 fn mutate_interface(iface: &mut Interface, keep: &HashSet<&str>, drop_methods: &HashSet<&str>) {
     // Drop all `use` clauses (wit-encoder doesn't expose a clearer for them)
@@ -344,7 +344,9 @@ fn mutate_interface(iface: &mut Interface, keep: &HashSet<&str>, drop_methods: &
     // reference a dropped name (either by their own name for methods, or
     // transitively through their Type signatures).
     for item in iface.items_mut() {
-        let InterfaceItem::TypeDef(typedef) = item else { continue };
+        let InterfaceItem::TypeDef(typedef) = item else {
+            continue;
+        };
         match typedef.kind_mut() {
             TypeDefKind::Resource(res) => {
                 res.funcs_mut()
@@ -393,9 +395,9 @@ fn should_drop_resource_func(
         }
     }
     let ret = match func.kind() {
-        ResourceFuncKind::Method(_, _, ret) | ResourceFuncKind::Static(_, _, ret) | ResourceFuncKind::Constructor(ret) => {
-            ret.as_ref()
-        }
+        ResourceFuncKind::Method(_, _, ret)
+        | ResourceFuncKind::Static(_, _, ret)
+        | ResourceFuncKind::Constructor(ret) => ret.as_ref(),
     };
     if let Some(ret) = ret
         && type_refs_dropped(ret, keep)

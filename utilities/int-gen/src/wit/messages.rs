@@ -36,14 +36,15 @@ type EnumSet = HashSet<String>;
 #[expect(
     clippy::expect_used,
     clippy::unwrap_in_result,
-    reason = "the semver literal is a compile-time constant; an Err here means the literal itself was mistyped, which is a developer error caught by the next test run"
+    reason = "the semver literal is a compile-time constant; an Err means the literal was mistyped"
 )]
 pub fn render(root_schema: &Schema) -> Result<String, Error> {
     let root = root_schema.as_value();
     let mut interface = Interface::new("messages");
-    interface.set_docs(Some(
-        "Typed WS protocol messages \u{2014} each `ws-message` case maps 1:1 to a Rust `WsMessage` variant on the wire.",
-    ));
+    interface.set_docs(Some(concat!(
+        "Typed WS protocol messages \u{2014} each `ws-message` case maps 1:1 to a Rust `WsMessage` ",
+        "variant on the wire.",
+    )));
 
     let enums = collect_enum_names(root);
     emit_enum_defs(root, &mut interface)?;
@@ -107,7 +108,7 @@ fn emit_enum_defs(root: &serde_json::Value, interface: &mut Interface) -> Result
 
 #[expect(
     clippy::single_call_fn,
-    reason = "named helper called once by render(); pairs with emit_enum_defs / emit_variant_payloads / emit_top_level_variant"
+    reason = "named helper called once by render(); pairs with the other emit_* phases"
 )]
 fn emit_record_defs(root: &serde_json::Value, interface: &mut Interface, enums: &EnumSet) -> Result<(), Error> {
     let Some(defs) = root.get("$defs").and_then(|val| val.as_object()) else {

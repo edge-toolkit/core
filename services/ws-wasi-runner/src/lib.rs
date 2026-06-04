@@ -14,7 +14,7 @@
 // internal crate.
 #![expect(
     clippy::result_large_err,
-    reason = "RunnerError inherits et_rest_client::Error<()>'s byte footprint; boxing would force per-variant From impls"
+    reason = "et_rest_client::Error<()> dominates the footprint; boxing would force per-variant From impls"
 )]
 
 use futures_util::StreamExt as _;
@@ -26,8 +26,8 @@ pub mod bindings;
 pub mod error;
 pub mod host;
 
-pub use self::error::RunnerError;
 use self::error::PackageJsonErrExt as _;
+pub use self::error::RunnerError;
 pub use self::host::HostState;
 
 /// Convert a WebSocket URL to its HTTP base.

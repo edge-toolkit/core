@@ -33,7 +33,7 @@ fn quoted_string_entry(raw: &str) -> KdlEntry {
 
 #[expect(
     clippy::single_call_fn,
-    reason = "named helper paired with quoted_string_entry; both centralise the KdlEntryFormat dance required for knus 3.x"
+    reason = "paired with quoted_string_entry; centralises the KdlEntryFormat dance knus 3.x needs"
 )]
 fn quoted_string_prop(key: &str, value: &str) -> KdlEntry {
     let mut entry = KdlEntry::new_prop(KdlIdentifier::from(key), KdlValue::String(value.into()));
@@ -113,7 +113,7 @@ fn defaults_node() -> KdlNode {
 
 #[expect(
     clippy::single_call_fn,
-    reason = "named helper called once by render(); the split keeps the enum-emitter near its sibling class/union helpers"
+    reason = "named helper called once by render(); split keeps the enum-emitter near its siblings"
 )]
 fn enum_node(name: &str, def: &serde_json::Value) -> Result<KdlNode, Error> {
     let values = def
@@ -171,7 +171,7 @@ fn class_node(name: &str, schema: &serde_json::Value, discriminator: Option<&str
 
 #[expect(
     clippy::single_call_fn,
-    reason = "named helper called once by class_node(); kept separate so the field-emission rules sit near other dart-typegen-specific helpers"
+    reason = "named helper called once by class_node(); kept separate to scope the field-emission rules"
 )]
 fn field_node(key: &str, schema: &serde_json::Value, optional: bool) -> Result<KdlNode, Error> {
     let mut node = KdlNode::new("field");
@@ -190,7 +190,7 @@ fn field_node(key: &str, schema: &serde_json::Value, optional: bool) -> Result<K
 
 #[expect(
     clippy::single_call_fn,
-    reason = "named helper called once by render(); the split mirrors the layout of the parallel WsMessage emitter in wit/messages.rs"
+    reason = "named helper called once by render(); mirrors the parallel WsMessage emitter in wit/messages.rs"
 )]
 fn ws_message_union(root: &serde_json::Value) -> Result<KdlNode, Error> {
     let variants = root
@@ -280,7 +280,11 @@ fn primitive(kind: &str, schema: &serde_json::Value) -> Result<String, Error> {
 }
 
 fn append_q(kind: &str, optional: bool) -> String {
-    if optional { append_q_force(kind) } else { kind.to_string() }
+    if optional {
+        append_q_force(kind)
+    } else {
+        kind.to_string()
+    }
 }
 
 fn append_q_force(kind: &str) -> String {

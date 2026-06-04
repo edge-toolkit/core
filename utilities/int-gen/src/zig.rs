@@ -209,7 +209,7 @@ fn write_replacement_body(out: &mut String) -> Result<(), Error> {
 
 #[expect(
     clippy::single_call_fn,
-    reason = "named helper for the multi-line writeln! block that emits the extern declaration; called once by rewrite()"
+    reason = "named helper for the writeln! block emitting the extern declaration; called once by rewrite()"
 )]
 fn write_extern_decl(out: &mut String) -> Result<(), Error> {
     writeln!(out)?;

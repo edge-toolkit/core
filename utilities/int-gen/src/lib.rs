@@ -65,15 +65,15 @@ pub mod zig;
 /// non-transparent variants with static messages.
 #[expect(
     clippy::large_enum_variant,
-    reason = "ureq::Error dominates the footprint; boxing it via #[from] would force a manual From impl per call site for no real benefit in a one-shot CLI"
+    reason = "ureq::Error dominates the footprint; boxing it would force a manual From impl for no benefit in a CLI"
 )]
 #[expect(
     clippy::exhaustive_enums,
-    reason = "et-int-gen is internal — there's no SemVer guarantee to consumers; new variants land alongside their introducing change"
+    reason = "et-int-gen is internal; no SemVer guarantee, new variants land alongside their introducing change"
 )]
 #[expect(
     clippy::error_impl_error,
-    reason = "the crate's only error type lives at crate::Error by convention; matches the workspace's other `*Error` types and avoids namespace bikeshedding"
+    reason = "the crate's only error type lives at crate::Error, matching the rest of the workspace"
 )]
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -123,7 +123,7 @@ impl From<tree_sitter::LanguageError> for Error {
 /// `ToAsyncApiMessage` impl on the enum.
 #[expect(
     clippy::duplicated_attributes,
-    reason = "two #[asyncapi_operation(...)] attributes are intentional: one for `send`, one for `receive`; asyncapi-rust's derive uses presence to register channels, so collapsing them would drop a channel"
+    reason = "two #[asyncapi_operation(...)] entries are intentional (send/receive); collapsing drops a channel"
 )]
 #[derive(AsyncApi)]
 #[asyncapi(
@@ -149,7 +149,7 @@ struct WsApi;
 #[expect(
     clippy::expect_used,
     clippy::unwrap_in_result,
-    reason = "pretty_yaml::format_text only errors on a YAML syntax failure; serde_yaml's emitter is well-formed by construction"
+    reason = "pretty_yaml::format_text only fails on a YAML syntax error; serde_yaml output is well-formed"
 )]
 #[expect(
     clippy::print_stderr,

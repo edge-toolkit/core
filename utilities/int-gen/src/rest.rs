@@ -40,7 +40,7 @@ struct ApiDoc;
 /// downgrade those before serializing.
 #[expect(
     clippy::expect_used,
-    reason = "every conversion here is between types that are JSON/serde-by-construction; the only way these expect calls can fire is a serde_json bug"
+    reason = "all conversions are between serde-derived types; the only way these expect calls fire is a serde_json bug"
 )]
 fn build_spec() -> openapiv3::OpenAPI {
     let mut doc = ApiDoc::openapi();
@@ -89,7 +89,7 @@ pub fn render_json() -> String {
 #[expect(
     clippy::expect_used,
     clippy::unwrap_in_result,
-    reason = "progenitor's emit is fed straight into syn::parse2; a parse failure would mean progenitor itself produced invalid Rust"
+    reason = "progenitor's emit feeds straight into syn::parse2; a parse failure means progenitor produced invalid Rust"
 )]
 pub fn render_rust_client() -> Result<String, Error> {
     let spec = build_spec();
