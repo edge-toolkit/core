@@ -270,9 +270,33 @@ missing_panics_doc = { level = "allow", priority = 4 }
 
 [workspace.metadata.unmaintained]
 ignore = [
-  # It is a hg repo, which is not supported by cargo-unmaintained
+  # 1853 days since last update at xdg-rs/dirs.
+  "dirs-sys-next",
+  # cargo-unmaintained doesn't follow `hg` repositories.
   "oorandom",
+  # 603 days since last update at timvisee/qr2term-rs.
+  "qr2term",
+  # False positive: rand_chacha lives in rust-random/rand as a workspace
+  # subdir (rand_chacha/), but cargo-unmaintained looks only at the
+  # repo root and reports "not in".
+  "rand_chacha",
   # https://github.com/rustsec/advisory-db/issues/2132
   "serde_yaml",
+  # 700 days since last update at dalek-cryptography/subtle.
+  "subtle",
+  # Declared repository toml-rs/toml hosts `toml_writer` (with the `r`),
+  # not `toml_write`. The crate is effectively orphaned upstream.
+  "toml_write",
+  # https://github.com/rustsec/advisory-db/issues/2132
   "unsafe-libyaml",
+  # Archived upstream at SimonSapin/rust-utf8.
+  "utf-8",
+  # Declared repository alacritty/vte is a single-crate repo with no
+  # `utf8parse` member. The crate is effectively orphaned upstream.
+  "utf8parse",
+  # 517 days since last update at daxpedda/web-time.
+  "web-time",
+  # Declared repository WebAssembly/WASI is spec-only (no `crates/`
+  # tree). The crate is effectively orphaned upstream.
+  "witx",
 ]
