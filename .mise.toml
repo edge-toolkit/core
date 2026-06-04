@@ -24,7 +24,12 @@ dotnet-core = "latest"
 "dotnet:roslynator.dotnet.cli" = "latest"
 dprint = "latest"
 editorconfig-checker = "latest"
-"github:christianhelle/openapi2zig" = "latest"
+# Upstream only ships linux/x64, macos, and windows binaries — no linux/arm64
+# asset, so installing this on `ubuntu-24.04-arm` fails with "No matching asset
+# found". Restrict to the platforms that have a release artifact; the Zig
+# REST-client generation step in et-int-gen detects the missing binary at
+# runtime and is a no-op when it's not on PATH.
+"github:christianhelle/openapi2zig" = { version = "latest", os = ["linux/x64", "macos", "windows"] }
 "github:grok-rs/waitup" = "latest"
 "github:wasm-bindgen/wasm-bindgen" = "0.2.114"
 # Use the GitHub release tarball, not `npm:pyodide`. The npm package is only

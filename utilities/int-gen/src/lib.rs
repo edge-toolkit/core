@@ -163,14 +163,24 @@ pub fn generate() -> Result<(), Error> {
     // Zig client: openapi2zig generates a fully typed client, et-int-gen
     // post-processes it via tree-sitter-zig to swap the native HTTP
     // transport for an extern JS-fetch import (browser wasm target).
-    let rest_json_path = project_root.join("target/int-gen/rest.json");
-    write_if_changed(&rest_json_path, &rest::render_json())?;
-    let raw_zig_path = project_root.join("target/int-gen/raw_et_rest_client.zig");
-    let zig_client = zig::render(&rest_json_path, &raw_zig_path)?;
-    write_if_changed(
-        &project_root.join("generated/zig-rest/src/et_rest_client.zig"),
-        &zig_client,
-    )?;
+
+    // Upstream openapi2zig has no linux/arm64 release artifact, so mise
+    // doesn't install it there — skip the whole step when the binary is
+    // absent. The committed `generated/zig-rest/src/et_rest_client.zig`
+    // stays untouched, so `gen-specs-check`'s `git diff --exit-code`
+    // still passes on that host.
+    if zig::is_available() {
+        let rest_json_path = project_root.join("target/int-gen/rest.json");
+        write_if_changed(&rest_json_path, &rest::render_json())?;
+        let raw_zig_path = project_root.join("target/int-gen/raw_et_rest_client.zig");
+        let zig_client = zig::render(&rest_json_path, &raw_zig_path)?;
+        write_if_changed(
+            &project_root.join("generated/zig-rest/src/et_rest_client.zig"),
+            &zig_client,
+        )?;
+    } else {
+        eprintln!("openapi2zig not found on PATH; skipping Zig REST client generation");
+    }
 
     // Build intermediates land in target/ — datamodel-codegen reads the JSON
     // Schema for Python output, and dart-typegen reads the KDL for Dart.

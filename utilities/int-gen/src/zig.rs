@@ -25,6 +25,13 @@ use tree_sitter::{Node, Parser};
 
 use crate::Error;
 
+/// Return `true` if the `openapi2zig` binary is on `PATH`.
+///
+/// Upstream doesn't publish a `linux/arm64` release (see `.mise.toml`).
+pub fn is_available() -> bool {
+    Command::new("openapi2zig").arg("--version").output().is_ok()
+}
+
 /// Invoke `openapi2zig` against the OpenAPI JSON intermediate, post-process
 /// the result, and return the final Zig source. Subprocess errors are
 /// flattened into `Error::ZigCodegen` since we don't model them more
