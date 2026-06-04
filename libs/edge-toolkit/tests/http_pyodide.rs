@@ -17,7 +17,6 @@
 )]
 
 use std::collections::HashSet;
-use std::fs;
 use std::path::PathBuf;
 
 use edge_toolkit::config::{default_modules_folders, mise_where};
@@ -53,8 +52,7 @@ const REQUIRED_WHEEL_PREFIXES: &[&str] = &["numpy-", "scipy-", "pandas-"];
 fn http_pyodide_install_contains_full_wheel_set() {
     let install = require_http_pyodide_install();
 
-    let entries = fs::read_dir(&install)
-        .unwrap_or_else(|err| panic!("failed to read http:pyodide install dir {}: {err}", install.display()));
+    let entries = fs_err::read_dir(&install).unwrap();
 
     let wheel_names: HashSet<String> = entries
         .filter_map(Result::ok)

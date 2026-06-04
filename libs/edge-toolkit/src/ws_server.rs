@@ -133,7 +133,7 @@ impl<S: Clone + Default + Send + 'static> AgentRegistry<S> {
             );
             return Ok(Self::default());
         }
-        let yaml = std::fs::read_to_string(path)?;
+        let yaml = fs_err::read_to_string(path)?;
         let agents: BTreeMap<String, AgentRecord<S>> = serde_yaml::from_str(&yaml)?;
         log::info!("Loaded {} agents from registry {}", agents.len(), path.display());
         Ok(Self {
@@ -147,7 +147,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
         let agents = self.agents.lock()?;
         let yaml = serde_yaml::to_string(&*agents)?;
         drop(agents);
-        std::fs::write(path, yaml)?;
+        fs_err::write(path, yaml)?;
         log::info!("Agent registry saved to {}", path.display());
         Ok(())
     }
