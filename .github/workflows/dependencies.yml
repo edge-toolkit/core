@@ -46,5 +46,11 @@ jobs:
       - name: osv-scanner
         run: osv-scanner --lockfile Cargo.lock
 
+      # `cargo unmaintained` queries the GitHub API to check whether each
+      # declared upstream repository is archived. Without a token the
+      # archival check is skipped with a warning, leaving an unmaintained
+      # archived crate undetected.
       - name: cargo unmaintained
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: cargo unmaintained

@@ -4,8 +4,8 @@ aube = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 cargo-binstall = "latest"
 "cargo:ast-grep" = "latest"
 "cargo:aube" = { version = "latest", os = ["macos/x64"] }
+"cargo:cargo-deny" = "latest"
 "cargo:cargo-expand" = "latest"
-"cargo:cargo-unmaintained" = "latest"
 "cargo:dart-typegen" = "latest"
 "cargo:taplo-cli" = "latest"
 "cargo:wasm-pack" = "latest"
@@ -166,11 +166,14 @@ depends = ["dart-pub-get"]
 run = "dart format --output=none --set-exit-if-changed services/ws-modules/dart-comm1/ generated/dart-ws/"
 
 [tasks.check]
-# `osv-scanner` is intentionally absent — it (and the other dep-audit
-# tools, cargo-deny + cargo-unmaintained) run in the standalone
-# `.github/workflows/dependencies.yml` workflow so they only fire when
-# Cargo.lock / Cargo.toml / deny.toml change. The `[tasks.osv-scanner]`
-# definition stays for ad-hoc local invocation.
+# The dep-audit tools (osv-scanner, cargo-deny, cargo-unmaintained) run
+# in the standalone `.github/workflows/dependencies.yml` workflow so they
+# only fire when Cargo.lock / Cargo.toml / deny.toml change, not on every
+# `mise run check`. `osv-scanner` and `cargo-deny` are kept in `[tools]`
+# for ad-hoc local invocation (e.g. `mise run osv-scanner`,
+# `cargo deny check`); `cargo-unmaintained` is installed only by the
+# workflow via `taiki-e/install-action` since it isn't useful enough
+# locally to justify the cargo-build cost on every `mise install`.
 depends = [
   "ast-grep-check",
   "cargo-check",

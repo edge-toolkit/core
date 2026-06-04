@@ -89,11 +89,11 @@ jobs:
           mise settings set cargo.binstall true
 
           # Install conda:openssl up front — the project's OPENSSL_DIR points
-          # at its install dir, and `cargo:cargo-unmaintained` (which pulls
-          # openssl-sys) reads that during its own `cargo install`. With the
-          # default parallel `mise install`, openssl-sys can panic with
-          # "OpenSSL include directory does not exist" because conda:openssl
-          # hasn't finished populating `include/` yet.
+          # at its install dir, and any `cargo:*` tool that pulls openssl-sys
+          # reads that during its own `cargo install`. With the default
+          # parallel `mise install`, openssl-sys can panic with "OpenSSL
+          # include directory does not exist" if conda:openssl hasn't
+          # finished populating `include/` yet.
 
           mise install conda:openssl
 
@@ -107,25 +107,6 @@ jobs:
           # Match check.yml: bump mise's 30s HTTP timeout so GitHub-release
           # downloads don't fail the install on transient slowness.
           MISE_HTTP_TIMEOUT: "120"
-
-      # Mise-installed python resolution differs per platform — `mise which
-      # python3.13` works on Linux/macOS but fails on Windows ("not a mise
-      # bin"), and `mise which python` returns pyodide's python wrapper on
-      # macOS/Linux instead of mise's CPython. Print enough state here that
-      # the next failure on any OS is diagnosable from one log read rather
-      # than another iteration cycle. Don't fail the job — every probe
-      # below is intentionally `|| true`.
-      - name: Debug — mise python resolution
-        run: |
-          set -x
-          mise --version
-          mise list python || true
-          mise which python || true
-          mise which python3 || true
-          mise which python3.13 || true
-          mise where python || true
-          mise exec python -- python --version || true
-          mise exec python -- python -c "import sys; print(sys.executable)" || true
 
       - name: Fetch MNIST model
         run: mise run fetch-mnist-rclone

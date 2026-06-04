@@ -1,0 +1,6 @@
+# `zig fmt --check` normalizes to LF, so on Windows checkouts with
+# `core.autocrlf=true` it flags every Zig file as "would be reformatted"
+# (printing only the path, no diff). Pin LF for Zig sources so the check
+# behaves identically across OSes.
+*.zig text eol=lf
+*.zon text eol=lf
