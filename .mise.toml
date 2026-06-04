@@ -104,6 +104,7 @@ MAVEN_ARGS = "--no-transfer-progress"
 # global retry policy.
 RCLONE_RETRIES = "10"
 RCLONE_RETRIES_SLEEP = "30s"
+RCLONE_CONFIG = "{{ config_root }}/config/rclone.conf"
 
 [tasks]
 ec = "ec"
@@ -146,7 +147,9 @@ description = "Run repository formatters"
 # That mismatch is invisible locally (we accumulate .dart_tool/ over time)
 # but bites CI's fresh checkout. Run `dart pub get` for every Dart package
 # before any dart-* task so .dart_tool/ exists and the format is stable.
+shell = "bash -c"
 run = """
+set -euo pipefail
 dart pub get --directory generated/dart-ws
 dart pub get --directory services/ws-modules/dart-comm1
 """
@@ -237,8 +240,7 @@ set -euo pipefail
 taplo lint
 
 # All member Cargo.tomls — exclude workspace root and any build output.
-# (Avoid `mapfile`: it's bash 4+ only and macOS ships bash 3.2, which is
-# what `shell = "bash -c"` resolves to on a stock GitHub runner.)
+# (Avoid `mapfile`: it's bash 4+ only and macOS ships bash 3.2.)
 members=()
 while IFS= read -r line; do
   members+=("$line")
@@ -282,12 +284,14 @@ run = "typos"
 depends = ["cargo-check"]
 run = "osv-scanner --lockfile Cargo.lock"
 
-[tasks.prefetch]
+[tasks.prefetch-ci]
 # `build-ws-wasm-agent` produces `services/ws-wasm-agent/pkg/`, which the
 # static workspace references via a `link:` path. Run it before `pnpm install`
-# so the link target exists.
-depends = ["build-ws-wasm-agent", "download-models"]
-description = "Pre-download all dependencies and models (Rust crates, Dart packages, Python envs, Java/Maven, .NET, Node, WIT)"
+# so the link target exists. Only `fetch-mnist-rclone` is pulled here —
+# CI tests don't exercise the face1 / har-motion1 models, and skipping
+# those avoids the HuggingFace rate-limit that bites Windows runners.
+depends = ["build-ws-wasm-agent", "fetch-mnist-rclone"]
+description = "Pre-download CI-required dependencies + the MNIST model"
 run = """
 cargo check --workspace
 dart pub get --directory services/ws-modules/dart-comm1
@@ -299,10 +303,14 @@ pnpm install --dir services/ws-server/static --ignore-scripts --config.ignoredBu
 zig build --fetch --build-file services/ws-modules/zig-data1/build.zig
 """
 
-[tasks.prefetch.env]
+[tasks.prefetch]
+depends = ["prefetch-ci", "fetch-face1-rclone", "fetch-har-motion1-rclone"]
+description = "Pre-download all dependencies and models (superset of prefetch-ci)"
+
+[tasks.prefetch-ci.env]
 # pnpm refuses non-TTY destructive node_modules cleanup unless `CI=true`,
 # which fires when an earlier install left a different layout (e.g. before
-# `link:` was wired up). Treat `mise run prefetch` as a CI-style batch.
+# `link:` was wired up). Treat `mise run prefetch-ci` as a CI-style batch.
 CI = "true"
 # UV_PYTHON pins uv to the mise-managed regular CPython, not Pyodide's
 # emscripten-wasm32 interpreter. mise's `http-pyodide` install ships a
@@ -354,9 +362,6 @@ zig fmt generated/zig-rest/src/et_rest_client.zig
 [tasks.gen-dart-ws]
 depends = ["gen-ws-spec"]
 description = "Emit Dart sealed-class client for the WS protocol via dart-typegen (consumes target/int-gen/ws.kdl emitted by gen-ws-spec)"
-# Body uses POSIX shell constructs (`mkdir -p`); force bash so the same
-# script runs on Windows where mise's default is `cmd /c`. Bash is on PATH
-# on every CI runner (Git Bash / MSYS2 on `windows-latest`).
 shell = "bash -c"
 run = """
 mkdir -p generated/dart-ws/lib
@@ -367,8 +372,6 @@ dart format generated/dart-ws/lib/ws_messages.dart
 [tasks.gen-python-rest]
 depends = ["gen-ws-spec"]
 description = "Emit typed Python REST client for the ws-server API via openapi-python-client (consumes generated/specs/rest.yaml)"
-# Body uses POSIX shell (`mkdir -p`, `rm -rf`, line continuations); see
-# gen-dart-ws for why `shell = "bash -c"` is set here per-task.
 shell = "bash -c"
 run = """
 mkdir -p generated/python-rest/et_rest_client
@@ -389,8 +392,6 @@ ruff check --fix generated/python-rest/et_rest_client
 [tasks.gen-python-ws]
 depends = ["gen-ws-spec"]
 description = "Emit Pydantic models for the WS protocol via datamodel-code-generator"
-# Body uses POSIX shell (`mkdir -p`, `sed -i`, line continuations); see
-# gen-dart-ws for why `shell = "bash -c"` is set here per-task.
 shell = "bash -c"
 run = """
 mkdir -p generated/python-ws/et_ws
@@ -446,8 +447,6 @@ dir = "generated/python-ws"
 # Wheel goes straight into pkg/ alongside the committed et_ws.js shim so the
 # whole dir is what et-modules-service mounts at /modules/et-ws/. Delete
 # stale wheels first — uv build leaves prior versions in place.
-# `rm -f pkg/*.whl` is POSIX; force bash so Windows mise doesn't dispatch
-# through `cmd /c`. See gen-dart-ws for the rationale.
 shell = "bash -c"
 run = """
 rm -f pkg/*.whl
@@ -459,8 +458,6 @@ cargo run -p et-cli -- module-package-json
 depends = ["gen-python-rest"]
 description = "Build the generated et-rest-client Python package as a wheel + ws-module pkg/"
 dir = "generated/python-rest"
-# `rm -f pkg/*.whl` is POSIX; force bash so Windows mise doesn't dispatch
-# through `cmd /c`. See gen-dart-ws for the rationale.
 shell = "bash -c"
 run = """
 rm -f pkg/*.whl
@@ -586,8 +583,6 @@ dart compile js lib/dart_comm1.dart -o pkg/et_ws_dart_comm1_compiled.js --no-sou
 [tasks.build-ws-dotnet-data1-module]
 description = "Build the dotnet-data1 C# WASM workflow module"
 dir = "services/ws-modules/dotnet-data1"
-# Body uses `cp` and a shell var; force bash so Windows mise doesn't
-# dispatch through `cmd /c`. See gen-dart-ws for the rationale.
 shell = "bash -c"
 run = '''
 dotnet workload install wasm-tools --skip-manifest-update
@@ -609,8 +604,6 @@ dir = "services/ws-modules/wasi-graphics-info"
 # `wasi:keyvalue/store` host import from the ws-server at runtime.
 # componentize-py 0.23's `bindings` subcommand refuses to overwrite an
 # existing output dir, so we wipe it first.
-# `rm -rf` is POSIX; force bash so Windows mise doesn't dispatch through
-# `cmd /c`. See gen-dart-ws for the rationale.
 shell = "bash -c"
 run = """
 rm -rf wit_world
@@ -626,7 +619,6 @@ description = "Build the Rust WASI data1 module as a WASI Preview 2 component"
 # an empty cdylib while this task explicitly requests wasm32-wasip2. The
 # .wasm artifact lands in the workspace-shared `target/` and is then
 # copied into the module's pkg/ for et-modules-service to serve.
-# `mkdir -p` and `cp` are POSIX; force bash. See gen-dart-ws.
 shell = "bash -c"
 run = """
 cargo build --release -p et-ws-wasi-data1 --target wasm32-wasip2
@@ -637,7 +629,6 @@ cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi
 
 [tasks.build-ws-wasi-comm1-module]
 description = "Build the Rust WASI comm1 module as a WASI Preview 2 component"
-# `mkdir -p` and `cp` are POSIX; force bash. See gen-dart-ws.
 shell = "bash -c"
 run = """
 cargo build --release -p et-ws-wasi-comm1 --target wasm32-wasip2
@@ -654,7 +645,6 @@ dir = "services/ws-modules/pydata1"
 # pydata1 declares it under [tool.ws-module.dependencies] and loads the
 # wheel at runtime from that mount via the shim's `installWheel` helper —
 # no need to copy the wheel here.
-# `rm -f pkg/*.whl` is POSIX; force bash. See gen-dart-ws.
 shell = "bash -c"
 run = """
 rm -f pkg/*.whl
@@ -670,7 +660,6 @@ dir = "services/ws-modules/pyface1"
 # it under [tool.ws-module.dependencies] and loads the wheel at runtime
 # from that mount via the shim's `installWheel` helper — no need to copy
 # the wheel here.
-# `rm -f pkg/*.whl` is POSIX; force bash. See gen-dart-ws.
 shell = "bash -c"
 run = """
 rm -f pkg/*.whl
@@ -744,14 +733,16 @@ run = "open http://localhost:5080/"
 [tasks.fetch-face1-rclone]
 run = """
     rclone copyto :http:amd/retinaface/resolve/main/weights/RetinaFace_int.onnx \
-        data/model-modules/model-face1/pkg/video_cv.onnx --http-url https://huggingface.co --progress
+        data/model-modules/model-face1/pkg/video_cv.onnx \
+        --http-url https://huggingface.co --progress --ignore-existing
 """
 
 [tasks.fetch-har-motion1-rclone]
 run = """
     rclone copyto \
         :http:acd17sk/MET-Metabolic-Equivalent-of-Task-AI-Android-APP/raw/refs/heads/main/Models/onnx/hybrid_met.onnx \
-        data/model-modules/model-har-motion1/pkg/har-motion1.onnx --http-url https://github.com --progress
+        data/model-modules/model-har-motion1/pkg/har-motion1.onnx \
+        --http-url https://github.com --progress --ignore-existing
 """
 
 [tasks.fetch-mnist-rclone]
@@ -763,7 +754,7 @@ run = """
     rclone copyto \
         :http:onnx/models/raw/main/validated/vision/classification/mnist/model/mnist-12.onnx \
         services/ws-modules/wasi-graphics-info/pkg/mnist-12.onnx \
-        --http-url https://github.com --progress
+        --http-url https://github.com --progress --ignore-existing
 """
 
 [tasks.download-models]

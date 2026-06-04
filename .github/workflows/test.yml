@@ -46,7 +46,7 @@ jobs:
           '[{0},{1},{2},{3},{4}]',
           '{"os":"ubuntu-latest","timeout":25}',
           '{"os":"ubuntu-24.04-arm","timeout":25}',
-          '{"os":"macos-latest","timeout":25}',
+          '{"os":"macos-latest","timeout":35}',
           '{"os":"macos-26-intel","timeout":60}',
           '{"os":"windows-latest","timeout":40}'
           )
@@ -60,7 +60,7 @@ jobs:
           '[{0},{1},{2}]',
           '{"os":"ubuntu-latest","timeout":25}',
           '{"os":"ubuntu-24.04-arm","timeout":25}',
-          '{"os":"macos-latest","timeout":25}'
+          '{"os":"macos-latest","timeout":35}'
           )
           ) }}
     steps:
@@ -108,11 +108,10 @@ jobs:
           # downloads don't fail the install on transient slowness.
           MISE_HTTP_TIMEOUT: "120"
 
-      - name: Fetch MNIST model
-        run: mise run fetch-mnist-rclone
-
       - name: Prefetch dependencies
-        run: mise run prefetch
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run prefetch-ci
 
       - name: Build WASM modules
         run: mise run build-modules
