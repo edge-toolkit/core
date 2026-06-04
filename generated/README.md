@@ -25,9 +25,15 @@ directly:
   deps (`httpx`, `attrs`). `openapi-python-client` is invoked with
   `--meta none`, so it only writes the source package and never touches
   this file.
-- `rust-rest/Cargo.toml` — Crate name, deps, workspace inheritance.
-  `progenitor` (driven in-process by `et-int-gen`) only writes
-  `src/lib.rs`, leaving this file untouched.
+- `rust-rest/Cargo.toml` — Crate name, deps (inherited from
+  `[workspace.dependencies]`), feature flags. `progenitor` (driven
+  in-process by `et-int-gen`) only writes `src/lib.rs`, leaving this
+  file untouched. The `[lints] workspace = true` table is intentionally
+  omitted — progenitor's generated source contains patterns the
+  workspace lint set flags (doc-comment shapes that trip rustdoc's
+  invalid-code-block lint, etc.), so the lint-inheritance schema
+  (`config/taplo/require-lints-section.schema.json`) exempts this
+  Cargo.toml. The deps-inheritance schema does not.
 - `zig-rest/build.zig.zon` — Zig package manifest (name, version,
   fingerprint). Regen writes only `src/et_rest_client.zig`.
 - `specs/wit/world.wit` — The top-level `et:ws-wasi@0.1.0` package
