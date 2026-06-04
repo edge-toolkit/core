@@ -452,7 +452,16 @@ description = "Fail if any checked-in artifact under generated/ is stale"
 # All et-int-gen outputs land under generated/. The runner's
 # wit/deps/et-ws-messages is a symlink into that tree, so a single diff
 # against generated/ covers everything.
-run = "git diff --exit-code -- generated"
+#
+# Skipped on Windows: the regen pipeline produces non-deterministic
+# drift there (nightly rustfmt formats long signatures and doc-comment
+# indentation differently across nightlies; pipx-driven python codegen
+# emits subtly different output). Linux/macOS runs are canonical.
+shell = "bash -c"
+run = """
+[[ "$OS" == "Windows_NT" ]] && { echo "gen-specs-check: skipped on Windows (regen is non-deterministic there)"; exit 0; }
+git diff --exit-code -- generated
+"""
 
 [tasks.build-et-ws-wheel]
 depends = ["gen-python-ws"]
