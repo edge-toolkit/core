@@ -220,11 +220,19 @@ set -euo pipefail
 taplo lint
 
 # All member Cargo.tomls — exclude workspace root and any build output.
-mapfile -t members < <(find . -name Cargo.toml -not -path './target/*' -not -path './Cargo.toml')
+# (Avoid `mapfile`: it's bash 4+ only and macOS ships bash 3.2, which is
+# what `shell = "bash -c"` resolves to on a stock GitHub runner.)
+members=()
+while IFS= read -r line; do
+  members+=("$line")
+done < <(find . -name Cargo.toml -not -path './target/*' -not -path './Cargo.toml')
 
 # All Cargo.tomls including the workspace root — `no-anyhow-dep` also
 # covers `[workspace.dependencies]`, so the root has to be in this list.
-mapfile -t all_cargo_toml < <(find . -name Cargo.toml -not -path './target/*')
+all_cargo_toml=()
+while IFS= read -r line; do
+  all_cargo_toml+=("$line")
+done < <(find . -name Cargo.toml -not -path './target/*')
 
 # Schemas that apply to every Cargo.toml (including the workspace root).
 taplo lint --schema "file://$PWD/config/taplo/no-anyhow-dep.schema.json" "${all_cargo_toml[@]}"
