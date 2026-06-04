@@ -752,12 +752,13 @@ dir = "services/ws-modules/pyface1"
 run = "uv run pytest"
 
 [tasks.test-pyface1.env]
-# `mise where python` returns the install dir; appending `/bin/python3` is
-# Unix-only (Windows has python.exe in the install root, no `bin/`
-# subdir). `mise which python3.13` returns the full executable path with
-# the platform's correct suffix (.exe on Windows), same idiom as the
-# `prefetch` task uses.
-UV_PYTHON = "{{exec(command='mise which python3.13')}}"
+# See the long-form comment in `[tasks.prefetch.env]` for why this is a
+# per-OS tera template: `mise which python3.13` works on Linux/macOS and
+# disambiguates from pyodide's `python` wrapper; on Windows mise's
+# python-build-standalone install only exposes `python.exe`, so we fall
+# back to `mise which python` (pyodide doesn't shim on Windows, so
+# there's no ambiguity to resolve).
+UV_PYTHON = "{% if os() == 'windows' %}{{ exec(command='mise which python') }}{% else %}{{ exec(command='mise which python3.13') }}{% endif %}"
 
 [tasks.test]
 depends = ["cargo-test", "test-pyface1"]

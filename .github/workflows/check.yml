@@ -20,8 +20,15 @@ defaults:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, timeout: 25 }
+          - { os: macos-latest, timeout: 35 }
+          - { os: windows-latest, timeout: 45 }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,6 +40,10 @@ jobs:
         with:
           tool: cargo-binstall,mise
 
+      - name: Install pipx (Windows only — aqua has no Windows build)
+        if: runner.os == 'Windows'
+        run: python -m pip install pipx
+
       - name: Install mise tools
         run: |
           mise settings add idiomatic_version_file_enable_tools "[]"
@@ -40,6 +51,9 @@ jobs:
           mise settings set cargo.binstall true
           # See test.yml for notes on why conda:openssl is installed up front.
           mise install conda:openssl
+          # On macOS, lld is needed to compile Rust binary tools from source
+          # (e.g. `cargo:taplo-cli`, see CARGO_TARGET_*_APPLE_DARWIN_RUSTFLAGS).
+          mise install conda:lld
           mise install
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -47,6 +61,19 @@ jobs:
           # default 30s HTTP timeout; bump it so transient network slowness
           # doesn't fail the whole `mise install` step.
           MISE_HTTP_TIMEOUT: "120"
+
+      # See the equivalent step in test.yml for rationale.
+      - name: Debug — mise python resolution
+        run: |
+          set -x
+          mise --version
+          mise list python || true
+          mise which python || true
+          mise which python3 || true
+          mise which python3.13 || true
+          mise where python || true
+          mise exec python -- python --version || true
+          mise exec python -- python -c "import sys; print(sys.executable)" || true
 
       - name: Run checkers
         run: |
