@@ -1,5 +1,7 @@
 //! Emit a `dart-typegen`-flavoured KDL document from the `WsMessage` JSON
-//! Schema. The KDL goes to `target/int-gen/ws.kdl` (build intermediate);
+//! Schema.
+//!
+//! The KDL goes to `target/int-gen/ws.kdl` (build intermediate);
 //! `dart-typegen generate -i target/int-gen/ws.kdl -o ...` consumes it to
 //! produce `generated/dart-ws/lib/ws_messages.dart`.
 //!
@@ -8,7 +10,7 @@
 //! schemars' JSON Schema shape to that vocabulary. The hand-rolled Dart
 //! emitter previously lived in `dart.rs`.
 
-use heck::{ToLowerCamelCase, ToPascalCase};
+use heck::{ToLowerCamelCase as _, ToPascalCase as _};
 use kdl::{KdlDocument, KdlEntry, KdlEntryFormat, KdlIdentifier, KdlNode, KdlValue};
 use schemars::Schema;
 
@@ -19,16 +21,20 @@ use crate::Error;
 /// must always appear quoted. The kdl crate's auto-formatter happily drops
 /// those quotes, so every entry we emit explicitly pins its `value_repr` and
 /// flips `autoformat_keep` to prevent that.
-fn quoted_string_entry(s: &str) -> KdlEntry {
-    let mut entry = KdlEntry::new(KdlValue::String(s.into()));
+fn quoted_string_entry(raw: &str) -> KdlEntry {
+    let mut entry = KdlEntry::new(KdlValue::String(raw.into()));
     let mut format = KdlEntryFormat::default();
-    format.value_repr = format!("\"{s}\"");
+    format.value_repr = format!("\"{raw}\"");
     format.leading = " ".to_string();
     format.autoformat_keep = true;
     entry.set_format(format);
     entry
 }
 
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper paired with quoted_string_entry; both centralise the KdlEntryFormat dance required for knus 3.x"
+)]
 fn quoted_string_prop(key: &str, value: &str) -> KdlEntry {
     let mut entry = KdlEntry::new_prop(KdlIdentifier::from(key), KdlValue::String(value.into()));
     let mut format = KdlEntryFormat::default();
@@ -44,7 +50,7 @@ pub fn render(root_schema: &Schema) -> Result<String, Error> {
     let mut doc = KdlDocument::new();
     doc.nodes_mut().push(defaults_node());
 
-    if let Some(defs) = root.get("$defs").and_then(|v| v.as_object()) {
+    if let Some(defs) = root.get("$defs").and_then(|val| val.as_object()) {
         let mut names: Vec<&String> = defs.keys().collect();
         names.sort();
         for name in &names {
@@ -55,7 +61,7 @@ pub fn render(root_schema: &Schema) -> Result<String, Error> {
         }
         for name in &names {
             let def = &defs[*name];
-            if def.get("enum").is_none() && def.get("type").and_then(|t| t.as_str()) == Some("object") {
+            if def.get("enum").is_none() && def.get("type").and_then(|kind| kind.as_str()) == Some("object") {
                 doc.nodes_mut().push(class_node(name, def, None)?);
             }
         }
@@ -71,8 +77,13 @@ pub fn render(root_schema: &Schema) -> Result<String, Error> {
 }
 
 /// The `defaults` block tells dart-typegen to emit sealed unions keyed on
-/// `"type"` and to convert camelCase Dart field names to snake_case JSON keys
-/// — matching how the Rust serde tag/rename_all configuration writes the wire.
+/// `"type"` and to convert `camelCase` Dart field names to `snake_case` JSON
+/// keys — matching how the Rust serde tag/`rename_all` configuration writes
+/// the wire.
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper for the top-level `defaults` block; kept separate to scope its nested children"
+)]
 fn defaults_node() -> KdlNode {
     let mut defaults = KdlNode::new("defaults");
     let mut children = KdlDocument::new();
@@ -100,10 +111,14 @@ fn defaults_node() -> KdlNode {
     defaults
 }
 
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by render(); the split keeps the enum-emitter near its sibling class/union helpers"
+)]
 fn enum_node(name: &str, def: &serde_json::Value) -> Result<KdlNode, Error> {
     let values = def
         .get("enum")
-        .and_then(|v| v.as_array())
+        .and_then(|val| val.as_array())
         .ok_or(Error::SchemaMalformed("enum def missing `enum` array"))?;
     let mut node = KdlNode::new("enum");
     node.push(quoted_string_entry(name));
@@ -123,11 +138,11 @@ fn enum_node(name: &str, def: &serde_json::Value) -> Result<KdlNode, Error> {
 /// `discriminator` is set when the class belongs to a union — dart-typegen
 /// then emits `json-discriminant-value "et-..."` inside the class body.
 fn class_node(name: &str, schema: &serde_json::Value, discriminator: Option<&str>) -> Result<KdlNode, Error> {
-    let props = schema.get("properties").and_then(|v| v.as_object());
+    let props = schema.get("properties").and_then(|val| val.as_object());
     let required: std::collections::HashSet<&str> = schema
         .get("required")
-        .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|v| v.as_str()).collect())
+        .and_then(|val| val.as_array())
+        .map(|arr| arr.iter().filter_map(|val| val.as_str()).collect())
         .unwrap_or_default();
 
     let mut node = KdlNode::new("class");
@@ -140,7 +155,7 @@ fn class_node(name: &str, schema: &serde_json::Value, discriminator: Option<&str
         children.nodes_mut().push(tag_node);
     }
     if let Some(props) = props {
-        let mut keys: Vec<&String> = props.keys().filter(|k| k.as_str() != "type").collect();
+        let mut keys: Vec<&String> = props.keys().filter(|key| key.as_str() != "type").collect();
         keys.sort();
         for key in keys {
             let prop_schema = &props[key];
@@ -154,6 +169,10 @@ fn class_node(name: &str, schema: &serde_json::Value, discriminator: Option<&str
     Ok(node)
 }
 
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by class_node(); kept separate so the field-emission rules sit near other dart-typegen-specific helpers"
+)]
 fn field_node(key: &str, schema: &serde_json::Value, optional: bool) -> Result<KdlNode, Error> {
     let mut node = KdlNode::new("field");
     node.push(quoted_string_entry(&key.to_lower_camel_case()));
@@ -169,10 +188,14 @@ fn field_node(key: &str, schema: &serde_json::Value, optional: bool) -> Result<K
     Ok(node)
 }
 
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by render(); the split mirrors the layout of the parallel WsMessage emitter in wit/messages.rs"
+)]
 fn ws_message_union(root: &serde_json::Value) -> Result<KdlNode, Error> {
     let variants = root
         .get("oneOf")
-        .and_then(|v| v.as_array())
+        .and_then(|val| val.as_array())
         .ok_or(Error::SchemaMalformed("WsMessage schema missing `oneOf`"))?;
 
     let mut node = KdlNode::new("union");
@@ -187,54 +210,59 @@ fn ws_message_union(root: &serde_json::Value) -> Result<KdlNode, Error> {
     Ok(node)
 }
 
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by ws_message_union(); shape mirrors the analogous helper in wit/messages.rs"
+)]
 fn variant_tag(variant: &serde_json::Value) -> Result<String, Error> {
     variant
         .get("properties")
-        .and_then(|p| p.get("type"))
-        .and_then(|t| t.get("const"))
-        .and_then(|c| c.as_str())
+        .and_then(|props| props.get("type"))
+        .and_then(|kind| kind.get("const"))
+        .and_then(|cnst| cnst.as_str())
         .map(str::to_string)
         .ok_or(Error::SchemaMalformed("variant missing const `type` discriminator"))
 }
 
-/// JSON Schema → Dart type expression understood by `dart-typegen`. Mirrors
-/// the matching helper in the WIT emitter, but spells primitives the Dart way
-/// (`String`, `int`, …) and uses `List<T>` / `Map<String, dynamic>` for
-/// collection / opaque-JSON shapes.
+/// JSON Schema → Dart type expression understood by `dart-typegen`.
+///
+/// Mirrors the matching helper in the WIT emitter, but spells primitives the
+/// Dart way (`String`, `int`, …) and uses `List<T>` / `Map<String, dynamic>`
+/// for collection / opaque-JSON shapes.
 fn dart_type_from(schema: &serde_json::Value, force_optional: bool) -> Result<String, Error> {
-    if let Some(reference) = schema.get("$ref").and_then(|v| v.as_str()) {
+    if let Some(reference) = schema.get("$ref").and_then(|val| val.as_str()) {
         let name = reference
             .rsplit('/')
             .next()
             .ok_or(Error::SchemaMalformed("malformed $ref"))?;
         return Ok(append_q(name, force_optional));
     }
-    if let Some(any_of) = schema.get("anyOf").and_then(|v| v.as_array()) {
+    if let Some(any_of) = schema.get("anyOf").and_then(|val| val.as_array()) {
         let non_null: Vec<&serde_json::Value> = any_of
             .iter()
-            .filter(|s| s.get("type").and_then(|t| t.as_str()) != Some("null"))
+            .filter(|sch| sch.get("type").and_then(|kind| kind.as_str()) != Some("null"))
             .collect();
-        if non_null.len() == 1 {
-            let inner = dart_type_from(non_null[0], false)?;
+        if let [single] = non_null.as_slice() {
+            let inner = dart_type_from(single, false)?;
             return Ok(append_q_force(&inner));
         }
     }
-    if let Some(types) = schema.get("type").and_then(|v| v.as_array()) {
+    if let Some(types) = schema.get("type").and_then(|val| val.as_array()) {
         let primary = types
             .iter()
-            .find_map(|t| t.as_str().filter(|t| *t != "null"))
+            .find_map(|val| val.as_str().filter(|kind| *kind != "null"))
             .ok_or(Error::SchemaMalformed("type array had no non-null entry"))?;
-        let nullable = types.iter().any(|t| t.as_str() == Some("null"));
+        let nullable = types.iter().any(|val| val.as_str() == Some("null"));
         return Ok(append_q(&primitive(primary, schema)?, force_optional || nullable));
     }
-    if let Some(t) = schema.get("type").and_then(|v| v.as_str()) {
-        return Ok(append_q(&primitive(t, schema)?, force_optional));
+    if let Some(kind) = schema.get("type").and_then(|val| val.as_str()) {
+        return Ok(append_q(&primitive(kind, schema)?, force_optional));
     }
     Ok(append_q("Map<String, dynamic>", force_optional))
 }
 
-fn primitive(t: &str, schema: &serde_json::Value) -> Result<String, Error> {
-    Ok(match t {
+fn primitive(kind: &str, schema: &serde_json::Value) -> Result<String, Error> {
+    Ok(match kind {
         "string" => "String".to_string(),
         "integer" => "int".to_string(),
         "number" => "double".to_string(),
@@ -251,14 +279,14 @@ fn primitive(t: &str, schema: &serde_json::Value) -> Result<String, Error> {
     })
 }
 
-fn append_q(t: &str, optional: bool) -> String {
-    if optional { append_q_force(t) } else { t.to_string() }
+fn append_q(kind: &str, optional: bool) -> String {
+    if optional { append_q_force(kind) } else { kind.to_string() }
 }
 
-fn append_q_force(t: &str) -> String {
-    if t.ends_with('?') {
-        t.to_string()
+fn append_q_force(kind: &str) -> String {
+    if kind.ends_with('?') {
+        kind.to_string()
     } else {
-        format!("{t}?")
+        format!("{kind}?")
     }
 }

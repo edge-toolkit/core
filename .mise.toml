@@ -95,6 +95,14 @@ CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld={{ env.HOME }
 # every `mvn` invocation.
 MAVEN_ARGS = "--no-transfer-progress"
 
+[settings]
+# Every inline `run = "..."` script in this file is POSIX shell: `mkdir -p`,
+# `&&`, `\` line continuations, `$(...)`. On Windows mise defaults to
+# `cmd /c`, which rejects all of those. Force bash on Windows so the same
+# task definitions run identically on every CI host. Bash is already on
+# PATH on the windows-latest runner image (Git Bash / MSYS2).
+windows_default_inline_shell_args = "bash -c"
+
 [tasks]
 ec = "ec"
 editorconfig-check = "ec"

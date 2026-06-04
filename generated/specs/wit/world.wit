@@ -2,7 +2,12 @@ package et:ws-wasi@0.1.0;
 
 interface ws {
   use et:ws-messages/messages@0.1.0.{ ws-message };
-  type ws-error = string;
+  variant ws-error {
+    transport(string),
+    protocol(string),
+    not-connected,
+    already-connected,
+  }
   enum state {
     connecting,
     connected,
@@ -18,7 +23,12 @@ interface ws {
 }
 
 interface entry {
-  run: func() -> result<_, string>;
+  use ws.{ ws-error };
+  variant entry-error {
+    ws(ws-error),
+    runtime(string),
+  }
+  run: func() -> result<_, entry-error>;
 }
 
 world runner {

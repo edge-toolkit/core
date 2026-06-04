@@ -12,26 +12,26 @@ use et_ws_wasi_runner::{RunnerError, derive_http_base};
 
 #[test]
 fn derive_http_base_strips_ws_suffix() {
-    assert_eq!(
-        derive_http_base("ws://localhost:8080/ws").unwrap(),
-        "http://localhost:8080"
-    );
-    assert_eq!(
-        derive_http_base("wss://example.com/ws").unwrap(),
-        "https://example.com"
-    );
-    assert_eq!(
-        derive_http_base("ws://10.0.0.1:9000").unwrap(),
-        "http://10.0.0.1:9000"
-    );
+    for (input, expected) in [
+        ("ws://localhost:8080/ws", "http://localhost:8080"),
+        ("wss://example.com/ws", "https://example.com"),
+        ("ws://10.0.0.1:9000", "http://10.0.0.1:9000"),
+    ] {
+        let actual = derive_http_base(input);
+        assert!(
+            matches!(&actual, Ok(base) if base == expected),
+            "derive_http_base({input:?}): expected Ok({expected:?}), got {actual:?}"
+        );
+    }
 }
 
 #[test]
 fn derive_http_base_rejects_non_ws_schemes() {
     for bad in ["http://localhost:8080", "not-a-url"] {
-        match derive_http_base(bad) {
-            Err(RunnerError::InvalidWsUrl { ws_url }) => assert_eq!(ws_url, bad),
-            other => panic!("expected InvalidWsUrl for {bad:?}, got {other:?}"),
-        }
+        let actual = derive_http_base(bad);
+        assert!(
+            matches!(&actual, Err(RunnerError::InvalidWsUrl { ws_url }) if ws_url == bad),
+            "derive_http_base({bad:?}): expected Err(InvalidWsUrl), got {actual:?}"
+        );
     }
 }

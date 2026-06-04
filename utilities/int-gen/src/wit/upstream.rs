@@ -221,6 +221,14 @@ pub fn run(project_root: &Path) -> Result<(), Error> {
     Ok(())
 }
 
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by run(); the per-package fetch/write split keeps the WebGPU-specific path (strip + re-emit) in its own function"
+)]
+#[expect(
+    clippy::print_stdout,
+    reason = "et-int-gen is a CLI; progress lines on stdout are the intended user-facing output"
+)]
 fn fetch_one(deps_root: &Path, pkg: &UpstreamPackage) -> Result<(), Error> {
     let dest = deps_root.join(pkg.local_dir);
     // Wipe the destination first — guards against orphan files left over
@@ -244,6 +252,14 @@ fn fetch_one(deps_root: &Path, pkg: &UpstreamPackage) -> Result<(), Error> {
     Ok(())
 }
 
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by run(); the WebGPU branch needs strip_webgpu() so it lives apart from the simpler fetch_one()"
+)]
+#[expect(
+    clippy::print_stdout,
+    reason = "et-int-gen is a CLI; the progress line matches fetch_one's"
+)]
 fn fetch_and_trim_webgpu(deps_root: &Path) -> Result<(), Error> {
     let url = format!("https://raw.githubusercontent.com/WebAssembly/wasi-gfx/{WEBGPU_GIT_REF}/webgpu/webgpu.wit");
     let raw = ureq::get(&url).call()?.into_string()?;
@@ -261,17 +277,27 @@ fn fetch_and_trim_webgpu(deps_root: &Path) -> Result<(), Error> {
 
 /// Parse the upstream `webgpu.wit` via `wit-parser`, filter the parsed AST
 /// down to our compute-only subset, and re-emit using `wit-encoder`.
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "the signature lets the caller use `?` and matches the surrounding fetch_* helpers, even though every current branch returns Ok"
+)]
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by fetch_and_trim_webgpu(); the WIT-parse / filter / re-emit pipeline is one logical step"
+)]
+#[expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::unwrap_in_result,
+    reason = "wit-parser::Resolve returns anyhow::Error which doesn't impl std::error::Error (coherence), and the stub literals + the produced package list are fixed by build-time invariants — a failure means a developer typo, not a runtime condition"
+)]
 fn strip_webgpu(raw: &str) -> Result<String, Error> {
-    // wit-parser returns `anyhow::Error` which doesn't impl `std::error::Error`
-    // (coherence), so transparent thiserror propagation isn't possible. Panic
-    // on parse failure — this is an internal CLI; if the upstream WIT can't be
-    // parsed the bump should be reverted, not error-handled.
     let mut resolve = wit_parser::Resolve::default();
-    resolve.push_str("wasi-io-stub.wit", WASI_IO_STUB).unwrap();
-    resolve
+    let _stub: wit_parser::PackageId = resolve.push_str("wasi-io-stub.wit", WASI_IO_STUB).unwrap();
+    let _stub: wit_parser::PackageId = resolve
         .push_str("wasi-graphics-context-stub.wit", WASI_GRAPHICS_CONTEXT_STUB)
         .unwrap();
-    resolve.push_str("webgpu.wit", raw).unwrap();
+    let _stub: wit_parser::PackageId = resolve.push_str("webgpu.wit", raw).unwrap();
 
     let mut webgpu = wit_encoder::packages_from_parsed(&resolve)
         .into_iter()
@@ -290,6 +316,10 @@ fn strip_webgpu(raw: &str) -> Result<String, Error> {
     Ok(webgpu.to_string())
 }
 
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by strip_webgpu(); the keep/drop filtering rules are its own scoped responsibility"
+)]
 fn mutate_interface(iface: &mut Interface, keep: &HashSet<&str>, drop_methods: &HashSet<&str>) {
     // Drop all `use` clauses (wit-encoder doesn't expose a clearer for them)
     // by rebuilding the interface from scratch. The kept items are moved over
@@ -306,16 +336,16 @@ fn mutate_interface(iface: &mut Interface, keep: &HashSet<&str>, drop_methods: &
 
     // Drop top-level items not on the keep list.
     iface.items_mut().retain(|item| match item {
-        InterfaceItem::TypeDef(td) => keep.contains(td.name().raw_name()),
-        InterfaceItem::Function(f) => keep.contains(f.name().raw_name()),
+        InterfaceItem::TypeDef(typedef) => keep.contains(typedef.name().raw_name()),
+        InterfaceItem::Function(func) => keep.contains(func.name().raw_name()),
     });
 
     // For each kept TypeDef, drop methods / fields / variant cases that
     // reference a dropped name (either by their own name for methods, or
     // transitively through their Type signatures).
     for item in iface.items_mut() {
-        let InterfaceItem::TypeDef(td) = item else { continue };
-        match td.kind_mut() {
+        let InterfaceItem::TypeDef(typedef) = item else { continue };
+        match typedef.kind_mut() {
             TypeDefKind::Resource(res) => {
                 res.funcs_mut()
                     .retain(|func| !should_drop_resource_func(func, keep, drop_methods));
@@ -326,16 +356,20 @@ fn mutate_interface(iface: &mut Interface, keep: &HashSet<&str>, drop_methods: &
                     .retain(|field| !type_refs_dropped(field.type_(), keep));
             }
             TypeDefKind::Variant(variant) => {
-                variant.cases_mut().retain(|case| match case.type_() {
-                    Some(ty) => !type_refs_dropped(ty, keep),
-                    None => true,
-                });
+                variant
+                    .cases_mut()
+                    .retain(|case| case.type_().is_none_or(|case_ty| !type_refs_dropped(case_ty, keep)));
             }
-            _ => {} // enums, flags, type aliases: no inner refs to check
+            // enums, flags, type aliases: no inner refs to check
+            TypeDefKind::Enum(_) | TypeDefKind::Flags(_) | TypeDefKind::Type(_) => {}
         }
     }
 }
 
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by mutate_interface(); the drop-resource-func rules are a self-contained policy"
+)]
 fn should_drop_resource_func(
     func: &wit_encoder::ResourceFunc,
     keep: &HashSet<&str>,
@@ -359,58 +393,73 @@ fn should_drop_resource_func(
         }
     }
     let ret = match func.kind() {
-        ResourceFuncKind::Method(_, _, r) | ResourceFuncKind::Static(_, _, r) => r.as_ref(),
-        ResourceFuncKind::Constructor(r) => r.as_ref(),
+        ResourceFuncKind::Method(_, _, ret) | ResourceFuncKind::Static(_, _, ret) | ResourceFuncKind::Constructor(ret) => {
+            ret.as_ref()
+        }
     };
-    if let Some(r) = ret
-        && type_refs_dropped(r, keep)
+    if let Some(ret) = ret
+        && type_refs_dropped(ret, keep)
     {
         return true;
     }
     false
 }
 
-/// `true` if walking `ty` finds any `Type::Named` / `Type::Borrow` whose
+/// `true` if walking `wty` finds any `Type::Named` / `Type::Borrow` whose
 /// raw name is not in the keep set. Cross-package stub types
 /// (`pollable`, `context`, `abstract-buffer`) and every upstream item we
 /// stripped naturally land here because they're absent from
 /// `WEBGPU_KEEP_NAMES`.
-fn type_refs_dropped(ty: &Type, keep: &HashSet<&str>) -> bool {
-    let mut refs = HashSet::new();
-    collect_type_refs(ty, &mut refs);
-    refs.iter().any(|r| !keep.contains(r.as_str()))
+fn type_refs_dropped(wty: &Type, keep: &HashSet<&str>) -> bool {
+    let mut found = HashSet::new();
+    collect_type_refs(wty, &mut found);
+    found.iter().any(|name| !keep.contains(name.as_str()))
 }
 
-fn collect_type_refs(ty: &Type, refs: &mut HashSet<String>) {
-    match ty {
+fn collect_type_refs(wty: &Type, found: &mut HashSet<String>) {
+    match wty {
         Type::Named(ident) | Type::Borrow(ident) => {
-            refs.insert(ident.raw_name().to_string());
+            let _was_new: bool = found.insert(ident.raw_name().to_string());
         }
-        Type::Option(inner) | Type::List(inner) => collect_type_refs(inner, refs),
-        Type::FixedLengthList(inner, _) => collect_type_refs(inner, refs),
-        Type::Result(r) => {
-            if let Some(ok) = r.get_ok() {
-                collect_type_refs(ok, refs);
+        Type::Option(inner) | Type::List(inner) | Type::FixedLengthList(inner, _) => {
+            collect_type_refs(inner, found);
+        }
+        Type::Result(result) => {
+            if let Some(inner_ok) = result.get_ok() {
+                collect_type_refs(inner_ok, found);
             }
-            if let Some(err) = r.get_err() {
-                collect_type_refs(err, refs);
+            if let Some(inner_err) = result.get_err() {
+                collect_type_refs(inner_err, found);
             }
         }
         Type::Tuple(tup) => {
             for item in tup.types() {
-                collect_type_refs(item, refs);
+                collect_type_refs(item, found);
             }
         }
-        Type::Map(k, v) => {
-            collect_type_refs(k, refs);
-            collect_type_refs(v, refs);
+        Type::Map(key, val) => {
+            collect_type_refs(key, found);
+            collect_type_refs(val, found);
         }
         Type::Future(inner) | Type::Stream(inner) => {
-            if let Some(t) = inner {
-                collect_type_refs(t, refs);
+            if let Some(item) = inner {
+                collect_type_refs(item, found);
             }
         }
-        // primitives (Bool, U8/16/32/64, S8/16/32/64, F32/F64, Char, String, ErrorContext)
-        _ => {}
+        // primitives carry no inner refs.
+        Type::Bool
+        | Type::U8
+        | Type::U16
+        | Type::U32
+        | Type::U64
+        | Type::S8
+        | Type::S16
+        | Type::S32
+        | Type::S64
+        | Type::F32
+        | Type::F64
+        | Type::Char
+        | Type::String
+        | Type::ErrorContext => {}
     }
 }

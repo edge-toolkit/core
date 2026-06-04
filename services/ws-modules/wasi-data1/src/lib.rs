@@ -33,7 +33,8 @@ wit_bindgen::generate!({
     generate_all,
 });
 
-use exports::et::ws_wasi::entry::Guest;
+use et::ws_wasi::ws::WsError;
+use exports::et::ws_wasi::entry::{EntryError, Guest};
 use wasi::keyvalue::store;
 use wasi::logging::logging::{self, Level};
 
@@ -44,16 +45,24 @@ fn info(message: &str) {
     logging::log(Level::Info, LOG_CONTEXT, message);
 }
 
+// Lets `?` lift a `ws-error` into `entry-error.ws(...)` so the body of `run`
+// stays free of explicit `.map_err`s (which the workspace's no-map-err
+// ast-grep rule bans outside listed error.rs files anyway).
+impl From<WsError> for EntryError {
+    fn from(err: WsError) -> Self {
+        Self::Ws(err)
+    }
+}
+
 struct Component;
 
 impl Guest for Component {
-    fn run() -> Result<(), String> {
+    fn run() -> Result<(), EntryError> {
         info("entered run()");
 
-        // `ws::connect`'s error is already a string alias, so `?` flows into
-        // the outer `Result<_, String>` directly.
         et::ws_wasi::ws::connect()?;
-        let agent_id = wait_for_agent_id().ok_or_else(|| "did not receive agent_id".to_string())?;
+        let agent_id =
+            wait_for_agent_id().ok_or_else(|| EntryError::Runtime("did not receive agent_id".to_string()))?;
         info(&format!("websocket connected with agent_id={agent_id}"));
 
         // `store::Error` is a wit-bindgen variant with `Debug` (no `Display`),
@@ -61,28 +70,32 @@ impl Guest for Component {
         // — no orphan-rule-friendly `From` impl is available.
         let bucket = match store::open(&agent_id) {
             Ok(bucket) => bucket,
-            Err(e) => return Err(format!("store.open({agent_id}): {e:?}")),
+            Err(e) => return Err(EntryError::Runtime(format!("store.open({agent_id}): {e:?}"))),
         };
 
         let test_content = format!("Hello from wasi-data1, agent={agent_id}!").into_bytes();
         info(&format!("storing {} bytes to key {FILENAME}", test_content.len()));
         if let Err(e) = bucket.set(FILENAME, &test_content) {
-            return Err(format!("bucket.set({FILENAME}): {e:?}"));
+            return Err(EntryError::Runtime(format!("bucket.set({FILENAME}): {e:?}")));
         }
 
         info(&format!("fetching key {FILENAME}"));
         let fetched = match bucket.get(FILENAME) {
             Ok(Some(bytes)) => bytes,
-            Ok(None) => return Err(format!("bucket.get({FILENAME}) returned none after set")),
-            Err(e) => return Err(format!("bucket.get({FILENAME}): {e:?}")),
+            Ok(None) => {
+                return Err(EntryError::Runtime(format!(
+                    "bucket.get({FILENAME}) returned none after set"
+                )));
+            }
+            Err(e) => return Err(EntryError::Runtime(format!("bucket.get({FILENAME}): {e:?}"))),
         };
 
         if fetched != test_content {
-            return Err(format!(
+            return Err(EntryError::Runtime(format!(
                 "data mismatch: sent {} bytes, got {} bytes",
                 test_content.len(),
                 fetched.len()
-            ));
+            )));
         }
         info("VERIFICATION SUCCESS — keyvalue roundtrip matches");
 

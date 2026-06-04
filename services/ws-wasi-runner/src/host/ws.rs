@@ -160,7 +160,7 @@ impl Host for HostState {
         {
             let slot = self.ws.lock().await;
             if slot.is_some() {
-                return Err("already connected".to_string());
+                return Err(WsError::AlreadyConnected);
             }
         }
         let backend = WsBackend::connect(&self.ws_url).await?;
@@ -207,7 +207,7 @@ impl Host for HostState {
             .await
             .as_ref()
             .map(|backend| Arc::clone(&backend.sink))
-            .ok_or_else(|| "not connected".to_string())?;
+            .ok_or(WsError::NotConnected)?;
         sink.lock()
             .await
             .send(tungstenite::Message::text(payload))
@@ -224,7 +224,7 @@ impl Host for HostState {
             .await
             .as_ref()
             .map(|backend| Arc::clone(&backend.inbox))
-            .ok_or_else(|| "not connected".to_string())?;
+            .ok_or(WsError::NotConnected)?;
         let text = {
             let mut rx = inbox.lock().await;
             match tokio::time::timeout(Duration::from_millis(u64::from(timeout_ms)), rx.recv()).await {

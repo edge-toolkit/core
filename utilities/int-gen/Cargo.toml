@@ -40,3 +40,6 @@ ureq.workspace = true
 utoipa.workspace = true
 wit-encoder = { workspace = true, features = ["from-parser"] }
 wit-parser = "0.249"
+
+[lints]
+workspace = true

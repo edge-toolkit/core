@@ -1,10 +1,11 @@
 //! Emit `generated/specs/rest.yaml` and the typed Rust REST client at
-//! `generated/rust-rest/src/lib.rs`. Paths and schemas are collected from
-//! the actual handlers in `et-ws-server`, `et-storage-service`, and
-//! `et-modules-service` via `utoipa`; the client is generated from the
-//! resulting OpenAPI document via `progenitor::Generator`. Driving both
-//! steps from one Rust call keeps the spec and the client guaranteed in
-//! sync — no external CLI hop.
+//! `generated/rust-rest/src/lib.rs`.
+//!
+//! Paths and schemas are collected from the actual handlers in `et-ws-server`,
+//! `et-storage-service`, and `et-modules-service` via `utoipa`; the client is
+//! generated from the resulting `OpenAPI` document via `progenitor::Generator`.
+//! Driving both steps from one Rust call keeps the spec and the client
+//! guaranteed in sync — no external CLI hop.
 
 use utoipa::OpenApi;
 
@@ -31,42 +32,65 @@ use crate::Error;
 )]
 struct ApiDoc;
 
-/// Build the `openapiv3::OpenAPI` value once: both `rest.yaml` and the
-/// progenitor-generated client are derived from this. utoipa unconditionally
-/// emits `openapi: 3.1.0` and `license.identifier`, but progenitor 0.14
-/// only accepts 3.0.x and rejects the `identifier` field — downgrade those
-/// before serializing.
+/// Build the `openapiv3::OpenAPI` value once.
+///
+/// Both `rest.yaml` and the progenitor-generated client are derived from this.
+/// `utoipa` unconditionally emits `openapi: 3.1.0` and `license.identifier`,
+/// but progenitor 0.14 only accepts 3.0.x and rejects the `identifier` field —
+/// downgrade those before serializing.
+#[expect(
+    clippy::expect_used,
+    reason = "every conversion here is between types that are JSON/serde-by-construction; the only way these expect calls can fire is a serde_json bug"
+)]
 fn build_spec() -> openapiv3::OpenAPI {
     let mut doc = ApiDoc::openapi();
     doc.info.license = None;
     let mut value = serde_json::to_value(&doc).expect("OpenApi is always JSON-serializable");
     if let Some(obj) = value.as_object_mut() {
-        obj.insert("openapi".into(), serde_json::Value::String("3.0.3".into()));
+        let _previous = obj.insert("openapi".into(), serde_json::Value::String("3.0.3".into()));
     }
     serde_json::from_value(value).expect("downgraded OpenApi is always openapiv3::OpenAPI-shaped")
 }
 
-/// Serialize the OpenAPI document as YAML for `generated/specs/rest.yaml`.
+/// Serialize the `OpenAPI` document as YAML for `generated/specs/rest.yaml`.
+#[must_use]
+#[expect(
+    clippy::expect_used,
+    reason = "openapiv3::OpenAPI is serde-derived and round-trips through serde_yaml unconditionally"
+)]
 pub fn render_yaml() -> String {
     serde_yaml::to_string(&build_spec()).expect("openapiv3::OpenAPI is always YAML-serializable")
 }
 
-/// Serialize the OpenAPI document as JSON. Build intermediate consumed by
-/// `openapi2zig` (which doesn't accept YAML in v0.2.0).
+/// Serialize the `OpenAPI` document as JSON.
+///
+/// Build intermediate consumed by `openapi2zig` (which doesn't accept YAML in
+/// v0.2.0).
+#[must_use]
+#[expect(
+    clippy::expect_used,
+    reason = "openapiv3::OpenAPI is serde-derived and round-trips through serde_json unconditionally"
+)]
 pub fn render_json() -> String {
     serde_json::to_string_pretty(&build_spec()).expect("openapiv3::OpenAPI is always JSON-serializable")
 }
 
 /// Generate the Rust REST client (`generated/rust-rest/src/lib.rs`) from the
-/// same OpenAPI document via `progenitor::Generator`. Same engine the
-/// retired `cargo-progenitor` CLI used, just driven in-process so the only
-/// install target is the workspace itself.
+/// same `OpenAPI` document via `progenitor::Generator`.
+///
+/// Same engine the retired `cargo-progenitor` CLI used, just driven in-process
+/// so the only install target is the workspace itself.
 ///
 /// The async pre-hook injects the W3C `traceparent` for the current tracing
 /// span into every outgoing request, so the runner's span chain extends into
 /// the server's `tracing-actix-web` request span end-to-end — distributed
 /// tracing works without each call site repeating the boilerplate the old
 /// `inject_traceparent` helper did.
+#[expect(
+    clippy::expect_used,
+    clippy::unwrap_in_result,
+    reason = "progenitor's emit is fed straight into syn::parse2; a parse failure would mean progenitor itself produced invalid Rust"
+)]
 pub fn render_rust_client() -> Result<String, Error> {
     let spec = build_spec();
 
@@ -99,14 +123,14 @@ pub fn render_rust_client() -> Result<String, Error> {
     };
 
     let mut settings = progenitor::GenerationSettings::default();
-    settings.with_pre_hook_async(trace_hook);
+    let _settings = settings.with_pre_hook_async(trace_hook);
     let mut generator = progenitor::Generator::new(&settings);
     let tokens = generator.generate_tokens(&spec)?;
     let ast = syn::parse2(tokens).expect("progenitor always emits valid Rust");
     let body = prettyplease::unparse(&ast);
     // progenitor wraps each handler doc as a `/**...*/` block, immediately
     // appending its own `Sends a METHOD request to /path` line at +4 spaces;
-    // any non-empty description from the OpenAPI spec then leaves that
+    // any non-empty description from the `OpenAPI` spec then leaves that
     // following block indented by 4 from the first line, which CommonMark
     // promotes to an indented code block — rustdoc then tries to compile it
     // as Rust and trips on the surrounding backticks. Allow the rustdoc

@@ -55,27 +55,29 @@ impl<T, E: std::fmt::Display> RequestDeviceErrExt<T> for Result<T, E> {
     }
 }
 
-/// Maps a foreign transport error (tcp, tls, websocket frame) into the
-/// `transport: ...` string form of `et:ws-wasi/ws.ws-error` (which the WIT
-/// declares as a `string` alias).
+/// Maps a foreign transport error (tcp, tls, websocket frame) into
+/// `WsError::Transport`.
+///
+/// The context string is prefixed onto the source's `Display` rendering so
+/// the carried message reads as `"<context>: <source>"`.
 pub trait WsTransportErrExt<T> {
     fn ws_transport(self, context: &str) -> Result<T, WsError>;
 }
 
 impl<T, E: std::fmt::Display> WsTransportErrExt<T> for Result<T, E> {
     fn ws_transport(self, context: &str) -> Result<T, WsError> {
-        self.map_err(|err| format!("transport: {context}: {err}"))
+        self.map_err(|err| WsError::Transport(format!("{context}: {err}")))
     }
 }
 
-/// Maps a foreign serialization / deserialization error into the
-/// `protocol: ...` string form of `et:ws-wasi/ws.ws-error`.
+/// Maps a foreign serialization / deserialization error into
+/// `et:ws-wasi/ws.ws-error.protocol(...)`.
 pub trait WsProtocolErrExt<T> {
     fn ws_protocol(self, context: &str) -> Result<T, WsError>;
 }
 
 impl<T, E: std::fmt::Display> WsProtocolErrExt<T> for Result<T, E> {
     fn ws_protocol(self, context: &str) -> Result<T, WsError> {
-        self.map_err(|err| format!("protocol: {context}: {err}"))
+        self.map_err(|err| WsError::Protocol(format!("{context}: {err}")))
     }
 }

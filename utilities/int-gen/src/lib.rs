@@ -2,34 +2,39 @@
 // inline via `#[from]`. Boxing it would shave the parent enum down but
 // requires a manual `From<ureq::Error>` impl, since `#[from]` only generates
 // `From<Box<ureq::Error>>`. For a one-shot CLI the size doesn't matter.
-#![allow(clippy::result_large_err)]
+#![expect(
+    clippy::result_large_err,
+    reason = "Error inherits ureq::Error's byte footprint; immaterial for a one-shot CLI"
+)]
 
-//! Internal repo-only generator (`int` = internal). Emits every checked-in
-//! artifact under `generated/` from the Rust sources of truth:
-//! `edge_toolkit::ws::WsMessage` for the WS protocol, and the
+//! Internal repo-only generator (`int` = internal).
+//!
+//! Emits every checked-in artifact under `generated/` from the Rust sources of
+//! truth: `edge_toolkit::ws::WsMessage` for the WS protocol, and the
 //! `#[utoipa::path]`-annotated handlers in `services/*` for the REST surface.
 //! Driven by `mise run gen-specs`; `mise run gen-specs-check` fails if the
 //! regenerated tree drifts from what's committed.
 //!
 //! Outputs (see [`generate`]):
-//!   - `generated/specs/ws.yaml`                AsyncAPI 3.0 description of
+//!   - `generated/specs/ws.yaml` — `AsyncAPI` 3.0 description of
 //!     the WS protocol.
-//!   - `generated/specs/rest.yaml`              OpenAPI 3.0 description of
+//!   - `generated/specs/rest.yaml` — `OpenAPI` 3.0 description of
 //!     the ws-server's REST surface.
-//!   - `generated/specs/wit/world.wit`,
-//!     `generated/specs/wit/deps/et-ws-messages/messages.wit` — the
-//!     `et:ws-wasi` world and the typed WIT mirror of `WsMessage` consumed
-//!     by `services/ws-wasi-runner` and every WASI ws-module.
+//!   - `generated/specs/wit/deps/et-ws-messages/messages.wit` — the typed
+//!     WIT mirror of `WsMessage` consumed by `services/ws-wasi-runner` and
+//!     every WASI ws-module. The accompanying top-level
+//!     `generated/specs/wit/world.wit` is hand-maintained, not generated;
+//!     see `generated/README.md`.
 //!   - `generated/rust-rest/src/lib.rs` — typed Rust client for the REST
-//!     surface, produced via `progenitor::Generator` from the OpenAPI doc.
+//!     surface, produced via `progenitor::Generator` from the `OpenAPI` doc.
 //!   - `generated/dart-ws/lib/ws_messages.dart` — plain Dart 3 sealed classes.
 //!     Pipeline: JSON Schema → KDL (this crate's [`kdl`] module) →
 //!     `dart-typegen` CLI (driven by `mise run gen-dart-ws`).
 //!   - `generated/python-ws/et_ws/messages.py` — Pydantic v2 models, written
 //!     by `datamodel-codegen` (driven by `mise run gen-python-ws`).
 //!   - `target/int-gen/ws.schema.json`,
-//!     `target/int-gen/ws.kdl`                  Build intermediates (not
-//!     committed) — JSON Schema is the input to `datamodel-codegen`; KDL
+//!     `target/int-gen/ws.kdl` — build intermediates (not
+//!     committed); JSON Schema is the input to `datamodel-codegen`; KDL
 //!     is the input to `dart-typegen`.
 //!
 //! Hand-maintained metadata that lives under `generated/` for proximity to
@@ -52,12 +57,24 @@ pub mod rest;
 pub mod wit;
 pub mod zig;
 
-/// Errors raised by `et-int-gen`. Every external error type that fallible
-/// functions can produce is wrapped transparently via `#[from]`, so call
-/// sites just use `?`. Domain errors (malformed schemas, missing AsyncAPI
-/// nodes, etc.) sit alongside as non-transparent variants with static
-/// messages.
-#[allow(clippy::large_enum_variant)]
+/// Errors raised by `et-int-gen`.
+///
+/// Every external error type that fallible functions can produce is wrapped
+/// transparently via `#[from]`, so call sites just use `?`. Domain errors
+/// (malformed schemas, missing `AsyncAPI` nodes, etc.) sit alongside as
+/// non-transparent variants with static messages.
+#[expect(
+    clippy::large_enum_variant,
+    reason = "ureq::Error dominates the footprint; boxing it via #[from] would force a manual From impl per call site for no real benefit in a one-shot CLI"
+)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "et-int-gen is internal — there's no SemVer guarantee to consumers; new variants land alongside their introducing change"
+)]
+#[expect(
+    clippy::error_impl_error,
+    reason = "the crate's only error type lives at crate::Error by convention; matches the workspace's other `*Error` types and avoids namespace bikeshedding"
+)]
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
@@ -99,11 +116,15 @@ impl From<tree_sitter::LanguageError> for Error {
     }
 }
 
-/// AsyncAPI document for the ws-server's single `/ws` hub channel. The
-/// `#[asyncapi_messages(WsMessage)]` attribute pulls every `WsMessage` variant
-/// into `components.messages` automatically via the `ToAsyncApiMessage` impl
-/// on the enum.
-#[allow(clippy::duplicated_attributes)]
+/// `AsyncAPI` document for the ws-server's single `/ws` hub channel.
+///
+/// The `#[asyncapi_messages(WsMessage)]` attribute pulls every `WsMessage`
+/// variant into `components.messages` automatically via the
+/// `ToAsyncApiMessage` impl on the enum.
+#[expect(
+    clippy::duplicated_attributes,
+    reason = "two #[asyncapi_operation(...)] attributes are intentional: one for `send`, one for `receive`; asyncapi-rust's derive uses presence to register channels, so collapsing them would drop a channel"
+)]
 #[derive(AsyncApi)]
 #[asyncapi(
     title = "Edge Toolkit WebSocket Protocol",
@@ -123,8 +144,17 @@ impl From<tree_sitter::LanguageError> for Error {
 struct WsApi;
 
 /// Emit every checked-in artifact under `generated/` from the `WsMessage`
-/// definition: AsyncAPI YAML, `et:ws-messages` WIT, Dart client, and the
+/// definition: `AsyncAPI` YAML, `et:ws-messages` WIT, Dart client, and the
 /// intermediate JSON Schema under `target/int-gen/`.
+#[expect(
+    clippy::expect_used,
+    clippy::unwrap_in_result,
+    reason = "pretty_yaml::format_text only errors on a YAML syntax failure; serde_yaml's emitter is well-formed by construction"
+)]
+#[expect(
+    clippy::print_stderr,
+    reason = "et-int-gen is a CLI; the skip notice when openapi2zig is absent is intentionally user-visible on stderr"
+)]
 pub fn generate() -> Result<(), Error> {
     let project_root = get_project_root();
     let specs_dir = project_root.join("generated/specs");
@@ -187,7 +217,7 @@ pub fn generate() -> Result<(), Error> {
     let schema = schema_for!(WsMessage);
     let schema_json = serde_json::to_string_pretty(&schema)?;
     let schema_path = project_root.join("target/int-gen/ws.schema.json");
-    write_if_changed(&schema_path, &format!("{}\n", schema_json))?;
+    write_if_changed(&schema_path, &format!("{schema_json}\n"))?;
 
     let kdl_source = kdl::render(&schema)?;
     let kdl_path = project_root.join("target/int-gen/ws.kdl");
@@ -196,18 +226,24 @@ pub fn generate() -> Result<(), Error> {
     // The runner and all WASI guest crates point wit-bindgen / componentize-py
     // at `generated/specs/wit/` directly; the layout (main world at the top,
     // dep packages under `deps/`) follows the canonical wit-deps convention.
+    // Only `deps/et-ws-messages/messages.wit` is generated (from the
+    // `WsMessage` schema). The top-level `world.wit` is hand-maintained —
+    // see `generated/README.md`.
     let wit_dir = project_root.join("generated/specs/wit");
     write_if_changed(
         &wit_dir.join("deps/et-ws-messages/messages.wit"),
         &wit::messages::render(&schema)?,
     )?;
-    write_if_changed(&wit_dir.join("world.wit"), &wit::world::render())?;
 
     Ok(())
 }
 
 /// Replace each component message's payload with just its variant schema and
 /// hoist the shared `$defs` into `components.schemas`. Mutates `spec` in place.
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by generate(); the slim-down is one logical step and benefits from its own scope"
+)]
 fn slim_component_messages(spec: &mut serde_json::Value) -> Result<(), Error> {
     use serde_json::Value;
 
@@ -225,7 +261,7 @@ fn slim_component_messages(spec: &mut serde_json::Value) -> Result<(), Error> {
 
     let any_payload = messages
         .values()
-        .find_map(|m| m.get("payload").cloned())
+        .find_map(|msg| msg.get("payload").cloned())
         .ok_or(Error::SpecNodeMissing("any message payload"))?;
     let one_of = any_payload
         .get("oneOf")
@@ -244,8 +280,8 @@ fn slim_component_messages(spec: &mut serde_json::Value) -> Result<(), Error> {
     for variant in one_of {
         let tag = variant
             .get("properties")
-            .and_then(|p| p.get("type"))
-            .and_then(|t| t.get("const"))
+            .and_then(|props| props.get("type"))
+            .and_then(|kind| kind.get("const"))
             .and_then(Value::as_str)
             .map(str::to_string);
         let Some(tag) = tag else {
@@ -255,14 +291,14 @@ fn slim_component_messages(spec: &mut serde_json::Value) -> Result<(), Error> {
         // hoisted defs land in the AsyncAPI-canonical location.
         let mut variant = variant;
         rewrite_refs(&mut variant);
-        variants_by_tag.insert(tag, variant);
+        let _previous: Option<Value> = variants_by_tag.insert(tag, variant);
     }
 
     for (name, message) in messages.iter_mut() {
         if let Some(variant) = variants_by_tag.get(name)
             && let Some(obj) = message.as_object_mut()
         {
-            obj.insert("payload".to_string(), variant.clone());
+            let _previous: Option<Value> = obj.insert("payload".to_string(), variant.clone());
         }
     }
 
@@ -270,10 +306,10 @@ fn slim_component_messages(spec: &mut serde_json::Value) -> Result<(), Error> {
     let mut hoisted = serde_json::Map::new();
     for (name, mut value) in defs {
         rewrite_refs(&mut value);
-        hoisted.insert(name, value);
+        let _previous: Option<Value> = hoisted.insert(name, value);
     }
     if !hoisted.is_empty() {
-        components.insert("schemas".to_string(), Value::Object(hoisted));
+        let _previous: Option<Value> = components.insert("schemas".to_string(), Value::Object(hoisted));
     }
     Ok(())
 }
@@ -283,33 +319,39 @@ fn rewrite_refs(value: &mut serde_json::Value) {
     match value {
         serde_json::Value::Object(map) => {
             if let Some(reference) = map.get_mut("$ref")
-                && let Some(s) = reference.as_str()
-                && let Some(rest) = s.strip_prefix("#/$defs/")
+                && let Some(raw) = reference.as_str()
+                && let Some(rest) = raw.strip_prefix("#/$defs/")
             {
                 *reference = serde_json::Value::String(format!("#/components/schemas/{rest}"));
             }
-            for v in map.values_mut() {
-                rewrite_refs(v);
+            for inner in map.values_mut() {
+                rewrite_refs(inner);
             }
         }
         serde_json::Value::Array(items) => {
-            for v in items {
-                rewrite_refs(v);
+            for inner in items {
+                rewrite_refs(inner);
             }
         }
-        _ => {}
+        // primitives have no refs to rewrite.
+        serde_json::Value::Null
+        | serde_json::Value::Bool(_)
+        | serde_json::Value::Number(_)
+        | serde_json::Value::String(_) => {}
     }
 }
 
 /// Write only when the contents differ — keeps `mise run check` quiet on
 /// no-op regenerations.
+#[expect(
+    clippy::print_stdout,
+    reason = "et-int-gen is a CLI; `wrote <path>` per generated file is intended user-visible progress output"
+)]
 pub(crate) fn write_if_changed(path: &Path, contents: &str) -> Result<(), Error> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let unchanged = fs::read_to_string(path)
-        .map(|existing| existing == contents)
-        .unwrap_or(false);
+    let unchanged = fs::read_to_string(path).is_ok_and(|existing| existing == contents);
     if unchanged {
         return Ok(());
     }

@@ -34,7 +34,8 @@ wit_bindgen::generate!({
 });
 
 use et::ws_messages::messages::{BroadcastMessagePayload, WsMessage};
-use exports::et::ws_wasi::entry::Guest;
+use et::ws_wasi::ws::WsError;
+use exports::et::ws_wasi::entry::{EntryError, Guest};
 use wasi::logging::logging::{self, Level};
 
 const LOG_CONTEXT: &str = env!("CARGO_PKG_NAME");
@@ -46,23 +47,30 @@ fn info(message: &str) {
     logging::log(Level::Info, LOG_CONTEXT, message);
 }
 
+// Lets `?` lift a `ws-error` into `entry-error.ws(...)` so the body of `run`
+// stays free of explicit `.map_err`s (which the workspace's no-map-err
+// ast-grep rule bans outside listed error.rs files anyway).
+impl From<WsError> for EntryError {
+    fn from(err: WsError) -> Self {
+        Self::Ws(err)
+    }
+}
+
 struct Component;
 
 impl Guest for Component {
-    fn run() -> Result<(), String> {
+    fn run() -> Result<(), EntryError> {
         info("entered run()");
 
-        // `ws::connect`/`send`/`recv` already return `Result<_, ws-error>`
-        // where `ws-error` is a string alias, so `?` flows straight into
-        // this fn's `Result<_, String>` without any conversion.
         et::ws_wasi::ws::connect()?;
-        let agent_id = wait_for_agent_id().ok_or_else(|| "did not receive agent_id".to_string())?;
+        let agent_id =
+            wait_for_agent_id().ok_or_else(|| EntryError::Runtime("did not receive agent_id".to_string()))?;
         info(&format!("websocket connected with agent_id={agent_id}"));
 
         et::ws_wasi::ws::send(&WsMessage::ListAgents)?;
 
         let response = wait_for_list_agents_response(LIST_AGENTS_TIMEOUT_MS)
-            .ok_or_else(|| "no list-agents-response within timeout".to_string())?;
+            .ok_or_else(|| EntryError::Runtime("no list-agents-response within timeout".to_string()))?;
         info(&format!(
             "list-agents-response: {} agent(s) registered",
             response.agents.len()
@@ -70,7 +78,9 @@ impl Guest for Component {
 
         let self_listed = response.agents.iter().any(|a| a.agent_id == agent_id);
         if !self_listed {
-            return Err(format!("own agent_id {agent_id} missing from list-agents-response"));
+            return Err(EntryError::Runtime(format!(
+                "own agent_id {agent_id} missing from list-agents-response"
+            )));
         }
         info("self present in roster");
 
@@ -81,7 +91,7 @@ impl Guest for Component {
         });
         let body_str = match serde_json::to_string(&body) {
             Ok(rendered) => rendered,
-            Err(e) => return Err(format!("serialize broadcast body: {e}")),
+            Err(e) => return Err(EntryError::Runtime(format!("serialize broadcast body: {e}"))),
         };
         et::ws_wasi::ws::send(&WsMessage::BroadcastMessage(BroadcastMessagePayload {
             message: body_str,

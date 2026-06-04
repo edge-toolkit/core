@@ -8,6 +8,15 @@
 //!
 //! See `wit/world.wit` for the host/guest contract.
 
+// `RunnerError` ends up large because `et_rest_client::Error<()>` carries an
+// inline `reqwest::Response` (≈136 B). Boxing the variant would shave the
+// parent enum but cost a `From` impl per variant; not worth it for an
+// internal crate.
+#![expect(
+    clippy::result_large_err,
+    reason = "RunnerError inherits et_rest_client::Error<()>'s byte footprint; boxing would force per-variant From impls"
+)]
+
 use futures_util::StreamExt as _;
 use tracing::Instrument as _;
 use wasmtime::component::{Component, HasSelf, Linker};
@@ -18,7 +27,7 @@ pub mod error;
 pub mod host;
 
 pub use self::error::RunnerError;
-use self::error::{GuestErrExt as _, PackageJsonErrExt as _};
+use self::error::PackageJsonErrExt as _;
 pub use self::host::HostState;
 
 /// Convert a WebSocket URL to its HTTP base.
@@ -119,5 +128,6 @@ async fn run_module_inner(module_name: &str, ws_url: &str) -> Result<(), RunnerE
 
     let module = bindings::Runner::instantiate_async(&mut store, &component, &linker).await?;
 
-    module.et_ws_wasi_entry().call_run(&mut store).await?.guest_err()
+    module.et_ws_wasi_entry().call_run(&mut store).await??;
+    Ok(())
 }

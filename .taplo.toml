@@ -20,3 +20,18 @@ keys = ["workspace"]
 exclude = ["Cargo.toml"]
 include = ["**/Cargo.toml"]
 schema = { path = "config/taplo/no-path-deps.schema.json" }
+
+# Require `[lints] workspace = true` in every member Cargo.toml so the
+# workspace's `[workspace.lints.*]` tables apply. Without this, workspace
+# rustc/clippy lints are silently ignored for that crate.
+#
+# Exempt:
+#   - workspace root (`Cargo.toml`): configures lints under
+#     `[workspace.lints.*]` directly, has no `[lints]` table of its own.
+#   - `generated/rust-rest/Cargo.toml`: progenitor-generated `src/lib.rs`
+#     carries its own crate-level lint expectations; the surrounding
+#     hand-maintained Cargo.toml treats those as authoritative.
+[[rule]]
+exclude = ["Cargo.toml", "generated/rust-rest/Cargo.toml"]
+include = ["**/Cargo.toml"]
+schema = { path = "config/taplo/require-lints-section.schema.json" }

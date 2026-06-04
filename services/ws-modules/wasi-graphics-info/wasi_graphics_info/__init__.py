@@ -24,6 +24,7 @@ import json
 import struct
 
 from componentize_py_types import Err
+from wit_world.exports.entry import EntryError_Runtime, EntryError_Ws
 from wit_world.imports import graph as nn_graph
 from wit_world.imports import (
     logging,
@@ -55,6 +56,19 @@ from wit_world.imports.webgpu import (
     GpuProgrammableStage,
     GpuShaderModuleDescriptor,
     GpuShaderStage,
+)
+from wit_world.imports.ws import (
+    WsError_AlreadyConnected,
+    WsError_NotConnected,
+    WsError_Protocol,
+    WsError_Transport,
+)
+
+_WS_ERROR_VARIANTS = (
+    WsError_Transport,
+    WsError_Protocol,
+    WsError_NotConnected,
+    WsError_AlreadyConnected,
 )
 
 # An all-zero 28x28 input is the simplest reproducible MNIST query - bytes
@@ -426,12 +440,14 @@ _STORE_ERROR_VARIANTS = (
 class Entry:
     """Implements the `entry` interface exported by the world.
 
-    WIT signature is `run: func() -> result<_, string>`. componentize-py
-    renders the success path as `-> None` and failures as
-    `raise Err("...")`. Workflow code lives in `_run_workflow`; this
-    wrapper flattens host-import errors (`ws.WsError` is now a string
-    alias, `store.Error` is still a variant) into a single string for
-    the WIT crossing.
+    WIT signature is now `run: func() -> result<_, entry-error>` where
+    `entry-error` is a variant `ws(ws-error) | runtime(string)`.
+    componentize-py renders the success path as `-> None` and failures as
+    `raise Err(<variant case>)`. Workflow code lives in `_run_workflow`;
+    this wrapper lifts a raw `ws-error` payload bubbling up from any
+    `ws.*` call into `EntryError_Ws(...)`, and tags every other
+    exception (`store.Error` variants, string messages we raise
+    ourselves, etc.) as `EntryError_Runtime(...)`.
     """
 
     def run(self) -> None:
@@ -439,9 +455,11 @@ class Entry:
             _run_workflow()
         except Err as exc:
             value = exc.value
+            if isinstance(value, _WS_ERROR_VARIANTS):
+                raise Err(EntryError_Ws(value)) from exc
             if isinstance(value, _STORE_ERROR_VARIANTS):
-                raise Err(f"store error: {value}") from exc
-            raise Err(str(value)) from exc
+                raise Err(EntryError_Runtime(f"store error: {value}")) from exc
+            raise Err(EntryError_Runtime(str(value))) from exc
 
 
 def _run_workflow() -> None:
@@ -449,7 +467,7 @@ def _run_workflow() -> None:
 
     ws.connect()
     if not _wait_for_connected():
-        raise Err("websocket did not reach connected state")
+        raise Err(EntryError_Runtime("websocket did not reach connected state"))
 
     agent_id = ws.agent_id()
     _log(f"websocket connected with agent_id={agent_id}")

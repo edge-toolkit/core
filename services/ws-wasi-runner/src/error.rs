@@ -1,12 +1,16 @@
-//! Error type for `run_module`, plus the extension traits that carry the
-//! only `map_err` callsites for the runner-level error variants.
+//! Error type for `run_module`, plus the extension trait that carries the
+//! only `map_err` callsite for the runner-level error variants.
 //!
-//! `et_rest_client::Error`, `reqwest::Error`, and `wasmtime::Error` already
-//! carry enough context to be useful on their own, so they're forwarded
-//! transparently. Guest failures arrive as `String` because the `entry.run`
-//! WIT signature is `result<_, string>`.
+//! `et_rest_client::Error`, `reqwest::Error`, `wasmtime::Error`, and the
+//! WIT-defined `EntryError` already carry enough context to be useful on
+//! their own, so they're forwarded transparently. Guest `run()` failures
+//! arrive as `EntryError` (the variant declared on `interface entry` in
+//! `generated/specs/wit/world.wit`); `?` then converts via
+//! `Guest(#[from] EntryError)`.
 
 use thiserror::Error;
+
+use crate::bindings::exports::et::ws_wasi::entry::EntryError;
 
 /// Errors `run_module` can fail with.
 #[derive(Debug, Error)]
@@ -30,8 +34,8 @@ pub enum RunnerError {
     #[error(transparent)]
     Wasm(#[from] wasmtime::Error),
 
-    #[error("module run() returned err: {0}")]
-    Guest(String),
+    #[error("module run() returned err: {0:?}")]
+    Guest(#[from] EntryError),
 }
 
 /// Maps any `Display` error into `RunnerError::PackageJsonInvalid` carrying
@@ -47,22 +51,5 @@ impl<T, E: std::fmt::Display> PackageJsonErrExt<T> for Result<T, E> {
             module: module.to_string(),
             error: err.to_string(),
         })
-    }
-}
-
-/// Maps `Result<T, String>` (the guest's `entry.run` failure shape) into
-/// `RunnerError::Guest`. Kept as a trait — and not collapsed into the call
-/// site as `.map_err(RunnerError::Guest)` — because the `no-map-err`
-/// ast-grep rule forbids `.map_err` outside the listed error.rs files. A
-/// `From<String> for RunnerError` impl would also work, but `From<String>`
-/// for an error type is far too broad: every stringly-typed conversion in
-/// the crate would silently become a `RunnerError::Guest`.
-pub trait GuestErrExt<T> {
-    fn guest_err(self) -> Result<T, RunnerError>;
-}
-
-impl<T> GuestErrExt<T> for Result<T, String> {
-    fn guest_err(self) -> Result<T, RunnerError> {
-        self.map_err(RunnerError::Guest)
     }
 }

@@ -6,7 +6,7 @@
 //! can't actually reach the network from a browser sandbox. We swap the
 //! body of `requestRaw` for one that delegates to a single
 //! `extern fn js_rest_request(...)` import (host-implemented via `fetch()`
-//! and SharedArrayBuffer in the JS shim), and append the extern
+//! and `SharedArrayBuffer` in the JS shim), and append the extern
 //! declaration. Everything else — schemas, `RawResponse`, `ApiResult`,
 //! per-operation wrappers, SSE helpers — is left untouched; Zig's lazy
 //! evaluation + dead-code elimination shake out the now-unused
@@ -17,7 +17,7 @@
 //! string-matching its body — that way `openapi2zig` version bumps that
 //! reshuffle the implementation don't break us.
 
-use std::fmt::Write;
+use std::fmt::Write as _;
 use std::path::Path;
 use std::process::Command;
 
@@ -28,20 +28,26 @@ use crate::Error;
 /// Return `true` if the `openapi2zig` binary is on `PATH`.
 ///
 /// Upstream doesn't publish a `linux/arm64` release (see `.mise.toml`).
+#[must_use]
 pub fn is_available() -> bool {
     Command::new("openapi2zig").arg("--version").output().is_ok()
 }
 
-/// Invoke `openapi2zig` against the OpenAPI JSON intermediate, post-process
-/// the result, and return the final Zig source. Subprocess errors are
-/// flattened into `Error::ZigCodegen` since we don't model them more
-/// precisely.
+/// Invoke `openapi2zig` against the `OpenAPI` JSON intermediate, post-process
+/// the result, and return the final Zig source.
+///
+/// Subprocess errors are flattened into `Error::ZigCodegen` since we don't
+/// model them more precisely.
 pub fn render(rest_json: &Path, raw_out: &Path) -> Result<String, Error> {
     run_openapi2zig(rest_json, raw_out)?;
     let raw = std::fs::read_to_string(raw_out)?;
     rewrite(&raw)
 }
 
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper; pairs with rewrite() as the two halves of render()"
+)]
 fn run_openapi2zig(rest_json: &Path, raw_out: &Path) -> Result<(), Error> {
     if let Some(parent) = raw_out.parent() {
         std::fs::create_dir_all(parent)?;
@@ -69,9 +75,13 @@ fn run_openapi2zig(rest_json: &Path, raw_out: &Path) -> Result<(), Error> {
 
 /// Replace `requestRaw`'s body with our extern-backed implementation, fix
 /// the JSON-encoding of binary request bodies (openapi2zig blindly applies
-/// `std.json.Stringify.value` even when the OpenAPI content-type is
+/// `std.json.Stringify.value` even when the `OpenAPI` content-type is
 /// `application/octet-stream`), and append the `extern fn js_rest_request`
 /// declaration. Everything else passes through verbatim.
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper; pairs with run_openapi2zig() as the two halves of render()"
+)]
 fn rewrite(source: &str) -> Result<String, Error> {
     let mut parser = Parser::new();
     parser.set_language(&tree_sitter_zig::LANGUAGE.into())?;
@@ -88,10 +98,22 @@ fn rewrite(source: &str) -> Result<String, Error> {
     let body_start = body.start_byte();
     let body_end = body.end_byte();
 
-    let mut out = String::with_capacity(source.len() + 1024);
-    out.push_str(&source[..body_start]);
-    write_replacement_body(&mut out)?;
-    out.push_str(&source[body_end..]);
+    // 1024 is a comfortable upper bound for the replacement body + extern
+    // declaration we splice in below; if the additions ever exceed it the
+    // worst case is one extra reallocation, not a panic.
+    let mut out = String::with_capacity(source.len().saturating_add(1024));
+    // Indexing into `source` is safe here because tree-sitter byte offsets
+    // sit on UTF-8 boundaries by construction (it tokenises a UTF-8
+    // string and emits byte-aligned spans).
+    #[expect(
+        clippy::string_slice,
+        reason = "tree-sitter byte offsets are UTF-8 boundary-aligned; we round-trip the source by splicing those spans"
+    )]
+    {
+        out.push_str(&source[..body_start]);
+        write_replacement_body(&mut out)?;
+        out.push_str(&source[body_end..]);
+    }
     out = fix_binary_request_body(&out)?;
     write_extern_decl(&mut out)?;
     Ok(out)
@@ -99,6 +121,10 @@ fn rewrite(source: &str) -> Result<String, Error> {
 
 /// Replace openapi2zig's `std.json.Stringify.value(requestBody, ...)` block
 /// with a direct `requestBody` pass-through.
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by rewrite(); kept separate for the long comment + clear scope"
+)]
 fn fix_binary_request_body(source: &str) -> Result<String, Error> {
     // openapi2zig generates this block for every operation that has a
     // `requestBody`, regardless of content-type:
@@ -138,6 +164,10 @@ fn fix_binary_request_body(source: &str) -> Result<String, Error> {
     Ok(source.replace(bad, good))
 }
 
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper for the multi-line writeln! block that builds the replacement body; called once by rewrite()"
+)]
 fn write_replacement_body(out: &mut String) -> Result<(), Error> {
     writeln!(out, "{{")?;
     writeln!(
@@ -177,6 +207,10 @@ fn write_replacement_body(out: &mut String) -> Result<(), Error> {
     Ok(())
 }
 
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper for the multi-line writeln! block that emits the extern declaration; called once by rewrite()"
+)]
 fn write_extern_decl(out: &mut String) -> Result<(), Error> {
     writeln!(out)?;
     writeln!(
@@ -205,7 +239,13 @@ fn write_extern_decl(out: &mut String) -> Result<(), Error> {
 
 /// Recursive walk: return the first `function_declaration` whose `name`
 /// child matches `wanted`.
-fn find_fn<'a>(node: Node<'a>, source: &str, wanted: &str) -> Option<Node<'a>> {
+fn find_fn<'tree>(node: Node<'tree>, source: &str, wanted: &str) -> Option<Node<'tree>> {
+    // Indexing into `source` is safe because tree-sitter node byte spans
+    // are always UTF-8 boundary-aligned for a UTF-8 input.
+    #[expect(
+        clippy::string_slice,
+        reason = "tree-sitter byte spans are UTF-8 boundary-aligned by construction"
+    )]
     if node.kind() == "function_declaration"
         && let Some(name) = node.child_by_field_name("name")
         && &source[name.start_byte()..name.end_byte()] == wanted
