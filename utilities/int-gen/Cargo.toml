@@ -28,7 +28,7 @@ prettyplease.workspace = true
 progenitor.workspace = true
 quote.workspace = true
 schemars.workspace = true
-semver = "1"
+semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
@@ -39,7 +39,7 @@ tree-sitter-zig.workspace = true
 ureq.workspace = true
 utoipa.workspace = true
 wit-encoder = { workspace = true, features = ["from-parser"] }
-wit-parser = "0.249"
+wit-parser.workspace = true
 
 [lints]
 workspace = true

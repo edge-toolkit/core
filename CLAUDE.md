@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Scratch work stays inside this repo
+
+Any throwaway file the agent needs while working — backup copies of files
+before destructive edits, generated probe scripts, captured tool output,
+intermediate diff materials, anything — must live under this repo's
+`target/` directory (which is already gitignored). Do **not** write to
+`/tmp`, `/var/tmp`, `~/Desktop`, `~/Downloads`, `~/scratch`, or any other
+path outside this working directory. `target/scratch/` is fine; create
+subdirectories under it freely and clean up when done.
+
 ## Prerequisites
 
 Install [`mise`](https://mise.jdx.dev/) with shell integration, then configure:

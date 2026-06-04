@@ -30,35 +30,36 @@ default = []
 cuda = ["wasmtime-wasi-nn/onnx-cuda"]
 
 [dependencies]
-async-trait = "0.1"
-bytemuck = { version = "1.16", features = ["derive"] }
+async-trait.workspace = true
+bytemuck.workspace = true
 edge-toolkit.workspace = true
 et-otlp.workspace = true
 et-rest-client = { workspace = true, features = ["tracing"] }
-futures-util = "0.3"
+futures-util.workspace = true
 opentelemetry.workspace = true
-opentelemetry-http = "0.31"
-pollster = "0.4"
-reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "stream"] }
+opentelemetry-http.workspace = true
+pollster.workspace = true
+reqwest = { workspace = true, features = ["json", "rustls", "stream"] }
 serde.workspace = true
 serde-env.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
-tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect"] }
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
+tokio-tungstenite = { workspace = true, features = ["connect"] }
 tracing.workspace = true
 tracing-opentelemetry.workspace = true
 tracing-subscriber.workspace = true
-wasmtime = { version = "44", features = ["async", "component-model"] }
-wasmtime-wasi = "44"
-# wasi-nn standardised ML inference. `default-features = false` drops
-# `openvino` + `winml` which we don't use and which need system libs.
-wasmtime-wasi-nn = { version = "44", default-features = false, features = ["onnx"] }
-# Pin `ort` to rc.10 because wasmtime-wasi-nn 44.0.1 was built against that
-# specific prerelease; rc.11+ moved `ort::session::{Input, Output}` and
-# `ort::tensor`, and the cargo resolver would otherwise pick the latest rc.
-ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dylibs", "download-binaries"] }
-wgpu = { version = "29", default-features = false, features = ["dx12", "metal", "vulkan", "wgsl"] }
+wasmtime.workspace = true
+wasmtime-wasi.workspace = true
+# wasi-nn standardised ML inference. The workspace pin drops `openvino` +
+# `winml` (which we don't use) and keeps `onnx`.
+wasmtime-wasi-nn.workspace = true
+# Workspace pins `ort = "=2.0.0-rc.10"` because wasmtime-wasi-nn 44.0.1 was
+# built against that specific prerelease; rc.11+ moved
+# `ort::session::{Input, Output}` and `ort::tensor`, and the cargo resolver
+# would otherwise pick the latest rc.
+ort.workspace = true
+wgpu.workspace = true
 
 [dev-dependencies]
 et-ws-test-server.workspace = true

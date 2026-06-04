@@ -2,8 +2,8 @@
 name = "et-ws-wasi-data1"
 description = "WASI Preview 2 port of the data1 module — keyvalue store roundtrip"
 version = "0.1.0"
-edition = "2024"
-license = "Apache-2.0 OR MIT"
+edition.workspace = true
+license.workspace = true
 repository.workspace = true
 
 [lib]
@@ -15,8 +15,8 @@ doctest = false
 # the same way (`#![cfg(target_os = "wasi")]` at the top of src/lib.rs),
 # so on the host target the crate compiles to an empty cdylib.
 [target.'cfg(target_os = "wasi")'.dependencies]
-serde_json = "1"
-wit-bindgen = "0.57"
+serde_json.workspace = true
+wit-bindgen.workspace = true
 
 [lints]
 workspace = true

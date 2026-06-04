@@ -206,7 +206,41 @@ run = "cargo clippy --fix --allow-dirty --allow-staged --workspace --tests"
 run = "taplo format"
 
 [tasks.taplo-check]
-run = "taplo lint"
+# `taplo lint` reads .taplo.toml's `[[rule]] schema` entries for editor /
+# LSP-style validation, but silently ignores their nested constraints in
+# CLI mode (verified: injecting `path = "../foo"` into a member Cargo.toml
+# doesn't fire `no-path-deps` via the rule alone). We work around it by
+# applying each schema explicitly with `taplo lint --schema file://...`.
+# When adding a new schema under `config/taplo/`, append a `taplo lint`
+# line here too. See `config/taplo/RULE-IDEAS.md` for the investigation.
+shell = "bash -c"
+run = """
+set -euo pipefail
+# Baseline TOML validation across every .toml file the auto-config picks up.
+taplo lint
+
+# All member Cargo.tomls — exclude workspace root and any build output.
+mapfile -t members < <(find . -name Cargo.toml -not -path './target/*' -not -path './Cargo.toml')
+
+# Schemas that apply to every member crate.
+taplo lint --schema "file://$PWD/config/taplo/no-path-deps.schema.json" "${members[@]}"
+taplo lint --schema "file://$PWD/config/taplo/no-wildcard-or-git-deps.schema.json" "${members[@]}"
+taplo lint --schema "file://$PWD/config/taplo/require-workspace-deps.schema.json" "${members[@]}"
+
+# `require-lints-section` exempts generated/rust-rest/Cargo.toml because
+# progenitor's emitted `src/lib.rs` contains patterns our workspace lint
+# table flags (e.g. doc-comment shapes that trip rustdoc's invalid-code-
+# block lint). Inheriting `[lints] workspace = true` would fail the build
+# on the generated source. The exemption is about the lint table, not
+# about the deps — its `[dependencies]` still inherits from
+# `[workspace.dependencies]` like every other crate.
+lint_inheritable=()
+for f in "${members[@]}"; do
+  [[ "$f" == "./generated/rust-rest/Cargo.toml" ]] && continue
+  lint_inheritable+=("$f")
+done
+taplo lint --schema "file://$PWD/config/taplo/require-lints-section.schema.json" "${lint_inheritable[@]}"
+"""
 
 [tasks.typos]
 run = "typos"
@@ -710,8 +744,14 @@ dir = "services/ws-modules/pyface1"
 run = "uv run pytest"
 
 [tasks.test-pyface1.env]
-UV_PYTHON = "{{exec(command='mise where python')}}/bin/python3"
+# `mise where python` returns the install dir; appending `/bin/python3` is
+# Unix-only (Windows has python.exe in the install root, no `bin/`
+# subdir). `mise which python3.13` returns the full executable path with
+# the platform's correct suffix (.exe on Windows), same idiom as the
+# `prefetch` task uses.
+UV_PYTHON = "{{exec(command='mise which python3.13')}}"
 
 [tasks.test]
 depends = ["cargo-test", "test-pyface1"]
 description = "Run all tests"
+

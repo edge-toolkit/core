@@ -11,20 +11,14 @@ doctest = false
 
 [dependencies]
 edge-toolkit.workspace = true
-hostname = "0.4"
+hostname.workspace = true
 log.workspace = true
 opentelemetry.workspace = true
-opentelemetry-appender-tracing = "0.31"
-opentelemetry-otlp = { version = "0.31", default-features = false, features = [
-  "http-json",
-  "http-proto",
-  "logs",
-  "reqwest-blocking-client",
-  "trace",
-] }
-opentelemetry_sdk = "0.31"
+opentelemetry-appender-tracing.workspace = true
+opentelemetry-otlp.workspace = true
+opentelemetry_sdk.workspace = true
 tracing.workspace = true
-tracing-log = "0.2"
+tracing-log.workspace = true
 tracing-opentelemetry.workspace = true
 tracing-subscriber.workspace = true
 

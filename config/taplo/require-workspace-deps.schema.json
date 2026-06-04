@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Workspace member Cargo.toml — deps must inherit",
+  "description": "[dependencies] / [dev-dependencies] entries must use `.workspace = true`.",
+  "definitions": {
+    "depEntry": {
+      "type": "object",
+      "required": ["workspace"],
+      "properties": {
+        "workspace": {
+          "const": true
+        }
+      }
+    },
+    "depTable": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/depEntry" }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "dependencies": { "$ref": "#/definitions/depTable" },
+    "dev-dependencies": { "$ref": "#/definitions/depTable" },
+    "target": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "dependencies": { "$ref": "#/definitions/depTable" },
+          "dev-dependencies": { "$ref": "#/definitions/depTable" }
+        }
+      }
+    }
+  }
+}

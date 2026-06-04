@@ -40,11 +40,15 @@ resolver = "2"
 
 [workspace.dependencies]
 actix = "0.13"
+actix-files = "0.6"
 actix-rt = "2"
 actix-web = { version = "4", features = ["rustls-0_23"] }
 actix-web-thiserror = "0.2"
+actix-ws = "0.3"
+async-trait = "0.1"
 asyncapi-rust = "0.2"
 base64 = "0.22.1"
+bytemuck = { version = "1.16", features = ["derive"] }
 bytes = "1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive"] }
@@ -59,32 +63,60 @@ et-ws-service = { path = "services/ws" }
 et-ws-test-server = { path = "services/ws-test-server" }
 et-ws-wasm-agent = { path = "services/ws-wasm-agent" }
 fs-err = "3"
+futures-core = "0.3"
+futures-util = "0.3"
 heck = "0.5"
+hostname = "0.4"
+js-sys = "0.3"
 kdl = { version = "6", features = ["v1"] }
 lets_find_up = "0.0.4"
+local-ip-address = "0.6"
 log = "0.4"
 onnx-extractor = "0.3"
 openapiv3 = "2"
 opentelemetry = "0.31"
+opentelemetry-appender-tracing = "0.31"
+opentelemetry-http = "0.31"
+opentelemetry-otlp = { version = "0.31", default-features = false, features = [
+  "http-json",
+  "http-proto",
+  "logs",
+  "reqwest-blocking-client",
+  "trace",
+] }
+opentelemetry_sdk = "0.31"
+ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dylibs", "download-binaries"] }
 otlp-mock = { path = "libs/otlp-mock" }
+pollster = "0.4"
 pretty_yaml = "0.6"
 prettyplease = "0.2"
 progenitor = "0.14"
+progenitor-client = "0.14"
+qr2term = "0.3"
 quote = "1"
+rcgen = "0.14"
+regex = { version = "1.12", default-features = false }
+reqwest = { version = "0.13", default-features = false }
 rstest = "0.26"
+rustls = "0.23"
 schemars = { version = "1.1", features = ["derive"] }
 secrecy = { version = "0.10.3", features = ["serde"] }
+semver = "1"
 serde = { version = "1.0.228", features = ["derive"] }
 serde-env = "0.3"
 serde-inline-default = "1.0"
+serde-wasm-bindgen = "0.6"
 serde_default = "0.2"
 serde_json = "1"
+serde_urlencoded = "0.7"
 serde_yaml = "0.9"
 syn = "2"
 temp-env = "0.3"
 tempfile = "3"
 testing_logger = "0.1"
 thiserror = "2"
+tokio = "1"
+tokio-tungstenite = { version = "0.24", default-features = false }
 toml = "0.8"
 tracing = "0.1"
 tracing-actix-web = { version = "0.7", default-features = false, features = [
@@ -92,14 +124,26 @@ tracing-actix-web = { version = "0.7", default-features = false, features = [
   "opentelemetry_0_31",
   "uuid_v7",
 ] }
+tracing-log = "0.2"
 tracing-opentelemetry = "0.32"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-wasm = "0.2"
 tree-sitter = "0.25"
 tree-sitter-zig = "1"
 ureq = "2"
 utoipa = { version = "5", features = ["actix_extras", "yaml"] }
 uuid = { version = "1", features = ["serde", "v4", "v7"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+wasm-bindgen-test = "0.3"
+wasmtime = { version = "44", features = ["async", "component-model"] }
+wasmtime-wasi = "44"
+wasmtime-wasi-nn = { version = "44", default-features = false, features = ["onnx"] }
+web-sys = "0.3"
+wgpu = { version = "29", default-features = false, features = ["dx12", "metal", "vulkan", "wgsl"] }
+wit-bindgen = "0.57"
 wit-encoder = "0.249"
+wit-parser = "0.249"
 
 [profile.release.package.et-ws-wasm-agent]
 opt-level = "s"

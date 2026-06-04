@@ -21,20 +21,20 @@ default = ["tracing"]
 tracing = ["dep:opentelemetry", "dep:opentelemetry-http", "dep:tracing-opentelemetry"]
 
 [dependencies]
-bytes = "1.9"
-futures-core = "0.3"
+bytes.workspace = true
+futures-core.workspace = true
 opentelemetry = { workspace = true, optional = true }
-opentelemetry-http = { version = "0.31", optional = true }
-progenitor-client = "0.14.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_urlencoded = "0.7"
+opentelemetry-http = { workspace = true, optional = true }
+progenitor-client.workspace = true
+serde.workspace = true
+serde_urlencoded.workspace = true
 tracing.workspace = true
 tracing-opentelemetry = { workspace = true, optional = true }
 
 # `rustls` and `stream` are native-only — WASM reqwest dispatches via the
 # browser's `fetch()` and has no notion of a TLS stack.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-reqwest = { version = "0.13", default-features = false, features = ["json", "query", "rustls", "stream"] }
+reqwest = { workspace = true, features = ["json", "query", "rustls", "stream"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-reqwest = { version = "0.13", default-features = false, features = ["json"] }
+reqwest = { workspace = true, features = ["json"] }
