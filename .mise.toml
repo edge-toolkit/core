@@ -75,11 +75,20 @@ yq = "latest"
 zig = "latest"
 
 [env]
-# Use ldd on macos as documented at https://github.com/cameron1024/dart-typegen
 # Use the conda:openssl install for Rust's OPENSSL_DIR so openssl-sys crate builds.
 OPENSSL_DIR = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest"
-CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld=lld -C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest/lib"
-CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld=lld -C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest/lib"
+# Use lld on macos as documented at https://github.com/cameron1024/dart-typegen
+# Apple `/usr/bin/clang` rejects `-fuse-ld=lld` outright ("invalid linker
+# name") unless it can resolve `ld64.lld` on `PATH`. These `RUSTFLAGS` apply
+# to every `rustc` call — including the cargo subprocess mise spawns when a
+# `cargo:` tool falls back to a source build (e.g. `cargo:taplo-cli`, whose
+# QuickInstall prebuilt 404s on macOS), and mise's install-time `PATH` for
+# that subprocess does NOT include sibling tools like `conda:lld`. Point
+# `-fuse-ld=` at the absolute `ld64.lld` shipped by `conda:lld` so the flag
+# resolves without any `PATH` lookup — same conda root the rpath link-arg
+# already points into.
+CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld={{ env.HOME }}/.local/share/mise/installs/conda-lld/latest/bin/ld64.lld -C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest/lib"
+CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld={{ env.HOME }}/.local/share/mise/installs/conda-lld/latest/bin/ld64.lld -C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest/lib"
 # Silence Maven's per-artifact download/upload progress lines (the
 # "Downloading from central:" / "Downloaded" spam). Build output and real
 # errors still print. MAVEN_ARGS is honored by Maven 3.9+ and prepends to
