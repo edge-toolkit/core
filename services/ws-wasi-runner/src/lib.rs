@@ -18,30 +18,29 @@ pub mod error;
 pub mod host;
 
 pub use self::error::RunnerError;
-use self::error::{GuestErrExt as _, PackageJsonErrExt as _, RestErrExt as _};
+use self::error::{GuestErrExt as _, PackageJsonErrExt as _};
 pub use self::host::HostState;
 
-/// Convert a `ws://host[:port]/ws` URL to its `http://host[:port]` HTTP base
-/// (or `wss://` → `https://`). Returns `None` if `ws_url` is not a websocket
-/// URL.
-#[must_use]
-pub fn derive_http_base(ws_url: &str) -> Option<String> {
+/// Convert a WebSocket URL to its HTTP base.
+pub fn derive_http_base(ws_url: &str) -> Result<String, RunnerError> {
     let (scheme, rest) = if let Some(suffix) = ws_url.strip_prefix("wss://") {
         ("https", suffix)
     } else if let Some(suffix) = ws_url.strip_prefix("ws://") {
         ("http", suffix)
     } else {
-        return None;
+        return Err(RunnerError::InvalidWsUrl {
+            ws_url: ws_url.to_string(),
+        });
     };
     let host_port = rest.strip_suffix("/ws").unwrap_or(rest);
-    Some(format!("{scheme}://{host_port}"))
+    Ok(format!("{scheme}://{host_port}"))
 }
 
 /// Drain a progenitor `ByteStream` into a `Vec<u8>`.
 async fn collect_byte_stream(mut stream: et_rest_client::ByteStream) -> Result<Vec<u8>, RunnerError> {
     let mut buf = Vec::new();
     while let Some(chunk) = stream.next().await {
-        let chunk = chunk.rest_context("stream chunk")?;
+        let chunk = chunk?;
         buf.extend_from_slice(&chunk);
     }
     Ok(buf)
@@ -87,9 +86,7 @@ pub async fn run_module(module_name: &str, ws_url: &str) -> Result<(), RunnerErr
     reason = "span-instrumented body of run_module; the split is mandatory to scope the tracing span"
 )]
 async fn run_module_inner(module_name: &str, ws_url: &str) -> Result<(), RunnerError> {
-    let http_base = derive_http_base(ws_url).ok_or_else(|| RunnerError::InvalidWsUrl {
-        ws_url: ws_url.to_string(),
-    })?;
+    let http_base = derive_http_base(ws_url)?;
 
     let rest = et_rest_client::Client::new(&http_base);
     let main = fetch_main_field(&rest, module_name).await?;
