@@ -221,15 +221,7 @@ run = "osv-scanner --lockfile Cargo.lock"
 # so the link target exists.
 depends = ["download-models", "build-ws-wasm-agent"]
 description = "Pre-download all dependencies and models (Rust crates, Dart packages, Python envs, Java/Maven, .NET, Node, WIT)"
-# UV_PYTHON pins uv to the mise-managed regular CPython, not Pyodide's
-# emscripten-wasm32 interpreter. mise's `http-pyodide` install ships a
-# `python` wrapper script in its install dir that uv's auto-discovery
-# finds and prefers — it reports CPython 3.13.2, so bare version requests
-# (`3.13`, `python3.13`, `cpython@3.13`) don't disambiguate. Resolve the
-# absolute path at task time via `mise which python3.13` so the same line
-# works on Linux CI and macOS dev.
 run = """
-export UV_PYTHON="$(mise which python3.13)"
 cargo check --workspace
 dart pub get --directory services/ws-modules/dart-comm1
 uv sync --directory services/ws-modules/pydata1
@@ -240,11 +232,22 @@ pnpm install --dir services/ws-server/static --ignore-scripts --config.ignoredBu
 zig build --fetch --build-file services/ws-modules/zig-data1/build.zig
 """
 
+[tasks.prefetch.env]
 # pnpm refuses non-TTY destructive node_modules cleanup unless `CI=true`,
 # which fires when an earlier install left a different layout (e.g. before
 # `link:` was wired up). Treat `mise run prefetch` as a CI-style batch.
-[tasks.prefetch.env]
 CI = "true"
+# UV_PYTHON pins uv to the mise-managed regular CPython, not Pyodide's
+# emscripten-wasm32 interpreter. mise's `http-pyodide` install ships a
+# `python` wrapper script in its install dir that uv's auto-discovery
+# finds and prefers — it reports CPython 3.13.2, so bare version requests
+# (`3.13`, `python3.13`, `cpython@3.13`) don't disambiguate. Resolving the
+# absolute path inline used to live in the `run` body as
+# `export UV_PYTHON="$(mise which python3.13)"`, but on Windows mise dispatches
+# `run` through `cmd`, which has no `export`. Using mise's `exec()` template
+# here keeps the value resolved by mise (shell-agnostic) and matches the
+# same idiom used by `[tasks.test-pyface1.env]` further down.
+UV_PYTHON = "{{exec(command='mise which python3.13')}}"
 
 [tasks.regenerate-verification]
 alias = "regen-verification"
