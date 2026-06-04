@@ -20,7 +20,6 @@ use std::collections::HashSet;
 use std::path::Path;
 
 use fs_err as fs;
-
 use wit_encoder::{Interface, InterfaceItem, PackageItem, ResourceFuncKind, Type, TypeDefKind};
 
 use crate::Error;

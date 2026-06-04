@@ -44,12 +44,12 @@
 //! `mise run fetch-wit-deps`, handled by the companion [`wit::upstream`]
 //! module.
 
-use fs_err as fs;
 use std::path::Path;
 
 use asyncapi_rust::AsyncApi;
 use edge_toolkit::config::get_project_root;
 use edge_toolkit::ws::WsMessage;
+use fs_err as fs;
 use schemars::schema_for;
 
 pub mod kdl;
