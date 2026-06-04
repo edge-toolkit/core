@@ -87,13 +87,19 @@ jobs:
           mise settings add idiomatic_version_file_enable_tools "[]"
           mise settings experimental=true
           mise settings set cargo.binstall true
+
           # Install conda:openssl up front — the project's OPENSSL_DIR points
           # at its install dir, and `cargo:cargo-unmaintained` (which pulls
           # openssl-sys) reads that during its own `cargo install`. With the
           # default parallel `mise install`, openssl-sys can panic with
           # "OpenSSL include directory does not exist" because conda:openssl
           # hasn't finished populating `include/` yet.
+
           mise install conda:openssl
+
+          # And on macos, lld is needed to compile Rust binary tools from source.
+          mise install conda:lld
+
           mise install
         env:
           GITHUB_TOKEN: ${{ github.token }}
