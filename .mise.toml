@@ -366,7 +366,12 @@ zig fmt generated/zig-rest/src/et_rest_client.zig
 depends = ["gen-ws-spec"]
 description = "Emit Dart sealed-class client for the WS protocol via dart-typegen (consumes target/int-gen/ws.kdl emitted by gen-ws-spec)"
 shell = "bash -c"
+# dart-typegen exits 0 on Windows but writes an empty .dart file, which
+# would clobber the committed source and fail gen-specs-check. Skip the
+# regen there; the committed file (regenerated on Linux/macOS) stays
+# canonical.
 run = """
+[[ "$OS" == "Windows_NT" ]] && { echo "gen-dart-ws: skipped on Windows (dart-typegen produces an empty file)"; exit 0; }
 mkdir -p generated/dart-ws/lib
 dart-typegen generate -i target/int-gen/ws.kdl -o generated/dart-ws/lib/ws_messages.dart
 dart format generated/dart-ws/lib/ws_messages.dart
@@ -379,6 +384,7 @@ shell = "bash -c"
 run = """
 mkdir -p generated/python-rest/et_rest_client
 openapi-python-client generate \
+  --config config/openapi-python-client.yaml \
   --path generated/specs/rest.yaml \
   --meta none \
   --overwrite \
