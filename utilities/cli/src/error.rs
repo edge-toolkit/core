@@ -21,8 +21,11 @@ pub enum CliError {
     #[error("Failed to parse {path}")]
     ParseToml {
         path: PathBuf,
+        // Boxed because `toml::de::Error` is large enough on Windows
+        // (with MSVC alignment) to push the enum past clippy's
+        // `result_large_err` 128-byte threshold.
         #[source]
-        source: toml::de::Error,
+        source: Box<toml::de::Error>,
     },
 
     #[error("Failed to parse {path}")]
@@ -92,7 +95,7 @@ where
         Ok(value) => Ok(value),
         Err(source) => Err(CliError::ParseToml {
             path: path.as_ref().to_path_buf(),
-            source,
+            source: Box::new(source),
         }),
     }
 }

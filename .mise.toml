@@ -325,10 +325,13 @@ CI = "true"
 #
 # Windows quirk: mise's python-build-standalone install on Windows only
 # exposes `python.exe` (no `python3.13.exe`), so `mise which python3.13`
-# errors with "not a mise bin". Pyodide's shell-script `python` shim isn't
-# usable on Windows either, so there's no disambiguation work to do — fall
-# back to plain `python` there.
-UV_PYTHON = "{% if os() == 'windows' %}{{ exec(command='mise which python') }}{% else %}{{ exec(command='mise which python3.13') }}{% endif %}"
+# errors with "not a mise bin". And `mise which python` resolves to
+# pyodide's bundled `python.exe` (uv fails to inspect it — the pyodide
+# shim's `sys.path` injection is not a valid uv interpreter). Use
+# `mise where python` instead — that returns the python plugin's
+# install dir specifically — and append `python.exe`, the bin name
+# python-build-standalone places at the install root on Windows.
+UV_PYTHON = "{% if os() == 'windows' %}{{ exec(command='mise where python') }}/python.exe{% else %}{{ exec(command='mise which python3.13') }}{% endif %}"
 
 [tasks.regenerate-verification]
 alias = "regen-verification"
@@ -774,7 +777,7 @@ run = "uv run pytest"
 # python-build-standalone install only exposes `python.exe`, so we fall
 # back to `mise which python` (pyodide doesn't shim on Windows, so
 # there's no ambiguity to resolve).
-UV_PYTHON = "{% if os() == 'windows' %}{{ exec(command='mise which python') }}{% else %}{{ exec(command='mise which python3.13') }}{% endif %}"
+UV_PYTHON = "{% if os() == 'windows' %}{{ exec(command='mise where python') }}/python.exe{% else %}{{ exec(command='mise which python3.13') }}{% endif %}"
 
 [tasks.test]
 depends = ["cargo-test", "test-pyface1"]
