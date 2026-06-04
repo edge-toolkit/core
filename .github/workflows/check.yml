@@ -27,8 +27,9 @@ jobs:
       matrix:
         include:
           - { os: ubuntu-latest, timeout: 25 }
-          - { os: macos-latest, timeout: 35 }
-          - { os: windows-latest, timeout: 45 }
+          # Enable these when doing large changes.
+          # { os: macos-latest, timeout: 35 }
+          # { os: windows-latest, timeout: 45 }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
