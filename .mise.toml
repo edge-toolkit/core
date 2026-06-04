@@ -222,10 +222,18 @@ taplo lint
 # All member Cargo.tomls — exclude workspace root and any build output.
 mapfile -t members < <(find . -name Cargo.toml -not -path './target/*' -not -path './Cargo.toml')
 
+# All Cargo.tomls including the workspace root — `no-anyhow-dep` also
+# covers `[workspace.dependencies]`, so the root has to be in this list.
+mapfile -t all_cargo_toml < <(find . -name Cargo.toml -not -path './target/*')
+
+# Schemas that apply to every Cargo.toml (including the workspace root).
+taplo lint --schema "file://$PWD/config/taplo/no-anyhow-dep.schema.json" "${all_cargo_toml[@]}"
+
 # Schemas that apply to every member crate.
 taplo lint --schema "file://$PWD/config/taplo/no-path-deps.schema.json" "${members[@]}"
 taplo lint --schema "file://$PWD/config/taplo/no-wildcard-or-git-deps.schema.json" "${members[@]}"
 taplo lint --schema "file://$PWD/config/taplo/require-workspace-deps.schema.json" "${members[@]}"
+taplo lint --schema "file://$PWD/config/taplo/require-lib-doctest-false.schema.json" "${members[@]}"
 
 # `require-lints-section` exempts generated/rust-rest/Cargo.toml because
 # progenitor's emitted `src/lib.rs` contains patterns our workspace lint

@@ -1,0 +1,53 @@
+# `cargo deny check` config. Run locally via `cargo deny check`, in CI via
+# `.github/workflows/cargo-deny.yml`. Every option below is intentional;
+# cargo-deny's `init` template (with all defaults explicit) is not used.
+
+[advisories]
+version = 2
+# Crates pulled from a yanked version are an unambiguous bug — pin them
+# back to a live release.
+yanked = "deny"
+
+[licenses]
+version = 2
+# Compatible with our own `Apache-2.0 OR MIT` workspace license. Add a
+# new entry only when a transitive dep introduces a new SPDX expression
+# we've reviewed.
+allow = [
+  "Apache-2.0",
+  # cranelift / wasmtime stack — LLVM-derived code carries the Apache 2.0
+  # text plus an extra patent grant for LLVM. Still permissive.
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  # webpki-roots / webpki-root-certs (Mozilla's CA bundle).
+  "CDLA-Permissive-2.0",
+  # hexf-parse (transitive via cranelift). Public-domain dedication.
+  "CC0-1.0",
+  "ISC",
+  "MIT",
+  "MPL-2.0",
+  "Unicode-3.0",
+  "Zlib",
+]
+
+[bans]
+# Warn (not deny) on multiple-versions: useful to surface duplicate
+# transitive dep trees without blocking on every cargo update.
+multiple-versions = "warn"
+# Wildcard version specs in member crates are already forbidden by the
+# taplo `no-wildcard-or-git-deps` schema; double-cover here so it shows
+# up in a security-style report too.
+wildcards = "deny"
+# Direct-dep bans live in `config/taplo/no-anyhow-dep.schema.json` (and
+# its future siblings). cargo-deny's `bans.deny` would also catch
+# transitives — too coarse, since e.g. `wasmtime → ittapi → anyhow` is
+# unavoidable. Keep this list empty so the two rules stay scoped to
+# their respective layers (declaration vs. graph-wide).
+
+[sources]
+# Only crates.io. New git or alternate-registry deps must be added to
+# the allow lists below intentionally.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

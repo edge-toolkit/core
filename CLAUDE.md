@@ -12,6 +12,22 @@ intermediate diff materials, anything — must live under this repo's
 path outside this working directory. `target/scratch/` is fine; create
 subdirectories under it freely and clean up when done.
 
+## Keep lines ≤ 120 characters
+
+`editorconfig-checker` (`ec`, wired into `mise run check` via the
+`editorconfig-check` task) enforces a 120-char limit on every file the
+`[*]` rule in `.editorconfig` covers — which is almost all of them. A
+small number of files have explicit overrides (`.mise.toml`, `*.dart`,
+`*.wit` at 300, `LICENSE-*`), but assume every file you touch is bound
+by 120 unless you have specific evidence otherwise.
+
+When writing comments, doc strings, `#[expect(reason = "…")]` reasons,
+`description = "…"` fields in TOML, markdown tables, JSON schemas, etc.,
+keep each line under the limit on the first draft rather than relying
+on a follow-up fix-up pass. The most common offenders are: long
+`reason = "…"` strings on lint attributes, JSON `description` fields,
+markdown table rows, and CI-task `description` fields.
+
 ## Prerequisites
 
 Install [`mise`](https://mise.jdx.dev/) with shell integration, then configure:

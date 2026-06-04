@@ -52,16 +52,16 @@ bytemuck = { version = "1.16", features = ["derive"] }
 bytes = "1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive"] }
-edge-toolkit = { path = "libs/edge-toolkit" }
-et-modules-service = { path = "services/modules" }
-et-otlp = { path = "libs/et-otlp" }
-et-rest-client = { path = "generated/rust-rest", default-features = false }
-et-storage-service = { path = "services/storage" }
-et-web = { path = "libs/web" }
-et-ws-server = { path = "services/ws-server" }
-et-ws-service = { path = "services/ws" }
-et-ws-test-server = { path = "services/ws-test-server" }
-et-ws-wasm-agent = { path = "services/ws-wasm-agent" }
+edge-toolkit = { path = "libs/edge-toolkit", version = "0.1.0" }
+et-modules-service = { path = "services/modules", version = "0.1.0" }
+et-otlp = { path = "libs/et-otlp", version = "0.1.0" }
+et-rest-client = { path = "generated/rust-rest", version = "0.1.0", default-features = false }
+et-storage-service = { path = "services/storage", version = "0.1.0" }
+et-web = { path = "libs/web", version = "0.1.0" }
+et-ws-server = { path = "services/ws-server", version = "0.1.0" }
+et-ws-service = { path = "services/ws", version = "0.1.0" }
+et-ws-test-server = { path = "services/ws-test-server", version = "0.1.0" }
+et-ws-wasm-agent = { path = "services/ws-wasm-agent", version = "0.1.0" }
 fs-err = "3"
 futures-core = "0.3"
 futures-util = "0.3"
@@ -86,7 +86,7 @@ opentelemetry-otlp = { version = "0.31", default-features = false, features = [
 ] }
 opentelemetry_sdk = "0.31"
 ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dylibs", "download-binaries"] }
-otlp-mock = { path = "libs/otlp-mock" }
+otlp-mock = { path = "libs/otlp-mock", version = "0.1.0" }
 pollster = "0.4"
 pretty_yaml = "0.6"
 prettyplease = "0.2"
