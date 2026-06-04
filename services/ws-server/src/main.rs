@@ -91,7 +91,7 @@ async fn main() -> Result<(), std::io::Error> {
     let registry_clone = agent_registry.clone();
     let registry_path = args.agent_registry.clone();
 
-    std::fs::create_dir_all(&env.storage.path).unwrap();
+    fs_err::create_dir_all(&env.storage.path).unwrap();
 
     for (name, pkg_dir) in list_modules(&env.modules) {
         info!("Loading module {name} at {}", pkg_dir.display());

@@ -14,6 +14,7 @@ actix-ws.workspace = true
 bytes.workspace = true
 chrono.workspace = true
 edge-toolkit.workspace = true
+fs-err.workspace = true
 futures-util.workspace = true
 opentelemetry.workspace = true
 serde.workspace = true

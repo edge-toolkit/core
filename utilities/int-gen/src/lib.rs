@@ -44,7 +44,7 @@
 //! `mise run fetch-wit-deps`, handled by the companion [`wit::upstream`]
 //! module.
 
-use std::fs;
+use fs_err as fs;
 use std::path::Path;
 
 use asyncapi_rust::AsyncApi;

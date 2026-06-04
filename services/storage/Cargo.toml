@@ -17,6 +17,7 @@ actix-files.workspace = true
 actix-web.workspace = true
 actix-web-thiserror.workspace = true
 edge-toolkit.workspace = true
+fs-err.workspace = true
 futures-util.workspace = true
 log.workspace = true
 serde.workspace = true

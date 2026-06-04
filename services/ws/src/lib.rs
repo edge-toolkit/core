@@ -59,7 +59,7 @@ pub fn load_registry(path: &std::path::Path) -> Result<WsAgentRegistry, Registry
         );
         return Ok(WsAgentRegistry::default());
     }
-    let yaml = std::fs::read_to_string(path)?;
+    let yaml = fs_err::read_to_string(path)?;
     let bare: BTreeMap<String, BareRecord> = serde_yaml::from_str(&yaml)?;
     let agents = bare
         .into_iter()

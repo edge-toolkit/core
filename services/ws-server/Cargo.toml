@@ -28,6 +28,7 @@ et-modules-service.workspace = true
 et-otlp.workspace = true
 et-storage-service.workspace = true
 et-ws-service.workspace = true
+fs-err.workspace = true
 futures-util.workspace = true
 local-ip-address.workspace = true
 log.workspace = true

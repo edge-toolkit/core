@@ -39,7 +39,7 @@ pub async fn put_file<S: Clone + Send + 'static>(
 
     let storage_dir = &config.path;
     let agent_dir = storage_dir.join(&agent_id);
-    std::fs::create_dir_all(&agent_dir)?;
+    fs_err::create_dir_all(&agent_dir)?;
 
     let path = agent_dir.join(&filename);
     info!("Agent {} storing file: {:?}", agent_id, path);

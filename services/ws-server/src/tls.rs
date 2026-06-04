@@ -26,8 +26,8 @@ pub fn generate_tls_certs(cert_filename: &Path, key_filename: &Path) -> CertKeyP
         "::1".to_string(),
     ])
     .unwrap();
-    std::fs::write(cert_filename, certified.cert.pem()).unwrap();
-    std::fs::write(key_filename, certified.signing_key.serialize_pem()).unwrap();
+    fs_err::write(cert_filename, certified.cert.pem()).unwrap();
+    fs_err::write(key_filename, certified.signing_key.serialize_pem()).unwrap();
     let cert_der = certified.cert.der().clone();
     let key_der = rustls::pki_types::PrivateKeyDer::from(rustls::pki_types::PrivatePkcs8KeyDer::from(
         certified.signing_key.serialize_der(),

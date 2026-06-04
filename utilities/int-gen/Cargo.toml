@@ -20,6 +20,7 @@ edge-toolkit = { workspace = true, features = ["schema-export"] }
 et-modules-service = { workspace = true, features = ["openapi-spec"] }
 et-storage-service = { workspace = true, features = ["openapi-spec"] }
 et-ws-server = { workspace = true, features = ["openapi-spec"] }
+fs-err.workspace = true
 heck.workspace = true
 kdl.workspace = true
 openapiv3.workspace = true

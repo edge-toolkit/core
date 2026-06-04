@@ -21,6 +21,7 @@ use std::fmt::Write as _;
 use std::path::Path;
 use std::process::Command;
 
+use fs_err as fs;
 use tree_sitter::{Node, Parser};
 
 use crate::Error;
@@ -40,7 +41,7 @@ pub fn is_available() -> bool {
 /// model them more precisely.
 pub fn render(rest_json: &Path, raw_out: &Path) -> Result<String, Error> {
     run_openapi2zig(rest_json, raw_out)?;
-    let raw = std::fs::read_to_string(raw_out)?;
+    let raw = fs::read_to_string(raw_out)?;
     rewrite(&raw)
 }
 
@@ -50,7 +51,7 @@ pub fn render(rest_json: &Path, raw_out: &Path) -> Result<String, Error> {
 )]
 fn run_openapi2zig(rest_json: &Path, raw_out: &Path) -> Result<(), Error> {
     if let Some(parent) = raw_out.parent() {
-        std::fs::create_dir_all(parent)?;
+        fs::create_dir_all(parent)?;
     }
     // Surface the spawn failure as `Error::Io` (the `#[from]` variant)
     // rather than a `ZigCodegen(format!(...))` wrap — same diagnostic

@@ -17,8 +17,9 @@
 //! drift.
 
 use std::collections::HashSet;
-use std::fs;
 use std::path::Path;
+
+use fs_err as fs;
 
 use wit_encoder::{Interface, InterfaceItem, PackageItem, ResourceFuncKind, Type, TypeDefKind};
 
