@@ -40,6 +40,8 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
         project_root.join("services/ws-wasm-agent"),
         project_root.join("data/model-modules"),
         project_root.join("services/ws-modules"),
+        project_root.join("generated/python-ws"),
+        project_root.join("generated/python-rest"),
     ];
     // Skip mise-managed module resolution when mise isn't on PATH: the
     // per-package "run `mise install ...`" warnings would just confuse a
@@ -57,7 +59,7 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
             log::warn!(
                 "{}",
                 concat!(
-                    "npm:onnxruntime-web install path not found via `mise where` — ",
+                    "npm:onnxruntime-web install path not found via `mise where` -- ",
                     "requests to /modules/onnxruntime-web/* will 404. ",
                     "Run `mise install npm:onnxruntime-web` and verify the package layout.",
                 )
@@ -66,7 +68,7 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
     }
     // Pyodide is installed from its GitHub release tarball (see `.mise.toml`),
     // not via `npm:pyodide`. mise's http backend extracts the archive flat,
-    // so the install dir itself holds `package.json` + every wheel — the
+    // so the install dir itself holds `package.json` + every wheel -- the
     // modules service treats the dir as a single module named "pyodide".
     // Fall back to the much smaller `npm:pyodide` install if the full
     // distribution isn't available: browser modules that only need pyodide's
@@ -81,7 +83,7 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
             log::warn!(
                 "{}",
                 concat!(
-                    "pyodide install path not found via `mise where http:pyodide` or `mise where npm:pyodide` — ",
+                    "pyodide install path not found via `mise where http:pyodide` or `mise where npm:pyodide` -- ",
                     "requests to /modules/pyodide/* will 404. Run `mise install` and verify the install.",
                 )
             );
@@ -91,7 +93,7 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
 }
 
 /// Returns `true` if the `mise` binary is reachable on `PATH`. A failed
-/// `Command::output()` indicates the binary couldn't be spawned —
+/// `Command::output()` indicates the binary couldn't be spawned --
 /// typically because it's not installed or the test is hiding `PATH`.
 #[must_use]
 pub fn mise_is_available() -> bool {

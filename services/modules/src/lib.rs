@@ -1,11 +1,15 @@
 use std::path::PathBuf;
 
 use actix_files::Files;
-use actix_web::{HttpResponse, web};
+use actix_web::web;
 use edge_toolkit::config::default_modules_folders;
 use serde::Deserialize;
 use serde_default::DefaultFromSerde;
 use serde_inline_default::serde_inline_default;
+
+pub mod routes;
+
+pub use self::routes::list_modules_handler;
 
 /// Modules config.
 #[serde_inline_default]
@@ -84,20 +88,11 @@ pub fn list_modules(config: &ModulesConfig) -> Vec<(String, PathBuf)> {
     modules
 }
 
-#[expect(
-    clippy::single_call_fn,
-    reason = "actix-web route handler; registered via web::get().to(...)"
-)]
-async fn list_modules_handler(config: web::Data<ModulesConfig>) -> HttpResponse {
-    let names: Vec<String> = list_modules(&config).into_iter().map(|(name, _)| name).collect();
-    HttpResponse::Ok().json(names)
-}
-
 /// Register `GET /modules/` (JSON list), `GET /modules/{name}/...` (static files),
 /// and `GET /` (root module).
 ///
 /// # Panics
-/// Panics if `config.root` is not present in `config.paths` — server config
+/// Panics if `config.root` is not present in `config.paths` -- server config
 /// is fatal early so the operator sees the misconfiguration at startup.
 #[expect(
     clippy::panic,

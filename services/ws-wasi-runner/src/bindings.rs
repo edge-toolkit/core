@@ -14,15 +14,19 @@
     reason = "wasmtime::component::bindgen! generates the API surface from WIT; we don't control its lints"
 )]
 
+//! wasmtime-bindgen output for the `runner` world declared in
+//! `generated/specs/wit/world.wit`. Every WIT type defined in the world or
+//! its dep packages is reachable through `crate::bindings::<namespace>`.
+//!
+//! The `with:` map points wasi-webgpu's resource types at our wgpu-backed
+//! payload structs (defined in `host::wasi_webgpu`); without it, the
+//! bindgen-generated marker structs would be opaque and the `resource_table`
+//! couldn't carry real wgpu objects.
 wasmtime::component::bindgen!({
-    path: "wit",
+    path: "../../generated/specs/wit",
     world: "runner",
     imports: { default: async },
     exports: { default: async },
-    // Map every wasi-webgpu resource to a payload type owned by us so
-    // resource_table operations work on real wgpu objects rather than
-    // bindgen-generated marker structs. The types live in
-    // `host::wasi_webgpu` and are wgpu-backed for the matmul subset.
     with: {
         "wasi:keyvalue/store.bucket": super::host::wasi_keyvalue::Bucket,
         "wasi:webgpu/webgpu.gpu": super::host::wasi_webgpu::Gpu,

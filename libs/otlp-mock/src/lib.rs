@@ -5,7 +5,7 @@
 //! point their OTLP exporters at this collector, then the test reads the
 //! captured spans back to assert that trace ids match.
 //!
-//! This is **not** a real OTLP implementation — it just buffers JSON
+//! This is **not** a real OTLP implementation -- it just buffers JSON
 //! payloads. The endpoints match the URL shape `et-otlp::init` produces:
 //!
 //!   - `POST <collector_url>/traces`
@@ -38,7 +38,7 @@ struct Captured {
 /// Handle to a running mock collector.
 ///
 /// The server is shut down when this struct is dropped (the actix runtime is
-/// owned by the spawned thread — when our struct goes out of scope, the
+/// owned by the spawned thread -- when our struct goes out of scope, the
 /// spawned thread's tokio runtime stays alive but the handle pointing at it
 /// is dropped, which is fine for test scope).
 pub struct OtlpMock {
@@ -49,7 +49,7 @@ pub struct OtlpMock {
 impl OtlpMock {
     /// Pass this to `OTLP_COLLECTOR_URL` in env so OTLP exporters target
     /// the mock. Trace endpoint is `<collector_url>/traces`; logs is
-    /// `<collector_url>/logs` — matches `et_otlp::init`'s URL convention.
+    /// `<collector_url>/logs` -- matches `et_otlp::init`'s URL convention.
     #[must_use]
     pub fn collector_url(&self) -> &str {
         &self.collector_url
@@ -72,7 +72,7 @@ impl OtlpMock {
     /// Walk every span across every captured request, returning each span
     /// with its parent `Resource`'s `service.name` attribute (so the test
     /// can group spans by service). Trace and span ids stay as the
-    /// base64-encoded strings the OTLP/HTTP-JSON encoding uses — equality
+    /// base64-encoded strings the OTLP/HTTP-JSON encoding uses -- equality
     /// comparison is what tests need, not decoding.
     #[must_use]
     pub fn flatten_spans(&self) -> Vec<FlatSpan> {

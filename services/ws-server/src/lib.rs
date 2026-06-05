@@ -2,18 +2,13 @@ use actix_web::{HttpResponse, web};
 pub use et_ws_service::{AgentSession, WsAgentRegistry};
 
 pub mod config;
+pub mod routes;
 
+pub use self::routes::health;
 use crate::config::Config;
 
 pub async fn no_content() -> HttpResponse {
     HttpResponse::NoContent().finish()
-}
-
-pub async fn health() -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({
-        "status": "healthy",
-        "service": "ws-server"
-    }))
 }
 
 pub fn configure_app(cfg: &mut web::ServiceConfig, agent_registry: web::Data<WsAgentRegistry>, config: &Config) {

@@ -20,4 +20,5 @@ ignores:
   # WIT-bindgen host impls return `Result<_, String>` because the WIT
   # `ws-error` / etc. on the host side is generated as a String alias.
   # The helper trait that builds that shape lives here.
+  - services/ws-wasi-runner/src/error.rs
   - services/ws-wasi-runner/src/host/error.rs

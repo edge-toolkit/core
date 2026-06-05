@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-use edge_toolkit::ws::{ConnectStatus, WsMessage};
+use edge_toolkit::ws::{ClientMessage, ConnectStatus, ServerMessage};
 use et_web::JsResultExt as _;
 use tracing::{error, info, warn};
 use wasm_bindgen::prelude::*;
@@ -164,7 +164,7 @@ impl WsClient {
     #[expect(
         clippy::too_many_lines,
         clippy::cognitive_complexity,
-        reason = "single-method connect+wire-up; on_message closure dispatches all WsMessage variants inline"
+        reason = "single-method connect+wire-up; on_message closure dispatches all ServerMessage variants inline"
     )]
     pub fn connect(&mut self) -> Result<(), JsValue> {
         info!("Connecting to WebSocket server: {}", self.config.server_url);
@@ -220,9 +220,9 @@ impl WsClient {
                 if let Some(data) = event.data().as_string() {
                     info!("Received: {}", data);
                     // Try to parse and handle the message
-                    if let Ok(msg) = serde_json::from_str::<WsMessage>(&data) {
+                    if let Ok(msg) = serde_json::from_str::<ServerMessage>(&data) {
                         match msg {
-                            WsMessage::ConnectAck { agent_id, status } => {
+                            ServerMessage::ConnectAck { agent_id, status } => {
                                 info!(
                                     "Server connect acknowledgement: agent_id={} status={:?}",
                                     agent_id, status
@@ -240,22 +240,13 @@ impl WsClient {
                                     }
                                 }
                             }
-                            WsMessage::Response { message } => {
+                            ServerMessage::Response { message } => {
                                 info!("Server response: {}", message);
                             }
-                            WsMessage::ListAgents => {
-                                warn!("Unexpected list_agents message from server");
-                            }
-                            WsMessage::ListAgentsResponse { agents } => {
+                            ServerMessage::ListAgentsResponse { agents } => {
                                 info!("Server returned {} agents", agents.len());
                             }
-                            WsMessage::SendAgentMessage { .. } => {
-                                warn!("Unexpected send_agent_message request from server");
-                            }
-                            WsMessage::BroadcastMessage { .. } => {
-                                warn!("Unexpected broadcast_message request from server");
-                            }
-                            WsMessage::AgentMessage {
+                            ServerMessage::AgentMessage {
                                 message_id,
                                 from_agent_id,
                                 scope,
@@ -267,30 +258,21 @@ impl WsClient {
                                     scope, message_id, from_agent_id, server_received_at
                                 );
                             }
-                            WsMessage::MessageAck { .. } => {
-                                warn!("Unexpected message_ack from server");
-                            }
-                            WsMessage::MessageStatus {
+                            ServerMessage::MessageStatus {
                                 message_id,
                                 status,
                                 detail,
                             } => {
                                 info!("Message status update {:?} {:?}: {}", message_id, status, detail);
                             }
-                            WsMessage::Invalid { message_id, detail } => {
+                            ServerMessage::Invalid { message_id, detail } => {
                                 warn!("Invalid server message {:?}: {}", message_id, detail);
                             }
-                            WsMessage::Alive { .. } => {
-                                warn!("Unexpected alive message from server");
+                            ServerMessage::RelayText { content } => {
+                                info!("Server relayed text frame ({} bytes)", content.len());
                             }
-                            WsMessage::ClientEvent { .. } => {
-                                warn!("Unexpected client_event message from server");
-                            }
-                            WsMessage::Connect { .. } => {
-                                warn!("Unexpected connect message from server");
-                            }
-                            WsMessage::StoreFile { .. } | WsMessage::FetchFile { .. } => {
-                                warn!("Unexpected file storage request from server");
+                            ServerMessage::RelayBinary { content } => {
+                                info!("Server relayed binary frame ({} bytes)", content.len());
                             }
                         }
                     }
@@ -368,7 +350,7 @@ impl WsClient {
         }
 
         let timestamp = chrono::Utc::now().to_rfc3339();
-        let msg = WsMessage::Alive { timestamp };
+        let msg = ClientMessage::Alive { timestamp };
 
         let json = serde_json::to_string(&msg).js_context("Failed to serialize message")?;
 
@@ -563,7 +545,7 @@ impl WsClient {
 
     fn send_connect_message(&self) -> Result<(), JsValue> {
         let state = self.shared.borrow();
-        let msg = WsMessage::Connect {
+        let msg = ClientMessage::Connect {
             agent_id: self.agent_id.borrow().clone(),
         };
 
@@ -692,12 +674,13 @@ impl WsClient {
 )]
 impl WsClient {
     pub fn request_list_agents(&self) -> Result<(), JsValue> {
-        let payload = serde_json::to_string(&WsMessage::ListAgents).js_context("Failed to serialize list_agents")?;
+        let payload =
+            serde_json::to_string(&ClientMessage::ListAgents).js_context("Failed to serialize list_agents")?;
         self.send(&payload)
     }
 
     pub fn broadcast_message(&self, message: serde_json::Value) -> Result<(), JsValue> {
-        let payload = serde_json::to_string(&WsMessage::BroadcastMessage { message })
+        let payload = serde_json::to_string(&ClientMessage::BroadcastMessage { message })
             .js_context("Failed to serialize broadcast message")?;
         self.send(&payload)
     }
@@ -707,7 +690,7 @@ impl WsClient {
         to_agent_id: T,
         message: serde_json::Value,
     ) -> Result<(), JsValue> {
-        let payload = serde_json::to_string(&WsMessage::SendAgentMessage {
+        let payload = serde_json::to_string(&ClientMessage::SendAgentMessage {
             to_agent_id: to_agent_id.into(),
             message,
         })
@@ -721,7 +704,7 @@ impl WsClient {
         action: A,
         details: serde_json::Value,
     ) -> Result<(), JsValue> {
-        let message = WsMessage::ClientEvent {
+        let message = ClientMessage::ClientEvent {
             capability: capability.into(),
             action: action.into(),
             details,

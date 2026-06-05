@@ -1,0 +1,11 @@
+name: et_ws
+description: Typed Dart client for the Edge Toolkit WebSocket protocol.
+publish_to: none
+version: 0.1.0
+
+environment:
+  # Must stay ≥ 3.7 so `dart format` consistently picks the post-3.7 "tall"
+  # style — relying on the older short style was flaky between macOS and
+  # Linux even on identical Dart SDK versions (dart-fmt-check found drift on
+  # the generated client when the constraint was ^3.4.0).
+  sdk: ^3.11.5

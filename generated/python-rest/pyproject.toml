@@ -1,0 +1,15 @@
+[project]
+dependencies = ["attrs>=23", "httpx>=0.25"]
+description = "Generated REST client for the Edge Toolkit ws-server API"
+license = "Apache-2.0 OR MIT"
+name = "et-rest-client"
+requires-python = ">=3.10"
+version = "0.1.0"
+
+[build-system]
+build-backend = "uv_build"
+requires = ["uv_build>=0.10.2,<0.11.0"]
+
+[tool.uv.build-backend]
+module-name = "et_rest_client"
+module-root = ""

@@ -24,11 +24,29 @@ import json
 import struct
 
 from componentize_py_types import Err
-from wit_world.exports.entry import RunError_Other, RunError_Precondition, RunError_Store, RunError_Ws
-from wit_world.imports import logging, monotonic_clock, poll, store, webgpu, ws
-from wit_world.imports.logging import Level
+from wit_world.exports.entry import (
+    EntryError_Nn,
+    EntryError_Runtime,
+    EntryError_Store,
+    EntryError_Webgpu,
+    EntryError_Ws,
+    NnError,
+    NnErrorCode,
+    WebgpuError,
+)
+from wit_world.imports import errors as nn_errors
 from wit_world.imports import graph as nn_graph
+from wit_world.imports import (
+    logging,
+    messages,
+    monotonic_clock,
+    poll,
+    store,
+    webgpu,
+    ws,
+)
 from wit_world.imports.graph import ExecutionTarget, GraphEncoding
+from wit_world.imports.logging import Level
 from wit_world.imports.tensor import Tensor, TensorType
 from wit_world.imports.webgpu import (
     GpuBindGroupDescriptor,
@@ -49,7 +67,19 @@ from wit_world.imports.webgpu import (
     GpuShaderModuleDescriptor,
     GpuShaderStage,
 )
+from wit_world.imports.ws import (
+    WsError_AlreadyConnected,
+    WsError_Decode,
+    WsError_NotConnected,
+    WsError_Transport,
+)
 
+_WS_ERROR_VARIANTS = (
+    WsError_Transport,
+    WsError_Decode,
+    WsError_NotConnected,
+    WsError_AlreadyConnected,
+)
 
 # An all-zero 28x28 input is the simplest reproducible MNIST query - bytes
 # don't drift across rebuilds and we don't have to ship a real digit image.
@@ -132,7 +162,15 @@ def _log(message: str) -> None:
 
 
 def _send_event(category: str, kind: str, body: dict) -> None:
-    ws.send_event(category, kind, json.dumps(body))
+    ws.send(
+        messages.ClientMessage_ClientEvent(
+            messages.ClientEventPayload(
+                capability=category,
+                action=kind,
+                details=json.dumps(body),
+            )
+        )
+    )
 
 
 def _now_ms() -> int:
@@ -206,7 +244,11 @@ def _run_matmul() -> dict:
     gpu = webgpu.get_gpu()
     adapter = gpu.request_adapter(None)
     if adapter is None:
-        raise RuntimeError("wasi-webgpu: no GPU adapter available")
+        raise Err(
+            EntryError_Webgpu(
+                WebgpuError(operation="request-adapter", kind="not-available", message="no GPU adapter available")
+            )
+        )
 
     info = adapter.info()
     gpu_info = {
@@ -370,7 +412,7 @@ def _mnist_inference() -> dict:
     _log(f"inference complete in {elapsed_ms}ms")
 
     if not outputs:
-        raise RuntimeError("wasi-nn returned no outputs")
+        raise Err(EntryError_Nn(NnError(code=NnErrorCode.UNKNOWN, data="compute returned no outputs")))
 
     out_name, out_tensor = outputs[0]
     if out_name != MNIST_OUTPUT_NAME:
@@ -402,43 +444,58 @@ def _mnist_inference() -> dict:
     }
 
 
-# `WsError` and `store.Error` are typing.Union aliases (no runtime
-# class), so `isinstance` against them is meaningless — match against
-# the concrete variant dataclasses instead.
-_WS_ERROR_VARIANTS = (
-    ws.WsError_NotConnected,
-    ws.WsError_AlreadyConnected,
-    ws.WsError_InboxClosed,
-    ws.WsError_Transport,
-    ws.WsError_Protocol,
-)
 _STORE_ERROR_VARIANTS = (
     store.Error_NoSuchStore,
     store.Error_AccessDenied,
     store.Error_Other,
 )
 
+_WEBGPU_ERROR_TYPES = (
+    webgpu.RequestDeviceError,
+    webgpu.MapAsyncError,
+    webgpu.CreatePipelineError,
+    webgpu.GetMappedRangeError,
+    webgpu.SetBindGroupError,
+    webgpu.UnmapError,
+    webgpu.WriteBufferError,
+)
+
+
+def _webgpu_to_entry(value: object) -> WebgpuError:
+    operation = type(value).__name__.removesuffix("Error")
+    kind = type(getattr(value, "kind", value)).__name__
+    message = getattr(value, "message", "") or ""
+    return WebgpuError(operation=operation, kind=kind, message=message)
+
 
 class Entry:
-    """Implements the `entry` interface exported by the world."""
+    """Implements the `entry` interface exported by the world.
+
+    componentize-py renders the success path as `-> None` and failures as
+    `raise Err(<variant case>)`. Workflow code lives in `_run_workflow`;
+    this wrapper lifts upstream WASI failure values bubbling up from any
+    call into the matching `EntryError_*` arm so the host runner sees a
+    typed cause instead of a stringified `Runtime` blob.
+    """
 
     def run(self) -> None:
-        """WIT signature is `run: func() -> result<_, run-error>`.
-        componentize-py renders the success path as `-> None` and
-        failures as `raise Err(RunError_*(...))`. Workflow code lives
-        in `_run_workflow`; this wrapper buckets the WIT errors raised
-        by the host imports (`ws.WsError`, `store.Error`) into the
-        matching `RunError_*` variant.
-        """
         try:
             _run_workflow()
         except Err as exc:
             value = exc.value
             if isinstance(value, _WS_ERROR_VARIANTS):
-                raise Err(RunError_Ws(str(value))) from exc
+                raise Err(EntryError_Ws(value)) from exc
             if isinstance(value, _STORE_ERROR_VARIANTS):
-                raise Err(RunError_Store(str(value))) from exc
-            raise Err(RunError_Other(str(value))) from exc
+                raise Err(EntryError_Store(value)) from exc
+            if isinstance(value, nn_errors.Error):
+                # Resource handle from wasi-nn; flatten to the value
+                # record before re-raising.
+                raise Err(EntryError_Nn(NnError(code=NnErrorCode(value.code().value), data=value.data()))) from exc
+            if isinstance(value, _WEBGPU_ERROR_TYPES):
+                raise Err(EntryError_Webgpu(_webgpu_to_entry(value))) from exc
+            # No wasi:io/error import in this world; `EntryError_Io` is
+            # reserved for future stream-using guests.
+            raise Err(EntryError_Runtime(str(value))) from exc
 
 
 def _run_workflow() -> None:
@@ -446,7 +503,7 @@ def _run_workflow() -> None:
 
     ws.connect()
     if not _wait_for_connected():
-        raise Err(RunError_Precondition("websocket did not reach connected state"))
+        raise Err(EntryError_Runtime("websocket did not reach connected state"))
 
     agent_id = ws.agent_id()
     _log(f"websocket connected with agent_id={agent_id}")

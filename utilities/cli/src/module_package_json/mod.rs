@@ -27,7 +27,7 @@ struct Project {
 #[derive(Deserialize, Default)]
 struct WsModule {
     /// Override for the resolved entry file (relative to `pkg/`). When
-    /// `None`, the entry is derived from the package name — see
+    /// `None`, the entry is derived from the package name -- see
     /// [`resolve_main`].
     #[serde(default)]
     main: Option<String>,
@@ -95,6 +95,7 @@ enum MaybeInherited {
     },
 }
 
+/// Writes `<module_dir>/pkg/package.json` from the module's `pyproject.toml` or `Cargo.toml`.
 pub fn generate_module_package_json(module_dir: &Path) -> Result<PathBuf, CliError> {
     let out_path = module_dir.join("pkg/package.json");
     let package_json = if module_dir.join("pyproject.toml").is_file() {

@@ -3,8 +3,9 @@ use std::time::{Duration, Instant};
 
 use actix_web::{Error, HttpRequest, HttpResponse, web};
 use actix_ws::{AggregatedMessage, AggregatedMessageStream, CloseCode, CloseReason, Session};
+use bytes::Bytes;
 use chrono::Utc;
-use edge_toolkit::ws::{ConnectStatus, MessageDeliveryStatus, MessageScope, WsMessage};
+use edge_toolkit::ws::{ClientMessage, ConnectStatus, MessageDeliveryStatus, MessageScope, ServerMessage};
 use edge_toolkit::ws_server::{AgentRecord, AgentRegistry, PendingDirectMessage, RegistryError};
 use futures_util::StreamExt as _;
 use opentelemetry::{
@@ -18,7 +19,26 @@ use uuid::Uuid;
 pub const CONNECTION_TIMEOUT: Duration = Duration::from_secs(15);
 pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
 
-pub type AgentSession = UnboundedSender<WsMessage>;
+/// Outbound envelope written to an agent's websocket session.
+///
+/// `Json` is the normal path for protocol messages. `Text` and `Binary` carry
+/// payloads the server forwards verbatim -- used by the hub-style fallback
+/// that broadcasts unrecognised frames to every other connected agent.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum SessionMessage {
+    Json(ServerMessage),
+    Text(String),
+    Binary(Bytes),
+}
+
+impl From<ServerMessage> for SessionMessage {
+    fn from(value: ServerMessage) -> Self {
+        Self::Json(value)
+    }
+}
+
+pub type AgentSession = UnboundedSender<SessionMessage>;
 pub type WsAgentRegistry = AgentRegistry<AgentSession>;
 
 // Deserialize using a session-less record type, then convert.
@@ -39,7 +59,7 @@ pub fn load_registry(path: &std::path::Path) -> Result<WsAgentRegistry, Registry
         );
         return Ok(WsAgentRegistry::default());
     }
-    let yaml = std::fs::read_to_string(path)?;
+    let yaml = fs_err::read_to_string(path)?;
     let bare: BTreeMap<String, BareRecord> = serde_yaml::from_str(&yaml)?;
     let agents = bare
         .into_iter()
@@ -99,7 +119,7 @@ impl Connection {
         (assigned_id, status)
     }
 
-    async fn send_json(&mut self, response: &WsMessage) {
+    async fn send_json(&mut self, response: &ServerMessage) {
         match serde_json::to_string(response) {
             Ok(json) => {
                 if let Err(err) = self.session.text(json).await {
@@ -116,13 +136,25 @@ impl Connection {
         }
     }
 
+    async fn send_text(&mut self, text: String) {
+        if let Err(err) = self.session.text(text).await {
+            warn!("Failed to forward text to {}: {:?}", self.current_agent_id(), err);
+        }
+    }
+
+    async fn send_binary(&mut self, bytes: Bytes) {
+        if let Err(err) = self.session.binary(bytes).await {
+            warn!("Failed to forward binary to {}: {:?}", self.current_agent_id(), err);
+        }
+    }
+
     async fn send_status(
         &mut self,
         message_id: Option<String>,
         status: MessageDeliveryStatus,
         detail: impl Into<String>,
     ) {
-        self.send_json(&WsMessage::MessageStatus {
+        self.send_json(&ServerMessage::MessageStatus {
             message_id,
             status,
             detail: detail.into(),
@@ -131,7 +163,7 @@ impl Connection {
     }
 
     async fn send_invalid(&mut self, message_id: Option<String>, detail: impl Into<String>) {
-        self.send_json(&WsMessage::Invalid {
+        self.send_json(&ServerMessage::Invalid {
             message_id,
             detail: detail.into(),
         })
@@ -147,7 +179,7 @@ impl Connection {
                 "Delivering pending message {} to agent {} from {}",
                 pending.message_id, agent_id, pending.from_agent_id
             );
-            self.send_json(&WsMessage::AgentMessage {
+            self.send_json(&ServerMessage::AgentMessage {
                 message_id: pending.message_id,
                 from_agent_id: pending.from_agent_id,
                 scope: MessageScope::Direct,
@@ -180,13 +212,13 @@ impl Connection {
                 "Direct message {} delivered from {} to {}",
                 message_id, from_agent_id, to_agent_id
             );
-            drop(recipient.send(WsMessage::AgentMessage {
+            drop(recipient.send(SessionMessage::Json(ServerMessage::AgentMessage {
                 message_id: message_id.clone(),
                 from_agent_id,
                 scope: MessageScope::Direct,
                 server_received_at: pending.server_received_at,
                 message: pending.message,
-            }));
+            })));
             self.send_status(
                 Some(message_id),
                 MessageDeliveryStatus::Delivered,
@@ -208,11 +240,40 @@ impl Connection {
         span.end();
     }
 
+    /// Hub-style fallback: forward raw text to every connected agent except
+    /// the sender. Used by the `RelayText` / `RelayBinary` arms of the
+    /// inbound dispatcher when a frame doesn't carry our `et-*` tag.
+    fn broadcast_raw_text(&self, from_agent_id: &str, text: &str) {
+        let recipients = self.registry.connected_sessions(from_agent_id);
+        info!(
+            "Broadcasting unrecognised text message from {} to {} agent(s)",
+            from_agent_id,
+            recipients.len()
+        );
+        for (_, recipient) in recipients {
+            drop(recipient.send(SessionMessage::Text(text.to_string())));
+        }
+    }
+
+    /// Hub-style fallback for binary frames -- same shape as the text path.
+    fn broadcast_raw_binary(&self, from_agent_id: &str, bytes: &Bytes) {
+        let recipients = self.registry.connected_sessions(from_agent_id);
+        info!(
+            "Broadcasting unrecognised binary message ({} bytes) from {} to {} agent(s)",
+            bytes.len(),
+            from_agent_id,
+            recipients.len()
+        );
+        for (_, recipient) in recipients {
+            drop(recipient.send(SessionMessage::Binary(bytes.clone())));
+        }
+    }
+
     /// Returns `false` when the connection should terminate.
     #[expect(
         clippy::cognitive_complexity,
         clippy::too_many_lines,
-        reason = "single dispatcher for inbound WsMessage variants; splitting scatters handlers into trivial helpers"
+        reason = "single dispatcher for inbound ClientMessage variants; splitting it scatters handlers into trivial fns"
     )]
     async fn handle_inbound(&mut self, msg: AggregatedMessage) -> bool {
         match msg {
@@ -220,8 +281,19 @@ impl Connection {
                 self.mark_activity();
                 let _pong: Result<(), actix_ws::Closed> = self.session.pong(&ping).await;
             }
-            AggregatedMessage::Pong(_) | AggregatedMessage::Binary(_) => {
+            AggregatedMessage::Pong(_) => {
                 self.mark_activity();
+            }
+            AggregatedMessage::Binary(bytes) => {
+                self.mark_activity();
+                if let Some(from_agent_id) = self.assigned_agent_id().map(str::to_string) {
+                    self.broadcast_raw_binary(&from_agent_id, &bytes);
+                } else {
+                    warn!(
+                        "Dropping binary frame from unassigned client {}: agent must connect first",
+                        self.client_ip
+                    );
+                }
             }
             AggregatedMessage::Close(reason) => {
                 self.mark_activity();
@@ -242,9 +314,12 @@ impl Connection {
                 let mut span = tracer.start("ws.message.received");
                 info!("Received message from client {}: {:?}", self.current_agent_id(), text);
 
-                if let Ok(msg) = serde_json::from_str::<WsMessage>(&text) {
-                    match msg {
-                        WsMessage::Connect { agent_id } => {
+                match ClientMessage::from_text_frame(&text) {
+                    Err(err) => {
+                        warn!("Decode error for et-* frame from {}: {}", self.current_agent_id(), err);
+                    }
+                    Ok(msg) => match msg {
+                        ClientMessage::Connect { agent_id } => {
                             let requested_id = agent_id.clone();
                             info!(
                                 "Connect message: requested_agent_id={:?} client_ip={}",
@@ -255,7 +330,7 @@ impl Connection {
                                 "Agent {} status {:?}connected from IP {}",
                                 assigned_id, status, self.client_ip
                             );
-                            self.send_json(&WsMessage::ConnectAck {
+                            self.send_json(&ServerMessage::ConnectAck {
                                 agent_id: assigned_id,
                                 status: status.clone(),
                             })
@@ -267,23 +342,23 @@ impl Connection {
                             );
                             self.deliver_pending_messages().await;
                         }
-                        WsMessage::Alive { timestamp } => {
+                        ClientMessage::Alive { timestamp } => {
                             info!("Alive message from client {} at {}", self.current_agent_id(), timestamp);
-                            self.send_json(&WsMessage::Response {
+                            self.send_json(&ServerMessage::Response {
                                 message: format!("Alive message received at {}", Utc::now().to_rfc3339()),
                             })
                             .await;
                         }
-                        WsMessage::ListAgents => {
+                        ClientMessage::ListAgents => {
                             let agents = self.registry.list_agents();
                             info!(
                                 "Agent {} requested list_agents; returning {} agents",
                                 self.current_agent_id(),
                                 agents.len()
                             );
-                            self.send_json(&WsMessage::ListAgentsResponse { agents }).await;
+                            self.send_json(&ServerMessage::ListAgentsResponse { agents }).await;
                         }
-                        WsMessage::SendAgentMessage { to_agent_id, message } => {
+                        ClientMessage::SendAgentMessage { to_agent_id, message } => {
                             let Some(from_agent_id) = self.assigned_agent_id().map(str::to_string) else {
                                 self.send_invalid(None, "agent must connect before sending messages")
                                     .await;
@@ -314,7 +389,7 @@ impl Connection {
                                 .await;
                             return true;
                         }
-                        WsMessage::BroadcastMessage { message } => {
+                        ClientMessage::BroadcastMessage { message } => {
                             let Some(from_agent_id) = self.assigned_agent_id().map(str::to_string) else {
                                 self.send_invalid(None, "agent must connect before broadcasting messages")
                                     .await;
@@ -325,18 +400,20 @@ impl Connection {
                             let recipients = self.registry.connected_sessions(&from_agent_id);
                             let message_id = Uuid::now_v7().to_string();
                             let server_received_at = Utc::now().to_rfc3339();
-                            for (recipient_id, recipient) in &recipients {
-                                info!(
-                                    "Broadcast message {} from {} to {}",
-                                    message_id, from_agent_id, recipient_id
-                                );
-                                drop(recipient.send(WsMessage::AgentMessage {
+                            info!(
+                                "Broadcast message {} from {} to {} agent(s)",
+                                message_id,
+                                from_agent_id,
+                                recipients.len()
+                            );
+                            for (_, recipient) in &recipients {
+                                drop(recipient.send(SessionMessage::Json(ServerMessage::AgentMessage {
                                     message_id: message_id.clone(),
                                     from_agent_id: from_agent_id.clone(),
                                     scope: MessageScope::Broadcast,
                                     server_received_at: server_received_at.clone(),
                                     message: message.clone(),
-                                }));
+                                })));
                             }
                             self.send_status(
                                 Some(message_id),
@@ -345,7 +422,7 @@ impl Connection {
                             )
                             .await;
                         }
-                        WsMessage::MessageAck { message_id } => {
+                        ClientMessage::MessageAck { message_id } => {
                             let Some(recipient_agent_id) = self.assigned_agent_id().map(str::to_string) else {
                                 self.send_invalid(None, "agent must connect before acknowledging messages")
                                     .await;
@@ -366,11 +443,11 @@ impl Connection {
                                     )
                                     .await;
                                     if let Some(sender) = sender_session {
-                                        drop(sender.send(WsMessage::MessageStatus {
+                                        drop(sender.send(SessionMessage::Json(ServerMessage::MessageStatus {
                                             message_id: Some(message_id),
                                             status: MessageDeliveryStatus::Acknowledged,
                                             detail: format!("agent {recipient_agent_id} acknowledged receipt"),
-                                        }));
+                                        })));
                                     }
                                 }
                                 Err(error) => {
@@ -379,7 +456,7 @@ impl Connection {
                                 }
                             }
                         }
-                        WsMessage::ClientEvent {
+                        ClientMessage::ClientEvent {
                             capability,
                             action,
                             details,
@@ -413,50 +490,33 @@ impl Connection {
                                 details
                             );
                         }
-                        WsMessage::StoreFile { filename } => {
-                            let Some(agent_id) = self.assigned_agent_id().map(str::to_string) else {
-                                self.send_invalid(None, "agent must connect before storing files").await;
-                                span.end();
-                                return true;
-                            };
-                            let url = format!("/storage/{agent_id}/{filename}");
-                            info!("Agent {} requested storage URL for {}: {}", agent_id, filename, url);
-                            self.send_json(&WsMessage::Response {
-                                message: format!("PUT to {url}"),
-                            })
-                            .await;
+                        ClientMessage::RelayText { content } => {
+                            if let Some(from_agent_id) = self.assigned_agent_id().map(str::to_string) {
+                                self.broadcast_raw_text(&from_agent_id, &content);
+                            } else {
+                                warn!(
+                                    "Dropping relay-text from unassigned client {}: agent must connect first",
+                                    self.client_ip
+                                );
+                            }
                         }
-                        WsMessage::FetchFile { agent_id, filename } => {
-                            let url = format!("/storage/{agent_id}/{filename}");
-                            info!(
-                                "Agent {} requested fetch URL for {}/{}",
-                                self.current_agent_id(),
-                                agent_id,
-                                filename
-                            );
-                            self.send_json(&WsMessage::Response {
-                                message: format!("GET from {url}"),
-                            })
-                            .await;
+                        ClientMessage::RelayBinary { content } => {
+                            // A binary tungstenite frame is dispatched
+                            // by the outer `AggregatedMessage::Binary`
+                            // arm. If a client explicitly sends
+                            // `{"type":"et-relay-binary",...}` as a
+                            // text frame, honour it by relaying the
+                            // payload as a binary frame.
+                            if let Some(from_agent_id) = self.assigned_agent_id().map(str::to_string) {
+                                self.broadcast_raw_binary(&from_agent_id, &Bytes::from(content));
+                            } else {
+                                warn!(
+                                    "Dropping relay-binary from unassigned client {}: agent must connect first",
+                                    self.client_ip
+                                );
+                            }
                         }
-                        WsMessage::ConnectAck { .. }
-                        | WsMessage::ListAgentsResponse { .. }
-                        | WsMessage::AgentMessage { .. }
-                        | WsMessage::MessageStatus { .. }
-                        | WsMessage::Invalid { .. }
-                        | WsMessage::Response { .. } => {
-                            warn!(
-                                "Unexpected server-originated message from client {}",
-                                self.current_agent_id()
-                            );
-                        }
-                    }
-                } else {
-                    warn!(
-                        "Received unrecognized message from client {}: {}",
-                        self.current_agent_id(),
-                        text
-                    );
+                    },
                 }
                 span.end();
             }
@@ -470,7 +530,7 @@ impl Connection {
         clippy::integer_division_remainder_used,
         reason = "actix-ws AggregatedMessageStream is Rc-backed and !Send; tokio::select! macro uses % internally"
     )]
-    async fn run(mut self, mut stream: AggregatedMessageStream, mut outbound: UnboundedReceiver<WsMessage>) {
+    async fn run(mut self, mut stream: AggregatedMessageStream, mut outbound: UnboundedReceiver<SessionMessage>) {
         let tracer = global::tracer("ws-server");
         let mut connect_span = tracer.start("ws.connect");
         info!(
@@ -502,7 +562,11 @@ impl Connection {
                     }
                 }
                 Some(envelope) = outbound.recv() => {
-                    self.send_json(&envelope).await;
+                    match envelope {
+                        SessionMessage::Json(message) => self.send_json(&message).await,
+                        SessionMessage::Text(text) => self.send_text(text).await,
+                        SessionMessage::Binary(bytes) => self.send_binary(bytes).await,
+                    }
                 }
                 _ = heartbeat.tick() => {
                     let idle_for = Instant::now().saturating_duration_since(self.last_activity);
@@ -561,7 +625,7 @@ pub async fn ws_handler(
     let (response, session, msg_stream) = actix_ws::handle(&req, body)?;
     let stream = msg_stream.max_frame_size(64 * 1024).aggregate_continuations();
 
-    let (tx, rx) = mpsc::unbounded_channel::<WsMessage>();
+    let (tx, rx) = mpsc::unbounded_channel::<SessionMessage>();
     let conn = Connection::new(registry.get_ref().clone(), client_ip, session, tx);
 
     let _join = actix_web::rt::spawn(async move {

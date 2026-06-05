@@ -154,7 +154,7 @@ impl NfcScanResult {
     clippy::as_conversions,
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
-    reason = "JS number→u32 array length conversion via f64; no native u32 type"
+    reason = "JS number->u32 array length conversion via f64; no native u32 type"
 )]
 fn summarize_ndef_records(event: &JsValue) -> String {
     let Ok(message) = js_sys::Reflect::get(event, &JsValue::from_str("message")) else {

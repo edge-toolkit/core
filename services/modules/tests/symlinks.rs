@@ -45,7 +45,7 @@ fn aube_layout_fixture() -> (TempDir, TempDir, ModulesConfig) {
     .unwrap();
     fs::write(real_pkg.join("dist/ort.min.js"), ORT_BUNDLE).unwrap();
 
-    // Also drop an et-ws-server-static stub next to it — `configure`
+    // Also drop an et-ws-server-static stub next to it -- `configure`
     // panics if the configured `root` module can't be found, so we
     // satisfy that requirement here too.
     let static_root = store.path().join("et-ws-server-static");
@@ -74,8 +74,8 @@ async fn list_modules_follows_symlinks_to_package_dirs() {
 
     let found: Vec<(String, PathBuf)> = list_modules(&config);
 
-    // Both packages — the symlinked target onnxruntime-web and the
-    // symlinked stub root module — should be discovered.
+    // Both packages -- the symlinked target onnxruntime-web and the
+    // symlinked stub root module -- should be discovered.
     let by_name: std::collections::HashMap<&str, &PathBuf> =
         found.iter().map(|(name, path)| (name.as_str(), path)).collect();
     let pkg_path = by_name

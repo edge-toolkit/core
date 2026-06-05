@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:js_interop';
+
+import 'package:et_ws/ws_messages.dart';
 
 // JS interop declarations for et_ws_wasm_agent
 @JS()
@@ -77,6 +80,10 @@ Future<String> waitForAgentId(WsClient client) async {
   throw Exception('Timeout waiting for agent_id');
 }
 
+void send(WsClient client, WsClientMessage message) {
+  client.send(jsonEncode(message.toJson()));
+}
+
 Future<void> run() async {
   log('entered run()');
 
@@ -89,25 +96,28 @@ Future<void> run() async {
     ((JSString raw) {
       final data = raw.toDart;
       try {
-        // Parse type field manually to avoid a JSON dep
-        if (data.contains('"list_agents_response"')) {
-          // Extract first other connected agent id
-          final idMatches = RegExp(
-            r'"agent_id"\s*:\s*"([^"]+)"',
-          ).allMatches(data);
-          for (final m in idMatches) {
-            final id = m.group(1)!;
-            if (id != selfAgentId) {
-              targetAgentId = id;
-              break;
+        final message = WsServerMessage.fromJson(
+          jsonDecode(data) as Map<String, dynamic>,
+        );
+        switch (message) {
+          case WsListAgentsResponse(:final agents):
+            for (final summary in agents) {
+              if (summary.agentId != selfAgentId) {
+                targetAgentId = summary.agentId;
+                break;
+              }
             }
-          }
-        } else if (data.contains('"agent_message"') ||
-            data.contains('"message_status"')) {
-          log('received: $data');
-          appendOutput(data);
+          case WsAgentMessage() || WsMessageStatus():
+            log('received: $data');
+            appendOutput(data);
+          default:
+          // ignore other protocol messages (connect_ack etc.)
         }
-      } catch (_) {}
+      } on FormatException {
+        // Unknown message type — server may have broadcast an opaque frame.
+      } catch (_) {
+        // Malformed JSON or schema mismatch — ignore.
+      }
     }).toJS,
   );
 
@@ -118,20 +128,37 @@ Future<void> run() async {
 
   // Poll for a peer agent
   while (targetAgentId == null) {
-    client.send('{"type":"list_agents"}');
+    send(client, const WsListAgents());
     await sleep(1000);
   }
 
   log('found peer $targetAgentId, sending broadcast');
-  client.send(
-    '{"type":"broadcast_message","message":{"module":"dart-comm1","step":"broadcast","from_agent_id":"$selfAgentId","message":"dart-comm1 broadcast to all other connected agents"}}',
+  send(
+    client,
+    WsBroadcastMessage(
+      message: {
+        'module': 'dart-comm1',
+        'step': 'broadcast',
+        'from_agent_id': selfAgentId,
+        'message': 'dart-comm1 broadcast to all other connected agents',
+      },
+    ),
   );
 
   await sleep(3000);
 
   log('sending direct message to $targetAgentId');
-  client.send(
-    '{"type":"send_agent_message","to_agent_id":"$targetAgentId","message":{"module":"dart-comm1","step":"direct","from_agent_id":"$selfAgentId","message":"dart-comm1 direct message"}}',
+  send(
+    client,
+    WsSendAgentMessage(
+      toAgentId: targetAgentId!,
+      message: {
+        'module': 'dart-comm1',
+        'step': 'direct',
+        'from_agent_id': selfAgentId,
+        'message': 'dart-comm1 direct message',
+      },
+    ),
   );
 
   await sleep(3000);

@@ -5,20 +5,18 @@
 //! integration test only spins up a single runner, so the WASI port instead
 //! exercises the message round-trip with the server itself:
 //!   1. Connect and capture our `agent_id`.
-//!   2. Send `list_agents`, recv a `list_agents_response`, assert the list
+//!   2. Send `list-agents`, recv a `list-agents-response`, assert the list
 //!      contains our `agent_id` (we're at least in our own roster).
-//!   3. Send a `broadcast_message` (fire-and-forget when no peer is online).
+//!   3. Send a `broadcast-message` (fire-and-forget when no peer is online).
 //!   4. Disconnect cleanly.
 //!
-//! Wire-format messages are built with `serde_json::json!` and serialised
-//! before going through `ws.send-text`; recv'd frames are parsed with
-//! `serde_json::Value`. This mirrors the `WsMessage` enum in
-//! `libs/edge-toolkit/src/ws.rs` but avoids depending on that crate (its
-//! transitive deps don't all compile to wasm32-wasip2).
+//! Messages cross the WIT boundary as typed `ws-message` variants from the
+//! generated `et:ws-messages@0.1.0` package; opaque JSON payloads (the
+//! `message` field on broadcast/direct messages) round-trip as strings.
 
 // Crate-level cfg gate: wit-bindgen's generated extern declarations only
 // resolve on `wasm32-wasip2`. Gating the whole module on `target_os = "wasi"`
-// lets the crate sit in the parent workspace — `cargo check --workspace`
+// lets the crate sit in the parent workspace -- `cargo check --workspace`
 // from the repo root produces an empty cdylib for the host target without
 // linker errors.
 #![cfg(target_os = "wasi")]
@@ -30,18 +28,18 @@
 #![expect(unsafe_code)]
 
 wit_bindgen::generate!({
-    path: "../../ws-wasi-runner/wit",
+    path: "../../../generated/specs/wit",
     world: "module",
     generate_all,
 });
 
+use et::ws_messages::messages::{BroadcastMessagePayload, ClientMessage, ServerMessage};
 use et::ws_wasi::ws::WsError;
-use exports::et::ws_wasi::entry::{Guest, RunError};
-use serde_json::{Value, json};
+use exports::et::ws_wasi::entry::{EntryError, Guest};
 use wasi::logging::logging::{self, Level};
 
 const LOG_CONTEXT: &str = env!("CARGO_PKG_NAME");
-/// Total time we'll wait for a `list_agents_response`. The server replies
+/// Total time we'll wait for a `list-agents-response`. The server replies
 /// immediately under normal load, but we leave headroom for the inbox queue.
 const LIST_AGENTS_TIMEOUT_MS: u32 = 2_000;
 
@@ -49,52 +47,54 @@ fn info(message: &str) {
     logging::log(Level::Info, LOG_CONTEXT, message);
 }
 
-// Flatten the typed host-import error into `RunError::Ws(String)`.
-// Plain `From` rather than thiserror's `#[from]` because the
-// bindgen-generated `WsError` doesn't impl `Error`.
-impl From<WsError> for RunError {
-    fn from(source: WsError) -> Self {
-        RunError::Ws(format!("{source:?}"))
+// Lets `?` lift a `ws-error` into `entry-error.ws(...)` so the body of `run`
+// stays free of explicit `.map_err`s (which the workspace's no-map-err
+// ast-grep rule bans outside listed error.rs files anyway).
+impl From<WsError> for EntryError {
+    fn from(err: WsError) -> Self {
+        Self::Ws(err)
     }
 }
 
 struct Component;
 
 impl Guest for Component {
-    fn run() -> Result<(), RunError> {
+    fn run() -> Result<(), EntryError> {
         info("entered run()");
 
         et::ws_wasi::ws::connect()?;
-        let agent_id = wait_for_agent_id().ok_or_else(|| RunError::Precondition("did not receive agent_id".into()))?;
+        let agent_id =
+            wait_for_agent_id().ok_or_else(|| EntryError::Runtime("did not receive agent_id".to_string()))?;
         info(&format!("websocket connected with agent_id={agent_id}"));
 
-        send_message(&json!({ "type": "list_agents" }))?;
+        et::ws_wasi::ws::send(&ClientMessage::ListAgents)?;
 
-        let response = wait_for_message_kind("list_agents_response", LIST_AGENTS_TIMEOUT_MS)
-            .ok_or_else(|| RunError::Precondition("no list_agents_response within timeout".into()))?;
-        let agents = response
-            .get("agents")
-            .and_then(Value::as_array)
-            .ok_or_else(|| RunError::Precondition("list_agents_response missing `agents` array".into()))?;
-        info(&format!("list_agents_response: {} agent(s) registered", agents.len()));
+        let response = wait_for_list_agents_response(LIST_AGENTS_TIMEOUT_MS)
+            .ok_or_else(|| EntryError::Runtime("no list-agents-response within timeout".to_string()))?;
+        info(&format!(
+            "list-agents-response: {} agent(s) registered",
+            response.agents.len()
+        ));
 
-        let self_listed = agents
-            .iter()
-            .any(|a| a.get("agent_id").and_then(Value::as_str) == Some(agent_id.as_str()));
+        let self_listed = response.agents.iter().any(|a| a.agent_id == agent_id);
         if !self_listed {
-            return Err(RunError::Precondition(format!(
-                "own agent_id {agent_id} missing from list_agents_response"
+            return Err(EntryError::Runtime(format!(
+                "own agent_id {agent_id} missing from list-agents-response"
             )));
         }
         info("self present in roster");
 
-        send_message(&json!({
-            "type": "broadcast_message",
-            "message": {
-                "module": "wasi-comm1",
-                "from_agent_id": agent_id,
-                "message": "wasi-comm1 broadcast — likely peerless under the runner test",
-            }
+        let body = serde_json::json!({
+            "module": "wasi-comm1",
+            "from_agent_id": agent_id,
+            "message": "wasi-comm1 broadcast -- likely peerless under the runner test",
+        });
+        let body_str = match serde_json::to_string(&body) {
+            Ok(rendered) => rendered,
+            Err(e) => return Err(EntryError::Runtime(format!("serialize broadcast body: {e}"))),
+        };
+        et::ws_wasi::ws::send(&ClientMessage::BroadcastMessage(BroadcastMessagePayload {
+            message: body_str,
         }))?;
         info("broadcast sent");
 
@@ -104,30 +104,18 @@ impl Guest for Component {
     }
 }
 
-fn send_message(value: &Value) -> Result<(), RunError> {
-    // `Value::to_string` is infallible (uses `Display`) — `serde_json::to_string`
-    // would only fail on cases `Value` can't represent: non-string map keys,
-    // non-finite floats, or self-recursion. The two `json!()` literals in
-    // this file hit none of them.
-    et::ws_wasi::ws::send_text(&value.to_string())?;
-    Ok(())
-}
-
-/// Drain the recv inbox until we see a message whose `type` matches `kind`.
-/// Each `recv` call blocks for the remaining budget; we keep going until
-/// either the budget is exhausted or the inbox runs dry.
-fn wait_for_message_kind(kind: &str, total_timeout_ms: u32) -> Option<Value> {
+/// Drain the recv inbox until we see a `list-agents-response`. Each `recv`
+/// call blocks for the remaining budget; keep going until either the budget
+/// is exhausted or we get the message we want.
+fn wait_for_list_agents_response(
+    total_timeout_ms: u32,
+) -> Option<et::ws_messages::messages::ListAgentsResponsePayload> {
     let mut remaining = total_timeout_ms;
     while remaining > 0 {
         let chunk = remaining.min(200);
         match et::ws_wasi::ws::recv(chunk).ok()? {
-            Some(text) => {
-                if let Ok(value) = serde_json::from_str::<Value>(&text)
-                    && value.get("type").and_then(Value::as_str) == Some(kind)
-                {
-                    return Some(value);
-                }
-            }
+            Some(ServerMessage::ListAgentsResponse(payload)) => return Some(payload),
+            Some(_) => {}
             None => {}
         }
         remaining = remaining.saturating_sub(chunk);

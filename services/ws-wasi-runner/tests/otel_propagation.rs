@@ -10,23 +10,22 @@
 //!
 //! Then asserts that at least one trace id appears in spans from both the
 //! `et-ws-server`/`et-ws-test` resource and the `et-ws-wasi-runner`
-//! resource — i.e. the runner's outgoing `traceparent` was extracted by
+//! resource -- i.e. the runner's outgoing `traceparent` was extracted by
 //! the server's `TracingLogger`, so the two processes share a trace.
 //!
 //! The wasi-data1 module makes two HTTP calls (GET package.json, GET
 //! .wasm) before exiting, so even though the test only runs one module,
-//! we should see ≥2 server spans and ≥3 runner spans (the `run_module`
+//! we should see >=2 server spans and >=3 runner spans (the `run_module`
 //! parent + two child fetch spans) on a successful run. It's used here
 //! instead of wasi-graphics-info because it's the cheapest WASI module
-//! to exercise — no wgpu / wasi-nn work.
+//! to exercise -- no wgpu / wasi-nn work.
 
 #![cfg(test)]
 #![expect(
     clippy::expect_used,
-    clippy::non_ascii_literal,
     clippy::uninlined_format_args,
     clippy::needless_collect,
-    reason = "test code: assertions include captured span dumps in failure messages; em-dash matches existing style"
+    reason = "test code: assertions include captured span dumps in failure messages"
 )]
 
 use std::collections::HashSet;
@@ -39,7 +38,7 @@ use edge_toolkit::config::{OtlpConfig, OtlpProtocol};
 // that disables `modules::module_runs_successfully` there. Re-enable once
 // the Windows task-shell story is sorted.
 #[test]
-#[cfg_attr(windows, ignore = "pkg/package.json 404 on Windows — see comment above")]
+#[cfg_attr(windows, ignore = "pkg/package.json 404 on Windows -- see comment above")]
 fn trace_ids_propagate_between_runner_and_server() {
     // 1. Start the mock collector. Both processes will export to it.
     let mock = otlp_mock::start();
@@ -79,7 +78,7 @@ fn trace_ids_propagate_between_runner_and_server() {
     // 4. Flush our own (server-side) batch exporter so any pending spans
     //    land in the mock before we read it.
     server_handles.shutdown();
-    // BatchExporter's HTTP POST is async-on-its-own-runtime — give it a
+    // BatchExporter's HTTP POST is async-on-its-own-runtime -- give it a
     // moment to drain. The runner subprocess already shut its provider
     // down before exiting (see services/ws-wasi-runner/src/main.rs).
     std::thread::sleep(Duration::from_millis(500));
@@ -88,7 +87,7 @@ fn trace_ids_propagate_between_runner_and_server() {
     let spans = mock.flatten_spans();
     assert!(
         !spans.is_empty(),
-        "mock OTLP received zero spans — exporters may not be flushing"
+        "mock OTLP received zero spans -- exporters may not be flushing"
     );
 
     let trace_ids_by_service: std::collections::HashMap<String, HashSet<String>> =
@@ -121,7 +120,7 @@ fn trace_ids_propagate_between_runner_and_server() {
     assert!(
         !shared.is_empty(),
         concat!(
-            "no trace id was emitted by *both* processes — propagation failed.\n",
+            "no trace id was emitted by *both* processes -- propagation failed.\n",
             "server trace ids: {:?}\n",
             "runner trace ids: {:?}",
         ),
@@ -131,7 +130,7 @@ fn trace_ids_propagate_between_runner_and_server() {
 
     // The server's request span should be a child of one of the runner's
     // spans (parentSpanId points back into the runner's trace), proving
-    // the propagation direction (runner → server).
+    // the propagation direction (runner -> server).
     let server_with_parent = spans
         .iter()
         .filter(|span| span.service_name == "et-ws-test" && !span.parent_span_id.is_empty())

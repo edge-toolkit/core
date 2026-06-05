@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Workspace member Cargo.toml — no wildcard or git deps",
+  "description": "Forbids `*` and inline `git = ...` in [dependencies] / [dev-dependencies] / [build-dependencies].",
+  "definitions": {
+    "depEntry": {
+      "properties": {
+        "git": {
+          "const": "forbidden; declare in [workspace.dependencies] and use `.workspace = true`"
+        }
+      },
+      "not": {
+        "const": "*"
+      }
+    },
+    "depTable": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/depEntry" }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "dependencies": { "$ref": "#/definitions/depTable" },
+    "dev-dependencies": { "$ref": "#/definitions/depTable" },
+    "build-dependencies": { "$ref": "#/definitions/depTable" },
+    "target": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "dependencies": { "$ref": "#/definitions/depTable" },
+          "dev-dependencies": { "$ref": "#/definitions/depTable" },
+          "build-dependencies": { "$ref": "#/definitions/depTable" }
+        }
+      }
+    }
+  }
+}

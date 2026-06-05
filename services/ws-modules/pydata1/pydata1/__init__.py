@@ -1,40 +1,43 @@
 """pydata1: Python implementation of the data1 workflow."""
 
-import json
 from datetime import datetime, timezone
 
+import pyodide_http
+from et_rest_client import Client
+from et_rest_client.api.storage import get_file, put_file
+from et_rest_client.types import File
 
-async def run(ws_send, wait_for_response, put_file, get_file, sleep_ms, log, set_status) -> None:
-    """Execute the data1 workflow: connect, store, fetch, verify."""
+
+async def run(agent_id, base_url, sleep_ms, log, set_status) -> None:
+    """Execute the data1 workflow: store, fetch, verify."""
+    # httpx ships its own transport stack; in Pyodide that stack has no
+    # network access. `pyodide_http.patch_all()` swaps httpx's transports
+    # for ones that dispatch through the browser's fetch(), letting the
+    # generated client work unmodified.
+    pyodide_http.patch_all()
+
     log("pydata1: entered run()")
 
     filename = "test_data.txt"
     test_content = f"Hello from pydata1 at {datetime.now(timezone.utc).isoformat()}!"
 
-    # 1. Request Store URL
-    log("pydata1: requesting store URL")
-    ws_send(json.dumps({"type": "store_file", "filename": filename}))
-    store_response = await wait_for_response("PUT to ")
-    store_url = store_response.replace("PUT to ", "")
-
-    # 2. Perform PUT
-    msg = f"pydata1: storing data to {store_url}"
+    msg = f"pydata1: storing data to /storage/{agent_id}/{filename}"
     log(msg)
     set_status(msg)
-    await put_file(store_url, test_content)
+    async with Client(base_url=base_url) as c:
+        await put_file.asyncio_detailed(
+            agent_id,
+            filename,
+            client=c,
+            body=File(payload=test_content.encode("utf-8")),
+        )
 
-    # 3. Request Fetch URL
-    log("pydata1: requesting fetch URL")
-    ws_send(json.dumps({"type": "fetch_file", "filename": filename}))
-    fetch_response = await wait_for_response("GET from ")
-    fetch_url = fetch_response.replace("GET from ", "")
+        msg = f"pydata1: fetching data from /storage/{agent_id}/{filename}"
+        log(msg)
+        set_status(msg)
+        response = await get_file.asyncio_detailed(agent_id, filename, client=c)
 
-    # 4. Perform GET and Verify
-    msg = f"pydata1: fetching data from {fetch_url}"
-    log(msg)
-    set_status(msg)
-    retrieved = await get_file(fetch_url)
-
+    retrieved = response.content.decode("utf-8")
     if retrieved == test_content:
         msg = "pydata1: VERIFICATION SUCCESS - data matches!"
         log(msg)

@@ -1,0 +1,122 @@
+defaults {
+    union {
+        sealed true
+        json-discriminant "type"
+    }
+    field {
+        json-key-case "snake"
+    }
+}
+enum "AgentConnectionState" {
+    variant "connected"
+    variant "disconnected"
+}
+enum "ConnectStatus" {
+    variant "assigned"
+    variant "reconnected"
+}
+enum "MessageDeliveryStatus" {
+    variant "delivered"
+    variant "queued"
+    variant "acknowledged"
+    variant "broadcast"
+}
+enum "MessageScope" {
+    variant "direct"
+    variant "broadcast"
+}
+class "AgentSummary" {
+    field "agentId" type="String"
+    field "lastKnownIp" type="String?" {
+        defaults-to null
+    }
+    field "state" type="AgentConnectionState"
+}
+union "WsClientMessage" {
+    class "WsConnect" {
+        json-discriminant-value "et-connect"
+        field "agentId" type="String?" {
+            defaults-to null
+        }
+    }
+    class "WsAlive" {
+        json-discriminant-value "et-alive"
+        field "timestamp" type="String"
+    }
+    class "WsListAgents" {
+        json-discriminant-value "et-list-agents"
+    }
+    class "WsSendAgentMessage" {
+        json-discriminant-value "et-send-agent-message"
+        field "message" type="Map<String, dynamic>"
+        field "toAgentId" type="String"
+    }
+    class "WsBroadcastMessage" {
+        json-discriminant-value "et-broadcast-message"
+        field "message" type="Map<String, dynamic>"
+    }
+    class "WsMessageAck" {
+        json-discriminant-value "et-message-ack"
+        field "messageId" type="String"
+    }
+    class "WsClientEvent" {
+        json-discriminant-value "et-client-event"
+        field "action" type="String"
+        field "capability" type="String"
+        field "details" type="Map<String, dynamic>"
+    }
+    class "WsClientRelayText" {
+        json-discriminant-value "et-relay-text"
+        field "content" type="String"
+    }
+    class "WsClientRelayBinary" {
+        json-discriminant-value "et-relay-binary"
+        field "content" type="List<int>"
+    }
+}
+union "WsServerMessage" {
+    class "WsConnectAck" {
+        json-discriminant-value "et-connect-ack"
+        field "agentId" type="String"
+        field "status" type="ConnectStatus"
+    }
+    class "WsListAgentsResponse" {
+        json-discriminant-value "et-list-agents-response"
+        field "agents" type="List<AgentSummary>"
+    }
+    class "WsAgentMessage" {
+        json-discriminant-value "et-agent-message"
+        field "fromAgentId" type="String"
+        field "message" type="Map<String, dynamic>"
+        field "messageId" type="String"
+        field "scope" type="MessageScope"
+        field "serverReceivedAt" type="String"
+    }
+    class "WsMessageStatus" {
+        json-discriminant-value "et-message-status"
+        field "detail" type="String"
+        field "messageId" type="String?" {
+            defaults-to null
+        }
+        field "status" type="MessageDeliveryStatus"
+    }
+    class "WsInvalid" {
+        json-discriminant-value "et-invalid"
+        field "detail" type="String"
+        field "messageId" type="String?" {
+            defaults-to null
+        }
+    }
+    class "WsResponse" {
+        json-discriminant-value "et-response"
+        field "message" type="String"
+    }
+    class "WsServerRelayText" {
+        json-discriminant-value "et-relay-text"
+        field "content" type="String"
+    }
+    class "WsServerRelayBinary" {
+        json-discriminant-value "et-relay-binary"
+        field "content" type="List<int>"
+    }
+}

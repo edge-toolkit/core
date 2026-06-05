@@ -1,7 +1,7 @@
 // et_ws_pydata1.js — Pyodide-based Python module shim
 // Interface: default(wasmUrl), metadata(), run()
 
-const PYODIDE_CDN = "/modules/pyodide/pyodide.js";
+const PYODIDE_BASE_PATH = "/modules/pyodide/";
 
 let pyodide = null;
 let pyMod = null;
@@ -10,7 +10,7 @@ function loadPyodideScript() {
   return new Promise((resolve, reject) => {
     if (globalThis.loadPyodide) return resolve();
     const s = document.createElement("script");
-    s.src = PYODIDE_CDN;
+    s.src = `${PYODIDE_BASE_PATH}pyodide.js`;
     s.onload = resolve;
     s.onerror = reject;
     document.head.appendChild(s);
@@ -19,16 +19,39 @@ function loadPyodideScript() {
 
 export default async function init() {
   await loadPyodideScript();
-  pyodide = await globalThis.loadPyodide();
+  // `mise install pyodide` extracts the full GitHub-release distribution
+  // (~200 MB of pinned wheels) at /modules/pyodide/, so both the runtime
+  // and `micropip.install("httpx")` resolve from this same origin — no CDN
+  // dependency at runtime.
+  pyodide = await globalThis.loadPyodide({ indexURL: PYODIDE_BASE_PATH });
 
-  const pkgUrl = new URL("package.json", import.meta.url);
-  const pkg = await fetch(pkgUrl).then(r => r.json());
-  const wheelName = `${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
-  const wheelUrl = new URL(`${wheelName}`, import.meta.url);
-
-  await pyodide.loadPackage("micropip");
+  // pydata1's runtime stack: PyPI deps via micropip (httpx + attrs power
+  // the generated client; pyodide-http rewires httpx to use the browser's
+  // fetch()), plus two local wheels — pydata1 itself (next to this shim)
+  // and the generated et-rest-client wheel served by its own ws-module
+  // mount at /modules/et-rest-client/. Going through micropip for the
+  // local wheels would make it look up "et-rest-client" on PyPI, which we
+  // deliberately don't publish. Pyodide unvendors `ssl` from the stdlib
+  // (loaded on demand via loadPackage) and our generated httpx-based
+  // client imports it at module top-level.
+  await pyodide.loadPackage(["micropip", "ssl"]);
   const micropip = pyodide.pyimport("micropip");
-  await micropip.install(wheelUrl.href);
+  await micropip.install("httpx");
+  await micropip.install("attrs");
+  await micropip.install("pyodide-http");
+
+  const { installWheel: installEtRestClient } = await import("/modules/et-rest-client/et_rest_client.js");
+  await installEtRestClient(pyodide);
+
+  const injectWheel = async (wheelName) => {
+    const bytes = new Uint8Array(await fetch(new URL(wheelName, import.meta.url)).then(r => r.arrayBuffer()));
+    pyodide.FS.writeFile(`/tmp/${wheelName}`, bytes);
+    pyodide.runPython(`import sys\nsys.path.insert(0, "/tmp/${wheelName}")`);
+  };
+  const pkg = await fetch(new URL("package.json", import.meta.url)).then(r => r.json());
+  const ownWheel = `${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
+  await injectWheel(ownWheel);
+
   const pydata1 = pyodide.pyimport("pydata1");
   pyMod = {
     run: pydata1.run,
@@ -45,22 +68,6 @@ export async function run() {
   await wasmAgent.default();
   const { WsClient, WsClientConfig } = wasmAgent;
   const client = new WsClient(new WsClientConfig(wsUrl));
-
-  let responseResolvers = [];
-  client.set_on_message((raw) => {
-    try {
-      const msg = JSON.parse(raw);
-      if (msg.type === "response") {
-        for (const { prefix, resolve } of responseResolvers) {
-          if (msg.message.startsWith(prefix)) {
-            responseResolvers = responseResolvers.filter(r => r.resolve !== resolve);
-            resolve(msg.message);
-            return;
-          }
-        }
-      }
-    } catch { /* ignore */ }
-  });
 
   client.connect();
 
@@ -80,51 +87,18 @@ export async function run() {
     if (i === 99) throw new Error("Timeout waiting for agent_id");
   }
 
-  const wsSend = (msgStr) => {
-    // inject agent_id into fetch_file messages
-    const msg = JSON.parse(msgStr);
-    if (msg.type === "fetch_file") msg.agent_id = agentId;
-    client.send(JSON.stringify(msg));
-  };
-
-  const waitForResponse = (prefix) =>
-    new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        responseResolvers = responseResolvers.filter(r => r.resolve !== resolve);
-        reject(new Error(`Timeout waiting for response with prefix: ${prefix}`));
-      }, 5000);
-      responseResolvers.push({
-        prefix,
-        resolve: (val) => {
-          clearTimeout(timer);
-          resolve(val);
-        },
-      });
-    });
-
-  const putFile = async (url, content) => {
-    const resp = await fetch(url, { method: "PUT", mode: "cors", body: content });
-    if (!resp.ok) throw new Error(`PUT failed: ${resp.status}`);
-  };
-
-  const getFile = async (url) => {
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`GET failed: ${resp.status}`);
-    return resp.text();
-  };
-
   const log = (msg) => {
     console.log(msg);
     const el = document.getElementById("module-output");
     if (el) el.value = (el.value ? el.value + "\n" : "") + msg;
   };
 
+  // The Python side runs `Client(base_url=...)` against this origin and
+  // does PUT/GET itself via the generated client + pyodide-http patch.
   try {
     await pyMod.run(
-      pyodide.toPy(wsSend),
-      pyodide.toPy(waitForResponse),
-      pyodide.toPy(putFile),
-      pyodide.toPy(getFile),
+      agentId,
+      window.location.origin,
       pyodide.toPy(sleep),
       pyodide.toPy(log),
       pyodide.toPy(() => {}),

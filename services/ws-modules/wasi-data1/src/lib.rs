@@ -9,14 +9,14 @@
 //!
 //! The WASI runner doesn't expose generic HTTP; the equivalent here uses
 //! `wasi:keyvalue/store` directly. The bucket identifier is the agent's
-//! own `agent_id`, which maps host-side to `/storage/{agent_id}/{key}` —
+//! own `agent_id`, which maps host-side to `/storage/{agent_id}/{key}` --
 //! same backend store, same auth boundary (writes only succeed inside
 //! one's own bucket), one fewer protocol hop.
 //!
 //! Crate-level cfg gate: the wit-bindgen-generated extern declarations
 //! reference WASI imports that only resolve on `wasm32-wasip2`. Gating the
 //! whole module on `target_os = "wasi"` lets the crate sit in the parent
-//! workspace — `cargo check --workspace` from the repo root produces an
+//! workspace -- `cargo check --workspace` from the repo root produces an
 //! empty cdylib for the host target without linker errors.
 
 #![cfg(target_os = "wasi")]
@@ -28,13 +28,13 @@
 #![expect(unsafe_code)]
 
 wit_bindgen::generate!({
-    path: "../../ws-wasi-runner/wit",
+    path: "../../../generated/specs/wit",
     world: "module",
     generate_all,
 });
 
 use et::ws_wasi::ws::WsError;
-use exports::et::ws_wasi::entry::{Guest, RunError};
+use exports::et::ws_wasi::entry::{EntryError, Guest};
 use wasi::keyvalue::store;
 use wasi::logging::logging::{self, Level};
 
@@ -45,29 +45,33 @@ fn info(message: &str) {
     logging::log(Level::Info, LOG_CONTEXT, message);
 }
 
-// Flatten typed host-import errors into the matching `RunError(String)`
-// variant. Plain `From` rather than thiserror's `#[from]` because the
-// bindgen-generated `WsError` / `store::Error` don't impl `Error`.
-impl From<WsError> for RunError {
-    fn from(source: WsError) -> Self {
-        RunError::Ws(format!("{source:?}"))
+// Lets `?` lift a `ws-error` into `entry-error.ws(...)` so the body of `run`
+// stays free of explicit `.map_err`s (which the workspace's no-map-err
+// ast-grep rule bans outside listed error.rs files anyway).
+impl From<WsError> for EntryError {
+    fn from(err: WsError) -> Self {
+        Self::Ws(err)
     }
 }
 
-impl From<store::Error> for RunError {
-    fn from(source: store::Error) -> Self {
-        RunError::Store(format!("{source:?}"))
+// Same idea for `wasi:keyvalue/store.error` -- the upstream type is a
+// value variant (no resources involved), so `entry-error.store(...)`
+// carries it through unchanged and guests propagate via `?`.
+impl From<store::Error> for EntryError {
+    fn from(err: store::Error) -> Self {
+        Self::Store(err)
     }
 }
 
 struct Component;
 
 impl Guest for Component {
-    fn run() -> Result<(), RunError> {
+    fn run() -> Result<(), EntryError> {
         info("entered run()");
 
         et::ws_wasi::ws::connect()?;
-        let agent_id = wait_for_agent_id().ok_or_else(|| RunError::Precondition("did not receive agent_id".into()))?;
+        let agent_id =
+            wait_for_agent_id().ok_or_else(|| EntryError::Runtime("did not receive agent_id".to_string()))?;
         info(&format!("websocket connected with agent_id={agent_id}"));
 
         let bucket = store::open(&agent_id)?;
@@ -79,16 +83,16 @@ impl Guest for Component {
         info(&format!("fetching key {FILENAME}"));
         let fetched = bucket
             .get(FILENAME)?
-            .ok_or_else(|| RunError::Precondition(format!("bucket.get({FILENAME}) returned none after set")))?;
+            .ok_or_else(|| EntryError::Runtime(format!("bucket.get({FILENAME}) returned none after set")))?;
 
         if fetched != test_content {
-            return Err(RunError::Precondition(format!(
+            return Err(EntryError::Runtime(format!(
                 "data mismatch: sent {} bytes, got {} bytes",
                 test_content.len(),
                 fetched.len()
             )));
         }
-        info("VERIFICATION SUCCESS — keyvalue roundtrip matches");
+        info("VERIFICATION SUCCESS -- keyvalue roundtrip matches");
 
         et::ws_wasi::ws::disconnect();
         info("workflow complete");

@@ -10,7 +10,7 @@
 //!   the `OTel` pipeline.
 //!
 //! Returns an `OtelHandles` which the caller must `shutdown()` before exit
-//! so batched spans/logs are flushed — otherwise short-lived processes
+//! so batched spans/logs are flushed -- otherwise short-lived processes
 //! (e.g. the wasi-runner, which exits as soon as a module finishes) drop
 //! their tail-end spans.
 #![expect(
@@ -33,7 +33,7 @@ pub const RUST_LOG: &str = "RUST_LOG";
 
 /// Handles for the spans + logs pipelines.
 ///
-/// Drop alone won't flush — call [`OtelHandles::shutdown`] at the end of
+/// Drop alone won't flush -- call [`OtelHandles::shutdown`] at the end of
 /// `main()` (or in a Drop guard).
 #[non_exhaustive]
 pub struct OtelHandles {
@@ -44,7 +44,7 @@ pub struct OtelHandles {
 impl OtelHandles {
     /// Flush any buffered spans/logs and tear down the exporters.
     pub fn shutdown(self) {
-        // Errors here are non-fatal — the process is exiting anyway.
+        // Errors here are non-fatal -- the process is exiting anyway.
         drop(self.tracer_provider.shutdown());
         drop(self.logger_provider.shutdown());
     }

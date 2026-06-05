@@ -1,0 +1,121 @@
+package et:ws-wasi@0.1.0;
+
+interface ws {
+  use et:ws-messages/messages@0.1.0.{ client-message, server-message };
+  variant ws-error {
+    // Connection-level failure: TCP/TLS, URL parse, HTTP upgrade, frame
+    // I/O, write-buffer-full, and tungstenite's wire-protocol violations
+    // (frame format, capacity, attack-attempt). Anything that means the
+    // bytes never went through cleanly.
+    transport(string),
+    // Inbound JSON's `type` field starts with `et-` (claiming to be one
+    // of our messages) but the rest of the payload doesn't match the
+    // declared variant. Raised ONLY for that case: any other inbound
+    // parse failure (non-JSON, JSON without a `type`, JSON with a
+    // non-et-prefixed `type`) is relayed instead — the ws protocol
+    // forwards binary and unrecognised frames unchanged. Also raised
+    // for host-side serialize failures of outbound messages.
+    decode(string),
+    not-connected,
+    already-connected,
+  }
+  enum state {
+    connecting,
+    connected,
+    closing,
+    closed,
+  }
+  // `send` accepts only what a client is allowed to emit; `recv`
+  // returns only what the server is allowed to send. Foreign frames
+  // (binary or text whose `type` isn't `et-*`) are surfaced through
+  // the `et-relay-text` / `et-relay-binary` variants present in both
+  // directions, so the typed catalog covers both our schema and the
+  // hub-relay passthrough.
+  connect: func() -> result<_, ws-error>;
+  get-state: func() -> state;
+  agent-id: func() -> string;
+  send: func(message: client-message) -> result<_, ws-error>;
+  recv: func(timeout-ms: u32) -> result<option<server-message>, ws-error>;
+  disconnect: func();
+}
+
+interface entry {
+  use ws.{ ws-error };
+  use wasi:keyvalue/store@0.2.0-draft.{ error as store-error };
+
+  // Flattened `wasi:nn/errors.error`. The upstream type is a resource
+  // (handle into the wasi-nn host), and variant payloads in WIT must be
+  // values, so guests destructure the resource at the catch site:
+  //   code = err.code(); data = err.data();
+  record nn-error {
+    code: nn-error-code,
+    data: string,
+  }
+  // Mirrors `wasi:nn/errors.error-code`. Kept local so guests that don't
+  // import wasi:nn don't gain a transitive dependency on it.
+  enum nn-error-code {
+    invalid-argument,
+    invalid-encoding,
+    timeout,
+    runtime-error,
+    unsupported-operation,
+    too-large,
+    not-found,
+    security,
+    unknown,
+  }
+
+  // Flattened `wasi:io/error.error`. Upstream `error` is also a resource;
+  // its only accessor is `to-debug-string()`, captured here in `message`.
+  // `source` names the call that produced the failure (e.g.
+  // `"input-stream.read"`) so triage doesn't depend on call-site logs.
+  record io-error {
+    source: string,
+    message: string,
+  }
+
+  // Flattened union of the per-call wasi-webgpu error records
+  // (`request-device-error`, `map-async-error`, `create-pipeline-error`,
+  // `get-mapped-range-error`, `set-bind-group-error`, `unmap-error`,
+  // `write-buffer-error`). Every upstream record is shape-compatible with
+  // `{ kind, message }`, so flattening keeps this arm stable as the
+  // wasi-webgpu surface evolves. `operation` names the originating call
+  // (e.g. `"request-device"`, `"map-async"`), `kind` carries the upstream
+  // kind discriminant rendered as a short ASCII tag, `message` is the
+  // upstream message field (or, where the upstream record has none, the
+  // host-side description of what failed).
+  record webgpu-error {
+    operation: string,
+    kind: string,
+    message: string,
+  }
+
+  variant entry-error {
+    ws(ws-error),
+    store(store-error),
+    nn(nn-error),
+    io(io-error),
+    webgpu(webgpu-error),
+    runtime(string),
+  }
+  run: func() -> result<_, entry-error>;
+}
+
+world runner {
+  import wasi:logging/logging@0.1.0-draft;
+  import wasi:keyvalue/store@0.2.0-draft;
+  import ws;
+  import wasi:webgpu/webgpu@0.0.1;
+  export entry;
+}
+
+world module {
+  include runner;
+  import wasi:clocks/wall-clock@0.2.6;
+  import wasi:clocks/monotonic-clock@0.2.6;
+  import wasi:io/poll@0.2.6;
+  import wasi:nn/tensor@0.2.0-rc-2024-10-28;
+  import wasi:nn/graph@0.2.0-rc-2024-10-28;
+  import wasi:nn/inference@0.2.0-rc-2024-10-28;
+  import wasi:nn/errors@0.2.0-rc-2024-10-28;
+}

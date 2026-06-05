@@ -1,0 +1,104 @@
+package et:ws-messages@0.1.0;
+
+/// Edge Toolkit WS protocol -- typed et-* messages plus relay envelopes for foreign frames.
+interface messages {
+  enum agent-connection-state {
+    connected,
+    disconnected,
+  }
+  enum connect-status {
+    assigned,
+    reconnected,
+  }
+  enum message-delivery-status {
+    delivered,
+    queued,
+    acknowledged,
+    broadcast,
+  }
+  enum message-scope {
+    direct,
+    broadcast,
+  }
+  record agent-summary {
+    agent-id: string,
+    last-known-ip: option<string>,
+    state: agent-connection-state,
+  }
+  record connect-payload {
+    agent-id: option<string>,
+  }
+  record alive-payload {
+    timestamp: string,
+  }
+  record send-agent-message-payload {
+    message: string,
+    to-agent-id: string,
+  }
+  record broadcast-message-payload {
+    message: string,
+  }
+  record message-ack-payload {
+    message-id: string,
+  }
+  record client-event-payload {
+    action: string,
+    capability: string,
+    details: string,
+  }
+  record relay-text-payload {
+    content: string,
+  }
+  record relay-binary-payload {
+    content: list<u8>,
+  }
+  record connect-ack-payload {
+    agent-id: string,
+    status: connect-status,
+  }
+  record list-agents-response-payload {
+    agents: list<agent-summary>,
+  }
+  record agent-message-payload {
+    from-agent-id: string,
+    message: string,
+    message-id: string,
+    scope: message-scope,
+    server-received-at: string,
+  }
+  record message-status-payload {
+    detail: string,
+    message-id: option<string>,
+    status: message-delivery-status,
+  }
+  record invalid-payload {
+    detail: string,
+    message-id: option<string>,
+  }
+  record response-payload {
+    message: string,
+  }
+  /// Messages a client is allowed to send (and the server receives).
+  variant client-message {
+    connect(connect-payload),
+    alive(alive-payload),
+    list-agents,
+    send-agent-message(send-agent-message-payload),
+    broadcast-message(broadcast-message-payload),
+    message-ack(message-ack-payload),
+    client-event(client-event-payload),
+    relay-text(relay-text-payload),
+    relay-binary(relay-binary-payload),
+  }
+  /// Messages the server is allowed to send (and clients receive).
+  variant server-message {
+    connect-ack(connect-ack-payload),
+    list-agents-response(list-agents-response-payload),
+    agent-message(agent-message-payload),
+    message-status(message-status-payload),
+    invalid(invalid-payload),
+    response(response-payload),
+    relay-text(relay-text-payload),
+    relay-binary(relay-binary-payload),
+  }
+}

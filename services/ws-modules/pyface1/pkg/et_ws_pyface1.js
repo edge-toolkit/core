@@ -22,11 +22,30 @@ export default async function init() {
   }
 
   pyodide = await globalThis.loadPyodide({ indexURL: PYODIDE_BASE_PATH });
+
+  // Install pydantic via micropip; the generated et_ws wheel uses it for the
+  // typed WsClientEvent message. Pyodide ships pydantic v2 as a regular
+  // pip-installable package, so micropip resolves it without extra config.
+  await pyodide.loadPackage("micropip");
+  const micropip = pyodide.pyimport("micropip");
+  await micropip.install("pydantic");
+
+  // Install the pyface1 wheel from pkg/ next to this shim.
+  const installLocalWheel = async (path) => {
+    const bytes = new Uint8Array(await fetch(new URL(path, import.meta.url)).then((r) => r.arrayBuffer()));
+    pyodide.FS.writeFile(`/tmp/${path}`, bytes);
+    pyodide.runPython(`import sys\nsys.path.insert(0, "/tmp/${path}")`);
+  };
+
   const pkg = await fetch(new URL("package.json", import.meta.url)).then((r) => r.json());
-  const wheel = `${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
-  const wheelBytes = new Uint8Array(await fetch(new URL(wheel, import.meta.url)).then((r) => r.arrayBuffer()));
-  pyodide.FS.writeFile(`/tmp/${wheel}`, wheelBytes);
-  pyodide.runPython(`import sys\nsys.path.insert(0, "/tmp/${wheel}")`);
+  const pyfaceWheel = `${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
+  await installLocalWheel(pyfaceWheel);
+  // The generated et-ws Pydantic-models wheel is its own ws-module mounted
+  // at /modules/et-ws/. We declare it in [tool.ws-module.dependencies] and
+  // delegate wheel install to its shim — version lives in its own
+  // package.json so a bump there doesn't require touching this file.
+  const { installWheel: installEtWs } = await import("/modules/et-ws/et_ws.js");
+  await installEtWs(pyodide);
   py = pyodide.pyimport("pyface1");
   cfg = py.config().toJs({ dict_converter: Object.fromEntries });
 }

@@ -1,10 +1,13 @@
 [project]
-dependencies = []
+dependencies = ["et-ws"]
 description = "Python face detection"
 license = "Apache-2.0 OR MIT"
 name = "et-ws-pyface1"
 requires-python = ">=3.10"
 version = "0.1.0"
+
+[dependency-groups]
+dev = ["pytest"]
 
 [build-system]
 build-backend = "uv_build"
@@ -14,8 +17,16 @@ requires = ["uv_build>=0.10.2,<0.11.0"]
 module-name = "pyface1"
 module-root = ""
 
+# `et-ws` is the generated Pydantic client under `generated/python-ws/`. Wired
+# as a uv source so `uv run pytest` resolves it locally; the wheel itself is
+# bundled separately into pkg/ by the `build-ws-pyface1-module` mise task
+# (alongside the pyface1 wheel) so Pyodide can micropip-install it at runtime.
+[tool.uv.sources]
+et-ws = { path = "../../../generated/python-ws" }
+
 [tool.ws-module.dependencies]
 et-model-face1 = "*"
+et-ws = "*"
 onnxruntime-web = "*"
 pyodide = "*"
 

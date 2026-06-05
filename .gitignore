@@ -6,6 +6,8 @@ target/
 services/ws-wasm-agent/pkg/
 services/ws-server/static/models/
 .zig-cache/
+zig-out/
+*.o
 *.pem
 mprocs.log
 __pycache__/

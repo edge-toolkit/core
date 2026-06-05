@@ -3,12 +3,8 @@ const DATA_OFFSET = 16;
 let ctrl, data, wasmMemory;
 const enc = new TextEncoder(), dec = new TextDecoder();
 const readStr = (ptr, len) => dec.decode(new Uint8Array(wasmMemory.buffer, ptr, len));
-const writeData = (str) => {
-  const b = enc.encode(str);
-  data.set(b);
-  return b.length;
-};
 
+// String payload + string aux, response is a UTF-8 string (legacy ops).
 function call(type, payload = "", aux = "") {
   const pb = enc.encode(payload), ab = enc.encode(aux);
   data.set(pb);
@@ -23,6 +19,30 @@ function call(type, payload = "", aux = "") {
   return dec.decode(Uint8Array.from(data.subarray(0, rlen)));
 }
 
+// REST request: method + url in the string payload (space-separated), body
+// is *binary* aux bytes, response is *binary* bytes copied out of the SAB.
+// Type 11 lives alongside the string-only legacy ops (0-10) so the existing
+// dispatch table doesn't have to be reshuffled.
+function callRest(method, url, body) {
+  const pb = enc.encode(`${method} ${url}`);
+  const ab = body || new Uint8Array(0);
+  data.set(pb);
+  if (ab.length) data.set(ab, pb.length);
+  Atomics.store(ctrl, 3, ab.length);
+  Atomics.store(ctrl, 2, pb.length);
+  Atomics.store(ctrl, 1, 11);
+  Atomics.store(ctrl, 0, 1);
+  Atomics.notify(ctrl, 0);
+  Atomics.wait(ctrl, 0, 1);
+  const rlen = Atomics.load(ctrl, 2);
+  // Negative response length is the error sentinel — the main-thread
+  // dispatch encodes (max int32 + 1 - n) to signal failure.
+  if (rlen < 0) return null;
+  // Slice copies the bytes out of the SAB region so the wasm caller can
+  // overwrite the area on its next request.
+  return new Uint8Array(data.subarray(0, rlen)).slice();
+}
+
 const writeBack = (r, buf, max) => {
   const b = enc.encode(r);
   const n = Math.min(b.length, max);
@@ -32,22 +52,29 @@ const writeBack = (r, buf, max) => {
 
 const imports = {
   env: {
-    js_log: (p, l) => call(9, readStr(p, l)),
-    js_set_status: (p, l) => call(10, readStr(p, l)),
+    js_log: (p, l) => call(7, readStr(p, l)),
+    js_set_status: (p, l) => call(8, readStr(p, l)),
     js_ws_connect: (p, l) => call(1, readStr(p, l)),
-    js_ws_send: (p, l) => call(2, readStr(p, l)),
-    js_ws_disconnect: () => call(8),
-    js_ws_get_state: (buf, max) => writeBack(call(3), buf, max),
-    js_ws_get_agent_id: (buf, max) => writeBack(call(4), buf, max),
-    js_ws_pop_response: (buf, max) => {
-      const r = call(5);
-      return r ? writeBack(r, buf, max) : 0;
+    js_ws_disconnect: () => call(6),
+    js_ws_get_state: (buf, max) => writeBack(call(2), buf, max),
+    js_ws_get_agent_id: (buf, max) => writeBack(call(3), buf, max),
+    // Single HTTP entry point used by the generated et_rest_client. The Zig
+    // signature is: (method_ptr, method_len, url_ptr, url_len, body_ptr,
+    // body_len, response_buf, response_max) -> i32. Returns bytes written
+    // to response_buf, or -1 on failure.
+    js_rest_request: (mp, ml, up, ul, bp, bl, buf, max) => {
+      const method = readStr(mp, ml);
+      const url = readStr(up, ul);
+      const body = bl > 0 ? new Uint8Array(wasmMemory.buffer, bp, bl).slice() : null;
+      const response = callRest(method, url, body);
+      if (response === null) return -1;
+      const n = Math.min(response.length, max);
+      new Uint8Array(wasmMemory.buffer, buf, n).set(response.subarray(0, n));
+      return n;
     },
-    js_put_file: (up, ul, bp, bl) => call(6, readStr(up, ul), readStr(bp, bl)),
-    js_get_file: (up, ul, buf, max) => writeBack(call(7, readStr(up, ul)), buf, max),
     js_sleep_ms: (ms) => call(0, String(ms)),
-    js_get_ws_url: (buf, max) => writeBack(call(11), buf, max),
-    js_get_iso_timestamp: (buf, max) => writeBack(call(12), buf, max),
+    js_get_ws_url: (buf, max) => writeBack(call(9), buf, max),
+    js_get_iso_timestamp: (buf, max) => writeBack(call(10), buf, max),
   },
 };
 

@@ -1,0 +1,527 @@
+const std = @import("std");
+
+///////////////////////////////////////////
+// Generated Zig structures from OpenAPI
+///////////////////////////////////////////
+
+pub const HealthResponse = struct {
+    status: []const u8,
+    service: []const u8,
+};
+
+///////////////////////////////////////////
+// Generated Zig API client from OpenAPI
+///////////////////////////////////////////
+
+pub fn Owned(comptime T: type) type {
+    return struct {
+        allocator: std.mem.Allocator,
+        body: []u8,
+        parsed: std.json.Parsed(T),
+
+        pub fn deinit(self: *@This()) void {
+            self.parsed.deinit();
+            self.allocator.free(self.body);
+        }
+
+        pub fn value(self: *@This()) *T {
+            return &self.parsed.value;
+        }
+    };
+}
+
+pub const RawResponse = struct {
+    allocator: std.mem.Allocator,
+    status: std.http.Status,
+    body: []u8,
+
+    pub fn deinit(self: *@This()) void {
+        self.allocator.free(self.body);
+    }
+};
+
+pub const ParseErrorResponse = struct {
+    raw: RawResponse,
+    error_name: []const u8,
+};
+
+pub fn ApiResult(comptime T: type) type {
+    return union(enum) {
+        ok: Owned(T),
+        api_error: RawResponse,
+        parse_error: ParseErrorResponse,
+
+        pub fn deinit(self: *@This()) void {
+            switch (self.*) {
+                .ok => |*value| value.deinit(),
+                .api_error => |*value| value.deinit(),
+                .parse_error => |*value| value.raw.deinit(),
+            }
+        }
+    };
+}
+
+pub const Client = struct {
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    http: std.http.Client,
+    api_key: []const u8,
+    base_url: []const u8 = "",
+    organization: ?[]const u8 = null,
+    project: ?[]const u8 = null,
+    default_headers: []const std.http.Header = &.{},
+
+    pub fn init(allocator: std.mem.Allocator, io: std.Io, api_key: []const u8) Client {
+        return .{
+            .allocator = allocator,
+            .io = io,
+            .http = .{ .allocator = allocator, .io = io },
+            .api_key = api_key,
+        };
+    }
+
+    pub fn deinit(self: *Client) void {
+        self.http.deinit();
+    }
+
+    pub fn withBaseUrl(self: *Client, base_url: []const u8) void {
+        self.base_url = base_url;
+    }
+};
+
+fn isQueryChar(c: u8) bool {
+    return std.ascii.isAlphanumeric(c) or switch (c) {
+        '-', '.', '_', '~' => true,
+        else => false,
+    };
+}
+
+fn writeQueryComponent(writer: *std.Io.Writer, value: []const u8) !void {
+    try std.Uri.Component.percentEncode(writer, value, isQueryChar);
+}
+
+fn writeQueryValue(writer: *std.Io.Writer, value: anytype) !void {
+    const T = @TypeOf(value);
+    switch (@typeInfo(T)) {
+        .pointer => |ptr| {
+            if (ptr.size == .slice and ptr.child == u8) {
+                try writeQueryComponent(writer, value);
+            } else {
+                try std.json.Stringify.value(value, .{}, writer);
+            }
+        },
+        .int, .comptime_int, .float, .comptime_float, .bool => try writer.print("{}", .{value}),
+        .@"enum" => try writeQueryComponent(writer, @tagName(value)),
+        else => try std.json.Stringify.value(value, .{}, writer),
+    }
+}
+
+fn appendQueryParam(writer: *std.Io.Writer, first_query: *bool, name: []const u8, value: anytype) !void {
+    if (first_query.*) {
+        try writer.writeByte('?');
+        first_query.* = false;
+    } else {
+        try writer.writeByte('&');
+    }
+    try writeQueryComponent(writer, name);
+    try writer.writeByte('=');
+    try writeQueryValue(writer, value);
+}
+
+pub fn requestRaw(client: *Client, method: std.http.Method, url: []const u8, payload: ?[]const u8) !RawResponse {
+    // Replaced by et-int-gen: dispatch via the host JS shim instead of
+    // `std.http.Client.fetch`, which can't reach the network from
+    // browser wasm. The JS side proxies to `fetch()` via
+    // SharedArrayBuffer + Atomics so this stays synchronous in Zig.
+    const allocator = client.allocator;
+    const method_str = @tagName(method);
+    const body_slice = payload orelse "";
+    const response_buf = try allocator.alloc(u8, 64 * 1024);
+    const written = js_rest_request(
+        method_str.ptr,
+        method_str.len,
+        url.ptr,
+        url.len,
+        body_slice.ptr,
+        body_slice.len,
+        response_buf.ptr,
+        response_buf.len,
+    );
+    if (written < 0) {
+        allocator.free(response_buf);
+        return error.RequestFailed;
+    }
+    const n: usize = @intCast(written);
+    const body = try allocator.realloc(response_buf, n);
+    return .{ .allocator = allocator, .status = .ok, .body = body };
+}
+
+pub fn getRaw(client: *Client, path: []const u8) !RawResponse {
+    const url = try std.fmt.allocPrint(client.allocator, "{s}{s}", .{ client.base_url, path });
+    defer client.allocator.free(url);
+    return requestRaw(client, .GET, url, null);
+}
+
+pub fn postJsonRaw(client: *Client, path: []const u8, payload: anytype) !RawResponse {
+    const allocator = client.allocator;
+    var str: std.Io.Writer.Allocating = .init(allocator);
+    defer str.deinit();
+    try std.json.Stringify.value(payload, .{ .emit_null_optional_fields = false }, &str.writer);
+
+    const url = try std.fmt.allocPrint(allocator, "{s}{s}", .{ client.base_url, path });
+    defer allocator.free(url);
+    return requestRaw(client, .POST, url, str.written());
+}
+
+pub fn parseRawResponse(comptime T: type, raw: RawResponse) !ApiResult(T) {
+    if (raw.status.class() != .success) return .{ .api_error = raw };
+    const parsed = std.json.parseFromSlice(T, raw.allocator, raw.body, .{ .ignore_unknown_fields = true }) catch |err| {
+        return .{ .parse_error = .{ .raw = raw, .error_name = @errorName(err) } };
+    };
+    return .{ .ok = .{ .allocator = raw.allocator, .body = raw.body, .parsed = parsed } };
+}
+
+pub fn getJsonResult(comptime T: type, client: *Client, path: []const u8) !ApiResult(T) {
+    return parseRawResponse(T, try getRaw(client, path));
+}
+
+pub fn postJsonResult(comptime T: type, client: *Client, path: []const u8, payload: anytype) !ApiResult(T) {
+    return parseRawResponse(T, try postJsonRaw(client, path, payload));
+}
+
+const max_sse_line_size = 256 * 1024;
+const max_sse_event_size = 1024 * 1024;
+
+pub fn parseSseBytes(allocator: std.mem.Allocator, bytes: []const u8, callback: anytype) !void {
+    var reader: std.Io.Reader = .fixed(bytes);
+    try parseSseReader(allocator, &reader, callback);
+}
+
+pub fn parseSseReader(allocator: std.mem.Allocator, reader: *std.Io.Reader, callback: anytype) !void {
+    var line_buf: std.Io.Writer.Allocating = .init(allocator);
+    defer line_buf.deinit();
+
+    var event_data: std.Io.Writer.Allocating = .init(allocator);
+    defer event_data.deinit();
+
+    while (true) {
+        line_buf.clearRetainingCapacity();
+
+        _ = reader.streamDelimiterLimit(&line_buf.writer, '\n', .limited(max_sse_line_size)) catch |err| switch (err) {
+            error.StreamTooLong => return error.SseLineTooLong,
+            error.ReadFailed => return err,
+            error.WriteFailed => return err,
+        };
+
+        const ended_with_delimiter = blk: {
+            const byte = reader.peekByte() catch |err| switch (err) {
+                error.EndOfStream => break :blk false,
+                error.ReadFailed => return err,
+            };
+            if (byte == '\n') {
+                _ = try reader.takeByte();
+                break :blk true;
+            }
+            break :blk false;
+        };
+
+        if (try processSseLine(&event_data, line_buf.written(), callback)) return;
+        if (!ended_with_delimiter) break;
+    }
+
+    _ = try dispatchSseEvent(&event_data, callback);
+}
+
+fn processSseLine(event_data: *std.Io.Writer.Allocating, raw_line: []const u8, callback: anytype) !bool {
+    const line = std.mem.trimEnd(u8, raw_line, "\r");
+    if (line.len == 0) return try dispatchSseEvent(event_data, callback);
+    if (line[0] == ':') return false;
+
+    const colon = std.mem.indexOfScalar(u8, line, ':') orelse return false;
+    const field = line[0..colon];
+    if (!std.mem.eql(u8, field, "data")) return false;
+
+    var value = line[colon + 1 ..];
+    if (value.len > 0 and value[0] == ' ') value = value[1..];
+    const separator_len: usize = if (event_data.written().len == 0) 0 else 1;
+    if (event_data.written().len + separator_len + value.len > max_sse_event_size) return error.SseEventTooLong;
+    if (separator_len != 0) try event_data.writer.writeByte('\n');
+    try event_data.writer.writeAll(value);
+    return false;
+}
+
+fn dispatchSseEvent(event_data: *std.Io.Writer.Allocating, callback: anytype) !bool {
+    const data = event_data.written();
+    if (data.len == 0) return false;
+    defer event_data.clearRetainingCapacity();
+
+    if (std.mem.eql(u8, data, "[DONE]")) return true;
+    try callback.event(data);
+    return false;
+}
+
+fn TypedSseCallback(comptime T: type, comptime Callback: type) type {
+    return struct {
+        allocator: std.mem.Allocator,
+        callback: *Callback,
+
+        pub fn event(self: *@This(), data: []const u8) !void {
+            var parsed = try std.json.parseFromSlice(T, self.allocator, data, .{ .ignore_unknown_fields = true });
+            defer parsed.deinit();
+            try self.callback.event(&parsed.value);
+        }
+    };
+}
+
+pub fn parseSseBytesTyped(comptime T: type, allocator: std.mem.Allocator, bytes: []const u8, callback: anytype) !void {
+    const Callback = @TypeOf(callback.*);
+    var typed_callback: TypedSseCallback(T, Callback) = .{ .allocator = allocator, .callback = callback };
+    try parseSseBytes(allocator, bytes, &typed_callback);
+}
+
+pub fn parseSseReaderTyped(comptime T: type, allocator: std.mem.Allocator, reader: *std.Io.Reader, callback: anytype) !void {
+    const Callback = @TypeOf(callback.*);
+    var typed_callback: TypedSseCallback(T, Callback) = .{ .allocator = allocator, .callback = callback };
+    try parseSseReader(allocator, reader, &typed_callback);
+}
+
+fn stringifyStreamRequest(allocator: std.mem.Allocator, requestBody: anytype) ![]u8 {
+    var str: std.Io.Writer.Allocating = .init(allocator);
+    defer str.deinit();
+    try std.json.Stringify.value(requestBody, .{ .emit_null_optional_fields = false }, &str.writer);
+
+    var parsed = try std.json.parseFromSlice(std.json.Value, allocator, str.written(), .{ .ignore_unknown_fields = true });
+    defer parsed.deinit();
+
+    if (parsed.value == .object) {
+        try parsed.value.object.put(parsed.arena.allocator(), "stream", .{ .bool = true });
+    }
+
+    var out: std.Io.Writer.Allocating = .init(allocator);
+    errdefer out.deinit();
+    try std.json.Stringify.value(parsed.value, .{ .emit_null_optional_fields = false }, &out.writer);
+    return try out.toOwnedSlice();
+}
+
+fn streamJsonTyped(comptime T: type, client: *Client, path: []const u8, requestBody: anytype, callback: anytype) !void {
+    const Callback = @TypeOf(callback.*);
+    var typed_callback: TypedSseCallback(T, Callback) = .{ .allocator = client.allocator, .callback = callback };
+    try streamJson(client, path, requestBody, &typed_callback);
+}
+
+fn streamJson(client: *Client, path: []const u8, requestBody: anytype, callback: anytype) !void {
+    const allocator = client.allocator;
+    const payload = try stringifyStreamRequest(allocator, requestBody);
+    defer allocator.free(payload);
+
+    var headers = std.ArrayList(std.http.Header).empty;
+    defer headers.deinit(allocator);
+    const auth_header = try appendClientHeaders(allocator, &headers, client, true, "text/event-stream");
+    defer if (auth_header) |value| allocator.free(value);
+
+    const url = try std.fmt.allocPrint(allocator, "{s}{s}", .{ client.base_url, path });
+    defer allocator.free(url);
+    const uri = try std.Uri.parse(url);
+
+    var req = try client.http.request(.POST, uri, .{
+        .redirect_behavior = .unhandled,
+        .headers = .{ .accept_encoding = .{ .override = "identity" } },
+        .extra_headers = headers.items,
+    });
+    defer req.deinit();
+
+    req.transfer_encoding = .{ .content_length = payload.len };
+    var body = try req.sendBodyUnflushed(&.{});
+    try body.writer.writeAll(payload);
+    try body.end();
+    try req.connection.?.flush();
+
+    var response = try req.receiveHead(&.{});
+    if (response.head.status.class() != .success) return error.ResponseError;
+
+    var transfer_buffer: [8 * 1024]u8 = undefined;
+    const reader = response.reader(&transfer_buffer);
+    parseSseReader(allocator, reader, callback) catch |err| switch (err) {
+        error.ReadFailed => return response.bodyErr() orelse err,
+        else => return err,
+    };
+}
+
+fn appendClientHeaders(allocator: std.mem.Allocator, headers: *std.ArrayList(std.http.Header), client: *Client, include_content_type: bool, accept: []const u8) !?[]u8 {
+    if (include_content_type) {
+        try headers.append(allocator, .{ .name = "Content-Type", .value = "application/json" });
+    }
+    try headers.append(allocator, .{ .name = "Accept", .value = accept });
+
+    var auth_header: ?[]u8 = null;
+    if (client.api_key.len > 0) {
+        auth_header = try std.fmt.allocPrint(allocator, "Bearer {s}", .{client.api_key});
+        try headers.append(allocator, .{ .name = "Authorization", .value = auth_header.? });
+    }
+    if (client.organization) |organization| {
+        try headers.append(allocator, .{ .name = "OpenAI-Organization", .value = organization });
+    }
+    if (client.project) |project| {
+        try headers.append(allocator, .{ .name = "OpenAI-Project", .value = project });
+    }
+    for (client.default_headers) |header| {
+        try headers.append(allocator, header);
+    }
+    return auth_header;
+}
+
+/////////////////
+// Summary:
+// List the names of every module the server is currently serving.
+//
+pub fn list_modules_handler(client: *Client) !Owned([]const std.json.Value) {
+    var result = try list_modules_handlerResult(client);
+    switch (result) {
+        .ok => |ok| return ok,
+        .api_error => |*err| {
+            err.deinit();
+            return error.ResponseError;
+        },
+        .parse_error => |*err| {
+            err.raw.deinit();
+            return error.ResponseParseError;
+        },
+    }
+}
+
+pub fn list_modules_handlerRaw(client: *Client) !RawResponse {
+    const allocator = client.allocator;
+    var uri_buf: std.Io.Writer.Allocating = .init(allocator);
+    defer uri_buf.deinit();
+    try uri_buf.writer.print("{s}/modules/", .{client.base_url});
+    const payload: ?[]const u8 = null;
+
+    return requestRaw(client, std.http.Method.GET, uri_buf.written(), payload);
+}
+
+pub fn list_modules_handlerResult(client: *Client) !ApiResult([]const std.json.Value) {
+    return parseRawResponse([]const std.json.Value, try list_modules_handlerRaw(client));
+}
+
+/////////////////
+// Summary:
+// Liveness probe.
+//
+// Description:
+// Returns a small JSON document identifying the service so external
+// monitors can confirm the server is reachable and serving requests.
+//
+pub fn health(client: *Client) !Owned(HealthResponse) {
+    var result = try healthResult(client);
+    switch (result) {
+        .ok => |ok| return ok,
+        .api_error => |*err| {
+            err.deinit();
+            return error.ResponseError;
+        },
+        .parse_error => |*err| {
+            err.raw.deinit();
+            return error.ResponseParseError;
+        },
+    }
+}
+
+pub fn healthRaw(client: *Client) !RawResponse {
+    const allocator = client.allocator;
+    var uri_buf: std.Io.Writer.Allocating = .init(allocator);
+    defer uri_buf.deinit();
+    try uri_buf.writer.print("{s}/health", .{client.base_url});
+    const payload: ?[]const u8 = null;
+
+    return requestRaw(client, std.http.Method.GET, uri_buf.written(), payload);
+}
+
+pub fn healthResult(client: *Client) !ApiResult(HealthResponse) {
+    return parseRawResponse(HealthResponse, try healthRaw(client));
+}
+
+/////////////////
+// Summary:
+// Download a file previously written to the named agent's storage bucket.
+//
+pub fn get_file(client: *Client, agent_id: []const u8, filename: []const u8) !void {
+    var raw = try get_fileRaw(client, agent_id, filename);
+    defer raw.deinit();
+    if (raw.status.class() != .success) return error.ResponseError;
+}
+
+pub fn get_fileRaw(client: *Client, agent_id: []const u8, filename: []const u8) !RawResponse {
+    const allocator = client.allocator;
+    var uri_buf: std.Io.Writer.Allocating = .init(allocator);
+    defer uri_buf.deinit();
+    try uri_buf.writer.print("{s}/storage/{s}/{s}", .{ client.base_url, agent_id, filename });
+    const payload: ?[]const u8 = null;
+
+    return requestRaw(client, std.http.Method.GET, uri_buf.written(), payload);
+}
+
+/////////////////
+// Summary:
+// Upload a file to an agent's storage bucket.
+//
+// Description:
+// Only the agent that owns the bucket may write to it (the agent must
+// currently be connected); the path component must be a single
+// filename, not a nested path.
+//
+pub fn put_file(client: *Client, agent_id: []const u8, filename: []const u8, requestBody: []const u8) !void {
+    var raw = try put_fileRaw(client, agent_id, filename, requestBody);
+    defer raw.deinit();
+    if (raw.status.class() != .success) return error.ResponseError;
+}
+
+pub fn put_fileRaw(client: *Client, agent_id: []const u8, filename: []const u8, requestBody: []const u8) !RawResponse {
+    const allocator = client.allocator;
+    var uri_buf: std.Io.Writer.Allocating = .init(allocator);
+    defer uri_buf.deinit();
+    try uri_buf.writer.print("{s}/storage/{s}/{s}", .{ client.base_url, agent_id, filename });
+
+    const payload: ?[]const u8 = requestBody;
+
+    return requestRaw(client, std.http.Method.PUT, uri_buf.written(), payload);
+}
+
+/////////////////
+// Summary:
+// Fetch a file from a module's bundled static assets.
+//
+// Description:
+// `path` is resolved relative to the module's bundle root; an unknown
+// module or missing file returns 404.
+//
+pub fn get_module_file(client: *Client, name: []const u8, path: []const u8) !void {
+    var raw = try get_module_fileRaw(client, name, path);
+    defer raw.deinit();
+    if (raw.status.class() != .success) return error.ResponseError;
+}
+
+pub fn get_module_fileRaw(client: *Client, name: []const u8, path: []const u8) !RawResponse {
+    const allocator = client.allocator;
+    var uri_buf: std.Io.Writer.Allocating = .init(allocator);
+    defer uri_buf.deinit();
+    try uri_buf.writer.print("{s}/modules/{s}/{s}", .{ client.base_url, name, path });
+    const payload: ?[]const u8 = null;
+
+    return requestRaw(client, std.http.Method.GET, uri_buf.written(), payload);
+}
+
+/// Host-provided HTTP transport. The JS shim implements this against
+/// browser `fetch()` (via SharedArrayBuffer + Atomics so this looks
+/// synchronous to Zig). Returns the number of bytes written to
+/// `response_buf`, or a negative value on transport failure /
+/// non-2xx status.
+extern fn js_rest_request(
+    method_ptr: [*]const u8,
+    method_len: usize,
+    url_ptr: [*]const u8,
+    url_len: usize,
+    body_ptr: [*]const u8,
+    body_len: usize,
+    response_buf: [*]u8,
+    response_max: usize,
+) i32;

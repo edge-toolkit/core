@@ -5,7 +5,10 @@
 Please install [`mise`](https://mise.jdx.dev/), including the shell integration.
 It is needed for all use of this repository.
 
-The following works for Linux, macOS and Windows.
+The `mise` configuration is stored in [`.mise.toml`](.mise.toml).
+
+The following works for Linux, macOS and Windows, and all tools "installed"
+are only installed into the local workspace, so no need for admin/root privileges.
 
 Configure it with:
 
@@ -20,12 +23,20 @@ Pre-install `cargo-install`, which can be done using:
 mise use -g cargo-binstall
 ```
 
+### Windows only
+
 On Windows only, `pipx` also needs to be pre-installed.
 See the Windows section of [pipx instructions](https://pipx.pypa.io/stable/how-to/install-pipx/).
 
-The mise configuration is stored in [`.mise.toml`](.mise.toml).
+### MacOS only
 
-After checking out this repository
+On MacOS, we need to install a better linker into the workspace.
+
+```bash
+mise install conda:lld
+```
+
+### All OS
 
 Before installing dependencies, please the install openssl development files
 separately:
@@ -101,6 +112,26 @@ The default UX in the web-browser is also a loadable module located in
 [services/ws-server/static](services/ws-server/static).
 
 A custom UX module can be used by setting the `ws-server` environment variable `MODULES_ROOT`.
+
+## Protocol & API specs
+
+The WebSocket protocol and the ws-server REST surface are described by
+machine-readable specs regenerated from their Rust sources of truth by
+`mise run gen-specs`:
+
+- **WebSocket** (AsyncAPI 3.0): [`generated/specs/ws.yaml`](generated/specs/ws.yaml).
+  Source: `ClientMessage` + `ServerMessage` in `libs/edge-toolkit/src/ws.rs`. Generated clients:
+  [`generated/dart-ws/`](generated/dart-ws/),
+  [`generated/python-ws/`](generated/python-ws/), and the
+  `et:ws-messages` WIT under `generated/specs/wit/deps/`.
+- **REST** (OpenAPI 3.0): [`generated/specs/rest.yaml`](generated/specs/rest.yaml).
+  Source: `#[utoipa::path]` annotations on the handlers in
+  `services/{ws-server,modules,storage}`. Typed Rust client at
+  [`generated/rust-rest/`](generated/rust-rest/) (consumed by
+  `et-ws-wasi-runner` and the browser `data1` module).
+
+See [`generated/README.md`](generated/README.md) for a full catalogue
+of what's regenerated vs. hand-maintained under `generated/`.
 
 ## Run e2e
 

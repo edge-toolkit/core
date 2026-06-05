@@ -51,7 +51,7 @@ impl<T> From<PoisonError<T>> for AcknowledgeError {
 
 /// Take the lock, recovering from poison by returning the inner guard.
 ///
-/// We never observe poisoned state in the wild — every panic-prone path
+/// We never observe poisoned state in the wild -- every panic-prone path
 /// holds the lock briefly around infallible map ops. Recovering keeps the
 /// registry usable if a future change introduces a panic under the lock.
 fn lock_agents<S>(
@@ -133,7 +133,7 @@ impl<S: Clone + Default + Send + 'static> AgentRegistry<S> {
             );
             return Ok(Self::default());
         }
-        let yaml = std::fs::read_to_string(path)?;
+        let yaml = fs_err::read_to_string(path)?;
         let agents: BTreeMap<String, AgentRecord<S>> = serde_yaml::from_str(&yaml)?;
         log::info!("Loaded {} agents from registry {}", agents.len(), path.display());
         Ok(Self {
@@ -147,7 +147,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
         let agents = self.agents.lock()?;
         let yaml = serde_yaml::to_string(&*agents)?;
         drop(agents);
-        std::fs::write(path, yaml)?;
+        fs_err::write(path, yaml)?;
         log::info!("Agent registry saved to {}", path.display());
         Ok(())
     }
@@ -208,7 +208,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
     }
 
     /// # Panics
-    /// Panics if `to_agent_id` is not present in the registry — the caller is
+    /// Panics if `to_agent_id` is not present in the registry -- the caller is
     /// expected to have validated that the recipient exists before queueing.
     #[must_use]
     #[expect(

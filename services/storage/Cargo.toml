@@ -8,23 +8,29 @@ repository.workspace = true
 [lib]
 doctest = false
 
+[features]
+# See ws-server's openapi-spec feature for the rationale.
+openapi-spec = ["dep:utoipa"]
+
 [dependencies]
-actix-files = "0.6"
-actix-web = "4"
+actix-files.workspace = true
+actix-web.workspace = true
 actix-web-thiserror.workspace = true
 edge-toolkit.workspace = true
-futures-util = "0.3"
+fs-err.workspace = true
+futures-util.workspace = true
 log.workspace = true
 serde.workspace = true
 serde-inline-default.workspace = true
 serde_default.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-tokio = { version = "1", features = ["full"] }
+tokio = { workspace = true, features = ["full"] }
 tracing.workspace = true
+utoipa = { workspace = true, optional = true }
 
 [dev-dependencies]
-actix-rt = "2"
+actix-rt.workspace = true
 tempfile.workspace = true
 
 [lints]

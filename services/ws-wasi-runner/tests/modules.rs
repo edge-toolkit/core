@@ -1,6 +1,6 @@
 //! Integration tests: start a ws-server in-process and run each WASI module
 //! via et-ws-wasi-runner. Mirror of `services/ws-worker/tests/modules.rs`'s
-//! removed predecessor — same shape, but the spawned binary runs WASI
+//! removed predecessor -- same shape, but the spawned binary runs WASI
 //! components rather than browser-targeted JS.
 
 #![cfg(test)]
@@ -19,7 +19,7 @@ use rstest::rstest;
 #[case::wasi_comm1("et-ws-wasi-comm1")]
 #[case::wasi_data1("et-ws-wasi-data1")]
 #[case::wasi_graphics_info("et-ws-wasi-graphics-info")]
-#[cfg_attr(windows, ignore = "pkg/package.json 404 on Windows — see comment above")]
+#[cfg_attr(windows, ignore = "pkg/package.json 404 on Windows -- see comment above")]
 fn module_runs_successfully(#[case] module: &str) {
     let server = et_ws_test_server::start();
 

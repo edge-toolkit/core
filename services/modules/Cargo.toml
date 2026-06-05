@@ -8,18 +8,23 @@ repository.workspace = true
 [lib]
 doctest = false
 
+[features]
+# See ws-server's openapi-spec feature for the rationale.
+openapi-spec = ["dep:utoipa"]
+
 [dependencies]
-actix-files = "0.6"
-actix-web = "4"
+actix-files.workspace = true
+actix-web.workspace = true
 edge-toolkit.workspace = true
 serde.workspace = true
 serde-inline-default.workspace = true
 serde_default.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
+utoipa = { workspace = true, optional = true }
 
 [dev-dependencies]
-actix-rt = "2"
+actix-rt.workspace = true
 tempfile.workspace = true
 
 [lints]

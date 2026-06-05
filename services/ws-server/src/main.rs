@@ -91,7 +91,7 @@ async fn main() -> Result<(), std::io::Error> {
     let registry_clone = agent_registry.clone();
     let registry_path = args.agent_registry.clone();
 
-    std::fs::create_dir_all(&env.storage.path).unwrap();
+    fs_err::create_dir_all(&env.storage.path).unwrap();
 
     for (name, pkg_dir) in list_modules(&env.modules) {
         info!("Loading module {name} at {}", pkg_dir.display());
@@ -101,7 +101,7 @@ async fn main() -> Result<(), std::io::Error> {
         let config = env.clone();
         // `TracingLogger` extracts the W3C `traceparent` header from
         // incoming requests (via the `opentelemetry_0_31` feature) and uses
-        // it as the parent context of the per-request span — that's how
+        // it as the parent context of the per-request span -- that's how
         // traces propagate from the wasi-runner (or any client that injects
         // `traceparent`) into the server.
         App::new()
@@ -109,7 +109,7 @@ async fn main() -> Result<(), std::io::Error> {
             // request (method, path, status, duration). The
             // tracing-subscriber default has `tracing-log` enabled, so the
             // `log` records show up in the same console as tracing events
-            // — invaluable when an actix-files 404 would otherwise be
+            // -- invaluable when an actix-files 404 would otherwise be
             // silent (TracingLogger only creates the span, it doesn't emit
             // events on success).
             .wrap(Logger::default())

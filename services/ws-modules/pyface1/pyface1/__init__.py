@@ -9,8 +9,8 @@ from .face_detection import (
     preprocess_geometry,
     run,
     starting_status,
-    stopped_status,
     status_text,
+    stopped_status,
     validate_output_names,
 )
 

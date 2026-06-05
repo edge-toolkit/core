@@ -8,107 +8,71 @@
 //!
 //! See `wit/world.wit` for the host/guest contract.
 
-use opentelemetry_http::HeaderInjector;
-use thiserror::Error;
+// `RunnerError` ends up large because `et_rest_client::Error<()>` carries an
+// inline `reqwest::Response` (~136 B). Boxing the variant would shave the
+// parent enum but cost a `From` impl per variant; not worth it for an
+// internal crate.
+#![expect(
+    clippy::result_large_err,
+    reason = "et_rest_client::Error<()> dominates the footprint; boxing would force per-variant From impls"
+)]
+
+use futures_util::StreamExt as _;
 use tracing::Instrument as _;
-use tracing_opentelemetry::OpenTelemetrySpanExt as _;
 use wasmtime::component::{Component, HasSelf, Linker};
 use wasmtime::{Config, Engine, Store};
 
 pub mod bindings;
-
-use self::bindings::exports::et::ws_wasi::entry::RunError;
-
-/// Errors `run_module` can fail with.
-///
-/// `reqwest::Error` and `wasmtime::Error` already carry enough context to be
-/// useful on their own, so they're forwarded transparently. `RunError` is
-/// the WIT-defined variant the guest returns from `entry.run`.
-#[derive(Debug, Error)]
-#[non_exhaustive]
-pub enum RunnerError {
-    #[error("could not derive HTTP base from WS_SERVER_URL={ws_url}")]
-    InvalidWsUrl { ws_url: String },
-
-    #[error(transparent)]
-    Http(#[from] reqwest::Error),
-
-    #[error("module {module} package.json missing `main` field")]
-    PackageJsonMissingMain { module: String },
-
-    #[error(transparent)]
-    Wasm(#[from] wasmtime::Error),
-
-    #[error("module run() returned err: {0:?}")]
-    Guest(RunError),
-}
-
-// Lets `?` flatten the inner `Result<_, RunError>` from `call_run` into
-// `RunnerError::Guest` — `#[from]` doesn't work because `RunError`,
-// being wit-bindgen-generated, doesn't implement `Error`.
-impl From<RunError> for RunnerError {
-    fn from(source: RunError) -> Self {
-        Self::Guest(source)
-    }
-}
-
+pub mod error;
 pub mod host;
 
+pub use self::error::RunnerError;
 pub use self::host::HostState;
 
-/// Inject the W3C `traceparent` (and any `tracestate`) for the current span
-/// into `req`. Downstream HTTP servers running `tracing-actix-web`'s
-/// `TracingLogger` (or any propagator-aware middleware) parent their
-/// request span on the value, which is how a single trace id covers both
-/// processes.
-fn inject_traceparent(req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
-    let mut headers = reqwest::header::HeaderMap::new();
-    let cx = tracing::Span::current().context();
-    opentelemetry::global::get_text_map_propagator(|propagator| {
-        propagator.inject_context(&cx, &mut HeaderInjector(&mut headers));
-    });
-    req.headers(headers)
-}
-
-/// Convert a `ws://host[:port]/ws` URL to its `http://host[:port]` HTTP base
-/// (or `wss://` → `https://`). Returns `None` if `ws_url` is not a websocket
-/// URL.
-#[must_use]
-pub fn derive_http_base(ws_url: &str) -> Option<String> {
+/// Convert a WebSocket URL to its HTTP base.
+pub fn derive_http_base(ws_url: &str) -> Result<String, RunnerError> {
     let (scheme, rest) = if let Some(suffix) = ws_url.strip_prefix("wss://") {
         ("https", suffix)
     } else if let Some(suffix) = ws_url.strip_prefix("ws://") {
         ("http", suffix)
     } else {
-        return None;
+        return Err(RunnerError::InvalidWsUrl {
+            ws_url: ws_url.to_string(),
+        });
     };
     let host_port = rest.strip_suffix("/ws").unwrap_or(rest);
-    Some(format!("{scheme}://{host_port}"))
+    Ok(format!("{scheme}://{host_port}"))
 }
 
-/// Where to find the .wasm component for a given module.
+/// Drain a progenitor `ByteStream` into a `Vec<u8>`.
+async fn collect_byte_stream(mut stream: et_rest_client::ByteStream) -> Result<Vec<u8>, RunnerError> {
+    let mut buf = Vec::new();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk?;
+        buf.extend_from_slice(&chunk);
+    }
+    Ok(buf)
+}
+
+/// Read the module's `package.json` from the ws-server and extract its `main` field.
 ///
-/// Resolved against `package.json`'s `main` field as served by the ws-server.
+/// The `main` field names the WASI component binary.
 #[expect(
     clippy::single_call_fn,
-    reason = "named step in the module-load pipeline; used once by run_module_inner"
+    reason = "named helper; kept separate so the package.json fetch span scopes cleanly"
 )]
-async fn resolve_component_url(http_base: &str, module_name: &str) -> Result<String, RunnerError> {
-    let pkg_url = format!("{http_base}/modules/{module_name}/package.json");
-    let pkg: serde_json::Value = inject_traceparent(reqwest::Client::new().get(&pkg_url))
-        .send()
-        .instrument(tracing::info_span!("fetch_package_json", url = %pkg_url))
-        .await?
-        .error_for_status()?
-        .json()
-        .await?;
-    let main = pkg
-        .get("main")
+#[tracing::instrument(name = "fetch_package_json", skip(client), err)]
+async fn fetch_main_field(client: &et_rest_client::Client, module_name: &str) -> Result<String, RunnerError> {
+    let response = client.get_module_file(module_name, "package.json").await?;
+    let bytes = collect_byte_stream(response.into_inner()).await?;
+    let mut deserializer = serde_json::Deserializer::from_slice(&bytes);
+    let pkg: serde_json::Value = serde_path_to_error::deserialize(&mut deserializer)?;
+    pkg.get("main")
         .and_then(|value| value.as_str())
+        .map(str::to_string)
         .ok_or_else(|| RunnerError::PackageJsonMissingMain {
             module: module_name.to_string(),
-        })?;
-    Ok(format!("{http_base}/modules/{module_name}/{main}"))
+        })
 }
 
 /// Download, link, and run the WASI component for `module_name`.
@@ -117,7 +81,7 @@ async fn resolve_component_url(http_base: &str, module_name: &str) -> Result<Str
 /// returning `ok` or trapping). Guest `err` returns are surfaced as
 /// `RunnerError::Guest`.
 ///
-/// The whole call is wrapped in a `run_module` span — every outgoing
+/// The whole call is wrapped in a `run_module` span -- every outgoing
 /// request inherits its trace context, and ws-server's request span ends
 /// up as a child of it.
 pub async fn run_module(module_name: &str, ws_url: &str) -> Result<(), RunnerError> {
@@ -130,19 +94,16 @@ pub async fn run_module(module_name: &str, ws_url: &str) -> Result<(), RunnerErr
     reason = "span-instrumented body of run_module; the split is mandatory to scope the tracing span"
 )]
 async fn run_module_inner(module_name: &str, ws_url: &str) -> Result<(), RunnerError> {
-    let http_base = derive_http_base(ws_url).ok_or_else(|| RunnerError::InvalidWsUrl {
-        ws_url: ws_url.to_string(),
-    })?;
+    let http_base = derive_http_base(ws_url)?;
 
-    let wasm_url = resolve_component_url(&http_base, module_name).await?;
-    tracing::info!(%wasm_url, "fetching WASI component");
-    let wasm_bytes = inject_traceparent(reqwest::Client::new().get(&wasm_url))
-        .send()
-        .instrument(tracing::info_span!("fetch_component", url = %wasm_url))
-        .await?
-        .error_for_status()?
-        .bytes()
+    let rest = et_rest_client::Client::new(&http_base);
+    let main = fetch_main_field(&rest, module_name).await?;
+    tracing::info!(module = module_name, %main, "fetching WASI component");
+    let response = rest
+        .get_module_file(module_name, &main)
+        .instrument(tracing::info_span!("fetch_component", module = module_name, file = %main))
         .await?;
+    let wasm_bytes = collect_byte_stream(response.into_inner()).await?;
 
     let mut config = Config::new();
     #[expect(
@@ -161,7 +122,7 @@ async fn run_module_inner(module_name: &str, ws_url: &str) -> Result<(), RunnerE
     bindings::Runner::add_to_linker::<HostState, HasSelf<HostState>>(&mut linker, |state| state)?;
     wasmtime_wasi_nn::wit::add_to_linker(&mut linker, host::wasi_nn::view)?;
 
-    let host_state = HostState::new(http_base, ws_url.to_string());
+    let host_state = HostState::new(&http_base, ws_url.to_string());
     let mut store = Store::new(&engine, host_state);
 
     let module = bindings::Runner::instantiate_async(&mut store, &component, &linker).await?;

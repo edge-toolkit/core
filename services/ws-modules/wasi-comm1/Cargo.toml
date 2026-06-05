@@ -2,8 +2,8 @@
 name = "et-ws-wasi-comm1"
 description = "WASI Preview 2 port of the comm1 module — list-agents + broadcast + direct message"
 version = "0.1.0"
-edition = "2024"
-license = "Apache-2.0 OR MIT"
+edition.workspace = true
+license.workspace = true
 repository.workspace = true
 
 [lib]
@@ -13,8 +13,8 @@ doctest = false
 # See wasi-data1/Cargo.toml for the rationale behind the wasi-only target
 # scope; the lib body is gated identically.
 [target.'cfg(target_os = "wasi")'.dependencies]
-serde_json = "1"
-wit-bindgen = "0.57"
+serde_json.workspace = true
+wit-bindgen.workspace = true
 
 [lints]
 workspace = true

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-import math
 import json
+import math
 import time
 from datetime import datetime
 from functools import lru_cache
 from typing import Iterable, Sequence, TypedDict
+
+from et_ws.messages import WsClientEvent
 
 FACE_MODEL_PATH = "/modules/et-model-face1/video_cv.onnx"
 FACE_INPUT_WIDTH = 640
@@ -173,14 +175,12 @@ def detections_json(detections: list[Detection]) -> str:
 
 
 def client_event_json(details: dict[str, object]) -> str:
-    return json.dumps(
-        {
-            "type": "client_event",
-            "capability": "face_detection",
-            "action": "inference",
-            "details": details,
-        }
-    )
+    return WsClientEvent(
+        type="et-client-event",
+        capability="face_detection",
+        action="inference",
+        details=details,
+    ).model_dump_json()
 
 
 def decode_outputs(
