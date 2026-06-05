@@ -59,14 +59,14 @@ from wit_world.imports.webgpu import (
 )
 from wit_world.imports.ws import (
     WsError_AlreadyConnected,
+    WsError_Decode,
     WsError_NotConnected,
-    WsError_Protocol,
     WsError_Transport,
 )
 
 _WS_ERROR_VARIANTS = (
     WsError_Transport,
-    WsError_Protocol,
+    WsError_Decode,
     WsError_NotConnected,
     WsError_AlreadyConnected,
 )

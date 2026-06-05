@@ -29,7 +29,7 @@ components:
           - scope
           - server_received_at
           - message
-        title: WsServerAgentMessage
+        title: WsAgentMessage
         type: object
       title: et-agent-message
     et-alive:
@@ -58,7 +58,7 @@ components:
                 type: string
             required:
               - type
-            title: WsClientConnect
+            title: WsConnect
             type: object
           - properties:
               timestamp:
@@ -69,7 +69,7 @@ components:
             required:
               - type
               - timestamp
-            title: WsClientAlive
+            title: WsAlive
             type: object
           - properties:
               type:
@@ -77,7 +77,7 @@ components:
                 type: string
             required:
               - type
-            title: WsClientListAgents
+            title: WsListAgents
             type: object
           - properties:
               message:
@@ -91,7 +91,7 @@ components:
               - type
               - to_agent_id
               - message
-            title: WsClientSendAgentMessage
+            title: WsSendAgentMessage
             type: object
           - properties:
               message:
@@ -102,7 +102,7 @@ components:
             required:
               - type
               - message
-            title: WsClientBroadcastMessage
+            title: WsBroadcastMessage
             type: object
           - properties:
               message_id:
@@ -113,7 +113,7 @@ components:
             required:
               - type
               - message_id
-            title: WsClientMessageAck
+            title: WsMessageAck
             type: object
           - properties:
               action:
@@ -130,7 +130,7 @@ components:
               - capability
               - action
               - details
-            title: WsClientClientEvent
+            title: WsClientEvent
             type: object
           - properties:
               content:
@@ -188,7 +188,7 @@ components:
                 type: string
             required:
               - type
-            title: WsClientConnect
+            title: WsConnect
             type: object
           - properties:
               timestamp:
@@ -199,7 +199,7 @@ components:
             required:
               - type
               - timestamp
-            title: WsClientAlive
+            title: WsAlive
             type: object
           - properties:
               type:
@@ -207,7 +207,7 @@ components:
                 type: string
             required:
               - type
-            title: WsClientListAgents
+            title: WsListAgents
             type: object
           - properties:
               message:
@@ -221,7 +221,7 @@ components:
               - type
               - to_agent_id
               - message
-            title: WsClientSendAgentMessage
+            title: WsSendAgentMessage
             type: object
           - properties:
               message:
@@ -232,7 +232,7 @@ components:
             required:
               - type
               - message
-            title: WsClientBroadcastMessage
+            title: WsBroadcastMessage
             type: object
           - properties:
               message_id:
@@ -243,7 +243,7 @@ components:
             required:
               - type
               - message_id
-            title: WsClientMessageAck
+            title: WsMessageAck
             type: object
           - properties:
               action:
@@ -260,7 +260,7 @@ components:
               - capability
               - action
               - details
-            title: WsClientClientEvent
+            title: WsClientEvent
             type: object
           - properties:
               content:
@@ -318,7 +318,7 @@ components:
                 type: string
             required:
               - type
-            title: WsClientConnect
+            title: WsConnect
             type: object
           - properties:
               timestamp:
@@ -329,7 +329,7 @@ components:
             required:
               - type
               - timestamp
-            title: WsClientAlive
+            title: WsAlive
             type: object
           - properties:
               type:
@@ -337,7 +337,7 @@ components:
                 type: string
             required:
               - type
-            title: WsClientListAgents
+            title: WsListAgents
             type: object
           - properties:
               message:
@@ -351,7 +351,7 @@ components:
               - type
               - to_agent_id
               - message
-            title: WsClientSendAgentMessage
+            title: WsSendAgentMessage
             type: object
           - properties:
               message:
@@ -362,7 +362,7 @@ components:
             required:
               - type
               - message
-            title: WsClientBroadcastMessage
+            title: WsBroadcastMessage
             type: object
           - properties:
               message_id:
@@ -373,7 +373,7 @@ components:
             required:
               - type
               - message_id
-            title: WsClientMessageAck
+            title: WsMessageAck
             type: object
           - properties:
               action:
@@ -390,7 +390,7 @@ components:
               - capability
               - action
               - details
-            title: WsClientClientEvent
+            title: WsClientEvent
             type: object
           - properties:
               content:
@@ -448,7 +448,7 @@ components:
                 type: string
             required:
               - type
-            title: WsClientConnect
+            title: WsConnect
             type: object
           - properties:
               timestamp:
@@ -459,7 +459,7 @@ components:
             required:
               - type
               - timestamp
-            title: WsClientAlive
+            title: WsAlive
             type: object
           - properties:
               type:
@@ -467,7 +467,7 @@ components:
                 type: string
             required:
               - type
-            title: WsClientListAgents
+            title: WsListAgents
             type: object
           - properties:
               message:
@@ -481,7 +481,7 @@ components:
               - type
               - to_agent_id
               - message
-            title: WsClientSendAgentMessage
+            title: WsSendAgentMessage
             type: object
           - properties:
               message:
@@ -492,7 +492,7 @@ components:
             required:
               - type
               - message
-            title: WsClientBroadcastMessage
+            title: WsBroadcastMessage
             type: object
           - properties:
               message_id:
@@ -503,7 +503,7 @@ components:
             required:
               - type
               - message_id
-            title: WsClientMessageAck
+            title: WsMessageAck
             type: object
           - properties:
               action:
@@ -520,7 +520,7 @@ components:
               - capability
               - action
               - details
-            title: WsClientClientEvent
+            title: WsClientEvent
             type: object
           - properties:
               content:
@@ -568,7 +568,7 @@ components:
           - type
           - agent_id
           - status
-        title: WsServerConnectAck
+        title: WsConnectAck
         type: object
       title: et-connect-ack
     et-invalid:
@@ -588,7 +588,7 @@ components:
         required:
           - type
           - detail
-        title: WsServerInvalid
+        title: WsInvalid
         type: object
       title: et-invalid
     et-list-agents:
@@ -617,7 +617,7 @@ components:
                 type: string
             required:
               - type
-            title: WsClientConnect
+            title: WsConnect
             type: object
           - properties:
               timestamp:
@@ -628,7 +628,7 @@ components:
             required:
               - type
               - timestamp
-            title: WsClientAlive
+            title: WsAlive
             type: object
           - properties:
               type:
@@ -636,7 +636,7 @@ components:
                 type: string
             required:
               - type
-            title: WsClientListAgents
+            title: WsListAgents
             type: object
           - properties:
               message:
@@ -650,7 +650,7 @@ components:
               - type
               - to_agent_id
               - message
-            title: WsClientSendAgentMessage
+            title: WsSendAgentMessage
             type: object
           - properties:
               message:
@@ -661,7 +661,7 @@ components:
             required:
               - type
               - message
-            title: WsClientBroadcastMessage
+            title: WsBroadcastMessage
             type: object
           - properties:
               message_id:
@@ -672,7 +672,7 @@ components:
             required:
               - type
               - message_id
-            title: WsClientMessageAck
+            title: WsMessageAck
             type: object
           - properties:
               action:
@@ -689,7 +689,7 @@ components:
               - capability
               - action
               - details
-            title: WsClientClientEvent
+            title: WsClientEvent
             type: object
           - properties:
               content:
@@ -736,7 +736,7 @@ components:
         required:
           - type
           - agents
-        title: WsServerListAgentsResponse
+        title: WsListAgentsResponse
         type: object
       title: et-list-agents-response
     et-message-ack:
@@ -765,7 +765,7 @@ components:
                 type: string
             required:
               - type
-            title: WsClientConnect
+            title: WsConnect
             type: object
           - properties:
               timestamp:
@@ -776,7 +776,7 @@ components:
             required:
               - type
               - timestamp
-            title: WsClientAlive
+            title: WsAlive
             type: object
           - properties:
               type:
@@ -784,7 +784,7 @@ components:
                 type: string
             required:
               - type
-            title: WsClientListAgents
+            title: WsListAgents
             type: object
           - properties:
               message:
@@ -798,7 +798,7 @@ components:
               - type
               - to_agent_id
               - message
-            title: WsClientSendAgentMessage
+            title: WsSendAgentMessage
             type: object
           - properties:
               message:
@@ -809,7 +809,7 @@ components:
             required:
               - type
               - message
-            title: WsClientBroadcastMessage
+            title: WsBroadcastMessage
             type: object
           - properties:
               message_id:
@@ -820,7 +820,7 @@ components:
             required:
               - type
               - message_id
-            title: WsClientMessageAck
+            title: WsMessageAck
             type: object
           - properties:
               action:
@@ -837,7 +837,7 @@ components:
               - capability
               - action
               - details
-            title: WsClientClientEvent
+            title: WsClientEvent
             type: object
           - properties:
               content:
@@ -889,7 +889,7 @@ components:
           - type
           - status
           - detail
-        title: WsServerMessageStatus
+        title: WsMessageStatus
         type: object
       title: et-message-status
     et-relay-binary:
@@ -943,7 +943,7 @@ components:
         required:
           - type
           - message
-        title: WsServerResponse
+        title: WsResponse
         type: object
       title: et-response
     et-send-agent-message:
@@ -972,7 +972,7 @@ components:
                 type: string
             required:
               - type
-            title: WsClientConnect
+            title: WsConnect
             type: object
           - properties:
               timestamp:
@@ -983,7 +983,7 @@ components:
             required:
               - type
               - timestamp
-            title: WsClientAlive
+            title: WsAlive
             type: object
           - properties:
               type:
@@ -991,7 +991,7 @@ components:
                 type: string
             required:
               - type
-            title: WsClientListAgents
+            title: WsListAgents
             type: object
           - properties:
               message:
@@ -1005,7 +1005,7 @@ components:
               - type
               - to_agent_id
               - message
-            title: WsClientSendAgentMessage
+            title: WsSendAgentMessage
             type: object
           - properties:
               message:
@@ -1016,7 +1016,7 @@ components:
             required:
               - type
               - message
-            title: WsClientBroadcastMessage
+            title: WsBroadcastMessage
             type: object
           - properties:
               message_id:
@@ -1027,7 +1027,7 @@ components:
             required:
               - type
               - message_id
-            title: WsClientMessageAck
+            title: WsMessageAck
             type: object
           - properties:
               action:
@@ -1044,7 +1044,7 @@ components:
               - capability
               - action
               - details
-            title: WsClientClientEvent
+            title: WsClientEvent
             type: object
           - properties:
               content:

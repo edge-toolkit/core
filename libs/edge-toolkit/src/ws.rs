@@ -141,32 +141,32 @@ fn has_et_prefix(text: &str) -> bool {
 #[serde(tag = "type")]
 pub enum ClientMessage {
     #[serde(rename = "et-connect")]
-    #[cfg_attr(feature = "schema-export", schemars(title = "WsClientConnect"))]
+    #[cfg_attr(feature = "schema-export", schemars(title = "WsConnect"))]
     Connect { agent_id: Option<String> },
     #[serde(rename = "et-alive")]
-    #[cfg_attr(feature = "schema-export", schemars(title = "WsClientAlive"))]
+    #[cfg_attr(feature = "schema-export", schemars(title = "WsAlive"))]
     Alive { timestamp: String },
     #[serde(rename = "et-list-agents")]
-    #[cfg_attr(feature = "schema-export", schemars(title = "WsClientListAgents"))]
+    #[cfg_attr(feature = "schema-export", schemars(title = "WsListAgents"))]
     ListAgents,
     #[serde(rename = "et-send-agent-message")]
-    #[cfg_attr(feature = "schema-export", schemars(title = "WsClientSendAgentMessage"))]
+    #[cfg_attr(feature = "schema-export", schemars(title = "WsSendAgentMessage"))]
     SendAgentMessage {
         to_agent_id: String,
         #[cfg_attr(feature = "schema-export", schemars(schema_with = "any_json_schema"))]
         message: serde_json::Value,
     },
     #[serde(rename = "et-broadcast-message")]
-    #[cfg_attr(feature = "schema-export", schemars(title = "WsClientBroadcastMessage"))]
+    #[cfg_attr(feature = "schema-export", schemars(title = "WsBroadcastMessage"))]
     BroadcastMessage {
         #[cfg_attr(feature = "schema-export", schemars(schema_with = "any_json_schema"))]
         message: serde_json::Value,
     },
     #[serde(rename = "et-message-ack")]
-    #[cfg_attr(feature = "schema-export", schemars(title = "WsClientMessageAck"))]
+    #[cfg_attr(feature = "schema-export", schemars(title = "WsMessageAck"))]
     MessageAck { message_id: String },
     #[serde(rename = "et-client-event")]
-    #[cfg_attr(feature = "schema-export", schemars(title = "WsClientClientEvent"))]
+    #[cfg_attr(feature = "schema-export", schemars(title = "WsClientEvent"))]
     ClientEvent {
         capability: String,
         action: String,
@@ -230,13 +230,13 @@ impl ClientMessage {
 #[serde(tag = "type")]
 pub enum ServerMessage {
     #[serde(rename = "et-connect-ack")]
-    #[cfg_attr(feature = "schema-export", schemars(title = "WsServerConnectAck"))]
+    #[cfg_attr(feature = "schema-export", schemars(title = "WsConnectAck"))]
     ConnectAck { agent_id: String, status: ConnectStatus },
     #[serde(rename = "et-list-agents-response")]
-    #[cfg_attr(feature = "schema-export", schemars(title = "WsServerListAgentsResponse"))]
+    #[cfg_attr(feature = "schema-export", schemars(title = "WsListAgentsResponse"))]
     ListAgentsResponse { agents: Vec<AgentSummary> },
     #[serde(rename = "et-agent-message")]
-    #[cfg_attr(feature = "schema-export", schemars(title = "WsServerAgentMessage"))]
+    #[cfg_attr(feature = "schema-export", schemars(title = "WsAgentMessage"))]
     AgentMessage {
         message_id: String,
         from_agent_id: String,
@@ -246,17 +246,17 @@ pub enum ServerMessage {
         message: serde_json::Value,
     },
     #[serde(rename = "et-message-status")]
-    #[cfg_attr(feature = "schema-export", schemars(title = "WsServerMessageStatus"))]
+    #[cfg_attr(feature = "schema-export", schemars(title = "WsMessageStatus"))]
     MessageStatus {
         message_id: Option<String>,
         status: MessageDeliveryStatus,
         detail: String,
     },
     #[serde(rename = "et-invalid")]
-    #[cfg_attr(feature = "schema-export", schemars(title = "WsServerInvalid"))]
+    #[cfg_attr(feature = "schema-export", schemars(title = "WsInvalid"))]
     Invalid { message_id: Option<String>, detail: String },
     #[serde(rename = "et-response")]
-    #[cfg_attr(feature = "schema-export", schemars(title = "WsServerResponse"))]
+    #[cfg_attr(feature = "schema-export", schemars(title = "WsResponse"))]
     Response { message: String },
     #[serde(rename = "et-relay-text")]
     #[cfg_attr(feature = "schema-export", schemars(title = "WsServerRelayText"))]

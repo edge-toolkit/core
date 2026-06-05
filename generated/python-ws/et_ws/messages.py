@@ -5,7 +5,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, RootModel
 
 
-class WsClientConnect(BaseModel):
+class WsConnect(BaseModel):
     """
     Messages a client is allowed to SEND to the server.
 
@@ -22,7 +22,7 @@ class WsClientConnect(BaseModel):
     type: Literal["et-connect"]
 
 
-class WsClientAlive(BaseModel):
+class WsAlive(BaseModel):
     """
     Messages a client is allowed to SEND to the server.
 
@@ -39,7 +39,7 @@ class WsClientAlive(BaseModel):
     type: Literal["et-alive"]
 
 
-class WsClientListAgents(BaseModel):
+class WsListAgents(BaseModel):
     """
     Messages a client is allowed to SEND to the server.
 
@@ -55,7 +55,7 @@ class WsClientListAgents(BaseModel):
     type: Literal["et-list-agents"]
 
 
-class WsClientSendAgentMessage(BaseModel):
+class WsSendAgentMessage(BaseModel):
     """
     Messages a client is allowed to SEND to the server.
 
@@ -73,7 +73,7 @@ class WsClientSendAgentMessage(BaseModel):
     type: Literal["et-send-agent-message"]
 
 
-class WsClientBroadcastMessage(BaseModel):
+class WsBroadcastMessage(BaseModel):
     """
     Messages a client is allowed to SEND to the server.
 
@@ -90,7 +90,7 @@ class WsClientBroadcastMessage(BaseModel):
     type: Literal["et-broadcast-message"]
 
 
-class WsClientMessageAck(BaseModel):
+class WsMessageAck(BaseModel):
     """
     Messages a client is allowed to SEND to the server.
 
@@ -107,7 +107,7 @@ class WsClientMessageAck(BaseModel):
     type: Literal["et-message-ack"]
 
 
-class WsClientClientEvent(BaseModel):
+class WsClientEvent(BaseModel):
     """
     Messages a client is allowed to SEND to the server.
 
@@ -166,25 +166,25 @@ class WsClientRelayBinary(BaseModel):
 
 class ClientMessage(
     RootModel[
-        WsClientConnect
-        | WsClientAlive
-        | WsClientListAgents
-        | WsClientSendAgentMessage
-        | WsClientBroadcastMessage
-        | WsClientMessageAck
-        | WsClientClientEvent
+        WsConnect
+        | WsAlive
+        | WsListAgents
+        | WsSendAgentMessage
+        | WsBroadcastMessage
+        | WsMessageAck
+        | WsClientEvent
         | WsClientRelayText
         | WsClientRelayBinary
     ]
 ):
     root: (
-        WsClientConnect
-        | WsClientAlive
-        | WsClientListAgents
-        | WsClientSendAgentMessage
-        | WsClientBroadcastMessage
-        | WsClientMessageAck
-        | WsClientClientEvent
+        WsConnect
+        | WsAlive
+        | WsListAgents
+        | WsSendAgentMessage
+        | WsBroadcastMessage
+        | WsMessageAck
+        | WsClientEvent
         | WsClientRelayText
         | WsClientRelayBinary
     ) = Field(
