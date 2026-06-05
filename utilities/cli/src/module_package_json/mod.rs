@@ -94,6 +94,8 @@ enum MaybeInherited {
         workspace: bool,
     },
 }
+
+/// Writes `<module_dir>/pkg/package.json` from the module's `pyproject.toml` or `Cargo.toml`.
 pub fn generate_module_package_json(module_dir: &Path) -> Result<PathBuf, CliError> {
     let out_path = module_dir.join("pkg/package.json");
     let package_json = if module_dir.join("pyproject.toml").is_file() {

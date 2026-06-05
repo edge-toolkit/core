@@ -127,6 +127,5 @@ async fn run_module_inner(module_name: &str, ws_url: &str) -> Result<(), RunnerE
 
     let module = bindings::Runner::instantiate_async(&mut store, &component, &linker).await?;
 
-    module.et_ws_wasi_entry().call_run(&mut store).await??;
-    Ok(())
+    Ok(module.et_ws_wasi_entry().call_run(&mut store).await??)
 }

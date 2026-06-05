@@ -129,8 +129,7 @@ pub fn render_rust_client() -> Result<String, Error> {
     };
 
     let mut settings = progenitor::GenerationSettings::default();
-    let _settings = settings.with_pre_hook_async(trace_hook);
-    let mut generator = progenitor::Generator::new(&settings);
+    let mut generator = progenitor::Generator::new(settings.with_pre_hook_async(trace_hook));
     let tokens = generator.generate_tokens(&spec)?;
     let ast = syn::parse2(tokens).expect("progenitor always emits valid Rust");
     let body = prettyplease::unparse(&ast);
