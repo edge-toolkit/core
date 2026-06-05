@@ -1,9 +1,23 @@
-//! Real `PUT /storage/{agent_id}/{filename}` handler.
+//! Storage HTTP routes carrying `#[utoipa::path]` annotations.
 //!
-//! The `OpenAPI` spec for this route lives separately in `openapi.rs` as a
-//! placeholder annotated with `#[utoipa::path]`; that split keeps the
-//! `clippy::exhaustive_structs` exception (forced by utoipa's macro-internal
-//! `__path_*` struct) scoped to a single file.
+//! `put_file` is the live PUT handler; `get_file` is a fake stub whose
+//! only role is to host the `#[utoipa::path]` annotation for the GET
+//! route (actually served by an `actix_files::Files` mount registered
+//! in [`crate::configure`]). `BinaryBlob` is the phantom request-body
+//! schema both routes reference.
+//!
+//! The file-level `#![expect(clippy::exhaustive_structs)]` (active
+//! under `openapi-spec`) is scoped here because utoipa's derives emit
+//! `pub struct`s without `#[non_exhaustive]` — and the lint locations
+//! aren't reachable through a function- or item-level `#[expect]`.
+
+#![cfg_attr(
+    feature = "openapi-spec",
+    expect(
+        clippy::exhaustive_structs,
+        reason = "utoipa emits sibling pub structs without #[non_exhaustive]; only file scope can silence the lint"
+    )
+)]
 
 use std::path::PathBuf;
 
@@ -14,6 +28,42 @@ use tracing::info;
 
 use crate::{StorageConfig, StorageError};
 
+/// Phantom type used to label binary request/response bodies as `string`/`binary`.
+///
+/// Never constructed at runtime; only exists under the `openapi-spec` feature
+/// so the `utoipa::ToSchema` derive has something to attach to.
+#[cfg(feature = "openapi-spec")]
+#[derive(utoipa::ToSchema)]
+#[schema(value_type = String, format = Binary)]
+pub struct BinaryBlob(#[expect(dead_code)] Vec<u8>);
+
+/// Upload a file to an agent's storage bucket.
+///
+/// Only the agent that owns the bucket may write to it (the agent must
+/// currently be connected); the path component must be a single
+/// filename, not a nested path.
+#[cfg_attr(
+    feature = "openapi-spec",
+    utoipa::path(
+        put,
+        path = "/storage/{agent_id}/{filename}",
+        tag = "storage",
+        params(
+            ("agent_id" = String, Path, description = "Agent identifier (must be a connected agent)"),
+            ("filename" = String, Path, description = "Single-segment filename to write")
+        ),
+        request_body(
+            content = inline(BinaryBlob),
+            content_type = "application/octet-stream",
+            description = "Raw file bytes"
+        ),
+        responses(
+            (status = 200, description = "File stored"),
+            (status = 400, description = "Invalid filename"),
+            (status = 404, description = "Agent not found")
+        )
+    )
+)]
 #[expect(
     clippy::future_not_send,
     reason = "actix-web Payload is !Send by design; handler runs on actix's single-threaded runtime"
@@ -51,4 +101,28 @@ pub async fn put_file<S: Clone + Send + 'static>(
     }
 
     Ok(HttpResponse::Ok().finish())
+}
+
+/// Download a file previously written to the named agent's storage bucket.
+#[cfg(feature = "openapi-spec")]
+#[utoipa::path(
+    get,
+    path = "/storage/{agent_id}/{filename}",
+    tag = "storage",
+    params(
+        ("agent_id" = String, Path, description = "Agent identifier"),
+        ("filename" = String, Path, description = "Stored filename")
+    ),
+    responses(
+        (status = 200, description = "Stored file contents", content_type = "application/octet-stream"),
+        (status = 404, description = "No such file")
+    )
+)]
+#[must_use]
+pub fn get_file() -> HttpResponse {
+    // Fake handler — the GET route is actually served by the
+    // `actix_files::Files` mount registered in `crate::configure`; this
+    // stub exists only to host the `#[utoipa::path]` annotation so
+    // `et-int-gen` can include the GET route in `generated/specs/rest.yaml`.
+    HttpResponse::NotImplemented().finish()
 }

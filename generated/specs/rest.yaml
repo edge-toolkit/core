@@ -10,11 +10,11 @@ paths:
   /health:
     get:
       tags:
-        - et_ws_server
-      summary: |-
-        Liveness probe. Returns a small JSON document identifying the service
-        so external monitors can confirm the server is reachable and serving
-        requests.
+        - health
+      summary: Liveness probe.
+      description: |-
+        Returns a small JSON document identifying the service so external
+        monitors can confirm the server is reachable and serving requests.
       operationId: health
       responses:
         "200":
@@ -26,7 +26,7 @@ paths:
   /modules/:
     get:
       tags:
-        - et_modules_service
+        - modules
       summary: List the names of every module the server is currently serving.
       operationId: list_modules_handler
       responses:
@@ -41,11 +41,11 @@ paths:
   /modules/{name}/{path}:
     get:
       tags:
-        - et_modules_service
-      summary: |-
-        Fetch a file from a module's bundled static assets. `path` is resolved
-        relative to the module's bundle root; an unknown module or missing file
-        returns 404.
+        - modules
+      summary: Fetch a file from a module's bundled static assets.
+      description: |-
+        `path` is resolved relative to the module's bundle root; an unknown
+        module or missing file returns 404.
       operationId: get_module_file
       parameters:
         - in: path
@@ -72,7 +72,7 @@ paths:
   /storage/{agent_id}/{filename}:
     get:
       tags:
-        - et_storage_service
+        - storage
       summary: Download a file previously written to the named agent's storage bucket.
       operationId: get_file
       parameters:
@@ -99,12 +99,12 @@ paths:
           description: No such file
     put:
       tags:
-        - et_storage_service
-      summary: |-
-        Upload a file to the named agent's storage bucket. Only the agent that
-        owns the bucket may write to it (the agent must currently be
-        connected); the path component must be a single filename, not a nested
-        path.
+        - storage
+      summary: Upload a file to an agent's storage bucket.
+      description: |-
+        Only the agent that owns the bucket may write to it (the agent must
+        currently be connected); the path component must be a single
+        filename, not a nested path.
       operationId: put_file
       parameters:
         - in: path
@@ -144,7 +144,10 @@ paths:
 components:
   schemas:
     HealthResponse:
-      description: Server liveness probe response. Returned by `GET /health`.
+      description: |-
+        Server liveness probe response.
+
+        Returned by `GET /health`.
       type: object
       properties:
         service:

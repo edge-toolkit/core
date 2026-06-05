@@ -1,9 +1,9 @@
 //! Emit a `dart-typegen`-flavoured KDL document from the `ClientMessage`
 //! and `ServerMessage` JSON Schemas.
 //!
-//! The KDL goes to `target/int-gen/ws.kdl` (build intermediate);
-//! `dart-typegen generate -i target/int-gen/ws.kdl -o ...` consumes it to
-//! produce `generated/dart-ws/lib/ws_messages.dart`.
+//! The KDL goes to `generated/specs/ws.kdl` (checked in alongside
+//! `ws.yaml`); `dart-typegen generate -i generated/specs/ws.kdl -o ...`
+//! consumes it to produce `generated/dart-ws/lib/ws_messages.dart`.
 //!
 //! Why this layer exists: dart-typegen consumes KDL declaratively (classes,
 //! enums, unions with `json-discriminant`), so we only have to bridge from

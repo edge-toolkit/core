@@ -1,6 +1,6 @@
 package et:ws-messages@0.1.0;
 
-/// Edge Toolkit WebSocket Protocol — typed et-* messages exchanged between client and server, plus relay-text / relay-binary envelopes for foreign frames the hub forwards verbatim.
+/// Edge Toolkit WS protocol — typed et-* messages plus relay envelopes for foreign frames.
 interface messages {
   enum agent-connection-state {
     connected,

@@ -44,9 +44,10 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
 ) -> Response[HealthResponse]:
-    """Liveness probe. Returns a small JSON document identifying the service
-    so external monitors can confirm the server is reachable and serving
-    requests.
+    """Liveness probe.
+
+     Returns a small JSON document identifying the service so external
+    monitors can confirm the server is reachable and serving requests.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -69,9 +70,10 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
 ) -> HealthResponse | None:
-    """Liveness probe. Returns a small JSON document identifying the service
-    so external monitors can confirm the server is reachable and serving
-    requests.
+    """Liveness probe.
+
+     Returns a small JSON document identifying the service so external
+    monitors can confirm the server is reachable and serving requests.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -90,9 +92,10 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
 ) -> Response[HealthResponse]:
-    """Liveness probe. Returns a small JSON document identifying the service
-    so external monitors can confirm the server is reachable and serving
-    requests.
+    """Liveness probe.
+
+     Returns a small JSON document identifying the service so external
+    monitors can confirm the server is reachable and serving requests.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -113,9 +116,10 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
 ) -> HealthResponse | None:
-    """Liveness probe. Returns a small JSON document identifying the service
-    so external monitors can confirm the server is reachable and serving
-    requests.
+    """Liveness probe.
+
+     Returns a small JSON document identifying the service so external
+    monitors can confirm the server is reachable and serving requests.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

@@ -11,11 +11,13 @@ T = TypeVar("T", bound="HealthResponse")
 
 @_attrs_define
 class HealthResponse:
-    """Server liveness probe response. Returned by `GET /health`.
+    """Server liveness probe response.
 
-    Attributes:
-        service (str):
-        status (str):
+    Returned by `GET /health`.
+
+        Attributes:
+            service (str):
+            status (str):
     """
 
     service: str

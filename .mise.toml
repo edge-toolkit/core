@@ -364,7 +364,7 @@ zig fmt generated/zig-rest/src/et_rest_client.zig
 
 [tasks.gen-dart-ws]
 depends = ["gen-ws-spec"]
-description = "Emit Dart sealed-class client for the WS protocol via dart-typegen (consumes target/int-gen/ws.kdl emitted by gen-ws-spec)"
+description = "Emit Dart sealed-class client for the WS protocol via dart-typegen (consumes generated/specs/ws.kdl emitted by gen-ws-spec)"
 shell = "bash -c"
 # dart-typegen exits 0 on Windows but writes an empty .dart file, which
 # would clobber the committed source and fail gen-specs-check. Skip the
@@ -373,7 +373,7 @@ shell = "bash -c"
 run = """
 [[ "$OS" == "Windows_NT" ]] && { echo "gen-dart-ws: skipped on Windows (dart-typegen produces an empty file)"; exit 0; }
 mkdir -p generated/dart-ws/lib
-dart-typegen generate -i target/int-gen/ws.kdl -o generated/dart-ws/lib/ws_messages.dart
+dart-typegen generate -i generated/specs/ws.kdl -o generated/dart-ws/lib/ws_messages.dart
 dart format generated/dart-ws/lib/ws_messages.dart
 """
 

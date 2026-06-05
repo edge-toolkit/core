@@ -1,23 +1,11 @@
 use actix_web::{HttpResponse, web};
 pub use et_ws_service::{AgentSession, WsAgentRegistry};
-use serde::{Deserialize, Serialize};
 
 pub mod config;
-mod openapi;
+pub mod routes;
 
-#[cfg(feature = "openapi-spec")]
-pub use self::openapi::__path_health;
-pub use self::openapi::health;
+pub use self::routes::health;
 use crate::config::Config;
-
-/// Server liveness probe response. Returned by `GET /health`.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[cfg_attr(feature = "openapi-spec", derive(utoipa::ToSchema))]
-#[non_exhaustive]
-pub struct HealthResponse {
-    pub status: String,
-    pub service: String,
-}
 
 pub async fn no_content() -> HttpResponse {
     HttpResponse::NoContent().finish()

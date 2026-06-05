@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pyodide_http
 from et_rest_client import Client
-from et_rest_client.api.et_storage_service import get_file, put_file
+from et_rest_client.api.storage import get_file, put_file
 from et_rest_client.types import File
 
 

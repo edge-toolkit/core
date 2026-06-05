@@ -405,9 +405,11 @@ pub fn list_modules_handlerResult(client: *Client) !ApiResult([]const std.json.V
 
 /////////////////
 // Summary:
-// Liveness probe. Returns a small JSON document identifying the service
-// so external monitors can confirm the server is reachable and serving
-// requests.
+// Liveness probe.
+//
+// Description:
+// Returns a small JSON document identifying the service so external
+// monitors can confirm the server is reachable and serving requests.
 //
 pub fn health(client: *Client) !Owned(HealthResponse) {
     var result = try healthResult(client);
@@ -460,10 +462,12 @@ pub fn get_fileRaw(client: *Client, agent_id: []const u8, filename: []const u8) 
 
 /////////////////
 // Summary:
-// Upload a file to the named agent's storage bucket. Only the agent that
-// owns the bucket may write to it (the agent must currently be
-// connected); the path component must be a single filename, not a nested
-// path.
+// Upload a file to an agent's storage bucket.
+//
+// Description:
+// Only the agent that owns the bucket may write to it (the agent must
+// currently be connected); the path component must be a single
+// filename, not a nested path.
 //
 pub fn put_file(client: *Client, agent_id: []const u8, filename: []const u8, requestBody: []const u8) !void {
     var raw = try put_fileRaw(client, agent_id, filename, requestBody);
@@ -484,9 +488,11 @@ pub fn put_fileRaw(client: *Client, agent_id: []const u8, filename: []const u8, 
 
 /////////////////
 // Summary:
-// Fetch a file from a module's bundled static assets. `path` is resolved
-// relative to the module's bundle root; an unknown module or missing file
-// returns 404.
+// Fetch a file from a module's bundled static assets.
+//
+// Description:
+// `path` is resolved relative to the module's bundle root; an unknown
+// module or missing file returns 404.
 //
 pub fn get_module_file(client: *Client, name: []const u8, path: []const u8) !void {
     var raw = try get_module_fileRaw(client, name, path);

@@ -8,21 +8,9 @@ use serde::Deserialize;
 use serde_default::DefaultFromSerde;
 use thiserror::Error;
 
-mod openapi;
-mod routes;
+pub mod routes;
 
-#[cfg(feature = "openapi-spec")]
-pub use self::openapi::{__path_get_file, __path_put_file, get_file};
 pub use self::routes::put_file;
-
-/// Phantom type used to label binary request/response bodies as `string`/`binary`.
-///
-/// Never constructed at runtime; only exists under the `openapi-spec` feature
-/// so the `utoipa::ToSchema` derive has something to attach to.
-#[cfg(feature = "openapi-spec")]
-#[derive(utoipa::ToSchema)]
-#[schema(value_type = String, format = Binary)]
-pub struct BinaryBlob(#[expect(dead_code)] Vec<u8>);
 
 /// Default storage directory.
 #[must_use]

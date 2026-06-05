@@ -7,11 +7,9 @@ use serde::Deserialize;
 use serde_default::DefaultFromSerde;
 use serde_inline_default::serde_inline_default;
 
-mod openapi;
+pub mod routes;
 
-pub use self::openapi::list_modules_handler;
-#[cfg(feature = "openapi-spec")]
-pub use self::openapi::{__path_get_module_file, __path_list_modules_handler, get_module_file};
+pub use self::routes::list_modules_handler;
 
 /// Modules config.
 #[serde_inline_default]

@@ -11,6 +11,12 @@ use utoipa::OpenApi;
 
 use crate::Error;
 
+// Each handler sets an explicit `tag = "..."` in its `#[utoipa::path]`
+// attribute (see `et_*_service::routes`). Without that, utoipa derives
+// the tag from the Rust path tokens — turning
+// `et_storage_service::routes::put_file` into the ugly
+// `et_storage_serviceroutes`, which `openapi-python-client` then uses
+// as the submodule name under `generated/python-rest/.../api/`.
 #[derive(OpenApi)]
 #[openapi(
     info(
@@ -22,13 +28,13 @@ use crate::Error;
         (url = "http://localhost:8080", description = "Default ws-server bind address")
     ),
     paths(
-        et_ws_server::health,
-        et_modules_service::list_modules_handler,
-        et_modules_service::get_module_file,
-        et_storage_service::get_file,
-        et_storage_service::put_file::<et_ws_server::AgentSession>,
+        et_ws_server::routes::health,
+        et_modules_service::routes::list_modules_handler,
+        et_modules_service::routes::get_module_file,
+        et_storage_service::routes::get_file,
+        et_storage_service::routes::put_file::<et_ws_server::AgentSession>,
     ),
-    components(schemas(et_ws_server::HealthResponse))
+    components(schemas(et_ws_server::routes::HealthResponse))
 )]
 struct ApiDoc;
 

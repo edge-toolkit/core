@@ -32,10 +32,11 @@
 //!     `dart-typegen` CLI (driven by `mise run gen-dart-ws`).
 //!   - `generated/python-ws/et_ws/messages.py` — Pydantic v2 models, written
 //!     by `datamodel-codegen` (driven by `mise run gen-python-ws`).
-//!   - `target/int-gen/ws.schema.json`,
-//!     `target/int-gen/ws.kdl` — build intermediates (not
-//!     committed); JSON Schema is the input to `datamodel-codegen`; KDL
-//!     is the input to `dart-typegen`.
+//!   - `generated/specs/ws.kdl` — checked-in KDL projection of the WS
+//!     schema; the input `dart-typegen` reads to produce the Dart client.
+//!   - `target/int-gen/ws.schema.json` — build intermediate (not
+//!     committed); the input `datamodel-codegen` reads for the Python
+//!     client.
 //!
 //! Hand-maintained metadata that lives under `generated/` for proximity to
 //! the generated code (package descriptions, dependency declarations) is
@@ -199,7 +200,7 @@ pub fn generate() -> Result<(), Error> {
     )?;
 
     let kdl_source = kdl::render(&client_schema, &server_schema)?;
-    let kdl_path = project_root.join("target/int-gen/ws.kdl");
+    let kdl_path = project_root.join("generated/specs/ws.kdl");
     write_if_changed(&kdl_path, &kdl_source)?;
 
     let wit_dir = project_root.join("generated/specs/wit");

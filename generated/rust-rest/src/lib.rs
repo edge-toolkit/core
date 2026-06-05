@@ -32,13 +32,15 @@ pub mod types {
             }
         }
     }
-    ///Server liveness probe response. Returned by `GET /health`.
+    /**Server liveness probe response.
+
+    Returned by `GET /health`.*/
     ///
     /// <details><summary>JSON schema</summary>
     ///
     /// ```json
     ///{
-    ///  "description": "Server liveness probe response. Returned by `GET /health`.",
+    ///  "description": "Server liveness probe response.\n\nReturned by `GET /health`.",
     ///  "type": "object",
     ///  "required": [
     ///    "service",
@@ -117,9 +119,10 @@ impl ClientInfo<()> for Client {
 impl ClientHooks<()> for &Client {}
 #[allow(clippy::all)]
 impl Client {
-    /**Liveness probe. Returns a small JSON document identifying the service
-    so external monitors can confirm the server is reachable and serving
-    requests
+    /**Liveness probe
+
+    Returns a small JSON document identifying the service so external
+    monitors can confirm the server is reachable and serving requests.
 
     Sends a `GET` request to `/health`
 
@@ -225,9 +228,10 @@ impl Client {
             _ => Err(Error::UnexpectedResponse(response)),
         }
     }
-    /**Fetch a file from a module's bundled static assets. `path` is resolved
-    relative to the module's bundle root; an unknown module or missing file
-    returns 404
+    /**Fetch a file from a module's bundled static assets
+
+    `path` is resolved relative to the module's bundle root; an unknown
+    module or missing file returns 404.
 
     Sends a `GET` request to `/modules/{name}/{path}`
 
@@ -343,10 +347,11 @@ impl Client {
             _ => Err(Error::UnexpectedResponse(response)),
         }
     }
-    /**Upload a file to the named agent's storage bucket. Only the agent that
-    owns the bucket may write to it (the agent must currently be
-    connected); the path component must be a single filename, not a nested
-    path
+    /**Upload a file to an agent's storage bucket
+
+    Only the agent that owns the bucket may write to it (the agent must
+    currently be connected); the path component must be a single
+    filename, not a nested path.
 
     Sends a `PUT` request to `/storage/{agent_id}/{filename}`
 

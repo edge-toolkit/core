@@ -1,9 +1,9 @@
-//! AsyncAPI spec emission for the WS protocol.
+//! `AsyncAPI` spec emission for the WS protocol.
 //!
 //! The Rust source of truth is `edge_toolkit::ws::{ClientMessage,
 //! ServerMessage}`. This module wires those enums through the
 //! `asyncapi-rust` derive macros and post-processes the two halves into
-//! a single merged AsyncAPI 3.0 document.
+//! a single merged `AsyncAPI` 3.0 document.
 //!
 //! The version and description literals on the `#[asyncapi(...)]` derive
 //! attributes are mirrored as [`WS_VERSION`] and [`WS_DESCRIPTION`]
@@ -15,21 +15,21 @@ use edge_toolkit::ws::{ClientMessage, ServerMessage};
 
 use crate::Error;
 
-/// Wire-protocol version. Mirrors the `version = ...` literal on
-/// `WsApiClient`'s `#[asyncapi(...)]` derive below; if you bump one,
-/// bump the other (and the runtime check in [`build_spec`] will catch
-/// you if you don't).
+/// Wire-protocol version.
+///
+/// Mirrors the `version = ...` literal on `WsApiClient`'s
+/// `#[asyncapi(...)]` derive below; if you bump one, bump the other
+/// (and the runtime check in [`build_spec`] will catch you if you don't).
 pub const WS_VERSION: &str = "0.1.0";
 
-/// Wire-protocol description. Mirrors the `description = ...` literal
-/// on `WsApiClient`'s `#[asyncapi(...)]` derive below.
-pub const WS_DESCRIPTION: &str = concat!(
-    "Edge Toolkit WebSocket Protocol — typed et-* messages exchanged ",
-    "between client and server, plus relay-text / relay-binary envelopes ",
-    "for foreign frames the hub forwards verbatim.",
-);
+/// Wire-protocol description.
+///
+/// Mirrors the `description = ...` literal on `WsApiClient`'s
+/// `#[asyncapi(...)]` derive below.
+pub const WS_DESCRIPTION: &str =
+    "Edge Toolkit WS protocol — typed et-* messages plus relay envelopes for foreign frames.";
 
-/// AsyncAPI doc for the ws-server's `/ws` hub channel.
+/// `AsyncAPI` doc for the ws-server's `/ws` hub channel.
 ///
 /// Split into client + server derives so each operation references only
 /// the variants it can legally carry. The two halves are merged in
@@ -38,7 +38,7 @@ pub const WS_DESCRIPTION: &str = concat!(
 #[asyncapi(
     title = "Edge Toolkit WebSocket Protocol",
     version = "0.1.0",
-    description = "Edge Toolkit WebSocket Protocol — typed et-* messages exchanged between client and server, plus relay-text / relay-binary envelopes for foreign frames the hub forwards verbatim."
+    description = "Edge Toolkit WS protocol — typed et-* messages plus relay envelopes for foreign frames."
 )]
 #[asyncapi_server(
     name = "local",
@@ -53,9 +53,9 @@ struct WsApiClient;
 
 #[derive(AsyncApi)]
 #[asyncapi(
-    title = "Edge Toolkit WebSocket Protocol (server→client)",
+    title = "Edge Toolkit WebSocket Protocol",
     version = "0.1.0",
-    description = "Edge Toolkit WebSocket Protocol (server→client half) — merged into the client-side spec by int-gen."
+    description = "Server-side half — merged into the client-side spec by int-gen."
 )]
 #[asyncapi_server(
     name = "local",
@@ -68,7 +68,7 @@ struct WsApiClient;
 #[asyncapi_messages(ServerMessage)]
 struct WsApiServer;
 
-/// Build the merged, slimmed AsyncAPI spec as a `serde_json::Value`.
+/// Build the merged, slimmed `AsyncAPI` spec as a `serde_json::Value`.
 ///
 /// Steps:
 ///   1. Derive the two halves via `WsApiClient` / `WsApiServer`.
@@ -100,8 +100,12 @@ pub fn build_spec() -> Result<serde_json::Value, Error> {
 
 /// Fold `source`'s channels, operations, and `components.messages` into
 /// `target`. Top-level metadata (title, info, servers) is retained from
-/// `target`. Used to combine the client-side and server-side AsyncAPI
+/// `target`. Used to combine the client-side and server-side `AsyncAPI`
 /// documents into a single spec with both directions on one channel.
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by build_spec(); the merge is a logical step worth its own scope"
+)]
 fn merge_asyncapi(target: &mut serde_json::Value, source: &serde_json::Value) {
     use serde_json::Value;
     fn merge_object_field(target: &mut Value, source: &Value, field: &str) {
@@ -156,6 +160,10 @@ fn merge_asyncapi(target: &mut serde_json::Value, source: &serde_json::Value) {
 
 /// Replace each component message's payload with just its variant schema and
 /// hoist the shared `$defs` into `components.schemas`. Mutates `spec` in place.
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by build_spec(); the slim-down is one logical step"
+)]
 fn slim_component_messages(spec: &mut serde_json::Value) -> Result<(), Error> {
     use serde_json::Value;
 
