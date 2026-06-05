@@ -173,7 +173,7 @@ pub enum ClientMessage {
     // Foreign frames the server forwards verbatim via its hub-relay path.
     // Allowed in both directions: a client can also explicitly send a
     // relay frame for a peer to receive (the server passes it through
-    // unchanged). Wire convention: the JSON envelope is bypassed —
+    // unchanged). Wire convention: the JSON envelope is bypassed --
     // `from_text_frame` constructs this when no et- tag matches, and the
     // host's `send` emits the raw `content` as the WebSocket frame.
     #[serde(rename = "et-relay-text")]
@@ -190,7 +190,7 @@ pub enum ClientMessage {
 impl ClientMessage {
     /// Decode an inbound text WebSocket frame as a `ClientMessage`. If
     /// the JSON's `type` field starts with `et-`, parse strictly via the
-    /// tagged catalog — failure surfaces as `Err`. Otherwise (non-JSON,
+    /// tagged catalog -- failure surfaces as `Err`. Otherwise (non-JSON,
     /// no `type`, or non-et `type`) the frame is wrapped in
     /// `ClientMessage::RelayText { content }` for the hub-relay path.
     pub fn from_text_frame(text: &str) -> Result<Self, serde_path_to_error::Error<serde_json::Error>> {

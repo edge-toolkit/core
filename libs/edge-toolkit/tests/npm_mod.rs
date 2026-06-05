@@ -1,4 +1,4 @@
-//! Layout-agnostic tests for `find_npm_modules_path_in` — the
+//! Layout-agnostic tests for `find_npm_modules_path_in` -- the
 //! pure-filesystem core of `mise_npm_modules_path`. Each fixture
 //! constructs a tempdir mimicking one of the mise npm backends and
 //! verifies the resolver picks the right `node_modules` directory.
@@ -28,7 +28,7 @@ fn resolves_classical_npm_layout() {
 fn resolves_aube_backend_layout() {
     // <install>/global-aube/<content-hash>/node_modules/.aube/node_modules/onnxruntime-web/
     //
-    // The `<content-hash>` segment is opaque to the resolver — it
+    // The `<content-hash>` segment is opaque to the resolver -- it
     // walks whatever's under `global-aube/`, so any subdir name works.
     // A clearly-synthetic placeholder makes it obvious we're not
     // pinning the test to one developer's local install.
@@ -49,7 +49,7 @@ fn returns_none_when_neither_layout_has_the_package() {
     let install = TempDir::new().unwrap();
     // Make `lib/node_modules` exist but with a *different* package, so
     // the classical layout's directory check passes but the package
-    // check fails — exercises the "is the named dir present" path.
+    // check fails -- exercises the "is the named dir present" path.
     let modules = install.path().join("lib/node_modules");
     fs::create_dir_all(modules.join("some-other-package")).unwrap();
 
@@ -60,7 +60,7 @@ fn returns_none_when_neither_layout_has_the_package() {
 #[test]
 fn classical_layout_wins_if_both_exist() {
     // Construct both layouts. Classical is tried first, so it should
-    // win — keeps the resolver deterministic when a user has migrated
+    // win -- keeps the resolver deterministic when a user has migrated
     // between backends without cleaning up.
     let install = TempDir::new().unwrap();
     let classical = install.path().join("lib/node_modules");

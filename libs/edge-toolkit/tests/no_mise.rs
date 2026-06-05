@@ -47,7 +47,7 @@ fn returns_only_workspace_paths_when_mise_missing() {
 
     // Each returned path is under the project root and matches one of
     // the constants the function pushes unconditionally. We don't pin
-    // exact strings because `get_project_root` is host-dependent —
+    // exact strings because `get_project_root` is host-dependent --
     // just check the suffixes are right.
     let suffixes: Vec<PathBuf> = paths
         .iter()

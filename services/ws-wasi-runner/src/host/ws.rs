@@ -32,7 +32,7 @@ use crate::bindings::et::ws_messages::messages::{
 };
 use crate::bindings::et::ws_wasi::ws::{Host, State};
 
-// The `et:ws-messages/messages` interface only declares types — no functions.
+// The `et:ws-messages/messages` interface only declares types -- no functions.
 // wasmtime-bindgen still requires a `Host` impl so the linker has somewhere
 // to anchor the interface. The trait body is empty.
 impl crate::bindings::et::ws_messages::messages::Host for HostState {}
@@ -88,7 +88,7 @@ impl WsBackend {
         // `ServerMessage` via `ServerMessage::from_*_frame` (foreign frames land
         // in `RelayText`/`RelayBinary`); route `ConnectAck` into
         // `agent_id` + `connection_state`; drop control frames and
-        // et-prefixed-but-malformed text with a warn — they can't be
+        // et-prefixed-but-malformed text with a warn -- they can't be
         // surfaced through the typed catalog.
         let agent_id_clone = Arc::clone(&agent_id);
         let state_clone = Arc::clone(&connection_state);
@@ -211,7 +211,7 @@ impl Host for HostState {
     async fn send(&mut self, message: WitClientMessage) -> Result<(), WsError> {
         let et_message = wit_to_client_message(message)?;
         // Relay variants travel as raw text / binary frames (no JSON
-        // envelope) — that's what the ws-server hub forwards verbatim
+        // envelope) -- that's what the ws-server hub forwards verbatim
         // to other agents. Typed variants serialise through standard
         // tagged JSON.
         #[expect(
@@ -227,7 +227,7 @@ impl Host for HostState {
             }
         };
         // Clone the sink Arc and release the outer lock before awaiting the
-        // inner send — keeping `self.ws` locked across the await would block
+        // inner send -- keeping `self.ws` locked across the await would block
         // every other ws-method call.
         let sink = self
             .ws

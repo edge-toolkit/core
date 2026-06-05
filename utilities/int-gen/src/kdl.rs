@@ -52,7 +52,7 @@ pub fn render(client_schema: &Schema, server_schema: &Schema) -> Result<String, 
     doc.nodes_mut().push(defaults_node());
 
     // Merge `$defs` from both schemas, deduplicated by name. The two
-    // enums share most support types (AgentSummary, ConnectStatus, …);
+    // enums share most support types (AgentSummary, ConnectStatus, ...);
     // we emit each definition exactly once.
     let mut merged_defs: std::collections::BTreeMap<String, serde_json::Value> = std::collections::BTreeMap::new();
     for root in [client_root, server_root] {
@@ -96,7 +96,7 @@ pub fn render(client_schema: &Schema, server_schema: &Schema) -> Result<String, 
 
 /// The `defaults` block tells dart-typegen to emit sealed unions keyed on
 /// `"type"` and to convert `camelCase` Dart field names to `snake_case` JSON
-/// keys — matching how the Rust serde tag/`rename_all` configuration writes
+/// keys -- matching how the Rust serde tag/`rename_all` configuration writes
 /// the wire.
 #[expect(
     clippy::single_call_fn,
@@ -153,7 +153,7 @@ fn enum_node(name: &str, def: &serde_json::Value) -> Result<KdlNode, Error> {
     Ok(node)
 }
 
-/// `discriminator` is set when the class belongs to a union — dart-typegen
+/// `discriminator` is set when the class belongs to a union -- dart-typegen
 /// then emits `json-discriminant-value "et-..."` inside the class body.
 fn class_node(name: &str, schema: &serde_json::Value, discriminator: Option<&str>) -> Result<KdlNode, Error> {
     let props = schema.get("properties").and_then(|val| val.as_object());
@@ -256,10 +256,10 @@ fn variant_tag(variant: &serde_json::Value) -> Result<String, Error> {
         .ok_or(Error::SchemaMalformed("variant missing const `type` discriminator"))
 }
 
-/// JSON Schema → Dart type expression understood by `dart-typegen`.
+/// JSON Schema -> Dart type expression understood by `dart-typegen`.
 ///
 /// Mirrors the matching helper in the WIT emitter, but spells primitives the
-/// Dart way (`String`, `int`, …) and uses `List<T>` / `Map<String, dynamic>`
+/// Dart way (`String`, `int`, ...) and uses `List<T>` / `Map<String, dynamic>`
 /// for collection / opaque-JSON shapes.
 fn dart_type_from(schema: &serde_json::Value, force_optional: bool) -> Result<String, Error> {
     if let Some(reference) = schema.get("$ref").and_then(|val| val.as_str()) {

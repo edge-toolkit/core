@@ -6,7 +6,7 @@ use thiserror::Error;
 ///
 /// Variants carry the path or value they failed on so users can see *what*
 /// went wrong, not just the underlying error text. `Io` is
-/// `#[from]`-forwarded — the inner `std::io::Error` arrives from `fs_err`,
+/// `#[from]`-forwarded -- the inner `std::io::Error` arrives from `fs_err`,
 /// which already embeds the failing path in its `Display`, so we don't need
 /// a path field here.
 #[derive(Debug, Error)]

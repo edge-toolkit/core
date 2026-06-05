@@ -1,6 +1,6 @@
 //! Integration tests for the `PUT /storage/{agent_id}/{filename}` route,
-//! focused on the `StorageError` paths (`InvalidFilename` → 400,
-//! `AgentNotFound` → 404, `Io` → 500) plus the happy path.
+//! focused on the `StorageError` paths (`InvalidFilename` -> 400,
+//! `AgentNotFound` -> 404, `Io` -> 500) plus the happy path.
 //!
 //! Each test brings up a fresh `App` with a tempdir-backed `StorageConfig`
 //! and an `AgentRegistry` it controls explicitly, then hits the route via
@@ -64,8 +64,8 @@ async fn rejects_unknown_agent_with_404() {
 /// with segment matching), so a regular `PUT /storage/a/b%2Fc` request
 /// can't deliver a multi-component filename into the handler. Bypass the
 /// router and invoke the handler directly with the parameters that the
-/// filter expects to reject (`nested/path.txt` → 2 components). This still
-/// exercises the same `StorageError::InvalidFilename` → 400 path that the
+/// filter expects to reject (`nested/path.txt` -> 2 components). This still
+/// exercises the same `StorageError::InvalidFilename` -> 400 path that the
 /// `ResponseError` impl wires up.
 #[actix_rt::test]
 async fn rejects_multi_component_filename_with_400() {

@@ -20,7 +20,7 @@ use wasmtime_wasi_nn::wit::{WasiNnCtx, WasiNnView};
 
 /// Build a `WasiNnCtx` configured with whatever backends the crate's feature flags enabled (just `onnx` for us).
 ///
-/// Empty registry — guests load model bytes directly via `graph.load`, so
+/// Empty registry -- guests load model bytes directly via `graph.load`, so
 /// name-based lookup isn't needed.
 #[must_use]
 pub fn new_ctx() -> WasiNnCtx {

@@ -5,7 +5,7 @@
 //! `et-storage-service`, and `et-modules-service` via `utoipa`; the client is
 //! generated from the resulting `OpenAPI` document via `progenitor::Generator`.
 //! Driving both steps from one Rust call keeps the spec and the client
-//! guaranteed in sync — no external CLI hop.
+//! guaranteed in sync -- no external CLI hop.
 
 use utoipa::OpenApi;
 
@@ -13,7 +13,7 @@ use crate::Error;
 
 // Each handler sets an explicit `tag = "..."` in its `#[utoipa::path]`
 // attribute (see `et_*_service::routes`). Without that, utoipa derives
-// the tag from the Rust path tokens — turning
+// the tag from the Rust path tokens -- turning
 // `et_storage_service::routes::put_file` into the ugly
 // `et_storage_serviceroutes`, which `openapi-python-client` then uses
 // as the submodule name under `generated/python-rest/.../api/`.
@@ -42,7 +42,7 @@ struct ApiDoc;
 ///
 /// Both `rest.yaml` and the progenitor-generated client are derived from this.
 /// `utoipa` unconditionally emits `openapi: 3.1.0` and `license.identifier`,
-/// but progenitor 0.14 only accepts 3.0.x and rejects the `identifier` field —
+/// but progenitor 0.14 only accepts 3.0.x and rejects the `identifier` field --
 /// downgrade those before serializing.
 #[expect(
     clippy::expect_used,
@@ -89,7 +89,7 @@ pub fn render_json() -> String {
 ///
 /// The async pre-hook injects the W3C `traceparent` for the current tracing
 /// span into every outgoing request, so the runner's span chain extends into
-/// the server's `tracing-actix-web` request span end-to-end — distributed
+/// the server's `tracing-actix-web` request span end-to-end -- distributed
 /// tracing works without each call site repeating the boilerplate the old
 /// `inject_traceparent` helper did.
 #[expect(
@@ -138,7 +138,7 @@ pub fn render_rust_client() -> Result<String, Error> {
     // appending its own `Sends a METHOD request to /path` line at +4 spaces;
     // any non-empty description from the `OpenAPI` spec then leaves that
     // following block indented by 4 from the first line, which CommonMark
-    // promotes to an indented code block — rustdoc then tries to compile it
+    // promotes to an indented code block -- rustdoc then tries to compile it
     // as Rust and trips on the surrounding backticks. Allow the rustdoc
     // codeblock lint at the generated-file level rather than fighting the
     // upstream emit (or rewriting every public-API description to dodge the

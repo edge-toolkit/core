@@ -2,11 +2,11 @@
 //! modules services via the typed `et-rest-client`. The bucket identifier
 //! names a namespace:
 //!
-//! * `<agent-uuid>` → per-agent storage bucket. Reads work for any agent's
+//! * `<agent-uuid>` -> per-agent storage bucket. Reads work for any agent's
 //!   bucket (server static-serves everything under `/storage/`); writes only
 //!   succeed when the runner's own agent owns the bucket (server enforces
 //!   `agent_id` is registered).
-//! * `modules/<module-name>` → module asset bucket. Used by guests to fetch
+//! * `modules/<module-name>` -> module asset bucket. Used by guests to fetch
 //!   their own static assets bundled in `pkg/`. Writes return
 //!   `access-denied` since et-modules-service serves files static.
 
@@ -21,9 +21,9 @@ use crate::host::{KvErrExt as _, kv_not_implemented};
 /// the variant; the typed REST client picks the right operation.
 #[non_exhaustive]
 pub enum Bucket {
-    /// `/storage/{agent_id}/` — writable, owned by the named agent.
+    /// `/storage/{agent_id}/` -- writable, owned by the named agent.
     Storage { agent_id: String },
-    /// `/modules/{module_name}/` — read-only static module assets.
+    /// `/modules/{module_name}/` -- read-only static module assets.
     Modules { module_name: String },
 }
 

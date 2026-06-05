@@ -92,7 +92,7 @@ pub fn list_modules(config: &ModulesConfig) -> Vec<(String, PathBuf)> {
 /// and `GET /` (root module).
 ///
 /// # Panics
-/// Panics if `config.root` is not present in `config.paths` — server config
+/// Panics if `config.root` is not present in `config.paths` -- server config
 /// is fatal early so the operator sees the misconfiguration at startup.
 #[expect(
     clippy::panic,

@@ -9,7 +9,7 @@
 //! payload types declared in this file is set up by the `with:` block of
 //! the `wasmtime::component::bindgen!` invocation in `lib.rs`.
 //!
-//! Compute passes don't get their own live `wgpu::ComputePass` — that type
+//! Compute passes don't get their own live `wgpu::ComputePass` -- that type
 //! borrows the encoder mutably, which can't sit in a resource table. We
 //! buffer pass commands on the encoder resource and replay them inside
 //! `end()`, so the real `ComputePass` lives only for the duration of one
@@ -92,7 +92,7 @@ impl ShaderStage {
     const COMPUTE: u32 = 0x4;
 }
 
-/// Top-level handle: no per-instance state — `request-adapter` constructs a
+/// Top-level handle: no per-instance state -- `request-adapter` constructs a
 /// fresh `wgpu::Instance` each call rather than sharing one across guests.
 pub struct Gpu;
 

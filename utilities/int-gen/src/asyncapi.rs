@@ -27,7 +27,7 @@ pub const WS_VERSION: &str = "0.1.0";
 /// Mirrors the `description = ...` literal on `WsApiClient`'s
 /// `#[asyncapi(...)]` derive below.
 pub const WS_DESCRIPTION: &str =
-    "Edge Toolkit WS protocol — typed et-* messages plus relay envelopes for foreign frames.";
+    "Edge Toolkit WS protocol -- typed et-* messages plus relay envelopes for foreign frames.";
 
 /// `AsyncAPI` doc for the ws-server's `/ws` hub channel.
 ///
@@ -38,7 +38,7 @@ pub const WS_DESCRIPTION: &str =
 #[asyncapi(
     title = "Edge Toolkit WebSocket Protocol",
     version = "0.1.0",
-    description = "Edge Toolkit WS protocol — typed et-* messages plus relay envelopes for foreign frames."
+    description = "Edge Toolkit WS protocol -- typed et-* messages plus relay envelopes for foreign frames."
 )]
 #[asyncapi_server(
     name = "local",
@@ -55,7 +55,7 @@ struct WsApiClient;
 #[asyncapi(
     title = "Edge Toolkit WebSocket Protocol",
     version = "0.1.0",
-    description = "Server-side half — merged into the client-side spec by int-gen."
+    description = "Server-side half -- merged into the client-side spec by int-gen."
 )]
 #[asyncapi_server(
     name = "local",
@@ -167,7 +167,7 @@ fn merge_asyncapi(target: &mut serde_json::Value, source: &serde_json::Value) {
 fn slim_component_messages(spec: &mut serde_json::Value) -> Result<(), Error> {
     use serde_json::Value;
 
-    // Pluck one variant payload off any message — they're all identical, so
+    // Pluck one variant payload off any message -- they're all identical, so
     // we use the first to harvest the `oneOf` array and `$defs`.
     let components = spec
         .get_mut("components")
@@ -195,7 +195,7 @@ fn slim_component_messages(spec: &mut serde_json::Value) -> Result<(), Error> {
         .unwrap_or_default();
 
     // Index variants by their `type.const` discriminator so we can match each
-    // component message name (`et-connect`, …) to its slim schema.
+    // component message name (`et-connect`, ...) to its slim schema.
     let mut variants_by_tag: std::collections::HashMap<String, Value> = std::collections::HashMap::new();
     for variant in one_of {
         let tag = variant
@@ -207,7 +207,7 @@ fn slim_component_messages(spec: &mut serde_json::Value) -> Result<(), Error> {
         let Some(tag) = tag else {
             continue;
         };
-        // Rewrite `$ref: "#/$defs/Foo"` → `"#/components/schemas/Foo"` so the
+        // Rewrite `$ref: "#/$defs/Foo"` -> `"#/components/schemas/Foo"` so the
         // hoisted defs land in the AsyncAPI-canonical location.
         let mut variant = variant;
         rewrite_refs(&mut variant);

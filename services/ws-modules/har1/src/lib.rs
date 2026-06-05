@@ -797,7 +797,7 @@ fn create_feat_tensor(values: &[f32]) -> Result<JsValue, JsValue> {
 }
 
 /// Compute 36 hand-crafted features from the sample buffer:
-/// 8 channels × 4 stats (mean, std, min, max) = 32, plus 4 stats on the
+/// 8 channels x 4 stats (mean, std, min, max) = 32, plus 4 stats on the
 /// per-sample vector magnitude (mean, std, min, max) = 36 total.
 fn compute_feat_input(sample_buffer: &VecDeque<[f32; HAR_FEATURE_COUNT]>) -> [f32; HAR_FEAT_INPUT_SIZE] {
     let sample_count = sample_buffer.len() as f32;
@@ -817,7 +817,7 @@ fn compute_feat_input(sample_buffer: &VecDeque<[f32; HAR_FEATURE_COUNT]>) -> [f3
         out[base + 3] = max;
     }
 
-    // Magnitude stats (4 values, indices 32–35)
+    // Magnitude stats (4 values, indices 32-35)
     let mags: Vec<f32> = sample_buffer
         .iter()
         .map(|sample| sample.iter().map(|val| val * val).sum::<f32>().sqrt())

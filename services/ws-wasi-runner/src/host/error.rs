@@ -33,7 +33,7 @@ impl<T, E: std::fmt::Display> KvErrExt<T> for Result<T, E> {
     }
 }
 
-/// Build a `wasi:keyvalue/store.error.other("<op> not implemented")` — the
+/// Build a `wasi:keyvalue/store.error.other("<op> not implemented")` -- the
 /// closest thing the WIT-spec enum has to a `NotImplemented` variant.
 #[must_use]
 pub fn kv_not_implemented(operation: &str) -> KvError {
@@ -62,8 +62,8 @@ impl<T, E: std::fmt::Display> RequestDeviceErrExt<T> for Result<T, E> {
 ///     letting guests use the typed not-connected case for reconnect logic
 ///     instead of pattern-matching on a `Transport(String)`.
 ///   - Everything else (IO, TLS, URL, HTTP-upgrade, write-buffer-full,
-///     Capacity, Protocol, `AttackAttempt`, Utf8) is transport-level — the
-///     wire never delivered cleanly — and lands in `WsError::Transport`.
+///     Capacity, Protocol, `AttackAttempt`, Utf8) is transport-level -- the
+///     wire never delivered cleanly -- and lands in `WsError::Transport`.
 ///
 /// The context string is prefixed onto the source's `Display` rendering so
 /// the carried message reads as `"ws <context>: <source>"`.

@@ -2,19 +2,19 @@
 //! compatible Zig REST client.
 //!
 //! `openapi2zig` generates a fully typed client whose `requestRaw` calls
-//! `std.http.Client.fetch` — which compiles for `wasm32-freestanding` but
+//! `std.http.Client.fetch` -- which compiles for `wasm32-freestanding` but
 //! can't actually reach the network from a browser sandbox. We swap the
 //! body of `requestRaw` for one that delegates to a single
 //! `extern fn js_rest_request(...)` import (host-implemented via `fetch()`
 //! and `SharedArrayBuffer` in the JS shim), and append the extern
-//! declaration. Everything else — schemas, `RawResponse`, `ApiResult`,
-//! per-operation wrappers, SSE helpers — is left untouched; Zig's lazy
+//! declaration. Everything else -- schemas, `RawResponse`, `ApiResult`,
+//! per-operation wrappers, SSE helpers -- is left untouched; Zig's lazy
 //! evaluation + dead-code elimination shake out the now-unused
 //! `std.http.Client`/`std.Io` machinery (verified: the resulting wasm has
 //! a single `env.js_rest_request` import and is ~6 KB at `-O ReleaseSmall`).
 //!
 //! We use `tree-sitter-zig` to find `requestRaw` by name rather than
-//! string-matching its body — that way `openapi2zig` version bumps that
+//! string-matching its body -- that way `openapi2zig` version bumps that
 //! reshuffle the implementation don't break us.
 
 use std::path::Path;
@@ -59,7 +59,7 @@ fn run_openapi2zig(rest_json: &Path, raw_out: &Path) -> Result<(), Error> {
         fs::create_dir_all(parent)?;
     }
     // Surface the spawn failure as `Error::Io` (the `#[from]` variant)
-    // rather than a `ZigCodegen(format!(...))` wrap — same diagnostic
+    // rather than a `ZigCodegen(format!(...))` wrap -- same diagnostic
     // detail (`std::io::Error` carries the "No such file or directory"
     // text) with the typed source preserved.
     let status = Command::new("openapi2zig")
@@ -136,7 +136,7 @@ fn fix_binary_request_body(source: &str) -> Result<String, Error> {
     // `requestBody`, regardless of content-type.
     //
     // For `application/octet-stream` endpoints (every body in our spec) this
-    // corrupts the wire bytes — `"Hello"` ships as `"\"Hello\""`. Replace
+    // corrupts the wire bytes -- `"Hello"` ships as `"\"Hello\""`. Replace
     // the block with a direct `requestBody` pass-through. If openapi2zig
     // changes the pattern we fail loudly rather than silently emitting
     // JSON-encoded bodies.

@@ -458,7 +458,7 @@ fn register_modules_under(
 }
 
 /// Register a single module by its filesystem path (not a parent dir).
-/// Used for modules that don't live under `services/ws-modules/` —
+/// Used for modules that don't live under `services/ws-modules/` --
 /// currently the generated python clients under `generated/`.
 fn register_module_at(
     registry: &mut BTreeMap<String, ModuleRegistryEntry>,
@@ -606,7 +606,7 @@ pub fn absolute_from(base: &Path, path: &Path) -> PathBuf {
 ///
 /// The result is rendered as a POSIX string regardless of host OS, because
 /// every caller writes it into generated `mise.toml` / `docker-compose.yaml`
-/// output — both of which expect forward-slash separators even on Windows.
+/// output -- both of which expect forward-slash separators even on Windows.
 #[must_use]
 pub fn relative_path_from(from_dir: &Path, target: &Path) -> String {
     let from_components = normal_components(&normalize_path(from_dir));

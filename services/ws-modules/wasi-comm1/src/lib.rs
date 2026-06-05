@@ -16,7 +16,7 @@
 
 // Crate-level cfg gate: wit-bindgen's generated extern declarations only
 // resolve on `wasm32-wasip2`. Gating the whole module on `target_os = "wasi"`
-// lets the crate sit in the parent workspace — `cargo check --workspace`
+// lets the crate sit in the parent workspace -- `cargo check --workspace`
 // from the repo root produces an empty cdylib for the host target without
 // linker errors.
 #![cfg(target_os = "wasi")]
@@ -87,7 +87,7 @@ impl Guest for Component {
         let body = serde_json::json!({
             "module": "wasi-comm1",
             "from_agent_id": agent_id,
-            "message": "wasi-comm1 broadcast — likely peerless under the runner test",
+            "message": "wasi-comm1 broadcast -- likely peerless under the runner test",
         });
         let body_str = match serde_json::to_string(&body) {
             Ok(rendered) => rendered,

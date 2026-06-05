@@ -8,7 +8,7 @@
 //!
 //! The file-level `#![expect(clippy::exhaustive_structs)]` (active
 //! under `openapi-spec`) is scoped here because utoipa's derives emit
-//! `pub struct`s without `#[non_exhaustive]` — and the lint locations
+//! `pub struct`s without `#[non_exhaustive]` -- and the lint locations
 //! aren't reachable through a function- or item-level `#[expect]`.
 
 #![cfg_attr(
@@ -120,7 +120,7 @@ pub async fn put_file<S: Clone + Send + 'static>(
 )]
 #[must_use]
 pub fn get_file() -> HttpResponse {
-    // Fake handler — the GET route is actually served by the
+    // Fake handler -- the GET route is actually served by the
     // `actix_files::Files` mount registered in `crate::configure`; this
     // stub exists only to host the `#[utoipa::path]` annotation so
     // `et-int-gen` can include the GET route in `generated/specs/rest.yaml`.

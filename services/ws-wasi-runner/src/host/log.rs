@@ -9,7 +9,7 @@ use crate::bindings::wasi::logging::logging::{Host, Level};
 impl Host for HostState {
     #[expect(
         clippy::cognitive_complexity,
-        reason = "match arm per WASI logging level — flat dispatch is the readable shape"
+        reason = "match arm per WASI logging level -- flat dispatch is the readable shape"
     )]
     async fn log(&mut self, level: Level, context: String, message: String) {
         match level {

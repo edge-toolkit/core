@@ -1,6 +1,6 @@
 package et:ws-messages@0.1.0;
 
-/// Edge Toolkit WS protocol — typed et-* messages plus relay envelopes for foreign frames.
+/// Edge Toolkit WS protocol -- typed et-* messages plus relay envelopes for foreign frames.
 interface messages {
   enum agent-connection-state {
     connected,

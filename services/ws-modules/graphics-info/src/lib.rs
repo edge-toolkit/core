@@ -414,7 +414,7 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
 
 #[wasm_bindgen]
 impl GpuComputeResult {
-    /// Run a 4x4 matrix multiply A×B=C on the GPU using a WebGPU compute shader.
+    /// Run a 4x4 matrix multiply AxB=C on the GPU using a WebGPU compute shader.
     #[wasm_bindgen(js_name = run)]
     pub async fn run() -> Result<Self, JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window"))?;
@@ -479,7 +479,7 @@ impl GpuComputeResult {
         self.elapsed_ms
     }
 
-    /// `C[0][0]` of the output matrix. For identity × 2×identity the expected value is 2.0.
+    /// `C[0][0]` of the output matrix. For identity x 2xidentity the expected value is 2.0.
     #[must_use]
     #[wasm_bindgen(js_name = resultC00)]
     #[expect(

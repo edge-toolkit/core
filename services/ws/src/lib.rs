@@ -22,7 +22,7 @@ pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
 /// Outbound envelope written to an agent's websocket session.
 ///
 /// `Json` is the normal path for protocol messages. `Text` and `Binary` carry
-/// payloads the server forwards verbatim — used by the hub-style fallback
+/// payloads the server forwards verbatim -- used by the hub-style fallback
 /// that broadcasts unrecognised frames to every other connected agent.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
@@ -255,7 +255,7 @@ impl Connection {
         }
     }
 
-    /// Hub-style fallback for binary frames — same shape as the text path.
+    /// Hub-style fallback for binary frames -- same shape as the text path.
     fn broadcast_raw_binary(&self, from_agent_id: &str, bytes: &Bytes) {
         let recipients = self.registry.connected_sessions(from_agent_id);
         info!(

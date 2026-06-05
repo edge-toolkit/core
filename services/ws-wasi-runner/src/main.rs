@@ -39,7 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result = run_module(&module_name, &ws_url).await;
 
     // Flush before exit so the mock OTLP collector sees the spans we emitted
-    // — `BatchExporter` would otherwise drop the tail when the process exits.
+    // -- `BatchExporter` would otherwise drop the tail when the process exits.
     if let Some(handles) = otel_handles {
         handles.shutdown();
     }

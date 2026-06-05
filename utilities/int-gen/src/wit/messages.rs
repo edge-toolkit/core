@@ -2,16 +2,16 @@
 //! `ServerMessage` into the `et:ws-messages@0.1.0` WIT package.
 //!
 //! Built with `wit-encoder` so the output format is canonical and the
-//! construction is type-checked — we never produce manual `writeln!` lines.
+//! construction is type-checked -- we never produce manual `writeln!` lines.
 //!
 //! Mapping rules:
-//!   * Variant rename `et-foo-bar` → variant case `foo-bar`. The `et-`
+//!   * Variant rename `et-foo-bar` -> variant case `foo-bar`. The `et-`
 //!     prefix is dropped because the WIT package namespace (`et:`)
 //!     already carries it.
-//!   * `serde_json::Value` fields → `string` (the host serializes the
+//!   * `serde_json::Value` fields -> `string` (the host serializes the
 //!     opaque JSON when shipping to/from the guest).
-//!   * `Option<T>` → `option<T>`. `Vec<T>` → `list<T>`. `String` →
-//!     `string`. Integers → `s64` (the wire format never narrows).
+//!   * `Option<T>` -> `option<T>`. `Vec<T>` -> `list<T>`. `String` ->
+//!     `string`. Integers -> `s64` (the wire format never narrows).
 //!   * `#[serde(rename_all = "snake_case")]` enums map directly to WIT
 //!     `enum` with kebab-case case names.
 //!   * `ClientMessage` and `ServerMessage` each produce a top-level
@@ -28,7 +28,7 @@ use wit_encoder::{EnumCase, Field, Ident, Interface, Package, PackageName, Type,
 use crate::Error;
 use crate::asyncapi::{WS_DESCRIPTION, WS_VERSION};
 
-/// Wire identifiers (`WsConnectAck`, `agent_id`, `et-connect-ack`, …) →
+/// Wire identifiers (`WsConnectAck`, `agent_id`, `et-connect-ack`, ...) ->
 /// canonical WIT kebab-case (`ws-connect-ack`, `agent-id`, `connect-ack`).
 /// The `et-` prefix is dropped because the `et:ws-messages` WIT package
 /// namespace already carries it.
@@ -71,7 +71,7 @@ pub fn render(client_schema: &Schema, server_schema: &Schema) -> Result<String, 
 
 /// Combine `$defs` maps from two schemas (client + server) into a single
 /// synthetic root with deduplicated definitions. The combined root has
-/// no `oneOf` — the variant emitters consume each schema's `oneOf`
+/// no `oneOf` -- the variant emitters consume each schema's `oneOf`
 /// separately so we can label each variant by direction.
 #[expect(
     clippy::single_call_fn,
@@ -289,7 +289,7 @@ fn wit_type_from(schema: &serde_json::Value, force_optional: bool, enums: &EnumS
         return Ok(wrap_optional(primitive(kind, schema, enums)?, force_optional));
     }
     // `serde_json::Value` fields hit this branch via the `any_json_schema`
-    // hook — no `type` keyword, just a description. Ship them as opaque
+    // hook -- no `type` keyword, just a description. Ship them as opaque
     // JSON strings so the host can round-trip arbitrary payloads.
     Ok(wrap_optional(Type::String, force_optional))
 }
@@ -318,7 +318,7 @@ fn integer_type(schema: &serde_json::Value) -> Type {
 fn primitive(kind: &str, schema: &serde_json::Value, enums: &EnumSet) -> Result<Type, Error> {
     Ok(match kind {
         // serde_json::Value-shaped opaque objects collapse onto `string`
-        // alongside genuine strings — the host serialises them to JSON.
+        // alongside genuine strings -- the host serialises them to JSON.
         "string" | "object" => Type::String,
         "integer" => integer_type(schema),
         "number" => Type::F64,

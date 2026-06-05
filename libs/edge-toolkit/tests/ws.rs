@@ -20,7 +20,7 @@ use edge_toolkit::ws::{ClientMessage, ServerMessage};
 
 /// Pull the `content` out of `ClientMessage::RelayText`, panicking if the
 /// decoder routed the input elsewhere. (`ClientMessage` is the server-side
-/// decoder — the server sees client traffic in this shape.)
+/// decoder -- the server sees client traffic in this shape.)
 fn client_expect_relay_text(msg: ClientMessage) -> String {
     match msg {
         ClientMessage::RelayText { content } => content,
@@ -126,7 +126,7 @@ fn client_typed_for_valid_et_message() {
 #[test]
 fn client_typed_for_server_only_variant_is_decode_error() {
     // `et-connect-ack` lives in ServerMessage, not ClientMessage. A client
-    // claiming to send a ConnectAck must surface as a decode error — that's
+    // claiming to send a ConnectAck must surface as a decode error -- that's
     // the type-level enforcement the split exists to provide.
     let _err = ClientMessage::from_text_frame(r#"{"type":"et-connect-ack","agent_id":"a","status":"assigned"}"#)
         .expect_err("server-side variant in client decoder must surface a decode error");

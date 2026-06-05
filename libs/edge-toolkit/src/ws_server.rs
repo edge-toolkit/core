@@ -51,7 +51,7 @@ impl<T> From<PoisonError<T>> for AcknowledgeError {
 
 /// Take the lock, recovering from poison by returning the inner guard.
 ///
-/// We never observe poisoned state in the wild — every panic-prone path
+/// We never observe poisoned state in the wild -- every panic-prone path
 /// holds the lock briefly around infallible map ops. Recovering keeps the
 /// registry usable if a future change introduces a panic under the lock.
 fn lock_agents<S>(
@@ -208,7 +208,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
     }
 
     /// # Panics
-    /// Panics if `to_agent_id` is not present in the registry — the caller is
+    /// Panics if `to_agent_id` is not present in the registry -- the caller is
     /// expected to have validated that the recipient exists before queueing.
     #[must_use]
     #[expect(

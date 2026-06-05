@@ -1093,7 +1093,7 @@ components:
         - broadcast
       type: string
 info:
-  description: Edge Toolkit WS protocol — typed et-* messages plus relay envelopes for foreign frames.
+  description: Edge Toolkit WS protocol -- typed et-* messages plus relay envelopes for foreign frames.
   title: Edge Toolkit WebSocket Protocol
   version: 0.1.0
 operations:

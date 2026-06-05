@@ -9,7 +9,7 @@
 //! See `wit/world.wit` for the host/guest contract.
 
 // `RunnerError` ends up large because `et_rest_client::Error<()>` carries an
-// inline `reqwest::Response` (≈136 B). Boxing the variant would shave the
+// inline `reqwest::Response` (~136 B). Boxing the variant would shave the
 // parent enum but cost a `From` impl per variant; not worth it for an
 // internal crate.
 #![expect(
@@ -81,7 +81,7 @@ async fn fetch_main_field(client: &et_rest_client::Client, module_name: &str) ->
 /// returning `ok` or trapping). Guest `err` returns are surfaced as
 /// `RunnerError::Guest`.
 ///
-/// The whole call is wrapped in a `run_module` span — every outgoing
+/// The whole call is wrapped in a `run_module` span -- every outgoing
 /// request inherits its trace context, and ws-server's request span ends
 /// up as a child of it.
 pub async fn run_module(module_name: &str, ws_url: &str) -> Result<(), RunnerError> {

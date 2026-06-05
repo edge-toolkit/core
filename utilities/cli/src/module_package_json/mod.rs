@@ -27,7 +27,7 @@ struct Project {
 #[derive(Deserialize, Default)]
 struct WsModule {
     /// Override for the resolved entry file (relative to `pkg/`). When
-    /// `None`, the entry is derived from the package name — see
+    /// `None`, the entry is derived from the package name -- see
     /// [`resolve_main`].
     #[serde(default)]
     main: Option<String>,

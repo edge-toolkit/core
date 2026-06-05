@@ -1,7 +1,7 @@
 //! Smoke tests for the URL-handling helpers in `et-ws-wasi-runner`.
 //!
 //! Full integration with a real ws-server lives outside this crate (the
-//! parent workspace's `et-ws-test-server` can't be pulled in here — see
+//! parent workspace's `et-ws-test-server` can't be pulled in here -- see
 //! `Cargo.toml`). When you want to run a module end-to-end:
 //!     mise run ws-server      # in one terminal
 //!     mise run ws-wasi-runner # in another, with RUNNER_MODULE=wasi-graphics-info.

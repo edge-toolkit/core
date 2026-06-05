@@ -16,25 +16,25 @@
 //! regenerated tree drifts from what's committed.
 //!
 //! Outputs (see [`generate`]):
-//!   - `generated/specs/ws.yaml` — `AsyncAPI` 3.0 description of
+//!   - `generated/specs/ws.yaml` -- `AsyncAPI` 3.0 description of
 //!     the WS protocol.
-//!   - `generated/specs/rest.yaml` — `OpenAPI` 3.0 description of
+//!   - `generated/specs/rest.yaml` -- `OpenAPI` 3.0 description of
 //!     the ws-server's REST surface.
-//!   - `generated/specs/wit/deps/et-ws-messages/messages.wit` — the typed
+//!   - `generated/specs/wit/deps/et-ws-messages/messages.wit` -- the typed
 //!     WIT mirror of the two message enums consumed by `services/ws-wasi-runner` and
 //!     every WASI ws-module. The accompanying top-level
 //!     `generated/specs/wit/world.wit` is hand-maintained, not generated;
 //!     see `generated/README.md`.
-//!   - `generated/rust-rest/src/lib.rs` — typed Rust client for the REST
+//!   - `generated/rust-rest/src/lib.rs` -- typed Rust client for the REST
 //!     surface, produced via `progenitor::Generator` from the `OpenAPI` doc.
-//!   - `generated/dart-ws/lib/ws_messages.dart` — plain Dart 3 sealed classes.
-//!     Pipeline: JSON Schema → KDL (this crate's [`kdl`] module) →
+//!   - `generated/dart-ws/lib/ws_messages.dart` -- plain Dart 3 sealed classes.
+//!     Pipeline: JSON Schema -> KDL (this crate's [`kdl`] module) ->
 //!     `dart-typegen` CLI (driven by `mise run gen-dart-ws`).
-//!   - `generated/python-ws/et_ws/messages.py` — Pydantic v2 models, written
+//!   - `generated/python-ws/et_ws/messages.py` -- Pydantic v2 models, written
 //!     by `datamodel-codegen` (driven by `mise run gen-python-ws`).
-//!   - `generated/specs/ws.kdl` — checked-in KDL projection of the WS
+//!   - `generated/specs/ws.kdl` -- checked-in KDL projection of the WS
 //!     schema; the input `dart-typegen` reads to produce the Dart client.
-//!   - `target/int-gen/ws.schema.json` — build intermediate (not
+//!   - `target/int-gen/ws.schema.json` -- build intermediate (not
 //!     committed); the input `datamodel-codegen` reads for the Python
 //!     client.
 //!
@@ -135,28 +135,28 @@ pub fn generate() -> Result<(), Error> {
     let project_root = get_project_root();
     let specs_dir = project_root.join("generated/specs");
 
-    // Build, merge, and slim the AsyncAPI spec — all the spec-shaping
+    // Build, merge, and slim the AsyncAPI spec -- all the spec-shaping
     // logic lives in `asyncapi`. The returned `Value` is what we serialise
     // to ws.yaml below.
     let spec_value = asyncapi::build_spec()?;
     // serde_yaml's emitter quotes/indents differently than dprint's
-    // `pretty_yaml` plugin — pipe the output through `pretty_yaml` (the same
+    // `pretty_yaml` plugin -- pipe the output through `pretty_yaml` (the same
     // engine dprint uses) so the committed YAML stays dprint-canonical and
     // `dprint check` doesn't drift between regenerations.
     let yaml = serde_yaml::to_string(&spec_value)?;
     // serde_yaml always emits well-formed YAML, so pretty_yaml's parse step
-    // can't fail here — the only error variant is a syntax error.
+    // can't fail here -- the only error variant is a syntax error.
     let yaml = pretty_yaml::format_text(&yaml, &pretty_yaml::config::FormatOptions::default())
         .expect("serde_yaml output should always be well-formed");
     write_if_changed(&specs_dir.join("ws.yaml"), &yaml)?;
 
-    // REST OpenAPI doc — emitted from utoipa annotations on actual handlers.
+    // REST OpenAPI doc -- emitted from utoipa annotations on actual handlers.
     let rest_yaml = openapi::render_yaml();
     let rest_yaml = pretty_yaml::format_text(&rest_yaml, &pretty_yaml::config::FormatOptions::default())
         .expect("utoipa output should always be well-formed YAML");
     write_if_changed(&specs_dir.join("rest.yaml"), &rest_yaml)?;
 
-    // Typed Rust client for the REST surface — same `progenitor::Generator`
+    // Typed Rust client for the REST surface -- same `progenitor::Generator`
     // engine that the retired `cargo-progenitor` CLI used, but driven
     // in-process so the spec and client always reflect the same source.
     let rust_client = openapi::render_rust_client()?;
@@ -167,7 +167,7 @@ pub fn generate() -> Result<(), Error> {
     // transport for an extern JS-fetch import (browser wasm target).
 
     // Upstream openapi2zig has no linux/arm64 release artifact, so mise
-    // doesn't install it there — skip the whole step when the binary is
+    // doesn't install it there -- skip the whole step when the binary is
     // absent. The committed `generated/zig-rest/src/et_rest_client.zig`
     // stays untouched, so `gen-specs-check`'s `git diff --exit-code`
     // still passes on that host.
@@ -184,7 +184,7 @@ pub fn generate() -> Result<(), Error> {
         eprintln!("openapi2zig not found on PATH; skipping Zig REST client generation");
     }
 
-    // Build intermediates land in target/ — datamodel-codegen reads the JSON
+    // Build intermediates land in target/ -- datamodel-codegen reads the JSON
     // Schema for Python output, and dart-typegen reads the KDL for Dart.
     // Both halves of the protocol contribute schema; the KDL + WIT
     // generators consume them as `(client, server)` pairs.
@@ -212,7 +212,7 @@ pub fn generate() -> Result<(), Error> {
     Ok(())
 }
 
-/// Write only when the contents differ — keeps `mise run check` quiet on
+/// Write only when the contents differ -- keeps `mise run check` quiet on
 /// no-op regenerations.
 #[expect(
     clippy::print_stdout,

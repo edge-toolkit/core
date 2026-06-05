@@ -70,7 +70,7 @@ pub async fn run() -> Result<(), JsValue> {
     let filename = "test_data.txt";
     let test_content = format!("Hello from data1 at {}!", js_sys::Date::new_0().to_iso_string());
 
-    // The typed REST client runs against the page origin — every browser
+    // The typed REST client runs against the page origin -- every browser
     // module is served from the same ws-server that owns its storage, so
     // an empty base URL (relative paths) is what we want.
     let rest = et_rest_client::Client::new("");

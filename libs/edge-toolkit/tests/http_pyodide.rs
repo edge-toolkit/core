@@ -1,12 +1,12 @@
 //! Verifies the `http:pyodide` mise install carries the *full* release
-//! distribution — not just the runtime (`pyodide.asm.{js,wasm}` +
+//! distribution -- not just the runtime (`pyodide.asm.{js,wasm}` +
 //! `python_stdlib.zip`). This is the difference between the ~200 MB
-//! GitHub release tarball (~300 wheels: numpy, scipy, pandas, …) and
+//! GitHub release tarball (~300 wheels: numpy, scipy, pandas, ...) and
 //! `npm:pyodide`, which ships only the runtime. ws-server's modules
 //! service prefers `http:pyodide` precisely so that browser modules
 //! calling `micropip.install("numpy")` can resolve the wheel offline.
 //!
-//! The test runs against the live mise install — if `http:pyodide` is
+//! The test runs against the live mise install -- if `http:pyodide` is
 //! missing, the test fails with a `mise install` hint rather than
 //! silently passing.
 
@@ -22,7 +22,7 @@ use std::path::PathBuf;
 
 use edge_toolkit::config::{default_modules_folders, mise_where};
 
-/// Shared resolver + panic message — every test in this file wants the
+/// Shared resolver + panic message -- every test in this file wants the
 /// install path and a consistent "run `mise install`" hint when it's
 /// missing.
 fn require_http_pyodide_install() -> PathBuf {
@@ -38,7 +38,7 @@ fn require_http_pyodide_install() -> PathBuf {
     })
 }
 
-/// Lower bound — the official 0.29.x release ships well over 300 wheels.
+/// Lower bound -- the official 0.29.x release ships well over 300 wheels.
 /// 100 is conservative enough to survive minor releases dropping a few
 /// rarely-used packages without flapping in CI.
 const MIN_WHEEL_COUNT: usize = 100;
@@ -80,7 +80,7 @@ fn http_pyodide_install_contains_full_wheel_set() {
 #[test]
 fn http_pyodide_install_has_runtime_too() {
     // The runtime files live next to the wheels in the same flat dir.
-    // ws-server's static-file serve relies on this — guests fetch
+    // ws-server's static-file serve relies on this -- guests fetch
     // `/modules/pyodide/pyodide.asm.wasm` from the same prefix as
     // `/modules/pyodide/numpy-*.whl`.
     let install = require_http_pyodide_install();
@@ -94,7 +94,7 @@ fn http_pyodide_install_has_runtime_too() {
         let path = install.join(runtime_file);
         assert!(
             path.is_file(),
-            "{} missing from http:pyodide install — expected at {}",
+            "{} missing from http:pyodide install -- expected at {}",
             runtime_file,
             path.display(),
         );

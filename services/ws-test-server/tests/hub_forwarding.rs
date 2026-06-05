@@ -85,7 +85,7 @@ async fn unrecognised_text_is_broadcast_verbatim() {
     let (mut sender, _sender_id) = connect_agent(&server.ws_url).await;
     let (mut receiver, _receiver_id) = connect_agent(&server.ws_url).await;
 
-    // A frame the server can't parse as ClientMessage — no `type` field, no
+    // A frame the server can't parse as ClientMessage -- no `type` field, no
     // recognisable shape. The hub fallback should forward it verbatim.
     let raw = r#"{"hello":"world","nested":{"n":42}}"#;
     sender.send(Message::text(raw)).await.expect("send unknown text");
@@ -115,7 +115,7 @@ async fn unrecognised_binary_is_broadcast_verbatim() {
     let (mut sender, _sender_id) = connect_agent(&server.ws_url).await;
     let (mut receiver, _receiver_id) = connect_agent(&server.ws_url).await;
 
-    // Arbitrary opaque bytes — the server has no way to interpret these,
+    // Arbitrary opaque bytes -- the server has no way to interpret these,
     // so the hub fallback must forward them as-is.
     let payload: Vec<u8> = vec![0x00, 0x01, 0x02, 0xff, 0xfe, 0xfd, b'a', b'b', b'c'];
     sender

@@ -100,7 +100,7 @@ const WEBGPU_GIT_REF: &str = "6c0d2244daf997cae7aed19cb1c2b38df011a41c";
 
 /// Top-level items (`resource`, `record`, `variant`, `enum`, `type`, free
 /// `func`) we keep from upstream `webgpu.wit`. Anything else is dropped.
-/// 72 items — the compute-only subset the wgpu-backed host actually
+/// 72 items -- the compute-only subset the wgpu-backed host actually
 /// supports. Anything new upstream adds is excluded by default; opt in by
 /// listing it here.
 const WEBGPU_KEEP_NAMES: &[&str] = &[
@@ -193,7 +193,7 @@ const WEBGPU_DROP_METHODS: &[&str] = &[
 
 /// Minimal stub packages for the cross-package `use` clauses in upstream
 /// `webgpu.wit`. wit-parser needs every referenced package available to
-/// resolve; we don't actually ship these — the trim drops all methods that
+/// resolve; we don't actually ship these -- the trim drops all methods that
 /// reference these types, then we clear the `use` clauses entirely.
 const WASI_IO_STUB: &str = concat!(
     "package wasi:io@0.2.0;\n",
@@ -231,7 +231,7 @@ pub fn run(project_root: &Path) -> Result<(), Error> {
 )]
 fn fetch_one(deps_root: &Path, pkg: &UpstreamPackage) -> Result<(), Error> {
     let dest = deps_root.join(pkg.local_dir);
-    // Wipe the destination first — guards against orphan files left over
+    // Wipe the destination first -- guards against orphan files left over
     // from an old pin that the new pin no longer ships.
     if dest.exists() {
         fs::remove_dir_all(&dest)?;

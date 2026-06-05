@@ -1,0 +1,20 @@
+id: no-non-ascii
+language: Rust
+severity: error
+message: |
+  Non-ASCII character in a string literal or doc comment. Stick to ASCII
+  in source: use `--` instead of `—`, `->` instead of `→`, straight `"`
+  instead of curly quotes, etc. ASCII-only source keeps terminals, log
+  scrapers, and `grep` reading the same bytes the editor shows.
+rule:
+  any:
+    - kind: string_literal
+      regex: '[^\x00-\x7F]'
+    - kind: raw_string_literal
+      regex: '[^\x00-\x7F]'
+    - kind: line_comment
+      regex: '^(///|//!).*[^\x00-\x7F]'
+    - kind: block_comment
+      regex: '^/\*[*!][\s\S]*[^\x00-\x7F]'
+ignores:
+  - generated/**

@@ -4,7 +4,7 @@
 //! Lives in its own file so the file-level
 //! `#![expect(clippy::exhaustive_structs)]` (active under the
 //! `openapi-spec` feature) is scoped only to where utoipa's derives
-//! emit `pub struct`s without `#[non_exhaustive]` — neither location
+//! emit `pub struct`s without `#[non_exhaustive]` -- neither location
 //! can be silenced via a function- or item-level `#[expect]`.
 
 #![cfg_attr(

@@ -1,14 +1,14 @@
 //! Modules HTTP routes carrying `#[utoipa::path]` annotations.
 //!
 //! `list_modules_handler` is the live `/modules/` route handler.
-//! `get_module_file` is a fake stub — the per-module GET routes are
+//! `get_module_file` is a fake stub -- the per-module GET routes are
 //! served by `actix_files::Files` mounts registered in
 //! [`crate::configure`], not by Rust; this function exists only to
 //! host the `#[utoipa::path]` annotation.
 //!
 //! The file-level `#![expect(clippy::exhaustive_structs)]` (active
 //! under `openapi-spec`) is scoped here because utoipa's derives emit
-//! `pub struct`s without `#[non_exhaustive]` — and the lint locations
+//! `pub struct`s without `#[non_exhaustive]` -- and the lint locations
 //! aren't reachable through a function- or item-level `#[expect]`.
 
 #![cfg_attr(
@@ -58,7 +58,7 @@ pub async fn list_modules_handler(config: web::Data<ModulesConfig>) -> HttpRespo
 )]
 #[must_use]
 pub fn get_module_file() -> HttpResponse {
-    // Fake handler — the GET route is actually served by the per-module
+    // Fake handler -- the GET route is actually served by the per-module
     // `actix_files::Files` mounts registered in `crate::configure`; this
     // stub exists only to host the `#[utoipa::path]` annotation so
     // `et-int-gen` can include the route in `generated/specs/rest.yaml`.
