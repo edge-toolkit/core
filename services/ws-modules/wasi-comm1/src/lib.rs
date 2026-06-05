@@ -33,7 +33,7 @@ wit_bindgen::generate!({
     generate_all,
 });
 
-use et::ws_messages::messages::{BroadcastMessagePayload, WsMessage};
+use et::ws_messages::messages::{BroadcastMessagePayload, ClientMessage, ServerMessage};
 use et::ws_wasi::ws::WsError;
 use exports::et::ws_wasi::entry::{EntryError, Guest};
 use wasi::logging::logging::{self, Level};
@@ -67,7 +67,7 @@ impl Guest for Component {
             wait_for_agent_id().ok_or_else(|| EntryError::Runtime("did not receive agent_id".to_string()))?;
         info(&format!("websocket connected with agent_id={agent_id}"));
 
-        et::ws_wasi::ws::send(&WsMessage::ListAgents)?;
+        et::ws_wasi::ws::send(&ClientMessage::ListAgents)?;
 
         let response = wait_for_list_agents_response(LIST_AGENTS_TIMEOUT_MS)
             .ok_or_else(|| EntryError::Runtime("no list-agents-response within timeout".to_string()))?;
@@ -93,7 +93,7 @@ impl Guest for Component {
             Ok(rendered) => rendered,
             Err(e) => return Err(EntryError::Runtime(format!("serialize broadcast body: {e}"))),
         };
-        et::ws_wasi::ws::send(&WsMessage::BroadcastMessage(BroadcastMessagePayload {
+        et::ws_wasi::ws::send(&ClientMessage::BroadcastMessage(BroadcastMessagePayload {
             message: body_str,
         }))?;
         info("broadcast sent");
@@ -114,7 +114,7 @@ fn wait_for_list_agents_response(
     while remaining > 0 {
         let chunk = remaining.min(200);
         match et::ws_wasi::ws::recv(chunk).ok()? {
-            Some(WsMessage::ListAgentsResponse(payload)) => return Some(payload),
+            Some(ServerMessage::ListAgentsResponse(payload)) => return Some(payload),
             Some(_) => {}
             None => {}
         }

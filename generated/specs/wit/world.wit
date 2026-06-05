@@ -1,10 +1,21 @@
 package et:ws-wasi@0.1.0;
 
 interface ws {
-  use et:ws-messages/messages@0.1.0.{ ws-message };
+  use et:ws-messages/messages@0.1.0.{ client-message, server-message };
   variant ws-error {
+    // Connection-level failure: TCP/TLS, URL parse, HTTP upgrade, frame
+    // I/O, write-buffer-full, and tungstenite's wire-protocol violations
+    // (frame format, capacity, attack-attempt). Anything that means the
+    // bytes never went through cleanly.
     transport(string),
-    protocol(string),
+    // Inbound JSON's `type` field starts with `et-` (claiming to be one
+    // of our messages) but the rest of the payload doesn't match the
+    // declared variant. Raised ONLY for that case: any other inbound
+    // parse failure (non-JSON, JSON without a `type`, JSON with a
+    // non-et-prefixed `type`) is relayed instead — the ws protocol
+    // forwards binary and unrecognised frames unchanged. Also raised
+    // for host-side serialize failures of outbound messages.
+    decode(string),
     not-connected,
     already-connected,
   }
@@ -14,11 +25,17 @@ interface ws {
     closing,
     closed,
   }
+  // `send` accepts only what a client is allowed to emit; `recv`
+  // returns only what the server is allowed to send. Foreign frames
+  // (binary or text whose `type` isn't `et-*`) are surfaced through
+  // the `et-relay-text` / `et-relay-binary` variants present in both
+  // directions, so the typed catalog covers both our schema and the
+  // hub-relay passthrough.
   connect: func() -> result<_, ws-error>;
   get-state: func() -> state;
   agent-id: func() -> string;
-  send: func(message: ws-message) -> result<_, ws-error>;
-  recv: func(timeout-ms: u32) -> result<option<ws-message>, ws-error>;
+  send: func(message: client-message) -> result<_, ws-error>;
+  recv: func(timeout-ms: u32) -> result<option<server-message>, ws-error>;
   disconnect: func();
 }
 

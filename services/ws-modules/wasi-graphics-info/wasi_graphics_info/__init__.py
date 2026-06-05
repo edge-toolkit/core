@@ -153,7 +153,7 @@ def _log(message: str) -> None:
 
 def _send_event(category: str, kind: str, body: dict) -> None:
     ws.send(
-        messages.WsMessage_ClientEvent(
+        messages.ClientMessage_ClientEvent(
             messages.ClientEventPayload(
                 capability=category,
                 action=kind,

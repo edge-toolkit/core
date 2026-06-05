@@ -10,7 +10,7 @@
 //! Internal repo-only generator (`int` = internal).
 //!
 //! Emits every checked-in artifact under `generated/` from the Rust sources of
-//! truth: `edge_toolkit::ws::WsMessage` for the WS protocol, and the
+//! truth: `edge_toolkit::ws::{ClientMessage, ServerMessage}` for the WS protocol, and the
 //! `#[utoipa::path]`-annotated handlers in `services/*` for the REST surface.
 //! Driven by `mise run gen-specs`; `mise run gen-specs-check` fails if the
 //! regenerated tree drifts from what's committed.
@@ -21,7 +21,7 @@
 //!   - `generated/specs/rest.yaml` — `OpenAPI` 3.0 description of
 //!     the ws-server's REST surface.
 //!   - `generated/specs/wit/deps/et-ws-messages/messages.wit` — the typed
-//!     WIT mirror of `WsMessage` consumed by `services/ws-wasi-runner` and
+//!     WIT mirror of the two message enums consumed by `services/ws-wasi-runner` and
 //!     every WASI ws-module. The accompanying top-level
 //!     `generated/specs/wit/world.wit` is hand-maintained, not generated;
 //!     see `generated/README.md`.
@@ -48,7 +48,7 @@ use std::path::Path;
 
 use asyncapi_rust::AsyncApi;
 use edge_toolkit::config::get_project_root;
-use edge_toolkit::ws::WsMessage;
+use edge_toolkit::ws::{ClientMessage, ServerMessage};
 use fs_err as fs;
 use schemars::schema_for;
 
@@ -92,7 +92,7 @@ pub enum Error {
 
     #[error("AsyncAPI spec missing required node: {0}")]
     SpecNodeMissing(&'static str),
-    #[error("WsMessage JSON Schema malformed: {0}")]
+    #[error("WS message JSON Schema malformed: {0}")]
     SchemaMalformed(&'static str),
     #[error("unsupported JSON Schema `type`: `{0}`")]
     UnsupportedSchemaType(String),
@@ -118,18 +118,15 @@ impl From<tree_sitter::LanguageError> for Error {
 
 /// `AsyncAPI` document for the ws-server's single `/ws` hub channel.
 ///
-/// The `#[asyncapi_messages(WsMessage)]` attribute pulls every `WsMessage`
-/// variant into `components.messages` automatically via the
-/// `ToAsyncApiMessage` impl on the enum.
-#[expect(
-    clippy::duplicated_attributes,
-    reason = "two #[asyncapi_operation(...)] entries are intentional (send/receive); collapsing drops a channel"
-)]
+/// Two derives feed `AsyncAPI`: `WsApiClient` lists every `ClientMessage`
+/// variant on the `sendWsMessage` operation, and `WsApiServer` lists every
+/// `ServerMessage` variant on `receiveWsMessage`. The output specs are
+/// merged in [`generate`] before being written to disk.
 #[derive(AsyncApi)]
 #[asyncapi(
     title = "Edge Toolkit WebSocket Protocol",
     version = "0.1.0",
-    description = "Hub-style WebSocket protocol. Generated from edge_toolkit::ws::WsMessage."
+    description = "Hub-style WebSocket protocol. Generated from edge_toolkit::ws::ClientMessage."
 )]
 #[asyncapi_server(
     name = "local",
@@ -139,13 +136,31 @@ impl From<tree_sitter::LanguageError> for Error {
 )]
 #[asyncapi_channel(name = "ws", address = "/ws")]
 #[asyncapi_operation(name = "sendWsMessage", action = "send", channel = "ws")]
-#[asyncapi_operation(name = "receiveWsMessage", action = "receive", channel = "ws")]
-#[asyncapi_messages(WsMessage)]
-struct WsApi;
+#[asyncapi_messages(ClientMessage)]
+struct WsApiClient;
 
-/// Emit every checked-in artifact under `generated/` from the `WsMessage`
-/// definition: `AsyncAPI` YAML, `et:ws-messages` WIT, Dart client, and the
-/// intermediate JSON Schema under `target/int-gen/`.
+#[derive(AsyncApi)]
+#[asyncapi(
+    title = "Edge Toolkit WebSocket Protocol (server→client)",
+    version = "0.1.0",
+    description = "Hub-style WebSocket protocol. Generated from edge_toolkit::ws::ServerMessage."
+)]
+#[asyncapi_server(
+    name = "local",
+    host = "localhost:8080",
+    protocol = "ws",
+    description = "Default ws-server bind address (mise run ws-server)"
+)]
+#[asyncapi_channel(name = "ws", address = "/ws")]
+#[asyncapi_operation(name = "receiveWsMessage", action = "receive", channel = "ws")]
+#[asyncapi_messages(ServerMessage)]
+struct WsApiServer;
+
+/// Emit every checked-in artifact under `generated/`.
+///
+/// Inputs: the `ClientMessage` + `ServerMessage` enums; outputs are the
+/// `AsyncAPI` YAML, the `et:ws-messages` WIT package, the Dart client,
+/// and the intermediate JSON Schemas under `target/int-gen/`.
 #[expect(
     clippy::expect_used,
     clippy::unwrap_in_result,
@@ -160,12 +175,19 @@ pub fn generate() -> Result<(), Error> {
     let specs_dir = project_root.join("generated/specs");
 
     // asyncapi-rust 0.2 fills every component message with the whole
-    // `schema_for!(WsMessage)` payload (i.e. the full union), turning 13
+    // `schema_for!(ClientMessage)` payload (i.e. the full union), turning every
     // 30-line messages into 13 220-line ones. We slim it down ourselves:
     // hoist `$defs` into `components.schemas` and give each message just
     // its matching `oneOf` variant.
-    let spec = WsApi::asyncapi_spec();
-    let mut spec_value = serde_json::to_value(&spec)?;
+    // Emit the client and server halves separately, then merge channels +
+    // operations + messages into the client spec. The merged spec retains
+    // WsApiClient's metadata (title, server) and carries both directions'
+    // messages in `components.messages`.
+    let client_spec = WsApiClient::asyncapi_spec();
+    let server_spec = WsApiServer::asyncapi_spec();
+    let mut spec_value = serde_json::to_value(&client_spec)?;
+    let server_value = serde_json::to_value(&server_spec)?;
+    merge_asyncapi(&mut spec_value, &server_value);
     slim_component_messages(&mut spec_value)?;
     // serde_yaml's emitter quotes/indents differently than dprint's
     // `pretty_yaml` plugin — pipe the output through `pretty_yaml` (the same
@@ -214,28 +236,90 @@ pub fn generate() -> Result<(), Error> {
 
     // Build intermediates land in target/ — datamodel-codegen reads the JSON
     // Schema for Python output, and dart-typegen reads the KDL for Dart.
-    let schema = schema_for!(WsMessage);
-    let schema_json = serde_json::to_string_pretty(&schema)?;
+    // Both halves of the protocol contribute schema; the KDL + WIT
+    // generators consume them as `(client, server)` pairs.
+    let client_schema = schema_for!(ClientMessage);
+    let server_schema = schema_for!(ServerMessage);
+    let schema_json = serde_json::to_string_pretty(&client_schema)?;
     let schema_path = project_root.join("target/int-gen/ws.schema.json");
     write_if_changed(&schema_path, &format!("{schema_json}\n"))?;
+    let server_schema_path = project_root.join("target/int-gen/ws.server.schema.json");
+    write_if_changed(
+        &server_schema_path,
+        &format!("{}\n", serde_json::to_string_pretty(&server_schema)?),
+    )?;
 
-    let kdl_source = kdl::render(&schema)?;
+    let kdl_source = kdl::render(&client_schema, &server_schema)?;
     let kdl_path = project_root.join("target/int-gen/ws.kdl");
     write_if_changed(&kdl_path, &kdl_source)?;
 
-    // The runner and all WASI guest crates point wit-bindgen / componentize-py
-    // at `generated/specs/wit/` directly; the layout (main world at the top,
-    // dep packages under `deps/`) follows the canonical wit-deps convention.
-    // Only `deps/et-ws-messages/messages.wit` is generated (from the
-    // `WsMessage` schema). The top-level `world.wit` is hand-maintained —
-    // see `generated/README.md`.
     let wit_dir = project_root.join("generated/specs/wit");
     write_if_changed(
         &wit_dir.join("deps/et-ws-messages/messages.wit"),
-        &wit::messages::render(&schema)?,
+        &wit::messages::render(&client_schema, &server_schema)?,
     )?;
 
     Ok(())
+}
+
+/// Fold `source`'s channels, operations, and `components.messages` into
+/// `target`. Top-level metadata (title, info, servers) is retained from
+/// `target`. Used to combine the client-side and server-side `AsyncAPI`
+/// documents into a single spec with both directions on one channel.
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by generate(); the merge is a logical step worth its own scope"
+)]
+fn merge_asyncapi(target: &mut serde_json::Value, source: &serde_json::Value) {
+    use serde_json::Value;
+    fn merge_object_field(target: &mut Value, source: &Value, field: &str) {
+        let Some(source_field) = source.get(field).and_then(Value::as_object) else {
+            return;
+        };
+        let Some(target_obj) = target.as_object_mut() else {
+            return;
+        };
+        let entry = target_obj
+            .entry(field.to_string())
+            .or_insert_with(|| Value::Object(serde_json::Map::new()));
+        let Some(entry_obj) = entry.as_object_mut() else {
+            return;
+        };
+        for (key, value) in source_field {
+            let _previous: Option<Value> = entry_obj.insert(key.clone(), value.clone());
+        }
+    }
+    fn merge_nested(target: &mut Value, source: &Value, outer: &str, inner: &str) {
+        let Some(source_inner) = source
+            .get(outer)
+            .and_then(|outer_value| outer_value.get(inner))
+            .and_then(Value::as_object)
+        else {
+            return;
+        };
+        let Some(target_obj) = target.as_object_mut() else {
+            return;
+        };
+        let outer_entry = target_obj
+            .entry(outer.to_string())
+            .or_insert_with(|| Value::Object(serde_json::Map::new()));
+        let Some(outer_obj) = outer_entry.as_object_mut() else {
+            return;
+        };
+        let inner_entry = outer_obj
+            .entry(inner.to_string())
+            .or_insert_with(|| Value::Object(serde_json::Map::new()));
+        let Some(inner_obj) = inner_entry.as_object_mut() else {
+            return;
+        };
+        for (key, value) in source_inner {
+            let _previous: Option<Value> = inner_obj.insert(key.clone(), value.clone());
+        }
+    }
+    merge_object_field(target, source, "channels");
+    merge_object_field(target, source, "operations");
+    merge_nested(target, source, "components", "messages");
+    merge_nested(target, source, "components", "schemas");
 }
 
 /// Replace each component message's payload with just its variant schema and

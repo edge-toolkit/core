@@ -1,5 +1,5 @@
-//! Translates a `schemars` JSON Schema for `WsMessage` into the
-//! `et:ws-messages@0.1.0` WIT package.
+//! Translates `schemars` JSON Schemas for `ClientMessage` and
+//! `ServerMessage` into the `et:ws-messages@0.1.0` WIT package.
 //!
 //! Built with `wit-encoder` so the output format is canonical and the
 //! construction is type-checked — we never produce manual `writeln!` lines.
@@ -14,6 +14,10 @@
 //!     `string`. Integers → `s64` (the wire format never narrows).
 //!   * `#[serde(rename_all = "snake_case")]` enums map directly to WIT
 //!     `enum` with kebab-case case names.
+//!   * `ClientMessage` and `ServerMessage` each produce a top-level
+//!     variant (`client-message` / `server-message`); shared payload
+//!     records (`relay-text-payload`, etc.) and support types are
+//!     deduplicated by name.
 
 use std::collections::HashSet;
 
@@ -38,19 +42,25 @@ type EnumSet = HashSet<String>;
     clippy::unwrap_in_result,
     reason = "the semver literal is a compile-time constant; an Err means the literal was mistyped"
 )]
-pub fn render(root_schema: &Schema) -> Result<String, Error> {
-    let root = root_schema.as_value();
+pub fn render(client_schema: &Schema, server_schema: &Schema) -> Result<String, Error> {
+    let client_root = client_schema.as_value();
+    let server_root = server_schema.as_value();
+    let merged_root = merge_defs(client_root, server_root);
     let mut interface = Interface::new("messages");
     interface.set_docs(Some(concat!(
-        "Typed WS protocol messages \u{2014} each `ws-message` case maps 1:1 to a Rust `WsMessage` ",
-        "variant on the wire.",
+        "Typed WS protocol messages \u{2014} `client-message` is what guests send and the server ",
+        "receives; `server-message` is what the server sends and guests receive. Shared payload ",
+        "records and support types live alongside both variants.",
     )));
 
-    let enums = collect_enum_names(root);
-    emit_enum_defs(root, &mut interface)?;
-    emit_record_defs(root, &mut interface, &enums)?;
-    emit_variant_payloads(root, &mut interface, &enums)?;
-    emit_top_level_variant(root, &mut interface)?;
+    let enums = collect_enum_names(&merged_root);
+    emit_enum_defs(&merged_root, &mut interface)?;
+    emit_record_defs(&merged_root, &mut interface, &enums)?;
+    let mut emitted_payloads: HashSet<String> = HashSet::new();
+    emit_variant_payloads(client_root, &mut interface, &enums, &mut emitted_payloads)?;
+    emit_variant_payloads(server_root, &mut interface, &enums, &mut emitted_payloads)?;
+    emit_top_level_variant(client_root, &mut interface, "client-message")?;
+    emit_top_level_variant(server_root, &mut interface, "server-message")?;
 
     let mut package = Package::new(PackageName::new(
         "et",
@@ -60,6 +70,30 @@ pub fn render(root_schema: &Schema) -> Result<String, Error> {
     package.interface(interface);
 
     Ok(package.to_string())
+}
+
+/// Combine `$defs` maps from two schemas (client + server) into a single
+/// synthetic root with deduplicated definitions. The combined root has
+/// no `oneOf` — the variant emitters consume each schema's `oneOf`
+/// separately so we can label each variant by direction.
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by render(); kept separate for the dedup logic"
+)]
+fn merge_defs(client_root: &serde_json::Value, server_root: &serde_json::Value) -> serde_json::Value {
+    let mut merged = serde_json::Map::new();
+    for root in [client_root, server_root] {
+        if let Some(defs) = root.get("$defs").and_then(|val| val.as_object()) {
+            for (name, def) in defs {
+                let _previous: Option<serde_json::Value> = merged.insert(name.clone(), def.clone());
+            }
+        }
+    }
+    let mut root = serde_json::Map::new();
+    if !merged.is_empty() {
+        let _previous: Option<serde_json::Value> = root.insert("$defs".to_string(), serde_json::Value::Object(merged));
+    }
+    serde_json::Value::Object(root)
 }
 
 #[expect(
@@ -126,35 +160,35 @@ fn emit_record_defs(root: &serde_json::Value, interface: &mut Interface, enums: 
     Ok(())
 }
 
-#[expect(
-    clippy::single_call_fn,
-    reason = "named helper called once by render(); pairs with emit_top_level_variant"
-)]
-fn emit_variant_payloads(root: &serde_json::Value, interface: &mut Interface, enums: &EnumSet) -> Result<(), Error> {
+fn emit_variant_payloads(
+    root: &serde_json::Value,
+    interface: &mut Interface,
+    enums: &EnumSet,
+    emitted: &mut HashSet<String>,
+) -> Result<(), Error> {
     let variants = root
         .get("oneOf")
         .and_then(|val| val.as_array())
-        .ok_or(Error::SchemaMalformed("WsMessage schema missing `oneOf`"))?;
+        .ok_or(Error::SchemaMalformed("message schema missing `oneOf`"))?;
     for variant in variants {
         if !variant_has_payload(variant) {
             continue;
         }
         let tag = variant_tag(variant)?;
         let record_name = format!("{}-payload", to_kebab(&tag));
+        if !emitted.insert(record_name.clone()) {
+            continue;
+        }
         interface.type_def(build_record(&record_name, variant, enums, true)?);
     }
     Ok(())
 }
 
-#[expect(
-    clippy::single_call_fn,
-    reason = "named helper called once by render(); emits the top-level tagged-union typedef"
-)]
-fn emit_top_level_variant(root: &serde_json::Value, interface: &mut Interface) -> Result<(), Error> {
+fn emit_top_level_variant(root: &serde_json::Value, interface: &mut Interface, name: &str) -> Result<(), Error> {
     let variants = root
         .get("oneOf")
         .and_then(|val| val.as_array())
-        .ok_or(Error::SchemaMalformed("WsMessage schema missing `oneOf`"))?;
+        .ok_or(Error::SchemaMalformed("message schema missing `oneOf`"))?;
     let cases: Vec<VariantCase> = variants
         .iter()
         .map(|variant| {
@@ -168,8 +202,13 @@ fn emit_top_level_variant(root: &serde_json::Value, interface: &mut Interface) -
             }
         })
         .collect::<Result<_, Error>>()?;
-    let mut variant_def = TypeDef::variant("ws-message", cases);
-    variant_def.set_docs(Some("Tagged union covering every wire-format WS message."));
+    let mut variant_def = TypeDef::variant(name.to_string(), cases);
+    let docs = match name {
+        "client-message" => "Messages a client is allowed to send (and the server receives).",
+        "server-message" => "Messages the server is allowed to send (and clients receive).",
+        _ => "Tagged union of wire-format WS messages.",
+    };
+    variant_def.set_docs(Some(docs));
     interface.type_def(variant_def);
     Ok(())
 }
@@ -258,12 +297,33 @@ fn wit_type_from(schema: &serde_json::Value, force_optional: bool, enums: &EnumS
     Ok(wrap_optional(Type::String, force_optional))
 }
 
+/// Pick the narrowest WIT integer type that matches the schema's
+/// `format` hint. Defaults to `s64` (the original behaviour) when no
+/// hint is present, so existing fields that lean on schemars's bare
+/// `integer` shape stay where they were.
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by primitive(); kept separate so the format-table is self-contained"
+)]
+fn integer_type(schema: &serde_json::Value) -> Type {
+    match schema.get("format").and_then(|val| val.as_str()) {
+        Some("uint8") => Type::U8,
+        Some("int8") => Type::S8,
+        Some("uint16") => Type::U16,
+        Some("int16") => Type::S16,
+        Some("uint32") => Type::U32,
+        Some("int32") => Type::S32,
+        Some("uint64") => Type::U64,
+        _ => Type::S64,
+    }
+}
+
 fn primitive(kind: &str, schema: &serde_json::Value, enums: &EnumSet) -> Result<Type, Error> {
     Ok(match kind {
         // serde_json::Value-shaped opaque objects collapse onto `string`
         // alongside genuine strings — the host serialises them to JSON.
         "string" | "object" => Type::String,
-        "integer" => Type::S64,
+        "integer" => integer_type(schema),
         "number" => Type::F64,
         "boolean" => Type::Bool,
         "array" => {

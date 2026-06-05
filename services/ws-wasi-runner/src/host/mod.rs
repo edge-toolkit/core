@@ -16,10 +16,10 @@ mod log;
 pub mod wasi_keyvalue;
 pub mod wasi_nn;
 pub mod wasi_webgpu;
-mod ws;
+pub mod ws;
 
 pub use self::error::{
-    KvErrExt, RequestDeviceErrExt, WitErrExt, WsProtocolErrExt, WsTransportErrExt, kv_not_implemented,
+    KvErrExt, RequestDeviceErrExt, WitErrExt, WsDecodeErrExt, WsTransportErrExt, kv_not_implemented,
 };
 pub use self::ws::WsBackend;
 

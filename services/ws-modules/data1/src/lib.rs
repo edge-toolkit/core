@@ -4,7 +4,7 @@
     reason = "browser WASM module: JsFuture is !Send; module-local helpers like wait_for_* are single-use by design"
 )]
 
-use edge_toolkit::ws::WsMessage;
+use edge_toolkit::ws::ServerMessage;
 use et_web::JsResultExt as _;
 use et_ws_wasm_agent::{WsClient, WsClientConfig, append_to_textarea};
 use futures_util::StreamExt as _;
@@ -36,10 +36,10 @@ pub async fn run() -> Result<(), JsValue> {
             let Some(data) = value.as_string() else {
                 return;
             };
-            let Ok(message) = serde_json::from_str::<WsMessage>(&data) else {
+            let Ok(message) = serde_json::from_str::<ServerMessage>(&data) else {
                 return;
             };
-            if let WsMessage::Response { message } = message {
+            if let ServerMessage::Response { message } = message {
                 *last_response.borrow_mut() = Some(message);
             }
         }
@@ -55,7 +55,7 @@ pub async fn run() -> Result<(), JsValue> {
         let Some(data) = value.as_string() else {
             return;
         };
-        drop(serde_json::from_str::<WsMessage>(&data));
+        drop(serde_json::from_str::<ServerMessage>(&data));
     }) as Box<dyn FnMut(JsValue)>);
 
     client.set_on_message(on_message.as_ref().clone());

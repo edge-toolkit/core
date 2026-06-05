@@ -7,7 +7,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use edge_toolkit::ws::{AgentConnectionState, AgentSummary, WsMessage};
+use edge_toolkit::ws::{AgentConnectionState, AgentSummary, ServerMessage};
 use et_ws_wasm_agent::{WsClient, WsClientConfig, append_to_textarea};
 use js_sys::{Promise, Reflect};
 use serde_json::json;
@@ -106,12 +106,12 @@ fn handle_incoming_message(
         return;
     };
 
-    let Ok(message) = serde_json::from_str::<WsMessage>(&data) else {
+    let Ok(message) = serde_json::from_str::<ServerMessage>(&data) else {
         return;
     };
 
     match message {
-        WsMessage::ListAgentsResponse { agents } => {
+        ServerMessage::ListAgentsResponse { agents } => {
             let own_id = self_agent_id.borrow().clone();
             let others = agents
                 .into_iter()
@@ -121,7 +121,7 @@ fn handle_incoming_message(
                 .collect::<Vec<_>>();
             *other_connected_agents.borrow_mut() = others;
         }
-        WsMessage::AgentMessage {
+        ServerMessage::AgentMessage {
             message_id,
             from_agent_id,
             scope,
@@ -135,7 +135,7 @@ fn handle_incoming_message(
             web_sys::console::log_1(&JsValue::from_str(&line));
             drop(set_module_status(&line));
         }
-        WsMessage::MessageStatus {
+        ServerMessage::MessageStatus {
             message_id,
             status,
             detail,
@@ -144,20 +144,15 @@ fn handle_incoming_message(
             web_sys::console::log_1(&JsValue::from_str(&line));
             drop(set_module_status(&line));
         }
-        WsMessage::Invalid { message_id, detail } => {
+        ServerMessage::Invalid { message_id, detail } => {
             let line = format!("comm1: invalid server response {message_id:?}: {detail}");
             web_sys::console::warn_1(&JsValue::from_str(&line));
             drop(set_module_status(&line));
         }
-        WsMessage::Connect { .. }
-        | WsMessage::ConnectAck { .. }
-        | WsMessage::Alive { .. }
-        | WsMessage::ListAgents
-        | WsMessage::SendAgentMessage { .. }
-        | WsMessage::BroadcastMessage { .. }
-        | WsMessage::MessageAck { .. }
-        | WsMessage::ClientEvent { .. }
-        | WsMessage::Response { .. } => {}
+        ServerMessage::ConnectAck { .. }
+        | ServerMessage::Response { .. }
+        | ServerMessage::RelayText { .. }
+        | ServerMessage::RelayBinary { .. } => {}
     }
 }
 

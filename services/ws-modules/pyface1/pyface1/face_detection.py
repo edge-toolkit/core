@@ -177,7 +177,7 @@ def detections_json(detections: list[Detection]) -> str:
 
 def client_event_json(details: dict[str, object]) -> str:
     # Use the generated `WsClientEvent` Pydantic model so the wire shape stays
-    # in lock-step with `edge_toolkit::ws::WsMessage::ClientEvent`. Regenerate
+    # in lock-step with `edge_toolkit::ws::ClientMessage::ClientEvent`. Regenerate
     # via `mise run gen-python-ws` if the protocol changes.
     return WsClientEvent(
         type="et-client-event",

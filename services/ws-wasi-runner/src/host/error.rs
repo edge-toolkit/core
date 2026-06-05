@@ -1,7 +1,7 @@
 //! Error helpers for the runner's host impls. Each trait carries the
 //! only `.map_err(...)` for the pattern it covers; every host file
-//! reaches the conversions through one of the `.ws_transport(...)` /
-//! `.ws_protocol(...)` / `.kv_context(...)` / `.request_device_err()`
+//! reaches the conversions through one of the `.map_tungstenite_err(...)`
+//! / `.map_decode_err(...)` / `.kv_context(...)` / `.request_device_err()`
 //! / `.wit_context(...)` shorthands.
 
 use crate::bindings::et::ws_wasi::ws::WsError;
@@ -55,29 +55,48 @@ impl<T, E: std::fmt::Display> RequestDeviceErrExt<T> for Result<T, E> {
     }
 }
 
-/// Maps a foreign transport error (tcp, tls, websocket frame) into
-/// `WsError::Transport`.
+/// Maps a `tokio_tungstenite::tungstenite::Error` into a typed `WsError`.
+///
+/// Specialised to `tungstenite::Error` so the variant carries through:
+///   - `ConnectionClosed` / `AlreadyClosed` become `WsError::NotConnected`,
+///     letting guests use the typed not-connected case for reconnect logic
+///     instead of pattern-matching on a `Transport(String)`.
+///   - Everything else (IO, TLS, URL, HTTP-upgrade, write-buffer-full,
+///     Capacity, Protocol, `AttackAttempt`, Utf8) is transport-level — the
+///     wire never delivered cleanly — and lands in `WsError::Transport`.
 ///
 /// The context string is prefixed onto the source's `Display` rendering so
-/// the carried message reads as `"<context>: <source>"`.
+/// the carried message reads as `"ws <context>: <source>"`.
 pub trait WsTransportErrExt<T> {
-    fn ws_transport(self, context: &str) -> Result<T, WsError>;
+    fn map_tungstenite_err(self, context: &str) -> Result<T, WsError>;
 }
 
-impl<T, E: std::fmt::Display> WsTransportErrExt<T> for Result<T, E> {
-    fn ws_transport(self, context: &str) -> Result<T, WsError> {
-        self.map_err(|err| WsError::Transport(format!("{context}: {err}")))
+impl<T> WsTransportErrExt<T> for Result<T, tokio_tungstenite::tungstenite::Error> {
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "tungstenite::Error is non_exhaustive; the wildcard absorbs every non-ConnectionClosed variant"
+    )]
+    fn map_tungstenite_err(self, context: &str) -> Result<T, WsError> {
+        use tokio_tungstenite::tungstenite::Error as Tungstenite;
+        self.map_err(|err| match &err {
+            Tungstenite::ConnectionClosed | Tungstenite::AlreadyClosed => WsError::NotConnected,
+            _ => WsError::Transport(format!("ws {context}: {err}")),
+        })
     }
 }
 
-/// Maps a foreign serialization / deserialization error into
-/// `et:ws-wasi/ws.ws-error.protocol(...)`.
-pub trait WsProtocolErrExt<T> {
-    fn ws_protocol(self, context: &str) -> Result<T, WsError>;
+/// Maps a JSON serialize / deserialize error into `WsError::Decode`.
+///
+/// Generic over `Display` so plain `serde_json::Error` (from
+/// `to_string`) and `serde_path_to_error::Error<serde_json::Error>`
+/// (from path-tracking `deserialize`) both flow through the same
+/// `?`-friendly conversion.
+pub trait WsDecodeErrExt<T> {
+    fn map_decode_err(self, context: &str) -> Result<T, WsError>;
 }
 
-impl<T, E: std::fmt::Display> WsProtocolErrExt<T> for Result<T, E> {
-    fn ws_protocol(self, context: &str) -> Result<T, WsError> {
-        self.map_err(|err| WsError::Protocol(format!("{context}: {err}")))
+impl<T, E: std::fmt::Display> WsDecodeErrExt<T> for Result<T, E> {
+    fn map_decode_err(self, context: &str) -> Result<T, WsError> {
+        self.map_err(|err| WsError::Decode(format!("{context}: {err}")))
     }
 }

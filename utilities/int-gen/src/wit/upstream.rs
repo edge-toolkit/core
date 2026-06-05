@@ -1,5 +1,5 @@
 //! Provenance for every WIT package under `generated/specs/wit/deps/` that
-//! isn't generated from `WsMessage`.
+//! isn't generated from `ClientMessage` / `ServerMessage`.
 //!
 //! Five WASI packages (`wasi-clocks`, `wasi-io`, `wasi-keyvalue`,
 //! `wasi-logging`, `wasi-nn`) are fetched verbatim from upstream

@@ -55,19 +55,6 @@ jobs:
           # doesn't fail the whole `mise install` step.
           MISE_HTTP_TIMEOUT: "120"
 
-      # See the equivalent step in test.yml for rationale.
-      - name: Debug — mise python resolution
-        run: |
-          set -x
-          mise --version
-          mise list python || true
-          mise which python || true
-          mise which python3 || true
-          mise which python3.13 || true
-          mise where python || true
-          mise exec python -- python --version || true
-          mise exec python -- python -c "import sys; print(sys.executable)" || true
-
       - name: Run checkers
         run: |
           mise run check

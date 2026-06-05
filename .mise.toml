@@ -102,9 +102,9 @@ MAVEN_ARGS = "--no-transfer-progress"
 # and bump the count. `RCLONE_*` env vars are rclone's own alternative
 # to CLI flags — `rclone.conf` only configures named remotes, not
 # global retry policy.
+RCLONE_CONFIG = "{{ config_root }}/config/rclone.conf"
 RCLONE_RETRIES = "10"
 RCLONE_RETRIES_SLEEP = "30s"
-RCLONE_CONFIG = "{{ config_root }}/config/rclone.conf"
 
 [tasks]
 ec = "ec"
@@ -147,12 +147,12 @@ description = "Run repository formatters"
 # That mismatch is invisible locally (we accumulate .dart_tool/ over time)
 # but bites CI's fresh checkout. Run `dart pub get` for every Dart package
 # before any dart-* task so .dart_tool/ exists and the format is stable.
-shell = "bash -c"
 run = """
 set -euo pipefail
 dart pub get --directory generated/dart-ws
 dart pub get --directory services/ws-modules/dart-comm1
 """
+shell = "bash -c"
 
 [tasks.dart-check]
 depends = ["dart-pub-get"]
@@ -233,7 +233,6 @@ run = "taplo format"
 # applying each schema explicitly with `taplo lint --schema file://...`.
 # When adding a new schema under `config/taplo/`, append a `taplo lint`
 # line here too. See `config/taplo/RULE-IDEAS.md` for the investigation.
-shell = "bash -c"
 run = """
 set -euo pipefail
 # Baseline TOML validation across every .toml file the auto-config picks up.
@@ -276,6 +275,7 @@ for f in "${members[@]}"; do
 done
 taplo lint --schema "file://$PWD/config/taplo/require-lints-section.schema.json" "${lint_inheritable[@]}"
 """
+shell = "bash -c"
 
 [tasks.typos]
 run = "typos"
@@ -304,7 +304,7 @@ zig build --fetch --build-file services/ws-modules/zig-data1/build.zig
 """
 
 [tasks.prefetch]
-depends = ["prefetch-ci", "fetch-face1-rclone", "fetch-har-motion1-rclone"]
+depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "prefetch-ci"]
 description = "Pre-download all dependencies and models (superset of prefetch-ci)"
 
 [tasks.prefetch-ci.env]
@@ -380,7 +380,6 @@ dart format generated/dart-ws/lib/ws_messages.dart
 [tasks.gen-python-rest]
 depends = ["gen-ws-spec"]
 description = "Emit typed Python REST client for the ws-server API via openapi-python-client (consumes generated/specs/rest.yaml)"
-shell = "bash -c"
 run = """
 mkdir -p generated/python-rest/et_rest_client
 openapi-python-client generate \
@@ -402,11 +401,11 @@ rm -rf generated/python-rest/et_rest_client/.ruff_cache
 ruff check --fix generated/python-rest/et_rest_client
 ruff format generated/python-rest/et_rest_client
 """
+shell = "bash -c"
 
 [tasks.gen-python-ws]
 depends = ["gen-ws-spec"]
 description = "Emit Pydantic models for the WS protocol via datamodel-code-generator"
-shell = "bash -c"
 run = """
 mkdir -p generated/python-ws/et_ws
 # `--custom-file-header "#"` is the only way to suppress datamodel-codegen's
@@ -441,6 +440,7 @@ rm generated/python-ws/et_ws/messages.py.bak
 ruff check --fix generated/python-ws/et_ws/messages.py
 ruff format generated/python-ws/et_ws/messages.py
 """
+shell = "bash -c"
 
 [tasks.gen-specs]
 depends = ["gen-dart-ws", "gen-python-rest", "gen-python-ws", "gen-ws-spec"]
@@ -457,11 +457,11 @@ description = "Fail if any checked-in artifact under generated/ is stale"
 # drift there (nightly rustfmt formats long signatures and doc-comment
 # indentation differently across nightlies; pipx-driven python codegen
 # emits subtly different output). Linux/macOS runs are canonical.
-shell = "bash -c"
 run = """
 [[ "$OS" == "Windows_NT" ]] && { echo "gen-specs-check: skipped on Windows (regen is non-deterministic there)"; exit 0; }
 git diff --exit-code -- generated
 """
+shell = "bash -c"
 
 [tasks.build-et-ws-wheel]
 depends = ["gen-python-ws"]
@@ -470,23 +470,23 @@ dir = "generated/python-ws"
 # Wheel goes straight into pkg/ alongside the committed et_ws.js shim so the
 # whole dir is what et-modules-service mounts at /modules/et-ws/. Delete
 # stale wheels first — uv build leaves prior versions in place.
-shell = "bash -c"
 run = """
 rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 cargo run -p et-cli -- module-package-json
 """
+shell = "bash -c"
 
 [tasks.build-et-rest-client-wheel]
 depends = ["gen-python-rest"]
 description = "Build the generated et-rest-client Python package as a wheel + ws-module pkg/"
 dir = "generated/python-rest"
-shell = "bash -c"
 run = """
 rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 cargo run -p et-cli -- module-package-json
 """
+shell = "bash -c"
 
 # `cargo-watch` is unmaintained; `watchexec` is its successor (and what
 # `cargo-watch` always called under the hood). Restart on .rs/.toml
@@ -606,7 +606,6 @@ dart compile js lib/dart_comm1.dart -o pkg/et_ws_dart_comm1_compiled.js --no-sou
 [tasks.build-ws-dotnet-data1-module]
 description = "Build the dotnet-data1 C# WASM workflow module"
 dir = "services/ws-modules/dotnet-data1"
-shell = "bash -c"
 run = '''
 dotnet workload install wasm-tools --skip-manifest-update
 dotnet publish -c Release
@@ -614,6 +613,7 @@ dotnet publish -c Release
 PUBLISH=bin/Release/net10.0/publish/wwwroot/_framework
 cp "$PUBLISH"/*.js "$PUBLISH"/*.wasm "$PUBLISH"/*.dat pkg/
 '''
+shell = "bash -c"
 
 [tasks.build-ws-wasi-graphics-info-module]
 description = "Build the WASI graphics-info Python module as a WASI Preview 2 component"
@@ -627,13 +627,13 @@ dir = "services/ws-modules/wasi-graphics-info"
 # `wasi:keyvalue/store` host import from the ws-server at runtime.
 # componentize-py 0.23's `bindings` subcommand refuses to overwrite an
 # existing output dir, so we wipe it first.
-shell = "bash -c"
 run = """
 rm -rf wit_world
 componentize-py -d ../../../generated/specs/wit -w module bindings .
 componentize-py -d ../../../generated/specs/wit -w module componentize wasi_graphics_info -o pkg/et_ws_wasi_graphics_info.wasm
 cargo run -p et-cli -- module-package-json
 """
+shell = "bash -c"
 
 [tasks.build-ws-wasi-data1-module]
 description = "Build the Rust WASI data1 module as a WASI Preview 2 component"
@@ -642,23 +642,23 @@ description = "Build the Rust WASI data1 module as a WASI Preview 2 component"
 # an empty cdylib while this task explicitly requests wasm32-wasip2. The
 # .wasm artifact lands in the workspace-shared `target/` and is then
 # copied into the module's pkg/ for et-modules-service to serve.
-shell = "bash -c"
 run = """
 cargo build --release -p et-ws-wasi-data1 --target wasm32-wasip2
 mkdir -p services/ws-modules/wasi-data1/pkg
 cp target/wasm32-wasip2/release/et_ws_wasi_data1.wasm services/ws-modules/wasi-data1/pkg/et_ws_wasi_data1.wasm
 cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi-data1
 """
+shell = "bash -c"
 
 [tasks.build-ws-wasi-comm1-module]
 description = "Build the Rust WASI comm1 module as a WASI Preview 2 component"
-shell = "bash -c"
 run = """
 cargo build --release -p et-ws-wasi-comm1 --target wasm32-wasip2
 mkdir -p services/ws-modules/wasi-comm1/pkg
 cp target/wasm32-wasip2/release/et_ws_wasi_comm1.wasm services/ws-modules/wasi-comm1/pkg/et_ws_wasi_comm1.wasm
 cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi-comm1
 """
+shell = "bash -c"
 
 [tasks.build-ws-pydata1-module]
 depends = ["build-et-rest-client-wheel"]
@@ -668,12 +668,12 @@ dir = "services/ws-modules/pydata1"
 # pydata1 declares it under [tool.ws-module.dependencies] and loads the
 # wheel at runtime from that mount via the shim's `installWheel` helper —
 # no need to copy the wheel here.
-shell = "bash -c"
 run = """
 rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 cargo run -p et-cli -- module-package-json
 """
+shell = "bash -c"
 
 [tasks.build-ws-pyface1-module]
 depends = ["build-et-ws-wheel"]
@@ -683,12 +683,12 @@ dir = "services/ws-modules/pyface1"
 # it under [tool.ws-module.dependencies] and loads the wheel at runtime
 # from that mount via the shim's `installWheel` helper — no need to copy
 # the wheel here.
-shell = "bash -c"
 run = """
 rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 cargo run -p et-cli -- module-package-json
 """
+shell = "bash -c"
 
 [tasks.build-ws-java-data1-module]
 description = "Build the java-data1 workflow module"
@@ -802,4 +802,3 @@ UV_PYTHON = "{% if os() == 'windows' %}{{ exec(command='mise where python') }}/p
 [tasks.test]
 depends = ["cargo-test", "test-pyface1"]
 description = "Run all tests"
-

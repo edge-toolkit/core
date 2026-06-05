@@ -26,7 +26,6 @@ pub mod bindings;
 pub mod error;
 pub mod host;
 
-use self::error::PackageJsonErrExt as _;
 pub use self::error::RunnerError;
 pub use self::host::HostState;
 
@@ -55,19 +54,19 @@ async fn collect_byte_stream(mut stream: et_rest_client::ByteStream) -> Result<V
     Ok(buf)
 }
 
-/// Read the module's `package.json` from the ws-server and extract its `main`
-/// field, which names the WASI component binary.
+/// Read the module's `package.json` from the ws-server and extract its `main` field.
+///
+/// The `main` field names the WASI component binary.
 #[expect(
     clippy::single_call_fn,
     reason = "named helper; kept separate so the package.json fetch span scopes cleanly"
 )]
+#[tracing::instrument(name = "fetch_package_json", skip(client), err)]
 async fn fetch_main_field(client: &et_rest_client::Client, module_name: &str) -> Result<String, RunnerError> {
-    let response = client
-        .get_module_file(module_name, "package.json")
-        .instrument(tracing::info_span!("fetch_package_json", module = module_name))
-        .await?;
+    let response = client.get_module_file(module_name, "package.json").await?;
     let bytes = collect_byte_stream(response.into_inner()).await?;
-    let pkg: serde_json::Value = serde_json::from_slice(&bytes).package_json_err(module_name)?;
+    let mut deserializer = serde_json::Deserializer::from_slice(&bytes);
+    let pkg: serde_json::Value = serde_path_to_error::deserialize(&mut deserializer)?;
     pkg.get("main")
         .and_then(|value| value.as_str())
         .map(str::to_string)

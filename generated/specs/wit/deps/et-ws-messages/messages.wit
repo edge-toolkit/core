@@ -1,6 +1,6 @@
 package et:ws-messages@0.1.0;
 
-/// Typed WS protocol messages — each `ws-message` case maps 1:1 to a Rust `WsMessage` variant on the wire.
+/// Typed WS protocol messages — `client-message` is what guests send and the server receives; `server-message` is what the server sends and guests receive. Shared payload records and support types live alongside both variants.
 interface messages {
   enum agent-connection-state {
     connected,
@@ -28,15 +28,8 @@ interface messages {
   record connect-payload {
     agent-id: option<string>,
   }
-  record connect-ack-payload {
-    agent-id: string,
-    status: connect-status,
-  }
   record alive-payload {
     timestamp: string,
-  }
-  record list-agents-response-payload {
-    agents: list<agent-summary>,
   }
   record send-agent-message-payload {
     message: string,
@@ -45,15 +38,33 @@ interface messages {
   record broadcast-message-payload {
     message: string,
   }
+  record message-ack-payload {
+    message-id: string,
+  }
+  record client-event-payload {
+    action: string,
+    capability: string,
+    details: string,
+  }
+  record relay-text-payload {
+    content: string,
+  }
+  record relay-binary-payload {
+    content: list<u8>,
+  }
+  record connect-ack-payload {
+    agent-id: string,
+    status: connect-status,
+  }
+  record list-agents-response-payload {
+    agents: list<agent-summary>,
+  }
   record agent-message-payload {
     from-agent-id: string,
     message: string,
     message-id: string,
     scope: message-scope,
     server-received-at: string,
-  }
-  record message-ack-payload {
-    message-id: string,
   }
   record message-status-payload {
     detail: string,
@@ -64,28 +75,30 @@ interface messages {
     detail: string,
     message-id: option<string>,
   }
-  record client-event-payload {
-    action: string,
-    capability: string,
-    details: string,
-  }
   record response-payload {
     message: string,
   }
-  /// Tagged union covering every wire-format WS message.
-  variant ws-message {
+  /// Messages a client is allowed to send (and the server receives).
+  variant client-message {
     connect(connect-payload),
-    connect-ack(connect-ack-payload),
     alive(alive-payload),
     list-agents,
-    list-agents-response(list-agents-response-payload),
     send-agent-message(send-agent-message-payload),
     broadcast-message(broadcast-message-payload),
-    agent-message(agent-message-payload),
     message-ack(message-ack-payload),
+    client-event(client-event-payload),
+    relay-text(relay-text-payload),
+    relay-binary(relay-binary-payload),
+  }
+  /// Messages the server is allowed to send (and clients receive).
+  variant server-message {
+    connect-ack(connect-ack-payload),
+    list-agents-response(list-agents-response-payload),
+    agent-message(agent-message-payload),
     message-status(message-status-payload),
     invalid(invalid-payload),
-    client-event(client-event-payload),
     response(response-payload),
+    relay-text(relay-text-payload),
+    relay-binary(relay-binary-payload),
   }
 }

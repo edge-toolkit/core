@@ -1487,6 +1487,7 @@ dependencies = [
  "serde-inline-default",
  "serde_default",
  "serde_json",
+ "serde_path_to_error",
  "serde_yaml",
  "temp-env",
  "tempfile",
@@ -2007,6 +2008,7 @@ dependencies = [
  "serde",
  "serde-env",
  "serde_json",
+ "serde_path_to_error",
  "thiserror 2.0.18",
  "tokio",
  "tokio-tungstenite",
@@ -4890,6 +4892,17 @@ dependencies = [
  "ryu",
  "serde",
  "unsafe-libyaml-norway",
+]
+
+[[package]]
+name = "serde_path_to_error"
+version = "0.1.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10a9ff822e371bb5403e391ecd83e182e0e77ba7f6fe0160b795797109d1b457"
+dependencies = [
+ "itoa",
+ "serde",
+ "serde_core",
 ]
 
 [[package]]

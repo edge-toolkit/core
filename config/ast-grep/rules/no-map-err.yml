@@ -17,5 +17,4 @@ ignores:
   # type *from* a foreign error type.
   - libs/web/src/error.rs
   - utilities/cli/src/error.rs
-  - services/ws-wasi-runner/src/error.rs
   - services/ws-wasi-runner/src/host/error.rs

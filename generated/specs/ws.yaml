@@ -29,79 +29,528 @@ components:
           - scope
           - server_received_at
           - message
-        title: WsAgentMessage
+        title: WsServerAgentMessage
         type: object
       title: et-agent-message
     et-alive:
       contentType: application/json
       name: et-alive
       payload:
-        properties:
-          timestamp:
-            type: string
-          type:
-            const: et-alive
-            type: string
-        required:
-          - type
-          - timestamp
-        title: WsAlive
-        type: object
+        $schema: https://json-schema.org/draft/2020-12/schema
+        description: |-
+          Messages a client is allowed to SEND to the server.
+
+          Split from [`ServerMessage`] so the type system rejects client code
+          constructing a `ConnectAck`, and so the server's inbound match arms
+          can be exhaustive without an "unexpected server-originated message"
+          trap.
+
+          Wire tags are unchanged from the pre-split `WsMessage`; the JSON
+          envelope is identical to what's documented in the `AsyncAPI` spec.
+        oneOf:
+          - properties:
+              agent_id:
+                type:
+                  - string
+                  - "null"
+              type:
+                const: et-connect
+                type: string
+            required:
+              - type
+            title: WsClientConnect
+            type: object
+          - properties:
+              timestamp:
+                type: string
+              type:
+                const: et-alive
+                type: string
+            required:
+              - type
+              - timestamp
+            title: WsClientAlive
+            type: object
+          - properties:
+              type:
+                const: et-list-agents
+                type: string
+            required:
+              - type
+            title: WsClientListAgents
+            type: object
+          - properties:
+              message:
+                description: Arbitrary JSON value (opaque to the protocol)
+              to_agent_id:
+                type: string
+              type:
+                const: et-send-agent-message
+                type: string
+            required:
+              - type
+              - to_agent_id
+              - message
+            title: WsClientSendAgentMessage
+            type: object
+          - properties:
+              message:
+                description: Arbitrary JSON value (opaque to the protocol)
+              type:
+                const: et-broadcast-message
+                type: string
+            required:
+              - type
+              - message
+            title: WsClientBroadcastMessage
+            type: object
+          - properties:
+              message_id:
+                type: string
+              type:
+                const: et-message-ack
+                type: string
+            required:
+              - type
+              - message_id
+            title: WsClientMessageAck
+            type: object
+          - properties:
+              action:
+                type: string
+              capability:
+                type: string
+              details:
+                description: Arbitrary JSON value (opaque to the protocol)
+              type:
+                const: et-client-event
+                type: string
+            required:
+              - type
+              - capability
+              - action
+              - details
+            title: WsClientClientEvent
+            type: object
+          - properties:
+              content:
+                type: string
+              type:
+                const: et-relay-text
+                type: string
+            required:
+              - type
+              - content
+            title: WsClientRelayText
+            type: object
+          - properties:
+              content:
+                description: Byte array (uint8)
+                items:
+                  format: uint8
+                  maximum: 255
+                  minimum: 0
+                  type: integer
+                type: array
+              type:
+                const: et-relay-binary
+                type: string
+            required:
+              - type
+              - content
+            title: WsClientRelayBinary
+            type: object
+        title: ClientMessage
       title: et-alive
     et-broadcast-message:
       contentType: application/json
       name: et-broadcast-message
       payload:
-        properties:
-          message:
-            description: Arbitrary JSON value (opaque to the protocol)
-          type:
-            const: et-broadcast-message
-            type: string
-        required:
-          - type
-          - message
-        title: WsBroadcastMessage
-        type: object
+        $schema: https://json-schema.org/draft/2020-12/schema
+        description: |-
+          Messages a client is allowed to SEND to the server.
+
+          Split from [`ServerMessage`] so the type system rejects client code
+          constructing a `ConnectAck`, and so the server's inbound match arms
+          can be exhaustive without an "unexpected server-originated message"
+          trap.
+
+          Wire tags are unchanged from the pre-split `WsMessage`; the JSON
+          envelope is identical to what's documented in the `AsyncAPI` spec.
+        oneOf:
+          - properties:
+              agent_id:
+                type:
+                  - string
+                  - "null"
+              type:
+                const: et-connect
+                type: string
+            required:
+              - type
+            title: WsClientConnect
+            type: object
+          - properties:
+              timestamp:
+                type: string
+              type:
+                const: et-alive
+                type: string
+            required:
+              - type
+              - timestamp
+            title: WsClientAlive
+            type: object
+          - properties:
+              type:
+                const: et-list-agents
+                type: string
+            required:
+              - type
+            title: WsClientListAgents
+            type: object
+          - properties:
+              message:
+                description: Arbitrary JSON value (opaque to the protocol)
+              to_agent_id:
+                type: string
+              type:
+                const: et-send-agent-message
+                type: string
+            required:
+              - type
+              - to_agent_id
+              - message
+            title: WsClientSendAgentMessage
+            type: object
+          - properties:
+              message:
+                description: Arbitrary JSON value (opaque to the protocol)
+              type:
+                const: et-broadcast-message
+                type: string
+            required:
+              - type
+              - message
+            title: WsClientBroadcastMessage
+            type: object
+          - properties:
+              message_id:
+                type: string
+              type:
+                const: et-message-ack
+                type: string
+            required:
+              - type
+              - message_id
+            title: WsClientMessageAck
+            type: object
+          - properties:
+              action:
+                type: string
+              capability:
+                type: string
+              details:
+                description: Arbitrary JSON value (opaque to the protocol)
+              type:
+                const: et-client-event
+                type: string
+            required:
+              - type
+              - capability
+              - action
+              - details
+            title: WsClientClientEvent
+            type: object
+          - properties:
+              content:
+                type: string
+              type:
+                const: et-relay-text
+                type: string
+            required:
+              - type
+              - content
+            title: WsClientRelayText
+            type: object
+          - properties:
+              content:
+                description: Byte array (uint8)
+                items:
+                  format: uint8
+                  maximum: 255
+                  minimum: 0
+                  type: integer
+                type: array
+              type:
+                const: et-relay-binary
+                type: string
+            required:
+              - type
+              - content
+            title: WsClientRelayBinary
+            type: object
+        title: ClientMessage
       title: et-broadcast-message
     et-client-event:
       contentType: application/json
       name: et-client-event
       payload:
-        properties:
-          action:
-            type: string
-          capability:
-            type: string
-          details:
-            description: Arbitrary JSON value (opaque to the protocol)
-          type:
-            const: et-client-event
-            type: string
-        required:
-          - type
-          - capability
-          - action
-          - details
-        title: WsClientEvent
-        type: object
+        $schema: https://json-schema.org/draft/2020-12/schema
+        description: |-
+          Messages a client is allowed to SEND to the server.
+
+          Split from [`ServerMessage`] so the type system rejects client code
+          constructing a `ConnectAck`, and so the server's inbound match arms
+          can be exhaustive without an "unexpected server-originated message"
+          trap.
+
+          Wire tags are unchanged from the pre-split `WsMessage`; the JSON
+          envelope is identical to what's documented in the `AsyncAPI` spec.
+        oneOf:
+          - properties:
+              agent_id:
+                type:
+                  - string
+                  - "null"
+              type:
+                const: et-connect
+                type: string
+            required:
+              - type
+            title: WsClientConnect
+            type: object
+          - properties:
+              timestamp:
+                type: string
+              type:
+                const: et-alive
+                type: string
+            required:
+              - type
+              - timestamp
+            title: WsClientAlive
+            type: object
+          - properties:
+              type:
+                const: et-list-agents
+                type: string
+            required:
+              - type
+            title: WsClientListAgents
+            type: object
+          - properties:
+              message:
+                description: Arbitrary JSON value (opaque to the protocol)
+              to_agent_id:
+                type: string
+              type:
+                const: et-send-agent-message
+                type: string
+            required:
+              - type
+              - to_agent_id
+              - message
+            title: WsClientSendAgentMessage
+            type: object
+          - properties:
+              message:
+                description: Arbitrary JSON value (opaque to the protocol)
+              type:
+                const: et-broadcast-message
+                type: string
+            required:
+              - type
+              - message
+            title: WsClientBroadcastMessage
+            type: object
+          - properties:
+              message_id:
+                type: string
+              type:
+                const: et-message-ack
+                type: string
+            required:
+              - type
+              - message_id
+            title: WsClientMessageAck
+            type: object
+          - properties:
+              action:
+                type: string
+              capability:
+                type: string
+              details:
+                description: Arbitrary JSON value (opaque to the protocol)
+              type:
+                const: et-client-event
+                type: string
+            required:
+              - type
+              - capability
+              - action
+              - details
+            title: WsClientClientEvent
+            type: object
+          - properties:
+              content:
+                type: string
+              type:
+                const: et-relay-text
+                type: string
+            required:
+              - type
+              - content
+            title: WsClientRelayText
+            type: object
+          - properties:
+              content:
+                description: Byte array (uint8)
+                items:
+                  format: uint8
+                  maximum: 255
+                  minimum: 0
+                  type: integer
+                type: array
+              type:
+                const: et-relay-binary
+                type: string
+            required:
+              - type
+              - content
+            title: WsClientRelayBinary
+            type: object
+        title: ClientMessage
       title: et-client-event
     et-connect:
       contentType: application/json
       name: et-connect
       payload:
-        properties:
-          agent_id:
-            type:
-              - string
-              - "null"
-          type:
-            const: et-connect
-            type: string
-        required:
-          - type
-        title: WsConnect
-        type: object
+        $schema: https://json-schema.org/draft/2020-12/schema
+        description: |-
+          Messages a client is allowed to SEND to the server.
+
+          Split from [`ServerMessage`] so the type system rejects client code
+          constructing a `ConnectAck`, and so the server's inbound match arms
+          can be exhaustive without an "unexpected server-originated message"
+          trap.
+
+          Wire tags are unchanged from the pre-split `WsMessage`; the JSON
+          envelope is identical to what's documented in the `AsyncAPI` spec.
+        oneOf:
+          - properties:
+              agent_id:
+                type:
+                  - string
+                  - "null"
+              type:
+                const: et-connect
+                type: string
+            required:
+              - type
+            title: WsClientConnect
+            type: object
+          - properties:
+              timestamp:
+                type: string
+              type:
+                const: et-alive
+                type: string
+            required:
+              - type
+              - timestamp
+            title: WsClientAlive
+            type: object
+          - properties:
+              type:
+                const: et-list-agents
+                type: string
+            required:
+              - type
+            title: WsClientListAgents
+            type: object
+          - properties:
+              message:
+                description: Arbitrary JSON value (opaque to the protocol)
+              to_agent_id:
+                type: string
+              type:
+                const: et-send-agent-message
+                type: string
+            required:
+              - type
+              - to_agent_id
+              - message
+            title: WsClientSendAgentMessage
+            type: object
+          - properties:
+              message:
+                description: Arbitrary JSON value (opaque to the protocol)
+              type:
+                const: et-broadcast-message
+                type: string
+            required:
+              - type
+              - message
+            title: WsClientBroadcastMessage
+            type: object
+          - properties:
+              message_id:
+                type: string
+              type:
+                const: et-message-ack
+                type: string
+            required:
+              - type
+              - message_id
+            title: WsClientMessageAck
+            type: object
+          - properties:
+              action:
+                type: string
+              capability:
+                type: string
+              details:
+                description: Arbitrary JSON value (opaque to the protocol)
+              type:
+                const: et-client-event
+                type: string
+            required:
+              - type
+              - capability
+              - action
+              - details
+            title: WsClientClientEvent
+            type: object
+          - properties:
+              content:
+                type: string
+              type:
+                const: et-relay-text
+                type: string
+            required:
+              - type
+              - content
+            title: WsClientRelayText
+            type: object
+          - properties:
+              content:
+                description: Byte array (uint8)
+                items:
+                  format: uint8
+                  maximum: 255
+                  minimum: 0
+                  type: integer
+                type: array
+              type:
+                const: et-relay-binary
+                type: string
+            required:
+              - type
+              - content
+            title: WsClientRelayBinary
+            type: object
+        title: ClientMessage
       title: et-connect
     et-connect-ack:
       contentType: application/json
@@ -119,7 +568,7 @@ components:
           - type
           - agent_id
           - status
-        title: WsConnectAck
+        title: WsServerConnectAck
         type: object
       title: et-connect-ack
     et-invalid:
@@ -139,21 +588,138 @@ components:
         required:
           - type
           - detail
-        title: WsInvalid
+        title: WsServerInvalid
         type: object
       title: et-invalid
     et-list-agents:
       contentType: application/json
       name: et-list-agents
       payload:
-        properties:
-          type:
-            const: et-list-agents
-            type: string
-        required:
-          - type
-        title: WsListAgents
-        type: object
+        $schema: https://json-schema.org/draft/2020-12/schema
+        description: |-
+          Messages a client is allowed to SEND to the server.
+
+          Split from [`ServerMessage`] so the type system rejects client code
+          constructing a `ConnectAck`, and so the server's inbound match arms
+          can be exhaustive without an "unexpected server-originated message"
+          trap.
+
+          Wire tags are unchanged from the pre-split `WsMessage`; the JSON
+          envelope is identical to what's documented in the `AsyncAPI` spec.
+        oneOf:
+          - properties:
+              agent_id:
+                type:
+                  - string
+                  - "null"
+              type:
+                const: et-connect
+                type: string
+            required:
+              - type
+            title: WsClientConnect
+            type: object
+          - properties:
+              timestamp:
+                type: string
+              type:
+                const: et-alive
+                type: string
+            required:
+              - type
+              - timestamp
+            title: WsClientAlive
+            type: object
+          - properties:
+              type:
+                const: et-list-agents
+                type: string
+            required:
+              - type
+            title: WsClientListAgents
+            type: object
+          - properties:
+              message:
+                description: Arbitrary JSON value (opaque to the protocol)
+              to_agent_id:
+                type: string
+              type:
+                const: et-send-agent-message
+                type: string
+            required:
+              - type
+              - to_agent_id
+              - message
+            title: WsClientSendAgentMessage
+            type: object
+          - properties:
+              message:
+                description: Arbitrary JSON value (opaque to the protocol)
+              type:
+                const: et-broadcast-message
+                type: string
+            required:
+              - type
+              - message
+            title: WsClientBroadcastMessage
+            type: object
+          - properties:
+              message_id:
+                type: string
+              type:
+                const: et-message-ack
+                type: string
+            required:
+              - type
+              - message_id
+            title: WsClientMessageAck
+            type: object
+          - properties:
+              action:
+                type: string
+              capability:
+                type: string
+              details:
+                description: Arbitrary JSON value (opaque to the protocol)
+              type:
+                const: et-client-event
+                type: string
+            required:
+              - type
+              - capability
+              - action
+              - details
+            title: WsClientClientEvent
+            type: object
+          - properties:
+              content:
+                type: string
+              type:
+                const: et-relay-text
+                type: string
+            required:
+              - type
+              - content
+            title: WsClientRelayText
+            type: object
+          - properties:
+              content:
+                description: Byte array (uint8)
+                items:
+                  format: uint8
+                  maximum: 255
+                  minimum: 0
+                  type: integer
+                type: array
+              type:
+                const: et-relay-binary
+                type: string
+            required:
+              - type
+              - content
+            title: WsClientRelayBinary
+            type: object
+        title: ClientMessage
       title: et-list-agents
     et-list-agents-response:
       contentType: application/json
@@ -170,24 +736,138 @@ components:
         required:
           - type
           - agents
-        title: WsListAgentsResponse
+        title: WsServerListAgentsResponse
         type: object
       title: et-list-agents-response
     et-message-ack:
       contentType: application/json
       name: et-message-ack
       payload:
-        properties:
-          message_id:
-            type: string
-          type:
-            const: et-message-ack
-            type: string
-        required:
-          - type
-          - message_id
-        title: WsMessageAck
-        type: object
+        $schema: https://json-schema.org/draft/2020-12/schema
+        description: |-
+          Messages a client is allowed to SEND to the server.
+
+          Split from [`ServerMessage`] so the type system rejects client code
+          constructing a `ConnectAck`, and so the server's inbound match arms
+          can be exhaustive without an "unexpected server-originated message"
+          trap.
+
+          Wire tags are unchanged from the pre-split `WsMessage`; the JSON
+          envelope is identical to what's documented in the `AsyncAPI` spec.
+        oneOf:
+          - properties:
+              agent_id:
+                type:
+                  - string
+                  - "null"
+              type:
+                const: et-connect
+                type: string
+            required:
+              - type
+            title: WsClientConnect
+            type: object
+          - properties:
+              timestamp:
+                type: string
+              type:
+                const: et-alive
+                type: string
+            required:
+              - type
+              - timestamp
+            title: WsClientAlive
+            type: object
+          - properties:
+              type:
+                const: et-list-agents
+                type: string
+            required:
+              - type
+            title: WsClientListAgents
+            type: object
+          - properties:
+              message:
+                description: Arbitrary JSON value (opaque to the protocol)
+              to_agent_id:
+                type: string
+              type:
+                const: et-send-agent-message
+                type: string
+            required:
+              - type
+              - to_agent_id
+              - message
+            title: WsClientSendAgentMessage
+            type: object
+          - properties:
+              message:
+                description: Arbitrary JSON value (opaque to the protocol)
+              type:
+                const: et-broadcast-message
+                type: string
+            required:
+              - type
+              - message
+            title: WsClientBroadcastMessage
+            type: object
+          - properties:
+              message_id:
+                type: string
+              type:
+                const: et-message-ack
+                type: string
+            required:
+              - type
+              - message_id
+            title: WsClientMessageAck
+            type: object
+          - properties:
+              action:
+                type: string
+              capability:
+                type: string
+              details:
+                description: Arbitrary JSON value (opaque to the protocol)
+              type:
+                const: et-client-event
+                type: string
+            required:
+              - type
+              - capability
+              - action
+              - details
+            title: WsClientClientEvent
+            type: object
+          - properties:
+              content:
+                type: string
+              type:
+                const: et-relay-text
+                type: string
+            required:
+              - type
+              - content
+            title: WsClientRelayText
+            type: object
+          - properties:
+              content:
+                description: Byte array (uint8)
+                items:
+                  format: uint8
+                  maximum: 255
+                  minimum: 0
+                  type: integer
+                type: array
+              type:
+                const: et-relay-binary
+                type: string
+            required:
+              - type
+              - content
+            title: WsClientRelayBinary
+            type: object
+        title: ClientMessage
       title: et-message-ack
     et-message-status:
       contentType: application/json
@@ -209,9 +889,47 @@ components:
           - type
           - status
           - detail
-        title: WsMessageStatus
+        title: WsServerMessageStatus
         type: object
       title: et-message-status
+    et-relay-binary:
+      contentType: application/json
+      name: et-relay-binary
+      payload:
+        properties:
+          content:
+            description: Byte array (uint8)
+            items:
+              format: uint8
+              maximum: 255
+              minimum: 0
+              type: integer
+            type: array
+          type:
+            const: et-relay-binary
+            type: string
+        required:
+          - type
+          - content
+        title: WsServerRelayBinary
+        type: object
+      title: et-relay-binary
+    et-relay-text:
+      contentType: application/json
+      name: et-relay-text
+      payload:
+        properties:
+          content:
+            type: string
+          type:
+            const: et-relay-text
+            type: string
+        required:
+          - type
+          - content
+        title: WsServerRelayText
+        type: object
+      title: et-relay-text
     et-response:
       contentType: application/json
       name: et-response
@@ -225,27 +943,138 @@ components:
         required:
           - type
           - message
-        title: WsResponse
+        title: WsServerResponse
         type: object
       title: et-response
     et-send-agent-message:
       contentType: application/json
       name: et-send-agent-message
       payload:
-        properties:
-          message:
-            description: Arbitrary JSON value (opaque to the protocol)
-          to_agent_id:
-            type: string
-          type:
-            const: et-send-agent-message
-            type: string
-        required:
-          - type
-          - to_agent_id
-          - message
-        title: WsSendAgentMessage
-        type: object
+        $schema: https://json-schema.org/draft/2020-12/schema
+        description: |-
+          Messages a client is allowed to SEND to the server.
+
+          Split from [`ServerMessage`] so the type system rejects client code
+          constructing a `ConnectAck`, and so the server's inbound match arms
+          can be exhaustive without an "unexpected server-originated message"
+          trap.
+
+          Wire tags are unchanged from the pre-split `WsMessage`; the JSON
+          envelope is identical to what's documented in the `AsyncAPI` spec.
+        oneOf:
+          - properties:
+              agent_id:
+                type:
+                  - string
+                  - "null"
+              type:
+                const: et-connect
+                type: string
+            required:
+              - type
+            title: WsClientConnect
+            type: object
+          - properties:
+              timestamp:
+                type: string
+              type:
+                const: et-alive
+                type: string
+            required:
+              - type
+              - timestamp
+            title: WsClientAlive
+            type: object
+          - properties:
+              type:
+                const: et-list-agents
+                type: string
+            required:
+              - type
+            title: WsClientListAgents
+            type: object
+          - properties:
+              message:
+                description: Arbitrary JSON value (opaque to the protocol)
+              to_agent_id:
+                type: string
+              type:
+                const: et-send-agent-message
+                type: string
+            required:
+              - type
+              - to_agent_id
+              - message
+            title: WsClientSendAgentMessage
+            type: object
+          - properties:
+              message:
+                description: Arbitrary JSON value (opaque to the protocol)
+              type:
+                const: et-broadcast-message
+                type: string
+            required:
+              - type
+              - message
+            title: WsClientBroadcastMessage
+            type: object
+          - properties:
+              message_id:
+                type: string
+              type:
+                const: et-message-ack
+                type: string
+            required:
+              - type
+              - message_id
+            title: WsClientMessageAck
+            type: object
+          - properties:
+              action:
+                type: string
+              capability:
+                type: string
+              details:
+                description: Arbitrary JSON value (opaque to the protocol)
+              type:
+                const: et-client-event
+                type: string
+            required:
+              - type
+              - capability
+              - action
+              - details
+            title: WsClientClientEvent
+            type: object
+          - properties:
+              content:
+                type: string
+              type:
+                const: et-relay-text
+                type: string
+            required:
+              - type
+              - content
+            title: WsClientRelayText
+            type: object
+          - properties:
+              content:
+                description: Byte array (uint8)
+                items:
+                  format: uint8
+                  maximum: 255
+                  minimum: 0
+                  type: integer
+                type: array
+              type:
+                const: et-relay-binary
+                type: string
+            required:
+              - type
+              - content
+            title: WsClientRelayBinary
+            type: object
+        title: ClientMessage
       title: et-send-agent-message
   schemas:
     AgentConnectionState:
@@ -285,7 +1114,7 @@ components:
         - broadcast
       type: string
 info:
-  description: Hub-style WebSocket protocol. Generated from edge_toolkit::ws::WsMessage.
+  description: Hub-style WebSocket protocol. Generated from edge_toolkit::ws::ClientMessage.
   title: Edge Toolkit WebSocket Protocol
   version: 0.1.0
 operations:

@@ -80,7 +80,7 @@ Future<String> waitForAgentId(WsClient client) async {
   throw Exception('Timeout waiting for agent_id');
 }
 
-void send(WsClient client, WsMessage message) {
+void send(WsClient client, WsClientMessage message) {
   client.send(jsonEncode(message.toJson()));
 }
 
@@ -96,7 +96,7 @@ Future<void> run() async {
     ((JSString raw) {
       final data = raw.toDart;
       try {
-        final message = WsMessage.fromJson(
+        final message = WsServerMessage.fromJson(
           jsonDecode(data) as Map<String, dynamic>,
         );
         switch (message) {

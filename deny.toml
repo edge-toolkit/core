@@ -48,6 +48,6 @@ wildcards = "deny"
 [sources]
 # Only crates.io. New git or alternate-registry deps must be added to
 # the allow lists below intentionally.
-unknown-registry = "deny"
-unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+unknown-git = "deny"
+unknown-registry = "deny"

@@ -1,5 +1,5 @@
 //! Verifies the ws service's hub-style fallback: any frame the server
-//! can't parse as a known `WsMessage` is forwarded verbatim to every
+//! can't parse as a known `ClientMessage` is forwarded verbatim to every
 //! other connected agent. Covers both text and binary payloads.
 
 #![cfg(test)]
@@ -16,7 +16,7 @@
 
 use std::time::Duration;
 
-use edge_toolkit::ws::WsMessage;
+use edge_toolkit::ws::{ClientMessage, ServerMessage};
 use futures_util::{SinkExt as _, StreamExt as _};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
@@ -29,7 +29,7 @@ async fn connect_agent(
     String,
 ) {
     let (mut stream, _) = connect_async(ws_url).await.expect("ws connect");
-    let connect_msg = serde_json::to_string(&WsMessage::Connect { agent_id: None }).unwrap();
+    let connect_msg = serde_json::to_string(&ClientMessage::Connect { agent_id: None }).unwrap();
     stream.send(Message::text(connect_msg)).await.expect("send connect");
 
     while let Some(msg) = stream.next().await {
@@ -37,7 +37,7 @@ async fn connect_agent(
         let Message::Text(text) = msg else {
             continue;
         };
-        if let Ok(WsMessage::ConnectAck { agent_id, .. }) = serde_json::from_str::<WsMessage>(&text) {
+        if let Ok(ServerMessage::ConnectAck { agent_id, .. }) = serde_json::from_str::<ServerMessage>(&text) {
             return (stream, agent_id);
         }
     }
@@ -59,10 +59,12 @@ async fn next_payload(
         let msg = next.expect("ws stream closed").expect("ws recv");
         match &msg {
             Message::Text(text) => {
-                if let Ok(parsed) = serde_json::from_str::<WsMessage>(text)
+                if let Ok(parsed) = serde_json::from_str::<ServerMessage>(text)
                     && matches!(
                         parsed,
-                        WsMessage::ConnectAck { .. } | WsMessage::MessageStatus { .. } | WsMessage::Response { .. }
+                        ServerMessage::ConnectAck { .. }
+                            | ServerMessage::MessageStatus { .. }
+                            | ServerMessage::Response { .. }
                     )
                 {
                     continue;
@@ -83,7 +85,7 @@ async fn unrecognised_text_is_broadcast_verbatim() {
     let (mut sender, _sender_id) = connect_agent(&server.ws_url).await;
     let (mut receiver, _receiver_id) = connect_agent(&server.ws_url).await;
 
-    // A frame the server can't parse as WsMessage — no `type` field, no
+    // A frame the server can't parse as ClientMessage — no `type` field, no
     // recognisable shape. The hub fallback should forward it verbatim.
     let raw = r#"{"hello":"world","nested":{"n":42}}"#;
     sender.send(Message::text(raw)).await.expect("send unknown text");

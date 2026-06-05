@@ -65,6 +65,15 @@ max_line_length = unset
 [generated/python-rest/**]
 max_line_length = unset
 
+# datamodel-code-generator renders each Pydantic field's `description=`
+# from the schemars `description` (i.e. the source enum's `///` doc
+# comment) as a single string literal — `\n`-joined, no implicit
+# concatenation. ruff format won't break string literals, so any
+# multi-paragraph Rust doc comment on `ClientMessage` / `ServerMessage`
+# blows past 120 chars in the generated Python.
+[generated/python-ws/**]
+max_line_length = unset
+
 # Same story for openapi2zig: a handful of helpers (SSE parsing, query-string
 # encoding) emit lines that exceed 120 chars and `zig fmt` won't reflow them.
 # The generator is the source of truth; we don't edit its output by hand.

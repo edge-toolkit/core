@@ -1,5 +1,5 @@
-//! Emit a `dart-typegen`-flavoured KDL document from the `WsMessage` JSON
-//! Schema.
+//! Emit a `dart-typegen`-flavoured KDL document from the `ClientMessage`
+//! and `ServerMessage` JSON Schemas.
 //!
 //! The KDL goes to `target/int-gen/ws.kdl` (build intermediate);
 //! `dart-typegen generate -i target/int-gen/ws.kdl -o ...` consumes it to
@@ -45,29 +45,47 @@ fn quoted_string_prop(key: &str, value: &str) -> KdlEntry {
     entry
 }
 
-pub fn render(root_schema: &Schema) -> Result<String, Error> {
-    let root = root_schema.as_value();
+pub fn render(client_schema: &Schema, server_schema: &Schema) -> Result<String, Error> {
+    let client_root = client_schema.as_value();
+    let server_root = server_schema.as_value();
     let mut doc = KdlDocument::new();
     doc.nodes_mut().push(defaults_node());
 
-    if let Some(defs) = root.get("$defs").and_then(|val| val.as_object()) {
-        let mut names: Vec<&String> = defs.keys().collect();
-        names.sort();
-        for name in &names {
-            let def = &defs[*name];
-            if def.get("enum").is_some() {
-                doc.nodes_mut().push(enum_node(name, def)?);
-            }
-        }
-        for name in &names {
-            let def = &defs[*name];
-            if def.get("enum").is_none() && def.get("type").and_then(|kind| kind.as_str()) == Some("object") {
-                doc.nodes_mut().push(class_node(name, def, None)?);
+    // Merge `$defs` from both schemas, deduplicated by name. The two
+    // enums share most support types (AgentSummary, ConnectStatus, …);
+    // we emit each definition exactly once.
+    let mut merged_defs: std::collections::BTreeMap<String, serde_json::Value> = std::collections::BTreeMap::new();
+    for root in [client_root, server_root] {
+        if let Some(defs) = root.get("$defs").and_then(|val| val.as_object()) {
+            for (name, def) in defs {
+                let _previous = merged_defs.insert(name.clone(), def.clone());
             }
         }
     }
+    for (name, def) in &merged_defs {
+        if def.get("enum").is_some() {
+            doc.nodes_mut().push(enum_node(name, def)?);
+        }
+    }
+    for (name, def) in &merged_defs {
+        if def.get("enum").is_none() && def.get("type").and_then(|kind| kind.as_str()) == Some("object") {
+            doc.nodes_mut().push(class_node(name, def, None)?);
+        }
+    }
 
-    doc.nodes_mut().push(ws_message_union(root)?);
+    // Compute which variant tags appear in BOTH unions; those payload
+    // classes get a per-direction prefix (`WsClientRelayText` vs
+    // `WsServerRelayText`) so dart-typegen sees them as distinct
+    // declarations. Variants unique to a single union keep the bare
+    // `Ws<Pascal>` name.
+    let shared_tags: std::collections::HashSet<String> = variant_tags(client_root)?
+        .intersection(&variant_tags(server_root)?)
+        .cloned()
+        .collect();
+    doc.nodes_mut()
+        .push(message_union(client_root, "WsClientMessage", "WsClient", &shared_tags)?);
+    doc.nodes_mut()
+        .push(message_union(server_root, "WsServerMessage", "WsServer", &shared_tags)?);
     doc.autoformat();
     // `dart-typegen` parses KDL v1 (via knus); the kdl crate emits v2 syntax
     // by default (`#true`/`#null`). Force v1 so booleans and null render as
@@ -188,32 +206,46 @@ fn field_node(key: &str, schema: &serde_json::Value, optional: bool) -> Result<K
     Ok(node)
 }
 
-#[expect(
-    clippy::single_call_fn,
-    reason = "named helper called once by render(); mirrors the parallel WsMessage emitter in wit/messages.rs"
-)]
-fn ws_message_union(root: &serde_json::Value) -> Result<KdlNode, Error> {
+fn message_union(
+    root: &serde_json::Value,
+    union_name: &str,
+    shared_prefix: &str,
+    shared_tags: &std::collections::HashSet<String>,
+) -> Result<KdlNode, Error> {
     let variants = root
         .get("oneOf")
         .and_then(|val| val.as_array())
-        .ok_or(Error::SchemaMalformed("WsMessage schema missing `oneOf`"))?;
+        .ok_or(Error::SchemaMalformed("message schema missing `oneOf`"))?;
 
     let mut node = KdlNode::new("union");
-    node.push(quoted_string_entry("WsMessage"));
+    node.push(quoted_string_entry(union_name));
     let mut children = KdlDocument::new();
     for variant in variants {
         let tag = variant_tag(variant)?;
-        let class_name = format!("Ws{}", tag.strip_prefix("et-").unwrap_or(&tag).to_pascal_case());
+        let suffix = tag.strip_prefix("et-").unwrap_or(&tag).to_pascal_case();
+        let class_name = if shared_tags.contains(&tag) {
+            format!("{shared_prefix}{suffix}")
+        } else {
+            format!("Ws{suffix}")
+        };
         children.nodes_mut().push(class_node(&class_name, variant, Some(&tag))?);
     }
     node.set_children(children);
     Ok(node)
 }
 
-#[expect(
-    clippy::single_call_fn,
-    reason = "named helper called once by ws_message_union(); shape mirrors the analogous helper in wit/messages.rs"
-)]
+/// Collect every variant's `type` discriminator string from a top-level
+/// `oneOf` schema. Used to identify variants that appear in both the
+/// client and server unions so their payload classes can be uniquely
+/// named.
+fn variant_tags(root: &serde_json::Value) -> Result<std::collections::HashSet<String>, Error> {
+    let variants = root
+        .get("oneOf")
+        .and_then(|val| val.as_array())
+        .ok_or(Error::SchemaMalformed("message schema missing `oneOf`"))?;
+    variants.iter().map(variant_tag).collect()
+}
+
 fn variant_tag(variant: &serde_json::Value) -> Result<String, Error> {
     variant
         .get("properties")
