@@ -1,6 +1,6 @@
 # et_ws — Dart client for the Edge Toolkit WS protocol
 
-`lib/ws_messages.dart` is regenerated from `edge_toolkit::ws::WsMessage` via
+`lib/ws_messages.dart` is regenerated from `edge_toolkit::ws::{ClientMessage, ServerMessage}` via
 `mise run gen-ws-spec`. `pubspec.yaml` and this README are checked in by hand.
 
 ## Usage
@@ -19,7 +19,8 @@ Then:
 ```dart
 import 'package:et_ws/ws_messages.dart';
 
-final msg = WsMessage.fromJson(jsonDecode(rawText));
+// inbound (server -> client)
+final msg = WsServerMessage.fromJson(jsonDecode(rawText));
 switch (msg) {
   case WsAgentMessage(:final fromAgentId, :final message):
     handle(fromAgentId, message);
@@ -29,5 +30,6 @@ switch (msg) {
     // ignore
 }
 
+// outbound (client -> server)
 ws.send(jsonEncode(WsBroadcastMessage(message: payload).toJson()));
 ```

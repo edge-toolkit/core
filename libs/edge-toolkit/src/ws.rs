@@ -126,9 +126,6 @@ fn has_et_prefix(text: &str) -> bool {
 /// constructing a `ConnectAck`, and so the server's inbound match arms
 /// can be exhaustive without an "unexpected server-originated message"
 /// trap.
-///
-/// Wire tags are unchanged from the pre-split `WsMessage`; the JSON
-/// envelope is identical to what's documented in the `AsyncAPI` spec.
 #[expect(
     clippy::exhaustive_enums,
     reason = "wire protocol enum: variants exhaustively describe the JSON shape, downstream matches are exhaustive"

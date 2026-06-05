@@ -46,14 +46,14 @@
 
 use std::path::Path;
 
-use asyncapi_rust::AsyncApi;
 use edge_toolkit::config::get_project_root;
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
 use fs_err as fs;
 use schemars::schema_for;
 
+pub mod asyncapi;
 pub mod kdl;
-pub mod rest;
+pub mod openapi;
 pub mod wit;
 pub mod zig;
 
@@ -116,46 +116,6 @@ impl From<tree_sitter::LanguageError> for Error {
     }
 }
 
-/// `AsyncAPI` document for the ws-server's single `/ws` hub channel.
-///
-/// Two derives feed `AsyncAPI`: `WsApiClient` lists every `ClientMessage`
-/// variant on the `sendWsMessage` operation, and `WsApiServer` lists every
-/// `ServerMessage` variant on `receiveWsMessage`. The output specs are
-/// merged in [`generate`] before being written to disk.
-#[derive(AsyncApi)]
-#[asyncapi(
-    title = "Edge Toolkit WebSocket Protocol",
-    version = "0.1.0",
-    description = "Hub-style WebSocket protocol. Generated from edge_toolkit::ws::ClientMessage."
-)]
-#[asyncapi_server(
-    name = "local",
-    host = "localhost:8080",
-    protocol = "ws",
-    description = "Default ws-server bind address (mise run ws-server)"
-)]
-#[asyncapi_channel(name = "ws", address = "/ws")]
-#[asyncapi_operation(name = "sendWsMessage", action = "send", channel = "ws")]
-#[asyncapi_messages(ClientMessage)]
-struct WsApiClient;
-
-#[derive(AsyncApi)]
-#[asyncapi(
-    title = "Edge Toolkit WebSocket Protocol (server→client)",
-    version = "0.1.0",
-    description = "Hub-style WebSocket protocol. Generated from edge_toolkit::ws::ServerMessage."
-)]
-#[asyncapi_server(
-    name = "local",
-    host = "localhost:8080",
-    protocol = "ws",
-    description = "Default ws-server bind address (mise run ws-server)"
-)]
-#[asyncapi_channel(name = "ws", address = "/ws")]
-#[asyncapi_operation(name = "receiveWsMessage", action = "receive", channel = "ws")]
-#[asyncapi_messages(ServerMessage)]
-struct WsApiServer;
-
 /// Emit every checked-in artifact under `generated/`.
 ///
 /// Inputs: the `ClientMessage` + `ServerMessage` enums; outputs are the
@@ -174,21 +134,10 @@ pub fn generate() -> Result<(), Error> {
     let project_root = get_project_root();
     let specs_dir = project_root.join("generated/specs");
 
-    // asyncapi-rust 0.2 fills every component message with the whole
-    // `schema_for!(ClientMessage)` payload (i.e. the full union), turning every
-    // 30-line messages into 13 220-line ones. We slim it down ourselves:
-    // hoist `$defs` into `components.schemas` and give each message just
-    // its matching `oneOf` variant.
-    // Emit the client and server halves separately, then merge channels +
-    // operations + messages into the client spec. The merged spec retains
-    // WsApiClient's metadata (title, server) and carries both directions'
-    // messages in `components.messages`.
-    let client_spec = WsApiClient::asyncapi_spec();
-    let server_spec = WsApiServer::asyncapi_spec();
-    let mut spec_value = serde_json::to_value(&client_spec)?;
-    let server_value = serde_json::to_value(&server_spec)?;
-    merge_asyncapi(&mut spec_value, &server_value);
-    slim_component_messages(&mut spec_value)?;
+    // Build, merge, and slim the AsyncAPI spec — all the spec-shaping
+    // logic lives in `asyncapi`. The returned `Value` is what we serialise
+    // to ws.yaml below.
+    let spec_value = asyncapi::build_spec()?;
     // serde_yaml's emitter quotes/indents differently than dprint's
     // `pretty_yaml` plugin — pipe the output through `pretty_yaml` (the same
     // engine dprint uses) so the committed YAML stays dprint-canonical and
@@ -201,7 +150,7 @@ pub fn generate() -> Result<(), Error> {
     write_if_changed(&specs_dir.join("ws.yaml"), &yaml)?;
 
     // REST OpenAPI doc — emitted from utoipa annotations on actual handlers.
-    let rest_yaml = rest::render_yaml();
+    let rest_yaml = openapi::render_yaml();
     let rest_yaml = pretty_yaml::format_text(&rest_yaml, &pretty_yaml::config::FormatOptions::default())
         .expect("utoipa output should always be well-formed YAML");
     write_if_changed(&specs_dir.join("rest.yaml"), &rest_yaml)?;
@@ -209,7 +158,7 @@ pub fn generate() -> Result<(), Error> {
     // Typed Rust client for the REST surface — same `progenitor::Generator`
     // engine that the retired `cargo-progenitor` CLI used, but driven
     // in-process so the spec and client always reflect the same source.
-    let rust_client = rest::render_rust_client()?;
+    let rust_client = openapi::render_rust_client()?;
     write_if_changed(&project_root.join("generated/rust-rest/src/lib.rs"), &rust_client)?;
 
     // Zig client: openapi2zig generates a fully typed client, et-int-gen
@@ -223,7 +172,7 @@ pub fn generate() -> Result<(), Error> {
     // still passes on that host.
     if zig::is_available() {
         let rest_json_path = project_root.join("target/int-gen/rest.json");
-        write_if_changed(&rest_json_path, &rest::render_json())?;
+        write_if_changed(&rest_json_path, &openapi::render_json())?;
         let raw_zig_path = project_root.join("target/int-gen/raw_et_rest_client.zig");
         let zig_client = zig::render(&rest_json_path, &raw_zig_path)?;
         write_if_changed(
@@ -260,169 +209,6 @@ pub fn generate() -> Result<(), Error> {
     )?;
 
     Ok(())
-}
-
-/// Fold `source`'s channels, operations, and `components.messages` into
-/// `target`. Top-level metadata (title, info, servers) is retained from
-/// `target`. Used to combine the client-side and server-side `AsyncAPI`
-/// documents into a single spec with both directions on one channel.
-#[expect(
-    clippy::single_call_fn,
-    reason = "named helper called once by generate(); the merge is a logical step worth its own scope"
-)]
-fn merge_asyncapi(target: &mut serde_json::Value, source: &serde_json::Value) {
-    use serde_json::Value;
-    fn merge_object_field(target: &mut Value, source: &Value, field: &str) {
-        let Some(source_field) = source.get(field).and_then(Value::as_object) else {
-            return;
-        };
-        let Some(target_obj) = target.as_object_mut() else {
-            return;
-        };
-        let entry = target_obj
-            .entry(field.to_string())
-            .or_insert_with(|| Value::Object(serde_json::Map::new()));
-        let Some(entry_obj) = entry.as_object_mut() else {
-            return;
-        };
-        for (key, value) in source_field {
-            let _previous: Option<Value> = entry_obj.insert(key.clone(), value.clone());
-        }
-    }
-    fn merge_nested(target: &mut Value, source: &Value, outer: &str, inner: &str) {
-        let Some(source_inner) = source
-            .get(outer)
-            .and_then(|outer_value| outer_value.get(inner))
-            .and_then(Value::as_object)
-        else {
-            return;
-        };
-        let Some(target_obj) = target.as_object_mut() else {
-            return;
-        };
-        let outer_entry = target_obj
-            .entry(outer.to_string())
-            .or_insert_with(|| Value::Object(serde_json::Map::new()));
-        let Some(outer_obj) = outer_entry.as_object_mut() else {
-            return;
-        };
-        let inner_entry = outer_obj
-            .entry(inner.to_string())
-            .or_insert_with(|| Value::Object(serde_json::Map::new()));
-        let Some(inner_obj) = inner_entry.as_object_mut() else {
-            return;
-        };
-        for (key, value) in source_inner {
-            let _previous: Option<Value> = inner_obj.insert(key.clone(), value.clone());
-        }
-    }
-    merge_object_field(target, source, "channels");
-    merge_object_field(target, source, "operations");
-    merge_nested(target, source, "components", "messages");
-    merge_nested(target, source, "components", "schemas");
-}
-
-/// Replace each component message's payload with just its variant schema and
-/// hoist the shared `$defs` into `components.schemas`. Mutates `spec` in place.
-#[expect(
-    clippy::single_call_fn,
-    reason = "named helper called once by generate(); the slim-down is one logical step and benefits from its own scope"
-)]
-fn slim_component_messages(spec: &mut serde_json::Value) -> Result<(), Error> {
-    use serde_json::Value;
-
-    // Pluck one variant payload off any message — they're all identical, so
-    // we use the first to harvest the `oneOf` array and `$defs`.
-    let components = spec
-        .get_mut("components")
-        .and_then(Value::as_object_mut)
-        .ok_or(Error::SpecNodeMissing("components"))?;
-
-    let messages = components
-        .get_mut("messages")
-        .and_then(Value::as_object_mut)
-        .ok_or(Error::SpecNodeMissing("components.messages"))?;
-
-    let any_payload = messages
-        .values()
-        .find_map(|msg| msg.get("payload").cloned())
-        .ok_or(Error::SpecNodeMissing("any message payload"))?;
-    let one_of = any_payload
-        .get("oneOf")
-        .and_then(Value::as_array)
-        .ok_or(Error::SpecNodeMissing("payload.oneOf"))?
-        .clone();
-    let defs = any_payload
-        .get("$defs")
-        .and_then(Value::as_object)
-        .cloned()
-        .unwrap_or_default();
-
-    // Index variants by their `type.const` discriminator so we can match each
-    // component message name (`et-connect`, …) to its slim schema.
-    let mut variants_by_tag: std::collections::HashMap<String, Value> = std::collections::HashMap::new();
-    for variant in one_of {
-        let tag = variant
-            .get("properties")
-            .and_then(|props| props.get("type"))
-            .and_then(|kind| kind.get("const"))
-            .and_then(Value::as_str)
-            .map(str::to_string);
-        let Some(tag) = tag else {
-            continue;
-        };
-        // Rewrite `$ref: "#/$defs/Foo"` → `"#/components/schemas/Foo"` so the
-        // hoisted defs land in the AsyncAPI-canonical location.
-        let mut variant = variant;
-        rewrite_refs(&mut variant);
-        let _previous: Option<Value> = variants_by_tag.insert(tag, variant);
-    }
-
-    for (name, message) in messages.iter_mut() {
-        if let Some(variant) = variants_by_tag.get(name)
-            && let Some(obj) = message.as_object_mut()
-        {
-            let _previous: Option<Value> = obj.insert("payload".to_string(), variant.clone());
-        }
-    }
-
-    // Hoist `$defs` to `components.schemas`. Rewrite refs inside each def too.
-    let mut hoisted = serde_json::Map::new();
-    for (name, mut value) in defs {
-        rewrite_refs(&mut value);
-        let _previous: Option<Value> = hoisted.insert(name, value);
-    }
-    if !hoisted.is_empty() {
-        let _previous: Option<Value> = components.insert("schemas".to_string(), Value::Object(hoisted));
-    }
-    Ok(())
-}
-
-/// Recursively replace `$ref: "#/$defs/Foo"` with `"#/components/schemas/Foo"`.
-fn rewrite_refs(value: &mut serde_json::Value) {
-    match value {
-        serde_json::Value::Object(map) => {
-            if let Some(reference) = map.get_mut("$ref")
-                && let Some(raw) = reference.as_str()
-                && let Some(rest) = raw.strip_prefix("#/$defs/")
-            {
-                *reference = serde_json::Value::String(format!("#/components/schemas/{rest}"));
-            }
-            for inner in map.values_mut() {
-                rewrite_refs(inner);
-            }
-        }
-        serde_json::Value::Array(items) => {
-            for inner in items {
-                rewrite_refs(inner);
-            }
-        }
-        // primitives have no refs to rewrite.
-        serde_json::Value::Null
-        | serde_json::Value::Bool(_)
-        | serde_json::Value::Number(_)
-        | serde_json::Value::String(_) => {}
-    }
 }
 
 /// Write only when the contents differ — keeps `mise run check` quiet on

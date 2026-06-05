@@ -26,6 +26,7 @@ use schemars::Schema;
 use wit_encoder::{EnumCase, Field, Ident, Interface, Package, PackageName, Type, TypeDef, VariantCase};
 
 use crate::Error;
+use crate::asyncapi::{WS_DESCRIPTION, WS_VERSION};
 
 /// Wire identifiers (`WsConnectAck`, `agent_id`, `et-connect-ack`, …) →
 /// canonical WIT kebab-case (`ws-connect-ack`, `agent-id`, `connect-ack`).
@@ -47,11 +48,7 @@ pub fn render(client_schema: &Schema, server_schema: &Schema) -> Result<String, 
     let server_root = server_schema.as_value();
     let merged_root = merge_defs(client_root, server_root);
     let mut interface = Interface::new("messages");
-    interface.set_docs(Some(concat!(
-        "Typed WS protocol messages \u{2014} `client-message` is what guests send and the server ",
-        "receives; `server-message` is what the server sends and guests receive. Shared payload ",
-        "records and support types live alongside both variants.",
-    )));
+    interface.set_docs(Some(WS_DESCRIPTION));
 
     let enums = collect_enum_names(&merged_root);
     emit_enum_defs(&merged_root, &mut interface)?;
@@ -65,7 +62,7 @@ pub fn render(client_schema: &Schema, server_schema: &Schema) -> Result<String, 
     let mut package = Package::new(PackageName::new(
         "et",
         "ws-messages",
-        Some(semver::Version::parse("0.1.0").expect("valid semver")),
+        Some(semver::Version::parse(WS_VERSION).expect("WS_VERSION is a valid semver literal")),
     ));
     package.interface(interface);
 

@@ -44,9 +44,6 @@ components:
           constructing a `ConnectAck`, and so the server's inbound match arms
           can be exhaustive without an "unexpected server-originated message"
           trap.
-
-          Wire tags are unchanged from the pre-split `WsMessage`; the JSON
-          envelope is identical to what's documented in the `AsyncAPI` spec.
         oneOf:
           - properties:
               agent_id:
@@ -174,9 +171,6 @@ components:
           constructing a `ConnectAck`, and so the server's inbound match arms
           can be exhaustive without an "unexpected server-originated message"
           trap.
-
-          Wire tags are unchanged from the pre-split `WsMessage`; the JSON
-          envelope is identical to what's documented in the `AsyncAPI` spec.
         oneOf:
           - properties:
               agent_id:
@@ -304,9 +298,6 @@ components:
           constructing a `ConnectAck`, and so the server's inbound match arms
           can be exhaustive without an "unexpected server-originated message"
           trap.
-
-          Wire tags are unchanged from the pre-split `WsMessage`; the JSON
-          envelope is identical to what's documented in the `AsyncAPI` spec.
         oneOf:
           - properties:
               agent_id:
@@ -434,9 +425,6 @@ components:
           constructing a `ConnectAck`, and so the server's inbound match arms
           can be exhaustive without an "unexpected server-originated message"
           trap.
-
-          Wire tags are unchanged from the pre-split `WsMessage`; the JSON
-          envelope is identical to what's documented in the `AsyncAPI` spec.
         oneOf:
           - properties:
               agent_id:
@@ -603,9 +591,6 @@ components:
           constructing a `ConnectAck`, and so the server's inbound match arms
           can be exhaustive without an "unexpected server-originated message"
           trap.
-
-          Wire tags are unchanged from the pre-split `WsMessage`; the JSON
-          envelope is identical to what's documented in the `AsyncAPI` spec.
         oneOf:
           - properties:
               agent_id:
@@ -751,9 +736,6 @@ components:
           constructing a `ConnectAck`, and so the server's inbound match arms
           can be exhaustive without an "unexpected server-originated message"
           trap.
-
-          Wire tags are unchanged from the pre-split `WsMessage`; the JSON
-          envelope is identical to what's documented in the `AsyncAPI` spec.
         oneOf:
           - properties:
               agent_id:
@@ -958,9 +940,6 @@ components:
           constructing a `ConnectAck`, and so the server's inbound match arms
           can be exhaustive without an "unexpected server-originated message"
           trap.
-
-          Wire tags are unchanged from the pre-split `WsMessage`; the JSON
-          envelope is identical to what's documented in the `AsyncAPI` spec.
         oneOf:
           - properties:
               agent_id:
@@ -1114,7 +1093,7 @@ components:
         - broadcast
       type: string
 info:
-  description: Hub-style WebSocket protocol. Generated from edge_toolkit::ws::ClientMessage.
+  description: Edge Toolkit WebSocket Protocol — typed et-* messages exchanged between client and server, plus relay-text / relay-binary envelopes for foreign frames the hub forwards verbatim.
   title: Edge Toolkit WebSocket Protocol
   version: 0.1.0
 operations:

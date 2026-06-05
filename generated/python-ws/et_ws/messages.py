@@ -13,9 +13,6 @@ class WsConnect(BaseModel):
     constructing a `ConnectAck`, and so the server's inbound match arms
     can be exhaustive without an "unexpected server-originated message"
     trap.
-
-    Wire tags are unchanged from the pre-split `WsMessage`; the JSON
-    envelope is identical to what's documented in the `AsyncAPI` spec.
     """
 
     agent_id: str | None = None
@@ -30,9 +27,6 @@ class WsAlive(BaseModel):
     constructing a `ConnectAck`, and so the server's inbound match arms
     can be exhaustive without an "unexpected server-originated message"
     trap.
-
-    Wire tags are unchanged from the pre-split `WsMessage`; the JSON
-    envelope is identical to what's documented in the `AsyncAPI` spec.
     """
 
     timestamp: str
@@ -47,9 +41,6 @@ class WsListAgents(BaseModel):
     constructing a `ConnectAck`, and so the server's inbound match arms
     can be exhaustive without an "unexpected server-originated message"
     trap.
-
-    Wire tags are unchanged from the pre-split `WsMessage`; the JSON
-    envelope is identical to what's documented in the `AsyncAPI` spec.
     """
 
     type: Literal["et-list-agents"]
@@ -63,9 +54,6 @@ class WsSendAgentMessage(BaseModel):
     constructing a `ConnectAck`, and so the server's inbound match arms
     can be exhaustive without an "unexpected server-originated message"
     trap.
-
-    Wire tags are unchanged from the pre-split `WsMessage`; the JSON
-    envelope is identical to what's documented in the `AsyncAPI` spec.
     """
 
     message: Any = Field(..., description="Arbitrary JSON value (opaque to the protocol)")
@@ -81,9 +69,6 @@ class WsBroadcastMessage(BaseModel):
     constructing a `ConnectAck`, and so the server's inbound match arms
     can be exhaustive without an "unexpected server-originated message"
     trap.
-
-    Wire tags are unchanged from the pre-split `WsMessage`; the JSON
-    envelope is identical to what's documented in the `AsyncAPI` spec.
     """
 
     message: Any = Field(..., description="Arbitrary JSON value (opaque to the protocol)")
@@ -98,9 +83,6 @@ class WsMessageAck(BaseModel):
     constructing a `ConnectAck`, and so the server's inbound match arms
     can be exhaustive without an "unexpected server-originated message"
     trap.
-
-    Wire tags are unchanged from the pre-split `WsMessage`; the JSON
-    envelope is identical to what's documented in the `AsyncAPI` spec.
     """
 
     message_id: str
@@ -115,9 +97,6 @@ class WsClientEvent(BaseModel):
     constructing a `ConnectAck`, and so the server's inbound match arms
     can be exhaustive without an "unexpected server-originated message"
     trap.
-
-    Wire tags are unchanged from the pre-split `WsMessage`; the JSON
-    envelope is identical to what's documented in the `AsyncAPI` spec.
     """
 
     action: str
@@ -134,9 +113,6 @@ class WsClientRelayText(BaseModel):
     constructing a `ConnectAck`, and so the server's inbound match arms
     can be exhaustive without an "unexpected server-originated message"
     trap.
-
-    Wire tags are unchanged from the pre-split `WsMessage`; the JSON
-    envelope is identical to what's documented in the `AsyncAPI` spec.
     """
 
     content: str
@@ -155,9 +131,6 @@ class WsClientRelayBinary(BaseModel):
     constructing a `ConnectAck`, and so the server's inbound match arms
     can be exhaustive without an "unexpected server-originated message"
     trap.
-
-    Wire tags are unchanged from the pre-split `WsMessage`; the JSON
-    envelope is identical to what's documented in the `AsyncAPI` spec.
     """
 
     content: list[ContentItem] = Field(..., description="Byte array (uint8)")
@@ -189,6 +162,6 @@ class ClientMessage(
         | WsClientRelayBinary
     ) = Field(
         ...,
-        description="Messages a client is allowed to SEND to the server.\n\nSplit from [`ServerMessage`] so the type system rejects client code\nconstructing a `ConnectAck`, and so the server's inbound match arms\ncan be exhaustive without an \"unexpected server-originated message\"\ntrap.\n\nWire tags are unchanged from the pre-split `WsMessage`; the JSON\nenvelope is identical to what's documented in the `AsyncAPI` spec.",
+        description='Messages a client is allowed to SEND to the server.\n\nSplit from [`ServerMessage`] so the type system rejects client code\nconstructing a `ConnectAck`, and so the server\'s inbound match arms\ncan be exhaustive without an "unexpected server-originated message"\ntrap.',
         title="ClientMessage",
     )

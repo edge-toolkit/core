@@ -348,7 +348,7 @@ description = "Fetch upstream WASI WIT packages into generated/specs/wit/ at pin
 run = "cargo run -q -p et-int-gen --bin et-int-gen -- fetch-deps"
 
 [tasks.gen-ws-spec]
-description = "Run et-int-gen: emit the WS protocol's AsyncAPI YAML, OpenAPI YAML, WIT package, KDL schema, and Rust REST client from edge_toolkit::ws::WsMessage and the service handlers"
+description = "Run et-int-gen: emit the WS protocol's AsyncAPI YAML, OpenAPI YAML, WIT package, KDL schema, and Rust REST client from edge_toolkit::ws::{ClientMessage, ServerMessage} and the service handlers"
 # et-int-gen runs progenitor + prettyplease to produce
 # generated/rust-rest/src/lib.rs. prettyplease's style disagrees with our
 # nightly rustfmt (different import grouping + line width), so the workspace

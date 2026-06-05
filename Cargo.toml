@@ -257,7 +257,7 @@ type_complexity = { level = "deny", priority = 4 }
 min_ident_chars = { level = "deny", priority = 4 }
 
 # Allowing arbitrary_source_item_ordering: strict alphabetical ordering destroys semantic grouping
-# (e.g. WsMessage variants in connection-lifecycle order, struct fields ordered by importance).
+# (e.g. ClientMessage / ServerMessage variants in connection-lifecycle order, struct fields ordered by importance).
 arbitrary_source_item_ordering = { level = "allow", priority = 4 }
 
 # Force use of #[expect(..)] instead of #[allow(..)]

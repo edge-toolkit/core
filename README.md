@@ -120,7 +120,7 @@ machine-readable specs regenerated from their Rust sources of truth by
 `mise run gen-specs`:
 
 - **WebSocket** (AsyncAPI 3.0): [`generated/specs/ws.yaml`](generated/specs/ws.yaml).
-  Source: `WsMessage` in `libs/edge-toolkit/src/ws.rs`. Generated clients:
+  Source: `ClientMessage` + `ServerMessage` in `libs/edge-toolkit/src/ws.rs`. Generated clients:
   [`generated/dart-ws/`](generated/dart-ws/),
   [`generated/python-ws/`](generated/python-ws/), and the
   `et:ws-messages` WIT under `generated/specs/wit/deps/`.

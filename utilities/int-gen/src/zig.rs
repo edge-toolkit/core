@@ -17,7 +17,6 @@
 //! string-matching its body — that way `openapi2zig` version bumps that
 //! reshuffle the implementation don't break us.
 
-use std::fmt::Write as _;
 use std::path::Path;
 use std::process::Command;
 
@@ -25,6 +24,12 @@ use fs_err as fs;
 use tree_sitter::{Node, Parser};
 
 use crate::Error;
+
+/// The replacement body spliced into `requestRaw` by [`rewrite`].
+const REQUEST_RAW_BODY: &str = include_str!("zig.in/request_raw_body.zig");
+
+/// The `extern fn js_rest_request(...)` declaration appended to the generated client by [`rewrite`].
+const JS_REST_REQUEST_EXTERN: &str = include_str!("zig.in/js_rest_request_extern.zig");
 
 /// Return `true` if the `openapi2zig` binary is on `PATH`.
 ///
@@ -112,11 +117,11 @@ fn rewrite(source: &str) -> Result<String, Error> {
     )]
     {
         out.push_str(&source[..body_start]);
-        write_replacement_body(&mut out)?;
+        out.push_str(REQUEST_RAW_BODY.trim_end());
         out.push_str(&source[body_end..]);
     }
     out = fix_binary_request_body(&out)?;
-    write_extern_decl(&mut out)?;
+    out.push_str(JS_REST_REQUEST_EXTERN);
     Ok(out)
 }
 
@@ -127,13 +132,8 @@ fn rewrite(source: &str) -> Result<String, Error> {
     reason = "named helper called once by rewrite(); kept separate for the long comment + clear scope"
 )]
 fn fix_binary_request_body(source: &str) -> Result<String, Error> {
-    // openapi2zig generates this block for every operation that has a
-    // `requestBody`, regardless of content-type:
-    //
-    //     var str: std.Io.Writer.Allocating = .init(allocator);
-    //     defer str.deinit();
-    //     try std.json.Stringify.value(requestBody, .{ .emit_null_optional_fields = false }, &str.writer);
-    //     const payload: ?[]const u8 = str.written();
+    // openapi2zig generates the `bad` block for every operation that has a
+    // `requestBody`, regardless of content-type.
     //
     // For `application/octet-stream` endpoints (every body in our spec) this
     // corrupts the wire bytes — `"Hello"` ships as `"\"Hello\""`. Replace
@@ -163,79 +163,6 @@ fn fix_binary_request_body(source: &str) -> Result<String, Error> {
         ));
     }
     Ok(source.replace(bad, good))
-}
-
-#[expect(
-    clippy::single_call_fn,
-    reason = "named helper for the multi-line writeln! block that builds the replacement body; called once by rewrite()"
-)]
-fn write_replacement_body(out: &mut String) -> Result<(), Error> {
-    writeln!(out, "{{")?;
-    writeln!(
-        out,
-        "    // Replaced by et-int-gen: dispatch via the host JS shim instead of"
-    )?;
-    writeln!(
-        out,
-        "    // `std.http.Client.fetch`, which can't reach the network from"
-    )?;
-    writeln!(out, "    // browser wasm. The JS side proxies to `fetch()` via")?;
-    writeln!(
-        out,
-        "    // SharedArrayBuffer + Atomics so this stays synchronous in Zig."
-    )?;
-    writeln!(out, "    const allocator = client.allocator;")?;
-    writeln!(out, "    const method_str = @tagName(method);")?;
-    writeln!(out, "    const body_slice = payload orelse \"\";")?;
-    writeln!(out, "    const response_buf = try allocator.alloc(u8, 64 * 1024);")?;
-    writeln!(out, "    const written = js_rest_request(")?;
-    writeln!(out, "        method_str.ptr, method_str.len,")?;
-    writeln!(out, "        url.ptr, url.len,")?;
-    writeln!(out, "        body_slice.ptr, body_slice.len,")?;
-    writeln!(out, "        response_buf.ptr, response_buf.len,")?;
-    writeln!(out, "    );")?;
-    writeln!(out, "    if (written < 0) {{")?;
-    writeln!(out, "        allocator.free(response_buf);")?;
-    writeln!(out, "        return error.RequestFailed;")?;
-    writeln!(out, "    }}")?;
-    writeln!(out, "    const n: usize = @intCast(written);")?;
-    writeln!(out, "    const body = try allocator.realloc(response_buf, n);")?;
-    writeln!(
-        out,
-        "    return .{{ .allocator = allocator, .status = .ok, .body = body }};"
-    )?;
-    write!(out, "}}")?;
-    Ok(())
-}
-
-#[expect(
-    clippy::single_call_fn,
-    reason = "named helper for the writeln! block emitting the extern declaration; called once by rewrite()"
-)]
-fn write_extern_decl(out: &mut String) -> Result<(), Error> {
-    writeln!(out)?;
-    writeln!(
-        out,
-        "/// Host-provided HTTP transport. The JS shim implements this against"
-    )?;
-    writeln!(
-        out,
-        "/// browser `fetch()` (via SharedArrayBuffer + Atomics so this looks"
-    )?;
-    writeln!(out, "/// synchronous to Zig). Returns the number of bytes written to")?;
-    writeln!(out, "/// `response_buf`, or a negative value on transport failure /")?;
-    writeln!(out, "/// non-2xx status.")?;
-    writeln!(out, "extern fn js_rest_request(")?;
-    writeln!(out, "    method_ptr: [*]const u8,")?;
-    writeln!(out, "    method_len: usize,")?;
-    writeln!(out, "    url_ptr: [*]const u8,")?;
-    writeln!(out, "    url_len: usize,")?;
-    writeln!(out, "    body_ptr: [*]const u8,")?;
-    writeln!(out, "    body_len: usize,")?;
-    writeln!(out, "    response_buf: [*]u8,")?;
-    writeln!(out, "    response_max: usize,")?;
-    writeln!(out, ") i32;")?;
-    Ok(())
 }
 
 /// Recursive walk: return the first `function_declaration` whose `name`

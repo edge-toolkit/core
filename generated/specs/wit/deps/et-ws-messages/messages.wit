@@ -1,6 +1,6 @@
 package et:ws-messages@0.1.0;
 
-/// Typed WS protocol messages — `client-message` is what guests send and the server receives; `server-message` is what the server sends and guests receive. Shared payload records and support types live alongside both variants.
+/// Edge Toolkit WebSocket Protocol — typed et-* messages exchanged between client and server, plus relay-text / relay-binary envelopes for foreign frames the hub forwards verbatim.
 interface messages {
   enum agent-connection-state {
     connected,
