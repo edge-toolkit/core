@@ -41,8 +41,61 @@ interface ws {
 
 interface entry {
   use ws.{ ws-error };
+  use wasi:keyvalue/store@0.2.0-draft.{ error as store-error };
+
+  // Flattened `wasi:nn/errors.error`. The upstream type is a resource
+  // (handle into the wasi-nn host), and variant payloads in WIT must be
+  // values, so guests destructure the resource at the catch site:
+  //   code = err.code(); data = err.data();
+  record nn-error {
+    code: nn-error-code,
+    data: string,
+  }
+  // Mirrors `wasi:nn/errors.error-code`. Kept local so guests that don't
+  // import wasi:nn don't gain a transitive dependency on it.
+  enum nn-error-code {
+    invalid-argument,
+    invalid-encoding,
+    timeout,
+    runtime-error,
+    unsupported-operation,
+    too-large,
+    not-found,
+    security,
+    unknown,
+  }
+
+  // Flattened `wasi:io/error.error`. Upstream `error` is also a resource;
+  // its only accessor is `to-debug-string()`, captured here in `message`.
+  // `source` names the call that produced the failure (e.g.
+  // `"input-stream.read"`) so triage doesn't depend on call-site logs.
+  record io-error {
+    source: string,
+    message: string,
+  }
+
+  // Flattened union of the per-call wasi-webgpu error records
+  // (`request-device-error`, `map-async-error`, `create-pipeline-error`,
+  // `get-mapped-range-error`, `set-bind-group-error`, `unmap-error`,
+  // `write-buffer-error`). Every upstream record is shape-compatible with
+  // `{ kind, message }`, so flattening keeps this arm stable as the
+  // wasi-webgpu surface evolves. `operation` names the originating call
+  // (e.g. `"request-device"`, `"map-async"`), `kind` carries the upstream
+  // kind discriminant rendered as a short ASCII tag, `message` is the
+  // upstream message field (or, where the upstream record has none, the
+  // host-side description of what failed).
+  record webgpu-error {
+    operation: string,
+    kind: string,
+    message: string,
+  }
+
   variant entry-error {
     ws(ws-error),
+    store(store-error),
+    nn(nn-error),
+    io(io-error),
+    webgpu(webgpu-error),
     runtime(string),
   }
   run: func() -> result<_, entry-error>;

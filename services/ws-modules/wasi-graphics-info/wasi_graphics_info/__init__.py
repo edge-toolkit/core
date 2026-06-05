@@ -24,7 +24,17 @@ import json
 import struct
 
 from componentize_py_types import Err
-from wit_world.exports.entry import EntryError_Runtime, EntryError_Ws
+from wit_world.exports.entry import (
+    EntryError_Nn,
+    EntryError_Runtime,
+    EntryError_Store,
+    EntryError_Webgpu,
+    EntryError_Ws,
+    NnError,
+    NnErrorCode,
+    WebgpuError,
+)
+from wit_world.imports import errors as nn_errors
 from wit_world.imports import graph as nn_graph
 from wit_world.imports import (
     logging,
@@ -234,7 +244,11 @@ def _run_matmul() -> dict:
     gpu = webgpu.get_gpu()
     adapter = gpu.request_adapter(None)
     if adapter is None:
-        raise RuntimeError("wasi-webgpu: no GPU adapter available")
+        raise Err(
+            EntryError_Webgpu(
+                WebgpuError(operation="request-adapter", kind="not-available", message="no GPU adapter available")
+            )
+        )
 
     info = adapter.info()
     gpu_info = {
@@ -398,7 +412,7 @@ def _mnist_inference() -> dict:
     _log(f"inference complete in {elapsed_ms}ms")
 
     if not outputs:
-        raise RuntimeError("wasi-nn returned no outputs")
+        raise Err(EntryError_Nn(NnError(code=NnErrorCode.UNKNOWN, data="compute returned no outputs")))
 
     out_name, out_tensor = outputs[0]
     if out_name != MNIST_OUTPUT_NAME:
@@ -436,18 +450,32 @@ _STORE_ERROR_VARIANTS = (
     store.Error_Other,
 )
 
+_WEBGPU_ERROR_TYPES = (
+    webgpu.RequestDeviceError,
+    webgpu.MapAsyncError,
+    webgpu.CreatePipelineError,
+    webgpu.GetMappedRangeError,
+    webgpu.SetBindGroupError,
+    webgpu.UnmapError,
+    webgpu.WriteBufferError,
+)
+
+
+def _webgpu_to_entry(value: object) -> WebgpuError:
+    operation = type(value).__name__.removesuffix("Error")
+    kind = type(getattr(value, "kind", value)).__name__
+    message = getattr(value, "message", "") or ""
+    return WebgpuError(operation=operation, kind=kind, message=message)
+
 
 class Entry:
     """Implements the `entry` interface exported by the world.
 
-    WIT signature is now `run: func() -> result<_, entry-error>` where
-    `entry-error` is a variant `ws(ws-error) | runtime(string)`.
     componentize-py renders the success path as `-> None` and failures as
     `raise Err(<variant case>)`. Workflow code lives in `_run_workflow`;
-    this wrapper lifts a raw `ws-error` payload bubbling up from any
-    `ws.*` call into `EntryError_Ws(...)`, and tags every other
-    exception (`store.Error` variants, string messages we raise
-    ourselves, etc.) as `EntryError_Runtime(...)`.
+    this wrapper lifts upstream WASI failure values bubbling up from any
+    call into the matching `EntryError_*` arm so the host runner sees a
+    typed cause instead of a stringified `Runtime` blob.
     """
 
     def run(self) -> None:
@@ -458,7 +486,15 @@ class Entry:
             if isinstance(value, _WS_ERROR_VARIANTS):
                 raise Err(EntryError_Ws(value)) from exc
             if isinstance(value, _STORE_ERROR_VARIANTS):
-                raise Err(EntryError_Runtime(f"store error: {value}")) from exc
+                raise Err(EntryError_Store(value)) from exc
+            if isinstance(value, nn_errors.Error):
+                # Resource handle from wasi-nn; flatten to the value
+                # record before re-raising.
+                raise Err(EntryError_Nn(NnError(code=NnErrorCode(value.code().value), data=value.data()))) from exc
+            if isinstance(value, _WEBGPU_ERROR_TYPES):
+                raise Err(EntryError_Webgpu(_webgpu_to_entry(value))) from exc
+            # No wasi:io/error import in this world; `EntryError_Io` is
+            # reserved for future stream-using guests.
             raise Err(EntryError_Runtime(str(value))) from exc
 
 

@@ -40,11 +40,6 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
         project_root.join("services/ws-wasm-agent"),
         project_root.join("data/model-modules"),
         project_root.join("services/ws-modules"),
-        // Generated Python clients shipped as ws-modules: each has a `pkg/`
-        // dir with a package.json + a JS shim that lets Pyodide consumers
-        // (pyface1, pydata1) sys.path-inject the bundled wheel. Listed by
-        // exact path because the parent `generated/` also holds non-module
-        // artifacts (rust-rest, dart-ws, zig-rest, specs, ...).
         project_root.join("generated/python-ws"),
         project_root.join("generated/python-rest"),
     ];

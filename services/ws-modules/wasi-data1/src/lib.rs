@@ -54,6 +54,15 @@ impl From<WsError> for EntryError {
     }
 }
 
+// Same idea for `wasi:keyvalue/store.error` -- the upstream type is a
+// value variant (no resources involved), so `entry-error.store(...)`
+// carries it through unchanged and guests propagate via `?`.
+impl From<store::Error> for EntryError {
+    fn from(err: store::Error) -> Self {
+        Self::Store(err)
+    }
+}
+
 struct Component;
 
 impl Guest for Component {
@@ -65,30 +74,16 @@ impl Guest for Component {
             wait_for_agent_id().ok_or_else(|| EntryError::Runtime("did not receive agent_id".to_string()))?;
         info(&format!("websocket connected with agent_id={agent_id}"));
 
-        // `store::Error` is a wit-bindgen variant with `Debug` (no `Display`),
-        // so the foreign-to-foreign conversion has to happen at the match arm
-        // -- no orphan-rule-friendly `From` impl is available.
-        let bucket = match store::open(&agent_id) {
-            Ok(bucket) => bucket,
-            Err(e) => return Err(EntryError::Runtime(format!("store.open({agent_id}): {e:?}"))),
-        };
+        let bucket = store::open(&agent_id)?;
 
         let test_content = format!("Hello from wasi-data1, agent={agent_id}!").into_bytes();
         info(&format!("storing {} bytes to key {FILENAME}", test_content.len()));
-        if let Err(e) = bucket.set(FILENAME, &test_content) {
-            return Err(EntryError::Runtime(format!("bucket.set({FILENAME}): {e:?}")));
-        }
+        bucket.set(FILENAME, &test_content)?;
 
         info(&format!("fetching key {FILENAME}"));
-        let fetched = match bucket.get(FILENAME) {
-            Ok(Some(bytes)) => bytes,
-            Ok(None) => {
-                return Err(EntryError::Runtime(format!(
-                    "bucket.get({FILENAME}) returned none after set"
-                )));
-            }
-            Err(e) => return Err(EntryError::Runtime(format!("bucket.get({FILENAME}): {e:?}"))),
-        };
+        let fetched = bucket
+            .get(FILENAME)?
+            .ok_or_else(|| EntryError::Runtime(format!("bucket.get({FILENAME}) returned none after set")))?;
 
         if fetched != test_content {
             return Err(EntryError::Runtime(format!(

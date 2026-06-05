@@ -1,9 +1,4 @@
 [project]
-# `et-rest-client` is the generated REST client wheel; the build task copies
-# it into pkg/ alongside this module's own wheel, and the browser-side JS
-# shim sys.path-injects both (et-rest-client is deliberately unpublished,
-# so micropip can't resolve it). `pyodide-http` is on PyPI and the shim
-# micropip-installs it so httpx dispatches through the browser's fetch().
 dependencies = ["et-rest-client", "pyodide-http"]
 description = "Python data 1"
 license = "Apache-2.0 OR MIT"

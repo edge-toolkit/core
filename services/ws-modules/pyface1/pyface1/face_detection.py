@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import time
 from datetime import datetime
@@ -170,15 +171,10 @@ def preprocess_geometry(source_width: float, source_height: float) -> dict[str, 
 
 
 def detections_json(detections: list[Detection]) -> str:
-    import json
-
     return json.dumps(detections)
 
 
 def client_event_json(details: dict[str, object]) -> str:
-    # Use the generated `WsClientEvent` Pydantic model so the wire shape stays
-    # in lock-step with `edge_toolkit::ws::ClientMessage::ClientEvent`. Regenerate
-    # via `mise run gen-python-ws` if the protocol changes.
     return WsClientEvent(
         type="et-client-event",
         capability="face_detection",

@@ -28,25 +28,6 @@ pub async fn run() -> Result<(), JsValue> {
     let ws_url = websocket_url()?;
     let mut client = WsClient::new(WsClientConfig::new(ws_url));
 
-    /*
-    let last_response: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
-    let on_message_boxed: Box<dyn FnMut(JsValue)> = Box::new({
-        let last_response = Rc::clone(&last_response);
-        move |value: JsValue| {
-            let Some(data) = value.as_string() else {
-                return;
-            };
-            let Ok(message) = serde_json::from_str::<ServerMessage>(&data) else {
-                return;
-            };
-            if let ServerMessage::Response { message } = message {
-                *last_response.borrow_mut() = Some(message);
-            }
-        }
-    });
-    let on_message = Closure::wrap(on_message_boxed);
-
-    */
     #[expect(
         clippy::as_conversions,
         reason = "wasm-bindgen's Closure::wrap takes a `Box<dyn FnMut(...)>`; the cast is required to unsize the Box"
