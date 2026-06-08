@@ -1,5 +1,17 @@
 # edge-toolkit core
 
+edge-toolkit is a WebSocket-based edge-computing framework that runs AI on hardware you control,
+so nothing has to leave your network. A lightweight server acts as a hub that serves small AI
+modules — written in Rust, Python, Dart, C#, Java and more, each compiled to WebAssembly or
+transpiled to JavaScript — straight to a browser, where they run locally and can reach the
+browser's own Web APIs (camera, microphone, geolocation, motion sensors, Bluetooth, NFC) to sense
+the real world directly. The same framework also drives larger models on local GPU hardware through
+standardised WebAssembly interfaces, so one toolkit spans on-device and server inference without
+changing the protocol.
+
+The result is AI that protects privacy and data sovereignty: sensitive camera, audio and research
+data stay on the device or your own network, never sent to an external cloud service.
+
 ## mise
 
 Please install [`mise`](https://mise.jdx.dev/), including the shell integration.
