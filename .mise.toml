@@ -19,8 +19,9 @@ cmake = "latest"
 "conda:lld" = "latest"
 "conda:openssl" = "latest"
 dart = { version = "latest", url = "https://storage.googleapis.com/dart-archive/channels/stable/release/{{ version }}/sdk/dartsdk-{{ os() }}-{{ arch() }}-release.zip", version_expr = 'fromJSON(body).prefixes | filter({ # matches "^channels/stable/release/(\\d+\\.\\d+\\.\\d+)/$" }) | map({split(#, "/")[3]}) | sortVersions()', version_list_url = "https://storage.googleapis.com/storage/v1/b/dart-archive/o?prefix=channels/stable/release/&delimiter=/" }
-dotnet = "latest"
-dotnet-core = "latest"
+# Pinned: SDK churn re-keys the wasm-tools workload manifest, forcing a ~1.5GB pack re-download on every bump.
+dotnet = "10.0.300"
+dotnet-core = "10.0.300"
 "dotnet:roslynator.dotnet.cli" = "latest"
 dprint = "latest"
 editorconfig-checker = "latest"
@@ -784,7 +785,22 @@ run = """
 depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "fetch-mnist-rclone"]
 
 [tasks.cargo-test]
-run = "cargo test --workspace"
+# Excludes `et-ws-web-runner` -- its tests need single-threaded
+# execution (see `test-ws-web-runner` below); running the rest of the
+# workspace in parallel keeps the total wall-clock down.
+run = "cargo test --workspace --exclude et-ws-web-runner"
+
+[tasks.test-ws-web-runner]
+description = "Run et-ws-web-runner integration tests serialized"
+# Each test case boots a full `MainWorker` (deno_runtime) -- ~10x
+# heavier than the `JsRuntime` it replaced. 8 in parallel exhausts
+# local fd/port budgets on macOS, surfacing as "error sending request
+# for url" when the runner's wrapper module dynamic-`import()`s its
+# module JS. Pin to one thread so the suite is deterministic.
+run = "cargo test -p et-ws-web-runner"
+
+[tasks.test-ws-web-runner.env]
+RUST_TEST_THREADS = "1"
 
 [tasks.test-pyface1]
 dir = "services/ws-modules/pyface1"
@@ -800,5 +816,5 @@ run = "uv run pytest"
 UV_PYTHON = "{% if os() == 'windows' %}{{ exec(command='mise where python') }}/python.exe{% else %}{{ exec(command='mise which python3.13') }}{% endif %}"
 
 [tasks.test]
-depends = ["cargo-test", "test-pyface1"]
+depends = ["cargo-test", "test-pyface1", "test-ws-web-runner"]
 description = "Run all tests"

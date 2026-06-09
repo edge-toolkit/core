@@ -133,6 +133,7 @@ pub fn render_rust_client() -> Result<String, Error> {
     let tokens = generator.generate_tokens(&spec)?;
     let ast = syn::parse2(tokens).expect("progenitor always emits valid Rust");
     let body = prettyplease::unparse(&ast);
+    let body = inject_wasm_baseurl_fallback(&body);
     // progenitor wraps each handler doc as a `/**...*/` block, immediately
     // appending its own `Sends a METHOD request to /path` line at +4 spaces;
     // any non-empty description from the `OpenAPI` spec then leaves that
@@ -143,4 +144,45 @@ pub fn render_rust_client() -> Result<String, Error> {
     // upstream emit (or rewriting every public-API description to dodge the
     // markdown rule).
     Ok(format!("#![allow(rustdoc::invalid_rust_codeblocks)]\n{body}"))
+}
+
+/// Wrap progenitor's `pub fn new(baseurl: &str) -> Self` so that on
+/// `wasm32-unknown-unknown` an empty `baseurl` falls back to the browser's
+/// `window.location.origin` (in the embedded Deno runner, the bootstrap
+/// stubs `globalThis.location` to the ws-server's HTTP base).
+///
+/// `reqwest`'s wasm32 build still parses URLs via `url::Url::parse`, which
+/// rejects relative URLs with `RelativeUrlWithoutBase` -- so a browser
+/// module that does `Client::new("")` expecting page-origin resolution
+/// would otherwise fail every request with "Communication Error: builder
+/// error" before any fetch leaves the wasm.
+#[expect(
+    clippy::single_call_fn,
+    reason = "post-process step kept separate for readability; the named function documents intent"
+)]
+fn inject_wasm_baseurl_fallback(body: &str) -> String {
+    // Anchor on progenitor's exact emitted prologue for `Client::new` so a
+    // mismatch (e.g. upstream changing the cfg ordering) fails the build
+    // here rather than silently producing a no-op replacement.
+    let needle = r#"    pub fn new(baseurl: &str) -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
+"#;
+    let replacement = r#"    pub fn new(baseurl: &str) -> Self {
+        #[cfg(target_arch = "wasm32")]
+        let baseurl_owned = if baseurl.is_empty() {
+            ::web_sys::window()
+                .and_then(|w| w.location().origin().ok())
+                .unwrap_or_default()
+        } else {
+            baseurl.to_string()
+        };
+        #[cfg(target_arch = "wasm32")]
+        let baseurl = baseurl_owned.as_str();
+        #[cfg(not(target_arch = "wasm32"))]
+"#;
+    assert!(
+        body.contains(needle),
+        "progenitor's Client::new prologue moved; update inject_wasm_baseurl_fallback's needle"
+    );
+    body.replacen(needle, replacement, 1)
 }

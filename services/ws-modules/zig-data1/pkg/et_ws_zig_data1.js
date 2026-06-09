@@ -146,7 +146,7 @@ export async function run() {
       setTimeout(poll, 0);
     };
 
-    const worker = new Worker(workerUrl, { type: "classic" });
+    const worker = new Worker(workerUrl, { type: "module" });
     worker.onmessage = (e) => {
       if (e.data.done) {
         worker.terminate();

@@ -226,3 +226,14 @@ Every file under `tests/` must start with `#![cfg(test)]` (placed after the file
 Single Cargo workspace (`Cargo.toml`).
 Shared dependency versions are declared in `[workspace.dependencies]`.
 Add new deps there, not in individual crate `[dependencies]`.
+
+## Naming conventions
+
+- **`.map_err` wrappers must be named `map_*`.** Extension methods that
+  hide a `.map_err(...)` call (e.g. converting a foreign error to a
+  domain error type) must keep `map_` in the name. The reader can then
+  tell at the call site that this is a _mapping_ over the error, not
+  some unrelated boolean predicate. Example: the `JsErrExt` trait in
+  `services/ws-web-runner/src/error.rs` exposes `.map_js_err()` and
+  `.map_js_err_with_context(...)`, never `.js_err()` / `.to_js_err()` /
+  similar.

@@ -38,3 +38,8 @@ reqwest = { workspace = true, features = ["json", "query", "rustls", "stream"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 reqwest = { workspace = true, features = ["json"] }
+# Used by the generator-injected Client::new fallback: an empty `baseurl`
+# resolves to `window.location.origin` so browser modules can write
+# `Client::new("")` and have it match the page origin (and our embedded
+# Deno runtime's stubbed `globalThis.location`).
+web-sys = { workspace = true, features = ["Window", "Location"] }

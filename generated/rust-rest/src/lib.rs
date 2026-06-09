@@ -80,6 +80,16 @@ impl Client {
     /// `reqwest::Client`, and should include a scheme and hostname,
     /// as well as port and a path stem if applicable.
     pub fn new(baseurl: &str) -> Self {
+        #[cfg(target_arch = "wasm32")]
+        let baseurl_owned = if baseurl.is_empty() {
+            ::web_sys::window()
+                .and_then(|w| w.location().origin().ok())
+                .unwrap_or_default()
+        } else {
+            baseurl.to_string()
+        };
+        #[cfg(target_arch = "wasm32")]
+        let baseurl = baseurl_owned.as_str();
         #[cfg(not(target_arch = "wasm32"))]
         let client = {
             let dur = ::std::time::Duration::from_secs(15u64);
