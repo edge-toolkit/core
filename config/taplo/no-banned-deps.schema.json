@@ -1,13 +1,19 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Cargo.toml — `anyhow` is forbidden",
-  "description": "Forbids `anyhow` in dep tables. Use a thiserror enum.",
+  "title": "Cargo.toml -- banned deps",
+  "description": "Crates this repo deliberately doesn't take on; const = rejection message.",
   "definitions": {
     "depTable": {
       "type": "object",
       "properties": {
         "anyhow": {
           "const": "forbidden; define a thiserror enum instead"
+        },
+        "ring": {
+          "const": "forbidden; use aws-lc-rs. Transitive via rcgen only (gated in deny.toml's bans.deny wrappers)."
+        },
+        "ureq": {
+          "const": "forbidden; use reqwest::blocking (sync) or reqwest (async). One HTTPS stack only."
         }
       }
     }

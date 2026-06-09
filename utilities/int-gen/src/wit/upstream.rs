@@ -244,7 +244,7 @@ fn fetch_one(deps_root: &Path, pkg: &UpstreamPackage) -> Result<(), Error> {
             git_ref = pkg.git_ref,
             file = file.name,
         );
-        let body = ureq::get(&url).call()?.into_string()?;
+        let body = reqwest::blocking::get(&url)?.error_for_status()?.text()?;
         let target = dest.join(file.name);
         fs::write(&target, body)?;
         println!("wrote {}", target.display());
@@ -262,7 +262,7 @@ fn fetch_one(deps_root: &Path, pkg: &UpstreamPackage) -> Result<(), Error> {
 )]
 fn fetch_and_trim_webgpu(deps_root: &Path) -> Result<(), Error> {
     let url = format!("https://raw.githubusercontent.com/WebAssembly/wasi-gfx/{WEBGPU_GIT_REF}/webgpu/webgpu.wit");
-    let raw = ureq::get(&url).call()?.into_string()?;
+    let raw = reqwest::blocking::get(&url)?.error_for_status()?.text()?;
     let stripped = strip_webgpu(&raw)?;
     let dest = deps_root.join("wasi-webgpu");
     if dest.exists() {

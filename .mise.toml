@@ -246,15 +246,11 @@ while IFS= read -r line; do
   members+=("$line")
 done < <(find . -name Cargo.toml -not -path './target/*' -not -path './Cargo.toml')
 
-# All Cargo.tomls including the workspace root — `no-anyhow-dep` also
-# covers `[workspace.dependencies]`, so the root has to be in this list.
-all_cargo_toml=()
-while IFS= read -r line; do
-  all_cargo_toml+=("$line")
-done < <(find . -name Cargo.toml -not -path './target/*')
-
-# Schemas that apply to every Cargo.toml (including the workspace root).
-taplo lint --schema "file://$PWD/config/taplo/no-anyhow-dep.schema.json" "${all_cargo_toml[@]}"
+# Banned deps only need to be checked at the workspace root: member
+# crates are required to reference deps via `workspace = true` (the
+# `require-workspace-deps` schema below), so any banned dep can only
+# enter the build through `[workspace.dependencies]` here.
+taplo lint --schema "file://$PWD/config/taplo/no-banned-deps.schema.json" Cargo.toml
 
 # Schemas that apply to every member crate.
 taplo lint --schema "file://$PWD/config/taplo/no-path-deps.schema.json" "${members[@]}"

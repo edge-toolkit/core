@@ -1,10 +1,10 @@
-// `Error` ends up ~272 bytes because `ureq::Error` is large and we wrap it
-// inline via `#[from]`. Boxing it would shave the parent enum down but
-// requires a manual `From<ureq::Error>` impl, since `#[from]` only generates
-// `From<Box<ureq::Error>>`. For a one-shot CLI the size doesn't matter.
+// `Error` ends up sizeable because `reqwest::Error` carries an inline
+// `reqwest::Response` (~136 B). Boxing the variant would shave the
+// parent enum but cost a manual `From<reqwest::Error>` impl; for a
+// one-shot CLI the size doesn't matter.
 #![expect(
     clippy::result_large_err,
-    reason = "Error inherits ureq::Error's byte footprint; immaterial for a one-shot CLI"
+    reason = "Error inherits reqwest::Error's byte footprint; immaterial for a one-shot CLI"
 )]
 
 //! Internal repo-only generator (`int` = internal).
@@ -66,7 +66,7 @@ pub mod zig;
 /// non-transparent variants with static messages.
 #[expect(
     clippy::large_enum_variant,
-    reason = "ureq::Error dominates the footprint; boxing it would force a manual From impl for no benefit in a CLI"
+    reason = "reqwest::Error dominates the footprint; boxing it would force a manual From impl for no benefit in a CLI"
 )]
 #[expect(
     clippy::exhaustive_enums,
@@ -85,7 +85,7 @@ pub enum Error {
     #[error(transparent)]
     Yaml(#[from] serde_yaml::Error),
     #[error(transparent)]
-    Http(#[from] ureq::Error),
+    Http(#[from] reqwest::Error),
     #[error(transparent)]
     Semver(#[from] semver::Error),
     #[error(transparent)]

@@ -41,13 +41,16 @@ exclude = ["Cargo.toml"]
 include = ["**/Cargo.toml"]
 schema = { path = "config/taplo/require-workspace-deps.schema.json" }
 
-# Forbid `anyhow` in any dep table — `[dependencies]`, `[dev-dependencies]`,
-# `[build-dependencies]`, `[workspace.dependencies]`, and the `[target.*]`
-# variants. Use a `thiserror` enum instead. Replaces the previous
-# `no-anyhow` ast-grep rule which caught uses but not declarations.
+# Banned dep names across every dep table — `[dependencies]`,
+# `[dev-dependencies]`, `[build-dependencies]`, `[workspace.dependencies]`,
+# and the `[target.*]` variants. Currently `anyhow` (use a `thiserror`
+# enum) and `ureq` (use `reqwest::blocking` -- keeps us on one HTTPS
+# stack). Replaces the previous per-crate `no-anyhow` ast-grep rule
+# which caught uses but not declarations. Add new bans by extending the
+# `depTable.properties` list in the schema.
 [[rule]]
 include = ["**/Cargo.toml"]
-schema = { path = "config/taplo/no-anyhow-dep.schema.json" }
+schema = { path = "config/taplo/no-banned-deps.schema.json" }
 
 # Require `[lib] doctest = false` for every member crate with a [lib].
 # Pairs with the `no-doctest` ast-grep rule: that one bans ``` fenced

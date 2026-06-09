@@ -24,12 +24,16 @@ one significant caveat about how rule-scoped schemas are enforced.
   harness doesn't try to compile prose code-fences as Rust. Pairs with
   the `no-doctest` ast-grep rule (which bans `` ``` `` blocks inside
   `///` / `//!` comments). Runnable examples go in `tests/` files.
-- **`no-anyhow-dep.schema.json`** — every `Cargo.toml` (including the
-  workspace root). Forbids `anyhow` as a dep in `[dependencies]`,
-  `[dev-dependencies]`, `[build-dependencies]`, `[workspace.dependencies]`,
-  and the `[target.*]` variants. Replaces the old `no-anyhow` ast-grep
-  rule (now removed) — that one caught _uses_, this one stops the
-  declaration one stage earlier. Use a `thiserror` enum.
+- **`no-banned-deps.schema.json`** — workspace root `Cargo.toml` only.
+  Forbids the listed crate names as keys in any dep table. Current
+  bans: `anyhow` (use a `thiserror` enum), `ureq` (use
+  `reqwest::blocking` -- keeps the repo on one HTTPS stack). Only the
+  root needs checking because `require-workspace-deps` forces every
+  member to reference deps via `workspace = true`, so banned crates
+  can only enter the build through `[workspace.dependencies]` here.
+  Replaces the old `no-anyhow` ast-grep rule (now removed) — that one
+  caught _uses_, this one stops the declaration one stage earlier.
+  Extend by adding entries to the schema's `depTable.properties`.
 
 ## How taplo's rule-scoped schemas are enforced
 
@@ -108,9 +112,10 @@ different file shape (and a different glob in `.taplo.toml`).
 
 ### 5. Forbid other legacy error crates (`failure`, `error-chain`)
 
-The `no-anyhow-dep` schema covers `anyhow`. Extending the same `const`-as-
-error trick to `failure` and `error-chain` would be a one-line addition
-per crate. Low priority — neither is in the current dep graph and both
+The `no-banned-deps` schema covers `anyhow` and `ureq`. Extending the
+same `const`-as-error trick to `failure` and `error-chain` would be a
+one-line addition per crate. Low priority — neither is in the current
+dep graph and both
 are largely unmaintained, so a future PR would have to introduce them
 intentionally.
 
