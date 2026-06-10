@@ -1,7 +1,13 @@
+//! Verifies serde-env maps the shared `RUNNER_*` / `WS_*` env vars onto the nested config structs.
+//!
+//! Covers humantime `RUNNER_TIMEOUT` parsing and the defaults applied when a
+//! variable is absent.
 #![cfg(test)]
-//! Verifies serde-env maps the shared `RUNNER_*` / `WS_*` env vars onto the
-//! nested config structs, including humantime `RUNNER_TIMEOUT` parsing and the
-//! defaults applied when a variable is absent.
+#![expect(
+    clippy::expect_used,
+    clippy::duration_suboptimal_units,
+    reason = "test code: panics carry context, and exact second counts mirror the parsed inputs"
+)]
 
 use std::time::Duration;
 
