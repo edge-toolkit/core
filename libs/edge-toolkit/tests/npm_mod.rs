@@ -25,6 +25,20 @@ fn resolves_classical_npm_layout() {
 }
 
 #[test]
+fn resolves_windows_npm_layout() {
+    // npm on Windows installs globals to <install>/node_modules/<package>
+    // (no `lib/` segment), unlike the Unix `lib/node_modules` layout.
+    let install = TempDir::new().unwrap();
+    let modules = install.path().join("node_modules");
+    let package = modules.join("onnxruntime-web");
+    fs::create_dir_all(&package).unwrap();
+    fs::write(package.join("package.json"), "{}").unwrap();
+
+    let found = find_npm_modules_path_in(install.path(), "onnxruntime-web");
+    assert_eq!(found.as_deref(), Some(modules.as_path()));
+}
+
+#[test]
 fn resolves_aube_backend_layout() {
     // <install>/global-aube/<content-hash>/node_modules/.aube/node_modules/onnxruntime-web/
     //
