@@ -9,22 +9,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let config = serde_env::from_env::<Config>()?;
-    let module = &config.runner_module;
-    let ws_url = &config.ws_server_url;
+    let module = &config.runner.module;
+    let ws_url = &config.ws.server_url;
 
     let run = run_module(module, ws_url);
-    let result = match config.runner_timeout_secs {
-        Some(timeout) => {
-            info!("et-ws-web-runner: module={module} server={ws_url} timeout={timeout:?}");
-            match tokio::time::timeout(timeout, run).await {
-                Ok(result) => result,
-                Err(_) => return Err(format!("module {module} timed out after {timeout:?}").into()),
-            }
+    let result = if let Some(timeout) = config.runner.timeout {
+        info!("et-ws-web-runner: module={module} server={ws_url} timeout={timeout:?}");
+        match tokio::time::timeout(timeout, run).await {
+            Ok(result) => result,
+            Err(_) => return Err(format!("module {module} timed out after {timeout:?}").into()),
         }
-        None => {
-            info!("et-ws-web-runner: module={module} server={ws_url} timeout=none");
-            run.await
-        }
+    } else {
+        info!("et-ws-web-runner: module={module} server={ws_url} timeout=none");
+        run.await
     };
 
     result?;

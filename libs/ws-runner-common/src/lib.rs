@@ -19,6 +19,8 @@
 use futures_util::StreamExt as _;
 use thiserror::Error;
 
+pub mod config;
+
 /// Errors produced while bootstrapping a module from the ws-server.
 #[derive(Debug, Error)]
 #[non_exhaustive]

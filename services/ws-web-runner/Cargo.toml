@@ -28,8 +28,6 @@ et-ws-runner-common.workspace = true
 futures-util.workspace = true
 serde.workspace = true
 serde-env.workspace = true
-serde-inline-default.workspace = true
-serde_with.workspace = true
 sys_traits.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

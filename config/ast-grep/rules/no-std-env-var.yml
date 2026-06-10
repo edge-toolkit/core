@@ -1,0 +1,20 @@
+id: no-std-env-var
+language: Rust
+severity: error
+message: |
+  `std::env::var` is forbidden for app config. Read configuration through a
+  `serde`-derived struct deserialised with `serde-env` (see the runner
+  `config` modules and `et-ws-runner-common::config`), so every variable is
+  declared in one typed place with defaults and validation. Only `RUST_*`
+  vars (e.g. `RUST_LOG`, consumed by tracing) may be read directly.
+rule:
+  any:
+    - pattern: std::env::var($ARG)
+    - pattern: env::var($ARG)
+constraints:
+  ARG:
+    not:
+      # Allow a string literal ("RUST_LOG") or a const identifier (RUST_LOG).
+      regex: '^"?RUST_'
+ignores:
+  - generated/**

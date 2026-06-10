@@ -90,15 +90,15 @@ fn multi_agent_module(#[case] module: &str) {
 
 /// Spawn one `et-ws-web-runner` against `ws_url` and panic with the
 /// captured stdout/stderr on non-zero exit. `timeout_secs` is passed as
-/// `RUNNER_TIMEOUT_SECS`; the multi-agent harness bumps it because two
-/// cold V8 starts contending for the same box widen the discovery
-/// window past the single-agent budget.
+/// `RUNNER_TIMEOUT` (humantime, e.g. `120s`); the multi-agent harness bumps
+/// it because two cold V8 starts contending for the same box widen the
+/// discovery window past the single-agent budget.
 fn run_runner_with_timeout(module: &str, ws_url: &str, timeout_secs: u32) {
     let bin = env!("CARGO_BIN_EXE_et-ws-web-runner");
     let output = std::process::Command::new(bin)
         .env("RUNNER_MODULE", module)
         .env("WS_SERVER_URL", ws_url)
-        .env("RUNNER_TIMEOUT_SECS", timeout_secs.to_string())
+        .env("RUNNER_TIMEOUT", format!("{timeout_secs}s"))
         .output()
         .expect("failed to spawn et-ws-web-runner");
 
