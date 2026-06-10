@@ -217,8 +217,12 @@ fn create_web_worker_cb(
         // a `(WebWorker, SendableWebWorkerHandle)` tuple.
         let (mut worker, handle) = WebWorker::bootstrap_from_options(services, options);
         let shim = shim_js(&http_base, &ws_url);
-        if let Err(e) = worker.js_runtime.execute_script("<web-runner-shim>", shim) {
-            tracing::error!(error = ?e, "worker shim failed");
+        // No `Result` channel in this callback, so log and continue.
+        if let Err(e) = worker.js_runtime.execute_script("<web-runner-worker-shim>", shim) {
+            tracing::error!(
+                error = ?e,
+                "worker environment shim failed unexpectedly (it already succeeded on the main thread)"
+            );
         }
         (worker, handle)
     })
@@ -301,17 +305,23 @@ pub async fn run_js_module(
             .execute_script("<web-runner-shim>", shim_js(http_base, ws_url))?,
     );
 
-    // Load + run the module via an inline wrapper -- the same trick we
-    // used pre-migration: dynamic `import()` works from ES-module context
-    // but not from `execute_script`, so synthesise a side ES module.
+    // Load + run the module via an inline wrapper: dynamic `import()` works
+    // from ES-module context but not from `execute_script`, so synthesise a
+    // side ES module.
     let wrapper_code = format!(
         r#"
 const mod = await import("{entry_url}");
+let invoked = false;
 if (typeof mod.default === "function") {{
     await mod.default();
+    invoked = true;
 }}
 if (typeof mod.run === "function") {{
     await mod.run();
+    invoked = true;
+}}
+if (!invoked) {{
+    throw new Error("module {entry_url} exports neither a `default` nor a `run` function");
 }}
 "#
     );

@@ -9,11 +9,11 @@
 //! standard web platform extensions (fetch, `WebSocket`, `WebStorage`, timers,
 //! crypto, WebGPU).
 
+use et_ws_runner_common::{derive_http_base, fetch_main_field};
+
 pub mod config;
 mod error;
 mod runtime;
-
-use et_ws_runner_common::{derive_http_base, fetch_main_field};
 
 pub use crate::error::RunnerError;
 

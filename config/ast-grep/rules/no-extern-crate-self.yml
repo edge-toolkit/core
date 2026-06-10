@@ -1,0 +1,15 @@
+id: no-extern-crate-self
+language: Rust
+severity: error
+message: |
+  `extern crate self as <name>;` re-introduces the crate's own name as a path
+  root inside its library, letting code write `<name>::foo` instead of
+  `crate::foo` / `self::foo`. Without it, rustc already rejects own-name paths
+  in lib code (E0433); the alias is only needed by proc-macro crates whose
+  generated code emits `::<name>::...`. This workspace has none, so use
+  `crate::` / `self::` for local paths instead.
+rule:
+  kind: extern_crate_declaration
+  regex: "extern crate self"
+ignores:
+  - generated/**
