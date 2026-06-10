@@ -14,6 +14,7 @@ use wasmtime::component::{Component, HasSelf, Linker};
 use wasmtime::{Config, Engine, Store};
 
 pub mod bindings;
+pub mod config;
 pub mod error;
 pub mod host;
 

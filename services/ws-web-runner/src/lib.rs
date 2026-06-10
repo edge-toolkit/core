@@ -9,6 +9,7 @@
 //! standard web platform extensions (fetch, `WebSocket`, `WebStorage`, timers,
 //! crypto, WebGPU).
 
+pub mod config;
 mod error;
 mod runtime;
 

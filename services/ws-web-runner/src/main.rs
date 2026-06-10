@@ -1,5 +1,4 @@
-use std::time::Duration;
-
+use et_ws_web_runner::config::Config;
 use et_ws_web_runner::run_module;
 use tracing::info;
 
@@ -9,28 +8,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .init();
 
-    let module_name = std::env::var("RUNNER_MODULE").or(Err("RUNNER_MODULE not set"))?;
-    let ws_url = std::env::var("WS_SERVER_URL").unwrap_or_else(|_| {
-        format!(
-            "ws://localhost:{}/ws",
-            edge_toolkit::ports::Services::InsecureWebSocketServer.port()
-        )
-    });
-    let timeout_secs: u64 = std::env::var("RUNNER_TIMEOUT_SECS")
-        .ok()
-        .and_then(|val| val.parse().ok())
-        .unwrap_or(120);
+    let config = serde_env::from_env::<Config>()?;
+    let module = &config.runner_module;
+    let ws_url = &config.ws_server_url;
 
-    info!("et-ws-web-runner: module={module_name} server={ws_url} timeout={timeout_secs}s");
-
-    let result = tokio::time::timeout(Duration::from_secs(timeout_secs), run_module(&module_name, &ws_url)).await;
-
-    match result {
-        Ok(Ok(())) => {
-            info!("module {module_name} completed successfully");
-            Ok(())
+    let run = run_module(module, ws_url);
+    let result = match config.runner_timeout_secs {
+        Some(timeout) => {
+            info!("et-ws-web-runner: module={module} server={ws_url} timeout={timeout:?}");
+            match tokio::time::timeout(timeout, run).await {
+                Ok(result) => result,
+                Err(_) => return Err(format!("module {module} timed out after {timeout:?}").into()),
+            }
         }
-        Ok(Err(e)) => Err(e.into()),
-        Err(_) => Err(format!("module {module_name} timed out after {timeout_secs}s").into()),
-    }
+        None => {
+            info!("et-ws-web-runner: module={module} server={ws_url} timeout=none");
+            run.await
+        }
+    };
+
+    result?;
+    info!("module {module} completed successfully");
+    Ok(())
 }
