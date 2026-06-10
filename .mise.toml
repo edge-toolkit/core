@@ -451,7 +451,7 @@ shell = "bash -euo pipefail -c"
 # regen there; the committed file (regenerated on Linux/macOS) stays
 # canonical.
 run = """
-[[ "$OS" == "Windows_NT" ]] && { echo "gen-dart-ws: skipped on Windows (dart-typegen produces an empty file)"; exit 0; }
+[[ "${OS:-}" == "Windows_NT" ]] && { echo "gen-dart-ws: skipped on Windows (dart-typegen produces an empty file)"; exit 0; }
 mkdir -p generated/dart-ws/lib
 dart-typegen generate -i generated/specs/ws.kdl -o generated/dart-ws/lib/ws_messages.dart
 dart format generated/dart-ws/lib/ws_messages.dart
@@ -538,7 +538,7 @@ description = "Fail if any checked-in artifact under generated/ is stale"
 # indentation differently across nightlies; pipx-driven python codegen
 # emits subtly different output). Linux/macOS runs are canonical.
 run = """
-[[ "$OS" == "Windows_NT" ]] && { echo "gen-specs-check: skipped on Windows (regen is non-deterministic there)"; exit 0; }
+[[ "${OS:-}" == "Windows_NT" ]] && { echo "gen-specs-check: skipped on Windows (regen is non-deterministic there)"; exit 0; }
 git diff --exit-code -- generated
 """
 shell = "bash -euo pipefail -c"
