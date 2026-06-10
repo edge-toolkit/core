@@ -324,6 +324,7 @@ uv sync --directory services/ws-modules/pydata1
 uv sync --directory services/ws-modules/pyface1
 mvn dependency:resolve --quiet
 dotnet restore
+dotnet workload install wasm-tools --skip-manifest-update
 pnpm install --dir services/ws-server/static --ignore-scripts --config.ignoredBuiltDependencies=protobufjs
 zig build --fetch --build-file services/ws-modules/zig-data1/build.zig
 """
@@ -731,6 +732,7 @@ depends = [
   "build-ws-comm1-module",
   "build-ws-dart-comm1-module",
   "build-ws-data1-module",
+  "build-ws-dotnet-data1-module",
   "build-ws-face-detection-module",
   "build-ws-geolocation-module",
   "build-ws-graphics-info-module",
