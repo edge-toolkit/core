@@ -1,9 +1,7 @@
 [tools]
 action-validator = "latest"
-aube = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 cargo-binstall = "latest"
 "cargo:ast-grep" = "latest"
-"cargo:aube" = { version = "latest", os = ["macos/x64"] }
 "cargo:cargo-deny" = "latest"
 "cargo:cargo-expand" = "latest"
 "cargo:dart-typegen" = "latest"
@@ -179,6 +177,7 @@ run = "dart format --output=none --set-exit-if-changed services/ws-modules/dart-
 # workflow via `taiki-e/install-action` since it isn't useful enough
 # locally to justify the cargo-build cost on every `mise install`.
 depends = [
+  "action-validator",
   "ast-grep-check",
   "cargo-check",
   "cargo-clippy",
@@ -198,6 +197,10 @@ depends = [
   "zig-check",
 ]
 description = "Run repository checks"
+
+[tasks.action-validator]
+description = "Validate GitHub Actions workflow YAML"
+run = "action-validator .github/workflows/*.yml"
 
 [tasks.ast-grep-check]
 description = "Run ast-grep structural-search rules"
@@ -276,6 +279,31 @@ shell = "bash -c"
 
 [tasks.typos]
 run = "typos"
+
+[tasks.setup-aube]
+# `aube` is an OPTIONAL faster npm backend, kept out of the mandatory `[tools]`
+# list because its install is flaky on some platforms and edge-toolkit falls
+# back to the classical `lib/node_modules` layout without it (see
+# `find_npm_modules_path_in`).
+#
+# CI (check.yml / test.yml) runs this task in its own allowed-to-fail step,
+# placed BEFORE the main `mise install` so the `npm:onnxruntime-web` install
+# can pick up aube as its backend. That step sets `MISE_TASK_RUN_AUTO_INSTALL=
+# false`, otherwise `mise run` would eagerly install the whole toolset before
+# the task body — defeating both the ordering and the best-effort intent.
+#
+# Platform split: aqua ships aube for linux/macos-arm64/windows; macos/x64 has
+# no aqua asset, so use the cargo backend there. The branch is rendered by
+# mise's tera templating, so it works regardless of the task shell (cmd on
+# Windows).
+description = "Install the optional aube npm backend (platform-specific, best-effort)"
+run = """
+{% if os() == "macos" and arch() == "x64" %}
+mise install cargo:aube@latest
+{% else %}
+mise install aube@latest
+{% endif %}
+"""
 
 [tasks.osv-scanner]
 depends = ["cargo-check"]
