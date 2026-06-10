@@ -162,7 +162,7 @@ set -euo pipefail
 dart pub get --directory generated/dart-ws
 dart pub get --directory services/ws-modules/dart-comm1
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.dart-check]
 depends = ["dart-pub-get"]
@@ -291,7 +291,7 @@ for f in "${members[@]}"; do
 done
 taplo lint --schema "file://$PWD/config/taplo/require-lints-section.schema.json" "${lint_inheritable[@]}"
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.typos]
 run = "typos"
@@ -331,40 +331,76 @@ run = "osv-scanner --lockfile Cargo.lock"
 # so the link target exists. Only `fetch-mnist-rclone` is pulled here —
 # CI tests don't exercise the face1 / har-motion1 models, and skipping
 # those avoids the HuggingFace rate-limit that bites Windows runners.
-depends = ["build-ws-wasm-agent", "fetch-mnist-rclone"]
+depends = [
+  "fetch-mnist-rclone",
+  "prefetch:dart",
+  "prefetch:dotnet",
+  "prefetch:java",
+  "prefetch:node",
+  "prefetch:python",
+  "prefetch:rust",
+  "prefetch:zig",
+]
 description = "Pre-download CI-required dependencies + the MNIST model"
-run = """
-cargo check --workspace
-dart pub get --directory services/ws-modules/dart-comm1
-uv sync --directory services/ws-modules/pydata1
-uv sync --directory services/ws-modules/pyface1
-mvn dependency:resolve --quiet
-dotnet restore
-dotnet workload install wasm-tools --skip-manifest-update
-pnpm install --dir services/ws-server/static --ignore-scripts --config.ignoredBuiltDependencies=protobufjs
-zig build --fetch --build-file services/ws-modules/zig-data1/build.zig
-"""
-shell = "bash -c"
 
 [tasks.prefetch]
 depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "prefetch-ci"]
 description = "Pre-download all dependencies and models (superset of prefetch-ci)"
 
-[tasks.prefetch-ci.env]
-# pnpm refuses non-TTY destructive node_modules cleanup unless `CI=true`,
-# which fires when an earlier install left a different layout (e.g. before
-# `link:` was wired up). Treat `mise run prefetch-ci` as a CI-style batch.
+[tasks."prefetch:rust"]
+depends = ["cargo-check"]
+description = "Prefetch + typecheck the Rust workspace"
+
+[tasks."prefetch:dart"]
+description = "Prefetch Dart (pub) dependencies"
+run = "dart pub get --directory services/ws-modules/dart-comm1"
+
+[tasks."prefetch:java"]
+description = "Prefetch Java (Maven) dependencies"
+run = "mvn dependency:resolve --quiet"
+
+[tasks."prefetch:zig"]
+description = "Prefetch Zig build dependencies"
+run = "zig build --fetch --build-file services/ws-modules/zig-data1/build.zig"
+
+[tasks."prefetch:dotnet"]
+description = "Prefetch .NET dependencies and the wasm-tools workload"
+run = """
+dotnet restore
+dotnet workload install wasm-tools --skip-manifest-update
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks."prefetch:node"]
+# Needs `build-ws-wasm-agent` first: the static workspace `link:`s its `pkg/`,
+# so the link target must exist before `pnpm install`.
+depends = ["build-ws-wasm-agent"]
+description = "Prefetch the Node (pnpm) static workspace"
+run = "pnpm install --dir services/ws-server/static --ignore-scripts --config.ignoredBuiltDependencies=protobufjs"
+
+[tasks."prefetch:node".env]
+# pnpm refuses non-TTY destructive node_modules cleanup unless CI=true, which
+# fires when an earlier install left a different layout. Treat as a CI batch.
 CI = "true"
+
+[tasks."prefetch:python"]
+description = "Prefetch Python (uv) dependencies"
+run = """
+uv sync --directory services/ws-modules/pydata1
+uv sync --directory services/ws-modules/pyface1
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks."prefetch:python".env]
 # UV_PYTHON pins uv to the mise-managed regular CPython, not Pyodide's
 # emscripten-wasm32 interpreter. mise's `http-pyodide` install ships a
 # `python` wrapper script in its install dir that uv's auto-discovery
 # finds and prefers — it reports CPython 3.13.2, so bare version requests
-# (`3.13`, `python3.13`, `cpython@3.13`) don't disambiguate. Resolving the
-# absolute path inline used to live in the `run` body as
-# `export UV_PYTHON="$(mise which python3.13)"`, but on Windows mise dispatches
-# `run` through `cmd`, which has no `export`. Using mise's `exec()` template
-# here keeps the value resolved by mise (shell-agnostic) and matches the
-# same idiom used by `[tasks.test-pyface1.env]` further down.
+# (`3.13`, `python3.13`, `cpython@3.13`) don't disambiguate. Resolve the
+# absolute path via mise's `exec()` template rather than a shell `export` in
+# the `run` body: the template is evaluated by mise (shell-agnostic), so it
+# works under `cmd` on Windows, which has no `export`. Matches the same idiom
+# used by `[tasks.test-pyface1.env]` further down.
 #
 # Windows quirk: mise's python-build-standalone install on Windows only
 # exposes `python.exe` (no `python3.13.exe`), so `mise which python3.13`
@@ -404,12 +440,12 @@ cargo run -q -p et-int-gen --bin et-int-gen
 cargo +nightly fmt -p et-rest-client
 zig fmt generated/zig-rest/src/et_rest_client.zig
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.gen-dart-ws]
 depends = ["gen-ws-spec"]
 description = "Emit Dart sealed-class client for the WS protocol via dart-typegen (consumes generated/specs/ws.kdl emitted by gen-ws-spec)"
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 # dart-typegen exits 0 on Windows but writes an empty .dart file, which
 # would clobber the committed source and fail gen-specs-check. Skip the
 # regen there; the committed file (regenerated on Linux/macOS) stays
@@ -445,7 +481,7 @@ rm -rf generated/python-rest/et_rest_client/.ruff_cache
 ruff check --fix generated/python-rest/et_rest_client
 ruff format generated/python-rest/et_rest_client
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.gen-python-ws]
 depends = ["gen-ws-spec"]
@@ -484,7 +520,7 @@ rm generated/python-ws/et_ws/messages.py.bak
 ruff check --fix generated/python-ws/et_ws/messages.py
 ruff format generated/python-ws/et_ws/messages.py
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.gen-specs]
 depends = ["gen-dart-ws", "gen-python-rest", "gen-python-ws", "gen-ws-spec"]
@@ -505,7 +541,7 @@ run = """
 [[ "$OS" == "Windows_NT" ]] && { echo "gen-specs-check: skipped on Windows (regen is non-deterministic there)"; exit 0; }
 git diff --exit-code -- generated
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-et-ws-wheel]
 depends = ["gen-python-ws"]
@@ -519,7 +555,7 @@ rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 cargo run -p et-cli -- module-package-json
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-et-rest-client-wheel]
 depends = ["gen-python-rest"]
@@ -530,7 +566,7 @@ rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 cargo run -p et-cli -- module-package-json
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 # `cargo-watch` is unmaintained; `watchexec` is its successor (and what
 # `cargo-watch` always called under the hood). Restart on .rs/.toml
@@ -557,7 +593,7 @@ else
   cargo run
 fi
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-wasm-agent]
 description = "Build the WebSocket WASM client"
@@ -586,7 +622,7 @@ run = """
 wasm-pack build . --target web
 cargo run -p et-cli -- module-package-json
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-face-detection-module]
 description = "Build the face detection workflow WASM module"
@@ -595,7 +631,7 @@ run = """
 wasm-pack build . --target web
 cargo run -p et-cli -- module-package-json
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-comm1-module]
 description = "Build the comm1 workflow WASM module"
@@ -649,7 +685,7 @@ run = """
 dart pub get
 dart compile js lib/dart_comm1.dart -o pkg/et_ws_dart_comm1_compiled.js --no-source-maps
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-dotnet-data1-module]
 description = "Build the dotnet-data1 C# WASM workflow module"
@@ -661,7 +697,7 @@ dotnet publish -c Release
 PUBLISH=bin/Release/net10.0/publish/wwwroot/_framework
 cp "$PUBLISH"/*.js "$PUBLISH"/*.wasm "$PUBLISH"/*.dat pkg/
 '''
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-wasi-graphics-info-module]
 description = "Build the WASI graphics-info Python module as a WASI Preview 2 component"
@@ -681,7 +717,7 @@ componentize-py -d ../../../generated/specs/wit -w module bindings .
 componentize-py -d ../../../generated/specs/wit -w module componentize wasi_graphics_info -o pkg/et_ws_wasi_graphics_info.wasm
 cargo run -p et-cli -- module-package-json
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-wasi-data1-module]
 description = "Build the Rust WASI data1 module as a WASI Preview 2 component"
@@ -696,7 +732,7 @@ mkdir -p services/ws-modules/wasi-data1/pkg
 cp target/wasm32-wasip2/release/et_ws_wasi_data1.wasm services/ws-modules/wasi-data1/pkg/et_ws_wasi_data1.wasm
 cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi-data1
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-wasi-comm1-module]
 description = "Build the Rust WASI comm1 module as a WASI Preview 2 component"
@@ -706,7 +742,7 @@ mkdir -p services/ws-modules/wasi-comm1/pkg
 cp target/wasm32-wasip2/release/et_ws_wasi_comm1.wasm services/ws-modules/wasi-comm1/pkg/et_ws_wasi_comm1.wasm
 cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi-comm1
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-pydata1-module]
 depends = ["build-et-rest-client-wheel"]
@@ -721,7 +757,7 @@ rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 cargo run -p et-cli -- module-package-json
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-pyface1-module]
 depends = ["build-et-ws-wheel"]
@@ -736,7 +772,7 @@ rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 cargo run -p et-cli -- module-package-json
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-java-data1-module]
 description = "Build the java-data1 workflow module"
@@ -808,7 +844,7 @@ run = """
         data/model-modules/model-face1/pkg/video_cv.onnx \
         --http-url https://huggingface.co --progress --ignore-existing
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.fetch-har-motion1-rclone]
 run = """
@@ -817,7 +853,7 @@ run = """
         data/model-modules/model-har-motion1/pkg/har-motion1.onnx \
         --http-url https://github.com --progress --ignore-existing
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.fetch-mnist-rclone]
 # MNIST classifier used by services/ws-modules/wasi-graphics-info to exercise
@@ -830,7 +866,7 @@ run = """
         services/ws-modules/wasi-graphics-info/pkg/mnist-12.onnx \
         --http-url https://github.com --progress --ignore-existing
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.download-models]
 depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "fetch-mnist-rclone"]
