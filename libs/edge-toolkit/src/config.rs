@@ -12,8 +12,7 @@ use crate::ports::Services;
 pub const LOCALHOST: &str = "127.0.0.1";
 
 /// Helper to find repository root.
-#[expect(clippy::missing_panics_doc)]
-#[expect(clippy::unwrap_used)]
+#[expect(clippy::missing_panics_doc, clippy::unwrap_used)]
 #[must_use]
 pub fn get_project_root() -> PathBuf {
     match lets_find_up::find_up(".taplo.toml") {

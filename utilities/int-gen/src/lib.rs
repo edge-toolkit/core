@@ -1,12 +1,3 @@
-// `Error` ends up sizeable because `reqwest::Error` carries an inline
-// `reqwest::Response` (~136 B). Boxing the variant would shave the
-// parent enum but cost a manual `From<reqwest::Error>` impl; for a
-// one-shot CLI the size doesn't matter.
-#![expect(
-    clippy::result_large_err,
-    reason = "Error inherits reqwest::Error's byte footprint; immaterial for a one-shot CLI"
-)]
-
 //! Internal repo-only generator (`int` = internal).
 //!
 //! Emits every checked-in artifact under `generated/` from the Rust sources of
@@ -65,16 +56,9 @@ pub mod zig;
 /// (malformed schemas, missing `AsyncAPI` nodes, etc.) sit alongside as
 /// non-transparent variants with static messages.
 #[expect(
-    clippy::large_enum_variant,
-    reason = "reqwest::Error dominates the footprint; boxing it would force a manual From impl for no benefit in a CLI"
-)]
-#[expect(
     clippy::exhaustive_enums,
-    reason = "et-int-gen is internal; no SemVer guarantee, new variants land alongside their introducing change"
-)]
-#[expect(
     clippy::error_impl_error,
-    reason = "the crate's only error type lives at crate::Error, matching the rest of the workspace"
+    reason = "internal crate (no SemVer); new variants land with their change, and crate::Error is the sole error type"
 )]
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -125,11 +109,8 @@ impl From<tree_sitter::LanguageError> for Error {
 #[expect(
     clippy::expect_used,
     clippy::unwrap_in_result,
-    reason = "pretty_yaml::format_text only fails on a YAML syntax error; serde_yaml output is well-formed"
-)]
-#[expect(
     clippy::print_stderr,
-    reason = "et-int-gen is a CLI; the skip notice when openapi2zig is absent is intentionally user-visible on stderr"
+    reason = "format_text only fails on malformed YAML and serde output is well-formed; CLI skip notice on stderr"
 )]
 pub fn generate() -> Result<(), Error> {
     let project_root = get_project_root();

@@ -1,10 +1,7 @@
 #![expect(
     clippy::single_call_fn,
-    reason = "load_/store_ localStorage helpers are a matched group; each is invoked once but kept named for symmetry"
-)]
-#![expect(
     unused_results,
-    reason = "js_sys::Reflect::set's bool result is deliberately discarded for fire-and-forget UI updates"
+    reason = "load_/store_ helpers each called once but kept named; Reflect::set's bool result discarded by design"
 )]
 
 use std::cell::RefCell;

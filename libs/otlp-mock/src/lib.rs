@@ -16,11 +16,8 @@
 #![expect(
     clippy::unwrap_used,
     clippy::panic,
-    reason = "in-process test mock; bind/poison/startup failures should fail the test fast"
-)]
-#![expect(
     clippy::exhaustive_structs,
-    reason = "actix-web's #[post] generates pub marker structs we can't annotate; FlatSpan has #[non_exhaustive]"
+    reason = "test mock; bind/poison/startup failures fail fast; actix #[post] marker structs can't be annotated"
 )]
 
 use std::net::TcpListener;
