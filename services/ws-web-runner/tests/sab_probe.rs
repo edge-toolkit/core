@@ -1,7 +1,8 @@
-//! Probe whether the embedded V8 supports `SharedArrayBuffer` + `Atomics`
-//! at all (separate from the `Worker` question). If this passes, the only
-//! missing piece for `et-ws-zig-data1` is the `Worker` constructor + the
-//! cross-thread `BackingStore` sharing it needs.
+//! Probe whether the embedded V8 supports `SharedArrayBuffer` + `Atomics` at all.
+//!
+//! Separate from the `Worker` question: if this passes, the only missing piece
+//! for `et-ws-zig-data1` is the `Worker` constructor + the cross-thread
+//! `BackingStore` sharing it needs.
 
 #![cfg(test)]
 #![expect(clippy::expect_used, reason = "probe test; should fail loudly if V8 lacks SAB")]

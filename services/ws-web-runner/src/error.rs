@@ -12,17 +12,8 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum RunnerError {
-    #[error("could not derive HTTP base from WS_SERVER_URL={ws_url}")]
-    InvalidWsUrl { ws_url: String },
-
     #[error(transparent)]
-    Rest(#[from] et_rest_client::Error<()>),
-
-    #[error(transparent)]
-    PackageJsonInvalid(#[from] serde_json::Error),
-
-    #[error("module {module} package.json missing `main` field")]
-    PackageJsonMissingMain { module: String },
+    Common(#[from] et_ws_runner_common::BootstrapError),
 
     #[error("deno runtime error: {0}")]
     Deno(#[from] deno_core::error::CoreError),
@@ -31,9 +22,10 @@ pub enum RunnerError {
     DenoGeneric(#[from] deno_core::error::AnyError),
 }
 
-/// Maps any `Display` error into a generic `JsErrorBox`. Per repo naming
-/// convention (see CLAUDE.md), these are `map_*` because they are
-/// custom-`map_err` wrappers -- the name signals "this calls `map_err`
+/// Maps any `Display` error into a generic `JsErrorBox`.
+///
+/// Per repo naming convention (see CLAUDE.md), these are `map_*` because they
+/// are custom-`map_err` wrappers -- the name signals "this calls `map_err`
 /// under the hood, just hiding the closure."
 pub trait JsErrExt<T> {
     /// Convert the error via `Display` into a generic JS error.

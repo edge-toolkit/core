@@ -55,6 +55,7 @@ pipx = { version = "latest", os = ["linux", "macos"] }
 "pipx:datamodel-code-generator" = { version = "latest", extras = "ruff" }
 "pipx:openapi-python-client" = "0.29.0"
 "pipx:pytest" = "latest"
+"pipx:semgrep" = "latest"
 # The default aqua backend has no darwin/amd64 prebuilt; fall back to
 # `npm:pnpm` on Intel Mac (node is already a mise tool above).
 "npm:pnpm" = { version = "latest", os = ["macos/x64"] }
@@ -191,6 +192,7 @@ depends = [
   "gen-specs-check",
   "ruff-check",
   "ruff-fmt-check",
+  "semgrep-check",
   "taplo-check",
   "typos",
   "verification-check",
@@ -205,6 +207,10 @@ run = "action-validator .github/workflows/*.yml"
 [tasks.ast-grep-check]
 description = "Run ast-grep structural-search rules"
 run = "ast-grep scan --error -c config/ast-grep/sgconfig.yml"
+
+[tasks.semgrep-check]
+description = "Run Semgrep generic-mode rules (e.g. Cargo.toml style)"
+run = "semgrep scan --config config/semgrep --error --metrics=off ."
 
 [tasks.cargo-check]
 run = "cargo check --workspace"

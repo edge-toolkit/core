@@ -1,5 +1,6 @@
-//! Integration tests: start a ws-server in-process and run each browser-targeted
-//! module via `et-ws-web-runner`. Mirrors `services/ws-wasi-runner/tests/modules.rs`.
+//! Integration tests that run each browser-targeted module via `et-ws-web-runner`.
+//!
+//! Starts a ws-server in-process. Mirrors `services/ws-wasi-runner/tests/modules.rs`.
 //!
 //! ## Modules that cannot run under Deno (documented reasons)
 //!

@@ -10,6 +10,7 @@ members = [
   "libs/et-otlp",
   "libs/otlp-mock",
   "libs/web",
+  "libs/ws-runner-common",
   "services/ws-modules/audio1",
   "services/ws-modules/bluetooth",
   "services/ws-modules/comm1",
@@ -67,6 +68,7 @@ et-otlp = { path = "libs/et-otlp", version = "0.1.0" }
 et-rest-client = { path = "generated/rust-rest", version = "0.1.0", default-features = false }
 et-storage-service = { path = "services/storage", version = "0.1.0" }
 et-web = { path = "libs/web", version = "0.1.0" }
+et-ws-runner-common = { path = "libs/ws-runner-common", version = "0.1.0" }
 et-ws-server = { path = "services/ws-server", version = "0.1.0" }
 et-ws-service = { path = "services/ws", version = "0.1.0" }
 et-ws-test-server = { path = "services/ws-test-server", version = "0.1.0" }

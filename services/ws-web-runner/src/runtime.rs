@@ -109,25 +109,28 @@ impl deno_core::ModuleLoader for ServerModuleLoader {
     }
 }
 
-/// The browser-environment shim layered on top of `MainWorker`'s
-/// bootstrap. Sourced from `shim.js` next to this file, with two
-/// placeholder tokens substituted for the per-run URLs.
+/// The browser-environment shim layered on top of `MainWorker`'s bootstrap.
+///
+/// Sourced from `shim.js` next to this file, with two placeholder tokens
+/// substituted for the per-run URLs.
 const SHIM_TEMPLATE: &str = include_str!("shim.js");
 
-/// Render the shim with per-run substitutions: the ws-server's HTTP
-/// base (used for `location` and module URL resolution) and the
-/// WebSocket URL (exposed on `globalThis.__ET_WS_URL`).
+/// Render the shim with the per-run URL substitutions.
+///
+/// Substitutes the ws-server's HTTP base (used for `location` and module URL
+/// resolution) and the WebSocket URL (exposed on `globalThis.__ET_WS_URL`).
 fn shim_js(http_base: &str, ws_url: &str) -> String {
     SHIM_TEMPLATE
         .replace("__ET_HTTP_BASE__", http_base)
         .replace("__ET_WS_URL__", ws_url)
 }
 
-/// Build the `CreateWebWorkerCb` that spawns child `WebWorker`s on
-/// fresh OS threads. The closure captures the bits a worker needs
-/// (REST client to build its own module loader, the `fs`, the cross-
-/// isolate `SharedArrayBuffer` store) and recurses by handing itself
-/// (cloned `Arc`) to each child so workers can spawn grand-children.
+/// Build the `CreateWebWorkerCb` that spawns child `WebWorker`s on fresh OS threads.
+///
+/// The closure captures the bits a worker needs (REST client to build its own
+/// module loader, the `fs`, the cross-isolate `SharedArrayBuffer` store) and
+/// recurses by handing itself (cloned `Arc`) to each child so workers can spawn
+/// grand-children.
 fn create_web_worker_cb(
     rest: et_rest_client::Client,
     fs: FileSystemRc,
@@ -154,52 +157,52 @@ fn create_web_worker_cb(
         );
 
         let services = WebWorkerServiceOptions::<DenoInNpmPackageChecker, NpmResolver<RealSys>, RealSys> {
-            root_cert_store_provider: None,
-            module_loader,
             fs,
-            node_services: None,
+            module_loader,
+            permissions: args.permissions,
+            shared_array_buffer_store: Some(sab_store),
             blob_store: Arc::default(),
             broadcast_channel: InMemoryBroadcastChannel::default(),
-            shared_array_buffer_store: Some(sab_store),
-            compiled_wasm_module_store: None,
-            feature_checker: Arc::default(),
-            npm_process_state_provider: None,
-            permissions: args.permissions,
-            deno_rt_native_addon_loader: None,
             bundle_provider: None,
+            compiled_wasm_module_store: None,
+            deno_rt_native_addon_loader: None,
+            feature_checker: Arc::default(),
             main_inspector_session_tx: MainInspectorSessionChannel::default(),
+            node_services: None,
+            npm_process_state_provider: None,
+            root_cert_store_provider: None,
         };
 
         let options = WebWorkerOptions {
-            name: args.name,
-            main_module: args.main_module.clone(),
-            worker_id: args.worker_id,
             bootstrap: BootstrapOptions {
                 location: Some(args.main_module.clone()),
-                user_agent: "et-ws-web-runner".to_string(),
                 mode: WorkerExecutionMode::Worker,
+                user_agent: concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")).to_string(),
                 close_on_idle: false,
                 ..Default::default()
             },
-            extensions: vec![],
-            startup_snapshot: None,
-            residual_lazy_js_sources: &[],
-            residual_lazy_esm_sources: &[],
-            unsafely_ignore_certificate_errors: None,
-            seed: None,
             create_web_worker_cb,
-            format_js_error_fn: None,
+            main_module: args.main_module.clone(),
+            name: args.name,
+            worker_id: args.worker_id,
             worker_type: args.worker_type,
-            stdio: Stdio::default(),
             cache_storage_dir: None,
-            trace_ops: None,
             close_on_idle: false,
-            maybe_worker_metadata: None,
-            maybe_cpu_prof_config: None,
             create_params: None,
-            enable_stack_trace_arg_in_ops: false,
-            maybe_coverage_dir: None,
             enable_raw_imports: false,
+            enable_stack_trace_arg_in_ops: false,
+            extensions: vec![],
+            format_js_error_fn: None,
+            maybe_coverage_dir: None,
+            maybe_cpu_prof_config: None,
+            maybe_worker_metadata: None,
+            residual_lazy_esm_sources: &[],
+            residual_lazy_js_sources: &[],
+            seed: None,
+            startup_snapshot: None,
+            stdio: Stdio::default(),
+            trace_ops: None,
+            unsafely_ignore_certificate_errors: None,
         };
 
         // Pre-shim the worker so browser-environment fakes are in place
@@ -243,28 +246,28 @@ pub async fn run_js_module(
     let sab_store: CrossIsolateStore<SharedRef<BackingStore>> = CrossIsolateStore::default();
 
     let service_options = WorkerServiceOptions::<DenoInNpmPackageChecker, NpmResolver<RealSys>, RealSys> {
+        fs: Arc::clone(&fs),
+        module_loader,
+        permissions,
+        shared_array_buffer_store: Some(sab_store.clone()),
         blob_store: Arc::default(),
         broadcast_channel: InMemoryBroadcastChannel::default(),
         bundle_provider: None,
+        compiled_wasm_module_store: None,
         deno_rt_native_addon_loader: None,
         feature_checker: Arc::default(),
-        fs: Arc::clone(&fs),
-        module_loader,
+        fetch_dns_resolver: Resolver::default(),
         node_services: None,
         npm_process_state_provider: None,
-        permissions,
         root_cert_store_provider: None,
-        fetch_dns_resolver: Resolver::default(),
-        shared_array_buffer_store: Some(sab_store.clone()),
-        compiled_wasm_module_store: None,
         v8_code_cache: None,
     };
 
     let bootstrap = BootstrapOptions {
-        location: Some(ModuleSpecifier::parse(http_base).map_js_err()?),
-        user_agent: "et-ws-web-runner".to_string(),
-        mode: WorkerExecutionMode::Run,
         close_on_idle: true,
+        location: Some(ModuleSpecifier::parse(http_base).map_js_err()?),
+        mode: WorkerExecutionMode::Run,
+        user_agent: concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")).to_string(),
         ..Default::default()
     };
 
@@ -275,9 +278,9 @@ pub async fn run_js_module(
         service_options,
         WorkerOptions {
             bootstrap,
-            startup_snapshot: None,
-            extensions: vec![],
             create_web_worker_cb,
+            extensions: vec![],
+            startup_snapshot: None,
             ..Default::default()
         },
     );

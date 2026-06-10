@@ -4460,6 +4460,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "et-ws-runner-common"
+version = "0.1.0"
+dependencies = [
+ "et-rest-client",
+ "futures-util",
+ "reqwest 0.13.4",
+ "serde_json",
+ "serde_path_to_error",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
 name = "et-ws-sensor1"
 version = "0.1.0"
 dependencies = [
@@ -4613,6 +4626,7 @@ dependencies = [
  "edge-toolkit",
  "et-otlp",
  "et-rest-client",
+ "et-ws-runner-common",
  "et-ws-test-server",
  "futures-util",
  "opentelemetry 0.31.0",
@@ -4665,11 +4679,11 @@ dependencies = [
  "deno_runtime",
  "edge-toolkit",
  "et-rest-client",
+ "et-ws-runner-common",
  "et-ws-test-server",
  "futures-util",
  "rstest",
  "serde",
- "serde_json",
  "sys_traits",
  "thiserror 2.0.18",
  "tokio",
