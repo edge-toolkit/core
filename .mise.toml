@@ -344,6 +344,7 @@ dotnet workload install wasm-tools --skip-manifest-update
 pnpm install --dir services/ws-server/static --ignore-scripts --config.ignoredBuiltDependencies=protobufjs
 zig build --fetch --build-file services/ws-modules/zig-data1/build.zig
 """
+shell = "bash -c"
 
 [tasks.prefetch]
 depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "prefetch-ci"]
@@ -403,6 +404,7 @@ cargo run -q -p et-int-gen --bin et-int-gen
 cargo +nightly fmt -p et-rest-client
 zig fmt generated/zig-rest/src/et_rest_client.zig
 """
+shell = "bash -c"
 
 [tasks.gen-dart-ws]
 depends = ["gen-ws-spec"]
@@ -555,6 +557,7 @@ else
   cargo run
 fi
 """
+shell = "bash -c"
 
 [tasks.build-ws-wasm-agent]
 description = "Build the WebSocket WASM client"
@@ -583,6 +586,7 @@ run = """
 wasm-pack build . --target web
 cargo run -p et-cli -- module-package-json
 """
+shell = "bash -c"
 
 [tasks.build-ws-face-detection-module]
 description = "Build the face detection workflow WASM module"
@@ -591,6 +595,7 @@ run = """
 wasm-pack build . --target web
 cargo run -p et-cli -- module-package-json
 """
+shell = "bash -c"
 
 [tasks.build-ws-comm1-module]
 description = "Build the comm1 workflow WASM module"
@@ -644,6 +649,7 @@ run = """
 dart pub get
 dart compile js lib/dart_comm1.dart -o pkg/et_ws_dart_comm1_compiled.js --no-source-maps
 """
+shell = "bash -c"
 
 [tasks.build-ws-dotnet-data1-module]
 description = "Build the dotnet-data1 C# WASM workflow module"
@@ -802,6 +808,7 @@ run = """
         data/model-modules/model-face1/pkg/video_cv.onnx \
         --http-url https://huggingface.co --progress --ignore-existing
 """
+shell = "bash -c"
 
 [tasks.fetch-har-motion1-rclone]
 run = """
@@ -810,6 +817,7 @@ run = """
         data/model-modules/model-har-motion1/pkg/har-motion1.onnx \
         --http-url https://github.com --progress --ignore-existing
 """
+shell = "bash -c"
 
 [tasks.fetch-mnist-rclone]
 # MNIST classifier used by services/ws-modules/wasi-graphics-info to exercise
@@ -822,6 +830,7 @@ run = """
         services/ws-modules/wasi-graphics-info/pkg/mnist-12.onnx \
         --http-url https://github.com --progress --ignore-existing
 """
+shell = "bash -c"
 
 [tasks.download-models]
 depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "fetch-mnist-rclone"]
