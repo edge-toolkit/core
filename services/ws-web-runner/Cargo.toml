@@ -34,6 +34,14 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
+# deno_io (pulled via deno_runtime) declares `winapi` without its `std` feature,
+# so winapi defines its own `c_void` and its `HANDLE` stops matching std's
+# `RawHandle`, breaking the `from_raw_handle(GetStdHandle(..))` path on Windows
+# (a missing-winapi-feature bug, cf. denoland/deno#24212). Depend on winapi with
+# `std` here so cargo feature unification turns it on for the shared winapi.
+[target.'cfg(windows)'.dependencies]
+winapi.workspace = true
+
 [dev-dependencies]
 et-ws-test-server.workspace = true
 rstest.workspace = true

@@ -154,6 +154,8 @@ wasmtime-wasi = "44"
 wasmtime-wasi-nn = { version = "44", default-features = false, features = ["onnx"] }
 web-sys = "0.3"
 wgpu = { version = "29", default-features = false, features = ["dx12", "metal", "vulkan", "wgsl"] }
+# Windows-only feature-unification shim: forces `winapi/std` on for deno_io.
+winapi = { version = "0.3.9", features = ["std"] }
 wit-bindgen = "0.57"
 wit-encoder = "0.249"
 wit-parser = "0.249"
