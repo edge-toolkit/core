@@ -1,3 +1,9 @@
+# Build output is off-limits: it's gitignored and (per CLAUDE.md) holds agent
+# scratch files under target/scratch/. taplo's baseline `taplo lint` / `format`
+# don't honour .gitignore, and they auto-associate any stray `Cargo.toml` with
+# the SchemaStore Cargo schema — so a scratch fixture there breaks the check.
+exclude = ["target/**"]
+
 [formatting]
 column_width = 120
 reorder_arrays = true
@@ -41,13 +47,16 @@ exclude = ["Cargo.toml"]
 include = ["**/Cargo.toml"]
 schema = { path = "config/taplo/require-workspace-deps.schema.json" }
 
-# Forbid `anyhow` in any dep table — `[dependencies]`, `[dev-dependencies]`,
-# `[build-dependencies]`, `[workspace.dependencies]`, and the `[target.*]`
-# variants. Use a `thiserror` enum instead. Replaces the previous
-# `no-anyhow` ast-grep rule which caught uses but not declarations.
+# Banned dep names across every dep table — `[dependencies]`,
+# `[dev-dependencies]`, `[build-dependencies]`, `[workspace.dependencies]`,
+# and the `[target.*]` variants. Currently `anyhow` (use a `thiserror`
+# enum) and `ureq` (use `reqwest::blocking` -- keeps us on one HTTPS
+# stack). Replaces the previous per-crate `no-anyhow` ast-grep rule
+# which caught uses but not declarations. Add new bans by extending the
+# `depTable.properties` list in the schema.
 [[rule]]
 include = ["**/Cargo.toml"]
-schema = { path = "config/taplo/no-anyhow-dep.schema.json" }
+schema = { path = "config/taplo/no-banned-deps.schema.json" }
 
 # Require `[lib] doctest = false` for every member crate with a [lib].
 # Pairs with the `no-doctest` ast-grep rule: that one bans ``` fenced

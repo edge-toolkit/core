@@ -9,6 +9,7 @@ repository.workspace = true
 [lib]
 crate-type = ["cdylib", "rlib"]
 doctest = false
+test = false
 
 [dependencies]
 edge-toolkit.workspace = true

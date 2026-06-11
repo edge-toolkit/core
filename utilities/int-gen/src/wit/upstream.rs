@@ -223,11 +223,8 @@ pub fn run(project_root: &Path) -> Result<(), Error> {
 
 #[expect(
     clippy::single_call_fn,
-    reason = "named helper called once by run(); the per-package fetch/write split lives apart from the WebGPU path"
-)]
-#[expect(
     clippy::print_stdout,
-    reason = "et-int-gen is a CLI; progress lines on stdout are the intended user-facing output"
+    reason = "helper called once by run(); et-int-gen is a CLI, stdout progress lines are intended user-facing output"
 )]
 fn fetch_one(deps_root: &Path, pkg: &UpstreamPackage) -> Result<(), Error> {
     let dest = deps_root.join(pkg.local_dir);
@@ -244,7 +241,7 @@ fn fetch_one(deps_root: &Path, pkg: &UpstreamPackage) -> Result<(), Error> {
             git_ref = pkg.git_ref,
             file = file.name,
         );
-        let body = ureq::get(&url).call()?.into_string()?;
+        let body = reqwest::blocking::get(&url)?.error_for_status()?.text()?;
         let target = dest.join(file.name);
         fs::write(&target, body)?;
         println!("wrote {}", target.display());
@@ -254,15 +251,12 @@ fn fetch_one(deps_root: &Path, pkg: &UpstreamPackage) -> Result<(), Error> {
 
 #[expect(
     clippy::single_call_fn,
-    reason = "named helper called once by run(); the WebGPU branch needs strip_webgpu(), kept apart from fetch_one()"
-)]
-#[expect(
     clippy::print_stdout,
-    reason = "et-int-gen is a CLI; the progress line matches fetch_one's"
+    reason = "helper called once by run() and needs strip_webgpu(); CLI stdout progress line matches fetch_one's"
 )]
 fn fetch_and_trim_webgpu(deps_root: &Path) -> Result<(), Error> {
     let url = format!("https://raw.githubusercontent.com/WebAssembly/wasi-gfx/{WEBGPU_GIT_REF}/webgpu/webgpu.wit");
-    let raw = ureq::get(&url).call()?.into_string()?;
+    let raw = reqwest::blocking::get(&url)?.error_for_status()?.text()?;
     let stripped = strip_webgpu(&raw)?;
     let dest = deps_root.join("wasi-webgpu");
     if dest.exists() {
@@ -279,17 +273,11 @@ fn fetch_and_trim_webgpu(deps_root: &Path) -> Result<(), Error> {
 /// down to our compute-only subset, and re-emit using `wit-encoder`.
 #[expect(
     clippy::unnecessary_wraps,
-    reason = "signature lets the caller use `?` and matches the surrounding fetch_* helpers"
-)]
-#[expect(
     clippy::single_call_fn,
-    reason = "named helper called once by fetch_and_trim_webgpu(); one logical step (parse / filter / re-emit)"
-)]
-#[expect(
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::unwrap_in_result,
-    reason = "wit-parser yields anyhow::Error (no std::error::Error impl); inputs are compile-time literals"
+    reason = "Result lets caller use ? like fetch_* helpers; called once; wit-parser anyhow::Error, inputs literals"
 )]
 fn strip_webgpu(raw: &str) -> Result<String, Error> {
     let mut resolve = wit_parser::Resolve::default();

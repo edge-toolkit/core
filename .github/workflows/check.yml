@@ -37,6 +37,18 @@ jobs:
         if: runner.os == 'Windows'
         run: python -m pip install pipx
 
+      # Optional npm backend, installed before the main `mise install`.
+      # See [tasks.setup-aube] in .mise.toml for the full rationale.
+      - name: Install aube (optional npm backend, allowed to fail)
+        continue-on-error: true
+        run: |
+          mise settings experimental=true
+          mise run setup-aube
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MISE_HTTP_TIMEOUT: "120"
+          MISE_TASK_RUN_AUTO_INSTALL: "false"
+
       - name: Install mise tools
         run: |
           mise settings add idiomatic_version_file_enable_tools "[]"

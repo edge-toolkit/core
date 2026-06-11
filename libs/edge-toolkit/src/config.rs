@@ -12,8 +12,7 @@ use crate::ports::Services;
 pub const LOCALHOST: &str = "127.0.0.1";
 
 /// Helper to find repository root.
-#[expect(clippy::missing_panics_doc)]
-#[expect(clippy::unwrap_used)]
+#[expect(clippy::missing_panics_doc, clippy::unwrap_used)]
 #[must_use]
 pub fn get_project_root() -> PathBuf {
     match lets_find_up::find_up(".taplo.toml") {
@@ -127,18 +126,24 @@ pub fn mise_npm_modules_path(package: &str) -> Option<PathBuf> {
 
 /// Pure-filesystem version of [`mise_npm_modules_path`]: given an
 /// `<install>` root and a `<package>` name, return the `node_modules`
-/// directory that contains `<package>`. Supports both mise npm backends:
+/// directory that contains `<package>`. Supports the mise npm backends:
 ///
-/// 1. Classical npm/mise: `<install>/lib/node_modules/<package>`
-/// 2. aube backend: `<install>/global-aube/<hash>/node_modules/.aube/node_modules/<package>`
+/// 1. Classical npm/mise (Unix): `<install>/lib/node_modules/<package>`
+/// 2. npm on Windows: `<install>/node_modules/<package>` (no `lib/` segment --
+///    npm's global prefix layout differs by platform)
+/// 3. aube backend: `<install>/global-aube/<hash>/node_modules/.aube/node_modules/<package>`
 ///
-/// Tried in that order; returns `None` if neither layout has the
-/// package.
+/// Tried in that order; returns `None` if no layout has the package.
 #[must_use]
 pub fn find_npm_modules_path_in(install: &Path, package: &str) -> Option<PathBuf> {
     let classical = install.join("lib/node_modules");
     if classical.join(package).is_dir() {
         return Some(classical);
+    }
+
+    let windows = install.join("node_modules");
+    if windows.join(package).is_dir() {
+        return Some(windows);
     }
 
     let aube_root = install.join("global-aube");

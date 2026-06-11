@@ -18,3 +18,4 @@ ignores:
   - libs/web/src/error.rs
   - utilities/cli/src/error.rs
   - services/ws-wasi-runner/src/host/error.rs
+  - services/ws-web-runner/src/error.rs

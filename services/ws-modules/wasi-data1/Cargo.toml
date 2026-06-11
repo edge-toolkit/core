@@ -9,6 +9,7 @@ repository.workspace = true
 [lib]
 crate-type = ["cdylib"]
 doctest = false
+test = false
 
 # Scope the wit-bindgen + serde_json deps to wasi targets so a host
 # `cargo check --workspace` doesn't pull them in. The lib body is gated

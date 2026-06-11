@@ -42,7 +42,14 @@ See the Windows section of [pipx instructions](https://pipx.pypa.io/stable/how-t
 
 ### MacOS only
 
-On MacOS, we need to install a better linker into the workspace.
+On MacOS, the Xcode Command Line Tools (`clang`, `git`, `make`, etc.) must be
+installed first:
+
+```bash
+xcode-select --install
+```
+
+We also need to install a better linker into the workspace.
 
 ```bash
 mise install conda:lld

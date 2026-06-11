@@ -30,7 +30,7 @@ defaults:
 jobs:
   dependencies:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,6 +45,21 @@ jobs:
 
       - name: osv-scanner
         run: osv-scanner --lockfile Cargo.lock
+
+      # `cargo unmaintained` persists per-repository archival/last-commit
+      # lookups under `$XDG_CACHE_HOME/cargo-unmaintained` (default
+      # `~/.cache/cargo-unmaintained`, with a versioned `v2/` subdir). On a
+      # cold runner the per-dependency GitHub round-trips take ~12 min, which
+      # nearly blew the old 15-min timeout; restoring this cache keeps reruns
+      # fast. Key on Cargo.lock so a dependency change refreshes; the prefix
+      # restore-key reuses the previous cache for crates that didn't change.
+      - name: Cache cargo-unmaintained lookups
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/cargo-unmaintained
+          key: cargo-unmaintained-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-unmaintained-
 
       # `cargo unmaintained` queries the GitHub API to check whether each
       # declared upstream repository is archived. Without a token the

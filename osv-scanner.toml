@@ -1,0 +1,19 @@
+# Ignore list mirrored from `deny.toml`'s `[advisories].ignore`. See
+# `deny.toml` for the per-ID rationale (which crate pulls the
+# vulnerable version, why the bug isn't reachable in this runner,
+# and what upstream change drops the ignore). Keep both files in
+# sync -- when an ID is removed from `deny.toml`, remove it here too.
+IgnoredVulns = [
+  { id = "RUSTSEC-2023-0071" },
+  { id = "RUSTSEC-2024-0436" },
+  { id = "RUSTSEC-2025-0134" },
+  { id = "RUSTSEC-2025-0141" },
+  { id = "RUSTSEC-2026-0049" },
+  { id = "RUSTSEC-2026-0097" },
+  { id = "RUSTSEC-2026-0098" },
+  { id = "RUSTSEC-2026-0099" },
+  { id = "RUSTSEC-2026-0104" },
+  { id = "RUSTSEC-2026-0118" },
+  { id = "RUSTSEC-2026-0119" },
+  { id = "RUSTSEC-2026-0173" },
+]

@@ -1,9 +1,7 @@
 [tools]
 action-validator = "latest"
-aube = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 cargo-binstall = "latest"
 "cargo:ast-grep" = "latest"
-"cargo:aube" = { version = "latest", os = ["macos/x64"] }
 "cargo:cargo-deny" = "latest"
 "cargo:cargo-expand" = "latest"
 "cargo:dart-typegen" = "latest"
@@ -17,10 +15,11 @@ cargo-binstall = "latest"
 "chromedriver" = { version = "146", os = ["linux", "macos"] }
 cmake = "latest"
 "conda:lld" = "latest"
-"conda:openssl" = "latest"
+"conda:openssl" = "3"
 dart = { version = "latest", url = "https://storage.googleapis.com/dart-archive/channels/stable/release/{{ version }}/sdk/dartsdk-{{ os() }}-{{ arch() }}-release.zip", version_expr = 'fromJSON(body).prefixes | filter({ # matches "^channels/stable/release/(\\d+\\.\\d+\\.\\d+)/$" }) | map({split(#, "/")[3]}) | sortVersions()', version_list_url = "https://storage.googleapis.com/storage/v1/b/dart-archive/o?prefix=channels/stable/release/&delimiter=/" }
-dotnet = "latest"
-dotnet-core = "latest"
+# Pinned: SDK churn re-keys the wasm-tools workload manifest, forcing a ~1.5GB pack re-download on every bump.
+dotnet = "10.0.300"
+dotnet-core = "10.0.300"
 "dotnet:roslynator.dotnet.cli" = "latest"
 dprint = "latest"
 editorconfig-checker = "latest"
@@ -56,6 +55,7 @@ pipx = { version = "latest", os = ["linux", "macos"] }
 "pipx:datamodel-code-generator" = { version = "latest", extras = "ruff" }
 "pipx:openapi-python-client" = "0.29.0"
 "pipx:pytest" = "latest"
+"pipx:semgrep" = "latest"
 # The default aqua backend has no darwin/amd64 prebuilt; fall back to
 # `npm:pnpm` on Intel Mac (node is already a mise tool above).
 "npm:pnpm" = { version = "latest", os = ["macos/x64"] }
@@ -89,6 +89,16 @@ OPENSSL_DIR = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest"
 # already points into.
 CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld={{ env.HOME }}/.local/share/mise/installs/conda-lld/latest/bin/ld64.lld -C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest/lib"
 CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld={{ env.HOME }}/.local/share/mise/installs/conda-lld/latest/bin/ld64.lld -C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest/lib"
+# Linux needs the same rpath the macOS flags above carry, for the same reason:
+# OPENSSL_DIR points openssl-sys at conda's OpenSSL, so anything linking it
+# (e.g. the ort-sys build script) records conda's `libssl` soname. Without an
+# rpath the runtime loader only finds it when conda's soname happens to match
+# the system one Ubuntu ships on the default path — which broke when conda
+# bumped to `libssl.so.4` (no system equivalent). Point the loader at conda's
+# own lib dir so the soname is irrelevant. No `-fuse-ld=lld`: the system
+# linker on Linux accepts `-Wl,-rpath` directly, unlike Apple clang's lld dance.
+CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "-C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest/lib"
+CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "-C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest/lib"
 # Silence Maven's per-artifact download/upload progress lines (the
 # "Downloading from central:" / "Downloaded" spam). Build output and real
 # errors still print. MAVEN_ARGS is honored by Maven 3.9+ and prepends to
@@ -152,7 +162,7 @@ set -euo pipefail
 dart pub get --directory generated/dart-ws
 dart pub get --directory services/ws-modules/dart-comm1
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.dart-check]
 depends = ["dart-pub-get"]
@@ -178,6 +188,7 @@ run = "dart format --output=none --set-exit-if-changed services/ws-modules/dart-
 # workflow via `taiki-e/install-action` since it isn't useful enough
 # locally to justify the cargo-build cost on every `mise install`.
 depends = [
+  "action-validator",
   "ast-grep-check",
   "cargo-check",
   "cargo-clippy",
@@ -191,6 +202,7 @@ depends = [
   "gen-specs-check",
   "ruff-check",
   "ruff-fmt-check",
+  "semgrep-check",
   "taplo-check",
   "typos",
   "verification-check",
@@ -198,9 +210,17 @@ depends = [
 ]
 description = "Run repository checks"
 
+[tasks.action-validator]
+description = "Validate GitHub Actions workflow YAML"
+run = "action-validator .github/workflows/*.yml"
+
 [tasks.ast-grep-check]
 description = "Run ast-grep structural-search rules"
 run = "ast-grep scan --error -c config/ast-grep/sgconfig.yml"
+
+[tasks.semgrep-check]
+description = "Run Semgrep generic-mode rules (e.g. Cargo.toml style)"
+run = "semgrep scan --config config/semgrep --error --metrics=off ."
 
 [tasks.cargo-check]
 run = "cargo check --workspace"
@@ -245,15 +265,11 @@ while IFS= read -r line; do
   members+=("$line")
 done < <(find . -name Cargo.toml -not -path './target/*' -not -path './Cargo.toml')
 
-# All Cargo.tomls including the workspace root — `no-anyhow-dep` also
-# covers `[workspace.dependencies]`, so the root has to be in this list.
-all_cargo_toml=()
-while IFS= read -r line; do
-  all_cargo_toml+=("$line")
-done < <(find . -name Cargo.toml -not -path './target/*')
-
-# Schemas that apply to every Cargo.toml (including the workspace root).
-taplo lint --schema "file://$PWD/config/taplo/no-anyhow-dep.schema.json" "${all_cargo_toml[@]}"
+# Banned deps only need to be checked at the workspace root: member
+# crates are required to reference deps via `workspace = true` (the
+# `require-workspace-deps` schema below), so any banned dep can only
+# enter the build through `[workspace.dependencies]` here.
+taplo lint --schema "file://$PWD/config/taplo/no-banned-deps.schema.json" Cargo.toml
 
 # Schemas that apply to every member crate.
 taplo lint --schema "file://$PWD/config/taplo/no-path-deps.schema.json" "${members[@]}"
@@ -275,10 +291,35 @@ for f in "${members[@]}"; do
 done
 taplo lint --schema "file://$PWD/config/taplo/require-lints-section.schema.json" "${lint_inheritable[@]}"
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.typos]
 run = "typos"
+
+[tasks.setup-aube]
+# `aube` is an OPTIONAL faster npm backend, kept out of the mandatory `[tools]`
+# list because its install is flaky on some platforms and edge-toolkit falls
+# back to the classical `lib/node_modules` layout without it (see
+# `find_npm_modules_path_in`).
+#
+# CI (check.yml / test.yml) runs this task in its own allowed-to-fail step,
+# placed BEFORE the main `mise install` so the `npm:onnxruntime-web` install
+# can pick up aube as its backend. That step sets `MISE_TASK_RUN_AUTO_INSTALL=
+# false`, otherwise `mise run` would eagerly install the whole toolset before
+# the task body — defeating both the ordering and the best-effort intent.
+#
+# Platform split: aqua ships aube for linux/macos-arm64/windows; macos/x64 has
+# no aqua asset, so use the cargo backend there. The branch is rendered by
+# mise's tera templating, so it works regardless of the task shell (cmd on
+# Windows).
+description = "Install the optional aube npm backend (platform-specific, best-effort)"
+run = """
+{% if os() == "macos" and arch() == "x64" %}
+mise install cargo:aube@latest
+{% else %}
+mise install aube@latest
+{% endif %}
+"""
 
 [tasks.osv-scanner]
 depends = ["cargo-check"]
@@ -290,38 +331,79 @@ run = "osv-scanner --lockfile Cargo.lock"
 # so the link target exists. Only `fetch-mnist-rclone` is pulled here —
 # CI tests don't exercise the face1 / har-motion1 models, and skipping
 # those avoids the HuggingFace rate-limit that bites Windows runners.
-depends = ["build-ws-wasm-agent", "fetch-mnist-rclone"]
+depends = [
+  "fetch-mnist-rclone",
+  "prefetch:dart",
+  "prefetch:dotnet",
+  "prefetch:java",
+  "prefetch:node",
+  "prefetch:python",
+  "prefetch:rust",
+  "prefetch:zig",
+]
 description = "Pre-download CI-required dependencies + the MNIST model"
-run = """
-cargo check --workspace
-dart pub get --directory services/ws-modules/dart-comm1
-uv sync --directory services/ws-modules/pydata1
-uv sync --directory services/ws-modules/pyface1
-mvn dependency:resolve --quiet
-dotnet restore
-pnpm install --dir services/ws-server/static --ignore-scripts --config.ignoredBuiltDependencies=protobufjs
-zig build --fetch --build-file services/ws-modules/zig-data1/build.zig
-"""
 
 [tasks.prefetch]
 depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "prefetch-ci"]
 description = "Pre-download all dependencies and models (superset of prefetch-ci)"
 
-[tasks.prefetch-ci.env]
-# pnpm refuses non-TTY destructive node_modules cleanup unless `CI=true`,
-# which fires when an earlier install left a different layout (e.g. before
-# `link:` was wired up). Treat `mise run prefetch-ci` as a CI-style batch.
+[tasks."prefetch:rust"]
+description = "Prefetch the Rust (cargo) dependencies"
+# `cargo fetch` downloads the full Cargo.lock graph (all targets) without
+# compiling — the actual build happens in build-modules / the test step. Avoids
+# the redundant `cargo check --workspace` compile (and its large target/ dir).
+run = "cargo fetch"
+
+[tasks."prefetch:dart"]
+description = "Prefetch Dart (pub) dependencies"
+run = "dart pub get --directory services/ws-modules/dart-comm1"
+
+[tasks."prefetch:java"]
+description = "Prefetch Java (Maven) dependencies"
+run = "mvn dependency:resolve --quiet"
+
+[tasks."prefetch:zig"]
+description = "Prefetch Zig build dependencies"
+run = "zig build --fetch --build-file services/ws-modules/zig-data1/build.zig"
+
+[tasks."prefetch:dotnet"]
+description = "Prefetch .NET dependencies and the wasm-tools workload"
+run = """
+dotnet restore
+dotnet workload install wasm-tools --skip-manifest-update
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks."prefetch:node"]
+# Needs `build-ws-wasm-agent` first: the static workspace `link:`s its `pkg/`,
+# so the link target must exist before `pnpm install`.
+depends = ["build-ws-wasm-agent"]
+description = "Prefetch the Node (pnpm) static workspace"
+run = "pnpm install --dir services/ws-server/static --ignore-scripts --config.ignoredBuiltDependencies=protobufjs"
+
+[tasks."prefetch:node".env]
+# pnpm refuses non-TTY destructive node_modules cleanup unless CI=true, which
+# fires when an earlier install left a different layout. Treat as a CI batch.
 CI = "true"
+
+[tasks."prefetch:python"]
+description = "Prefetch Python (uv) dependencies"
+run = """
+uv sync --directory services/ws-modules/pydata1
+uv sync --directory services/ws-modules/pyface1
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks."prefetch:python".env]
 # UV_PYTHON pins uv to the mise-managed regular CPython, not Pyodide's
 # emscripten-wasm32 interpreter. mise's `http-pyodide` install ships a
 # `python` wrapper script in its install dir that uv's auto-discovery
 # finds and prefers — it reports CPython 3.13.2, so bare version requests
-# (`3.13`, `python3.13`, `cpython@3.13`) don't disambiguate. Resolving the
-# absolute path inline used to live in the `run` body as
-# `export UV_PYTHON="$(mise which python3.13)"`, but on Windows mise dispatches
-# `run` through `cmd`, which has no `export`. Using mise's `exec()` template
-# here keeps the value resolved by mise (shell-agnostic) and matches the
-# same idiom used by `[tasks.test-pyface1.env]` further down.
+# (`3.13`, `python3.13`, `cpython@3.13`) don't disambiguate. Resolve the
+# absolute path via mise's `exec()` template rather than a shell `export` in
+# the `run` body: the template is evaluated by mise (shell-agnostic), so it
+# works under `cmd` on Windows, which has no `export`. Matches the same idiom
+# used by `[tasks.test-pyface1.env]` further down.
 #
 # Windows quirk: mise's python-build-standalone install on Windows only
 # exposes `python.exe` (no `python3.13.exe`), so `mise which python3.13`
@@ -361,17 +443,18 @@ cargo run -q -p et-int-gen --bin et-int-gen
 cargo +nightly fmt -p et-rest-client
 zig fmt generated/zig-rest/src/et_rest_client.zig
 """
+shell = "bash -euo pipefail -c"
 
 [tasks.gen-dart-ws]
 depends = ["gen-ws-spec"]
 description = "Emit Dart sealed-class client for the WS protocol via dart-typegen (consumes generated/specs/ws.kdl emitted by gen-ws-spec)"
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 # dart-typegen exits 0 on Windows but writes an empty .dart file, which
 # would clobber the committed source and fail gen-specs-check. Skip the
 # regen there; the committed file (regenerated on Linux/macOS) stays
 # canonical.
 run = """
-[[ "$OS" == "Windows_NT" ]] && { echo "gen-dart-ws: skipped on Windows (dart-typegen produces an empty file)"; exit 0; }
+[[ "${OS:-}" == "Windows_NT" ]] && { echo "gen-dart-ws: skipped on Windows (dart-typegen produces an empty file)"; exit 0; }
 mkdir -p generated/dart-ws/lib
 dart-typegen generate -i generated/specs/ws.kdl -o generated/dart-ws/lib/ws_messages.dart
 dart format generated/dart-ws/lib/ws_messages.dart
@@ -401,7 +484,7 @@ rm -rf generated/python-rest/et_rest_client/.ruff_cache
 ruff check --fix generated/python-rest/et_rest_client
 ruff format generated/python-rest/et_rest_client
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.gen-python-ws]
 depends = ["gen-ws-spec"]
@@ -440,7 +523,7 @@ rm generated/python-ws/et_ws/messages.py.bak
 ruff check --fix generated/python-ws/et_ws/messages.py
 ruff format generated/python-ws/et_ws/messages.py
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.gen-specs]
 depends = ["gen-dart-ws", "gen-python-rest", "gen-python-ws", "gen-ws-spec"]
@@ -458,10 +541,10 @@ description = "Fail if any checked-in artifact under generated/ is stale"
 # indentation differently across nightlies; pipx-driven python codegen
 # emits subtly different output). Linux/macOS runs are canonical.
 run = """
-[[ "$OS" == "Windows_NT" ]] && { echo "gen-specs-check: skipped on Windows (regen is non-deterministic there)"; exit 0; }
+[[ "${OS:-}" == "Windows_NT" ]] && { echo "gen-specs-check: skipped on Windows (regen is non-deterministic there)"; exit 0; }
 git diff --exit-code -- generated
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-et-ws-wheel]
 depends = ["gen-python-ws"]
@@ -475,7 +558,7 @@ rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 cargo run -p et-cli -- module-package-json
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-et-rest-client-wheel]
 depends = ["gen-python-rest"]
@@ -486,7 +569,7 @@ rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 cargo run -p et-cli -- module-package-json
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 # `cargo-watch` is unmaintained; `watchexec` is its successor (and what
 # `cargo-watch` always called under the hood). Restart on .rs/.toml
@@ -513,6 +596,7 @@ else
   cargo run
 fi
 """
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-wasm-agent]
 description = "Build the WebSocket WASM client"
@@ -537,18 +621,18 @@ run = "wasm-pack build . --target web"
 [tasks.build-ws-har1-module]
 description = "Build the har1 workflow WASM module"
 dir = "services/ws-modules/har1"
-run = """
-wasm-pack build . --target web
-cargo run -p et-cli -- module-package-json
-"""
+# Chain with `&&` on one line rather than a multi-line `bash` block: wasm-pack
+# shells out to `cargo metadata`, and that subprocess can't find `cargo` under
+# Git Bash on Windows. The default shell (cmd there) resolves cargo like the
+# single-line wasm-pack modules do.
+run = "wasm-pack build . --target web && cargo run -p et-cli -- module-package-json"
 
 [tasks.build-ws-face-detection-module]
 description = "Build the face detection workflow WASM module"
 dir = "services/ws-modules/face-detection"
-run = """
-wasm-pack build . --target web
-cargo run -p et-cli -- module-package-json
-"""
+# See build-ws-har1-module: `&&` on one line under the default shell so
+# wasm-pack's `cargo metadata` subprocess can find cargo on Windows.
+run = "wasm-pack build . --target web && cargo run -p et-cli -- module-package-json"
 
 [tasks.build-ws-comm1-module]
 description = "Build the comm1 workflow WASM module"
@@ -602,6 +686,7 @@ run = """
 dart pub get
 dart compile js lib/dart_comm1.dart -o pkg/et_ws_dart_comm1_compiled.js --no-source-maps
 """
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-dotnet-data1-module]
 description = "Build the dotnet-data1 C# WASM workflow module"
@@ -613,7 +698,7 @@ dotnet publish -c Release
 PUBLISH=bin/Release/net10.0/publish/wwwroot/_framework
 cp "$PUBLISH"/*.js "$PUBLISH"/*.wasm "$PUBLISH"/*.dat pkg/
 '''
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-wasi-graphics-info-module]
 description = "Build the WASI graphics-info Python module as a WASI Preview 2 component"
@@ -633,7 +718,7 @@ componentize-py -d ../../../generated/specs/wit -w module bindings .
 componentize-py -d ../../../generated/specs/wit -w module componentize wasi_graphics_info -o pkg/et_ws_wasi_graphics_info.wasm
 cargo run -p et-cli -- module-package-json
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-wasi-data1-module]
 description = "Build the Rust WASI data1 module as a WASI Preview 2 component"
@@ -648,7 +733,7 @@ mkdir -p services/ws-modules/wasi-data1/pkg
 cp target/wasm32-wasip2/release/et_ws_wasi_data1.wasm services/ws-modules/wasi-data1/pkg/et_ws_wasi_data1.wasm
 cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi-data1
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-wasi-comm1-module]
 description = "Build the Rust WASI comm1 module as a WASI Preview 2 component"
@@ -658,7 +743,7 @@ mkdir -p services/ws-modules/wasi-comm1/pkg
 cp target/wasm32-wasip2/release/et_ws_wasi_comm1.wasm services/ws-modules/wasi-comm1/pkg/et_ws_wasi_comm1.wasm
 cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi-comm1
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-pydata1-module]
 depends = ["build-et-rest-client-wheel"]
@@ -673,7 +758,7 @@ rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 cargo run -p et-cli -- module-package-json
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-pyface1-module]
 depends = ["build-et-ws-wheel"]
@@ -688,7 +773,7 @@ rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 cargo run -p et-cli -- module-package-json
 """
-shell = "bash -c"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-java-data1-module]
 description = "Build the java-data1 workflow module"
@@ -706,6 +791,7 @@ depends = [
   "build-ws-comm1-module",
   "build-ws-dart-comm1-module",
   "build-ws-data1-module",
+  "build-ws-dotnet-data1-module",
   "build-ws-face-detection-module",
   "build-ws-geolocation-module",
   "build-ws-graphics-info-module",
@@ -759,6 +845,7 @@ run = """
         data/model-modules/model-face1/pkg/video_cv.onnx \
         --http-url https://huggingface.co --progress --ignore-existing
 """
+shell = "bash -euo pipefail -c"
 
 [tasks.fetch-har-motion1-rclone]
 run = """
@@ -767,6 +854,7 @@ run = """
         data/model-modules/model-har-motion1/pkg/har-motion1.onnx \
         --http-url https://github.com --progress --ignore-existing
 """
+shell = "bash -euo pipefail -c"
 
 [tasks.fetch-mnist-rclone]
 # MNIST classifier used by services/ws-modules/wasi-graphics-info to exercise
@@ -779,12 +867,28 @@ run = """
         services/ws-modules/wasi-graphics-info/pkg/mnist-12.onnx \
         --http-url https://github.com --progress --ignore-existing
 """
+shell = "bash -euo pipefail -c"
 
 [tasks.download-models]
 depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "fetch-mnist-rclone"]
 
 [tasks.cargo-test]
-run = "cargo test --workspace"
+# Excludes `et-ws-web-runner` -- its tests need single-threaded
+# execution (see `test-ws-web-runner` below); running the rest of the
+# workspace in parallel keeps the total wall-clock down.
+run = "cargo test --workspace --exclude et-ws-web-runner"
+
+[tasks.test-ws-web-runner]
+description = "Run et-ws-web-runner integration tests serialized"
+# Each test case boots a full `MainWorker` (deno_runtime) -- ~10x
+# heavier than the `JsRuntime` it replaced. 8 in parallel exhausts
+# local fd/port budgets on macOS, surfacing as "error sending request
+# for url" when the runner's wrapper module dynamic-`import()`s its
+# module JS. Pin to one thread so the suite is deterministic.
+run = "cargo test -p et-ws-web-runner"
+
+[tasks.test-ws-web-runner.env]
+RUST_TEST_THREADS = "1"
 
 [tasks.test-pyface1]
 dir = "services/ws-modules/pyface1"
@@ -800,5 +904,5 @@ run = "uv run pytest"
 UV_PYTHON = "{% if os() == 'windows' %}{{ exec(command='mise where python') }}/python.exe{% else %}{{ exec(command='mise which python3.13') }}{% endif %}"
 
 [tasks.test]
-depends = ["cargo-test", "test-pyface1"]
+depends = ["cargo-test", "test-pyface1", "test-ws-web-runner"]
 description = "Run all tests"

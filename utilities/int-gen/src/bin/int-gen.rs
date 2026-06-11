@@ -1,9 +1,3 @@
-// See lib.rs -- Error inherits ureq::Error's bulk; immaterial for a CLI.
-#![expect(
-    clippy::result_large_err,
-    reason = "et-int-gen is a one-shot CLI; the ureq::Error byte footprint is intentional"
-)]
-
 //! CLI entrypoint for `et-int-gen`. All real work lives in the library
 //! (`et_int_gen`); this file just parses arguments and dispatches.
 

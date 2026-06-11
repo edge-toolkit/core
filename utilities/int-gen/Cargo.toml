@@ -28,6 +28,7 @@ pretty_yaml.workspace = true
 prettyplease.workspace = true
 progenitor.workspace = true
 quote.workspace = true
+reqwest = { workspace = true, features = ["blocking", "rustls"] }
 schemars.workspace = true
 semver.workspace = true
 serde.workspace = true
@@ -37,7 +38,6 @@ syn.workspace = true
 thiserror.workspace = true
 tree-sitter.workspace = true
 tree-sitter-zig.workspace = true
-ureq.workspace = true
 utoipa.workspace = true
 wit-encoder = { workspace = true, features = ["from-parser"] }
 wit-parser.workspace = true

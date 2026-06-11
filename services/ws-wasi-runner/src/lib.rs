@@ -8,72 +8,18 @@
 //!
 //! See `wit/world.wit` for the host/guest contract.
 
-// `RunnerError` ends up large because `et_rest_client::Error<()>` carries an
-// inline `reqwest::Response` (~136 B). Boxing the variant would shave the
-// parent enum but cost a `From` impl per variant; not worth it for an
-// internal crate.
-#![expect(
-    clippy::result_large_err,
-    reason = "et_rest_client::Error<()> dominates the footprint; boxing would force per-variant From impls"
-)]
-
-use futures_util::StreamExt as _;
+use et_ws_runner_common::{collect_byte_stream, derive_http_base, fetch_main_field};
 use tracing::Instrument as _;
 use wasmtime::component::{Component, HasSelf, Linker};
 use wasmtime::{Config, Engine, Store};
 
 pub mod bindings;
+pub mod config;
 pub mod error;
 pub mod host;
 
 pub use self::error::RunnerError;
 pub use self::host::HostState;
-
-/// Convert a WebSocket URL to its HTTP base.
-pub fn derive_http_base(ws_url: &str) -> Result<String, RunnerError> {
-    let (scheme, rest) = if let Some(suffix) = ws_url.strip_prefix("wss://") {
-        ("https", suffix)
-    } else if let Some(suffix) = ws_url.strip_prefix("ws://") {
-        ("http", suffix)
-    } else {
-        return Err(RunnerError::InvalidWsUrl {
-            ws_url: ws_url.to_string(),
-        });
-    };
-    let host_port = rest.strip_suffix("/ws").unwrap_or(rest);
-    Ok(format!("{scheme}://{host_port}"))
-}
-
-/// Drain a progenitor `ByteStream` into a `Vec<u8>`.
-async fn collect_byte_stream(mut stream: et_rest_client::ByteStream) -> Result<Vec<u8>, RunnerError> {
-    let mut buf = Vec::new();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk?;
-        buf.extend_from_slice(&chunk);
-    }
-    Ok(buf)
-}
-
-/// Read the module's `package.json` from the ws-server and extract its `main` field.
-///
-/// The `main` field names the WASI component binary.
-#[expect(
-    clippy::single_call_fn,
-    reason = "named helper; kept separate so the package.json fetch span scopes cleanly"
-)]
-#[tracing::instrument(name = "fetch_package_json", skip(client), err)]
-async fn fetch_main_field(client: &et_rest_client::Client, module_name: &str) -> Result<String, RunnerError> {
-    let response = client.get_module_file(module_name, "package.json").await?;
-    let bytes = collect_byte_stream(response.into_inner()).await?;
-    let mut deserializer = serde_json::Deserializer::from_slice(&bytes);
-    let pkg: serde_json::Value = serde_path_to_error::deserialize(&mut deserializer)?;
-    pkg.get("main")
-        .and_then(|value| value.as_str())
-        .map(str::to_string)
-        .ok_or_else(|| RunnerError::PackageJsonMissingMain {
-            module: module_name.to_string(),
-        })
-}
 
 /// Download, link, and run the WASI component for `module_name`.
 ///

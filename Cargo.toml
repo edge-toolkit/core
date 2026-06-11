@@ -10,6 +10,7 @@ members = [
   "libs/et-otlp",
   "libs/otlp-mock",
   "libs/web",
+  "libs/ws-runner-common",
   "services/ws-modules/audio1",
   "services/ws-modules/bluetooth",
   "services/ws-modules/comm1",
@@ -30,6 +31,7 @@ members = [
   "services/ws-server",
   "services/ws-wasm-agent",
   "services/ws-wasi-runner",
+  "services/ws-web-runner",
   "services/ws-test-server",
   "utilities/int-gen",
   "utilities/cli",
@@ -52,12 +54,21 @@ bytemuck = { version = "1.16", features = ["derive"] }
 bytes = "1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive"] }
+deno_core = "0.402.0"
+deno_error = "=0.7.1"
+deno_resolver = "0.80.0"
+# `transpile` enables on-the-fly TS transpilation (deno_node ships its own TS).
+# `hmr` makes `op_snapshot_options` use `state.try_take(...).unwrap_or_default()`
+# instead of panicking when no SnapshotOptions struct is in OpState -- without
+# baking our own startup snapshot we'd otherwise hit the panic on first run.
+deno_runtime = { version = "0.257.0", features = ["transpile", "hmr"] }
 edge-toolkit = { path = "libs/edge-toolkit", version = "0.1.0" }
 et-modules-service = { path = "services/modules", version = "0.1.0" }
 et-otlp = { path = "libs/et-otlp", version = "0.1.0" }
 et-rest-client = { path = "generated/rust-rest", version = "0.1.0", default-features = false }
 et-storage-service = { path = "services/storage", version = "0.1.0" }
 et-web = { path = "libs/web", version = "0.1.0" }
+et-ws-runner-common = { path = "libs/ws-runner-common", version = "0.1.0" }
 et-ws-server = { path = "services/ws-server", version = "0.1.0" }
 et-ws-service = { path = "services/ws", version = "0.1.0" }
 et-ws-test-server = { path = "services/ws-test-server", version = "0.1.0" }
@@ -67,6 +78,7 @@ futures-core = "0.3"
 futures-util = "0.3"
 heck = "0.5"
 hostname = "0.4"
+humantime-serde = "1"
 js-sys = "0.3"
 kdl = { version = "6", features = ["v1"] }
 lets_find_up = "0.0.4"
@@ -112,6 +124,7 @@ serde_path_to_error = "0.1"
 serde_urlencoded = "0.7"
 serde_yaml = "0.9"
 syn = "2"
+sys_traits = { version = "0.1.28", features = ["libc", "real"] }
 temp-env = "0.3"
 tempfile = "3"
 testing_logger = "0.1"
@@ -131,7 +144,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-wasm = "0.2"
 tree-sitter = "0.25"
 tree-sitter-zig = "1"
-ureq = "2"
 utoipa = { version = "5", features = ["actix_extras", "yaml"] }
 uuid = { version = "1", features = ["serde", "v4", "v7"] }
 wasm-bindgen = "0.2"
@@ -142,6 +154,8 @@ wasmtime-wasi = "44"
 wasmtime-wasi-nn = { version = "44", default-features = false, features = ["onnx"] }
 web-sys = "0.3"
 wgpu = { version = "29", default-features = false, features = ["dx12", "metal", "vulkan", "wgsl"] }
+# Windows-only feature-unification shim: forces `winapi/std` on for deno_io.
+winapi = { version = "0.3.9", features = ["std"] }
 wit-bindgen = "0.57"
 wit-encoder = "0.249"
 wit-parser = "0.249"
@@ -271,18 +285,82 @@ missing_panics_doc = { level = "allow", priority = 4 }
 
 [workspace.metadata.unmaintained]
 ignore = [
+  # No `repository` declared. Pulled by deno_node_crypto for AES-GCM.
+  "aead-gcm-stream",
+  # Archived upstream (servo/bincode). Pulled by deno_core for snapshot
+  # serialisation; will move when Deno upgrades to bincode 2.
+  "bincode",
+  # 1153 days since last update at bitvecto-rs/bitvec. Pulled by
+  # sourcemap (via swc tooling under deno_ast).
+  "bitvec",
+  # 536 days since last update at dsherret/capacity_builder. Pulled by
+  # deno_ast.
+  "capacity_builder",
+  # 1702 days since last update at jethrogb/rust-cexpr. Pulled by
+  # bindgen (build-time only via aws-lc-sys / ort-sys).
+  "cexpr",
+  # 577 days since last update at dajoha/color-print. Pulled by
+  # deno_node via color-print.
+  "color-print-proc-macro",
   # Archived upstream at matklad/countme.
   "countme",
+  # 676 days since last update at denoland/deno_native_certs. Pulled
+  # by deno_node + deno_tls.
+  "deno_native_certs",
+  # No `repository` declared. Pulled by deno_node for `os.userInfo()`.
+  "deno_whoami",
   # 1853 days since last update at xdg-rs/dirs.
   "dirs-sys-next",
+  # 3182 days since last update at faradayio/exec-rs. Pulled by Deno's
+  # `node_shim` (process re-exec on Node compatibility shim).
+  "exec",
+  # 933 days since last update at HdrHistogram/HdrHistogram_rust.
+  # Pulled by deno_node (perf hooks).
+  "hdrhistogram",
+  # 460 days since last update at xacrimon/dashmap. Pulled by
+  # deno_maybe_sync. (Marked stable / feature-complete by upstream.)
+  "dashmap",
+  # 495 days since last update at rust-lang-nursery/lazy-static.rs.
+  # Pulled by actix-web-thiserror-derive (build proc-macro).
+  "lazy_static",
+  # 391 days since last update at rust-num/num-complex. Pulled by
+  # nalgebra (via wgpu / naga). Stable foundational math crate.
+  "num-complex",
+  # 2215 days since last update at SSheldon/rust-objc. Pulled by
+  # `metal` (macOS GPU bindings via wgpu).
+  "objc",
+  # Not in declared repo (RustCrypto/utils). Pulled by ghash (via
+  # aead-gcm-stream above) and other RustCrypto crates as a tiny
+  # helper. Effectively dormant but functional.
+  "opaque-debug",
   # cargo-unmaintained doesn't follow `hg` repositories.
   "oorandom",
+  # 1052 days since last update at hjiayz/p12. Pulled by deno_node_crypto
+  # for PKCS#12 cert bundles.
+  "p12",
+  # Archived upstream at dtolnay/paste. Pulled by macro_rules_attribute
+  # via wgpu. Compile-time only.
+  "paste",
+  # Archived upstream at GnomedDev/proc-macro-error-2 (the maintained
+  # fork of the original proc-macro-error). Both now unmaintained.
+  # Pulled by getset via neli via local-ip-address. Compile-time only.
+  "proc-macro-error-attr2",
+  "proc-macro-error2",
   # 603 days since last update at timvisee/qr2term-rs.
   "qr2term",
   # False positive: rand_chacha lives in rust-random/rand as a workspace
   # subdir (rand_chacha/), but cargo-unmaintained looks only at the
   # repo root and reports "not in".
   "rand_chacha",
+  # Archived upstream at rustls/pemfile. Pulled by deno_native_certs.
+  # rustls itself has moved to inline pemfile parsing.
+  "rustls-pemfile",
+  # 2154 days since last update at arcnmx/serde-value. Pulled by
+  # deno_ffi.
+  "serde-value",
+  # Archived upstream at bodil/smartstring. Pulled by swc_ecma_lexer
+  # via deno_ast.
+  "smartstring",
   # https://github.com/rustsec/advisory-db/issues/2132
   "serde_yaml",
   # 700 days since last update at dalek-cryptography/subtle.
@@ -304,4 +382,11 @@ ignore = [
   # Declared repository WebAssembly/WASI is spec-only (no `crates/`
   # tree). The crate is effectively orphaned upstream.
   "witx",
+  # Archived upstream at SimonSapin/rust-wtf8. Pulled by
+  # v8_valueserializer via deno_core. UTF-8 / WTF-8 conversions for
+  # V8's structured-clone serializer.
+  "wtf8",
+  # Not in declared repo (kornelski/xml-rs). Pulled by gl_generator
+  # (build-time only, OpenGL bindings via wgpu).
+  "xml-rs",
 ]

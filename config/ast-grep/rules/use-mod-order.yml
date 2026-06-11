@@ -1,0 +1,27 @@
+id: use-mod-order
+language: Rust
+severity: error
+message: |
+  Order top-level items: external `use` (std / third-party) first, then
+  `mod` / `pub mod` declarations, then local `use self::` / `crate::` /
+  `super::`. So an external `use` must not appear after a `mod`, and a
+  `self`/`crate`/`super` `use` must not appear before a `mod`.
+rule:
+  any:
+    # External use (not self/crate/super) sitting after a `mod` declaration.
+    - all:
+        - kind: use_declaration
+        - not:
+            regex: '^(pub(\([^)]*\))?\s+)?use\s+(self|crate|super)\b'
+        - follows:
+            kind: mod_item
+            stopBy: end
+    # Local use (self/crate/super) sitting before a `mod` declaration.
+    - all:
+        - kind: use_declaration
+        - regex: '^(pub(\([^)]*\))?\s+)?use\s+(self|crate|super)\b'
+        - precedes:
+            kind: mod_item
+            stopBy: end
+ignores:
+  - generated/**

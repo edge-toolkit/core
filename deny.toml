@@ -7,6 +7,66 @@ version = 2
 # Crates pulled from a yanked version are an unambiguous bug — pin them
 # back to a live release.
 yanked = "deny"
+# Advisories we've reviewed and consciously accept until upstream Deno
+# migrates. Each entry names the vulnerable crate, the path that pulls
+# it, and the runtime reason it isn't exploitable here. Drop entries as
+# upstream catches up; never silence one without a written reason.
+ignore = [
+  # bincode 1.3.3 (unmaintained). Pulled by deno_core for snapshot /
+  # cache serialization. Unmaintained ≠ vulnerable; bincode 2 exists
+  # but deno_core 0.402 still uses 1.x. Awaiting Deno's migration.
+  "RUSTSEC-2025-0141",
+  # paste 1.0.15 (unmaintained). Build-time proc-macro pulled via
+  # macro_rules_attribute → wgpu-core → deno_webgpu. Used at compile
+  # time only; no runtime exposure. Awaiting wgpu's migration.
+  "RUSTSEC-2024-0436",
+  # proc-macro-error2 2.0.1 (unmaintained). Build-time proc-macro via
+  # getset → neli → local-ip-address. Compile-time only.
+  "RUSTSEC-2026-0173",
+  # rustls-pemfile 2.2.0 (unmaintained). PEM cert parser pulled by
+  # deno_native_certs for loading the system CA bundle. Unmaintained,
+  # not vulnerable; rustls itself has moved to inline pemfile parsing.
+  "RUSTSEC-2025-0134",
+  # hickory-proto 0.25.2 NSEC3 closest-encloser proof unbounded loop
+  # (DoS on DNSSEC validation). Pulled by deno_net for resolver, but
+  # the runner never enables DNSSEC validation -- only plain A/AAAA
+  # lookups for outbound fetch / WebSocket. Validation path is
+  # unreachable here.
+  "RUSTSEC-2026-0118",
+  # hickory-proto 0.25.2 O(n²) name compression during message encode.
+  # Encoder side, hit only when we *send* a DNS message; the runner
+  # uses the OS resolver via hickory and never crafts outbound DNS
+  # frames with attacker-controlled name lists.
+  "RUSTSEC-2026-0119",
+  # rand 0.8.5 -- transitive via cap-rand (wasi-runner) + deno_crypto /
+  # deno_fs / deno_node (web-runner). Used for non-cryptographic
+  # randomness (jitter, salt scratchpads). Awaiting upstream Deno + cap-
+  # rand migration to rand 0.9.
+  "RUSTSEC-2026-0097",
+  # rsa 0.9.10 Marvin Attack timing sidechannel on RSA decryption.
+  # Pulled by deno_crypto + deno_node_crypto. The runner doesn't hold
+  # private RSA keys or decrypt RSA payloads -- only TLS server cert
+  # verification (which uses *signature* checks, no decryption). Not
+  # reachable unless guest JS explicitly imports crypto.subtle and
+  # performs RSA-OAEP decrypt with a private key, which our modules
+  # don't.
+  "RUSTSEC-2023-0071",
+  # rustls-webpki 0.102.8 -- four advisories, all unreachable here.
+  # All pinned by deno_fetch ^0.102 / deno_tls ^0.236 (under
+  # deno_runtime). The runner uses rustls only for HTTPS *client*
+  # verification against system roots:
+  #   * 2026-0049, 2026-0104 (CRL-parsing bugs) -- we never load CRLs
+  #     into ClientConfig.
+  #   * 2026-0098, 2026-0099 (name-constraint bypass for URI /
+  #     wildcard certs) -- relevant only when validating certs whose
+  #     subject names include URI SANs or are wildcard-issued under
+  #     name-constrained intermediates; our HTTPS endpoints don't.
+  # Drop all four when deno_fetch upgrades to rustls-webpki >=0.103.13.
+  "RUSTSEC-2026-0049",
+  "RUSTSEC-2026-0098",
+  "RUSTSEC-2026-0099",
+  "RUSTSEC-2026-0104",
+]
 
 [licenses]
 version = 2
@@ -20,6 +80,9 @@ allow = [
   "Apache-2.0 WITH LLVM-exception",
   "BSD-2-Clause",
   "BSD-3-Clause",
+  # clipboard-win + error-code (transitive via deno_runtime → rustyline).
+  # Boost Software License 1.0 -- permissive, OSI-approved, FSF Free/Libre.
+  "BSL-1.0",
   # webpki-roots / webpki-root-certs (Mozilla's CA bundle).
   "CDLA-Permissive-2.0",
   # hexf-parse (transitive via cranelift). Public-domain dedication.
@@ -39,11 +102,40 @@ multiple-versions = "warn"
 # taplo `no-wildcard-or-git-deps` schema; double-cover here so it shows
 # up in a security-style report too.
 wildcards = "deny"
-# Direct-dep bans live in `config/taplo/no-anyhow-dep.schema.json` (and
-# its future siblings). cargo-deny's `bans.deny` would also catch
-# transitives — too coarse, since e.g. `wasmtime → ittapi → anyhow` is
-# unavoidable. Keep this list empty so the two rules stay scoped to
-# their respective layers (declaration vs. graph-wide).
+# Crate-by-crate bans live in `config/taplo/no-banned-deps.schema.json`
+# (declaration-time check on workspace [dependencies]). The `deny`
+# entries below catch *transitive* uses that the taplo rule can't see.
+deny = [
+  # `ring` is forbidden except via the wrappers listed below. The rest
+  # of the dep graph reaches the same primitives via `aws-lc-rs`. Any
+  # new transitive parent that drags `ring` back in surfaces as an
+  # `unmatched-wrapper` error here so we can decide whether to migrate
+  # it to aws-lc-rs or extend the list.
+  # See https://github.com/EmbarkStudios/cargo-deny/issues/776 for the
+  # `wrappers` pattern.
+  #
+  # Current allowed parents:
+  #   * `rcgen` -- server-side TLS cert generation in et-ws-server.
+  #     Intentional; rcgen's ring feature is what we want for the cert
+  #     generator.
+  #   * `rustls-webpki` -- pulled by deno_fetch + deno_tls (default
+  #     features include `ring`). Drop once Deno's TLS stack migrates
+  #     to aws-lc-rs defaults.
+  #   * `quinn-proto` -- pulled by deno_net via quinn (default features
+  #     include `ring`). Drop once Deno's quinn config switches to the
+  #     `rustls-aws-lc-rs` feature.
+  { crate = "ring", wrappers = ["rcgen", "rustls-webpki", "quinn-proto"] },
+  # `ureq` is forbidden except via the wrappers listed below. Direct
+  # use is blocked by the taplo no-banned-deps schema; this entry
+  # catches transitive paths the same way as `ring` above.
+  #
+  # Current allowed parents:
+  #   * `ort-sys` -- build-only dependency. ort-sys's build.rs fetches
+  #     the prebuilt ONNX Runtime binaries from Pyke's CDN via ureq.
+  #     Ureq never ships in the compiled artifact; the attack surface
+  #     is the build host only.
+  { crate = "ureq", wrappers = ["ort-sys"] },
+]
 
 [sources]
 # Only crates.io. New git or alternate-registry deps must be added to

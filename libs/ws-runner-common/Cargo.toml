@@ -1,0 +1,32 @@
+[package]
+name = "et-ws-runner-common"
+description = "Shared helpers for the ws-module runners (et-ws-wasi-runner, et-ws-web-runner)"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+doctest = false
+name = "et_ws_runner_common"
+path = "src/lib.rs"
+
+[dependencies]
+edge-toolkit.workspace = true
+et-rest-client.workspace = true
+futures-util.workspace = true
+humantime-serde.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde-inline-default.workspace = true
+serde_default.workspace = true
+serde_json.workspace = true
+serde_path_to_error.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+serde-env.workspace = true
+
+[lints]
+workspace = true
