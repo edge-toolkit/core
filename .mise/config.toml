@@ -85,11 +85,11 @@ mnist_src = ":http:onnx/models/raw/main/validated/vision/classification/mnist/mo
 mnist_dst = "services/ws-modules/wasi-graphics-info/pkg/mnist-12.onnx"
 
 [env]
-# Comma-separated list of every language env, auto-discovered from the sibling
-# config.<lang>.toml filenames (exec runs from this file's dir, i.e. .mise/;
-# the config.*.toml glob excludes this config.toml). Used as MISE_ENV by the
-# *-all tasks to act on every language at once (mise has no MISE_ENV=all).
-ALL_LANGS = '{{ exec(command="ls config.*.toml | cut -d. -f2 | paste -sd, -") }}'
+# Comma-separated list of every language env (one per .mise/config.<lang>.toml).
+# Used as MISE_ENV by the *-all tasks to act on every language at once (mise has
+# no MISE_ENV=all). Hardcoded rather than shell-discovered so it works on Windows
+# too — keep in sync when adding/removing a config.<lang>.toml.
+ALL_LANGS = "dart,dotnet,java,python,rust,zig"
 # Use the conda:openssl install for Rust's OPENSSL_DIR so openssl-sys crate builds.
 OPENSSL_DIR = "{{ vars.conda_openssl }}"
 # Use lld on macos as documented at https://github.com/cameron1024/dart-typegen
@@ -145,9 +145,11 @@ depends = ["cargo-clippy-fix", "cargo-fmt", "dprint-fmt", "taplo-fmt"]
 description = "Run the Rust + universal repo-wide formatters"
 
 [tasks.fmt]
+# Native `depends` glob (not a nested `mise run`) so it works on Windows and
+# activates each task's tools. fmt:rust is always loaded, so the glob never
+# matches zero (which mise would error on); guest fmt:<lang> join when loaded.
+depends = ["fmt:*"]
 description = "Run all formatters: fmt:rust + any loaded guest fmt:<lang>"
-run = "mise run 'fmt:*'"
-shell = "bash -c"
 
 [tasks."check:rust"]
 # The dep-audit tools (osv-scanner, cargo-deny, cargo-unmaintained) run
@@ -181,12 +183,13 @@ depends = [
 description = "Run the Rust + universal repo-wide checks"
 
 [tasks.check]
-# Pure glob (no depends) so check:rust and every loaded guest check:<lang> run
-# as parallel siblings — a failure in one still reports the others, instead of
-# gating the guests behind the Rust checks passing.
+# Native `depends` glob: check:rust and every loaded guest check:<lang> run as
+# parallel siblings (all report, none gated), with each task's tools activated.
+# check:rust is always loaded so the glob never matches zero. (Avoid a nested
+# `mise run 'check:*'` — that breaks tool activation and the `[env]` exec on
+# Windows.)
+depends = ["check:*"]
 description = "Run all checks: check:rust + any loaded guest check:<lang>"
-run = "mise run 'check:*'"
-shell = "bash -c"
 
 [tasks.action-validator]
 description = "Validate GitHub Actions workflow YAML"
@@ -308,13 +311,12 @@ run = "osv-scanner --lockfile Cargo.lock"
 # those avoids the HuggingFace rate-limit that bites Windows runners.
 #
 # `prefetch:rust` + `prefetch:node` live in this default config (always
-# loaded); the guest-language `prefetch:<lang>` tasks come from their loaded
-# MISE_ENV configs. The glob picks up whichever are loaded — CI sets MISE_ENV
-# to every language so all of them run.
-depends = ["fetch-mnist-rclone"]
+# loaded), so the `prefetch:*` glob never matches zero; guest-language
+# `prefetch:<lang>` tasks join from their loaded MISE_ENV configs. Native
+# `depends` glob (not a nested `mise run`) so each task's tools are activated —
+# a nested run left `dart`/`zig` off PATH on Windows.
+depends = ["fetch-mnist-rclone", "prefetch:*"]
 description = "Pre-download CI-required dependencies + the MNIST model"
-run = "if mise tasks ls --no-header | grep -q '^prefetch:'; then mise run 'prefetch:*'; fi"
-shell = "bash -c"
 
 [tasks.prefetch]
 depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "prefetch-ci"]
@@ -353,7 +355,7 @@ run = "git diff --exit-code -- verification"
 description = "Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions (run by hand on bumps)"
 run = "cargo run -q -p et-int-gen --bin et-int-gen -- fetch-deps"
 
-[tasks.gen-ws-spec]
+[tasks."gen:ws-spec"]
 description = "Run et-int-gen: emit the language-agnostic WS specs (YAML/WIT/KDL/JSON) + the Rust REST client"
 # et-int-gen runs progenitor + prettyplease to produce
 # generated/rust-rest/src/lib.rs. prettyplease's style disagrees with our
@@ -365,8 +367,9 @@ description = "Run et-int-gen: emit the language-agnostic WS specs (YAML/WIT/KDL
 #
 # `generate core` emits the language-agnostic specs every per-language `gen:*`
 # task consumes (ws.kdl, *.schema.json, rest.yaml), so this task stays in the
-# always-loaded default config and every `gen:<lang>` depends on it. The Zig
-# client (`gen:zig-rest`) moved to config.zig.toml since it needs `zig fmt`.
+# always-loaded default config (its `gen:` name also anchors the `gen:*` glob)
+# and every `gen:<lang>` depends on it. The Zig client (`gen:zig-rest`) moved to
+# config.zig.toml since it needs `zig fmt`.
 run = """
 cargo run -q -p et-int-gen --bin et-int-gen -- generate core
 cargo run -q -p et-int-gen --bin et-int-gen -- generate rust
@@ -375,13 +378,12 @@ cargo +nightly fmt -p et-rest-client
 shell = "bash -euo pipefail -c"
 
 [tasks.gen-specs]
-# `gen-ws-spec` (core + Rust client) always runs; the guest-language `gen:*`
-# tasks come from their loaded MISE_ENV configs. Run with MISE_ENV covering
-# every language (e.g. `mise run gen-specs-all`) to regenerate everything.
-depends = ["gen-ws-spec"]
-description = "Regenerate every loaded spec artifact under generated/ (core + Rust + any loaded guest `gen:*`)"
-run = "if mise tasks ls --no-header | grep -q '^gen:'; then mise run 'gen:*'; fi"
-shell = "bash -c"
+# Native `depends` glob: gen:ws-spec (core + Rust client, always loaded) anchors
+# the glob so it never matches zero; guest `gen:<lang>` tasks join from their
+# loaded MISE_ENV configs. Run with MISE_ENV covering every language (e.g.
+# `mise run gen-specs-all`) to regenerate everything.
+depends = ["gen:*"]
+description = "Regenerate every loaded spec artifact under generated/ (core + Rust + any loaded guest gen)"
 
 [tasks.gen-specs-check]
 depends = ["gen-specs"]
@@ -443,16 +445,14 @@ CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS = "{{ vars.wasm_rustflags }}"
 RUSTUP_TOOLCHAIN = "nightly"
 
 [tasks.build-modules]
-# `build-ws-wasm-agent` (no `-module` suffix, and not gated behind an env) is
-# an explicit dep so the glob doesn't miss it. The glob then builds every
-# loaded `build-ws-*-module` — all of which now live in a MISE_ENV config:
-# the Rust modules in config.rust.toml, the guest-language modules (dart-comm1,
+# Native `depends` glob over `build-ws-*`: that matches `build-ws-wasm-agent`
+# (always loaded here, no `-module` suffix — so the glob never matches zero)
+# plus every loaded `build-ws-*-module`. The module builds now live in MISE_ENV
+# configs: the Rust ones in config.rust.toml, the guest ones (dart-comm1,
 # dotnet-data1, java-data1, zig-data1, pydata1, pyface1, wasi-graphics-info) in
-# theirs. Each matches only when its env is loaded. CI sets MISE_ENV to every
-# language, so all of them build (or use `build-modules-all`).
-depends = ["build-ws-wasm-agent"]
-run = "if mise tasks ls --no-header | grep -q '^build-ws-.*-module'; then mise run 'build-ws-*-module'; fi"
-shell = "bash -c"
+# theirs — each joins when its env is loaded. CI sets MISE_ENV to every language
+# (or use `build-modules-all`). A nested `mise run` here broke tools on Windows.
+depends = ["build-ws-*"]
 description = "Build all loaded WebAssembly modules"
 
 [tasks.test-ws-wasm-agent-firefox]
@@ -532,9 +532,9 @@ depends = ["cargo-test", "test-ws-web-runner"]
 description = "Run the Rust tests"
 
 [tasks.test]
+# Native `depends` glob; test:rust is always loaded so it never matches zero.
+depends = ["test:*"]
 description = "Run all tests: test:rust + any loaded guest test:<lang>"
-run = "mise run 'test:*'"
-shell = "bash -c"
 
 # --- Cross-language orchestration (stand-ins for the MISE_ENV=all mise lacks).
 # `$ALL_LANGS` is auto-discovered in `[env]` above from the config.<lang>.toml

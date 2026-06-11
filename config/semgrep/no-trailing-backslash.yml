@@ -10,8 +10,9 @@ rules:
         - "/README.md"
         - "/utilities/cli/README.md"
         - "/services/ws-server/Dockerfile"
-        - "/verification/local/output/facility-security-scenario/compose.yaml"
-        - "/verification/local/output/facility-security-scenario/mise.toml"
+        # Generated deployment artifacts (regen-verification output).
+        - "/verification/**/mise.toml"
+        - "/verification/**/compose.yaml"
     pattern-regex: '\\[ \t]*$'
     message: >-
       Trailing-backslash line continuations are not allowed in this repo. Keep

@@ -73,8 +73,8 @@ description = "Prefetch Dart (pub) dependencies"
 run = "dart pub get --directory services/ws-modules/dart-comm1"
 
 [tasks."gen:dart-ws"]
-depends = ["gen-ws-spec"]
-description = "Emit the Dart sealed-class WS client via dart-typegen (consumes generated/specs/ws.kdl from gen-ws-spec)"
+depends = ["gen:ws-spec"]
+description = "Emit the Dart sealed-class WS client via dart-typegen (consumes generated/specs/ws.kdl from gen:ws-spec)"
 shell = "bash -euo pipefail -c"
 # dart-typegen exits 0 on Windows but writes an empty .dart file, which
 # would clobber the committed source and fail gen-specs-check. Skip the

@@ -34,7 +34,7 @@ description = "Prefetch Zig build dependencies"
 run = "zig build --fetch --build-file services/ws-modules/zig-data1/build.zig"
 
 [tasks."gen:zig-rest"]
-depends = ["gen-ws-spec"]
+depends = ["gen:ws-spec"]
 description = "Emit the Zig REST client via et-int-gen (openapi2zig + tree-sitter post-process), then zig-fmt it"
 # et-int-gen's `generate zig` re-derives the OpenAPI doc, runs openapi2zig, and
 # post-processes the result; it is a no-op when openapi2zig isn't on PATH (e.g.

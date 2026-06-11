@@ -173,7 +173,7 @@ UV_PYTHON = """\
 {% else %}{{ exec(command='mise which python3.13') }}{% endif %}"""
 
 [tasks."gen:python-rest"]
-depends = ["gen-ws-spec"]
+depends = ["gen:ws-spec"]
 description = "Emit the typed Python REST client via openapi-python-client (consumes generated/specs/rest.yaml)"
 run = """
 mkdir -p generated/python-rest/et_rest_client
@@ -199,7 +199,7 @@ ruff format generated/python-rest/et_rest_client
 shell = "bash -euo pipefail -c"
 
 [tasks."gen:python-ws"]
-depends = ["gen-ws-spec"]
+depends = ["gen:ws-spec"]
 description = "Emit Pydantic models for the WS protocol via datamodel-code-generator"
 run = """
 mkdir -p generated/python-ws/et_ws
