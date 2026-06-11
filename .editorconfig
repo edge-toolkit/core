@@ -12,15 +12,6 @@ trim_trailing_whitespace = true
 [*.md]
 indent_size = unset
 
-[.mise.toml]
-max_line_length = off
-
-[*.dart]
-max_line_length = off
-
-[*.wit]
-max_line_length = 300
-
 # License files use the canonical upstream formatting (centred headers, odd
 # indent widths, etc.) — leave them alone.
 [LICENSE-*]

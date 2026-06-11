@@ -1,0 +1,238 @@
+# Python toolchain + tasks (uv, Pyodide, the codegen CLIs). Loaded when
+# MISE_ENV includes `python`. The bare `pipx` tool stays in the default config;
+# the `pipx:*` entries below resolve through it.
+
+[tools]
+"pipx:cmake" = "latest"
+"pipx:componentize-py" = "latest"
+"pipx:datamodel-code-generator" = { version = "latest", extras = "ruff" }
+"pipx:openapi-python-client" = "0.29.0"
+"pipx:pytest" = "latest"
+python = "3.13"
+ruff = "latest"
+uv = "0.11.8"
+
+# Use the GitHub release tarball, not `npm:pyodide`. The npm package is only
+# the runtime (pyodide.js, .wasm, stdlib, micropip) ~5 MB — it's designed for
+# JS apps that fetch the rest from JsDelivr's Pyodide custom-CDN namespace
+# (https://www.jsdelivr.com/oss-cdn) at runtime. We need the ~200 MB "full"
+# distribution served locally so browser modules work offline; that's only
+# published as a tarball on GitHub releases. The extracted tarball contains a
+# top-level `pyodide/` directory the modules service picks up — see
+# `default_modules_folders` in libs/edge-toolkit/src/config.rs.
+[tools."http:pyodide"]
+version = "0.29.3"
+url = "https://github.com/pyodide/pyodide/releases/download/{{ version }}/pyodide-{{ version }}.tar.bz2"
+
+[vars]
+# Directories the ruff tasks lint/format (the generated componentize-py dirs
+# under them are excluded by ruff.toml's `extend-exclude`).
+py_dirs = "services/ws-modules/ generated/python-ws/ generated/python-rest/"
+# Shared WIT dir for the wasi-graphics-info componentize-py build (relative to
+# that module's dir); used by both the bindings and componentize steps.
+wit_dir = "../../../generated/specs/wit"
+
+[tasks]
+ruff-check = "ruff check {{ vars.py_dirs }}"
+ruff-fmt = "ruff format {{ vars.py_dirs }}"
+ruff-fmt-check = "ruff format --check {{ vars.py_dirs }}"
+
+# Namespaced aggregators picked up by the default config's globbed
+# `check`/`fmt`/`test`.
+[tasks."check:python"]
+depends = ["ruff-check", "ruff-fmt-check"]
+description = "Run Python checks (ruff lint + format-check)"
+
+[tasks."fmt:python"]
+depends = ["ruff-fmt"]
+description = "Format Python sources"
+
+[tasks."test:python"]
+depends = ["test-pyface1"]
+description = "Run Python tests"
+
+[tasks.test-pyface1]
+dir = "services/ws-modules/pyface1"
+run = "uv run pytest"
+
+[tasks.test-pyface1.env]
+# See the long-form comment in `[tasks."prefetch:python".env]` for why this is
+# a per-OS tera template: `mise which python3.13` works on Linux/macOS and
+# disambiguates from pyodide's `python` wrapper; on Windows mise's
+# python-build-standalone install only exposes `python.exe`, so we fall
+# back to `mise which python` (pyodide doesn't shim on Windows, so
+# there's no ambiguity to resolve).
+UV_PYTHON = """\
+{% if os() == 'windows' %}{{ exec(command='mise where python') }}/python.exe\
+{% else %}{{ exec(command='mise which python3.13') }}{% endif %}"""
+
+[tasks.build-et-ws-wheel]
+depends = ["gen:python-ws"]
+description = "Build the generated et-ws Python package as a wheel + ws-module pkg/"
+dir = "generated/python-ws"
+# Wheel goes straight into pkg/ alongside the committed et_ws.js shim so the
+# whole dir is what et-modules-service mounts at /modules/et-ws/. Delete
+# stale wheels first — uv build leaves prior versions in place.
+run = """
+rm -f pkg/*.whl
+uv build --wheel --out-dir pkg
+cargo run -p et-cli -- module-package-json
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.build-et-rest-client-wheel]
+depends = ["gen:python-rest"]
+description = "Build the generated et-rest-client Python package as a wheel + ws-module pkg/"
+dir = "generated/python-rest"
+run = """
+rm -f pkg/*.whl
+uv build --wheel --out-dir pkg
+cargo run -p et-cli -- module-package-json
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.build-ws-pydata1-module]
+depends = ["build-et-rest-client-wheel"]
+description = "Build the pydata1 Python workflow module"
+dir = "services/ws-modules/pydata1"
+# et-rest-client is its own ws-module mounted at /modules/et-rest-client/;
+# pydata1 declares it under [tool.ws-module.dependencies] and loads the
+# wheel at runtime from that mount via the shim's `installWheel` helper —
+# no need to copy the wheel here.
+run = """
+rm -f pkg/*.whl
+uv build --wheel --out-dir pkg
+cargo run -p et-cli -- module-package-json
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.build-ws-pyface1-module]
+depends = ["build-et-ws-wheel"]
+description = "Build the pyface1 Python face detection workflow module"
+dir = "services/ws-modules/pyface1"
+# et-ws is its own ws-module mounted at /modules/et-ws/; pyface1 declares
+# it under [tool.ws-module.dependencies] and loads the wheel at runtime
+# from that mount via the shim's `installWheel` helper — no need to copy
+# the wheel here.
+run = """
+rm -f pkg/*.whl
+uv build --wheel --out-dir pkg
+cargo run -p et-cli -- module-package-json
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.build-ws-wasi-graphics-info-module]
+description = "Build the WASI graphics-info Python module as a WASI Preview 2 component"
+dir = "services/ws-modules/wasi-graphics-info"
+# WIT lives once at generated/specs/wit/ — the runner's `runner` world is
+# what its bindgen consumes; the `module` world (which `include`s `runner`
+# and adds wasi-nn) is what guest modules target. `mnist-12.onnx` is
+# fetched into `pkg/` by `mise run download-models` (see
+# `fetch-mnist-rclone`); componentize-py 0.23 doesn't bundle arbitrary
+# data files inside the component image, so the guest fetches it via the
+# `wasi:keyvalue/store` host import from the ws-server at runtime.
+# componentize-py 0.23's `bindings` subcommand refuses to overwrite an
+# existing output dir, so we wipe it first.
+run = """
+rm -rf wit_world
+componentize-py -d {{ vars.wit_dir }} -w module bindings .
+componentize-py -d {{ vars.wit_dir }} -w module componentize wasi_graphics_info -o pkg/et_ws_wasi_graphics_info.wasm
+cargo run -p et-cli -- module-package-json
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks."prefetch:python"]
+description = "Prefetch Python (uv) dependencies"
+run = """
+uv sync --directory services/ws-modules/pydata1
+uv sync --directory services/ws-modules/pyface1
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks."prefetch:python".env]
+# UV_PYTHON pins uv to the mise-managed regular CPython, not Pyodide's
+# emscripten-wasm32 interpreter. mise's `http-pyodide` install ships a
+# `python` wrapper script in its install dir that uv's auto-discovery
+# finds and prefers — it reports CPython 3.13.2, so bare version requests
+# (`3.13`, `python3.13`, `cpython@3.13`) don't disambiguate. Resolve the
+# absolute path via mise's `exec()` template rather than a shell `export` in
+# the `run` body: the template is evaluated by mise (shell-agnostic), so it
+# works under `cmd` on Windows, which has no `export`. Matches the same idiom
+# used by `[tasks.test-pyface1.env]` above.
+#
+# Windows quirk: mise's python-build-standalone install on Windows only
+# exposes `python.exe` (no `python3.13.exe`), so `mise which python3.13`
+# errors with "not a mise bin". And `mise which python` resolves to
+# pyodide's bundled `python.exe` (uv fails to inspect it — the pyodide
+# shim's `sys.path` injection is not a valid uv interpreter). Use
+# `mise where python` instead — that returns the python plugin's
+# install dir specifically — and append `python.exe`, the bin name
+# python-build-standalone places at the install root on Windows.
+UV_PYTHON = """\
+{% if os() == 'windows' %}{{ exec(command='mise where python') }}/python.exe\
+{% else %}{{ exec(command='mise which python3.13') }}{% endif %}"""
+
+[tasks."gen:python-rest"]
+depends = ["gen-ws-spec"]
+description = "Emit the typed Python REST client via openapi-python-client (consumes generated/specs/rest.yaml)"
+run = """
+mkdir -p generated/python-rest/et_rest_client
+openapi-python-client generate \
+  --config config/openapi-python-client.yaml \
+  --path generated/specs/rest.yaml \
+  --meta none \
+  --overwrite \
+  --output-path generated/python-rest/et_rest_client
+# openapi-python-client / our follow-up ruff drop a .ruff_cache next to
+# the generated source; we don't want that committed.
+rm -rf generated/python-rest/et_rest_client/.ruff_cache
+# openapi-python-client's built-in post-hooks (`ruff check --fix-only`
+# + `ruff format`) are disabled via config/openapi-python-client.yaml
+# because they emit "ruff is not in PATH" on Windows where ruff doesn't
+# sit alongside openapi-python-client in pipx's venv. Run both passes
+# ourselves from the workspace's `ruff` install: check first to apply
+# fixable lints (including isort's "I" rules from ruff.toml), then
+# format so the final output stays canonical.
+ruff check --fix generated/python-rest/et_rest_client
+ruff format generated/python-rest/et_rest_client
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks."gen:python-ws"]
+depends = ["gen-ws-spec"]
+description = "Emit Pydantic models for the WS protocol via datamodel-code-generator"
+run = """
+mkdir -p generated/python-ws/et_ws
+# `--custom-file-header "#"` is the only way to suppress datamodel-codegen's
+# "generated by datamodel-codegen / filename: …" banner (an empty string is
+# treated as "no override" and the default banner returns). Strip the
+# remaining lone `#` line below so the file starts cleanly.
+# `--formatters ruff-format ruff-check` opts in to the new ruff-based
+# formatter stack — silences the FutureWarning about black/isort being
+# replaced and gives us a single formatter (ruff) end-to-end. The `[ruff]`
+# extra on the pipx install (in [tools]) puts ruff in datamodel-codegen's
+# venv so it can find it.
+datamodel-codegen \
+  --input target/int-gen/ws.schema.json \
+  --input-file-type jsonschema \
+  --output generated/python-ws/et_ws/messages.py \
+  --output-model-type pydantic_v2.BaseModel \
+  --target-python-version 3.10 \
+  --use-schema-description \
+  --use-title-as-name \
+  --use-double-quotes \
+  --use-union-operator \
+  --field-constraints \
+  --disable-timestamp \
+  --formatters ruff-format ruff-check \
+  --custom-file-header '#'
+sed -i.bak -e '1{/^#$/d;}' -e '2{/^$/d;}' generated/python-ws/et_ws/messages.py
+rm generated/python-ws/et_ws/messages.py.bak
+# datamodel-codegen's ruff formatter runs without our repo ruff.toml, so
+# line-length defaults differ and imports aren't isort-grouped. Re-run
+# ruff from the repo to apply both — `check --fix` for import sorting
+# ("I" rules in ruff.toml), then `format` for whitespace.
+ruff check --fix generated/python-ws/et_ws/messages.py
+ruff format generated/python-ws/et_ws/messages.py
+"""
+shell = "bash -euo pipefail -c"

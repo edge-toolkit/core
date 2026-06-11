@@ -1,0 +1,88 @@
+# Dart toolchain + tasks. Loaded when MISE_ENV includes `dart`.
+
+[vars]
+# Google dart-archive base URLs — the release tree and the bucket listing —
+# referenced by [tools.dart] below so its url/version_list_url stay one line.
+dart_release = "https://storage.googleapis.com/dart-archive/channels/stable/release"
+dart_bucket = "https://storage.googleapis.com/storage/v1/b/dart-archive/o"
+
+[tools]
+"cargo:dart-typegen" = "latest"
+
+# dart isn't an aqua/registry tool — install it straight from Google's dart
+# archive, discovering the latest stable from the bucket listing. `{{ version }}`
+# etc. resolve in the tool-url context; the static host/path prefix is a var.
+[tools.dart]
+version = "latest"
+url = "{{ vars.dart_release }}/{{ version }}/sdk/dartsdk-{{ os() }}-{{ arch() }}-release.zip"
+version_list_url = "{{ vars.dart_bucket }}?prefix=channels/stable/release/&delimiter=/"
+version_expr = '''
+fromJSON(body).prefixes
+| filter({ # matches "^channels/stable/release/(\\d+\\.\\d+\\.\\d+)/$" })
+| map({split(#, "/")[3]})
+| sortVersions()'''
+
+[tasks.dart-pub-get]
+# `dart format` and `dart analyze` walk up to find pubspec.yaml *and* read
+# `.dart_tool/package_config.json` if present. With package_config.json, the
+# formatter picks the package's exact language version; without it, it
+# falls back to a different default — same source file, different output.
+# That mismatch is invisible locally (we accumulate .dart_tool/ over time)
+# but bites CI's fresh checkout. Run `dart pub get` for every Dart package
+# before any dart-* task so .dart_tool/ exists and the format is stable.
+run = """
+dart pub get --directory generated/dart-ws
+dart pub get --directory services/ws-modules/dart-comm1
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.dart-check]
+depends = ["dart-pub-get"]
+run = "dart analyze services/ws-modules/dart-comm1/ generated/dart-ws/"
+
+[tasks.dart-fmt]
+depends = ["dart-pub-get"]
+run = "dart format services/ws-modules/dart-comm1/ generated/dart-ws/"
+
+[tasks.dart-fmt-check]
+depends = ["dart-pub-get"]
+# Parallel of cargo-fmt-check: fail if any tracked Dart source would be
+# reformatted, so CI enforces the same formatting `dart-fmt` applies.
+run = "dart format --output=none --set-exit-if-changed services/ws-modules/dart-comm1/ generated/dart-ws/"
+
+# Namespaced aggregators picked up by the default config's globbed `check`/`fmt`.
+[tasks."check:dart"]
+depends = ["dart-check", "dart-fmt-check"]
+description = "Run Dart checks (analyze + format-check)"
+
+[tasks."fmt:dart"]
+depends = ["dart-fmt"]
+description = "Format Dart sources"
+
+[tasks.build-ws-dart-comm1-module]
+description = "Build the dart-comm1 workflow module"
+dir = "services/ws-modules/dart-comm1"
+run = """
+dart pub get
+dart compile js lib/dart_comm1.dart -o pkg/et_ws_dart_comm1_compiled.js --no-source-maps
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks."prefetch:dart"]
+description = "Prefetch Dart (pub) dependencies"
+run = "dart pub get --directory services/ws-modules/dart-comm1"
+
+[tasks."gen:dart-ws"]
+depends = ["gen-ws-spec"]
+description = "Emit the Dart sealed-class WS client via dart-typegen (consumes generated/specs/ws.kdl from gen-ws-spec)"
+shell = "bash -euo pipefail -c"
+# dart-typegen exits 0 on Windows but writes an empty .dart file, which
+# would clobber the committed source and fail gen-specs-check. Skip the
+# regen there; the committed file (regenerated on Linux/macOS) stays
+# canonical.
+run = """
+[[ "${OS:-}" == "Windows_NT" ]] && { echo "gen:dart-ws: skipped on Windows (dart-typegen empty output)"; exit 0; }
+mkdir -p generated/dart-ws/lib
+dart-typegen generate -i generated/specs/ws.kdl -o generated/dart-ws/lib/ws_messages.dart
+dart format generated/dart-ws/lib/ws_messages.dart
+"""

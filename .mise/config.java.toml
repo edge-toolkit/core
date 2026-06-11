@@ -1,0 +1,20 @@
+# Java toolchain + tasks. Loaded when MISE_ENV includes `java`.
+
+[tools]
+java = "latest"
+maven = "latest"
+
+[env]
+# Silence Maven's per-artifact download/upload progress lines (the
+# "Downloading from central:" / "Downloaded" spam). Build output and real
+# errors still print. MAVEN_ARGS is honored by Maven 3.9+ and prepends to
+# every `mvn` invocation.
+MAVEN_ARGS = "--no-transfer-progress"
+
+[tasks.build-ws-java-data1-module]
+description = "Build the java-data1 workflow module"
+run = "mvn package"
+
+[tasks."prefetch:java"]
+description = "Prefetch Java (Maven) dependencies"
+run = "mvn dependency:resolve --quiet"

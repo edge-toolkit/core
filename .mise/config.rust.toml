@@ -1,0 +1,103 @@
+# Rust env (MISE_ENV=rust).
+#
+# First migration out of the always-loaded default config: the Rust WASM
+# module builds live here, so `MISE_ENV=dart mise run build-modules` no longer
+# tries to build them. They keep their `build-ws-*-module` names, so the
+# default config's `build-modules` glob (`build-ws-*-module`) picks them up
+# whenever the `rust` env is loaded — exactly like the guest-language module
+# builds in the other config.<lang>.toml files.
+#
+# The rest of the Rust toolchain + tasks (the `rust` tool itself, cargo-*, the
+# universal repo-wide checks, ws-server, build-ws-wasm-agent, the e2e tests)
+# still live in the default config; moving those out is a later pass.
+
+[tasks.build-ws-data1-module]
+description = "Build the data1 workflow WASM module"
+dir = "services/ws-modules/data1"
+run = "wasm-pack build . --target web"
+
+[tasks.build-ws-har1-module]
+description = "Build the har1 workflow WASM module"
+dir = "services/ws-modules/har1"
+# Chain with `&&` on one line rather than a multi-line `bash` block: wasm-pack
+# shells out to `cargo metadata`, and that subprocess can't find `cargo` under
+# Git Bash on Windows. The default shell (cmd there) resolves cargo like the
+# single-line wasm-pack modules do.
+run = "wasm-pack build . --target web && cargo run -p et-cli -- module-package-json"
+
+[tasks.build-ws-face-detection-module]
+description = "Build the face detection workflow WASM module"
+dir = "services/ws-modules/face-detection"
+# See build-ws-har1-module: `&&` on one line under the default shell so
+# wasm-pack's `cargo metadata` subprocess can find cargo on Windows.
+run = "wasm-pack build . --target web && cargo run -p et-cli -- module-package-json"
+
+[tasks.build-ws-comm1-module]
+description = "Build the comm1 workflow WASM module"
+dir = "services/ws-modules/comm1"
+run = "wasm-pack build . --target web"
+
+[tasks.build-ws-sensor1-module]
+description = "Build the sensor1 workflow WASM module"
+dir = "services/ws-modules/sensor1"
+run = "wasm-pack build . --target web"
+
+[tasks.build-ws-audio1-module]
+description = "Build the audio1 workflow WASM module"
+dir = "services/ws-modules/audio1"
+run = "wasm-pack build . --target web"
+
+[tasks.build-ws-video1-module]
+description = "Build the video1 workflow WASM module"
+dir = "services/ws-modules/video1"
+run = "wasm-pack build . --target web"
+
+[tasks.build-ws-bluetooth-module]
+description = "Build the bluetooth workflow WASM module"
+dir = "services/ws-modules/bluetooth"
+run = "wasm-pack build . --target web"
+
+[tasks.build-ws-geolocation-module]
+description = "Build the geolocation workflow WASM module"
+dir = "services/ws-modules/geolocation"
+run = "wasm-pack build . --target web"
+
+[tasks.build-ws-graphics-info-module]
+description = "Build the graphics info workflow WASM module"
+dir = "services/ws-modules/graphics-info"
+run = "wasm-pack build . --target web"
+
+[tasks.build-ws-speech-recognition-module]
+description = "Build the speech recognition workflow WASM module"
+dir = "services/ws-modules/speech-recognition"
+run = "wasm-pack build . --target web"
+
+[tasks.build-ws-nfc-module]
+description = "Build the nfc workflow WASM module"
+dir = "services/ws-modules/nfc"
+run = "wasm-pack build . --target web"
+
+[tasks.build-ws-wasi-data1-module]
+description = "Build the Rust WASI data1 module as a WASI Preview 2 component"
+# The crate is a regular workspace member but its lib body is gated on
+# `#![cfg(target_os = "wasi")]`, so cargo check from the host target gets
+# an empty cdylib while this task explicitly requests wasm32-wasip2. The
+# .wasm artifact lands in the workspace-shared `target/` and is then
+# copied into the module's pkg/ for et-modules-service to serve.
+run = """
+cargo build --release -p et-ws-wasi-data1 --target wasm32-wasip2
+mkdir -p services/ws-modules/wasi-data1/pkg
+cp target/wasm32-wasip2/release/et_ws_wasi_data1.wasm services/ws-modules/wasi-data1/pkg/et_ws_wasi_data1.wasm
+cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi-data1
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.build-ws-wasi-comm1-module]
+description = "Build the Rust WASI comm1 module as a WASI Preview 2 component"
+run = """
+cargo build --release -p et-ws-wasi-comm1 --target wasm32-wasip2
+mkdir -p services/ws-modules/wasi-comm1/pkg
+cp target/wasm32-wasip2/release/et_ws_wasi_comm1.wasm services/ws-modules/wasi-comm1/pkg/et_ws_wasi_comm1.wasm
+cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi-comm1
+"""
+shell = "bash -euo pipefail -c"

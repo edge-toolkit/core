@@ -33,7 +33,7 @@ const JS_REST_REQUEST_EXTERN: &str = include_str!("zig.in/js_rest_request_extern
 
 /// Return `true` if the `openapi2zig` binary is on `PATH`.
 ///
-/// Upstream doesn't publish a `linux/arm64` release (see `.mise.toml`).
+/// Upstream doesn't publish a `linux/arm64` release (see `.mise/config.zig.toml`).
 #[must_use]
 pub fn is_available() -> bool {
     Command::new("openapi2zig").arg("--version").output().is_ok()

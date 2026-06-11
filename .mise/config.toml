@@ -1,0 +1,583 @@
+# Default config: always loaded regardless of MISE_ENV. Holds the Rust
+# toolchain (the substrate — every guest-language module build shells out to
+# `cargo run -p et-cli`), the Node static-workspace infra, the universal
+# repo-wide linters, and the cross-language orchestration tasks below.
+#
+# Per-language toolchains live in .mise/config.<lang>.toml, selected via
+# MISE_ENV (dart, dotnet, java, python, zig). config.rust.toml currently holds
+# only the Rust WASM module builds; the rest of the Rust tooling still lives
+# here, pending a later pass that moves it behind MISE_ENV=rust. Examples:
+#   Install one language's toolchain:   MISE_ENV=dart mise install
+#   Run a check across everything:      mise run check-all  (or install-all)
+#   Make a selection sticky:            export MISE_ENV=dart
+
+[settings]
+# Never auto-install tools before a `mise run`: installs are explicit
+# (`mise install` / `mise run install-all`, and CI installs up front). This
+# keeps cheap tasks like `print-all-langs`, and the pre-install `setup-aube`
+# step, from eagerly pulling the whole toolchain — on CI and the CLI alike.
+task.run_auto_install = false
+
+[tools]
+action-validator = "latest"
+cargo-binstall = "latest"
+"cargo:ast-grep" = "latest"
+"cargo:cargo-deny" = "latest"
+"cargo:cargo-expand" = "latest"
+"cargo:taplo-cli" = "latest"
+"cargo:wasm-pack" = "latest"
+"cargo:watchexec-cli" = "latest"
+# vfox-chromedriver's PostInstall hook fails on Windows ("syntax of the
+# command is incorrect"). Chromedriver is only used by the
+# `test-ws-wasm-agent-chrome` / `ws-e2e-chrome` tasks, neither of which run
+# in the standard CI `test` flow, so skip it on Windows entirely.
+"chromedriver" = { version = "146", os = ["linux", "macos"] }
+cmake = "latest"
+"conda:lld" = "latest"
+"conda:openssl" = "3"
+dprint = "latest"
+editorconfig-checker = "latest"
+"github:grok-rs/waitup" = "latest"
+"github:wasm-bindgen/wasm-bindgen" = "0.2.114"
+mprocs = "latest"
+node = "22"
+"npm:onnxruntime-web" = "latest"
+osv-scanner = "latest"
+# Aqua has no pipx build for windows/amd64. On Windows the workflow runs
+# `python -m pip install pipx` separately so the `pipx:*` entries below
+# still resolve through whatever pipx is already on PATH.
+pipx = { version = "latest", os = ["linux", "macos"] }
+# semgrep lints Cargo.toml style (see `semgrep-check`), so it stays in the
+# always-loaded config alongside the other repo-wide linters.
+"pipx:semgrep" = "latest"
+# The default aqua backend has no darwin/amd64 prebuilt; fall back to
+# `npm:pnpm` on Intel Mac (node is already a mise tool above).
+"npm:pnpm" = { version = "latest", os = ["macos/x64"] }
+pnpm = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
+protoc = "latest"
+rclone = "latest"
+rust = [
+  { version = "latest", components = "clippy,rust-analyzer", targets = "wasm32-unknown-unknown,wasm32-wasip2" },
+  { version = "nightly", components = "rust-src,rustfmt", targets = "wasm32-unknown-unknown,wasm32-wasip2" },
+]
+typos = "latest"
+wasm-tools = "latest"
+yq = "latest"
+
+[vars]
+# mise's conda tool install dirs, reused below by OPENSSL_DIR and the
+# CARGO_TARGET_* RUSTFLAGS.
+conda_lld = "{{ env.HOME }}/.local/share/mise/installs/conda-lld/latest"
+conda_openssl = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest"
+# Linker RUSTFLAGS fragments, composed into the per-target CARGO_TARGET_* env
+# values below — kept as vars so those values stay on a single line.
+lld_flag = "-C link-arg=-fuse-ld={{ vars.conda_lld }}/bin/ld64.lld"
+rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
+wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint"
+# Source/dest paths for the fetch-*-rclone model downloads — kept as vars so
+# each `rclone copyto` command stays on a single line without continuations.
+face1_src = ":http:amd/retinaface/resolve/main/weights/RetinaFace_int.onnx"
+face1_dst = "data/model-modules/model-face1/pkg/video_cv.onnx"
+har_repo = ":http:acd17sk/MET-Metabolic-Equivalent-of-Task-AI-Android-APP"
+har_src = "{{ vars.har_repo }}/raw/refs/heads/main/Models/onnx/hybrid_met.onnx"
+har_dst = "data/model-modules/model-har-motion1/pkg/har-motion1.onnx"
+mnist_src = ":http:onnx/models/raw/main/validated/vision/classification/mnist/model/mnist-12.onnx"
+mnist_dst = "services/ws-modules/wasi-graphics-info/pkg/mnist-12.onnx"
+
+[env]
+# Comma-separated list of every language env, auto-discovered from the sibling
+# config.<lang>.toml filenames (exec runs from this file's dir, i.e. .mise/;
+# the config.*.toml glob excludes this config.toml). Used as MISE_ENV by the
+# *-all tasks to act on every language at once (mise has no MISE_ENV=all).
+ALL_LANGS = '{{ exec(command="ls config.*.toml | cut -d. -f2 | paste -sd, -") }}'
+# Use the conda:openssl install for Rust's OPENSSL_DIR so openssl-sys crate builds.
+OPENSSL_DIR = "{{ vars.conda_openssl }}"
+# Use lld on macos as documented at https://github.com/cameron1024/dart-typegen
+# Apple `/usr/bin/clang` rejects `-fuse-ld=lld` outright ("invalid linker
+# name") unless it can resolve `ld64.lld` on `PATH`. These `RUSTFLAGS` apply
+# to every `rustc` call — including the cargo subprocess mise spawns when a
+# `cargo:` tool falls back to a source build (e.g. `cargo:taplo-cli`, whose
+# QuickInstall prebuilt 404s on macOS), and mise's install-time `PATH` for
+# that subprocess does NOT include sibling tools like `conda:lld`. Point
+# `-fuse-ld=` at the absolute `ld64.lld` shipped by `conda:lld` so the flag
+# resolves without any `PATH` lookup — same conda root the rpath link-arg
+# already points into.
+CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }}"
+CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }}"
+# Linux needs the same rpath the macOS flags above carry, for the same reason:
+# OPENSSL_DIR points openssl-sys at conda's OpenSSL, so anything linking it
+# (e.g. the ort-sys build script) records conda's `libssl` soname. Without an
+# rpath the runtime loader only finds it when conda's soname happens to match
+# the system one Ubuntu ships on the default path — which broke when conda
+# bumped to `libssl.so.4` (no system equivalent). Point the loader at conda's
+# own lib dir so the soname is irrelevant. No `-fuse-ld=lld`: the system
+# linker on Linux accepts `-Wl,-rpath` directly, unlike Apple clang's lld dance.
+CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }}"
+CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }}"
+# rclone retry tuning for the `fetch-*-rclone` model-download tasks.
+# Hugging Face / GitHub raw responded HTTP 429 ("Too Many Requests") at
+# least once with all three of rclone's default high-level retries
+# failing inside the same second (no Retry-After honoured at the
+# default `--retries-sleep 0s`). Force a 30 s pause between retries
+# and bump the count. `RCLONE_*` env vars are rclone's own alternative
+# to CLI flags — `rclone.conf` only configures named remotes, not
+# global retry policy.
+RCLONE_CONFIG = "{{ config_root }}/config/rclone.conf"
+RCLONE_RETRIES = "10"
+RCLONE_RETRIES_SLEEP = "30s"
+
+[tasks]
+ec = "ec"
+editorconfig-check = "ec"
+
+[tasks.dprint-check]
+run = "dprint check"
+
+[tasks.dprint-check.env]
+DPRINT_CACHE_DIR = "{{ config_root }}/target/dprint-cache"
+
+[tasks.dprint-fmt]
+run = "dprint fmt"
+
+[tasks."fmt:rust"]
+# Rust + universal formatters. Always-loaded, so `fmt`'s glob always matches it.
+depends = ["cargo-clippy-fix", "cargo-fmt", "dprint-fmt", "taplo-fmt"]
+description = "Run the Rust + universal repo-wide formatters"
+
+[tasks.fmt]
+description = "Run all formatters: fmt:rust + any loaded guest fmt:<lang>"
+run = "mise run 'fmt:*'"
+shell = "bash -c"
+
+[tasks."check:rust"]
+# The dep-audit tools (osv-scanner, cargo-deny, cargo-unmaintained) run
+# in the standalone `.github/workflows/dependencies.yml` workflow so they
+# only fire when Cargo.lock / Cargo.toml / deny.toml change, not on every
+# `mise run check`. `osv-scanner` and `cargo-deny` are kept in `[tools]`
+# for ad-hoc local invocation (e.g. `mise run osv-scanner`,
+# `cargo deny check`); `cargo-unmaintained` is installed only by the
+# workflow via `taiki-e/install-action` since it isn't useful enough
+# locally to justify the cargo-build cost on every `mise install`.
+#
+# Rust + universal repo-wide checks. Lives in the always-loaded default config,
+# so `check`'s `check:*` glob always matches at least this one (Rust is in the
+# default config this pass; the guest `check:<lang>` tasks come from their
+# loaded MISE_ENV configs).
+depends = [
+  "action-validator",
+  "ast-grep-check",
+  "cargo-check",
+  "cargo-clippy",
+  "cargo-doc-check",
+  "cargo-fmt-check",
+  "dprint-check",
+  "editorconfig-check",
+  "gen-specs-check",
+  "semgrep-check",
+  "taplo-check",
+  "typos",
+  "verification-check",
+]
+description = "Run the Rust + universal repo-wide checks"
+
+[tasks.check]
+# Pure glob (no depends) so check:rust and every loaded guest check:<lang> run
+# as parallel siblings — a failure in one still reports the others, instead of
+# gating the guests behind the Rust checks passing.
+description = "Run all checks: check:rust + any loaded guest check:<lang>"
+run = "mise run 'check:*'"
+shell = "bash -c"
+
+[tasks.action-validator]
+description = "Validate GitHub Actions workflow YAML"
+run = "action-validator .github/workflows/*.yml"
+
+[tasks.ast-grep-check]
+description = "Run ast-grep structural-search rules"
+run = "ast-grep scan --error -c config/ast-grep/sgconfig.yml"
+
+[tasks.semgrep-check]
+description = "Run Semgrep generic-mode rules (e.g. Cargo.toml style)"
+run = "semgrep scan --config config/semgrep --error --metrics=off ."
+
+[tasks.cargo-check]
+run = "cargo check --workspace"
+
+[tasks.cargo-fmt]
+run = "cargo +nightly fmt"
+
+[tasks.cargo-fmt-check]
+run = "cargo +nightly fmt -- --check"
+
+[tasks.cargo-clippy]
+run = "cargo clippy --keep-going --workspace --tests"
+
+[tasks.cargo-doc-check]
+description = "Build rustdoc with -D warnings to fail on any doc issues"
+env = { RUSTDOCFLAGS = "-D warnings" }
+run = "cargo doc --workspace --no-deps --document-private-items"
+
+[tasks.cargo-clippy-fix]
+run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace --tests"
+
+[tasks.taplo-fmt]
+run = "taplo format"
+
+[tasks.taplo-check]
+# `taplo lint` reads .taplo.toml's `[[rule]] schema` entries for editor /
+# LSP-style validation, but silently ignores their nested constraints in
+# CLI mode (verified: injecting `path = "../foo"` into a member Cargo.toml
+# doesn't fire `no-path-deps` via the rule alone). We work around it by
+# applying each schema explicitly with `taplo lint --schema file://...`.
+# When adding a new schema under `config/taplo/`, append a `taplo lint`
+# line here too. See `config/taplo/RULE-IDEAS.md` for the investigation.
+run = """
+# Baseline TOML validation across every .toml file the auto-config picks up.
+taplo lint
+
+# All member Cargo.tomls — exclude workspace root and any build output.
+# (Avoid `mapfile`: it's bash 4+ only and macOS ships bash 3.2.)
+members=()
+while IFS= read -r line; do
+  members+=("$line")
+done < <(find . -name Cargo.toml -not -path './target/*' -not -path './Cargo.toml')
+
+# Banned deps only need to be checked at the workspace root: member
+# crates are required to reference deps via `workspace = true` (the
+# `require-workspace-deps` schema below), so any banned dep can only
+# enter the build through `[workspace.dependencies]` here.
+taplo lint --schema "file://$PWD/config/taplo/no-banned-deps.schema.json" Cargo.toml
+
+# Schemas that apply to every member crate.
+taplo lint --schema "file://$PWD/config/taplo/no-path-deps.schema.json" "${members[@]}"
+taplo lint --schema "file://$PWD/config/taplo/no-wildcard-or-git-deps.schema.json" "${members[@]}"
+taplo lint --schema "file://$PWD/config/taplo/require-workspace-deps.schema.json" "${members[@]}"
+taplo lint --schema "file://$PWD/config/taplo/require-lib-doctest-false.schema.json" "${members[@]}"
+
+# `require-lints-section` exempts generated/rust-rest/Cargo.toml because
+# progenitor's emitted `src/lib.rs` contains patterns our workspace lint
+# table flags (e.g. doc-comment shapes that trip rustdoc's invalid-code-
+# block lint). Inheriting `[lints] workspace = true` would fail the build
+# on the generated source. The exemption is about the lint table, not
+# about the deps — its `[dependencies]` still inherits from
+# `[workspace.dependencies]` like every other crate.
+lint_inheritable=()
+for f in "${members[@]}"; do
+  [[ "$f" == "./generated/rust-rest/Cargo.toml" ]] && continue
+  lint_inheritable+=("$f")
+done
+taplo lint --schema "file://$PWD/config/taplo/require-lints-section.schema.json" "${lint_inheritable[@]}"
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.typos]
+run = "typos"
+
+[tasks.setup-aube]
+# `aube` is an OPTIONAL faster npm backend, kept out of the mandatory `[tools]`
+# list because its install is flaky on some platforms and edge-toolkit falls
+# back to the classical `lib/node_modules` layout without it (see
+# `find_npm_modules_path_in`).
+#
+# CI (check.yml / test.yml) runs this task in its own allowed-to-fail step,
+# placed BEFORE the main `mise install` so the `npm:onnxruntime-web` install
+# can pick up aube as its backend.
+#
+# Platform split: aqua ships aube for linux/macos-arm64/windows; macos/x64 has
+# no aqua asset, so use the cargo backend there. The branch is rendered by
+# mise's tera templating, so it works regardless of the task shell (cmd on
+# Windows).
+description = "Install the optional aube npm backend (platform-specific, best-effort)"
+run = """
+{% if os() == "macos" and arch() == "x64" %}
+mise install cargo:aube@latest
+{% else %}
+mise install aube@latest
+{% endif %}
+"""
+
+[tasks.osv-scanner]
+depends = ["cargo-check"]
+run = "osv-scanner --lockfile Cargo.lock"
+
+[tasks.prefetch-ci]
+# `build-ws-wasm-agent` produces `services/ws-wasm-agent/pkg/`, which the
+# static workspace references via a `link:` path. Run it before `pnpm install`
+# so the link target exists. Only `fetch-mnist-rclone` is pulled here —
+# CI tests don't exercise the face1 / har-motion1 models, and skipping
+# those avoids the HuggingFace rate-limit that bites Windows runners.
+#
+# `prefetch:rust` + `prefetch:node` live in this default config (always
+# loaded); the guest-language `prefetch:<lang>` tasks come from their loaded
+# MISE_ENV configs. The glob picks up whichever are loaded — CI sets MISE_ENV
+# to every language so all of them run.
+depends = ["fetch-mnist-rclone"]
+description = "Pre-download CI-required dependencies + the MNIST model"
+run = "if mise tasks ls --no-header | grep -q '^prefetch:'; then mise run 'prefetch:*'; fi"
+shell = "bash -c"
+
+[tasks.prefetch]
+depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "prefetch-ci"]
+description = "Pre-download all dependencies and models (superset of prefetch-ci)"
+
+[tasks."prefetch:rust"]
+description = "Prefetch the Rust (cargo) dependencies"
+# `cargo fetch` downloads the full Cargo.lock graph (all targets) without
+# compiling — the actual build happens in build-modules / the test step. Avoids
+# the redundant `cargo check --workspace` compile (and its large target/ dir).
+run = "cargo fetch"
+
+[tasks."prefetch:node"]
+# Needs `build-ws-wasm-agent` first: the static workspace `link:`s its `pkg/`,
+# so the link target must exist before `pnpm install`.
+depends = ["build-ws-wasm-agent"]
+description = "Prefetch the Node (pnpm) static workspace"
+run = "pnpm install --dir services/ws-server/static --ignore-scripts --config.ignoredBuiltDependencies=protobufjs"
+
+[tasks."prefetch:node".env]
+# pnpm refuses non-TTY destructive node_modules cleanup unless CI=true, which
+# fires when an earlier install left a different layout. Treat as a CI batch.
+CI = "true"
+
+[tasks.regenerate-verification]
+alias = "regen-verification"
+description = "Regenerate checked-in verification output files"
+run = "cargo run -p et-cli -- regen-verification"
+
+[tasks.verification-check]
+depends = ["regenerate-verification"]
+description = "Fail if generated scenario output files are stale"
+run = "git diff --exit-code -- verification"
+
+[tasks.fetch-wit-deps]
+description = "Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions (run by hand on bumps)"
+run = "cargo run -q -p et-int-gen --bin et-int-gen -- fetch-deps"
+
+[tasks.gen-ws-spec]
+description = "Run et-int-gen: emit the language-agnostic WS specs (YAML/WIT/KDL/JSON) + the Rust REST client"
+# et-int-gen runs progenitor + prettyplease to produce
+# generated/rust-rest/src/lib.rs. prettyplease's style disagrees with our
+# nightly rustfmt (different import grouping + line width), so the workspace
+# `mise run fmt` would reformat it and `mise run gen-specs-check` would see
+# drift on the next regen. Make rustfmt the canonical formatter by running
+# it here as a post-process — the committed file is then a fixed point of
+# both tools.
+#
+# `generate core` emits the language-agnostic specs every per-language `gen:*`
+# task consumes (ws.kdl, *.schema.json, rest.yaml), so this task stays in the
+# always-loaded default config and every `gen:<lang>` depends on it. The Zig
+# client (`gen:zig-rest`) moved to config.zig.toml since it needs `zig fmt`.
+run = """
+cargo run -q -p et-int-gen --bin et-int-gen -- generate core
+cargo run -q -p et-int-gen --bin et-int-gen -- generate rust
+cargo +nightly fmt -p et-rest-client
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.gen-specs]
+# `gen-ws-spec` (core + Rust client) always runs; the guest-language `gen:*`
+# tasks come from their loaded MISE_ENV configs. Run with MISE_ENV covering
+# every language (e.g. `mise run gen-specs-all`) to regenerate everything.
+depends = ["gen-ws-spec"]
+description = "Regenerate every loaded spec artifact under generated/ (core + Rust + any loaded guest `gen:*`)"
+run = "if mise tasks ls --no-header | grep -q '^gen:'; then mise run 'gen:*'; fi"
+shell = "bash -c"
+
+[tasks.gen-specs-check]
+depends = ["gen-specs"]
+description = "Fail if any checked-in artifact under generated/ is stale"
+# All et-int-gen outputs land under generated/. The runner's
+# wit/deps/et-ws-messages is a symlink into that tree, so a single diff
+# against generated/ covers everything.
+#
+# Skipped on Windows: the regen pipeline produces non-deterministic
+# drift there (nightly rustfmt formats long signatures and doc-comment
+# indentation differently across nightlies; pipx-driven python codegen
+# emits subtly different output). Linux/macOS runs are canonical.
+run = """
+[[ "${OS:-}" == "Windows_NT" ]] && { echo "gen-specs-check: skipped on Windows (non-deterministic)"; exit 0; }
+git diff --exit-code -- generated
+"""
+shell = "bash -euo pipefail -c"
+
+# `cargo-watch` is unmaintained; `watchexec` is its successor (and what
+# `cargo-watch` always called under the hood). Restart on .rs/.toml
+# changes so a workspace-wide edit (any library, any service the server
+# depends on) triggers a rebuild. `--clear` wipes the terminal between
+# runs so cargo output starts at the top of the screen; `--restart`
+# kills the running `cargo run` before kicking off a fresh one.
+# Respects `.gitignore`, so `target/` and friends are skipped.
+[tasks.ws-server]
+description = "Run the WebSocket server, restarting on .rs/.toml changes"
+run = "watchexec --restart --clear --exts rs,toml -i '**/tests/**' -- cargo run -p et-ws-server"
+
+[tasks.ws-server.env]
+OTLP_AUTH_PASSWORD = "1234"
+OTLP_AUTH_USERNAME = "root@example.com"
+
+[tasks.ws-wasi-runner]
+description = "Run the WebSocket WASI runner (set RUNNER_MODULE, e.g. wasi-graphics-info; RUNNER_FEATURES=cuda on CUDA)"
+dir = "services/ws-wasi-runner"
+run = """
+if [ -n "${RUNNER_FEATURES:-}" ]; then
+  cargo run --features "$RUNNER_FEATURES"
+else
+  cargo run
+fi
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.build-ws-wasm-agent]
+description = "Build the WebSocket WASM client"
+dir = "services/ws-wasm-agent"
+run = "wasm-pack build . --target web -- -Z build-std=std,panic_abort"
+
+[tasks.build-ws-wasm-agent.env]
+# Scope these flags to the wasm target rather than setting plain `RUSTFLAGS`:
+# wasm-pack auto-installs a matching `wasm-bindgen-cli` (when the version in
+# `Cargo.lock` differs from the one on PATH) by shelling out to `cargo
+# install`, which inherits this env. A plain `RUSTFLAGS` with `target-cpu=mvp`
+# and `+mutable-globals` then leaks into that host build and rustc rejects
+# them with "'mvp' is not a recognized processor for this target".
+CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS = "{{ vars.wasm_rustflags }}"
+RUSTUP_TOOLCHAIN = "nightly"
+
+[tasks.build-modules]
+# `build-ws-wasm-agent` (no `-module` suffix, and not gated behind an env) is
+# an explicit dep so the glob doesn't miss it. The glob then builds every
+# loaded `build-ws-*-module` — all of which now live in a MISE_ENV config:
+# the Rust modules in config.rust.toml, the guest-language modules (dart-comm1,
+# dotnet-data1, java-data1, zig-data1, pydata1, pyface1, wasi-graphics-info) in
+# theirs. Each matches only when its env is loaded. CI sets MISE_ENV to every
+# language, so all of them build (or use `build-modules-all`).
+depends = ["build-ws-wasm-agent"]
+run = "if mise tasks ls --no-header | grep -q '^build-ws-.*-module'; then mise run 'build-ws-*-module'; fi"
+shell = "bash -c"
+description = "Build all loaded WebAssembly modules"
+
+[tasks.test-ws-wasm-agent-firefox]
+description = "Run headless Firefox tests for the WebSocket WASM client"
+dir = "services/ws-wasm-agent"
+run = "wasm-pack test --headless --firefox"
+
+[tasks.ws-e2e-firefox]
+depends = ["test-ws-wasm-agent-firefox", "ws-server"]
+description = "Run both the ws-server and ws-wasm-agent using Firefox"
+
+[tasks.test-ws-wasm-agent-chrome]
+description = "Run headless Chrome tests for the WebSocket WASM client"
+dir = "services/ws-wasm-agent"
+run = "env CHROMEDRIVER=\"$(mise where chromedriver)/bin/chromedriver\" wasm-pack test --headless --chrome"
+
+[tasks.ws-e2e-chrome]
+depends = ["test-ws-wasm-agent-chrome", "ws-server"]
+description = "Run both the ws-server and ws-wasm-agent using Chrome"
+
+[tasks.openobserve]
+alias = "o2"
+run = "docker run --rm -it --name openobserve -p 5080:5080 --env-file config/o2.env openobserve/openobserve:v0.70.3"
+
+[tasks.demo]
+depends = ["openobserve", "ws-server"]
+
+[tasks.open-o2]
+run = "open http://localhost:5080/"
+
+[tasks.fetch-face1-rclone]
+run = """
+rclone copyto {{ vars.face1_src }} {{ vars.face1_dst }} --http-url https://huggingface.co --progress --ignore-existing
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.fetch-har-motion1-rclone]
+run = """
+rclone copyto {{ vars.har_src }} {{ vars.har_dst }} --http-url https://github.com --progress --ignore-existing
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.fetch-mnist-rclone]
+# MNIST classifier used by services/ws-modules/wasi-graphics-info to exercise
+# wasi-nn end-to-end. Sourced from the canonical ONNX Model Zoo; size 26143
+# bytes. Lands under the module's gitignored pkg/ so et-modules-service can
+# serve it statically alongside the .wasm.
+run = """
+rclone copyto {{ vars.mnist_src }} {{ vars.mnist_dst }} --http-url https://github.com --progress --ignore-existing
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.download-models]
+depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "fetch-mnist-rclone"]
+
+[tasks.cargo-test]
+# Excludes `et-ws-web-runner` -- its tests need single-threaded
+# execution (see `test-ws-web-runner` below); running the rest of the
+# workspace in parallel keeps the total wall-clock down.
+run = "cargo test --workspace --exclude et-ws-web-runner"
+
+[tasks.test-ws-web-runner]
+description = "Run et-ws-web-runner integration tests serialized"
+# Each test case boots a full `MainWorker` (deno_runtime) -- ~10x
+# heavier than the `JsRuntime` it replaced. 8 in parallel exhausts
+# local fd/port budgets on macOS, surfacing as "error sending request
+# for url" when the runner's wrapper module dynamic-`import()`s its
+# module JS. Pin to one thread so the suite is deterministic.
+run = "cargo test -p et-ws-web-runner"
+
+[tasks.test-ws-web-runner.env]
+RUST_TEST_THREADS = "1"
+
+[tasks."test:rust"]
+# Rust tests. Always-loaded, so `test`'s glob always matches it.
+depends = ["cargo-test", "test-ws-web-runner"]
+description = "Run the Rust tests"
+
+[tasks.test]
+description = "Run all tests: test:rust + any loaded guest test:<lang>"
+run = "mise run 'test:*'"
+shell = "bash -c"
+
+# --- Cross-language orchestration (stand-ins for the MISE_ENV=all mise lacks).
+# `$ALL_LANGS` is auto-discovered in `[env]` above from the config.<lang>.toml
+# filenames, so adding a language needs no edits here.
+
+[tasks.print-all-langs]
+description = "Print $ALL_LANGS — the comma-separated list of every language env"
+run = 'echo "$ALL_LANGS"'
+shell = "bash -c"
+
+[tasks.install-all]
+description = "Install every language toolchain (all .mise/config.<lang>.toml)"
+run = 'MISE_ENV="$ALL_LANGS" mise install'
+shell = "bash -c"
+
+[tasks.all]
+# Generic stand-in: run any command with every language env enabled. mise
+# appends the task's CLI args after `mise exec --`, e.g. `mise run all zig version`.
+description = "Run a command with every language env enabled (MISE_ENV=all)"
+run = 'MISE_ENV="$ALL_LANGS" mise exec --'
+shell = "bash -c"
+
+[tasks.check-all]
+description = "Run check across every language env"
+run = 'MISE_ENV="$ALL_LANGS" mise run check'
+shell = "bash -c"
+
+[tasks.fmt-all]
+description = "Run fmt across every language env"
+run = 'MISE_ENV="$ALL_LANGS" mise run fmt'
+shell = "bash -c"
+
+[tasks.test-all]
+description = "Run tests across every language env"
+run = 'MISE_ENV="$ALL_LANGS" mise run test'
+shell = "bash -c"
+
+[tasks.build-modules-all]
+description = "Build modules across every language env"
+run = 'MISE_ENV="$ALL_LANGS" mise run build-modules'
+shell = "bash -c"
+
+[tasks.gen-specs-all]
+description = "Regenerate every spec artifact across every language env"
+run = 'MISE_ENV="$ALL_LANGS" mise run gen-specs'
+shell = "bash -c"

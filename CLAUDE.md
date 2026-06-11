@@ -17,8 +17,8 @@ subdirectories under it freely and clean up when done.
 `editorconfig-checker` (`ec`, wired into `mise run check` via the
 `editorconfig-check` task) enforces a 120-char limit on every file the
 `[*]` rule in `.editorconfig` covers — which is almost all of them. A
-small number of files have explicit overrides (`.mise.toml`, `*.dart`,
-`*.wit` at 300, `LICENSE-*`), but assume every file you touch is bound
+small number of files have explicit overrides (`LICENSE-*` and generated trees
+under `generated/`), but assume every file you touch is bound
 by 120 unless you have specific evidence otherwise.
 
 When writing comments, doc strings, `#[expect(reason = "…")]` reasons,
@@ -35,30 +35,45 @@ Install [`mise`](https://mise.jdx.dev/) with shell integration, then configure:
 ```bash
 mise settings experimental=true
 mise settings set cargo.binstall true
-mise install
+mise install            # Rust + Node + universal tooling (always loaded)
 ```
+
+The config is split under `.mise/`: `.mise/config.toml` is always loaded
+(Rust/Node toolchain, universal linters, orchestration); per-language
+`.mise/config.<lang>.toml` files (dart, dotnet, java, python, zig) are
+selected via `MISE_ENV`. Install a guest language's toolchain with
+`MISE_ENV=dart mise install`, or every language with `mise run install-all`.
+`MISE_ENV` is comma-separated (`MISE_ENV=python,zig`) and can be exported to
+make a selection sticky. Rust currently lives in the always-loaded config
+(`.mise/config.rust.toml` is an empty placeholder for a later migration).
 
 ## Common Commands
 
-All tasks run through `mise run <task>`.
+All tasks run through `mise run <task>`. The aggregates below act on Rust +
+the universal checks **plus whichever guest languages `MISE_ENV` has loaded**;
+use the `*-all` variants (`check-all`, `test-all`, `build-modules-all`,
+`gen-specs-all`) — or set `MISE_ENV` — to cover every language.
 
-| Task                               | Command                       |
-| ---------------------------------- | ----------------------------- |
-| Format all                         | `mise run fmt`                |
-| Check all (lint, format, security) | `mise run check`              |
-| Run all tests                      | `mise run test`               |
-| Build all WASM modules             | `mise run build-modules`      |
-| Run Rust tests only                | `mise run cargo-test`         |
-| Run Python tests only              | `mise run test-pyface1`       |
-| Run WebSocket server               | `mise run ws-server`          |
-| Start OpenObserve (Docker)         | `mise run o2`                 |
-| Download ONNX models               | `mise run download-models`    |
-| E2E tests (Chrome)                 | `mise run ws-e2e-chrome`      |
-| Regenerate verification outputs    | `mise run regen-verification` |
+| Task                            | Command                                |
+| ------------------------------- | -------------------------------------- |
+| Format all (every language)     | `mise run fmt-all`                     |
+| Check all (every language)      | `mise run check-all`                   |
+| Run all tests (every language)  | `mise run test-all`                    |
+| Build all WASM modules          | `mise run build-modules-all`           |
+| Regenerate all specs            | `mise run gen-specs-all`               |
+| Run Rust tests only             | `mise run cargo-test`                  |
+| Run Python tests only           | `MISE_ENV=python mise run test:python` |
+| Run WebSocket server            | `mise run ws-server`                   |
+| Start OpenObserve (Docker)      | `mise run o2`                          |
+| Download ONNX models            | `mise run download-models`             |
+| E2E tests (Chrome)              | `mise run ws-e2e-chrome`               |
+| Regenerate verification outputs | `mise run regen-verification`          |
 
 **Rust formatting uses nightly:** `cargo +nightly fmt`
 
-**Build a single module:** `mise run build-ws-<module>-module` (e.g., `build-ws-face-detection-module`)
+**Build a single module:** `MISE_ENV=<lang> mise run build-ws-<module>-module`
+(e.g., `mise run build-ws-face-detection-module` for the Rust modules, or
+`MISE_ENV=zig mise run build-ws-zig-data1-module`).
 
 ## Architecture
 

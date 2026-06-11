@@ -17,7 +17,13 @@ data stay on the device or your own network, never sent to an external cloud ser
 Please install [`mise`](https://mise.jdx.dev/), including the shell integration.
 It is needed for all use of this repository.
 
-The `mise` configuration is stored in [`.mise.toml`](.mise.toml).
+The `mise` configuration lives under [`.mise/`](.mise/): the always-loaded
+[`.mise/config.toml`](.mise/config.toml) holds the Rust/Node tooling and shared
+tasks, and per-language `.mise/config.<lang>.toml` files (dart, dotnet, java,
+python, zig) are selected via `MISE_ENV` so a dev can work on one language
+without installing the others — e.g. `MISE_ENV=dart mise install`. CI runs
+every language; `mise run check-all` (and `install-all`, `test-all`, …) act on
+all of them at once.
 
 The following works for Linux, macOS and Windows, and all tools "installed"
 are only installed into the local workspace, so no need for admin/root privileges.
@@ -67,12 +73,12 @@ mise install conda:openssl
 Then install the remaining dependencies:
 
 ```bash
-mise install
+mise install-all
 ```
 
 ## Contributing
 
-Use `mise run fmt` and `mise run check` to run formatters and checkers.
+Use `mise run fmt-all` and `mise run check-all` to run formatters and checkers.
 
 ## Run ws agent in browser
 
@@ -88,7 +94,7 @@ Then start the fetch the ONNX models and run the server
 
 ```bash
 mise run download-models
-mise run build-modules
+mise run build-modules-all
 mise run ws-server
 ```
 
@@ -136,7 +142,7 @@ A custom UX module can be used by setting the `ws-server` environment variable `
 
 The WebSocket protocol and the ws-server REST surface are described by
 machine-readable specs regenerated from their Rust sources of truth by
-`mise run gen-specs`:
+`mise run gen-specs-all`:
 
 - **WebSocket** (AsyncAPI 3.0): [`generated/specs/ws.yaml`](generated/specs/ws.yaml).
   Source: `ClientMessage` + `ServerMessage` in `libs/edge-toolkit/src/ws.rs`. Generated clients:

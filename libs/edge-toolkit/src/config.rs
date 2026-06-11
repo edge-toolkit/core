@@ -65,7 +65,8 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
             );
         }
     }
-    // Pyodide is installed from its GitHub release tarball (see `.mise.toml`),
+    // Pyodide is installed from its GitHub release tarball (see
+    // `.mise/config.python.toml`),
     // not via `npm:pyodide`. mise's http backend extracts the archive flat,
     // so the install dir itself holds `package.json` + every wheel -- the
     // modules service treats the dir as a single module named "pyodide".
