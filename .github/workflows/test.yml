@@ -67,6 +67,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Reclaim the large preinstalled toolchains we never use (~30 GB).
+      # `|| true` so a missing dir (e.g. on the arm image) is not fatal.
+      - name: Free up disk space (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo rm -rf /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/share/swift || true
+          sudo docker image prune --all --force || true
+          df -h /
+
       - name: Install Mesa Vulkan drivers (lavapipe)
         if: runner.os == 'Linux'
         run: |
