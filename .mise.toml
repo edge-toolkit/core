@@ -348,8 +348,11 @@ depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "prefetch-ci"]
 description = "Pre-download all dependencies and models (superset of prefetch-ci)"
 
 [tasks."prefetch:rust"]
-depends = ["cargo-check"]
-description = "Prefetch + typecheck the Rust workspace"
+description = "Prefetch the Rust (cargo) dependencies"
+# `cargo fetch` downloads the full Cargo.lock graph (all targets) without
+# compiling — the actual build happens in build-modules / the test step. Avoids
+# the redundant `cargo check --workspace` compile (and its large target/ dir).
+run = "cargo fetch"
 
 [tasks."prefetch:dart"]
 description = "Prefetch Dart (pub) dependencies"

@@ -44,13 +44,13 @@ jobs:
           github.event_name == 'workflow_dispatch' && (
           github.event.inputs.os == 'all' && format(
           '[{0},{1},{2},{3},{4}]',
-          '{"os":"ubuntu-latest","timeout":25}',
+          '{"os":"ubuntu-latest","timeout":30}',
           '{"os":"ubuntu-24.04-arm","timeout":25}',
           '{"os":"macos-latest","timeout":45}',
           '{"os":"macos-26-intel","timeout":60}',
           '{"os":"windows-latest","timeout":60}'
           )
-          || github.event.inputs.os == 'ubuntu-latest' && '[{"os":"ubuntu-latest","timeout":25}]'
+          || github.event.inputs.os == 'ubuntu-latest' && '[{"os":"ubuntu-latest","timeout":30}]'
           || github.event.inputs.os == 'ubuntu-24.04-arm' && '[{"os":"ubuntu-24.04-arm","timeout":25}]'
           || github.event.inputs.os == 'macos-latest' && '[{"os":"macos-latest","timeout":45}]'
           || github.event.inputs.os == 'macos-26-intel' && '[{"os":"macos-26-intel","timeout":60}]'
@@ -58,7 +58,7 @@ jobs:
           )
           || format(
           '[{0},{1},{2}]',
-          '{"os":"ubuntu-latest","timeout":25}',
+          '{"os":"ubuntu-latest","timeout":30}',
           '{"os":"ubuntu-24.04-arm","timeout":25}',
           '{"os":"macos-latest","timeout":45}'
           )
