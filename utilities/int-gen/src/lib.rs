@@ -20,9 +20,9 @@
 //!     surface, produced via `progenitor::Generator` from the `OpenAPI` doc.
 //!   - `generated/dart-ws/lib/ws_messages.dart` -- plain Dart 3 sealed classes.
 //!     Pipeline: JSON Schema -> KDL (this crate's [`kdl`] module) ->
-//!     `dart-typegen` CLI (driven by `mise run gen-dart-ws`).
+//!     `dart-typegen` CLI (driven by `mise run gen:dart-ws`).
 //!   - `generated/python-ws/et_ws/messages.py` -- Pydantic v2 models, written
-//!     by `datamodel-codegen` (driven by `mise run gen-python-ws`).
+//!     by `datamodel-codegen` (driven by `mise run gen:python-ws`).
 //!   - `generated/specs/ws.kdl` -- checked-in KDL projection of the WS
 //!     schema; the input `dart-typegen` reads to produce the Dart client.
 //!   - `target/int-gen/ws.schema.json` -- build intermediate (not
@@ -101,18 +101,30 @@ impl From<tree_sitter::LanguageError> for Error {
     }
 }
 
-/// Emit every checked-in artifact under `generated/`.
+/// Emit every checked-in artifact under `generated/` (core + Rust + Zig).
 ///
-/// Inputs: the `ClientMessage` + `ServerMessage` enums; outputs are the
-/// `AsyncAPI` YAML, the `et:ws-messages` WIT package, the Dart client,
-/// and the intermediate JSON Schemas under `target/int-gen/`.
+/// Convenience wrapper over the three per-target functions; `mise run
+/// gen-specs` drives them individually per `MISE_ENV` instead.
+pub fn generate() -> Result<(), Error> {
+    generate_core()?;
+    generate_rust()?;
+    generate_zig()?;
+    Ok(())
+}
+
+/// Emit the language-agnostic artifacts: `ws.yaml`, `rest.yaml`, the
+/// `ws.schema.json` intermediates, `ws.kdl`, and the `et:ws-messages` WIT
+/// package.
+///
+/// These feed every downstream client (the Dart/Python generators consume
+/// `ws.kdl`/`*.schema.json`/`rest.yaml`), so this is the prerequisite step
+/// every per-language `gen:*` mise task depends on.
 #[expect(
     clippy::expect_used,
     clippy::unwrap_in_result,
-    clippy::print_stderr,
-    reason = "format_text only fails on malformed YAML and serde output is well-formed; CLI skip notice on stderr"
+    reason = "pretty_yaml only fails on malformed YAML and serde output is always well-formed"
 )]
-pub fn generate() -> Result<(), Error> {
+pub fn generate_core() -> Result<(), Error> {
     let project_root = get_project_root();
     let specs_dir = project_root.join("generated/specs");
 
@@ -136,34 +148,6 @@ pub fn generate() -> Result<(), Error> {
     let rest_yaml = pretty_yaml::format_text(&rest_yaml, &pretty_yaml::config::FormatOptions::default())
         .expect("utoipa output should always be well-formed YAML");
     write_if_changed(&specs_dir.join("rest.yaml"), &rest_yaml)?;
-
-    // Typed Rust client for the REST surface -- same `progenitor::Generator`
-    // engine that the retired `cargo-progenitor` CLI used, but driven
-    // in-process so the spec and client always reflect the same source.
-    let rust_client = openapi::render_rust_client()?;
-    write_if_changed(&project_root.join("generated/rust-rest/src/lib.rs"), &rust_client)?;
-
-    // Zig client: openapi2zig generates a fully typed client, et-int-gen
-    // post-processes it via tree-sitter-zig to swap the native HTTP
-    // transport for an extern JS-fetch import (browser wasm target).
-
-    // Upstream openapi2zig has no linux/arm64 release artifact, so mise
-    // doesn't install it there -- skip the whole step when the binary is
-    // absent. The committed `generated/zig-rest/src/et_rest_client.zig`
-    // stays untouched, so `gen-specs-check`'s `git diff --exit-code`
-    // still passes on that host.
-    if zig::is_available() {
-        let rest_json_path = project_root.join("target/int-gen/rest.json");
-        write_if_changed(&rest_json_path, &openapi::render_json())?;
-        let raw_zig_path = project_root.join("target/int-gen/raw_et_rest_client.zig");
-        let zig_client = zig::render(&rest_json_path, &raw_zig_path)?;
-        write_if_changed(
-            &project_root.join("generated/zig-rest/src/et_rest_client.zig"),
-            &zig_client,
-        )?;
-    } else {
-        eprintln!("openapi2zig not found on PATH; skipping Zig REST client generation");
-    }
 
     // Build intermediates land in target/ -- datamodel-codegen reads the JSON
     // Schema for Python output, and dart-typegen reads the KDL for Dart.
@@ -190,6 +174,51 @@ pub fn generate() -> Result<(), Error> {
         &wit::messages::render(&client_schema, &server_schema)?,
     )?;
 
+    Ok(())
+}
+
+/// Emit the typed Rust REST client (`generated/rust-rest/src/lib.rs`).
+///
+/// Same `progenitor::Generator` engine the retired `cargo-progenitor` CLI
+/// used, but driven in-process so the spec and client always reflect the
+/// same source. Self-contained: re-derives the `OpenAPI` doc in-process, so
+/// it needs no ordering relative to [`generate_core`].
+pub fn generate_rust() -> Result<(), Error> {
+    let project_root = get_project_root();
+    let rust_client = openapi::render_rust_client()?;
+    write_if_changed(&project_root.join("generated/rust-rest/src/lib.rs"), &rust_client)?;
+    Ok(())
+}
+
+/// Emit the Zig REST client (`generated/zig-rest/src/et_rest_client.zig`).
+///
+/// openapi2zig generates a fully typed client; et-int-gen post-processes it
+/// via tree-sitter-zig to swap the native HTTP transport for an extern
+/// JS-fetch import (browser wasm target). Self-contained: re-derives the
+/// `OpenAPI` JSON in-process.
+///
+/// Upstream openapi2zig has no linux/arm64 release artifact, so mise doesn't
+/// install it there -- skip the whole step when the binary is absent. The
+/// committed `generated/zig-rest/src/et_rest_client.zig` stays untouched, so
+/// `gen-specs-check`'s `git diff --exit-code` still passes on that host.
+#[expect(
+    clippy::print_stderr,
+    reason = "et-int-gen is a CLI; the skip notice on stderr is intended user-visible output"
+)]
+pub fn generate_zig() -> Result<(), Error> {
+    let project_root = get_project_root();
+    if zig::is_available() {
+        let rest_json_path = project_root.join("target/int-gen/rest.json");
+        write_if_changed(&rest_json_path, &openapi::render_json())?;
+        let raw_zig_path = project_root.join("target/int-gen/raw_et_rest_client.zig");
+        let zig_client = zig::render(&rest_json_path, &raw_zig_path)?;
+        write_if_changed(
+            &project_root.join("generated/zig-rest/src/et_rest_client.zig"),
+            &zig_client,
+        )?;
+    } else {
+        eprintln!("openapi2zig not found on PATH; skipping Zig REST client generation");
+    }
     Ok(())
 }
 

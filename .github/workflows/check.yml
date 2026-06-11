@@ -33,12 +33,15 @@ jobs:
         with:
           tool: cargo-binstall,mise
 
+      - name: Select all language envs
+        run: echo "MISE_ENV=$(mise run print-all-langs)" >> "$GITHUB_ENV"
+
       - name: Install pipx (Windows only — aqua has no Windows build)
         if: runner.os == 'Windows'
         run: python -m pip install pipx
 
       # Optional npm backend, installed before the main `mise install`.
-      # See [tasks.setup-aube] in .mise.toml for the full rationale.
+      # See [tasks.setup-aube] in .mise/config.toml for the full rationale.
       - name: Install aube (optional npm backend, allowed to fail)
         continue-on-error: true
         run: |
@@ -47,7 +50,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           MISE_HTTP_TIMEOUT: "120"
-          MISE_TASK_RUN_AUTO_INSTALL: "false"
 
       - name: Install mise tools
         run: |

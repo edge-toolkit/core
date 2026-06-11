@@ -1,0 +1,44 @@
+# .NET (C#) toolchain + tasks. Loaded when MISE_ENV includes `dotnet`.
+
+[tools]
+# Pinned: SDK churn re-keys the wasm-tools workload manifest, forcing a ~1.5GB pack re-download on every bump.
+dotnet = "10.0.300"
+dotnet-core = "10.0.300"
+"dotnet:roslynator.dotnet.cli" = "latest"
+
+[tasks.dotnet-fmt]
+description = "Format dotnet C# code"
+run = "dotnet format"
+
+[tasks.dotnet-check]
+description = "Check dotnet C# formatting"
+run = "dotnet format --verify-no-changes"
+
+# Namespaced aggregators picked up by the default config's globbed `check`/`fmt`.
+[tasks."check:dotnet"]
+depends = ["dotnet-check"]
+description = "Run .NET checks (format verification)"
+
+[tasks."fmt:dotnet"]
+depends = ["dotnet-fmt"]
+description = "Format .NET sources"
+
+[tasks.build-ws-dotnet-data1-module]
+description = "Build the dotnet-data1 C# WASM workflow module"
+dir = "services/ws-modules/dotnet-data1"
+run = '''
+dotnet workload install wasm-tools --skip-manifest-update
+dotnet publish -c Release
+
+PUBLISH=bin/Release/net10.0/publish/wwwroot/_framework
+cp "$PUBLISH"/*.js "$PUBLISH"/*.wasm "$PUBLISH"/*.dat pkg/
+'''
+shell = "bash -euo pipefail -c"
+
+[tasks."prefetch:dotnet"]
+description = "Prefetch .NET dependencies and the wasm-tools workload"
+run = """
+dotnet restore
+dotnet workload install wasm-tools --skip-manifest-update
+"""
+shell = "bash -euo pipefail -c"

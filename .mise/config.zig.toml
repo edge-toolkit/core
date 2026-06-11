@@ -1,0 +1,47 @@
+# Zig toolchain + tasks. Loaded when MISE_ENV includes `zig`.
+
+[tools]
+# Upstream only ships linux/x64, macos, and windows binaries — no linux/arm64
+# asset, so installing this on `ubuntu-24.04-arm` fails with "No matching asset
+# found". Restrict to the platforms that have a release artifact; the Zig
+# REST-client generation step in et-int-gen detects the missing binary at
+# runtime and is a no-op when it's not on PATH.
+"github:christianhelle/openapi2zig" = { version = "latest", os = ["linux/x64", "macos", "windows"] }
+zig = "latest"
+
+[tasks.zig-check]
+run = "zig fmt --check services/ws-modules/ generated/zig-rest/"
+
+[tasks.zig-fmt]
+run = "zig fmt services/ws-modules/ generated/zig-rest/"
+
+# Namespaced aggregators picked up by the default config's globbed `check`/`fmt`.
+[tasks."check:zig"]
+depends = ["zig-check"]
+description = "Run Zig checks (format-check)"
+
+[tasks."fmt:zig"]
+depends = ["zig-fmt"]
+description = "Format Zig sources"
+
+[tasks.build-ws-zig-data1-module]
+description = "Build the zig-data1 workflow WASM module"
+dir = "services/ws-modules/zig-data1"
+run = "zig build -Doptimize=ReleaseSmall"
+
+[tasks."prefetch:zig"]
+description = "Prefetch Zig build dependencies"
+run = "zig build --fetch --build-file services/ws-modules/zig-data1/build.zig"
+
+[tasks."gen:zig-rest"]
+depends = ["gen:ws-spec"]
+description = "Emit the Zig REST client via et-int-gen (openapi2zig + tree-sitter post-process), then zig-fmt it"
+# et-int-gen's `generate zig` re-derives the OpenAPI doc, runs openapi2zig, and
+# post-processes the result; it is a no-op when openapi2zig isn't on PATH (e.g.
+# linux/arm64). `zig fmt` then makes the committed file canonical so
+# gen-specs-check doesn't drift.
+run = """
+cargo run -q -p et-int-gen --bin et-int-gen -- generate zig
+zig fmt generated/zig-rest/src/et_rest_client.zig
+"""
+shell = "bash -euo pipefail -c"
