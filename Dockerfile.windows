@@ -42,11 +42,15 @@ COPY --from=vcruntime `
 USER ContainerAdministrator
 SHELL ["cmd", "/S", "/C"]
 
-# Bootstrap mise from its CDN zip (curl.exe + tar.exe ship in Nano Server).
-# Extract to C:\ and call mise by absolute path below, so we don't depend on
-# Windows-container PATH propagation between RUN layers. (Zip layout assumed
-# mise\bin\mise.exe -- one of the things to confirm via CI.)
-RUN curl -fsSL -o mise.zip https://mise.jdx.dev/mise-latest-windows-x64.zip && `
+# Bootstrap mise from a *pinned* release. `mise-latest` drifts: a newer mise
+# (2026.6.4) rejects this repo's `task.run_auto_install` setting, so keep
+# MISE_VERSION in lockstep with the mise the repo targets. curl.exe + tar.exe
+# ship in Nano Server; extract to C:\ and call mise by absolute path below, so we
+# don't depend on Windows-container PATH propagation between RUN layers. (Zip
+# layout is mise\bin\mise.exe.)
+ARG MISE_VERSION=2026.6.2
+RUN curl -fsSL -o mise.zip `
+    https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/mise-v${MISE_VERSION}-windows-x64.zip && `
     tar -xf mise.zip -C C:\ && `
     del mise.zip
 
@@ -82,6 +86,6 @@ RUN C:\mise\bin\mise.exe run cargo-check
 #     and whether a gnu-host proc-macro/build-script build is clean;
 #   * whether `ort` (ONNX Runtime, msvc-only prebuilts) breaks the gnu link --
 #     cargo check shouldn't link it, but a later cargo build/test will;
-#   * whether the conda backend (micromamba) and the ubi llvm-mingw asset-match
-#     resolve cleanly on Nano Server;
+#   * whether the conda backend (micromamba) and the github llvm-mingw asset
+#     match resolve cleanly on Nano Server;
 #   * whether mise finds bash (m2-bash) for the `bash -euo pipefail` tasks.

@@ -49,7 +49,7 @@ cmake = "latest"
 # SDK can't come from mise, so the Windows build targets `-gnu`, not `-msvc`.
 "conda:m2-bash" = { version = "latest", os = ["windows"] }
 "conda:m2-git" = { version = "latest", os = ["windows"] }
-"ubi:mstorsjo/llvm-mingw" = { version = "latest", os = ["windows"], matching = "ucrt-x86_64" }
+"github:mstorsjo/llvm-mingw" = { version = "latest", os = ["windows"], matching = "ucrt-x86_64" }
 dprint = "latest"
 editorconfig-checker = "latest"
 "github:grok-rs/waitup" = "latest"
