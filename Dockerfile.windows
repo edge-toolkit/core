@@ -17,13 +17,24 @@
 
 # Donor stage: Nano Server omits the VC++ runtime that msvc-built executables
 # (mise.exe, and the rust/cargo mise installs) need just to *start* -- without it
-# mise.exe dies with 0xC0000135 (DLL not found). It isn't a tool mise can install
-# (mise needs it to run), so copy the DLL from Server Core, which ships it. This
-# plus mise.exe are the only two non-mise bootstrap bits; everything else is mise.
+# mise.exe dies with 0xC0000135 (DLL not found). No base Windows image ships it
+# (not even Server Core), and mise can't install it (mise needs it to run), so we
+# install the official VC++ redistributable on a Server Core donor -- which has
+# the installer stack Nano Server lacks -- and copy the runtime DLLs forward.
+# This plus mise.exe are the only non-mise bootstrap bits; the rest is mise.
 FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS vcruntime
+SHELL ["cmd", "/S", "/C"]
+# `|| ver>nul` swallows the redistributable's 3010 ("reboot required") exit code.
+RUN curl -fsSL -o vc_redist.exe https://aka.ms/vs/17/release/vc_redist.x64.exe && `
+    (vc_redist.exe /install /quiet /norestart || ver>nul) && `
+    del vc_redist.exe
 
 FROM mcr.microsoft.com/windows/nanoserver:ltsc2022
-COPY --from=vcruntime C:\Windows\System32\vcruntime140.dll C:\Windows\System32\
+COPY --from=vcruntime `
+    C:\Windows\System32\vcruntime140.dll `
+    C:\Windows\System32\vcruntime140_1.dll `
+    C:\Windows\System32\msvcp140.dll `
+    C:\Windows\System32\
 
 # cmd is the only shell Nano Server has; ContainerAdministrator so we can write
 # under C:\. `escape=`` ` `` (line 1) makes backtick the line continuation so the
