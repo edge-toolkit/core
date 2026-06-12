@@ -80,6 +80,64 @@ mise install-all
 
 Use `mise run fmt-all` and `mise run check-all` to run formatters and checkers.
 
+## Building and running with Docker
+
+[`Dockerfile`](Dockerfile) reproduces the mise setup above on a clean, minimal
+Ubuntu, in stages (`build` → `prefetch` → `precompile` → `test`/`server`). A
+plain build produces the **server** image (the final stage): a release build of
+`et-ws-server`, served automatically. `mise install-all` fetches many tools from
+GitHub releases, so build with a GitHub token to avoid the anonymous
+60-requests/hour limit (see [GitHub rate limits](#github-rate-limits)), passed as
+a BuildKit secret so it never lands in an image layer:
+
+```bash
+GITHUB_TOKEN="$(gh auth token)" DOCKER_BUILDKIT=1 \
+  docker build --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit .
+docker run --rm -p 8080:8080 edge-toolkit
+```
+
+Then open <http://localhost:8080> (add `-p 8443:8443` for TLS). The server needs
+no GPU. OpenObserve/`o2` is optional — OTLP export is off when no collector is
+configured. (Drop `--secret` to build without a token; `install-all` may then hit
+rate limits.)
+
+The full test suite is a **separate, non-final stage**, so build it explicitly
+with `--target test`. The WebGPU compute test needs a GPU, and `docker build`
+can't attach one (no `--gpus` for build), so it runs at `docker run` time. The
+`test` stage bundles `mesa-vulkan-drivers`, so passing the host DRI node gives
+wgpu a real Intel/AMD GPU (and a software fallback if you pass nothing):
+
+```bash
+docker build --target test -t edge-toolkit-test .
+docker run --rm --device /dev/dri edge-toolkit-test   # Intel/AMD GPU
+```
+
+NVIDIA via `--gpus all` (with the NVIDIA Container Toolkit) is wired but
+**unverified** — its in-container Vulkan ICD doesn't initialize yet, so prefer a
+DRI device. The image skips the `o2`/`ws-server` README steps (runtime services).
+
+### CI
+
+The [`docker`](.github/workflows/docker.yml) workflow rebuilds these images when
+a `Dockerfile*` or `.dockerignore` changes (or on manual dispatch) — both builds
+are too heavy for every push. A `linux` job builds the server image and curls
+`/health`; a `windows` job builds the sketch below.
+
+### Windows setup sketch
+
+[`Dockerfile.windows`](Dockerfile.windows) is an **unverified sketch** of the
+same setup on a bare Windows machine — useful for finding what a clean Windows
+needs beyond the README. Windows containers build only on a Windows Docker host,
+so the `windows` CI job is the only place it runs (not the Linux dev/CI boxes).
+It starts from `windows/servercore` (pinned to the runner's OS so process
+isolation works) and installs, via Chocolatey, what a clean Windows lacks: the
+MSVC **Visual Studio Build Tools** (C++ + Windows SDK) that Rust's msvc toolchain
+links through, **LLVM** for bindgen's `libclang.dll`, plus git and python — then
+mise, the README setup, and `mise run cargo-check`. Those extra prereqs are
+findings the README's "Windows only" section should eventually formalise. Expect
+to iterate on it via CI; the `mise install` is kept basic (not `install-all`)
+until the fundamentals pass.
+
 ## Run ws agent in browser
 
 ### Build modules and run the WS server

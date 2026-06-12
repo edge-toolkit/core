@@ -16,3 +16,15 @@ __pycache__/
 uv.lock
 node_modules/
 pnpm-lock.yaml
+.venv/
+# .NET build output. `obj/` is safe globally (nothing tracked is named obj/),
+# but `bin/` is scoped to the module so it never matches a Rust crate's
+# `src/bin/` (e.g. utilities/int-gen/src/bin/).
+obj/
+services/ws-modules/dotnet-data1/bin/
+# Editor dir (but keep the shared recommended-extensions list), ruff cache, and
+# the ws-server's runtime file storage.
+.vscode/*
+!.vscode/extensions.json
+.ruff_cache/
+services/ws-server/storage/

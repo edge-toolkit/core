@@ -1,0 +1,78 @@
+---
+name: docker
+
+# Build the verification images. Only fires when a Dockerfile (or the build
+# context's .dockerignore / this workflow) changes, or on manual dispatch --
+# these builds are heavy (every toolchain + a release compile), so they don't
+# run on every push.
+"on":
+  pull_request:
+    paths:
+      - Dockerfile
+      - Dockerfile.windows
+      - .dockerignore
+      - .github/workflows/docker.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+jobs:
+  # Build the Linux image (default `server` stage) and confirm the server runs.
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The image is large (every language toolchain + prefetched models + a
+      # release build); the runner's root disk (~14 GB free) can't hold it. Move
+      # Docker's storage to the ~70 GB /mnt scratch disk before building.
+      - name: Move Docker storage to /mnt
+        run: |
+          sudo systemctl stop docker docker.socket
+          sudo mkdir -p /mnt/docker
+          echo '{"data-root":"/mnt/docker"}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl start docker
+          docker info --format 'Docker Root Dir: {{.DockerRootDir}}'
+
+      # GITHUB_TOKEN lifts mise's 60-req/hr anonymous GitHub limit during
+      # install-all; passed as a BuildKit secret so it never lands in a layer.
+      - name: Build the edge-toolkit image (server stage)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          DOCKER_BUILDKIT=1 docker build \
+            --secret id=gh_token,env=GITHUB_TOKEN \
+            -t edge-toolkit .
+
+      - name: Smoke-test the ws-server
+        run: |
+          docker run -d --rm -p 8080:8080 --name et edge-toolkit
+          ok=
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/health; then ok=1; break; fi
+            sleep 2
+          done
+          docker logs et || true
+          docker stop et
+          test -n "$ok" || { echo "ws-server did not become healthy"; exit 1; }
+
+  # Build the Windows setup sketch. Windows containers can only be built on a
+  # Windows Docker host, so CI is the only place this is exercised (we can't
+  # build it on the Linux dev/CI boxes). Expect to iterate here -- see
+  # Dockerfile.windows and the README for the known unknowns.
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build the Windows setup image (sketch)
+        run: docker build -f Dockerfile.windows -t edge-toolkit-windows .

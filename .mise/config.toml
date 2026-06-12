@@ -35,6 +35,10 @@ cargo-binstall = "latest"
 cmake = "latest"
 "conda:lld" = "latest"
 "conda:openssl" = "3"
+# Ships the C `libclang.so` (+ clang resource headers) that bindgen needs to
+# build the deno web runner's libsqlite3-sys. Linux-only: macOS/Windows use
+# their system/Xcode libclang. Consumed by LIBCLANG_PATH / BINDGEN_EXTRA_CLANG_ARGS.
+"conda:clangxx" = { version = "latest", os = ["linux"] }
 dprint = "latest"
 editorconfig-checker = "latest"
 "github:grok-rs/waitup" = "latest"
@@ -55,12 +59,14 @@ pipx = { version = "latest", os = ["linux", "macos"] }
 "npm:pnpm" = { version = "latest", os = ["macos/x64"] }
 pnpm = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 protoc = "latest"
+python = "3.13"
 rclone = "latest"
 rust = [
   { version = "latest", components = "clippy,rust-analyzer", targets = "wasm32-unknown-unknown,wasm32-wasip2" },
   { version = "nightly", components = "rust-src,rustfmt", targets = "wasm32-unknown-unknown,wasm32-wasip2" },
 ]
 typos = "latest"
+uv = "0.11.8"
 wasm-tools = "latest"
 yq = "latest"
 
@@ -69,10 +75,34 @@ yq = "latest"
 # CARGO_TARGET_* RUSTFLAGS.
 conda_lld = "{{ env.HOME }}/.local/share/mise/installs/conda-lld/latest"
 conda_openssl = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest"
+conda_clangxx = "{{ env.HOME }}/.local/share/mise/installs/conda-clangxx/latest"
+clang_resource = "{{ vars.conda_clangxx }}/lib/clang/22"
+# conda's target-triple dir uses x86_64/aarch64; mise's arch() is x64/arm64.
+conda_arch = "{% if arch() == 'arm64' %}aarch64{% else %}x86_64{% endif %}"
+clang_sysroot = "{{ vars.conda_clangxx }}/{{ vars.conda_arch }}-conda-linux-gnu/sysroot"
+# bindgen loads libclang directly rather than driving the clang binary, so it
+# can't auto-find its resource dir (builtins like stddef.h/stdint.h) or conda's
+# bundled sysroot. Pass `-resource-dir` (not just `-isystem .../include`, which
+# leaves the builtin type macros unset and fails in CI) + `--sysroot` so header
+# resolution is identical on every machine.
+bindgen_args = "-resource-dir {{ vars.clang_resource }} --sysroot={{ vars.clang_sysroot }}"
+# mise-managed CPython 3.13 interpreter, composed into PYO3_PYTHON below. Split
+# per-OS because the mise data dir differs (LOCALAPPDATA\mise on Windows,
+# HOME-based elsewhere). `get_env(..., default='')` guards the Windows-only
+# LOCALAPPDATA so the var still renders on Linux/macOS -- a bare `env.LOCALAPPDATA`
+# is "not found in context" off-Windows and hard-fails the whole config render.
+py313_win = "{{ get_env(name='LOCALAPPDATA', default='') }}\\mise\\installs\\python\\3.13\\python.exe"
+py313_unix = "{{ env.HOME }}/.local/share/mise/installs/python/3.13/bin/python3"
 # Linker RUSTFLAGS fragments, composed into the per-target CARGO_TARGET_* env
 # values below — kept as vars so those values stay on a single line.
 lld_flag = "-C link-arg=-fuse-ld={{ vars.conda_lld }}/bin/ld64.lld"
 rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
+# rpath to the mise CPython 3.13 lib dir so the et-ws-pyo3-runner binary finds
+# libpython at runtime (libpython3.13.so on Linux, libpython3.13.dylib on macOS
+# via its @rpath install name). pyo3 bakes an rpath to the resolved patch-version
+# dir, which doesn't exist when mise installs under the "3.13" alias; point at
+# the stable install path instead.
+pylib_flag = "-C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/python/3.13/lib"
 wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint"
 # Source/dest paths for the fetch-*-rclone model downloads — kept as vars so
 # each `rclone copyto` command stays on a single line without continuations.
@@ -102,8 +132,8 @@ OPENSSL_DIR = "{{ vars.conda_openssl }}"
 # `-fuse-ld=` at the absolute `ld64.lld` shipped by `conda:lld` so the flag
 # resolves without any `PATH` lookup — same conda root the rpath link-arg
 # already points into.
-CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }}"
-CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }}"
+CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
+CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
 # Linux needs the same rpath the macOS flags above carry, for the same reason:
 # OPENSSL_DIR points openssl-sys at conda's OpenSSL, so anything linking it
 # (e.g. the ort-sys build script) records conda's `libssl` soname. Without an
@@ -112,8 +142,27 @@ CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_
 # bumped to `libssl.so.4` (no system equivalent). Point the loader at conda's
 # own lib dir so the soname is irrelevant. No `-fuse-ld=lld`: the system
 # linker on Linux accepts `-Wl,-rpath` directly, unlike Apple clang's lld dance.
-CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }}"
-CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }}"
+CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
+CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
+# bindgen (pulled in transitively by the deno web runner) needs the C
+# `libclang.so`. A mise-only Linux box usually only has `libclang-cpp` (the C++
+# API), so install `conda:clangxx` (above) for its `libclang.so`, point clang-sys
+# at it, and feed bindgen conda's own resource headers + bundled sysroot (see
+# `bindgen_args`). Using conda's sysroot rather than the host's `/usr/include`
+# makes bindgen self-contained, so CI resolves headers identically to a local box
+# -- no environment-specific divergence. Same conda-managed, no-admin approach as
+# OPENSSL_DIR; Linux-only (macOS/Windows use system/Xcode libclang). mise can't
+# omit an env key, so off-Linux these render empty -> clang-sys ignores them.
+LIBCLANG_PATH = "{% if os() == 'linux' %}{{ vars.conda_clangxx }}/lib{% endif %}"
+BINDGEN_EXTRA_CLANG_ARGS = "{% if os() == 'linux' %}{{ vars.bindgen_args }}{% endif %}"
+# pyo3-ffi (et-ws-pyo3-runner) links its embedded interpreter at build time from
+# PYO3_PYTHON, else the first python on PATH -- under mise that's the 32-bit
+# Pyodide shim, so the build dies with "target architecture (64-bit) does not
+# match your python interpreter (32-bit)". Pin it to the mise-managed CPython
+# 3.13 (the `python` tool above). Always-loaded so `cargo check --workspace`
+# builds the pyo3 runner without `MISE_ENV=python`. Direct path, not `exec()`:
+# an exec runs on every command and a failure hard-fails the config render.
+PYO3_PYTHON = "{% if os() == 'windows' %}{{ vars.py313_win }}{% else %}{{ vars.py313_unix }}{% endif %}"
 # rclone retry tuning for the `fetch-*-rclone` model-download tasks.
 # Hugging Face / GitHub raw responded HTTP 429 ("Too Many Requests") at
 # least once with all three of rclone's default high-level retries
@@ -172,6 +221,7 @@ depends = [
   "cargo-clippy",
   "cargo-doc-check",
   "cargo-fmt-check",
+  "docker-check",
   "dprint-check",
   "editorconfig-check",
   "gen-specs-check",
@@ -218,7 +268,7 @@ run = "cargo clippy --keep-going --workspace --tests"
 [tasks.cargo-doc-check]
 description = "Build rustdoc with -D warnings to fail on any doc issues"
 env = { RUSTDOCFLAGS = "-D warnings" }
-run = "cargo doc --workspace --no-deps --document-private-items"
+run = "cargo doc --keep-going --workspace --no-deps --document-private-items"
 
 [tasks.cargo-clippy-fix]
 run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace --tests"
@@ -239,11 +289,14 @@ run = """
 taplo lint
 
 # All member Cargo.tomls — exclude workspace root and any build output.
+# `-prune` target/ and .git so find never descends into them: `-not -path`
+# alone still walks the whole tree, and target/debug/deps/ churns constantly
+# under a concurrent `cargo-check`, racing find into "No such file" errors.
 # (Avoid `mapfile`: it's bash 4+ only and macOS ships bash 3.2.)
 members=()
 while IFS= read -r line; do
   members+=("$line")
-done < <(find . -name Cargo.toml -not -path './target/*' -not -path './Cargo.toml')
+done < <(find . -path ./target -prune -o -path ./.git -prune -o -name Cargo.toml ! -path ./Cargo.toml -print)
 
 # Banned deps only need to be checked at the workspace root: member
 # crates are required to reference deps via `workspace = true` (the
@@ -302,6 +355,57 @@ mise install aube@latest
 [tasks.osv-scanner]
 depends = ["cargo-check"]
 run = "osv-scanner --lockfile Cargo.lock"
+
+[tasks."gen:osv-scanner"]
+description = "Regenerate osv-scanner.toml from deny.toml's [advisories].ignore list"
+# osv-scanner and cargo-deny must ignore the same advisory IDs; deny.toml is the
+# source of truth (it carries the per-ID rationale). grep/sort/sed only, so the
+# `dependencies` workflow can run it (via mise) next to the audit binaries.
+run = """
+{
+  echo '# AUTO-GENERATED from deny.toml by `mise run gen:osv-scanner`.'
+  echo 'IgnoredVulns = ['
+  grep -oE '"RUSTSEC-[0-9]{4}-[0-9]{4}"' deny.toml | sort -u | sed 's/.*/  { id = & },/'
+  echo ']'
+} >osv-scanner.toml
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks."gen:dockerignore"]
+description = "Regenerate .dockerignore from .gitignore + Docker-only excludes"
+# Docker reads only the root .dockerignore (never .gitignore or nested ignore
+# files), and a bare pattern there is root-anchored -- whereas a slash-less
+# .gitignore pattern matches at any depth. So mirror .gitignore, add the
+# Docker-only excludes (`.git/`, plus the build recipe + docs so editing them
+# doesn't bust the `COPY . .` cache), and `**/`-prefix each non-anchored pattern.
+run = '''
+{
+  echo "# AUTO-GENERATED from .gitignore by 'mise run gen:dockerignore' -- do not edit."
+  echo "# Docker reads only this file; patterns are **/-prefixed to match at any depth"
+  echo "# like .gitignore. Edit .gitignore and regenerate."
+  echo
+  {
+    cat .gitignore
+    printf '%s\n' '.git/' 'Dockerfile*' '/README.md' '.dockerignore'
+  } | awk '
+    /^[[:space:]]*#/ { print; next }
+    /^[[:space:]]*$/ { print; next }
+    {
+      neg = ""; line = $0
+      if (substr(line, 1, 1) == "!") { neg = "!"; line = substr(line, 2) }
+      if (substr(line, 1, 1) == "/") { print neg substr(line, 2); next }
+      core = line; sub(/\/$/, "", core)
+      if (index(core, "/") > 0) print neg line; else print neg "**/" line
+    }
+  '
+} >.dockerignore
+'''
+shell = "bash -euo pipefail -c"
+
+[tasks.docker-check]
+depends = ["gen:dockerignore"]
+description = "Fail if .dockerignore is stale vs .gitignore (run `mise run gen:dockerignore`)"
+run = "git diff --exit-code -- .dockerignore"
 
 [tasks.prefetch-ci]
 # `build-ws-wasm-agent` produces `services/ws-wasm-agent/pkg/`, which the

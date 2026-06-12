@@ -1,0 +1,53 @@
+# escape=`
+# SKETCH (UNVERIFIED): reproduce the README's mise setup on a bare Windows box,
+# to discover what a clean Windows machine actually needs. Windows containers
+# build only on a Windows Docker host, so this is exercised solely by the
+# `windows` job in .github/workflows/docker.yml -- it cannot be built on the
+# Linux dev/CI machines, so treat it as a starting point to iterate on via CI,
+# not a known-good image. `escape=`` ` `` above makes backtick the line
+# continuation (matching PowerShell) and frees `\` so Windows paths are literal.
+#
+# Base: Windows Server Core, pinned to the runner's OS. Windows process isolation
+# needs the container build == host build (ltsc2022 == the windows-2022 runner);
+# nanoserver is too small to install toolchains. Server Core is multi-GB on its
+# own, before anything below -- Windows images are large and slow to build.
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
+
+SHELL ["powershell", "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop';"]
+
+# A bare Windows has none of the build prereqs the README assumes (it documents
+# only pipx). Install them with Chocolatey:
+#   git, python : cargo + the README's `python -m pip install pipx` (Windows has
+#                 no aqua pipx build, so the `pipx:*` mise tools need pip's pipx).
+#   llvm        : libclang.dll for bindgen (the deno web runner's libsqlite3-sys);
+#                 lands in C:\Program Files\LLVM, which .mise/config.toml's
+#                 LIBCLANG_PATH already points at.
+#   mise        : the toolchain manager itself.
+#   visualstudio2022buildtools (VCTools) : MSVC cl/link + the Windows SDK that
+#                 Rust's msvc toolchain links through (a clean Windows lacks them).
+RUN Set-ExecutionPolicy Bypass -Scope Process -Force; `
+    iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+RUN choco install -y --no-progress git python llvm mise
+RUN choco install -y --no-progress visualstudio2022buildtools `
+    --package-parameters '--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
+
+WORKDIR C:\workspace
+COPY . .
+
+# README "mise" setup, Windows flavour. pipx via pip per the README's Windows
+# note, so the always-loaded `pipx:*` tools resolve. Then install the default
+# toolchain and run the Rust check -- this is the basic smoke (and it exercises
+# the Windows LIBCLANG_PATH fix, since the web runner's libsqlite3-sys runs
+# bindgen). A full `install-all` / `test` across every guest language is far
+# heavier on Windows containers; expand once these basics are green.
+#
+# Known unknowns to settle via CI: mise's PATH after the choco install; whether
+# cargo finds the VS Build Tools without an explicit `vcvars` shell; and whether
+# every always-loaded `pipx:*` tool (e.g. semgrep) installs cleanly on Windows.
+RUN mise trust; `
+    mise settings experimental=true; `
+    mise settings set cargo.binstall true; `
+    mise use -g cargo-binstall; `
+    python -m pip install --no-warn-script-location pipx
+RUN mise install; `
+    mise run cargo-check
