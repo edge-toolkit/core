@@ -36,9 +36,20 @@ cmake = "latest"
 "conda:lld" = "latest"
 "conda:openssl" = "3"
 # Ships the C `libclang.so` (+ clang resource headers) that bindgen needs to
-# build the deno web runner's libsqlite3-sys. Linux-only: macOS/Windows use
-# their system/Xcode libclang. Consumed by LIBCLANG_PATH / BINDGEN_EXTRA_CLANG_ARGS.
+# build the deno web runner's libsqlite3-sys. Linux-only: macOS uses its
+# system/Xcode libclang; Windows gets libclang from llvm-mingw (below).
+# Consumed by LIBCLANG_PATH / BINDGEN_EXTRA_CLANG_ARGS.
 "conda:clangxx" = { version = "latest", os = ["linux"] }
+# Windows toolchain, all mise-provided so a bare Windows box needs nothing
+# preinstalled except mise itself (see Dockerfile.windows). The conda msys2
+# mirror packages give the `bash` the `bash -euo pipefail` tasks expect and a
+# `git`; llvm-mingw bundles clang + lld + the mingw-w64 runtime/headers/libs
+# (the `x86_64-pc-windows-gnu` C/link toolchain) plus the `libclang.dll` bindgen
+# loads -- found via PATH once mise activates the tool. The MSVC CRT + Windows
+# SDK can't come from mise, so the Windows build targets `-gnu`, not `-msvc`.
+"conda:m2-bash" = { version = "latest", os = ["windows"] }
+"conda:m2-git" = { version = "latest", os = ["windows"] }
+"ubi:mstorsjo/llvm-mingw" = { version = "latest", os = ["windows"], matching = "ucrt-x86_64" }
 dprint = "latest"
 editorconfig-checker = "latest"
 "github:grok-rs/waitup" = "latest"

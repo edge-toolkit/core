@@ -1,53 +1,67 @@
 # escape=`
-# SKETCH (UNVERIFIED): reproduce the README's mise setup on a bare Windows box,
-# to discover what a clean Windows machine actually needs. Windows containers
-# build only on a Windows Docker host, so this is exercised solely by the
-# `windows` job in .github/workflows/docker.yml -- it cannot be built on the
-# Linux dev/CI machines, so treat it as a starting point to iterate on via CI,
-# not a known-good image. `escape=`` ` `` above makes backtick the line
-# continuation (matching PowerShell) and frees `\` so Windows paths are literal.
+# SKETCH (UNVERIFIED): build edge-toolkit on a *bare* Windows box where mise
+# supplies the entire toolchain -- the point is to prove the README's mise setup
+# needs nothing hand-installed but mise itself. Windows containers build only on
+# a Windows Docker host, so this runs solely in the `windows` job of
+# .github/workflows/docker.yml; it can't be built on the Linux dev/CI machines.
+# Treat it as a CI-iterated starting point, not a known-good image.
 #
-# Base: Windows Server Core, pinned to the runner's OS. Windows process isolation
-# needs the container build == host build (ltsc2022 == the windows-2022 runner);
-# nanoserver is too small to install toolchains. Server Core is multi-GB on its
-# own, before anything below -- Windows images are large and slow to build.
-FROM mcr.microsoft.com/windows/servercore:ltsc2022
+# Base: Nano Server, the smallest Windows base (~120 MB vs Server Core's ~1.25
+# GB). It has no MSI/installer stack, no PowerShell, and runs unprivileged -- so
+# the Visual Studio Build Tools installer can't run here at all. That's the
+# point: nothing is installed the Windows way. We bootstrap mise (a single .exe)
+# with the curl.exe + tar.exe built into Nano Server, and `mise install` pulls
+# the rest -- rust, llvm-mingw (clang/lld/mingw-w64 + libclang), bash and git
+# (see the os-guarded Windows tools in .mise/config.toml). The MSVC CRT + Windows
+# SDK can't come from mise, so the build targets x86_64-pc-windows-gnu.
+FROM mcr.microsoft.com/windows/nanoserver:ltsc2022
 
-SHELL ["powershell", "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop';"]
+# cmd is the only shell Nano Server has; ContainerAdministrator so we can write
+# under C:\. `escape=`` ` `` (line 1) makes backtick the line continuation so the
+# `\` in Windows paths stays literal.
+USER ContainerAdministrator
+SHELL ["cmd", "/S", "/C"]
 
-# A bare Windows has none of the build prereqs the README assumes (it documents
-# only pipx). Install them with Chocolatey:
-#   git, python : cargo + the README's `python -m pip install pipx` (Windows has
-#                 no aqua pipx build, so the `pipx:*` mise tools need pip's pipx).
-#   llvm        : libclang.dll for bindgen (the deno web runner's libsqlite3-sys);
-#                 lands in C:\Program Files\LLVM, which .mise/config.toml's
-#                 LIBCLANG_PATH already points at.
-#   mise        : the toolchain manager itself.
-#   visualstudio2022buildtools (VCTools) : MSVC cl/link + the Windows SDK that
-#                 Rust's msvc toolchain links through (a clean Windows lacks them).
-RUN Set-ExecutionPolicy Bypass -Scope Process -Force; `
-    iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-RUN choco install -y --no-progress git python llvm mise
-RUN choco install -y --no-progress visualstudio2022buildtools `
-    --package-parameters '--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'
+# Bootstrap mise from its CDN zip (curl.exe + tar.exe ship in Nano Server).
+# Extract to C:\ and call mise by absolute path below, so we don't depend on
+# Windows-container PATH propagation between RUN layers. (Zip layout assumed
+# mise\bin\mise.exe -- one of the things to confirm via CI.)
+RUN curl -fsSL -o mise.zip https://mise.jdx.dev/mise-latest-windows-x64.zip && `
+    tar -xf mise.zip -C C:\ && `
+    del mise.zip
 
 WORKDIR C:\workspace
 COPY . .
 
-# README "mise" setup, Windows flavour. pipx via pip per the README's Windows
-# note, so the always-loaded `pipx:*` tools resolve. Then install the default
-# toolchain and run the Rust check -- this is the basic smoke (and it exercises
-# the Windows LIBCLANG_PATH fix, since the web runner's libsqlite3-sys runs
-# bindgen). A full `install-all` / `test` across every guest language is far
-# heavier on Windows containers; expand once these basics are green.
+# README "mise" setup. `mise install` pulls the whole toolchain declared in
+# .mise/config.toml; experimental is on for the conda/ubi backends, and trust is
+# needed for the copied-in config.
+RUN C:\mise\bin\mise.exe trust && `
+    C:\mise\bin\mise.exe settings experimental=true && `
+    C:\mise\bin\mise.exe settings set cargo.binstall true && `
+    C:\mise\bin\mise.exe install
+
+# mise's core rust installs the msvc-host toolchain by default, but Nano Server
+# has no msvc linker -- so flip rustup (managed inside mise) to the gnu host and
+# build the gnu target, which links via the mise-provided llvm-mingw. mise's
+# core:rust has no host-triple knob, so we drive rustup directly. This seam is
+# the main thing to confirm via CI.
+RUN C:\mise\bin\mise.exe exec -- rustup set default-host x86_64-pc-windows-gnu && `
+    C:\mise\bin\mise.exe exec -- rustup default stable-x86_64-pc-windows-gnu
+
+# Basic smoke: a workspace check against the gnu target (the linker is
+# llvm-mingw's gcc wrapper, on PATH once mise activates the tool). Heavier work
+# (install-all / test across every guest language) is a later step once these
+# fundamentals are green.
+ENV CARGO_BUILD_TARGET=x86_64-pc-windows-gnu `
+    CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
+RUN C:\mise\bin\mise.exe run cargo-check
 #
-# Known unknowns to settle via CI: mise's PATH after the choco install; whether
-# cargo finds the VS Build Tools without an explicit `vcvars` shell; and whether
-# every always-loaded `pipx:*` tool (e.g. semgrep) installs cleanly on Windows.
-RUN mise trust; `
-    mise settings experimental=true; `
-    mise settings set cargo.binstall true; `
-    mise use -g cargo-binstall; `
-    python -m pip install --no-warn-script-location pipx
-RUN mise install; `
-    mise run cargo-check
+# Known unknowns to settle via CI:
+#   * whether the rustup host flip sticks (mise may re-pin its own toolchain),
+#     and whether a gnu-host proc-macro/build-script build is clean;
+#   * whether `ort` (ONNX Runtime, msvc-only prebuilts) breaks the gnu link --
+#     cargo check shouldn't link it, but a later cargo build/test will;
+#   * whether the conda backend (micromamba) and the ubi llvm-mingw asset-match
+#     resolve cleanly on Nano Server;
+#   * whether mise finds bash (m2-bash) for the `bash -euo pipefail` tasks.

@@ -9,7 +9,7 @@ rules:
         - "/.mise/config.python.toml"
         - "/README.md"
         - "/utilities/cli/README.md"
-        - "/services/ws-server/Dockerfile"
+        - "**/Dockerfile*"
         # Generated deployment artifacts (regen-verification output).
         - "/verification/**/mise.toml"
         - "/verification/**/compose.yaml"

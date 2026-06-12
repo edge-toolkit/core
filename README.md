@@ -120,23 +120,28 @@ DRI device. The image skips the `o2`/`ws-server` README steps (runtime services)
 
 The [`docker`](.github/workflows/docker.yml) workflow rebuilds these images when
 a `Dockerfile*` or `.dockerignore` changes (or on manual dispatch) — both builds
-are too heavy for every push. A `linux` job builds the server image and curls
-`/health`; a `windows` job builds the sketch below.
+are too heavy for every push. A `linux` job builds the `test` stage and runs the
+suite (lavapipe software Vulkan, since the runners have no GPU); a `windows` job
+builds the sketch below.
 
 ### Windows setup sketch
 
-[`Dockerfile.windows`](Dockerfile.windows) is an **unverified sketch** of the
-same setup on a bare Windows machine — useful for finding what a clean Windows
-needs beyond the README. Windows containers build only on a Windows Docker host,
-so the `windows` CI job is the only place it runs (not the Linux dev/CI boxes).
-It starts from `windows/servercore` (pinned to the runner's OS so process
-isolation works) and installs, via Chocolatey, what a clean Windows lacks: the
-MSVC **Visual Studio Build Tools** (C++ + Windows SDK) that Rust's msvc toolchain
-links through, **LLVM** for bindgen's `libclang.dll`, plus git and python — then
-mise, the README setup, and `mise run cargo-check`. Those extra prereqs are
-findings the README's "Windows only" section should eventually formalise. Expect
-to iterate on it via CI; the `mise install` is kept basic (not `install-all`)
-until the fundamentals pass.
+[`Dockerfile.windows`](Dockerfile.windows) is an **unverified sketch** that
+proves the stronger claim: on a bare Windows box, mise supplies the _entire_
+toolchain and nothing is installed the Windows way. It starts from **Nano
+Server** (the smallest Windows base, ~120 MB) — which has no installer stack,
+PowerShell, or admin shell, so the Visual Studio Build Tools installer can't run
+there at all. Instead it bootstraps just `mise.exe` (via the `curl`/`tar` built
+into Nano Server) and lets `mise install` pull everything else: rust, an
+`llvm-mingw` toolchain (clang + lld + the mingw-w64 runtime and `libclang.dll`),
+plus `bash` and `git` from conda's msys2 packages — all declared os-guarded in
+[`.mise/config.toml`](.mise/config.toml). Because the MSVC CRT + Windows SDK are
+the one thing mise can't supply, the build targets `x86_64-pc-windows-gnu`
+rather than `-msvc`. Windows containers build only on a Windows Docker host, so
+the `windows` CI job is the only place it runs; expect to iterate there (the
+rustup gnu-host flip and whether msvc-only prebuilts like `ort` link are the
+open questions). Whatever it ends up needing are findings the README's "Windows
+only" section should fold in.
 
 ## Run ws agent in browser
 
