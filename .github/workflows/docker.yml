@@ -65,12 +65,21 @@ jobs:
     env:
       # The mise the repo targets. Supplied to the build explicitly (not via a
       # Dockerfile ARG default) because the classic Windows builder only
-      # substitutes build-args passed on the command line. Bump in lockstep with
-      # the repo's mise; `mise-latest` drifts and breaks the config schema.
+      # substitutes build-args passed on the command line. (mise's prebuilt
+      # windows-x64 "latest" zip is stale at 2026.3.0 and can't read this repo's
+      # config -- hence a pinned recent release fetched from GitHub.)
       MISE_VERSION: "2026.6.2"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Hosted Windows runners don't reliably leave the Docker daemon running, so
+      # the build can fail connecting to the docker_engine pipe. Start it (no-op
+      # if already running) and confirm connectivity before building.
+      - name: Start the Docker daemon
+        run: |
+          if ((Get-Service docker).Status -ne 'Running') { Start-Service docker }
+          docker version
 
       # Both args are build-args: Windows containers use the classic builder, so
       # no BuildKit secret. GITHUB_TOKEN lifts mise's 60-req/hr anonymous GitHub

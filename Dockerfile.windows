@@ -1,4 +1,8 @@
 # escape=`
+# Parser directive (must be line 1): sets the line-continuation / escape
+# character to a backtick instead of the default `\`, so backslashes in Windows
+# paths (C:\..., trailing `C:\`) stay literal and lines continue with a backtick.
+
 # SKETCH (UNVERIFIED): build edge-toolkit on a *bare* Windows box where mise
 # supplies the entire toolchain -- the point is to prove the README's mise setup
 # needs nothing hand-installed but mise itself. Windows containers build only on
@@ -37,19 +41,19 @@ COPY --from=vcruntime `
     C:\Windows\System32\
 
 # cmd is the only shell Nano Server has; ContainerAdministrator so we can write
-# under C:\. `escape=`` ` `` (line 1) makes backtick the line continuation so the
-# `\` in Windows paths stays literal.
+# under C:\ (the backtick line continuations below rely on the escape directive
+# documented at the top of this file).
 USER ContainerAdministrator
 SHELL ["cmd", "/S", "/C"]
 
-# Bootstrap mise from a *pinned* release; the version is supplied by the build
-# (docker.yml passes --build-arg MISE_VERSION) so there's one source of truth.
-# `mise-latest` drifts -- a newer mise (2026.6.4) rejected this repo's
-# `task.run_auto_install` setting -- so the workflow keeps MISE_VERSION in
-# lockstep with the mise the repo targets. No ARG default: the classic Windows
-# builder only substitutes build-args passed explicitly, not defaults, so an
-# unset value fails loudly here rather than silently. curl.exe + tar.exe ship in
-# Nano Server; extract to C:\ and call mise by absolute path below. (Zip is
+# Bootstrap mise from a *pinned* GitHub release supplied by the build (docker.yml
+# passes --build-arg MISE_VERSION), for one source of truth. We avoid mise's
+# `mise-latest-windows-x64.zip`: that prebuilt is stale (ships 2026.3.0, which
+# predates the nested `task.run_auto_install` this repo's config uses and errors
+# on it); a recent release reads the config fine. No ARG default: the classic
+# Windows builder only substitutes build-args passed explicitly, not defaults, so
+# an unset value fails loudly here rather than silently. curl.exe + tar.exe ship
+# in Nano Server; extract to C:\ and call mise by absolute path below. (Zip is
 # mise\bin\mise.exe.)
 ARG MISE_VERSION
 RUN curl -fsSL -o mise.zip `

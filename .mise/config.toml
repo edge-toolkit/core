@@ -16,6 +16,8 @@
 # (`mise install` / `mise run install-all`, and CI installs up front). This
 # keeps cheap tasks like `print-all-langs`, and the pre-install `setup-aube`
 # step, from eagerly pulling the whole toolchain — on CI and the CLI alike.
+# (Current mise accepts this nested form; very old builds like 2026.3 instead
+# used the flat `task_run_auto_install`.)
 task.run_auto_install = false
 
 [tools]
