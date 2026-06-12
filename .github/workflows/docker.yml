@@ -58,16 +58,15 @@ jobs:
   # Build the Windows setup sketch. Windows containers can only be built on a
   # Windows Docker host, so CI is the only place this is exercised (we can't
   # build it on the Linux dev/CI boxes). Expect to iterate here -- see
-  # Dockerfile.windows and the README for the known unknowns.
+  # Dockerfile.windows for the known unknowns.
   windows:
     runs-on: windows-2022
     timeout-minutes: 120
     env:
-      # The mise the repo targets. Supplied to the build explicitly (not via a
-      # Dockerfile ARG default) because the classic Windows builder only
-      # substitutes build-args passed on the command line. (mise's prebuilt
-      # windows-x64 "latest" zip is stale at 2026.3.0 and can't read this repo's
-      # config -- hence a pinned recent release fetched from GitHub.)
+      # The mise version to install. The classic Windows builder can't substitute
+      # build-args into the Dockerfile's RUN, and mise's prebuilt "latest" zip is
+      # stale (2026.3.0, too old for the config), so the job stages this pinned
+      # release in the build context and Dockerfile.windows copies it in.
       MISE_VERSION: "2026.6.2"
     steps:
       - name: Checkout
@@ -81,13 +80,15 @@ jobs:
           if ((Get-Service docker).Status -ne 'Running') { Start-Service docker }
           docker version
 
-      # Both args are build-args: Windows containers use the classic builder, so
-      # no BuildKit secret. GITHUB_TOKEN lifts mise's 60-req/hr anonymous GitHub
-      # limit during `mise install`; the image is throwaway and the token expires
-      # with the job, so its presence in `docker history` is moot.
+      # Provide mise + the GitHub token through the build context (the classic
+      # Windows builder can't substitute build-args into RUN). The token lifts
+      # mise's 60-req/hr anonymous limit; it lands in the throwaway image and
+      # expires with the job.
+      - name: Stage mise and the token in the build context
+        run: |
+          $v = "${{ env.MISE_VERSION }}"
+          curl.exe -fsSL -o mise.zip "https://github.com/jdx/mise/releases/download/v$v/mise-v$v-windows-x64.zip"
+          Set-Content -Path gh_token -Value "${{ github.token }}" -NoNewline
+
       - name: Build the Windows setup image (sketch)
-        run: >-
-          docker build -f Dockerfile.windows
-          --build-arg MISE_VERSION=${{ env.MISE_VERSION }}
-          --build-arg GITHUB_TOKEN=${{ github.token }}
-          -t edge-toolkit-windows .
+        run: docker build -f Dockerfile.windows -t edge-toolkit-windows .

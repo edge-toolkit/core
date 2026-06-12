@@ -4,20 +4,20 @@
 # paths (C:\..., trailing `C:\`) stay literal and lines continue with a backtick.
 
 # SKETCH (UNVERIFIED): build edge-toolkit on a *bare* Windows box where mise
-# supplies the entire toolchain -- the point is to prove the README's mise setup
-# needs nothing hand-installed but mise itself. Windows containers build only on
-# a Windows Docker host, so this runs solely in the `windows` job of
-# .github/workflows/docker.yml; it can't be built on the Linux dev/CI machines.
-# Treat it as a CI-iterated starting point, not a known-good image.
+# supplies the entire toolchain -- the point is that nothing is hand-installed
+# but mise itself. Windows containers build only on a Windows Docker host, so
+# this runs solely in the `windows` job of .github/workflows/docker.yml; it
+# can't be built on the Linux dev/CI machines. Treat it as a CI-iterated
+# starting point, not a known-good image.
 #
 # Base: Nano Server, the smallest Windows base (~120 MB vs Server Core's ~1.25
 # GB). It has no MSI/installer stack, no PowerShell, and runs unprivileged -- so
 # the Visual Studio Build Tools installer can't run here at all. That's the
-# point: nothing is installed the Windows way. We bootstrap mise (a single .exe)
-# with the curl.exe + tar.exe built into Nano Server, and `mise install` pulls
-# the rest -- rust, llvm-mingw (clang/lld/mingw-w64 + libclang), bash and git
-# (see the os-guarded Windows tools in .mise/config.toml). The MSVC CRT + Windows
-# SDK can't come from mise, so the build targets x86_64-pc-windows-gnu.
+# point: nothing is installed the Windows way. mise (a single .exe the workflow
+# stages in the build context) is copied in, and `mise install` pulls the rest --
+# rust, llvm-mingw (clang/lld/mingw-w64 + libclang), bash and git (see the
+# os-guarded Windows tools in .mise/config.toml). The MSVC CRT + Windows SDK
+# can't come from mise, so the build targets x86_64-pc-windows-gnu.
 
 # Donor stage: Nano Server omits the VC++ runtime that msvc-built executables
 # (mise.exe, and the rust/cargo mise installs) need just to *start* -- without it
@@ -25,7 +25,7 @@
 # (not even Server Core), and mise can't install it (mise needs it to run), so we
 # install the official VC++ redistributable on a Server Core donor -- which has
 # the installer stack Nano Server lacks -- and copy the runtime DLLs forward.
-# This plus mise.exe are the only non-mise bootstrap bits; the rest is mise.
+# This plus mise are the only non-mise bootstrap bits; the rest is mise.
 FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS vcruntime
 SHELL ["cmd", "/S", "/C"]
 # `|| ver>nul` swallows the redistributable's 3010 ("reboot required") exit code.
@@ -46,32 +46,28 @@ COPY --from=vcruntime `
 USER ContainerAdministrator
 SHELL ["cmd", "/S", "/C"]
 
-# Bootstrap mise from a *pinned* GitHub release supplied by the build (docker.yml
-# passes --build-arg MISE_VERSION), for one source of truth. We avoid mise's
-# `mise-latest-windows-x64.zip`: that prebuilt is stale (ships 2026.3.0, which
-# predates the nested `task.run_auto_install` this repo's config uses and errors
-# on it); a recent release reads the config fine. No ARG default: the classic
-# Windows builder only substitutes build-args passed explicitly, not defaults, so
-# an unset value fails loudly here rather than silently. curl.exe + tar.exe ship
-# in Nano Server; extract to C:\ and call mise by absolute path below. (Zip is
-# mise\bin\mise.exe.)
-ARG MISE_VERSION
-RUN curl -fsSL -o mise.zip `
-    https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/mise-v${MISE_VERSION}-windows-x64.zip && `
-    tar -xf mise.zip -C C:\ && `
-    del mise.zip
+# mise.zip is staged in the build context by the windows job in
+# .github/workflows/docker.yml (which pins the version) and copied in here. We
+# don't curl a versioned URL inside the build: the classic Windows builder
+# doesn't substitute build-args into RUN, and mise's `mise-latest-windows-x64.zip`
+# prebuilt is stale (2026.3.0, which predates the nested `task.run_auto_install`
+# in .mise/config.toml and errors on it). Extract with Nano Server's tar.exe and
+# call mise by absolute path below. (Zip is mise\bin\mise.exe.)
+COPY mise.zip C:\mise.zip
+RUN tar -xf C:\mise.zip -C C:\ && del C:\mise.zip
 
 WORKDIR C:\workspace
 COPY . .
 
-# README "mise" setup. `mise install` pulls the whole toolchain declared in
+# mise setup. `mise install` pulls the whole toolchain declared in
 # .mise/config.toml; experimental is on for the conda/github backends, and trust
-# is needed for the copied-in config. GITHUB_TOKEN (build-arg, set for this RUN
-# only) lifts mise's 60-req/hr anonymous GitHub limit; the classic Windows
-# builder has no BuildKit secret, so it's a build-arg -- fine for a throwaway
-# image built with an ephemeral token.
-ARG GITHUB_TOKEN
-RUN set "GITHUB_TOKEN=${GITHUB_TOKEN}" && `
+# is needed for the copied-in config. The windows job also stages the GitHub
+# token as gh_token in the build context (lifting mise's 60-req/hr anonymous
+# limit); we read it here rather than via a build-arg, which the classic Windows
+# builder can't substitute into RUN. The token lands in this throwaway image and
+# expires with the job.
+COPY gh_token C:\gh_token
+RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     C:\mise\bin\mise.exe trust && `
     C:\mise\bin\mise.exe settings experimental=true && `
     C:\mise\bin\mise.exe settings set cargo.binstall true && `

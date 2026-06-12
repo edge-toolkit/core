@@ -67,10 +67,11 @@ mise install conda:lld
 
 ### All OS
 
-Before installing dependencies, please the install openssl development files
-separately:
+Before installing dependencies, install node and the openssl development files
+separately (node first, as mise may need it to install other tools):
 
 ```bash
+mise install node
 mise install conda:openssl
 ```
 

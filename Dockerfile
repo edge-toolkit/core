@@ -1,7 +1,7 @@
-# Verify the README's mise setup end-to-end from a clean, minimal Ubuntu, split
-# into stages so each can be cached and targeted independently:
+# Build, test, and serve edge-toolkit from a clean, minimal Ubuntu, split into
+# stages so each can be cached and targeted independently:
 #
-#   build       install mise + every toolchain (README setup only; no build/test)
+#   build       install mise + every toolchain (toolchain setup only; no build/test)
 #   prefetch    download all dependencies + ONNX models
 #   precompile  build the WASM/JS modules (drops target/ to stay slim)
 #   test        compile + run the full suite (ephemeral, at `docker run`; needs a GPU)
@@ -10,20 +10,20 @@
 # Each stage `FROM`s the previous, so installed tools, downloaded deps, and the
 # built module pkg/ carry forward. Stop early with `--target`.
 #
-# It follows README.md's "mise" setup verbatim (install mise -> configure ->
+# The build stage runs the mise setup verbatim (install mise -> configure ->
 # install conda:openssl -> install-all). The OpenObserve (`o2`/`open-o2`) and
-# `ws-server` steps from the README's "Run ws agent" section are intentionally
-# skipped -- they are runtime services, not build/test verification.
+# `ws-server` runtime services are intentionally skipped -- they aren't
+# build/test steps.
 #
-# The goal is to catch README drift: if a documented step is missing or wrong,
-# it fails. Anything language-specific must come from mise (per the README's
-# "installed into the local workspace" promise); the only apt packages below are
-# universal build prereqs a normal dev machine has, so a failure that needs
-# another system lib is itself a finding to fold back into the README.
+# It also catches setup drift: a missing or wrong step fails the build. Anything
+# language-specific must come from mise (the "installed into the local
+# workspace" promise); the only apt packages below are universal build prereqs a
+# normal dev machine has, so a failure that needs another system lib is itself a
+# finding worth documenting.
 #
 # A plain build produces the SERVER image (final stage): a release et-ws-server,
 # served automatically. A GitHub token avoids mise's 60-req/hr anonymous limit
-# (README "GitHub rate limits"):
+# during install-all:
 #   DOCKER_BUILDKIT=1 docker build --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit .
 #   docker run --rm -p 8080:8080 edge-toolkit          # serves; open http://localhost:8080
 #   (drop --secret to build tokenless; install-all may then hit rate limits)
@@ -37,7 +37,7 @@
 # NVIDIA via `--gpus all` is wired but UNVERIFIED (its in-container Vulkan ICD
 # doesn't initialize yet) -- prefer a DRI device.
 
-# --- build: install mise + every language toolchain (README "mise" setup). ---
+# --- build: install mise + every language toolchain (the mise setup). ---
 # No prefetch/build/test, so this layer is reused until the setup itself changes.
 FROM ubuntu:24.04 AS build
 
@@ -50,9 +50,9 @@ FROM ubuntu:24.04 AS build
 #                     Without it the dotnet CLI FailFast-aborts at startup with
 #                     "Couldn't find a valid ICU package installed on the system"
 #                     (minimal Ubuntu ships no ICU). The "74" tracks the Ubuntu
-#                     base (74 = 24.04) -- bump it alongside the FROM line. README
-#                     gap: the README's setup should note that .NET needs libicu on
-#                     minimal systems (or set System.Globalization.Invariant=true).
+#                     base (74 = 24.04) -- bump it alongside the FROM line. (.NET
+#                     needs libicu on minimal systems, else set
+#                     System.Globalization.Invariant=true.)
 #   libvulkan1      : Vulkan loader for the wgpu compute test (wasi-graphics-info).
 #                     Just the loader -- no software driver (lavapipe): the GPU's
 #                     real ICD is injected at `docker run` time by the NVIDIA
@@ -64,14 +64,14 @@ RUN apt-get update \
         libvulkan1 \
     && rm -rf /var/lib/apt/lists/*
 
-# README: "Please install mise, including the shell integration." In a
-# non-interactive build, putting mise + its shims on PATH is the equivalent --
-# every `mise` / `mise run` below then resolves the workspace tools.
+# Install mise and put it + its shims on PATH; in a non-interactive build that's
+# the equivalent of the shell integration -- every `mise` / `mise run` below
+# then resolves the workspace tools.
 RUN curl -fsSL https://mise.run | sh
 ENV PATH="/root/.local/bin:/root/.local/share/mise/shims:${PATH}"
 
-# README "Configure it" + "Pre-install cargo-install". A GitHub token (if
-# provided) lifts the anonymous rate limit for the cargo-binstall release fetch.
+# Configure mise + pre-install cargo-binstall. A GitHub token (if provided)
+# lifts the anonymous rate limit for the cargo-binstall release fetch.
 RUN --mount=type=secret,id=gh_token,required=false \
     GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)" \
     sh -c 'mise settings experimental=true \
@@ -82,13 +82,13 @@ WORKDIR /workspace
 COPY . .
 
 # A fresh checkout's config is untrusted and mise would prompt interactively
-# (which a build can't answer). The README omits this because a dev's first
-# `mise` command prompts once; trust it up front instead.
+# (which a build can't answer) -- a dev just answers that prompt once, so trust
+# it up front here instead.
 RUN mise trust
 
-# README "All OS": openssl dev files, then every language toolchain. `mise
-# install node` first per the README's note that mise may need node to install
-# other tools. `install-all` == `MISE_ENV="$ALL_LANGS" mise install`.
+# openssl dev files, then every language toolchain. `mise install node` first
+# because mise may need node to install other tools. `install-all` ==
+# `MISE_ENV="$ALL_LANGS" mise install`.
 RUN --mount=type=secret,id=gh_token,required=false \
     GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)" \
     sh -c 'mise install node \
