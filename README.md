@@ -44,8 +44,7 @@ mise use -g cargo-binstall
 ### Windows only
 
 If `mise install` fails on Windows with `unknown field run_auto_install`, your
-mise is outdated (e.g. 2026.3) — update to a current mise, which reads the
-config fine.
+mise is outdated (e.g. 2026.3) — use mise 2026.6.2 or later.
 
 On Windows only, `pipx` also needs to be pre-installed.
 See the Windows section of [pipx instructions](https://pipx.pypa.io/stable/how-to/install-pipx/).

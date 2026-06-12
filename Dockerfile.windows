@@ -46,15 +46,14 @@ COPY --from=vcruntime `
 USER ContainerAdministrator
 SHELL ["cmd", "/S", "/C"]
 
-# Nano Server sets no HOME, so mise resolves its global config to an untrusted
-# drive-root path (C:\.config\mise) -- which breaks the `mise settings` steps
-# below. Point HOME at the admin profile (as a real Windows box has) so the
-# global config lands in a normal, auto-trusted location.
+# Set HOME to the admin profile so the container has a sane home (Nano Server
+# leaves it unset). This also renders the config's `{{ env.HOME }}` paths; note
+# mise still resolves its *global config* to C:\.config\mise on Windows
+# regardless of HOME (trusted explicitly below).
 ENV HOME=C:\Users\ContainerAdministrator
 
-# Fail fast if that HOME isn't the running user's real profile: it must exist and
-# end with the current %USERNAME% (so mise's global config lands in a writable,
-# user-owned dir). USERPROFILE is echoed for diagnostics.
+# Sanity-check that HOME is the running user's real profile: it must exist and
+# end with the current %USERNAME%. USERPROFILE is echoed for diagnostics.
 RUN echo HOME=[%HOME%] USERPROFILE=[%USERPROFILE%] USERNAME=[%USERNAME%] & `
     if not exist "%HOME%\" exit /b 1 & `
     echo %HOME%| findstr /i /e /c:"%USERNAME%" >nul & `
@@ -73,19 +72,20 @@ RUN tar -xf C:\mise.zip -C C:\ && del C:\mise.zip
 WORKDIR C:\workspace
 COPY . .
 
-# mise setup: trust the copied-in workspace config, apply the standard settings
-# (HOME is set above so `mise settings` writes a sane global config), explicitly
-# trust that global config, then install. The windows job stages the GitHub token
-# as gh_token in the build context (lifting mise's 60-req/hr anonymous limit); we
-# read it here rather than via a build-arg, which the classic Windows builder
-# can't substitute into RUN. The token lands in this throwaway image and expires
-# with the job.
+# mise setup: trust the copied-in workspace config, apply the standard settings,
+# then install. `mise settings` writes mise's global config; with no real home on
+# Windows that resolves to C:\.config\mise\config.toml, which isn't auto-trusted,
+# so trust it explicitly before `mise install` loads it. The windows job stages
+# the GitHub token as gh_token in the build context (lifting mise's 60-req/hr
+# anonymous limit); we read it here rather than via a build-arg, which the classic
+# Windows builder can't substitute into RUN. The token lands in this throwaway
+# image and expires with the job.
 COPY gh_token C:\gh_token
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     C:\mise\bin\mise.exe trust && `
     C:\mise\bin\mise.exe settings experimental=true && `
     C:\mise\bin\mise.exe settings set cargo.binstall true && `
-    C:\mise\bin\mise.exe trust %HOME%\.config\mise\config.toml && `
+    C:\mise\bin\mise.exe trust C:\.config\mise\config.toml && `
     C:\mise\bin\mise.exe install
 
 # mise's core rust installs the msvc-host toolchain by default, but Nano Server

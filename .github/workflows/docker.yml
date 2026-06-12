@@ -1,17 +1,12 @@
 ---
 name: docker
 
-# Build the verification images. Only fires when a Dockerfile (or the build
-# context's .dockerignore / this workflow) changes, or on manual dispatch --
-# these builds are heavy (every toolchain + a release compile), so they don't
-# run on every push.
 "on":
   pull_request:
     paths:
+      - .github/workflows/docker.yml
       - Dockerfile
       - Dockerfile.windows
-      - .dockerignore
-      - .github/workflows/docker.yml
   workflow_dispatch:
 
 permissions:
@@ -22,9 +17,6 @@ concurrency:
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 
 jobs:
-  # Build the Linux `test` stage and run the suite. GitHub runners have no GPU,
-  # so the stage's bundled mesa drivers fall back to lavapipe (software Vulkan)
-  # for the WebGPU compute test.
   linux:
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -43,22 +35,14 @@ jobs:
           sudo systemctl start docker
           docker info --format 'Docker Root Dir: {{.DockerRootDir}}'
 
-      # GITHUB_TOKEN lifts mise's 60-req/hr anonymous GitHub limit during
-      # install-all; passed as a BuildKit secret so it never lands in a layer.
       - name: Build the edge-toolkit test image
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: DOCKER_BUILDKIT=1 docker build --target test --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit-test .
 
-      # The `test` stage's CMD is `mise run test`; running the image runs the
-      # suite. No --device: with no GPU, mesa falls back to lavapipe.
       - name: Run the test suite
         run: docker run --rm edge-toolkit-test
 
-  # Build the Windows setup sketch. Windows containers can only be built on a
-  # Windows Docker host, so CI is the only place this is exercised (we can't
-  # build it on the Linux dev/CI boxes). Expect to iterate here -- see
-  # Dockerfile.windows for the known unknowns.
   windows:
     runs-on: windows-2022
     timeout-minutes: 120
@@ -80,10 +64,6 @@ jobs:
           if ((Get-Service docker).Status -ne 'Running') { Start-Service docker }
           docker version
 
-      # Provide mise + the GitHub token through the build context (the classic
-      # Windows builder can't substitute build-args into RUN). The token lifts
-      # mise's 60-req/hr anonymous limit; it lands in the throwaway image and
-      # expires with the job.
       - name: Stage mise and the token in the build context
         run: |
           $v = "${{ env.MISE_VERSION }}"

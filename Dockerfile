@@ -53,15 +53,11 @@ FROM ubuntu:24.04 AS build
 #                     base (74 = 24.04) -- bump it alongside the FROM line. (.NET
 #                     needs libicu on minimal systems, else set
 #                     System.Globalization.Invariant=true.)
-#   libvulkan1      : Vulkan loader for the wgpu compute test (wasi-graphics-info).
-#                     Just the loader -- no software driver (lavapipe): the GPU's
-#                     real ICD is injected at `docker run` time by the NVIDIA
-#                     Container Toolkit (`--gpus all`), so the test runs on actual
-#                     hardware. (AMD/Intel: add mesa-vulkan-drivers + --device /dev/dri.)
+# (Vulkan for the wgpu test -- libvulkan1 + mesa-vulkan-drivers -- is installed in
+# the test stage, not here.)
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         build-essential ca-certificates curl git xz-utils unzip bzip2 libicu74 \
-        libvulkan1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install mise and put it + its shims on PATH; in a non-interactive build that's
@@ -79,28 +75,23 @@ RUN --mount=type=secret,id=gh_token,required=false \
         && mise use -g cargo-binstall'
 
 WORKDIR /workspace
-COPY . .
+# Only the mise config is needed to install the toolchain.
+COPY .mise/ .mise/
 
-# A fresh checkout's config is untrusted and mise would prompt interactively
-# (which a build can't answer) -- a dev just answers that prompt once, so trust
-# it up front here instead.
 RUN mise trust
 
-# openssl dev files, then every language toolchain. `mise install node` first
-# because mise may need node to install other tools. `install-all` ==
-# `MISE_ENV="$ALL_LANGS" mise install`.
+ENV MISE_ENV="dart,dotnet,java,python,rust,zig"
+
 RUN --mount=type=secret,id=gh_token,required=false \
     GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)" \
     sh -c 'mise install node \
         && mise install conda:openssl \
         && mise install-all'
 
-# Mirrors what the *-all tasks set internally, so the bare task names in the
-# stages below act on all languages, not just Rust. Inherited by every stage.
-ENV MISE_ENV="dart,dotnet,java,python,rust,zig"
-
 # --- prefetch: download all dependencies + ONNX models. ---
+# The full source is needed from here on (module builds, cargo fetch, pnpm).
 FROM build AS prefetch
+COPY . .
 RUN --mount=type=secret,id=gh_token,required=false \
     GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)" \
     mise run prefetch
@@ -111,16 +102,17 @@ RUN --mount=type=secret,id=gh_token,required=false \
 # Dropping target/ here keeps it out of this layer and the stages built on it;
 # test and server recompile only what they need.
 FROM prefetch AS precompile
-RUN mise run build-modules && rm -rf target
+RUN mise run build-modules && rm -rf target/
 
 # --- test: the full suite (Rust + web runner + every guest language). ---
 # Compiled AND run at `docker run` time (precompile keeps no target/), so the
 # multi-GB debug test binaries never bake into a layer -- they live in the
-# ephemeral container and vanish when it exits. The wgpu compute test needs a
-# Vulkan device; mesa-vulkan-drivers provides one -- a real Intel/AMD GPU when the
-# host DRI node is passed with `--device /dev/dri`, else a CPU (lavapipe) fallback
-# so the suite still runs. (NVIDIA's `--gpus` Vulkan path doesn't initialize in a
-# container.) Installed here, not the build stage, to keep that layer cached.
+# ephemeral container and vanish when it exits. The wgpu compute test needs
+# Vulkan: libvulkan1 (the loader) + mesa-vulkan-drivers give a real Intel/AMD GPU
+# when the host DRI node is passed with `--device /dev/dri`, else a CPU (lavapipe)
+# fallback so the suite still runs. (NVIDIA's `--gpus` Vulkan path doesn't
+# initialize in a container.) Both live here, not the build stage, to keep that
+# layer cached.
 #   docker build --target test -t edge-toolkit-test .
 #   docker run --rm --device /dev/dri edge-toolkit-test       # Intel/AMD (verified)
 # NVIDIA via `--gpus all` is wired (NVIDIA_DRIVER_CAPABILITIES=all below, needs
@@ -129,7 +121,7 @@ RUN mise run build-modules && rm -rf target
 FROM precompile AS test
 ENV NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=all
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends mesa-vulkan-drivers \
+    && apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers \
     && rm -rf /var/lib/apt/lists/*
 CMD ["mise", "run", "test"]
 
@@ -143,6 +135,6 @@ CMD ["mise", "run", "test"]
 FROM precompile AS server
 RUN mise exec -- cargo build --release -p et-ws-server \
     && cp target/release/et-ws-server /usr/local/bin/et-ws-server \
-    && rm -rf target
+    && rm -rf target/
 EXPOSE 8080 8443
 CMD ["et-ws-server"]
