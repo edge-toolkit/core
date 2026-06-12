@@ -42,13 +42,16 @@ COPY --from=vcruntime `
 USER ContainerAdministrator
 SHELL ["cmd", "/S", "/C"]
 
-# Bootstrap mise from a *pinned* release. `mise-latest` drifts: a newer mise
-# (2026.6.4) rejects this repo's `task.run_auto_install` setting, so keep
-# MISE_VERSION in lockstep with the mise the repo targets. curl.exe + tar.exe
-# ship in Nano Server; extract to C:\ and call mise by absolute path below, so we
-# don't depend on Windows-container PATH propagation between RUN layers. (Zip
-# layout is mise\bin\mise.exe.)
-ARG MISE_VERSION=2026.6.2
+# Bootstrap mise from a *pinned* release; the version is supplied by the build
+# (docker.yml passes --build-arg MISE_VERSION) so there's one source of truth.
+# `mise-latest` drifts -- a newer mise (2026.6.4) rejected this repo's
+# `task.run_auto_install` setting -- so the workflow keeps MISE_VERSION in
+# lockstep with the mise the repo targets. No ARG default: the classic Windows
+# builder only substitutes build-args passed explicitly, not defaults, so an
+# unset value fails loudly here rather than silently. curl.exe + tar.exe ship in
+# Nano Server; extract to C:\ and call mise by absolute path below. (Zip is
+# mise\bin\mise.exe.)
+ARG MISE_VERSION
 RUN curl -fsSL -o mise.zip `
     https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/mise-v${MISE_VERSION}-windows-x64.zip && `
     tar -xf mise.zip -C C:\ && `
@@ -58,9 +61,14 @@ WORKDIR C:\workspace
 COPY . .
 
 # README "mise" setup. `mise install` pulls the whole toolchain declared in
-# .mise/config.toml; experimental is on for the conda/ubi backends, and trust is
-# needed for the copied-in config.
-RUN C:\mise\bin\mise.exe trust && `
+# .mise/config.toml; experimental is on for the conda/github backends, and trust
+# is needed for the copied-in config. GITHUB_TOKEN (build-arg, set for this RUN
+# only) lifts mise's 60-req/hr anonymous GitHub limit; the classic Windows
+# builder has no BuildKit secret, so it's a build-arg -- fine for a throwaway
+# image built with an ephemeral token.
+ARG GITHUB_TOKEN
+RUN set "GITHUB_TOKEN=${GITHUB_TOKEN}" && `
+    C:\mise\bin\mise.exe trust && `
     C:\mise\bin\mise.exe settings experimental=true && `
     C:\mise\bin\mise.exe settings set cargo.binstall true && `
     C:\mise\bin\mise.exe install

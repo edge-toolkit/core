@@ -62,9 +62,23 @@ jobs:
   windows:
     runs-on: windows-2022
     timeout-minutes: 120
+    env:
+      # The mise the repo targets. Supplied to the build explicitly (not via a
+      # Dockerfile ARG default) because the classic Windows builder only
+      # substitutes build-args passed on the command line. Bump in lockstep with
+      # the repo's mise; `mise-latest` drifts and breaks the config schema.
+      MISE_VERSION: "2026.6.2"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Both args are build-args: Windows containers use the classic builder, so
+      # no BuildKit secret. GITHUB_TOKEN lifts mise's 60-req/hr anonymous GitHub
+      # limit during `mise install`; the image is throwaway and the token expires
+      # with the job, so its presence in `docker history` is moot.
       - name: Build the Windows setup image (sketch)
-        run: docker build -f Dockerfile.windows -t edge-toolkit-windows .
+        run: >-
+          docker build -f Dockerfile.windows
+          --build-arg MISE_VERSION=${{ env.MISE_VERSION }}
+          --build-arg GITHUB_TOKEN=${{ github.token }}
+          -t edge-toolkit-windows .
