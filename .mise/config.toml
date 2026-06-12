@@ -99,6 +99,13 @@ clang_sysroot = "{{ vars.conda_clangxx }}/{{ vars.conda_arch }}-conda-linux-gnu/
 # leaves the builtin type macros unset and fails in CI) + `--sysroot` so header
 # resolution is identical on every machine.
 bindgen_args = "-resource-dir {{ vars.clang_resource }} --sysroot={{ vars.clang_sysroot }}"
+# macOS libclang dir: point clang-sys at Xcode's libclang (the lib dir beside
+# `xcrun`'s clang); clang-sys doesn't always auto-find it on CI. Guarded so the
+# exec runs only on macOS; the system libclang knows the SDK, no bindgen args.
+mac_libclang = "{% if os() == 'macos' %}{{ exec(command='dirname $(dirname $(xcrun --find clang))') }}/lib{% endif %}"
+# LIBCLANG_PATH per OS: Linux -> conda libclang; macOS -> Xcode libclang above;
+# Windows -> empty (clang-sys finds llvm-mingw's libclang on PATH).
+libclang_path = "{% if os() == 'linux' %}{{ vars.conda_clangxx }}/lib{% else %}{{ vars.mac_libclang }}{% endif %}"
 # mise-managed CPython 3.13 interpreter, composed into PYO3_PYTHON below. Split
 # per-OS because the mise data dir differs (LOCALAPPDATA\mise on Windows,
 # HOME-based elsewhere). `get_env(..., default='')` guards the Windows-only
@@ -164,9 +171,10 @@ CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars
 # `bindgen_args`). Using conda's sysroot rather than the host's `/usr/include`
 # makes bindgen self-contained, so CI resolves headers identically to a local box
 # -- no environment-specific divergence. Same conda-managed, no-admin approach as
-# OPENSSL_DIR; Linux-only (macOS/Windows use system/Xcode libclang). mise can't
-# omit an env key, so off-Linux these render empty -> clang-sys ignores them.
-LIBCLANG_PATH = "{% if os() == 'linux' %}{{ vars.conda_clangxx }}/lib{% endif %}"
+# OPENSSL_DIR. macOS points LIBCLANG_PATH at Xcode's libclang (see mac_libclang);
+# Windows leaves it empty and finds llvm-mingw's libclang on PATH. BINDGEN args
+# stay Linux-only -- the macOS/Windows libclang each know their own headers.
+LIBCLANG_PATH = "{{ vars.libclang_path }}"
 BINDGEN_EXTRA_CLANG_ARGS = "{% if os() == 'linux' %}{{ vars.bindgen_args }}{% endif %}"
 # pyo3-ffi (et-ws-pyo3-runner) links its embedded interpreter at build time from
 # PYO3_PYTHON, else the first python on PATH -- under mise that's the 32-bit
