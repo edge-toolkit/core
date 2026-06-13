@@ -12,13 +12,17 @@
 #   Make a selection sticky:            export MISE_ENV=dart
 
 [settings]
-# Never auto-install tools before a `mise run`: installs are explicit
-# (`mise install` / `mise run install-all`, and CI installs up front). This
-# keeps cheap tasks like `print-all-langs`, and the pre-install `setup-aube`
-# step, from eagerly pulling the whole toolchain — on CI and the CLI alike.
-# (Current mise accepts this nested form; very old builds like 2026.3 instead
-# used the flat `task_run_auto_install`.)
+# Never auto-install tools implicitly: installs are explicit (`mise install` /
+# `mise run install-all`, and CI/Docker install up front). This keeps cheap tasks
+# like `print-all-langs`, and the pre-install `setup-aube` step, from eagerly
+# pulling the whole toolchain — on CI and the CLI alike. task.run_auto_install
+# covers `mise run`; exec_auto_install covers `mise exec` (its OWN knob) —
+# without it, `mise exec -- python …` in Dockerfile.windows installs *every*
+# configured tool before running python. Turn both off so the policy holds.
+# (Current mise accepts the nested task.run_auto_install form; very old builds
+# like 2026.3 used the flat `task_run_auto_install`.)
 task.run_auto_install = false
+exec_auto_install = false
 
 [tools]
 action-validator = "latest"
