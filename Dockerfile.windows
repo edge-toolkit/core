@@ -172,6 +172,15 @@ RUN dir "%LOCALAPPDATA%\mise\installs\http-busybox\1.37.0" & `
 # linker + dlltool do, as CARGO_TARGET_X86_64_PC_WINDOWS_GNU_* (triple-scoped).
 ENV CARGO_BUILD_TARGET=x86_64-pc-windows-gnu
 
+# Pin CARGO_HOME/RUSTUP_HOME to the dirs mise's rust tool uses (C:\.cargo /
+# C:\.rustup -- see its exec_env). setup-windows sets the gnu default toolchain in
+# C:\.rustup, but when mise's cargo backend builds a `cargo:` tool it spawns
+# `cargo install` WITHOUT rust's exec_env, so rustup would otherwise look in the
+# empty %USERPROFILE%\.rustup and fail with "no default is configured". Setting
+# these globally makes every cargo/rustup invocation find the gnu default.
+ENV CARGO_HOME=C:\.cargo `
+    RUSTUP_HOME=C:\.rustup
+
 # setup-windows runs on busybox sh (via MISE_BASH_PATH): setup-all (settings +
 # cargo-binstall + node + openssl) then the gnu toolchain (git/gpg/llvm-mingw/
 # make/rust) + rustup flip to the gnu host, so cargo links via llvm-mingw rather
