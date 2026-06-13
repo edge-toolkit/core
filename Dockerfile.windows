@@ -55,12 +55,19 @@ COPY --from=vcruntime C:\Windows\System32\msvcp140.dll C:\Windows\System32\
 # KernelBase.dll; normaliz.dll + the api-ms-win-core-localization contract
 # expose them), it's only the kernel32-named door that's missing. Server Core's
 # full kernel32.dll exports both (forwarding to normaliz/kernelbase, present
-# here), so drop it in as the kernel32 the loader resolves -- both the
-# forwarders\ copy (what KnownDLLs maps from on Nano) and a System32 root copy.
-# Same servicing baseline (ltsc2022 / 10.0.20348) as Nano's kernelbase, and a
-# kernel32's forwarder exports resolve lazily, so the extra entries are inert.
-COPY --from=vcruntime C:\Windows\System32\kernel32.dll C:\Windows\System32\forwarders\kernel32.dll
-COPY --from=vcruntime C:\Windows\System32\kernel32.dll C:\Windows\System32\kernel32.dll
+# here) and is the same servicing baseline (ltsc2022 / 10.0.20348) as Nano's
+# kernelbase, so use it as the kernel32 the loader resolves. kernel32 is a
+# KnownDLL on Nano (*kernel32 in the registry), so a System32-root or app-dir
+# copy is ignored -- we must replace the file the KnownDLLs section is built
+# from: System32\forwarders\kernel32.dll. `docker COPY` can't overwrite it
+# (the daemon hits Access denied on that ACL-locked system file), but an
+# in-container `copy` as ContainerAdministrator can, after an icacls grant.
+# Stage the donor to a fresh path first (COPY creates new files fine).
+COPY --from=vcruntime C:\Windows\System32\kernel32.dll C:\stage\kernel32.dll
+RUN (icacls C:\Windows\System32\forwarders\kernel32.dll /grant *S-1-5-32-544:F & ver>nul) & `
+    copy /y C:\stage\kernel32.dll C:\Windows\System32\forwarders\kernel32.dll & `
+    (copy /y C:\stage\kernel32.dll C:\Windows\System32\kernel32.dll & ver>nul) & `
+    del /q C:\stage\kernel32.dll
 
 # cmd is the only shell Nano Server has; ContainerAdministrator so we can write
 # under C:\ (the backtick line continuations below rely on the escape directive
