@@ -80,7 +80,7 @@ description = "Emit the Dart sealed-class WS client via dart-typegen (consumes g
 # regen there; the committed file (regenerated on Linux/macOS) stays
 # canonical.
 run = """
-[[ "${OS:-}" == "Windows_NT" ]] && { echo "gen:dart-ws: skipped on Windows (dart-typegen empty output)"; exit 0; }
+[ "${OS:-}" = "Windows_NT" ] && { echo "gen:dart-ws: skipped on Windows (dart-typegen empty output)"; exit 0; }
 mkdir -p generated/dart-ws/lib
 dart-typegen generate -i generated/specs/ws.kdl -o generated/dart-ws/lib/ws_messages.dart
 dart format generated/dart-ws/lib/ws_messages.dart

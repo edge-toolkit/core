@@ -48,19 +48,14 @@ cmake = "latest"
 "conda:clangxx" = { version = "latest", os = ["linux"] }
 # Windows toolchain, all mise-provided so a bare Windows box needs nothing
 # preinstalled except mise itself (see Dockerfile.windows). The conda msys2
-# mirror packages give the `bash` the `bash -euo pipefail` tasks expect, `git`,
-# `gpg` (so mise verifies tool downloads instead of warning), and `make` (some
-# `-sys` build scripts shell out to it); llvm-mingw bundles clang + lld + the
-# mingw-w64 runtime/headers/libs (the `x86_64-pc-windows-gnu` C/link toolchain)
-# plus the `libclang.dll` bindgen loads -- found via PATH once mise activates the
-# tool. The MSVC CRT + Windows SDK can't come from mise, so the Windows build
-# targets `-gnu`, not `-msvc`.
-# m2-bash is pinned (not "latest" like its siblings) because the `wbash` var
-# below hard-codes its install dir, and mise resolves a "latest" spec to the
-# concrete version for that dir (installs\conda-m2-bash\<version>\...). Keep the
-# version here and in `wbash` in sync; a mismatch makes MISE_BASH_PATH point at
-# a missing dir and mise falls back to the unusable WSL-launcher bash.
-"conda:m2-bash" = { version = "5.2.037.2", os = ["windows"] }
+# mirror packages give `git`, `gpg` (so mise verifies tool downloads instead of
+# warning), and `make` (some `-sys` build scripts shell out to it); llvm-mingw
+# bundles clang + lld + the mingw-w64 runtime/headers/libs (the
+# `x86_64-pc-windows-gnu` C/link toolchain) plus the `libclang.dll` bindgen loads
+# -- found via PATH once mise activates the tool. The MSVC CRT + Windows SDK
+# can't come from mise, so the Windows build targets `-gnu`, not `-msvc`. The
+# bash-shell tasks' `sh` comes from busybox, not conda msys2 bash -- see the
+# [tools."http:busybox"] entry below for why.
 "conda:m2-git" = { version = "latest", os = ["windows"] }
 "conda:m2-gnupg" = { version = "latest", os = ["windows"] }
 "conda:m2-make" = { version = "latest", os = ["windows"] }
@@ -98,6 +93,23 @@ wasm-tools = "latest"
 yq = "latest"
 gh = "latest"
 
+# busybox-w32 provides the `sh` (POSIX ash) the bash-shell mise tasks run on,
+# on Windows. It's a native Win32 single exe with no cygwin/msys runtime, so it
+# loads on a bare Nano Server -- unlike conda's msys2 bash, whose msys-2.0.dll
+# imports KERNEL32!IdnToAscii/IdnToUnicode, names Nano's stripped kernel32
+# forwarder doesn't re-export (-> 0xC0000139, and the system file/registry are
+# ACL-locked, so they can't be backfilled). Installed via the http backend from
+# the maintainer's official build and renamed to `sh`; MISE_BASH_PATH (below)
+# points the task shell at it. Pinned by checksum so a silent upstream rebuild
+# fails loudly instead of running unverified bytes. The tasks are POSIX sh, so
+# real bash (Linux/macOS) and busybox ash (Windows) both run them.
+[tools."http:busybox"]
+version = "1.37.0"
+os = ["windows"]
+bin = "sh"
+url = "https://frippery.org/files/busybox/busybox64u.exe"
+checksum = "sha256:6e263d154d8548d1eb936f65d1d8312c80df31c45974e48d6335e4dcc0f4f34c"
+
 [vars]
 # mise's conda tool install dirs, reused below by OPENSSL_DIR and the
 # CARGO_TARGET_* RUSTFLAGS.
@@ -133,13 +145,13 @@ libclang_path = "{% if os() == 'linux' %}{{ vars.conda_clangxx }}/lib{% else %}{
 py313_win = "{{ get_env(name='LOCALAPPDATA', default='') }}\\mise\\installs\\python\\3.13\\python.exe"
 py313_unix = "{{ env.HOME }}/.local/share/mise/installs/python/3.13/bin/python3"
 # mise's task bash-resolution probes only Git Bash / standalone MSYS2 (see mise's
-# task_executor.rs bash_candidates), never its own conda install -- so on a bare
-# Windows box it can't find the conda:m2-bash we install and falls back to the
-# WSL-launcher bash.exe. MISE_BASH_PATH (below) points it here. The msys2 bash
-# lands under the conda prefix's Library\usr\bin, keyed by the pinned m2-bash
-# version (see [tools] above — keep the two in sync). Windows-only; the env entry
-# is empty elsewhere, which mise ignores.
-wbash = '{{ get_env(name="LOCALAPPDATA", default="") }}\mise\installs\conda-m2-bash\5.2.037.2\Library\usr\bin\bash.exe'
+# task_executor.rs bash_candidates), never an http-backend tool -- so on a bare
+# Windows box it can't find the busybox `sh` we install and falls back to the
+# WSL-launcher bash.exe. MISE_BASH_PATH (below) points it here: the http backend
+# installs the renamed `sh` binary at installs\http-busybox\<version>\sh.exe,
+# keyed by the version pinned in [tools] above (keep the two in sync).
+# Windows-only; the env entry is empty elsewhere, which mise ignores.
+winsh = '{{ get_env(name="LOCALAPPDATA", default="") }}\mise\installs\http-busybox\1.37.0\sh.exe'
 # Linker RUSTFLAGS fragments, composed into the per-target CARGO_TARGET_* env
 # values below — kept as vars so those values stay on a single line.
 lld_flag = "-C link-arg=-fuse-ld={{ vars.conda_lld }}/bin/ld64.lld"
@@ -205,11 +217,13 @@ CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars
 # empty"); Dockerfile.windows sets those.
 CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = "x86_64-w64-mingw32-gcc"
 CARGO_TARGET_X86_64_PC_WINDOWS_GNU_RUSTFLAGS = "-Cdlltool=x86_64-w64-mingw32-dlltool"
-# Point mise's task shell at the conda:m2-bash it installs (Docker + workstation),
-# so `shell = "bash …"` tasks don't fall back to the Windows WSL launcher. mise
-# checks MISE_BASH_PATH first and ignores it when empty, so the off-Windows empty
-# value here is a safe no-op (wbash is only meaningful on Windows anyway).
-MISE_BASH_PATH = "{% if os() == 'windows' %}{{ vars.wbash }}{% endif %}"
+# Point mise's task shell at the busybox `sh` it installs (Docker + workstation),
+# so `shell = "bash …"` tasks run on busybox ash rather than the Windows WSL
+# launcher. busybox ash accepts the `-euo pipefail -c` the shell string passes
+# (verified), and our task bodies are POSIX. mise checks MISE_BASH_PATH first and
+# ignores it when empty, so the off-Windows empty value here is a safe no-op
+# (winsh is only meaningful on Windows; Linux/macOS use their real bash).
+MISE_BASH_PATH = "{% if os() == 'windows' %}{{ vars.winsh }}{% endif %}"
 # bindgen (pulled in transitively by the deno web runner) needs the C
 # `libclang.so`. A mise-only Linux box usually only has `libclang-cpp` (the C++
 # API), so install `conda:clangxx` (above) for its `libclang.so`, point clang-sys
@@ -372,11 +386,12 @@ taplo lint
 # `-prune` target/ and .git so find never descends into them: `-not -path`
 # alone still walks the whole tree, and target/debug/deps/ churns constantly
 # under a concurrent `cargo-check`, racing find into "No such file" errors.
-# (Avoid `mapfile`: it's bash 4+ only and macOS ships bash 3.2.)
-members=()
-while IFS= read -r line; do
-  members+=("$line")
-done < <(find . -path ./target -prune -o -path ./.git -prune -o -name Cargo.toml ! -path ./Cargo.toml -print)
+# POSIX sh (no bash arrays / process substitution -- the tasks run on busybox
+# ash on Windows): collect the paths into a temp file once and feed each schema
+# run via xargs.
+members="$(mktemp)"
+trap 'rm -f "$members"' EXIT
+find . -path ./target -prune -o -path ./.git -prune -o -name Cargo.toml ! -path ./Cargo.toml -print >"$members"
 
 # Banned deps only need to be checked at the workspace root: member
 # crates are required to reference deps via `workspace = true` (the
@@ -385,10 +400,10 @@ done < <(find . -path ./target -prune -o -path ./.git -prune -o -name Cargo.toml
 taplo lint --schema "file://$PWD/config/taplo/no-banned-deps.schema.json" Cargo.toml
 
 # Schemas that apply to every member crate.
-taplo lint --schema "file://$PWD/config/taplo/no-path-deps.schema.json" "${members[@]}"
-taplo lint --schema "file://$PWD/config/taplo/no-wildcard-or-git-deps.schema.json" "${members[@]}"
-taplo lint --schema "file://$PWD/config/taplo/require-workspace-deps.schema.json" "${members[@]}"
-taplo lint --schema "file://$PWD/config/taplo/require-lib-doctest-false.schema.json" "${members[@]}"
+xargs taplo lint --schema "file://$PWD/config/taplo/no-path-deps.schema.json" <"$members"
+xargs taplo lint --schema "file://$PWD/config/taplo/no-wildcard-or-git-deps.schema.json" <"$members"
+xargs taplo lint --schema "file://$PWD/config/taplo/require-workspace-deps.schema.json" <"$members"
+xargs taplo lint --schema "file://$PWD/config/taplo/require-lib-doctest-false.schema.json" <"$members"
 
 # `require-lints-section` exempts generated/rust-rest/Cargo.toml because
 # progenitor's emitted `src/lib.rs` contains patterns our workspace lint
@@ -397,12 +412,8 @@ taplo lint --schema "file://$PWD/config/taplo/require-lib-doctest-false.schema.j
 # on the generated source. The exemption is about the lint table, not
 # about the deps — its `[dependencies]` still inherits from
 # `[workspace.dependencies]` like every other crate.
-lint_inheritable=()
-for f in "${members[@]}"; do
-  [[ "$f" == "./generated/rust-rest/Cargo.toml" ]] && continue
-  lint_inheritable+=("$f")
-done
-taplo lint --schema "file://$PWD/config/taplo/require-lints-section.schema.json" "${lint_inheritable[@]}"
+grep -vxF './generated/rust-rest/Cargo.toml' "$members" |
+  xargs taplo lint --schema "file://$PWD/config/taplo/require-lints-section.schema.json"
 
 # mise task `run` must be a string, not an array: taplo's reorder_arrays would
 # re-sort an array and scramble an ordered command sequence (use a multiline
@@ -469,10 +480,12 @@ depends = ["setup-all"]
 run = "mise install conda:lld"
 
 [tasks.setup-windows]
-# Windows preinstall, shared by Dockerfile.windows and a real workstation. bash
-# (conda:m2-bash) is installed by the bootstrap that runs before any mise task on
-# Windows (see Dockerfile.windows / the README), so this task's `bash -euo
-# pipefail` shell works. The shared base runs first, then this installs git
+# Windows preinstall, shared by Dockerfile.windows and a real workstation. The
+# busybox `sh` (http:busybox) is installed by the bootstrap that runs before any
+# mise task on Windows (see Dockerfile.windows / the README), so this task's
+# `bash -euo pipefail` shell (= busybox ash via MISE_BASH_PATH) works. It only
+# needs a download, no build, so there's no toolchain chicken-and-egg. The
+# shared base runs first, then this installs git
 # (conda:m2-git, for cargo git deps), gpg (conda:m2-gnupg, so mise verifies
 # downloads), the llvm-mingw gnu C/link toolchain (+ libclang), make and rust --
 # then flips rustup to the gnu host so cargo links via llvm-mingw, not MSVC
@@ -656,7 +669,7 @@ description = "Fail if any checked-in artifact under generated/ is stale"
 # indentation differently across nightlies; pipx-driven python codegen
 # emits subtly different output). Linux/macOS runs are canonical.
 run = """
-[[ "${OS:-}" == "Windows_NT" ]] && { echo "gen-specs-check: skipped on Windows (non-deterministic)"; exit 0; }
+[ "${OS:-}" = "Windows_NT" ] && { echo "gen-specs-check: skipped on Windows (non-deterministic)"; exit 0; }
 git diff --exit-code -- generated
 """
 shell = "bash -euo pipefail -c"
