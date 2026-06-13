@@ -67,8 +67,9 @@ osv-scanner = "latest"
 # still resolve through whatever pipx is already on PATH.
 pipx = { version = "latest", os = ["linux", "macos"] }
 # semgrep lints Cargo.toml style (see `semgrep-check`), so it stays in the
-# always-loaded config alongside the other repo-wide linters.
-"pipx:semgrep" = "latest"
+# always-loaded config alongside the other repo-wide linters. Linux/macOS only:
+# semgrep has no native Windows support, so its uv/pipx install fails there.
+"pipx:semgrep" = { version = "latest", os = ["linux", "macos"] }
 # The default aqua backend has no darwin/amd64 prebuilt; fall back to
 # `npm:pnpm` on Intel Mac (node is already a mise tool above).
 "npm:pnpm" = { version = "latest", os = ["macos/x64"] }

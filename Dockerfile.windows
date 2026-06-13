@@ -59,6 +59,13 @@ RUN echo HOME=[%HOME%] USERPROFILE=[%USERPROFILE%] USERNAME=[%USERNAME%] & `
     echo %HOME%| findstr /i /e /c:"%USERNAME%" >nul & `
     if errorlevel 1 exit /b 1
 
+# Nano Server's default temp dir can be missing/unwritable, which fails rustup's
+# "persist temporary file" step (Access denied) installing toolchains. Point
+# TEMP/TMP at a writable dir on C: (same volume as mise's installs).
+RUN if not exist C:\Temp mkdir C:\Temp
+ENV TEMP=C:\Temp `
+    TMP=C:\Temp
+
 # mise.zip is staged in the build context by the windows job in
 # .github/workflows/docker.yml (which pins the version) and copied in here. We
 # don't curl a versioned URL inside the build: the classic Windows builder
@@ -76,12 +83,13 @@ COPY . .
 # mise setup, following the README. `mise settings` writes mise's global config;
 # with no real home on Windows that resolves to C:\.config\mise\config.toml, not
 # auto-trusted -- so trust it after the settings writes and before any install
-# loads it. aqua.github_attestations is turned off: the attestation's sigstore
-# /TUF check has no cache dir here and hits GitHub's changed releases signing
-# identity, failing every aqua tool. Then the README steps: pre-install
+# loads it. aqua's signature checks (attestations, cosign, slsa) are off: their
+# sigstore/TUF step can't determine a cache dir here, and attestation also hits
+# GitHub's changed releases signing identity. Then the README steps: pre-install
 # cargo-binstall; gpg (conda:m2-gnupg, so node's download is verified not
 # skipped); node + conda:openssl; and pipx via pip (the README's Windows-only
-# step -- pipx isn't a mise tool here). `mise install` pulls the rest. The windows
+# step -- pipx isn't a mise tool here). The minimal `mise install` pulls the
+# always-loaded tools (install-all below adds the guest languages). The windows
 # job stages the GitHub token as gh_token in the build context (lifting mise's
 # 60-req/hr anonymous limit); we read it here rather than via a build-arg, which
 # the classic Windows builder can't substitute into RUN. It lands in this
@@ -92,14 +100,23 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise settings experimental=true && `
     mise settings set cargo.binstall true && `
     mise settings set aqua.github_attestations false && `
+    mise settings set aqua.cosign false && `
+    mise settings set aqua.slsa false && `
     mise trust C:\.config\mise\config.toml && `
-    mise install cargo-binstall && `
     mise install conda:m2-gnupg && `
     mise install node && `
+    mise install cargo-binstall && `
     mise install conda:openssl && `
     mise install python && `
     mise exec -- python -m pip install --no-warn-script-location pipx && `
     mise install
+
+# Full install: add the guest-language toolchains. install-all == MISE_ENV=
+# "$ALL_LANGS" mise install; the always-loaded tools from the minimal install
+# above are reused, so this adds dart/dotnet/java/zig/etc. (their configs were
+# copied via `COPY . .` and trusted above).
+RUN set /p GITHUB_TOKEN=<C:\gh_token && `
+    mise install-all
 
 # mise's core rust installs the msvc-host toolchain by default, but Nano Server
 # has no msvc linker -- so flip rustup (managed inside mise) to the gnu host and
@@ -110,8 +127,8 @@ RUN mise exec -- rustup set default-host x86_64-pc-windows-gnu && `
     mise exec -- rustup default stable-x86_64-pc-windows-gnu
 
 # Basic smoke: a workspace check against the gnu target (the linker is
-# llvm-mingw's gcc wrapper, on PATH once mise activates the tool). Heavier work
-# (install-all / test across every guest language) is a later step once these
+# llvm-mingw's gcc wrapper, on PATH once mise activates the tool). Running the
+# full test suite across every guest language is a later step once these
 # fundamentals are green.
 ENV CARGO_BUILD_TARGET=x86_64-pc-windows-gnu `
     CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc

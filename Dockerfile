@@ -1,19 +1,21 @@
 # Build, test, and serve edge-toolkit from a clean, minimal Ubuntu, split into
 # stages so each can be cached and targeted independently:
 #
-#   build       install mise + every toolchain (toolchain setup only; no build/test)
-#   prefetch    download all dependencies + ONNX models
-#   precompile  build the WASM/JS modules (drops target/ to stay slim)
-#   test        compile + run the full suite (ephemeral, at `docker run`; needs a GPU)
-#   server      release build of et-ws-server, served by default (final stage)
+#   build-minimal  mise + the always-loaded toolchain (.mise/config.toml only)
+#   build          + the guest-language toolchains (.mise/config.<lang>.toml)
+#   prefetch       download all dependencies + ONNX models
+#   precompile     build the WASM/JS modules (drops target/ to stay slim)
+#   test           compile + run the full suite (ephemeral, at `docker run`; needs a GPU)
+#   server         release build of et-ws-server, served by default (final stage)
 #
 # Each stage `FROM`s the previous, so installed tools, downloaded deps, and the
 # built module pkg/ carry forward. Stop early with `--target`.
 #
-# The build stage runs the mise setup verbatim (install mise -> configure ->
-# install conda:openssl -> install-all). The OpenObserve (`o2`/`open-o2`) and
-# `ws-server` runtime services are intentionally skipped -- they aren't
-# build/test steps.
+# The build stages run the mise setup verbatim (install mise -> configure ->
+# install conda:openssl -> install), split so build-minimal (the always-loaded
+# tools) caches separately from the guest languages (build). The OpenObserve
+# (`o2`/`open-o2`) and `ws-server` runtime services are intentionally skipped --
+# they aren't build/test steps.
 #
 # It also catches setup drift: a missing or wrong step fails the build. Anything
 # language-specific must come from mise (the "installed into the local
@@ -37,9 +39,10 @@
 # NVIDIA via `--gpus all` is wired but UNVERIFIED (its in-container Vulkan ICD
 # doesn't initialize yet) -- prefer a DRI device.
 
-# --- build: install mise + every language toolchain (the mise setup). ---
-# No prefetch/build/test, so this layer is reused until the setup itself changes.
-FROM ubuntu:24.04 AS build
+# --- build-minimal: mise + the always-loaded toolchain (config.toml only). ---
+# Copies just .mise/config.toml + installs the default tools, so this layer is
+# reused until the always-loaded toolset changes -- not when a guest config does.
+FROM ubuntu:24.04 AS build-minimal
 
 # Universal prereqs a typical dev box already has; everything else is mise's job.
 #   gcc/g++/libc6-dev : the C/C++ compiler + headers/crt that rustc links through
@@ -47,8 +50,8 @@ FROM ubuntu:24.04 AS build
 #                     build-essential, which also pulls dpkg-dev + make + perl.)
 #   curl + ca-certs  : the mise installer and tool downloads
 #   git              : cargo + repo operations
-#   gpg              : lets mise verify tool downloads (else "gpg not found,
-#                     skipping verification")
+#   gnupg            : gpg + gpg-agent + dirmngr, so mise can verify tool
+#                     downloads (bare `gpg` lacks the agent/dirmngr it needs)
 #   xz-utils/unzip/bzip2 : mise unpacking tool archives (e.g. the pyodide .tar.bz2)
 #   libicu74        : .NET runtime ICU, for the dotnet-data1 module's build/test.
 #                     Without it the dotnet CLI FailFast-aborts at startup with
@@ -61,7 +64,7 @@ FROM ubuntu:24.04 AS build
 # the test stage, not here.)
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        bzip2 ca-certificates curl g++ gcc git gpg libc6-dev libicu74 unzip xz-utils \
+        bzip2 ca-certificates curl g++ gcc git gnupg libc6-dev libicu74 unzip xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Install mise and put it + its shims on PATH; in a non-interactive build that's
@@ -79,18 +82,28 @@ RUN --mount=type=secret,id=gh_token,required=false \
         && mise use -g cargo-binstall'
 
 WORKDIR /workspace
-# Only the mise config is needed to install the toolchain.
-COPY .mise/ .mise/
+# Only the always-loaded config is needed for the default tools; the
+# guest-language configs come in the build stage below.
+COPY .mise/config.toml .mise/config.toml
 
 RUN mise trust
-
-ENV MISE_ENV="dart,dotnet,java,python,rust,zig"
 
 RUN --mount=type=secret,id=gh_token,required=false \
     GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)" \
     sh -c 'mise install node \
         && mise install conda:openssl \
-        && mise install-all'
+        && mise install'
+
+# --- build: add the guest-language toolchains (config.<lang>.toml). ---
+# install-all == MISE_ENV="$ALL_LANGS" mise install; the always-loaded tools are
+# already installed by build-minimal, so this adds dart/dotnet/java/zig/etc.
+FROM build-minimal AS build
+COPY .mise/ .mise/
+RUN mise trust
+ENV MISE_ENV="dart,dotnet,java,python,rust,zig"
+RUN --mount=type=secret,id=gh_token,required=false \
+    GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)" \
+    mise install-all
 
 # --- prefetch: download all dependencies + ONNX models. ---
 # The full source is needed from here on (module builds, cargo fetch, pnpm).
