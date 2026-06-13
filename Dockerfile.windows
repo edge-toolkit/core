@@ -154,26 +154,15 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise install http:busybox
 
-# Smoke test (informational -- never fails the build): prove busybox sh runs on
-# Nano (native PE, no msys-2.0.dll / IdnToAscii problem). FAIL means the download
-# or the install path is wrong, so the bash-shell tasks below won't run. The
-# `dir` first records the actual installed filename in the log (mise writes the
-# `bin` name verbatim), so a path mismatch is obvious.
-ENV WINSH=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\http-busybox\1.37.0\sh.exe
+# Smoke test (informational -- never fails the build): prove busybox ash runs on
+# Nano (native PE, no msys-2.0.dll / IdnToAscii problem) AND can find `mise` on
+# PATH. The latter is the real test of the `ash` (not `sh`) naming: mise only
+# rewrites the PATH to msys form for shells it knows (bash/sh/...), so naming the
+# bin `ash` keeps the Windows-form PATH busybox-w32 needs. FAIL/NOMISE means the
+# bash-shell tasks below would still die with `mise: not found`.
+ENV WINSH=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\http-busybox\1.37.0\ash.exe
 RUN dir "%LOCALAPPDATA%\mise\installs\http-busybox\1.37.0" & `
-    ("%WINSH%" -c "echo [smoke] busybox sh runs on nano" && echo [smoke] OK || echo [smoke] FAIL) & `
-    ("%WINSH%" -c "echo [diag] PATH=[$PATH]") & `
-    ("%WINSH%" -c "mise --version" && echo [diag] mise OK || echo [diag] mise FAIL) & `
-    ("%WINSH%" -c "mise.exe --version" && echo [diag] mise.exe OK || echo [diag] mise.exe FAIL) & `
-    ("%WINSH%" -c "command -v mise; command -v mise.exe; type mise" & ver>nul) & `
-    ver>nul
-# The cmd-launched busybox above finds mise (with `-c`), but the task-launched
-# one (`-euo pipefail -c`) doesn't. Isolate the cause: (A) -euo pipefail in cmd
-# context (PATH known-good); (B) -euo pipefail in mise-exec context. If A finds
-# mise, the flags are innocent and it's the task env; if A fails, -euo breaks
-# busybox's PATH/command search.
-RUN ("%WINSH%" -euo pipefail -c "echo [diag2A] $PATH; command -v mise || echo [diag2A] NOMISE") & `
-    (mise exec -- "%WINSH%" -euo pipefail -c "command -v mise || echo [diag2B] NOMISE") & `
+    ("%WINSH%" -euo pipefail -c "command -v mise && echo [smoke] OK || echo [smoke] NOMISE") & `
     ver>nul
 
 # Force the gnu build target for the project cargo builds below. mise's rust tool

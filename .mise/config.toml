@@ -106,9 +106,15 @@ gh = "latest"
 [tools."http:busybox"]
 version = "1.37.0"
 os = ["windows"]
-# `sh.exe` (not bare `sh`): mise writes the bin name verbatim, and Windows needs
-# the .exe extension to launch it by name (cmd) and for MISE_BASH_PATH below.
-bin = "sh.exe"
+# `ash.exe`, deliberately: busybox picks its applet from argv[0], and `ash` is
+# the busybox shell -- but crucially mise's POSIX-shell list is
+# [bash, sh, zsh, fish, ksh, dash] (NOT ash), so naming it `ash` stops mise from
+# rewriting the task's PATH into msys/Cygwin form (/c/mise/bin:...) when it spawns
+# the shell. busybox-w32 is native Win32 and needs the Windows-form PATH
+# (C:\mise\bin;...) to find mise; the converted form breaks command lookup. The
+# .exe suffix is needed because mise writes the bin name verbatim and Windows
+# launches by extension.
+bin = "ash.exe"
 url = "https://frippery.org/files/busybox/busybox64u.exe"
 checksum = "sha256:6e263d154d8548d1eb936f65d1d8312c80df31c45974e48d6335e4dcc0f4f34c"
 
@@ -150,10 +156,10 @@ py313_unix = "{{ env.HOME }}/.local/share/mise/installs/python/3.13/bin/python3"
 # task_executor.rs bash_candidates), never an http-backend tool -- so on a bare
 # Windows box it can't find the busybox `sh` we install and falls back to the
 # WSL-launcher bash.exe. MISE_BASH_PATH (below) points it here: the http backend
-# installs the renamed `sh` binary at installs\http-busybox\<version>\sh.exe,
+# installs the renamed `ash` binary at installs\http-busybox\<version>\ash.exe,
 # keyed by the version pinned in [tools] above (keep the two in sync).
 # Windows-only; the env entry is empty elsewhere, which mise ignores.
-winsh = '{{ get_env(name="LOCALAPPDATA", default="") }}\mise\installs\http-busybox\1.37.0\sh.exe'
+winsh = '{{ get_env(name="LOCALAPPDATA", default="") }}\mise\installs\http-busybox\1.37.0\ash.exe'
 # Linker RUSTFLAGS fragments, composed into the per-target CARGO_TARGET_* env
 # values below — kept as vars so those values stay on a single line.
 lld_flag = "-C link-arg=-fuse-ld={{ vars.conda_lld }}/bin/ld64.lld"
