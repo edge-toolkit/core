@@ -71,10 +71,13 @@ RUN curl -fsSL https://mise.run | sh
 ENV PATH="/root/.local/bin:/root/.local/share/mise/shims:${PATH}"
 
 WORKDIR /workspace
-# Only the always-loaded config is needed for the default tools; the
-# guest-language configs come in the build stage below. setup-linux is a repo
-# task, so the config has to be copied + trusted before it can run.
+# The default tools need the always-loaded config plus config.linux.toml (where
+# setup-linux + the Linux env live) and .miserc.toml (auto_env, which auto-loads
+# config.linux.toml); the other guest-language configs come in the build stage
+# below. These are repo configs, so they're copied + trusted before mise runs.
+COPY .miserc.toml .miserc.toml
 COPY .mise/config.toml .mise/config.toml
+COPY .mise/config.linux.toml .mise/config.linux.toml
 
 RUN mise trust
 

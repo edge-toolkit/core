@@ -189,13 +189,18 @@ ENV CARGO_HOME=C:\.cargo `
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise run setup-windows
 
-# The remaining always-loaded tools (python, the cargo: tools) now that rust
-# links via gnu. pipx then via pip -- the README's Windows-only step (pipx isn't
-# a mise tool here, and pip's distlib launcher avoids uv's PE-resource trampoline
-# that Nano Server can't run).
+# pipx must be on PATH before the full `mise install` reaches pipx:semgrep, which
+# shells out to it. So: install python, pip-install pipx (lands in python's
+# Scripts dir), put that dir on PATH, then run the full install.
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
-    mise install && `
+    mise install python && `
     mise exec -- python -m pip install --no-warn-script-location pipx
+ENV PATH="C:\Users\ContainerAdministrator\AppData\Local\mise\installs\python\3.13\Scripts;${PATH}"
+
+# The remaining always-loaded tools (the cargo: tools + pipx:semgrep) now that
+# rust links via gnullvm and pipx is on PATH.
+RUN set /p GITHUB_TOKEN=<C:\gh_token && `
+    mise install
 
 # --- build: add the guest-language toolchains (config.<lang>.toml). ---
 # install-all == MISE_ENV="$ALL_LANGS" mise install; the always-loaded tools are
