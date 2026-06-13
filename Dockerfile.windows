@@ -97,7 +97,11 @@ ENV MISE_JOBS=1
 # is mise\bin\mise.exe) and put that on PATH so the steps below can call `mise`.
 COPY mise.zip C:\mise.zip
 RUN tar -xf C:\mise.zip -C C:\ && del C:\mise.zip
-ENV PATH="C:\mise\bin;${PATH}"
+# Prepend mise's bin, and re-list System32 + Windows explicitly: the base image
+# exposes its search path as `Path`, which Docker's case-sensitive `${PATH}`
+# doesn't match, so it expands empty -- dropping System32 (findstr, net, sc, ...)
+# off PATH for every step below.
+ENV PATH="C:\mise\bin;C:\Windows\System32;C:\Windows;${PATH}"
 
 WORKDIR C:\workspace
 # Only the always-loaded config is needed for the default tools; the
@@ -133,8 +137,9 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
 
 # Diagnostic (informational): print where conda:m2-bash actually put bash.exe, so
 # the CI log confirms the MISE_BASH_PATH that [env] computes (winbash assumes
-# Library\usr\bin). `& ver>nul` keeps exit 0 even if findstr matches nothing.
-RUN dir /s /b "%LOCALAPPDATA%\mise\installs\conda-m2-bash" 2>nul | findstr /i "bash.exe" & ver>nul
+# Library\usr\bin). `dir /s /b <dir>\bash.exe` (a cmd builtin, no findstr) lists
+# every match; `& ver>nul` keeps exit 0 even when none are found.
+RUN dir /s /b "%LOCALAPPDATA%\mise\installs\conda-m2-bash\bash.exe" 2>nul & ver>nul
 
 # setup-windows depends on setup-all (experimental + cargo.binstall,
 # cargo-binstall, node, openssl), then installs the gnu toolchain (git, gpg,

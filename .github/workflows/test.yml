@@ -107,8 +107,6 @@ jobs:
 
       - name: Install mise tools
         run: |
-          mise settings add idiomatic_version_file_enable_tools "[]"
-
           # Platform preinstall via the shared setup task (see .mise/config.toml).
           # setup-all does settings + cargo-binstall + node + conda:openssl;
           # setup-macos adds conda:lld. Running it before the main `mise install`

@@ -53,7 +53,6 @@ jobs:
 
       - name: Install mise tools
         run: |
-          mise settings add idiomatic_version_file_enable_tools "[]"
           # Platform preinstall via the shared setup task (see .mise/config.toml):
           # setup-all does settings + cargo-binstall + node + conda:openssl;
           # setup-macos adds conda:lld. Running it before the main `mise install`
@@ -72,6 +71,12 @@ jobs:
           # default 30s HTTP timeout; bump it so transient network slowness
           # doesn't fail the whole `mise install` step.
           MISE_HTTP_TIMEOUT: "120"
+
+      - name: Prefetch Rust dependencies
+        run: mise run prefetch:rust
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CARGO_NET_RETRY: "5"
 
       - name: Run checkers
         run: |
