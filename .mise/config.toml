@@ -182,6 +182,16 @@ CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_
 # linker on Linux accepts `-Wl,-rpath` directly, unlike Apple clang's lld dance.
 CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
 CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
+# Windows targets x86_64-pc-windows-gnu (llvm-mingw -- see Dockerfile.windows /
+# the README). cargo reads these CARGO_TARGET_<triple>_* only when building for
+# that triple, so they're inert on Linux/macOS and need no os() guard. The linker
+# is llvm-mingw's gcc; -Cdlltool names llvm-mingw's dlltool for the gnu raw-dylib
+# import libs (rust-lang/rust#103939). The vars that force the gnu host/target
+# (RUSTUP_TOOLCHAIN, CARGO_BUILD_TARGET) can't live here -- they're not
+# triple-scoped, so an empty off-Windows value breaks Linux cargo ("target was
+# empty"); Dockerfile.windows sets those.
+CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = "x86_64-w64-mingw32-gcc"
+CARGO_TARGET_X86_64_PC_WINDOWS_GNU_RUSTFLAGS = "-Cdlltool=x86_64-w64-mingw32-dlltool"
 # bindgen (pulled in transitively by the deno web runner) needs the C
 # `libclang.so`. A mise-only Linux box usually only has `libclang-cpp` (the C++
 # API), so install `conda:clangxx` (above) for its `libclang.so`, point clang-sys
@@ -288,8 +298,10 @@ description = "Validate GitHub Actions workflow YAML"
 run = "action-validator .github/workflows/*.yml"
 
 [tasks.ast-grep-check]
+# --no-ignore hidden so the gha-* YAML rules reach .github/workflows (ast-grep
+# skips dot-dirs by default); gitignored paths like target/ stay skipped.
 description = "Run ast-grep structural-search rules"
-run = "ast-grep scan --error -c config/ast-grep/sgconfig.yml"
+run = "ast-grep scan --error --no-ignore hidden -c config/ast-grep/sgconfig.yml"
 
 [tasks.semgrep-check]
 description = "Run Semgrep generic-mode rules (e.g. Cargo.toml style)"
@@ -373,6 +385,11 @@ for f in "${members[@]}"; do
   lint_inheritable+=("$f")
 done
 taplo lint --schema "file://$PWD/config/taplo/require-lints-section.schema.json" "${lint_inheritable[@]}"
+
+# mise task `run` must be a string, not an array: taplo's reorder_arrays would
+# re-sort an array and scramble an ordered command sequence (use a multiline
+# string, one command per line). Applies to every .mise/config*.toml.
+taplo lint --schema "file://$PWD/config/taplo/mise-run-not-array.schema.json" .mise/config*.toml
 """
 shell = "bash -euo pipefail -c"
 
@@ -391,8 +408,7 @@ run = "typos"
 #
 # Platform split: aqua ships aube for linux/macos-arm64/windows; macos/x64 has
 # no aqua asset, so use the cargo backend there. The branch is rendered by
-# mise's tera templating, so it works regardless of the task shell (cmd on
-# Windows).
+# mise's tera templating to pick the right backend per platform.
 description = "Install the optional aube npm backend (platform-specific, best-effort)"
 run = """
 {% if os() == "macos" and arch() == "x64" %}
@@ -401,6 +417,7 @@ mise install cargo:aube@latest
 mise install aube@latest
 {% endif %}
 """
+shell = "bash -euo pipefail -c"
 
 [tasks.setup-all]
 # Shared cross-platform preinstall -- not run directly; the per-OS setup tasks
@@ -417,6 +434,7 @@ mise install cargo-binstall
 mise install node
 mise install conda:openssl
 """
+shell = "bash -euo pipefail -c"
 
 [tasks.setup-linux]
 # Linux preinstall: just the shared cross-platform base -- the C toolchain and
@@ -433,21 +451,30 @@ depends = ["setup-all"]
 run = "mise install conda:lld"
 
 [tasks.setup-windows]
-# Windows preinstall, shared by Dockerfile.windows and a real workstation: the
-# shared base runs first, then this installs the Windows toolchain mise CAN
-# supply -- gpg (conda:m2-gnupg, so mise verifies downloads), the llvm-mingw gnu
-# C/link toolchain (+ libclang), make and rust -- then flips rustup to the gnu
-# host so cargo links via llvm-mingw, not MSVC link.exe (no Visual Studio Build
-# Tools needed). The prereqs mise CAN'T supply (a recent mise + pipx) are in the
-# README's "Windows only" section.
-description = "Windows preinstall: shared base + gnu toolchain (gpg, llvm-mingw, make, rust) + rustup gnu flip"
+# Windows preinstall, shared by Dockerfile.windows and a real workstation. bash
+# (conda:m2-bash) is installed by the bootstrap that runs before any mise task on
+# Windows (see Dockerfile.windows / the README), so this task's `bash -euo
+# pipefail` shell works. The shared base runs first, then this installs git
+# (conda:m2-git, for cargo git deps), gpg (conda:m2-gnupg, so mise verifies
+# downloads), the llvm-mingw gnu C/link toolchain (+ libclang), make and rust --
+# then flips rustup to the gnu host so cargo links via llvm-mingw, not MSVC
+# link.exe (no Visual Studio Build Tools needed). The prereqs mise CAN'T supply
+# (a recent mise + the VC++ runtime it needs to start) are in the README's
+# "Windows only" section.
+description = "Windows preinstall: install the Windows toolchain (git, gpg, llvm-mingw, rust) + flip rustup to gnu"
 depends = ["setup-all"]
 run = """
-mise install conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
+mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
+# Install + default to the gnu build of the EXACT rust version mise pinned (not
+# the "stable" channel, which only happens to match mise's "latest"). mise sets
+# RUSTUP_TOOLCHAIN to that bare version, so once the default host is gnu it
+# resolves to this <version>-gnu toolchain.
+ver="$(mise exec -- rustc --version | awk '{print $2}')"
 mise exec -- rustup set default-host x86_64-pc-windows-gnu
-mise exec -- rustup toolchain install stable-x86_64-pc-windows-gnu
-mise exec -- rustup default stable-x86_64-pc-windows-gnu
+mise exec -- rustup toolchain install "${ver}-x86_64-pc-windows-gnu"
+mise exec -- rustup default "${ver}-x86_64-pc-windows-gnu"
 """
+shell = "bash -euo pipefail -c"
 
 [tasks.osv-scanner]
 depends = ["cargo-check"]

@@ -3,13 +3,6 @@
 # character to a backtick instead of the default `\`, so backslashes in Windows
 # paths (C:\..., trailing `C:\`) stay literal and lines continue with a backtick.
 
-# SKETCH (UNVERIFIED): build edge-toolkit on a *bare* Windows box where mise
-# supplies the entire toolchain -- the point is that nothing is hand-installed
-# but mise itself. Windows containers build only on a Windows Docker host, so
-# this runs solely in the `windows` job of .github/workflows/docker.yml; it
-# can't be built on the Linux dev/CI machines. Treat it as a CI-iterated
-# starting point, not a known-good image.
-#
 # Staged to mirror the Linux Dockerfile so the layers cache + target the same
 # way: vcruntime -> build-minimal -> build -> prefetch -> precompile -> test /
 # server. Each stage `FROM`s the previous, so installed tools, fetched deps and
@@ -61,12 +54,11 @@ USER ContainerAdministrator
 SHELL ["cmd", "/S", "/C"]
 
 # Diagnostic (informational -- never fails the build): does this base image ship
-# a bash? The `bash -euo pipefail` mise tasks need one; Nano Server has none, so
-# mise pulls conda:m2-bash (see the os-guarded Windows tools in .mise/config.toml).
-# Record which it is in the build log so the "does mise find bash" unknown is
-# answered up front.
+# a bash? The `bash -euo pipefail` mise tasks need one, and Nano Server doesn't
+# bundle it. Record which it is in the build log so the "is bash present" unknown
+# is answered up front.
 RUN where bash >nul 2>&1 && (echo [bash-check] pre-installed: & where bash) || `
-    echo [bash-check] not pre-installed -- mise provides conda:m2-bash for tasks
+    echo [bash-check] bash is not pre-installed on this base image
 
 # Set HOME to the admin profile so the container has a sane home (Nano Server
 # leaves it unset). This also renders the config's `{{ env.HOME }}` paths; note
@@ -121,30 +113,54 @@ COPY gh_token C:\gh_token
 
 # mise setup via the same task a workstation runs (see the README): setup-windows
 # depends on setup-all (experimental + cargo.binstall, cargo-binstall, node,
-# openssl), then installs the gnu toolchain (gpg, llvm-mingw, make, rust) and
-# flips rustup to the gnu host, so cargo links via llvm-mingw rather than the
-# absent MSVC link.exe. The Docker-only settings stay inline: `mise settings`
-# writes the global config (C:\.config\mise on Windows, not auto-trusted -- hence
-# the explicit trust); aqua's signature checks (attestations/cosign/slsa) are off
-# because their sigstore/TUF step can't find a cache dir here; pipx.uvx=false
-# makes the pipx: backend use pip, not uv (uv's PE-resource trampoline isn't
-# implemented on Nano Server, error 120).
+# openssl), then installs the gnu toolchain (git, gpg, llvm-mingw, make, rust)
+# and flips rustup to the gnu host, so cargo links via llvm-mingw rather than the
+# absent MSVC link.exe. bash (conda:m2-bash) is installed FIRST, as a plain
+# command -- Nano Server ships no bash and the mise tasks run on `bash -euo
+# pipefail`, so bash has to exist before any `mise run`. (experimental is enabled
+# here too, ahead of setup-all, because the conda backend needs it.) The
+# Docker-only settings stay inline: `mise settings` writes the global config
+# (C:\.config\mise on Windows, not auto-trusted -- hence the explicit trust);
+# aqua's signature checks (attestations/cosign/slsa) are off because their
+# sigstore/TUF step can't find a cache dir here; pipx.uvx=false makes the pipx:
+# backend use pip, not uv (uv's PE-resource trampoline isn't implemented on Nano
+# Server, error 120).
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise trust && `
+    mise settings experimental=true && `
     mise settings set aqua.github_attestations false && `
     mise settings set aqua.cosign false && `
     mise settings set aqua.slsa false && `
     mise settings set pipx.uvx false && `
     mise trust C:\.config\mise\config.toml && `
+    mise install conda:m2-bash && `
     mise run setup-windows
 
-# Pin every cargo invocation (mise's cargo: backend included) to the gnu host the
-# setup-windows flip just selected, so build scripts + proc-macros (which compile
-# for the host) also avoid MSVC link.exe; host == target == gnu. The linker is
-# llvm-mingw's gcc -- no Visual Studio Build Tools needed.
-ENV RUSTUP_TOOLCHAIN=stable-x86_64-pc-windows-gnu `
-    CARGO_BUILD_TARGET=x86_64-pc-windows-gnu `
-    CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
+# Force the gnu build target. RUSTUP_TOOLCHAIN is intentionally NOT set here:
+# mise's rust tool always overrides it with the bare rust version (see mise's
+# src/plugins/core/rust.rs exec_env), which rustup resolves against the gnu
+# default host that setup-windows selects -- and setup-windows installs + defaults
+# to that exact version's gnu toolchain. CARGO_BUILD_TARGET isn't touched by mise,
+# so it's effective here, and it can't move to mise's [env] (not triple-scoped --
+# an empty off-Windows value breaks Linux cargo with "target was empty"). The gnu
+# linker + dlltool DO live in [env] as CARGO_TARGET_X86_64_PC_WINDOWS_GNU_*
+# (triple-scoped, so a workstation shares them without affecting other OSes).
+ENV CARGO_BUILD_TARGET=x86_64-pc-windows-gnu
+
+# Diagnostics (informational -- never fail the build; `& ver>nul` keeps exit 0).
+# mise's rust tool always sets RUSTUP_TOOLCHAIN to the bare *version* (e.g.
+# 1.96.0) and there's no setting to stop it -- but rustup resolves a bare version
+# against the default host, which the setup-windows flip set to gnu. So these
+# answer the open questions in the CI log: which host `mise exec -- rustc` really
+# uses (the `host:` line -- should be ...-pc-windows-gnu), what mise resolves the
+# toolchain to (`rustup show`), and whether the gnu linker + dlltool are on PATH
+# while MSVC's link.exe is absent.
+RUN echo [diag] env RUSTUP_TOOLCHAIN=[%RUSTUP_TOOLCHAIN%] CARGO_BUILD_TARGET=[%CARGO_BUILD_TARGET%] & `
+    mise exec -- rustup show & `
+    mise exec -- rustc -vV & `
+    where x86_64-w64-mingw32-gcc & where x86_64-w64-mingw32-dlltool & `
+    where dlltool & where link.exe & `
+    ver>nul
 
 # The rest of the always-loaded tools (cargo-binstall + node + conda:openssl
 # already came via setup-all), now that rust links via gnu: `mise install` builds

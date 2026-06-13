@@ -54,13 +54,17 @@ jobs:
       - name: Install mise tools
         run: |
           mise settings add idiomatic_version_file_enable_tools "[]"
-          mise settings experimental=true
-          mise settings set cargo.binstall true
-          # See test.yml for notes on why conda:openssl is installed up front.
-          mise install conda:openssl
-          # On macOS, lld is needed to compile Rust binary tools from source
-          # (e.g. `cargo:taplo-cli`, see CARGO_TARGET_*_APPLE_DARWIN_RUSTFLAGS).
-          mise install conda:lld
+          # Platform preinstall via the shared setup task (see .mise/config.toml):
+          # setup-all does settings + cargo-binstall + node + conda:openssl;
+          # setup-macos adds conda:lld. Running it before the main `mise install`
+          # keeps conda:openssl ahead of any parallel cargo:* openssl-sys build.
+          # Windows CI uses its native msvc toolchain, so it runs setup-all (the
+          # base), not setup-windows whose gnu-host flip is for the bare-box path.
+          case "${{ runner.os }}" in
+            Linux)   mise run setup-linux ;;
+            macOS)   mise run setup-macos ;;
+            Windows) mise run setup-all ;;
+          esac
           mise install
         env:
           GITHUB_TOKEN: ${{ github.token }}

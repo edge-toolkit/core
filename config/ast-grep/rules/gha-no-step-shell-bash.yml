@@ -1,0 +1,14 @@
+id: gha-no-step-shell-bash
+language: yaml
+severity: error
+message: |
+  Don't set `shell: bash` on a workflow step -- the workflow defaults to bash
+  (defaults.run.shell), so it's redundant. Drop it. A step that genuinely needs
+  another shell (e.g. pwsh on Windows) sets that explicitly.
+files:
+  - .github/workflows/*.yml
+rule:
+  pattern: "shell: bash"
+  inside:
+    kind: block_sequence
+    stopBy: end

@@ -236,11 +236,85 @@ If a function is private but needs testing, add a `[lib]` target to the crate an
 
 Every file under `tests/` must start with `#![cfg(test)]` (placed after the file's `//!` doc comment, if any).
 
+## Linting
+
+Lint checks must be expressed through one of the repo's linters — **never** as a
+bespoke shell script, whether a standalone file or a mise task `run`. The
+available linters:
+
+- **ast-grep** (`config/ast-grep/rules/`) — structural rules for code **and
+  YAML** (e.g. GitHub Actions workflows).
+- **semgrep** (`config/semgrep/`) — incl. `languages: [generic]`, which works on
+  TOML/text (e.g. `mise-config.yml` lints `.mise/config*.toml`).
+- **taplo** JSON-schemas (`config/taplo/`) — TOML structure, applied via
+  `taplo lint --schema` in `taplo-check`.
+- plus hadolint, editorconfig-checker, typos, and action-validator for their
+  domains.
+
+ast-grep has no TOML grammar, so it **cannot** lint TOML — use a taplo schema or
+a semgrep `generic` rule there. If none of the above can express a check,
+propose adding a new mise-installable linter rather than scripting it by hand.
+
+## No `scripts/` directory
+
+Do not create a `scripts/` directory or drop loose shell/Python scripts in the
+repo. Every script belongs in one of two places:
+
+- **Short and simple** → an inline `mise` task (`run = """ … """` in
+  `.mise/config.toml` or a `.mise/config.<lang>.toml`). It stays discoverable
+  via `mise tasks` and runs as `mise run <name>`.
+- **More involved** → its own tool directory under `utilities/` with its own
+  `README.md` documenting what it does and how to run it.
+
 ## Rust Workspace
 
 Single Cargo workspace (`Cargo.toml`).
 Shared dependency versions are declared in `[workspace.dependencies]`.
 Add new deps there, not in individual crate `[dependencies]`.
+
+## Clippy lints
+
+**Never weaken or disable a lint to make code pass — not the workspace lint
+config (`[workspace.lints.*]`, `.clippy.toml` thresholds, the ast-grep / taplo
+rules) — without explicit operator permission.** Setting a denied lint to
+`allow` or raising a threshold is a project-policy change, not a fix. If a lint
+is in the way, fix the code (or justify it with a scoped
+`#[expect(..., reason = "…")]`); if you believe the lint itself is wrong, stop
+and ask.
+
+Clearing an `#[expect(...)]` that clippy reports as **unfulfilled** is normally
+fine and expected — that's the intended cleanup. **The one exception is
+`clippy::cognitive_complexity`** (and other macro-expansion-sensitive lints):
+do **not** auto-remove those `#[expect]`s, because of the gotcha below.
+
+**Feature-unification gotcha.** `clippy::cognitive_complexity` can fire in the
+full-workspace build but not in an isolated `cargo clippy -p <crate>`, because
+`-p` enables fewer features (e.g. the `tracing` macros expand further when the
+whole workspace's tracing/otel features are on). So its `#[expect]` can look
+_unfulfilled_ in an isolated run yet be _required_ by CI. **Validate with the
+full `mise run check`, not an isolated `-p` clippy, before touching one of these
+`#[expect]`s.** (The clean fix — `[resolver] feature-unification = "workspace"`
+so every build sees the same features — is still nightly-only via
+`-Z feature-unification`.)
+
+The workspace denies a broad set of clippy lints (see `[workspace.lints.clippy]`
+in `Cargo.toml`), including restriction lints. One you'll hit often:
+**`clippy::single_call_fn`** fires on a private function called from exactly one
+site. Do **not** inline the function just to silence it — a function that is a
+distinct, named step (kept separate for readability, or that will gain more
+callers) is legitimate. Keep it and annotate with `#[expect(...)]` and a real
+justification:
+
+```rust
+#[expect(clippy::single_call_fn, reason = "distinct step of X; kept separate for readability and future reuse")]
+fn helper(...) { ... }
+```
+
+Use `#[expect(...)]` rather than `#[allow(...)]` (the workspace denies
+`unfulfilled_lint_expectations`, so an `expect` that stops applying fails the
+build instead of silently lingering). The same applies to other restriction
+lints whose pattern is intentional in a given spot — prefer a justified
+`#[expect(..., reason = "…")]` over contorting the code to dodge the lint.
 
 ## Naming conventions
 

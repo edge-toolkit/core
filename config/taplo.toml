@@ -2,7 +2,10 @@
 # taplo's baseline `taplo lint` / `format` don't honour .gitignore: `target/`
 # holds scratch + build artifacts (and auto-associates any stray `Cargo.toml`
 # with the SchemaStore Cargo schema), and `data/` holds external upstream repo
-# clones whose TOML files we must never reformat.
+# clones whose TOML files we must never reformat. target/ is also CLAUDE.md's
+# scratch area, so scratch TOML is skipped here too -- to lint or test a scratch
+# TOML, pipe it through `taplo format -` / `taplo lint -` (stdin has no path to
+# exclude).
 exclude = ["target/**", "data/**"]
 
 [formatting]

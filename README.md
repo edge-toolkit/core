@@ -68,30 +68,39 @@ mise run setup-linux
 
 ### Windows only
 
-`mise install` brings the language toolchains, but on Windows a few things must
-be installed first — mise can't supply them:
+On Windows you install two things yourself; mise supplies everything else, the
+compiler toolchain included:
 
-- **A recent mise** (2026.6.2 or later). An older one (e.g. 2026.3) fails reading
-  the config with `unknown field run_auto_install`.
-- **Visual Studio Build Tools** — the "Desktop development with C++" workload
-  (the MSVC compiler + Windows SDK) that Rust's default `x86_64-pc-windows-msvc`
-  target links through; without them `cargo` fails with `link.exe` not found.
-- **LLVM** at `C:\Program Files\LLVM` — bindgen (pulled in by the deno web
-  runner's `libsqlite3-sys`) loads its `libclang.dll` from there.
-- **pipx** — mise has no Windows build of it, so install it separately with
-  `python -m pip install pipx` (see the
-  [pipx Windows instructions](https://pipx.pypa.io/stable/how-to/install-pipx/));
-  mise's `pipx:*` tools (e.g. semgrep) then resolve through it.
+- **A recent mise** (2026.6.2 or later — an older one fails reading the config
+  with `unknown field run_auto_install`). mise can't install itself.
+- **The Microsoft VC++ runtime** (`vcruntime140.dll`) — mise.exe and the
+  rust/cargo it installs are built against it. It ships with Windows and most
+  apps, so it's usually already there; check with `where.exe vcruntime140.dll`,
+  and if that finds nothing install the
+  [VC++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe). mise
+  can't install it — it's what mise.exe needs to start.
 
-Then run `setup-windows` — it installs the rest mise can supply (gpg so mise
-verifies downloads, the llvm-mingw gnu toolchain, make and rust) and flips rust
-to the `x86_64-pc-windows-gnu` host, so cargo links via llvm-mingw. (That gnu
-path is why the Build Tools / LLVM above are only needed if you instead build
-for the default msvc target.) Run it before the "All OS" steps below:
+mise's tasks run on `bash -euo pipefail`, so install bash first — it's the one
+step that can't itself use bash (harmless if you already have Git Bash):
+
+```bash
+mise install conda:m2-bash
+```
+
+Then `mise run setup-windows` installs the rest of the gnu toolchain — git, gpg,
+the llvm-mingw clang/lld/mingw-w64 (which also provides the `libclang.dll`
+bindgen needs), make and rust — and flips rust to the `x86_64-pc-windows-gnu`
+host so cargo links via llvm-mingw. So **neither Visual Studio Build Tools nor a
+separate LLVM are needed** — mise supplies the compiler, linker and libclang.
+Run it before the "All OS" steps below:
 
 ```bash
 mise run setup-windows
 ```
+
+pipx is not a separate prerequisite either: mise has no Windows pipx build, but
+it installs with mise's own Python (`python -m pip install pipx`), after which
+mise's `pipx:*` tools (e.g. semgrep) resolve through it.
 
 ### MacOS only
 
