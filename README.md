@@ -71,8 +71,9 @@ mise run setup-linux
 On Windows you install two things yourself; mise supplies everything else, the
 compiler toolchain included:
 
-- **A recent mise** (2026.6.2 or later — an older one fails reading the config
-  with `unknown field run_auto_install`). mise can't install itself.
+- **A recent mise** (2026.6.5 or later — it needs `auto_env` to load the
+  platform config, and an older one also fails on `unknown field
+  run_auto_install`). mise can't install itself.
 - **The Microsoft VC++ runtime** (`vcruntime140.dll`) — mise.exe and the
   rust/cargo it installs are built against it. It ships with Windows and most
   apps, so it's usually already there; check with `where.exe vcruntime140.dll`,
@@ -80,27 +81,12 @@ compiler toolchain included:
   [VC++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe). mise
   can't install it — it's what mise.exe needs to start.
 
-mise's tasks run on `bash -euo pipefail`, so install bash first — it's the one
-step that can't itself use bash (harmless if you already have Git Bash):
+Install a shell (Windows has no bash), then run the Windows preinstall:
 
 ```bash
-mise install conda:m2-bash
-```
-
-Then `mise run setup-windows` installs the rest of the gnu toolchain — git, gpg,
-the llvm-mingw clang/lld/mingw-w64 (which also provides the `libclang.dll`
-bindgen needs), make and rust — and flips rust to the `x86_64-pc-windows-gnu`
-host so cargo links via llvm-mingw. So **neither Visual Studio Build Tools nor a
-separate LLVM are needed** — mise supplies the compiler, linker and libclang.
-Run it before the "All OS" steps below:
-
-```bash
+mise install http:busybox
 mise run setup-windows
 ```
-
-pipx is not a separate prerequisite either: mise has no Windows pipx build, but
-it installs with mise's own Python (`python -m pip install pipx`), after which
-mise's `pipx:*` tools (e.g. semgrep) resolve through it.
 
 ### MacOS only
 
@@ -182,16 +168,10 @@ toolchain and nothing is installed the Windows way. It starts from **Nano
 Server** (the smallest Windows base, ~120 MB) — which has no installer stack,
 PowerShell, or admin shell, so the Visual Studio Build Tools installer can't run
 there at all. Instead it bootstraps just `mise.exe` (via the `curl`/`tar` built
-into Nano Server) and lets `mise install` pull everything else: rust, an
-`llvm-mingw` toolchain (clang + lld + the mingw-w64 runtime and `libclang.dll`),
-plus `bash` and `git` from conda's msys2 packages — all declared os-guarded in
-[`.mise/config.toml`](.mise/config.toml). Because the MSVC CRT + Windows SDK are
-the one thing mise can't supply, the build targets `x86_64-pc-windows-gnu`
-rather than `-msvc`. Windows containers build only on a Windows Docker host, so
-the `windows` CI job is the only place it runs; expect to iterate there (the
-rustup gnu-host flip and whether msvc-only prebuilts like `ort` link are the
-open questions). Whatever it ends up needing are findings the README's "Windows
-only" section should fold in.
+into Nano Server) and lets `mise install` pull the entire toolchain — all
+declared os-guarded in [`.mise/config.toml`](.mise/config.toml). Windows
+containers build only on a Windows Docker host, so the `windows` CI job is the
+only place it runs; expect to iterate there.
 
 ## Run ws agent in browser
 

@@ -1,7 +1,5 @@
-# hadolint config, consumed by `mise run hadolint-check`. Each entry is a
-# best-practice rule we consciously skip, with the reason; drop one once it no
-# longer applies. (Dockerfile.windows is not linted -- see the hadolint-check
-# task in .mise/config.toml.)
+# hadolint config. Each entry below is a best-practice rule we consciously skip,
+# with the reason; drop one once it no longer applies.
 ignored:
   # Pinning apt package versions is brittle: they float with the Ubuntu base
   # image + security updates, so an exact pin breaks on every base bump. We

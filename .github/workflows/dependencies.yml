@@ -50,11 +50,8 @@ jobs:
       - name: cargo deny check
         run: mise run cargo-deny-check
 
-      # osv-scanner runs directly, not via `mise run osv-scanner`: that task
-      # depends on `cargo-check` (a full workspace build) for local use, which
-      # this job intentionally skips -- it only scans the committed lockfile.
       - name: osv-scanner
-        run: osv-scanner --lockfile Cargo.lock --config config/osv-scanner.toml
+        run: mise run osv-scanner
 
       # `cargo unmaintained` persists per-repository archival/last-commit
       # lookups under `$XDG_CACHE_HOME/cargo-unmaintained` (default

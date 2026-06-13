@@ -28,6 +28,25 @@ on a follow-up fix-up pass. The most common offenders are: long
 `reason = "…"` strings on lint attributes, JSON `description` fields,
 markdown table rows, and CI-task `description` fields.
 
+## Document each thing exactly once
+
+Document each thing **once**, in the single place it is most relevant —
+the code, config entry, or task it describes — and **nowhere else**. Do
+not restate the same explanation in a second comment, in the README, in
+this file, or in a commit message that competes with it.
+
+Do not even add a pointer to where something is documented ("see X",
+"as described in Y", "(documented in Z)"). Such cross-references are
+themselves duplication: they go stale, and they multiply the places that
+must change when the thing changes. Trust the developer to find the
+relevant documentation themselves — they know how to read the code,
+`grep`, and follow the obvious file.
+
+When you find yourself about to explain something that is already
+explained elsewhere, stop: either the existing spot is the right home (so
+say nothing here), or this is the better home (so move it here and remove
+the original). One canonical location, never two.
+
 ## Prerequisites
 
 Install [`mise`](https://mise.jdx.dev/) with shell integration, then configure:

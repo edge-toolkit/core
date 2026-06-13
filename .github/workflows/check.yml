@@ -53,11 +53,10 @@ jobs:
 
       - name: Install mise tools
         run: |
-          # Each OS runs its own setup-<os> task (never setup-all directly --
-          # that's the shared internal base those tasks depend on), before the
-          # main `mise install` so conda:openssl lands ahead of any parallel
-          # cargo:* openssl-sys build. (This job only runs on ubuntu-latest; the
-          # other arms are kept in lockstep with test.yml.)
+          # Each OS runs its own setup-<os> task, before the main `mise install`
+          # so conda:openssl lands ahead of any parallel cargo:* openssl-sys
+          # build. (This job only runs on ubuntu-latest; the other arms are kept
+          # in lockstep with test.yml.)
           case "${{ runner.os }}" in
             Linux)   mise run setup-linux ;;
             macOS)   mise run setup-macos ;;

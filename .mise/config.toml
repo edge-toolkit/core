@@ -11,6 +11,12 @@
 #   Run a check across everything:      mise run check-all  (or install-all)
 #   Make a selection sticky:            export MISE_ENV=dart
 
+# Require the mise release that introduced auto_env (platform config files):
+# below this, .mise/config.<os>.toml wouldn't auto-load and per-OS env (linker
+# flags, LIBCLANG_PATH, the Windows shell) would silently go missing. Fail loudly
+# instead. (.miserc.toml enables auto_env; CI installs latest mise.)
+min_version = "2026.6.5"
+
 [settings]
 # Never auto-install tools implicitly: installs are explicit (`mise install` /
 # `mise run install-all`, and CI/Docker install up front). This keeps cheap tasks
@@ -42,32 +48,16 @@ cargo-binstall = "latest"
 # in the standard CI `test` flow, so skip it on Windows entirely.
 "chromedriver" = { version = "146", os = ["linux", "macos"] }
 cmake = "latest"
-"conda:lld" = "latest"
+# openssl-sys reads OPENSSL_DIR (below); the conda build is no-admin + identical
+# across machines. The per-OS toolchains (conda:clangxx on Linux, conda:lld on
+# macOS, the msys2/llvm-mingw/busybox set on Windows) live in the matching
+# config.<os>.toml.
 "conda:openssl" = "3"
-# Ships the C `libclang.so` (+ clang resource headers) that bindgen needs to
-# build the deno web runner's libsqlite3-sys. Linux-only: macOS uses its
-# system/Xcode libclang; Windows gets libclang from llvm-mingw (below).
-# Consumed by LIBCLANG_PATH / BINDGEN_EXTRA_CLANG_ARGS.
-"conda:clangxx" = { version = "latest", os = ["linux"] }
-# Windows toolchain, all mise-provided so a bare Windows box needs nothing
-# preinstalled except mise itself (see Dockerfile.windows). The conda msys2
-# mirror packages give `git`, `gpg` (so mise verifies tool downloads instead of
-# warning), and `make` (some `-sys` build scripts shell out to it); llvm-mingw
-# bundles clang + lld + the mingw-w64 runtime/headers/libs (the
-# `x86_64-pc-windows-gnu` C/link toolchain) plus the `libclang.dll` bindgen loads
-# -- found via PATH once mise activates the tool. The MSVC CRT + Windows SDK
-# can't come from mise, so the Windows build targets `-gnu`, not `-msvc`. The
-# bash-shell tasks' `sh` comes from busybox, not conda msys2 bash -- see the
-# [tools."http:busybox"] entry below for why.
-"conda:m2-git" = { version = "latest", os = ["windows"] }
-"conda:m2-gnupg" = { version = "latest", os = ["windows"] }
-"conda:m2-make" = { version = "latest", os = ["windows"] }
-# Pinned (not "latest") so its install dir is deterministic: Dockerfile.windows
-# puts <install>\20260602\bin on PATH for the cargo-tool builds (dlltool + the
-# gnu linker). Bump here and in Dockerfile.windows together.
-"github:mstorsjo/llvm-mingw" = { version = "20260602", os = ["windows"], matching = "ucrt-x86_64" }
 dprint = "latest"
 editorconfig-checker = "latest"
+# Retries a command with exponential backoff + jitter; wraps the model fetches
+# below (see the `retry` var) so a transient HTTP 429 doesn't fail the build.
+"github:dbohdan/recur" = "latest"
 "github:grok-rs/waitup" = "latest"
 "github:wasm-bindgen/wasm-bindgen" = "0.2.114"
 hadolint = "latest"
@@ -99,76 +89,17 @@ wasm-tools = "latest"
 yq = "latest"
 gh = "latest"
 
-# busybox-w32 provides the `sh` (POSIX ash) the bash-shell mise tasks run on,
-# on Windows. It's a native Win32 single exe with no cygwin/msys runtime, so it
-# loads on a bare Nano Server -- unlike conda's msys2 bash, whose msys-2.0.dll
-# imports KERNEL32!IdnToAscii/IdnToUnicode, names Nano's stripped kernel32
-# forwarder doesn't re-export (-> 0xC0000139, and the system file/registry are
-# ACL-locked, so they can't be backfilled). Installed via the http backend from
-# the maintainer's official build and renamed to `sh`; MISE_BASH_PATH (below)
-# points the task shell at it. Pinned by checksum so a silent upstream rebuild
-# fails loudly instead of running unverified bytes. The tasks are POSIX sh, so
-# real bash (Linux/macOS) and busybox ash (Windows) both run them.
-[tools."http:busybox"]
-version = "1.37.0"
-os = ["windows"]
-# `ash.exe`, deliberately: busybox picks its applet from argv[0], and `ash` is
-# the busybox shell -- but crucially mise's POSIX-shell list is
-# [bash, sh, zsh, fish, ksh, dash] (NOT ash), so naming it `ash` stops mise from
-# rewriting the task's PATH into msys/Cygwin form (/c/mise/bin:...) when it spawns
-# the shell. busybox-w32 is native Win32 and needs the Windows-form PATH
-# (C:\mise\bin;...) to find mise; the converted form breaks command lookup. The
-# .exe suffix is needed because mise writes the bin name verbatim and Windows
-# launches by extension.
-bin = "ash.exe"
-url = "https://frippery.org/files/busybox/busybox64u.exe"
-checksum = "sha256:6e263d154d8548d1eb936f65d1d8312c80df31c45974e48d6335e4dcc0f4f34c"
-
 [vars]
-# mise's conda tool install dirs, reused below by OPENSSL_DIR and the
-# CARGO_TARGET_* RUSTFLAGS.
-conda_lld = "{{ env.HOME }}/.local/share/mise/installs/conda-lld/latest"
+# conda:openssl install dir, reused by OPENSSL_DIR + rpath_flag. The per-OS
+# toolchain vars -- conda_lld/lld_flag + mac libclang (macOS), the clangxx +
+# bindgen set (Linux), winsh + win libclang + py313_win (Windows) -- live in the
+# matching config.<os>.toml.
 conda_openssl = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest"
-conda_clangxx = "{{ env.HOME }}/.local/share/mise/installs/conda-clangxx/latest"
-clang_resource = "{{ vars.conda_clangxx }}/lib/clang/22"
-# conda's target-triple dir uses x86_64/aarch64; mise's arch() is x64/arm64.
-conda_arch = "{% if arch() == 'arm64' %}aarch64{% else %}x86_64{% endif %}"
-clang_sysroot = "{{ vars.conda_clangxx }}/{{ vars.conda_arch }}-conda-linux-gnu/sysroot"
-# bindgen loads libclang directly rather than driving the clang binary, so it
-# can't auto-find its resource dir (builtins like stddef.h/stdint.h) or conda's
-# bundled sysroot. Pass `-resource-dir` (not just `-isystem .../include`, which
-# leaves the builtin type macros unset and fails in CI) + `--sysroot` so header
-# resolution is identical on every machine.
-bindgen_args = "-resource-dir {{ vars.clang_resource }} --sysroot={{ vars.clang_sysroot }}"
-# macOS libclang dir: point clang-sys at Xcode's libclang (the lib dir beside
-# `xcrun`'s clang); clang-sys doesn't always auto-find it on CI. Guarded so the
-# exec runs only on macOS; the system libclang knows the SDK, no bindgen args.
-mac_libclang = "{% if os() == 'macos' %}{{ exec(command='dirname $(dirname $(xcrun --find clang))') }}/lib{% endif %}"
-# Windows libclang: the runner's system LLVM. (Docker's gnu build has no system
-# LLVM but finds llvm-mingw's libclang on PATH, which clang-sys also searches.)
-win_libclang = "C:\\Program Files\\LLVM\\bin"
-nonlin_libclang = "{% if os() == 'macos' %}{{ vars.mac_libclang }}{% else %}{{ vars.win_libclang }}{% endif %}"
-# LIBCLANG_PATH per OS: Linux -> conda libclang; macOS -> Xcode libclang; Windows
-# -> system LLVM (clang-sys also searches PATH, so llvm-mingw works too).
-libclang_path = "{% if os() == 'linux' %}{{ vars.conda_clangxx }}/lib{% else %}{{ vars.nonlin_libclang }}{% endif %}"
-# mise-managed CPython 3.13 interpreter, composed into PYO3_PYTHON below. Split
-# per-OS because the mise data dir differs (LOCALAPPDATA\mise on Windows,
-# HOME-based elsewhere). `get_env(..., default='')` guards the Windows-only
-# LOCALAPPDATA so the var still renders on Linux/macOS -- a bare `env.LOCALAPPDATA`
-# is "not found in context" off-Windows and hard-fails the whole config render.
-py313_win = "{{ get_env(name='LOCALAPPDATA', default='') }}\\mise\\installs\\python\\3.13\\python.exe"
+# mise-managed CPython 3.13 (Linux/macOS); the PYO3_PYTHON default below. Windows
+# overrides PYO3_PYTHON with its own py313_win in config.windows.toml.
 py313_unix = "{{ env.HOME }}/.local/share/mise/installs/python/3.13/bin/python3"
-# mise's task bash-resolution probes only Git Bash / standalone MSYS2 (see mise's
-# task_executor.rs bash_candidates), never an http-backend tool -- so on a bare
-# Windows box it can't find the busybox `sh` we install and falls back to the
-# WSL-launcher bash.exe. MISE_BASH_PATH (below) points it here: the http backend
-# installs the renamed `ash` binary at installs\http-busybox\<version>\ash.exe,
-# keyed by the version pinned in [tools] above (keep the two in sync).
-# Windows-only; the env entry is empty elsewhere, which mise ignores.
-winsh = '{{ get_env(name="LOCALAPPDATA", default="") }}\mise\installs\http-busybox\1.37.0\ash.exe'
-# Linker RUSTFLAGS fragments, composed into the per-target CARGO_TARGET_* env
-# values below — kept as vars so those values stay on a single line.
-lld_flag = "-C link-arg=-fuse-ld={{ vars.conda_lld }}/bin/ld64.lld"
+# RUSTFLAGS fragments shared by the per-OS CARGO_TARGET_* env in config.<os>.toml;
+# kept as vars so those values stay single-line.
 rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
 # rpath to the mise CPython 3.13 lib dir so the et-ws-pyo3-runner binary finds
 # libpython at runtime (libpython3.13.so on Linux, libpython3.13.dylib on macOS
@@ -186,6 +117,12 @@ har_src = "{{ vars.har_repo }}/raw/refs/heads/main/Models/onnx/hybrid_met.onnx"
 har_dst = "data/model-modules/model-har-motion1/pkg/har-motion1.onnx"
 mnist_src = ":http:onnx/models/raw/main/validated/vision/classification/mnist/model/mnist-12.onnx"
 mnist_dst = "services/ws-modules/wasi-graphics-info/pkg/mnist-12.onnx"
+# `retry` prefixes each fetch with recur for exponential-backoff-with-jitter
+# retries (8 tries, 2s base doubling, capped 2m, 0-5s jitter); the *_http vars
+# carry the per-host base URL + flags. Kept as vars so each task line fits.
+retry = "recur --attempts 8 --delay 2s --backoff 2s --max-delay 2m --jitter 0,5s --"
+hf_http = "--http-url https://huggingface.co --progress --ignore-existing"
+gh_http = "--http-url https://github.com --progress --ignore-existing"
 
 [env]
 # Comma-separated list of every language env (one per .mise/config.<lang>.toml).
@@ -199,77 +136,27 @@ ALL_LANGS = "dart,dotnet,java,python,rust,zig"
 TAPLO_CONFIG = "{{ config_root }}/config/taplo.toml"
 # Use the conda:openssl install for Rust's OPENSSL_DIR so openssl-sys crate builds.
 OPENSSL_DIR = "{{ vars.conda_openssl }}"
-# Use lld on macos as documented at https://github.com/cameron1024/dart-typegen
-# Apple `/usr/bin/clang` rejects `-fuse-ld=lld` outright ("invalid linker
-# name") unless it can resolve `ld64.lld` on `PATH`. These `RUSTFLAGS` apply
-# to every `rustc` call — including the cargo subprocess mise spawns when a
-# `cargo:` tool falls back to a source build (e.g. `cargo:taplo-cli`, whose
-# QuickInstall prebuilt 404s on macOS), and mise's install-time `PATH` for
-# that subprocess does NOT include sibling tools like `conda:lld`. Point
-# `-fuse-ld=` at the absolute `ld64.lld` shipped by `conda:lld` so the flag
-# resolves without any `PATH` lookup — same conda root the rpath link-arg
-# already points into.
-CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
-CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
-# Linux needs the same rpath the macOS flags above carry, for the same reason:
-# OPENSSL_DIR points openssl-sys at conda's OpenSSL, so anything linking it
-# (e.g. the ort-sys build script) records conda's `libssl` soname. Without an
-# rpath the runtime loader only finds it when conda's soname happens to match
-# the system one Ubuntu ships on the default path — which broke when conda
-# bumped to `libssl.so.4` (no system equivalent). Point the loader at conda's
-# own lib dir so the soname is irrelevant. No `-fuse-ld=lld`: the system
-# linker on Linux accepts `-Wl,-rpath` directly, unlike Apple clang's lld dance.
-CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
-CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
-# Windows targets x86_64-pc-windows-gnu (llvm-mingw -- see Dockerfile.windows /
-# the README). cargo reads these CARGO_TARGET_<triple>_* only when building for
-# that triple, so they're inert on Linux/macOS and need no os() guard. The linker
-# is llvm-mingw's gcc; -Cdlltool names llvm-mingw's dlltool for the gnu raw-dylib
-# import libs (rust-lang/rust#103939). The vars that force the gnu host/target
-# (RUSTUP_TOOLCHAIN, CARGO_BUILD_TARGET) can't live here -- they're not
-# triple-scoped, so an empty off-Windows value breaks Linux cargo ("target was
-# empty"); Dockerfile.windows sets those.
-CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = "x86_64-w64-mingw32-gcc"
-CARGO_TARGET_X86_64_PC_WINDOWS_GNU_RUSTFLAGS = "-Cdlltool=x86_64-w64-mingw32-dlltool"
-# Point mise's task shell at the busybox `sh` it installs (Docker + workstation),
-# so `shell = "bash …"` tasks run on busybox ash rather than the Windows WSL
-# launcher. busybox ash accepts the `-euo pipefail -c` the shell string passes
-# (verified), and our task bodies are POSIX. mise checks MISE_BASH_PATH first and
-# ignores it when empty, so the off-Windows empty value here is a safe no-op
-# (winsh is only meaningful on Windows; Linux/macOS use their real bash).
-MISE_BASH_PATH = "{% if os() == 'windows' %}{{ vars.winsh }}{% endif %}"
-# bindgen (pulled in transitively by the deno web runner) needs the C
-# `libclang.so`. A mise-only Linux box usually only has `libclang-cpp` (the C++
-# API), so install `conda:clangxx` (above) for its `libclang.so`, point clang-sys
-# at it, and feed bindgen conda's own resource headers + bundled sysroot (see
-# `bindgen_args`). Using conda's sysroot rather than the host's `/usr/include`
-# makes bindgen self-contained, so CI resolves headers identically to a local box
-# -- no environment-specific divergence. Same conda-managed, no-admin approach as
-# OPENSSL_DIR. macOS points LIBCLANG_PATH at Xcode's libclang (see mac_libclang);
-# Windows uses the runner's system LLVM (Docker's gnu build falls back to
-# llvm-mingw on PATH). BINDGEN args stay Linux-only -- each libclang finds its
-# own headers.
-LIBCLANG_PATH = "{{ vars.libclang_path }}"
-BINDGEN_EXTRA_CLANG_ARGS = "{% if os() == 'linux' %}{{ vars.bindgen_args }}{% endif %}"
+# Per-OS RUSTFLAGS (CARGO_TARGET_<triple>_*), LIBCLANG_PATH, BINDGEN args and the
+# Windows MISE_BASH_PATH now live in the config.<os>.toml files (no more os()
+# guards or triple-scoped-but-cross-OS entries).
+
 # pyo3-ffi (et-ws-pyo3-runner) links its embedded interpreter at build time from
 # PYO3_PYTHON, else the first python on PATH -- under mise that's the 32-bit
-# Pyodide shim, so the build dies with "target architecture (64-bit) does not
-# match your python interpreter (32-bit)". Pin it to the mise-managed CPython
-# 3.13 (the `python` tool above). Always-loaded so `cargo check --workspace`
-# builds the pyo3 runner without `MISE_ENV=python`. Direct path, not `exec()`:
-# an exec runs on every command and a failure hard-fails the config render.
-PYO3_PYTHON = "{% if os() == 'windows' %}{{ vars.py313_win }}{% else %}{{ vars.py313_unix }}{% endif %}"
-# rclone retry tuning for the `fetch-*-rclone` model-download tasks.
-# Hugging Face / GitHub raw responded HTTP 429 ("Too Many Requests") at
-# least once with all three of rclone's default high-level retries
-# failing inside the same second (no Retry-After honoured at the
-# default `--retries-sleep 0s`). Force a 30 s pause between retries
-# and bump the count. `RCLONE_*` env vars are rclone's own alternative
-# to CLI flags — `rclone.conf` only configures named remotes, not
-# global retry policy.
+# Pyodide shim ("target architecture (64-bit) does not match ... (32-bit)"). Pin
+# it to the mise-managed CPython 3.13. Always-loaded so `cargo check --workspace`
+# builds the pyo3 runner without MISE_ENV=python. This is the Linux/macOS path;
+# config.windows.toml overrides it with py313_win.
+PYO3_PYTHON = "{{ vars.py313_unix }}"
+# rclone config for the `fetch-*-rclone` model-download tasks. Those remotes
+# (Hugging Face / GitHub raw) intermittently answer HTTP 429; the retry loop is
+# the `recur` wrapper (the `retry` var) with exponential backoff + jitter, since
+# rclone's own high-level retry is a fixed-interval sleep that can't back off.
+# So disable rclone's high-level retries (`--retries 1`) to avoid compounding
+# with recur — rclone's fast built-in low-level retries still apply. `RCLONE_*`
+# env vars are rclone's alternative to CLI flags; `rclone.conf` only configures
+# named remotes, not retry policy.
 RCLONE_CONFIG = "{{ config_root }}/config/rclone.conf"
-RCLONE_RETRIES = "10"
-RCLONE_RETRIES_SLEEP = "30s"
+RCLONE_RETRIES = "1"
 
 [tasks]
 ec = "ec"
@@ -353,13 +240,11 @@ run = "ast-grep scan --error --no-ignore hidden -c config/ast-grep/sgconfig.yml"
 description = "Run Semgrep generic-mode rules (e.g. Cargo.toml style)"
 run = "semgrep scan --config config/semgrep --error --metrics=off ."
 
-# hadolint lints the Linux Dockerfiles. Dockerfile.windows is excluded -- its
-# backtick-escape continuations + cmd/PowerShell RUNs aren't hadolint-friendly
-# (hadolint's ShellCheck pass assumes POSIX sh). Ignored rules live in
-# config/hadolint.yaml.
 [tasks.hadolint-check]
-description = "Lint the Linux Dockerfiles with hadolint"
-run = "hadolint --config config/hadolint.yaml Dockerfile services/ws-server/Dockerfile"
+description = "Lint the Dockerfiles with hadolint"
+# Discover every tracked Dockerfile (`Dockerfile`, `Dockerfile.*`, at any depth)
+# so new ones are linted automatically without editing this task.
+run = "git ls-files '*Dockerfile' '*Dockerfile.*' | xargs hadolint --config config/hadolint.yaml"
 
 [tasks.cargo-check]
 run = "cargo check --workspace"
@@ -466,14 +351,15 @@ mise install aube@latest
 """
 shell = "bash -euo pipefail -c"
 
-[tasks.setup-all]
-# Shared cross-platform preinstall -- not run directly; the per-OS setup tasks
-# (setup-linux / setup-macos / setup-windows) depend on it, so each controls its
-# own ordering. Enables experimental + cargo.binstall, then installs
-# cargo-binstall (a prebuilt binary, safe to preinstall anywhere), node (mise
-# uses it for the npm: tools) and conda:openssl (for openssl-sys) -- all needed
-# on every platform.
-description = "Shared cross-platform preinstall (invoked via setup-linux/macos/windows, not run directly)"
+[tasks._setup_all]
+# Private (leading `_`, hide = true): shared cross-platform preinstall, never run
+# directly. The per-OS setup tasks (setup-linux / setup-macos / setup-windows)
+# depend on it, so each controls its own ordering. Enables experimental +
+# cargo.binstall, then installs cargo-binstall (a prebuilt binary, safe to
+# preinstall anywhere), node (mise uses it for the npm: tools) and conda:openssl
+# (for openssl-sys) -- all needed on every platform.
+hide = true
+description = "Private shared cross-platform preinstall (depended on by setup-linux/macos/windows)"
 run = """
 mise settings experimental=true
 mise settings set cargo.binstall true
@@ -483,50 +369,12 @@ mise install conda:openssl
 """
 shell = "bash -euo pipefail -c"
 
-[tasks.setup-linux]
-# Linux preinstall: just the shared cross-platform base -- the C toolchain and
-# gpg come from the distro (apt/system), not mise.
-description = "Linux preinstall (the shared cross-platform base)"
-depends = ["setup-all"]
-
-[tasks.setup-macos]
-# macOS preinstall, run after Xcode's command-line tools (which mise can't
-# supply): the shared base, then conda:lld -- the linker the darwin
-# CARGO_TARGET_* RUSTFLAGS use.
-description = "macOS preinstall: shared base + conda:lld (the linker the darwin build uses)"
-depends = ["setup-all"]
-run = "mise install conda:lld"
-
-[tasks.setup-windows]
-# Windows preinstall, shared by Dockerfile.windows and a real workstation. The
-# busybox `sh` (http:busybox) is installed by the bootstrap that runs before any
-# mise task on Windows (see Dockerfile.windows / the README), so this task's
-# `bash -euo pipefail` shell (= busybox ash via MISE_BASH_PATH) works. It only
-# needs a download, no build, so there's no toolchain chicken-and-egg. The
-# shared base runs first, then this installs git
-# (conda:m2-git, for cargo git deps), gpg (conda:m2-gnupg, so mise verifies
-# downloads), the llvm-mingw gnu C/link toolchain (+ libclang), make and rust --
-# then flips rustup to the gnu host so cargo links via llvm-mingw, not MSVC
-# link.exe (no Visual Studio Build Tools needed). The prereqs mise CAN'T supply
-# (a recent mise + the VC++ runtime it needs to start) are in the README's
-# "Windows only" section.
-description = "Windows preinstall: install the Windows toolchain (git, gpg, llvm-mingw, rust) + flip rustup to gnu"
-depends = ["setup-all"]
-run = """
-mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
-# Install + default to the gnu build of the EXACT rust version mise pinned (not
-# the "stable" channel, which only happens to match mise's "latest"). mise sets
-# RUSTUP_TOOLCHAIN to that bare version, so once the default host is gnu it
-# resolves to this <version>-gnu toolchain.
-ver="$(mise exec -- rustc --version | awk '{print $2}')"
-mise exec -- rustup set default-host x86_64-pc-windows-gnu
-mise exec -- rustup toolchain install "${ver}-x86_64-pc-windows-gnu"
-mise exec -- rustup default "${ver}-x86_64-pc-windows-gnu"
-"""
-shell = "bash -euo pipefail -c"
+# The per-OS preinstall tasks (setup-linux / setup-macos / setup-windows) live in
+# the config.<os>.toml files; each depends on the private _setup_all above.
 
 [tasks.osv-scanner]
-depends = ["cargo-check"]
+# Scans the committed Cargo.lock only -- no build dependency, so the same task
+# serves both ad-hoc local use and the dependencies workflow.
 run = "osv-scanner --lockfile Cargo.lock --config config/osv-scanner.toml"
 
 [tasks."gen:osv-scanner"]
@@ -774,15 +622,11 @@ depends = ["openobserve", "ws-server"]
 run = "open http://localhost:5080/"
 
 [tasks.fetch-face1-rclone]
-run = """
-rclone copyto {{ vars.face1_src }} {{ vars.face1_dst }} --http-url https://huggingface.co --progress --ignore-existing
-"""
+run = "{{ vars.retry }} rclone copyto {{ vars.face1_src }} {{ vars.face1_dst }} {{ vars.hf_http }}"
 shell = "bash -euo pipefail -c"
 
 [tasks.fetch-har-motion1-rclone]
-run = """
-rclone copyto {{ vars.har_src }} {{ vars.har_dst }} --http-url https://github.com --progress --ignore-existing
-"""
+run = "{{ vars.retry }} rclone copyto {{ vars.har_src }} {{ vars.har_dst }} {{ vars.gh_http }}"
 shell = "bash -euo pipefail -c"
 
 [tasks.fetch-mnist-rclone]
@@ -790,9 +634,7 @@ shell = "bash -euo pipefail -c"
 # wasi-nn end-to-end. Sourced from the canonical ONNX Model Zoo; size 26143
 # bytes. Lands under the module's gitignored pkg/ so et-modules-service can
 # serve it statically alongside the .wasm.
-run = """
-rclone copyto {{ vars.mnist_src }} {{ vars.mnist_dst }} --http-url https://github.com --progress --ignore-existing
-"""
+run = "{{ vars.retry }} rclone copyto {{ vars.mnist_src }} {{ vars.mnist_dst }} {{ vars.gh_http }}"
 shell = "bash -euo pipefail -c"
 
 [tasks.download-models]

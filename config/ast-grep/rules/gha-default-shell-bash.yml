@@ -2,18 +2,27 @@ id: gha-default-shell-bash
 language: yaml
 severity: error
 message: |
-  Every GitHub Actions workflow must default to bash, so steps run in bash on
-  every runner (Windows included) without per-step `shell:`. Add:
+  Every GitHub Actions workflow must declare the default run shell as bash,
+  exactly:
     defaults:
       run:
         shell: bash
-  (Pairs with gha-no-step-shell-bash, which forbids per-step `shell: bash` -- so
-  the only `shell: bash` left is this default.)
+  so steps run in bash on every runner (Windows included) without per-step
+  `shell:`. (Pairs with gha-no-step-shell, which forbids per-step `shell:` -- so
+  this top-level default is the only place the shell is set.)
 files:
   - .github/workflows/*.yml
+# Fire on any workflow whose document does NOT contain the exact
+# defaults -> run -> shell: bash nesting. The `has`/`pattern` matches that
+# specific three-level mapping (a stray `shell: bash` on a step does NOT
+# satisfy it -- it isn't under defaults.run), and `not` turns "present" into
+# "required".
 rule:
   kind: stream
   not:
     has:
-      pattern: "shell: bash"
       stopBy: end
+      pattern: |
+        defaults:
+          run:
+            shell: bash

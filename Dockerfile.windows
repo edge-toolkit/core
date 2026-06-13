@@ -3,6 +3,12 @@
 # character to a backtick instead of the default `\`, so backslashes in Windows
 # paths (C:\..., trailing `C:\`) stay literal and lines continue with a backtick.
 
+# hadolint runs ShellCheck (POSIX sh) over every RUN, but these are Windows cmd,
+# so it false-errors on cmd `if` (SC1072) and on `\x` in paths like C:\gh_token
+# (SC1001). hadolint/hadolint#645. Suppress just those two for this file (a file-
+# scoped pragma, so the Linux Dockerfiles keep full ShellCheck coverage).
+# hadolint global ignore=SC1072,SC1001
+
 # Staged to mirror the Linux Dockerfile so the layers cache + target the same
 # way: vcruntime -> build-minimal -> build -> prefetch -> precompile -> test /
 # server. Each stage `FROM`s the previous, so installed tools, fetched deps and
@@ -16,10 +22,7 @@
 # GB). It has no MSI/installer stack, no PowerShell, and runs unprivileged -- so
 # the Visual Studio Build Tools installer can't run here at all. That's the
 # point: nothing is installed the Windows way. mise (a single .exe the workflow
-# stages in the build context) is copied in, and `mise install` pulls the rest --
-# rust, llvm-mingw (clang/lld/mingw-w64 + libclang), bash and git (see the
-# os-guarded Windows tools in .mise/config.toml). The MSVC CRT + Windows SDK
-# can't come from mise, so the build targets x86_64-pc-windows-gnu.
+# stages in the build context) is copied in, and `mise install` pulls the rest.
 
 # --- vcruntime: donor stage for the VC++ runtime DLLs. ---
 # Nano Server omits the VC++ runtime that msvc-built executables (mise.exe, and
@@ -47,13 +50,8 @@ COPY --from=vcruntime C:\Windows\System32\vcruntime140.dll C:\Windows\System32\
 COPY --from=vcruntime C:\Windows\System32\vcruntime140_1.dll C:\Windows\System32\
 COPY --from=vcruntime C:\Windows\System32\msvcp140.dll C:\Windows\System32\
 
-# No msys2 bash here: the conda msys2 runtime can't load on Nano Server (its
-# msys-2.0.dll imports KERNEL32.dll!IdnToAscii/IdnToUnicode, which Nano's stripped
-# kernel32 forwarder doesn't re-export -> 0xC0000139, and the system file/registry
-# are ACL-locked so we can't backfill them). Instead the bash-shell mise tasks run
-# on busybox-w32's `sh` (the http:busybox tool) -- a native Win32 single exe with
-# no cygwin runtime, so it loads on Nano like any plain exe. It's a prebuilt
-# download (no build), installed below before any bash (= busybox ash) task runs.
+# The bash-shell mise tasks run on busybox (the http:busybox tool), installed
+# below in cmd before any of them -- a prebuilt download, no build step.
 
 # cmd is the only shell Nano Server has; ContainerAdministrator so we can write
 # under C:\ (the backtick line continuations below rely on the escape directive
@@ -125,9 +123,12 @@ ENV LLVMBIN=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\github-m
 ENV PATH="C:\mise\bin;C:\Windows\System32;C:\Windows;${LLVMBIN};${PATH}"
 
 WORKDIR C:\workspace
-# Only the always-loaded config is needed for the default tools; the
-# guest-language configs come in the build stage below.
+# config.toml (always-loaded) + config.windows.toml (the Windows tools/env/task)
+# + .miserc.toml (auto_env=true, which makes mise load config.windows.toml on
+# Windows). The guest-language configs come in the build stage below.
 COPY .mise/config.toml .mise/config.toml
+COPY .mise/config.windows.toml .mise/config.windows.toml
+COPY .miserc.toml .miserc.toml
 
 # The windows job stages the GitHub token as gh_token in the build context
 # (lifting mise's 60-req/hr anonymous limit); we read it per-RUN rather than via
@@ -153,45 +154,38 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise settings set pipx.uvx false && `
     mise trust C:\.config\mise\config.toml
 
-# busybox-w32 `sh` -- the shell the bash-tasks run on (see config.toml). A
-# prebuilt native exe, just downloaded (no build), so it's available immediately
-# and setup-windows below can run on it. MISE_BASH_PATH (config [env]) points the
-# task shell here.
+# busybox-w32 `sh` -- the shell the bash-tasks run on (defined in
+# config.windows.toml). A prebuilt native exe, just downloaded (no build), so
+# it's available immediately and setup-windows below can run on it.
+# MISE_BASH_PATH (config.windows.toml [env]) points the task shell here.
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise install http:busybox
 
-# Smoke test (informational -- never fails the build): prove busybox ash runs on
-# Nano (native PE, no msys-2.0.dll / IdnToAscii problem) AND can find `mise` on
-# PATH. The latter is the real test of the `ash` (not `sh`) naming: mise only
-# rewrites the PATH to msys form for shells it knows (bash/sh/...), so naming the
-# bin `ash` keeps the Windows-form PATH busybox-w32 needs. FAIL/NOMISE means the
-# bash-shell tasks below would still die with `mise: not found`.
+# Smoke test (informational -- never fails the build): confirm busybox runs and
+# finds `mise` on PATH before the bash-shell tasks below rely on it.
 ENV WINSH=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\http-busybox\1.37.0\ash.exe
 RUN dir "%LOCALAPPDATA%\mise\installs\http-busybox\1.37.0" & `
     ("%WINSH%" -euo pipefail -c "command -v mise && echo [smoke] OK || echo [smoke] NOMISE") & `
     ver>nul
 
-# Force the gnu build target for the project cargo builds below. mise's rust tool
-# sets RUSTUP_TOOLCHAIN to the bare version, which rustup resolves against the gnu
-# default host setup-windows selects. CARGO_BUILD_TARGET can't live in mise [env]
-# (not triple-scoped -- an empty off-Windows value breaks Linux cargo); the gnu
-# linker + dlltool do, as CARGO_TARGET_X86_64_PC_WINDOWS_GNU_* (triple-scoped).
-ENV CARGO_BUILD_TARGET=x86_64-pc-windows-gnu
+# CARGO_BUILD_TARGET (x86_64-pc-windows-gnullvm) + the gnullvm linker/dlltool now
+# come from config.windows.toml (auto-loaded by auto_env), so they're not set
+# here.
 
 # Pin CARGO_HOME/RUSTUP_HOME to the dirs mise's rust tool uses (C:\.cargo /
-# C:\.rustup -- see its exec_env). setup-windows sets the gnu default toolchain in
-# C:\.rustup, but when mise's cargo backend builds a `cargo:` tool it spawns
-# `cargo install` WITHOUT rust's exec_env, so rustup would otherwise look in the
-# empty %USERPROFILE%\.rustup and fail with "no default is configured". Setting
-# these globally makes every cargo/rustup invocation find the gnu default.
+# C:\.rustup -- see its exec_env). setup-windows sets the gnullvm default
+# toolchain in C:\.rustup, but when mise's cargo backend builds a `cargo:` tool it
+# spawns `cargo install` WITHOUT rust's exec_env, so rustup would otherwise look
+# in the empty %USERPROFILE%\.rustup and fail with "no default is configured".
+# Setting these globally makes every cargo/rustup invocation find the default.
 ENV CARGO_HOME=C:\.cargo `
     RUSTUP_HOME=C:\.rustup
 
-# setup-windows runs on busybox sh (via MISE_BASH_PATH): setup-all (settings +
-# cargo-binstall + node + openssl) then the gnu toolchain (git/gpg/llvm-mingw/
-# make/rust) + rustup flip to the gnu host, so cargo links via llvm-mingw rather
-# than the absent MSVC link.exe. No build was needed for the shell itself, so
-# there's no toolchain chicken-and-egg.
+# setup-windows runs on busybox sh (via MISE_BASH_PATH): the shared _setup_all
+# base (cargo-binstall + node + openssl) then the gnu toolchain (git/gpg/
+# llvm-mingw/make/rust) + rustup flip to the gnullvm host, so cargo links via
+# llvm-mingw (compiler-rt/libunwind) rather than the absent MSVC link.exe. No
+# build was needed for the shell itself, so there's no toolchain chicken-and-egg.
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise run setup-windows
 
@@ -241,7 +235,7 @@ CMD ["mise", "run", "test"]
 # serves each module from its pkg/ (none of which live in target/).
 FROM precompile AS server
 RUN mise exec -- cargo build --release -p et-ws-server && `
-    copy target\x86_64-pc-windows-gnu\release\et-ws-server.exe C:\mise\bin\ && `
+    copy target\x86_64-pc-windows-gnullvm\release\et-ws-server.exe C:\mise\bin\ && `
     if exist target rmdir /s /q target
 EXPOSE 8080 8443
 CMD ["et-ws-server"]
