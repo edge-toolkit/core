@@ -1,12 +1,12 @@
 # Build, test, and serve edge-toolkit from a clean, minimal Ubuntu, split into
 # stages so each can be cached and targeted independently:
 #
-#   build-minimal  mise + the always-loaded toolchain (.mise/config.toml only)
-#   build          + the guest-language toolchains (.mise/config.<lang>.toml)
-#   prefetch       download all dependencies + ONNX models
-#   precompile     build the WASM/JS modules (drops target/ to stay slim)
-#   test           compile + run the full suite (ephemeral, at `docker run`; needs a GPU)
-#   server         release build of et-ws-server, served by default (final stage)
+# build-minimal  mise + the always-loaded toolchain (.mise/config.toml only)
+# build          + the guest-language toolchains (.mise/config.<lang>.toml)
+# prefetch       download all dependencies + ONNX models
+# precompile     build the WASM/JS modules (drops target/ to stay slim)
+# test           compile + run the full suite (ephemeral, at `docker run`; needs a GPU)
+# server         release build of et-ws-server, served by default (final stage)
 #
 # Each stage `FROM`s the previous, so installed tools, downloaded deps, and the
 # built module pkg/ carry forward. Stop early with `--target`.
@@ -26,16 +26,16 @@
 # A plain build produces the SERVER image (final stage): a release et-ws-server,
 # served automatically. A GitHub token avoids mise's 60-req/hr anonymous limit
 # during install-all:
-#   DOCKER_BUILDKIT=1 docker build --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit .
-#   docker run --rm -p 8080:8080 edge-toolkit          # serves; open http://localhost:8080
-#   (drop --secret to build tokenless; install-all may then hit rate limits)
+# DOCKER_BUILDKIT=1 docker build --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit .
+# docker run --rm -p 8080:8080 edge-toolkit          # serves; open http://localhost:8080
+# (drop --secret to build tokenless; install-all may then hit rate limits)
 #
 # To run the verification suite, target the non-final `test` stage and pass the
 # host GPU (`docker build` can't attach one). The stage bundles mesa-vulkan-
 # drivers, so the wgpu test gets a real Intel/AMD GPU via the DRI node (or a
 # software fallback if none is passed):
-#   docker build --target test -t edge-toolkit-test .
-#   docker run --rm --device /dev/dri edge-toolkit-test       # Intel/AMD (verified)
+# docker build --target test -t edge-toolkit-test .
+# docker run --rm --device /dev/dri edge-toolkit-test       # Intel/AMD (verified)
 # NVIDIA via `--gpus all` is wired but UNVERIFIED (its in-container Vulkan ICD
 # doesn't initialize yet) -- prefer a DRI device.
 
@@ -45,24 +45,20 @@
 FROM ubuntu:24.04 AS build-minimal
 
 # Universal prereqs a typical dev box already has; everything else is mise's job.
-#   gcc/g++/libc6-dev/make : the C/C++ toolchain rustc links through (`cc`) and
-#                     that C/C++ `-sys` crates build with (make for build scripts
-#                     that shell out to it). Leaner than build-essential, which
-#                     also pulls dpkg-dev + perl.
-#   curl + ca-certs  : the mise installer and tool downloads
-#   git              : cargo + repo operations
-#   gnupg            : gpg + gpg-agent + dirmngr, so mise can verify tool
-#                     downloads (bare `gpg` lacks the agent/dirmngr it needs)
-#   xz-utils/unzip/bzip2 : mise unpacking tool archives (e.g. the pyodide .tar.bz2)
-#   libicu74        : .NET runtime ICU, for the dotnet-data1 module's build/test.
-#                     Without it the dotnet CLI FailFast-aborts at startup with
-#                     "Couldn't find a valid ICU package installed on the system"
-#                     (minimal Ubuntu ships no ICU). The "74" tracks the Ubuntu
-#                     base (74 = 24.04) -- bump it alongside the FROM line. (.NET
-#                     needs libicu on minimal systems, else set
-#                     System.Globalization.Invariant=true.)
-# (Vulkan for the wgpu test -- libvulkan1 + mesa-vulkan-drivers -- is installed in
-# the test stage, not here.)
+# gcc, g++, libc6-dev and make are the C/C++ toolchain rustc links through (`cc`)
+# and that C/C++ `-sys` crates build with (make for build scripts that shell out
+# to it) -- leaner than build-essential, which also pulls dpkg-dev + perl.
+# curl + ca-certificates fetch the mise installer and tool downloads; git is for
+# cargo + repo operations; gnupg (gpg + gpg-agent + dirmngr) lets mise verify
+# downloads (bare `gpg` lacks the agent/dirmngr it needs); xz-utils, unzip and
+# bzip2 unpack mise's tool archives (e.g. the pyodide .tar.bz2). libicu74 is .NET
+# runtime ICU for the dotnet-data1 module -- without it the dotnet CLI
+# FailFast-aborts at startup ("Couldn't find a valid ICU package installed on the
+# system"; minimal Ubuntu ships no ICU). The "74" tracks the Ubuntu base
+# (74 = 24.04) -- bump it alongside the FROM line; .NET needs libicu on minimal
+# systems (else set System.Globalization.Invariant=true).
+# Vulkan for the wgpu test (libvulkan1 + mesa-vulkan-drivers) is installed in the
+# test stage, not here.
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         bzip2 ca-certificates curl g++ gcc git gnupg libc6-dev libicu74 make unzip xz-utils \
@@ -131,8 +127,8 @@ RUN mise run build-modules && rm -rf target/
 # fallback so the suite still runs. (NVIDIA's `--gpus` Vulkan path doesn't
 # initialize in a container.) Both live here, not the build stage, to keep that
 # layer cached.
-#   docker build --target test -t edge-toolkit-test .
-#   docker run --rm --device /dev/dri edge-toolkit-test       # Intel/AMD (verified)
+# docker build --target test -t edge-toolkit-test .
+# docker run --rm --device /dev/dri edge-toolkit-test       # Intel/AMD (verified)
 # NVIDIA via `--gpus all` is wired (NVIDIA_DRIVER_CAPABILITIES=all below, needs
 # the NVIDIA Container Toolkit) but UNVERIFIED -- its in-container Vulkan ICD
 # doesn't initialize yet, so prefer a DRI device for now.
@@ -149,7 +145,7 @@ CMD ["mise", "run", "test"]
 # image; the binary finds its libs via baked rpaths and serves each module from
 # its pkg/ (none of which live in target/). mise stays on PATH and MISE_ENV is
 # set, so the server's `mise where` module-path lookups resolve.
-#   docker run --rm -p 8080:8080 edge-toolkit   # then open http://localhost:8080
+# docker run --rm -p 8080:8080 edge-toolkit   # then open http://localhost:8080
 FROM precompile AS server
 RUN mise exec -- cargo build --release -p et-ws-server \
     && cp target/release/et-ws-server /usr/local/bin/et-ws-server \

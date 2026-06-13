@@ -34,11 +34,9 @@ RUN curl -fsSL -o vc_redist.exe https://aka.ms/vs/17/release/vc_redist.x64.exe &
     del vc_redist.exe
 
 FROM mcr.microsoft.com/windows/nanoserver:ltsc2022
-COPY --from=vcruntime `
-    C:\Windows\System32\vcruntime140.dll `
-    C:\Windows\System32\vcruntime140_1.dll `
-    C:\Windows\System32\msvcp140.dll `
-    C:\Windows\System32\
+COPY --from=vcruntime C:\Windows\System32\vcruntime140.dll C:\Windows\System32\
+COPY --from=vcruntime C:\Windows\System32\vcruntime140_1.dll C:\Windows\System32\
+COPY --from=vcruntime C:\Windows\System32\msvcp140.dll C:\Windows\System32\
 
 # cmd is the only shell Nano Server has; ContainerAdministrator so we can write
 # under C:\ (the backtick line continuations below rely on the escape directive
@@ -137,10 +135,10 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
 RUN mise run cargo-check
 #
 # Known unknowns to settle via CI:
-#   * whether the rustup host flip sticks (mise may re-pin its own toolchain),
-#     and whether a gnu-host proc-macro/build-script build is clean;
-#   * whether `ort` (ONNX Runtime, msvc-only prebuilts) breaks the gnu link --
-#     cargo check shouldn't link it, but a later cargo build/test will;
-#   * whether the conda backend (micromamba) and the github llvm-mingw asset
-#     match resolve cleanly on Nano Server;
-#   * whether mise finds bash (m2-bash) for the `bash -euo pipefail` tasks.
+# * whether the rustup host flip sticks (mise may re-pin its own toolchain),
+# and whether a gnu-host proc-macro/build-script build is clean;
+# * whether `ort` (ONNX Runtime, msvc-only prebuilts) breaks the gnu link --
+# cargo check shouldn't link it, but a later cargo build/test will;
+# * whether the conda backend (micromamba) and the github llvm-mingw asset
+# match resolve cleanly on Nano Server;
+# * whether mise finds bash (m2-bash) for the `bash -euo pipefail` tasks.
