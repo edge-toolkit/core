@@ -43,11 +43,28 @@ mise use -g cargo-binstall
 
 ### Windows only
 
-If `mise install` fails on Windows with `unknown field run_auto_install`, your
-mise is outdated (e.g. 2026.3) — use mise 2026.6.2 or later.
+`mise install` brings the language toolchains, but on Windows a few things must
+be installed first — mise can't supply them:
 
-On Windows only, `pipx` also needs to be pre-installed.
-See the Windows section of [pipx instructions](https://pipx.pypa.io/stable/how-to/install-pipx/).
+- **A recent mise** (2026.6.2 or later). An older one (e.g. 2026.3) fails reading
+  the config with `unknown field run_auto_install`.
+- **Visual Studio Build Tools** — the "Desktop development with C++" workload
+  (the MSVC compiler + Windows SDK) that Rust's default `x86_64-pc-windows-msvc`
+  target links through; without them `cargo` fails with `link.exe` not found.
+- **LLVM** at `C:\Program Files\LLVM` — bindgen (pulled in by the deno web
+  runner's `libsqlite3-sys`) loads its `libclang.dll` from there.
+- **pipx** — mise has no Windows build of it, so install it separately with
+  `python -m pip install pipx` (see the
+  [pipx Windows instructions](https://pipx.pypa.io/stable/how-to/install-pipx/));
+  mise's `pipx:*` tools (e.g. semgrep) then resolve through it.
+
+mise verifies tool downloads with gpg, which it can install itself on Windows.
+Do that first — before the "All OS" steps below — so the verification is in
+place:
+
+```bash
+mise install conda:m2-gnupg
+```
 
 ### MacOS only
 

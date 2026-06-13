@@ -45,9 +45,10 @@
 FROM ubuntu:24.04 AS build-minimal
 
 # Universal prereqs a typical dev box already has; everything else is mise's job.
-#   gcc/g++/libc6-dev : the C/C++ compiler + headers/crt that rustc links through
-#                     (`cc`) and that C/C++ `-sys` crates build with. (Leaner than
-#                     build-essential, which also pulls dpkg-dev + make + perl.)
+#   gcc/g++/libc6-dev/make : the C/C++ toolchain rustc links through (`cc`) and
+#                     that C/C++ `-sys` crates build with (make for build scripts
+#                     that shell out to it). Leaner than build-essential, which
+#                     also pulls dpkg-dev + perl.
 #   curl + ca-certs  : the mise installer and tool downloads
 #   git              : cargo + repo operations
 #   gnupg            : gpg + gpg-agent + dirmngr, so mise can verify tool
@@ -64,7 +65,7 @@ FROM ubuntu:24.04 AS build-minimal
 # the test stage, not here.)
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        bzip2 ca-certificates curl g++ gcc git gnupg libc6-dev libicu74 unzip xz-utils \
+        bzip2 ca-certificates curl g++ gcc git gnupg libc6-dev libicu74 make unzip xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Install mise and put it + its shims on PATH; in a non-interactive build that's

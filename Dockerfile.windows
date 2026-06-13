@@ -80,20 +80,21 @@ ENV PATH="C:\mise\bin;${PATH}"
 WORKDIR C:\workspace
 COPY . .
 
-# mise setup, following the README. `mise settings` writes mise's global config;
-# with no real home on Windows that resolves to C:\.config\mise\config.toml, not
-# auto-trusted -- so trust it after the settings writes and before any install
-# loads it. aqua's signature checks (attestations, cosign, slsa) are off: their
-# sigstore/TUF step can't determine a cache dir here, and attestation also hits
-# GitHub's changed releases signing identity. Then the README steps: pre-install
-# cargo-binstall; gpg (conda:m2-gnupg, so node's download is verified not
-# skipped); node + conda:openssl; and pipx via pip (the README's Windows-only
-# step -- pipx isn't a mise tool here). The minimal `mise install` pulls the
-# always-loaded tools (install-all below adds the guest languages). The windows
-# job stages the GitHub token as gh_token in the build context (lifting mise's
-# 60-req/hr anonymous limit); we read it here rather than via a build-arg, which
-# the classic Windows builder can't substitute into RUN. It lands in this
-# throwaway image and expires with the job.
+# mise setup, following the README, but with the gnu toolchain installed and
+# selected UP FRONT: Nano Server has no msvc link.exe, so any cargo: tool that
+# lacks a prebuilt (and falls back to `cargo install`) must link via llvm-mingw,
+# not msvc. So install gpg + llvm-mingw + rust first and flip rustup to the gnu
+# host, then run the bulk installs.
+#
+# `mise settings` writes mise's global config; with no real home on Windows that
+# resolves to C:\.config\mise\config.toml, not auto-trusted -- so trust it after
+# the settings writes. aqua's signature checks (attestations, cosign, slsa) are
+# off: their sigstore/TUF step can't determine a cache dir here, and attestation
+# also hits GitHub's changed releases signing identity. The windows job stages
+# the GitHub token as gh_token in the build context (lifting mise's 60-req/hr
+# anonymous limit); we read it per-RUN rather than via a build-arg, which the
+# classic Windows builder can't substitute into RUN. It lands in this throwaway
+# image and expires with the job.
 COPY gh_token C:\gh_token
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise trust && `
@@ -104,34 +105,35 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise settings set aqua.slsa false && `
     mise trust C:\.config\mise\config.toml && `
     mise install conda:m2-gnupg && `
+    mise install github:mstorsjo/llvm-mingw && `
+    mise install conda:m2-make && `
+    mise install rust && `
     mise install node && `
-    mise install cargo-binstall && `
     mise install conda:openssl && `
     mise install python && `
-    mise exec -- python -m pip install --no-warn-script-location pipx && `
-    mise install
+    mise install cargo-binstall && `
+    mise exec -- python -m pip install --no-warn-script-location pipx
 
-# Full install: add the guest-language toolchains. install-all == MISE_ENV=
-# "$ALL_LANGS" mise install; the always-loaded tools from the minimal install
-# above are reused, so this adds dart/dotnet/java/zig/etc. (their configs were
-# copied via `COPY . .` and trusted above).
+# Flip rustup (inside mise) to the gnu host/target before the bulk install, so
+# the cargo: tools build + link with llvm-mingw, not the absent msvc link.exe.
+# mise's core:rust has no host-triple knob, so we drive rustup directly -- the
+# main seam to confirm via CI.
+RUN mise exec -- rustup set default-host x86_64-pc-windows-gnu && `
+    mise exec -- rustup default stable-x86_64-pc-windows-gnu
+ENV CARGO_BUILD_TARGET=x86_64-pc-windows-gnu `
+    CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
+
+# Minimal install (always-loaded tools) then the guest languages (install-all ==
+# MISE_ENV="$ALL_LANGS" mise install); both build/link via gnu now. The configs
+# were copied (COPY . .) and trusted above. pipx came via pip above (the README's
+# Windows-only step -- pipx isn't a mise tool here).
+RUN set /p GITHUB_TOKEN=<C:\gh_token && `
+    mise install
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise install-all
 
-# mise's core rust installs the msvc-host toolchain by default, but Nano Server
-# has no msvc linker -- so flip rustup (managed inside mise) to the gnu host and
-# build the gnu target, which links via the mise-provided llvm-mingw. mise's
-# core:rust has no host-triple knob, so we drive rustup directly. This seam is
-# the main thing to confirm via CI.
-RUN mise exec -- rustup set default-host x86_64-pc-windows-gnu && `
-    mise exec -- rustup default stable-x86_64-pc-windows-gnu
-
-# Basic smoke: a workspace check against the gnu target (the linker is
-# llvm-mingw's gcc wrapper, on PATH once mise activates the tool). Running the
-# full test suite across every guest language is a later step once these
-# fundamentals are green.
-ENV CARGO_BUILD_TARGET=x86_64-pc-windows-gnu `
-    CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
+# Basic smoke: a workspace check against the gnu target. The full test suite
+# across every guest language is a later step once these fundamentals are green.
 RUN mise run cargo-check
 #
 # Known unknowns to settle via CI:

@@ -44,15 +44,17 @@ cmake = "latest"
 "conda:clangxx" = { version = "latest", os = ["linux"] }
 # Windows toolchain, all mise-provided so a bare Windows box needs nothing
 # preinstalled except mise itself (see Dockerfile.windows). The conda msys2
-# mirror packages give the `bash` the `bash -euo pipefail` tasks expect, a `git`,
-# and `gpg` (so mise verifies tool downloads instead of warning); llvm-mingw
-# bundles clang + lld + the mingw-w64 runtime/headers/libs (the
-# `x86_64-pc-windows-gnu` C/link toolchain) plus the `libclang.dll` bindgen loads
-# -- found via PATH once mise activates the tool. The MSVC CRT + Windows SDK
-# can't come from mise, so the Windows build targets `-gnu`, not `-msvc`.
+# mirror packages give the `bash` the `bash -euo pipefail` tasks expect, `git`,
+# `gpg` (so mise verifies tool downloads instead of warning), and `make` (some
+# `-sys` build scripts shell out to it); llvm-mingw bundles clang + lld + the
+# mingw-w64 runtime/headers/libs (the `x86_64-pc-windows-gnu` C/link toolchain)
+# plus the `libclang.dll` bindgen loads -- found via PATH once mise activates the
+# tool. The MSVC CRT + Windows SDK can't come from mise, so the Windows build
+# targets `-gnu`, not `-msvc`.
 "conda:m2-bash" = { version = "latest", os = ["windows"] }
 "conda:m2-git" = { version = "latest", os = ["windows"] }
 "conda:m2-gnupg" = { version = "latest", os = ["windows"] }
+"conda:m2-make" = { version = "latest", os = ["windows"] }
 "github:mstorsjo/llvm-mingw" = { version = "latest", os = ["windows"], matching = "ucrt-x86_64" }
 dprint = "latest"
 editorconfig-checker = "latest"
@@ -67,9 +69,8 @@ osv-scanner = "latest"
 # still resolve through whatever pipx is already on PATH.
 pipx = { version = "latest", os = ["linux", "macos"] }
 # semgrep lints Cargo.toml style (see `semgrep-check`), so it stays in the
-# always-loaded config alongside the other repo-wide linters. Linux/macOS only:
-# semgrep has no native Windows support, so its uv/pipx install fails there.
-"pipx:semgrep" = { version = "latest", os = ["linux", "macos"] }
+# always-loaded config alongside the other repo-wide linters.
+"pipx:semgrep" = "latest"
 # The default aqua backend has no darwin/amd64 prebuilt; fall back to
 # `npm:pnpm` on Intel Mac (node is already a mise tool above).
 "npm:pnpm" = { version = "latest", os = ["macos/x64"] }
