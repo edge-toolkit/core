@@ -10,6 +10,15 @@
 # can't be built on the Linux dev/CI machines. Treat it as a CI-iterated
 # starting point, not a known-good image.
 #
+# Staged to mirror the Linux Dockerfile so the layers cache + target the same
+# way: vcruntime -> build-minimal -> build -> prefetch -> precompile -> test /
+# server. Each stage `FROM`s the previous, so installed tools, fetched deps and
+# built module pkg/ carry forward; `--target <stage>` stops early. The
+# Windows-only bootstrap (VC++ runtime, mise.exe, HOME/TEMP, the gnu-host rust
+# flip) lives in build-minimal. Where Linux stops at a clean build/test/serve,
+# Windows is still proving the toolchain installs at all -- the stages past
+# `build` are the CI frontier (see "Known unknowns" at the foot).
+#
 # Base: Nano Server, the smallest Windows base (~120 MB vs Server Core's ~1.25
 # GB). It has no MSI/installer stack, no PowerShell, and runs unprivileged -- so
 # the Visual Studio Build Tools installer can't run here at all. That's the
@@ -19,13 +28,14 @@
 # os-guarded Windows tools in .mise/config.toml). The MSVC CRT + Windows SDK
 # can't come from mise, so the build targets x86_64-pc-windows-gnu.
 
-# Donor stage: Nano Server omits the VC++ runtime that msvc-built executables
-# (mise.exe, and the rust/cargo mise installs) need just to *start* -- without it
-# mise.exe dies with 0xC0000135 (DLL not found). No base Windows image ships it
-# (not even Server Core), and mise can't install it (mise needs it to run), so we
-# install the official VC++ redistributable on a Server Core donor -- which has
-# the installer stack Nano Server lacks -- and copy the runtime DLLs forward.
-# This plus mise are the only non-mise bootstrap bits; the rest is mise.
+# --- vcruntime: donor stage for the VC++ runtime DLLs. ---
+# Nano Server omits the VC++ runtime that msvc-built executables (mise.exe, and
+# the rust/cargo mise installs) need just to *start* -- without it mise.exe dies
+# with 0xC0000135 (DLL not found). No base Windows image ships it (not even
+# Server Core), and mise can't install it (mise needs it to run), so we install
+# the official VC++ redistributable on a Server Core donor -- which has the
+# installer stack Nano Server lacks -- and copy the runtime DLLs forward. This
+# plus mise are the only non-mise bootstrap bits; the rest is mise.
 FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS vcruntime
 SHELL ["cmd", "/S", "/C"]
 # `|| ver>nul` swallows the redistributable's 3010 ("reboot required") exit code.
@@ -33,7 +43,13 @@ RUN curl -fsSL -o vc_redist.exe https://aka.ms/vs/17/release/vc_redist.x64.exe &
     (vc_redist.exe /install /quiet /norestart || ver>nul) && `
     del vc_redist.exe
 
-FROM mcr.microsoft.com/windows/nanoserver:ltsc2022
+# --- build-minimal: mise + the always-loaded toolchain (config.toml only). ---
+# Mirrors the Linux build-minimal: copies just .mise/config.toml + installs the
+# default tools, so this layer is reused until the always-loaded toolset changes,
+# not when a guest config or the source does. All the Windows-only bootstrap
+# (VC++ DLLs, mise.exe, HOME, TEMP) and the gnu-host rust flip live here too,
+# since every later stage builds on it.
+FROM mcr.microsoft.com/windows/nanoserver:ltsc2022 AS build-minimal
 COPY --from=vcruntime C:\Windows\System32\vcruntime140.dll C:\Windows\System32\
 COPY --from=vcruntime C:\Windows\System32\vcruntime140_1.dll C:\Windows\System32\
 COPY --from=vcruntime C:\Windows\System32\msvcp140.dll C:\Windows\System32\
@@ -43,6 +59,14 @@ COPY --from=vcruntime C:\Windows\System32\msvcp140.dll C:\Windows\System32\
 # documented at the top of this file).
 USER ContainerAdministrator
 SHELL ["cmd", "/S", "/C"]
+
+# Diagnostic (informational -- never fails the build): does this base image ship
+# a bash? The `bash -euo pipefail` mise tasks need one; Nano Server has none, so
+# mise pulls conda:m2-bash (see the os-guarded Windows tools in .mise/config.toml).
+# Record which it is in the build log so the "does mise find bash" unknown is
+# answered up front.
+RUN where bash >nul 2>&1 && (echo [bash-check] pre-installed: & where bash) || `
+    echo [bash-check] not pre-installed -- mise provides conda:m2-bash for tasks
 
 # Set HOME to the admin profile so the container has a sane home (Nano Server
 # leaves it unset). This also renders the config's `{{ env.HOME }}` paths; note
@@ -64,6 +88,14 @@ RUN if not exist C:\Temp mkdir C:\Temp
 ENV TEMP=C:\Temp `
     TMP=C:\Temp
 
+# Serialize mise's installs (MISE_JOBS=1). On Nano Server the parallel cargo:
+# source builds -- no gnu binstall prebuilts exist, so they fall back to `cargo
+# install` -- race on rustup's shared .rustup\downloads dir: one build's
+# component .partial vanishes before another rustup can rename it ("cannot find
+# the file", os error 2). Windows CI doesn't hit this (msvc binstall prebuilts
+# mean no source builds); the gnu Docker path does. One job at a time avoids it.
+ENV MISE_JOBS=1
+
 # mise.zip is staged in the build context by the windows job in
 # .github/workflows/docker.yml (which pins the version) and copied in here. We
 # don't curl a versioned URL inside the build: the classic Windows builder
@@ -76,80 +108,106 @@ RUN tar -xf C:\mise.zip -C C:\ && del C:\mise.zip
 ENV PATH="C:\mise\bin;${PATH}"
 
 WORKDIR C:\workspace
-COPY . .
+# Only the always-loaded config is needed for the default tools; the
+# guest-language configs come in the build stage below.
+COPY .mise/config.toml .mise/config.toml
 
-# mise setup, following the README, but with the gnu toolchain installed and
-# selected UP FRONT: Nano Server has no msvc link.exe, so any cargo: tool that
-# lacks a prebuilt (and falls back to `cargo install`) must link via llvm-mingw,
-# not msvc. So install gpg + llvm-mingw + rust first and flip rustup to the gnu
-# host, then run the bulk installs.
-#
-# `mise settings` writes mise's global config; with no real home on Windows that
-# resolves to C:\.config\mise\config.toml, not auto-trusted -- so trust it after
-# the settings writes. aqua's signature checks (attestations, cosign, slsa) are
-# off: their sigstore/TUF step can't determine a cache dir here, and attestation
-# also hits GitHub's changed releases signing identity. pipx.uvx=false makes the
-# pipx: backend install via pip, not uv: uv builds console-script .exe shims by
-# editing PE resources -- a Win32 call Nano Server doesn't implement (error 120),
-# so the semgrep install dies; pip's distlib launchers don't touch PE resources.
-# The windows job stages
-# the GitHub token as gh_token in the build context (lifting mise's 60-req/hr
-# anonymous limit); we read it per-RUN rather than via a build-arg, which the
-# classic Windows builder can't substitute into RUN. It lands in this throwaway
-# image and expires with the job.
+# The windows job stages the GitHub token as gh_token in the build context
+# (lifting mise's 60-req/hr anonymous limit); we read it per-RUN rather than via
+# a build-arg, which the classic Windows builder can't substitute into RUN. It
+# carries forward into the later stages that also hit GitHub and expires with the
+# throwaway job image.
 COPY gh_token C:\gh_token
+
+# mise setup via the shared tasks (the same a workstation runs -- see the
+# README): setup-all enables experimental + cargo.binstall and installs
+# cargo-binstall; setup-windows installs the gnu toolchain (gpg, llvm-mingw,
+# make, rust) and flips rustup to the gnu host, so cargo links via llvm-mingw
+# rather than the absent MSVC link.exe. The Docker-only settings stay inline:
+# `mise settings` writes the global config (C:\.config\mise on Windows, not
+# auto-trusted -- hence the explicit trust); aqua's signature checks
+# (attestations/cosign/slsa) are off because their sigstore/TUF step can't find a
+# cache dir here; pipx.uvx=false makes the pipx: backend use pip, not uv (uv's
+# PE-resource trampoline isn't implemented on Nano Server, error 120).
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise trust && `
-    mise settings experimental=true && `
-    mise settings set cargo.binstall true && `
     mise settings set aqua.github_attestations false && `
     mise settings set aqua.cosign false && `
     mise settings set aqua.slsa false && `
     mise settings set pipx.uvx false && `
     mise trust C:\.config\mise\config.toml && `
-    mise install conda:m2-gnupg && `
-    mise install github:mstorsjo/llvm-mingw && `
-    mise install conda:m2-make && `
-    mise install rust && `
-    mise install node && `
-    mise install conda:openssl && `
-    mise install python && `
-    mise install cargo-binstall && `
-    mise exec -- python -m pip install --no-warn-script-location pipx
+    mise run setup-all && `
+    mise run setup-windows
 
-# The linker for cargo here is llvm-mingw's x86_64-w64-mingw32-gcc (clang + lld) --
-# not MSVC's link.exe -- so no Visual Studio Build Tools are needed. The catch:
-# build scripts and proc-macros (e.g. proc-macro2, serde's build script) compile
-# for the *host* triple, so if the rust host is -msvc they still demand link.exe.
-# So make the host itself gnu: install the gnu-host toolchain and make it the
-# default, then pin every cargo invocation (mise's cargo: backend included) to it
-# via RUSTUP_TOOLCHAIN -- now host == target == gnu and link.exe is never reached.
-# mise's core:rust has no host-triple knob, so we drive rustup directly.
-RUN mise exec -- rustup set default-host x86_64-pc-windows-gnu && `
-    mise exec -- rustup toolchain install stable-x86_64-pc-windows-gnu && `
-    mise exec -- rustup default stable-x86_64-pc-windows-gnu
+# Pin every cargo invocation (mise's cargo: backend included) to the gnu host the
+# setup-windows flip just selected, so build scripts + proc-macros (which compile
+# for the host) also avoid MSVC link.exe; host == target == gnu. The linker is
+# llvm-mingw's gcc -- no Visual Studio Build Tools needed.
 ENV RUSTUP_TOOLCHAIN=stable-x86_64-pc-windows-gnu `
     CARGO_BUILD_TARGET=x86_64-pc-windows-gnu `
     CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
 
-# Minimal install (always-loaded tools) then the guest languages (install-all ==
-# MISE_ENV="$ALL_LANGS" mise install); both build/link via gnu now. The configs
-# were copied (COPY . .) and trusted above. pipx came via pip above (the README's
-# Windows-only step -- pipx isn't a mise tool here).
+# The rest of the always-loaded tools, now that rust links via gnu. node first
+# (mise may need it to install others), then conda:openssl, then `mise install`
+# for the remaining config.toml tools (incl. python + the cargo: tools, which
+# build via gnu now). pipx then via pip -- the README's Windows-only step (pipx
+# isn't a mise tool here, and pip's distlib launcher avoids uv's PE-resource
+# trampoline that Nano Server can't run).
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
-    mise install
+    mise install node && `
+    mise install conda:openssl && `
+    mise install && `
+    mise exec -- python -m pip install --no-warn-script-location pipx
+
+# --- build: add the guest-language toolchains (config.<lang>.toml). ---
+# install-all == MISE_ENV="$ALL_LANGS" mise install; the always-loaded tools are
+# already installed by build-minimal, so this adds dart/dotnet/java/zig/etc.
+# MISE_ENV is set persistently so the later stages act on every language too.
+FROM build-minimal AS build
+COPY .mise/ .mise/
+RUN mise trust
+ENV MISE_ENV=dart,dotnet,java,python,rust,zig
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise install-all
 
-# Basic smoke: a workspace check against the gnu target. The full test suite
-# across every guest language is a later step once these fundamentals are green.
-RUN mise run cargo-check
-#
-# Known unknowns to settle via CI:
-# * whether the rustup host flip sticks (mise may re-pin its own toolchain),
-# and whether a gnu-host proc-macro/build-script build is clean;
-# * whether `ort` (ONNX Runtime, msvc-only prebuilts) breaks the gnu link --
-# cargo check shouldn't link it, but a later cargo build/test will;
-# * whether the conda backend (micromamba) and the github llvm-mingw asset
-# match resolve cleanly on Nano Server;
-# * whether mise finds bash (m2-bash) for the `bash -euo pipefail` tasks.
+# --- prefetch: download all dependencies + ONNX models. ---
+# The full source is needed from here on (module builds, cargo fetch, pnpm).
+FROM build AS prefetch
+COPY . .
+RUN set /p GITHUB_TOKEN=<C:\gh_token && `
+    mise run prefetch
+
+# --- precompile: build the WASM/JS modules (needed by test and server). ---
+# Mirrors Linux; drops target/ in the same layer so the multi-GB cargo
+# intermediates don't bake in (module outputs live in each module's pkg/).
+FROM prefetch AS precompile
+RUN mise run build-modules && if exist target rmdir /s /q target
+
+# --- test: the full suite. Compiled + run at `docker run` time. ---
+# Mirrors Linux's `mise run test`; no host GPU is attachable at build time, so it
+# runs in the container. (Whether wgpu finds a usable adapter on a Windows
+# container host is itself unknown -- part of the frontier below.)
+FROM precompile AS test
+CMD ["mise", "run", "test"]
+
+# --- server: release build of et-ws-server, the default image (final stage). ---
+# A plain `docker build` produces this. CARGO_BUILD_TARGET puts the binary under
+# target\<triple>\release\; copy it onto PATH (C:\mise\bin) and drop target/ in
+# the same layer so the build intermediates don't bloat the image. The server
+# serves each module from its pkg/ (none of which live in target/).
+FROM precompile AS server
+RUN mise exec -- cargo build --release -p et-ws-server && `
+    copy target\x86_64-pc-windows-gnu\release\et-ws-server.exe C:\mise\bin\ && `
+    if exist target rmdir /s /q target
+EXPOSE 8080 8443
+CMD ["et-ws-server"]
+
+# Known unknowns to settle via CI, roughly in the order the stages reach them.
+# build-minimal / build: whether the rustup host flip sticks (mise may re-pin its
+# own toolchain) and a gnu-host proc-macro/build-script build is clean; whether
+# the conda backend (micromamba) and the github llvm-mingw asset match resolve
+# cleanly on Nano Server; whether mise finds bash (m2-bash) for the `bash -euo
+# pipefail` tasks. prefetch onward (not yet reached -- the frontier): whether
+# `ort` (ONNX Runtime, msvc-only prebuilts) breaks the gnu link once a real cargo
+# build/test links it; whether build-modules (wasm-pack + the guest toolchains)
+# and a release et-ws-server build work at all under the gnu target on Nano Server.

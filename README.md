@@ -28,17 +28,11 @@ all of them at once.
 The following works for Linux, macOS and Windows, and all tools "installed"
 are only installed into the local workspace, so no need for admin/root privileges.
 
-Configure it with:
+Configure it and pre-install `cargo-binstall` (so later installs of `cargo:`
+tools fetch prebuilts instead of building from source):
 
 ```bash
-mise settings experimental=true
-mise settings set cargo.binstall true
-```
-
-Pre-install `cargo-install`, which can be done using:
-
-```bash
-mise install cargo-binstall
+mise run setup-all
 ```
 
 ### GitHub rate limits
@@ -82,12 +76,14 @@ be installed first — mise can't supply them:
   [pipx Windows instructions](https://pipx.pypa.io/stable/how-to/install-pipx/));
   mise's `pipx:*` tools (e.g. semgrep) then resolve through it.
 
-mise verifies tool downloads with gpg, which it can install itself on Windows.
-Do that first — before the "All OS" steps below — so the verification is in
-place:
+Then run `setup-windows` — it installs the rest mise can supply (gpg so mise
+verifies downloads, the llvm-mingw gnu toolchain, make and rust) and flips rust
+to the `x86_64-pc-windows-gnu` host, so cargo links via llvm-mingw. (That gnu
+path is why the Build Tools / LLVM above are only needed if you instead build
+for the default msvc target.) Run it before the "All OS" steps below:
 
 ```bash
-mise install conda:m2-gnupg
+mise run setup-windows
 ```
 
 ### MacOS only
@@ -102,7 +98,7 @@ xcode-select --install
 We also need to install a better linker into the workspace.
 
 ```bash
-mise install conda:lld
+mise run setup-macos
 ```
 
 ### All OS

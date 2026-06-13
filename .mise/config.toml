@@ -402,6 +402,41 @@ mise install aube@latest
 {% endif %}
 """
 
+[tasks.setup-all]
+# Cross-platform preinstall, run first on every OS (and by both Dockerfiles):
+# enable experimental + the cargo-binstall backend, then install cargo-binstall
+# so later installs of cargo: tools fetch prebuilts instead of building from
+# source. Mirrors the README's "Configure it with" + cargo-binstall steps.
+description = "Cross-platform preinstall: enable experimental + cargo.binstall, install cargo-binstall"
+run = """
+mise settings experimental=true
+mise settings set cargo.binstall true
+mise install cargo-binstall
+"""
+
+[tasks.setup-macos]
+# macOS preinstall (after Xcode's command-line tools, which mise can't supply):
+# install conda:lld, the linker the darwin CARGO_TARGET_* RUSTFLAGS use. Mirrors
+# the README's "MacOS only" step.
+description = "macOS preinstall: install conda:lld (the linker the darwin build uses)"
+run = "mise install conda:lld"
+
+[tasks.setup-windows]
+# Windows preinstall, shared by Dockerfile.windows and a real workstation, run
+# after setup-all. Installs the Windows toolchain mise CAN supply -- gpg
+# (conda:m2-gnupg, so mise verifies later downloads), the llvm-mingw gnu C/link
+# toolchain (+ libclang), make and rust -- then flips rustup to the gnu host so
+# cargo links via llvm-mingw, not MSVC link.exe (no Visual Studio Build Tools
+# needed). The prereqs mise CAN'T supply (a recent mise + pipx) are in the
+# README's "Windows only" section. Windows-only; errors if run on another OS.
+description = "Windows preinstall: install the gnu toolchain (gpg, llvm-mingw, make, rust) + flip rustup to gnu"
+run = """
+mise install conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
+mise exec -- rustup set default-host x86_64-pc-windows-gnu
+mise exec -- rustup toolchain install stable-x86_64-pc-windows-gnu
+mise exec -- rustup default stable-x86_64-pc-windows-gnu
+"""
+
 [tasks.osv-scanner]
 depends = ["cargo-check"]
 run = "osv-scanner --lockfile Cargo.lock --config config/osv-scanner.toml"

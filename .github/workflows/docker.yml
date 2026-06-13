@@ -68,5 +68,10 @@ jobs:
           curl.exe -fsSL -o mise.zip "https://github.com/jdx/mise/releases/download/v$v/mise-v$v-windows-x64.zip"
           Set-Content -Path gh_token -Value "${{ github.token }}" -NoNewline
 
+      # Build only through the `build` stage (mise + the full toolchain): that's
+      # the current frontier -- the install pipeline is what we're proving on a
+      # bare Nano Server. The later stages (prefetch/precompile/test/server)
+      # mirror the Linux Dockerfile but aren't reached yet; bump --target as they
+      # come green.
       - name: Build the Windows setup image
-        run: docker build -f Dockerfile.windows -t edge-toolkit-windows .
+        run: docker build -f Dockerfile.windows --target build -t edge-toolkit-windows .
