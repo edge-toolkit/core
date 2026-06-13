@@ -85,10 +85,12 @@ RUN mise trust
 # its setup-all base enables experimental + cargo.binstall and installs
 # cargo-binstall, node and conda:openssl; then `mise install` adds the rest of
 # the always-loaded tools. A GitHub token (if provided) lifts the anonymous rate
-# limit for the release fetches.
+# limit for the release fetches. MISE_JOBS=1 serializes the install: the `rust`
+# tool is a two-version list (latest + nightly) that otherwise runs two
+# rustup-inits at once, racing on the shared rustup binary's self-update (exit 1).
 RUN --mount=type=secret,id=gh_token,required=false \
     GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)" \
-    sh -c 'mise run setup-linux && mise install'
+    sh -c 'mise run setup-linux && MISE_JOBS=1 mise install'
 
 # --- build: add the guest-language toolchains (config.<lang>.toml). ---
 # install-all == MISE_ENV="$ALL_LANGS" mise install; the always-loaded tools are

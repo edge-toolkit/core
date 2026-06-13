@@ -190,12 +190,17 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise run setup-windows
 
 # pipx must be on PATH before the full `mise install` reaches pipx:semgrep, which
-# shells out to it. So: install python, pip-install pipx (lands in python's
-# Scripts dir), put that dir on PATH, then run the full install.
+# shells out to it. Install python + pip-install pipx; pip may drop pipx.exe in
+# the python prefix Scripts dir or the per-user AppData Scripts dir, so both go on
+# PATH below. The dir lines just log which one (exit /b 0 keeps it informational).
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise install python && `
-    mise exec -- python -m pip install --no-warn-script-location pipx
-ENV PATH="C:\Users\ContainerAdministrator\AppData\Local\mise\installs\python\3.13\Scripts;${PATH}"
+    mise exec -- python -m pip install pipx && `
+    (dir /s /b "%LOCALAPPDATA%\mise\installs\python\pipx.exe" 2>nul & `
+     dir /s /b "%APPDATA%\Python\pipx.exe" 2>nul & exit /b 0)
+ENV PYSCR_PREFIX=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\python\3.13\Scripts
+ENV PYSCR_USER=C:\Users\ContainerAdministrator\AppData\Roaming\Python\Python313\Scripts
+ENV PATH="${PYSCR_PREFIX};${PYSCR_USER};${PATH}"
 
 # The remaining always-loaded tools (the cargo: tools + pipx:semgrep) now that
 # rust links via gnullvm and pipx is on PATH.
