@@ -55,7 +55,12 @@ cmake = "latest"
 # plus the `libclang.dll` bindgen loads -- found via PATH once mise activates the
 # tool. The MSVC CRT + Windows SDK can't come from mise, so the Windows build
 # targets `-gnu`, not `-msvc`.
-"conda:m2-bash" = { version = "latest", os = ["windows"] }
+# m2-bash is pinned (not "latest" like its siblings) because the `wbash` var
+# below hard-codes its install dir, and mise resolves a "latest" spec to the
+# concrete version for that dir (installs\conda-m2-bash\<version>\...). Keep the
+# version here and in `wbash` in sync; a mismatch makes MISE_BASH_PATH point at
+# a missing dir and mise falls back to the unusable WSL-launcher bash.
+"conda:m2-bash" = { version = "5.2.037.2", os = ["windows"] }
 "conda:m2-git" = { version = "latest", os = ["windows"] }
 "conda:m2-gnupg" = { version = "latest", os = ["windows"] }
 "conda:m2-make" = { version = "latest", os = ["windows"] }
@@ -131,9 +136,10 @@ py313_unix = "{{ env.HOME }}/.local/share/mise/installs/python/3.13/bin/python3"
 # task_executor.rs bash_candidates), never its own conda install -- so on a bare
 # Windows box it can't find the conda:m2-bash we install and falls back to the
 # WSL-launcher bash.exe. MISE_BASH_PATH (below) points it here. The msys2 bash
-# lands under the conda prefix's Library\usr\bin. Windows-only; the env entry is
-# empty elsewhere, which mise ignores.
-winbash = '{{ get_env(name="LOCALAPPDATA", default="") }}\mise\installs\conda-m2-bash\latest\Library\usr\bin\bash.exe'
+# lands under the conda prefix's Library\usr\bin, keyed by the pinned m2-bash
+# version (see [tools] above — keep the two in sync). Windows-only; the env entry
+# is empty elsewhere, which mise ignores.
+wbash = '{{ get_env(name="LOCALAPPDATA", default="") }}\mise\installs\conda-m2-bash\5.2.037.2\Library\usr\bin\bash.exe'
 # Linker RUSTFLAGS fragments, composed into the per-target CARGO_TARGET_* env
 # values below — kept as vars so those values stay on a single line.
 lld_flag = "-C link-arg=-fuse-ld={{ vars.conda_lld }}/bin/ld64.lld"
@@ -202,8 +208,8 @@ CARGO_TARGET_X86_64_PC_WINDOWS_GNU_RUSTFLAGS = "-Cdlltool=x86_64-w64-mingw32-dll
 # Point mise's task shell at the conda:m2-bash it installs (Docker + workstation),
 # so `shell = "bash …"` tasks don't fall back to the Windows WSL launcher. mise
 # checks MISE_BASH_PATH first and ignores it when empty, so the off-Windows empty
-# value here is a safe no-op (winbash is only meaningful on Windows anyway).
-MISE_BASH_PATH = "{% if os() == 'windows' %}{{ vars.winbash }}{% endif %}"
+# value here is a safe no-op (wbash is only meaningful on Windows anyway).
+MISE_BASH_PATH = "{% if os() == 'windows' %}{{ vars.wbash }}{% endif %}"
 # bindgen (pulled in transitively by the deno web runner) needs the C
 # `libclang.so`. A mise-only Linux box usually only has `libclang-cpp` (the C++
 # API), so install `conda:clangxx` (above) for its `libclang.so`, point clang-sys
