@@ -162,9 +162,13 @@ ENV CBASHBIN=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\conda-m
 # to dump msys-2.0.dll's + bash.exe's imported DLLs/symbols with llvm-readobj --
 # that names the exact system DLL to backfill from the servercore donor stage.
 RUN mise install github:mstorsjo/llvm-mingw
-RUN for /f "delims=" %i in ('dir /s /b "%LOCALAPPDATA%\mise\installs\llvm-mingw\llvm-readobj.exe" 2^>nul') do `
-    (echo [readobj] msys-2.0.dll imports: & "%i" --coff-imports "%CBASHBIN%\msys-2.0.dll") & `
-    (echo [readobj] bash.exe imports: & "%i" --coff-imports "%WBASH%") & `
+# mise's github: backend installs under installs\github-<owner>-<repo>\<ver>\bin
+# (not \llvm-mingw\). RODIR is that bin dir for the version @latest resolved to.
+ENV RODIR=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\github-mstorsjo-llvm-mingw\20260602\bin
+RUN echo [readobj] msys-2.0.dll imports: & `
+    "%RODIR%\llvm-readobj.exe" --coff-imports "%CBASHBIN%\msys-2.0.dll" & `
+    echo [readobj] bash.exe imports: & `
+    "%RODIR%\llvm-readobj.exe" --coff-imports "%WBASH%" & `
     ver>nul
 
 # setup-windows depends on setup-all (experimental + cargo.binstall,
