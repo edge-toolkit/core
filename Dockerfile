@@ -42,9 +42,13 @@
 FROM ubuntu:24.04 AS build
 
 # Universal prereqs a typical dev box already has; everything else is mise's job.
-#   build-essential : cc/ld to link Rust binaries + build C deps
+#   gcc/g++/libc6-dev : the C/C++ compiler + headers/crt that rustc links through
+#                     (`cc`) and that C/C++ `-sys` crates build with. (Leaner than
+#                     build-essential, which also pulls dpkg-dev + make + perl.)
 #   curl + ca-certs  : the mise installer and tool downloads
 #   git              : cargo + repo operations
+#   gpg              : lets mise verify tool downloads (else "gpg not found,
+#                     skipping verification")
 #   xz-utils/unzip/bzip2 : mise unpacking tool archives (e.g. the pyodide .tar.bz2)
 #   libicu74        : .NET runtime ICU, for the dotnet-data1 module's build/test.
 #                     Without it the dotnet CLI FailFast-aborts at startup with
@@ -57,7 +61,7 @@ FROM ubuntu:24.04 AS build
 # the test stage, not here.)
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        build-essential ca-certificates curl git xz-utils unzip bzip2 libicu74 \
+        bzip2 ca-certificates curl g++ gcc git gpg libc6-dev libicu74 unzip xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Install mise and put it + its shims on PATH; in a non-interactive build that's

@@ -24,9 +24,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # The image is large (every language toolchain + prefetched models + a
-      # release build); the runner's root disk (~14 GB free) can't hold it. Move
-      # Docker's storage to the ~70 GB /mnt scratch disk before building.
+      # The image is large (every language toolchain + prefetched models.
+      # The runner's root disk (~14 GB free) can't hold it.
+      # Move Docker's storage to the ~70 GB /mnt scratch disk.
       - name: Move Docker storage to /mnt
         run: |
           sudo systemctl stop docker docker.socket
@@ -47,10 +47,8 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 120
     env:
-      # The mise version to install. The classic Windows builder can't substitute
-      # build-args into the Dockerfile's RUN, and mise's prebuilt "latest" zip is
-      # stale (2026.3.0, too old for the config), so the job stages this pinned
-      # release in the build context and Dockerfile.windows copies it in.
+      # The classic Windows builder can't substitute build-args into the Dockerfile's RUN,
+      # and mise's prebuilt "latest" zip is stale (2026.3.0, too old for the config).
       MISE_VERSION: "2026.6.2"
     steps:
       - name: Checkout

@@ -64,37 +64,50 @@ RUN echo HOME=[%HOME%] USERPROFILE=[%USERPROFILE%] USERNAME=[%USERNAME%] & `
 # don't curl a versioned URL inside the build: the classic Windows builder
 # doesn't substitute build-args into RUN, and mise's `mise-latest-windows-x64.zip`
 # prebuilt is stale (2026.3.0, which predates the nested `task.run_auto_install`
-# in .mise/config.toml and errors on it). Extract with Nano Server's tar.exe and
-# call mise by absolute path below. (Zip is mise\bin\mise.exe.)
+# in .mise/config.toml and errors on it). Extract with Nano Server's tar.exe (zip
+# is mise\bin\mise.exe) and put that on PATH so the steps below can call `mise`.
 COPY mise.zip C:\mise.zip
 RUN tar -xf C:\mise.zip -C C:\ && del C:\mise.zip
+ENV PATH="C:\mise\bin;${PATH}"
 
 WORKDIR C:\workspace
 COPY . .
 
-# mise setup: trust the copied-in workspace config, apply the standard settings,
-# then install. `mise settings` writes mise's global config; with no real home on
-# Windows that resolves to C:\.config\mise\config.toml, which isn't auto-trusted,
-# so trust it explicitly before `mise install` loads it. The windows job stages
-# the GitHub token as gh_token in the build context (lifting mise's 60-req/hr
-# anonymous limit); we read it here rather than via a build-arg, which the classic
-# Windows builder can't substitute into RUN. The token lands in this throwaway
-# image and expires with the job.
+# mise setup, following the README. `mise settings` writes mise's global config;
+# with no real home on Windows that resolves to C:\.config\mise\config.toml, not
+# auto-trusted -- so trust it after the settings writes and before any install
+# loads it. aqua.github_attestations is turned off: the attestation's sigstore
+# /TUF check has no cache dir here and hits GitHub's changed releases signing
+# identity, failing every aqua tool. Then the README steps: pre-install
+# cargo-binstall; gpg (conda:m2-gnupg, so node's download is verified not
+# skipped); node + conda:openssl; and pipx via pip (the README's Windows-only
+# step -- pipx isn't a mise tool here). `mise install` pulls the rest. The windows
+# job stages the GitHub token as gh_token in the build context (lifting mise's
+# 60-req/hr anonymous limit); we read it here rather than via a build-arg, which
+# the classic Windows builder can't substitute into RUN. It lands in this
+# throwaway image and expires with the job.
 COPY gh_token C:\gh_token
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
-    C:\mise\bin\mise.exe trust && `
-    C:\mise\bin\mise.exe settings experimental=true && `
-    C:\mise\bin\mise.exe settings set cargo.binstall true && `
-    C:\mise\bin\mise.exe trust C:\.config\mise\config.toml && `
-    C:\mise\bin\mise.exe install
+    mise trust && `
+    mise settings experimental=true && `
+    mise settings set cargo.binstall true && `
+    mise settings set aqua.github_attestations false && `
+    mise trust C:\.config\mise\config.toml && `
+    mise install cargo-binstall && `
+    mise install conda:m2-gnupg && `
+    mise install node && `
+    mise install conda:openssl && `
+    mise install python && `
+    mise exec -- python -m pip install --no-warn-script-location pipx && `
+    mise install
 
 # mise's core rust installs the msvc-host toolchain by default, but Nano Server
 # has no msvc linker -- so flip rustup (managed inside mise) to the gnu host and
 # build the gnu target, which links via the mise-provided llvm-mingw. mise's
 # core:rust has no host-triple knob, so we drive rustup directly. This seam is
 # the main thing to confirm via CI.
-RUN C:\mise\bin\mise.exe exec -- rustup set default-host x86_64-pc-windows-gnu && `
-    C:\mise\bin\mise.exe exec -- rustup default stable-x86_64-pc-windows-gnu
+RUN mise exec -- rustup set default-host x86_64-pc-windows-gnu && `
+    mise exec -- rustup default stable-x86_64-pc-windows-gnu
 
 # Basic smoke: a workspace check against the gnu target (the linker is
 # llvm-mingw's gcc wrapper, on PATH once mise activates the tool). Heavier work
@@ -102,7 +115,7 @@ RUN C:\mise\bin\mise.exe exec -- rustup set default-host x86_64-pc-windows-gnu &
 # fundamentals are green.
 ENV CARGO_BUILD_TARGET=x86_64-pc-windows-gnu `
     CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
-RUN C:\mise\bin\mise.exe run cargo-check
+RUN mise run cargo-check
 #
 # Known unknowns to settle via CI:
 #   * whether the rustup host flip sticks (mise may re-pin its own toolchain),

@@ -44,13 +44,15 @@ cmake = "latest"
 "conda:clangxx" = { version = "latest", os = ["linux"] }
 # Windows toolchain, all mise-provided so a bare Windows box needs nothing
 # preinstalled except mise itself (see Dockerfile.windows). The conda msys2
-# mirror packages give the `bash` the `bash -euo pipefail` tasks expect and a
-# `git`; llvm-mingw bundles clang + lld + the mingw-w64 runtime/headers/libs
-# (the `x86_64-pc-windows-gnu` C/link toolchain) plus the `libclang.dll` bindgen
-# loads -- found via PATH once mise activates the tool. The MSVC CRT + Windows
-# SDK can't come from mise, so the Windows build targets `-gnu`, not `-msvc`.
+# mirror packages give the `bash` the `bash -euo pipefail` tasks expect, a `git`,
+# and `gpg` (so mise verifies tool downloads instead of warning); llvm-mingw
+# bundles clang + lld + the mingw-w64 runtime/headers/libs (the
+# `x86_64-pc-windows-gnu` C/link toolchain) plus the `libclang.dll` bindgen loads
+# -- found via PATH once mise activates the tool. The MSVC CRT + Windows SDK
+# can't come from mise, so the Windows build targets `-gnu`, not `-msvc`.
 "conda:m2-bash" = { version = "latest", os = ["windows"] }
 "conda:m2-git" = { version = "latest", os = ["windows"] }
+"conda:m2-gnupg" = { version = "latest", os = ["windows"] }
 "github:mstorsjo/llvm-mingw" = { version = "latest", os = ["windows"], matching = "ucrt-x86_64" }
 dprint = "latest"
 editorconfig-checker = "latest"
