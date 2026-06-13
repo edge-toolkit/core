@@ -167,6 +167,11 @@ RUN dir "%LOCALAPPDATA%\mise\installs\http-busybox\1.37.0" & `
     ("%WINSH%" -c "mise.exe --version" && echo [diag] mise.exe OK || echo [diag] mise.exe FAIL) & `
     ("%WINSH%" -c "command -v mise; command -v mise.exe; type mise" & ver>nul) & `
     ver>nul
+# The cmd-launched busybox above finds mise, but the task-launched one doesn't.
+# Probe the env mise itself hands a child (mise exec ~ the task env): does its
+# PATH still contain C:\mise\bin, and can busybox find mise there?
+RUN (mise exec -- "%WINSH%" -c "echo [diag2] execPATH=[$PATH]; command -v mise || echo [diag2] NOMISE") & `
+    ver>nul
 
 # Force the gnu build target for the project cargo builds below. mise's rust tool
 # sets RUSTUP_TOOLCHAIN to the bare version, which rustup resolves against the gnu
