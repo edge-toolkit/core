@@ -148,25 +148,30 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
 # every match; `& ver>nul` keeps exit 0 even when none are found.
 RUN dir /s /b "%LOCALAPPDATA%\mise\installs\conda-m2-bash\bash.exe" 2>nul & ver>nul
 
-# Make the conda bash path explicit for the probe below (a persistent ENV so the
-# %WBASH% expansions resolve at cmd parse time). Mirrors the wbash var in
-# .mise/config.toml; removed once the Windows path is green.
+# Persistent ENVs so the %...% expansions below resolve at cmd parse time (a `set`
+# in the same RUN would expand too late). WBASH mirrors the wbash var in
+# .mise/config.toml; the two bin dirs are where the conda msys2 runtime DLLs live.
+# Removed once the Windows path is green.
 ENV WBASH=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\conda-m2-bash\5.2.037.2\Library\usr\bin\bash.exe
+ENV CBASHBIN=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\conda-m2-bash\5.2.037.2\Library\usr\bin
+ENV CBASHBIN2=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\conda-m2-bash\5.2.037.2\Library\bin
 
-# Diagnostic (informational -- never fails the build): localize the setup-windows
-# crash (exit 0xC0000139 STATUS_ENTRYPOINT_NOT_FOUND -- a DLL-load failure). This
-# is the first time the build runs bash; mise.exe under cmd has worked all along.
-# (A) a bash builtin -- does bash.exe/msys-2.0.dll load on Nano Server at all?
-# (B) a read-only mise call -- does a native child spawned by bash work?
-# (C) the exact `mise settings` write setup-all runs first -- is *changing
-# settings under bash* the failing step (the open question)? (D) an msys2 child
-# (uname) -- does msys2 fork/exec work? `ldd` lists the DLLs bash imports so an
-# unresolved one is visible. Each reports OK/FAIL; trailing `ver` keeps exit 0.
-RUN ("%WBASH%" -c "echo [diag] A-builtin ran" && echo [diag] A OK || echo [diag] A FAIL) & `
-    ("%WBASH%" -c "mise --version" && echo [diag] B OK || echo [diag] B FAIL) & `
-    ("%WBASH%" -c "mise settings experimental=true" && echo [diag] C OK || echo [diag] C FAIL) & `
-    ("%WBASH%" -lc "uname -a" && echo [diag] D OK || echo [diag] D FAIL) & `
-    ("%WBASH%" -lc "ldd /usr/bin/bash" || echo [diag] ldd FAIL) & `
+# Diagnostic (informational -- never fails the build): bash.exe crashed with
+# 0xC0000139 (entry point not found -- a DLL is present but missing an export, so
+# a runtime/version mismatch or an unresolved import-tree dep, NOT a plain missing
+# DLL). Gather the facts to fix it on Nano: (1) the full conda m2-bash tree and
+# (2) every .dll in it, to see whether msys-2.0.dll + the msys-* runtime
+# (readline/ncurses/intl) are present and in which dir. Then (3) re-run a bare
+# bash builtin with the conda Library\usr\bin + Library\bin dirs prepended to
+# PATH, in case mise launching bash by absolute path just left its runtime DLLs
+# off the loader's search path. `ver` keeps the RUN green.
+RUN echo [tree] all conda-m2-bash files: & `
+    dir /s /b "%LOCALAPPDATA%\mise\installs\conda-m2-bash" & `
+    echo [dlls] DLLs under conda-m2-bash: & `
+    dir /s /b "%LOCALAPPDATA%\mise\installs\conda-m2-bash\*.dll" & `
+    ver>nul
+RUN set "PATH=%CBASHBIN%;%CBASHBIN2%;%PATH%" & `
+    ("%WBASH%" -c "echo [diag2] bash ran with conda bin dirs on PATH" && echo [diag2] OK || echo [diag2] FAIL) & `
     ver>nul
 
 # setup-windows depends on setup-all (experimental + cargo.binstall,
