@@ -107,18 +107,16 @@ jobs:
 
       - name: Install mise tools
         run: |
-          # Platform preinstall via the shared setup task (see .mise/config.toml).
-          # setup-all does settings + cargo-binstall + node + conda:openssl;
-          # setup-macos adds conda:lld. Running it before the main `mise install`
-          # keeps conda:openssl ahead of any parallel `cargo:*` openssl-sys build
-          # (which reads the project's OPENSSL_DIR and panics if include/ isn't
-          # populated yet). Windows CI uses its native msvc toolchain, so it runs
-          # setup-all (the base), not setup-windows whose gnu-host flip is for the
-          # bare-box/Docker path.
+          # Each OS runs its own setup-<os> task (never setup-all directly --
+          # that's the shared internal base those tasks depend on). They run
+          # before the main `mise install` so conda:openssl lands ahead of any
+          # parallel `cargo:*` openssl-sys build (which reads the project's
+          # OPENSSL_DIR and panics if include/ isn't populated yet). setup-windows
+          # also installs the gnu toolchain + flips rustup to the gnu host.
           case "${{ runner.os }}" in
             Linux)   mise run setup-linux ;;
             macOS)   mise run setup-macos ;;
-            Windows) mise run setup-all ;;
+            Windows) mise run setup-windows ;;
           esac
 
           mise install
