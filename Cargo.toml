@@ -189,7 +189,7 @@ unsafe_op_in_unsafe_fn = "deny"
 # sibling test crates that don't import them. Tracked at rust-lang/rust#95513; re-enable when
 # rustc gains a workspace-aware view.
 # unused_crate_dependencies = "deny"
-unused_results = "warn"
+unused_results = "deny"
 
 [workspace.lints.rustdoc]
 private_intra_doc_links = { level = "deny", priority = 8 }

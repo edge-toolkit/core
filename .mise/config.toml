@@ -60,6 +60,7 @@ dprint = "latest"
 editorconfig-checker = "latest"
 "github:grok-rs/waitup" = "latest"
 "github:wasm-bindgen/wasm-bindgen" = "0.2.114"
+hadolint = "latest"
 mprocs = "latest"
 node = "22"
 "npm:onnxruntime-web" = "latest"
@@ -86,6 +87,7 @@ typos = "latest"
 uv = "0.11.8"
 wasm-tools = "latest"
 yq = "latest"
+gh = "latest"
 
 [vars]
 # mise's conda tool install dirs, reused below by OPENSSL_DIR and the
@@ -255,6 +257,7 @@ depends = [
   "dprint-check",
   "editorconfig-check",
   "gen-specs-check",
+  "hadolint-check",
   "semgrep-check",
   "taplo-check",
   "typos",
@@ -282,6 +285,14 @@ run = "ast-grep scan --error -c config/ast-grep/sgconfig.yml"
 [tasks.semgrep-check]
 description = "Run Semgrep generic-mode rules (e.g. Cargo.toml style)"
 run = "semgrep scan --config config/semgrep --error --metrics=off ."
+
+# hadolint lints the Linux Dockerfiles. Dockerfile.windows is excluded -- its
+# backtick-escape continuations + cmd/PowerShell RUNs aren't hadolint-friendly
+# (hadolint's ShellCheck pass assumes POSIX sh). Ignored rules live in
+# .hadolint.yaml.
+[tasks.hadolint-check]
+description = "Lint the Linux Dockerfiles with hadolint"
+run = "hadolint Dockerfile services/ws-server/Dockerfile"
 
 [tasks.cargo-check]
 run = "cargo check --workspace"

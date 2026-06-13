@@ -88,7 +88,11 @@ COPY . .
 # resolves to C:\.config\mise\config.toml, not auto-trusted -- so trust it after
 # the settings writes. aqua's signature checks (attestations, cosign, slsa) are
 # off: their sigstore/TUF step can't determine a cache dir here, and attestation
-# also hits GitHub's changed releases signing identity. The windows job stages
+# also hits GitHub's changed releases signing identity. pipx.uvx=false makes the
+# pipx: backend install via pip, not uv: uv builds console-script .exe shims by
+# editing PE resources -- a Win32 call Nano Server doesn't implement (error 120),
+# so the semgrep install dies; pip's distlib launchers don't touch PE resources.
+# The windows job stages
 # the GitHub token as gh_token in the build context (lifting mise's 60-req/hr
 # anonymous limit); we read it per-RUN rather than via a build-arg, which the
 # classic Windows builder can't substitute into RUN. It lands in this throwaway
@@ -101,6 +105,7 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise settings set aqua.github_attestations false && `
     mise settings set aqua.cosign false && `
     mise settings set aqua.slsa false && `
+    mise settings set pipx.uvx false && `
     mise trust C:\.config\mise\config.toml && `
     mise install conda:m2-gnupg && `
     mise install github:mstorsjo/llvm-mingw && `
@@ -112,13 +117,19 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise install cargo-binstall && `
     mise exec -- python -m pip install --no-warn-script-location pipx
 
-# Flip rustup (inside mise) to the gnu host/target before the bulk install, so
-# the cargo: tools build + link with llvm-mingw, not the absent msvc link.exe.
-# mise's core:rust has no host-triple knob, so we drive rustup directly -- the
-# main seam to confirm via CI.
+# The linker for cargo here is llvm-mingw's x86_64-w64-mingw32-gcc (clang + lld) --
+# not MSVC's link.exe -- so no Visual Studio Build Tools are needed. The catch:
+# build scripts and proc-macros (e.g. proc-macro2, serde's build script) compile
+# for the *host* triple, so if the rust host is -msvc they still demand link.exe.
+# So make the host itself gnu: install the gnu-host toolchain and make it the
+# default, then pin every cargo invocation (mise's cargo: backend included) to it
+# via RUSTUP_TOOLCHAIN -- now host == target == gnu and link.exe is never reached.
+# mise's core:rust has no host-triple knob, so we drive rustup directly.
 RUN mise exec -- rustup set default-host x86_64-pc-windows-gnu && `
+    mise exec -- rustup toolchain install stable-x86_64-pc-windows-gnu && `
     mise exec -- rustup default stable-x86_64-pc-windows-gnu
-ENV CARGO_BUILD_TARGET=x86_64-pc-windows-gnu `
+ENV RUSTUP_TOOLCHAIN=stable-x86_64-pc-windows-gnu `
+    CARGO_BUILD_TARGET=x86_64-pc-windows-gnu `
     CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
 
 # Minimal install (always-loaded tools) then the guest languages (install-all ==

@@ -8,6 +8,7 @@ name: dependencies
       - Cargo.toml
       - "**/Cargo.toml"
       - deny.toml
+      - osv-scanner.toml
       - .github/workflows/dependencies.yml
   workflow_dispatch:
 
@@ -22,11 +23,6 @@ defaults:
   run:
     shell: bash
 
-# Deliberately mise-free: the only tools this job needs are the three
-# dep-audit binaries, all of which taiki-e/install-action ships
-# prebuilt. Skipping mise also skips the conda:openssl + workspace
-# tool install path that the main CI flows take ~3 min on, keeping
-# this check fast (~30 s typical).
 jobs:
   dependencies:
     runs-on: ubuntu-latest
@@ -38,7 +34,12 @@ jobs:
       - name: Install dep-audit tools
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-deny,cargo-unmaintained,osv-scanner
+          tool: cargo-deny,cargo-unmaintained,mise,osv-scanner
+
+      - name: Generate osv-scanner.toml from deny.toml
+        run: |
+          mise trust
+          mise run gen:osv-scanner
 
       - name: cargo deny check
         run: cargo deny check
@@ -69,3 +70,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: cargo unmaintained
+
+      - name: Check osv-scanner.toml is committed
+        run: git diff --exit-code -- osv-scanner.toml

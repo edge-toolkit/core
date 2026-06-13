@@ -1,0 +1,18 @@
+# hadolint config, consumed by `mise run hadolint-check`. Each entry is a
+# best-practice rule we consciously skip, with the reason; drop one once it no
+# longer applies. (Dockerfile.windows is not linted -- see the hadolint-check
+# task in .mise/config.toml.)
+ignored:
+  # Pinning apt package versions is brittle: they float with the Ubuntu base
+  # image + security updates, so an exact pin breaks on every base bump. We
+  # install distro defaults deliberately -- the base FROM line is the version pin.
+  - DL3008
+  # Same for npm: `npm install -g pnpm` tracks latest; we don't pin it here.
+  - DL3016
+  # `curl ... | sh` (the mise installer): if curl fails, sh gets empty input and
+  # the next `mise` command then fails anyway, so the pipe failure is caught
+  # downstream -- no need to set SHELL -o pipefail just for that one line.
+  - DL4006
+  # Consecutive RUNs are kept separate on purpose -- for layer caching and so a
+  # change to one step doesn't bust the others.
+  - DL3059

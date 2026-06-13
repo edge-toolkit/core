@@ -1,8 +1,9 @@
-# Build output is off-limits: it's gitignored and (per CLAUDE.md) holds agent
-# scratch files under target/scratch/. taplo's baseline `taplo lint` / `format`
-# don't honour .gitignore, and they auto-associate any stray `Cargo.toml` with
-# the SchemaStore Cargo schema — so a scratch fixture there breaks the check.
-exclude = ["target/**"]
+# Build output and external checkouts are off-limits. Both are gitignored, but
+# taplo's baseline `taplo lint` / `format` don't honour .gitignore: `target/`
+# holds scratch + build artifacts (and auto-associates any stray `Cargo.toml`
+# with the SchemaStore Cargo schema), and `data/` holds external upstream repo
+# clones whose TOML files we must never reformat.
+exclude = ["target/**", "data/**"]
 
 [formatting]
 column_width = 120

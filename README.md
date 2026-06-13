@@ -38,8 +38,32 @@ mise settings set cargo.binstall true
 Pre-install `cargo-install`, which can be done using:
 
 ```bash
-mise use -g cargo-binstall
+mise install cargo-binstall
 ```
+
+### GitHub rate limits
+
+`mise install` downloads many tools from GitHub releases. Unauthenticated, the
+GitHub API allows only 60 requests/hour, so installs can fail with
+`GitHub rate limit exceeded`. Authenticate with the
+[`gh` CLI](https://cli.github.com/) and let `mise` reuse its token — this lifts
+the limit to 5,000 requests/hour and needs no token scopes:
+
+```bash
+mise install gh
+```
+
+```bash
+gh auth login                                        # any method; no scopes needed
+mise settings set github.credential_command "gh auth token"
+mise token github                                    # verify: should resolve a token
+```
+
+`gh` often stores the token in the OS keyring rather than in
+`~/.config/gh/hosts.yml`, so mise's default `hosts.yml` lookup finds nothing;
+`credential_command` asks `gh` for the token on demand and works either way. The
+setting is written to your global `~/.config/mise/config.toml`, so it stays
+per-machine and out of the repo.
 
 ### Windows only
 
