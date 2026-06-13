@@ -150,28 +150,21 @@ RUN dir /s /b "%LOCALAPPDATA%\mise\installs\conda-m2-bash\bash.exe" 2>nul & ver>
 
 # Persistent ENVs so the %...% expansions below resolve at cmd parse time (a `set`
 # in the same RUN would expand too late). WBASH mirrors the wbash var in
-# .mise/config.toml; the two bin dirs are where the conda msys2 runtime DLLs live.
-# Removed once the Windows path is green.
+# .mise/config.toml; CBASHBIN is the dir holding bash.exe + msys-2.0.dll. Removed
+# once the Windows path is green.
 ENV WBASH=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\conda-m2-bash\5.2.037.2\Library\usr\bin\bash.exe
 ENV CBASHBIN=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\conda-m2-bash\5.2.037.2\Library\usr\bin
-ENV CBASHBIN2=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\conda-m2-bash\5.2.037.2\Library\bin
 
-# Diagnostic (informational -- never fails the build): bash.exe crashed with
-# 0xC0000139 (entry point not found -- a DLL is present but missing an export, so
-# a runtime/version mismatch or an unresolved import-tree dep, NOT a plain missing
-# DLL). Gather the facts to fix it on Nano: (1) the full conda m2-bash tree and
-# (2) every .dll in it, to see whether msys-2.0.dll + the msys-* runtime
-# (readline/ncurses/intl) are present and in which dir. Then (3) re-run a bare
-# bash builtin with the conda Library\usr\bin + Library\bin dirs prepended to
-# PATH, in case mise launching bash by absolute path just left its runtime DLLs
-# off the loader's search path. `ver` keeps the RUN green.
-RUN echo [tree] all conda-m2-bash files: & `
-    dir /s /b "%LOCALAPPDATA%\mise\installs\conda-m2-bash" & `
-    echo [dlls] DLLs under conda-m2-bash: & `
-    dir /s /b "%LOCALAPPDATA%\mise\installs\conda-m2-bash\*.dll" & `
-    ver>nul
-RUN set "PATH=%CBASHBIN%;%CBASHBIN2%;%PATH%" & `
-    ("%WBASH%" -c "echo [diag2] bash ran with conda bin dirs on PATH" && echo [diag2] OK || echo [diag2] FAIL) & `
+# Diagnostic (informational -- never fails the build): the tree dump confirmed
+# msys-2.0.dll (v3.6) sits right next to bash.exe and a PATH-augmented retry still
+# 0xC0000139'd, so msys-2.0.dll imports a Win32 entry point Nano Server doesn't
+# export. Install llvm-mingw (a static, native toolchain that runs on Nano) purely
+# to dump msys-2.0.dll's + bash.exe's imported DLLs/symbols with llvm-readobj --
+# that names the exact system DLL to backfill from the servercore donor stage.
+RUN mise install github:mstorsjo/llvm-mingw
+RUN for /f "delims=" %i in ('dir /s /b "%LOCALAPPDATA%\mise\installs\llvm-mingw\llvm-readobj.exe" 2^>nul') do `
+    (echo [readobj] msys-2.0.dll imports: & "%i" --coff-imports "%CBASHBIN%\msys-2.0.dll") & `
+    (echo [readobj] bash.exe imports: & "%i" --coff-imports "%WBASH%") & `
     ver>nul
 
 # setup-windows depends on setup-all (experimental + cargo.binstall,
