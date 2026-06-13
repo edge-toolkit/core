@@ -202,15 +202,17 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise install
 
 # --- build: add the guest-language toolchains (config.<lang>.toml). ---
-# install-all == MISE_ENV="$ALL_LANGS" mise install; the always-loaded tools are
-# already installed by build-minimal, so this adds dart/dotnet/java/zig/etc.
-# MISE_ENV is set persistently so the later stages act on every language too.
+# MISE_ENV lists only the guests that install on Nano Server: dotnet is excluded
+# (its installer is a PowerShell script, and Nano has no PowerShell) and python is
+# excluded (its tools install via pipx, which can't run on Nano). dart/java/rust/
+# zig install cleanly. Use `mise install` rather than install-all (which forces
+# $ALL_LANGS) so this restricted MISE_ENV is honored; it persists to later stages.
 FROM build-minimal AS build
 COPY .mise/ .mise/
 RUN mise trust
-ENV MISE_ENV=dart,dotnet,java,python,rust,zig
+ENV MISE_ENV=dart,java,rust,zig
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
-    mise install-all
+    mise install
 
 # --- prefetch: download all dependencies + ONNX models. ---
 # The full source is needed from here on (module builds, cargo fetch, pnpm).
