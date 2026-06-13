@@ -30,7 +30,10 @@ cargo-binstall = "latest"
 "cargo:ast-grep" = "latest"
 "cargo:cargo-deny" = "latest"
 "cargo:cargo-expand" = "latest"
-"cargo:taplo-cli" = "latest"
+# Not on Windows: taplo-cli pulls `ring`, whose build needs a C/asm toolchain the
+# gnu Nano image doesn't provide, and TOML linting (taplo-check) is skipped on
+# Windows anyway (it runs in the Linux check job).
+"cargo:taplo-cli" = { version = "latest", os = ["linux", "macos"] }
 "cargo:wasm-pack" = "latest"
 "cargo:watchexec-cli" = "latest"
 # vfox-chromedriver's PostInstall hook fails on Windows ("syntax of the
@@ -59,7 +62,10 @@ cmake = "latest"
 "conda:m2-git" = { version = "latest", os = ["windows"] }
 "conda:m2-gnupg" = { version = "latest", os = ["windows"] }
 "conda:m2-make" = { version = "latest", os = ["windows"] }
-"github:mstorsjo/llvm-mingw" = { version = "latest", os = ["windows"], matching = "ucrt-x86_64" }
+# Pinned (not "latest") so its install dir is deterministic: Dockerfile.windows
+# puts <install>\20260602\bin on PATH for the cargo-tool builds (dlltool + the
+# gnu linker). Bump here and in Dockerfile.windows together.
+"github:mstorsjo/llvm-mingw" = { version = "20260602", os = ["windows"], matching = "ucrt-x86_64" }
 dprint = "latest"
 editorconfig-checker = "latest"
 "github:grok-rs/waitup" = "latest"
@@ -387,6 +393,10 @@ run = "taplo format"
 # When adding a new schema under `config/taplo/`, append a `taplo lint`
 # line here too. See `config/taplo/RULE-IDEAS.md` for the investigation.
 run = """
+# taplo-cli isn't installed on Windows (its `ring` dep needs a C/asm toolchain
+# the gnu Nano build lacks); TOML linting runs in the Linux check job. Skip here.
+[ "${OS:-}" = "Windows_NT" ] && { echo "taplo-check: skipped on Windows"; exit 0; }
+
 # Baseline TOML validation across every .toml file the auto-config picks up.
 taplo lint
 

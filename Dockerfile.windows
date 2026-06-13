@@ -115,8 +115,14 @@ RUN tar -xf C:\mise.zip -C C:\ && del C:\mise.zip
 # Prepend mise's bin, and re-list System32 + Windows explicitly: the base image
 # exposes its search path as `Path`, which Docker's case-sensitive `${PATH}`
 # doesn't match, so it expands empty -- dropping System32 (findstr, net, sc, ...)
-# off PATH for every step below.
-ENV PATH="C:\mise\bin;C:\Windows\System32;C:\Windows;${PATH}"
+# off PATH for every step below. Also put llvm-mingw's bin on PATH: the cargo:
+# tool builds (windows-sys etc.) invoke `x86_64-w64-mingw32-dlltool` + the gnu
+# linker by name, and mise's cargo backend doesn't activate llvm-mingw onto the
+# build subprocess's PATH. The dir is the pinned-version install (config.toml);
+# it doesn't exist until setup-windows installs llvm-mingw, which is fine -- the
+# cargo: builds that need it run afterwards.
+ENV LLVMBIN=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\github-mstorsjo-llvm-mingw\20260602\bin
+ENV PATH="C:\mise\bin;C:\Windows\System32;C:\Windows;${LLVMBIN};${PATH}"
 
 WORKDIR C:\workspace
 # Only the always-loaded config is needed for the default tools; the
