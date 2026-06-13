@@ -119,16 +119,16 @@ COPY .mise/config.toml .mise/config.toml
 # throwaway job image.
 COPY gh_token C:\gh_token
 
-# mise setup via the shared tasks (the same a workstation runs -- see the
-# README): setup-all enables experimental + cargo.binstall and installs
-# cargo-binstall; setup-windows installs the gnu toolchain (gpg, llvm-mingw,
-# make, rust) and flips rustup to the gnu host, so cargo links via llvm-mingw
-# rather than the absent MSVC link.exe. The Docker-only settings stay inline:
-# `mise settings` writes the global config (C:\.config\mise on Windows, not
-# auto-trusted -- hence the explicit trust); aqua's signature checks
-# (attestations/cosign/slsa) are off because their sigstore/TUF step can't find a
-# cache dir here; pipx.uvx=false makes the pipx: backend use pip, not uv (uv's
-# PE-resource trampoline isn't implemented on Nano Server, error 120).
+# mise setup via the same task a workstation runs (see the README): setup-windows
+# depends on setup-all (experimental + cargo.binstall, cargo-binstall, node,
+# openssl), then installs the gnu toolchain (gpg, llvm-mingw, make, rust) and
+# flips rustup to the gnu host, so cargo links via llvm-mingw rather than the
+# absent MSVC link.exe. The Docker-only settings stay inline: `mise settings`
+# writes the global config (C:\.config\mise on Windows, not auto-trusted -- hence
+# the explicit trust); aqua's signature checks (attestations/cosign/slsa) are off
+# because their sigstore/TUF step can't find a cache dir here; pipx.uvx=false
+# makes the pipx: backend use pip, not uv (uv's PE-resource trampoline isn't
+# implemented on Nano Server, error 120).
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise trust && `
     mise settings set aqua.github_attestations false && `
@@ -136,7 +136,6 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise settings set aqua.slsa false && `
     mise settings set pipx.uvx false && `
     mise trust C:\.config\mise\config.toml && `
-    mise run setup-all && `
     mise run setup-windows
 
 # Pin every cargo invocation (mise's cargo: backend included) to the gnu host the
@@ -147,15 +146,13 @@ ENV RUSTUP_TOOLCHAIN=stable-x86_64-pc-windows-gnu `
     CARGO_BUILD_TARGET=x86_64-pc-windows-gnu `
     CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
 
-# The rest of the always-loaded tools, now that rust links via gnu. node first
-# (mise may need it to install others), then conda:openssl, then `mise install`
-# for the remaining config.toml tools (incl. python + the cargo: tools, which
-# build via gnu now). pipx then via pip -- the README's Windows-only step (pipx
-# isn't a mise tool here, and pip's distlib launcher avoids uv's PE-resource
-# trampoline that Nano Server can't run).
+# The rest of the always-loaded tools (cargo-binstall + node + conda:openssl
+# already came via setup-all), now that rust links via gnu: `mise install` builds
+# the remaining config.toml tools (incl. python + the cargo: tools, which link
+# via gnu now). pipx then via pip -- the README's Windows-only step (pipx isn't a
+# mise tool here, and pip's distlib launcher avoids uv's PE-resource trampoline
+# that Nano Server can't run).
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
-    mise install node && `
-    mise install conda:openssl && `
     mise install && `
     mise exec -- python -m pip install --no-warn-script-location pipx
 

@@ -28,12 +28,10 @@ all of them at once.
 The following works for Linux, macOS and Windows, and all tools "installed"
 are only installed into the local workspace, so no need for admin/root privileges.
 
-Configure it and pre-install `cargo-binstall` (so later installs of `cargo:`
-tools fetch prebuilts instead of building from source):
-
-```bash
-mise run setup-all
-```
+Then run the preinstall task for your platform — it configures mise and installs
+the shared basics (cargo-binstall, node, the openssl dev files) plus whatever
+that platform needs. Do any manual prerequisites in your platform's section
+below first.
 
 ### GitHub rate limits
 
@@ -58,6 +56,15 @@ mise token github                                    # verify: should resolve a 
 `credential_command` asks `gh` for the token on demand and works either way. The
 setting is written to your global `~/.config/mise/config.toml`, so it stays
 per-machine and out of the repo.
+
+### Linux
+
+Nothing beyond the shared base — the C toolchain and gpg come from your distro's
+packages, not mise:
+
+```bash
+mise run setup-linux
+```
 
 ### Windows only
 
@@ -103,15 +110,8 @@ mise run setup-macos
 
 ### All OS
 
-Before installing dependencies, install node and the openssl development files
-separately (node first, as mise may need it to install other tools):
-
-```bash
-mise install node
-mise install conda:openssl
-```
-
-Then install the remaining dependencies:
+With your platform's preinstall done (it installed node + the openssl dev
+files), install the remaining dependencies:
 
 ```bash
 mise install-all

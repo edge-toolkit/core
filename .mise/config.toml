@@ -403,33 +403,45 @@ mise install aube@latest
 """
 
 [tasks.setup-all]
-# Cross-platform preinstall, run first on every OS (and by both Dockerfiles):
-# enable experimental + the cargo-binstall backend, then install cargo-binstall
-# so later installs of cargo: tools fetch prebuilts instead of building from
-# source. Mirrors the README's "Configure it with" + cargo-binstall steps.
-description = "Cross-platform preinstall: enable experimental + cargo.binstall, install cargo-binstall"
+# Shared cross-platform preinstall -- not run directly; the per-OS setup tasks
+# (setup-linux / setup-macos / setup-windows) depend on it, so each controls its
+# own ordering. Enables experimental + cargo.binstall, then installs
+# cargo-binstall (a prebuilt binary, safe to preinstall anywhere), node (mise
+# uses it for the npm: tools) and conda:openssl (for openssl-sys) -- all needed
+# on every platform.
+description = "Shared cross-platform preinstall (invoked via setup-linux/macos/windows, not run directly)"
 run = """
 mise settings experimental=true
 mise settings set cargo.binstall true
 mise install cargo-binstall
+mise install node
+mise install conda:openssl
 """
 
+[tasks.setup-linux]
+# Linux preinstall: just the shared cross-platform base -- the C toolchain and
+# gpg come from the distro (apt/system), not mise.
+description = "Linux preinstall (the shared cross-platform base)"
+depends = ["setup-all"]
+
 [tasks.setup-macos]
-# macOS preinstall (after Xcode's command-line tools, which mise can't supply):
-# install conda:lld, the linker the darwin CARGO_TARGET_* RUSTFLAGS use. Mirrors
-# the README's "MacOS only" step.
-description = "macOS preinstall: install conda:lld (the linker the darwin build uses)"
+# macOS preinstall, run after Xcode's command-line tools (which mise can't
+# supply): the shared base, then conda:lld -- the linker the darwin
+# CARGO_TARGET_* RUSTFLAGS use.
+description = "macOS preinstall: shared base + conda:lld (the linker the darwin build uses)"
+depends = ["setup-all"]
 run = "mise install conda:lld"
 
 [tasks.setup-windows]
-# Windows preinstall, shared by Dockerfile.windows and a real workstation, run
-# after setup-all. Installs the Windows toolchain mise CAN supply -- gpg
-# (conda:m2-gnupg, so mise verifies later downloads), the llvm-mingw gnu C/link
-# toolchain (+ libclang), make and rust -- then flips rustup to the gnu host so
-# cargo links via llvm-mingw, not MSVC link.exe (no Visual Studio Build Tools
-# needed). The prereqs mise CAN'T supply (a recent mise + pipx) are in the
-# README's "Windows only" section. Windows-only; errors if run on another OS.
-description = "Windows preinstall: install the gnu toolchain (gpg, llvm-mingw, make, rust) + flip rustup to gnu"
+# Windows preinstall, shared by Dockerfile.windows and a real workstation: the
+# shared base runs first, then this installs the Windows toolchain mise CAN
+# supply -- gpg (conda:m2-gnupg, so mise verifies downloads), the llvm-mingw gnu
+# C/link toolchain (+ libclang), make and rust -- then flips rustup to the gnu
+# host so cargo links via llvm-mingw, not MSVC link.exe (no Visual Studio Build
+# Tools needed). The prereqs mise CAN'T supply (a recent mise + pipx) are in the
+# README's "Windows only" section.
+description = "Windows preinstall: shared base + gnu toolchain (gpg, llvm-mingw, make, rust) + rustup gnu flip"
+depends = ["setup-all"]
 run = """
 mise install conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
 mise exec -- rustup set default-host x86_64-pc-windows-gnu

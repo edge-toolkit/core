@@ -70,26 +70,22 @@ RUN apt-get update \
 RUN curl -fsSL https://mise.run | sh
 ENV PATH="/root/.local/bin:/root/.local/share/mise/shims:${PATH}"
 
-# Configure mise + pre-install cargo-binstall. A GitHub token (if provided)
-# lifts the anonymous rate limit for the cargo-binstall release fetch.
-RUN --mount=type=secret,id=gh_token,required=false \
-    GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)" \
-    sh -c 'mise settings experimental=true \
-        && mise settings set cargo.binstall true \
-        && mise use -g cargo-binstall'
-
 WORKDIR /workspace
 # Only the always-loaded config is needed for the default tools; the
-# guest-language configs come in the build stage below.
+# guest-language configs come in the build stage below. setup-linux is a repo
+# task, so the config has to be copied + trusted before it can run.
 COPY .mise/config.toml .mise/config.toml
 
 RUN mise trust
 
+# Preinstall via the shared setup-linux task (the same a Linux workstation runs):
+# its setup-all base enables experimental + cargo.binstall and installs
+# cargo-binstall, node and conda:openssl; then `mise install` adds the rest of
+# the always-loaded tools. A GitHub token (if provided) lifts the anonymous rate
+# limit for the release fetches.
 RUN --mount=type=secret,id=gh_token,required=false \
     GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)" \
-    sh -c 'mise install node \
-        && mise install conda:openssl \
-        && mise install'
+    sh -c 'mise run setup-linux && mise install'
 
 # --- build: add the guest-language toolchains (config.<lang>.toml). ---
 # install-all == MISE_ENV="$ALL_LANGS" mise install; the always-loaded tools are
