@@ -1,38 +1,11 @@
 #![expect(clippy::print_stdout, reason = "CLI tool: println! is the intended UX")]
 
-use std::path::PathBuf;
+use clap::Parser as _;
+use et_cli::{CliError, generate_deployment, generate_module_package_json, regenerate_verification};
 
-use clap::{Parser, Subcommand};
-use et_cli::{CliError, OutputType, generate_deployment, generate_module_package_json, regenerate_verification};
+mod cli;
 
-#[derive(Parser)]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    /// Generate deployment config from a cluster input YAML.
-    GenerateDeployment {
-        #[arg(long)]
-        input_file: PathBuf,
-        #[arg(long)]
-        output_dir: PathBuf,
-        #[arg(long, value_enum, default_value_t)]
-        output_type: OutputType,
-    },
-    /// Regenerate verification outputs using verification input/output naming conventions.
-    RegenVerification {
-        #[arg(long, default_value = "verification")]
-        verification_root: PathBuf,
-    },
-    /// Generate pkg/package.json from module metadata.
-    ModulePackageJson {
-        #[arg(long, default_value = ".")]
-        module_dir: PathBuf,
-    },
-}
+use crate::cli::{Cli, Commands};
 
 fn main() -> Result<(), CliError> {
     let cli = Cli::parse();

@@ -30,8 +30,17 @@ CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_
 LIBCLANG_PATH = "{{ vars.mac_libclang }}"
 
 [tasks.setup-macos]
-# macOS preinstall, run after Xcode's command-line tools (which mise can't
-# supply): the shared base, then conda:lld -- the linker the darwin build uses.
-description = "macOS preinstall: shared base + conda:lld (the linker the darwin build uses)"
+# macOS preinstall: verify Xcode's command-line tools (cc/clang etc., which mise
+# can't supply), then the shared base + conda:lld -- the linker the darwin build
+# uses. A box missing the CLT is told to install them.
+description = "macOS preinstall: verify Xcode CLT + shared base + conda:lld (the darwin linker)"
 depends = ["_setup_all"]
-run = "mise install conda:lld"
+run = """
+xcode-select -p >/dev/null 2>&1 || {
+  echo "setup-macos: Xcode command-line tools not found." >&2
+  echo "Install them with: xcode-select --install" >&2
+  exit 1
+}
+mise install conda:lld
+"""
+shell = "bash -euo pipefail -c"

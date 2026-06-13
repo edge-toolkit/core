@@ -31,12 +31,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # The audit binaries come from taiki-e (fast prebuilts); the checks below
-      # are driven through `mise run` so the commands + config paths have one
-      # source of truth in .mise/config.toml. mise's `task.run_auto_install =
-      # false` means `mise run` won't drag in the whole toolchain just to run a
-      # task, so this stays a lightweight, audit-only job.
-      - name: Install dep-audit tools
+      - name: Install tools
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-deny,cargo-unmaintained,mise@2026.6.5,osv-scanner

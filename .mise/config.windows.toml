@@ -66,14 +66,20 @@ PYO3_PYTHON = "{{ vars.py313_win }}"
 # busybox `sh` (http:busybox) is installed by the cmd bootstrap that runs before
 # any bash task on Windows (Dockerfile.windows / the README), so this task's
 # `bash -euo pipefail` shell (= busybox ash via MISE_BASH_PATH) works. Installs
-# the build utils (git/gpg/make), llvm-mingw and rust, then flips rustup's
-# default host to gnullvm so both host and target link via llvm-mingw rather than
-# the absent MSVC link.exe (no Visual Studio Build Tools needed). The prereqs
-# mise CAN'T supply (a recent mise + the VC++ runtime) are in the README.
-description = "Windows preinstall: Windows toolchain + flip rustup to the gnullvm host"
+# the build utils (git/gpg/make), llvm-mingw and rust, pip-installs pipx (the
+# backend for the pipx:* tools, since aqua has no Windows pipx build), then flips
+# rustup's default host to gnullvm so both host and target link via llvm-mingw
+# rather than the absent MSVC link.exe (no Visual Studio Build Tools needed). The
+# prereqs mise CAN'T supply (a recent mise + the VC++ runtime) are in the README.
+description = "Windows preinstall: Windows toolchain + pipx + flip rustup to the gnullvm host"
 depends = ["_setup_all"]
 run = """
 mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
+# pipx backs the pipx:* tools but isn't a mise tool on Windows. Install it with
+# whatever python is on PATH: the runner's system python on CI/workstations (its
+# Scripts dir, where pipx lands, is already on PATH); Dockerfile.windows puts
+# mise's python on PATH before this so the command resolves on Nano too.
+python -m pip install pipx
 # Install + default to the gnullvm build of the EXACT rust version mise pinned;
 # mise sets RUSTUP_TOOLCHAIN to that bare version, so once the default host is
 # gnullvm it resolves to this <version>-gnullvm toolchain.

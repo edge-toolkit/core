@@ -307,6 +307,7 @@ xargs taplo lint --schema "file://$PWD/config/taplo/no-path-deps.schema.json" <"
 xargs taplo lint --schema "file://$PWD/config/taplo/no-wildcard-or-git-deps.schema.json" <"$members"
 xargs taplo lint --schema "file://$PWD/config/taplo/require-workspace-deps.schema.json" <"$members"
 xargs taplo lint --schema "file://$PWD/config/taplo/require-lib-doctest-false.schema.json" <"$members"
+xargs taplo lint --schema "file://$PWD/config/taplo/no-lib-name.schema.json" <"$members"
 
 # `require-lints-section` exempts generated/rust-rest/Cargo.toml because
 # progenitor's emitted `src/lib.rs` contains patterns our workspace lint
@@ -326,7 +327,7 @@ taplo lint --schema "file://$PWD/config/taplo/mise-run-not-array.schema.json" .m
 shell = "bash -euo pipefail -c"
 
 [tasks.typos]
-run = "typos"
+run = "typos --config config/typos.toml"
 
 [tasks.setup-aube]
 # `aube` is an OPTIONAL faster npm backend, kept out of the mandatory `[tools]`
@@ -359,7 +360,7 @@ shell = "bash -euo pipefail -c"
 # preinstall anywhere), node (mise uses it for the npm: tools) and conda:openssl
 # (for openssl-sys) -- all needed on every platform.
 hide = true
-description = "Private shared cross-platform preinstall (depended on by setup-linux/macos/windows)"
+description = "Private shared cross-platform preinstall"
 run = """
 mise settings experimental=true
 mise settings set cargo.binstall true
@@ -368,9 +369,6 @@ mise install node
 mise install conda:openssl
 """
 shell = "bash -euo pipefail -c"
-
-# The per-OS preinstall tasks (setup-linux / setup-macos / setup-windows) live in
-# the config.<os>.toml files; each depends on the private _setup_all above.
 
 [tasks.osv-scanner]
 # Scans the committed Cargo.lock only -- no build dependency, so the same task

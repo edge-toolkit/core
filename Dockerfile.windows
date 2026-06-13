@@ -181,11 +181,19 @@ RUN dir "%LOCALAPPDATA%\mise\installs\http-busybox\1.37.0" & `
 ENV CARGO_HOME=C:\.cargo `
     RUSTUP_HOME=C:\.rustup
 
+# setup-windows pip-installs pipx (the pipx:* backend). Nano has no system python,
+# so install mise's python and put it on PATH first; pipx then lands in that
+# python's Scripts dir -- never invoked here (this image disables pipx:semgrep and
+# builds no python guest, and pipx can't run on Nano anyway), so that's fine.
+RUN set /p GITHUB_TOKEN=<C:\gh_token && `
+    mise install python
+ENV PATH="C:\Users\ContainerAdministrator\AppData\Local\mise\installs\python\3.13;${PATH}"
+
 # setup-windows runs on busybox sh (via MISE_BASH_PATH): the shared _setup_all
 # base (cargo-binstall + node + openssl) then the gnu toolchain (git/gpg/
-# llvm-mingw/make/rust) + rustup flip to the gnullvm host, so cargo links via
-# llvm-mingw (compiler-rt/libunwind) rather than the absent MSVC link.exe. No
-# build was needed for the shell itself, so there's no toolchain chicken-and-egg.
+# llvm-mingw/make/rust), pip-installs pipx, + rustup flip to the gnullvm host, so
+# cargo links via llvm-mingw (compiler-rt/libunwind) rather than the absent MSVC
+# link.exe. No build was needed for the shell itself, so no chicken-and-egg.
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise run setup-windows
 
@@ -196,8 +204,8 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
 # just this one tool (everything else installs normally) loses nothing here.
 ENV MISE_DISABLE_TOOLS=pipx:semgrep
 
-# The remaining always-loaded tools (python + the cargo: tools) now that rust
-# links via gnullvm.
+# The remaining always-loaded tools (the cargo: tools; python is already
+# installed above) now that rust links via gnullvm.
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise install
 

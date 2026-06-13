@@ -4,11 +4,11 @@
 )]
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
-use std::ffi::OsString;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use clap::ValueEnum;
 use edge_toolkit::input::ClusterInput;
+use et_path::relative_path_from;
 use fs_err as fs;
 use serde::Deserialize;
 
@@ -591,70 +591,6 @@ where
     }
 
     Ok(paths)
-}
-
-#[must_use]
-pub fn absolute_from(base: &Path, path: &Path) -> PathBuf {
-    if path.is_absolute() {
-        normalize_path(path)
-    } else {
-        normalize_path(&base.join(path))
-    }
-}
-
-/// Build a relative path from `from_dir` to `target`, always joined with `/`.
-///
-/// The result is rendered as a POSIX string regardless of host OS, because
-/// every caller writes it into generated `mise.toml` / `docker-compose.yaml`
-/// output -- both of which expect forward-slash separators even on Windows.
-#[must_use]
-pub fn relative_path_from(from_dir: &Path, target: &Path) -> String {
-    let from_components = normal_components(&normalize_path(from_dir));
-    let target_components = normal_components(&normalize_path(target));
-    let common_len = from_components
-        .iter()
-        .zip(target_components.iter())
-        .take_while(|(from, target)| from == target)
-        .count();
-
-    let mut parts: Vec<String> = Vec::new();
-    for _ in common_len..from_components.len() {
-        parts.push("..".to_string());
-    }
-    for component in target_components.iter().skip(common_len) {
-        parts.push(component.to_string_lossy().into_owned());
-    }
-
-    if parts.is_empty() {
-        ".".to_string()
-    } else {
-        parts.join("/")
-    }
-}
-
-fn normal_components(path: &Path) -> Vec<OsString> {
-    path.components()
-        .filter_map(|component| match component {
-            Component::Normal(value) => Some(value.to_os_string()),
-            Component::Prefix(_) | Component::RootDir | Component::CurDir | Component::ParentDir => None,
-        })
-        .collect()
-}
-
-fn normalize_path(path: &Path) -> PathBuf {
-    let mut normalized = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
-            Component::RootDir => normalized.push(Path::new("/")),
-            Component::CurDir => {}
-            Component::ParentDir => {
-                let _popped = normalized.pop();
-            }
-            Component::Normal(value) => normalized.push(value),
-        }
-    }
-    normalized
 }
 
 #[must_use]

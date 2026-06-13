@@ -1,0 +1,16 @@
+id: no-cargo-manifest-dir
+language: Rust
+severity: error
+message: |
+  `CARGO_MANIFEST_DIR` is forbidden outside the project-root helper. It points
+  at the crate directory, not the repository root, so reaching repo files
+  through it needs brittle `..` hops. Locate the repository root with
+  `et_path::find_project_root_from_manifest()` in a `build.rs` (compile time) or
+  `edge_toolkit::config::get_project_root()` (runtime) instead.
+rule:
+  any:
+    - pattern: env!("CARGO_MANIFEST_DIR")
+    - pattern: std::env::var("CARGO_MANIFEST_DIR")
+    - pattern: env::var("CARGO_MANIFEST_DIR")
+ignores:
+  - libs/path/src/lib.rs

@@ -39,7 +39,23 @@ LIBCLANG_PATH = "{{ vars.conda_clangxx }}/lib"
 BINDGEN_EXTRA_CLANG_ARGS = "{{ vars.bindgen_args }}"
 
 [tasks.setup-linux]
-# Linux preinstall: just the shared cross-platform base -- the C toolchain and
-# gpg come from the distro (apt/system), not mise.
-description = "Linux preinstall (the shared cross-platform base)"
+# Linux preinstall: the shared cross-platform base (via _setup_all), then verify
+# the system build prerequisites mise can't supply -- the C/C++ toolchain, gpg
+# and archive tools the Dockerfile installs via apt. A workstation missing any is
+# told to install them with its package manager (CI/Docker already have them).
+description = "Linux preinstall: shared base + verify system build prerequisites"
 depends = ["_setup_all"]
+run = """
+pkgs="bzip2 ca-certificates curl g++ gcc git gnupg libc6-dev libicu74 make unzip xz-utils"
+missing=""
+for cmd in gcc g++ make git curl gpg unzip bzip2 xz; do
+  command -v "$cmd" >/dev/null 2>&1 || missing="$missing $cmd"
+done
+if [ -n "$missing" ]; then
+  echo "setup-linux: missing required system tools:$missing" >&2
+  echo "Install them with your package manager. On Debian/Ubuntu:" >&2
+  echo "  sudo apt-get install -y $pkgs" >&2
+  exit 1
+fi
+"""
+shell = "bash -euo pipefail -c"

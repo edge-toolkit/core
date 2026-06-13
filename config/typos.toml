@@ -1,0 +1,4 @@
+# data/ holds vendored demo + model assets (not our own prose), so its spelling
+# is out of scope for the typos check.
+[files]
+extend-exclude = ["data/"]

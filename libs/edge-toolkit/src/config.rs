@@ -12,20 +12,14 @@ use crate::ports::Services;
 pub const LOCALHOST: &str = "127.0.0.1";
 
 /// Helper to find repository root.
+///
+/// This is the one sanctioned `current_dir()` call (see the `no-current-dir`
+/// ast-grep rule): it hands the current directory to the shared find-up helper,
+/// which walks up to the `.dprint.jsonc` marker.
 #[expect(clippy::missing_panics_doc, clippy::unwrap_used)]
 #[must_use]
 pub fn get_project_root() -> PathBuf {
-    match lets_find_up::find_up(".dprint.jsonc") {
-        Ok(Some(mut path)) => {
-            assert!(path.pop(), "Failed to drop the filename");
-            path
-        }
-        Ok(None) => std::env::current_dir().unwrap(),
-        Err(err) => {
-            log::error!("{err}");
-            std::env::current_dir().unwrap()
-        }
-    }
+    et_path::find_project_root(&std::env::current_dir().unwrap())
 }
 
 /// Returns the default module search paths for ws-server.

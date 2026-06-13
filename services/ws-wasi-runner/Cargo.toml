@@ -8,7 +8,6 @@ repository.workspace = true
 
 [lib]
 doctest = false
-name = "et_ws_wasi_runner"
 path = "src/lib.rs"
 
 [[bin]]

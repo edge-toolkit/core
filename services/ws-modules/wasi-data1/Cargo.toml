@@ -19,5 +19,9 @@ test = false
 serde_json.workspace = true
 wit-bindgen.workspace = true
 
+# Build script (runs on the host) locates the repo root to emit ET_WIT_DIR.
+[build-dependencies]
+et-path.workspace = true
+
 [lints]
 workspace = true

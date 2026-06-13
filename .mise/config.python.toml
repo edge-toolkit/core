@@ -3,7 +3,6 @@
 # the `pipx:*` entries below resolve through it.
 
 [tools]
-"pipx:cmake" = "latest"
 "pipx:componentize-py" = "latest"
 "pipx:datamodel-code-generator" = { version = "latest", extras = "ruff" }
 "pipx:openapi-python-client" = "0.29.0"

@@ -9,7 +9,6 @@ rust-version.workspace = true
 
 [lib]
 doctest = false
-name = "et_ws_web_runner"
 path = "src/lib.rs"
 
 [[bin]]

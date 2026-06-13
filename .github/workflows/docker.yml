@@ -39,7 +39,7 @@ jobs:
           sudo systemctl start docker
           docker info --format 'Docker Root Dir: {{.DockerRootDir}}'
 
-      - name: Build the edge-toolkit test image
+      - name: Build stage test
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: DOCKER_BUILDKIT=1 docker build --target test --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit-test .
@@ -67,16 +67,11 @@ jobs:
           sc query docker | grep -q RUNNING || net start docker
           docker version
 
-      - name: Stage mise and the token in the build context
+      - name: Prepare mise and Github token for the build context
         run: |
           v="${{ env.MISE_VERSION }}"
           curl -fsSL -o mise.zip "https://github.com/jdx/mise/releases/download/v$v/mise-v$v-windows-x64.zip"
           printf '%s' "${{ github.token }}" > gh_token
 
-      # Build only through the `build` stage (mise + the full toolchain): that's
-      # the current frontier -- the install pipeline is what we're proving on a
-      # bare Nano Server. The later stages (prefetch/precompile/test/server)
-      # mirror the Linux Dockerfile but aren't reached yet; bump --target as they
-      # come green.
-      - name: Build the Windows setup image
-        run: docker build -f Dockerfile.windows --target build -t edge-toolkit-windows .
+      - name: Build stage precompile
+        run: docker build -f Dockerfile.windows --target precompile -t edge-toolkit-windows .

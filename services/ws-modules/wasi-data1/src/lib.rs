@@ -28,7 +28,8 @@
 #![expect(unsafe_code)]
 
 wit_bindgen::generate!({
-    path: "../../../generated/specs/wit",
+    // ET_WIT_DIR is the absolute path to generated/specs/wit, emitted by build.rs.
+    path: env!("ET_WIT_DIR"),
     world: "module",
     generate_all,
 });
