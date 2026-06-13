@@ -189,19 +189,15 @@ ENV CARGO_HOME=C:\.cargo `
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise run setup-windows
 
-# pipx must be on PATH before the full `mise install` reaches pipx:semgrep, which
-# shells out to it. Install python + pip-install pipx, then copy pipx.exe into
-# C:\mise\bin (already on PATH). pip drops it in python's versioned Scripts dir
-# (...\python\<patch>\Scripts), and the patch component isn't stable, so locate it
-# with `dir /s` rather than hardcoding the path. The pip launcher .exe embeds the
-# python path, so it still works from C:\mise\bin.
-RUN set /p GITHUB_TOKEN=<C:\gh_token && `
-    mise install python && `
-    mise exec -- python -m pip install --no-warn-script-location pipx && `
-    for /f "delims=" %F in ('dir /s /b "%LOCALAPPDATA%\mise\installs\python\pipx.exe"') do copy /Y "%F" C:\mise\bin\
+# Skip pipx:semgrep in this image. pipx can't even import on Nano Server:
+# platformdirs' user_data_path() calls a shell known-folder API (SHGetFolderPathW)
+# that Nano lacks, and it runs at import so no pipx env var dodges it. semgrep is a
+# linter run only by `mise run check` on Linux -- never on Windows -- so dropping
+# just this one tool (everything else installs normally) loses nothing here.
+ENV MISE_DISABLE_TOOLS=pipx:semgrep
 
-# The remaining always-loaded tools (the cargo: tools + pipx:semgrep) now that
-# rust links via gnullvm and pipx is on PATH.
+# The remaining always-loaded tools (python + the cargo: tools) now that rust
+# links via gnullvm.
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise install
 
