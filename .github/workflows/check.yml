@@ -31,7 +31,7 @@ jobs:
       - name: Install mise
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-binstall,mise
+          tool: cargo-binstall,mise@2026.6.5
 
       - name: Select all language envs
         run: echo "MISE_ENV=$(mise run print-all-langs)" >> "$GITHUB_ENV"

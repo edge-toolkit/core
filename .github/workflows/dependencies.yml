@@ -39,7 +39,7 @@ jobs:
       - name: Install dep-audit tools
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-deny,cargo-unmaintained,mise,osv-scanner
+          tool: cargo-deny,cargo-unmaintained,mise@2026.6.5,osv-scanner
 
       - name: Trust mise config
         run: mise trust
