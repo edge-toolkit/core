@@ -62,9 +62,8 @@ jobs:
       # the build can fail connecting to the docker_engine pipe. Start it (no-op
       # if already running) and confirm connectivity before building.
       - name: Start the Docker daemon
-        shell: pwsh
         run: |
-          if ((Get-Service docker).Status -ne 'Running') { Start-Service docker }
+          sc query docker | grep -q RUNNING || net start docker
           docker version
 
       - name: Stage mise and the token in the build context

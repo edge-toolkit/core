@@ -127,6 +127,13 @@ libclang_path = "{% if os() == 'linux' %}{{ vars.conda_clangxx }}/lib{% else %}{
 # is "not found in context" off-Windows and hard-fails the whole config render.
 py313_win = "{{ get_env(name='LOCALAPPDATA', default='') }}\\mise\\installs\\python\\3.13\\python.exe"
 py313_unix = "{{ env.HOME }}/.local/share/mise/installs/python/3.13/bin/python3"
+# mise's task bash-resolution probes only Git Bash / standalone MSYS2 (see mise's
+# task_executor.rs bash_candidates), never its own conda install -- so on a bare
+# Windows box it can't find the conda:m2-bash we install and falls back to the
+# WSL-launcher bash.exe. MISE_BASH_PATH (below) points it here. The msys2 bash
+# lands under the conda prefix's Library\usr\bin. Windows-only; the env entry is
+# empty elsewhere, which mise ignores.
+winbash = '{{ get_env(name="LOCALAPPDATA", default="") }}\mise\installs\conda-m2-bash\latest\Library\usr\bin\bash.exe'
 # Linker RUSTFLAGS fragments, composed into the per-target CARGO_TARGET_* env
 # values below — kept as vars so those values stay on a single line.
 lld_flag = "-C link-arg=-fuse-ld={{ vars.conda_lld }}/bin/ld64.lld"
@@ -192,6 +199,11 @@ CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars
 # empty"); Dockerfile.windows sets those.
 CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = "x86_64-w64-mingw32-gcc"
 CARGO_TARGET_X86_64_PC_WINDOWS_GNU_RUSTFLAGS = "-Cdlltool=x86_64-w64-mingw32-dlltool"
+# Point mise's task shell at the conda:m2-bash it installs (Docker + workstation),
+# so `shell = "bash …"` tasks don't fall back to the Windows WSL launcher. mise
+# checks MISE_BASH_PATH first and ignores it when empty, so the off-Windows empty
+# value here is a safe no-op (winbash is only meaningful on Windows anyway).
+MISE_BASH_PATH = "{% if os() == 'windows' %}{{ vars.winbash }}{% endif %}"
 # bindgen (pulled in transitively by the deno web runner) needs the C
 # `libclang.so`. A mise-only Linux box usually only has `libclang-cpp` (the C++
 # API), so install `conda:clangxx` (above) for its `libclang.so`, point clang-sys

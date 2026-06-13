@@ -111,20 +111,16 @@ COPY .mise/config.toml .mise/config.toml
 # throwaway job image.
 COPY gh_token C:\gh_token
 
-# mise setup via the same task a workstation runs (see the README): setup-windows
-# depends on setup-all (experimental + cargo.binstall, cargo-binstall, node,
-# openssl), then installs the gnu toolchain (git, gpg, llvm-mingw, make, rust)
-# and flips rustup to the gnu host, so cargo links via llvm-mingw rather than the
-# absent MSVC link.exe. bash (conda:m2-bash) is installed FIRST, as a plain
-# command -- Nano Server ships no bash and the mise tasks run on `bash -euo
-# pipefail`, so bash has to exist before any `mise run`. (experimental is enabled
-# here too, ahead of setup-all, because the conda backend needs it.) The
-# Docker-only settings stay inline: `mise settings` writes the global config
-# (C:\.config\mise on Windows, not auto-trusted -- hence the explicit trust);
-# aqua's signature checks (attestations/cosign/slsa) are off because their
-# sigstore/TUF step can't find a cache dir here; pipx.uvx=false makes the pipx:
-# backend use pip, not uv (uv's PE-resource trampoline isn't implemented on Nano
-# Server, error 120).
+# mise setup. bash (conda:m2-bash) is installed FIRST, as a plain command --
+# Nano Server ships no bash and the mise tasks run on `bash -euo pipefail`, so
+# bash must exist before any `mise run`. mise can't auto-find a conda bash, so
+# the config's [env] sets MISE_BASH_PATH to it. The Docker-only settings stay
+# inline: `mise settings` writes the global config (C:\.config\mise on Windows,
+# not auto-trusted -- hence the explicit trust); experimental is enabled ahead of
+# setup-all because the conda backend needs it; aqua's signature checks
+# (attestations/cosign/slsa) are off (their sigstore/TUF step can't find a cache
+# dir here); pipx.uvx=false makes the pipx: backend use pip, not uv (uv's
+# PE-resource trampoline isn't implemented on Nano Server, error 120).
 RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise trust && `
     mise settings experimental=true && `
@@ -133,7 +129,18 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise settings set aqua.slsa false && `
     mise settings set pipx.uvx false && `
     mise trust C:\.config\mise\config.toml && `
-    mise install conda:m2-bash && `
+    mise install conda:m2-bash
+
+# Diagnostic (informational): print where conda:m2-bash actually put bash.exe, so
+# the CI log confirms the MISE_BASH_PATH that [env] computes (winbash assumes
+# Library\usr\bin). `& ver>nul` keeps exit 0 even if findstr matches nothing.
+RUN dir /s /b "%LOCALAPPDATA%\mise\installs\conda-m2-bash" 2>nul | findstr /i "bash.exe" & ver>nul
+
+# setup-windows depends on setup-all (experimental + cargo.binstall,
+# cargo-binstall, node, openssl), then installs the gnu toolchain (git, gpg,
+# llvm-mingw, make, rust) and flips rustup to the gnu host so cargo links via
+# llvm-mingw rather than the absent MSVC link.exe. Runs in bash via MISE_BASH_PATH.
+RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise run setup-windows
 
 # Force the gnu build target. RUSTUP_TOOLCHAIN is intentionally NOT set here:
