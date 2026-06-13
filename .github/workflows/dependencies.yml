@@ -7,8 +7,8 @@ name: dependencies
       - Cargo.lock
       - Cargo.toml
       - "**/Cargo.toml"
-      - deny.toml
-      - osv-scanner.toml
+      - config/deny.toml
+      - config/osv-scanner.toml
       - .github/workflows/dependencies.yml
   workflow_dispatch:
 
@@ -31,21 +31,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The audit binaries come from taiki-e (fast prebuilts); the checks below
+      # are driven through `mise run` so the commands + config paths have one
+      # source of truth in .mise/config.toml. mise's `task.run_auto_install =
+      # false` means `mise run` won't drag in the whole toolchain just to run a
+      # task, so this stays a lightweight, audit-only job.
       - name: Install dep-audit tools
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-deny,cargo-unmaintained,mise,osv-scanner
 
-      - name: Generate osv-scanner.toml from deny.toml
-        run: |
-          mise trust
-          mise run gen:osv-scanner
+      - name: Trust mise config
+        run: mise trust
+
+      - name: Generate config/osv-scanner.toml from config/deny.toml
+        run: mise run gen:osv-scanner
 
       - name: cargo deny check
-        run: cargo deny check
+        run: mise run cargo-deny-check
 
+      # osv-scanner runs directly, not via `mise run osv-scanner`: that task
+      # depends on `cargo-check` (a full workspace build) for local use, which
+      # this job intentionally skips -- it only scans the committed lockfile.
       - name: osv-scanner
-        run: osv-scanner --lockfile Cargo.lock
+        run: osv-scanner --lockfile Cargo.lock --config config/osv-scanner.toml
 
       # `cargo unmaintained` persists per-repository archival/last-commit
       # lookups under `$XDG_CACHE_HOME/cargo-unmaintained` (default
@@ -69,7 +78,7 @@ jobs:
       - name: cargo unmaintained
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: cargo unmaintained
+        run: mise run cargo-unmaintained-check
 
-      - name: Check osv-scanner.toml is committed
-        run: git diff --exit-code -- osv-scanner.toml
+      - name: Check config/osv-scanner.toml is committed
+        run: git diff --exit-code -- config/osv-scanner.toml

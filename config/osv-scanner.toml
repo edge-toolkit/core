@@ -1,4 +1,4 @@
-# AUTO-GENERATED from deny.toml by `mise run gen:osv-scanner`.
+# AUTO-GENERATED from config/deny.toml by `mise run gen:osv-scanner`.
 IgnoredVulns = [
   { id = "RUSTSEC-2023-0071" },
   { id = "RUSTSEC-2024-0436" },

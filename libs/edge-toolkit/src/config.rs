@@ -15,7 +15,7 @@ pub const LOCALHOST: &str = "127.0.0.1";
 #[expect(clippy::missing_panics_doc, clippy::unwrap_used)]
 #[must_use]
 pub fn get_project_root() -> PathBuf {
-    match lets_find_up::find_up(".taplo.toml") {
+    match lets_find_up::find_up(".dprint.jsonc") {
         Ok(Some(mut path)) => {
             assert!(path.pop(), "Failed to drop the filename");
             path

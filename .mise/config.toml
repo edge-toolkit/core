@@ -150,6 +150,10 @@ mnist_dst = "services/ws-modules/wasi-graphics-info/pkg/mnist-12.onnx"
 # no MISE_ENV=all). Hardcoded rather than shell-discovered so it works on Windows
 # too — keep in sync when adding/removing a config.<lang>.toml.
 ALL_LANGS = "dart,dotnet,java,python,rust,zig"
+# taplo's config now lives under config/ instead of a root .taplo.toml, which it
+# no longer auto-discovers; TAPLO_CONFIG points every `taplo lint`/`format` at
+# it. config_root keeps the path valid regardless of the invocation's cwd.
+TAPLO_CONFIG = "{{ config_root }}/config/taplo.toml"
 # Use the conda:openssl install for Rust's OPENSSL_DIR so openssl-sys crate builds.
 OPENSSL_DIR = "{{ vars.conda_openssl }}"
 # Use lld on macos as documented at https://github.com/cameron1024/dart-typegen
@@ -235,11 +239,12 @@ description = "Run all formatters: fmt:rust + any loaded guest fmt:<lang>"
 [tasks."check:rust"]
 # The dep-audit tools (osv-scanner, cargo-deny, cargo-unmaintained) run
 # in the standalone `.github/workflows/dependencies.yml` workflow so they
-# only fire when Cargo.lock / Cargo.toml / deny.toml change, not on every
+# only fire when Cargo.lock / Cargo.toml / config/deny.toml change, not on every
 # `mise run check`. `osv-scanner` and `cargo-deny` are kept in `[tools]`
-# for ad-hoc local invocation (e.g. `mise run osv-scanner`,
-# `cargo deny check`); `cargo-unmaintained` is installed only by the
-# workflow via `taiki-e/install-action` since it isn't useful enough
+# for ad-hoc local invocation (`mise run osv-scanner`, or
+# `cargo deny check --config config/deny.toml` -- deny no longer auto-finds the
+# config now that it lives under config/); `cargo-unmaintained` is installed only
+# by the workflow via `taiki-e/install-action` since it isn't useful enough
 # locally to justify the cargo-build cost on every `mise install`.
 #
 # Rust + universal repo-wide checks. Lives in the always-loaded default config,
@@ -289,10 +294,10 @@ run = "semgrep scan --config config/semgrep --error --metrics=off ."
 # hadolint lints the Linux Dockerfiles. Dockerfile.windows is excluded -- its
 # backtick-escape continuations + cmd/PowerShell RUNs aren't hadolint-friendly
 # (hadolint's ShellCheck pass assumes POSIX sh). Ignored rules live in
-# .hadolint.yaml.
+# config/hadolint.yaml.
 [tasks.hadolint-check]
 description = "Lint the Linux Dockerfiles with hadolint"
-run = "hadolint Dockerfile services/ws-server/Dockerfile"
+run = "hadolint --config config/hadolint.yaml Dockerfile services/ws-server/Dockerfile"
 
 [tasks.cargo-check]
 run = "cargo check --workspace"
@@ -318,7 +323,7 @@ run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace 
 run = "taplo format"
 
 [tasks.taplo-check]
-# `taplo lint` reads .taplo.toml's `[[rule]] schema` entries for editor /
+# `taplo lint` reads config/taplo.toml's `[[rule]] schema` entries for editor /
 # LSP-style validation, but silently ignores their nested constraints in
 # CLI mode (verified: injecting `path = "../foo"` into a member Cargo.toml
 # doesn't fire `no-path-deps` via the rule alone). We work around it by
@@ -395,22 +400,35 @@ mise install aube@latest
 
 [tasks.osv-scanner]
 depends = ["cargo-check"]
-run = "osv-scanner --lockfile Cargo.lock"
+run = "osv-scanner --lockfile Cargo.lock --config config/osv-scanner.toml"
 
 [tasks."gen:osv-scanner"]
-description = "Regenerate osv-scanner.toml from deny.toml's [advisories].ignore list"
-# osv-scanner and cargo-deny must ignore the same advisory IDs; deny.toml is the
-# source of truth (it carries the per-ID rationale). grep/sort/sed only, so the
-# `dependencies` workflow can run it (via mise) next to the audit binaries.
+description = "Regenerate config/osv-scanner.toml from config/deny.toml's [advisories].ignore list"
+# osv-scanner and cargo-deny must ignore the same advisory IDs; config/deny.toml
+# is the source of truth (it carries the per-ID rationale). grep/sort/sed only, so
+# the `dependencies` workflow can run it (via mise) next to the audit binaries.
 run = """
 {
-  echo '# AUTO-GENERATED from deny.toml by `mise run gen:osv-scanner`.'
+  echo '# AUTO-GENERATED from config/deny.toml by `mise run gen:osv-scanner`.'
   echo 'IgnoredVulns = ['
-  grep -oE '"RUSTSEC-[0-9]{4}-[0-9]{4}"' deny.toml | sort -u | sed 's/.*/  { id = & },/'
+  grep -oE '"RUSTSEC-[0-9]{4}-[0-9]{4}"' config/deny.toml | sort -u | sed 's/.*/  { id = & },/'
   echo ']'
-} >osv-scanner.toml
+} > config/osv-scanner.toml
 """
 shell = "bash -euo pipefail -c"
+
+[tasks.cargo-deny-check]
+description = "Audit dependencies with cargo-deny (advisories, bans, licenses, sources)"
+run = "cargo deny check --config config/deny.toml"
+
+[tasks.cargo-unmaintained-check]
+description = "Flag dependencies whose upstream repo is archived or unmaintained"
+# cargo-unmaintained is deliberately NOT a mise [tool]: it has no prebuilt and a
+# from-source `cargo install` is too heavy to pay on every `mise install`. The
+# `dependencies` workflow installs it via taiki-e/install-action; this task just
+# runs the binary so the audit command lives beside the others. A GITHUB_TOKEN in
+# the env lets it check each upstream repo's archival status.
+run = "cargo unmaintained"
 
 [tasks."gen:dockerignore"]
 description = "Regenerate .dockerignore from .gitignore + Docker-only excludes"

@@ -10,7 +10,7 @@
           "const": "forbidden; define a thiserror enum instead"
         },
         "ring": {
-          "const": "forbidden; use aws-lc-rs. Transitive via rcgen only (gated in deny.toml's bans.deny wrappers)."
+          "const": "forbidden; use aws-lc-rs. Transitive via rcgen only (gated in config/deny.toml's bans.deny)."
         },
         "ureq": {
           "const": "forbidden; use reqwest::blocking (sync) or reqwest (async). One HTTPS stack only."
