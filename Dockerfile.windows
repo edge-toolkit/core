@@ -162,6 +162,10 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
 ENV WINSH=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\http-busybox\1.37.0\sh.exe
 RUN dir "%LOCALAPPDATA%\mise\installs\http-busybox\1.37.0" & `
     ("%WINSH%" -c "echo [smoke] busybox sh runs on nano" && echo [smoke] OK || echo [smoke] FAIL) & `
+    ("%WINSH%" -c "echo [diag] PATH=[$PATH]") & `
+    ("%WINSH%" -c "mise --version" && echo [diag] mise OK || echo [diag] mise FAIL) & `
+    ("%WINSH%" -c "mise.exe --version" && echo [diag] mise.exe OK || echo [diag] mise.exe FAIL) & `
+    ("%WINSH%" -c "command -v mise; command -v mise.exe; type mise" & ver>nul) & `
     ver>nul
 
 # Force the gnu build target for the project cargo builds below. mise's rust tool
