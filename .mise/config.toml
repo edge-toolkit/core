@@ -106,7 +106,9 @@ gh = "latest"
 [tools."http:busybox"]
 version = "1.37.0"
 os = ["windows"]
-bin = "sh"
+# `sh.exe` (not bare `sh`): mise writes the bin name verbatim, and Windows needs
+# the .exe extension to launch it by name (cmd) and for MISE_BASH_PATH below.
+bin = "sh.exe"
 url = "https://frippery.org/files/busybox/busybox64u.exe"
 checksum = "sha256:6e263d154d8548d1eb936f65d1d8312c80df31c45974e48d6335e4dcc0f4f34c"
 

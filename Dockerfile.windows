@@ -156,9 +156,13 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
 
 # Smoke test (informational -- never fails the build): prove busybox sh runs on
 # Nano (native PE, no msys-2.0.dll / IdnToAscii problem). FAIL means the download
-# or the install path is wrong, so the bash-shell tasks below won't run.
+# or the install path is wrong, so the bash-shell tasks below won't run. The
+# `dir` first records the actual installed filename in the log (mise writes the
+# `bin` name verbatim), so a path mismatch is obvious.
 ENV WINSH=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\http-busybox\1.37.0\sh.exe
-RUN ("%WINSH%" -c "echo [smoke] busybox sh runs on nano" && echo [smoke] OK || echo [smoke] FAIL) & ver>nul
+RUN dir "%LOCALAPPDATA%\mise\installs\http-busybox\1.37.0" & `
+    ("%WINSH%" -c "echo [smoke] busybox sh runs on nano" && echo [smoke] OK || echo [smoke] FAIL) & `
+    ver>nul
 
 # Force the gnu build target for the project cargo builds below. mise's rust tool
 # sets RUSTUP_TOOLCHAIN to the bare version, which rustup resolves against the gnu
