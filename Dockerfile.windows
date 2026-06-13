@@ -47,6 +47,21 @@ COPY --from=vcruntime C:\Windows\System32\vcruntime140.dll C:\Windows\System32\
 COPY --from=vcruntime C:\Windows\System32\vcruntime140_1.dll C:\Windows\System32\
 COPY --from=vcruntime C:\Windows\System32\msvcp140.dll C:\Windows\System32\
 
+# The conda msys2 runtime (msys-2.0.dll, which bash.exe loads) imports
+# KERNEL32.dll!IdnToAscii + !IdnToUnicode. Nano Server's stripped kernel32
+# forwarder doesn't re-export those two names, so bash fails to load with
+# 0xC0000139 (STATUS_ENTRYPOINT_NOT_FOUND) -- every other msys/bash import
+# resolves. The functions themselves DO exist on Nano (real exports in
+# KernelBase.dll; normaliz.dll + the api-ms-win-core-localization contract
+# expose them), it's only the kernel32-named door that's missing. Server Core's
+# full kernel32.dll exports both (forwarding to normaliz/kernelbase, present
+# here), so drop it in as the kernel32 the loader resolves -- both the
+# forwarders\ copy (what KnownDLLs maps from on Nano) and a System32 root copy.
+# Same servicing baseline (ltsc2022 / 10.0.20348) as Nano's kernelbase, and a
+# kernel32's forwarder exports resolve lazily, so the extra entries are inert.
+COPY --from=vcruntime C:\Windows\System32\kernel32.dll C:\Windows\System32\forwarders\kernel32.dll
+COPY --from=vcruntime C:\Windows\System32\kernel32.dll C:\Windows\System32\kernel32.dll
+
 # cmd is the only shell Nano Server has; ContainerAdministrator so we can write
 # under C:\ (the backtick line continuations below rely on the escape directive
 # documented at the top of this file).
@@ -142,34 +157,12 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
     mise trust C:\.config\mise\config.toml && `
     mise install conda:m2-bash
 
-# Diagnostic (informational): print where conda:m2-bash actually put bash.exe, so
-# the CI log confirms the MISE_BASH_PATH that [env] computes (winbash assumes
-# Library\usr\bin). `dir /s /b <dir>\bash.exe` (a cmd builtin, no findstr) lists
-# every match; `& ver>nul` keeps exit 0 even when none are found.
-RUN dir /s /b "%LOCALAPPDATA%\mise\installs\conda-m2-bash\bash.exe" 2>nul & ver>nul
-
-# Persistent ENVs so the %...% expansions below resolve at cmd parse time (a `set`
-# in the same RUN would expand too late). WBASH mirrors the wbash var in
-# .mise/config.toml; CBASHBIN is the dir holding bash.exe + msys-2.0.dll. Removed
-# once the Windows path is green.
+# Smoke test (informational -- never fails the build): prove the conda msys2 bash
+# now LOADS on Nano with the kernel32 donor in place (it previously 0xC0000139'd
+# on the missing IdnToAscii/IdnToUnicode kernel32 exports). If this prints FAIL,
+# the kernel32 override above didn't take effect for the loader (KnownDLLs).
 ENV WBASH=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\conda-m2-bash\5.2.037.2\Library\usr\bin\bash.exe
-ENV CBASHBIN=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\conda-m2-bash\5.2.037.2\Library\usr\bin
-
-# Diagnostic (informational -- never fails the build): the tree dump confirmed
-# msys-2.0.dll (v3.6) sits right next to bash.exe and a PATH-augmented retry still
-# 0xC0000139'd, so msys-2.0.dll imports a Win32 entry point Nano Server doesn't
-# export. Install llvm-mingw (a static, native toolchain that runs on Nano) purely
-# to dump msys-2.0.dll's + bash.exe's imported DLLs/symbols with llvm-readobj --
-# that names the exact system DLL to backfill from the servercore donor stage.
-RUN mise install github:mstorsjo/llvm-mingw
-# mise's github: backend installs under installs\github-<owner>-<repo>\<ver>\bin
-# (not \llvm-mingw\). RODIR is that bin dir for the version @latest resolved to.
-ENV RODIR=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\github-mstorsjo-llvm-mingw\20260602\bin
-RUN echo [readobj] msys-2.0.dll imports: & `
-    "%RODIR%\llvm-readobj.exe" --coff-imports "%CBASHBIN%\msys-2.0.dll" & `
-    echo [readobj] bash.exe imports: & `
-    "%RODIR%\llvm-readobj.exe" --coff-imports "%WBASH%" & `
-    ver>nul
+RUN ("%WBASH%" -c "echo [smoke] bash loads on nano" && echo [smoke] OK || echo [smoke] FAIL) & ver>nul
 
 # setup-windows depends on setup-all (experimental + cargo.binstall,
 # cargo-binstall, node, openssl), then installs the gnu toolchain (git, gpg,
