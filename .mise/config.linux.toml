@@ -23,6 +23,10 @@ b_clang_sysroot = "{{ vars.a_conda_clangxx }}/{{ vars.a_conda_arch }}-conda-linu
 # in CI). Using conda's sysroot rather than the host's /usr/include keeps bindgen
 # self-contained.
 c_bindgen_args = "-resource-dir {{ vars.b_clang_resource }} --sysroot={{ vars.b_clang_sysroot }}"
+# clang-tidy gets the same resource-dir + conda sysroot as bindgen: the sysroot
+# also stops clang scanning the host's multiple /usr/lib/gcc installs for
+# libstdc++ (which otherwise warns, and -warnings-as-errors fails the run).
+clang_resource_arg = "{{ vars.c_bindgen_args }}"
 
 [env]
 # clang-sys finds conda's libclang.so via LIBCLANG_PATH; bindgen gets conda's

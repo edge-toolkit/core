@@ -78,6 +78,9 @@ yq = "latest"
 zizmor = "latest"
 
 [vars]
+# clang-tidy's resource-dir arg (points clang at its builtin headers, e.g.
+# stddef.h). Empty default; config.linux.toml sets it from conda:clangxx.
+clang_resource_arg = ""
 conda_openssl = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest"
 # mise-managed CPython 3.13 (Linux/macOS); the PYO3_PYTHON default below. Windows
 # overrides PYO3_PYTHON with its own py313_win in config.windows.toml.

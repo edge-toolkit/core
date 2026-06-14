@@ -22,7 +22,7 @@ defaults:
 jobs:
   build:
     runs-on: windows-2022
-    timeout-minutes: 80
+    timeout-minutes: 120
     env:
       # The classic Windows builder can't substitute build-args into the Dockerfile's RUN,
       # and mise's prebuilt "latest" zip is stale (2026.3.0, too old for the config).

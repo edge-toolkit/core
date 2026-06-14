@@ -106,6 +106,7 @@ them all; guest rows need their `MISE_ENV` loaded).
 | `*.py`    | `ruff-fmt`                      |
 | `*.dart`  | `fmt:dart`                      |
 | `*.zig`   | `fmt:zig`                       |
+| `*.c`     | `clang-format`                  |
 | `*.cs`    | `fmt:dotnet`                    |
 
 | File type | Check task(s)                                                                            |
@@ -117,6 +118,7 @@ them all; guest rows need their `MISE_ENV` loaded).
 | `*.py`    | `check:python`                                                                           |
 | `*.dart`  | `check:dart`                                                                             |
 | `*.zig`   | `check:zig`                                                                              |
+| `*.c`     | `clang-format-check`, `clang-tidy-check`, `cpplint-check`                                |
 | `*.cs`    | `check:dotnet`                                                                           |
 | `*.java`  | `check:java`                                                                             |
 
@@ -312,8 +314,8 @@ available linters:
 - **conftest** (`config/conftest/policy/`) — Rego policies over the combined
   TOML/YAML config set, for cross-file checks the schema linters can't express.
 - plus hadolint, ls-lint (file/dir naming), zizmor (Actions security), ryl
-  (YAML), lychee (links), editorconfig-checker, typos, and action-validator for
-  their domains.
+  (YAML), lychee (links), clang-format / clang-tidy / cpplint (C, in the zig
+  config), editorconfig-checker, typos, and action-validator for their domains.
 
 ast-grep has no TOML grammar, so it **cannot** lint TOML — use a taplo schema or
 a semgrep `generic` rule there. If none of the above can express a check,
