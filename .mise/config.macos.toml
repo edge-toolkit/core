@@ -1,12 +1,10 @@
-# macOS-only mise config. Loaded automatically on macOS by the platform auto_env
-# feature (.miserc.toml): the `macos` platform env maps to this file. Shared vars
-# (rpath_flag, pylib_flag, py313_unix, …) come from config.toml, which loads
-# first; PYO3_PYTHON keeps its config.toml default (py313_unix) here.
+# macOS-only mise config. Shared vars (rpath_flag, pylib_flag, py313_unix, …)
+# come from config.toml, which loads first; PYO3_PYTHON keeps its config.toml
+# default (py313_unix).
 
 [tools]
-# The LLD linker (ships ld64.lld) the darwin RUSTFLAGS below use; Apple's
-# /usr/bin/clang can't resolve `-fuse-ld=lld` without it. macOS-only -- Linux
-# uses its system linker, Windows the llvm-mingw one.
+# The LLD linker (ships ld64.lld) the RUSTFLAGS below use; Apple's /usr/bin/clang
+# can't resolve `-fuse-ld=lld` without it.
 "conda:lld" = "latest"
 
 [vars]
@@ -20,21 +18,20 @@ lld_flag = "-C link-arg=-fuse-ld={{ vars.conda_lld }}/bin/ld64.lld"
 mac_libclang = "{{ exec(command='dirname $(dirname $(xcrun --find clang))') }}/lib"
 
 [env]
-# Apple `/usr/bin/clang` rejects `-fuse-ld=lld` ("invalid linker name") unless it
-# resolves ld64.lld; lld_flag gives the absolute path. rpath/pylib flags (shared
-# with Linux, from config.toml) record conda's OpenSSL soname + the CPython lib
-# dir so the runtime loader finds them. Applies to every rustc call, including
-# the cargo subprocess mise spawns for a `cargo:` source build.
+# lld_flag points Apple's clang at ld64.lld (see [vars]); the rpath/pylib flags
+# (from config.toml) record conda's OpenSSL soname + the CPython lib dir so the
+# runtime loader finds them. Applies to every rustc call, including the `cargo:`
+# source-build subprocess.
 CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
 CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
 LIBCLANG_PATH = "{{ vars.mac_libclang }}"
 
 [tasks.preinstall]
-# macOS preinstall: verify Xcode's command-line tools (cc/clang etc., which mise
-# can't supply), then the shared base + conda:lld -- the linker the darwin build
-# uses. A box missing the CLT is told to install them.
-description = "macOS preinstall: verify Xcode CLT + shared base + conda:lld (the darwin linker)"
+# Preinstall: verify Xcode's command-line tools (cc/clang etc., which mise can't
+# supply), then the shared base + conda:lld (the darwin linker). A box missing
+# the CLT is told to install them.
 depends = ["_setup_all"]
+description = "Preinstall: verify Xcode CLT, shared base, conda:lld (darwin linker)"
 run = """
 xcode-select -p >/dev/null 2>&1 || {
   echo "preinstall: Xcode command-line tools not found." >&2

@@ -27,16 +27,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # The image is large (every language toolchain + prefetched models.
-      # The runner's root disk (~14 GB free) can't hold it.
-      # Move Docker's storage to the ~70 GB /mnt scratch disk.
-      - name: Move Docker storage to /mnt
-        run: |
-          sudo systemctl stop docker docker.socket
-          sudo mkdir -p /mnt/docker
-          echo '{"data-root":"/mnt/docker"}' | sudo tee /etc/docker/daemon.json
-          sudo systemctl start docker
-          docker info --format 'Docker Root Dir: {{.DockerRootDir}}'
+      # The image is huge (every language toolchain + prefetched models + a full
+      # debug build, incl. aws-lc-sys's large C objects), and its peak `target/`
+      # overruns a single runner disk. Reclaim the unused preinstalled SDKs and
+      # concatenate the freed root space with /mnt into one LVM volume mounted at
+      # Docker's data dir, then restart Docker so the build uses the combined space.
+      - name: Maximize build space (combine root + /mnt for Docker)
+        uses: easimon/maximize-build-space@v10
+        with:
+          root-reserve-mb: 4096
+          swap-size-mb: 1024
+          remove-dotnet: "true"
+          remove-android: "true"
+          remove-haskell: "true"
+          remove-codeql: "true"
+          remove-docker-images: "true"
+          build-mount-path: /var/lib/docker
+          build-mount-path-ownership: "root:root"
+
+      - name: Restart Docker on the maximized volume
+        run: sudo systemctl restart docker
 
       - name: Build stage test
         env:

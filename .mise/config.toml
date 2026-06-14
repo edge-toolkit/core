@@ -27,21 +27,22 @@ min_version = "2026.6.5"
 # configured tool before running python. Turn both off so the policy holds.
 # (Current mise accepts the nested task.run_auto_install form; very old builds
 # like 2026.3 used the flat `task_run_auto_install`.)
-task.run_auto_install = false
 exec_auto_install = false
+task.run_auto_install = false
 
 [tools]
 action-validator = "latest"
+"aqua:EmbarkStudios/cargo-deny" = "latest"
+ast-grep = "latest"
 cargo-binstall = "latest"
-"cargo:ast-grep" = "latest"
-"cargo:cargo-deny" = "latest"
+# dtolnay publishes no prebuilt binary for cargo-expand (crates.io only), so it's
+# the one tool here still built from source.
+"aqua:rustwasm/wasm-pack" = "latest"
 "cargo:cargo-expand" = "latest"
-# Not on Windows: taplo-cli pulls `ring`, whose build needs a C/asm toolchain the
-# gnu Nano image doesn't provide, and TOML linting (taplo-check) is skipped on
-# Windows anyway (it runs in the Linux check job).
-"cargo:taplo-cli" = { version = "latest", os = ["linux", "macos"] }
-"cargo:wasm-pack" = "latest"
-"cargo:watchexec-cli" = "latest"
+# aqua ships a prebuilt taplo binary (no `ring` C build). Off Windows regardless:
+# taplo-check (TOML linting) runs only in the Linux check job.
+taplo = { version = "latest", os = ["linux", "macos"] }
+watchexec = "latest"
 # vfox-chromedriver's PostInstall hook fails on Windows ("syntax of the
 # command is incorrect"). Chromedriver is only used by the
 # `test-ws-wasm-agent-chrome` / `ws-e2e-chrome` tasks, neither of which run
@@ -61,6 +62,10 @@ editorconfig-checker = "latest"
 "github:grok-rs/waitup" = "latest"
 "github:wasm-bindgen/wasm-bindgen" = "0.2.114"
 hadolint = "latest"
+# Link checker for the `link-check` task. Installs on every OS; the Nano Docker
+# image opts out via MISE_DISABLE_TOOLS (link-check isn't run in the Windows
+# build/test flow), which keeps that image lean.
+lychee = "latest"
 mprocs = "latest"
 node = "22"
 "npm:onnxruntime-web" = "latest"
@@ -74,6 +79,7 @@ pipx = { version = "latest", os = ["linux", "macos"] }
 "pipx:semgrep" = "latest"
 # The default aqua backend has no darwin/amd64 prebuilt; fall back to
 # `npm:pnpm` on Intel Mac (node is already a mise tool above).
+gh = "latest"
 "npm:pnpm" = { version = "latest", os = ["macos/x64"] }
 pnpm = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 protoc = "latest"
@@ -87,7 +93,6 @@ typos = "latest"
 uv = "0.11.8"
 wasm-tools = "latest"
 yq = "latest"
-gh = "latest"
 
 [vars]
 # conda:openssl install dir, reused by OPENSSL_DIR + rpath_flag. The per-OS
@@ -110,19 +115,19 @@ pylib_flag = "-C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/p
 wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint"
 # Source/dest paths for the fetch-*-rclone model downloads — kept as vars so
 # each `rclone copyto` command stays on a single line without continuations.
-face1_src = ":http:amd/retinaface/resolve/main/weights/RetinaFace_int.onnx"
 face1_dst = "data/model-modules/model-face1/pkg/video_cv.onnx"
+face1_src = ":http:amd/retinaface/resolve/main/weights/RetinaFace_int.onnx"
+har_dst = "data/model-modules/model-har-motion1/pkg/har-motion1.onnx"
 har_repo = ":http:acd17sk/MET-Metabolic-Equivalent-of-Task-AI-Android-APP"
 har_src = "{{ vars.har_repo }}/raw/refs/heads/main/Models/onnx/hybrid_met.onnx"
-har_dst = "data/model-modules/model-har-motion1/pkg/har-motion1.onnx"
-mnist_src = ":http:onnx/models/raw/main/validated/vision/classification/mnist/model/mnist-12.onnx"
 mnist_dst = "services/ws-modules/wasi-graphics-info/pkg/mnist-12.onnx"
+mnist_src = ":http:onnx/models/raw/main/validated/vision/classification/mnist/model/mnist-12.onnx"
 # `retry` prefixes each fetch with recur for exponential-backoff-with-jitter
 # retries (8 tries, 2s base doubling, capped 2m, 0-5s jitter); the *_http vars
 # carry the per-host base URL + flags. Kept as vars so each task line fits.
-retry = "recur --attempts 8 --delay 2s --backoff 2s --max-delay 2m --jitter 0,5s --"
-hf_http = "--http-url https://huggingface.co --progress --ignore-existing"
 gh_http = "--http-url https://github.com --progress --ignore-existing"
+hf_http = "--http-url https://huggingface.co --progress --ignore-existing"
+retry = "recur --attempts 8 --delay 2s --backoff 2s --max-delay 2m --jitter 0,5s --"
 
 [env]
 # Comma-separated list of every language env (one per .mise/config.<lang>.toml).
@@ -134,6 +139,9 @@ ALL_LANGS = "dart,dotnet,java,python,rust,zig"
 # no longer auto-discovers; TAPLO_CONFIG points every `taplo lint`/`format` at
 # it. config_root keeps the path valid regardless of the invocation's cwd.
 TAPLO_CONFIG = "{{ config_root }}/config/taplo.toml"
+# Likewise clippy.toml lives under config/; clippy reads its config from the dir
+# named by CLIPPY_CONF_DIR rather than auto-discovering a root .clippy.toml.
+CLIPPY_CONF_DIR = "{{ config_root }}/config"
 # Use the conda:openssl install for Rust's OPENSSL_DIR so openssl-sys crate builds.
 OPENSSL_DIR = "{{ vars.conda_openssl }}"
 # Per-OS RUSTFLAGS (CARGO_TARGET_<triple>_*), LIBCLANG_PATH, BINDGEN args and the
@@ -329,6 +337,14 @@ shell = "bash -euo pipefail -c"
 [tasks.typos]
 run = "typos --config config/typos.toml"
 
+# Not in the `check` aggregate: lychee makes live network requests, so it would
+# make CI flaky. Run on demand (or from a scheduled workflow). Checks every URL
+# in the repo's Markdown + Rust sources; lychee extracts URLs from .rs comments
+# and string literals too. config/lychee.toml excludes generated/ + target/.
+[tasks.link-check]
+description = "Check that URLs in .md and .rs files are reachable (network; not in check)"
+run = "lychee --config config/lychee.toml '**/*.md' '**/*.rs'"
+
 [tasks.setup-aube]
 # `aube` is an OPTIONAL faster npm backend, kept out of the mandatory `[tools]`
 # list because its install is flaky on some platforms and edge-toolkit falls
@@ -359,8 +375,8 @@ shell = "bash -euo pipefail -c"
 # cargo.binstall, then installs cargo-binstall (a prebuilt binary, safe to
 # preinstall anywhere), node (mise uses it for the npm: tools) and conda:openssl
 # (for openssl-sys) -- all needed on every platform.
-hide = true
 description = "Private shared cross-platform preinstall"
+hide = true
 run = """
 mise settings experimental=true
 mise settings set cargo.binstall true
@@ -568,7 +584,11 @@ shell = "bash -euo pipefail -c"
 [tasks.build-ws-wasm-agent]
 description = "Build the WebSocket WASM client"
 dir = "services/ws-wasm-agent"
-run = "wasm-pack build . --target web -- -Z build-std=std,panic_abort"
+# --mode no-install: use the mise-pinned wasm-bindgen (and skip wasm-opt) instead
+# of letting wasm-pack download its own. The wasm32 target + rust-src come from
+# the `rust` tool's targets/components (Windows re-adds them to its gnullvm
+# toolchains in preinstall), so nothing is fetched at build time.
+run = "wasm-pack build . --target web --mode no-install -- -Z build-std=std,panic_abort"
 
 [tasks.build-ws-wasm-agent.env]
 # Scope these flags to the wasm target rather than setting plain `RUSTFLAGS`:

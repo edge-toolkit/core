@@ -1,50 +1,53 @@
-# Linux-only mise config. Loaded automatically on Linux by the platform auto_env
-# feature (.miserc.toml): the `linux` platform env maps to this file. Shared vars
-# (rpath_flag, pylib_flag, conda_openssl, py313_unix, …) come from config.toml,
-# which loads first; PYO3_PYTHON keeps its config.toml default (py313_unix).
+# Linux-only mise config. Shared vars (rpath_flag, pylib_flag, conda_openssl,
+# py313_unix, …) come from config.toml, which loads first; PYO3_PYTHON keeps its
+# config.toml default (py313_unix).
 
 [tools]
-# Ships the C `libclang.so` (+ clang resource headers) that bindgen needs to
-# build the deno web runner's libsqlite3-sys. A mise-only Linux box usually only
-# has libclang-cpp (the C++ API); macOS uses Xcode's libclang, Windows
-# llvm-mingw's.
+# Ships the C `libclang.so` (+ clang resource headers) bindgen needs to build the
+# deno web runner's libsqlite3-sys; a mise-only box usually only has libclang-cpp
+# (the C++ API), not the C one.
 "conda:clangxx" = "latest"
 
 [vars]
-conda_clangxx = "{{ env.HOME }}/.local/share/mise/installs/conda-clangxx/latest"
-clang_resource = "{{ vars.conda_clangxx }}/lib/clang/22"
-# conda's target-triple dir uses x86_64/aarch64; mise's arch() is x64/arm64.
-conda_arch = "{% if arch() == 'arm64' %}aarch64{% else %}x86_64{% endif %}"
-clang_sysroot = "{{ vars.conda_clangxx }}/{{ vars.conda_arch }}-conda-linux-gnu/sysroot"
+# An `a_`/`b_`/`c_` prefix encodes each var's dependency tier so the alphabetical
+# order taplo's reorder_keys imposes keeps every definition before its use: `a_`
+# vars stand alone, `b_` vars read `a_` vars, `c_` reads `b_`. Without it sorting
+# moves a definition after the var that reads it and `mise install` can't render
+# the value. `a_conda_arch` picks conda's target-triple dir (x86_64/aarch64,
+# vs mise's x64/arm64).
+a_conda_arch = "{% if arch() == 'arm64' %}aarch64{% else %}x86_64{% endif %}"
+a_conda_clangxx = "{{ env.HOME }}/.local/share/mise/installs/conda-clangxx/latest"
+b_clang_resource = "{{ vars.a_conda_clangxx }}/lib/clang/22"
+b_clang_sysroot = "{{ vars.a_conda_clangxx }}/{{ vars.a_conda_arch }}-conda-linux-gnu/sysroot"
 # bindgen loads libclang directly rather than driving the clang binary, so it
 # can't auto-find its resource dir (builtins like stddef.h) or conda's bundled
 # sysroot. Pass `-resource-dir` + `--sysroot` so header resolution is identical
 # on every machine (a bare `-isystem` leaves builtin type macros unset and fails
 # in CI). Using conda's sysroot rather than the host's /usr/include keeps bindgen
 # self-contained.
-bindgen_args = "-resource-dir {{ vars.clang_resource }} --sysroot={{ vars.clang_sysroot }}"
+c_bindgen_args = "-resource-dir {{ vars.b_clang_resource }} --sysroot={{ vars.b_clang_sysroot }}"
 
 [env]
+# clang-sys finds conda's libclang.so via LIBCLANG_PATH; bindgen gets conda's
+# resource headers + sysroot via BINDGEN_EXTRA_CLANG_ARGS (see c_bindgen_args).
+BINDGEN_EXTRA_CLANG_ARGS = "{{ vars.c_bindgen_args }}"
 # rpath/pylib flags (shared, from config.toml): OPENSSL_DIR points openssl-sys at
 # conda's OpenSSL, so anything linking it records conda's libssl soname; without
 # an rpath the loader only finds it when conda's soname matches the system one
 # (it broke when conda bumped to libssl.so.4). pylib_flag does the same for the
-# CPython lib dir. No `-fuse-ld=lld`: the system linker accepts `-Wl,-rpath`
-# directly, unlike Apple clang's lld dance.
+# CPython lib dir. No `-fuse-ld=lld` needed: the system linker accepts
+# `-Wl,-rpath` directly.
 CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
 CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
-# Point clang-sys at conda's libclang.so and feed bindgen conda's resource
-# headers + sysroot (see bindgen_args).
-LIBCLANG_PATH = "{{ vars.conda_clangxx }}/lib"
-BINDGEN_EXTRA_CLANG_ARGS = "{{ vars.bindgen_args }}"
+LIBCLANG_PATH = "{{ vars.a_conda_clangxx }}/lib"
 
 [tasks.preinstall]
-# Linux preinstall: the shared cross-platform base (via _setup_all), then verify
-# the system build prerequisites mise can't supply -- the C/C++ toolchain, gpg
-# and archive tools the Dockerfile installs via apt. A workstation missing any is
+# Preinstall: the shared cross-platform base (via _setup_all), then verify the
+# system build prerequisites mise can't supply -- the C/C++ toolchain, gpg and
+# archive tools the Dockerfile installs via apt. A workstation missing any is
 # told to install them with its package manager (CI/Docker already have them).
-description = "Linux preinstall: shared base + verify system build prerequisites"
 depends = ["_setup_all"]
+description = "Preinstall: shared base + verify system build prerequisites"
 run = """
 pkgs="bzip2 ca-certificates curl g++ gcc git gnupg libc6-dev libicu74 make unzip xz-utils"
 missing=""

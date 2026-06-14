@@ -1,8 +1,6 @@
-# Windows-only mise config. Loaded automatically on Windows by the platform
-# auto_env feature (enabled in .miserc.toml): the `windows` platform env maps to
-# this file. Everything here is therefore Windows-scoped, so it needs no per-entry
-# `os = ["windows"]` guards or `{% if os() == 'windows' %}` conditionals -- values
-# defined here override the cross-platform defaults in config.toml on Windows.
+# Windows-only mise config. Everything here is Windows-scoped, so it needs no
+# per-entry `os = ["windows"]` guards or `{% if os() == 'windows' %}`
+# conditionals; values here override the cross-platform defaults in config.toml.
 # Shared vars (rpath_flag, py313_*, …) come from config.toml, which loads first.
 
 [tools]
@@ -28,16 +26,16 @@
 # loudly; `.exe` because mise writes the bin name verbatim and Windows launches
 # by extension.
 [tools."http:busybox"]
-version = "1.37.0"
 bin = "ash.exe"
-url = "https://frippery.org/files/busybox/busybox64u.exe"
 checksum = "sha256:6e263d154d8548d1eb936f65d1d8312c80df31c45974e48d6335e4dcc0f4f34c"
+url = "https://frippery.org/files/busybox/busybox64u.exe"
+version = "1.37.0"
 
 [vars]
 # busybox `ash` install path (for MISE_BASH_PATH), keyed by the pinned
 # http:busybox version above -- keep in sync.
 winsh = '{{ get_env(name="LOCALAPPDATA", default="") }}\mise\installs\http-busybox\1.37.0\ash.exe'
-# mise-managed CPython 3.13; the mise data dir is LOCALAPPDATA\mise on Windows.
+# mise-managed CPython 3.13; the mise data dir is LOCALAPPDATA\mise.
 py313_win = "{{ get_env(name='LOCALAPPDATA', default='') }}\\mise\\installs\\python\\3.13\\python.exe"
 # clang-sys finds libclang on PATH (Docker's gnu build has llvm-mingw there); a
 # workstation with system LLVM also works.
@@ -62,17 +60,17 @@ LIBCLANG_PATH = "{{ vars.win_libclang }}"
 PYO3_PYTHON = "{{ vars.py313_win }}"
 
 [tasks.preinstall]
-# Windows preinstall, shared by Dockerfile.nanoserver and a real workstation. The
-# busybox `sh` (http:busybox) is installed by the cmd bootstrap that runs before
-# any bash task on Windows (Dockerfile.nanoserver / the README), so this task's
-# `bash -euo pipefail` shell (= busybox ash via MISE_BASH_PATH) works. Installs
+# Preinstall, shared by Dockerfile.nanoserver and a real workstation. The busybox
+# `sh` (http:busybox) is installed by the cmd bootstrap that runs before any bash
+# task (Dockerfile.nanoserver / the README), so this task's `bash -euo pipefail`
+# shell (= busybox ash via MISE_BASH_PATH) works. Installs
 # the build utils (git/gpg/make), llvm-mingw and rust, pip-installs pipx (the
 # backend for the pipx:* tools, since aqua has no Windows pipx build), then flips
 # rustup's default host to gnullvm so both host and target link via llvm-mingw
 # rather than the absent MSVC link.exe (no Visual Studio Build Tools needed). The
 # prereqs mise CAN'T supply (a recent mise + the VC++ runtime) are in the README.
-description = "Windows preinstall: Windows toolchain + pipx + flip rustup to the gnullvm host"
 depends = ["_setup_all"]
+description = "Preinstall: toolchain + pipx + flip rustup to the gnullvm host"
 run = """
 mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
 # pipx backs the pipx:* tools but isn't a mise tool on Windows. Install it with
@@ -80,12 +78,17 @@ mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-mak
 # Scripts dir, where pipx lands, is already on PATH); Dockerfile.nanoserver puts
 # mise's python on PATH before this so the command resolves on Nano too.
 python -m pip install pipx
-# Install + default to the gnullvm build of the EXACT rust version mise pinned;
-# mise sets RUSTUP_TOOLCHAIN to that bare version, so once the default host is
-# gnullvm it resolves to this <version>-gnullvm toolchain.
+# rustup installed components/targets against the pre-flip default host, so after
+# flipping to gnullvm reinstall the EXACT stable + nightly versions mise pinned as
+# gnullvm toolchains, each carrying the components + wasm targets config.toml's
+# `rust` tool lists. Pre-adding the wasm target means wasm-pack finds it present
+# and never downloads rust-std mid-build. mise sets RUSTUP_TOOLCHAIN to the bare
+# stable version, which now resolves to <version>-gnullvm.
 ver="$(mise exec -- rustc --version | awk '{print $2}')"
 mise exec -- rustup set default-host x86_64-pc-windows-gnullvm
-mise exec -- rustup toolchain install "${ver}-x86_64-pc-windows-gnullvm"
+wasm="-t wasm32-unknown-unknown -t wasm32-wasip2"
+mise exec -- rustup toolchain install "${ver}-x86_64-pc-windows-gnullvm" -c clippy -c rust-analyzer $wasm
+mise exec -- rustup toolchain install nightly-x86_64-pc-windows-gnullvm -c rust-src -c rustfmt $wasm
 mise exec -- rustup default "${ver}-x86_64-pc-windows-gnullvm"
 """
 shell = "bash -euo pipefail -c"

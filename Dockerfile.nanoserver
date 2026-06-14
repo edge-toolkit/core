@@ -207,12 +207,14 @@ ENV PATH="C:\Users\ContainerAdministrator\AppData\Local\mise\installs\python\3.1
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise run preinstall
 
-# Skip pipx:semgrep in this image. pipx can't even import on Nano Server:
-# platformdirs' user_data_path() calls a shell known-folder API (SHGetFolderPathW)
-# that Nano lacks, and it runs at import so no pipx env var dodges it. semgrep is a
-# linter run only by `mise run check` on Linux -- never on Windows -- so dropping
-# just this one tool (everything else installs normally) loses nothing here.
-ENV MISE_DISABLE_TOOLS=pipx:semgrep
+# Skip tools this image never runs. pipx:semgrep -- pipx can't even import on Nano
+# Server: platformdirs' user_data_path() calls a shell known-folder API
+# (SHGetFolderPathW) that Nano lacks, and it runs at import so no env var dodges
+# it; semgrep is a linter run only by `mise run check` on Linux. lychee -- the
+# link-check task isn't part of the Windows build/test flow. cargo:cargo-expand --
+# a from-source dev tool (no prebuilt binary) with no build-time use. All install
+# fine elsewhere; dropping them here just keeps the image lean.
+ENV MISE_DISABLE_TOOLS=pipx:semgrep,lychee,cargo:cargo-expand
 
 # The remaining always-loaded tools (the cargo: tools; python is already
 # installed above) now that rust links via gnullvm.

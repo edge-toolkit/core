@@ -1,0 +1,26 @@
+# Config for the `link-check` task (mise run link-check). lychee makes live
+# network requests, so it is deliberately kept out of the blocking `check`
+# aggregate; run it on demand. Tuned to tolerate transient failures and to skip
+# reserved hosts and non-prose trees.
+
+# Retry transient failures; cap each request so a hung host can't stall the run.
+max_retries = 3
+retry_wait_time = 2
+timeout = 20
+
+# Cache results on disk (.lycheecache) so reruns skip recently-checked URLs.
+cache = true
+max_cache_age = "2d"
+
+# Treat GitHub's anonymous throttle (429) as reachable -- the link is valid,
+# we're just rate-limited.
+accept = ["200..=299", "429"]
+
+# Skip loopback/reserved hosts (localhost, 127.0.0.1) -- not real external links
+# -- and the generated/ + target/ trees (generated clients + build output, not
+# our prose; matches the other linters' exclusions).
+exclude_loopback = true
+exclude_path = ["generated", "target"]
+
+# URL patterns (regex) to skip -- add flaky or auth-gated hosts here.
+exclude = []
