@@ -199,11 +199,8 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install python
 ENV PATH="C:\Users\ContainerAdministrator\AppData\Local\mise\installs\python\3.13;${PATH}"
 
-# preinstall runs on busybox sh (via MISE_BASH_PATH): the shared _setup_all
-# base (cargo-binstall + node + openssl) then the gnu toolchain (git/gpg/
-# llvm-mingw/make/rust), pip-installs pipx, + rustup flip to the gnullvm host, so
-# cargo links via llvm-mingw (compiler-rt/libunwind) rather than the absent MSVC
-# link.exe. No build was needed for the shell itself, so no chicken-and-egg.
+# Run preinstall on busybox sh (via MISE_BASH_PATH), already bootstrapped above,
+# so there's no chicken-and-egg with the shell.
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise run preinstall
 
@@ -212,8 +209,8 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 # (SHGetFolderPathW) that Nano lacks, and it runs at import so no env var dodges
 # it; semgrep is a linter run only by `mise run check` on Linux. lychee -- the
 # link-check task isn't part of the Windows build/test flow. cargo:cargo-expand --
-# a from-source dev tool (no prebuilt binary) with no build-time use. All install
-# fine elsewhere; dropping them here just keeps the image lean.
+# a dev-only tool with no role in image builds. All install fine elsewhere;
+# dropping them here just keeps the image lean.
 ENV MISE_DISABLE_TOOLS=pipx:semgrep,lychee,cargo:cargo-expand
 
 # The remaining always-loaded tools (the cargo: tools; python is already

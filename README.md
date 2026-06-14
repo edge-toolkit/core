@@ -59,35 +59,19 @@ mise token github                                    # verify: should resolve a 
 setting is written to your global `~/.config/mise/config.toml`, so it stays
 per-machine and out of the repo.
 
-### Linux
-
-Nothing beyond the shared base — the C toolchain and gpg come from your distro's
-packages, not mise:
-
-```bash
-mise run preinstall
-```
-
-### Windows
+### Microsoft VC++ runtime
 
 mise.exe links the Microsoft VC++ runtime (`vcruntime140.dll`), so it must be
 present or mise won't start. It's preinstalled on Windows 10/11 and Server, so
 you already have it — only Nano Server omits it, and there the Docker build
 installs the [VC++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe).
 
-If you dont have Git Bash or MSYS installed, install a shell:
+### Windows shell
+
+On Windows, install the shell:
 
 ```bash
 mise install http:busybox
-```
-
-### MacOS
-
-On MacOS, the Xcode Command Line Tools (`clang`, `git`, `make`, etc.) must be
-installed first:
-
-```bash
-xcode-select --install
 ```
 
 ### All OS
@@ -98,6 +82,9 @@ To install dependencies:
 mise run preinstall
 mise install-all
 ```
+
+The `preinstall` task will advise if there are any required dependencies are
+are missing, such as Xcode Command Line Tools on MacOS.
 
 ## Contributing
 

@@ -35,9 +35,9 @@ cargo-binstall = "latest"
 # the one tool here still built from source.
 "aqua:rustwasm/wasm-pack" = "latest"
 "cargo:cargo-expand" = "latest"
-# aqua ships a prebuilt taplo binary (no `ring` C build). Off Windows regardless:
-# taplo-check (TOML linting) runs only in the Linux check job.
-taplo = { version = "latest", os = ["linux", "macos"] }
+# aqua ships a prebuilt taplo binary, so it installs on every OS (no `ring` C
+# build, which is what previously kept it off the gnu Windows image).
+taplo = "latest"
 watchexec = "latest"
 # vfox-chromedriver's PostInstall hook fails on Windows ("syntax of the
 # command is incorrect"). Chromedriver is only used by the
@@ -50,6 +50,9 @@ cmake = "latest"
 # macOS, the msys2/llvm-mingw/busybox set on Windows) live in the matching
 # config.<os>.toml.
 "conda:openssl" = "3"
+# conftest runs the repo's OPA/Rego policies (config/conftest/policy) -- the
+# cross-file config invariants taplo's per-file JSON schemas can't express.
+conftest = "latest"
 dprint = "latest"
 editorconfig-checker = "latest"
 # Retries a command with exponential backoff + jitter; wraps the model fetches
@@ -217,6 +220,7 @@ depends = [
   "gen-specs-check",
   "hadolint-check",
   "semgrep-check",
+  "conftest-check",
   "taplo-check",
   "typos",
   "verification-check",
@@ -275,21 +279,35 @@ run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace 
 [tasks.taplo-fmt]
 run = "taplo format"
 
+[tasks.conftest-check]
+description = "Run conftest OPA/Rego policies (config/conftest/policy) over config + lock files"
+# --combine feeds every listed file to one policy evaluation as an array of
+# {path, contents}, so a policy can both check each file and compare across files
+# (the mise wasm-bindgen pin vs Cargo.lock). --parser toml: Cargo.lock has no
+# .toml suffix. git ls-files enumerates the tracked Cargo.toml + mise configs.
+run = """
+git ls-files '*Cargo.toml' '.mise/config*.toml' Cargo.lock |
+  xargs conftest test --combine --parser toml --all-namespaces -p config/conftest/policy
+"""
+shell = "bash -euo pipefail -c"
+
 [tasks.taplo-check]
 # `taplo lint` reads config/taplo.toml's `[[rule]] schema` entries for editor /
 # LSP-style validation, but silently ignores their nested constraints in
 # CLI mode (verified: injecting `path = "../foo"` into a member Cargo.toml
 # doesn't fire `no-path-deps` via the rule alone). We work around it by
 # applying each schema explicitly with `taplo lint --schema file://...`.
-# When adding a new schema under `config/taplo/`, append a `taplo lint`
-# line here too. See `config/taplo/RULE-IDEAS.md` for the investigation.
+# conftest-check (config/conftest/policy) intentionally duplicates these lints;
+# running both is fine. See `config/taplo/RULE-IDEAS.md` for the investigation.
 run = """
-# taplo-cli isn't installed on Windows (its `ring` dep needs a C/asm toolchain
-# the gnu Nano build lacks); TOML linting runs in the Linux check job. Skip here.
-[ "${OS:-}" = "Windows_NT" ] && { echo "taplo-check: skipped on Windows"; exit 0; }
-
 # Baseline TOML validation across every .toml file the auto-config picks up.
+# Runs on every OS (taplo is a prebuilt binary now).
 taplo lint
+
+# The --schema lints below pass file://$PWD URLs, which aren't well-formed on
+# Windows (drive-letter paths); run them on Linux/macOS only. conftest-check
+# applies the same rules on every OS.
+[ "${OS:-}" = "Windows_NT" ] && exit 0
 
 # All member Cargo.tomls — exclude workspace root and any build output.
 # `-prune` target/ and .git so find never descends into them: `-not -path`
@@ -586,7 +604,15 @@ shell = "bash -euo pipefail -c"
 [tasks.build-ws-wasm-agent]
 description = "Build the WebSocket WASM client"
 dir = "services/ws-wasm-agent"
-run = "wasm-pack build . --target web -- -Z build-std=std,panic_abort"
+# wasm-opt (binaryen) can't execute on the Nano Server image (it needs more of the
+# VC++ runtime than the image carries), so skip it on Windows -- that build is only
+# a smoke-test; the served, size-optimised artifact is built on Linux/macOS.
+run = """
+opt=""
+[ "${OS:-}" = "Windows_NT" ] && opt="--no-opt"
+wasm-pack build . --target web $opt -- -Z build-std=std,panic_abort
+"""
+shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-wasm-agent.env]
 # Scope these flags to the wasm target rather than setting plain `RUSTFLAGS`:

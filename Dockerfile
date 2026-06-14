@@ -69,9 +69,8 @@ RUN apt-get update \
 # then resolves the workspace tools.
 RUN curl -fsSL https://mise.run | sh
 ENV PATH="/root/.local/bin:/root/.local/share/mise/shims:${PATH}"
-# cargo-expand is a dev macro-debugging convenience with no prebuilt binary, so
-# in the image it would be a slow from-source cargo build for no build-time use.
-# Skip it (inherited by every stage below). Linters/builds/tests don't need it.
+# cargo-expand is a dev-only macro-debugging tool with no role in image builds,
+# so skip it here (this ENV is inherited by every stage below).
 ENV MISE_DISABLE_TOOLS=cargo:cargo-expand
 
 WORKDIR /workspace

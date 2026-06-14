@@ -48,11 +48,10 @@ win_libclang = "C:\\Program Files\\LLVM\\bin"
 MISE_BASH_PATH = "{{ vars.winsh }}"
 # Build for the LLVM mingw target. gnullvm, not gnu: llvm-mingw ships
 # compiler-rt + libunwind, not the GCC runtime (libgcc/libgcc_eh) the gnu
-# target's link line demands. preinstall flips the rustup host to gnullvm too,
-# so build scripts/proc-macros (built for the host) link the same way. The linker
-# is clang and the raw-dylib import tool is llvm-dlltool, both from llvm-mingw on
-# PATH. These can live in [env] here (unlike config.toml) because this file only
-# loads on Windows, so there's no empty off-Windows value to break Linux cargo.
+# target's link line demands. The linker is clang and the raw-dylib import tool
+# is llvm-dlltool, both from llvm-mingw on PATH. These can live in [env] here
+# (unlike config.toml) because this file only loads on Windows, so there's no
+# empty off-Windows value to break Linux cargo.
 CARGO_BUILD_TARGET = "x86_64-pc-windows-gnullvm"
 CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_LINKER = "clang"
 CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_RUSTFLAGS = "-Cdlltool=llvm-dlltool"

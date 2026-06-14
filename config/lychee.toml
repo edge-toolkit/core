@@ -16,11 +16,10 @@ max_cache_age = "2d"
 # we're just rate-limited.
 accept = ["200..=299", "429"]
 
-# Skip loopback/reserved hosts (localhost, 127.0.0.1) -- not real external links
-# -- and the generated/ + target/ trees (generated clients + build output, not
-# our prose; matches the other linters' exclusions).
+# Skip loopback/reserved hosts (localhost, 127.0.0.1)
 exclude_loopback = true
-exclude_path = ["generated", "target"]
+
+exclude_path = ["data", "generated", "target"]
 
 # URL patterns (regex) to skip -- add flaky or auth-gated hosts here.
 exclude = []

@@ -255,6 +255,16 @@ If a function is private but needs testing, add a `[lib]` target to the crate an
 
 Every file under `tests/` must start with `#![cfg(test)]` (placed after the file's `//!` doc comment, if any).
 
+## Tools must work on every OS
+
+Every tool in the `.mise/config*.toml` `[tools]` tables must install and run on
+every supported OS (Linux, macOS, Windows). Do **not** `os`-scope a tool, or
+otherwise skip it on a platform, without explicit operator permission — prefer a
+prebuilt-binary backend (aqua/github/http) over a `cargo:` source build, which is
+usually what forces a platform exclusion. The one place tool skips need no
+permission is the Dockerfiles (`MISE_DISABLE_TOOLS`), where trimming an image to
+just what its build needs is expected.
+
 ## Linting
 
 Lint checks must be expressed through one of the repo's linters — **never** as a
