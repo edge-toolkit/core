@@ -52,6 +52,16 @@ const HOOK_ON_TEXT_FRAME: &str = "on_text_frame";
 const HOOK_ON_BINARY_FRAME: &str = "on_binary_frame";
 const HOOK_ON_SHUTDOWN: &str = "on_shutdown";
 
+/// Every hook, for the load-time sanity check: a module that defines none of
+/// them can never be invoked, so importing it is almost certainly a mistake.
+const HOOKS: [&str; 5] = [
+    HOOK_INIT,
+    HOOK_ON_CONNECT,
+    HOOK_ON_TEXT_FRAME,
+    HOOK_ON_BINARY_FRAME,
+    HOOK_ON_SHUTDOWN,
+];
+
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum PythonError {
@@ -342,6 +352,25 @@ impl Dispatcher {
             }
 
             let module = py.import(module_name)?;
+
+            // Sanity check: a module that defines none of the hooks can never
+            // be driven, so importing it is almost certainly a misconfiguration
+            // (wrong RUNNER_MODULE, or a misspelt hook). Fail loudly at load
+            // rather than connect and sit idle.
+            let mut has_hook = false;
+            for hook in HOOKS {
+                if module.hasattr(hook)? {
+                    has_hook = true;
+                    break;
+                }
+            }
+            if !has_hook {
+                return Err(PythonError::Py(format!(
+                    "module `{module_name}` defines none of the runner hooks ({})",
+                    HOOKS.join(", ")
+                )));
+            }
+
             if module.hasattr(HOOK_INIT)? {
                 let py_sender = Py::new(py, sender)?;
                 let py_storage = Py::new(py, storage)?;

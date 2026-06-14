@@ -101,7 +101,9 @@ python -m pip install pipx
 # `rust` tool lists. Pre-adding the wasm target means wasm-pack finds it present
 # and never downloads rust-std mid-build. mise sets RUSTUP_TOOLCHAIN to the bare
 # stable version, which now resolves to <version>-gnullvm.
-ver="$(mise exec -- rustc --version | coreutils cut -d' ' -f2)"
+# "rustc <ver> (<hash> <date>)" -> field 2 via shell parameter expansion; mise's
+# shims aren't on PATH in this bootstrap, so avoid an external cut/coreutils.
+ver="$(mise exec -- rustc --version)"; ver="${ver#* }"; ver="${ver%% *}"
 mise exec -- rustup set default-host x86_64-pc-windows-gnullvm
 wasm="-t wasm32-unknown-unknown -t wasm32-wasip2"
 mise exec -- rustup toolchain install "${ver}-x86_64-pc-windows-gnullvm" -c clippy -c rust-analyzer $wasm
