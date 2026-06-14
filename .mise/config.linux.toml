@@ -9,12 +9,9 @@
 "conda:clangxx" = "latest"
 
 [vars]
-# An `a_`/`b_`/`c_` prefix encodes each var's dependency tier so the alphabetical
-# order taplo's reorder_keys imposes keeps every definition before its use: `a_`
-# vars stand alone, `b_` vars read `a_` vars, `c_` reads `b_`. Without it sorting
-# moves a definition after the var that reads it and `mise install` can't render
-# the value. `a_conda_arch` picks conda's target-triple dir (x86_64/aarch64,
-# vs mise's x64/arm64).
+# `a_`/`b_`/`c_` tiers keep taplo's alphabetical reorder_keys from moving a var
+# ahead of one it reads (`b_` reads `a_`, `c_` reads `b_`), which mise can't render.
+# a_conda_arch: conda's target-triple dir (x86_64/aarch64 vs mise's x64/arm64).
 a_conda_arch = "{% if arch() == 'arm64' %}aarch64{% else %}x86_64{% endif %}"
 a_conda_clangxx = "{{ env.HOME }}/.local/share/mise/installs/conda-clangxx/latest"
 b_clang_resource = "{{ vars.a_conda_clangxx }}/lib/clang/22"
