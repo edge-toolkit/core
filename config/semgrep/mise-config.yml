@@ -22,5 +22,5 @@ rules:
       `shell = "bash -euo pipefail -c"` (on the line right after the closing
       `"""`/`'''`), so a failing command fails the task instead of being masked.
       Put `shell` directly after `run`. bash is installed before any task on
-      Windows (see setup-windows), so even the setup tasks can use it.
+      Windows (see preinstall), so even the setup tasks can use it.
     severity: ERROR

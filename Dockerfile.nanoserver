@@ -50,9 +50,6 @@ COPY --from=vcruntime C:\Windows\System32\vcruntime140.dll C:\Windows\System32\
 COPY --from=vcruntime C:\Windows\System32\vcruntime140_1.dll C:\Windows\System32\
 COPY --from=vcruntime C:\Windows\System32\msvcp140.dll C:\Windows\System32\
 
-# The bash-shell mise tasks run on busybox (the http:busybox tool), installed
-# below in cmd before any of them -- a prebuilt download, no build step.
-
 # cmd is the only shell Nano Server has; ContainerAdministrator so we can write
 # under C:\ (the backtick line continuations below rely on the escape directive
 # documented at the top of this file).
@@ -86,6 +83,15 @@ RUN if not exist C:\Temp mkdir C:\Temp
 ENV TEMP=C:\Temp `
     TMP=C:\Temp
 
+# wasm-pack's binary cache (binary-install's Cache::new) resolves its dir via
+# dirs_next, which on Windows calls the SHGetKnownFolderPath shell API that Nano
+# lacks (the same gap that stops pipx) -- so it fails with "couldn't find your
+# home directory, is $HOME not set?" (build-ws-wasm-agent's `-Z build-std` hits
+# it first). WASM_PACK_CACHE makes wasm-pack use Cache::at(<path>) instead, which
+# stores the path verbatim and never calls dirs (the dir is created on first
+# use). It's a transient build cache, so it lives under the temp dir above.
+ENV WASM_PACK_CACHE=C:\Temp\wasm-pack
+
 # Serialize mise's installs (MISE_JOBS=1). On Nano Server the parallel cargo:
 # source builds -- no gnu binstall prebuilts exist, so they fall back to `cargo
 # install` -- race on rustup's shared .rustup\downloads dir: one build's
@@ -117,7 +123,7 @@ RUN tar -xf C:\mise.zip -C C:\ && del C:\mise.zip
 # tool builds (windows-sys etc.) invoke `x86_64-w64-mingw32-dlltool` + the gnu
 # linker by name, and mise's cargo backend doesn't activate llvm-mingw onto the
 # build subprocess's PATH. The dir is the pinned-version install (config.toml);
-# it doesn't exist until setup-windows installs llvm-mingw, which is fine -- the
+# it doesn't exist until preinstall installs llvm-mingw, which is fine -- the
 # cargo: builds that need it run afterwards.
 ENV LLVMBIN=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\github-mstorsjo-llvm-mingw\20260602\bin
 ENV PATH="C:\mise\bin;C:\Windows\System32;C:\Windows;${LLVMBIN};${PATH}"
@@ -130,12 +136,16 @@ COPY .mise/config.toml .mise/config.toml
 COPY .mise/config.windows.toml .mise/config.windows.toml
 COPY .miserc.toml .miserc.toml
 
-# The windows job stages the GitHub token as gh_token in the build context
-# (lifting mise's 60-req/hr anonymous limit); we read it per-RUN rather than via
-# a build-arg, which the classic Windows builder can't substitute into RUN. It
-# carries forward into the later stages that also hit GitHub and expires with the
-# throwaway job image.
-COPY gh_token C:\gh_token
+# gh_token (a GitHub token) is OPTIONAL. With it, mise's GitHub fetches use the
+# authenticated rate limit; without it they fall back to the lower anonymous one,
+# which can rate-limit `install`. The classic Windows builder has no
+# BuildKit secrets, so the token is read per-RUN from a file in the build context
+# (it can't be a build-arg substituted into RUN). The glob makes it optional:
+# paired with an always-present file (.miserc.toml) so COPY still succeeds when
+# gh_token is absent; both land in C:\token (a dir off the WORKDIR ancestor chain,
+# so the paired file is inert). WARNING: when a token IS supplied it bakes into
+# this image layer -- do NOT publish an image built with one (see the README).
+COPY .miserc.toml gh_token* C:/token/
 
 # Docker-only mise settings, written inline in cmd (no bash needed): `mise
 # settings` writes the global config (C:\.config\mise on Windows, not
@@ -144,7 +154,7 @@ COPY gh_token C:\gh_token
 # exist; aqua signature checks (attestations/cosign/slsa) are off (their
 # sigstore/TUF step can't find a cache dir here); pipx.uvx=false makes the pipx:
 # backend use pip not uv (uv's PE-resource trampoline isn't implemented on Nano).
-RUN set /p GITHUB_TOKEN=<C:\gh_token && `
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise trust && `
     mise settings experimental=true && `
     mise settings set cargo.binstall true && `
@@ -156,9 +166,9 @@ RUN set /p GITHUB_TOKEN=<C:\gh_token && `
 
 # busybox-w32 `sh` -- the shell the bash-tasks run on (defined in
 # config.windows.toml). A prebuilt native exe, just downloaded (no build), so
-# it's available immediately and setup-windows below can run on it.
+# it's available immediately and preinstall below can run on it.
 # MISE_BASH_PATH (config.windows.toml [env]) points the task shell here.
-RUN set /p GITHUB_TOKEN=<C:\gh_token && `
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install http:busybox
 
 # Smoke test (informational -- never fails the build): confirm busybox runs and
@@ -173,7 +183,7 @@ RUN dir "%LOCALAPPDATA%\mise\installs\http-busybox\1.37.0" & `
 # here.
 
 # Pin CARGO_HOME/RUSTUP_HOME to the dirs mise's rust tool uses (C:\.cargo /
-# C:\.rustup -- see its exec_env). setup-windows sets the gnullvm default
+# C:\.rustup -- see its exec_env). preinstall sets the gnullvm default
 # toolchain in C:\.rustup, but when mise's cargo backend builds a `cargo:` tool it
 # spawns `cargo install` WITHOUT rust's exec_env, so rustup would otherwise look
 # in the empty %USERPROFILE%\.rustup and fail with "no default is configured".
@@ -181,21 +191,21 @@ RUN dir "%LOCALAPPDATA%\mise\installs\http-busybox\1.37.0" & `
 ENV CARGO_HOME=C:\.cargo `
     RUSTUP_HOME=C:\.rustup
 
-# setup-windows pip-installs pipx (the pipx:* backend). Nano has no system python,
+# preinstall pip-installs pipx (the pipx:* backend). Nano has no system python,
 # so install mise's python and put it on PATH first; pipx then lands in that
 # python's Scripts dir -- never invoked here (this image disables pipx:semgrep and
 # builds no python guest, and pipx can't run on Nano anyway), so that's fine.
-RUN set /p GITHUB_TOKEN=<C:\gh_token && `
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install python
 ENV PATH="C:\Users\ContainerAdministrator\AppData\Local\mise\installs\python\3.13;${PATH}"
 
-# setup-windows runs on busybox sh (via MISE_BASH_PATH): the shared _setup_all
+# preinstall runs on busybox sh (via MISE_BASH_PATH): the shared _setup_all
 # base (cargo-binstall + node + openssl) then the gnu toolchain (git/gpg/
 # llvm-mingw/make/rust), pip-installs pipx, + rustup flip to the gnullvm host, so
 # cargo links via llvm-mingw (compiler-rt/libunwind) rather than the absent MSVC
 # link.exe. No build was needed for the shell itself, so no chicken-and-egg.
-RUN set /p GITHUB_TOKEN=<C:\gh_token && `
-    mise run setup-windows
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise run preinstall
 
 # Skip pipx:semgrep in this image. pipx can't even import on Nano Server:
 # platformdirs' user_data_path() calls a shell known-folder API (SHGetFolderPathW)
@@ -206,7 +216,7 @@ ENV MISE_DISABLE_TOOLS=pipx:semgrep
 
 # The remaining always-loaded tools (the cargo: tools; python is already
 # installed above) now that rust links via gnullvm.
-RUN set /p GITHUB_TOKEN=<C:\gh_token && `
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install
 
 # --- build: add the guest-language toolchains (config.<lang>.toml). ---
@@ -219,14 +229,14 @@ FROM build-minimal AS build
 COPY .mise/ .mise/
 RUN mise trust
 ENV MISE_ENV=dart,java,rust,zig
-RUN set /p GITHUB_TOKEN=<C:\gh_token && `
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install
 
 # --- prefetch: download all dependencies + ONNX models. ---
 # The full source is needed from here on (module builds, cargo fetch, pnpm).
 FROM build AS prefetch
 COPY . .
-RUN set /p GITHUB_TOKEN=<C:\gh_token && `
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise run prefetch
 
 # --- precompile: build the WASM/JS modules (needed by test and server). ---

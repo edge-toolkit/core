@@ -23,7 +23,7 @@ min_version = "2026.6.5"
 # like `print-all-langs`, and the pre-install `setup-aube` step, from eagerly
 # pulling the whole toolchain — on CI and the CLI alike. task.run_auto_install
 # covers `mise run`; exec_auto_install covers `mise exec` (its OWN knob) —
-# without it, `mise exec -- python …` in Dockerfile.windows installs *every*
+# without it, `mise exec -- python …` in Dockerfile.nanoserver installs *every*
 # configured tool before running python. Turn both off so the policy holds.
 # (Current mise accepts the nested task.run_auto_install form; very old builds
 # like 2026.3 used the flat `task_run_auto_install`.)
@@ -354,8 +354,8 @@ shell = "bash -euo pipefail -c"
 
 [tasks._setup_all]
 # Private (leading `_`, hide = true): shared cross-platform preinstall, never run
-# directly. The per-OS setup tasks (setup-linux / setup-macos / setup-windows)
-# depend on it, so each controls its own ordering. Enables experimental +
+# directly. Each platform's `preinstall` task (one per config.<os>.toml) depends
+# on it, so each controls its own ordering. Enables experimental +
 # cargo.binstall, then installs cargo-binstall (a prebuilt binary, safe to
 # preinstall anywhere), node (mise uses it for the npm: tools) and conda:openssl
 # (for openssl-sys) -- all needed on every platform.

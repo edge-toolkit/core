@@ -103,12 +103,7 @@ jobs:
 
       - name: Install mise tools
         run: |
-          case "${{ runner.os }}" in
-            Linux)   mise run setup-linux ;;
-            macOS)   mise run setup-macos ;;
-            Windows) mise run setup-windows ;;
-          esac
-
+          mise run preinstall
           mise install
         env:
           GITHUB_TOKEN: ${{ github.token }}

@@ -14,7 +14,8 @@ data stay on the device or your own network, never sent to an external cloud ser
 
 ## mise
 
-Please install [`mise`](https://mise.jdx.dev/), including the shell integration.
+Please install [`mise`](https://mise.jdx.dev/) (2026.6.5 or later),
+including the shell integration.
 It is needed for all use of this repository.
 
 The `mise` configuration lives under [`.mise/`](.mise/): the always-loaded
@@ -35,11 +36,12 @@ below first.
 
 ### GitHub rate limits
 
-`mise install` downloads many tools from GitHub releases. Unauthenticated, the
-GitHub API allows only 60 requests/hour, so installs can fail with
+`mise install` downloads many tools from GitHub releases, which are subject to
+[GitHub's REST API rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
+Unauthenticated requests share a low per-IP limit, so installs can fail with
 `GitHub rate limit exceeded`. Authenticate with the
-[`gh` CLI](https://cli.github.com/) and let `mise` reuse its token — this lifts
-the limit to 5,000 requests/hour and needs no token scopes:
+[`gh` CLI](https://cli.github.com/) and let `mise` reuse its token — this raises
+the limit and needs no token scopes:
 
 ```bash
 mise install gh
@@ -63,32 +65,23 @@ Nothing beyond the shared base — the C toolchain and gpg come from your distro
 packages, not mise:
 
 ```bash
-mise run setup-linux
+mise run preinstall
 ```
 
-### Windows only
+### Windows
 
-On Windows you install two things yourself; mise supplies everything else, the
-compiler toolchain included:
+mise.exe links the Microsoft VC++ runtime (`vcruntime140.dll`), so it must be
+present or mise won't start. It's preinstalled on Windows 10/11 and Server, so
+you already have it — only Nano Server omits it, and there the Docker build
+installs the [VC++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe).
 
-- **A recent mise** (2026.6.5 or later — it needs `auto_env` to load the
-  platform config, and an older one also fails on `unknown field
-  run_auto_install`). mise can't install itself.
-- **The Microsoft VC++ runtime** (`vcruntime140.dll`) — mise.exe and the
-  rust/cargo it installs are built against it. It ships with Windows and most
-  apps, so it's usually already there; check with `where.exe vcruntime140.dll`,
-  and if that finds nothing install the
-  [VC++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe). mise
-  can't install it — it's what mise.exe needs to start.
-
-Install a shell (Windows has no bash), then run the Windows preinstall:
+If you dont have Git Bash or MSYS installed, install a shell:
 
 ```bash
 mise install http:busybox
-mise run setup-windows
 ```
 
-### MacOS only
+### MacOS
 
 On MacOS, the Xcode Command Line Tools (`clang`, `git`, `make`, etc.) must be
 installed first:
@@ -97,18 +90,12 @@ installed first:
 xcode-select --install
 ```
 
-We also need to install a better linker into the workspace.
-
-```bash
-mise run setup-macos
-```
-
 ### All OS
 
-With your platform's preinstall done (it installed node + the openssl dev
-files), install the remaining dependencies:
+To install dependencies:
 
 ```bash
+mise run preinstall
 mise install-all
 ```
 
@@ -122,9 +109,9 @@ Use `mise run fmt-all` and `mise run check-all` to run formatters and checkers.
 Ubuntu, in stages (`build` → `prefetch` → `precompile` → `test`/`server`). A
 plain build produces the **server** image (the final stage): a release build of
 `et-ws-server`, served automatically. `mise install-all` fetches many tools from
-GitHub releases, so build with a GitHub token to avoid the anonymous
-60-requests/hour limit (see [GitHub rate limits](#github-rate-limits)), passed as
-a BuildKit secret so it never lands in an image layer:
+GitHub releases, so build with a GitHub token to avoid the anonymous rate limit
+(see [GitHub rate limits](#github-rate-limits)), passed as a BuildKit secret so
+it never lands in an image layer:
 
 ```bash
 GITHUB_TOKEN="$(gh auth token)" DOCKER_BUILDKIT=1 \
@@ -154,24 +141,19 @@ DRI device. The image skips the `o2`/`ws-server` README steps (runtime services)
 
 ### CI
 
-The [`docker`](.github/workflows/docker.yml) workflow rebuilds these images when
-a `Dockerfile*` or `.dockerignore` changes (or on manual dispatch) — both builds
-are too heavy for every push. A `linux` job builds the `test` stage and runs the
-suite (lavapipe software Vulkan, since the runners have no GPU); a `windows` job
-builds the sketch below.
+The [`docker-linux`](.github/workflows/docker-linux.yml) and
+[`docker-windows`](.github/workflows/docker-windows.yml) workflows rebuild these
+images when their respective `Dockerfile` is modified.
 
-### Windows setup sketch
+[`Dockerfile.nanoserver`](Dockerfile.nanoserver) starts from **Nano Server**
+(the smallest Windows base, ~120 MB) — which has no installer stack, or shell.
 
-[`Dockerfile.windows`](Dockerfile.windows) is an **unverified sketch** that
-proves the stronger claim: on a bare Windows box, mise supplies the _entire_
-toolchain and nothing is installed the Windows way. It starts from **Nano
-Server** (the smallest Windows base, ~120 MB) — which has no installer stack,
-PowerShell, or admin shell, so the Visual Studio Build Tools installer can't run
-there at all. Instead it bootstraps just `mise.exe` (via the `curl`/`tar` built
-into Nano Server) and lets `mise install` pull the entire toolchain — all
-declared os-guarded in [`.mise/config.toml`](.mise/config.toml). Windows
-containers build only on a Windows Docker host, so the `windows` CI job is the
-only place it runs; expect to iterate there.
+A `gh_token` file (a GitHub token) in the build context is **optional** for a
+manual `Dockerfile.nanoserver` build — without it, mise uses GitHub's anonymous
+rate limit and may be throttled. The classic Windows builder has no BuildKit
+secrets, so it **bakes that file into an image layer**: never
+publish an image built with a `gh_token`. (The Linux build passes the token as a
+BuildKit secret instead, so it never lands in a layer.)
 
 ## Run ws agent in browser
 

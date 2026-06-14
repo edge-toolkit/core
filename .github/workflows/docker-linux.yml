@@ -1,0 +1,47 @@
+---
+name: docker-linux
+
+"on":
+  pull_request:
+    paths:
+      - .github/workflows/docker-linux.yml
+      - Dockerfile
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The image is large (every language toolchain + prefetched models.
+      # The runner's root disk (~14 GB free) can't hold it.
+      # Move Docker's storage to the ~70 GB /mnt scratch disk.
+      - name: Move Docker storage to /mnt
+        run: |
+          sudo systemctl stop docker docker.socket
+          sudo mkdir -p /mnt/docker
+          echo '{"data-root":"/mnt/docker"}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl start docker
+          docker info --format 'Docker Root Dir: {{.DockerRootDir}}'
+
+      - name: Build stage test
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: DOCKER_BUILDKIT=1 docker build --target test --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit-test .
+
+      - name: Run the test suite
+        run: docker run --rm edge-toolkit-test

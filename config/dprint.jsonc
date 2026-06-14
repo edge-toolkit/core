@@ -1,6 +1,6 @@
 {
   "dockerfile": {
-    "associations": ["**/Dockerfile", "**/*.dockerfile", "**/Dockerfile.windows"],
+    "associations": ["**/Dockerfile", "**/*.dockerfile", "**/Dockerfile.nanoserver"],
   },
   "java": {
   },

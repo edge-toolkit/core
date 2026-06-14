@@ -13,9 +13,7 @@ pub const LOCALHOST: &str = "127.0.0.1";
 
 /// Helper to find repository root.
 ///
-/// This is the one sanctioned `current_dir()` call (see the `no-current-dir`
-/// ast-grep rule): it hands the current directory to the shared find-up helper,
-/// which walks up to the `.dprint.jsonc` marker.
+/// This is the one sanctioned `current_dir()`.
 #[expect(clippy::missing_panics_doc, clippy::unwrap_used)]
 #[must_use]
 pub fn get_project_root() -> PathBuf {

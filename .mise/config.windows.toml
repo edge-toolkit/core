@@ -11,7 +11,7 @@
 # Windows SDK can't come from mise, so the build uses the LLVM mingw toolchain
 # (the gnullvm target below); llvm-mingw bundles clang + lld + the mingw-w64
 # runtime/headers/libs + the libclang.dll bindgen loads. Pinned so its install
-# dir is deterministic for the PATH entry in Dockerfile.windows -- bump both.
+# dir is deterministic for the PATH entry in Dockerfile.nanoserver -- bump both.
 "conda:m2-git" = "latest"
 "conda:m2-gnupg" = "latest"
 "conda:m2-make" = "latest"
@@ -50,7 +50,7 @@ win_libclang = "C:\\Program Files\\LLVM\\bin"
 MISE_BASH_PATH = "{{ vars.winsh }}"
 # Build for the LLVM mingw target. gnullvm, not gnu: llvm-mingw ships
 # compiler-rt + libunwind, not the GCC runtime (libgcc/libgcc_eh) the gnu
-# target's link line demands. setup-windows flips the rustup host to gnullvm too,
+# target's link line demands. preinstall flips the rustup host to gnullvm too,
 # so build scripts/proc-macros (built for the host) link the same way. The linker
 # is clang and the raw-dylib import tool is llvm-dlltool, both from llvm-mingw on
 # PATH. These can live in [env] here (unlike config.toml) because this file only
@@ -61,10 +61,10 @@ CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_RUSTFLAGS = "-Cdlltool=llvm-dlltool"
 LIBCLANG_PATH = "{{ vars.win_libclang }}"
 PYO3_PYTHON = "{{ vars.py313_win }}"
 
-[tasks.setup-windows]
-# Windows preinstall, shared by Dockerfile.windows and a real workstation. The
+[tasks.preinstall]
+# Windows preinstall, shared by Dockerfile.nanoserver and a real workstation. The
 # busybox `sh` (http:busybox) is installed by the cmd bootstrap that runs before
-# any bash task on Windows (Dockerfile.windows / the README), so this task's
+# any bash task on Windows (Dockerfile.nanoserver / the README), so this task's
 # `bash -euo pipefail` shell (= busybox ash via MISE_BASH_PATH) works. Installs
 # the build utils (git/gpg/make), llvm-mingw and rust, pip-installs pipx (the
 # backend for the pipx:* tools, since aqua has no Windows pipx build), then flips
@@ -77,7 +77,7 @@ run = """
 mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
 # pipx backs the pipx:* tools but isn't a mise tool on Windows. Install it with
 # whatever python is on PATH: the runner's system python on CI/workstations (its
-# Scripts dir, where pipx lands, is already on PATH); Dockerfile.windows puts
+# Scripts dir, where pipx lands, is already on PATH); Dockerfile.nanoserver puts
 # mise's python on PATH before this so the command resolves on Nano too.
 python -m pip install pipx
 # Install + default to the gnullvm build of the EXACT rust version mise pinned;

@@ -24,7 +24,7 @@
 # finding worth documenting.
 #
 # A plain build produces the SERVER image (final stage): a release et-ws-server,
-# served automatically. A GitHub token avoids mise's 60-req/hr anonymous limit
+# served automatically. A GitHub token avoids mise's anonymous GitHub rate limit
 # during install-all:
 # DOCKER_BUILDKIT=1 docker build --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit .
 # docker run --rm -p 8080:8080 edge-toolkit          # serves; open http://localhost:8080
@@ -72,7 +72,7 @@ ENV PATH="/root/.local/bin:/root/.local/share/mise/shims:${PATH}"
 
 WORKDIR /workspace
 # The default tools need the always-loaded config plus config.linux.toml (where
-# setup-linux + the Linux env live) and .miserc.toml (auto_env, which auto-loads
+# preinstall + the Linux env live) and .miserc.toml (auto_env, which auto-loads
 # config.linux.toml); the other guest-language configs come in the build stage
 # below. These are repo configs, so they're copied + trusted before mise runs.
 COPY .miserc.toml .miserc.toml
@@ -81,7 +81,7 @@ COPY .mise/config.linux.toml .mise/config.linux.toml
 
 RUN mise trust
 
-# Preinstall via the shared setup-linux task (the same a Linux workstation runs):
+# Preinstall via the shared preinstall task (the same a Linux workstation runs):
 # its setup-all base enables experimental + cargo.binstall and installs
 # cargo-binstall, node and conda:openssl; then `mise install` adds the rest of
 # the always-loaded tools. A GitHub token (if provided) lifts the anonymous rate
@@ -90,7 +90,7 @@ RUN mise trust
 # rustup-inits at once, racing on the shared rustup binary's self-update (exit 1).
 RUN --mount=type=secret,id=gh_token,required=false \
     GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)" \
-    sh -c 'mise run setup-linux && MISE_JOBS=1 mise install'
+    sh -c 'mise run preinstall && MISE_JOBS=1 mise install'
 
 # --- build: add the guest-language toolchains (config.<lang>.toml). ---
 # install-all == MISE_ENV="$ALL_LANGS" mise install; the always-loaded tools are

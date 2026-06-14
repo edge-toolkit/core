@@ -38,7 +38,7 @@ CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars
 LIBCLANG_PATH = "{{ vars.conda_clangxx }}/lib"
 BINDGEN_EXTRA_CLANG_ARGS = "{{ vars.bindgen_args }}"
 
-[tasks.setup-linux]
+[tasks.preinstall]
 # Linux preinstall: the shared cross-platform base (via _setup_all), then verify
 # the system build prerequisites mise can't supply -- the C/C++ toolchain, gpg
 # and archive tools the Dockerfile installs via apt. A workstation missing any is
@@ -52,7 +52,7 @@ for cmd in gcc g++ make git curl gpg unzip bzip2 xz; do
   command -v "$cmd" >/dev/null 2>&1 || missing="$missing $cmd"
 done
 if [ -n "$missing" ]; then
-  echo "setup-linux: missing required system tools:$missing" >&2
+  echo "preinstall: missing required system tools:$missing" >&2
   echo "Install them with your package manager. On Debian/Ubuntu:" >&2
   echo "  sudo apt-get install -y $pkgs" >&2
   exit 1
