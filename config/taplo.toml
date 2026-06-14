@@ -53,11 +53,7 @@ schema = { path = "config/taplo/require-workspace-deps.schema.json" }
 
 # Banned dep names across every dep table — `[dependencies]`,
 # `[dev-dependencies]`, `[build-dependencies]`, `[workspace.dependencies]`,
-# and the `[target.*]` variants. Currently `anyhow` (use a `thiserror`
-# enum) and `ureq` (use `reqwest::blocking` -- keeps us on one HTTPS
-# stack). Replaces the previous per-crate `no-anyhow` ast-grep rule
-# which caught uses but not declarations. Add new bans by extending the
-# `depTable.properties` list in the schema.
+# and the `[target.*]` variants.
 [[rule]]
 include = ["**/Cargo.toml"]
 schema = { path = "config/taplo/no-banned-deps.schema.json" }

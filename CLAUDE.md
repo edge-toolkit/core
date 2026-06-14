@@ -274,7 +274,7 @@ available linters:
 - **ast-grep** (`config/ast-grep/rules/`) — structural rules for code **and
   YAML** (e.g. GitHub Actions workflows).
 - **semgrep** (`config/semgrep/`) — incl. `languages: [generic]`, which works on
-  TOML/text (e.g. `mise-config.yml` lints `.mise/config*.toml`).
+  TOML/text (e.g. `mise-config.yaml` lints `.mise/config*.toml`).
 - **taplo** JSON-schemas (`config/taplo/`) — TOML structure, applied via
   `taplo lint --schema` in `taplo-check`.
 - plus hadolint, editorconfig-checker, typos, and action-validator for their

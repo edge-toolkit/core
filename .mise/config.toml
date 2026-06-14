@@ -11,17 +11,11 @@
 #   Run a check across everything:      mise run check-all  (or install-all)
 #   Make a selection sticky:            export MISE_ENV=dart
 
-# Require the mise release that introduced auto_env (platform config files):
-# below this, .mise/config.<os>.toml wouldn't auto-load and per-OS env (linker
-# flags, LIBCLANG_PATH, the Windows shell) would silently go missing. Fail loudly
-# instead. (.miserc.toml enables auto_env; CI installs latest mise.)
+# Require release that introduced auto_env enabled in .miserc.toml
 min_version = "2026.6.5"
 
 [settings]
-# Keep installs explicit (`mise install`; CI/Docker install up front) so a task or
-# `mise exec` never pulls the whole toolchain implicitly — e.g. `mise exec --
-# python …` in Dockerfile.nanoserver would otherwise install every tool first.
-# The two knobs are separate: exec_auto_install covers `mise exec`,
+# exec_auto_install covers `mise exec`,
 # task.run_auto_install covers `mise run`.
 exec_auto_install = false
 task.run_auto_install = false
@@ -31,12 +25,8 @@ action-validator = "latest"
 "aqua:EmbarkStudios/cargo-deny" = "latest"
 ast-grep = "latest"
 cargo-binstall = "latest"
-# dtolnay publishes no prebuilt binary for cargo-expand (crates.io only), so it's
-# the one tool here still built from source.
 "aqua:rustwasm/wasm-pack" = "latest"
 "cargo:cargo-expand" = "latest"
-# aqua ships a prebuilt taplo binary, so it installs on every OS (no `ring` C
-# build, which is what previously kept it off the gnu Windows image).
 taplo = "latest"
 watchexec = "latest"
 # vfox-chromedriver's PostInstall hook fails on Windows ("syntax of the
@@ -45,13 +35,7 @@ watchexec = "latest"
 # in the standard CI `test` flow, so skip it on Windows entirely.
 "chromedriver" = { version = "146", os = ["linux", "macos"] }
 cmake = "latest"
-# openssl-sys reads OPENSSL_DIR (below); the conda build is no-admin + identical
-# across machines. The per-OS toolchains (conda:clangxx on Linux, conda:lld on
-# macOS, the msys2/llvm-mingw/busybox set on Windows) live in the matching
-# config.<os>.toml.
 "conda:openssl" = "3"
-# conftest runs the repo's OPA/Rego policies (config/conftest/policy) -- the
-# cross-file config invariants taplo's per-file JSON schemas can't express.
 conftest = "latest"
 dprint = "latest"
 editorconfig-checker = "latest"
@@ -59,13 +43,9 @@ editorconfig-checker = "latest"
 # below (see the `retry` var) so a transient HTTP 429 doesn't fail the build.
 "github:dbohdan/recur" = "latest"
 "github:grok-rs/waitup" = "latest"
-# Must match the wasm-bindgen crate version in Cargo.lock so wasm-pack finds this
-# on PATH instead of downloading its own wasm-bindgen-cli; bump both together.
+"github:owenlamont/ryl" = "latest"
 "github:wasm-bindgen/wasm-bindgen" = "0.2.122"
 hadolint = "latest"
-# Link checker for the `link-check` task. Installs on every OS; the Nano Docker
-# image opts out via MISE_DISABLE_TOOLS (link-check isn't run in the Windows
-# build/test flow), which keeps that image lean.
 lychee = "latest"
 mprocs = "latest"
 node = "22"
@@ -96,16 +76,11 @@ wasm-tools = "latest"
 yq = "latest"
 
 [vars]
-# conda:openssl install dir, reused by OPENSSL_DIR + rpath_flag. The per-OS
-# toolchain vars -- conda_lld/lld_flag + mac libclang (macOS), the clangxx +
-# bindgen set (Linux), winsh + win libclang + py313_win (Windows) -- live in the
-# matching config.<os>.toml.
 conda_openssl = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest"
 # mise-managed CPython 3.13 (Linux/macOS); the PYO3_PYTHON default below. Windows
 # overrides PYO3_PYTHON with its own py313_win in config.windows.toml.
 py313_unix = "{{ env.HOME }}/.local/share/mise/installs/python/3.13/bin/python3"
-# RUSTFLAGS fragments shared by the per-OS CARGO_TARGET_* env in config.<os>.toml;
-# kept as vars so those values stay single-line.
+# RUSTFLAGS fragments shared by the CARGO_TARGET_* env in config.<os>.toml
 rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
 # rpath to the mise CPython 3.13 lib dir so the et-ws-pyo3-runner binary finds
 # libpython at runtime (libpython3.13.so on Linux, libpython3.13.dylib on macOS
@@ -139,18 +114,10 @@ retry = "recur --attempts 8 --delay 2s --backoff 2s --max-delay 2m --jitter 0,5s
 # no MISE_ENV=all). Hardcoded rather than shell-discovered so it works on Windows
 # too — keep in sync when adding/removing a config.<lang>.toml.
 ALL_LANGS = "dart,dotnet,java,python,rust,zig"
-# taplo's config now lives under config/ instead of a root .taplo.toml, which it
-# no longer auto-discovers; TAPLO_CONFIG points every `taplo lint`/`format` at
-# it. config_root keeps the path valid regardless of the invocation's cwd.
 TAPLO_CONFIG = "{{ config_root }}/config/taplo.toml"
-# Likewise clippy.toml lives under config/; clippy reads its config from the dir
-# named by CLIPPY_CONF_DIR rather than auto-discovering a root .clippy.toml.
 CLIPPY_CONF_DIR = "{{ config_root }}/config"
 # Use the conda:openssl install for Rust's OPENSSL_DIR so openssl-sys crate builds.
 OPENSSL_DIR = "{{ vars.conda_openssl }}"
-# Per-OS RUSTFLAGS (CARGO_TARGET_<triple>_*), LIBCLANG_PATH, BINDGEN args and the
-# Windows MISE_BASH_PATH now live in the config.<os>.toml files (no more os()
-# guards or triple-scoped-but-cross-OS entries).
 
 # pyo3-ffi (et-ws-pyo3-runner) links its embedded interpreter at build time from
 # PYO3_PYTHON, else the first python on PATH -- under mise that's the 32-bit
@@ -159,14 +126,6 @@ OPENSSL_DIR = "{{ vars.conda_openssl }}"
 # builds the pyo3 runner without MISE_ENV=python. This is the Linux/macOS path;
 # config.windows.toml overrides it with py313_win.
 PYO3_PYTHON = "{{ vars.py313_unix }}"
-# rclone config for the `fetch-*-rclone` model-download tasks. Those remotes
-# (Hugging Face / GitHub raw) intermittently answer HTTP 429; the retry loop is
-# the `recur` wrapper (the `retry` var) with exponential backoff + jitter, since
-# rclone's own high-level retry is a fixed-interval sleep that can't back off.
-# So disable rclone's high-level retries (`--retries 1`) to avoid compounding
-# with recur — rclone's fast built-in low-level retries still apply. `RCLONE_*`
-# env vars are rclone's alternative to CLI flags; `rclone.conf` only configures
-# named remotes, not retry policy.
 RCLONE_CONFIG = "{{ config_root }}/config/rclone.conf"
 RCLONE_RETRIES = "1"
 
@@ -196,16 +155,6 @@ depends = ["fmt:*"]
 description = "Run all formatters: fmt:rust + any loaded guest fmt:<lang>"
 
 [tasks."check:rust"]
-# The dep-audit tools (osv-scanner, cargo-deny, cargo-unmaintained) run
-# in the standalone `.github/workflows/dependencies.yml` workflow so they
-# only fire when Cargo.lock / Cargo.toml / config/deny.toml change, not on every
-# `mise run check`. `osv-scanner` and `cargo-deny` are kept in `[tools]`
-# for ad-hoc local invocation (`mise run osv-scanner`, or
-# `cargo deny check --config config/deny.toml` -- deny no longer auto-finds the
-# config now that it lives under config/); `cargo-unmaintained` is installed only
-# by the workflow via `taiki-e/install-action` since it isn't useful enough
-# locally to justify the cargo-build cost on every `mise install`.
-#
 # Rust + universal repo-wide checks. Lives in the always-loaded default config,
 # so `check`'s `check:*` glob always matches at least this one (Rust is in the
 # default config this pass; the guest `check:<lang>` tasks come from their
@@ -222,6 +171,8 @@ depends = [
   "editorconfig-check",
   "gen-specs-check",
   "hadolint-check",
+  "link-check",
+  "ryl-check",
   "semgrep-check",
   "conftest-check",
   "taplo-check",
@@ -241,13 +192,13 @@ description = "Run all checks: check:rust + any loaded guest check:<lang>"
 
 [tasks.action-validator]
 description = "Validate GitHub Actions workflow YAML"
-run = "action-validator .github/workflows/*.yml"
+run = "action-validator .github/workflows/*.yaml"
 
 [tasks.ast-grep-check]
 # --no-ignore hidden so the gha-* YAML rules reach .github/workflows (ast-grep
 # skips dot-dirs by default); gitignored paths like target/ stay skipped.
 description = "Run ast-grep structural-search rules"
-run = "ast-grep scan --error --no-ignore hidden -c config/ast-grep/sgconfig.yml"
+run = "ast-grep scan --error --no-ignore hidden -c config/ast-grep/sgconfig.yaml"
 
 [tasks.semgrep-check]
 description = "Run Semgrep generic-mode rules (e.g. Cargo.toml style)"
@@ -255,8 +206,6 @@ run = "semgrep scan --config config/semgrep --error --metrics=off ."
 
 [tasks.hadolint-check]
 description = "Lint the Dockerfiles with hadolint"
-# Discover every tracked Dockerfile (`Dockerfile`, `Dockerfile.*`, at any depth)
-# so new ones are linted automatically without editing this task.
 run = "git ls-files '*Dockerfile' '*Dockerfile.*' | xargs hadolint --config config/hadolint.yaml"
 
 [tasks.cargo-check]
@@ -283,8 +232,6 @@ run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace 
 run = "taplo format"
 
 [tasks.conftest-check]
-# Native `depends` glob: every conftest-check-<format> task (toml, yaml, ...)
-# joins automatically, so adding a new parser needs no edit here.
 depends = ["conftest-check-*"]
 description = "Run all conftest policy checks (one per parsed file format)"
 
@@ -296,17 +243,14 @@ description = "Run conftest OPA/Rego policies over the TOML config + lock files"
 # .toml suffix. The TOML rule namespaces are listed explicitly, so the per-file
 # `gha` (YAML) namespace is never evaluated against this combined TOML input.
 run = """
-ns="--namespace cross --namespace cargo --namespace mise"
-git ls-files '*Cargo.toml' '.mise/config*.toml' Cargo.lock |
+ns="--namespace cross --namespace cargo --namespace mise --namespace pyproject"
+git ls-files '*Cargo.toml' '.mise/config*.toml' '*pyproject.toml' Cargo.lock |
   xargs conftest test --combine --parser toml $ns -p config/conftest/policy
 """
 shell = "bash -euo pipefail -c"
 
 [tasks.conftest-check-yaml]
 description = "Run conftest OPA/Rego policies over the GitHub Actions workflow YAML"
-# Each workflow is checked on its own (no cross-file YAML rules) -- no --combine;
-# conftest reads the directory directly. --namespace gha selects only the YAML
-# policy. Replicates the gha-* ast-grep rules; running both is fine.
 run = "conftest test --parser yaml --namespace gha -p config/conftest/policy .github/workflows"
 
 [tasks.taplo-check]
@@ -318,8 +262,6 @@ run = "conftest test --parser yaml --namespace gha -p config/conftest/policy .gi
 # conftest-check-toml (config/conftest/policy) intentionally duplicates these
 # lints; running both is fine.
 run = """
-# Baseline TOML validation across every .toml file the auto-config picks up.
-# Runs on every OS (taplo is a prebuilt binary now).
 taplo lint
 
 # The --schema lints below pass file://$PWD URLs, which aren't well-formed on
@@ -375,13 +317,17 @@ shell = "bash -euo pipefail -c"
 [tasks.typos]
 run = "typos --config config/typos.toml"
 
-# Not in the `check` aggregate: lychee makes live network requests, so it would
-# make CI flaky. Run on demand (or from a scheduled workflow). Checks every URL
-# in the repo's Markdown + Rust sources; lychee extracts URLs from .rs comments
-# and string literals too. config/lychee.toml excludes generated/ + target/.
+# Part of the `check` aggregate. lychee makes live network requests, so
+# config/lychee.toml is tuned (retries, 429-tolerance, disk cache) to keep it
+# from being flaky. Checks every URL in the repo's Markdown + Rust sources;
+# lychee extracts URLs from .rs comments and string literals too.
 [tasks.link-check]
-description = "Check that URLs in .md and .rs files are reachable (network; not in check)"
+description = "Check that URLs in .md and .rs files are reachable (network)"
 run = "lychee --config config/lychee.toml '**/*.md' '**/*.rs'"
+
+[tasks.ryl-check]
+description = "Lint YAML with ryl (a yamllint-compatible Rust linter)"
+run = "ryl -c config/ryl.yaml .github config"
 
 [tasks.setup-aube]
 # `aube` is an OPTIONAL faster npm backend, kept out of the mandatory `[tools]`
@@ -389,7 +335,7 @@ run = "lychee --config config/lychee.toml '**/*.md' '**/*.rs'"
 # back to the classical `lib/node_modules` layout without it (see
 # `find_npm_modules_path_in`).
 #
-# CI (check.yml / test.yml) runs this task in its own allowed-to-fail step,
+# CI (check.yaml / test.yaml) runs this task in its own allowed-to-fail step,
 # placed BEFORE the main `mise install` so the `npm:onnxruntime-web` install
 # can pick up aube as its backend.
 #
@@ -407,12 +353,6 @@ mise install aube@latest
 shell = "bash -euo pipefail -c"
 
 [tasks._setup_all]
-# Private (leading `_`, hide = true): shared cross-platform preinstall, never run
-# directly. Each platform's `preinstall` task (one per config.<os>.toml) depends
-# on it, so each controls its own ordering. Enables experimental +
-# cargo.binstall, then installs cargo-binstall (a prebuilt binary, safe to
-# preinstall anywhere), node (mise uses it for the npm: tools) and conda:openssl
-# (for openssl-sys) -- all needed on every platform.
 description = "Private shared cross-platform preinstall"
 hide = true
 run = """
@@ -639,11 +579,7 @@ RUSTUP_TOOLCHAIN = "nightly"
 [tasks.build-modules]
 # Native `depends` glob over `build-ws-*`: that matches `build-ws-wasm-agent`
 # (always loaded here, no `-module` suffix — so the glob never matches zero)
-# plus every loaded `build-ws-*-module`. The module builds now live in MISE_ENV
-# configs: the Rust ones in config.rust.toml, the guest ones (dart-comm1,
-# dotnet-data1, java-data1, zig-data1, pydata1, pyface1, wasi-graphics-info) in
-# theirs — each joins when its env is loaded. CI sets MISE_ENV to every language
-# (or use `build-modules-all`). A nested `mise run` here broke tools on Windows.
+# plus every loaded `build-ws-*-module`.
 depends = ["build-ws-*"]
 description = "Build all loaded WebAssembly modules"
 

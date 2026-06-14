@@ -1,0 +1,14 @@
+# Starts from yamllint's standard ruleset, then aligns the cosmetic rules with the
+# repo's other tools so they never disagree.
+extends: default
+
+rules:
+  # dprint (the YAML formatter) writes one space before an inline `#`; yamllint
+  # defaults to two. Defer to dprint so the two can't fight.
+  comments:
+    min-spaces-from-content: 1
+  # Match the repo's 120-char editorconfig limit (yamllint defaults to 80).
+  line-length:
+    max: 120
+  # The repo's workflows and configs don't use a `---` document-start marker.
+  document-start: disable

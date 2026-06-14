@@ -173,3 +173,20 @@ deny contains msg if {
 	spec.features == []
 	msg := sprintf("%s: dependency %q has an empty features = []; remove it", [path, name])
 }
+
+# A feature must not share its name with a dependency: it shadows the implicit
+# feature an optional dep creates and is confusing. generated/rust-rest is exempt
+# -- its generator emits a `tracing` feature beside a (non-optional) `tracing` dep.
+is_dep_name(file, name) if {
+	some table in {"dependencies", "dev-dependencies", "build-dependencies"}
+	file.contents[table][name]
+}
+
+deny contains msg if {
+	some file in input
+	is_member(file)
+	file.path != "generated/rust-rest/Cargo.toml"
+	some feat, _ in file.contents.features
+	is_dep_name(file, feat)
+	msg := sprintf("%s: feature %q shares its name with a dependency; rename it", [file.path, feat])
+}

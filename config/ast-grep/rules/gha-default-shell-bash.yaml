@@ -11,7 +11,7 @@ message: |
   `shell:`. (Pairs with gha-no-step-shell, which forbids per-step `shell:` -- so
   this top-level default is the only place the shell is set.)
 files:
-  - .github/workflows/*.yml
+  - .github/workflows/*.yaml
 # Fire on any workflow whose document does NOT contain the exact
 # defaults -> run -> shell: bash nesting. The `has`/`pattern` matches that
 # specific three-level mapping (a stray `shell: bash` on a step does NOT

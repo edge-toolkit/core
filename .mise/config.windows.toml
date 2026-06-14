@@ -75,11 +75,13 @@ depends = ["_setup_all"]
 description = "Preinstall: toolchain + pipx + flip rustup to the gnullvm host"
 run = """
 mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
+
 # pipx backs the pipx:* tools but isn't a mise tool on Windows. Install it with
 # whatever python is on PATH: the runner's system python on CI/workstations (its
 # Scripts dir, where pipx lands, is already on PATH); Dockerfile.nanoserver puts
 # mise's python on PATH before this so the command resolves on Nano too.
 python -m pip install pipx
+
 # rustup installed components/targets against the pre-flip default host, so after
 # flipping to gnullvm reinstall the EXACT stable + nightly versions mise pinned as
 # gnullvm toolchains, each carrying the components + wasm targets config.toml's

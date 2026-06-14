@@ -4,7 +4,7 @@ name: docker-linux
 "on":
   pull_request:
     paths:
-      - .github/workflows/docker-linux.yml
+      - .github/workflows/docker-linux.yaml
       - Dockerfile
   workflow_dispatch:
 

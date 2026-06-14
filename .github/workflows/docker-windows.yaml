@@ -4,7 +4,7 @@ name: docker-windows
 "on":
   pull_request:
     paths:
-      - .github/workflows/docker-windows.yml
+      - .github/workflows/docker-windows.yaml
       - Dockerfile.nanoserver
   workflow_dispatch:
 

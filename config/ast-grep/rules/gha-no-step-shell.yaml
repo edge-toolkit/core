@@ -7,7 +7,7 @@ message: |
   `sc`/`net`/`printf` instead of PowerShell cmdlets, even on Windows runners,
   which have Git Bash) rather than overriding the shell per step.
 files:
-  - .github/workflows/*.yml
+  - .github/workflows/*.yaml
 rule:
   pattern: "shell: $VALUE"
   inside:

@@ -343,7 +343,7 @@ ignore = [
   # via wgpu. Compile-time only.
   "paste",
   # Archived upstream at GnomedDev/proc-macro-error-2 (the maintained
-  # fork of the original proc-macro-error). Both now unmaintained.
+  # fork of the original proc-macro-error). Both unmaintained.
   # Pulled by getset via neli via local-ip-address. Compile-time only.
   "proc-macro-error-attr2",
   "proc-macro-error2",

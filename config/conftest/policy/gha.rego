@@ -1,4 +1,4 @@
-# GitHub Actions workflow policy, evaluated per file: conftest reads each .yml
+# GitHub Actions workflow policy, evaluated per file: conftest reads each .yaml
 # independently (no --combine, since there are no cross-file YAML rules).
 # Replicates the gha-* ast-grep rules; running both is fine. Selected with
 # `--namespace gha`, so it only runs against workflow YAML, never the TOML inputs.

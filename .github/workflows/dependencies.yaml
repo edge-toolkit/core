@@ -9,7 +9,7 @@ name: dependencies
       - "**/Cargo.toml"
       - config/deny.toml
       - config/osv-scanner.toml
-      - .github/workflows/dependencies.yml
+      - .github/workflows/dependencies.yaml
   workflow_dispatch:
 
 permissions:

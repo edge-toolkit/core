@@ -128,8 +128,8 @@ DRI device. The image skips the `o2`/`ws-server` README steps (runtime services)
 
 ### CI
 
-The [`docker-linux`](.github/workflows/docker-linux.yml) and
-[`docker-windows`](.github/workflows/docker-windows.yml) workflows rebuild these
+The [`docker-linux`](.github/workflows/docker-linux.yaml) and
+[`docker-windows`](.github/workflows/docker-windows.yaml) workflows rebuild these
 images when their respective `Dockerfile` is modified.
 
 [`Dockerfile.nanoserver`](Dockerfile.nanoserver) starts from **Nano Server**

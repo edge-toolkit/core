@@ -108,7 +108,7 @@ ENV MISE_VERBOSE=1 `
     RUST_BACKTRACE=full
 
 # mise.zip is staged in the build context by the windows job in
-# .github/workflows/docker.yml (which pins the version) and copied in here. We
+# .github/workflows/docker.yaml (which pins the version) and copied in here. We
 # don't curl a versioned URL inside the build: the classic Windows builder
 # doesn't substitute build-args into RUN, and mise's `mise-latest-windows-x64.zip`
 # prebuilt is stale (2026.3.0, which predates the nested `task.run_auto_install`
@@ -177,10 +177,6 @@ ENV WINSH=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\http-busyb
 RUN dir "%LOCALAPPDATA%\mise\installs\http-busybox\1.37.0" & `
     ("%WINSH%" -euo pipefail -c "command -v mise && echo [smoke] OK || echo [smoke] NOMISE") & `
     ver>nul
-
-# CARGO_BUILD_TARGET (x86_64-pc-windows-gnullvm) + the gnullvm linker/dlltool now
-# come from config.windows.toml (auto-loaded by auto_env), so they're not set
-# here.
 
 # Pin CARGO_HOME/RUSTUP_HOME to the dirs mise's rust tool uses (C:\.cargo /
 # C:\.rustup -- see its exec_env). preinstall sets the gnullvm default
@@ -262,13 +258,3 @@ RUN mise exec -- cargo build --release -p et-ws-server && `
     if exist target rmdir /s /q target
 EXPOSE 8080 8443
 CMD ["et-ws-server"]
-
-# Known unknowns to settle via CI, roughly in the order the stages reach them.
-# build-minimal / build: whether the rustup host flip sticks (mise may re-pin its
-# own toolchain) and a gnu-host proc-macro/build-script build is clean; whether
-# the conda backend (micromamba) and the github llvm-mingw asset match resolve
-# cleanly on Nano Server; whether mise finds bash (m2-bash) for the `bash -euo
-# pipefail` tasks. prefetch onward (not yet reached -- the frontier): whether
-# `ort` (ONNX Runtime, msvc-only prebuilts) breaks the gnu link once a real cargo
-# build/test links it; whether build-modules (wasm-pack + the guest toolchains)
-# and a release et-ws-server build work at all under the gnu target on Nano Server.

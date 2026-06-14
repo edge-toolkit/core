@@ -29,6 +29,10 @@ py_dirs = "services/ws-modules/ generated/python-ws/ generated/python-rest/"
 # that module's dir); used by both the bindings and componentize steps.
 wit_dir = "../../../generated/specs/wit"
 
+[env]
+# Keep ruff's cache under target/ (gitignored) instead of a repo-root .ruff_cache.
+RUFF_CACHE_DIR = "{{ config_root }}/target/ruff-cache"
+
 [tasks]
 ruff-check = "ruff check {{ vars.py_dirs }}"
 ruff-fmt = "ruff format {{ vars.py_dirs }}"

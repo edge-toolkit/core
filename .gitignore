@@ -22,9 +22,10 @@ pnpm-lock.yaml
 # `src/bin/` (e.g. utilities/int-gen/src/bin/).
 obj/
 services/ws-modules/dotnet-data1/bin/
-# Editor dir (but keep the shared recommended-extensions list), ruff cache, and
+# Editor dir (but keep the shared recommended-extensions list), tool caches, and
 # the ws-server's runtime file storage.
 .vscode/*
 !.vscode/extensions.json
 .ruff_cache/
+.lycheecache
 services/ws-server/storage/
