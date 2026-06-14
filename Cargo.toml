@@ -99,7 +99,7 @@ opentelemetry-otlp = { version = "0.31", default-features = false, features = [
 ] }
 opentelemetry_sdk = "0.31"
 ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dylibs", "download-binaries"] }
-otlp-mock = { path = "libs/otlp-mock", version = "0.1.0" }
+int-otlp-mock = { path = "libs/otlp-mock", version = "0.1.0" }
 pollster = "0.4"
 pretty_yaml = "0.6"
 prettyplease = "0.2"

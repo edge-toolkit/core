@@ -1,0 +1,21 @@
+rules:
+  - id: prefer-yaml-toml-over-json
+    languages: [generic]
+    paths:
+      include:
+        - "*.json"
+        - "*.jsonc"
+        - "*.jsonl"
+      exclude:
+        # Formats whose tooling mandates JSON/JSONC -- everything else should be
+        # YAML or TOML. Add a file here only if its tool can't read YAML/TOML.
+        - "*.schema.json" # JSON Schema documents
+        - "package.json" # npm manifests
+        - "/.vscode/*.json" # editor config
+        - "dprint.jsonc" # dprint config
+        - ".dprint.jsonc"
+    pattern-regex: \A
+    message: >-
+      Prefer YAML or TOML over JSON/JSONC/JSONL for config. If a tool requires
+      this format, add the file to this rule's paths.exclude allowlist.
+    severity: ERROR

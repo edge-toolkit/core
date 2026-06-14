@@ -4645,10 +4645,10 @@ dependencies = [
  "et-ws-runner-common",
  "et-ws-test-server",
  "futures-util",
+ "int-otlp-mock",
  "opentelemetry 0.31.0",
  "opentelemetry-http 0.31.0",
  "ort",
- "otlp-mock",
  "pollster",
  "reqwest 0.13.4",
  "rstest",
@@ -6257,6 +6257,15 @@ checksum = "879f10e63c20629ecabbb64a8010319738c66a5cd0c29b02d63d272b03751d01"
 dependencies = [
  "block-padding",
  "generic-array",
+]
+
+[[package]]
+name = "int-otlp-mock"
+version = "0.1.0"
+dependencies = [
+ "actix-rt",
+ "actix-web",
+ "serde_json",
 ]
 
 [[package]]
@@ -7946,15 +7955,6 @@ checksum = "5ffd2b0a5634335b135d5728d84c5e0fd726954b87111f7506a61c502280d982"
 dependencies = [
  "libc",
  "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "otlp-mock"
-version = "0.1.0"
-dependencies = [
- "actix-rt",
- "actix-web",
- "serde_json",
 ]
 
 [[package]]

@@ -146,3 +146,30 @@ deny contains msg if {
 	not file.contents.package[field].workspace == true
 	msg := sprintf("%s: [package] %s must inherit via %s.workspace = true", [file.path, field, field])
 }
+
+# Crate names are namespaced: "edge-toolkit" or "et-" for normal crates, "int-"
+# for internal (publish = false) ones.
+allowed_crate_name(name, _) if startswith(name, "edge-toolkit")
+
+allowed_crate_name(name, _) if startswith(name, "et-")
+
+allowed_crate_name(name, pkg) if {
+	startswith(name, "int-")
+	pkg.publish == false
+}
+
+deny contains msg if {
+	some file in input
+	is_member(file)
+	name := file.contents.package.name
+	not allowed_crate_name(name, file.contents.package)
+	msg := sprintf("%s: crate name %q must start with edge-toolkit/et- (int- if publish=false)", [file.path, name])
+}
+
+# An empty `features = []` on a dependency is pointless noise -- drop it.
+deny contains msg if {
+	some [path, name, spec] in dep
+	is_object(spec)
+	spec.features == []
+	msg := sprintf("%s: dependency %q has an empty features = []; remove it", [path, name])
+}

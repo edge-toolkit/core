@@ -280,16 +280,31 @@ run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace 
 run = "taplo format"
 
 [tasks.conftest-check]
-description = "Run conftest OPA/Rego policies (config/conftest/policy) over config + lock files"
+# Native `depends` glob: every conftest-check-<format> task (toml, yaml, ...)
+# joins automatically, so adding a new parser needs no edit here.
+depends = ["conftest-check-*"]
+description = "Run all conftest policy checks (one per parsed file format)"
+
+[tasks.conftest-check-toml]
+description = "Run conftest OPA/Rego policies over the TOML config + lock files"
 # --combine feeds every listed file to one policy evaluation as an array of
 # {path, contents}, so a policy can both check each file and compare across files
 # (the mise wasm-bindgen pin vs Cargo.lock). --parser toml: Cargo.lock has no
-# .toml suffix. git ls-files enumerates the tracked Cargo.toml + mise configs.
+# .toml suffix. The TOML rule namespaces are listed explicitly, so the per-file
+# `gha` (YAML) namespace is never evaluated against this combined TOML input.
 run = """
+ns="--namespace cross --namespace cargo --namespace mise"
 git ls-files '*Cargo.toml' '.mise/config*.toml' Cargo.lock |
-  xargs conftest test --combine --parser toml --all-namespaces -p config/conftest/policy
+  xargs conftest test --combine --parser toml $ns -p config/conftest/policy
 """
 shell = "bash -euo pipefail -c"
+
+[tasks.conftest-check-yaml]
+description = "Run conftest OPA/Rego policies over the GitHub Actions workflow YAML"
+# Each workflow is checked on its own (no cross-file YAML rules) -- no --combine;
+# conftest reads the directory directly. --namespace gha selects only the YAML
+# policy. Replicates the gha-* ast-grep rules; running both is fine.
+run = "conftest test --parser yaml --namespace gha -p config/conftest/policy .github/workflows"
 
 [tasks.taplo-check]
 # `taplo lint` reads config/taplo.toml's `[[rule]] schema` entries for editor /
@@ -297,15 +312,15 @@ shell = "bash -euo pipefail -c"
 # CLI mode (verified: injecting `path = "../foo"` into a member Cargo.toml
 # doesn't fire `no-path-deps` via the rule alone). We work around it by
 # applying each schema explicitly with `taplo lint --schema file://...`.
-# conftest-check (config/conftest/policy) intentionally duplicates these lints;
-# running both is fine. See `config/taplo/RULE-IDEAS.md` for the investigation.
+# conftest-check-toml (config/conftest/policy) intentionally duplicates these
+# lints; running both is fine.
 run = """
 # Baseline TOML validation across every .toml file the auto-config picks up.
 # Runs on every OS (taplo is a prebuilt binary now).
 taplo lint
 
 # The --schema lints below pass file://$PWD URLs, which aren't well-formed on
-# Windows (drive-letter paths); run them on Linux/macOS only. conftest-check
+# Windows (drive-letter paths); run them on Linux/macOS only. conftest-check-toml
 # applies the same rules on every OS.
 [ "${OS:-}" = "Windows_NT" ] && exit 0
 

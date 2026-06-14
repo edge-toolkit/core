@@ -12,6 +12,12 @@ trim_trailing_whitespace = true
 [*.md]
 indent_size = unset
 
+# OPA/Rego: `conftest fmt` (opa fmt) indents with tabs and isn't configurable, so
+# its canonical formatting needs tabs, not the repo's space default.
+[*.rego]
+indent_style = tab
+indent_size = unset
+
 # License files use the canonical upstream formatting (centred headers, odd
 # indent widths, etc.) — leave them alone.
 [LICENSE-*]

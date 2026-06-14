@@ -41,7 +41,7 @@ use edge_toolkit::config::{OtlpConfig, OtlpProtocol};
 #[cfg_attr(windows, ignore = "pkg/package.json 404 on Windows -- see comment above")]
 fn trace_ids_propagate_between_runner_and_server() {
     // 1. Start the mock collector. Both processes will export to it.
-    let mock = otlp_mock::start();
+    let mock = int_otlp_mock::start();
 
     // 2. Init OTLP in the test process *before* spawning the test server,
     //    so the global tracing subscriber + propagator are in place when
