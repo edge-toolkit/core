@@ -49,4 +49,4 @@ reqwest = { workspace = true, features = ["json"] }
 # resolves to `window.location.origin` so browser modules can write
 # `Client::new("")` and have it match the page origin (and our embedded
 # Deno runtime's stubbed `globalThis.location`).
-web-sys = { workspace = true, features = ["Window", "Location"] }
+web-sys = { workspace = true, features = ["Location", "Window"] }

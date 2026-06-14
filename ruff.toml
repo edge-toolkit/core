@@ -16,7 +16,7 @@ line-length = 120
 # don't own and don't ship. Exclude them here (on top of ruff's defaults) so
 # the ruff tasks don't need to repeat `--exclude` flags, and so they're skipped
 # even when ruff runs with `--no-respect-gitignore`.
-extend-exclude = ["wit_world", "componentize_py_async_support"]
+extend-exclude = ["componentize_py_async_support", "wit_world"]
 
 [lint]
 # Add isort-style import sorting on top of the default rule set (E, F).

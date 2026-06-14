@@ -136,7 +136,7 @@ deny = [
   #   * `quinn-proto` -- pulled by deno_net via quinn (default features
   #     include `ring`). Drop once Deno's quinn config switches to the
   #     `rustls-aws-lc-rs` feature.
-  { crate = "ring", wrappers = ["rcgen", "rustls-webpki", "quinn-proto"] },
+  { crate = "ring", wrappers = ["quinn-proto", "rcgen", "rustls-webpki"] },
   # `ureq` is forbidden except via the wrappers listed below. Direct
   # use is blocked by the taplo no-banned-deps schema; this entry
   # catches transitive paths the same way as `ring` above.

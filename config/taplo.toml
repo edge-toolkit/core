@@ -6,7 +6,7 @@
 # scratch area, so scratch TOML is skipped here too -- to lint or test a scratch
 # TOML, pipe it through `taplo format -` / `taplo lint -` (stdin has no path to
 # exclude).
-exclude = ["target/**", "data/**"]
+exclude = ["data/**", "target/**"]
 
 [formatting]
 column_width = 120

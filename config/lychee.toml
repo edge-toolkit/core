@@ -25,7 +25,4 @@ exclude_path = ["data", "generated", "target"]
 
 # URL patterns (regex) to skip: doc/test placeholder hosts (e.g. http://host:8080/)
 # and `{...}` format-string templates (.../{repo}/{git_ref}/...), not real links.
-exclude = [
-  '^https?://host[:/]',
-  '\{|%7B',
-]
+exclude = ['\{|%7B', '^https?://host[:/]']

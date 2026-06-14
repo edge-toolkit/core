@@ -52,11 +52,11 @@ shell = "bash -euo pipefail -c"
 
 # Namespaced aggregators picked up by the default config's globbed `check`/`fmt`.
 [tasks."check:zig"]
-depends = ["zig-check", "clang-format-check", "clang-tidy-check", "cpplint-check"]
+depends = ["clang-format-check", "clang-tidy-check", "cpplint-check", "zig-check"]
 description = "Run Zig + C checks (zig fmt-check, clang-format, clang-tidy, cpplint)"
 
 [tasks."fmt:zig"]
-depends = ["zig-fmt", "clang-format"]
+depends = ["clang-format", "zig-fmt"]
 description = "Format Zig + C sources"
 
 [tasks.build-ws-zig-data1-module]

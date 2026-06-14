@@ -7,8 +7,8 @@ license.workspace = true
 repository.workspace = true
 
 [lib]
-path = "src/lib.rs"
 doctest = false
+path = "src/lib.rs"
 
 [[bin]]
 name = "et-ws-pyo3-runner"

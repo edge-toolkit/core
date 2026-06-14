@@ -3,8 +3,8 @@
 [vars]
 # Google dart-archive base URLs — the release tree and the bucket listing —
 # referenced by [tools.dart] below so its url/version_list_url stay one line.
-dart_release = "https://storage.googleapis.com/dart-archive/channels/stable/release"
 dart_bucket = "https://storage.googleapis.com/storage/v1/b/dart-archive/o"
+dart_release = "https://storage.googleapis.com/dart-archive/channels/stable/release"
 
 [tools]
 # cargo: backend -- dart-typegen has no prebuilt binary (crates.io only).
@@ -14,14 +14,14 @@ dart_bucket = "https://storage.googleapis.com/storage/v1/b/dart-archive/o"
 # archive, discovering the latest stable from the bucket listing. `{{ version }}`
 # etc. resolve in the tool-url context; the static host/path prefix is a var.
 [tools.dart]
-version = "latest"
 url = "{{ vars.dart_release }}/{{ version }}/sdk/dartsdk-{{ os() }}-{{ arch() }}-release.zip"
-version_list_url = "{{ vars.dart_bucket }}?prefix=channels/stable/release/&delimiter=/"
+version = "latest"
 version_expr = '''
 fromJSON(body).prefixes
 | filter({ # matches "^channels/stable/release/(\\d+\\.\\d+\\.\\d+)/$" })
 | map({split(#, "/")[3]})
 | sortVersions()'''
+version_list_url = "{{ vars.dart_bucket }}?prefix=channels/stable/release/&delimiter=/"
 
 [tasks.dart-pub-get]
 # `dart format` and `dart analyze` walk up to find pubspec.yaml *and* read

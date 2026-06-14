@@ -23,9 +23,9 @@ task.run_auto_install = false
 [tools]
 action-validator = "latest"
 "aqua:EmbarkStudios/cargo-deny" = "latest"
+"aqua:rustwasm/wasm-pack" = "latest"
 ast-grep = "latest"
 cargo-binstall = "latest"
-"aqua:rustwasm/wasm-pack" = "latest"
 "cargo:cargo-expand" = "latest"
 taplo = "latest"
 watchexec = "latest"
@@ -123,8 +123,8 @@ retry = "recur --attempts 8 --delay 2s --backoff 2s --max-delay 2m --jitter 0,5s
 # no MISE_ENV=all). Hardcoded rather than shell-discovered so it works on Windows
 # too — keep in sync when adding/removing a config.<lang>.toml.
 ALL_LANGS = "dart,dotnet,java,python,rust,zig"
-TAPLO_CONFIG = "{{ config_root }}/config/taplo.toml"
 CLIPPY_CONF_DIR = "{{ config_root }}/config"
+TAPLO_CONFIG = "{{ config_root }}/config/taplo.toml"
 # Use the conda:openssl install for Rust's OPENSSL_DIR so openssl-sys crate builds.
 OPENSSL_DIR = "{{ vars.conda_openssl }}"
 
@@ -175,6 +175,7 @@ depends = [
   "cargo-clippy",
   "cargo-doc-check",
   "cargo-fmt-check",
+  "conftest-check",
   "docker-check",
   "dprint-check",
   "editorconfig-check",
@@ -184,8 +185,8 @@ depends = [
   "ls-lint-check",
   "ryl-check",
   "semgrep-check",
-  "conftest-check",
   "taplo-check",
+  "taplo-fmt-check",
   "typos",
   "verification-check",
   "zizmor-check",
@@ -251,6 +252,9 @@ run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace 
 
 [tasks.taplo-fmt]
 run = "taplo format"
+
+[tasks.taplo-fmt-check]
+run = "taplo format --check"
 
 [tasks.conftest-check]
 depends = ["conftest-check-*"]
