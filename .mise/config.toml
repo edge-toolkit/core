@@ -114,6 +114,9 @@ rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
 # the stable install path instead.
 pylib_flag = "-C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/python/3.13/lib"
 wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint"
+# Extra flag for the wasm-pack module builds; empty so wasm-opt runs.
+# config.windows.toml overrides it to --no-opt where wasm-opt can't execute.
+no_opt = ""
 # Source/dest paths for the fetch-*-rclone model downloads — kept as vars so
 # each `rclone copyto` command stays on a single line without continuations.
 face1_dst = "data/model-modules/model-face1/pkg/video_cv.onnx"
@@ -619,15 +622,9 @@ shell = "bash -euo pipefail -c"
 [tasks.build-ws-wasm-agent]
 description = "Build the WebSocket WASM client"
 dir = "services/ws-wasm-agent"
-# wasm-opt (binaryen) can't execute on the Nano Server image (it needs more of the
-# VC++ runtime than the image carries), so skip it on Windows -- that build is only
-# a smoke-test; the served, size-optimised artifact is built on Linux/macOS.
-run = """
-opt=""
-[ "${OS:-}" = "Windows_NT" ] && opt="--no-opt"
-wasm-pack build . --target web $opt -- -Z build-std=std,panic_abort
-"""
-shell = "bash -euo pipefail -c"
+# {{ vars.no_opt }} is --no-opt on Windows (wasm-opt can't run on Nano), empty
+# elsewhere -- the served, size-optimised artifact is built on Linux/macOS.
+run = "wasm-pack build . --target web {{ vars.no_opt }} -- -Z build-std=std,panic_abort"
 
 [tasks.build-ws-wasm-agent.env]
 # Scope these flags to the wasm target rather than setting plain `RUSTFLAGS`:

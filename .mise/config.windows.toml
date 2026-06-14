@@ -40,6 +40,9 @@ py313_win = "{{ get_env(name='LOCALAPPDATA', default='') }}\\mise\\installs\\pyt
 # clang-sys finds libclang on PATH (Docker's gnu build has llvm-mingw there); a
 # workstation with system LLVM also works.
 win_libclang = "C:\\Program Files\\LLVM\\bin"
+# wasm-pack's wasm-opt (binaryen) can't execute on Nano Server (os error 3), so
+# the module + wasm-agent builds pass --no-opt; they reference {{ vars.no_opt }}.
+no_opt = "--no-opt"
 
 [env]
 # Run `shell = "bash …"` tasks on busybox ash rather than the Windows WSL
