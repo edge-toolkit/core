@@ -12,3 +12,20 @@ deny contains msg if {
 	src.path == ".."
 	msg := sprintf("%s: [tool.uv.sources] %q uses path = \"..\"; point at the package path", [file.path, name])
 }
+
+# uv_build must be pinned to exactly the mise uv version, so `uv build` uses the
+# matching backend (no out-of-range warning). Bump both together when upgrading uv.
+uv_version := v if {
+	some file in input
+	endswith(file.path, ".mise/config.toml")
+	v := file.contents.tools.uv
+}
+
+deny contains msg if {
+	some file in input
+	endswith(file.path, "pyproject.toml")
+	some req in file.contents["build-system"].requires
+	startswith(req, "uv_build")
+	req != sprintf("uv_build==%s", [uv_version])
+	msg := sprintf("%s: pin uv_build==%s to match mise's uv (found %q)", [file.path, uv_version, req])
+}

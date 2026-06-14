@@ -75,7 +75,7 @@ pub enum CliError {
     #[error("Verification input file {0:?} has no file stem")]
     MissingFileStem(PathBuf),
 
-    #[error("Verification root {0:?} does not contain any scenario files under */input/*.yaml or */input/*.yml")]
+    #[error("Verification root {0:?} does not contain any scenario files under */input/*.yaml")]
     NoScenarios(PathBuf),
 
     #[error("Unsupported deployment_type {0:?}. Supported values are currently: mise, docker-compose")]

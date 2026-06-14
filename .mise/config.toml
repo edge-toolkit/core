@@ -308,9 +308,10 @@ grep -vxF './generated/rust-rest/Cargo.toml' "$members" |
 # string, one command per line). Applies to every .mise/config*.toml.
 taplo lint --schema "file://$PWD/config/taplo/mise-run-not-array.schema.json" .mise/config*.toml
 
-# Tools must use a prebuilt backend; `cargo:`/`ubi:` build from source.
-# Allowlisted exceptions: cargo:cargo-expand + cargo:dart-typegen.
-taplo lint --schema "file://$PWD/config/taplo/mise-no-source-backends.schema.json" .mise/config*.toml
+# ubi: is deprecated (use http:); cargo: builds from source (slow), allowed only
+# for cargo-expand + dart-typegen. Two separate rules, two reasons.
+taplo lint --schema "file://$PWD/config/taplo/mise-no-ubi-backend.schema.json" .mise/config*.toml
+taplo lint --schema "file://$PWD/config/taplo/mise-cargo-backend-allowlist.schema.json" .mise/config*.toml
 """
 shell = "bash -euo pipefail -c"
 
@@ -575,6 +576,13 @@ run = "wasm-pack build . --target web {{ vars.no_opt }} -- -Z build-std=std,pani
 # them with "'mvp' is not a recognized processor for this target".
 CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS = "{{ vars.wasm_rustflags }}"
 RUSTUP_TOOLCHAIN = "nightly"
+
+[tasks.build-et-cli]
+# Pre-build et-cli once. The parallel build-ws-* module tasks each call
+# `cargo run -p et-cli -- module-package-json`; without this they race rebuilding
+# et-cli, and one execs the binary mid-replace (ENOENT -- surfaced on macOS).
+description = "Build et-cli (prereq for the module-package-json steps)"
+run = "cargo build -p et-cli"
 
 [tasks.build-modules]
 # Native `depends` glob over `build-ws-*`: that matches `build-ws-wasm-agent`

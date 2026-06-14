@@ -17,6 +17,7 @@ dir = "services/ws-modules/data1"
 run = "wasm-pack build . --target web {{ vars.no_opt }}"
 
 [tasks.build-ws-har1-module]
+depends = ["build-et-cli"]
 description = "Build the har1 workflow WASM module"
 dir = "services/ws-modules/har1"
 # Chain with `&&` on one line rather than a multi-line `bash` block: wasm-pack
@@ -26,6 +27,7 @@ dir = "services/ws-modules/har1"
 run = "wasm-pack build . --target web {{ vars.no_opt }} && cargo run -p et-cli -- module-package-json"
 
 [tasks.build-ws-face-detection-module]
+depends = ["build-et-cli"]
 description = "Build the face detection workflow WASM module"
 dir = "services/ws-modules/face-detection"
 # See build-ws-har1-module: `&&` on one line under the default shell so
@@ -78,6 +80,7 @@ dir = "services/ws-modules/nfc"
 run = "wasm-pack build . --target web {{ vars.no_opt }}"
 
 [tasks.build-ws-wasi-data1-module]
+depends = ["build-et-cli"]
 description = "Build the Rust WASI data1 module as a WASI Preview 2 component"
 # The crate is a regular workspace member but its lib body is gated on
 # `#![cfg(target_os = "wasi")]`, so cargo check from the host target gets
@@ -93,6 +96,7 @@ cargo run -p et-cli -- module-package-json --module-dir services/ws-modules/wasi
 shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-wasi-comm1-module]
+depends = ["build-et-cli"]
 description = "Build the Rust WASI comm1 module as a WASI Preview 2 component"
 run = """
 cargo build --release -p et-ws-wasi-comm1 --target wasm32-wasip2

@@ -68,7 +68,7 @@ UV_PYTHON = """\
 {% else %}{{ exec(command='mise which python3.13') }}{% endif %}"""
 
 [tasks.build-et-ws-wheel]
-depends = ["gen:python-ws"]
+depends = ["build-et-cli", "gen:python-ws"]
 description = "Build the generated et-ws Python package as a wheel + ws-module pkg/"
 dir = "generated/python-ws"
 # Wheel goes straight into pkg/ alongside the committed et_ws.js shim so the
@@ -82,7 +82,7 @@ cargo run -p et-cli -- module-package-json
 shell = "bash -euo pipefail -c"
 
 [tasks.build-et-rest-client-wheel]
-depends = ["gen:python-rest"]
+depends = ["build-et-cli", "gen:python-rest"]
 description = "Build the generated et-rest-client Python package as a wheel + ws-module pkg/"
 dir = "generated/python-rest"
 run = """
@@ -123,6 +123,7 @@ cargo run -p et-cli -- module-package-json
 shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-wasi-graphics-info-module]
+depends = ["build-et-cli"]
 description = "Build the WASI graphics-info Python module as a WASI Preview 2 component"
 dir = "services/ws-modules/wasi-graphics-info"
 # WIT lives once at generated/specs/wit/ — the runner's `runner` world is

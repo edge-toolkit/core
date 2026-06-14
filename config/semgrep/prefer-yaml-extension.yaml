@@ -9,7 +9,5 @@ rules:
         - "/data"
         - "/generated"
     pattern-regex: \A
-    message: >-
-      Prefer the .yaml extension over .yml. GitHub Actions, ast-grep, semgrep and
-      uv all read .yaml -- rename the file.
+    message: "Use the .yaml extension, not .yml -- rename the file."
     severity: ERROR

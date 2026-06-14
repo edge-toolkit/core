@@ -270,7 +270,7 @@ fn discover_verification_scenarios(verification_root: &Path) -> Result<Vec<(Path
             let Some(extension) = path.extension().and_then(|ext| ext.to_str()) else {
                 continue;
             };
-            if !matches!(extension, "yaml" | "yml") {
+            if extension != "yaml" {
                 continue;
             }
 

@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "mise [tools] -- no ubi backend",
+  "description": "The `ubi:` backend is deprecated; use `http:` instead.",
+  "type": "object",
+  "properties": {
+    "tools": {
+      "type": "object",
+      "propertyNames": { "not": { "pattern": "^ubi:" } }
+    }
+  }
+}
