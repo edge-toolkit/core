@@ -20,6 +20,18 @@ use tracing::{info, warn};
 use crate::error::RunnerError;
 use crate::python::{AgentIdSlot, Dispatcher, OutboundFrame, StorageError, StorageOp, WsSender, WsStorage};
 
+/// One unit of work for the Python dispatch thread. The WS loop forwards
+/// inbound frames plus the connect/shutdown lifecycle as these; the worker
+/// drains them in submission order, off the WS task, so a slow handler never
+/// stalls the heartbeat or the outbound drain.
+#[derive(Debug)]
+enum InboundEvent {
+    Connect(String),
+    Text(String),
+    Binary(Vec<u8>),
+    Shutdown,
+}
+
 #[expect(
     clippy::exhaustive_structs,
     reason = "input config built by the binary entrypoint via a struct literal; new fields are additive there"
@@ -37,8 +49,8 @@ pub struct AgentConfig {
 pub struct InitializedAgent {
     pub config: AgentConfig,
     pub dispatcher: Dispatcher,
-    /// Reply-by-return path. `drive()` clones this each handler call so a
-    /// returned `bytes` / `str` lands on the same outbound queue Python's
+    /// Reply-by-return path: the Python dispatch worker pushes a handler's
+    /// returned `bytes` / `str` onto the same outbound queue Python's
     /// `WsSender` writes to.
     pub outbound_tx: mpsc::UnboundedSender<OutboundFrame>,
     pub outbound_rx: mpsc::UnboundedReceiver<OutboundFrame>,
@@ -92,10 +104,6 @@ pub fn initialize(
     })
 }
 
-#[expect(
-    clippy::cognitive_complexity,
-    reason = "linear startup sequence (worker spawn, connect, drive, shutdown) reads as one unit"
-)]
 pub async fn run(agent: InitializedAgent) -> Result<(), RunnerError> {
     let InitializedAgent {
         config,
@@ -113,6 +121,15 @@ pub async fn run(agent: InitializedAgent) -> Result<(), RunnerError> {
     // dropped at process exit.
     let storage_task = tokio::spawn(storage_worker(http_base, storage_rx));
 
+    // Run Python on its own OS thread: every hook executes here, off the async
+    // WS task, so even a long-running handler can't stall the heartbeat or the
+    // outbound drain in `drive`. The worker owns the Dispatcher and processes
+    // inbound events in submission order.
+    let (inbound_tx, inbound_rx) = mpsc::unbounded_channel::<InboundEvent>();
+    let worker = std::thread::Builder::new()
+        .name("pyo3-dispatch".to_owned())
+        .spawn(move || python_worker(dispatcher, inbound_rx, outbound_tx))?;
+
     info!("connecting to {}", config.ws_url);
     let (mut socket, agent_id, status) = et_ws_runner_common::connect_and_register(
         &config.ws_url,
@@ -124,20 +141,64 @@ pub async fn run(agent: InitializedAgent) -> Result<(), RunnerError> {
         "registered as agent_id={agent_id} ({})",
         et_ws_runner_common::connect_status_label(&status)
     );
-    // Populate the slot before calling `on_connect` so Python sees a
-    // valid `storage.agent_id` from the first instant it can act.
+    // Populate the slot before `on_connect` so Python sees a valid
+    // `storage.agent_id` from the first instant it can act.
     *agent_id_slot.lock().unwrap_or_else(PoisonError::into_inner) = Some(agent_id.clone());
-    if let Err(err) = dispatcher.on_connect(&agent_id) {
-        warn!("on_connect hook failed: {err}");
-    }
+    drop(inbound_tx.send(InboundEvent::Connect(agent_id)));
 
-    let result = drive(&mut socket, &dispatcher, &outbound_tx, &mut outbound_rx).await;
-    if let Err(err) = dispatcher.on_shutdown() {
-        warn!("on_shutdown hook failed: {err}");
-    }
+    let result = drive(&mut socket, &inbound_tx, &mut outbound_rx).await;
+
+    // Queue `on_shutdown` (the worker drains any frames ahead of it first),
+    // then drop our sender so the worker's recv loop ends. Join before aborting
+    // the storage task so an `on_shutdown` that persists state can still reach
+    // it; only then close the socket and stop storage.
+    drop(inbound_tx.send(InboundEvent::Shutdown));
+    drop(inbound_tx);
+    drop(worker.join());
     drop(socket.send(tungstenite::Message::Close(None)).await);
     storage_task.abort();
     result
+}
+
+/// Own the `Dispatcher` on a dedicated OS thread and run every Python hook
+/// here, fully decoupling Python execution from the async WS task. Handler
+/// return values are pushed onto the same outbound queue Python's `WsSender`
+/// writes to. Runs until the inbound channel closes (after `Shutdown`).
+#[expect(
+    clippy::cognitive_complexity,
+    clippy::needless_pass_by_value,
+    reason = "owns its args for the thread's lifetime; one linear match over the inbound event taxonomy"
+)]
+fn python_worker(
+    dispatcher: Dispatcher,
+    mut inbound_rx: mpsc::UnboundedReceiver<InboundEvent>,
+    outbound_tx: mpsc::UnboundedSender<OutboundFrame>,
+) {
+    while let Some(event) = inbound_rx.blocking_recv() {
+        match event {
+            InboundEvent::Connect(agent_id) => {
+                if let Err(err) = dispatcher.on_connect(&agent_id) {
+                    warn!("on_connect hook failed: {err}");
+                }
+            }
+            InboundEvent::Text(text) => match dispatcher.on_text_frame(&text) {
+                Ok(Some(reply)) => drop(outbound_tx.send(OutboundFrame::Text(reply))),
+                Ok(None) => {}
+                Err(err) => warn!("on_text_frame raised: {err}"),
+            },
+            InboundEvent::Binary(bytes) => match dispatcher.on_binary_frame(&bytes) {
+                Ok(Some(reply)) => drop(outbound_tx.send(OutboundFrame::Binary(reply))),
+                Ok(None) => {}
+                Err(err) => warn!("on_binary_frame raised: {err}"),
+            },
+            InboundEvent::Shutdown => {
+                if let Err(err) = dispatcher.on_shutdown() {
+                    warn!("on_shutdown hook failed: {err}");
+                }
+                break;
+            }
+        }
+    }
 }
 
 /// Run forever, draining `StorageOp`s from the channel and resolving each
@@ -177,18 +238,13 @@ async fn storage_worker(http_base: String, mut rx: mpsc::UnboundedReceiver<Stora
     }
 }
 
-/// Drive the socket in both directions. Inbound frames go to Python;
-/// outbound frames Python pushed via `WsSender` come back through the
-/// channel and out to the socket. Python errors are logged but don't
-/// terminate the connection.
-#[expect(
-    clippy::cognitive_complexity,
-    reason = "one select! loop matching the small inbound frame taxonomy; splitting it would obscure the flow"
-)]
+/// Drive the socket in both directions. Inbound frames are forwarded to the
+/// Python dispatch worker via `inbound_tx` (a non-blocking send, so a slow
+/// handler never holds up this loop); outbound frames the worker or Python's
+/// `WsSender` produced come back through `outbound_rx` and out to the socket.
 async fn drive(
     socket: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
-    dispatcher: &Dispatcher,
-    outbound_tx: &mpsc::UnboundedSender<OutboundFrame>,
+    inbound_tx: &mpsc::UnboundedSender<InboundEvent>,
     outbound_rx: &mut mpsc::UnboundedReceiver<OutboundFrame>,
 ) -> Result<(), RunnerError> {
     // Keepalive: the server closes idle connections and never pings us, so a
@@ -197,28 +253,15 @@ async fn drive(
     let mut heartbeat = et_ws_runner_common::heartbeat_interval().await;
     loop {
         tokio::select! {
-            // Inbound: read a frame from the server and dispatch to Python.
-            // Any reply the handler returns is appended to the same outbound
-            // queue Python pushes to via WsSender, so multi-send + reply
-            // compose in submission order.
+            // Inbound: hand the frame to the dispatch worker and keep looping.
+            // The worker emits any reply onto the same outbound queue Python
+            // pushes to via WsSender, so multi-send + reply compose in order.
             frame = socket.next() => match frame {
                 Some(Ok(tungstenite::Message::Binary(bytes))) => {
-                    match dispatcher.on_binary_frame(&bytes) {
-                        Ok(Some(reply)) => {
-                            drop(outbound_tx.send(OutboundFrame::Binary(reply)));
-                        }
-                        Ok(None) => {}
-                        Err(err) => warn!("on_binary_frame raised: {err}"),
-                    }
+                    drop(inbound_tx.send(InboundEvent::Binary(bytes)));
                 }
                 Some(Ok(tungstenite::Message::Text(text))) => {
-                    match dispatcher.on_text_frame(&text) {
-                        Ok(Some(reply)) => {
-                            drop(outbound_tx.send(OutboundFrame::Text(reply)));
-                        }
-                        Ok(None) => {}
-                        Err(err) => warn!("on_text_frame raised: {err}"),
-                    }
+                    drop(inbound_tx.send(InboundEvent::Text(text)));
                 }
                 Some(Ok(tungstenite::Message::Close(_))) => {
                     info!("server closed connection");
@@ -229,8 +272,8 @@ async fn drive(
                 Some(Err(e)) => return Err(RunnerError::WebSocket(e)),
                 None => return Ok(()),
             },
-            // Outbound: drain anything Python pushed via WsSender or via
-            // return-value replies enqueued above.
+            // Outbound: drain anything the worker pushed (Python's WsSender
+            // sends or return-value replies).
             Some(out) = outbound_rx.recv() => {
                 let msg = match out {
                     OutboundFrame::Text(text) => tungstenite::Message::Text(text),

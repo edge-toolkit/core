@@ -12,10 +12,10 @@ use et_ws_pyo3_runner::agent::{AgentConfig, initialize, run as run_agent};
 use et_ws_pyo3_runner::config::Config;
 use tracing::info;
 
-// Multi-threaded runtime so Python's sync `WsStorage.get/put` (which
-// `blocking_recv` on a oneshot reply) doesn't stall the WS loop --
-// another worker thread keeps polling the storage task while one
-// thread is parked on Python.
+// Multi-threaded runtime. Python runs on its own OS thread (see
+// `agent::run`'s dispatch worker), and its sync `WsStorage.get/put` park that
+// thread on a oneshot reply; the runtime's worker threads keep driving the
+// storage task and the WS loop so those replies resolve while Python waits.
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()

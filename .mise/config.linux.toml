@@ -44,19 +44,39 @@ LIBCLANG_PATH = "{{ vars.a_conda_clangxx }}/lib"
 
 [tasks.preinstall]
 # Preinstall: the shared cross-platform base (via _setup_all), then verify the
-# system build prerequisites mise can't supply -- the C/C++ toolchain, gpg and
-# archive tools the Dockerfile installs via apt. A workstation missing any is
-# told to install them with its package manager (CI/Docker already have them).
+# build prerequisites mise can't supply. The list has a single source of truth --
+# the Dockerfile's APT_PACKAGES: the Docker build exposes it as an env var (the
+# ARG is in scope for the preinstall RUN), and a workstation reads it back from
+# the Dockerfile in the checkout. Each package is probed for presence -- a command
+# for the CLI tools (gpg for gnupg, xz for xz-utils, else the package name), a key
+# file for ca-certificates and libc6-dev, and the versioned shared library on disk
+# for libicu (a file check, not ldconfig, so it doesn't hinge on the ld.so cache
+# being refreshed). An empty list is a hard error, not a silent skip.
 depends = ["_setup_all"]
 description = "Preinstall: shared base + verify system build prerequisites"
 run = """
-pkgs="bzip2 ca-certificates curl g++ gcc git gnupg libc6-dev libicu74 make unzip xz-utils"
+pkgs="${APT_PACKAGES:-}"
+if [ -z "$pkgs" ]; then
+  dockerfile="{{ config_root }}/Dockerfile"
+  pkgs="$(rg '^ARG APT_PACKAGES=' "$dockerfile" 2>/dev/null | coreutils cut -d'"' -f2 || true)"
+fi
+if [ -z "$pkgs" ]; then
+  echo "preinstall: could not read the APT_PACKAGES prerequisite list" >&2
+  exit 1
+fi
 missing=""
-for cmd in gcc g++ make git curl gpg unzip bzip2 xz; do
-  command -v "$cmd" >/dev/null 2>&1 || missing="$missing $cmd"
+for pkg in $pkgs; do
+  case "$pkg" in
+    gnupg) command -v gpg >/dev/null 2>&1 ;;
+    xz-utils) command -v xz >/dev/null 2>&1 ;;
+    ca-certificates) [ -r /etc/ssl/certs/ca-certificates.crt ] ;;
+    libc6-dev) [ -r /usr/include/stdio.h ] ;;
+    libicu*) coreutils ls /usr/lib/*/libicui18n.so.${pkg#libicu} >/dev/null 2>&1 ;;
+    *) command -v "$pkg" >/dev/null 2>&1 ;;
+  esac || missing="$missing $pkg"
 done
 if [ -n "$missing" ]; then
-  echo "preinstall: missing required system tools:$missing" >&2
+  echo "preinstall: missing required build prerequisites:$missing" >&2
   echo "Install them with your package manager. On Debian/Ubuntu:" >&2
   echo "  sudo apt-get install -y $pkgs" >&2
   exit 1

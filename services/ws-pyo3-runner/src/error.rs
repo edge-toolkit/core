@@ -23,4 +23,8 @@ pub enum RunnerError {
     /// A WebSocket send / receive failed while driving the connection.
     #[error("websocket: {0}")]
     WebSocket(#[from] tokio_tungstenite::tungstenite::Error),
+
+    /// The dedicated Python dispatch thread could not be spawned.
+    #[error("failed to spawn the Python dispatch thread: {0}")]
+    WorkerSpawn(#[from] std::io::Error),
 }

@@ -36,9 +36,10 @@ deny contains msg if {
 	msg := sprintf("%s: task %q description must be a single line", [file.path, name])
 }
 
-# `cargo:` tools build from source; prefer a prebuilt backend. Allowlist the two
-# that have no prebuilt binary.
-allowed_cargo_tool := {"cargo:cargo-expand", "cargo:dart-typegen"}
+# `cargo:` tools build from source; prefer a prebuilt backend. Allowlist the ones
+# with no prebuilt binary (cargo-expand, dart-typegen), plus cargo:findutils which
+# is os-scoped to aarch64-linux only (its prebuilt release lacks that one arch).
+allowed_cargo_tool := {"cargo:cargo-expand", "cargo:dart-typegen", "cargo:findutils"}
 
 deny contains msg if {
 	some file in input
@@ -59,13 +60,18 @@ deny contains msg if {
 }
 
 # Tools should work on every OS (CLAUDE.md "Tools must work on every OS"). Any
-# os-scoped [tools] entry must be a genuinely platform-specific one in this list.
+# os-scoped [tools] entry must be in this list -- either a genuinely
+# platform-specific tool, or one whose os-scoping just picks a per-platform
+# backend while still covering every OS (findutils: prebuilt everywhere except
+# aarch64-linux, which builds from source).
 allowed_os_scoped_tool := {
 	"chromedriver",
 	"pipx",
 	"npm:pnpm",
 	"pnpm",
 	"github:christianhelle/openapi2zig",
+	"github:uutils/findutils",
+	"cargo:findutils",
 }
 
 deny contains msg if {
@@ -76,4 +82,67 @@ deny contains msg if {
 	spec.os
 	not allowed_os_scoped_tool[name]
 	msg := sprintf("%s: tool %q is os-scoped; tools must work on every OS (or allowlist it)", [file.path, name])
+}
+
+# A [vars]/[env] value that hard-codes a tool's install path (e.g. the absolute
+# linker in config.windows.toml, or the libpython rpath in config.toml) embeds
+# the tool's version as a path segment. mise installs a tool to
+# `installs/<dir>/<version>`, where <dir> is the tool name with `:` and `/`
+# turned into `-`. Those embedded versions must track the `[tools]` pin -- a
+# bump that updates the tool but not the var silently points at a missing dir.
+# Collect every (install-dir, version) the [tools] tables pin, across all files
+# (--combine), since a var in config.<os>.toml can reference a tool pinned in
+# config.toml.
+tool_versions contains [dir, version] if {
+	some file in input
+	is_mise(file)
+	some name, spec in file.contents.tools
+	is_string(spec)
+	dir := replace(replace(name, ":", "-"), "/", "-")
+	version := spec
+}
+
+tool_versions contains [dir, version] if {
+	some file in input
+	is_mise(file)
+	some name, spec in file.contents.tools
+	is_object(spec)
+	dir := replace(replace(name, ":", "-"), "/", "-")
+	version := spec.version
+}
+
+# Every [vars]/[env] string, tagged with where it came from for the message.
+config_strings contains entry if {
+	some file in input
+	is_mise(file)
+	some kind in ["vars", "env"]
+	some key, value in object.get(file.contents, kind, {})
+	is_string(value)
+	entry := {"path": file.path, "kind": kind, "key": key, "value": value}
+}
+
+# An install path embeds a tool's version as the segment right after the tool's
+# install dir. Yield every embedded version that isn't a pinned version of that
+# tool. The captured segment is restricted to version chars so it stops at the
+# next path separator OR a trailing delimiter (a quote, `;`, …) when the path is
+# spliced into a larger string (as in Dockerfile ENV/RUN lines). Shared by the
+# [vars]/[env] check here and the Dockerfile check (data.mise.version_drift).
+version_drift(value) := {drift |
+	some [dir, _] in tool_versions
+	pattern := sprintf(`(?:^|[\\/}])%s[\\/]([A-Za-z0-9._-]+)`, [dir])
+	some m in regex.find_all_string_submatch_n(pattern, value, -1)
+	seg := m[1]
+	not [dir, seg] in tool_versions
+	pinned := concat(", ", sort({v | some [d, v] in tool_versions; d == dir}))
+	drift := {"dir": dir, "seg": seg, "pinned": pinned}
+}
+
+deny contains msg if {
+	some entry in config_strings
+	contains(entry.value, "installs")
+	some d in version_drift(entry.value)
+	msg := sprintf(
+		"%s: %s %q embeds %q version %q, but [tools] pins it to %q -- keep them in sync",
+		[entry.path, entry.kind, entry.key, d.dir, d.seg, d.pinned],
+	)
 }

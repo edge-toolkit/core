@@ -198,10 +198,11 @@ dir = "generated/python-ws"
 run = """
 mkdir -p et_ws
 datamodel-codegen --input ../../target/int-gen/ws.schema.json --output et_ws/messages.py
-# Strip the residual lone `#` line (and the blank after it) left by
-# custom-file-header = "#" so the file starts cleanly.
-sed -i.bak -e '1{/^#$/d;}' -e '2{/^$/d;}' et_ws/messages.py
-rm et_ws/messages.py.bak
+# Drop the 2-line header (a lone `#` + the blank after it) that
+# custom-file-header = "#" emits, so the file starts cleanly. tail, not sed:
+# datamodel-codegen always emits exactly those two lines, so a fixed offset is safe.
+coreutils tail -n +3 et_ws/messages.py > et_ws/messages.py.tmp
+coreutils mv et_ws/messages.py.tmp et_ws/messages.py
 # datamodel-codegen's bundled ruff runs with its own defaults, not our repo
 # ruff.toml, so re-run repo ruff: `check --fix` for import sorting ("I" rules),
 # then `format` for whitespace/line-length.

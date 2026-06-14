@@ -37,8 +37,22 @@ watchexec = "latest"
 cmake = "latest"
 "conda:openssl" = "3"
 conftest = "latest"
+# uutils coreutils: the Rust multicall binary, invoked as `coreutils <util>` in tasks.
+coreutils = "latest"
 dprint = "latest"
 editorconfig-checker = "latest"
+# ripgrep (rg): the Rust grep that tasks use in place of the host's grep.
+ripgrep = "latest"
+# uutils findutils (find + xargs), pinned to 0.8.0 (0.9.0 ships no binaries).
+# Separate binaries, not a multicall, so the mise shims shadow the host's find /
+# xargs in tasks. Every platform uses the 0.8.0 prebuilt via github: ...
+"github:uutils/findutils" = { version = "0.8.0", os = ["linux/x64", "macos", "windows"] }
+# ... except aarch64-linux, whose 0.8.0 release has no asset, so it builds from
+# source via cargo: (same 0.8.0 pin, so every platform runs the same version).
+"cargo:findutils" = { version = "0.8.0", os = ["linux/arm64"] }
+# goawk: the awk that tasks invoke as `goawk` in place of the host's awk. Go, not
+# Rust, but it's the one with prebuilt binaries for every platform we target.
+"github:benhoyt/goawk" = "latest"
 # Retries a command with exponential backoff + jitter; wraps the model fetches
 # below (see the `retry` var) so a transient HTTP 429 doesn't fail the build.
 "github:dbohdan/recur" = "latest"
@@ -85,7 +99,7 @@ zizmor = "latest"
 # clang-tidy's resource-dir arg (points clang at its builtin headers, e.g.
 # stddef.h). Empty default; config.linux.toml sets it from conda:clangxx.
 clang_resource_arg = ""
-conda_openssl = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest"
+conda_openssl = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/3"
 # mise-managed CPython 3.13 (Linux/macOS); the PYO3_PYTHON default below. Windows
 # overrides PYO3_PYTHON with its own py313_win in config.windows.toml.
 py313_unix = "{{ env.HOME }}/.local/share/mise/installs/python/3.13/bin/python3"
@@ -278,6 +292,12 @@ shell = "bash -euo pipefail -c"
 description = "Run conftest OPA/Rego policies over the GitHub Actions workflow YAML"
 run = "conftest test --parser yaml --namespace gha -p config/conftest/policy .github/workflows"
 
+[tasks.conftest-check-dockerfile]
+description = "Cross-check Dockerfile.nanoserver's hard-coded mise install paths against [tools] version pins"
+# Combine the Dockerfile with the mise configs (the .mise dir is all TOML), so
+# conftest auto-detects each file's parser and the rule sees every [tools] pin.
+run = "conftest test --combine --namespace dockerfile -p config/conftest/policy Dockerfile.nanoserver .mise"
+
 [tasks.taplo-check]
 # `taplo lint` reads config/taplo.toml's `[[rule]] schema` entries for editor /
 # LSP-style validation, but silently ignores their nested constraints in
@@ -325,7 +345,7 @@ xargs taplo lint --schema "file://$PWD/config/taplo/no-lib-name.schema.json" <"$
 # on the generated source. The exemption is about the lint table, not
 # about the deps — its `[dependencies]` still inherits from
 # `[workspace.dependencies]` like every other crate.
-grep -vxF './generated/rust-rest/Cargo.toml' "$members" |
+rg -vxF './generated/rust-rest/Cargo.toml' "$members" |
   xargs taplo lint --schema "file://$PWD/config/taplo/require-lints-section.schema.json"
 
 # mise task `run` must be a string, not an array: taplo's reorder_arrays would
@@ -387,6 +407,8 @@ mise settings set cargo.binstall true
 mise install cargo-binstall
 mise install node
 mise install conda:openssl
+mise install coreutils
+mise install ripgrep
 """
 shell = "bash -euo pipefail -c"
 
@@ -398,13 +420,13 @@ run = "osv-scanner --lockfile Cargo.lock --config config/osv-scanner.toml"
 [tasks."gen:osv-scanner"]
 description = "Regenerate config/osv-scanner.toml from config/deny.toml's [advisories].ignore list"
 # osv-scanner and cargo-deny must ignore the same advisory IDs; config/deny.toml
-# is the source of truth (it carries the per-ID rationale). grep/sort/sed only, so
+# is the source of truth (it carries the per-ID rationale). rg + coreutils only, so
 # the `dependencies` workflow can run it (via mise) next to the audit binaries.
 run = """
 {
   echo '# AUTO-GENERATED from config/deny.toml by `mise run gen:osv-scanner`.'
   echo 'IgnoredVulns = ['
-  grep -oE '"RUSTSEC-[0-9]{4}-[0-9]{4}"' config/deny.toml | sort -u | sed 's/.*/  { id = & },/'
+  rg -oN -r '  { id = $0 },' '"RUSTSEC-[0-9]{4}-[0-9]{4}"' config/deny.toml | coreutils sort -u
   echo ']'
 } > config/osv-scanner.toml
 """
@@ -439,7 +461,7 @@ run = '''
   {
     cat .gitignore
     printf '%s\n' '.git/' 'Dockerfile*' '/README.md' '.dockerignore'
-  } | awk '
+  } | goawk '
     /^[[:space:]]*#/ { print; next }
     /^[[:space:]]*$/ { print; next }
     {

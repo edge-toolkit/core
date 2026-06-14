@@ -42,6 +42,16 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList, PyString};
 use tokio::sync::mpsc;
 
+// Names of the optional module-level hooks the runner calls. Each is referenced
+// twice -- a `hasattr` guard and the call -- so it lives here as one source of
+// truth: a typo in either spot would silently skip the hook (hasattr returns
+// false, the hook never fires, no error). See the module-level contract above.
+const HOOK_INIT: &str = "init";
+const HOOK_ON_CONNECT: &str = "on_connect";
+const HOOK_ON_TEXT_FRAME: &str = "on_text_frame";
+const HOOK_ON_BINARY_FRAME: &str = "on_binary_frame";
+const HOOK_ON_SHUTDOWN: &str = "on_shutdown";
+
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum PythonError {
@@ -244,12 +254,12 @@ impl WsStorage {
         {
             return Err(PyRuntimeError::new_err("storage worker gone"));
         }
-        // Release the GIL so we don't block other Python threads while
-        // waiting on the worker. `block_in_place` migrates other tasks off
-        // this worker thread before we park it on the oneshot; combined with
-        // `detach` (which drops the GIL) the runtime keeps making progress on
-        // the storage worker task that resolves the reply.
-        match py.detach(|| tokio::task::block_in_place(|| reply_rx.blocking_recv())) {
+        // `detach` drops the GIL so other Python threads run while we park
+        // here. We're always called from a non-runtime thread -- the dedicated
+        // dispatch thread, or one the module spawned -- so a plain
+        // `blocking_recv` is correct: the storage worker task resolves the
+        // reply on the runtime's own threads while this thread waits.
+        match py.detach(|| reply_rx.blocking_recv()) {
             Ok(result) => Ok(result?),
             Err(_) => Err(PyRuntimeError::new_err("storage reply dropped")),
         }
@@ -280,7 +290,9 @@ impl WsStorage {
         {
             return Err(PyRuntimeError::new_err("storage worker gone"));
         }
-        match py.detach(|| tokio::task::block_in_place(|| reply_rx.blocking_recv())) {
+        // See `get` for why a plain `blocking_recv` (not `block_in_place`) is
+        // correct here: we never run on a tokio worker thread.
+        match py.detach(|| reply_rx.blocking_recv()) {
             Ok(result) => {
                 result?;
                 Ok(())
@@ -330,10 +342,10 @@ impl Dispatcher {
             }
 
             let module = py.import(module_name)?;
-            if module.hasattr("init")? {
+            if module.hasattr(HOOK_INIT)? {
                 let py_sender = Py::new(py, sender)?;
                 let py_storage = Py::new(py, storage)?;
-                drop(module.call_method1("init", (py_sender, py_storage))?);
+                drop(module.call_method1(HOOK_INIT, (py_sender, py_storage))?);
             }
             Ok(Self {
                 module: module.unbind(),
@@ -346,10 +358,10 @@ impl Dispatcher {
     pub fn on_connect(&self, agent_id: &str) -> Result<(), PythonError> {
         Python::attach(|py| -> Result<(), PythonError> {
             let module = self.module.bind(py);
-            if !module.hasattr("on_connect")? {
+            if !module.hasattr(HOOK_ON_CONNECT)? {
                 return Ok(());
             }
-            drop(module.call_method1("on_connect", (agent_id,))?);
+            drop(module.call_method1(HOOK_ON_CONNECT, (agent_id,))?);
             Ok(())
         })
     }
@@ -360,10 +372,10 @@ impl Dispatcher {
     pub fn on_text_frame(&self, text: &str) -> Result<Option<String>, PythonError> {
         Python::attach(|py| -> Result<Option<String>, PythonError> {
             let module = self.module.bind(py);
-            if !module.hasattr("on_text_frame")? {
+            if !module.hasattr(HOOK_ON_TEXT_FRAME)? {
                 return Ok(None);
             }
-            let result = module.call_method1("on_text_frame", (text,))?;
+            let result = module.call_method1(HOOK_ON_TEXT_FRAME, (text,))?;
             if result.is_none() {
                 return Ok(None);
             }
@@ -384,11 +396,11 @@ impl Dispatcher {
     pub fn on_binary_frame(&self, frame: &[u8]) -> Result<Option<Vec<u8>>, PythonError> {
         Python::attach(|py| -> Result<Option<Vec<u8>>, PythonError> {
             let module = self.module.bind(py);
-            if !module.hasattr("on_binary_frame")? {
+            if !module.hasattr(HOOK_ON_BINARY_FRAME)? {
                 return Ok(None);
             }
             let frame_obj = PyBytes::new(py, frame);
-            let result = module.call_method1("on_binary_frame", (frame_obj,))?;
+            let result = module.call_method1(HOOK_ON_BINARY_FRAME, (frame_obj,))?;
             if result.is_none() {
                 return Ok(None);
             }
@@ -408,10 +420,10 @@ impl Dispatcher {
     pub fn on_shutdown(&self) -> Result<(), PythonError> {
         Python::attach(|py| -> Result<(), PythonError> {
             let module = self.module.bind(py);
-            if !module.hasattr("on_shutdown")? {
+            if !module.hasattr(HOOK_ON_SHUTDOWN)? {
                 return Ok(());
             }
-            drop(module.call_method0("on_shutdown")?);
+            drop(module.call_method0(HOOK_ON_SHUTDOWN)?);
             Ok(())
         })
     }

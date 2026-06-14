@@ -9,7 +9,8 @@
 # Windows SDK can't come from mise, so the build uses the LLVM mingw toolchain
 # (the gnullvm target below); llvm-mingw bundles clang + lld + the mingw-w64
 # runtime/headers/libs + the libclang.dll bindgen loads. Pinned so its install
-# dir is deterministic for the PATH entry in Dockerfile.nanoserver -- bump both.
+# dir is deterministic: the version segment is repeated in the win_llvm_bin var
+# below and the PATH entry in Dockerfile.nanoserver -- bump all three together.
 "conda:m2-git" = "latest"
 "conda:m2-gnupg" = "latest"
 "conda:m2-make" = "latest"
@@ -32,11 +33,21 @@ url = "https://frippery.org/files/busybox/busybox64u.exe"
 version = "1.37.0"
 
 [vars]
+# Root of mise's per-tool install dirs (the mise data dir is LOCALAPPDATA\mise);
+# the install-path vars below all hang off it.
+mise_installs = '{{ get_env(name="LOCALAPPDATA", default="") }}\mise\installs'
 # busybox `ash` install path (for MISE_BASH_PATH), keyed by the pinned
 # http:busybox version above -- keep in sync.
-winsh = '{{ get_env(name="LOCALAPPDATA", default="") }}\mise\installs\http-busybox\1.37.0\ash.exe'
-# mise-managed CPython 3.13; the mise data dir is LOCALAPPDATA\mise.
-py313_win = "{{ get_env(name='LOCALAPPDATA', default='') }}\\mise\\installs\\python\\3.13\\python.exe"
+winsh = '{{ vars.mise_installs }}\http-busybox\1.37.0\ash.exe'
+# mise-managed CPython 3.13.
+py313_win = '{{ vars.mise_installs }}\python\3.13\python.exe'
+# llvm-mingw's bin dir (the github:mstorsjo/llvm-mingw install above).
+# The linker/dlltool [env] vars below point at absolute exes in here rather than
+# bare names because mise's cargo backend doesn't activate llvm-mingw onto the
+# cargo: source-build subprocess's PATH (same problem config.macos.toml's
+# absolute ld64.lld path solves): a bare `clang` would resolve to a runner's
+# system LLVM, which defaults to the MSVC target and can't link gnullvm objects.
+win_llvm_bin = '{{ vars.mise_installs }}\github-mstorsjo-llvm-mingw\20260602\bin'
 # clang-sys finds libclang on PATH (Docker's gnu build has llvm-mingw there); a
 # workstation with system LLVM also works.
 win_libclang = "C:\\Program Files\\LLVM\\bin"
@@ -51,13 +62,15 @@ no_opt = "--no-opt"
 MISE_BASH_PATH = "{{ vars.winsh }}"
 # Build for the LLVM mingw target. gnullvm, not gnu: llvm-mingw ships
 # compiler-rt + libunwind, not the GCC runtime (libgcc/libgcc_eh) the gnu
-# target's link line demands. The linker is clang and the raw-dylib import tool
-# is llvm-dlltool, both from llvm-mingw on PATH. These can live in [env] here
-# (unlike config.toml) because this file only loads on Windows, so there's no
-# empty off-Windows value to break Linux cargo.
+# target's link line demands. The linker is llvm-mingw's clang and the raw-dylib
+# import tool is its llvm-dlltool, both given as absolute paths (see win_llvm_bin
+# above) so the cargo: source-build subprocess resolves them without a PATH
+# lookup. These can live in [env] here (unlike config.toml) because this file
+# only loads on Windows, so there's no empty off-Windows value to break Linux
+# cargo.
 CARGO_BUILD_TARGET = "x86_64-pc-windows-gnullvm"
-CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_LINKER = "clang"
-CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_RUSTFLAGS = "-Cdlltool=llvm-dlltool"
+CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_LINKER = "{{ vars.win_llvm_bin }}\\clang.exe"
+CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_RUSTFLAGS = "-Cdlltool={{ vars.win_llvm_bin }}\\llvm-dlltool.exe"
 LIBCLANG_PATH = "{{ vars.win_libclang }}"
 PYO3_PYTHON = "{{ vars.py313_win }}"
 
@@ -88,7 +101,7 @@ python -m pip install pipx
 # `rust` tool lists. Pre-adding the wasm target means wasm-pack finds it present
 # and never downloads rust-std mid-build. mise sets RUSTUP_TOOLCHAIN to the bare
 # stable version, which now resolves to <version>-gnullvm.
-ver="$(mise exec -- rustc --version | awk '{print $2}')"
+ver="$(mise exec -- rustc --version | coreutils cut -d' ' -f2)"
 mise exec -- rustup set default-host x86_64-pc-windows-gnullvm
 wasm="-t wasm32-unknown-unknown -t wasm32-wasip2"
 mise exec -- rustup toolchain install "${ver}-x86_64-pc-windows-gnullvm" -c clippy -c rust-analyzer $wasm
