@@ -8,7 +8,7 @@ version = "0.1.0"
 
 [build-system]
 build-backend = "uv_build"
-requires = ["uv_build>=0.10.2,<0.11.0"]
+requires = ["uv_build==0.11.8"]
 
 [tool.uv.build-backend]
 module-name = "et_ws"

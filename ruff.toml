@@ -1,3 +1,11 @@
+# Kept at the repo root (unlike config/deny.toml, config/osv-scanner.toml and
+# config/taplo.toml) on purpose: editors/IDEs (the VS Code Ruff extension,
+# PyCharm) and pre-commit auto-discover ruff config only as a root ruff.toml /
+# .ruff.toml / pyproject.toml. ruff has no config-path env var, so moving this
+# under config/ would silently drop every editor back to ruff's defaults
+# (line-length 88, no isort). The mise tasks could pass --config, but the live
+# editor experience can't, so it stays here.
+#
 # Match the repo-wide 120 line-length set in .editorconfig. Without this, ruff
 # would use its default of 88, so files that ruff considered "already
 # formatted" could still trip the editorconfig-check.

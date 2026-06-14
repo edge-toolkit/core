@@ -15,6 +15,12 @@ MAVEN_ARGS = "--no-transfer-progress"
 description = "Build the java-data1 workflow module"
 run = "mvn package"
 
+# Namespaced aggregator picked up by the default config's globbed `check`. The
+# compile triggers maven-compiler-plugin with -Xlint:all -Werror + Error Prone.
+[tasks."check:java"]
+description = "Run Java checks (javac -Xlint:all -Werror, Error Prone)"
+run = "mvn -q compile"
+
 [tasks."prefetch:java"]
 description = "Prefetch Java (Maven) dependencies"
 run = "mvn dependency:resolve --quiet"

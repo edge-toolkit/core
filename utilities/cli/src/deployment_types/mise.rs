@@ -1,15 +1,16 @@
 use std::path::Path;
 
 use edge_toolkit::input::ClusterInput;
+use et_path::{absolute_from, relative_path_from};
 use fs_err as fs;
 use toml::{Table, Value};
 
 use crate::error::CliError;
-use crate::{absolute_from, cluster_module_names, module_registry, relative_path_from, resolve_module_paths};
+use crate::{cluster_module_names, module_registry, resolve_module_paths};
 
 pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
     let output_path = output_dir.join("mise.toml");
-    let workspace_root = std::env::current_dir()?;
+    let workspace_root = edge_toolkit::config::get_project_root();
     let output_abs = absolute_from(&workspace_root, output_dir);
     let ws_server_dir = workspace_root.join("services/ws-server");
     let workspace_rel = relative_path_from(&output_abs, &workspace_root);

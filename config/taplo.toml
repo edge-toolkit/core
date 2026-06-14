@@ -1,8 +1,12 @@
-# Build output is off-limits: it's gitignored and (per CLAUDE.md) holds agent
-# scratch files under target/scratch/. taplo's baseline `taplo lint` / `format`
-# don't honour .gitignore, and they auto-associate any stray `Cargo.toml` with
-# the SchemaStore Cargo schema — so a scratch fixture there breaks the check.
-exclude = ["target/**"]
+# Build output and external checkouts are off-limits. Both are gitignored, but
+# taplo's baseline `taplo lint` / `format` don't honour .gitignore: `target/`
+# holds scratch + build artifacts (and auto-associates any stray `Cargo.toml`
+# with the SchemaStore Cargo schema), and `data/` holds external upstream repo
+# clones whose TOML files we must never reformat. target/ is also CLAUDE.md's
+# scratch area, so scratch TOML is skipped here too -- to lint or test a scratch
+# TOML, pipe it through `taplo format -` / `taplo lint -` (stdin has no path to
+# exclude).
+exclude = ["target/**", "data/**"]
 
 [formatting]
 column_width = 120
@@ -49,11 +53,7 @@ schema = { path = "config/taplo/require-workspace-deps.schema.json" }
 
 # Banned dep names across every dep table — `[dependencies]`,
 # `[dev-dependencies]`, `[build-dependencies]`, `[workspace.dependencies]`,
-# and the `[target.*]` variants. Currently `anyhow` (use a `thiserror`
-# enum) and `ureq` (use `reqwest::blocking` -- keeps us on one HTTPS
-# stack). Replaces the previous per-crate `no-anyhow` ast-grep rule
-# which caught uses but not declarations. Add new bans by extending the
-# `depTable.properties` list in the schema.
+# and the `[target.*]` variants.
 [[rule]]
 include = ["**/Cargo.toml"]
 schema = { path = "config/taplo/no-banned-deps.schema.json" }

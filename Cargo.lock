@@ -3998,8 +3998,8 @@ version = "0.1.0"
 dependencies = [
  "asyncapi-rust",
  "base64 0.22.1",
+ "et-path",
  "fs-err",
- "lets_find_up",
  "log",
  "rstest",
  "schemars 1.2.1",
@@ -4160,6 +4160,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "edge-toolkit",
+ "et-path",
  "fs-err",
  "serde",
  "serde_json",
@@ -4242,6 +4243,13 @@ dependencies = [
  "tracing-log",
  "tracing-opentelemetry",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "et-path"
+version = "0.1.0"
+dependencies = [
+ "tempfile",
 ]
 
 [[package]]
@@ -4611,6 +4619,7 @@ dependencies = [
 name = "et-ws-wasi-comm1"
 version = "0.1.0"
 dependencies = [
+ "et-path",
  "serde_json",
  "wit-bindgen 0.57.1",
 ]
@@ -4619,6 +4628,7 @@ dependencies = [
 name = "et-ws-wasi-data1"
 version = "0.1.0"
 dependencies = [
+ "et-path",
  "serde_json",
  "wit-bindgen 0.57.1",
 ]
@@ -4635,10 +4645,10 @@ dependencies = [
  "et-ws-runner-common",
  "et-ws-test-server",
  "futures-util",
+ "int-otlp-mock",
  "opentelemetry 0.31.0",
  "opentelemetry-http 0.31.0",
  "ort",
- "otlp-mock",
  "pollster",
  "reqwest 0.13.4",
  "rstest",
@@ -6250,6 +6260,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "int-otlp-mock"
+version = "0.1.0"
+dependencies = [
+ "actix-rt",
+ "actix-web",
+ "serde_json",
+]
+
+[[package]]
 name = "inventory"
 version = "0.3.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6635,12 +6654,6 @@ name = "leb128fmt"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
-
-[[package]]
-name = "lets_find_up"
-version = "0.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8052b3d5cfa8bae8af3b44aae11a43e9fa48ce0ae477c4a39733a8deff34059"
 
 [[package]]
 name = "libc"
@@ -7942,15 +7955,6 @@ checksum = "5ffd2b0a5634335b135d5728d84c5e0fd726954b87111f7506a61c502280d982"
 dependencies = [
  "libc",
  "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "otlp-mock"
-version = "0.1.0"
-dependencies = [
- "actix-rt",
- "actix-web",
- "serde_json",
 ]
 
 [[package]]

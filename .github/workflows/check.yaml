@@ -27,18 +27,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Install mise
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-binstall,mise
+          tool: cargo-binstall,mise@2026.6.5
 
       - name: Select all language envs
         run: echo "MISE_ENV=$(mise run print-all-langs)" >> "$GITHUB_ENV"
-
-      - name: Install pipx (Windows only — aqua has no Windows build)
-        if: runner.os == 'Windows'
-        run: python -m pip install pipx
 
       # Optional npm backend, installed before the main `mise install`.
       # See [tasks.setup-aube] in .mise/config.toml for the full rationale.
@@ -53,14 +50,7 @@ jobs:
 
       - name: Install mise tools
         run: |
-          mise settings add idiomatic_version_file_enable_tools "[]"
-          mise settings experimental=true
-          mise settings set cargo.binstall true
-          # See test.yml for notes on why conda:openssl is installed up front.
-          mise install conda:openssl
-          # On macOS, lld is needed to compile Rust binary tools from source
-          # (e.g. `cargo:taplo-cli`, see CARGO_TARGET_*_APPLE_DARWIN_RUSTFLAGS).
-          mise install conda:lld
+          mise run preinstall
           mise install
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -68,6 +58,12 @@ jobs:
           # default 30s HTTP timeout; bump it so transient network slowness
           # doesn't fail the whole `mise install` step.
           MISE_HTTP_TIMEOUT: "120"
+
+      - name: Prefetch Rust dependencies
+        run: mise run prefetch:rust
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CARGO_NET_RETRY: "5"
 
       - name: Run checkers
         run: |

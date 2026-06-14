@@ -1,0 +1,41 @@
+{
+  "dockerfile": {
+    "associations": ["**/Dockerfile", "**/*.dockerfile", "**/Dockerfile.nanoserver"],
+  },
+  "java": {
+  },
+  "json": {
+  },
+  // Match the repo-wide 120 line-length set in .editorconfig and ruff.toml,
+  // otherwise dprint's bundled ruff would reformat Python files to its
+  // default and fight with `mise run ruff-fmt`.
+  "ruff": {
+    "lineLength": 120,
+  },
+  "malva": {
+  },
+  "markdown": {
+  },
+  "markup": {
+  },
+  "typescript": {
+  },
+  "yaml": {
+  },
+  "excludes": [
+    "**/node_modules",
+    "**/*-lock.json",
+    "data/",
+  ],
+  "plugins": [
+    "https://github.com/speakeasy-api/dprint-plugin-java/releases/latest/download/dprint_plugin_java.wasm",
+    "https://plugins.dprint.dev/g-plane/malva-v0.15.2.wasm",
+    "https://plugins.dprint.dev/g-plane/markup_fmt-v0.27.0.wasm",
+    "https://plugins.dprint.dev/g-plane/pretty_yaml-v0.6.0.wasm",
+    "https://plugins.dprint.dev/dockerfile-0.4.0.wasm",
+    "https://plugins.dprint.dev/json-0.21.3.wasm",
+    "https://plugins.dprint.dev/markdown-0.21.1.wasm",
+    "https://plugins.dprint.dev/ruff-0.7.10.wasm",
+    "https://plugins.dprint.dev/typescript-0.95.15.wasm",
+  ],
+}

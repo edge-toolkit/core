@@ -1,6 +1,39 @@
-target/
-.git/
-.ruff_cache/
-.vscode/
-services/ws-server/storage/
+# AUTO-GENERATED from .gitignore by 'mise run gen:dockerignore' -- do not edit.
+# Docker reads only this file; patterns are **/-prefixed to match at any depth
+# like .gitignore. Edit .gitignore and regenerate.
+
+**/.claude/
+**/*.wasm
+**/*.onnx
+**/target/
 **/.DS_Store
+services/ws-wasm-agent/pkg/
+services/ws-server/static/models/
+**/.zig-cache/
+**/zig-out/
+**/*.o
+**/*.pem
+**/mprocs.log
+**/__pycache__/
+**/.pytest_cache/
+**/.python-version
+**/uv.lock
+**/node_modules/
+**/pnpm-lock.yaml
+**/.venv/
+# .NET build output. `obj/` is safe globally (nothing tracked is named obj/),
+# but `bin/` is scoped to the module so it never matches a Rust crate's
+# `src/bin/` (e.g. utilities/int-gen/src/bin/).
+**/obj/
+services/ws-modules/dotnet-data1/bin/
+# Editor dir (but keep the shared recommended-extensions list), tool caches, and
+# the ws-server's runtime file storage.
+.vscode/*
+!.vscode/extensions.json
+**/.ruff_cache/
+**/.lycheecache
+services/ws-server/storage/
+**/.git/
+**/Dockerfile*
+README.md
+**/.dockerignore

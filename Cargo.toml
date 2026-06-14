@@ -9,6 +9,7 @@ members = [
   "libs/edge-toolkit",
   "libs/et-otlp",
   "libs/otlp-mock",
+  "libs/path",
   "libs/web",
   "libs/ws-runner-common",
   "services/ws-modules/audio1",
@@ -65,6 +66,7 @@ deno_runtime = { version = "0.257.0", features = ["transpile", "hmr"] }
 edge-toolkit = { path = "libs/edge-toolkit", version = "0.1.0" }
 et-modules-service = { path = "services/modules", version = "0.1.0" }
 et-otlp = { path = "libs/et-otlp", version = "0.1.0" }
+et-path = { path = "libs/path", version = "0.1.0" }
 et-rest-client = { path = "generated/rust-rest", version = "0.1.0", default-features = false }
 et-storage-service = { path = "services/storage", version = "0.1.0" }
 et-web = { path = "libs/web", version = "0.1.0" }
@@ -81,7 +83,6 @@ hostname = "0.4"
 humantime-serde = "1"
 js-sys = "0.3"
 kdl = { version = "6", features = ["v1"] }
-lets_find_up = "0.0.4"
 local-ip-address = "0.6"
 log = "0.4"
 onnx-extractor = "0.3"
@@ -98,7 +99,7 @@ opentelemetry-otlp = { version = "0.31", default-features = false, features = [
 ] }
 opentelemetry_sdk = "0.31"
 ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dylibs", "download-binaries"] }
-otlp-mock = { path = "libs/otlp-mock", version = "0.1.0" }
+int-otlp-mock = { path = "libs/otlp-mock", version = "0.1.0" }
 pollster = "0.4"
 pretty_yaml = "0.6"
 prettyplease = "0.2"
@@ -189,7 +190,7 @@ unsafe_op_in_unsafe_fn = "deny"
 # sibling test crates that don't import them. Tracked at rust-lang/rust#95513; re-enable when
 # rustc gains a workspace-aware view.
 # unused_crate_dependencies = "deny"
-unused_results = "warn"
+unused_results = "deny"
 
 [workspace.lints.rustdoc]
 private_intra_doc_links = { level = "deny", priority = 8 }
@@ -342,7 +343,7 @@ ignore = [
   # via wgpu. Compile-time only.
   "paste",
   # Archived upstream at GnomedDev/proc-macro-error-2 (the maintained
-  # fork of the original proc-macro-error). Both now unmaintained.
+  # fork of the original proc-macro-error). Both unmaintained.
   # Pulled by getset via neli via local-ip-address. Compile-time only.
   "proc-macro-error-attr2",
   "proc-macro-error2",

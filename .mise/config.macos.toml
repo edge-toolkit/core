@@ -1,0 +1,43 @@
+# macOS-only mise config. Shared vars (rpath_flag, pylib_flag, py313_unix, …)
+# come from config.toml, which loads first; PYO3_PYTHON keeps its config.toml
+# default (py313_unix).
+
+[tools]
+# The LLD linker (ships ld64.lld) the RUSTFLAGS below use; Apple's /usr/bin/clang
+# can't resolve `-fuse-ld=lld` without it.
+"conda:lld" = "latest"
+
+[vars]
+conda_lld = "{{ env.HOME }}/.local/share/mise/installs/conda-lld/latest"
+# Point `-fuse-ld=` at the absolute ld64.lld so it resolves without a PATH lookup
+# (the cargo subprocess mise spawns for a `cargo:` source build doesn't have
+# sibling tools like conda:lld on PATH).
+lld_flag = "-C link-arg=-fuse-ld={{ vars.conda_lld }}/bin/ld64.lld"
+# Xcode's libclang (the lib dir beside `xcrun`'s clang); clang-sys doesn't always
+# auto-find it on CI. The system libclang knows the SDK, so no bindgen args.
+mac_libclang = "{{ exec(command='dirname $(dirname $(xcrun --find clang))') }}/lib"
+
+[env]
+# lld_flag points Apple's clang at ld64.lld (see [vars]); the rpath/pylib flags
+# (from config.toml) record conda's OpenSSL soname + the CPython lib dir so the
+# runtime loader finds them. Applies to every rustc call, including the `cargo:`
+# source-build subprocess.
+CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
+CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
+LIBCLANG_PATH = "{{ vars.mac_libclang }}"
+
+[tasks.preinstall]
+# Preinstall: verify Xcode's command-line tools (cc/clang etc., which mise can't
+# supply), then the shared base + conda:lld (the darwin linker). A box missing
+# the CLT is told to install them.
+depends = ["_setup_all"]
+description = "Preinstall: verify Xcode CLT, shared base, conda:lld (darwin linker)"
+run = """
+xcode-select -p >/dev/null 2>&1 || {
+  echo "preinstall: Xcode command-line tools not found." >&2
+  echo "Install them with: xcode-select --install" >&2
+  exit 1
+}
+mise install conda:lld
+"""
+shell = "bash -euo pipefail -c"

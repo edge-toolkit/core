@@ -28,6 +28,25 @@ on a follow-up fix-up pass. The most common offenders are: long
 `reason = "…"` strings on lint attributes, JSON `description` fields,
 markdown table rows, and CI-task `description` fields.
 
+## Document each thing exactly once
+
+Document each thing **once**, in the single place it is most relevant —
+the code, config entry, or task it describes — and **nowhere else**. Do
+not restate the same explanation in a second comment, in the README, in
+this file, or in a commit message that competes with it.
+
+Do not even add a pointer to where something is documented ("see X",
+"as described in Y", "(documented in Z)"). Such cross-references are
+themselves duplication: they go stale, and they multiply the places that
+must change when the thing changes. Trust the developer to find the
+relevant documentation themselves — they know how to read the code,
+`grep`, and follow the obvious file.
+
+When you find yourself about to explain something that is already
+explained elsewhere, stop: either the existing spot is the right home (so
+say nothing here), or this is the better home (so move it here and remove
+the original). One canonical location, never two.
+
 ## Prerequisites
 
 Install [`mise`](https://mise.jdx.dev/) with shell integration, then configure:
@@ -74,6 +93,40 @@ use the `*-all` variants (`check-all`, `test-all`, `build-modules-all`,
 **Build a single module:** `MISE_ENV=<lang> mise run build-ws-<module>-module`
 (e.g., `mise run build-ws-face-detection-module` for the Rust modules, or
 `MISE_ENV=zig mise run build-ws-zig-data1-module`).
+
+## Formatters & checks by file type
+
+The `mise run <task>` formatters and checks per file type (`fmt` / `check` run
+them all; guest rows need their `MISE_ENV` loaded).
+
+| File type | Formatter task(s)               |
+| --------- | ------------------------------- |
+| `*.rs`    | `cargo-fmt`, `cargo-clippy-fix` |
+| `*.toml`  | `taplo-fmt`                     |
+| `*.py`    | `ruff-fmt`                      |
+| `*.dart`  | `fmt:dart`                      |
+| `*.zig`   | `fmt:zig`                       |
+| `*.c`     | `clang-format`                  |
+| `*.cs`    | `fmt:dotnet`                    |
+
+| File type | Check task(s)                                                                            |
+| --------- | ---------------------------------------------------------------------------------------- |
+| `*.rs`    | `cargo-check`, `cargo-clippy`, `cargo-fmt-check`, `cargo-doc-check`, `ast-grep-check`    |
+| `*.toml`  | `taplo-check`, `conftest-check-toml`, `semgrep-check`                                    |
+| `*.yaml`  | `ast-grep-check`, `conftest-check-yaml`, `ryl-check`, `action-validator`, `zizmor-check` |
+| `*.json`  | `semgrep-check`                                                                          |
+| `*.py`    | `check:python`                                                                           |
+| `*.dart`  | `check:dart`                                                                             |
+| `*.zig`   | `check:zig`                                                                              |
+| `*.c`     | `clang-format-check`, `clang-tidy-check`, `cpplint-check`                                |
+| `*.cs`    | `check:dotnet`                                                                           |
+| `*.java`  | `check:java`                                                                             |
+
+`dprint-fmt` / `dprint-check` cover `*.md`, `*.yaml`, `*.json`/`*.jsonc`,
+`*.ts`/`*.js`, `*.css`, `*.html`, `*.java`, and `Dockerfile*`; `hadolint-check`
+also lints Dockerfiles, and `link-check` scans `*.md` + `*.rs`. Every file is
+covered by `editorconfig-check` and `typos`, file and directory names by
+`ls-lint-check`, and `*.yml` is rejected by `semgrep-check` (use `*.yaml`).
 
 ## Architecture
 
@@ -236,11 +289,98 @@ If a function is private but needs testing, add a `[lib]` target to the crate an
 
 Every file under `tests/` must start with `#![cfg(test)]` (placed after the file's `//!` doc comment, if any).
 
+## Tools must work on every OS
+
+Every tool in the `.mise/config*.toml` `[tools]` tables must install and run on
+every supported OS (Linux, macOS, Windows). Do **not** `os`-scope a tool, or
+otherwise skip it on a platform, without explicit operator permission — prefer a
+prebuilt-binary backend (aqua/github/http) over a `cargo:` source build, which is
+usually what forces a platform exclusion. The one place tool skips need no
+permission is the Dockerfiles (`MISE_DISABLE_TOOLS`), where trimming an image to
+just what its build needs is expected.
+
+## Linting
+
+Lint checks must be expressed through one of the repo's linters — **never** as a
+bespoke shell script, whether a standalone file or a mise task `run`. The
+available linters:
+
+- **ast-grep** (`config/ast-grep/rules/`) — structural rules for code **and
+  YAML** (e.g. GitHub Actions workflows).
+- **semgrep** (`config/semgrep/`) — incl. `languages: [generic]`, which works on
+  TOML/text (e.g. `mise-config.yaml` lints `.mise/config*.toml`).
+- **taplo** JSON-schemas (`config/taplo/`) — TOML structure, applied via
+  `taplo lint --schema` in `taplo-check`.
+- **conftest** (`config/conftest/policy/`) — Rego policies over the combined
+  TOML/YAML config set, for cross-file checks the schema linters can't express.
+- plus hadolint, ls-lint (file/dir naming), zizmor (Actions security), ryl
+  (YAML), lychee (links), clang-format / clang-tidy / cpplint (C, in the zig
+  config), editorconfig-checker, typos, and action-validator for their domains.
+
+ast-grep has no TOML grammar, so it **cannot** lint TOML — use a taplo schema or
+a semgrep `generic` rule there. If none of the above can express a check,
+propose adding a new mise-installable linter rather than scripting it by hand.
+
+## No `scripts/` directory
+
+Do not create a `scripts/` directory or drop loose shell/Python scripts in the
+repo. Every script belongs in one of two places:
+
+- **Short and simple** → an inline `mise` task (`run = """ … """` in
+  `.mise/config.toml` or a `.mise/config.<lang>.toml`). It stays discoverable
+  via `mise tasks` and runs as `mise run <name>`.
+- **More involved** → its own tool directory under `utilities/` with its own
+  `README.md` documenting what it does and how to run it.
+
 ## Rust Workspace
 
 Single Cargo workspace (`Cargo.toml`).
 Shared dependency versions are declared in `[workspace.dependencies]`.
 Add new deps there, not in individual crate `[dependencies]`.
+
+## Clippy lints
+
+**Never weaken or disable a lint to make code pass — not the workspace lint
+config (`[workspace.lints.*]`, `.clippy.toml` thresholds, the ast-grep / taplo
+rules) — without explicit operator permission.** Setting a denied lint to
+`allow` or raising a threshold is a project-policy change, not a fix. If a lint
+is in the way, fix the code (or justify it with a scoped
+`#[expect(..., reason = "…")]`); if you believe the lint itself is wrong, stop
+and ask.
+
+Clearing an `#[expect(...)]` that clippy reports as **unfulfilled** is normally
+fine and expected — that's the intended cleanup. **The one exception is
+`clippy::cognitive_complexity`** (and other macro-expansion-sensitive lints):
+do **not** auto-remove those `#[expect]`s, because of the gotcha below.
+
+**Feature-unification gotcha.** `clippy::cognitive_complexity` can fire in the
+full-workspace build but not in an isolated `cargo clippy -p <crate>`, because
+`-p` enables fewer features (e.g. the `tracing` macros expand further when the
+whole workspace's tracing/otel features are on). So its `#[expect]` can look
+_unfulfilled_ in an isolated run yet be _required_ by CI. **Validate with the
+full `mise run check`, not an isolated `-p` clippy, before touching one of these
+`#[expect]`s.** (The clean fix — `[resolver] feature-unification = "workspace"`
+so every build sees the same features — is still nightly-only via
+`-Z feature-unification`.)
+
+The workspace denies a broad set of clippy lints (see `[workspace.lints.clippy]`
+in `Cargo.toml`), including restriction lints. One you'll hit often:
+**`clippy::single_call_fn`** fires on a private function called from exactly one
+site. Do **not** inline the function just to silence it — a function that is a
+distinct, named step (kept separate for readability, or that will gain more
+callers) is legitimate. Keep it and annotate with `#[expect(...)]` and a real
+justification:
+
+```rust
+#[expect(clippy::single_call_fn, reason = "distinct step of X; kept separate for readability and future reuse")]
+fn helper(...) { ... }
+```
+
+Use `#[expect(...)]` rather than `#[allow(...)]` (the workspace denies
+`unfulfilled_lint_expectations`, so an `expect` that stops applying fails the
+build instead of silently lingering). The same applies to other restriction
+lints whose pattern is intentional in a given spot — prefer a justified
+`#[expect(..., reason = "…")]` over contorting the code to dodge the lint.
 
 ## Naming conventions
 

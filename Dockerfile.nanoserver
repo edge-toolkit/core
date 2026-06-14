@@ -1,0 +1,262 @@
+# escape=`
+# Parser directive (must be line 1): sets the line-continuation / escape
+# character to a backtick instead of the default `\`, so backslashes in Windows
+# paths (C:\..., trailing `C:\`) stay literal and lines continue with a backtick.
+
+# hadolint runs ShellCheck (POSIX sh) over every RUN, but these are Windows cmd,
+# so it false-errors on cmd `if` (SC1072) and on `\x` in paths like C:\gh_token
+# (SC1001). hadolint/hadolint#645. Suppress just those two for this file (a file-
+# scoped pragma, so the Linux Dockerfiles keep full ShellCheck coverage).
+# hadolint global ignore=SC1072,SC1001
+
+# Staged to mirror the Linux Dockerfile so the layers cache + target the same
+# way: vcruntime -> build-minimal -> build -> prefetch -> precompile -> test /
+# server. Each stage `FROM`s the previous, so installed tools, fetched deps and
+# built module pkg/ carry forward; `--target <stage>` stops early. The
+# Windows-only bootstrap (VC++ runtime, mise.exe, HOME/TEMP, the gnu-host rust
+# flip) lives in build-minimal. Where Linux stops at a clean build/test/serve,
+# Windows is still proving the toolchain installs at all -- the stages past
+# `build` are the CI frontier (see "Known unknowns" at the foot).
+#
+# Base: Nano Server, the smallest Windows base (~120 MB vs Server Core's ~1.25
+# GB). It has no MSI/installer stack, no PowerShell, and runs unprivileged -- so
+# the Visual Studio Build Tools installer can't run here at all. That's the
+# point: nothing is installed the Windows way. mise (a single .exe the workflow
+# stages in the build context) is copied in, and `mise install` pulls the rest.
+
+# --- vcruntime: donor stage for the VC++ runtime DLLs. ---
+# Nano Server omits the VC++ runtime that msvc-built executables (mise.exe, and
+# the rust/cargo mise installs) need just to *start* -- without it mise.exe dies
+# with 0xC0000135 (DLL not found). No base Windows image ships it (not even
+# Server Core), and mise can't install it (mise needs it to run), so we install
+# the official VC++ redistributable on a Server Core donor -- which has the
+# installer stack Nano Server lacks -- and copy the runtime DLLs forward. This
+# plus mise are the only non-mise bootstrap bits; the rest is mise.
+FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS vcruntime
+SHELL ["cmd", "/S", "/C"]
+# `|| ver>nul` swallows the redistributable's 3010 ("reboot required") exit code.
+RUN curl -fsSL -o vc_redist.exe https://aka.ms/vs/17/release/vc_redist.x64.exe && `
+    (vc_redist.exe /install /quiet /norestart || ver>nul) && `
+    del vc_redist.exe
+
+# --- build-minimal: mise + the always-loaded toolchain (config.toml only). ---
+# Mirrors the Linux build-minimal: copies just .mise/config.toml + installs the
+# default tools, so this layer is reused until the always-loaded toolset changes,
+# not when a guest config or the source does. All the Windows-only bootstrap
+# (VC++ DLLs, mise.exe, HOME, TEMP) and the gnu-host rust flip live here too,
+# since every later stage builds on it.
+FROM mcr.microsoft.com/windows/nanoserver:ltsc2022 AS build-minimal
+COPY --from=vcruntime C:\Windows\System32\vcruntime140.dll C:\Windows\System32\
+COPY --from=vcruntime C:\Windows\System32\vcruntime140_1.dll C:\Windows\System32\
+COPY --from=vcruntime C:\Windows\System32\msvcp140.dll C:\Windows\System32\
+
+# cmd is the only shell Nano Server has; ContainerAdministrator so we can write
+# under C:\ (the backtick line continuations below rely on the escape directive
+# documented at the top of this file).
+USER ContainerAdministrator
+SHELL ["cmd", "/S", "/C"]
+
+# Diagnostic (informational -- never fails the build): does this base image ship
+# a bash? The `bash -euo pipefail` mise tasks need one, and Nano Server doesn't
+# bundle it. Record which it is in the build log so the "is bash present" unknown
+# is answered up front.
+RUN where bash >nul 2>&1 && (echo [bash-check] pre-installed: & where bash) || `
+    echo [bash-check] bash is not pre-installed on this base image
+
+# Set HOME to the admin profile so the container has a sane home (Nano Server
+# leaves it unset). This also renders the config's `{{ env.HOME }}` paths; note
+# mise still resolves its *global config* to C:\.config\mise on Windows
+# regardless of HOME (trusted explicitly below).
+ENV HOME=C:\Users\ContainerAdministrator
+
+# Sanity-check that HOME is the running user's real profile: it must exist and
+# end with the current %USERNAME%. USERPROFILE is echoed for diagnostics.
+RUN echo HOME=[%HOME%] USERPROFILE=[%USERPROFILE%] USERNAME=[%USERNAME%] & `
+    if not exist "%HOME%\" exit /b 1 & `
+    echo %HOME%| findstr /i /e /c:"%USERNAME%" >nul & `
+    if errorlevel 1 exit /b 1
+
+# Nano Server's default temp dir can be missing/unwritable, which fails rustup's
+# "persist temporary file" step (Access denied) installing toolchains. Point
+# TEMP/TMP at a writable dir on C: (same volume as mise's installs).
+RUN if not exist C:\Temp mkdir C:\Temp
+ENV TEMP=C:\Temp `
+    TMP=C:\Temp
+
+# wasm-pack's binary cache (binary-install's Cache::new) resolves its dir via
+# dirs_next, which on Windows calls the SHGetKnownFolderPath shell API that Nano
+# lacks (the same gap that stops pipx) -- so it fails with "couldn't find your
+# home directory, is $HOME not set?" (build-ws-wasm-agent's `-Z build-std` hits
+# it first). WASM_PACK_CACHE makes wasm-pack use Cache::at(<path>) instead, which
+# stores the path verbatim and never calls dirs (the dir is created on first
+# use). It's a transient build cache, so it lives under the temp dir above.
+ENV WASM_PACK_CACHE=C:\Temp\wasm-pack
+
+# Serialize mise's installs (MISE_JOBS=1). On Nano Server the parallel cargo:
+# source builds -- no gnu binstall prebuilts exist, so they fall back to `cargo
+# install` -- race on rustup's shared .rustup\downloads dir: one build's
+# component .partial vanishes before another rustup can rename it ("cannot find
+# the file", os error 2). Windows CI doesn't hit this (msvc binstall prebuilts
+# mean no source builds); the gnu Docker path does. One job at a time avoids it.
+ENV MISE_JOBS=1
+
+# Full Rust backtraces so any panic surfaces in the CI log.
+ENV RUST_BACKTRACE=full
+
+# Verbose mise is disabled -- it floods the log with tool/task resolution and the
+# exact bash it launches. Re-enable it (noisy but invaluable) when diagnosing a
+# Windows build failure on the bare-Nano-Server path:
+# ENV MISE_VERBOSE=1 `
+# MISE_LOG_LEVEL=debug
+
+# mise.zip is staged in the build context by the windows job in
+# .github/workflows/docker.yaml (which pins the version) and copied in here. We
+# don't curl a versioned URL inside the build: the classic Windows builder
+# doesn't substitute build-args into RUN, and mise's `mise-latest-windows-x64.zip`
+# prebuilt is stale (2026.3.0, which predates the nested `task.run_auto_install`
+# in .mise/config.toml and errors on it). Extract with Nano Server's tar.exe (zip
+# is mise\bin\mise.exe) and put that on PATH so the steps below can call `mise`.
+COPY mise.zip C:\mise.zip
+RUN tar -xf C:\mise.zip -C C:\ && del C:\mise.zip
+# Prepend mise's bin, and re-list System32 + Windows explicitly: the base image
+# exposes its search path as `Path`, which Docker's case-sensitive `${PATH}`
+# doesn't match, so it expands empty -- dropping System32 (findstr, net, sc, ...)
+# off PATH for every step below. Also put llvm-mingw's bin on PATH: the cargo:
+# tool builds (windows-sys etc.) invoke `x86_64-w64-mingw32-dlltool` + the gnu
+# linker by name, and mise's cargo backend doesn't activate llvm-mingw onto the
+# build subprocess's PATH. The dir is the pinned-version install (config.toml);
+# it doesn't exist until preinstall installs llvm-mingw, which is fine -- the
+# cargo: builds that need it run afterwards.
+ENV LLVMBIN=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\github-mstorsjo-llvm-mingw\20260602\bin
+ENV PATH="C:\mise\bin;C:\Windows\System32;C:\Windows;${LLVMBIN};${PATH}"
+
+WORKDIR C:\workspace
+# config.toml (always-loaded) + config.windows.toml (the Windows tools/env/task)
+# + .miserc.toml (auto_env=true, which makes mise load config.windows.toml on
+# Windows). The guest-language configs come in the build stage below.
+COPY .mise/config.toml .mise/config.toml
+COPY .mise/config.windows.toml .mise/config.windows.toml
+COPY .miserc.toml .miserc.toml
+
+# gh_token (a GitHub token) is OPTIONAL. With it, mise's GitHub fetches use the
+# authenticated rate limit; without it they fall back to the lower anonymous one,
+# which can rate-limit `install`. The classic Windows builder has no
+# BuildKit secrets, so the token is read per-RUN from a file in the build context
+# (it can't be a build-arg substituted into RUN). The glob makes it optional:
+# paired with an always-present file (.miserc.toml) so COPY still succeeds when
+# gh_token is absent; both land in C:\token (a dir off the WORKDIR ancestor chain,
+# so the paired file is inert). WARNING: when a token IS supplied it bakes into
+# this image layer -- do NOT publish an image built with one (see the README).
+COPY .miserc.toml gh_token* C:/token/
+
+# Docker-only mise settings, written inline in cmd (no bash needed): `mise
+# settings` writes the global config (C:\.config\mise on Windows, not
+# auto-trusted -- hence the explicit trust); experimental enables the conda/cargo
+# backends; cargo.binstall lets cargo: tools use prebuilt binaries where they
+# exist; aqua signature checks (attestations/cosign/slsa) are off (their
+# sigstore/TUF step can't find a cache dir here); pipx.uvx=false makes the pipx:
+# backend use pip not uv (uv's PE-resource trampoline isn't implemented on Nano).
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise trust && `
+    mise settings experimental=true && `
+    mise settings set cargo.binstall true && `
+    mise settings set aqua.github_attestations false && `
+    mise settings set aqua.cosign false && `
+    mise settings set aqua.slsa false && `
+    mise settings set pipx.uvx false && `
+    mise trust C:\.config\mise\config.toml
+
+# busybox-w32 `sh` -- the shell the bash-tasks run on (defined in
+# config.windows.toml). A prebuilt native exe, just downloaded (no build), so
+# it's available immediately and preinstall below can run on it.
+# MISE_BASH_PATH (config.windows.toml [env]) points the task shell here.
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise install http:busybox
+
+# Smoke test (informational -- never fails the build): confirm busybox runs and
+# finds `mise` on PATH before the bash-shell tasks below rely on it.
+ENV WINSH=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\http-busybox\1.37.0\ash.exe
+RUN dir "%LOCALAPPDATA%\mise\installs\http-busybox\1.37.0" & `
+    ("%WINSH%" -euo pipefail -c "command -v mise && echo [smoke] OK || echo [smoke] NOMISE") & `
+    ver>nul
+
+# Pin CARGO_HOME/RUSTUP_HOME to the dirs mise's rust tool uses (C:\.cargo /
+# C:\.rustup -- see its exec_env). preinstall sets the gnullvm default
+# toolchain in C:\.rustup, but when mise's cargo backend builds a `cargo:` tool it
+# spawns `cargo install` WITHOUT rust's exec_env, so rustup would otherwise look
+# in the empty %USERPROFILE%\.rustup and fail with "no default is configured".
+# Setting these globally makes every cargo/rustup invocation find the default.
+ENV CARGO_HOME=C:\.cargo `
+    RUSTUP_HOME=C:\.rustup
+
+# preinstall pip-installs pipx (the pipx:* backend). Nano has no system python,
+# so install mise's python and put it on PATH first; pipx then lands in that
+# python's Scripts dir -- never invoked here (this image disables pipx:semgrep and
+# builds no python guest, and pipx can't run on Nano anyway), so that's fine.
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise install python
+ENV PATH="C:\Users\ContainerAdministrator\AppData\Local\mise\installs\python\3.13;${PATH}"
+
+# Run preinstall on busybox sh (via MISE_BASH_PATH), already bootstrapped above,
+# so there's no chicken-and-egg with the shell.
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise run preinstall
+
+# Skip tools this image never runs. pipx:semgrep / pipx:cpplint -- pipx can't even
+# import on Nano Server: platformdirs' user_data_path() calls a shell known-folder
+# API (SHGetFolderPathW) that Nano lacks, and it runs at import so no env var
+# dodges it; both are linters run only by `mise run check` on Linux. lychee -- the
+# link-check task isn't part of the Windows build/test flow. cargo:cargo-expand --
+# a dev-only tool with no role in image builds. All install fine elsewhere;
+# dropping them here just keeps the image lean.
+ENV MISE_DISABLE_TOOLS=cargo:cargo-expand,lychee,pipx:cpplint,pipx:semgrep
+
+# The remaining always-loaded tools (the cargo: tools; python is already
+# installed above) now that rust links via gnullvm.
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise install
+
+# --- build: add the guest-language toolchains (config.<lang>.toml). ---
+# MISE_ENV lists only the guests that install on Nano Server: dotnet is excluded
+# (its installer is a PowerShell script, and Nano has no PowerShell) and python is
+# excluded (its tools install via pipx, which can't run on Nano). dart/java/rust/
+# zig install cleanly. Use `mise install` rather than install-all (which forces
+# $ALL_LANGS) so this restricted MISE_ENV is honored; it persists to later stages.
+FROM build-minimal AS build
+COPY .mise/ .mise/
+RUN mise trust
+ENV MISE_ENV=dart,java,rust,zig
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise install
+
+# --- prefetch: download all dependencies + ONNX models. ---
+# The full source is needed from here on (module builds, cargo fetch, pnpm).
+FROM build AS prefetch
+COPY . .
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise run prefetch
+
+# --- precompile: build the WASM/JS modules (needed by test and server). ---
+# Mirrors Linux; drops target/ in the same layer so the multi-GB cargo
+# intermediates don't bake in (module outputs live in each module's pkg/).
+FROM prefetch AS precompile
+RUN mise run build-modules && if exist target rmdir /s /q target
+
+# --- test: the full suite. Compiled + run at `docker run` time. ---
+# Mirrors Linux's `mise run test`; no host GPU is attachable at build time, so it
+# runs in the container. (Whether wgpu finds a usable adapter on a Windows
+# container host is itself unknown -- part of the frontier below.)
+FROM precompile AS test
+CMD ["mise", "run", "test"]
+
+# --- server: release build of et-ws-server, the default image (final stage). ---
+# A plain `docker build` produces this. CARGO_BUILD_TARGET puts the binary under
+# target\<triple>\release\; copy it onto PATH (C:\mise\bin) and drop target/ in
+# the same layer so the build intermediates don't bloat the image. The server
+# serves each module from its pkg/ (none of which live in target/).
+FROM precompile AS server
+RUN mise exec -- cargo build --release -p et-ws-server && `
+    copy target\x86_64-pc-windows-gnullvm\release\et-ws-server.exe C:\mise\bin\ && `
+    if exist target rmdir /s /q target
+EXPOSE 8080 8443
+CMD ["et-ws-server"]

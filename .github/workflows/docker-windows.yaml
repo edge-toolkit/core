@@ -1,0 +1,52 @@
+---
+name: docker-windows
+
+"on":
+  pull_request:
+    paths:
+      - .github/workflows/docker-windows.yaml
+      - Dockerfile.nanoserver
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 120
+    env:
+      # The classic Windows builder can't substitute build-args into the Dockerfile's RUN,
+      # and mise's prebuilt "latest" zip is stale (2026.3.0, too old for the config).
+      # 2026.6.5 is the first release with auto_env (loads .mise/config.windows.toml).
+      MISE_VERSION: "2026.6.5"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # Hosted Windows runners don't reliably leave the Docker daemon running, so
+      # the build can fail connecting to the docker_engine pipe. Start it (no-op
+      # if already running) and confirm connectivity before building.
+      - name: Start the Docker daemon
+        run: |
+          sc query docker | grep -q RUNNING || net start docker
+          docker version
+
+      - name: Prepare mise and Github token for the build context
+        run: |
+          v="${{ env.MISE_VERSION }}"
+          curl -fsSL -o mise.zip "https://github.com/jdx/mise/releases/download/v$v/mise-v$v-windows-x64.zip"
+          printf '%s' "${{ github.token }}" > gh_token
+
+      - name: Build stage precompile
+        run: docker build -f Dockerfile.nanoserver --target precompile -t edge-toolkit-windows .

@@ -1,6 +1,5 @@
-# `cargo deny check` config. Run locally via `cargo deny check`, in CI via
-# `.github/workflows/cargo-deny.yml`. Every option below is intentional;
-# cargo-deny's `init` template (with all defaults explicit) is not used.
+# cargo-deny config, applied via `mise run cargo-deny-check` -- locally and in
+# .github/workflows/dependencies.yaml.
 
 [advisories]
 version = 2

@@ -23,6 +23,11 @@
 //! bindgen-generated marker structs would be opaque and the `resource_table`
 //! couldn't carry real wgpu objects.
 wasmtime::component::bindgen!({
+    // Sanctioned `..` exception: unlike `wit_bindgen::generate!` (the guest
+    // modules), wasmtime's `bindgen!` has no macro-string support, so `path:`
+    // can't be an `env!(...)` fed by build.rs -- it must be a literal resolved
+    // against this crate's dir. Kept relative-to-manifest as the one place a
+    // repo-relative `..` is unavoidable.
     path: "../../generated/specs/wit",
     world: "runner",
     imports: { default: async },

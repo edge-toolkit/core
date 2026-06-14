@@ -1,0 +1,6 @@
+# clang-format style for C sources, applied via `mise run clang-format` (and
+# clang-format-check). Passed to clang-format as --style=file:<this>. LLVM base
+# with the repo's 120-column limit and 4-space indent (matches the C sources).
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 120

@@ -8,7 +8,6 @@ repository.workspace = true
 
 [lib]
 doctest = false
-name = "et_ws_runner_common"
 path = "src/lib.rs"
 
 [dependencies]

@@ -1,0 +1,65 @@
+# Linux-only mise config. Shared vars (rpath_flag, pylib_flag, conda_openssl,
+# py313_unix, …) come from config.toml, which loads first; PYO3_PYTHON keeps its
+# config.toml default (py313_unix).
+
+[tools]
+# Ships the C `libclang.so` (+ clang resource headers) bindgen needs to build the
+# deno web runner's libsqlite3-sys; a mise-only box usually only has libclang-cpp
+# (the C++ API), not the C one.
+"conda:clangxx" = "latest"
+
+[vars]
+# `a_`/`b_`/`c_` tiers keep taplo's alphabetical reorder_keys from moving a var
+# ahead of one it reads (`b_` reads `a_`, `c_` reads `b_`), which mise can't render.
+# a_conda_arch: conda's target-triple dir (x86_64/aarch64 vs mise's x64/arm64).
+a_conda_arch = "{% if arch() == 'arm64' %}aarch64{% else %}x86_64{% endif %}"
+a_conda_clangxx = "{{ env.HOME }}/.local/share/mise/installs/conda-clangxx/latest"
+b_clang_resource = "{{ vars.a_conda_clangxx }}/lib/clang/22"
+b_clang_sysroot = "{{ vars.a_conda_clangxx }}/{{ vars.a_conda_arch }}-conda-linux-gnu/sysroot"
+# bindgen loads libclang directly rather than driving the clang binary, so it
+# can't auto-find its resource dir (builtins like stddef.h) or conda's bundled
+# sysroot. Pass `-resource-dir` + `--sysroot` so header resolution is identical
+# on every machine (a bare `-isystem` leaves builtin type macros unset and fails
+# in CI). Using conda's sysroot rather than the host's /usr/include keeps bindgen
+# self-contained.
+c_bindgen_args = "-resource-dir {{ vars.b_clang_resource }} --sysroot={{ vars.b_clang_sysroot }}"
+# clang-tidy gets the same resource-dir + conda sysroot as bindgen: the sysroot
+# also stops clang scanning the host's multiple /usr/lib/gcc installs for
+# libstdc++ (which otherwise warns, and -warnings-as-errors fails the run).
+clang_resource_arg = "{{ vars.c_bindgen_args }}"
+
+[env]
+# clang-sys finds conda's libclang.so via LIBCLANG_PATH; bindgen gets conda's
+# resource headers + sysroot via BINDGEN_EXTRA_CLANG_ARGS (see c_bindgen_args).
+BINDGEN_EXTRA_CLANG_ARGS = "{{ vars.c_bindgen_args }}"
+# rpath/pylib flags (shared, from config.toml): OPENSSL_DIR points openssl-sys at
+# conda's OpenSSL, so anything linking it records conda's libssl soname; without
+# an rpath the loader only finds it when conda's soname matches the system one
+# (it broke when conda bumped to libssl.so.4). pylib_flag does the same for the
+# CPython lib dir. No `-fuse-ld=lld` needed: the system linker accepts
+# `-Wl,-rpath` directly.
+CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
+CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
+LIBCLANG_PATH = "{{ vars.a_conda_clangxx }}/lib"
+
+[tasks.preinstall]
+# Preinstall: the shared cross-platform base (via _setup_all), then verify the
+# system build prerequisites mise can't supply -- the C/C++ toolchain, gpg and
+# archive tools the Dockerfile installs via apt. A workstation missing any is
+# told to install them with its package manager (CI/Docker already have them).
+depends = ["_setup_all"]
+description = "Preinstall: shared base + verify system build prerequisites"
+run = """
+pkgs="bzip2 ca-certificates curl g++ gcc git gnupg libc6-dev libicu74 make unzip xz-utils"
+missing=""
+for cmd in gcc g++ make git curl gpg unzip bzip2 xz; do
+  command -v "$cmd" >/dev/null 2>&1 || missing="$missing $cmd"
+done
+if [ -n "$missing" ]; then
+  echo "preinstall: missing required system tools:$missing" >&2
+  echo "Install them with your package manager. On Debian/Ubuntu:" >&2
+  echo "  sudo apt-get install -y $pkgs" >&2
+  exit 1
+fi
+"""
+shell = "bash -euo pipefail -c"

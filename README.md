@@ -14,7 +14,8 @@ data stay on the device or your own network, never sent to an external cloud ser
 
 ## mise
 
-Please install [`mise`](https://mise.jdx.dev/), including the shell integration.
+Please install [`mise`](https://mise.jdx.dev/) (2026.6.5 or later),
+including the shell integration.
 It is needed for all use of this repository.
 
 The `mise` configuration lives under [`.mise/`](.mise/): the always-loaded
@@ -28,57 +29,131 @@ all of them at once.
 The following works for Linux, macOS and Windows, and all tools "installed"
 are only installed into the local workspace, so no need for admin/root privileges.
 
-Configure it with:
+Then run the preinstall task for your platform — it configures mise and installs
+the shared basics (cargo-binstall, node, the openssl dev files) plus whatever
+that platform needs. Do any manual prerequisites in your platform's section
+below first.
+
+### GitHub rate limits
+
+`mise install` downloads many tools from GitHub releases, which are subject to
+[GitHub's REST API rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
+Unauthenticated requests share a low per-IP limit, so installs can fail with
+`GitHub rate limit exceeded`. Authenticate with the
+[`gh` CLI](https://cli.github.com/) and let `mise` reuse its token — this raises
+the limit and needs no token scopes:
 
 ```bash
-mise settings experimental=true
-mise settings set cargo.binstall true
+mise install gh
 ```
 
-Pre-install `cargo-install`, which can be done using:
-
 ```bash
-mise use -g cargo-binstall
+gh auth login                                        # any method; no scopes needed
+mise settings set github.credential_command "gh auth token"
+mise token github                                    # verify: should resolve a token
 ```
 
-### Windows only
+`gh` often stores the token in the OS keyring rather than in
+`~/.config/gh/hosts.yml`, so mise's default `hosts.yml` lookup finds nothing;
+`credential_command` asks `gh` for the token on demand and works either way. The
+setting is written to your global `~/.config/mise/config.toml`, so it stays
+per-machine and out of the repo.
 
-On Windows only, `pipx` also needs to be pre-installed.
-See the Windows section of [pipx instructions](https://pipx.pypa.io/stable/how-to/install-pipx/).
+### Microsoft VC++ runtime
 
-### MacOS only
+mise.exe links the Microsoft VC++ runtime (`vcruntime140.dll`), so it must be
+present or mise won't start. It's preinstalled on Windows 10/11 and Server, so
+you already have it — only Nano Server omits it, and there the Docker build
+installs the [VC++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe).
 
-On MacOS, the Xcode Command Line Tools (`clang`, `git`, `make`, etc.) must be
-installed first:
+### Windows shell
+
+On Windows, install the shell:
 
 ```bash
-xcode-select --install
-```
-
-We also need to install a better linker into the workspace.
-
-```bash
-mise install conda:lld
+mise install http:busybox
 ```
 
 ### All OS
 
-Before installing dependencies, please the install openssl development files
-separately:
+To install dependencies:
 
 ```bash
-mise install conda:openssl
-```
-
-Then install the remaining dependencies:
-
-```bash
+mise run preinstall
 mise install-all
 ```
+
+The `preinstall` task will advise if there are any required dependencies are
+are missing, such as Xcode Command Line Tools on MacOS.
+
+### Install failures
+
+`mise install` runs tool installs in parallel. If they fail intermittently — a
+download race, or a `cargo:` source build colliding with another — serialize
+them with `MISE_JOBS=1`:
+
+```bash
+MISE_JOBS=1 mise install-all
+```
+
+This is the same workaround both Docker builds bake in, so reach for it first if
+a local install or build misbehaves.
 
 ## Contributing
 
 Use `mise run fmt-all` and `mise run check-all` to run formatters and checkers.
+
+## Building and running with Docker
+
+[`Dockerfile`](Dockerfile) reproduces the mise setup above on a clean, minimal
+Ubuntu, in stages (`build` → `prefetch` → `precompile` → `test`/`server`). A
+plain build produces the **server** image (the final stage): a release build of
+`et-ws-server`, served automatically. `mise install-all` fetches many tools from
+GitHub releases, so build with a GitHub token to avoid the anonymous rate limit
+(see [GitHub rate limits](#github-rate-limits)), passed as a BuildKit secret so
+it never lands in an image layer:
+
+```bash
+GITHUB_TOKEN="$(gh auth token)" DOCKER_BUILDKIT=1 \
+  docker build --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit .
+docker run --rm -p 8080:8080 edge-toolkit
+```
+
+Then open <http://localhost:8080> (add `-p 8443:8443` for TLS). The server needs
+no GPU. OpenObserve/`o2` is optional — OTLP export is off when no collector is
+configured. (Drop `--secret` to build without a token; `install-all` may then hit
+rate limits.)
+
+The full test suite is a **separate, non-final stage**, so build it explicitly
+with `--target test`. The WebGPU compute test needs a GPU, and `docker build`
+can't attach one (no `--gpus` for build), so it runs at `docker run` time. The
+`test` stage bundles `mesa-vulkan-drivers`, so passing the host DRI node gives
+wgpu a real Intel/AMD GPU (and a software fallback if you pass nothing):
+
+```bash
+docker build --target test -t edge-toolkit-test .
+docker run --rm --device /dev/dri edge-toolkit-test   # Intel/AMD GPU
+```
+
+NVIDIA via `--gpus all` (with the NVIDIA Container Toolkit) is wired but
+**unverified** — its in-container Vulkan ICD doesn't initialize yet, so prefer a
+DRI device. The image skips the `o2`/`ws-server` README steps (runtime services).
+
+### CI
+
+The [`docker-linux`](.github/workflows/docker-linux.yaml) and
+[`docker-windows`](.github/workflows/docker-windows.yaml) workflows rebuild these
+images when their respective `Dockerfile` is modified.
+
+[`Dockerfile.nanoserver`](Dockerfile.nanoserver) starts from **Nano Server**
+(the smallest Windows base, ~120 MB) — which has no installer stack, or shell.
+
+A `gh_token` file (a GitHub token) in the build context is **optional** for a
+manual `Dockerfile.nanoserver` build — without it, mise uses GitHub's anonymous
+rate limit and may be throttled. The classic Windows builder has no BuildKit
+secrets, so it **bakes that file into an image layer**: never
+publish an image built with a `gh_token`. (The Linux build passes the token as a
+BuildKit secret instead, so it never lands in a layer.)
 
 ## Run ws agent in browser
 

@@ -7,6 +7,14 @@
 # REST-client generation step in et-int-gen detects the missing binary at
 # runtime and is a no-op when it's not on PATH.
 "github:christianhelle/openapi2zig" = { version = "latest", os = ["linux/x64", "macos", "windows"] }
+# C tooling for the zig-data1 module's hand-written C (services/ws-modules/
+# zig-data1/src/*.c). Two conda packages because mise hands the `clang-format`
+# name to conda:clang-format, so conda:clang-tools omits it and only supplies
+# clang-tidy. Both are conda-forge's native LLVM binaries. cpplint (Google C++
+# style) has no prebuilt binary -- pipx is its only distribution.
+"conda:clang-format" = "latest"
+"conda:clang-tools" = "latest"
+"pipx:cpplint" = "latest"
 zig = "latest"
 
 [tasks.zig-check]
@@ -15,14 +23,41 @@ run = "zig fmt --check services/ws-modules/ generated/zig-rest/"
 [tasks.zig-fmt]
 run = "zig fmt services/ws-modules/ generated/zig-rest/"
 
+[tasks.clang-format]
+description = "Format C sources (clang-format)"
+run = "git ls-files '*.c' '*.h' | xargs clang-format -i --style=file:config/clang-format.yaml"
+
+[tasks.clang-format-check]
+description = "Check C source formatting (clang-format)"
+run = "git ls-files '*.c' '*.h' | xargs clang-format --dry-run --Werror --style=file:config/clang-format.yaml"
+
+[tasks.clang-tidy-check]
+description = "Lint C sources (clang-tidy)"
+# Flags after `--` are the compile args; clang_resource_arg points clang at its
+# builtin headers (set per host -- see config.linux.toml). {{ }} renders to empty
+# where unset, leaving a bare `--`.
+run = """
+git ls-files '*.c' '*.h' |
+  xargs -I{} clang-tidy --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.cpplint-check]
+description = "Lint C sources for Google C++ style (cpplint)"
+run = """
+git ls-files '*.c' '*.h' |
+  xargs cpplint --quiet --linelength=120 --filter=-legal/copyright,-build/include_subdir
+"""
+shell = "bash -euo pipefail -c"
+
 # Namespaced aggregators picked up by the default config's globbed `check`/`fmt`.
 [tasks."check:zig"]
-depends = ["zig-check"]
-description = "Run Zig checks (format-check)"
+depends = ["zig-check", "clang-format-check", "clang-tidy-check", "cpplint-check"]
+description = "Run Zig + C checks (zig fmt-check, clang-format, clang-tidy, cpplint)"
 
 [tasks."fmt:zig"]
-depends = ["zig-fmt"]
-description = "Format Zig sources"
+depends = ["zig-fmt", "clang-format"]
+description = "Format Zig + C sources"
 
 [tasks.build-ws-zig-data1-module]
 description = "Build the zig-data1 workflow WASM module"

@@ -7,6 +7,7 @@ dart_release = "https://storage.googleapis.com/dart-archive/channels/stable/rele
 dart_bucket = "https://storage.googleapis.com/storage/v1/b/dart-archive/o"
 
 [tools]
+# cargo: backend -- dart-typegen has no prebuilt binary (crates.io only).
 "cargo:dart-typegen" = "latest"
 
 # dart isn't an aqua/registry tool — install it straight from Google's dart
@@ -75,14 +76,14 @@ run = "dart pub get --directory services/ws-modules/dart-comm1"
 [tasks."gen:dart-ws"]
 depends = ["gen:ws-spec"]
 description = "Emit the Dart sealed-class WS client via dart-typegen (consumes generated/specs/ws.kdl from gen:ws-spec)"
-shell = "bash -euo pipefail -c"
 # dart-typegen exits 0 on Windows but writes an empty .dart file, which
 # would clobber the committed source and fail gen-specs-check. Skip the
 # regen there; the committed file (regenerated on Linux/macOS) stays
 # canonical.
 run = """
-[[ "${OS:-}" == "Windows_NT" ]] && { echo "gen:dart-ws: skipped on Windows (dart-typegen empty output)"; exit 0; }
+[ "${OS:-}" = "Windows_NT" ] && { echo "gen:dart-ws: skipped on Windows (dart-typegen empty output)"; exit 0; }
 mkdir -p generated/dart-ws/lib
 dart-typegen generate -i generated/specs/ws.kdl -o generated/dart-ws/lib/ws_messages.dart
 dart format generated/dart-ws/lib/ws_messages.dart
 """
+shell = "bash -euo pipefail -c"

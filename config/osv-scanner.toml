@@ -1,8 +1,4 @@
-# Ignore list mirrored from `deny.toml`'s `[advisories].ignore`. See
-# `deny.toml` for the per-ID rationale (which crate pulls the
-# vulnerable version, why the bug isn't reachable in this runner,
-# and what upstream change drops the ignore). Keep both files in
-# sync -- when an ID is removed from `deny.toml`, remove it here too.
+# AUTO-GENERATED from config/deny.toml by `mise run gen:osv-scanner`.
 IgnoredVulns = [
   { id = "RUSTSEC-2023-0071" },
   { id = "RUSTSEC-2024-0436" },

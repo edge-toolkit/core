@@ -12,8 +12,8 @@ doctest = false
 [dependencies]
 asyncapi-rust = { workspace = true, optional = true }
 base64.workspace = true
+et-path.workspace = true
 fs-err.workspace = true
-lets_find_up.workspace = true
 log.workspace = true
 schemars = { workspace = true, optional = true }
 secrecy.workspace = true

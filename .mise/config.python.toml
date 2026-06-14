@@ -3,14 +3,11 @@
 # the `pipx:*` entries below resolve through it.
 
 [tools]
-"pipx:cmake" = "latest"
 "pipx:componentize-py" = "latest"
 "pipx:datamodel-code-generator" = { version = "latest", extras = "ruff" }
 "pipx:openapi-python-client" = "0.29.0"
 "pipx:pytest" = "latest"
-python = "3.13"
 ruff = "latest"
-uv = "0.11.8"
 
 # Use the GitHub release tarball, not `npm:pyodide`. The npm package is only
 # the runtime (pyodide.js, .wasm, stdlib, micropip) ~5 MB — it's designed for
@@ -31,6 +28,10 @@ py_dirs = "services/ws-modules/ generated/python-ws/ generated/python-rest/"
 # Shared WIT dir for the wasi-graphics-info componentize-py build (relative to
 # that module's dir); used by both the bindings and componentize steps.
 wit_dir = "../../../generated/specs/wit"
+
+[env]
+# Keep ruff's cache under target/ (gitignored) instead of a repo-root .ruff_cache.
+RUFF_CACHE_DIR = "{{ config_root }}/target/ruff-cache"
 
 [tasks]
 ruff-check = "ruff check {{ vars.py_dirs }}"
@@ -67,7 +68,7 @@ UV_PYTHON = """\
 {% else %}{{ exec(command='mise which python3.13') }}{% endif %}"""
 
 [tasks.build-et-ws-wheel]
-depends = ["gen:python-ws"]
+depends = ["build-et-cli", "gen:python-ws"]
 description = "Build the generated et-ws Python package as a wheel + ws-module pkg/"
 dir = "generated/python-ws"
 # Wheel goes straight into pkg/ alongside the committed et_ws.js shim so the
@@ -81,7 +82,7 @@ cargo run -p et-cli -- module-package-json
 shell = "bash -euo pipefail -c"
 
 [tasks.build-et-rest-client-wheel]
-depends = ["gen:python-rest"]
+depends = ["build-et-cli", "gen:python-rest"]
 description = "Build the generated et-rest-client Python package as a wheel + ws-module pkg/"
 dir = "generated/python-rest"
 run = """
@@ -122,6 +123,7 @@ cargo run -p et-cli -- module-package-json
 shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-wasi-graphics-info-module]
+depends = ["build-et-cli"]
 description = "Build the WASI graphics-info Python module as a WASI Preview 2 component"
 dir = "services/ws-modules/wasi-graphics-info"
 # WIT lives once at generated/specs/wit/ — the runner's `runner` world is

@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "mise tasks — `run` must be a string, not an array",
+  "description": "`run` must be a string, not an array: taplo reorder_arrays would re-sort the commands.",
+  "type": "object",
+  "properties": {
+    "tasks": {
+      "type": "object",
+      "additionalProperties": {
+        "properties": {
+          "run": {
+            "type": "string",
+            "description": "use a multiline string (one command per line); an array gets re-sorted by taplo"
+          }
+        }
+      }
+    }
+  }
+}

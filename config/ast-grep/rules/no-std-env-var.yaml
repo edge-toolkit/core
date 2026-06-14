@@ -17,4 +17,6 @@ constraints:
       # Allow a string literal ("RUST_LOG") or a const identifier (RUST_LOG).
       regex: '^"?RUST_'
 ignores:
-  - generated/**
+  # The project-root helper reads CARGO_MANIFEST_DIR (a cargo build variable,
+  # not app config) to locate the repo root from a build script.
+  - libs/path/src/lib.rs

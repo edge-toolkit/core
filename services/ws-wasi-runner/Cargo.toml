@@ -8,7 +8,6 @@ repository.workspace = true
 
 [lib]
 doctest = false
-name = "et_ws_wasi_runner"
 path = "src/lib.rs"
 
 [[bin]]
@@ -65,7 +64,7 @@ wgpu.workspace = true
 
 [dev-dependencies]
 et-ws-test-server.workspace = true
-otlp-mock.workspace = true
+int-otlp-mock.workspace = true
 rstest.workspace = true
 
 [lints]

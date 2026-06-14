@@ -7,8 +7,9 @@ name: dependencies
       - Cargo.lock
       - Cargo.toml
       - "**/Cargo.toml"
-      - deny.toml
-      - .github/workflows/dependencies.yml
+      - config/deny.toml
+      - config/osv-scanner.toml
+      - .github/workflows/dependencies.yaml
   workflow_dispatch:
 
 permissions:
@@ -22,11 +23,6 @@ defaults:
   run:
     shell: bash
 
-# Deliberately mise-free: the only tools this job needs are the three
-# dep-audit binaries, all of which taiki-e/install-action ships
-# prebuilt. Skipping mise also skips the conda:openssl + workspace
-# tool install path that the main CI flows take ~3 min on, keeping
-# this check fast (~30 s typical).
 jobs:
   dependencies:
     runs-on: ubuntu-latest
@@ -34,17 +30,25 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-      - name: Install dep-audit tools
+      - name: Install tools
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-deny,cargo-unmaintained,osv-scanner
+          tool: cargo-deny,cargo-unmaintained,mise@2026.6.5,osv-scanner
+
+      - name: Trust mise config
+        run: mise trust
+
+      - name: Generate config/osv-scanner.toml from config/deny.toml
+        run: mise run gen:osv-scanner
 
       - name: cargo deny check
-        run: cargo deny check
+        run: mise run cargo-deny-check
 
       - name: osv-scanner
-        run: osv-scanner --lockfile Cargo.lock
+        run: mise run osv-scanner
 
       # `cargo unmaintained` persists per-repository archival/last-commit
       # lookups under `$XDG_CACHE_HOME/cargo-unmaintained` (default
@@ -68,4 +72,7 @@ jobs:
       - name: cargo unmaintained
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: cargo unmaintained
+        run: mise run cargo-unmaintained-check
+
+      - name: Check config/osv-scanner.toml is committed
+        run: git diff --exit-code -- config/osv-scanner.toml

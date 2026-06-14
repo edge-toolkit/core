@@ -1,0 +1,59 @@
+---
+name: docker-linux
+
+"on":
+  pull_request:
+    paths:
+      - .github/workflows/docker-linux.yaml
+      - Dockerfile
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # The image is huge (every language toolchain + prefetched models + a full
+      # debug build, incl. aws-lc-sys's large C objects), and its peak `target/`
+      # overruns a single runner disk. Reclaim the unused preinstalled SDKs and
+      # concatenate the freed root space with /mnt into one LVM volume mounted at
+      # Docker's data dir, then restart Docker so the build uses the combined space.
+      - name: Maximize build space (combine root + /mnt for Docker)
+        uses: easimon/maximize-build-space@v10
+        with:
+          root-reserve-mb: 4096
+          swap-size-mb: 1024
+          remove-dotnet: "true"
+          remove-android: "true"
+          remove-haskell: "true"
+          remove-codeql: "true"
+          remove-docker-images: "true"
+          build-mount-path: /var/lib/docker
+          build-mount-path-ownership: "root:root"
+
+      - name: Restart Docker on the maximized volume
+        run: sudo systemctl restart docker
+
+      - name: Build stage test
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: DOCKER_BUILDKIT=1 docker build --target test --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit-test .
+
+      - name: Run the test suite
+        run: docker run --rm edge-toolkit-test

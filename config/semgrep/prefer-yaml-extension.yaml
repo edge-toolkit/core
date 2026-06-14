@@ -1,0 +1,13 @@
+rules:
+  - id: prefer-yaml-extension
+    languages: [generic]
+    paths:
+      include:
+        - "*.yml"
+      exclude:
+        # External upstream clones + generated trees are not our prose.
+        - "/data"
+        - "/generated"
+    pattern-regex: \A
+    message: "Use the .yaml extension, not .yml -- rename the file."
+    severity: ERROR
