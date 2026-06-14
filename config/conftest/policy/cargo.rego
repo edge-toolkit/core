@@ -190,3 +190,13 @@ deny contains msg if {
 	is_dep_name(file, feat)
 	msg := sprintf("%s: feature %q shares its name with a dependency; rename it", [file.path, feat])
 }
+
+# Dependency overrides ([patch]/[replace]) belong in the root manifest, where
+# they apply workspace-wide and stay in one place; a member can't override deps.
+deny contains msg if {
+	some file in input
+	is_member(file)
+	some table in {"patch", "replace"}
+	file.contents[table]
+	msg := sprintf("%s: [%s] belongs in the root manifest, not a member crate", [file.path, table])
+}

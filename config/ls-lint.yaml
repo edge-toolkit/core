@@ -1,0 +1,43 @@
+# ls-lint file/directory naming linter (https://ls-lint.org), run via
+# `mise run ls-lint-check`. ls-lint walks the working tree (not git), so the
+# build/vendor/codegen trees are ignored below and only hand-written source is
+# linted. Each rule lists the casings actually used in the repo today.
+ls:
+  # Directories are kebab-case (most) or snake_case (a few generated-style
+  # names); the regex alternative permits leading-dot tool dirs (.github, .mise).
+  .dir: kebab-case | snake_case | regex:\.[a-z]+
+
+  .rs: snake_case | kebab-case
+  .py: snake_case | regex:__[a-z]+__
+  .js: snake_case
+  .zig: snake_case
+  .dart: snake_case
+  .wit: snake_case | kebab-case
+  .rego: snake_case | kebab-case
+  .yaml: snake_case | kebab-case
+  .cs: PascalCase
+  .java: PascalCase
+
+ignore:
+  - .git
+  - target
+  - node_modules
+  - generated
+  # Bundled data/model assets -- names are not hand-chosen.
+  - data
+  # Build/vendor output that ls-lint would otherwise walk (it can't read
+  # .gitignore). The `**/` form matches each at any depth.
+  - "**/.venv"
+  - "**/__pycache__"
+  - "**/.pytest_cache"
+  - "**/.ruff_cache"
+  - "**/.zig-cache"
+  - "**/zig-out"
+  - "**/.dart_tool"
+  - "**/obj"
+  - "**/bin/Debug"
+  - "**/bin/Release"
+  # Built module artifacts (wheels, .wasm, generated JS) live under each pkg/.
+  - "**/pkg"
+  # Zig codegen templates dir whose name carries a literal `.in` suffix.
+  - "**/zig.in"

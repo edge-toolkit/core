@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       # The image is huge (every language toolchain + prefetched models + a full
       # debug build, incl. aws-lc-sys's large C objects), and its peak `target/`

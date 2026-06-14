@@ -17,6 +17,9 @@ name: test
           - macos-26-intel
           - windows-latest
 
+permissions:
+  contents: read
+
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
@@ -66,6 +69,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       # Reclaim the large preinstalled toolchains we never use (~30 GB).
       # `|| true` so a missing dir (e.g. on the arm image) is not fatal.

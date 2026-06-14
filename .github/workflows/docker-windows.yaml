@@ -22,7 +22,7 @@ defaults:
 jobs:
   build:
     runs-on: windows-2022
-    timeout-minutes: 120
+    timeout-minutes: 80
     env:
       # The classic Windows builder can't substitute build-args into the Dockerfile's RUN,
       # and mise's prebuilt "latest" zip is stale (2026.3.0, too old for the config).
@@ -31,6 +31,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       # Hosted Windows runners don't reliably leave the Docker daemon running, so
       # the build can fail connecting to the docker_engine pipe. Start it (no-op

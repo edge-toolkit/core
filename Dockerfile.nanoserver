@@ -100,12 +100,14 @@ ENV WASM_PACK_CACHE=C:\Temp\wasm-pack
 # mean no source builds); the gnu Docker path does. One job at a time avoids it.
 ENV MISE_JOBS=1
 
-# Verbose mise + full Rust backtraces while the Windows build is being brought
-# up: surface tool/task resolution, the exact bash mise launches, and any panic
-# in the CI log. Noisy but invaluable while diagnosing the bare-Nano-Server path.
-ENV MISE_VERBOSE=1 `
-    MISE_LOG_LEVEL=debug `
-    RUST_BACKTRACE=full
+# Full Rust backtraces so any panic surfaces in the CI log.
+ENV RUST_BACKTRACE=full
+
+# Verbose mise is disabled -- it floods the log with tool/task resolution and the
+# exact bash it launches. Re-enable it (noisy but invaluable) when diagnosing a
+# Windows build failure on the bare-Nano-Server path:
+# ENV MISE_VERBOSE=1 `
+# MISE_LOG_LEVEL=debug
 
 # mise.zip is staged in the build context by the windows job in
 # .github/workflows/docker.yaml (which pins the version) and copied in here. We

@@ -94,6 +94,38 @@ use the `*-all` variants (`check-all`, `test-all`, `build-modules-all`,
 (e.g., `mise run build-ws-face-detection-module` for the Rust modules, or
 `MISE_ENV=zig mise run build-ws-zig-data1-module`).
 
+## Formatters & checks by file type
+
+The `mise run <task>` formatters and checks per file type (`fmt` / `check` run
+them all; guest rows need their `MISE_ENV` loaded).
+
+| File type | Formatter task(s)               |
+| --------- | ------------------------------- |
+| `*.rs`    | `cargo-fmt`, `cargo-clippy-fix` |
+| `*.toml`  | `taplo-fmt`                     |
+| `*.py`    | `ruff-fmt`                      |
+| `*.dart`  | `fmt:dart`                      |
+| `*.zig`   | `fmt:zig`                       |
+| `*.cs`    | `fmt:dotnet`                    |
+
+| File type | Check task(s)                                                                            |
+| --------- | ---------------------------------------------------------------------------------------- |
+| `*.rs`    | `cargo-check`, `cargo-clippy`, `cargo-fmt-check`, `cargo-doc-check`, `ast-grep-check`    |
+| `*.toml`  | `taplo-check`, `conftest-check-toml`, `semgrep-check`                                    |
+| `*.yaml`  | `ast-grep-check`, `conftest-check-yaml`, `ryl-check`, `action-validator`, `zizmor-check` |
+| `*.json`  | `semgrep-check`                                                                          |
+| `*.py`    | `check:python`                                                                           |
+| `*.dart`  | `check:dart`                                                                             |
+| `*.zig`   | `check:zig`                                                                              |
+| `*.cs`    | `check:dotnet`                                                                           |
+| `*.java`  | `check:java`                                                                             |
+
+`dprint-fmt` / `dprint-check` cover `*.md`, `*.yaml`, `*.json`/`*.jsonc`,
+`*.ts`/`*.js`, `*.css`, `*.html`, `*.java`, and `Dockerfile*`; `hadolint-check`
+also lints Dockerfiles, and `link-check` scans `*.md` + `*.rs`. Every file is
+covered by `editorconfig-check` and `typos`, file and directory names by
+`ls-lint-check`, and `*.yml` is rejected by `semgrep-check` (use `*.yaml`).
+
 ## Architecture
 
 This is a WebSocket-based edge computing framework.
@@ -277,8 +309,11 @@ available linters:
   TOML/text (e.g. `mise-config.yaml` lints `.mise/config*.toml`).
 - **taplo** JSON-schemas (`config/taplo/`) — TOML structure, applied via
   `taplo lint --schema` in `taplo-check`.
-- plus hadolint, editorconfig-checker, typos, and action-validator for their
-  domains.
+- **conftest** (`config/conftest/policy/`) — Rego policies over the combined
+  TOML/YAML config set, for cross-file checks the schema linters can't express.
+- plus hadolint, ls-lint (file/dir naming), zizmor (Actions security), ryl
+  (YAML), lychee (links), editorconfig-checker, typos, and action-validator for
+  their domains.
 
 ast-grep has no TOML grammar, so it **cannot** lint TOML — use a taplo schema or
 a semgrep `generic` rule there. If none of the above can express a check,

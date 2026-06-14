@@ -86,6 +86,19 @@ mise install-all
 The `preinstall` task will advise if there are any required dependencies are
 are missing, such as Xcode Command Line Tools on MacOS.
 
+### Install failures
+
+`mise install` runs tool installs in parallel. If they fail intermittently — a
+download race, or a `cargo:` source build colliding with another — serialize
+them with `MISE_JOBS=1`:
+
+```bash
+MISE_JOBS=1 mise install-all
+```
+
+This is the same workaround both Docker builds bake in, so reach for it first if
+a local install or build misbehaves.
+
 ## Contributing
 
 Use `mise run fmt-all` and `mise run check-all` to run formatters and checkers.

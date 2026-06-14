@@ -46,6 +46,7 @@ editorconfig-checker = "latest"
 "github:owenlamont/ryl" = "latest"
 "github:wasm-bindgen/wasm-bindgen" = "0.2.122"
 hadolint = "latest"
+ls-lint = "latest"
 lychee = "latest"
 mprocs = "latest"
 node = "22"
@@ -74,6 +75,7 @@ typos = "latest"
 uv = "0.11.8"
 wasm-tools = "latest"
 yq = "latest"
+zizmor = "latest"
 
 [vars]
 conda_openssl = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest"
@@ -172,12 +174,14 @@ depends = [
   "gen-specs-check",
   "hadolint-check",
   "link-check",
+  "ls-lint-check",
   "ryl-check",
   "semgrep-check",
   "conftest-check",
   "taplo-check",
   "typos",
   "verification-check",
+  "zizmor-check",
 ]
 description = "Run the Rust + universal repo-wide checks"
 
@@ -193,6 +197,16 @@ description = "Run all checks: check:rust + any loaded guest check:<lang>"
 [tasks.action-validator]
 description = "Validate GitHub Actions workflow YAML"
 run = "action-validator .github/workflows/*.yaml"
+
+[tasks.zizmor-check]
+description = "Audit GitHub Actions workflows for security issues (zizmor)"
+# --offline so it needs no GH token and stays deterministic; config/zizmor.yaml
+# turns off the hash-pin policy (we pin actions by tag, not commit).
+run = "zizmor --offline --no-progress -c config/zizmor.yaml .github/workflows"
+
+[tasks.ls-lint-check]
+description = "Lint file and directory naming conventions (ls-lint)"
+run = "ls-lint --config config/ls-lint.yaml"
 
 [tasks.ast-grep-check]
 # --no-ignore hidden so the gha-* YAML rules reach .github/workflows (ast-grep

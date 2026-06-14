@@ -57,3 +57,23 @@ deny contains msg if {
 	startswith(name, "ubi:")
 	msg := sprintf("%s: tool %q uses the deprecated ubi backend; use http: instead", [file.path, name])
 }
+
+# Tools should work on every OS (CLAUDE.md "Tools must work on every OS"). Any
+# os-scoped [tools] entry must be a genuinely platform-specific one in this list.
+allowed_os_scoped_tool := {
+	"chromedriver",
+	"pipx",
+	"npm:pnpm",
+	"pnpm",
+	"github:christianhelle/openapi2zig",
+}
+
+deny contains msg if {
+	some file in input
+	is_mise(file)
+	some name, spec in file.contents.tools
+	is_object(spec)
+	spec.os
+	not allowed_os_scoped_tool[name]
+	msg := sprintf("%s: tool %q is os-scoped; tools must work on every OS (or allowlist it)", [file.path, name])
+}
