@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "mise [tools] -- no source-built backends",
+  "description": "`cargo:`/`ubi:` build from source; prefer a prebuilt backend (aqua/registry/github/http).",
+  "type": "object",
+  "properties": {
+    "tools": {
+      "type": "object",
+      "propertyNames": {
+        "anyOf": [
+          { "not": { "pattern": "^(cargo|ubi):" } },
+          { "enum": ["cargo:cargo-expand", "cargo:dart-typegen"] }
+        ]
+      }
+    }
+  }
+}

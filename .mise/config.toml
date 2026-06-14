@@ -18,15 +18,11 @@
 min_version = "2026.6.5"
 
 [settings]
-# Never auto-install tools implicitly: installs are explicit (`mise install` /
-# `mise run install-all`, and CI/Docker install up front). This keeps cheap tasks
-# like `print-all-langs`, and the pre-install `setup-aube` step, from eagerly
-# pulling the whole toolchain — on CI and the CLI alike. task.run_auto_install
-# covers `mise run`; exec_auto_install covers `mise exec` (its OWN knob) —
-# without it, `mise exec -- python …` in Dockerfile.nanoserver installs *every*
-# configured tool before running python. Turn both off so the policy holds.
-# (Current mise accepts the nested task.run_auto_install form; very old builds
-# like 2026.3 used the flat `task_run_auto_install`.)
+# Keep installs explicit (`mise install`; CI/Docker install up front) so a task or
+# `mise exec` never pulls the whole toolchain implicitly — e.g. `mise exec --
+# python …` in Dockerfile.nanoserver would otherwise install every tool first.
+# The two knobs are separate: exec_auto_install covers `mise exec`,
+# task.run_auto_install covers `mise run`.
 exec_auto_install = false
 task.run_auto_install = false
 
@@ -60,7 +56,9 @@ editorconfig-checker = "latest"
 # below (see the `retry` var) so a transient HTTP 429 doesn't fail the build.
 "github:dbohdan/recur" = "latest"
 "github:grok-rs/waitup" = "latest"
-"github:wasm-bindgen/wasm-bindgen" = "0.2.114"
+# Must match the wasm-bindgen crate version in Cargo.lock so wasm-pack finds this
+# on PATH instead of downloading its own wasm-bindgen-cli; bump both together.
+"github:wasm-bindgen/wasm-bindgen" = "0.2.122"
 hadolint = "latest"
 # Link checker for the `link-check` task. Installs on every OS; the Nano Docker
 # image opts out via MISE_DISABLE_TOOLS (link-check isn't run in the Windows
@@ -331,6 +329,10 @@ grep -vxF './generated/rust-rest/Cargo.toml' "$members" |
 # re-sort an array and scramble an ordered command sequence (use a multiline
 # string, one command per line). Applies to every .mise/config*.toml.
 taplo lint --schema "file://$PWD/config/taplo/mise-run-not-array.schema.json" .mise/config*.toml
+
+# Tools must use a prebuilt backend; `cargo:`/`ubi:` build from source.
+# Allowlisted exceptions: cargo:cargo-expand + cargo:dart-typegen.
+taplo lint --schema "file://$PWD/config/taplo/mise-no-source-backends.schema.json" .mise/config*.toml
 """
 shell = "bash -euo pipefail -c"
 
@@ -584,11 +586,7 @@ shell = "bash -euo pipefail -c"
 [tasks.build-ws-wasm-agent]
 description = "Build the WebSocket WASM client"
 dir = "services/ws-wasm-agent"
-# --mode no-install: use the mise-pinned wasm-bindgen (and skip wasm-opt) instead
-# of letting wasm-pack download its own. The wasm32 target + rust-src come from
-# the `rust` tool's targets/components (Windows re-adds them to its gnullvm
-# toolchains in preinstall), so nothing is fetched at build time.
-run = "wasm-pack build . --target web --mode no-install -- -Z build-std=std,panic_abort"
+run = "wasm-pack build . --target web -- -Z build-std=std,panic_abort"
 
 [tasks.build-ws-wasm-agent.env]
 # Scope these flags to the wasm target rather than setting plain `RUSTFLAGS`:
