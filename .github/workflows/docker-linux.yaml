@@ -23,6 +23,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Matrix the Dockerfile's BASE_IMAGE ARG across the four bases we support;
+    # libicu is auto-detected at build time via apt-cache, no per-base override
+    # needed here. fail-fast off so a single distro break doesn't mask others.
+    strategy:
+      fail-fast: false
+      matrix:
+        base:
+          - ubuntu:24.04
+          - ubuntu:26.04
+          - debian:bookworm
+          - debian:trixie
+    name: build (${{ matrix.base }})
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,7 +65,12 @@ jobs:
       - name: Build stage test
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: DOCKER_BUILDKIT=1 docker build --target test --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit-test .
+        run: >-
+          DOCKER_BUILDKIT=1 docker build
+          --target test
+          --build-arg BASE_IMAGE=${{ matrix.base }}
+          --secret id=gh_token,env=GITHUB_TOKEN
+          -t edge-toolkit-test .
 
       - name: Run the test suite
         run: docker run --rm edge-toolkit-test

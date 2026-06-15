@@ -77,13 +77,13 @@ deny contains msg if {
 }
 
 # Tools should work on every OS (CLAUDE.md "Tools must work on every OS"). Any
-# os-scoped [tools] entry must be in this list -- either a genuinely
-# platform-specific tool, or one whose os-scoping just picks a per-platform
-# backend while still covering every OS (findutils: prebuilt everywhere except
-# aarch64-linux, which builds from source).
+# os-scoped [tools] entry must be in this list -- a genuinely platform-specific
+# tool, a per-platform backend pair that still covers every OS (findutils, ryl),
+# or an optional tool that self-skips on the omitted platform (pipx:torch).
 allowed_os_scoped_tool := {
 	"chromedriver",
 	"pipx",
+	"pipx:torch",
 	"npm:pnpm",
 	"pnpm",
 	"github:christianhelle/openapi2zig",

@@ -42,7 +42,10 @@
 # --- build-minimal: mise + the always-loaded toolchain (config.toml only). ---
 # Copies just .mise/config.toml + installs the default tools, so this layer is
 # reused until the always-loaded toolset changes -- not when a guest config does.
-FROM ubuntu:24.04 AS build-minimal
+# Base image is parameterised so the CI matrix can build Debian + Ubuntu
+# variants; bump LIBICU_PKG below alongside BASE_IMAGE.
+ARG BASE_IMAGE=ubuntu:24.04
+FROM ${BASE_IMAGE} AS build-minimal
 
 # Universal prereqs a typical dev box already has; everything else is mise's job.
 # gcc, g++, libc6-dev and make are the C/C++ toolchain rustc links through (`cc`)
@@ -53,16 +56,17 @@ FROM ubuntu:24.04 AS build-minimal
 # downloads (bare `gpg` lacks the agent/dirmngr it needs); xz-utils, unzip,
 # bzip2, gzip and tar unpack mise's tool archives (.tar.bz2 / .tar.gz / .zip).
 # gzip + tar are already in the base image, listed so a minimal FROM keeps them.
-# libicu74 is .NET
-# runtime ICU for the dotnet-data1 module -- without it the dotnet CLI
-# FailFast-aborts at startup ("Couldn't find a valid ICU package installed on the
-# system"; minimal Ubuntu ships no ICU). The "74" tracks the Ubuntu base
-# (74 = 24.04) -- bump it alongside the FROM line; .NET needs libicu on minimal
-# systems (else set System.Globalization.Invariant=true).
-ARG APT_PACKAGES="bzip2 ca-certificates curl g++ gcc git gnupg gzip libc6-dev libicu74 make tar unzip xz-utils"
+ARG APT_PACKAGES="bzip2 ca-certificates curl g++ gcc git gnupg gzip libc6-dev make tar unzip xz-utils"
+# .NET runtime ICU for the dotnet-data1 module -- without it the dotnet CLI
+# FailFast-aborts at startup ("Couldn't find a valid ICU package installed on
+# the system"; minimal Ubuntu/Debian ships no ICU). The exact package name
+# (libicu72/74/76/78 across bookworm/24.04/trixie/26.04) is discovered at build
+# time via `apt-cache search` so this Dockerfile stays distro-agnostic.
 RUN apt-get update \
+    && libicu="$(apt-cache search --names-only '^libicu[0-9]+$' | cut -d' ' -f1 | head -1)" \
+    && [ -n "$libicu" ] || { echo "no libicu[0-9]+ package available in this base" >&2; exit 1; } \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        $APT_PACKAGES \
+        $APT_PACKAGES "$libicu" \
     && rm -rf /var/lib/apt/lists/*
 
 # Install mise and put it + its shims on PATH; in a non-interactive build that's

@@ -101,7 +101,7 @@ opentelemetry-otlp = { version = "0.31", default-features = false, features = [
   "trace",
 ] }
 opentelemetry_sdk = "0.31"
-ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dylibs", "download-binaries"] }
+ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dylibs"] }
 pollster = "0.4"
 pretty_yaml = "0.6"
 prettyplease = "0.2"

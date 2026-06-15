@@ -291,13 +291,21 @@ Every file under `tests/` must start with `#![cfg(test)]` (placed after the file
 
 ## Tools must work on every OS
 
-Every tool in the `.mise/config*.toml` `[tools]` tables must install and run on
-every supported OS (Linux, macOS, Windows). Do **not** `os`-scope a tool, or
-otherwise skip it on a platform, without explicit operator permission — prefer a
-prebuilt-binary backend (aqua/github/http) over a `cargo:` source build, which is
-usually what forces a platform exclusion. The one place tool skips need no
-permission is the Dockerfiles (`MISE_DISABLE_TOOLS`), where trimming an image to
-just what its build needs is expected.
+Five supported platforms in two tiers. **Main tier:** macOS arm64, Linux x64,
+Windows x64 — every tool in the `.mise/config*.toml` `[tools]` tables must use a
+prebuilt-binary backend (aqua/github/http) here; a `cargo:` source-build isn't
+acceptable. **Second tier:** Linux arm64, macOS x64 — every tool must still
+install and run, but slower install mechanisms are allowed because release
+authors often skip prebuilts for these arches: a `cargo:` source-build (or
+alternate backend) `os`-scoped to a second-tier-only platform is fine. The
+conftest mise policy (`config/conftest/policy/mise.rego`) enforces both rules,
+including the narrow per-name allowlist for tools that have no prebuilt at
+any triple.
+
+Skipping a tool entirely with `MISE_DISABLE_TOOLS` is reserved for
+`Dockerfile.nanoserver`, where trimming the image to just what its build needs
+is expected. Other Dockerfiles may only disable tools that are unused by the
+build system anyway (e.g. `cargo-expand`, a dev-only macro-debugging tool).
 
 ## Linting
 
@@ -320,6 +328,19 @@ available linters:
 ast-grep has no TOML grammar, so it **cannot** lint TOML — use a taplo schema or
 a semgrep `generic` rule there. If none of the above can express a check,
 propose adding a new mise-installable linter rather than scripting it by hand.
+
+## Linter ignores: keep in sync with .gitignore
+
+Some linters walk the working tree directly and never read `.gitignore`. When
+you add a path to `.gitignore`, update their ignore lists too:
+
+- **lychee** — `config/lychee.toml`'s `exclude_path`. Its gitignore filter
+  exists but doesn't cross pnpm's symlink farm under `node_modules/.pnpm/`.
+- **ls-lint** — `config/ls-lint.yaml`'s `ignore`. Patterns are gitignore-style
+  globs; bare names match only top-level — use `**/<name>` for nested matches
+  (e.g. pnpm puts `node_modules` under each package dir, not the repo root).
+
+A new linter that surfaces ignored paths in its output belongs on this list.
 
 ## No `scripts/` directory
 

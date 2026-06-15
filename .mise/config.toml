@@ -57,11 +57,13 @@ ripgrep = "latest"
 # below (see the `retry` var) so a transient HTTP 429 doesn't fail the build.
 "github:dbohdan/recur" = "latest"
 "github:grok-rs/waitup" = "latest"
+# ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
+"github:microsoft/onnxruntime" = "1.22.0"
 # ryl: prebuilt assets cover every platform we target except macos/x64, so that
 # one slot builds from source via cargo: (same `latest` so every platform tracks
 # the same release).
-"github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
+"github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 "github:wasm-bindgen/wasm-bindgen" = "0.2.122"
 hadolint = "latest"
 ls-lint = "latest"
@@ -123,6 +125,10 @@ wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext
 # Extra flag for the wasm-pack module builds; empty so wasm-opt runs.
 # config.windows.toml overrides it to --no-opt where wasm-opt can't execute.
 no_opt = ""
+# Linux/macOS install root for the github:microsoft/onnxruntime tool. The
+# ORT_LIB_LOCATION env below resolves to it via the OS conditional. Version
+# segment must match the [tools] pin (conftest's version_drift enforces this).
+ort_loc_unix = "{{ env.HOME }}/.local/share/mise/installs/github-microsoft-onnxruntime/1.22.0"
 # Source/dest paths for the fetch-*-rclone model downloads — kept as vars so
 # each `rclone copyto` command stays on a single line without continuations.
 face1_dst = "data/model-modules/model-face1/pkg/video_cv.onnx"
@@ -159,6 +165,13 @@ OPENSSL_DIR = "{{ vars.conda_openssl }}"
 PYO3_PYTHON = "{{ vars.py3_unix }}"
 RCLONE_CONFIG = "{{ config_root }}/config/rclone.conf"
 RCLONE_RETRIES = "1"
+
+# Direct ort-sys (workspace `ort` dep) at the mise-staged ONNX Runtime install
+# (github:microsoft/onnxruntime above) instead of fetching at build time. The
+# workspace dep dropped the `download-binaries` feature, so SKIP_DOWNLOAD is
+# belt-and-braces (the download code path is gone).
+ORT_LIB_LOCATION = "{% if os() == 'windows' %}{{ vars.ort_loc_win }}{% else %}{{ vars.ort_loc_unix }}{% endif %}"
+ORT_SKIP_DOWNLOAD = "1"
 
 [tasks]
 ec = "ec"

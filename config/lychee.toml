@@ -21,7 +21,11 @@ accept = ["200..=299", "429"]
 exclude_loopback = true
 exclude_private = true
 
-exclude_path = ["data", "generated", "target"]
+# node_modules is gitignored but lychee's gitignore-respect doesn't cross the
+# pnpm symlink farm (pnpm hangs each package off a `.pnpm/` symlink, and `git
+# check-ignore` itself refuses with "beyond a symbolic link" on those paths).
+# Exclude it explicitly so vendored package docs don't surface as link errors.
+exclude_path = ["data", "generated", "node_modules", "target"]
 
 # URL patterns (regex) to skip: doc/test placeholder hosts (e.g. http://host:8080/)
 # and `{...}` format-string templates (.../{repo}/{git_ref}/...), not real links.

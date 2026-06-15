@@ -44,14 +44,17 @@ LIBCLANG_PATH = "{{ vars.a_conda_clangxx }}/lib"
 
 [tasks.preinstall]
 # Preinstall: the shared cross-platform base (via _setup_all), then verify the
-# build prerequisites mise can't supply. The list has a single source of truth --
-# the Dockerfile's APT_PACKAGES: the Docker build exposes it as an env var (the
-# ARG is in scope for the preinstall RUN), and a workstation reads it back from
-# the Dockerfile in the checkout. Each package is probed for presence -- a command
-# for the CLI tools (gpg for gnupg, xz for xz-utils, else the package name), a key
-# file for ca-certificates and libc6-dev, and the versioned shared library on disk
-# for libicu (a file check, not ldconfig, so it doesn't hinge on the ld.so cache
-# being refreshed). An empty list is a hard error, not a silent skip.
+# build prerequisites mise can't supply. APT_PACKAGES has a single source of
+# truth -- the Dockerfile's ARG of the same name: the Docker build exposes it
+# as an env var (the ARG is in scope for the preinstall RUN), and a workstation
+# reads it back from the Dockerfile in the checkout. libicu is checked
+# separately and version-agnostically -- the Dockerfile detects the exact
+# package at build time via `apt-cache search`, so the preinstall only verifies
+# that *some* libicu major is installed (a workstation on any of
+# bookworm/24.04/trixie/26.04 will pass). Each pkg is probed -- a command for
+# the CLI tools (gpg for gnupg, xz for xz-utils, else the package name), a key
+# file for ca-certificates and libc6-dev. An empty list is a hard error, not
+# a silent skip.
 depends = ["_setup_all"]
 description = "Preinstall: shared base + verify system build prerequisites"
 run = """
@@ -64,6 +67,9 @@ if [ -z "$pkgs" ]; then
   echo "preinstall: could not read the APT_PACKAGES prerequisite list" >&2
   exit 1
 fi
+# Append a generic libicu sentinel -- the version-agnostic case below accepts
+# any installed libicu major.
+pkgs="$pkgs libicu"
 missing=""
 for pkg in $pkgs; do
   case "$pkg" in
@@ -71,7 +77,7 @@ for pkg in $pkgs; do
     xz-utils) command -v xz >/dev/null 2>&1 ;;
     ca-certificates) [ -r /etc/ssl/certs/ca-certificates.crt ] ;;
     libc6-dev) [ -r /usr/include/stdio.h ] ;;
-    libicu*) coreutils ls /usr/lib/*/libicui18n.so.${pkg#libicu} >/dev/null 2>&1 ;;
+    libicu) coreutils ls /usr/lib/*/libicui18n.so.* >/dev/null 2>&1 ;;
     *) command -v "$pkg" >/dev/null 2>&1 ;;
   esac || missing="$missing $pkg"
 done

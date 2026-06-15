@@ -9,6 +9,12 @@
         "anyhow": {
           "const": "forbidden; define a thiserror enum instead"
         },
+        "openssl": {
+          "const": "forbidden; use rustls + aws-lc-rs. One TLS/crypto stack only."
+        },
+        "openssl-sys": {
+          "const": "forbidden; use rustls + aws-lc-rs. One TLS/crypto stack only."
+        },
         "ring": {
           "const": "forbidden; use aws-lc-rs. Transitive via rcgen only (gated in config/deny.toml's bans.deny)."
         },
