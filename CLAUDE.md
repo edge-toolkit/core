@@ -332,6 +332,42 @@ repo. Every script belongs in one of two places:
 - **More involved** → its own tool directory under `utilities/` with its own
   `README.md` documenting what it does and how to run it.
 
+## Don't depend on host tools in mise tasks
+
+A mise task must never assume a command-line utility happens to exist on the host
+(or in a base image). Use the mise-managed, version-pinned, cross-platform tool
+instead, so a task behaves identically on CI, in the Docker images, on a
+workstation, and on every OS. Reach for a host binary only if there is genuinely
+no mise tool for it — and then add one rather than depending on the host.
+
+What to use instead of the common host utilities (a list, not a table — dprint
+pads table columns, which blows the 120-char limit):
+
+- `cut`, `ls`, `sort`, `mktemp`, `cat`, … → `coreutils <util>` (uutils multicall;
+  always invoke with the explicit `coreutils` prefix)
+- `grep` → `rg` (ripgrep)
+- `find`, `xargs` → bare `find` / `xargs` (uutils `findutils` mise tool; its shims
+  shadow the host's)
+- `awk` → `goawk`
+- `sed` → no tool; rewrite the step with `coreutils`, `rg -r`, or `goawk`
+
+`coreutils`, `ripgrep`, `findutils` and `goawk` are mise `[tools]`. `coreutils`
+and `ripgrep` are additionally force-installed by `_setup_all`, because the
+`preinstall` task itself uses them before the main `mise install` runs.
+
+What the Dockerfiles `apt-get install` is therefore only genuine build
+prerequisites the toolchain needs (compilers, libraries, the archive tools mise
+unpacks downloads with) — never POSIX utilities, which now all come from tools.
+
+One Nano Server exception: `Dockerfile.nanoserver` does not put mise's shims on
+`PATH` (native busybox-w32 can't use the msys-form paths mise injects for POSIX
+shells — see the `http:busybox` note in `config.windows.toml`), so the Windows
+`preinstall` can't call these tools bare — it goes through `mise exec --` or a
+shell builtin instead. **TODO (next time we improve `Dockerfile.nanoserver`):**
+work out a busybox-compatible way to get the shims (or tool bins) onto `PATH` so
+Windows tasks can call `coreutils`/`rg`/`goawk` directly like every other OS, and
+drop the `mise exec --` / shell-builtin workarounds.
+
 ## Rust Workspace
 
 Single Cargo workspace (`Cargo.toml`).

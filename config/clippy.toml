@@ -31,5 +31,9 @@ allowed-idents-below-min-chars = [
   "id", # short alias for identifier inside closures
   "op", # operation-name parameter in et-web JS-interop traits
   "ws", # edge_toolkit::ws module (websocket types)
+  # pyo3 conventions
+  "'py", # pyo3 GIL lifetime on `Bound<'py, _>` / `Python<'py>`
+  "Py",  # pyo3 `Py<T>` smart pointer; `PythonError::Py` variant
+  "py",  # pyo3 GIL token: `Python<'py>` parameter / `|py|` attach closures
 ]
 min-ident-chars-threshold = 2

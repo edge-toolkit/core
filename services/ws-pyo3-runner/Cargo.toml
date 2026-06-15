@@ -1,0 +1,44 @@
+[package]
+name = "et-ws-pyo3-runner"
+description = "Generic edge-toolkit agent runtime that hosts a user-supplied Python module via PyO3"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+doctest = false
+path = "src/lib.rs"
+
+[[bin]]
+name = "et-ws-pyo3-runner"
+path = "src/main.rs"
+
+[dependencies]
+edge-toolkit.workspace = true
+# Typed ws-server REST client (storage GET/PUT). `tracing` injects the
+# W3C traceparent on each request, matching the other native runners.
+et-rest-client = { workspace = true, features = ["tracing"] }
+# Shared runner bootstrap: env config (RUNNER_*/WS_*), `derive_http_base`,
+# `collect_byte_stream`.
+et-ws-runner-common.workspace = true
+futures-util.workspace = true
+pyo3.workspace = true
+serde.workspace = true
+serde-env.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-tungstenite = { workspace = true, features = ["connect"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[build-dependencies]
+pyo3-build-config.workspace = true
+
+[dev-dependencies]
+base64.workspace = true
+et-ws-test-server.workspace = true
+
+[lints]
+workspace = true

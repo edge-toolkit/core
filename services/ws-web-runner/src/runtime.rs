@@ -84,22 +84,13 @@ impl deno_core::ModuleLoader for ServerModuleLoader {
         let client = self.rest.client().clone();
         ModuleLoadResponse::Async(
             async move {
-                // Retry transport-level send failures. reqwest reuses pooled
-                // keep-alive connections; the server can close an idle one in
-                // the gap since the previous request (MainWorker bootstrap can
-                // outlast the server's keep-alive), so the first send() fails
-                // with "error sending request". A fresh attempt dials anew.
-                let mut attempt = 0u8;
-                let response = loop {
-                    match client.get(url.as_str()).send().await {
-                        Ok(response) => break response,
-                        Err(e) if (e.is_request() || e.is_connect()) && attempt < 2 => {
-                            attempt = attempt.saturating_add(1);
-                            tracing::warn!(url = %url, attempt, error = %e, "module fetch send error; retrying");
-                        }
-                        Err(e) => return Err(e).map_js_err(),
-                    }
-                };
+                // The keep-alive race (server closes a pooled idle connection
+                // while the slow MainWorker bootstrap runs, so `send()` fails
+                // with "error sending request") is handled by the reqwest retry
+                // policy configured on this client in `lib.rs::build_rest_client`
+                // -- a transport-error classifier, since reqwest's default
+                // `ProtocolNacks` policy doesn't cover the HTTP/1 case.
+                let response = client.get(url.as_str()).send().await.map_js_err()?;
 
                 let body = response.error_for_status().map_js_err()?.text().await.map_js_err()?;
                 let specifier = ModuleSpecifier::parse(url.as_str()).map_js_err()?;

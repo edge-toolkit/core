@@ -65,6 +65,19 @@ ignore = [
   "RUSTSEC-2026-0098",
   "RUSTSEC-2026-0099",
   "RUSTSEC-2026-0104",
+  # pyo3 0.28.3 -- two advisories, both unreachable in the embedded runner.
+  # Pulled only by et-ws-pyo3-runner (our sole pyo3 consumer). Fixed in
+  # pyo3 0.29; we stay on 0.28 for now and drop both on upgrade.
+  #   * 2026-0176 (OOB read in PyList/PyTuple iterator nth/nth_back) -- the
+  #     runner never calls nth/nth_back on a Python sequence iterator; it
+  #     only inserts into sys.path and reads module return values.
+  #   * 2026-0177 (missing Sync bound on PyCFunction::new_closure) -- the
+  #     runner exposes its host API as #[pyclass]/#[pymethods] (WsSender,
+  #     WsStorage), never PyCFunction::new_closure, and drives a single
+  #     GIL-bound interpreter (not free-threaded), so no closure runs
+  #     concurrently.
+  "RUSTSEC-2026-0176",
+  "RUSTSEC-2026-0177",
 ]
 
 [licenses]
@@ -123,7 +136,7 @@ deny = [
   #   * `quinn-proto` -- pulled by deno_net via quinn (default features
   #     include `ring`). Drop once Deno's quinn config switches to the
   #     `rustls-aws-lc-rs` feature.
-  { crate = "ring", wrappers = ["rcgen", "rustls-webpki", "quinn-proto"] },
+  { crate = "ring", wrappers = ["quinn-proto", "rcgen", "rustls-webpki"] },
   # `ureq` is forbidden except via the wrappers listed below. Direct
   # use is blocked by the taplo no-banned-deps schema; this entry
   # catches transitive paths the same way as `ring` above.

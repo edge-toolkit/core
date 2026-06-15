@@ -36,7 +36,7 @@ jobs:
       - name: Install tools
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-deny,cargo-unmaintained,mise@2026.6.5,osv-scanner
+          tool: cargo-deny,cargo-unmaintained,coreutils,mise@2026.6.5,osv-scanner,ripgrep
 
       - name: Trust mise config
         run: mise trust

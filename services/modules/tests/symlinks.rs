@@ -18,7 +18,6 @@
     reason = "test code: fixture setup failures should fail the test"
 )]
 
-use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::PathBuf;
 
@@ -26,6 +25,7 @@ use actix_web::http::StatusCode;
 use actix_web::{App, test, web};
 use edge_toolkit::ws_server::AgentRegistry;
 use et_modules_service::{ModulesConfig, configure, list_modules};
+use fs_err as fs;
 use tempfile::TempDir;
 
 const ORT_BUNDLE: &[u8] = b"// pretend ort.min.js bundle";

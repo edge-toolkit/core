@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
+use fs_err as fs;
 use serde::Deserialize;
 use serde_default::DefaultFromSerde;
 use serde_inline_default::serde_inline_default;
@@ -10,6 +12,71 @@ use crate::ports::Services;
 
 /// Localhost address 127.0.0.1 .
 pub const LOCALHOST: &str = "127.0.0.1";
+
+/// Whether a config value names the "disabled" state: `none`, `off`, or
+/// `disabled` (case-insensitive, surrounding whitespace ignored).
+///
+/// These sentinels let an `Option<_>` env-var field be set to `None`. A blank
+/// value can't serve that role -- `serde-env` drops empty-valued vars, so a
+/// blank var is indistinguishable from unset (both fall back to the default).
+#[must_use]
+pub fn is_disabled_sentinel(value: &str) -> bool {
+    let trimmed = value.trim();
+    trimmed.eq_ignore_ascii_case("none")
+        || trimmed.eq_ignore_ascii_case("off")
+        || trimmed.eq_ignore_ascii_case("disabled")
+}
+
+/// Deserialize `Option<T>` where a disable sentinel ([`is_disabled_sentinel`])
+/// maps to `None` and any other value to `Some(T)` via `T`'s own `Deserialize`.
+///
+/// Generic over the inner type, for fields read from env vars via `serde-env`:
+/// the value arrives as a string, so this works for any `T` whose `Deserialize`
+/// accepts a string scalar (e.g. `bytesize::ByteSize`, `String`). `Duration`
+/// is the exception -- its `Deserialize` isn't humantime -- so use
+/// [`deserialize_optional_humantime`] for duration fields. Pair either with
+/// `#[serde(default = "...")]` for the unset case.
+///
+/// # Errors
+/// Returns the deserializer's error if the value is neither a sentinel nor a
+/// valid `T`.
+pub fn deserialize_optional<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    use serde::de::IntoDeserializer as _;
+
+    let raw = <String as Deserialize>::deserialize(deserializer)?;
+    if is_disabled_sentinel(&raw) {
+        return Ok(None);
+    }
+    let inner: serde::de::value::StrDeserializer<'_, D::Error> = raw.trim().into_deserializer();
+    T::deserialize(inner).map(Some)
+}
+
+/// [`deserialize_optional`] for `Option<Duration>` fields, parsing the value as
+/// a humantime duration (e.g. `15s`, `1m30s`).
+///
+/// Separate from the generic [`deserialize_optional`] because `Duration`'s own
+/// `Deserialize` expects a `{secs, nanos}` struct, not a humantime string.
+///
+/// # Errors
+/// Returns the deserializer's error if the value is neither a sentinel nor a
+/// valid humantime duration.
+pub fn deserialize_optional_humantime<'de, D>(deserializer: D) -> Result<Option<Duration>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::IntoDeserializer as _;
+
+    let raw = <String as Deserialize>::deserialize(deserializer)?;
+    if is_disabled_sentinel(&raw) {
+        return Ok(None);
+    }
+    let inner: serde::de::value::StrDeserializer<'_, D::Error> = raw.trim().into_deserializer();
+    humantime_serde::deserialize(inner).map(Some)
+}
 
 /// Helper to find repository root.
 ///
@@ -140,7 +207,7 @@ pub fn find_npm_modules_path_in(install: &Path, package: &str) -> Option<PathBuf
     }
 
     let aube_root = install.join("global-aube");
-    if let Ok(entries) = std::fs::read_dir(&aube_root) {
+    if let Ok(entries) = fs::read_dir(&aube_root) {
         for entry in entries.flatten() {
             let node_modules = entry.path().join("node_modules/.aube/node_modules");
             if node_modules.join(package).is_dir() {
@@ -149,6 +216,74 @@ pub fn find_npm_modules_path_in(install: &Path, package: &str) -> Option<PathBuf
         }
     }
 
+    None
+}
+
+/// `site-packages` directories of every `pipx:` python package `mise` has
+/// installed for the current config.
+///
+/// Intended for pre-populating an embedded interpreter's `sys.path` so the
+/// `et-ws-pyo3-runner` can `import` mise-managed packages without the operator
+/// wiring `PYTHONPATH` by hand. Runs `mise ls --current --json` once and, for
+/// each `pipx:<pkg>` tool, locates its venv `site-packages` via
+/// [`find_site_packages_in`]. Best-effort: returns an empty vec if `mise` is
+/// unavailable, exits non-zero, or emits output we can't parse.
+#[must_use]
+pub fn mise_python_site_packages() -> Vec<PathBuf> {
+    if !mise_is_available() {
+        return Vec::new();
+    }
+    let output = std::process::Command::new("mise")
+        .args(["ls", "--current", "--json"])
+        .output()
+        .ok();
+    let Some(output) = output.filter(|out| out.status.success()) else {
+        return Vec::new();
+    };
+    let Ok(tools) = serde_json::from_slice::<serde_json::Map<String, serde_json::Value>>(&output.stdout) else {
+        return Vec::new();
+    };
+    tools
+        .iter()
+        .filter(|(name, _)| name.starts_with("pipx:"))
+        .filter_map(|(_, installs)| {
+            // Each tool maps to an array of installs; take the active one (or
+            // the first, if none is flagged) and read its `install_path`.
+            let array = installs.as_array()?;
+            let entry = array
+                .iter()
+                .find(|entry| entry.get("active").and_then(serde_json::Value::as_bool) == Some(true))
+                .or_else(|| array.first())?;
+            let path = entry.get("install_path").and_then(serde_json::Value::as_str)?;
+            Some(PathBuf::from(path))
+        })
+        .filter_map(|install| find_site_packages_in(&install))
+        .collect()
+}
+
+/// Pure-filesystem helper: given a mise `pipx:` `<install>` root, return the
+/// venv `site-packages` directory.
+///
+/// pipx lays each tool out as `<install>/<pkg>/lib/python<X.Y>/site-packages`;
+/// both the `<pkg>` directory name and the python version vary, so the two
+/// variable segments are scanned rather than assumed. Returns the first match,
+/// or `None` if nothing under `<install>` has that shape.
+#[must_use]
+pub fn find_site_packages_in(install: &Path) -> Option<PathBuf> {
+    for pkg in fs::read_dir(install).ok()?.flatten() {
+        let Ok(lib_entries) = fs::read_dir(pkg.path().join("lib")) else {
+            continue;
+        };
+        for py in lib_entries.flatten() {
+            if !py.file_name().to_string_lossy().starts_with("python") {
+                continue;
+            }
+            let site_packages = py.path().join("site-packages");
+            if site_packages.is_dir() {
+                return Some(site_packages);
+            }
+        }
+    }
     None
 }
 

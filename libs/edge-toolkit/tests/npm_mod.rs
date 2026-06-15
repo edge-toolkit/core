@@ -6,9 +6,8 @@
 #![cfg(test)]
 #![expect(clippy::unwrap_used, reason = "test code: failed tempdir setup should fail the test")]
 
-use std::fs;
-
 use edge_toolkit::config::find_npm_modules_path_in;
+use fs_err as fs;
 use tempfile::TempDir;
 
 #[test]

@@ -5,9 +5,8 @@
     reason = "test code: setup failures and missing JSON fields should fail the test"
 )]
 
-use std::fs;
-
 use et_cli::generate_module_package_json;
+use fs_err as fs;
 use serde_json::Value;
 use tempfile::tempdir;
 

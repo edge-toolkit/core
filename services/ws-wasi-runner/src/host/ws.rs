@@ -39,13 +39,6 @@ impl crate::bindings::et::ws_messages::messages::Host for HostState {}
 
 type WsSink = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, tungstenite::Message>;
 
-/// How often the heartbeat task pings the server. Server-side
-/// `CONNECTION_TIMEOUT` (services/ws/src/lib.rs:18) is 15 s; pinging at 5 s
-/// gives 3x headroom so a slow runner (CI ARM, debug build, large model)
-/// still keeps the connection alive across long compute gaps between
-/// `connect()` and the first `ClientEvent` the guest sends.
-const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
-
 use crate::bindings::et::ws_wasi::ws::WsError;
 use crate::host::error::WsDecodeErrExt as _;
 use crate::host::error::WsTransportErrExt as _;
@@ -66,31 +59,30 @@ impl WsBackend {
         clippy::single_call_fn,
         reason = "inherent constructor; used once by <HostState as Host>::connect"
     )]
-    async fn connect(ws_url: &str) -> Result<Self, WsError> {
-        let (stream, _) = tokio_tungstenite::connect_async(ws_url)
-            .await
-            .map_tungstenite_err(&format!("ws connect {ws_url}"))?;
-        let (mut sink, mut stream) = stream.split();
-
-        // Drive the registration handshake immediately so the agent_id is
-        // known by the time `connect()` returns.
-        let connect_msg =
-            serde_json::to_string(&ClientMessage::Connect { agent_id: None }).map_decode_err("serialize connect")?;
-        sink.send(tungstenite::Message::text(connect_msg))
-            .await
-            .map_tungstenite_err("send connect")?;
+    async fn connect(ws_url: &str, ack_timeout: Option<Duration>) -> Result<Self, WsError> {
+        // The shared helper opens the socket and completes the et-connect
+        // handshake (with bounded retries), so the agent_id is known the moment
+        // it returns -- no polling for ConnectAck afterwards.
+        // `ConnectError` cascades to `WsError` via `From` (see host/error.rs).
+        let (socket, assigned_id, status) =
+            et_ws_runner_common::connect_and_register(ws_url, None, ack_timeout).await?;
+        let (sink, mut stream) = socket.split();
 
         let (tx, rx) = mpsc::unbounded_channel::<ServerMessage>();
-        let agent_id = Arc::new(Mutex::new(None));
-        let connection_state = Arc::new(Mutex::new(State::Connecting));
+        // The handshake consumed the et-connect-ack frame; re-surface it to the
+        // guest's `recv()` so guests that read it still see it as the first message.
+        drop(tx.send(ServerMessage::ConnectAck {
+            agent_id: assigned_id.clone(),
+            status,
+        }));
 
-        // Reader pump: convert every Text/Binary data frame into a
+        let agent_id = Arc::new(Mutex::new(Some(assigned_id)));
+        let connection_state = Arc::new(Mutex::new(State::Connected));
+
+        // Reader pump: convert every subsequent Text/Binary data frame into a
         // `ServerMessage` via `ServerMessage::from_*_frame` (foreign frames land
-        // in `RelayText`/`RelayBinary`); route `ConnectAck` into
-        // `agent_id` + `connection_state`; drop control frames and
-        // et-prefixed-but-malformed text with a warn -- they can't be
-        // surfaced through the typed catalog.
-        let agent_id_clone = Arc::clone(&agent_id);
+        // in `RelayText`/`RelayBinary`) and forward it to the guest inbox; drop
+        // control frames and et-prefixed-but-malformed text with a warn.
         let state_clone = Arc::clone(&connection_state);
         let reader = tokio::spawn(async move {
             while let Some(msg) = stream.next().await {
@@ -112,10 +104,6 @@ impl WsBackend {
                     tungstenite::Message::Binary(bytes) => ServerMessage::from_binary_frame(bytes.clone()),
                     _ => continue,
                 };
-                if let ServerMessage::ConnectAck { agent_id, .. } = &parsed {
-                    *agent_id_clone.lock().await = Some(agent_id.clone());
-                    *state_clone.lock().await = State::Connected;
-                }
                 if tx.send(parsed).is_err() {
                     break;
                 }
@@ -132,11 +120,9 @@ impl WsBackend {
         let pinger_sink = Arc::clone(&sink_arc);
         let pinger_state = Arc::clone(&connection_state);
         let pinger = tokio::spawn(async move {
-            let mut interval = tokio::time::interval(HEARTBEAT_INTERVAL);
-            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-            // First tick fires immediately; skip it so we don't ping before
-            // the connect handshake even sees a Connected state.
-            let _: tokio::time::Instant = interval.tick().await;
+            // 5s heartbeat (vs the server's 15s idle timeout); first immediate
+            // tick already consumed so we don't ping before the handshake.
+            let mut interval = et_ws_runner_common::heartbeat_interval().await;
             loop {
                 let _: tokio::time::Instant = interval.tick().await;
                 if !matches!(*pinger_state.lock().await, State::Connecting | State::Connected) {
@@ -176,15 +162,10 @@ impl Host for HostState {
                 return Err(WsError::AlreadyConnected);
             }
         }
-        let backend = WsBackend::connect(&self.ws_url).await?;
-        // Wait briefly for ConnectAck before returning, so guests can call
-        // agent_id() right after connect() and get a value.
-        for _ in 0_u32..50 {
-            if matches!(backend.current_state().await, State::Connected) {
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
+        // `connect_and_register` already completed the handshake, so the
+        // backend comes back `Connected` with its agent_id set -- guests can
+        // call `agent_id()` immediately, no poll-wait needed.
+        let backend = WsBackend::connect(&self.ws_url, self.connect_ack_timeout).await?;
         {
             let mut slot = self.ws.lock().await;
             *slot = Some(backend);

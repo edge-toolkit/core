@@ -1,6 +1,6 @@
-# macOS-only mise config. Shared vars (rpath_flag, pylib_flag, py313_unix, …)
+# macOS-only mise config. Shared vars (rpath_flag, pylib_flag, py3_unix, …)
 # come from config.toml, which loads first; PYO3_PYTHON keeps its config.toml
-# default (py313_unix).
+# default (py3_unix).
 
 [tools]
 # The LLD linker (ships ld64.lld) the RUSTFLAGS below use; Apple's /usr/bin/clang

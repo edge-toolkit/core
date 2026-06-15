@@ -16,15 +16,26 @@ line-length = 120
 # don't own and don't ship. Exclude them here (on top of ruff's defaults) so
 # the ruff tasks don't need to repeat `--exclude` flags, and so they're skipped
 # even when ruff runs with `--no-respect-gitignore`.
-extend-exclude = ["wit_world", "componentize_py_async_support"]
+extend-exclude = ["componentize_py_async_support", "wit_world"]
 
 [lint]
-# Add isort-style import sorting on top of the default rule set (E, F).
-# `ruff format` only handles whitespace; the "I" rules give us deterministic
-# import grouping. datamodel-codegen's ruff formatter doesn't sort imports
-# on its own, so without this the generated messages.py drifts between
-# regens. Use `extend-select`, not `select`, so we keep the default F401
-# (unused-import) rule that openapi-python-client relies on internally — it
-# generates speculative imports and trims them by re-running ruff with the
-# default rules.
-extend-select = ["I"]
+# On top of the default rule set (E, F):
+#   "I" -- isort import sorting. `ruff format` only handles whitespace; the
+#   "I" rules give deterministic grouping. datamodel-codegen's ruff formatter
+#   doesn't sort imports, so without this the generated messages.py drifts
+#   between regens.
+#   "D" -- pydocstyle (PEP 257) docstring checks; see [lint.pydocstyle].
+# Use `extend-select`, not `select`, so we keep the default F401 (unused-import)
+# rule that openapi-python-client relies on internally — it generates
+# speculative imports and trims them by re-running ruff with the default rules.
+extend-select = ["D", "I"]
+
+[lint.pydocstyle]
+convention = "pep257"
+
+[lint.per-file-ignores]
+# Generated clients (openapi-python-client / datamodel-codegen output): their
+# docstrings come verbatim from the OpenAPI/JSON-schema spec, not hand-written.
+"generated/**" = ["D"]
+# Test modules: docstrings on test classes/methods are noise, not API surface.
+"**/tests/**" = ["D"]

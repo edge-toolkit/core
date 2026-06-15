@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use edge_toolkit::config::OtlpConfig;
 pub use et_modules_service::ModulesConfig;
 pub use et_storage_service::StorageConfig;
+pub use et_ws_service::WsConfig;
 use serde::Deserialize;
 use serde_default::DefaultFromSerde;
 use serde_inline_default::serde_inline_default;
@@ -34,4 +35,8 @@ pub struct Config {
     /// TLS config.
     #[serde(default)]
     pub tls: TlsConfig,
+    /// WebSocket hub config (frame limits, etc.).
+    /// `serde-env` maps the inner fields as `WS_*`, e.g. `WS_MAX_FRAME_SIZE`.
+    #[serde(default)]
+    pub ws: WsConfig,
 }

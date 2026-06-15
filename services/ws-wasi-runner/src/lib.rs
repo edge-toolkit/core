@@ -30,16 +30,26 @@ pub use self::host::HostState;
 /// The whole call is wrapped in a `run_module` span -- every outgoing
 /// request inherits its trace context, and ws-server's request span ends
 /// up as a child of it.
-pub async fn run_module(module_name: &str, ws_url: &str) -> Result<(), RunnerError> {
+pub async fn run_module(
+    module_name: &str,
+    ws_url: &str,
+    connect_ack_timeout: Option<std::time::Duration>,
+) -> Result<(), RunnerError> {
     let span = tracing::info_span!("run_module", module = module_name);
-    run_module_inner(module_name, ws_url).instrument(span).await
+    run_module_inner(module_name, ws_url, connect_ack_timeout)
+        .instrument(span)
+        .await
 }
 
 #[expect(
     clippy::single_call_fn,
     reason = "span-instrumented body of run_module; the split is mandatory to scope the tracing span"
 )]
-async fn run_module_inner(module_name: &str, ws_url: &str) -> Result<(), RunnerError> {
+async fn run_module_inner(
+    module_name: &str,
+    ws_url: &str,
+    connect_ack_timeout: Option<std::time::Duration>,
+) -> Result<(), RunnerError> {
     let http_base = derive_http_base(ws_url)?;
 
     let rest = et_rest_client::Client::new(&http_base);
@@ -68,7 +78,7 @@ async fn run_module_inner(module_name: &str, ws_url: &str) -> Result<(), RunnerE
     bindings::Runner::add_to_linker::<HostState, HasSelf<HostState>>(&mut linker, |state| state)?;
     wasmtime_wasi_nn::wit::add_to_linker(&mut linker, host::wasi_nn::view)?;
 
-    let host_state = HostState::new(&http_base, ws_url.to_string());
+    let host_state = HostState::new(&http_base, ws_url.to_string(), connect_ack_timeout);
     let mut store = Store::new(&engine, host_state);
 
     let module = bindings::Runner::instantiate_async(&mut store, &component, &linker).await?;

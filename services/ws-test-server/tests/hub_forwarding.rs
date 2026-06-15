@@ -133,3 +133,48 @@ async fn unrecognised_binary_is_broadcast_verbatim() {
         "binary payload must be forwarded byte-for-byte"
     );
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn unconnected_client_is_auto_registered_and_relays_both_ways() {
+    let server = et_ws_test_server::start();
+
+    // A peer that speaks the et-protocol, standing in for the agent runner.
+    let (mut peer, _peer_id) = connect_agent(&server.ws_url).await;
+    // A "dumb" client that never sends et-connect -- e.g. a demo frontend on
+    // a raw `new WebSocket(url)`.
+    let (mut dumb, _) = connect_async(&server.ws_url).await.expect("ws connect");
+
+    // The dumb client's first binary frame must be broadcast to the peer:
+    // sending it auto-registers the dumb client as an agent.
+    let activations: Vec<u8> = vec![0x10, 0x20, 0x30, 0x40];
+    dumb.send(Message::binary(activations.clone()))
+        .await
+        .expect("dumb send binary");
+
+    let received = next_payload(&mut peer).await;
+    let Message::Binary(received_bytes) = received else {
+        panic!("expected binary frame at peer, got {received:?}");
+    };
+    assert_eq!(
+        &*received_bytes,
+        activations.as_slice(),
+        "frame from unconnected client must be broadcast to peers"
+    );
+
+    // Reverse direction: the peer's reply must reach the now auto-registered
+    // dumb client -- it became a broadcast recipient on its first frame.
+    let grads: Vec<u8> = vec![0xaa, 0xbb, 0xcc];
+    peer.send(Message::binary(grads.clone()))
+        .await
+        .expect("peer send binary");
+
+    let reply = next_payload(&mut dumb).await;
+    let Message::Binary(reply_bytes) = reply else {
+        panic!("expected binary reply at dumb client, got {reply:?}");
+    };
+    assert_eq!(
+        &*reply_bytes,
+        grads.as_slice(),
+        "auto-registered client must receive peer broadcasts"
+    );
+}

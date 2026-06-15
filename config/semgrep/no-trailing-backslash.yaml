@@ -6,7 +6,6 @@ rules:
       # continuations and are allowlisted; everything else must avoid them
       # (keep the value/statement on one line, or use concat!/[vars]/arrays).
       exclude:
-        - "/.mise/config.python.toml"
         - "/README.md"
         - "/utilities/cli/README.md"
         - "**/Dockerfile*"

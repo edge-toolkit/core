@@ -50,18 +50,19 @@ FROM ubuntu:24.04 AS build-minimal
 # to it) -- leaner than build-essential, which also pulls dpkg-dev + perl.
 # curl + ca-certificates fetch the mise installer and tool downloads; git is for
 # cargo + repo operations; gnupg (gpg + gpg-agent + dirmngr) lets mise verify
-# downloads (bare `gpg` lacks the agent/dirmngr it needs); xz-utils, unzip and
-# bzip2 unpack mise's tool archives (e.g. the pyodide .tar.bz2). libicu74 is .NET
+# downloads (bare `gpg` lacks the agent/dirmngr it needs); xz-utils, unzip,
+# bzip2, gzip and tar unpack mise's tool archives (.tar.bz2 / .tar.gz / .zip).
+# gzip + tar are already in the base image, listed so a minimal FROM keeps them.
+# libicu74 is .NET
 # runtime ICU for the dotnet-data1 module -- without it the dotnet CLI
 # FailFast-aborts at startup ("Couldn't find a valid ICU package installed on the
 # system"; minimal Ubuntu ships no ICU). The "74" tracks the Ubuntu base
 # (74 = 24.04) -- bump it alongside the FROM line; .NET needs libicu on minimal
 # systems (else set System.Globalization.Invariant=true).
-# Vulkan for the wgpu test (libvulkan1 + mesa-vulkan-drivers) is installed in the
-# test stage, not here.
+ARG APT_PACKAGES="bzip2 ca-certificates curl g++ gcc git gnupg gzip libc6-dev libicu74 make tar unzip xz-utils"
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        bzip2 ca-certificates curl g++ gcc git gnupg libc6-dev libicu74 make unzip xz-utils \
+        $APT_PACKAGES \
     && rm -rf /var/lib/apt/lists/*
 
 # Install mise and put it + its shims on PATH; in a non-interactive build that's

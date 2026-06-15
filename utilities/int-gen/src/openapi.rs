@@ -134,6 +134,7 @@ pub fn render_rust_client() -> Result<String, Error> {
     let ast = syn::parse2(tokens).expect("progenitor always emits valid Rust");
     let body = prettyplease::unparse(&ast);
     let body = inject_wasm_baseurl_fallback(&body);
+    let body = inject_retry_exec(&body);
     // progenitor wraps each handler doc as a `/**...*/` block, immediately
     // appending its own `Sends a METHOD request to /path` line at +4 spaces;
     // any non-empty description from the `OpenAPI` spec then leaves that
@@ -183,6 +184,80 @@ fn inject_wasm_baseurl_fallback(body: &str) -> String {
     assert!(
         body.contains(needle),
         "progenitor's Client::new prologue moved; update inject_wasm_baseurl_fallback's needle"
+    );
+    body.replacen(needle, replacement, 1)
+}
+
+/// Give the generated client's `ClientHooks::exec` an exponential-backoff
+/// retry loop (native targets only).
+///
+/// progenitor's per-call flow is `pre()` -> `exec()` -> `post()`, and `exec`'s
+/// default just calls `self.client().execute(request)` once. We override it so
+/// every REST call (module discovery, asset fetch, per-agent storage) tolerates
+/// a transient failure -- in particular a ws-server that isn't up yet at
+/// startup -- by retrying with backoff.
+///
+/// NOTE: we hand-inject this only because reqwest's own retry support
+/// (`ClientBuilder::retries`, shipped in 0.12.23) has **no backoff yet** -- its
+/// `tower::retry::Policy::retry` returns `std::future::Ready<()>` (retries fire
+/// immediately) and the upstream `backoff` field is commented out behind a
+/// `// TODO? backoff futures...`. When reqwest ships backoff, delete this hook
+/// and configure `.retries()` on the `reqwest::Client` instead (see
+/// <https://github.com/seanmonstar/reqwest/pull/2763>). The hook is
+/// `#[cfg(not(wasm32))]` because `tokio::time::sleep` + `SystemTime` don't work
+/// under `wasm32-unknown-unknown`; WASM consumers keep the default `exec`.
+#[expect(
+    clippy::single_call_fn,
+    reason = "post-process step kept separate for readability; the named function documents intent"
+)]
+fn inject_retry_exec(body: &str) -> String {
+    // progenitor emits an empty `impl ClientHooks` that takes the trait
+    // defaults; we swap it for one carrying a custom `exec`.
+    let needle = "impl ClientHooks<()> for &Client {}";
+    let replacement = r#"impl ClientHooks<()> for &Client {
+    // Injected by `utilities/int-gen` (inject_retry_exec): retry request
+    // execution with exponential backoff. reqwest's native retry has no
+    // backoff yet -- remove this and use `ClientBuilder::retries` once it does.
+    #[cfg(not(target_arch = "wasm32"))]
+    async fn exec(
+        &self,
+        request: ::reqwest::Request,
+        _info: &OperationInfo,
+    ) -> ::reqwest::Result<::reqwest::Response> {
+        use ::retry_policies::policies::ExponentialBackoff;
+        use ::retry_policies::{RetryDecision, RetryPolicy as _};
+        let policy = ExponentialBackoff::builder()
+            .retry_bounds(
+                ::core::time::Duration::from_millis(250),
+                ::core::time::Duration::from_secs(5),
+            )
+            .build_with_total_retry_duration(::core::time::Duration::from_secs(30));
+        let started = ::std::time::SystemTime::now();
+        let mut n_past_retries: u32 = 0;
+        loop {
+            // Retry only when the request can be replayed (no streaming body).
+            let Some(attempt) = request.try_clone() else {
+                return self.client().execute(request).await;
+            };
+            match self.client().execute(attempt).await {
+                Ok(response) => return Ok(response),
+                Err(err) => match policy.should_retry(started, n_past_retries) {
+                    RetryDecision::Retry { execute_after } => {
+                        let wait = execute_after
+                            .duration_since(::std::time::SystemTime::now())
+                            .unwrap_or_default();
+                        ::tokio::time::sleep(wait).await;
+                        n_past_retries = n_past_retries.saturating_add(1);
+                    }
+                    RetryDecision::DoNotRetry => return Err(err),
+                },
+            }
+        }
+    }
+}"#;
+    assert!(
+        body.contains(needle),
+        "progenitor's empty `impl ClientHooks` moved; update inject_retry_exec's needle"
     );
     body.replacen(needle, replacement, 1)
 }

@@ -4,9 +4,8 @@
     reason = "test code: failed tempdir/fs setup should fail the test"
 )]
 
-use std::fs;
-
 use et_path::find_project_root;
+use fs_err as fs;
 use tempfile::tempdir;
 
 #[test]

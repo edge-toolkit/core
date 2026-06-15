@@ -12,4 +12,6 @@ IgnoredVulns = [
   { id = "RUSTSEC-2026-0118" },
   { id = "RUSTSEC-2026-0119" },
   { id = "RUSTSEC-2026-0173" },
+  { id = "RUSTSEC-2026-0176" },
+  { id = "RUSTSEC-2026-0177" },
 ]

@@ -23,9 +23,9 @@ task.run_auto_install = false
 [tools]
 action-validator = "latest"
 "aqua:EmbarkStudios/cargo-deny" = "latest"
+"aqua:rustwasm/wasm-pack" = "latest"
 ast-grep = "latest"
 cargo-binstall = "latest"
-"aqua:rustwasm/wasm-pack" = "latest"
 "cargo:cargo-expand" = "latest"
 taplo = "latest"
 watchexec = "latest"
@@ -37,8 +37,22 @@ watchexec = "latest"
 cmake = "latest"
 "conda:openssl" = "3"
 conftest = "latest"
+# uutils coreutils: the Rust multicall binary, invoked as `coreutils <util>` in tasks.
+coreutils = "latest"
 dprint = "latest"
 editorconfig-checker = "latest"
+# ripgrep (rg): the Rust grep that tasks use in place of the host's grep.
+ripgrep = "latest"
+# uutils findutils (find + xargs), pinned to 0.8.0 (0.9.0 ships no binaries).
+# Separate binaries, not a multicall, so the mise shims shadow the host's find /
+# xargs in tasks. Every platform uses the 0.8.0 prebuilt via github: ...
+"github:uutils/findutils" = { version = "0.8.0", os = ["linux/x64", "macos", "windows"] }
+# ... except aarch64-linux, whose 0.8.0 release has no asset, so it builds from
+# source via cargo: (same 0.8.0 pin, so every platform runs the same version).
+"cargo:findutils" = { version = "0.8.0", os = ["linux/arm64"] }
+# goawk: the awk that tasks invoke as `goawk` in place of the host's awk. Go, not
+# Rust, but it's the one with prebuilt binaries for every platform we target.
+"github:benhoyt/goawk" = "latest"
 # Retries a command with exponential backoff + jitter; wraps the model fetches
 # below (see the `retry` var) so a transient HTTP 429 doesn't fail the build.
 "github:dbohdan/recur" = "latest"
@@ -56,6 +70,10 @@ osv-scanner = "latest"
 # `python -m pip install pipx` separately so the `pipx:*` entries below
 # still resolve through whatever pipx is already on PATH.
 pipx = { version = "latest", os = ["linux", "macos"] }
+# Pure-Python fixture for the et-ws-pyo3-runner `cowsay` test: proves a
+# mise-installed python package lands on the embedded interpreter's sys.path
+# (see `edge_toolkit::config::mise_python_site_packages`).
+"pipx:cowsay" = "latest"
 # semgrep lints Cargo.toml style (see `semgrep-check`), so it stays in the
 # always-loaded config alongside the other repo-wide linters.
 "pipx:semgrep" = "latest"
@@ -65,7 +83,11 @@ gh = "latest"
 "npm:pnpm" = { version = "latest", os = ["macos/x64"] }
 pnpm = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 protoc = "latest"
-python = "3.13"
+# Full version triple, not a minor pin: mise installs python under a per-tool dir
+# named after the request and only symlinks the `3.x` minor alias -- and that
+# symlink isn't created on the Windows runner, so the py3_* interpreter paths must
+# resolve to the exact `3.x.y` dir. Bump in lockstep with py3_unix/py3_win/pylib.
+python = "3.13.14"
 rclone = "latest"
 rust = [
   { version = "latest", components = "clippy,rust-analyzer", targets = "wasm32-unknown-unknown,wasm32-wasip2" },
@@ -81,18 +103,18 @@ zizmor = "latest"
 # clang-tidy's resource-dir arg (points clang at its builtin headers, e.g.
 # stddef.h). Empty default; config.linux.toml sets it from conda:clangxx.
 clang_resource_arg = ""
-conda_openssl = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/latest"
-# mise-managed CPython 3.13 (Linux/macOS); the PYO3_PYTHON default below. Windows
-# overrides PYO3_PYTHON with its own py313_win in config.windows.toml.
-py313_unix = "{{ env.HOME }}/.local/share/mise/installs/python/3.13/bin/python3"
+conda_openssl = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/3"
+# mise-managed CPython (Linux/macOS); the PYO3_PYTHON default below. Windows
+# overrides PYO3_PYTHON with its own py3_win in config.windows.toml. The version
+# segment must equal the `python` [tools] pin (conftest enforces both).
+py3_unix = "{{ env.HOME }}/.local/share/mise/installs/python/3.13.14/bin/python3"
 # RUSTFLAGS fragments shared by the CARGO_TARGET_* env in config.<os>.toml
 rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
-# rpath to the mise CPython 3.13 lib dir so the et-ws-pyo3-runner binary finds
+# rpath to the mise CPython lib dir so the et-ws-pyo3-runner binary finds
 # libpython at runtime (libpython3.13.so on Linux, libpython3.13.dylib on macOS
-# via its @rpath install name). pyo3 bakes an rpath to the resolved patch-version
-# dir, which doesn't exist when mise installs under the "3.13" alias; point at
-# the stable install path instead.
-pylib_flag = "-C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/python/3.13/lib"
+# via its @rpath install name). Points at the exact `3.x.y` install dir (the
+# `python` pin), since the minor-version alias dir isn't created everywhere.
+pylib_flag = "-C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/python/3.13.14/lib"
 wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint"
 # Extra flag for the wasm-pack module builds; empty so wasm-opt runs.
 # config.windows.toml overrides it to --no-opt where wasm-opt can't execute.
@@ -119,18 +141,18 @@ retry = "recur --attempts 8 --delay 2s --backoff 2s --max-delay 2m --jitter 0,5s
 # no MISE_ENV=all). Hardcoded rather than shell-discovered so it works on Windows
 # too — keep in sync when adding/removing a config.<lang>.toml.
 ALL_LANGS = "dart,dotnet,java,python,rust,zig"
-TAPLO_CONFIG = "{{ config_root }}/config/taplo.toml"
 CLIPPY_CONF_DIR = "{{ config_root }}/config"
+TAPLO_CONFIG = "{{ config_root }}/config/taplo.toml"
 # Use the conda:openssl install for Rust's OPENSSL_DIR so openssl-sys crate builds.
 OPENSSL_DIR = "{{ vars.conda_openssl }}"
 
 # pyo3-ffi (et-ws-pyo3-runner) links its embedded interpreter at build time from
 # PYO3_PYTHON, else the first python on PATH -- under mise that's the 32-bit
 # Pyodide shim ("target architecture (64-bit) does not match ... (32-bit)"). Pin
-# it to the mise-managed CPython 3.13. Always-loaded so `cargo check --workspace`
+# it to the mise-managed CPython. Always-loaded so `cargo check --workspace`
 # builds the pyo3 runner without MISE_ENV=python. This is the Linux/macOS path;
-# config.windows.toml overrides it with py313_win.
-PYO3_PYTHON = "{{ vars.py313_unix }}"
+# config.windows.toml overrides it with py3_win.
+PYO3_PYTHON = "{{ vars.py3_unix }}"
 RCLONE_CONFIG = "{{ config_root }}/config/rclone.conf"
 RCLONE_RETRIES = "1"
 
@@ -171,6 +193,7 @@ depends = [
   "cargo-clippy",
   "cargo-doc-check",
   "cargo-fmt-check",
+  "conftest-check",
   "docker-check",
   "dprint-check",
   "editorconfig-check",
@@ -180,8 +203,8 @@ depends = [
   "ls-lint-check",
   "ryl-check",
   "semgrep-check",
-  "conftest-check",
   "taplo-check",
+  "taplo-fmt-check",
   "typos",
   "verification-check",
   "zizmor-check",
@@ -248,6 +271,9 @@ run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace 
 [tasks.taplo-fmt]
 run = "taplo format"
 
+[tasks.taplo-fmt-check]
+run = "taplo format --check"
+
 [tasks.conftest-check]
 depends = ["conftest-check-*"]
 description = "Run all conftest policy checks (one per parsed file format)"
@@ -269,6 +295,12 @@ shell = "bash -euo pipefail -c"
 [tasks.conftest-check-yaml]
 description = "Run conftest OPA/Rego policies over the GitHub Actions workflow YAML"
 run = "conftest test --parser yaml --namespace gha -p config/conftest/policy .github/workflows"
+
+[tasks.conftest-check-dockerfile]
+description = "Cross-check Dockerfile.nanoserver's hard-coded mise install paths against [tools] version pins"
+# Combine the Dockerfile with the mise configs (the .mise dir is all TOML), so
+# conftest auto-detects each file's parser and the rule sees every [tools] pin.
+run = "conftest test --combine --namespace dockerfile -p config/conftest/policy Dockerfile.nanoserver .mise"
 
 [tasks.taplo-check]
 # `taplo lint` reads config/taplo.toml's `[[rule]] schema` entries for editor /
@@ -317,7 +349,7 @@ xargs taplo lint --schema "file://$PWD/config/taplo/no-lib-name.schema.json" <"$
 # on the generated source. The exemption is about the lint table, not
 # about the deps — its `[dependencies]` still inherits from
 # `[workspace.dependencies]` like every other crate.
-grep -vxF './generated/rust-rest/Cargo.toml' "$members" |
+rg -vxF './generated/rust-rest/Cargo.toml' "$members" |
   xargs taplo lint --schema "file://$PWD/config/taplo/require-lints-section.schema.json"
 
 # mise task `run` must be a string, not an array: taplo's reorder_arrays would
@@ -379,6 +411,8 @@ mise settings set cargo.binstall true
 mise install cargo-binstall
 mise install node
 mise install conda:openssl
+mise install coreutils
+mise install ripgrep
 """
 shell = "bash -euo pipefail -c"
 
@@ -390,13 +424,13 @@ run = "osv-scanner --lockfile Cargo.lock --config config/osv-scanner.toml"
 [tasks."gen:osv-scanner"]
 description = "Regenerate config/osv-scanner.toml from config/deny.toml's [advisories].ignore list"
 # osv-scanner and cargo-deny must ignore the same advisory IDs; config/deny.toml
-# is the source of truth (it carries the per-ID rationale). grep/sort/sed only, so
+# is the source of truth (it carries the per-ID rationale). rg + coreutils only, so
 # the `dependencies` workflow can run it (via mise) next to the audit binaries.
 run = """
 {
   echo '# AUTO-GENERATED from config/deny.toml by `mise run gen:osv-scanner`.'
   echo 'IgnoredVulns = ['
-  grep -oE '"RUSTSEC-[0-9]{4}-[0-9]{4}"' config/deny.toml | sort -u | sed 's/.*/  { id = & },/'
+  rg -oN -r '  { id = $0 },' '"RUSTSEC-[0-9]{4}-[0-9]{4}"' config/deny.toml | coreutils sort -u
   echo ']'
 } > config/osv-scanner.toml
 """
@@ -431,7 +465,7 @@ run = '''
   {
     cat .gitignore
     printf '%s\n' '.git/' 'Dockerfile*' '/README.md' '.dockerignore'
-  } | awk '
+  } | goawk '
     /^[[:space:]]*#/ { print; next }
     /^[[:space:]]*$/ { print; next }
     {

@@ -20,6 +20,9 @@ pub enum RunnerError {
 
     #[error("deno runtime error: {0}")]
     DenoGeneric(#[from] deno_core::error::AnyError),
+
+    #[error("http client build error: {0}")]
+    HttpClient(#[from] reqwest::Error),
 }
 
 /// Maps any `Display` error into a generic `JsErrorBox`.
