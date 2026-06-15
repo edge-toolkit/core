@@ -1,10 +1,12 @@
-# Dockerfile.nanoserver hard-codes several mise install-dir paths (LLVMBIN, the
-# busybox shell, the python dir on PATH), each embedding a tool's pinned version
-# as a path segment. mise can't inject those paths into the Dockerfile, so they
-# are manual copies of the [tools] pins in .mise/config*.toml. Evaluated over the
-# Dockerfile plus those TOMLs combined (--combine, auto-detected parsers), this
-# fails if any embedded version drifts from its pin, reusing the matcher in
-# mise.rego. Run with `--namespace dockerfile`.
+# Cross-checks for Dockerfile.nanoserver, evaluated over the Dockerfile plus the
+# .mise/config*.toml files combined (--combine, auto-detected parsers). Two rules:
+#   1. version drift -- the Dockerfile hard-codes mise install-dir paths (LLVMBIN,
+#      the busybox shell, the python dir on PATH) that embed a tool's pinned
+#      version; those must match the [tools] pins (reuses mise.rego's matcher).
+#   2. MISE_DISABLE_TOOLS -- every pipx: tool in the always-loaded config.toml
+#      must be disabled here (pipx can't run on Nano Server), so a newly added
+#      pipx tool can't silently break the Windows build.
+# Run with `--namespace dockerfile`.
 package dockerfile
 
 import data.mise
@@ -28,5 +30,30 @@ deny contains msg if {
 	msg := sprintf(
 		"%s: hard-codes %q version %q, but [tools] pins it to %q -- keep them in sync",
 		[entry.path, d.dir, d.seg, d.pinned],
+	)
+}
+
+# The comma-separated tools in the Dockerfile's `ENV MISE_DISABLE_TOOLS=...`.
+disabled_tools contains tool if {
+	some file in input
+	is_array(file.contents)
+	some instr in file.contents
+	instr.Cmd == "env"
+	instr.Value[0] == "MISE_DISABLE_TOOLS"
+	some tool in split(instr.Value[1], ",")
+}
+
+# pipx:* tools can't run on Nano Server (pipx/platformdirs can't import there), so
+# every pipx: tool in the always-loaded config.toml must be in MISE_DISABLE_TOOLS
+# -- otherwise the nano build tries to install it and fails.
+deny contains msg if {
+	some file in input
+	endswith(file.path, ".mise/config.toml")
+	some name, _ in file.contents.tools
+	startswith(name, "pipx:")
+	not disabled_tools[name]
+	msg := sprintf(
+		"%s: pipx tool %q must be in Dockerfile.nanoserver MISE_DISABLE_TOOLS (pipx fails on Nano Server)",
+		[file.path, name],
 	)
 }

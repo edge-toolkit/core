@@ -204,14 +204,15 @@ ENV PATH="C:\Users\ContainerAdministrator\AppData\Local\mise\installs\python\3.1
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise run preinstall
 
-# Skip tools this image never runs. pipx:semgrep / pipx:cpplint -- pipx can't even
-# import on Nano Server: platformdirs' user_data_path() calls a shell known-folder
-# API (SHGetFolderPathW) that Nano lacks, and it runs at import so no env var
-# dodges it; both are linters run only by `mise run check` on Linux. lychee -- the
-# link-check task isn't part of the Windows build/test flow. cargo:cargo-expand --
-# a dev-only tool with no role in image builds. All install fine elsewhere;
-# dropping them here just keeps the image lean.
-ENV MISE_DISABLE_TOOLS=cargo:cargo-expand,lychee,pipx:cpplint,pipx:semgrep
+# Skip tools this image never runs. The pipx:* tools (cowsay / semgrep / cpplint)
+# can't run on Nano Server: pipx / platformdirs' user_data_path() calls
+# SHGetFolderPathW, which Nano lacks, at import, and mise can't even find pipx at
+# install time. cowsay is only an et-ws-pyo3-runner test fixture; semgrep + cpplint
+# are linters run by `mise run check` on Linux. lychee -- the link-check task isn't
+# part of the Windows build/test flow. cargo:cargo-expand -- a dev-only tool with
+# no role in image builds. All install fine elsewhere; dropping them here just
+# keeps the image lean.
+ENV MISE_DISABLE_TOOLS=cargo:cargo-expand,lychee,pipx:cowsay,pipx:cpplint,pipx:semgrep
 
 # The remaining always-loaded tools (the cargo: tools; python is already
 # installed above) now that rust links via gnullvm.
