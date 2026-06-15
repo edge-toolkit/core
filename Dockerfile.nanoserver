@@ -197,7 +197,7 @@ ENV CARGO_HOME=C:\.cargo `
 # builds no python guest, and pipx can't run on Nano anyway), so that's fine.
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install python
-ENV PATH="C:\Users\ContainerAdministrator\AppData\Local\mise\installs\python\3.13;${PATH}"
+ENV PATH="C:\Users\ContainerAdministrator\AppData\Local\mise\installs\python\3.13.14;${PATH}"
 
 # Run preinstall on busybox sh (via MISE_BASH_PATH), already bootstrapped above,
 # so there's no chicken-and-egg with the shell.

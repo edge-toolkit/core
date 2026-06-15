@@ -40,9 +40,12 @@ def _matmul() -> float:
 
 
 def _inference() -> int:
-    """A fixed 1x4 input through a fixed 4x4 weight matrix whose last row
-    dominates, so argmax is deterministically EXPECTED_CLASS. No randomness,
-    no model file -- the point is to exercise a real torch forward pass."""
+    """Run a fixed 1x4 input through a fixed 4x4 weight matrix.
+
+    The last row dominates, so argmax is deterministically EXPECTED_CLASS. No
+    randomness, no model file -- the point is to exercise a real torch forward
+    pass.
+    """
     x = torch.tensor([[1.0, 2.0, 3.0, 4.0]])
     weights = torch.tensor(
         [
@@ -57,8 +60,11 @@ def _inference() -> int:
 
 
 def on_text_frame(text: str) -> str:
-    """Run both checks and return a JSON summary; raise on any mismatch so a
-    regression surfaces as a failed module rather than a wrong-but-quiet reply."""
+    """Run both checks and return a JSON summary.
+
+    Raise on any mismatch so a regression surfaces as a failed module rather
+    than a wrong-but-quiet reply.
+    """
     c00 = _matmul()
     if abs(c00 - EXPECTED_C00) > 1e-4:
         raise RuntimeError(f"matmul C[0][0]={c00}, expected {EXPECTED_C00}")

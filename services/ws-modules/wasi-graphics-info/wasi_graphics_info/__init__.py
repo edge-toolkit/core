@@ -210,10 +210,13 @@ def _matrix_bytes(values: list) -> bytes:
 
 
 def _entry(binding: int, read_only: bool) -> GpuBindGroupLayoutEntry:
-    """One COMPUTE-visible storage-buffer bind-group-layout entry. Bindings 0
-    and 1 are read-only (matA / matB), binding 2 is read-write (matC). This
-    has to match the WGSL `var<storage, read>` / `var<storage, read_write>`
-    qualifiers exactly or wgpu's create-compute-pipeline validation rejects."""
+    """Build one COMPUTE-visible storage-buffer bind-group-layout entry.
+
+    Bindings 0 and 1 are read-only (matA / matB), binding 2 is read-write
+    (matC). This has to match the WGSL `var<storage, read>` /
+    `var<storage, read_write>` qualifiers exactly or wgpu's
+    create-compute-pipeline validation rejects.
+    """
     return GpuBindGroupLayoutEntry(
         binding=binding,
         visibility=GpuShaderStage.compute(),
@@ -479,6 +482,7 @@ class Entry:
     """
 
     def run(self) -> None:
+        """Run the workflow, mapping any WASI `Err` to a typed `EntryError_*`."""
         try:
             _run_workflow()
         except Err as exc:

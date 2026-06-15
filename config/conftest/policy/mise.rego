@@ -146,3 +146,19 @@ deny contains msg if {
 		[entry.path, entry.kind, entry.key, d.dir, d.seg, d.pinned],
 	)
 }
+
+tool_version_str(spec) := spec if is_string(spec)
+
+tool_version_str(spec) := spec.version if is_object(spec)
+
+# python must be pinned to a full version triple (X.Y.Z), not a minor alias:
+# mise installs it under a dir named after the request and only symlinks the X.Y
+# alias, and that symlink isn't created on the Windows runner -- so the py3_*
+# interpreter paths (and the version_drift check above) need the exact patch dir.
+deny contains msg if {
+	some file in input
+	is_mise(file)
+	version := tool_version_str(file.contents.tools.python)
+	not regex.match(`^[0-9]+\.[0-9]+\.[0-9]+$`, version)
+	msg := sprintf("%s: python must be pinned to a full version triple, got %q", [file.path, version])
+}

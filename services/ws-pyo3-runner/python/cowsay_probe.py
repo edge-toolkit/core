@@ -1,5 +1,4 @@
-"""Test fixture for `et-ws-pyo3-runner`: proves a mise-preinstalled pipx package
-is importable from the embedded interpreter.
+"""Prove a mise-preinstalled pipx package imports under the embedded interpreter.
 
 `cowsay` is declared as `pipx:cowsay` in the always-loaded mise config, and the
 runner puts every mise `pipx:` package's site-packages on `sys.path` via
@@ -15,6 +14,8 @@ import cowsay
 
 
 def on_text_frame(text: str) -> str:
-    """Render the inbound text through cowsay and return it, so the round-trip
-    proves cowsay both imported and actually runs."""
+    """Render the inbound text through cowsay and return it.
+
+    The round-trip proves cowsay both imported and actually runs.
+    """
     return cowsay.get_output_string("cow", text)

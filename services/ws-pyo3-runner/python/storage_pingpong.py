@@ -22,18 +22,20 @@ _agent_id: str | None = None
 
 
 def init(send, storage) -> None:
+    """Stash the WsSender and WsStorage handles."""
     global _send, _storage
     _send = send
     _storage = storage
 
 
 def on_connect(agent_id: str) -> None:
+    """Record the assigned agent id for later get/put calls."""
     global _agent_id
     _agent_id = agent_id
 
 
 def on_binary_frame(frame: bytes) -> None:
-    """Frames are `key\\x00value` for puts, or `key` (no NUL) for gets."""
+    r"""Put on `key\x00value` frames, get (and reply) on bare `key` frames."""
     if b"\x00" in frame:
         key_bytes, value = frame.split(b"\x00", 1)
         key = key_bytes.decode("utf-8")

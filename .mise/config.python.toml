@@ -63,7 +63,7 @@ run = "uv run pytest"
 
 [tasks.test-pyface1.env]
 # Same uv-interpreter pin as `[tasks."prefetch:python".env]`; see there.
-UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py313_win }}{% else %}{{ vars.py313_unix }}{% endif %}"
+UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}"
 
 [tasks.build-et-ws-wheel]
 depends = ["build-et-cli", "gen:python-ws"]
@@ -154,12 +154,12 @@ shell = "bash -euo pipefail -c"
 # interpreter. uv's auto-discovery otherwise finds and prefers the `python`
 # wrapper mise's `http:pyodide` install ships (it reports CPython 3.13.2, so
 # bare version requests like `3.13` / `python3.13` don't disambiguate). Point
-# uv straight at the absolute interpreter path via the py313_unix / py313_win
+# uv straight at the absolute interpreter path via the py3_unix / py3_win
 # vars -- the same interpreter PYO3_PYTHON resolves to -- so the pyodide wrapper
 # never enters discovery and no `mise` subprocess runs per task. Windows needs
 # its own var because python-build-standalone lays the binary out at the install
 # root (`python.exe`), not under `bin/`.
-UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py313_win }}{% else %}{{ vars.py313_unix }}{% endif %}"
+UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}"
 
 [tasks."gen:python-rest"]
 depends = ["gen:ws-spec"]

@@ -5,7 +5,7 @@ optional — if your module doesn't define it, the runner skips that hook.
 
 Lifecycle, in order:
 
-  init(send)                       # once, at startup; `send` is a WsSender
+  init(send, storage)              # once, at startup; `send`/`storage` are host handles
   on_connect(agent_id)             # once, after et-connect-ack
   on_text_frame(text)              # per inbound text frame the et hub didn't recognise as a typed et-* message
   on_binary_frame(frame)           # per inbound binary frame
@@ -52,10 +52,12 @@ _echoed: int = 0
 
 
 def init(send, storage) -> None:
-    """Stash the WsSender and WsStorage. Even modules that only use
-    reply-by-return should accept and keep `send` — it's how you'd push
-    frames later (e.g. from a background thread). `storage` is the
-    ws-server's `/storage` API; this example doesn't use it."""
+    """Stash the WsSender and WsStorage handles for later use.
+
+    Even modules that only use reply-by-return should accept and keep `send`
+    — it's how you'd push frames later (e.g. from a background thread).
+    `storage` is the ws-server's `/storage` API; this example doesn't use it.
+    """
     global _send, _storage
     _send = send
     _storage = storage
@@ -63,6 +65,7 @@ def init(send, storage) -> None:
 
 
 def on_connect(agent_id: str) -> None:
+    """Record the agent id the server assigned on connect."""
     global _agent_id
     _agent_id = agent_id
     _logger.info("echo agent registered as %s", agent_id)
@@ -83,4 +86,5 @@ def on_binary_frame(frame: bytes) -> bytes | None:
 
 
 def on_shutdown() -> None:
+    """Log the running echo count as the connection closes."""
     _logger.info("echo agent shutting down after %d frames", _echoed)

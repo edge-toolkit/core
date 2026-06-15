@@ -31,6 +31,8 @@ DecodedBox = tuple[float, float, float, float]
 
 
 class Detection(TypedDict):
+    """One detected face: label, class index, score, and bounding box."""
+
     label: str
     class_index: int
     score: float
@@ -38,6 +40,8 @@ class Detection(TypedDict):
 
 
 class DetectionSummary(TypedDict):
+    """Result of one inference: the detections, best confidence, and timestamp."""
+
     detections: list[Detection]
     confidence: float
     processed_at: str
@@ -128,18 +132,22 @@ def config() -> dict[str, object]:
 
 
 def starting_status() -> str:
+    """Return the status line shown while the workflow starts up."""
     return "pyface1 face detection: starting"
 
 
 def stopped_status() -> str:
+    """Return the status line shown once the workflow has stopped."""
     return "pyface1 face detection demo stopped."
 
 
 def model_log_message() -> str:
+    """Return the log line emitted when loading the RetinaFace model."""
     return f"loading RetinaFace model from {FACE_MODEL_PATH}"
 
 
 def validate_output_names(output_names: Iterable[object]) -> list[str]:
+    """Coerce the session output names to strings, requiring at least three."""
     output_names = [str(name) for name in output_names]
     if len(output_names) < 3:
         raise ValueError("RetinaFace session did not expose the expected outputs")
@@ -147,6 +155,7 @@ def validate_output_names(output_names: Iterable[object]) -> list[str]:
 
 
 def initial_summary() -> DetectionSummary:
+    """Return the placeholder summary shown before the first inference."""
     return {
         "detections": [],
         "confidence": 0.0,
@@ -155,6 +164,7 @@ def initial_summary() -> DetectionSummary:
 
 
 def preprocess_geometry(source_width: float, source_height: float) -> dict[str, float]:
+    """Compute the resize ratio and resized dimensions for the source frame."""
     source_width = require_positive_finite(source_width, "source_width")
     source_height = require_positive_finite(source_height, "source_height")
     target_ratio = FACE_INPUT_HEIGHT / FACE_INPUT_WIDTH
@@ -171,10 +181,12 @@ def preprocess_geometry(source_width: float, source_height: float) -> dict[str, 
 
 
 def detections_json(detections: list[Detection]) -> str:
+    """Serialise the detections list to JSON."""
     return json.dumps(detections)
 
 
 def client_event_json(details: dict[str, object]) -> str:
+    """Build the et-client-event JSON envelope for a face-detection inference."""
     return WsClientEvent(
         type="et-client-event",
         capability="face_detection",
@@ -305,6 +317,7 @@ def event_payload(
 
 
 def build_priors(image_height: float, image_width: float) -> list[Prior]:
+    """Build the RetinaFace prior boxes for the given image dimensions."""
     image_height = require_positive_finite(image_height, "image_height")
     image_width = require_positive_finite(image_width, "image_width")
 
@@ -328,10 +341,12 @@ def build_priors(image_height: float, image_width: float) -> list[Prior]:
 
 @lru_cache(maxsize=1)
 def model_priors() -> tuple[Prior, ...]:
+    """Return the cached priors for the model's fixed input size."""
     return tuple(build_priors(float(FACE_INPUT_HEIGHT), float(FACE_INPUT_WIDTH)))
 
 
 def decode_box(loc: Sequence[float], prior: Sequence[float]) -> DecodedBox:
+    """Decode one RetinaFace box from its location offsets and prior."""
     if len(loc) != 4:
         raise ValueError("loc must contain exactly 4 values")
     if len(prior) != 4:
@@ -350,6 +365,7 @@ def decode_box(loc: Sequence[float], prior: Sequence[float]) -> DecodedBox:
 
 
 def apply_nms(detections: list[Detection], threshold: float) -> list[Detection]:
+    """Apply non-maximum suppression, keeping the highest-scoring boxes."""
     threshold = require_non_negative_finite(threshold, "threshold")
     kept: list[Detection] = []
     for candidate in sorted(detections, key=lambda item: item["score"], reverse=True):
@@ -359,6 +375,7 @@ def apply_nms(detections: list[Detection], threshold: float) -> list[Detection]:
 
 
 def compute_iou(left: Detection, right: Detection) -> float:
+    """Return the intersection-over-union of two detections' boxes."""
     left_box = left["box"]
     right_box = right["box"]
     x1 = max(left_box[0], right_box[0])
@@ -380,6 +397,7 @@ def compute_iou(left: Detection, right: Detection) -> float:
 
 
 def softmax(values: Iterable[object]) -> list[float]:
+    """Return the softmax of the values (empty list for empty input)."""
     values = [float(value) for value in values]
     if not values:
         return []
@@ -390,10 +408,12 @@ def softmax(values: Iterable[object]) -> list[float]:
 
 
 def clamp(value: float, minimum: float, maximum: float) -> float:
+    """Clamp `value` to the inclusive range [minimum, maximum]."""
     return max(minimum, min(value, maximum))
 
 
 def output_values(values: Iterable[object], name: str, stride: int) -> list[float]:
+    """Coerce a model output to floats, requiring a length multiple of `stride`."""
     if stride <= 0:
         raise ValueError("stride must be positive")
 
@@ -408,6 +428,7 @@ def output_values(values: Iterable[object], name: str, stride: int) -> list[floa
 
 
 def require_positive_finite(value: float, name: str) -> float:
+    """Return `value` as a float, raising if it isn't positive and finite."""
     value = float(value)
     if not math.isfinite(value) or value <= 0.0:
         raise ValueError(f"{name} must be a positive finite number")
@@ -415,6 +436,7 @@ def require_positive_finite(value: float, name: str) -> float:
 
 
 def require_non_negative_finite(value: float, name: str) -> float:
+    """Return `value` as a float, raising if it's negative or non-finite."""
     value = float(value)
     if not math.isfinite(value) or value < 0.0:
         raise ValueError(f"{name} must be a non-negative finite number")

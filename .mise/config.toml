@@ -83,7 +83,11 @@ gh = "latest"
 "npm:pnpm" = { version = "latest", os = ["macos/x64"] }
 pnpm = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 protoc = "latest"
-python = "3.13"
+# Full version triple, not a minor pin: mise installs python under a per-tool dir
+# named after the request and only symlinks the `3.x` minor alias -- and that
+# symlink isn't created on the Windows runner, so the py3_* interpreter paths must
+# resolve to the exact `3.x.y` dir. Bump in lockstep with py3_unix/py3_win/pylib.
+python = "3.13.14"
 rclone = "latest"
 rust = [
   { version = "latest", components = "clippy,rust-analyzer", targets = "wasm32-unknown-unknown,wasm32-wasip2" },
@@ -100,17 +104,17 @@ zizmor = "latest"
 # stddef.h). Empty default; config.linux.toml sets it from conda:clangxx.
 clang_resource_arg = ""
 conda_openssl = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/3"
-# mise-managed CPython 3.13 (Linux/macOS); the PYO3_PYTHON default below. Windows
-# overrides PYO3_PYTHON with its own py313_win in config.windows.toml.
-py313_unix = "{{ env.HOME }}/.local/share/mise/installs/python/3.13/bin/python3"
+# mise-managed CPython (Linux/macOS); the PYO3_PYTHON default below. Windows
+# overrides PYO3_PYTHON with its own py3_win in config.windows.toml. The version
+# segment must equal the `python` [tools] pin (conftest enforces both).
+py3_unix = "{{ env.HOME }}/.local/share/mise/installs/python/3.13.14/bin/python3"
 # RUSTFLAGS fragments shared by the CARGO_TARGET_* env in config.<os>.toml
 rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
-# rpath to the mise CPython 3.13 lib dir so the et-ws-pyo3-runner binary finds
+# rpath to the mise CPython lib dir so the et-ws-pyo3-runner binary finds
 # libpython at runtime (libpython3.13.so on Linux, libpython3.13.dylib on macOS
-# via its @rpath install name). pyo3 bakes an rpath to the resolved patch-version
-# dir, which doesn't exist when mise installs under the "3.13" alias; point at
-# the stable install path instead.
-pylib_flag = "-C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/python/3.13/lib"
+# via its @rpath install name). Points at the exact `3.x.y` install dir (the
+# `python` pin), since the minor-version alias dir isn't created everywhere.
+pylib_flag = "-C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/python/3.13.14/lib"
 wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint"
 # Extra flag for the wasm-pack module builds; empty so wasm-opt runs.
 # config.windows.toml overrides it to --no-opt where wasm-opt can't execute.
@@ -145,10 +149,10 @@ OPENSSL_DIR = "{{ vars.conda_openssl }}"
 # pyo3-ffi (et-ws-pyo3-runner) links its embedded interpreter at build time from
 # PYO3_PYTHON, else the first python on PATH -- under mise that's the 32-bit
 # Pyodide shim ("target architecture (64-bit) does not match ... (32-bit)"). Pin
-# it to the mise-managed CPython 3.13. Always-loaded so `cargo check --workspace`
+# it to the mise-managed CPython. Always-loaded so `cargo check --workspace`
 # builds the pyo3 runner without MISE_ENV=python. This is the Linux/macOS path;
-# config.windows.toml overrides it with py313_win.
-PYO3_PYTHON = "{{ vars.py313_unix }}"
+# config.windows.toml overrides it with py3_win.
+PYO3_PYTHON = "{{ vars.py3_unix }}"
 RCLONE_CONFIG = "{{ config_root }}/config/rclone.conf"
 RCLONE_RETRIES = "1"
 
