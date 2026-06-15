@@ -74,6 +74,15 @@ CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_LINKER = "{{ vars.win_llvm_bin }}\\clang.
 CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_RUSTFLAGS = "-Cdlltool={{ vars.win_llvm_bin }}\\llvm-dlltool.exe"
 LIBCLANG_PATH = "{{ vars.win_libclang }}"
 PYO3_PYTHON = "{{ vars.py3_win }}"
+# Point cargo-binstall at the MSVC triple. The host is gnullvm (see
+# CARGO_BUILD_TARGET above), and the cargo:* tools we install (cargo-expand)
+# don't publish gnullvm prebuilts -- so binstall falls back to `cargo install`,
+# which then tries to link build scripts via llvm-mingw clang/lld and dies on
+# LNK1143 (lld + rustc CGU COMDAT mismatch). Steering binstall to the MSVC
+# triple makes it fetch the upstream MSVC release binary, which runs fine on
+# this host: target only governs what the tool links against, not what
+# executes it.
+BINSTALL_TARGETS = "x86_64-pc-windows-msvc"
 
 [tasks.preinstall]
 # Preinstall, shared by Dockerfile.nanoserver and a real workstation. The busybox

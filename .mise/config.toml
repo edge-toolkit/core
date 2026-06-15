@@ -57,7 +57,11 @@ ripgrep = "latest"
 # below (see the `retry` var) so a transient HTTP 429 doesn't fail the build.
 "github:dbohdan/recur" = "latest"
 "github:grok-rs/waitup" = "latest"
-"github:owenlamont/ryl" = "latest"
+# ryl: prebuilt assets cover every platform we target except macos/x64, so that
+# one slot builds from source via cargo: (same `latest` so every platform tracks
+# the same release).
+"github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
+"cargo:ryl" = { version = "latest", os = ["macos/x64"] }
 "github:wasm-bindgen/wasm-bindgen" = "0.2.122"
 hadolint = "latest"
 ls-lint = "latest"
@@ -352,13 +356,8 @@ xargs taplo lint --schema "file://$PWD/config/taplo/no-lib-name.schema.json" <"$
 rg -vxF './generated/rust-rest/Cargo.toml' "$members" |
   xargs taplo lint --schema "file://$PWD/config/taplo/require-lints-section.schema.json"
 
-# mise task `run` must be a string, not an array: taplo's reorder_arrays would
-# re-sort an array and scramble an ordered command sequence (use a multiline
-# string, one command per line). Applies to every .mise/config*.toml.
 taplo lint --schema "file://$PWD/config/taplo/mise-run-not-array.schema.json" .mise/config*.toml
 
-# ubi: is deprecated (use http:); cargo: builds from source (slow), allowed only
-# for cargo-expand + dart-typegen. Two separate rules, two reasons.
 taplo lint --schema "file://$PWD/config/taplo/mise-no-ubi-backend.schema.json" .mise/config*.toml
 taplo lint --schema "file://$PWD/config/taplo/mise-cargo-backend-allowlist.schema.json" .mise/config*.toml
 """

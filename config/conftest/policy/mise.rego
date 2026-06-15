@@ -36,18 +36,35 @@ deny contains msg if {
 	msg := sprintf("%s: task %q description must be a single line", [file.path, name])
 }
 
-# `cargo:` tools build from source; prefer a prebuilt backend. Allowlist the ones
-# with no prebuilt binary (cargo-expand, dart-typegen), plus cargo:findutils which
-# is os-scoped to aarch64-linux only (its prebuilt release lacks that one arch).
-allowed_cargo_tool := {"cargo:cargo-expand", "cargo:dart-typegen", "cargo:findutils"}
+# `cargo:` tools build from source; prefer a prebuilt backend. Allowed only when
+# either (a) the tool has no prebuilt anywhere -- allowlisted by name below, or
+# (b) it is os-scoped to second-tier platforms (linux/arm64, macos/x64), whose
+# prebuilt assets release authors often skip. A first-tier platform (linux/x64,
+# macos/arm64, windows) must always have a prebuilt; source-builds there are a
+# slow surprise on the critical path.
+second_tier_platform := {"linux/arm64", "macos/x64"}
+
+allowed_cargo_no_prebuilt := {"cargo:cargo-expand", "cargo:dart-typegen"}
+
+cargo_scoped_to_second_tier(spec) if {
+	is_object(spec)
+	count(spec.os) > 0
+	every p in spec.os {
+		second_tier_platform[p]
+	}
+}
 
 deny contains msg if {
 	some file in input
 	is_mise(file)
-	some name, _ in file.contents.tools
+	some name, spec in file.contents.tools
 	startswith(name, "cargo:")
-	not allowed_cargo_tool[name]
-	msg := sprintf("%s: tool %q builds from source; use a prebuilt backend", [file.path, name])
+	not allowed_cargo_no_prebuilt[name]
+	not cargo_scoped_to_second_tier(spec)
+	msg := sprintf(
+		"%s: tool %q builds from source; use a prebuilt backend or os-scope to {linux/arm64, macos/x64}",
+		[file.path, name],
+	)
 }
 
 # `ubi:` is deprecated; the `http:` backend replaces it.
@@ -70,8 +87,10 @@ allowed_os_scoped_tool := {
 	"npm:pnpm",
 	"pnpm",
 	"github:christianhelle/openapi2zig",
+	"github:owenlamont/ryl",
 	"github:uutils/findutils",
 	"cargo:findutils",
+	"cargo:ryl",
 }
 
 deny contains msg if {
