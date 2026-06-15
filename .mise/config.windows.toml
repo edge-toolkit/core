@@ -112,3 +112,12 @@ mise exec -- rustup toolchain install nightly-x86_64-pc-windows-gnullvm -c rust-
 mise exec -- rustup default "${ver}-x86_64-pc-windows-gnullvm"
 """
 shell = "bash -euo pipefail -c"
+
+[tasks.test-ws-web-runner]
+# Override: skip et-ws-web-runner on Windows. It pulls deno -> v8, whose build
+# script downloads a prebuilt rusty_v8 static lib; denoland/rusty_v8 ships
+# Windows prebuilts only for x86_64-pc-windows-msvc, not the gnullvm target this
+# build uses, so the fetch 404s and the from-source fallback can't build under
+# llvm-mingw. The suite still runs on the Linux/macOS jobs.
+run = "echo 'skipping et-ws-web-runner on windows: rusty_v8 has no gnullvm prebuilt'"
+shell = "bash -euo pipefail -c"
