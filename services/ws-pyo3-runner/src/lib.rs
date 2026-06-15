@@ -1,7 +1,8 @@
-//! Generic edge-toolkit agent runtime that hosts a user-supplied Python
-//! module via `PyO3`. This crate is the Python sibling of
-//! `et-ws-wasi-runner`: one binary, swappable user code, et-ws-server is
-//! the always-on hub on the wire.
+//! Generic edge-toolkit agent runtime that hosts a user-supplied Python module.
+//!
+//! Uses `PyO3` to embed `CPython`. This crate is the Python sibling of
+//! `et-ws-wasi-runner`: one binary, swappable user code, et-ws-server is the
+//! always-on hub on the wire.
 //!
 //! Everything that matters lives in Python -- Rust just handles the
 //! WebSocket transport, the et-* registration handshake, and dispatch

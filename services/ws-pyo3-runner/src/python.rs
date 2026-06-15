@@ -52,8 +52,10 @@ const HOOK_ON_TEXT_FRAME: &str = "on_text_frame";
 const HOOK_ON_BINARY_FRAME: &str = "on_binary_frame";
 const HOOK_ON_SHUTDOWN: &str = "on_shutdown";
 
-/// Every hook, for the load-time sanity check: a module that defines none of
-/// them can never be invoked, so importing it is almost certainly a mistake.
+/// Every hook, for the load-time sanity check.
+///
+/// A module that defines none of them can never be invoked, so importing it is
+/// almost certainly a mistake.
 const HOOKS: [&str; 5] = [
     HOOK_INIT,
     HOOK_ON_CONNECT,
@@ -62,6 +64,7 @@ const HOOKS: [&str; 5] = [
     HOOK_ON_SHUTDOWN,
 ];
 
+/// An error from importing or invoking the user's Python module.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum PythonError {
@@ -110,8 +113,10 @@ pub enum StorageError {
 }
 
 impl StorageError {
-    /// Build a `Get` failure, borrowing the identifiers so the worker's
-    /// error arms don't fight the borrow checker over the moved op fields.
+    /// Build a `Get` failure.
+    ///
+    /// Borrows the identifiers so the worker's error arms don't fight the borrow
+    /// checker over the moved op fields.
     #[must_use]
     pub fn get(agent_id: &str, key: &str, message: String) -> Self {
         Self::Get {
@@ -138,8 +143,9 @@ impl From<StorageError> for PyErr {
     }
 }
 
-/// One frame queued on the agent's outbound channel. The WS loop in
-/// `agent.rs` drains this and writes to the socket.
+/// One frame queued on the agent's outbound channel.
+///
+/// The WS loop in `agent.rs` drains this and writes to the socket.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum OutboundFrame {
@@ -168,8 +174,9 @@ impl WsSender {
         }
     }
 
-    /// Queue a binary frame for the agent's outbound socket. `frame`
-    /// accepts any Python buffer protocol object (bytes / bytearray /
+    /// Queue a binary frame for the agent's outbound socket.
+    ///
+    /// `frame` accepts any Python buffer protocol object (bytes / bytearray /
     /// memoryview) -- `PyO3`'s `Vec<u8>` extraction handles the conversion.
     fn binary(&self, frame: Vec<u8>) -> PyResult<()> {
         match self.tx.send(OutboundFrame::Binary(frame)) {
@@ -192,6 +199,7 @@ impl WsSender {
     reason = "pyo3 #[pymethods] expands to its own inherent impl; the Rust-only constructor lives here"
 )]
 impl WsSender {
+    /// Construct a [`WsSender`] over the outbound-frame channel.
     #[must_use]
     pub const fn new(tx: mpsc::UnboundedSender<OutboundFrame>) -> Self {
         Self { tx }
@@ -242,15 +250,16 @@ pub struct WsStorage {
 
 #[pymethods]
 impl WsStorage {
-    /// Our currently assigned `agent_id`, or `None` before `on_connect`.
+    /// Return our currently assigned `agent_id`, or `None` before `on_connect`.
     #[getter]
     fn agent_id(&self) -> Option<String> {
         self.agent_id.lock().unwrap_or_else(PoisonError::into_inner).clone()
     }
 
-    /// GET `/storage/{agent_id}/{key}`. Returns `None` for 404, raises
-    /// on other HTTP failures. Reads work for any agent's namespace
-    /// (et-storage-service static-serves the storage directory).
+    /// GET `/storage/{agent_id}/{key}`.
+    ///
+    /// Returns `None` for 404, raises on other HTTP failures. Reads work for any
+    /// agent's namespace (et-storage-service static-serves the storage directory).
     fn get(&self, py: Python<'_>, agent_id: String, key: String) -> PyResult<Option<Vec<u8>>> {
         let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
         if self
@@ -275,9 +284,10 @@ impl WsStorage {
         }
     }
 
-    /// PUT to `/storage/<our-agent-id>/{key}`. Errors if `on_connect`
-    /// hasn't fired yet (we don't know our `agent_id`) -- call this from
-    /// `on_connect` or later.
+    /// PUT to `/storage/<our-agent-id>/{key}`.
+    ///
+    /// Errors if `on_connect` hasn't fired yet (we don't know our `agent_id`) --
+    /// call this from `on_connect` or later.
     fn put(&self, py: Python<'_>, key: String, data: Vec<u8>) -> PyResult<()> {
         let agent_id = self
             .agent_id
@@ -321,6 +331,7 @@ impl WsStorage {
     reason = "pyo3 #[pymethods] expands to its own inherent impl; the Rust-only constructor lives here"
 )]
 impl WsStorage {
+    /// Construct a [`WsStorage`] over the agent-id slot and op channel.
     #[must_use]
     pub const fn new(agent_id: AgentIdSlot, op_tx: mpsc::UnboundedSender<StorageOp>) -> Self {
         Self { agent_id, op_tx }
@@ -333,8 +344,10 @@ pub struct Dispatcher {
 }
 
 impl Dispatcher {
-    /// Import the user module, prepend `python_path_extras` to `sys.path`,
-    /// and call its optional `init(send, storage)` hook.
+    /// Import the user module and run its optional `init(send, storage)` hook.
+    ///
+    /// `python_path_extras` are prepended to `sys.path` before the import so the
+    /// module (and its dependencies) resolve.
     pub fn import(
         module_name: &str,
         python_path_extras: &[PathBuf],
@@ -382,8 +395,7 @@ impl Dispatcher {
         })
     }
 
-    /// Forward the assigned `agent_id` to the user's optional
-    /// `on_connect(agent_id)` hook.
+    /// Forward the assigned `agent_id` to the optional `on_connect` hook.
     pub fn on_connect(&self, agent_id: &str) -> Result<(), PythonError> {
         Python::attach(|py| -> Result<(), PythonError> {
             let module = self.module.bind(py);
@@ -395,9 +407,11 @@ impl Dispatcher {
         })
     }
 
-    /// Dispatch a text frame to `on_text_frame`. Returns the handler's
-    /// optional reply (a `str`, or `bytes` decoded as utf-8). Outbound
-    /// frames the handler queued via `WsSender` go out independently.
+    /// Dispatch a text frame to `on_text_frame`.
+    ///
+    /// Returns the handler's optional reply (a `str`, or `bytes` decoded as
+    /// utf-8). Outbound frames the handler queued via `WsSender` go out
+    /// independently.
     pub fn on_text_frame(&self, text: &str) -> Result<Option<String>, PythonError> {
         Python::attach(|py| -> Result<Option<String>, PythonError> {
             let module = self.module.bind(py);
@@ -420,8 +434,9 @@ impl Dispatcher {
         })
     }
 
-    /// Dispatch a binary frame to `on_binary_frame`. Returns the
-    /// handler's optional reply (`bytes`, or `str` encoded as utf-8).
+    /// Dispatch a binary frame to `on_binary_frame`.
+    ///
+    /// Returns the handler's optional reply (`bytes`, or `str` encoded as utf-8).
     pub fn on_binary_frame(&self, frame: &[u8]) -> Result<Option<Vec<u8>>, PythonError> {
         Python::attach(|py| -> Result<Option<Vec<u8>>, PythonError> {
             let module = self.module.bind(py);
@@ -445,7 +460,7 @@ impl Dispatcher {
         })
     }
 
-    /// Best-effort `on_shutdown()` call.
+    /// Call the optional `on_shutdown` hook, best-effort.
     pub fn on_shutdown(&self) -> Result<(), PythonError> {
         Python::attach(|py| -> Result<(), PythonError> {
             let module = self.module.bind(py);

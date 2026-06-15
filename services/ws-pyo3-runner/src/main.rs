@@ -1,7 +1,9 @@
-//! Binary entrypoint. Pure env-var config -- no CLI flags. Configuration is
-//! deserialised from the environment by [`et_ws_pyo3_runner::config::Config`];
-//! see that module for the full variable list (`RUNNER_MODULE`,
-//! `RUNNER_TIMEOUT`, `WS_SERVER_URL`, `PYO3_PYTHONPATH`, `PYO3_AGENT_ID`).
+//! Binary entrypoint; pure env-var config, no CLI flags.
+//!
+//! Configuration is deserialised from the environment by
+//! [`et_ws_pyo3_runner::config::Config`]; see that module for the full variable
+//! list (`RUNNER_MODULE`, `RUNNER_TIMEOUT`, `WS_SERVER_URL`, `PYO3_PYTHONPATH`,
+//! `PYO3_AGENT_ID`).
 
 #![expect(
     clippy::integer_division_remainder_used,

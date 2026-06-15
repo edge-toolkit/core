@@ -13,7 +13,7 @@ use serde::Deserialize;
 use serde_default::DefaultFromSerde;
 use serde_inline_default::serde_inline_default;
 
-/// `RUNNER_*` settings shared by both native runners.
+/// Shared `RUNNER_*` settings for both native runners.
 #[derive(Clone, Debug, Deserialize)]
 #[non_exhaustive]
 pub struct RunnerConfig {
@@ -28,7 +28,7 @@ pub struct RunnerConfig {
 /// Default time [`crate::connect_and_register`] waits for `et-connect-ack`.
 pub const DEFAULT_CONNECT_ACK_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// `WS_*` settings shared by both native runners.
+/// Shared `WS_*` settings for both native runners.
 #[serde_inline_default]
 #[derive(Clone, Debug, DefaultFromSerde, Deserialize)]
 #[non_exhaustive]

@@ -16,7 +16,7 @@ use std::path::PathBuf;
 use et_ws_runner_common::config::{RunnerConfig, WsConfig};
 use serde::Deserialize;
 
-/// pyo3-runner configuration sourced from the environment.
+/// Configuration for the pyo3 runner, sourced from the environment.
 #[derive(Clone, Debug, Deserialize)]
 #[non_exhaustive]
 pub struct Config {
@@ -30,16 +30,16 @@ pub struct Config {
     pub pyo3: Pyo3Config,
 }
 
-/// `PYO3_*` settings that have no shared equivalent.
+/// Runner-specific `PYO3_*` settings with no shared equivalent.
 #[derive(Clone, Debug, Default, Deserialize)]
 #[non_exhaustive]
 pub struct Pyo3Config {
-    /// `PYO3_PYTHONPATH` -- colon-separated paths prepended to `sys.path`
-    /// before importing the module. Empty by default.
+    /// `PYO3_PYTHONPATH` -- colon-separated paths prepended to `sys.path`.
+    ///
+    /// Prepended before importing the module; empty by default.
     #[serde(default)]
     pub pythonpath: String,
-    /// `PYO3_AGENT_ID` -- request this `agent_id` on connect; unset lets the
-    /// server assign a fresh one.
+    /// `PYO3_AGENT_ID` -- request this `agent_id` on connect; unset gets a fresh one.
     #[serde(default)]
     pub agent_id: Option<String>,
 }

@@ -20,10 +20,11 @@ use tracing::{info, warn};
 use crate::error::RunnerError;
 use crate::python::{AgentIdSlot, Dispatcher, OutboundFrame, StorageError, StorageOp, WsSender, WsStorage};
 
-/// One unit of work for the Python dispatch thread. The WS loop forwards
-/// inbound frames plus the connect/shutdown lifecycle as these; the worker
-/// drains them in submission order, off the WS task, so a slow handler never
-/// stalls the heartbeat or the outbound drain.
+/// One unit of work for the Python dispatch thread.
+///
+/// The WS loop forwards inbound frames plus the connect/shutdown lifecycle as
+/// these; the worker drains them in submission order, off the WS task, so a
+/// slow handler never stalls the heartbeat or the outbound drain.
 #[derive(Debug)]
 enum InboundEvent {
     Connect(String),
@@ -32,40 +33,46 @@ enum InboundEvent {
     Shutdown,
 }
 
+/// Connection inputs the binary entrypoint hands to [`initialize`].
 #[expect(
     clippy::exhaustive_structs,
     reason = "input config built by the binary entrypoint via a struct literal; new fields are additive there"
 )]
 pub struct AgentConfig {
     pub ws_url: String,
-    /// Optional `agent_id` to request on connect. `None` lets the server
-    /// assign a fresh one.
+    /// Optional `agent_id` to request on connect.
+    ///
+    /// `None` lets the server assign a fresh one.
     pub requested_agent_id: Option<String>,
     /// How long to wait for `et-connect-ack`; `None` waits forever.
     pub connect_ack_timeout: Option<Duration>,
 }
 
+/// A built-but-not-yet-connected agent: channels, dispatcher, and config.
+///
+/// Produced by [`initialize`] and consumed by [`run`], which connects and
+/// drives it.
 #[non_exhaustive]
 pub struct InitializedAgent {
     pub config: AgentConfig,
     pub dispatcher: Dispatcher,
-    /// Reply-by-return path: the Python dispatch worker pushes a handler's
-    /// returned `bytes` / `str` onto the same outbound queue Python's
-    /// `WsSender` writes to.
+    /// Reply-by-return path for handler return values.
+    ///
+    /// The Python dispatch worker pushes a handler's returned `bytes` / `str`
+    /// onto the same outbound queue Python's `WsSender` writes to.
     pub outbound_tx: mpsc::UnboundedSender<OutboundFrame>,
     pub outbound_rx: mpsc::UnboundedReceiver<OutboundFrame>,
-    /// Shared cell `WsStorage.put()` reads to know our `agent_id`. The
-    /// runner populates it after `et-connect-ack`.
+    /// Shared cell `WsStorage.put()` reads to learn our `agent_id`.
+    ///
+    /// The runner populates it after `et-connect-ack`.
     pub agent_id_slot: AgentIdSlot,
-    /// Receiver half of the storage op channel -- drained by the
-    /// dedicated worker task in `run()`.
+    /// Receiver half of the storage op channel, drained by the worker in `run()`.
     pub storage_rx: mpsc::UnboundedReceiver<StorageOp>,
     /// Base URL for storage requests, e.g. `http://127.0.0.1:8080`.
     pub http_base: String,
 }
 
-/// Build the outbound channel + Sender + Storage, then import the
-/// Python module.
+/// Build the channels, `WsSender`, and `WsStorage`, then import the module.
 ///
 /// The Sender and Storage are built first so they can be handed to the
 /// module's `init(send, storage)` hook. The Storage's `agent_id` is
@@ -104,6 +111,11 @@ pub fn initialize(
     })
 }
 
+/// Connect, register, and drive the agent until the connection closes.
+///
+/// Spawns the storage worker and the Python dispatch thread, completes the
+/// `et-connect` handshake, then runs the WS loop. Returns once the socket
+/// closes or `drive` errors.
 pub async fn run(agent: InitializedAgent) -> Result<(), RunnerError> {
     let InitializedAgent {
         config,
@@ -160,10 +172,11 @@ pub async fn run(agent: InitializedAgent) -> Result<(), RunnerError> {
     result
 }
 
-/// Own the `Dispatcher` on a dedicated OS thread and run every Python hook
-/// here, fully decoupling Python execution from the async WS task. Handler
-/// return values are pushed onto the same outbound queue Python's `WsSender`
-/// writes to. Runs until the inbound channel closes (after `Shutdown`).
+/// Run every Python hook on a dedicated OS thread, owning the `Dispatcher`.
+///
+/// Fully decouples Python execution from the async WS task. Handler return
+/// values are pushed onto the same outbound queue Python's `WsSender` writes
+/// to. Runs until the inbound channel closes (after `Shutdown`).
 #[expect(
     clippy::cognitive_complexity,
     clippy::needless_pass_by_value,
@@ -201,12 +214,12 @@ fn python_worker(
     }
 }
 
-/// Run forever, draining `StorageOp`s from the channel and resolving each
-/// through the generated `et-rest-client`. One worker handles all storage
-/// I/O for the agent -- the operations are infrequent (load on connect, save
-/// on shutdown for the typical model-weights case) so serial execution is
-/// fine. A missing key surfaces as the client's `ErrorResponse` (the 404
-/// arm), which we map to `Ok(None)`.
+/// Drain `StorageOp`s from the channel, resolving each via `et-rest-client`.
+///
+/// One worker handles all storage I/O for the agent -- the operations are
+/// infrequent (load on connect, save on shutdown for the typical model-weights
+/// case) so serial execution is fine. A missing key surfaces as the client's
+/// `ErrorResponse` (the 404 arm), which we map to `Ok(None)`.
 async fn storage_worker(http_base: String, mut rx: mpsc::UnboundedReceiver<StorageOp>) {
     let client = et_rest_client::Client::new(&http_base);
     while let Some(op) = rx.recv().await {
@@ -238,10 +251,12 @@ async fn storage_worker(http_base: String, mut rx: mpsc::UnboundedReceiver<Stora
     }
 }
 
-/// Drive the socket in both directions. Inbound frames are forwarded to the
-/// Python dispatch worker via `inbound_tx` (a non-blocking send, so a slow
-/// handler never holds up this loop); outbound frames the worker or Python's
-/// `WsSender` produced come back through `outbound_rx` and out to the socket.
+/// Drive the socket in both directions.
+///
+/// Inbound frames are forwarded to the Python dispatch worker via `inbound_tx`
+/// (a non-blocking send, so a slow handler never holds up this loop); outbound
+/// frames the worker or Python's `WsSender` produced come back through
+/// `outbound_rx` and out to the socket.
 async fn drive(
     socket: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
     inbound_tx: &mpsc::UnboundedSender<InboundEvent>,

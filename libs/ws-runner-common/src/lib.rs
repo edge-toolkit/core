@@ -1,6 +1,6 @@
-//! Helpers and constants shared by the native ws-server agent runners
-//! (`et-ws-wasi-runner`, `et-ws-web-runner`, `et-ws-pyo3-runner`).
+//! Helpers and constants shared by the native ws-server agent runners.
 //!
+//! Used by `et-ws-wasi-runner`, `et-ws-web-runner`, and `et-ws-pyo3-runner`.
 //! Bootstrap helpers talk to the ws-server REST surface to set up a module:
 //! derive the HTTP base from the WebSocket URL, drain streamed responses, and
 //! read the `main` entry from `package.json`. Connection helpers cover the
@@ -33,13 +33,17 @@ pub mod config;
 /// A live websocket to the ws-server that has completed the et-connect handshake.
 pub type RegisteredSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
-/// Lower bound on the connect-ack retry interval. Stops a small configured
-/// timeout from collapsing the backoff to near-zero (which would hammer the
-/// server); also the interval used when the timeout is disabled (retry forever).
+/// Lower bound on the connect-ack retry interval.
+///
+/// Stops a small configured timeout from collapsing the backoff to near-zero
+/// (which would hammer the server); also the interval used when the timeout is
+/// disabled (retry forever).
 const MIN_RETRY_INTERVAL: Duration = Duration::from_millis(250);
 
-/// Upper bound on the connect-ack retry interval, so a long or disabled timeout
-/// doesn't let the backoff crawl out to retry-policies' multi-minute default.
+/// Upper bound on the connect-ack retry interval.
+///
+/// Keeps a long or disabled timeout from letting the backoff crawl out to
+/// retry-policies' multi-minute default.
 const MAX_RETRY_INTERVAL: Duration = Duration::from_secs(5);
 
 /// How often a runner pings the ws-server to stay connected.
@@ -130,10 +134,12 @@ pub async fn connect_and_register(
     }
 }
 
-/// Smart timeout -> retry policy. `Some(total)` bounds total retry time to
-/// `total`; `None` retries forever. The backoff floor is a fraction of the
-/// total but never below [`MIN_RETRY_INTERVAL`] (so a small timeout doesn't
-/// collapse the interval to near-zero and hammer the server) nor above the cap.
+/// Map a timeout to a retry policy.
+///
+/// `Some(total)` bounds total retry time to `total`; `None` retries forever.
+/// The backoff floor is a fraction of the total but never below
+/// [`MIN_RETRY_INTERVAL`] (so a small timeout doesn't collapse the interval to
+/// near-zero and hammer the server) nor above the cap.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct step of connect_and_register; kept separate for readability and future reuse"
@@ -152,8 +158,10 @@ fn backoff_for_timeout(timeout: Option<Duration>) -> Box<dyn RetryPolicy + Send 
     }
 }
 
-/// Per-attempt budget: the time left before the total deadline, clamped so one
-/// attempt can't overrun the cap and always gets a minimum window to connect.
+/// Compute this attempt's connect budget.
+///
+/// The time left before the total deadline, clamped so one attempt can't
+/// overrun the cap and always gets a minimum window to connect.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct step of connect_and_register; kept separate for readability and future reuse"
