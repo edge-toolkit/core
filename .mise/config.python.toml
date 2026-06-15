@@ -165,6 +165,10 @@ UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_u
 depends = ["gen:ws-spec"]
 description = "Emit the typed Python REST client via openapi-python-client (consumes generated/specs/rest.yaml)"
 run = """
+# Codegen; committed and regenerated/verified on Linux. Skip on Windows, where
+# the workspace `ruff` (a mise tool) isn't on the busybox-ash PATH -- same as
+# gen:python-ws. Regenerating there would only risk clobbering committed source.
+[ "${OS:-}" = "Windows_NT" ] && { echo "gen:python-rest: skipped on Windows (regenerated on Linux)"; exit 0; }
 mkdir -p generated/python-rest/et_rest_client
 # None of these args move into config/openapi-python-client.yaml -- path / meta
 # / overwrite / output-path are CLI-only `generate` options. Build them up in a
@@ -196,6 +200,10 @@ description = "Emit Pydantic models for the WS protocol via datamodel-code-gener
 # input/output paths are passed on the CLI.
 dir = "generated/python-ws"
 run = """
+# Codegen; the output is committed and regenerated/verified on Linux. Skip on
+# Windows, where this task's tools (coreutils/ruff) aren't on the busybox-ash
+# PATH -- regenerating there would only risk clobbering the committed source.
+[ "${OS:-}" = "Windows_NT" ] && { echo "gen:python-ws: skipped on Windows (regenerated on Linux)"; exit 0; }
 mkdir -p et_ws
 datamodel-codegen --input ../../target/int-gen/ws.schema.json --output et_ws/messages.py
 # Drop the 2-line header (a lone `#` + the blank after it) that
