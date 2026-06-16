@@ -69,8 +69,12 @@ FROM ${BASE_IMAGE} AS build-minimal
 # with "Couldn't find a valid ICU package installed on the system") is named
 # per distro: on apt the runtime pkg is libicu<NN> (auto-detected via
 # `apt-cache search`, covers libicu72 bookworm / libicu74 ubuntu 24.04 /
-# libicu76 trixie / libicu78 ubuntu 26.04); on dnf it's the unversioned
-# `libicu`. The RUN below picks the path by whichever package manager exists.
+# libicu76 trixie / libicu78 ubuntu 26.04); on Fedora's dnf it's the unversioned
+# `libicu`; Azure Linux renames it to `icu`. Same applies to `libatomic` ->
+# `libgcc-atomic` on Azure Linux. The RUN below picks the install command by
+# whichever package manager exists (apt-get / dnf / tdnf) and detects Azure
+# Linux via /etc/os-release's `ID=azurelinux` to apply the rename so
+# DNF_PACKAGES stays the single source of truth for RPM-family naming.
 ARG APT_PACKAGES="bash bzip2 ca-certificates curl g++ gcc git gzip libc6-dev make tar unzip"
 ARG DNF_PACKAGES="bash bzip2 ca-certificates curl gcc-c++ gcc git glibc-devel gzip libatomic libicu make tar unzip"
 RUN if command -v apt-get >/dev/null 2>&1; then \
@@ -80,11 +84,26 @@ RUN if command -v apt-get >/dev/null 2>&1; then \
         && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             $APT_PACKAGES "$libicu" \
         && rm -rf /var/lib/apt/lists/* ; \
-    elif command -v dnf >/dev/null 2>&1; then \
-        dnf install -y --setopt=install_weak_deps=False $DNF_PACKAGES \
-        && dnf clean all ; \
+    elif command -v dnf >/dev/null 2>&1 || command -v tdnf >/dev/null 2>&1; then \
+        is_azl=false ; \
+        if grep -q '^ID=azurelinux$' /etc/os-release 2>/dev/null; then is_azl=true ; fi ; \
+        pkgs="" ; \
+        for w in $DNF_PACKAGES; do \
+            if [ "$is_azl" = true ]; then \
+                case "$w" in \
+                    libicu) w=icu ;; \
+                    libatomic) w=libgcc-atomic ;; \
+                esac ; \
+            fi ; \
+            pkgs="$pkgs $w" ; \
+        done ; \
+        if command -v dnf >/dev/null 2>&1; then \
+            dnf install -y --setopt=install_weak_deps=False $pkgs && dnf clean all ; \
+        else \
+            tdnf install -y $pkgs && tdnf clean all ; \
+        fi ; \
     else \
-        echo "no supported package manager (apt-get or dnf) found" >&2; exit 1; \
+        echo "no supported package manager (apt-get, dnf, or tdnf) found" >&2; exit 1; \
     fi
 
 # Install mise and put it + its shims on PATH; in a non-interactive build that's
@@ -167,8 +186,8 @@ RUN mise run build-modules && rm -rf target/
 FROM precompile AS test
 ENV NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=all
 # Vulkan runtime + Mesa drivers via whichever package manager the base has.
-# Debian/Ubuntu: libvulkan1 + mesa-vulkan-drivers; Fedora: vulkan-loader +
-# mesa-vulkan-drivers (same Mesa name, different loader name).
+# Debian/Ubuntu: libvulkan1 + mesa-vulkan-drivers; Fedora and Azure Linux:
+# vulkan-loader + mesa-vulkan-drivers (same Mesa name, different loader name).
 RUN if command -v apt-get >/dev/null 2>&1; then \
         apt-get update \
         && apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers \
@@ -176,6 +195,8 @@ RUN if command -v apt-get >/dev/null 2>&1; then \
     elif command -v dnf >/dev/null 2>&1; then \
         dnf install -y --setopt=install_weak_deps=False vulkan-loader mesa-vulkan-drivers \
         && dnf clean all ; \
+    elif command -v tdnf >/dev/null 2>&1; then \
+        tdnf install -y vulkan-loader mesa-vulkan-drivers && tdnf clean all ; \
     else \
         echo "no supported package manager for libvulkan1/mesa-vulkan-drivers" >&2; exit 1; \
     fi

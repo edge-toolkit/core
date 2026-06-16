@@ -33,7 +33,7 @@ jobs:
           - debian:bookworm
           - debian:trixie
           - fedora:42
-          - mcr.microsoft.com/azurelinux/base/core:4.0
+          - mcr.microsoft.com/azurelinux/base/core:3.0
     name: build (${{ matrix.base }})
     steps:
       - name: Checkout
