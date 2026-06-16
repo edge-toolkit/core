@@ -352,6 +352,63 @@ ast-grep has no TOML grammar, so it **cannot** lint TOML — use a taplo schema 
 a semgrep `generic` rule there. If none of the above can express a check,
 propose adding a new mise-installable linter rather than scripting it by hand.
 
+## Writing JS/TS that both dprint and oxfmt accept
+
+Both formatters run on every `*.js` / `*.ts` file. `config/dprint.jsonc`'s
+`typescript` block and `config/oxfmtrc.jsonc` are tuned to agree on the
+structural choices each tool exposes as config knobs (arrow-paren style,
+binary-operator position, member-chain breaking, line width). Two
+unconfigurable structural decisions still trip them up — both reduce to:
+
+> **When an assignment statement exceeds `printWidth` (120), dprint and oxfmt
+> break it in different places.**
+
+dprint inserts a linebreak after `=`, keeping the RHS one connected unit.
+oxfmt prefers to keep the assignment one-line and break inside the RHS, OR
+in template-literal cases, refuses to break the literal at all and overflows
+silently. Either way they disagree, and there's no dprint/oxfmt knob to
+reconcile them.
+
+The fix is in the source, not the config: **keep every assignment statement
+under 120 chars**. When the RHS is genuinely long, extract intermediates.
+
+The `<!-- dprint-ignore -->` lines below stop dprint reformatting the BAD
+examples (which would otherwise hide the bug we're showing).
+
+<!-- dprint-ignore -->
+```js
+// Bad: long template literal assignment -- dprint breaks after `=`, oxfmt
+// keeps inline, neither check is happy after the other has run.
+logEl.textContent = `Initializing WASM from ${someLongUrl}\nWebSocket endpoint: ${wsUrl}`;
+```
+
+```js
+// Good: extract the long sub-expression first.
+const wasmUrl = "/modules/et-ws-wasm-agent/et_ws_wasm_agent_bg.wasm";
+logEl.textContent = `Initializing WASM from ${wasmUrl}\nWebSocket endpoint: ${wsUrl}`;
+```
+
+<!-- dprint-ignore -->
+```js
+// Bad: nested ternary / `||` chain straddles the line limit.
+const wsUrl = globalThis.__ET_WS_URL ||
+  `${(typeof location !== "undefined" ? location.protocol : "ws:") === "https:" ? "wss:" : "ws:"}//${
+    typeof location !== "undefined" ? location.host : "localhost:8080"
+  }/ws`;
+```
+
+```js
+// Good: lift the parts to named locals; each line stays well under 120.
+const loc = typeof location !== "undefined" ? location : null;
+const wsProto = loc?.protocol === "https:" ? "wss:" : "ws:";
+const wsHost = loc?.host ?? "localhost:8080";
+const wsUrl = globalThis.__ET_WS_URL || `${wsProto}//${wsHost}/ws`;
+```
+
+If you really cannot get the line under 120 (rare in practice), the next
+escape is `// dprint-ignore` on that single line — but verify oxfmt also
+leaves it alone after dprint runs.
+
 ## Linter ignores: keep in sync with .gitignore
 
 Some linters walk the working tree directly and never read `.gitignore`. When

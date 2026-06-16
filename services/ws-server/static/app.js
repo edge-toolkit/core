@@ -23,9 +23,7 @@ const append = (line) => {
   logEl.textContent += `\n${line}`;
 };
 
-const describeError = (error) => (
-  error instanceof Error ? error.message : String(error)
-);
+const describeError = (error) => (error instanceof Error ? error.message : String(error));
 
 const WORKFLOW_MODULES = new Map();
 
@@ -132,9 +130,9 @@ const runSelectedWorkflowModule = async () => {
 
   const loadedModule = await loadWorkflowModule(moduleKey);
   if (
-    typeof loadedModule.is_running === "function"
-    && loadedModule.is_running()
-    && typeof loadedModule.stop === "function"
+    typeof loadedModule.is_running === "function" &&
+    loadedModule.is_running() &&
+    typeof loadedModule.stop === "function"
   ) {
     append(`${moduleConfig.label} module: calling stop()`);
     loadedModule.stop();
@@ -178,8 +176,8 @@ const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
 const retainedAgentId = readStoredAgentId();
 
-logEl.textContent =
-  `Initializing WASM from /modules/et-ws-wasm-agent/et_ws_wasm_agent_bg.wasm\nWebSocket endpoint: ${wsUrl}`;
+const wasmUrl = "/modules/et-ws-wasm-agent/et_ws_wasm_agent_bg.wasm";
+logEl.textContent = `Initializing WASM from ${wasmUrl}\nWebSocket endpoint: ${wsUrl}`;
 updateAgentCard(
   retainedAgentId
     ? "Found retained agent ID in local storage. It will be re-used on connect."
@@ -240,9 +238,7 @@ try {
     const selectedModule = WORKFLOW_MODULES.get(moduleSelect.value);
     runModuleButton.disabled = true;
     moduleSelect.disabled = true;
-    runModuleButton.textContent = selectedModule
-      ? `Running ${selectedModule.label}...`
-      : "Running module...";
+    runModuleButton.textContent = selectedModule ? `Running ${selectedModule.label}...` : "Running module...";
 
     try {
       await runSelectedWorkflowModule();

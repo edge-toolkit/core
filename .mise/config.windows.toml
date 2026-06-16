@@ -21,6 +21,21 @@
 "conda:m2-gnupg" = "2.2.41.1"
 "github:mstorsjo/llvm-mingw" = { version = "20260602", matching = "ucrt-x86_64" }
 
+# Windows overrides of cargo: entries in config.toml. cargo-binstall reads
+# CARGO_BUILD_TARGET via its clap env binding (binstall/crates/bin/src/args.rs:
+# 88-95). The [env] block in this file sets it to gnullvm so the repo's own
+# Rust builds link gnullvm-only -- but neither crate publishes a gnullvm
+# quickinstall release, so without this override binstall finds nothing and
+# falls through to source (which then fails on missing gnullvm rust-std).
+# `install_env` is a per-tool override applied only during the install step
+# (mise's tool_version_options.rs: CoreToolOptions.install_env) and routes
+# binstall to the msvc release. The resulting binary runs fine on a gnullvm
+# host -- target only affects what the tool links, not what executes it.
+# (cargo:dart-typegen has no quickinstall release at all -- not just no
+# gnullvm one -- so it stays in MISE_DISABLE_TOOLS for the Windows test lane.)
+"cargo:cargo-expand" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
+"cargo:rustpython" = { version = "0.5.0", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
+
 # busybox-w32 `sh` (POSIX ash) -- the shell the bash-tasks run on. A native Win32
 # single exe with no cygwin/msys runtime, so it loads on a bare Nano Server,
 # unlike conda's msys2 bash whose msys-2.0.dll imports KERNEL32!IdnToAscii /

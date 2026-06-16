@@ -204,10 +204,15 @@ ENV NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=all
 # (VK_ERROR_INITIALIZATION_FAILED)
 # ...
 # Error: ...WebgpuError(... message='no GPU adapter available')
-# When the docker host DOES pass `--device /dev/dri`, lvp is still a valid
-# CPU fallback alongside the real GPU's ICD; the `lvp_icd` pattern selects
-# the software path either way.
-ENV VK_LOADER_DRIVERS_SELECT=lvp_icd
+# The value is a comma-separated list of fnmatch globs matched against the
+# ICD JSON filename (no implicit substring match -- a bare `lvp_icd` rejected
+# every driver on ubuntu:24.04 with "Driver 'lvp_icd.json' ignored because not
+# selected by env var 'VK_LOADER_DRIVERS_SELECT'"). The glob below catches
+# both `lvp_icd.json` (Debian/Ubuntu/Fedora) and `lvp_icd.x86_64.json`
+# (Azure Linux). When the docker host DOES pass `--device /dev/dri`, lvp is
+# still a valid CPU fallback alongside the real GPU's ICD; the lvp glob
+# selects the software path either way.
+ENV VK_LOADER_DRIVERS_SELECT=lvp_icd*
 # Vulkan runtime + Mesa drivers via whichever package manager the base has.
 # Debian/Ubuntu: libvulkan1 + mesa-vulkan-drivers; Fedora and Azure Linux:
 # vulkan-loader + mesa-vulkan-drivers (same Mesa name, different loader name).

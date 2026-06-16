@@ -31,7 +31,9 @@ if (typeof globalThis.navigator === "object" && !globalThis.navigator.userAgent)
       value: "et-ws-web-runner/deno",
       configurable: true,
     });
-  } catch (_) { /* navigator is read-only in some setups, ignore */ }
+  } catch {
+    /* navigator is read-only in some setups, ignore */
+  }
 }
 
 // `document` stub -- enough for wasm-bindgen modules that probe DOM
@@ -67,11 +69,13 @@ if (typeof globalThis.document === "undefined") {
       // A `<script src=>` append fires a dynamic import() so loaded
       // module code actually runs (the Pyodide loader uses this).
       if (child.tagName === "SCRIPT" && child.src) {
-        import(child.src).then(() => {
-          if (typeof child.onload === "function") child.onload();
-        }).catch((err) => {
-          if (typeof child.onerror === "function") child.onerror(err);
-        });
+        import(child.src)
+          .then(() => {
+            if (typeof child.onload === "function") child.onload();
+          })
+          .catch((err) => {
+            if (typeof child.onerror === "function") child.onerror(err);
+          });
       }
       return child;
     }
@@ -150,7 +154,7 @@ if (typeof globalThis.addEventListener !== "function") {
   };
   globalThis.removeEventListener = (type, fn) => {
     if (!listeners[type]) return;
-    listeners[type] = listeners[type].filter(f => f !== fn);
+    listeners[type] = listeners[type].filter((f) => f !== fn);
   };
   globalThis.dispatchEvent = (evt) => {
     const type = evt.type || evt;
@@ -192,4 +196,6 @@ delete globalThis.Deno;
 // uses fetch() against the http_base, which is what we want.
 try {
   delete globalThis.process;
-} catch (_) {}
+} catch {
+  /* delete may be forbidden in strict mode -- harmless */
+}

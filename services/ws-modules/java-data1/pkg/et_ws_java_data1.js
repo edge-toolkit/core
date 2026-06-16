@@ -4,7 +4,9 @@
 let javaRun = null;
 
 export default async function init() {
-  let ws = null, wsState = "disconnected", agentId = "";
+  let ws = null,
+    wsState = "disconnected",
+    agentId = "";
 
   // TeaVM @JSBody calls reference `host` as a global
   globalThis.host = {
@@ -32,11 +34,11 @@ export default async function init() {
     wsGetState: () => wsState,
     wsGetAgentId: () => agentId ?? "",
     putFile: (url, body) =>
-      fetch(url, { method: "PUT", body }).then(r => {
+      fetch(url, { method: "PUT", body }).then((r) => {
         if (!r.ok) throw new Error(`PUT failed: ${r.status}`);
       }),
     getFile: (url) =>
-      fetch(url).then(r => {
+      fetch(url).then((r) => {
         if (!r.ok) throw new Error(`GET failed: ${r.status}`);
         return r.text();
       }),
@@ -46,7 +48,7 @@ export default async function init() {
     },
     setStatus: (msg) => appendOutput(msg),
     getWsUrl: () => `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws`,
-    sleep: (ms) => new Promise(r => setTimeout(r, ms)),
+    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
   };
 
   const jsUrl = new URL("classes.js", import.meta.url).href;

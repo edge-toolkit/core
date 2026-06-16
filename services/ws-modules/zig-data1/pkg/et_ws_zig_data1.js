@@ -47,7 +47,9 @@ export async function run() {
   };
 
   return new Promise((resolve, reject) => {
-    let ws = null, wsState = "disconnected", agentId = "";
+    let ws = null,
+      wsState = "disconnected",
+      agentId = "";
 
     const poll = () => {
       if (Atomics.load(ctrl, 0) !== 1) {
@@ -62,10 +64,13 @@ export async function run() {
 
       switch (type) {
         case 0:
-          setTimeout(() => {
-            respond();
-            poll();
-          }, parseInt(payload) || 0);
+          setTimeout(
+            () => {
+              respond();
+              poll();
+            },
+            parseInt(payload) || 0,
+          );
           return;
         case 1:
           ws = new WebSocket(payload);
@@ -150,7 +155,11 @@ export async function run() {
     worker.onmessage = (e) => {
       if (e.data.done) {
         worker.terminate();
-        e.data.ret === 0 ? resolve() : reject(new Error("zig-data1: run() returned " + e.data.ret));
+        if (e.data.ret === 0) {
+          resolve();
+        } else {
+          reject(new Error("zig-data1: run() returned " + e.data.ret));
+        }
       }
     };
     worker.onerror = (e) => {

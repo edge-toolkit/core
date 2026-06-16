@@ -124,7 +124,7 @@ async function infer(state) {
   const geometry = py.preprocess_geometry(video.videoWidth, video.videoHeight).toJs({
     dict_converter: Object.fromEntries,
   });
-  const canvas = workCanvas ??= document.createElement("canvas");
+  const canvas = (workCanvas ??= document.createElement("canvas"));
   canvas.width = cfg.input_width;
   canvas.height = cfg.input_height;
 
@@ -134,12 +134,7 @@ async function infer(state) {
 
   const tensor = imageDataToTensor(ctx.getImageData(0, 0, canvas.width, canvas.height).data);
   const outputs = await state.session.run({
-    [state.inputName]: new globalThis.ort.Tensor("float32", tensor, [
-      1,
-      cfg.input_height,
-      cfg.input_width,
-      3,
-    ]),
+    [state.inputName]: new globalThis.ort.Tensor("float32", tensor, [1, cfg.input_height, cfg.input_width, 3]),
   });
 
   return pyodide.toPy({
@@ -197,15 +192,15 @@ function cleanup(state) {
 }
 
 function setStatus(message) {
-  const element = document.getElementById("module-output");
-  if (element) element.value = message;
+  const output = document.getElementById("module-output");
+  if (output) output.value = message;
 }
 
 function log(message) {
   const line = `[pyface1] ${message}`;
   console.log(line);
-  const element = document.getElementById("log");
-  if (element) element.textContent = element.textContent ? `${element.textContent}\n${line}` : line;
+  const logEl = document.getElementById("log");
+  if (logEl) logEl.textContent = logEl.textContent ? `${logEl.textContent}\n${line}` : line;
 }
 
 function sleep(ms) {

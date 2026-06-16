@@ -67,17 +67,16 @@ jobs:
           )
           ) }}
     env:
-      # Windows-only: skip the two cargo: source-builds that need a fully-set-up
-      # gnullvm toolchain at install time. The Nano docker (Dockerfile.nanoserver)
-      # sets the same flag; on the windows-latest runner here the gnullvm
-      # rust-std isn't reliably in place when cargo install runs them, leading to
-      # the rustc diagnostic:
+      # Windows-only: skip the cargo: source-build that would otherwise be
+      # triggered when the gnullvm rust-std isn't fully laid down -- rustc fails
+      # with:
       #   error[E0463]: can't find crate for `core`
       #     = note: the `x86_64-pc-windows-gnullvm` target may not be installed
-      # Both are dev-only tools (cargo-expand: macro debugging; dart-typegen:
-      # used only by `mise run gen:dart-ws`, which the dart config skips on
-      # Windows anyway); neither is in the test suite's hot path.
-      MISE_DISABLE_TOOLS: ${{ startsWith(matrix.os, 'windows') && 'cargo:cargo-expand,cargo:dart-typegen' || '' }}
+      # cargo:dart-typegen is dev-only (used only by `mise run gen:dart-ws`,
+      # which the dart config skips on Windows) and has no quickinstall release,
+      # so it can't be steered to a prebuilt the way cargo:cargo-expand and
+      # cargo:rustpython can (see config.windows.toml's install_env overrides).
+      MISE_DISABLE_TOOLS: ${{ startsWith(matrix.os, 'windows') && 'cargo:dart-typegen' || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -146,6 +145,19 @@ jobs:
 
       - name: Build pywasm1 module
         run: mise run build-pywasm1-module
+
+      # `build-pywasm1-module` already copied the wasm-pack output into
+      # services/ws-modules/pywasm1/pkg/, so the RustPython source tree + its
+      # ~3 GB cargo target/ is dead weight once we get here. Removing it
+      # reclaims the disk headroom the test-ws-web-runner link phase needs
+      # (it otherwise hit `No space left on device (os error 28)` on
+      # ubuntu-latest's 14 GB runner). Free both the per-language tier
+      # subdir and the wasm-pack output dir.
+      - name: Free disk space after pywasm1 build
+        if: runner.os == 'Linux'
+        run: |
+          rm -rf "$HOME/rust/RustPython"
+          df -h /
 
       - name: Run tests
         run: mise run test

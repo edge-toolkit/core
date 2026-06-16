@@ -7,7 +7,9 @@ export default async function init() {
   const { dotnet } = await import(new URL("dotnet.js", import.meta.url).href);
   const { getAssemblyExports, setModuleImports } = await dotnet.create();
 
-  let ws = null, wsState = "disconnected", agentId = "";
+  let ws = null,
+    wsState = "disconnected",
+    agentId = "";
 
   setModuleImports("dotnet-data1", {
     wsConnect: (url) => {
@@ -34,11 +36,11 @@ export default async function init() {
     wsGetState: () => wsState,
     wsGetAgentId: () => agentId ?? "",
     putFile: (url, body) =>
-      fetch(url, { method: "PUT", body }).then(r => {
+      fetch(url, { method: "PUT", body }).then((r) => {
         if (!r.ok) throw new Error(`PUT failed: ${r.status}`);
       }),
     getFile: (url) =>
-      fetch(url).then(r => {
+      fetch(url).then((r) => {
         if (!r.ok) throw new Error(`GET failed: ${r.status}`);
         return r.text();
       }),
@@ -49,7 +51,7 @@ export default async function init() {
     setStatus: (msg) => appendOutput(msg),
     getWsUrl: () => `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws`,
     getIsoTimestamp: () => new Date().toISOString(),
-    sleep: (ms) => new Promise(r => setTimeout(r, ms)),
+    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
   });
 
   exports = await getAssemblyExports("dotnet-data1");

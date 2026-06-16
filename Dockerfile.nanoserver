@@ -320,17 +320,20 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 # SHGetFolderPathW, which Nano lacks, at import, and mise can't even find pipx at
 # install time. cowsay is only an et-ws-pyo3-runner test fixture; semgrep + cpplint
 # are linters run by `mise run check` on Linux. lychee -- the link-check task isn't
-# part of the Windows build/test flow. cargo:cargo-expand + cargo:dart-typegen --
-# dev-only tools with no role in image builds, and both currently fail to source-
-# build against the gnullvm target on the Windows test workflow with:
+# part of the Windows build/test flow. cargo:dart-typegen -- dev-only tool with
+# no role in image builds, no quickinstall release to steer at, and would
+# otherwise fail to source-build against the gnullvm target with:
 # error[E0463]: can't find crate for `core`
 # = note: the `x86_64-pc-windows-gnullvm` target may not be installed
+# (cargo:cargo-expand + cargo:rustpython hit the same source-build trap on this
+# image but have msvc quickinstall releases, so config.windows.toml's
+# per-tool install_env override steers them at those prebuilts instead.)
 # conda:m2-gnupg -- the workstation Windows path uses this msys2 gnupg (declared
 # in config.windows.toml); on Nano its msys-2.0.dll trips the kernel32 autoload
 # trap (see the comment block at the top of this file), so the gpgbin donor stage
 # above provides a clean MinGW gpg.exe at C:\gnupg\bin instead. All install fine
 # elsewhere; dropping them here just keeps the image lean.
-ENV MISE_DISABLE_TOOLS=cargo:cargo-expand,cargo:dart-typegen,conda:m2-gnupg,lychee,pipx:cowsay,pipx:cpplint,pipx:semgrep
+ENV MISE_DISABLE_TOOLS=cargo:dart-typegen,conda:m2-gnupg,lychee,pipx:cowsay,pipx:cpplint,pipx:semgrep
 
 # The remaining always-loaded tools (the cargo: tools; python is already
 # installed above) now that rust links via gnullvm.

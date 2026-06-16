@@ -1,0 +1,45 @@
+// oxlint config. Has to be JSON/JSONC: oxlint's loader (`crates/oxc_linter/
+// src/config/oxlintrc.rs`'s `is_json_ext`) only accepts `.json` / `.jsonc`
+// and outright rejects everything else with "Only JSON configuration files
+// are supported" -- no YAML, no TOML, no TS despite docs hinting otherwise.
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn",
+    "restriction": "off",
+    "pedantic": "off",
+    "style": "off",
+    "nursery": "off",
+  },
+  "rules": {
+    // __ET_* are sentinel globals shared across the deno shim and the
+    // ws-modules: et-ws-web-runner substitutes the `__ET_HTTP_BASE__` /
+    // `__ET_WS_URL__` placeholders before exec, and the resulting
+    // `globalThis.__ET_*` is how the modules read the host base URL.
+    // Intentional cross-boundary underscore naming, like webpack's
+    // `__webpack_*` or Python dunders.
+    "eslint/no-underscore-dangle": ["warn", { "allow": ["__ET_HTTP_BASE", "__ET_WS_URL"] }],
+    // Worker.postMessage takes no targetOrigin (unlike Window.postMessage);
+    // the rule can't distinguish, so it false-positives on every worker-side
+    // / main-side `worker.postMessage({...})` call we have.
+    "unicorn/require-post-message-target-origin": "off",
+  },
+  "overrides": [
+    {
+      // shim.js installs DOM stubs (Window / HTMLElement / HTMLCanvasElement /
+      // Image classes, `obj.onload = null` property inits) so Deno-hosted
+      // wasm-bindgen modules see a browser-shaped global. The style rules
+      // below conflict with that design: stub classes MUST exist as classes
+      // for `instanceof`, on-handler properties MUST exist as settable
+      // null-initialised fields.
+      "files": ["**/services/ws-web-runner/src/shim.js"],
+      "rules": {
+        "typescript/no-extraneous-class": "off",
+        "unicorn/prefer-add-event-listener": "off",
+        "unicorn/consistent-function-scoping": "off",
+      },
+    },
+  ],
+}
