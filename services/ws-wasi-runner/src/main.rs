@@ -65,12 +65,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // binary use still does normal teardown).
     #[cfg(target_os = "macos")]
     if std::env::var_os("ET_WS_WASI_RUNNER_FAST_EXIT").is_some() {
-        // SAFETY: `_exit(0)` is async-signal-safe and has no preconditions; it
-        // terminates the process immediately without running atexit handlers.
         #[expect(
             unsafe_code,
             reason = "libc::_exit is the only way to skip atexit handlers; see comment above"
         )]
+        // SAFETY: `_exit(0)` is async-signal-safe and has no preconditions; it
+        // terminates the process immediately without running atexit handlers.
         unsafe {
             libc::_exit(0);
         }

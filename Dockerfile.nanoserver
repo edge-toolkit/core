@@ -120,10 +120,16 @@ ENV HOME=C:\Users\ContainerAdministrator
 
 # Sanity-check that HOME is the running user's real profile: it must exist and
 # end with the current %USERNAME%. USERPROFILE is echoed for diagnostics.
-RUN echo HOME=[%HOME%] USERPROFILE=[%USERPROFILE%] USERNAME=[%USERNAME%] & `
+# Also sanity-check %APPDATA% (gnupg 2.5's homedir is %APPDATA%\gnupg; Nano may
+# not pre-create %USERPROFILE%\AppData\Roaming for ContainerAdministrator, in
+# which case gpg's first homedir-create later fails -- catch it here, where the
+# fix is a one-line `mkdir` rather than at the mise-runs-gpg invocation site).
+RUN echo HOME=[%HOME%] USERPROFILE=[%USERPROFILE%] USERNAME=[%USERNAME%] APPDATA=[%APPDATA%] & `
     if not exist "%HOME%\" exit /b 1 & `
     echo %HOME%| findstr /i /e /c:"%USERNAME%" >nul & `
-    if errorlevel 1 exit /b 1
+    if errorlevel 1 exit /b 1 & `
+    if "%APPDATA%"=="" (echo APPDATA is unset & exit /b 1) & `
+    if not exist "%APPDATA%\" (echo %APPDATA% dir does not exist & exit /b 1)
 
 # Nano Server's default temp dir can be missing/unwritable, which fails rustup's
 # "persist temporary file" step (Access denied) installing toolchains. Point
@@ -183,6 +189,25 @@ RUN tar -xf C:\mise.zip -C C:\ && del C:\mise.zip
 ENV MISESHIMS=C:\Users\ContainerAdministrator\AppData\Local\mise\shims
 ENV LLVMBIN=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\github-mstorsjo-llvm-mingw\20260602\bin
 ENV PATH="C:\mise\bin;${MISESHIMS};C:\Windows\System32;C:\Windows;${LLVMBIN};C:\gnupg\bin;${PATH}"
+
+# Diagnostic for gpg-on-Nano (fail-fast). With gpg only newly here via the
+# gpgbin donor stage, the earliest known failure mode was the bare gpg invoke
+# crashing -- so check it three ways before mise touches it:
+# (1) dir listing of C:\gnupg\bin proves the silent install populated bin/
+# (2) `gpg --version` proves gpg.exe loads + its supporting DLLs resolve
+# (3) `gpg --list-keys` proves the keyring + keyboxd spawn work on Nano
+# %APPDATA% existence is checked earlier with HOME. gpg writes its homedir to
+# %APPDATA%\gnupg and --list-keys creates it on first use. If the next
+# mise-on-Nano failure is "gpg failed" after these all pass, the failure is in
+# mise's pipe-to-stdin flow, not in gpg load/init.
+RUN dir C:\gnupg\bin & `
+    echo [gpg-check] gpg --version: & `
+    gpg --version & `
+    if errorlevel 1 (echo [gpg-check] FAILED gpg --version: errorlevel=%ERRORLEVEL% & exit /b 1) & `
+    echo [gpg-check] gpg --list-keys: & `
+    gpg --list-keys & `
+    if errorlevel 1 (echo [gpg-check] FAILED gpg --list-keys: errorlevel=%ERRORLEVEL% & exit /b 1) & `
+    echo [gpg-check] OK
 
 WORKDIR C:\workspace
 # config.toml (always-loaded) + config.windows.toml (the Windows tools/env/task)

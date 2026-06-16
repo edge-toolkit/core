@@ -22,7 +22,7 @@ defaults:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -33,6 +33,7 @@ jobs:
           - debian:bookworm
           - debian:trixie
           - fedora:42
+          - mcr.microsoft.com/azurelinux/base/core:4.0
     name: build (${{ matrix.base }})
     steps:
       - name: Checkout
