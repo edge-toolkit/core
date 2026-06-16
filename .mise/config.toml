@@ -181,7 +181,7 @@ mnist_src = ":http:onnx/models/raw/main/validated/vision/classification/mnist/mo
 # carry the per-host base URL + flags. Kept as vars so each task line fits.
 gh_http = "--http-url https://github.com --progress --ignore-existing"
 hf_http = "--http-url https://huggingface.co --progress --ignore-existing"
-retry = "recur --attempts 8 --delay 2s --backoff 2s --max-delay 2m --jitter 0,5s --"
+retry = "recur --attempts 10 --delay 2s --backoff 2s --max-delay 3m --jitter 0,15s --"
 
 [env]
 # Comma-separated list of every language env (one per .mise/config.<lang>.toml).
