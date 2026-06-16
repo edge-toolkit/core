@@ -47,25 +47,6 @@ explained elsewhere, stop: either the existing spot is the right home (so
 say nothing here), or this is the better home (so move it here and remove
 the original). One canonical location, never two.
 
-## Prerequisites
-
-Install [`mise`](https://mise.jdx.dev/) with shell integration, then configure:
-
-```bash
-mise settings experimental=true
-mise settings set cargo.binstall true
-mise install            # Rust + Node + universal tooling (always loaded)
-```
-
-The config is split under `.mise/`: `.mise/config.toml` is always loaded
-(Rust/Node toolchain, universal linters, orchestration); per-language
-`.mise/config.<lang>.toml` files (dart, dotnet, java, python, zig) are
-selected via `MISE_ENV`. Install a guest language's toolchain with
-`MISE_ENV=dart mise install`, or every language with `mise run install-all`.
-`MISE_ENV` is comma-separated (`MISE_ENV=python,zig`) and can be exported to
-make a selection sticky. Rust currently lives in the always-loaded config
-(`.mise/config.rust.toml` is an empty placeholder for a later migration).
-
 ## Common Commands
 
 All tasks run through `mise run <task>`. The aggregates below act on Rust +
@@ -289,15 +270,65 @@ If a function is private but needs testing, add a `[lib]` target to the crate an
 
 Every file under `tests/` must start with `#![cfg(test)]` (placed after the file's `//!` doc comment, if any).
 
+## Workarounds
+
+When you can't (or shouldn't) fix the root cause right now — a libc race in
+an upstream dep, a flaky platform driver, a runner-image quirk, a toolchain
+bug, a CI-only flake — and you decide to paper over it with a workaround:
+
+- **Gate narrowly to the affected situation.** Use `#[cfg(target_os = "…")]`
+  / `target_arch` / `target_env` (or the equivalent in YAML / Dockerfiles /
+  build scripts) so other platforms keep exercising the real path. Don't
+  blanket-disable.
+- **Gate to only the use site that needs it.** For test-only quirks, a
+  test-set env var the production code checks works well. For build-time
+  quirks, a feature flag or build profile. The default behaviour on every
+  platform should stay the unworkarounded one wherever it works.
+- **Embed the exact error message verbatim** at the workaround site — a
+  comment block quoting the upstream panic / abort / linker error / test
+  failure line. GHA log retention is 3 months; once the run is gone, the
+  only way someone hitting the same symptom later finds your workaround is
+  by grepping the repo for the error string. This applies equally to
+  symptoms first seen locally and to GHA-only flakes.
+
+## Non-negotiable platform constraints
+
+Project decisions pinned here are not subject to "easier path" rewrites,
+even when something downstream is in the way. Don't propose disabling or
+working around them; find a compliant solution instead.
+
+1. **`Dockerfile.nanoserver`'s base image stays Nano Server.** Don't switch
+   to Windows Server Core / LTSC / any non-Nano-Server base, no matter how
+   much it would unblock a tool. Minimal image size on the Windows lane is
+   load-bearing.
+2. **`[settings] gpg_verify = true` stays in `.mise/config.toml`.** The
+   cross-platform default is "verify". The one allowed scope-down is
+   `ENV MISE_GPG_VERIFY=false` inside `Dockerfile.nanoserver` (only that
+   file), and only while the mise + Nano `gpg --import` / `gpg --verify`
+   pipe behavior is broken upstream. The matching gpg binary stays
+   installed (see the `gpgbin` donor stage) so flipping the env back to
+   `true` is a one-line revert once mise stops panicking on Nano. Every
+   other platform still hard-fails when gpg is unreachable.
+
+Recorded here so future iterations don't re-litigate the same trade-off.
+
 ## Tools must work on every OS
 
-Every tool in the `.mise/config*.toml` `[tools]` tables must install and run on
-every supported OS (Linux, macOS, Windows). Do **not** `os`-scope a tool, or
-otherwise skip it on a platform, without explicit operator permission — prefer a
-prebuilt-binary backend (aqua/github/http) over a `cargo:` source build, which is
-usually what forces a platform exclusion. The one place tool skips need no
-permission is the Dockerfiles (`MISE_DISABLE_TOOLS`), where trimming an image to
-just what its build needs is expected.
+Five supported platforms in two tiers. **Main tier:** macOS arm64, Linux x64,
+Windows x64 — every tool in the `.mise/config*.toml` `[tools]` tables must use a
+prebuilt-binary backend (aqua/github/http) here; a `cargo:` source-build isn't
+acceptable. **Second tier:** Linux arm64, macOS x64 — every tool must still
+install and run, but slower install mechanisms are allowed because release
+authors often skip prebuilts for these arches: a `cargo:` source-build (or
+alternate backend) `os`-scoped to a second-tier-only platform is fine. The
+conftest mise policy (`config/conftest/policy/mise.rego`) enforces both rules,
+including the narrow per-name allowlist for tools that have no prebuilt at
+any triple.
+
+Skipping a tool entirely with `MISE_DISABLE_TOOLS` is reserved for
+`Dockerfile.nanoserver`, where trimming the image to just what its build needs
+is expected. Other Dockerfiles may only disable tools that are unused by the
+build system anyway (e.g. `cargo-expand`, a dev-only macro-debugging tool).
 
 ## Linting
 
@@ -320,6 +351,19 @@ available linters:
 ast-grep has no TOML grammar, so it **cannot** lint TOML — use a taplo schema or
 a semgrep `generic` rule there. If none of the above can express a check,
 propose adding a new mise-installable linter rather than scripting it by hand.
+
+## Linter ignores: keep in sync with .gitignore
+
+Some linters walk the working tree directly and never read `.gitignore`. When
+you add a path to `.gitignore`, update their ignore lists too:
+
+- **lychee** — `config/lychee.toml`'s `exclude_path`. Its gitignore filter
+  exists but doesn't cross pnpm's symlink farm under `node_modules/.pnpm/`.
+- **ls-lint** — `config/ls-lint.yaml`'s `ignore`. Patterns are gitignore-style
+  globs; bare names match only top-level — use `**/<name>` for nested matches
+  (e.g. pnpm puts `node_modules` under each package dir, not the repo root).
+
+A new linter that surfaces ignored paths in its output belongs on this list.
 
 ## No `scripts/` directory
 

@@ -36,18 +36,35 @@ deny contains msg if {
 	msg := sprintf("%s: task %q description must be a single line", [file.path, name])
 }
 
-# `cargo:` tools build from source; prefer a prebuilt backend. Allowlist the ones
-# with no prebuilt binary (cargo-expand, dart-typegen), plus cargo:findutils which
-# is os-scoped to aarch64-linux only (its prebuilt release lacks that one arch).
-allowed_cargo_tool := {"cargo:cargo-expand", "cargo:dart-typegen", "cargo:findutils"}
+# `cargo:` tools build from source; prefer a prebuilt backend. Allowed only when
+# either (a) the tool has no prebuilt anywhere -- allowlisted by name below, or
+# (b) it is os-scoped to second-tier platforms (linux/arm64, macos/x64), whose
+# prebuilt assets release authors often skip. A first-tier platform (linux/x64,
+# macos/arm64, windows) must always have a prebuilt; source-builds there are a
+# slow surprise on the critical path.
+second_tier_platform := {"linux/arm64", "macos/x64"}
+
+allowed_cargo_no_prebuilt := {"cargo:cargo-expand", "cargo:dart-typegen"}
+
+cargo_scoped_to_second_tier(spec) if {
+	is_object(spec)
+	count(spec.os) > 0
+	every p in spec.os {
+		second_tier_platform[p]
+	}
+}
 
 deny contains msg if {
 	some file in input
 	is_mise(file)
-	some name, _ in file.contents.tools
+	some name, spec in file.contents.tools
 	startswith(name, "cargo:")
-	not allowed_cargo_tool[name]
-	msg := sprintf("%s: tool %q builds from source; use a prebuilt backend", [file.path, name])
+	not allowed_cargo_no_prebuilt[name]
+	not cargo_scoped_to_second_tier(spec)
+	msg := sprintf(
+		"%s: tool %q builds from source; use a prebuilt backend or os-scope to {linux/arm64, macos/x64}",
+		[file.path, name],
+	)
 }
 
 # `ubi:` is deprecated; the `http:` backend replaces it.
@@ -60,18 +77,21 @@ deny contains msg if {
 }
 
 # Tools should work on every OS (CLAUDE.md "Tools must work on every OS"). Any
-# os-scoped [tools] entry must be in this list -- either a genuinely
-# platform-specific tool, or one whose os-scoping just picks a per-platform
-# backend while still covering every OS (findutils: prebuilt everywhere except
-# aarch64-linux, which builds from source).
+# os-scoped [tools] entry must be in this list -- a genuinely platform-specific
+# tool, a per-platform backend pair that still covers every OS (findutils, ryl),
+# or an optional tool that self-skips on the omitted platform (pipx:torch).
 allowed_os_scoped_tool := {
 	"chromedriver",
 	"pipx",
+	"pipx:torch",
 	"npm:pnpm",
 	"pnpm",
 	"github:christianhelle/openapi2zig",
+	"github:owenlamont/ryl",
 	"github:uutils/findutils",
 	"cargo:findutils",
+	"cargo:ryl",
+	"conda:gnupg",
 }
 
 deny contains msg if {
@@ -161,4 +181,29 @@ deny contains msg if {
 	version := tool_version_str(file.contents.tools.python)
 	not regex.match(`^[0-9]+\.[0-9]+\.[0-9]+$`, version)
 	msg := sprintf("%s: python must be pinned to a full version triple, got %q", [file.path, version])
+}
+
+# Linux + macOS preinstall MUST read its prerequisite package list from the
+# Dockerfile (COMMON_PACKAGES + APT_PACKAGES / DNF_PACKAGES ARGs). The
+# Dockerfile is the single source of truth: a capability-based or hardcoded
+# check would diverge from it silently. Guard by requiring the preinstall
+# task body to reference both COMMON_PACKAGES and APT_PACKAGES somewhere
+# (env var or rg-parse of the file).
+preinstall_must_reference_apt_packages := {
+	".mise/config.linux.toml",
+	".mise/config.macos.toml",
+}
+
+required_package_args := {"APT_PACKAGES", "COMMON_PACKAGES"}
+
+deny contains msg if {
+	some file in input
+	preinstall_must_reference_apt_packages[file.path]
+	task := file.contents.tasks.preinstall
+	some required in required_package_args
+	not contains(task.run, required)
+	msg := sprintf(
+		"%s: tasks.preinstall.run must reference %s (Dockerfile is the single source of truth)",
+		[file.path, required],
+	)
 }

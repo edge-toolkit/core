@@ -22,11 +22,24 @@ defaults:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        base:
+          - ubuntu:22.04
+          - ubuntu:24.04
+          - ubuntu:26.04
+          - debian:bookworm
+          - debian:trixie
+          - fedora:42
+          - mcr.microsoft.com/azurelinux/base/core:3.0
+    name: build (${{ matrix.base }})
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          fetch-depth: 1
           persist-credentials: false
 
       # The image is huge (every language toolchain + prefetched models + a full
@@ -52,8 +65,35 @@ jobs:
 
       - name: Build stage test
         env:
+          BASE_IMAGE: ${{ matrix.base }}
+          DOCKER_BUILDKIT: "1"
           GITHUB_TOKEN: ${{ github.token }}
-        run: DOCKER_BUILDKIT=1 docker build --target test --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit-test .
+        run: docker build --target test --build-arg BASE_IMAGE --secret id=gh_token,env=GITHUB_TOKEN -t et-test .
+
+      # The check stage needs `.git/` + every tracked Dockerfile. The main
+      # `.dockerignore` excludes both (`**/Dockerfile*` so Dockerfiles in
+      # subdirs don't bloat the build context), so we pre-stage them into a
+      # directory and hand it to docker as a named build context (`extras`).
+      # The check stage does `COPY --from=extras . ./` to land them in
+      # /workspace. `cp --parents` preserves the subdir path of each Dockerfile
+      # (e.g. services/ws-server/Dockerfile), so hadolint's `git ls-files
+      # '*Dockerfile' '*Dockerfile.*' | xargs hadolint` finds every entry on
+      # disk -- a top-level cp would have left subdir Dockerfiles unfindable.
+      - name: Build stage check
+        env:
+          BASE_IMAGE: ${{ matrix.base }}
+          CTX: target/check-ctx
+          DOCKER_BUILDKIT: "1"
+          TAG: et-check
+          gh_token: ${{ github.token }}
+        run: |
+          mkdir -p "$CTX"
+          cp -r .git "$CTX/"
+          git ls-files '*Dockerfile' '*Dockerfile.*' | xargs -I{} cp --parents {} "$CTX/"
+          docker build --target check --build-arg BASE_IMAGE --build-context extras=$CTX --secret id=gh_token -t $TAG .
 
       - name: Run the test suite
-        run: docker run --rm edge-toolkit-test
+        run: docker run --rm et-test
+
+      - name: Run mise check
+        run: docker run --rm et-check

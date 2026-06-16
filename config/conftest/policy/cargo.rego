@@ -35,6 +35,8 @@ dep contains [file.path, name, spec] if {
 # root's [workspace.dependencies] is the only place a ban can bite.
 banned := {
 	"anyhow": "define a thiserror enum instead",
+	"openssl": "use rustls + aws-lc-rs -- one TLS/crypto stack only",
+	"openssl-sys": "use rustls + aws-lc-rs -- one TLS/crypto stack only",
 	"ring": "use aws-lc-rs (transitive via rcgen only; gated in config/deny.toml)",
 	"ureq": "use reqwest::blocking or reqwest -- one HTTPS stack only",
 }

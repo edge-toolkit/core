@@ -21,7 +21,9 @@ ls:
 ignore:
   - .git
   - target
-  - node_modules
+  # `**/` because pnpm puts `node_modules` nested under each package dir
+  # (`services/ws-server/static/node_modules`), not at the repo root.
+  - "**/node_modules"
   - generated
   # Bundled data/model assets -- names are not hand-chosen.
   - data

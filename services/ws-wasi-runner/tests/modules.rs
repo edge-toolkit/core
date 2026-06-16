@@ -24,9 +24,14 @@ fn module_runs_successfully(#[case] module: &str) {
     let server = et_ws_test_server::start();
 
     let bin = env!("CARGO_BIN_EXE_et-ws-wasi-runner");
+    // ET_TEST_WS_WASI_RUNNER_FAST_EXIT: opt the spawned runner into its macOS-only
+    // exit(0) short-circuit so ORT 1.22's libc++ teardown race doesn't surface
+    // as a None exit code (see main.rs for the exact stderr signature).
+    // No-op on Linux/Windows.
     let status = std::process::Command::new(bin)
         .env("RUNNER_MODULE", module)
         .env("WS_SERVER_URL", &server.ws_url)
+        .env("ET_TEST_WS_WASI_RUNNER_FAST_EXIT", "1")
         .status()
         .expect("failed to spawn et-ws-wasi-runner");
 

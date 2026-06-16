@@ -25,19 +25,94 @@ mac_libclang = "{{ exec(command='dirname $(dirname $(xcrun --find clang))') }}/l
 CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
 CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
 LIBCLANG_PATH = "{{ vars.mac_libclang }}"
+# Pin SDKROOT so cc-rs and other build scripts find the macOS SDK (stdlib.h
+# etc.) regardless of which `cc` resolves first. With the `_.path` prepend
+# below putting Xcode CLT's /usr/bin/cc ahead of any brew gcc wrapper, the
+# cc-rs invocation no longer inherits SDK headers from a brew-built compiler
+# -- and `cc -mmacosx-version-min=... <file>` without `-isysroot` then fails
+# with "'stdlib.h' file not found". Setting SDKROOT here makes the resolution
+# explicit.
+SDKROOT = "{{ exec(command='xcrun --show-sdk-path') }}"
+# Prepend Xcode CLT + macOS system bin dirs so they win priority over Homebrew
+# (where `command -v bash` etc. would otherwise resolve to /opt/homebrew/* or
+# /usr/local/bin/* on a brewed Mac). Mise's `_.path` directive prepends to
+# PATH cleanly; brew dirs stay on PATH but lose the race for shared names.
+_.path = ["/Library/Developer/CommandLineTools/usr/bin", "/bin", "/sbin", "/usr/bin", "/usr/sbin"]
 
 [tasks.preinstall]
-# Preinstall: verify Xcode's command-line tools (cc/clang etc., which mise can't
-# supply), then the shared base + conda:lld (the darwin linker). A box missing
-# the CLT is told to install them.
+# Preinstall: verify Xcode CLT (cc/clang etc., which mise can't supply), then
+# verify the build prerequisites shared with Linux. The package list has a
+# single source of truth -- the Dockerfile's APT_PACKAGES ARG: a workstation
+# reads it back from the Dockerfile in the checkout, so adding/removing a
+# prereq there propagates here automatically. Most apt names map cleanly to
+# Xcode CLT binaries or macOS pre-installed tools; the case patterns below
+# adjust the few that don't (cert path, SDK headers via xcrun). Finally
+# install conda:lld (the darwin linker the RUSTFLAGS use).
 depends = ["_setup_all"]
-description = "Preinstall: verify Xcode CLT, shared base, conda:lld (darwin linker)"
+description = "Preinstall: verify Xcode CLT + Dockerfile prereqs + conda:lld"
 run = """
 xcode-select -p >/dev/null 2>&1 || {
   echo "preinstall: Xcode command-line tools not found." >&2
   echo "Install them with: xcode-select --install" >&2
   exit 1
 }
+dockerfile="{{ config_root }}/Dockerfile"
+# Single source of truth: the Dockerfile's COMMON_PACKAGES (names identical
+# across apt/dnf/tdnf) + APT_PACKAGES (apt-specific extras). On macOS we
+# follow the apt naming because mise's apt-side workstation story is the
+# closest analogue (no dnf packages on macOS).
+common="${COMMON_PACKAGES:-}"
+specific="${APT_PACKAGES:-}"
+if [ -z "$common" ]; then
+  common="$(rg '^ARG COMMON_PACKAGES=' "$dockerfile" 2>/dev/null | coreutils cut -d'"' -f2 || true)"
+fi
+if [ -z "$specific" ]; then
+  specific="$(rg '^ARG APT_PACKAGES=' "$dockerfile" 2>/dev/null | coreutils cut -d'"' -f2 || true)"
+fi
+if [ -z "$common" ] || [ -z "$specific" ]; then
+  echo "preinstall: could not read the COMMON_PACKAGES / APT_PACKAGES prerequisite lists" >&2
+  exit 1
+fi
+pkgs="$common $specific"
+sdk="$(xcrun --show-sdk-path 2>/dev/null || true)"
+missing=""
+brewy=""
+for pkg in $pkgs; do
+  case "$pkg" in
+    ca-certificates|libc6-dev|libicu*|binutils) cmd="" ;;
+    *) cmd="$pkg" ;;
+  esac
+  case "$pkg" in
+    ca-certificates) [ -r /etc/ssl/cert.pem ] ;;
+    libc6-dev) [ -n "$sdk" ] && [ -r "$sdk/usr/include/stdio.h" ] ;;
+    libicu*) coreutils ls /usr/lib/*/libicui18n.so.* >/dev/null 2>&1 ;;
+    # macOS gets `as` from Xcode CLT, not a binutils package, but the probe
+    # via the assembler binary still confirms the assembler is reachable.
+    binutils) command -v as >/dev/null 2>&1 ;;
+    *) command -v "$pkg" >/dev/null 2>&1 ;;
+  esac || { missing="$missing $pkg"; continue; }
+  # Reject Homebrew-installed tools: this repo deliberately avoids Brew, so a
+  # tool resolving under a brew prefix means PATH has shadowed the canonical
+  # Xcode CLT / macOS-native one. Skip the file-based pkgs (no binary to check).
+  [ -n "$cmd" ] || continue
+  path="$(command -v "$cmd")" || continue
+  real="$(coreutils readlink -f "$path" 2>/dev/null || echo "$path")"
+  case "$real" in
+    /opt/homebrew/*|/usr/local/Cellar/*|/usr/local/opt/*|/usr/local/Homebrew/*)
+      brewy="$brewy $cmd($real)" ;;
+  esac
+done
+if [ -n "$missing" ]; then
+  echo "preinstall: missing required build prerequisites:$missing" >&2
+  echo "These should come from Xcode CLT (verified above) or macOS itself;" >&2
+  echo "anything still missing on a modern macOS is a setup oddity." >&2
+  exit 1
+fi
+if [ -n "$brewy" ]; then
+  echo "preinstall: tools resolved via Homebrew, which this repo avoids:$brewy" >&2
+  echo "Adjust PATH so Xcode CLT / macOS-native tools resolve first." >&2
+  exit 1
+fi
 mise install conda:lld
 """
 shell = "bash -euo pipefail -c"

@@ -28,6 +28,42 @@ description = "Build the dotnet-data1 C# WASM workflow module"
 dir = "services/ws-modules/dotnet-data1"
 run = '''
 dotnet workload install wasm-tools --skip-manifest-update
+
+# Windows-only: `dotnet workload install` drops the Emscripten SDK pack under
+# %LOCALAPPDATA%/mise/dotnet-root/packs/Microsoft.NET.Runtime.Emscripten.*/*/tools/emscripten/,
+# but does not add that dir to PATH (Linux/macOS get it via dotnet's
+# workload-install shell-rc setup). `dotnet publish`'s MSBuild targets then
+# shell out to bare `emcc` and cmd reports verbatim:
+#   'emcc' is not recognized as an internal or external command,
+#   operable program or batch file.
+# Discover the pack dir and prepend to PATH so the publish subprocess finds
+# emcc.bat. Glob via `find` so a future Emscripten / pack version bump
+# rolls forward without touching this task.
+echo "[emcc-find] OS=${OS:-<unset>} MSYSTEM=${MSYSTEM:-<unset>}"
+if [ "${OS:-}" = "Windows_NT" ]; then
+    echo "[emcc-find] LOCALAPPDATA=${LOCALAPPDATA:-<unset>}"
+    emcc_bat="$(find "$LOCALAPPDATA/mise/dotnet-root/packs" -name 'emcc.bat' 2>/dev/null | head -1)"
+    echo "[emcc-find] emcc_bat=${emcc_bat:-<empty>}"
+    if [ -n "$emcc_bat" ]; then
+        emcc_dir="$(dirname "$emcc_bat")"
+        # `cygpath -w` (Git Bash) converts /c/Users/... to C:\Users\... so the
+        # prepended PATH entry resolves in cmd.exe when MSBuild's <Exec> shells
+        # out to bare `emcc`. Without conversion, Git Bash hands Windows
+        # processes a PATH where this dir may not be recognised in the form
+        # cmd's resolver expects.
+        if command -v cygpath >/dev/null 2>&1; then
+            emcc_dir_win="$(cygpath -w "$emcc_dir")"
+            echo "[emcc-find] cygpath conversion: $emcc_dir -> $emcc_dir_win"
+            emcc_dir="$emcc_dir_win"
+        fi
+        export PATH="$emcc_dir:$PATH"
+        echo "[emcc-find] prepended to PATH: $emcc_dir"
+    else
+        echo "build-ws-dotnet-data1-module: emcc.bat not found under \$LOCALAPPDATA/mise/dotnet-root/packs" >&2
+        exit 1
+    fi
+fi
+
 dotnet publish -c Release
 
 PUBLISH=bin/Release/net10.0/publish/wwwroot/_framework

@@ -17,8 +17,17 @@ min_version = "2026.6.5"
 [settings]
 # exec_auto_install covers `mise exec`,
 # task.run_auto_install covers `mise run`.
+cargo.binstall = true
 exec_auto_install = false
+experimental = true
 task.run_auto_install = false
+# Hard-verify tool signatures via gpg on every platform (propagates to
+# node.gpg_verify and swift.gpg_verify per mise/src/config/settings.rs).
+# Without it mise's node plugin soft-skips when gpg is absent (`warn!("gpg not
+# found, skipping verification")` in mise/src/plugins/core/node.rs). gpg is
+# installed up-front in _setup_all via conda:gnupg (cross-platform conda-forge
+# build) so the subsequent `mise install node` finds it.
+gpg_verify = true
 
 [tools]
 action-validator = "latest"
@@ -35,6 +44,14 @@ watchexec = "latest"
 # in the standard CI `test` flow, so skip it on Windows entirely.
 "chromedriver" = { version = "146", os = ["linux", "macos"] }
 cmake = "latest"
+# gpg + agent + dirmngr (full gnupg suite). Required by mise's node plugin
+# verify path (`gpg --import` + `gpg --verify` against Node's signed SHASUMS);
+# `[settings] gpg_verify = true` flips that path from soft-skip to hard-fail,
+# so gpg must be reachable before `mise install node`. _setup_all does this
+# install first thing for that ordering. Conda-forge has gnupg builds for
+# linux-64, osx-64, osx-arm64 -- but NOT win-64; Windows uses the msys2
+# `conda:m2-gnupg` package declared in config.windows.toml.
+"conda:gnupg" = { version = "latest", os = ["linux", "macos"] }
 "conda:openssl" = "3"
 conftest = "latest"
 # uutils coreutils: the Rust multicall binary, invoked as `coreutils <util>` in tasks.
@@ -57,7 +74,13 @@ ripgrep = "latest"
 # below (see the `retry` var) so a transient HTTP 429 doesn't fail the build.
 "github:dbohdan/recur" = "latest"
 "github:grok-rs/waitup" = "latest"
-"github:owenlamont/ryl" = "latest"
+# ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
+"github:microsoft/onnxruntime" = "1.22.0"
+# ryl: prebuilt assets cover every platform we target except macos/x64, so that
+# one slot builds from source via cargo: (same `latest` so every platform tracks
+# the same release).
+"cargo:ryl" = { version = "latest", os = ["macos/x64"] }
+"github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 "github:wasm-bindgen/wasm-bindgen" = "0.2.122"
 hadolint = "latest"
 ls-lint = "latest"
@@ -89,15 +112,36 @@ protoc = "latest"
 # resolve to the exact `3.x.y` dir. Bump in lockstep with py3_unix/py3_win/pylib.
 python = "3.13.14"
 rclone = "latest"
-rust = [
-  { version = "latest", components = "clippy,rust-analyzer", targets = "wasm32-unknown-unknown,wasm32-wasip2" },
-  { version = "nightly", components = "rust-src,rustfmt", targets = "wasm32-unknown-unknown,wasm32-wasip2" },
-]
 typos = "latest"
 uv = "0.11.8"
 wasm-tools = "latest"
 yq = "latest"
 zizmor = "latest"
+
+# Rust toolchains -- Linux/macOS only. Windows installs the gnullvm-host
+# toolchains directly via config.windows.toml's own `[[tools.rust]]` entries,
+# which skips the install-msvc-then-flip-to-gnullvm dance the old preinstall
+# did. Both entries use `profile = "minimal"` to skip the ~1 GB rust-docs
+# HTML tree per toolchain (the Nano docker build otherwise filled its disk
+# during the second toolchain install -- crashing inside an HCS re-exec on
+# the rust-docs HTML write under share/doc/rust/html/ with "There is not
+# enough space on the disk"). Array-of-tables form rather than inline so
+# each entry fits within the 120-char limit alongside `os` + the component
+# / target lists; must come at the end of [tools] (TOML can't re-open the
+# table after the [[ … ]] array-of-tables headers below).
+[[tools.rust]]
+components = "clippy,rust-analyzer"
+os = ["linux", "macos"]
+profile = "minimal"
+targets = "wasm32-unknown-unknown,wasm32-wasip2"
+version = "latest"
+
+[[tools.rust]]
+components = "rust-src,rustfmt"
+os = ["linux", "macos"]
+profile = "minimal"
+targets = "wasm32-unknown-unknown,wasm32-wasip2"
+version = "nightly"
 
 [vars]
 # clang-tidy's resource-dir arg (points clang at its builtin headers, e.g.
@@ -119,6 +163,10 @@ wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext
 # Extra flag for the wasm-pack module builds; empty so wasm-opt runs.
 # config.windows.toml overrides it to --no-opt where wasm-opt can't execute.
 no_opt = ""
+# Linux/macOS install root for the github:microsoft/onnxruntime tool. The
+# ORT_LIB_LOCATION env below resolves to it via the OS conditional. Version
+# segment must match the [tools] pin (conftest's version_drift enforces this).
+ort_loc_unix = "{{ env.HOME }}/.local/share/mise/installs/github-microsoft-onnxruntime/1.22.0"
 # Source/dest paths for the fetch-*-rclone model downloads — kept as vars so
 # each `rclone copyto` command stays on a single line without continuations.
 face1_dst = "data/model-modules/model-face1/pkg/video_cv.onnx"
@@ -133,7 +181,7 @@ mnist_src = ":http:onnx/models/raw/main/validated/vision/classification/mnist/mo
 # carry the per-host base URL + flags. Kept as vars so each task line fits.
 gh_http = "--http-url https://github.com --progress --ignore-existing"
 hf_http = "--http-url https://huggingface.co --progress --ignore-existing"
-retry = "recur --attempts 8 --delay 2s --backoff 2s --max-delay 2m --jitter 0,5s --"
+retry = "recur --attempts 10 --delay 2s --backoff 2s --max-delay 3m --jitter 0,15s --"
 
 [env]
 # Comma-separated list of every language env (one per .mise/config.<lang>.toml).
@@ -155,6 +203,13 @@ OPENSSL_DIR = "{{ vars.conda_openssl }}"
 PYO3_PYTHON = "{{ vars.py3_unix }}"
 RCLONE_CONFIG = "{{ config_root }}/config/rclone.conf"
 RCLONE_RETRIES = "1"
+
+# Direct ort-sys (workspace `ort` dep) at the mise-staged ONNX Runtime install
+# (github:microsoft/onnxruntime above) instead of fetching at build time. The
+# workspace dep dropped the `download-binaries` feature, so SKIP_DOWNLOAD is
+# belt-and-braces (the download code path is gone).
+ORT_LIB_LOCATION = "{% if os() == 'windows' %}{{ vars.ort_loc_win }}{% else %}{{ vars.ort_loc_unix }}{% endif %}"
+ORT_SKIP_DOWNLOAD = "1"
 
 [tasks]
 ec = "ec"
@@ -190,7 +245,7 @@ depends = [
   "action-validator",
   "ast-grep-check",
   "cargo-check",
-  "cargo-clippy",
+  "cargo-clippy-check",
   "cargo-doc-check",
   "cargo-fmt-check",
   "conftest-check",
@@ -257,7 +312,8 @@ run = "cargo +nightly fmt"
 [tasks.cargo-fmt-check]
 run = "cargo +nightly fmt -- --check"
 
-[tasks.cargo-clippy]
+[tasks.cargo-clippy-check]
+alias = ["cargo-clippy", "clippy", "clippy-check"]
 run = "cargo clippy --keep-going --workspace --tests"
 
 [tasks.cargo-doc-check]
@@ -269,9 +325,11 @@ run = "cargo doc --keep-going --workspace --no-deps --document-private-items"
 run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace --tests"
 
 [tasks.taplo-fmt]
+alias = "toml-fmt"
 run = "taplo format"
 
 [tasks.taplo-fmt-check]
+alias = "toml-fmt-check"
 run = "taplo format --check"
 
 [tasks.conftest-check]
@@ -286,7 +344,7 @@ description = "Run conftest OPA/Rego policies over the TOML config + lock files"
 # .toml suffix. The TOML rule namespaces are listed explicitly, so the per-file
 # `gha` (YAML) namespace is never evaluated against this combined TOML input.
 run = """
-ns="--namespace cross --namespace cargo --namespace mise --namespace pyproject"
+ns="--namespace cross --namespace cargo --namespace mise --namespace pyproject --namespace no_trailing_backslash"
 git ls-files '*Cargo.toml' '.mise/config*.toml' '*pyproject.toml' Cargo.lock |
   xargs conftest test --combine --parser toml $ns -p config/conftest/policy
 """
@@ -294,15 +352,20 @@ shell = "bash -euo pipefail -c"
 
 [tasks.conftest-check-yaml]
 description = "Run conftest OPA/Rego policies over the GitHub Actions workflow YAML"
-run = "conftest test --parser yaml --namespace gha -p config/conftest/policy .github/workflows"
+run = """
+ns="--namespace gha --namespace no_trailing_backslash"
+conftest test --parser yaml $ns -p config/conftest/policy .github/workflows
+"""
+shell = "bash -euo pipefail -c"
 
 [tasks.conftest-check-dockerfile]
-description = "Cross-check Dockerfile.nanoserver's hard-coded mise install paths against [tools] version pins"
+description = "Cross-check the Windows Dockerfile's hard-coded mise install paths against [tools] version pins"
 # Combine the Dockerfile with the mise configs (the .mise dir is all TOML), so
 # conftest auto-detects each file's parser and the rule sees every [tools] pin.
 run = "conftest test --combine --namespace dockerfile -p config/conftest/policy Dockerfile.nanoserver .mise"
 
 [tasks.taplo-check]
+alias = "toml-check"
 # `taplo lint` reads config/taplo.toml's `[[rule]] schema` entries for editor /
 # LSP-style validation, but silently ignores their nested constraints in
 # CLI mode (verified: injecting `path = "../foo"` into a member Cargo.toml
@@ -352,13 +415,8 @@ xargs taplo lint --schema "file://$PWD/config/taplo/no-lib-name.schema.json" <"$
 rg -vxF './generated/rust-rest/Cargo.toml' "$members" |
   xargs taplo lint --schema "file://$PWD/config/taplo/require-lints-section.schema.json"
 
-# mise task `run` must be a string, not an array: taplo's reorder_arrays would
-# re-sort an array and scramble an ordered command sequence (use a multiline
-# string, one command per line). Applies to every .mise/config*.toml.
 taplo lint --schema "file://$PWD/config/taplo/mise-run-not-array.schema.json" .mise/config*.toml
 
-# ubi: is deprecated (use http:); cargo: builds from source (slow), allowed only
-# for cargo-expand + dart-typegen. Two separate rules, two reasons.
 taplo lint --schema "file://$PWD/config/taplo/mise-no-ubi-backend.schema.json" .mise/config*.toml
 taplo lint --schema "file://$PWD/config/taplo/mise-cargo-backend-allowlist.schema.json" .mise/config*.toml
 """
@@ -406,13 +464,27 @@ shell = "bash -euo pipefail -c"
 description = "Private shared cross-platform preinstall"
 hide = true
 run = """
-mise settings experimental=true
-mise settings set cargo.binstall true
+# gpg must land BEFORE `mise install node` below: node's gpg-verify path
+# (mise/src/plugins/core/node.rs) hard-fails when gpg_verify is enabled and
+# gpg isn't reachable. Per-platform package: conda:gnupg on Linux/macOS
+# (conda-forge has no win-64 build), conda:m2-gnupg on Windows (msys2 mirror
+# package; config.windows.toml adds its bin to `_.path` so subprocess PATH
+# picks up gpg.exe -- otherwise mise's per-tool .mise-bins misses the nested
+# `Library/usr/bin` layout).
+{% if os() == 'windows' %}mise install conda:m2-gnupg{% else %}mise install conda:gnupg{% endif %}
+mise install gh
 mise install cargo-binstall
 mise install node
 mise install conda:openssl
 mise install coreutils
 mise install ripgrep
+# goawk lands here in _setup_all so it's available to every later step that
+# may need `awk` -- third-party scripts (dotnet-install.sh on Linux, others)
+# hard-code bare `awk`, and the per-OS preinstalls below symlink mise's
+# `goawk` into `awk` on hosts where the base image lacks one (Azure Linux
+# base/core notably). Installing here, not in the per-OS preinstall body,
+# keeps the `mise which goawk` call those use guaranteed to resolve.
+mise install github:benhoyt/goawk
 """
 shell = "bash -euo pipefail -c"
 
@@ -438,7 +510,25 @@ shell = "bash -euo pipefail -c"
 
 [tasks.cargo-deny-check]
 description = "Audit dependencies with cargo-deny (advisories, bans, licenses, sources)"
-run = "cargo deny check --config config/deny.toml"
+# Escalate `no-license-field` to a hard error, EXCEPT for crates with an
+# explicit clarify entry in config/deny.toml. cargo-deny has no per-crate
+# diagnostic-level config, so we post-filter its output: any
+# `warning[no-license-field]` whose crate isn't allowlisted (currently just
+# `saffron`) fails the task. A new transitive dep without an SPDX `license`
+# expression must then land in clarify intentionally, not silently.
+run = """
+rc=0
+out="$(cargo deny check --config config/deny.toml 2>&1)" || rc=$?
+echo "$out"
+extra="$(echo "$out" | rg 'warning\\[no-license-field\\]' | rg -v 'saffron' || true)"
+if [ -n "$extra" ]; then
+  echo "ERROR: no-license-field warning for crate not in clarify allowlist:" >&2
+  echo "$extra" >&2
+  exit 1
+fi
+exit "$rc"
+"""
+shell = "bash -euo pipefail -c"
 
 [tasks.cargo-unmaintained-check]
 description = "Flag dependencies whose upstream repo is archived or unmaintained"
@@ -531,7 +621,7 @@ run = "cargo run -p et-cli -- regen-verification"
 [tasks.verification-check]
 depends = ["regenerate-verification"]
 description = "Fail if generated scenario output files are stale"
-run = "git diff --exit-code -- verification"
+run = "git diff --exit-code -- verification/"
 
 [tasks.fetch-wit-deps]
 description = "Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions (run by hand on bumps)"

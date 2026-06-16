@@ -44,42 +44,131 @@ LIBCLANG_PATH = "{{ vars.a_conda_clangxx }}/lib"
 
 [tasks.preinstall]
 # Preinstall: the shared cross-platform base (via _setup_all), then verify the
-# build prerequisites mise can't supply. The list has a single source of truth --
-# the Dockerfile's APT_PACKAGES: the Docker build exposes it as an env var (the
-# ARG is in scope for the preinstall RUN), and a workstation reads it back from
-# the Dockerfile in the checkout. Each package is probed for presence -- a command
-# for the CLI tools (gpg for gnupg, xz for xz-utils, else the package name), a key
-# file for ca-certificates and libc6-dev, and the versioned shared library on disk
-# for libicu (a file check, not ldconfig, so it doesn't hinge on the ld.so cache
-# being refreshed). An empty list is a hard error, not a silent skip.
+# build prerequisites mise can't supply. The package list has a single source
+# of truth -- the Dockerfile's APT_PACKAGES (Debian/Ubuntu) and DNF_PACKAGES
+# (Fedora / Azure Linux) ARGs: the Docker build exposes them as env vars (the
+# ARG is in scope for the preinstall RUN), and a workstation reads the
+# appropriate one back from the Dockerfile in the checkout. The package
+# manager on the host picks which list applies (apt-get / dnf / tdnf). Azure
+# Linux renames libicu -> icu and libatomic -> libgcc-atomic; detect via
+# /etc/os-release's `ID=azurelinux` and remap so DNF_PACKAGES stays the single
+# source of truth. Each pkg is probed for presence; union case patterns
+# handle apt/dnf/tdnf name differences (`libc6-dev|glibc-devel`,
+# `g++|gcc-c++`, `libicu*|icu`, `libatomic*|libgcc-atomic`). libicu is
+# checked version-agnostic (Dockerfile detects the exact apt name at build
+# time; dnf uses unversioned `libicu`). An empty list is a hard error, not a
+# silent skip.
 depends = ["_setup_all"]
 description = "Preinstall: shared base + verify system build prerequisites"
 run = """
-pkgs="${APT_PACKAGES:-}"
-if [ -z "$pkgs" ]; then
-  dockerfile="{{ config_root }}/Dockerfile"
-  pkgs="$(rg '^ARG APT_PACKAGES=' "$dockerfile" 2>/dev/null | coreutils cut -d'"' -f2 || true)"
-fi
-if [ -z "$pkgs" ]; then
-  echo "preinstall: could not read the APT_PACKAGES prerequisite list" >&2
+dockerfile="{{ config_root }}/Dockerfile"
+rpm_installer=""
+if command -v apt-get >/dev/null 2>&1; then
+  arg=APT_PACKAGES
+  specific="${APT_PACKAGES:-}"
+elif command -v dnf >/dev/null 2>&1; then
+  arg=DNF_PACKAGES
+  specific="${DNF_PACKAGES:-}"
+  rpm_installer=dnf
+elif command -v tdnf >/dev/null 2>&1; then
+  arg=DNF_PACKAGES
+  specific="${DNF_PACKAGES:-}"
+  rpm_installer=tdnf
+else
+  echo "preinstall: no supported package manager (apt-get, dnf, or tdnf) on PATH" >&2
   exit 1
 fi
+common="${COMMON_PACKAGES:-}"
+# Fall back to reading the ARG values from the Dockerfile when the env vars
+# aren't set (workstation invocation, not Docker build). COMMON_PACKAGES
+# holds names identical across apt/dnf/tdnf; APT_PACKAGES / DNF_PACKAGES
+# hold the distro-specific extras.
+if [ -z "$common" ]; then
+  common="$(rg '^ARG COMMON_PACKAGES=' "$dockerfile" 2>/dev/null | coreutils cut -d'"' -f2 || true)"
+fi
+if [ -z "$specific" ]; then
+  specific="$(rg "^ARG ${arg}=" "$dockerfile" 2>/dev/null | coreutils cut -d'"' -f2 || true)"
+fi
+if [ -z "$common" ] || [ -z "$specific" ]; then
+  echo "preinstall: could not read the COMMON_PACKAGES / $arg prerequisite list" >&2
+  exit 1
+fi
+pkgs="$common $specific"
+# Azure Linux renames libicu and libatomic; remap before the iteration so the
+# checks (and the printed `Install with: ...` hint) refer to the right names.
+# Word-by-word in pure bash avoids the regex escape gymnastics that `\b` or
+# awk word-boundary tokens would need through the TOML basic-string layer.
+if [ "$arg" = DNF_PACKAGES ] && grep -q '^ID=azurelinux$' /etc/os-release 2>/dev/null; then
+  remapped=""
+  for w in $pkgs; do
+    case "$w" in
+      libicu) w=icu ;;
+      libatomic) w=libgcc-atomic ;;
+    esac
+    remapped="$remapped $w"
+  done
+  pkgs="$remapped"
+fi
+# Append a generic `libicu` sentinel: the apt path's APT_PACKAGES intentionally
+# omits libicu (the Dockerfile auto-detects the versioned `libicu<NN>` at build
+# time via `apt-cache search`), so the iteration above would otherwise skip the
+# check on a Debian/Ubuntu workstation. dnf's DNF_PACKAGES already includes
+# the unversioned `libicu`; appending again is harmless (case match accepts both).
+pkgs="$pkgs libicu"
 missing=""
 for pkg in $pkgs; do
   case "$pkg" in
-    gnupg) command -v gpg >/dev/null 2>&1 ;;
-    xz-utils) command -v xz >/dev/null 2>&1 ;;
-    ca-certificates) [ -r /etc/ssl/certs/ca-certificates.crt ] ;;
-    libc6-dev) [ -r /usr/include/stdio.h ] ;;
-    libicu*) coreutils ls /usr/lib/*/libicui18n.so.${pkg#libicu} >/dev/null 2>&1 ;;
+    ca-certificates) [ -r /etc/ssl/certs/ca-certificates.crt ] || [ -r /etc/pki/tls/certs/ca-bundle.crt ] ;;
+    libc6-dev|glibc-devel) [ -r /usr/include/stdio.h ] ;;
+    g++|gcc-c++) command -v g++ >/dev/null 2>&1 ;;
+    # `binutils` provides the assembler/linker (as/ld). The package itself has
+    # no binary called `binutils`, so probe via `as` which it ships.
+    binutils) command -v as >/dev/null 2>&1 ;;
+    # `kernel-headers` provides `linux/limits.h` and friends -- Fedora
+    # pre-includes it in the base image, Azure Linux base/core does not, so
+    # we install it explicitly. Debian/Ubuntu get the same headers via
+    # libc6-dev (transitive linux-libc-dev), already checked above.
+    kernel-headers) [ -r /usr/include/linux/limits.h ] ;;
+    libicu*|icu)
+      # Debian/Ubuntu install libicu under /usr/lib/<triple>/, Fedora and
+      # Azure Linux under /usr/lib64/ directly -- try both.
+      coreutils ls /usr/lib/*/libicui18n.so.* >/dev/null 2>&1 ||
+      coreutils ls /usr/lib64/libicui18n.so.* >/dev/null 2>&1 ;;
+    libatomic*|libgcc-atomic)
+      # Fedora and Azure Linux need libatomic explicitly for pnpm's prebuilt
+      # binary (Ubuntu gcc pulls it via libgcc-s1 by default). Same dual-layout
+      # split as libicu above (Debian/Ubuntu per-triple subdir vs RPM-family's
+      # /usr/lib64).
+      coreutils ls /usr/lib/*/libatomic.so.* >/dev/null 2>&1 ||
+      coreutils ls /usr/lib64/libatomic.so.* >/dev/null 2>&1 ;;
     *) command -v "$pkg" >/dev/null 2>&1 ;;
   esac || missing="$missing $pkg"
 done
 if [ -n "$missing" ]; then
   echo "preinstall: missing required build prerequisites:$missing" >&2
-  echo "Install them with your package manager. On Debian/Ubuntu:" >&2
-  echo "  sudo apt-get install -y $pkgs" >&2
+  if [ "$arg" = "APT_PACKAGES" ]; then
+    echo "Install with: sudo apt-get install -y $pkgs" >&2
+  else
+    echo "Install with: sudo $rpm_installer install -y $pkgs" >&2
+  fi
   exit 1
+fi
+
+# Some third-party install scripts (dotnet-install.sh notably, invoked by the
+# `dotnet` mise tool below) hard-code bare `awk`. Repo policy is goawk-only
+# (CLAUDE.md "Don't depend on host tools"); fedora/ubuntu/debian base images
+# happen to ship awk pre-installed so this is a no-op there, but Azure
+# Linux's base/core is more minimal and ships without awk. Provide one as a
+# symlink to mise's goawk so policy holds (the only awk binary on the system
+# IS goawk) and the third-party script finds something on PATH. goawk is
+# installed in `_setup_all` (config.toml) before this task body runs, so
+# `mise which goawk` is guaranteed to resolve.
+if ! command -v awk >/dev/null 2>&1; then
+  goawk_path="$(mise which goawk)"
+  link_dir=/usr/local/bin
+  [ -w "$link_dir" ] || link_dir="$HOME/.local/bin"
+  coreutils mkdir -p "$link_dir"
+  coreutils ln -sf "$goawk_path" "$link_dir/awk"
 fi
 """
 shell = "bash -euo pipefail -c"

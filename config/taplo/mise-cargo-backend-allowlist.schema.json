@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "mise [tools] -- cargo backend allowlist",
-  "description": "`cargo:` builds from source; only tools without a prebuilt + cargo:findutils (aarch64-linux).",
+  "description": "`cargo:` source build; tools with no prebuilt + os-scoped fallbacks (findutils, ryl).",
   "type": "object",
   "properties": {
     "tools": {
@@ -9,7 +9,7 @@
       "propertyNames": {
         "anyOf": [
           { "not": { "pattern": "^cargo:" } },
-          { "enum": ["cargo:cargo-expand", "cargo:dart-typegen", "cargo:findutils"] }
+          { "enum": ["cargo:cargo-expand", "cargo:dart-typegen", "cargo:findutils", "cargo:ryl"] }
         ]
       }
     }

@@ -23,18 +23,20 @@
 # normal dev machine has, so a failure that needs another system lib is itself a
 # finding worth documenting.
 #
-# A plain build produces the SERVER image (final stage): a release et-ws-server,
-# served automatically. A GitHub token avoids mise's anonymous GitHub rate limit
-# during install-all:
-# DOCKER_BUILDKIT=1 docker build --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit .
+# The server image is the `server` stage: a release et-ws-server, served
+# automatically. A GitHub token avoids mise's anonymous GitHub rate limit
+# during install-all. `--target server` is explicit because the final stage
+# in this file is `check` (built by CI), not server:
+# DOCKER_BUILDKIT=1 docker build --target server --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit .
+#
 # docker run --rm -p 8080:8080 edge-toolkit          # serves; open http://localhost:8080
 # (drop --secret to build tokenless; install-all may then hit rate limits)
 #
-# To run the verification suite, target the non-final `test` stage and pass the
-# host GPU (`docker build` can't attach one). The stage bundles mesa-vulkan-
+# To run the verification suite, target the `test` stage and pass the host
+# GPU (`docker build` can't attach one). The stage bundles mesa-vulkan-
 # drivers, so the wgpu test gets a real Intel/AMD GPU via the DRI node (or a
 # software fallback if none is passed):
-# docker build --target test -t edge-toolkit-test .
+# DOCKER_BUILDKIT=1 docker build --target test --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit-test .
 # docker run --rm --device /dev/dri edge-toolkit-test       # Intel/AMD (verified)
 # NVIDIA via `--gpus all` is wired but UNVERIFIED (its in-container Vulkan ICD
 # doesn't initialize yet) -- prefer a DRI device.
@@ -42,34 +44,85 @@
 # --- build-minimal: mise + the always-loaded toolchain (config.toml only). ---
 # Copies just .mise/config.toml + installs the default tools, so this layer is
 # reused until the always-loaded toolset changes -- not when a guest config does.
-FROM ubuntu:24.04 AS build-minimal
+# Base image is parameterised so the CI matrix can build Debian + Ubuntu
+# variants; bump LIBICU_PKG below alongside BASE_IMAGE.
+ARG BASE_IMAGE=ubuntu:24.04
+FROM ${BASE_IMAGE} AS build-minimal
 
 # Universal prereqs a typical dev box already has; everything else is mise's job.
 # gcc, g++, libc6-dev and make are the C/C++ toolchain rustc links through (`cc`)
 # and that C/C++ `-sys` crates build with (make for build scripts that shell out
 # to it) -- leaner than build-essential, which also pulls dpkg-dev + perl.
-# curl + ca-certificates fetch the mise installer and tool downloads; git is for
-# cargo + repo operations; gnupg (gpg + gpg-agent + dirmngr) lets mise verify
-# downloads (bare `gpg` lacks the agent/dirmngr it needs); xz-utils, unzip,
-# bzip2, gzip and tar unpack mise's tool archives (.tar.bz2 / .tar.gz / .zip).
-# gzip + tar are already in the base image, listed so a minimal FROM keeps them.
-# libicu74 is .NET
-# runtime ICU for the dotnet-data1 module -- without it the dotnet CLI
-# FailFast-aborts at startup ("Couldn't find a valid ICU package installed on the
-# system"; minimal Ubuntu ships no ICU). The "74" tracks the Ubuntu base
-# (74 = 24.04) -- bump it alongside the FROM line; .NET needs libicu on minimal
-# systems (else set System.Globalization.Invariant=true).
-ARG APT_PACKAGES="bzip2 ca-certificates curl g++ gcc git gnupg gzip libc6-dev libicu74 make tar unzip xz-utils"
-RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        $APT_PACKAGES \
-    && rm -rf /var/lib/apt/lists/*
+# curl + ca-certificates fetch the mise installer and tool downloads; git is
+# for cargo + repo operations; unzip / bzip2 / gzip / tar unpack mise's tool
+# archives. `xz` is NOT here -- mise extracts .tar.xz natively via the xz2
+# Rust crate (mise/src/file.rs:910,1218), no subprocess. `bash` is explicit:
+# every mise task in this repo runs under `shell = "bash -euo pipefail -c"`,
+# and Debian/Ubuntu use dash as /bin/sh with bash a separate package
+# (Fedora/Azure Linux ship bash as /bin/sh already, so listing it there is a
+# no-op).
+# Three package lists: COMMON has names that are identical across apt /
+# dnf / tdnf, so neither distro arm has to repeat them. APT_PACKAGES and
+# DNF_PACKAGES carry only the distro-specific extras (apt's `g++` vs dnf's
+# `gcc-c++`, etc.). ICU (needed by .NET runtime for the dotnet-data1
+# module -- without it the dotnet CLI FailFast-aborts at startup with
+# "Couldn't find a valid ICU package installed on the system") is named
+# per distro: on apt the runtime pkg is libicu<NN> (auto-detected via
+# `apt-cache search`, covers libicu72 bookworm / libicu74 ubuntu 24.04 /
+# libicu76 trixie / libicu78 ubuntu 26.04); on Fedora's dnf it's the
+# unversioned `libicu`; Azure Linux renames it to `icu`. Same pattern for
+# `libatomic` -> `libgcc-atomic` on Azure Linux. The RUN below picks the
+# install command by whichever package manager exists (apt-get / dnf /
+# tdnf) and detects Azure Linux via /etc/os-release's `ID=azurelinux` to
+# apply the rename.
+ARG COMMON_PACKAGES="bash binutils bzip2 ca-certificates curl gcc git gzip make tar unzip"
+ARG APT_PACKAGES="g++ libc6-dev"
+ARG DNF_PACKAGES="gcc-c++ glibc-devel kernel-headers libatomic libicu"
+# Unquoted `$COMMON_PACKAGES` / `$APT_PACKAGES` / `$DNF_PACKAGES` / `$pkgs`
+# is intentional: each is a space-separated list, and we WANT the shell to
+# word-split it into distinct args for apt-get / dnf / tdnf. SC2086 fires
+# on these and that's the false-positive that pragma silences.
+# hadolint ignore=SC2086
+RUN if command -v apt-get >/dev/null 2>&1; then \
+        apt-get update \
+        && libicu="$(apt-cache search --names-only '^libicu[0-9]+$' | cut -d' ' -f1 | head -1)" \
+        && [ -n "$libicu" ] || { echo "no libicu[0-9]+ package available in this base" >&2; exit 1; } \
+        && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            $COMMON_PACKAGES $APT_PACKAGES "$libicu" \
+        && rm -rf /var/lib/apt/lists/* ; \
+    elif command -v dnf >/dev/null 2>&1 || command -v tdnf >/dev/null 2>&1; then \
+        is_azl=false ; \
+        if grep -q '^ID=azurelinux$' /etc/os-release 2>/dev/null; then is_azl=true ; fi ; \
+        pkgs="" ; \
+        for w in $DNF_PACKAGES; do \
+            if [ "$is_azl" = true ]; then \
+                case "$w" in \
+                    libicu) w=icu ;; \
+                    libatomic) w=libgcc-atomic ;; \
+                esac ; \
+            fi ; \
+            pkgs="$pkgs $w" ; \
+        done ; \
+        if command -v dnf >/dev/null 2>&1; then \
+            dnf install -y --setopt=install_weak_deps=False $COMMON_PACKAGES $pkgs \
+                && dnf clean all ; \
+        else \
+            tdnf install -y $COMMON_PACKAGES $pkgs && tdnf clean all ; \
+        fi ; \
+    else \
+        echo "no supported package manager (apt-get, dnf, or tdnf) found" >&2; exit 1; \
+    fi
 
 # Install mise and put it + its shims on PATH; in a non-interactive build that's
 # the equivalent of the shell integration -- every `mise` / `mise run` below
 # then resolves the workspace tools.
 RUN curl -fsSL https://mise.run | sh
-ENV PATH="/root/.local/bin:/root/.local/share/mise/shims:${PATH}"
+# Declare HOME explicitly rather than depending on the base image's ENV --
+# ubuntu/debian/fedora all set HOME=/root for the root user, but pinning it
+# here means the PATH expansion below doesn't silently break against a future
+# minimal base that strips the inherited ENV.
+ENV HOME=/root
+ENV PATH="${HOME}/.local/bin:${HOME}/.local/share/mise/shims:${PATH}"
 # cargo-expand is a dev-only macro-debugging tool with no role in image builds,
 # so skip it here (this ENV is inherited by every stage below).
 ENV MISE_DISABLE_TOOLS=cargo:cargo-expand
@@ -132,24 +185,36 @@ RUN mise run build-modules && rm -rf target/
 # fallback so the suite still runs. (NVIDIA's `--gpus` Vulkan path doesn't
 # initialize in a container.) Both live here, not the build stage, to keep that
 # layer cached.
-# docker build --target test -t edge-toolkit-test .
+# DOCKER_BUILDKIT=1 docker build --target test --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit-test .
 # docker run --rm --device /dev/dri edge-toolkit-test       # Intel/AMD (verified)
 # NVIDIA via `--gpus all` is wired (NVIDIA_DRIVER_CAPABILITIES=all below, needs
 # the NVIDIA Container Toolkit) but UNVERIFIED -- its in-container Vulkan ICD
 # doesn't initialize yet, so prefer a DRI device for now.
 FROM precompile AS test
 ENV NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=all
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers \
-    && rm -rf /var/lib/apt/lists/*
+# Vulkan runtime + Mesa drivers via whichever package manager the base has.
+# Debian/Ubuntu: libvulkan1 + mesa-vulkan-drivers; Fedora and Azure Linux:
+# vulkan-loader + mesa-vulkan-drivers (same Mesa name, different loader name).
+RUN if command -v apt-get >/dev/null 2>&1; then \
+        apt-get update \
+        && apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers \
+        && rm -rf /var/lib/apt/lists/* ; \
+    elif command -v dnf >/dev/null 2>&1; then \
+        dnf install -y --setopt=install_weak_deps=False vulkan-loader mesa-vulkan-drivers \
+        && dnf clean all ; \
+    elif command -v tdnf >/dev/null 2>&1; then \
+        tdnf install -y vulkan-loader mesa-vulkan-drivers && tdnf clean all ; \
+    else \
+        echo "no supported package manager for libvulkan1/mesa-vulkan-drivers" >&2; exit 1; \
+    fi
 CMD ["mise", "run", "test"]
 
-# --- server: release build of et-ws-server, the default image (final stage). ---
-# A plain `docker build` produces this. The release binary is copied out and
-# target/ dropped in the SAME layer so the build intermediates don't bloat the
-# image; the binary finds its libs via baked rpaths and serves each module from
-# its pkg/ (none of which live in target/). mise stays on PATH and MISE_ENV is
-# set, so the server's `mise where` module-path lookups resolve.
+# --- server: release build of et-ws-server. ---
+# Build with `docker build --target server`. The release binary is copied out
+# and target/ dropped in the SAME layer so the build intermediates don't bloat
+# the image; the binary finds its libs via baked rpaths and serves each module
+# from its pkg/ (none of which live in target/). mise stays on PATH and
+# MISE_ENV is set, so the server's `mise where` module-path lookups resolve.
 # docker run --rm -p 8080:8080 edge-toolkit   # then open http://localhost:8080
 FROM precompile AS server
 RUN mise exec -- cargo build --release -p et-ws-server \
@@ -157,3 +222,24 @@ RUN mise exec -- cargo build --release -p et-ws-server \
     && rm -rf target/
 EXPOSE 8080 8443
 CMD ["et-ws-server"]
+
+# --- check: full `mise run check` against the in-image source. ---
+# `.git/` and `Dockerfile*` are excluded from main .dockerignore (the earlier
+# stages never see them, so they don't bloat). Both come in here only, via a
+# named build context the GHA workflow pre-stages at target/check-ctx (with
+# `cp -r .git Dockerfile Dockerfile.nanoserver target/check-ctx/`) and passes
+# as `--build-context extras=target/check-ctx`. `COPY --from=extras . ./`
+# lands .git/ + Dockerfile* in the workspace. With .git/ on disk the git-
+# using checks (action-validator, hadolint via `git ls-files`,
+# conftest-check-toml, docker-check, gen-specs-check, verification-check)
+# resolve normally. This stage exists only so docker-linux.yaml can run the
+# full `mise run check` against each matrix base. Being last in this file
+# means `docker build` with no `--target` builds this stage by default --
+# README invocations use explicit `--target server`/`--target test` so
+# they're unaffected.
+FROM precompile AS check
+# `extras` is a docker --build-context name (passed by docker-linux.yaml),
+# not a stage alias -- hadolint can't tell them apart.
+# hadolint ignore=DL3022
+COPY --from=extras . ./
+CMD ["mise", "run", "check"]
