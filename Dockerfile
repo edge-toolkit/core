@@ -23,16 +23,17 @@
 # normal dev machine has, so a failure that needs another system lib is itself a
 # finding worth documenting.
 #
-# A plain build produces the SERVER image (final stage): a release et-ws-server,
-# served automatically. A GitHub token avoids mise's anonymous GitHub rate limit
-# during install-all:
-# DOCKER_BUILDKIT=1 docker build --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit .
+# The server image is the `server` stage: a release et-ws-server, served
+# automatically. A GitHub token avoids mise's anonymous GitHub rate limit
+# during install-all. `--target server` is explicit because the final stage
+# in this file is `check` (built by CI), not server:
+# DOCKER_BUILDKIT=1 docker build --target server --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit .
 #
 # docker run --rm -p 8080:8080 edge-toolkit          # serves; open http://localhost:8080
 # (drop --secret to build tokenless; install-all may then hit rate limits)
 #
-# To run the verification suite, target the non-final `test` stage and pass the
-# host GPU (`docker build` can't attach one). The stage bundles mesa-vulkan-
+# To run the verification suite, target the `test` stage and pass the host
+# GPU (`docker build` can't attach one). The stage bundles mesa-vulkan-
 # drivers, so the wgpu test gets a real Intel/AMD GPU via the DRI node (or a
 # software fallback if none is passed):
 # DOCKER_BUILDKIT=1 docker build --target test --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit-test .
@@ -71,7 +72,7 @@ FROM ${BASE_IMAGE} AS build-minimal
 # libicu76 trixie / libicu78 ubuntu 26.04); on dnf it's the unversioned
 # `libicu`. The RUN below picks the path by whichever package manager exists.
 ARG APT_PACKAGES="bash bzip2 ca-certificates curl g++ gcc git gzip libc6-dev make tar unzip"
-ARG DNF_PACKAGES="bash bzip2 ca-certificates curl gcc-c++ gcc git glibc-devel gzip libicu make tar unzip"
+ARG DNF_PACKAGES="bash bzip2 ca-certificates curl gcc-c++ gcc git glibc-devel gzip libatomic libicu make tar unzip"
 RUN if command -v apt-get >/dev/null 2>&1; then \
         apt-get update \
         && libicu="$(apt-cache search --names-only '^libicu[0-9]+$' | cut -d' ' -f1 | head -1)" \
@@ -170,12 +171,12 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 CMD ["mise", "run", "test"]
 
-# --- server: release build of et-ws-server, the default image (final stage). ---
-# A plain `docker build` produces this. The release binary is copied out and
-# target/ dropped in the SAME layer so the build intermediates don't bloat the
-# image; the binary finds its libs via baked rpaths and serves each module from
-# its pkg/ (none of which live in target/). mise stays on PATH and MISE_ENV is
-# set, so the server's `mise where` module-path lookups resolve.
+# --- server: release build of et-ws-server. ---
+# Build with `docker build --target server`. The release binary is copied out
+# and target/ dropped in the SAME layer so the build intermediates don't bloat
+# the image; the binary finds its libs via baked rpaths and serves each module
+# from its pkg/ (none of which live in target/). mise stays on PATH and
+# MISE_ENV is set, so the server's `mise where` module-path lookups resolve.
 # docker run --rm -p 8080:8080 edge-toolkit   # then open http://localhost:8080
 FROM precompile AS server
 RUN mise exec -- cargo build --release -p et-ws-server \
@@ -183,3 +184,24 @@ RUN mise exec -- cargo build --release -p et-ws-server \
     && rm -rf target/
 EXPOSE 8080 8443
 CMD ["et-ws-server"]
+
+# --- check: full `mise run check` against the in-image source. ---
+# `.git/` and `Dockerfile*` are excluded from main .dockerignore (the earlier
+# stages never see them, so they don't bloat). Both come in here only, via a
+# named build context the GHA workflow pre-stages at target/check-ctx (with
+# `cp -r .git Dockerfile Dockerfile.nanoserver target/check-ctx/`) and passes
+# as `--build-context extras=target/check-ctx`. `COPY --from=extras . ./`
+# lands .git/ + Dockerfile* in the workspace. With .git/ on disk the git-
+# using checks (action-validator, hadolint via `git ls-files`,
+# conftest-check-toml, docker-check, gen-specs-check, verification-check)
+# resolve normally. This stage exists only so docker-linux.yaml can run the
+# full `mise run check` against each matrix base. Being last in this file
+# means `docker build` with no `--target` builds this stage by default --
+# README invocations use explicit `--target server`/`--target test` so
+# they're unaffected.
+FROM precompile AS check
+# `extras` is a docker --build-context name (passed by docker-linux.yaml),
+# not a stage alias -- hadolint can't tell them apart.
+# hadolint ignore=DL3022
+COPY --from=extras . ./
+CMD ["mise", "run", "check"]

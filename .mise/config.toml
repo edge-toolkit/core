@@ -21,11 +21,12 @@ cargo.binstall = true
 exec_auto_install = false
 experimental = true
 task.run_auto_install = false
-# Hard-verify tool signatures via gpg (propagates to node.gpg_verify and
-# swift.gpg_verify per mise/src/config/settings.rs). Without it, mise's node
-# plugin soft-skips gpg verify when gpg is absent (mise/src/plugins/core/node.rs
-# `warn!("gpg not found, skipping verification")`); with it, mise hard-fails if
-# gpg isn't reachable.
+# Hard-verify tool signatures via gpg on every platform (propagates to
+# node.gpg_verify and swift.gpg_verify per mise/src/config/settings.rs).
+# Without it mise's node plugin soft-skips when gpg is absent (`warn!("gpg not
+# found, skipping verification")` in mise/src/plugins/core/node.rs). gpg is
+# installed up-front in _setup_all via conda:gnupg (cross-platform conda-forge
+# build) so the subsequent `mise install node` finds it.
 gpg_verify = true
 
 [tools]
@@ -43,6 +44,15 @@ watchexec = "latest"
 # in the standard CI `test` flow, so skip it on Windows entirely.
 "chromedriver" = { version = "146", os = ["linux", "macos"] }
 cmake = "latest"
+# gpg + agent + dirmngr (full gnupg suite). Required by mise's node plugin
+# verify path (`gpg --import` + `gpg --verify` against Node's signed SHASUMS);
+# `[settings] gpg_verify = true` flips that path from soft-skip to hard-fail,
+# so gpg must be reachable before `mise install node`. _setup_all does this
+# install first thing for that ordering. Conda-forge has gnupg builds for
+# linux-64, osx-64, osx-arm64 -- but NOT win-64; Windows uses the msys2
+# `conda:m2-gnupg` package (declared in config.windows.toml) and the
+# Dockerfile.nanoserver PATH is extended to its `Library\usr\bin` location.
+"conda:gnupg" = { version = "latest", os = ["linux", "macos"] }
 "conda:openssl" = "3"
 conftest = "latest"
 # uutils coreutils: the Rust multicall binary, invoked as `coreutils <util>` in tasks.
@@ -245,38 +255,6 @@ description = "Run the Rust + universal repo-wide checks"
 depends = ["check:*"]
 description = "Run all checks: check:rust + any loaded guest check:<lang>"
 
-[tasks.check-no-git]
-# Subset of `check` that doesn't shell out to `git ls-files` or `git diff` --
-# usable inside the Linux Docker images, where the build context isn't a git
-# repo (any task that calls git fails with "not a git repository"). The checks
-# below all walk the filesystem directly or take explicit paths. Excludes:
-# action-validator (its own `git ls-files` for workflow discovery),
-# hadolint-check, conftest-check-toml, docker-check, gen-specs-check,
-# verification-check (each shells out to git). Those still run in the regular
-# `check` workflow on a real checkout where .git exists. Guest-language
-# `check:<lang>` are also excluded to keep this task universally loadable
-# without MISE_ENV; the docker test stage exercises those via the test suite.
-depends = [
-  "ast-grep-check",
-  "cargo-check",
-  "cargo-clippy",
-  "cargo-doc-check",
-  "cargo-fmt-check",
-  "conftest-check-dockerfile",
-  "conftest-check-yaml",
-  "dprint-check",
-  "editorconfig-check",
-  "link-check",
-  "ls-lint-check",
-  "ryl-check",
-  "semgrep-check",
-  "taplo-check",
-  "taplo-fmt-check",
-  "typos",
-  "zizmor-check",
-]
-description = "check subset usable without a .git directory (Docker lane)"
-
 [tasks.action-validator]
 description = "Validate GitHub Actions workflow YAML"
 run = "action-validator .github/workflows/*.yaml"
@@ -460,9 +438,11 @@ hide = true
 run = """
 # gpg must land BEFORE `mise install node` below: node's gpg-verify path
 # (mise/src/plugins/core/node.rs) hard-fails when gpg_verify is enabled and
-# gpg isn't reachable. Per-platform package: conda:gnupg on Linux/macOS,
-# conda:m2-gnupg on Windows (msys2 build, integrates with the cmd interop the
-# rest of config.windows.toml uses).
+# gpg isn't reachable. Per-platform package: conda:gnupg on Linux/macOS
+# (conda-forge has no win-64 build), conda:m2-gnupg on Windows (msys2 mirror
+# package; config.windows.toml adds its bin to `_.path` so subprocess PATH
+# picks up gpg.exe -- otherwise mise's per-tool .mise-bins misses the nested
+# `Library/usr/bin` layout).
 {% if os() == 'windows' %}mise install conda:m2-gnupg{% else %}mise install conda:gnupg{% endif %}
 mise install gh
 mise install cargo-binstall

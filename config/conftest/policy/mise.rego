@@ -91,6 +91,7 @@ allowed_os_scoped_tool := {
 	"github:uutils/findutils",
 	"cargo:findutils",
 	"cargo:ryl",
+	"conda:gnupg",
 }
 
 deny contains msg if {

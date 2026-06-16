@@ -66,11 +66,26 @@ jobs:
           BASE_IMAGE: ${{ matrix.base }}
           DOCKER_BUILDKIT: "1"
           GITHUB_TOKEN: ${{ github.token }}
+        run: docker build --target test --build-arg BASE_IMAGE --secret id=gh_token,env=GITHUB_TOKEN -t et-test .
+
+      # The check stage needs `.git/` + the Dockerfiles. Both are excluded
+      # from the main `.dockerignore`, so we pre-stage them into a directory
+      # and hand it to docker as a named build context (`c=$CTX`). The check
+      # stage then does `COPY --from=c . ./` to land them in /workspace.
+      - name: Build stage check
+        env:
+          BASE_IMAGE: ${{ matrix.base }}
+          CTX: target/check-ctx
+          DOCKER_BUILDKIT: "1"
+          TAG: et-check
+          gh_token: ${{ github.token }}
         run: |
-          docker build --target test --build-arg BASE_IMAGE --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit-test .
+          mkdir -p "$CTX"
+          cp -r .git Dockerfile Dockerfile.nanoserver "$CTX/"
+          docker build --target check --build-arg BASE_IMAGE --build-context extras=$CTX --secret id=gh_token -t $TAG .
 
       - name: Run the test suite
-        run: docker run --rm edge-toolkit-test
+        run: docker run --rm et-test
 
-      - name: Run mise check-no-git
-        run: docker run --rm edge-toolkit-test mise run check-no-git
+      - name: Run mise check
+        run: docker run --rm et-check

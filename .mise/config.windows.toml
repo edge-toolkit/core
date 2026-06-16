@@ -4,16 +4,21 @@
 # Shared vars (rpath_flag, py3_*, …) come from config.toml, which loads first.
 
 [tools]
-# msys2 mirror packages: git (cargo git deps), gpg (so mise verifies tool
-# downloads), make (some -sys build scripts shell out to it). The MSVC CRT +
-# Windows SDK can't come from mise, so the build uses the LLVM mingw toolchain
-# (the gnullvm target below); llvm-mingw bundles clang + lld + the mingw-w64
-# runtime/headers/libs + the libclang.dll bindgen loads. Pinned so its install
-# dir is deterministic: the version segment is repeated in the win_llvm_bin var
-# below and the PATH entry in Dockerfile.nanoserver -- bump all three together.
+# msys2 mirror packages: git (cargo git deps), make (some -sys build scripts
+# shell out to it). The MSVC CRT + Windows SDK can't come from mise, so the
+# build uses the LLVM mingw toolchain (the gnullvm target below); llvm-mingw
+# bundles clang + lld + the mingw-w64 runtime/headers/libs + the libclang.dll
+# bindgen loads. Pinned so its install dir is deterministic: the version
+# segment is repeated in the win_llvm_bin var below and the PATH entry in
+# Dockerfile.nanoserver -- bump all three together.
 "conda:m2-git" = "latest"
-"conda:m2-gnupg" = "latest"
 "conda:m2-make" = "latest"
+# gpg for mise's node-verify path (replaces the global `conda:gnupg`, which
+# conda-forge doesn't build for win-64). msys2 layout puts gpg.exe at the
+# nested `Library\usr\bin\` -- the [vars] m2_gnupg_bin + [env] `_.path`
+# below prepend that dir so subprocess PATH actually finds it. Version pinned
+# so the m2_gnupg_bin path stays in sync (conftest's version_drift enforces).
+"conda:m2-gnupg" = "2.2.41.1"
 "github:mstorsjo/llvm-mingw" = { version = "20260602", matching = "ucrt-x86_64" }
 
 # busybox-w32 `sh` (POSIX ash) -- the shell the bash-tasks run on. A native Win32
@@ -53,6 +58,9 @@ ort_loc_win = '{{ vars.mise_installs }}\github-microsoft-onnxruntime\1.22.0'
 # absolute ld64.lld path solves): a bare `clang` would resolve to a runner's
 # system LLVM, which defaults to the MSVC target and can't link gnullvm objects.
 win_llvm_bin = '{{ vars.mise_installs }}\github-mstorsjo-llvm-mingw\20260602\bin'
+# conda:m2-gnupg's msys2 binary dir. Pinned to the [tools] version so the
+# [env] _.path entry resolves; bump both together.
+m2_gnupg_bin = '{{ vars.mise_installs }}\conda-m2-gnupg\2.2.41.1\Library\usr\bin'
 # clang-sys finds libclang on PATH (Docker's gnu build has llvm-mingw there); a
 # workstation with system LLVM also works.
 win_libclang = "C:\\Program Files\\LLVM\\bin"
@@ -94,6 +102,13 @@ ORT_PREFER_DYNAMIC_LINK = "1"
 # this host: target only governs what the tool links against, not what
 # executes it.
 BINSTALL_TARGETS = "x86_64-pc-windows-msvc"
+# Prepend conda:m2-gnupg's nested binary dir to PATH. mise's per-tool
+# .mise-bins resolves `<install>/bin/X` and `<install>/Library/bin/X` cleanly,
+# but msys2-format packages put binaries one level deeper at
+# `<install>/Library/usr/bin/X`. Without this, `gpg.exe` isn't found by the
+# subprocess that `mise install node` spawns and node's gpg-verify path
+# hard-fails ("gpg --quiet --import: program not found").
+_.path = ["{{ vars.m2_gnupg_bin }}"]
 
 [tasks.preinstall]
 # Preinstall, shared by Dockerfile.nanoserver and a real workstation. The busybox

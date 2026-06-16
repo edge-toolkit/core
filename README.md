@@ -112,17 +112,18 @@ Use `mise run fmt-all` and `mise run check-all` to run formatters and checkers.
 ## Building and running with Docker
 
 [`Dockerfile`](Dockerfile) reproduces the mise setup above on a clean, minimal
-Ubuntu, in stages (`build` → `prefetch` → `precompile` → `test`/`server`). A
-plain build produces the **server** image (the final stage): a release build of
-`et-ws-server`, served automatically. `mise install-all` fetches many tools from
-GitHub releases, so build with a GitHub token to avoid the anonymous rate limit
-(see [GitHub rate limits](#github-rate-limits)), passed as a BuildKit secret so
-it never lands in an image layer:
+Ubuntu, in stages (`build` → `prefetch` → `precompile` → `test`/`server`, plus
+a CI-only `check` stage at the end). Build the **server** image with
+`--target server`: a release build of `et-ws-server`, served automatically.
+`mise install-all` fetches many tools from GitHub releases, so build with a
+GitHub token to avoid the anonymous rate limit (see
+[GitHub rate limits](#github-rate-limits)), passed as a BuildKit secret so it
+never lands in an image layer:
 
 ```bash
 GITHUB_TOKEN="$(gh auth token)" DOCKER_BUILDKIT=1 \
-  docker build --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit .
-docker run --rm -p 8080:8080 edge-toolkit
+  docker build --target server --secret id=gh_token,env=GITHUB_TOKEN -t et-ws-server .
+docker run --rm -p 8080:8080 et-ws-server
 ```
 
 Then open <http://localhost:8080> (add `-p 8443:8443` for TLS). The server needs
@@ -138,9 +139,9 @@ wgpu a real Intel/AMD GPU (and a software fallback if you pass nothing):
 
 ```bash
 GITHUB_TOKEN="$(gh auth token)" DOCKER_BUILDKIT=1 \
-  docker build --target test --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit-test .
+  docker build --target test --secret id=gh_token,env=GITHUB_TOKEN -t et-test .
 
-docker run --rm --device /dev/dri edge-toolkit-test   # Intel/AMD GPU
+docker run --rm --device /dev/dri et-test   # Intel/AMD GPU
 ```
 
 NVIDIA via `--gpus all` (with the NVIDIA Container Toolkit) is wired but

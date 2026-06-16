@@ -7,10 +7,6 @@
 # deno web runner's libsqlite3-sys; a mise-only box usually only has libclang-cpp
 # (the C++ API), not the C one.
 "conda:clangxx" = "latest"
-# gpg + agent + dirmngr (full gnupg suite). _setup_all installs this BEFORE
-# `mise install node` so node's gpg-verify path succeeds; tracked here so
-# `mise install` keeps it reproducible.
-"conda:gnupg" = "latest"
 
 [vars]
 # `a_`/`b_`/`c_` tiers keep taplo's alphabetical reorder_keys from moving a var
@@ -96,6 +92,12 @@ for pkg in $pkgs; do
       # /usr/lib64/ directly -- try both.
       coreutils ls /usr/lib/*/libicui18n.so.* >/dev/null 2>&1 ||
       coreutils ls /usr/lib64/libicui18n.so.* >/dev/null 2>&1 ;;
+    libatomic*)
+      # Fedora needs libatomic explicitly for pnpm's prebuilt binary (Ubuntu
+      # gcc pulls it via libgcc-s1 by default). Same dual-layout split as
+      # libicu above (Debian/Ubuntu per-triple subdir vs Fedora's /usr/lib64).
+      coreutils ls /usr/lib/*/libatomic.so.* >/dev/null 2>&1 ||
+      coreutils ls /usr/lib64/libatomic.so.* >/dev/null 2>&1 ;;
     *) command -v "$pkg" >/dev/null 2>&1 ;;
   esac || missing="$missing $pkg"
 done

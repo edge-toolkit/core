@@ -5,7 +5,6 @@
 [tools]
 # The LLD linker (ships ld64.lld) the RUSTFLAGS below use; Apple's /usr/bin/clang
 # can't resolve `-fuse-ld=lld` without it.
-"conda:gnupg" = "latest"
 "conda:lld" = "latest"
 
 [vars]
