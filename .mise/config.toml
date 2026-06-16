@@ -112,15 +112,36 @@ protoc = "latest"
 # resolve to the exact `3.x.y` dir. Bump in lockstep with py3_unix/py3_win/pylib.
 python = "3.13.14"
 rclone = "latest"
-rust = [
-  { version = "latest", components = "clippy,rust-analyzer", targets = "wasm32-unknown-unknown,wasm32-wasip2" },
-  { version = "nightly", components = "rust-src,rustfmt", targets = "wasm32-unknown-unknown,wasm32-wasip2" },
-]
 typos = "latest"
 uv = "0.11.8"
 wasm-tools = "latest"
 yq = "latest"
 zizmor = "latest"
+
+# Rust toolchains -- Linux/macOS only. Windows installs the gnullvm-host
+# toolchains directly via config.windows.toml's own `[[tools.rust]]` entries,
+# which skips the install-msvc-then-flip-to-gnullvm dance the old preinstall
+# did. Both entries use `profile = "minimal"` to skip the ~1 GB rust-docs
+# HTML tree per toolchain (the Nano docker build otherwise filled its disk
+# during the second toolchain install -- crashing inside an HCS re-exec on
+# the rust-docs HTML write under share/doc/rust/html/ with "There is not
+# enough space on the disk"). Array-of-tables form rather than inline so
+# each entry fits within the 120-char limit alongside `os` + the component
+# / target lists; must come at the end of [tools] (TOML can't re-open the
+# table after the [[ … ]] array-of-tables headers below).
+[[tools.rust]]
+components = "clippy,rust-analyzer"
+os = ["linux", "macos"]
+profile = "minimal"
+targets = "wasm32-unknown-unknown,wasm32-wasip2"
+version = "latest"
+
+[[tools.rust]]
+components = "rust-src,rustfmt"
+os = ["linux", "macos"]
+profile = "minimal"
+targets = "wasm32-unknown-unknown,wasm32-wasip2"
+version = "nightly"
 
 [vars]
 # clang-tidy's resource-dir arg (points clang at its builtin headers, e.g.
@@ -304,9 +325,11 @@ run = "cargo doc --keep-going --workspace --no-deps --document-private-items"
 run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace --tests"
 
 [tasks.taplo-fmt]
+alias = "toml-fmt"
 run = "taplo format"
 
 [tasks.taplo-fmt-check]
+alias = "toml-fmt-check"
 run = "taplo format --check"
 
 [tasks.conftest-check]
@@ -342,6 +365,7 @@ description = "Cross-check the Windows Dockerfile's hard-coded mise install path
 run = "conftest test --combine --namespace dockerfile -p config/conftest/policy Dockerfile.nanoserver .mise"
 
 [tasks.taplo-check]
+alias = "toml-check"
 # `taplo lint` reads config/taplo.toml's `[[rule]] schema` entries for editor /
 # LSP-style validation, but silently ignores their nested constraints in
 # CLI mode (verified: injecting `path = "../foo"` into a member Cargo.toml
@@ -454,6 +478,13 @@ mise install node
 mise install conda:openssl
 mise install coreutils
 mise install ripgrep
+# goawk lands here in _setup_all so it's available to every later step that
+# may need `awk` -- third-party scripts (dotnet-install.sh on Linux, others)
+# hard-code bare `awk`, and the per-OS preinstalls below symlink mise's
+# `goawk` into `awk` on hosts where the base image lacks one (Azure Linux
+# base/core notably). Installing here, not in the per-OS preinstall body,
+# keeps the `mise which goawk` call those use guaranteed to resolve.
+mise install github:benhoyt/goawk
 """
 shell = "bash -euo pipefail -c"
 

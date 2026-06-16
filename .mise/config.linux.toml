@@ -157,8 +157,9 @@ fi
 # happen to ship awk pre-installed so this is a no-op there, but Azure
 # Linux's base/core is more minimal and ships without awk. Provide one as a
 # symlink to mise's goawk so policy holds (the only awk binary on the system
-# IS goawk) and the third-party script finds something on PATH. `mise which`
-# triggers the install if goawk isn't already in place.
+# IS goawk) and the third-party script finds something on PATH. goawk is
+# installed in `_setup_all` (config.toml) before this task body runs, so
+# `mise which goawk` is guaranteed to resolve.
 if ! command -v awk >/dev/null 2>&1; then
   goawk_path="$(mise which goawk)"
   link_dir=/usr/local/bin

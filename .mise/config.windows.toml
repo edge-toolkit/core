@@ -37,6 +37,25 @@ checksum = "sha256:6e263d154d8548d1eb936f65d1d8312c80df31c45974e48d6335e4dcc0f4f
 url = "https://frippery.org/files/busybox/busybox64u.exe"
 version = "1.37.0"
 
+# Rust toolchains for Windows -- gnullvm host directly, so no msvc toolchain
+# ever lands on disk (the old preinstall did install-msvc-then-rustup-reinstall-
+# gnullvm, which doubled toolchain weight and exhausted Nano's disk quota).
+# `version = "<channel>-<triple>"` is the rustup spec form; mise's rust plugin
+# passes it straight through to `rustup toolchain install`. `profile = "minimal"`
+# skips rust-docs (~1 GB/toolchain). The CARGO_BUILD_TARGET + linker env below
+# stays gnullvm-targeted regardless.
+[[tools.rust]]
+components = "clippy,rust-analyzer"
+profile = "minimal"
+targets = "wasm32-unknown-unknown,wasm32-wasip2"
+version = "stable-x86_64-pc-windows-gnullvm"
+
+[[tools.rust]]
+components = "rust-src,rustfmt"
+profile = "minimal"
+targets = "wasm32-unknown-unknown,wasm32-wasip2"
+version = "nightly-x86_64-pc-windows-gnullvm"
+
 [vars]
 # Root of mise's per-tool install dirs (the mise data dir is LOCALAPPDATA\mise);
 # the install-path vars below all hang off it.
@@ -156,21 +175,6 @@ mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-mak
 # Scripts dir (where pipx lands) on PATH; container builds arrange the same
 # via their own bootstrap before this task runs.
 python -m pip install pipx
-
-# rustup installed components/targets against the pre-flip default host, so after
-# flipping to gnullvm reinstall the EXACT stable + nightly versions mise pinned as
-# gnullvm toolchains, each carrying the components + wasm targets config.toml's
-# `rust` tool lists. Pre-adding the wasm target means wasm-pack finds it present
-# and never downloads rust-std mid-build. mise sets RUSTUP_TOOLCHAIN to the bare
-# stable version, which now resolves to <version>-gnullvm.
-# "rustc <ver> (<hash> <date>)" -> field 2 via shell parameter expansion; mise's
-# shims aren't on PATH in this bootstrap, so avoid an external cut/coreutils.
-ver="$(mise exec -- rustc --version)"; ver="${ver#* }"; ver="${ver%% *}"
-mise exec -- rustup set default-host x86_64-pc-windows-gnullvm
-wasm="-t wasm32-unknown-unknown -t wasm32-wasip2"
-mise exec -- rustup toolchain install "${ver}-x86_64-pc-windows-gnullvm" -c clippy -c rust-analyzer $wasm
-mise exec -- rustup toolchain install nightly-x86_64-pc-windows-gnullvm -c rust-src -c rustfmt $wasm
-mise exec -- rustup default "${ver}-x86_64-pc-windows-gnullvm"
 """
 shell = "bash -euo pipefail -c"
 
