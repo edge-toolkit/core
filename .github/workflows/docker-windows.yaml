@@ -40,6 +40,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          fetch-depth: 1
           persist-credentials: false
 
       # Hosted Windows runners don't reliably leave the Docker daemon running, so

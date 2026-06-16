@@ -70,6 +70,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          fetch-depth: 1
           persist-credentials: false
 
       # Reclaim the large preinstalled toolchains we never use (~30 GB).

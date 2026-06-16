@@ -39,6 +39,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          fetch-depth: 1
           persist-credentials: false
 
       # The image is huge (every language toolchain + prefetched models + a full

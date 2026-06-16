@@ -158,6 +158,23 @@ ENV MISE_JOBS=1
 # Full Rust backtraces so any panic surfaces in the CI log.
 ENV RUST_BACKTRACE=full
 
+# Nano-only carve-out: disable mise's gpg-verify of tool tarballs. The cross-
+# platform [settings] in .mise/config.toml has `gpg_verify = true`, and the
+# gpgbin donor stage above does stage a working gpg.exe at C:\gnupg\bin (the
+# gpg-check diagnostic earlier confirms it loads + lists keys) -- but mise's
+# pipe-driven `gpg --import` / `gpg --verify` flow still fails on Nano, with
+# the runner subprocess crashing as:
+# mise ERROR gpg failed
+# The application panicked (crashed).
+# Message: called `Result::unwrap()` on an `Err` value:
+# Os { code: 109, kind: BrokenPipe, message: "The pipe has been ended." }
+# Location: src\cmd.rs:616
+# Until that mise-on-Nano pipe behavior is fixed upstream, override via env
+# (MISE_GPG_VERIFY takes precedence over the [settings] entry per mise's
+# settings.toml). Keep the donor stage + PATH so re-enabling is a one-line
+# revert once mise stops panicking.
+ENV MISE_GPG_VERIFY=false
+
 # Verbose mise is disabled -- it floods the log with tool/task resolution and the
 # exact bash it launches. Re-enable it (noisy but invaluable) when diagnosing a
 # Windows build failure on the bare-Nano-Server path:

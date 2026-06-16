@@ -2,20 +2,27 @@ id: no-std-env-var
 language: Rust
 severity: error
 message: |
-  `std::env::var` is forbidden for app config. Read configuration through a
-  `serde`-derived struct deserialised with `serde-env` (see the runner
-  `config` modules and `et-ws-runner-common::config`), so every variable is
-  declared in one typed place with defaults and validation. Only `RUST_*`
-  vars (e.g. `RUST_LOG`, consumed by tracing) may be read directly.
+  `std::env::var` / `std::env::var_os` is forbidden for app config. Read
+  configuration through a `serde`-derived struct deserialised with
+  `serde-env` (see the runner `config` modules and
+  `et-ws-runner-common::config`), so every variable is declared in one typed
+  place with defaults and validation. Exemptions, intentionally narrow:
+  - `RUST_*` (e.g. `RUST_LOG`, consumed by tracing) -- diagnostics.
+  - `ET_TEST_*` -- test-only switches; production binaries must NOT branch
+    on these. The integration test in services/ws-wasi-runner/tests/
+    sets one to opt the spawned runner into a macOS-only fast-exit path.
 rule:
   any:
     - pattern: std::env::var($ARG)
     - pattern: env::var($ARG)
+    - pattern: std::env::var_os($ARG)
+    - pattern: env::var_os($ARG)
 constraints:
   ARG:
     not:
-      # Allow a string literal ("RUST_LOG") or a const identifier (RUST_LOG).
-      regex: '^"?RUST_'
+      # Allow a string literal ("RUST_LOG" / "ET_TEST_…") or a const
+      # identifier (RUST_LOG / ET_TEST_…).
+      regex: '^"?(RUST_|ET_TEST_)'
 ignores:
   # The project-root helper reads CARGO_MANIFEST_DIR (a cargo build variable,
   # not app config) to locate the repo root from a build script.

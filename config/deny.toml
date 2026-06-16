@@ -129,6 +129,13 @@ wildcards = "deny"
 # (declaration-time check on workspace [dependencies]). The `deny`
 # entries below catch *transitive* uses that the taplo rule can't see.
 deny = [
+  # `openssl` and `openssl-sys` link to libssl/libcrypto. We use rustls +
+  # aws-lc-rs as the single TLS+crypto stack across the workspace; any new
+  # transitive dep that drags openssl back in should migrate, not be allowed.
+  # `openssl-probe` is fine -- it only probes for installed cert store paths,
+  # doesn't link to OpenSSL itself.
+  { crate = "openssl" },
+  { crate = "openssl-sys" },
   # `ring` is forbidden except via the wrappers listed below. The rest
   # of the dep graph reaches the same primitives via `aws-lc-rs`. Any
   # new transitive parent that drags `ring` back in surfaces as an
@@ -154,13 +161,6 @@ deny = [
   # `download-binaries` feature) is gone now that the workspace `ort` dep
   # stages ONNX Runtime through mise instead.
   { crate = "ureq" },
-  # `openssl` and `openssl-sys` link to libssl/libcrypto. We use rustls +
-  # aws-lc-rs as the single TLS+crypto stack across the workspace; any new
-  # transitive dep that drags openssl back in should migrate, not be allowed.
-  # `openssl-probe` is fine -- it only probes for installed cert store paths,
-  # doesn't link to OpenSSL itself.
-  { crate = "openssl" },
-  { crate = "openssl-sys" },
 ]
 
 [sources]

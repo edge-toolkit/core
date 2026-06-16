@@ -50,8 +50,7 @@ cmake = "latest"
 # so gpg must be reachable before `mise install node`. _setup_all does this
 # install first thing for that ordering. Conda-forge has gnupg builds for
 # linux-64, osx-64, osx-arm64 -- but NOT win-64; Windows uses the msys2
-# `conda:m2-gnupg` package (declared in config.windows.toml) and the
-# Dockerfile.nanoserver PATH is extended to its `Library\usr\bin` location.
+# `conda:m2-gnupg` package declared in config.windows.toml.
 "conda:gnupg" = { version = "latest", os = ["linux", "macos"] }
 "conda:openssl" = "3"
 conftest = "latest"
@@ -333,7 +332,7 @@ description = "Run conftest OPA/Rego policies over the GitHub Actions workflow Y
 run = "conftest test --parser yaml --namespace gha -p config/conftest/policy .github/workflows"
 
 [tasks.conftest-check-dockerfile]
-description = "Cross-check Dockerfile.nanoserver's hard-coded mise install paths against [tools] version pins"
+description = "Cross-check the Windows Dockerfile's hard-coded mise install paths against [tools] version pins"
 # Combine the Dockerfile with the mise configs (the .mise dir is all TOML), so
 # conftest auto-detects each file's parser and the rule sees every [tools] pin.
 run = "conftest test --combine --namespace dockerfile -p config/conftest/policy Dockerfile.nanoserver .mise"

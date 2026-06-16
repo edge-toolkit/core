@@ -47,27 +47,6 @@ explained elsewhere, stop: either the existing spot is the right home (so
 say nothing here), or this is the better home (so move it here and remove
 the original). One canonical location, never two.
 
-## Prerequisites
-
-Install [`mise`](https://mise.jdx.dev/) with shell integration, then:
-
-```bash
-mise install            # Rust + Node + universal tooling (always loaded)
-```
-
-(`experimental`, `cargo.binstall` and `gpg_verify` are set in
-`.mise/config.toml [settings]` so the project-scoped settings apply
-automatically; no `mise settings set ...` needed.)
-
-The config is split under `.mise/`: `.mise/config.toml` is always loaded
-(Rust/Node toolchain, universal linters, orchestration); per-language
-`.mise/config.<lang>.toml` files (dart, dotnet, java, python, zig) are
-selected via `MISE_ENV`. Install a guest language's toolchain with
-`MISE_ENV=dart mise install`, or every language with `mise run install-all`.
-`MISE_ENV` is comma-separated (`MISE_ENV=python,zig`) and can be exported to
-make a selection sticky. Rust currently lives in the always-loaded config
-(`.mise/config.rust.toml` is an empty placeholder for a later migration).
-
 ## Common Commands
 
 All tasks run through `mise run <task>`. The aggregates below act on Rust +
@@ -314,20 +293,22 @@ bug, a CI-only flake — and you decide to paper over it with a workaround:
 
 ## Non-negotiable platform constraints
 
-Two project decisions are pinned — not subject to "easier path" rewrites,
+Project decisions pinned here are not subject to "easier path" rewrites,
 even when something downstream is in the way. Don't propose disabling or
-working around either; find a compliant solution instead.
+working around them; find a compliant solution instead.
 
 1. **`Dockerfile.nanoserver`'s base image stays Nano Server.** Don't switch
    to Windows Server Core / LTSC / any non-Nano-Server base, no matter how
    much it would unblock a tool. Minimal image size on the Windows lane is
    load-bearing.
-2. **`gpg_verify` stays enabled on every platform.** Don't set it to
-   `false`, soft-skip with a `warn!`, or scope it away per-OS — mise's
-   node tarball signature verification is a supply-chain security
-   requirement. If a platform can't run an existing gpg distribution, the
-   answer is to find a different gpg for that platform, not to disable
-   the check.
+2. **`[settings] gpg_verify = true` stays in `.mise/config.toml`.** The
+   cross-platform default is "verify". The one allowed scope-down is
+   `ENV MISE_GPG_VERIFY=false` inside `Dockerfile.nanoserver` (only that
+   file), and only while the mise + Nano `gpg --import` / `gpg --verify`
+   pipe behavior is broken upstream. The matching gpg binary stays
+   installed (see the `gpgbin` donor stage) so flipping the env back to
+   `true` is a one-line revert once mise stops panicking on Nano. Every
+   other platform still hard-fails when gpg is unreachable.
 
 Recorded here so future iterations don't re-litigate the same trade-off.
 

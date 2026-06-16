@@ -77,6 +77,11 @@ FROM ${BASE_IMAGE} AS build-minimal
 # DNF_PACKAGES stays the single source of truth for RPM-family naming.
 ARG APT_PACKAGES="bash bzip2 ca-certificates curl g++ gcc git gzip libc6-dev make tar unzip"
 ARG DNF_PACKAGES="bash bzip2 ca-certificates curl gcc-c++ gcc git glibc-devel gzip libatomic libicu make tar unzip"
+# Unquoted `$APT_PACKAGES` / `$DNF_PACKAGES` / `$pkgs` is intentional: each
+# is a space-separated list, and we WANT the shell to word-split it into
+# distinct args for apt-get / dnf / tdnf. SC2086 fires on these and that's
+# the false-positive that pragma silences.
+# hadolint ignore=SC2086
 RUN if command -v apt-get >/dev/null 2>&1; then \
         apt-get update \
         && libicu="$(apt-cache search --names-only '^libicu[0-9]+$' | cut -d' ' -f1 | head -1)" \

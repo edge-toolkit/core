@@ -61,10 +61,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // above, tokio I/O drained when `run_module` returned), so skipping static
     // destructors loses nothing -- but it IS a sharp tool, so it's gated to
     // (a) macOS only (Linux/Windows don't see the crash) and (b) the
-    // integration test opting in via ET_WS_WASI_RUNNER_FAST_EXIT (production
+    // integration test opting in via ET_TEST_WS_WASI_RUNNER_FAST_EXIT (production
     // binary use still does normal teardown).
     #[cfg(target_os = "macos")]
-    if std::env::var_os("ET_WS_WASI_RUNNER_FAST_EXIT").is_some() {
+    if std::env::var_os("ET_TEST_WS_WASI_RUNNER_FAST_EXIT").is_some() {
         #[expect(
             unsafe_code,
             reason = "libc::_exit is the only way to skip atexit handlers; see comment above"

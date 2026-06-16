@@ -9,8 +9,8 @@
 # build uses the LLVM mingw toolchain (the gnullvm target below); llvm-mingw
 # bundles clang + lld + the mingw-w64 runtime/headers/libs + the libclang.dll
 # bindgen loads. Pinned so its install dir is deterministic: the version
-# segment is repeated in the win_llvm_bin var below and the PATH entry in
-# Dockerfile.nanoserver -- bump all three together.
+# segment is repeated in the win_llvm_bin var below -- bump together
+# (conftest's version_drift enforces).
 "conda:m2-git" = "latest"
 "conda:m2-make" = "latest"
 # gpg for mise's node-verify path (replaces the global `conda:gnupg`, which
@@ -111,24 +111,24 @@ BINSTALL_TARGETS = "x86_64-pc-windows-msvc"
 _.path = ["{{ vars.m2_gnupg_bin }}"]
 
 [tasks.preinstall]
-# Preinstall, shared by Dockerfile.nanoserver and a real workstation. The busybox
-# `sh` (http:busybox) is installed by the cmd bootstrap that runs before any bash
-# task (Dockerfile.nanoserver / the README), so this task's `bash -euo pipefail`
-# shell (= busybox ash via MISE_BASH_PATH) works. Installs
-# the build utils (git/gpg/make), llvm-mingw and rust, pip-installs pipx (the
-# backend for the pipx:* tools, since aqua has no Windows pipx build), then flips
-# rustup's default host to gnullvm so both host and target link via llvm-mingw
-# rather than the absent MSVC link.exe (no Visual Studio Build Tools needed). The
-# prereqs mise CAN'T supply (a recent mise + the VC++ runtime) are in the README.
+# Preinstall, shared across every Windows host (CI runner, workstation, Nano
+# container). The busybox `sh` (http:busybox) is installed by an earlier
+# cmd bootstrap, so this task's `bash -euo pipefail` shell (= busybox ash via
+# MISE_BASH_PATH) works. Installs the build utils (git/gpg/make), llvm-mingw
+# and rust, pip-installs pipx (the backend for the pipx:* tools, since aqua
+# has no Windows pipx build), then flips rustup's default host to gnullvm so
+# both host and target link via llvm-mingw rather than the absent MSVC
+# link.exe (no Visual Studio Build Tools needed). The prereqs mise CAN'T
+# supply (a recent mise + the VC++ runtime) are in the README.
 depends = ["_setup_all"]
 description = "Preinstall: toolchain + pipx + flip rustup to the gnullvm host"
 run = """
 mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
 
-# pipx backs the pipx:* tools but isn't a mise tool on Windows. Install it with
-# whatever python is on PATH: the runner's system python on CI/workstations (its
-# Scripts dir, where pipx lands, is already on PATH); Dockerfile.nanoserver puts
-# mise's python on PATH before this so the command resolves on Nano too.
+# pipx backs the pipx:* tools but isn't a mise tool on Windows. Install it
+# with whatever python is on PATH: a workstation already has python's
+# Scripts dir (where pipx lands) on PATH; container builds arrange the same
+# via their own bootstrap before this task runs.
 python -m pip install pipx
 
 # rustup installed components/targets against the pre-flip default host, so after
