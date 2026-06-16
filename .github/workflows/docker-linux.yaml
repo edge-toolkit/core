@@ -23,17 +23,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Matrix the Dockerfile's BASE_IMAGE ARG across the four bases we support;
-    # libicu is auto-detected at build time via apt-cache, no per-base override
-    # needed here. fail-fast off so a single distro break doesn't mask others.
     strategy:
       fail-fast: false
       matrix:
         base:
+          - ubuntu:22.04
           - ubuntu:24.04
           - ubuntu:26.04
           - debian:bookworm
           - debian:trixie
+          - fedora:42
     name: build (${{ matrix.base }})
     steps:
       - name: Checkout
@@ -74,3 +73,6 @@ jobs:
 
       - name: Run the test suite
         run: docker run --rm edge-toolkit-test
+
+      - name: Run mise check-all
+        run: docker run --rm edge-toolkit-test mise run check-all

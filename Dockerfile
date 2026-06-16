@@ -27,6 +27,7 @@
 # served automatically. A GitHub token avoids mise's anonymous GitHub rate limit
 # during install-all:
 # DOCKER_BUILDKIT=1 docker build --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit .
+#
 # docker run --rm -p 8080:8080 edge-toolkit          # serves; open http://localhost:8080
 # (drop --secret to build tokenless; install-all may then hit rate limits)
 #
@@ -34,7 +35,7 @@
 # host GPU (`docker build` can't attach one). The stage bundles mesa-vulkan-
 # drivers, so the wgpu test gets a real Intel/AMD GPU via the DRI node (or a
 # software fallback if none is passed):
-# docker build --target test -t edge-toolkit-test .
+# DOCKER_BUILDKIT=1 docker build --target test --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit-test .
 # docker run --rm --device /dev/dri edge-toolkit-test       # Intel/AMD (verified)
 # NVIDIA via `--gpus all` is wired but UNVERIFIED (its in-container Vulkan ICD
 # doesn't initialize yet) -- prefer a DRI device.
@@ -51,23 +52,39 @@ FROM ${BASE_IMAGE} AS build-minimal
 # gcc, g++, libc6-dev and make are the C/C++ toolchain rustc links through (`cc`)
 # and that C/C++ `-sys` crates build with (make for build scripts that shell out
 # to it) -- leaner than build-essential, which also pulls dpkg-dev + perl.
-# curl + ca-certificates fetch the mise installer and tool downloads; git is for
-# cargo + repo operations; gnupg (gpg + gpg-agent + dirmngr) lets mise verify
-# downloads (bare `gpg` lacks the agent/dirmngr it needs); xz-utils, unzip,
-# bzip2, gzip and tar unpack mise's tool archives (.tar.bz2 / .tar.gz / .zip).
-# gzip + tar are already in the base image, listed so a minimal FROM keeps them.
-ARG APT_PACKAGES="bzip2 ca-certificates curl g++ gcc git gnupg gzip libc6-dev make tar unzip xz-utils"
-# .NET runtime ICU for the dotnet-data1 module -- without it the dotnet CLI
-# FailFast-aborts at startup ("Couldn't find a valid ICU package installed on
-# the system"; minimal Ubuntu/Debian ships no ICU). The exact package name
-# (libicu72/74/76/78 across bookworm/24.04/trixie/26.04) is discovered at build
-# time via `apt-cache search` so this Dockerfile stays distro-agnostic.
-RUN apt-get update \
-    && libicu="$(apt-cache search --names-only '^libicu[0-9]+$' | cut -d' ' -f1 | head -1)" \
-    && [ -n "$libicu" ] || { echo "no libicu[0-9]+ package available in this base" >&2; exit 1; } \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        $APT_PACKAGES "$libicu" \
-    && rm -rf /var/lib/apt/lists/*
+# curl + ca-certificates fetch the mise installer and tool downloads; git is
+# for cargo + repo operations; unzip, bzip2, gzip and tar unpack mise's tool
+# archives (.tar.bz2 / .tar.gz / .zip). gzip + tar are already in the base
+# image, listed so a minimal FROM keeps them. `xz` is NOT here -- mise extracts
+# .tar.xz natively via the xz2 Rust crate (mise/src/file.rs:910,1218), no
+# subprocess. `bash` is explicit: every mise task in this repo runs under
+# `shell = "bash -euo pipefail -c"`, and Debian/Ubuntu use dash as /bin/sh
+# with bash a separate package (Fedora ships bash as /bin/sh already, so
+# listing it there is a no-op). gpg is NOT here -- mise itself installs
+# `conda:gnupg` early in `_setup_all` (see .mise/config.toml), so node's
+# gpg-verify path has gpg + gpg-agent + dirmngr without an apt step.
+# Per-package-manager prerequisite lists. ICU (needed by .NET runtime for the
+# dotnet-data1 module -- without it the dotnet CLI FailFast-aborts at startup
+# with "Couldn't find a valid ICU package installed on the system") is named
+# per distro: on apt the runtime pkg is libicu<NN> (auto-detected via
+# `apt-cache search`, covers libicu72 bookworm / libicu74 ubuntu 24.04 /
+# libicu76 trixie / libicu78 ubuntu 26.04); on dnf it's the unversioned
+# `libicu`. The RUN below picks the path by whichever package manager exists.
+ARG APT_PACKAGES="bash bzip2 ca-certificates curl g++ gcc git gzip libc6-dev make tar unzip"
+ARG DNF_PACKAGES="bash bzip2 ca-certificates curl gcc-c++ gcc git glibc-devel gzip libicu make tar unzip"
+RUN if command -v apt-get >/dev/null 2>&1; then \
+        apt-get update \
+        && libicu="$(apt-cache search --names-only '^libicu[0-9]+$' | cut -d' ' -f1 | head -1)" \
+        && [ -n "$libicu" ] || { echo "no libicu[0-9]+ package available in this base" >&2; exit 1; } \
+        && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            $APT_PACKAGES "$libicu" \
+        && rm -rf /var/lib/apt/lists/* ; \
+    elif command -v dnf >/dev/null 2>&1; then \
+        dnf install -y --setopt=install_weak_deps=False $DNF_PACKAGES \
+        && dnf clean all ; \
+    else \
+        echo "no supported package manager (apt-get or dnf) found" >&2; exit 1; \
+    fi
 
 # Install mise and put it + its shims on PATH; in a non-interactive build that's
 # the equivalent of the shell integration -- every `mise` / `mise run` below
@@ -136,7 +153,7 @@ RUN mise run build-modules && rm -rf target/
 # fallback so the suite still runs. (NVIDIA's `--gpus` Vulkan path doesn't
 # initialize in a container.) Both live here, not the build stage, to keep that
 # layer cached.
-# docker build --target test -t edge-toolkit-test .
+# DOCKER_BUILDKIT=1 docker build --target test --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit-test .
 # docker run --rm --device /dev/dri edge-toolkit-test       # Intel/AMD (verified)
 # NVIDIA via `--gpus all` is wired (NVIDIA_DRIVER_CAPABILITIES=all below, needs
 # the NVIDIA Container Toolkit) but UNVERIFIED -- its in-container Vulkan ICD

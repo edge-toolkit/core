@@ -78,6 +78,13 @@ CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_LINKER = "{{ vars.win_llvm_bin }}\\clang.
 CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_RUSTFLAGS = "-Cdlltool={{ vars.win_llvm_bin }}\\llvm-dlltool.exe"
 LIBCLANG_PATH = "{{ vars.win_libclang }}"
 PYO3_PYTHON = "{{ vars.py3_win }}"
+# Force ort-sys to prefer dynamic linkage on Windows -- otherwise it defaults
+# to static ("could not find native static library `onnxruntime`"), but the
+# Microsoft ORT release ships only a DLL + import lib, no static archive. Not
+# needed on Linux/macOS where the dynamic default already matches the .so /
+# .dylib that ship in the release. The workspace `ort` dep keeps `copy-dylibs`
+# so the DLL lands next to linked binaries.
+ORT_PREFER_DYNAMIC_LINK = "1"
 # Point cargo-binstall at the MSVC triple. The host is gnullvm (see
 # CARGO_BUILD_TARGET above), and the cargo:* tools we install (cargo-expand)
 # don't publish gnullvm prebuilts -- so binstall falls back to `cargo install`,

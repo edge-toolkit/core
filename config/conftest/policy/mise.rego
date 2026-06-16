@@ -181,3 +181,24 @@ deny contains msg if {
 	not regex.match(`^[0-9]+\.[0-9]+\.[0-9]+$`, version)
 	msg := sprintf("%s: python must be pinned to a full version triple, got %q", [file.path, version])
 }
+
+# Linux + macOS preinstall MUST read its prerequisite package list from the
+# Dockerfile (APT_PACKAGES / DNF_PACKAGES ARGs). The Dockerfile is the single
+# source of truth: a capability-based or hardcoded check would diverge from it
+# silently. Guard by requiring the preinstall task body to reference
+# APT_PACKAGES somewhere (env var or rg-parse of the file).
+preinstall_must_reference_apt_packages := {
+	".mise/config.linux.toml",
+	".mise/config.macos.toml",
+}
+
+deny contains msg if {
+	some file in input
+	preinstall_must_reference_apt_packages[file.path]
+	task := file.contents.tasks.preinstall
+	not contains(task.run, "APT_PACKAGES")
+	msg := sprintf(
+		"%s: tasks.preinstall.run must reference APT_PACKAGES (Dockerfile is the single source of truth)",
+		[file.path],
+	)
+}

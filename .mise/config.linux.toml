@@ -7,6 +7,10 @@
 # deno web runner's libsqlite3-sys; a mise-only box usually only has libclang-cpp
 # (the C++ API), not the C one.
 "conda:clangxx" = "latest"
+# gpg + agent + dirmngr (full gnupg suite). _setup_all installs this BEFORE
+# `mise install node` so node's gpg-verify path succeeds; tracked here so
+# `mise install` keeps it reproducible.
+"conda:gnupg" = "latest"
 
 [vars]
 # `a_`/`b_`/`c_` tiers keep taplo's alphabetical reorder_keys from moving a var
@@ -44,47 +48,60 @@ LIBCLANG_PATH = "{{ vars.a_conda_clangxx }}/lib"
 
 [tasks.preinstall]
 # Preinstall: the shared cross-platform base (via _setup_all), then verify the
-# build prerequisites mise can't supply. APT_PACKAGES has a single source of
-# truth -- the Dockerfile's ARG of the same name: the Docker build exposes it
-# as an env var (the ARG is in scope for the preinstall RUN), and a workstation
-# reads it back from the Dockerfile in the checkout. libicu is checked
-# separately and version-agnostically -- the Dockerfile detects the exact
-# package at build time via `apt-cache search`, so the preinstall only verifies
-# that *some* libicu major is installed (a workstation on any of
-# bookworm/24.04/trixie/26.04 will pass). Each pkg is probed -- a command for
-# the CLI tools (gpg for gnupg, xz for xz-utils, else the package name), a key
-# file for ca-certificates and libc6-dev. An empty list is a hard error, not
-# a silent skip.
+# build prerequisites mise can't supply. The package list has a single source
+# of truth -- the Dockerfile's APT_PACKAGES (Debian/Ubuntu) and DNF_PACKAGES
+# (Fedora) ARGs: the Docker build exposes them as env vars (the ARG is in
+# scope for the preinstall RUN), and a workstation reads the appropriate one
+# back from the Dockerfile in the checkout. The package manager on the host
+# picks which list applies. Each pkg is probed for presence; union case
+# patterns handle apt/dnf name differences (`gnupg|gnupg2`, `xz-utils|xz`,
+# `libc6-dev|glibc-devel`, `g++|gcc-c++`). libicu is checked version-agnostic
+# (Dockerfile detects the exact apt name at build time; dnf uses unversioned
+# `libicu`). An empty list is a hard error, not a silent skip.
 depends = ["_setup_all"]
 description = "Preinstall: shared base + verify system build prerequisites"
 run = """
-pkgs="${APT_PACKAGES:-}"
-if [ -z "$pkgs" ]; then
-  dockerfile="{{ config_root }}/Dockerfile"
-  pkgs="$(rg '^ARG APT_PACKAGES=' "$dockerfile" 2>/dev/null | coreutils cut -d'"' -f2 || true)"
-fi
-if [ -z "$pkgs" ]; then
-  echo "preinstall: could not read the APT_PACKAGES prerequisite list" >&2
+dockerfile="{{ config_root }}/Dockerfile"
+if command -v apt-get >/dev/null 2>&1; then
+  arg=APT_PACKAGES
+  pkgs="${APT_PACKAGES:-}"
+elif command -v dnf >/dev/null 2>&1; then
+  arg=DNF_PACKAGES
+  pkgs="${DNF_PACKAGES:-}"
+else
+  echo "preinstall: no supported package manager (apt-get or dnf) on PATH" >&2
   exit 1
 fi
-# Append a generic libicu sentinel -- the version-agnostic case below accepts
-# any installed libicu major.
+if [ -z "$pkgs" ]; then
+  pkgs="$(rg "^ARG ${arg}=" "$dockerfile" 2>/dev/null | coreutils cut -d'"' -f2 || true)"
+fi
+if [ -z "$pkgs" ]; then
+  echo "preinstall: could not read the $arg prerequisite list" >&2
+  exit 1
+fi
+# Append a generic `libicu` sentinel: the apt path's APT_PACKAGES intentionally
+# omits libicu (the Dockerfile auto-detects the versioned `libicu<NN>` at build
+# time via `apt-cache search`), so the iteration above would otherwise skip the
+# check on a Debian/Ubuntu workstation. dnf's DNF_PACKAGES already includes
+# the unversioned `libicu`; appending again is harmless (case match accepts both).
 pkgs="$pkgs libicu"
 missing=""
 for pkg in $pkgs; do
   case "$pkg" in
-    gnupg) command -v gpg >/dev/null 2>&1 ;;
-    xz-utils) command -v xz >/dev/null 2>&1 ;;
-    ca-certificates) [ -r /etc/ssl/certs/ca-certificates.crt ] ;;
-    libc6-dev) [ -r /usr/include/stdio.h ] ;;
-    libicu) coreutils ls /usr/lib/*/libicui18n.so.* >/dev/null 2>&1 ;;
+    ca-certificates) [ -r /etc/ssl/certs/ca-certificates.crt ] || [ -r /etc/pki/tls/certs/ca-bundle.crt ] ;;
+    libc6-dev|glibc-devel) [ -r /usr/include/stdio.h ] ;;
+    g++|gcc-c++) command -v g++ >/dev/null 2>&1 ;;
+    libicu*) coreutils ls /usr/lib/*/libicui18n.so.* >/dev/null 2>&1 ;;
     *) command -v "$pkg" >/dev/null 2>&1 ;;
   esac || missing="$missing $pkg"
 done
 if [ -n "$missing" ]; then
   echo "preinstall: missing required build prerequisites:$missing" >&2
-  echo "Install them with your package manager. On Debian/Ubuntu:" >&2
-  echo "  sudo apt-get install -y $pkgs" >&2
+  if [ "$arg" = "APT_PACKAGES" ]; then
+    echo "Install with: sudo apt-get install -y $pkgs" >&2
+  else
+    echo "Install with: sudo dnf install -y $pkgs" >&2
+  fi
   exit 1
 fi
 """

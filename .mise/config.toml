@@ -17,8 +17,16 @@ min_version = "2026.6.5"
 [settings]
 # exec_auto_install covers `mise exec`,
 # task.run_auto_install covers `mise run`.
+cargo.binstall = true
 exec_auto_install = false
+experimental = true
 task.run_auto_install = false
+# Hard-verify tool signatures via gpg (propagates to node.gpg_verify and
+# swift.gpg_verify per mise/src/config/settings.rs). Without it, mise's node
+# plugin soft-skips gpg verify when gpg is absent (mise/src/plugins/core/node.rs
+# `warn!("gpg not found, skipping verification")`); with it, mise hard-fails if
+# gpg isn't reachable.
+gpg_verify = true
 
 [tools]
 action-validator = "latest"
@@ -418,8 +426,13 @@ shell = "bash -euo pipefail -c"
 description = "Private shared cross-platform preinstall"
 hide = true
 run = """
-mise settings experimental=true
-mise settings set cargo.binstall true
+# gpg must land BEFORE `mise install node` below: node's gpg-verify path
+# (mise/src/plugins/core/node.rs) hard-fails when gpg_verify is enabled and
+# gpg isn't reachable. Per-platform package: conda:gnupg on Linux/macOS,
+# conda:m2-gnupg on Windows (msys2 build, integrates with the cmd interop the
+# rest of config.windows.toml uses).
+{% if os() == 'windows' %}mise install conda:m2-gnupg{% else %}mise install conda:gnupg{% endif %}
+mise install gh
 mise install cargo-binstall
 mise install node
 mise install conda:openssl

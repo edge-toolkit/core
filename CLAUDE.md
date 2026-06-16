@@ -49,13 +49,15 @@ the original). One canonical location, never two.
 
 ## Prerequisites
 
-Install [`mise`](https://mise.jdx.dev/) with shell integration, then configure:
+Install [`mise`](https://mise.jdx.dev/) with shell integration, then:
 
 ```bash
-mise settings experimental=true
-mise settings set cargo.binstall true
 mise install            # Rust + Node + universal tooling (always loaded)
 ```
+
+(`experimental`, `cargo.binstall` and `gpg_verify` are set in
+`.mise/config.toml [settings]` so the project-scoped settings apply
+automatically; no `mise settings set ...` needed.)
 
 The config is split under `.mise/`: `.mise/config.toml` is always loaded
 (Rust/Node toolchain, universal linters, orchestration); per-language
@@ -288,6 +290,27 @@ Do not use inline `#[cfg(test)]` modules.
 If a function is private but needs testing, add a `[lib]` target to the crate and export it so `tests/` can reach it.
 
 Every file under `tests/` must start with `#![cfg(test)]` (placed after the file's `//!` doc comment, if any).
+
+## Workarounds
+
+When you can't (or shouldn't) fix the root cause right now — a libc race in
+an upstream dep, a flaky platform driver, a runner-image quirk, a toolchain
+bug, a CI-only flake — and you decide to paper over it with a workaround:
+
+- **Gate narrowly to the affected situation.** Use `#[cfg(target_os = "…")]`
+  / `target_arch` / `target_env` (or the equivalent in YAML / Dockerfiles /
+  build scripts) so other platforms keep exercising the real path. Don't
+  blanket-disable.
+- **Gate to only the use site that needs it.** For test-only quirks, a
+  test-set env var the production code checks works well. For build-time
+  quirks, a feature flag or build profile. The default behaviour on every
+  platform should stay the unworkarounded one wherever it works.
+- **Embed the exact error message verbatim** at the workaround site — a
+  comment block quoting the upstream panic / abort / linker error / test
+  failure line. GHA log retention is 3 months; once the run is gone, the
+  only way someone hitting the same symptom later finds your workaround is
+  by grepping the repo for the error string. This applies equally to
+  symptoms first seen locally and to GHA-only flakes.
 
 ## Tools must work on every OS
 

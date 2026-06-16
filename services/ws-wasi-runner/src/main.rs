@@ -43,5 +43,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     result?;
     info!("module {module} completed successfully");
+    // macOS test-only fast exit. ORT 1.22's threadpool unwind races libc++ at
+    // process exit on macOS, with this exact stderr at the crash site:
+    //
+    //   libc++abi: terminating due to uncaught exception of type
+    //   std::__1::system_error: mutex lock failed: Invalid argument
+    //
+    // The runner subprocess then returns exit code None and the integration
+    // test's assert fires:
+    //
+    //   et-ws-wasi-graphics-info exited with code None
+    //
+    // Useful work has flushed by here (OTLP above, tokio I/O drained when
+    // `run_module` returned), so skipping static destructors loses nothing --
+    // but it IS a sharp tool, so it's gated to (a) macOS only (Linux/Windows
+    // don't see the crash) and (b) the integration test opting in via
+    // ET_WS_WASI_RUNNER_FAST_EXIT (production binary use still does normal Drop).
+    #[cfg(target_os = "macos")]
+    if std::env::var_os("ET_WS_WASI_RUNNER_FAST_EXIT").is_some() {
+        std::process::exit(0);
+    }
     Ok(())
 }

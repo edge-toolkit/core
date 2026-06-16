@@ -21,10 +21,18 @@ defaults:
 
 jobs:
   build:
-    runs-on: windows-2022
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2022
+          - runner: windows-2025
+            build_arg: "--build-arg WINDOWS_VERSION=ltsc2025"
+    name: build (${{ matrix.runner }})
     timeout-minutes: 120
     env:
-      # The classic Windows builder can't substitute build-args into the Dockerfile's RUN,
+      # The classic Windows builder on windows-2022 can't substitute build-args into the Dockerfile's RUN,
       # and mise's prebuilt "latest" zip is stale (2026.3.0, too old for the config).
       # 2026.6.5 is the first release with auto_env (loads .mise/config.windows.toml).
       MISE_VERSION: "2026.6.5"
@@ -49,4 +57,6 @@ jobs:
           printf '%s' "${{ github.token }}" > gh_token
 
       - name: Build stage precompile
-        run: docker build -f Dockerfile.nanoserver --target precompile -t edge-toolkit-windows .
+        run: >-
+          docker build -f Dockerfile.nanoserver ${{ matrix.build_arg }}
+            --target precompile -t edge-toolkit-windows .

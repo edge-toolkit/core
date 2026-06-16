@@ -53,6 +53,12 @@ mise settings set github.credential_command "gh auth token"
 mise token github                                    # verify: should resolve a token
 ```
 
+If you havent activated mise shell integration, use this instead, however it is brittle:
+
+```bash
+mise settings set github.credential_command "$(mise which gh) auth token"
+```
+
 `gh` often stores the token in the OS keyring rather than in
 `~/.config/gh/hosts.yml`, so mise's default `hosts.yml` lookup finds nothing;
 `credential_command` asks `gh` for the token on demand and works either way. The
@@ -131,13 +137,28 @@ can't attach one (no `--gpus` for build), so it runs at `docker run` time. The
 wgpu a real Intel/AMD GPU (and a software fallback if you pass nothing):
 
 ```bash
-docker build --target test -t edge-toolkit-test .
+GITHUB_TOKEN="$(gh auth token)" DOCKER_BUILDKIT=1 \
+  docker build --target test --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit-test .
+
 docker run --rm --device /dev/dri edge-toolkit-test   # Intel/AMD GPU
 ```
 
 NVIDIA via `--gpus all` (with the NVIDIA Container Toolkit) is wired but
 **unverified** — its in-container Vulkan ICD doesn't initialize yet, so prefer a
 DRI device. The image skips the `o2`/`ws-server` README steps (runtime services).
+
+The base image is parameterised — `--build-arg BASE_IMAGE=debian:trixie` (or
+`fedora:42`, `ubuntu:26.04`, `debian:bookworm`, etc.) builds against a
+different distro instead of the default `ubuntu:24.04`. The apt step picks an
+`apt-get` or `dnf` install path by `command -v`, and the libicu runtime
+package .NET needs is auto-detected per base. The CI matrix in
+[`docker-linux`](.github/workflows/docker-linux.yaml) exercises every
+supported base on each PR.
+
+**Only Ubuntu is actively maintained.** Debian and Fedora bases are tested on
+every PR (CI matrix) but treated as best-effort — breakage on those lanes
+will be triaged but not blocking. If you ship on Debian or a RPM distro and
+want first-class support, please open an issue.
 
 ### CI
 

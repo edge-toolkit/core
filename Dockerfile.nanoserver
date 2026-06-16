@@ -32,7 +32,13 @@
 # the official VC++ redistributable on a Server Core donor -- which has the
 # installer stack Nano Server lacks -- and copy the runtime DLLs forward. This
 # plus mise are the only non-mise bootstrap bits; the rest is mise.
-FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS vcruntime
+# Windows base version. Both FROMs below must use the same value so the VC++
+# runtime DLLs copied from servercore match nanoserver's C runtime. Override
+# with `--build-arg WINDOWS_VERSION=ltsc2025` to build against newer Nano
+# Server (runner host must match -- ltsc2022 pairs with windows-2022, ltsc2025
+# with windows-2025; mismatched versions need Hyper-V isolation).
+ARG WINDOWS_VERSION=ltsc2022
+FROM mcr.microsoft.com/windows/servercore:${WINDOWS_VERSION} AS vcruntime
 SHELL ["cmd", "/S", "/C"]
 # `|| ver>nul` swallows the redistributable's 3010 ("reboot required") exit code.
 RUN curl -fsSL -o vc_redist.exe https://aka.ms/vs/17/release/vc_redist.x64.exe && `
@@ -45,7 +51,7 @@ RUN curl -fsSL -o vc_redist.exe https://aka.ms/vs/17/release/vc_redist.x64.exe &
 # not when a guest config or the source does. All the Windows-only bootstrap
 # (VC++ DLLs, mise.exe, HOME, TEMP) and the gnu-host rust flip live here too,
 # since every later stage builds on it.
-FROM mcr.microsoft.com/windows/nanoserver:ltsc2022 AS build-minimal
+FROM mcr.microsoft.com/windows/nanoserver:${WINDOWS_VERSION} AS build-minimal
 COPY --from=vcruntime C:\Windows\System32\vcruntime140.dll C:\Windows\System32\
 COPY --from=vcruntime C:\Windows\System32\vcruntime140_1.dll C:\Windows\System32\
 COPY --from=vcruntime C:\Windows\System32\msvcp140.dll C:\Windows\System32\
@@ -118,19 +124,22 @@ ENV RUST_BACKTRACE=full
 # is mise\bin\mise.exe) and put that on PATH so the steps below can call `mise`.
 COPY mise.zip C:\mise.zip
 RUN tar -xf C:\mise.zip -C C:\ && del C:\mise.zip
-# Prepend mise's bin, and re-list System32 + Windows explicitly: the base image
-# exposes its search path as `Path`, which Docker's case-sensitive `${PATH}`
-# doesn't match, so it expands empty -- dropping System32 (findstr, net, sc, ...)
-# off PATH for every step below. Also put llvm-mingw's bin on PATH so clang-sys
-# can find its libclang.dll: config.windows.toml's LIBCLANG_PATH names a system
-# LLVM dir absent on Nano Server, so clang-sys falls back to a PATH search and
-# llvm-mingw's bin is where libclang.dll lives here. (The gnullvm linker and
-# llvm-dlltool are absolute paths in config.windows.toml, so PATH isn't needed
-# for them.) The version segment must match the github:mstorsjo/llvm-mingw pin
-# in config.windows.toml; the dir doesn't exist until preinstall installs
-# llvm-mingw, which is fine -- the builds that need it run afterwards.
+# Prepend mise's bin and its shims dir (mirrors the Linux Dockerfile's
+# /root/.local/share/mise/shims), and re-list System32 + Windows explicitly:
+# the base image exposes its search path as `Path`, which Docker's case-
+# sensitive `${PATH}` doesn't match, so it expands empty -- dropping System32
+# (findstr, net, sc, ...) off PATH for every step below. Also put llvm-mingw's
+# bin on PATH so clang-sys can find its libclang.dll: config.windows.toml's
+# LIBCLANG_PATH names a system LLVM dir absent on Nano Server, so clang-sys
+# falls back to a PATH search and llvm-mingw's bin is where libclang.dll lives
+# here. (The gnullvm linker and llvm-dlltool are absolute paths in
+# config.windows.toml, so PATH isn't needed for them.) The version segment
+# must match the github:mstorsjo/llvm-mingw pin in config.windows.toml; the
+# dir doesn't exist until preinstall installs llvm-mingw, which is fine --
+# the builds that need it run afterwards.
+ENV MISESHIMS=C:\Users\ContainerAdministrator\AppData\Local\mise\shims
 ENV LLVMBIN=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\github-mstorsjo-llvm-mingw\20260602\bin
-ENV PATH="C:\mise\bin;C:\Windows\System32;C:\Windows;${LLVMBIN};${PATH}"
+ENV PATH="C:\mise\bin;${MISESHIMS};C:\Windows\System32;C:\Windows;${LLVMBIN};${PATH}"
 
 WORKDIR C:\workspace
 # config.toml (always-loaded) + config.windows.toml (the Windows tools/env/task)
