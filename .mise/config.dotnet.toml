@@ -39,7 +39,7 @@ dotnet workload install wasm-tools --skip-manifest-update
 # Discover the pack dir and prepend to PATH so the publish subprocess finds
 # emcc.bat. Glob via `find` so a future Emscripten / pack version bump
 # rolls forward without touching this task.
-if [ "$OS" = "Windows_NT" ]; then
+if [ "${OS:-}" = "Windows_NT" ]; then
     emcc_bat="$(find "$LOCALAPPDATA/mise/dotnet-root/packs" -name 'emcc.bat' 2>/dev/null | head -1)"
     if [ -n "$emcc_bat" ]; then
         export PATH="$(dirname "$emcc_bat"):$PATH"
