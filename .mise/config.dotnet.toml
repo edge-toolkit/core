@@ -46,15 +46,17 @@ if [ "${OS:-}" = "Windows_NT" ]; then
     echo "[emcc-find] emcc_bat=${emcc_bat:-<empty>}"
     if [ -n "$emcc_bat" ]; then
         emcc_dir="$(dirname "$emcc_bat")"
-        # `cygpath -w` (Git Bash) converts /c/Users/... to C:\Users\... so the
-        # prepended PATH entry resolves in cmd.exe when MSBuild's <Exec> shells
-        # out to bare `emcc`. Without conversion, Git Bash hands Windows
-        # processes a PATH where this dir may not be recognised in the form
-        # cmd's resolver expects.
+        # Normalise to MSYS Unix form (/c/Users/...). Bash uses `:` as the PATH
+        # separator; MSYS rewrites the whole PATH (`:`->`;`, /c/Users/... ->
+        # C:\Users\...) when it spawns a Win32 child like dotnet.exe, but only
+        # when each entry is in Unix form. A `C:\Users\...` entry escapes the
+        # conversion and the trailing `:` glues it to the next entry, so cmd.exe
+        # (run by MSBuild's <Exec> for `emcc @...rsp`) sees no emscripten dir
+        # and reports `'emcc' is not recognized` (exit 9009).
         if command -v cygpath >/dev/null 2>&1; then
-            emcc_dir_win="$(cygpath -w "$emcc_dir")"
-            echo "[emcc-find] cygpath conversion: $emcc_dir -> $emcc_dir_win"
-            emcc_dir="$emcc_dir_win"
+            emcc_dir_unix="$(cygpath -u "$emcc_dir")"
+            echo "[emcc-find] cygpath conversion: $emcc_dir -> $emcc_dir_unix"
+            emcc_dir="$emcc_dir_unix"
         fi
         export PATH="$emcc_dir:$PATH"
         echo "[emcc-find] prepended to PATH: $emcc_dir"
