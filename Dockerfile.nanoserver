@@ -205,7 +205,7 @@ RUN tar -xf C:\mise.zip -C C:\ && del C:\mise.zip
 # the builds that need it run afterwards.
 ENV MISESHIMS=C:\Users\ContainerAdministrator\AppData\Local\mise\shims
 ENV LLVMBIN=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\github-mstorsjo-llvm-mingw\20260602\bin
-ENV PATH="C:\mise\bin;${MISESHIMS};C:\Windows\System32;C:\Windows;${LLVMBIN};C:\gnupg\bin;${PATH}"
+ENV PATH="C:\mise\bin;C:\sha-shim;${MISESHIMS};C:\Windows\System32;C:\Windows;${LLVMBIN};C:\gnupg\bin;${PATH}"
 
 # Diagnostic for gpg-on-Nano (fail-fast). With gpg only newly here via the
 # gpgbin donor stage, the earliest known failure mode was the bare gpg invoke
@@ -275,6 +275,23 @@ ENV WINSH=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\http-busyb
 RUN dir "%LOCALAPPDATA%\mise\installs\http-busybox\1.37.0" & `
     ("%WINSH%" -euo pipefail -c "command -v mise && echo [smoke] OK || echo [smoke] NOMISE") & `
     ver>nul
+
+# Nano-safe sha256sum shim. mise's `src/hash.rs` switches from in-process
+# Rust SHA256 to a subprocess `sha256sum` for files > 50 MB, and the
+# uutils-coreutils sha256sum.exe mise installs later (via `coreutils` in
+# _setup_all) fails to load on Nano with verbatim:
+# mise ERROR Failed to install conda:m2-git@latest: command ["sha256sum",
+# "...conda-packages\m2-git-2.49.0.1-hc364b38_6.tmp.<pid>.<n>"] exited
+# with code -1073741511
+# (-1073741511 = 0xC0000139 = STATUS_ENTRYPOINT_NOT_FOUND; same load-fail
+# signature as the msys2 autoload trap). Busybox-w32's sha256sum applet IS
+# native Win32 + loads on Nano (the smoke test above already proved busybox
+# runs here), and it dispatches by argv[0] -- copy busybox under the name
+# `sha256sum.exe` into a dir that PATH below resolves *before* the mise
+# shims dir, and the call becomes a busybox applet invocation.
+RUN if not exist C:\sha-shim mkdir C:\sha-shim & `
+    copy /Y "%WINSH%" C:\sha-shim\sha256sum.exe & `
+    if not exist C:\sha-shim\sha256sum.exe exit /b 1
 
 # Pin CARGO_HOME/RUSTUP_HOME to the dirs mise's rust tool uses (C:\.cargo /
 # C:\.rustup -- see its exec_env). preinstall sets the gnullvm default

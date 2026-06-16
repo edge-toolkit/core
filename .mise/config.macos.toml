@@ -57,14 +57,23 @@ xcode-select -p >/dev/null 2>&1 || {
   exit 1
 }
 dockerfile="{{ config_root }}/Dockerfile"
-pkgs="${APT_PACKAGES:-}"
-if [ -z "$pkgs" ]; then
-  pkgs="$(rg '^ARG APT_PACKAGES=' "$dockerfile" 2>/dev/null | coreutils cut -d'"' -f2 || true)"
+# Single source of truth: the Dockerfile's COMMON_PACKAGES (names identical
+# across apt/dnf/tdnf) + APT_PACKAGES (apt-specific extras). On macOS we
+# follow the apt naming because mise's apt-side workstation story is the
+# closest analogue (no dnf packages on macOS).
+common="${COMMON_PACKAGES:-}"
+specific="${APT_PACKAGES:-}"
+if [ -z "$common" ]; then
+  common="$(rg '^ARG COMMON_PACKAGES=' "$dockerfile" 2>/dev/null | coreutils cut -d'"' -f2 || true)"
 fi
-if [ -z "$pkgs" ]; then
-  echo "preinstall: could not read the APT_PACKAGES prerequisite list" >&2
+if [ -z "$specific" ]; then
+  specific="$(rg '^ARG APT_PACKAGES=' "$dockerfile" 2>/dev/null | coreutils cut -d'"' -f2 || true)"
+fi
+if [ -z "$common" ] || [ -z "$specific" ]; then
+  echo "preinstall: could not read the COMMON_PACKAGES / APT_PACKAGES prerequisite lists" >&2
   exit 1
 fi
+pkgs="$common $specific"
 sdk="$(xcrun --show-sdk-path 2>/dev/null || true)"
 missing=""
 brewy=""

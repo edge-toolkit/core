@@ -123,6 +123,32 @@ _.path = ["{{ vars.m2_gnupg_bin }}"]
 depends = ["_setup_all"]
 description = "Preinstall: toolchain + pipx + flip rustup to the gnullvm host"
 run = """
+# sha256sum diagnostic for the Nano CI lane. mise's conda backend in
+# 2026.6.5 shells out to a `sha256sum` it finds on PATH (via
+# src/hash.rs:file_hash_sha256, only for files > 50 MB) to verify each
+# conda tarball download. On the Nano docker build that lookup historically
+# hit a sha256sum.exe that fails to load with `STATUS_ENTRYPOINT_NOT_FOUND`
+# (0xC0000139 == decimal -1073741511, the msys2-runtime autoload-trap
+# signature), surfacing as:
+#   mise ERROR Failed to install conda:m2-git@latest: command ["sha256sum",
+#   "<path>"] exited with code -1073741511
+# Dockerfile.nanoserver stages a busybox-w32-backed `sha256sum.exe` ahead
+# of the broken shim on PATH so this should now pass; the diagnostic is
+# fail-fast so the next CI break here tells us which binary PATH picked.
+sha256sum_path="$(command -v sha256sum 2>/dev/null || true)"
+echo "[sha256sum-check] command -v sha256sum: ${sha256sum_path:-<not found>}"
+if [ -z "$sha256sum_path" ]; then
+  echo "[sha256sum-check] FAILED: no sha256sum on PATH" >&2
+  exit 1
+fi
+if ! echo "" | sha256sum >/dev/null 2>&1; then
+  rc=$?
+  echo "[sha256sum-check] FAILED: sha256sum invocation exited with code $rc" >&2
+  echo "[sha256sum-check] path was: $sha256sum_path" >&2
+  exit 1
+fi
+echo "[sha256sum-check] OK"
+
 mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
 
 # pipx backs the pipx:* tools but isn't a mise tool on Windows. Install it

@@ -65,26 +65,35 @@ dockerfile="{{ config_root }}/Dockerfile"
 rpm_installer=""
 if command -v apt-get >/dev/null 2>&1; then
   arg=APT_PACKAGES
-  pkgs="${APT_PACKAGES:-}"
+  specific="${APT_PACKAGES:-}"
 elif command -v dnf >/dev/null 2>&1; then
   arg=DNF_PACKAGES
-  pkgs="${DNF_PACKAGES:-}"
+  specific="${DNF_PACKAGES:-}"
   rpm_installer=dnf
 elif command -v tdnf >/dev/null 2>&1; then
   arg=DNF_PACKAGES
-  pkgs="${DNF_PACKAGES:-}"
+  specific="${DNF_PACKAGES:-}"
   rpm_installer=tdnf
 else
   echo "preinstall: no supported package manager (apt-get, dnf, or tdnf) on PATH" >&2
   exit 1
 fi
-if [ -z "$pkgs" ]; then
-  pkgs="$(rg "^ARG ${arg}=" "$dockerfile" 2>/dev/null | coreutils cut -d'"' -f2 || true)"
+common="${COMMON_PACKAGES:-}"
+# Fall back to reading the ARG values from the Dockerfile when the env vars
+# aren't set (workstation invocation, not Docker build). COMMON_PACKAGES
+# holds names identical across apt/dnf/tdnf; APT_PACKAGES / DNF_PACKAGES
+# hold the distro-specific extras.
+if [ -z "$common" ]; then
+  common="$(rg '^ARG COMMON_PACKAGES=' "$dockerfile" 2>/dev/null | coreutils cut -d'"' -f2 || true)"
 fi
-if [ -z "$pkgs" ]; then
-  echo "preinstall: could not read the $arg prerequisite list" >&2
+if [ -z "$specific" ]; then
+  specific="$(rg "^ARG ${arg}=" "$dockerfile" 2>/dev/null | coreutils cut -d'"' -f2 || true)"
+fi
+if [ -z "$common" ] || [ -z "$specific" ]; then
+  echo "preinstall: could not read the COMMON_PACKAGES / $arg prerequisite list" >&2
   exit 1
 fi
+pkgs="$common $specific"
 # Azure Linux renames libicu and libatomic; remap before the iteration so the
 # checks (and the printed `Install with: ...` hint) refer to the right names.
 # Word-by-word in pure bash avoids the regex escape gymnastics that `\b` or
@@ -112,6 +121,11 @@ for pkg in $pkgs; do
     ca-certificates) [ -r /etc/ssl/certs/ca-certificates.crt ] || [ -r /etc/pki/tls/certs/ca-bundle.crt ] ;;
     libc6-dev|glibc-devel) [ -r /usr/include/stdio.h ] ;;
     g++|gcc-c++) command -v g++ >/dev/null 2>&1 ;;
+    # `kernel-headers` provides `linux/limits.h` and friends -- Fedora
+    # pre-includes it in the base image, Azure Linux base/core does not, so
+    # we install it explicitly. Debian/Ubuntu get the same headers via
+    # libc6-dev (transitive linux-libc-dev), already checked above.
+    kernel-headers) [ -r /usr/include/linux/limits.h ] ;;
     libicu*|icu)
       # Debian/Ubuntu install libicu under /usr/lib/<triple>/, Fedora and
       # Azure Linux under /usr/lib64/ directly -- try both.
@@ -135,6 +149,22 @@ if [ -n "$missing" ]; then
     echo "Install with: sudo $rpm_installer install -y $pkgs" >&2
   fi
   exit 1
+fi
+
+# Some third-party install scripts (dotnet-install.sh notably, invoked by the
+# `dotnet` mise tool below) hard-code bare `awk`. Repo policy is goawk-only
+# (CLAUDE.md "Don't depend on host tools"); fedora/ubuntu/debian base images
+# happen to ship awk pre-installed so this is a no-op there, but Azure
+# Linux's base/core is more minimal and ships without awk. Provide one as a
+# symlink to mise's goawk so policy holds (the only awk binary on the system
+# IS goawk) and the third-party script finds something on PATH. `mise which`
+# triggers the install if goawk isn't already in place.
+if ! command -v awk >/dev/null 2>&1; then
+  goawk_path="$(mise which goawk)"
+  link_dir=/usr/local/bin
+  [ -w "$link_dir" ] || link_dir="$HOME/.local/bin"
+  coreutils mkdir -p "$link_dir"
+  coreutils ln -sf "$goawk_path" "$link_dir/awk"
 fi
 """
 shell = "bash -euo pipefail -c"

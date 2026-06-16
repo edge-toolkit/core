@@ -54,40 +54,41 @@ FROM ${BASE_IMAGE} AS build-minimal
 # and that C/C++ `-sys` crates build with (make for build scripts that shell out
 # to it) -- leaner than build-essential, which also pulls dpkg-dev + perl.
 # curl + ca-certificates fetch the mise installer and tool downloads; git is
-# for cargo + repo operations; unzip, bzip2, gzip and tar unpack mise's tool
-# archives (.tar.bz2 / .tar.gz / .zip). gzip + tar are already in the base
-# image, listed so a minimal FROM keeps them. `xz` is NOT here -- mise extracts
-# .tar.xz natively via the xz2 Rust crate (mise/src/file.rs:910,1218), no
-# subprocess. `bash` is explicit: every mise task in this repo runs under
-# `shell = "bash -euo pipefail -c"`, and Debian/Ubuntu use dash as /bin/sh
-# with bash a separate package (Fedora ships bash as /bin/sh already, so
-# listing it there is a no-op). gpg is NOT here -- mise itself installs
-# `conda:gnupg` early in `_setup_all` (see .mise/config.toml), so node's
-# gpg-verify path has gpg + gpg-agent + dirmngr without an apt step.
-# Per-package-manager prerequisite lists. ICU (needed by .NET runtime for the
-# dotnet-data1 module -- without it the dotnet CLI FailFast-aborts at startup
-# with "Couldn't find a valid ICU package installed on the system") is named
+# for cargo + repo operations; unzip / bzip2 / gzip / tar unpack mise's tool
+# archives. `xz` is NOT here -- mise extracts .tar.xz natively via the xz2
+# Rust crate (mise/src/file.rs:910,1218), no subprocess. `bash` is explicit:
+# every mise task in this repo runs under `shell = "bash -euo pipefail -c"`,
+# and Debian/Ubuntu use dash as /bin/sh with bash a separate package
+# (Fedora/Azure Linux ship bash as /bin/sh already, so listing it there is a
+# no-op).
+# Three package lists: COMMON has names that are identical across apt /
+# dnf / tdnf, so neither distro arm has to repeat them. APT_PACKAGES and
+# DNF_PACKAGES carry only the distro-specific extras (apt's `g++` vs dnf's
+# `gcc-c++`, etc.). ICU (needed by .NET runtime for the dotnet-data1
+# module -- without it the dotnet CLI FailFast-aborts at startup with
+# "Couldn't find a valid ICU package installed on the system") is named
 # per distro: on apt the runtime pkg is libicu<NN> (auto-detected via
 # `apt-cache search`, covers libicu72 bookworm / libicu74 ubuntu 24.04 /
-# libicu76 trixie / libicu78 ubuntu 26.04); on Fedora's dnf it's the unversioned
-# `libicu`; Azure Linux renames it to `icu`. Same applies to `libatomic` ->
-# `libgcc-atomic` on Azure Linux. The RUN below picks the install command by
-# whichever package manager exists (apt-get / dnf / tdnf) and detects Azure
-# Linux via /etc/os-release's `ID=azurelinux` to apply the rename so
-# DNF_PACKAGES stays the single source of truth for RPM-family naming.
-ARG APT_PACKAGES="bash bzip2 ca-certificates curl g++ gcc git gzip libc6-dev make tar unzip"
-ARG DNF_PACKAGES="bash bzip2 ca-certificates curl gcc-c++ gcc git glibc-devel gzip libatomic libicu make tar unzip"
-# Unquoted `$APT_PACKAGES` / `$DNF_PACKAGES` / `$pkgs` is intentional: each
-# is a space-separated list, and we WANT the shell to word-split it into
-# distinct args for apt-get / dnf / tdnf. SC2086 fires on these and that's
-# the false-positive that pragma silences.
+# libicu76 trixie / libicu78 ubuntu 26.04); on Fedora's dnf it's the
+# unversioned `libicu`; Azure Linux renames it to `icu`. Same pattern for
+# `libatomic` -> `libgcc-atomic` on Azure Linux. The RUN below picks the
+# install command by whichever package manager exists (apt-get / dnf /
+# tdnf) and detects Azure Linux via /etc/os-release's `ID=azurelinux` to
+# apply the rename.
+ARG COMMON_PACKAGES="bash bzip2 ca-certificates curl gcc git gzip make tar unzip"
+ARG APT_PACKAGES="g++ libc6-dev"
+ARG DNF_PACKAGES="gcc-c++ glibc-devel kernel-headers libatomic libicu"
+# Unquoted `$COMMON_PACKAGES` / `$APT_PACKAGES` / `$DNF_PACKAGES` / `$pkgs`
+# is intentional: each is a space-separated list, and we WANT the shell to
+# word-split it into distinct args for apt-get / dnf / tdnf. SC2086 fires
+# on these and that's the false-positive that pragma silences.
 # hadolint ignore=SC2086
 RUN if command -v apt-get >/dev/null 2>&1; then \
         apt-get update \
         && libicu="$(apt-cache search --names-only '^libicu[0-9]+$' | cut -d' ' -f1 | head -1)" \
         && [ -n "$libicu" ] || { echo "no libicu[0-9]+ package available in this base" >&2; exit 1; } \
         && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            $APT_PACKAGES "$libicu" \
+            $COMMON_PACKAGES $APT_PACKAGES "$libicu" \
         && rm -rf /var/lib/apt/lists/* ; \
     elif command -v dnf >/dev/null 2>&1 || command -v tdnf >/dev/null 2>&1; then \
         is_azl=false ; \
@@ -103,9 +104,10 @@ RUN if command -v apt-get >/dev/null 2>&1; then \
             pkgs="$pkgs $w" ; \
         done ; \
         if command -v dnf >/dev/null 2>&1; then \
-            dnf install -y --setopt=install_weak_deps=False $pkgs && dnf clean all ; \
+            dnf install -y --setopt=install_weak_deps=False $COMMON_PACKAGES $pkgs \
+                && dnf clean all ; \
         else \
-            tdnf install -y $pkgs && tdnf clean all ; \
+            tdnf install -y $COMMON_PACKAGES $pkgs && tdnf clean all ; \
         fi ; \
     else \
         echo "no supported package manager (apt-get, dnf, or tdnf) found" >&2; exit 1; \
