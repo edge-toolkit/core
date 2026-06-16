@@ -121,6 +121,9 @@ for pkg in $pkgs; do
     ca-certificates) [ -r /etc/ssl/certs/ca-certificates.crt ] || [ -r /etc/pki/tls/certs/ca-bundle.crt ] ;;
     libc6-dev|glibc-devel) [ -r /usr/include/stdio.h ] ;;
     g++|gcc-c++) command -v g++ >/dev/null 2>&1 ;;
+    # `binutils` provides the assembler/linker (as/ld). The package itself has
+    # no binary called `binutils`, so probe via `as` which it ships.
+    binutils) command -v as >/dev/null 2>&1 ;;
     # `kernel-headers` provides `linux/limits.h` and friends -- Fedora
     # pre-includes it in the base image, Azure Linux base/core does not, so
     # we install it explicitly. Debian/Ubuntu get the same headers via

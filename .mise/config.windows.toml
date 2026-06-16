@@ -170,6 +170,18 @@ echo "[sha256sum-check] OK"
 
 mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
 
+# Even though [[tools.rust]] above installs the *gnullvm*-host toolchains
+# directly, rustup's `default-host` setting (which controls how bare channel
+# names resolve when no triple is given) still defaults to msvc on Windows.
+# wasm-pack invokes `rustup toolchain install nightly` (no triple) and would
+# then pull `nightly-x86_64-pc-windows-msvc` -- missing the rust-src component
+# build-std needs, surfacing as a rustlib/src/rust/library/Cargo.lock missing
+# error suggesting `rustup component add rust-src --toolchain
+# nightly-x86_64-pc-windows-msvc`.
+# Flip rustup's default-host to gnullvm so bare-name resolutions pick the
+# toolchains [[tools.rust]] already installed.
+mise exec -- rustup set default-host x86_64-pc-windows-gnullvm
+
 # pipx backs the pipx:* tools but isn't a mise tool on Windows. Install it
 # with whatever python is on PATH: a workstation already has python's
 # Scripts dir (where pipx lands) on PATH; container builds arrange the same

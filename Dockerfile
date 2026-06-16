@@ -75,7 +75,7 @@ FROM ${BASE_IMAGE} AS build-minimal
 # install command by whichever package manager exists (apt-get / dnf /
 # tdnf) and detects Azure Linux via /etc/os-release's `ID=azurelinux` to
 # apply the rename.
-ARG COMMON_PACKAGES="bash bzip2 ca-certificates curl gcc git gzip make tar unzip"
+ARG COMMON_PACKAGES="bash binutils bzip2 ca-certificates curl gcc git gzip make tar unzip"
 ARG APT_PACKAGES="g++ libc6-dev"
 ARG DNF_PACKAGES="gcc-c++ glibc-devel kernel-headers libatomic libicu"
 # Unquoted `$COMMON_PACKAGES` / `$APT_PACKAGES` / `$DNF_PACKAGES` / `$pkgs`

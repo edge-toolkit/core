@@ -66,6 +66,18 @@ jobs:
           '{"os":"macos-latest","timeout":45}'
           )
           ) }}
+    env:
+      # Windows-only: skip the two cargo: source-builds that need a fully-set-up
+      # gnullvm toolchain at install time. The Nano docker (Dockerfile.nanoserver)
+      # sets the same flag; on the windows-latest runner here the gnullvm
+      # rust-std isn't reliably in place when cargo install runs them, leading to
+      # the rustc diagnostic:
+      #   error[E0463]: can't find crate for `core`
+      #     = note: the `x86_64-pc-windows-gnullvm` target may not be installed
+      # Both are dev-only tools (cargo-expand: macro debugging; dart-typegen:
+      # used only by `mise run gen:dart-ws`, which the dart config skips on
+      # Windows anyway); neither is in the test suite's hot path.
+      MISE_DISABLE_TOOLS: ${{ startsWith(matrix.os, 'windows') && 'cargo:cargo-expand,cargo:dart-typegen' || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

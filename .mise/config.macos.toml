@@ -79,13 +79,16 @@ missing=""
 brewy=""
 for pkg in $pkgs; do
   case "$pkg" in
-    ca-certificates|libc6-dev|libicu*) cmd="" ;;
+    ca-certificates|libc6-dev|libicu*|binutils) cmd="" ;;
     *) cmd="$pkg" ;;
   esac
   case "$pkg" in
     ca-certificates) [ -r /etc/ssl/cert.pem ] ;;
     libc6-dev) [ -n "$sdk" ] && [ -r "$sdk/usr/include/stdio.h" ] ;;
     libicu*) coreutils ls /usr/lib/*/libicui18n.so.* >/dev/null 2>&1 ;;
+    # macOS gets `as` from Xcode CLT, not a binutils package, but the probe
+    # via the assembler binary still confirms the assembler is reachable.
+    binutils) command -v as >/dev/null 2>&1 ;;
     *) command -v "$pkg" >/dev/null 2>&1 ;;
   esac || { missing="$missing $pkg"; continue; }
   # Reject Homebrew-installed tools: this repo deliberately avoids Brew, so a
