@@ -192,6 +192,22 @@ RUN mise run build-modules && rm -rf target/
 # doesn't initialize yet, so prefer a DRI device for now.
 FROM precompile AS test
 ENV NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=all
+# Force the Vulkan loader to consider lavapipe (CPU software renderer) only.
+# Without it, distros whose `mesa-vulkan-drivers` package also ships a
+# PowerVR ICD (notably Azure Linux base/core, where `powervr_mesa_icd.json`
+# is staged alongside `lvp_icd.x86_64.json`) try the PVR ICD first; on a
+# GPU-less CI runner that ICD fails to enumerate DRM devices, blocking
+# adapter discovery before lavapipe gets reached, and the wasi-graphics-info
+# test crashes verbatim as:
+# wgpu_hal::vulkan::instance: GENERAL [pvr_device.c (0x0)]
+# Failed to enumerate drm devices (errno 2: No such file or directory)
+# (VK_ERROR_INITIALIZATION_FAILED)
+# ...
+# Error: ...WebgpuError(... message='no GPU adapter available')
+# When the docker host DOES pass `--device /dev/dri`, lvp is still a valid
+# CPU fallback alongside the real GPU's ICD; the `lvp_icd` pattern selects
+# the software path either way.
+ENV VK_LOADER_DRIVERS_SELECT=lvp_icd
 # Vulkan runtime + Mesa drivers via whichever package manager the base has.
 # Debian/Ubuntu: libvulkan1 + mesa-vulkan-drivers; Fedora and Azure Linux:
 # vulkan-loader + mesa-vulkan-drivers (same Mesa name, different loader name).
