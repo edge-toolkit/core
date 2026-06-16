@@ -160,6 +160,12 @@ every PR (CI matrix) but treated as best-effort — breakage on those lanes
 will be triaged but not blocking. If you ship on Debian or a RPM distro and
 want first-class support, please open an issue.
 
+**WSL Ubuntu images are supported** as a first-class Linux target — the
+mise preinstall and Linux Dockerfile path work unchanged inside WSL's Ubuntu
+distributions (`Ubuntu-22.04`, `Ubuntu-24.04`, `Ubuntu-26.04`). Docker Desktop
+on Windows with the WSL2 backend runs the Linux image; native Linux Docker
+under WSL itself does too.
+
 ### CI
 
 The [`docker-linux`](.github/workflows/docker-linux.yaml) and

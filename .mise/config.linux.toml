@@ -91,7 +91,11 @@ for pkg in $pkgs; do
     ca-certificates) [ -r /etc/ssl/certs/ca-certificates.crt ] || [ -r /etc/pki/tls/certs/ca-bundle.crt ] ;;
     libc6-dev|glibc-devel) [ -r /usr/include/stdio.h ] ;;
     g++|gcc-c++) command -v g++ >/dev/null 2>&1 ;;
-    libicu*) coreutils ls /usr/lib/*/libicui18n.so.* >/dev/null 2>&1 ;;
+    libicu*)
+      # Debian/Ubuntu install libicu under /usr/lib/<triple>/, Fedora under
+      # /usr/lib64/ directly -- try both.
+      coreutils ls /usr/lib/*/libicui18n.so.* >/dev/null 2>&1 ||
+      coreutils ls /usr/lib64/libicui18n.so.* >/dev/null 2>&1 ;;
     *) command -v "$pkg" >/dev/null 2>&1 ;;
   esac || missing="$missing $pkg"
 done

@@ -26,6 +26,14 @@ mac_libclang = "{{ exec(command='dirname $(dirname $(xcrun --find clang))') }}/l
 CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
 CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
 LIBCLANG_PATH = "{{ vars.mac_libclang }}"
+# Pin SDKROOT so cc-rs and other build scripts find the macOS SDK (stdlib.h
+# etc.) regardless of which `cc` resolves first. With the `_.path` prepend
+# below putting Xcode CLT's /usr/bin/cc ahead of any brew gcc wrapper, the
+# cc-rs invocation no longer inherits SDK headers from a brew-built compiler
+# -- and `cc -mmacosx-version-min=... <file>` without `-isysroot` then fails
+# with "'stdlib.h' file not found". Setting SDKROOT here makes the resolution
+# explicit.
+SDKROOT = "{{ exec(command='xcrun --show-sdk-path') }}"
 # Prepend Xcode CLT + macOS system bin dirs so they win priority over Homebrew
 # (where `command -v bash` etc. would otherwise resolve to /opt/homebrew/* or
 # /usr/local/bin/* on a brewed Mac). Mise's `_.path` directive prepends to

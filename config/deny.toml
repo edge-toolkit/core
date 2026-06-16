@@ -106,6 +106,17 @@ allow = [
   "Zlib",
 ]
 
+# Explicit per-crate clarifications: cargo-deny otherwise emits a
+# `no-license-field` warning when a crate's manifest uses `license-file`
+# instead of an SPDX `license` expression. Each entry below has been verified
+# against the on-disk LICENSE in ~/.cargo/registry. The mise `cargo-deny`
+# task escalates `no-license-field` to a hard error so a new transitive dep
+# without an SPDX expression must land here intentionally, not silently.
+[[licenses.clarify]]
+crate = "saffron"
+expression = "BSD-3-Clause"
+license-files = [{ path = "LICENSE", hash = 0x0bcebb0f }]
+
 [bans]
 # Warn (not deny) on multiple-versions: useful to surface duplicate
 # transitive dep trees without blocking on every cargo update.

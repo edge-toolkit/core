@@ -63,16 +63,14 @@ jobs:
 
       - name: Build stage test
         env:
+          BASE_IMAGE: ${{ matrix.base }}
+          DOCKER_BUILDKIT: "1"
           GITHUB_TOKEN: ${{ github.token }}
-        run: >-
-          DOCKER_BUILDKIT=1 docker build
-          --target test
-          --build-arg BASE_IMAGE=${{ matrix.base }}
-          --secret id=gh_token,env=GITHUB_TOKEN
-          -t edge-toolkit-test .
+        run: |
+          docker build --target test --build-arg BASE_IMAGE --secret id=gh_token,env=GITHUB_TOKEN -t edge-toolkit-test .
 
       - name: Run the test suite
         run: docker run --rm edge-toolkit-test
 
-      - name: Run mise check-all
-        run: docker run --rm edge-toolkit-test mise run check-all
+      - name: Run mise check-no-git
+        run: docker run --rm edge-toolkit-test mise run check-no-git

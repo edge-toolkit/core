@@ -245,6 +245,38 @@ description = "Run the Rust + universal repo-wide checks"
 depends = ["check:*"]
 description = "Run all checks: check:rust + any loaded guest check:<lang>"
 
+[tasks.check-no-git]
+# Subset of `check` that doesn't shell out to `git ls-files` or `git diff` --
+# usable inside the Linux Docker images, where the build context isn't a git
+# repo (any task that calls git fails with "not a git repository"). The checks
+# below all walk the filesystem directly or take explicit paths. Excludes:
+# action-validator (its own `git ls-files` for workflow discovery),
+# hadolint-check, conftest-check-toml, docker-check, gen-specs-check,
+# verification-check (each shells out to git). Those still run in the regular
+# `check` workflow on a real checkout where .git exists. Guest-language
+# `check:<lang>` are also excluded to keep this task universally loadable
+# without MISE_ENV; the docker test stage exercises those via the test suite.
+depends = [
+  "ast-grep-check",
+  "cargo-check",
+  "cargo-clippy",
+  "cargo-doc-check",
+  "cargo-fmt-check",
+  "conftest-check-dockerfile",
+  "conftest-check-yaml",
+  "dprint-check",
+  "editorconfig-check",
+  "link-check",
+  "ls-lint-check",
+  "ryl-check",
+  "semgrep-check",
+  "taplo-check",
+  "taplo-fmt-check",
+  "typos",
+  "zizmor-check",
+]
+description = "check subset usable without a .git directory (Docker lane)"
+
 [tasks.action-validator]
 description = "Validate GitHub Actions workflow YAML"
 run = "action-validator .github/workflows/*.yaml"
@@ -463,7 +495,25 @@ shell = "bash -euo pipefail -c"
 
 [tasks.cargo-deny-check]
 description = "Audit dependencies with cargo-deny (advisories, bans, licenses, sources)"
-run = "cargo deny check --config config/deny.toml"
+# Escalate `no-license-field` to a hard error, EXCEPT for crates with an
+# explicit clarify entry in config/deny.toml. cargo-deny has no per-crate
+# diagnostic-level config, so we post-filter its output: any
+# `warning[no-license-field]` whose crate isn't allowlisted (currently just
+# `saffron`) fails the task. A new transitive dep without an SPDX `license`
+# expression must then land in clarify intentionally, not silently.
+run = """
+rc=0
+out="$(cargo deny check --config config/deny.toml 2>&1)" || rc=$?
+echo "$out"
+extra="$(echo "$out" | rg 'warning\\[no-license-field\\]' | rg -v 'saffron' || true)"
+if [ -n "$extra" ]; then
+  echo "ERROR: no-license-field warning for crate not in clarify allowlist:" >&2
+  echo "$extra" >&2
+  exit 1
+fi
+exit "$rc"
+"""
+shell = "bash -euo pipefail -c"
 
 [tasks.cargo-unmaintained-check]
 description = "Flag dependencies whose upstream repo is archived or unmaintained"

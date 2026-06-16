@@ -57,6 +57,4 @@ jobs:
           printf '%s' "${{ github.token }}" > gh_token
 
       - name: Build stage precompile
-        run: >-
-          docker build -f Dockerfile.nanoserver ${{ matrix.build_arg }}
-            --target precompile -t edge-toolkit-windows .
+        run: docker build -f Dockerfile.nanoserver ${{ matrix.build_arg }} --target precompile .

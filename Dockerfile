@@ -90,7 +90,12 @@ RUN if command -v apt-get >/dev/null 2>&1; then \
 # the equivalent of the shell integration -- every `mise` / `mise run` below
 # then resolves the workspace tools.
 RUN curl -fsSL https://mise.run | sh
-ENV PATH="/root/.local/bin:/root/.local/share/mise/shims:${PATH}"
+# Declare HOME explicitly rather than depending on the base image's ENV --
+# ubuntu/debian/fedora all set HOME=/root for the root user, but pinning it
+# here means the PATH expansion below doesn't silently break against a future
+# minimal base that strips the inherited ENV.
+ENV HOME=/root
+ENV PATH="${HOME}/.local/bin:${HOME}/.local/share/mise/shims:${PATH}"
 # cargo-expand is a dev-only macro-debugging tool with no role in image builds,
 # so skip it here (this ENV is inherited by every stage below).
 ENV MISE_DISABLE_TOOLS=cargo:cargo-expand
