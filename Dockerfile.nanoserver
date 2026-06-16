@@ -18,11 +18,32 @@
 # Windows is still proving the toolchain installs at all -- the stages past
 # `build` are the CI frontier (see "Known unknowns" at the foot).
 #
-# Base: Nano Server, the smallest Windows base (~120 MB vs Server Core's ~1.25
-# GB). It has no MSI/installer stack, no PowerShell, and runs unprivileged -- so
-# the Visual Studio Build Tools installer can't run here at all. That's the
-# point: nothing is installed the Windows way. mise (a single .exe the workflow
-# stages in the build context) is copied in, and `mise install` pulls the rest.
+# Base: Nano Server (~120 MB vs Server Core's ~1.25 GB), kept on Nano per the
+# CLAUDE.md non-negotiable. Same MSI/PowerShell-installer-avoidance posture as
+# any minimal Windows image -- nothing is installed the Windows way; mise (a
+# single .exe the workflow stages in the build context) is copied in, and
+# `mise install` pulls the rest.
+#
+# gpg workaround (Nano-only). The workstation Windows path uses the msys2
+# `conda:m2-gnupg` from config.windows.toml -- that loads fine on Windows
+# 10/11/Server because their kernel32 has the symbols msys-2.0.dll's lazy
+# autoload calls. On Nano Server it doesn't: msys-2.0.dll resolves additional
+# kernel32 symbols at first-use via GetProcAddress (`.kernel32_autoload_text`
+# section), and when one (e.g. kernel32!IdnToAscii, hit by gpg's UID/email
+# IDN normalization) is absent from Nano's stripped kernel32, the autoload
+# deliberately exits the process with STATUS_ENTRYPOINT_NOT_FOUND
+# (0xC0000139) -- the same code a static load failure produces, which is
+# what the CI log surfaced as `gpg exited with non-zero status: exit code
+# -1073741511`. Same autoload trap lurks behind every other conda:m2-*
+# package (m2-git, m2-make), which happen not to hit IDN today.
+#
+# Nano carve-out: MISE_DISABLE_TOOLS skips `conda:m2-gnupg` here, and the
+# `gpgbin` donor stage below stages the GnuPG simple Windows installer
+# (gnupg-w32-*.exe -- a clean MinGW-w64 native gpg.exe with no msys runtime,
+# no msys-2.0.dll, no IDN code path) at C:\gnupg\bin, which the build-minimal
+# PATH below prepends so `mise install node`'s gpg lookup finds it. NSIS
+# installer extraction needs an installer stack Nano lacks, so the donor
+# stage runs on Server Core like the VC++ runtime donor.
 
 # --- vcruntime: donor stage for the VC++ runtime DLLs. ---
 # Nano Server omits the VC++ runtime that msvc-built executables (mise.exe, and
@@ -45,6 +66,22 @@ RUN curl -fsSL -o vc_redist.exe https://aka.ms/vs/17/release/vc_redist.x64.exe &
     (vc_redist.exe /install /quiet /norestart || ver>nul) && `
     del vc_redist.exe
 
+# --- gpgbin: donor stage for the GnuPG simple-installer payload. ---
+# GnuPG's official simple Windows installer is an NSIS .exe that installs a
+# MinGW-w64 native gpg.exe (no msys runtime); Nano Server can't run NSIS but
+# Server Core can, so we install silently here (`/S` NSIS silent mode, `/D=`
+# target dir -- must be the last arg, no quotes) and COPY the result to the
+# Nano stage below. SHA256 pin: an upstream republish under the same URL
+# fails the build instead of silently changing the gpg we ship.
+FROM mcr.microsoft.com/windows/servercore:${WINDOWS_VERSION} AS gpgbin
+SHELL ["cmd", "/S", "/C"]
+RUN curl -fsSL -o gnupg.exe https://gnupg.org/ftp/gcrypt/binary/gnupg-w32-2.5.20_20260513.exe && `
+    certutil -hashfile gnupg.exe SHA256 | findstr /i `
+        "ca26cd20602581b2ce05e95b16f6249f6fb6c4dcf32304165fc90519328d7981" >nul && `
+    start /wait "" gnupg.exe /S /D=C:\gnupg && `
+    del gnupg.exe && `
+    if not exist C:\gnupg\bin\gpg.exe exit /b 1
+
 # --- build-minimal: mise + the always-loaded toolchain (config.toml only). ---
 # Mirrors the Linux build-minimal: copies just .mise/config.toml + installs the
 # default tools, so this layer is reused until the always-loaded toolset changes,
@@ -55,6 +92,12 @@ FROM mcr.microsoft.com/windows/nanoserver:${WINDOWS_VERSION} AS build-minimal
 COPY --from=vcruntime C:\Windows\System32\vcruntime140.dll C:\Windows\System32\
 COPY --from=vcruntime C:\Windows\System32\vcruntime140_1.dll C:\Windows\System32\
 COPY --from=vcruntime C:\Windows\System32\msvcp140.dll C:\Windows\System32\
+
+# Bring in the GnuPG simple-installer payload (see gpgbin stage above). mise's
+# node-tarball gpg-verify path runs `gpg --import` + `gpg --verify`, so gpg.exe
+# must be on PATH before the first `mise install node` below; C:\gnupg\bin is
+# added to PATH in the ENV PATH= line later in this stage.
+COPY --from=gpgbin C:\gnupg C:\gnupg
 
 # cmd is the only shell Nano Server has; ContainerAdministrator so we can write
 # under C:\ (the backtick line continuations below rely on the escape directive
@@ -139,7 +182,7 @@ RUN tar -xf C:\mise.zip -C C:\ && del C:\mise.zip
 # the builds that need it run afterwards.
 ENV MISESHIMS=C:\Users\ContainerAdministrator\AppData\Local\mise\shims
 ENV LLVMBIN=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\github-mstorsjo-llvm-mingw\20260602\bin
-ENV PATH="C:\mise\bin;${MISESHIMS};C:\Windows\System32;C:\Windows;${LLVMBIN};${PATH}"
+ENV PATH="C:\mise\bin;${MISESHIMS};C:\Windows\System32;C:\Windows;${LLVMBIN};C:\gnupg\bin;${PATH}"
 
 WORKDIR C:\workspace
 # config.toml (always-loaded) + config.windows.toml (the Windows tools/env/task)
@@ -219,9 +262,13 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 # install time. cowsay is only an et-ws-pyo3-runner test fixture; semgrep + cpplint
 # are linters run by `mise run check` on Linux. lychee -- the link-check task isn't
 # part of the Windows build/test flow. cargo:cargo-expand -- a dev-only tool with
-# no role in image builds. All install fine elsewhere; dropping them here just
+# no role in image builds. conda:m2-gnupg -- the workstation Windows path uses
+# this msys2 gnupg (declared in config.windows.toml); on Nano its msys-2.0.dll
+# trips the kernel32 autoload trap (see the comment block at the top of this
+# file), so the gpgbin donor stage above provides a clean MinGW gpg.exe at
+# C:\gnupg\bin instead. All install fine elsewhere; dropping them here just
 # keeps the image lean.
-ENV MISE_DISABLE_TOOLS=cargo:cargo-expand,lychee,pipx:cowsay,pipx:cpplint,pipx:semgrep
+ENV MISE_DISABLE_TOOLS=cargo:cargo-expand,conda:m2-gnupg,lychee,pipx:cowsay,pipx:cpplint,pipx:semgrep
 
 # The remaining always-loaded tools (the cargo: tools; python is already
 # installed above) now that rust links via gnullvm.

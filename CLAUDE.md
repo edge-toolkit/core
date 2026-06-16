@@ -312,6 +312,25 @@ bug, a CI-only flake — and you decide to paper over it with a workaround:
   by grepping the repo for the error string. This applies equally to
   symptoms first seen locally and to GHA-only flakes.
 
+## Non-negotiable platform constraints
+
+Two project decisions are pinned — not subject to "easier path" rewrites,
+even when something downstream is in the way. Don't propose disabling or
+working around either; find a compliant solution instead.
+
+1. **`Dockerfile.nanoserver`'s base image stays Nano Server.** Don't switch
+   to Windows Server Core / LTSC / any non-Nano-Server base, no matter how
+   much it would unblock a tool. Minimal image size on the Windows lane is
+   load-bearing.
+2. **`gpg_verify` stays enabled on every platform.** Don't set it to
+   `false`, soft-skip with a `warn!`, or scope it away per-OS — mise's
+   node tarball signature verification is a supply-chain security
+   requirement. If a platform can't run an existing gpg distribution, the
+   answer is to find a different gpg for that platform, not to disable
+   the check.
+
+Recorded here so future iterations don't re-litigate the same trade-off.
+
 ## Tools must work on every OS
 
 Five supported platforms in two tiers. **Main tier:** macOS arm64, Linux x64,

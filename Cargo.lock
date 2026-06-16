@@ -4690,6 +4690,7 @@ dependencies = [
  "et-ws-test-server",
  "futures-util",
  "int-otlp-mock",
+ "libc",
  "opentelemetry 0.31.0",
  "opentelemetry-http 0.31.0",
  "ort",

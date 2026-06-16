@@ -68,10 +68,15 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: docker build --target test --build-arg BASE_IMAGE --secret id=gh_token,env=GITHUB_TOKEN -t et-test .
 
-      # The check stage needs `.git/` + the Dockerfiles. Both are excluded
-      # from the main `.dockerignore`, so we pre-stage them into a directory
-      # and hand it to docker as a named build context (`c=$CTX`). The check
-      # stage then does `COPY --from=c . ./` to land them in /workspace.
+      # The check stage needs `.git/` + every tracked Dockerfile. The main
+      # `.dockerignore` excludes both (`**/Dockerfile*` so Dockerfiles in
+      # subdirs don't bloat the build context), so we pre-stage them into a
+      # directory and hand it to docker as a named build context (`extras`).
+      # The check stage does `COPY --from=extras . ./` to land them in
+      # /workspace. `cp --parents` preserves the subdir path of each Dockerfile
+      # (e.g. services/ws-server/Dockerfile), so hadolint's `git ls-files
+      # '*Dockerfile' '*Dockerfile.*' | xargs hadolint` finds every entry on
+      # disk -- a top-level cp would have left subdir Dockerfiles unfindable.
       - name: Build stage check
         env:
           BASE_IMAGE: ${{ matrix.base }}
@@ -81,7 +86,8 @@ jobs:
           gh_token: ${{ github.token }}
         run: |
           mkdir -p "$CTX"
-          cp -r .git Dockerfile Dockerfile.nanoserver "$CTX/"
+          cp -r .git "$CTX/"
+          git ls-files '*Dockerfile' '*Dockerfile.*' | xargs -I{} cp --parents {} "$CTX/"
           docker build --target check --build-arg BASE_IMAGE --build-context extras=$CTX --secret id=gh_token -t $TAG .
 
       - name: Run the test suite

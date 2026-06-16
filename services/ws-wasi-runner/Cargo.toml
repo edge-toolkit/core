@@ -36,6 +36,10 @@ et-otlp.workspace = true
 et-rest-client = { workspace = true, features = ["tracing"] }
 et-ws-runner-common.workspace = true
 futures-util.workspace = true
+# libc::_exit for the macOS test-only fast exit (see main.rs). std::process::exit
+# still runs atexit handlers, which is exactly the path that races libc++ during
+# ORT teardown -- _exit skips them.
+libc.workspace = true
 opentelemetry.workspace = true
 opentelemetry-http.workspace = true
 pollster.workspace = true

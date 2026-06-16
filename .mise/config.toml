@@ -225,7 +225,7 @@ depends = [
   "action-validator",
   "ast-grep-check",
   "cargo-check",
-  "cargo-clippy",
+  "cargo-clippy-check",
   "cargo-doc-check",
   "cargo-fmt-check",
   "conftest-check",
@@ -292,7 +292,8 @@ run = "cargo +nightly fmt"
 [tasks.cargo-fmt-check]
 run = "cargo +nightly fmt -- --check"
 
-[tasks.cargo-clippy]
+[tasks.cargo-clippy-check]
+alias = ["cargo-clippy", "clippy", "clippy-check"]
 run = "cargo clippy --keep-going --workspace --tests"
 
 [tasks.cargo-doc-check]

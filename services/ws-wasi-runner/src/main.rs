@@ -54,14 +54,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     //   et-ws-wasi-graphics-info exited with code None
     //
-    // Useful work has flushed by here (OTLP above, tokio I/O drained when
-    // `run_module` returned), so skipping static destructors loses nothing --
-    // but it IS a sharp tool, so it's gated to (a) macOS only (Linux/Windows
-    // don't see the crash) and (b) the integration test opting in via
-    // ET_WS_WASI_RUNNER_FAST_EXIT (production binary use still does normal Drop).
+    // `libc::_exit` not `std::process::exit`: the Rust one calls libc `exit(3)`,
+    // which runs atexit handlers -- that's exactly the path that runs ORT's
+    // C++ static destructors and races libc++, so the crash still fires. POSIX
+    // `_exit(2)` skips atexit entirely. Useful work has flushed by here (OTLP
+    // above, tokio I/O drained when `run_module` returned), so skipping static
+    // destructors loses nothing -- but it IS a sharp tool, so it's gated to
+    // (a) macOS only (Linux/Windows don't see the crash) and (b) the
+    // integration test opting in via ET_WS_WASI_RUNNER_FAST_EXIT (production
+    // binary use still does normal teardown).
     #[cfg(target_os = "macos")]
     if std::env::var_os("ET_WS_WASI_RUNNER_FAST_EXIT").is_some() {
-        std::process::exit(0);
+        // SAFETY: `_exit(0)` is async-signal-safe and has no preconditions; it
+        // terminates the process immediately without running atexit handlers.
+        #[expect(
+            unsafe_code,
+            reason = "libc::_exit is the only way to skip atexit handlers; see comment above"
+        )]
+        unsafe {
+            libc::_exit(0);
+        }
     }
     Ok(())
 }

@@ -166,9 +166,19 @@ RUN mise run build-modules && rm -rf target/
 # doesn't initialize yet, so prefer a DRI device for now.
 FROM precompile AS test
 ENV NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=all
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers \
-    && rm -rf /var/lib/apt/lists/*
+# Vulkan runtime + Mesa drivers via whichever package manager the base has.
+# Debian/Ubuntu: libvulkan1 + mesa-vulkan-drivers; Fedora: vulkan-loader +
+# mesa-vulkan-drivers (same Mesa name, different loader name).
+RUN if command -v apt-get >/dev/null 2>&1; then \
+        apt-get update \
+        && apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers \
+        && rm -rf /var/lib/apt/lists/* ; \
+    elif command -v dnf >/dev/null 2>&1; then \
+        dnf install -y --setopt=install_weak_deps=False vulkan-loader mesa-vulkan-drivers \
+        && dnf clean all ; \
+    else \
+        echo "no supported package manager for libvulkan1/mesa-vulkan-drivers" >&2; exit 1; \
+    fi
 CMD ["mise", "run", "test"]
 
 # --- server: release build of et-ws-server. ---
