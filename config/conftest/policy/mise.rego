@@ -44,7 +44,7 @@ deny contains msg if {
 # slow surprise on the critical path.
 second_tier_platform := {"linux/arm64", "macos/x64"}
 
-allowed_cargo_no_prebuilt := {"cargo:cargo-expand", "cargo:dart-typegen"}
+allowed_cargo_no_prebuilt := {"cargo:cargo-expand", "cargo:dart-typegen", "cargo:rustpython"}
 
 cargo_scoped_to_second_tier(spec) if {
 	is_object(spec)

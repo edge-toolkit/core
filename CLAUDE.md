@@ -365,6 +365,31 @@ you add a path to `.gitignore`, update their ignore lists too:
 
 A new linter that surfaces ignored paths in its output belongs on this list.
 
+## Do NOT add gitignored paths to ec / dprint / typos config
+
+`editorconfig-checker` (`ec`), `dprint`, and `typos` already honor `.gitignore`
+on their own. If a path is in `.gitignore`, those three linters skip it — full
+stop. Do **not** add a redundant exclude to `.editorconfig`'s `[path/**]`
+blocks, `config/dprint.jsonc`'s `excludes`, or `config/typos.toml`'s
+`extend-exclude` "just to be safe" or "to be explicit". A redundant exclude is
+a lie — it implies the path needs special handling when in fact `.gitignore`
+already covers it, and the next reader has to grep two places to understand
+the same fact.
+
+The right move when one of these linters flags a generated / vendored / build-
+output tree:
+
+1. Add the path to `.gitignore` (and run `mise run gen:dockerignore` if it
+   also belongs in `.dockerignore`).
+2. Stop. Do not touch `.editorconfig` / `dprint.jsonc` / `typos.toml`.
+
+The narrow exception: a path that **must** stay tracked in git (so cannot go
+in `.gitignore`) but still needs the linter to ignore it. `generated/` trees
+that we commit (`generated/python-rest/`, `generated/python-ws/`, etc.) are
+the canonical case — see the existing `[generated/python-rest/**]` block in
+`.editorconfig` for the shape. Reach for a config-file exclude only after
+confirming gitignoring isn't viable.
+
 ## No `scripts/` directory
 
 Do not create a `scripts/` directory or drop loose shell/Python scripts in the

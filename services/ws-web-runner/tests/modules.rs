@@ -37,7 +37,8 @@
 #![expect(
     clippy::expect_used,
     clippy::panic,
-    reason = "test code: process spawn failure or non-zero exit fails the test"
+    clippy::print_stdout,
+    reason = "test code: process spawn failure or non-zero exit fails the test; pywasm1 skip uses println"
 )]
 
 use rstest::rstest;
@@ -49,9 +50,29 @@ use rstest::rstest;
 #[case::dotnet_data1("et-ws-dotnet-data1")]
 #[case::java_data1("et-ws-java-data1")]
 #[case::zig_data1("et-ws-zig-data1")]
+#[case::pywasm1("et-ws-pywasm1")]
 fn module_runs_successfully(#[case] module: &str) {
+    if module == "et-ws-pywasm1" && !pywasm1_pkg_built() {
+        println!("skipping {module}: pkg/ not built (run `mise run build-pywasm1-module`)");
+        return;
+    }
     let server = et_ws_test_server::start();
     run_runner_with_timeout(module, &server.ws_url, 90);
+}
+
+/// pywasm1 depends on building `rustpython_wasm` from an external clone
+/// (`build-rustpython-wasm`), which the default `build-modules` task skips
+/// because of the multi-minute rustpython compile. Skip the test on hosts
+/// without the pkg/ output instead of failing -- pinning to it would block
+/// every CI lane and dev box that hasn't paid that cost.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct probe step; kept named for the skip-trace log line"
+)]
+fn pywasm1_pkg_built() -> bool {
+    edge_toolkit::config::get_project_root()
+        .join("services/ws-modules/pywasm1/pkg/package.json")
+        .exists()
 }
 
 /// Spawn two runners against one ws-server and assert both finish ok.

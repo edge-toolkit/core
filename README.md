@@ -224,15 +224,30 @@ that can load and run the module.
 
 Under each module in `ws-modules`, the package can be found in a subdirectory `pkg`.
 
-Most of the module are built from Rust using `wasm-pack build --target web`.
+Modules target one of three runners.
 
-There are also modules written in:
+### Browser runner ([ws-web-runner](services/ws-web-runner))
+
+Modules loaded by a web browser, or natively under Deno by `et-ws-web-runner`.
+Most are Rust built with `wasm-pack build --target web`; other languages:
 
 - Dart
 - Java
 - .Net C#
-- Python, using [pyodide](https://pyodide.org/)
-- Zig, including C code.
+- Python, using [pyodide](https://pyodide.org/) and [RustPython](https://rustpython.github.io/)
+- Zig, including C code
+
+### WASI runner ([ws-wasi-runner](services/ws-wasi-runner))
+
+Modules built as WASI Preview 2 components and run under wasmtime:
+
+- Rust
+- Python, via [componentize-py](https://github.com/bytecodealliance/componentize-py)
+
+### PyO3 runner ([ws-pyo3-runner](services/ws-pyo3-runner))
+
+Native CPython modules linked via [PyO3](https://pyo3.rs) -- used for
+workloads that need a real CPython runtime (e.g. PyTorch inference).
 
 ## Root module
 

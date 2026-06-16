@@ -137,5 +137,15 @@ jobs:
       - name: Build WASM modules
         run: mise run build-modules
 
+      # Separate step (not in the default build-modules glob) because the
+      # rustpython compile is ~5 min on its own. Without these two steps,
+      # the et-ws-pywasm1 case in `services/ws-web-runner/tests/modules.rs`
+      # short-circuits with a "skipping {module}: pkg/ not built" log line.
+      - name: Clone RustPython for pywasm1
+        run: git clone --depth=1 https://github.com/RustPython/RustPython.git "$HOME/rust/RustPython"
+
+      - name: Build pywasm1 module
+        run: mise run build-pywasm1-module
+
       - name: Run tests
         run: mise run test

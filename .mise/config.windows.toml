@@ -112,15 +112,6 @@ PYO3_PYTHON = "{{ vars.py3_win }}"
 # .dylib that ship in the release. The workspace `ort` dep keeps `copy-dylibs`
 # so the DLL lands next to linked binaries.
 ORT_PREFER_DYNAMIC_LINK = "1"
-# Point cargo-binstall at the MSVC triple. The host is gnullvm (see
-# CARGO_BUILD_TARGET above), and the cargo:* tools we install (cargo-expand)
-# don't publish gnullvm prebuilts -- so binstall falls back to `cargo install`,
-# which then tries to link build scripts via llvm-mingw clang/lld and dies on
-# LNK1143 (lld + rustc CGU COMDAT mismatch). Steering binstall to the MSVC
-# triple makes it fetch the upstream MSVC release binary, which runs fine on
-# this host: target only governs what the tool links against, not what
-# executes it.
-BINSTALL_TARGETS = "x86_64-pc-windows-msvc"
 # Prepend conda:m2-gnupg's nested binary dir to PATH. mise's per-tool
 # .mise-bins resolves `<install>/bin/X` and `<install>/Library/bin/X` cleanly,
 # but msys2-format packages put binaries one level deeper at
