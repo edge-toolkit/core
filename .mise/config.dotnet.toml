@@ -27,46 +27,55 @@ description = "Format .NET sources"
 description = "Build the dotnet-data1 C# WASM workflow module"
 dir = "services/ws-modules/dotnet-data1"
 run = '''
+# `set -x` so every command (incl. the find / dirname chain that resolves
+# $(EmscriptenLocation), the final dotnet publish invocation with its
+# -p:EmscriptenLocation=... arg, and the cp of the publish artefacts) is
+# echoed to the log. The Windows path of this task is fiddly and the CI
+# log is the only way we get to see it; leave the trace on until the
+# Windows build is reliably green.
+set -x
+
 dotnet workload install wasm-tools --skip-manifest-update
 
 # Windows-only: `dotnet workload install` drops the Emscripten SDK pack under
 # %LOCALAPPDATA%/mise/dotnet-root/packs/Microsoft.NET.Runtime.Emscripten.*/*/tools/emscripten/,
-# but does not add that dir to PATH (Linux/macOS get it via dotnet's
-# workload-install shell-rc setup). `dotnet publish`'s MSBuild targets then
-# shell out to bare `emcc` and cmd reports verbatim:
+# but does not surface that path to the build the way Linux/macOS do via
+# dotnet's workload-install shell-rc setup. MSBuild's BrowserWasmApp.targets
+# resolves the compile invocation through $(EmscriptenLocation) (absolute,
+# works) but the LINK invocation falls back to bare `emcc`, and the cmd.exe
+# MSBuild spawns there doesn't pick up a PATH prepend we'd export from
+# bash (validated by the emcc-debug step in test.yaml: bash + Win32 `where`
+# + cmd.exe all see emcc after the prepend, yet the link target still hits):
 #   'emcc' is not recognized as an internal or external command,
 #   operable program or batch file.
-# Discover the pack dir and prepend to PATH so the publish subprocess finds
-# emcc.bat. Glob via `find` so a future Emscripten / pack version bump
-# rolls forward without touching this task.
+#   error MSB3073: The command "emcc "@...emcc-default.rsp" ..." exited with code 9009.
+# Set $(EmscriptenLocation) explicitly via `-p:` so the link target uses the
+# same absolute-path invocation the compile already does. Glob via `find`
+# so an Emscripten / pack version bump rolls forward.
 echo "[emcc-find] OS=${OS:-<unset>} MSYSTEM=${MSYSTEM:-<unset>}"
+publish_args=""
 if [ "${OS:-}" = "Windows_NT" ]; then
     echo "[emcc-find] LOCALAPPDATA=${LOCALAPPDATA:-<unset>}"
     emcc_bat="$(find "$LOCALAPPDATA/mise/dotnet-root/packs" -name 'emcc.bat' 2>/dev/null | head -1)"
     echo "[emcc-find] emcc_bat=${emcc_bat:-<empty>}"
-    if [ -n "$emcc_bat" ]; then
-        emcc_dir="$(dirname "$emcc_bat")"
-        # Normalise to MSYS Unix form (/c/Users/...). Bash uses `:` as the PATH
-        # separator; MSYS rewrites the whole PATH (`:`->`;`, /c/Users/... ->
-        # C:\Users\...) when it spawns a Win32 child like dotnet.exe, but only
-        # when each entry is in Unix form. A `C:\Users\...` entry escapes the
-        # conversion and the trailing `:` glues it to the next entry, so cmd.exe
-        # (run by MSBuild's <Exec> for `emcc @...rsp`) sees no emscripten dir
-        # and reports `'emcc' is not recognized` (exit 9009).
-        if command -v cygpath >/dev/null 2>&1; then
-            emcc_dir_unix="$(cygpath -u "$emcc_dir")"
-            echo "[emcc-find] cygpath conversion: $emcc_dir -> $emcc_dir_unix"
-            emcc_dir="$emcc_dir_unix"
-        fi
-        export PATH="$emcc_dir:$PATH"
-        echo "[emcc-find] prepended to PATH: $emcc_dir"
-    else
+    if [ -z "$emcc_bat" ]; then
         echo "build-ws-dotnet-data1-module: emcc.bat not found under \$LOCALAPPDATA/mise/dotnet-root/packs" >&2
         exit 1
     fi
+    # `$(EmscriptenLocation)` is the sibling `Sdk\` dir of the `tools\` dir
+    # that holds emcc.bat -- the compile target then constructs
+    # `$(EmscriptenLocation)\..\tools\emscripten\emcc`. emcc_bat sits at
+    # `<root>/tools/emscripten/emcc.bat`, so two dirnames up + `/Sdk` is it.
+    emsdk_loc="$(dirname "$(dirname "$(dirname "$emcc_bat")")")/Sdk"
+    # MSBuild on Windows wants the property in native Windows form.
+    if command -v cygpath >/dev/null 2>&1; then
+        emsdk_loc="$(cygpath -w "$emsdk_loc")"
+    fi
+    publish_args="-p:EmscriptenLocation=$emsdk_loc"
+    echo "[emcc-find] $publish_args"
 fi
 
-dotnet publish -c Release
+dotnet publish -c Release $publish_args
 
 PUBLISH=bin/Release/net10.0/publish/wwwroot/_framework
 cp "$PUBLISH"/*.js "$PUBLISH"/*.wasm "$PUBLISH"/*.dat pkg/

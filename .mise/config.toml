@@ -202,8 +202,17 @@ url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x
 # publish task updates both `version` and the platform url together.
 [tools."http:et-rp"]
 bin = "rustpython"
-os = ["macos/x64"]
+os = ["linux", "macos"]
 version = "08a1d6f"
+[tools."http:et-rp".platforms.linux-arm64]
+checksum = "sha256:c26df56bf3c28cb9e134abe95dd0fcf927f05487069a492a6f54ffa1c0f3dc12"
+url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-08a1d6f-aarch64-unknown-linux-gnu.tar.gz"
+[tools."http:et-rp".platforms.linux-x64]
+checksum = "sha256:75b74fd71ba338d542d9c8a512aa6e9475695f31d5e9e3d159b44d1445b9ba21"
+url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-08a1d6f-x86_64-unknown-linux-gnu.tar.gz"
+[tools."http:et-rp".platforms.macos-arm64]
+checksum = "sha256:5cdb5ed45e925ac01d12feeae453be75112d5e4d4725d44c869d63e502fcf393"
+url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-08a1d6f-aarch64-apple-darwin.tar.gz"
 [tools."http:et-rp".platforms.macos-x64]
 checksum = "sha256:2a161b533e6eab988b7a16d400b05216c37be371a142e761b917044c14cacad2"
 url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-08a1d6f-x86_64-apple-darwin.tar.gz"
@@ -1015,6 +1024,14 @@ shell = "bash -euo pipefail -c"
 # Build the pywasm1 ws-module from the fetched rustpython_wasm extraction.
 # Task name intentionally omits the `ws-` prefix so the default
 # `build-modules` glob (`build-ws-*`) doesn't drag it in.
+#
+# TODO(before-PR-merge): rename to `build-ws-pywasm1-module` so it
+# matches every other module task and gets picked up by the default
+# `build-modules` glob -- the original reason for the off-pattern name
+# (the multi-minute wasm-pack compile of RustPython from source) is
+# gone now that fetch-rp-wasm pulls a prebuilt tarball from rp-v<N>.
+# Removing the special-case will let docker-linux.yaml build it too,
+# and lets test.yaml drop its dedicated `Build pywasm1 module` step.
 [tasks.build-pywasm1-module]
 depends = ["fetch-rp-wasm"]
 description = "Build the pywasm1 module (fetched rustpython_wasm + main.py)"

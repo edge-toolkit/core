@@ -104,7 +104,7 @@ RUN if command -v apt-get >/dev/null 2>&1; then \
             pkgs="$pkgs $w" ; \
         done ; \
         if command -v dnf >/dev/null 2>&1; then \
-            dnf install -y --setopt=install_weak_deps=False $COMMON_PACKAGES $pkgs \
+            dnf install -y --allowerasing --setopt=install_weak_deps=False $COMMON_PACKAGES $pkgs \
                 && dnf clean all ; \
         else \
             tdnf install -y $COMMON_PACKAGES $pkgs && tdnf clean all ; \

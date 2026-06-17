@@ -53,12 +53,20 @@ jobs:
       contents: write
     timeout-minutes: 60
     env:
-      # Windows: skip cargo:dart-typegen (no quickinstall release, so
-      # cargo-binstall falls through to source-build against gnullvm
-      # and trips `error[E0463]: can't find crate for 'core'` --
-      # same workaround test.yaml uses). dart-typegen has no role in
-      # this workflow.
-      MISE_DISABLE_TOOLS: ${{ startsWith(matrix.os, 'windows') && 'cargo:dart-typegen' || '' }}
+      # Windows: skip two cargo: tools that have no usable Windows install
+      # path. cargo:dart-typegen has no quickinstall release at all -- the
+      # install_env steer config.windows.toml uses for cargo:cargo-expand
+      # has nothing to point at, and source-build trips
+      # `error[E0463]: can't find crate for 'core'` against gnullvm.
+      # cargo:toml-cli has no msvc quickinstall asset either (only macOS
+      # / Linux prebuilts upstream) and falls through to source with
+      # `Cargo errored! ExitStatus(ExitStatus(101))`; the publish tasks
+      # skip their post-upload config.toml `toml set` edits when `toml`
+      # isn't on PATH, so the asset still ships -- just without the
+      # auto-update of platforms.<plat>.{url,checksum} in config.toml
+      # (the maintainer applies that locally from the .sha256 sidecar
+      # the workflow uploads alongside the tarball).
+      MISE_DISABLE_TOOLS: ${{ startsWith(matrix.os, 'windows') && 'cargo:dart-typegen,cargo:toml-cli' || '' }}
     strategy:
       fail-fast: false
       matrix:

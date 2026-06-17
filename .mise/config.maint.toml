@@ -286,9 +286,19 @@ gh release upload "$RP_RELEASE" --clobber --repo "$GH_REPO" "$tarball" "${tarbal
 # this platform's `url` + `checksum`. mise's tera doesn't expose top-level
 # `version` into platforms.<plat>.url, so the short SHA is inlined in each
 # platform's url and the publish task rewrites it here too. Per-platform
-# triple is baked into each url.
+# triple is baked into each url. Skip when `toml` (cargo:toml-cli) isn't
+# on PATH -- Windows CI disables that tool because its msvc quickinstall
+# asset doesn't exist and source-build trips on gnullvm; the asset upload
+# itself still happens, and the maintainer applies the config edits
+# locally from the .sha256 sidecar uploaded alongside.
 mise_path="{{ config_root }}/.mise/config.toml"
 new_url="https://github.com/edge-toolkit/core/releases/download/$RP_RELEASE/$asset"
+echo "uploaded $asset to $RP_RELEASE (commit $commit, triple $triple)"
+if ! command -v toml >/dev/null 2>&1; then
+  echo "note: toml-cli unavailable on this host; skipping in-place config.toml edits"
+  echo "      apply manually: version=$short, platforms.${plat}.url=$new_url, .checksum=sha256:$actual"
+  exit 0
+fi
 toml set "$mise_path" 'tools."http:et-rp".version' "$short" > "${mise_path}.tmp"
 coreutils mv "${mise_path}.tmp" "$mise_path"
 toml set "$mise_path" "tools.\\"http:et-rp\\".platforms.${plat}.url" "$new_url" > "${mise_path}.tmp"
@@ -296,7 +306,6 @@ coreutils mv "${mise_path}.tmp" "$mise_path"
 toml set "$mise_path" "tools.\\"http:et-rp\\".platforms.${plat}.checksum" "sha256:$actual" > "${mise_path}.tmp"
 coreutils mv "${mise_path}.tmp" "$mise_path"
 
-echo "uploaded $asset to $RP_RELEASE (commit $commit, triple $triple)"
 echo "updated http:et-rp version + platforms.${plat}.{url,checksum} in .mise/config.toml"
 """
 shell = "bash -euo pipefail -c"
