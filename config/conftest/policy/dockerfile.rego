@@ -65,3 +65,28 @@ deny contains msg if {
 		[file.path, name],
 	)
 }
+
+# Every RUN heredoc body must begin with `set -euo pipefail`. The Dockerfile
+# parser surfaces a heredoc's first-line value via instr.Heredocs[].Content
+# (without the EOF terminator), or for non-heredoc RUNs as instr.Value[0].
+# Mirrors the gha.rego rule that enforces the same on multi-line `run:` in
+# workflow YAML -- one strict-mode declaration at the top of every script
+# body so future maintainers don't have to remember which RUN inherits
+# which shell flags.
+run_heredocs contains body if {
+	some file in input
+	is_array(file.contents)
+	some instr in file.contents
+	instr.Cmd == "run"
+	some heredoc in instr.Heredocs
+	body := {"path": file.path, "name": object.get(heredoc, "Name", ""), "content": object.get(heredoc, "Content", "")}
+}
+
+deny contains msg if {
+	some body in run_heredocs
+	not startswith(body.content, "set -euo pipefail\n")
+	msg := sprintf(
+		"%s: RUN <<%s heredoc must begin with `set -euo pipefail` as the first line",
+		[body.path, body.name],
+	)
+}

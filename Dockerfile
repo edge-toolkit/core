@@ -85,47 +85,52 @@ ARG DNF_PACKAGES="gcc-c++ glibc-devel kernel-headers libatomic libicu"
 # word-split it into distinct args for apt-get / dnf / tdnf / zypper.
 # SC2086 fires on these and that's the false-positive that pragma silences.
 # hadolint ignore=SC2086
-RUN if command -v apt-get >/dev/null 2>&1; then \
-        apt-get update \
-        && libicu="$(apt-cache search --names-only '^libicu[0-9]+$' | cut -d' ' -f1 | head -1)" \
-        && [ -n "$libicu" ] || { echo "no libicu[0-9]+ package available in this base" >&2; exit 1; } \
-        && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            $COMMON_PACKAGES $APT_PACKAGES "$libicu" \
-        && apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb ; \
-    elif command -v dnf >/dev/null 2>&1 || command -v tdnf >/dev/null 2>&1; then \
-        is_azl=false ; \
-        if grep -q '^ID=azurelinux$' /etc/os-release 2>/dev/null; then is_azl=true ; fi ; \
-        pkgs="" ; \
-        for w in $DNF_PACKAGES; do \
-            if [ "$is_azl" = true ]; then \
-                case "$w" in \
-                    libicu) w=icu ;; \
-                    libatomic) w=libgcc-atomic ;; \
-                esac ; \
-            fi ; \
-            pkgs="$pkgs $w" ; \
-        done ; \
-        if command -v dnf >/dev/null 2>&1; then \
-            dnf install -y --allowerasing --setopt=install_weak_deps=False $COMMON_PACKAGES $pkgs \
-                && dnf clean all ; \
-        else \
-            tdnf install -y $COMMON_PACKAGES $pkgs && tdnf clean all ; \
-        fi ; \
-    elif command -v zypper >/dev/null 2>&1; then \
-        pkgs="" ; \
-        for w in $DNF_PACKAGES; do \
-            case "$w" in \
-                kernel-headers) w=linux-glibc-devel ;; \
-                libatomic) w=libatomic1 ;; \
-            esac ; \
-            pkgs="$pkgs $w" ; \
-        done ; \
-        zypper --non-interactive --gpg-auto-import-keys refresh \
-            && zypper --non-interactive install --no-recommends $COMMON_PACKAGES $pkgs \
-            && zypper clean --all ; \
-    else \
-        echo "no supported package manager (apt-get, dnf, tdnf, or zypper) found" >&2; exit 1; \
+RUN <<EOF
+set -euo pipefail
+if command -v apt-get >/dev/null 2>&1; then
+    apt-get update
+    libicu="$(apt-cache search --names-only '^libicu[0-9]+$' | cut -d' ' -f1 | head -1)"
+    [ -n "$libicu" ] || { echo "no libicu[0-9]+ package available in this base" >&2; exit 1; }
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $COMMON_PACKAGES $APT_PACKAGES "$libicu"
+    apt-get clean
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb
+elif command -v dnf >/dev/null 2>&1 || command -v tdnf >/dev/null 2>&1; then
+    is_azl=false
+    if grep -q '^ID=azurelinux$' /etc/os-release 2>/dev/null; then is_azl=true; fi
+    pkgs=""
+    for w in $DNF_PACKAGES; do
+        if [ "$is_azl" = true ]; then
+            case "$w" in
+                libicu) w=icu ;;
+                libatomic) w=libgcc-atomic ;;
+            esac
+        fi
+        pkgs="$pkgs $w"
+    done
+    if command -v dnf >/dev/null 2>&1; then
+        dnf install -y --allowerasing --setopt=install_weak_deps=False $COMMON_PACKAGES $pkgs
+        dnf clean all
+    else
+        tdnf install -y $COMMON_PACKAGES $pkgs
+        tdnf clean all
     fi
+elif command -v zypper >/dev/null 2>&1; then
+    pkgs=""
+    for w in $DNF_PACKAGES; do
+        case "$w" in
+            kernel-headers) w=linux-glibc-devel ;;
+            libatomic) w=libatomic1 ;;
+        esac
+        pkgs="$pkgs $w"
+    done
+    zypper --non-interactive --gpg-auto-import-keys refresh
+    zypper --non-interactive install --no-recommends $COMMON_PACKAGES $pkgs
+    zypper clean --all
+else
+    echo "no supported package manager (apt-get, dnf, tdnf, or zypper) found" >&2
+    exit 1
+fi
+EOF
 
 # Install mise and put it + its shims on PATH; in a non-interactive build that's
 # the equivalent of the shell integration -- every `mise` / `mise run` below
@@ -159,9 +164,13 @@ RUN mise trust
 # limit for the release fetches. MISE_JOBS=1 serializes the install: the `rust`
 # tool is a two-version list (latest + nightly) that otherwise runs two
 # rustup-inits at once, racing on the shared rustup binary's self-update (exit 1).
-RUN --mount=type=secret,id=gh_token,required=false \
-    GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)" \
-    sh -c 'mise run preinstall && MISE_JOBS=1 mise install'
+RUN --mount=type=secret,id=gh_token,required=false <<EOF
+set -euo pipefail
+GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)"
+export GITHUB_TOKEN
+mise run preinstall
+MISE_JOBS=1 mise install
+EOF
 
 # --- build: add the guest-language toolchains (config.<lang>.toml). ---
 # install-all == MISE_ENV="$ALL_LANGS" mise install; the always-loaded tools are
@@ -170,17 +179,23 @@ FROM build-minimal AS build
 COPY .mise/ .mise/
 RUN mise trust
 ENV MISE_ENV="dart,dotnet,java,python,rust,zig"
-RUN --mount=type=secret,id=gh_token,required=false \
-    GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)" \
-    mise install-all
+RUN --mount=type=secret,id=gh_token,required=false <<EOF
+set -euo pipefail
+GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)"
+export GITHUB_TOKEN
+mise install-all
+EOF
 
 # --- prefetch: download all dependencies + ONNX models. ---
 # The full source is needed from here on (module builds, cargo fetch, pnpm).
 FROM build AS prefetch
 COPY . .
-RUN --mount=type=secret,id=gh_token,required=false \
-    GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)" \
-    mise run prefetch
+RUN --mount=type=secret,id=gh_token,required=false <<EOF
+set -euo pipefail
+GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)"
+export GITHUB_TOKEN
+mise run prefetch
+EOF
 
 # --- precompile: build the WASM/JS modules (needed by test and server). ---
 # `&& rm -rf target` in the SAME layer: build-modules leaves multi-GB cargo
@@ -233,21 +248,28 @@ ENV VK_LOADER_DRIVERS_SELECT=lvp_icd*
 # openSUSE: libvulkan1 + libvulkan_lvp (Mesa ships the lavapipe driver as
 # a separate `libvulkan_lvp` package on SUSE since the 2022 default-pkg
 # split that stopped pulling it in alongside hardware drivers).
-RUN if command -v apt-get >/dev/null 2>&1; then \
-        apt-get update \
-        && apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers \
-        && apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb ; \
-    elif command -v dnf >/dev/null 2>&1; then \
-        dnf install -y --setopt=install_weak_deps=False vulkan-loader mesa-vulkan-drivers \
-        && dnf clean all ; \
-    elif command -v tdnf >/dev/null 2>&1; then \
-        tdnf install -y vulkan-loader mesa-vulkan-drivers && tdnf clean all ; \
-    elif command -v zypper >/dev/null 2>&1; then \
-        zypper --non-interactive install --no-recommends libvulkan1 libvulkan_lvp \
-            && zypper clean --all ; \
-    else \
-        echo "no supported package manager for libvulkan1/mesa-vulkan-drivers" >&2; exit 1; \
-    fi
+RUN <<EOF
+set -euo pipefail
+if command -v apt-get >/dev/null 2>&1; then
+    apt-get update
+    apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers
+    apt-get clean
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb
+elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y --setopt=install_weak_deps=False vulkan-loader mesa-vulkan-drivers
+    dnf clean all
+elif command -v tdnf >/dev/null 2>&1; then
+    tdnf install -y vulkan-loader mesa-vulkan-drivers
+    tdnf clean all
+elif command -v zypper >/dev/null 2>&1; then
+    zypper --non-interactive install --no-recommends libvulkan1 libvulkan_lvp
+    zypper clean --all
+else
+    echo "no supported package manager for libvulkan1/mesa-vulkan-drivers" >&2
+    exit 1
+fi
+EOF
+
 CMD ["mise", "run", "test"]
 
 # --- server: release build of et-ws-server. ---
@@ -258,9 +280,13 @@ CMD ["mise", "run", "test"]
 # MISE_ENV is set, so the server's `mise where` module-path lookups resolve.
 # docker run --rm -p 8080:8080 edge-toolkit   # then open http://localhost:8080
 FROM precompile AS server
-RUN mise exec -- cargo build --release -p et-ws-server \
-    && cp target/release/et-ws-server /usr/local/bin/et-ws-server \
-    && rm -rf target/
+RUN <<EOF
+set -euo pipefail
+mise exec -- cargo build --release -p et-ws-server
+cp target/release/et-ws-server /usr/local/bin/et-ws-server
+rm -rf target/
+EOF
+
 EXPOSE 8080 8443
 CMD ["et-ws-server"]
 

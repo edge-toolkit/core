@@ -55,7 +55,13 @@ uses:
 
 - **Dockerfile `RUN` block**: switch to BuildKit's HEREDOC form
   (`RUN <<EOF` … `EOF`) — each shell command sits on its own line with
-  no continuation needed.
+  no continuation needed. The **first line of every HEREDOC body must be
+  `set -euo pipefail`** (enforced by `config/conftest/policy/dockerfile.rego`):
+  HEREDOC RUNs default to `/bin/sh -c` which doesn't carry `-e -o pipefail`,
+  unlike the `RUN cmd && cmd` form, so an early-exit-on-failure invariant
+  has to be re-declared inside each body. Leave a blank line between the
+  closing `EOF` and the next instruction — hadolint's parser otherwise
+  errors with `unexpected 'E' expecting a new line...`.
 - **YAML run-bodies**: a `|` block scalar already keeps each shell
   line natural; no continuations are necessary.
 - **Long flag lists**: drop them into a config file (`.env`, `.cfg`,

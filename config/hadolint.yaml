@@ -18,3 +18,8 @@ ignored:
   # Consecutive RUNs are kept separate on purpose -- for layer caching and so a
   # change to one step doesn't bust the others.
   - DL3059
+  # Our RUN <<EOF heredocs start with `set -euo pipefail` (enforced by our
+  # own conftest rule). hadolint pipes the body through shellcheck under
+  # /bin/sh by default, where pipefail isn't POSIX -- but every base image
+  # we use ships bash and the heredoc bodies are bash-compatible.
+  - SC3040

@@ -232,7 +232,7 @@ if [ ! -d "$rp_dir" ]; then
   echo "clone: git clone $RUSTPYTHON_URL $rp_dir" >&2
   exit 1
 fi
-if compgen -G "$prefix/bin/rustpython*" >/dev/null; then
+if [ -e "$prefix/bin/rustpython" ] || [ -e "$prefix/bin/rustpython.exe" ]; then
   echo "build-rp-native: bin/rustpython* already present at $prefix"
   echo "rm -rf $prefix to force a rebuild"
   exit 0

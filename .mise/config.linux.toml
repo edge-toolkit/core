@@ -63,6 +63,7 @@ description = "Preinstall: shared base + verify system build prerequisites"
 run = """
 dockerfile="{{ config_root }}/Dockerfile"
 rpm_installer=""
+arg=""
 if command -v apt-get >/dev/null 2>&1; then
   arg=APT_PACKAGES
   specific="${APT_PACKAGES:-}"
@@ -79,8 +80,13 @@ elif command -v zypper >/dev/null 2>&1; then
   specific="${DNF_PACKAGES:-}"
   rpm_installer=zypper
 else
-  echo "preinstall: no supported package manager (apt-get, dnf, tdnf, or zypper) on PATH" >&2
-  exit 1
+  # WARN + exit 0, not exit 1: a few exotic distros (Alpine, Void, Gentoo,
+  # ...) ship neither apt nor a dnf-family manager. Skip prereq
+  # verification and the rest of this task; the user is on the hook for
+  # COMMON / *_PACKAGES equivalents on their own distro, and `mise
+  # install` (the next step) will surface whichever tool can't install.
+  echo "preinstall: WARN no supported pkg manager (apt-get/dnf/tdnf/zypper); skipping" >&2
+  exit 0
 fi
 common="${COMMON_PACKAGES:-}"
 # Fall back to reading the ARG values from the Dockerfile when the env vars
