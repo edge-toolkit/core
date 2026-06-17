@@ -74,8 +74,12 @@ elif command -v tdnf >/dev/null 2>&1; then
   arg=DNF_PACKAGES
   specific="${DNF_PACKAGES:-}"
   rpm_installer=tdnf
+elif command -v zypper >/dev/null 2>&1; then
+  arg=DNF_PACKAGES
+  specific="${DNF_PACKAGES:-}"
+  rpm_installer=zypper
 else
-  echo "preinstall: no supported package manager (apt-get, dnf, or tdnf) on PATH" >&2
+  echo "preinstall: no supported package manager (apt-get, dnf, tdnf, or zypper) on PATH" >&2
   exit 1
 fi
 common="${COMMON_PACKAGES:-}"
@@ -94,16 +98,27 @@ if [ -z "$common" ] || [ -z "$specific" ]; then
   exit 1
 fi
 pkgs="$common $specific"
-# Azure Linux renames libicu and libatomic; remap before the iteration so the
-# checks (and the printed `Install with: ...` hint) refer to the right names.
-# Word-by-word in pure bash avoids the regex escape gymnastics that `\b` or
-# awk word-boundary tokens would need through the TOML basic-string layer.
+# Azure Linux / openSUSE rename a few DNF_PACKAGES entries; remap before the
+# iteration so the checks (and the printed `Install with: ...` hint) refer to
+# the right names. Word-by-word in pure bash avoids the regex escape gymnastics
+# that `\b` or awk word-boundary tokens would need through the TOML
+# basic-string layer.
 if [ "$arg" = DNF_PACKAGES ] && grep -q '^ID=azurelinux$' /etc/os-release 2>/dev/null; then
   remapped=""
   for w in $pkgs; do
     case "$w" in
       libicu) w=icu ;;
       libatomic) w=libgcc-atomic ;;
+    esac
+    remapped="$remapped $w"
+  done
+  pkgs="$remapped"
+elif [ "$arg" = DNF_PACKAGES ] && grep -qE '^ID(_LIKE)?=.*(suse|opensuse)' /etc/os-release 2>/dev/null; then
+  remapped=""
+  for w in $pkgs; do
+    case "$w" in
+      kernel-headers) w=linux-glibc-devel ;;
+      libatomic) w=libatomic1 ;;
     esac
     remapped="$remapped $w"
   done
@@ -128,7 +143,8 @@ for pkg in $pkgs; do
     # pre-includes it in the base image, Azure Linux base/core does not, so
     # we install it explicitly. Debian/Ubuntu get the same headers via
     # libc6-dev (transitive linux-libc-dev), already checked above.
-    kernel-headers) [ -r /usr/include/linux/limits.h ] ;;
+    # openSUSE names the same package linux-glibc-devel.
+    kernel-headers|linux-glibc-devel) [ -r /usr/include/linux/limits.h ] ;;
     libicu*|icu)
       # Debian/Ubuntu install libicu under /usr/lib/<triple>/, Fedora and
       # Azure Linux under /usr/lib64/ directly -- try both.

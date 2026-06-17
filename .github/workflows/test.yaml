@@ -26,7 +26,7 @@ concurrency:
 
 defaults:
   run:
-    shell: bash
+    shell: bash --noprofile --norc -euo pipefail {0}
 
 jobs:
   rust:
@@ -47,22 +47,22 @@ jobs:
           github.event_name == 'workflow_dispatch' && (
           github.event.inputs.os == 'all' && format(
           '[{0},{1},{2},{3},{4}]',
-          '{"os":"ubuntu-latest","timeout":30}',
-          '{"os":"ubuntu-24.04-arm","timeout":30}',
+          '{"os":"ubuntu-latest","timeout":40}',
+          '{"os":"ubuntu-24.04-arm","timeout":40}',
           '{"os":"macos-latest","timeout":45}',
           '{"os":"macos-26-intel","timeout":60}',
           '{"os":"windows-latest","timeout":60}'
           )
-          || github.event.inputs.os == 'ubuntu-latest' && '[{"os":"ubuntu-latest","timeout":30}]'
-          || github.event.inputs.os == 'ubuntu-24.04-arm' && '[{"os":"ubuntu-24.04-arm","timeout":30}]'
+          || github.event.inputs.os == 'ubuntu-latest' && '[{"os":"ubuntu-latest","timeout":40}]'
+          || github.event.inputs.os == 'ubuntu-24.04-arm' && '[{"os":"ubuntu-24.04-arm","timeout":40}]'
           || github.event.inputs.os == 'macos-latest' && '[{"os":"macos-latest","timeout":45}]'
           || github.event.inputs.os == 'macos-26-intel' && '[{"os":"macos-26-intel","timeout":60}]'
           || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":60}]'
           )
           || format(
           '[{0},{1},{2}]',
-          '{"os":"ubuntu-latest","timeout":30}',
-          '{"os":"ubuntu-24.04-arm","timeout":30}',
+          '{"os":"ubuntu-latest","timeout":40}',
+          '{"os":"ubuntu-24.04-arm","timeout":40}',
           '{"os":"macos-latest","timeout":45}'
           )
           ) }}
@@ -149,6 +149,7 @@ jobs:
       - name: Debug emcc lookup on Windows
         if: startsWith(matrix.os, 'windows')
         run: |
+          # Diagnostic step: let individual lookups fail without aborting.
           set +e
           echo '===== [emcc-debug] env preconditions ====='
           echo "OS=${OS:-<unset>} MSYSTEM=${MSYSTEM:-<unset>}"

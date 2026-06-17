@@ -2,19 +2,21 @@ id: gha-default-shell-bash
 language: yaml
 severity: error
 message: |
-  Every GitHub Actions workflow must declare the default run shell as bash,
-  exactly:
+  Every GitHub Actions workflow must declare the default run shell as bash
+  with -euo pipefail, exactly:
     defaults:
       run:
-        shell: bash
-  so steps run in bash on every runner (Windows included) without per-step
-  `shell:`. (Pairs with gha-no-step-shell, which forbids per-step `shell:` -- so
-  this top-level default is the only place the shell is set.)
+        shell: bash --noprofile --norc -euo pipefail {0}
+  so steps run in bash on every runner (Windows included) with strict-mode
+  flags on every step -- no per-step `set -euo pipefail` boilerplate needed.
+  GHA's bare `shell: bash` already implies `-e -o pipefail`; this explicit
+  form additionally adds `-u` (unset variable -> error). (Pairs with
+  gha-no-step-shell, which forbids per-step `shell:`.)
 files:
   - .github/workflows/*.yaml
 # Fire on any workflow whose document does NOT contain the exact
-# defaults -> run -> shell: bash nesting. The `has`/`pattern` matches that
-# specific three-level mapping (a stray `shell: bash` on a step does NOT
+# defaults -> run -> shell: ... nesting. The `has`/`pattern` matches that
+# specific three-level mapping (a stray `shell: ...` on a step does NOT
 # satisfy it -- it isn't under defaults.run), and `not` turns "present" into
 # "required".
 rule:
@@ -25,4 +27,4 @@ rule:
       pattern: |
         defaults:
           run:
-            shell: bash
+            shell: bash --noprofile --norc -euo pipefail {0}

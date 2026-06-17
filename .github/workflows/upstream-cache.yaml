@@ -42,7 +42,7 @@ concurrency:
 
 defaults:
   run:
-    shell: bash
+    shell: bash --noprofile --norc -euo pipefail {0}
 
 jobs:
   rustpython:
@@ -85,22 +85,83 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      # Reclaim the large preinstalled toolchains we never use (~30 GB).
-      # Mirrors test.yaml; building rustpython adds ~3 GB on top of the
-      # workspace cargo target.
+      # Cheap host-only detection: reads the pinned short SHA from
+      # config.toml via sed, derives the triple from matrix.os, and
+      # queries rp-v1 with the runner's preinstalled gh CLI. Runs before
+      # any install so the typical case (asset already present) skips
+      # disk-free, mise install, RustPython clone, and the cargo source
+      # build below entirely. `work=yes` when this matrix entry has
+      # something to do: a missing native asset for its triple, or (only
+      # on ubuntu-latest) a missing wasm asset. Subsequent steps gate on
+      # `work`. Logic mirrors the `rp-detect-missing` mise task (kept
+      # for local maintainer use, where mise's tools are already there).
+      - name: Detect missing rp-v1 assets
+        id: rp_check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          # MATRIX_OS via env (not `${{ matrix.os }}` inline) so zizmor's
+          # template-injection rule doesn't flag matrix expansion inside the
+          # bash run block.
+          MATRIX_OS: ${{ matrix.os }}
+        run: |
+          case "$MATRIX_OS" in
+            ubuntu-latest)    triple=x86_64-unknown-linux-gnu ;;
+            ubuntu-24.04-arm) triple=aarch64-unknown-linux-gnu ;;
+            macos-latest)     triple=aarch64-apple-darwin ;;
+            macos-26-intel)   triple=x86_64-apple-darwin ;;
+            windows-latest)   triple=x86_64-pc-windows-msvc ;;
+            *) echo "unknown matrix.os: $MATRIX_OS" >&2; exit 1 ;;
+          esac
+          short=$(sed -n '/^\[tools."http:et-rp"\]$/,/^\[/{s/^version = "\(.*\)"$/\1/p}' .mise/config.toml | head -1)
+          native_asset="rustpython-${short}-${triple}.tar.gz"
+          wasm_asset="rustpython-wasm-${short}.tar.gz"
+          repo=edge-toolkit/core
+          assets=$(gh release view rp-v1 --repo "$repo" --json assets --jq '.assets[].name' 2>/dev/null || true)
+          native_missing=true; wasm_missing=true
+          if echo "$assets" | grep -Fxq "$native_asset"; then native_missing=false; fi
+          if echo "$assets" | grep -Fxq "$wasm_asset";   then wasm_missing=false;   fi
+          work=
+          [ "$native_missing" = "true" ] && work=yes
+          [ "$wasm_missing" = "true" ] && [ "$MATRIX_OS" = "ubuntu-latest" ] && work=yes
+          {
+            echo "short=$short"
+            echo "triple=$triple"
+            echo "native_missing=$native_missing"
+            echo "wasm_missing=$wasm_missing"
+            echo "work=$work"
+          } >> "$GITHUB_OUTPUT"
+          echo "[rp-check] triple=$triple short=$short"
+          echo "[rp-check] native_missing=$native_missing wasm_missing=$wasm_missing work=${work:-no}"
+          if [ -z "$work" ]; then
+            echo "::notice::All rp-v1 assets present for $triple; skipping install + publish."
+          fi
+
+      # Everything below this point runs only when there's actually
+      # something to upload. `repo.fork != true` skips fork PRs (GHA gives
+      # them a read-only GITHUB_TOKEN, so the upload would fail; building
+      # the asset would be wasted compute).
       - name: Free up disk space (Linux)
-        if: runner.os == 'Linux'
+        if: |-
+          steps.rp_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+          && runner.os == 'Linux'
         run: |
           sudo rm -rf /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/share/swift || true
           sudo docker image prune --all --force || true
           df -h /
 
       - name: Install mise
+        if: |-
+          steps.rp_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-binstall,mise@2026.6.5
 
       - name: Select all language envs
+        if: |-
+          steps.rp_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
         run: echo "MISE_ENV=$(mise run print-all-langs)" >> "$GITHUB_ENV"
 
       # MISE_ENV includes `maint` here so the publish task's deps
@@ -109,20 +170,15 @@ jobs:
       # publish step hits `bash: line ...: toml: command not found`
       # because `mise run` doesn't auto-install on demand.
       - name: Install mise tools
+        if: |-
+          steps.rp_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
         run: |
           mise run preinstall
           MISE_ENV="$MISE_ENV,maint" mise install
         env:
           GITHUB_TOKEN: ${{ github.token }}
           MISE_HTTP_TIMEOUT: "120"
-
-      # Always runs; emits step outputs (short, triple, native_missing,
-      # wasm_missing). The detect task itself doesn't need maint env.
-      - name: Detect missing rp-v1 assets
-        id: rp_check
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: mise run rp-detect-missing
 
       # RP_SHORT comes via env (not `${{ }}` inside the run block) to keep
       # zizmor's template-injection rule happy -- step outputs are treated

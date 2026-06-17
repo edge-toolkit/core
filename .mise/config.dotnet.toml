@@ -40,18 +40,23 @@ dotnet workload install wasm-tools --skip-manifest-update
 # Windows-only: `dotnet workload install` drops the Emscripten SDK pack under
 # %LOCALAPPDATA%/mise/dotnet-root/packs/Microsoft.NET.Runtime.Emscripten.*/*/tools/emscripten/,
 # but does not surface that path to the build the way Linux/macOS do via
-# dotnet's workload-install shell-rc setup. MSBuild's BrowserWasmApp.targets
-# resolves the compile invocation through $(EmscriptenLocation) (absolute,
-# works) but the LINK invocation falls back to bare `emcc`, and the cmd.exe
-# MSBuild spawns there doesn't pick up a PATH prepend we'd export from
-# bash (validated by the emcc-debug step in test.yaml: bash + Win32 `where`
-# + cmd.exe all see emcc after the prepend, yet the link target still hits):
-#   'emcc' is not recognized as an internal or external command,
-#   operable program or batch file.
-#   error MSB3073: The command "emcc "@...emcc-default.rsp" ..." exited with code 9009.
-# Set $(EmscriptenLocation) explicitly via `-p:` so the link target uses the
-# same absolute-path invocation the compile already does. Glob via `find`
-# so an Emscripten / pack version bump rolls forward.
+# dotnet's workload-install shell-rc setup. MSBuild's BrowserWasmApp.targets:
+#   - Compile target uses `$(EmscriptenLocation)\..\tools\emscripten\emcc`
+#     (absolute path; works as long as we set the property).
+#   - LINK target's `<Exec>` calls bare `emcc @rsp` and relies on PATH,
+#     which we have to prepend in bash AND keep propagating through
+#     `dotnet publish` -> MSBuild -> cmd.exe. Without that the link errors:
+#       'emcc' is not recognized as an internal or external command,
+#       operable program or batch file.
+#       error MSB3073: The command "emcc "@...emcc-default.rsp" ..." exited with code 9009.
+# Belt-and-braces: do BOTH the `-p:EmscriptenLocation=...\Sdk` property
+# (compile) AND the PATH prepend (link). The PATH prepend uses MSYS Unix
+# form (`/c/Users/...`); when bash spawns dotnet.exe MSYS converts the
+# whole `PATH` (`:`->`;`, `/c/Users/...` -> `C:\Users\...`) -- a
+# `C:\Users\...` entry would otherwise escape the conversion and the
+# trailing `:` would glue it to the next entry, leaving cmd.exe (run by
+# MSBuild's <Exec>) without the emscripten dir. Glob via `find` so an
+# Emscripten / pack version bump rolls forward.
 echo "[emcc-find] OS=${OS:-<unset>} MSYSTEM=${MSYSTEM:-<unset>}"
 publish_args=""
 if [ "${OS:-}" = "Windows_NT" ]; then
@@ -62,16 +67,18 @@ if [ "${OS:-}" = "Windows_NT" ]; then
         echo "build-ws-dotnet-data1-module: emcc.bat not found under \$LOCALAPPDATA/mise/dotnet-root/packs" >&2
         exit 1
     fi
+    emcc_dir="$(dirname "$emcc_bat")"
     # `$(EmscriptenLocation)` is the sibling `Sdk\` dir of the `tools\` dir
-    # that holds emcc.bat -- the compile target then constructs
-    # `$(EmscriptenLocation)\..\tools\emscripten\emcc`. emcc_bat sits at
-    # `<root>/tools/emscripten/emcc.bat`, so two dirnames up + `/Sdk` is it.
-    emsdk_loc="$(dirname "$(dirname "$(dirname "$emcc_bat")")")/Sdk"
-    # MSBuild on Windows wants the property in native Windows form.
+    # that holds emcc.bat. emcc_bat sits at `<root>/tools/emscripten/emcc.bat`,
+    # so two dirnames up + `/Sdk` is it. MSBuild wants Windows form.
+    emsdk_loc="$(dirname "$(dirname "$emcc_dir")")/Sdk"
     if command -v cygpath >/dev/null 2>&1; then
         emsdk_loc="$(cygpath -w "$emsdk_loc")"
+        emcc_dir="$(cygpath -u "$emcc_dir")"
     fi
+    export PATH="$emcc_dir:$PATH"
     publish_args="-p:EmscriptenLocation=$emsdk_loc"
+    echo "[emcc-find] prepended to PATH: $emcc_dir"
     echo "[emcc-find] $publish_args"
 fi
 
