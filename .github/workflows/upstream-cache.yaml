@@ -112,7 +112,15 @@ jobs:
             windows-latest)   triple=x86_64-pc-windows-msvc ;;
             *) echo "unknown matrix.os: $MATRIX_OS" >&2; exit 1 ;;
           esac
-          short=$(sed -n '/^\[tools."http:et-rp"\]$/,/^\[/{s/^version = "\(.*\)"$/\1/p}' .mise/config.toml | head -1)
+          # awk (portable across BSD/macOS + GNU/Linux): enter the
+          # [tools."http:et-rp"] section, capture its `version = "..."`,
+          # stop on the next `[` table header. BSD sed rejects the
+          # `/range/{s/...p}` one-liner -- "bad flag in substitute".
+          short=$(awk '
+            /^\[tools\."http:et-rp"\]$/ { in_section=1; next }
+            in_section && /^\[/         { exit }
+            in_section && /^version = / { gsub(/^version = "|"$/, ""); print; exit }
+          ' .mise/config.toml)
           native_asset="rustpython-${short}-${triple}.tar.gz"
           wasm_asset="rustpython-wasm-${short}.tar.gz"
           repo=edge-toolkit/core

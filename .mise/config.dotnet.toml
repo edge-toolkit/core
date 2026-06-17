@@ -27,6 +27,23 @@ description = "Format .NET sources"
 description = "Build the dotnet-data1 C# WASM workflow module"
 dir = "services/ws-modules/dotnet-data1"
 run = '''
+# Windows lane is skipped: MSBuild's BrowserWasmApp.targets link step's
+# `<Exec Command="emcc @rsp">` does NOT inherit the bash-level PATH
+# prepend (validated empirically -- the emcc-debug step in test.yaml
+# shows `cmd.exe %PATH%` sees the emscripten dir after the prepend, yet
+# the link still trips `'emcc' is not recognized` / MSB3073 exit 9009),
+# and `-p:EmscriptenLocation=...\Sdk` fixes the compile target but not
+# the link. Neither lever the .NET WebAssembly SDK exposes lets us
+# route bare-`emcc` in the link <Exec> to the workload-installed pack.
+# tests/modules.rs's `dotnet_data1_pkg_built()` matches this skip so the
+# downstream test on Windows logs `skipping ...: pkg/ not built` instead
+# of failing. Drop this guard once .NET's SDK either honors PATH or
+# documents a property that overrides the link <Exec> command.
+if [ "${OS:-}" = "Windows_NT" ]; then
+    echo "build-ws-dotnet-data1-module: skipped on Windows (MSBuild link <Exec> ignores our PATH; emcc unresolvable)"
+    exit 0
+fi
+
 # `set -x` so every command (incl. the find / dirname chain that resolves
 # $(EmscriptenLocation), the final dotnet publish invocation with its
 # -p:EmscriptenLocation=... arg, and the cp of the publish artefacts) is

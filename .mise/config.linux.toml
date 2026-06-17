@@ -133,7 +133,12 @@ pkgs="$pkgs libicu"
 missing=""
 for pkg in $pkgs; do
   case "$pkg" in
-    ca-certificates) [ -r /etc/ssl/certs/ca-certificates.crt ] || [ -r /etc/pki/tls/certs/ca-bundle.crt ] ;;
+    ca-certificates)
+      # Debian/Ubuntu: /etc/ssl/certs/ca-certificates.crt; Fedora/RHEL/AL2023:
+      # /etc/pki/tls/certs/ca-bundle.crt; openSUSE: /etc/ssl/ca-bundle.pem.
+      [ -r /etc/ssl/certs/ca-certificates.crt ] ||
+      [ -r /etc/pki/tls/certs/ca-bundle.crt ] ||
+      [ -r /etc/ssl/ca-bundle.pem ] ;;
     libc6-dev|glibc-devel) [ -r /usr/include/stdio.h ] ;;
     g++|gcc-c++) command -v g++ >/dev/null 2>&1 ;;
     # `binutils` provides the assembler/linker (as/ld). The package itself has

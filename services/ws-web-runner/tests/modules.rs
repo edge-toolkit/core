@@ -56,6 +56,10 @@ fn module_runs_successfully(#[case] module: &str) {
         println!("skipping {module}: pkg/ not built (run `mise run build-pywasm1-module`)");
         return;
     }
+    if module == "et-ws-dotnet-data1" && !dotnet_data1_pkg_built() {
+        println!("skipping {module}: pkg/ not built (dotnet build skipped on this host)");
+        return;
+    }
     let server = et_ws_test_server::start();
     run_runner_with_timeout(module, &server.ws_url, 90);
 }
@@ -72,6 +76,22 @@ fn module_runs_successfully(#[case] module: &str) {
 fn pywasm1_pkg_built() -> bool {
     edge_toolkit::config::get_project_root()
         .join("services/ws-modules/pywasm1/pkg/package.json")
+        .exists()
+}
+
+/// dotnet-data1 builds via `dotnet publish` which calls `emcc` through
+/// `MSBuild`'s `BrowserWasmApp.targets`. On Windows the link target's
+/// `<Exec>` doesn't inherit `PATH` from bash, and there's no SDK
+/// property that overrides the link command, so
+/// `build-ws-dotnet-data1-module` exits early on Windows -- mirror that
+/// here so the test logs a skip instead of failing.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct probe step; kept named for the skip-trace log line"
+)]
+fn dotnet_data1_pkg_built() -> bool {
+    edge_toolkit::config::get_project_root()
+        .join("services/ws-modules/dotnet-data1/pkg/package.json")
         .exists()
 }
 
