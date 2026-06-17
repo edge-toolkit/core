@@ -28,6 +28,45 @@ on a follow-up fix-up pass. The most common offenders are: long
 `reason = "…"` strings on lint attributes, JSON `description` fields,
 markdown table rows, and CI-task `description` fields.
 
+## No trailing-backslash line continuations
+
+Trailing-backslash line continuations (a line ending in `\` to join with
+the next) are **banned everywhere** in this repo. The only exceptions
+are README files and generated trees (e.g. `verification/`). Character
+escapes _inside_ string literals — `"\n"`, `"\t"`, regex `\d`, a
+Windows path `C:\Foo\Bar` as a value — are NOT continuations and are
+fine; the ban is on the end-of-line `\` that joins source lines into
+one logical statement.
+
+If a logical line would otherwise exceed the 120-char limit, pick a
+no-backslash split. Some patterns that work in the languages this repo
+uses:
+
+- **mise task `run` bodies**: factor into shell variables / `[vars]`
+  entries / multiple statements. Do this on the first draft (see also
+  the line-limit rule above), not as a fix-up pass.
+- **Dockerfile ENV / ARG**: build the value across multiple `ARG`s and
+  compose the final `ENV` from them via `${VAR}` expansion. Example
+  from `Dockerfile.nanoserver`'s `MISE_DISABLE_TOOLS`:
+
+      ARG MISE_DT_BASE=cargo:dart-typegen,conda:m2-gnupg,...
+      ARG MISE_DT_PY=pipx:componentize-py,pipx:...
+      ENV MISE_DISABLE_TOOLS=${MISE_DT_BASE},${MISE_DT_PY}
+
+- **Dockerfile `RUN` block**: switch to BuildKit's HEREDOC form
+  (`RUN <<EOF` … `EOF`) — each shell command sits on its own line with
+  no continuation needed.
+- **YAML run-bodies**: a `|` block scalar already keeps each shell
+  line natural; no continuations are necessary.
+- **Long flag lists**: drop them into a config file (`.env`, `.cfg`,
+  task `[vars]`) or split into one flag per line inside a HEREDOC /
+  block scalar.
+
+If a split honestly isn't possible without `\`, stop and surface the
+constraint — do not reintroduce the regression. Existing `\` uses in
+the repo (Dockerfile RUN-block multi-liners, etc.) are regressions
+slated for cleanup, not precedent.
+
 ## Document each thing exactly once
 
 Document each thing **once**, in the single place it is most relevant —

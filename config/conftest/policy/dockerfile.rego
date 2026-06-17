@@ -33,14 +33,22 @@ deny contains msg if {
 	)
 }
 
-# The comma-separated tools in the Dockerfile's `ENV MISE_DISABLE_TOOLS=...`.
+# The comma-separated tools the Dockerfile asks mise to skip. The value is
+# usually built from multiple ARGs and composed into the final ENV (the
+# 120-char limit plus the project's no-backslash rule make a single
+# `ENV MISE_DISABLE_TOOLS=...` line impractical), so scan every ARG/ENV
+# value in the file and take whichever tokens look like a tool name
+# (contain `:`). The `${VAR}` placeholders the composing ENV holds get
+# rejected by the same filter — only the leaf ARG values supply tools.
 disabled_tools contains tool if {
 	some file in input
 	is_array(file.contents)
 	some instr in file.contents
-	instr.Cmd == "env"
-	instr.Value[0] == "MISE_DISABLE_TOOLS"
-	some tool in split(instr.Value[1], ",")
+	instr.Cmd in {"arg", "env"}
+	some value in instr.Value
+	some token in split(value, ",")
+	contains(token, ":")
+	tool := trim_space(token)
 }
 
 # pipx:* tools can't run on Nano Server (pipx/platformdirs can't import there), so

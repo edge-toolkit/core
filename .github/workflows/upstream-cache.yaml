@@ -14,11 +14,10 @@ name: upstream-cache
 #   whenever it's convenient.
 
 "on":
-  # TEMPORARY: push + pull_request triggers are bootstrap-only so the
-  # initial run populates rp-v<N> across every platform without each
-  # being dispatched by hand. Revert to workflow_dispatch-only once
-  # the release has tarballs for every supported triple.
-  push:
+  # TEMPORARY: pull_request trigger is bootstrap-only so the initial run
+  # populates rp-v<N> across every platform without each being dispatched
+  # by hand. Revert to workflow_dispatch-only once the release has
+  # tarballs for every supported triple.
   pull_request:
   workflow_dispatch:
     inputs:
@@ -53,6 +52,13 @@ jobs:
     permissions:
       contents: write
     timeout-minutes: 60
+    env:
+      # Windows: skip cargo:dart-typegen (no quickinstall release, so
+      # cargo-binstall falls through to source-build against gnullvm
+      # and trips `error[E0463]: can't find crate for 'core'` --
+      # same workaround test.yaml uses). dart-typegen has no role in
+      # this workflow.
+      MISE_DISABLE_TOOLS: ${{ startsWith(matrix.os, 'windows') && 'cargo:dart-typegen' || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -89,10 +95,15 @@ jobs:
       - name: Select all language envs
         run: echo "MISE_ENV=$(mise run print-all-langs)" >> "$GITHUB_ENV"
 
+      # MISE_ENV includes `maint` here so the publish task's deps
+      # (`toml-cli` for in-place .mise/config.toml edits) install in
+      # the same step as the language toolchains -- otherwise the
+      # publish step hits `bash: line ...: toml: command not found`
+      # because `mise run` doesn't auto-install on demand.
       - name: Install mise tools
         run: |
           mise run preinstall
-          mise install
+          MISE_ENV="$MISE_ENV,maint" mise install
         env:
           GITHUB_TOKEN: ${{ github.token }}
           MISE_HTTP_TIMEOUT: "120"

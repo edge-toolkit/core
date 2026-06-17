@@ -28,7 +28,7 @@ jobs:
         include:
           - runner: windows-2022
           - runner: windows-2025
-            build_arg: "--build-arg WINDOWS_VERSION=ltsc2025 --build-arg MISE_ENV=dart,java,python,rust,zig"
+            build_arg: "--build-arg WINDOWS_VERSION=ltsc2025"
     name: build (${{ matrix.runner }})
     timeout-minutes: 120
     env:

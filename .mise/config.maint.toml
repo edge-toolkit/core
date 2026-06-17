@@ -49,6 +49,11 @@ HF_CO = "https://huggingface.co"
 # artifacts (built from the same upstream commit, stored together).
 RP_RELEASE = "rp-v1"
 RP_WORK = "{{ config_root }}/target/scratch/rp-publish"
+# Upstream RustPython git URL; the local checkout path is
+# ${RUSTPYTHON_DIR:-$HOME/rust/RustPython} (shell-overridable, so kept
+# as a runtime `${VAR:-default}` rather than a mise [env] entry whose
+# value would mask the shell override).
+RUSTPYTHON_URL = "https://github.com/RustPython/RustPython.git"
 
 [tasks.bootstrap-hf-cache-release]
 description = "Create the hf-cache-v<N> GitHub release if it doesn't exist (idempotent)"
@@ -134,15 +139,15 @@ description = "Build rustpython_wasm via wasm-pack from a local RustPython check
 # Linux/macOS only (config.maint.toml is). wasm-pack compiles rustpython +
 # freeze-stdlib (the default crates/wasm feature) for wasm32, ~5-10 min on
 # first run; the early `pkg/` exists check skips the build if a previous
-# output is present. The checkout location follows $RUSTPYTHON_REPO
+# output is present. The checkout location follows $RUSTPYTHON_DIR
 # (default ~/rust/RustPython); operator must `git pull` it to track main
 # themselves -- this task doesn't fetch, so the build is reproducible from
 # the local commit pin.
 run = """
-rp_dir="${RUSTPYTHON_REPO:-$HOME/rust/RustPython}"
+rp_dir="${RUSTPYTHON_DIR:-$HOME/rust/RustPython}"
 if [ ! -d "$rp_dir/crates/wasm" ]; then
   echo "build-rp-wasm: no RustPython checkout at $rp_dir/crates/wasm" >&2
-  echo "clone: git clone https://github.com/RustPython/RustPython.git $rp_dir" >&2
+  echo "clone: git clone $RUSTPYTHON_URL $rp_dir" >&2
   exit 1
 fi
 if [ -f "$rp_dir/crates/wasm/pkg/rustpython_wasm_bg.wasm" ]; then
@@ -171,14 +176,14 @@ shell = "bash -euo pipefail -c"
 [tasks.publish-rp-wasm-to-release]
 depends = ["bootstrap-rp-release", "build-rp-wasm"]
 description = "Tar the local wasm-pack pkg/ + upload to the rp-v<N> release"
-# Reads the local RustPython checkout (same $RUSTPYTHON_REPO as build-rp-wasm),
+# Reads the local RustPython checkout (same $RUSTPYTHON_DIR as build-rp-wasm),
 # pins HEAD's short SHA into the asset filename, tars the wasm-pack pkg/
 # (stripping the upstream package.json + README -- pywasm1 writes its own),
 # uploads + sha256 sidecar, then auto-edits the version + checksum fields
 # in config.toml's [tools."http:et-rp-wasm"] block so the next `mise install`
 # picks up the new artifact. `tar` is the host's; maint is Linux/macOS-only.
 run = """
-rp_dir="${RUSTPYTHON_REPO:-$HOME/rust/RustPython}"
+rp_dir="${RUSTPYTHON_DIR:-$HOME/rust/RustPython}"
 coreutils rm -rf "$RP_WORK"
 coreutils mkdir -p "$RP_WORK"
 
@@ -220,11 +225,11 @@ description = "cargo install rustpython --features freeze-stdlib"
 # binary is `rustpython` on Unix and `rustpython.exe` on Windows -- the
 # glob covers both).
 run = """
-rp_dir="${RUSTPYTHON_REPO:-$HOME/rust/RustPython}"
+rp_dir="${RUSTPYTHON_DIR:-$HOME/rust/RustPython}"
 prefix="$RP_WORK/native-install"
 if [ ! -d "$rp_dir" ]; then
   echo "build-rp-native: no RustPython checkout at $rp_dir" >&2
-  echo "clone: git clone https://github.com/RustPython/RustPython.git $rp_dir" >&2
+  echo "clone: git clone $RUSTPYTHON_URL $rp_dir" >&2
   exit 1
 fi
 if compgen -G "$prefix/bin/rustpython*" >/dev/null; then
@@ -250,7 +255,7 @@ description = "Tar the local rustpython binary + upload to rp-v<N> for the curre
 # triple by running this task on a host of that triple and committing the
 # resulting checksum bump.
 run = """
-rp_dir="${RUSTPYTHON_REPO:-$HOME/rust/RustPython}"
+rp_dir="${RUSTPYTHON_DIR:-$HOME/rust/RustPython}"
 prefix="$RP_WORK/native-install"
 
 commit=$(git -C "$rp_dir" rev-parse HEAD)
@@ -293,5 +298,126 @@ coreutils mv "${mise_path}.tmp" "$mise_path"
 
 echo "uploaded $asset to $RP_RELEASE (commit $commit, triple $triple)"
 echo "updated http:et-rp version + platforms.${plat}.{url,checksum} in .mise/config.toml"
+"""
+shell = "bash -euo pipefail -c"
+
+# Probe how far rustpython gets at hosting real Python tooling: load an
+# older extracted pip onto sys.path, use pipx to install + run cowsay,
+# and fall back to a pip-only path. Tracks RustPython issues #5332 (pip
+# on linux/macos) and #7956 (upstream-pending audit-hook fix). Five
+# rustpython-side quirks the task works around:
+#  1. The quickinstall prebuilt cargo-binstall fetches isn't built with
+#     `freeze-stdlib`, so its `Lib/` tree is missing -- without
+#     RUSTPYTHONPATH pointing at a matching `Lib/`, rustpython can't even
+#     import `encodings`. The task expects an upstream RustPython
+#     checkout at ~/rust/RustPython (RUSTPYTHON_DIR overrides).
+#  2. RustPython's bundled ensurepip wheel is pip 26.1.1, whose
+#     `_prevent_further_imports` calls `sys.addaudithook` (CPython 3.8+)
+#     which rustpython 0.5.0 doesn't implement (upstream fix tracked in
+#     #7956). pip 26.0.1 is the last release before that hook was added
+#     (introduced in pip's upstream commit fb01b1830 on 2026-04-14,
+#     shipped in 26.1), so the task fetches that wheel.
+#  3. RustPython's path-importer doesn't auto-treat `.whl` entries on
+#     sys.path as zipimports -- the wheel imports correctly via an
+#     explicit `zipimporter()` call but not via `import pip`. Unzip the
+#     wheel into a directory and put that on RUSTPYTHONPATH instead.
+#  4. pipx's default backend is uv, which spawns rustpython as a fresh
+#     subprocess to probe interpreter info; the probe can't even
+#     `import site`/`encodings` because uv strips/replaces env. Set
+#     PIPX_DEFAULT_BACKEND=pip so pipx uses `python -m venv` directly --
+#     env vars survive that path.
+#  5. With the pip backend, pipx creates its shared-libs venv with
+#     `python -m venv --clear $root` (no `--without-pip`). RustPython's
+#     venv module then runs `ensurepip --upgrade --default-pip`, which
+#     extracts the bundled pip-26.1.1 wheel -- same audit-hook crash as
+#     (2). Every pipx release from 1.0.0 to 1.14.0 invokes venv the same
+#     way (verified by `git -C pipx show <tag>:src/pipx/shared_libs.py`),
+#     so no pipx version dodges this. Workaround: pre-create the shared
+#     venv at PIPX_SHARED_LIBS with `--without-pip`, drop pip 26.0.1's
+#     site-packages tree into it, and add a `bin/pip` shim -- pipx's
+#     `is_valid()` then short-circuits past `create()`.
+# Each `step` prints its own exit code rather than aborting, so partial-
+# failure runs show where rustpython diverges from CPython. All transient
+# state lives under target/scratch/ so the task is self-contained and
+# rerunnable.
+[tasks.rustpython-investigation]
+description = "Probe rustpython + pip 26.0.1 + pipx + cowsay (RustPython#5332/#7956)"
+run = """
+scratch="{{ config_root }}/target/scratch/rustpython-investigation"
+rp_dir="${RUSTPYTHON_DIR:-$HOME/rust/RustPython}"
+if [ ! -d "$rp_dir/Lib/encodings" ]; then
+  echo "rustpython-investigation: no RustPython checkout at $rp_dir" >&2
+  echo "clone: git clone $RUSTPYTHON_URL $rp_dir" >&2
+  exit 1
+fi
+coreutils mkdir -p "$scratch/site" "$scratch/pipx-home" "$scratch/pipx-bin"
+pip_pkg="de/f0/c81e05b613866b76d2d1066490adf1a3dbc4ee9d9c839961c3fc8a6997af"
+pip_whl="$scratch/pip-26.0.1-py3-none-any.whl"
+pip_extracted="$scratch/pip-extracted"
+shared_venv="$scratch/shared"
+if [ ! -f "$pip_whl" ]; then
+  echo "== fetch pip 26.0.1 wheel from PyPI =="
+  pypi_args="--http-url https://files.pythonhosted.org --progress --ignore-existing"
+  pip_src=":http:packages/$pip_pkg/pip-26.0.1-py3-none-any.whl"
+  {{ vars.retry }} rclone copyto "$pip_src" "$pip_whl" $pypi_args
+fi
+if [ ! -d "$pip_extracted/pip" ]; then
+  echo "== unzip pip 26.0.1 wheel =="
+  unzip -q -o "$pip_whl" -d "$pip_extracted"
+fi
+export RUSTPYTHONPATH="$pip_extracted:$scratch/site:$rp_dir/Lib"
+export PIPX_HOME="$scratch/pipx-home"
+export PIPX_BIN_DIR="$scratch/pipx-bin"
+export PIPX_SHARED_LIBS="$shared_venv"
+export PIPX_DEFAULT_BACKEND=pip
+
+if [ ! -f "$shared_venv/bin/pip" ]; then
+  echo "== pre-create pipx shared venv (--without-pip) + drop in pip 26.0.1 =="
+  coreutils rm -rf "$shared_venv"
+  rustpython -m venv --without-pip "$shared_venv"
+  shared_site="$(coreutils ls -d "$shared_venv"/lib/*/site-packages)"
+  coreutils cp -R "$pip_extracted/pip" "$shared_site/"
+  coreutils cp -R "$pip_extracted"/pip-*.dist-info "$shared_site/"
+  coreutils cat > "$shared_venv/bin/pip" <<'PIP_SHIM'
+#!/bin/sh
+exec "$(dirname "$0")/python" -m pip "$@"
+PIP_SHIM
+  coreutils chmod +x "$shared_venv/bin/pip"
+fi
+
+# `if "$@"; then ...; else echo "-- exit=$?"; fi` keeps set -e from aborting
+# the task when a probed step fails -- partial-failure runs are the whole point.
+step() {
+  echo
+  echo "== $* =="
+  if "$@"; then
+    echo "-- exit=0"
+  else
+    echo "-- exit=$?"
+  fi
+}
+
+step rustpython --version
+step rustpython -c "import pip; print(pip.__version__, pip.__file__)"
+step rustpython -m pip --version
+step rustpython -m pip install --target "$scratch/site" pipx
+step rustpython -m pipx install cowsay
+step rustpython -m pip install --target "$scratch/site" cowsay
+
+echo
+echo "== run cowsay via pipx bin =="
+if [ -x "$PIPX_BIN_DIR/cowsay" ]; then
+  if "$PIPX_BIN_DIR/cowsay" -t "rustpython lives"; then
+    echo "-- exit=0"
+  else
+    echo "-- exit=$?"
+  fi
+else
+  echo "-- cowsay not in $PIPX_BIN_DIR (pipx step likely failed)"
+fi
+
+echo
+echo "== run cowsay via rustpython -m cowsay =="
+step rustpython -m cowsay -t "rustpython lives via pip-only path"
 """
 shell = "bash -euo pipefail -c"
