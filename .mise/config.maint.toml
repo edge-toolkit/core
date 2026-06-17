@@ -248,6 +248,12 @@ fi
 # rustpython source build; the resulting .exe runs fine on either ABI.
 if [ "${OS:-}" = "Windows_NT" ]; then
   export CARGO_BUILD_TARGET=x86_64-pc-windows-msvc
+  # `config.windows.toml`'s [[tools.rust]] only installs the gnullvm host
+  # triple; the msvc target's std/core aren't on disk. Without them the
+  # cargo invocation trips `error[E0463]: can't find crate for 'core'` on
+  # the first dep (cfg-if). Add the msvc target so its rust-std is laid
+  # down before cargo install starts compiling.
+  rustup target add x86_64-pc-windows-msvc
 fi
 cargo install --path "$rp_dir" --features freeze-stdlib --root "$prefix" rustpython
 """

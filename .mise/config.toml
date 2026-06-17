@@ -744,15 +744,14 @@ description = "Prefetch the Rust (cargo) dependencies"
 # `cargo fetch` downloads the full Cargo.lock graph (all targets) without
 # compiling — the actual build happens in build-modules / the test step. Avoids
 # the redundant `cargo check --workspace` compile (and its large target/ dir).
-run = "cargo fetch"
-
-[tasks."prefetch:rust".env]
-# crates.io occasionally drops the HTTP/2 framing mid-fetch
-# (`[16] Error in the HTTP2 framing layer (Send failure: Connection reset
-# by peer)`), surfacing as `curl failed` during this task. cargo's default
-# retry count is 2; bump it so transient HTTP/2 resets don't break the
-# Docker build. Matches the workflow-level value in check.yaml.
-CARGO_NET_RETRY = "5"
+# Wrapped in `recur` (the same retry shim the rclone fetches use) because
+# crates.io occasionally drops the HTTP/2 framing mid-fetch (`[16] Error
+# in the HTTP2 framing layer (Send failure: Connection reset by peer)`,
+# surfacing as `curl failed`). cargo's built-in CARGO_NET_RETRY doesn't
+# cover that class of failure -- the HTTP/2 framing reset bypasses
+# cargo's own retry path. recur wraps the entire command so any
+# non-zero exit triggers a retry with exponential backoff + jitter.
+run = "{{ vars.retry }} cargo fetch"
 
 [tasks."prefetch:node"]
 # Needs `build-ws-wasm-agent` first: the static workspace `link:`s its `pkg/`,
