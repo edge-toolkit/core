@@ -221,7 +221,8 @@ else
   pip_extracted="$boot/pip-extracted"
   shared_venv="$boot/shared"
   if [ ! -f "$pip_whl" ]; then
-    pypi_args="--http-url https://files.pythonhosted.org --progress --ignore-existing"
+    pypi_args="--http-url https://files.pythonhosted.org --progress --ignore-existing --verbose"
+    echo "[preinstall] fetching pip {{ vars.pip_for_rustpython }} wheel from PyPI for rustpython pipx bootstrap"
     {{ vars.retry }} rclone copyto "{{ vars.pip_for_rustpython_wheel_url }}" "$pip_whl" $pypi_args
   fi
   if [ ! -d "$pip_extracted/pip" ]; then

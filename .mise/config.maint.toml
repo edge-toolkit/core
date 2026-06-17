@@ -420,6 +420,7 @@ pip_extracted="$scratch/pip-extracted"
 shared_venv="$scratch/shared"
 if [ ! -f "$pip_whl" ]; then
   echo "== fetch pip {{ vars.pip_for_rustpython }} wheel from PyPI =="
+  echo "   url={{ vars.pip_for_rustpython_wheel_url }}"
   pypi_args="--http-url https://files.pythonhosted.org --progress --ignore-existing"
   {{ vars.retry }} rclone copyto "{{ vars.pip_for_rustpython_wheel_url }}" "$pip_whl" $pypi_args
 fi
