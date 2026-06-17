@@ -278,7 +278,19 @@ prefix="$RP_WORK/native-install"
 
 commit=$(git -C "$rp_dir" rev-parse HEAD)
 short=$(echo "$commit" | coreutils cut -c1-7)
-triple=$(rustc -vV | rg '^host: ' | coreutils cut -c7-)
+# Asset filename uses the target ABI, NOT rustc's host. On Windows
+# config.windows.toml's [env] sets CARGO_BUILD_TARGET=gnullvm globally,
+# but the build-rp-native task overrides it to msvc (RustPython's
+# `get_tz_info` is `#[cfg(target_env = "msvc")]`-gated, gnullvm builds
+# trip `unresolved import super::decl::get_tz_info`). The produced .exe
+# is therefore msvc -- hardcode that here so the filename matches what
+# the binary actually links against, rather than the gnullvm we see via
+# rustc -vV or the global CARGO_BUILD_TARGET env.
+if [ "${OS:-}" = "Windows_NT" ]; then
+  triple=x86_64-pc-windows-msvc
+else
+  triple=$(rustc -vV | rg '^host: ' | coreutils cut -c7-)
+fi
 
 case "$triple" in
   x86_64-apple-darwin)        plat="macos-x64" ;;

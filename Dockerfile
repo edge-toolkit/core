@@ -1,3 +1,11 @@
+# syntax=docker/dockerfile:1
+# `# syntax=...` opts the Docker engine into the latest dockerfile frontend
+# (the parser that understands `RUN <<EOF` heredocs + `--mount=` flags). Without
+# it the engine falls back to its built-in parser, which on older Docker
+# versions doesn't recognise heredoc and concatenates the body into a single
+# command string -- our `<<EOF bash` then gets handed to `/bin/sh -c` verbatim,
+# trip CI with `Illegal option -o pipefail`. Keep this as line 1 of the file.
+
 # Build, test, and serve edge-toolkit from a clean, minimal Ubuntu, split into
 # stages so each can be cached and targeted independently:
 #

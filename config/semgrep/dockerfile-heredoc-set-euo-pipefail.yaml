@@ -12,7 +12,7 @@ rules:
     # interpreter side of this in dockerfile.rego (the AST exposes the
     # heredoc tag but not the body); semgrep covers the body's first line
     # here.
-    pattern-regex: 'RUN[^\n]*<<[A-Z]+[^\n]*\n(?!set -euo pipefail$)'
+    pattern-regex: '^RUN[^\n]*<<[A-Z]+[^\n]*\n(?!set -euo pipefail$)'
     message: >-
       Dockerfile RUN heredocs must begin with `set -euo pipefail` as the first
       body line. BuildKit's default heredoc shell carries neither -e nor -o

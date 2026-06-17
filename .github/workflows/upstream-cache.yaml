@@ -205,6 +205,21 @@ jobs:
           git clone https://github.com/RustPython/RustPython.git "$HOME/rust/RustPython"
           git -C "$HOME/rust/RustPython" checkout "$RP_SHORT"
 
+      # Windows-only: source the MSVC dev env so `rc.exe` (Windows Resource
+      # Compiler) is on PATH for the rustpython build. The `embed_resource`
+      # crate in rustpython's build.rs targets msvc and otherwise warns:
+      #   warning: rustpython@0.5.0: Failed to compile Windows resources:
+      #   The system cannot find the path specified. (os error 3)
+      # The resulting .exe still runs (resource embedding is best-effort),
+      # but the icon + version metadata get dropped. ilammy/msvc-dev-cmd
+      # is the maintained equivalent of `call vcvars64.bat` for GHA.
+      - name: Set up MSVC dev env for rc.exe (Windows)
+        if: |-
+          matrix.os == 'windows-latest'
+          && github.event.pull_request.head.repo.fork != true
+          && steps.rp_check.outputs.native_missing == 'true'
+        uses: ilammy/msvc-dev-cmd@v1
+
       # Native rustpython is per-triple: each matrix entry publishes its
       # own host's binary if missing.
       - name: Build + publish native rustpython for this host
