@@ -135,8 +135,16 @@ use the `*-all` variants (`check-all`, `test-all`, `build-modules-all`,
 
 ## Formatters & checks by file type
 
-The `mise run <task>` formatters and checks per file type (`fmt` / `check` run
-them all; guest rows need their `MISE_ENV` loaded).
+**Agents must not run `mise run check` (or `check-all`).** They are aggregate
+gates intended for CI and humans — running the whole battery for every edit
+is slow, expensive, and almost always wasteful when only a couple of file
+types changed. Pick the targeted tasks from the tables below that match the
+extensions of the files you actually modified, and run only those. Same goes
+for `fmt`: run the per-file-type formatter, not the aggregate.
+
+The `mise run <task>` formatters and checks per file type. The aggregates
+(`fmt`/`check`/`fmt-all`/`check-all`) run every loaded language's row; guest
+rows need their `MISE_ENV` loaded.
 
 | File type | Formatter task(s)               |
 | --------- | ------------------------------- |

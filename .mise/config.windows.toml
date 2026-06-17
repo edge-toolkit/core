@@ -228,10 +228,18 @@ else
   if [ ! -d "$pip_extracted/pip" ]; then
     unzip -q -o "$pip_whl" -d "$pip_extracted"
   fi
-  RUSTPYTHONPATH="$pip_extracted" mise exec -- rustpython -m pip install --target "$boot/site" pipx
+  # busybox-w32 ash on Nano Server mangles `mise.exe` startup when a per-
+  # command env var assignment (`RUSTPYTHONPATH=... mise exec`) precedes
+  # the command -- the inner mise process dies with `sh: C:/mise/bin/mise.
+  # exe: The specified procedure could not be found. Error 0xc0000139`.
+  # Exporting RUSTPYTHONPATH separately works around it; the previous
+  # `mise exec -- rustup ...` line in this file succeeds without an inline
+  # env var prefix on the same image, which pins the trigger.
+  export RUSTPYTHONPATH="$pip_extracted"
+  mise exec -- rustpython -m pip install --target "$boot/site" pipx
   if [ ! -f "$shared_venv/bin/pip" ]; then
     coreutils rm -rf "$shared_venv"
-    RUSTPYTHONPATH="$pip_extracted" mise exec -- rustpython -m venv --without-pip "$shared_venv"
+    mise exec -- rustpython -m venv --without-pip "$shared_venv"
     shared_site="$(coreutils ls -d "$shared_venv"/lib/*/site-packages)"
     coreutils cp -R "$pip_extracted/pip" "$shared_site/"
     coreutils cp -R "$pip_extracted"/pip-*.dist-info "$shared_site/"

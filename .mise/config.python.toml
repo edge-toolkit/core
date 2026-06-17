@@ -69,7 +69,7 @@ run = "uv run pytest"
 UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}"
 
 [tasks.build-et-ws-wheel]
-depends = ["build-et-cli", "gen:python-ws"]
+depends = ["build-et-cli"]
 description = "Build the generated et-ws Python package as a wheel + ws-module pkg/"
 dir = "generated/python-ws"
 # Wheel goes straight into pkg/ alongside the committed et_ws.js shim so the
@@ -83,7 +83,7 @@ uv build --wheel --out-dir pkg
 shell = "bash -euo pipefail -c"
 
 [tasks.build-et-rest-client-wheel]
-depends = ["build-et-cli", "gen:python-rest"]
+depends = ["build-et-cli"]
 description = "Build the generated et-rest-client Python package as a wheel + ws-module pkg/"
 dir = "generated/python-rest"
 run = """
