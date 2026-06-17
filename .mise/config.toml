@@ -244,6 +244,13 @@ a_rp_release = "rp-v1"
 # stddef.h). Empty default; config.linux.toml sets it from conda:clangxx.
 clang_resource_arg = ""
 conda_openssl = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/3"
+# Forward-slashed config_root (Windows mise returns a backslash-form path
+# like `D:\a\core\core`; substituting that verbatim into a bash command
+# line trips `\a` -> alert, `\c` -> "suppress output" string mangling
+# inside busybox ash, so paths like `D:\a\core\core/target/...` become
+# `D:acorecore/target/...`). Forward slashes Just Work on both shells.
+# Used as the root of every workspace-relative var below.
+config_root_fwd = "{{ config_root | replace(from='\\', to='/') }}"
 # Absolute path to the workspace-built et-cli binary. The parallel
 # build-ws-*-module tasks each invoke `et-cli module-package-json`; using
 # this var (rather than `cargo run -p et-cli`) means every invocation
@@ -254,7 +261,7 @@ conda_openssl = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/3"
 # (os error 2)`). The `build-et-cli` task is the dependency that puts the
 # binary in place; every et-cli-using task must (directly or transitively)
 # depend on it. `.exe` suffix on Windows matches cargo's output naming.
-et_cli = "{{ config_root }}/target/debug/et-cli{% if os() == 'windows' %}.exe{% endif %}"
+et_cli = "{{ vars.config_root_fwd }}/target/debug/et-cli{% if os() == 'windows' %}.exe{% endif %}"
 # mise-managed CPython (Linux/macOS); the PYO3_PYTHON default below. Windows
 # overrides PYO3_PYTHON with its own py3_win in config.windows.toml. The version
 # segment must equal the `python` [tools] pin (conftest enforces both).
@@ -312,7 +319,7 @@ pip_for_rustpython_wheel_url = ":http:packages/{{ vars.pip_for_rustpython_sha }}
 # by config.maint.toml's `publish-rp-wasm-to-release` (sharing the rp-v<N>
 # release tag with the native rustpython binary builds).
 rp_wasm_asset = "rustpython-wasm-08a1d6f.tar.gz"
-rp_wasm_dir = "{{ config_root }}/target/cache/rp-wasm"
+rp_wasm_dir = "{{ vars.config_root_fwd }}/target/cache/rp-wasm"
 rp_wasm_src = ":http:edge-toolkit/core/releases/download/{{ vars.a_rp_release }}/{{ vars.rp_wasm_asset }}"
 # `retry` prefixes each fetch with recur for exponential-backoff-with-jitter
 # retries (10 tries, 2s base doubling, capped 3m, 0-15s jitter). `-v` makes
@@ -701,6 +708,11 @@ mise install github:benhoyt/goawk
 # fetch before `mise install` -- which would have installed recur --
 # had run).
 mise install github:dbohdan/recur
+# rclone is the actual fetcher recur wraps. Same reasoning: without
+# this, the rustpython pipx bootstrap in config.windows.toml's preinstall
+# trips `recur: command was not found` for 10 attempts because rclone
+# wasn't installed yet.
+mise install rclone
 """
 shell = "bash -euo pipefail -c"
 

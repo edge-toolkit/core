@@ -15,15 +15,23 @@ deny contains msg if {
 }
 
 # A multiline `run` must use `shell = "bash -euo pipefail -c"` so a failing
-# command fails the task instead of being masked.
+# command fails the task instead of being masked. The xtrace variant
+# (`bash -xeuo pipefail -c`) is also accepted: prints every command as it
+# runs, used on the Windows OS-specific preinstall where full transcripts
+# matter for diagnosing busybox-ash + path-mangling failures.
+allowed_run_shells := {"bash -euo pipefail -c", "bash -xeuo pipefail -c"}
+
 deny contains msg if {
 	some file in input
 	is_mise(file)
 	some name, task in file.contents.tasks
 	is_string(task.run)
 	contains(task.run, "\n")
-	not task.shell == "bash -euo pipefail -c"
-	msg := sprintf("%s: task %q has a multiline run; set shell = \"bash -euo pipefail -c\"", [file.path, name])
+	not task.shell in allowed_run_shells
+	msg := sprintf(
+		"%s: task %q has a multiline run; set shell = \"bash -euo pipefail -c\" (or `bash -xeuo` for xtrace)",
+		[file.path, name],
+	)
 }
 
 # Task descriptions must be single-line (keep them under the 120-char limit).

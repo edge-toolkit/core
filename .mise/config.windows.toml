@@ -215,7 +215,7 @@ if command -v python >/dev/null 2>&1; then
   python -m pip install pipx
 else
   mise install http:et-rp
-  boot="{{ config_root }}/target/preinstall-pipx"
+  boot="{{ vars.config_root_fwd }}/target/preinstall-pipx"
   coreutils mkdir -p "$boot"
   pip_whl="$boot/{{ vars.pip_for_rustpython_wheel }}"
   pip_extracted="$boot/pip-extracted"
@@ -243,7 +243,10 @@ PIP_SHIM
   fi
 fi
 """
-shell = "bash -euo pipefail -c"
+shell = "bash -xeuo pipefail -c"
+# bash -x (xtrace) on this OS-specific preinstall: CI failures on Nano
+# (rclone-not-found, sha256 path mangling, etc.) are easier to diagnose
+# with the full per-command transcript than with the silent default.
 
 [tasks.test-ws-web-runner]
 # Override: skip et-ws-web-runner on Windows. It pulls deno -> v8, whose build
