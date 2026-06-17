@@ -919,10 +919,13 @@ shell = "bash -euo pipefail -c"
 [tasks.download-models]
 depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "fetch-mnist-rclone"]
 
-[tasks.cargo-test]
+[tasks.cargo-test-other]
 # Excludes `et-ws-web-runner` -- its tests need single-threaded
 # execution (see `test-ws-web-runner` below); running the rest of the
-# workspace in parallel keeps the total wall-clock down.
+# workspace in parallel keeps the total wall-clock down. Split out from
+# `cargo-test` (which aggregates both halves) so CI can run each phase
+# as its own step -- helps isolate which phase consumes which disk /
+# memory budget on tight runners.
 run = "cargo test --workspace --exclude et-ws-web-runner"
 
 [tasks.test-ws-web-runner]
@@ -937,9 +940,17 @@ run = "cargo test -p et-ws-web-runner"
 [tasks.test-ws-web-runner.env]
 RUST_TEST_THREADS = "1"
 
+[tasks.cargo-test]
+# Composite: cargo-test-other (workspace minus et-ws-web-runner) +
+# test-ws-web-runner (serialized). Local devs / hosts where disk and
+# memory aren't tight invoke this single task; CI splits the two halves
+# into separate workflow steps for debuggability.
+depends = ["cargo-test-other", "test-ws-web-runner"]
+description = "Run every Rust test (cargo-test-other + test-ws-web-runner)"
+
 [tasks."test:rust"]
 # Rust tests. Always-loaded, so `test`'s glob always matches it.
-depends = ["cargo-test", "test-ws-web-runner"]
+depends = ["cargo-test"]
 description = "Run the Rust tests"
 
 [tasks.test]

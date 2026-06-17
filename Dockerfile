@@ -89,7 +89,7 @@ RUN if command -v apt-get >/dev/null 2>&1; then \
         && [ -n "$libicu" ] || { echo "no libicu[0-9]+ package available in this base" >&2; exit 1; } \
         && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             $COMMON_PACKAGES $APT_PACKAGES "$libicu" \
-        && rm -rf /var/lib/apt/lists/* ; \
+        && apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb ; \
     elif command -v dnf >/dev/null 2>&1 || command -v tdnf >/dev/null 2>&1; then \
         is_azl=false ; \
         if grep -q '^ID=azurelinux$' /etc/os-release 2>/dev/null; then is_azl=true ; fi ; \
@@ -219,7 +219,7 @@ ENV VK_LOADER_DRIVERS_SELECT=lvp_icd*
 RUN if command -v apt-get >/dev/null 2>&1; then \
         apt-get update \
         && apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers \
-        && rm -rf /var/lib/apt/lists/* ; \
+        && apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb ; \
     elif command -v dnf >/dev/null 2>&1; then \
         dnf install -y --setopt=install_weak_deps=False vulkan-loader mesa-vulkan-drivers \
         && dnf clean all ; \

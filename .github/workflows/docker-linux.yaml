@@ -33,6 +33,7 @@ jobs:
           - debian:bookworm
           - debian:trixie
           - fedora:42
+          - amazonlinux:2023
           - mcr.microsoft.com/azurelinux/base/core:3.0
     name: build (${{ matrix.base }})
     steps:
@@ -92,8 +93,53 @@ jobs:
           git ls-files '*Dockerfile' '*Dockerfile.*' | xargs -I{} cp --parents {} "$CTX/"
           docker build --target check --build-arg BASE_IMAGE --build-context extras=$CTX --secret id=gh_token -t $TAG .
 
-      - name: Run the test suite
-        run: docker run --rm et-test
+      # Capture image + intermediate stage sizes after the builds (and after
+      # the test/check runs leave any -rm'd container layers behind). `always()`
+      # so we still get the breakdown when a downstream step ran the disk dry;
+      # the typical failure mode (test-ws-web-runner compile inside `docker run`)
+      # leaves the host's image catalogue intact and this step is what surfaces
+      # which layer ballooned. -a includes intermediate/dangling layers each
+      # stage produces; `system df -v` totals per cache type (Images, Build
+      # Cache, Containers, Volumes).
+      - name: Docker disk usage (debug)
+        if: always()
+        run: |
+          echo "::group::docker images -a"
+          docker images -a
+          echo "::endgroup::"
+          echo "::group::docker system df -v"
+          docker system df -v
+          echo "::endgroup::"
+          echo "::group::df -h /var/lib/docker"
+          df -h /var/lib/docker || true
+          echo "::endgroup::"
+          # In-image large-file report: which paths inside the et-test image
+          # are eating space? `du --threshold=10M --max-depth=2` for a
+          # top-level subtree map (catches install dirs, tool caches, /var
+          # stragglers); `find ... -size +50M` for the individual
+          # heavyweights. Run in a throwaway container so the host's
+          # writable layer doesn't tilt the numbers; find/du stderr noise
+          # (unreadable /proc entries etc.) prints to the log but doesn't
+          # affect the sort pipeline.
+          echo "::group::et-test: largest dirs (depth 2, >=10M)"
+          docker run --rm et-test sh -c "du -h --threshold=10M --max-depth=2 / | sort -h | tail -50"
+          echo "::endgroup::"
+          echo "::group::et-test: individual files >50M"
+          docker run --rm et-test sh -c "find / -xdev -type f -size +50M -exec du -h {} + | sort -h | tail -50"
+          echo "::endgroup::"
+
+      # Two `docker run` invocations: each starts a fresh container with an
+      # empty writable layer, so the per-phase compile target/ doesn't share
+      # disk with the other phase. Splits cargo-test's two halves (workspace
+      # minus et-ws-web-runner, then et-ws-web-runner serialized) for clearer
+      # attribution when a tight-disk runner fails. test-ws-web-runner
+      # already skips itself on hosts that can't satisfy its Deno-runtime
+      # requirements, so this step is a no-op on those platforms.
+      - name: Run cargo-test-other
+        run: docker run --rm et-test mise run cargo-test-other
+
+      - name: Run test-ws-web-runner
+        run: docker run --rm et-test mise run test-ws-web-runner
 
       - name: Run mise check
         run: docker run --rm et-check

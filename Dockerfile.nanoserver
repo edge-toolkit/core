@@ -366,10 +366,19 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 
 # --- prefetch: download all dependencies + ONNX models. ---
 # The full source is needed from here on (module builds, cargo fetch, pnpm).
+# `prefetch-ci` (mnist only) instead of full `prefetch` (mnist + face1 +
+# har-motion1) because face1 / har-motion1's checksum-verify steps invoke
+# `coreutils sha256sum`, and mise's coreutils install on Nano Server has
+# a broken bin path -- the WARN "bin path does not exist:
+# ...installs\coreutils\0.9.0\coreutils-0.9.0-x86_64-pc-windows-msvc\coreutils.exe"
+# means `mise exec -- coreutils` fails. docker-windows CI only builds
+# the `precompile` target (never the `test` stage, which is what would
+# need the face / har models at runtime), so the lighter prefetch is
+# sufficient. Switch back once the Nano-shim TODO in CLAUDE.md lands.
 FROM build AS prefetch
 COPY . .
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
-    mise run prefetch
+    mise run prefetch-ci
 
 # --- precompile: build the WASM/JS modules (needed by test and server). ---
 # Mirrors Linux; drops target/ in the same layer so the multi-GB cargo
