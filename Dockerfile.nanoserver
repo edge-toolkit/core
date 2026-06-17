@@ -325,9 +325,9 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 # otherwise fail to source-build against the gnullvm target with:
 # error[E0463]: can't find crate for `core`
 # = note: the `x86_64-pc-windows-gnullvm` target may not be installed
-# (cargo:cargo-expand + cargo:rustpython hit the same source-build trap on this
-# image but have msvc quickinstall releases, so config.windows.toml's
-# per-tool install_env override steers them at those prebuilts instead.)
+# (cargo:cargo-expand hits the same source-build trap on this image but has
+# an msvc quickinstall release, so config.windows.toml's per-tool install_env
+# override steers it at that prebuilt instead.)
 # conda:m2-gnupg -- the workstation Windows path uses this msys2 gnupg (declared
 # in config.windows.toml); on Nano its msys-2.0.dll trips the kernel32 autoload
 # trap (see the comment block at the top of this file), so the gpgbin donor stage
@@ -349,7 +349,11 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 FROM build-minimal AS build
 COPY .mise/ .mise/
 RUN mise trust
-ENV MISE_ENV=dart,java,rust,zig
+# Stage-scoped ARG with a default; override via `--build-arg MISE_ENV=...`
+# to widen or narrow the language set without touching this file (e.g.
+# the windows-2025 lane in docker-windows.yaml adds python).
+ARG MISE_ENV=dart,java,rust,zig
+ENV MISE_ENV=${MISE_ENV}
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install
 

@@ -1,0 +1,146 @@
+---
+name: upstream-cache
+
+# Manually-dispatched maintainer workflow that builds + publishes
+# upstream-sourced binary artifacts to GitHub releases owned by this
+# repo, so consumers (CI + workstations) can `mise install` prebuilts
+# instead of compiling from source. One job per cached upstream; add
+# more jobs as new upstreams need caching.
+#
+# - rustpython: native binary per host triple + the platform-agnostic
+#   wasm tarball, published to the rp-v<N> release. Forward-stocked --
+#   we publish even if [tools."http:et-rp".platforms.<plat>] isn't
+#   wired up yet, so consumers can migrate off cargo:rustpython
+#   whenever it's convenient.
+
+"on":
+  # TEMPORARY: push + pull_request triggers are bootstrap-only so the
+  # initial run populates rp-v<N> across every platform without each
+  # being dispatched by hand. Revert to workflow_dispatch-only once
+  # the release has tarballs for every supported triple.
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      os:
+        description: "OS(es) to publish for"
+        type: choice
+        default: all
+        options:
+          - all
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-latest
+          - macos-26-intel
+          - windows-latest
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  rustpython:
+    runs-on: ${{ matrix.os }}
+    # Job-level write so gh release upload can push assets; the workflow
+    # default is contents:read.
+    permissions:
+      contents: write
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # workflow_dispatch with a specific OS → just that one; everything
+        # else (workflow_dispatch=all, push, pull_request) → every platform.
+        os: ${{ fromJSON(
+          (github.event_name == 'workflow_dispatch'
+          && github.event.inputs.os != 'all'
+          && format('["{0}"]', github.event.inputs.os))
+          || '["ubuntu-latest","ubuntu-24.04-arm","macos-latest","macos-26-intel","windows-latest"]'
+          ) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      # Reclaim the large preinstalled toolchains we never use (~30 GB).
+      # Mirrors test.yaml; building rustpython adds ~3 GB on top of the
+      # workspace cargo target.
+      - name: Free up disk space (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo rm -rf /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/share/swift || true
+          sudo docker image prune --all --force || true
+          df -h /
+
+      - name: Install mise
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-binstall,mise@2026.6.5
+
+      - name: Select all language envs
+        run: echo "MISE_ENV=$(mise run print-all-langs)" >> "$GITHUB_ENV"
+
+      - name: Install mise tools
+        run: |
+          mise run preinstall
+          mise install
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MISE_HTTP_TIMEOUT: "120"
+
+      # Always runs; emits step outputs (short, triple, native_missing,
+      # wasm_missing). The detect task itself doesn't need maint env.
+      - name: Detect missing rp-v1 assets
+        id: rp_check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run rp-detect-missing
+
+      # RP_SHORT comes via env (not `${{ }}` inside the run block) to keep
+      # zizmor's template-injection rule happy -- step outputs are treated
+      # as potentially attacker-controllable when expanded inside bash.
+      # `repo.fork != true` skips fork PRs (GHA gives them a read-only
+      # GITHUB_TOKEN, so the upload would fail; building the asset would
+      # be wasted compute).
+      - name: Clone RustPython at pinned SHA
+        if: |-
+          github.event.pull_request.head.repo.fork != true
+          && (steps.rp_check.outputs.native_missing == 'true'
+              || (steps.rp_check.outputs.wasm_missing == 'true' && matrix.os == 'ubuntu-latest'))
+        env:
+          RP_SHORT: ${{ steps.rp_check.outputs.short }}
+        run: |
+          git clone https://github.com/RustPython/RustPython.git "$HOME/rust/RustPython"
+          git -C "$HOME/rust/RustPython" checkout "$RP_SHORT"
+
+      # Native rustpython is per-triple: each matrix entry publishes its
+      # own host's binary if missing.
+      - name: Build + publish native rustpython for this host
+        if: |-
+          github.event.pull_request.head.repo.fork != true
+          && steps.rp_check.outputs.native_missing == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MISE_HTTP_TIMEOUT: "120"
+        run: MISE_ENV="$MISE_ENV,maint" mise run publish-rp-native-to-release
+
+      # Wasm rustpython is platform-agnostic; gate to a single canonical
+      # runner so multiple matrix jobs don't race-clobber the same asset.
+      - name: Build + publish wasm rustpython (ubuntu-latest only)
+        if: |-
+          github.event.pull_request.head.repo.fork != true
+          && steps.rp_check.outputs.wasm_missing == 'true'
+          && matrix.os == 'ubuntu-latest'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MISE_HTTP_TIMEOUT: "120"
+        run: MISE_ENV="$MISE_ENV,maint" mise run publish-rp-wasm-to-release

@@ -41,5 +41,22 @@
         "unicorn/consistent-function-scoping": "off",
       },
     },
+    {
+      // ws-modules' committed shim entry points (`pkg/et_ws_*.js`, hand-
+      // written bridges between the host page/worker and each module's
+      // wasm/JS payload) plus the ws-server static page (`static/*.js`)
+      // intentionally use the `on<event> =` pattern -- it matches the
+      // wasm-bindgen / worker convention, and there's only ever one
+      // handler. `no-await-in-loop` warnings here are also intentional
+      // serialised sequences (init → message-loop ordering matters).
+      // `consistent-function-scoping` flags inline closures that exist
+      // for readability, not to capture state.
+      "files": ["**/services/ws-modules/*/pkg/*.js", "**/services/ws-server/static/*.js"],
+      "rules": {
+        "eslint/no-await-in-loop": "off",
+        "unicorn/consistent-function-scoping": "off",
+        "unicorn/prefer-add-event-listener": "off",
+      },
+    },
   ],
 }

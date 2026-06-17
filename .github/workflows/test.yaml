@@ -74,8 +74,8 @@ jobs:
       #     = note: the `x86_64-pc-windows-gnullvm` target may not be installed
       # cargo:dart-typegen is dev-only (used only by `mise run gen:dart-ws`,
       # which the dart config skips on Windows) and has no quickinstall release,
-      # so it can't be steered to a prebuilt the way cargo:cargo-expand and
-      # cargo:rustpython can (see config.windows.toml's install_env overrides).
+      # so it can't be steered to a prebuilt the way cargo:cargo-expand can
+      # (see config.windows.toml's install_env override).
       MISE_DISABLE_TOOLS: ${{ startsWith(matrix.os, 'windows') && 'cargo:dart-typegen' || '' }}
     steps:
       - name: Checkout
@@ -133,31 +133,80 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run prefetch-ci
 
+      # Diagnostic: the `build-ws-dotnet-data1-module` task has repeatedly failed
+      # on windows-latest with `'emcc' is not recognized as an internal or
+      # external command, operable program or batch file.` after our task body
+      # prepends the Emscripten SDK pack dir to PATH. Several rounds of fixes
+      # have speculated about MSYS PATH conversion semantics without observing
+      # the actual subprocess state on the runner. This step probes:
+      #   - where the dotnet workload installed emcc.bat
+      #   - what bash, Win32 `where`, and cmd.exe each report for emcc lookup,
+      #     both before and after PATH-prepend (mirroring the failing task)
+      #   - whether cmd.exe receives the prepended dir after MSYS' Win32-spawn
+      #     PATH conversion (since MSBuild's <Exec> for `emcc` runs through cmd)
+      # Output is captured even if subsequent steps fail. Drop the step once
+      # the dotnet-data1 windows build is reliably green.
+      - name: Debug emcc lookup on Windows
+        if: startsWith(matrix.os, 'windows')
+        run: |
+          set +e
+          echo '===== [emcc-debug] env preconditions ====='
+          echo "OS=${OS:-<unset>} MSYSTEM=${MSYSTEM:-<unset>}"
+          echo "LOCALAPPDATA=${LOCALAPPDATA:-<unset>}"
+          echo
+          echo '===== [emcc-debug] dotnet workloads ====='
+          dotnet workload list 2>&1 | head -20
+          echo
+          echo '===== [emcc-debug] locate emcc.bat ====='
+          emcc_bat="$(find "$LOCALAPPDATA/mise/dotnet-root/packs" -name 'emcc.bat' 2>/dev/null | head -1)"
+          echo "emcc_bat=${emcc_bat:-<empty>}"
+          if [ -z "$emcc_bat" ]; then
+            echo "(emcc.bat not found -- dotnet workload may have failed; check earlier steps)"
+            find "$LOCALAPPDATA/mise/dotnet-root/packs" -maxdepth 3 -type d 2>&1 | head -20
+            exit 0
+          fi
+          emcc_dir="$(dirname "$emcc_bat")"
+          echo "emcc_dir=${emcc_dir}"
+          ls "$emcc_dir" 2>&1 | head -10
+          echo
+          echo '===== [emcc-debug] lookups BEFORE PATH prepend ====='
+          echo "bash command -v emcc:"; command -v emcc 2>&1 || echo "(not found by bash)"
+          echo "Win32 where emcc:"; where emcc 2>&1 || echo "(not found by Win32 where)"
+          echo "cmd.exe 'where emcc':"; cmd.exe //c "where emcc" 2>&1 || echo "(not found by cmd where)"
+          echo
+          echo '===== [emcc-debug] lookups AFTER PATH prepend (cygpath -u) ====='
+          if command -v cygpath >/dev/null 2>&1; then
+            emcc_dir_unix="$(cygpath -u "$emcc_dir")"
+            echo "cygpath -u: $emcc_dir -> $emcc_dir_unix"
+            export PATH="$emcc_dir_unix:$PATH"
+          else
+            export PATH="$emcc_dir:$PATH"
+          fi
+          echo "bash PATH (first 5 entries):"
+          echo "$PATH" | tr ':' '\n' | head -5
+          echo "bash command -v emcc:"; command -v emcc 2>&1 || echo "(not found by bash)"
+          echo "Win32 where emcc:"; where emcc 2>&1 || echo "(not found by Win32 where)"
+          echo "cmd.exe 'where emcc':"; cmd.exe //c "where emcc" 2>&1 || echo "(not found by cmd where)"
+          echo "cmd.exe %PATH% (first 800 chars):"
+          cmd.exe //c "echo %PATH%" 2>&1 | cut -c1-800
+          echo
+          echo '===== [emcc-debug] env candidates ====='
+          env | grep -iE '^(EMSDK|EMSCRIPTEN|EMCC|MSBuildSDKsPath)=' || echo "(no emcc-related env)"
+          echo
+          echo '===== [emcc-debug] end ====='
+
       - name: Build WASM modules
         run: mise run build-modules
 
-      # Separate step (not in the default build-modules glob) because the
-      # rustpython compile is ~5 min on its own. Without these two steps,
+      # Separate step (not in the default build-modules glob) because
+      # `build-pywasm1-module`'s `fetch-rp-wasm` dep downloads the prebuilt
+      # rustpython_wasm tarball from the rp-v<N> release. Without this,
       # the et-ws-pywasm1 case in `services/ws-web-runner/tests/modules.rs`
       # short-circuits with a "skipping {module}: pkg/ not built" log line.
-      - name: Clone RustPython for pywasm1
-        run: git clone --depth=1 https://github.com/RustPython/RustPython.git "$HOME/rust/RustPython"
-
       - name: Build pywasm1 module
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: mise run build-pywasm1-module
-
-      # `build-pywasm1-module` already copied the wasm-pack output into
-      # services/ws-modules/pywasm1/pkg/, so the RustPython source tree + its
-      # ~3 GB cargo target/ is dead weight once we get here. Removing it
-      # reclaims the disk headroom the test-ws-web-runner link phase needs
-      # (it otherwise hit `No space left on device (os error 28)` on
-      # ubuntu-latest's 14 GB runner). Free both the per-language tier
-      # subdir and the wasm-pack output dir.
-      - name: Free disk space after pywasm1 build
-        if: runner.os == 'Linux'
-        run: |
-          rm -rf "$HOME/rust/RustPython"
-          df -h /
 
       - name: Run tests
         run: mise run test

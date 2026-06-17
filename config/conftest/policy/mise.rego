@@ -42,9 +42,13 @@ deny contains msg if {
 # prebuilt assets release authors often skip. A first-tier platform (linux/x64,
 # macos/arm64, windows) must always have a prebuilt; source-builds there are a
 # slow surprise on the critical path.
+#
+# config.maint.toml is exempted: it's only loaded with MISE_ENV=maint by a
+# maintainer running one-off publish tasks, not by CI. A slow cargo-source
+# install on a workstation when refreshing the HF mirror is fine.
 second_tier_platform := {"linux/arm64", "macos/x64"}
 
-allowed_cargo_no_prebuilt := {"cargo:cargo-expand", "cargo:dart-typegen", "cargo:rustpython"}
+allowed_cargo_no_prebuilt := {"cargo:cargo-expand", "cargo:dart-typegen"}
 
 cargo_scoped_to_second_tier(spec) if {
 	is_object(spec)
@@ -57,6 +61,7 @@ cargo_scoped_to_second_tier(spec) if {
 deny contains msg if {
 	some file in input
 	is_mise(file)
+	not file.path == ".mise/config.maint.toml"
 	some name, spec in file.contents.tools
 	startswith(name, "cargo:")
 	not allowed_cargo_no_prebuilt[name]
@@ -91,6 +96,10 @@ allowed_os_scoped_tool := {
 	"github:uutils/findutils",
 	"cargo:findutils",
 	"cargo:ryl",
+	# http:et-rp is os-scoped to only those platforms whose tarball is
+	# already in the rp-v<N> release; add a platform by dispatching the
+	# upstream-cache.yaml workflow on that host.
+	"http:et-rp",
 	"conda:gnupg",
 }
 

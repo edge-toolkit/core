@@ -36,21 +36,6 @@ action-validator = "latest"
 ast-grep = "latest"
 cargo-binstall = "latest"
 "cargo:cargo-expand" = "latest"
-# RustPython -- a Rust reimplementation of CPython, used in mise task scripts
-# where a small embeddable Python is enough (the heavier mise-managed
-# `python` tool stays alongside for PyO3 linkage + workloads that need
-# real CPython). cargo-binstall pulls prebuilts from quickinstall on
-# macOS x64/arm64, Windows MSVC, and Linux x64 (gnu falls through to
-# musl via binstall's built-in fallback when the gnu prebuilt is absent;
-# rustpython only publishes musl). Linux aarch64 has no prebuilt and
-# falls back to source build. Windows would too -- the host's rustup
-# default-host is gnullvm (see config.windows.toml), and quickinstall
-# only publishes msvc -- but the Windows-specific install_env override
-# below sets CARGO_BUILD_TARGET to msvc so cargo-binstall fetches the
-# msvc release directly (target governs link, not exec; msvc binary runs
-# fine on gnullvm host). Allowlisted in
-# config/conftest/policy/mise.rego's `allowed_cargo_no_prebuilt`.
-"cargo:rustpython" = "0.5.0"
 taplo = "latest"
 watchexec = "latest"
 # vfox-chromedriver's PostInstall hook fails on Windows ("syntax of the
@@ -201,7 +186,42 @@ url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x
 [tools."http:oxfmt".platforms.windows-x64]
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x86_64-pc-windows-msvc.zip"
 
+# Native rustpython binary built from upstream RustPython main with
+# `freeze-stdlib` (so the binary embeds the Python stdlib and doesn't
+# need a RUSTPYTHONPATH dance) + the upstream pip audit-hook fix
+# (RustPython#7956). Per-platform url + checksum, os-scoped to only
+# those platforms whose triple's tarball is already in the rp-v<N>
+# release; consumers on every other platform have no `rustpython` on
+# PATH (no CI/build path depends on it today). To add a platform:
+# dispatch .github/workflows/upstream-cache.yaml -- it builds + uploads
+# the tarball, then auto-edits this block to add the platforms.<plat>
+# entry on the maintainer's next local run. `bin = "rustpython"`
+# because the tool short name (`et-rp`) doesn't match the binary name.
+# Short SHA inlined in each platform's url because mise's tera context
+# doesn't expose top-level `version` into platforms.<plat>.url; the
+# publish task updates both `version` and the platform url together.
+[tools."http:et-rp"]
+bin = "rustpython"
+os = ["macos/x64"]
+version = "08a1d6f"
+[tools."http:et-rp".platforms.macos-x64]
+checksum = "sha256:2a161b533e6eab988b7a16d400b05216c37be371a142e761b917044c14cacad2"
+url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-08a1d6f-x86_64-apple-darwin.tar.gz"
+
 [vars]
+# Tier-`a_` prefix: a_* vars are leaf values referenced by later vars
+# (face1_src), and mise renders [vars] in alphabetical order; `a_` sorts
+# before every non-prefixed var name so the reference resolves. Shared
+# GitHub release tag for the HF-asset mirror; referenced by face1_src
+# below + by config.maint.toml's publish-*-to-hf-cache task body. Bump
+# (`hf-cache-v2`, …) when an upstream asset changes -- updating this
+# single var rolls both sides.
+a_hf_cache_tag = "hf-cache-v1"
+# Shared GitHub release tag for both the wasm-pack rustpython_wasm tarball
+# and the per-platform native rustpython binaries (both built from the
+# same upstream RustPython commit, stored together). Referenced by rp_*
+# vars below + by config.maint.toml's publish-rp-* task bodies.
+a_rp_release = "rp-v1"
 # clang-tidy's resource-dir arg (points clang at its builtin headers, e.g.
 # stddef.h). Empty default; config.linux.toml sets it from conda:clangxx.
 clang_resource_arg = ""
@@ -227,18 +247,37 @@ no_opt = ""
 ort_loc_unix = "{{ env.HOME }}/.local/share/mise/installs/github-microsoft-onnxruntime/1.22.0"
 # Source/dest paths for the fetch-*-rclone model downloads — kept as vars so
 # each `rclone copyto` command stays on a single line without continuations.
+# face1's RetinaFace_int.onnx is mirrored to edge-toolkit/core's hf-cache-v<N>
+# release because HuggingFace 429s the CI runner IP pool during prefetch
+# (every docker-linux lane that hits amd/retinaface concurrently exhausts
+# recur's 10 retries). face1_asset pins the upstream amd/retinaface commit
+# SHA (short); config/checksums.toml records the matching SHA256; the
+# `publish-face1-to-hf-cache` task in config.maint.toml (MISE_ENV=maint)
+# refreshes both sides + the release asset together.
+# config/conftest/policy/checksums.rego cross-checks them.
+face1_asset = "RetinaFace_int-7b69507.onnx"
 face1_dst = "data/model-modules/model-face1/pkg/video_cv.onnx"
-face1_src = ":http:amd/retinaface/resolve/main/weights/RetinaFace_int.onnx"
+face1_src = ":http:edge-toolkit/core/releases/download/{{ vars.a_hf_cache_tag }}/{{ vars.face1_asset }}"
 har_dst = "data/model-modules/model-har-motion1/pkg/har-motion1.onnx"
 har_repo = ":http:acd17sk/MET-Metabolic-Equivalent-of-Task-AI-Android-APP"
 har_src = "{{ vars.har_repo }}/raw/refs/heads/main/Models/onnx/hybrid_met.onnx"
 mnist_dst = "services/ws-modules/wasi-graphics-info/pkg/mnist-12.onnx"
 mnist_src = ":http:onnx/models/raw/main/validated/vision/classification/mnist/model/mnist-12.onnx"
+# Pre-built rustpython_wasm tarball: upstream RustPython main built with
+# wasm-pack --target web; `freeze-stdlib` is the default crates/wasm
+# feature so the .wasm embeds the Python stdlib (no RUSTPYTHONPATH dance
+# needed at consumer-side). Tracks main HEAD so the upstream `pip` audit-
+# hook fix (RustPython#7956) is in. rp_wasm_asset pins the upstream short
+# SHA; config/checksums.toml records the matching SHA256; built + uploaded
+# by config.maint.toml's `publish-rp-wasm-to-release` (sharing the rp-v<N>
+# release tag with the native rustpython binary builds).
+rp_wasm_asset = "rustpython-wasm-08a1d6f.tar.gz"
+rp_wasm_dir = "{{ config_root }}/target/cache/rp-wasm"
+rp_wasm_src = ":http:edge-toolkit/core/releases/download/{{ vars.a_rp_release }}/{{ vars.rp_wasm_asset }}"
 # `retry` prefixes each fetch with recur for exponential-backoff-with-jitter
 # retries (8 tries, 2s base doubling, capped 2m, 0-5s jitter); the *_http vars
 # carry the per-host base URL + flags. Kept as vars so each task line fits.
 gh_http = "--http-url https://github.com --progress --ignore-existing"
-hf_http = "--http-url https://huggingface.co --progress --ignore-existing"
 retry = "recur --attempts 10 --delay 2s --backoff 2s --max-delay 3m --jitter 0,15s --"
 
 [env]
@@ -426,12 +465,14 @@ description = "Run all conftest policy checks (one per parsed file format)"
 description = "Run conftest OPA/Rego policies over the TOML config + lock files"
 # --combine feeds every listed file to one policy evaluation as an array of
 # {path, contents}, so a policy can both check each file and compare across files
-# (the mise wasm-bindgen pin vs Cargo.lock). --parser toml: Cargo.lock has no
-# .toml suffix. The TOML rule namespaces are listed explicitly, so the per-file
-# `gha` (YAML) namespace is never evaluated against this combined TOML input.
+# (the mise wasm-bindgen pin vs Cargo.lock; the .mise/config*.toml *_asset vars
+# vs config/checksums.toml). --parser toml: Cargo.lock has no .toml suffix.
+# The TOML rule namespaces are listed explicitly, so the per-file `gha` (YAML)
+# namespace is never evaluated against this combined TOML input.
 run = """
-ns="--namespace cross --namespace cargo --namespace mise --namespace pyproject --namespace no_trailing_backslash"
-git ls-files '*Cargo.toml' '.mise/config*.toml' '*pyproject.toml' Cargo.lock |
+ns_list="cross cargo mise pyproject no_trailing_backslash checksums"
+ns=$(for n in $ns_list; do echo -n " --namespace $n"; done)
+git ls-files '*Cargo.toml' '.mise/config*.toml' '*pyproject.toml' Cargo.lock config/checksums.toml |
   xargs conftest test --combine --parser toml $ns -p config/conftest/policy
 """
 shell = "bash -euo pipefail -c"
@@ -504,7 +545,10 @@ rg -vxF './generated/rust-rest/Cargo.toml' "$members" |
 taplo lint --schema "file://$PWD/config/taplo/mise-run-not-array.schema.json" .mise/config*.toml
 
 taplo lint --schema "file://$PWD/config/taplo/mise-no-ubi-backend.schema.json" .mise/config*.toml
-taplo lint --schema "file://$PWD/config/taplo/mise-cargo-backend-allowlist.schema.json" .mise/config*.toml
+# config.maint.toml is exempted from the cargo:-backend allowlist (one-off
+# maint tools can be slow cargo source-builds; see mise.rego's matching note).
+non_maint=$(find .mise -maxdepth 1 -name 'config*.toml' ! -name 'config.maint.toml')
+taplo lint --schema "file://$PWD/config/taplo/mise-cargo-backend-allowlist.schema.json" $non_maint
 """
 shell = "bash -euo pipefail -c"
 
@@ -847,7 +891,11 @@ depends = ["openobserve", "ws-server"]
 run = "open http://localhost:5080/"
 
 [tasks.fetch-face1-rclone]
-run = "{{ vars.retry }} rclone copyto {{ vars.face1_src }} {{ vars.face1_dst }} {{ vars.hf_http }}"
+run = """
+{{ vars.retry }} rclone copyto {{ vars.face1_src }} {{ vars.face1_dst }} {{ vars.gh_http }}
+sha=$(yq -p toml -oy '.sha256."{{ vars.face1_asset }}"' config/checksums.toml)
+echo "$sha  {{ vars.face1_dst }}" | coreutils sha256sum -c -
+"""
 shell = "bash -euo pipefail -c"
 
 [tasks.fetch-har-motion1-rclone]
@@ -1014,43 +1062,70 @@ step rustpython -m cowsay -t "rustpython lives via pip-only path"
 """
 shell = "bash -euo pipefail -c"
 
-# Build rustpython_wasm out of the local RustPython checkout. One-time-ish:
-# wasm-pack compiles rustpython + freeze-stdlib for wasm32, which takes
-# ~5-10 min on first run; rerunning is fast (cargo incremental + the early
-# `pkg/` exists check skips wasm-pack entirely if the output is present).
-# Sourced from the same RUSTPYTHON_REPO env var rustpython-investigation
-# uses. Deliberately outside the `build-ws-*` glob so the heavy build
-# doesn't sneak into `mise run build-modules`.
-[tasks.build-rustpython-wasm]
-description = "One-time: build rustpython_wasm via wasm-pack against $RUSTPYTHON_REPO"
+# Fetch the pre-built rustpython_wasm tarball from edge-toolkit/core's
+# Detect which rp-v<N> assets (native binary for this host's triple +
+# the platform-agnostic wasm tarball) are MISSING from the GitHub release.
+# Lives outside config.maint.toml because callers (notably .github/workflows/
+# test.yaml) need the answer before deciding whether to load the maint env;
+# the detection itself only needs gh (host) + yq/rg/coreutils (mise tools).
+# Reads .mise/config.toml's pinned `tools."http:et-rp".version` to derive
+# the expected asset names. When $GITHUB_OUTPUT is set (GHA), emits step
+# outputs the workflow can branch on; otherwise prints to stdout.
+[tasks.rp-detect-missing]
+description = "Print whether rp-v<N> has native+wasm assets for this host (GHA outputs)"
 run = """
-rp_dir="${RUSTPYTHON_REPO:-$HOME/rust/RustPython}"
-if [ ! -d "$rp_dir/crates/wasm" ]; then
-  echo "build-rustpython-wasm: no RustPython checkout at $rp_dir/crates/wasm" >&2
-  echo "clone: git clone https://github.com/RustPython/RustPython.git $rp_dir" >&2
-  exit 1
-fi
-if [ -f "$rp_dir/crates/wasm/pkg/rustpython_wasm_bg.wasm" ]; then
-  echo "build-rustpython-wasm: pkg/ already present at $rp_dir/crates/wasm/pkg"
-  echo "rm -rf that dir to force a rebuild"
-  exit 0
-fi
-wasm-pack build "$rp_dir/crates/wasm" --target web {{ vars.no_opt }}
+short=$(yq -p toml -oy '.tools."http:et-rp".version' .mise/config.toml)
+triple=$(rustc -vV | rg '^host: ' | coreutils cut -c7-)
+native_asset="rustpython-${short}-${triple}.tar.gz"
+wasm_asset="rustpython-wasm-${short}.tar.gz"
+tag="{{ vars.a_rp_release }}"
+assets=$(gh release view "$tag" --repo edge-toolkit/core --json assets --jq '.assets[].name' 2>/dev/null || true)
+native_missing=true
+wasm_missing=true
+if echo "$assets" | rg -Fxq "$native_asset"; then native_missing=false; fi
+if echo "$assets" | rg -Fxq "$wasm_asset";   then wasm_missing=false;   fi
+out="${GITHUB_OUTPUT:-/dev/stdout}"
+{
+  echo "short=$short"
+  echo "triple=$triple"
+  echo "native_missing=$native_missing"
+  echo "wasm_missing=$wasm_missing"
+} >> "$out"
+echo "[rp-detect-missing] triple=$triple short=$short native_missing=$native_missing wasm_missing=$wasm_missing" >&2
 """
 shell = "bash -euo pipefail -c"
 
-# Build the pywasm1 ws-module. Copies the rustpython_wasm artifacts produced
-# by build-rustpython-wasm into pkg/, alongside this module's main.py and
-# index.js shim, and writes a pkg/package.json so et-modules-service picks
-# the dir up. Task name intentionally omits the `ws-` prefix so the default
-# `build-modules` glob (`build-ws-*`) doesn't drag this in -- the rustpython
-# build is too slow to belong in a default build.
+# rp-v<N> release, verify against config/checksums.toml, and extract it
+# into target/cache/rp-wasm/ for build-pywasm1-module (and future ws-modules)
+# to read. The heavy wasm-pack compile is done once via
+# `publish-rp-wasm-to-release` in config.maint.toml. `tar` is the host's --
+# universally available on Linux/macOS and Windows 10+, not worth a mise
+# tool abstraction for a single extract call.
+[tasks.fetch-rp-wasm]
+description = "Download + verify + extract the rustpython_wasm tarball into target/cache/rp-wasm/"
+run = """
+dir={{ vars.rp_wasm_dir }}
+tarball="$dir/{{ vars.rp_wasm_asset }}"
+coreutils mkdir -p "$dir"
+{{ vars.retry }} rclone copyto {{ vars.rp_wasm_src }} "$tarball" {{ vars.gh_http }}
+sha=$(yq -p toml -oy '.sha256."{{ vars.rp_wasm_asset }}"' config/checksums.toml)
+echo "$sha  $tarball" | coreutils sha256sum -c -
+# Wipe previous extraction so it can't shadow new contents; preserve the
+# tarball itself so rclone --ignore-existing short-circuits on rerun.
+find "$dir" -mindepth 1 -not -name '{{ vars.rp_wasm_asset }}' -delete
+tar -xzf "$tarball" -C "$dir"
+"""
+shell = "bash -euo pipefail -c"
+
+# Build the pywasm1 ws-module from the fetched rustpython_wasm extraction.
+# Task name intentionally omits the `ws-` prefix so the default
+# `build-modules` glob (`build-ws-*`) doesn't drag it in.
 [tasks.build-pywasm1-module]
-depends = ["build-rustpython-wasm"]
-description = "Build the pywasm1 module (rustpython_wasm + main.py)"
+depends = ["fetch-rp-wasm"]
+description = "Build the pywasm1 module (fetched rustpython_wasm + main.py)"
 dir = "services/ws-modules/pywasm1"
 run = """
-rp_pkg="${RUSTPYTHON_REPO:-$HOME/rust/RustPython}/crates/wasm/pkg"
+rp_pkg={{ vars.rp_wasm_dir }}
 coreutils rm -rf pkg
 coreutils mkdir -p pkg
 coreutils cp "$rp_pkg"/rustpython_wasm.js "$rp_pkg"/rustpython_wasm.d.ts pkg/

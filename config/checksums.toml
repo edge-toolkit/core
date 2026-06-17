@@ -1,0 +1,14 @@
+# SHA256 checksums for assets fetched from edge-toolkit/core's hf-cache-v<N>
+# releases. The release page also ships per-asset .sha256 sidecars for human
+# inspection, but this file is the source of truth for `fetch-*-rclone` tasks
+# -- chains the integrity guarantee to git history rather than to the
+# (re-uploadable) release storage.
+#
+# config/conftest/policy/checksums.rego enforces a bidirectional cross-
+# reference: every `<name>_asset` var in .mise/config*.toml must have a
+# matching entry here, and vice versa. Filename keys pin the upstream commit
+# SHA (short); bump in lockstep with the var and the release tag.
+
+[sha256]
+"RetinaFace_int-7b69507.onnx" = "3b29de703b4641cb995754bc6294bd58b0fa5d859c838e9484c86d00251f8a08"
+"rustpython-wasm-08a1d6f.tar.gz" = "7b81d53f5b3a63c60fc2bc1717e87466026d796ec522b925f009532c7b0291f3"
