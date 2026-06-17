@@ -203,17 +203,23 @@ mise exec -- rustup set default-host x86_64-pc-windows-gnullvm
 # / 2026-04-14), unzips the wheel, and puts it on RUSTPYTHONPATH so
 # `rustpython -m pip` resolves to that copy. The matching workaround is
 # documented at length in config.maint.toml's `rustpython-investigation`
-# task. Nano never invokes the pipx that this installs (every pipx:* tool
-# is in MISE_DISABLE_TOOLS on that image) -- the bootstrap exists only so
-# the shared preinstall sequence runs to completion.
+# task. The same task also explains the PIPX_SHARED_LIBS pre-creation
+# below: pipx's first install creates a shared-libs venv via `python -m
+# venv --clear` (no --without-pip), which triggers RustPython's bundled
+# ensurepip + pip 26.1.1 audit-hook crash again. Pre-creating that venv
+# with --without-pip and dropping the unpacked pip-26.0.1 site-packages
+# in lets pipx's `is_valid()` short-circuit past `create()`. The Nano
+# Dockerfile then exports PATH + PIPX_* env vars so `mise install
+# pipx:<tool>` can find this pipx and reuse the pre-created shared venv.
 if command -v python >/dev/null 2>&1; then
   python -m pip install pipx
 else
   mise install http:et-rp
-  boot="{{ config_root }}/target/scratch/preinstall-pipx"
+  boot="{{ config_root }}/target/preinstall-pipx"
   coreutils mkdir -p "$boot"
   pip_whl="$boot/{{ vars.pip_for_rustpython_wheel }}"
   pip_extracted="$boot/pip-extracted"
+  shared_venv="$boot/shared"
   if [ ! -f "$pip_whl" ]; then
     pypi_args="--http-url https://files.pythonhosted.org --progress --ignore-existing"
     {{ vars.retry }} rclone copyto "{{ vars.pip_for_rustpython_wheel_url }}" "$pip_whl" $pypi_args
@@ -222,6 +228,18 @@ else
     unzip -q -o "$pip_whl" -d "$pip_extracted"
   fi
   RUSTPYTHONPATH="$pip_extracted" mise exec -- rustpython -m pip install --target "$boot/site" pipx
+  if [ ! -f "$shared_venv/bin/pip" ]; then
+    coreutils rm -rf "$shared_venv"
+    RUSTPYTHONPATH="$pip_extracted" mise exec -- rustpython -m venv --without-pip "$shared_venv"
+    shared_site="$(coreutils ls -d "$shared_venv"/lib/*/site-packages)"
+    coreutils cp -R "$pip_extracted/pip" "$shared_site/"
+    coreutils cp -R "$pip_extracted"/pip-*.dist-info "$shared_site/"
+    coreutils cat > "$shared_venv/bin/pip" <<'PIP_SHIM'
+#!/bin/sh
+exec "$(dirname "$0")/python" -m pip "$@"
+PIP_SHIM
+    coreutils chmod +x "$shared_venv/bin/pip"
+  fi
 fi
 """
 shell = "bash -euo pipefail -c"

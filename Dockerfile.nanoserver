@@ -314,15 +314,17 @@ ENV CARGO_HOME=C:\.cargo `
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise run preinstall
 
-# Skip tools this image never runs. Every pipx:* tool that any guest
-# config loads -- they all fail at install on Nano Server: pipx /
-# platformdirs' user_data_path() calls SHGetFolderPathW (which Nano
-# lacks) at import time, so mise can't even find pipx, let alone run it
-# to install a tool. Listed individually (not blanket `pipx:`) so the
-# symptom is loud when a new pipx tool is added to a guest config and
-# this list goes out of sync. cargo:dart-typegen -- dev-only tool with
-# no role in image builds, no quickinstall release to steer at, and
-# would otherwise fail to source-build against the gnullvm target with:
+# Skip tools this image never runs. `pipx:cowsay` is the canary: it stays
+# OUT of MISE_DISABLE_TOOLS so the next `mise install` exercises the
+# end-to-end pipx-on-Nano path (rustpython interpreter, pip-26.0.1
+# RUSTPYTHONPATH workaround, pre-created shared-libs venv). If pipx ever
+# regresses on Nano the failure surfaces here, not silently months later
+# when a pipx:* guest tool gets added. The other pipx tools stay listed
+# because their installers do platform-incompatible things even with a
+# working pipx (semgrep needs a real CPython, etc.). cargo:dart-typegen
+# -- dev-only tool with no role in image builds, no quickinstall release
+# to steer at, and would otherwise fail to source-build against the
+# gnullvm target with:
 # error[E0463]: can't find crate for `core`
 # = note: the `x86_64-pc-windows-gnullvm` target may not be installed
 # (cargo:cargo-expand hits the same source-build trap on this image but has
@@ -337,9 +339,27 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 # continuations (Dockerfile ENV doesn't support comment-aware joining and
 # the value is too long for a single line otherwise). The ARGs don't
 # persist into the runtime env; only the joined ENV does.
-ARG MISE_DT_BASE=cargo:dart-typegen,conda:m2-gnupg,lychee,pipx:cowsay,pipx:cpplint,pipx:semgrep
+ARG MISE_DT_BASE=cargo:dart-typegen,conda:m2-gnupg,lychee,pipx:cpplint,pipx:semgrep
 ARG MISE_DT_PY=pipx:componentize-py,pipx:datamodel-code-generator,pipx:openapi-python-client,pipx:pytest,pipx:torch
 ENV MISE_DISABLE_TOOLS=${MISE_DT_BASE},${MISE_DT_PY}
+
+# Wire mise's pipx backend at the bootstrapped pipx (preinstall above
+# installed it via rustpython into target/preinstall-pipx). PATH points at
+# the script the rustpython arm of preinstall just laid down; PYTHONPATH
+# + RUSTPYTHONPATH point both pip-26.0.1 and pipx's site-packages so the
+# script's `from pipx.main import cli` resolves; PIPX_SHARED_LIBS points
+# at the pre-created shared venv so pipx's first run skips `ensurepip`
+# (which would trip the same audit-hook crash). PIPX_DEFAULT_BACKEND=pip
+# keeps pipx off the uv backend (uv strips env when spawning the
+# interpreter probe, so RUSTPYTHONPATH would vanish). Workspace-relative
+# paths because the Nano build's WORKDIR is C:\workspace.
+ENV PIPX_DEFAULT_BACKEND=pip `
+    PIPX_HOME=C:\workspace\target\preinstall-pipx\pipx-home `
+    PIPX_BIN_DIR=C:\workspace\target\preinstall-pipx\pipx-bin `
+    PIPX_SHARED_LIBS=C:\workspace\target\preinstall-pipx\shared `
+    PYTHONPATH=C:\workspace\target\preinstall-pipx\site `
+    RUSTPYTHONPATH=C:\workspace\target\preinstall-pipx\pip-extracted;C:\workspace\target\preinstall-pipx\site `
+    PATH="C:\workspace\target\preinstall-pipx\site\bin;${PATH}"
 
 # The remaining always-loaded tools (the cargo: tools; python is already
 # installed above) now that rust links via gnullvm.

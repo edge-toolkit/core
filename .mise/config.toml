@@ -528,9 +528,16 @@ shell = "bash -euo pipefail -c"
 
 [tasks.conftest-check-yaml]
 description = "Run conftest OPA/Rego policies over the GitHub Actions workflow YAML"
+# Two passes: per-file rules (gha, no_trailing_backslash) for shape/content
+# checks that don't need a file path; --combine rules (gha_combined) for
+# cross-cutting invariants where the rule has to compare each workflow's
+# parsed body against its own filename (the `paths:` self-reference check).
+# Conftest's per-file mode has no `input.path`, so `gha_combined` lives in
+# its own pass.
 run = """
 ns="--namespace gha --namespace no_trailing_backslash"
 conftest test --parser yaml $ns -p config/conftest/policy .github/workflows
+conftest test --parser yaml --combine --namespace gha_combined -p config/conftest/policy .github/workflows
 """
 shell = "bash -euo pipefail -c"
 
@@ -684,6 +691,13 @@ mise install ripgrep
 # base/core notably). Installing here, not in the per-OS preinstall body,
 # keeps the `mise which goawk` call those use guaranteed to resolve.
 mise install github:benhoyt/goawk
+# recur is the `{{ vars.retry }}` prefix used by every rclone fetch in
+# the preinstall task bodies below (face1/har/mnist/pip-for-rustpython).
+# Land it here so the per-OS preinstalls don't trip with `recur: not
+# found` (seen on Nano Server: the per-OS preinstall ran the pip-26.0.1
+# fetch before `mise install` -- which would have installed recur --
+# had run).
+mise install github:dbohdan/recur
 """
 shell = "bash -euo pipefail -c"
 

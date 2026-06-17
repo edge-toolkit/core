@@ -14,11 +14,9 @@ name: upstream-cache
 #   whenever it's convenient.
 
 "on":
-  # TEMPORARY: pull_request trigger is bootstrap-only so the initial run
-  # populates rp-v<N> across every platform without each being dispatched
-  # by hand. Revert to workflow_dispatch-only once the release has
-  # tarballs for every supported triple.
   pull_request:
+    paths:
+      - .github/workflows/upstream-cache.yaml
   workflow_dispatch:
     inputs:
       os:
