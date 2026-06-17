@@ -7,6 +7,8 @@ ignored:
   - DL3008
   # Same for dnf (Fedora base). Same rationale as DL3008 above.
   - DL3041
+  # Same for zypper (openSUSE base). Same rationale as DL3008 above.
+  - DL3037
   # Same for npm: `npm install -g pnpm` tracks latest; we don't pin it here.
   - DL3016
   # `curl ... | sh` (the mise installer): if curl fails, sh gets empty input and

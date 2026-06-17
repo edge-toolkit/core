@@ -61,27 +61,29 @@ FROM ${BASE_IMAGE} AS build-minimal
 # and Debian/Ubuntu use dash as /bin/sh with bash a separate package
 # (Fedora/Azure Linux ship bash as /bin/sh already, so listing it there is a
 # no-op).
-# Three package lists: COMMON has names that are identical across apt /
-# dnf / tdnf, so neither distro arm has to repeat them. APT_PACKAGES and
+# Three package lists: COMMON has names that are identical across every
+# package manager we hit, so no arm has to repeat them. APT_PACKAGES and
 # DNF_PACKAGES carry only the distro-specific extras (apt's `g++` vs dnf's
-# `gcc-c++`, etc.). ICU (needed by .NET runtime for the dotnet-data1
-# module -- without it the dotnet CLI FailFast-aborts at startup with
-# "Couldn't find a valid ICU package installed on the system") is named
-# per distro: on apt the runtime pkg is libicu<NN> (auto-detected via
-# `apt-cache search`, covers libicu72 bookworm / libicu74 ubuntu 24.04 /
-# libicu76 trixie / libicu78 ubuntu 26.04); on Fedora's dnf it's the
-# unversioned `libicu`; Azure Linux renames it to `icu`. Same pattern for
-# `libatomic` -> `libgcc-atomic` on Azure Linux. The RUN below picks the
+# `gcc-c++`, etc.); the zypper arm reuses DNF_PACKAGES with a rename map
+# for the two names openSUSE spells differently (`kernel-headers` ->
+# `linux-glibc-devel`, `libatomic` -> `libatomic1`). ICU (needed by .NET
+# runtime for the dotnet-data1 module -- without it the dotnet CLI
+# FailFast-aborts at startup with "Couldn't find a valid ICU package
+# installed on the system") is named per distro: on apt the runtime pkg
+# is libicu<NN> (auto-detected via `apt-cache search`, covers libicu72
+# bookworm / libicu74 ubuntu 24.04 / libicu76 trixie / libicu78 ubuntu
+# 26.04); on Fedora's dnf and openSUSE's zypper it's the unversioned
+# `libicu`; Azure Linux renames it to `icu`. The RUN below picks the
 # install command by whichever package manager exists (apt-get / dnf /
-# tdnf) and detects Azure Linux via /etc/os-release's `ID=azurelinux` to
-# apply the rename.
+# tdnf / zypper) and detects the few RPM distros that need name renames
+# via /etc/os-release.
 ARG COMMON_PACKAGES="bash binutils bzip2 ca-certificates curl gcc git gzip make tar unzip"
 ARG APT_PACKAGES="g++ libc6-dev"
 ARG DNF_PACKAGES="gcc-c++ glibc-devel kernel-headers libatomic libicu"
 # Unquoted `$COMMON_PACKAGES` / `$APT_PACKAGES` / `$DNF_PACKAGES` / `$pkgs`
 # is intentional: each is a space-separated list, and we WANT the shell to
-# word-split it into distinct args for apt-get / dnf / tdnf. SC2086 fires
-# on these and that's the false-positive that pragma silences.
+# word-split it into distinct args for apt-get / dnf / tdnf / zypper.
+# SC2086 fires on these and that's the false-positive that pragma silences.
 # hadolint ignore=SC2086
 RUN if command -v apt-get >/dev/null 2>&1; then \
         apt-get update \
@@ -109,8 +111,20 @@ RUN if command -v apt-get >/dev/null 2>&1; then \
         else \
             tdnf install -y $COMMON_PACKAGES $pkgs && tdnf clean all ; \
         fi ; \
+    elif command -v zypper >/dev/null 2>&1; then \
+        pkgs="" ; \
+        for w in $DNF_PACKAGES; do \
+            case "$w" in \
+                kernel-headers) w=linux-glibc-devel ;; \
+                libatomic) w=libatomic1 ;; \
+            esac ; \
+            pkgs="$pkgs $w" ; \
+        done ; \
+        zypper --non-interactive --gpg-auto-import-keys refresh \
+            && zypper --non-interactive install --no-recommends $COMMON_PACKAGES $pkgs \
+            && zypper clean --all ; \
     else \
-        echo "no supported package manager (apt-get, dnf, or tdnf) found" >&2; exit 1; \
+        echo "no supported package manager (apt-get, dnf, tdnf, or zypper) found" >&2; exit 1; \
     fi
 
 # Install mise and put it + its shims on PATH; in a non-interactive build that's
@@ -215,7 +229,9 @@ ENV NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=all
 ENV VK_LOADER_DRIVERS_SELECT=lvp_icd*
 # Vulkan runtime + Mesa drivers via whichever package manager the base has.
 # Debian/Ubuntu: libvulkan1 + mesa-vulkan-drivers; Fedora and Azure Linux:
-# vulkan-loader + mesa-vulkan-drivers (same Mesa name, different loader name).
+# vulkan-loader + mesa-vulkan-drivers (same Mesa name, different loader
+# name); openSUSE: libvulkan1 + Mesa-libVulkan-drivers (Mesa is the SUSE
+# capitalisation, and the drivers ship as `Mesa-libVulkan-drivers`).
 RUN if command -v apt-get >/dev/null 2>&1; then \
         apt-get update \
         && apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers \
@@ -225,6 +241,9 @@ RUN if command -v apt-get >/dev/null 2>&1; then \
         && dnf clean all ; \
     elif command -v tdnf >/dev/null 2>&1; then \
         tdnf install -y vulkan-loader mesa-vulkan-drivers && tdnf clean all ; \
+    elif command -v zypper >/dev/null 2>&1; then \
+        zypper --non-interactive install --no-recommends libvulkan1 Mesa-libVulkan-drivers \
+            && zypper clean --all ; \
     else \
         echo "no supported package manager for libvulkan1/mesa-vulkan-drivers" >&2; exit 1; \
     fi

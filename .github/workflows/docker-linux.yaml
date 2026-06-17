@@ -27,14 +27,15 @@ jobs:
       fail-fast: false
       matrix:
         base:
-          - ubuntu:22.04
-          - ubuntu:24.04
-          - ubuntu:26.04
+          - amazonlinux:2023
           - debian:bookworm
           - debian:trixie
           - fedora:42
-          - amazonlinux:2023
           - mcr.microsoft.com/azurelinux/base/core:3.0
+          - opensuse/leap:15.6
+          - ubuntu:22.04
+          - ubuntu:24.04
+          - ubuntu:26.04
     name: build (${{ matrix.base }})
     steps:
       - name: Checkout
