@@ -1,10 +1,11 @@
 # syntax=docker/dockerfile:1
 # `# syntax=...` opts the Docker engine into the latest dockerfile frontend
-# (the parser that understands `RUN <<EOF` heredocs + `--mount=` flags). Without
-# it the engine falls back to its built-in parser, which on older Docker
-# versions doesn't recognise heredoc and concatenates the body into a single
-# command string -- our `<<EOF bash` then gets handed to `/bin/sh -c` verbatim,
-# trip CI with `Illegal option -o pipefail`. Keep this as line 1 of the file.
+# (the parser that understands `RUN bash <<'EOF'` heredocs + `--mount=` flags).
+# Without it the engine falls back to its built-in parser, which on older
+# Docker versions doesn't recognise heredoc and concatenates the body into a
+# single command string -- the heredoc then gets handed to `/bin/sh -c`
+# verbatim, tripping CI with `Illegal option -o pipefail`. Keep this as line 1
+# of the file.
 
 # Build, test, and serve edge-toolkit from a clean, minimal Ubuntu, split into
 # stages so each can be cached and targeted independently:
@@ -88,16 +89,38 @@ FROM ${BASE_IMAGE} AS build-minimal
 ARG COMMON_PACKAGES="bash binutils bzip2 ca-certificates curl gcc git gzip make tar unzip"
 ARG APT_PACKAGES="g++ libc6-dev"
 ARG DNF_PACKAGES="gcc-c++ glibc-devel kernel-headers libatomic libicu"
+# Promote ARG → ENV so the RUN heredoc below (and `.mise/config.linux.toml`'s
+# preinstall script) can read them via the shell's environment. The heredoc
+# uses a quoted `<<'EOF'` delimiter, which means Docker does NOT substitute
+# `$COMMON_PACKAGES` etc. into the body at build time (and, crucially, the
+# outer `/bin/sh` doesn't try to perform `$(...)` command substitution before
+# bash runs -- which was breaking the libicu lookup: on Fedora the outer
+# `/bin/sh` tried to run `apt-cache` to substitute the `libicu=$(apt-cache
+# ...)` line before reaching the dnf branch and crashed with `apt-cache:
+# command not found`; on Debian/Ubuntu it ran apt-cache BEFORE the script's
+# `apt-get update` line, so the cache was stale and the lookup returned
+# empty). The ARG → ENV step is what makes `$COMMON_PACKAGES` resolve at
+# bash-eval time inside the quoted heredoc.
+ENV COMMON_PACKAGES=${COMMON_PACKAGES}
+ENV APT_PACKAGES=${APT_PACKAGES}
+ENV DNF_PACKAGES=${DNF_PACKAGES}
 # Unquoted `$COMMON_PACKAGES` / `$APT_PACKAGES` / `$DNF_PACKAGES` / `$pkgs`
 # is intentional: each is a space-separated list, and we WANT the shell to
 # word-split it into distinct args for apt-get / dnf / tdnf / zypper.
 # SC2086 fires on these and that's the false-positive that pragma silences.
 # hadolint ignore=SC2086
-RUN bash <<EOF
+RUN bash <<'EOF'
 set -euo pipefail
 if command -v apt-get >/dev/null 2>&1; then
     apt-get update
-    libicu="$(apt-cache search --names-only '^libicu[0-9]+$' | cut -d' ' -f1 | head -1)"
+    # apt-cache pkgnames lists names with a given prefix, one per line --
+    # grep -E then narrows to the versioned package (libicu70 jammy /
+    # libicu72 bookworm / libicu74 ubuntu 24.04 / libicu76 trixie etc.).
+    # `apt-cache search --names-only '^libicu[0-9]+$'` doesn't work here --
+    # apt-cache search treats `--names-only` as filter on already-matched
+    # records, not as full-name anchor, so the `^...$` regex misses every
+    # debian/ubuntu base we tested.
+    libicu="$(apt-cache pkgnames libicu | grep -E '^libicu[0-9]+$' | head -1)"
     [ -n "$libicu" ] || { echo "no libicu[0-9]+ package available in this base" >&2; exit 1; }
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $COMMON_PACKAGES $APT_PACKAGES "$libicu"
     apt-get clean
@@ -172,7 +195,7 @@ RUN mise trust
 # limit for the release fetches. MISE_JOBS=1 serializes the install: the `rust`
 # tool is a two-version list (latest + nightly) that otherwise runs two
 # rustup-inits at once, racing on the shared rustup binary's self-update (exit 1).
-RUN --mount=type=secret,id=gh_token,required=false bash <<EOF
+RUN --mount=type=secret,id=gh_token,required=false bash <<'EOF'
 set -euo pipefail
 GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)"
 export GITHUB_TOKEN
@@ -187,7 +210,7 @@ FROM build-minimal AS build
 COPY .mise/ .mise/
 RUN mise trust
 ENV MISE_ENV="dart,dotnet,java,python,rust,zig"
-RUN --mount=type=secret,id=gh_token,required=false bash <<EOF
+RUN --mount=type=secret,id=gh_token,required=false bash <<'EOF'
 set -euo pipefail
 GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)"
 export GITHUB_TOKEN
@@ -198,7 +221,7 @@ EOF
 # The full source is needed from here on (module builds, cargo fetch, pnpm).
 FROM build AS prefetch
 COPY . .
-RUN --mount=type=secret,id=gh_token,required=false bash <<EOF
+RUN --mount=type=secret,id=gh_token,required=false bash <<'EOF'
 set -euo pipefail
 GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)"
 export GITHUB_TOKEN
@@ -256,7 +279,7 @@ ENV VK_LOADER_DRIVERS_SELECT=lvp_icd*
 # openSUSE: libvulkan1 + libvulkan_lvp (Mesa ships the lavapipe driver as
 # a separate `libvulkan_lvp` package on SUSE since the 2022 default-pkg
 # split that stopped pulling it in alongside hardware drivers).
-RUN bash <<EOF
+RUN bash <<'EOF'
 set -euo pipefail
 if command -v apt-get >/dev/null 2>&1; then
     apt-get update
@@ -288,7 +311,7 @@ CMD ["mise", "run", "test"]
 # MISE_ENV is set, so the server's `mise where` module-path lookups resolve.
 # docker run --rm -p 8080:8080 edge-toolkit   # then open http://localhost:8080
 FROM precompile AS server
-RUN bash <<EOF
+RUN bash <<'EOF'
 set -euo pipefail
 mise exec -- cargo build --release -p et-ws-server
 cp target/release/et-ws-server /usr/local/bin/et-ws-server

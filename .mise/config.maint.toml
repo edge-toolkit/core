@@ -254,26 +254,32 @@ if [ "${OS:-}" = "Windows_NT" ]; then
   # the first dep (cfg-if). Add the msvc target so its rust-std is laid
   # down before cargo install starts compiling.
   rustup target add x86_64-pc-windows-msvc
-  # Force the MSVC linker + resource compiler. config.windows.toml's _.path
-  # prepends conda-m2-gnupg's bin to PATH, which ships a GNU `link.exe`
-  # (the coreutils ln-style command) -- cargo's bare `link.exe` lookup
-  # finds that one BEFORE MSVC's link.exe and the link step trips with
+  # Strip conda-m2-gnupg's usr/bin from PATH for the cargo build, and
+  # pin the linker via per-target env using `where.exe` to locate MSVC's
+  # link.exe specifically. Background:
+  # config.windows.toml's _.path prepends conda-m2-gnupg/usr/bin so this
+  # repo's own builds can shell out to coreutils, but that dir ships a
+  # GNU `link.exe` (the `ln`-style command). cargo's bare `link.exe`
+  # lookup hits THAT one BEFORE MSVC's link.exe (added to PATH by
+  # ilammy/msvc-dev-cmd) and the link step trips with
   #   error: linking with `link.exe` failed: exit code: 1
   #   note: "...conda-m2-gnupg/.../usr/bin/link.exe" "/NOLOGO" ...
   #   note: /usr/bin/link: missing operand after '\\377\\376"'
-  # ilammy/msvc-dev-cmd exports VCToolsInstallDir + WindowsSdkVerBinPath;
-  # use both to pin the linker via per-target env (cargo reads it directly,
-  # no PATH dance) and prepend the SDK x64 bin so embed_resource finds
-  # rc.exe (otherwise: `warning: rustpython@0.5.0: Failed to compile
-  # Windows resources: The system cannot find the path specified. (os
-  # error 3)` -- benign, the .exe just loses icon/version metadata).
-  if [ -n "${VCToolsInstallDir:-}" ]; then
-    msvc_bin="${VCToolsInstallDir//\\//}bin/Hostx64/x64"
-    export CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER="${msvc_bin}/link.exe"
-  fi
-  if [ -n "${WindowsSdkVerBinPath:-}" ]; then
-    sdk_bin="${WindowsSdkVerBinPath//\\//}x64"
-    export PATH="${sdk_bin}:${PATH}"
+  # A prior attempt set CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER from
+  # $VCToolsInstallDir, but the env didn't propagate (or msvc-dev-cmd
+  # doesn't always export it on the runner image). The path-strip +
+  # where.exe lookup below works regardless of which envs were exported.
+  # The conda-m2-gnupg directory is only needed by this repo's own
+  # build (NOT rustpython's), so dropping it for the cargo install is
+  # safe. PATH on git-bash uses `:` as the separator.
+  PATH=$(echo "$PATH" | tr ':' '\n' | grep -v 'conda-m2-gnupg' | paste -sd ':' -)
+  export PATH
+  # where.exe returns every match newline-separated; pick the first
+  # entry under an MSVC tools dir. If none is found we leave the
+  # default lookup alone (the PATH strip above is usually enough).
+  msvc_link=$(where.exe link.exe 2>/dev/null | tr -d '\r' | grep -iE 'MSVC[\\/].*Hostx64' | head -1 || true)
+  if [ -n "${msvc_link:-}" ]; then
+    export CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER="$msvc_link"
   fi
 fi
 cargo install --path "$rp_dir" --features freeze-stdlib --root "$prefix" rustpython

@@ -54,14 +54,27 @@ uses:
       ENV MISE_DISABLE_TOOLS=${MISE_DT_BASE},${MISE_DT_PY}
 
 - **Dockerfile `RUN` block**: switch to BuildKit's HEREDOC form
-  (`RUN <<EOF` … `EOF`) — each shell command sits on its own line with
-  no continuation needed. The **first line of every HEREDOC body must be
-  `set -euo pipefail`** (enforced by `config/conftest/policy/dockerfile.rego`):
-  HEREDOC RUNs default to `/bin/sh -c` which doesn't carry `-e -o pipefail`,
-  unlike the `RUN cmd && cmd` form, so an early-exit-on-failure invariant
-  has to be re-declared inside each body. Leave a blank line between the
-  closing `EOF` and the next instruction — hadolint's parser otherwise
-  errors with `unexpected 'E' expecting a new line...`.
+  (`RUN bash <<'EOF'` … `EOF`) — each shell command sits on its own line
+  with no continuation needed. Three rules, all enforced by
+  `config/conftest/policy/dockerfile.rego` + the matching semgrep rule
+  under `config/semgrep/`: (1) interpreter is **`bash`, placed BEFORE the
+  `<<TAG`** (default `/bin/sh` on Debian/Ubuntu is dash, which rejects
+  `set -euo pipefail`; the inverse `RUN <<EOF bash` form is silently
+  broken because BuildKit treats trailing tokens as literal); (2) the
+  **delimiter must be quoted (`<<'EOF'`)** — with an unquoted `<<EOF`,
+  the outer `/bin/sh -c` that wraps the RUN performs `$(...)` command
+  substitution on the body BEFORE bash runs, so `libicu=$(apt-cache ...)`
+  is evaluated against the outer shell at the wrong moment (Fedora
+  aborted with `apt-cache: command not found`; Debian/Ubuntu ran
+  apt-cache before the script's `apt-get update`, getting a stale
+  cache); quoting defers every expansion to bash, and ARG values needed
+  inside the body must be promoted to ENV beforehand (`ARG FOO=...` →
+  `ENV FOO=${FOO}`); (3) **first body line must be `set -euo pipefail`**
+  — HEREDOC RUNs go through bash without inheriting strict mode from any
+  outer setting, so the invariant has to be re-declared inside every
+  body. Leave a blank line between the closing `EOF` and the next
+  instruction — hadolint's parser otherwise errors with `unexpected 'E'
+  expecting a new line...`.
 - **YAML run-bodies**: a `|` block scalar already keeps each shell
   line natural; no continuations are necessary.
 - **Long flag lists**: drop them into a config file (`.env`, `.cfg`,

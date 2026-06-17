@@ -66,17 +66,31 @@ deny contains msg if {
 	)
 }
 
-# RUN heredocs must invoke `bash` as the interpreter (`RUN bash <<EOF`).
-# BuildKit's default heredoc shell is `/bin/sh`, which on Debian/Ubuntu is
-# dash -- and dash rejects `set -euo pipefail` with `Illegal option -o
-# pipefail` (exit 2). Routing the heredoc body through bash makes the
-# strict-mode line at the top of every body actually work. Per the
-# Dockerfile spec the interpreter goes BEFORE the `<<TAG` opener (not
-# after -- BuildKit treats trailing words as part of the literal command,
-# the inverse `RUN <<EOF bash` form never works). The `set -euo pipefail`
-# first-line check itself is a semgrep rule (the Dockerfile parser
-# flattens heredoc bodies out of the AST, so conftest can't see them;
-# semgrep operates on the raw file text).
+# RUN heredocs must invoke `bash` and use a QUOTED delimiter
+# (`RUN bash <<'EOF'`). Two-part rule:
+#
+# 1. bash as the interpreter. BuildKit's default heredoc shell is
+#    `/bin/sh`, which on Debian/Ubuntu is dash -- and dash rejects
+#    `set -euo pipefail` with `Illegal option -o pipefail` (exit 2).
+#    Routing the heredoc body through bash makes the strict-mode line
+#    at the top of every body actually work. Per the Dockerfile spec
+#    the interpreter goes BEFORE the `<<TAG` opener (not after --
+#    BuildKit treats trailing words as part of the literal command,
+#    the inverse `RUN <<EOF bash` form never works).
+# 2. Quoted delimiter. With an unquoted `<<EOF` the outer `/bin/sh -c`
+#    that wraps the RUN performs `$(...)` command substitution on the
+#    body BEFORE handing it to bash. On Fedora that ran `apt-cache` (a
+#    Debian-only tool) and aborted with `apt-cache: command not found`;
+#    on Debian/Ubuntu it ran `apt-cache` before the script's own
+#    `apt-get update` line, so the cache was stale and the lookup
+#    returned empty. Quoting (`<<'EOF'`) defers all expansion to bash,
+#    which only evaluates the line inside the correct package-manager
+#    branch. ARG values needed inside the body are promoted to ENV
+#    before the RUN so bash can resolve them from the environment.
+#
+# The `set -euo pipefail` first-line check itself is a semgrep rule
+# (the Dockerfile parser flattens heredoc bodies out of the AST, so
+# conftest can't see them; semgrep operates on the raw file text).
 deny contains msg if {
 	some file in input
 	is_array(file.contents)
@@ -86,7 +100,23 @@ deny contains msg if {
 	contains(value, "<<")
 	not startswith(value, "bash ")
 	msg := sprintf(
-		"%s: RUN heredoc `%s` must use bash as interpreter (write `RUN bash <<EOF`)",
+		"%s: RUN heredoc `%s` must use bash as interpreter (write `RUN bash <<'EOF'`)",
+		[file.path, value],
+	)
+}
+
+deny contains msg if {
+	some file in input
+	is_array(file.contents)
+	some instr in file.contents
+	instr.Cmd == "run"
+	some value in instr.Value
+	contains(value, "<<")
+	startswith(value, "bash ")
+	not contains(value, "<<'")
+	not contains(value, "<<\"")
+	msg := sprintf(
+		"%s: RUN heredoc `%s` must use a quoted delimiter (write `<<'EOF'`) to defer $-expansion to bash",
 		[file.path, value],
 	)
 }
