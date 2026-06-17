@@ -237,6 +237,18 @@ if compgen -G "$prefix/bin/rustpython*" >/dev/null; then
   echo "rm -rf $prefix to force a rebuild"
   exit 0
 fi
+# On Windows, force CARGO_BUILD_TARGET=x86_64-pc-windows-msvc for the
+# rustpython build. The workspace [env] in config.windows.toml sets it to
+# x86_64-pc-windows-gnullvm so this repo's own crates link gnullvm-only,
+# but RustPython upstream's `crates/vm/src/stdlib/time.rs` gates
+# `get_tz_info()` on `#[cfg(target_env = "msvc")]` while its Windows
+# `mod platform` block unconditionally imports it -- gnullvm builds trip:
+#   error[E0432]: unresolved import `super::decl::get_tz_info`
+# Upstream's own CI uses msvc which dodges this. We override only for the
+# rustpython source build; the resulting .exe runs fine on either ABI.
+if [ "${OS:-}" = "Windows_NT" ]; then
+  export CARGO_BUILD_TARGET=x86_64-pc-windows-msvc
+fi
 cargo install --path "$rp_dir" --features freeze-stdlib --root "$prefix" rustpython
 """
 shell = "bash -euo pipefail -c"

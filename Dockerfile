@@ -227,11 +227,12 @@ ENV NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=all
 # still a valid CPU fallback alongside the real GPU's ICD; the lvp glob
 # selects the software path either way.
 ENV VK_LOADER_DRIVERS_SELECT=lvp_icd*
-# Vulkan runtime + Mesa drivers via whichever package manager the base has.
-# Debian/Ubuntu: libvulkan1 + mesa-vulkan-drivers; Fedora and Azure Linux:
-# vulkan-loader + mesa-vulkan-drivers (same Mesa name, different loader
-# name); openSUSE: libvulkan1 + Mesa-libVulkan-drivers (Mesa is the SUSE
-# capitalisation, and the drivers ship as `Mesa-libVulkan-drivers`).
+# Vulkan runtime + lavapipe (CPU/software) driver via the base's package
+# manager. Debian/Ubuntu: libvulkan1 + mesa-vulkan-drivers; Fedora/AL2023:
+# vulkan-loader + mesa-vulkan-drivers; Azure Linux: same as Fedora;
+# openSUSE: libvulkan1 + libvulkan_lvp (Mesa ships the lavapipe driver as
+# a separate `libvulkan_lvp` package on SUSE since the 2022 default-pkg
+# split that stopped pulling it in alongside hardware drivers).
 RUN if command -v apt-get >/dev/null 2>&1; then \
         apt-get update \
         && apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers \
@@ -242,7 +243,7 @@ RUN if command -v apt-get >/dev/null 2>&1; then \
     elif command -v tdnf >/dev/null 2>&1; then \
         tdnf install -y vulkan-loader mesa-vulkan-drivers && tdnf clean all ; \
     elif command -v zypper >/dev/null 2>&1; then \
-        zypper --non-interactive install --no-recommends libvulkan1 Mesa-libVulkan-drivers \
+        zypper --non-interactive install --no-recommends libvulkan1 libvulkan_lvp \
             && zypper clean --all ; \
     else \
         echo "no supported package manager for libvulkan1/mesa-vulkan-drivers" >&2; exit 1; \

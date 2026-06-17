@@ -54,8 +54,14 @@ cmake = "latest"
 "conda:gnupg" = { version = "latest", os = ["linux", "macos"] }
 "conda:openssl" = "3"
 conftest = "latest"
-# uutils coreutils: the Rust multicall binary, invoked as `coreutils <util>` in tasks.
-coreutils = "latest"
+# uutils coreutils: the Rust multicall binary, invoked as `coreutils <util>`
+# in tasks. Pinned to 0.6.0 (NOT the latest 0.9.0) because uutils 0.7.0+
+# ships the Windows release as 85 per-utility .exes with no multicall
+# coreutils.exe (see uutils/coreutils#11268). 0.6.0 keeps the multicall
+# layout uniform across Linux/macOS/Windows, so tasks can keep using
+# `coreutils <util>` everywhere. Bump cautiously: confirm the Windows zip
+# layout hasn't reverted before raising the pin.
+coreutils = "0.6.0"
 dprint = "latest"
 editorconfig-checker = "latest"
 # ripgrep (rg): the Rust grep that tasks use in place of the host's grep.
@@ -739,6 +745,14 @@ description = "Prefetch the Rust (cargo) dependencies"
 # compiling — the actual build happens in build-modules / the test step. Avoids
 # the redundant `cargo check --workspace` compile (and its large target/ dir).
 run = "cargo fetch"
+
+[tasks."prefetch:rust".env]
+# crates.io occasionally drops the HTTP/2 framing mid-fetch
+# (`[16] Error in the HTTP2 framing layer (Send failure: Connection reset
+# by peer)`), surfacing as `curl failed` during this task. cargo's default
+# retry count is 2; bump it so transient HTTP/2 resets don't break the
+# Docker build. Matches the workflow-level value in check.yaml.
+CARGO_NET_RETRY = "5"
 
 [tasks."prefetch:node"]
 # Needs `build-ws-wasm-agent` first: the static workspace `link:`s its `pkg/`,

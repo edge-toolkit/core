@@ -89,9 +89,9 @@ RUN curl -fsSL -o gnupg.exe https://gnupg.org/ftp/gcrypt/binary/gnupg-w32-2.5.20
 # (VC++ DLLs, mise.exe, HOME, TEMP) and the gnu-host rust flip live here too,
 # since every later stage builds on it.
 FROM mcr.microsoft.com/windows/nanoserver:${WINDOWS_VERSION} AS build-minimal
-COPY --from=vcruntime C:\Windows\System32\vcruntime140.dll C:\Windows\System32\
-COPY --from=vcruntime C:\Windows\System32\vcruntime140_1.dll C:\Windows\System32\
-COPY --from=vcruntime C:\Windows\System32\msvcp140.dll C:\Windows\System32\
+COPY --from=vcruntime C:\Windows\System32\vcruntime140.dll C:\Windows\System32\vcruntime140.dll
+COPY --from=vcruntime C:\Windows\System32\vcruntime140_1.dll C:\Windows\System32\vcruntime140_1.dll
+COPY --from=vcruntime C:\Windows\System32\msvcp140.dll C:\Windows\System32\msvcp140.dll
 
 # Bring in the GnuPG simple-installer payload (see gpgbin stage above). mise's
 # node-tarball gpg-verify path runs `gpg --import` + `gpg --verify`, so gpg.exe

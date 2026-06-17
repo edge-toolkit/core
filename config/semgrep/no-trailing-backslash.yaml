@@ -8,7 +8,14 @@ rules:
       exclude:
         - "/README.md"
         - "/utilities/cli/README.md"
-        - "**/Dockerfile*"
+        # Files literally named `Dockerfile` use `\` as the default
+        # Dockerfile escape char for RUN line-continuations; no clean
+        # alternative. `Dockerfile.nanoserver` is NOT exempted: it sets
+        # `# escape=`` so backtick is the continuation char and `\` is
+        # free to be banned. `**/Dockerfile` (without the `.*` suffix)
+        # matches the top-level + every services/<x>/Dockerfile, but
+        # not `Dockerfile.nanoserver`.
+        - "**/Dockerfile"
         # Generated deployment artifacts (regen-verification output).
         - "/verification/**/mise.toml"
         - "/verification/**/compose.yaml"
