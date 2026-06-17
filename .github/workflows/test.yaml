@@ -196,18 +196,13 @@ jobs:
           echo
           echo '===== [emcc-debug] end ====='
 
+      # GITHUB_TOKEN raises the rate-limit ceiling on rclone's fetch of the
+      # rp-v<N> rustpython_wasm tarball (build-ws-pywasm1-module → fetch-rp-wasm
+      # → rclone via :http: against api.github.com).
       - name: Build WASM modules
-        run: mise run build-modules
-
-      # Separate step (not in the default build-modules glob) because
-      # `build-pywasm1-module`'s `fetch-rp-wasm` dep downloads the prebuilt
-      # rustpython_wasm tarball from the rp-v<N> release. Without this,
-      # the et-ws-pywasm1 case in `services/ws-web-runner/tests/modules.rs`
-      # short-circuits with a "skipping {module}: pkg/ not built" log line.
-      - name: Build pywasm1 module
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: mise run build-pywasm1-module
+        run: mise run build-modules
 
       - name: Run tests
         run: mise run test

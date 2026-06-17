@@ -208,7 +208,7 @@ url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x
 # publish task updates both `version` and the platform url together.
 [tools."http:et-rp"]
 bin = "rustpython"
-os = ["linux", "macos"]
+os = ["linux", "macos", "windows"]
 version = "08a1d6f"
 [tools."http:et-rp".platforms.linux-arm64]
 checksum = "sha256:c26df56bf3c28cb9e134abe95dd0fcf927f05487069a492a6f54ffa1c0f3dc12"
@@ -222,6 +222,9 @@ url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-0
 [tools."http:et-rp".platforms.macos-x64]
 checksum = "sha256:2a161b533e6eab988b7a16d400b05216c37be371a142e761b917044c14cacad2"
 url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-08a1d6f-x86_64-apple-darwin.tar.gz"
+[tools."http:et-rp".platforms.windows-x64]
+checksum = "sha256:30b96e2d50ec15f7da5563b5bbce4170ee23f5fbf8565a8973889d8f25c6279a"
+url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-08a1d6f-x86_64-pc-windows-msvc.tar.gz"
 
 [vars]
 # Tier-`a_` prefix: a_* vars are leaf values referenced by later vars
@@ -241,6 +244,17 @@ a_rp_release = "rp-v1"
 # stddef.h). Empty default; config.linux.toml sets it from conda:clangxx.
 clang_resource_arg = ""
 conda_openssl = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/3"
+# Absolute path to the workspace-built et-cli binary. The parallel
+# build-ws-*-module tasks each invoke `et-cli module-package-json`; using
+# this var (rather than `cargo run -p et-cli`) means every invocation
+# execs the same pre-built binary instead of re-entering cargo, which
+# avoids a race seen on macOS where one cargo's link step transiently
+# unlinks `target/debug/et-cli` while another cargo's `cargo run` tries
+# to exec it (`error: ... (never executed) ... No such file or directory
+# (os error 2)`). The `build-et-cli` task is the dependency that puts the
+# binary in place; every et-cli-using task must (directly or transitively)
+# depend on it. `.exe` suffix on Windows matches cargo's output naming.
+et_cli = "{{ config_root }}/target/debug/et-cli{% if os() == 'windows' %}.exe{% endif %}"
 # mise-managed CPython (Linux/macOS); the PYO3_PYTHON default below. Windows
 # overrides PYO3_PYTHON with its own py3_win in config.windows.toml. The version
 # segment must equal the `python` [tools] pin (conftest enforces both).
@@ -278,6 +292,17 @@ har_repo = ":http:acd17sk/MET-Metabolic-Equivalent-of-Task-AI-Android-APP"
 har_src = "{{ vars.har_repo }}/raw/refs/heads/main/Models/onnx/hybrid_met.onnx"
 mnist_dst = "services/ws-modules/wasi-graphics-info/pkg/mnist-12.onnx"
 mnist_src = ":http:onnx/models/raw/main/validated/vision/classification/mnist/model/mnist-12.onnx"
+# Pip 26.0.1 wheel via PyPI -- pinned because pip 26.1.1+ calls
+# `sys.addaudithook` in `_prevent_further_imports`, which RustPython 0.5.0
+# doesn't implement (RustPython#7956). Used to bootstrap pipx on rustpython
+# (config.windows.toml's preinstall, the Nano-Server arm) and to probe pip
+# + pipx behaviour generally (config.maint.toml's rustpython-investigation).
+# `_sha` is the SHA256-prefix dir PyPI uses for `packages/`; rclone composes
+# the full URL via `--http-url https://files.pythonhosted.org`.
+pip_for_rustpython = "26.0.1"
+pip_for_rustpython_sha = "de/f0/c81e05b613866b76d2d1066490adf1a3dbc4ee9d9c839961c3fc8a6997af"
+pip_for_rustpython_wheel = "pip-{{ vars.pip_for_rustpython }}-py3-none-any.whl"
+pip_for_rustpython_wheel_url = ":http:packages/{{ vars.pip_for_rustpython_sha }}/{{ vars.pip_for_rustpython_wheel }}"
 # Pre-built rustpython_wasm tarball: upstream RustPython main built with
 # wasm-pack --target web; `freeze-stdlib` is the default crates/wasm
 # feature so the .wasm embeds the Python stdlib (no RUSTPYTHONPATH dance
@@ -1042,7 +1067,7 @@ echo "[rp-detect-missing] triple=$triple short=$short native_missing=$native_mis
 shell = "bash -euo pipefail -c"
 
 # rp-v<N> release, verify against config/checksums.toml, and extract it
-# into target/cache/rp-wasm/ for build-pywasm1-module (and future ws-modules)
+# into target/cache/rp-wasm/ for build-ws-pywasm1-module (and future ws-modules)
 # to read. The heavy wasm-pack compile is done once via
 # `publish-rp-wasm-to-release` in config.maint.toml. `tar` is the host's --
 # universally available on Linux/macOS and Windows 10+, not worth a mise
@@ -1055,7 +1080,13 @@ tarball="$dir/{{ vars.rp_wasm_asset }}"
 coreutils mkdir -p "$dir"
 {{ vars.retry }} rclone copyto {{ vars.rp_wasm_src }} "$tarball" {{ vars.gh_http }}
 sha=$(yq -p toml -oy '.sha256."{{ vars.rp_wasm_asset }}"' config/checksums.toml)
-echo "$sha  $tarball" | coreutils sha256sum -c -
+# printf (not echo): on Windows the tarball path contains backslashes
+# (`D:\\a\\core\\core/target/...`) and bash's builtin `echo` interprets
+# `\\a` (alert) + `\\c` (suppress further output) so the path piped into
+# sha256sum gets mangled to `D:acorecore/target/...` -- the check then
+# fails with `sha256sum: WARNING: 1 computed checksum did NOT match`.
+# `printf '%s'` keeps every backslash literal regardless of shell flavour.
+printf '%s  %s\n' "$sha" "$tarball" | coreutils sha256sum -c -
 # Wipe previous extraction so it can't shadow new contents; preserve the
 # tarball itself so rclone --ignore-existing short-circuits on rerun.
 find "$dir" -mindepth 1 -not -name '{{ vars.rp_wasm_asset }}' -delete
@@ -1064,17 +1095,11 @@ tar -xzf "$tarball" -C "$dir"
 shell = "bash -euo pipefail -c"
 
 # Build the pywasm1 ws-module from the fetched rustpython_wasm extraction.
-# Task name intentionally omits the `ws-` prefix so the default
-# `build-modules` glob (`build-ws-*`) doesn't drag it in.
-#
-# TODO(before-PR-merge): rename to `build-ws-pywasm1-module` so it
-# matches every other module task and gets picked up by the default
-# `build-modules` glob -- the original reason for the off-pattern name
-# (the multi-minute wasm-pack compile of RustPython from source) is
-# gone now that fetch-rp-wasm pulls a prebuilt tarball from rp-v<N>.
-# Removing the special-case will let docker-linux.yaml build it too,
-# and lets test.yaml drop its dedicated `Build pywasm1 module` step.
-[tasks.build-pywasm1-module]
+# Picked up by the `build-modules` glob (`build-ws-*`) like every other
+# module task -- the `fetch-rp-wasm` dep pulls a prebuilt tarball from
+# the rp-v<N> release rather than recompiling RustPython, so the cost
+# is one ~10 MB download, not the multi-minute upstream wasm-pack build.
+[tasks.build-ws-pywasm1-module]
 depends = ["fetch-rp-wasm"]
 description = "Build the pywasm1 module (fetched rustpython_wasm + main.py)"
 dir = "services/ws-modules/pywasm1"

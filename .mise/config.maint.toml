@@ -376,33 +376,31 @@ shell = "bash -euo pipefail -c"
 # Probe how far rustpython gets at hosting real Python tooling: load an
 # older extracted pip onto sys.path, use pipx to install + run cowsay,
 # and fall back to a pip-only path. Tracks RustPython issues #5332 (pip
-# on linux/macos) and #7956 (upstream-pending audit-hook fix). Five
+# on linux/macos) and #7956 (upstream-pending audit-hook fix). Uses the
+# `http:et-rp` mise tool's rustpython binary -- built upstream with the
+# `freeze-stdlib` feature by `build-rp-native` (in this file), so the
+# stdlib is embedded and no on-disk `Lib/` tree is required. Four
 # rustpython-side quirks the task works around:
-#  1. The quickinstall prebuilt cargo-binstall fetches isn't built with
-#     `freeze-stdlib`, so its `Lib/` tree is missing -- without
-#     RUSTPYTHONPATH pointing at a matching `Lib/`, rustpython can't even
-#     import `encodings`. The task expects an upstream RustPython
-#     checkout at ~/rust/RustPython (RUSTPYTHON_DIR overrides).
-#  2. RustPython's bundled ensurepip wheel is pip 26.1.1, whose
+#  1. RustPython's bundled ensurepip wheel is pip 26.1.1, whose
 #     `_prevent_further_imports` calls `sys.addaudithook` (CPython 3.8+)
 #     which rustpython 0.5.0 doesn't implement (upstream fix tracked in
 #     #7956). pip 26.0.1 is the last release before that hook was added
 #     (introduced in pip's upstream commit fb01b1830 on 2026-04-14,
 #     shipped in 26.1), so the task fetches that wheel.
-#  3. RustPython's path-importer doesn't auto-treat `.whl` entries on
+#  2. RustPython's path-importer doesn't auto-treat `.whl` entries on
 #     sys.path as zipimports -- the wheel imports correctly via an
 #     explicit `zipimporter()` call but not via `import pip`. Unzip the
 #     wheel into a directory and put that on RUSTPYTHONPATH instead.
-#  4. pipx's default backend is uv, which spawns rustpython as a fresh
+#  3. pipx's default backend is uv, which spawns rustpython as a fresh
 #     subprocess to probe interpreter info; the probe can't even
 #     `import site`/`encodings` because uv strips/replaces env. Set
 #     PIPX_DEFAULT_BACKEND=pip so pipx uses `python -m venv` directly --
 #     env vars survive that path.
-#  5. With the pip backend, pipx creates its shared-libs venv with
+#  4. With the pip backend, pipx creates its shared-libs venv with
 #     `python -m venv --clear $root` (no `--without-pip`). RustPython's
 #     venv module then runs `ensurepip --upgrade --default-pip`, which
 #     extracts the bundled pip-26.1.1 wheel -- same audit-hook crash as
-#     (2). Every pipx release from 1.0.0 to 1.14.0 invokes venv the same
+#     (1). Every pipx release from 1.0.0 to 1.14.0 invokes venv the same
 #     way (verified by `git -C pipx show <tag>:src/pipx/shared_libs.py`),
 #     so no pipx version dodges this. Workaround: pre-create the shared
 #     venv at PIPX_SHARED_LIBS with `--without-pip`, drop pip 26.0.1's
@@ -413,31 +411,23 @@ shell = "bash -euo pipefail -c"
 # state lives under target/scratch/ so the task is self-contained and
 # rerunnable.
 [tasks.rustpython-investigation]
-description = "Probe rustpython + pip 26.0.1 + pipx + cowsay (RustPython#5332/#7956)"
+description = "Probe rustpython (http:et-rp) + pip 26.0.1 + pipx + cowsay (RustPython#5332/#7956)"
 run = """
 scratch="{{ config_root }}/target/scratch/rustpython-investigation"
-rp_dir="${RUSTPYTHON_DIR:-$HOME/rust/RustPython}"
-if [ ! -d "$rp_dir/Lib/encodings" ]; then
-  echo "rustpython-investigation: no RustPython checkout at $rp_dir" >&2
-  echo "clone: git clone $RUSTPYTHON_URL $rp_dir" >&2
-  exit 1
-fi
 coreutils mkdir -p "$scratch/site" "$scratch/pipx-home" "$scratch/pipx-bin"
-pip_pkg="de/f0/c81e05b613866b76d2d1066490adf1a3dbc4ee9d9c839961c3fc8a6997af"
-pip_whl="$scratch/pip-26.0.1-py3-none-any.whl"
+pip_whl="$scratch/{{ vars.pip_for_rustpython_wheel }}"
 pip_extracted="$scratch/pip-extracted"
 shared_venv="$scratch/shared"
 if [ ! -f "$pip_whl" ]; then
-  echo "== fetch pip 26.0.1 wheel from PyPI =="
+  echo "== fetch pip {{ vars.pip_for_rustpython }} wheel from PyPI =="
   pypi_args="--http-url https://files.pythonhosted.org --progress --ignore-existing"
-  pip_src=":http:packages/$pip_pkg/pip-26.0.1-py3-none-any.whl"
-  {{ vars.retry }} rclone copyto "$pip_src" "$pip_whl" $pypi_args
+  {{ vars.retry }} rclone copyto "{{ vars.pip_for_rustpython_wheel_url }}" "$pip_whl" $pypi_args
 fi
 if [ ! -d "$pip_extracted/pip" ]; then
-  echo "== unzip pip 26.0.1 wheel =="
+  echo "== unzip pip {{ vars.pip_for_rustpython }} wheel =="
   unzip -q -o "$pip_whl" -d "$pip_extracted"
 fi
-export RUSTPYTHONPATH="$pip_extracted:$scratch/site:$rp_dir/Lib"
+export RUSTPYTHONPATH="$pip_extracted:$scratch/site"
 export PIPX_HOME="$scratch/pipx-home"
 export PIPX_BIN_DIR="$scratch/pipx-bin"
 export PIPX_SHARED_LIBS="$shared_venv"

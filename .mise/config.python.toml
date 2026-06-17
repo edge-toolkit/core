@@ -78,7 +78,7 @@ dir = "generated/python-ws"
 run = """
 rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
-cargo run -p et-cli -- module-package-json
+{{ vars.et_cli }} module-package-json
 """
 shell = "bash -euo pipefail -c"
 
@@ -89,7 +89,7 @@ dir = "generated/python-rest"
 run = """
 rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
-cargo run -p et-cli -- module-package-json
+{{ vars.et_cli }} module-package-json
 """
 shell = "bash -euo pipefail -c"
 
@@ -104,7 +104,7 @@ dir = "services/ws-modules/pydata1"
 run = """
 rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
-cargo run -p et-cli -- module-package-json
+{{ vars.et_cli }} module-package-json
 """
 shell = "bash -euo pipefail -c"
 
@@ -119,7 +119,7 @@ dir = "services/ws-modules/pyface1"
 run = """
 rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
-cargo run -p et-cli -- module-package-json
+{{ vars.et_cli }} module-package-json
 """
 shell = "bash -euo pipefail -c"
 
@@ -140,7 +140,7 @@ run = """
 rm -rf wit_world
 componentize-py -d {{ vars.wit_dir }} -w module bindings .
 componentize-py -d {{ vars.wit_dir }} -w module componentize wasi_graphics_info -o pkg/et_ws_wasi_graphics_info.wasm
-cargo run -p et-cli -- module-package-json
+{{ vars.et_cli }} module-package-json
 """
 shell = "bash -euo pipefail -c"
 

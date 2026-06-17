@@ -191,11 +191,38 @@ mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-mak
 # toolchains [[tools.rust]] already installed.
 mise exec -- rustup set default-host x86_64-pc-windows-gnullvm
 
-# pipx backs the pipx:* tools but isn't a mise tool on Windows. Install it
-# with whatever python is on PATH: a workstation already has python's
-# Scripts dir (where pipx lands) on PATH; container builds arrange the same
-# via their own bootstrap before this task runs.
-python -m pip install pipx
+# pipx backs the pipx:* tools but isn't a mise tool on Windows. On a
+# workstation, the system python's Scripts dir already has pipx on PATH;
+# use that python. On the Nano container there's no CPython (Dockerfile.
+# nanoserver drops the `mise install python` step now that we can pipx-
+# bootstrap via the `http:et-rp` rustpython mise installs as part of the
+# global tool set). RustPython's bundled ensurepip is pip 26.1.1, which
+# crashes on import via `sys.addaudithook` (rustpython 0.5.0 doesn't
+# implement -- RustPython#7956), so the rustpython arm fetches pip 26.0.1
+# (the last release before that audit hook landed, see commit fb01b1830
+# / 2026-04-14), unzips the wheel, and puts it on RUSTPYTHONPATH so
+# `rustpython -m pip` resolves to that copy. The matching workaround is
+# documented at length in config.maint.toml's `rustpython-investigation`
+# task. Nano never invokes the pipx that this installs (every pipx:* tool
+# is in MISE_DISABLE_TOOLS on that image) -- the bootstrap exists only so
+# the shared preinstall sequence runs to completion.
+if command -v python >/dev/null 2>&1; then
+  python -m pip install pipx
+else
+  mise install http:et-rp
+  boot="{{ config_root }}/target/scratch/preinstall-pipx"
+  coreutils mkdir -p "$boot"
+  pip_whl="$boot/{{ vars.pip_for_rustpython_wheel }}"
+  pip_extracted="$boot/pip-extracted"
+  if [ ! -f "$pip_whl" ]; then
+    pypi_args="--http-url https://files.pythonhosted.org --progress --ignore-existing"
+    {{ vars.retry }} rclone copyto "{{ vars.pip_for_rustpython_wheel_url }}" "$pip_whl" $pypi_args
+  fi
+  if [ ! -d "$pip_extracted/pip" ]; then
+    unzip -q -o "$pip_whl" -d "$pip_extracted"
+  fi
+  RUSTPYTHONPATH="$pip_extracted" mise exec -- rustpython -m pip install --target "$boot/site" pipx
+fi
 """
 shell = "bash -euo pipefail -c"
 

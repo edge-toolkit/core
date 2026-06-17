@@ -302,14 +302,13 @@ RUN if not exist C:\sha-shim mkdir C:\sha-shim & `
 ENV CARGO_HOME=C:\.cargo `
     RUSTUP_HOME=C:\.rustup
 
-# preinstall pip-installs pipx (the pipx:* backend). Nano has no system python,
-# so install mise's python and put it on PATH first; pipx then lands in that
-# python's Scripts dir -- never invoked here (this image disables pipx:semgrep and
-# builds no python guest, and pipx can't run on Nano anyway), so that's fine.
-RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
-    mise install python
-ENV PATH="C:\Users\ContainerAdministrator\AppData\Local\mise\installs\python\3.13.14;${PATH}"
-
+# The shared Windows preinstall pip-installs pipx (backend for the
+# pipx:* mise tools). On a workstation it picks up the system CPython
+# on PATH; on Nano there's no CPython, so it falls back to the
+# `http:et-rp` rustpython binary (config.toml's [tools."http:et-rp"]
+# ships an x86_64-pc-windows-msvc tarball). The pipx that lands isn't
+# invoked here -- every pipx:* tool is in MISE_DISABLE_TOOLS on this
+# image (pipx/platformdirs needs SHGetFolderPathW, which Nano lacks).
 # Run preinstall on busybox sh (via MISE_BASH_PATH), already bootstrapped above,
 # so there's no chicken-and-egg with the shell.
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
