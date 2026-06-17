@@ -66,27 +66,24 @@ deny contains msg if {
 	)
 }
 
-# Every RUN heredoc body must begin with `set -euo pipefail`. The Dockerfile
-# parser surfaces a heredoc's first-line value via instr.Heredocs[].Content
-# (without the EOF terminator), or for non-heredoc RUNs as instr.Value[0].
-# Mirrors the gha.rego rule that enforces the same on multi-line `run:` in
-# workflow YAML -- one strict-mode declaration at the top of every script
-# body so future maintainers don't have to remember which RUN inherits
-# which shell flags.
-run_heredocs contains body if {
+# RUN heredocs must invoke `bash` as the interpreter (`RUN <<EOF bash`).
+# BuildKit's default heredoc shell is `/bin/sh`, which on Debian/Ubuntu is
+# dash -- and dash rejects `set -euo pipefail` with `Illegal option -o
+# pipefail` (exit 2). Routing the heredoc body through bash makes the
+# strict-mode line at the top of every body actually work. The
+# `set -euo pipefail` first-line check itself is a semgrep rule (the
+# Dockerfile parser flattens heredoc bodies out of the AST, so conftest
+# can't see them; semgrep operates on the raw file text).
+deny contains msg if {
 	some file in input
 	is_array(file.contents)
 	some instr in file.contents
 	instr.Cmd == "run"
-	some heredoc in instr.Heredocs
-	body := {"path": file.path, "name": object.get(heredoc, "Name", ""), "content": object.get(heredoc, "Content", "")}
-}
-
-deny contains msg if {
-	some body in run_heredocs
-	not startswith(body.content, "set -euo pipefail\n")
+	some value in instr.Value
+	startswith(value, "<<")
+	not endswith(value, " bash")
 	msg := sprintf(
-		"%s: RUN <<%s heredoc must begin with `set -euo pipefail` as the first line",
-		[body.path, body.name],
+		"%s: RUN heredoc `%s` must use bash as interpreter (write `RUN <<EOF bash`)",
+		[file.path, value],
 	)
 }

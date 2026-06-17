@@ -501,10 +501,30 @@ conftest test --parser yaml $ns -p config/conftest/policy .github/workflows
 shell = "bash -euo pipefail -c"
 
 [tasks.conftest-check-dockerfile]
-description = "Cross-check the Windows Dockerfile's hard-coded mise install paths against [tools] version pins"
-# Combine the Dockerfile with the mise configs (the .mise dir is all TOML), so
-# conftest auto-detects each file's parser and the rule sees every [tools] pin.
-run = "conftest test --combine --namespace dockerfile -p config/conftest/policy Dockerfile.nanoserver .mise"
+description = "Cross-check Dockerfiles against mise [tools] pins + heredoc body-first-line invariants"
+# Two passes over each Dockerfile:
+#   1. `dockerfile` parser (default) for AST-shape rules: version drift,
+#      pipx-disable, RUN heredoc must invoke bash. Combined with .mise so the
+#      AST rules can compare against [tools] pins.
+#   2. `ignore` parser, which preserves every line of the file as a separate
+#      entry -- conftest's dockerfile parser flattens heredoc bodies out of the
+#      AST, so the body-first-line `set -euo pipefail` check lives in its own
+#      namespace + parser.
+# Each git-tracked Dockerfile* gets both passes.
+run = """
+files=$(git ls-files '*Dockerfile' '*Dockerfile.*')
+conftest test --combine --namespace dockerfile -p config/conftest/policy $files .mise
+# Filter to Dockerfiles that actually use heredocs before invoking the
+# `ignore` parser: conftest 0.68.2's ignore parser panics with
+# `runtime error: slice bounds out of range` on plain Dockerfiles (no
+# heredocs). The body-first-line rule has nothing to check there anyway.
+for f in $files; do
+  if rg -q '^RUN[^\n]*<<' "$f"; then
+    conftest test --parser ignore --namespace dockerfile_heredoc -p config/conftest/policy "$f"
+  fi
+done
+"""
+shell = "bash -euo pipefail -c"
 
 [tasks.taplo-check]
 alias = "toml-check"

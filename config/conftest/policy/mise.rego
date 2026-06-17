@@ -36,6 +36,28 @@ deny contains msg if {
 	msg := sprintf("%s: task %q description must be a single line", [file.path, name])
 }
 
+# `compgen` is a bash builtin that busybox-w32 ash (Nano Server's shell) does
+# not provide -- a task using it fails on Nano with the literal error
+# `<compgen>: not found` (verified in the build-rp-native task). Skip lines
+# whose first non-whitespace char is `#` so explanatory comments (like this
+# one's siblings) don't false-positive. POSIX-portable alternatives include
+# `[ -e "$prefix/bin/foo" ] || [ -e "$prefix/bin/foo.exe" ]` for an
+# extension-agnostic existence check, and `for f in "$prefix/bin/foo"*` to
+# walk a literal glob (no-match leaves the literal as the loop var).
+deny contains msg if {
+	some file in input
+	is_mise(file)
+	some name, task in file.contents.tasks
+	is_string(task.run)
+	some line in split(task.run, "\n")
+	not startswith(trim_space(line), "#")
+	regex.match(`\bcompgen\b`, line)
+	msg := sprintf(
+		"%s: task %q uses `compgen`, which is bash-only -- busybox ash (Nano) errors `compgen: not found`",
+		[file.path, name],
+	)
+}
+
 # `cargo:` tools build from source; prefer a prebuilt backend. Allowed only when
 # either (a) the tool has no prebuilt anywhere -- allowlisted by name below, or
 # (b) it is os-scoped to second-tier platforms (linux/arm64, macos/x64), whose

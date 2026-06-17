@@ -290,8 +290,14 @@ case "$triple" in
 esac
 
 # Glob the produced binary -- `rustpython` on Unix, `rustpython.exe` on
-# Windows -- so the same tar line works on every host.
-bin_rel=$(cd "$prefix" && compgen -G "bin/rustpython*" | head -1)
+# Windows -- so the same tar line works on every host. Pick whichever
+# name exists; busybox-w32 ash on Nano lacks `compgen` so the explicit
+# `[ -e ... ]` chain is the portable form.
+if [ -e "$prefix/bin/rustpython.exe" ]; then
+  bin_rel="bin/rustpython.exe"
+else
+  bin_rel="bin/rustpython"
+fi
 asset="rustpython-${short}-${triple}.tar.gz"
 tarball="$RP_WORK/$asset"
 tar -C "$prefix" -czf "$tarball" "$bin_rel"

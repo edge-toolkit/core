@@ -85,7 +85,7 @@ ARG DNF_PACKAGES="gcc-c++ glibc-devel kernel-headers libatomic libicu"
 # word-split it into distinct args for apt-get / dnf / tdnf / zypper.
 # SC2086 fires on these and that's the false-positive that pragma silences.
 # hadolint ignore=SC2086
-RUN <<EOF
+RUN <<EOF bash
 set -euo pipefail
 if command -v apt-get >/dev/null 2>&1; then
     apt-get update
@@ -164,7 +164,7 @@ RUN mise trust
 # limit for the release fetches. MISE_JOBS=1 serializes the install: the `rust`
 # tool is a two-version list (latest + nightly) that otherwise runs two
 # rustup-inits at once, racing on the shared rustup binary's self-update (exit 1).
-RUN --mount=type=secret,id=gh_token,required=false <<EOF
+RUN --mount=type=secret,id=gh_token,required=false <<EOF bash
 set -euo pipefail
 GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)"
 export GITHUB_TOKEN
@@ -179,7 +179,7 @@ FROM build-minimal AS build
 COPY .mise/ .mise/
 RUN mise trust
 ENV MISE_ENV="dart,dotnet,java,python,rust,zig"
-RUN --mount=type=secret,id=gh_token,required=false <<EOF
+RUN --mount=type=secret,id=gh_token,required=false <<EOF bash
 set -euo pipefail
 GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)"
 export GITHUB_TOKEN
@@ -190,7 +190,7 @@ EOF
 # The full source is needed from here on (module builds, cargo fetch, pnpm).
 FROM build AS prefetch
 COPY . .
-RUN --mount=type=secret,id=gh_token,required=false <<EOF
+RUN --mount=type=secret,id=gh_token,required=false <<EOF bash
 set -euo pipefail
 GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)"
 export GITHUB_TOKEN
@@ -248,7 +248,7 @@ ENV VK_LOADER_DRIVERS_SELECT=lvp_icd*
 # openSUSE: libvulkan1 + libvulkan_lvp (Mesa ships the lavapipe driver as
 # a separate `libvulkan_lvp` package on SUSE since the 2022 default-pkg
 # split that stopped pulling it in alongside hardware drivers).
-RUN <<EOF
+RUN <<EOF bash
 set -euo pipefail
 if command -v apt-get >/dev/null 2>&1; then
     apt-get update
@@ -280,7 +280,7 @@ CMD ["mise", "run", "test"]
 # MISE_ENV is set, so the server's `mise where` module-path lookups resolve.
 # docker run --rm -p 8080:8080 edge-toolkit   # then open http://localhost:8080
 FROM precompile AS server
-RUN <<EOF
+RUN <<EOF bash
 set -euo pipefail
 mise exec -- cargo build --release -p et-ws-server
 cp target/release/et-ws-server /usr/local/bin/et-ws-server
