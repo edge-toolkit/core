@@ -66,24 +66,27 @@ deny contains msg if {
 	)
 }
 
-# RUN heredocs must invoke `bash` as the interpreter (`RUN <<EOF bash`).
+# RUN heredocs must invoke `bash` as the interpreter (`RUN bash <<EOF`).
 # BuildKit's default heredoc shell is `/bin/sh`, which on Debian/Ubuntu is
 # dash -- and dash rejects `set -euo pipefail` with `Illegal option -o
 # pipefail` (exit 2). Routing the heredoc body through bash makes the
-# strict-mode line at the top of every body actually work. The
-# `set -euo pipefail` first-line check itself is a semgrep rule (the
-# Dockerfile parser flattens heredoc bodies out of the AST, so conftest
-# can't see them; semgrep operates on the raw file text).
+# strict-mode line at the top of every body actually work. Per the
+# Dockerfile spec the interpreter goes BEFORE the `<<TAG` opener (not
+# after -- BuildKit treats trailing words as part of the literal command,
+# the inverse `RUN <<EOF bash` form never works). The `set -euo pipefail`
+# first-line check itself is a semgrep rule (the Dockerfile parser
+# flattens heredoc bodies out of the AST, so conftest can't see them;
+# semgrep operates on the raw file text).
 deny contains msg if {
 	some file in input
 	is_array(file.contents)
 	some instr in file.contents
 	instr.Cmd == "run"
 	some value in instr.Value
-	startswith(value, "<<")
-	not endswith(value, " bash")
+	contains(value, "<<")
+	not startswith(value, "bash ")
 	msg := sprintf(
-		"%s: RUN heredoc `%s` must use bash as interpreter (write `RUN <<EOF bash`)",
+		"%s: RUN heredoc `%s` must use bash as interpreter (write `RUN bash <<EOF`)",
 		[file.path, value],
 	)
 }

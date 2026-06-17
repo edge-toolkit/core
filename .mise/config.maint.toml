@@ -214,8 +214,6 @@ echo "updated config/checksums.toml + .mise/config.toml; conftest will catch any
 """
 shell = "bash -euo pipefail -c"
 
-[tasks.build-rp-native]
-description = "cargo install rustpython --features freeze-stdlib"
 # Source build with the upstream `freeze-stdlib` feature so the resulting
 # binary embeds the Python stdlib -- no RUSTPYTHONPATH dance required at
 # consumer side, unlike cargo:rustpython 0.5.0 from crates.io. Reads the
@@ -224,6 +222,8 @@ description = "cargo install rustpython --features freeze-stdlib"
 # check skips the cargo install if a previous output is present (the
 # binary is `rustpython` on Unix and `rustpython.exe` on Windows -- the
 # glob covers both).
+[tasks.build-rp-native]
+description = "cargo install rustpython --features freeze-stdlib"
 run = """
 rp_dir="${RUSTPYTHON_DIR:-$HOME/rust/RustPython}"
 prefix="$RP_WORK/native-install"
@@ -254,6 +254,27 @@ if [ "${OS:-}" = "Windows_NT" ]; then
   # the first dep (cfg-if). Add the msvc target so its rust-std is laid
   # down before cargo install starts compiling.
   rustup target add x86_64-pc-windows-msvc
+  # Force the MSVC linker + resource compiler. config.windows.toml's _.path
+  # prepends conda-m2-gnupg's bin to PATH, which ships a GNU `link.exe`
+  # (the coreutils ln-style command) -- cargo's bare `link.exe` lookup
+  # finds that one BEFORE MSVC's link.exe and the link step trips with
+  #   error: linking with `link.exe` failed: exit code: 1
+  #   note: "...conda-m2-gnupg/.../usr/bin/link.exe" "/NOLOGO" ...
+  #   note: /usr/bin/link: missing operand after '\\377\\376"'
+  # ilammy/msvc-dev-cmd exports VCToolsInstallDir + WindowsSdkVerBinPath;
+  # use both to pin the linker via per-target env (cargo reads it directly,
+  # no PATH dance) and prepend the SDK x64 bin so embed_resource finds
+  # rc.exe (otherwise: `warning: rustpython@0.5.0: Failed to compile
+  # Windows resources: The system cannot find the path specified. (os
+  # error 3)` -- benign, the .exe just loses icon/version metadata).
+  if [ -n "${VCToolsInstallDir:-}" ]; then
+    msvc_bin="${VCToolsInstallDir//\\//}bin/Hostx64/x64"
+    export CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER="${msvc_bin}/link.exe"
+  fi
+  if [ -n "${WindowsSdkVerBinPath:-}" ]; then
+    sdk_bin="${WindowsSdkVerBinPath//\\//}x64"
+    export PATH="${sdk_bin}:${PATH}"
+  fi
 fi
 cargo install --path "$rp_dir" --features freeze-stdlib --root "$prefix" rustpython
 """

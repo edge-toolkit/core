@@ -345,11 +345,20 @@ description = "Check JS/TS formatting (oxfmt)"
 # plugin (which is matched-back via arrowFunction.useParentheses + member
 # linePerExpression in config/dprint.jsonc). `fmt:rust` orders oxfmt-fmt
 # before dprint-fmt so dprint has the last word on residual disagreements.
-run = "oxfmt --config config/oxfmtrc.jsonc --check"
+#
+# The positional `!.mise/config.maint.toml` is a workaround for an oxfmt
+# 0.54.0 bug: oxfmt's content-based JS detection mis-parses the multiple
+# `"""..."""` TOML basic-multiline strings in maint.toml as JS template
+# literals and silently concatenates `description = "..."` into the
+# closing `"""` of an adjacent `run = """..."""` block on --write. The
+# `ignorePatterns: ["**/*.toml"]` in config/oxfmtrc.jsonc filters every
+# other TOML file correctly but fails to match dotfile-directory paths
+# like `.mise/config.maint.toml`, so we override here positionally.
+run = "oxfmt --config config/oxfmtrc.jsonc --check . '!.mise/config.maint.toml'"
 
 [tasks.oxfmt-fmt]
 description = "Format JS/TS sources in place (oxfmt)"
-run = "oxfmt --config config/oxfmtrc.jsonc --write"
+run = "oxfmt --config config/oxfmtrc.jsonc --write . '!.mise/config.maint.toml'"
 
 [tasks."fmt:rust"]
 # Rust + universal formatters. Always-loaded, so `fmt`'s glob always matches it.
