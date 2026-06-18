@@ -5,7 +5,10 @@ message: |
   Don't set `shell:` on a workflow step. Every workflow defaults to bash
   (defaults.run.shell) and steps must use it -- write the step in bash (e.g.
   `sc`/`net`/`printf` instead of PowerShell cmdlets, even on Windows runners,
-  which have Git Bash) rather than overriding the shell per step.
+  which have Git Bash) rather than overriding the shell per step. Carve-out:
+  steps whose `name:` starts with `Diagnostic:` may override (short-lived
+  debug probes where shell choice is under test); the matching conftest
+  rule in `config/conftest/policy/gha/gha.rego` applies the same allow-list.
 files:
   - .github/workflows/*.yaml
 rule:
@@ -13,3 +16,12 @@ rule:
   inside:
     kind: block_sequence
     stopBy: end
+  not:
+    # Tightly scoped to the IMMEDIATE step's block_mapping (no `stopBy: end`),
+    # so a single Diagnostic step in the file doesn't whitewash unrelated
+    # step-shell overrides elsewhere in the same workflow.
+    inside:
+      kind: block_mapping
+      has:
+        kind: block_mapping_pair
+        regex: '^name:\s*"?Diagnostic:'

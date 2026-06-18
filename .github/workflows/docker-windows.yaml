@@ -25,6 +25,10 @@ env:
 
 jobs:
   build:
+    # TEMPORARY: `if: false` parks the job (shows as skipped, no runner time)
+    # so all PR-runner capacity goes to the Windows cygheap-fork investigation
+    # in test.yaml. Drop this line once the prefetch-hang root cause lands.
+    if: false
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false

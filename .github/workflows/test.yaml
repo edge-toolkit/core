@@ -74,14 +74,17 @@ jobs:
           || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":60}]'
           || github.event.inputs.os == 'windows-11-arm' && '[{"os":"windows-11-arm","timeout":60}]'
           )
-          || format(
-          '[{0},{1},{2},{3}]',
-          '{"os":"ubuntu-latest","timeout":40}',
-          '{"os":"ubuntu-24.04-arm","timeout":40}',
-          '{"os":"macos-latest","timeout":45}',
-          '{"os":"windows-latest","timeout":60}'
-          )
+          || '[{"os":"windows-latest","timeout":60}]'
           ) }}
+    # TEMPORARY: PR matrix narrowed to windows-latest only while we
+    # chase the prefetch-hang / cygheap-fork investigation. Restore the
+    # original four-OS PR matrix
+    #   format('[{0},{1},{2},{3}]',
+    #     '{"os":"ubuntu-latest","timeout":40}',
+    #     '{"os":"ubuntu-24.04-arm","timeout":40}',
+    #     '{"os":"macos-latest","timeout":45}',
+    #     '{"os":"windows-latest","timeout":60}')
+    # once the root cause lands.
     env:
       # Windows-only: skip the cargo: source-build that would otherwise be
       # triggered when the gnullvm rust-std isn't fully laid down -- rustc fails
@@ -115,32 +118,65 @@ jobs:
         with:
           github-token: ${{ github.token }}
 
-      # Diagnostic split of `mise run prefetch-ci` -- the single-step form
-       # has been silently stalling on Windows runners with zero output. Each
-      # sub-task gets its own step so we see exactly which one is the silent
-      # one. Three probes layered on top of the split:
-      #   * `set -x` + a timestamped `PS4` in every bash step so xtrace logs
-      #     each command and how long it sat before the next one (defeats the
-      #     "we have no idea what bash is waiting on" problem).
-      #   * `exec 2>&1` merges stderr into stdout so GHA's log captures both
-      #     interleaved (bash xtrace goes to stderr by default).
-      #   * `shell: cmd` on the prefetch:rust + prefetch:node steps -- bypasses
-      #     MSYS bash entirely so if the cygheap/fork-emulation theory is real,
-      #     these steps should NOT hang. (If they DO still hang, the theory is
-      #     wrong and MSYS bash is exonerated.) The matching gha.rego
-      #     "Diagnostic:" carve-out allows the per-step shell override.
-      # Roll this whole block back to a single `mise run prefetch-ci` step
-      # once the silent stall is understood.
-      - name: "Diagnostic: prefetch fetch-mnist-rclone (bash + xtrace)"
+      # Non-Windows: prefetch is well-behaved on Linux / macOS, so we keep the
+      # original single-step form there. The Windows lane below replaces it
+      # with a diagnostic split to chase the silent prefetch stall.
+      - name: Prefetch dependencies (non-Windows)
+        if: runner.os != 'Windows'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -x
-          export PS4='+ $(date +%H:%M:%S.%N) '
-          exec 2>&1
-          mise run fetch-mnist-rclone
+        run: mise run prefetch-ci
 
+      # Diagnostic split of `mise run prefetch-ci` for Windows runners. The
+      # single-step form has been silently stalling with zero output and then
+      # failing with MSYS2 / Git Bash cygheap-fork errors at the cancel
+      # boundary. Two captured failure signatures so a future contributor
+      # grepping the runner log finds this block:
+      #
+      #   0 [main] bash (31360) child_copy: cygheap read copy failed,
+      #     0x800000000..0x8DA05AC60, done 964984832, windows pid 31360,
+      #     Win32 error 299
+      #
+      # First observed on dcd7346bac780892228397e8a5522380eb191a80, in
+      #   https://github.com/edge-toolkit/core/actions/runs/27742669243/job/82073365968
+      # (rust (windows-latest) matrix entry of this workflow).
+      #
+      #   0 [main] bash (16912) child_copy: cygheap read copy failed,
+      #     0x800000000..0x825997930, done 0, windows pid 16912,
+      #     Win32 error 299
+      #
+      # Reproduced on d30ae7c42152f29a477d6a36359b83f9d1598bdb (same workflow
+      # entry; user-cancelled before run could complete -- exact GHA job URL
+      # not captured at the time, sorry).
+      #
+      # Both are `child_copy: cygheap read copy failed` from MSYS' fork
+      # emulation (Win32 ERROR_PARTIAL_COPY == decimal 299) when MSYS bash
+      # tries to copy its cygheap region (reserved at 0x800000000) into a
+      # newly-forked child. The `done <N>` count varies between runs
+      # -- sometimes 0 bytes, sometimes ~1 GB -- but the symptom is the same
+      # silent stall in the prefetch-ci step body.
+      #
+      # The split tests three things on Windows:
+      #   * Per-task isolation -- we see exactly which sub-task is silent
+      #     (`mise run prefetch:rust`, `:node`, or `fetch-mnist-rclone`).
+      #   * `shell: pwsh` on the prefetch:rust + prefetch:node steps bypasses
+      #     MSYS bash entirely. If those pwsh steps run cleanly the cygheap
+      #     theory is corroborated; if they ALSO stall then MSYS bash is
+      #     exonerated. (Matching gha.rego "Diagnostic:" prefix carve-out
+      #     allows the per-step `shell:` override.)
+      #   * The bash step (fetch-mnist-rclone) sets `set -x` + a timestamped
+      #     `PS4` + `exec 2>&1` so xtrace logs every command bash runs and
+      #     how long each one sat -- defeats the "we have no idea what bash
+      #     was waiting on" problem when the cygheap fork eventually fails.
+      #
+      # fetch-mnist-rclone runs LAST: the bash cygheap fork-copy fails on the
+      # FIRST bash step regardless of what work was queued for it. Running it
+      # after the pwsh steps tests whether the failure repeats once bash has
+      # had time to start fresh later in the job (or whether something the
+      # pwsh steps did clears the blocker). Roll the whole block back to a
+      # single `mise run prefetch-ci` step once the root cause is in hand.
       - name: "Diagnostic: prefetch prefetch:rust (pwsh shell)"
+        if: runner.os == 'Windows'
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -151,6 +187,7 @@ jobs:
           Write-Host "[$(& $now)] finished mise run prefetch:rust"
 
       - name: "Diagnostic: prefetch prefetch:node (pwsh shell)"
+        if: runner.os == 'Windows'
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -159,6 +196,16 @@ jobs:
           Write-Host "[$(& $now)] starting mise run prefetch:node"
           mise run prefetch:node
           Write-Host "[$(& $now)] finished mise run prefetch:node"
+
+      - name: "Diagnostic: prefetch fetch-mnist-rclone (bash + xtrace)"
+        if: runner.os == 'Windows'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -x
+          export PS4='+ $(date +%H:%M:%S.%N) '
+          exec 2>&1
+          mise run fetch-mnist-rclone
 
       # GITHUB_TOKEN raises the rate-limit ceiling on rclone's fetch of the
       # rp-v<N> rustpython_wasm tarball (build-ws-pywasm1-module → fetch-rp-wasm

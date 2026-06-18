@@ -428,7 +428,15 @@ bug, a CI-only flake — and you decide to paper over it with a workaround:
   failure line. GHA log retention is 3 months; once the run is gone, the
   only way someone hitting the same symptom later finds your workaround is
   by grepping the repo for the error string. This applies equally to
-  symptoms first seen locally and to GHA-only flakes.
+  symptoms first seen locally and to GHA-only flakes. Alongside the error
+  string, **record the commit SHA the failure was observed on** (full
+  40-char hash, so the comment stays unambiguous after force-pushes /
+  rebases) and, when applicable, **the GHA job-run URL**
+  (`https://github.com/<owner>/<repo>/actions/runs/<run-id>/job/<job-id>`).
+  Both age out (the SHA may stop existing if a branch is deleted; the GHA
+  log expires at 3 months) but together they pin the WHERE and WHEN of the
+  evidence well enough for the next reader to cross-reference your local
+  notes, screenshots, or any persisted artifact.
 
 ## Non-negotiable platform constraints
 
@@ -563,6 +571,33 @@ the rule. When the rewrite can't be expressed as a single template (multiple
 match shapes, context-dependent replacement, structural restructuring), keep
 the rule check-only and write a brief note in the rule body explaining why
 the autofix wasn't viable.
+
+### NEVER delete a lint rule without explicit user permission
+
+**Do not delete a rule from `config/ast-grep/rules/`, `config/semgrep/`,
+`config/conftest/policy/`, `config/taplo/`, `config/regal.yaml`, the
+`.editorconfig`, or any other linter ruleset without explicit operator
+sign-off, even when the rule is "in the way" of a change you're making.**
+Rules exist because someone hit a specific regression and codified the
+prevention. Deleting one removes the guardrail without removing the failure
+mode. If a rule is blocking work:
+
+- Prefer narrowing it (e.g. adding a name-prefix carve-out, a path exclude,
+  or a `not:` constraint) over deleting it.
+- If the rule has a genuine duplicate elsewhere (another linter that checks
+  the same thing), removing one of the pair is a project-policy change and
+  still needs the user to OK it explicitly — say which rule you want to drop
+  and why, and wait.
+- If the rule is genuinely obsolete (the bug it prevents no longer exists in
+  the codebase, the language/tool it targeted is gone, etc.), propose the
+  removal and wait for confirmation.
+
+A previously-incorrect call here: deleting `config/ast-grep/rules/gha-no-step-shell.yaml`
+on the grounds that it was "redundant with the conftest rule in gha.rego." Even
+though both rules checked the same thing, removing the ast-grep one took out a
+diff-time safety net that catches the issue in IDE / pre-commit contexts where
+conftest isn't always run. The right move was to add the same carve-out to both,
+not delete one.
 
 ## Writing JS/TS that both dprint and oxfmt accept
 
