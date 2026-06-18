@@ -25,6 +25,7 @@ serde_default.workspace = true
 serde_json.workspace = true
 serde_path_to_error.workspace = true
 serde_yaml.workspace = true
+strum.workspace = true
 thiserror.workspace = true
 
 [features]

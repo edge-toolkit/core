@@ -167,6 +167,12 @@ jobs:
         with:
           tool: cargo-binstall,mise@2026.6.5
 
+      - name: Trust mise config
+        if: |-
+          steps.rp_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+        run: mise trust
+
       - name: Show MISE_ENV
         if: |-
           steps.rp_check.outputs.work == 'yes'

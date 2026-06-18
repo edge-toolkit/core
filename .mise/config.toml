@@ -93,6 +93,7 @@ ripgrep = "latest"
 "github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 "github:wasm-bindgen/wasm-bindgen" = "0.2.122"
 hadolint = "latest"
+jq = "latest"
 ls-lint = "latest"
 lychee = "latest"
 mprocs = "latest"
@@ -507,6 +508,16 @@ run = "cargo +nightly fmt -- --check"
 alias = ["cargo-clippy", "clippy", "clippy-check"]
 run = "cargo clippy --keep-going --workspace --tests"
 
+[tasks.cargo-clippy-check-pkg]
+alias = ["clippy-pkg"]
+description = "cargo clippy on a single workspace package (narrow inner-loop check)"
+# Same flags as cargo-clippy-check minus --workspace. Usage-spec captures
+# the package name and exposes it as $usage_package; a missing arg fails up
+# front with mise's auto-generated usage message instead of clippy's generic
+# "--package <SPEC> not found" error.
+run = 'cargo clippy --keep-going --tests -p "$usage_package"'
+usage = 'arg "<package>" help="Workspace package name (e.g. edge-toolkit)"'
+
 [tasks.cargo-doc-check]
 description = "Build rustdoc with -D warnings to fail on any doc issues"
 env = { RUSTDOCFLAGS = "-D warnings" }
@@ -589,6 +600,42 @@ description = "Lint Rego policy files with Regal (style, idiomatic, bugs)"
 # config/regal.yaml carves out conftest-specific patterns (multiple `deny`
 # rules per file, cross-package data references, no OPA entrypoints).
 run = "regal lint -c config/regal.yaml config/conftest/policy/"
+
+[tasks.shellcheck-mise]
+description = "shellcheck every bash-shell mise task body across .mise/config*.toml"
+# Extract each `[tasks.X] run = """..."""` whose `shell` starts with bash and
+# whose `run` is multi-line, drop it into target/scratch/shellcheck-mise/ with
+# a synthetic shebang + `set -euo pipefail`, then shellcheck the lot.
+# Tera tokens `{{ ... }}` are masked to `MISEVAR` (a valid bash word) and
+# `{% ... %}` to empty so shellcheck doesn't choke on template syntax. The
+# awk regex uses character classes (`[{][{]` not `{{`) so mise's own Tera
+# render of this task body doesn't itself trip on the awk source.
+run = '''
+boot="{{ vars.config_root_fwd }}/target/scratch/shellcheck-mise"
+coreutils rm -rf "$boot"
+coreutils mkdir -p "$boot"
+mask='{ gsub(/[{][{][^}]*[}][}]/, "MISEVAR"); gsub(/[{][%][^%]*[%][}]/, ""); print }'
+for cfg in .mise/config*.toml; do
+  stem=$(coreutils basename "$cfg" .toml)
+  yq -p toml -o json "$cfg" | jq -r '
+    (.tasks // {}) | to_entries[]
+    | select((.value | type) == "object")
+    | select((.value.shell // "") | startswith("bash"))
+    | select((.value.run | type) == "string")
+    | select(.value.run | test("\n"))
+    | "\(.key) \(.value.run | @base64)"
+  ' | while read -r name b64; do
+    out="$boot/${stem}__${name}.sh"
+    {
+      echo '#!/usr/bin/env bash'
+      echo 'set -euo pipefail'
+      printf '%s' "$b64" | coreutils base64 -d | goawk "$mask"
+    } > "$out"
+  done
+done
+shellcheck --shell=bash --exclude=SC2034,SC2154 "$boot"/*.sh
+'''
+shell = "bash -euo pipefail -c"
 
 [tasks.taplo-check]
 alias = "toml-check"

@@ -205,6 +205,15 @@ also lints Dockerfiles, and `link-check` scans `*.md` + `*.rs`. Every file is
 covered by `editorconfig-check` and `typos`, file and directory names by
 `ls-lint-check`, and `*.yml` is rejected by `semgrep-check` (use `*.yaml`).
 
+For Rust inner-loop iteration on a single crate, use `mise run
+cargo-clippy-check-pkg <package>` (alias `clippy-pkg`) instead of
+`cargo-clippy-check` — it runs `cargo clippy --keep-going --tests -p
+<package>` so you only compile that crate plus its deps, not the whole
+workspace. Same lint config; just narrower scope. Switch back to
+`cargo-clippy-check` for the final verification pass before declaring
+done, since cross-crate `feature-unification` differences can fire
+workspace-wide lints that don't fire on a single `-p` build.
+
 ## Architecture
 
 This is a WebSocket-based edge computing framework.

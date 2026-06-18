@@ -50,6 +50,14 @@ jobs:
       - name: Show MISE_ENV
         run: echo "MISE_ENV=$MISE_ENV"
 
+      # jlumbroso/free-disk-space (which test.yaml uses) only frees space on
+      # the existing root partition. This workflow needs more: the image build
+      # writes to /var/lib/docker, so we have to relocate Docker's data dir
+      # onto an LVM volume that concatenates the freed root space with /mnt.
+      # easimon is the only maintained action that does that LVM remount, so
+      # we stay on it here despite its rougher edges (hard-fails on runners
+      # without /mnt or without a Docker daemon -- not a concern for this
+      # workflow's ubuntu-latest matrix, which has both).
       - name: Maximize build space
         uses: easimon/maximize-build-space@v10
         with:

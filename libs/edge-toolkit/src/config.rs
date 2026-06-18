@@ -159,6 +159,58 @@ pub fn mise_is_available() -> bool {
     std::process::Command::new("mise").arg("--version").output().is_ok()
 }
 
+/// Guest languages mise loads via `MISE_ENV`.
+///
+/// Each variant maps to a `.mise/config.<env>.toml` file
+/// (e.g. `Self::Python` -> `config.python.toml`) that adds that language's
+/// toolchain on top of the always-loaded base `.mise/config.toml`. Mirrors
+/// `ALL_LANGS` in `.mise/config.toml`; keep the two in sync.
+///
+/// `strum::IntoStaticStr` derives the canonical lowercase name used in
+/// `MISE_ENV` and the config filename; `strum::EnumIter` enumerates all
+/// variants in declaration order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::IntoStaticStr, strum::EnumIter)]
+#[strum(serialize_all = "lowercase")]
+#[non_exhaustive]
+pub enum Language {
+    Dart,
+    Dotnet,
+    Java,
+    Python,
+    Rust,
+    Zig,
+}
+
+impl Language {
+    /// Canonical lowercase name as used in `MISE_ENV` and the
+    /// `config.<name>.toml` filename.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        self.into()
+    }
+}
+
+/// Whether `MISE_ENV` loads the named language config.
+///
+/// `MISE_ENV` is a comma-separated list of guest-language envs (each adds a
+/// `config.<env>.toml`). With it unset/empty mise loads the base config only
+/// -- callers should treat that as "the full set is available" since the
+/// always-loaded `[tools]` cover their own tools and any `mise install` in
+/// CI is run with the workflow-level `MISE_ENV` already in scope.
+///
+/// Used to gate live-installed-tool tests: when CI narrows `MISE_ENV` for
+/// faster feedback (e.g. `dotnet,rust`), tests that depend on a tool in a
+/// dropped env (e.g. `http:pyodide` from the `python` env) can skip cleanly
+/// instead of panicking.
+#[must_use]
+pub fn mise_env_includes(language: Language) -> bool {
+    let value = std::env::var("MISE_ENV").unwrap_or_default();
+    if value.is_empty() {
+        return true;
+    }
+    value.split(',').any(|seg| seg.trim() == language.as_str())
+}
+
 /// Returns the install path for a `mise` tool, e.g. `mise where npm:onnxruntime-web`.
 #[must_use]
 pub fn mise_where(tool: &str) -> Option<PathBuf> {

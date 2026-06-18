@@ -11,6 +11,9 @@ message: |
   - `ET_TEST_*` -- test-only switches; production binaries must NOT branch
     on these. The integration test in services/ws-wasi-runner/tests/
     sets one to opt the spawned runner into a macOS-only fast-exit path.
+  - `MISE_*` (e.g. `MISE_ENV`) -- the mise tool's own state, not app config;
+    reading these lets helpers like `mise_env_includes` reflect tooling
+    behaviour without round-tripping through a struct.
 rule:
   any:
     - pattern: std::env::var($ARG)
@@ -20,9 +23,9 @@ rule:
 constraints:
   ARG:
     not:
-      # Allow a string literal ("RUST_LOG" / "ET_TEST_…") or a const
-      # identifier (RUST_LOG / ET_TEST_…).
-      regex: '^"?(RUST_|ET_TEST_)'
+      # Allow a string literal ("RUST_LOG" / "ET_TEST_…" / "MISE_…") or a
+      # const identifier (RUST_LOG / ET_TEST_… / MISE_…).
+      regex: '^"?(RUST_|ET_TEST_|MISE_)'
 ignores:
   # The project-root helper reads CARGO_MANIFEST_DIR (a cargo build variable,
   # not app config) to locate the repo root from a build script.

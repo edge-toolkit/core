@@ -37,6 +37,9 @@ jobs:
         with:
           tool: cargo-binstall,mise@2026.6.5
 
+      - name: Trust mise config
+        run: mise trust
+
       - name: Show MISE_ENV
         run: echo "MISE_ENV=$MISE_ENV"
 
