@@ -204,7 +204,7 @@ jobs:
                 Get-Content $p
                 Write-Host "----- end $name -----"
               } else {
-                Write-Host "$name: NOT FOUND"
+                Write-Host "${name}: NOT FOUND"
               }
             }
           }
