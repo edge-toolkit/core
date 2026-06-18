@@ -87,7 +87,11 @@ ripgrep = "latest"
 "github:benhoyt/goawk" = "latest"
 # Retries a command with exponential backoff + jitter; wraps the model fetches
 # below (see the `retry` var) so a transient HTTP 429 doesn't fail the build.
-"github:dbohdan/recur" = "latest"
+# `bin = "recur"` forces mise to expose the binary as `recur` on every
+# platform; without it, mise's auto-rename keeps the Windows asset's
+# `recur-v<ver>-windows-amd64.exe` filename verbatim, so `recur` doesn't
+# resolve on PATH inside `mise run` task bodies that call it bare.
+"github:dbohdan/recur" = { version = "latest", bin = "recur" }
 "github:grok-rs/waitup" = "latest"
 # ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
 "github:microsoft/onnxruntime" = "1.22.0"

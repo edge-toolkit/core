@@ -2,7 +2,11 @@
 
 [tools]
 java = "latest"
-maven = "latest"
+# Pinned (not "latest") because config.windows.toml's `maven_bin` _.path entry
+# templates the install dir with this version segment -- bump both together.
+# The pin matches the `mise maven@3.9.16 ✓ installed` mise picks anyway, so
+# pinning is no-op on hosts where Windows-PATH-augment doesn't apply.
+maven = "3.9.16"
 
 [env]
 # Silence Maven's per-artifact download/upload progress lines (the

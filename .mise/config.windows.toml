@@ -98,6 +98,11 @@ win_llvm_bin = '{{ vars.mise_installs }}\github-mstorsjo-llvm-mingw\20260602\bin
 # conda:m2-gnupg's msys2 binary dir. Pinned to the [tools] version so the
 # [env] _.path entry resolves; bump both together.
 m2_gnupg_bin = '{{ vars.mise_installs }}\conda-m2-gnupg\2.2.41.1\Library\usr\bin'
+# Maven's bin dir lives nested at `apache-maven-X.Y.Z/bin/` inside its install.
+# mise's bin auto-discovery walks into this subdir on Linux/macOS but not on
+# Windows, so `mvn` isn't on PATH without an explicit entry. Pinned to the
+# config.java.toml [tools] maven version -- bump both together.
+maven_bin = '{{ vars.mise_installs }}\maven\3.9.16\apache-maven-3.9.16\bin'
 # clang-sys finds libclang on PATH (Docker's gnu build has llvm-mingw there); a
 # workstation with system LLVM also works.
 win_libclang = "C:\\Program Files\\LLVM\\bin"
@@ -135,8 +140,11 @@ ORT_PREFER_DYNAMIC_LINK = "1"
 # but msys2-format packages put binaries one level deeper at
 # `<install>/Library/usr/bin/X`. Without this, `gpg.exe` isn't found by the
 # subprocess that `mise install node` spawns and node's gpg-verify path
-# hard-fails ("gpg --quiet --import: program not found").
-_.path = ["{{ vars.m2_gnupg_bin }}"]
+# hard-fails ("gpg --quiet --import: program not found"). The maven_bin
+# entry is the same shape -- nested `apache-maven-X.Y.Z/bin/` that mise's
+# Windows bin-discovery misses (works fine on Linux/macOS). Inert when
+# java isn't in MISE_ENV; just an unused dir reference.
+_.path = ["{{ vars.m2_gnupg_bin }}", "{{ vars.maven_bin }}"]
 
 [tasks.preinstall]
 # Preinstall, shared across every Windows host (CI runner, workstation, Nano

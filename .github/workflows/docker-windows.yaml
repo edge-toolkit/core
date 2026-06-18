@@ -77,13 +77,59 @@ jobs:
           curl -fsSL -o mise.zip "https://github.com/jdx/mise/releases/download/v$v/mise-v$v-windows-x64.zip"
           printf '%s' "${{ github.token }}" > gh_token
 
-      - name: Build stage precompile
+      # Pick which Dockerfile each matrix lane builds. The build is split into
+      # `build-minimal` → diagnostics → `precompile` so the et-rp (rustpython)
+      # diagnostic runs between the two stages. Both `docker build` calls share
+      # BuildKit's layer cache; the second one rebuilds only the layers above
+      # `build-minimal`, so the split adds the diagnostic step's runtime, not
+      # a second full compile.
+      - name: Resolve Dockerfile + image tag
+        id: dockerfile
         run: |
           case "${{ matrix.base }}" in
             nanoserver) dockerfile=Dockerfile.nanoserver ;;
             servercore) dockerfile=Dockerfile.windows ;;
             *) echo "unknown matrix.base: ${{ matrix.base }}" >&2; exit 2 ;;
           esac
-          args="-f $dockerfile ${{ matrix.build_arg }} --build-arg MISE_ENV"
+          tag="et-windows:${{ matrix.runner }}-${{ matrix.base }}-build-minimal"
+          echo "dockerfile=$dockerfile" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Build stage build-minimal
+        env:
+          DOCKERFILE: ${{ steps.dockerfile.outputs.dockerfile }}
+          IMAGE_TAG: ${{ steps.dockerfile.outputs.tag }}
+        run: |
+          args="-f $DOCKERFILE ${{ matrix.build_arg }} --build-arg MISE_ENV"
+          args="$args --target build-minimal -t $IMAGE_TAG"
+          docker build $args .
+
+      # Diagnostic: does the et-rp (rustpython) binary actually run inside this
+      # base image? servercore expected: works. nanoserver expected: fails with
+      # 0xc0000139 (STATUS_ENTRYPOINT_NOT_FOUND) when rustpython.exe tries to
+      # resolve symbols from Nano-stripped shell32/winmm/propsys. Captured here
+      # rather than only via the preinstall fallback so the comparison sits
+      # side-by-side in the same workflow run. continue-on-error so a Nano
+      # failure here doesn't pre-empt the precompile build that follows.
+      - name: Diagnose et-rp (rustpython) in build-minimal
+        continue-on-error: true
+        env:
+          IMAGE_TAG: ${{ steps.dockerfile.outputs.tag }}
+        run: |
+          echo "::group::which rustpython"
+          docker run --rm "$IMAGE_TAG" cmd /c "mise where http:et-rp & where rustpython"
+          echo "::endgroup::"
+          echo "::group::rustpython --version"
+          docker run --rm "$IMAGE_TAG" cmd /c "mise exec -- rustpython --version"
+          echo "::endgroup::"
+          echo "::group::rustpython -c hello"
+          docker run --rm "$IMAGE_TAG" cmd /c "mise exec -- rustpython -c \"print('et-rp ok')\""
+          echo "::endgroup::"
+
+      - name: Build stage precompile
+        env:
+          DOCKERFILE: ${{ steps.dockerfile.outputs.dockerfile }}
+        run: |
+          args="-f $DOCKERFILE ${{ matrix.build_arg }} --build-arg MISE_ENV"
           args="$args --target precompile"
           docker build $args .

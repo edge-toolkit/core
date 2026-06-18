@@ -62,12 +62,16 @@ RUN tar -xf C:\mise.zip -C C:\ && del C:\mise.zip
 
 # Prepend mise's bin + shims dir; re-list System32 + Windows explicitly so cmd-
 # native commands stay on PATH after our prepends (Docker's case-sensitive
-# `${PATH}` doesn't merge the base image's `Path` env var). llvm-mingw lives
-# under a version-pinned dir that doesn't exist until preinstall installs it;
-# adding it now is fine (PATH search is lazy).
+# `${PATH}` doesn't merge the base image's `Path` env var). PWSH holds the
+# nested PowerShell 5.1 dir Server Core ships -- the base image's default
+# `Path` includes it but our PATH= overwrite loses it, breaking mise's
+# `core:dotnet` install (its dotnet-install.ps1 invocation needs `powershell`
+# resolvable). llvm-mingw lives under a version-pinned dir that doesn't exist
+# until preinstall installs it; adding it now is fine (PATH search is lazy).
 ENV MISESHIMS=C:\Users\ContainerAdministrator\AppData\Local\mise\shims
 ENV LLVMBIN=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\github-mstorsjo-llvm-mingw\20260602\bin
-ENV PATH="C:\mise\bin;${MISESHIMS};C:\Windows\System32;C:\Windows;${LLVMBIN};${PATH}"
+ENV PWSH=C:\Windows\System32\WindowsPowerShell\v1.0
+ENV PATH="C:\mise\bin;${MISESHIMS};C:\Windows\System32;C:\Windows;${PWSH};${LLVMBIN};${PATH}"
 
 WORKDIR C:\workspace
 # config.toml (always-loaded) + config.windows.toml + .miserc.toml (auto_env=true).

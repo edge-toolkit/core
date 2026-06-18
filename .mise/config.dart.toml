@@ -13,7 +13,15 @@ dart_release = "https://storage.googleapis.com/dart-archive/channels/stable/rele
 # dart isn't an aqua/registry tool — install it straight from Google's dart
 # archive, discovering the latest stable from the bucket listing. `{{ version }}`
 # etc. resolve in the tool-url context; the static host/path prefix is a var.
+#
+# `strip_components = 1` makes mise drop the `dart-sdk/` wrapper every dartsdk
+# zip uses (Windows/macOS/Linux ship the same `dart-sdk/<files>` shape). mise
+# normally auto-detects single-top-level-dir archives and strips, but that
+# auto-detect doesn't fire reliably on Windows ZIPs, leaving the binary at
+# `<install>/dart-sdk/bin/dart.exe` instead of the `<install>/bin/dart.exe`
+# mise's PATH activation expects. Explicit beats auto.
 [tools.dart]
+strip_components = 1
 url = "{{ vars.dart_release }}/{{ version }}/sdk/dartsdk-{{ os() }}-{{ arch() }}-release.zip"
 version = "latest"
 version_expr = '''

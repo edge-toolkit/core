@@ -28,15 +28,14 @@ env:
 
 jobs:
   dependencies:
-    # `ubuntu-slim` is GitHub's 1-vCPU / 5-GB-RAM containerised runner with
-    # a hard 15-min job cap (docs: `docs/reference/runners`). Sized for
-    # automation, not CI/CD compiles -- which is exactly what this workflow
-    # is: every step is metadata/network-bound (cargo deny + osv-scanner +
-    # cargo unmaintained), zero Rust compilation. The `cache@v4` restore on
-    # `cargo-unmaintained` keeps the hot path well under the cap; a cold
-    # Cargo.lock-change run is ~12 min, still inside it.
-    runs-on: ubuntu-slim
-    timeout-minutes: 15
+    # `ubuntu-latest`, not `ubuntu-slim`: although every step in this workflow
+    # is metadata/network-bound (no Rust compile), `taiki-e/install-action`
+    # itself assumes a standard runner-image FHS (e.g. ~/.cargo/bin) and
+    # fails on slim's bare container with `I/O Error: No such file or
+    # directory` while staging cargo-unmaintained. Slim only fits workflows
+    # whose first step doesn't need that scaffolding.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
