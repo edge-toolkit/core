@@ -11,5 +11,8 @@ message: |
 rule:
   kind: extern_crate_declaration
   regex: "extern crate self"
+# Mechanical autofix: delete the whole declaration. rustc accepts own-name
+# paths through `crate::` / `self::` without the alias, so removal is safe.
+fix: ""
 ignores:
   - generated/**

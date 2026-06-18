@@ -6,7 +6,12 @@ use et_cli::OutputType;
 #[derive(Parser)]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>,
+
+    /// Print the full clap help tree as markdown (used to regenerate HELP.md).
+    #[cfg(feature = "markdown-help")]
+    #[arg(long, hide = true)]
+    pub markdown_help: bool,
 }
 
 #[derive(Subcommand)]

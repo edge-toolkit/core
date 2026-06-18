@@ -10,6 +10,11 @@ use et_int_gen::{generate, generate_core, generate_rust, generate_zig, wit::upst
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
+
+    /// Print the full clap help tree as markdown (used to regenerate HELP.md).
+    #[cfg(feature = "markdown-help")]
+    #[arg(long, hide = true)]
+    markdown_help: bool,
 }
 
 #[derive(Subcommand)]
@@ -41,6 +46,13 @@ enum Target {
 
 fn main() -> Result<(), et_int_gen::Error> {
     let cli = Cli::parse();
+
+    #[cfg(feature = "markdown-help")]
+    if cli.markdown_help {
+        clap_markdown::print_help_markdown::<Cli>();
+        return Ok(());
+    }
+
     match cli.command.unwrap_or(Command::Generate { target: Target::All }) {
         Command::Generate { target } => match target {
             Target::Core => generate_core(),

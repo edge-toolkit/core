@@ -221,7 +221,14 @@ mise exec -- rustup set default-host x86_64-pc-windows-gnullvm
 # pipx:<tool>` can find this pipx and reuse the pre-created shared venv.
 if command -v python >/dev/null 2>&1; then
   python -m pip install pipx
-else
+elif [ "${ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP:-}" = "1" ]; then
+  # Rustpython-pipx bootstrap is currently broken on Nano Server: `mise exec`
+  # (and any subsequent mise.exe invocation that touches rustpython's pip
+  # install path) dies with STATUS_DLL_NOT_FOUND / STATUS_ENTRYPOINT_NOT_FOUND
+  # (0xc0000135 / 0xc0000139) because the Nano API set is missing the DLLs
+  # rustpython's ensurepip path-walks. Kept intact under an opt-in env gate so
+  # we can re-enable it once mise/rustpython resolve the DLL dependency; flip
+  # ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP=1 to exercise the original path.
   mise install http:et-rp
   boot="{{ vars.config_root_fwd }}/target/preinstall-pipx"
   coreutils mkdir -p "$boot"
@@ -259,6 +266,8 @@ exec "$(dirname "$0")/python" -m pip "$@"
 PIP_SHIM
     coreutils chmod +x "$shared_venv/bin/pip"
   fi
+else
+  echo "[preinstall] no python on PATH and ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP unset; skipping pipx setup"
 fi
 """
 shell = "bash -xeuo pipefail -c"

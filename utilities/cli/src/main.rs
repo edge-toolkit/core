@@ -1,6 +1,6 @@
 #![expect(clippy::print_stdout, reason = "CLI tool: println! is the intended UX")]
 
-use clap::Parser as _;
+use clap::{CommandFactory as _, Parser as _};
 use et_cli::{CliError, generate_deployment, generate_module_package_json, regenerate_verification};
 
 mod cli;
@@ -10,7 +10,18 @@ use crate::cli::{Cli, Commands};
 fn main() -> Result<(), CliError> {
     let cli = Cli::parse();
 
-    match &cli.command {
+    #[cfg(feature = "markdown-help")]
+    if cli.markdown_help {
+        clap_markdown::print_help_markdown::<Cli>();
+        return Ok(());
+    }
+
+    let Some(command) = cli.command.as_ref() else {
+        Cli::command().print_help()?;
+        return Ok(());
+    };
+
+    match command {
         Commands::GenerateDeployment {
             input_file,
             output_dir,

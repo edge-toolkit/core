@@ -359,7 +359,15 @@ Plus, attached to the same Linker but defined by external WIT packages:
   also generates module `pkg/package.json` files with `et-cli module-package-json`.
   Deployment-specific generators live under `utilities/cli/src/deployment_types/`.
   Module package JSON generation lives under `utilities/cli/src/module_package_json/`.
-- **onnx** — ONNX model utilities
+- **int-gen** (`et-int-gen`) — Internal code generator emitting artifacts under `generated/` from in-repo Rust
+  sources of truth (AsyncAPI/OpenAPI YAML, WIT, KDL, schema JSON, the typed Rust REST client, the Zig client).
+- **onnx** (`et-onnx`) — ONNX model utilities.
+
+Each utility has a committed `HELP.md` (under its crate dir) that mirrors the clap-derive tree via the
+`markdown-help` feature + hidden `--markdown-help` flag. **Read `utilities/<name>/HELP.md` to learn what
+the CLI does — don't run `cargo run -p <name> -- --help`** (much slower: cargo has to build the binary
+first; HELP.md is the same content as a static file). `mise run gen-help-all` regenerates them all; the
+`gen-help-check` task (wired into `check:rust`) fails on drift.
 
 ### Verification (`verification/`)
 
@@ -519,6 +527,32 @@ available linters:
 ast-grep has no TOML grammar, so it **cannot** lint TOML — use a taplo schema or
 a semgrep `generic` rule there. If none of the above can express a check,
 propose adding a new mise-installable linter rather than scripting it by hand.
+
+### When you spot a style or consistency issue, write a rule
+
+If a code-review comment, a fix-up commit, or a CLAUDE.md paragraph would tell
+the next contributor "don't do X" or "always do Y", that's evidence the
+codebase wants a _rule_, not just a note. Reach for the linter stack first:
+which of the available tools (ast-grep / semgrep / taplo / conftest / regal /
+shellcheck-mise / …) can express the rule? Code-as-policy stays in sync with
+the codebase; prose drifts. Documentation has its place when the rule is
+fundamentally judgement-based (the "Workarounds" section's "embed the exact
+error message verbatim" guidance, say) — but if the check is mechanical, make
+it mechanical.
+
+### When you write a rule, try to make it auto-fixable
+
+ast-grep rules accept a `fix:` field; semgrep rules accept `fix:` / `fix-regex:`;
+clippy lints can be machine-applicable; the repo's `*-fix` mise tasks
+(`ast-grep-fix`, `semgrep-fix`, `cargo-clippy-fix`, `ruff-fix`, `regal-fix`,
+`typos-fix`, `oxlint-fix`, `clang-tidy-fix`, and the `fix` aggregator that
+runs them all under `fix:rust` / `fix:<lang>` namespacing) apply those fixes
+in place. A check that takes one mechanical rewrite to satisfy is much cheaper
+to land than one that requires a human edit per site, so the autofix scales
+the rule. When the rewrite can't be expressed as a single template (multiple
+match shapes, context-dependent replacement, structural restructuring), keep
+the rule check-only and write a brief note in the rule body explaining why
+the autofix wasn't viable.
 
 ## Writing JS/TS that both dprint and oxfmt accept
 

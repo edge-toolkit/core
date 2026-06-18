@@ -20,7 +20,13 @@ test = false
 
 [dependencies]
 clap.workspace = true
+clap-markdown = { workspace = true, optional = true }
 onnx-extractor.workspace = true
+
+[features]
+# Enables `--markdown-help` on the CLI, which prints a markdown rendering of
+# the full clap tree (used by `mise run gen-help-all` to regenerate HELP.md).
+markdown-help = ["dep:clap-markdown"]
 
 [lints]
 workspace = true

@@ -43,6 +43,7 @@ RUFF_CACHE_DIR = "{{ config_root }}/target/ruff-cache"
 # tracked *.py already lives under a dir we want linted, so discovery covers
 # them without an explicit include list -- scope is narrowed by excludes only.
 ruff-check = "ruff check"
+ruff-fix = "ruff check --fix"
 ruff-fmt = "ruff format"
 ruff-fmt-check = "ruff format --check"
 
@@ -55,6 +56,10 @@ description = "Run Python checks (ruff lint + format-check)"
 [tasks."fmt:python"]
 depends = ["ruff-fmt"]
 description = "Format Python sources"
+
+[tasks."fix:python"]
+depends = ["ruff-fix"]
+description = "Apply Python lint-fix passes"
 
 [tasks."test:python"]
 depends = ["test-pyface1"]

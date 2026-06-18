@@ -418,19 +418,21 @@ description = "Check JS/TS formatting (oxfmt)"
 # linePerExpression in config/dprint.jsonc). `fmt:rust` orders oxfmt-fmt
 # before dprint-fmt so dprint has the last word on residual disagreements.
 #
-# The positional `!.mise/config.maint.toml` is a workaround for an oxfmt
-# 0.54.0 bug: oxfmt's content-based JS detection mis-parses the multiple
-# `"""..."""` TOML basic-multiline strings in maint.toml as JS template
-# literals and silently concatenates `description = "..."` into the
-# closing `"""` of an adjacent `run = """..."""` block on --write. The
-# `ignorePatterns: ["**/*.toml"]` in config/oxfmtrc.jsonc filters every
-# other TOML file correctly but fails to match dotfile-directory paths
-# like `.mise/config.maint.toml`, so we override here positionally.
-run = "oxfmt --config config/oxfmtrc.jsonc --check . '!.mise/config.maint.toml'"
+# The positional `!.mise/config*.toml` is a workaround for an oxfmt 0.54.0
+# bug: oxfmt's content-based JS detection mis-parses the multiple `"""..."""`
+# TOML basic-multiline strings in these files as JS template literals (and
+# silently concatenates `description = "..."` into the closing `"""` of an
+# adjacent `run = """..."""` block on --write); it also flattens short TOML
+# arrays like `depends = [...]` into single lines because they look like JS
+# arrays under 120 chars. The `ignorePatterns: ["**/*.toml"]` in
+# config/oxfmtrc.jsonc filters every other TOML file correctly but fails to
+# match dotfile-directory paths like `.mise/config*.toml`, so we override
+# here positionally.
+run = "oxfmt --config config/oxfmtrc.jsonc --check . '!.mise/config*.toml'"
 
 [tasks.oxfmt-fmt]
 description = "Format JS/TS sources in place (oxfmt)"
-run = "oxfmt --config config/oxfmtrc.jsonc --write . '!.mise/config.maint.toml'"
+run = "oxfmt --config config/oxfmtrc.jsonc --write . '!.mise/config*.toml'"
 
 [tasks."fmt:rust"]
 # Rust + universal formatters. Always-loaded, so `fmt`'s glob always matches it.
@@ -462,6 +464,7 @@ depends = [
   "docker-check",
   "dprint-check",
   "editorconfig-check",
+  "gen-help-check",
   "gen-specs-check",
   "hadolint-check",
   "link-check",
@@ -489,6 +492,18 @@ description = "Run the Rust + universal repo-wide checks"
 depends = ["check:*"]
 description = "Run all checks: check:rust + any loaded guest check:<lang>"
 
+[tasks."fix:rust"]
+# Rust + universal lint-fix passes. Distinct from fmt:rust (style/whitespace
+# formatters) -- these apply auto-rewrites for actual lint violations.
+depends = ["ast-grep-fix", "cargo-clippy-fix", "oxlint-fix", "regal-fix", "semgrep-fix", "typos-fix"]
+description = "Apply Rust + universal lint-fix passes"
+
+[tasks.fix]
+# Same glob shape as fmt/check. fix:rust is always loaded, so the glob never
+# matches zero; guest fix:<lang> tasks join when their MISE_ENV is loaded.
+depends = ["fix:*"]
+description = "Apply all lint-fix passes: fix:rust + any loaded guest fix:<lang>"
+
 [tasks.action-validator]
 description = "Validate GitHub Actions workflow YAML"
 run = "action-validator .github/workflows/*.yaml"
@@ -512,15 +527,27 @@ description = "Lint JavaScript/TypeScript sources (oxlint)"
 # `--deny-warnings` once those are cleaned up.
 run = "oxlint --config config/oxlintrc.jsonc"
 
+[tasks.oxlint-fix]
+description = "Auto-fix oxlint violations that have a machine-applicable suggestion"
+run = "oxlint --config config/oxlintrc.jsonc --fix"
+
 [tasks.ast-grep-check]
 # --no-ignore hidden so the gha-* YAML rules reach .github/workflows (ast-grep
 # skips dot-dirs by default); gitignored paths like target/ stay skipped.
 description = "Run ast-grep structural-search rules"
 run = "ast-grep scan --error --no-ignore hidden -c config/ast-grep/sgconfig.yaml"
 
+[tasks.ast-grep-fix]
+description = "Apply autofix for ast-grep rules that define a `fix:` field"
+run = "ast-grep scan --update-all --no-ignore hidden -c config/ast-grep/sgconfig.yaml"
+
 [tasks.semgrep-check]
 description = "Run Semgrep generic-mode rules (e.g. Cargo.toml style)"
 run = "semgrep scan --config config/semgrep --error --metrics=off ."
+
+[tasks.semgrep-fix]
+description = "Apply autofix for Semgrep rules that define a `fix:` field"
+run = "semgrep scan --config config/semgrep --autofix --metrics=off ."
 
 [tasks.hadolint-check]
 description = "Lint the Dockerfiles with hadolint"
@@ -746,6 +773,10 @@ shell = "bash -euo pipefail -c"
 [tasks.typos]
 run = "typos --config config/typos.toml"
 
+[tasks.typos-fix]
+description = "Auto-correct typos detected by the typos linter"
+run = "typos --config config/typos.toml --write-changes"
+
 # Part of the `check` aggregate. lychee makes live network requests, so
 # config/lychee.toml is tuned (retries, 429-tolerance, disk cache) to keep it
 # from being flaky. Checks every URL in the repo's Markdown + Rust sources;
@@ -966,6 +997,28 @@ run = "cargo run -p et-cli -- regen-verification"
 depends = ["regenerate-verification"]
 description = "Fail if generated scenario output files are stale"
 run = "git diff --exit-code -- verification/"
+
+# HELP.md for each clap-using utility under utilities/. Each crate has an
+# optional `markdown-help` feature that gates a hidden `--markdown-help` flag;
+# `cargo run --features markdown-help -p <name> -- --markdown-help` prints a
+# full clap-tree markdown rendering. gen-help-all regenerates every HELP.md;
+# gen-help-check diffs the committed files against fresh output. The pattern
+# mirrors pep257-rs's HELP.md flow.
+[tasks.gen-help-all]
+description = "Regenerate HELP.md for every clap-using utility under utilities/"
+run = """
+for crate in et-cli et-int-gen et-onnx; do
+  dir="utilities/${crate#et-}"
+  echo "[gen-help-all] $crate -> $dir/HELP.md"
+  cargo run --features markdown-help -q -p "$crate" -- --markdown-help > "$dir/HELP.md"
+done
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.gen-help-check]
+depends = ["gen-help-all"]
+description = "Fail if any utility's checked-in HELP.md is stale vs the clap tree"
+run = "git diff --exit-code -- utilities/*/HELP.md"
 
 [tasks.fetch-wit-deps]
 description = "Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions (run by hand on bumps)"

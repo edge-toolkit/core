@@ -16,6 +16,7 @@ path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
+clap-markdown = { workspace = true, optional = true }
 edge-toolkit.workspace = true
 et-path.workspace = true
 fs-err.workspace = true
@@ -27,6 +28,11 @@ toml.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+
+[features]
+# Enables `--markdown-help` on the CLI, which prints a markdown rendering of
+# the full clap tree (used by `mise run gen-help-all` to regenerate HELP.md).
+markdown-help = ["dep:clap-markdown"]
 
 [lints]
 workspace = true

@@ -16,6 +16,7 @@ path = "src/bin/int-gen.rs"
 [dependencies]
 asyncapi-rust.workspace = true
 clap.workspace = true
+clap-markdown = { workspace = true, optional = true }
 edge-toolkit = { workspace = true, features = ["schema-export"] }
 et-modules-service = { workspace = true, features = ["openapi-spec"] }
 et-storage-service = { workspace = true, features = ["openapi-spec"] }
@@ -41,6 +42,11 @@ tree-sitter-zig.workspace = true
 utoipa.workspace = true
 wit-encoder = { workspace = true, features = ["from-parser"] }
 wit-parser.workspace = true
+
+[features]
+# Enables `--markdown-help` on the CLI, which prints a markdown rendering of
+# the full clap tree (used by `mise run gen-help-all` to regenerate HELP.md).
+markdown-help = ["dep:clap-markdown"]
 
 [lints]
 workspace = true

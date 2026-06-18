@@ -21,7 +21,7 @@ defaults:
     shell: bash --noprofile --norc -euo pipefail {0}
 
 env:
-  MISE_ENV: dart,dotnet,java,rust,zig
+  MISE_ENV: dart,dotnet,java,python,rust,zig
 
 jobs:
   build:
@@ -34,7 +34,10 @@ jobs:
         # is the heavier ~1.25 GB lane with a fuller Windows runtime (used
         # by Dockerfile.windows). Both run on each Windows runner version
         # so we exercise the ltsc2022/ltsc2025 base-image pair against the
-        # matching runner kernel.
+        # matching runner kernel. Workflow-level MISE_ENV is the standard
+        # set; Dockerfile.nanoserver pins its own narrower MISE_ENV via an
+        # ENV that overrides the inherited ARG (Nano can't install python
+        # or dotnet).
         include:
           - runner: windows-2022
             base: nanoserver

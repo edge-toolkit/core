@@ -377,19 +377,20 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install
 
 # --- build: add the guest-language toolchains (config.<lang>.toml). ---
-# MISE_ENV lists only the guests that install on Nano Server: dotnet is excluded
-# (its installer is a PowerShell script, and Nano has no PowerShell) and python is
-# excluded (its tools install via pipx, which can't run on Nano). dart/java/rust/
-# zig install cleanly. Use `mise install` rather than install-all (which forces
-# $ALL_LANGS) so this restricted MISE_ENV is honored; it persists to later stages.
+# Nano can only install a subset of the standard guest set: dotnet is excluded
+# (its installer is a PowerShell script, and Nano has no PowerShell) and python
+# is excluded (its tools install via pipx; the rustpython-pipx fallback fails
+# with STATUS_DLL_NOT_FOUND / STATUS_ENTRYPOINT_NOT_FOUND on the Nano API set).
+# The accompanying ARG accepts the workflow-level MISE_ENV (the standard set)
+# for documentation, but the ENV that follows hardcodes the Nano-installable
+# subset so an inherited fuller value can't override it. Use `mise install`
+# rather than install-all (which forces $ALL_LANGS) so this restricted
+# MISE_ENV is honored; it persists to later stages.
 FROM build-minimal AS build
 COPY .mise/ .mise/
 RUN mise trust
-# Stage-scoped ARG with a default; override via `--build-arg MISE_ENV=...`
-# to widen or narrow the language set without touching this file (e.g.
-# the windows-2025 lane in docker-windows.yaml adds python).
-ARG MISE_ENV=dart,java,rust,zig
-ENV MISE_ENV=${MISE_ENV}
+ARG MISE_ENV
+ENV MISE_ENV=dart,java,rust,zig
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install
 
