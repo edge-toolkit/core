@@ -645,6 +645,10 @@ description = "Lint Rego policy files with Regal (style, idiomatic, bugs)"
 # rules per file, cross-package data references, no OPA entrypoints).
 run = "regal lint -c config/regal.yaml config/conftest/policy/"
 
+[tasks.regal-fix]
+description = "Auto-fix the regal violations that have an auto-fixer (e.g. opa-fmt)"
+run = "regal fix -c config/regal.yaml config/conftest/policy/"
+
 [tasks.shellcheck-mise-check]
 description = "shellcheck every bash-shell mise task body across .mise/config*.toml"
 # Extract each `[tasks.X] run = """..."""` whose `shell` starts with bash and
@@ -937,7 +941,11 @@ description = "Prefetch the Rust (cargo) dependencies"
 # cover that class of failure -- the HTTP/2 framing reset bypasses
 # cargo's own retry path. recur wraps the entire command so any
 # non-zero exit triggers a retry with exponential backoff + jitter.
+# shell = bash: on Windows, mise's default Windows shell is cmd.exe which
+# can't resolve `recur` even though it's installed; bash inherits the same
+# PATH but finds the shim. Matches every other `{{ vars.retry }}` user.
 run = "{{ vars.retry }} cargo fetch"
+shell = "bash -euo pipefail -c"
 
 [tasks."prefetch:node"]
 # Needs `build-ws-wasm-agent` first: the static workspace `link:`s its `pkg/`,

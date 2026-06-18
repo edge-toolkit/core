@@ -10,6 +10,7 @@ name: dependencies
       - config/deny.toml
       - config/osv-scanner.toml
       - .github/workflows/dependencies.yaml
+      - .github/actions/install-mise/**
   workflow_dispatch:
 
 permissions:
@@ -43,16 +44,13 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Install tools
-        uses: taiki-e/install-action@v2
+      - name: Install mise + dependency-scan tools
+        uses: ./.github/actions/install-mise
         with:
-          tool: cargo-deny,cargo-unmaintained,coreutils,mise@2026.6.5,osv-scanner,ripgrep
+          extra-tools: cargo-deny,cargo-unmaintained,coreutils,osv-scanner,ripgrep
 
       - name: Show MISE_ENV
         run: echo "MISE_ENV=$MISE_ENV"
-
-      - name: Trust mise config
-        run: mise trust
 
       - name: Generate config/osv-scanner.toml from config/deny.toml
         run: mise run gen:osv-scanner

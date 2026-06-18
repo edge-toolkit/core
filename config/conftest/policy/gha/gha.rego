@@ -64,3 +64,43 @@ deny contains msg if {
 		[input.name, expected_mise_env],
 	)
 }
+
+# When a workflow uses a local composite action (./.github/actions/<name>) and
+# also filters its triggers with a paths: list, that list must include the
+# composite action's location. Otherwise edits to the composite action won't
+# re-trigger this workflow on a PR that changes it. Workflows without a paths
+# filter already trigger on every PR/push and are skipped by this rule.
+local_actions_used contains action_dir if {
+	some job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "./.github/actions/")
+
+	# Strip the leading "./" to get the repo-relative dir (matches gitignore-style
+	# path filters in `on.<event>.paths`).
+	action_dir := substring(step.uses, 2, -1)
+}
+
+# Paths array configured for a trigger event, if any.
+trigger_paths(event) := paths if {
+	paths := input.on[event].paths
+	is_array(paths)
+}
+
+# True if `paths` contains an entry that covers `action_dir` (either the
+# directory glob `<dir>/**` or any narrower entry under the dir, e.g.
+# `<dir>/action.yml`).
+paths_cover_dir(paths, action_dir) if {
+	some p in paths
+	startswith(p, action_dir)
+}
+
+deny contains msg if {
+	some action_dir in local_actions_used
+	some event in ["pull_request", "pull_request_target", "push"]
+	paths := trigger_paths(event)
+	not paths_cover_dir(paths, action_dir)
+	msg := sprintf(
+		"workflow uses ./%s but on.%s.paths doesn't include it (e.g. %q) -- edits won't re-trigger this workflow",
+		[action_dir, event, sprintf("%s/**", [action_dir])],
+	)
+}

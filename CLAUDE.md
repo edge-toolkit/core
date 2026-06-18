@@ -461,6 +461,34 @@ Skipping a tool entirely with `MISE_DISABLE_TOOLS` is reserved for
 is expected. Other Dockerfiles may only disable tools that are unused by the
 build system anyway (e.g. `cargo-expand`, a dev-only macro-debugging tool).
 
+## taiki-e/install-action's resolution chain
+
+The `.github/actions/install-mise` composite action uses
+[`taiki-e/install-action`](https://github.com/taiki-e/install-action) to fetch
+the mise binary plus any tools passed via its `extra-tools:` input. When
+deciding whether install-action can supply a given tool, walk its three-tier
+chain:
+
+1. **install-action's own TOOLS manifest** — its
+   [`TOOLS.md`](https://github.com/taiki-e/install-action/blob/main/TOOLS.md)
+   is the authoritative list of tools it ships hand-curated prebuilt-URL
+   manifests for. Fastest path; one HTTP fetch per tool.
+2. **cargo-quickinstall fallback** — if the tool name isn't in the manifest,
+   install-action hands off to `cargo-binstall`, which in turn checks
+   [cargo-quickinstall's release index](https://github.com/cargo-bins/cargo-quickinstall/releases)
+   for prebuilt assets. This covers a much wider set of crates than the
+   curated manifest (anything with enough downloads gets auto-published).
+3. **Source build via `cargo install`** — when neither of the above has a
+   prebuilt for the target triple, cargo-binstall falls through to a real
+   source build. Slow; treat its presence in CI as a regression.
+
+When the question is "can install-action install X?", check the TOOLS.md
+first; if not there, search cargo-quickinstall's release tags for `X-<ver>`.
+A hit in either tier means install-action will fetch a prebuilt; absence in
+both means CI would pay a source-build cost. (Worked example: `aube` isn't in
+install-action's manifest but IS in cargo-quickinstall's index, so
+install-action would install it via the fallback path.)
+
 ## Linting
 
 Lint checks must be expressed through one of the repo's linters — **never** as a
@@ -475,6 +503,15 @@ available linters:
   `taplo lint --schema` in `taplo-check`.
 - **conftest** (`config/conftest/policy/`) — Rego policies over the combined
   TOML/YAML config set, for cross-file checks the schema linters can't express.
+- **regal** (`config/regal.yaml`, via `regal-check`) — lints the Rego policies
+  themselves (style, idioms, bugs). Carves out conftest-specific patterns
+  (multiple `deny` rules per file, cross-package `data.*` references, no OPA
+  entrypoints) that vanilla regal would flag.
+- **shellcheck on mise task bodies** (`.mise/shellcheck-mise.jq`, via
+  `shellcheck-mise-check`) — extracts every multi-line bash-shell `run = """ …
+  """` from `.mise/config*.toml`, masks Tera tokens (`{{ … }}` → `MISEVAR`,
+  `{% … %}` → empty), and shellchecks the lot. This is how shell-quality
+  lints reach mise task bodies (shellcheck itself doesn't read TOML).
 - plus hadolint, ls-lint (file/dir naming), zizmor (Actions security), ryl
   (YAML), lychee (links), clang-format / clang-tidy / cpplint (C, in the zig
   config), editorconfig-checker, typos, and action-validator for their domains.

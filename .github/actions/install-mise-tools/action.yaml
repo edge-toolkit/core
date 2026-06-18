@@ -1,0 +1,46 @@
+---
+name: Install mise tools
+description: >-
+  Install mise (via install-mise), then trust the .mise config, and install
+  the toolchain named by the workflow's MISE_ENV (with one retry on transient
+  HTTP flakes). Shared by check.yaml and test.yaml; the caller must run
+  `actions/checkout` before this so .mise/config*.toml exists for `mise trust`.
+
+inputs:
+  github-token:
+    description: >-
+      GitHub token forwarded as `$GITHUB_TOKEN` to the mise/preinstall steps.
+      Raises the api.github.com rate-limit ceiling on aqua's attestation
+      lookups + tool-asset fetches.
+    required: true
+  extra-tools:
+    description: >-
+      Comma-separated tools to co-install via taiki-e/install-action in the
+      same step as mise. Forwarded to install-mise's `extra-tools` input.
+      test.yaml uses this to install `aube` (the optional npm backend) ahead
+      of `mise install` so the `npm:onnxruntime-web` resolver can pick it up.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install mise binary
+      uses: ./.github/actions/install-mise
+      with:
+        extra-tools: ${{ inputs.extra-tools }}
+
+    - name: Show MISE_ENV
+      shell: bash
+      run: echo "MISE_ENV=$MISE_ENV"
+
+    - name: Install mise tools
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        mise run preinstall
+        # Retry once on transient api.github.com 5xx during the aqua attestation
+        # / asset fetches: the first attempt re-uses what's already on disk, so
+        # the retry usually clears single-tool HTTP flakes in seconds.
+        mise install || { echo "::warning::mise install failed, retrying once"; mise install; }

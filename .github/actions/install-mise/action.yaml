@@ -1,0 +1,48 @@
+---
+name: Install mise
+description: >-
+  Install the mise binary (and cargo-binstall as its source-build backend)
+  via taiki-e/install-action, and on Windows add mise's file-shim dir to
+  PATH so subsequent steps can resolve mise-managed tools by bare name.
+  Shared by every workflow that runs `mise` on the runner. For the heavier
+  "also install everything named by MISE_ENV" flow, use install-mise-tools.
+
+inputs:
+  extra-tools:
+    description: >-
+      Comma-separated tools to co-install via taiki-e/install-action in the
+      same step as mise (cheaper than a second install-action call). Use the
+      same syntax as install-action's `tool:` input.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install mise (and any extra tools)
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-binstall,mise@2026.6.5${{ inputs.extra-tools && ',' || '' }}${{ inputs.extra-tools }}
+
+    # taiki-e/install-action's mise manifest stages only `mise.exe`; mise's
+    # per-tool `.cmd` "file" shims under `%LOCALAPPDATA%\mise\shims` aren't
+    # on PATH by default, so tool lookups inside `mise run` fail with
+    # `'dart' / 'mvn' / 'recur' / 'wasm-pack' / 'zig' is not recognized…`.
+    # We append the shims dir for subsequent steps. The companion
+    # `mise-shim.exe` (single-binary shim) ALSO ships in the Windows zip,
+    # but staging it triggers a CreateProcess `ERROR_FILENAME_EXCED_RANGE`
+    # (os error 206) when mise-shim re-execs mise.exe with the runner's
+    # already-long PATH inherited -- the file-shim fallback doesn't have
+    # this problem (each .cmd shim invokes `mise exec --` plainly via cmd).
+    - name: Add mise shims dir to PATH on Windows
+      if: runner.os == 'Windows'
+      shell: bash
+      run: echo "$LOCALAPPDATA\mise\shims" >> "$GITHUB_PATH"
+
+    # Marks the checked-out .mise/config*.toml as trusted so subsequent mise
+    # invocations don't error out with "Config files are not trusted". The
+    # caller must run actions/checkout BEFORE this composite action so the
+    # config files are on disk.
+    - name: Trust mise config
+      shell: bash
+      run: mise trust

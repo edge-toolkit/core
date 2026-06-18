@@ -17,6 +17,7 @@ name: upstream-cache
   pull_request:
     paths:
       - .github/workflows/upstream-cache.yaml
+      - .github/actions/install-mise/**
   workflow_dispatch:
     inputs:
       os:
@@ -163,33 +164,7 @@ jobs:
         if: |-
           steps.rp_check.outputs.work == 'yes'
           && github.event.pull_request.head.repo.fork != true
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-binstall,mise@2026.6.5
-
-      # See test.yaml's identical step for the full rationale: taiki-e/
-      # install-action ships only mise.exe, but the Windows mise runtime needs
-      # mise-shim.exe + the shims dir on PATH or `mise run` falls back to file
-      # shims that aren't reachable.
-      - name: Stage mise-shim.exe + shims dir on Windows
-        if: |-
-          runner.os == 'Windows'
-          && steps.rp_check.outputs.work == 'yes'
-          && github.event.pull_request.head.repo.fork != true
-        run: |
-          v=2026.6.5
-          url="https://github.com/jdx/mise/releases/download/v${v}/mise-v${v}-windows-x64.zip"
-          zip="$RUNNER_TEMP/mise-win.zip"
-          dest="$(dirname "$(command -v mise)")"
-          curl -fsSL -o "$zip" "$url"
-          unzip -j "$zip" 'mise/bin/mise-shim.exe' -d "$dest"
-          echo "$LOCALAPPDATA\mise\shims" >> "$GITHUB_PATH"
-
-      - name: Trust mise config
-        if: |-
-          steps.rp_check.outputs.work == 'yes'
-          && github.event.pull_request.head.repo.fork != true
-        run: mise trust
+        uses: ./.github/actions/install-mise
 
       - name: Show MISE_ENV
         if: |-

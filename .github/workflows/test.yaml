@@ -105,55 +105,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y mesa-vulkan-drivers
 
-      - name: Install mise
-        uses: taiki-e/install-action@v2
+      - name: Install mise + tools
+        uses: ./.github/actions/install-mise-tools
         with:
-          tool: cargo-binstall,mise@2026.6.5
-
-      # taiki-e/install-action's mise manifest extracts only `mise/bin/mise.exe`
-      # from the Windows release zip; mise's runtime needs `mise/bin/mise-shim.exe`
-      # next to it AND its `%LOCALAPPDATA%\mise\shims` dir on PATH, or tool
-      # lookups inside `mise run` silently fall back to "file" shim mode and
-      # the per-tool `.cmd` shims aren't reachable (manifesting as `'dart' /
-      # 'mvn' / 'recur' / 'wasm-pack' / 'zig' is not recognized…` inside
-      # `prefetch-ci`). Stage mise-shim.exe from the same release tag and
-      # append the shims dir to GITHUB_PATH for subsequent steps.
-      - name: Stage mise-shim.exe + shims dir on Windows
-        if: runner.os == 'Windows'
-        run: |
-          v=2026.6.5
-          url="https://github.com/jdx/mise/releases/download/v${v}/mise-v${v}-windows-x64.zip"
-          zip="$RUNNER_TEMP/mise-win.zip"
-          dest="$(dirname "$(command -v mise)")"
-          curl -fsSL -o "$zip" "$url"
-          unzip -j "$zip" 'mise/bin/mise-shim.exe' -d "$dest"
-          echo "$LOCALAPPDATA\mise\shims" >> "$GITHUB_PATH"
-
-      - name: Trust mise config
-        run: mise trust
-
-      - name: Show MISE_ENV
-        run: echo "MISE_ENV=$MISE_ENV"
-
-      # Optional npm backend, installed before the main `mise install`.
-      # See [tasks.setup-aube] in .mise/config.toml for the full rationale.
-      - name: Install aube (optional npm backend, allowed to fail)
-        continue-on-error: true
-        run: |
-          mise settings experimental=true
-          mise run setup-aube
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-
-      - name: Install mise tools
-        run: |
-          mise run preinstall
-          # Retry once on transient api.github.com 5xx during the aqua attestation
-          # / asset fetches: the first attempt re-uses what's already on disk, so
-          # the retry usually clears single-tool HTTP flakes in seconds.
-          mise install || { echo "::warning::mise install failed, retrying once"; mise install; }
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+          github-token: ${{ github.token }}
+          # aube is the optional npm backend mise's `npm:onnxruntime-web`
+          # picks up when present. Installed via taiki-e/install-action's
+          # cargo-binstall → cargo-quickinstall fallback (aube isn't in
+          # install-action's manifest but is in cargo-quickinstall's index).
+          extra-tools: aube
 
       - name: Prefetch dependencies
         env:
