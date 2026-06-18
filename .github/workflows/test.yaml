@@ -130,10 +130,12 @@ jobs:
       # (incl. our pwsh diagnostic ones) sees it.
       - name: Set HOME = USERPROFILE on Windows
         if: runner.os == 'Windows'
+        timeout-minutes: 1
         run: echo "HOME=$USERPROFILE" >> "$GITHUB_ENV"
 
       - name: Install mise + tools
         uses: ./.github/actions/install-mise-tools
+        timeout-minutes: 20
         with:
           github-token: ${{ github.token }}
 
@@ -142,6 +144,7 @@ jobs:
       # with a diagnostic split to chase the silent prefetch stall.
       - name: Prefetch dependencies (non-Windows)
         if: runner.os != 'Windows'
+        timeout-minutes: 15
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run prefetch-ci
@@ -196,6 +199,7 @@ jobs:
       # single `mise run prefetch-ci` step once the root cause is in hand.
       - name: "Diagnostic: prefetch prefetch:rust (pwsh shell)"
         if: runner.os == 'Windows'
+        timeout-minutes: 15
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -229,6 +233,7 @@ jobs:
 
       - name: "Diagnostic: prefetch prefetch:node (pwsh shell)"
         if: runner.os == 'Windows'
+        timeout-minutes: 15
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -240,6 +245,7 @@ jobs:
 
       - name: "Diagnostic: prefetch fetch-mnist-rclone (bash + xtrace)"
         if: runner.os == 'Windows'
+        timeout-minutes: 10
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
@@ -252,9 +258,11 @@ jobs:
       # rp-v<N> rustpython_wasm tarball (build-ws-pywasm1-module → fetch-rp-wasm
       # → rclone via :http: against api.github.com).
       - name: Build WASM modules
+        timeout-minutes: 25
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run build-modules
 
       - name: Run tests
+        timeout-minutes: 30
         run: mise run test
