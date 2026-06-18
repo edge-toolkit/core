@@ -184,7 +184,6 @@ jobs:
           MISE_ENV="$MISE_ENV,maint" mise install
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          MISE_HTTP_TIMEOUT: "120"
 
       # RP_SHORT comes via env (not `${{ }}` inside the run block) to keep
       # zizmor's template-injection rule happy -- step outputs are treated
@@ -226,7 +225,6 @@ jobs:
           && steps.rp_check.outputs.native_missing == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          MISE_HTTP_TIMEOUT: "120"
         run: MISE_ENV="$MISE_ENV,maint" mise run publish-rp-native-to-release
 
       # Wasm rustpython is platform-agnostic; gate to a single canonical
@@ -238,5 +236,4 @@ jobs:
           && matrix.os == 'ubuntu-latest'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          MISE_HTTP_TIMEOUT: "120"
         run: MISE_ENV="$MISE_ENV,maint" mise run publish-rp-wasm-to-release

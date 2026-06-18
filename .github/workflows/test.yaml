@@ -116,7 +116,6 @@ jobs:
           mise run setup-aube
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          MISE_HTTP_TIMEOUT: "120"
 
       - name: Install mise tools
         run: |
@@ -124,9 +123,6 @@ jobs:
           mise install
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          # Match check.yaml: bump mise's 30s HTTP timeout so GitHub-release
-          # downloads don't fail the install on transient slowness.
-          MISE_HTTP_TIMEOUT: "120"
 
       - name: Prefetch dependencies
         env:

@@ -142,6 +142,16 @@ types changed. Pick the targeted tasks from the tables below that match the
 extensions of the files you actually modified, and run only those. Same goes
 for `fmt`: run the per-file-type formatter, not the aggregate.
 
+**Agents must not invoke formatter/linter binaries directly** (e.g.
+`mise exec -- taplo format`, raw `taplo`/`dprint`/`oxfmt`/`cargo fmt` calls).
+Always use the corresponding mise task (`mise run taplo-fmt`, `mise run
+taplo-check`, `mise run dprint-fmt`, etc.). The tasks carry the project's
+config-file paths (`config/taplo.toml`, `config/dprint.jsonc`, …), exclusion
+lists, and flag conventions; bypassing them produces results that don't match
+the canonical pipeline (different excludes, different `reorder_keys`/
+`column_width` settings, different file globs). taplo specifically: the only
+right way to format TOML in this repo is `mise run taplo-fmt`.
+
 The `mise run <task>` formatters and checks per file type. The aggregates
 (`fmt`/`check`/`fmt-all`/`check-all`) run every loaded language's row; guest
 rows need their `MISE_ENV` loaded.

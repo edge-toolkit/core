@@ -46,7 +46,6 @@ jobs:
           mise run setup-aube
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          MISE_HTTP_TIMEOUT: "120"
 
       - name: Install mise tools
         run: |
@@ -55,9 +54,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           # GitHub release downloads occasionally take longer than mise's
-          # default 30s HTTP timeout; bump it so transient network slowness
-          # doesn't fail the whole `mise install` step.
-          MISE_HTTP_TIMEOUT: "120"
 
       - name: Prefetch Rust dependencies
         run: mise run prefetch:rust

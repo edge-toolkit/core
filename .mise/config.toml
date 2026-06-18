@@ -20,6 +20,8 @@ min_version = "2026.6.5"
 cargo.binstall = true
 exec_auto_install = false
 experimental = true
+http_retries = 10
+http_timeout = "2m"
 task.run_auto_install = false
 # Hard-verify tool signatures via gpg on every platform (propagates to
 # node.gpg_verify and swift.gpg_verify per mise/src/config/settings.rs).
@@ -261,7 +263,9 @@ config_root_fwd = "{{ config_root | replace(from='\\', to='/') }}"
 # (os error 2)`). The `build-et-cli` task is the dependency that puts the
 # binary in place; every et-cli-using task must (directly or transitively)
 # depend on it. `.exe` suffix on Windows matches cargo's output naming.
-et_cli = "{{ vars.config_root_fwd }}/target/debug/et-cli{% if os() == 'windows' %}.exe{% endif %}"
+a_et_cli_exe = "et-cli{% if os() == 'windows' %}.exe{% endif %}"
+a_et_cli_target_dir = "target{% if os() == 'windows' %}/x86_64-pc-windows-gnullvm{% endif %}/debug"
+et_cli = "{{ vars.config_root_fwd }}/{{ vars.a_et_cli_target_dir }}/{{ vars.a_et_cli_exe }}"
 # mise-managed CPython (Linux/macOS); the PYO3_PYTHON default below. Windows
 # overrides PYO3_PYTHON with its own py3_win in config.windows.toml. The version
 # segment must equal the `python` [tools] pin (conftest enforces both).
