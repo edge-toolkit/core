@@ -128,11 +128,6 @@ jobs:
         env:
           DOCKERFILE: ${{ steps.dockerfile.outputs.dockerfile }}
           IMAGE_TAG: ${{ steps.dockerfile.outputs.tag }}
-          # Enable BuildKit so the `RUN --mount=type=cache,target=...` lines in
-          # Dockerfile.windows (and any future cache mounts elsewhere) are
-          # honored. Without DOCKER_BUILDKIT=1 the legacy builder silently
-          # ignores the directive and downloads bake into image layers.
-          DOCKER_BUILDKIT: "1"
         run: |
           args="-f $DOCKERFILE ${{ matrix.build_arg }} --build-arg MISE_ENV"
           args="$args --target build-minimal -t $IMAGE_TAG"
@@ -163,7 +158,6 @@ jobs:
       - name: Build stage precompile
         env:
           DOCKERFILE: ${{ steps.dockerfile.outputs.dockerfile }}
-          DOCKER_BUILDKIT: "1"
         run: |
           args="-f $DOCKERFILE ${{ matrix.build_arg }} --build-arg MISE_ENV"
           args="$args --target precompile"
