@@ -32,6 +32,11 @@ defaults:
 
 env:
   MISE_ENV: dart,dotnet,java,python,rust,zig
+  # Crank mise's logging to debug while we chase the prefetch-ci hang on
+  # Windows -- silent 53-min stalls give us nothing to diagnose with. Drop
+  # both back to defaults once the root cause is in hand.
+  MISE_VERBOSE: "1"
+  MISE_DEBUG: "1"
 
 jobs:
   rust:
