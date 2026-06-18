@@ -38,8 +38,12 @@ runs:
       run: echo "MISE_ENV=$MISE_ENV"
 
     # Optional npm backend, installed before the main `mise install`.
+    # Only useful when js env is loaded (it's the backend for npm:* tools, all
+    # of which live in config.js.toml); skip otherwise to avoid the install
+    # cost on workflows that don't need any npm: install.
     # See [tasks.setup-aube] in .mise/config.toml for the full rationale.
     - name: Install aube (optional npm backend, allowed to fail)
+      if: contains(env.MISE_ENV, 'js')
       continue-on-error: true
       shell: bash
       env:

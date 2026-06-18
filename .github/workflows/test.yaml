@@ -36,7 +36,7 @@ env:
   # footprint to just the always-loaded config.toml tools so we can isolate
   # which language config triggers the Windows setlocal/cygheap pathology.
   # Bisect upward (e.g. `rust`, then `rust,python`, ...) until the failure
-  # returns. Restore to the standard `dart,dotnet,java,python,rust,zig` once
+  # returns. Restore to the standard `dart,dotnet,java,js,python,rust,zig` once
   # the root cause is in hand. The matching gha.rego carve-out
   # (`expected_mise_env_test_diagnostic`) allows the empty value on this
   # workflow only.

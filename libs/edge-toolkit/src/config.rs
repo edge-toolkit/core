@@ -176,6 +176,7 @@ pub enum Language {
     Dart,
     Dotnet,
     Java,
+    Js,
     Python,
     Rust,
     Zig,
@@ -193,10 +194,15 @@ impl Language {
 /// Whether `MISE_ENV` loads the named language config.
 ///
 /// `MISE_ENV` is a comma-separated list of guest-language envs (each adds a
-/// `config.<env>.toml`). With it unset/empty mise loads the base config only
-/// -- callers should treat that as "the full set is available" since the
-/// always-loaded `[tools]` cover their own tools and any `mise install` in
-/// CI is run with the workflow-level `MISE_ENV` already in scope.
+/// `config.<env>.toml`). The unset and explicitly-empty cases mean different
+/// things:
+///
+/// - **`MISE_ENV` unset** (no env var at all): typical local-dev state where
+///   the developer's `mise install` covered everything; treat every language
+///   as available.
+/// - **`MISE_ENV=""`** (set, empty): CI/Docker explicitly narrowed the env
+///   to "no guest languages". Every language returns false; tests that
+///   depend on a guest-env tool skip cleanly.
 ///
 /// Used to gate live-installed-tool tests: when CI narrows `MISE_ENV` for
 /// faster feedback (e.g. `dotnet,rust`), tests that depend on a tool in a
@@ -204,9 +210,11 @@ impl Language {
 /// instead of panicking.
 #[must_use]
 pub fn mise_env_includes(language: Language) -> bool {
-    let value = std::env::var("MISE_ENV").unwrap_or_default();
-    if value.is_empty() {
+    let Ok(value) = std::env::var("MISE_ENV") else {
         return true;
+    };
+    if value.is_empty() {
+        return false;
     }
     value.split(',').any(|seg| seg.trim() == language.as_str())
 }

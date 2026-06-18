@@ -213,7 +213,7 @@ EOF
 FROM build-minimal AS build
 COPY .mise/ .mise/
 RUN mise trust
-ARG MISE_ENV=dart,dotnet,java,python,rust,zig
+ARG MISE_ENV=dart,dotnet,java,js,python,rust,zig
 ENV MISE_ENV=${MISE_ENV}
 RUN --mount=type=secret,id=gh_token,required=false bash <<'EOF'
 set -euo pipefail

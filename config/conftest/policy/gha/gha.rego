@@ -42,7 +42,7 @@ deny contains msg if {
 # exercises the same toolchain footprint as a local `mise install`. The
 # docker-windows workflow's Nano lane drops `python` via a matrix-specific
 # build-arg override; the workflow-level value still matches the standard.
-expected_mise_env := "dart,dotnet,java,python,rust,zig"
+expected_mise_env := "dart,dotnet,java,js,python,rust,zig"
 
 # TEMPORARY: the `test` workflow is allowed to set MISE_ENV to the empty
 # string while we bisect which language toolchain triggers the Windows

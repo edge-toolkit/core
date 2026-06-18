@@ -1,0 +1,30 @@
+# JavaScript / npm env (MISE_ENV=js).
+#
+# Tools that resolve through mise's `npm:` backend live here so the modules
+# that consume them (har1, face-detection — both have `onnxruntime-web` as a
+# Cargo dep and load the JS package at runtime via /modules/onnxruntime-web)
+# only build when the `js` env is loaded. The aqua-backed `pnpm` row stays
+# in the default config; the `npm:pnpm` row below is the macos/x64 fallback
+# (no aqua darwin/amd64 prebuilt). The `.js` / `.ts` formatters + checkers
+# (dprint, oxlint, oxfmt) stay in the always-loaded base config because
+# repo-wide lint tasks (`check`/`fmt`) reference them without loading `js`.
+
+[tools]
+"npm:onnxruntime-web" = "latest"
+"npm:pnpm" = { version = "latest", os = ["macos/x64"] }
+
+[tasks.build-ws-har1-module]
+depends = ["build-et-cli"]
+description = "Build the har1 workflow WASM module"
+dir = "services/ws-modules/har1"
+# Chain with `&&` on one line rather than a multi-line `bash` block: wasm-pack
+# shells out to `cargo metadata`, and that subprocess can't find `cargo` under
+# Git Bash on Windows. The default shell (cmd there) resolves cargo like the
+# single-line wasm-pack modules do.
+run = "wasm-pack build . --target web {{ vars.no_opt }} && {{ vars.et_cli }} module-package-json"
+
+[tasks.build-ws-face-detection-module]
+depends = ["build-et-cli"]
+description = "Build the face detection workflow WASM module"
+dir = "services/ws-modules/face-detection"
+run = "wasm-pack build . --target web {{ vars.no_opt }} && {{ vars.et_cli }} module-package-json"

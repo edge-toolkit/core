@@ -391,7 +391,7 @@ FROM build-minimal AS build
 COPY .mise/ .mise/
 RUN mise trust
 ARG MISE_ENV
-ENV MISE_ENV=dart,java,rust,zig
+ENV MISE_ENV=dart,java,js,rust,zig
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install
 

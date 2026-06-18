@@ -16,24 +16,6 @@ description = "Build the data1 workflow WASM module"
 dir = "services/ws-modules/data1"
 run = "wasm-pack build . --target web {{ vars.no_opt }}"
 
-[tasks.build-ws-har1-module]
-depends = ["build-et-cli"]
-description = "Build the har1 workflow WASM module"
-dir = "services/ws-modules/har1"
-# Chain with `&&` on one line rather than a multi-line `bash` block: wasm-pack
-# shells out to `cargo metadata`, and that subprocess can't find `cargo` under
-# Git Bash on Windows. The default shell (cmd there) resolves cargo like the
-# single-line wasm-pack modules do.
-run = "wasm-pack build . --target web {{ vars.no_opt }} && {{ vars.et_cli }} module-package-json"
-
-[tasks.build-ws-face-detection-module]
-depends = ["build-et-cli"]
-description = "Build the face detection workflow WASM module"
-dir = "services/ws-modules/face-detection"
-# See build-ws-har1-module: `&&` on one line under the default shell so
-# wasm-pack's `cargo metadata` subprocess can find cargo on Windows.
-run = "wasm-pack build . --target web {{ vars.no_opt }} && {{ vars.et_cli }} module-package-json"
-
 [tasks.build-ws-comm1-module]
 description = "Build the comm1 workflow WASM module"
 dir = "services/ws-modules/comm1"

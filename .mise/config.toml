@@ -114,7 +114,6 @@ ls-lint = "latest"
 lychee = "latest"
 mprocs = "latest"
 node = "22"
-"npm:onnxruntime-web" = "latest"
 osv-scanner = "latest"
 # Aqua has no pipx build for windows/amd64. On Windows the workflow runs
 # `python -m pip install pipx` separately so the `pipx:*` entries below
@@ -127,10 +126,9 @@ pipx = { version = "latest", os = ["linux", "macos"] }
 # semgrep lints Cargo.toml style (see `semgrep-check`), so it stays in the
 # always-loaded config alongside the other repo-wide linters.
 "pipx:semgrep" = "latest"
-# The default aqua backend has no darwin/amd64 prebuilt; fall back to
-# `npm:pnpm` on Intel Mac (node is already a mise tool above).
 gh = "latest"
-"npm:pnpm" = { version = "latest", os = ["macos/x64"] }
+# Aqua has no pnpm darwin/amd64 prebuilt; the `npm:pnpm` fallback for macos/x64
+# lives in the `js` env (config.js.toml).
 pnpm = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 protoc = "latest"
 # Full version triple, not a minor pin: mise installs python under a per-tool dir
@@ -383,7 +381,7 @@ retry = "mise exec -- recur -v --attempts 10 --delay 2s --backoff 2s --max-delay
 # Used as MISE_ENV by the *-all tasks to act on every language at once (mise has
 # no MISE_ENV=all). Hardcoded rather than shell-discovered so it works on Windows
 # too — keep in sync when adding/removing a config.<lang>.toml.
-ALL_LANGS = "dart,dotnet,java,python,rust,zig"
+ALL_LANGS = "dart,dotnet,java,js,python,rust,zig"
 CLIPPY_CONF_DIR = "{{ config_root }}/config"
 TAPLO_CONFIG = "{{ config_root }}/config/taplo.toml"
 # Use the conda:openssl install for Rust's OPENSSL_DIR so openssl-sys crate builds.

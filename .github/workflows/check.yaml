@@ -19,7 +19,7 @@ defaults:
     shell: bash --noprofile --norc -euo pipefail {0}
 
 env:
-  MISE_ENV: dart,dotnet,java,python,rust,zig
+  MISE_ENV: dart,dotnet,java,js,python,rust,zig
 
 jobs:
   check:
