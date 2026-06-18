@@ -191,6 +191,28 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           $now = { Get-Date -Format 'HH:mm:ss.fff' }
+          Write-Host "::group::shim diagnostics (what cmd is recursing on)"
+          $shims = "$env:LOCALAPPDATA\mise\shims"
+          Write-Host "shims dir: $shims (exists: $(Test-Path $shims))"
+          if (Test-Path $shims) {
+            $cmdFiles = @(Get-ChildItem $shims -Filter '*.cmd' -ErrorAction SilentlyContinue)
+            Write-Host "total .cmd shims in dir: $($cmdFiles.Count)"
+            foreach ($name in 'cargo.cmd','rustc.cmd','mise.cmd','recur.cmd','rclone.cmd','wasm-pack.cmd') {
+              $p = Join-Path $shims $name
+              if (Test-Path $p) {
+                Write-Host "----- $name -----"
+                Get-Content $p
+                Write-Host "----- end $name -----"
+              } else {
+                Write-Host "$name: NOT FOUND"
+              }
+            }
+          }
+          Write-Host "where.exe mise:"
+          where.exe mise 2>&1
+          Write-Host "where.exe cargo:"
+          where.exe cargo 2>&1
+          Write-Host "::endgroup::"
           Write-Host "[$(& $now)] starting mise run prefetch:rust"
           mise run prefetch:rust
           Write-Host "[$(& $now)] finished mise run prefetch:rust"
