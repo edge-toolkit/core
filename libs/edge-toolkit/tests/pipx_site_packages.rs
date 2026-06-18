@@ -1,7 +1,8 @@
 //! Layout test for `find_site_packages_in` -- the pure-filesystem core of
 //! `mise_python_site_packages`. Builds a tempdir mimicking the pipx venv layout
-//! (`<install>/<pkg>/lib/python<X.Y>/site-packages`) and verifies the resolver
-//! finds it regardless of the `<pkg>` name and python version.
+//! and verifies the resolver finds it on both POSIX
+//! (`<install>/<pkg>/lib/python<X.Y>/site-packages`) and Windows
+//! (`<install>/<pkg>/Lib/site-packages`, no Python-version subdir).
 
 #![cfg(test)]
 #![expect(clippy::unwrap_used, reason = "test code: failed tempdir setup should fail the test")]
@@ -17,6 +18,18 @@ fn resolves_pipx_venv_layout() {
     // assumed.
     let install = TempDir::new().unwrap();
     let site_packages = install.path().join("cowsay/lib/python3.13/site-packages");
+    fs::create_dir_all(&site_packages).unwrap();
+
+    let found = find_site_packages_in(install.path());
+    assert_eq!(found.as_deref(), Some(site_packages.as_path()));
+}
+
+#[test]
+fn resolves_windows_pipx_venv_layout() {
+    // <install>/cowsay/Lib/site-packages -- the shape uv (pipx backend) lays
+    // down on Windows: capital `Lib`, no python-version subdir.
+    let install = TempDir::new().unwrap();
+    let site_packages = install.path().join("cowsay/Lib/site-packages");
     fs::create_dir_all(&site_packages).unwrap();
 
     let found = find_site_packages_in(install.path());

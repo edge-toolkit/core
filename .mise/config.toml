@@ -34,6 +34,8 @@ gpg_verify = true
 [tools]
 action-validator = "latest"
 "aqua:EmbarkStudios/cargo-deny" = "latest"
+"aqua:StyraInc/regal" = "latest"
+"aqua:koalaman/shellcheck" = "latest"
 "aqua:rustwasm/wasm-pack" = "latest"
 ast-grep = "latest"
 cargo-binstall = "latest"
@@ -435,6 +437,7 @@ depends = [
   "ls-lint-check",
   "oxfmt-check",
   "oxlint-check",
+  "regal-check",
   "ryl-check",
   "semgrep-check",
   "taplo-check",
@@ -580,6 +583,12 @@ for f in $files; do
 done
 """
 shell = "bash -euo pipefail -c"
+
+[tasks.regal-check]
+description = "Lint Rego policy files with Regal (style, idiomatic, bugs)"
+# config/regal.yaml carves out conftest-specific patterns (multiple `deny`
+# rules per file, cross-package data references, no OPA entrypoints).
+run = "regal lint -c config/regal.yaml config/conftest/policy/"
 
 [tasks.taplo-check]
 alias = "toml-check"

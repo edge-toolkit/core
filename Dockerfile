@@ -204,17 +204,22 @@ MISE_JOBS=1 mise install
 EOF
 
 # --- build: add the guest-language toolchains (config.<lang>.toml). ---
-# install-all == MISE_ENV="$ALL_LANGS" mise install; the always-loaded tools are
-# already installed by build-minimal, so this adds dart/dotnet/java/zig/etc.
+# `mise install` honors MISE_ENV (the always-loaded tools are already
+# installed by build-minimal, so this adds whichever guests MISE_ENV names
+# -- dart/dotnet/java/python/rust/zig in the default). Stage-scoped ARG
+# with a default; override via `--build-arg MISE_ENV=...` to widen or
+# narrow the language set without touching this file (the docker-linux.yaml
+# workflow passes its workflow-level MISE_ENV through).
 FROM build-minimal AS build
 COPY .mise/ .mise/
 RUN mise trust
-ENV MISE_ENV="dart,dotnet,java,python,rust,zig"
+ARG MISE_ENV=dart,dotnet,java,python,rust,zig
+ENV MISE_ENV=${MISE_ENV}
 RUN --mount=type=secret,id=gh_token,required=false bash <<'EOF'
 set -euo pipefail
 GITHUB_TOKEN="$(cat /run/secrets/gh_token 2>/dev/null || true)"
 export GITHUB_TOKEN
-mise install-all
+mise install
 EOF
 
 # --- prefetch: download all dependencies + ONNX models. ---

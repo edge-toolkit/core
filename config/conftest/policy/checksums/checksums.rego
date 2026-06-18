@@ -18,9 +18,8 @@ is_checksums(file) if file.path == "config/checksums.toml"
 mise_assets contains filename if {
 	some file in input
 	is_mise(file)
-	some key, val in file.contents.vars
+	some key, filename in file.contents.vars
 	endswith(key, "_asset")
-	filename := val
 }
 
 # Filenames present in config/checksums.toml's [sha256] table.

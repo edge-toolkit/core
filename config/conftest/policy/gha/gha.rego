@@ -24,3 +24,12 @@ deny contains msg if {
 	step.shell
 	msg := sprintf("job %q sets shell: on a step; use the workflow default", [name])
 }
+
+# Every workflow must declare MISE_ENV at the workflow level so the set of
+# loaded language envs is visible at a glance (no per-job `mise run
+# print-all-langs` runtime resolution). The matching `Show MISE_ENV` step
+# in each job echoes the value into the CI log.
+deny contains msg if {
+	not input.env.MISE_ENV
+	msg := "workflow must set top-level env.MISE_ENV (the comma-separated language list)"
+}

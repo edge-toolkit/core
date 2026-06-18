@@ -155,10 +155,9 @@ deny contains msg if {
 tool_versions contains [dir, version] if {
 	some file in input
 	is_mise(file)
-	some name, spec in file.contents.tools
-	is_string(spec)
+	some name, version in file.contents.tools
+	is_string(version)
 	dir := replace(replace(name, ":", "-"), "/", "-")
-	version := spec
 }
 
 tool_versions contains [dir, version] if {

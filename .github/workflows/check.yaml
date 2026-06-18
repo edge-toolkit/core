@@ -18,6 +18,9 @@ defaults:
   run:
     shell: bash --noprofile --norc -euo pipefail {0}
 
+env:
+  MISE_ENV: dart,dotnet,java,python,rust,zig
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -34,8 +37,8 @@ jobs:
         with:
           tool: cargo-binstall,mise@2026.6.5
 
-      - name: Select all language envs
-        run: echo "MISE_ENV=$(mise run print-all-langs)" >> "$GITHUB_ENV"
+      - name: Show MISE_ENV
+        run: echo "MISE_ENV=$MISE_ENV"
 
       # Optional npm backend, installed before the main `mise install`.
       # See [tasks.setup-aube] in .mise/config.toml for the full rationale.

@@ -26,7 +26,7 @@ dep contains [file.path, name, spec] if {
 dep contains [file.path, name, spec] if {
 	some file in input
 	endswith(file.path, "Cargo.toml")
-	some _, tgt in file.contents.target
+	some tgt in file.contents.target
 	some table in {"dependencies", "dev-dependencies", "build-dependencies"}
 	some name, spec in tgt[table]
 }

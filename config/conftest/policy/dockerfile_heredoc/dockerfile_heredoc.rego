@@ -21,6 +21,7 @@ deny contains msg if {
 	some i, entry in items
 	is_string(entry.Original)
 	regex.match(`^RUN[^\n]*<<[A-Z]`, entry.Original)
+
 	# Bounds-check before indexing: an unterminated heredoc at EOF would
 	# otherwise trip `panic: slice bounds out of range`.
 	i + 1 < count(items)

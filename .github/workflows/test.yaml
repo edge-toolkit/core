@@ -11,11 +11,14 @@ name: test
         default: windows-latest
         options:
           - all
+          - ubuntu-slim
           - ubuntu-latest
+          - ubuntu-26.04
           - ubuntu-24.04-arm
           - macos-latest
           - macos-26-intel
           - windows-latest
+          - windows-11-arm
 
 permissions:
   contents: read
@@ -28,6 +31,9 @@ defaults:
   run:
     shell: bash --noprofile --norc -euo pipefail {0}
 
+env:
+  MISE_ENV: dotnet,rust
+
 jobs:
   rust:
     runs-on: ${{ matrix.os }}
@@ -36,8 +42,10 @@ jobs:
       fail-fast: false
       # `matrix` context isn't available in job-level `if:`, so we compute the
       # OS list right here in the strategy block (where `github.*` IS in scope):
-      #   pull_request       → ubuntu-latest + ubuntu-24.04-arm + macos-latest
-      #                        (skip slow Intel Mac & Windows)
+      #   pull_request       → ubuntu-slim + ubuntu-24.04-arm + macos-latest
+      #                        + windows-latest (skip slow Intel Mac;
+      #                        ubuntu-latest, ubuntu-26.04, windows-11-arm
+      #                        are dispatch-only)
       #   workflow_dispatch  → the OS picked in the dropdown, or all of them
       # The combos are emitted as a fully-formed list of `{os, timeout}`
       # objects so the `include:` "unmatched entries append as new jobs"
@@ -46,24 +54,31 @@ jobs:
         include: ${{ fromJSON(
           github.event_name == 'workflow_dispatch' && (
           github.event.inputs.os == 'all' && format(
-          '[{0},{1},{2},{3},{4}]',
+          '[{0},{1},{2},{3},{4},{5},{6},{7}]',
+          '{"os":"ubuntu-slim","timeout":40}',
           '{"os":"ubuntu-latest","timeout":40}',
+          '{"os":"ubuntu-26.04","timeout":40}',
           '{"os":"ubuntu-24.04-arm","timeout":40}',
           '{"os":"macos-latest","timeout":45}',
           '{"os":"macos-26-intel","timeout":60}',
-          '{"os":"windows-latest","timeout":60}'
+          '{"os":"windows-latest","timeout":60}',
+          '{"os":"windows-11-arm","timeout":60}'
           )
+          || github.event.inputs.os == 'ubuntu-slim' && '[{"os":"ubuntu-slim","timeout":40}]'
           || github.event.inputs.os == 'ubuntu-latest' && '[{"os":"ubuntu-latest","timeout":40}]'
+          || github.event.inputs.os == 'ubuntu-26.04' && '[{"os":"ubuntu-26.04","timeout":40}]'
           || github.event.inputs.os == 'ubuntu-24.04-arm' && '[{"os":"ubuntu-24.04-arm","timeout":40}]'
           || github.event.inputs.os == 'macos-latest' && '[{"os":"macos-latest","timeout":45}]'
           || github.event.inputs.os == 'macos-26-intel' && '[{"os":"macos-26-intel","timeout":60}]'
           || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":60}]'
+          || github.event.inputs.os == 'windows-11-arm' && '[{"os":"windows-11-arm","timeout":60}]'
           )
           || format(
-          '[{0},{1},{2}]',
-          '{"os":"ubuntu-latest","timeout":40}',
+          '[{0},{1},{2},{3}]',
+          '{"os":"ubuntu-slim","timeout":40}',
           '{"os":"ubuntu-24.04-arm","timeout":40}',
-          '{"os":"macos-latest","timeout":45}'
+          '{"os":"macos-latest","timeout":45}',
+          '{"os":"windows-latest","timeout":60}'
           )
           ) }}
     env:
@@ -84,14 +99,17 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      # Reclaim the large preinstalled toolchains we never use (~30 GB).
-      # `|| true` so a missing dir (e.g. on the arm image) is not fatal.
-      - name: Free up disk space (Linux)
+      - name: Maximize build space
         if: runner.os == 'Linux'
-        run: |
-          sudo rm -rf /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/share/swift || true
-          sudo docker image prune --all --force || true
-          df -h /
+        uses: easimon/maximize-build-space@v10
+        with:
+          root-reserve-mb: 4096
+          swap-size-mb: 1024
+          remove-dotnet: "true"
+          remove-android: "true"
+          remove-haskell: "true"
+          remove-codeql: "true"
+          remove-docker-images: "true"
 
       - name: Install Mesa Vulkan drivers (lavapipe)
         if: runner.os == 'Linux'
@@ -104,8 +122,8 @@ jobs:
         with:
           tool: cargo-binstall,mise@2026.6.5
 
-      - name: Select all language envs
-        run: echo "MISE_ENV=$(mise run print-all-langs)" >> "$GITHUB_ENV"
+      - name: Show MISE_ENV
+        run: echo "MISE_ENV=$MISE_ENV"
 
       # Optional npm backend, installed before the main `mise install`.
       # See [tasks.setup-aube] in .mise/config.toml for the full rationale.

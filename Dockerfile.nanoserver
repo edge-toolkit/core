@@ -353,12 +353,22 @@ ENV MISE_DISABLE_TOOLS=${MISE_DT_BASE},${MISE_DT_PY}
 # keeps pipx off the uv backend (uv strips env when spawning the
 # interpreter probe, so RUSTPYTHONPATH would vanish). Workspace-relative
 # paths because the Nano build's WORKDIR is C:\workspace.
+#
+# WIN_PD_OVERRIDE_* short-circuits platformdirs's `get_win_folder` so it
+# returns these strings instead of calling SHGetKnownFolderPath via ctypes
+# (Nano's shell32 is missing the entrypoint). Three CSIDLs cover every
+# code path pipx.paths can reach at import: LOCAL_APPDATA (cache/data),
+# APPDATA (user_data_dir roaming branch), COMMON_APPDATA (site dirs).
+# Values just need to be writable; pipx's real data goes to PIPX_HOME.
 ENV PIPX_DEFAULT_BACKEND=pip `
     PIPX_HOME=C:\workspace\target\preinstall-pipx\pipx-home `
     PIPX_BIN_DIR=C:\workspace\target\preinstall-pipx\pipx-bin `
     PIPX_SHARED_LIBS=C:\workspace\target\preinstall-pipx\shared `
     PYTHONPATH=C:\workspace\target\preinstall-pipx\site `
     RUSTPYTHONPATH=C:\workspace\target\preinstall-pipx\pip-extracted;C:\workspace\target\preinstall-pipx\site `
+    WIN_PD_OVERRIDE_LOCAL_APPDATA=C:\workspace\target\preinstall-pipx\winpd\local `
+    WIN_PD_OVERRIDE_APPDATA=C:\workspace\target\preinstall-pipx\winpd\roaming `
+    WIN_PD_OVERRIDE_COMMON_APPDATA=C:\workspace\target\preinstall-pipx\winpd\common `
     PATH="C:\workspace\target\preinstall-pipx\site\bin;${PATH}"
 
 # The remaining always-loaded tools (the cargo: tools; python is already

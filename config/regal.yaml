@@ -1,0 +1,18 @@
+# Regal config for the conftest policy tree at config/conftest/policy/.
+# Disables three rules that conflict with conftest's architecture:
+#   - style.messy-rule: conftest's idiomatic pattern is several `deny contains
+#     msg if { ... }` rules per concern; merging into one rule destroys
+#     per-condition readability.
+#   - style.external-reference: data.<pkg>.<X> imports across our policy
+#     files are intentional (e.g. dockerfile.rego reuses mise.version_drift).
+#   - idiomatic.no-defined-entrypoint: conftest reaches `deny` rules directly,
+#     no OPA `entrypoint` annotation needed.
+rules:
+  style:
+    messy-rule:
+      level: ignore
+    external-reference:
+      level: ignore
+  idiomatic:
+    no-defined-entrypoint:
+      level: ignore

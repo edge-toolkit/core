@@ -19,6 +19,9 @@ defaults:
   run:
     shell: bash --noprofile --norc -euo pipefail {0}
 
+env:
+  MISE_ENV: dart,dotnet,java,python,rust,zig
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -44,12 +47,10 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      # The image is huge (every language toolchain + prefetched models + a full
-      # debug build, incl. aws-lc-sys's large C objects), and its peak `target/`
-      # overruns a single runner disk. Reclaim the unused preinstalled SDKs and
-      # concatenate the freed root space with /mnt into one LVM volume mounted at
-      # Docker's data dir, then restart Docker so the build uses the combined space.
-      - name: Maximize build space (combine root + /mnt for Docker)
+      - name: Show MISE_ENV
+        run: echo "MISE_ENV=$MISE_ENV"
+
+      - name: Maximize build space
         uses: easimon/maximize-build-space@v10
         with:
           root-reserve-mb: 4096
@@ -70,7 +71,10 @@ jobs:
           BASE_IMAGE: ${{ matrix.base }}
           DOCKER_BUILDKIT: "1"
           GITHUB_TOKEN: ${{ github.token }}
-        run: docker build --target test --build-arg BASE_IMAGE --secret id=gh_token,env=GITHUB_TOKEN -t et-test .
+        run: |
+          args="--target test --build-arg BASE_IMAGE --build-arg MISE_ENV"
+          args="$args --secret id=gh_token,env=GITHUB_TOKEN -t et-test"
+          docker build $args .
 
       # The check stage needs `.git/` + every tracked Dockerfile. The main
       # `.dockerignore` excludes both (`**/Dockerfile*` so Dockerfiles in
@@ -92,7 +96,9 @@ jobs:
           mkdir -p "$CTX"
           cp -r .git "$CTX/"
           git ls-files '*Dockerfile' '*Dockerfile.*' | xargs -I{} cp --parents {} "$CTX/"
-          docker build --target check --build-arg BASE_IMAGE --build-context extras=$CTX --secret id=gh_token -t $TAG .
+          args="--target check --build-arg BASE_IMAGE --build-arg MISE_ENV"
+          args="$args --build-context extras=$CTX --secret id=gh_token -t $TAG"
+          docker build $args .
 
       # Capture image + intermediate stage sizes after the builds (and after
       # the test/check runs leave any -rm'd container layers behind). `always()`

@@ -264,14 +264,21 @@ pub fn mise_python_site_packages() -> Vec<PathBuf> {
 /// Pure-filesystem helper: given a mise `pipx:` `<install>` root, return the
 /// venv `site-packages` directory.
 ///
-/// pipx lays each tool out as `<install>/<pkg>/lib/python<X.Y>/site-packages`;
-/// both the `<pkg>` directory name and the python version vary, so the two
-/// variable segments are scanned rather than assumed. Returns the first match,
-/// or `None` if nothing under `<install>` has that shape.
+/// pipx lays each tool out as `<install>/<pkg>/<venv-libdir>/site-packages`,
+/// where `<venv-libdir>` is `lib/python<X.Y>` on POSIX and `Lib` (no Python
+/// version subdir) on Windows. The `<pkg>` directory name (and the Python
+/// version on POSIX) varies, so the variable segments are scanned rather than
+/// assumed. Returns the first match, or `None` if nothing under `<install>`
+/// has that shape.
 #[must_use]
 pub fn find_site_packages_in(install: &Path) -> Option<PathBuf> {
     for pkg in fs::read_dir(install).ok()?.flatten() {
-        let Ok(lib_entries) = fs::read_dir(pkg.path().join("lib")) else {
+        let pkg_path = pkg.path();
+        let windows_layout = pkg_path.join("Lib").join("site-packages");
+        if windows_layout.is_dir() {
+            return Some(windows_layout);
+        }
+        let Ok(lib_entries) = fs::read_dir(pkg_path.join("lib")) else {
             continue;
         };
         for py in lib_entries.flatten() {

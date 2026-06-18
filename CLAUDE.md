@@ -12,6 +12,26 @@ intermediate diff materials, anything — must live under this repo's
 path outside this working directory. `target/scratch/` is fine; create
 subdirectories under it freely and clean up when done.
 
+## On macOS: use homebrew bash for ad-hoc agent commands
+
+On macOS, every ad-hoc command the agent runs that is **not** a `mise run
+<task>` invocation — investigations, scratch-area probes, multi-line
+shell loops, anything with command substitution or arrays — must execute
+under homebrew's `bash` (typically `/usr/local/bin/bash` on Intel,
+`/opt/homebrew/bin/bash` on Apple Silicon), **not** the session's default
+zsh and **not** macOS's bundled `/bin/bash` (which is GNU bash 3.2 from
+2007 and predates many modern features).
+
+Invoke it explicitly per command: `/usr/local/bin/bash -c '<script>'` (or
+the Apple-Silicon path). Mise tasks are exempt — they run under their
+own configured shell (`bash -euo pipefail -c` etc.) which is already
+correct.
+
+Reason: agents are bad at zsh-specific quoting and expansion rules, and
+the system bash is too old to behave like the bash everyone else uses.
+Pinning to homebrew bash makes ad-hoc shell behavior predictable and
+matches what mise tasks already use.
+
 ## Keep lines ≤ 120 characters
 
 `editorconfig-checker` (`ec`, wired into `mise run check` via the

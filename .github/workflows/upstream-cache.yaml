@@ -42,6 +42,9 @@ defaults:
   run:
     shell: bash --noprofile --norc -euo pipefail {0}
 
+env:
+  MISE_ENV: dart,dotnet,java,python,rust,zig
+
 jobs:
   rustpython:
     runs-on: ${{ matrix.os }}
@@ -164,11 +167,11 @@ jobs:
         with:
           tool: cargo-binstall,mise@2026.6.5
 
-      - name: Select all language envs
+      - name: Show MISE_ENV
         if: |-
           steps.rp_check.outputs.work == 'yes'
           && github.event.pull_request.head.repo.fork != true
-        run: echo "MISE_ENV=$(mise run print-all-langs)" >> "$GITHUB_ENV"
+        run: echo "MISE_ENV=$MISE_ENV"
 
       # MISE_ENV includes `maint` here so the publish task's deps
       # (`toml-cli` for in-place .mise/config.toml edits) install in

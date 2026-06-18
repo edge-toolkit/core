@@ -19,6 +19,9 @@ defaults:
   run:
     shell: bash --noprofile --norc -euo pipefail {0}
 
+env:
+  MISE_ENV: rust
+
 jobs:
   build:
     runs-on: ${{ matrix.runner }}
@@ -43,6 +46,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Show MISE_ENV
+        run: echo "MISE_ENV=$MISE_ENV"
+
       # Hosted Windows runners don't reliably leave the Docker daemon running, so
       # the build can fail connecting to the docker_engine pipe. Start it (no-op
       # if already running) and confirm connectivity before building.
@@ -58,4 +64,7 @@ jobs:
           printf '%s' "${{ github.token }}" > gh_token
 
       - name: Build stage precompile
-        run: docker build -f Dockerfile.nanoserver ${{ matrix.build_arg }} --target precompile .
+        run: |
+          args="-f Dockerfile.nanoserver ${{ matrix.build_arg }} --build-arg MISE_ENV"
+          args="$args --target precompile"
+          docker build $args .

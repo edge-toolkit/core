@@ -12,6 +12,7 @@ deny contains msg if {
 	endswith(file.path, ".yaml")
 	startswith(file.path, ".github/workflows/")
 	not file.contents.on.pull_request
+
 	# `on:` parses to an object; YAML's `on:` without a body is `null`, not a key.
 	msg := sprintf("%s: workflow must trigger on `pull_request`", [file.path])
 }
