@@ -12,14 +12,16 @@
 #![cfg(test)]
 #![expect(
     clippy::arithmetic_side_effects,
+    clippy::print_stderr,
     clippy::single_call_fn,
-    reason = "integration test: Instant/Duration poll-loop math and single-use helpers"
+    reason = "integration test: Instant/Duration poll-loop math, env-narrow skip log, single-use helpers"
 )]
 
 use std::error::Error;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
+use edge_toolkit::config::{Language, mise_env_includes};
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
 use futures_util::{SinkExt as _, StreamExt as _};
 use tokio_tungstenite::{connect_async, tungstenite};
@@ -52,6 +54,16 @@ async fn control_client(ws_url: &str) -> Result<(ControlSocket, String), Box<dyn
 
 #[tokio::test(flavor = "current_thread")]
 async fn cowsay_module_imports_mise_package() -> Result<(), Box<dyn Error>> {
+    // Although `pipx:cowsay` itself sits in the always-loaded base config,
+    // the test exercises the Python interpreter wired up by the python env
+    // (PYO3_PYTHON + the pyo3 runner's `mise_python_site_packages` lookup
+    // both target the python toolchain). When CI narrows MISE_ENV to drop
+    // `python`, the resolved interpreter / site-packages may be absent and
+    // the runner can't import cowsay; skip cleanly.
+    if !mise_env_includes(Language::Python) {
+        eprintln!("skipping cowsay: MISE_ENV omits `python`");
+        return Ok(());
+    }
     let server = et_ws_test_server::start();
 
     // Control client registers first so the runner has a peer to broadcast to.
