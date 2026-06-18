@@ -33,3 +33,34 @@ deny contains msg if {
 	not input.env.MISE_ENV
 	msg := "workflow must set top-level env.MISE_ENV (the comma-separated language list)"
 }
+
+# The MISE_ENV VALUE must be the full guest-language set so every CI run
+# exercises the same toolchain footprint as a local `mise install`. The
+# one carve-out is docker-windows: Nano Server can't run the pipx-backed
+# python env (CPython's pipx + platformdirs hit Nano-stripped shell32
+# symbols), so the windows docker lane builds with python dropped. The
+# workflow is identified by its declared `name:` field (matches the
+# filename in this repo by convention).
+expected_mise_env := "dart,dotnet,java,python,rust,zig"
+
+windows_docker_mise_env := "dart,dotnet,java,rust,zig"
+
+deny contains msg if {
+	input.env.MISE_ENV
+	input.name == "docker-windows"
+	input.env.MISE_ENV != windows_docker_mise_env
+	msg := sprintf(
+		"workflow %q must set env.MISE_ENV to %q (no python on Nano Server)",
+		[input.name, windows_docker_mise_env],
+	)
+}
+
+deny contains msg if {
+	input.env.MISE_ENV
+	input.name != "docker-windows"
+	input.env.MISE_ENV != expected_mise_env
+	msg := sprintf(
+		"workflow %q must set env.MISE_ENV to %q (the full guest-language set)",
+		[input.name, expected_mise_env],
+	)
+}

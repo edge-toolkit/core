@@ -11,7 +11,6 @@ name: test
         default: windows-latest
         options:
           - all
-          - ubuntu-slim
           - ubuntu-latest
           - ubuntu-26.04
           - ubuntu-24.04-arm
@@ -32,7 +31,7 @@ defaults:
     shell: bash --noprofile --norc -euo pipefail {0}
 
 env:
-  MISE_ENV: dotnet,rust
+  MISE_ENV: dart,dotnet,java,python,rust,zig
 
 jobs:
   rust:
@@ -42,10 +41,9 @@ jobs:
       fail-fast: false
       # `matrix` context isn't available in job-level `if:`, so we compute the
       # OS list right here in the strategy block (where `github.*` IS in scope):
-      #   pull_request       → ubuntu-slim + ubuntu-24.04-arm + macos-latest
+      #   pull_request       → ubuntu-latest + ubuntu-24.04-arm + macos-latest
       #                        + windows-latest (skip slow Intel Mac;
-      #                        ubuntu-latest, ubuntu-26.04, windows-11-arm
-      #                        are dispatch-only)
+      #                        ubuntu-26.04 + windows-11-arm are dispatch-only)
       #   workflow_dispatch  → the OS picked in the dropdown, or all of them
       # The combos are emitted as a fully-formed list of `{os, timeout}`
       # objects so the `include:` "unmatched entries append as new jobs"
@@ -54,8 +52,7 @@ jobs:
         include: ${{ fromJSON(
           github.event_name == 'workflow_dispatch' && (
           github.event.inputs.os == 'all' && format(
-          '[{0},{1},{2},{3},{4},{5},{6},{7}]',
-          '{"os":"ubuntu-slim","timeout":40}',
+          '[{0},{1},{2},{3},{4},{5},{6}]',
           '{"os":"ubuntu-latest","timeout":40}',
           '{"os":"ubuntu-26.04","timeout":40}',
           '{"os":"ubuntu-24.04-arm","timeout":40}',
@@ -64,7 +61,6 @@ jobs:
           '{"os":"windows-latest","timeout":60}',
           '{"os":"windows-11-arm","timeout":60}'
           )
-          || github.event.inputs.os == 'ubuntu-slim' && '[{"os":"ubuntu-slim","timeout":40}]'
           || github.event.inputs.os == 'ubuntu-latest' && '[{"os":"ubuntu-latest","timeout":40}]'
           || github.event.inputs.os == 'ubuntu-26.04' && '[{"os":"ubuntu-26.04","timeout":40}]'
           || github.event.inputs.os == 'ubuntu-24.04-arm' && '[{"os":"ubuntu-24.04-arm","timeout":40}]'
@@ -75,7 +71,7 @@ jobs:
           )
           || format(
           '[{0},{1},{2},{3}]',
-          '{"os":"ubuntu-slim","timeout":40}',
+          '{"os":"ubuntu-latest","timeout":40}',
           '{"os":"ubuntu-24.04-arm","timeout":40}',
           '{"os":"macos-latest","timeout":45}',
           '{"os":"windows-latest","timeout":60}'

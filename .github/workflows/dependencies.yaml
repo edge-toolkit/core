@@ -28,8 +28,15 @@ env:
 
 jobs:
   dependencies:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # `ubuntu-slim` is GitHub's 1-vCPU / 5-GB-RAM containerised runner with
+    # a hard 15-min job cap (docs: `docs/reference/runners`). Sized for
+    # automation, not CI/CD compiles -- which is exactly what this workflow
+    # is: every step is metadata/network-bound (cargo deny + osv-scanner +
+    # cargo unmaintained), zero Rust compilation. The `cache@v4` restore on
+    # `cargo-unmaintained` keeps the hot path well under the cap; a cold
+    # Cargo.lock-change run is ~12 min, still inside it.
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4

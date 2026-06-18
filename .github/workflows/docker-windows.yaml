@@ -21,7 +21,7 @@ defaults:
     shell: bash --noprofile --norc -euo pipefail {0}
 
 env:
-  MISE_ENV: rust
+  MISE_ENV: dart,dotnet,java,rust,zig
 
 jobs:
   build:
