@@ -39,7 +39,7 @@ env:
   # `rust`. Next: `rust,python`, then add another, etc., ending at the
   # canonical `dart,dotnet,java,js,python,rust,zig`. The matching gha.rego
   # carve-out allows the narrowed value on this workflow only.
-  MISE_ENV: "rust"
+  MISE_ENV: "rust,python"
   # Crank mise's logging to debug while we chase the prefetch-ci hang on
   # Windows -- silent 53-min stalls give us nothing to diagnose with. Drop
   # both back to defaults once the root cause is in hand.
