@@ -62,11 +62,9 @@ description = "Run Python tests"
 
 [tasks.test-pyface1]
 dir = "services/ws-modules/pyface1"
-run = "uv run pytest"
-
-[tasks.test-pyface1.env]
 # Same uv-interpreter pin as `[tasks."prefetch:python".env]`; see there.
-UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}"
+env = { UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}" }
+run = "uv run pytest"
 
 [tasks.build-et-ws-wheel]
 depends = ["build-et-cli"]
@@ -146,13 +144,6 @@ shell = "bash -euo pipefail -c"
 
 [tasks."prefetch:python"]
 description = "Prefetch Python (uv) dependencies"
-run = """
-uv sync --directory services/ws-modules/pydata1
-uv sync --directory services/ws-modules/pyface1
-"""
-shell = "bash -euo pipefail -c"
-
-[tasks."prefetch:python".env]
 # Pin uv to the mise-managed regular CPython, not Pyodide's emscripten-wasm32
 # interpreter. uv's auto-discovery otherwise finds and prefers the `python`
 # wrapper mise's `http:pyodide` install ships (it reports CPython 3.13.2, so
@@ -162,7 +153,12 @@ shell = "bash -euo pipefail -c"
 # never enters discovery and no `mise` subprocess runs per task. Windows needs
 # its own var because python-build-standalone lays the binary out at the install
 # root (`python.exe`), not under `bin/`.
-UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}"
+env = { UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}" }
+run = """
+uv sync --directory services/ws-modules/pydata1
+uv sync --directory services/ws-modules/pyface1
+"""
+shell = "bash -euo pipefail -c"
 
 [tasks."gen:python-rest"]
 depends = ["gen:ws-spec"]
@@ -179,6 +175,8 @@ mkdir -p generated/python-rest/et_rest_client
 # continuation or runs past 120 cols; unquoted $args word-splits into argv.
 args="--config config/openapi-python-client.yaml --path generated/specs/rest.yaml"
 args="$args --meta none --overwrite --output-path generated/python-rest/et_rest_client"
+# $args is a space-separated CLI flag list; word-splitting is intentional.
+# shellcheck disable=SC2086
 openapi-python-client generate $args
 # openapi-python-client / our follow-up ruff drop a .ruff_cache next to
 # the generated source; we don't want that committed.

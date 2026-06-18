@@ -99,6 +99,8 @@ if [ "${OS:-}" = "Windows_NT" ]; then
     echo "[emcc-find] $publish_args"
 fi
 
+# $publish_args holds zero or one CLI flag; word-splitting is intentional.
+# shellcheck disable=SC2086
 dotnet publish -c Release $publish_args
 
 PUBLISH=bin/Release/net10.0/publish/wwwroot/_framework

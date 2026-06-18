@@ -1,0 +1,122 @@
+# escape=`
+# Parser directive (must be line 1): sets the line-continuation / escape
+# character to a backtick instead of the default `\`, so backslashes in Windows
+# paths stay literal and lines continue with a backtick.
+
+# hadolint runs ShellCheck (POSIX sh) over every RUN, but these are Windows cmd,
+# so it false-errors on cmd `if` (SC1072) and on `\x` in paths like C:\gh_token
+# (SC1001). hadolint/hadolint#645. Suppress just those two for this file.
+# hadolint global ignore=SC1072,SC1001
+
+# Server Core variant. Sister to Dockerfile.nanoserver but on a fuller base:
+# mcr.microsoft.com/windows/servercore ships PowerShell, an installer stack,
+# and a complete kernel32 / shell32 / winmm / propsys -- so most of the Nano
+# workarounds (vcruntime/gpgbin donor stages, MISE_GPG_VERIFY=false, the
+# WIN_PD_OVERRIDE_* platformdirs env, the busybox sha256sum shim,
+# MISE_DISABLE_TOOLS carve-outs) are NOT needed here. Keep this file lean;
+# anything specifically Nano-related stays only in Dockerfile.nanoserver.
+
+ARG WINDOWS_VERSION=ltsc2022
+
+# --- build-minimal: mise + the always-loaded toolchain (config.toml only). ---
+# Mirrors the Linux build-minimal and Dockerfile.nanoserver's build-minimal:
+# stages mise.exe + the gh_token from the build context, trusts the project
+# config, and runs `mise install` against the always-loaded `[tools]` set.
+FROM mcr.microsoft.com/windows/servercore:${WINDOWS_VERSION} AS build-minimal
+SHELL ["cmd", "/S", "/C"]
+USER ContainerAdministrator
+
+# VC++ runtime: msvc-built executables (mise.exe, the rust/cargo mise installs)
+# need vcruntime140.dll / msvcp140.dll just to *start*. Server Core has the
+# installer stack to lay these down in-place (unlike Nano, which needs a donor
+# stage). `|| ver>nul` swallows the redistributable's 3010 ("reboot required").
+RUN curl -fsSL -o vc_redist.exe https://aka.ms/vs/17/release/vc_redist.x64.exe && `
+    (vc_redist.exe /install /quiet /norestart || ver>nul) && `
+    del vc_redist.exe
+
+# Set HOME to the admin profile so the container has a sane home (Server Core
+# sets USERPROFILE but leaves HOME unset by default).
+ENV HOME=C:\Users\ContainerAdministrator
+
+# A writable TEMP on the system drive. Rustup's "persist temporary file" step
+# is sensitive to a missing/unwritable temp.
+RUN if not exist C:\Temp mkdir C:\Temp
+ENV TEMP=C:\Temp `
+    TMP=C:\Temp
+
+# wasm-pack's binary cache (binary-install's Cache::new) -- explicit override so
+# wasm-pack doesn't go through dirs_next's home-directory resolution at all.
+ENV WASM_PACK_CACHE=C:\Temp\wasm-pack
+
+# Serialize mise installs (same rationale as the Linux/Nano builds: the cargo:
+# source-build fallbacks race on rustup's shared .rustup\downloads dir).
+ENV MISE_JOBS=1
+
+# Full Rust backtraces so any panic surfaces in the CI log.
+ENV RUST_BACKTRACE=full
+
+# Stage mise.exe from the build context (a single .exe the workflow downloads
+# and stages alongside the Dockerfile). Same shape as Dockerfile.nanoserver.
+COPY mise.zip C:\mise.zip
+RUN tar -xf C:\mise.zip -C C:\ && del C:\mise.zip
+
+# Prepend mise's bin + shims dir; re-list System32 + Windows explicitly so cmd-
+# native commands stay on PATH after our prepends (Docker's case-sensitive
+# `${PATH}` doesn't merge the base image's `Path` env var). llvm-mingw lives
+# under a version-pinned dir that doesn't exist until preinstall installs it;
+# adding it now is fine (PATH search is lazy).
+ENV MISESHIMS=C:\Users\ContainerAdministrator\AppData\Local\mise\shims
+ENV LLVMBIN=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\github-mstorsjo-llvm-mingw\20260602\bin
+ENV PATH="C:\mise\bin;${MISESHIMS};C:\Windows\System32;C:\Windows;${LLVMBIN};${PATH}"
+
+WORKDIR C:\workspace
+# config.toml (always-loaded) + config.windows.toml + .miserc.toml (auto_env=true).
+COPY .mise/config.toml .mise/config.toml
+COPY .mise/config.windows.toml .mise/config.windows.toml
+COPY .miserc.toml .miserc.toml
+
+# gh_token (optional GitHub token) -- same pattern as Dockerfile.nanoserver:
+# glob with a paired always-present file (.miserc.toml) so COPY succeeds when
+# gh_token is absent; both land in C:\token (off the WORKDIR ancestor chain).
+# WARNING: when a token IS supplied it bakes into the image layer.
+COPY .miserc.toml gh_token* C:/token/
+
+# Trust + experimental backends + cargo.binstall (mirrors the Nano init).
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise trust && `
+    mise settings experimental=true && `
+    mise settings set cargo.binstall true && `
+    mise trust C:\.config\mise\config.toml
+
+# Preinstall: the cross-platform `_setup_all` (in config.toml) + the Windows
+# preinstall (in config.windows.toml). Both are guarded by `[settings]
+# task.run_auto_install=false`, so the preinstall task itself only runs once
+# mise has the tools it depends on.
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise run preinstall
+
+# Install the always-loaded toolchain.
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise install
+
+# --- build: add the guest-language toolchains (config.<lang>.toml). ---
+# Server Core handles dotnet + python natively (PowerShell installer; ctypes
+# can resolve shell32!SHGetKnownFolderPath), so the default MISE_ENV here is
+# the full set. Override via `--build-arg MISE_ENV=...` to narrow.
+FROM build-minimal AS build
+COPY .mise/ .mise/
+RUN mise trust
+ARG MISE_ENV=dart,dotnet,java,python,rust,zig
+ENV MISE_ENV=${MISE_ENV}
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise install
+
+# --- prefetch: download all dependencies + ONNX models. ---
+FROM build AS prefetch
+COPY . .
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise run prefetch-ci
+
+# --- precompile: build the WASM/JS modules. ---
+FROM prefetch AS precompile
+RUN mise run build-modules && if exist target rmdir /s /q target

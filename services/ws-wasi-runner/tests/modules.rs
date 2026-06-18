@@ -6,9 +6,11 @@
 #![cfg(test)]
 #![expect(
     clippy::expect_used,
-    reason = "test code: process spawn failure should fail the test"
+    clippy::print_stdout,
+    reason = "test code: process spawn failure fails the test; module-skip log lines use println"
 )]
 
+use edge_toolkit::config::{Language, mise_env_includes};
 use rstest::rstest;
 
 // Skipped on Windows: the wasi runner gets a 404 fetching the module's
@@ -16,11 +18,22 @@ use rstest::rstest;
 // under mise's cmd.exe default shell. Re-enable once the Windows task-shell
 // story is sorted.
 #[rstest]
-#[case::wasi_comm1("et-ws-wasi-comm1")]
-#[case::wasi_data1("et-ws-wasi-data1")]
-#[case::wasi_graphics_info("et-ws-wasi-graphics-info")]
+#[case::wasi_comm1("et-ws-wasi-comm1", Language::Rust)]
+#[case::wasi_data1("et-ws-wasi-data1", Language::Rust)]
+#[case::wasi_graphics_info("et-ws-wasi-graphics-info", Language::Python)]
 #[cfg_attr(windows, ignore = "pkg/package.json 404 on Windows -- see comment above")]
-fn module_runs_successfully(#[case] module: &str) {
+fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
+    // When CI narrows MISE_ENV (e.g. `dotnet,rust`) the env-gated guest
+    // configs don't load and the matching `pkg/` never gets built. Skip
+    // cases whose language isn't loaded instead of 404'ing on the module
+    // fetch.
+    if !mise_env_includes(language) {
+        println!(
+            "skipping {module}: requires the `{}` mise env, not loaded",
+            language.as_str()
+        );
+        return;
+    }
     let server = et_ws_test_server::start();
 
     let bin = env!("CARGO_BIN_EXE_et-ws-wasi-runner");

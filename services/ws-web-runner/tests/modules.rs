@@ -38,20 +38,32 @@
     clippy::expect_used,
     clippy::panic,
     clippy::print_stdout,
-    reason = "test code: process spawn failure or non-zero exit fails the test; dotnet-data1 skip uses println"
+    reason = "test code: process spawn failure or non-zero exit fails the test; module-skip log lines use println"
 )]
 
+use edge_toolkit::config::{Language, mise_env_includes};
 use rstest::rstest;
 
 #[rstest]
-#[case::data1("et-ws-data1")]
-#[case::pydata1("et-ws-pydata1")]
-#[case::graphics_info("et-ws-graphics-info")]
-#[case::dotnet_data1("et-ws-dotnet-data1")]
-#[case::java_data1("et-ws-java-data1")]
-#[case::zig_data1("et-ws-zig-data1")]
-#[case::pywasm1("et-ws-pywasm1")]
-fn module_runs_successfully(#[case] module: &str) {
+#[case::data1("et-ws-data1", Language::Rust)]
+#[case::pydata1("et-ws-pydata1", Language::Python)]
+#[case::graphics_info("et-ws-graphics-info", Language::Rust)]
+#[case::dotnet_data1("et-ws-dotnet-data1", Language::Dotnet)]
+#[case::java_data1("et-ws-java-data1", Language::Java)]
+#[case::zig_data1("et-ws-zig-data1", Language::Zig)]
+#[case::pywasm1("et-ws-pywasm1", Language::Python)]
+fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
+    // When CI narrows MISE_ENV (e.g. `dotnet,rust`) the env-gated guest
+    // configs don't load and the matching `pkg/` never gets built. Skip
+    // cases whose language isn't loaded instead of 404'ing on the module
+    // fetch.
+    if !mise_env_includes(language) {
+        println!(
+            "skipping {module}: requires the `{}` mise env, not loaded",
+            language.as_str()
+        );
+        return;
+    }
     if module == "et-ws-dotnet-data1" && !dotnet_data1_pkg_built() {
         println!("skipping {module}: pkg/ not built (dotnet build skipped on this host)");
         return;

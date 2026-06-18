@@ -33,7 +33,7 @@
 
 [env]
 # Shared HF base URLs + release-target coords hoisted out of every
-# publish-*-to-hf-cache task so the xh/jq/gh lines stay under 120 chars
+# publish-*-to-hf-cache task so the xh/jaq/gh lines stay under 120 chars
 # without backslash continuations. All literals -- composing one from
 # another (e.g. `HF_API = "{{ env.HF_CO }}/api/models"`) would trip mise's
 # alphabetical env render order.
@@ -97,7 +97,7 @@ coreutils mkdir -p "$work"
 cd "$work"
 
 xh --follow --download --output original.onnx "$HF_CO/$repo/resolve/main/$dir/$filename"
-commit=$(xh --follow --body "$HF_API/$repo" | jq -r '.sha')
+commit=$(xh --follow --body "$HF_API/$repo" | jaq -r '.sha')
 short=$(echo "$commit" | coreutils cut -c1-7)
 
 asset="${stem}-${short}.onnx"
@@ -108,7 +108,9 @@ coreutils sha256sum "$asset" > "${asset}.sha256"
 # blob; mismatch means the download was corrupted or HF served a different
 # revision than we asked for.
 tree=$(xh --follow --body "$HF_API/$repo/tree/main/$dir?recursive=true")
-expected=$(echo "$tree" | jq -r --arg p "$dir/$filename" '.[] | select(.path == $p) | .lfs.oid')
+# `$p` is a jaq variable bound by `--arg p`, not a shell variable.
+# shellcheck disable=SC2016
+expected=$(echo "$tree" | jaq -r --arg p "$dir/$filename" '.[] | select(.path == $p) | .lfs.oid')
 actual=$(coreutils cut -c1-64 "${asset}.sha256")
 if [ "$actual" != "$expected" ]; then
   echo "sha mismatch: local $actual vs HF LFS $expected" >&2
@@ -422,6 +424,8 @@ if [ ! -f "$pip_whl" ]; then
   echo "== fetch pip {{ vars.pip_for_rustpython }} wheel from PyPI =="
   echo "   url={{ vars.pip_for_rustpython_wheel_url }}"
   pypi_args="--http-url https://files.pythonhosted.org --progress --ignore-existing"
+  # $pypi_args is a space-separated CLI flag list; word-splitting is intentional.
+  # shellcheck disable=SC2086
   {{ vars.retry }} rclone copyto "{{ vars.pip_for_rustpython_wheel_url }}" "$pip_whl" $pypi_args
 fi
 if [ ! -d "$pip_extracted/pip" ]; then

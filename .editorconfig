@@ -79,3 +79,4 @@ max_line_length = unset
 # The generator is the source of truth; we don't edit its output by hand.
 [generated/zig-rest/**]
 max_line_length = unset
+

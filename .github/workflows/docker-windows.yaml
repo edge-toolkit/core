@@ -6,6 +6,7 @@ name: docker-windows
     paths:
       - .github/workflows/docker-windows.yaml
       - Dockerfile.nanoserver
+      - Dockerfile.windows
   workflow_dispatch:
 
 permissions:
@@ -28,11 +29,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # `base` controls which Dockerfile is built; `runner` picks the host
+        # GHA runner. `nanoserver` is the minimal ~120 MB lane; `servercore`
+        # is the heavier ~1.25 GB lane with a fuller Windows runtime (used
+        # by Dockerfile.windows). Both run on each Windows runner version
+        # so we exercise the ltsc2022/ltsc2025 base-image pair against the
+        # matching runner kernel.
         include:
           - runner: windows-2022
+            base: nanoserver
           - runner: windows-2025
+            base: nanoserver
             build_arg: "--build-arg WINDOWS_VERSION=ltsc2025"
-    name: build (${{ matrix.runner }})
+          - runner: windows-2022
+            base: servercore
+          - runner: windows-2025
+            base: servercore
+            build_arg: "--build-arg WINDOWS_VERSION=ltsc2025"
+    name: build (${{ matrix.runner }}, ${{ matrix.base }})
     timeout-minutes: 120
     env:
       # The classic Windows builder on windows-2022 can't substitute build-args into the Dockerfile's RUN,
@@ -65,6 +79,11 @@ jobs:
 
       - name: Build stage precompile
         run: |
-          args="-f Dockerfile.nanoserver ${{ matrix.build_arg }} --build-arg MISE_ENV"
+          case "${{ matrix.base }}" in
+            nanoserver) dockerfile=Dockerfile.nanoserver ;;
+            servercore) dockerfile=Dockerfile.windows ;;
+            *) echo "unknown matrix.base: ${{ matrix.base }}" >&2; exit 2 ;;
+          esac
+          args="-f $dockerfile ${{ matrix.build_arg }} --build-arg MISE_ENV"
           args="$args --target precompile"
           docker build $args .

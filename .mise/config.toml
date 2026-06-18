@@ -33,6 +33,11 @@ gpg_verify = true
 
 [tools]
 action-validator = "latest"
+# jaq: a jq-compatible alternative implementation in Rust. Prebuilt
+# binaries for every project tier, unlike the C jq's missing release
+# assets for some platforms. Used as `jaq` in task bodies (gh's `--jq`
+# flag is internal to gh, not affected).
+"aqua:01mf02/jaq" = "latest"
 "aqua:EmbarkStudios/cargo-deny" = "latest"
 "aqua:StyraInc/regal" = "latest"
 "aqua:koalaman/shellcheck" = "latest"
@@ -92,8 +97,15 @@ ripgrep = "latest"
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
 "github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 "github:wasm-bindgen/wasm-bindgen" = "0.2.122"
+# go: Go toolchain. Sole consumer right now is the `go:` backend that
+# source-builds jqfmt (noperator/jqfmt ships no release assets); add Go
+# users here as they arrive.
+go = "latest"
+# jqfmt: jq formatter ("like gofmt, but for jq"). Source-built by the
+# go: backend because upstream ships no release assets. Used by the
+# `jq-fmt` task.
+"go:github.com/noperator/jqfmt/cmd/jqfmt" = "latest"
 hadolint = "latest"
-jq = "latest"
 ls-lint = "latest"
 lychee = "latest"
 mprocs = "latest"
@@ -370,13 +382,27 @@ ec = "ec"
 editorconfig-check = "ec"
 
 [tasks.dprint-check]
+env = { DPRINT_CACHE_DIR = "{{ config_root }}/target/dprint-cache" }
 run = "dprint check"
-
-[tasks.dprint-check.env]
-DPRINT_CACHE_DIR = "{{ config_root }}/target/dprint-cache"
 
 [tasks.dprint-fmt]
 run = "dprint fmt"
+
+[tasks.jq-fmt]
+description = "Format every checked-in .jq file with jqfmt (in-place)"
+# jqfmt prints the formatted body to stdout (no -w flag); pipe it through
+# goawk to strip the trailing space jqfmt's `-op pipe` mode leaves at the
+# end of each broken-pipe line, then rewrite via tmp + rename.
+# NOTE: jqfmt strips leading/trailing `#` comments -- if a .jq file has
+# docstring-style header comments worth keeping, lift them into the
+# calling task / source-of-truth file before running this.
+run = """
+git ls-files '*.jq' | while read -r f; do
+  jqfmt -f "$f" -op pipe -ob -ar | goawk '{ sub(/[ \\t]+$/, ""); print }' > "$f.tmp"
+  coreutils mv "$f.tmp" "$f"
+done
+"""
+shell = "bash -euo pipefail -c"
 
 [tasks.oxfmt-check]
 description = "Check JS/TS formatting (oxfmt)"
@@ -406,7 +432,7 @@ run = "oxfmt --config config/oxfmtrc.jsonc --write . '!.mise/config.maint.toml'"
 # Rust + universal formatters. Always-loaded, so `fmt`'s glob always matches it.
 # oxfmt-fmt before dprint-fmt: both touch JS/TS, so the second pass wins;
 # dprint stays the source of truth for any disagreements on JS style.
-depends = ["cargo-clippy-fix", "cargo-fmt", "dprint-fmt", "oxfmt-fmt", "taplo-fmt"]
+depends = ["cargo-clippy-fix", "cargo-fmt", "dprint-fmt", "jq-fmt", "oxfmt-fmt", "taplo-fmt"]
 description = "Run the Rust + universal repo-wide formatters"
 
 [tasks.fmt]
@@ -441,6 +467,7 @@ depends = [
   "regal-check",
   "ryl-check",
   "semgrep-check",
+  "shellcheck-mise-check",
   "taplo-check",
   "taplo-fmt-check",
   "typos",
@@ -519,9 +546,15 @@ run = 'cargo clippy --keep-going --tests -p "$usage_package"'
 usage = 'arg "<package>" help="Workspace package name (e.g. edge-toolkit)"'
 
 [tasks.cargo-doc-check]
-description = "Build rustdoc with -D warnings to fail on any doc issues"
-env = { RUSTDOCFLAGS = "-D warnings" }
-run = "cargo doc --keep-going --workspace --no-deps --document-private-items"
+description = "Type-check rustdoc with -D warnings to fail on any doc issues"
+# Uses nightly rustdoc's `--check` (gated behind -Z unstable-options) so the
+# task runs the front-end -- intra-doc link resolution + doc-comment
+# type-check -- but skips HTML emission. No `target/doc/` churn; faster
+# than a full doc build. Nightly is already in [tools] for `cargo +nightly
+# fmt`. Drop `-Z unstable-options --check` and switch back to plain
+# `cargo doc` once rustdoc stabilises `--check`.
+env = { RUSTDOCFLAGS = "-Z unstable-options --check -D warnings" }
+run = "cargo +nightly doc --keep-going --workspace --no-deps --document-private-items"
 
 [tasks.cargo-clippy-fix]
 run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace --tests"
@@ -548,7 +581,10 @@ description = "Run conftest OPA/Rego policies over the TOML config + lock files"
 # namespace is never evaluated against this combined TOML input.
 run = """
 ns_list="cross cargo mise pyproject no_trailing_backslash checksums"
+# $ns_list iteration relies on word-splitting; $ns expands to repeated `--namespace <n>` pairs.
+# shellcheck disable=SC2086
 ns=$(for n in $ns_list; do echo -n " --namespace $n"; done)
+# shellcheck disable=SC2086
 git ls-files '*Cargo.toml' '.mise/config*.toml' '*pyproject.toml' Cargo.lock config/checksums.toml |
   xargs conftest test --combine --parser toml $ns -p config/conftest/policy
 """
@@ -564,6 +600,8 @@ description = "Run conftest OPA/Rego policies over the GitHub Actions workflow Y
 # its own pass.
 run = """
 ns="--namespace gha --namespace no_trailing_backslash"
+# $ns expands to repeated `--namespace <n>` pairs; word-splitting is intentional.
+# shellcheck disable=SC2086
 conftest test --parser yaml $ns -p config/conftest/policy .github/workflows
 conftest test --parser yaml --combine --namespace gha_combined -p config/conftest/policy .github/workflows
 """
@@ -582,6 +620,8 @@ description = "Cross-check Dockerfiles against mise [tools] pins + heredoc body-
 # Each git-tracked Dockerfile* gets both passes.
 run = """
 files=$(git ls-files '*Dockerfile' '*Dockerfile.*')
+# $files is a newline-separated path list; word-splitting is intentional (no spaces in paths).
+# shellcheck disable=SC2086
 conftest test --combine --namespace dockerfile -p config/conftest/policy $files .mise
 # Filter to Dockerfiles that actually use heredocs before invoking the
 # `ignore` parser: conftest 0.68.2's ignore parser panics with
@@ -601,7 +641,7 @@ description = "Lint Rego policy files with Regal (style, idiomatic, bugs)"
 # rules per file, cross-package data references, no OPA entrypoints).
 run = "regal lint -c config/regal.yaml config/conftest/policy/"
 
-[tasks.shellcheck-mise]
+[tasks.shellcheck-mise-check]
 description = "shellcheck every bash-shell mise task body across .mise/config*.toml"
 # Extract each `[tasks.X] run = """..."""` whose `shell` starts with bash and
 # whose `run` is multi-line, drop it into target/scratch/shellcheck-mise/ with
@@ -609,7 +649,9 @@ description = "shellcheck every bash-shell mise task body across .mise/config*.t
 # Tera tokens `{{ ... }}` are masked to `MISEVAR` (a valid bash word) and
 # `{% ... %}` to empty so shellcheck doesn't choke on template syntax. The
 # awk regex uses character classes (`[{][{]` not `{{`) so mise's own Tera
-# render of this task body doesn't itself trip on the awk source.
+# render of this task body doesn't itself trip on the awk source. The jq
+# filter at .mise/shellcheck-mise.jq emits one `<name> <body-b64>` line per
+# eligible task (base64 so newlines + quotes survive the pipe).
 run = '''
 boot="{{ vars.config_root_fwd }}/target/scratch/shellcheck-mise"
 coreutils rm -rf "$boot"
@@ -617,14 +659,7 @@ coreutils mkdir -p "$boot"
 mask='{ gsub(/[{][{][^}]*[}][}]/, "MISEVAR"); gsub(/[{][%][^%]*[%][}]/, ""); print }'
 for cfg in .mise/config*.toml; do
   stem=$(coreutils basename "$cfg" .toml)
-  yq -p toml -o json "$cfg" | jq -r '
-    (.tasks // {}) | to_entries[]
-    | select((.value | type) == "object")
-    | select((.value.shell // "") | startswith("bash"))
-    | select((.value.run | type) == "string")
-    | select(.value.run | test("\n"))
-    | "\(.key) \(.value.run | @base64)"
-  ' | while read -r name b64; do
+  yq -p toml -o json "$cfg" | jaq -r -f .mise/shellcheck-mise.jq | while read -r name b64; do
     out="$boot/${stem}__${name}.sh"
     {
       echo '#!/usr/bin/env bash'
@@ -694,6 +729,8 @@ taplo lint --schema "file://$PWD/config/taplo/mise-no-ubi-backend.schema.json" .
 # config.maint.toml is exempted from the cargo:-backend allowlist (one-off
 # maint tools can be slow cargo source-builds; see mise.rego's matching note).
 non_maint=$(find .mise -maxdepth 1 -name 'config*.toml' ! -name 'config.maint.toml')
+# $non_maint holds a space-separated path list; word-splitting is intentional.
+# shellcheck disable=SC2086
 taplo lint --schema "file://$PWD/config/taplo/mise-cargo-backend-allowlist.schema.json" $non_maint
 """
 shell = "bash -euo pipefail -c"
@@ -788,6 +825,8 @@ description = "Regenerate config/osv-scanner.toml from config/deny.toml's [advis
 # the `dependencies` workflow can run it (via mise) next to the audit binaries.
 run = """
 {
+  # backticks in the echoed line are literal markdown, not command substitution.
+  # shellcheck disable=SC2016
   echo '# AUTO-GENERATED from config/deny.toml by `mise run gen:osv-scanner`.'
   echo 'IgnoredVulns = ['
   rg -oN -r '  { id = $0 },' '"RUSTSEC-[0-9]{4}-[0-9]{4}"' config/deny.toml | coreutils sort -u
@@ -901,12 +940,10 @@ run = "{{ vars.retry }} cargo fetch"
 # so the link target must exist before `pnpm install`.
 depends = ["build-ws-wasm-agent"]
 description = "Prefetch the Node (pnpm) static workspace"
-run = "pnpm install --dir services/ws-server/static --ignore-scripts --config.ignoredBuiltDependencies=protobufjs"
-
-[tasks."prefetch:node".env]
 # pnpm refuses non-TTY destructive node_modules cleanup unless CI=true, which
 # fires when an earlier install left a different layout. Treat as a CI batch.
-CI = "true"
+env = { CI = "true" }
+run = "pnpm install --dir services/ws-server/static --ignore-scripts --config.ignoredBuiltDependencies=protobufjs"
 
 [tasks.regenerate-verification]
 alias = "regen-verification"
@@ -1100,10 +1137,8 @@ description = "Run et-ws-web-runner integration tests serialized"
 # local fd/port budgets on macOS, surfacing as "error sending request
 # for url" when the runner's wrapper module dynamic-`import()`s its
 # module JS. Pin to one thread so the suite is deterministic.
+env = { RUST_TEST_THREADS = "1" }
 run = "cargo test -p et-ws-web-runner"
-
-[tasks.test-ws-web-runner.env]
-RUST_TEST_THREADS = "1"
 
 [tasks.cargo-test]
 # Composite: cargo-test-other (workspace minus et-ws-web-runner) +
