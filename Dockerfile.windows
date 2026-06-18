@@ -88,6 +88,14 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise settings set cargo.binstall true && `
     mise trust C:\.config\mise\config.toml
 
+# busybox-w32 `ash`: the shell that bash-shell mise tasks run under
+# (MISE_BASH_PATH in config.windows.toml [env] points at the ash.exe
+# inside this install). Server Core has cmd + PowerShell but no bash,
+# so it needs busybox just like Nano. Must install BEFORE
+# `mise run preinstall` runs, since `_setup_all`'s shell is bash.
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise install http:busybox
+
 # Preinstall: the cross-platform `_setup_all` (in config.toml) + the Windows
 # preinstall (in config.windows.toml). Both are guarded by `[settings]
 # task.run_auto_install=false`, so the preinstall task itself only runs once

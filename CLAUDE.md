@@ -32,6 +32,32 @@ the system bash is too old to behave like the bash everyone else uses.
 Pinning to homebrew bash makes ad-hoc shell behavior predictable and
 matches what mise tasks already use.
 
+## Polling cadence when monitoring a PR's CI runs
+
+When an agent is watching a PR (e.g. via `/loop`), the next-poll delay
+follows three tiers — tight at first (catch fail-fast errors), loose in
+the middle (long compile/test phases run on a 30-90 min scale), then
+loose again once everything's settled (waiting for the user to push):
+
+- **First 5 minutes after a push**: poll every **1 minute**. Most
+  startup / preinstall / fail-fast errors surface in this window.
+- **Minute 5 to 1 hour**: poll every **5 minutes**. The long phases
+  (cargo builds, docker stage builds, full test matrix) finish on this
+  scale; sub-5-min polling here burns the prompt cache without
+  catching anything sooner.
+- **After 1 hour, OR once all jobs have stopped**: poll every
+  **20 minutes**. The polling now is mostly waiting for the next user
+  push — at this cadence the prompt cache misses anyway, so spending
+  it sparingly on a heartbeat is the right trade.
+- **Stop 1 hour after all jobs have stopped.** If the user hasn't
+  re-pushed by then, they will tell the agent to restart monitoring.
+  Stopping is implemented by omitting the next `ScheduleWakeup` call
+  (see the `/loop` skill's "To stop the loop" note).
+
+`/loop` dynamic-mode wakeups are bounded [60, 3600] by the runtime, so
+each cadence maps directly: 1 min → `delaySeconds: 60`, 5 min →
+`delaySeconds: 300`, 20 min → `delaySeconds: 1200`.
+
 ## Keep lines ≤ 120 characters
 
 `editorconfig-checker` (`ec`, wired into `mise run check` via the

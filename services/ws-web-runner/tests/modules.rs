@@ -92,9 +92,13 @@ fn dotnet_data1_pkg_built() -> bool {
 /// Used by communication modules that need to discover at least one peer
 /// via `et-list-agents` before they can complete (comm1, dart-comm1).
 #[rstest]
-#[case::comm1("et-ws-comm1")]
-#[case::dart_comm1("et-ws-dart-comm1")]
-fn multi_agent_module(#[case] module: &str) {
+#[case::comm1("et-ws-comm1", Language::Rust)]
+#[case::dart_comm1("et-ws-dart-comm1", Language::Dart)]
+fn multi_agent_module(#[case] module: &str, #[case] language: Language) {
+    if !mise_env_includes(language) {
+        println!("skipping {module}: requires the `{}` mise env, not loaded", language.as_str());
+        return;
+    }
     let server = et_ws_test_server::start();
 
     // Each runner needs its own thread because Command::output() blocks until
