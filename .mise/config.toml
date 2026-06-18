@@ -363,7 +363,20 @@ rp_wasm_src = ":http:edge-toolkit/core/releases/download/{{ vars.a_rp_release }}
 # series; mise exec calls Windows CreateProcess directly so each retry
 # is a clean process spawn with no inherited heap.
 gh_http = "--http-url https://github.com --progress --ignore-existing"
-retry = "mise exec -- recur -v --attempts 10 --delay 2s --backoff 2s --max-delay 3m --jitter 0,15s --"
+# Both halves go through `mise exec`: the outer one runs recur via mise's tool
+# registry (so cmd.exe doesn't have to find recur on PATH), the inner one
+# does the same for the retried command. The inner wrap is load-bearing on
+# Windows: without it, recur spawns the child via PATH, Windows finds the
+# `.cmd` file-shim under `%LOCALAPPDATA%\mise\shims` first (prepended to
+# PATH by install-mise), and the shim re-enters cmd.exe with another
+# `setlocal` -- the chain blows cmd's setlocal stack with
+#   Maximum setlocal recursion level reached.
+#   The syntax of the command is incorrect.
+# (Observed in https://github.com/edge-toolkit/core/actions/runs/27757019179/job/82121311779
+# on bc0c48318c29178bba2eb0c9a1b3f8098a7574e1 — `mise run prefetch:rust` under pwsh.)
+# Routing the inner command through mise exec uses the tool-registry path,
+# bypasses the .cmd shim, and exits cleanly.
+retry = "mise exec -- recur -v --attempts 10 --delay 2s --backoff 2s --max-delay 3m --jitter 0,15s -- mise exec --"
 
 [env]
 # Comma-separated list of every language env (one per .mise/config.<lang>.toml).
