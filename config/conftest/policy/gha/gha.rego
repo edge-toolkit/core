@@ -17,11 +17,15 @@ deny contains msg if {
 }
 
 # Steps must not override the shell -- rely on the workflow default (write the
-# step in bash rather than switching to PowerShell on Windows runners).
+# step in bash rather than switching to PowerShell on Windows runners). Carve-
+# out for diagnostic steps (name prefix `Diagnostic:`): these are short-lived
+# debug probes where the shell choice is the variable under test (e.g. cmd vs
+# MSYS bash). Revert the step + drop the prefix when the investigation lands.
 deny contains msg if {
 	some name, job in input.jobs
 	some step in job.steps
 	step.shell
+	not startswith(step.name, "Diagnostic:")
 	msg := sprintf("job %q sets shell: on a step; use the workflow default", [name])
 }
 
