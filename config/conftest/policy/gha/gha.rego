@@ -48,6 +48,52 @@ deny contains msg if {
 	)
 }
 
+# `DOCKER_BUILDKIT=1` must not be set in the docker-windows workflow: GHA
+# Windows runners ship without the `buildx` CLI, so the very first
+# `docker build` aborts with the literal error
+#
+#   ERROR: BuildKit is enabled but the buildx component is missing or broken.
+#          Install the buildx component to build images with BuildKit:
+#          https://docs.docker.com/go/buildx/
+#
+# (Captured 2026-06-18 on the docker-windows lane.) BuildKit cache mounts
+# (`RUN --mount=type=cache,...`) require DOCKER_BUILDKIT=1; until buildx is
+# installable on Windows runners, enabling it just trades a working build
+# for a guaranteed fail-fast. Anchored to docker-windows by `input.name` so
+# other workflows are unaffected. Checks all three scopes the env can be
+# set from: workflow-level, job-level, step-level.
+buildkit_error_hint := "GHA Windows runners ship without buildx; build aborts"
+
+deny contains msg if {
+	input.name == "docker-windows"
+	input.env.DOCKER_BUILDKIT
+	msg := sprintf(
+		"docker-windows must not set DOCKER_BUILDKIT at workflow scope (%s)",
+		[buildkit_error_hint],
+	)
+}
+
+deny contains msg if {
+	input.name == "docker-windows"
+	some name, job in input.jobs
+	job.env.DOCKER_BUILDKIT
+	msg := sprintf(
+		"docker-windows job %q must not set DOCKER_BUILDKIT (%s)",
+		[name, buildkit_error_hint],
+	)
+}
+
+deny contains msg if {
+	input.name == "docker-windows"
+	some name, job in input.jobs
+	some step in job.steps
+	step.env.DOCKER_BUILDKIT
+	msg := sprintf(
+		"docker-windows job %q must not set DOCKER_BUILDKIT on a step (%s)",
+		[name, buildkit_error_hint],
+	)
+}
+
 # When a workflow uses a local composite action (./.github/actions/<name>) and
 # also filters its triggers with a paths: list, that list must include the
 # composite action's location. Otherwise edits to the composite action won't

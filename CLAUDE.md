@@ -493,9 +493,19 @@ chain:
 When the question is "can install-action install X?", check the TOOLS.md
 first; if not there, search cargo-quickinstall's release tags for `X-<ver>`.
 A hit in either tier means install-action will fetch a prebuilt; absence in
-both means CI would pay a source-build cost. (Worked example: `aube` isn't in
-install-action's manifest but IS in cargo-quickinstall's index, so
-install-action would install it via the fallback path.)
+both means CI would pay a source-build cost.
+
+Even a manifest hit isn't a guarantee — install-action's resolver is strict
+about the binary names it expects to find inside the prebuilt archive, and
+upstream renames break it silently. Concrete cautionary tale: `aube` IS in
+install-action's manifest, but the manifest expects an `aubr` binary
+(`When resolving aube bin aubr is not found. This binary is not optional
+so it must be included in the archive`), which recent aube releases don't
+ship. install-action then falls through to a real `cargo install` source
+build, which then flakes on crates.io. The mise-managed `setup-aube` task
+(npm-backed, `continue-on-error`) was the reliable path here; reach for
+install-action only when the prebuilt actually exists for the target triple
+_and_ the binary names still match.
 
 ## Linting
 

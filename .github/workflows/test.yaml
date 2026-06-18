@@ -109,11 +109,6 @@ jobs:
         uses: ./.github/actions/install-mise-tools
         with:
           github-token: ${{ github.token }}
-          # aube is the optional npm backend mise's `npm:onnxruntime-web`
-          # picks up when present. Installed via taiki-e/install-action's
-          # cargo-binstall → cargo-quickinstall fallback (aube isn't in
-          # install-action's manifest but is in cargo-quickinstall's index).
-          extra-tools: aube
 
       - name: Prefetch dependencies
         env:
