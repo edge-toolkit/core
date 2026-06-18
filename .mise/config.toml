@@ -91,7 +91,11 @@ ripgrep = "latest"
 # platform; without it, mise's auto-rename keeps the Windows asset's
 # `recur-v<ver>-windows-amd64.exe` filename verbatim, so `recur` doesn't
 # resolve on PATH inside `mise run` task bodies that call it bare.
-"github:dbohdan/recur" = { version = "latest", bin = "recur" }
+# TEMPORARY: commented out while debugging Windows `'mise' is not recognized`
+# inside the `cmd /s /c "mise exec -- recur ..."` subprocess that fires when
+# the java env is loaded. The `retry` var below also goes empty for the
+# duration -- restore both lines together once the chain is fixed.
+# "github:dbohdan/recur" = { version = "latest", bin = "recur" }
 "github:grok-rs/waitup" = "latest"
 # ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
 "github:microsoft/onnxruntime" = "1.22.0"
@@ -374,7 +378,12 @@ gh_http = "--http-url https://github.com --progress --ignore-existing"
 # on bc0c48318c29178bba2eb0c9a1b3f8098a7574e1 — `mise run prefetch:rust` under pwsh.)
 # Routing the inner command through mise exec uses the tool-registry path,
 # bypasses the .cmd shim, and exits cleanly.
-retry = "mise exec -- recur -v --attempts 10 --delay 2s --backoff 2s --max-delay 3m --jitter 0,15s -- mise exec --"
+# TEMPORARY: recur disabled while debugging Windows `'mise' is not recognized`
+# inside the `cmd /s /c "mise exec -- recur ..."` subprocess that fires when
+# the java env loads. `retry = ""` makes every `{{ vars.retry }} <cmd>` site
+# expand to just `<cmd>` -- no retry wrapper, no recur, no double-mise-exec.
+# Restore this line + the github:dbohdan/recur [tools] entry together.
+retry = ""
 
 [env]
 # Comma-separated list of every language env (one per .mise/config.<lang>.toml).
@@ -866,7 +875,9 @@ mise install github:benhoyt/goawk
 # found` (seen on Nano Server: the per-OS preinstall ran the pip-26.0.1
 # fetch before `mise install` -- which would have installed recur --
 # had run).
-mise install github:dbohdan/recur
+# TEMPORARY: recur disabled while debugging the Windows cmd-subprocess mise
+# resolution -- see the matching `retry = ""` + commented [tools] entry.
+# mise install github:dbohdan/recur
 # rclone is the actual fetcher recur wraps. Same reasoning: without
 # this, the rustpython pipx bootstrap in config.windows.toml's preinstall
 # trips `recur: command was not found` for 10 attempts because rclone
