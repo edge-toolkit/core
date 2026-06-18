@@ -31,7 +31,16 @@ defaults:
     shell: bash --noprofile --norc -euo pipefail {0}
 
 env:
-  MISE_ENV: dart,dotnet,java,python,rust,zig
+  # TEMPORARY: MISE_ENV emptied to load NO guest-language config (no dart /
+  # dotnet / java / python / rust / zig toolchains). Drops the mise install
+  # footprint to just the always-loaded config.toml tools so we can isolate
+  # which language config triggers the Windows setlocal/cygheap pathology.
+  # Bisect upward (e.g. `rust`, then `rust,python`, ...) until the failure
+  # returns. Restore to the standard `dart,dotnet,java,python,rust,zig` once
+  # the root cause is in hand. The matching gha.rego carve-out
+  # (`expected_mise_env_test_diagnostic`) allows the empty value on this
+  # workflow only.
+  MISE_ENV: ""
   # Crank mise's logging to debug while we chase the prefetch-ci hang on
   # Windows -- silent 53-min stalls give us nothing to diagnose with. Drop
   # both back to defaults once the root cause is in hand.

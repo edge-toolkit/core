@@ -44,8 +44,19 @@ deny contains msg if {
 # build-arg override; the workflow-level value still matches the standard.
 expected_mise_env := "dart,dotnet,java,python,rust,zig"
 
+# TEMPORARY: the `test` workflow is allowed to set MISE_ENV to the empty
+# string while we bisect which language toolchain triggers the Windows
+# setlocal/cygheap pathology in `mise run prefetch-ci`. Drop this helper +
+# the matching `not test_diagnostic_empty` line below once the root cause
+# is in hand.
+diagnostic_empty_mise_env if {
+	input.name == "test"
+	input.env.MISE_ENV == ""
+}
+
 deny contains msg if {
 	input.env.MISE_ENV != expected_mise_env
+	not diagnostic_empty_mise_env
 	msg := sprintf(
 		"workflow %q must set env.MISE_ENV to %q (the full guest-language set)",
 		[input.name, expected_mise_env],
