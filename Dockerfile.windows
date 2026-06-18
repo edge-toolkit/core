@@ -1,7 +1,11 @@
 # escape=`
-# Parser directive (must be line 1): sets the line-continuation / escape
-# character to a backtick instead of the default `\`, so backslashes in Windows
-# paths stay literal and lines continue with a backtick.
+# syntax=docker/dockerfile:1
+# Parser directives (must lead the file): `escape` sets the line-continuation /
+# escape character to a backtick instead of the default `\`, so backslashes in
+# Windows paths stay literal and lines continue with a backtick. `syntax`
+# pulls the newest dockerfile-frontend so `RUN --mount=type=cache,...` is
+# parsed by BuildKit (cache mounts on Windows containers are experimental --
+# fall back to disk-cleanup-only if a future buildkit/moby release regresses).
 
 # hadolint runs ShellCheck (POSIX sh) over every RUN, but these are Windows cmd,
 # so it false-errors on cmd `if` (SC1072) and on `\x` in paths like C:\gh_token
@@ -108,18 +112,34 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 # for Nano -- and pip 26.0.1's vendored `truststore._windows`
 # `CertAddEncodedCertificateToStore` call fails under rustpython's
 # ctypes on Server Core.
-RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+#
+# BuildKit cache mounts keep the per-tool download archives (mise's
+# `downloads/` + pip's wheel cache + pipx's cache) OUT of the image layer:
+# they live in BuildKit's cache volume, get reused across builds, and are
+# never baked into the final image. The same three mounts are repeated on
+# every install/preinstall/mise-run RUN below so each one writes into the
+# same caches.
+RUN --mount=type=cache,target=C:\Users\ContainerAdministrator\AppData\Local\mise\downloads `
+    --mount=type=cache,target=C:\Users\ContainerAdministrator\AppData\Local\pip\Cache `
+    --mount=type=cache,target=C:\Users\ContainerAdministrator\AppData\Local\pipx\Cache `
+    (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install python
 
 # Preinstall: the cross-platform `_setup_all` (in config.toml) + the Windows
 # preinstall (in config.windows.toml). Both are guarded by `[settings]
 # task.run_auto_install=false`, so the preinstall task itself only runs once
 # mise has the tools it depends on.
-RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+RUN --mount=type=cache,target=C:\Users\ContainerAdministrator\AppData\Local\mise\downloads `
+    --mount=type=cache,target=C:\Users\ContainerAdministrator\AppData\Local\pip\Cache `
+    --mount=type=cache,target=C:\Users\ContainerAdministrator\AppData\Local\pipx\Cache `
+    (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise run preinstall
 
 # Install the always-loaded toolchain.
-RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+RUN --mount=type=cache,target=C:\Users\ContainerAdministrator\AppData\Local\mise\downloads `
+    --mount=type=cache,target=C:\Users\ContainerAdministrator\AppData\Local\pip\Cache `
+    --mount=type=cache,target=C:\Users\ContainerAdministrator\AppData\Local\pipx\Cache `
+    (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install
 
 # --- build: add the guest-language toolchains (config.<lang>.toml). ---
@@ -131,7 +151,13 @@ COPY .mise/ .mise/
 RUN mise trust
 ARG MISE_ENV=dart,dotnet,java,python,rust,zig
 ENV MISE_ENV=${MISE_ENV}
-RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+# dotnet:roslynator.dotnet.cli isn't in use yet -- skip to save ~hundreds of MB
+# on the Windows image. Drop the entry when a `mise run` task starts calling it.
+ENV MISE_DISABLE_TOOLS=dotnet:roslynator.dotnet.cli
+RUN --mount=type=cache,target=C:\Users\ContainerAdministrator\AppData\Local\mise\downloads `
+    --mount=type=cache,target=C:\Users\ContainerAdministrator\AppData\Local\pip\Cache `
+    --mount=type=cache,target=C:\Users\ContainerAdministrator\AppData\Local\pipx\Cache `
+    (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install
 
 # --- prefetch: download all dependencies + ONNX models. ---

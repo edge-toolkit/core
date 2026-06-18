@@ -51,41 +51,24 @@ disabled_tools contains tool if {
 	tool := trim_space(token)
 }
 
-# pipx:* tools mostly can't run on Nano Server (the individual tools
-# need real CPython, native extensions, etc.), so every pipx: tool in
-# the always-loaded config.toml must be in MISE_DISABLE_TOOLS -- with
-# one canary carve-out: pipx:cowsay stays ENABLED on Nano so the image
-# exercises the rustpython-based pipx bootstrap (config.windows.toml's
-# preinstall) end-to-end every build. If pipx ever regresses on Nano
-# the failure surfaces immediately on the canary tool rather than
-# silently months later when a guest config adds a new pipx tool. Other
-# pipx:* tools must still be disabled because their installers do
-# platform-incompatible things beyond pipx itself.
-nano_pipx_canary := "pipx:cowsay"
-
+# pipx:* tools can't run on Nano Server (no CPython, and the rustpython-based
+# pipx bootstrap in config.windows.toml's preinstall is currently broken
+# with STATUS_DLL_NOT_FOUND / STATUS_ENTRYPOINT_NOT_FOUND on Nano's stripped
+# API set, hence the ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP env gate that defaults
+# off). Every pipx:* tool in the always-loaded config.toml must therefore be
+# in Dockerfile.nanoserver's MISE_DISABLE_TOOLS. A previous canary carve-out
+# (pipx:cowsay stayed ENABLED on Nano so the build exercised the bootstrap
+# end-to-end) was dropped together with the bootstrap; re-introduce when the
+# bootstrap is fixed upstream and re-enabled by default.
 deny contains msg if {
 	some file in input
 	endswith(file.path, ".mise/config.toml")
 	some name, _ in file.contents.tools
 	startswith(name, "pipx:")
-	name != nano_pipx_canary
 	not disabled_tools[name]
 	msg := sprintf(
 		"%s: pipx tool %q must be in Dockerfile.nanoserver MISE_DISABLE_TOOLS (pipx tool fails on Nano Server)",
 		[file.path, name],
-	)
-}
-
-# The canary direction: pipx:cowsay must NOT be in MISE_DISABLE_TOOLS, so
-# the image's `mise install` actually exercises the pipx-on-Nano path.
-deny contains msg if {
-	some file in input
-	endswith(file.path, ".mise/config.toml")
-	nano_pipx_canary in object.keys(file.contents.tools)
-	disabled_tools[nano_pipx_canary]
-	msg := sprintf(
-		"%s: pipx canary %q must NOT be in Dockerfile.nanoserver MISE_DISABLE_TOOLS (loses the regression alarm)",
-		[file.path, nano_pipx_canary],
 	)
 }
 

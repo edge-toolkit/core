@@ -339,9 +339,10 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 # continuations (Dockerfile ENV doesn't support comment-aware joining and
 # the value is too long for a single line otherwise). The ARGs don't
 # persist into the runtime env; only the joined ENV does.
-ARG MISE_DT_BASE=cargo:dart-typegen,conda:m2-gnupg,lychee,pipx:cpplint,pipx:semgrep
+ARG MISE_DT_BASE=cargo:dart-typegen,conda:m2-gnupg,lychee,pipx:cowsay,pipx:cpplint,pipx:semgrep
+ARG MISE_DT_DOTNET=dotnet:roslynator.dotnet.cli
 ARG MISE_DT_PY=pipx:componentize-py,pipx:datamodel-code-generator,pipx:openapi-python-client,pipx:pytest,pipx:torch
-ENV MISE_DISABLE_TOOLS=${MISE_DT_BASE},${MISE_DT_PY}
+ENV MISE_DISABLE_TOOLS=${MISE_DT_BASE},${MISE_DT_DOTNET},${MISE_DT_PY}
 
 # Wire mise's pipx backend at the bootstrapped pipx (preinstall above
 # installed it via rustpython into target/preinstall-pipx). PATH points at

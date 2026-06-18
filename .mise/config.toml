@@ -350,8 +350,20 @@ rp_wasm_src = ":http:edge-toolkit/core/releases/download/{{ vars.a_rp_release }}
 # shows what happened on every attempt, not just the terminal "maximum N
 # attempts reached". Pair with `echo "[task] fetching X..."` before the
 # retry call so the chain knows what was being fetched.
+#
+# `mise exec -- recur` instead of bare `recur` is load-bearing on Windows:
+# mise installs recur with a .cmd file-shim, and mise's own task runner
+# (without `shell =`) only resolves `.exe` extensions on PATH, so a bare
+# `recur` from cmd.exe fails with "not recognized". Routing via `mise exec`
+# lets mise's tool-registry resolution find the binary directly. The
+# alternative -- `shell = "bash -euo pipefail -c"` on every retry-using
+# task -- forces recur to run under MSYS2 bash, whose fork emulation
+# eventually exhausts the parent process's address space (cygheap copy
+# failed, Win32 error 299) when prefetch tasks issue many retries in
+# series; mise exec calls Windows CreateProcess directly so each retry
+# is a clean process spawn with no inherited heap.
 gh_http = "--http-url https://github.com --progress --ignore-existing"
-retry = "recur -v --attempts 10 --delay 2s --backoff 2s --max-delay 3m --jitter 0,15s --"
+retry = "mise exec -- recur -v --attempts 10 --delay 2s --backoff 2s --max-delay 3m --jitter 0,15s --"
 
 [env]
 # Comma-separated list of every language env (one per .mise/config.<lang>.toml).
@@ -972,11 +984,10 @@ description = "Prefetch the Rust (cargo) dependencies"
 # cover that class of failure -- the HTTP/2 framing reset bypasses
 # cargo's own retry path. recur wraps the entire command so any
 # non-zero exit triggers a retry with exponential backoff + jitter.
-# shell = bash: on Windows, mise's default Windows shell is cmd.exe which
-# can't resolve `recur` even though it's installed; bash inherits the same
-# PATH but finds the shim. Matches every other `{{ vars.retry }}` user.
+# `{{ vars.retry }}` expands to `mise exec -- recur ...` so the cmd.exe
+# default shell on Windows can find recur via mise's tool registry
+# (no .cmd-extension PATH search, no MSYS-bash fork chain).
 run = "{{ vars.retry }} cargo fetch"
-shell = "bash -euo pipefail -c"
 
 [tasks."prefetch:node"]
 # Needs `build-ws-wasm-agent` first: the static workspace `link:`s its `pkg/`,

@@ -74,6 +74,32 @@ jobs:
           sc query docker | grep -q RUNNING || net start docker
           docker version
 
+      # Free runner disk before the build. The Server Core lane has been hitting
+      # "There is not enough space on the disk" during the conda-clang-tools
+      # install inside `mise install`. `docker system prune -af` clears any
+      # unused images/containers from earlier matrix entries on the same
+      # runner; `docker builder prune -af` clears BuildKit's layer cache.
+      # Disk-free is logged before + after so we can see how much each prune
+      # actually reclaims on this runner image -- adjust the cleanup set up or
+      # down based on the delta.
+      - name: Free disk space before docker build
+        env:
+          PS_DISKFREE: Get-PSDrive C | Select-Object -Property Used,Free | Format-List
+        run: |
+          freespace() { powershell.exe -NoProfile -Command "$PS_DISKFREE"; }
+          echo "::group::disk-free BEFORE prune"
+          freespace
+          echo "::endgroup::"
+          echo "::group::docker system prune -af"
+          docker system prune -af
+          echo "::endgroup::"
+          echo "::group::docker builder prune -af"
+          docker builder prune -af
+          echo "::endgroup::"
+          echo "::group::disk-free AFTER prune"
+          freespace
+          echo "::endgroup::"
+
       - name: Prepare mise and Github token for the build context
         run: |
           v="${{ env.MISE_VERSION }}"
@@ -102,6 +128,11 @@ jobs:
         env:
           DOCKERFILE: ${{ steps.dockerfile.outputs.dockerfile }}
           IMAGE_TAG: ${{ steps.dockerfile.outputs.tag }}
+          # Enable BuildKit so the `RUN --mount=type=cache,target=...` lines in
+          # Dockerfile.windows (and any future cache mounts elsewhere) are
+          # honored. Without DOCKER_BUILDKIT=1 the legacy builder silently
+          # ignores the directive and downloads bake into image layers.
+          DOCKER_BUILDKIT: "1"
         run: |
           args="-f $DOCKERFILE ${{ matrix.build_arg }} --build-arg MISE_ENV"
           args="$args --target build-minimal -t $IMAGE_TAG"
@@ -132,6 +163,7 @@ jobs:
       - name: Build stage precompile
         env:
           DOCKERFILE: ${{ steps.dockerfile.outputs.dockerfile }}
+          DOCKER_BUILDKIT: "1"
         run: |
           args="-f $DOCKERFILE ${{ matrix.build_arg }} --build-arg MISE_ENV"
           args="$args --target precompile"
