@@ -190,7 +190,13 @@ jobs:
           && github.event.pull_request.head.repo.fork != true
         run: |
           mise run preinstall
-          MISE_ENV="$MISE_ENV,maint" mise install
+          # Retry once on transient api.github.com 5xx during the aqua attestation
+          # / asset fetches: the first attempt re-uses what's already on disk, so
+          # the retry usually clears single-tool HTTP flakes in seconds.
+          MISE_ENV="$MISE_ENV,maint" mise install || {
+            echo "::warning::mise install failed, retrying once"
+            MISE_ENV="$MISE_ENV,maint" mise install
+          }
         env:
           GITHUB_TOKEN: ${{ github.token }}
 

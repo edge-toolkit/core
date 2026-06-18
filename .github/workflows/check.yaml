@@ -56,7 +56,10 @@ jobs:
       - name: Install mise tools
         run: |
           mise run preinstall
-          mise install
+          # Retry once on transient api.github.com 5xx during the aqua attestation
+          # / asset fetches: the first attempt re-uses what's already on disk, so
+          # the retry usually clears single-tool HTTP flakes in seconds.
+          mise install || { echo "::warning::mise install failed, retrying once"; mise install; }
         env:
           GITHUB_TOKEN: ${{ github.token }}
           # GitHub release downloads occasionally take longer than mise's

@@ -96,6 +96,17 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install http:busybox
 
+# Install CPython up front so the Windows preinstall task's
+# `if command -v python` branch takes the well-tested
+# `python -m pip install pipx` path. Server Core has the full installer
+# stack (unlike Nano), so python-build-standalone runs cleanly here.
+# Without this, preinstall falls back to the rustpython arm intended
+# for Nano -- and pip 26.0.1's vendored `truststore._windows`
+# `CertAddEncodedCertificateToStore` call fails under rustpython's
+# ctypes on Server Core.
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise install python
+
 # Preinstall: the cross-platform `_setup_all` (in config.toml) + the Windows
 # preinstall (in config.windows.toml). Both are guarded by `[settings]
 # task.run_auto_install=false`, so the preinstall task itself only runs once

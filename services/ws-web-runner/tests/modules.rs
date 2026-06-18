@@ -96,7 +96,10 @@ fn dotnet_data1_pkg_built() -> bool {
 #[case::dart_comm1("et-ws-dart-comm1", Language::Dart)]
 fn multi_agent_module(#[case] module: &str, #[case] language: Language) {
     if !mise_env_includes(language) {
-        println!("skipping {module}: requires the `{}` mise env, not loaded", language.as_str());
+        println!(
+            "skipping {module}: requires the `{}` mise env, not loaded",
+            language.as_str()
+        );
         return;
     }
     let server = et_ws_test_server::start();
