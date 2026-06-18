@@ -122,6 +122,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y mesa-vulkan-drivers
 
+      # mise's Tera renderer expects $HOME to be set when evaluating env.HOME
+      # in [vars] (config.toml has e.g. `conda_openssl = "{{ env.HOME }}/.local
+      # /share/mise/installs/conda-openssl/3"`). MSYS bash auto-sets HOME from
+      # USERPROFILE; pwsh and cmd do not, so mise tasks invoked from a pwsh
+      # step fail with `Variable env.HOME not found in context while rendering
+      # __tera_one_off`. Plumb HOME = USERPROFILE so every subsequent step
+      # (incl. our pwsh diagnostic ones) sees it.
+      - name: Set HOME = USERPROFILE on Windows
+        if: runner.os == 'Windows'
+        run: echo "HOME=$USERPROFILE" >> "$GITHUB_ENV"
+
       - name: Install mise + tools
         uses: ./.github/actions/install-mise-tools
         with:
