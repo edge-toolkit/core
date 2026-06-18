@@ -110,6 +110,25 @@ jobs:
         with:
           tool: cargo-binstall,mise@2026.6.5
 
+      # taiki-e/install-action's mise manifest extracts only `mise/bin/mise.exe`
+      # from the Windows release zip; mise's runtime needs `mise/bin/mise-shim.exe`
+      # next to it AND its `%LOCALAPPDATA%\mise\shims` dir on PATH, or tool
+      # lookups inside `mise run` silently fall back to "file" shim mode and
+      # the per-tool `.cmd` shims aren't reachable (manifesting as `'dart' /
+      # 'mvn' / 'recur' / 'wasm-pack' / 'zig' is not recognized…` inside
+      # `prefetch-ci`). Stage mise-shim.exe from the same release tag and
+      # append the shims dir to GITHUB_PATH for subsequent steps.
+      - name: Stage mise-shim.exe + shims dir on Windows
+        if: runner.os == 'Windows'
+        run: |
+          v=2026.6.5
+          url="https://github.com/jdx/mise/releases/download/v${v}/mise-v${v}-windows-x64.zip"
+          zip="$RUNNER_TEMP/mise-win.zip"
+          dest="$(dirname "$(command -v mise)")"
+          curl -fsSL -o "$zip" "$url"
+          unzip -j "$zip" 'mise/bin/mise-shim.exe' -d "$dest"
+          echo "$LOCALAPPDATA\mise\shims" >> "$GITHUB_PATH"
+
       - name: Trust mise config
         run: mise trust
 
