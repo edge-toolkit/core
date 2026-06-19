@@ -57,7 +57,7 @@ upstream = "https://github.com/cameron1024/dart-typegen"
 license = "MIT OR Apache-2.0"
 
 [asset."gnupg-w32-2.5.20_20260513-x86_64-pc-windows.tar.gz"]
-sha256 = ""
+sha256 = "e04493f469fd3861e119a603700cfeafe8da0090aed39b547ad3975b21f48f0b"
 url = "https://github.com/edge-toolkit/core/releases/download/gnupg-w32-v1/gnupg-w32-2.5.20_20260513-x86_64-pc-windows.tar.gz"
 upstream = "https://gnupg.org"
 license = "GPL-3.0+"

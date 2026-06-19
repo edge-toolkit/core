@@ -68,6 +68,19 @@ version = "0.1.13"
 url = "https://github.com/edge-toolkit/core/releases/download/dart-typegen-v1/{{ vars.dart_typegen_asset }}"
 checksum = "sha256:f21eab43597b0325b672de61fd396465aa371d3e9e32da6c56e93a89a003b5aa"
 
+# Prebuilt gnupg for Windows -- repackaged from gnupg.org's official NSIS
+# installer (PE32+ native binaries, no MSYS2/Cygwin layer). The
+# upstream-cache `gnupg-w32` job at .github/workflows/upstream-cache.yaml
+# is the producer; release-tag + asset-name match the gnupg_w32_asset var
+# in [vars] above and the matching `[asset.<filename>]` entry in
+# config/upstream-cache.toml.
+[tools."http:gnupg-w32"]
+bin = "gpg"
+version = "2.5.20"
+[tools."http:gnupg-w32".platforms.windows-x64]
+url = "https://github.com/edge-toolkit/core/releases/download/gnupg-w32-v1/{{ vars.gnupg_w32_asset }}"
+checksum = "sha256:e04493f469fd3861e119a603700cfeafe8da0090aed39b547ad3975b21f48f0b"
+
 # Rust toolchains for Windows -- gnullvm host directly, so no msvc toolchain
 # ever lands on disk (the old preinstall did install-msvc-then-rustup-reinstall-
 # gnullvm, which doubled toolchain weight and exhausted Nano's disk quota).

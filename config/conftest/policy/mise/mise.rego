@@ -152,6 +152,11 @@ allowed_os_scoped_tool := {
 	# upstream-cache.yaml workflow on that host.
 	"http:et-rp",
 	"conda:gnupg",
+	# cargo:dart-typegen is os-scoped to non-Windows because the gnullvm
+	# rust host trips `error[E0463]: can't find crate for 'core'` on
+	# Windows source-builds; coverage is preserved via http:dart-typegen
+	# in config.windows.toml, which serves the upstream-cache prebuilt.
+	"cargo:dart-typegen",
 }
 
 deny contains msg if {
