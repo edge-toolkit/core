@@ -75,6 +75,14 @@ targets = "wasm32-unknown-unknown,wasm32-wasip2"
 version = "nightly-x86_64-pc-windows-gnullvm"
 
 [vars]
+# Upstream-cache `_asset` vars -- pin the exact tarball filename each
+# `http:` Windows tool fetches from edge-toolkit/core's *-v<N> release.
+# Each matches a `[asset."<filename>"]` row in config/upstream-cache.toml
+# (the checksums.rego policy enforces the bidirectional cross-reference).
+augeas_asset = "augeas-1.14.1-x86_64-pc-windows-mingw.tar.gz"
+dart_typegen_asset = "dart-typegen-0.1.13-x86_64-pc-windows-msvc.tar.gz"
+gnupg_w32_asset = "gnupg-w32-2.5.20_20260513-x86_64-pc-windows.tar.gz"
+
 # Root of mise's per-tool install dirs (the mise data dir is LOCALAPPDATA\mise);
 # the install-path vars below all hang off it.
 mise_installs = '{{ get_env(name="LOCALAPPDATA", default="") }}\mise\installs'

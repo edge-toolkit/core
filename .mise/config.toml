@@ -18,6 +18,16 @@ min_version = "2026.6.5"
 # exec_auto_install covers `mise exec`,
 # task.run_auto_install covers `mise run`.
 cargo.binstall = true
+# Windows-only: make every inline task body run under bash (ash via
+# MISE_BASH_PATH = busybox-w32 in config.windows.toml) by default.
+# Without this, mise spawns `cmd /c "<body>"` and any task in the
+# always-loaded base config hits the cmd-subprocess PATH dropout
+# (cargo/pnpm/wasm-pack /etc. unresolvable) we worked around piecemeal
+# with `shell = "bash -euo pipefail -c"` on prefetch:rust, prefetch:node,
+# and build-et-cli. Setting the global flips every other task at once.
+# Tasks that explicitly need cmd (e.g. dotnet-data1's `dotnet publish`
+# chain) still set `shell` on the task to override.
+windows_default_inline_shell_args = "bash -euo pipefail -c"
 # Disable mise backends we never use. `asdf` is kept enabled because
 # several of our bare-name tools (conftest, dprint, hadolint, pipx,
 # rclone, ruff, ...) list `asdf:` as the registry fallback after
@@ -327,7 +337,7 @@ ort_loc_unix = "{{ env.HOME }}/.local/share/mise/installs/github-microsoft-onnxr
 # release because HuggingFace 429s the CI runner IP pool during prefetch
 # (every docker-linux lane that hits amd/retinaface concurrently exhausts
 # recur's 10 retries). face1_asset pins the upstream amd/retinaface commit
-# SHA (short); config/checksums.toml records the matching SHA256; the
+# SHA (short); config/upstream-cache.toml records the matching SHA256; the
 # `publish-face1-to-hf-cache` task in config.maint.toml (MISE_ENV=maint)
 # refreshes both sides + the release asset together.
 # config/conftest/policy/checksums.rego cross-checks them.
@@ -355,7 +365,7 @@ pip_for_rustpython_wheel_url = ":http:packages/{{ vars.pip_for_rustpython_sha }}
 # feature so the .wasm embeds the Python stdlib (no RUSTPYTHONPATH dance
 # needed at consumer-side). Tracks main HEAD so the upstream `pip` audit-
 # hook fix (RustPython#7956) is in. rp_wasm_asset pins the upstream short
-# SHA; config/checksums.toml records the matching SHA256; built + uploaded
+# SHA; config/upstream-cache.toml records the matching SHA256; built + uploaded
 # by config.maint.toml's `publish-rp-wasm-to-release` (sharing the rp-v<N>
 # release tag with the native rustpython binary builds).
 rp_wasm_asset = "rustpython-wasm-08a1d6f.tar.gz"
@@ -666,7 +676,7 @@ description = "Run conftest OPA/Rego policies over the TOML config + lock files"
 # --combine feeds every listed file to one policy evaluation as an array of
 # {path, contents}, so a policy can both check each file and compare across files
 # (the mise wasm-bindgen pin vs Cargo.lock; the .mise/config*.toml *_asset vars
-# vs config/checksums.toml). --parser toml: Cargo.lock has no .toml suffix.
+# vs config/upstream-cache.toml). --parser toml: Cargo.lock has no .toml suffix.
 # The TOML rule namespaces are listed explicitly, so the per-file `gha` (YAML)
 # namespace is never evaluated against this combined TOML input.
 run = """
@@ -675,7 +685,7 @@ ns_list="cross cargo mise pyproject no_trailing_backslash checksums"
 # shellcheck disable=SC2086
 ns=$(for n in $ns_list; do echo -n " --namespace $n"; done)
 # shellcheck disable=SC2086
-git ls-files '*Cargo.toml' '.mise/config*.toml' '*pyproject.toml' Cargo.lock config/checksums.toml |
+git ls-files '*Cargo.toml' '.mise/config*.toml' '*pyproject.toml' Cargo.lock config/upstream-cache.toml |
   xargs conftest test --combine --parser toml $ns -p config/conftest/policy
 """
 shell = "bash -euo pipefail -c"
@@ -1056,6 +1066,12 @@ description = "Prefetch the Node (pnpm) static workspace"
 # fires when an earlier install left a different layout. Treat as a CI batch.
 env = { CI = "true" }
 run = "pnpm install --dir services/ws-server/static --ignore-scripts --config.ignoredBuiltDependencies=protobufjs"
+# `shell = "bash"` on Windows: same base-config-task PATH dropout as
+# `prefetch:rust` and `build-et-cli` -- cmd subprocess can't find pnpm.
+# Captured on 3ac0d60b windows test job 82282265424 (after the
+# prefetch:rust fix, the same failure surfaced one step downstream
+# in prefetch:node).
+shell = "bash -euo pipefail -c"
 
 [tasks.regenerate-verification]
 alias = "regen-verification"
@@ -1227,7 +1243,7 @@ run = "open http://localhost:5080/"
 [tasks.fetch-face1-rclone]
 run = """
 {{ vars.retry }} rclone copyto {{ vars.face1_src }} {{ vars.face1_dst }} {{ vars.gh_http }}
-sha=$(mise exec -- yq -p toml -oy '.sha256."{{ vars.face1_asset }}"' config/checksums.toml)
+sha=$(mise exec -- yq -p toml -oy '.asset."{{ vars.face1_asset }}".sha256' config/upstream-cache.toml)
 echo "$sha  {{ vars.face1_dst }}" | mise exec -- coreutils sha256sum -c -
 """
 shell = "bash -euo pipefail -c"
@@ -1316,7 +1332,7 @@ echo "[rp-detect-missing] triple=$triple short=$short native_missing=$native_mis
 """
 shell = "bash -euo pipefail -c"
 
-# rp-v<N> release, verify against config/checksums.toml, and extract it
+# rp-v<N> release, verify against config/upstream-cache.toml, and extract it
 # into target/cache/rp-wasm/ for build-ws-pywasm1-module (and future ws-modules)
 # to read. The heavy wasm-pack compile is done once via
 # `publish-rp-wasm-to-release` in config.maint.toml. `tar` is the host's --
@@ -1329,7 +1345,7 @@ dir={{ vars.rp_wasm_dir }}
 tarball="$dir/{{ vars.rp_wasm_asset }}"
 coreutils mkdir -p "$dir"
 {{ vars.retry }} rclone copyto {{ vars.rp_wasm_src }} "$tarball" {{ vars.gh_http }}
-sha=$(yq -p toml -oy '.sha256."{{ vars.rp_wasm_asset }}"' config/checksums.toml)
+sha=$(yq -p toml -oy '.asset."{{ vars.rp_wasm_asset }}".sha256' config/upstream-cache.toml)
 # sha256sum is best-effort on Windows. The tarball path contains
 # backslashes (`D:\\a\\core\\core/target/...`) and something in the
 # bash/uutils pipeline still mangles them to `D:acorecore/target/...`

@@ -18,6 +18,12 @@ name: upstream-cache
     paths:
       - .github/workflows/upstream-cache.yaml
       - .github/actions/install-mise/**
+      # `config/upstream-cache.toml` is the source of truth for every
+      # cached asset's `[asset.<filename>] = { sha256, url, license }`
+      # row (see CLAUDE.md "Adding a new upstream-cache entry"). A bump
+      # there means the version pin / SHA / license shifted, which the
+      # matching upstream-cache job needs to re-publish, so trigger.
+      - config/upstream-cache.toml
   workflow_dispatch:
     inputs:
       os:
@@ -336,7 +342,12 @@ jobs:
           curl -sLO "https://github.com/hercules-team/augeas/releases/download/release-${AUG_VERSION}/augeas-${AUG_VERSION}.tar.gz"
           tar xzf "augeas-${AUG_VERSION}.tar.gz"
           cd "augeas-${AUG_VERSION}"
-          ./configure --prefix="$installdir" --disable-static
+          # --disable-dependency-tracking: MSYS2's bundled make trips
+          # automake's depcomp probe with "Something went wrong
+          # bootstrapping makefile fragments for automatic dependency
+          # tracking" (we don't rebuild incrementally in CI anyway).
+          ./configure --prefix="$installdir" --disable-static \
+            --disable-dependency-tracking
           make -j"$(nproc)"
           make install
           # bundle the mingw runtime DLLs augeas links against so the
@@ -437,7 +448,11 @@ jobs:
             --target x86_64-pc-windows-msvc \
             --locked
           ls "$installdir/bin"
-          tar czf "$RUNNER_TEMP/$ASSET" -C "$installdir/bin" dart-typegen.exe
+          # `cd` into the dir + tar a relative path -- Git Bash's bundled
+          # tar parses `D:\a\_temp/...` as `host:path` (the colon) and
+          # then errors out with `Cannot connect to D: resolve failed`.
+          # Relative paths avoid the colon entirely.
+          (cd "$installdir/bin" && tar czf "../../$ASSET" dart-typegen.exe)
           ls -lh "$RUNNER_TEMP/$ASSET"
 
       # Release tag must already exist -- run `MISE_ENV=maint mise run
@@ -460,9 +475,9 @@ jobs:
   # https://gnupg.org/ftp/gcrypt/binary/gnupg-w32-<ver>.exe is a 5.5 MB
   # NSIS installer; mise's built-in extraction (`sevenz_rust2`) handles
   # canonical .7z but not the NSIS wrapper, so we extract once in CI
-  # via the standalone 7zz binary (aqua:ip7z/7zip mise tool) and host
-  # the resulting tarball. Output is a flat `bin/`+`share/`+`lib/`+
-  # `include/` layout -- a self-contained native-PE gpg/gpg-agent/
+  # via the `7z` binary (p7zip-full, preinstalled on ubuntu-latest)
+  # and host the resulting tarball. Output is a flat `bin/`+`share/`+
+  # `lib/`+`include/` layout -- a self-contained native-PE gpg/gpg-agent/
   # dirmngr/gpgsm suite with no `Library/usr/bin/` nesting, no msys2-
   # runtime autoload trap (every binary is PE32+ x86-64, not Cygwin).
   # Runs on ubuntu-latest because 7zz extraction is fully cross-platform
@@ -509,11 +524,18 @@ jobs:
             echo "asset=$asset" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Install mise (and 7zz via aqua:ip7z/7zip)
+      # Use mise-managed `7zz` (aqua:ip7z/7zip in config.maint.toml) to
+      # extract the NSIS-wrapped installer. install-mise gets mise on
+      # PATH; the following step's MISE_ENV=maint loads the maint
+      # toolchain (aqua:ip7z/7zip + aqua:ducaale/xh + cargo:toml-cli).
+      - name: Install mise + maint tools
         if: steps.gpg_check.outputs.work == 'yes'
         uses: ./.github/actions/install-mise
-        with:
-          extra-tools: aqua:ip7z/7zip
+      - name: Install maint toolchain
+        if: steps.gpg_check.outputs.work == 'yes'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: MISE_ENV=maint mise install
 
       - name: Extract + repackage upstream installer
         if: |-
@@ -528,8 +550,8 @@ jobs:
           cd "$work"
           installer="gnupg-w32-${GNUPG_VERSION}_${GNUPG_BUILD_STAMP}.exe"
           url="https://gnupg.org/ftp/gcrypt/binary/${installer}"
-          curl -sLO "$url"
-          7zz x -y -o"extracted" "$installer"
+          MISE_ENV=maint mise exec -- xh --download "$url" -o "$installer"
+          MISE_ENV=maint mise exec -- 7zz x -y -o"extracted" "$installer"
           # Strip NSIS install-staging cruft: `$PLUGINSDIR/` is NSIS's
           # own internal use, and the `*.tmp` files in bin/ are NSIS's
           # mid-install copies of binaries (cleaned up by a working

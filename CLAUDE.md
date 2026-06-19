@@ -477,6 +477,78 @@ Skipping a tool entirely with `MISE_DISABLE_TOOLS` is reserved for
 is expected. Other Dockerfiles may only disable tools that are unused by the
 build system anyway (e.g. `cargo-expand`, a dev-only macro-debugging tool).
 
+## Adding a new `upstream-cache` entry
+
+When upstream has no prebuilt binary for a platform we target (the case
+the "Tools must work on every OS" rule needs help solving), we mirror
+the build to our own GitHub release and point `[tools."http:<name>"]`
+at it. The pattern is the same for every cache entry; copy the
+`rustpython` / `augeas` / `dart-typegen` / `gnupg-w32` shape:
+
+1. **Bootstrap task in `.mise/config.maint.toml`.** An idempotent
+   `[tasks.bootstrap-<name>-release]` that runs `gh release view <tag>
+   ... || gh release create <tag> ... --prerelease`. The `--notes`
+   field must contain **only the upstream project URL and its SPDX
+   license expression, separated by a newline — nothing else** (no
+   prose, no "auto-built by..." footer). The maintainer runs this
+   once per repo before the workflow's first dispatch.
+
+2. **Job in `.github/workflows/upstream-cache.yaml`.** Mirrors the
+   rustpython job's shape: a `Detect missing <name> asset` step that
+   queries the release via `gh release view --json assets`, gates the
+   build/upload steps on `outputs.work == 'yes'`, then a build step,
+   then a publish step that runs `gh release upload <tag> --clobber`.
+   The job creates **no** release — the bootstrap task does. The job
+   uploads only.
+
+3. **Tarball layout.** Flat `bin/`+`lib/`+`share/`+`include/` rooted
+   at the tar prefix (no nested `install/` or `<pkg>-<ver>/` segment).
+   For Windows binaries, bundle dependent DLLs into `bin/` so the
+   tarball is self-contained on a vanilla host (no MSYS2/conda needed
+   at consumer time). The asset filename should embed the version + the
+   target triple (e.g. `augeas-1.14.1-x86_64-pc-windows-mingw.tar.gz`)
+   so multi-platform releases don't collide.
+
+4. **`http:` tool entry.** Add `[tools."http:<name>"]` in
+   `.mise/config.toml` (cross-platform tools) or
+   `.mise/config.windows.toml` (Windows-only). Required fields per
+   platform: `url`, `checksum = "sha256:..."`, `version`. The publish
+   step should emit a `.sha256` sidecar alongside the tarball so the
+   maintainer can paste the value into config.toml. (The rustpython
+   publish task auto-edits config.toml via `cargo:toml-cli` when
+   available — same pattern is fine for new entries.)
+
+5. **Asset metadata source of truth: `config/upstream-cache.toml`.**
+   Every tarball / wheel / model file fetched from one of our releases
+   (or from any upstream URL) gets an `[asset."<filename>"]` table:
+   ```toml
+   [asset."<asset-filename>"]
+   sha256   = "<sha256-hex>"   # may be "" while bootstrapping a new entry
+   url      = "<download URL>"   # canonical fetch URL (our release tag)
+   upstream = "<upstream project URL>"
+   license  = "<SPDX expression>"
+   ```
+   The matching `.mise/config*.toml` `[vars]` block defines a
+   `<name>_asset` var pointing at the same filename (so the fetch
+   command, the integrity check, and the metadata table share one
+   source). The `config/conftest/policy/checksums/checksums.rego`
+   policy enforces both the bidirectional cross-reference (every
+   `<name>_asset` ↔ `[asset.<filename>]`) and the per-entry shape
+   (`url` + `upstream` + `license` required; `sha256` present,
+   optionally empty during bootstrap). Bump all rows in lockstep
+   when the upstream version changes.
+
+5. **Triggers.** `pull_request` on `paths: [.github/workflows/
+   upstream-cache.yaml, .github/actions/install-mise/**]` so editing
+   the workflow exercises the job before merge; `workflow_dispatch`
+   for ad-hoc rebuilds (e.g. version bump). No `push:` trigger — we
+   don't want a `main`-merge to rebuild assets.
+
+Required side-effect: an `etc-` entry in `config/conftest/policy/
+mise.rego`'s allowlist of `http:` tools that have no prebuilt at any
+triple, if applicable. (Skip if the tool is OS-scoped and the
+allowlist already covers it.)
+
 ## taiki-e/install-action's resolution chain
 
 The `.github/actions/install-mise` composite action uses
