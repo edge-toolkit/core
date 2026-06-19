@@ -48,6 +48,10 @@ env:
 
 jobs:
   rust:
+    # TEMPORARY: parked while iterating on the upstream-cache.yaml augeas
+    # job. Shows as "skipped" so runner capacity goes to upstream-cache.
+    # Drop this line once augeas is building cleanly.
+    if: false
     runs-on: ${{ matrix.os }}
     timeout-minutes: ${{ matrix.timeout }}
     # Override the workflow-level `shell: bash` default for Windows runs to

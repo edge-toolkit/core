@@ -25,6 +25,10 @@ env:
 
 jobs:
   build:
+    # TEMPORARY: parked while iterating on the upstream-cache.yaml augeas
+    # job. Shows as "skipped" so runner capacity goes to upstream-cache.
+    # Drop this line once augeas is building cleanly.
+    if: false
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
