@@ -337,9 +337,19 @@ jobs:
           installdir="$RUNNER_TEMP/install"
           mkdir -p "$srcdir" "$installdir"
           cd "$srcdir"
-          curl -sLO "https://github.com/hercules-team/augeas/releases/download/release-${AUG_VERSION}/augeas-${AUG_VERSION}.tar.gz"
-          tar xzf "augeas-${AUG_VERSION}.tar.gz"
+          tarball="augeas-${AUG_VERSION}.tar.gz"
+          base="https://github.com/hercules-team/augeas/releases/download"
+          curl -sLO "${base}/release-${AUG_VERSION}/${tarball}"
+          tar xzf "$tarball"
           cd "augeas-${AUG_VERSION}"
+          # Apply Windows portability patch to src/augtool.c -- augtool
+          # uses pwd.h / getpwuid_r / getuid() to look up the user's
+          # home dir for ~/.augeas readline history; mingw-w64 doesn't
+          # ship pwd.h or getuid. The patch wraps both in _WIN32 guards
+          # and falls back to $HOME / $USERPROFILE on Windows. (The
+          # existing getenv("HOME") fallback in get_home_dir is what we
+          # keep; we just skip the pwd.h call entirely.)
+          patch -p1 < "$GITHUB_WORKSPACE/config/augeas/win32-augtool.patch"
           # Regenerate autotools files from the freshly-installed MSYS2
           # autoconf/automake/libtool stack -- pkgx's recipe does this
           # unconditionally for augeas and it sidesteps the autotools-

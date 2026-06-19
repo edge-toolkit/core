@@ -1,0 +1,48 @@
+--- a/src/augtool.c
++++ b/src/augtool.c
+@@ -35,7 +35,11 @@
+ #include <signal.h>
+ #include <sys/types.h>
+ #include <sys/stat.h>
++#ifdef _WIN32
++typedef unsigned int uid_t;
++#else
+ #include <pwd.h>
++#endif
+ #include <stdarg.h>
+ #include <sys/time.h>
+ 
+@@ -232,6 +236,13 @@
+ }
+ 
+ static char *get_home_dir(uid_t uid) {
++#ifdef _WIN32
++    (void)uid;
++    const char *env = getenv("HOME");
++    if (env == NULL)
++        env = getenv("USERPROFILE");
++    return env ? strdup(env) : NULL;
++#else
+     char *strbuf;
+     char *result;
+     struct passwd pwbuf;
+@@ -265,6 +276,7 @@
+     free(strbuf);
+ 
+     return result;
++#endif
+ }
+ 
+ /* Inspired from:
+@@ -285,7 +297,11 @@
+     rl_char_is_quoted_p = &quote_detector;
+ 
+     /* Set up persistent history */
++#ifdef _WIN32
++    char *home_dir = get_home_dir(0);
++#else
+     char *home_dir = get_home_dir(getuid());
++#endif
+     char *history_dir = NULL;
+ 
+     if (home_dir == NULL)

@@ -20,6 +20,10 @@ is_mise(file) if startswith(file.path, ".mise/config")
 
 is_upstream_cache(file) if file.path == "config/upstream-cache.toml"
 
+# Module-scope sprintf templates kept above the 120-char editorconfig limit
+# only by living on their own lines.
+missing_sha256_msg := "config/upstream-cache.toml: [asset.%q] is missing `sha256` (use `\"\"` while bootstrapping)"
+
 # Asset filenames declared in any .mise/config*.toml's [vars].
 mise_assets contains filename if {
 	some file in input
@@ -84,5 +88,5 @@ deny contains msg if {
 	is_upstream_cache(file)
 	some filename, entry in file.contents.asset
 	not entry.sha256
-	msg := sprintf("config/upstream-cache.toml: [asset.%q] is missing `sha256` (use `\"\"` while bootstrapping)", [filename])
+	msg := sprintf(missing_sha256_msg, [filename])
 }
