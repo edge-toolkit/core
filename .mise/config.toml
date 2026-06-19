@@ -1136,7 +1136,10 @@ description = "Build the WebSocket WASM client"
 dir = "services/ws-wasm-agent"
 # {{ vars.no_opt }} is --no-opt on Windows (wasm-opt can't run on Nano), empty
 # elsewhere -- the served, size-optimised artifact is built on Linux/macOS.
-run = "wasm-pack build . --target web {{ vars.no_opt }} -- -Z build-std=std,panic_abort"
+# Stable toolchain build: drops the nightly `-Z build-std=std,panic_abort`.
+# Without build-std the precompiled std doesn't get the mvp target-feature
+# treatment, but the agent doesn't need that for correctness.
+run = "wasm-pack build . --target web {{ vars.no_opt }}"
 
 [tasks.build-ws-wasm-agent.env]
 # Scope these flags to the wasm target rather than setting plain `RUSTFLAGS`:
@@ -1146,7 +1149,6 @@ run = "wasm-pack build . --target web {{ vars.no_opt }} -- -Z build-std=std,pani
 # and `+mutable-globals` then leaks into that host build and rustc rejects
 # them with "'mvp' is not a recognized processor for this target".
 CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS = "{{ vars.wasm_rustflags }}"
-RUSTUP_TOOLCHAIN = "nightly"
 
 [tasks.build-et-cli]
 # Pre-build et-cli once. The parallel build-ws-* module tasks each call
