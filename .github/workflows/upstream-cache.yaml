@@ -326,6 +326,7 @@ jobs:
             gzip
             libtool
             make
+            patch
             tar
 
       - name: Build + package augeas
