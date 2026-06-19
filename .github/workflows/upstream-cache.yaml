@@ -346,8 +346,15 @@ jobs:
           ASSET: ${{ steps.aug_check.outputs.asset }}
         run: |
           set -euo pipefail
-          srcdir="$RUNNER_TEMP/augeas-src"
-          installdir="$RUNNER_TEMP/install"
+          # MSYS2 bash interprets `D:\a\_temp` (Windows-form $RUNNER_TEMP)
+          # as escape sequences (`\a` -> BEL, `\_` -> `_`), mangling it to
+          # `D:a_temp/...`. Libtool's `-rpath must be absolute` check then
+          # rejects the result. cygpath -m gives the Windows-form with
+          # forward slashes (e.g. `D:/a/_temp`), which is absolute AND has
+          # no backslashes for bash to misread.
+          runner_temp_m=$(cygpath -m "$RUNNER_TEMP")
+          srcdir="$runner_temp_m/augeas-src"
+          installdir="$runner_temp_m/install"
           mkdir -p "$installdir"
           # Clone the fork's win branch (shallow, with the .gnulib submodule
           # autogen.sh's bootstrap needs).
