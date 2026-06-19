@@ -65,20 +65,17 @@ jobs:
       contents: write
     timeout-minutes: 60
     env:
-      # Windows: skip two cargo: tools that have no usable Windows install
-      # path. cargo:dart-typegen has no quickinstall release at all -- the
-      # install_env steer config.windows.toml uses for cargo:cargo-expand
-      # has nothing to point at, and source-build trips
-      # `error[E0463]: can't find crate for 'core'` against gnullvm.
-      # cargo:toml-cli has no msvc quickinstall asset either (only macOS
-      # / Linux prebuilts upstream) and falls through to source with
-      # `Cargo errored! ExitStatus(ExitStatus(101))`; the publish tasks
-      # skip their post-upload config.toml `toml set` edits when `toml`
-      # isn't on PATH, so the asset still ships -- just without the
-      # auto-update of platforms.<plat>.{url,checksum} in config.toml
-      # (the maintainer applies that locally from the .sha256 sidecar
-      # the workflow uploads alongside the tarball).
-      MISE_DISABLE_TOOLS: ${{ startsWith(matrix.os, 'windows') && 'cargo:dart-typegen,cargo:toml-cli' || '' }}
+      # Windows: skip cargo:toml-cli (no msvc quickinstall asset; only
+      # macOS / Linux prebuilts upstream) -- falls through to source
+      # build with `Cargo errored! ExitStatus(ExitStatus(101))`. The
+      # publish tasks skip their post-upload config.toml `toml set`
+      # edits when `toml` isn't on PATH, so the asset still ships --
+      # just without the auto-update of platforms.<plat>.{url,checksum}
+      # in config.toml (the maintainer applies that locally from the
+      # .sha256 sidecar the workflow uploads alongside the tarball).
+      # (cargo:dart-typegen is os-scoped to non-Windows in
+      # config.dart.toml now, so no longer needs to appear here.)
+      MISE_DISABLE_TOOLS: ${{ startsWith(matrix.os, 'windows') && 'cargo:toml-cli' || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -317,14 +314,15 @@ jobs:
             mingw-w64-x86_64-libxml2
             mingw-w64-x86_64-readline
             mingw-w64-x86_64-pkgconf
-            bison
-            flex
             autoconf
             automake
-            libtool
-            tar
-            gzip
+            bison
             curl
+            flex
+            gzip
+            libtool
+            make
+            tar
 
       - name: Build + package augeas
         if: |-
@@ -342,20 +340,31 @@ jobs:
           curl -sLO "https://github.com/hercules-team/augeas/releases/download/release-${AUG_VERSION}/augeas-${AUG_VERSION}.tar.gz"
           tar xzf "augeas-${AUG_VERSION}.tar.gz"
           cd "augeas-${AUG_VERSION}"
+          # Regenerate autotools files from the freshly-installed MSYS2
+          # autoconf/automake/libtool stack -- pkgx's recipe does this
+          # unconditionally for augeas and it sidesteps the autotools-
+          # version drift between the tarball's bootstrap snapshot and
+          # the modern MSYS2 toolchain.
+          autoreconf --force --install
           # --disable-dependency-tracking: MSYS2's bundled make trips
           # automake's depcomp probe with "Something went wrong
           # bootstrapping makefile fragments for automatic dependency
           # tracking" (we don't rebuild incrementally in CI anyway).
-          ./configure --prefix="$installdir" --disable-static \
-            --disable-dependency-tracking
+          # CFLAGS=-Wno-implicit-function-declaration: mingw-w64 gcc
+          # 14+ promoted implicit-function-declaration from warning
+          # to error; some of augeas's autoconf-generated probes still
+          # emit declarations that trip it (pkgx ships the same flag).
+          export CFLAGS="-Wno-implicit-function-declaration"
+          ./configure --prefix="$installdir" --disable-static --disable-debug --disable-dependency-tracking
           make -j"$(nproc)"
           make install
           # bundle the mingw runtime DLLs augeas links against so the
           # tarball is self-contained on a vanilla Windows host (no
           # MSYS2 install required at consumer time).
-          for dll in libxml2-2.dll libreadline8.dll libncursesw6.dll \
-                     libwinpthread-1.dll libgcc_s_seh-1.dll libstdc++-6.dll \
-                     libiconv-2.dll libtermcap-0.dll zlib1.dll; do
+          dlls="libxml2-2.dll libreadline8.dll libncursesw6.dll"
+          dlls="$dlls libwinpthread-1.dll libgcc_s_seh-1.dll libstdc++-6.dll"
+          dlls="$dlls libiconv-2.dll libtermcap-0.dll zlib1.dll"
+          for dll in $dlls; do
             src="/mingw64/bin/$dll"
             if [ -f "$src" ]; then
               cp -v "$src" "$installdir/bin/"
@@ -524,18 +533,13 @@ jobs:
             echo "asset=$asset" >> "$GITHUB_OUTPUT"
           fi
 
-      # Use mise-managed `7zz` (aqua:ip7z/7zip in config.maint.toml) to
-      # extract the NSIS-wrapped installer. install-mise gets mise on
-      # PATH; the following step's MISE_ENV=maint loads the maint
-      # toolchain (aqua:ip7z/7zip + aqua:ducaale/xh + cargo:toml-cli).
-      - name: Install mise + maint tools
-        if: steps.gpg_check.outputs.work == 'yes'
-        uses: ./.github/actions/install-mise
-      - name: Install maint toolchain
-        if: steps.gpg_check.outputs.work == 'yes'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: MISE_ENV=maint mise install
+      # No mise needed -- curl, 7z (p7zip-full), tar, and gh are all
+      # preinstalled on ubuntu-latest. We tried `MISE_ENV=maint mise
+      # exec -- xh` first (per the "use mise tools" preference) but
+      # mise 2026.6.5 on the runner failed to resolve xh from its aqua
+      # install dir layout (`<install>/xh-v0.25.3-<triple>/xh`); the
+      # newer 2026.6.10 mise locally handles it, but pinning mise just
+      # for this job is more setup than the tool savings warrant.
 
       - name: Extract + repackage upstream installer
         if: |-
@@ -550,8 +554,8 @@ jobs:
           cd "$work"
           installer="gnupg-w32-${GNUPG_VERSION}_${GNUPG_BUILD_STAMP}.exe"
           url="https://gnupg.org/ftp/gcrypt/binary/${installer}"
-          MISE_ENV=maint mise exec -- xh --download "$url" -o "$installer"
-          MISE_ENV=maint mise exec -- 7zz x -y -o"extracted" "$installer"
+          curl -sLO "$url"
+          7z x -y -o"extracted" "$installer"
           # Strip NSIS install-staging cruft: `$PLUGINSDIR/` is NSIS's
           # own internal use, and the `*.tmp` files in bin/ are NSIS's
           # mid-install copies of binaries (cleaned up by a working

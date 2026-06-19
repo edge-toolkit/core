@@ -39,7 +39,7 @@ env:
   # `rust`. Next: `rust,python`, then add another, etc., ending at the
   # canonical `dart,dotnet,java,js,python,rust,zig`. The matching gha.rego
   # carve-out allows the narrowed value on this workflow only.
-  MISE_ENV: "rust,python,zig,dotnet,js"
+  MISE_ENV: "rust,python,zig,dotnet,js,java"
   # Crank mise's logging to debug while we chase the prefetch-ci hang on
   # Windows -- silent 53-min stalls give us nothing to diagnose with. Drop
   # both back to defaults once the root cause is in hand.
@@ -115,15 +115,9 @@ jobs:
     # once the root cause lands.
     env:
       # Windows-only: skip the cargo: source-build that would otherwise be
-      # triggered when the gnullvm rust-std isn't fully laid down -- rustc fails
-      # with:
-      #   error[E0463]: can't find crate for `core`
-      #     = note: the `x86_64-pc-windows-gnullvm` target may not be installed
-      # cargo:dart-typegen is dev-only (used only by `mise run gen:dart-ws`,
-      # which the dart config skips on Windows) and has no quickinstall release,
-      # so it can't be steered to a prebuilt the way cargo:cargo-expand can
-      # (see config.windows.toml's install_env override).
-      MISE_DISABLE_TOOLS: ${{ startsWith(matrix.os, 'windows') && 'cargo:dart-typegen' || '' }}
+      # `cargo:dart-typegen` is os-scoped to linux/macos in config.dart.toml;
+      # Windows uses the http:dart-typegen prebuilt instead, so no MISE_DISABLE_TOOLS
+      # entry is needed here for the gnullvm crate-for-core build failure.
     steps:
       - name: Checkout
         uses: actions/checkout@v4

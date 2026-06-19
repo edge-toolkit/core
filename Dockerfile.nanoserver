@@ -321,25 +321,20 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 # regresses on Nano the failure surfaces here, not silently months later
 # when a pipx:* guest tool gets added. The other pipx tools stay listed
 # because their installers do platform-incompatible things even with a
-# working pipx (semgrep needs a real CPython, etc.). cargo:dart-typegen
-# -- dev-only tool with no role in image builds, no quickinstall release
-# to steer at, and would otherwise fail to source-build against the
-# gnullvm target with:
-# error[E0463]: can't find crate for `core`
-# = note: the `x86_64-pc-windows-gnullvm` target may not be installed
-# (cargo:cargo-expand hits the same source-build trap on this image but has
-# an msvc quickinstall release, so config.windows.toml's per-tool install_env
-# override steers it at that prebuilt instead.)
+# working pipx (semgrep needs a real CPython, etc.).
 # conda:m2-gnupg -- the workstation Windows path uses this msys2 gnupg (declared
 # in config.windows.toml); on Nano its msys-2.0.dll trips the kernel32 autoload
 # trap (see the comment block at the top of this file), so the gpgbin donor stage
 # above provides a clean MinGW gpg.exe at C:\gnupg\bin instead. All install fine
 # elsewhere; dropping them here just keeps the image lean.
+# `cargo:dart-typegen` is os-scoped to non-Windows in config.dart.toml --
+# the Windows lane (incl. Nano) uses `http:dart-typegen` from the
+# upstream-cache release instead.
 # Two intermediate ARGs so each line fits 120 chars without backslash
 # continuations (Dockerfile ENV doesn't support comment-aware joining and
 # the value is too long for a single line otherwise). The ARGs don't
 # persist into the runtime env; only the joined ENV does.
-ARG MISE_DT_BASE=cargo:dart-typegen,conda:m2-gnupg,lychee,pipx:cowsay,pipx:cpplint,pipx:semgrep
+ARG MISE_DT_BASE=conda:m2-gnupg,lychee,pipx:cowsay,pipx:cpplint,pipx:semgrep
 ARG MISE_DT_DOTNET=dotnet:roslynator.dotnet.cli
 ARG MISE_DT_PY=pipx:componentize-py,pipx:datamodel-code-generator,pipx:openapi-python-client,pipx:pytest,pipx:torch
 ENV MISE_DISABLE_TOOLS=${MISE_DT_BASE},${MISE_DT_DOTNET},${MISE_DT_PY}

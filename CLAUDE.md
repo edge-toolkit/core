@@ -501,6 +501,19 @@ at it. The pattern is the same for every cache entry; copy the
    The job creates **no** release — the bootstrap task does. The job
    uploads only.
 
+   **Use pkgx's pantry recipe as the canonical source of build
+   instructions.** Before writing the build step, fetch
+   `https://github.com/pkgxdev/pantry/blob/main/projects/<upstream>/package.yml`
+   (or the closest match — pkgx organizes by upstream domain, e.g.
+   `augeas.net`, `gnupg.org`) and lift its `build.script`,
+   `build.dependencies`, and `build.env` verbatim where possible. The
+   pantry encodes years of accumulated knowledge about quirks (gcc-14
+   `-Wno-implicit-function-declaration`, `--disable-debug`, autoreconf
+   ordering) that we'd otherwise rediscover the hard way. Where mise
+   has a matching `pkgx:<name>` backend entry for a build-time tool
+   pkgx pulls in, prefer that over an MSYS2/conda/apt equivalent so
+   the same toolchain version installs on every developer machine.
+
 3. **Tarball layout.** Flat `bin/`+`lib/`+`share/`+`include/` rooted
    at the tar prefix (no nested `install/` or `<pkg>-<ver>/` segment).
    For Windows binaries, bundle dependent DLLs into `bin/` so the

@@ -1,11 +1,11 @@
 # Java toolchain + tasks. Loaded when MISE_ENV includes `java`.
 
 [tools]
-java = "latest"
-# Pinned (not "latest") because config.windows.toml's `maven_bin` _.path entry
-# templates the install dir with this version segment -- bump both together.
-# The pin matches the `mise maven@3.9.16 ✓ installed` mise picks anyway, so
-# pinning is no-op on hosts where Windows-PATH-augment doesn't apply.
+# Pinned (not "latest") because config.windows.toml's `java_home` var and
+# `maven_bin` _.path entry both template the install dir with the version
+# segment -- bump both together. The pins match what mise picks on
+# Linux/macOS too, so non-Windows hosts see no behavioral change.
+java = "26.0.1"
 maven = "3.9.16"
 
 [env]

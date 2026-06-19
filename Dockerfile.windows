@@ -148,10 +148,7 @@ ENV MISE_ENV=${MISE_ENV}
 # - pipx:torch ships ~1 GB of CUDA-less wheels we don't exercise in the
 #   docker lane (the torch-inference test is gated on
 #   mise_env_includes(Language::Python) -- it'll skip cleanly).
-# - cargo:dart-typegen source-builds against gnullvm fail with
-#   `error[E0463]: can't find crate for 'core'`; the Windows lane uses
-#   the upstream cached binary (http:dart-typegen) once it's published.
-ENV MISE_DISABLE_TOOLS=cargo:dart-typegen,dotnet:roslynator.dotnet.cli,pipx:torch
+ENV MISE_DISABLE_TOOLS=dotnet:roslynator.dotnet.cli,pipx:torch
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install
 

@@ -51,7 +51,7 @@ upstream = "https://github.com/hercules-team/augeas"
 license = "LGPL-2.1+"
 
 [asset."dart-typegen-0.1.13-x86_64-pc-windows-msvc.tar.gz"]
-sha256 = ""
+sha256 = "f21eab43597b0325b672de61fd396465aa371d3e9e32da6c56e93a89a003b5aa"
 url = "https://github.com/edge-toolkit/core/releases/download/dart-typegen-v1/dart-typegen-0.1.13-x86_64-pc-windows-msvc.tar.gz"
 upstream = "https://github.com/cameron1024/dart-typegen"
 license = "MIT OR Apache-2.0"
