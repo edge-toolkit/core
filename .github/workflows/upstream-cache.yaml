@@ -388,8 +388,11 @@ jobs:
               cp -v "$src" "$installdir/bin/"
             fi
           done
-          tar czf "$RUNNER_TEMP/$ASSET" -C "$installdir" .
-          ls -lh "$RUNNER_TEMP/$ASSET"
+          # tar (Git Bash / MSYS2) parses `D:\a\...` as `host:path`
+          # ("Cannot connect to D: resolve failed"). cd into the install
+          # dir so the output path stays relative and the input is `.`.
+          (cd "$installdir" && tar czf "$runner_temp_m/$ASSET" .)
+          ls -lh "$runner_temp_m/$ASSET"
 
       # Release tag must already exist -- run `MISE_ENV=maint mise run
       # bootstrap-augeas-release` locally once before the first dispatch.
