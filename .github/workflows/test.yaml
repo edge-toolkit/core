@@ -113,11 +113,6 @@ jobs:
     #     '{"os":"macos-latest","timeout":45}',
     #     '{"os":"windows-latest","timeout":60}')
     # once the root cause lands.
-    env:
-      # Windows-only: skip the cargo: source-build that would otherwise be
-      # `cargo:dart-typegen` is os-scoped to linux/macos in config.dart.toml;
-      # Windows uses the http:dart-typegen prebuilt instead, so no MISE_DISABLE_TOOLS
-      # entry is needed here for the gnullvm crate-for-core build failure.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
