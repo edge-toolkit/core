@@ -1143,6 +1143,21 @@ fi
 """
 shell = "bash -euo pipefail -c"
 
+[tasks.build-et-cli]
+# Pre-build et-cli once. The parallel build-ws-* module tasks each call
+# `cargo run -p et-cli -- module-package-json`; without this they race rebuilding
+# et-cli, and one execs the binary mid-replace (ENOENT -- surfaced on macOS).
+# Stays in the base config (not a per-lang config) because dart, js, python,
+# and rust env tasks all depend on it.
+# `shell = "bash"` is load-bearing on Windows: mise's child-env composition
+# drops the `%LOCALAPPDATA%\mise\shims` PATH entry when spawning the default
+# cmd shell for a base-config task under a bash-parent GHA step, so bare
+# `cargo` fails with `'cargo' is not recognized`. Git Bash sources its own
+# PATH from mise's shim dir, so `cargo` resolves cleanly. See windows job
+# 82267796152 on d5bb7e0b for the captured cmd-subprocess failure.
+description = "Build et-cli (prereq for the module-package-json steps)"
+run = "cargo build -p et-cli"
+shell = "bash -euo pipefail -c"
 
 [tasks.build-modules]
 # Native `depends` glob over `build-ws-*`: that matches `build-ws-wasm-agent`
