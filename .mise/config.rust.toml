@@ -11,6 +11,19 @@
 # universal repo-wide checks, ws-server, the e2e tests) still live in the
 # default config; moving those out is a later pass.
 
+[tasks.build-et-cli]
+# Pre-build et-cli once. The parallel build-ws-* module tasks each call
+# `cargo run -p et-cli -- module-package-json`; without this they race rebuilding
+# et-cli, and one execs the binary mid-replace (ENOENT -- surfaced on macOS).
+# Lives in config.rust.toml (not the base config) because Windows mise's
+# child-env composition drops the `%LOCALAPPDATA%\mise\shims` PATH entry
+# for base-config tasks spawned under a bash-parent step, but keeps it for
+# tasks declared in a language-env config; bare `cargo` then fails with
+# `'cargo' is not recognized` in the cmd subprocess. Captured on d5bb7e0b,
+# windows job 82267796152.
+description = "Build et-cli (prereq for the module-package-json steps)"
+run = "cargo build -p et-cli"
+
 [tasks.build-ws-wasm-agent]
 description = "Build the WebSocket WASM client"
 dir = "services/ws-wasm-agent"
@@ -19,11 +32,8 @@ dir = "services/ws-wasm-agent"
 # Stable toolchain build: drops the nightly `-Z build-std=std,panic_abort`.
 # Without build-std the precompiled std doesn't get the mvp target-feature
 # treatment, but the agent doesn't need that for correctness.
-# Lives in config.rust.toml (not the base config) because Windows mise's
-# child-env composition drops the `%LOCALAPPDATA%\mise\shims` PATH entry
-# for base-config tasks spawned under a bash-parent step, but keeps it for
-# tasks declared in a language-env config. Captured on 0490dbc3, windows
-# job 82266241297.
+# Lives in config.rust.toml (not the base config) for the same reason as
+# build-et-cli above -- avoids the bash-parent cmd-subprocess PATH dropout.
 run = "wasm-pack build . --target web {{ vars.no_opt }}"
 
 [tasks.build-ws-data1-module]
