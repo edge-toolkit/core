@@ -63,11 +63,12 @@ cargo-binstall = "latest"
 "cargo:cargo-expand" = "latest"
 taplo = "latest"
 watchexec = "latest"
-# vfox-chromedriver's PostInstall hook fails on Windows ("syntax of the
-# command is incorrect"). Chromedriver is only used by the
-# `test-ws-wasm-agent-chrome` / `ws-e2e-chrome` tasks, neither of which run
-# in the standard CI `test` flow, so skip it on Windows entirely.
-"chromedriver" = { version = "146", os = ["linux", "macos"] }
+# Chromedriver disabled (commented out) -- only used by
+# `test-ws-wasm-agent-chrome` / `ws-e2e-chrome`, neither of which run in
+# the standard CI `test` flow. Disabling chromedriver lets us also drop
+# the vfox backend (see `[settings] disable_backends` above) since
+# chromedriver was the only [tools] entry that defaulted to vfox.
+# "chromedriver" = { version = "146", os = ["linux", "macos"] }
 cmake = "latest"
 # gpg + agent + dirmngr (full gnupg suite). Required by mise's node plugin
 # verify path (`gpg --import` + `gpg --verify` against Node's signed SHASUMS);
