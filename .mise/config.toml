@@ -406,6 +406,18 @@ PYO3_PYTHON = "{{ vars.py3_unix }}"
 RCLONE_CONFIG = "{{ config_root }}/config/rclone.conf"
 RCLONE_RETRIES = "1"
 
+# Scope to the wasm32 target only -- the env value is honoured by every
+# `wasm-pack`/`cargo` invocation that targets wasm32-unknown-unknown but
+# doesn't leak to host builds (e.g. wasm-pack's auto-install of wasm-
+# bindgen-cli would otherwise reject `target-cpu=mvp` for the host).
+# Hoisted from `[tasks.build-ws-wasm-agent.env]` to workspace [env]
+# because a task-level env override on Windows made mise's child-env
+# composition drop the `%LOCALAPPDATA%\mise\shims` dir from PATH, so
+# `'wasm-pack' is not recognized` in the cmd subprocess. Captured at
+#   https://github.com/edge-toolkit/core/actions/runs/27798859316/job/82264573380
+# on 3a1e0c84.
+CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS = "{{ vars.wasm_rustflags }}"
+
 # Direct ort-sys (workspace `ort` dep) at the mise-staged ONNX Runtime install
 # (github:microsoft/onnxruntime above) instead of fetching at build time. The
 # workspace dep dropped the `download-binaries` feature, so SKIP_DOWNLOAD is
@@ -1141,14 +1153,6 @@ dir = "services/ws-wasm-agent"
 # treatment, but the agent doesn't need that for correctness.
 run = "wasm-pack build . --target web {{ vars.no_opt }}"
 
-[tasks.build-ws-wasm-agent.env]
-# Scope these flags to the wasm target rather than setting plain `RUSTFLAGS`:
-# wasm-pack auto-installs a matching `wasm-bindgen-cli` (when the version in
-# `Cargo.lock` differs from the one on PATH) by shelling out to `cargo
-# install`, which inherits this env. A plain `RUSTFLAGS` with `target-cpu=mvp`
-# and `+mutable-globals` then leaks into that host build and rustc rejects
-# them with "'mvp' is not a recognized processor for this target".
-CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS = "{{ vars.wasm_rustflags }}"
 
 [tasks.build-et-cli]
 # Pre-build et-cli once. The parallel build-ws-* module tasks each call
