@@ -64,7 +64,7 @@ jobs:
       run:
         shell: >-
           ${{ startsWith(matrix.os, 'windows') &&
-              'C:\Users\runneradmin\AppData\Local\mise\installs\http-busybox\1.37.0\ash.exe --noprofile --norc -euo pipefail {0}'
+              'C:\Users\runneradmin\AppData\Local\mise\installs\http-busybox\1.37.0\ash.exe -euo pipefail {0}'
               || 'bash --noprofile --norc -euo pipefail {0}' }}
     strategy:
       fail-fast: false
