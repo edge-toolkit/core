@@ -1136,21 +1136,7 @@ description = "Build the WebSocket WASM client"
 dir = "services/ws-wasm-agent"
 # {{ vars.no_opt }} is --no-opt on Windows (wasm-opt can't run on Nano), empty
 # elsewhere -- the served, size-optimised artifact is built on Linux/macOS.
-#
-# `mise exec -- wasm-pack` instead of bare `wasm-pack` is load-bearing on
-# Windows: the task's [tasks.build-ws-wasm-agent.env] block overrides
-# RUSTUP_TOOLCHAIN to nightly, which makes mise swap to the nightly
-# rust exec_env when spawning the cmd-default child shell. That swap
-# replaces the env_paths the parent had, losing the
-# `%LOCALAPPDATA%\mise\shims` entry that the wasm-pack.cmd file-shim lives
-# in. Bare wasm-pack then fails with `'wasm-pack' is not recognized` in the
-# cmd subprocess. Routing through `mise exec` skips cmd's PATH lookup
-# entirely (mise resolves the tool via its own registry). Same shape as
-# the `mise exec -- recur` pattern used elsewhere for tools called from a
-# default-shell task body on Windows. See
-#   https://github.com/edge-toolkit/core/actions/runs/27796647065/job/82237017107
-# on f74314cd for the captured failure context.
-run = "mise exec -- wasm-pack build . --target web {{ vars.no_opt }} -- -Z build-std=std,panic_abort"
+run = "wasm-pack build . --target web {{ vars.no_opt }} -- -Z build-std=std,panic_abort"
 
 [tasks.build-ws-wasm-agent.env]
 # Scope these flags to the wasm target rather than setting plain `RUSTFLAGS`:
