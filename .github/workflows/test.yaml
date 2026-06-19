@@ -50,6 +50,22 @@ jobs:
   rust:
     runs-on: ${{ matrix.os }}
     timeout-minutes: ${{ matrix.timeout }}
+    # Override the workflow-level `shell: bash` default for Windows runs to
+    # use the busybox-w32 ash that mise installs in `_setup_all` (the same
+    # shell `MISE_BASH_PATH` already points at for `shell = "bash"` tasks on
+    # the Windows Docker images). Avoids Git Bash's MSYS fork emulation /
+    # PATH translation -- those interact badly with mise's child-cmd env
+    # composition for base-config tasks. The path matches the version pin in
+    # `.mise/config.windows.toml`'s [tools."http:busybox"] entry. The
+    # `Set HOME = USERPROFILE on Windows` step below explicitly overrides
+    # back to `shell: bash` because it runs BEFORE `Install mise + tools`
+    # (which is what installs busybox-w32). All later run-bodies use ash.
+    defaults:
+      run:
+        shell: >-
+          ${{ startsWith(matrix.os, 'windows') &&
+              'C:\Users\runneradmin\AppData\Local\mise\installs\http-busybox\1.37.0\ash.exe --noprofile --norc -euo pipefail {0}'
+              || 'bash --noprofile --norc -euo pipefail {0}' }}
     strategy:
       fail-fast: false
       # `matrix` context isn't available in job-level `if:`, so we compute the
@@ -135,6 +151,11 @@ jobs:
       - name: Set HOME = USERPROFILE on Windows
         if: runner.os == 'Windows'
         timeout-minutes: 1
+        # Explicit `shell: bash` because the job-level defaults point at the
+        # busybox ash that's installed by the next step (Install mise +
+        # tools), so we can't use it here yet. Git Bash is on the runner
+        # image by default.
+        shell: bash --noprofile --norc -euo pipefail {0}
         run: echo "HOME=$USERPROFILE" >> "$GITHUB_ENV"
 
       - name: Install mise + tools
