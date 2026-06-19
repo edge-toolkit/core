@@ -24,10 +24,6 @@ name: upstream-cache
       # there means the version pin / SHA / license shifted, which the
       # matching upstream-cache job needs to re-publish, so trigger.
       - config/upstream-cache/data.toml
-      # `config/upstream-cache/patches/*.patch` -- source-tree patches
-      # applied during build (e.g. win32 portability). Editing one
-      # should retrigger the job to re-publish.
-      - config/upstream-cache/patches/**
   workflow_dispatch:
     inputs:
       os:
@@ -261,9 +257,17 @@ jobs:
   # anywhere (not in MSYS2/Cygwin/aqua/conda); the only way to get a
   # native gpg-style PE binary is to build it ourselves under MSYS2.
   # This job mirrors the rustpython pattern: detect missing asset, build
-  # from source via the upstream release tarball, tar the install dir,
-  # and upload to the augeas-v1 GitHub release (which mise's
-  # `http:augeas` tool entry points at, per platforms.windows-x64).
+  # from source, tar the install dir, and upload to the augeas-v1 GitHub
+  # release (which mise's `http:augeas` tool entry points at, per
+  # platforms.windows-x64).
+  #
+  # Source is the edge-toolkit augeas fork's `win` branch rather than the
+  # upstream 1.14.1 release tarball: the Windows port needs changes across
+  # many files (vendored glob, _WIN32 guards in augtool/transform, gnulib
+  # fsync, libtool -no-undefined, MIN/MAX fallbacks, a .gitattributes LF
+  # fix, etc.) that the released tarball doesn't carry. The fork builds
+  # green on its own CI across Linux/macOS/Windows, so we build it directly
+  # instead of maintaining a sprawling patch against the tarball.
   augeas:
     # TEMPORARY: also runs on `pull_request` (when this workflow file
     # changes) so we can iterate before this hits main. Switch back to
@@ -274,8 +278,13 @@ jobs:
       contents: write
     timeout-minutes: 60
     env:
+      # Version label for the published asset name; the binaries themselves
+      # are whatever the fork's configure.ac reports.
       AUG_VERSION: "1.14.1"
       AUG_RELEASE_TAG: "augeas-v1"
+      # Fork + ref carrying the Windows portability fixes.
+      AUG_FORK_REPO: "https://github.com/jayvdb/augeas.git"
+      AUG_REF: "win"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -304,9 +313,11 @@ jobs:
             echo "asset=$asset" >> "$GITHUB_OUTPUT"
           fi
 
-      # MSYS2 provides the toolchain (mingw-w64 gcc, libxml2, readline)
-      # plus the build-time bison/flex/autotools augeas's configure
-      # requires. `msystem: MINGW64` targets x86_64-w64-mingw32.
+      # MSYS2 provides the toolchain (mingw-w64 gcc, libxml2, readline) plus
+      # the build-time autotools/bison/flex augeas's configure needs, and
+      # git + base-devel (m4/perl/sed) for `git clone --recurse-submodules`
+      # and the gnulib bootstrap. This mirrors the fork's own build.yml.
+      # `msystem: MINGW64` targets x86_64-w64-mingw32.
       - name: Set up MSYS2
         if: steps.aug_check.outputs.work == 'yes'
         uses: msys2/setup-msys2@v2
@@ -314,20 +325,17 @@ jobs:
           msystem: MINGW64
           update: true
           install: >-
-            mingw-w64-x86_64-gcc
+            base-devel
+            git
+            autoconf
+            automake
+            libtool
+            bison
+            flex
+            mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-libxml2
             mingw-w64-x86_64-readline
             mingw-w64-x86_64-pkgconf
-            autoconf
-            automake
-            bison
-            curl
-            flex
-            gzip
-            libtool
-            make
-            patch
-            tar
 
       - name: Build + package augeas
         if: |-
@@ -340,42 +348,25 @@ jobs:
           set -euo pipefail
           srcdir="$RUNNER_TEMP/augeas-src"
           installdir="$RUNNER_TEMP/install"
-          mkdir -p "$srcdir" "$installdir"
+          mkdir -p "$installdir"
+          # Clone the fork's win branch (shallow, with the .gnulib submodule
+          # autogen.sh's bootstrap needs).
+          git clone --depth 1 --branch "$AUG_REF" --recurse-submodules \
+            "$AUG_FORK_REPO" "$srcdir"
           cd "$srcdir"
-          tarball="augeas-${AUG_VERSION}.tar.gz"
-          base="https://github.com/hercules-team/augeas/releases/download"
-          curl -sLO "${base}/release-${AUG_VERSION}/${tarball}"
-          tar xzf "$tarball"
-          cd "augeas-${AUG_VERSION}"
-          # Apply Windows portability patch to src/augtool.c -- augtool
-          # uses pwd.h / getpwuid_r / getuid() to look up the user's
-          # home dir for ~/.augeas readline history; mingw-w64 doesn't
-          # ship pwd.h or getuid. The patch wraps both in _WIN32 guards
-          # and falls back to $HOME / $USERPROFILE on Windows. (The
-          # existing getenv("HOME") fallback in get_home_dir is what we
-          # keep; we just skip the pwd.h call entirely.)
-          patch -p1 < "$GITHUB_WORKSPACE/config/upstream-cache/patches/win32-augtool.patch"
-          # Regenerate autotools files from the freshly-installed MSYS2
-          # autoconf/automake/libtool stack -- pkgx's recipe does this
-          # unconditionally for augeas and it sidesteps the autotools-
-          # version drift between the tarball's bootstrap snapshot and
-          # the modern MSYS2 toolchain.
-          autoreconf --force --install
-          # --disable-dependency-tracking: MSYS2's bundled make trips
-          # automake's depcomp probe with "Something went wrong
-          # bootstrapping makefile fragments for automatic dependency
-          # tracking" (we don't rebuild incrementally in CI anyway).
-          # CFLAGS=-Wno-implicit-function-declaration: mingw-w64 gcc
-          # 14+ promoted implicit-function-declaration from warning
-          # to error; some of augeas's autoconf-generated probes still
-          # emit declarations that trip it (pkgx ships the same flag).
-          # (The BSD-ism `uint` is handled by the typedef shim that
-          # win32-augtool.patch injects into internal.h -- a CFLAGS
-          # -Duint=... rewrite collided with autoconf's own `typedef
-          # ... uint;` line in config.h: "two or more data types in
-          # declaration specifiers" at config.h:2202.)
-          export CFLAGS="-Wno-implicit-function-declaration"
-          ./configure --prefix="$installdir" --disable-static --disable-debug --disable-dependency-tracking
+          # autogen.sh runs ./bootstrap (imports gnulib, incl. the fsync
+          # module the Windows port relies on) and then ./configure with the
+          # args we pass through.
+          # CFLAGS, mirroring the fork's build.yml windows job:
+          #   -Wno-implicit-function-declaration: mingw-w64 gcc 14+ promoted
+          #     this from warning to error; some autoconf probes still trip it.
+          #   -Duint=unsigned: augeas headers use the BSD-ism `uint`, which
+          #     mingw-w64's <sys/types.h> doesn't define unconditionally.
+          # --disable-dependency-tracking: MSYS2 make trips automake's depcomp
+          #   probe ("Something went wrong bootstrapping makefile fragments");
+          #   we don't rebuild incrementally in CI anyway.
+          export CFLAGS="-Wno-implicit-function-declaration -Duint=unsigned"
+          ./autogen.sh --prefix="$installdir" --disable-static --disable-debug --disable-dependency-tracking
           make -j"$(nproc)"
           make install
           # bundle the mingw runtime DLLs augeas links against so the
