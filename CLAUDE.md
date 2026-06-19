@@ -531,7 +531,7 @@ at it. The pattern is the same for every cache entry; copy the
    publish task auto-edits config.toml via `cargo:toml-cli` when
    available — same pattern is fine for new entries.)
 
-5. **Asset metadata source of truth: `config/upstream-cache.toml`.**
+5. **Asset metadata source of truth: `config/upstream-cache/data.toml`.**
    Every tarball / wheel / model file fetched from one of our releases
    (or from any upstream URL) gets an `[asset."<filename>"]` table:
    ```toml

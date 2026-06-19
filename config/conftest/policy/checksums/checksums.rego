@@ -1,5 +1,5 @@
 # Bidirectional cross-reference between .mise/config*.toml's `<name>_asset`
-# vars and config/upstream-cache.toml's `[asset.<filename>]` tables. Run with
+# vars and config/upstream-cache/data.toml's `[asset.<filename>]` tables. Run with
 # `--namespace checksums`; the conftest-check-toml task includes both file
 # sets in its `--combine` input.
 #
@@ -18,11 +18,11 @@ package checksums
 
 is_mise(file) if startswith(file.path, ".mise/config")
 
-is_upstream_cache(file) if file.path == "config/upstream-cache.toml"
+is_upstream_cache(file) if file.path == "config/upstream-cache/data.toml"
 
 # Module-scope sprintf templates kept above the 120-char editorconfig limit
 # only by living on their own lines.
-missing_sha256_msg := "config/upstream-cache.toml: [asset.%q] is missing `sha256` (use `\"\"` while bootstrapping)"
+missing_sha256_msg := "config/upstream-cache/data.toml: [asset.%q] is missing `sha256` (use `\"\"` while bootstrapping)"
 
 # Asset filenames declared in any .mise/config*.toml's [vars].
 mise_assets contains filename if {
@@ -32,7 +32,7 @@ mise_assets contains filename if {
 	endswith(key, "_asset")
 }
 
-# Filenames present in config/upstream-cache.toml's [asset.*] tables.
+# Filenames present in config/upstream-cache/data.toml's [asset.*] tables.
 recorded_assets contains filename if {
 	some file in input
 	is_upstream_cache(file)
@@ -43,7 +43,7 @@ deny contains msg if {
 	some asset in mise_assets
 	not asset in recorded_assets
 	msg := sprintf(
-		"config/upstream-cache.toml: missing [asset.%q] table (referenced via a `_asset` var in .mise/config*.toml)",
+		"config/upstream-cache/data.toml: missing [asset.%q] table (referenced via a `_asset` var in .mise/config*.toml)",
 		[asset],
 	)
 }
@@ -52,7 +52,7 @@ deny contains msg if {
 	some asset in recorded_assets
 	not asset in mise_assets
 	msg := sprintf(
-		"config/upstream-cache.toml: [asset.%q] is recorded but no `_asset` var in .mise/config*.toml references it",
+		"config/upstream-cache/data.toml: [asset.%q] is recorded but no `_asset` var in .mise/config*.toml references it",
 		[asset],
 	)
 }
@@ -64,7 +64,7 @@ deny contains msg if {
 	is_upstream_cache(file)
 	some filename, entry in file.contents.asset
 	not entry.url
-	msg := sprintf("config/upstream-cache.toml: [asset.%q] is missing `url` (the download URL)", [filename])
+	msg := sprintf("config/upstream-cache/data.toml: [asset.%q] is missing `url` (the download URL)", [filename])
 }
 
 deny contains msg if {
@@ -72,7 +72,7 @@ deny contains msg if {
 	is_upstream_cache(file)
 	some filename, entry in file.contents.asset
 	not entry.upstream
-	msg := sprintf("config/upstream-cache.toml: [asset.%q] is missing `upstream` (the project URL)", [filename])
+	msg := sprintf("config/upstream-cache/data.toml: [asset.%q] is missing `upstream` (the project URL)", [filename])
 }
 
 deny contains msg if {
@@ -80,7 +80,7 @@ deny contains msg if {
 	is_upstream_cache(file)
 	some filename, entry in file.contents.asset
 	not entry.license
-	msg := sprintf("config/upstream-cache.toml: [asset.%q] is missing `license` (SPDX expression)", [filename])
+	msg := sprintf("config/upstream-cache/data.toml: [asset.%q] is missing `license` (SPDX expression)", [filename])
 }
 
 deny contains msg if {

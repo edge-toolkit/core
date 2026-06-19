@@ -28,7 +28,7 @@
 "aqua:ip7z/7zip" = "latest"
 # toml-cli: edit TOML in place while preserving comments (uses toml_edit
 # under the hood). Used by publish-*-to-hf-cache to write back into
-# config/upstream-cache.toml + .mise/config.toml after the upload so the user
+# config/upstream-cache/data.toml + .mise/config.toml after the upload so the user
 # doesn't have to paste manually. Cargo-source build (quickinstall has
 # prebuilts for every triple we care about, but mise's cargo: backend
 # treats it as cargo-binstall). Exempted from the workspace cargo:-policy
@@ -85,7 +85,7 @@ description = "Refresh face1 mirror in hf-cache-v<N> release (manual / on upstre
 # Pulls amd/retinaface from HF once (HF doesn't rate-limit a single dev IP),
 # pins the commit SHA into the asset name, checks the resulting SHA256
 # against HF's recorded LFS oid, uploads both .onnx + .onnx.sha256 sidecar
-# to the release, then auto-edits config/upstream-cache.toml and .mise/config.toml
+# to the release, then auto-edits config/upstream-cache/data.toml and .mise/config.toml
 # via toml-cli (`toml set`) so the in-repo manifests stay in sync. The
 # checksums.rego conftest rule catches any drift between the two manifests
 # on next `mise run check`. The release itself is created (idempotently) by
@@ -127,7 +127,7 @@ gh release upload "{{ vars.a_hf_cache_tag }}" --clobber --repo "$GH_REPO" "$asse
 # Auto-update the in-repo manifests so the user doesn't have to paste. Both
 # edits go via toml set (toml-cli) for format/comment preservation; toml-cli
 # writes to stdout, so the temp+mv dance is the in-place idiom.
-cksum_path="{{ config_root }}/config/upstream-cache.toml"
+cksum_path="{{ config_root }}/config/upstream-cache/data.toml"
 mise_path="{{ config_root }}/.mise/config.toml"
 
 toml set "$cksum_path" "asset.\\"$asset\\".sha256" "$actual" > "${cksum_path}.tmp"
@@ -137,7 +137,7 @@ toml set "$mise_path" "vars.face1_asset" "$asset" > "${mise_path}.tmp"
 coreutils mv "${mise_path}.tmp" "$mise_path"
 
 echo "uploaded $asset to {{ vars.a_hf_cache_tag }} (commit $commit)"
-echo "updated config/upstream-cache.toml + .mise/config.toml; conftest will catch any drift"
+echo "updated config/upstream-cache/data.toml + .mise/config.toml; conftest will catch any drift"
 """
 shell = "bash -euo pipefail -c"
 
@@ -207,9 +207,9 @@ actual=$(coreutils cut -c1-64 "${tarball}.sha256")
 gh release upload "$RP_RELEASE" --clobber --repo "$GH_REPO" "$tarball" "${tarball}.sha256"
 
 # Update the in-repo manifests: bump rp_wasm_asset in .mise/config.toml +
-# add/refresh the matching entry in config/upstream-cache.toml. checksums.rego
+# add/refresh the matching entry in config/upstream-cache/data.toml. checksums.rego
 # cross-checks them on next `mise run check`.
-cksum_path="{{ config_root }}/config/upstream-cache.toml"
+cksum_path="{{ config_root }}/config/upstream-cache/data.toml"
 mise_path="{{ config_root }}/.mise/config.toml"
 toml set "$cksum_path" "asset.\\"$asset\\".sha256" "$actual" > "${cksum_path}.tmp"
 coreutils mv "${cksum_path}.tmp" "$cksum_path"
@@ -217,7 +217,7 @@ toml set "$mise_path" "vars.rp_wasm_asset" "$asset" > "${mise_path}.tmp"
 coreutils mv "${mise_path}.tmp" "$mise_path"
 
 echo "uploaded $asset to $RP_RELEASE (commit $commit)"
-echo "updated config/upstream-cache.toml + .mise/config.toml; conftest will catch any drift"
+echo "updated config/upstream-cache/data.toml + .mise/config.toml; conftest will catch any drift"
 """
 shell = "bash -euo pipefail -c"
 

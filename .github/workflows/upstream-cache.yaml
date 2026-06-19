@@ -18,12 +18,16 @@ name: upstream-cache
     paths:
       - .github/workflows/upstream-cache.yaml
       - .github/actions/install-mise/**
-      # `config/upstream-cache.toml` is the source of truth for every
+      # `config/upstream-cache/data.toml` is the source of truth for every
       # cached asset's `[asset.<filename>] = { sha256, url, license }`
       # row (see CLAUDE.md "Adding a new upstream-cache entry"). A bump
       # there means the version pin / SHA / license shifted, which the
       # matching upstream-cache job needs to re-publish, so trigger.
-      - config/upstream-cache.toml
+      - config/upstream-cache/data.toml
+      # `config/upstream-cache/patches/*.patch` -- source-tree patches
+      # applied during build (e.g. win32 portability). Editing one
+      # should retrigger the job to re-publish.
+      - config/upstream-cache/patches/**
   workflow_dispatch:
     inputs:
       os:
@@ -349,7 +353,7 @@ jobs:
           # and falls back to $HOME / $USERPROFILE on Windows. (The
           # existing getenv("HOME") fallback in get_home_dir is what we
           # keep; we just skip the pwd.h call entirely.)
-          patch -p1 < "$GITHUB_WORKSPACE/config/augeas/win32-augtool.patch"
+          patch -p1 < "$GITHUB_WORKSPACE/config/upstream-cache/patches/win32-augtool.patch"
           # Regenerate autotools files from the freshly-installed MSYS2
           # autoconf/automake/libtool stack -- pkgx's recipe does this
           # unconditionally for augeas and it sidesteps the autotools-

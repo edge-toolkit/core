@@ -60,7 +60,7 @@ version = "1.37.0"
 # 'core'` (the upstream-cache `dart-typegen` job at .github/workflows/
 # upstream-cache.yaml is the producer; release-tag + asset-name match
 # the dart_typegen_asset var in [vars] above and the matching
-# `[asset.<filename>]` entry in config/upstream-cache.toml).
+# `[asset.<filename>]` entry in config/upstream-cache/data.toml).
 [tools."http:dart-typegen"]
 bin = "dart-typegen"
 version = "0.1.13"
@@ -73,7 +73,7 @@ checksum = "sha256:f21eab43597b0325b672de61fd396465aa371d3e9e32da6c56e93a89a003b
 # upstream-cache `gnupg-w32` job at .github/workflows/upstream-cache.yaml
 # is the producer; release-tag + asset-name match the gnupg_w32_asset var
 # in [vars] above and the matching `[asset.<filename>]` entry in
-# config/upstream-cache.toml.
+# config/upstream-cache/data.toml.
 [tools."http:gnupg-w32"]
 bin = "gpg"
 version = "2.5.20"
@@ -103,7 +103,7 @@ version = "nightly-x86_64-pc-windows-gnullvm"
 [vars]
 # Upstream-cache `_asset` vars -- pin the exact tarball filename each
 # `http:` Windows tool fetches from edge-toolkit/core's *-v<N> release.
-# Each matches a `[asset."<filename>"]` row in config/upstream-cache.toml
+# Each matches a `[asset."<filename>"]` row in config/upstream-cache/data.toml
 # (the checksums.rego policy enforces the bidirectional cross-reference).
 augeas_asset = "augeas-1.14.1-x86_64-pc-windows-mingw.tar.gz"
 dart_typegen_asset = "dart-typegen-0.1.13-x86_64-pc-windows-msvc.tar.gz"
