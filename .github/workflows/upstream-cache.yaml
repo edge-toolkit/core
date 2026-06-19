@@ -369,12 +369,12 @@ jobs:
           # 14+ promoted implicit-function-declaration from warning
           # to error; some of augeas's autoconf-generated probes still
           # emit declarations that trip it (pkgx ships the same flag).
-          # -Duint=unsigned: augeas's headers use the BSD-ism `uint`
-          # ("unknown type name 'uint'" on info.h:64, augeas.c:1210)
-          # which mingw-w64's <sys/types.h> doesn't define unconditionally
-          # (only u_int is portable). Rewriting at preprocessor time
-          # avoids patching augeas itself.
-          export CFLAGS="-Wno-implicit-function-declaration -Duint=unsigned"
+          # (The BSD-ism `uint` is handled by the typedef shim that
+          # win32-augtool.patch injects into internal.h -- a CFLAGS
+          # -Duint=... rewrite collided with autoconf's own `typedef
+          # ... uint;` line in config.h: "two or more data types in
+          # declaration specifiers" at config.h:2202.)
+          export CFLAGS="-Wno-implicit-function-declaration"
           ./configure --prefix="$installdir" --disable-static --disable-debug --disable-dependency-tracking
           make -j"$(nproc)"
           make install
