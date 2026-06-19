@@ -18,10 +18,26 @@ min_version = "2026.6.5"
 # exec_auto_install covers `mise exec`,
 # task.run_auto_install covers `mise run`.
 cargo.binstall = true
+# Disable mise's vfox backend. The only tool in our [tools] declarations
+# that lists `vfox:` as its first backend is `chromedriver` -- which has
+# `asdf:mise-plugins/mise-chromedriver` as its second backend, picked up
+# automatically when vfox is off. The win here is killing the persistent
+# noise from mise's `load_tools` proactively loading every registry tool
+# with `idiomatic_files` declared (e.g. yarn, whose registry sets
+# `idiomatic_files = ["package.json"]`): each iteration spins up a fresh
+# `Vfox::new()` and re-runs the Lua plugin metadata load, printing
+# `DEBUG [vfox] Getting metadata for yarn` hundreds of times under
+# MISE_DEBUG=1.
+disable_backends = ["vfox"]
 exec_auto_install = false
 experimental = true
 http_retries = 10
 http_timeout = "2m"
+# Explicit empty list (matches mise's default) -- idiomatic-version-file
+# detection stays off for every tool. We declare versions in
+# `.mise/config*.toml`; no need to parse `.tool-versions`/`.node-version`/
+# etc. on top of that.
+idiomatic_version_file_enable_tools = []
 task.run_auto_install = false
 # Hard-verify tool signatures via gpg on every platform (propagates to
 # node.gpg_verify and swift.gpg_verify per mise/src/config/settings.rs).
