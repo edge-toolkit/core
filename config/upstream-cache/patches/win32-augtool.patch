@@ -76,7 +76,7 @@ index 671310ce..9fbb0a26 100644
  
  static int main_loop(void) {
 diff --git a/src/internal.h b/src/internal.h
-index 0000000..1111111 100644
+index 482648a6..fedcba98 100644
 --- a/src/internal.h
 +++ b/src/internal.h
 @@ -23,6 +23,12 @@
