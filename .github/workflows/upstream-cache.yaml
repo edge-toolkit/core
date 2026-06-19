@@ -258,10 +258,10 @@ jobs:
   # and upload to the augeas-v1 GitHub release (which mise's
   # `http:augeas` tool entry points at, per platforms.windows-x64).
   augeas:
-    # TEMPORARY: workflow_dispatch-only for now -- iterating on the
-    # build pipeline. Drop `if:` once the asset is uploaded and the
+    # TEMPORARY: also runs on `pull_request` (when this workflow file
+    # changes) so we can iterate before this hits main. Switch back to
+    # `workflow_dispatch`-only once the asset is uploaded and the
     # `http:augeas` tool entry under config.windows.toml is wired up.
-    if: github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
     permissions:
       contents: write
@@ -375,10 +375,10 @@ jobs:
   # `http:` install instead of source-compiling. Same shape as the
   # augeas job above.
   dart-typegen:
-    # TEMPORARY: workflow_dispatch-only -- iterate first, then drop
-    # `if:` once the asset lands and config.windows.toml has the
-    # matching `http:dart-typegen` entry.
-    if: github.event_name == 'workflow_dispatch'
+    # TEMPORARY: runs on `pull_request` (when this workflow file
+    # changes) so we can iterate before it hits main. Switch to
+    # `workflow_dispatch`-only once config.windows.toml has the
+    # matching `http:dart-typegen` entry wired up.
     runs-on: windows-latest
     permissions:
       contents: write
@@ -468,10 +468,10 @@ jobs:
   # Runs on ubuntu-latest because 7zz extraction is fully cross-platform
   # and ubuntu jobs are cheaper than windows ones.
   gnupg-w32:
-    # TEMPORARY: workflow_dispatch-only -- iterate first, then drop
-    # `if:` once the asset lands and config.windows.toml has the
+    # TEMPORARY: runs on `pull_request` (when this workflow file
+    # changes) so we can iterate before it hits main. Switch to
+    # `workflow_dispatch`-only once config.windows.toml has the
     # matching `http:gnupg-w32` entry pinning to the same version.
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
