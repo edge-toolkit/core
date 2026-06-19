@@ -1143,16 +1143,6 @@ fi
 """
 shell = "bash -euo pipefail -c"
 
-[tasks.build-ws-wasm-agent]
-description = "Build the WebSocket WASM client"
-dir = "services/ws-wasm-agent"
-# {{ vars.no_opt }} is --no-opt on Windows (wasm-opt can't run on Nano), empty
-# elsewhere -- the served, size-optimised artifact is built on Linux/macOS.
-# Stable toolchain build: drops the nightly `-Z build-std=std,panic_abort`.
-# Without build-std the precompiled std doesn't get the mvp target-feature
-# treatment, but the agent doesn't need that for correctness.
-run = "wasm-pack build . --target web {{ vars.no_opt }}"
-
 
 [tasks.build-et-cli]
 # Pre-build et-cli once. The parallel build-ws-* module tasks each call
