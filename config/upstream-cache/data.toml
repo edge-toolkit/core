@@ -45,7 +45,7 @@ license = "MIT"
 # reading the .sha256 sidecar from the release.
 
 [asset."augeas-1.14.1-x86_64-pc-windows-mingw.tar.gz"]
-sha256 = ""
+sha256 = "6d97229c53cc0af09635bfd85b15169704ab9c07d5e23090252ac80746260036"
 url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/augeas-1.14.1-x86_64-pc-windows-mingw.tar.gz"
 upstream = "https://github.com/hercules-team/augeas"
 license = "LGPL-2.1+"

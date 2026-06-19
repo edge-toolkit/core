@@ -64,18 +64,6 @@ jobs:
     permissions:
       contents: write
     timeout-minutes: 60
-    env:
-      # Windows: skip cargo:toml-cli (no msvc quickinstall asset; only
-      # macOS / Linux prebuilts upstream) -- falls through to source
-      # build with `Cargo errored! ExitStatus(ExitStatus(101))`. The
-      # publish tasks skip their post-upload config.toml `toml set`
-      # edits when `toml` isn't on PATH, so the asset still ships --
-      # just without the auto-update of platforms.<plat>.{url,checksum}
-      # in config.toml (the maintainer applies that locally from the
-      # .sha256 sidecar the workflow uploads alongside the tarball).
-      # (cargo:dart-typegen is os-scoped to non-Windows in
-      # config.dart.toml now, so no longer needs to appear here.)
-      MISE_DISABLE_TOOLS: ${{ startsWith(matrix.os, 'windows') && 'cargo:toml-cli' || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -180,10 +168,11 @@ jobs:
         run: echo "MISE_ENV=$MISE_ENV"
 
       # MISE_ENV includes `maint` here so the publish task's deps
-      # (`toml-cli` for in-place .mise/config.toml edits) install in
-      # the same step as the language toolchains -- otherwise the
-      # publish step hits `bash: line ...: toml: command not found`
-      # because `mise run` doesn't auto-install on demand.
+      # (augtool, via http:augeas on Windows; system-installed
+      # elsewhere) and any other maint-only tools install in the same
+      # step as the language toolchains -- otherwise the publish step
+      # hits `bash: line ...: <tool>: command not found` because
+      # `mise run` doesn't auto-install on demand.
       - name: Install mise tools
         if: |-
           steps.rp_check.outputs.work == 'yes'

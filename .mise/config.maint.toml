@@ -26,15 +26,13 @@
 # upstream-cache job to extract the NSIS-wrapped GnuPG installer (mise's
 # built-in sevenz_rust2 only handles canonical .7z, not the NSIS wrapper).
 "aqua:ip7z/7zip" = "latest"
-# toml-cli: edit TOML in place while preserving comments (uses toml_edit
-# under the hood). Used by publish-*-to-hf-cache to write back into
-# config/upstream-cache/data.toml + .mise/config.toml after the upload so the user
-# doesn't have to paste manually. Cargo-source build (quickinstall has
-# prebuilts for every triple we care about, but mise's cargo: backend
-# treats it as cargo-binstall). Exempted from the workspace cargo:-policy
-# in mise.rego because maint isn't on the CI path -- a slower install is
-# fine on a maintainer workstation.
-"cargo:toml-cli" = "latest"
+# augeas: provides augtool, used by publish-*-to-hf-cache to write back
+# into config/upstream-cache/data.toml + .mise/config.toml in-place. Edit
+# preserves comments and TOML structure (via the toml.aug lens shipped in
+# the augeas tree). On Windows mise installs the http:augeas prebuilt
+# (config.windows.toml); on Linux/macOS workstations augtool is expected
+# on PATH from the system package (e.g. `brew install augeas`,
+# `apt install augeas-tools`) -- no mise backend registration needed.
 
 [env]
 # Shared HF base URLs + release-target coords hoisted out of every
@@ -86,7 +84,7 @@ description = "Refresh face1 mirror in hf-cache-v<N> release (manual / on upstre
 # pins the commit SHA into the asset name, checks the resulting SHA256
 # against HF's recorded LFS oid, uploads both .onnx + .onnx.sha256 sidecar
 # to the release, then auto-edits config/upstream-cache/data.toml and .mise/config.toml
-# via toml-cli (`toml set`) so the in-repo manifests stay in sync. The
+# via augtool so the in-repo manifests stay in sync. The
 # checksums.rego conftest rule catches any drift between the two manifests
 # on next `mise run check`. The release itself is created (idempotently) by
 # the bootstrap-hf-cache-release task below; this task depends on it.
@@ -124,17 +122,20 @@ fi
 
 gh release upload "{{ vars.a_hf_cache_tag }}" --clobber --repo "$GH_REPO" "$asset" "${asset}.sha256"
 
-# Auto-update the in-repo manifests so the user doesn't have to paste. Both
-# edits go via toml set (toml-cli) for format/comment preservation; toml-cli
-# writes to stdout, so the temp+mv dance is the in-place idiom.
+# Auto-update the in-repo manifests so the user doesn't have to paste.
+# augtool (from augeas) reads the Toml lens and edits the file in place
+# preserving comments + formatting. --autosave saves on exit, so the
+# heredoc just sends the set commands.
 cksum_path="{{ config_root }}/config/upstream-cache/data.toml"
 mise_path="{{ config_root }}/.mise/config.toml"
 
-toml set "$cksum_path" "asset.\\"$asset\\".sha256" "$actual" > "${cksum_path}.tmp"
-coreutils mv "${cksum_path}.tmp" "$cksum_path"
+augtool --transform="Toml incl $cksum_path" --autosave <<EOF
+set "/files$cksum_path/table[. = 'asset.\"$asset\"']/entry[. = 'sha256']/string" "$actual"
+EOF
 
-toml set "$mise_path" "vars.face1_asset" "$asset" > "${mise_path}.tmp"
-coreutils mv "${mise_path}.tmp" "$mise_path"
+augtool --transform="Toml incl $mise_path" --autosave <<EOF
+set "/files$mise_path/table[. = 'vars']/entry[. = 'face1_asset']/string" "$asset"
+EOF
 
 echo "uploaded $asset to {{ vars.a_hf_cache_tag }} (commit $commit)"
 echo "updated config/upstream-cache/data.toml + .mise/config.toml; conftest will catch any drift"
@@ -211,10 +212,12 @@ gh release upload "$RP_RELEASE" --clobber --repo "$GH_REPO" "$tarball" "${tarbal
 # cross-checks them on next `mise run check`.
 cksum_path="{{ config_root }}/config/upstream-cache/data.toml"
 mise_path="{{ config_root }}/.mise/config.toml"
-toml set "$cksum_path" "asset.\\"$asset\\".sha256" "$actual" > "${cksum_path}.tmp"
-coreutils mv "${cksum_path}.tmp" "$cksum_path"
-toml set "$mise_path" "vars.rp_wasm_asset" "$asset" > "${mise_path}.tmp"
-coreutils mv "${mise_path}.tmp" "$mise_path"
+augtool --transform="Toml incl $cksum_path" --autosave <<EOF
+set "/files$cksum_path/table[. = 'asset.\"$asset\"']/entry[. = 'sha256']/string" "$actual"
+EOF
+augtool --transform="Toml incl $mise_path" --autosave <<EOF
+set "/files$mise_path/table[. = 'vars']/entry[. = 'rp_wasm_asset']/string" "$asset"
+EOF
 
 echo "uploaded $asset to $RP_RELEASE (commit $commit)"
 echo "updated config/upstream-cache/data.toml + .mise/config.toml; conftest will catch any drift"
@@ -356,25 +359,22 @@ gh release upload "$RP_RELEASE" --clobber --repo "$GH_REPO" "$tarball" "${tarbal
 # this platform's `url` + `checksum`. mise's tera doesn't expose top-level
 # `version` into platforms.<plat>.url, so the short SHA is inlined in each
 # platform's url and the publish task rewrites it here too. Per-platform
-# triple is baked into each url. Skip when `toml` (cargo:toml-cli) isn't
-# on PATH -- Windows CI disables that tool because its msvc quickinstall
-# asset doesn't exist and source-build trips on gnullvm; the asset upload
-# itself still happens, and the maintainer applies the config edits
-# locally from the .sha256 sidecar uploaded alongside.
+# triple is baked into each url. Skip when augtool isn't on PATH -- the
+# asset upload itself still happens; the maintainer applies the config
+# edits locally from the .sha256 sidecar uploaded alongside.
 mise_path="{{ config_root }}/.mise/config.toml"
 new_url="https://github.com/edge-toolkit/core/releases/download/$RP_RELEASE/$asset"
 echo "uploaded $asset to $RP_RELEASE (commit $commit, triple $triple)"
-if ! command -v toml >/dev/null 2>&1; then
-  echo "note: toml-cli unavailable on this host; skipping in-place config.toml edits"
+if ! command -v augtool >/dev/null 2>&1; then
+  echo "note: augtool unavailable on this host; skipping in-place config.toml edits"
   echo "      apply manually: version=$short, platforms.${plat}.url=$new_url, .checksum=sha256:$actual"
   exit 0
 fi
-toml set "$mise_path" 'tools."http:et-rp".version' "$short" > "${mise_path}.tmp"
-coreutils mv "${mise_path}.tmp" "$mise_path"
-toml set "$mise_path" "tools.\\"http:et-rp\\".platforms.${plat}.url" "$new_url" > "${mise_path}.tmp"
-coreutils mv "${mise_path}.tmp" "$mise_path"
-toml set "$mise_path" "tools.\\"http:et-rp\\".platforms.${plat}.checksum" "sha256:$actual" > "${mise_path}.tmp"
-coreutils mv "${mise_path}.tmp" "$mise_path"
+augtool --transform="Toml incl $mise_path" --autosave <<EOF
+set "/files$mise_path/table[. = 'tools.\"http:et-rp\"']/entry[. = 'version']/string" "$short"
+set "/files$mise_path/table[. = 'tools.\"http:et-rp\".platforms.$plat']/entry[. = 'url']/string" "$new_url"
+set "/files$mise_path/table[. = 'tools.\"http:et-rp\".platforms.$plat']/entry[. = 'checksum']/string" "sha256:$actual"
+EOF
 
 echo "updated http:et-rp version + platforms.${plat}.{url,checksum} in .mise/config.toml"
 """
