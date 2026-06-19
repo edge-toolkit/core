@@ -92,3 +92,140 @@ index 482648a6..fedcba98 100644
  #include "list.h"
  #include "datadir.h"
  #include "augeas.h"
+diff --git a/src/syntax.c b/src/syntax.c
+index 35f3d744..98765432 100644
+--- a/src/syntax.c
++++ b/src/syntax.c
+@@ -26,7 +26,11 @@
+ #include <stdarg.h>
+ #include <limits.h>
+ #include <ctype.h>
++#ifdef _WIN32
++#include "win32-glob-shim.h"
++#else
+ #include <glob.h>
++#endif
+ #include <argz.h>
+ #include <sys/types.h>
+ #include <sys/stat.h>
+diff --git a/src/win32-glob-shim.h b/src/win32-glob-shim.h
+new file mode 100644
+index 0000000..abcdef1
+--- /dev/null
++++ b/src/win32-glob-shim.h
+@@ -0,0 +1,115 @@
++/*
++ * Minimal Win32 shim for POSIX <glob.h>. augeas uses glob() to enumerate
++ * `<dir>/*.aug` lens files in interpreter_init (src/syntax.c); mingw-w64
++ * doesn't ship <glob.h>, so we provide just the subset augeas exercises:
++ *
++ *   - flags GLOB_NOSORT (no-op; Win32 enumeration order is "good enough"),
++ *     GLOB_APPEND (chain a second glob() into the same glob_t), the
++ *     GLOB_NOMATCH / GLOB_NOSPACE / GLOB_ABORTED return codes.
++ *   - the gl_pathc / gl_pathv fields and matching globfree().
++ *   - single-directory patterns with one wildcard (e.g. `<dir>/*.aug`);
++ *     anything fancier is undefined.
++ *
++ * This file is dropped into src/ by the upstream-cache augeas job before
++ * win32-augtool.patch wires it in via `#include "win32-glob-shim.h"`
++ * under an `#ifdef _WIN32` guard around the original `#include <glob.h>`.
++ */
++#ifndef AUGEAS_WIN32_GLOB_SHIM_H_
++#define AUGEAS_WIN32_GLOB_SHIM_H_
++
++#ifdef _WIN32
++
++#include <windows.h>
++#include <stdlib.h>
++#include <string.h>
++
++#define GLOB_NOSORT  0x0001
++#define GLOB_APPEND  0x0002
++#define GLOB_NOMATCH 1
++#define GLOB_NOSPACE 2
++#define GLOB_ABORTED 3
++
++typedef struct {
++    size_t gl_pathc;
++    char **gl_pathv;
++    size_t gl_offs;
++} glob_t;
++
++static inline int
++glob(const char *pattern, int flags,
++     int (*errfunc)(const char *epath, int eerrno),
++     glob_t *pglob)
++{
++    (void)errfunc;
++    (void)flags;
++
++    const char *fs = strrchr(pattern, '/');
++    const char *bs = strrchr(pattern, '\\');
++    const char *sep = (bs && (!fs || bs > fs)) ? bs : fs;
++    size_t dirlen = sep ? (size_t)(sep - pattern + 1) : 0;
++
++    size_t initial = (flags & GLOB_APPEND) ? pglob->gl_pathc : 0;
++    if (!(flags & GLOB_APPEND)) {
++        pglob->gl_pathc = 0;
++        pglob->gl_pathv = NULL;
++        pglob->gl_offs = 0;
++    }
++
++    WIN32_FIND_DATAA fd;
++    HANDLE h = FindFirstFileA(pattern, &fd);
++    if (h == INVALID_HANDLE_VALUE) {
++        return GLOB_NOMATCH;
++    }
++
++    size_t count = initial;
++    size_t cap = initial;
++    do {
++        const char *name = fd.cFileName;
++        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
++            continue;
++        }
++        if (count >= cap) {
++            cap = cap ? cap * 2 : 16;
++            char **np = (char **)realloc(pglob->gl_pathv,
++                                         (cap + 1) * sizeof(*np));
++            if (!np) {
++                FindClose(h);
++                return GLOB_NOSPACE;
++            }
++            pglob->gl_pathv = np;
++        }
++        size_t namelen = strlen(name);
++        char *full = (char *)malloc(dirlen + namelen + 1);
++        if (!full) {
++            FindClose(h);
++            return GLOB_NOSPACE;
++        }
++        memcpy(full, pattern, dirlen);
++        memcpy(full + dirlen, name, namelen + 1);
++        pglob->gl_pathv[count++] = full;
++    } while (FindNextFileA(h, &fd));
++    FindClose(h);
++
++    pglob->gl_pathc = count;
++    if (pglob->gl_pathv) {
++        pglob->gl_pathv[count] = NULL;
++    }
++    return (count > initial) ? 0 : GLOB_NOMATCH;
++}
++
++static inline void
++globfree(glob_t *pglob)
++{
++    if (!pglob || !pglob->gl_pathv) {
++        return;
++    }
++    for (size_t i = 0; i < pglob->gl_pathc; i++) {
++        free(pglob->gl_pathv[i]);
++    }
++    free(pglob->gl_pathv);
++    pglob->gl_pathv = NULL;
++    pglob->gl_pathc = 0;
++}
++
++#endif /* _WIN32 */
++#endif /* AUGEAS_WIN32_GLOB_SHIM_H_ */
