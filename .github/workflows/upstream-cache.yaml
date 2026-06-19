@@ -388,10 +388,11 @@ jobs:
               cp -v "$src" "$installdir/bin/"
             fi
           done
-          # tar (Git Bash / MSYS2) parses `D:\a\...` as `host:path`
-          # ("Cannot connect to D: resolve failed"). cd into the install
-          # dir so the output path stays relative and the input is `.`.
-          (cd "$installdir" && tar czf "$runner_temp_m/$ASSET" .)
+          # tar (Git Bash / MSYS2) parses any colon in the output path
+          # as a `host:path` remote spec ("Cannot connect to D: resolve
+          # failed"). --force-local turns that off. cd into installdir
+          # keeps the input arg as `.` (no colon to fight there).
+          (cd "$installdir" && tar --force-local -czf "$runner_temp_m/$ASSET" .)
           ls -lh "$runner_temp_m/$ASSET"
 
       # Release tag must already exist -- run `MISE_ENV=maint mise run
