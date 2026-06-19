@@ -298,7 +298,7 @@ rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
 # via its @rpath install name). Points at the exact `3.x.y` install dir (the
 # `python` pin), since the minor-version alias dir isn't created everywhere.
 pylib_flag = "-C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/python/3.13.14/lib"
-wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint"
+wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint,+reference-types"
 # Extra flag for the wasm-pack module builds; empty so wasm-opt runs.
 # config.windows.toml overrides it to --no-opt where wasm-opt can't execute.
 no_opt = ""
