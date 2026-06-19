@@ -249,3 +249,310 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: MISE_ENV="$MISE_ENV,maint" mise run publish-rp-wasm-to-release
+
+  # Windows-only augeas build. Augeas has no upstream Windows binaries
+  # anywhere (not in MSYS2/Cygwin/aqua/conda); the only way to get a
+  # native gpg-style PE binary is to build it ourselves under MSYS2.
+  # This job mirrors the rustpython pattern: detect missing asset, build
+  # from source via the upstream release tarball, tar the install dir,
+  # and upload to the augeas-v1 GitHub release (which mise's
+  # `http:augeas` tool entry points at, per platforms.windows-x64).
+  augeas:
+    # TEMPORARY: workflow_dispatch-only for now -- iterating on the
+    # build pipeline. Drop `if:` once the asset is uploaded and the
+    # `http:augeas` tool entry under config.windows.toml is wired up.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    timeout-minutes: 60
+    env:
+      AUG_VERSION: "1.14.1"
+      AUG_RELEASE_TAG: "augeas-v1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      # Skip if the asset is already uploaded to the release. Pre-mise
+      # check so we don't pay the MSYS2 install cost on a no-op run.
+      - name: Detect missing augeas asset
+        id: aug_check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          triple=x86_64-pc-windows-mingw
+          asset="augeas-${AUG_VERSION}-${triple}.tar.gz"
+          repo=edge-toolkit/core
+          assets=$(gh release view "$AUG_RELEASE_TAG" --repo "$repo" \
+            --json assets --jq '.assets[].name' 2>/dev/null || true)
+          if echo "$assets" | grep -Fxq "$asset"; then
+            echo "::notice::$asset already in $AUG_RELEASE_TAG; skipping"
+            echo "work=" >> "$GITHUB_OUTPUT"
+          else
+            echo "work=yes" >> "$GITHUB_OUTPUT"
+            echo "triple=$triple" >> "$GITHUB_OUTPUT"
+            echo "asset=$asset" >> "$GITHUB_OUTPUT"
+          fi
+
+      # MSYS2 provides the toolchain (mingw-w64 gcc, libxml2, readline)
+      # plus the build-time bison/flex/autotools augeas's configure
+      # requires. `msystem: MINGW64` targets x86_64-w64-mingw32.
+      - name: Set up MSYS2
+        if: steps.aug_check.outputs.work == 'yes'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-libxml2
+            mingw-w64-x86_64-readline
+            mingw-w64-x86_64-pkgconf
+            bison
+            flex
+            autoconf
+            automake
+            libtool
+            tar
+            gzip
+            curl
+
+      - name: Build + package augeas
+        if: |-
+          steps.aug_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+        shell: msys2 {0}
+        env:
+          ASSET: ${{ steps.aug_check.outputs.asset }}
+        run: |
+          set -euo pipefail
+          srcdir="$RUNNER_TEMP/augeas-src"
+          installdir="$RUNNER_TEMP/install"
+          mkdir -p "$srcdir" "$installdir"
+          cd "$srcdir"
+          curl -sLO "https://github.com/hercules-team/augeas/releases/download/release-${AUG_VERSION}/augeas-${AUG_VERSION}.tar.gz"
+          tar xzf "augeas-${AUG_VERSION}.tar.gz"
+          cd "augeas-${AUG_VERSION}"
+          ./configure --prefix="$installdir" --disable-static
+          make -j"$(nproc)"
+          make install
+          # bundle the mingw runtime DLLs augeas links against so the
+          # tarball is self-contained on a vanilla Windows host (no
+          # MSYS2 install required at consumer time).
+          for dll in libxml2-2.dll libreadline8.dll libncursesw6.dll \
+                     libwinpthread-1.dll libgcc_s_seh-1.dll libstdc++-6.dll \
+                     libiconv-2.dll libtermcap-0.dll zlib1.dll; do
+            src="/mingw64/bin/$dll"
+            if [ -f "$src" ]; then
+              cp -v "$src" "$installdir/bin/"
+            fi
+          done
+          tar czf "$RUNNER_TEMP/$ASSET" -C "$installdir" .
+          ls -lh "$RUNNER_TEMP/$ASSET"
+
+      # Release tag must already exist -- run `MISE_ENV=maint mise run
+      # bootstrap-augeas-release` locally once before the first dispatch.
+      # The bootstrap task is idempotent so a no-op re-run is safe.
+      - name: Publish augeas asset to release
+        if: |-
+          steps.aug_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ASSET: ${{ steps.aug_check.outputs.asset }}
+        run: |
+          gh release upload "$AUG_RELEASE_TAG" --repo edge-toolkit/core --clobber "$RUNNER_TEMP/$ASSET"
+
+  # Windows-only dart-typegen cargo build. `cargo:dart-typegen` is in
+  # `MISE_DISABLE_TOOLS` on the Windows test/build lanes because its
+  # cargo source-build against the gnullvm rust host trips
+  # `error[E0463]: can't find crate for 'core'`. Solution: pre-build it
+  # under the runner's stable-msvc toolchain (already installed on the
+  # windows-latest GHA image) and publish the binary so consumers
+  # `http:` install instead of source-compiling. Same shape as the
+  # augeas job above.
+  dart-typegen:
+    # TEMPORARY: workflow_dispatch-only -- iterate first, then drop
+    # `if:` once the asset lands and config.windows.toml has the
+    # matching `http:dart-typegen` entry.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    timeout-minutes: 30
+    env:
+      DTG_VERSION: "0.1.13"
+      DTG_RELEASE_TAG: "dart-typegen-v1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Detect missing dart-typegen asset
+        id: dtg_check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          triple=x86_64-pc-windows-msvc
+          asset="dart-typegen-${DTG_VERSION}-${triple}.tar.gz"
+          repo=edge-toolkit/core
+          assets=$(gh release view "$DTG_RELEASE_TAG" --repo "$repo" \
+            --json assets --jq '.assets[].name' 2>/dev/null || true)
+          if echo "$assets" | grep -Fxq "$asset"; then
+            echo "::notice::$asset already in $DTG_RELEASE_TAG; skipping"
+            echo "work=" >> "$GITHUB_OUTPUT"
+          else
+            echo "work=yes" >> "$GITHUB_OUTPUT"
+            echo "triple=$triple" >> "$GITHUB_OUTPUT"
+            echo "asset=$asset" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The GHA windows-latest image ships rustup with the
+      # stable-x86_64-pc-windows-msvc toolchain pre-installed; no
+      # explicit setup-rust step is needed.
+      - name: Build dart-typegen via cargo install
+        if: |-
+          steps.dtg_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+        shell: bash
+        env:
+          ASSET: ${{ steps.dtg_check.outputs.asset }}
+        run: |
+          set -euo pipefail
+          installdir="$RUNNER_TEMP/install"
+          mkdir -p "$installdir"
+          # Force the msvc target -- the runner default-host is msvc,
+          # but a stray default-toolchain (e.g. on a custom runner)
+          # could otherwise pick gnullvm and trip the same build failure
+          # we're working around.
+          cargo install dart-typegen \
+            --version "$DTG_VERSION" \
+            --root "$installdir" \
+            --target x86_64-pc-windows-msvc \
+            --locked
+          ls "$installdir/bin"
+          tar czf "$RUNNER_TEMP/$ASSET" -C "$installdir/bin" dart-typegen.exe
+          ls -lh "$RUNNER_TEMP/$ASSET"
+
+      # Release tag must already exist -- run `MISE_ENV=maint mise run
+      # bootstrap-dart-typegen-release` locally once before the first
+      # dispatch. The bootstrap task is idempotent.
+      - name: Publish dart-typegen asset to release
+        if: |-
+          steps.dtg_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ASSET: ${{ steps.dtg_check.outputs.asset }}
+        run: |
+          gh release upload "$DTG_RELEASE_TAG" --repo edge-toolkit/core --clobber "$RUNNER_TEMP/$ASSET"
+
+  # Re-package GnuPG's "Simple installer for Windows" (an NSIS-wrapped
+  # `.exe`) as a flat tarball so mise's http: backend can extract it
+  # natively. The upstream installer at
+  # https://gnupg.org/ftp/gcrypt/binary/gnupg-w32-<ver>.exe is a 5.5 MB
+  # NSIS installer; mise's built-in extraction (`sevenz_rust2`) handles
+  # canonical .7z but not the NSIS wrapper, so we extract once in CI
+  # via the standalone 7zz binary (aqua:ip7z/7zip mise tool) and host
+  # the resulting tarball. Output is a flat `bin/`+`share/`+`lib/`+
+  # `include/` layout -- a self-contained native-PE gpg/gpg-agent/
+  # dirmngr/gpgsm suite with no `Library/usr/bin/` nesting, no msys2-
+  # runtime autoload trap (every binary is PE32+ x86-64, not Cygwin).
+  # Runs on ubuntu-latest because 7zz extraction is fully cross-platform
+  # and ubuntu jobs are cheaper than windows ones.
+  gnupg-w32:
+    # TEMPORARY: workflow_dispatch-only -- iterate first, then drop
+    # `if:` once the asset lands and config.windows.toml has the
+    # matching `http:gnupg-w32` entry pinning to the same version.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 15
+    env:
+      # Bump in lockstep with upstream's "Simple installer" page at
+      # https://gnupg.org/download/ -- the .exe filename embeds both
+      # the version and a build date stamp. Keep the date stamp here
+      # to pin to the exact upstream build (a re-release at the same
+      # version would otherwise silently drift our cached asset).
+      GNUPG_VERSION: "2.5.20"
+      GNUPG_BUILD_STAMP: "20260513"
+      GNUPG_RELEASE_TAG: "gnupg-w32-v1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Detect missing gnupg-w32 asset
+        id: gpg_check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          asset="gnupg-w32-${GNUPG_VERSION}_${GNUPG_BUILD_STAMP}-x86_64-pc-windows.tar.gz"
+          repo=edge-toolkit/core
+          assets=$(gh release view "$GNUPG_RELEASE_TAG" --repo "$repo" \
+            --json assets --jq '.assets[].name' 2>/dev/null || true)
+          if echo "$assets" | grep -Fxq "$asset"; then
+            echo "::notice::$asset already in $GNUPG_RELEASE_TAG; skipping"
+            echo "work=" >> "$GITHUB_OUTPUT"
+          else
+            echo "work=yes" >> "$GITHUB_OUTPUT"
+            echo "asset=$asset" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install mise (and 7zz via aqua:ip7z/7zip)
+        if: steps.gpg_check.outputs.work == 'yes'
+        uses: ./.github/actions/install-mise
+        with:
+          extra-tools: aqua:ip7z/7zip
+
+      - name: Extract + repackage upstream installer
+        if: |-
+          steps.gpg_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+        env:
+          ASSET: ${{ steps.gpg_check.outputs.asset }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/gnupg-w32"
+          mkdir -p "$work" "$work/extracted"
+          cd "$work"
+          installer="gnupg-w32-${GNUPG_VERSION}_${GNUPG_BUILD_STAMP}.exe"
+          url="https://gnupg.org/ftp/gcrypt/binary/${installer}"
+          curl -sLO "$url"
+          7zz x -y -o"extracted" "$installer"
+          # Strip NSIS install-staging cruft: `$PLUGINSDIR/` is NSIS's
+          # own internal use, and the `*.tmp` files in bin/ are NSIS's
+          # mid-install copies of binaries (cleaned up by a working
+          # installer run, redundant in our extracted form).
+          rm -rf "extracted/\$PLUGINSDIR"
+          find extracted/bin -name '*.tmp' -delete
+          ls extracted/bin
+          # Flatten into tarball: bin/ + lib/ + share/ + include/ keep
+          # the install layout consumers expect; mise's http backend
+          # respects strip_components so we set the tar root to that.
+          tar czf "$RUNNER_TEMP/$ASSET" -C extracted .
+          ls -lh "$RUNNER_TEMP/$ASSET"
+          sha256sum "$RUNNER_TEMP/$ASSET"
+
+      # Release tag must already exist -- run `MISE_ENV=maint mise run
+      # bootstrap-gnupg-w32-release` locally once before the first
+      # dispatch. The bootstrap task is idempotent.
+      - name: Publish gnupg-w32 asset to release
+        if: |-
+          steps.gpg_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ASSET: ${{ steps.gpg_check.outputs.asset }}
+        run: |
+          gh release upload "$GNUPG_RELEASE_TAG" --repo edge-toolkit/core --clobber "$RUNNER_TEMP/$ASSET"

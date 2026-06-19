@@ -18,17 +18,15 @@ min_version = "2026.6.5"
 # exec_auto_install covers `mise exec`,
 # task.run_auto_install covers `mise run`.
 cargo.binstall = true
-# Disable mise's vfox backend. The only tool in our [tools] declarations
-# that lists `vfox:` as its first backend is `chromedriver` -- which has
-# `asdf:mise-plugins/mise-chromedriver` as its second backend, picked up
-# automatically when vfox is off. The win here is killing the persistent
-# noise from mise's `load_tools` proactively loading every registry tool
-# with `idiomatic_files` declared (e.g. yarn, whose registry sets
-# `idiomatic_files = ["package.json"]`): each iteration spins up a fresh
-# `Vfox::new()` and re-runs the Lua plugin metadata load, printing
-# `DEBUG [vfox] Getting metadata for yarn` hundreds of times under
-# MISE_DEBUG=1.
-disable_backends = ["vfox"]
+# Disable mise backends we never use. `asdf` is kept enabled because
+# several of our bare-name tools (conftest, dprint, hadolint, pipx,
+# rclone, ruff, ...) list `asdf:` as the registry fallback after
+# `aqua:`. `vfox` was the original target -- killed the persistent
+# `DEBUG [vfox] Getting metadata for yarn` noise that mise's
+# `load_tools` produces by proactively iterating every registry tool
+# with `idiomatic_files` declared. The rest (forgejo, gem, gitlab,
+# pkgx, s3, spm, ubi) are belt-and-braces.
+disable_backends = ["forgejo", "gem", "gitlab", "pkgx", "s3", "spm", "ubi", "vfox"]
 exec_auto_install = false
 experimental = true
 http_retries = 10
@@ -1038,7 +1036,16 @@ description = "Prefetch the Rust (cargo) dependencies"
 # `{{ vars.retry }}` expands to `mise exec -- recur ...` so the cmd.exe
 # default shell on Windows can find recur via mise's tool registry
 # (no .cmd-extension PATH search, no MSYS-bash fork chain).
+#
+# `shell = "bash"` is load-bearing on Windows: as a base-config task,
+# mise's child-cmd PATH composition drops the shim-dir / `~/.cargo/bin`
+# entries (the same dropout the build-et-cli task uses
+# `shell = "bash"` to avoid). Captured on 3ac0d60b, windows job
+# 82277109482 -- bare `cargo` resolved via pwsh `where.exe` in the
+# parent step but the cmd subprocess mise spawned didn't see it.
+# Bash (ash via MISE_BASH_PATH on Windows) inherits the right PATH.
 run = "{{ vars.retry }} cargo fetch"
+shell = "bash -euo pipefail -c"
 
 [tasks."prefetch:node"]
 # Needs `build-ws-wasm-agent` first: the static workspace `link:`s its `pkg/`,

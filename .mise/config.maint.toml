@@ -488,3 +488,51 @@ echo "== run cowsay via rustpython -m cowsay =="
 step rustpython -m cowsay -t "rustpython lives via pip-only path"
 """
 shell = "bash -euo pipefail -c"
+
+# --- Bootstrap tasks for upstream-cache releases. Idempotent gh release
+# view+create -- safe to re-run. Each release's notes are the upstream
+# project URL and its license, nothing else (consumers can read the
+# release body to know where the asset came from and under what terms).
+# Each release is marked --prerelease so it stays off the repo's
+# "Latest release" badge alongside the rp-v<N> release.
+[tasks.bootstrap-augeas-release]
+description = "Create the augeas-v1 GitHub release if it doesn't exist (idempotent)"
+run = """
+tag=augeas-v1
+if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+  echo "release $tag already exists on $GH_REPO"
+  exit 0
+fi
+notes="https://github.com/hercules-team/augeas
+LGPL-2.1+"
+gh release create "$tag" --repo "$GH_REPO" --title "$tag" --notes "$notes" --prerelease </dev/null
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.bootstrap-dart-typegen-release]
+description = "Create the dart-typegen-v1 GitHub release if it doesn't exist (idempotent)"
+run = """
+tag=dart-typegen-v1
+if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+  echo "release $tag already exists on $GH_REPO"
+  exit 0
+fi
+notes="https://github.com/cameron1024/dart-typegen
+MIT OR Apache-2.0"
+gh release create "$tag" --repo "$GH_REPO" --title "$tag" --notes "$notes" --prerelease </dev/null
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.bootstrap-gnupg-w32-release]
+description = "Create the gnupg-w32-v1 GitHub release if it doesn't exist (idempotent)"
+run = """
+tag=gnupg-w32-v1
+if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+  echo "release $tag already exists on $GH_REPO"
+  exit 0
+fi
+notes="https://gnupg.org
+GPL-3.0+"
+gh release create "$tag" --repo "$GH_REPO" --title "$tag" --notes "$notes" --prerelease </dev/null
+"""
+shell = "bash -euo pipefail -c"
