@@ -443,11 +443,15 @@ rp_wasm_short = "08a1d6f"
 # uses MISE_DATA_DIR or $HOME/.local/share/mise. The Windows GHA
 # `HOME=$USERPROFILE` workaround makes vars.mise_data_dir LOOK
 # plausible on Windows but mise itself ignores that path there, so
-# the conditional is load-bearing.
+# the conditional is load-bearing. Forward slashes throughout the
+# Windows suffix: GHA's LOCALAPPDATA arrives already-forward-slashed
+# ("C:/Users/runneradmin/AppData/Local"), and a mixed-slash path
+# trips uutils-coreutils' Windows path normalizer (`cp: The system
+# cannot find the path specified. (os error 3)`).
 rp_wasm_dir = '''{% if os() == "windows" -%}
-{{- get_env(name="LOCALAPPDATA", default="") -}}\mise\installs\http-rp-wasm\{{- vars.rp_wasm_short -}}
+{{- get_env(name="LOCALAPPDATA", default="") -}}/mise/installs/http-rp-wasm/{{- vars.rp_wasm_short -}}
 {%- else -%}
-{{- get_env(name="MISE_DATA_DIR", default=env.HOME ~ "/.local/share/mise") -}}/installs/http-rp-wasm/{{- vars.rp_wasm_short -}}
+{{- vars.mise_data_dir -}}/installs/http-rp-wasm/{{- vars.rp_wasm_short -}}
 {%- endif %}'''
 # `retry` prefixes each fetch with recur for exponential-backoff-with-jitter
 # retries (10 tries, 2s base doubling, capped 3m, 0-15s jitter). `-v` makes
