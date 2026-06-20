@@ -39,10 +39,7 @@ env:
   # `rust`. Next: `rust,python`, then add another, etc., ending at the
   # canonical `dart,dotnet,java,js,python,rust,zig`. The matching gha.rego
   # carve-out allows the narrowed value on this workflow only.
-  # TEMPORARY: narrowed to `java` while we chase the Windows JAVA_HOME
-  # wrapper-dir issue. Restore to "dotnet,java,js,python,rust,zig" once
-  # mvn accepts the env and the Diagnose JAVA_HOME step is stripped.
-  MISE_ENV: "java"
+  MISE_ENV: "dart,dotnet,java,js,python,rust,zig"
   # Crank mise's logging to debug while we chase the prefetch-ci hang on
   # Windows -- silent 53-min stalls give us nothing to diagnose with. Drop
   # both back to defaults once the root cause is in hand.
@@ -101,7 +98,8 @@ jobs:
           || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":60}]'
           || github.event.inputs.os == 'windows-11-arm' && '[{"os":"windows-11-arm","timeout":60}]'
           )
-          || format('[{0}]',
+          || format('[{0},{1}]',
+          '{"os":"ubuntu-latest","timeout":40}',
           '{"os":"windows-latest","timeout":60}')
           ) }}
     # TEMPORARY: PR matrix narrowed to ubuntu-latest + windows-latest while
