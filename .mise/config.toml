@@ -436,10 +436,17 @@ pip_for_rustpython_wheel_url = ":http:packages/{{ vars.pip_for_rustpython_sha }}
 rp_wasm_asset = "rustpython-wasm-08a1d6f.tar.gz"
 rp_wasm_short = "08a1d6f"
 # Install dir for the [tools."http:rp-wasm"] tarball -- mise extracts
-# to `installs/http-rp-wasm/<version>/`. Forward slashes on the suffix
-# work cross-platform: mise_data_dir is backslash-rooted on Windows,
-# but busybox/coreutils accept the resulting mixed-slash path.
-rp_wasm_dir = "{{ vars.mise_data_dir }}/installs/http-rp-wasm/{{ vars.rp_wasm_short }}"
+# to `installs/http-rp-wasm/<version>/`. Picks the per-OS install
+# root: Windows uses `%LOCALAPPDATA%\mise\installs` (vars.mise_installs
+# from config.windows.toml); Unix uses `$HOME/.local/share/mise/installs`
+# (vars.mise_data_dir + `/installs`). The Windows GHA `HOME=$USERPROFILE`
+# pattern makes mise_data_dir LOOK plausible but mise itself ignores
+# that path on Windows, so the var ref has to be OS-conditional.
+rp_wasm_dir = '''{% if os() == "windows" -%}
+{{- vars.mise_installs -}}\http-rp-wasm\{{- vars.rp_wasm_short -}}
+{%- else -%}
+{{- vars.mise_data_dir -}}/installs/http-rp-wasm/{{- vars.rp_wasm_short -}}
+{%- endif %}'''
 # `retry` prefixes each fetch with recur for exponential-backoff-with-jitter
 # retries (10 tries, 2s base doubling, capped 3m, 0-15s jitter). `-v` makes
 # recur log each attempt's exit code + delay so an exhausted retry chain
