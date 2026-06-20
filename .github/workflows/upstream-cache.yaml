@@ -307,7 +307,11 @@ jobs:
           MATRIX_TRIPLE: ${{ matrix.triple }}
           MATRIX_EXT: ${{ matrix.archive_ext }}
         run: |
-          asset="augeas-${AUG_VERSION}-${MATRIX_TRIPLE}.${MATRIX_EXT}"
+          # No "augeas-" project prefix on the filename -- the release tag
+          # (`augeas-v1`) already encodes the project. Saves URL length and
+          # keeps the `<version>-<triple>.<ext>` shape uniform with the
+          # dart-typegen + gnupg-w32 assets.
+          asset="${AUG_VERSION}-${MATRIX_TRIPLE}.${MATRIX_EXT}"
           repo=edge-toolkit/core
           assets=$(gh release view "$AUG_RELEASE_TAG" --repo "$repo" \
             --json assets --jq '.assets[].name' 2>/dev/null || true)
@@ -580,7 +584,8 @@ jobs:
         shell: bash
         run: |
           triple=x86_64-pc-windows-msvc
-          asset="dart-typegen-${DTG_VERSION}-${triple}.tar.gz"
+          # No "dart-typegen-" project prefix; release tag already names it.
+          asset="${DTG_VERSION}-${triple}.tar.gz"
           repo=edge-toolkit/core
           assets=$(gh release view "$DTG_RELEASE_TAG" --repo "$repo" \
             --json assets --jq '.assets[].name' 2>/dev/null || true)
@@ -680,7 +685,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          asset="gnupg-w32-${GNUPG_VERSION}_${GNUPG_BUILD_STAMP}-x86_64-pc-windows.tar.gz"
+          # No "gnupg-w32-" project prefix; release tag already names it.
+          asset="${GNUPG_VERSION}_${GNUPG_BUILD_STAMP}-x86_64-pc-windows.tar.gz"
           repo=edge-toolkit/core
           assets=$(gh release view "$GNUPG_RELEASE_TAG" --repo "$repo" \
             --json assets --jq '.assets[].name' 2>/dev/null || true)

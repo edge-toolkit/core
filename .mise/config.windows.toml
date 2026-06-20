@@ -63,7 +63,7 @@ version = "1.37.0"
 bin = "dart-typegen"
 version = "0.1.13"
 [tools."http:dart-typegen".platforms.windows-x64]
-url = "https://github.com/edge-toolkit/core/releases/download/dart-typegen-v1/{{ vars.dart_typegen_asset }}"
+url = "https://github.com/edge-toolkit/core/releases/download/dart-typegen-v1/0.1.13-x86_64-pc-windows-msvc.tar.gz"
 checksum = "sha256:f21eab43597b0325b672de61fd396465aa371d3e9e32da6c56e93a89a003b5aa"
 
 # Prebuilt gnupg for Windows -- repackaged from gnupg.org's official NSIS
@@ -76,7 +76,7 @@ checksum = "sha256:f21eab43597b0325b672de61fd396465aa371d3e9e32da6c56e93a89a003b
 bin = "gpg"
 version = "2.5.20"
 [tools."http:gnupg-w32".platforms.windows-x64]
-url = "https://github.com/edge-toolkit/core/releases/download/gnupg-w32-v1/{{ vars.gnupg_w32_asset }}"
+url = "https://github.com/edge-toolkit/core/releases/download/gnupg-w32-v1/2.5.20_20260513-x86_64-pc-windows.tar.gz"
 checksum = "sha256:e04493f469fd3861e119a603700cfeafe8da0090aed39b547ad3975b21f48f0b"
 
 # Rust toolchains for Windows -- gnullvm host directly, so no msvc toolchain
@@ -103,8 +103,8 @@ version = "nightly-x86_64-pc-windows-gnullvm"
 # `http:` Windows tool fetches from edge-toolkit/core's *-v<N> release.
 # Each matches a `[asset."<filename>"]` row in config/upstream-cache/data.toml
 # (the checksums.rego policy enforces the bidirectional cross-reference).
-dart_typegen_asset = "dart-typegen-0.1.13-x86_64-pc-windows-msvc.tar.gz"
-gnupg_w32_asset = "gnupg-w32-2.5.20_20260513-x86_64-pc-windows.tar.gz"
+dart_typegen_asset = "0.1.13-x86_64-pc-windows-msvc.tar.gz"
+gnupg_w32_asset = "2.5.20_20260513-x86_64-pc-windows.tar.gz"
 
 # Root of mise's per-tool install dirs (the mise data dir is LOCALAPPDATA\mise);
 # the install-path vars below all hang off it.

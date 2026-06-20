@@ -290,19 +290,19 @@ bin = "augtool"
 version = "1.14.1"
 [tools."http:augeas".platforms.linux-arm64]
 checksum = "sha256:3303e8022294b04fe4ed567b0d88c10c1c7d5b51e443485251a6d4a606b1433a"
-url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/augeas-1.14.1-aarch64-unknown-linux-gnu.tar.xz"
+url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-aarch64-unknown-linux-gnu.tar.xz"
 [tools."http:augeas".platforms.linux-x64]
 checksum = "sha256:fc6345fb8ffb84e1f57f9144aacc059aa13687f6912ffe26f90713c771892ec6"
-url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/augeas-1.14.1-x86_64-unknown-linux-gnu.tar.xz"
+url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x86_64-unknown-linux-gnu.tar.xz"
 [tools."http:augeas".platforms.macos-arm64]
 checksum = "sha256:10fc4aff94a5c6016c51b4dbbc224277a340a083c315ca0a05e9f5ef9a869403"
-url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/augeas-1.14.1-aarch64-apple-darwin.tar.xz"
+url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-aarch64-apple-darwin.tar.xz"
 [tools."http:augeas".platforms.macos-x64]
 checksum = "sha256:28b26d680158f9480cf5e01cd7d47e57b7b05a7ac8646c76aa9c58537ea80422"
-url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/augeas-1.14.1-x86_64-apple-darwin.tar.xz"
+url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x86_64-apple-darwin.tar.xz"
 [tools."http:augeas".platforms.windows-x64]
 checksum = "sha256:6d97229c53cc0af09635bfd85b15169704ab9c07d5e23090252ac80746260036"
-url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/augeas-1.14.1-x86_64-pc-windows-mingw.tar.gz"
+url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x86_64-pc-windows-mingw.tar.gz"
 
 [vars]
 # Tier-`a_` prefix: a_* vars are leaf values referenced by later vars
@@ -322,11 +322,11 @@ a_rp_release = "rp-v1"
 # config/upstream-cache/data.toml so the checksums.rego policy can enforce
 # the cross-reference. All five tarballs are uploaded to the augeas-v1
 # release by the upstream-cache `augeas` job.
-augeas_linux_arm64_asset = "augeas-1.14.1-aarch64-unknown-linux-gnu.tar.xz"
-augeas_linux_x64_asset = "augeas-1.14.1-x86_64-unknown-linux-gnu.tar.xz"
-augeas_macos_arm64_asset = "augeas-1.14.1-aarch64-apple-darwin.tar.xz"
-augeas_macos_x64_asset = "augeas-1.14.1-x86_64-apple-darwin.tar.xz"
-augeas_windows_x64_asset = "augeas-1.14.1-x86_64-pc-windows-mingw.tar.gz"
+augeas_linux_arm64_asset = "1.14.1-aarch64-unknown-linux-gnu.tar.xz"
+augeas_linux_x64_asset = "1.14.1-x86_64-unknown-linux-gnu.tar.xz"
+augeas_macos_arm64_asset = "1.14.1-aarch64-apple-darwin.tar.xz"
+augeas_macos_x64_asset = "1.14.1-x86_64-apple-darwin.tar.xz"
+augeas_windows_x64_asset = "1.14.1-x86_64-pc-windows-mingw.tar.gz"
 # mise data dir -- the parent of `installs/<backend>-<name>/<version>`.
 # Used to compose absolute paths into a tool's install dir from [env]
 # (e.g. AUGEAS_LENS_LIB). Honours MISE_DATA_DIR if set; otherwise mise's
