@@ -103,11 +103,11 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Free disk space
+      - name: Free disk space on Linux
         if: runner.os == 'Linux'
         uses: jlumbroso/free-disk-space@v1.3.1
 
-      - name: Free disk space on Windows runner
+      - name: Free disk space on Windows
         if: runner.os == 'Windows'
         uses: ./.github/actions/free-disk-space-windows
 
@@ -149,7 +149,8 @@ jobs:
       # __tera_one_off`. Plumb HOME = USERPROFILE so every subsequent step
       # (incl. our pwsh diagnostic ones) sees it.
       - name: "Pre-mise: HOME = USERPROFILE on Windows"
-        if: runner.os == 'Windows'
+        if: false
+        # runner.os == 'Windows'
         timeout-minutes: 1
         # Explicit `shell: bash` because the job-level defaults point at the
         # busybox ash that's installed by the next step (Install mise +
