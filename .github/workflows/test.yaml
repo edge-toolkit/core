@@ -271,10 +271,18 @@ jobs:
       # GITHUB_TOKEN raises the rate-limit ceiling on rclone's fetch of the
       # rp-v<N> rustpython_wasm tarball (build-ws-pywasm1-module → fetch-rp-wasm
       # → rclone via :http: against api.github.com).
+      # MISE_JOBS=1 on Windows serializes mise's task scheduler so the parallel
+      # `build-ws-*-module` deps don't race on cargo's `.cargo/registry/index`
+      # lock -- on Linux/macOS cargo waits gracefully, but on Windows it fails
+      # fast with `cargo metadata exited with an error: Blocking waiting for
+      # file lock on package cache` (observed in job 82448665293, where
+      # build-ws-graphics-info-module + build-ws-nfc-module + build-ws-har1-
+      # module all kicked off in parallel).
       - name: Build WASM modules
         timeout-minutes: 25
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          MISE_JOBS: ${{ runner.os == 'Windows' && '1' || '' }}
         run: mise run build-modules
 
       - name: Run tests

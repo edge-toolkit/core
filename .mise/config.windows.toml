@@ -134,13 +134,6 @@ m2_gnupg_bin = '{{ vars.mise_installs }}\conda-m2-gnupg\2.2.41.1\Library\usr\bin
 # Windows, so `mvn` isn't on PATH without an explicit entry. Pinned to the
 # config.java.toml [tools] maven version -- bump both together.
 maven_bin = '{{ vars.mise_installs }}\maven\3.9.16\apache-maven-3.9.16\bin'
-# JDK install root for JAVA_HOME (see [env] below). mise's core java plugin
-# exports JAVA_HOME on Linux/macOS via shell activation hooks, but `mise run
-# <task>` on Windows doesn't carry that export into the spawned subprocess,
-# so `mvn.cmd` aborts with "JAVA_HOME environment variable is not defined
-# correctly". Pinned to the config.java.toml [tools] java version -- bump
-# both together.
-java_home = '{{ vars.mise_installs }}\java\26.0.1'
 # clang-sys finds libclang on PATH (Docker's gnu build has llvm-mingw there); a
 # workstation with system LLVM also works.
 win_libclang = "C:\\Program Files\\LLVM\\bin"
@@ -173,13 +166,6 @@ PYO3_PYTHON = "{{ vars.py3_win }}"
 # .dylib that ship in the release. The workspace `ort` dep keeps `copy-dylibs`
 # so the DLL lands next to linked binaries.
 ORT_PREFER_DYNAMIC_LINK = "1"
-# mvn.cmd's first action is `if "%JAVA_HOME%" == "" goto :error` -- it
-# REQUIRES JAVA_HOME in the env (PATH-discovered java.exe is not enough).
-# mise's java plugin exports JAVA_HOME on Linux/macOS shell activation;
-# `mise run <task>` on Windows doesn't propagate that, so set it here.
-# Inert when java isn't in MISE_ENV; just a string referencing a dir that
-# won't exist on hosts that didn't install the pinned JDK.
-JAVA_HOME = "{{ vars.java_home }}"
 # Prepend conda:m2-gnupg's nested binary dir to PATH. mise's per-tool
 # .mise-bins resolves `<install>/bin/X` and `<install>/Library/bin/X` cleanly,
 # but msys2-format packages put binaries one level deeper at
