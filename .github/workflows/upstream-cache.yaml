@@ -14,15 +14,14 @@ name: upstream-cache
 #   whenever it's convenient.
 
 "on":
+  # pull_request is retained per the gha_combined policy ("every workflow
+  # must trigger on pull_request"), but every job below is gated by
+  # `if: false` so PR runs are no-ops. Drop the `if: false` (and re-add
+  # the path scope below) on the specific job you want to iterate on.
   pull_request:
     paths:
       - .github/workflows/upstream-cache.yaml
       - .github/actions/install-mise/**
-      # `config/upstream-cache/data.toml` is the source of truth for every
-      # cached asset's `[asset.<filename>] = { sha256, url, license }`
-      # row (see CLAUDE.md "Adding a new upstream-cache entry"). A bump
-      # there means the version pin / SHA / license shifted, which the
-      # matching upstream-cache job needs to re-publish, so trigger.
       - config/upstream-cache/data.toml
   workflow_dispatch:
     inputs:
@@ -258,6 +257,9 @@ jobs:
   # green on its own CI across Linux/macOS/Windows, so we build it directly
   # instead of maintaining a sprawling patch against the tarball.
   augeas:
+    # Parked. Drop the `if: false` to rebuild + republish (e.g. on a
+    # version bump or a fork-branch update). Default is no PR run.
+    if: false
     # All five platforms build from the same jayvdb/augeas `win` branch
     # source -- one fork, one set of portability patches, identical
     # binaries across Linux/macOS/Windows. The fork's own build.yml is
@@ -554,10 +556,9 @@ jobs:
   # `http:` install instead of source-compiling. Same shape as the
   # augeas job above.
   dart-typegen:
-    # TEMPORARY: runs on `pull_request` (when this workflow file
-    # changes) so we can iterate before it hits main. Switch to
-    # `workflow_dispatch`-only once config.windows.toml has the
-    # matching `http:dart-typegen` entry wired up.
+    # Parked. Drop the `if: false` to rebuild + republish (e.g. on a
+    # version bump). Default is no PR run.
+    if: false
     runs-on: windows-latest
     permissions:
       contents: write
@@ -651,10 +652,9 @@ jobs:
   # Runs on ubuntu-latest because 7zz extraction is fully cross-platform
   # and ubuntu jobs are cheaper than windows ones.
   gnupg-w32:
-    # TEMPORARY: runs on `pull_request` (when this workflow file
-    # changes) so we can iterate before it hits main. Switch to
-    # `workflow_dispatch`-only once config.windows.toml has the
-    # matching `http:gnupg-w32` entry pinning to the same version.
+    # Parked. Drop the `if: false` to rebuild + republish (e.g. on a
+    # version bump). Default is no PR run.
+    if: false
     runs-on: ubuntu-latest
     permissions:
       contents: write
