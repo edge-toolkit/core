@@ -114,7 +114,7 @@ run = "oxfmt --config config/oxfmtrc.jsonc --write . '!.mise/config*.toml'"
 # Namespaced aggregators picked up by the default config's globbed
 # `check`/`fmt`/`fix`.
 [tasks."check:js"]
-depends = ["oxlint-check", "oxfmt-check"]
+depends = ["oxfmt-check", "oxlint-check"]
 description = "Run JavaScript/TypeScript checks (oxlint + oxfmt)"
 
 [tasks."fmt:js"]

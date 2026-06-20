@@ -29,10 +29,6 @@ env:
 
 jobs:
   dependencies:
-    # TEMPORARY: `if: false` parks the job (shows as skipped, no runner time)
-    # so all PR-runner capacity goes to the Windows cygheap-fork investigation
-    # in test.yaml. Drop this line once the prefetch-hang root cause lands.
-    if: false
     # `ubuntu-latest`, not `ubuntu-slim`: although every step in this workflow
     # is metadata/network-bound (no Rust compile), `taiki-e/install-action`
     # itself assumes a standard runner-image FHS (e.g. ~/.cargo/bin) and
