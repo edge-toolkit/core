@@ -1108,6 +1108,21 @@ description = "Prefetch the Rust (cargo) dependencies"
 run = "{{ vars.retry }} cargo fetch"
 shell = "bash -euo pipefail -c"
 
+[tasks.build-ws-wasm-agent]
+description = "Build the WebSocket WASM client"
+dir = "services/ws-wasm-agent"
+# {{ vars.no_opt }} is --no-opt on Windows (wasm-opt can't run on Nano), empty
+# elsewhere -- the served, size-optimised artifact is built on Linux/macOS.
+# Stable toolchain build: drops the nightly `-Z build-std=std,panic_abort`.
+# Without build-std the precompiled std doesn't get the mvp target-feature
+# treatment, but the agent doesn't need that for correctness.
+# Lives in the global config (not config.rust.toml) so other globally-loaded
+# tasks -- prefetch-ci's transitive deps via `prefetch:node` -- can reference
+# it without forcing `rust` into MISE_ENV. `shell = "bash"` for the same
+# base-config PATH-dropout reason `prefetch:rust` carries it.
+run = "wasm-pack build . --target web {{ vars.no_opt }}"
+shell = "bash -euo pipefail -c"
+
 [tasks."prefetch:node"]
 # Needs `build-ws-wasm-agent` first: the static workspace `link:`s its `pkg/`,
 # so the link target must exist before `pnpm install`.

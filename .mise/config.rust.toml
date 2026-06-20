@@ -11,18 +11,6 @@
 # universal repo-wide checks, ws-server, the e2e tests) still live in the
 # default config; moving those out is a later pass.
 
-[tasks.build-ws-wasm-agent]
-description = "Build the WebSocket WASM client"
-dir = "services/ws-wasm-agent"
-# {{ vars.no_opt }} is --no-opt on Windows (wasm-opt can't run on Nano), empty
-# elsewhere -- the served, size-optimised artifact is built on Linux/macOS.
-# Stable toolchain build: drops the nightly `-Z build-std=std,panic_abort`.
-# Without build-std the precompiled std doesn't get the mvp target-feature
-# treatment, but the agent doesn't need that for correctness.
-# Lives in config.rust.toml (not the base config) for the same reason as
-# build-et-cli above -- avoids the bash-parent cmd-subprocess PATH dropout.
-run = "wasm-pack build . --target web {{ vars.no_opt }}"
-
 [tasks.build-ws-data1-module]
 description = "Build the data1 workflow WASM module"
 dir = "services/ws-modules/data1"
