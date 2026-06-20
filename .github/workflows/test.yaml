@@ -153,6 +153,29 @@ jobs:
         with:
           github-token: ${{ github.token }}
 
+      # TEMPORARY: dump the JDK install layout so we can see what mise actually
+      # extracted from the OpenJDK zip + verify JAVA_HOME points at a dir that
+      # contains `bin/java.exe`. The Windows zip's top-level wrapper name has
+      # been hard to pin down by guessing (`jdk-26.0.1`, `jdk-26.0.1+8`,
+      # `jdk-26.0.1+9`); print it instead.
+      - name: Diagnose JAVA_HOME
+        if: contains(env.MISE_ENV, 'java')
+        run: |
+          set -x
+          mise where java || true
+          echo "JAVA_HOME=${JAVA_HOME:-<unset>}"
+          if [ -n "${JAVA_HOME:-}" ]; then
+            ls -la "$JAVA_HOME" 2>&1 | head -30 || true
+            ls -la "$JAVA_HOME/bin" 2>&1 | head -30 || true
+          fi
+          install=$(mise where java 2>/dev/null) || install=""
+          if [ -n "$install" ]; then
+            echo "--- contents of mise where java ($install) ---"
+            ls -la "$install" 2>&1 | head -30 || true
+            echo "--- looking for bin/java (any case, any depth) ---"
+            find "$install" -maxdepth 4 -iname "java" -o -iname "java.exe" 2>&1 | head -10 || true
+          fi
+
       # Non-Windows: prefetch is well-behaved on Linux / macOS, so we keep the
       # original single-step form there. The Windows lane below replaces it
       # with a diagnostic split to chase the silent prefetch stall.
