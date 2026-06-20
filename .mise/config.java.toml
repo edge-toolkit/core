@@ -47,19 +47,23 @@ MAVEN_ARGS = "--no-transfer-progress"
 
 [tasks.build-ws-java-data1-module]
 description = "Build the java-data1 workflow module"
-# TEMPORARY: log JAVA_HOME and its bin/ contents so we can see what mise's
-# tera template above expanded to at task-exec time -- two guesses at the
-# Windows OpenJDK wrapper name didn't match, and mise's own debug output
-# only lists which env keys it set, not their values. Rip the diagnostic
-# block out once JAVA_HOME stabilizes.
+# TEMPORARY: prove what cmd.exe sees for JAVA_HOME -- mvn.cmd's "JAVA_HOME
+# environment variable is not defined correctly" message is emitted only
+# when its `if exist "%JAVA_HOME%\bin\java.exe"` returns false (lines
+# 60-64 of upstream apache-maven 3.9.16 bin/mvn.cmd). The bash diagnostic
+# shows ls of $JAVA_HOME and $JAVA_HOME/bin both work, so the path is
+# valid from busybox's view. The remaining question is the env value
+# cmd.exe receives when busybox spawns mvn.cmd.
 run = """
-echo "build-ws-java-data1-module: JAVA_HOME=${JAVA_HOME:-<unset>}"
-if [ -n "${JAVA_HOME:-}" ]; then
-  echo "build-ws-java-data1-module: ls JAVA_HOME"
-  ls "$JAVA_HOME" 2>&1 || true
-  echo "build-ws-java-data1-module: ls JAVA_HOME/bin"
-  ls "$JAVA_HOME/bin" 2>&1 || true
-fi
+echo "[diag] bash JAVA_HOME=${JAVA_HOME:-<unset>}"
+echo "[diag] bash hexdump of JAVA_HOME:"
+printf '%s' "${JAVA_HOME:-}" | od -c | head -5
+echo "[diag] cmd.exe set JAVA_HOME (what cmd sees):"
+cmd.exe //C "set JAVA_HOME" || true
+echo "[diag] cmd.exe if exist test:"
+cmd.exe //C "if exist \\"%JAVA_HOME%\\\\bin\\\\java.exe\\" (echo FOUND) else (echo MISSING)" || true
+echo "[diag] cmd.exe explicit absolute path:"
+cmd.exe //C "if exist \\"C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\mise\\\\installs\\\\java\\\\26.0.1\\\\bin\\\\java.exe\\" (echo FOUND ABS) else (echo MISSING ABS)" || true
 mvn package
 """
 shell = "bash -euo pipefail -c"
