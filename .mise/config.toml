@@ -289,16 +289,16 @@ url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-0
 bin = "augtool"
 version = "1.14.1"
 [tools."http:augeas".platforms.linux-arm64]
-checksum = "sha256:393eec887f3e02815bdaabd10a92a396307d7a3fb477bec6d935956a2b92eb3e"
+checksum = "sha256:3303e8022294b04fe4ed567b0d88c10c1c7d5b51e443485251a6d4a606b1433a"
 url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/augeas-1.14.1-aarch64-unknown-linux-gnu.tar.xz"
 [tools."http:augeas".platforms.linux-x64]
-checksum = "sha256:2e75b0e3be730ac5f7f3b3fb58b7f2f17369e0896c6e8861ba06a6aa5a958b0d"
+checksum = "sha256:fc6345fb8ffb84e1f57f9144aacc059aa13687f6912ffe26f90713c771892ec6"
 url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/augeas-1.14.1-x86_64-unknown-linux-gnu.tar.xz"
 [tools."http:augeas".platforms.macos-arm64]
-checksum = "sha256:87f350999bbd09ee68c1bd1c8589fe9af86453462d023639e6ca9c9b2be14405"
+checksum = "sha256:10fc4aff94a5c6016c51b4dbbc224277a340a083c315ca0a05e9f5ef9a869403"
 url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/augeas-1.14.1-aarch64-apple-darwin.tar.xz"
 [tools."http:augeas".platforms.macos-x64]
-checksum = "sha256:389f80e68e9f75523c152713b0619249efb7f8f6c4df670ee09e6d4159a179d8"
+checksum = "sha256:28b26d680158f9480cf5e01cd7d47e57b7b05a7ac8646c76aa9c58537ea80422"
 url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/augeas-1.14.1-x86_64-apple-darwin.tar.xz"
 [tools."http:augeas".platforms.windows-x64]
 checksum = "sha256:6d97229c53cc0af09635bfd85b15169704ab9c07d5e23090252ac80746260036"
@@ -327,6 +327,11 @@ augeas_linux_x64_asset = "augeas-1.14.1-x86_64-unknown-linux-gnu.tar.xz"
 augeas_macos_arm64_asset = "augeas-1.14.1-aarch64-apple-darwin.tar.xz"
 augeas_macos_x64_asset = "augeas-1.14.1-x86_64-apple-darwin.tar.xz"
 augeas_windows_x64_asset = "augeas-1.14.1-x86_64-pc-windows-mingw.tar.gz"
+# mise data dir -- the parent of `installs/<backend>-<name>/<version>`.
+# Used to compose absolute paths into a tool's install dir from [env]
+# (e.g. AUGEAS_LENS_LIB). Honours MISE_DATA_DIR if set; otherwise mise's
+# default of $XDG_DATA_HOME (~/.local/share/mise on Linux/macOS).
+mise_data_dir = '{{ get_env(name="MISE_DATA_DIR", default=env.HOME ~ "/.local/share/mise") }}'
 # clang-tidy's resource-dir arg (points clang at its builtin headers, e.g.
 # stddef.h). Empty default; config.linux.toml sets it from conda:clangxx.
 clang_resource_arg = ""
@@ -457,6 +462,13 @@ retry = ""
 ALL_LANGS = "dart,dotnet,java,js,python,rust,zig"
 CLIPPY_CONF_DIR = "{{ config_root }}/config"
 TAPLO_CONFIG = "{{ config_root }}/config/taplo.toml"
+# augtool's lens search path is compile-time pinned to the build-time
+# --prefix (i.e. the GHA runner's $RUNNER_TEMP), so a freshly mise-
+# installed augtool can't find Toml.lns. Point it at the bundled lens
+# dir in our tarball; the version segment is the [tools."http:augeas"]
+# pin -- bump them together. (A binary-self-locate patch in the
+# jayvdb/augeas `win` branch is the proper fix; until then, this.)
+AUGEAS_LENS_LIB = "{{ vars.mise_data_dir }}/installs/http-augeas/1.14.1/share/augeas/lenses"
 # Use the conda:openssl install for Rust's OPENSSL_DIR so openssl-sys crate builds.
 OPENSSL_DIR = "{{ vars.conda_openssl }}"
 
