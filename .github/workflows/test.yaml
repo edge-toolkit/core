@@ -277,12 +277,18 @@ jobs:
       # fast with `cargo metadata exited with an error: Blocking waiting for
       # file lock on package cache` (observed in job 82448665293, where
       # build-ws-graphics-info-module + build-ws-nfc-module + build-ws-har1-
-      # module all kicked off in parallel).
+      # module all kicked off in parallel). Conditional via a separate step
+      # rather than a step-level `env:` because mise rejects an empty
+      # MISE_JOBS value ("cannot parse integer from empty string"), and GHA
+      # has no `if:` on individual env entries.
+      - name: Serialize mise tasks on Windows
+        if: runner.os == 'Windows'
+        run: echo "MISE_JOBS=1" >> "$GITHUB_ENV"
+
       - name: Build WASM modules
         timeout-minutes: 25
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          MISE_JOBS: ${{ runner.os == 'Windows' && '1' || '' }}
         run: mise run build-modules
 
       - name: Run tests
