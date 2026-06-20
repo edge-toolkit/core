@@ -20,9 +20,11 @@ maven = "3.9.16"
 #     `java = ` pin above (and verify the wrapper name -- it shifts with each
 #     release). Default base is `%LOCALAPPDATA%\mise`; MISE_DATA_DIR overrides.
 java_home = '''{% if os() == "windows" -%}
-{{ get_env(name="MISE_DATA_DIR", default=get_env(name="LOCALAPPDATA", default="") ~ "\mise") }}\installs\java\26.0.1\jdk-26.0.1+9
+{{- get_env(name="MISE_DATA_DIR", default=get_env(name="LOCALAPPDATA", default="") ~ "\mise") -}}
+\installs\java\26.0.1\jdk-26.0.1+9
 {%- else -%}
-{{ get_env(name="MISE_DATA_DIR", default=env.HOME ~ "/.local/share/mise") }}/installs/java/26.0.1
+{{- get_env(name="MISE_DATA_DIR", default=env.HOME ~ "/.local/share/mise") -}}
+/installs/java/26.0.1
 {%- endif %}'''
 
 [env]
@@ -39,7 +41,22 @@ MAVEN_ARGS = "--no-transfer-progress"
 
 [tasks.build-ws-java-data1-module]
 description = "Build the java-data1 workflow module"
-run = "mvn package"
+# TEMPORARY: log JAVA_HOME and its bin/ contents so we can see what mise's
+# tera template above expanded to at task-exec time -- two guesses at the
+# Windows OpenJDK wrapper name didn't match, and mise's own debug output
+# only lists which env keys it set, not their values. Rip the diagnostic
+# block out once JAVA_HOME stabilizes.
+run = """
+echo "build-ws-java-data1-module: JAVA_HOME=${JAVA_HOME:-<unset>}"
+if [ -n "${JAVA_HOME:-}" ]; then
+  echo "build-ws-java-data1-module: ls JAVA_HOME"
+  ls "$JAVA_HOME" 2>&1 || true
+  echo "build-ws-java-data1-module: ls JAVA_HOME/bin"
+  ls "$JAVA_HOME/bin" 2>&1 || true
+fi
+mvn package
+"""
+shell = "bash -euo pipefail -c"
 
 # Namespaced aggregator picked up by the default config's globbed `check`. The
 # compile triggers maven-compiler-plugin with -Xlint:all -Werror + Error Prone.

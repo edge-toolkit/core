@@ -39,7 +39,10 @@ env:
   # `rust`. Next: `rust,python`, then add another, etc., ending at the
   # canonical `dart,dotnet,java,js,python,rust,zig`. The matching gha.rego
   # carve-out allows the narrowed value on this workflow only.
-  MISE_ENV: "dotnet,java,js,python,rust,zig"
+  # TEMPORARY: narrowed to `java` while we chase the Windows JAVA_HOME
+  # wrapper-dir issue. Restore to "dotnet,java,js,python,rust,zig" once
+  # mvn accepts the env and the Diagnose JAVA_HOME step is stripped.
+  MISE_ENV: "java"
   # Crank mise's logging to debug while we chase the prefetch-ci hang on
   # Windows -- silent 53-min stalls give us nothing to diagnose with. Drop
   # both back to defaults once the root cause is in hand.
@@ -153,27 +156,32 @@ jobs:
         with:
           github-token: ${{ github.token }}
 
-      # TEMPORARY: dump the JDK install layout so we can see what mise actually
-      # extracted from the OpenJDK zip + verify JAVA_HOME points at a dir that
-      # contains `bin/java.exe`. The Windows zip's top-level wrapper name has
-      # been hard to pin down by guessing (`jdk-26.0.1`, `jdk-26.0.1+8`,
-      # `jdk-26.0.1+9`); print it instead.
-      - name: Diagnose JAVA_HOME
+      # TEMPORARY: dump everything mise knows about java (install dir,
+      # resolved JAVA_HOME from [env], and the JDK contents on disk) right
+      # after install -- earliest point where mise has activated the env
+      # and we can see what its tera template expanded to. Output before
+      # any task body runs, so the value is visible even when a downstream
+      # build step bails.
+      - name: Diagnose JAVA_HOME via mise
         if: contains(env.MISE_ENV, 'java')
         run: |
           set -x
+          echo "--- mise where java ---"
           mise where java || true
-          echo "JAVA_HOME=${JAVA_HOME:-<unset>}"
-          if [ -n "${JAVA_HOME:-}" ]; then
-            ls -la "$JAVA_HOME" 2>&1 | head -30 || true
-            ls -la "$JAVA_HOME/bin" 2>&1 | head -30 || true
-          fi
+          echo "--- mise env | grep JAVA_HOME ---"
+          mise env 2>/dev/null | grep -i java || echo "(no java entries in mise env)"
           install=$(mise where java 2>/dev/null) || install=""
           if [ -n "$install" ]; then
-            echo "--- contents of mise where java ($install) ---"
+            echo "--- ls $install ---"
             ls -la "$install" 2>&1 | head -30 || true
-            echo "--- looking for bin/java (any case, any depth) ---"
-            find "$install" -maxdepth 4 -iname "java" -o -iname "java.exe" 2>&1 | head -10 || true
+            echo "--- find $install -name 'java*' -maxdepth 4 ---"
+            find "$install" -maxdepth 4 \( -iname "java" -o -iname "java.exe" \) 2>&1 | head -10 || true
+          fi
+          resolved_java_home=$(mise env 2>/dev/null | awk -F= '/^export JAVA_HOME=/{print substr($0, index($0,"=")+1)}' | tr -d '"')
+          echo "--- resolved JAVA_HOME from mise env: $resolved_java_home ---"
+          if [ -n "$resolved_java_home" ]; then
+            ls -la "$resolved_java_home" 2>&1 | head -30 || true
+            ls -la "$resolved_java_home/bin" 2>&1 | head -30 || true
           fi
 
       # Non-Windows: prefetch is well-behaved on Linux / macOS, so we keep the
