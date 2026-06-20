@@ -29,13 +29,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # TEMPORARY: narrowed to the windows-2025 / servercore entry while we
-        # ramp the bisect back up. The full PR matrix (nanoserver + servercore
-        # on each of windows-2022 / windows-2025) is below, commented out.
-        include:
-          - runner: windows-2025
-            base: servercore
-            build_arg: "--build-arg WINDOWS_VERSION=ltsc2025"
         # `base` controls which Dockerfile is built; `runner` picks the host
         # GHA runner. `nanoserver` is the minimal ~120 MB lane; `servercore`
         # is the heavier ~1.25 GB lane with a fuller Windows runtime (used
@@ -45,17 +38,17 @@ jobs:
         # set; Dockerfile.nanoserver pins its own narrower MISE_ENV via an
         # ENV that overrides the inherited ARG (Nano can't install python
         # or dotnet).
-        # include:
-        #   - runner: windows-2022
-        #     base: nanoserver
-        #   - runner: windows-2025
-        #     base: nanoserver
-        #     build_arg: "--build-arg WINDOWS_VERSION=ltsc2025"
-        #   - runner: windows-2022
-        #     base: servercore
-        #   - runner: windows-2025
-        #     base: servercore
-        #     build_arg: "--build-arg WINDOWS_VERSION=ltsc2025"
+        include:
+          - runner: windows-2022
+            base: nanoserver
+          - runner: windows-2025
+            base: nanoserver
+            build_arg: "--build-arg WINDOWS_VERSION=ltsc2025"
+          - runner: windows-2022
+            base: servercore
+          - runner: windows-2025
+            base: servercore
+            build_arg: "--build-arg WINDOWS_VERSION=ltsc2025"
     name: build (${{ matrix.runner }}, ${{ matrix.base }})
     timeout-minutes: 120
     env:

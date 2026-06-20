@@ -551,7 +551,7 @@ at it. The pattern is the same for every cache entry; copy the
    optionally empty during bootstrap). Bump all rows in lockstep
    when the upstream version changes.
 
-5. **Triggers.** `pull_request` on `paths: [.github/workflows/
+6. **Triggers.** `pull_request` on `paths: [.github/workflows/
    upstream-cache.yaml, .github/actions/install-mise/**]` so editing
    the workflow exercises the job before merge; `workflow_dispatch`
    for ad-hoc rebuilds (e.g. version bump). No `push:` trigger — we

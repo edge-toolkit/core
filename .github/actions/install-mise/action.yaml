@@ -46,4 +46,3 @@ runs:
     - name: Trust mise config
       shell: bash
       run: mise trust
-

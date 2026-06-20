@@ -26,16 +26,16 @@
 # tag.
 
 [asset."RetinaFace_int-7b69507.onnx"]
-sha256 = "3b29de703b4641cb995754bc6294bd58b0fa5d859c838e9484c86d00251f8a08"
-url = "https://github.com/edge-toolkit/core/releases/download/hf-cache-v1/RetinaFace_int-7b69507.onnx"
-upstream = "https://huggingface.co/amd/retinaface"
 license = "Apache-2.0"
+sha256 = "3b29de703b4641cb995754bc6294bd58b0fa5d859c838e9484c86d00251f8a08"
+upstream = "https://huggingface.co/amd/retinaface"
+url = "https://github.com/edge-toolkit/core/releases/download/hf-cache-v1/RetinaFace_int-7b69507.onnx"
 
 [asset."rustpython-wasm-08a1d6f.tar.gz"]
-sha256 = "7b81d53f5b3a63c60fc2bc1717e87466026d796ec522b925f009532c7b0291f3"
-url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-wasm-08a1d6f.tar.gz"
-upstream = "https://github.com/RustPython/RustPython"
 license = "MIT"
+sha256 = "7b81d53f5b3a63c60fc2bc1717e87466026d796ec522b925f009532c7b0291f3"
+upstream = "https://github.com/RustPython/RustPython"
+url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-wasm-08a1d6f.tar.gz"
 
 # Upstream-cache entries below: tarballs we build + host for tools that
 # either have no Windows binary upstream (augeas, gnupg-w32) or whose
@@ -45,10 +45,10 @@ license = "MIT"
 # reading the .sha256 sidecar from the release.
 
 [asset."1.14.1-x86_64-pc-windows-mingw.tar.gz"]
-sha256 = "6d97229c53cc0af09635bfd85b15169704ab9c07d5e23090252ac80746260036"
-url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x86_64-pc-windows-mingw.tar.gz"
-upstream = "https://github.com/hercules-team/augeas"
 license = "LGPL-2.1+"
+sha256 = "6d97229c53cc0af09635bfd85b15169704ab9c07d5e23090252ac80746260036"
+upstream = "https://github.com/hercules-team/augeas"
+url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x86_64-pc-windows-mingw.tar.gz"
 
 # Non-Windows augeas builds from the same jayvdb/augeas `win` branch as
 # the Windows tarball above, published to the same augeas-v1 release.
@@ -56,37 +56,37 @@ license = "LGPL-2.1+"
 # already encodes the triple. shas filled in by the maintainer after the
 # upstream-cache.yaml augeas job runs and uploads each tarball.
 [asset."1.14.1-x86_64-unknown-linux-gnu.tar.xz"]
-sha256 = "fc6345fb8ffb84e1f57f9144aacc059aa13687f6912ffe26f90713c771892ec6"
-url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x86_64-unknown-linux-gnu.tar.xz"
-upstream = "https://github.com/hercules-team/augeas"
 license = "LGPL-2.1+"
+sha256 = "fc6345fb8ffb84e1f57f9144aacc059aa13687f6912ffe26f90713c771892ec6"
+upstream = "https://github.com/hercules-team/augeas"
+url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x86_64-unknown-linux-gnu.tar.xz"
 
 [asset."1.14.1-aarch64-unknown-linux-gnu.tar.xz"]
-sha256 = "3303e8022294b04fe4ed567b0d88c10c1c7d5b51e443485251a6d4a606b1433a"
-url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-aarch64-unknown-linux-gnu.tar.xz"
-upstream = "https://github.com/hercules-team/augeas"
 license = "LGPL-2.1+"
+sha256 = "3303e8022294b04fe4ed567b0d88c10c1c7d5b51e443485251a6d4a606b1433a"
+upstream = "https://github.com/hercules-team/augeas"
+url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-aarch64-unknown-linux-gnu.tar.xz"
 
 [asset."1.14.1-x86_64-apple-darwin.tar.xz"]
-sha256 = "28b26d680158f9480cf5e01cd7d47e57b7b05a7ac8646c76aa9c58537ea80422"
-url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x86_64-apple-darwin.tar.xz"
-upstream = "https://github.com/hercules-team/augeas"
 license = "LGPL-2.1+"
+sha256 = "28b26d680158f9480cf5e01cd7d47e57b7b05a7ac8646c76aa9c58537ea80422"
+upstream = "https://github.com/hercules-team/augeas"
+url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x86_64-apple-darwin.tar.xz"
 
 [asset."1.14.1-aarch64-apple-darwin.tar.xz"]
-sha256 = "10fc4aff94a5c6016c51b4dbbc224277a340a083c315ca0a05e9f5ef9a869403"
-url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-aarch64-apple-darwin.tar.xz"
-upstream = "https://github.com/hercules-team/augeas"
 license = "LGPL-2.1+"
+sha256 = "10fc4aff94a5c6016c51b4dbbc224277a340a083c315ca0a05e9f5ef9a869403"
+upstream = "https://github.com/hercules-team/augeas"
+url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-aarch64-apple-darwin.tar.xz"
 
 [asset."0.1.13-x86_64-pc-windows-msvc.tar.gz"]
-sha256 = "f21eab43597b0325b672de61fd396465aa371d3e9e32da6c56e93a89a003b5aa"
-url = "https://github.com/edge-toolkit/core/releases/download/dart-typegen-v1/0.1.13-x86_64-pc-windows-msvc.tar.gz"
-upstream = "https://github.com/cameron1024/dart-typegen"
 license = "MIT OR Apache-2.0"
+sha256 = "f21eab43597b0325b672de61fd396465aa371d3e9e32da6c56e93a89a003b5aa"
+upstream = "https://github.com/cameron1024/dart-typegen"
+url = "https://github.com/edge-toolkit/core/releases/download/dart-typegen-v1/0.1.13-x86_64-pc-windows-msvc.tar.gz"
 
 [asset."2.5.20_20260513-x86_64-pc-windows.tar.gz"]
-sha256 = "e04493f469fd3861e119a603700cfeafe8da0090aed39b547ad3975b21f48f0b"
-url = "https://github.com/edge-toolkit/core/releases/download/gnupg-w32-v1/2.5.20_20260513-x86_64-pc-windows.tar.gz"
-upstream = "https://gnupg.org"
 license = "GPL-3.0+"
+sha256 = "e04493f469fd3861e119a603700cfeafe8da0090aed39b547ad3975b21f48f0b"
+upstream = "https://gnupg.org"
+url = "https://github.com/edge-toolkit/core/releases/download/gnupg-w32-v1/2.5.20_20260513-x86_64-pc-windows.tar.gz"

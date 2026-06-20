@@ -154,8 +154,8 @@ pipx = { version = "latest", os = ["linux", "macos"] }
 "pipx:cowsay" = "latest"
 # semgrep lints Cargo.toml style (see `semgrep-check`), so it stays in the
 # always-loaded config alongside the other repo-wide linters.
-"pipx:semgrep" = "latest"
 gh = "latest"
+"pipx:semgrep" = "latest"
 # Aqua has no pnpm darwin/amd64 prebuilt; the `npm:pnpm` fallback for macos/x64
 # lives in the `js` env (config.js.toml).
 pnpm = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
@@ -295,9 +295,9 @@ url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-0
 # RustPython commit's 7-char short SHA -- bump in lockstep with the
 # asset filename in data.toml and the url here.
 [tools."http:rp-wasm"]
-version = "08a1d6f"
-url = "https://github.com/edge-toolkit/core/releases/download/{{ vars.a_rp_release }}/{{ vars.rp_wasm_asset }}"
 checksum = "sha256:7b81d53f5b3a63c60fc2bc1717e87466026d796ec522b925f009532c7b0291f3"
+url = "https://github.com/edge-toolkit/core/releases/download/{{ vars.a_rp_release }}/{{ vars.rp_wasm_asset }}"
+version = "08a1d6f"
 
 [tools."http:augeas"]
 bin = "augtool"
@@ -433,8 +433,8 @@ pip_for_rustpython_wheel_url = ":http:packages/{{ vars.pip_for_rustpython_sha }}
 # data.toml asset row) in one go. rp_wasm_asset stays a literal
 # string because checksums.rego reads the raw TOML and needs the
 # filename verbatim to cross-check the data.toml [asset.*] entry.
-rp_wasm_short = "08a1d6f"
 rp_wasm_asset = "rustpython-wasm-08a1d6f.tar.gz"
+rp_wasm_short = "08a1d6f"
 # Install dir for the [tools."http:rp-wasm"] tarball -- mise extracts
 # to `installs/http-rp-wasm/<version>/`. Forward slashes on the suffix
 # work cross-platform: mise_data_dir is backslash-rooted on Windows,

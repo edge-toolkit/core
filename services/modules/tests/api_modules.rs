@@ -1,8 +1,5 @@
 #![cfg(test)]
-#![expect(
-    clippy::print_stdout,
-    reason = "test code: js-env skip log line uses println"
-)]
+#![expect(clippy::print_stdout, reason = "test code: js-env skip log line uses println")]
 
 use actix_web::{App, test, web};
 use edge_toolkit::config::{Language, mise_env_includes};

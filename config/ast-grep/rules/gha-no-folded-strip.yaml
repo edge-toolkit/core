@@ -16,6 +16,16 @@ files:
 # leading characters carry the header. Regex-match only the `>-` form so `>`,
 # `|`, and `|-` continue to pass; `^>-` anchors at the start of the node text
 # so we don't accidentally match a `>-` that appears inside the scalar body.
+#
+# Carve-out: `shell: >-` is fine. The rule's whitespace concern is about
+# `run:` bodies losing newlines; `shell:` values are command-line strings
+# that NEED whitespace folding (a multi-line `${{ ... && ... || ... }}`
+# ternary must fold to a single command line). Match the parent
+# block_mapping_pair's text starting with `shell:` to skip just that key.
 rule:
   kind: block_scalar
   regex: "^>-"
+  not:
+    inside:
+      pattern: "shell: $VAL"
+      stopBy: end

@@ -63,8 +63,8 @@ version = "1.37.0"
 bin = "dart-typegen"
 version = "0.1.13"
 [tools."http:dart-typegen".platforms.windows-x64]
-url = "https://github.com/edge-toolkit/core/releases/download/dart-typegen-v1/0.1.13-x86_64-pc-windows-msvc.tar.gz"
 checksum = "sha256:f21eab43597b0325b672de61fd396465aa371d3e9e32da6c56e93a89a003b5aa"
+url = "https://github.com/edge-toolkit/core/releases/download/dart-typegen-v1/0.1.13-x86_64-pc-windows-msvc.tar.gz"
 
 # Prebuilt gnupg for Windows -- repackaged from gnupg.org's official NSIS
 # installer (PE32+ native binaries, no MSYS2/Cygwin layer). The
@@ -76,8 +76,8 @@ checksum = "sha256:f21eab43597b0325b672de61fd396465aa371d3e9e32da6c56e93a89a003b
 bin = "gpg"
 version = "2.5.20"
 [tools."http:gnupg-w32".platforms.windows-x64]
-url = "https://github.com/edge-toolkit/core/releases/download/gnupg-w32-v1/2.5.20_20260513-x86_64-pc-windows.tar.gz"
 checksum = "sha256:e04493f469fd3861e119a603700cfeafe8da0090aed39b547ad3975b21f48f0b"
+url = "https://github.com/edge-toolkit/core/releases/download/gnupg-w32-v1/2.5.20_20260513-x86_64-pc-windows.tar.gz"
 
 # Rust toolchains for Windows -- gnullvm host directly, so no msvc toolchain
 # ever lands on disk (the old preinstall did install-msvc-then-rustup-reinstall-

@@ -31,20 +31,7 @@ defaults:
     shell: bash --noprofile --norc -euo pipefail {0}
 
 env:
-  # TEMPORARY: MISE_ENV being re-expanded one language at a time after the
-  # cygheap/setlocal pathology was traced to the mise.cmd self-recursive
-  # shim (fix landed in a prior commit). The previous "" baseline went green
-  # at cb717094; now bisecting upward one language at a time to confirm none
-  # of the per-language configs re-trigger a Windows pathology. Currently:
-  # `rust`. Next: `rust,python`, then add another, etc., ending at the
-  # canonical `dart,dotnet,java,js,python,rust,zig`. The matching gha.rego
-  # carve-out allows the narrowed value on this workflow only.
   MISE_ENV: "dart,dotnet,java,js,python,rust,zig"
-  # Crank mise's logging to debug while we chase the prefetch-ci hang on
-  # Windows -- silent 53-min stalls give us nothing to diagnose with. Drop
-  # both back to defaults once the root cause is in hand.
-  MISE_VERBOSE: "1"
-  MISE_DEBUG: "1"
 
 jobs:
   rust:
@@ -53,13 +40,14 @@ jobs:
     # Override the workflow-level `shell: bash` default for Windows runs to
     # use the busybox-w32 ash that mise installs in `_setup_all` (the same
     # shell `MISE_BASH_PATH` already points at for `shell = "bash"` tasks on
-    # the Windows Docker images). Avoids Git Bash's MSYS fork emulation /
-    # PATH translation -- those interact badly with mise's child-cmd env
-    # composition for base-config tasks. The path matches the version pin in
-    # `.mise/config.windows.toml`'s [tools."http:busybox"] entry. The
-    # `Set HOME = USERPROFILE on Windows` step below explicitly overrides
-    # back to `shell: bash` because it runs BEFORE `Install mise + tools`
-    # (which is what installs busybox-w32). All later run-bodies use ash.
+    # the Windows Docker images). Avoids Git Bash's MSYS fork-emulation
+    # cygheap pathology -- see OLD_NOTES.md for the captured error
+    # signatures and the diagnostic harness that found the root cause. The
+    # path matches the version pin in `.mise/config.windows.toml`'s
+    # [tools."http:busybox"] entry. The `Set HOME = USERPROFILE on Windows`
+    # step below explicitly overrides back to `shell: bash` because it
+    # runs BEFORE `Install mise + tools` (which is what installs
+    # busybox-w32). All later run-bodies use ash.
     defaults:
       run:
         shell: >-
@@ -128,7 +116,7 @@ jobs:
       # step fail with `Variable env.HOME not found in context while rendering
       # __tera_one_off`. Plumb HOME = USERPROFILE so every subsequent step
       # (incl. our pwsh diagnostic ones) sees it.
-      - name: Set HOME = USERPROFILE on Windows
+      - name: "Setup: HOME = USERPROFILE on Windows"
         if: runner.os == 'Windows'
         timeout-minutes: 1
         # Explicit `shell: bash` because the job-level defaults point at the
@@ -144,120 +132,11 @@ jobs:
         with:
           github-token: ${{ github.token }}
 
-      # Non-Windows: prefetch is well-behaved on Linux / macOS, so we keep the
-      # original single-step form there. The Windows lane below replaces it
-      # with a diagnostic split to chase the silent prefetch stall.
-      - name: Prefetch dependencies (non-Windows)
-        if: runner.os != 'Windows'
+      - name: Prefetch dependencies
         timeout-minutes: 15
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run prefetch-ci
-
-      # Diagnostic split of `mise run prefetch-ci` for Windows runners. The
-      # single-step form has been silently stalling with zero output and then
-      # failing with MSYS2 / Git Bash cygheap-fork errors at the cancel
-      # boundary. Two captured failure signatures so a future contributor
-      # grepping the runner log finds this block:
-      #
-      #   0 [main] bash (31360) child_copy: cygheap read copy failed,
-      #     0x800000000..0x8DA05AC60, done 964984832, windows pid 31360,
-      #     Win32 error 299
-      #
-      # First observed on dcd7346bac780892228397e8a5522380eb191a80, in
-      #   https://github.com/edge-toolkit/core/actions/runs/27742669243/job/82073365968
-      # (rust (windows-latest) matrix entry of this workflow).
-      #
-      #   0 [main] bash (16912) child_copy: cygheap read copy failed,
-      #     0x800000000..0x825997930, done 0, windows pid 16912,
-      #     Win32 error 299
-      #
-      # Reproduced on d30ae7c42152f29a477d6a36359b83f9d1598bdb (same workflow
-      # entry; user-cancelled before run could complete -- exact GHA job URL
-      # not captured at the time, sorry).
-      #
-      # Both are `child_copy: cygheap read copy failed` from MSYS' fork
-      # emulation (Win32 ERROR_PARTIAL_COPY == decimal 299) when MSYS bash
-      # tries to copy its cygheap region (reserved at 0x800000000) into a
-      # newly-forked child. The `done <N>` count varies between runs
-      # -- sometimes 0 bytes, sometimes ~1 GB -- but the symptom is the same
-      # silent stall in the prefetch-ci step body.
-      #
-      # The split tests three things on Windows:
-      #   * Per-task isolation -- we see exactly which sub-task is silent
-      #     (`mise run prefetch:rust`, `:node`, or `fetch-mnist-rclone`).
-      #   * `shell: pwsh` on the prefetch:rust + prefetch:node steps bypasses
-      #     MSYS bash entirely. If those pwsh steps run cleanly the cygheap
-      #     theory is corroborated; if they ALSO stall then MSYS bash is
-      #     exonerated. (Matching gha.rego "Diagnostic:" prefix carve-out
-      #     allows the per-step `shell:` override.)
-      #   * The bash step (fetch-mnist-rclone) sets `set -x` + a timestamped
-      #     `PS4` + `exec 2>&1` so xtrace logs every command bash runs and
-      #     how long each one sat -- defeats the "we have no idea what bash
-      #     was waiting on" problem when the cygheap fork eventually fails.
-      #
-      # fetch-mnist-rclone runs LAST: the bash cygheap fork-copy fails on the
-      # FIRST bash step regardless of what work was queued for it. Running it
-      # after the pwsh steps tests whether the failure repeats once bash has
-      # had time to start fresh later in the job (or whether something the
-      # pwsh steps did clears the blocker). Roll the whole block back to a
-      # single `mise run prefetch-ci` step once the root cause is in hand.
-      - name: "Diagnostic: prefetch prefetch:rust (pwsh shell)"
-        if: runner.os == 'Windows'
-        timeout-minutes: 15
-        shell: pwsh
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          $now = { Get-Date -Format 'HH:mm:ss.fff' }
-          Write-Host "::group::shim diagnostics (what cmd is recursing on)"
-          $shims = "$env:LOCALAPPDATA\mise\shims"
-          Write-Host "shims dir: $shims (exists: $(Test-Path $shims))"
-          if (Test-Path $shims) {
-            $cmdFiles = @(Get-ChildItem $shims -Filter '*.cmd' -ErrorAction SilentlyContinue)
-            Write-Host "total .cmd shims in dir: $($cmdFiles.Count)"
-            foreach ($name in 'cargo.cmd','rustc.cmd','mise.cmd','recur.cmd','rclone.cmd','wasm-pack.cmd') {
-              $p = Join-Path $shims $name
-              if (Test-Path $p) {
-                Write-Host "----- $name -----"
-                Get-Content $p
-                Write-Host "----- end $name -----"
-              } else {
-                Write-Host "${name}: NOT FOUND"
-              }
-            }
-          }
-          Write-Host "where.exe mise:"
-          where.exe mise 2>&1
-          Write-Host "where.exe cargo:"
-          where.exe cargo 2>&1
-          Write-Host "::endgroup::"
-          Write-Host "[$(& $now)] starting mise run prefetch:rust"
-          mise run prefetch:rust
-          Write-Host "[$(& $now)] finished mise run prefetch:rust"
-
-      - name: "Diagnostic: prefetch prefetch:node (pwsh shell)"
-        if: runner.os == 'Windows'
-        timeout-minutes: 15
-        shell: pwsh
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          $now = { Get-Date -Format 'HH:mm:ss.fff' }
-          Write-Host "[$(& $now)] starting mise run prefetch:node"
-          mise run prefetch:node
-          Write-Host "[$(& $now)] finished mise run prefetch:node"
-
-      - name: "Diagnostic: prefetch fetch-mnist-rclone (bash + xtrace)"
-        if: runner.os == 'Windows'
-        timeout-minutes: 10
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -x
-          export PS4='+ $(date +%H:%M:%S.%N) '
-          exec 2>&1
-          mise run fetch-mnist-rclone
 
       # GITHUB_TOKEN raises the rate-limit ceiling on mise's fetch of the
       # rp-v<N> rustpython_wasm tarball ([tools."http:rp-wasm"] → mise's

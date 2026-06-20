@@ -313,8 +313,8 @@ jobs:
           # dart-typegen + gnupg-w32 assets.
           asset="${AUG_VERSION}-${MATRIX_TRIPLE}.${MATRIX_EXT}"
           repo=edge-toolkit/core
-          assets=$(gh release view "$AUG_RELEASE_TAG" --repo "$repo" \
-            --json assets --jq '.assets[].name' 2>/dev/null || true)
+          jq='.assets[].name'
+          assets=$(gh release view "$AUG_RELEASE_TAG" --repo "$repo" --json assets --jq "$jq" 2>/dev/null || true)
           if echo "$assets" | grep -Fxq "$asset"; then
             echo "::notice::$asset already in $AUG_RELEASE_TAG; skipping"
             echo "work=" >> "$GITHUB_OUTPUT"
@@ -331,9 +331,8 @@ jobs:
           && runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            autoconf automake bison flex libtool-bin libxml2-dev \
-            libreadline-dev pkg-config
+          pkgs="autoconf automake bison flex libtool-bin libxml2-dev libreadline-dev pkg-config"
+          sudo apt-get install -y --no-install-recommends $pkgs
 
       # macOS: brew the build deps, mirroring the fork's build.yml `macos` job.
       # CPPFLAGS/LDFLAGS point configure at GNU readline (libedit lacks
@@ -355,7 +354,7 @@ jobs:
         with:
           msystem: MINGW64
           update: true
-          install: >-
+          install: |-
             base-devel
             git
             autoconf
@@ -384,8 +383,8 @@ jobs:
           srcdir="$RUNNER_TEMP/augeas-src"
           installdir="$RUNNER_TEMP/install"
           mkdir -p "$installdir"
-          git clone --depth 1 --branch "$AUG_REF" --recurse-submodules \
-            "$AUG_FORK_REPO" "$srcdir"
+          clone_args="--depth 1 --branch $AUG_REF --recurse-submodules"
+          git clone $clone_args "$AUG_FORK_REPO" "$srcdir"
           cd "$srcdir"
           if [ "$RUNNER_OS" = "macOS" ]; then
             bison_prefix=$(brew --prefix bison)
@@ -396,8 +395,9 @@ jobs:
             export CPPFLAGS="-I$readline_prefix/include"
             export LDFLAGS="-L$readline_prefix/lib"
           fi
-          ./autogen.sh --prefix="$installdir" --disable-static \
-            --disable-gnulib-tests --disable-dependency-tracking
+          autogen_args="--prefix=$installdir --disable-static --disable-gnulib-tests"
+          autogen_args="$autogen_args --disable-dependency-tracking"
+          ./autogen.sh $autogen_args
           make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
           make install
           # Relocate. libtool bakes the absolute --prefix into binaries
@@ -433,8 +433,9 @@ jobs:
               for old in $(otool -L "$f" 2>/dev/null | awk 'NR>1 {print $1}'); do
                 base=$(basename "$old")
                 for ours in $our_libs; do
-                  [ "$base" = "$ours" ] && \
+                  if [ "$base" = "$ours" ]; then
                     install_name_tool -change "$old" "@rpath/$base" "$f"
+                  fi
                 done
               done
             done
@@ -446,8 +447,9 @@ jobs:
             # Bundle Homebrew dylib closure. otool -L on augtool tells us
             # which absolute brew paths got baked in; copy each, rewrite
             # its install_name + nested refs, and rewrite consumers.
-            queue=$(otool -L bin/augtool lib/libaugeas*.dylib lib/libfa*.dylib 2>/dev/null \
-              | awk 'NR>1 && $1 ~ /^\/(usr\/local|opt\/homebrew)\// {print $1}' | sort -u)
+            brew_filter='NR>1 && $1 ~ /^\/(usr\/local|opt\/homebrew)\// {print $1}'
+            brew_deps_otool=$(otool -L bin/augtool lib/libaugeas*.dylib lib/libfa*.dylib 2>/dev/null)
+            queue=$(echo "$brew_deps_otool" | awk "$brew_filter" | sort -u)
             seen=""
             while [ -n "$queue" ]; do
               next=""
@@ -461,8 +463,8 @@ jobs:
                 chmod +w "lib/$base"
                 install_name_tool -id "@rpath/$base" "lib/$base"
                 # add new transitive brew deps to the queue
-                nested_refs=$(otool -L "lib/$base" 2>/dev/null \
-                  | awk 'NR>1 && $1 ~ /^\/(usr\/local|opt\/homebrew)\// {print $1}')
+                nested_otool=$(otool -L "lib/$base" 2>/dev/null)
+                nested_refs=$(echo "$nested_otool" | awk "$brew_filter")
                 for nested in $nested_refs; do
                   next="$next $nested"
                 done
@@ -473,8 +475,8 @@ jobs:
             for f in lib/*.dylib bin/*; do
               [ -f "$f" ] && [ ! -L "$f" ] || continue
               file "$f" | grep -q "Mach-O" || continue
-              for old in $(otool -L "$f" 2>/dev/null \
-                | awk 'NR>1 && $1 ~ /^\/(usr\/local|opt\/homebrew)\// {print $1}'); do
+              f_otool=$(otool -L "$f" 2>/dev/null)
+              for old in $(echo "$f_otool" | awk "$brew_filter"); do
                 install_name_tool -change "$old" "@rpath/$(basename "$old")" "$f"
               done
             done
@@ -511,8 +513,8 @@ jobs:
           srcdir="$runner_temp_m/augeas-src"
           installdir="$runner_temp_m/install"
           mkdir -p "$installdir"
-          git clone --depth 1 --branch "$AUG_REF" --recurse-submodules \
-            "$AUG_FORK_REPO" "$srcdir"
+          clone_args="--depth 1 --branch $AUG_REF --recurse-submodules"
+          git clone $clone_args "$AUG_FORK_REPO" "$srcdir"
           cd "$srcdir"
           # CFLAGS, mirroring the fork's build.yml windows job:
           #   -Wno-implicit-function-declaration: mingw-w64 gcc 14+ promoted
@@ -520,8 +522,9 @@ jobs:
           #   -Duint=unsigned: augeas headers use the BSD-ism `uint`, which
           #     mingw-w64's <sys/types.h> doesn't define unconditionally.
           export CFLAGS="-Wno-implicit-function-declaration -Duint=unsigned"
-          ./autogen.sh --prefix="$installdir" --disable-static \
-            --disable-debug --disable-dependency-tracking
+          autogen_args="--prefix=$installdir --disable-static --disable-debug"
+          autogen_args="$autogen_args --disable-dependency-tracking"
+          ./autogen.sh $autogen_args
           make -j"$(nproc)"
           make install
           # bundle the mingw runtime DLLs augeas links against so the
@@ -581,14 +584,13 @@ jobs:
         id: dtg_check
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        shell: bash
         run: |
           triple=x86_64-pc-windows-msvc
           # No "dart-typegen-" project prefix; release tag already names it.
           asset="${DTG_VERSION}-${triple}.tar.gz"
           repo=edge-toolkit/core
-          assets=$(gh release view "$DTG_RELEASE_TAG" --repo "$repo" \
-            --json assets --jq '.assets[].name' 2>/dev/null || true)
+          jq='.assets[].name'
+          assets=$(gh release view "$DTG_RELEASE_TAG" --repo "$repo" --json assets --jq "$jq" 2>/dev/null || true)
           if echo "$assets" | grep -Fxq "$asset"; then
             echo "::notice::$asset already in $DTG_RELEASE_TAG; skipping"
             echo "work=" >> "$GITHUB_OUTPUT"
@@ -605,7 +607,6 @@ jobs:
         if: |-
           steps.dtg_check.outputs.work == 'yes'
           && github.event.pull_request.head.repo.fork != true
-        shell: bash
         env:
           ASSET: ${{ steps.dtg_check.outputs.asset }}
         run: |
@@ -616,11 +617,9 @@ jobs:
           # but a stray default-toolchain (e.g. on a custom runner)
           # could otherwise pick gnullvm and trip the same build failure
           # we're working around.
-          cargo install dart-typegen \
-            --version "$DTG_VERSION" \
-            --root "$installdir" \
-            --target x86_64-pc-windows-msvc \
-            --locked
+          cargo_args="--version $DTG_VERSION --root $installdir"
+          cargo_args="$cargo_args --target x86_64-pc-windows-msvc --locked"
+          cargo install dart-typegen $cargo_args
           ls "$installdir/bin"
           # `cd` into the dir + tar a relative path -- Git Bash's bundled
           # tar parses `D:\a\_temp/...` as `host:path` (the colon) and
@@ -636,7 +635,6 @@ jobs:
         if: |-
           steps.dtg_check.outputs.work == 'yes'
           && github.event.pull_request.head.repo.fork != true
-        shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
           ASSET: ${{ steps.dtg_check.outputs.asset }}
@@ -688,8 +686,8 @@ jobs:
           # No "gnupg-w32-" project prefix; release tag already names it.
           asset="${GNUPG_VERSION}_${GNUPG_BUILD_STAMP}-x86_64-pc-windows.tar.gz"
           repo=edge-toolkit/core
-          assets=$(gh release view "$GNUPG_RELEASE_TAG" --repo "$repo" \
-            --json assets --jq '.assets[].name' 2>/dev/null || true)
+          jq='.assets[].name'
+          assets=$(gh release view "$GNUPG_RELEASE_TAG" --repo "$repo" --json assets --jq "$jq" 2>/dev/null || true)
           if echo "$assets" | grep -Fxq "$asset"; then
             echo "::notice::$asset already in $GNUPG_RELEASE_TAG; skipping"
             echo "work=" >> "$GITHUB_OUTPUT"

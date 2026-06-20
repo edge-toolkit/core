@@ -17,15 +17,20 @@ deny contains msg if {
 }
 
 # Steps must not override the shell -- rely on the workflow default (write the
-# step in bash rather than switching to PowerShell on Windows runners). Carve-
-# out for diagnostic steps (name prefix `Diagnostic:`): these are short-lived
-# debug probes where the shell choice is the variable under test (e.g. cmd vs
-# MSYS bash). Revert the step + drop the prefix when the investigation lands.
+# step in bash rather than switching to PowerShell on Windows runners). Three
+# carve-outs: (1) `name:` prefix `Diagnostic:` (short-lived debug probes where
+# shell choice is under test -- drop the prefix when the investigation lands);
+# (2) `name:` prefix `Setup:` (pre-mise bootstrap that can't yet use the job's
+# mise-managed default shell, e.g. setting HOME before mise itself is
+# installed); (3) `shell: msys2 {0}` (the wrapper msys2/setup-msys2 requires
+# for steps running inside its MINGW64 env -- Git Bash isn't a substitute).
 deny contains msg if {
 	some name, job in input.jobs
 	some step in job.steps
 	step.shell
 	not startswith(step.name, "Diagnostic:")
+	not startswith(step.name, "Setup:")
+	not startswith(step.shell, "msys2 ")
 	msg := sprintf("job %q sets shell: on a step; use the workflow default", [name])
 }
 
