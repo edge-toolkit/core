@@ -4,6 +4,7 @@ name: docker-windows
 "on":
   pull_request:
     paths:
+      - .github/actions/free-disk-space-windows/**
       - .github/workflows/docker-windows.yaml
       - Dockerfile.nanoserver
       - Dockerfile.windows
@@ -25,6 +26,10 @@ env:
 
 jobs:
   build:
+    # TEMPORARY: `if: false` parks the job so PR runner capacity goes to the
+    # test.yaml windows-only matrix while we verify the new
+    # free-disk-space-windows action. Drop this once the action is confirmed.
+    if: false
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -73,6 +78,15 @@ jobs:
         run: |
           sc query docker | grep -q RUNNING || net start docker
           docker version
+
+      # Reclaim runner C:\ before any docker work. Windows `docker build`
+      # stages HCS layer scratch under `C:\Windows\SystemTemp`, so every GB
+      # we free here is a GB that doesn't go to disk-pressure failures
+      # inside the build. Preinstalled trees we never touch (Android, old
+      # Python / JDK versions, old .NET SDKs, misc DB SDKs) come out first;
+      # the docker-prune step below clears any layer-cache leftovers.
+      - name: Free disk space on Windows runner
+        uses: ./.github/actions/free-disk-space-windows
 
       # Free runner disk before the build. The Server Core lane has been hitting
       # "There is not enough space on the disk" during the conda-clang-tools

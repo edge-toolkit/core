@@ -34,7 +34,7 @@ runs:
         extra-tools: ${{ inputs.extra-tools }}
 
     - name: Show MISE_ENV
-      shell: bash
+      shell: bash --noprofile --norc -euo pipefail {0}
       run: echo "MISE_ENV=$MISE_ENV"
 
     # Optional npm backend, installed before the main `mise install`.
@@ -45,13 +45,13 @@ runs:
     - name: Install aube (optional npm backend, allowed to fail)
       if: contains(env.MISE_ENV, 'js')
       continue-on-error: true
-      shell: bash
+      shell: bash --noprofile --norc -euo pipefail {0}
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: mise run setup-aube
 
     - name: Install mise tools
-      shell: bash
+      shell: bash --noprofile --norc -euo pipefail {0}
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
@@ -67,7 +67,7 @@ runs:
     # that's the step that creates the shims.
     - name: Remove self-recursive mise.cmd shim on Windows
       if: runner.os == 'Windows'
-      shell: bash
+      shell: bash --noprofile --norc -euo pipefail {0}
       run: |
         shims="$LOCALAPPDATA/mise/shims"
         rm -fv "$shims/mise.cmd" "$shims/mise"

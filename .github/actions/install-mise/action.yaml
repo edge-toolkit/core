@@ -36,13 +36,16 @@ runs:
     # this problem (each .cmd shim invokes `mise exec --` plainly via cmd).
     - name: Add mise shims dir to PATH on Windows
       if: runner.os == 'Windows'
-      shell: bash
-      run: echo "$LOCALAPPDATA\mise\shims" >> "$GITHUB_PATH"
+      shell: bash --noprofile --norc -euo pipefail {0}
+      # The appended value is a hardcoded mise install-dir constant under
+      # our control -- no user input flows in -- so the github-env audit's
+      # arbitrary-code-execution shape doesn't apply.
+      run: echo "$LOCALAPPDATA\mise\shims" >> "$GITHUB_PATH" # zizmor: ignore[github-env]
 
     # Marks the checked-out .mise/config*.toml as trusted so subsequent mise
     # invocations don't error out with "Config files are not trusted". The
     # caller must run actions/checkout BEFORE this composite action so the
     # config files are on disk.
     - name: Trust mise config
-      shell: bash
+      shell: bash --noprofile --norc -euo pipefail {0}
       run: mise trust

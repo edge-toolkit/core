@@ -543,14 +543,14 @@ depends = ["fix:*"]
 description = "Apply all lint-fix passes: fix:rust + any loaded guest fix:<lang>"
 
 [tasks.action-validator]
-description = "Validate GitHub Actions workflow YAML"
-run = "action-validator .github/workflows/*.yaml"
+description = "Validate GitHub Actions workflow + composite-action YAML"
+run = "action-validator .github/workflows/*.yaml .github/actions/*/action.yaml"
 
 [tasks.zizmor-check]
-description = "Audit GitHub Actions workflows for security issues (zizmor)"
+description = "Audit GitHub Actions workflows + composite actions for security issues (zizmor)"
 # --offline so it needs no GH token and stays deterministic; config/zizmor.yaml
 # turns off the hash-pin policy (we pin actions by tag, not commit).
-run = "zizmor --offline --no-progress -c config/zizmor.yaml .github/workflows"
+run = "zizmor --offline --no-progress -c config/zizmor.yaml .github/workflows .github/actions"
 
 [tasks.ls-lint-check]
 description = "Lint file and directory naming conventions (ls-lint)"
@@ -647,19 +647,21 @@ git ls-files '*Cargo.toml' '.mise/config*.toml' '*pyproject.toml' Cargo.lock con
 shell = "bash -euo pipefail -c"
 
 [tasks.conftest-check-yaml]
-description = "Run conftest OPA/Rego policies over the GitHub Actions workflow YAML"
-# Two passes: per-file rules (gha, no_trailing_backslash) for shape/content
-# checks that don't need a file path; --combine rules (gha_combined) for
-# cross-cutting invariants where the rule has to compare each workflow's
-# parsed body against its own filename (the `paths:` self-reference check).
-# Conftest's per-file mode has no `input.path`, so `gha_combined` lives in
-# its own pass.
+description = "Run conftest OPA/Rego policies over the GitHub Actions workflow + action YAML"
+# Three passes: per-file rules (gha, no_trailing_backslash) over workflow
+# YAML; --combine rules (gha_combined) over workflow YAML for cross-cutting
+# invariants where the rule has to compare each workflow's parsed body
+# against its own filename (the `paths:` self-reference check; conftest's
+# per-file mode has no `input.path`); and gha_action over the composite
+# actions under .github/actions/*/action.yaml (different schema, so its
+# own namespace).
 run = """
 ns="--namespace gha --namespace no_trailing_backslash"
 # $ns expands to repeated `--namespace <n>` pairs; word-splitting is intentional.
 # shellcheck disable=SC2086
 conftest test --parser yaml $ns -p config/conftest/policy .github/workflows
 conftest test --parser yaml --combine --namespace gha_combined -p config/conftest/policy .github/workflows
+conftest test --parser yaml --namespace gha_action -p config/conftest/policy .github/actions/*/action.yaml
 """
 shell = "bash -euo pipefail -c"
 

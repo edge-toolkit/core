@@ -1,0 +1,101 @@
+---
+name: Free disk space
+description: >-
+  Remove safely-unused preinstalled software from the GHA Windows runner's
+  `C:\` to give downstream `docker build` (which stages HCS layer scratch
+  on `C:\Windows\SystemTemp`) more headroom. Counterpart to
+  jlumbroso/free-disk-space on Linux, which doesn't have a Windows path.
+  Logs disk-free before + after so the reclaimed space is visible.
+
+  Caller is responsible for the `if: runner.os == 'Windows'` guard --
+  every step here uses Git Bash with `C:\` mounted at `/c`; running this
+  on a non-Windows runner will silently no-op (no /c mount) at best.
+
+inputs:
+  android:
+    description: "Remove Android SDK trees (~12 GB)."
+    required: false
+    default: "true"
+  hostedtoolcache-old-pythons:
+    description: >-
+      Remove Python 3.9/3.10/3.11/3.12 versions from `hostedtoolcache`
+      (~2 GB). The repo uses mise's pinned 3.13.
+    required: false
+    default: "true"
+  hostedtoolcache-old-jdks:
+    description: >-
+      Remove JDK 8/11/17/21 versions from `hostedtoolcache\Java`
+      (~1 GB). The repo uses mise's pinned Java 26.
+    required: false
+    default: "true"
+  old-dotnet-sdks:
+    description: >-
+      Remove .NET SDK 6.0.x and 7.0.x trees (~1-2 GB). The repo
+      installs current dotnet via mise.
+    required: false
+    default: "true"
+  misc-sdks:
+    description: >-
+      Remove unused preinstalled SDKs (Heroku, MongoDB, PostgreSQL,
+      Strawberry Perl) -- ~1 GB combined.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: before
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: df -h /c
+
+    - name: Android SDK
+      if: inputs.android == 'true'
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: |
+        for p in "/c/Android" "/c/Program Files (x86)/Android"; do
+          [ -e "$p" ] && { echo "removing $p"; rm -rf -- "$p"; } || true
+        done
+
+    - name: hostedtoolcache old Pythons
+      if: inputs.hostedtoolcache-old-pythons == 'true'
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: |
+        shopt -s nullglob
+        for p in /c/hostedtoolcache/Python/3.{9,10,11,12}*; do
+          echo "removing $p"
+          rm -rf -- "$p"
+        done
+
+    - name: hostedtoolcache old JDKs
+      if: inputs.hostedtoolcache-old-jdks == 'true'
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: |
+        shopt -s nullglob
+        for p in /c/hostedtoolcache/Java_Adopt_jdk/{8,11,17,21}.*; do
+          echo "removing $p"
+          rm -rf -- "$p"
+        done
+
+    - name: old .NET SDKs
+      if: inputs.old-dotnet-sdks == 'true'
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: |
+        shopt -s nullglob
+        for p in "/c/Program Files/dotnet/sdk/"{6,7}.0.*; do
+          echo "removing $p"
+          rm -rf -- "$p"
+        done
+
+    - name: misc SDKs
+      if: inputs.misc-sdks == 'true'
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: |
+        pf="/c/Program Files"
+        pf86="/c/Program Files (x86)"
+        for p in "$pf/MongoDB" "$pf/PostgreSQL" "$pf86/Heroku" "/c/Strawberry"; do
+          [ -e "$p" ] && { echo "removing $p"; rm -rf -- "$p"; } || true
+        done
+
+    - name: after
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: df -h /c

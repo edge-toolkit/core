@@ -24,6 +24,10 @@ env:
 
 jobs:
   build:
+    # TEMPORARY: `if: false` parks the job so PR runner capacity goes to the
+    # test.yaml windows-only matrix while we verify the new
+    # free-disk-space-windows action. Drop this once the action is confirmed.
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
