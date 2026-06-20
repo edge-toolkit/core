@@ -197,49 +197,6 @@ profile = "minimal"
 targets = "wasm32-unknown-unknown,wasm32-wasip2"
 version = "nightly"
 
-# oxlint + oxfmt -- Rust-native JS/TS linter + formatter from the oxc-project,
-# pulled directly from the shared `apps_v<tag>` GitHub release. Aqua's
-# registry entry trips mise's date-filter on the `apps_v` tag prefix
-# (https://github.com/oxc-project/oxc/discussions/14452), and `cargo:` is
-# out because neither binary is published as a crates.io crate. The http:
-# backend with per-platform `url` + `rename_exe` strips the target-suffix
-# baked into the upstream binary names (e.g. `oxlint-x86_64-apple-darwin`
-# -> `oxlint`) so the bare command is on PATH the same way every other
-# mise tool installs.
-[tools."http:oxlint"]
-bin = "oxlint"
-rename_exe = "oxlint"
-version = "1.69.0"
-[tools."http:oxlint".platforms.linux-arm64]
-url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxlint-aarch64-unknown-linux-gnu.tar.gz"
-[tools."http:oxlint".platforms.linux-x64]
-url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxlint-x86_64-unknown-linux-gnu.tar.gz"
-[tools."http:oxlint".platforms.macos-arm64]
-url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxlint-aarch64-apple-darwin.tar.gz"
-[tools."http:oxlint".platforms.macos-x64]
-url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxlint-x86_64-apple-darwin.tar.gz"
-[tools."http:oxlint".platforms.windows-x64]
-url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxlint-x86_64-pc-windows-msvc.zip"
-
-# oxfmt's binary version lags oxlint's (they ship from the same apps_v tag
-# but track separate semver). Pin the URL to the release tag that bundles
-# both (`apps_v<oxlint_ver>` -- here apps_v1.69.0); bump that string when
-# bumping oxlint above.
-[tools."http:oxfmt"]
-bin = "oxfmt"
-rename_exe = "oxfmt"
-version = "0.54.0"
-[tools."http:oxfmt".platforms.linux-arm64]
-url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-aarch64-unknown-linux-gnu.tar.gz"
-[tools."http:oxfmt".platforms.linux-x64]
-url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x86_64-unknown-linux-gnu.tar.gz"
-[tools."http:oxfmt".platforms.macos-arm64]
-url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-aarch64-apple-darwin.tar.gz"
-[tools."http:oxfmt".platforms.macos-x64]
-url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x86_64-apple-darwin.tar.gz"
-[tools."http:oxfmt".platforms.windows-x64]
-url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x86_64-pc-windows-msvc.zip"
-
 # Native rustpython binary built from upstream RustPython main with
 # `freeze-stdlib` (so the binary embeds the Python stdlib and doesn't
 # need a RUSTPYTHONPATH dance) + the upstream pip audit-hook fix
@@ -449,7 +406,8 @@ rp_wasm_short = "08a1d6f"
 # trips uutils-coreutils' Windows path normalizer (`cp: The system
 # cannot find the path specified. (os error 3)`).
 rp_wasm_dir = '''{% if os() == "windows" -%}
-{{- get_env(name="LOCALAPPDATA", default="") -}}/mise/installs/http-rp-wasm/{{- vars.rp_wasm_short -}}
+{%- set base = get_env(name="LOCALAPPDATA", default="") | replace(from=`\`, to="/") -%}
+{{- base -}}/mise/installs/http-rp-wasm/{{- vars.rp_wasm_short -}}
 {%- else -%}
 {{- vars.mise_data_dir -}}/installs/http-rp-wasm/{{- vars.rp_wasm_short -}}
 {%- endif %}'''
@@ -566,37 +524,9 @@ done
 """
 shell = "bash -euo pipefail -c"
 
-[tasks.oxfmt-check]
-description = "Check JS/TS formatting (oxfmt)"
-# oxfmt walks the working tree from CWD, honouring .gitignore (so target/,
-# all pkg/ dirs, node_modules, etc. are skipped). Runs alongside dprint --
-# dprint's typescript plugin formats the same files, and config/oxfmtrc.jsonc
-# tunes oxfmt (printWidth=120) so its output matches dprint's typescript
-# plugin (which is matched-back via arrowFunction.useParentheses + member
-# linePerExpression in config/dprint.jsonc). `fmt:rust` orders oxfmt-fmt
-# before dprint-fmt so dprint has the last word on residual disagreements.
-#
-# The positional `!.mise/config*.toml` is a workaround for an oxfmt 0.54.0
-# bug: oxfmt's content-based JS detection mis-parses the multiple `"""..."""`
-# TOML basic-multiline strings in these files as JS template literals (and
-# silently concatenates `description = "..."` into the closing `"""` of an
-# adjacent `run = """..."""` block on --write); it also flattens short TOML
-# arrays like `depends = [...]` into single lines because they look like JS
-# arrays under 120 chars. The `ignorePatterns: ["**/*.toml"]` in
-# config/oxfmtrc.jsonc filters every other TOML file correctly but fails to
-# match dotfile-directory paths like `.mise/config*.toml`, so we override
-# here positionally.
-run = "oxfmt --config config/oxfmtrc.jsonc --check . '!.mise/config*.toml'"
-
-[tasks.oxfmt-fmt]
-description = "Format JS/TS sources in place (oxfmt)"
-run = "oxfmt --config config/oxfmtrc.jsonc --write . '!.mise/config*.toml'"
-
 [tasks."fmt:rust"]
 # Rust + universal formatters. Always-loaded, so `fmt`'s glob always matches it.
-# oxfmt-fmt before dprint-fmt: both touch JS/TS, so the second pass wins;
-# dprint stays the source of truth for any disagreements on JS style.
-depends = ["cargo-clippy-fix", "cargo-fmt", "dprint-fmt", "jq-fmt", "oxfmt-fmt", "taplo-fmt"]
+depends = ["cargo-clippy-fix", "cargo-fmt", "dprint-fmt", "jq-fmt", "taplo-fmt"]
 description = "Run the Rust + universal repo-wide formatters"
 
 [tasks.fmt]
@@ -627,8 +557,6 @@ depends = [
   "hadolint-check",
   "link-check",
   "ls-lint-check",
-  "oxfmt-check",
-  "oxlint-check",
   "regal-check",
   "ryl-check",
   "semgrep-check",
@@ -653,7 +581,7 @@ description = "Run all checks: check:rust + any loaded guest check:<lang>"
 [tasks."fix:rust"]
 # Rust + universal lint-fix passes. Distinct from fmt:rust (style/whitespace
 # formatters) -- these apply auto-rewrites for actual lint violations.
-depends = ["ast-grep-fix", "cargo-clippy-fix", "oxlint-fix", "regal-fix", "semgrep-fix", "typos-fix"]
+depends = ["ast-grep-fix", "cargo-clippy-fix", "regal-fix", "semgrep-fix", "typos-fix"]
 description = "Apply Rust + universal lint-fix passes"
 
 [tasks.fix]
@@ -675,19 +603,6 @@ run = "zizmor --offline --no-progress -c config/zizmor.yaml .github/workflows"
 [tasks.ls-lint-check]
 description = "Lint file and directory naming conventions (ls-lint)"
 run = "ls-lint --config config/ls-lint.yaml"
-
-[tasks.oxlint-check]
-description = "Lint JavaScript/TypeScript sources (oxlint)"
-# oxlint walks the working tree from CWD, honouring .gitignore; no path arg
-# needed. Errors fail the task (correctness category, lifted in oxlintrc); warnings
-# print but don't fail -- the initial introduction kept stylistic warnings visible
-# rather than blocking on the existing module shims' style. Tighten with
-# `--deny-warnings` once those are cleaned up.
-run = "oxlint --config config/oxlintrc.jsonc"
-
-[tasks.oxlint-fix]
-description = "Auto-fix oxlint violations that have a machine-applicable suggestion"
-run = "oxlint --config config/oxlintrc.jsonc --fix"
 
 [tasks.ast-grep-check]
 # --no-ignore hidden so the gha-* YAML rules reach .github/workflows (ast-grep
