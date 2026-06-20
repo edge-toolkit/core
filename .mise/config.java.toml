@@ -20,10 +20,13 @@ maven = "3.9.16"
 # context with forward slashes (`C:/Users/.../AppData/Local`) but our
 # literal segments use backslashes; the resulting mixed-slash path passes
 # busybox `ls` but mvn.cmd's `if not exist "%JAVA_HOME%\bin\java.exe"`
-# rejects it. The `| replace(from="/", to="\\")` pass on the prefix
-# normalizes everything to a single backslash, fixing the maven start-up.
+# rejects it. The `| replace(from="/", to=`\`)` pass on the prefix
+# normalizes everything to a single backslash. Note the backtick-quoted
+# string for the replacement: tera 1.20's pest grammar treats strings
+# verbatim (no `\\`-as-`\` escape), so backticks + a single literal
+# backslash are the way to express a one-char `\` argument.
 java_home = '''{% if os() == "windows" -%}
-{{- get_env(name="MISE_DATA_DIR", default=get_env(name="LOCALAPPDATA", default="") ~ "\mise") | replace(from="/", to="\\") -}}
+{{- get_env(name="MISE_DATA_DIR", default=get_env(name="LOCALAPPDATA", default="") ~ "\mise") | replace(from="/", to=`\`) -}}
 \installs\java\26.0.1
 {%- else -%}
 {{- get_env(name="MISE_DATA_DIR", default=env.HOME ~ "/.local/share/mise") -}}
