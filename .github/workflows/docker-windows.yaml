@@ -25,6 +25,10 @@ env:
 
 jobs:
   build:
+    # TEMPORARY: parked while iterating on the rust (windows-latest)
+    # JAVA_HOME / cmd.exe-filesystem-view issue. Drop the `if: false`
+    # once JAVA_HOME is accepted on the Windows lane.
+    if: false
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false

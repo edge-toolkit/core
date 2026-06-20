@@ -101,8 +101,7 @@ jobs:
           || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":60}]'
           || github.event.inputs.os == 'windows-11-arm' && '[{"os":"windows-11-arm","timeout":60}]'
           )
-          || format('[{0},{1}]',
-          '{"os":"ubuntu-latest","timeout":40}',
+          || format('[{0}]',
           '{"os":"windows-latest","timeout":60}')
           ) }}
     # TEMPORARY: PR matrix narrowed to ubuntu-latest + windows-latest while

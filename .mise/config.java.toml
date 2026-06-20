@@ -82,15 +82,32 @@ description = "Prefetch Java (Maven) dependencies"
 # the wasm-pack + maven build chain to die. Rip the diagnostic block out
 # once mvn accepts JAVA_HOME on Windows.
 run = """
+echo "[diag] === bash side ==="
 echo "[diag] bash JAVA_HOME=${JAVA_HOME:-<unset>}"
-echo "[diag] bash hexdump of JAVA_HOME:"
-printf '%s' "${JAVA_HOME:-}" | od -c | head -5
-echo "[diag] cmd.exe set JAVA_HOME (what cmd sees):"
+echo "[diag] bash ls JAVA_HOME:"
+ls "$JAVA_HOME" 2>&1 || true
+echo "[diag] bash ls hardcoded absolute:"
+ls 'C:\\Users\\runneradmin\\AppData\\Local\\mise\\installs\\java\\26.0.1' 2>&1 || true
+echo "[diag] bash whoami:"
+whoami 2>&1 || true
+echo "[diag] bash USERPROFILE=${USERPROFILE:-<unset>}  LOCALAPPDATA=${LOCALAPPDATA:-<unset>}"
+echo "[diag] === cmd.exe side ==="
+echo "[diag] cmd.exe whoami:"
+cmd.exe /c whoami || true
+echo "[diag] cmd.exe USERPROFILE + LOCALAPPDATA:"
+cmd.exe /c "echo USERPROFILE=%USERPROFILE%& echo LOCALAPPDATA=%LOCALAPPDATA%" || true
+echo "[diag] cmd.exe full env (head -40):"
+cmd.exe /c set | head -40 || true
+echo "[diag] cmd.exe set JAVA_HOME:"
 cmd.exe /c "set JAVA_HOME" || true
-echo "[diag] cmd.exe if exist (%JAVA_HOME% style):"
-cmd.exe /c "if exist \\"%JAVA_HOME%\\\\bin\\\\java.exe\\" (echo FOUND) else (echo MISSING)" || true
-echo "[diag] cmd.exe if exist (hardcoded absolute):"
-cmd.exe /c "if exist \\"C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\mise\\\\installs\\\\java\\\\26.0.1\\\\bin\\\\java.exe\\" (echo FOUND ABS) else (echo MISSING ABS)" || true
+echo "[diag] cmd.exe dir of hardcoded absolute parent:"
+cmd.exe /c "dir C:\\Users\\runneradmin\\AppData\\Local\\mise\\installs\\java\\26.0.1" || true
+echo "[diag] cmd.exe if exist progressive walk:"
+cmd.exe /c "if exist C:\\Users (echo +Users) else (echo -Users)" || true
+cmd.exe /c "if exist C:\\Users\\runneradmin (echo +runneradmin) else (echo -runneradmin)" || true
+cmd.exe /c "if exist C:\\Users\\runneradmin\\AppData\\Local\\mise (echo +mise) else (echo -mise)" || true
+cmd.exe /c "if exist C:\\Users\\runneradmin\\AppData\\Local\\mise\\installs\\java\\26.0.1 (echo +26.0.1) else (echo -26.0.1)" || true
+cmd.exe /c "if exist C:\\Users\\runneradmin\\AppData\\Local\\mise\\installs\\java\\26.0.1\\bin\\java.exe (echo +java.exe) else (echo -java.exe)" || true
 mvn dependency:resolve --quiet
 """
 shell = "bash -euo pipefail -c"
