@@ -108,6 +108,13 @@ cmd.exe /c "if exist C:\\Users\\runneradmin (echo +runneradmin) else (echo -runn
 cmd.exe /c "if exist C:\\Users\\runneradmin\\AppData\\Local\\mise (echo +mise) else (echo -mise)" || true
 cmd.exe /c "if exist C:\\Users\\runneradmin\\AppData\\Local\\mise\\installs\\java\\26.0.1 (echo +26.0.1) else (echo -26.0.1)" || true
 cmd.exe /c "if exist C:\\Users\\runneradmin\\AppData\\Local\\mise\\installs\\java\\26.0.1\\bin\\java.exe (echo +java.exe) else (echo -java.exe)" || true
+echo "[diag] mimic mvn.cmd validation block:"
+cmd.exe /c 'setlocal& set "JAVACMD=%JAVA_HOME%\\bin\\java.exe"& echo MIMIC-JAVA_HOME=[%JAVA_HOME%]& echo MIMIC-JAVACMD=[%JAVACMD%]& if exist "%JAVACMD%" (echo MIMIC-FOUND) else (echo MIMIC-MISSING)' || true
+echo "[diag] mvn launcher introspection:"
+where mvn 2>&1 || true
+where mvn.cmd 2>&1 || true
+echo "[diag] now run mvn -v under cmd to see mvn launcher decisions:"
+cmd.exe /c "mvn -v 2>&1" || true
 mvn dependency:resolve --quiet
 """
 shell = "bash -euo pipefail -c"
