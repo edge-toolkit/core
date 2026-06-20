@@ -285,6 +285,20 @@ url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-0
 # fields (works for top-level tools.<name>.url, breaks here). The matching
 # `augeas_<plat>_asset` vars stay in [vars] below so checksums.rego's
 # cross-reference policy (.mise vars <-> data.toml [asset.*]) still passes.
+# Noarch rustpython_wasm tarball (the prebuilt wasm-pack output that
+# build-ws-pywasm1-module consumes). Single platform-agnostic URL --
+# mise extracts to `installs/http-rp-wasm/<version>/`, then the module
+# build task copies what it needs into pkg/. Built + uploaded by
+# `publish-rp-wasm-to-release` in config.maint.toml; matching
+# `[asset."rustpython-wasm-<short>.tar.gz"]` row sits in
+# config/upstream-cache/data.toml. Version segment is the upstream
+# RustPython commit's 7-char short SHA -- bump in lockstep with the
+# asset filename in data.toml and the url here.
+[tools."http:rp-wasm"]
+version = "08a1d6f"
+url = "https://github.com/edge-toolkit/core/releases/download/{{ vars.a_rp_release }}/{{ vars.rp_wasm_asset }}"
+checksum = "sha256:7b81d53f5b3a63c60fc2bc1717e87466026d796ec522b925f009532c7b0291f3"
+
 [tools."http:augeas"]
 bin = "augtool"
 version = "1.14.1"
@@ -412,9 +426,20 @@ pip_for_rustpython_wheel_url = ":http:packages/{{ vars.pip_for_rustpython_sha }}
 # SHA; config/upstream-cache/data.toml records the matching SHA256; built + uploaded
 # by config.maint.toml's `publish-rp-wasm-to-release` (sharing the rp-v<N>
 # release tag with the native rustpython binary builds).
+# `rp_wasm_short` is the canonical version source -- the upstream
+# RustPython commit's 7-char short SHA. rp_wasm_dir templates against
+# it, and the publish-rp-wasm-to-release maint task bumps it (plus
+# rp_wasm_asset, the tool entry's version + checksum, and the
+# data.toml asset row) in one go. rp_wasm_asset stays a literal
+# string because checksums.rego reads the raw TOML and needs the
+# filename verbatim to cross-check the data.toml [asset.*] entry.
+rp_wasm_short = "08a1d6f"
 rp_wasm_asset = "rustpython-wasm-08a1d6f.tar.gz"
-rp_wasm_dir = "{{ vars.config_root_fwd }}/target/cache/rp-wasm"
-rp_wasm_src = ":http:edge-toolkit/core/releases/download/{{ vars.a_rp_release }}/{{ vars.rp_wasm_asset }}"
+# Install dir for the [tools."http:rp-wasm"] tarball -- mise extracts
+# to `installs/http-rp-wasm/<version>/`. Forward slashes on the suffix
+# work cross-platform: mise_data_dir is backslash-rooted on Windows,
+# but busybox/coreutils accept the resulting mixed-slash path.
+rp_wasm_dir = "{{ vars.mise_data_dir }}/installs/http-rp-wasm/{{ vars.rp_wasm_short }}"
 # `retry` prefixes each fetch with recur for exponential-backoff-with-jitter
 # retries (10 tries, 2s base doubling, capped 3m, 0-15s jitter). `-v` makes
 # recur log each attempt's exit code + delay so an exhausted retry chain
@@ -1398,55 +1423,15 @@ echo "[rp-detect-missing] triple=$triple short=$short native_missing=$native_mis
 """
 shell = "bash -euo pipefail -c"
 
-# rp-v<N> release, verify against config/upstream-cache/data.toml, and extract it
-# into target/cache/rp-wasm/ for build-ws-pywasm1-module (and future ws-modules)
-# to read. The heavy wasm-pack compile is done once via
-# `publish-rp-wasm-to-release` in config.maint.toml. `tar` is the host's --
-# universally available on Linux/macOS and Windows 10+, not worth a mise
-# tool abstraction for a single extract call.
-[tasks.fetch-rp-wasm]
-description = "Download + verify + extract the rustpython_wasm tarball into target/cache/rp-wasm/"
-run = """
-dir={{ vars.rp_wasm_dir }}
-tarball="$dir/{{ vars.rp_wasm_asset }}"
-coreutils mkdir -p "$dir"
-{{ vars.retry }} rclone copyto {{ vars.rp_wasm_src }} "$tarball" {{ vars.gh_http }}
-sha=$(yq -p toml -oy '.asset."{{ vars.rp_wasm_asset }}".sha256' config/upstream-cache/data.toml)
-# sha256sum is best-effort on Windows. The tarball path contains
-# backslashes (`D:\\a\\core\\core/target/...`) and something in the
-# bash/uutils pipeline still mangles them to `D:acorecore/target/...`
-# before coreutils sha256sum opens the file -- the check trips with
-# `sha256sum: WARNING: 1 computed checksum did NOT match` even when
-# the file on disk is fine. printf-vs-echo didn't fix it; suspect MSYS
-# PATH conversion in coreutils' uutils-coreutils 0.6.0 build. Print
-# the failure but don't abort the task: rclone already verified the
-# HTTPS transport against GitHub's TLS cert + the release-asset URL,
-# and on Linux/macOS the sha check still gates extraction. Once the
-# uutils issue is tracked down + patched here, drop the `|| true`.
-if printf '%s  %s\n' "$sha" "$tarball" | coreutils sha256sum -c -; then
-  echo "[fetch-rp-wasm] sha256 OK for $tarball"
-else
-  if [ "${OS:-}" = "Windows_NT" ]; then
-    echo "[fetch-rp-wasm] sha256 check FAILED on Windows -- continuing (best-effort)" >&2
-  else
-    echo "[fetch-rp-wasm] sha256 check FAILED" >&2
-    exit 1
-  fi
-fi
-# Wipe previous extraction so it can't shadow new contents; preserve the
-# tarball itself so rclone --ignore-existing short-circuits on rerun.
-find "$dir" -mindepth 1 -not -name '{{ vars.rp_wasm_asset }}' -delete
-tar -xzf "$tarball" -C "$dir"
-"""
-shell = "bash -euo pipefail -c"
-
-# Build the pywasm1 ws-module from the fetched rustpython_wasm extraction.
-# Picked up by the `build-modules` glob (`build-ws-*`) like every other
-# module task -- the `fetch-rp-wasm` dep pulls a prebuilt tarball from
-# the rp-v<N> release rather than recompiling RustPython, so the cost
-# is one ~10 MB download, not the multi-minute upstream wasm-pack build.
+# Build the pywasm1 ws-module from the prebuilt rustpython_wasm
+# tarball installed by mise as [tools."http:rp-wasm"] (download +
+# sha256 + extract handled by mise; install dir referenced via
+# vars.rp_wasm_dir). Picked up by `build-modules`'s glob
+# (`build-ws-*`) like every other module task -- using the
+# prebuilt tarball from the rp-v<N> release rather than recompiling
+# RustPython keeps the cost at one ~10 MB download, not a
+# multi-minute upstream wasm-pack build.
 [tasks.build-ws-pywasm1-module]
-depends = ["fetch-rp-wasm"]
 description = "Build the pywasm1 module (fetched rustpython_wasm + main.py)"
 dir = "services/ws-modules/pywasm1"
 run = """

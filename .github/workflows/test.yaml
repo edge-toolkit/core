@@ -98,21 +98,12 @@ jobs:
           || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":60}]'
           || github.event.inputs.os == 'windows-11-arm' && '[{"os":"windows-11-arm","timeout":60}]'
           )
-          || format('[{0},{1}]',
+          || format('[{0},{1},{2},{3}]',
           '{"os":"ubuntu-latest","timeout":40}',
+          '{"os":"ubuntu-24.04-arm","timeout":40}',
+          '{"os":"macos-latest","timeout":45}',
           '{"os":"windows-latest","timeout":60}')
           ) }}
-    # TEMPORARY: PR matrix narrowed to ubuntu-latest + windows-latest while
-    # we chase a wasm-pack-on-stable-rust regression (drop nightly +
-    # `-Z build-std`). Both lanes together let us see whether the failure
-    # is Windows-specific (mise PATH/exec_env interaction) or a real
-    # config regression. Restore the original four-OS PR matrix
-    #   format('[{0},{1},{2},{3}]',
-    #     '{"os":"ubuntu-latest","timeout":40}',
-    #     '{"os":"ubuntu-24.04-arm","timeout":40}',
-    #     '{"os":"macos-latest","timeout":45}',
-    #     '{"os":"windows-latest","timeout":60}')
-    # once the root cause lands.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -268,9 +259,9 @@ jobs:
           exec 2>&1
           mise run fetch-mnist-rclone
 
-      # GITHUB_TOKEN raises the rate-limit ceiling on rclone's fetch of the
-      # rp-v<N> rustpython_wasm tarball (build-ws-pywasm1-module → fetch-rp-wasm
-      # → rclone via :http: against api.github.com).
+      # GITHUB_TOKEN raises the rate-limit ceiling on mise's fetch of the
+      # rp-v<N> rustpython_wasm tarball ([tools."http:rp-wasm"] → mise's
+      # http backend against github.com release assets).
       # MISE_JOBS=1 on Windows serializes mise's task scheduler so the parallel
       # `build-ws-*-module` deps don't race on cargo's `.cargo/registry/index`
       # lock -- on Linux/macOS cargo waits gracefully, but on Windows it fails
