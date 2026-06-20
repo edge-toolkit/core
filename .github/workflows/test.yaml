@@ -162,6 +162,20 @@ jobs:
       # and we can see what its tera template expanded to. Output before
       # any task body runs, so the value is visible even when a downstream
       # build step bails.
+      # Run prefetch:java FIRST -- `mvn dependency:resolve --quiet` exits in a
+      # few seconds and hits the exact same JAVA_HOME-env code path as the
+      # downstream `mvn package` build, so any JAVA_HOME wiring break shows up
+      # here instead of waiting for prefetch:rust / prefetch:node + the wasm-
+      # agent compile to finish (the Windows diagnostic split runs `prefetch:
+      # rust` and `prefetch:node` only -- `prefetch:java` was skipped before,
+      # so JAVA_HOME issues only surfaced inside build-ws-java-data1-module).
+      - name: "Fail-fast: prefetch:java"
+        if: contains(env.MISE_ENV, 'java')
+        timeout-minutes: 3
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run prefetch:java
+
       - name: Diagnose JAVA_HOME via mise
         if: contains(env.MISE_ENV, 'java')
         run: |
