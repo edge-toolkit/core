@@ -274,6 +274,32 @@ url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-0
 checksum = "sha256:30b96e2d50ec15f7da5563b5bbce4170ee23f5fbf8565a8973889d8f25c6279a"
 url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-08a1d6f-x86_64-pc-windows-msvc.tar.gz"
 
+# augtool (from augeas) -- used by the maint publish-* tasks in
+# config.maint.toml to edit .mise/config.toml + config/upstream-cache/data.toml
+# in place via augeas's Toml lens (preserves comments and structure, unlike
+# pure stringly TOML rewrites). Source-built from the jayvdb/augeas `win`
+# branch on every platform by the augeas job in upstream-cache.yaml -- one
+# branch, one set of portability patches, identical binaries. Empty sha
+# placeholders for non-Windows entries are filled in as those builds land.
+[tools."http:augeas"]
+bin = "augtool"
+version = "1.14.1"
+[tools."http:augeas".platforms.linux-arm64]
+checksum = "sha256:"
+url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/{{ vars.augeas_linux_arm64_asset }}"
+[tools."http:augeas".platforms.linux-x64]
+checksum = "sha256:"
+url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/{{ vars.augeas_linux_x64_asset }}"
+[tools."http:augeas".platforms.macos-arm64]
+checksum = "sha256:"
+url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/{{ vars.augeas_macos_arm64_asset }}"
+[tools."http:augeas".platforms.macos-x64]
+checksum = "sha256:"
+url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/{{ vars.augeas_macos_x64_asset }}"
+[tools."http:augeas".platforms.windows-x64]
+checksum = "sha256:6d97229c53cc0af09635bfd85b15169704ab9c07d5e23090252ac80746260036"
+url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/{{ vars.augeas_windows_x64_asset }}"
+
 [vars]
 # Tier-`a_` prefix: a_* vars are leaf values referenced by later vars
 # (face1_src), and mise renders [vars] in alphabetical order; `a_` sorts
@@ -288,6 +314,15 @@ a_hf_cache_tag = "hf-cache-v1"
 # same upstream RustPython commit, stored together). Referenced by rp_*
 # vars below + by config.maint.toml's publish-rp-* task bodies.
 a_rp_release = "rp-v1"
+# augeas asset filenames -- each matches an `[asset."<filename>"]` row in
+# config/upstream-cache/data.toml so the checksums.rego policy can enforce
+# the cross-reference. All five tarballs are uploaded to the augeas-v1
+# release by the upstream-cache `augeas` job.
+augeas_linux_arm64_asset = "augeas-1.14.1-aarch64-unknown-linux-gnu.tar.xz"
+augeas_linux_x64_asset = "augeas-1.14.1-x86_64-unknown-linux-gnu.tar.xz"
+augeas_macos_arm64_asset = "augeas-1.14.1-aarch64-apple-darwin.tar.xz"
+augeas_macos_x64_asset = "augeas-1.14.1-x86_64-apple-darwin.tar.xz"
+augeas_windows_x64_asset = "augeas-1.14.1-x86_64-pc-windows-mingw.tar.gz"
 # clang-tidy's resource-dir arg (points clang at its builtin headers, e.g.
 # stddef.h). Empty default; config.linux.toml sets it from conda:clangxx.
 clang_resource_arg = ""

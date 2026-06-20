@@ -66,21 +66,6 @@ version = "0.1.13"
 url = "https://github.com/edge-toolkit/core/releases/download/dart-typegen-v1/{{ vars.dart_typegen_asset }}"
 checksum = "sha256:f21eab43597b0325b672de61fd396465aa371d3e9e32da6c56e93a89a003b5aa"
 
-# Prebuilt augeas for Windows -- mingw-w64 build from the jayvdb/augeas
-# `win` branch (vendored glob + win32 portability fixes for pwd.h, sigaction,
-# fchown). The upstream-cache `augeas` job at .github/workflows/
-# upstream-cache.yaml is the producer; release-tag + asset-name match the
-# augeas_asset var in [vars] above and the matching `[asset.<filename>]`
-# entry in config/upstream-cache/data.toml. Provides augtool, used by the
-# maint publish-* tasks (in config.maint.toml) to edit TOML in place;
-# replaces cargo:toml-cli, which had no Windows quickinstall asset.
-[tools."http:augeas"]
-bin = "augtool"
-version = "1.14.1"
-[tools."http:augeas".platforms.windows-x64]
-url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/{{ vars.augeas_asset }}"
-checksum = "sha256:6d97229c53cc0af09635bfd85b15169704ab9c07d5e23090252ac80746260036"
-
 # Prebuilt gnupg for Windows -- repackaged from gnupg.org's official NSIS
 # installer (PE32+ native binaries, no MSYS2/Cygwin layer). The
 # upstream-cache `gnupg-w32` job at .github/workflows/upstream-cache.yaml
@@ -118,7 +103,6 @@ version = "nightly-x86_64-pc-windows-gnullvm"
 # `http:` Windows tool fetches from edge-toolkit/core's *-v<N> release.
 # Each matches a `[asset."<filename>"]` row in config/upstream-cache/data.toml
 # (the checksums.rego policy enforces the bidirectional cross-reference).
-augeas_asset = "augeas-1.14.1-x86_64-pc-windows-mingw.tar.gz"
 dart_typegen_asset = "dart-typegen-0.1.13-x86_64-pc-windows-msvc.tar.gz"
 gnupg_w32_asset = "gnupg-w32-2.5.20_20260513-x86_64-pc-windows.tar.gz"
 

@@ -258,22 +258,39 @@ jobs:
   # green on its own CI across Linux/macOS/Windows, so we build it directly
   # instead of maintaining a sprawling patch against the tarball.
   augeas:
-    # TEMPORARY: also runs on `pull_request` (when this workflow file
-    # changes) so we can iterate before this hits main. Switch back to
-    # `workflow_dispatch`-only once the asset is uploaded and the
-    # `http:augeas` tool entry under config.windows.toml is wired up.
-    runs-on: windows-latest
+    # All five platforms build from the same jayvdb/augeas `win` branch
+    # source -- one fork, one set of portability patches, identical
+    # binaries across Linux/macOS/Windows. The fork's own build.yml is
+    # the recipe template (./autogen.sh --disable-gnulib-tests on Linux/
+    # macOS; MSYS2 + mingw-w64 CFLAGS workarounds on Windows).
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: write
     timeout-minutes: 60
     env:
-      # Version label for the published asset name; the binaries themselves
-      # are whatever the fork's configure.ac reports.
       AUG_VERSION: "1.14.1"
       AUG_RELEASE_TAG: "augeas-v1"
-      # Fork + ref carrying the Windows portability fixes.
       AUG_FORK_REPO: "https://github.com/jayvdb/augeas.git"
       AUG_REF: "win"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            triple: x86_64-unknown-linux-gnu
+            archive_ext: tar.xz
+          - runner: ubuntu-24.04-arm
+            triple: aarch64-unknown-linux-gnu
+            archive_ext: tar.xz
+          - runner: macos-latest
+            triple: aarch64-apple-darwin
+            archive_ext: tar.xz
+          - runner: macos-26-intel
+            triple: x86_64-apple-darwin
+            archive_ext: tar.xz
+          - runner: windows-latest
+            triple: x86_64-pc-windows-mingw
+            archive_ext: tar.gz
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -281,15 +298,14 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      # Skip if the asset is already uploaded to the release. Pre-mise
-      # check so we don't pay the MSYS2 install cost on a no-op run.
       - name: Detect missing augeas asset
         id: aug_check
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          MATRIX_TRIPLE: ${{ matrix.triple }}
+          MATRIX_EXT: ${{ matrix.archive_ext }}
         run: |
-          triple=x86_64-pc-windows-mingw
-          asset="augeas-${AUG_VERSION}-${triple}.tar.gz"
+          asset="augeas-${AUG_VERSION}-${MATRIX_TRIPLE}.${MATRIX_EXT}"
           repo=edge-toolkit/core
           assets=$(gh release view "$AUG_RELEASE_TAG" --repo "$repo" \
             --json assets --jq '.assets[].name' 2>/dev/null || true)
@@ -298,17 +314,37 @@ jobs:
             echo "work=" >> "$GITHUB_OUTPUT"
           else
             echo "work=yes" >> "$GITHUB_OUTPUT"
-            echo "triple=$triple" >> "$GITHUB_OUTPUT"
             echo "asset=$asset" >> "$GITHUB_OUTPUT"
           fi
 
-      # MSYS2 provides the toolchain (mingw-w64 gcc, libxml2, readline) plus
-      # the build-time autotools/bison/flex augeas's configure needs, and
-      # git + base-devel (m4/perl/sed) for `git clone --recurse-submodules`
-      # and the gnulib bootstrap. This mirrors the fork's own build.yml.
-      # `msystem: MINGW64` targets x86_64-w64-mingw32.
-      - name: Set up MSYS2
-        if: steps.aug_check.outputs.work == 'yes'
+      # Linux: apt-get the build deps, identical set to the fork's build.yml
+      # `linux` job. Skipped on the macOS/Windows runners.
+      - name: Install Linux build deps
+        if: |-
+          steps.aug_check.outputs.work == 'yes'
+          && runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            autoconf automake bison flex libtool-bin libxml2-dev \
+            libreadline-dev pkg-config
+
+      # macOS: brew the build deps, mirroring the fork's build.yml `macos` job.
+      # CPPFLAGS/LDFLAGS point configure at GNU readline (libedit lacks
+      # rl_crlf/rl_replace_line/rl_char_is_quoted_p); modern bison required.
+      - name: Install macOS build deps
+        if: |-
+          steps.aug_check.outputs.work == 'yes'
+          && runner.os == 'macOS'
+        run: |
+          brew install autoconf automake libtool readline libxml2 pkg-config bison
+
+      # Windows: MSYS2 toolchain + autotools, mirroring the fork's `windows`
+      # job. `msystem: MINGW64` targets x86_64-w64-mingw32.
+      - name: Set up MSYS2 (Windows)
+        if: |-
+          steps.aug_check.outputs.work == 'yes'
+          && runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -326,48 +362,79 @@ jobs:
             mingw-w64-x86_64-readline
             mingw-w64-x86_64-pkgconf
 
-      - name: Build + package augeas
+      # Unix build (Linux + macOS). Both use the same ./autogen.sh recipe
+      # with --disable-gnulib-tests (gnulib's bundled test harness fails to
+      # build against modern toolchains; unrelated to augeas itself). macOS
+      # needs the homebrew bison/readline overrides; Linux uses system libs.
+      - name: Build + package augeas (Unix)
         if: |-
           steps.aug_check.outputs.work == 'yes'
           && github.event.pull_request.head.repo.fork != true
+          && runner.os != 'Windows'
+        env:
+          ASSET: ${{ steps.aug_check.outputs.asset }}
+        run: |
+          set -euo pipefail
+          srcdir="$RUNNER_TEMP/augeas-src"
+          installdir="$RUNNER_TEMP/install"
+          mkdir -p "$installdir"
+          git clone --depth 1 --branch "$AUG_REF" --recurse-submodules \
+            "$AUG_FORK_REPO" "$srcdir"
+          cd "$srcdir"
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            bison_prefix=$(brew --prefix bison)
+            readline_prefix=$(brew --prefix readline)
+            libxml2_prefix=$(brew --prefix libxml2)
+            export PATH="$bison_prefix/bin:$PATH"
+            export PKG_CONFIG_PATH="$libxml2_prefix/lib/pkgconfig:$readline_prefix/lib/pkgconfig"
+            export CPPFLAGS="-I$readline_prefix/include"
+            export LDFLAGS="-L$readline_prefix/lib"
+          fi
+          ./autogen.sh --prefix="$installdir" --disable-static \
+            --disable-gnulib-tests --disable-dependency-tracking
+          make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
+          make install
+          # tar.xz: smaller than .gz, mise's http backend handles both.
+          (cd "$installdir" && tar -cJf "$RUNNER_TEMP/$ASSET" .)
+          ls -lh "$RUNNER_TEMP/$ASSET"
+
+      # Windows build under MSYS2 -- separate step because shell differs
+      # (msys2 {0}), tar parses Windows-form paths as `host:path` (workarounds
+      # via cygpath -m + --force-local), and we bundle mingw runtime DLLs so
+      # the tarball is self-contained on a vanilla Windows host.
+      - name: Build + package augeas (Windows)
+        if: |-
+          steps.aug_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+          && runner.os == 'Windows'
         shell: msys2 {0}
         env:
           ASSET: ${{ steps.aug_check.outputs.asset }}
         run: |
           set -euo pipefail
           # MSYS2 bash interprets `D:\a\_temp` (Windows-form $RUNNER_TEMP)
-          # as escape sequences (`\a` -> BEL, `\_` -> `_`), mangling it to
-          # `D:a_temp/...`. Libtool's `-rpath must be absolute` check then
-          # rejects the result. cygpath -m gives the Windows-form with
-          # forward slashes (e.g. `D:/a/_temp`), which is absolute AND has
-          # no backslashes for bash to misread.
+          # as escape sequences -- libtool's `-rpath must be absolute`
+          # check then rejects the mangled result. cygpath -m gives the
+          # Windows-form path with forward slashes (e.g. `D:/a/_temp`).
           runner_temp_m=$(cygpath -m "$RUNNER_TEMP")
           srcdir="$runner_temp_m/augeas-src"
           installdir="$runner_temp_m/install"
           mkdir -p "$installdir"
-          # Clone the fork's win branch (shallow, with the .gnulib submodule
-          # autogen.sh's bootstrap needs).
           git clone --depth 1 --branch "$AUG_REF" --recurse-submodules \
             "$AUG_FORK_REPO" "$srcdir"
           cd "$srcdir"
-          # autogen.sh runs ./bootstrap (imports gnulib, incl. the fsync
-          # module the Windows port relies on) and then ./configure with the
-          # args we pass through.
           # CFLAGS, mirroring the fork's build.yml windows job:
           #   -Wno-implicit-function-declaration: mingw-w64 gcc 14+ promoted
           #     this from warning to error; some autoconf probes still trip it.
           #   -Duint=unsigned: augeas headers use the BSD-ism `uint`, which
           #     mingw-w64's <sys/types.h> doesn't define unconditionally.
-          # --disable-dependency-tracking: MSYS2 make trips automake's depcomp
-          #   probe ("Something went wrong bootstrapping makefile fragments");
-          #   we don't rebuild incrementally in CI anyway.
           export CFLAGS="-Wno-implicit-function-declaration -Duint=unsigned"
-          ./autogen.sh --prefix="$installdir" --disable-static --disable-debug --disable-dependency-tracking
+          ./autogen.sh --prefix="$installdir" --disable-static \
+            --disable-debug --disable-dependency-tracking
           make -j"$(nproc)"
           make install
           # bundle the mingw runtime DLLs augeas links against so the
-          # tarball is self-contained on a vanilla Windows host (no
-          # MSYS2 install required at consumer time).
+          # tarball is self-contained on a vanilla Windows host.
           dlls="libxml2-2.dll libreadline8.dll libncursesw6.dll"
           dlls="$dlls libwinpthread-1.dll libgcc_s_seh-1.dll libstdc++-6.dll"
           dlls="$dlls libiconv-2.dll libtermcap-0.dll zlib1.dll"
@@ -377,16 +444,12 @@ jobs:
               cp -v "$src" "$installdir/bin/"
             fi
           done
-          # tar (Git Bash / MSYS2) parses any colon in the output path
-          # as a `host:path` remote spec ("Cannot connect to D: resolve
-          # failed"). --force-local turns that off. cd into installdir
-          # keeps the input arg as `.` (no colon to fight there).
+          # tar parses any colon in the output path as `host:path`
+          # ("Cannot connect to D: resolve failed"); --force-local
+          # disables that. cd into installdir keeps the input arg as `.`.
           (cd "$installdir" && tar --force-local -czf "$runner_temp_m/$ASSET" .)
           ls -lh "$runner_temp_m/$ASSET"
 
-      # Release tag must already exist -- run `MISE_ENV=maint mise run
-      # bootstrap-augeas-release` locally once before the first dispatch.
-      # The bootstrap task is idempotent so a no-op re-run is safe.
       - name: Publish augeas asset to release
         if: |-
           steps.aug_check.outputs.work == 'yes'

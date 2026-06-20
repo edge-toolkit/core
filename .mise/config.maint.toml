@@ -26,13 +26,9 @@
 # upstream-cache job to extract the NSIS-wrapped GnuPG installer (mise's
 # built-in sevenz_rust2 only handles canonical .7z, not the NSIS wrapper).
 "aqua:ip7z/7zip" = "latest"
-# augeas: provides augtool, used by publish-*-to-hf-cache to write back
-# into config/upstream-cache/data.toml + .mise/config.toml in-place. Edit
-# preserves comments and TOML structure (via the toml.aug lens shipped in
-# the augeas tree). On Windows mise installs the http:augeas prebuilt
-# (config.windows.toml); on Linux/macOS workstations augtool is expected
-# on PATH from the system package (e.g. `brew install augeas`,
-# `apt install augeas-tools`) -- no mise backend registration needed.
+# (augtool registration lives in the workspace-level config.toml so it
+# installs without MISE_ENV=maint -- publish-* tasks need it but so does
+# anyone running `mise install` against a fresh checkout.)
 
 [env]
 # Shared HF base URLs + release-target coords hoisted out of every
