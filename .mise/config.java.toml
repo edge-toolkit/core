@@ -59,11 +59,11 @@ echo "[diag] bash JAVA_HOME=${JAVA_HOME:-<unset>}"
 echo "[diag] bash hexdump of JAVA_HOME:"
 printf '%s' "${JAVA_HOME:-}" | od -c | head -5
 echo "[diag] cmd.exe set JAVA_HOME (what cmd sees):"
-cmd.exe //C "set JAVA_HOME" || true
+cmd.exe /c "set JAVA_HOME" || true
 echo "[diag] cmd.exe if exist test:"
-cmd.exe //C "if exist \\"%JAVA_HOME%\\\\bin\\\\java.exe\\" (echo FOUND) else (echo MISSING)" || true
+cmd.exe /c "if exist \\"%JAVA_HOME%\\\\bin\\\\java.exe\\" (echo FOUND) else (echo MISSING)" || true
 echo "[diag] cmd.exe explicit absolute path:"
-cmd.exe //C "if exist \\"C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\mise\\\\installs\\\\java\\\\26.0.1\\\\bin\\\\java.exe\\" (echo FOUND ABS) else (echo MISSING ABS)" || true
+cmd.exe /c "if exist \\"C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\mise\\\\installs\\\\java\\\\26.0.1\\\\bin\\\\java.exe\\" (echo FOUND ABS) else (echo MISSING ABS)" || true
 mvn package
 """
 shell = "bash -euo pipefail -c"
@@ -86,11 +86,11 @@ echo "[diag] bash JAVA_HOME=${JAVA_HOME:-<unset>}"
 echo "[diag] bash hexdump of JAVA_HOME:"
 printf '%s' "${JAVA_HOME:-}" | od -c | head -5
 echo "[diag] cmd.exe set JAVA_HOME (what cmd sees):"
-cmd.exe //C "set JAVA_HOME" || true
+cmd.exe /c "set JAVA_HOME" || true
 echo "[diag] cmd.exe if exist (%JAVA_HOME% style):"
-cmd.exe //C "if exist \\"%JAVA_HOME%\\\\bin\\\\java.exe\\" (echo FOUND) else (echo MISSING)" || true
+cmd.exe /c "if exist \\"%JAVA_HOME%\\\\bin\\\\java.exe\\" (echo FOUND) else (echo MISSING)" || true
 echo "[diag] cmd.exe if exist (hardcoded absolute):"
-cmd.exe //C "if exist \\"C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\mise\\\\installs\\\\java\\\\26.0.1\\\\bin\\\\java.exe\\" (echo FOUND ABS) else (echo MISSING ABS)" || true
+cmd.exe /c "if exist \\"C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\mise\\\\installs\\\\java\\\\26.0.1\\\\bin\\\\java.exe\\" (echo FOUND ABS) else (echo MISSING ABS)" || true
 mvn dependency:resolve --quiet
 """
 shell = "bash -euo pipefail -c"
