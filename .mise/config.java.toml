@@ -53,12 +53,20 @@ MAVEN_ARGS = "--no-transfer-progress"
 # through busybox's own sh applet -- but the Unix script's JAVACMD
 # composition (`JAVACMD="$JAVA_HOME/bin/java"`, no `.exe`) then fails
 # its `[ -x "$JAVACMD" ]` test because on Windows the file is named
-# `bin/java.exe`. Calling `mvn.cmd` directly via busybox spawn also
-# fails ("'mvn.cmd' is not recognized") because the CRT's auto-wrap
-# of .cmd files doesn't reliably propagate PATH into the wrapping
-# cmd.exe instance. Solution: prefix with `cmd.exe /c` so the inner
-# cmd.exe resolves `mvn` itself via PATHEXT, which picks `mvn.cmd`.
-MVN = "{% if os() == \"windows\" %}cmd.exe /c mvn{% else %}mvn{% endif %}"
+# `bin/java.exe`. Bare `mvn.cmd` (and `cmd.exe /c mvn`) both fail in
+# the all-langs MISE_ENV with "'mvn[.cmd]' is not recognized" -- the
+# wrapping cmd.exe cannot see maven\bin in its inherited PATH (likely
+# a length/encoding issue introduced by the wider tool set; works fine
+# with MISE_ENV=java alone). Use the absolute path to `mvn.cmd`
+# instead: busybox-w32's spawnve detects `.cmd` and auto-wraps with
+# cmd.exe, which runs the full path directly with no PATH lookup
+# required. `vars.maven_bin` is defined in config.windows.toml; vars
+# merge across all loaded configs.
+MVN = '''{% if os() == "windows" -%}
+{{- vars.maven_bin -}}\mvn.cmd
+{%- else -%}
+mvn
+{%- endif %}'''
 
 [tasks.build-ws-java-data1-module]
 description = "Build the java-data1 workflow module"
