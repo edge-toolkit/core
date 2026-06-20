@@ -21,12 +21,7 @@ defaults:
     shell: bash --noprofile --norc -euo pipefail {0}
 
 env:
-  # TEMPORARY: narrowed to `java` while verifying the $MVN=mvn.cmd fix
-  # on the servercore lane (test.yaml's rust (windows-latest) passed
-  # `Build WASM modules` after the fix on 5764b7b). Expand back to the
-  # canonical `dart,dotnet,java,js,python,rust,zig` once servercore is
-  # green with just java.
-  MISE_ENV: java
+  MISE_ENV: dart,dotnet,java,js,python,rust,zig
 
 jobs:
   build:

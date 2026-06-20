@@ -45,17 +45,20 @@ JAVA_HOME = "{{ vars.java_home }}"
 # errors still print. MAVEN_ARGS is honored by Maven 3.9+ and prepends to
 # every `mvn` invocation.
 MAVEN_ARGS = "--no-transfer-progress"
-# Cross-platform mvn invocation. On Windows we must use mvn.cmd, not
-# bare `mvn`: the maven distribution ships both files side-by-side in
-# bin/ (`mvn` is a Unix shell script; `mvn.cmd` is the Windows wrapper).
-# busybox-w32 bash's PATH lookup picks the bare `mvn` first via
+# Cross-platform mvn invocation. On Windows we must NOT let busybox bash
+# resolve `mvn`: the maven distribution ships both files side-by-side in
+# bin/ (`mvn` is a Unix shell script; `mvn.cmd` is the Windows wrapper),
+# and busybox-w32's PATH lookup picks the bare `mvn` first via
 # `file_is_executable`, parses its `#!/bin/sh` shebang, and runs it
 # through busybox's own sh applet -- but the Unix script's JAVACMD
 # composition (`JAVACMD="$JAVA_HOME/bin/java"`, no `.exe`) then fails
 # its `[ -x "$JAVACMD" ]` test because on Windows the file is named
-# `bin/java.exe`. cmd.exe's PATHEXT-based resolution would pick .cmd
-# instead, but bash invocations don't go through cmd.exe.
-MVN = "{% if os() == \"windows\" %}mvn.cmd{% else %}mvn{% endif %}"
+# `bin/java.exe`. Calling `mvn.cmd` directly via busybox spawn also
+# fails ("'mvn.cmd' is not recognized") because the CRT's auto-wrap
+# of .cmd files doesn't reliably propagate PATH into the wrapping
+# cmd.exe instance. Solution: prefix with `cmd.exe /c` so the inner
+# cmd.exe resolves `mvn` itself via PATHEXT, which picks `mvn.cmd`.
+MVN = "{% if os() == \"windows\" %}cmd.exe /c mvn{% else %}mvn{% endif %}"
 
 [tasks.build-ws-java-data1-module]
 description = "Build the java-data1 workflow module"
