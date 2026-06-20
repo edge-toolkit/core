@@ -242,7 +242,7 @@ url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-0
 # asset filename in data.toml and the url here.
 [tools."http:rp-wasm"]
 checksum = "sha256:7b81d53f5b3a63c60fc2bc1717e87466026d796ec522b925f009532c7b0291f3"
-url = "https://github.com/edge-toolkit/core/releases/download/{{ vars.a_rp_release }}/{{ vars.rp_wasm_asset }}"
+url = "https://github.com/edge-toolkit/core/releases/download/{{ vars.a_rp_release }}/{{ vars.a_rp_wasm_asset }}"
 version = "08a1d6f"
 
 [tools."http:augeas"]
@@ -368,19 +368,19 @@ pip_for_rustpython_wheel_url = ":http:packages/{{ vars.pip_for_rustpython_sha }}
 # wasm-pack --target web; `freeze-stdlib` is the default crates/wasm
 # feature so the .wasm embeds the Python stdlib (no RUSTPYTHONPATH dance
 # needed at consumer-side). Tracks main HEAD so the upstream `pip` audit-
-# hook fix (RustPython#7956) is in. rp_wasm_asset pins the upstream short
+# hook fix (RustPython#7956) is in. a_rp_wasm_asset pins the upstream short
 # SHA; config/upstream-cache/data.toml records the matching SHA256; built + uploaded
 # by config.maint.toml's `publish-rp-wasm-to-release` (sharing the rp-v<N>
 # release tag with the native rustpython binary builds).
-# `rp_wasm_short` is the canonical version source -- the upstream
+# `a_rp_wasm_short` is the canonical version source -- the upstream
 # RustPython commit's 7-char short SHA. rp_wasm_dir templates against
 # it, and the publish-rp-wasm-to-release maint task bumps it (plus
-# rp_wasm_asset, the tool entry's version + checksum, and the
-# data.toml asset row) in one go. rp_wasm_asset stays a literal
+# a_rp_wasm_asset, the tool entry's version + checksum, and the
+# data.toml asset row) in one go. a_rp_wasm_asset stays a literal
 # string because checksums.rego reads the raw TOML and needs the
 # filename verbatim to cross-check the data.toml [asset.*] entry.
-rp_wasm_asset = "rustpython-wasm-08a1d6f.tar.gz"
-rp_wasm_short = "08a1d6f"
+a_rp_wasm_asset = "rustpython-wasm-08a1d6f.tar.gz"
+a_rp_wasm_short = "08a1d6f"
 # Install dir for the [tools."http:rp-wasm"] tarball -- mise extracts
 # to `installs/http-rp-wasm/<version>/`. Picks the per-OS install
 # root inline: on Windows mise uses %LOCALAPPDATA%\mise (config.toml's
@@ -394,13 +394,13 @@ rp_wasm_short = "08a1d6f"
 # ("C:/Users/runneradmin/AppData/Local"), and a mixed-slash path
 # trips uutils-coreutils' Windows path normalizer (`cp: The system
 # cannot find the path specified. (os error 3)`).
+gh_http = "--http-url https://github.com --progress --ignore-existing"
 rp_wasm_dir = '''{% if os() == "windows" -%}
 {%- set base = get_env(name="LOCALAPPDATA", default="") | replace(from=`\`, to="/") -%}
-{{- base -}}/mise/installs/http-rp-wasm/{{- vars.rp_wasm_short -}}
+{{- base -}}/mise/installs/http-rp-wasm/{{- vars.a_rp_wasm_short -}}
 {%- else -%}
-{{- vars.mise_data_dir -}}/installs/http-rp-wasm/{{- vars.rp_wasm_short -}}
+{{- vars.mise_data_dir -}}/installs/http-rp-wasm/{{- vars.a_rp_wasm_short -}}
 {%- endif %}'''
-gh_http = "--http-url https://github.com --progress --ignore-existing"
 
 [env]
 # Comma-separated list of every language env (one per .mise/config.<lang>.toml).
