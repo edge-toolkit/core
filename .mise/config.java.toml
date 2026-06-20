@@ -76,4 +76,21 @@ run = "mvn -q compile"
 
 [tasks."prefetch:java"]
 description = "Prefetch Java (Maven) dependencies"
-run = "mvn dependency:resolve --quiet"
+# TEMPORARY: mirror the diagnostic block from build-ws-java-data1-module so
+# we can see the same evidence (bash JAVA_HOME hexdump + cmd.exe view + two
+# if-exist tests) at the fail-fast prefetch stage, instead of waiting for
+# the wasm-pack + maven build chain to die. Rip the diagnostic block out
+# once mvn accepts JAVA_HOME on Windows.
+run = """
+echo "[diag] bash JAVA_HOME=${JAVA_HOME:-<unset>}"
+echo "[diag] bash hexdump of JAVA_HOME:"
+printf '%s' "${JAVA_HOME:-}" | od -c | head -5
+echo "[diag] cmd.exe set JAVA_HOME (what cmd sees):"
+cmd.exe //C "set JAVA_HOME" || true
+echo "[diag] cmd.exe if exist (%JAVA_HOME% style):"
+cmd.exe //C "if exist \\"%JAVA_HOME%\\\\bin\\\\java.exe\\" (echo FOUND) else (echo MISSING)" || true
+echo "[diag] cmd.exe if exist (hardcoded absolute):"
+cmd.exe //C "if exist \\"C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\mise\\\\installs\\\\java\\\\26.0.1\\\\bin\\\\java.exe\\" (echo FOUND ABS) else (echo MISSING ABS)" || true
+mvn dependency:resolve --quiet
+"""
+shell = "bash -euo pipefail -c"
