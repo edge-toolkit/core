@@ -271,7 +271,7 @@ elif [ "${ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP:-}" = "1" ]; then
     echo "[preinstall] fetching pip {{ vars.pip_for_rustpython }} wheel from PyPI for rustpython pipx bootstrap"
     # $pypi_args is a space-separated CLI flag list; word-splitting is intentional.
     # shellcheck disable=SC2086
-    {{ vars.retry }} rclone copyto "{{ vars.pip_for_rustpython_wheel_url }}" "$pip_whl" $pypi_args
+    rclone copyto "{{ vars.pip_for_rustpython_wheel_url }}" "$pip_whl" $pypi_args
   fi
   if [ ! -d "$pip_extracted/pip" ]; then
     unzip -q -o "$pip_whl" -d "$pip_extracted"

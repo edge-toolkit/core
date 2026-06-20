@@ -6,13 +6,12 @@ message: |
   (defaults.run.shell) and steps must use it -- write the step in bash (e.g.
   `sc`/`net`/`printf` instead of PowerShell cmdlets, even on Windows runners,
   which have Git Bash) rather than overriding the shell per step. Carve-outs:
-  (1) steps whose `name:` starts with `Diagnostic:` (short-lived debug
-  probes where shell choice is under test); (2) steps whose `name:` starts
-  with `Setup:` (pre-mise bootstrap that can't yet use the job's
-  mise-managed default shell); (3) `shell: msys2 {0}` (the wrapper that
-  msys2/setup-msys2 requires for steps running inside its MINGW64 env --
-  Git Bash isn't a substitute). The matching conftest rule in
-  `config/conftest/policy/gha/gha.rego` applies the same allow-list.
+  (1) steps whose `name:` starts with `Pre-mise:` (steps that run BEFORE
+  `Install mise + tools` and so can't use the mise-managed default shell --
+  e.g. setting HOME from USERPROFILE on Windows); (2) `shell: msys2 {0}`
+  (the wrapper that msys2/setup-msys2 requires for steps running inside
+  its MINGW64 env -- Git Bash isn't a substitute). The matching conftest
+  rule in `config/conftest/policy/gha/gha.rego` applies the same allow-list.
 files:
   - .github/workflows/*.yaml
 rule:
@@ -24,13 +23,13 @@ rule:
     - not:
         any:
           # Tightly scoped to the IMMEDIATE step's block_mapping (no
-          # `stopBy: end`), so a single Diagnostic step in the file doesn't
-          # whitewash unrelated step-shell overrides elsewhere.
+          # `stopBy: end`), so a single `Pre-mise:`-named step elsewhere
+          # in the file doesn't whitewash unrelated step-shell overrides.
           - inside:
               kind: block_mapping
               has:
                 kind: block_mapping_pair
-                regex: '^name:\s*"?(?:Diagnostic|Setup):'
+                regex: '^name:\s*"?Pre-mise:'
           # `shell: msys2 {0}` is the wrapper msys2/setup-msys2 documents
           # as the shell entry for steps that run inside its MINGW64 env.
           - regex: '^shell:\s*msys2\b'

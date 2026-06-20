@@ -44,27 +44,6 @@ deny contains msg if {
 	msg := sprintf("%s: task %q description must be a single line", [file.path, name])
 }
 
-# `recur` must only be referenced through the `{{ vars.retry }}` wrapper so the
-# retry policy (attempts/backoff/jitter) stays consistent across tasks. The
-# wrapper's definition in [vars] is the one place the literal lives. This rule
-# scopes to task bodies, skips comment lines (so explanatory `# recur ...`
-# comments don't false-positive), and matches `recur` only as the FIRST token
-# of a line (so `mise install github:dbohdan/recur` -- where `recur` is part
-# of a repo path -- doesn't false-positive).
-deny contains msg if {
-	some file in input
-	is_mise(file)
-	some name, task in file.contents.tasks
-	is_string(task.run)
-	some line in split(task.run, "\n")
-	not startswith(trim_space(line), "#")
-	regex.match(`^\s*recur\b`, line)
-	msg := sprintf(
-		"%s: task %q invokes `recur` directly; use `{{ vars.retry }}` instead (single source of truth for the retry policy)",
-		[file.path, name],
-	)
-}
-
 # `compgen` is a bash builtin that busybox-w32 ash (Nano Server's shell) does
 # not provide -- a task using it fails on Nano with the literal error
 # `<compgen>: not found` (verified in the build-rp-native task). Skip lines

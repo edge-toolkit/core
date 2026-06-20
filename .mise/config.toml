@@ -110,17 +110,6 @@ ripgrep = "latest"
 # goawk: the awk that tasks invoke as `goawk` in place of the host's awk. Go, not
 # Rust, but it's the one with prebuilt binaries for every platform we target.
 "github:benhoyt/goawk" = "latest"
-# Retries a command with exponential backoff + jitter; wraps the model fetches
-# below (see the `retry` var) so a transient HTTP 429 doesn't fail the build.
-# `bin = "recur"` forces mise to expose the binary as `recur` on every
-# platform; without it, mise's auto-rename keeps the Windows asset's
-# `recur-v<ver>-windows-amd64.exe` filename verbatim, so `recur` doesn't
-# resolve on PATH inside `mise run` task bodies that call it bare.
-# TEMPORARY: commented out while debugging Windows `'mise' is not recognized`
-# inside the `cmd /s /c "mise exec -- recur ..."` subprocess that fires when
-# the java env is loaded. The `retry` var below also goes empty for the
-# duration -- restore both lines together once the chain is fixed.
-# "github:dbohdan/recur" = { version = "latest", bin = "recur" }
 "github:grok-rs/waitup" = "latest"
 # ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
 "github:microsoft/onnxruntime" = "1.22.0"
@@ -350,8 +339,8 @@ ort_loc_unix = "{{ env.HOME }}/.local/share/mise/installs/github-microsoft-onnxr
 # each `rclone copyto` command stays on a single line without continuations.
 # face1's RetinaFace_int.onnx is mirrored to edge-toolkit/core's hf-cache-v<N>
 # release because HuggingFace 429s the CI runner IP pool during prefetch
-# (every docker-linux lane that hits amd/retinaface concurrently exhausts
-# recur's 10 retries). face1_asset pins the upstream amd/retinaface commit
+# (every docker-linux lane that hits amd/retinaface concurrently runs into
+# the rate limit). face1_asset pins the upstream amd/retinaface commit
 # SHA (short); config/upstream-cache/data.toml records the matching SHA256; the
 # `publish-face1-to-hf-cache` task in config.maint.toml (MISE_ENV=maint)
 # refreshes both sides + the release asset together.
@@ -411,44 +400,7 @@ rp_wasm_dir = '''{% if os() == "windows" -%}
 {%- else -%}
 {{- vars.mise_data_dir -}}/installs/http-rp-wasm/{{- vars.rp_wasm_short -}}
 {%- endif %}'''
-# `retry` prefixes each fetch with recur for exponential-backoff-with-jitter
-# retries (10 tries, 2s base doubling, capped 3m, 0-15s jitter). `-v` makes
-# recur log each attempt's exit code + delay so an exhausted retry chain
-# shows what happened on every attempt, not just the terminal "maximum N
-# attempts reached". Pair with `echo "[task] fetching X..."` before the
-# retry call so the chain knows what was being fetched.
-#
-# `mise exec -- recur` instead of bare `recur` is load-bearing on Windows:
-# mise installs recur with a .cmd file-shim, and mise's own task runner
-# (without `shell =`) only resolves `.exe` extensions on PATH, so a bare
-# `recur` from cmd.exe fails with "not recognized". Routing via `mise exec`
-# lets mise's tool-registry resolution find the binary directly. The
-# alternative -- `shell = "bash -euo pipefail -c"` on every retry-using
-# task -- forces recur to run under MSYS2 bash, whose fork emulation
-# eventually exhausts the parent process's address space (cygheap copy
-# failed, Win32 error 299) when prefetch tasks issue many retries in
-# series; mise exec calls Windows CreateProcess directly so each retry
-# is a clean process spawn with no inherited heap.
 gh_http = "--http-url https://github.com --progress --ignore-existing"
-# Both halves go through `mise exec`: the outer one runs recur via mise's tool
-# registry (so cmd.exe doesn't have to find recur on PATH), the inner one
-# does the same for the retried command. The inner wrap is load-bearing on
-# Windows: without it, recur spawns the child via PATH, Windows finds the
-# `.cmd` file-shim under `%LOCALAPPDATA%\mise\shims` first (prepended to
-# PATH by install-mise), and the shim re-enters cmd.exe with another
-# `setlocal` -- the chain blows cmd's setlocal stack with
-#   Maximum setlocal recursion level reached.
-#   The syntax of the command is incorrect.
-# (Observed in https://github.com/edge-toolkit/core/actions/runs/27757019179/job/82121311779
-# on bc0c48318c29178bba2eb0c9a1b3f8098a7574e1 — `mise run prefetch:rust` under pwsh.)
-# Routing the inner command through mise exec uses the tool-registry path,
-# bypasses the .cmd shim, and exits cleanly.
-# TEMPORARY: recur disabled while debugging Windows `'mise' is not recognized`
-# inside the `cmd /s /c "mise exec -- recur ..."` subprocess that fires when
-# the java env loads. `retry = ""` makes every `{{ vars.retry }} <cmd>` site
-# expand to just `<cmd>` -- no retry wrapper, no recur, no double-mise-exec.
-# Restore this line + the github:dbohdan/recur [tools] entry together.
-retry = ""
 
 [env]
 # Comma-separated list of every language env (one per .mise/config.<lang>.toml).
@@ -910,19 +862,10 @@ mise install ripgrep
 # base/core notably). Installing here, not in the per-OS preinstall body,
 # keeps the `mise which goawk` call those use guaranteed to resolve.
 mise install github:benhoyt/goawk
-# recur is the `{{ vars.retry }}` prefix used by every rclone fetch in
-# the preinstall task bodies below (face1/har/mnist/pip-for-rustpython).
-# Land it here so the per-OS preinstalls don't trip with `recur: not
-# found` (seen on Nano Server: the per-OS preinstall ran the pip-26.0.1
-# fetch before `mise install` -- which would have installed recur --
-# had run).
-# TEMPORARY: recur disabled while debugging the Windows cmd-subprocess mise
-# resolution -- see the matching `retry = ""` + commented [tools] entry.
-# mise install github:dbohdan/recur
-# rclone is the actual fetcher recur wraps. Same reasoning: without
-# this, the rustpython pipx bootstrap in config.windows.toml's preinstall
-# trips `recur: command was not found` for 10 attempts because rclone
-# wasn't installed yet.
+# rclone is used by the rustpython pipx bootstrap in config.windows.toml's
+# preinstall, which runs before the main `mise install` pass. Land it here
+# in _setup_all so the bootstrap doesn't trip with `rclone: command was
+# not found`.
 mise install rclone
 """
 shell = "bash -euo pipefail -c"
@@ -1040,16 +983,6 @@ description = "Prefetch the Rust (cargo) dependencies"
 # `cargo fetch` downloads the full Cargo.lock graph (all targets) without
 # compiling — the actual build happens in build-modules / the test step. Avoids
 # the redundant `cargo check --workspace` compile (and its large target/ dir).
-# Wrapped in `recur` (the same retry shim the rclone fetches use) because
-# crates.io occasionally drops the HTTP/2 framing mid-fetch (`[16] Error
-# in the HTTP2 framing layer (Send failure: Connection reset by peer)`,
-# surfacing as `curl failed`). cargo's built-in CARGO_NET_RETRY doesn't
-# cover that class of failure -- the HTTP/2 framing reset bypasses
-# cargo's own retry path. recur wraps the entire command so any
-# non-zero exit triggers a retry with exponential backoff + jitter.
-# `{{ vars.retry }}` expands to `mise exec -- recur ...` so the cmd.exe
-# default shell on Windows can find recur via mise's tool registry
-# (no .cmd-extension PATH search, no MSYS-bash fork chain).
 #
 # `shell = "bash"` is load-bearing on Windows: as a base-config task,
 # mise's child-cmd PATH composition drops the shim-dir / `~/.cargo/bin`
@@ -1058,7 +991,7 @@ description = "Prefetch the Rust (cargo) dependencies"
 # 82277109482 -- bare `cargo` resolved via pwsh `where.exe` in the
 # parent step but the cmd subprocess mise spawned didn't see it.
 # Bash (ash via MISE_BASH_PATH on Windows) inherits the right PATH.
-run = "{{ vars.retry }} cargo fetch"
+run = "cargo fetch"
 shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-wasm-agent]
@@ -1261,14 +1194,14 @@ run = "open http://localhost:5080/"
 # (CLAUDE.md) plans to put all shims on PATH there too.
 [tasks.fetch-face1-rclone]
 run = """
-{{ vars.retry }} rclone copyto {{ vars.face1_src }} {{ vars.face1_dst }} {{ vars.gh_http }}
+rclone copyto {{ vars.face1_src }} {{ vars.face1_dst }} {{ vars.gh_http }}
 sha=$(mise exec -- yq -p toml -oy '.asset."{{ vars.face1_asset }}".sha256' config/upstream-cache/data.toml)
 echo "$sha  {{ vars.face1_dst }}" | mise exec -- coreutils sha256sum -c -
 """
 shell = "bash -euo pipefail -c"
 
 [tasks.fetch-har-motion1-rclone]
-run = "{{ vars.retry }} rclone copyto {{ vars.har_src }} {{ vars.har_dst }} {{ vars.gh_http }}"
+run = "rclone copyto {{ vars.har_src }} {{ vars.har_dst }} {{ vars.gh_http }}"
 shell = "bash -euo pipefail -c"
 
 [tasks.fetch-mnist-rclone]
@@ -1276,7 +1209,7 @@ shell = "bash -euo pipefail -c"
 # wasi-nn end-to-end. Sourced from the canonical ONNX Model Zoo; size 26143
 # bytes. Lands under the module's gitignored pkg/ so et-modules-service can
 # serve it statically alongside the .wasm.
-run = "{{ vars.retry }} rclone copyto {{ vars.mnist_src }} {{ vars.mnist_dst }} {{ vars.gh_http }}"
+run = "rclone copyto {{ vars.mnist_src }} {{ vars.mnist_dst }} {{ vars.gh_http }}"
 shell = "bash -euo pipefail -c"
 
 [tasks.download-models]

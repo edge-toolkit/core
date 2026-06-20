@@ -17,19 +17,17 @@ deny contains msg if {
 }
 
 # Steps must not override the shell -- rely on the workflow default (write the
-# step in bash rather than switching to PowerShell on Windows runners). Three
-# carve-outs: (1) `name:` prefix `Diagnostic:` (short-lived debug probes where
-# shell choice is under test -- drop the prefix when the investigation lands);
-# (2) `name:` prefix `Setup:` (pre-mise bootstrap that can't yet use the job's
-# mise-managed default shell, e.g. setting HOME before mise itself is
-# installed); (3) `shell: msys2 {0}` (the wrapper msys2/setup-msys2 requires
-# for steps running inside its MINGW64 env -- Git Bash isn't a substitute).
+# step in bash rather than switching to PowerShell on Windows runners). Two
+# carve-outs: (1) `name:` prefix `Pre-mise:` (steps that run BEFORE
+# `Install mise + tools` and so can't use the mise-managed default shell --
+# e.g. setting HOME from USERPROFILE on Windows); (2) `shell: msys2 {0}`
+# (the wrapper msys2/setup-msys2 requires for steps running inside its
+# MINGW64 env -- Git Bash isn't a substitute).
 deny contains msg if {
 	some name, job in input.jobs
 	some step in job.steps
 	step.shell
-	not startswith(step.name, "Diagnostic:")
-	not startswith(step.name, "Setup:")
+	not startswith(step.name, "Pre-mise:")
 	not startswith(step.shell, "msys2 ")
 	msg := sprintf("job %q sets shell: on a step; use the workflow default", [name])
 }
@@ -49,19 +47,8 @@ deny contains msg if {
 # build-arg override; the workflow-level value still matches the standard.
 expected_mise_env := "dart,dotnet,java,js,python,rust,zig"
 
-# TEMPORARY: the `test` workflow is allowed to set MISE_ENV to any narrowed
-# value (empty or a partial language list) while we bisect which language
-# toolchain triggers the Windows setlocal/cygheap pathology in
-# `mise run prefetch-ci`. Drop this helper + the matching
-# `not test_diagnostic_mise_env` line below once test.yaml restores the
-# canonical value.
-diagnostic_test_mise_env if {
-	input.name == "test"
-}
-
 deny contains msg if {
 	input.env.MISE_ENV != expected_mise_env
-	not diagnostic_test_mise_env
 	msg := sprintf(
 		"workflow %q must set env.MISE_ENV to %q (the full guest-language set)",
 		[input.name, expected_mise_env],

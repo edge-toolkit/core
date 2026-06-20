@@ -109,6 +109,27 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y mesa-vulkan-drivers
 
+      # Empirical probe: does the GHA windows-latest VM populate HOME in its
+      # default env, or is the next step (Pre-mise: HOME = USERPROFILE)
+      # genuinely load-bearing? Prints HOME/USERPROFILE from both Git Bash
+      # (which auto-sets HOME from USERPROFILE on its own) and cmd (which
+      # doesn't, so its output reflects only what the parent env has).
+      # cmd resolves an unset var by leaving the literal `%HOME%` token in
+      # the output, so `HOME=[%HOME%]` is the unambiguous "unset" signal;
+      # `HOME=[]` means defined-but-empty; `HOME=[C:\Users\...]` means set.
+      # Remove this step once the answer is captured in OLD_NOTES.md.
+      - name: "Pre-mise: probe HOME on Windows"
+        if: runner.os == 'Windows'
+        timeout-minutes: 1
+        # Same `shell:` rationale as the next step -- runs before
+        # `Install mise + tools` so we can't use the job's busybox default.
+        shell: bash --noprofile --norc -euo pipefail {0}
+        run: |
+          echo "=== Git Bash perspective ==="
+          echo "  HOME=[$HOME] USERPROFILE=[$USERPROFILE]"
+          echo "=== cmd.exe perspective ==="
+          cmd.exe /c "echo   HOME=[%HOME%] USERPROFILE=[%USERPROFILE%]"
+
       # mise's Tera renderer expects $HOME to be set when evaluating env.HOME
       # in [vars] (config.toml has e.g. `conda_openssl = "{{ env.HOME }}/.local
       # /share/mise/installs/conda-openssl/3"`). MSYS bash auto-sets HOME from
@@ -116,7 +137,7 @@ jobs:
       # step fail with `Variable env.HOME not found in context while rendering
       # __tera_one_off`. Plumb HOME = USERPROFILE so every subsequent step
       # (incl. our pwsh diagnostic ones) sees it.
-      - name: "Setup: HOME = USERPROFILE on Windows"
+      - name: "Pre-mise: HOME = USERPROFILE on Windows"
         if: runner.os == 'Windows'
         timeout-minutes: 1
         # Explicit `shell: bash` because the job-level defaults point at the

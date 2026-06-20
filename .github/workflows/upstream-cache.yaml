@@ -53,9 +53,8 @@ env:
 
 jobs:
   rustpython:
-    # TEMPORARY: `if: false` parks the job (shows as skipped, no runner time)
-    # so all PR-runner capacity goes to the Windows cygheap-fork investigation
-    # in test.yaml. Drop this line once the prefetch-hang root cause lands.
+    # Parked. Drop the `if: false` to rebuild + republish (e.g. on a
+    # version bump). Default is no PR run.
     if: false
     runs-on: ${{ matrix.os }}
     # Job-level write so gh release upload can push assets; the workflow

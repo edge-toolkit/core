@@ -61,26 +61,10 @@ runs:
         # the retry usually clears single-tool HTTP flakes in seconds.
         mise install || { echo "::warning::mise install failed, retrying once"; mise install; }
 
-    # Delete the self-recursive `mise.cmd` shim mise generates on Windows.
-    # Captured contents:
-    #     @echo off
-    #     setlocal
-    #     mise x -- mise %*
-    # `mise x -- mise %*` invokes `mise` via cmd's PATH search; with the shims
-    # dir prepended (by install-mise), that lookup resolves back to mise.cmd
-    # itself, which does the same lookup, recursing inside cmd.exe and blowing
-    # the setlocal stack with `Maximum setlocal recursion level reached. /
-    # The syntax of the command is incorrect.` Every OTHER .cmd shim whose
-    # body invokes `mise` (cargo.cmd, rclone.cmd, ...) trips the same loop:
-    # cargo.cmd → mise → mise.cmd → mise → mise.cmd → ... Removing mise.cmd
-    # + the extensionless `mise` companion lets cmd's PATH search fall
-    # through to the real `mise.exe` at `~/.cargo/bin/mise.exe` (staged by
-    # taiki-e/install-action) which spawns each tool directly via mise's
-    # own tool registry. Must run AFTER `mise install` -- that's the step
-    # that creates the shims. Observed in
-    #   https://github.com/edge-toolkit/core/actions/runs/27758913526/job/82127840771
-    # on 524633c8d80e8867d (the prefetch:rust diagnostic dump printed the
-    # cargo.cmd / mise.cmd shim contents verbatim).
+    # Delete mise's auto-generated `mise.cmd` shim on Windows so cmd's PATH
+    # search falls through to the real `mise.exe` at `~/.cargo/bin/mise.exe`
+    # (staged by taiki-e/install-action). Must run AFTER `mise install` --
+    # that's the step that creates the shims.
     - name: Remove self-recursive mise.cmd shim on Windows
       if: runner.os == 'Windows'
       shell: bash

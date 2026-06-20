@@ -40,6 +40,15 @@ RUN curl -fsSL -o vc_redist.exe https://aka.ms/vs/17/release/vc_redist.x64.exe &
     (vc_redist.exe /install /quiet /norestart || ver>nul) && `
     del vc_redist.exe
 
+# Empirical probe: confirms Server Core leaves HOME unset by default
+# (USERPROFILE is set). cmd resolves an unset var by leaving the literal
+# `%HOME%` token in the output, so `HOME=[%HOME%]` is the unambiguous
+# "unset" signal here. Counterpart to the `Pre-mise: probe HOME on
+# Windows` step in test.yaml -- one captures the GHA windows-latest VM
+# state, this one captures the Server Core container base-image state.
+# Remove once the result is documented in OLD_NOTES.md.
+RUN echo before-env: HOME=[%HOME%] USERPROFILE=[%USERPROFILE%]
+
 # Set HOME to the admin profile so the container has a sane home (Server Core
 # sets USERPROFILE but leaves HOME unset by default).
 ENV HOME=C:\Users\ContainerAdministrator

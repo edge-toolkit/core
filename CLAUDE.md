@@ -562,6 +562,43 @@ mise.rego`'s allowlist of `http:` tools that have no prebuilt at any
 triple, if applicable. (Skip if the tool is OS-scoped and the
 allowlist already covers it.)
 
+## Fetch resilience: prefer upstream-cache, not retry wrappers
+
+When a network fetch in a task body (rclone, cargo fetch, raw curl)
+might fail, the fix is to **control the source** — mirror the asset to
+one of our `*-v<N>` GitHub releases via the upstream-cache pattern
+above — not to wrap the call in a retry tool. We tried the retry route
+([`github:dbohdan/recur`][recur]) and ripped it back out:
+
+- The dominant failure mode for our fetches is **rate-limit** (GH
+  asset-CDN 429, raw.githubusercontent.com 60-req/min, HuggingFace
+  per-IP). Retry timing (a few minutes of exponential backoff) does
+  not clear the reset window, so the chain just exhausts its attempts
+  and fails anyway.
+- The other failure modes recur could in principle help with —
+  transient TCP resets, DNS hiccups, mid-transfer connection drops —
+  are rare enough on GHA runners that **a single manual rerun is
+  cheaper than the complexity** (a tool entry + a `[vars] retry`
+  wrapper + an eager install in `_setup_all` + the `{{ vars.retry }}`
+  prefix on every call site + a conftest rule enforcing the wrapper).
+- Recur itself caused multiple Windows-specific pathologies during its
+  brief life in this repo — `cmd /s /c "mise exec -- recur ..."`
+  subprocess setlocal recursion via mise.cmd shims, MSYS-bash cygheap
+  fork-copy exhaustion under repeated retries, .cmd-extension PATH
+  shim chains. Net contributor-time cost was substantially negative.
+
+So: if you're staring at a flaky fetch, the right move is to add an
+`upstream-cache` entry that mirrors the asset to our control, **not**
+to reintroduce a retry layer. The only exception worth considering is
+if a future regression genuinely produces a high rate of transient-
+network failures (TCP-level, not rate-limit) on a fetch we can't
+mirror — at that point, the recur recipe is preserved in git history
+(search for `github:dbohdan/recur` to find the prior implementation),
+and the right thing is to reintroduce it **at one specific call site
+only**, not as a repo-wide var-prefix.
+
+[recur]: https://github.com/dbohdan/recur
+
 ## taiki-e/install-action's resolution chain
 
 The `.github/actions/install-mise` composite action uses
