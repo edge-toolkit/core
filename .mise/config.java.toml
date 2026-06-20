@@ -15,8 +15,15 @@ maven = "3.9.16"
 # dir; no `jdk-X.Y.Z+N\` wrapper). Default base directory is mise's
 # per-platform data dir (`~/.local/share/mise` on Unix, `%LOCALAPPDATA%\mise`
 # on Windows); MISE_DATA_DIR overrides on either.
+#
+# Windows-only slash normalization: %LOCALAPPDATA% arrives in mise's tera
+# context with forward slashes (`C:/Users/.../AppData/Local`) but our
+# literal segments use backslashes; the resulting mixed-slash path passes
+# busybox `ls` but mvn.cmd's `if not exist "%JAVA_HOME%\bin\java.exe"`
+# rejects it. The `| replace(from="/", to="\\")` pass on the prefix
+# normalizes everything to a single backslash, fixing the maven start-up.
 java_home = '''{% if os() == "windows" -%}
-{{- get_env(name="MISE_DATA_DIR", default=get_env(name="LOCALAPPDATA", default="") ~ "\mise") -}}
+{{- get_env(name="MISE_DATA_DIR", default=get_env(name="LOCALAPPDATA", default="") ~ "\mise") | replace(from="/", to="\\") -}}
 \installs\java\26.0.1
 {%- else -%}
 {{- get_env(name="MISE_DATA_DIR", default=env.HOME ~ "/.local/share/mise") -}}
