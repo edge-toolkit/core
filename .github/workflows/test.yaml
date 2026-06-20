@@ -155,48 +155,6 @@ jobs:
         with:
           github-token: ${{ github.token }}
 
-      # TEMPORARY: dump everything mise knows about java (install dir,
-      # resolved JAVA_HOME from [env], and the JDK contents on disk) right
-      # after install -- earliest point where mise has activated the env
-      # and we can see what its tera template expanded to. Output before
-      # any task body runs, so the value is visible even when a downstream
-      # build step bails.
-      # Run prefetch:java FIRST -- `mvn dependency:resolve --quiet` exits in a
-      # few seconds and hits the exact same JAVA_HOME-env code path as the
-      # downstream `mvn package` build, so any JAVA_HOME wiring break shows up
-      # here instead of waiting for prefetch:rust / prefetch:node + the wasm-
-      # agent compile to finish (the Windows diagnostic split runs `prefetch:
-      # rust` and `prefetch:node` only -- `prefetch:java` was skipped before,
-      # so JAVA_HOME issues only surfaced inside build-ws-java-data1-module).
-      - name: "Fail-fast: prefetch:java"
-        if: contains(env.MISE_ENV, 'java')
-        timeout-minutes: 3
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: mise run prefetch:java
-
-      - name: Diagnose JAVA_HOME via mise
-        if: contains(env.MISE_ENV, 'java')
-        run: |
-          set -x
-          echo "--- mise where java ---"
-          mise where java || true
-          echo "--- mise env | grep JAVA_HOME ---"
-          mise env 2>/dev/null | grep -i java || echo "(no java entries in mise env)"
-          install=$(mise where java 2>/dev/null) || install=""
-          if [ -n "$install" ]; then
-            echo "--- ls $install ---"
-            ls -la "$install" 2>&1 | head -30 || true
-            echo "--- find $install -name 'java*' -maxdepth 4 ---"
-            find "$install" -maxdepth 4 \( -iname "java" -o -iname "java.exe" \) 2>&1 | head -10 || true
-          fi
-          resolved_java_home=$(mise env 2>/dev/null | awk -F= '/^export JAVA_HOME=/{print substr($0, index($0,"=")+1)}' | tr -d '"')
-          echo "--- resolved JAVA_HOME from mise env: $resolved_java_home ---"
-          if [ -n "$resolved_java_home" ]; then
-            ls -la "$resolved_java_home" 2>&1 | head -30 || true
-            ls -la "$resolved_java_home/bin" 2>&1 | head -30 || true
-          fi
-
       # Non-Windows: prefetch is well-behaved on Linux / macOS, so we keep the
       # original single-step form there. The Windows lane below replaces it
       # with a diagnostic split to chase the silent prefetch stall.

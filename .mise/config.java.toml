@@ -26,7 +26,8 @@ maven = "3.9.16"
 # verbatim (no `\\`-as-`\` escape), so backticks + a single literal
 # backslash are the way to express a one-char `\` argument.
 java_home = '''{% if os() == "windows" -%}
-{{- get_env(name="MISE_DATA_DIR", default=get_env(name="LOCALAPPDATA", default="") ~ "\mise") | replace(from="/", to=`\`) -}}
+{%- set win_base = get_env(name="LOCALAPPDATA", default="") ~ "\mise" -%}
+{{- get_env(name="MISE_DATA_DIR", default=win_base) | replace(from="/", to=`\`) -}}
 \installs\java\26.0.1
 {%- else -%}
 {{- get_env(name="MISE_DATA_DIR", default=env.HOME ~ "/.local/share/mise") -}}
@@ -44,77 +45,31 @@ JAVA_HOME = "{{ vars.java_home }}"
 # errors still print. MAVEN_ARGS is honored by Maven 3.9+ and prepends to
 # every `mvn` invocation.
 MAVEN_ARGS = "--no-transfer-progress"
+# Cross-platform mvn invocation. On Windows we must use mvn.cmd, not
+# bare `mvn`: the maven distribution ships both files side-by-side in
+# bin/ (`mvn` is a Unix shell script; `mvn.cmd` is the Windows wrapper).
+# busybox-w32 bash's PATH lookup picks the bare `mvn` first via
+# `file_is_executable`, parses its `#!/bin/sh` shebang, and runs it
+# through busybox's own sh applet -- but the Unix script's JAVACMD
+# composition (`JAVACMD="$JAVA_HOME/bin/java"`, no `.exe`) then fails
+# its `[ -x "$JAVACMD" ]` test because on Windows the file is named
+# `bin/java.exe`. cmd.exe's PATHEXT-based resolution would pick .cmd
+# instead, but bash invocations don't go through cmd.exe.
+MVN = "{% if os() == \"windows\" %}mvn.cmd{% else %}mvn{% endif %}"
 
 [tasks.build-ws-java-data1-module]
 description = "Build the java-data1 workflow module"
-# TEMPORARY: prove what cmd.exe sees for JAVA_HOME -- mvn.cmd's "JAVA_HOME
-# environment variable is not defined correctly" message is emitted only
-# when its `if exist "%JAVA_HOME%\bin\java.exe"` returns false (lines
-# 60-64 of upstream apache-maven 3.9.16 bin/mvn.cmd). The bash diagnostic
-# shows ls of $JAVA_HOME and $JAVA_HOME/bin both work, so the path is
-# valid from busybox's view. The remaining question is the env value
-# cmd.exe receives when busybox spawns mvn.cmd.
-run = """
-echo "[diag] bash JAVA_HOME=${JAVA_HOME:-<unset>}"
-echo "[diag] bash hexdump of JAVA_HOME:"
-printf '%s' "${JAVA_HOME:-}" | od -c | head -5
-echo "[diag] cmd.exe set JAVA_HOME (what cmd sees):"
-cmd.exe /c "set JAVA_HOME" || true
-echo "[diag] cmd.exe if exist test:"
-cmd.exe /c "if exist \\"%JAVA_HOME%\\\\bin\\\\java.exe\\" (echo FOUND) else (echo MISSING)" || true
-echo "[diag] cmd.exe explicit absolute path:"
-cmd.exe /c "if exist \\"C:\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\mise\\\\installs\\\\java\\\\26.0.1\\\\bin\\\\java.exe\\" (echo FOUND ABS) else (echo MISSING ABS)" || true
-mvn package
-"""
+run = "$MVN package"
 shell = "bash -euo pipefail -c"
 
 # Namespaced aggregator picked up by the default config's globbed `check`. The
 # compile triggers maven-compiler-plugin with -Xlint:all -Werror + Error Prone.
 [tasks."check:java"]
 description = "Run Java checks (javac -Xlint:all -Werror, Error Prone)"
-run = "mvn -q compile"
+run = "$MVN -q compile"
+shell = "bash -euo pipefail -c"
 
 [tasks."prefetch:java"]
 description = "Prefetch Java (Maven) dependencies"
-# TEMPORARY: mirror the diagnostic block from build-ws-java-data1-module so
-# we can see the same evidence (bash JAVA_HOME hexdump + cmd.exe view + two
-# if-exist tests) at the fail-fast prefetch stage, instead of waiting for
-# the wasm-pack + maven build chain to die. Rip the diagnostic block out
-# once mvn accepts JAVA_HOME on Windows.
-run = """
-echo "[diag] === bash side ==="
-echo "[diag] bash JAVA_HOME=${JAVA_HOME:-<unset>}"
-echo "[diag] bash ls JAVA_HOME:"
-ls "$JAVA_HOME" 2>&1 || true
-echo "[diag] bash ls hardcoded absolute:"
-ls 'C:\\Users\\runneradmin\\AppData\\Local\\mise\\installs\\java\\26.0.1' 2>&1 || true
-echo "[diag] bash whoami:"
-whoami 2>&1 || true
-echo "[diag] bash USERPROFILE=${USERPROFILE:-<unset>}  LOCALAPPDATA=${LOCALAPPDATA:-<unset>}"
-echo "[diag] === cmd.exe side ==="
-echo "[diag] cmd.exe whoami:"
-cmd.exe /c whoami || true
-echo "[diag] cmd.exe USERPROFILE + LOCALAPPDATA:"
-cmd.exe /c "echo USERPROFILE=%USERPROFILE%& echo LOCALAPPDATA=%LOCALAPPDATA%" || true
-echo "[diag] cmd.exe full env (head -40):"
-cmd.exe /c set | head -40 || true
-echo "[diag] cmd.exe set JAVA_HOME:"
-cmd.exe /c "set JAVA_HOME" || true
-echo "[diag] cmd.exe dir of hardcoded absolute parent:"
-cmd.exe /c "dir C:\\Users\\runneradmin\\AppData\\Local\\mise\\installs\\java\\26.0.1" || true
-echo "[diag] cmd.exe if exist progressive walk:"
-cmd.exe /c "if exist C:\\Users (echo +Users) else (echo -Users)" || true
-cmd.exe /c "if exist C:\\Users\\runneradmin (echo +runneradmin) else (echo -runneradmin)" || true
-cmd.exe /c "if exist C:\\Users\\runneradmin\\AppData\\Local\\mise (echo +mise) else (echo -mise)" || true
-cmd.exe /c "if exist C:\\Users\\runneradmin\\AppData\\Local\\mise\\installs\\java\\26.0.1 (echo +26.0.1) else (echo -26.0.1)" || true
-cmd.exe /c "if exist C:\\Users\\runneradmin\\AppData\\Local\\mise\\installs\\java\\26.0.1\\bin\\java.exe (echo +java.exe) else (echo -java.exe)" || true
-echo "[diag] mimic mvn.cmd validation block:"
-cmd.exe /c 'setlocal& set "JAVACMD=%JAVA_HOME%\\bin\\java.exe"& echo MIMIC-JAVA_HOME=[%JAVA_HOME%]& echo MIMIC-JAVACMD=[%JAVACMD%]& if exist "%JAVACMD%" (echo MIMIC-FOUND) else (echo MIMIC-MISSING)' || true
-echo "[diag] mvn launcher introspection:"
-where mvn 2>&1 || true
-where mvn.cmd 2>&1 || true
-echo "[diag] now run mvn -v under cmd to see mvn launcher decisions:"
-cmd.exe /c "mvn -v 2>&1" || true
-mvn dependency:resolve --quiet
-"""
+run = "$MVN dependency:resolve --quiet"
 shell = "bash -euo pipefail -c"
