@@ -437,15 +437,17 @@ rp_wasm_asset = "rustpython-wasm-08a1d6f.tar.gz"
 rp_wasm_short = "08a1d6f"
 # Install dir for the [tools."http:rp-wasm"] tarball -- mise extracts
 # to `installs/http-rp-wasm/<version>/`. Picks the per-OS install
-# root: Windows uses `%LOCALAPPDATA%\mise\installs` (vars.mise_installs
-# from config.windows.toml); Unix uses `$HOME/.local/share/mise/installs`
-# (vars.mise_data_dir + `/installs`). The Windows GHA `HOME=$USERPROFILE`
-# pattern makes mise_data_dir LOOK plausible but mise itself ignores
-# that path on Windows, so the var ref has to be OS-conditional.
+# root inline: on Windows mise uses %LOCALAPPDATA%\mise (config.toml's
+# [vars] is rendered before config.windows.toml's [vars] is in scope,
+# so we can't cross-reference vars.mise_installs here); on Unix it
+# uses MISE_DATA_DIR or $HOME/.local/share/mise. The Windows GHA
+# `HOME=$USERPROFILE` workaround makes vars.mise_data_dir LOOK
+# plausible on Windows but mise itself ignores that path there, so
+# the conditional is load-bearing.
 rp_wasm_dir = '''{% if os() == "windows" -%}
-{{- vars.mise_installs -}}\http-rp-wasm\{{- vars.rp_wasm_short -}}
+{{- get_env(name="LOCALAPPDATA", default="") -}}\mise\installs\http-rp-wasm\{{- vars.rp_wasm_short -}}
 {%- else -%}
-{{- vars.mise_data_dir -}}/installs/http-rp-wasm/{{- vars.rp_wasm_short -}}
+{{- get_env(name="MISE_DATA_DIR", default=env.HOME ~ "/.local/share/mise") -}}/installs/http-rp-wasm/{{- vars.rp_wasm_short -}}
 {%- endif %}'''
 # `retry` prefixes each fetch with recur for exponential-backoff-with-jitter
 # retries (10 tries, 2s base doubling, capped 3m, 0-15s jitter). `-v` makes
