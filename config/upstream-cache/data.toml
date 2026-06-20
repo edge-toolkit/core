@@ -56,25 +56,25 @@ license = "LGPL-2.1+"
 # already encodes the triple. shas filled in by the maintainer after the
 # upstream-cache.yaml augeas job runs and uploads each tarball.
 [asset."augeas-1.14.1-x86_64-unknown-linux-gnu.tar.xz"]
-sha256 = ""
+sha256 = "2e75b0e3be730ac5f7f3b3fb58b7f2f17369e0896c6e8861ba06a6aa5a958b0d"
 url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/augeas-1.14.1-x86_64-unknown-linux-gnu.tar.xz"
 upstream = "https://github.com/hercules-team/augeas"
 license = "LGPL-2.1+"
 
 [asset."augeas-1.14.1-aarch64-unknown-linux-gnu.tar.xz"]
-sha256 = ""
+sha256 = "393eec887f3e02815bdaabd10a92a396307d7a3fb477bec6d935956a2b92eb3e"
 url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/augeas-1.14.1-aarch64-unknown-linux-gnu.tar.xz"
 upstream = "https://github.com/hercules-team/augeas"
 license = "LGPL-2.1+"
 
 [asset."augeas-1.14.1-x86_64-apple-darwin.tar.xz"]
-sha256 = ""
+sha256 = "389f80e68e9f75523c152713b0619249efb7f8f6c4df670ee09e6d4159a179d8"
 url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/augeas-1.14.1-x86_64-apple-darwin.tar.xz"
 upstream = "https://github.com/hercules-team/augeas"
 license = "LGPL-2.1+"
 
 [asset."augeas-1.14.1-aarch64-apple-darwin.tar.xz"]
-sha256 = ""
+sha256 = "87f350999bbd09ee68c1bd1c8589fe9af86453462d023639e6ca9c9b2be14405"
 url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/augeas-1.14.1-aarch64-apple-darwin.tar.xz"
 upstream = "https://github.com/hercules-team/augeas"
 license = "LGPL-2.1+"

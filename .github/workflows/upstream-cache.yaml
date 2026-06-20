@@ -394,6 +394,91 @@ jobs:
             --disable-gnulib-tests --disable-dependency-tracking
           make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
           make install
+          # Relocate. libtool bakes the absolute --prefix into binaries
+          # and dylibs: Linux RUNPATH=/home/runner/work/_temp/install/lib
+          # and macOS LC_ID_DYLIB/LC_LOAD_DYLIB =
+          # /Users/runner/work/_temp/install/lib/libaugeas.0.dylib. Both
+          # break the moment we ship the binary elsewhere (dyld error
+          # "Library not loaded: /Users/runner/work/_temp/install/lib/
+          # libaugeas.0.dylib"). Post-process to relocatable form so the
+          # tarball is consumable from any directory.
+          cd "$installdir"
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get install -y --no-install-recommends patchelf
+            for f in bin/* lib/lib*.so*; do
+              [ -f "$f" ] && [ ! -L "$f" ] || continue
+              patchelf --set-rpath '$ORIGIN/../lib' "$f" 2>/dev/null || true
+            done
+          else
+            # macOS: relocate internal lib install_names + cross-refs to
+            # @rpath, add @loader_path/../lib rpath to binaries, and
+            # bundle the Homebrew deps (readline + libxml2 + their own
+            # deps) so consumers don't need brew installed.
+            our_libs=""
+            for lib in lib/libaugeas*.dylib lib/libfa*.dylib; do
+              [ -f "$lib" ] && [ ! -L "$lib" ] || continue
+              base=$(basename "$lib")
+              install_name_tool -id "@rpath/$base" "$lib"
+              our_libs="$our_libs $base"
+            done
+            for f in lib/libaugeas*.dylib lib/libfa*.dylib bin/*; do
+              [ -f "$f" ] && [ ! -L "$f" ] || continue
+              file "$f" | grep -q "Mach-O" || continue
+              for old in $(otool -L "$f" 2>/dev/null | awk 'NR>1 {print $1}'); do
+                base=$(basename "$old")
+                for ours in $our_libs; do
+                  [ "$base" = "$ours" ] && \
+                    install_name_tool -change "$old" "@rpath/$base" "$f"
+                done
+              done
+            done
+            for f in bin/*; do
+              [ -f "$f" ] && [ ! -L "$f" ] || continue
+              file "$f" | grep -q "Mach-O" || continue
+              install_name_tool -add_rpath @loader_path/../lib "$f" 2>/dev/null || true
+            done
+            # Bundle Homebrew dylib closure. otool -L on augtool tells us
+            # which absolute brew paths got baked in; copy each, rewrite
+            # its install_name + nested refs, and rewrite consumers.
+            queue=$(otool -L bin/augtool lib/libaugeas*.dylib lib/libfa*.dylib 2>/dev/null \
+              | awk 'NR>1 && $1 ~ /^\/(usr\/local|opt\/homebrew)\// {print $1}' | sort -u)
+            seen=""
+            while [ -n "$queue" ]; do
+              next=""
+              for dep in $queue; do
+                base=$(basename "$dep")
+                # space-delimited seen list; membership = substring with sentinels
+                case " $seen " in *" $base "*) continue ;; esac
+                seen="$seen $base"
+                [ -f "$dep" ] || continue
+                cp -L "$dep" "lib/$base"
+                chmod +w "lib/$base"
+                install_name_tool -id "@rpath/$base" "lib/$base"
+                # add new transitive brew deps to the queue
+                nested_refs=$(otool -L "lib/$base" 2>/dev/null \
+                  | awk 'NR>1 && $1 ~ /^\/(usr\/local|opt\/homebrew)\// {print $1}')
+                for nested in $nested_refs; do
+                  next="$next $nested"
+                done
+              done
+              queue=$(echo "$next" | tr ' ' '\n' | sort -u | grep -v '^$' || true)
+            done
+            # Rewrite every Mach-O file's refs to brew paths -> @rpath/<base>
+            for f in lib/*.dylib bin/*; do
+              [ -f "$f" ] && [ ! -L "$f" ] || continue
+              file "$f" | grep -q "Mach-O" || continue
+              for old in $(otool -L "$f" 2>/dev/null \
+                | awk 'NR>1 && $1 ~ /^\/(usr\/local|opt\/homebrew)\// {print $1}'); do
+                install_name_tool -change "$old" "@rpath/$(basename "$old")" "$f"
+              done
+            done
+            # Bundled dylibs in lib/ need their own rpath ($ORIGIN
+            # equivalent) so they can resolve each other.
+            for lib in lib/*.dylib; do
+              [ -f "$lib" ] && [ ! -L "$lib" ] || continue
+              install_name_tool -add_rpath @loader_path "$lib" 2>/dev/null || true
+            done
+          fi
           # tar.xz: smaller than .gz, mise's http backend handles both.
           (cd "$installdir" && tar -cJf "$RUNNER_TEMP/$ASSET" .)
           ls -lh "$RUNNER_TEMP/$ASSET"
