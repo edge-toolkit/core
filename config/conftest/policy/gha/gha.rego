@@ -17,17 +17,13 @@ deny contains msg if {
 }
 
 # Steps must not override the shell -- rely on the workflow default (write the
-# step in bash rather than switching to PowerShell on Windows runners). Two
-# carve-outs: (1) `name:` prefix `Pre-mise:` (steps that run BEFORE
-# `Install mise + tools` and so can't use the mise-managed default shell --
-# e.g. setting HOME from USERPROFILE on Windows); (2) `shell: msys2 {0}`
-# (the wrapper msys2/setup-msys2 requires for steps running inside its
-# MINGW64 env -- Git Bash isn't a substitute).
+# step in bash rather than switching to PowerShell on Windows runners). One
+# carve-out: `shell: msys2 {0}` (the wrapper msys2/setup-msys2 requires for
+# steps running inside its MINGW64 env -- Git Bash isn't a substitute).
 deny contains msg if {
 	some name, job in input.jobs
 	some step in job.steps
 	step.shell
-	not startswith(step.name, "Pre-mise:")
 	not startswith(step.shell, "msys2 ")
 	msg := sprintf("job %q sets shell: on a step; use the workflow default", [name])
 }

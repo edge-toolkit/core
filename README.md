@@ -175,6 +175,10 @@ images when their respective `Dockerfile` is modified.
 
 [`Dockerfile.nanoserver`](Dockerfile.nanoserver) starts from **Nano Server**
 (the smallest Windows base, ~120 MB) — which has no installer stack, or shell.
+Python and .Net do not work on this base.
+
+[`Dockerfile.windows`](Dockerfile.windows) is the **Server Core** variant
+(~1.25 GB base) — the fuller Windows image, and all languages are supported.
 
 A `gh_token` file (a GitHub token) in the build context is **optional** for a
 manual `Dockerfile.nanoserver` build — without it, mise uses GitHub's anonymous

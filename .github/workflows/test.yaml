@@ -41,13 +41,9 @@ jobs:
     # use the busybox-w32 ash that mise installs in `_setup_all` (the same
     # shell `MISE_BASH_PATH` already points at for `shell = "bash"` tasks on
     # the Windows Docker images). Avoids Git Bash's MSYS fork-emulation
-    # cygheap pathology -- see OLD_NOTES.md for the captured error
-    # signatures and the diagnostic harness that found the root cause. The
-    # path matches the version pin in `.mise/config.windows.toml`'s
-    # [tools."http:busybox"] entry. The `Set HOME = USERPROFILE on Windows`
-    # step below explicitly overrides back to `shell: bash` because it
-    # runs BEFORE `Install mise + tools` (which is what installs
-    # busybox-w32). All later run-bodies use ash.
+    # cygheap pathology on long-running mise task chains. The path matches
+    # the version pin in `.mise/config.windows.toml`'s [tools."http:busybox"]
+    # entry.
     defaults:
       run:
         shell: >-
@@ -116,48 +112,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y mesa-vulkan-drivers
-
-      # Empirical probe: does the GHA windows-latest VM populate HOME in its
-      # default env, or is the next step (Pre-mise: HOME = USERPROFILE)
-      # genuinely load-bearing? Prints HOME/USERPROFILE from both Git Bash
-      # (which auto-sets HOME from USERPROFILE on its own) and cmd (which
-      # doesn't, so its output reflects only what the parent env has).
-      # cmd resolves an unset var by leaving the literal `%HOME%` token in
-      # the output, so `HOME=[%HOME%]` is the unambiguous "unset" signal;
-      # `HOME=[]` means defined-but-empty; `HOME=[C:\Users\...]` means set.
-      # Remove this step once the answer is captured in OLD_NOTES.md.
-      - name: "Pre-mise: probe HOME on Windows"
-        if: runner.os == 'Windows'
-        timeout-minutes: 1
-        # Same `shell:` rationale as the next step -- runs before
-        # `Install mise + tools` so we can't use the job's busybox default.
-        shell: bash --noprofile --norc -euo pipefail {0}
-        run: |
-          echo "=== Git Bash perspective ==="
-          echo "  HOME=[$HOME] USERPROFILE=[$USERPROFILE]"
-          echo "=== cmd.exe perspective ==="
-          # `cmd //c` (double slash) -- the single-slash form is rewritten by
-          # MSYS path-translation as a Unix path, dropping cmd into interactive
-          # mode and skipping the echo.
-          cmd //c "echo   HOME=[%HOME%] USERPROFILE=[%USERPROFILE%]"
-
-      # mise's Tera renderer expects $HOME to be set when evaluating env.HOME
-      # in [vars] (config.toml has e.g. `conda_openssl = "{{ env.HOME }}/.local
-      # /share/mise/installs/conda-openssl/3"`). MSYS bash auto-sets HOME from
-      # USERPROFILE; pwsh and cmd do not, so mise tasks invoked from a pwsh
-      # step fail with `Variable env.HOME not found in context while rendering
-      # __tera_one_off`. Plumb HOME = USERPROFILE so every subsequent step
-      # (incl. our pwsh diagnostic ones) sees it.
-      - name: "Pre-mise: HOME = USERPROFILE on Windows"
-        if: false
-        # runner.os == 'Windows'
-        timeout-minutes: 1
-        # Explicit `shell: bash` because the job-level defaults point at the
-        # busybox ash that's installed by the next step (Install mise +
-        # tools), so we can't use it here yet. Git Bash is on the runner
-        # image by default.
-        shell: bash --noprofile --norc -euo pipefail {0}
-        run: echo "HOME=$USERPROFILE" >> "$GITHUB_ENV"
 
       - name: Install mise + tools
         uses: ./.github/actions/install-mise-tools

@@ -165,10 +165,35 @@ jobs:
           docker run --rm "$IMAGE_TAG" cmd /c "mise exec -- rustpython -c \"print('et-rp ok')\""
           echo "::endgroup::"
 
-      - name: Build stage precompile
+      # Build target depends on base: nanoserver stops at `precompile` (no
+      # python/dotnet/test-runtime; the test stage doesn't exist there),
+      # servercore goes all the way through `test` so the next two steps can
+      # `docker run` the suite. Both targets compose with the precompile-stage
+      # layer cache from the build-minimal step above.
+      - name: Build stage precompile (nanoserver) / test (servercore)
         env:
           DOCKERFILE: ${{ steps.dockerfile.outputs.dockerfile }}
         run: |
+          if [ "${{ matrix.base }}" = "servercore" ]; then
+            target=test
+            tag="-t et-windows-test"
+          else
+            target=precompile
+            tag=""
+          fi
           args="-f $DOCKERFILE ${{ matrix.build_arg }} --build-arg MISE_ENV"
-          args="$args --target precompile"
+          args="$args --target $target $tag"
           docker build $args .
+
+      # Run the test suite split the same way docker-linux does: cargo-test-other
+      # (workspace minus et-ws-web-runner) and test-ws-web-runner (Deno-runtime
+      # gated, self-skips on hosts that can't satisfy it). Each runs in a fresh
+      # container so the per-phase compile target/ doesn't share the writable
+      # layer with the other phase. servercore-only -- Nano has no test stage.
+      - name: Run cargo-test-other
+        if: matrix.base == 'servercore'
+        run: docker run --rm et-windows-test mise run cargo-test-other
+
+      - name: Run test-ws-web-runner
+        if: matrix.base == 'servercore'
+        run: docker run --rm et-windows-test mise run test-ws-web-runner
