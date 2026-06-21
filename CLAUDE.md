@@ -597,6 +597,25 @@ mirror — at that point, the recur recipe is preserved in git history
 and the right thing is to reintroduce it **at one specific call site
 only**, not as a repo-wide var-prefix.
 
+### Cargo HTTP/2 framing layer failures
+
+One transient class that hits the `cargo fetch` path specifically:
+libcurl's `[16] Error in the HTTP2 framing layer` during a
+`crates.io` download. Captured example:
+`https://github.com/edge-toolkit/core/actions/runs/27900771461/job/82560594632`
+on commit `6e4c0030a830e4f8e6b15381cb5c2fbf481af704` —
+`asyncapi-rust-codegen` download bailed with `curl failed` →
+`[16] Error in the HTTP2 framing layer`.
+
+`CARGO_NET_RETRY` does **not** cover this — the framing error
+surfaces from inside libcurl as a generic `curl failed`, and cargo's
+retry classifier doesn't recognise it as transient. The targeted fix
+is `CARGO_HTTP_MULTIPLEXING=false`, which disables HTTP/2 multiplexing
+in cargo's libcurl and falls back to HTTP/1.1 connections (immune to
+the framing-stream desync at the cost of slightly fewer multiplexed
+requests). Set it at the workflow `env:` (or `.mise/config.toml`'s
+`[env]`) so every cargo invocation in CI + local picks it up.
+
 [recur]: https://github.com/dbohdan/recur
 
 ## taiki-e/install-action's resolution chain

@@ -80,11 +80,5 @@ max_line_length = unset
 [generated/zig-rest/**]
 max_line_length = unset
 
-# config/upstream-cache/data.toml stores per-asset metadata including the canonical
-# download URL (`https://github.com/edge-toolkit/core/releases/download/<tag>/<long-asset-name>`)
-# and the upstream project URL. Both routinely exceed 120 chars and can't be
-# meaningfully line-wrapped in TOML (a string value can't span lines without
-# multi-line-string syntax that would change the parsed value). Loosen to 200.
 [config/upstream-cache/data.toml]
 max_line_length = 200
-

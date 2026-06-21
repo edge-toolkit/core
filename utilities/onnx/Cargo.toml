@@ -10,12 +10,6 @@ repository.workspace = true
 doctest = false
 name = "et-onnx"
 path = "src/main.rs"
-# No unit/integration tests in this crate (it's a 21-line CLI wrapper),
-# so don't build a test harness binary for it under `cargo test`. Skipping
-# the harness drops the heaviest link in the workspace (et-onnx pulls in
-# onnx-extractor + its prost-generated ONNX schema -- ~100 KB of codegen
-# statically linked into a debug binary) and removes the AL2023 docker
-# hang at "Compiling et-onnx" entirely.
 test = false
 
 [dependencies]
@@ -24,8 +18,6 @@ clap-markdown = { workspace = true, optional = true }
 onnx-extractor.workspace = true
 
 [features]
-# Enables `--markdown-help` on the CLI, which prints a markdown rendering of
-# the full clap tree (used by `mise run gen-help-all` to regenerate HELP.md).
 markdown-help = ["dep:clap-markdown"]
 
 [lints]

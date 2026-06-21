@@ -19,13 +19,16 @@ runs:
       shell: bash --noprofile --norc -euo pipefail {0}
       run: git rev-parse --is-inside-work-tree >/dev/null
 
-    - name: Install mise (and any extra tools)
+    - name: Install mise
       uses: taiki-e/install-action@v2
       with:
-        tool: |
-          cargo-binstall
-          mise@2026.6.5
-          ${{ inputs.install-action-tools }}
+        tool: cargo-binstall,mise@2026.6.5
+
+    - name: Install extra tools via install-action
+      if: inputs.install-action-tools != ''
+      uses: taiki-e/install-action@v2
+      with:
+        tool: ${{ inputs.install-action-tools }}
 
     # taiki-e/install-action's mise manifest stages only `mise.exe`; mise's
     # per-tool `.cmd` "file" shims under `%LOCALAPPDATA%\mise\shims` aren't

@@ -31,10 +31,10 @@ jobs:
       matrix:
         base:
           - amazonlinux:2023
+          - azurelinux v3.0
           - debian:bookworm
           - debian:trixie
           - fedora:42
-          - mcr.microsoft.com/azurelinux/base/core:3.0
           - opensuse/leap:15.6
           - ubuntu:22.04
           - ubuntu:24.04
@@ -74,9 +74,18 @@ jobs:
       - name: Restart Docker on the maximized volume
         run: sudo systemctl restart docker
 
+      - name: Resolve BASE_IMAGE
+        env:
+          MATRIX_BASE: ${{ matrix.base }}
+        run: |
+          if [ "$MATRIX_BASE" = "azurelinux v3.0" ]; then
+            echo "BASE_IMAGE=mcr.microsoft.com/azurelinux/base/core:3.0" >> "$GITHUB_ENV"
+          else
+            echo "BASE_IMAGE=$MATRIX_BASE" >> "$GITHUB_ENV"
+          fi
+
       - name: Build stage test
         env:
-          BASE_IMAGE: ${{ matrix.base }}
           DOCKER_BUILDKIT: "1"
           GITHUB_TOKEN: ${{ github.token }}
         run: |
@@ -95,7 +104,6 @@ jobs:
       # disk -- a top-level cp would have left subdir Dockerfiles unfindable.
       - name: Build stage check
         env:
-          BASE_IMAGE: ${{ matrix.base }}
           CTX: target/check-ctx
           DOCKER_BUILDKIT: "1"
           TAG: et-check

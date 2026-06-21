@@ -1051,9 +1051,9 @@ depends = ["cargo-check", "cargo-clippy-check", "cargo-doc-check", "regenerate-v
 description = "Regenerate HELP.md for every clap-using utility under utilities/"
 run = """
 for crate in et-cli et-int-gen et-onnx; do
-  dir="utilities/${crate#et-}"
-  echo "[gen-help-all] $crate -> $dir/HELP.md"
-  cargo run --features markdown-help -q -p "$crate" -- --markdown-help > "$dir/HELP.md"
+  helpmd="utilities/${crate#et-}/HELP.md"
+  echo "[gen-help-all] $crate -> $helpmd"
+  cargo run --features markdown-help -q -p "$crate" -- --markdown-help | dprint fmt --stdin md > "$helpmd"
 done
 """
 shell = "bash -euo pipefail -c"

@@ -30,8 +30,6 @@ toml.workspace = true
 tempfile.workspace = true
 
 [features]
-# Enables `--markdown-help` on the CLI, which prints a markdown rendering of
-# the full clap tree (used by `mise run gen-help-all` to regenerate HELP.md).
 markdown-help = ["dep:clap-markdown"]
 
 [lints]
