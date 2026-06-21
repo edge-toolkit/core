@@ -178,7 +178,10 @@ images when their respective `Dockerfile` is modified.
 Python and .Net do not work on this base.
 
 [`Dockerfile.windows`](Dockerfile.windows) is the **Server Core** variant
-(~1.25 GB base) — the fuller Windows image, and all languages are supported.
+(~1.25 GB base) — the fuller Windows image, and every language installs. The
+one gap: the C# → WASM module build (dotnet-data1) skips on every Windows host
+(Server Core and native windows-latest alike), so that module's `pkg/` isn't
+produced and its integration test logs a skip.
 
 A `gh_token` file (a GitHub token) in the build context is **optional** for a
 manual `Dockerfile.nanoserver` build — without it, mise uses GitHub's anonymous

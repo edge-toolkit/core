@@ -24,12 +24,11 @@ use std::path::PathBuf;
 use edge_toolkit::config::{Language, default_modules_folders, mise_env_includes, mise_where};
 
 /// Shared resolver -- every test in this file wants the install path.
-/// Returns `None` when `http:pyodide` is intentionally not installed
-/// because `MISE_ENV` doesn't include the `python` env; callers early-return
-/// in that case (the test is meaningless without pyodide installed).
-/// Otherwise (no `MISE_ENV`, or `MISE_ENV` includes `python`) panics with
-/// a `mise install` hint so a broken install is surfaced loudly.
-fn require_http_pyodide_install() -> Option<PathBuf> {
+/// Returns `Some(path)` when found; `None` (and logs a skip line) when
+/// `http:pyodide` is intentionally not installed because `MISE_ENV` doesn't
+/// include the `python` env; panics with a `mise install` hint when
+/// `MISE_ENV` expects python but the install is missing.
+fn find_http_pyodide_install() -> Option<PathBuf> {
     if let Some(path) = mise_where("http:pyodide") {
         return Some(path);
     }
@@ -60,7 +59,7 @@ const REQUIRED_WHEEL_PREFIXES: &[&str] = &["numpy-", "scipy-", "pandas-"];
 
 #[test]
 fn http_pyodide_install_contains_full_wheel_set() {
-    let Some(install) = require_http_pyodide_install() else {
+    let Some(install) = find_http_pyodide_install() else {
         return;
     };
 
@@ -94,7 +93,7 @@ fn http_pyodide_install_has_runtime_too() {
     // ws-server's static-file serve relies on this -- guests fetch
     // `/modules/pyodide/pyodide.asm.wasm` from the same prefix as
     // `/modules/pyodide/numpy-*.whl`.
-    let Some(install) = require_http_pyodide_install() else {
+    let Some(install) = find_http_pyodide_install() else {
         return;
     };
 
@@ -121,7 +120,7 @@ fn default_modules_folders_prefers_http_pyodide() {
     // named "pyodide") rather than the npm `node_modules` parent dir.
     // This pins the resolver behaviour so a future refactor that
     // accidentally reorders the fallback gets caught.
-    let Some(http_install) = require_http_pyodide_install() else {
+    let Some(http_install) = find_http_pyodide_install() else {
         return;
     };
 

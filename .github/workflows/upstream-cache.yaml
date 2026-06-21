@@ -518,14 +518,15 @@ jobs:
         run: |
           gh release upload "$AUG_RELEASE_TAG" --repo edge-toolkit/core --clobber "$RUNNER_TEMP/$ASSET"
 
-  # Windows-only dart-typegen cargo build. `cargo:dart-typegen` is in
-  # `MISE_DISABLE_TOOLS` on the Windows test/build lanes because its
-  # cargo source-build against the gnullvm rust host trips
-  # `error[E0463]: can't find crate for 'core'`. Solution: pre-build it
-  # under the runner's stable-msvc toolchain (already installed on the
-  # windows-latest GHA image) and publish the binary so consumers
-  # `http:` install instead of source-compiling. Same shape as the
-  # augeas job above.
+  # Windows-only dart-typegen cargo build. dart-typegen has no prebuilt
+  # on crates.io; Linux/macOS source-build it via `cargo:dart-typegen` in
+  # config.dart.toml (os-scoped to those two). Windows can't take that
+  # path: cargo source-build against the gnullvm rust host trips
+  # `error[E0463]: can't find crate for 'core'`. Workaround: pre-build
+  # the binary here under the runner's stable-msvc toolchain (already on
+  # the windows-latest GHA image) and publish it so the Windows lane
+  # `http:` installs it (`http:dart-typegen` in config.windows.toml)
+  # instead of source-compiling. Same shape as the augeas job above.
   dart-typegen:
     runs-on: windows-latest
     permissions:

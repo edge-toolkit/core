@@ -7,12 +7,6 @@ dart_bucket = "https://storage.googleapis.com/storage/v1/b/dart-archive/o"
 dart_release = "https://storage.googleapis.com/dart-archive/channels/stable/release"
 
 [tools]
-# cargo: backend -- dart-typegen has no prebuilt binary on crates.io.
-# Windows uses the pre-built `http:dart-typegen` (config.windows.toml)
-# instead, so this entry is os-scoped to non-Windows. On Windows the
-# upstream cargo: source-build trips
-# `error[E0463]: can't find crate for 'core'` against the gnullvm rust
-# host (see upstream-cache.yaml's dart-typegen job for the producer).
 "cargo:dart-typegen" = { version = "latest", os = ["linux", "macos"] }
 
 # dart isn't an aqua/registry tool — install it straight from Google's dart
