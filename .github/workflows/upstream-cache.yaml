@@ -14,10 +14,6 @@ name: upstream-cache
 #   whenever it's convenient.
 
 "on":
-  # pull_request is retained per the gha_combined policy ("every workflow
-  # must trigger on pull_request"), but every job below is gated by
-  # `if: false` so PR runs are no-ops. Drop the `if: false` (and re-add
-  # the path scope below) on the specific job you want to iterate on.
   pull_request:
     paths:
       - .github/workflows/upstream-cache.yaml
@@ -53,9 +49,6 @@ env:
 
 jobs:
   rustpython:
-    # Parked. Drop the `if: false` to rebuild + republish (e.g. on a
-    # version bump). Default is no PR run.
-    if: false
     runs-on: ${{ matrix.os }}
     # Job-level write so gh release upload can push assets; the workflow
     # default is contents:read.
@@ -256,9 +249,6 @@ jobs:
   # green on its own CI across Linux/macOS/Windows, so we build it directly
   # instead of maintaining a sprawling patch against the tarball.
   augeas:
-    # Parked. Drop the `if: false` to rebuild + republish (e.g. on a
-    # version bump or a fork-branch update). Default is no PR run.
-    if: false
     # All five platforms build from the same jayvdb/augeas `win` branch
     # source -- one fork, one set of portability patches, identical
     # binaries across Linux/macOS/Windows. The fork's own build.yml is
@@ -562,9 +552,6 @@ jobs:
   # `http:` install instead of source-compiling. Same shape as the
   # augeas job above.
   dart-typegen:
-    # Parked. Drop the `if: false` to rebuild + republish (e.g. on a
-    # version bump). Default is no PR run.
-    if: false
     runs-on: windows-latest
     permissions:
       contents: write
@@ -654,9 +641,6 @@ jobs:
   # Runs on ubuntu-latest because 7zz extraction is fully cross-platform
   # and ubuntu jobs are cheaper than windows ones.
   gnupg-w32:
-    # Parked. Drop the `if: false` to rebuild + republish (e.g. on a
-    # version bump). Default is no PR run.
-    if: false
     runs-on: ubuntu-latest
     permissions:
       contents: write

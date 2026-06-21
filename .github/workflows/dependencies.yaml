@@ -29,10 +29,6 @@ env:
 
 jobs:
   dependencies:
-    # TEMPORARY: `if: false` parks the job so PR runner capacity goes to the
-    # test.yaml windows-only matrix while we verify the new
-    # free-disk-space-windows action. Drop this once the action is confirmed.
-    if: false
     # `ubuntu-latest`, not `ubuntu-slim`: although every step in this workflow
     # is metadata/network-bound (no Rust compile), `taiki-e/install-action`
     # itself assumes a standard runner-image FHS (e.g. ~/.cargo/bin) and

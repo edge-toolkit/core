@@ -82,16 +82,12 @@ jobs:
           || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":60}]'
           || github.event.inputs.os == 'windows-11-arm' && '[{"os":"windows-11-arm","timeout":60}]'
           )
-          || '[{"os":"windows-latest","timeout":60}]'
+          || format('[{0},{1},{2},{3}]',
+          '{"os":"ubuntu-latest","timeout":40}',
+          '{"os":"ubuntu-24.04-arm","timeout":40}',
+          '{"os":"macos-latest","timeout":45}',
+          '{"os":"windows-latest","timeout":60}')
           ) }}
-    # TEMPORARY: PR matrix narrowed to windows-latest only while we verify
-    # the new free-disk-space-windows action. Restore the canonical 4-OS
-    # PR matrix once the action is confirmed:
-    #   || format('[{0},{1},{2},{3}]',
-    #     '{"os":"ubuntu-latest","timeout":40}',
-    #     '{"os":"ubuntu-24.04-arm","timeout":40}',
-    #     '{"os":"macos-latest","timeout":45}',
-    #     '{"os":"windows-latest","timeout":60}')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
