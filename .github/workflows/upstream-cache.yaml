@@ -18,6 +18,7 @@ name: upstream-cache
     paths:
       - .github/workflows/upstream-cache.yaml
       - .github/actions/install-mise/**
+      - .github/actions/install-mise-tools/**
       - config/upstream-cache/data.toml
   workflow_dispatch:
     inputs:
@@ -55,6 +56,8 @@ jobs:
     permissions:
       contents: write
     timeout-minutes: 60
+    env:
+      MISE_ENV: maint,rust
     strategy:
       fail-fast: false
       matrix:
@@ -141,44 +144,15 @@ jobs:
           steps.rp_check.outputs.work == 'yes'
           && github.event.pull_request.head.repo.fork != true
           && runner.os == 'Linux'
-        run: |
-          sudo rm -rf /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/share/swift || true
-          sudo docker image prune --all --force || true
-          df -h /
+        uses: jlumbroso/free-disk-space@v1.3.1
 
-      - name: Install mise
+      - name: Install mise + tools
         if: |-
           steps.rp_check.outputs.work == 'yes'
           && github.event.pull_request.head.repo.fork != true
-        uses: ./.github/actions/install-mise
-
-      - name: Show MISE_ENV
-        if: |-
-          steps.rp_check.outputs.work == 'yes'
-          && github.event.pull_request.head.repo.fork != true
-        run: echo "MISE_ENV=$MISE_ENV"
-
-      # MISE_ENV includes `maint` here so the publish task's deps
-      # (augtool, via http:augeas on Windows; system-installed
-      # elsewhere) and any other maint-only tools install in the same
-      # step as the language toolchains -- otherwise the publish step
-      # hits `bash: line ...: <tool>: command not found` because
-      # `mise run` doesn't auto-install on demand.
-      - name: Install mise tools
-        if: |-
-          steps.rp_check.outputs.work == 'yes'
-          && github.event.pull_request.head.repo.fork != true
-        run: |
-          mise run preinstall
-          # Retry once on transient api.github.com 5xx during the aqua attestation
-          # / asset fetches: the first attempt re-uses what's already on disk, so
-          # the retry usually clears single-tool HTTP flakes in seconds.
-          MISE_ENV="$MISE_ENV,maint" mise install || {
-            echo "::warning::mise install failed, retrying once"
-            MISE_ENV="$MISE_ENV,maint" mise install
-          }
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+        uses: ./.github/actions/install-mise-tools
+        with:
+          github-token: ${{ github.token }}
 
       # RP_SHORT comes via env (not `${{ }}` inside the run block) to keep
       # zizmor's template-injection rule happy -- step outputs are treated
@@ -220,7 +194,7 @@ jobs:
           && steps.rp_check.outputs.native_missing == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: MISE_ENV="$MISE_ENV,maint" mise run publish-rp-native-to-release
+        run: mise run publish-rp-native-to-release
 
       # Wasm rustpython is platform-agnostic; gate to a single canonical
       # runner so multiple matrix jobs don't race-clobber the same asset.
@@ -231,7 +205,7 @@ jobs:
           && matrix.os == 'ubuntu-latest'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: MISE_ENV="$MISE_ENV,maint" mise run publish-rp-wasm-to-release
+        run: mise run publish-rp-wasm-to-release
 
   # Windows-only augeas build. Augeas has no upstream Windows binaries
   # anywhere (not in MSYS2/Cygwin/aqua/conda); the only way to get a
@@ -259,6 +233,7 @@ jobs:
       contents: write
     timeout-minutes: 60
     env:
+      MISE_ENV: maint
       AUG_VERSION: "1.14.1"
       AUG_RELEASE_TAG: "augeas-v1"
       AUG_FORK_REPO: "https://github.com/jayvdb/augeas.git"
@@ -557,6 +532,7 @@ jobs:
       contents: write
     timeout-minutes: 30
     env:
+      MISE_ENV: maint,rust
       DTG_VERSION: "0.1.13"
       DTG_RELEASE_TAG: "dart-typegen-v1"
     steps:
@@ -646,6 +622,7 @@ jobs:
       contents: write
     timeout-minutes: 15
     env:
+      MISE_ENV: maint
       # Bump in lockstep with upstream's "Simple installer" page at
       # https://gnupg.org/download/ -- the .exe filename embeds both
       # the version and a build date stamp. Keep the date stamp here

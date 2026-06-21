@@ -504,6 +504,7 @@ depends = [
   "docker-check",
   "dprint-check",
   "editorconfig-check",
+  "gen-help-all",
   "gen-help-check",
   "gen-specs-check",
   "hadolint-check",
@@ -1043,7 +1044,10 @@ run = "git diff --exit-code -- verification/"
 # full clap-tree markdown rendering. gen-help-all regenerates every HELP.md;
 # gen-help-check diffs the committed files against fresh output. The pattern
 # mirrors pep257-rs's HELP.md flow.
+# It must run after regenerate-verification as they use different features,
+# and they can race, invoking the wrong binary, without the required feature.
 [tasks.gen-help-all]
+depends = ["cargo-check", "cargo-clippy-check", "cargo-doc-check", "regenerate-verification"]
 description = "Regenerate HELP.md for every clap-using utility under utilities/"
 run = """
 for crate in et-cli et-int-gen et-onnx; do

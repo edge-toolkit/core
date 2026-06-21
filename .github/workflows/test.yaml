@@ -107,7 +107,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y mesa-vulkan-drivers
+          sudo apt-get install -y --no-install-recommends mesa-vulkan-drivers
 
       - name: Install mise + tools
         uses: ./.github/actions/install-mise-tools

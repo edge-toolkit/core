@@ -1,19 +1,17 @@
 ---
 name: Install mise tools
 description: >-
-  Install mise (via install-mise), then trust the .mise config, and install
-  the toolchain named by the workflow's MISE_ENV (with one retry on transient
+  Runs `install-mise` action, then installs all of the tools in the per-language
+  toolchains named by the workflow's MISE_ENV (with one retry on transient
   HTTP flakes). Shared by check.yaml and test.yaml; the caller must run
   `actions/checkout` before this so .mise/config*.toml exists for `mise trust`.
 
 inputs:
   github-token:
     description: >-
-      GitHub token forwarded as `$GITHUB_TOKEN` to the mise/preinstall steps.
-      Raises the api.github.com rate-limit ceiling on aqua's attestation
-      lookups + tool-asset fetches.
+      GitHub token forwarded as `$GITHUB_TOKEN` to the mise install steps.
     required: true
-  extra-tools:
+  install-action-tools:
     description: >-
       Comma-separated tools to co-install via taiki-e/install-action in the
       same step as mise. Forwarded to install-mise's `extra-tools` input.
@@ -31,11 +29,7 @@ runs:
     - name: Install mise binary
       uses: ./.github/actions/install-mise
       with:
-        extra-tools: ${{ inputs.extra-tools }}
-
-    - name: Show MISE_ENV
-      shell: bash --noprofile --norc -euo pipefail {0}
-      run: echo "MISE_ENV=$MISE_ENV"
+        install-action: ${{ inputs.install-action-tools }}
 
     # Optional npm backend, installed before the main `mise install`.
     # Only useful when js env is loaded (it's the backend for npm:* tools, all
@@ -51,15 +45,23 @@ runs:
       run: mise run setup-aube
 
     - name: Install mise tools
+      id: install-mise-tools
+      continue-on-error: true
       shell: bash --noprofile --norc -euo pipefail {0}
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         mise run preinstall
-        # Retry once on transient api.github.com 5xx during the aqua attestation
-        # / asset fetches: the first attempt re-uses what's already on disk, so
-        # the retry usually clears single-tool HTTP flakes in seconds.
-        mise install || { echo "::warning::mise install failed, retrying once"; mise install; }
+        mise install
+
+    - name: Install mise tools (retry)
+      if: steps.install-mise-tools.outcome == 'failure'
+      shell: bash --noprofile --norc -euo pipefail {0}
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        sleep 20
+        mise install
 
     # Delete mise's auto-generated `mise.cmd` shim on Windows so cmd's PATH
     # search falls through to the real `mise.exe` at `~/.cargo/bin/mise.exe`

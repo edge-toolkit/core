@@ -7,6 +7,8 @@ description: >-
   jlumbroso/free-disk-space on Linux, which doesn't have a Windows path.
   Logs disk-free before + after so the reclaimed space is visible.
 
+  Enabling all makes approximately 10Gb free.
+
   Caller is responsible for the `if: runner.os == 'Windows'` guard --
   every step here uses Git Bash with `C:\` mounted at `/c`; running this
   on a non-Windows runner will silently no-op (no /c mount) at best.
@@ -40,15 +42,21 @@ inputs:
       Strawberry Perl) -- ~1 GB combined.
     required: false
     default: "true"
+  keep-image:
+    description: >-
+      Docker image (repo:tag) to preserve during the docker prune.
+      Empty (default) removes every image.
+    required: false
+    default: ""
 
 runs:
   using: composite
   steps:
-    - name: before
+    - name: Disk usage before
       shell: bash --noprofile --norc -euo pipefail {0}
       run: df -h /c
 
-    - name: Android SDK
+    - name: Remove Android SDK
       if: inputs.android == 'true'
       shell: bash --noprofile --norc -euo pipefail {0}
       run: |
@@ -56,7 +64,7 @@ runs:
           [ -e "$p" ] && { echo "removing $p"; rm -rf -- "$p"; } || true
         done
 
-    - name: hostedtoolcache old Pythons
+    - name: Remove hostedtoolcache old Pythons
       if: inputs.hostedtoolcache-old-pythons == 'true'
       shell: bash --noprofile --norc -euo pipefail {0}
       run: |
@@ -66,7 +74,7 @@ runs:
           rm -rf -- "$p"
         done
 
-    - name: hostedtoolcache old JDKs
+    - name: Remove hostedtoolcache old JDKs
       if: inputs.hostedtoolcache-old-jdks == 'true'
       shell: bash --noprofile --norc -euo pipefail {0}
       run: |
@@ -76,7 +84,7 @@ runs:
           rm -rf -- "$p"
         done
 
-    - name: old .NET SDKs
+    - name: Remove old .NET SDKs
       if: inputs.old-dotnet-sdks == 'true'
       shell: bash --noprofile --norc -euo pipefail {0}
       run: |
@@ -86,7 +94,7 @@ runs:
           rm -rf -- "$p"
         done
 
-    - name: misc SDKs
+    - name: Remove misc SDKs
       if: inputs.misc-sdks == 'true'
       shell: bash --noprofile --norc -euo pipefail {0}
       run: |
@@ -96,6 +104,21 @@ runs:
           [ -e "$p" ] && { echo "removing $p"; rm -rf -- "$p"; } || true
         done
 
-    - name: after
+    - name: Prune docker images and builder cache
+      shell: bash --noprofile --norc -euo pipefail {0}
+      env:
+        KEEP_IMAGE: ${{ inputs.keep-image }}
+      run: |
+        docker images
+        for img in $(docker images --format '{{.Repository}}:{{.Tag}}'); do
+          if [ "$img" != "$KEEP_IMAGE" ]; then
+            docker rmi -f "$img" || true
+          fi
+        done
+        docker container prune -f
+        docker network prune -f
+        docker builder prune -af
+
+    - name: Disk usage after
       shell: bash --noprofile --norc -euo pipefail {0}
       run: df -h /c

@@ -136,3 +136,24 @@ deny contains msg if {
 		[action_dir, event, sprintf("%s/**", [action_dir])],
 	)
 }
+
+deny contains msg if {
+	some name, job in input.jobs
+	some step in job.steps
+	is_string(step.run)
+	some line in split(step.run, "\n")
+	not startswith(trim_space(line), "#")
+	regex.match(`\bapt-get\s+install\b`, line)
+	not contains(line, "--no-install-recommends")
+	msg := sprintf("job %q: `apt-get install` must include --no-install-recommends on the same line", [name])
+}
+
+deny contains msg if {
+	some name, job in input.jobs
+	some step in job.steps
+	is_string(step.run)
+	some line in split(step.run, "\n")
+	not startswith(trim_space(line), "#")
+	regex.match(`\bapt(\s|$)`, line)
+	msg := sprintf("job %q: use `apt-get`, not `apt` (apt's UI is not stable across releases)", [name])
+}

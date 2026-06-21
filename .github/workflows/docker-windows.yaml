@@ -30,26 +30,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # `base` controls which Dockerfile is built; `runner` picks the host
-        # GHA runner. `nanoserver` is the minimal ~120 MB lane; `servercore`
-        # is the heavier ~1.25 GB lane with a fuller Windows runtime (used
-        # by Dockerfile.windows). Both run on each Windows runner version
-        # so we exercise the ltsc2022/ltsc2025 base-image pair against the
-        # matching runner kernel. Workflow-level MISE_ENV is the standard
-        # set; Dockerfile.nanoserver pins its own narrower MISE_ENV via an
-        # ENV that overrides the inherited ARG (Nano can't install python
-        # or dotnet).
         include:
           - runner: windows-2022
             base: nanoserver
+            windows_version: ltsc2022
           - runner: windows-2025
             base: nanoserver
-            build_arg: "--build-arg WINDOWS_VERSION=ltsc2025"
+            windows_version: ltsc2025
           - runner: windows-2022
             base: servercore
+            windows_version: ltsc2022
           - runner: windows-2025
             base: servercore
-            build_arg: "--build-arg WINDOWS_VERSION=ltsc2025"
+            windows_version: ltsc2025
     name: build (${{ matrix.runner }}, ${{ matrix.base }})
     timeout-minutes: 120
     env:
@@ -65,6 +58,7 @@ jobs:
           persist-credentials: false
 
       - name: Show MISE_ENV
+        if: matrix.base == 'servercore'
         run: echo "MISE_ENV=$MISE_ENV"
 
       # Hosted Windows runners don't reliably leave the Docker daemon running, so
@@ -75,40 +69,10 @@ jobs:
           sc query docker | grep -q RUNNING || net start docker
           docker version
 
-      # Reclaim runner C:\ before any docker work. Windows `docker build`
-      # stages HCS layer scratch under `C:\Windows\SystemTemp`, so every GB
-      # we free here is a GB that doesn't go to disk-pressure failures
-      # inside the build. Preinstalled trees we never touch (Android, old
-      # Python / JDK versions, old .NET SDKs, misc DB SDKs) come out first;
-      # the docker-prune step below clears any layer-cache leftovers.
       - name: Free disk space on Windows runner
         uses: ./.github/actions/free-disk-space-windows
-
-      # Free runner disk before the build. The Server Core lane has been hitting
-      # "There is not enough space on the disk" during the conda-clang-tools
-      # install inside `mise install`. `docker system prune -af` clears any
-      # unused images/containers from earlier matrix entries on the same
-      # runner; `docker builder prune -af` clears BuildKit's layer cache.
-      # Disk-free is logged before + after so we can see how much each prune
-      # actually reclaims on this runner image -- adjust the cleanup set up or
-      # down based on the delta.
-      - name: Free disk space before docker build
-        env:
-          PS_DISKFREE: Get-PSDrive C | Select-Object -Property Used,Free | Format-List
-        run: |
-          freespace() { powershell.exe -NoProfile -Command "$PS_DISKFREE"; }
-          echo "::group::disk-free BEFORE prune"
-          freespace
-          echo "::endgroup::"
-          echo "::group::docker system prune -af"
-          docker system prune -af
-          echo "::endgroup::"
-          echo "::group::docker builder prune -af"
-          docker builder prune -af
-          echo "::endgroup::"
-          echo "::group::disk-free AFTER prune"
-          freespace
-          echo "::endgroup::"
+        with:
+          keep-image: mcr.microsoft.com/windows/${{ matrix.base }}:${{ matrix.windows_version }}
 
       - name: Prepare mise and Github token for the build context
         run: |
@@ -139,7 +103,10 @@ jobs:
           DOCKERFILE: ${{ steps.dockerfile.outputs.dockerfile }}
           IMAGE_TAG: ${{ steps.dockerfile.outputs.tag }}
         run: |
-          args="-f $DOCKERFILE ${{ matrix.build_arg }} --build-arg MISE_ENV"
+          args="-f $DOCKERFILE --build-arg MISE_ENV"
+          if [ "${{ matrix.runner }}" != "windows-2022" ]; then
+            args="$args --build-arg WINDOWS_VERSION=${{ matrix.windows_version }}"
+          fi
           args="$args --target build-minimal -t $IMAGE_TAG"
           docker build $args .
 
@@ -181,7 +148,10 @@ jobs:
             target=precompile
             tag=""
           fi
-          args="-f $DOCKERFILE ${{ matrix.build_arg }} --build-arg MISE_ENV"
+          args="-f $DOCKERFILE --build-arg MISE_ENV"
+          if [ "${{ matrix.runner }}" != "windows-2022" ]; then
+            args="$args --build-arg WINDOWS_VERSION=${{ matrix.windows_version }}"
+          fi
           args="$args --target $target $tag"
           docker build $args .
 

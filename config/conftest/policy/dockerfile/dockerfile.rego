@@ -126,3 +126,28 @@ deny contains msg if {
 		[file.path, value],
 	)
 }
+
+deny contains msg if {
+	some file in input
+	is_array(file.contents)
+	some instr in file.contents
+	instr.Cmd == "run"
+	some value in instr.Value
+	some line in split(value, "\n")
+	not startswith(trim_space(line), "#")
+	regex.match(`\bapt-get\s+install\b`, line)
+	not contains(line, "--no-install-recommends")
+	msg := sprintf("%s: `apt-get install` must include --no-install-recommends on the same line", [file.path])
+}
+
+deny contains msg if {
+	some file in input
+	is_array(file.contents)
+	some instr in file.contents
+	instr.Cmd == "run"
+	some value in instr.Value
+	some line in split(value, "\n")
+	not startswith(trim_space(line), "#")
+	regex.match(`\bapt(\s|$)`, line)
+	msg := sprintf("%s: use `apt-get`, not `apt` (apt's UI is not stable across releases)", [file.path])
+}
