@@ -151,12 +151,11 @@ ENV TEMP=C:\Temp `
 # use). It's a transient build cache, so it lives under the temp dir above.
 ENV WASM_PACK_CACHE=C:\Temp\wasm-pack
 
-# Serialize mise's installs (MISE_JOBS=1). On Nano Server the parallel cargo:
-# source builds -- no gnu binstall prebuilts exist, so they fall back to `cargo
-# install` -- race on rustup's shared .rustup\downloads dir: one build's
-# component .partial vanishes before another rustup can rename it ("cannot find
-# the file", os error 2). Windows CI doesn't hit this (msvc binstall prebuilts
-# mean no source builds); the gnu Docker path does. One job at a time avoids it.
+# Serialize mise's installs (MISE_JOBS=1).
+# On Nano Server the parallel cargo: source builds -- no gnu binstall prebuilts exist, so they fall back to
+# `cargo install` -- race on rustup's shared .rustup\downloads dir: one build's component .partial vanishes
+# before another rustup can rename it ("cannot find the file", os error 2). Windows CI doesn't hit this (msvc
+# binstall prebuilts mean no source builds); the gnu Docker path does. One job at a time avoids it.
 ENV MISE_JOBS=1
 
 # Full Rust backtraces so any panic surfaces in the CI log.

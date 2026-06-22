@@ -1,5 +1,6 @@
-# GitHub Actions workflow rules that need the file path (not just the parsed body), so they run under `--combine`:
-# conftest hands every file in as an array of `{path, contents}`. Per-file rules live in `gha.rego`.
+# GitHub Actions workflow rules that need the file path, not just the parsed body.
+# They run under conftest's `--combine` mode, which hands every file in as an array of `{path, contents}`.
+# Per-file rules live in `gha.rego`.
 package gha_combined
 
 # Every workflow must trigger on pull_request so PR CI runs it when relevant code changes.

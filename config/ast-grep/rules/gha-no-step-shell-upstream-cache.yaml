@@ -2,9 +2,8 @@ id: gha-no-step-shell-upstream-cache
 language: yaml
 severity: error
 message: |
-  In upstream-cache.yaml the only permitted per-step `shell:` override is
-  `shell: msys2 {0}` -- the wrapper msys2/setup-msys2 requires for the augeas
-  Windows build to run inside its MINGW64 env (Git Bash isn't a substitute).
+  In upstream-cache.yaml the only permitted per-step `shell:` override is `shell: msys2 {0}` -- the wrapper
+  msys2/setup-msys2 requires for the augeas Windows build to run inside its MINGW64 env (Git Bash isn't a substitute).
   Any other shell override must use the workflow default bash.
 files:
   - .github/workflows/upstream-cache.yaml

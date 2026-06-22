@@ -17,9 +17,14 @@ rules:
     # that is blank or whose first non-whitespace char is not `#` (`[^#\s]`). Keying off the first non-whitespace
     # char -- not the first raw char -- is what stops an INDENTED comment line (whose leading whitespace would
     # otherwise read as a non-comment line) from anchoring a spurious match: interior continuation lines, which need
-    # not end in a period, stay unflagged regardless of indentation. The trailing `[^.\n:]` is the offending final
-    # character of the summary line.
-    pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^#\s][^\n]*)?\n)[ \t]*#[^\n]*[^.\n:]\n[ \t]*#'
+    # not end in a period, stay unflagged regardless of indentation. The check is two alternatives under
+    # `pattern-either` (kept separate so each regex line stays within the 120-char limit): the first flags a
+    # final char that is neither `.` nor `:` (`[^.\n:]`); the second flags a final `:` whose continuation line is
+    # NOT an enumeration item -- the negative lookahead `(?![ \t]*([-*]|[0-9]+[.)])[ \t])` reserves a trailing
+    # `:` for introducing a real list (`-`, `*`, or `N.`/`N)`), so a `:` followed by prose is still flagged.
+    pattern-either:
+      - pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^#\s][^\n]*)?\n)[ \t]*#[^\n]*[^.\n:]\n[ \t]*#'
+      - pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^#\s][^\n]*)?\n)[ \t]*#[^\n]*:\n[ \t]*#(?![ \t]*([-*]|[0-9]+[.)])[ \t])'
     message: >-
       A multi-line `#` comment block (TOML, YAML, Rego, or Dockerfile) must open with a
       single summary line ending in a full stop (PEP 257 style). The summary

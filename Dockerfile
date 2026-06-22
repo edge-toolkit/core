@@ -106,7 +106,7 @@ ARG DNF_PACKAGES="gcc-c++ glibc-devel kernel-headers libatomic libicu"
 ENV COMMON_PACKAGES=${COMMON_PACKAGES}
 ENV APT_PACKAGES=${APT_PACKAGES}
 ENV DNF_PACKAGES=${DNF_PACKAGES}
-# Leaving these package-list variables unquoted below is intentional:
+# Leaving these package-list variables unquoted below is intentional.
 # `$COMMON_PACKAGES` / `$APT_PACKAGES` / `$DNF_PACKAGES` / `$pkgs` are each a
 # space-separated list, and we WANT the shell to word-split each one into
 # distinct args for apt-get / dnf / tdnf / zypper.
@@ -192,7 +192,7 @@ COPY .mise/config.linux.toml .mise/config.linux.toml
 
 RUN mise trust
 
-# Preinstall via the shared preinstall task (the same a Linux workstation runs):
+# Preinstall via the shared preinstall task (the same a Linux workstation runs).
 # its setup-all base enables experimental + cargo.binstall and installs
 # cargo-binstall, node and conda:openssl; then `mise install` adds the rest of
 # the always-loaded tools. A GitHub token (if provided) lifts the anonymous rate
@@ -282,7 +282,7 @@ ENV NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=all
 # still a valid CPU fallback alongside the real GPU's ICD; the lvp glob
 # selects the software path either way.
 ENV VK_LOADER_DRIVERS_SELECT=lvp_icd*
-# Install the Vulkan runtime + lavapipe (CPU/software) driver per package manager:
+# Install the Vulkan runtime + lavapipe (CPU/software) driver per package manager.
 # Debian/Ubuntu: libvulkan1 + mesa-vulkan-drivers; Fedora/AL2023:
 # vulkan-loader + mesa-vulkan-drivers; Azure Linux: same as Fedora;
 # openSUSE: libvulkan1 + libvulkan_lvp (Mesa ships the lavapipe driver as

@@ -2,11 +2,10 @@ id: no-consecutive-expect
 language: Rust
 severity: error
 message: |
-  Consecutive `#[expect(...)]` attributes on the same item. Merge them into a
-  single `#[expect(lint_a, lint_b, reason = "...")]` (one attribute can list
-  several lints). Stacking separate `#[expect]`s -- even with a comment between
-  them -- fragments the suppression and makes it easy to leave one behind when
-  the underlying issue is fixed. Applies to inner `#![expect(...)]` too.
+  Consecutive `#[expect(...)]` attributes on the same item. Merge them into a single
+  `#[expect(lint_a, lint_b, reason = "...")]` (one attribute can list several lints). Stacking separate `#[expect]`s
+  -- even with a comment between them -- fragments the suppression and makes it easy to leave one behind when the
+  underlying issue is fixed. Applies to inner `#![expect(...)]` too.
 rule:
   any:
     # Match an outer `#[expect(...)]` whose nearest non-comment predecessor sibling is itself one.

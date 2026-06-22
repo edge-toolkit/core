@@ -466,7 +466,7 @@ jobs:
           clone_args="--depth 1 --branch $AUG_REF --recurse-submodules"
           git clone $clone_args "$AUG_FORK_REPO" "$srcdir"
           cd "$srcdir"
-          # CFLAGS, mirroring the fork's build.yml windows job:
+          # CFLAGS, mirroring the fork's build.yml windows job.
           #   -Wno-implicit-function-declaration: mingw-w64 gcc 14+ promoted
           #     this from warning to error; some autoconf probes still trip it.
           #   -Duint=unsigned: augeas headers use the BSD-ism `uint`, which

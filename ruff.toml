@@ -16,7 +16,7 @@ line-length = 120
 extend-exclude = ["componentize_py_async_support", "wit_world"]
 
 [lint]
-# On top of the default rule set (E, F):
+# On top of the default rule set (E, F).
 #   "I" -- isort import sorting. `ruff format` only handles whitespace; the "I" rules give deterministic
 #   grouping. datamodel-codegen's ruff formatter doesn't sort imports, so without this the generated
 #   messages.py drifts between regens.

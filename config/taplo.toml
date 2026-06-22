@@ -48,7 +48,7 @@ exclude = ["Cargo.toml"]
 include = ["**/Cargo.toml"]
 schema = { path = "config/taplo/require-workspace-deps.schema.json" }
 
-# Banned dep names across every dep table:
+# Banned dep names across every dep table.
 # `[dependencies]`, `[dev-dependencies]`, `[build-dependencies]`,
 # `[workspace.dependencies]`, and the `[target.*]` variants.
 [[rule]]

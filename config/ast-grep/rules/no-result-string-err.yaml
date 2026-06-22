@@ -2,10 +2,9 @@ id: no-result-string-err
 language: Rust
 severity: error
 message: |
-  `Result<_, String>` flattens any typed error to a free-form string at
-  the point of failure -- losing the source variant, the ability to
-  branch on it, and the chain of causes. Define a `thiserror` enum (or
-  reuse one of the workspace's `*Error` types) and return that instead.
+  `Result<_, String>` flattens any typed error to a free-form string at the point of failure -- losing the source
+  variant, the ability to branch on it, and the chain of causes. Define a `thiserror` enum (or reuse one of the
+  workspace's `*Error` types) and return that instead.
 rule:
   all:
     - kind: generic_type

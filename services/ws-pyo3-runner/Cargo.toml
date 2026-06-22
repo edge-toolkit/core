@@ -19,7 +19,7 @@ edge-toolkit.workspace = true
 # Typed ws-server REST client (storage GET/PUT).
 # `tracing` injects the W3C traceparent on each request, matching the other native runners.
 et-rest-client = { workspace = true, features = ["tracing"] }
-# Shared runner bootstrap:
+# Shared runner bootstrap.
 # env config (RUNNER_*/WS_*), `derive_http_base`, `collect_byte_stream`.
 et-ws-runner-common.workspace = true
 futures-util.workspace = true

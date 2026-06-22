@@ -49,9 +49,7 @@ gpg_verify = true
 
 [tools]
 action-validator = "latest"
-# jaq: a jq-compatible alternative implementation in Rust.
-# Prebuilt binaries for every project tier, unlike the C jq's missing release assets for some platforms.
-# Used as `jaq` in task bodies (gh's `--jq` flag is internal to gh, not affected).
+# jaq: a Rust jq-compatible alternative implementation with prebuilt binaries for every platform.
 "aqua:01mf02/jaq" = "latest"
 "aqua:EmbarkStudios/cargo-deny" = "latest"
 "aqua:StyraInc/regal" = "latest"
@@ -96,24 +94,17 @@ ripgrep = "latest"
 # source via cargo: (same 0.8.0 pin, so every platform runs the same version).
 "cargo:findutils" = { version = "0.8.0", os = ["linux/arm64"] }
 # goawk: the awk that tasks invoke as `goawk` in place of the host's awk.
-# Go, not Rust, but it's the one with prebuilt binaries for every platform we target.
 "github:benhoyt/goawk" = "latest"
-# parfit: width-aware comment/paragraph reflow tool (prebuilt for every tier).
 "github:caldempsey/parfit" = "latest"
 "github:grok-rs/waitup" = "latest"
 # ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
 "github:microsoft/onnxruntime" = "1.22.0"
-# ryl: prebuilt assets cover every platform we target except macos/x64.
-# That one slot builds from source via cargo: (same `latest` so every platform tracks the same release).
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
 "github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 "github:wasm-bindgen/wasm-bindgen" = "0.2.122"
-# go: Go toolchain.
-# Sole consumer right now is the `go:` backend that source-builds jqfmt
+# Sole consumer right now is the `go:` backend that source-builds jqfmt.
 # (noperator/jqfmt ships no release assets); add Go users here as they arrive.
 go = "latest"
-# jqfmt: jq formatter ("like gofmt, but for jq").
-# Source-built by the go: backend because upstream ships no release assets. Used by the `jq-fmt` task.
 "go:github.com/noperator/jqfmt/cmd/jqfmt" = "latest"
 hadolint = "latest"
 ls-lint = "latest"
@@ -129,8 +120,6 @@ pipx = { version = "latest", os = ["linux", "macos"] }
 # Proves a mise-installed python package lands on the embedded interpreter's
 # sys.path (see `edge_toolkit::config::mise_python_site_packages`).
 "pipx:cowsay" = "latest"
-# semgrep lints Cargo.toml style (see `semgrep-check`).
-# It stays in the always-loaded config alongside the other repo-wide linters.
 gh = "latest"
 "pipx:semgrep" = "latest"
 # Aqua has no pnpm darwin/amd64 prebuilt.
@@ -605,7 +594,7 @@ shell = "bash -euo pipefail -c"
 
 [tasks.conftest-check-yaml]
 description = "Run conftest OPA/Rego policies over the GitHub Actions workflow + action YAML"
-# Three passes over the workflow + action YAML:
+# Three passes over the workflow + action YAML.
 # per-file rules (gha, no_trailing_backslash) over workflow YAML; --combine rules (gha_combined) over
 # workflow YAML for cross-cutting invariants where the rule has to compare each workflow's parsed body
 # against its own filename (the `paths:` self-reference check; conftest's per-file mode has no `input.path`);
@@ -1159,7 +1148,7 @@ env = { RUST_TEST_THREADS = "1" }
 run = "cargo test -p et-ws-web-runner"
 
 [tasks.cargo-test]
-# Composite of two halves:
+# Composite of two halves.
 # cargo-test-other (workspace minus et-ws-web-runner) + test-ws-web-runner (serialized). Local devs /
 # hosts where disk and memory aren't tight invoke this single task; CI splits the two halves into
 # separate workflow steps for debuggability.

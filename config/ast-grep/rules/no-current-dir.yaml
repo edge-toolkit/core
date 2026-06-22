@@ -2,12 +2,10 @@ id: no-current-dir
 language: Rust
 severity: error
 message: |
-  `std::env::current_dir()` is forbidden outside the project-root helper. The
-  current directory is not a reliable anchor for repository files -- it depends
-  on where the binary happens to be invoked. Use
-  `edge_toolkit::config::get_project_root()` at runtime, or
-  `et_path::find_project_root()` from a build script at compile time; both
-  locate the repository root via the `.dprint.jsonc` marker.
+  `std::env::current_dir()` is forbidden outside the project-root helper. The current directory is not a reliable
+  anchor for repository files -- it depends on where the binary happens to be invoked. Use
+  `edge_toolkit::config::get_project_root()` at runtime, or `et_path::find_project_root()` from a build script at
+  compile time; both locate the repository root via the `.dprint.jsonc` marker.
 rule:
   any:
     - pattern: std::env::current_dir()

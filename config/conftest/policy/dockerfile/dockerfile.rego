@@ -65,7 +65,7 @@ deny contains msg if {
 	)
 }
 
-# RUN heredocs must invoke `bash` and use a QUOTED delimiter (`RUN bash <<'EOF'`). Two-part rule:
+# RUN heredocs must invoke `bash` and use a QUOTED delimiter (`RUN bash <<'EOF'`). Two-part rule.
 #
 # 1. bash as the interpreter. BuildKit's default heredoc shell is `/bin/sh`, which on Debian/Ubuntu is dash -- and
 #    dash rejects `set -euo pipefail` with `Illegal option -o pipefail` (exit 2). Routing the heredoc body through

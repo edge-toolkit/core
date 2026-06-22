@@ -2,12 +2,10 @@ id: no-map-err
 language: Rust
 severity: error
 message: |
-  `.map_err(...)` is forbidden. Convert through `From` (thiserror's
-  `#[from]` / `#[error(transparent)]`) and rely on `?`, or define an
-  extension trait whose impl carries the only `map_err` for the pattern.
-  At actix-web boundaries, derive `ResponseError` via
-  `actix-web-thiserror` instead of building `actix_web::error::Error*`
-  values inside `map_err` closures.
+  `.map_err(...)` is forbidden. Convert through `From` (thiserror's `#[from]` / `#[error(transparent)]`) and rely on
+  `?`, or define an extension trait whose impl carries the only `map_err` for the pattern. At actix-web boundaries,
+  derive `ResponseError` via `actix-web-thiserror` instead of building `actix_web::error::Error*` values inside
+  `map_err` closures.
 rule:
   pattern: $X.map_err($$$ARGS)
 ignores:

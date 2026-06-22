@@ -2,12 +2,10 @@ id: gha-job-timeout-minutes
 language: yaml
 severity: error
 message: |
-  Every GitHub Actions job must declare `timeout-minutes:` at the job level.
-  The runner's default per-job timeout is 360 minutes (6 hours), which is
-  long enough that a hung job (deadlocked test, infinite-recurse cargo
-  resolver, stuck `docker pull`) drains the runner-minutes budget before
-  anyone notices. Pin every job to a realistic ceiling for that job's work.
-  Use `${{ matrix.timeout }}` or similar if the right value varies by entry.
+  Every GitHub Actions job must declare `timeout-minutes:` at the job level. The runner's default per-job timeout is 360
+  minutes (6 hours), which is long enough that a hung job (deadlocked test, infinite-recurse cargo resolver, stuck
+  `docker pull`) drains the runner-minutes budget before anyone notices. Pin every job to a realistic ceiling for that
+  job's work. Use `${{ matrix.timeout }}` or similar if the right value varies by entry.
 files:
   - .github/workflows/*.yaml
 # Match every `runs-on:` whose containing block_mapping has no `timeout-minutes:` sibling.

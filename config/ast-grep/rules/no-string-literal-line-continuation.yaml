@@ -2,14 +2,11 @@ id: no-string-literal-line-continuation
 language: Rust
 severity: error
 message: |
-  Backslash-newline inside a Rust string literal is a line continuation
-  (the `\` + newline + leading whitespace all get elided at parse time).
-  Banned per the repo-wide no-trailing-backslash rule. Use `concat!("a",
-  "b")` to assemble a multi-line string literal, keep it on one line, or
-  drop to a raw string `r"..."` if the content really needs literal
-  backslashes at line ends. The semgrep `no-trailing-backslash` rule
-  catches the same pattern repo-wide via generic regex; this ast-grep
-  variant is the Rust-AST-aware companion (and runs faster).
+  Backslash-newline inside a Rust string literal is a line continuation (the `\` + newline + leading whitespace all
+  get elided at parse time). Banned per the repo-wide no-trailing-backslash rule. Use `concat!("a", "b")` to
+  assemble a multi-line string literal, keep it on one line, or drop to a raw string `r"..."` if the content really
+  needs literal backslashes at line ends. The semgrep `no-trailing-backslash` rule catches the same pattern
+  repo-wide via generic regex; this ast-grep variant is the Rust-AST-aware companion (and runs faster).
 rule:
   kind: string_literal
   regex: '\\\n'

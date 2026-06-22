@@ -2,11 +2,9 @@ id: gha-strategy-fail-fast-false
 language: yaml
 severity: error
 message: |
-  Any job that declares `strategy:` (matrix or otherwise) must also set
-  `fail-fast: false` inside it. GHA's default of `fail-fast: true` cancels
-  every other matrix entry the moment one fails, which hides the failure
-  modes specific to other OS / version / runner cells -- exactly the matrix
-  cells we added the matrix to exercise. Opt out explicitly:
+  Any job that declares `strategy:` (matrix or otherwise) must also set `fail-fast: false` inside it. GHA's default of
+  `fail-fast: true` cancels every other matrix entry the moment one fails, which hides the failure modes specific to
+  other OS / version / runner cells -- exactly the matrix cells we added the matrix to exercise. Opt out explicitly:
     strategy:
       fail-fast: false
       matrix:

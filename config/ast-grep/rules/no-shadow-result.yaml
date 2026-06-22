@@ -2,11 +2,9 @@ id: no-shadow-result
 language: Rust
 severity: error
 message: |
-  Don't shadow `std::result::Result` at file scope -- every bare `Result<T>`
-  then becomes ambiguous to readers. Either spell the error type at each
-  call site (`Result<T, my::Error>`), reference the local alias by its
-  qualified path (`crate::Result<T>`, `et_int_gen::Result<T>`), or alias
-  the import (`use foo::Result as FooResult;`).
+  Don't shadow `std::result::Result` at file scope -- every bare `Result<T>` then becomes ambiguous to readers.
+  Either spell the error type at each call site (`Result<T, my::Error>`), reference the local alias by its qualified
+  path (`crate::Result<T>`, `et_int_gen::Result<T>`), or alias the import (`use foo::Result as FooResult;`).
 rule:
   any:
     - all:

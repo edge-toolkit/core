@@ -2,10 +2,9 @@ id: gha-no-folded-strip
 language: yaml
 severity: error
 message: |
-  Don't use `>-` (folded block scalar with strip-chomping) in workflow YAML.
-  The output reflows whitespace and silently swallows trailing newlines, which
-  bites when the step's `run:` is a shell command that depends on line breaks
-  -- a `>-` block joins lines with spaces, not newlines.
+  Don't use `>-` (folded block scalar with strip-chomping) in workflow YAML. The output reflows whitespace and silently
+  swallows trailing newlines, which bites when the step's `run:` is a shell command that depends on line breaks -- a
+  `>-` block joins lines with spaces, not newlines.
   Use either:
   - a plain single-line `run: <command>`, or
   - a literal block `run: |` (which preserves newlines verbatim).

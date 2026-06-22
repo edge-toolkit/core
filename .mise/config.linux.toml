@@ -132,8 +132,8 @@ missing=""
 for pkg in $pkgs; do
   case "$pkg" in
     ca-certificates)
-      # Debian/Ubuntu: /etc/ssl/certs/ca-certificates.crt; Fedora/RHEL/AL2023:
-      # /etc/pki/tls/certs/ca-bundle.crt; openSUSE: /etc/ssl/ca-bundle.pem.
+      # Debian/Ubuntu: /etc/ssl/certs/ca-certificates.crt.
+      # Fedora/RHEL/AL2023: /etc/pki/tls/certs/ca-bundle.crt; openSUSE: /etc/ssl/ca-bundle.pem.
       [ -r /etc/ssl/certs/ca-certificates.crt ] ||
       [ -r /etc/pki/tls/certs/ca-bundle.crt ] ||
       [ -r /etc/ssl/ca-bundle.pem ] ;;

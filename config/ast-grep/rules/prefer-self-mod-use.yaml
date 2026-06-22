@@ -17,8 +17,8 @@ id: prefer-self-mod-use-bare-chain
 language: Rust
 severity: error
 message: |
-  This file declares `mod $X;` and references it via `use $X::...`.
-  Write `use self::$X::...` to make the local reference explicit.
+  This file declares `mod $X;` and references it via `use $X::...`. Write `use self::$X::...` to make the local
+  reference explicit.
 rule:
   pattern: use $X::$$$REST;
   inside:
@@ -39,8 +39,8 @@ id: prefer-self-mod-use-bare-group
 language: Rust
 severity: error
 message: |
-  This file declares `mod $X;` and references it via `use $X::{...}`.
-  Write `use self::$X::{...}` to make the local reference explicit.
+  This file declares `mod $X;` and references it via `use $X::{...}`. Write `use self::$X::{...}` to make the local
+  reference explicit.
 rule:
   pattern: use $X::{$$$REST};
   inside:
@@ -61,8 +61,8 @@ id: prefer-self-mod-use-pub-chain
 language: Rust
 severity: error
 message: |
-  This file declares `mod $X;` and re-exports it via `pub use $X::...`.
-  Write `pub use self::$X::...` to make the local reference explicit.
+  This file declares `mod $X;` and re-exports it via `pub use $X::...`. Write `pub use self::$X::...` to make the local
+  reference explicit.
 rule:
   all:
     - pattern: pub use $X::$$$REST;
@@ -85,8 +85,8 @@ id: prefer-self-mod-use-pub-group
 language: Rust
 severity: error
 message: |
-  This file declares `mod $X;` and re-exports it via `pub use $X::{...}`.
-  Write `pub use self::$X::{...}` to make the local reference explicit.
+  This file declares `mod $X;` and re-exports it via `pub use $X::{...}`. Write `pub use self::$X::{...}` to make the
+  local reference explicit.
 rule:
   all:
     - pattern: pub use $X::{$$$REST};
@@ -109,8 +109,8 @@ id: prefer-self-mod-use-pubcrate-chain
 language: Rust
 severity: error
 message: |
-  This file declares `mod $X;` and re-exports it via `pub(crate) use $X::...`.
-  Write `pub(crate) use self::$X::...` to make the local reference explicit.
+  This file declares `mod $X;` and re-exports it via `pub(crate) use $X::...`. Write `pub(crate) use self::$X::...` to
+  make the local reference explicit.
 rule:
   all:
     - pattern: pub(crate) use $X::$$$REST;
@@ -133,8 +133,8 @@ id: prefer-self-mod-use-pubcrate-group
 language: Rust
 severity: error
 message: |
-  This file declares `mod $X;` and re-exports it via `pub(crate) use $X::{...}`.
-  Write `pub(crate) use self::$X::{...}` to make the local reference explicit.
+  This file declares `mod $X;` and re-exports it via `pub(crate) use $X::{...}`. Write `pub(crate) use self::$X::{...}`
+  to make the local reference explicit.
 rule:
   all:
     - pattern: pub(crate) use $X::{$$$REST};
@@ -157,8 +157,8 @@ id: prefer-self-mod-use-pubsuper-chain
 language: Rust
 severity: error
 message: |
-  This file declares `mod $X;` and re-exports it via `pub(super) use $X::...`.
-  Write `pub(super) use self::$X::...` to make the local reference explicit.
+  This file declares `mod $X;` and re-exports it via `pub(super) use $X::...`. Write `pub(super) use self::$X::...` to
+  make the local reference explicit.
 rule:
   all:
     - pattern: pub(super) use $X::$$$REST;
@@ -181,8 +181,8 @@ id: prefer-self-mod-use-pubsuper-group
 language: Rust
 severity: error
 message: |
-  This file declares `mod $X;` and re-exports it via `pub(super) use $X::{...}`.
-  Write `pub(super) use self::$X::{...}` to make the local reference explicit.
+  This file declares `mod $X;` and re-exports it via `pub(super) use $X::{...}`. Write `pub(super) use self::$X::{...}`
+  to make the local reference explicit.
 rule:
   all:
     - pattern: pub(super) use $X::{$$$REST};

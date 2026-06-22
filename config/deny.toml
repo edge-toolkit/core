@@ -92,7 +92,7 @@ allow = [
   "Zlib",
 ]
 
-# Explicit per-crate clarifications:
+# Explicit per-crate clarifications.
 # cargo-deny otherwise emits a `no-license-field` warning when a crate's manifest uses `license-file` instead
 # of an SPDX `license` expression. Each entry below has been verified against the on-disk LICENSE in
 # ~/.cargo/registry. The mise `cargo-deny` task escalates `no-license-field` to a hard error so a new
