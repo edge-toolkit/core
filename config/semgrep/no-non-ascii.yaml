@@ -20,8 +20,9 @@ rules:
         - "*.onnx"
     pattern-regex: '[^\x00-\x7F]'
     message: >-
-      Non-ASCII character. Keep source, config, and docs ASCII-only: use `--` for an em-dash, `->` for an arrow,
-      `...` for an ellipsis, `<=`/`!=`/`^2` for math glyphs, and straight quotes for curly quotes. ASCII keeps
-      terminals, log scrapers, and `grep` reading the same bytes the editor shows. Generated trees (generated/,
-      verification/, HELP.md, pkg/) are exempt because their generator owns the output.
+      Non-ASCII character.
+      Keep source, config, and docs ASCII-only: use `--` for an em-dash, `->` for an arrow, `...` for an
+      ellipsis, `<=`/`!=`/`^2` for math glyphs, and straight quotes for curly quotes. ASCII keeps terminals, log
+      scrapers, and `grep` reading the same bytes the editor shows. Generated trees (generated/, verification/,
+      HELP.md, pkg/) are exempt because their generator owns the output.
     severity: ERROR

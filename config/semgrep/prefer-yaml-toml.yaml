@@ -19,6 +19,7 @@ rules:
         - "oxfmtrc.jsonc" # oxfmt: only JSON / JSONC supported
     pattern-regex: \A
     message: >-
-      Prefer YAML or TOML over JSON/JSONC/JSONL for config. If the tool requires a JSON-family format, prefer .jsonc
-      over .json so the config can carry inline comments, and add the file to this rule's paths.exclude allowlist.
+      Prefer YAML or TOML over JSON/JSONC/JSONL for config.
+      If the tool requires a JSON-family format, prefer .jsonc over .json so the config can carry inline comments,
+      and add the file to this rule's paths.exclude allowlist.
     severity: ERROR

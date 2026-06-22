@@ -26,9 +26,8 @@ rules:
       - pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^#\s][^\n]*)?\n)[ \t]*#[^\n]*[^.\n:]\n[ \t]*#'
       - pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^#\s][^\n]*)?\n)[ \t]*#[^\n]*:\n[ \t]*#(?![ \t]*([-*]|[0-9]+[.)])[ \t])'
     message: >-
-      A multi-line `#` comment block (TOML, YAML, Rego, or Dockerfile) must open with a
-      single summary line ending in a full stop (PEP 257 style). The summary
-      describes the whole block in one sentence; continuation lines follow.
-      End the first comment line with `.` (a `:` introducing an enumeration
+      A multi-line `#` comment block must open with a single summary line ending in a full stop (PEP 257 style).
+      This applies to TOML, YAML, Rego, and Dockerfile comments. The summary describes the whole block in one
+      sentence; continuation lines follow. End the first comment line with `.` (a `:` introducing an enumeration
       is also accepted).
     severity: ERROR
