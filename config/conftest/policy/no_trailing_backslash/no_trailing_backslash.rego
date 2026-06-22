@@ -1,6 +1,6 @@
-# Defense-in-depth duplicate of config/semgrep/no-trailing-backslash.yaml. Walks every string anywhere in the
-# combined input and flags any literal `\` immediately followed by a newline -- the trailing-backslash line
-# continuation we don't want anywhere in the repo.
+# Defense-in-depth duplicate of config/semgrep/no-trailing-backslash.yaml.
+# Flags the trailing-backslash line continuation we don't want anywhere in the repo, by walking every string
+# anywhere in the combined input and flagging any literal `\` immediately followed by a newline.
 #
 # Scope:
 # - TOML (`--namespace no_trailing_backslash` on conftest-check-toml): catches continuations embedded in multi-line
@@ -13,9 +13,10 @@
 #   per its `paths.exclude` (Dockerfile RUN bodies legitimately need line continuations).
 package no_trailing_backslash
 
-# Path key for the message: an array of indices/keys from the root of the parsed document down to the offending
-# string. Rego's `walk` yields [path, value] pairs over every node, so we filter to string leaves and regex-test for
-# `\` followed by `\n` (LF).
+# Flag any string leaf containing `\` followed by `\n` (LF), reporting its path key in the message.
+# The path key is an array of indices/keys from the root of the parsed document down to the offending string.
+# Rego's `walk` yields [path, value] pairs over every node, so we filter to string leaves and regex-test for `\`
+# followed by `\n` (LF).
 deny contains msg if {
 	some file in input
 	walk(file.contents, [path, value])

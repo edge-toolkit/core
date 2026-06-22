@@ -25,9 +25,7 @@ rules:
         - "/config/semgrep/no-todo.yaml"
     pattern-regex: '\bTODO\b'
     message: >-
-      TODOs are not allowed in this repo. Either resolve the work now, or, if
-      it must defer, add a single-line justification in the surrounding code
-      and add this file's path to no-todo.yaml's paths.exclude allowlist. Do
-      not duplicate a TODO across multiple files -- pick the single canonical
-      home and let `grep TODO` find it there.
+      TODOs are not allowed in this repo. Either resolve the work now, or, if it must defer, add a single-line
+      justification in the surrounding code and add this file's path to no-todo.yaml's paths.exclude allowlist. Do
+      not duplicate a TODO across multiple files -- pick the single canonical home and let `grep TODO` find it there.
     severity: ERROR

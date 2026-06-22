@@ -2,9 +2,6 @@ rules:
   - id: no-trailing-backslash
     languages: [generic]
     paths:
-      # Repo-wide.
-      # The files below already use trailing-backslash continuations and are allowlisted; everything else must avoid
-      # them (keep the value/statement on one line, or use concat!/[vars]/arrays).
       exclude:
         - "/README.md"
         - "/utilities/cli/README.md"
@@ -17,8 +14,7 @@ rules:
         - "/verification/**/compose.yaml"
     pattern-regex: '\\[ \t]*$'
     message: >-
-      Trailing-backslash line continuations are not allowed in this repo. Keep
-      it on one line, or use a language-appropriate alternative (concat!(...) in
-      Rust, a mise [vars] entry, a YAML/array form). If a file genuinely needs
-      them, add it to this rule's paths.exclude allowlist.
+      Trailing-backslash line continuations are not allowed in this repo. Keep it on one line, or use a
+      language-appropriate alternative (concat!(...) in Rust, a mise [vars] entry, a YAML/array form). If a file
+      genuinely needs them, add it to this rule's paths.exclude allowlist.
     severity: ERROR

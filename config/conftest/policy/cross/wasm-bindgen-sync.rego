@@ -1,10 +1,10 @@
-# Cross-file invariants, evaluated over conftest's `--combine` input (an array of {path, contents}). Run with
-# `--namespace cross`.
+# Cross-file invariants, run with `--namespace cross`.
+# Evaluated over conftest's `--combine` input (an array of {path, contents}).
 package cross
 
-# The mise `github:wasm-bindgen` pin must equal the wasm-bindgen package version in Cargo.lock. wasm-pack requires
-# the wasm-bindgen CLI to match the crate version exactly; when they match it uses the on-PATH (mise) binary,
-# otherwise it downloads its own. Keeping them equal avoids that download.
+# The mise `github:wasm-bindgen` pin must equal the wasm-bindgen package version in Cargo.lock.
+# wasm-pack requires the wasm-bindgen CLI to match the crate version exactly; when they match it uses the on-PATH
+# (mise) binary, otherwise it downloads its own. Keeping them equal avoids that download.
 mise_pin := pin if {
 	some file in input
 	endswith(file.path, ".mise/config.toml")

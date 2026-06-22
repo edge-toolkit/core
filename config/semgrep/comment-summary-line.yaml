@@ -5,6 +5,7 @@ rules:
       include:
         - "*.toml"
         - "*.yaml"
+        - "*.rego"
         - "Dockerfile*"
       exclude:
         # Skip machine-emitted TOML/YAML (int-gen / regen output).
@@ -20,7 +21,7 @@ rules:
     # character of the summary line.
     pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^#\s][^\n]*)?\n)[ \t]*#[^\n]*[^.\n:]\n[ \t]*#'
     message: >-
-      A multi-line `#` comment block (TOML, YAML, or Dockerfile) must open with a
+      A multi-line `#` comment block (TOML, YAML, Rego, or Dockerfile) must open with a
       single summary line ending in a full stop (PEP 257 style). The summary
       describes the whole block in one sentence; continuation lines follow.
       End the first comment line with `.` (a `:` introducing an enumeration

@@ -13,7 +13,6 @@ rules:
     # semgrep's `fix-regex` is not applied for generic `pattern-regex` rules in the pinned semgrep, so the dash-strip
     # rewrite (`# --- text ---` -> `# text`) can't be expressed as an autofix here.
     message: >-
-      Decorative `# --- text ---` banner comments are not allowed in
-      Dockerfiles. Use a plain, concise one-line comment (`# text`) instead:
-      drop the surrounding dash runs, keeping the inner text.
+      Decorative `# --- text ---` banner comments are not allowed in Dockerfiles. Use a plain, concise one-line
+      comment (`# text`) instead: drop the surrounding dash runs, keeping the inner text.
     severity: ERROR

@@ -12,9 +12,8 @@ rules:
     # line here.
     pattern-regex: "^RUN[^\\n]*<<'?[A-Z]+'?[^\\n]*\\n(?!set -euo pipefail$)"
     message: >-
-      Dockerfile RUN heredocs must begin with `set -euo pipefail` as the first
-      body line. BuildKit's default heredoc shell carries neither -e nor -o
-      pipefail (and dash on Debian/Ubuntu doesn't support -o pipefail at all),
-      so the strict-mode invariant has to be re-declared per body. Paired with
-      the conftest rule that requires `RUN <<EOF bash` for the interpreter.
+      Dockerfile RUN heredocs must begin with `set -euo pipefail` as the first body line. BuildKit's default heredoc
+      shell carries neither -e nor -o pipefail (and dash on Debian/Ubuntu doesn't support -o pipefail at all), so the
+      strict-mode invariant has to be re-declared per body. Paired with the conftest rule that requires
+      `RUN <<EOF bash` for the interpreter.
     severity: ERROR

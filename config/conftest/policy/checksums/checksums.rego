@@ -1,6 +1,6 @@
-# Bidirectional cross-reference between .mise/config*.toml's `<name>_asset` vars and
-# config/upstream-cache/data.toml's `[asset.<filename>]` tables. Run with `--namespace checksums`; the
-# conftest-check-toml task includes both file sets in its `--combine` input.
+# Bidirectional cross-reference between .mise/config*.toml's `<name>_asset` vars and data.toml's tables.
+# Cross-references against config/upstream-cache/data.toml's `[asset.<filename>]` tables. Run with
+# `--namespace checksums`; the conftest-check-toml task includes both file sets in its `--combine` input.
 #
 # Forward: a `*_asset` var must have a matching entry recorded, or its fetch-* task would download something we can't
 # integrity-verify. Reverse: a `[asset.<filename>]` table must be referenced by a `*_asset` var, or it is a stale
@@ -51,8 +51,8 @@ deny contains msg if {
 	)
 }
 
-# Per-entry shape check: url + license are required strings; sha256 must
-# be present (may be empty during bootstrap).
+# Per-entry shape check on each asset table.
+# url + license are required strings; sha256 must be present (may be empty during bootstrap).
 deny contains msg if {
 	some file in input
 	is_upstream_cache(file)

@@ -9,7 +9,7 @@
       "propertyNames": {
         "anyOf": [
           { "not": { "pattern": "^cargo:" } },
-          { "enum": ["cargo:cargo-expand", "cargo:dart-typegen", "cargo:findutils", "cargo:ryl", "cargo:toml-cli"] }
+          { "enum": ["cargo:cargo-expand", "cargo:dart-typegen", "cargo:findutils", "cargo:ryl"] }
         ]
       }
     }

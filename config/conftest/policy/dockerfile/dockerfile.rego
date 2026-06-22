@@ -1,16 +1,16 @@
-# Cross-checks for Dockerfile.nanoserver, evaluated over the Dockerfile plus the
-# .mise/config*.toml files combined (--combine, auto-detected parsers). Two rules:
+# Cross-checks for Dockerfile.nanoserver against the .mise/config*.toml pins, run with `--namespace dockerfile`.
+# Evaluated over the Dockerfile plus the .mise/config*.toml files combined (--combine, auto-detected parsers). Two
+# rules:
 #   1. version drift -- the Dockerfile hard-codes mise install-dir paths (LLVMBIN, the busybox shell, the python dir
 #      on PATH) that embed a tool's pinned version; those must match the [tools] pins (reuses mise.rego's matcher).
 #   2. MISE_DISABLE_TOOLS -- every pipx: tool in the always-loaded config.toml must be disabled here (pipx can't run
 #      on Nano Server), so a newly added pipx tool can't silently break the Windows build.
-# Run with `--namespace dockerfile`.
 package dockerfile
 
 import data.mise
 
-# Every string argument of an ENV/RUN instruction in the Dockerfile (its parsed contents is the array of instruction
-# objects; the TOMLs parse to objects).
+# Collect every string argument of an ENV/RUN instruction in the Dockerfile.
+# A Dockerfile's parsed contents is the array of instruction objects; the TOMLs parse to objects.
 docker_strings contains entry if {
 	some file in input
 	is_array(file.contents)
@@ -31,11 +31,11 @@ deny contains msg if {
 	)
 }
 
-# The comma-separated tools the Dockerfile asks mise to skip. The value is usually built from multiple ARGs and
-# composed into the final ENV (the 120-char limit plus the project's no-backslash rule make a single
-# `ENV MISE_DISABLE_TOOLS=...` line impractical), so scan every ARG/ENV value in the file and take whichever tokens
-# look like a tool name (contain `:`). The `${VAR}` placeholders the composing ENV holds get rejected by the same
-# filter -- only the leaf ARG values supply tools.
+# Collect the comma-separated tools the Dockerfile asks mise to skip.
+# The value is usually built from multiple ARGs and composed into the final ENV (the 120-char limit plus the
+# project's no-backslash rule make a single `ENV MISE_DISABLE_TOOLS=...` line impractical), so scan every ARG/ENV
+# value in the file and take whichever tokens look like a tool name (contain `:`). The `${VAR}` placeholders the
+# composing ENV holds get rejected by the same filter -- only the leaf ARG values supply tools.
 disabled_tools contains tool if {
 	some file in input
 	is_array(file.contents)
@@ -47,12 +47,12 @@ disabled_tools contains tool if {
 	tool := trim_space(token)
 }
 
+# Every pipx:* tool in the always-loaded config.toml must be in Dockerfile.nanoserver's MISE_DISABLE_TOOLS.
 # pipx:* tools can't run on Nano Server (no CPython, and the rustpython-based pipx bootstrap in config.windows.toml's
 # preinstall is currently broken with STATUS_DLL_NOT_FOUND / STATUS_ENTRYPOINT_NOT_FOUND on Nano's stripped API set,
-# hence the ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP env gate that defaults off). Every pipx:* tool in the always-loaded
-# config.toml must therefore be in Dockerfile.nanoserver's MISE_DISABLE_TOOLS. A previous canary carve-out
-# (pipx:cowsay stayed ENABLED on Nano so the build exercised the bootstrap end-to-end) was dropped together with the
-# bootstrap; re-introduce when the bootstrap is fixed upstream and re-enabled by default.
+# hence the ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP env gate that defaults off). A previous canary carve-out (pipx:cowsay
+# stayed ENABLED on Nano so the build exercised the bootstrap end-to-end) was dropped together with the bootstrap;
+# re-introduce when the bootstrap is fixed upstream and re-enabled by default.
 deny contains msg if {
 	some file in input
 	endswith(file.path, ".mise/config.toml")

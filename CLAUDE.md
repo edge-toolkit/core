@@ -59,6 +59,22 @@ markdown tables, JSON schemas, etc., keep each line under the limit on the first
 follow-up fix-up pass. The most common offenders are: long `reason = "..."` strings on lint attributes, JSON
 `description` fields, markdown table rows, and CI-task `description` fields.
 
+Under the limit is the floor, not the target -- write prose and comments to **maximise** use of the 120-char width
+repo-wide. Fill each line close to 120 before wrapping rather than breaking early at 60-80 chars; a paragraph that
+wraps narrowly wastes vertical space and reads as ragged. This applies to every prose surface: `#`/`//`/`--`
+comments, Rust doc comments and `reason = "..."` strings, YAML folded `>-` blocks (semgrep `message:` fields, lint
+rule messages), markdown, and Rego/policy headers. When you touch a block that wraps narrowly, reflow it to fill
+the width.
+
+## Keep everything ASCII
+
+Non-ASCII characters are **banned repo-wide** (enforced by the `no-non-ascii` semgrep rule). Write ASCII on the
+first draft -- never paste a glyph and expect a fix-up pass. Use the ASCII spelling instead: `--` for an em-dash,
+`->` for an arrow, `...` for an ellipsis, `<=`/`>=`/`!=`/`^2` for math glyphs, and straight `'`/`"` quotes for
+curly quotes. ASCII keeps terminals, log scrapers, and `grep` reading the same bytes the editor shows. The only
+exemptions are generator-owned trees (`generated/`, `verification/`, `**/HELP.md`, `**/pkg/`), license texts, and
+binary assets -- everything you hand-write is bound by the ban.
+
 ## No trailing-backslash line continuations
 
 Trailing-backslash line continuations (a line ending in `\` to join with the next) are **banned everywhere** in
@@ -478,8 +494,8 @@ pattern is the same for every cache entry; copy the `rustpython` / `augeas` / `d
    platform: `url`, `checksum = "sha256:..."`, `version`. The publish
    step should emit a `.sha256` sidecar alongside the tarball so the
    maintainer can paste the value into config.toml. (The rustpython
-   publish task auto-edits config.toml via `cargo:toml-cli` when
-   available -- same pattern is fine for new entries.)
+   publish task auto-edits config.toml -- same pattern is fine for new
+   entries.)
 
 5. **Asset metadata source of truth: `config/upstream-cache/data.toml`.**
    Every tarball / wheel / model file fetched from one of our releases
