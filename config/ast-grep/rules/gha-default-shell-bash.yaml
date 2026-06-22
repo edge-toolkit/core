@@ -15,10 +15,8 @@ message: |
 files:
   - .github/workflows/*.yaml
 # Fire on any workflow whose document does NOT contain the exact defaults -> run -> shell: ... nesting.
-# The `has`/`pattern` matches that
-# specific three-level mapping (a stray `shell: ...` on a step does NOT
-# satisfy it -- it isn't under defaults.run), and `not` turns "present" into
-# "required".
+# The `has`/`pattern` matches that specific three-level mapping (a stray `shell: ...` on a step does NOT satisfy it --
+# it isn't under defaults.run), and `not` turns "present" into "required".
 rule:
   kind: stream
   not:

@@ -11,9 +11,8 @@ message: |
 files:
   - .github/workflows/*.yaml
 # Match every `runs-on:` whose containing block_mapping has no `timeout-minutes:` sibling.
-# `runs-on:` is the GHA-required marker that a block is a job. Pattern-based,
-# not kind+constraint-based: tree-sitter's `field: key` selector behaved
-# inconsistently in this codebase's grammar version.
+# `runs-on:` is the GHA-required marker that a block is a job. Pattern-based, not kind+constraint-based: tree-sitter's
+# `field: key` selector behaved inconsistently in this codebase's grammar version.
 rule:
   pattern: "runs-on: $X"
   not:

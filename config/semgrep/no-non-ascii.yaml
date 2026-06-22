@@ -4,10 +4,9 @@ rules:
     paths:
       exclude:
         # Generated / build-output trees regenerate non-ASCII from their tools.
-        # The source of truth there is the generator, not a hand edit: clap's
-        # HELP.md carries a jump glyph; wasm-pack pkg/ bundles and the
-        # AsyncAPI/OpenAPI/WIT output under generated/ plus the regen-verification
-        # output under verification/ all reintroduce it.
+        # The source of truth there is the generator, not a hand edit: clap's HELP.md carries a jump glyph; wasm-pack
+        # pkg/ bundles and the AsyncAPI/OpenAPI/WIT output under generated/ plus the regen-verification output under
+        # verification/ all reintroduce it.
         - "/generated/**"
         - "/verification/**"
         - "**/HELP.md"

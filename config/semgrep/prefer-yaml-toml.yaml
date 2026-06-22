@@ -8,9 +8,8 @@ rules:
         - "*.jsonl"
       exclude:
         # Formats whose tooling mandates JSON/JSONC -- everything else should be YAML or TOML.
-        # Add a file here only if its tool can't read YAML/TOML; if the tool
-        # also supports JSONC, prefer that extension over plain JSON so the
-        # config can carry inline comments.
+        # Add a file here only if its tool can't read YAML/TOML; if the tool also supports JSONC, prefer that
+        # extension over plain JSON so the config can carry inline comments.
         - "*.schema.json" # JSON Schema documents
         - "package.json" # npm manifests
         - "/.vscode/*.json" # editor config

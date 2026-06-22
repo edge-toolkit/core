@@ -12,11 +12,9 @@ message: |
 files:
   - .github/workflows/*.yaml
 # Match every `uses: actions/checkout@...` whose surrounding step body lacks `fetch-depth: 1`.
-# The `regex` on the value field anchors at `actions/
-# checkout@` so we don't false-fire on `uses:` lines for other actions; the
-# `@$V` portion of the action ref isn't a separable meta-var (it's part of a
-# single plain_scalar token), which is why this is split into a `pattern:` +
-# `field-regex` shape rather than a single pattern.
+# The `regex` on the value field anchors at `actions/checkout@` so we don't false-fire on `uses:` lines for other
+# actions; the `@$V` portion of the action ref isn't a separable meta-var (it's part of a single plain_scalar token),
+# which is why this is split into a `pattern:` + `field-regex` shape rather than a single pattern.
 rule:
   all:
     - pattern: "uses: $X"

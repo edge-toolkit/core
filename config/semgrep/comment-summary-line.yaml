@@ -8,19 +8,15 @@ rules:
         - "Dockerfile*"
       exclude:
         # Skip machine-emitted TOML/YAML (int-gen / regen output).
-        # Hand-edits would drift on the next regeneration, so the comment
-        # style there is the generator's job, not ours.
+        # Hand-edits would drift on the next regeneration, so the comment style there is the generator's job, not ours.
         - "/generated/**"
         - "/verification/**"
     # Flag the FIRST line of a multi-line `#` comment block that lacks a closing full stop.
-    # The block-start anchor is the preceding line, consumed into the match:
-    # either start-of-file (`\A`) or a line that is blank or whose first
-    # non-whitespace char is not `#` (`[^#\s]`). Keying off the first
-    # non-whitespace char -- not the first raw char -- is what stops an
-    # INDENTED comment line (whose leading whitespace would otherwise read as
-    # a non-comment line) from anchoring a spurious match: interior
-    # continuation lines, which need not end in a period, stay unflagged
-    # regardless of indentation. The trailing `[^.\n:]` is the offending final
+    # The block-start anchor is the preceding line, consumed into the match: either start-of-file (`\A`) or a line
+    # that is blank or whose first non-whitespace char is not `#` (`[^#\s]`). Keying off the first non-whitespace
+    # char -- not the first raw char -- is what stops an INDENTED comment line (whose leading whitespace would
+    # otherwise read as a non-comment line) from anchoring a spurious match: interior continuation lines, which need
+    # not end in a period, stay unflagged regardless of indentation. The trailing `[^.\n:]` is the offending final
     # character of the summary line.
     pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^#\s][^\n]*)?\n)[ \t]*#[^\n]*[^.\n:]\n[ \t]*#'
     message: >-

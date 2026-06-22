@@ -1,13 +1,11 @@
 # Kept at the repo root on purpose (unlike config/deny.toml, config/osv-scanner.toml, config/taplo.toml).
-# Editors/IDEs (the VS Code Ruff extension, PyCharm) and pre-commit auto-discover
-# ruff config only as a root ruff.toml / .ruff.toml / pyproject.toml. ruff has no
-# config-path env var, so moving this under config/ would silently drop every
-# editor back to ruff's defaults (line-length 88, no isort). The mise tasks could
+# Editors/IDEs (the VS Code Ruff extension, PyCharm) and pre-commit auto-discover ruff config only as a root
+# ruff.toml / .ruff.toml / pyproject.toml. ruff has no config-path env var, so moving this under config/
+# would silently drop every editor back to ruff's defaults (line-length 88, no isort). The mise tasks could
 # pass --config, but the live editor experience can't, so it stays here.
 #
-# Match the repo-wide 120 line-length set in .editorconfig. Without this, ruff
-# would use its default of 88, so files that ruff considered "already
-# formatted" could still trip the editorconfig-check.
+# Match the repo-wide 120 line-length set in .editorconfig. Without this, ruff would use its default of 88, so files
+# that ruff considered "already formatted" could still trip the editorconfig-check.
 line-length = 120
 
 # Exclude componentize-py's generated bindings, which we don't own and don't ship.
@@ -19,10 +17,9 @@ extend-exclude = ["componentize_py_async_support", "wit_world"]
 
 [lint]
 # On top of the default rule set (E, F):
-#   "I" -- isort import sorting. `ruff format` only handles whitespace; the
-#   "I" rules give deterministic grouping. datamodel-codegen's ruff formatter
-#   doesn't sort imports, so without this the generated messages.py drifts
-#   between regens.
+#   "I" -- isort import sorting. `ruff format` only handles whitespace; the "I" rules give deterministic
+#   grouping. datamodel-codegen's ruff formatter doesn't sort imports, so without this the generated
+#   messages.py drifts between regens.
 #   "D" -- pydocstyle (PEP 257) docstring checks; see [lint.pydocstyle].
 # Use `extend-select`, not `select`, so we keep the default F401 (unused-import)
 # rule that openapi-python-client relies on internally -- it generates

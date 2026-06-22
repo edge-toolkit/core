@@ -5,20 +5,15 @@ message: |
   Don't set `shell:` on a workflow step. Every workflow defaults to bash
   (defaults.run.shell) and steps must use it -- write the step in bash (e.g.
   `sc`/`net`/`printf` instead of PowerShell cmdlets, even on Windows runners,
-  which have Git Bash) rather than overriding the shell per step. One
-  carve-out: `shell: msys2 {0}` (the wrapper that msys2/setup-msys2 requires
-  for steps running inside its MINGW64 env -- Git Bash isn't a substitute).
-  The matching conftest rule in `config/conftest/policy/gha/gha.rego`
-  applies the same allow-list.
+  which have Git Bash) rather than overriding the shell per step. No per-step
+  shell override is permitted in these workflows.
 files:
   - .github/workflows/*.yaml
+ignores:
+  - .github/workflows/upstream-cache.yaml
 rule:
   all:
     - pattern: "shell: $VALUE"
     - inside:
         kind: block_sequence
         stopBy: end
-    # `shell: msys2 {0}` is the wrapper msys2/setup-msys2 documents as the shell entry.
-    # It is required for steps that run inside its MINGW64 env.
-    - not:
-        regex: '^shell:\s*msys2\b'

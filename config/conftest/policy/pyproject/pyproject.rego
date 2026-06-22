@@ -3,8 +3,8 @@
 package pyproject
 
 # A `path = ".."` uv source points at the parent directory, which isn't a package
-# -- almost always a mistake. Sibling packages are referenced by their specific
-# relative path (e.g. ../../../generated/python-rest), not the bare parent.
+# -- almost always a mistake. Sibling packages are referenced by their specific relative path
+# (e.g. ../../../generated/python-rest), not the bare parent.
 deny contains msg if {
 	some file in input
 	endswith(file.path, "pyproject.toml")
@@ -13,8 +13,8 @@ deny contains msg if {
 	msg := sprintf("%s: [tool.uv.sources] %q uses path = \"..\"; point at the package path", [file.path, name])
 }
 
-# uv_build must be pinned to exactly the mise uv version, so `uv build` uses the
-# matching backend (no out-of-range warning). Bump both together when upgrading uv.
+# uv_build must be pinned to exactly the mise uv version, so `uv build` uses the matching backend (no out-of-range
+# warning). Bump both together when upgrading uv.
 uv_version := v if {
 	some file in input
 	endswith(file.path, ".mise/config.toml")

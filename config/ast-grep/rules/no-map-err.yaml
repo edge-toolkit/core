@@ -13,8 +13,7 @@ rule:
 ignores:
   - generated/**
   # Workspace helpers that intentionally wrap `map_err` so call sites can drop it.
-  # Treat these as the only places allowed to construct an error
-  # type *from* a foreign error type.
+  # Treat these as the only places allowed to construct an error type *from* a foreign error type.
   - libs/web/src/error.rs
   - utilities/cli/src/error.rs
   - services/ws-wasi-runner/src/host/error.rs

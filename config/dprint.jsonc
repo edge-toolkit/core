@@ -4,16 +4,14 @@
   },
   "java": {},
   "json": {},
-  // Match the repo-wide 120 line-length set in .editorconfig and ruff.toml,
-  // otherwise dprint's bundled ruff would reformat Python files to its
-  // default and fight with `mise run ruff-fmt`.
+  // Match the repo-wide 120 line-length set in .editorconfig and ruff.toml, otherwise dprint's bundled ruff would
+  // reformat Python files to its default and fight with `mise run ruff-fmt`.
   "ruff": {
     "lineLength": 120,
   },
   "malva": {},
-  // Match the repo-wide 120 line cap; dprint's markdown plugin otherwise
-  // defaults to 80 and reformats `js` code blocks more aggressively than the
-  // typescript plugin would on the same source.
+  // Match the repo-wide 120 line cap; dprint's markdown plugin otherwise defaults to 80 and reformats `js` code
+  // blocks more aggressively than the typescript plugin would on the same source.
   "markdown": {
     "lineWidth": 120,
   },
@@ -22,8 +20,7 @@
   // files without fighting:
   //   - arrowFunction.useParentheses=force -> always `(x) =>`, not `x =>`
   //   - memberExpression.linePerExpression -> break chained `.then().catch()`
-  //   - binaryExpression.operatorPosition=sameLine -> `&&` / `||` trailing
-  //     the previous line, not leading the next
+  //   - binaryExpression.operatorPosition=sameLine -> `&&` / `||` trailing the previous line, not leading the next
   "typescript": {
     "arrowFunction.useParentheses": "force",
     "binaryExpression.operatorPosition": "sameLine",

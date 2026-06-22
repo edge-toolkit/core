@@ -3,10 +3,9 @@ rules:
     languages: [generic]
     paths:
       # Repo-wide.
-      # Each existing TODO is allowlisted by file path below; new TODOs must
-      # either resolve before merge or be added here with a one-line
-      # justification in the surrounding code about why this one is genuinely
-      # deferred (not just "haven't gotten to it").
+      # Each existing TODO is allowlisted by file path below; new TODOs must either resolve before merge or be added
+      # here with a one-line justification in the surrounding code about why this one is genuinely deferred (not just
+      # "haven't gotten to it").
       exclude:
         # The TODO that authorises the carve-outs below -- the canonical spot.
         # Since the source of the TODO is the rename it tracks.

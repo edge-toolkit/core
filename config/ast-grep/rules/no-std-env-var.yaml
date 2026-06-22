@@ -24,8 +24,8 @@ constraints:
   ARG:
     not:
       # Allow a string literal or a const identifier with one of the exempt prefixes.
-      # That is a string literal ("RUST_LOG" / "ET_TEST_..." / "MISE_...") or a
-      # const identifier (RUST_LOG / ET_TEST_... / MISE_...).
+      # That is a string literal ("RUST_LOG" / "ET_TEST_..." / "MISE_...") or a const identifier
+      # (RUST_LOG / ET_TEST_... / MISE_...).
       regex: '^"?(RUST_|ET_TEST_|MISE_)'
 ignores:
   # The project-root helper reads CARGO_MANIFEST_DIR to locate the repo root from a build script.

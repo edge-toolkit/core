@@ -1,22 +1,17 @@
 # When a file declares `mod $X;` and references it via `use $X::...`, write `use self::$X::...`.
-# This makes the local reference explicit. Split
-# into 8 multi-doc sub-rules (bare/pub/pub(crate)/pub(super) x chain/group):
-# ast-grep allows one `fix:` per rule, and the eight match patterns differ
-# in surface form (presence of `pub`-form, presence of braces) in ways a
-# single fix template can't reconstruct.
+# This makes the local reference explicit. Split into 8 multi-doc sub-rules (bare/pub/pub(crate)/pub(super) x
+# chain/group): ast-grep allows one `fix:` per rule, and the eight match patterns differ in surface form (presence of
+# `pub`-form, presence of braces) in ways a single fix template can't reconstruct.
 #
 # Visibility disambiguation: ast-grep treats `pub`, `pub(crate)`, `pub(super)`
-# as structurally interchangeable when matching, so `pub use $X::...` would
-# match all three. Each pub-form sub-rule adds a `regex:` anchor on the
-# matched text to require the exact visibility prefix, so the autofix never
-# rewrites `pub(crate)` to `pub` (or vice-versa).
+# as structurally interchangeable when matching, so `pub use $X::...` would match all three. Each pub-form sub-rule adds
+# a `regex:` anchor on the matched text to require the exact visibility prefix, so the autofix never rewrites
+# `pub(crate)` to `pub` (or vice-versa).
 #
 # Known limitation (pre-existing -- same as the original single-rule form):
-# the `use $X::$$$REST;` shape matches the top-level `scoped_identifier`
-# split, so multi-segment chains like `use mod::deep::leaf;` aren't flagged
-# (tree-sitter parses them as nested scoped_identifiers; $X binds to the
-# nested subtree, not to `mod`). The autofix likewise only fires on single-
-# segment chains.
+# the `use $X::$$$REST;` shape matches the top-level `scoped_identifier` split, so multi-segment chains like `use
+# mod::deep::leaf;` aren't flagged (tree-sitter parses them as nested scoped_identifiers; $X binds to the nested
+# subtree, not to `mod`). The autofix likewise only fires on single-segment chains.
 
 id: prefer-self-mod-use-bare-chain
 language: Rust

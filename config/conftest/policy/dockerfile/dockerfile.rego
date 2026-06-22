@@ -1,18 +1,16 @@
 # Cross-checks for Dockerfile.nanoserver, evaluated over the Dockerfile plus the
 # .mise/config*.toml files combined (--combine, auto-detected parsers). Two rules:
-#   1. version drift -- the Dockerfile hard-codes mise install-dir paths (LLVMBIN,
-#      the busybox shell, the python dir on PATH) that embed a tool's pinned
-#      version; those must match the [tools] pins (reuses mise.rego's matcher).
-#   2. MISE_DISABLE_TOOLS -- every pipx: tool in the always-loaded config.toml
-#      must be disabled here (pipx can't run on Nano Server), so a newly added
-#      pipx tool can't silently break the Windows build.
+#   1. version drift -- the Dockerfile hard-codes mise install-dir paths (LLVMBIN, the busybox shell, the python dir
+#      on PATH) that embed a tool's pinned version; those must match the [tools] pins (reuses mise.rego's matcher).
+#   2. MISE_DISABLE_TOOLS -- every pipx: tool in the always-loaded config.toml must be disabled here (pipx can't run
+#      on Nano Server), so a newly added pipx tool can't silently break the Windows build.
 # Run with `--namespace dockerfile`.
 package dockerfile
 
 import data.mise
 
-# Every string argument of an ENV/RUN instruction in the Dockerfile (its parsed
-# contents is the array of instruction objects; the TOMLs parse to objects).
+# Every string argument of an ENV/RUN instruction in the Dockerfile (its parsed contents is the array of instruction
+# objects; the TOMLs parse to objects).
 docker_strings contains entry if {
 	some file in input
 	is_array(file.contents)
@@ -33,13 +31,11 @@ deny contains msg if {
 	)
 }
 
-# The comma-separated tools the Dockerfile asks mise to skip. The value is
-# usually built from multiple ARGs and composed into the final ENV (the
-# 120-char limit plus the project's no-backslash rule make a single
-# `ENV MISE_DISABLE_TOOLS=...` line impractical), so scan every ARG/ENV
-# value in the file and take whichever tokens look like a tool name
-# (contain `:`). The `${VAR}` placeholders the composing ENV holds get
-# rejected by the same filter -- only the leaf ARG values supply tools.
+# The comma-separated tools the Dockerfile asks mise to skip. The value is usually built from multiple ARGs and
+# composed into the final ENV (the 120-char limit plus the project's no-backslash rule make a single
+# `ENV MISE_DISABLE_TOOLS=...` line impractical), so scan every ARG/ENV value in the file and take whichever tokens
+# look like a tool name (contain `:`). The `${VAR}` placeholders the composing ENV holds get rejected by the same
+# filter -- only the leaf ARG values supply tools.
 disabled_tools contains tool if {
 	some file in input
 	is_array(file.contents)
@@ -51,15 +47,12 @@ disabled_tools contains tool if {
 	tool := trim_space(token)
 }
 
-# pipx:* tools can't run on Nano Server (no CPython, and the rustpython-based
-# pipx bootstrap in config.windows.toml's preinstall is currently broken
-# with STATUS_DLL_NOT_FOUND / STATUS_ENTRYPOINT_NOT_FOUND on Nano's stripped
-# API set, hence the ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP env gate that defaults
-# off). Every pipx:* tool in the always-loaded config.toml must therefore be
-# in Dockerfile.nanoserver's MISE_DISABLE_TOOLS. A previous canary carve-out
-# (pipx:cowsay stayed ENABLED on Nano so the build exercised the bootstrap
-# end-to-end) was dropped together with the bootstrap; re-introduce when the
-# bootstrap is fixed upstream and re-enabled by default.
+# pipx:* tools can't run on Nano Server (no CPython, and the rustpython-based pipx bootstrap in config.windows.toml's
+# preinstall is currently broken with STATUS_DLL_NOT_FOUND / STATUS_ENTRYPOINT_NOT_FOUND on Nano's stripped API set,
+# hence the ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP env gate that defaults off). Every pipx:* tool in the always-loaded
+# config.toml must therefore be in Dockerfile.nanoserver's MISE_DISABLE_TOOLS. A previous canary carve-out
+# (pipx:cowsay stayed ENABLED on Nano so the build exercised the bootstrap end-to-end) was dropped together with the
+# bootstrap; re-introduce when the bootstrap is fixed upstream and re-enabled by default.
 deny contains msg if {
 	some file in input
 	endswith(file.path, ".mise/config.toml")
@@ -72,31 +65,22 @@ deny contains msg if {
 	)
 }
 
-# RUN heredocs must invoke `bash` and use a QUOTED delimiter
-# (`RUN bash <<'EOF'`). Two-part rule:
+# RUN heredocs must invoke `bash` and use a QUOTED delimiter (`RUN bash <<'EOF'`). Two-part rule:
 #
-# 1. bash as the interpreter. BuildKit's default heredoc shell is
-#    `/bin/sh`, which on Debian/Ubuntu is dash -- and dash rejects
-#    `set -euo pipefail` with `Illegal option -o pipefail` (exit 2).
-#    Routing the heredoc body through bash makes the strict-mode line
-#    at the top of every body actually work. Per the Dockerfile spec
-#    the interpreter goes BEFORE the `<<TAG` opener (not after --
-#    BuildKit treats trailing words as part of the literal command,
-#    the inverse `RUN <<EOF bash` form never works).
-# 2. Quoted delimiter. With an unquoted `<<EOF` the outer `/bin/sh -c`
-#    that wraps the RUN performs `$(...)` command substitution on the
-#    body BEFORE handing it to bash. On Fedora that ran `apt-cache` (a
-#    Debian-only tool) and aborted with `apt-cache: command not found`;
-#    on Debian/Ubuntu it ran `apt-cache` before the script's own
-#    `apt-get update` line, so the cache was stale and the lookup
-#    returned empty. Quoting (`<<'EOF'`) defers all expansion to bash,
-#    which only evaluates the line inside the correct package-manager
-#    branch. ARG values needed inside the body are promoted to ENV
-#    before the RUN so bash can resolve them from the environment.
+# 1. bash as the interpreter. BuildKit's default heredoc shell is `/bin/sh`, which on Debian/Ubuntu is dash -- and
+#    dash rejects `set -euo pipefail` with `Illegal option -o pipefail` (exit 2). Routing the heredoc body through
+#    bash makes the strict-mode line at the top of every body actually work. Per the Dockerfile spec the interpreter
+#    goes BEFORE the `<<TAG` opener (not after -- BuildKit treats trailing words as part of the literal command, the
+#    inverse `RUN <<EOF bash` form never works).
+# 2. Quoted delimiter. With an unquoted `<<EOF` the outer `/bin/sh -c` that wraps the RUN performs `$(...)` command
+#    substitution on the body BEFORE handing it to bash. On Fedora that ran `apt-cache` (a Debian-only tool) and
+#    aborted with `apt-cache: command not found`; on Debian/Ubuntu it ran `apt-cache` before the script's own
+#    `apt-get update` line, so the cache was stale and the lookup returned empty. Quoting (`<<'EOF'`) defers all
+#    expansion to bash, which only evaluates the line inside the correct package-manager branch. ARG values needed
+#    inside the body are promoted to ENV before the RUN so bash can resolve them from the environment.
 #
-# The `set -euo pipefail` first-line check itself is a semgrep rule
-# (the Dockerfile parser flattens heredoc bodies out of the AST, so
-# conftest can't see them; semgrep operates on the raw file text).
+# The `set -euo pipefail` first-line check itself is a semgrep rule (the Dockerfile parser flattens heredoc bodies out
+# of the AST, so conftest can't see them; semgrep operates on the raw file text).
 deny contains msg if {
 	some file in input
 	is_array(file.contents)

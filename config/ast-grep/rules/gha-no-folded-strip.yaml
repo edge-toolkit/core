@@ -13,17 +13,14 @@ files:
   - .github/workflows/*.yaml
   - .github/actions/*/action.yaml
 # tree-sitter parses every block scalar as a single `block_scalar` node whose header is its leading text.
-# This covers folded `>`, literal `|`, both with their chomping variants `+` / `-`.
-# Regex-match only the `>-` form so `>`,
-# `|`, and `|-` continue to pass; `^>-` anchors at the start of the node text
-# so we don't accidentally match a `>-` that appears inside the scalar body.
+# This covers folded `>`, literal `|`, both with their chomping variants `+` / `-`. Regex-match only the `>-` form so
+# `>`, `|`, and `|-` continue to pass; `^>-` anchors at the start of the node text so we don't accidentally match a
+# `>-` that appears inside the scalar body.
 #
-# Carve-outs: `shell: >-` is fine because shell values are command-line
-# strings that NEED whitespace folding (a multi-line `${{ ... && ... ||
-# ... }}` ternary must fold to one command line). `description: >-` is
-# fine because action.yaml documentation fields ARE long folded
-# paragraphs by design -- newline loss is the wanted behavior, not the
-# feared one.
+# Carve-outs: `shell: >-` is fine because shell values are command-line strings that NEED whitespace folding (a
+# multi-line `${{ ... && ... || ... }}` ternary must fold to one command line). `description: >-` is fine because
+# action.yaml documentation fields ARE long folded paragraphs by design -- newline loss is the wanted behavior, not
+# the feared one.
 rule:
   all:
     - kind: block_scalar

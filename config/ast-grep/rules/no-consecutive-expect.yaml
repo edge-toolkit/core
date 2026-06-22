@@ -10,8 +10,8 @@ message: |
 rule:
   any:
     # Match an outer `#[expect(...)]` whose nearest non-comment predecessor sibling is itself one.
-    # `stopBy` skips comment nodes but halts at the
-    # first real sibling, so an intervening item (fn, derive, ...) breaks the run.
+    # `stopBy` skips comment nodes but halts at the first real sibling, so an intervening item (fn, derive, ...)
+    # breaks the run.
     - kind: attribute_item
       regex: '^#\[\s*expect\b'
       follows:

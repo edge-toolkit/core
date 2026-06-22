@@ -1,7 +1,6 @@
 # ls-lint file/directory naming linter (https://ls-lint.org).
-# Run via `mise run ls-lint-check`. ls-lint walks the working tree (not git),
-# so the build/vendor/codegen trees are ignored below and only hand-written
-# source is linted. Each rule lists the casings actually used in the repo today.
+# Run via `mise run ls-lint-check`. ls-lint walks the working tree (not git), so the build/vendor/codegen trees are
+# ignored below and only hand-written source is linted. Each rule lists the casings actually used in the repo today.
 ls:
   # Directories are kebab-case (most) or snake_case (a few generated-style names).
   # The regex alternative permits leading-dot tool dirs (.github, .mise).

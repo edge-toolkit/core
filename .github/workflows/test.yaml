@@ -114,22 +114,22 @@ jobs:
         with:
           github-token: ${{ github.token }}
 
+      # GITHUB_TOKEN raises the rate-limit ceiling on mise's fetch of the rp-v<N> rustpython_wasm tarball.
+      # (The fetch is [tools."http:rp-wasm"], via mise's http backend against github.com release assets.)
       - name: Prefetch dependencies
         timeout-minutes: 15
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run prefetch-ci
 
-      # Set env that smooths mise's fetches and (on Windows) serializes its scheduler.
-      # GITHUB_TOKEN raises the rate-limit ceiling on mise's fetch of the rp-v<N> rustpython_wasm tarball
-      # ([tools."http:rp-wasm"] -> mise's http backend against github.com release assets). MISE_JOBS=1 on Windows
-      # serializes mise's task scheduler so the parallel `build-ws-*-module` deps don't race on cargo's
-      # `.cargo/registry/index` lock -- on Linux/macOS cargo waits gracefully, but on Windows it fails fast with
-      # `cargo metadata exited with an error: Blocking waiting for file lock on package cache` (observed in job
-      # 82448665293, where build-ws-graphics-info-module + build-ws-nfc-module + build-ws-har1-module all kicked
-      # off in parallel). Conditional via a separate step rather than a step-level `env:` because mise rejects an
-      # empty MISE_JOBS value ("cannot parse integer from empty string"), and GHA has no `if:` on individual env
-      # entries.
+      # MISE_JOBS=1 on Windows serializes mise's task scheduler so parallel `build-ws-*-module` deps don't race.
+      # The contention is on cargo's `.cargo/registry/index` lock -- on Linux/macOS cargo waits gracefully, but
+      # on Windows it fails fast with
+      # `cargo metadata exited with an error: Blocking waiting for file lock on package cache`
+      # (observed in job 82448665293, where build-ws-graphics-info-module + build-ws-nfc-module +
+      # build-ws-har1-module all kicked off in parallel). Conditional via a separate step rather than a step-level
+      # `env:` because mise rejects an empty MISE_JOBS value ("cannot parse integer from empty string"), and GHA
+      # has no `if:` on individual env entries.
       - name: Serialize mise tasks on Windows
         if: runner.os == 'Windows'
         run: echo "MISE_JOBS=1" >> "$GITHUB_ENV"

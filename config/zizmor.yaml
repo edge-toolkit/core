@@ -1,8 +1,7 @@
 # zizmor GitHub Actions audit config, applied via `mise run zizmor-check`.
 #
-# We pin actions by tag (`@v4`), not by commit hash: tags are readable and
-# Dependabot keeps them current. So the `unpinned-uses` audit's default
-# hash-pin policy is turned off here -- `any` accepts a tag/branch ref.
+# We pin actions by tag (`@v4`), not by commit hash: tags are readable and Dependabot keeps them current. So the
+# `unpinned-uses` audit's default hash-pin policy is turned off here -- `any` accepts a tag/branch ref.
 rules:
   unpinned-uses:
     config:
@@ -10,7 +9,7 @@ rules:
         "*": any
   obfuscation:
     # test.yaml's matrix `include` is built with `fromJSON(... format(...))`.
-    # Precisely because the OS list depends on `github.event_name` / the
-    # workflow_dispatch input -- it cannot "be reduced to a constant".
+    # Precisely because the OS list depends on `github.event_name` / the workflow_dispatch input -- it cannot
+    # "be reduced to a constant".
     ignore:
       - test.yaml

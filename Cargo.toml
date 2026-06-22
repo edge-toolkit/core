@@ -112,8 +112,7 @@ progenitor-client = "0.14"
 # `auto-initialize` starts the embedded CPython interpreter on first use.
 # The pyo3 runner never calls `Py_Initialize` itself.
 pyo3 = { version = "0.28", features = ["auto-initialize"] }
-# Build-script half of pyo3.
-# Kept on the same release so both resolve the interpreter identically.
+# Build-script half of pyo3. Kept on the same release so both resolve the interpreter identically.
 pyo3-build-config = "0.28"
 qr2term = "0.3"
 quote = "1"

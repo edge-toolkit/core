@@ -15,8 +15,7 @@ message: |
 files:
   - .github/workflows/*.yaml
 # Fire on any workflow whose stream does NOT contain the exact concurrency block.
-# Same shape as gha-default-shell-bash.yaml: pattern under
-# `not: has: stopBy: end` turns "present" into "required".
+# Same shape as gha-default-shell-bash.yaml: pattern under `not: has: stopBy: end` turns "present" into "required".
 rule:
   kind: stream
   not:

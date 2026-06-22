@@ -4,8 +4,8 @@ package mise
 
 is_mise(file) if startswith(file.path, ".mise/config")
 
-# A task `run` must be a string, not an array: taplo's reorder_arrays would
-# re-sort the commands of an array form and scramble the sequence.
+# A task `run` must be a string, not an array: taplo's reorder_arrays would re-sort the commands of an array form
+# and scramble the sequence.
 deny contains msg if {
 	some file in input
 	is_mise(file)
@@ -15,10 +15,9 @@ deny contains msg if {
 }
 
 # A multiline `run` must use `shell = "bash -euo pipefail -c"` so a failing
-# command fails the task instead of being masked. The xtrace variant
-# (`bash -xeuo pipefail -c`) is also accepted: prints every command as it
-# runs, used on the Windows OS-specific preinstall where full transcripts
-# matter for diagnosing busybox-ash + path-mangling failures.
+# command fails the task instead of being masked. The xtrace variant (`bash -xeuo pipefail -c`) is also accepted:
+# prints every command as it runs, used on the Windows OS-specific preinstall where full transcripts matter for
+# diagnosing busybox-ash + path-mangling failures.
 allowed_run_shells := {"bash -euo pipefail -c", "bash -xeuo pipefail -c"}
 
 deny contains msg if {
@@ -44,14 +43,11 @@ deny contains msg if {
 	msg := sprintf("%s: task %q description must be a single line", [file.path, name])
 }
 
-# `compgen` is a bash builtin that busybox-w32 ash (Nano Server's shell) does
-# not provide -- a task using it fails on Nano with the literal error
-# `<compgen>: not found` (verified in the build-rp-native task). Skip lines
-# whose first non-whitespace char is `#` so explanatory comments (like this
-# one's siblings) don't false-positive. POSIX-portable alternatives include
-# `[ -e "$prefix/bin/foo" ] || [ -e "$prefix/bin/foo.exe" ]` for an
-# extension-agnostic existence check, and `for f in "$prefix/bin/foo"*` to
-# walk a literal glob (no-match leaves the literal as the loop var).
+# `compgen` is a bash builtin that busybox-w32 ash (Nano Server's shell) does not provide -- a task using it fails on
+# Nano with the literal error `<compgen>: not found` (verified in the build-rp-native task). Skip lines whose first
+# non-whitespace char is `#` so explanatory comments (like this one's siblings) don't false-positive. POSIX-portable
+# alternatives include `[ -e "$prefix/bin/foo" ] || [ -e "$prefix/bin/foo.exe" ]` for an extension-agnostic existence
+# check, and `for f in "$prefix/bin/foo"*` to walk a literal glob (no-match leaves the literal as the loop var).
 deny contains msg if {
 	some file in input
 	is_mise(file)
@@ -66,16 +62,13 @@ deny contains msg if {
 	)
 }
 
-# `cargo:` tools build from source; prefer a prebuilt backend. Allowed only when
-# either (a) the tool has no prebuilt anywhere -- allowlisted by name below, or
-# (b) it is os-scoped to second-tier platforms (linux/arm64, macos/x64), whose
-# prebuilt assets release authors often skip. A first-tier platform (linux/x64,
-# macos/arm64, windows) must always have a prebuilt; source-builds there are a
-# slow surprise on the critical path.
+# `cargo:` tools build from source; prefer a prebuilt backend. Allowed only when either (a) the tool has no prebuilt
+# anywhere -- allowlisted by name below, or (b) it is os-scoped to second-tier platforms (linux/arm64, macos/x64),
+# whose prebuilt assets release authors often skip. A first-tier platform (linux/x64, macos/arm64, windows) must
+# always have a prebuilt; source-builds there are a slow surprise on the critical path.
 #
-# config.maint.toml is exempted: it's only loaded with MISE_ENV=maint by a
-# maintainer running one-off publish tasks, not by CI. A slow cargo-source
-# install on a workstation when refreshing the HF mirror is fine.
+# config.maint.toml is exempted: it's only loaded with MISE_ENV=maint by a maintainer running one-off publish tasks,
+# not by CI. A slow cargo-source install on a workstation when refreshing the HF mirror is fine.
 second_tier_platform := {"linux/arm64", "macos/x64"}
 
 allowed_cargo_no_prebuilt := {"cargo:cargo-expand", "cargo:dart-typegen", "cargo:toml-cli"}
@@ -111,9 +104,8 @@ deny contains msg if {
 	msg := sprintf("%s: tool %q uses the deprecated ubi backend; use http: instead", [file.path, name])
 }
 
-# Tools should work on every OS (CLAUDE.md "Tools must work on every OS"). Any
-# os-scoped [tools] entry must be in this list -- a genuinely platform-specific
-# tool, a per-platform backend pair that still covers every OS (findutils, ryl),
+# Tools should work on every OS (CLAUDE.md "Tools must work on every OS"). Any os-scoped [tools] entry must be in this
+# list -- a genuinely platform-specific tool, a per-platform backend pair that still covers every OS (findutils, ryl),
 # or an optional tool that self-skips on the omitted platform (pipx:torch).
 allowed_os_scoped_tool := {
 	"chromedriver",
@@ -126,15 +118,13 @@ allowed_os_scoped_tool := {
 	"github:uutils/findutils",
 	"cargo:findutils",
 	"cargo:ryl",
-	# http:et-rp is os-scoped to only those platforms whose tarball is
-	# already in the rp-v<N> release; add a platform by dispatching the
-	# upstream-cache.yaml workflow on that host.
+	# http:et-rp is os-scoped to only those platforms whose tarball is already in the rp-v<N> release; add a platform
+	# by dispatching the upstream-cache.yaml workflow on that host.
 	"http:et-rp",
 	"conda:gnupg",
-	# cargo:dart-typegen is os-scoped to non-Windows because the gnullvm
-	# rust host trips `error[E0463]: can't find crate for 'core'` on
-	# Windows source-builds; coverage is preserved via http:dart-typegen
-	# in config.windows.toml, which serves the upstream-cache prebuilt.
+	# cargo:dart-typegen is os-scoped to non-Windows because the gnullvm rust host trips
+	# `error[E0463]: can't find crate for 'core'` on Windows source-builds; coverage is preserved via
+	# http:dart-typegen in config.windows.toml, which serves the upstream-cache prebuilt.
 	"cargo:dart-typegen",
 }
 
@@ -148,15 +138,12 @@ deny contains msg if {
 	msg := sprintf("%s: tool %q is os-scoped; tools must work on every OS (or allowlist it)", [file.path, name])
 }
 
-# A [vars]/[env] value that hard-codes a tool's install path (e.g. the absolute
-# linker in config.windows.toml, or the libpython rpath in config.toml) embeds
-# the tool's version as a path segment. mise installs a tool to
-# `installs/<dir>/<version>`, where <dir> is the tool name with `:` and `/`
-# turned into `-`. Those embedded versions must track the `[tools]` pin -- a
-# bump that updates the tool but not the var silently points at a missing dir.
-# Collect every (install-dir, version) the [tools] tables pin, across all files
-# (--combine), since a var in config.<os>.toml can reference a tool pinned in
-# config.toml.
+# A [vars]/[env] value that hard-codes a tool's install path (e.g. the absolute linker in config.windows.toml, or the
+# libpython rpath in config.toml) embeds the tool's version as a path segment. mise installs a tool to
+# `installs/<dir>/<version>`, where <dir> is the tool name with `:` and `/` turned into `-`. Those embedded versions
+# must track the `[tools]` pin -- a bump that updates the tool but not the var silently points at a missing dir.
+# Collect every (install-dir, version) the [tools] tables pin, across all files (--combine), since a var in
+# config.<os>.toml can reference a tool pinned in config.toml.
 tool_versions contains [dir, version] if {
 	some file in input
 	is_mise(file)
@@ -184,12 +171,11 @@ config_strings contains entry if {
 	entry := {"path": file.path, "kind": kind, "key": key, "value": value}
 }
 
-# An install path embeds a tool's version as the segment right after the tool's
-# install dir. Yield every embedded version that isn't a pinned version of that
-# tool. The captured segment is restricted to version chars so it stops at the
-# next path separator OR a trailing delimiter (a quote, `;`, ...) when the path is
-# spliced into a larger string (as in Dockerfile ENV/RUN lines). Shared by the
-# [vars]/[env] check here and the Dockerfile check (data.mise.version_drift).
+# An install path embeds a tool's version as the segment right after the tool's install dir. Yield every embedded
+# version that isn't a pinned version of that tool. The captured segment is restricted to version chars so it stops
+# at the next path separator OR a trailing delimiter (a quote, `;`, ...) when the path is spliced into a larger string
+# (as in Dockerfile ENV/RUN lines). Shared by the [vars]/[env] check here and the Dockerfile check
+# (data.mise.version_drift).
 version_drift(value) := {drift |
 	some [dir, _] in tool_versions
 	pattern := sprintf(`(?:^|[\\/}])%s[\\/]([A-Za-z0-9._-]+)`, [dir])
@@ -214,9 +200,8 @@ tool_version_str(spec) := spec if is_string(spec)
 
 tool_version_str(spec) := spec.version if is_object(spec)
 
-# python must be pinned to a full version triple (X.Y.Z), not a minor alias:
-# mise installs it under a dir named after the request and only symlinks the X.Y
-# alias, and that symlink isn't created on the Windows runner -- so the py3_*
+# python must be pinned to a full version triple (X.Y.Z), not a minor alias: mise installs it under a dir named after
+# the request and only symlinks the X.Y alias, and that symlink isn't created on the Windows runner -- so the py3_*
 # interpreter paths (and the version_drift check above) need the exact patch dir.
 deny contains msg if {
 	some file in input
@@ -226,12 +211,10 @@ deny contains msg if {
 	msg := sprintf("%s: python must be pinned to a full version triple, got %q", [file.path, version])
 }
 
-# Linux + macOS preinstall MUST read its prerequisite package list from the
-# Dockerfile (COMMON_PACKAGES + APT_PACKAGES / DNF_PACKAGES ARGs). The
-# Dockerfile is the single source of truth: a capability-based or hardcoded
-# check would diverge from it silently. Guard by requiring the preinstall
-# task body to reference both COMMON_PACKAGES and APT_PACKAGES somewhere
-# (env var or rg-parse of the file).
+# Linux + macOS preinstall MUST read its prerequisite package list from the Dockerfile (COMMON_PACKAGES +
+# APT_PACKAGES / DNF_PACKAGES ARGs). The Dockerfile is the single source of truth: a capability-based or hardcoded
+# check would diverge from it silently. Guard by requiring the preinstall task body to reference both COMMON_PACKAGES
+# and APT_PACKAGES somewhere (env var or rg-parse of the file).
 preinstall_must_reference_apt_packages := {
 	".mise/config.linux.toml",
 	".mise/config.macos.toml",
