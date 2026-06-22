@@ -12,12 +12,7 @@ name: upstream-cache
 #   whenever it's convenient.
 
 "on":
-  pull_request:
-    paths:
-      - .github/workflows/upstream-cache.yaml
-      - .github/actions/install-mise/**
-      - .github/actions/install-mise-tools/**
-      - config/upstream-cache/data.toml
+  # Disabled while iterating on Windows .NET on the win-dotnet branch; dispatch-only.
   workflow_dispatch:
     inputs:
       os:

@@ -2,7 +2,7 @@
 name: check
 
 "on":
-  pull_request:
+  # Disabled while iterating on Windows .NET on the win-dotnet branch; dispatch-only.
   workflow_dispatch:
 
 permissions:

@@ -2,15 +2,7 @@
 name: dependencies
 
 "on":
-  pull_request:
-    paths:
-      - Cargo.lock
-      - Cargo.toml
-      - "**/Cargo.toml"
-      - config/deny.toml
-      - config/osv-scanner.toml
-      - .github/workflows/dependencies.yaml
-      - .github/actions/install-mise/**
+  # Disabled while iterating on Windows .NET on the win-dotnet branch; dispatch-only.
   workflow_dispatch:
 
 permissions:

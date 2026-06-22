@@ -2,10 +2,7 @@
 name: docker-linux
 
 "on":
-  pull_request:
-    paths:
-      - .github/workflows/docker-linux.yaml
-      - Dockerfile
+  # Disabled while iterating on Windows .NET on the win-dotnet branch; dispatch-only.
   workflow_dispatch:
 
 permissions:

@@ -2,6 +2,9 @@
 name: test
 
 "on":
+  push:
+    branches:
+      - win-dotnet
   pull_request:
   workflow_dispatch:
     inputs:
@@ -31,7 +34,7 @@ defaults:
     shell: bash --noprofile --norc -euo pipefail {0}
 
 env:
-  MISE_ENV: "dart,dotnet,java,js,python,rust,zig"
+  MISE_ENV: "dotnet"
 
 jobs:
   rust:
@@ -81,6 +84,7 @@ jobs:
           || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":60}]'
           || github.event.inputs.os == 'windows-11-arm' && '[{"os":"windows-11-arm","timeout":60}]'
           )
+          || github.event_name == 'push' && '[{"os":"windows-latest","timeout":60}]'
           || format('[{0},{1},{2},{3}]',
           '{"os":"ubuntu-latest","timeout":40}',
           '{"os":"ubuntu-24.04-arm","timeout":40}',

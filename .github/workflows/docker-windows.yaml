@@ -2,12 +2,7 @@
 name: docker-windows
 
 "on":
-  pull_request:
-    paths:
-      - .github/actions/free-disk-space-windows/**
-      - .github/workflows/docker-windows.yaml
-      - Dockerfile.nanoserver
-      - Dockerfile.windows
+  # Disabled while iterating on Windows .NET on the win-dotnet branch; dispatch-only.
   workflow_dispatch:
 
 permissions:
