@@ -97,10 +97,12 @@ ripgrep = "latest"
 "github:benhoyt/goawk" = "latest"
 "github:caldempsey/parfit" = "latest"
 "github:grok-rs/waitup" = "latest"
-# ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
+# ryl: the Rust YAML linter, with a per-platform backend split.
+# cargo: source-builds the macos/x64 fallback (no prebuilt there); github: is the prebuilt used elsewhere.
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
-"github:microsoft/onnxruntime" = "1.22.0"
 "github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
+# ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
+"github:microsoft/onnxruntime" = "1.22.0"
 "github:wasm-bindgen/wasm-bindgen" = "0.2.122"
 # Sole consumer right now is the `go:` backend that source-builds jqfmt.
 # (noperator/jqfmt ships no release assets); add Go users here as they arrive.
@@ -112,6 +114,8 @@ lychee = "latest"
 mprocs = "latest"
 node = "22"
 osv-scanner = "latest"
+# GitHub CLI: used by the upstream-cache publish tasks and gh-api calls in task bodies.
+gh = "latest"
 # Aqua has no pipx build for windows/amd64.
 # On Windows the workflow runs `python -m pip install pipx` separately so the
 # `pipx:*` entries below still resolve through whatever pipx is already on PATH.
@@ -119,7 +123,6 @@ pipx = { version = "latest", os = ["linux", "macos"] }
 # Pure-Python fixture for the et-ws-pyo3-runner `cowsay` test.
 # Proves a mise-installed python package lands on the embedded interpreter's
 # sys.path (see `edge_toolkit::config::mise_python_site_packages`).
-gh = "latest"
 "pipx:cowsay" = "latest"
 "pipx:semgrep" = "latest"
 # Aqua has no pnpm darwin/amd64 prebuilt.
