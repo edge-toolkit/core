@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Workspace member Cargo.toml — no path dependencies",
+  "title": "Workspace member Cargo.toml -- no path dependencies",
   "description": "Forbids `path = ...` deps outside workspace root; `const` is a hack so taplo prints it as the error.",
   "definitions": {
     "depTable": {

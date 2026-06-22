@@ -4,11 +4,7 @@
 //! components rather than browser-targeted JS.
 
 #![cfg(test)]
-#![expect(
-    clippy::expect_used,
-    clippy::print_stdout,
-    reason = "test code: process spawn failure fails the test; module-skip log lines use println"
-)]
+#![expect(clippy::expect_used, reason = "test code: process spawn failure fails the test")]
 
 use edge_toolkit::config::{Language, mise_env_includes};
 use rstest::rstest;
@@ -23,15 +19,7 @@ use rstest::rstest;
 #[case::wasi_graphics_info("et-ws-wasi-graphics-info", Language::Python)]
 #[cfg_attr(windows, ignore = "pkg/package.json 404 on Windows -- see comment above")]
 fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
-    // When CI narrows MISE_ENV (e.g. `dotnet,rust`) the env-gated guest
-    // configs don't load and the matching `pkg/` never gets built. Skip
-    // cases whose language isn't loaded instead of 404'ing on the module
-    // fetch.
     if !mise_env_includes(language) {
-        println!(
-            "skipping {module}: requires the `{}` mise env, not loaded",
-            language.as_str()
-        );
         return;
     }
     let server = et_ws_test_server::start();

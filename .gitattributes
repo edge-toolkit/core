@@ -3,10 +3,10 @@
 # Windows runners default to `core.autocrlf=true`, which rewrites LF to
 # CRLF at checkout. Multiple formatters in this repo (zig fmt, dprint)
 # read CRLF as a diff against their LF-normalized output and report
-# every file as "would be reformatted" — with no diff, just paths.
+# every file as "would be reformatted" -- with no diff, just paths.
 # Pinning `eol=lf` workspace-wide makes the checked-out tree match the
 # committed bytes on every OS, so the formatters behave identically.
 * text=auto eol=lf
 
-# Binaries tracked in this repo — never run text conversion on these.
+# Binaries tracked in this repo -- never run text conversion on these.
 *.png binary

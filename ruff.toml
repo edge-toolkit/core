@@ -1,21 +1,20 @@
-# Kept at the repo root (unlike config/deny.toml, config/osv-scanner.toml and
-# config/taplo.toml) on purpose: editors/IDEs (the VS Code Ruff extension,
-# PyCharm) and pre-commit auto-discover ruff config only as a root ruff.toml /
-# .ruff.toml / pyproject.toml. ruff has no config-path env var, so moving this
-# under config/ would silently drop every editor back to ruff's defaults
-# (line-length 88, no isort). The mise tasks could pass --config, but the live
-# editor experience can't, so it stays here.
+# Kept at the repo root on purpose (unlike config/deny.toml, config/osv-scanner.toml, config/taplo.toml).
+# Editors/IDEs (the VS Code Ruff extension, PyCharm) and pre-commit auto-discover
+# ruff config only as a root ruff.toml / .ruff.toml / pyproject.toml. ruff has no
+# config-path env var, so moving this under config/ would silently drop every
+# editor back to ruff's defaults (line-length 88, no isort). The mise tasks could
+# pass --config, but the live editor experience can't, so it stays here.
 #
 # Match the repo-wide 120 line-length set in .editorconfig. Without this, ruff
 # would use its default of 88, so files that ruff considered "already
 # formatted" could still trip the editorconfig-check.
 line-length = 120
 
+# Exclude componentize-py's generated bindings, which we don't own and don't ship.
 # componentize-py regenerates `wit_world` and `componentize_py_async_support`
-# under services/ws-modules/wasi-graphics-info/ on every build — bindings we
-# don't own and don't ship. Exclude them here (on top of ruff's defaults) so
-# the ruff tasks don't need to repeat `--exclude` flags, and so they're skipped
-# even when ruff runs with `--no-respect-gitignore`.
+# under services/ws-modules/wasi-graphics-info/ on every build. Exclude them here
+# (on top of ruff's defaults) so the ruff tasks don't need to repeat `--exclude`
+# flags, and so they're skipped even when ruff runs with `--no-respect-gitignore`.
 extend-exclude = ["componentize_py_async_support", "wit_world"]
 
 [lint]
@@ -26,7 +25,7 @@ extend-exclude = ["componentize_py_async_support", "wit_world"]
 #   between regens.
 #   "D" -- pydocstyle (PEP 257) docstring checks; see [lint.pydocstyle].
 # Use `extend-select`, not `select`, so we keep the default F401 (unused-import)
-# rule that openapi-python-client relies on internally — it generates
+# rule that openapi-python-client relies on internally -- it generates
 # speculative imports and trims them by re-running ruff with the default rules.
 extend-select = ["D", "I"]
 
@@ -34,8 +33,9 @@ extend-select = ["D", "I"]
 convention = "pep257"
 
 [lint.per-file-ignores]
-# Generated clients (openapi-python-client / datamodel-codegen output): their
-# docstrings come verbatim from the OpenAPI/JSON-schema spec, not hand-written.
+# Generated clients are exempt from docstring checks.
+# For openapi-python-client / datamodel-codegen output, the docstrings come
+# verbatim from the OpenAPI/JSON-schema spec, not hand-written.
 "generated/**" = ["D"]
 # Test modules: docstrings on test classes/methods are noise, not API surface.
 "**/tests/**" = ["D"]

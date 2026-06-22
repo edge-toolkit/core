@@ -27,7 +27,7 @@ allowed-idents-below-min-chars = [
   # workspace conventions
   "Io", # io::Error #[from] variant
   "Js", # ModuleKind::Js variant (peer of Wasi)
-  "et", # `et:ws-wasi` WIT package — appears in generated `bindings::et::…`
+  "et", # `et:ws-wasi` WIT package -- appears in generated `bindings::et::...`
   "id", # short alias for identifier inside closures
   "op", # operation-name parameter in et-web JS-interop traits
   "ws", # edge_toolkit::ws module (websocket types)

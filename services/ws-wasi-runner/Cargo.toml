@@ -17,8 +17,8 @@ path = "src/main.rs"
 
 [features]
 default = []
-# Enable wasmtime-wasi-nn's `onnx-cuda` feature, which flips the cfg in its
-# ONNX backend so `ExecutionTarget::Gpu` dispatches to `CUDAExecutionProvider`
+# Enable wasmtime-wasi-nn's `onnx-cuda` feature.
+# It flips the cfg in its ONNX backend so `ExecutionTarget::Gpu` dispatches to `CUDAExecutionProvider`
 # instead of warning and falling back to CPU. `onnx-cuda` transitively turns
 # on `ort/cuda` too, so the EP is compiled into ort. Opt-in because
 # `ort/download-binaries` then pulls the CUDA-flavoured ONNX Runtime prebuilt,
@@ -36,8 +36,8 @@ et-otlp.workspace = true
 et-rest-client = { workspace = true, features = ["tracing"] }
 et-ws-runner-common.workspace = true
 futures-util.workspace = true
-# libc::_exit for the macOS test-only fast exit (see main.rs). std::process::exit
-# still runs atexit handlers, which is exactly the path that races libc++ during
+# libc::_exit for the macOS test-only fast exit (see main.rs).
+# std::process::exit still runs atexit handlers, which is exactly the path that races libc++ during
 # ORT teardown -- _exit skips them.
 libc.workspace = true
 opentelemetry.workspace = true
@@ -56,11 +56,11 @@ tracing-opentelemetry.workspace = true
 tracing-subscriber.workspace = true
 wasmtime.workspace = true
 wasmtime-wasi.workspace = true
-# wasi-nn standardised ML inference. The workspace pin drops `openvino` +
-# `winml` (which we don't use) and keeps `onnx`.
+# wasi-nn standardised ML inference.
+# The workspace pin drops `openvino` + `winml` (which we don't use) and keeps `onnx`.
 wasmtime-wasi-nn.workspace = true
-# Workspace pins `ort = "=2.0.0-rc.10"` because wasmtime-wasi-nn 44.0.1 was
-# built against that specific prerelease; rc.11+ moved
+# Workspace pins `ort = "=2.0.0-rc.10"` because wasmtime-wasi-nn 44.0.1 was built against it.
+# That is a specific prerelease; rc.11+ moved
 # `ort::session::{Input, Output}` and `ort::tensor`, and the cargo resolver
 # would otherwise pick the latest rc.
 ort.workspace = true

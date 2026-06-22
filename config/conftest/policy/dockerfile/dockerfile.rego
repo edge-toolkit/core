@@ -39,7 +39,7 @@ deny contains msg if {
 # `ENV MISE_DISABLE_TOOLS=...` line impractical), so scan every ARG/ENV
 # value in the file and take whichever tokens look like a tool name
 # (contain `:`). The `${VAR}` placeholders the composing ENV holds get
-# rejected by the same filter — only the leaf ARG values supply tools.
+# rejected by the same filter -- only the leaf ARG values supply tools.
 disabled_tools contains tool if {
 	some file in input
 	is_array(file.contents)

@@ -50,14 +50,12 @@ jobs:
       - name: Show MISE_ENV
         run: echo "MISE_ENV=$MISE_ENV"
 
-      # jlumbroso/free-disk-space (which test.yaml uses) only frees space on
-      # the existing root partition. This workflow needs more: the image build
-      # writes to /var/lib/docker, so we have to relocate Docker's data dir
-      # onto an LVM volume that concatenates the freed root space with /mnt.
-      # easimon is the only maintained action that does that LVM remount, so
-      # we stay on it here despite its rougher edges (hard-fails on runners
-      # without /mnt or without a Docker daemon -- not a concern for this
-      # workflow's ubuntu-latest matrix, which has both).
+      # Relocate Docker's data dir onto an LVM volume to maximize build space.
+      # jlumbroso/free-disk-space (which test.yaml uses) only frees space on the existing root partition. This
+      # workflow needs more: the image build writes to /var/lib/docker, so we have to relocate Docker's data dir
+      # onto an LVM volume that concatenates the freed root space with /mnt. easimon is the only maintained action
+      # that does that LVM remount, so we stay on it here despite its rougher edges (hard-fails on runners without
+      # /mnt or without a Docker daemon -- not a concern for this workflow's ubuntu-latest matrix, which has both).
       - name: Maximize build space
         uses: easimon/maximize-build-space@v10
         with:
@@ -93,15 +91,13 @@ jobs:
           args="$args --secret id=gh_token,env=GITHUB_TOKEN -t et-test"
           docker build $args .
 
-      # The check stage needs `.git/` + every tracked Dockerfile. The main
-      # `.dockerignore` excludes both (`**/Dockerfile*` so Dockerfiles in
-      # subdirs don't bloat the build context), so we pre-stage them into a
-      # directory and hand it to docker as a named build context (`extras`).
-      # The check stage does `COPY --from=extras . ./` to land them in
-      # /workspace. `cp --parents` preserves the subdir path of each Dockerfile
-      # (e.g. services/ws-server/Dockerfile), so hadolint's `git ls-files
-      # '*Dockerfile' '*Dockerfile.*' | xargs hadolint` finds every entry on
-      # disk -- a top-level cp would have left subdir Dockerfiles unfindable.
+      # The check stage needs `.git/` + every tracked Dockerfile.
+      # The main `.dockerignore` excludes both (`**/Dockerfile*` so Dockerfiles in subdirs don't bloat the build
+      # context), so we pre-stage them into a directory and hand it to docker as a named build context (`extras`).
+      # The check stage does `COPY --from=extras . ./` to land them in /workspace. `cp --parents` preserves the
+      # subdir path of each Dockerfile (e.g. services/ws-server/Dockerfile), so hadolint's
+      # `git ls-files '*Dockerfile' '*Dockerfile.*' | xargs hadolint` finds every entry on disk -- a top-level cp
+      # would have left subdir Dockerfiles unfindable.
       - name: Build stage check
         env:
           CTX: target/check-ctx
@@ -116,14 +112,12 @@ jobs:
           args="$args --build-context extras=$CTX --secret id=gh_token -t $TAG"
           docker build $args .
 
-      # Capture image + intermediate stage sizes after the builds (and after
-      # the test/check runs leave any -rm'd container layers behind). `always()`
-      # so we still get the breakdown when a downstream step ran the disk dry;
-      # the typical failure mode (test-ws-web-runner compile inside `docker run`)
-      # leaves the host's image catalogue intact and this step is what surfaces
-      # which layer ballooned. -a includes intermediate/dangling layers each
-      # stage produces; `system df -v` totals per cache type (Images, Build
-      # Cache, Containers, Volumes).
+      # Capture image + intermediate stage sizes after the builds.
+      # This also runs after the test/check runs leave any -rm'd container layers behind. `always()` so we still
+      # get the breakdown when a downstream step ran the disk dry; the typical failure mode (test-ws-web-runner
+      # compile inside `docker run`) leaves the host's image catalogue intact and this step is what surfaces
+      # which layer ballooned. -a includes intermediate/dangling layers each stage produces; `system df -v`
+      # totals per cache type (Images, Build Cache, Containers, Volumes).
       - name: Docker disk usage (debug)
         if: always()
         run: |
@@ -136,14 +130,11 @@ jobs:
           echo "::group::df -h /var/lib/docker"
           df -h /var/lib/docker || true
           echo "::endgroup::"
-          # In-image large-file report: which paths inside the et-test image
-          # are eating space? `du --threshold=10M --max-depth=2` for a
-          # top-level subtree map (catches install dirs, tool caches, /var
-          # stragglers); `find ... -size +50M` for the individual
-          # heavyweights. Run in a throwaway container so the host's
-          # writable layer doesn't tilt the numbers; find/du stderr noise
-          # (unreadable /proc entries etc.) prints to the log but doesn't
-          # affect the sort pipeline.
+          # Report which paths inside the et-test image are eating space.
+          # `du --threshold=10M --max-depth=2` for a top-level subtree map (catches install dirs, tool caches,
+          # /var stragglers); `find ... -size +50M` for the individual heavyweights. Run in a throwaway container
+          # so the host's writable layer doesn't tilt the numbers; find/du stderr noise (unreadable /proc entries
+          # etc.) prints to the log but doesn't affect the sort pipeline.
           echo "::group::et-test: largest dirs (depth 2, >=10M)"
           docker run --rm et-test sh -c "du -h --threshold=10M --max-depth=2 / | sort -h | tail -50"
           echo "::endgroup::"
@@ -151,13 +142,12 @@ jobs:
           docker run --rm et-test sh -c "find / -xdev -type f -size +50M -exec du -h {} + | sort -h | tail -50"
           echo "::endgroup::"
 
-      # Two `docker run` invocations: each starts a fresh container with an
-      # empty writable layer, so the per-phase compile target/ doesn't share
-      # disk with the other phase. Splits cargo-test's two halves (workspace
-      # minus et-ws-web-runner, then et-ws-web-runner serialized) for clearer
-      # attribution when a tight-disk runner fails. test-ws-web-runner
-      # already skips itself on hosts that can't satisfy its Deno-runtime
-      # requirements, so this step is a no-op on those platforms.
+      # Run the test phases as two separate `docker run` invocations.
+      # Each starts a fresh container with an empty writable layer, so the per-phase compile target/ doesn't share
+      # disk with the other phase. Splits cargo-test's two halves (workspace minus et-ws-web-runner, then
+      # et-ws-web-runner serialized) for clearer attribution when a tight-disk runner fails. test-ws-web-runner
+      # already skips itself on hosts that can't satisfy its Deno-runtime requirements, so this step is a no-op on
+      # those platforms.
       - name: Run cargo-test-other
         run: docker run --rm et-test mise run cargo-test-other
 

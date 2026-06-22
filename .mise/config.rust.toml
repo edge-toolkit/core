@@ -1,15 +1,12 @@
 # Rust env (MISE_ENV=rust).
 #
-# First migration out of the always-loaded default config: the Rust WASM
-# module builds live here, so `MISE_ENV=dart mise run build-modules` no longer
-# tries to build them. They keep their `build-ws-*-module` names, so the
-# default config's `build-modules` glob (`build-ws-*-module`) picks them up
-# whenever the `rust` env is loaded — exactly like the guest-language module
-# builds in the other config.<lang>.toml files.
+# First migration out of the always-loaded default config: the Rust WASM module builds live here, so
+# `MISE_ENV=dart mise run build-modules` no longer tries to build them. They keep their `build-ws-*-module`
+# names, so the default config's `build-modules` glob (`build-ws-*-module`) picks them up whenever the `rust`
+# env is loaded -- exactly like the guest-language module builds in the other config.<lang>.toml files.
 #
-# The rest of the Rust toolchain + tasks (the `rust` tool itself, cargo-*, the
-# universal repo-wide checks, ws-server, the e2e tests) still live in the
-# default config; moving those out is a later pass.
+# The rest of the Rust toolchain + tasks (the `rust` tool itself, cargo-*, the universal repo-wide checks,
+# ws-server, the e2e tests) still live in the default config; moving those out is a later pass.
 
 [tasks.build-ws-data1-module]
 description = "Build the data1 workflow WASM module"
@@ -64,6 +61,7 @@ run = "wasm-pack build . --target web {{ vars.no_opt }}"
 [tasks.build-ws-wasi-data1-module]
 depends = ["build-et-cli"]
 description = "Build the Rust WASI data1 module as a WASI Preview 2 component"
+# Explicitly request wasm32-wasip2 for this crate's WASI-gated lib body.
 # The crate is a regular workspace member but its lib body is gated on
 # `#![cfg(target_os = "wasi")]`, so cargo check from the host target gets
 # an empty cdylib while this task explicitly requests wasm32-wasip2. The

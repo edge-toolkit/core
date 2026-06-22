@@ -23,10 +23,9 @@
 #![cfg(test)]
 #![expect(
     clippy::expect_used,
-    clippy::print_stdout,
     clippy::uninlined_format_args,
     clippy::needless_collect,
-    reason = "test code: assertions include captured span dumps; env-narrow skip logs via println"
+    reason = "test code: expect failures fail the test; assertion-helper format/collect idioms"
 )]
 
 use std::collections::HashSet;
@@ -44,7 +43,6 @@ fn trace_ids_propagate_between_runner_and_server() {
     // wasi-data1 lives in the rust env; without it, build-ws-wasi-data1-module
     // doesn't run and the runner's package.json fetch 404s.
     if !mise_env_includes(Language::Rust) {
-        println!("skipping otel propagation: MISE_ENV omits `rust`");
         return;
     }
     // 1. Start the mock collector. Both processes will export to it.

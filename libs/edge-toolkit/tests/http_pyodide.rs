@@ -13,9 +13,8 @@
 #![cfg(test)]
 #![expect(
     clippy::panic,
-    clippy::print_stderr,
     clippy::unwrap_used,
-    reason = "test code: missing install fails loudly with a hint; skip-path logs to stderr"
+    reason = "test code: missing install fails loudly with a hint"
 )]
 
 use std::collections::HashSet;
@@ -33,7 +32,6 @@ fn find_http_pyodide_install() -> Option<PathBuf> {
         return Some(path);
     }
     if !mise_env_includes(Language::Python) {
-        eprintln!("skipping: http:pyodide not installed (MISE_ENV omits `python`)");
         return None;
     }
     panic!(

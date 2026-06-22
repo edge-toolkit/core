@@ -30,22 +30,19 @@ runs:
       with:
         tool: ${{ inputs.install-action-tools }}
 
-    # taiki-e/install-action's mise manifest stages only `mise.exe`; mise's
-    # per-tool `.cmd` "file" shims under `%LOCALAPPDATA%\mise\shims` aren't
-    # on PATH by default, so tool lookups inside `mise run` fail with
-    # `'dart' / 'mvn' / 'recur' / 'wasm-pack' / 'zig' is not recognized…`.
-    # We append the shims dir for subsequent steps. The companion
-    # `mise-shim.exe` (single-binary shim) ALSO ships in the Windows zip,
-    # but staging it triggers a CreateProcess `ERROR_FILENAME_EXCED_RANGE`
-    # (os error 206) when mise-shim re-execs mise.exe with the runner's
-    # already-long PATH inherited -- the file-shim fallback doesn't have
-    # this problem (each .cmd shim invokes `mise exec --` plainly via cmd).
+    # Append mise's shims dir to PATH for subsequent steps on Windows.
+    # taiki-e/install-action's mise manifest stages only `mise.exe`; mise's per-tool `.cmd` "file" shims under
+    # `%LOCALAPPDATA%\mise\shims` aren't on PATH by default, so tool lookups inside `mise run` fail with
+    # `'dart' / 'mvn' / 'recur' / 'wasm-pack' / 'zig' is not recognized...`. The companion `mise-shim.exe`
+    # (single-binary shim) ALSO ships in the Windows zip, but staging it triggers a CreateProcess
+    # `ERROR_FILENAME_EXCED_RANGE` (os error 206) when mise-shim re-execs mise.exe with the runner's already-long
+    # PATH inherited -- the file-shim fallback doesn't have this problem (each .cmd shim invokes `mise exec --`
+    # plainly via cmd).
     - name: Add mise shims dir to PATH on Windows
       if: runner.os == 'Windows'
       shell: bash --noprofile --norc -euo pipefail {0}
-      # The appended value is a hardcoded mise install-dir constant under
-      # our control -- no user input flows in -- so the github-env audit's
-      # arbitrary-code-execution shape doesn't apply.
+      # The github-env audit's arbitrary-code-execution shape doesn't apply here.
+      # The appended value is a hardcoded mise install-dir constant under our control -- no user input flows in.
       run: echo "$LOCALAPPDATA\mise\shims" >> "$GITHUB_PATH" # zizmor: ignore[github-env]
 
     - name: Trust mise config

@@ -1,6 +1,6 @@
-# Source-of-truth metadata for assets fetched from edge-toolkit/core's
-# *-v<N> releases (and any other upstream URL pinned by an `*_asset` var
-# in .mise/config*.toml). For each asset we record:
+# Source-of-truth metadata for assets fetched from upstream releases.
+# Covers edge-toolkit/core's *-v<N> releases (and any other upstream URL pinned
+# by an `*_asset` var in .mise/config*.toml). For each asset we record:
 #
 #   - sha256:   integrity check; the release page also ships .sha256
 #               sidecars for human inspection, but this file is what
@@ -37,9 +37,9 @@ sha256 = "7b81d53f5b3a63c60fc2bc1717e87466026d796ec522b925f009532c7b0291f3"
 upstream = "https://github.com/RustPython/RustPython"
 url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-wasm-08a1d6f.tar.gz"
 
-# Upstream-cache entries below: tarballs we build + host for tools that
-# either have no Windows binary upstream (augeas, gnupg-w32) or whose
-# upstream cargo: source-build fails on our target host (dart-typegen
+# Upstream-cache entries below are tarballs we build + host.
+# They cover tools that either have no Windows binary upstream (augeas, gnupg-w32)
+# or whose upstream cargo: source-build fails on our target host (dart-typegen
 # against the gnullvm Windows toolchain). The sha256 field is "" until
 # the first upload lands -- the maintainer fills the real value in by
 # reading the .sha256 sidecar from the release.
@@ -50,11 +50,10 @@ sha256 = "6d97229c53cc0af09635bfd85b15169704ab9c07d5e23090252ac80746260036"
 upstream = "https://github.com/hercules-team/augeas"
 url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x86_64-pc-windows-mingw.tar.gz"
 
-# Non-Windows augeas builds from the same jayvdb/augeas `win` branch as
-# the Windows tarball above, published to the same augeas-v1 release.
-# Synthetic filename keyed by rustc triple because the released filename
-# already encodes the triple. shas filled in by the maintainer after the
-# upstream-cache.yaml augeas job runs and uploads each tarball.
+# Non-Windows augeas builds, from the same jayvdb/augeas `win` branch as the Windows tarball above.
+# Published to the same augeas-v1 release. Synthetic filename keyed by rustc triple
+# because the released filename already encodes the triple. shas filled in by the
+# maintainer after the upstream-cache.yaml augeas job runs and uploads each tarball.
 [asset."1.14.1-x86_64-unknown-linux-gnu.tar.xz"]
 license = "LGPL-2.1+"
 sha256 = "fc6345fb8ffb84e1f57f9144aacc059aa13687f6912ffe26f90713c771892ec6"

@@ -208,15 +208,26 @@ impl Language {
 /// faster feedback (e.g. `dotnet,rust`), tests that depend on a tool in a
 /// dropped env (e.g. `http:pyodide` from the `python` env) can skip cleanly
 /// instead of panicking.
+///
+/// When the language is absent (`MISE_ENV=""` or a list that omits it), a
+/// skip line naming the language is emitted to stderr, so callers only need
+/// to branch on the returned bool -- they don't repeat the message themselves.
 #[must_use]
 pub fn mise_env_includes(language: Language) -> bool {
     let Ok(value) = std::env::var("MISE_ENV") else {
         return true;
     };
-    if value.is_empty() {
-        return false;
+    let included = !value.is_empty() && value.split(',').any(|seg| seg.trim() == language.as_str());
+    if !included {
+        #[expect(
+            clippy::print_stderr,
+            reason = "intentional skip notice to stderr so callers don't repeat the message themselves"
+        )]
+        {
+            eprintln!("MISE_ENV omits `{}`", language.as_str());
+        }
     }
-    value.split(',').any(|seg| seg.trim() == language.as_str())
+    included
 }
 
 /// Returns the install path for a `mise` tool, e.g. `mise where npm:onnxruntime-web`.

@@ -18,7 +18,7 @@ rule:
     - inside:
         kind: block_sequence
         stopBy: end
-    # `shell: msys2 {0}` is the wrapper msys2/setup-msys2 documents
-    # as the shell entry for steps that run inside its MINGW64 env.
+    # `shell: msys2 {0}` is the wrapper msys2/setup-msys2 documents as the shell entry.
+    # It is required for steps that run inside its MINGW64 env.
     - not:
         regex: '^shell:\s*msys2\b'

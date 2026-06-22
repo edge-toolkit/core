@@ -1,3 +1,4 @@
+# The `group_imports` option set below is only available in "nightly".
 # https://rust-lang.github.io/rustfmt/?version=v1.5.1&search=#group_imports is
 # only available in "nightly"
 

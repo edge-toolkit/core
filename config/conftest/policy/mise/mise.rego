@@ -187,7 +187,7 @@ config_strings contains entry if {
 # An install path embeds a tool's version as the segment right after the tool's
 # install dir. Yield every embedded version that isn't a pinned version of that
 # tool. The captured segment is restricted to version chars so it stops at the
-# next path separator OR a trailing delimiter (a quote, `;`, …) when the path is
+# next path separator OR a trailing delimiter (a quote, `;`, ...) when the path is
 # spliced into a larger string (as in Dockerfile ENV/RUN lines). Shared by the
 # [vars]/[env] check here and the Dockerfile check (data.mise.version_drift).
 version_drift(value) := {drift |

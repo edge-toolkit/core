@@ -1,63 +1,57 @@
-# Linux-only mise config. Shared vars (rpath_flag, pylib_flag, conda_openssl,
-# py3_unix, …) come from config.toml, which loads first; PYO3_PYTHON keeps its
-# config.toml default (py3_unix).
+# Linux-only mise config.
+# Shared vars (rpath_flag, pylib_flag, conda_openssl, py3_unix, ...) come from config.toml, which loads
+# first; PYO3_PYTHON keeps its config.toml default (py3_unix).
 
 [tools]
-# Ships the C `libclang.so` (+ clang resource headers) bindgen needs to build the
-# deno web runner's libsqlite3-sys; a mise-only box usually only has libclang-cpp
-# (the C++ API), not the C one.
+# Ships the C `libclang.so` (+ clang resource headers) bindgen needs.
+# These build the deno web runner's libsqlite3-sys; a mise-only box usually only
+# has libclang-cpp (the C++ API), not the C one.
 "conda:clangxx" = "latest"
 
 [vars]
-# `a_`/`b_`/`c_` tiers keep taplo's alphabetical reorder_keys from moving a var
-# ahead of one it reads (`b_` reads `a_`, `c_` reads `b_`), which mise can't render.
-# a_conda_arch: conda's target-triple dir (x86_64/aarch64 vs mise's x64/arm64).
+# The `a_`/`b_`/`c_` tiers keep taplo's alphabetical reorder_keys ordered.
+# Without them reorder_keys could move a var ahead of one it reads (`b_` reads `a_`, `c_` reads `b_`), which
+# mise can't render. a_conda_arch: conda's target-triple dir (x86_64/aarch64 vs mise's x64/arm64).
 a_conda_arch = "{% if arch() == 'arm64' %}aarch64{% else %}x86_64{% endif %}"
 a_conda_clangxx = "{{ env.HOME }}/.local/share/mise/installs/conda-clangxx/latest"
 b_clang_resource = "{{ vars.a_conda_clangxx }}/lib/clang/22"
 b_clang_sysroot = "{{ vars.a_conda_clangxx }}/{{ vars.a_conda_arch }}-conda-linux-gnu/sysroot"
-# bindgen loads libclang directly rather than driving the clang binary, so it
-# can't auto-find its resource dir (builtins like stddef.h) or conda's bundled
-# sysroot. Pass `-resource-dir` + `--sysroot` so header resolution is identical
-# on every machine (a bare `-isystem` leaves builtin type macros unset and fails
-# in CI). Using conda's sysroot rather than the host's /usr/include keeps bindgen
+# bindgen loads libclang directly rather than driving the clang binary.
+# So it can't auto-find its resource dir (builtins like stddef.h) or conda's bundled sysroot. Pass `-resource-dir`
+# + `--sysroot` so header resolution is identical on every machine (a bare `-isystem` leaves builtin type
+# macros unset and fails in CI). Using conda's sysroot rather than the host's /usr/include keeps bindgen
 # self-contained.
 c_bindgen_args = "-resource-dir {{ vars.b_clang_resource }} --sysroot={{ vars.b_clang_sysroot }}"
-# clang-tidy gets the same resource-dir + conda sysroot as bindgen: the sysroot
-# also stops clang scanning the host's multiple /usr/lib/gcc installs for
-# libstdc++ (which otherwise warns, and -warnings-as-errors fails the run).
+# clang-tidy gets the same resource-dir + conda sysroot as bindgen.
+# The sysroot also stops clang scanning the host's multiple /usr/lib/gcc installs
+# for libstdc++ (which otherwise warns, and -warnings-as-errors fails the run).
 clang_resource_arg = "{{ vars.c_bindgen_args }}"
 
 [env]
-# clang-sys finds conda's libclang.so via LIBCLANG_PATH; bindgen gets conda's
-# resource headers + sysroot via BINDGEN_EXTRA_CLANG_ARGS (see c_bindgen_args).
+# clang-sys finds conda's libclang.so via LIBCLANG_PATH.
+# bindgen gets conda's resource headers + sysroot via BINDGEN_EXTRA_CLANG_ARGS (see c_bindgen_args).
 BINDGEN_EXTRA_CLANG_ARGS = "{{ vars.c_bindgen_args }}"
-# rpath/pylib flags (shared, from config.toml): OPENSSL_DIR points openssl-sys at
-# conda's OpenSSL, so anything linking it records conda's libssl soname; without
-# an rpath the loader only finds it when conda's soname matches the system one
-# (it broke when conda bumped to libssl.so.4). pylib_flag does the same for the
-# CPython lib dir. No `-fuse-ld=lld` needed: the system linker accepts
-# `-Wl,-rpath` directly.
+# rpath/pylib flags are shared, from config.toml.
+# OPENSSL_DIR points openssl-sys at conda's OpenSSL, so anything linking it records conda's libssl soname;
+# without an rpath the loader only finds it when conda's soname matches the system one (it broke when conda
+# bumped to libssl.so.4). pylib_flag does the same for the CPython lib dir. No `-fuse-ld=lld` needed: the
+# system linker accepts `-Wl,-rpath` directly.
 CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
 CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
 LIBCLANG_PATH = "{{ vars.a_conda_clangxx }}/lib"
 
 [tasks.preinstall]
-# Preinstall: the shared cross-platform base (via _setup_all), then verify the
-# build prerequisites mise can't supply. The package list has a single source
-# of truth -- the Dockerfile's APT_PACKAGES (Debian/Ubuntu) and DNF_PACKAGES
-# (Fedora / Azure Linux) ARGs: the Docker build exposes them as env vars (the
-# ARG is in scope for the preinstall RUN), and a workstation reads the
-# appropriate one back from the Dockerfile in the checkout. The package
-# manager on the host picks which list applies (apt-get / dnf / tdnf). Azure
-# Linux renames libicu -> icu and libatomic -> libgcc-atomic; detect via
-# /etc/os-release's `ID=azurelinux` and remap so DNF_PACKAGES stays the single
-# source of truth. Each pkg is probed for presence; union case patterns
-# handle apt/dnf/tdnf name differences (`libc6-dev|glibc-devel`,
-# `g++|gcc-c++`, `libicu*|icu`, `libatomic*|libgcc-atomic`). libicu is
-# checked version-agnostic (Dockerfile detects the exact apt name at build
-# time; dnf uses unversioned `libicu`). An empty list is a hard error, not a
-# silent skip.
+# Preinstall runs the shared cross-platform base, then verifies prerequisites.
+# It runs the base via _setup_all, then verifies the build prerequisites mise can't supply. The package list
+# has a single source of truth -- the Dockerfile's APT_PACKAGES (Debian/Ubuntu) and DNF_PACKAGES (Fedora /
+# Azure Linux) ARGs: the Docker build exposes them as env vars (the ARG is in scope for the preinstall RUN),
+# and a workstation reads the appropriate one back from the Dockerfile in the checkout. The package manager
+# on the host picks which list applies (apt-get / dnf / tdnf). Azure Linux renames libicu -> icu and
+# libatomic -> libgcc-atomic; detect via /etc/os-release's `ID=azurelinux` and remap so DNF_PACKAGES stays
+# the single source of truth. Each pkg is probed for presence; union case patterns handle apt/dnf/tdnf name
+# differences (`libc6-dev|glibc-devel`, `g++|gcc-c++`, `libicu*|icu`, `libatomic*|libgcc-atomic`). libicu is
+# checked version-agnostic (Dockerfile detects the exact apt name at build time; dnf uses unversioned `libicu`).
+# An empty list is a hard error, not a silent skip.
 depends = ["_setup_all"]
 description = "Preinstall: shared base + verify system build prerequisites"
 run = """
@@ -80,19 +74,18 @@ elif command -v zypper >/dev/null 2>&1; then
   specific="${DNF_PACKAGES:-}"
   rpm_installer=zypper
 else
-  # WARN + exit 0, not exit 1: a few exotic distros (Alpine, Void, Gentoo,
-  # ...) ship neither apt nor a dnf-family manager. Skip prereq
-  # verification and the rest of this task; the user is on the hook for
-  # COMMON / *_PACKAGES equivalents on their own distro, and `mise
-  # install` (the next step) will surface whichever tool can't install.
+  # WARN + exit 0, not exit 1.
+  # A few exotic distros (Alpine, Void, Gentoo, ...) ship no apt or dnf manager.
+  # So skip prereq verification and the rest of this task.
+  # The user is on the hook for COMMON / *_PACKAGES equivalents on their distro.
+  # And `mise install` (the next step) will surface whichever tool can't install.
   echo "preinstall: WARN no supported pkg manager (apt-get/dnf/tdnf/zypper); skipping" >&2
   exit 0
 fi
 common="${COMMON_PACKAGES:-}"
-# Fall back to reading the ARG values from the Dockerfile when the env vars
-# aren't set (workstation invocation, not Docker build). COMMON_PACKAGES
-# holds names identical across apt/dnf/tdnf; APT_PACKAGES / DNF_PACKAGES
-# hold the distro-specific extras.
+# Fall back to reading the ARG values from the Dockerfile when env vars are unset.
+# This covers workstation invocation, not a Docker build. COMMON_PACKAGES holds names identical across
+# apt/dnf/tdnf; APT_PACKAGES / DNF_PACKAGES hold the distro-specific extras.
 if [ -z "$common" ]; then
   common="$(rg '^ARG COMMON_PACKAGES=' "$dockerfile" 2>/dev/null | coreutils cut -d'"' -f2 || true)"
 fi
@@ -104,11 +97,10 @@ if [ -z "$common" ] || [ -z "$specific" ]; then
   exit 1
 fi
 pkgs="$common $specific"
-# Azure Linux / openSUSE rename a few DNF_PACKAGES entries; remap before the
-# iteration so the checks (and the printed `Install with: ...` hint) refer to
-# the right names. Word-by-word in pure bash avoids the regex escape gymnastics
-# that `\b` or awk word-boundary tokens would need through the TOML
-# basic-string layer.
+# Azure Linux / openSUSE rename a few DNF_PACKAGES entries.
+# Remap before the iteration so the checks (and the printed `Install with: ...` hint) refer to the right
+# names. Word-by-word in pure bash avoids the regex escape gymnastics that `\b` or awk word-boundary tokens
+# would need through the TOML basic-string layer.
 if [ "$arg" = DNF_PACKAGES ] && grep -q '^ID=azurelinux$' /etc/os-release 2>/dev/null; then
   remapped=""
   for w in $pkgs; do
@@ -130,11 +122,11 @@ elif [ "$arg" = DNF_PACKAGES ] && grep -qE '^ID(_LIKE)?=.*(suse|opensuse)' /etc/
   done
   pkgs="$remapped"
 fi
-# Append a generic `libicu` sentinel: the apt path's APT_PACKAGES intentionally
-# omits libicu (the Dockerfile auto-detects the versioned `libicu<NN>` at build
-# time via `apt-cache search`), so the iteration above would otherwise skip the
-# check on a Debian/Ubuntu workstation. dnf's DNF_PACKAGES already includes
-# the unversioned `libicu`; appending again is harmless (case match accepts both).
+# Append a generic `libicu` sentinel.
+# The apt path's APT_PACKAGES intentionally omits libicu (the Dockerfile auto-detects the versioned `libicu<NN>`
+# at build time via `apt-cache search`), so the iteration above would otherwise skip the check on a
+# Debian/Ubuntu workstation. dnf's DNF_PACKAGES already includes the unversioned `libicu`; appending again is
+# harmless (case match accepts both).
 pkgs="$pkgs libicu"
 missing=""
 for pkg in $pkgs; do
@@ -147,25 +139,23 @@ for pkg in $pkgs; do
       [ -r /etc/ssl/ca-bundle.pem ] ;;
     libc6-dev|glibc-devel) [ -r /usr/include/stdio.h ] ;;
     g++|gcc-c++) command -v g++ >/dev/null 2>&1 ;;
-    # `binutils` provides the assembler/linker (as/ld). The package itself has
-    # no binary called `binutils`, so probe via `as` which it ships.
+    # `binutils` provides the assembler/linker (as/ld).
+    # The package itself has no binary called `binutils`. So probe via `as`, which it ships.
     binutils) command -v as >/dev/null 2>&1 ;;
-    # `kernel-headers` provides `linux/limits.h` and friends -- Fedora
-    # pre-includes it in the base image, Azure Linux base/core does not, so
-    # we install it explicitly. Debian/Ubuntu get the same headers via
-    # libc6-dev (transitive linux-libc-dev), already checked above.
-    # openSUSE names the same package linux-glibc-devel.
+    # `kernel-headers` provides `linux/limits.h` and friends.
+    # Fedora pre-includes it in the base image; Azure Linux base/core does not. So we install it explicitly
+    # on Azure Linux. Debian/Ubuntu get the same headers via libc6-dev's transitive linux-libc-dev. That
+    # path is already checked above. openSUSE names the same package linux-glibc-devel.
     kernel-headers|linux-glibc-devel) [ -r /usr/include/linux/limits.h ] ;;
     libicu*|icu)
-      # Debian/Ubuntu install libicu under /usr/lib/<triple>/, Fedora and
-      # Azure Linux under /usr/lib64/ directly -- try both.
+      # Try both libicu install layouts.
+      # Debian/Ubuntu install libicu under /usr/lib/<triple>/. Fedora and Azure Linux put it under /usr/lib64/ directly.
       coreutils ls /usr/lib/*/libicui18n.so.* >/dev/null 2>&1 ||
       coreutils ls /usr/lib64/libicui18n.so.* >/dev/null 2>&1 ;;
     libatomic*|libgcc-atomic)
-      # Fedora and Azure Linux need libatomic explicitly for pnpm's prebuilt
-      # binary (Ubuntu gcc pulls it via libgcc-s1 by default). Same dual-layout
-      # split as libicu above (Debian/Ubuntu per-triple subdir vs RPM-family's
-      # /usr/lib64).
+      # Fedora and Azure Linux need libatomic explicitly for pnpm's prebuilt binary.
+      # Ubuntu gcc pulls it via libgcc-s1 by default. Same dual-layout split as libicu above. Debian/Ubuntu use
+      # a per-triple subdir vs RPM-family's /usr/lib64.
       coreutils ls /usr/lib/*/libatomic.so.* >/dev/null 2>&1 ||
       coreutils ls /usr/lib64/libatomic.so.* >/dev/null 2>&1 ;;
     *) command -v "$pkg" >/dev/null 2>&1 ;;
@@ -181,15 +171,13 @@ if [ -n "$missing" ]; then
   exit 1
 fi
 
-# Some third-party install scripts (dotnet-install.sh notably, invoked by the
-# `dotnet` mise tool below) hard-code bare `awk`. Repo policy is goawk-only
-# (CLAUDE.md "Don't depend on host tools"); fedora/ubuntu/debian base images
-# happen to ship awk pre-installed so this is a no-op there, but Azure
-# Linux's base/core is more minimal and ships without awk. Provide one as a
-# symlink to mise's goawk so policy holds (the only awk binary on the system
-# IS goawk) and the third-party script finds something on PATH. goawk is
-# installed in `_setup_all` (config.toml) before this task body runs, so
-# `mise which goawk` is guaranteed to resolve.
+# Some third-party install scripts hard-code bare `awk`.
+# dotnet-install.sh notably, invoked by the `dotnet` mise tool below, does this. Repo policy is goawk-only
+# (CLAUDE.md "Don't depend on host tools"); fedora/ubuntu/debian base images happen to ship awk pre-installed
+# so this is a no-op there, but Azure Linux's base/core is more minimal and ships without awk. Provide one as
+# a symlink to mise's goawk so policy holds (the only awk binary on the system IS goawk) and the third-party
+# script finds something on PATH. goawk is installed in `_setup_all` (config.toml) before this task body
+# runs, so `mise which goawk` is guaranteed to resolve.
 if ! command -v awk >/dev/null 2>&1; then
   goawk_path="$(mise which goawk)"
   link_dir=/usr/local/bin

@@ -4,7 +4,7 @@ severity: error
 message: |
   Doc comment (`///`) is adjacent to a regular `//` comment. Either turn the
   regular comment into a doc comment (`///`) or move it away from the doc block
-  — readers expect a contiguous `///` run to be the item's rustdoc.
+  -- readers expect a contiguous `///` run to be the item's rustdoc.
 rule:
   any:
     - kind: line_comment

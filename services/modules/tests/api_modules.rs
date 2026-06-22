@@ -1,5 +1,4 @@
 #![cfg(test)]
-#![expect(clippy::print_stdout, reason = "test code: js-env skip log line uses println")]
 
 use actix_web::{App, test, web};
 use edge_toolkit::config::{Language, mise_env_includes};
@@ -39,8 +38,6 @@ async fn list_modules_api() {
     ] {
         if mise_env_includes(language) {
             assert!(resp.contains(&module.to_string()), "missing {module}: {resp:?}");
-        } else {
-            println!("skipping {module}: requires the `{}` mise env", language.as_str());
         }
     }
 
@@ -49,7 +46,5 @@ async fn list_modules_api() {
     // disk and the modules listing doesn't include it.
     if mise_env_includes(Language::Js) {
         assert!(resp.contains(&"onnxruntime-web".to_string()));
-    } else {
-        println!("skipping onnxruntime-web assertion: js env not loaded");
     }
 }

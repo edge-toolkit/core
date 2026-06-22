@@ -5,7 +5,7 @@
 #
 # Scope:
 # - TOML (`--namespace no_trailing_backslash` on conftest-check-toml): catches
-#   continuations embedded in multi-line `"""…"""` task `run` bodies, which
+#   continuations embedded in multi-line `"""..."""` task `run` bodies, which
 #   the TOML parser preserves verbatim in the parsed string.
 # - YAML (`--namespace no_trailing_backslash` on conftest-check-yaml): catches
 #   continuations inside `|`/`>` block-scalar values, similarly preserved by

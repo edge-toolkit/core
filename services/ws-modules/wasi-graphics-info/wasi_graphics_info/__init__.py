@@ -2,10 +2,10 @@
 
 The module exercises two standardised WASI interfaces on the host:
 
-* `wasi:webgpu/webgpu` — a trimmed subset of WebAssembly/wasi-gfx (see
+* `wasi:webgpu/webgpu` -- a trimmed subset of WebAssembly/wasi-gfx (see
   `wit/deps/wasi-webgpu/`). The guest builds a real GPU pipeline (adapter,
   device, buffers, shader, bind group, compute pass) and runs a 4x4 matmul.
-* `wasi:nn/{graph, tensor, inference}` — the same WIT surface wasmCloud /
+* `wasi:nn/{graph, tensor, inference}` -- the same WIT surface wasmCloud /
   Spin / Fermyon production workloads use, backed on our host by
   `wasmtime-wasi-nn` + ONNX Runtime. We load `mnist-12.onnx` and run a
   single forward pass.

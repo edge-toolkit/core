@@ -1,10 +1,10 @@
-# ls-lint file/directory naming linter (https://ls-lint.org), run via
-# `mise run ls-lint-check`. ls-lint walks the working tree (not git), so the
-# build/vendor/codegen trees are ignored below and only hand-written source is
-# linted. Each rule lists the casings actually used in the repo today.
+# ls-lint file/directory naming linter (https://ls-lint.org).
+# Run via `mise run ls-lint-check`. ls-lint walks the working tree (not git),
+# so the build/vendor/codegen trees are ignored below and only hand-written
+# source is linted. Each rule lists the casings actually used in the repo today.
 ls:
-  # Directories are kebab-case (most) or snake_case (a few generated-style
-  # names); the regex alternative permits leading-dot tool dirs (.github, .mise).
+  # Directories are kebab-case (most) or snake_case (a few generated-style names).
+  # The regex alternative permits leading-dot tool dirs (.github, .mise).
   .dir: kebab-case | snake_case | regex:\.[a-z]+
 
   .rs: snake_case | kebab-case
@@ -21,14 +21,14 @@ ls:
 ignore:
   - .git
   - target
-  # `**/` because pnpm puts `node_modules` nested under each package dir
-  # (`services/ws-server/static/node_modules`), not at the repo root.
+  # `**/` because pnpm puts `node_modules` nested under each package dir.
+  # E.g. `services/ws-server/static/node_modules`, not at the repo root.
   - "**/node_modules"
   - generated
   # Bundled data/model assets -- names are not hand-chosen.
   - data
-  # Build/vendor output that ls-lint would otherwise walk (it can't read
-  # .gitignore). The `**/` form matches each at any depth.
+  # Build/vendor output that ls-lint would otherwise walk (it can't read .gitignore).
+  # The `**/` form matches each at any depth.
   - "**/.venv"
   - "**/__pycache__"
   - "**/.pytest_cache"

@@ -1,53 +1,47 @@
-# macOS-only mise config. Shared vars (rpath_flag, pylib_flag, py3_unix, …)
-# come from config.toml, which loads first; PYO3_PYTHON keeps its config.toml
-# default (py3_unix).
+# macOS-only mise config.
+# Shared vars (rpath_flag, pylib_flag, py3_unix, ...) come from config.toml, which
+# loads first; PYO3_PYTHON keeps its config.toml default (py3_unix).
 
 [tools]
-# The LLD linker (ships ld64.lld) the RUSTFLAGS below use; Apple's /usr/bin/clang
-# can't resolve `-fuse-ld=lld` without it.
+# The LLD linker (ships ld64.lld) the RUSTFLAGS below use.
+# Apple's /usr/bin/clang can't resolve `-fuse-ld=lld` without it.
 "conda:lld" = "latest"
 
 [vars]
 conda_lld = "{{ env.HOME }}/.local/share/mise/installs/conda-lld/latest"
-# Point `-fuse-ld=` at the absolute ld64.lld so it resolves without a PATH lookup
-# (the cargo subprocess mise spawns for a `cargo:` source build doesn't have
-# sibling tools like conda:lld on PATH).
+# Point `-fuse-ld=` at the absolute ld64.lld so it resolves without a PATH lookup.
+# The cargo subprocess mise spawns for a `cargo:` source build doesn't have sibling tools like conda:lld on PATH.
 lld_flag = "-C link-arg=-fuse-ld={{ vars.conda_lld }}/bin/ld64.lld"
-# Xcode's libclang (the lib dir beside `xcrun`'s clang); clang-sys doesn't always
-# auto-find it on CI. The system libclang knows the SDK, so no bindgen args.
+# Xcode's libclang (the lib dir beside `xcrun`'s clang).
+# clang-sys doesn't always auto-find it on CI. The system libclang knows the SDK, so no bindgen args.
 mac_libclang = "{{ exec(command='dirname $(dirname $(xcrun --find clang))') }}/lib"
 
 [env]
-# lld_flag points Apple's clang at ld64.lld (see [vars]); the rpath/pylib flags
-# (from config.toml) record conda's OpenSSL soname + the CPython lib dir so the
-# runtime loader finds them. Applies to every rustc call, including the `cargo:`
-# source-build subprocess.
+# lld_flag points Apple's clang at ld64.lld (see [vars]).
+# The rpath/pylib flags (from config.toml) record conda's OpenSSL soname + the CPython lib dir so the runtime
+# loader finds them. Applies to every rustc call, including the `cargo:` source-build subprocess.
 CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
 CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
 LIBCLANG_PATH = "{{ vars.mac_libclang }}"
-# Pin SDKROOT so cc-rs and other build scripts find the macOS SDK (stdlib.h
-# etc.) regardless of which `cc` resolves first. With the `_.path` prepend
-# below putting Xcode CLT's /usr/bin/cc ahead of any brew gcc wrapper, the
-# cc-rs invocation no longer inherits SDK headers from a brew-built compiler
-# -- and `cc -mmacosx-version-min=... <file>` without `-isysroot` then fails
-# with "'stdlib.h' file not found". Setting SDKROOT here makes the resolution
-# explicit.
+# Pin SDKROOT so cc-rs and other build scripts find the macOS SDK.
+# This covers headers like stdlib.h regardless of which `cc` resolves first. With the `_.path` prepend below
+# putting Xcode CLT's /usr/bin/cc ahead of any brew gcc wrapper, the cc-rs invocation no longer inherits SDK
+# headers from a brew-built compiler -- and `cc -mmacosx-version-min=... <file>` without `-isysroot` then
+# fails with "'stdlib.h' file not found". Setting SDKROOT here makes the resolution explicit.
 SDKROOT = "{{ exec(command='xcrun --show-sdk-path') }}"
-# Prepend Xcode CLT + macOS system bin dirs so they win priority over Homebrew
-# (where `command -v bash` etc. would otherwise resolve to /opt/homebrew/* or
-# /usr/local/bin/* on a brewed Mac). Mise's `_.path` directive prepends to
-# PATH cleanly; brew dirs stay on PATH but lose the race for shared names.
+# Prepend Xcode CLT + macOS system bin dirs so they win priority over Homebrew.
+# Otherwise `command -v bash` etc. would resolve to /opt/homebrew/* or /usr/local/bin/* on a brewed Mac. Mise's
+# `_.path` directive prepends to PATH cleanly; brew dirs stay on PATH but lose the race for shared names.
 _.path = ["/Library/Developer/CommandLineTools/usr/bin", "/bin", "/sbin", "/usr/bin", "/usr/sbin"]
 
 [tasks.preinstall]
-# Preinstall: verify Xcode CLT (cc/clang etc., which mise can't supply), then
-# verify the build prerequisites shared with Linux. The package list has a
-# single source of truth -- the Dockerfile's APT_PACKAGES ARG: a workstation
-# reads it back from the Dockerfile in the checkout, so adding/removing a
-# prereq there propagates here automatically. Most apt names map cleanly to
-# Xcode CLT binaries or macOS pre-installed tools; the case patterns below
-# adjust the few that don't (cert path, SDK headers via xcrun). Finally
-# install conda:lld (the darwin linker the RUSTFLAGS use).
+# Preinstall verifies Xcode CLT, then the build prerequisites shared with Linux.
+# It verifies Xcode CLT (cc/clang etc., which mise can't supply), then the build prerequisites shared with
+# Linux. The package list has a single source of truth -- the Dockerfile's APT_PACKAGES ARG: a workstation
+# reads it back from the Dockerfile in the checkout, so adding/removing a prereq there propagates here
+# automatically. Most apt names map cleanly to Xcode CLT binaries or macOS pre-installed tools; the case
+# patterns below adjust the few that don't (cert path, SDK headers via xcrun). Finally install conda:lld (the
+# darwin linker the RUSTFLAGS use).
 depends = ["_setup_all"]
 description = "Preinstall: verify Xcode CLT + Dockerfile prereqs + conda:lld"
 run = """
@@ -57,10 +51,10 @@ xcode-select -p >/dev/null 2>&1 || {
   exit 1
 }
 dockerfile="{{ config_root }}/Dockerfile"
-# Single source of truth: the Dockerfile's COMMON_PACKAGES (names identical
-# across apt/dnf/tdnf) + APT_PACKAGES (apt-specific extras). On macOS we
-# follow the apt naming because mise's apt-side workstation story is the
-# closest analogue (no dnf packages on macOS).
+# Single source of truth is the Dockerfile's COMMON_PACKAGES + APT_PACKAGES.
+# COMMON_PACKAGES holds names identical across apt/dnf/tdnf; APT_PACKAGES holds apt-specific extras. On macOS
+# we follow the apt naming because mise's apt-side workstation story is the closest analogue (no dnf packages
+# on macOS).
 common="${COMMON_PACKAGES:-}"
 specific="${APT_PACKAGES:-}"
 if [ -z "$common" ]; then
@@ -86,14 +80,14 @@ for pkg in $pkgs; do
     ca-certificates) [ -r /etc/ssl/cert.pem ] ;;
     libc6-dev) [ -n "$sdk" ] && [ -r "$sdk/usr/include/stdio.h" ] ;;
     libicu*) coreutils ls /usr/lib/*/libicui18n.so.* >/dev/null 2>&1 ;;
-    # macOS gets `as` from Xcode CLT, not a binutils package, but the probe
-    # via the assembler binary still confirms the assembler is reachable.
+    # macOS gets `as` from Xcode CLT, not a binutils package.
+    # The probe via the assembler binary still confirms the assembler is reachable.
     binutils) command -v as >/dev/null 2>&1 ;;
     *) command -v "$pkg" >/dev/null 2>&1 ;;
   esac || { missing="$missing $pkg"; continue; }
-  # Reject Homebrew-installed tools: this repo deliberately avoids Brew, so a
-  # tool resolving under a brew prefix means PATH has shadowed the canonical
-  # Xcode CLT / macOS-native one. Skip the file-based pkgs (no binary to check).
+  # Reject Homebrew-installed tools, since this repo deliberately avoids Brew.
+  # A tool under a brew prefix means PATH shadowed the Xcode CLT / native one.
+  # Skip the file-based pkgs (no binary to check).
   [ -n "$cmd" ] || continue
   path="$(command -v "$cmd")" || continue
   real="$(coreutils readlink -f "$path" 2>/dev/null || echo "$path")"

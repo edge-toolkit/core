@@ -13,8 +13,8 @@ message: |
         ...
 files:
   - .github/workflows/*.yaml
-# Match every `strategy:` mapping whose body lacks `fail-fast: false`. The
-# inner `kind: block_mapping` lookup targets the strategy block itself so a
+# Match every `strategy:` mapping whose body lacks `fail-fast: false`.
+# The inner `kind: block_mapping` lookup targets the strategy block itself so a
 # `fail-fast:` on a sibling job's strategy doesn't satisfy this one. Same
 # pattern shape as gha-job-timeout-minutes.yaml -- match the marker, require
 # the sibling inside its containing block_mapping.

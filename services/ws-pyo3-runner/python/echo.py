@@ -1,7 +1,7 @@
 """Example Python module for `et-ws-pyo3-runner`.
 
 This file demonstrates the contract the runner expects. Every function is
-optional — if your module doesn't define it, the runner skips that hook.
+optional -- if your module doesn't define it, the runner skips that hook.
 
 Lifecycle, in order:
 
@@ -18,12 +18,12 @@ Two ways to emit outbound frames:
   back. `return None` for silence.
 
 * **Fan-out case:** call `send.text(...)` / `send.binary(...)` any
-  number of times during a handler — or later from a background thread.
+  number of times during a handler -- or later from a background thread.
   Both styles compose: anything you `send.*()` during a handler goes
   out *before* the value you `return`, in submission order.
 
 State lives in module-level globals. The runner instantiates one copy
-per process, so this is the same as a singleton — no classes, no state
+per process, so this is the same as a singleton -- no classes, no state
 threading across the FFI boundary.
 
 To use this module, set these env vars and run the runner:
@@ -43,8 +43,8 @@ _logger = logging.getLogger(__name__)
 # --- module state ----------------------------------------------------------
 
 _agent_id: str | None = None
-_send = None  # type: WsSender | None — stashed for fan-out, unused here
-_storage = None  # type: WsStorage | None — stashed for completeness
+_send = None  # type: WsSender | None -- stashed for fan-out, unused here
+_storage = None  # type: WsStorage | None -- stashed for completeness
 _echoed: int = 0
 
 
@@ -55,7 +55,7 @@ def init(send, storage) -> None:
     """Stash the WsSender and WsStorage handles for later use.
 
     Even modules that only use reply-by-return should accept and keep `send`
-    — it's how you'd push frames later (e.g. from a background thread).
+    -- it's how you'd push frames later (e.g. from a background thread).
     `storage` is the ws-server's `/storage` API; this example doesn't use it.
     """
     global _send, _storage

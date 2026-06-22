@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Workspace member Cargo.toml — [lib] must not override the crate name",
+  "title": "Workspace member Cargo.toml -- [lib] must not override the crate name",
   "description": "The library name must default from the package name; an explicit `[lib] name` rename is banned.",
   "type": "object",
   "properties": {

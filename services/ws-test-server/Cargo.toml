@@ -17,8 +17,8 @@ et-modules-service.workspace = true
 et-storage-service.workspace = true
 et-ws-service.workspace = true
 tempfile.workspace = true
-# Same TracingLogger setup as the real ws-server, so tests that init OTLP
-# in-process see server-side spans parented on the propagated traceparent.
+# Same TracingLogger setup as the real ws-server.
+# So tests that init OTLP in-process see server-side spans parented on the propagated traceparent.
 tracing-actix-web.workspace = true
 
 [dev-dependencies]

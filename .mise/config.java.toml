@@ -1,30 +1,26 @@
 # Java toolchain + tasks. Loaded when MISE_ENV includes `java`.
 
 [tools]
-# Pinned (not "latest") because the JAVA_HOME path below + config.windows.toml's
-# maven_bin _.path entry both template install-dir segments with version. Bump
-# in lockstep, AND on bump verify the Windows OpenJDK wrapper name in the
+# Pinned (not "latest") because the version is templated into install-dir segments in two places.
+# The JAVA_HOME path below + config.windows.toml's maven_bin _.path entry both template install-dir
+# segments with version. Bump in lockstep, AND on bump verify the Windows OpenJDK wrapper name in the
 # java_home var below (build-number suffix changes with each GA release).
 java = "26.0.1"
 maven = "3.9.16"
 
 [vars]
-# JDK install root for JAVA_HOME (see [env] below). mise's java plugin
-# extracts the OpenJDK archive flat on every platform (Linux/macOS tarball
-# and Windows zip alike -- `bin/java[.exe]` sits directly under the install
-# dir; no `jdk-X.Y.Z+N\` wrapper). Default base directory is mise's
-# per-platform data dir (`~/.local/share/mise` on Unix, `%LOCALAPPDATA%\mise`
-# on Windows); MISE_DATA_DIR overrides on either.
+# JDK install root for JAVA_HOME (see [env] below).
+# mise's java plugin extracts the OpenJDK archive flat on every platform (Linux/macOS tarball and Windows zip
+# alike -- `bin/java[.exe]` sits directly under the install dir; no `jdk-X.Y.Z+N\` wrapper). Default base
+# directory is mise's per-platform data dir (`~/.local/share/mise` on Unix, `%LOCALAPPDATA%\mise` on Windows);
+# MISE_DATA_DIR overrides on either.
 #
-# Windows-only slash normalization: %LOCALAPPDATA% arrives in mise's tera
-# context with forward slashes (`C:/Users/.../AppData/Local`) but our
-# literal segments use backslashes; the resulting mixed-slash path passes
-# busybox `ls` but mvn.cmd's `if not exist "%JAVA_HOME%\bin\java.exe"`
-# rejects it. The `| replace(from="/", to=`\`)` pass on the prefix
-# normalizes everything to a single backslash. Note the backtick-quoted
-# string for the replacement: tera 1.20's pest grammar treats strings
-# verbatim (no `\\`-as-`\` escape), so backticks + a single literal
-# backslash are the way to express a one-char `\` argument.
+# Windows-only slash normalization: %LOCALAPPDATA% arrives in mise's tera context with forward slashes
+# (`C:/Users/.../AppData/Local`) but our literal segments use backslashes; the resulting mixed-slash path
+# passes busybox `ls` but mvn.cmd's `if not exist "%JAVA_HOME%\bin\java.exe"` rejects it. The
+# `| replace(from="/", to=`\`)` pass on the prefix normalizes everything to a single backslash. Note the
+# backtick-quoted string for the replacement: tera 1.20's pest grammar treats strings verbatim (no `\\`-as-`\`
+# escape), so backticks + a single literal backslash are the way to express a one-char `\` argument.
 java_home = '''{% if os() == "windows" -%}
 {%- set win_base = get_env(name="LOCALAPPDATA", default="") ~ "\mise" -%}
 {{- get_env(name="MISE_DATA_DIR", default=win_base) | replace(from="/", to=`\`) -}}
@@ -35,33 +31,27 @@ java_home = '''{% if os() == "windows" -%}
 {%- endif %}'''
 
 [env]
-# mvn.cmd's first action is `if "%JAVA_HOME%" == "" goto :error` -- it
-# REQUIRES JAVA_HOME in the env (PATH-discovered java.exe is not enough).
-# Linux/macOS mvn shells are more relaxed but still benefit from a pinned
-# JAVA_HOME (otherwise java-toolchains.xml lookups vary by host).
+# JAVA_HOME must be set in the env because mvn.cmd requires it.
+# mvn.cmd's first action is `if "%JAVA_HOME%" == "" goto :error` -- it REQUIRES JAVA_HOME in the env
+# (PATH-discovered java.exe is not enough). Linux/macOS mvn shells are more relaxed but still benefit from a
+# pinned JAVA_HOME (otherwise java-toolchains.xml lookups vary by host).
 JAVA_HOME = "{{ vars.java_home }}"
-# Silence Maven's per-artifact download/upload progress lines (the
-# "Downloading from central:" / "Downloaded" spam). Build output and real
-# errors still print. MAVEN_ARGS is honored by Maven 3.9+ and prepends to
-# every `mvn` invocation.
+# Silence Maven's per-artifact download/upload progress lines.
+# These are the "Downloading from central:" / "Downloaded" spam. Build output and real errors still print.
+# MAVEN_ARGS is honored by Maven 3.9+ and prepends to every `mvn` invocation.
 MAVEN_ARGS = "--no-transfer-progress"
-# Cross-platform mvn invocation. On Windows we must NOT let busybox bash
-# resolve `mvn`: the maven distribution ships both files side-by-side in
-# bin/ (`mvn` is a Unix shell script; `mvn.cmd` is the Windows wrapper),
-# and busybox-w32's PATH lookup picks the bare `mvn` first via
-# `file_is_executable`, parses its `#!/bin/sh` shebang, and runs it
-# through busybox's own sh applet -- but the Unix script's JAVACMD
-# composition (`JAVACMD="$JAVA_HOME/bin/java"`, no `.exe`) then fails
-# its `[ -x "$JAVACMD" ]` test because on Windows the file is named
-# `bin/java.exe`. Bare `mvn.cmd` (and `cmd.exe /c mvn`) both fail in
-# the all-langs MISE_ENV with "'mvn[.cmd]' is not recognized" -- the
-# wrapping cmd.exe cannot see maven\bin in its inherited PATH (likely
-# a length/encoding issue introduced by the wider tool set; works fine
-# with MISE_ENV=java alone). Use the absolute path to `mvn.cmd`
-# instead: busybox-w32's spawnve detects `.cmd` and auto-wraps with
-# cmd.exe, which runs the full path directly with no PATH lookup
-# required. `vars.maven_bin` is defined in config.windows.toml; vars
-# merge across all loaded configs.
+# Cross-platform mvn invocation.
+# On Windows we must NOT let busybox bash resolve `mvn`: the maven distribution ships both files side-by-side
+# in bin/ (`mvn` is a Unix shell script; `mvn.cmd` is the Windows wrapper), and busybox-w32's PATH lookup
+# picks the bare `mvn` first via `file_is_executable`, parses its `#!/bin/sh` shebang, and runs it through
+# busybox's own sh applet -- but the Unix script's JAVACMD composition (`JAVACMD="$JAVA_HOME/bin/java"`, no
+# `.exe`) then fails its `[ -x "$JAVACMD" ]` test because on Windows the file is named `bin/java.exe`. Bare
+# `mvn.cmd` (and `cmd.exe /c mvn`) both fail in the all-langs MISE_ENV with "'mvn[.cmd]' is not recognized" --
+# the wrapping cmd.exe cannot see maven\bin in its inherited PATH (likely a length/encoding issue introduced
+# by the wider tool set; works fine with MISE_ENV=java alone). Use the absolute path to `mvn.cmd` instead:
+# busybox-w32's spawnve detects `.cmd` and auto-wraps with cmd.exe, which runs the full path directly with no
+# PATH lookup required. `vars.maven_bin` is defined in config.windows.toml; vars merge across all loaded
+# configs.
 MVN = '''{% if os() == "windows" -%}
 {{- vars.maven_bin -}}\mvn.cmd
 {%- else -%}
@@ -73,8 +63,8 @@ description = "Build the java-data1 workflow module"
 run = "$MVN package"
 shell = "bash -euo pipefail -c"
 
-# Namespaced aggregator picked up by the default config's globbed `check`. The
-# compile triggers maven-compiler-plugin with -Xlint:all -Werror + Error Prone.
+# Namespaced aggregator picked up by the default config's globbed `check`.
+# The compile triggers maven-compiler-plugin with -Xlint:all -Werror + Error Prone.
 [tasks."check:java"]
 description = "Run Java checks (javac -Xlint:all -Werror, Error Prone)"
 run = "$MVN -q compile"

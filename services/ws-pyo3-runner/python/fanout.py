@@ -20,7 +20,7 @@ def init(send, storage) -> None:
     """Stash the WsSender for the fan-out path."""
     global _send
     _send = send
-    # `storage` ignored — fanout doesn't persist anything.
+    # `storage` ignored -- fanout doesn't persist anything.
     _logger.info("fanout agent initialised")
 
 

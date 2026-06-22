@@ -1,5 +1,5 @@
-# Config for the `link-check` task, part of the `check` aggregate. lychee makes
-# live network requests, so this is tuned to tolerate transient failures
+# Config for the `link-check` task, part of the `check` aggregate.
+# lychee makes live network requests, so this is tuned to tolerate transient failures
 # (retries, 429-tolerance, disk cache) and to skip reserved hosts + non-prose
 # trees.
 
@@ -12,21 +12,23 @@ timeout = 20
 cache = true
 max_cache_age = "2d"
 
-# Treat GitHub's anonymous throttle (429) as reachable -- the link is valid,
-# we're just rate-limited.
+# Treat GitHub's anonymous throttle (429) as reachable.
+# The link is valid -- we're just rate-limited.
 accept = ["200..=299", "429"]
 
-# Skip loopback (localhost, 127.0.0.1) and private/reserved IPs (e.g. the
-# 10.0.0.1:9000 test fixture) -- not real external links.
+# Skip loopback and private/reserved IPs, which are not real external links.
+# This covers localhost, 127.0.0.1, and private/reserved IPs (e.g. the
+# 10.0.0.1:9000 test fixture).
 exclude_loopback = true
 exclude_private = true
 
-# node_modules is gitignored but lychee's gitignore-respect doesn't cross the
-# pnpm symlink farm (pnpm hangs each package off a `.pnpm/` symlink, and `git
-# check-ignore` itself refuses with "beyond a symbolic link" on those paths).
-# Exclude it explicitly so vendored package docs don't surface as link errors.
+# Exclude node_modules explicitly so vendored package docs don't surface as link errors.
+# It is gitignored, but lychee's gitignore-respect doesn't cross the pnpm symlink
+# farm (pnpm hangs each package off a `.pnpm/` symlink, and `git check-ignore`
+# itself refuses with "beyond a symbolic link" on those paths).
 exclude_path = ["data", "generated", "node_modules", "target"]
 
-# URL patterns (regex) to skip: doc/test placeholder hosts (e.g. http://host:8080/)
-# and `{...}` format-string templates (.../{repo}/{git_ref}/...), not real links.
+# URL patterns (regex) to skip, none of which are real links:
+# doc/test placeholder hosts (e.g. http://host:8080/) and `{...}`
+# format-string templates (.../{repo}/{git_ref}/...).
 exclude = ['\{|%7B', '^https?://host[:/]']

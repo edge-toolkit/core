@@ -1,6 +1,6 @@
-# When a file declares `mod $X;` and then references it via `use $X::...`,
-# write `use self::$X::...` to make the local reference explicit. Split
-# into 8 multi-doc sub-rules (bare/pub/pub(crate)/pub(super) × chain/group):
+# When a file declares `mod $X;` and references it via `use $X::...`, write `use self::$X::...`.
+# This makes the local reference explicit. Split
+# into 8 multi-doc sub-rules (bare/pub/pub(crate)/pub(super) x chain/group):
 # ast-grep allows one `fix:` per rule, and the eight match patterns differ
 # in surface form (presence of `pub`-form, presence of braces) in ways a
 # single fix template can't reconstruct.

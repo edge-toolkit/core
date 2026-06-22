@@ -46,9 +46,10 @@ jobs:
     name: build (${{ matrix.runner }}, ${{ matrix.base }})
     timeout-minutes: 120
     env:
-      # The classic Windows builder on windows-2022 can't substitute build-args into the Dockerfile's RUN,
-      # and mise's prebuilt "latest" zip is stale (2026.3.0, too old for the config).
-      # 2026.6.5 is the first release with auto_env (loads .mise/config.windows.toml).
+      # Pin the mise version because the prebuilt "latest" zip is too old.
+      # The classic Windows builder on windows-2022 can't substitute build-args into the Dockerfile's RUN, and
+      # mise's prebuilt "latest" zip is stale (2026.3.0, too old for the config). 2026.6.5 is the first release
+      # with auto_env (loads .mise/config.windows.toml).
       MISE_VERSION: "2026.6.5"
     steps:
       - name: Checkout
@@ -61,9 +62,9 @@ jobs:
         if: matrix.base == 'servercore'
         run: echo "MISE_ENV=$MISE_ENV"
 
-      # Hosted Windows runners don't reliably leave the Docker daemon running, so
-      # the build can fail connecting to the docker_engine pipe. Start it (no-op
-      # if already running) and confirm connectivity before building.
+      # Start the Docker daemon and confirm connectivity before building.
+      # Hosted Windows runners don't reliably leave the Docker daemon running, so the build can fail connecting
+      # to the docker_engine pipe. Start it (no-op if already running) and confirm connectivity before building.
       - name: Start the Docker daemon
         run: |
           sc query docker | grep -q RUNNING || net start docker
@@ -80,12 +81,11 @@ jobs:
           curl -fsSL -o mise.zip "https://github.com/jdx/mise/releases/download/v$v/mise-v$v-windows-x64.zip"
           printf '%s' "${{ github.token }}" > gh_token
 
-      # Pick which Dockerfile each matrix lane builds. The build is split into
-      # `build-minimal` → diagnostics → `precompile` so the et-rp (rustpython)
-      # diagnostic runs between the two stages. Both `docker build` calls share
-      # BuildKit's layer cache; the second one rebuilds only the layers above
-      # `build-minimal`, so the split adds the diagnostic step's runtime, not
-      # a second full compile.
+      # Pick which Dockerfile each matrix lane builds.
+      # The build is split into `build-minimal` -> diagnostics -> `precompile` so the et-rp (rustpython)
+      # diagnostic runs between the two stages. Both `docker build` calls share BuildKit's layer cache; the
+      # second one rebuilds only the layers above `build-minimal`, so the split adds the diagnostic step's
+      # runtime, not a second full compile.
       - name: Resolve Dockerfile + image tag
         id: dockerfile
         run: |
@@ -110,13 +110,11 @@ jobs:
           args="$args --target build-minimal -t $IMAGE_TAG"
           docker build $args .
 
-      # Diagnostic: does the et-rp (rustpython) binary actually run inside this
-      # base image? servercore expected: works. nanoserver expected: fails with
-      # 0xc0000139 (STATUS_ENTRYPOINT_NOT_FOUND) when rustpython.exe tries to
-      # resolve symbols from Nano-stripped shell32/winmm/propsys. Captured here
-      # rather than only via the preinstall fallback so the comparison sits
-      # side-by-side in the same workflow run. continue-on-error so a Nano
-      # failure here doesn't pre-empt the precompile build that follows.
+      # Diagnose whether the et-rp (rustpython) binary actually runs inside this base image.
+      # servercore expected: works. nanoserver expected: fails with 0xc0000139 (STATUS_ENTRYPOINT_NOT_FOUND)
+      # when rustpython.exe tries to resolve symbols from Nano-stripped shell32/winmm/propsys. Captured here
+      # rather than only via the preinstall fallback so the comparison sits side-by-side in the same workflow
+      # run. continue-on-error so a Nano failure here doesn't pre-empt the precompile build that follows.
       - name: Diagnose et-rp (rustpython) in build-minimal
         continue-on-error: true
         env:
@@ -132,11 +130,10 @@ jobs:
           docker run --rm "$IMAGE_TAG" cmd /c "mise exec -- rustpython -c \"print('et-rp ok')\""
           echo "::endgroup::"
 
-      # Build target depends on base: nanoserver stops at `precompile` (no
-      # python/dotnet/test-runtime; the test stage doesn't exist there),
-      # servercore goes all the way through `test` so the next two steps can
-      # `docker run` the suite. Both targets compose with the precompile-stage
-      # layer cache from the build-minimal step above.
+      # The build target depends on the base image.
+      # nanoserver stops at `precompile` (no python/dotnet/test-runtime; the test stage doesn't exist there),
+      # servercore goes all the way through `test` so the next two steps can `docker run` the suite. Both targets
+      # compose with the precompile-stage layer cache from the build-minimal step above.
       - name: Build stage precompile (nanoserver) / test (servercore)
         env:
           DOCKERFILE: ${{ steps.dockerfile.outputs.dockerfile }}
@@ -155,11 +152,10 @@ jobs:
           args="$args --target $target $tag"
           docker build $args .
 
-      # Run the test suite split the same way docker-linux does: cargo-test-other
-      # (workspace minus et-ws-web-runner) and test-ws-web-runner (Deno-runtime
-      # gated, self-skips on hosts that can't satisfy it). Each runs in a fresh
-      # container so the per-phase compile target/ doesn't share the writable
-      # layer with the other phase. servercore-only -- Nano has no test stage.
+      # Run the test suite split the same way docker-linux does:
+      # cargo-test-other (workspace minus et-ws-web-runner) and test-ws-web-runner (Deno-runtime gated, self-skips
+      # on hosts that can't satisfy it). Each runs in a fresh container so the per-phase compile target/ doesn't
+      # share the writable layer with the other phase. servercore-only -- Nano has no test stage.
       - name: Run cargo-test-other
         if: matrix.base == 'servercore'
         run: docker run --rm et-windows-test mise run cargo-test-other

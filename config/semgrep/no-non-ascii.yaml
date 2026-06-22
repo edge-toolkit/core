@@ -1,0 +1,30 @@
+rules:
+  - id: no-non-ascii
+    languages: [generic]
+    paths:
+      exclude:
+        # Generated / build-output trees regenerate non-ASCII from their tools.
+        # The source of truth there is the generator, not a hand edit: clap's
+        # HELP.md carries a jump glyph; wasm-pack pkg/ bundles and the
+        # AsyncAPI/OpenAPI/WIT output under generated/ plus the regen-verification
+        # output under verification/ all reintroduce it.
+        - "/generated/**"
+        - "/verification/**"
+        - "**/HELP.md"
+        - "**/pkg/**"
+        # License texts carry non-ASCII legal glyphs and are not ours to edit.
+        - "LICENSE*"
+        # Binary assets.
+        - "*.png"
+        - "*.ico"
+        - "*.wasm"
+        - "*.onnx"
+    pattern-regex: '[^\x00-\x7F]'
+    message: >-
+      Non-ASCII character. Keep source, config, and docs ASCII-only: use `--`
+      for an em-dash, `->` for an arrow, `...` for an ellipsis, `<=`/`!=`/`^2`
+      for math glyphs, and straight quotes for curly quotes. ASCII keeps
+      terminals, log scrapers, and `grep` reading the same bytes the editor
+      shows. Generated trees (generated/, verification/, HELP.md, pkg/) are
+      exempt because their generator owns the output.
+    severity: ERROR

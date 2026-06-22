@@ -12,9 +12,8 @@
 #![cfg(test)]
 #![expect(
     clippy::arithmetic_side_effects,
-    clippy::print_stderr,
     clippy::single_call_fn,
-    reason = "integration test: Instant/Duration poll-loop math, env-narrow skip log, single-use helpers"
+    reason = "integration test: Instant/Duration poll-loop math, single-use helpers"
 )]
 
 use std::error::Error;
@@ -61,7 +60,6 @@ async fn cowsay_module_imports_mise_package() -> Result<(), Box<dyn Error>> {
     // `python`, the resolved interpreter / site-packages may be absent and
     // the runner can't import cowsay; skip cleanly.
     if !mise_env_includes(Language::Python) {
-        eprintln!("skipping cowsay: MISE_ENV omits `python`");
         return Ok(());
     }
     let server = et_ws_test_server::start();

@@ -12,9 +12,9 @@ message: |
 files:
   - .github/workflows/*.yaml
   - .github/actions/*/action.yaml
-# tree-sitter parses every block scalar (folded `>`, literal `|`, both with
-# their chomping variants `+` / `-`) as a single `block_scalar` node whose
-# leading characters carry the header. Regex-match only the `>-` form so `>`,
+# tree-sitter parses every block scalar as a single `block_scalar` node whose header is its leading text.
+# This covers folded `>`, literal `|`, both with their chomping variants `+` / `-`.
+# Regex-match only the `>-` form so `>`,
 # `|`, and `|-` continue to pass; `^>-` anchors at the start of the node text
 # so we don't accidentally match a `>-` that appears inside the scalar body.
 #

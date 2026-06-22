@@ -1,7 +1,9 @@
 # escape=`
-# Parser directive (must be line 1): sets the line-continuation / escape
-# character to a backtick instead of the default `\`, so backslashes in Windows
-# paths stay literal and lines continue with a backtick.
+
+# Parser directive (must be line 1) setting the escape character.
+# It sets the line-continuation / escape character to a backtick instead of the
+# default `\`, so backslashes in Windows paths stay literal and lines continue
+# with a backtick.
 #
 # BuildKit cache mounts (`RUN --mount=type=cache,...`) are NOT used here:
 # the GHA Windows runners ship without the `buildx` CLI so DOCKER_BUILDKIT=1
@@ -9,6 +11,7 @@
 # The workflow's disk-cleanup step (docker system/builder prune -af) and the
 # MISE_DISABLE_TOOLS carve-out below are the substitute disk-pressure relief.
 
+# Suppress two ShellCheck false-errors for this file's Windows cmd RUNs.
 # hadolint runs ShellCheck (POSIX sh) over every RUN, but these are Windows cmd,
 # so it false-errors on cmd `if` (SC1072) and on `\x` in paths like C:\gh_token
 # (SC1001). hadolint/hadolint#645. Suppress just those two for this file.
@@ -24,7 +27,7 @@
 
 ARG WINDOWS_VERSION=ltsc2022
 
-# --- build-minimal: mise + the always-loaded toolchain (config.toml only). ---
+# build-minimal: mise + the always-loaded toolchain (config.toml only).
 # Mirrors the Linux build-minimal and Dockerfile.nanoserver's build-minimal:
 # stages mise.exe + the gh_token from the build context, trusts the project
 # config, and runs `mise install` against the always-loaded `[tools]` set.
@@ -32,7 +35,8 @@ FROM mcr.microsoft.com/windows/servercore:${WINDOWS_VERSION} AS build-minimal
 SHELL ["cmd", "/S", "/C"]
 USER ContainerAdministrator
 
-# VC++ runtime: msvc-built executables (mise.exe, the rust/cargo mise installs)
+# Install the VC++ runtime needed by msvc-built executables.
+# msvc-built executables (mise.exe, the rust/cargo mise installs)
 # need vcruntime140.dll / msvcp140.dll just to *start*. Server Core has the
 # installer stack to lay these down in-place (unlike Nano, which needs a donor
 # stage). `|| ver>nul` swallows the redistributable's 3010 ("reboot required").
@@ -43,18 +47,19 @@ RUN curl -fsSL -o vc_redist.exe https://aka.ms/vs/17/release/vc_redist.x64.exe &
 # Should show literal `%HOME%` token in the output as HOME is unset.
 RUN echo HOME=[%HOME%] USERPROFILE=[%USERPROFILE%]
 
-# Set HOME to the admin profile so the container has a sane home (Server Core
-# sets USERPROFILE but leaves HOME unset by default).
+# Set HOME to the admin profile so the container has a sane home.
+# Server Core sets USERPROFILE but leaves HOME unset by default.
 ENV HOME=C:\Users\ContainerAdministrator
 
-# A writable TEMP on the system drive. Rustup's "persist temporary file" step
-# is sensitive to a missing/unwritable temp.
+# A writable TEMP on the system drive.
+# Rustup's "persist temporary file" step is sensitive to a missing/unwritable
+# temp.
 RUN if not exist C:\Temp mkdir C:\Temp
 ENV TEMP=C:\Temp `
     TMP=C:\Temp
 
-# wasm-pack's binary cache (binary-install's Cache::new) -- explicit override so
-# wasm-pack doesn't go through dirs_next's home-directory resolution at all.
+# Override wasm-pack's binary cache (binary-install's Cache::new) explicitly.
+# This stops wasm-pack going through dirs_next's home-directory resolution at all.
 ENV WASM_PACK_CACHE=C:\Temp\wasm-pack
 
 # Serialize mise installs (same rationale as the Linux/Nano builds: the cargo:
@@ -64,13 +69,15 @@ ENV MISE_JOBS=1
 # Full Rust backtraces so any panic surfaces in the CI log.
 ENV RUST_BACKTRACE=full
 
-# Stage mise.exe from the build context (a single .exe the workflow downloads
-# and stages alongside the Dockerfile). Same shape as Dockerfile.nanoserver.
+# Stage mise.exe from the build context.
+# It is a single .exe the workflow downloads and stages alongside the
+# Dockerfile. Same shape as Dockerfile.nanoserver.
 COPY mise.zip C:\mise.zip
 RUN tar -xf C:\mise.zip -C C:\ && del C:\mise.zip
 
-# Prepend mise's bin + shims dir; re-list System32 + Windows explicitly so cmd-
-# native commands stay on PATH after our prepends (Docker's case-sensitive
+# Prepend mise's bin + shims dir and re-list System32 + Windows explicitly.
+# Re-listing System32 + Windows keeps cmd-
+# native commands on PATH after our prepends (Docker's case-sensitive
 # `${PATH}` doesn't merge the base image's `Path` env var). PWSH holds the
 # nested PowerShell 5.1 dir Server Core ships -- the base image's default
 # `Path` includes it but our PATH= overwrite loses it, breaking mise's
@@ -101,15 +108,16 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise settings set cargo.binstall true && `
     mise trust C:\.config\mise\config.toml
 
-# busybox-w32 `ash`: the shell that bash-shell mise tasks run under
-# (MISE_BASH_PATH in config.windows.toml [env] points at the ash.exe
-# inside this install). Server Core has cmd + PowerShell but no bash,
+# Install busybox-w32 `ash`, the shell that bash-shell mise tasks run under.
+# MISE_BASH_PATH in config.windows.toml [env] points at the ash.exe
+# inside this install. Server Core has cmd + PowerShell but no bash,
 # so it needs busybox just like Nano. Must install BEFORE
 # `mise run preinstall` runs, since `_setup_all`'s shell is bash.
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install http:busybox
 
-# Install CPython up front so the Windows preinstall task's
+# Install CPython up front so the Windows preinstall takes the CPython path.
+# The Windows preinstall task's
 # `if command -v python` branch takes the well-tested
 # `python -m pip install pipx` path. Server Core has the full installer
 # stack (unlike Nano), so python-build-standalone runs cleanly here.
@@ -120,8 +128,9 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install python
 
-# Preinstall: the cross-platform `_setup_all` (in config.toml) + the Windows
-# preinstall (in config.windows.toml). Both are guarded by `[settings]
+# Run the cross-platform `_setup_all` plus the Windows preinstall.
+# `_setup_all` lives in config.toml and the Windows
+# preinstall in config.windows.toml. Both are guarded by `[settings]
 # task.run_auto_install=false`, so the preinstall task itself only runs once
 # mise has the tools it depends on.
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
@@ -131,7 +140,7 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install
 
-# --- build: add the guest-language toolchains (config.<lang>.toml). ---
+# build: add the guest-language toolchains (config.<lang>.toml).
 # Server Core handles dotnet + python natively (PowerShell installer; ctypes
 # can resolve shell32!SHGetKnownFolderPath), so the default MISE_ENV here is
 # the full set. Override via `--build-arg MISE_ENV=...` to narrow.
@@ -140,7 +149,8 @@ COPY .mise/ .mise/
 RUN mise trust
 ARG MISE_ENV=dart,dotnet,java,js,python,rust,zig
 ENV MISE_ENV=${MISE_ENV}
-# Disable a few heavy tools on the servercore docker lane to keep the
+# Disable a few heavy tools on the servercore docker lane to save disk.
+# This keeps the
 # install layer below the runner's HCS staging budget. Captured failure:
 #   re-exec error: exit status 1: output: write
 #   \\?\C:\Windows\SystemTemp\hcs<id>\Files\...\uv\cache\...\anyio\_core
@@ -155,17 +165,17 @@ ENV MISE_DISABLE_TOOLS=dotnet:roslynator.dotnet.cli,pipx:torch
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install
 
-# --- prefetch: download all dependencies + ONNX models. ---
+# prefetch: download all dependencies + ONNX models.
 FROM build AS prefetch
 COPY . .
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise run prefetch-ci
 
-# --- precompile: build the WASM/JS modules. ---
+# precompile: build the WASM/JS modules.
 FROM prefetch AS precompile
 RUN mise run build-modules && if exist target rmdir /s /q target
 
-# --- test: the full suite (Rust + every loaded guest language). ---
+# test: the full suite (Rust + every loaded guest language).
 # Compiled AND run at `docker run` time (precompile keeps no target/), so the
 # multi-GB debug test binaries never bake into a layer -- they live in the
 # ephemeral container and vanish when it exits. Sister to the Linux Dockerfile's

@@ -9,8 +9,8 @@ rules:
       policies:
         "*": any
   obfuscation:
-    # test.yaml's matrix `include` is built with `fromJSON(... format(...))`
-    # precisely because the OS list depends on `github.event_name` / the
+    # test.yaml's matrix `include` is built with `fromJSON(... format(...))`.
+    # Precisely because the OS list depends on `github.event_name` / the
     # workflow_dispatch input -- it cannot "be reduced to a constant".
     ignore:
       - test.yaml

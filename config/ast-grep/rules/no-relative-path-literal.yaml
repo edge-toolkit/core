@@ -12,11 +12,10 @@ rule:
   kind: string_content
   regex: '^\.\.?(/.*)?$'
 ignores:
-  # wasmtime's bindgen! has no macro-string support, so its wit `path:` must be
-  # a literal resolved against this crate's dir (the one unavoidable repo `..`).
+  # wasmtime's bindgen! has no macro-string support, so its wit `path:` must be a literal.
+  # It is resolved against this crate's dir (the one unavoidable repo `..`).
   - services/ws-wasi-runner/src/bindings.rs
-  # relative_path_from() deliberately emits "." / ".." for generated mise.toml
-  # and compose.yaml output.
+  # relative_path_from() deliberately emits "." / ".." for generated mise.toml and compose.yaml output.
   - libs/path/src/lib.rs
   # --module-dir defaults to the current directory.
   - utilities/cli/src/cli.rs

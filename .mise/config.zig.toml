@@ -1,17 +1,17 @@
 # Zig toolchain + tasks. Loaded when MISE_ENV includes `zig`.
 
 [tools]
-# Upstream only ships linux/x64, macos, and windows binaries — no linux/arm64
-# asset, so installing this on `ubuntu-24.04-arm` fails with "No matching asset
-# found". Restrict to the platforms that have a release artifact; the Zig
-# REST-client generation step in et-int-gen detects the missing binary at
-# runtime and is a no-op when it's not on PATH.
+# Restricted to platforms with a release artifact.
+# Upstream only ships linux/x64, macos, and windows binaries -- no linux/arm64 asset, so installing this on
+# `ubuntu-24.04-arm` fails with "No matching asset found". Restrict to the platforms that have a release
+# artifact; the Zig REST-client generation step in et-int-gen detects the missing binary at runtime and is a
+# no-op when it's not on PATH.
 "github:christianhelle/openapi2zig" = { version = "latest", os = ["linux/x64", "macos", "windows"] }
-# C tooling for the zig-data1 module's hand-written C (services/ws-modules/
-# zig-data1/src/*.c). Two conda packages because mise hands the `clang-format`
-# name to conda:clang-format, so conda:clang-tools omits it and only supplies
-# clang-tidy. Both are conda-forge's native LLVM binaries. cpplint (Google C++
-# style) has no prebuilt binary -- pipx is its only distribution.
+# C tooling for the zig-data1 module's hand-written C.
+# The C sources live under services/ws-modules/zig-data1/src/*.c. Two conda packages because mise hands the
+# `clang-format` name to conda:clang-format, so conda:clang-tools omits it and only supplies clang-tidy. Both
+# are conda-forge's native LLVM binaries. cpplint (Google C++ style) has no prebuilt binary -- pipx is its
+# only distribution.
 "conda:clang-format" = "latest"
 "conda:clang-tools" = "latest"
 "pipx:cpplint" = "latest"
@@ -33,9 +33,9 @@ run = "git ls-files '*.c' '*.h' | xargs clang-format --dry-run --Werror --style=
 
 [tasks.clang-tidy-check]
 description = "Lint C sources (clang-tidy)"
-# Flags after `--` are the compile args; clang_resource_arg points clang at its
-# builtin headers (set per host -- see config.linux.toml). {{ }} renders to empty
-# where unset, leaving a bare `--`.
+# Flags after `--` are the compile args.
+# clang_resource_arg points clang at its builtin headers (set per host -- see config.linux.toml). {{ }} renders
+# to empty where unset, leaving a bare `--`.
 run = """
 git ls-files '*.c' '*.h' |
   xargs -I{} clang-tidy --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
@@ -83,10 +83,9 @@ run = "zig build --fetch --build-file services/ws-modules/zig-data1/build.zig"
 [tasks."gen:zig-rest"]
 depends = ["gen:ws-spec"]
 description = "Emit the Zig REST client via et-int-gen (openapi2zig + tree-sitter post-process), then zig-fmt it"
-# et-int-gen's `generate zig` re-derives the OpenAPI doc, runs openapi2zig, and
-# post-processes the result; it is a no-op when openapi2zig isn't on PATH (e.g.
-# linux/arm64). `zig fmt` then makes the committed file canonical so
-# gen-specs-check doesn't drift.
+# et-int-gen's `generate zig` re-derives the OpenAPI doc, runs openapi2zig, and post-processes it.
+# It is a no-op when openapi2zig isn't on PATH (e.g. linux/arm64). `zig fmt` then makes the committed file
+# canonical so gen-specs-check doesn't drift.
 run = """
 cargo run -q -p et-int-gen --bin et-int-gen -- generate zig
 zig fmt generated/zig-rest/src/et_rest_client.zig

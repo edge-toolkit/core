@@ -32,15 +32,15 @@ rules:
     paths:
       include:
         - "/.mise/config*.toml"
-    # Matches `[tasks.X.env]` headers followed by exactly one `KEY = VAL`
-    # assignment (modulo leading comment lines) and terminated by a blank
-    # line + next `[` section header. The "exactly one" comes from the
-    # negative lookahead `(?!.*=)` after the single match -- a second
-    # assignment within the section blocks the match. The lookahead doesn't
-    # check inline-form line length (would need code, not a regex), so a
-    # hit still needs the human to confirm the would-be `env = { ... }`
-    # fits inside 120 chars before flattening; if it doesn't, leave it
-    # subtabled and add a `# semgrep-ignore: …` directive on the header.
+    # Matches `[tasks.X.env]` headers that wrap exactly one single-key assignment.
+    # Followed by exactly one `KEY = VAL` assignment (modulo leading comment
+    # lines) and terminated by a blank line + next `[` section header. The
+    # "exactly one" comes from the negative lookahead `(?!.*=)` after the single
+    # match -- a second assignment within the section blocks the match. The
+    # lookahead doesn't check inline-form line length (would need code, not a
+    # regex), so a hit still needs the human to confirm the would-be
+    # `env = { ... }` fits inside 120 chars before flattening; if it doesn't,
+    # leave it subtabled and add a `# semgrep-ignore: ...` directive on the header.
     pattern-regex: '(?m)^\[tasks\.[^\]]+\.env\]\n(?:#[^\n]*\n)*[A-Z_][A-Z0-9_]*\s*=\s*[^\n]+\n+\['
     message: >-
       `[tasks.X.env]` subtable has a single `KEY = "value"` assignment. Inline

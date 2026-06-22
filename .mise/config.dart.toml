@@ -1,24 +1,22 @@
 # Dart toolchain + tasks. Loaded when MISE_ENV includes `dart`.
 
 [vars]
-# Google dart-archive base URLs — the release tree and the bucket listing —
-# referenced by [tools.dart] below so its url/version_list_url stay one line.
+# Google dart-archive base URLs, split out so [tools.dart] below stays one line.
+# The release tree and the bucket listing are referenced by its url/version_list_url.
 dart_bucket = "https://storage.googleapis.com/storage/v1/b/dart-archive/o"
 dart_release = "https://storage.googleapis.com/dart-archive/channels/stable/release"
 
 [tools]
 "cargo:dart-typegen" = { version = "latest", os = ["linux", "macos"] }
 
-# dart isn't an aqua/registry tool — install it straight from Google's dart
-# archive, discovering the latest stable from the bucket listing. `{{ version }}`
+# dart isn't an aqua/registry tool, so install it straight from Google's dart archive.
+# The latest stable is discovered from the bucket listing. `{{ version }}`
 # etc. resolve in the tool-url context; the static host/path prefix is a var.
 #
-# `strip_components = 1` makes mise drop the `dart-sdk/` wrapper every dartsdk
-# zip uses (Windows/macOS/Linux ship the same `dart-sdk/<files>` shape). mise
-# normally auto-detects single-top-level-dir archives and strips, but that
-# auto-detect doesn't fire reliably on Windows ZIPs, leaving the binary at
-# `<install>/dart-sdk/bin/dart.exe` instead of the `<install>/bin/dart.exe`
-# mise's PATH activation expects. Explicit beats auto.
+# `strip_components = 1` makes mise drop the `dart-sdk/` wrapper every dartsdk zip uses (Windows/macOS/Linux
+# ship the same `dart-sdk/<files>` shape). mise normally auto-detects single-top-level-dir archives and strips,
+# but that auto-detect doesn't fire reliably on Windows ZIPs, leaving the binary at `<install>/dart-sdk/bin/dart.exe`
+# instead of the `<install>/bin/dart.exe` mise's PATH activation expects. Explicit beats auto.
 [tools.dart]
 strip_components = 1
 url = "{{ vars.dart_release }}/{{ version }}/sdk/dartsdk-{{ os() }}-{{ arch() }}-release.zip"
@@ -31,13 +29,12 @@ fromJSON(body).prefixes
 version_list_url = "{{ vars.dart_bucket }}?prefix=channels/stable/release/&delimiter=/"
 
 [tasks.dart-pub-get]
-# `dart format` and `dart analyze` walk up to find pubspec.yaml *and* read
-# `.dart_tool/package_config.json` if present. With package_config.json, the
-# formatter picks the package's exact language version; without it, it
-# falls back to a different default — same source file, different output.
-# That mismatch is invisible locally (we accumulate .dart_tool/ over time)
-# but bites CI's fresh checkout. Run `dart pub get` for every Dart package
-# before any dart-* task so .dart_tool/ exists and the format is stable.
+# Run `dart pub get` for every Dart package before any dart-* task.
+# This makes .dart_tool/ exist so the format is stable. `dart format` and `dart analyze` walk up to find
+# pubspec.yaml *and* read `.dart_tool/package_config.json` if present. With package_config.json, the formatter
+# picks the package's exact language version; without it, it falls back to a different default -- same source
+# file, different output. That mismatch is invisible locally (we accumulate .dart_tool/ over time) but bites
+# CI's fresh checkout.
 run = """
 dart pub get --directory generated/dart-ws
 dart pub get --directory services/ws-modules/dart-comm1
@@ -54,8 +51,8 @@ run = "dart format services/ws-modules/dart-comm1/ generated/dart-ws/"
 
 [tasks.dart-fmt-check]
 depends = ["dart-pub-get"]
-# Parallel of cargo-fmt-check: fail if any tracked Dart source would be
-# reformatted, so CI enforces the same formatting `dart-fmt` applies.
+# Parallel of cargo-fmt-check: fail if any tracked Dart source would be reformatted.
+# This lets CI enforce the same formatting `dart-fmt` applies.
 run = "dart format --output=none --set-exit-if-changed services/ws-modules/dart-comm1/ generated/dart-ws/"
 
 # Namespaced aggregators picked up by the default config's globbed `check`/`fmt`.
@@ -83,10 +80,9 @@ run = "dart pub get --directory services/ws-modules/dart-comm1"
 [tasks."gen:dart-ws"]
 depends = ["gen:ws-spec"]
 description = "Emit the Dart sealed-class WS client via dart-typegen (consumes generated/specs/ws.kdl from gen:ws-spec)"
-# dart-typegen exits 0 on Windows but writes an empty .dart file, which
-# would clobber the committed source and fail gen-specs-check. Skip the
-# regen there; the committed file (regenerated on Linux/macOS) stays
-# canonical.
+# Skip the regen on Windows; the committed file stays canonical.
+# That committed file is regenerated on Linux/macOS. dart-typegen exits 0 on Windows but writes an empty .dart
+# file, which would clobber the committed source and fail gen-specs-check.
 run = """
 [ "${OS:-}" = "Windows_NT" ] && { echo "gen:dart-ws: skipped on Windows (dart-typegen empty output)"; exit 0; }
 mkdir -p generated/dart-ws/lib

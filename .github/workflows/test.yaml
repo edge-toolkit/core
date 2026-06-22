@@ -37,13 +37,11 @@ jobs:
   rust:
     runs-on: ${{ matrix.os }}
     timeout-minutes: ${{ matrix.timeout }}
-    # Override the workflow-level `shell: bash` default for Windows runs to
-    # use the busybox-w32 ash that mise installs in `_setup_all` (the same
-    # shell `MISE_BASH_PATH` already points at for `shell = "bash"` tasks on
-    # the Windows Docker images). Avoids Git Bash's MSYS fork-emulation
-    # cygheap pathology on long-running mise task chains. The path matches
-    # the version pin in `.mise/config.windows.toml`'s [tools."http:busybox"]
-    # entry.
+    # Override the workflow-level `shell: bash` default for Windows runs.
+    # This uses the busybox-w32 ash that mise installs in `_setup_all` (the same shell `MISE_BASH_PATH` already
+    # points at for `shell = "bash"` tasks on the Windows Docker images). Avoids Git Bash's MSYS fork-emulation
+    # cygheap pathology on long-running mise task chains. The path matches the version pin in
+    # `.mise/config.windows.toml`'s [tools."http:busybox"] entry.
     defaults:
       run:
         shell: >-
@@ -52,12 +50,13 @@ jobs:
               || 'bash --noprofile --norc -euo pipefail {0}' }}
     strategy:
       fail-fast: false
+      # Compute the OS list here in the strategy block, where `github.*` IS in scope.
       # `matrix` context isn't available in job-level `if:`, so we compute the
-      # OS list right here in the strategy block (where `github.*` IS in scope):
-      #   pull_request       → ubuntu-latest + ubuntu-24.04-arm + macos-latest
+      # OS list right here:
+      #   pull_request       -> ubuntu-latest + ubuntu-24.04-arm + macos-latest
       #                        + windows-latest (skip slow Intel Mac;
       #                        ubuntu-26.04 + windows-11-arm are dispatch-only)
-      #   workflow_dispatch  → the OS picked in the dropdown, or all of them
+      #   workflow_dispatch  -> the OS picked in the dropdown, or all of them
       # The combos are emitted as a fully-formed list of `{os, timeout}`
       # objects so the `include:` "unmatched entries append as new jobs"
       # behavior doesn't bring back the OSes we just filtered out.
@@ -121,19 +120,16 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run prefetch-ci
 
-      # GITHUB_TOKEN raises the rate-limit ceiling on mise's fetch of the
-      # rp-v<N> rustpython_wasm tarball ([tools."http:rp-wasm"] → mise's
-      # http backend against github.com release assets).
-      # MISE_JOBS=1 on Windows serializes mise's task scheduler so the parallel
-      # `build-ws-*-module` deps don't race on cargo's `.cargo/registry/index`
-      # lock -- on Linux/macOS cargo waits gracefully, but on Windows it fails
-      # fast with `cargo metadata exited with an error: Blocking waiting for
-      # file lock on package cache` (observed in job 82448665293, where
-      # build-ws-graphics-info-module + build-ws-nfc-module + build-ws-har1-
-      # module all kicked off in parallel). Conditional via a separate step
-      # rather than a step-level `env:` because mise rejects an empty
-      # MISE_JOBS value ("cannot parse integer from empty string"), and GHA
-      # has no `if:` on individual env entries.
+      # Set env that smooths mise's fetches and (on Windows) serializes its scheduler.
+      # GITHUB_TOKEN raises the rate-limit ceiling on mise's fetch of the rp-v<N> rustpython_wasm tarball
+      # ([tools."http:rp-wasm"] -> mise's http backend against github.com release assets). MISE_JOBS=1 on Windows
+      # serializes mise's task scheduler so the parallel `build-ws-*-module` deps don't race on cargo's
+      # `.cargo/registry/index` lock -- on Linux/macOS cargo waits gracefully, but on Windows it fails fast with
+      # `cargo metadata exited with an error: Blocking waiting for file lock on package cache` (observed in job
+      # 82448665293, where build-ws-graphics-info-module + build-ws-nfc-module + build-ws-har1-module all kicked
+      # off in parallel). Conditional via a separate step rather than a step-level `env:` because mise rejects an
+      # empty MISE_JOBS value ("cannot parse integer from empty string"), and GHA has no `if:` on individual env
+      # entries.
       - name: Serialize mise tasks on Windows
         if: runner.os == 'Windows'
         run: echo "MISE_JOBS=1" >> "$GITHUB_ENV"

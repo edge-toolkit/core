@@ -3,8 +3,8 @@ language: Rust
 severity: error
 message: |
   Non-ASCII character in a string literal or doc comment. Stick to ASCII
-  in source: use `--` instead of `—`, `->` instead of `→`, straight `"`
-  instead of curly quotes, etc. ASCII-only source keeps terminals, log
+  in source: use `--` for an em-dash, `->` for an arrow, and straight
+  quotes for curly quotes, etc. ASCII-only source keeps terminals, log
   scrapers, and `grep` reading the same bytes the editor shows.
 rule:
   any:

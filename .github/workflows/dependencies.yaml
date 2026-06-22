@@ -29,12 +29,11 @@ env:
 
 jobs:
   dependencies:
-    # `ubuntu-latest`, not `ubuntu-slim`: although every step in this workflow
-    # is metadata/network-bound (no Rust compile), `taiki-e/install-action`
-    # itself assumes a standard runner-image FHS (e.g. ~/.cargo/bin) and
-    # fails on slim's bare container with `I/O Error: No such file or
-    # directory` while staging cargo-unmaintained. Slim only fits workflows
-    # whose first step doesn't need that scaffolding.
+    # Use `ubuntu-latest`, not `ubuntu-slim`, for this workflow.
+    # Although every step here is metadata/network-bound (no Rust compile), `taiki-e/install-action` itself assumes
+    # a standard runner-image FHS (e.g. ~/.cargo/bin) and fails on slim's bare container with
+    # `I/O Error: No such file or directory` while staging cargo-unmaintained. Slim only fits workflows whose first
+    # step doesn't need that scaffolding.
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -58,13 +57,12 @@ jobs:
       - name: osv-scanner
         run: mise run osv-scanner
 
-      # `cargo unmaintained` persists per-repository archival/last-commit
-      # lookups under `$XDG_CACHE_HOME/cargo-unmaintained` (default
-      # `~/.cache/cargo-unmaintained`, with a versioned `v2/` subdir). On a
-      # cold runner the per-dependency GitHub round-trips take ~12 min, which
-      # nearly blew the old 15-min timeout; restoring this cache keeps reruns
-      # fast. Key on Cargo.lock so a dependency change refreshes; the prefix
-      # restore-key reuses the previous cache for crates that didn't change.
+      # Restore cached `cargo unmaintained` lookups to keep reruns fast.
+      # `cargo unmaintained` persists per-repository archival/last-commit lookups under
+      # `$XDG_CACHE_HOME/cargo-unmaintained` (default `~/.cache/cargo-unmaintained`, with a versioned `v2/` subdir).
+      # On a cold runner the per-dependency GitHub round-trips take ~12 min, which nearly blew the old 15-min
+      # timeout. Key on Cargo.lock so a dependency change refreshes; the prefix restore-key reuses the previous
+      # cache for crates that didn't change.
       - name: Cache cargo-unmaintained lookups
         uses: actions/cache@v4
         with:
@@ -73,10 +71,10 @@ jobs:
           restore-keys: |
             cargo-unmaintained-
 
-      # `cargo unmaintained` queries the GitHub API to check whether each
-      # declared upstream repository is archived. Without a token the
-      # archival check is skipped with a warning, leaving an unmaintained
-      # archived crate undetected.
+      # Provide a token so `cargo unmaintained` can run its archival check.
+      # `cargo unmaintained` queries the GitHub API to check whether each declared upstream repository is
+      # archived. Without a token the archival check is skipped with a warning, leaving an unmaintained archived
+      # crate undetected.
       - name: cargo unmaintained
         env:
           GITHUB_TOKEN: ${{ github.token }}

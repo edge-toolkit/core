@@ -20,9 +20,9 @@
   "markup": {},
   // Match oxfmt's JS/TS style so the two formatters can run on the same
   // files without fighting:
-  //   - arrowFunction.useParentheses=force → always `(x) =>`, not `x =>`
-  //   - memberExpression.linePerExpression → break chained `.then().catch()`
-  //   - binaryExpression.operatorPosition=sameLine → `&&` / `||` trailing
+  //   - arrowFunction.useParentheses=force -> always `(x) =>`, not `x =>`
+  //   - memberExpression.linePerExpression -> break chained `.then().catch()`
+  //   - binaryExpression.operatorPosition=sameLine -> `&&` / `||` trailing
   //     the previous line, not leading the next
   "typescript": {
     "arrowFunction.useParentheses": "force",

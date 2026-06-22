@@ -32,10 +32,9 @@ runs:
         install-action: ${{ inputs.install-action-tools }}
 
     # Optional npm backend, installed before the main `mise install`.
-    # Only useful when js env is loaded (it's the backend for npm:* tools, all
-    # of which live in config.js.toml); skip otherwise to avoid the install
-    # cost on workflows that don't need any npm: install.
-    # See [tasks.setup-aube] in .mise/config.toml for the full rationale.
+    # Only useful when js env is loaded (it's the backend for npm:* tools, all of which live in config.js.toml); skip
+    # otherwise to avoid the install cost on workflows that don't need any npm: install. See [tasks.setup-aube] in
+    # .mise/config.toml for the full rationale.
     - name: Install aube (optional npm backend, allowed to fail)
       if: contains(env.MISE_ENV, 'js')
       continue-on-error: true
@@ -63,10 +62,9 @@ runs:
         sleep 20
         mise install
 
-    # Delete mise's auto-generated `mise.cmd` shim on Windows so cmd's PATH
-    # search falls through to the real `mise.exe` at `~/.cargo/bin/mise.exe`
-    # (staged by taiki-e/install-action). Must run AFTER `mise install` --
-    # that's the step that creates the shims.
+    # Delete mise's auto-generated `mise.cmd` shim on Windows.
+    # This lets cmd's PATH search fall through to the real `mise.exe` at `~/.cargo/bin/mise.exe` (staged by
+    # taiki-e/install-action). Must run AFTER `mise install` -- that's the step that creates the shims.
     - name: Remove self-recursive mise.cmd shim on Windows
       if: runner.os == 'Windows'
       shell: bash --noprofile --norc -euo pipefail {0}

@@ -17,8 +17,8 @@ requires = ["uv_build==0.11.8"]
 module-name = "pyface1"
 module-root = ""
 
-# `et-ws` is the generated Pydantic client under `generated/python-ws/`. Wired
-# as a uv source so `uv run pytest` resolves it locally; the wheel itself is
+# `et-ws` is the generated Pydantic client under `generated/python-ws/`.
+# It is wired as a uv source so `uv run pytest` resolves it locally; the wheel itself is
 # bundled separately into pkg/ by the `build-ws-pyface1-module` mise task
 # (alongside the pyface1 wheel) so Pyodide can micropip-install it at runtime.
 [tool.uv.sources]

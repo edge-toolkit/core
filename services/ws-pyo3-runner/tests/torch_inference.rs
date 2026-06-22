@@ -62,12 +62,7 @@ async fn control_client(ws_url: &str) -> Result<(ControlSocket, String), Box<dyn
 
 #[tokio::test(flavor = "current_thread")]
 async fn torch_module_runs_inference() -> Result<(), Box<dyn Error>> {
-    // Explicit language gate first -- when CI narrows MISE_ENV (e.g.
-    // `dotnet,rust`) the python env doesn't load and `pipx:torch` isn't
-    // installable, so skip cleanly without the filesystem capability check
-    // (which would also return false, but says less about the intent).
     if !mise_env_includes(Language::Python) {
-        eprintln!("skipping torch_inference: MISE_ENV omits `python`");
         return Ok(());
     }
     if !torch_reachable() {

@@ -10,8 +10,8 @@ message: |
   Use `${{ matrix.timeout }}` or similar if the right value varies by entry.
 files:
   - .github/workflows/*.yaml
-# Match every `runs-on:` (the GHA-required marker that a block is a job) whose
-# containing block_mapping has no `timeout-minutes:` sibling. Pattern-based,
+# Match every `runs-on:` whose containing block_mapping has no `timeout-minutes:` sibling.
+# `runs-on:` is the GHA-required marker that a block is a job. Pattern-based,
 # not kind+constraint-based: tree-sitter's `field: key` selector behaved
 # inconsistently in this codebase's grammar version.
 rule:
