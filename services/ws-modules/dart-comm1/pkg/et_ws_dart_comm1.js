@@ -28,7 +28,7 @@ export async function run() {
   } catch (e) {
     console.error("dart-comm1 raw error:", e, "boxed:", e?.error);
     const msg = e?.error?.toString?.() ?? e?.message ?? String(e);
-    throw new Error(msg);
+    throw new Error(msg, { cause: e });
   } finally {
     delete globalThis.WsClient;
     delete globalThis.WsClientConfig;

@@ -10,10 +10,15 @@ repository.workspace = true
 doctest = false
 name = "et-onnx"
 path = "src/main.rs"
+test = false
 
 [dependencies]
 clap.workspace = true
+clap-markdown = { workspace = true, optional = true }
 onnx-extractor.workspace = true
+
+[features]
+markdown-help = ["dep:clap-markdown"]
 
 [lints]
 workspace = true

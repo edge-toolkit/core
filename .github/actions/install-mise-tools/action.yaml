@@ -1,0 +1,74 @@
+---
+name: Install mise tools
+description: >-
+  Runs `install-mise` action, then installs all of the tools in the per-language
+  toolchains named by the workflow's MISE_ENV (with one retry on transient
+  HTTP flakes). Shared by check.yaml and test.yaml; the caller must run
+  `actions/checkout` before this so .mise/config*.toml exists for `mise trust`.
+
+inputs:
+  github-token:
+    description: >-
+      GitHub token forwarded as `$GITHUB_TOKEN` to the mise install steps.
+    required: true
+  install-action-tools:
+    description: >-
+      Comma-separated tools to co-install via taiki-e/install-action in the
+      same step as mise. Forwarded to install-mise's `extra-tools` input.
+      NOT used for `aube` -- install-action's manifest expects an `aubr`
+      binary that recent aube releases don't ship, so the install resolves
+      to a cargo source-build that flakes on crates.io SSL. The aube path
+      below uses the original `mise run setup-aube` (npm-backed, allowed
+      to fail) which has been the reliable install method.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install mise binary
+      uses: ./.github/actions/install-mise
+      with:
+        install-action: ${{ inputs.install-action-tools }}
+
+    # Optional npm backend, installed before the main `mise install`.
+    # Only useful when js env is loaded (it's the backend for npm:* tools, all of which live in config.js.toml); skip
+    # otherwise to avoid the install cost on workflows that don't need any npm: install. See [tasks.setup-aube] in
+    # .mise/config.toml for the full rationale.
+    - name: Install aube (optional npm backend, allowed to fail)
+      if: contains(env.MISE_ENV, 'js')
+      continue-on-error: true
+      shell: bash --noprofile --norc -euo pipefail {0}
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: mise run setup-aube
+
+    - name: Install mise tools
+      id: install-mise-tools
+      continue-on-error: true
+      shell: bash --noprofile --norc -euo pipefail {0}
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        mise run preinstall
+        mise install
+
+    - name: Install mise tools (retry)
+      if: steps.install-mise-tools.outcome == 'failure'
+      shell: bash --noprofile --norc -euo pipefail {0}
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        sleep 20
+        mise install
+
+    # Delete mise's auto-generated `mise.cmd` shim on Windows.
+    # This lets cmd's PATH search fall through to the real `mise.exe` at `~/.cargo/bin/mise.exe` (staged by
+    # taiki-e/install-action). Must run AFTER `mise install` -- that's the step that creates the shims.
+    - name: Remove self-recursive mise.cmd shim on Windows
+      if: runner.os == 'Windows'
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: |
+        shims="$LOCALAPPDATA/mise/shims"
+        rm -fv "$shims/mise.cmd" "$shims/mise"
+        ls "$shims" | grep -i '^mise' || true

@@ -2,8 +2,8 @@ id: no-doctest
 language: Rust
 severity: error
 message: |
-  Doctests are forbidden. Move runnable examples into a `tests/` file
-  (every test file must start with `#![cfg(test)]`).
+  Doctests are forbidden. Move runnable examples into a `tests/` file (every test file must start with
+  `#![cfg(test)]`).
 rule:
   any:
     - kind: line_comment

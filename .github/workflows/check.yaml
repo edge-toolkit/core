@@ -16,7 +16,10 @@ concurrency:
 
 defaults:
   run:
-    shell: bash
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+env:
+  MISE_ENV: dart,dotnet,java,js,python,rust,zig
 
 jobs:
   check:
@@ -29,35 +32,10 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Install mise
-        uses: taiki-e/install-action@v2
+      - name: Install mise + tools
+        uses: ./.github/actions/install-mise-tools
         with:
-          tool: cargo-binstall,mise@2026.6.5
-
-      - name: Select all language envs
-        run: echo "MISE_ENV=$(mise run print-all-langs)" >> "$GITHUB_ENV"
-
-      # Optional npm backend, installed before the main `mise install`.
-      # See [tasks.setup-aube] in .mise/config.toml for the full rationale.
-      - name: Install aube (optional npm backend, allowed to fail)
-        continue-on-error: true
-        run: |
-          mise settings experimental=true
-          mise run setup-aube
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          MISE_HTTP_TIMEOUT: "120"
-
-      - name: Install mise tools
-        run: |
-          mise run preinstall
-          mise install
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          # GitHub release downloads occasionally take longer than mise's
-          # default 30s HTTP timeout; bump it so transient network slowness
-          # doesn't fail the whole `mise install` step.
-          MISE_HTTP_TIMEOUT: "120"
+          github-token: ${{ github.token }}
 
       - name: Prefetch Rust dependencies
         run: mise run prefetch:rust

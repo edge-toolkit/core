@@ -2,20 +2,33 @@ id: gha-no-folded-strip
 language: yaml
 severity: error
 message: |
-  Don't use `>-` (folded block scalar with strip-chomping) in workflow YAML.
-  The output reflows whitespace and silently swallows trailing newlines, which
-  bites when the step's `run:` is a shell command that depends on line breaks
-  -- a `>-` block joins lines with spaces, not newlines.
+  Don't use `>-` (folded block scalar with strip-chomping) in workflow YAML. The output reflows whitespace and silently
+  swallows trailing newlines, which bites when the step's `run:` is a shell command that depends on line breaks -- a
+  `>-` block joins lines with spaces, not newlines.
   Use either:
   - a plain single-line `run: <command>`, or
   - a literal block `run: |` (which preserves newlines verbatim).
 files:
   - .github/workflows/*.yaml
-# tree-sitter parses every block scalar (folded `>`, literal `|`, both with
-# their chomping variants `+` / `-`) as a single `block_scalar` node whose
-# leading characters carry the header. Regex-match only the `>-` form so `>`,
-# `|`, and `|-` continue to pass; `^>-` anchors at the start of the node text
-# so we don't accidentally match a `>-` that appears inside the scalar body.
+  - .github/actions/*/action.yaml
+# tree-sitter parses every block scalar as a single `block_scalar` node whose header is its leading text.
+# This covers folded `>`, literal `|`, both with their chomping variants `+` / `-`. Regex-match only the `>-` form so
+# `>`, `|`, and `|-` continue to pass; `^>-` anchors at the start of the node text so we don't accidentally match a
+# `>-` that appears inside the scalar body.
+#
+# Carve-outs: `shell: >-` is fine because shell values are command-line strings that NEED whitespace folding (a
+# multi-line `${{ ... && ... || ... }}` ternary must fold to one command line). `description: >-` is fine because
+# action.yaml documentation fields ARE long folded paragraphs by design -- newline loss is the wanted behavior, not
+# the feared one.
 rule:
-  kind: block_scalar
-  regex: "^>-"
+  all:
+    - kind: block_scalar
+    - regex: "^>-"
+    - not:
+        any:
+          - inside:
+              pattern: "shell: $VAL"
+              stopBy: end
+          - inside:
+              pattern: "description: $VAL"
+              stopBy: end

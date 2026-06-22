@@ -159,6 +159,77 @@ pub fn mise_is_available() -> bool {
     std::process::Command::new("mise").arg("--version").output().is_ok()
 }
 
+/// Guest languages mise loads via `MISE_ENV`.
+///
+/// Each variant maps to a `.mise/config.<env>.toml` file
+/// (e.g. `Self::Python` -> `config.python.toml`) that adds that language's
+/// toolchain on top of the always-loaded base `.mise/config.toml`. Mirrors
+/// `ALL_LANGS` in `.mise/config.toml`; keep the two in sync.
+///
+/// `strum::IntoStaticStr` derives the canonical lowercase name used in
+/// `MISE_ENV` and the config filename; `strum::EnumIter` enumerates all
+/// variants in declaration order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::IntoStaticStr, strum::EnumIter)]
+#[strum(serialize_all = "lowercase")]
+#[non_exhaustive]
+pub enum Language {
+    Dart,
+    Dotnet,
+    Java,
+    Js,
+    Python,
+    Rust,
+    Zig,
+}
+
+impl Language {
+    /// Canonical lowercase name as used in `MISE_ENV` and the
+    /// `config.<name>.toml` filename.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        self.into()
+    }
+}
+
+/// Whether `MISE_ENV` loads the named language config.
+///
+/// `MISE_ENV` is a comma-separated list of guest-language envs (each adds a
+/// `config.<env>.toml`). The unset and explicitly-empty cases mean different
+/// things:
+///
+/// - **`MISE_ENV` unset** (no env var at all): typical local-dev state where
+///   the developer's `mise install` covered everything; treat every language
+///   as available.
+/// - **`MISE_ENV=""`** (set, empty): CI/Docker explicitly narrowed the env
+///   to "no guest languages". Every language returns false; tests that
+///   depend on a guest-env tool skip cleanly.
+///
+/// Used to gate live-installed-tool tests: when CI narrows `MISE_ENV` for
+/// faster feedback (e.g. `dotnet,rust`), tests that depend on a tool in a
+/// dropped env (e.g. `http:pyodide` from the `python` env) can skip cleanly
+/// instead of panicking.
+///
+/// When the language is absent (`MISE_ENV=""` or a list that omits it), a
+/// skip line naming the language is emitted to stderr, so callers only need
+/// to branch on the returned bool -- they don't repeat the message themselves.
+#[must_use]
+pub fn mise_env_includes(language: Language) -> bool {
+    let Ok(value) = std::env::var("MISE_ENV") else {
+        return true;
+    };
+    let included = !value.is_empty() && value.split(',').any(|seg| seg.trim() == language.as_str());
+    if !included {
+        #[expect(
+            clippy::print_stderr,
+            reason = "intentional skip notice to stderr so callers don't repeat the message themselves"
+        )]
+        {
+            eprintln!("MISE_ENV omits `{}`", language.as_str());
+        }
+    }
+    included
+}
+
 /// Returns the install path for a `mise` tool, e.g. `mise where npm:onnxruntime-web`.
 #[must_use]
 pub fn mise_where(tool: &str) -> Option<PathBuf> {
@@ -264,14 +335,21 @@ pub fn mise_python_site_packages() -> Vec<PathBuf> {
 /// Pure-filesystem helper: given a mise `pipx:` `<install>` root, return the
 /// venv `site-packages` directory.
 ///
-/// pipx lays each tool out as `<install>/<pkg>/lib/python<X.Y>/site-packages`;
-/// both the `<pkg>` directory name and the python version vary, so the two
-/// variable segments are scanned rather than assumed. Returns the first match,
-/// or `None` if nothing under `<install>` has that shape.
+/// pipx lays each tool out as `<install>/<pkg>/<venv-libdir>/site-packages`,
+/// where `<venv-libdir>` is `lib/python<X.Y>` on POSIX and `Lib` (no Python
+/// version subdir) on Windows. The `<pkg>` directory name (and the Python
+/// version on POSIX) varies, so the variable segments are scanned rather than
+/// assumed. Returns the first match, or `None` if nothing under `<install>`
+/// has that shape.
 #[must_use]
 pub fn find_site_packages_in(install: &Path) -> Option<PathBuf> {
     for pkg in fs::read_dir(install).ok()?.flatten() {
-        let Ok(lib_entries) = fs::read_dir(pkg.path().join("lib")) else {
+        let pkg_path = pkg.path();
+        let windows_layout = pkg_path.join("Lib").join("site-packages");
+        if windows_layout.is_dir() {
+            return Some(windows_layout);
+        }
+        let Ok(lib_entries) = fs::read_dir(pkg_path.join("lib")) else {
             continue;
         };
         for py in lib_entries.flatten() {

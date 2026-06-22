@@ -1,0 +1,185 @@
+# escape=`
+
+# Parser directive (must be line 1) setting the escape character.
+# It sets the line-continuation / escape character to a backtick instead of the
+# default `\`, so backslashes in Windows paths stay literal and lines continue
+# with a backtick.
+#
+# BuildKit cache mounts (`RUN --mount=type=cache,...`) are NOT used here:
+# the GHA Windows runners ship without the `buildx` CLI so DOCKER_BUILDKIT=1
+# aborts with "BuildKit is enabled but the buildx component is missing".
+# The workflow's disk-cleanup step (docker system/builder prune -af) and the
+# MISE_DISABLE_TOOLS carve-out below are the substitute disk-pressure relief.
+
+# Suppress two ShellCheck false-errors for this file's Windows cmd RUNs.
+# hadolint runs ShellCheck (POSIX sh) over every RUN, but these are Windows cmd,
+# so it false-errors on cmd `if` (SC1072) and on `\x` in paths like C:\gh_token
+# (SC1001). hadolint/hadolint#645. Suppress just those two for this file.
+# hadolint global ignore=SC1072,SC1001
+
+# Server Core variant. Sister to Dockerfile.nanoserver but on a fuller base.
+# mcr.microsoft.com/windows/servercore ships PowerShell, an installer stack,
+# and a complete kernel32 / shell32 / winmm / propsys -- so most of the Nano
+# workarounds (vcruntime/gpgbin donor stages, MISE_GPG_VERIFY=false, the
+# WIN_PD_OVERRIDE_* platformdirs env, the busybox sha256sum shim,
+# MISE_DISABLE_TOOLS carve-outs) are NOT needed here. Keep this file lean;
+# anything specifically Nano-related stays only in Dockerfile.nanoserver.
+
+ARG WINDOWS_VERSION=ltsc2022
+
+# build-minimal: mise + the always-loaded toolchain (config.toml only).
+# Mirrors the Linux build-minimal and Dockerfile.nanoserver's build-minimal:
+# stages mise.exe + the gh_token from the build context, trusts the project
+# config, and runs `mise install` against the always-loaded `[tools]` set.
+FROM mcr.microsoft.com/windows/servercore:${WINDOWS_VERSION} AS build-minimal
+SHELL ["cmd", "/S", "/C"]
+USER ContainerAdministrator
+
+# Install the VC++ runtime needed by msvc-built executables.
+# msvc-built executables (mise.exe, the rust/cargo mise installs)
+# need vcruntime140.dll / msvcp140.dll just to *start*. Server Core has the
+# installer stack to lay these down in-place (unlike Nano, which needs a donor
+# stage). `|| ver>nul` swallows the redistributable's 3010 ("reboot required").
+RUN curl -fsSL -o vc_redist.exe https://aka.ms/vs/17/release/vc_redist.x64.exe && `
+    (vc_redist.exe /install /quiet /norestart || ver>nul) && `
+    del vc_redist.exe
+
+# Should show literal `%HOME%` token in the output as HOME is unset.
+RUN echo HOME=[%HOME%] USERPROFILE=[%USERPROFILE%]
+
+# Set HOME to the admin profile so the container has a sane home.
+# Server Core sets USERPROFILE but leaves HOME unset by default.
+ENV HOME=C:\Users\ContainerAdministrator
+
+# A writable TEMP on the system drive.
+# Rustup's "persist temporary file" step is sensitive to a missing/unwritable
+# temp.
+RUN if not exist C:\Temp mkdir C:\Temp
+ENV TEMP=C:\Temp `
+    TMP=C:\Temp
+
+# Override wasm-pack's binary cache (binary-install's Cache::new) explicitly.
+# This stops wasm-pack going through dirs_next's home-directory resolution at all.
+ENV WASM_PACK_CACHE=C:\Temp\wasm-pack
+
+# Serialize mise installs (same rationale as the Linux/Nano builds).
+# The cargo: source-build fallbacks race on rustup's shared .rustup\downloads dir.
+ENV MISE_JOBS=1
+
+# Full Rust backtraces so any panic surfaces in the CI log.
+ENV RUST_BACKTRACE=full
+
+# Stage mise.exe from the build context.
+# It is a single .exe the workflow downloads and stages alongside the
+# Dockerfile. Same shape as Dockerfile.nanoserver.
+COPY mise.zip C:\mise.zip
+RUN tar -xf C:\mise.zip -C C:\ && del C:\mise.zip
+
+# Prepend mise's bin + shims dir and re-list System32 + Windows explicitly.
+# Re-listing System32 + Windows keeps cmd-
+# native commands on PATH after our prepends (Docker's case-sensitive
+# `${PATH}` doesn't merge the base image's `Path` env var). PWSH holds the
+# nested PowerShell 5.1 dir Server Core ships -- the base image's default
+# `Path` includes it but our PATH= overwrite loses it, breaking mise's
+# `core:dotnet` install (its dotnet-install.ps1 invocation needs `powershell`
+# resolvable). llvm-mingw lives under a version-pinned dir that doesn't exist
+# until preinstall installs it; adding it now is fine (PATH search is lazy).
+ENV MISESHIMS=C:\Users\ContainerAdministrator\AppData\Local\mise\shims
+ENV LLVMBIN=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\github-mstorsjo-llvm-mingw\20260602\bin
+ENV PWSH=C:\Windows\System32\WindowsPowerShell\v1.0
+ENV PATH="C:\mise\bin;${MISESHIMS};C:\Windows\System32;C:\Windows;${PWSH};${LLVMBIN};${PATH}"
+
+WORKDIR C:\workspace
+# config.toml (always-loaded) + config.windows.toml + .miserc.toml (auto_env=true).
+COPY .mise/config.toml .mise/config.toml
+COPY .mise/config.windows.toml .mise/config.windows.toml
+COPY .miserc.toml .miserc.toml
+
+# gh_token (optional GitHub token) -- same pattern as Dockerfile.nanoserver.
+# glob with a paired always-present file (.miserc.toml) so COPY succeeds when
+# gh_token is absent; both land in C:\token (off the WORKDIR ancestor chain).
+# WARNING: when a token IS supplied it bakes into the image layer.
+COPY .miserc.toml gh_token* C:/token/
+
+# Trust + experimental backends + cargo.binstall (mirrors the Nano init).
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise trust && `
+    mise settings experimental=true && `
+    mise settings set cargo.binstall true && `
+    mise trust C:\.config\mise\config.toml
+
+# Install busybox-w32 `ash`, the shell that bash-shell mise tasks run under.
+# MISE_BASH_PATH in config.windows.toml [env] points at the ash.exe
+# inside this install. Server Core has cmd + PowerShell but no bash,
+# so it needs busybox just like Nano. Must install BEFORE
+# `mise run preinstall` runs, since `_setup_all`'s shell is bash.
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise install http:busybox
+
+# Install CPython up front so the Windows preinstall takes the CPython path.
+# The Windows preinstall task's
+# `if command -v python` branch takes the well-tested
+# `python -m pip install pipx` path. Server Core has the full installer
+# stack (unlike Nano), so python-build-standalone runs cleanly here.
+# Without this, preinstall falls back to the rustpython arm intended
+# for Nano -- and pip 26.0.1's vendored `truststore._windows`
+# `CertAddEncodedCertificateToStore` call fails under rustpython's
+# ctypes on Server Core.
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise install python
+
+# Run the cross-platform `_setup_all` plus the Windows preinstall.
+# `_setup_all` lives in config.toml and the Windows
+# preinstall in config.windows.toml. Both are guarded by `[settings]
+# task.run_auto_install=false`, so the preinstall task itself only runs once
+# mise has the tools it depends on.
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise run preinstall
+
+# Install the always-loaded toolchain.
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise install
+
+# build: add the guest-language toolchains (config.<lang>.toml).
+# Server Core handles dotnet + python natively (PowerShell installer; ctypes
+# can resolve shell32!SHGetKnownFolderPath), so the default MISE_ENV here is
+# the full set. Override via `--build-arg MISE_ENV=...` to narrow.
+FROM build-minimal AS build
+COPY .mise/ .mise/
+RUN mise trust
+ARG MISE_ENV=dart,dotnet,java,js,python,rust,zig
+ENV MISE_ENV=${MISE_ENV}
+# Disable a few heavy tools on the servercore docker lane to save disk.
+# This keeps the
+# install layer below the runner's HCS staging budget. Captured failure:
+#   re-exec error: exit status 1: output: write
+#   \\?\C:\Windows\SystemTemp\hcs<id>\Files\...\uv\cache\...\anyio\_core
+#   \_tempfile.py: There is not enough space on the disk.
+# (3ac0d60b, windows job 82277109493 -- partway through `pipx:torch`
+# / `pipx:openapi-python-client` install via uv-managed venvs.)
+# - dotnet:roslynator.dotnet.cli isn't in use yet -- saves ~hundreds of MB.
+# - pipx:torch ships ~1 GB of CUDA-less wheels we don't exercise in the
+#   docker lane (the torch-inference test is gated on
+#   mise_env_includes(Language::Python) -- it'll skip cleanly).
+ENV MISE_DISABLE_TOOLS=dotnet:roslynator.dotnet.cli,pipx:torch
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise install
+
+# prefetch: download all dependencies + ONNX models.
+FROM build AS prefetch
+COPY . .
+RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
+    mise run prefetch-ci
+
+# precompile: build the WASM/JS modules.
+FROM prefetch AS precompile
+RUN mise run build-modules && if exist target rmdir /s /q target
+
+# test: the full suite (Rust + every loaded guest language).
+# Compiled AND run at `docker run` time (precompile keeps no target/), so the
+# multi-GB debug test binaries never bake into a layer -- they live in the
+# ephemeral container and vanish when it exits. Sister to the Linux Dockerfile's
+# `test` stage; wgpu compute on Windows resolves through DX12 / WARP, so no
+# extra runtime packages are needed here.
+FROM precompile AS test
+CMD ["mise", "run", "test"]

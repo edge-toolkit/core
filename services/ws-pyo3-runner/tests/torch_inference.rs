@@ -22,6 +22,7 @@ use std::error::Error;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
+use edge_toolkit::config::{Language, mise_env_includes};
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
 use futures_util::{SinkExt as _, StreamExt as _};
 use tokio_tungstenite::{connect_async, tungstenite};
@@ -61,6 +62,9 @@ async fn control_client(ws_url: &str) -> Result<(ControlSocket, String), Box<dyn
 
 #[tokio::test(flavor = "current_thread")]
 async fn torch_module_runs_inference() -> Result<(), Box<dyn Error>> {
+    if !mise_env_includes(Language::Python) {
+        return Ok(());
+    }
     if !torch_reachable() {
         eprintln!("skipping torch_inference: pipx:torch not on any mise site-packages");
         eprintln!("  install with `MISE_ENV=python mise install pipx:torch` and re-run under MISE_ENV=python");

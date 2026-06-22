@@ -1,0 +1,519 @@
+# Maintenance tasks, loaded when MISE_ENV includes `maint`.
+# The tasks use bash idioms (bare `tar`, `coreutils`, `rg`, `git`, `gh`) and work on every OS where those
+# tools are present -- including Windows via Git Bash + the mise-installed uutils/ripgrep/git/gh shims.
+#
+# - publish-face1-to-hf-cache: refreshes the Hugging Face asset mirror in
+#   edge-toolkit/core's hf-cache-v<N> release.
+# - publish-rp-wasm-to-release: builds upstream RustPython main with
+#   wasm-pack + freeze-stdlib, tars the pkg/ output, and uploads to
+#   edge-toolkit/core's rp-v<N> release (same release that holds the
+#   matching native rustpython binary tarballs). Consumers pick up the
+#   asset via the `http:et-rp-wasm` mise tool entry in config.toml.
+#
+# Not in ALL_LANGS (maint isn't a language); invoked manually:
+#
+#   MISE_ENV=maint mise run publish-face1-to-hf-cache
+#   MISE_ENV=maint mise run publish-rp-wasm-to-release
+
+[tools]
+# Rust-native HTTP client replacing the host `curl`.
+# See CLAUDE.md "Don't depend on host tools in mise tasks". Behaves like HTTPie on the CLI; `--follow` is
+# needed because xh doesn't follow redirects by default like curl -L does.
+"aqua:ducaale/xh" = "latest"
+# 7-zip CLI as a standalone `7zz` binary.
+# Aqua's ip7z/7zip release ships native builds for every triple we target. Used by the `gnupg-w32`
+# upstream-cache job to extract the NSIS-wrapped GnuPG installer (mise's built-in sevenz_rust2 only handles
+# canonical .7z, not the NSIS wrapper).
+"aqua:ip7z/7zip" = "latest"
+# augtool registration lives in the workspace-level config.toml.
+# That way it installs without MISE_ENV=maint -- publish-* tasks need it
+# but so does anyone running `mise install` against a fresh checkout.
+
+[env]
+# Shared HF base URLs + release-target coords hoisted out of every publish task.
+# Hoisted from every publish-*-to-hf-cache task so the xh/jaq/gh lines stay under 120 chars without
+# backslash continuations. All literals -- composing one from another (e.g. `HF_API = "{{ env.HF_CO }}/api/models"`)
+# would trip mise's alphabetical env render order.
+#
+# The release tag itself lives as `a_hf_cache_tag` in config.toml's [vars] (consumer-side face1_src in that
+# file needs to reference it) and is interpolated into this task body via `{{ vars.a_hf_cache_tag }}`.
+GH_REPO = "edge-toolkit/core"
+HF_API = "https://huggingface.co/api/models"
+HF_CACHE_WORK = "{{ config_root }}/target/scratch/hf-cache"
+HF_CO = "https://huggingface.co"
+# Shared rp-v<N> GitHub release for rustpython_wasm + native rustpython artifacts.
+# Both are built from the same upstream commit and stored together.
+RP_RELEASE = "rp-v1"
+RP_WORK = "{{ config_root }}/target/scratch/rp-publish"
+# Upstream RustPython git URL.
+# The local checkout path is ${RUSTPYTHON_DIR:-$HOME/rust/RustPython} (shell-overridable, so kept as a
+# runtime `${VAR:-default}` rather than a mise [env] entry whose value would mask the shell override).
+RUSTPYTHON_URL = "https://github.com/RustPython/RustPython.git"
+
+[tasks.bootstrap-hf-cache-release]
+description = "Create the hf-cache-v<N> GitHub release if it doesn't exist (idempotent)"
+# Idempotent release creation.
+# `gh release view` short-circuits if the release already exists; otherwise create it empty + marked as
+# prerelease (keeps it off the repo's "Latest release" badge, semantically right for an infrastructure
+# mirror). `--prerelease` / `--draft` are presence-only flags -- `=false` is silently ignored and gh would
+# fall into an interactive "Submit?" prompt; closing stdin via </dev/null suppresses that even on a TTY.
+run = """
+tag="{{ vars.a_hf_cache_tag }}"
+if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+  echo "release $tag already exists on $GH_REPO"
+  exit 0
+fi
+title="Hugging Face asset mirror ($tag)"
+gh release create "$tag" --repo "$GH_REPO" --title "$title" --notes "" --prerelease </dev/null
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.publish-face1-to-hf-cache]
+depends = ["bootstrap-hf-cache-release"]
+description = "Refresh face1 mirror in hf-cache-v<N> release (manual / on upstream bump)"
+# Refresh the face1 onnx mirror in the hf-cache release.
+# Pulls amd/retinaface from HF once (HF doesn't rate-limit a single dev IP), pins the commit SHA into the
+# asset name, checks the resulting SHA256 against HF's recorded LFS oid, uploads both .onnx + .onnx.sha256
+# sidecar to the release, then auto-edits config/upstream-cache/data.toml and .mise/config.toml via augtool
+# so the in-repo manifests stay in sync. The checksums.rego conftest rule catches any drift between the two
+# manifests on next `mise run check`. The release itself is created (idempotently) by the
+# bootstrap-hf-cache-release task below; this task depends on it.
+run = """
+work="$HF_CACHE_WORK/face1"
+repo="amd/retinaface"
+dir="weights"
+filename="RetinaFace_int.onnx"
+stem="RetinaFace_int"
+
+coreutils rm -rf "$work"
+coreutils mkdir -p "$work"
+cd "$work"
+
+xh --follow --download --output original.onnx "$HF_CO/$repo/resolve/main/$dir/$filename"
+commit=$(xh --follow --body "$HF_API/$repo" | jaq -r '.sha')
+short=$(echo "$commit" | coreutils cut -c1-7)
+
+asset="${stem}-${short}.onnx"
+coreutils mv original.onnx "$asset"
+coreutils sha256sum "$asset" > "${asset}.sha256"
+
+# Sanity-check the computed SHA256 against HF's recorded LFS oid.
+# The SHA256 we just computed must match HF's recorded LFS oid for the blob; mismatch means the download was
+# corrupted or HF served a different revision than we asked for.
+tree=$(xh --follow --body "$HF_API/$repo/tree/main/$dir?recursive=true")
+# `$p` is a jaq variable bound by `--arg p`, not a shell variable.
+# shellcheck disable=SC2016
+expected=$(echo "$tree" | jaq -r --arg p "$dir/$filename" '.[] | select(.path == $p) | .lfs.oid')
+actual=$(coreutils cut -c1-64 "${asset}.sha256")
+if [ "$actual" != "$expected" ]; then
+  echo "sha mismatch: local $actual vs HF LFS $expected" >&2
+  exit 1
+fi
+
+gh release upload "{{ vars.a_hf_cache_tag }}" --clobber --repo "$GH_REPO" "$asset" "${asset}.sha256"
+
+# Auto-update the in-repo manifests so the user doesn't have to paste.
+# augtool (from augeas) reads the Toml lens and edits the file in place preserving comments + formatting.
+# --autosave saves on exit, so the heredoc just sends the set commands.
+cksum_path="{{ config_root }}/config/upstream-cache/data.toml"
+mise_path="{{ config_root }}/.mise/config.toml"
+
+augtool --transform="Toml incl $cksum_path" --autosave <<EOF
+set "/files$cksum_path/table[. = 'asset.\"$asset\"']/entry[. = 'sha256']/string" "$actual"
+EOF
+
+augtool --transform="Toml incl $mise_path" --autosave <<EOF
+set "/files$mise_path/table[. = 'vars']/entry[. = 'face1_asset']/string" "$asset"
+EOF
+
+echo "uploaded $asset to {{ vars.a_hf_cache_tag }} (commit $commit)"
+echo "updated config/upstream-cache/data.toml + .mise/config.toml; conftest will catch any drift"
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.build-rp-wasm]
+description = "Build rustpython_wasm via wasm-pack from a local RustPython checkout"
+# Linux/macOS only (config.maint.toml is).
+# wasm-pack compiles rustpython + freeze-stdlib (the default crates/wasm feature) for wasm32, ~5-10 min on
+# first run; the early `pkg/` exists check skips the build if a previous output is present. The checkout
+# location follows $RUSTPYTHON_DIR (default ~/rust/RustPython); operator must `git pull` it to track main
+# themselves -- this task doesn't fetch, so the build is reproducible from the local commit pin.
+run = """
+rp_dir="${RUSTPYTHON_DIR:-$HOME/rust/RustPython}"
+if [ ! -d "$rp_dir/crates/wasm" ]; then
+  echo "build-rp-wasm: no RustPython checkout at $rp_dir/crates/wasm" >&2
+  echo "clone: git clone $RUSTPYTHON_URL $rp_dir" >&2
+  exit 1
+fi
+if [ -f "$rp_dir/crates/wasm/pkg/rustpython_wasm_bg.wasm" ]; then
+  echo "build-rp-wasm: pkg/ already present at $rp_dir/crates/wasm/pkg"
+  echo "rm -rf that dir to force a rebuild"
+  exit 0
+fi
+wasm-pack build "$rp_dir/crates/wasm" --target web {{ vars.no_opt }}
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.bootstrap-rp-release]
+description = "Create the rp-v<N> GitHub release if it doesn't exist (idempotent)"
+# Same shape as bootstrap-hf-cache-release.
+# Idempotent gh release view+create, marked as prerelease so it stays off the repo's "Latest release" badge.
+run = """
+if gh release view "$RP_RELEASE" --repo "$GH_REPO" >/dev/null 2>&1; then
+  echo "release $RP_RELEASE already exists on $GH_REPO"
+  exit 0
+fi
+title="Pre-built rustpython artifacts ($RP_RELEASE)"
+gh release create "$RP_RELEASE" --repo "$GH_REPO" --title "$title" --notes "" --prerelease </dev/null
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.publish-rp-wasm-to-release]
+depends = ["bootstrap-rp-release", "build-rp-wasm"]
+description = "Tar the local wasm-pack pkg/ + upload to the rp-v<N> release"
+# Tar the local wasm-pack pkg/ and upload it to the rp-v<N> release.
+# Reads the local RustPython checkout (same $RUSTPYTHON_DIR as build-rp-wasm), pins HEAD's short SHA into the
+# asset filename, tars the wasm-pack pkg/ (stripping the upstream package.json + README -- pywasm1 writes
+# its own), uploads + sha256 sidecar, then auto-edits in lockstep: the data.toml [asset.*] entry, the
+# a_rp_wasm_short var, and the [tools."http:rp-wasm"] version + checksum fields. After the bump the next `mise install`
+# downloads + sha-verifies + extracts the new tarball automatically; build-ws-pywasm1-module reads from
+# vars.rp_wasm_dir (templated against a_rp_wasm_short) with no further edits. `tar` is the host's; maint is
+# Linux/macOS-only.
+run = """
+rp_dir="${RUSTPYTHON_DIR:-$HOME/rust/RustPython}"
+coreutils rm -rf "$RP_WORK"
+coreutils mkdir -p "$RP_WORK"
+
+commit=$(git -C "$rp_dir" rev-parse HEAD)
+short=$(echo "$commit" | coreutils cut -c1-7)
+asset="rustpython-wasm-${short}.tar.gz"
+tarball="$RP_WORK/$asset"
+
+pkg_dir="$rp_dir/crates/wasm/pkg"
+tar -C "$pkg_dir" --exclude='package.json' --exclude='README.md' --exclude='.gitignore' -czf "$tarball" .
+coreutils sha256sum "$tarball" > "${tarball}.sha256"
+actual=$(coreutils cut -c1-64 "${tarball}.sha256")
+
+gh release upload "$RP_RELEASE" --clobber --repo "$GH_REPO" "$tarball" "${tarball}.sha256"
+
+# Update the in-repo manifests in lockstep.
+# These are data.toml's [asset.*] row, .mise/config.toml's a_rp_wasm_short var, and the [tools."http:rp-wasm"]
+# version + checksum fields. checksums.rego cross-checks them on next `mise run check`; mise itself
+# re-verifies the checksum at install time so a missed update fails loudly.
+cksum_path="{{ config_root }}/config/upstream-cache/data.toml"
+mise_path="{{ config_root }}/.mise/config.toml"
+augtool --transform="Toml incl $cksum_path" --autosave <<EOF
+set "/files$cksum_path/table[. = 'asset.\"$asset\"']/entry[. = 'sha256']/string" "$actual"
+EOF
+augtool --transform="Toml incl $mise_path" --autosave <<EOF
+set "/files$mise_path/table[. = 'vars']/entry[. = 'a_rp_wasm_short']/string" "$short"
+set "/files$mise_path/table[. = 'vars']/entry[. = 'a_rp_wasm_asset']/string" "$asset"
+set "/files$mise_path/table[. = 'tools.\"http:rp-wasm\"']/entry[. = 'version']/string" "$short"
+set "/files$mise_path/table[. = 'tools.\"http:rp-wasm\"']/entry[. = 'checksum']/string" "sha256:$actual"
+EOF
+
+echo "uploaded $asset to $RP_RELEASE (commit $commit)"
+echo "updated config/upstream-cache/data.toml + .mise/config.toml; conftest will catch any drift"
+"""
+shell = "bash -euo pipefail -c"
+
+# Source-build rustpython with the upstream `freeze-stdlib` feature.
+# The resulting binary embeds the Python stdlib -- no RUSTPYTHONPATH dance required at consumer side, unlike
+# cargo:rustpython 0.5.0 from crates.io. Reads the local checkout to track main HEAD (which carries the #7956
+# pip audit-hook fix). ~5-10 min on first run; the early `bin/rustpython*` exists check skips the cargo
+# install if a previous output is present (the binary is `rustpython` on Unix and `rustpython.exe` on
+# Windows -- the glob covers both).
+[tasks.build-rp-native]
+description = "cargo install rustpython --features freeze-stdlib"
+run = """
+rp_dir="${RUSTPYTHON_DIR:-$HOME/rust/RustPython}"
+prefix="$RP_WORK/native-install"
+if [ ! -d "$rp_dir" ]; then
+  echo "build-rp-native: no RustPython checkout at $rp_dir" >&2
+  echo "clone: git clone $RUSTPYTHON_URL $rp_dir" >&2
+  exit 1
+fi
+if [ -e "$prefix/bin/rustpython" ] || [ -e "$prefix/bin/rustpython.exe" ]; then
+  echo "build-rp-native: bin/rustpython* already present at $prefix"
+  echo "rm -rf $prefix to force a rebuild"
+  exit 0
+fi
+# On Windows, force CARGO_BUILD_TARGET=x86_64-pc-windows-msvc for the build.
+# The workspace [env] in config.windows.toml sets it to x86_64-pc-windows-gnullvm so this repo's own crates
+# link gnullvm-only, but RustPython upstream's `crates/vm/src/stdlib/time.rs` gates `get_tz_info()` on
+# `#[cfg(target_env = "msvc")]` while its Windows `mod platform` block unconditionally imports it -- gnullvm
+# builds trip:
+#   error[E0432]: unresolved import `super::decl::get_tz_info`
+# Upstream's own CI uses msvc which dodges this. We override only for the
+# rustpython source build; the resulting .exe runs fine on either ABI.
+if [ "${OS:-}" = "Windows_NT" ]; then
+  export CARGO_BUILD_TARGET=x86_64-pc-windows-msvc
+  # Add the msvc target so its rust-std is laid down before cargo install starts compiling.
+  # `config.windows.toml`'s [[tools.rust]] only installs the gnullvm host triple; the msvc target's std/core
+  # aren't on disk. Without them the cargo invocation trips `error[E0463]: can't find crate for 'core'` on
+  # the first dep (cfg-if).
+  rustup target add x86_64-pc-windows-msvc
+  # Strip conda-m2-gnupg's usr/bin from PATH and pin MSVC's link.exe.
+  # Strip it from PATH for the cargo build, and pin the linker via per-target env using `where.exe` to locate
+  # MSVC's link.exe specifically. Background: config.windows.toml's _.path prepends conda-m2-gnupg/usr/bin so
+  # this repo's own builds can shell out to coreutils, but that dir ships a GNU `link.exe` (the `ln`-style
+  # command). cargo's bare `link.exe` lookup hits THAT one BEFORE MSVC's link.exe (added to PATH by
+  # ilammy/msvc-dev-cmd) and the link step trips with
+  #   error: linking with `link.exe` failed: exit code: 1
+  #   note: "...conda-m2-gnupg/.../usr/bin/link.exe" "/NOLOGO" ...
+  #   note: /usr/bin/link: missing operand after '\\377\\376"'
+  # A prior attempt set CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER from $VCToolsInstallDir, but the env didn't
+  # propagate (or msvc-dev-cmd doesn't always export it on the runner image). The path-strip + where.exe
+  # lookup below works regardless of which envs were exported. The conda-m2-gnupg directory is only needed by
+  # this repo's own build (NOT rustpython's), so dropping it for the cargo install is safe. PATH on git-bash
+  # uses `:` as the separator.
+  PATH=$(echo "$PATH" | tr ':' '\n' | grep -v 'conda-m2-gnupg' | paste -sd ':' -)
+  export PATH
+  # Pick the first where.exe match under an MSVC tools dir.
+  # where.exe returns every match newline-separated. If none is found we
+  # leave the default lookup alone (the PATH strip above is usually enough).
+  msvc_link=$(where.exe link.exe 2>/dev/null | tr -d '\r' | grep -iE 'MSVC[\\/].*Hostx64' | head -1 || true)
+  if [ -n "${msvc_link:-}" ]; then
+    export CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER="$msvc_link"
+  fi
+fi
+cargo install --path "$rp_dir" --features freeze-stdlib --root "$prefix" rustpython
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.publish-rp-native-to-release]
+depends = ["bootstrap-rp-release", "build-rp-native"]
+description = "Tar the local rustpython binary + upload to rp-v<N> for the current host triple"
+# Tar the native rustpython binary and upload it for the host triple.
+# Detects the current host triple via rustc, pins HEAD's short SHA + that triple into the asset filename,
+# tars just `bin/rustpython` (mise's http: backend will extract that into the install dir; `bin = "rustpython"`
+# in the [tools."http:et-rp"] block then exposes it on PATH), uploads, then auto-edits the matching
+# [tools."http:et-rp".platforms.<plat>] checksum + the top-level [tools."http:et-rp"] version in .mise/config.toml.
+#
+# Multi-platform coverage today is only what's been published. Add a triple by running this task on a host
+# of that triple and committing the resulting checksum bump.
+run = """
+rp_dir="${RUSTPYTHON_DIR:-$HOME/rust/RustPython}"
+prefix="$RP_WORK/native-install"
+
+commit=$(git -C "$rp_dir" rev-parse HEAD)
+short=$(echo "$commit" | coreutils cut -c1-7)
+# Asset filename uses the target ABI, NOT rustc's host.
+# On Windows config.windows.toml's [env] sets CARGO_BUILD_TARGET=gnullvm globally, but the build-rp-native
+# task overrides it to msvc (RustPython's `get_tz_info` is `#[cfg(target_env = "msvc")]`-gated, gnullvm builds
+# trip `unresolved import super::decl::get_tz_info`). The produced .exe is therefore msvc -- hardcode that
+# here so the filename matches what the binary actually links against, rather than the gnullvm we see via
+# rustc -vV or the global CARGO_BUILD_TARGET env.
+if [ "${OS:-}" = "Windows_NT" ]; then
+  triple=x86_64-pc-windows-msvc
+else
+  triple=$(rustc -vV | rg '^host: ' | coreutils cut -c7-)
+fi
+
+case "$triple" in
+  x86_64-apple-darwin)        plat="macos-x64" ;;
+  aarch64-apple-darwin)       plat="macos-arm64" ;;
+  x86_64-unknown-linux-gnu)   plat="linux-x64" ;;
+  aarch64-unknown-linux-gnu)  plat="linux-arm64" ;;
+  x86_64-pc-windows-*)        plat="windows-x64" ;;
+  *) echo "unsupported host triple: $triple" >&2; exit 1 ;;
+esac
+
+# Glob the produced binary so the same tar line works on every host.
+# It is `rustpython` on Unix and `rustpython.exe` on Windows. Pick whichever name exists; busybox-w32 ash on
+# Nano lacks `compgen` so the explicit `[ -e ... ]` chain is the portable form.
+if [ -e "$prefix/bin/rustpython.exe" ]; then
+  bin_rel="bin/rustpython.exe"
+else
+  bin_rel="bin/rustpython"
+fi
+asset="rustpython-${short}-${triple}.tar.gz"
+tarball="$RP_WORK/$asset"
+tar -C "$prefix" -czf "$tarball" "$bin_rel"
+coreutils sha256sum "$tarball" > "${tarball}.sha256"
+actual=$(coreutils cut -c1-64 "${tarball}.sha256")
+
+gh release upload "$RP_RELEASE" --clobber --repo "$GH_REPO" "$tarball" "${tarball}.sha256"
+
+# Update http:et-rp's version plus this platform's url + checksum.
+# That is the top-level `version` (mise install-dir name), and this platform's `url` + `checksum`. mise's tera
+# doesn't expose top-level `version` into platforms.<plat>.url, so the short SHA is inlined in each platform's
+# url and the publish task rewrites it here too. Per-platform triple is baked into each url. Skip when augtool
+# isn't on PATH -- the asset upload itself still happens; the maintainer applies the config edits locally
+# from the .sha256 sidecar uploaded alongside.
+mise_path="{{ config_root }}/.mise/config.toml"
+new_url="https://github.com/edge-toolkit/core/releases/download/$RP_RELEASE/$asset"
+echo "uploaded $asset to $RP_RELEASE (commit $commit, triple $triple)"
+if ! command -v augtool >/dev/null 2>&1; then
+  echo "note: augtool unavailable on this host; skipping in-place config.toml edits"
+  echo "      apply manually: version=$short, platforms.${plat}.url=$new_url, .checksum=sha256:$actual"
+  exit 0
+fi
+augtool --transform="Toml incl $mise_path" --autosave <<EOF
+set "/files$mise_path/table[. = 'tools.\"http:et-rp\"']/entry[. = 'version']/string" "$short"
+set "/files$mise_path/table[. = 'tools.\"http:et-rp\".platforms.$plat']/entry[. = 'url']/string" "$new_url"
+set "/files$mise_path/table[. = 'tools.\"http:et-rp\".platforms.$plat']/entry[. = 'checksum']/string" "sha256:$actual"
+EOF
+
+echo "updated http:et-rp version + platforms.${plat}.{url,checksum} in .mise/config.toml"
+"""
+shell = "bash -euo pipefail -c"
+
+# Probe how far rustpython gets at hosting real Python tooling.
+# Load an older extracted pip onto sys.path, use pipx to install + run cowsay, and fall back to a pip-only
+# path. Tracks RustPython issues #5332 (pip on linux/macos) and #7956 (upstream-pending audit-hook fix).
+# Uses the `http:et-rp` mise tool's rustpython binary -- built upstream with the `freeze-stdlib` feature by
+# `build-rp-native` (in this file), so the stdlib is embedded and no on-disk `Lib/` tree is required. Four
+# rustpython-side quirks the task works around:
+#  1. RustPython's bundled ensurepip wheel is pip 26.1.1, whose
+#     `_prevent_further_imports` calls `sys.addaudithook` (CPython 3.8+)
+#     which rustpython 0.5.0 doesn't implement (upstream fix tracked in
+#     #7956). pip 26.0.1 is the last release before that hook was added
+#     (introduced in pip's upstream commit fb01b1830 on 2026-04-14,
+#     shipped in 26.1), so the task fetches that wheel.
+#  2. RustPython's path-importer doesn't auto-treat `.whl` entries on
+#     sys.path as zipimports -- the wheel imports correctly via an
+#     explicit `zipimporter()` call but not via `import pip`. Unzip the
+#     wheel into a directory and put that on RUSTPYTHONPATH instead.
+#  3. pipx's default backend is uv, which spawns rustpython as a fresh
+#     subprocess to probe interpreter info; the probe can't even
+#     `import site`/`encodings` because uv strips/replaces env. Set
+#     PIPX_DEFAULT_BACKEND=pip so pipx uses `python -m venv` directly --
+#     env vars survive that path.
+#  4. With the pip backend, pipx creates its shared-libs venv with
+#     `python -m venv --clear $root` (no `--without-pip`). RustPython's
+#     venv module then runs `ensurepip --upgrade --default-pip`, which
+#     extracts the bundled pip-26.1.1 wheel -- same audit-hook crash as
+#     (1). Every pipx release from 1.0.0 to 1.14.0 invokes venv the same
+#     way (verified by `git -C pipx show <tag>:src/pipx/shared_libs.py`),
+#     so no pipx version dodges this. Workaround: pre-create the shared
+#     venv at PIPX_SHARED_LIBS with `--without-pip`, drop pip 26.0.1's
+#     site-packages tree into it, and add a `bin/pip` shim -- pipx's
+#     `is_valid()` then short-circuits past `create()`.
+# Each `step` prints its own exit code rather than aborting, so partial-failure runs show where rustpython
+# diverges from CPython. All transient state lives under target/scratch/ so the task is self-contained and
+# rerunnable.
+[tasks.rustpython-investigation]
+description = "Probe rustpython (http:et-rp) + pip 26.0.1 + pipx + cowsay (RustPython#5332/#7956)"
+run = """
+scratch="{{ config_root }}/target/scratch/rustpython-investigation"
+coreutils mkdir -p "$scratch/site" "$scratch/pipx-home" "$scratch/pipx-bin"
+pip_whl="$scratch/{{ vars.pip_for_rustpython_wheel }}"
+pip_extracted="$scratch/pip-extracted"
+shared_venv="$scratch/shared"
+if [ ! -f "$pip_whl" ]; then
+  echo "== fetch pip {{ vars.pip_for_rustpython }} wheel from PyPI =="
+  echo "   url={{ vars.pip_for_rustpython_wheel_url }}"
+  pypi_args="--http-url https://files.pythonhosted.org --progress --ignore-existing"
+  # $pypi_args is a space-separated CLI flag list; word-splitting is intentional.
+  # shellcheck disable=SC2086
+  rclone copyto "{{ vars.pip_for_rustpython_wheel_url }}" "$pip_whl" $pypi_args
+fi
+if [ ! -d "$pip_extracted/pip" ]; then
+  echo "== unzip pip {{ vars.pip_for_rustpython }} wheel =="
+  unzip -q -o "$pip_whl" -d "$pip_extracted"
+fi
+export RUSTPYTHONPATH="$pip_extracted:$scratch/site"
+export PIPX_HOME="$scratch/pipx-home"
+export PIPX_BIN_DIR="$scratch/pipx-bin"
+export PIPX_SHARED_LIBS="$shared_venv"
+export PIPX_DEFAULT_BACKEND=pip
+
+if [ ! -f "$shared_venv/bin/pip" ]; then
+  echo "== pre-create pipx shared venv (--without-pip) + drop in pip 26.0.1 =="
+  coreutils rm -rf "$shared_venv"
+  rustpython -m venv --without-pip "$shared_venv"
+  shared_site="$(coreutils ls -d "$shared_venv"/lib/*/site-packages)"
+  coreutils cp -R "$pip_extracted/pip" "$shared_site/"
+  coreutils cp -R "$pip_extracted"/pip-*.dist-info "$shared_site/"
+  coreutils cat > "$shared_venv/bin/pip" <<'PIP_SHIM'
+#!/bin/sh
+exec "$(dirname "$0")/python" -m pip "$@"
+PIP_SHIM
+  coreutils chmod +x "$shared_venv/bin/pip"
+fi
+
+# Run each probed step without letting set -e abort the task.
+# `if "$@"; then ...; else echo "-- exit=$?"; fi` keeps set -e from aborting
+# the task when a probed step fails -- partial-failure runs are the whole point.
+step() {
+  echo
+  echo "== $* =="
+  if "$@"; then
+    echo "-- exit=0"
+  else
+    echo "-- exit=$?"
+  fi
+}
+
+step rustpython --version
+step rustpython -c "import pip; print(pip.__version__, pip.__file__)"
+step rustpython -m pip --version
+step rustpython -m pip install --target "$scratch/site" pipx
+step rustpython -m pipx install cowsay
+step rustpython -m pip install --target "$scratch/site" cowsay
+
+echo
+echo "== run cowsay via pipx bin =="
+if [ -x "$PIPX_BIN_DIR/cowsay" ]; then
+  if "$PIPX_BIN_DIR/cowsay" -t "rustpython lives"; then
+    echo "-- exit=0"
+  else
+    echo "-- exit=$?"
+  fi
+else
+  echo "-- cowsay not in $PIPX_BIN_DIR (pipx step likely failed)"
+fi
+
+echo
+echo "== run cowsay via rustpython -m cowsay =="
+step rustpython -m cowsay -t "rustpython lives via pip-only path"
+"""
+shell = "bash -euo pipefail -c"
+
+# --- Bootstrap tasks for upstream-cache releases.
+# Idempotent gh release view+create -- safe to re-run. Each release's notes are the upstream project URL and
+# its license, nothing else (consumers can read the release body to know where the asset came from and under
+# what terms). Each release is marked --prerelease so it stays off the repo's "Latest release" badge
+# alongside the rp-v<N> release.
+[tasks.bootstrap-augeas-release]
+description = "Create the augeas-v1 GitHub release if it doesn't exist (idempotent)"
+run = """
+tag=augeas-v1
+if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+  echo "release $tag already exists on $GH_REPO"
+  exit 0
+fi
+notes="https://github.com/hercules-team/augeas
+LGPL-2.1+"
+gh release create "$tag" --repo "$GH_REPO" --title "$tag" --notes "$notes" --prerelease </dev/null
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.bootstrap-dart-typegen-release]
+description = "Create the dart-typegen-v1 GitHub release if it doesn't exist (idempotent)"
+run = """
+tag=dart-typegen-v1
+if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+  echo "release $tag already exists on $GH_REPO"
+  exit 0
+fi
+notes="https://github.com/cameron1024/dart-typegen
+MIT OR Apache-2.0"
+gh release create "$tag" --repo "$GH_REPO" --title "$tag" --notes "$notes" --prerelease </dev/null
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.bootstrap-gnupg-w32-release]
+description = "Create the gnupg-w32-v1 GitHub release if it doesn't exist (idempotent)"
+run = """
+tag=gnupg-w32-v1
+if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+  echo "release $tag already exists on $GH_REPO"
+  exit 0
+fi
+notes="https://gnupg.org
+GPL-3.0+"
+gh release create "$tag" --repo "$GH_REPO" --title "$tag" --notes "$notes" --prerelease </dev/null
+"""
+shell = "bash -euo pipefail -c"

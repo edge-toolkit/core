@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Workspace member Cargo.toml — deps must inherit",
+  "title": "Workspace member Cargo.toml -- deps must inherit",
   "description": "[dependencies] / [dev-dependencies] / [build-dependencies] entries must use `.workspace = true`.",
   "definitions": {
     "depEntry": {

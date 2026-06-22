@@ -4,6 +4,7 @@
 target/
 .DS_Store
 services/ws-wasm-agent/pkg/
+services/ws-modules/pywasm1/pkg/
 services/ws-server/static/models/
 .zig-cache/
 zig-out/

@@ -1,11 +1,9 @@
-# Build output and external checkouts are off-limits. Both are gitignored, but
-# taplo's baseline `taplo lint` / `format` don't honour .gitignore: `target/`
-# holds scratch + build artifacts (and auto-associates any stray `Cargo.toml`
-# with the SchemaStore Cargo schema), and `data/` holds external upstream repo
-# clones whose TOML files we must never reformat. target/ is also CLAUDE.md's
-# scratch area, so scratch TOML is skipped here too -- to lint or test a scratch
-# TOML, pipe it through `taplo format -` / `taplo lint -` (stdin has no path to
-# exclude).
+# Build output and external checkouts are off-limits.
+# Both are gitignored, but taplo's baseline `taplo lint` / `format` don't honour .gitignore: `target/` holds
+# scratch + build artifacts (and auto-associates any stray `Cargo.toml` with the SchemaStore Cargo schema),
+# and `data/` holds external upstream repo clones whose TOML files we must never reformat. target/ is also
+# CLAUDE.md's scratch area, so scratch TOML is skipped here too -- to lint or test a scratch TOML, pipe it
+# through `taplo format -` / `taplo lint -` (stdin has no path to exclude).
 exclude = ["data/**", "target/**"]
 
 [formatting]
@@ -23,63 +21,60 @@ keys = ["package"]
 formatting = { reorder_arrays = false }
 keys = ["workspace"]
 
-# Forbid `path = "..."` dependencies in non-root Cargo.toml files. The root
-# Cargo.toml's `[workspace.dependencies]` is the only legitimate place for
-# path deps; member crates reference them via `dep.workspace = true`.
+# Forbid `path = "..."` dependencies in non-root Cargo.toml files.
+# The root Cargo.toml's `[workspace.dependencies]` is the only legitimate place for path deps; member crates
+# reference them via `dep.workspace = true`.
 [[rule]]
 exclude = ["Cargo.toml"]
 include = ["**/Cargo.toml"]
 schema = { path = "config/taplo/no-path-deps.schema.json" }
 
-# Forbid wildcard (`"*"`, `"1.*"`, …) version strings and inline `git = ...`
-# deps inside `[dependencies]` / `[dev-dependencies]`. Workspace deps are
-# the canonical home for pins; wildcards are also typically resolver-
-# fragile in lockless builds. `[build-dependencies]` isn't covered yet.
+# Forbid wildcard version strings and inline `git = ...` deps inside dep tables.
+# This covers wildcards (`"*"`, `"1.*"`, ...) and inline `git = ...` deps inside `[dependencies]` /
+# `[dev-dependencies]`. Workspace deps are the canonical home for pins; wildcards are also typically
+# resolver-fragile in lockless builds. `[build-dependencies]` isn't covered yet.
 [[rule]]
 exclude = ["Cargo.toml"]
 include = ["**/Cargo.toml"]
 schema = { path = "config/taplo/no-wildcard-or-git-deps.schema.json" }
 
-# Every entry in `[dependencies]` and `[dev-dependencies]` must use
-# `.workspace = true` so shared pins live in one place
-# ([workspace.dependencies]) and member crates don't drift onto local
-# versions. `[build-dependencies]` isn't covered yet. No per-crate
-# exemptions — `generated/rust-rest/Cargo.toml` is exempt from the lint
-# rule below but its `[dependencies]` still inherit normally.
+# Every entry in `[dependencies]` and `[dev-dependencies]` must use `.workspace = true`.
+# This keeps shared pins in one place ([workspace.dependencies]) and member crates don't drift onto local
+# versions. `[build-dependencies]` isn't covered yet. No per-crate exemptions --
+# `generated/rust-rest/Cargo.toml` is exempt from the lint rule below but its `[dependencies]` still inherit
+# normally.
 [[rule]]
 exclude = ["Cargo.toml"]
 include = ["**/Cargo.toml"]
 schema = { path = "config/taplo/require-workspace-deps.schema.json" }
 
-# Banned dep names across every dep table — `[dependencies]`,
-# `[dev-dependencies]`, `[build-dependencies]`, `[workspace.dependencies]`,
-# and the `[target.*]` variants.
+# Banned dep names across every dep table.
+# `[dependencies]`, `[dev-dependencies]`, `[build-dependencies]`,
+# `[workspace.dependencies]`, and the `[target.*]` variants.
 [[rule]]
 include = ["**/Cargo.toml"]
 schema = { path = "config/taplo/no-banned-deps.schema.json" }
 
 # Require `[lib] doctest = false` for every member crate with a [lib].
-# Pairs with the `no-doctest` ast-grep rule: that one bans ``` fenced
-# blocks inside doc comments; this one disables the doctest harness at
-# the crate level so the prohibition has cargo-level parity. Runnable
+# Pairs with the `no-doctest` ast-grep rule: that one bans ``` fenced blocks inside doc comments; this one
+# disables the doctest harness at the crate level so the prohibition has cargo-level parity. Runnable
 # examples belong in `tests/` files (each with `#![cfg(test)]`).
 [[rule]]
 exclude = ["Cargo.toml"]
 include = ["**/Cargo.toml"]
 schema = { path = "config/taplo/require-lib-doctest-false.schema.json" }
 
-# Require `[lints] workspace = true` in every member Cargo.toml so the
-# workspace's `[workspace.lints.*]` tables apply. Without this, workspace
-# rustc/clippy lints are silently ignored for that crate.
+# Require `[lints] workspace = true` in every member Cargo.toml.
+# This makes the workspace's `[workspace.lints.*]` tables apply. Without it, workspace rustc/clippy lints are
+# silently ignored for that crate.
 #
 # Exempt:
-#   - workspace root (`Cargo.toml`): configures lints under
-#     `[workspace.lints.*]` directly, has no `[lints]` table of its own.
-#   - `generated/rust-rest/Cargo.toml`: progenitor's emitted `src/lib.rs`
-#     contains patterns our workspace lint table flags (e.g. doc-comment
-#     shapes that trip rustdoc's invalid-code-block lint). Inheriting
-#     `[lints] workspace = true` would fail the build on the generated
-#     source. The exemption is about the lint table, not about the deps.
+#   - workspace root (`Cargo.toml`): configures lints under `[workspace.lints.*]` directly, has no `[lints]`
+#     table of its own.
+#   - `generated/rust-rest/Cargo.toml`: progenitor's emitted `src/lib.rs` contains patterns our workspace
+#     lint table flags (e.g. doc-comment shapes that trip rustdoc's invalid-code-block lint). Inheriting
+#     `[lints] workspace = true` would fail the build on the generated source. The exemption is about the
+#     lint table, not about the deps.
 [[rule]]
 exclude = ["Cargo.toml", "generated/rust-rest/Cargo.toml"]
 include = ["**/Cargo.toml"]

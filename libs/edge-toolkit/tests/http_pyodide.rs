@@ -14,28 +14,34 @@
 #![expect(
     clippy::panic,
     clippy::unwrap_used,
-    reason = "test code: missing mise install and unreadable install dir should fail loudly with a clear hint"
+    reason = "test code: missing install fails loudly with a hint"
 )]
 
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-use edge_toolkit::config::{default_modules_folders, mise_where};
+use edge_toolkit::config::{Language, default_modules_folders, mise_env_includes, mise_where};
 
-/// Shared resolver + panic message -- every test in this file wants the
-/// install path and a consistent "run `mise install`" hint when it's
-/// missing.
-fn require_http_pyodide_install() -> PathBuf {
-    mise_where("http:pyodide").unwrap_or_else(|| {
-        panic!(
-            "{}",
-            concat!(
-                "`mise where http:pyodide` returned no install path. ",
-                "Run `mise install http:pyodide` first (~200 MB download). ",
-                "The `npm:pyodide` fallback only carries the runtime, not the wheels.",
-            )
+/// Shared resolver -- every test in this file wants the install path.
+/// Returns `Some(path)` when found; `None` (and logs a skip line) when
+/// `http:pyodide` is intentionally not installed because `MISE_ENV` doesn't
+/// include the `python` env; panics with a `mise install` hint when
+/// `MISE_ENV` expects python but the install is missing.
+fn find_http_pyodide_install() -> Option<PathBuf> {
+    if let Some(path) = mise_where("http:pyodide") {
+        return Some(path);
+    }
+    if !mise_env_includes(Language::Python) {
+        return None;
+    }
+    panic!(
+        "{}",
+        concat!(
+            "`mise where http:pyodide` returned no install path. ",
+            "Run `mise install http:pyodide` first (~200 MB download). ",
+            "The `npm:pyodide` fallback only carries the runtime, not the wheels.",
         )
-    })
+    )
 }
 
 /// Lower bound -- the official 0.29.x release ships well over 300 wheels.
@@ -51,7 +57,9 @@ const REQUIRED_WHEEL_PREFIXES: &[&str] = &["numpy-", "scipy-", "pandas-"];
 
 #[test]
 fn http_pyodide_install_contains_full_wheel_set() {
-    let install = require_http_pyodide_install();
+    let Some(install) = find_http_pyodide_install() else {
+        return;
+    };
 
     let entries = fs_err::read_dir(&install).unwrap();
 
@@ -83,7 +91,9 @@ fn http_pyodide_install_has_runtime_too() {
     // ws-server's static-file serve relies on this -- guests fetch
     // `/modules/pyodide/pyodide.asm.wasm` from the same prefix as
     // `/modules/pyodide/numpy-*.whl`.
-    let install = require_http_pyodide_install();
+    let Some(install) = find_http_pyodide_install() else {
+        return;
+    };
 
     for runtime_file in [
         "package.json",
@@ -108,7 +118,9 @@ fn default_modules_folders_prefers_http_pyodide() {
     // named "pyodide") rather than the npm `node_modules` parent dir.
     // This pins the resolver behaviour so a future refactor that
     // accidentally reorders the fallback gets caught.
-    let http_install = require_http_pyodide_install();
+    let Some(http_install) = find_http_pyodide_install() else {
+        return;
+    };
 
     let paths = default_modules_folders();
     assert!(

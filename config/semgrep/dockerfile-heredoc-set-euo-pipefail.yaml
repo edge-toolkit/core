@@ -1,0 +1,19 @@
+rules:
+  - id: dockerfile-heredoc-set-euo-pipefail
+    languages: [generic]
+    paths:
+      include:
+        - "**/Dockerfile"
+        - "**/Dockerfile.*"
+    # Match a heredoc RUN whose first body line ISN'T `set -euo pipefail`.
+    # The dotfile-style `<<EOF[^\n]*\n` swallows the optional interpreter (the `RUN <<EOF bash` form); the negative
+    # lookahead requires the next line to be exactly `set -euo pipefail`. Conftest enforces the bash interpreter side
+    # of this in dockerfile.rego (the AST exposes the heredoc tag but not the body); semgrep covers the body's first
+    # line here.
+    pattern-regex: "^RUN[^\\n]*<<'?[A-Z]+'?[^\\n]*\\n(?!set -euo pipefail$)"
+    message: >-
+      Dockerfile RUN heredocs must begin with `set -euo pipefail` as the first body line.
+      BuildKit's default heredoc shell carries neither -e nor -o pipefail (and dash on Debian/Ubuntu doesn't
+      support -o pipefail at all), so the strict-mode invariant has to be re-declared per body. Paired with the
+      conftest rule that requires `RUN <<EOF bash` for the interpreter.
+    severity: ERROR

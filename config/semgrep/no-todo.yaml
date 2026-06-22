@@ -1,0 +1,32 @@
+rules:
+  - id: no-todo
+    languages: [generic]
+    paths:
+      # Repo-wide.
+      # Each existing TODO is allowlisted by file path below; new TODOs must either resolve before merge or be added
+      # here with a one-line justification in the surrounding code about why this one is genuinely deferred (not just
+      # "haven't gotten to it").
+      exclude:
+        # The TODO that authorises the carve-outs below -- the canonical spot.
+        # Since the source of the TODO is the rename it tracks.
+        - "/.mise/config.toml"
+        # Quotes a pre-merge cleanup task referenced elsewhere.
+        # Tracks the Nano-shim work the maint config still papers around.
+        - "/CLAUDE.md"
+        - "/Dockerfile.nanoserver"
+        # Comment-quotes an upstream reqwest backoff TODO in the generated openapi client hook.
+        # Not our TODO to chase.
+        - "/utilities/int-gen/src/openapi.rs"
+        # Vendored upstream WIT specs / generated bindings.
+        # TODOs in there belong to wasi-nn / wasi-webgpu / etc. upstream.
+        - "/generated/**"
+        # This rule file itself contains the word `TODO` in its own docstring and message.
+        # Allowlist or the rule trips on itself.
+        - "/config/semgrep/no-todo.yaml"
+    pattern-regex: '\bTODO\b'
+    message: >-
+      TODOs are not allowed in this repo.
+      Either resolve the work now, or, if it must defer, add a single-line justification in the surrounding code
+      and add this file's path to no-todo.yaml's paths.exclude allowlist. Do not duplicate a TODO across multiple
+      files -- pick the single canonical home and let `grep TODO` find it there.
+    severity: ERROR

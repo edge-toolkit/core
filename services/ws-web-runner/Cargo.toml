@@ -25,8 +25,8 @@ edge-toolkit.workspace = true
 et-rest-client = { workspace = true, features = ["tracing"] }
 et-ws-runner-common.workspace = true
 futures-util.workspace = true
-# Direct dep so we can configure the REST client's reqwest retry policy: the
-# default `ProtocolNacks` policy doesn't cover the HTTP/1 keep-alive race (see
+# Direct dep so we can configure the REST client's reqwest retry policy.
+# The default `ProtocolNacks` policy doesn't cover the HTTP/1 keep-alive race (see
 # lib.rs `build_rest_client`). Features match et-rest-client's native build.
 reqwest = { workspace = true, features = ["json", "query", "rustls", "stream"] }
 serde.workspace = true
@@ -37,11 +37,11 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
+# Depend on winapi with `std` here so cargo feature unification turns it on for the shared winapi.
 # deno_io (pulled via deno_runtime) declares `winapi` without its `std` feature,
 # so winapi defines its own `c_void` and its `HANDLE` stops matching std's
 # `RawHandle`, breaking the `from_raw_handle(GetStdHandle(..))` path on Windows
-# (a missing-winapi-feature bug, cf. denoland/deno#24212). Depend on winapi with
-# `std` here so cargo feature unification turns it on for the shared winapi.
+# (a missing-winapi-feature bug, cf. denoland/deno#24212).
 [target.'cfg(windows)'.dependencies]
 winapi.workspace = true
 

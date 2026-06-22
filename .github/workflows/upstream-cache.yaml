@@ -1,0 +1,682 @@
+---
+name: upstream-cache
+
+# Manually-dispatched maintainer workflow that builds + publishes upstream-sourced binary artifacts.
+# Artifacts go to GitHub releases owned by this repo, so consumers (CI + workstations) can `mise install` prebuilts
+# instead of compiling from source. One job per cached upstream; add more jobs as new upstreams need caching.
+#
+# - rustpython: native binary per host triple + the platform-agnostic
+#   wasm tarball, published to the rp-v<N> release. Forward-stocked --
+#   we publish even if [tools."http:et-rp".platforms.<plat>] isn't
+#   wired up yet, so consumers can migrate off cargo:rustpython
+#   whenever it's convenient.
+
+"on":
+  pull_request:
+    paths:
+      - .github/workflows/upstream-cache.yaml
+      - .github/actions/install-mise/**
+      - .github/actions/install-mise-tools/**
+      - config/upstream-cache/data.toml
+  workflow_dispatch:
+    inputs:
+      os:
+        description: "OS(es) to publish for"
+        type: choice
+        default: all
+        options:
+          - all
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-latest
+          - macos-26-intel
+          - windows-latest
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+env:
+  MISE_ENV: dart,dotnet,java,js,python,rust,zig
+
+jobs:
+  rustpython:
+    runs-on: ${{ matrix.os }}
+    # Job-level write so gh release upload can push assets.
+    # The workflow default is contents:read.
+    permissions:
+      contents: write
+    timeout-minutes: 60
+    env:
+      MISE_ENV: maint,rust
+    strategy:
+      fail-fast: false
+      matrix:
+        # Pick the matrix from the trigger: a specific dispatched OS, else every platform.
+        # workflow_dispatch with a specific OS -> just that one; everything
+        # else (workflow_dispatch=all, push, pull_request) -> every platform.
+        os: ${{ fromJSON(
+          (github.event_name == 'workflow_dispatch'
+          && github.event.inputs.os != 'all'
+          && format('["{0}"]', github.event.inputs.os))
+          || '["ubuntu-latest","ubuntu-24.04-arm","macos-latest","macos-26-intel","windows-latest"]'
+          ) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      # Cheap host-only detection of whether this matrix entry has anything to publish.
+      # Reads the pinned short SHA from config.toml via sed, derives the triple from matrix.os, and queries rp-v1
+      # with the runner's preinstalled gh CLI. Runs before any install so the typical case (asset already
+      # present) skips disk-free, mise install, RustPython clone, and the cargo source build below entirely.
+      # `work=yes` when this matrix entry has something to do: a missing native asset for its triple, or (only
+      # on ubuntu-latest) a missing wasm asset. Subsequent steps gate on `work`. Logic mirrors the
+      # `rp-detect-missing` mise task (kept for local maintainer use, where mise's tools are already there).
+      - name: Detect missing rp-v1 assets
+        id: rp_check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          # Pass MATRIX_OS via env, not `${{ matrix.os }}` inline, to satisfy zizmor.
+          # This way zizmor's template-injection rule doesn't flag matrix expansion inside the bash run block.
+          MATRIX_OS: ${{ matrix.os }}
+        run: |
+          case "$MATRIX_OS" in
+            ubuntu-latest)    triple=x86_64-unknown-linux-gnu ;;
+            ubuntu-24.04-arm) triple=aarch64-unknown-linux-gnu ;;
+            macos-latest)     triple=aarch64-apple-darwin ;;
+            macos-26-intel)   triple=x86_64-apple-darwin ;;
+            windows-latest)   triple=x86_64-pc-windows-msvc ;;
+            *) echo "unknown matrix.os: $MATRIX_OS" >&2; exit 1 ;;
+          esac
+          # Extract the pinned version with awk (portable across BSD/macOS + GNU/Linux).
+          # Enter the [tools."http:et-rp"] section, capture its `version = "..."`, stop on the next `[` table
+          # header. BSD sed rejects the `/range/{s/...p}` one-liner -- "bad flag in substitute".
+          short=$(awk '
+            /^\[tools\."http:et-rp"\]$/ { in_section=1; next }
+            in_section && /^\[/         { exit }
+            in_section && /^version = / { gsub(/^version = "|"$/, ""); print; exit }
+          ' .mise/config.toml)
+          native_asset="rustpython-${short}-${triple}.tar.gz"
+          wasm_asset="rustpython-wasm-${short}.tar.gz"
+          repo=edge-toolkit/core
+          assets=$(gh release view rp-v1 --repo "$repo" --json assets --jq '.assets[].name' 2>/dev/null || true)
+          native_missing=true; wasm_missing=true
+          if echo "$assets" | grep -Fxq "$native_asset"; then native_missing=false; fi
+          if echo "$assets" | grep -Fxq "$wasm_asset";   then wasm_missing=false;   fi
+          work=
+          [ "$native_missing" = "true" ] && work=yes
+          [ "$wasm_missing" = "true" ] && [ "$MATRIX_OS" = "ubuntu-latest" ] && work=yes
+          {
+            echo "short=$short"
+            echo "triple=$triple"
+            echo "native_missing=$native_missing"
+            echo "wasm_missing=$wasm_missing"
+            echo "work=$work"
+          } >> "$GITHUB_OUTPUT"
+          echo "[rp-check] triple=$triple short=$short"
+          echo "[rp-check] native_missing=$native_missing wasm_missing=$wasm_missing work=${work:-no}"
+          if [ -z "$work" ]; then
+            echo "::notice::All rp-v1 assets present for $triple; skipping install + publish."
+          fi
+
+      # Everything below this point runs only when there's actually something to upload.
+      # `repo.fork != true` skips fork PRs (GHA gives them a read-only GITHUB_TOKEN, so the upload would fail;
+      # building the asset would be wasted compute).
+      - name: Free up disk space (Linux)
+        if: |-
+          steps.rp_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+          && runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@v1.3.1
+
+      - name: Install mise + tools
+        if: |-
+          steps.rp_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+        uses: ./.github/actions/install-mise-tools
+        with:
+          github-token: ${{ github.token }}
+
+      # RP_SHORT comes via env, not `${{ }}` inside the run block, to keep zizmor happy.
+      # This keeps zizmor's template-injection rule happy -- step outputs are treated as potentially
+      # attacker-controllable when expanded inside bash. `repo.fork != true` skips fork PRs (GHA gives them a
+      # read-only GITHUB_TOKEN, so the upload would fail; building the asset would be wasted compute).
+      - name: Clone RustPython at pinned SHA
+        if: |-
+          github.event.pull_request.head.repo.fork != true
+          && (steps.rp_check.outputs.native_missing == 'true'
+              || (steps.rp_check.outputs.wasm_missing == 'true' && matrix.os == 'ubuntu-latest'))
+        env:
+          RP_SHORT: ${{ steps.rp_check.outputs.short }}
+        run: |
+          git clone https://github.com/RustPython/RustPython.git "$HOME/rust/RustPython"
+          git -C "$HOME/rust/RustPython" checkout "$RP_SHORT"
+
+      # Windows-only step that sources the MSVC dev env for the rustpython build.
+      # This puts `rc.exe` (Windows Resource Compiler) on PATH for the rustpython build. The `embed_resource`
+      # crate in rustpython's build.rs targets msvc and otherwise warns:
+      #   warning: rustpython@0.5.0: Failed to compile Windows resources:
+      #   The system cannot find the path specified. (os error 3)
+      # The resulting .exe still runs (resource embedding is best-effort), but the icon + version metadata get
+      # dropped. ilammy/msvc-dev-cmd is the maintained equivalent of `call vcvars64.bat` for GHA.
+      - name: Set up MSVC dev env for rc.exe (Windows)
+        if: |-
+          matrix.os == 'windows-latest'
+          && github.event.pull_request.head.repo.fork != true
+          && steps.rp_check.outputs.native_missing == 'true'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      # Native rustpython is per-triple.
+      # Each matrix entry publishes its own host's binary if missing.
+      - name: Build + publish native rustpython for this host
+        if: |-
+          github.event.pull_request.head.repo.fork != true
+          && steps.rp_check.outputs.native_missing == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run publish-rp-native-to-release
+
+      # Wasm rustpython is platform-agnostic.
+      # Gate to a single canonical runner so multiple matrix jobs don't race-clobber the same asset.
+      - name: Build + publish wasm rustpython (ubuntu-latest only)
+        if: |-
+          github.event.pull_request.head.repo.fork != true
+          && steps.rp_check.outputs.wasm_missing == 'true'
+          && matrix.os == 'ubuntu-latest'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run publish-rp-wasm-to-release
+
+  # Windows-only augeas build.
+  # Augeas has no upstream Windows binaries anywhere (not in MSYS2/Cygwin/aqua/conda); the only way to get a
+  # native gpg-style PE binary is to build it ourselves under MSYS2. This job mirrors the rustpython pattern:
+  # detect missing asset, build from source, tar the install dir, and upload to the augeas-v1 GitHub release
+  # (which mise's `http:augeas` tool entry points at, per platforms.windows-x64).
+  #
+  # Source is the edge-toolkit augeas fork's `win` branch rather than the upstream 1.14.1 release tarball: the
+  # Windows port needs changes across many files (vendored glob, _WIN32 guards in augtool/transform, gnulib
+  # fsync, libtool -no-undefined, MIN/MAX fallbacks, a .gitattributes LF fix, etc.) that the released tarball
+  # doesn't carry. The fork builds green on its own CI across Linux/macOS/Windows, so we build it directly
+  # instead of maintaining a sprawling patch against the tarball.
+  augeas:
+    # All five platforms build from the same jayvdb/augeas `win` branch source.
+    # One fork, one set of portability patches, identical binaries across Linux/macOS/Windows. The fork's own
+    # build.yml is the recipe template (./autogen.sh --disable-gnulib-tests on Linux/macOS; MSYS2 + mingw-w64
+    # CFLAGS workarounds on Windows).
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write
+    timeout-minutes: 60
+    env:
+      MISE_ENV: maint
+      AUG_VERSION: "1.14.1"
+      AUG_RELEASE_TAG: "augeas-v1"
+      AUG_FORK_REPO: "https://github.com/jayvdb/augeas.git"
+      AUG_REF: "win"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            triple: x86_64-unknown-linux-gnu
+            archive_ext: tar.xz
+          - runner: ubuntu-24.04-arm
+            triple: aarch64-unknown-linux-gnu
+            archive_ext: tar.xz
+          - runner: macos-latest
+            triple: aarch64-apple-darwin
+            archive_ext: tar.xz
+          - runner: macos-26-intel
+            triple: x86_64-apple-darwin
+            archive_ext: tar.xz
+          - runner: windows-latest
+            triple: x86_64-pc-windows-mingw
+            archive_ext: tar.gz
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Detect missing augeas asset
+        id: aug_check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MATRIX_TRIPLE: ${{ matrix.triple }}
+          MATRIX_EXT: ${{ matrix.archive_ext }}
+        run: |
+          # The filename carries no "augeas-" project prefix.
+          # The release tag
+          # (`augeas-v1`) already encodes the project. Saves URL length and
+          # keeps the `<version>-<triple>.<ext>` shape uniform with the
+          # dart-typegen + gnupg-w32 assets.
+          asset="${AUG_VERSION}-${MATRIX_TRIPLE}.${MATRIX_EXT}"
+          repo=edge-toolkit/core
+          jq='.assets[].name'
+          assets=$(gh release view "$AUG_RELEASE_TAG" --repo "$repo" --json assets --jq "$jq" 2>/dev/null || true)
+          if echo "$assets" | grep -Fxq "$asset"; then
+            echo "::notice::$asset already in $AUG_RELEASE_TAG; skipping"
+            echo "work=" >> "$GITHUB_OUTPUT"
+          else
+            echo "work=yes" >> "$GITHUB_OUTPUT"
+            echo "asset=$asset" >> "$GITHUB_OUTPUT"
+          fi
+
+      # On Linux, apt-get the build deps, identical set to the fork's build.yml `linux` job.
+      # Skipped on the macOS/Windows runners.
+      - name: Install Linux build deps
+        if: |-
+          steps.aug_check.outputs.work == 'yes'
+          && runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          pkgs="autoconf automake bison flex libtool-bin libxml2-dev libreadline-dev pkg-config"
+          sudo apt-get install -y --no-install-recommends $pkgs
+
+      # On macOS, brew the build deps, mirroring the fork's build.yml `macos` job.
+      # CPPFLAGS/LDFLAGS point configure at GNU readline (libedit lacks
+      # rl_crlf/rl_replace_line/rl_char_is_quoted_p); modern bison required.
+      - name: Install macOS build deps
+        if: |-
+          steps.aug_check.outputs.work == 'yes'
+          && runner.os == 'macOS'
+        run: |
+          brew install autoconf automake libtool readline libxml2 pkg-config bison
+
+      # On Windows, set up the MSYS2 toolchain + autotools, mirroring the fork's `windows` job.
+      # `msystem: MINGW64` targets x86_64-w64-mingw32.
+      - name: Set up MSYS2 (Windows)
+        if: |-
+          steps.aug_check.outputs.work == 'yes'
+          && runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: |-
+            base-devel
+            git
+            autoconf
+            automake
+            libtool
+            bison
+            flex
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-libxml2
+            mingw-w64-x86_64-readline
+            mingw-w64-x86_64-pkgconf
+
+      # Unix build (Linux + macOS).
+      # Both use the same ./autogen.sh recipe with --disable-gnulib-tests (gnulib's bundled test harness fails
+      # to build against modern toolchains; unrelated to augeas itself). macOS needs the homebrew bison/readline
+      # overrides; Linux uses system libs.
+      - name: Build + package augeas (Unix)
+        if: |-
+          steps.aug_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+          && runner.os != 'Windows'
+        env:
+          ASSET: ${{ steps.aug_check.outputs.asset }}
+        run: |
+          set -euo pipefail
+          srcdir="$RUNNER_TEMP/augeas-src"
+          installdir="$RUNNER_TEMP/install"
+          mkdir -p "$installdir"
+          clone_args="--depth 1 --branch $AUG_REF --recurse-submodules"
+          git clone $clone_args "$AUG_FORK_REPO" "$srcdir"
+          cd "$srcdir"
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            bison_prefix=$(brew --prefix bison)
+            readline_prefix=$(brew --prefix readline)
+            libxml2_prefix=$(brew --prefix libxml2)
+            export PATH="$bison_prefix/bin:$PATH"
+            export PKG_CONFIG_PATH="$libxml2_prefix/lib/pkgconfig:$readline_prefix/lib/pkgconfig"
+            export CPPFLAGS="-I$readline_prefix/include"
+            export LDFLAGS="-L$readline_prefix/lib"
+          fi
+          autogen_args="--prefix=$installdir --disable-static --disable-gnulib-tests"
+          autogen_args="$autogen_args --disable-dependency-tracking"
+          ./autogen.sh $autogen_args
+          make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
+          make install
+          # Relocate the install tree to a portable form.
+          # libtool bakes the absolute --prefix into binaries and dylibs: Linux
+          # RUNPATH=/home/runner/work/_temp/install/lib and macOS LC_ID_DYLIB/LC_LOAD_DYLIB =
+          # /Users/runner/work/_temp/install/lib/libaugeas.0.dylib. Both break the moment we ship the binary
+          # elsewhere (dyld error "Library not loaded: /Users/runner/work/_temp/install/lib/libaugeas.0.dylib").
+          # Post-process to relocatable form so the tarball is consumable from any directory.
+          cd "$installdir"
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get install -y --no-install-recommends patchelf
+            for f in bin/* lib/lib*.so*; do
+              [ -f "$f" ] && [ ! -L "$f" ] || continue
+              patchelf --set-rpath '$ORIGIN/../lib' "$f" 2>/dev/null || true
+            done
+          else
+            # On macOS, make the install tree relocatable and self-contained.
+            # Relocate internal lib install_names + cross-refs to
+            # @rpath, add @loader_path/../lib rpath to binaries, and
+            # bundle the Homebrew deps (readline + libxml2 + their own
+            # deps) so consumers don't need brew installed.
+            our_libs=""
+            for lib in lib/libaugeas*.dylib lib/libfa*.dylib; do
+              [ -f "$lib" ] && [ ! -L "$lib" ] || continue
+              base=$(basename "$lib")
+              install_name_tool -id "@rpath/$base" "$lib"
+              our_libs="$our_libs $base"
+            done
+            for f in lib/libaugeas*.dylib lib/libfa*.dylib bin/*; do
+              [ -f "$f" ] && [ ! -L "$f" ] || continue
+              file "$f" | grep -q "Mach-O" || continue
+              for old in $(otool -L "$f" 2>/dev/null | awk 'NR>1 {print $1}'); do
+                base=$(basename "$old")
+                for ours in $our_libs; do
+                  if [ "$base" = "$ours" ]; then
+                    install_name_tool -change "$old" "@rpath/$base" "$f"
+                  fi
+                done
+              done
+            done
+            for f in bin/*; do
+              [ -f "$f" ] && [ ! -L "$f" ] || continue
+              file "$f" | grep -q "Mach-O" || continue
+              install_name_tool -add_rpath @loader_path/../lib "$f" 2>/dev/null || true
+            done
+            # Bundle the Homebrew dylib closure.
+            # otool -L on augtool tells us
+            # which absolute brew paths got baked in; copy each, rewrite
+            # its install_name + nested refs, and rewrite consumers.
+            brew_filter='NR>1 && $1 ~ /^\/(usr\/local|opt\/homebrew)\// {print $1}'
+            brew_deps_otool=$(otool -L bin/augtool lib/libaugeas*.dylib lib/libfa*.dylib 2>/dev/null)
+            queue=$(echo "$brew_deps_otool" | awk "$brew_filter" | sort -u)
+            seen=""
+            while [ -n "$queue" ]; do
+              next=""
+              for dep in $queue; do
+                base=$(basename "$dep")
+                # space-delimited seen list; membership = substring with sentinels
+                case " $seen " in *" $base "*) continue ;; esac
+                seen="$seen $base"
+                [ -f "$dep" ] || continue
+                cp -L "$dep" "lib/$base"
+                chmod +w "lib/$base"
+                install_name_tool -id "@rpath/$base" "lib/$base"
+                # add new transitive brew deps to the queue
+                nested_otool=$(otool -L "lib/$base" 2>/dev/null)
+                nested_refs=$(echo "$nested_otool" | awk "$brew_filter")
+                for nested in $nested_refs; do
+                  next="$next $nested"
+                done
+              done
+              queue=$(echo "$next" | tr ' ' '\n' | sort -u | grep -v '^$' || true)
+            done
+            # Rewrite every Mach-O file's refs to brew paths -> @rpath/<base>
+            for f in lib/*.dylib bin/*; do
+              [ -f "$f" ] && [ ! -L "$f" ] || continue
+              file "$f" | grep -q "Mach-O" || continue
+              f_otool=$(otool -L "$f" 2>/dev/null)
+              for old in $(echo "$f_otool" | awk "$brew_filter"); do
+                install_name_tool -change "$old" "@rpath/$(basename "$old")" "$f"
+              done
+            done
+            # Bundled dylibs in lib/ need their own rpath so they can resolve each other.
+            # This rpath is the $ORIGIN equivalent.
+            for lib in lib/*.dylib; do
+              [ -f "$lib" ] && [ ! -L "$lib" ] || continue
+              install_name_tool -add_rpath @loader_path "$lib" 2>/dev/null || true
+            done
+          fi
+          # tar.xz: smaller than .gz, mise's http backend handles both.
+          (cd "$installdir" && tar -cJf "$RUNNER_TEMP/$ASSET" .)
+          ls -lh "$RUNNER_TEMP/$ASSET"
+
+      # Windows build under MSYS2, kept as a separate step for several reasons.
+      # The shell differs (msys2 {0}), tar parses Windows-form paths as `host:path` (workarounds via cygpath -m
+      # + --force-local), and we bundle mingw runtime DLLs so the tarball is self-contained on a vanilla Windows
+      # host.
+      - name: Build + package augeas (Windows)
+        if: |-
+          steps.aug_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+          && runner.os == 'Windows'
+        shell: msys2 {0}
+        env:
+          ASSET: ${{ steps.aug_check.outputs.asset }}
+        run: |
+          set -euo pipefail
+          # Convert $RUNNER_TEMP to a forward-slash Windows path with cygpath -m.
+          # MSYS2 bash interprets `D:\a\_temp` (Windows-form $RUNNER_TEMP) as escape sequences -- libtool's
+          # `-rpath must be absolute` check then rejects the mangled result. cygpath -m gives the Windows-form
+          # path with forward slashes (e.g. `D:/a/_temp`).
+          runner_temp_m=$(cygpath -m "$RUNNER_TEMP")
+          srcdir="$runner_temp_m/augeas-src"
+          installdir="$runner_temp_m/install"
+          mkdir -p "$installdir"
+          clone_args="--depth 1 --branch $AUG_REF --recurse-submodules"
+          git clone $clone_args "$AUG_FORK_REPO" "$srcdir"
+          cd "$srcdir"
+          # CFLAGS, mirroring the fork's build.yml windows job.
+          #   -Wno-implicit-function-declaration: mingw-w64 gcc 14+ promoted
+          #     this from warning to error; some autoconf probes still trip it.
+          #   -Duint=unsigned: augeas headers use the BSD-ism `uint`, which
+          #     mingw-w64's <sys/types.h> doesn't define unconditionally.
+          export CFLAGS="-Wno-implicit-function-declaration -Duint=unsigned"
+          autogen_args="--prefix=$installdir --disable-static --disable-debug"
+          autogen_args="$autogen_args --disable-dependency-tracking"
+          ./autogen.sh $autogen_args
+          make -j"$(nproc)"
+          make install
+          # Bundle the mingw runtime DLLs augeas links against.
+          # This makes the tarball self-contained on a vanilla Windows host.
+          dlls="libxml2-2.dll libreadline8.dll libncursesw6.dll"
+          dlls="$dlls libwinpthread-1.dll libgcc_s_seh-1.dll libstdc++-6.dll"
+          dlls="$dlls libiconv-2.dll libtermcap-0.dll zlib1.dll"
+          for dll in $dlls; do
+            src="/mingw64/bin/$dll"
+            if [ -f "$src" ]; then
+              cp -v "$src" "$installdir/bin/"
+            fi
+          done
+          # Disable tar's remote-path parsing with --force-local.
+          # tar parses any colon in the output path as `host:path` ("Cannot connect to D: resolve failed");
+          # --force-local disables that. cd into installdir keeps the input arg as `.`.
+          (cd "$installdir" && tar --force-local -czf "$runner_temp_m/$ASSET" .)
+          ls -lh "$runner_temp_m/$ASSET"
+
+      - name: Publish augeas asset to release
+        if: |-
+          steps.aug_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ASSET: ${{ steps.aug_check.outputs.asset }}
+        run: |
+          gh release upload "$AUG_RELEASE_TAG" --repo edge-toolkit/core --clobber "$RUNNER_TEMP/$ASSET"
+
+  # Windows-only dart-typegen cargo build.
+  # dart-typegen has no prebuilt on crates.io; Linux/macOS source-build it via `cargo:dart-typegen` in
+  # config.dart.toml (os-scoped to those two). Windows can't take that path: cargo source-build against the
+  # gnullvm rust host trips `error[E0463]: can't find crate for 'core'`. Workaround: pre-build the binary here
+  # under the runner's stable-msvc toolchain (already on the windows-latest GHA image) and publish it so the
+  # Windows lane `http:` installs it (`http:dart-typegen` in config.windows.toml) instead of source-compiling.
+  # Same shape as the augeas job above.
+  dart-typegen:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    timeout-minutes: 30
+    env:
+      MISE_ENV: maint,rust
+      DTG_VERSION: "0.1.13"
+      DTG_RELEASE_TAG: "dart-typegen-v1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Detect missing dart-typegen asset
+        id: dtg_check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          triple=x86_64-pc-windows-msvc
+          # No "dart-typegen-" project prefix; release tag already names it.
+          asset="${DTG_VERSION}-${triple}.tar.gz"
+          repo=edge-toolkit/core
+          jq='.assets[].name'
+          assets=$(gh release view "$DTG_RELEASE_TAG" --repo "$repo" --json assets --jq "$jq" 2>/dev/null || true)
+          if echo "$assets" | grep -Fxq "$asset"; then
+            echo "::notice::$asset already in $DTG_RELEASE_TAG; skipping"
+            echo "work=" >> "$GITHUB_OUTPUT"
+          else
+            echo "work=yes" >> "$GITHUB_OUTPUT"
+            echo "triple=$triple" >> "$GITHUB_OUTPUT"
+            echo "asset=$asset" >> "$GITHUB_OUTPUT"
+          fi
+
+      # No explicit setup-rust step is needed for this build.
+      # The GHA windows-latest image ships rustup with the stable-x86_64-pc-windows-msvc toolchain pre-installed.
+      - name: Build dart-typegen via cargo install
+        if: |-
+          steps.dtg_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+        env:
+          ASSET: ${{ steps.dtg_check.outputs.asset }}
+        run: |
+          set -euo pipefail
+          installdir="$RUNNER_TEMP/install"
+          mkdir -p "$installdir"
+          # Force the msvc target.
+          # The runner default-host is msvc, but a stray default-toolchain (e.g. on a custom runner) could
+          # otherwise pick gnullvm and trip the same build failure we're working around.
+          cargo_args="--version $DTG_VERSION --root $installdir"
+          cargo_args="$cargo_args --target x86_64-pc-windows-msvc --locked"
+          cargo install dart-typegen $cargo_args
+          ls "$installdir/bin"
+          # `cd` into the dir and tar a relative path to avoid the colon.
+          # Git Bash's bundled tar parses `D:\a\_temp/...` as `host:path` (the colon) and then errors out with
+          # `Cannot connect to D: resolve failed`. Relative paths avoid the colon entirely.
+          (cd "$installdir/bin" && tar czf "../../$ASSET" dart-typegen.exe)
+          ls -lh "$RUNNER_TEMP/$ASSET"
+
+      # The release tag must already exist before this step runs.
+      # Run `MISE_ENV=maint mise run bootstrap-dart-typegen-release` locally once before the first dispatch. The
+      # bootstrap task is idempotent.
+      - name: Publish dart-typegen asset to release
+        if: |-
+          steps.dtg_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ASSET: ${{ steps.dtg_check.outputs.asset }}
+        run: |
+          gh release upload "$DTG_RELEASE_TAG" --repo edge-toolkit/core --clobber "$RUNNER_TEMP/$ASSET"
+
+  # Re-package GnuPG's "Simple installer for Windows" as a flat tarball mise can extract.
+  # The installer is an NSIS-wrapped `.exe`; the flat tarball lets mise's http: backend extract it natively. The
+  # upstream installer at https://gnupg.org/ftp/gcrypt/binary/gnupg-w32-<ver>.exe is a 5.5 MB NSIS installer;
+  # mise's built-in extraction (`sevenz_rust2`) handles canonical .7z but not the NSIS wrapper, so we extract
+  # once in CI via the `7z` binary (p7zip-full, preinstalled on ubuntu-latest) and host the resulting tarball.
+  # Output is a flat `bin/`+`share/`+`lib/`+`include/` layout -- a self-contained native-PE
+  # gpg/gpg-agent/dirmngr/gpgsm suite with no `Library/usr/bin/` nesting, no msys2-runtime autoload trap
+  # (every binary is PE32+ x86-64, not Cygwin). Runs on ubuntu-latest because 7zz extraction is fully
+  # cross-platform and ubuntu jobs are cheaper than windows ones.
+  gnupg-w32:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 15
+    env:
+      MISE_ENV: maint
+      # Bump these in lockstep with upstream's "Simple installer" page.
+      # See https://gnupg.org/download/ -- the .exe filename embeds both the version and a build date stamp.
+      # Keep the date stamp here to pin to the exact upstream build (a re-release at the same version would
+      # otherwise silently drift our cached asset).
+      GNUPG_VERSION: "2.5.20"
+      GNUPG_BUILD_STAMP: "20260513"
+      GNUPG_RELEASE_TAG: "gnupg-w32-v1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Detect missing gnupg-w32 asset
+        id: gpg_check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          # No "gnupg-w32-" project prefix; release tag already names it.
+          asset="${GNUPG_VERSION}_${GNUPG_BUILD_STAMP}-x86_64-pc-windows.tar.gz"
+          repo=edge-toolkit/core
+          jq='.assets[].name'
+          assets=$(gh release view "$GNUPG_RELEASE_TAG" --repo "$repo" --json assets --jq "$jq" 2>/dev/null || true)
+          if echo "$assets" | grep -Fxq "$asset"; then
+            echo "::notice::$asset already in $GNUPG_RELEASE_TAG; skipping"
+            echo "work=" >> "$GITHUB_OUTPUT"
+          else
+            echo "work=yes" >> "$GITHUB_OUTPUT"
+            echo "asset=$asset" >> "$GITHUB_OUTPUT"
+          fi
+
+      # No mise needed for this job.
+      # curl, 7z (p7zip-full), tar, and gh are all preinstalled on ubuntu-latest. We tried
+      # `MISE_ENV=maint mise exec -- xh` first (per the "use mise tools" preference) but mise 2026.6.5 on the
+      # runner failed to resolve xh from its aqua install dir layout (`<install>/xh-v0.25.3-<triple>/xh`); the
+      # newer 2026.6.10 mise locally handles it, but pinning mise just for this job is more setup than the tool
+      # savings warrant.
+
+      - name: Extract + repackage upstream installer
+        if: |-
+          steps.gpg_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+        env:
+          ASSET: ${{ steps.gpg_check.outputs.asset }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/gnupg-w32"
+          mkdir -p "$work" "$work/extracted"
+          cd "$work"
+          installer="gnupg-w32-${GNUPG_VERSION}_${GNUPG_BUILD_STAMP}.exe"
+          url="https://gnupg.org/ftp/gcrypt/binary/${installer}"
+          curl -sLO "$url"
+          7z x -y -o"extracted" "$installer"
+          # Strip NSIS install-staging cruft.
+          # `$PLUGINSDIR/` is NSIS's own internal use, and the `*.tmp` files in bin/ are NSIS's mid-install
+          # copies of binaries (cleaned up by a working installer run, redundant in our extracted form).
+          rm -rf "extracted/\$PLUGINSDIR"
+          find extracted/bin -name '*.tmp' -delete
+          ls extracted/bin
+          # Flatten the extracted tree into the tarball.
+          # bin/ + lib/ + share/ + include/ keep the install layout consumers expect; mise's http backend
+          # respects strip_components so we set the tar root to that.
+          tar czf "$RUNNER_TEMP/$ASSET" -C extracted .
+          ls -lh "$RUNNER_TEMP/$ASSET"
+          sha256sum "$RUNNER_TEMP/$ASSET"
+
+      # The release tag must already exist before this step runs.
+      # Run `MISE_ENV=maint mise run bootstrap-gnupg-w32-release` locally once before the first dispatch. The
+      # bootstrap task is idempotent.
+      - name: Publish gnupg-w32 asset to release
+        if: |-
+          steps.gpg_check.outputs.work == 'yes'
+          && github.event.pull_request.head.repo.fork != true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ASSET: ${{ steps.gpg_check.outputs.asset }}
+        run: |
+          gh release upload "$GNUPG_RELEASE_TAG" --repo edge-toolkit/core --clobber "$RUNNER_TEMP/$ASSET"

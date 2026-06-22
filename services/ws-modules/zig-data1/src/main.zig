@@ -98,7 +98,7 @@ export fn run() i32 {
 
     // The REST client targets the same origin we were served from, so an
     // empty base_url leaves it with relative paths like `/storage/{id}/{f}`
-    // — the browser resolves those against the page origin via fetch().
+    // -- the browser resolves those against the page origin via fetch().
     var client = rest.Client.init(alloc, undefined, "");
     defer client.deinit();
 

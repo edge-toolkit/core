@@ -114,9 +114,9 @@ Future<void> run() async {
           // ignore other protocol messages (connect_ack etc.)
         }
       } on FormatException {
-        // Unknown message type — server may have broadcast an opaque frame.
+        // Unknown message type -- server may have broadcast an opaque frame.
       } catch (_) {
-        // Malformed JSON or schema mismatch — ignore.
+        // Malformed JSON or schema mismatch -- ignore.
       }
     }).toJS,
   );

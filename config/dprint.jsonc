@@ -2,31 +2,32 @@
   "dockerfile": {
     "associations": ["**/Dockerfile", "**/*.dockerfile", "**/Dockerfile.nanoserver"],
   },
-  "java": {
-  },
-  "json": {
-  },
-  // Match the repo-wide 120 line-length set in .editorconfig and ruff.toml,
-  // otherwise dprint's bundled ruff would reformat Python files to its
-  // default and fight with `mise run ruff-fmt`.
+  "java": {},
+  "json": {},
+  // Match the repo-wide 120 line-length set in .editorconfig and ruff.toml, otherwise dprint's bundled ruff would
+  // reformat Python files to its default and fight with `mise run ruff-fmt`.
   "ruff": {
     "lineLength": 120,
   },
-  "malva": {
-  },
+  "malva": {},
+  // Match the repo-wide 120 line cap; dprint's markdown plugin otherwise defaults to 80 and reformats `js` code
+  // blocks more aggressively than the typescript plugin would on the same source.
   "markdown": {
+    "lineWidth": 120,
   },
-  "markup": {
-  },
+  "markup": {},
+  // Match oxfmt's JS/TS style so the two formatters can run on the same
+  // files without fighting:
+  //   - arrowFunction.useParentheses=force -> always `(x) =>`, not `x =>`
+  //   - memberExpression.linePerExpression -> break chained `.then().catch()`
+  //   - binaryExpression.operatorPosition=sameLine -> `&&` / `||` trailing the previous line, not leading the next
   "typescript": {
+    "arrowFunction.useParentheses": "force",
+    "binaryExpression.operatorPosition": "sameLine",
+    "memberExpression.linePerExpression": true,
   },
-  "yaml": {
-  },
-  "excludes": [
-    "**/node_modules",
-    "**/*-lock.json",
-    "data/",
-  ],
+  "yaml": {},
+  "excludes": ["**/node_modules", "**/*-lock.json", "data/"],
   "plugins": [
     "https://github.com/speakeasy-api/dprint-plugin-java/releases/latest/download/dprint_plugin_java.wasm",
     "https://plugins.dprint.dev/g-plane/malva-v0.15.2.wasm",

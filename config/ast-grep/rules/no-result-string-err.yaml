@@ -2,10 +2,9 @@ id: no-result-string-err
 language: Rust
 severity: error
 message: |
-  `Result<_, String>` flattens any typed error to a free-form string at
-  the point of failure — losing the source variant, the ability to
-  branch on it, and the chain of causes. Define a `thiserror` enum (or
-  reuse one of the workspace's `*Error` types) and return that instead.
+  `Result<_, String>` flattens any typed error to a free-form string at the point of failure -- losing the source
+  variant, the ability to branch on it, and the chain of causes. Define a `thiserror` enum (or reuse one of the
+  workspace's `*Error` types) and return that instead.
 rule:
   all:
     - kind: generic_type
@@ -17,8 +16,7 @@ rule:
         regex: ',\s*String\s*>$'
 ignores:
   - generated/**
-  # WIT-bindgen host impls return `Result<_, String>` because the WIT
-  # `ws-error` / etc. on the host side is generated as a String alias.
-  # The helper trait that builds that shape lives here.
+  # WIT-bindgen host impls return `Result<_, String>` because the host-side WIT is generated as a String alias.
+  # This applies to the WIT `ws-error` / etc. on the host side. The helper trait that builds that shape lives here.
   - services/ws-wasi-runner/src/error.rs
   - services/ws-wasi-runner/src/host/error.rs

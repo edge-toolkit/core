@@ -1,19 +1,26 @@
-id: prefer-self-mod-use
+# When a file declares `mod $X;` and references it via `use $X::...`, write `use self::$X::...`.
+# This makes the local reference explicit. Split into 8 multi-doc sub-rules (bare/pub/pub(crate)/pub(super) x
+# chain/group): ast-grep allows one `fix:` per rule, and the eight match patterns differ in surface form (presence of
+# `pub`-form, presence of braces) in ways a single fix template can't reconstruct.
+#
+# Visibility disambiguation: ast-grep treats `pub`, `pub(crate)`, `pub(super)`
+# as structurally interchangeable when matching, so `pub use $X::...` would match all three. Each pub-form sub-rule adds
+# a `regex:` anchor on the matched text to require the exact visibility prefix, so the autofix never rewrites
+# `pub(crate)` to `pub` (or vice-versa).
+#
+# Known limitation (pre-existing -- same as the original single-rule form):
+# the `use $X::$$$REST;` shape matches the top-level `scoped_identifier` split, so multi-segment chains like `use
+# mod::deep::leaf;` aren't flagged (tree-sitter parses them as nested scoped_identifiers; $X binds to the nested
+# subtree, not to `mod`). The autofix likewise only fires on single-segment chains.
+
+id: prefer-self-mod-use-bare-chain
 language: Rust
 severity: error
 message: |
-  This file declares `mod $X` and references it via `use $X::...`.
-  Write `use self::$X::...` to make the local reference explicit.
+  This file declares `mod $X;` and references it via `use $X::...`. Write `use self::$X::...` to make the local
+  reference explicit.
 rule:
-  any:
-    - pattern: use $X::$$$REST;
-    - pattern: use $X::{$$$REST};
-    - pattern: pub use $X::$$$REST;
-    - pattern: pub use $X::{$$$REST};
-    - pattern: pub(crate) use $X::$$$REST;
-    - pattern: pub(crate) use $X::{$$$REST};
-    - pattern: pub(super) use $X::$$$REST;
-    - pattern: pub(super) use $X::{$$$REST};
+  pattern: use $X::$$$REST;
   inside:
     kind: source_file
     has:
@@ -22,5 +29,172 @@ rule:
         - pattern: pub mod $X;
         - pattern: pub(crate) mod $X;
         - pattern: pub(super) mod $X;
+fix: use self::$X::$$$REST;
+ignores:
+  - generated/**
+
+---
+
+id: prefer-self-mod-use-bare-group
+language: Rust
+severity: error
+message: |
+  This file declares `mod $X;` and references it via `use $X::{...}`. Write `use self::$X::{...}` to make the local
+  reference explicit.
+rule:
+  pattern: use $X::{$$$REST};
+  inside:
+    kind: source_file
+    has:
+      any:
+        - pattern: mod $X;
+        - pattern: pub mod $X;
+        - pattern: pub(crate) mod $X;
+        - pattern: pub(super) mod $X;
+fix: use self::$X::{$$$REST};
+ignores:
+  - generated/**
+
+---
+
+id: prefer-self-mod-use-pub-chain
+language: Rust
+severity: error
+message: |
+  This file declares `mod $X;` and re-exports it via `pub use $X::...`. Write `pub use self::$X::...` to make the local
+  reference explicit.
+rule:
+  all:
+    - pattern: pub use $X::$$$REST;
+    - regex: '^pub use\b'
+  inside:
+    kind: source_file
+    has:
+      any:
+        - pattern: mod $X;
+        - pattern: pub mod $X;
+        - pattern: pub(crate) mod $X;
+        - pattern: pub(super) mod $X;
+fix: pub use self::$X::$$$REST;
+ignores:
+  - generated/**
+
+---
+
+id: prefer-self-mod-use-pub-group
+language: Rust
+severity: error
+message: |
+  This file declares `mod $X;` and re-exports it via `pub use $X::{...}`. Write `pub use self::$X::{...}` to make the
+  local reference explicit.
+rule:
+  all:
+    - pattern: pub use $X::{$$$REST};
+    - regex: '^pub use\b'
+  inside:
+    kind: source_file
+    has:
+      any:
+        - pattern: mod $X;
+        - pattern: pub mod $X;
+        - pattern: pub(crate) mod $X;
+        - pattern: pub(super) mod $X;
+fix: pub use self::$X::{$$$REST};
+ignores:
+  - generated/**
+
+---
+
+id: prefer-self-mod-use-pubcrate-chain
+language: Rust
+severity: error
+message: |
+  This file declares `mod $X;` and re-exports it via `pub(crate) use $X::...`. Write `pub(crate) use self::$X::...` to
+  make the local reference explicit.
+rule:
+  all:
+    - pattern: pub(crate) use $X::$$$REST;
+    - regex: '^pub\(crate\) use\b'
+  inside:
+    kind: source_file
+    has:
+      any:
+        - pattern: mod $X;
+        - pattern: pub mod $X;
+        - pattern: pub(crate) mod $X;
+        - pattern: pub(super) mod $X;
+fix: pub(crate) use self::$X::$$$REST;
+ignores:
+  - generated/**
+
+---
+
+id: prefer-self-mod-use-pubcrate-group
+language: Rust
+severity: error
+message: |
+  This file declares `mod $X;` and re-exports it via `pub(crate) use $X::{...}`. Write `pub(crate) use self::$X::{...}`
+  to make the local reference explicit.
+rule:
+  all:
+    - pattern: pub(crate) use $X::{$$$REST};
+    - regex: '^pub\(crate\) use\b'
+  inside:
+    kind: source_file
+    has:
+      any:
+        - pattern: mod $X;
+        - pattern: pub mod $X;
+        - pattern: pub(crate) mod $X;
+        - pattern: pub(super) mod $X;
+fix: pub(crate) use self::$X::{$$$REST};
+ignores:
+  - generated/**
+
+---
+
+id: prefer-self-mod-use-pubsuper-chain
+language: Rust
+severity: error
+message: |
+  This file declares `mod $X;` and re-exports it via `pub(super) use $X::...`. Write `pub(super) use self::$X::...` to
+  make the local reference explicit.
+rule:
+  all:
+    - pattern: pub(super) use $X::$$$REST;
+    - regex: '^pub\(super\) use\b'
+  inside:
+    kind: source_file
+    has:
+      any:
+        - pattern: mod $X;
+        - pattern: pub mod $X;
+        - pattern: pub(crate) mod $X;
+        - pattern: pub(super) mod $X;
+fix: pub(super) use self::$X::$$$REST;
+ignores:
+  - generated/**
+
+---
+
+id: prefer-self-mod-use-pubsuper-group
+language: Rust
+severity: error
+message: |
+  This file declares `mod $X;` and re-exports it via `pub(super) use $X::{...}`. Write `pub(super) use self::$X::{...}`
+  to make the local reference explicit.
+rule:
+  all:
+    - pattern: pub(super) use $X::{$$$REST};
+    - regex: '^pub\(super\) use\b'
+  inside:
+    kind: source_file
+    has:
+      any:
+        - pattern: mod $X;
+        - pattern: pub mod $X;
+        - pattern: pub(crate) mod $X;
+        - pattern: pub(super) mod $X;
+fix: pub(super) use self::$X::{$$$REST};
 ignores:
   - generated/**

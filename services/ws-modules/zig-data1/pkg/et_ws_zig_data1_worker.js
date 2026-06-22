@@ -1,12 +1,14 @@
 // et_ws_zig_data1_worker.js — Web Worker for zig-data1 WASM module
 const DATA_OFFSET = 16;
 let ctrl, data, wasmMemory;
-const enc = new TextEncoder(), dec = new TextDecoder();
+const enc = new TextEncoder(),
+  dec = new TextDecoder();
 const readStr = (ptr, len) => dec.decode(new Uint8Array(wasmMemory.buffer, ptr, len));
 
 // String payload + string aux, response is a UTF-8 string (legacy ops).
 function call(type, payload = "", aux = "") {
-  const pb = enc.encode(payload), ab = enc.encode(aux);
+  const pb = enc.encode(payload),
+    ab = enc.encode(aux);
   data.set(pb);
   if (ab.length) data.set(ab, pb.length);
   Atomics.store(ctrl, 3, ab.length);

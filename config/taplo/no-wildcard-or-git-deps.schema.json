@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Workspace member Cargo.toml — no wildcard or git deps",
+  "title": "Workspace member Cargo.toml -- no wildcard or git deps",
   "description": "Forbids `*` and inline `git = ...` in [dependencies] / [dev-dependencies] / [build-dependencies].",
   "definitions": {
     "depEntry": {

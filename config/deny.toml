@@ -1,98 +1,84 @@
-# cargo-deny config, applied via `mise run cargo-deny-check` -- locally and in
-# .github/workflows/dependencies.yaml.
+# cargo-deny config.
+# Applied via `mise run cargo-deny-check` -- locally and in .github/workflows/dependencies.yaml.
 
 [advisories]
 version = 2
-# Crates pulled from a yanked version are an unambiguous bug — pin them
-# back to a live release.
+# Crates pulled from a yanked version are an unambiguous bug.
+# Pin them back to a live release.
 yanked = "deny"
-# Advisories we've reviewed and consciously accept until upstream Deno
-# migrates. Each entry names the vulnerable crate, the path that pulls
-# it, and the runtime reason it isn't exploitable here. Drop entries as
-# upstream catches up; never silence one without a written reason.
+# Advisories we've reviewed and consciously accept until upstream Deno migrates.
+# Each entry names the vulnerable crate, the path that pulls it, and the runtime reason it isn't exploitable
+# here. Drop entries as upstream catches up; never silence one without a written reason.
 ignore = [
-  # bincode 1.3.3 (unmaintained). Pulled by deno_core for snapshot /
-  # cache serialization. Unmaintained ≠ vulnerable; bincode 2 exists
-  # but deno_core 0.402 still uses 1.x. Awaiting Deno's migration.
+  # bincode 1.3.3 (unmaintained).
+  # Pulled by deno_core for snapshot / cache serialization. Unmaintained != vulnerable; bincode 2 exists but
+  # deno_core 0.402 still uses 1.x. Awaiting Deno's migration.
   "RUSTSEC-2025-0141",
-  # paste 1.0.15 (unmaintained). Build-time proc-macro pulled via
-  # macro_rules_attribute → wgpu-core → deno_webgpu. Used at compile
-  # time only; no runtime exposure. Awaiting wgpu's migration.
+  # paste 1.0.15 (unmaintained).
+  # Build-time proc-macro pulled via macro_rules_attribute -> wgpu-core -> deno_webgpu. Used at compile time
+  # only; no runtime exposure. Awaiting wgpu's migration.
   "RUSTSEC-2024-0436",
-  # proc-macro-error2 2.0.1 (unmaintained). Build-time proc-macro via
-  # getset → neli → local-ip-address. Compile-time only.
+  # proc-macro-error2 2.0.1 (unmaintained).
+  # Build-time proc-macro via getset -> neli -> local-ip-address. Compile-time only.
   "RUSTSEC-2026-0173",
-  # rustls-pemfile 2.2.0 (unmaintained). PEM cert parser pulled by
-  # deno_native_certs for loading the system CA bundle. Unmaintained,
-  # not vulnerable; rustls itself has moved to inline pemfile parsing.
+  # rustls-pemfile 2.2.0 (unmaintained).
+  # PEM cert parser pulled by deno_native_certs for loading the system CA bundle. Unmaintained, not
+  # vulnerable; rustls itself has moved to inline pemfile parsing.
   "RUSTSEC-2025-0134",
-  # hickory-proto 0.25.2 NSEC3 closest-encloser proof unbounded loop
-  # (DoS on DNSSEC validation). Pulled by deno_net for resolver, but
-  # the runner never enables DNSSEC validation -- only plain A/AAAA
-  # lookups for outbound fetch / WebSocket. Validation path is
-  # unreachable here.
+  # hickory-proto 0.25.2 NSEC3 closest-encloser proof unbounded loop (DoS on DNSSEC validation).
+  # Pulled by deno_net for resolver. But the runner never enables DNSSEC validation -- only plain A/AAAA
+  # lookups for outbound fetch / WebSocket. Validation path is unreachable here.
   "RUSTSEC-2026-0118",
-  # hickory-proto 0.25.2 O(n²) name compression during message encode.
-  # Encoder side, hit only when we *send* a DNS message; the runner
-  # uses the OS resolver via hickory and never crafts outbound DNS
-  # frames with attacker-controlled name lists.
+  # hickory-proto 0.25.2 O(n^2) name compression during message encode.
+  # Encoder side, hit only when we *send* a DNS message. The runner uses the OS resolver via hickory. It
+  # never crafts outbound DNS frames with attacker-controlled name lists.
   "RUSTSEC-2026-0119",
-  # rand 0.8.5 -- transitive via cap-rand (wasi-runner) + deno_crypto /
-  # deno_fs / deno_node (web-runner). Used for non-cryptographic
-  # randomness (jitter, salt scratchpads). Awaiting upstream Deno + cap-
-  # rand migration to rand 0.9.
+  # rand 0.8.5 -- transitive via cap-rand (wasi-runner) + deno_crypto / deno_fs / deno_node (web-runner).
+  # Used for non-cryptographic randomness (jitter, salt scratchpads). Awaiting upstream Deno + cap-rand
+  # migration to rand 0.9.
   "RUSTSEC-2026-0097",
   # rsa 0.9.10 Marvin Attack timing sidechannel on RSA decryption.
-  # Pulled by deno_crypto + deno_node_crypto. The runner doesn't hold
-  # private RSA keys or decrypt RSA payloads -- only TLS server cert
-  # verification (which uses *signature* checks, no decryption). Not
-  # reachable unless guest JS explicitly imports crypto.subtle and
-  # performs RSA-OAEP decrypt with a private key, which our modules
-  # don't.
+  # Pulled by deno_crypto + deno_node_crypto. The runner doesn't hold private RSA keys or decrypt RSA
+  # payloads. Only TLS server cert verification, which uses *signature* checks, no decryption. Not reachable
+  # unless guest JS explicitly imports crypto.subtle and performs RSA-OAEP decrypt with a private key. Our
+  # modules don't.
   "RUSTSEC-2023-0071",
   # rustls-webpki 0.102.8 -- four advisories, all unreachable here.
-  # All pinned by deno_fetch ^0.102 / deno_tls ^0.236 (under
-  # deno_runtime). The runner uses rustls only for HTTPS *client*
-  # verification against system roots:
-  #   * 2026-0049, 2026-0104 (CRL-parsing bugs) -- we never load CRLs
-  #     into ClientConfig.
-  #   * 2026-0098, 2026-0099 (name-constraint bypass for URI /
-  #     wildcard certs) -- relevant only when validating certs whose
-  #     subject names include URI SANs or are wildcard-issued under
-  #     name-constrained intermediates; our HTTPS endpoints don't.
+  # All pinned by deno_fetch ^0.102 / deno_tls ^0.236 (under deno_runtime). The runner uses rustls only for
+  # HTTPS *client* verification against system roots:
+  #   * 2026-0049, 2026-0104 (CRL-parsing bugs) -- we never load CRLs into ClientConfig.
+  #   * 2026-0098, 2026-0099: name-constraint bypass for URI / wildcard certs. Relevant only when validating
+  #     certs whose subject names include URI SANs. Or certs wildcard-issued under name-constrained
+  #     intermediates. Our HTTPS endpoints don't.
   # Drop all four when deno_fetch upgrades to rustls-webpki >=0.103.13.
   "RUSTSEC-2026-0049",
   "RUSTSEC-2026-0098",
   "RUSTSEC-2026-0099",
   "RUSTSEC-2026-0104",
   # pyo3 0.28.3 -- two advisories, both unreachable in the embedded runner.
-  # Pulled only by et-ws-pyo3-runner (our sole pyo3 consumer). Fixed in
-  # pyo3 0.29; we stay on 0.28 for now and drop both on upgrade.
-  #   * 2026-0176 (OOB read in PyList/PyTuple iterator nth/nth_back) -- the
-  #     runner never calls nth/nth_back on a Python sequence iterator; it
-  #     only inserts into sys.path and reads module return values.
-  #   * 2026-0177 (missing Sync bound on PyCFunction::new_closure) -- the
-  #     runner exposes its host API as #[pyclass]/#[pymethods] (WsSender,
-  #     WsStorage), never PyCFunction::new_closure, and drives a single
-  #     GIL-bound interpreter (not free-threaded), so no closure runs
-  #     concurrently.
+  # Pulled only by et-ws-pyo3-runner (our sole pyo3 consumer).
+  # Fixed in pyo3 0.29; we stay on 0.28 for now and drop both on upgrade.
+  #   * 2026-0176 (OOB read in PyList/PyTuple iterator nth/nth_back). The runner never calls nth/nth_back on
+  #     a Python sequence iterator. It only inserts into sys.path and reads module return values.
+  #   * 2026-0177 (missing Sync bound on PyCFunction::new_closure). The runner exposes its host API as
+  #     #[pyclass]/#[pymethods] (WsSender, WsStorage). It never uses PyCFunction::new_closure. It drives a
+  #     single GIL-bound interpreter (not free-threaded), so no closure runs concurrently.
   "RUSTSEC-2026-0176",
   "RUSTSEC-2026-0177",
 ]
 
 [licenses]
 version = 2
-# Compatible with our own `Apache-2.0 OR MIT` workspace license. Add a
-# new entry only when a transitive dep introduces a new SPDX expression
-# we've reviewed.
+# Compatible with our own `Apache-2.0 OR MIT` workspace license.
+# Add a new entry only when a transitive dep introduces a new SPDX expression we've reviewed.
 allow = [
   "Apache-2.0",
-  # cranelift / wasmtime stack — LLVM-derived code carries the Apache 2.0
-  # text plus an extra patent grant for LLVM. Still permissive.
+  # cranelift / wasmtime stack -- LLVM-derived code carries the Apache 2.0 text plus an extra patent grant for LLVM.
+  # Still permissive.
   "Apache-2.0 WITH LLVM-exception",
   "BSD-2-Clause",
   "BSD-3-Clause",
-  # clipboard-win + error-code (transitive via deno_runtime → rustyline).
+  # clipboard-win + error-code (transitive via deno_runtime -> rustyline).
   # Boost Software License 1.0 -- permissive, OSI-approved, FSF Free/Libre.
   "BSL-1.0",
   # webpki-roots / webpki-root-certs (Mozilla's CA bundle).
@@ -106,66 +92,57 @@ allow = [
   "Zlib",
 ]
 
-# Explicit per-crate clarifications: cargo-deny otherwise emits a
-# `no-license-field` warning when a crate's manifest uses `license-file`
-# instead of an SPDX `license` expression. Each entry below has been verified
-# against the on-disk LICENSE in ~/.cargo/registry. The mise `cargo-deny`
-# task escalates `no-license-field` to a hard error so a new transitive dep
-# without an SPDX expression must land here intentionally, not silently.
+# Explicit per-crate clarifications.
+# cargo-deny otherwise emits a `no-license-field` warning when a crate's manifest uses `license-file` instead
+# of an SPDX `license` expression. Each entry below has been verified against the on-disk LICENSE in
+# ~/.cargo/registry. The mise `cargo-deny` task escalates `no-license-field` to a hard error so a new
+# transitive dep without an SPDX expression must land here intentionally, not silently.
 [[licenses.clarify]]
 crate = "saffron"
 expression = "BSD-3-Clause"
 license-files = [{ path = "LICENSE", hash = 0x0bcebb0f }]
 
 [bans]
-# Warn (not deny) on multiple-versions: useful to surface duplicate
-# transitive dep trees without blocking on every cargo update.
+# Warn (not deny) on multiple-versions.
+# Useful to surface duplicate transitive dep trees without blocking on every cargo update.
 multiple-versions = "warn"
-# Wildcard version specs in member crates are already forbidden by the
-# taplo `no-wildcard-or-git-deps` schema; double-cover here so it shows
-# up in a security-style report too.
+# Wildcard version specs in member crates are already forbidden by the taplo `no-wildcard-or-git-deps` schema.
+# Double-cover here so it shows up in a security-style report too.
 wildcards = "deny"
-# Crate-by-crate bans live in `config/taplo/no-banned-deps.schema.json`
-# (declaration-time check on workspace [dependencies]). The `deny`
-# entries below catch *transitive* uses that the taplo rule can't see.
+# Crate-by-crate bans live in `config/taplo/no-banned-deps.schema.json`.
+# That is a declaration-time check on workspace [dependencies].
+# The `deny` entries below catch *transitive* uses that the taplo rule can't see.
 deny = [
-  # `openssl` and `openssl-sys` link to libssl/libcrypto. We use rustls +
-  # aws-lc-rs as the single TLS+crypto stack across the workspace; any new
-  # transitive dep that drags openssl back in should migrate, not be allowed.
-  # `openssl-probe` is fine -- it only probes for installed cert store paths,
-  # doesn't link to OpenSSL itself.
+  # `openssl` and `openssl-sys` link to libssl/libcrypto.
+  # We use rustls + aws-lc-rs as the single TLS+crypto stack across the workspace. Any new transitive dep
+  # that drags openssl back in should migrate, not be allowed. `openssl-probe` is fine -- it only probes for
+  # installed cert store paths, doesn't link to OpenSSL itself.
   { crate = "openssl" },
   { crate = "openssl-sys" },
-  # `ring` is forbidden except via the wrappers listed below. The rest
-  # of the dep graph reaches the same primitives via `aws-lc-rs`. Any
-  # new transitive parent that drags `ring` back in surfaces as an
-  # `unmatched-wrapper` error here so we can decide whether to migrate
-  # it to aws-lc-rs or extend the list.
-  # See https://github.com/EmbarkStudios/cargo-deny/issues/776 for the
+  # `ring` is forbidden except via the wrappers listed below.
+  # The rest of the dep graph reaches the same primitives via `aws-lc-rs`. Any new transitive parent that
+  # drags `ring` back in surfaces as an `unmatched-wrapper` error here. We can then decide whether to migrate
+  # it to aws-lc-rs or extend the list. See https://github.com/EmbarkStudios/cargo-deny/issues/776 for the
   # `wrappers` pattern.
   #
   # Current allowed parents:
   #   * `rcgen` -- server-side TLS cert generation in et-ws-server.
-  #     Intentional; rcgen's ring feature is what we want for the cert
-  #     generator.
-  #   * `rustls-webpki` -- pulled by deno_fetch + deno_tls (default
-  #     features include `ring`). Drop once Deno's TLS stack migrates
-  #     to aws-lc-rs defaults.
-  #   * `quinn-proto` -- pulled by deno_net via quinn (default features
-  #     include `ring`). Drop once Deno's quinn config switches to the
-  #     `rustls-aws-lc-rs` feature.
+  #     Intentional; rcgen's ring feature is what we want for the cert generator.
+  #   * `rustls-webpki` -- pulled by deno_fetch + deno_tls (default features include `ring`).
+  #     Drop once Deno's TLS stack migrates to aws-lc-rs defaults.
+  #   * `quinn-proto` -- pulled by deno_net via quinn (default features include `ring`).
+  #     Drop once Deno's quinn config switches to the `rustls-aws-lc-rs` feature.
   { crate = "ring", wrappers = ["quinn-proto", "rcgen", "rustls-webpki"] },
-  # `ureq` is forbidden -- direct use is blocked by the taplo no-banned-deps
-  # schema, this entry catches transitive paths the same way as `ring` above.
-  # No wrappers allowed: the only previous parent (`ort-sys` via the
-  # `download-binaries` feature) is gone now that the workspace `ort` dep
-  # stages ONNX Runtime through mise instead.
+  # `ureq` is forbidden -- direct use is blocked by the taplo no-banned-deps schema.
+  # This entry catches transitive paths the same way as `ring` above. No wrappers allowed. The only previous
+  # parent (`ort-sys` via the `download-binaries` feature) is gone. The workspace `ort` dep now stages ONNX
+  # Runtime through mise instead.
   { crate = "ureq" },
 ]
 
 [sources]
-# Only crates.io. New git or alternate-registry deps must be added to
-# the allow lists below intentionally.
+# Only crates.io.
+# New git or alternate-registry deps must be added to the allow lists below intentionally.
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 unknown-git = "deny"
 unknown-registry = "deny"

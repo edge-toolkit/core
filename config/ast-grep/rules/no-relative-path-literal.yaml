@@ -2,21 +2,18 @@ id: no-relative-path-literal
 language: Rust
 severity: error
 message: |
-  Relative path literals ("." / ".." / "./..." / "../...") are forbidden: they
-  hardcode a location relative to the process's current directory or this
-  crate's directory, which is brittle. Anchor paths to the repository root
-  instead -- `edge_toolkit::config::get_project_root()` (runtime) or
-  `et_path::find_project_root_from_manifest()` (build scripts) -- and join the
-  remainder onto it. (Char literals like `'.'` for splitting are unaffected.)
+  Relative path literals ("." / ".." / "./..." / "../...") are forbidden: they hardcode a location relative to the
+  process's current directory or this crate's directory, which is brittle. Anchor paths to the repository root
+  instead -- `edge_toolkit::config::get_project_root()` (runtime) or `et_path::find_project_root_from_manifest()`
+  (build scripts) -- and join the remainder onto it. (Char literals like `'.'` for splitting are unaffected.)
 rule:
   kind: string_content
   regex: '^\.\.?(/.*)?$'
 ignores:
-  # wasmtime's bindgen! has no macro-string support, so its wit `path:` must be
-  # a literal resolved against this crate's dir (the one unavoidable repo `..`).
+  # wasmtime's bindgen! has no macro-string support, so its wit `path:` must be a literal.
+  # It is resolved against this crate's dir (the one unavoidable repo `..`).
   - services/ws-wasi-runner/src/bindings.rs
-  # relative_path_from() deliberately emits "." / ".." for generated mise.toml
-  # and compose.yaml output.
+  # relative_path_from() deliberately emits "." / ".." for generated mise.toml and compose.yaml output.
   - libs/path/src/lib.rs
   # --module-dir defaults to the current directory.
   - utilities/cli/src/cli.rs

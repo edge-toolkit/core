@@ -1,0 +1,54 @@
+---
+name: Install mise
+description: >-
+  Install the mise binary via taiki-e/install-action, and on Windows add mise's
+  file-shim dir to PATH so subsequent steps can resolve mise-managed tools by
+  bare name.
+
+inputs:
+  install-action-tools:
+    description: >-
+      Comma-separated tools to co-install via taiki-e/install-action.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Verify actions/checkout has run
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: git rev-parse --is-inside-work-tree >/dev/null
+
+    - name: Install mise
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-binstall,mise@2026.6.5
+
+    - name: Install extra tools via install-action
+      if: inputs.install-action-tools != ''
+      uses: taiki-e/install-action@v2
+      with:
+        tool: ${{ inputs.install-action-tools }}
+
+    # Append mise's shims dir to PATH for subsequent steps on Windows.
+    # taiki-e/install-action's mise manifest stages only `mise.exe`; mise's per-tool `.cmd` "file" shims under
+    # `%LOCALAPPDATA%\mise\shims` aren't on PATH by default, so tool lookups inside `mise run` fail with
+    # `'dart' / 'mvn' / 'recur' / 'wasm-pack' / 'zig' is not recognized...`. The companion `mise-shim.exe`
+    # (single-binary shim) ALSO ships in the Windows zip, but staging it triggers a CreateProcess
+    # `ERROR_FILENAME_EXCED_RANGE` (os error 206) when mise-shim re-execs mise.exe with the runner's already-long
+    # PATH inherited -- the file-shim fallback doesn't have this problem (each .cmd shim invokes `mise exec --`
+    # plainly via cmd).
+    - name: Add mise shims dir to PATH on Windows
+      if: runner.os == 'Windows'
+      shell: bash --noprofile --norc -euo pipefail {0}
+      # The github-env audit's arbitrary-code-execution shape doesn't apply here.
+      # The appended value is a hardcoded mise install-dir constant under our control -- no user input flows in.
+      run: echo "$LOCALAPPDATA\mise\shims" >> "$GITHUB_PATH" # zizmor: ignore[github-env]
+
+    - name: Trust mise config
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: mise trust
+
+    - name: Show MISE_ENV
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: echo "MISE_ENV=$MISE_ENV"

@@ -7,13 +7,28 @@ use clap::Parser;
 struct Args {
     /// Path to the ONNX model file.
     #[arg(short, long)]
-    filename: PathBuf,
+    filename: Option<PathBuf>,
+
+    /// Print the full clap help tree as markdown (used to regenerate HELP.md).
+    #[cfg(feature = "markdown-help")]
+    #[arg(long, hide = true)]
+    markdown_help: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    let model = onnx_extractor::OnnxModel::load_from_file(&args.filename.to_string_lossy())?;
+    #[cfg(feature = "markdown-help")]
+    if args.markdown_help {
+        clap_markdown::print_help_markdown::<Args>();
+        return Ok(());
+    }
+
+    let Some(filename) = args.filename.as_ref() else {
+        return Err("--filename is required".into());
+    };
+
+    let model = onnx_extractor::OnnxModel::load_from_file(&filename.to_string_lossy())?;
 
     model.print_summary();
     model.print_model_info();

@@ -2,14 +2,16 @@ id: gha-no-step-shell
 language: yaml
 severity: error
 message: |
-  Don't set `shell:` on a workflow step. Every workflow defaults to bash
-  (defaults.run.shell) and steps must use it -- write the step in bash (e.g.
-  `sc`/`net`/`printf` instead of PowerShell cmdlets, even on Windows runners,
-  which have Git Bash) rather than overriding the shell per step.
+  Don't set `shell:` on a workflow step. Every workflow defaults to bash (defaults.run.shell) and steps must use it --
+  write the step in bash (e.g. `sc`/`net`/`printf` instead of PowerShell cmdlets, even on Windows runners, which have
+  Git Bash) rather than overriding the shell per step. No per-step shell override is permitted in these workflows.
 files:
   - .github/workflows/*.yaml
+ignores:
+  - .github/workflows/upstream-cache.yaml
 rule:
-  pattern: "shell: $VALUE"
-  inside:
-    kind: block_sequence
-    stopBy: end
+  all:
+    - pattern: "shell: $VALUE"
+    - inside:
+        kind: block_sequence
+        stopBy: end

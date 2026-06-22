@@ -4,9 +4,9 @@ rules:
     paths:
       include:
         - "**/Cargo.toml"
-    pattern: "= { workspace = true }"
+    pattern: "$DEP = { workspace = true }"
+    fix: "$DEP.workspace = true"
     message: >-
-      Use the dotted form `dep.workspace = true` instead of the inline table
-      `dep = { workspace = true }`. (Inline tables with extra keys, e.g.
-      `dep = { workspace = true, features = [...] }`, are fine.)
+      Use the dotted form `dep.workspace = true` instead of the inline table `dep = { workspace = true }`.
+      (Inline tables with extra keys, e.g. `dep = { workspace = true, features = [...] }`, are fine.)
     severity: ERROR

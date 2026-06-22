@@ -1,0 +1,120 @@
+# JavaScript / npm env (MISE_ENV=js).
+#
+# Tools that resolve through mise's `npm:` backend live here so the modules that consume them (har1,
+# face-detection -- both have `onnxruntime-web` as a Cargo dep and load the JS package at runtime via
+# /modules/onnxruntime-web) only build when the `js` env is loaded. The aqua-backed `pnpm` row stays in the
+# default config; the `npm:pnpm` row below is the macos/x64 fallback (no aqua darwin/amd64 prebuilt). oxlint +
+# oxfmt also live here -- they only know JS/TS (the framework-file support is just the `<script>` block), so
+# there's no value in installing them when `js` isn't loaded.
+
+[tools]
+"npm:onnxruntime-web" = "latest"
+"npm:pnpm" = { version = "latest", os = ["macos/x64"] }
+
+# oxlint + oxfmt are the Rust-native JS/TS linter + formatter from the oxc-project.
+# They are pulled directly from the shared `apps_v<tag>` GitHub release. Aqua's registry entry trips mise's
+# date-filter on the `apps_v` tag prefix (https://github.com/oxc-project/oxc/discussions/14452), and `cargo:`
+# is out because neither binary is published as a crates.io crate. The http: backend with per-platform `url` +
+# `rename_exe` strips the target-suffix baked into the upstream binary names (e.g. `oxlint-x86_64-apple-darwin`
+# -> `oxlint`) so the bare command is on PATH the same way every other mise tool installs.
+[tools."http:oxlint"]
+bin = "oxlint"
+rename_exe = "oxlint"
+version = "1.69.0"
+[tools."http:oxlint".platforms.linux-arm64]
+url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxlint-aarch64-unknown-linux-gnu.tar.gz"
+[tools."http:oxlint".platforms.linux-x64]
+url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxlint-x86_64-unknown-linux-gnu.tar.gz"
+[tools."http:oxlint".platforms.macos-arm64]
+url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxlint-aarch64-apple-darwin.tar.gz"
+[tools."http:oxlint".platforms.macos-x64]
+url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxlint-x86_64-apple-darwin.tar.gz"
+[tools."http:oxlint".platforms.windows-x64]
+url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxlint-x86_64-pc-windows-msvc.zip"
+
+# oxfmt's binary version lags oxlint's.
+# They ship from the same apps_v tag but track separate semver. Pin the URL to the release tag that bundles
+# both (`apps_v<oxlint_ver>` -- here apps_v1.69.0); bump that string when
+# bumping oxlint above.
+[tools."http:oxfmt"]
+bin = "oxfmt"
+rename_exe = "oxfmt"
+version = "0.54.0"
+[tools."http:oxfmt".platforms.linux-arm64]
+url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-aarch64-unknown-linux-gnu.tar.gz"
+[tools."http:oxfmt".platforms.linux-x64]
+url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x86_64-unknown-linux-gnu.tar.gz"
+[tools."http:oxfmt".platforms.macos-arm64]
+url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-aarch64-apple-darwin.tar.gz"
+[tools."http:oxfmt".platforms.macos-x64]
+url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x86_64-apple-darwin.tar.gz"
+[tools."http:oxfmt".platforms.windows-x64]
+url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x86_64-pc-windows-msvc.zip"
+
+[tasks.build-ws-har1-module]
+depends = ["build-et-cli"]
+description = "Build the har1 workflow WASM module"
+dir = "services/ws-modules/har1"
+# Chain with `&&` on one line rather than a multi-line `bash` block.
+# This is needed because wasm-pack shells out to `cargo metadata`, and that subprocess can't find `cargo`
+# under Git Bash on Windows. The default shell (cmd there) resolves cargo like the single-line wasm-pack
+# modules do.
+run = "wasm-pack build . --target web {{ vars.no_opt }} && {{ vars.et_cli }} module-package-json"
+
+[tasks.build-ws-face-detection-module]
+depends = ["build-et-cli"]
+description = "Build the face detection workflow WASM module"
+dir = "services/ws-modules/face-detection"
+run = "wasm-pack build . --target web {{ vars.no_opt }} && {{ vars.et_cli }} module-package-json"
+
+[tasks.oxlint-check]
+description = "Lint JavaScript/TypeScript sources (oxlint)"
+# oxlint walks the working tree from CWD, honouring .gitignore; no path arg needed.
+# Errors fail the task (correctness category, lifted in oxlintrc); warnings print but don't fail -- the initial
+# introduction kept stylistic warnings visible rather than blocking on the existing module shims' style. Tighten
+# with `--deny-warnings` once those are cleaned up.
+run = "oxlint --config config/oxlintrc.jsonc"
+
+[tasks.oxlint-fix]
+description = "Auto-fix oxlint violations that have a machine-applicable suggestion"
+run = "oxlint --config config/oxlintrc.jsonc --fix"
+
+[tasks.oxfmt-check]
+description = "Check JS/TS formatting (oxfmt)"
+# oxfmt walks the working tree from CWD, honouring .gitignore.
+# This means target/, all pkg/ dirs, node_modules, etc. are skipped. Runs alongside dprint -- dprint's
+# typescript plugin formats the same files, and config/oxfmtrc.jsonc tunes oxfmt (printWidth=120) so its
+# output matches dprint's typescript plugin (which is matched-back via arrowFunction.useParentheses + member
+# linePerExpression in config/dprint.jsonc). `fmt:js` orders oxfmt-fmt before dprint-fmt so dprint has the
+# last word on residual disagreements.
+#
+# The positional `!.mise/config*.toml` is a workaround for an oxfmt 0.54.0 bug: oxfmt's content-based JS
+# detection mis-parses the multiple `"""..."""` TOML basic-multiline strings in these files as JS template
+# literals (and silently concatenates `description = "..."` into the closing `"""` of an adjacent
+# `run = """..."""` block on --write); it also flattens short TOML arrays like `depends = [...]` into single
+# lines because they look like JS arrays under 120 chars. The `ignorePatterns: ["**/*.toml"]` in
+# config/oxfmtrc.jsonc filters every other TOML file correctly but fails to match dotfile-directory paths like
+# `.mise/config*.toml`, so we override here positionally.
+run = "oxfmt --config config/oxfmtrc.jsonc --check . '!.mise/config*.toml'"
+
+[tasks.oxfmt-fmt]
+description = "Format JS/TS sources in place (oxfmt)"
+run = "oxfmt --config config/oxfmtrc.jsonc --write . '!.mise/config*.toml'"
+
+# Namespaced aggregators picked up by the default config's globbed `check`/`fmt`/`fix`.
+[tasks."check:js"]
+depends = ["oxfmt-check", "oxlint-check"]
+description = "Run JavaScript/TypeScript checks (oxlint + oxfmt)"
+
+[tasks."fmt:js"]
+# oxfmt-fmt runs before dprint-fmt.
+# Both touch JS/TS, but dprint isn't a `fmt:js` task -- it stays in fmt:rust (universal) and runs after fmt:js
+# because the fmt aggregator runs siblings in parallel without ordering. Reaching a stable fixed point relies
+# on idempotence of both tools on each other's output, which the tuned configs in config/oxfmtrc.jsonc +
+# config/dprint.jsonc are calibrated for.
+depends = ["oxfmt-fmt"]
+description = "Format JavaScript/TypeScript sources"
+
+[tasks."fix:js"]
+depends = ["oxlint-fix"]
+description = "Apply JavaScript/TypeScript lint-fix passes (oxlint --fix)"

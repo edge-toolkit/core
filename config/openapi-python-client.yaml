@@ -1,6 +1,5 @@
-# Disable the built-in post-generation hooks (`ruff check . --fix-only`
-# and `ruff format .`). The gen:python-rest task already runs `ruff check
-# --fix` against the output directly, so the hooks are pure duplication —
-# and they emit "ruff is not in PATH" warnings on Windows runners where
-# the openapi-python-client pipx venv doesn't have ruff alongside it.
+# Disable the built-in post-generation hooks (`ruff check . --fix-only` and `ruff format .`).
+# The gen:python-rest task already runs `ruff check --fix` against the output directly, so the hooks are pure
+# duplication -- and they emit "ruff is not in PATH" warnings on Windows runners where the openapi-python-client pipx
+# venv doesn't have ruff alongside it.
 post_hooks: []

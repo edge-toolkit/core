@@ -11,18 +11,20 @@ function loadPyodideScript() {
     if (globalThis.loadPyodide) return resolve();
     // In Deno / non-browser environments, import() the module directly.
     if (
-      typeof document === "undefined" || typeof document.createElement !== "function"
-      || !document.head || typeof document.head.appendChild !== "function"
-      || typeof Deno !== "undefined"
+      typeof document === "undefined" ||
+      typeof document.createElement !== "function" ||
+      !document.head ||
+      typeof document.head.appendChild !== "function" ||
+      typeof Deno !== "undefined"
     ) {
-      const baseUrl = (typeof globalThis.__ET_HTTP_BASE === "string")
-        ? globalThis.__ET_HTTP_BASE
-        : "";
+      const baseUrl = typeof globalThis.__ET_HTTP_BASE === "string" ? globalThis.__ET_HTTP_BASE : "";
       const url = baseUrl + PYODIDE_CDN;
-      import(url).then((mod) => {
-        if (mod.loadPyodide) globalThis.loadPyodide = mod.loadPyodide;
-        resolve();
-      }).catch(reject);
+      import(url)
+        .then((mod) => {
+          if (mod.loadPyodide) globalThis.loadPyodide = mod.loadPyodide;
+          resolve();
+        })
+        .catch(reject);
       return;
     }
     const s = document.createElement("script");
@@ -60,11 +62,11 @@ export default async function init() {
   await installEtRestClient(pyodide);
 
   const injectWheel = async (wheelName) => {
-    const bytes = new Uint8Array(await fetch(new URL(wheelName, import.meta.url)).then(r => r.arrayBuffer()));
+    const bytes = new Uint8Array(await fetch(new URL(wheelName, import.meta.url)).then((r) => r.arrayBuffer()));
     pyodide.FS.writeFile(`/tmp/${wheelName}`, bytes);
     pyodide.runPython(`import sys\nsys.path.insert(0, "/tmp/${wheelName}")`);
   };
-  const pkg = await fetch(new URL("package.json", import.meta.url)).then(r => r.json());
+  const pkg = await fetch(new URL("package.json", import.meta.url)).then((r) => r.json());
   const ownWheel = `${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
   await injectWheel(ownWheel);
 
@@ -77,10 +79,10 @@ export default async function init() {
 export async function run() {
   if (!pyMod) throw new Error("pydata1: not initialized");
 
-  const wsUrl = globalThis.__ET_WS_URL
-    || `${
-      (typeof location !== "undefined" ? location.protocol : "ws:") === "https:" ? "wss:" : "ws:"
-    }//${(typeof location !== "undefined" ? location.host : "localhost:8080")}/ws`;
+  const loc = typeof location !== "undefined" ? location : null;
+  const wsProto = loc?.protocol === "https:" ? "wss:" : "ws:";
+  const wsHost = loc?.host ?? "localhost:8080";
+  const wsUrl = globalThis.__ET_WS_URL || `${wsProto}//${wsHost}/ws`;
 
   const wasmAgent = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
   await wasmAgent.default();

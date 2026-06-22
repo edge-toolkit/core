@@ -7,15 +7,19 @@ rules:
         - "*.jsonc"
         - "*.jsonl"
       exclude:
-        # Formats whose tooling mandates JSON/JSONC -- everything else should be
-        # YAML or TOML. Add a file here only if its tool can't read YAML/TOML.
+        # Formats whose tooling mandates JSON/JSONC -- everything else should be YAML or TOML.
+        # Add a file here only if its tool can't read YAML/TOML; if the tool also supports JSONC, prefer that
+        # extension over plain JSON so the config can carry inline comments.
         - "*.schema.json" # JSON Schema documents
         - "package.json" # npm manifests
         - "/.vscode/*.json" # editor config
         - "dprint.jsonc" # dprint config
         - ".dprint.jsonc"
+        - "oxlintrc.jsonc" # oxlint: only JSON / JSONC supported
+        - "oxfmtrc.jsonc" # oxfmt: only JSON / JSONC supported
     pattern-regex: \A
     message: >-
-      Prefer YAML or TOML over JSON/JSONC/JSONL for config. If a tool requires
-      this format, add the file to this rule's paths.exclude allowlist.
+      Prefer YAML or TOML over JSON/JSONC/JSONL for config.
+      If the tool requires a JSON-family format, prefer .jsonc over .json so the config can carry inline comments,
+      and add the file to this rule's paths.exclude allowlist.
     severity: ERROR

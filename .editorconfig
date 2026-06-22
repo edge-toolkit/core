@@ -19,7 +19,7 @@ indent_style = tab
 indent_size = unset
 
 # License files use the canonical upstream formatting (centred headers, odd
-# indent widths, etc.) — leave them alone.
+# indent widths, etc.) -- leave them alone.
 [LICENSE-*]
 indent_size = unset
 indent_style = unset
@@ -43,7 +43,7 @@ indent_style = unset
 max_line_length = unset
 trim_trailing_whitespace = unset
 
-# Upstream WIT packages fetched verbatim — their formatting is whatever the
+# Upstream WIT packages fetched verbatim -- their formatting is whatever the
 # upstream repos use and shouldn't be normalised on our side.
 [generated/specs/wit/deps/wasi-*/**]
 charset = unset
@@ -55,22 +55,18 @@ trim_trailing_whitespace = unset
 max_line_length = unset
 
 # openapi-python-client emits framework-boilerplate docstrings (e.g. the
-# "errors.UnexpectedStatus: If the server returns an undocumented status code
-# …" line in every operation) that exceed 120 chars, and continuation lines
-# inside the generated function signatures use 3-space indentation that
-# clashes with the workspace `indent_size = 2`. ruff format doesn't reflow
-# plain-text docstrings or re-indent the templates, so we drop both checks
-# for this tree.
+# "errors.UnexpectedStatus: If the server returns an undocumented status code ..." line in every operation) that exceed
+# 120 chars, and continuation lines inside the generated function signatures use 3-space indentation that
+# clashes with the workspace `indent_size = 2`. ruff format doesn't reflow plain-text docstrings or
+# re-indent the templates, so we drop both checks for this tree.
 [generated/python-rest/**]
 indent_size = unset
 max_line_length = unset
 
-# datamodel-code-generator renders each Pydantic field's `description=`
-# from the schemars `description` (i.e. the source enum's `///` doc
-# comment) as a single string literal — `\n`-joined, no implicit
-# concatenation. ruff format won't break string literals, so any
-# multi-paragraph Rust doc comment on `ClientMessage` / `ServerMessage`
-# blows past 120 chars in the generated Python.
+# datamodel-code-generator renders each Pydantic field's `description=` from the schemars `description`
+# (i.e. the source enum's `///` doc comment) as a single string literal -- `\n`-joined, no implicit
+# concatenation. ruff format won't break string literals, so any multi-paragraph Rust doc comment on
+# `ClientMessage` / `ServerMessage` blows past 120 chars in the generated Python.
 [generated/python-ws/**]
 max_line_length = unset
 
@@ -79,3 +75,6 @@ max_line_length = unset
 # The generator is the source of truth; we don't edit its output by hand.
 [generated/zig-rest/**]
 max_line_length = unset
+
+[config/upstream-cache/data.toml]
+max_line_length = 200

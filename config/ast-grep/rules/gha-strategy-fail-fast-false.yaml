@@ -2,21 +2,18 @@ id: gha-strategy-fail-fast-false
 language: yaml
 severity: error
 message: |
-  Any job that declares `strategy:` (matrix or otherwise) must also set
-  `fail-fast: false` inside it. GHA's default of `fail-fast: true` cancels
-  every other matrix entry the moment one fails, which hides the failure
-  modes specific to other OS / version / runner cells -- exactly the matrix
-  cells we added the matrix to exercise. Opt out explicitly:
+  Any job that declares `strategy:` (matrix or otherwise) must also set `fail-fast: false` inside it. GHA's default of
+  `fail-fast: true` cancels every other matrix entry the moment one fails, which hides the failure modes specific to
+  other OS / version / runner cells -- exactly the matrix cells we added the matrix to exercise. Opt out explicitly:
     strategy:
       fail-fast: false
       matrix:
         ...
 files:
   - .github/workflows/*.yaml
-# Match every `strategy:` mapping whose body lacks `fail-fast: false`. The
-# inner `kind: block_mapping` lookup targets the strategy block itself so a
-# `fail-fast:` on a sibling job's strategy doesn't satisfy this one. Same
-# pattern shape as gha-job-timeout-minutes.yaml -- match the marker, require
+# Match every `strategy:` mapping whose body lacks `fail-fast: false`.
+# The inner `kind: block_mapping` lookup targets the strategy block itself so a `fail-fast:` on a sibling job's
+# strategy doesn't satisfy this one. Same pattern shape as gha-job-timeout-minutes.yaml -- match the marker, require
 # the sibling inside its containing block_mapping.
 rule:
   pattern: "strategy: $X"

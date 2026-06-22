@@ -1,0 +1,33 @@
+rules:
+  - id: comment-summary-line
+    languages: [generic]
+    paths:
+      include:
+        - "*.toml"
+        - "*.yaml"
+        - "*.rego"
+        - "Dockerfile*"
+      exclude:
+        # Skip machine-emitted TOML/YAML (int-gen / regen output).
+        # Hand-edits would drift on the next regeneration, so the comment style there is the generator's job, not ours.
+        - "/generated/**"
+        - "/verification/**"
+    # Flag the FIRST line of a multi-line `#` comment block that lacks a closing full stop.
+    # The block-start anchor is the preceding line, consumed into the match: either start-of-file (`\A`) or a line
+    # that is blank or whose first non-whitespace char is not `#` (`[^#\s]`). Keying off the first non-whitespace
+    # char -- not the first raw char -- is what stops an INDENTED comment line (whose leading whitespace would
+    # otherwise read as a non-comment line) from anchoring a spurious match: interior continuation lines, which need
+    # not end in a period, stay unflagged regardless of indentation. The check is two alternatives under
+    # `pattern-either` (kept separate so each regex line stays within the 120-char limit): the first flags a
+    # final char that is neither `.` nor `:` (`[^.\n:]`); the second flags a final `:` whose continuation line is
+    # NOT an enumeration item -- the negative lookahead `(?![ \t]*([-*]|[0-9]+[.)])[ \t])` reserves a trailing
+    # `:` for introducing a real list (`-`, `*`, or `N.`/`N)`), so a `:` followed by prose is still flagged.
+    pattern-either:
+      - pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^#\s][^\n]*)?\n)[ \t]*#[^\n]*[^.\n:]\n[ \t]*#'
+      - pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^#\s][^\n]*)?\n)[ \t]*#[^\n]*:\n[ \t]*#(?![ \t]*([-*]|[0-9]+[.)])[ \t])'
+    message: >-
+      A multi-line `#` comment block must open with a single summary line ending in a full stop (PEP 257 style).
+      This applies to TOML, YAML, Rego, and Dockerfile comments. The summary describes the whole block in one
+      sentence; continuation lines follow. End the first comment line with `.` (a `:` introducing an enumeration
+      is also accepted).
+    severity: ERROR

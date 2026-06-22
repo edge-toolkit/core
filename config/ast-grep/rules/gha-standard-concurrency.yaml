@@ -2,21 +2,17 @@ id: gha-standard-concurrency
 language: yaml
 severity: error
 message: |
-  Every GitHub Actions workflow must declare the standard top-level
-  concurrency block exactly:
+  Every GitHub Actions workflow must declare the standard top-level concurrency block exactly:
     concurrency:
       group: "${{ github.workflow }}-${{ github.ref }}"
       cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
-  This groups runs per workflow per ref, and cancels older in-progress runs
-  on a PR ref only -- so a push to main never cancels its predecessor (lest
-  the merge-queue lose a result), but PR pushes don't burn runner minutes on
-  superseded commits. Deviating from this group/key shape leads to
-  surprising cancellation behaviour.
+  This groups runs per workflow per ref, and cancels older in-progress runs on a PR ref only -- so a push to main never
+  cancels its predecessor (lest the merge-queue lose a result), but PR pushes don't burn runner minutes on superseded
+  commits. Deviating from this group/key shape leads to surprising cancellation behaviour.
 files:
   - .github/workflows/*.yaml
-# Fire on any workflow whose stream does NOT contain the exact concurrency
-# block. Same shape as gha-default-shell-bash.yaml: pattern under
-# `not: has: stopBy: end` turns "present" into "required".
+# Fire on any workflow whose stream does NOT contain the exact concurrency block.
+# Same shape as gha-default-shell-bash.yaml: pattern under `not: has: stopBy: end` turns "present" into "required".
 rule:
   kind: stream
   not:

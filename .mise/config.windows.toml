@@ -1,49 +1,76 @@
-# Windows-only mise config. Everything here is Windows-scoped, so it needs no
-# per-entry `os = ["windows"]` guards or `{% if os() == 'windows' %}`
-# conditionals; values here override the cross-platform defaults in config.toml.
-# Shared vars (rpath_flag, py3_*, …) come from config.toml, which loads first.
+# Windows-only mise config.
+# Everything here is Windows-scoped, so it needs no per-entry `os = ["windows"]` guards or `{% if os() == 'windows' %}`
+# conditionals; values here override the cross-platform defaults in config.toml. Shared vars (rpath_flag,
+# py3_*, ...) come from config.toml, which loads first.
 
 [tools]
-# msys2 mirror packages: git (cargo git deps), make (some -sys build scripts
-# shell out to it). The MSVC CRT + Windows SDK can't come from mise, so the
-# build uses the LLVM mingw toolchain (the gnullvm target below); llvm-mingw
-# bundles clang + lld + the mingw-w64 runtime/headers/libs + the libclang.dll
-# bindgen loads. Pinned so its install dir is deterministic: the version
-# segment is repeated in the win_llvm_bin var below -- bump together
-# (conftest's version_drift enforces).
+# msys2 mirror packages: git (for cargo git deps) and make (some -sys build scripts shell out to it).
+# The MSVC CRT + Windows SDK can't come from mise, so the build uses the LLVM mingw toolchain (the gnullvm
+# target below); llvm-mingw bundles clang + lld + the mingw-w64 runtime/headers/libs + the libclang.dll
+# bindgen loads. Pinned so its install dir is deterministic: the version segment is repeated in the
+# win_llvm_bin var below -- bump together (conftest's version_drift enforces).
 "conda:m2-git" = "latest"
 "conda:m2-make" = "latest"
-# gpg for mise's node-verify path (replaces the global `conda:gnupg`, which
-# conda-forge doesn't build for win-64). msys2 layout puts gpg.exe at the
-# nested `Library\usr\bin\` -- the [vars] m2_gnupg_bin + [env] `_.path`
-# below prepend that dir so subprocess PATH actually finds it. Version pinned
-# so the m2_gnupg_bin path stays in sync (conftest's version_drift enforces).
+# gpg for mise's node-verify path, replacing the global `conda:gnupg`.
+# (conda-forge doesn't build that for win-64.) msys2 layout puts gpg.exe at the nested `Library\usr\bin\` --
+# the [vars] m2_gnupg_bin + [env] `_.path` below prepend that dir so subprocess PATH actually finds it.
+# Version pinned so the m2_gnupg_bin path stays in sync (conftest's version_drift enforces).
 "conda:m2-gnupg" = "2.2.41.1"
 "github:mstorsjo/llvm-mingw" = { version = "20260602", matching = "ucrt-x86_64" }
 
-# busybox-w32 `sh` (POSIX ash) -- the shell the bash-tasks run on. A native Win32
-# single exe with no cygwin/msys runtime, so it loads on a bare Nano Server,
-# unlike conda's msys2 bash whose msys-2.0.dll imports KERNEL32!IdnToAscii /
-# IdnToUnicode that Nano's stripped kernel32 forwarder doesn't re-export
-# (-> 0xC0000139; unfixable -- the system file + registry are ACL-locked).
-# Renamed `ash.exe` so mise -- whose POSIX-shell list is bash/sh/zsh/fish/ksh/
-# dash, NOT ash -- doesn't rewrite the task PATH into msys form, which native
-# busybox-w32 can't resolve. Checksum-pinned so a silent upstream rebuild fails
-# loudly; `.exe` because mise writes the bin name verbatim and Windows launches
-# by extension.
+# Windows overrides of cargo: entries from other configs.
+# cargo-binstall reads CARGO_BUILD_TARGET via its clap env binding (binstall/crates/bin/src/args.rs:88-95).
+# The [env] block in this file sets it to gnullvm so the repo's own Rust builds link gnullvm-only -- but the
+# cargo: tools below don't publish gnullvm quickinstall releases, so without this override binstall finds
+# nothing and falls through to source (which then fails on missing gnullvm rust-std). `install_env` is a
+# per-tool override applied only during the install step (mise's tool_version_options.rs: CoreToolOptions.install_env)
+# and routes binstall to the msvc release. The resulting binary runs fine on a gnullvm host -- target only
+# affects what the tool links, not what executes it. (cargo:dart-typegen has no quickinstall release at all
+# -- not just no gnullvm one -- so it stays in MISE_DISABLE_TOOLS for the Windows test lane.)
+"cargo:cargo-expand" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
+
+# busybox-w32 `sh` (POSIX ash) -- the shell the bash-tasks run on.
+# A native Win32 single exe with no cygwin/msys runtime, so it loads on a bare Nano Server, unlike conda's
+# msys2 bash whose msys-2.0.dll imports KERNEL32!IdnToAscii / IdnToUnicode that Nano's stripped kernel32
+# forwarder doesn't re-export (-> 0xC0000139; unfixable -- the system file + registry are ACL-locked).
+# Renamed `ash.exe` so mise -- whose POSIX-shell list is bash/sh/zsh/fish/ksh/dash, NOT ash -- doesn't
+# rewrite the task PATH into msys form, which native busybox-w32 can't resolve. Checksum-pinned so a silent
+# upstream rebuild fails loudly; `.exe` because mise writes the bin name verbatim and Windows launches by
+# extension.
 [tools."http:busybox"]
 bin = "ash.exe"
 checksum = "sha256:6e263d154d8548d1eb936f65d1d8312c80df31c45974e48d6335e4dcc0f4f34c"
 url = "https://frippery.org/files/busybox/busybox64u.exe"
 version = "1.37.0"
 
-# Rust toolchains for Windows -- gnullvm host directly, so no msvc toolchain
-# ever lands on disk (the old preinstall did install-msvc-then-rustup-reinstall-
-# gnullvm, which doubled toolchain weight and exhausted Nano's disk quota).
-# `version = "<channel>-<triple>"` is the rustup spec form; mise's rust plugin
-# passes it straight through to `rustup toolchain install`. `profile = "minimal"`
-# skips rust-docs (~1 GB/toolchain). The CARGO_BUILD_TARGET + linker env below
-# stays gnullvm-targeted regardless.
+# Prebuilt dart-typegen for Windows.
+# `cargo:dart-typegen` source-builds against the gnullvm rust host trip `error[E0463]: can't find crate for 'core'`
+# (the upstream-cache `dart-typegen` job at .github/workflows/upstream-cache.yaml is the producer; release-tag
+# + asset-name match the dart_typegen_asset var in [vars] above and the matching `[asset.<filename>]` entry
+# in config/upstream-cache/data.toml).
+[tools."http:dart-typegen"]
+bin = "dart-typegen"
+version = "0.1.13"
+[tools."http:dart-typegen".platforms.windows-x64]
+checksum = "sha256:f21eab43597b0325b672de61fd396465aa371d3e9e32da6c56e93a89a003b5aa"
+url = "https://github.com/edge-toolkit/core/releases/download/dart-typegen-v1/0.1.13-x86_64-pc-windows-msvc.tar.gz"
+
+# Prebuilt gnupg for Windows, repackaged from gnupg.org's official NSIS installer.
+# (PE32+ native binaries, no MSYS2/Cygwin layer.) The upstream-cache `gnupg-w32` job at
+# .github/workflows/upstream-cache.yaml is the producer; release-tag + asset-name match the gnupg_w32_asset
+# var in [vars] above and the matching `[asset.<filename>]` entry in config/upstream-cache/data.toml.
+[tools."http:gnupg-w32"]
+bin = "gpg"
+version = "2.5.20"
+[tools."http:gnupg-w32".platforms.windows-x64]
+checksum = "sha256:e04493f469fd3861e119a603700cfeafe8da0090aed39b547ad3975b21f48f0b"
+url = "https://github.com/edge-toolkit/core/releases/download/gnupg-w32-v1/2.5.20_20260513-x86_64-pc-windows.tar.gz"
+
+# Rust toolchains for Windows: gnullvm host directly, so no msvc toolchain ever lands on disk.
+# (The old preinstall did install-msvc-then-rustup-reinstall-gnullvm, which doubled toolchain weight and
+# exhausted Nano's disk quota). `version = "<channel>-<triple>"` is the rustup spec form; mise's rust plugin
+# passes it straight through to `rustup toolchain install`. `profile = "minimal"` skips rust-docs
+# (~1 GB/toolchain). The CARGO_BUILD_TARGET + linker env below stays gnullvm-targeted regardless.
 [[tools.rust]]
 components = "clippy,rust-analyzer"
 profile = "minimal"
@@ -57,103 +84,98 @@ targets = "wasm32-unknown-unknown,wasm32-wasip2"
 version = "nightly-x86_64-pc-windows-gnullvm"
 
 [vars]
-# Root of mise's per-tool install dirs (the mise data dir is LOCALAPPDATA\mise);
-# the install-path vars below all hang off it.
+# Upstream-cache `_asset` vars.
+# These pin the exact tarball filename each
+# `http:` Windows tool fetches from edge-toolkit/core's *-v<N> release.
+# Each matches a `[asset."<filename>"]` row in config/upstream-cache/data.toml
+# (the checksums.rego policy enforces the bidirectional cross-reference).
+dart_typegen_asset = "0.1.13-x86_64-pc-windows-msvc.tar.gz"
+gnupg_w32_asset = "2.5.20_20260513-x86_64-pc-windows.tar.gz"
+
+# Root of mise's per-tool install dirs (the mise data dir is LOCALAPPDATA\mise).
+# The install-path vars below all hang off it.
 mise_installs = '{{ get_env(name="LOCALAPPDATA", default="") }}\mise\installs'
-# busybox `ash` install path (for MISE_BASH_PATH), keyed by the pinned
-# http:busybox version above -- keep in sync.
+# busybox `ash` install path for MISE_BASH_PATH.
+# Keyed by the pinned http:busybox version above -- keep in sync.
 winsh = '{{ vars.mise_installs }}\http-busybox\1.37.0\ash.exe'
-# mise-managed CPython; the exact `3.x.y` dir (the python [tools] pin), since
-# mise's minor-version alias symlink isn't created on the Windows runner.
+# mise-managed CPython, pinned to the exact `3.x.y` dir (the python [tools] pin).
+# This is needed since mise's minor-version alias symlink isn't created on the Windows runner.
 py3_win = '{{ vars.mise_installs }}\python\3.13.14\python.exe'
-# Windows install root for the github:microsoft/onnxruntime tool; ORT_LIB_LOCATION
-# in config.toml [env] picks this on Windows. Version segment must match the
+# Windows install root for the github:microsoft/onnxruntime tool.
+# ORT_LIB_LOCATION in config.toml [env] picks this on Windows. Version segment must match the
 # [tools] pin (conftest's version_drift enforces this).
 ort_loc_win = '{{ vars.mise_installs }}\github-microsoft-onnxruntime\1.22.0'
 # llvm-mingw's bin dir (the github:mstorsjo/llvm-mingw install above).
-# The linker/dlltool [env] vars below point at absolute exes in here rather than
-# bare names because mise's cargo backend doesn't activate llvm-mingw onto the
-# cargo: source-build subprocess's PATH (same problem config.macos.toml's
-# absolute ld64.lld path solves): a bare `clang` would resolve to a runner's
-# system LLVM, which defaults to the MSVC target and can't link gnullvm objects.
+# The linker/dlltool [env] vars below point at absolute exes in here rather than bare names because mise's
+# cargo backend doesn't activate llvm-mingw onto the cargo: source-build subprocess's PATH (same problem
+# config.macos.toml's absolute ld64.lld path solves): a bare `clang` would resolve to a runner's system
+# LLVM, which defaults to the MSVC target and can't link gnullvm objects.
 win_llvm_bin = '{{ vars.mise_installs }}\github-mstorsjo-llvm-mingw\20260602\bin'
-# conda:m2-gnupg's msys2 binary dir. Pinned to the [tools] version so the
-# [env] _.path entry resolves; bump both together.
+# conda:m2-gnupg's msys2 binary dir.
+# Pinned to the [tools] version so the [env] _.path entry resolves; bump both together.
 m2_gnupg_bin = '{{ vars.mise_installs }}\conda-m2-gnupg\2.2.41.1\Library\usr\bin'
-# clang-sys finds libclang on PATH (Docker's gnu build has llvm-mingw there); a
-# workstation with system LLVM also works.
+# Maven's bin dir lives nested at `apache-maven-X.Y.Z/bin/` inside its install.
+# mise's bin auto-discovery walks into this subdir on Linux/macOS but not on Windows, so `mvn` isn't on PATH
+# without an explicit entry. Pinned to the config.java.toml [tools] maven version -- bump both together.
+maven_bin = '{{ vars.mise_installs }}\maven\3.9.16\apache-maven-3.9.16\bin'
+# clang-sys finds libclang on PATH (Docker's gnu build has llvm-mingw there).
+# A workstation with system LLVM also works.
 win_libclang = "C:\\Program Files\\LLVM\\bin"
-# wasm-pack's wasm-opt (binaryen) can't execute on Nano Server (os error 3), so
-# the module + wasm-agent builds pass --no-opt; they reference {{ vars.no_opt }}.
+# wasm-pack's wasm-opt (binaryen) can't execute on Nano Server (os error 3).
+# So the module + wasm-agent builds pass --no-opt; they reference {{ vars.no_opt }}.
 no_opt = "--no-opt"
 
 [env]
-# Run `shell = "bash …"` tasks on busybox ash rather than the Windows WSL
-# launcher (mise can't auto-find an http-backend shell). busybox ash accepts the
+# Run `shell = "bash ..."` tasks on busybox ash rather than the Windows WSL launcher.
+# (mise can't auto-find an http-backend shell.) busybox ash accepts the
 # `-euo pipefail -c` the shell string passes; the task bodies are POSIX.
 MISE_BASH_PATH = "{{ vars.winsh }}"
-# Build for the LLVM mingw target. gnullvm, not gnu: llvm-mingw ships
-# compiler-rt + libunwind, not the GCC runtime (libgcc/libgcc_eh) the gnu
-# target's link line demands. The linker is llvm-mingw's clang and the raw-dylib
-# import tool is its llvm-dlltool, both given as absolute paths (see win_llvm_bin
-# above) so the cargo: source-build subprocess resolves them without a PATH
-# lookup. These can live in [env] here (unlike config.toml) because this file
-# only loads on Windows, so there's no empty off-Windows value to break Linux
-# cargo.
+# Build for the LLVM mingw target.
+# gnullvm, not gnu: llvm-mingw ships compiler-rt + libunwind, not the GCC runtime (libgcc/libgcc_eh) the gnu
+# target's link line demands. The linker is llvm-mingw's clang and the raw-dylib import tool is its
+# llvm-dlltool, both given as absolute paths (see win_llvm_bin above) so the cargo: source-build subprocess
+# resolves them without a PATH lookup. These can live in [env] here (unlike config.toml) because this file
+# only loads on Windows, so there's no empty off-Windows value to break Linux cargo.
 CARGO_BUILD_TARGET = "x86_64-pc-windows-gnullvm"
 CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_LINKER = "{{ vars.win_llvm_bin }}\\clang.exe"
 CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_RUSTFLAGS = "-Cdlltool={{ vars.win_llvm_bin }}\\llvm-dlltool.exe"
 LIBCLANG_PATH = "{{ vars.win_libclang }}"
 PYO3_PYTHON = "{{ vars.py3_win }}"
-# Force ort-sys to prefer dynamic linkage on Windows -- otherwise it defaults
-# to static ("could not find native static library `onnxruntime`"), but the
-# Microsoft ORT release ships only a DLL + import lib, no static archive. Not
-# needed on Linux/macOS where the dynamic default already matches the .so /
-# .dylib that ship in the release. The workspace `ort` dep keeps `copy-dylibs`
+# Force ort-sys to prefer dynamic linkage on Windows.
+# Otherwise it defaults to static ("could not find native static library `onnxruntime`"), but the Microsoft
+# ORT release ships only a DLL + import lib, no static archive. Not needed on Linux/macOS where the dynamic
+# default already matches the .so / .dylib that ship in the release. The workspace `ort` dep keeps `copy-dylibs`
 # so the DLL lands next to linked binaries.
 ORT_PREFER_DYNAMIC_LINK = "1"
-# Point cargo-binstall at the MSVC triple. The host is gnullvm (see
-# CARGO_BUILD_TARGET above), and the cargo:* tools we install (cargo-expand)
-# don't publish gnullvm prebuilts -- so binstall falls back to `cargo install`,
-# which then tries to link build scripts via llvm-mingw clang/lld and dies on
-# LNK1143 (lld + rustc CGU COMDAT mismatch). Steering binstall to the MSVC
-# triple makes it fetch the upstream MSVC release binary, which runs fine on
-# this host: target only governs what the tool links against, not what
-# executes it.
-BINSTALL_TARGETS = "x86_64-pc-windows-msvc"
-# Prepend conda:m2-gnupg's nested binary dir to PATH. mise's per-tool
-# .mise-bins resolves `<install>/bin/X` and `<install>/Library/bin/X` cleanly,
-# but msys2-format packages put binaries one level deeper at
-# `<install>/Library/usr/bin/X`. Without this, `gpg.exe` isn't found by the
-# subprocess that `mise install node` spawns and node's gpg-verify path
-# hard-fails ("gpg --quiet --import: program not found").
-_.path = ["{{ vars.m2_gnupg_bin }}"]
+# Prepend conda:m2-gnupg's nested binary dir to PATH.
+# mise's per-tool .mise-bins resolves `<install>/bin/X` and `<install>/Library/bin/X` cleanly, but
+# msys2-format packages put binaries one level deeper at `<install>/Library/usr/bin/X`. Without this,
+# `gpg.exe` isn't found by the subprocess that `mise install node` spawns and node's gpg-verify path
+# hard-fails ("gpg --quiet --import: program not found"). The maven_bin entry is the same shape -- nested
+# `apache-maven-X.Y.Z/bin/` that mise's Windows bin-discovery misses (works fine on Linux/macOS). Inert when
+# java isn't in MISE_ENV; just an unused dir reference.
+_.path = ["{{ vars.m2_gnupg_bin }}", "{{ vars.maven_bin }}"]
 
 [tasks.preinstall]
-# Preinstall, shared across every Windows host (CI runner, workstation, Nano
-# container). The busybox `sh` (http:busybox) is installed by an earlier
-# cmd bootstrap, so this task's `bash -euo pipefail` shell (= busybox ash via
-# MISE_BASH_PATH) works. Installs the build utils (git/gpg/make), llvm-mingw
-# and rust, pip-installs pipx (the backend for the pipx:* tools, since aqua
-# has no Windows pipx build), then flips rustup's default host to gnullvm so
-# both host and target link via llvm-mingw rather than the absent MSVC
-# link.exe (no Visual Studio Build Tools needed). The prereqs mise CAN'T
-# supply (a recent mise + the VC++ runtime) are in the README.
+# Preinstall, shared across every Windows host (CI runner, workstation, Nano container).
+# The busybox `sh` (http:busybox) is installed by an earlier cmd bootstrap, so this task's `bash -euo pipefail`
+# shell (= busybox ash via MISE_BASH_PATH) works. Installs the build utils (git/gpg/make), llvm-mingw and
+# rust, pip-installs pipx (the backend for the pipx:* tools, since aqua has no Windows pipx build), then
+# flips rustup's default host to gnullvm so both host and target link via llvm-mingw rather than the absent
+# MSVC link.exe (no Visual Studio Build Tools needed). The prereqs mise CAN'T supply (a recent mise + the
+# VC++ runtime) are in the README.
 depends = ["_setup_all"]
 description = "Preinstall: toolchain + pipx + flip rustup to the gnullvm host"
 run = """
-# sha256sum diagnostic for the Nano CI lane. mise's conda backend in
-# 2026.6.5 shells out to a `sha256sum` it finds on PATH (via
-# src/hash.rs:file_hash_sha256, only for files > 50 MB) to verify each
-# conda tarball download. On the Nano docker build that lookup historically
-# hit a sha256sum.exe that fails to load with `STATUS_ENTRYPOINT_NOT_FOUND`
-# (0xC0000139 == decimal -1073741511, the msys2-runtime autoload-trap
-# signature), surfacing as:
+# sha256sum diagnostic for the Nano CI lane.
+# mise's conda backend in 2026.6.5 shells out to a `sha256sum` it finds on PATH (via src/hash.rs:file_hash_sha256,
+# only for files > 50 MB) to verify each conda tarball download. On the Nano docker build that lookup
+# historically hit a sha256sum.exe that fails to load with `STATUS_ENTRYPOINT_NOT_FOUND` (0xC0000139 ==
+# decimal -1073741511, the msys2-runtime autoload-trap signature), surfacing as:
 #   mise ERROR Failed to install conda:m2-git@latest: command ["sha256sum",
 #   "<path>"] exited with code -1073741511
-# Dockerfile.nanoserver stages a busybox-w32-backed `sha256sum.exe` ahead
-# of the broken shim on PATH so this should now pass; the diagnostic is
-# fail-fast so the next CI break here tells us which binary PATH picked.
+# Dockerfile.nanoserver stages a busybox-w32-backed `sha256sum.exe` ahead of the broken shim on PATH so this
+# should now pass; the diagnostic is fail-fast so the next CI break here tells us which binary PATH picked.
 sha256sum_path="$(command -v sha256sum 2>/dev/null || true)"
 echo "[sha256sum-check] command -v sha256sum: ${sha256sum_path:-<not found>}"
 if [ -z "$sha256sum_path" ]; then
@@ -170,6 +192,7 @@ echo "[sha256sum-check] OK"
 
 mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
 
+# rustup's default-host still resolves bare channel names to msvc on Windows.
 # Even though [[tools.rust]] above installs the *gnullvm*-host toolchains
 # directly, rustup's `default-host` setting (which controls how bare channel
 # names resolve when no triple is given) still defaults to msvc on Windows.
@@ -182,19 +205,79 @@ mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-mak
 # toolchains [[tools.rust]] already installed.
 mise exec -- rustup set default-host x86_64-pc-windows-gnullvm
 
-# pipx backs the pipx:* tools but isn't a mise tool on Windows. Install it
-# with whatever python is on PATH: a workstation already has python's
-# Scripts dir (where pipx lands) on PATH; container builds arrange the same
-# via their own bootstrap before this task runs.
-python -m pip install pipx
+# pipx backs the pipx:* tools but isn't a mise tool on Windows.
+# On a workstation, the system python's Scripts dir already has pipx on PATH; use that python. On the Nano
+# container there's no CPython (Dockerfile.nanoserver drops the `mise install python` step now that we can
+# pipx-bootstrap via the `http:et-rp` rustpython mise installs as part of the global tool set). RustPython's
+# bundled ensurepip is pip 26.1.1, which crashes on import via `sys.addaudithook` (rustpython 0.5.0 doesn't
+# implement -- RustPython#7956), so the rustpython arm fetches pip 26.0.1 (the last release before that audit
+# hook landed, see commit fb01b1830 / 2026-04-14), unzips the wheel, and puts it on RUSTPYTHONPATH so
+# `rustpython -m pip` resolves to that copy. The matching workaround is documented at length in config.maint.toml's
+# `rustpython-investigation` task. The same task also explains the PIPX_SHARED_LIBS pre-creation below:
+# pipx's first install creates a shared-libs venv via `python -m venv --clear` (no --without-pip), which
+# triggers RustPython's bundled ensurepip + pip 26.1.1 audit-hook crash again. Pre-creating that venv with
+# --without-pip and dropping the unpacked pip-26.0.1 site-packages in lets pipx's `is_valid()` short-circuit
+# past `create()`. The Nano Dockerfile then exports PATH + PIPX_* env vars so `mise install pipx:<tool>` can
+# find this pipx and reuse the pre-created shared venv.
+if command -v python >/dev/null 2>&1; then
+  python -m pip install pipx
+elif [ "${ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP:-}" = "1" ]; then
+  # Rustpython-pipx bootstrap is currently broken on Nano Server.
+  # `mise exec` (and any subsequent mise.exe invocation that touches rustpython's pip install path) dies. It
+  # fails with STATUS_DLL_NOT_FOUND / STATUS_ENTRYPOINT_NOT_FOUND (0xc0000135 / 0xc0000139). The cause is that
+  # the Nano API set is missing the DLLs rustpython's ensurepip path-walks. Kept intact under an opt-in env
+  # gate, to re-enable once mise/rustpython resolve the DLL dependency. Flip ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP=1
+  # to exercise the original path.
+  mise install http:et-rp
+  boot="{{ vars.config_root_fwd }}/target/preinstall-pipx"
+  coreutils mkdir -p "$boot"
+  pip_whl="$boot/{{ vars.pip_for_rustpython_wheel }}"
+  pip_extracted="$boot/pip-extracted"
+  shared_venv="$boot/shared"
+  if [ ! -f "$pip_whl" ]; then
+    pypi_args="--http-url https://files.pythonhosted.org --progress --ignore-existing --verbose"
+    echo "[preinstall] fetching pip {{ vars.pip_for_rustpython }} wheel from PyPI for rustpython pipx bootstrap"
+    # $pypi_args is a space-separated CLI flag list; word-splitting is intentional.
+    # shellcheck disable=SC2086
+    rclone copyto "{{ vars.pip_for_rustpython_wheel_url }}" "$pip_whl" $pypi_args
+  fi
+  if [ ! -d "$pip_extracted/pip" ]; then
+    unzip -q -o "$pip_whl" -d "$pip_extracted"
+  fi
+  # busybox-w32 ash on Nano Server mangles `mise.exe` startup with an inline env var prefix.
+  # This triggers when a per-command env var assignment (`RUSTPYTHONPATH=... mise exec`) precedes it.
+  # The inner mise process then dies with this error:
+  # `sh: C:/mise/bin/mise.exe: The specified procedure could not be found. Error 0xc0000139`.
+  # Exporting RUSTPYTHONPATH separately works around it.
+  # The previous `mise exec -- rustup ...` line in this file succeeds without an inline env var prefix.
+  # That it works there on the same image pins the trigger to the inline env var prefix.
+  export RUSTPYTHONPATH="$pip_extracted"
+  mise exec -- rustpython -m pip install --target "$boot/site" pipx
+  if [ ! -f "$shared_venv/bin/pip" ]; then
+    coreutils rm -rf "$shared_venv"
+    mise exec -- rustpython -m venv --without-pip "$shared_venv"
+    shared_site="$(coreutils ls -d "$shared_venv"/lib/*/site-packages)"
+    coreutils cp -R "$pip_extracted/pip" "$shared_site/"
+    coreutils cp -R "$pip_extracted"/pip-*.dist-info "$shared_site/"
+    coreutils cat > "$shared_venv/bin/pip" <<'PIP_SHIM'
+#!/bin/sh
+exec "$(dirname "$0")/python" -m pip "$@"
+PIP_SHIM
+    coreutils chmod +x "$shared_venv/bin/pip"
+  fi
+else
+  echo "[preinstall] no python on PATH and ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP unset; skipping pipx setup"
+fi
 """
-shell = "bash -euo pipefail -c"
+shell = "bash -xeuo pipefail -c"
+# bash -x (xtrace) on this OS-specific preinstall.
+# CI failures on Nano (rclone-not-found, sha256 path mangling, etc.) are easier to diagnose with the full
+# per-command transcript than with the silent default.
 
 [tasks.test-ws-web-runner]
-# Override: skip et-ws-web-runner on Windows. It pulls deno -> v8, whose build
-# script downloads a prebuilt rusty_v8 static lib; denoland/rusty_v8 ships
-# Windows prebuilts only for x86_64-pc-windows-msvc, not the gnullvm target this
-# build uses, so the fetch 404s and the from-source fallback can't build under
-# llvm-mingw. The suite still runs on the Linux/macOS jobs.
+# Override: skip et-ws-web-runner on Windows.
+# It pulls deno -> v8, whose build script downloads a prebuilt rusty_v8 static lib; denoland/rusty_v8 ships
+# Windows prebuilts only for x86_64-pc-windows-msvc, not the gnullvm target this build uses, so the fetch
+# 404s and the from-source fallback can't build under llvm-mingw. The suite still runs on the Linux/macOS jobs.
 run = "echo 'skipping et-ws-web-runner on windows: rusty_v8 has no gnullvm prebuilt'"
 shell = "bash -euo pipefail -c"

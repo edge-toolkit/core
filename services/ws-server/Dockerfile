@@ -15,8 +15,9 @@ WORKDIR /workspace
 
 COPY . .
 
-# `--config.node-linker=hoisted` writes packages directly under
-# `node_modules/` instead of symlinking into `.pnpm/`, so the downstream
+# Write pnpm packages directly under `node_modules/`, not symlinked into `.pnpm/`.
+# `--config.node-linker=hoisted` does this instead of symlinking into `.pnpm/`,
+# so the downstream
 # `COPY --from=builder /workspace/runtime-deps/node_modules/onnxruntime-web`
 # step picks up a real directory.
 RUN pnpm add --prod --dir /workspace/runtime-deps --config.node-linker=hoisted \

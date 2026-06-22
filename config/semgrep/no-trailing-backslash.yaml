@@ -2,20 +2,19 @@ rules:
   - id: no-trailing-backslash
     languages: [generic]
     paths:
-      # Repo-wide. The files below already use trailing-backslash
-      # continuations and are allowlisted; everything else must avoid them
-      # (keep the value/statement on one line, or use concat!/[vars]/arrays).
       exclude:
         - "/README.md"
         - "/utilities/cli/README.md"
-        - "**/Dockerfile*"
+        # `services/ws-server/Dockerfile` still uses `\` RUN line-continuations.
+        # The top-level `Dockerfile` has migrated to BuildKit HEREDOC RUNs (no continuations needed). Drop this entry
+        # once ws-server's Dockerfile also migrates.
+        - "/services/ws-server/Dockerfile"
         # Generated deployment artifacts (regen-verification output).
         - "/verification/**/mise.toml"
         - "/verification/**/compose.yaml"
     pattern-regex: '\\[ \t]*$'
     message: >-
-      Trailing-backslash line continuations are not allowed in this repo. Keep
-      it on one line, or use a language-appropriate alternative (concat!(...) in
-      Rust, a mise [vars] entry, a YAML/array form). If a file genuinely needs
-      them, add it to this rule's paths.exclude allowlist.
+      Trailing-backslash line continuations are not allowed in this repo.
+      Keep it on one line, or use a language-appropriate alternative (concat!(...) in Rust, a mise [vars] entry,
+      a YAML/array form). If a file genuinely needs them, add it to this rule's paths.exclude allowlist.
     severity: ERROR

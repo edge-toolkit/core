@@ -17,7 +17,10 @@ concurrency:
 
 defaults:
   run:
-    shell: bash
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+env:
+  MISE_ENV: dart,dotnet,java,js,python,rust,zig
 
 jobs:
   build:
@@ -27,13 +30,15 @@ jobs:
       fail-fast: false
       matrix:
         base:
-          - ubuntu:22.04
-          - ubuntu:24.04
-          - ubuntu:26.04
+          - amazonlinux:2023
+          - azurelinux v3.0
           - debian:bookworm
           - debian:trixie
           - fedora:42
-          - mcr.microsoft.com/azurelinux/base/core:3.0
+          - opensuse/leap:15.6
+          - ubuntu:22.04
+          - ubuntu:24.04
+          - ubuntu:26.04
     name: build (${{ matrix.base }})
     steps:
       - name: Checkout
@@ -42,12 +47,16 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      # The image is huge (every language toolchain + prefetched models + a full
-      # debug build, incl. aws-lc-sys's large C objects), and its peak `target/`
-      # overruns a single runner disk. Reclaim the unused preinstalled SDKs and
-      # concatenate the freed root space with /mnt into one LVM volume mounted at
-      # Docker's data dir, then restart Docker so the build uses the combined space.
-      - name: Maximize build space (combine root + /mnt for Docker)
+      - name: Show MISE_ENV
+        run: echo "MISE_ENV=$MISE_ENV"
+
+      # Relocate Docker's data dir onto an LVM volume to maximize build space.
+      # jlumbroso/free-disk-space (which test.yaml uses) only frees space on the existing root partition. This
+      # workflow needs more: the image build writes to /var/lib/docker, so we have to relocate Docker's data dir
+      # onto an LVM volume that concatenates the freed root space with /mnt. easimon is the only maintained action
+      # that does that LVM remount, so we stay on it here despite its rougher edges (hard-fails on runners without
+      # /mnt or without a Docker daemon -- not a concern for this workflow's ubuntu-latest matrix, which has both).
+      - name: Maximize build space
         uses: easimon/maximize-build-space@v10
         with:
           root-reserve-mb: 4096
@@ -63,25 +72,34 @@ jobs:
       - name: Restart Docker on the maximized volume
         run: sudo systemctl restart docker
 
+      - name: Resolve BASE_IMAGE
+        env:
+          MATRIX_BASE: ${{ matrix.base }}
+        run: |
+          if [ "$MATRIX_BASE" = "azurelinux v3.0" ]; then
+            echo "BASE_IMAGE=mcr.microsoft.com/azurelinux/base/core:3.0" >> "$GITHUB_ENV"
+          else
+            echo "BASE_IMAGE=$MATRIX_BASE" >> "$GITHUB_ENV"
+          fi
+
       - name: Build stage test
         env:
-          BASE_IMAGE: ${{ matrix.base }}
           DOCKER_BUILDKIT: "1"
           GITHUB_TOKEN: ${{ github.token }}
-        run: docker build --target test --build-arg BASE_IMAGE --secret id=gh_token,env=GITHUB_TOKEN -t et-test .
+        run: |
+          args="--target test --build-arg BASE_IMAGE --build-arg MISE_ENV"
+          args="$args --secret id=gh_token,env=GITHUB_TOKEN -t et-test"
+          docker build $args .
 
-      # The check stage needs `.git/` + every tracked Dockerfile. The main
-      # `.dockerignore` excludes both (`**/Dockerfile*` so Dockerfiles in
-      # subdirs don't bloat the build context), so we pre-stage them into a
-      # directory and hand it to docker as a named build context (`extras`).
-      # The check stage does `COPY --from=extras . ./` to land them in
-      # /workspace. `cp --parents` preserves the subdir path of each Dockerfile
-      # (e.g. services/ws-server/Dockerfile), so hadolint's `git ls-files
-      # '*Dockerfile' '*Dockerfile.*' | xargs hadolint` finds every entry on
-      # disk -- a top-level cp would have left subdir Dockerfiles unfindable.
+      # The check stage needs `.git/` + every tracked Dockerfile.
+      # The main `.dockerignore` excludes both (`**/Dockerfile*` so Dockerfiles in subdirs don't bloat the build
+      # context), so we pre-stage them into a directory and hand it to docker as a named build context (`extras`).
+      # The check stage does `COPY --from=extras . ./` to land them in /workspace. `cp --parents` preserves the
+      # subdir path of each Dockerfile (e.g. services/ws-server/Dockerfile), so hadolint's
+      # `git ls-files '*Dockerfile' '*Dockerfile.*' | xargs hadolint` finds every entry on disk -- a top-level cp
+      # would have left subdir Dockerfiles unfindable.
       - name: Build stage check
         env:
-          BASE_IMAGE: ${{ matrix.base }}
           CTX: target/check-ctx
           DOCKER_BUILDKIT: "1"
           TAG: et-check
@@ -90,10 +108,51 @@ jobs:
           mkdir -p "$CTX"
           cp -r .git "$CTX/"
           git ls-files '*Dockerfile' '*Dockerfile.*' | xargs -I{} cp --parents {} "$CTX/"
-          docker build --target check --build-arg BASE_IMAGE --build-context extras=$CTX --secret id=gh_token -t $TAG .
+          args="--target check --build-arg BASE_IMAGE --build-arg MISE_ENV"
+          args="$args --build-context extras=$CTX --secret id=gh_token -t $TAG"
+          docker build $args .
 
-      - name: Run the test suite
-        run: docker run --rm et-test
+      # Capture image + intermediate stage sizes after the builds.
+      # This also runs after the test/check runs leave any -rm'd container layers behind. `always()` so we still
+      # get the breakdown when a downstream step ran the disk dry; the typical failure mode (test-ws-web-runner
+      # compile inside `docker run`) leaves the host's image catalogue intact and this step is what surfaces
+      # which layer ballooned. -a includes intermediate/dangling layers each stage produces; `system df -v`
+      # totals per cache type (Images, Build Cache, Containers, Volumes).
+      - name: Docker disk usage (debug)
+        if: always()
+        run: |
+          echo "::group::docker images -a"
+          docker images -a
+          echo "::endgroup::"
+          echo "::group::docker system df -v"
+          docker system df -v
+          echo "::endgroup::"
+          echo "::group::df -h /var/lib/docker"
+          df -h /var/lib/docker || true
+          echo "::endgroup::"
+          # Report which paths inside the et-test image are eating space.
+          # `du --threshold=10M --max-depth=2` for a top-level subtree map (catches install dirs, tool caches,
+          # /var stragglers); `find ... -size +50M` for the individual heavyweights. Run in a throwaway container
+          # so the host's writable layer doesn't tilt the numbers; find/du stderr noise (unreadable /proc entries
+          # etc.) prints to the log but doesn't affect the sort pipeline.
+          echo "::group::et-test: largest dirs (depth 2, >=10M)"
+          docker run --rm et-test sh -c "du -h --threshold=10M --max-depth=2 / | sort -h | tail -50"
+          echo "::endgroup::"
+          echo "::group::et-test: individual files >50M"
+          docker run --rm et-test sh -c "find / -xdev -type f -size +50M -exec du -h {} + | sort -h | tail -50"
+          echo "::endgroup::"
+
+      # Run the test phases as two separate `docker run` invocations.
+      # Each starts a fresh container with an empty writable layer, so the per-phase compile target/ doesn't share
+      # disk with the other phase. Splits cargo-test's two halves (workspace minus et-ws-web-runner, then
+      # et-ws-web-runner serialized) for clearer attribution when a tight-disk runner fails. test-ws-web-runner
+      # already skips itself on hosts that can't satisfy its Deno-runtime requirements, so this step is a no-op on
+      # those platforms.
+      - name: Run cargo-test-other
+        run: docker run --rm et-test mise run cargo-test-other
+
+      - name: Run test-ws-web-runner
+        run: docker run --rm et-test mise run test-ws-web-runner
 
       - name: Run mise check
         run: docker run --rm et-check

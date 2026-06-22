@@ -2,21 +2,17 @@ id: gha-checkout-fetch-depth-1
 language: yaml
 severity: error
 message: |
-  Every `actions/checkout@…` step in this repo must declare
-  `fetch-depth: 1` in its `with:` block. Explicit-beats-implicit (the action
-  default is already 1, but pinning it at the call site keeps the value
-  visible in review and ensures a future default change doesn't silently
-  start cloning more), and the rule's primary purpose is to prevent
-  `fetch-depth: 0` from creeping back in -- no task in this repo reads git
-  history, so cloning every commit just burns runner minutes and disk.
+  Every `actions/checkout@...` step in this repo must declare `fetch-depth: 1` in its `with:` block.
+  Explicit-beats-implicit (the action default is already 1, but pinning it at the call site keeps the value visible in
+  review and ensures a future default change doesn't silently start cloning more), and the rule's primary purpose is to
+  prevent `fetch-depth: 0` from creeping back in -- no task in this repo reads git history, so cloning every commit just
+  burns runner minutes and disk.
 files:
   - .github/workflows/*.yaml
-# Match every `uses: actions/checkout@…` whose surrounding step body lacks
-# `fetch-depth: 1`. The `regex` on the value field anchors at `actions/
-# checkout@` so we don't false-fire on `uses:` lines for other actions; the
-# `@$V` portion of the action ref isn't a separable meta-var (it's part of a
-# single plain_scalar token), which is why this is split into a `pattern:` +
-# `field-regex` shape rather than a single pattern.
+# Match every `uses: actions/checkout@...` whose surrounding step body lacks `fetch-depth: 1`.
+# The `regex` on the value field anchors at `actions/checkout@` so we don't false-fire on `uses:` lines for other
+# actions; the `@$V` portion of the action ref isn't a separable meta-var (it's part of a single plain_scalar token),
+# which is why this is split into a `pattern:` + `field-regex` shape rather than a single pattern.
 rule:
   all:
     - pattern: "uses: $X"

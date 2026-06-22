@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Workspace member Cargo.toml — must inherit workspace lints",
+  "title": "Workspace member Cargo.toml -- must inherit workspace lints",
   "description": "Member crates must include `[lints] workspace = true` to inherit workspace lints.",
   "type": "object",
   "required": ["lints"],

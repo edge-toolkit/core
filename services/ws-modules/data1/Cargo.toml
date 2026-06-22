@@ -15,8 +15,8 @@ test = false
 edge-toolkit.workspace = true
 et-web.workspace = true
 et-ws-wasm-agent.workspace = true
-# Browser WASM target — disable the `tracing` default feature so the
-# opentelemetry deps the native pre-hook needs don't get pulled in.
+# Disable the `tracing` default feature for this browser WASM target.
+# That keeps the opentelemetry deps the native pre-hook needs from getting pulled in.
 et-rest-client.workspace = true
 futures-util.workspace = true
 js-sys.workspace = true

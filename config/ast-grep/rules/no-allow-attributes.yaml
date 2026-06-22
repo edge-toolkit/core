@@ -2,15 +2,12 @@ id: no-allow-attributes
 language: Rust
 severity: error
 message: |
-  `#[allow(<lint>)]` and `#![allow(<lint>)]` are forbidden. Use
-  `#[expect(<lint>, reason = "…")]` (or `#![expect(...)]` at module
-  / crate scope). `#[expect]` requires the lint to actually fire, so
-  the suppression is removed automatically when the underlying issue
-  is fixed upstream — `#[allow]` can sit silently forever.
+  `#[allow(<lint>)]` and `#![allow(<lint>)]` are forbidden. Use `#[expect(<lint>, reason = "...")]` (or
+  `#![expect(...)]` at module / crate scope). `#[expect]` requires the lint to actually fire, so the suppression is
+  removed automatically when the underlying issue is fixed upstream -- `#[allow]` can sit silently forever.
 
-  This rule complements the workspace's `clippy::allow_attributes`
-  lint, which doesn't fire on inner attributes (`#![allow(...)]`) —
-  see <https://github.com/rust-lang/rust-clippy/issues/13900>.
+  This rule complements the workspace's `clippy::allow_attributes` lint, which doesn't fire on inner attributes
+  (`#![allow(...)]`) -- see <https://github.com/rust-lang/rust-clippy/issues/13900>.
 rule:
   any:
     - pattern: "#[allow($$$ARGS)]"

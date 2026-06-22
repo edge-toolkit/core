@@ -1,7 +1,6 @@
-# Cargo.toml policy, evaluated over conftest's `--combine` input (an array of
-# {path, contents}). Run with `--namespace cargo` (or `--all-namespaces`). Paths
-# come from `git ls-files`, so the workspace root is exactly "Cargo.toml" and any
-# other match is a member crate.
+# Cargo.toml policy, evaluated over conftest's `--combine` input (an array of {path, contents}).
+# Run with `--namespace cargo` (or `--all-namespaces`). Paths come from `git ls-files`, so the workspace root is
+# exactly "Cargo.toml" and any other match is a member crate.
 package cargo
 
 is_member(file) if {
@@ -26,13 +25,13 @@ dep contains [file.path, name, spec] if {
 dep contains [file.path, name, spec] if {
 	some file in input
 	endswith(file.path, "Cargo.toml")
-	some _, tgt in file.contents.target
+	some tgt in file.contents.target
 	some table in {"dependencies", "dev-dependencies", "build-dependencies"}
 	some name, spec in tgt[table]
 }
 
-# Banned crates -> rejection reason. Members must use workspace = true, so the
-# root's [workspace.dependencies] is the only place a ban can bite.
+# Banned crates -> rejection reason.
+# Members must use workspace = true, so the root's [workspace.dependencies] is the only place a ban can bite.
 banned := {
 	"anyhow": "define a thiserror enum instead",
 	"openssl": "use rustls + aws-lc-rs -- one TLS/crypto stack only",
@@ -48,8 +47,8 @@ deny contains msg if {
 	msg := sprintf("%s: banned dependency %q -- %s", [path, name, reason])
 }
 
-# Member crates: no path deps, no wildcard versions, no inline git deps. Pins live
-# in the root [workspace.dependencies]; members reference them via workspace = true.
+# Member crates: no path deps, no wildcard versions, no inline git deps.
+# Pins live in the root [workspace.dependencies]; members reference them via workspace = true.
 deny contains msg if {
 	some [path, name, spec] in dep
 	path != "Cargo.toml"
@@ -83,8 +82,8 @@ wildcard(spec) if {
 	contains(spec.version, "*")
 }
 
-# Member [dependencies]/[dev-dependencies] must inherit via workspace = true so
-# pins stay in [workspace.dependencies]. (build-dependencies not covered yet.)
+# Member [dependencies]/[dev-dependencies] must inherit via workspace = true so pins stay in [workspace.dependencies].
+# (build-dependencies not covered yet.)
 deny contains msg if {
 	some file in input
 	is_member(file)
@@ -94,8 +93,8 @@ deny contains msg if {
 	msg := sprintf("%s: dependency %q must reference [workspace.dependencies] via workspace = true", [file.path, name])
 }
 
-# A crate with a [lib] must disable the doctest harness (runnable examples belong
-# in tests/ files) and must not rename the lib (keep it the package name).
+# A crate with a [lib] must disable the doctest harness and must not rename the lib.
+# Runnable examples belong in tests/ files; keep the lib name as the package name.
 deny contains msg if {
 	some file in input
 	is_member(file)
@@ -111,8 +110,8 @@ deny contains msg if {
 	msg := sprintf("%s: [lib] must not set name (keep it the package name)", [file.path])
 }
 
-# Every member must inherit the workspace lint tables. generated/rust-rest is
-# exempt: progenitor's emitted source trips lints the workspace table denies.
+# Every member must inherit the workspace lint tables.
+# generated/rust-rest is exempt: progenitor's emitted source trips lints the workspace table denies.
 deny contains msg if {
 	some file in input
 	is_member(file)
@@ -121,8 +120,8 @@ deny contains msg if {
 	msg := sprintf("%s: add [lints] workspace = true", [file.path])
 }
 
-# Every crate must be a registered workspace member: its directory must appear in
-# the root manifest's explicit [workspace].members list (no orphan crates).
+# Every crate must be a registered workspace member, with no orphan crates.
+# Its directory must appear in the root manifest's explicit [workspace].members list.
 workspace_member contains m if {
 	some file in input
 	file.path == "Cargo.toml"
@@ -137,8 +136,8 @@ deny contains msg if {
 	msg := sprintf("%s: crate is not registered in the root [workspace].members", [file.path])
 }
 
-# Shared [package] metadata must be inherited from [workspace.package] via
-# `<field>.workspace = true`, so the values stay defined in exactly one place.
+# Shared [package] metadata must be inherited from [workspace.package] via `<field>.workspace = true`.
+# This keeps the values defined in exactly one place.
 inherited_package_field := {"edition", "license", "repository"}
 
 deny contains msg if {
@@ -149,8 +148,7 @@ deny contains msg if {
 	msg := sprintf("%s: [package] %s must inherit via %s.workspace = true", [file.path, field, field])
 }
 
-# Crate names are namespaced: "edge-toolkit" or "et-" for normal crates, "int-"
-# for internal (publish = false) ones.
+# Crate names are namespaced: "edge-toolkit" or "et-" for normal crates, "int-" for internal (publish = false) ones.
 allowed_crate_name(name, _) if startswith(name, "edge-toolkit")
 
 allowed_crate_name(name, _) if startswith(name, "et-")
@@ -176,9 +174,9 @@ deny contains msg if {
 	msg := sprintf("%s: dependency %q has an empty features = []; remove it", [path, name])
 }
 
-# A feature must not share its name with a dependency: it shadows the implicit
-# feature an optional dep creates and is confusing. generated/rust-rest is exempt
-# -- its generator emits a `tracing` feature beside a (non-optional) `tracing` dep.
+# A feature must not share its name with a dependency.
+# Such a name shadows the implicit feature an optional dep creates and is confusing. generated/rust-rest is exempt --
+# its generator emits a `tracing` feature beside a (non-optional) `tracing` dep.
 is_dep_name(file, name) if {
 	some table in {"dependencies", "dev-dependencies", "build-dependencies"}
 	file.contents[table][name]
@@ -193,8 +191,8 @@ deny contains msg if {
 	msg := sprintf("%s: feature %q shares its name with a dependency; rename it", [file.path, feat])
 }
 
-# Dependency overrides ([patch]/[replace]) belong in the root manifest, where
-# they apply workspace-wide and stay in one place; a member can't override deps.
+# Dependency overrides ([patch]/[replace]) belong in the root manifest, not a member crate.
+# There they apply workspace-wide and stay in one place; a member can't override deps.
 deny contains msg if {
 	some file in input
 	is_member(file)

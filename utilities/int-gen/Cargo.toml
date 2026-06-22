@@ -7,8 +7,8 @@ license.workspace = true
 repository.workspace = true
 default-run = "et-int-gen"
 
-# `int` = "internal" — this crate is for in-repo use only and isn't published
-# alongside the public `et-*` libraries.
+# `int` = "internal": this crate is for in-repo use only.
+# It isn't published alongside the public `et-*` libraries.
 [[bin]]
 name = "et-int-gen"
 path = "src/bin/int-gen.rs"
@@ -16,6 +16,7 @@ path = "src/bin/int-gen.rs"
 [dependencies]
 asyncapi-rust.workspace = true
 clap.workspace = true
+clap-markdown = { workspace = true, optional = true }
 edge-toolkit = { workspace = true, features = ["schema-export"] }
 et-modules-service = { workspace = true, features = ["openapi-spec"] }
 et-storage-service = { workspace = true, features = ["openapi-spec"] }
@@ -41,6 +42,9 @@ tree-sitter-zig.workspace = true
 utoipa.workspace = true
 wit-encoder = { workspace = true, features = ["from-parser"] }
 wit-parser.workspace = true
+
+[features]
+markdown-help = ["dep:clap-markdown"]
 
 [lints]
 workspace = true

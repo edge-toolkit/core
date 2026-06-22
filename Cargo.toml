@@ -57,6 +57,7 @@ bytes = "1"
 bytesize = { version = "2", features = ["serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive"] }
+clap-markdown = "0.1.5"
 deno_core = "0.402.0"
 deno_error = "=0.7.1"
 deno_resolver = "0.80.0"
@@ -108,11 +109,10 @@ pretty_yaml = "0.6"
 prettyplease = "0.2"
 progenitor = "0.14"
 progenitor-client = "0.14"
-# `auto-initialize` starts the embedded CPython interpreter on first use; the
-# pyo3 runner never calls `Py_Initialize` itself.
+# `auto-initialize` starts the embedded CPython interpreter on first use.
+# The pyo3 runner never calls `Py_Initialize` itself.
 pyo3 = { version = "0.28", features = ["auto-initialize"] }
-# Build-script half of pyo3; kept on the same release so both resolve the
-# interpreter identically.
+# Build-script half of pyo3. Kept on the same release so both resolve the interpreter identically.
 pyo3-build-config = "0.28"
 qr2term = "0.3"
 quote = "1"
@@ -134,6 +134,7 @@ serde_json = "1"
 serde_path_to_error = "0.1"
 serde_urlencoded = "0.7"
 serde_yaml = "0.9"
+strum = { version = "0.27", features = ["derive"] }
 syn = "2"
 sys_traits = { version = "0.1.28", features = ["libc", "real"] }
 temp-env = "0.3"
@@ -160,8 +161,8 @@ uuid = { version = "1", features = ["serde", "v4", "v7"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 wasm-bindgen-test = "0.3"
-# 44.0.3 is the floor for the RUSTSEC-2026-0182 fix (fd_renumber leak in
-# WASIp1). Stay on 44.x for ABI compat with wasmtime-wasi-nn 44.x.
+# 44.0.3 is the floor for the RUSTSEC-2026-0182 fix (fd_renumber leak in WASIp1).
+# Stay on 44.x for ABI compat with wasmtime-wasi-nn 44.x.
 wasmtime = { version = "44.0.3", features = ["async", "component-model"] }
 wasmtime-wasi = "44.0.3"
 wasmtime-wasi-nn = { version = "44", default-features = false, features = ["onnx"] }
@@ -197,10 +198,10 @@ unfulfilled_lint_expectations = "deny"
 unsafe_attr_outside_unsafe = "deny"
 unsafe_code = "deny"
 unsafe_op_in_unsafe_fn = "deny"
-# unused_crate_dependencies fires per test binary: dev-deps declared once but consumed by only a
-# subset of `tests/*.rs` files (each compiled as its own crate) are flagged as unused in the
-# sibling test crates that don't import them. Tracked at rust-lang/rust#95513; re-enable when
-# rustc gains a workspace-aware view.
+# unused_crate_dependencies fires per test binary.
+# Dev-deps declared once but consumed by only a subset of `tests/*.rs` files (each compiled as its
+# own crate) are flagged as unused in the sibling test crates that don't import them. Tracked at
+# rust-lang/rust#95513; re-enable when rustc gains a workspace-aware view.
 # unused_crate_dependencies = "deny"
 unused_results = "deny"
 
@@ -233,14 +234,14 @@ std_instead_of_alloc = { level = "allow", priority = 8 }
 std_instead_of_core = { level = "allow", priority = 8 }
 str_to_string = { level = "allow", priority = 4 }
 struct_excessive_bools = { level = "allow", priority = 8 }
-# Allowing shadow_reuse, shadow_same & shadow_unrelated is an explicit style choice, preferring to allow
-# developers to reuse a name even if its type changes.
+# Allowing shadow_reuse, shadow_same & shadow_unrelated is an explicit style choice.
+# It prefers to allow developers to reuse a name even if its type changes.
 semicolon_if_nothing_returned = { level = "deny", priority = 4 }
 shadow_reuse = { level = "allow", priority = 4 }
 shadow_same = { level = "allow", priority = 4 }
 shadow_unrelated = { level = "allow", priority = 4 }
-# Block-scoped statements like `{ *guard = ...; }` use the closing brace to drop borrows;
-# moving the `;` outside risks extending MutexGuard lifetimes past the intended scope.
+# Block-scoped statements like `{ *guard = ...; }` use the closing brace to drop borrows.
+# Moving the `;` outside risks extending MutexGuard lifetimes past the intended scope.
 semicolon_outside_block = { level = "allow", priority = 4 }
 # Allowing separated_literal_suffix & unseparated_literal_suffix is an explicit style choice.
 separated_literal_suffix = { level = "allow", priority = 4 }
@@ -261,8 +262,8 @@ missing_inline_in_public_items = { level = "allow", priority = 4 }
 # Allowing missing_errors_doc as fixing unwrap's is the more important task.
 future_not_send = { level = "deny", priority = 4 }
 missing_errors_doc = { level = "allow", priority = 4 }
-# pattern_type_mismatch fights with idiomatic match ergonomics (e.g. `for (k, v) in &map`,
-# `if let Some(x) = &option`).
+# pattern_type_mismatch fights with idiomatic match ergonomics.
+# Examples: `for (k, v) in &map`, `if let Some(x) = &option`.
 pattern_type_mismatch = { level = "allow", priority = 4 }
 unused_async = { level = "deny", priority = 2 }
 # as_conversions & cast_lossless & cast_possible_wrap should be replaced with safer wrapped conversion
@@ -283,8 +284,8 @@ type_complexity = { level = "deny", priority = 4 }
 
 min_ident_chars = { level = "deny", priority = 4 }
 
-# Allowing arbitrary_source_item_ordering: strict alphabetical ordering destroys semantic grouping
-# (e.g. ClientMessage / ServerMessage variants in connection-lifecycle order, struct fields ordered by importance).
+# Allowing arbitrary_source_item_ordering, because strict alphabetical ordering destroys semantic grouping.
+# E.g. ClientMessage / ServerMessage variants in connection-lifecycle order, struct fields ordered by importance.
 arbitrary_source_item_ordering = { level = "allow", priority = 4 }
 
 # Force use of #[expect(..)] instead of #[allow(..)]
@@ -300,79 +301,79 @@ missing_panics_doc = { level = "allow", priority = 4 }
 ignore = [
   # No `repository` declared. Pulled by deno_node_crypto for AES-GCM.
   "aead-gcm-stream",
-  # Archived upstream (servo/bincode). Pulled by deno_core for snapshot
-  # serialisation; will move when Deno upgrades to bincode 2.
+  # Archived upstream (servo/bincode).
+  # Pulled by deno_core for snapshot serialisation; will move when Deno upgrades to bincode 2.
   "bincode",
-  # 1153 days since last update at bitvecto-rs/bitvec. Pulled by
-  # sourcemap (via swc tooling under deno_ast).
+  # 1153 days since last update at bitvecto-rs/bitvec.
+  # Pulled by sourcemap (via swc tooling under deno_ast).
   "bitvec",
-  # 536 days since last update at dsherret/capacity_builder. Pulled by
-  # deno_ast.
+  # 536 days since last update at dsherret/capacity_builder.
+  # Pulled by deno_ast.
   "capacity_builder",
-  # 1702 days since last update at jethrogb/rust-cexpr. Pulled by
-  # bindgen (build-time only via aws-lc-sys / ort-sys).
+  # 1702 days since last update at jethrogb/rust-cexpr.
+  # Pulled by bindgen (build-time only via aws-lc-sys / ort-sys).
   "cexpr",
-  # 577 days since last update at dajoha/color-print. Pulled by
-  # deno_node via color-print.
+  # 577 days since last update at dajoha/color-print.
+  # Pulled by deno_node via color-print.
   "color-print-proc-macro",
   # Archived upstream at matklad/countme.
   "countme",
-  # 676 days since last update at denoland/deno_native_certs. Pulled
-  # by deno_node + deno_tls.
+  # 676 days since last update at denoland/deno_native_certs.
+  # Pulled by deno_node + deno_tls.
   "deno_native_certs",
   # No `repository` declared. Pulled by deno_node for `os.userInfo()`.
   "deno_whoami",
   # 1853 days since last update at xdg-rs/dirs.
   "dirs-sys-next",
-  # 3182 days since last update at faradayio/exec-rs. Pulled by Deno's
-  # `node_shim` (process re-exec on Node compatibility shim).
+  # 3182 days since last update at faradayio/exec-rs.
+  # Pulled by Deno's `node_shim` (process re-exec on Node compatibility shim).
   "exec",
   # 933 days since last update at HdrHistogram/HdrHistogram_rust.
   # Pulled by deno_node (perf hooks).
   "hdrhistogram",
-  # 460 days since last update at xacrimon/dashmap. Pulled by
-  # deno_maybe_sync. (Marked stable / feature-complete by upstream.)
+  # 460 days since last update at xacrimon/dashmap.
+  # Pulled by deno_maybe_sync. (Marked stable / feature-complete by upstream.)
   "dashmap",
   # 495 days since last update at rust-lang-nursery/lazy-static.rs.
   # Pulled by actix-web-thiserror-derive (build proc-macro).
   "lazy_static",
-  # 391 days since last update at rust-num/num-complex. Pulled by
-  # nalgebra (via wgpu / naga). Stable foundational math crate.
+  # 391 days since last update at rust-num/num-complex.
+  # Pulled by nalgebra (via wgpu / naga). Stable foundational math crate.
   "num-complex",
-  # 2215 days since last update at SSheldon/rust-objc. Pulled by
-  # `metal` (macOS GPU bindings via wgpu).
+  # 2215 days since last update at SSheldon/rust-objc.
+  # Pulled by `metal` (macOS GPU bindings via wgpu).
   "objc",
-  # Not in declared repo (RustCrypto/utils). Pulled by ghash (via
-  # aead-gcm-stream above) and other RustCrypto crates as a tiny
-  # helper. Effectively dormant but functional.
+  # Not in declared repo (RustCrypto/utils).
+  # Pulled by ghash (via aead-gcm-stream above) and other RustCrypto crates as a tiny helper.
+  # Effectively dormant but functional.
   "opaque-debug",
   # cargo-unmaintained doesn't follow `hg` repositories.
   "oorandom",
-  # 1052 days since last update at hjiayz/p12. Pulled by deno_node_crypto
-  # for PKCS#12 cert bundles.
+  # 1052 days since last update at hjiayz/p12.
+  # Pulled by deno_node_crypto for PKCS#12 cert bundles.
   "p12",
-  # Archived upstream at dtolnay/paste. Pulled by macro_rules_attribute
-  # via wgpu. Compile-time only.
+  # Archived upstream at dtolnay/paste.
+  # Pulled by macro_rules_attribute via wgpu. Compile-time only.
   "paste",
-  # Archived upstream at GnomedDev/proc-macro-error-2 (the maintained
-  # fork of the original proc-macro-error). Both unmaintained.
+  # Both unmaintained.
+  # GnomedDev/proc-macro-error-2 (the maintained fork of the original proc-macro-error) is archived.
   # Pulled by getset via neli via local-ip-address. Compile-time only.
   "proc-macro-error-attr2",
   "proc-macro-error2",
   # 603 days since last update at timvisee/qr2term-rs.
   "qr2term",
-  # False positive: rand_chacha lives in rust-random/rand as a workspace
-  # subdir (rand_chacha/), but cargo-unmaintained looks only at the
-  # repo root and reports "not in".
+  # False positive.
+  # rand_chacha lives in rust-random/rand as a workspace subdir (rand_chacha/).
+  # But cargo-unmaintained looks only at the repo root and reports "not in".
   "rand_chacha",
   # Archived upstream at rustls/pemfile. Pulled by deno_native_certs.
   # rustls itself has moved to inline pemfile parsing.
   "rustls-pemfile",
-  # 2154 days since last update at arcnmx/serde-value. Pulled by
-  # deno_ffi.
+  # 2154 days since last update at arcnmx/serde-value.
+  # Pulled by deno_ffi.
   "serde-value",
-  # Archived upstream at bodil/smartstring. Pulled by swc_ecma_lexer
-  # via deno_ast.
+  # Archived upstream at bodil/smartstring.
+  # Pulled by swc_ecma_lexer via deno_ast.
   "smartstring",
   # https://github.com/rustsec/advisory-db/issues/2132
   "serde_yaml",
@@ -380,26 +381,26 @@ ignore = [
   "subtle",
   # Archived upstream at rust-analyzer/text-size.
   "text-size",
-  # Declared repository toml-rs/toml hosts `toml_writer` (with the `r`),
-  # not `toml_write`. The crate is effectively orphaned upstream.
+  # Declared repository toml-rs/toml hosts `toml_writer` (with the `r`), not `toml_write`.
+  # The crate is effectively orphaned upstream.
   "toml_write",
   # https://github.com/rustsec/advisory-db/issues/2132
   "unsafe-libyaml",
   # Archived upstream at SimonSapin/rust-utf8.
   "utf-8",
-  # Declared repository alacritty/vte is a single-crate repo with no
-  # `utf8parse` member. The crate is effectively orphaned upstream.
+  # Declared repository alacritty/vte is a single-crate repo with no `utf8parse` member.
+  # The crate is effectively orphaned upstream.
   "utf8parse",
   # 517 days since last update at daxpedda/web-time.
   "web-time",
-  # Declared repository WebAssembly/WASI is spec-only (no `crates/`
-  # tree). The crate is effectively orphaned upstream.
+  # Declared repository WebAssembly/WASI is spec-only (no `crates/` tree).
+  # The crate is effectively orphaned upstream.
   "witx",
-  # Archived upstream at SimonSapin/rust-wtf8. Pulled by
-  # v8_valueserializer via deno_core. UTF-8 / WTF-8 conversions for
-  # V8's structured-clone serializer.
+  # Archived upstream at SimonSapin/rust-wtf8.
+  # Pulled by v8_valueserializer via deno_core.
+  # UTF-8 / WTF-8 conversions for V8's structured-clone serializer.
   "wtf8",
-  # Not in declared repo (kornelski/xml-rs). Pulled by gl_generator
-  # (build-time only, OpenGL bindings via wgpu).
+  # Not in declared repo (kornelski/xml-rs).
+  # Pulled by gl_generator (build-time only, OpenGL bindings via wgpu).
   "xml-rs",
 ]

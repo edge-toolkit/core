@@ -1,0 +1,19 @@
+// oxfmt config (JSON/JSONC like oxlint -- same restriction). Knobs tuned so oxfmt's JS/TS output matches dprint's
+// typescript plugin output on this repo, so the two formatters can coexist without fighting:
+//
+//   - printWidth=120 matches dprint's lineWidth default (also our editorconfig and ruff line cap).
+//   - semi, singleQuote, trailingComma defaults already match dprint's prefer/double/onlyMultiLine equivalents.
+//
+// oxfmt does NOT expose an arrowParens equivalent (always `(x) =>`) -- where dprint produced bare `x =>` we now
+// match oxfmt's parenthesised form once `oxfmt --write` runs. Drift in the other direction is configured in
+// `dprint.jsonc`'s typescript block (arrowFunction.useParentheses=force, binaryExpression.operatorPosition=sameLine,
+// memberExpression.linePerExpression).
+//
+// Exclude `**/*.toml` -- oxfmt's content-based detection misidentifies `[section]`-shaped TOML files
+// (e.g. config/clippy.toml) as JS arrays and tries to reformat them. Extension-based filtering would skip these;
+// lacking that, we ignore explicitly.
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxfmt/configuration_schema.json",
+  "printWidth": 120,
+  "ignorePatterns": ["**/*.toml"],
+}
