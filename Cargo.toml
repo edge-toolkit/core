@@ -334,9 +334,15 @@ ignore = [
   # 460 days since last update at xacrimon/dashmap.
   # Pulled by deno_maybe_sync. (Marked stable / feature-complete by upstream.)
   "dashmap",
+  # jni-sys requirement ^0.3.0 (used 0.3.1, latest 0.4.1); pulled by ndk-sys, an Android-only dep.
+  # Reached via wgpu-hal (deno_webgpu -> wgpu); never compiled on our target platforms.
+  "jni-sys",
   # 495 days since last update at rust-lang-nursery/lazy-static.rs.
   # Pulled by actix-web-thiserror-derive (build proc-macro).
   "lazy_static",
+  # ndk-sys last updated ~365 days ago; Android-only, reached via wgpu-hal (deno_webgpu -> wgpu).
+  # Never compiled on our target platforms.
+  "ndk-sys",
   # 391 days since last update at rust-num/num-complex.
   # Pulled by nalgebra (via wgpu / naga). Stable foundational math crate.
   "num-complex",
