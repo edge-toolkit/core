@@ -29,6 +29,13 @@
 # -- not just no gnullvm one -- so it stays in MISE_DISABLE_TOOLS for the Windows test lane.)
 "cargo:cargo-expand" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
 
+# bindgen CLI -- the external-bindgen fallback aws-lc-sys uses on gnullvm (see services/ws-web-runner/Cargo.toml).
+# No prebuilt exists at any triple (rust-lang/rust-bindgen ships no release binaries; cargo-quickinstall carries only
+# wasm-bindgen-cli), so this is a source build, allowlisted in config/conftest/policy/mise/mise.rego. No msvc
+# install_env override here (unlike cargo-expand): with no prebuilt to fetch, binstall falls through to a source
+# build, which must target the gnullvm host (the only rust-std on the runner) -- the [env] CARGO_BUILD_TARGET does that.
+"cargo:bindgen-cli" = "0.72.1"
+
 # busybox-w32 `sh` (POSIX ash) -- the shell the bash-tasks run on.
 # A native Win32 single exe with no cygwin/msys runtime, so it loads on a bare Nano Server, unlike conda's
 # msys2 bash whose msys-2.0.dll imports KERNEL32!IdnToAscii / IdnToUnicode that Nano's stripped kernel32

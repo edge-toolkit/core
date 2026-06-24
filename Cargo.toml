@@ -51,6 +51,10 @@ actix-web-thiserror = "0.2"
 actix-ws = "0.3"
 async-trait = "0.1"
 asyncapi-rust = "0.2"
+# Declared only so et-ws-web-runner can flip the `bindgen` feature on the two aws-lc-sys instances in the tree
+# for the x86_64-pc-windows-gnullvm target (see that crate's gnullvm dependency block). Not used in any source.
+aws-lc-rs = "1.17.0"
+aws-lc-sys = "0.40.0"
 base64 = "0.22.1"
 bytemuck = { version = "1.16", features = ["derive"] }
 bytes = "1"

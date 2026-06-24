@@ -45,6 +45,15 @@ tracing-subscriber.workspace = true
 [target.'cfg(windows)'.dependencies]
 winapi.workspace = true
 
+# On x86_64-pc-windows-gnullvm, aws-lc-sys ships no pregenerated bindings and falls back to an external `bindgen`
+# CLI (absent on the runner), aborting with "Failure invoking external bindgen". Enabling the `bindgen` cargo
+# feature switches it to the in-tree libclang bindgen library (LIBCLANG_PATH is set in .mise/config.windows.toml).
+# Both aws-lc-sys instances need it: 0.40.0 via deno_node_crypto and 0.41.0 via aws-lc-rs (rustls's default
+# provider). gnullvm-only -- every other target ships pregenerated bindings and never takes this path.
+[target.x86_64-pc-windows-gnullvm.dependencies]
+aws-lc-rs = { workspace = true, features = ["bindgen"] }
+aws-lc-sys = { workspace = true, features = ["bindgen"] }
+
 [dev-dependencies]
 et-ws-test-server.workspace = true
 rstest.workspace = true
