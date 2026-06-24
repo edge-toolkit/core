@@ -43,6 +43,18 @@ checksum = "sha256:6e263d154d8548d1eb936f65d1d8312c80df31c45974e48d6335e4dcc0f4f
 url = "https://frippery.org/files/busybox/busybox64u.exe"
 version = "1.37.0"
 
+# Prebuilt NASM assembler for Windows, from nasm.us -- its canonical distribution. NASM ships no GitHub release
+# binaries (the netwide-assembler/nasm mirror has no release assets), so there's no github/aqua backend; this is
+# the upstream win64 zip, checksum-pinned. aws-lc-sys's build (pulled via deno_node_crypto -> deno_runtime ->
+# et-ws-web-runner) assembles BoringSSL's x86_64 .asm files with NASM; without nasm on PATH the build aborts with
+# `Could not find nasm`. `strip_components = 1` drops the zip's `nasm-2.16.03/` wrapper so `nasm.exe` is at root.
+[tools."http:nasm"]
+bin = "nasm.exe"
+checksum = "sha256:3ee4782247bcb874378d02f7eab4e294a84d3d15f3f6ee2de2f47a46aa7226e6"
+strip_components = 1
+url = "https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/win64/nasm-2.16.03-win64.zip"
+version = "2.16.03"
+
 # Prebuilt dart-typegen for Windows.
 # `cargo:dart-typegen` source-builds against the gnullvm rust host trip `error[E0463]: can't find crate for 'core'`
 # (the upstream-cache `dart-typegen` job at .github/workflows/upstream-cache.yaml is the producer; release-tag
@@ -143,9 +155,9 @@ CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_RUSTFLAGS = "-Cdlltool={{ vars.win_llvm_b
 # building V8 from source. The v8 crate is [patch]ed to that fork (rustyscript_v8: v8 149.3.0 + gnullvm support);
 # its build.rs fetches `<base>/v149.3.0/librusty_v8_simdutf_release_x86_64-pc-windows-gnullvm.a.gz`. Windows-only
 # env, so other platforms keep denoland's default prebuilt source.
-RUSTY_V8_MIRROR = "https://github.com/jayvdb/rusty_v8/releases/download"
 LIBCLANG_PATH = "{{ vars.win_libclang }}"
 PYO3_PYTHON = "{{ vars.py3_win }}"
+RUSTY_V8_MIRROR = "https://github.com/jayvdb/rusty_v8/releases/download"
 # Force ort-sys to prefer dynamic linkage on Windows.
 # Otherwise it defaults to static ("could not find native static library `onnxruntime`"), but the Microsoft
 # ORT release ships only a DLL + import lib, no static archive. Not needed on Linux/macOS where the dynamic
