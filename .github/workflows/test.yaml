@@ -150,6 +150,18 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run build-modules
 
+      # Save the built dotnet-data1 pkg/ (mono wasm + app wasm + loader) so it can be byte-compared against a
+      # local build. The Windows web runner can't execute the .NET module yet (gnullvm V8 WASM-EH crash), so
+      # byte-identical output vs a known-good local build is how we validate the Windows-built module is correct.
+      # Uploaded after the build but before the tests so it is captured regardless of the dotnet-data1 test failure.
+      - name: Upload dotnet-data1 pkg
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-data1-pkg
+          path: services/ws-modules/dotnet-data1/pkg/
+          if-no-files-found: error
+
       # Run the et-ws-web-runner tests first: they exercise the gnullvm V8 + .NET path under active iteration,
       # so a pass/fail here arrives well before the rest of the workspace + guest tests finish. On failure the
       # job stops here (no need to wait out cargo-test-other), giving the fastest feedback loop.
