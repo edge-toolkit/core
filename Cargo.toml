@@ -185,6 +185,12 @@ wit-parser = "0.249"
 # the prebuilt rather than building from source, and cargo recursively fetches a git dep's submodules -- whose deep
 # third_party/rust paths blow Windows MAX_PATH. The submodule-bearing build branch is `rustyscript_v8`.
 [patch.crates-io]
+# libffi-sys (pulled via deno_ffi -> libffi) skips passing --host to its autoconf configure when the Rust host
+# is itself x86_64-pc-windows-gnullvm (target == host). Under the Windows build's msys2 sh, config.guess then
+# reports x86_64-pc-msys and enables libffi's Linux static-trampoline path, which cannot compile with a clang
+# targeting windows-gnu (undeclared size_t / sysconf / off_t / malloc in tramp.c). The fork forces --host for
+# any *-windows-gnu* target; verified in its CI under msystem: MSYS. Drop once upstreamed.
+libffi-sys = { git = "https://github.com/jayvdb/libffi-rs", branch = "gnullvm" }
 v8 = { git = "https://github.com/jayvdb/rusty_v8", branch = "rustyscript_v8-prebuilt" }
 
 [profile.release.package.et-ws-wasm-agent]

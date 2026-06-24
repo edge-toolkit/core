@@ -6736,9 +6736,8 @@ dependencies = [
 
 [[package]]
 name = "libffi-sys"
-version = "4.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71d4f1d4ce15091955144350b75db16a96d4a63728500122706fb4d29a26afbb"
+version = "4.2.0"
+source = "git+https://github.com/jayvdb/libffi-rs?branch=gnullvm#9fa1552a568093c7c37bb2ef0b857973967a4aaf"
 dependencies = [
  "cc",
 ]
