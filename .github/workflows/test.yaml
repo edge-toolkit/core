@@ -37,9 +37,10 @@ defaults:
 env:
   MISE_ENV: "dotnet"
   # DEBUG (win-dotnet): bisect the dotnet-data1 gnullvm WASM crash by forcing the V8 WASM compile tier.
-  # et-ws-web-runner's main.rs feeds this to v8::V8::set_flags_from_string. `--no-liftoff` = TurboFan only;
-  # try `--liftoff-only` / `--jitless` next. Remove once the .NET module runs (or the crash is understood).
-  RUNNER_V8_FLAGS: "--no-liftoff"
+  # et-ws-web-runner's main.rs feeds this to v8::V8::set_flags_from_string. `--no-liftoff` (TurboFan only) still
+  # crashed dotnet-data1, so neither WASM tier avoids it; `--jitless` (no JIT -> WASM interpreter) is the decisive
+  # codegen-vs-runtime test. Remove once the .NET module runs (or the crash is understood).
+  RUNNER_V8_FLAGS: "--jitless"
 
 jobs:
   rust:
