@@ -174,12 +174,14 @@ wit-bindgen = "0.57"
 wit-encoder = "0.249"
 wit-parser = "0.249"
 
-# Use the jayvdb/rusty_v8 fork's `rustyscript_v8` branch (v8 149.3.0 + x86_64-pc-windows-gnullvm support) so the
-# Windows build can link the gnullvm prebuilt librusty_v8 (RUSTY_V8_MIRROR points at the fork release). The fork is
-# version 149.3.0, satisfying deno_core 0.402's `^149.2` (<150) requirement; non-gnullvm platforms still fetch
-# denoland's matching 149.3.0 prebuilts via the fork's unchanged download path.
+# Use the jayvdb/rusty_v8 fork (v8 149.3.0 + x86_64-pc-windows-gnullvm support) so the Windows build can link the
+# gnullvm prebuilt librusty_v8 (RUSTY_V8_MIRROR points at the fork release). The fork is version 149.3.0, satisfying
+# deno_core 0.402's `^149.2` (<150); non-gnullvm platforms still fetch denoland's matching 149.3.0 prebuilts via the
+# fork's unchanged download path. The `-prebuilt` branch has the V8/chromium submodules stripped: consumers download
+# the prebuilt rather than building from source, and cargo recursively fetches a git dep's submodules -- whose deep
+# third_party/rust paths blow Windows MAX_PATH. The submodule-bearing build branch is `rustyscript_v8`.
 [patch.crates-io]
-v8 = { git = "https://github.com/jayvdb/rusty_v8", branch = "rustyscript_v8" }
+v8 = { git = "https://github.com/jayvdb/rusty_v8", branch = "rustyscript_v8-prebuilt" }
 
 [profile.release.package.et-ws-wasm-agent]
 opt-level = "s"
