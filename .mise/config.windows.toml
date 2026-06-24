@@ -156,6 +156,12 @@ BINDGEN_EXTRA_CLANG_ARGS = "--target=x86_64-w64-windows-gnu"
 CARGO_BUILD_TARGET = "x86_64-pc-windows-gnullvm"
 CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_LINKER = "{{ vars.win_llvm_bin }}\\clang.exe"
 CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_RUSTFLAGS = "-Cdlltool={{ vars.win_llvm_bin }}\\llvm-dlltool.exe"
+# Our gnullvm librusty_v8 prebuilt is built with use_custom_libcxx=false: it links llvm-mingw's libc++ instead of
+# bundling V8's own copy. So the v8 crate must dynamically link `c++` at consume time, but rusty_v8's build.rs only
+# emits that link when its `use_custom_libcxx` cargo feature is off OR GN_ARGS names use_custom_libcxx=false -- and
+# deno_core turns the feature on. GN_ARGS does NOT trigger a source build (only V8_FROM_SOURCE does); it just flips
+# the libc++ link decision. Without it the et-ws-web-runner link fails with undefined std::__1::* / __cxa_* symbols.
+GN_ARGS = "use_custom_libcxx=false"
 # Download the gnullvm librusty_v8 prebuilt (+ src_binding) from the jayvdb/rusty_v8 fork release instead of
 # building V8 from source. The v8 crate is [patch]ed to that fork (rustyscript_v8: v8 149.3.0 + gnullvm support);
 # its build.rs fetches `<base>/v149.3.0/librusty_v8_simdutf_release_x86_64-pc-windows-gnullvm.a.gz`. Windows-only
