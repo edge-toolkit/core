@@ -142,6 +142,11 @@ no_opt = "--no-opt"
 # (mise can't auto-find an http-backend shell.) busybox ash accepts the
 # `-euo pipefail -c` the shell string passes; the task bodies are POSIX.
 MISE_BASH_PATH = "{{ vars.winsh }}"
+# bindgen (used by aws-lc-sys and ort-sys) invokes libclang without a --target, so it parses llvm-mingw's own
+# stdlib.h / time.h with the wrong predefined macros and dies with "expected ';' after top level declarator".
+# Pass the mingw clang triple so _WIN32 / __MINGW32__ / __GNUC__ are predefined and the headers parse. bindgen-only
+# (the cc/cmake C builds ignore it); the llvm-mingw libclang locates its own resource dir for builtin headers.
+BINDGEN_EXTRA_CLANG_ARGS = "--target=x86_64-w64-windows-gnu"
 # Build for the LLVM mingw target.
 # gnullvm, not gnu: llvm-mingw ships compiler-rt + libunwind, not the GCC runtime (libgcc/libgcc_eh) the gnu
 # target's link line demands. The linker is llvm-mingw's clang and the raw-dylib import tool is its
