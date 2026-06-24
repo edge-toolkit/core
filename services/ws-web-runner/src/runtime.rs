@@ -29,7 +29,7 @@ use deno_runtime::deno_fs::{FileSystemRc, RealFs};
 use deno_runtime::deno_inspector_server::MainInspectorSessionChannel;
 use deno_runtime::deno_io::Stdio;
 use deno_runtime::deno_permissions::PermissionsContainer;
-use deno_runtime::deno_web::InMemoryBroadcastChannel;
+use deno_runtime::deno_web::{BlobStore, InMemoryBroadcastChannel};
 use deno_runtime::ops::worker_host::CreateWebWorkerCb;
 use deno_runtime::permissions::RuntimePermissionDescriptorParser;
 use deno_runtime::web_worker::{WebWorker, WebWorkerOptions, WebWorkerServiceOptions};
@@ -159,7 +159,7 @@ fn create_web_worker_cb(
             module_loader,
             permissions: args.permissions,
             shared_array_buffer_store: Some(sab_store),
-            blob_store: Arc::default(),
+            blob_store: Arc::new(BlobStore::default()),
             broadcast_channel: InMemoryBroadcastChannel::default(),
             bundle_provider: None,
             compiled_wasm_module_store: None,
@@ -252,7 +252,7 @@ pub async fn run_js_module(
         module_loader,
         permissions,
         shared_array_buffer_store: Some(sab_store.clone()),
-        blob_store: Arc::default(),
+        blob_store: Arc::new(BlobStore::default()),
         broadcast_channel: InMemoryBroadcastChannel::default(),
         bundle_provider: None,
         compiled_wasm_module_store: None,

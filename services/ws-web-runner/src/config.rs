@@ -16,4 +16,9 @@ pub struct Config {
     /// `WS_*` settings (`WS_SERVER_URL`).
     #[serde(default)]
     pub ws: WsConfig,
+    /// Optional V8 flags from `V8_FLAGS`, applied via `v8::V8::set_flags_from_string` before the
+    /// runtime initialises. Used to select the WASM compile tier when debugging the gnullvm
+    /// dotnet-data1 crash (e.g. `--no-liftoff`, `--liftoff-only`, `--jitless`).
+    #[serde(default)]
+    pub v8_flags: Option<String>,
 }
