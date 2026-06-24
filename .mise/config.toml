@@ -599,8 +599,10 @@ description = "Run conftest OPA/Rego policies over the GitHub Actions workflow +
 # per-file rules (gha, no_trailing_backslash) over workflow YAML; --combine rules (gha_combined) over
 # workflow YAML for cross-cutting invariants where the rule has to compare each workflow's parsed body
 # against its own filename (the `paths:` self-reference check; conftest's per-file mode has no `input.path`);
-# and gha_action over the composite actions under .github/actions/*/action.yaml (different schema, so its
-# own namespace).
+# gha_action over the composite actions under .github/actions/*/action.yaml (different schema, so its
+# own namespace); and gha_mise over the workflow YAML combined with .mise (auto-detected parsers) so a rule can
+# cross-check a hard-coded action-input version against the matching mise [tools] pin (setup-dotnet's
+# dotnet-version vs the `dotnet` pin).
 run = """
 ns="--namespace gha --namespace no_trailing_backslash"
 # $ns expands to repeated `--namespace <n>` pairs; word-splitting is intentional.
@@ -608,6 +610,7 @@ ns="--namespace gha --namespace no_trailing_backslash"
 conftest test --parser yaml $ns -p config/conftest/policy .github/workflows
 conftest test --parser yaml --combine --namespace gha_combined -p config/conftest/policy .github/workflows
 conftest test --parser yaml --namespace gha_action -p config/conftest/policy .github/actions/*/action.yaml
+conftest test --combine --namespace gha_mise -p config/conftest/policy .github/workflows .mise
 """
 shell = "bash -euo pipefail -c"
 

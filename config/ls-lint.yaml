@@ -34,7 +34,13 @@ ignore:
   - "**/.ruff_cache"
   - "**/.zig-cache"
   - "**/zig-out"
-  - "**/.dart_tool"
+  # `dart pub get` creates `.dart_tool/`, whose name fails the .dir rule, so it must be ignored.
+  # ls-lint snapshots glob-based ignores once at startup and drops any matching nothing then
+  # (internal/glob/glob.go deletes zero-match keys), so a `**/.dart_tool` glob loses the race against the parallel
+  # `dart-pub-get` task creating these dirs mid-run. Literal paths are never glob-expanded, so they stay ignored
+  # whenever the dir appears; the generated/ dart packages' `.dart_tool` is already covered by `generated` above.
+  - services/ws-modules/dart-comm1/.dart_tool
+  - services/ws-modules/dart-data1/.dart_tool
   - "**/obj"
   - "**/bin/Debug"
   - "**/bin/Release"

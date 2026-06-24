@@ -34,8 +34,9 @@ step_shell_allowed(step) if {
 
 # Every workflow must declare MISE_ENV at the workflow level so the set of loaded language envs is visible at a glance.
 # This avoids per-job `mise run print-all-langs` runtime resolution. The matching `Show MISE_ENV` step in each job
-# echoes the value into the CI log.
+# echoes the value into the CI log. Carve-out: test-msvc deliberately doesn't use mise.
 deny contains msg if {
+	input.name != "test-msvc"
 	not input.env.MISE_ENV
 	msg := "workflow must set top-level env.MISE_ENV (the comma-separated language list)"
 }
