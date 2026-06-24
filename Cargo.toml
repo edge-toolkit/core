@@ -58,14 +58,14 @@ bytesize = { version = "2", features = ["serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive"] }
 clap-markdown = "0.1.5"
-deno_core = "0.402.0"
+deno_core = "0.404.0"
 deno_error = "=0.7.1"
-deno_resolver = "0.80.0"
+deno_resolver = "0.82.0"
 # `transpile` enables on-the-fly TS transpilation (deno_node ships its own TS).
 # `hmr` makes `op_snapshot_options` use `state.try_take(...).unwrap_or_default()`
 # instead of panicking when no SnapshotOptions struct is in OpState -- without
 # baking our own startup snapshot we'd otherwise hit the panic on first run.
-deno_runtime = { version = "0.257.0", features = ["transpile", "hmr"] }
+deno_runtime = { version = "0.259.0", features = ["transpile", "hmr"] }
 edge-toolkit = { path = "libs/edge-toolkit", version = "0.1.0" }
 et-modules-service = { path = "services/modules", version = "0.1.0" }
 et-otlp = { path = "libs/et-otlp", version = "0.1.0" }
