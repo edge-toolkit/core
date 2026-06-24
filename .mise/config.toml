@@ -1215,6 +1215,15 @@ coreutils cp "$rp_pkg"/rustpython_wasm.js "$rp_pkg"/rustpython_wasm.d.ts pkg/
 coreutils cp "$rp_pkg"/rustpython_wasm_bg.wasm "$rp_pkg"/rustpython_wasm_bg.wasm.d.ts pkg/
 coreutils cp -R "$rp_pkg/snippets" pkg/
 coreutils cp index.js main.py pkg/
+
+# Ship the mise-managed cowsay package as plain modules that index.js injects into the rustpython VM.
+# rustpython-WASM has no filesystem for third-party packages, so `import cowsay` is served via injectModule.
+# cowsay comes from the always-loaded `pipx:cowsay` mise tool, located by globbing its site-packages dir (no
+# version hardcoded).
+cowsay_pkg="$(find "$(mise where pipx:cowsay)" -type d -name cowsay -path '*site-packages*' | head -1)"
+coreutils mkdir -p pkg/cowsay
+coreutils cp "$cowsay_pkg/__init__.py" "$cowsay_pkg/main.py" "$cowsay_pkg/characters.py" pkg/cowsay/
+
 coreutils cat > pkg/package.json <<'PKG_JSON'
 {
   "name": "et-ws-pywasm1",
@@ -1224,6 +1233,9 @@ coreutils cat > pkg/package.json <<'PKG_JSON'
   "files": [
     "index.js",
     "main.py",
+    "cowsay/__init__.py",
+    "cowsay/main.py",
+    "cowsay/characters.py",
     "rustpython_wasm.js",
     "rustpython_wasm.d.ts",
     "rustpython_wasm_bg.wasm",
