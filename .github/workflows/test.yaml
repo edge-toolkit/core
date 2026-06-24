@@ -2,10 +2,11 @@
 name: test
 
 "on":
+  # Re-enabled on win-dotnet to verify et-ws-web-runner builds/runs on x86_64-pc-windows-gnullvm with the
+  # mirrored librusty_v8 prebuilt. Windows-only on push (see the matrix below).
   push:
     branches:
       - win-dotnet
-  pull_request:
   workflow_dispatch:
     inputs:
       os:

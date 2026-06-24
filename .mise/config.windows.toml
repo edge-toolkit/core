@@ -139,6 +139,11 @@ MISE_BASH_PATH = "{{ vars.winsh }}"
 CARGO_BUILD_TARGET = "x86_64-pc-windows-gnullvm"
 CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_LINKER = "{{ vars.win_llvm_bin }}\\clang.exe"
 CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_RUSTFLAGS = "-Cdlltool={{ vars.win_llvm_bin }}\\llvm-dlltool.exe"
+# Download the gnullvm librusty_v8 prebuilt (+ src_binding) from the jayvdb/rusty_v8 fork release instead of
+# building V8 from source. The v8 crate is [patch]ed to that fork (rustyscript_v8: v8 149.3.0 + gnullvm support);
+# its build.rs fetches `<base>/v149.3.0/librusty_v8_simdutf_release_x86_64-pc-windows-gnullvm.a.gz`. Windows-only
+# env, so other platforms keep denoland's default prebuilt source.
+RUSTY_V8_MIRROR = "https://github.com/jayvdb/rusty_v8/releases/download"
 LIBCLANG_PATH = "{{ vars.win_libclang }}"
 PYO3_PYTHON = "{{ vars.py3_win }}"
 # Force ort-sys to prefer dynamic linkage on Windows.
@@ -273,11 +278,3 @@ shell = "bash -xeuo pipefail -c"
 # bash -x (xtrace) on this OS-specific preinstall.
 # CI failures on Nano (rclone-not-found, sha256 path mangling, etc.) are easier to diagnose with the full
 # per-command transcript than with the silent default.
-
-[tasks.test-ws-web-runner]
-# Override: skip et-ws-web-runner on Windows.
-# It pulls deno -> v8, whose build script downloads a prebuilt rusty_v8 static lib; denoland/rusty_v8 ships
-# Windows prebuilts only for x86_64-pc-windows-msvc, not the gnullvm target this build uses, so the fetch
-# 404s and the from-source fallback can't build under llvm-mingw. The suite still runs on the Linux/macOS jobs.
-run = "echo 'skipping et-ws-web-runner on windows: rusty_v8 has no gnullvm prebuilt'"
-shell = "bash -euo pipefail -c"

@@ -36,7 +36,7 @@ run = '''
 # downstream test on Windows logs `skipping ...: pkg/ not built` instead of failing. Drop this guard once
 # .NET's SDK either honors PATH or documents a property that overrides the link <Exec> command.
 
-# TEMPORARY disable
+# TEMPORARY: Windows skip disabled to exercise the .NET WASM build on Windows.
 #if [ "${OS:-}" = "Windows_NT" ]; then
 #    echo "build-ws-dotnet-data1-module: skipped on Windows (MSBuild link <Exec> ignores our PATH; emcc unresolvable)"
 #    exit 0
