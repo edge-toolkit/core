@@ -51,6 +51,7 @@ use rstest::rstest;
 #[case::dotnet_data1("et-ws-dotnet-data1", Language::Dotnet)]
 #[case::java_data1("et-ws-java-data1", Language::Java)]
 #[case::zig_data1("et-ws-zig-data1", Language::Zig)]
+#[case::dart_data1("et-ws-dart-data1", Language::Dart)]
 #[case::pywasm1("et-ws-pywasm1", Language::Python)]
 fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
     // When CI narrows MISE_ENV (e.g. `dotnet,rust`) the env-gated guest

@@ -18,6 +18,12 @@ directly:
 
 - `dart-ws/pubspec.yaml` — Dart package metadata.
 - `dart-ws/README.md`
+- `dart-rest/pubspec.yaml` — Dart package metadata, version, deps
+  (`dio`, `retrofit`, `json_annotation` + the `swagger_parser` /
+  `build_runner` codegen dev-deps).
+- `dart-rest/swagger_parser.yaml` — generator config (schema path,
+  serializer, `client_postfix`).
+- `dart-rest/README.md`
 - `python-ws/pyproject.toml` — Python package metadata, version, deps.
 - `python-ws/README.md`
 - `python-ws/et_ws/__init__.py` — Package exports / re-imports.
@@ -65,6 +71,13 @@ directly:
 - `rust-rest/src/lib.rs` — Typed Rust client for the REST surface, generated
   by `progenitor` (driven in-process by `et-int-gen`) from
   `specs/rest.yaml`.
+- `dart-rest/lib/` — Typed Dart (retrofit-on-dio) client for the REST
+  surface. Pipeline: `specs/rest.yaml` → `swagger_parser` → `build_runner`.
+  Two files are post-processed by `gen:dart-rest` after swagger_parser and
+  are therefore **not** safe to hand-edit (regen overwrites): `clients/
+  storage.dart` (binary octet-stream body/response made browser-usable) and
+  `rest_client.dart` (sub-client import paths corrected). The rest of `lib/`
+  is verbatim generator output.
 - `zig-rest/src/et_rest_client.zig` — Typed Zig client for the REST
   surface. Pipeline: `et-int-gen` writes `target/int-gen/rest.json`,
   invokes `openapi2zig` as a subprocess, then uses `tree-sitter-zig` to

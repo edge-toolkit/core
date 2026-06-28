@@ -76,5 +76,10 @@ max_line_length = unset
 [generated/zig-rest/**]
 max_line_length = unset
 
+# swagger_parser + retrofit_generator emit doc comments lifted verbatim from the OpenAPI summaries plus
+# long `.g.dart` request-builder lines that `dart format` leaves intact (the files carry `// dart format off`).
+[generated/dart-rest/**]
+max_line_length = unset
+
 [config/upstream-cache/data.toml]
 max_line_length = 200

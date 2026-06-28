@@ -1,0 +1,19 @@
+name: et_dart_data1
+description: dart-data1 workflow module
+version: 0.1.0
+repository: https://github.com/edge-toolkit/core
+publish_to: none
+
+environment:
+  sdk: ^3.11.5
+
+dependencies:
+  dio: ^5.9.2
+  et_rest:
+    path: ../../../generated/dart-rest
+  et_ws:
+    path: ../../../generated/dart-ws
+  web: ^1.1.0
+
+dev_dependencies:
+  lints: ^6.0.0

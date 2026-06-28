@@ -1,0 +1,12 @@
+swagger_parser:
+  schema_path: ../specs/rest.yaml
+  output_directory: lib
+  language: dart
+  json_serializer: json_serializable
+  root_client: true
+  root_client_name: RestClient
+  client_postfix: ""
+  enums_to_json: true
+  use_freezed3: false
+  put_clients_in_folder: true
+  squash_clients: true
