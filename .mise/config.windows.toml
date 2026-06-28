@@ -28,6 +28,7 @@
 # affects what the tool links, not what executes it. (cargo:dart-typegen has no quickinstall release at all
 # -- not just no gnullvm one -- so it stays in MISE_DISABLE_TOOLS for the Windows test lane.)
 "cargo:cargo-expand" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
+"cargo:wasm-opt" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
 
 # busybox-w32 `sh` (POSIX ash) -- the shell the bash-tasks run on.
 # A native Win32 single exe with no cygwin/msys runtime, so it loads on a bare Nano Server, unlike conda's

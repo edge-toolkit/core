@@ -57,8 +57,8 @@ action-validator = "latest"
 "aqua:rustwasm/wasm-pack" = "latest"
 ast-grep = "latest"
 cargo-binstall = "latest"
-"cargo:cargo-expand" = "latest"
-"cargo:wasm-opt" = "latest"
+"cargo:cargo-expand" = { version = "latest", os = ["linux", "macos"] }
+"cargo:wasm-opt" = { version = "latest", os = ["linux", "macos"] }
 taplo = "latest"
 watchexec = "latest"
 # Chromedriver disabled (commented out below).
