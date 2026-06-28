@@ -58,6 +58,7 @@ action-validator = "latest"
 ast-grep = "latest"
 cargo-binstall = "latest"
 "cargo:cargo-expand" = "latest"
+"cargo:wasm-opt" = "latest"
 taplo = "latest"
 watchexec = "latest"
 # Chromedriver disabled (commented out below).
@@ -902,7 +903,8 @@ depends = ["fetch-mnist-rclone", "prefetch:*"]
 description = "Pre-download CI-required dependencies + the MNIST model"
 
 [tasks.prefetch]
-depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "prefetch-ci"]
+# "dprint-check" is here to trigger download of the dprint plugin WASM files.
+depends = ["dprint-check", "fetch-face1-rclone", "fetch-har-motion1-rclone", "prefetch-ci"]
 description = "Pre-download all dependencies and models (superset of prefetch-ci)"
 
 [tasks."prefetch:rust"]

@@ -74,7 +74,7 @@ deny contains msg if {
 # not by CI. A slow cargo-source install on a workstation when refreshing the HF mirror is fine.
 second_tier_platform := {"linux/arm64", "macos/x64"}
 
-allowed_cargo_no_prebuilt := {"cargo:cargo-expand", "cargo:dart-typegen"}
+allowed_cargo_no_prebuilt := {"cargo:cargo-expand", "cargo:dart-typegen", "cargo:wasm-opt"}
 
 cargo_scoped_to_second_tier(spec) if {
 	is_object(spec)
