@@ -74,7 +74,7 @@ deny contains msg if {
 # not by CI. A slow cargo-source install on a workstation when refreshing the HF mirror is fine.
 second_tier_platform := {"linux/arm64", "macos/x64"}
 
-allowed_cargo_no_prebuilt := {"cargo:cargo-expand", "cargo:dart-typegen"}
+allowed_cargo_no_prebuilt := {"cargo:cargo-expand", "cargo:dart-typegen", "cargo:wasm-opt"}
 
 cargo_scoped_to_second_tier(spec) if {
 	is_object(spec)
@@ -125,10 +125,14 @@ allowed_os_scoped_tool := {
 	# Add a platform by dispatching the upstream-cache.yaml workflow on that host.
 	"http:et-rp",
 	"conda:gnupg",
+	# cargo:cargo-expand: gnullvm source-build fails, so os-scoped off Windows (msvc override in config.windows.toml).
+	"cargo:cargo-expand",
 	# cargo:dart-typegen is os-scoped to non-Windows because the gnullvm rust host fails on Windows source-builds.
 	# It trips `error[E0463]: can't find crate for 'core'`; coverage is preserved via http:dart-typegen in
 	# config.windows.toml, which serves the upstream-cache prebuilt.
 	"cargo:dart-typegen",
+	# cargo:wasm-opt: gnullvm source-build fails, so os-scoped off Windows (msvc override in config.windows.toml).
+	"cargo:wasm-opt",
 }
 
 deny contains msg if {
