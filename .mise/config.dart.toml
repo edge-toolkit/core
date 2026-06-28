@@ -5,6 +5,8 @@
 # The release tree and the bucket listing are referenced by its url/version_list_url.
 dart_bucket = "https://storage.googleapis.com/storage/v1/b/dart-archive/o"
 dart_release = "https://storage.googleapis.com/dart-archive/channels/stable/release"
+# Every tracked Dart package: the two generated clients plus the two modules. Shared by analyze/format.
+dart_paths = "generated/dart-ws generated/dart-rest services/ws-modules/dart-comm1 services/ws-modules/dart-data1"
 
 [tools]
 "cargo:dart-typegen" = { version = "latest", os = ["linux", "macos"] }
@@ -37,23 +39,25 @@ version_list_url = "{{ vars.dart_bucket }}?prefix=channels/stable/release/&delim
 # CI's fresh checkout.
 run = """
 dart pub get --directory generated/dart-ws
+dart pub get --directory generated/dart-rest
 dart pub get --directory services/ws-modules/dart-comm1
+dart pub get --directory services/ws-modules/dart-data1
 """
 shell = "bash -euo pipefail -c"
 
 [tasks.dart-check]
 depends = ["dart-pub-get"]
-run = "dart analyze services/ws-modules/dart-comm1/ generated/dart-ws/"
+run = "dart analyze {{ vars.dart_paths }}"
 
 [tasks.dart-fmt]
 depends = ["dart-pub-get"]
-run = "dart format services/ws-modules/dart-comm1/ generated/dart-ws/"
+run = "dart format {{ vars.dart_paths }}"
 
 [tasks.dart-fmt-check]
 depends = ["dart-pub-get"]
 # Parallel of cargo-fmt-check: fail if any tracked Dart source would be reformatted.
 # This lets CI enforce the same formatting `dart-fmt` applies.
-run = "dart format --output=none --set-exit-if-changed services/ws-modules/dart-comm1/ generated/dart-ws/"
+run = "dart format --output=none --set-exit-if-changed {{ vars.dart_paths }}"
 
 # Namespaced aggregators picked up by the default config's globbed `check`/`fmt`.
 [tasks."check:dart"]
@@ -73,9 +77,23 @@ dart compile js lib/dart_comm1.dart -o pkg/et_ws_dart_comm1_compiled.js --no-sou
 """
 shell = "bash -euo pipefail -c"
 
+[tasks.build-ws-dart-data1-module]
+description = "Build the dart-data1 workflow module"
+dir = "services/ws-modules/dart-data1"
+run = """
+dart pub get
+dart compile js lib/dart_data1.dart -o pkg/et_ws_dart_data1_compiled.js --no-source-maps
+"""
+shell = "bash -euo pipefail -c"
+
 [tasks."prefetch:dart"]
 description = "Prefetch Dart (pub) dependencies"
-run = "dart pub get --directory services/ws-modules/dart-comm1"
+run = """
+dart pub get --directory generated/dart-rest
+dart pub get --directory services/ws-modules/dart-comm1
+dart pub get --directory services/ws-modules/dart-data1
+"""
+shell = "bash -euo pipefail -c"
 
 [tasks."gen:dart-ws"]
 depends = ["gen:ws-spec"]
@@ -88,5 +106,53 @@ run = """
 mkdir -p generated/dart-ws/lib
 dart-typegen generate -i generated/specs/ws.kdl -o generated/dart-ws/lib/ws_messages.dart
 dart format generated/dart-ws/lib/ws_messages.dart
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks."gen:dart-rest"]
+depends = ["gen:ws-spec"]
+description = "Emit the Dart REST client via swagger_parser + build_runner (consumes generated/specs/rest.yaml)"
+dir = "generated/dart-rest"
+# Regenerate the Dart REST client, handling a Windows skip plus two swagger_parser output fixups.
+# Skipped on Windows like gen:dart-ws -- build_runner/dart-format output drifts there and gen-specs-check is
+# Windows-skipped anyway, so the Linux/macOS-regenerated files stay canonical. `rm -rf lib` first so a renamed
+# output (e.g. client_postfix change) can't leave orphaned files behind.
+#
+# Fixup 1 (storage.dart): swagger_parser renders the application/octet-stream storage endpoints unusably for the
+# browser -- a `dart:io` `File` PUT body and a `void` GET response. goawk rewrites it before build_runner so putFile
+# takes a Uint8List (dio sends Uint8List as raw bytes; a List<int> would be JSON-encoded) and getFile returns the
+# bytes. The END guard fails loudly if a swagger_parser bump moves those sites.
+#
+# Fixup 2 (rest_client.dart): with client_postfix = "" (which drops the `_client` suffix) swagger_parser emits the
+# root client's sub-client imports as `clients/<name>_.dart` -- a stray trailing underscore that export.dart does
+# not have. goawk strips it. Idempotent: a no-op if upstream fixes the inconsistency.
+run = """
+[ "${OS:-}" = "Windows_NT" ] && { echo "gen:dart-rest: skipped on Windows"; exit 0; }
+dart pub get
+coreutils rm -rf lib
+dart run swagger_parser
+s=../../target/scratch
+mkdir -p "$s"
+goawk 'BEGIN { q = sprintf("%c", 39) }
+/^import / && /dart:io/ { print "import " q "dart:typed_data" q ";"; io++; next }
+/^  Future<void> getFile\\(\\{$/ {
+  print "  @DioResponseType(ResponseType.bytes)"
+  print "  Future<List<int>> getFile({"
+  get++
+  next
+}
+/@Body\\(\\) required File body,/ { sub(/File body/, "Uint8List body"); print; body++; next }
+{ print }
+END {
+  if (io != 1 || get != 1 || body != 1) {
+    printf("gen:dart-rest storage fixup miss: io=%d get=%d body=%d\\n", io, get, body) > "/dev/stderr"
+    exit 1
+  }
+}' lib/clients/storage.dart > "$s/storage.dart"
+coreutils mv "$s/storage.dart" lib/clients/storage.dart
+goawk '/^import / && /clients/ { gsub(/_\\.dart/, ".dart") } { print }' lib/rest_client.dart > "$s/rest_client.dart"
+coreutils mv "$s/rest_client.dart" lib/rest_client.dart
+dart run build_runner build
+dart format lib
 """
 shell = "bash -euo pipefail -c"

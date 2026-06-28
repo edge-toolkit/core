@@ -1,20 +1,13 @@
 //! Deno `MainWorker` setup and module evaluation.
 //!
-//! `MainWorker` (from `deno_runtime`) handles the heavy lifting we used
-//! to do by hand: timers, `fetch`, `WebSocket`, `Headers`/`Request`/
-//! `Response`, crypto, `localStorage`, `Event`/`EventTarget`, `URL`,
-//! `Blob`, `File`, base64, performance, and console -- all wired onto
-//! `globalThis` by its bootstrap. We layer on top:
-//!   - a custom module loader that fetches from the ws-server
-//!   - browser-environment shims for wasm-bindgen modules (`window` /
-//!     `location` / `navigator` / `document` / `HTMLCanvasElement`)
-//!   - `WebAssembly.{instantiate,compile}Streaming` patches that fall
-//!     back to `arrayBuffer + instantiate/compile`, because `deno_fetch`
-//!     `Response` objects aren't streamable in V8's native path (dotnet
-//!     hits this)
-//!   - a `globalThis`-level event-target shim Pyodide expects
-//!   - removing the `Deno` global (Pyodide sniffs it and takes a
-//!     broken path)
+//! `MainWorker` (from `deno_runtime`) wires the standard web platform onto
+//! `globalThis` via its bootstrap: timers, `fetch`, `WebSocket`,
+//! `Headers`/`Request`/`Response`, crypto, `localStorage`,
+//! `Event`/`EventTarget`, `URL`, `Blob`, `File`, base64, performance, and
+//! console. On top of that we add a custom module loader that fetches from the
+//! ws-server, plus the browser-environment shims that wasm-bindgen, dart2js,
+//! and Pyodide modules expect -- one concern per `shims/*.js` fragment,
+//! concatenated by `shim_js()`.
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -107,20 +100,27 @@ impl deno_core::ModuleLoader for ServerModuleLoader {
     }
 }
 
-/// The browser-environment shim layered on top of `MainWorker`'s bootstrap.
-///
-/// Sourced from `shim.js` next to this file, with two placeholder tokens
-/// substituted for the per-run URLs.
-const SHIM_TEMPLATE: &str = include_str!("shim.js");
+/// Browser-environment shim fragments, concatenated in order ahead of the
+/// module. Split by concern under `shims/`; each fragment documents itself.
+const SHIMS: &[&str] = &[
+    include_str!("shims/main.js"),
+    include_str!("shims/document.js"),
+    include_str!("shims/events.js"),
+    include_str!("shims/wasm_streaming.js"),
+    include_str!("shims/xhr.js"),
+];
 
-/// Render the shim with the per-run URL substitutions.
+/// Render the full shim for a run.
 ///
-/// Substitutes the ws-server's HTTP base (used for `location` and module URL
-/// resolution) and the WebSocket URL (exposed on `globalThis.__ET_WS_URL`).
+/// Emits the per-run URL globals -- the ws-server's HTTP base (used for
+/// `location` and module URL resolution) and the WebSocket URL (exposed on
+/// `globalThis.__ET_WS_URL`) -- then concatenates every `shims/*.js` fragment.
 fn shim_js(http_base: &str, ws_url: &str) -> String {
-    SHIM_TEMPLATE
-        .replace("__ET_HTTP_BASE__", http_base)
-        .replace("__ET_WS_URL__", ws_url)
+    let prelude = format!("globalThis.__ET_HTTP_BASE = {http_base:?};\nglobalThis.__ET_WS_URL = {ws_url:?};");
+    std::iter::once(prelude.as_str())
+        .chain(SHIMS.iter().copied())
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Build the `CreateWebWorkerCb` that spawns child `WebWorker`s on fresh OS threads.
