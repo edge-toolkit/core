@@ -16,8 +16,8 @@ Please install [`mise`](https://mise.jdx.dev/) (2026.6.5 or later), including th
 for all use of this repository.
 
 The `mise` configuration lives under [`.mise/`](.mise/): the always-loaded [`.mise/config.toml`](.mise/config.toml)
-holds the Rust/Node tooling and shared tasks, and per-language `.mise/config.<lang>.toml` files (dart, dotnet, java,
-python, zig) are selected via `MISE_ENV` so a dev can work on one language without installing the others -- e.g.
+holds the Rust/Node tooling and shared tasks, and per-language `.mise/config.<lang>.toml` files are selected via
+`MISE_ENV` so a dev can work on one language without installing the others -- e.g.
 `MISE_ENV=dart mise install`. CI runs every language; `mise run check-all` (and `install-all`, `test-all`, ...) act
 on all of them at once.
 
@@ -62,6 +62,9 @@ written to your global `~/.config/mise/config.toml`, so it stays per-machine and
 mise.exe links the Microsoft VC++ runtime (`vcruntime140.dll`), so it must be present or mise won't start. It's
 preinstalled on Windows 10/11 and Server, so you already have it -- only Nano Server omits it, and there the
 Docker build installs the [VC++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe).
+
+mise-powered builds use the `x86_64-pc-windows-gnullvm` Rust target (llvm-mingw), which needs no MSVC toolchain or
+Windows SDK on disk. The native `x86_64-pc-windows-msvc` target can also be used.
 
 ### Windows shell
 
@@ -209,14 +212,28 @@ Modules target one of three runners.
 
 ### Browser runner ([ws-web-runner](services/ws-web-runner))
 
-Modules loaded by a web browser, or natively under Deno by `et-ws-web-runner`. Most are Rust built with
-`wasm-pack build --target web`; other languages:
+Modules loaded by a web browser, or using Deno as the "web browser" in `et-ws-web-runner`.
+
+Most are Rust built with `wasm-pack build --target web`; other languages:
 
 - Dart
 - Java
 - .Net C#
 - Python, using [pyodide](https://pyodide.org/) and [RustPython](https://rustpython.github.io/)
 - Zig, including C code
+
+#### Windows MSVC
+
+On Windows `et-ws-web-runner` must be built with the MSVC target (`x86_64-pc-windows-msvc`), not the gnullvm
+default the rest of the repo uses. It embeds V8 through `deno_core` and the `v8` crate, and gnullvm cannot be
+built: there is no `x86_64-pc-windows-gnullvm` `librusty_v8` prebuilt, the gnullvm build path in `rusty_v8` is
+still unfinished (open PRs [denoland/rusty_v8#1880](https://github.com/denoland/rusty_v8/pull/1880) and
+[#1957](https://github.com/denoland/rusty_v8/pull/1957)), and the MSVC prebuilt can't be linked into a gnullvm
+binary because the two ABIs are incompatible.
+
+Also the build system for .Net C# to WASM does not work under Windows mise.
+
+See Github Action `test-msvc.yaml` for building and running .NET WASM modules.
 
 ### WASI runner ([ws-wasi-runner](services/ws-wasi-runner))
 

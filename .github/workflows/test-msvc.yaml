@@ -1,0 +1,72 @@
+---
+name: test-msvc
+
+# Deliberately does NOT use mise, which uses gnullvm target. Instead manually targets the default MSVC.
+# And only runs the web-runner tests, as web-runner doesnt work under gnullvm.
+"on":
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# this allows a subsequently queued workflow run to interrupt previous runs in pull requests only
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+jobs:
+  web-runner-msvc:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install Rust (x86_64-pc-windows-msvc)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install NASM
+        # aws-lc-sys (deno_node_crypto -> ... -> aws-lc-sys) assembles BoringSSL's x86_64 .asm with NASM.
+        uses: ilammy/setup-nasm@v1
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.300"
+
+      - name: Build dotnet-data1 WASM module
+        run: |
+          set -xeuo pipefail
+          cd services/ws-modules/dotnet-data1
+          dotnet workload install wasm-tools --skip-manifest-update
+          # MSBuild's BrowserWasmApp.targets link step calls bare `emcc` and relies on PATH.
+          # Surface the workload's emcc dir + EmscriptenLocation ourselves (same approach as the mise build task).
+          packs="${DOTNET_ROOT:-/c/Program Files/dotnet}/packs"
+          emcc_bat="$(find "$packs" -name emcc.bat 2>/dev/null | head -1)"
+          if [ -z "$emcc_bat" ]; then
+            emcc_bat="$(find "/c/Program Files/dotnet/packs" -name emcc.bat 2>/dev/null | head -1)"
+          fi
+          test -n "$emcc_bat" || { echo "emcc.bat not found under dotnet packs"; exit 1; }
+          emcc_dir="$(dirname "$emcc_bat")"
+          emsdk_loc="$(dirname "$(dirname "$emcc_dir")")/Sdk"
+          export PATH="$(cygpath -u "$emcc_dir"):$PATH"
+          dotnet publish -c Release -p:EmscriptenLocation="$(cygpath -w "$emsdk_loc")"
+          publish=bin/Release/net10.0/publish/wwwroot/_framework
+          cp "$publish"/*.js "$publish"/*.wasm "$publish"/*.dat pkg/
+
+      - name: Run web-runner dotnet-data1 test
+        # Filter by the `dotnet` substring, not a positional `case_N_` name, so cargo auto-finds the dotnet case(s).
+        # rstest numbers cases by declaration order, so a hard-coded index would silently repoint at the wrong test
+        # when a module is inserted before it.
+        env:
+          MISE_ENV: dotnet
+        run: cargo test -p et-ws-web-runner dotnet -- --nocapture
