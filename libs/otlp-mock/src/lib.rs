@@ -1,18 +1,21 @@
-//! In-process mock OTLP/HTTP-JSON collector.
+//! In-process mock OTLP/HTTP collector (protobuf or JSON).
 //!
 //! Used by integration tests to verify trace-context propagation across
 //! processes: both the system-under-test (ws-server, ws-wasi-runner, ...)
 //! point their OTLP exporters at this collector, then the test reads the
 //! captured spans back to assert that trace ids match.
 //!
-//! This is **not** a real OTLP implementation -- it just buffers JSON
-//! payloads. The endpoints match the URL shape `et-otlp::init` produces:
+//! This is **not** a real OTLP implementation -- it just buffers payloads.
+//! Endpoints match the URL shape `et-otlp::init` produces:
 //!
-//!   - `POST <collector_url>/traces`
-//!   - `POST <collector_url>/logs`
+//!   - `POST <collector_url>/traces` -- accepts OTLP/HTTP in either encoding,
+//!     chosen by `Content-Type`: `application/x-protobuf` (what a real relay
+//!     such as Vector's opentelemetry sink emits) or JSON (what `et-otlp` sends
+//!     with `OTLP_PROTOCOL=JSON`). Both decode to the same `ExportTraceServiceRequest`.
+//!   - `POST <collector_url>/logs` -- OTLP/HTTP-JSON log payloads.
 //!
-//! so tests should set `OTLP_COLLECTOR_URL=<mock.collector_url()>` and
-//! `OTLP_PROTOCOL=JSON`.
+//! Read captured spans back via [`OtlpMock::flatten_spans`] and logs via
+//! [`OtlpMock::logs`].
 #![expect(
     clippy::unwrap_used,
     clippy::panic,
@@ -23,12 +26,16 @@
 use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
 
+use actix_web::http::header::ContentType;
 use actix_web::{App, HttpResponse, HttpServer, post, web};
+use opentelemetry_proto::tonic::collector::trace::v1::ExportTraceServiceRequest;
+use opentelemetry_proto::tonic::common::v1::any_value;
+use prost::Message as _;
 use serde_json::Value;
 
 #[derive(Default)]
 struct Captured {
-    traces: Mutex<Vec<Value>>,
+    traces: Mutex<Vec<ExportTraceServiceRequest>>,
     logs: Mutex<Vec<Value>>,
 }
 
@@ -52,72 +59,45 @@ impl OtlpMock {
         &self.collector_url
     }
 
-    /// Snapshot the trace payloads received so far. Each element is one
-    /// `ExportTraceServiceRequest` body (top-level shape:
-    /// `{ "resourceSpans": [...] }`).
-    #[must_use]
-    pub fn traces(&self) -> Vec<Value> {
-        self.captured.traces.lock().unwrap().clone()
-    }
-
     /// Snapshot the log payloads received so far.
     #[must_use]
     pub fn logs(&self) -> Vec<Value> {
         self.captured.logs.lock().unwrap().clone()
     }
 
-    /// Walk every span across every captured request, returning each span
-    /// with its parent `Resource`'s `service.name` attribute (so the test
-    /// can group spans by service). Trace and span ids stay as the
-    /// base64-encoded strings the OTLP/HTTP-JSON encoding uses -- equality
-    /// comparison is what tests need, not decoding.
+    /// Walk every span across every captured request, returning each span with
+    /// its parent `Resource`'s `service.name` attribute (so the test can group
+    /// spans by service). Trace/span ids are lowercase-hex-encoded from the
+    /// decoded bytes -- compare against [`to_hex`] of the raw ids you sent.
     #[must_use]
     pub fn flatten_spans(&self) -> Vec<FlatSpan> {
         let mut out = Vec::new();
-        for req in self.traces() {
-            let Some(resource_spans) = req.get("resourceSpans").and_then(Value::as_array) else {
-                continue;
-            };
-            for resource_span in resource_spans {
+        for req in self.captured.traces.lock().unwrap().iter() {
+            for resource_span in &req.resource_spans {
                 let service_name = resource_span
-                    .get("resource")
-                    .and_then(|resource| resource.get("attributes"))
-                    .and_then(Value::as_array)
-                    .and_then(|attrs| {
-                        attrs.iter().find_map(|attr| {
-                            if attr.get("key").and_then(Value::as_str) == Some("service.name") {
-                                attr.get("value")
-                                    .and_then(|value| value.get("stringValue"))
-                                    .and_then(Value::as_str)
-                                    .map(str::to_string)
-                            } else {
-                                None
-                            }
-                        })
+                    .resource
+                    .as_ref()
+                    .and_then(|resource| {
+                        resource
+                            .attributes
+                            .iter()
+                            .filter(|attr| attr.key == "service.name")
+                            .find_map(|attr| {
+                                let any_value::Value::StringValue(value) = attr.value.as_ref()?.value.as_ref()? else {
+                                    return None;
+                                };
+                                Some(value.clone())
+                            })
                     })
                     .unwrap_or_default();
-                let Some(scope_spans) = resource_span.get("scopeSpans").and_then(Value::as_array) else {
-                    continue;
-                };
-                for scope_span in scope_spans {
-                    let Some(spans) = scope_span.get("spans").and_then(Value::as_array) else {
-                        continue;
-                    };
-                    for span in spans {
-                        let trace_id = span.get("traceId").and_then(Value::as_str).unwrap_or("").to_string();
-                        let span_id = span.get("spanId").and_then(Value::as_str).unwrap_or("").to_string();
-                        let parent_span_id = span
-                            .get("parentSpanId")
-                            .and_then(Value::as_str)
-                            .unwrap_or("")
-                            .to_string();
-                        let name = span.get("name").and_then(Value::as_str).unwrap_or("").to_string();
+                for scope_span in &resource_span.scope_spans {
+                    for span in &scope_span.spans {
                         out.push(FlatSpan {
                             service_name: service_name.clone(),
-                            trace_id,
-                            span_id,
-                            parent_span_id,
-                            name,
+                            trace_id: to_hex(&span.trace_id),
+                            span_id: to_hex(&span.span_id),
+                            parent_span_id: to_hex(&span.parent_span_id),
+                            name: span.name.clone(),
                         });
                     }
                 }
@@ -127,12 +107,24 @@ impl OtlpMock {
     }
 }
 
+/// Lowercase-hex-encode bytes -- used for the trace/span ids in [`FlatSpan`].
+#[must_use]
+pub fn to_hex(bytes: &[u8]) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    for byte in bytes {
+        // Writing to a String is infallible; unwrap is allowed crate-wide.
+        write!(out, "{byte:02x}").unwrap();
+    }
+    out
+}
+
 /// Flattened span view for assertions.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct FlatSpan {
     pub service_name: String,
-    /// Base64-encoded 16-byte trace id (OTLP/HTTP-JSON proto-JSON encoding).
+    /// Lowercase-hex-encoded 16-byte trace id.
     pub trace_id: String,
     pub span_id: String,
     pub parent_span_id: String,
@@ -144,10 +136,34 @@ pub struct FlatSpan {
     reason = "actix-web route handler; registered via the #[post] macro"
 )]
 #[post("/traces")]
-async fn handle_traces(state: web::Data<Arc<Captured>>, body: web::Json<Value>) -> HttpResponse {
-    state.traces.lock().unwrap().push(body.into_inner());
-    // OTLP success: empty `ExportTraceServiceResponse` is just `{}`.
-    HttpResponse::Ok().content_type("application/json").body("{}")
+async fn handle_traces(
+    state: web::Data<Arc<Captured>>,
+    content_type: web::Header<ContentType>,
+    body: web::Bytes,
+) -> HttpResponse {
+    // `web::Header` (not `HttpRequest`) keeps the handler's future `Send`.
+    let is_protobuf = content_type.0.subtype().as_str().contains("protobuf");
+    // Decode either encoding to the one `ExportTraceServiceRequest` shape.
+    // Slice-decode so prost's `Buf` bound is met by `&[u8]`, avoiding any
+    // `bytes` crate version identity concern with `web::Bytes`.
+    let decoded = if is_protobuf {
+        ExportTraceServiceRequest::decode(body.as_ref()).ok()
+    } else {
+        serde_json::from_slice::<ExportTraceServiceRequest>(&body).ok()
+    };
+    let Some(trace_request) = decoded else {
+        return HttpResponse::BadRequest().finish();
+    };
+    state.traces.lock().unwrap().push(trace_request);
+    // OTLP success is an empty `ExportTraceServiceResponse`: `{}` in JSON, no
+    // bytes in protobuf. Echo the request's encoding back.
+    if is_protobuf {
+        HttpResponse::Ok()
+            .content_type("application/x-protobuf")
+            .body(Vec::new())
+    } else {
+        HttpResponse::Ok().content_type("application/json").body("{}")
+    }
 }
 
 #[expect(
@@ -169,6 +185,17 @@ pub fn start() -> OtlpMock {
     // Bind to :0 to grab a free port, then drop the listener so the actix
     // runtime can re-bind to it. (Same trick as `et-ws-test-server`.)
     let port = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    start_on(port)
+}
+
+/// Start the mock on a caller-chosen port (which must be free).
+///
+/// Store-and-forward tests reserve a free port, point a relay's sink at it
+/// while nothing is listening, then call this to bring the collector up on
+/// the same port -- proving the relay's buffered data gets delivered once the
+/// backend appears.
+#[must_use]
+pub fn start_on(port: u16) -> OtlpMock {
     let captured = Arc::new(Captured::default());
     let captured_for_server = Arc::clone(&captured);
     let addr = format!("127.0.0.1:{port}");
@@ -180,6 +207,7 @@ pub fn start() -> OtlpMock {
                 App::new()
                     .app_data(data.clone())
                     .app_data(web::JsonConfig::default().limit(64 * 1024 * 1024))
+                    .app_data(web::PayloadConfig::new(64 * 1024 * 1024))
                     .service(handle_traces)
                     .service(handle_logs)
             })

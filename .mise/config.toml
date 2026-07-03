@@ -55,6 +55,7 @@ action-validator = "latest"
 "aqua:StyraInc/regal" = "latest"
 "aqua:koalaman/shellcheck" = "latest"
 "aqua:rustwasm/wasm-pack" = "latest"
+"aqua:vectordotdev/vector" = "0.56.0"
 ast-grep = "latest"
 cargo-binstall = "latest"
 "cargo:cargo-expand" = { version = "latest", os = ["linux", "macos"] }

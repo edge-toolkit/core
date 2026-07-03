@@ -102,6 +102,11 @@ opentelemetry-otlp = { version = "0.31", default-features = false, features = [
   "reqwest-blocking-client",
   "trace",
 ] }
+opentelemetry-proto = { version = "0.31", default-features = false, features = [
+  "gen-tonic-messages",
+  "trace",
+  "with-serde",
+] }
 opentelemetry_sdk = "0.31"
 ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dylibs"] }
 pollster = "0.4"
@@ -109,6 +114,7 @@ pretty_yaml = "0.6"
 prettyplease = "0.2"
 progenitor = "0.14"
 progenitor-client = "0.14"
+prost = "0.14"
 # `auto-initialize` starts the embedded CPython interpreter on first use.
 # The pyo3 runner never calls `Py_Initialize` itself.
 pyo3 = { version = "0.28", features = ["auto-initialize"] }
