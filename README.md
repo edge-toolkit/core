@@ -57,6 +57,36 @@ mise settings set github.credential_command "$(mise which gh) auth token"
 lookup finds nothing; `credential_command` asks `gh` for the token on demand and works either way. The setting is
 written to your global `~/.config/mise/config.toml`, so it stays per-machine and out of the repo.
 
+#### Windows (scoop): mise, git, and the gh credential command
+
+On Windows this project is set up with [scoop](https://scoop.sh/) as the package manager -- install both
+`mise` and `git` through it. `git` is needed for more than version control here: it ships the real `bash.exe`
+that the credential-command steps below depend on, and `scoop prefix git` resolves to that install:
+
+```powershell
+scoop install mise git
+```
+
+The repo sets `windows_default_inline_shell_args = "bash -euo pipefail -c"` (its tasks need bash), and mise
+runs `github.credential_command` **through that inline shell** -- with its own shims stripped from `PATH`, and
+ignoring `MISE_BASH_PATH` (that override only applies to task execution, not credential commands). The repo's
+only bash is busybox `ash.exe`, reached solely via `MISE_BASH_PATH`, so a literal `bash` is not found: the
+credential command fails silently and installs fall back to unauthenticated, rate-limited requests.
+
+Two per-machine settings fix it -- the repo's `bash` inline-shell setting stays untouched:
+
+```powershell
+# 1. Put a real bash on PATH via a single scoop shim, pointing at the bash that ships with scoop's git.
+#    Nothing else from git lands on PATH, and scoop's shims dir is on PATH and is not stripped by mise.
+scoop shim add bash "$(scoop prefix git)\bin\bash.exe"
+
+# 2. Point credential_command at gh's ABSOLUTE path with FORWARD slashes: inside `bash -c` a backslash is
+#    an escape character, so a `C:\...` path would be mangled and gh would not be found.
+mise settings set github.credential_command "$((mise which gh) -replace '\\','/') auth token"
+```
+
+`mise token github` should then resolve a token reported as `source: credential_command`.
+
 ### Microsoft VC++ runtime
 
 mise.exe links the Microsoft VC++ runtime (`vcruntime140.dll`), so it must be present or mise won't start. It's
