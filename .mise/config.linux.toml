@@ -7,6 +7,8 @@
 # These build the deno web runner's libsqlite3-sys; a mise-only box usually only
 # has libclang-cpp (the C++ API), not the C one.
 "conda:clangxx" = "latest"
+# gpg for mise's gpg_verify signature checks; _setup_all installs it up front.
+"conda:gnupg" = "latest"
 
 [vars]
 # The `a_`/`b_`/`c_` tiers keep taplo's alphabetical reorder_keys ordered.

@@ -41,14 +41,17 @@ http_timeout = "2m"
 idiomatic_version_file_enable_tools = []
 task.run_auto_install = false
 # Hard-verify tool signatures via gpg on every platform.
-# Propagates to node.gpg_verify and swift.gpg_verify per mise/src/config/settings.rs. Without it mise's node
-# plugin soft-skips when gpg is absent (`warn!("gpg not found, skipping verification")` in
-# mise/src/plugins/core/node.rs). gpg is installed up-front in _setup_all via conda:gnupg (cross-platform
-# conda-forge build) so the subsequent `mise install node` finds it.
+# Propagates to node.gpg_verify and swift.gpg_verify per mise/src/config/settings.rs. mise's node plugin
+# runs `gpg --import` + `gpg --verify` against Node's signed SHASUMS; with this enabled that path hard-fails
+# instead of soft-skipping (`warn!("gpg not found, skipping verification")` in mise/src/plugins/core/node.rs)
+# when gpg is absent. The full gnupg suite (gpg + agent + dirmngr) is installed up-front in _setup_all so
+# any gpg-verified install finds it.
 gpg_verify = true
 
 [tools]
-action-validator = "latest"
+# aqua/github ship no Windows build for action-validator, so scope the aqua entry off Windows.
+# config.windows.toml installs cargo:action-validator (cargo-quickinstall msvc prebuilt) there instead.
+action-validator = { version = "latest", os = ["linux", "macos"] }
 # jaq: a Rust jq-compatible alternative implementation with prebuilt binaries for every platform.
 "aqua:01mf02/jaq" = "latest"
 "aqua:EmbarkStudios/cargo-deny" = "latest"
@@ -68,13 +71,6 @@ watchexec = "latest"
 # since chromedriver was the only [tools] entry that defaulted to vfox.
 # "chromedriver" = { version = "146", os = ["linux", "macos"] }
 cmake = "latest"
-# gpg + agent + dirmngr (full gnupg suite).
-# Required by mise's node plugin verify path (`gpg --import` + `gpg --verify` against Node's signed SHASUMS);
-# `[settings] gpg_verify = true` flips that path from soft-skip to hard-fail, so gpg must be reachable before
-# `mise install node`. _setup_all does this install first thing for that ordering. Conda-forge has gnupg
-# builds for linux-64, osx-64, osx-arm64 -- but NOT win-64; Windows uses the msys2 `conda:m2-gnupg` package
-# declared in config.windows.toml.
-"conda:gnupg" = { version = "latest", os = ["linux", "macos"] }
 "conda:openssl" = "3"
 conftest = "latest"
 # uutils coreutils: the Rust multicall binary, invoked as `coreutils <util>` in tasks.
@@ -243,6 +239,17 @@ a_hf_cache_tag = "hf-cache-v1"
 # from the same upstream RustPython commit, stored together). Referenced by rp_* vars below + by
 # config.maint.toml's publish-rp-* task bodies.
 a_rp_release = "rp-v1"
+# Home directory, used to compose the Unix-style mise install paths in the vars below.
+# On Unix, mise's tera context always has env.HOME. On Windows it does not (only USERPROFILE is guaranteed), and
+# a bare `env.HOME` reference aborts the entire render with "Variable `env.HOME` not found in context" -- so branch
+# on os() and fall back to USERPROFILE (forward-slashed) there. The Windows value only has to render without
+# erroring: every var built from it (mise_data_dir, conda_openssl, py3_unix, pylib_flag, ort_loc_unix) is Unix-only
+# and unused on Windows, where mise uses %LOCALAPPDATA%\mise and config.windows.toml supplies the real paths.
+a_home = '''{% if os() == "windows" -%}
+{{- get_env(name="USERPROFILE", default="") | replace(from=`\`, to="/") -}}
+{%- else -%}
+{{- env.HOME -}}
+{%- endif %}'''
 # augeas asset filenames, one per supported platform.
 # Each matches an `[asset."<filename>"]` row in config/upstream-cache/data.toml so the checksums.rego policy
 # can enforce the cross-reference. All five tarballs are uploaded to the augeas-v1 release by the
@@ -255,11 +262,11 @@ augeas_windows_x64_asset = "1.14.1-x86_64-pc-windows-mingw.tar.gz"
 # mise data dir -- the parent of `installs/<backend>-<name>/<version>`.
 # Used to compose absolute paths into a tool's install dir from [env] (e.g. AUGEAS_LENS_LIB). Honours
 # MISE_DATA_DIR if set; otherwise mise's default of $XDG_DATA_HOME (~/.local/share/mise on Linux/macOS).
-mise_data_dir = '{{ get_env(name="MISE_DATA_DIR", default=env.HOME ~ "/.local/share/mise") }}'
+mise_data_dir = '{{ get_env(name="MISE_DATA_DIR", default=vars.a_home ~ "/.local/share/mise") }}'
 # clang-tidy's resource-dir arg (points clang at its builtin headers, e.g.
 # stddef.h). Empty default; config.linux.toml sets it from conda:clangxx.
 clang_resource_arg = ""
-conda_openssl = "{{ env.HOME }}/.local/share/mise/installs/conda-openssl/3"
+conda_openssl = "{{ vars.a_home }}/.local/share/mise/installs/conda-openssl/3"
 # Forward-slashed config_root for safe substitution into bash command lines.
 # Windows mise returns a backslash-form path like `D:\a\core\core`; substituting that verbatim into a bash
 # command line trips `\a` -> alert, `\c` -> "suppress output" string mangling inside busybox ash, so paths
@@ -280,22 +287,26 @@ et_cli = "{{ vars.config_root_fwd }}/{{ vars.a_et_cli_target_dir }}/{{ vars.a_et
 # mise-managed CPython (Linux/macOS); the PYO3_PYTHON default below.
 # Windows overrides PYO3_PYTHON with its own py3_win in config.windows.toml. The version
 # segment must equal the `python` [tools] pin (conftest enforces both).
-py3_unix = "{{ env.HOME }}/.local/share/mise/installs/python/3.13.14/bin/python3"
+py3_unix = "{{ vars.a_home }}/.local/share/mise/installs/python/3.13.14/bin/python3"
 # RUSTFLAGS fragments shared by the CARGO_TARGET_* env in config.<os>.toml
 rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
 # rpath to the mise CPython lib dir so the runner finds libpython at runtime.
 # This lets the et-ws-pyo3-runner binary find libpython at runtime (libpython3.13.so on Linux,
 # libpython3.13.dylib on macOS via its @rpath install name). Points at the exact `3.x.y` install dir (the
 # `python` pin), since the minor-version alias dir isn't created everywhere.
-pylib_flag = "-C link-arg=-Wl,-rpath,{{ env.HOME }}/.local/share/mise/installs/python/3.13.14/lib"
+pylib_flag = "-C link-arg=-Wl,-rpath,{{ vars.a_home }}/.local/share/mise/installs/python/3.13.14/lib"
 wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint,+reference-types"
 # Extra flag for the wasm-pack module builds; empty so wasm-opt runs.
 # config.windows.toml overrides it to --no-opt where wasm-opt can't execute.
 no_opt = ""
+# Workspace members to exclude from the build-based cargo checks; empty on Linux/macOS.
+# config.windows.toml overrides it to `--exclude et-ws-web-runner` -- that crate pulls deno -> v8, whose
+# rusty_v8 gnullvm prebuilt is broken, so the workspace cargo check/clippy/doc can't build it on Windows.
+cargo_ws_excludes = ""
 # Linux/macOS install root for the github:microsoft/onnxruntime tool.
 # The ORT_LIB_LOCATION env below resolves to it via the OS conditional. Version
 # segment must match the [tools] pin (conftest's version_drift enforces this).
-ort_loc_unix = "{{ env.HOME }}/.local/share/mise/installs/github-microsoft-onnxruntime/1.22.0"
+ort_loc_unix = "{{ vars.a_home }}/.local/share/mise/installs/github-microsoft-onnxruntime/1.22.0"
 # Source/dest paths for the fetch-*-rclone model downloads, kept as vars.
 # Keeping them as vars lets each `rclone copyto` command stay on a single line without continuations.
 # face1's RetinaFace_int.onnx is mirrored to edge-toolkit/core's hf-cache-v<N> release because HuggingFace
@@ -341,8 +352,8 @@ a_rp_wasm_short = "08a1d6f"
 # mise extracts to `installs/http-rp-wasm/<version>/`. Picks the per-OS install root inline: on Windows
 # mise uses %LOCALAPPDATA%\mise (config.toml's [vars] is rendered before config.windows.toml's [vars] is
 # in scope, so we can't cross-reference vars.mise_installs here); on Unix it uses MISE_DATA_DIR or
-# $HOME/.local/share/mise. The Windows GHA `HOME=$USERPROFILE` workaround makes vars.mise_data_dir LOOK
-# plausible on Windows but mise itself ignores that path there, so the conditional is load-bearing.
+# $HOME/.local/share/mise. On Windows vars.mise_data_dir still renders (via a_home's USERPROFILE fallback) but
+# resolves to a Unix-style path mise ignores there, so reusing it would be wrong -- the conditional is load-bearing.
 # Forward slashes throughout the Windows suffix: GHA's LOCALAPPDATA arrives already-forward-slashed
 # ("C:/Users/runneradmin/AppData/Local"), and a mixed-slash path trips uutils-coreutils' Windows path
 # normalizer (`cp: The system cannot find the path specified. (os error 3)`).
@@ -442,7 +453,7 @@ description = "Run all formatters: fmt:rust + any loaded guest fmt:<lang>"
 # default config this pass; the guest `check:<lang>` tasks come from their
 # loaded MISE_ENV configs).
 depends = [
-  "action-validator",
+  "action-validator-check",
   "ast-grep-check",
   "cargo-check",
   "cargo-clippy-check",
@@ -464,7 +475,7 @@ depends = [
   "shellcheck-mise-check",
   "taplo-check",
   "taplo-fmt-check",
-  "typos",
+  "typos-check",
   "verification-check",
   "zizmor-check",
 ]
@@ -492,7 +503,7 @@ description = "Apply Rust + universal lint-fix passes"
 depends = ["fix:*"]
 description = "Apply all lint-fix passes: fix:rust + any loaded guest fix:<lang>"
 
-[tasks.action-validator]
+[tasks.action-validator-check]
 description = "Validate GitHub Actions workflow + composite-action YAML"
 run = "action-validator .github/workflows/*.yaml .github/actions/*/action.yaml"
 
@@ -529,7 +540,7 @@ description = "Lint the Dockerfiles with hadolint"
 run = "git ls-files '*Dockerfile' '*Dockerfile.*' | xargs hadolint --config config/hadolint.yaml"
 
 [tasks.cargo-check]
-run = "cargo check --workspace"
+run = "cargo check --workspace {{ vars.cargo_ws_excludes }}"
 
 [tasks.cargo-fmt]
 run = "cargo +nightly fmt"
@@ -539,7 +550,7 @@ run = "cargo +nightly fmt -- --check"
 
 [tasks.cargo-clippy-check]
 alias = ["cargo-clippy", "clippy", "clippy-check"]
-run = "cargo clippy --keep-going --workspace --tests"
+run = "cargo clippy --keep-going --workspace --tests {{ vars.cargo_ws_excludes }}"
 
 [tasks.cargo-clippy-check-pkg]
 alias = ["clippy-pkg"]
@@ -558,10 +569,10 @@ description = "Type-check rustdoc with -D warnings to fail on any doc issues"
 # `cargo +nightly fmt`. Drop `-Z unstable-options --check` and switch back to plain `cargo doc` once
 # rustdoc stabilises `--check`.
 env = { RUSTDOCFLAGS = "-Z unstable-options --check -D warnings" }
-run = "cargo +nightly doc --keep-going --workspace --no-deps --document-private-items"
+run = "cargo +nightly doc --keep-going --workspace --no-deps --document-private-items {{ vars.cargo_ws_excludes }}"
 
 [tasks.cargo-clippy-fix]
-run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace --tests"
+run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace --tests {{ vars.cargo_ws_excludes }}"
 
 [tasks.taplo-fmt]
 alias = "toml-fmt"
@@ -660,7 +671,8 @@ description = "shellcheck every bash-shell mise task body across .mise/config*.t
 # shellcheck doesn't choke on template syntax. The awk regex uses character classes (`[{][{]` not `{{`) so
 # mise's own Tera render of this task body doesn't itself trip on the awk source. The jq filter at
 # .mise/shellcheck-mise.jq emits one `<name> <body-b64>` line per eligible task (base64 so newlines +
-# quotes survive the pipe).
+# quotes survive the pipe). goawk emits CRLF on Windows, so `tr -d '\r'` normalises each generated script
+# back to LF (a no-op on Unix) -- without it shellcheck flags every body with SC1017 (literal carriage return).
 run = '''
 boot="{{ vars.config_root_fwd }}/target/scratch/shellcheck-mise"
 coreutils rm -rf "$boot"
@@ -674,7 +686,7 @@ for cfg in .mise/config*.toml; do
       echo '#!/usr/bin/env bash'
       echo 'set -euo pipefail'
       printf '%s' "$b64" | coreutils base64 -d | goawk "$mask"
-    } > "$out"
+    } | coreutils tr -d '\r' > "$out"
   done
 done
 shellcheck --shell=bash --exclude=SC2034,SC2154 "$boot"/*.sh
@@ -691,10 +703,10 @@ alias = "toml-check"
 run = """
 taplo lint
 
-# The --schema lints below pass file://$PWD URLs, which aren't well-formed on Windows.
-# Drive-letter paths break them, so run them on Linux/macOS only. conftest-check-toml
-# applies the same rules on every OS.
-[ "${OS:-}" = "Windows_NT" ] && exit 0
+# The --schema lints need a file:// URL, built cross-platform as file:///${PWD#/}.
+# taplo rejects a bare path. On Linux $PWD is /abs, so the form yields file:///abs; on Windows $PWD is C:/dir
+# (forward slashes, from busybox), yielding file:///C:/dir. A plain file://$PWD puts the drive letter in the
+# URL authority and breaks on Windows. conftest-check-toml duplicates these lints as a cross-check.
 
 # All member Cargo.tomls -- exclude workspace root and any build output.
 # `-prune` target/ and .git so find never descends into them: `-not -path` alone still walks the whole
@@ -708,14 +720,14 @@ find . -path ./target -prune -o -path ./.git -prune -o -name Cargo.toml ! -path 
 # Banned deps only need to be checked at the workspace root.
 # Member crates are required to reference deps via `workspace = true` (the `require-workspace-deps` schema
 # below), so any banned dep can only enter the build through `[workspace.dependencies]` here.
-taplo lint --schema "file://$PWD/config/taplo/no-banned-deps.schema.json" Cargo.toml
+taplo lint --schema "file:///${PWD#/}/config/taplo/no-banned-deps.schema.json" Cargo.toml
 
 # Schemas that apply to every member crate.
-xargs taplo lint --schema "file://$PWD/config/taplo/no-path-deps.schema.json" <"$members"
-xargs taplo lint --schema "file://$PWD/config/taplo/no-wildcard-or-git-deps.schema.json" <"$members"
-xargs taplo lint --schema "file://$PWD/config/taplo/require-workspace-deps.schema.json" <"$members"
-xargs taplo lint --schema "file://$PWD/config/taplo/require-lib-doctest-false.schema.json" <"$members"
-xargs taplo lint --schema "file://$PWD/config/taplo/no-lib-name.schema.json" <"$members"
+xargs taplo lint --schema "file:///${PWD#/}/config/taplo/no-path-deps.schema.json" <"$members"
+xargs taplo lint --schema "file:///${PWD#/}/config/taplo/no-wildcard-or-git-deps.schema.json" <"$members"
+xargs taplo lint --schema "file:///${PWD#/}/config/taplo/require-workspace-deps.schema.json" <"$members"
+xargs taplo lint --schema "file:///${PWD#/}/config/taplo/require-lib-doctest-false.schema.json" <"$members"
+xargs taplo lint --schema "file:///${PWD#/}/config/taplo/no-lib-name.schema.json" <"$members"
 
 # `require-lints-section` exempts generated/rust-rest/Cargo.toml.
 # It is exempted because progenitor's emitted `src/lib.rs` contains patterns our workspace lint table
@@ -723,21 +735,22 @@ xargs taplo lint --schema "file://$PWD/config/taplo/no-lib-name.schema.json" <"$
 # would fail the build on the generated source. The exemption is about the lint table, not about the
 # deps -- its `[dependencies]` still inherits from `[workspace.dependencies]` like every other crate.
 rg -vxF './generated/rust-rest/Cargo.toml' "$members" |
-  xargs taplo lint --schema "file://$PWD/config/taplo/require-lints-section.schema.json"
+  xargs taplo lint --schema "file:///${PWD#/}/config/taplo/require-lints-section.schema.json"
 
-taplo lint --schema "file://$PWD/config/taplo/mise-run-not-array.schema.json" .mise/config*.toml
+taplo lint --schema "file:///${PWD#/}/config/taplo/mise-run-not-array.schema.json" .mise/config*.toml
 
-taplo lint --schema "file://$PWD/config/taplo/mise-no-ubi-backend.schema.json" .mise/config*.toml
+taplo lint --schema "file:///${PWD#/}/config/taplo/mise-no-ubi-backend.schema.json" .mise/config*.toml
 # config.maint.toml is exempted from the cargo:-backend allowlist.
 # One-off maint tools can be slow cargo source-builds; see mise.rego's matching note.
 non_maint=$(find .mise -maxdepth 1 -name 'config*.toml' ! -name 'config.maint.toml')
 # $non_maint holds a space-separated path list; word-splitting is intentional.
 # shellcheck disable=SC2086
-taplo lint --schema "file://$PWD/config/taplo/mise-cargo-backend-allowlist.schema.json" $non_maint
+taplo lint --schema "file:///${PWD#/}/config/taplo/mise-cargo-backend-allowlist.schema.json" $non_maint
 """
 shell = "bash -euo pipefail -c"
 
-[tasks.typos]
+[tasks.typos-check]
+alias = "typos"
 run = "typos --config config/typos.toml"
 
 [tasks.typos-fix]
@@ -865,6 +878,8 @@ description = "Regenerate .dockerignore from .gitignore + Docker-only excludes"
 # A bare pattern there is root-anchored -- whereas a slash-less .gitignore pattern matches at any depth.
 # So mirror .gitignore, add the Docker-only excludes (`.git/`, plus the build recipe + docs so editing
 # them doesn't bust the `COPY . .` cache), and `**/`-prefix each non-anchored pattern.
+# goawk emits CRLF on Windows, so the whole block is piped through `tr -d '\r'` -- .dockerignore must stay
+# LF-only (editorconfig enforces it, and CRLF would also make dockerignore-check see a spurious diff).
 run = '''
 {
   echo "# AUTO-GENERATED from .gitignore by 'mise run gen:dockerignore' -- do not edit."
@@ -885,7 +900,7 @@ run = '''
       if (index(core, "/") > 0) print neg line; else print neg "**/" line
     }
   '
-} >.dockerignore
+} | coreutils tr -d '\r' >.dockerignore
 '''
 shell = "bash -euo pipefail -c"
 
@@ -1119,8 +1134,15 @@ run = "open http://localhost:5080/"
 [tasks.fetch-face1-rclone]
 run = """
 rclone copyto {{ vars.face1_src }} {{ vars.face1_dst }} {{ vars.gh_http }}
-sha=$(mise exec -- yq -p toml -oy '.asset."{{ vars.face1_asset }}".sha256' config/upstream-cache/data.toml)
-echo "$sha  {{ vars.face1_dst }}" | mise exec -- coreutils sha256sum -c -
+# Windows-safe checksum verify; behaviour is unchanged on Unix.
+# Two Windows-only traps are avoided: (1) the inline `bash -c` body strips the double quotes from
+# `yq '.asset."<key>"'`, so the dotted key `*.onnx` mis-parses to `null` (passing the key via env + strenv()
+# needs no quotes); (2) uutils `sha256sum -c` mis-hashes binary files on Windows (text-mode read) even though
+# a direct hash is correct, so we compare the direct hash ourselves instead of piping a checklist through `-c`.
+export asset='{{ vars.face1_asset }}'
+sha=$(mise exec -- yq -p toml -oy '.asset[strenv(asset)].sha256' config/upstream-cache/data.toml)
+actual=$(mise exec -- coreutils sha256sum -b "{{ vars.face1_dst }}" | mise exec -- coreutils cut -c1-64)
+[ "$actual" = "$sha" ] || { echo "face1 checksum mismatch: expected=$sha actual=$actual" >&2; exit 1; }
 """
 shell = "bash -euo pipefail -c"
 
@@ -1182,7 +1204,7 @@ description = "Run all tests: test:rust + any loaded guest test:<lang>"
 [tasks.rp-detect-missing]
 description = "Print whether rp-v<N> has native+wasm assets for this host (GHA outputs)"
 run = """
-short=$(yq -p toml -oy '.tools."http:et-rp".version' .mise/config.toml)
+short=$(key='http:et-rp' yq -p toml -oy '.tools[strenv(key)].version' .mise/config.toml)
 triple=$(rustc -vV | rg '^host: ' | coreutils cut -c7-)
 native_asset="rustpython-${short}-${triple}.tar.gz"
 wasm_asset="rustpython-wasm-${short}.tar.gz"

@@ -44,12 +44,9 @@ RUN curl -fsSL -o vc_redist.exe https://aka.ms/vs/17/release/vc_redist.x64.exe &
     (vc_redist.exe /install /quiet /norestart || ver>nul) && `
     del vc_redist.exe
 
-# Should show literal `%HOME%` token in the output as HOME is unset.
-RUN echo HOME=[%HOME%] USERPROFILE=[%USERPROFILE%]
-
-# Set HOME to the admin profile so the container has a sane home.
-# Server Core sets USERPROFILE but leaves HOME unset by default.
-ENV HOME=C:\Users\ContainerAdministrator
+# HOME is intentionally left unset on Windows.
+# No build tool consumes it -- mise uses C:\.config\mise, cargo uses CARGO_HOME/RUSTUP_HOME, gpg uses
+# %APPDATA%, and the mise config vars derive from USERPROFILE, not $HOME.
 
 # A writable TEMP on the system drive.
 # Rustup's "persist temporary file" step is sensitive to a missing/unwritable

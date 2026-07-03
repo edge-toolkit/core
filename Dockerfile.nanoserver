@@ -16,7 +16,7 @@
 # The stage order is: vcruntime -> build-minimal -> build -> prefetch -> precompile ->
 # test / server. Each stage `FROM`s the previous, so installed tools, fetched deps and
 # built module pkg/ carry forward; `--target <stage>` stops early. The
-# Windows-only bootstrap (VC++ runtime, mise.exe, HOME/TEMP, the gnu-host rust
+# Windows-only bootstrap (VC++ runtime, mise.exe, TEMP, the gnu-host rust
 # flip) lives in build-minimal. Where Linux stops at a clean build/test/serve,
 # Windows is still proving the toolchain installs at all -- the stages past
 # `build` are the CI frontier (see "Known unknowns" at the foot).
@@ -89,7 +89,7 @@ RUN curl -fsSL -o gnupg.exe https://gnupg.org/ftp/gcrypt/binary/gnupg-w32-2.5.20
 # Mirrors the Linux build-minimal: copies just .mise/config.toml + installs the
 # default tools, so this layer is reused until the always-loaded toolset changes,
 # not when a guest config or the source does. All the Windows-only bootstrap
-# (VC++ DLLs, mise.exe, HOME, TEMP) and the gnu-host rust flip live here too,
+# (VC++ DLLs, mise.exe, TEMP) and the gnu-host rust flip live here too,
 # since every later stage builds on it.
 FROM mcr.microsoft.com/windows/nanoserver:${WINDOWS_VERSION} AS build-minimal
 COPY --from=vcruntime C:\Windows\System32\vcruntime140.dll C:\Windows\System32\vcruntime140.dll
@@ -115,22 +115,16 @@ SHELL ["cmd", "/S", "/C"]
 RUN where bash >nul 2>&1 && (echo [bash-check] pre-installed: & where bash) || `
     echo [bash-check] bash is not pre-installed on this base image
 
-# Set HOME to the admin profile so the container has a sane home, which Nano Server leaves unset.
-# This also renders the config's `{{ env.HOME }}` paths; note
-# mise still resolves its *global config* to C:\.config\mise on Windows
-# regardless of HOME (trusted explicitly below).
-ENV HOME=C:\Users\ContainerAdministrator
+# HOME is intentionally NOT set on Windows.
+# No build tool consumes it -- mise resolves its global config to C:\.config\mise regardless, cargo/rustup use
+# CARGO_HOME/RUSTUP_HOME, gpg uses %APPDATA%, and the .mise/config.toml vars derive their (Unix-only,
+# unused-on-Windows) paths from USERPROFILE, not $HOME.
 
-# Sanity-check that HOME is the running user's real profile.
-# It must exist and end with the current %USERNAME%. USERPROFILE is echoed for diagnostics.
-# Also sanity-check %APPDATA% (gnupg 2.5's homedir is %APPDATA%\gnupg; Nano may
-# not pre-create %USERPROFILE%\AppData\Roaming for ContainerAdministrator, in
-# which case gpg's first homedir-create later fails -- catch it here, where the
-# fix is a one-line `mkdir` rather than at the mise-runs-gpg invocation site).
-RUN echo HOME=[%HOME%] USERPROFILE=[%USERPROFILE%] USERNAME=[%USERNAME%] APPDATA=[%APPDATA%] & `
-    if not exist "%HOME%\" exit /b 1 & `
-    echo %HOME%| findstr /i /e /c:"%USERNAME%" >nul & `
-    if errorlevel 1 exit /b 1 & `
+# Sanity-check %APPDATA%, which gpg's homedir lives under.
+# gnupg 2.5's homedir is %APPDATA%\gnupg; Nano may not pre-create %USERPROFILE%\AppData\Roaming for
+# ContainerAdministrator, in which case gpg's first homedir-create later fails -- catch it here, where the
+# fix is a one-line `mkdir` rather than at the mise-runs-gpg invocation site.
+RUN echo USERPROFILE=[%USERPROFILE%] USERNAME=[%USERNAME%] APPDATA=[%APPDATA%] & `
     if "%APPDATA%"=="" (echo APPDATA is unset & exit /b 1) & `
     if not exist "%APPDATA%\" (echo %APPDATA% dir does not exist & exit /b 1)
 
@@ -218,7 +212,7 @@ ENV PATH="C:\mise\bin;C:\sha-shim;${MISESHIMS};C:\Windows\System32;C:\Windows;${
 # (1) dir listing of C:\gnupg\bin proves the silent install populated bin/
 # (2) `gpg --version` proves gpg.exe loads + its supporting DLLs resolve
 # (3) `gpg --list-keys` proves the keyring + keyboxd spawn work on Nano
-# %APPDATA% existence is checked earlier with HOME. gpg writes its homedir to
+# %APPDATA% existence is checked earlier. gpg writes its homedir to
 # %APPDATA%\gnupg and --list-keys creates it on first use. If the next
 # mise-on-Nano failure is "gpg failed" after these all pass, the failure is in
 # mise's pipe-to-stdin flow, not in gpg load/init.

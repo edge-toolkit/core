@@ -9,7 +9,16 @@
       "propertyNames": {
         "anyOf": [
           { "not": { "pattern": "^cargo:" } },
-          { "enum": ["cargo:cargo-expand", "cargo:dart-typegen", "cargo:findutils", "cargo:ryl", "cargo:wasm-opt"] }
+          {
+            "enum": [
+              "cargo:action-validator",
+              "cargo:cargo-expand",
+              "cargo:dart-typegen",
+              "cargo:findutils",
+              "cargo:ryl",
+              "cargo:wasm-opt"
+            ]
+          }
         ]
       }
     }
