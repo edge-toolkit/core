@@ -44,8 +44,9 @@ RUN curl -fsSL -o vc_redist.exe https://aka.ms/vs/17/release/vc_redist.x64.exe &
     (vc_redist.exe /install /quiet /norestart || ver>nul) && `
     del vc_redist.exe
 
-# HOME is intentionally left unset: no Windows build tool consumes it (mise uses C:\.config\mise, cargo uses
-# CARGO_HOME/RUSTUP_HOME, gpg uses %APPDATA%, and the mise config vars derive from USERPROFILE, not $HOME).
+# HOME is intentionally left unset on Windows.
+# No build tool consumes it -- mise uses C:\.config\mise, cargo uses CARGO_HOME/RUSTUP_HOME, gpg uses
+# %APPDATA%, and the mise config vars derive from USERPROFILE, not $HOME.
 
 # A writable TEMP on the system drive.
 # Rustup's "persist temporary file" step is sensitive to a missing/unwritable

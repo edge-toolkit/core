@@ -115,14 +115,15 @@ SHELL ["cmd", "/S", "/C"]
 RUN where bash >nul 2>&1 && (echo [bash-check] pre-installed: & where bash) || `
     echo [bash-check] bash is not pre-installed on this base image
 
-# HOME is intentionally NOT set here: no Windows build tool consumes it -- mise resolves its global config to
-# C:\.config\mise regardless, cargo/rustup use CARGO_HOME/RUSTUP_HOME, gpg uses %APPDATA%, and the
-# .mise/config.toml vars derive their (Unix-only, unused-on-Windows) paths from USERPROFILE, not $HOME.
+# HOME is intentionally NOT set on Windows.
+# No build tool consumes it -- mise resolves its global config to C:\.config\mise regardless, cargo/rustup use
+# CARGO_HOME/RUSTUP_HOME, gpg uses %APPDATA%, and the .mise/config.toml vars derive their (Unix-only,
+# unused-on-Windows) paths from USERPROFILE, not $HOME.
 
-# Sanity-check %APPDATA% (gnupg 2.5's homedir is %APPDATA%\gnupg; Nano may
-# not pre-create %USERPROFILE%\AppData\Roaming for ContainerAdministrator, in
-# which case gpg's first homedir-create later fails -- catch it here, where the
-# fix is a one-line `mkdir` rather than at the mise-runs-gpg invocation site).
+# Sanity-check %APPDATA%, which gpg's homedir lives under.
+# gnupg 2.5's homedir is %APPDATA%\gnupg; Nano may not pre-create %USERPROFILE%\AppData\Roaming for
+# ContainerAdministrator, in which case gpg's first homedir-create later fails -- catch it here, where the
+# fix is a one-line `mkdir` rather than at the mise-runs-gpg invocation site.
 RUN echo USERPROFILE=[%USERPROFILE%] USERNAME=[%USERNAME%] APPDATA=[%APPDATA%] & `
     if "%APPDATA%"=="" (echo APPDATA is unset & exit /b 1) & `
     if not exist "%APPDATA%\" (echo %APPDATA% dir does not exist & exit /b 1)

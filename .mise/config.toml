@@ -671,7 +671,8 @@ description = "shellcheck every bash-shell mise task body across .mise/config*.t
 # shellcheck doesn't choke on template syntax. The awk regex uses character classes (`[{][{]` not `{{`) so
 # mise's own Tera render of this task body doesn't itself trip on the awk source. The jq filter at
 # .mise/shellcheck-mise.jq emits one `<name> <body-b64>` line per eligible task (base64 so newlines +
-# quotes survive the pipe).
+# quotes survive the pipe). goawk emits CRLF on Windows, so `tr -d '\r'` normalises each generated script
+# back to LF (a no-op on Unix) -- without it shellcheck flags every body with SC1017 (literal carriage return).
 run = '''
 boot="{{ vars.config_root_fwd }}/target/scratch/shellcheck-mise"
 coreutils rm -rf "$boot"
@@ -685,7 +686,7 @@ for cfg in .mise/config*.toml; do
       echo '#!/usr/bin/env bash'
       echo 'set -euo pipefail'
       printf '%s' "$b64" | coreutils base64 -d | goawk "$mask"
-    } > "$out"
+    } | coreutils tr -d '\r' > "$out"
   done
 done
 shellcheck --shell=bash --exclude=SC2034,SC2154 "$boot"/*.sh
@@ -1130,11 +1131,11 @@ run = "open http://localhost:5080/"
 [tasks.fetch-face1-rclone]
 run = """
 rclone copyto {{ vars.face1_src }} {{ vars.face1_dst }} {{ vars.gh_http }}
-# Windows-safe checksum verify (unchanged behaviour on Unix). Two Windows-only traps are avoided here:
-# (1) the inline `bash -c` body strips the double quotes from `yq '.asset."<key>"'`, so the dotted key
-# `*.onnx` mis-parses to `null` -- passing the key via env + strenv() needs no quotes; (2) uutils
-# `sha256sum -c` mis-hashes binary files on Windows (text-mode read) even though a direct hash is correct,
-# so we compare the direct hash ourselves instead of piping a checklist through `-c`.
+# Windows-safe checksum verify; behaviour is unchanged on Unix.
+# Two Windows-only traps are avoided: (1) the inline `bash -c` body strips the double quotes from
+# `yq '.asset."<key>"'`, so the dotted key `*.onnx` mis-parses to `null` (passing the key via env + strenv()
+# needs no quotes); (2) uutils `sha256sum -c` mis-hashes binary files on Windows (text-mode read) even though
+# a direct hash is correct, so we compare the direct hash ourselves instead of piping a checklist through `-c`.
 export asset='{{ vars.face1_asset }}'
 sha=$(mise exec -- yq -p toml -oy '.asset[strenv(asset)].sha256' config/upstream-cache/data.toml)
 actual=$(mise exec -- coreutils sha256sum -b "{{ vars.face1_dst }}" | mise exec -- coreutils cut -c1-64)
