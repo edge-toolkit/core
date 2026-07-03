@@ -69,7 +69,10 @@ fn vector_relays_buffered_otlp_after_backend_comes_online() {
         .arg("-c")
         .arg(&config_path)
         .env("VECTOR_LOG", "warn")
-        .env("RELAY_DATA_DIR", tmp.path())
+        // Forward-slash the temp path: Vector interpolates it into a double-quoted YAML scalar, and on
+        // Windows the backslashes would be parsed as YAML escapes (CI failed with "did not find expected
+        // hexadecimal number"). Forward slashes are accepted on Windows too.
+        .env("RELAY_DATA_DIR", tmp.path().to_string_lossy().replace('\\', "/"))
         .env("RELAY_GRPC_PORT", grpc_port.to_string())
         .env("RELAY_HTTP_PORT", http_port.to_string())
         .env("RELAY_SINK_PORT", mock_port.to_string())
