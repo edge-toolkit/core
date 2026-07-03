@@ -703,10 +703,10 @@ alias = "toml-check"
 run = """
 taplo lint
 
-# The --schema lints below pass file://$PWD URLs, which aren't well-formed on Windows.
-# Drive-letter paths break them, so run them on Linux/macOS only. conftest-check-toml
-# applies the same rules on every OS.
-[ "${OS:-}" = "Windows_NT" ] && exit 0
+# The --schema lints need a file:// URL (taplo rejects a bare path); build it cross-platform as
+# file:///${PWD#/}. On Linux $PWD is /abs, so file:///${PWD#/} -> file:///abs; on Windows $PWD is C:/dir
+# (forward slashes, from busybox) -> file:///C:/dir. A plain file://$PWD puts the drive letter in the URL
+# authority and breaks on Windows. conftest-check-toml duplicates these lints as a cross-check.
 
 # All member Cargo.tomls -- exclude workspace root and any build output.
 # `-prune` target/ and .git so find never descends into them: `-not -path` alone still walks the whole
@@ -720,14 +720,14 @@ find . -path ./target -prune -o -path ./.git -prune -o -name Cargo.toml ! -path 
 # Banned deps only need to be checked at the workspace root.
 # Member crates are required to reference deps via `workspace = true` (the `require-workspace-deps` schema
 # below), so any banned dep can only enter the build through `[workspace.dependencies]` here.
-taplo lint --schema "file://$PWD/config/taplo/no-banned-deps.schema.json" Cargo.toml
+taplo lint --schema "file:///${PWD#/}/config/taplo/no-banned-deps.schema.json" Cargo.toml
 
 # Schemas that apply to every member crate.
-xargs taplo lint --schema "file://$PWD/config/taplo/no-path-deps.schema.json" <"$members"
-xargs taplo lint --schema "file://$PWD/config/taplo/no-wildcard-or-git-deps.schema.json" <"$members"
-xargs taplo lint --schema "file://$PWD/config/taplo/require-workspace-deps.schema.json" <"$members"
-xargs taplo lint --schema "file://$PWD/config/taplo/require-lib-doctest-false.schema.json" <"$members"
-xargs taplo lint --schema "file://$PWD/config/taplo/no-lib-name.schema.json" <"$members"
+xargs taplo lint --schema "file:///${PWD#/}/config/taplo/no-path-deps.schema.json" <"$members"
+xargs taplo lint --schema "file:///${PWD#/}/config/taplo/no-wildcard-or-git-deps.schema.json" <"$members"
+xargs taplo lint --schema "file:///${PWD#/}/config/taplo/require-workspace-deps.schema.json" <"$members"
+xargs taplo lint --schema "file:///${PWD#/}/config/taplo/require-lib-doctest-false.schema.json" <"$members"
+xargs taplo lint --schema "file:///${PWD#/}/config/taplo/no-lib-name.schema.json" <"$members"
 
 # `require-lints-section` exempts generated/rust-rest/Cargo.toml.
 # It is exempted because progenitor's emitted `src/lib.rs` contains patterns our workspace lint table
@@ -735,17 +735,17 @@ xargs taplo lint --schema "file://$PWD/config/taplo/no-lib-name.schema.json" <"$
 # would fail the build on the generated source. The exemption is about the lint table, not about the
 # deps -- its `[dependencies]` still inherits from `[workspace.dependencies]` like every other crate.
 rg -vxF './generated/rust-rest/Cargo.toml' "$members" |
-  xargs taplo lint --schema "file://$PWD/config/taplo/require-lints-section.schema.json"
+  xargs taplo lint --schema "file:///${PWD#/}/config/taplo/require-lints-section.schema.json"
 
-taplo lint --schema "file://$PWD/config/taplo/mise-run-not-array.schema.json" .mise/config*.toml
+taplo lint --schema "file:///${PWD#/}/config/taplo/mise-run-not-array.schema.json" .mise/config*.toml
 
-taplo lint --schema "file://$PWD/config/taplo/mise-no-ubi-backend.schema.json" .mise/config*.toml
+taplo lint --schema "file:///${PWD#/}/config/taplo/mise-no-ubi-backend.schema.json" .mise/config*.toml
 # config.maint.toml is exempted from the cargo:-backend allowlist.
 # One-off maint tools can be slow cargo source-builds; see mise.rego's matching note.
 non_maint=$(find .mise -maxdepth 1 -name 'config*.toml' ! -name 'config.maint.toml')
 # $non_maint holds a space-separated path list; word-splitting is intentional.
 # shellcheck disable=SC2086
-taplo lint --schema "file://$PWD/config/taplo/mise-cargo-backend-allowlist.schema.json" $non_maint
+taplo lint --schema "file:///${PWD#/}/config/taplo/mise-cargo-backend-allowlist.schema.json" $non_maint
 """
 shell = "bash -euo pipefail -c"
 
