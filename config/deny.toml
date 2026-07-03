@@ -65,6 +65,20 @@ ignore = [
   #     single GIL-bound interpreter (not free-threaded), so no closure runs concurrently.
   "RUSTSEC-2026-0176",
   "RUSTSEC-2026-0177",
+  # wasmtime-wasi 44.0.3 -- WASI hard links / renames bypass FilePerms on the rename/link *destination*.
+  # Pinned to 44.x for ABI compat with wasmtime-wasi-nn 44 (see [workspace.dependencies] wasmtime note);
+  # the fix is in 45.0.3 / 46.0.1. Unreachable here: et-ws-wasi-runner builds its WasiCtx with only
+  # inherit_stdio + inherit_env and grants the guest NO preopened directories, so there is no filesystem
+  # for a hard-link/rename to bypass FilePerms against. Guest storage is proxied through the host `storage`
+  # import (reqwest to ws-server), not WASI fs. Drop when wasmtime + wasmtime-wasi-nn bump to >=45 together.
+  "RUSTSEC-2026-0188",
+  # opentelemetry_sdk <=0.32.0 -- unbounded W3C baggage-header parse before size limits, a DoS (fixed 0.32.1).
+  # BaggagePropagator::extract_with_context parses inbound entries it then discards. Two copies are in the
+  # tree: ours (0.31.0) and Deno's (0.27.1, via deno_telemetry). Unreachable: et-otlp installs only the
+  # TraceContextPropagator, so BaggagePropagator is never constructed or invoked and no baggage header is ever
+  # parsed. GHSA-only (no RUSTSEC id assigned), so gen:osv-scanner picks it up via its GHSA branch. Drop when
+  # both copies reach >=0.32.1.
+  "GHSA-w9wp-h8wv-79jx",
 ]
 
 [licenses]
