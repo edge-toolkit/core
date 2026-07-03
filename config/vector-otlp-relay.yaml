@@ -1,0 +1,41 @@
+# Offline OTLP store-and-forward relay: OTLP source -> on-disk buffer -> OTLP sink.
+# The ports and the buffer's data_dir come from RELAY_* environment variables, which Vector interpolates at
+# config load time, so this file stays static and checked in; the ws-wasi-runner `vector_otlp_relay`
+# integration test sets them per run. The disk buffer plus retry keep accepted events durable while the sink
+# target is offline, then forward them once it comes back.
+data_dir: "${RELAY_DATA_DIR}"
+sources:
+  in:
+    type: opentelemetry
+    # The opentelemetry source requires both listeners; only the http one is fed by the test.
+    grpc:
+      address: "127.0.0.1:${RELAY_GRPC_PORT}"
+    http:
+      address: "127.0.0.1:${RELAY_HTTP_PORT}"
+    # Preserve the raw OTLP payload so the sink can re-emit it unchanged.
+    use_otlp_decoding:
+      traces: true
+sinks:
+  out:
+    type: opentelemetry
+    inputs:
+      - in.traces
+    # Start even though the sink target is offline at boot; the test brings it up afterwards.
+    healthcheck:
+      enabled: false
+    # Store accepted events on disk so nothing is lost while the collector is unreachable.
+    buffer:
+      type: disk
+      max_size: 268435488
+      when_full: block
+    protocol:
+      type: http
+      uri: "http://127.0.0.1:${RELAY_SINK_PORT}/traces"
+      method: post
+      # `otlp` is protobuf; Vector's json OTLP encoding is not a valid request body (vectordotdev/vector#23971).
+      encoding:
+        codec: otlp
+      # Cap the retry backoff so the buffered event is redelivered within seconds of the collector returning.
+      request:
+        retry_initial_backoff_secs: 1
+        retry_max_duration_secs: 5

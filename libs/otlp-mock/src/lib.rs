@@ -23,7 +23,6 @@
     reason = "test mock; bind/poison/startup failures fail fast; actix #[post] marker structs can't be annotated"
 )]
 
-use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
 
 use actix_web::http::header::ContentType;
@@ -182,10 +181,7 @@ async fn handle_logs(state: web::Data<Arc<Captured>>, body: web::Json<Value>) ->
 /// runtime is untouched.
 #[must_use]
 pub fn start() -> OtlpMock {
-    // Bind to :0 to grab a free port, then drop the listener so the actix
-    // runtime can re-bind to it. (Same trick as `et-ws-test-server`.)
-    let port = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
-    start_on(port)
+    start_on(et_test_helpers::reserve_port())
 }
 
 /// Start the mock on a caller-chosen port (which must be free).

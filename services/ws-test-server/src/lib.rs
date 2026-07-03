@@ -5,8 +5,6 @@
     reason = "in-process test ws-server; bind/startup failures should fail the test fast"
 )]
 
-use std::net::TcpListener;
-
 use actix_web::{App, HttpServer, web};
 use et_modules_service::{ModulesConfig, configure as configure_modules};
 use et_storage_service::{StorageConfig, configure as configure_storage};
@@ -30,8 +28,7 @@ pub fn start() -> TestServer {
     let storage_dir = TempDir::new().expect("failed to create temp storage dir");
     let storage_path = storage_dir.path().to_path_buf();
 
-    // Bind to port 0 to get a free port, then drop the listener so the server can bind it.
-    let port = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    let port = et_test_helpers::reserve_port();
 
     let storage_config = StorageConfig::new(storage_path);
     let modules_config = ModulesConfig::default();

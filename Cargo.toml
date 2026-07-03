@@ -10,6 +10,7 @@ members = [
   "libs/et-otlp",
   "libs/otlp-mock",
   "libs/path",
+  "libs/test-helpers",
   "libs/web",
   "libs/ws-runner-common",
   "services/ws-modules/audio1",
@@ -72,6 +73,7 @@ et-otlp = { path = "libs/et-otlp", version = "0.1.0" }
 et-path = { path = "libs/path", version = "0.1.0" }
 et-rest-client = { path = "generated/rust-rest", version = "0.1.0", default-features = false }
 et-storage-service = { path = "services/storage", version = "0.1.0" }
+et-test-helpers = { path = "libs/test-helpers", version = "0.1.0" }
 et-web = { path = "libs/web", version = "0.1.0" }
 et-ws-runner-common = { path = "libs/ws-runner-common", version = "0.1.0" }
 et-ws-server = { path = "services/ws-server", version = "0.1.0" }
@@ -110,6 +112,7 @@ opentelemetry-proto = { version = "0.31", default-features = false, features = [
 opentelemetry_sdk = "0.31"
 ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dylibs"] }
 pollster = "0.4"
+port_check = "0.2"
 pretty_yaml = "0.6"
 prettyplease = "0.2"
 progenitor = "0.14"
@@ -125,6 +128,7 @@ quote = "1"
 rcgen = "0.14"
 regex = { version = "1.12", default-features = false }
 reqwest = { version = "0.13", default-features = false }
+retry = { version = "2", default-features = false }
 retry-policies = "0.5"
 rstest = "0.26"
 rustls = "0.23"
