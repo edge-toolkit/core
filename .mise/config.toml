@@ -41,14 +41,17 @@ http_timeout = "2m"
 idiomatic_version_file_enable_tools = []
 task.run_auto_install = false
 # Hard-verify tool signatures via gpg on every platform.
-# Propagates to node.gpg_verify and swift.gpg_verify per mise/src/config/settings.rs. Without it mise's node
-# plugin soft-skips when gpg is absent (`warn!("gpg not found, skipping verification")` in
-# mise/src/plugins/core/node.rs). gpg is installed up-front in _setup_all via conda:gnupg (cross-platform
-# conda-forge build) so the subsequent `mise install node` finds it.
+# Propagates to node.gpg_verify and swift.gpg_verify per mise/src/config/settings.rs. mise's node plugin
+# runs `gpg --import` + `gpg --verify` against Node's signed SHASUMS; with this enabled that path hard-fails
+# instead of soft-skipping (`warn!("gpg not found, skipping verification")` in mise/src/plugins/core/node.rs)
+# when gpg is absent. The full gnupg suite (gpg + agent + dirmngr) is installed up-front in _setup_all so
+# any gpg-verified install finds it.
 gpg_verify = true
 
 [tools]
-action-validator = "latest"
+# aqua/github ship no Windows build for action-validator, so scope the aqua entry off Windows.
+# config.windows.toml installs cargo:action-validator (cargo-quickinstall msvc prebuilt) there instead.
+action-validator = { version = "latest", os = ["linux", "macos"] }
 # jaq: a Rust jq-compatible alternative implementation with prebuilt binaries for every platform.
 "aqua:01mf02/jaq" = "latest"
 "aqua:EmbarkStudios/cargo-deny" = "latest"
@@ -68,13 +71,6 @@ watchexec = "latest"
 # since chromedriver was the only [tools] entry that defaulted to vfox.
 # "chromedriver" = { version = "146", os = ["linux", "macos"] }
 cmake = "latest"
-# gpg + agent + dirmngr (full gnupg suite).
-# Required by mise's node plugin verify path (`gpg --import` + `gpg --verify` against Node's signed SHASUMS);
-# `[settings] gpg_verify = true` flips that path from soft-skip to hard-fail, so gpg must be reachable before
-# `mise install node`. _setup_all does this install first thing for that ordering. Conda-forge has gnupg
-# builds for linux-64, osx-64, osx-arm64 -- but NOT win-64; Windows uses the msys2 `conda:m2-gnupg` package
-# declared in config.windows.toml.
-"conda:gnupg" = { version = "latest", os = ["linux", "macos"] }
 "conda:openssl" = "3"
 conftest = "latest"
 # uutils coreutils: the Rust multicall binary, invoked as `coreutils <util>` in tasks.
@@ -303,6 +299,10 @@ wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext
 # Extra flag for the wasm-pack module builds; empty so wasm-opt runs.
 # config.windows.toml overrides it to --no-opt where wasm-opt can't execute.
 no_opt = ""
+# Workspace members to exclude from the build-based cargo checks; empty on Linux/macOS.
+# config.windows.toml overrides it to `--exclude et-ws-web-runner` -- that crate pulls deno -> v8, whose
+# rusty_v8 gnullvm prebuilt is broken, so the workspace cargo check/clippy/doc can't build it on Windows.
+cargo_ws_excludes = ""
 # Linux/macOS install root for the github:microsoft/onnxruntime tool.
 # The ORT_LIB_LOCATION env below resolves to it via the OS conditional. Version
 # segment must match the [tools] pin (conftest's version_drift enforces this).
@@ -453,7 +453,7 @@ description = "Run all formatters: fmt:rust + any loaded guest fmt:<lang>"
 # default config this pass; the guest `check:<lang>` tasks come from their
 # loaded MISE_ENV configs).
 depends = [
-  "action-validator",
+  "action-validator-check",
   "ast-grep-check",
   "cargo-check",
   "cargo-clippy-check",
@@ -475,7 +475,7 @@ depends = [
   "shellcheck-mise-check",
   "taplo-check",
   "taplo-fmt-check",
-  "typos",
+  "typos-check",
   "verification-check",
   "zizmor-check",
 ]
@@ -503,7 +503,7 @@ description = "Apply Rust + universal lint-fix passes"
 depends = ["fix:*"]
 description = "Apply all lint-fix passes: fix:rust + any loaded guest fix:<lang>"
 
-[tasks.action-validator]
+[tasks.action-validator-check]
 description = "Validate GitHub Actions workflow + composite-action YAML"
 run = "action-validator .github/workflows/*.yaml .github/actions/*/action.yaml"
 
@@ -540,7 +540,7 @@ description = "Lint the Dockerfiles with hadolint"
 run = "git ls-files '*Dockerfile' '*Dockerfile.*' | xargs hadolint --config config/hadolint.yaml"
 
 [tasks.cargo-check]
-run = "cargo check --workspace"
+run = "cargo check --workspace {{ vars.cargo_ws_excludes }}"
 
 [tasks.cargo-fmt]
 run = "cargo +nightly fmt"
@@ -550,7 +550,7 @@ run = "cargo +nightly fmt -- --check"
 
 [tasks.cargo-clippy-check]
 alias = ["cargo-clippy", "clippy", "clippy-check"]
-run = "cargo clippy --keep-going --workspace --tests"
+run = "cargo clippy --keep-going --workspace --tests {{ vars.cargo_ws_excludes }}"
 
 [tasks.cargo-clippy-check-pkg]
 alias = ["clippy-pkg"]
@@ -569,10 +569,10 @@ description = "Type-check rustdoc with -D warnings to fail on any doc issues"
 # `cargo +nightly fmt`. Drop `-Z unstable-options --check` and switch back to plain `cargo doc` once
 # rustdoc stabilises `--check`.
 env = { RUSTDOCFLAGS = "-Z unstable-options --check -D warnings" }
-run = "cargo +nightly doc --keep-going --workspace --no-deps --document-private-items"
+run = "cargo +nightly doc --keep-going --workspace --no-deps --document-private-items {{ vars.cargo_ws_excludes }}"
 
 [tasks.cargo-clippy-fix]
-run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace --tests"
+run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace --tests {{ vars.cargo_ws_excludes }}"
 
 [tasks.taplo-fmt]
 alias = "toml-fmt"
@@ -749,7 +749,8 @@ taplo lint --schema "file://$PWD/config/taplo/mise-cargo-backend-allowlist.schem
 """
 shell = "bash -euo pipefail -c"
 
-[tasks.typos]
+[tasks.typos-check]
+alias = "typos"
 run = "typos --config config/typos.toml"
 
 [tasks.typos-fix]
@@ -877,6 +878,8 @@ description = "Regenerate .dockerignore from .gitignore + Docker-only excludes"
 # A bare pattern there is root-anchored -- whereas a slash-less .gitignore pattern matches at any depth.
 # So mirror .gitignore, add the Docker-only excludes (`.git/`, plus the build recipe + docs so editing
 # them doesn't bust the `COPY . .` cache), and `**/`-prefix each non-anchored pattern.
+# goawk emits CRLF on Windows, so the whole block is piped through `tr -d '\r'` -- .dockerignore must stay
+# LF-only (editorconfig enforces it, and CRLF would also make dockerignore-check see a spurious diff).
 run = '''
 {
   echo "# AUTO-GENERATED from .gitignore by 'mise run gen:dockerignore' -- do not edit."
@@ -897,7 +900,7 @@ run = '''
       if (index(core, "/") > 0) print neg line; else print neg "**/" line
     }
   '
-} >.dockerignore
+} | coreutils tr -d '\r' >.dockerignore
 '''
 shell = "bash -euo pipefail -c"
 

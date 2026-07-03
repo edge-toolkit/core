@@ -64,17 +64,21 @@ deny contains msg if {
 	)
 }
 
-# `cargo:` tools build from source; prefer a prebuilt backend.
-# Allowed only when either (a) the tool has no prebuilt anywhere -- allowlisted by name below, or (b) it is os-scoped to
-# second-tier platforms (linux/arm64, macos/x64), whose prebuilt assets release authors often skip. A first-tier
-# platform (linux/x64, macos/arm64, windows) must always have a prebuilt; source-builds there are a slow surprise on the
-# critical path.
+# `cargo:` tools may build from source; prefer a prebuilt backend.
+# Allowed only when either (a) allowlisted by name below -- cargo-binstall fetches a prebuilt there (e.g. a
+# cargo-quickinstall release, routed via an `install_env` CARGO_BUILD_TARGET override), or the tool has no prebuilt
+# anywhere and genuinely source-builds; or (b) it is os-scoped to second-tier platforms (linux/arm64, macos/x64),
+# whose prebuilt assets release authors often skip. A first-tier platform (linux/x64, macos/arm64, windows) must
+# always have a prebuilt; source-builds there are a slow surprise on the critical path.
 #
 # config.maint.toml is exempted: it's only loaded with MISE_ENV=maint by a maintainer running one-off publish tasks,
 # not by CI. A slow cargo-source install on a workstation when refreshing the HF mirror is fine.
 second_tier_platform := {"linux/arm64", "macos/x64"}
 
-allowed_cargo_no_prebuilt := {"cargo:cargo-expand", "cargo:dart-typegen", "cargo:wasm-opt"}
+# cargo:action-validator has no aqua/github Windows build, so config.windows.toml installs it via cargo.
+# cargo-binstall pulls the cargo-quickinstall x86_64-pc-windows-msvc prebuilt (verified present), routed via
+# the msvc install_env there -- a prebuilt fetch, not a source build.
+allowed_cargo_no_prebuilt := {"cargo:action-validator", "cargo:cargo-expand", "cargo:dart-typegen", "cargo:wasm-opt"}
 
 cargo_scoped_to_second_tier(spec) if {
 	is_object(spec)
@@ -111,6 +115,9 @@ deny contains msg if {
 # Any os-scoped [tools] entry must be in this list -- a genuinely platform-specific tool, a per-platform backend pair
 # that still covers every OS (findutils, ryl), or an optional tool that self-skips on the omitted platform (pipx:torch).
 allowed_os_scoped_tool := {
+	# action-validator (aqua) has no Windows build, so it is os-scoped off Windows.
+	# config.windows.toml installs cargo:action-validator there instead (cargo-quickinstall msvc prebuilt).
+	"action-validator",
 	"chromedriver",
 	"pipx",
 	"pipx:torch",

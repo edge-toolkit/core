@@ -30,20 +30,24 @@ runs:
       with:
         tool: ${{ inputs.install-action-tools }}
 
-    # Append mise's shims dir to PATH for subsequent steps on Windows.
+    # On Windows, put mise's file-shim dir on PATH and pin the shim mode to "file".
     # taiki-e/install-action's mise manifest stages only `mise.exe`; mise's per-tool `.cmd` "file" shims under
     # `%LOCALAPPDATA%\mise\shims` aren't on PATH by default, so tool lookups inside `mise run` fail with
     # `'dart' / 'mvn' / 'recur' / 'wasm-pack' / 'zig' is not recognized...`. The companion `mise-shim.exe`
     # (single-binary shim) ALSO ships in the Windows zip, but staging it triggers a CreateProcess
     # `ERROR_FILENAME_EXCED_RANGE` (os error 206) when mise-shim re-execs mise.exe with the runner's already-long
     # PATH inherited -- the file-shim fallback doesn't have this problem (each .cmd shim invokes `mise exec --`
-    # plainly via cmd).
-    - name: Add mise shims dir to PATH on Windows
+    # plainly via cmd). Since `mise-shim.exe` is deliberately absent, pin `MISE_WINDOWS_SHIM_MODE=file` so mise
+    # selects file mode up front rather than defaulting to "exe", failing to find `mise-shim.exe`, and logging a
+    # "falling back to file shim mode" WARN on every reshim.
+    - name: Configure mise file shims on Windows
       if: runner.os == 'Windows'
       shell: bash --noprofile --norc -euo pipefail {0}
       # The github-env audit's arbitrary-code-execution shape doesn't apply here.
-      # The appended value is a hardcoded mise install-dir constant under our control -- no user input flows in.
-      run: echo "$LOCALAPPDATA\mise\shims" >> "$GITHUB_PATH" # zizmor: ignore[github-env]
+      # The appended values are hardcoded constants under our control -- no user input flows in.
+      run: | # zizmor: ignore[github-env]
+        echo "$LOCALAPPDATA\mise\shims" >> "$GITHUB_PATH"
+        echo "MISE_WINDOWS_SHIM_MODE=file" >> "$GITHUB_ENV"
 
     - name: Trust mise config
       shell: bash --noprofile --norc -euo pipefail {0}

@@ -196,22 +196,22 @@ run every loaded language's row; guest rows need their `MISE_ENV` loaded.
 | `*.c`     | `clang-format`                  |
 | `*.cs`    | `fmt:dotnet`                    |
 
-| File type | Check task(s)                                                                            |
-| --------- | ---------------------------------------------------------------------------------------- |
-| `*.rs`    | `cargo-check`, `cargo-clippy`, `cargo-fmt-check`, `cargo-doc-check`, `ast-grep-check`    |
-| `*.toml`  | `taplo-check`, `conftest-check-toml`, `semgrep-check`                                    |
-| `*.yaml`  | `ast-grep-check`, `conftest-check-yaml`, `ryl-check`, `action-validator`, `zizmor-check` |
-| `*.json`  | `semgrep-check`                                                                          |
-| `*.py`    | `check:python`                                                                           |
-| `*.dart`  | `check:dart`                                                                             |
-| `*.zig`   | `check:zig`                                                                              |
-| `*.c`     | `clang-format-check`, `clang-tidy-check`, `cpplint-check`                                |
-| `*.cs`    | `check:dotnet`                                                                           |
-| `*.java`  | `check:java`                                                                             |
+| File type | Check task(s)                                                                                  |
+| --------- | ---------------------------------------------------------------------------------------------- |
+| `*.rs`    | `cargo-check`, `cargo-clippy`, `cargo-fmt-check`, `cargo-doc-check`, `ast-grep-check`          |
+| `*.toml`  | `taplo-check`, `conftest-check-toml`, `semgrep-check`                                          |
+| `*.yaml`  | `ast-grep-check`, `conftest-check-yaml`, `ryl-check`, `action-validator-check`, `zizmor-check` |
+| `*.json`  | `semgrep-check`                                                                                |
+| `*.py`    | `check:python`                                                                                 |
+| `*.dart`  | `check:dart`                                                                                   |
+| `*.zig`   | `check:zig`                                                                                    |
+| `*.c`     | `clang-format-check`, `clang-tidy-check`, `cpplint-check`                                      |
+| `*.cs`    | `check:dotnet`                                                                                 |
+| `*.java`  | `check:java`                                                                                   |
 
 `dprint-fmt` / `dprint-check` cover `*.md`, `*.yaml`, `*.json`/`*.jsonc`, `*.ts`/`*.js`, `*.css`, `*.html`,
 `*.java`, and `Dockerfile*`; `hadolint-check` also lints Dockerfiles, and `link-check` scans `*.md` + `*.rs`. Every
-file is covered by `editorconfig-check` and `typos`, file and directory names by `ls-lint-check`, and `*.yml` is
+file is covered by `editorconfig-check` and `typos-check`, file and directory names by `ls-lint-check`, and `*.yml` is
 rejected by `semgrep-check` (use `*.yaml`).
 
 For Rust inner-loop iteration on a single crate, use `mise run cargo-clippy-check-pkg <package>` (alias
@@ -470,6 +470,28 @@ tools that have no prebuilt at any triple.
 Skipping a tool entirely with `MISE_DISABLE_TOOLS` is reserved for `Dockerfile.nanoserver`, where trimming the
 image to just what its build needs is expected. Other Dockerfiles may only disable tools that are unused by the
 build system anyway (e.g. `cargo-expand`, a dev-only macro-debugging tool).
+
+## Installing `cargo:` tools on Windows: pin an msvc `install_env`
+
+The Windows Rust target here is `x86_64-pc-windows-gnullvm` (`config.windows.toml`'s `[env] CARGO_BUILD_TARGET`),
+which cargo-binstall reads to decide which prebuilt to fetch. Almost no project -- and neither cargo-quickinstall --
+publishes `*-gnullvm` binaries; they ship `x86_64-pc-windows-msvc`. So a bare `cargo:<tool>` on Windows makes
+binstall look for a gnullvm prebuilt, find none, and fall through to a slow `cargo install` source build (which
+often then fails on missing gnullvm `rust-std`). This has been rediscovered repeatedly (cargo-expand, wasm-opt,
+action-validator) -- if a `cargo:` tool source-builds or "not found"s on the Windows lane, this is why.
+
+When adding a `cargo:` tool that must work on Windows, declare it in `config.windows.toml` with a per-tool msvc
+override so binstall fetches the msvc prebuilt (an msvc binary runs fine on the gnullvm host -- the target only
+affects what the tool links, not what executes it):
+
+    "cargo:<name>" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
+
+First confirm an msvc prebuilt actually exists for that `<name>@<version>` -- check cargo-quickinstall's release
+tags for `<name>-<version>-x86_64-pc-windows-msvc.tar.gz` -- then add the tool to `mise.rego`'s
+`allowed_cargo_no_prebuilt`; that conftest allowlist is the gate that forces you to have verified a binary exists.
+If no msvc prebuilt exists either, use a different backend (aqua/github/http, or mirror it via the upstream-cache
+pattern), or os-scope the tool off Windows and provide coverage another way (as `dart-typegen` does via
+`http:dart-typegen`).
 
 ## Adding a new `upstream-cache` entry
 

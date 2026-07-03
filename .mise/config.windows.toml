@@ -18,17 +18,13 @@
 "conda:m2-gnupg" = "2.2.41.1"
 "github:mstorsjo/llvm-mingw" = { version = "20260602", matching = "ucrt-x86_64" }
 
-# Windows overrides of cargo: entries from other configs.
-# cargo-binstall reads CARGO_BUILD_TARGET via its clap env binding (binstall/crates/bin/src/args.rs:88-95).
-# The [env] block in this file sets it to gnullvm so the repo's own Rust builds link gnullvm-only -- but the
-# cargo: tools below don't publish gnullvm quickinstall releases, so without this override binstall finds
-# nothing and falls through to source (which then fails on missing gnullvm rust-std). `install_env` is a
-# per-tool override applied only during the install step (mise's tool_version_options.rs: CoreToolOptions.install_env)
-# and routes binstall to the msvc release. The resulting binary runs fine on a gnullvm host -- target only
-# affects what the tool links, not what executes it. (cargo:dart-typegen has no quickinstall release at all
-# -- not just no gnullvm one -- so it stays in MISE_DISABLE_TOOLS for the Windows test lane.)
+# Windows cargo: builds pin a per-tool msvc install_env so cargo-binstall fetches the msvc prebuilt.
+# (cargo:dart-typegen has no quickinstall release at all -- not just no gnullvm one -- so it can't use this
+# pattern; it stays in MISE_DISABLE_TOOLS for the Windows test lane, with http:dart-typegen providing coverage.)
 "cargo:cargo-expand" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
 "cargo:wasm-opt" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
+# action-validator uses aqua on Linux/macOS but has no aqua/github Windows build, so it's cargo: only here.
+"cargo:action-validator" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
 
 # busybox-w32 `sh` (POSIX ash) -- the shell the bash-tasks run on.
 # A native Win32 single exe with no cygwin/msys runtime, so it loads on a bare Nano Server, unlike conda's
@@ -125,6 +121,10 @@ win_libclang = "C:\\Program Files\\LLVM\\bin"
 # wasm-pack's wasm-opt (binaryen) can't execute on Nano Server (os error 3).
 # So the module + wasm-agent builds pass --no-opt; they reference {{ vars.no_opt }}.
 no_opt = "--no-opt"
+# et-ws-web-runner's rusty_v8 (deno -> v8) gnullvm prebuilt is broken, so exclude it on Windows.
+# The build-based cargo checks (check/clippy/doc) skip it here, matching cargo test's --exclude and the
+# skipped test-ws-web-runner task.
+cargo_ws_excludes = "--exclude et-ws-web-runner"
 
 [env]
 # Run `shell = "bash ..."` tasks on busybox ash rather than the Windows WSL launcher.
