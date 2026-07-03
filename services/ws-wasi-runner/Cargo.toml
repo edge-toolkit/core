@@ -67,9 +67,15 @@ ort.workspace = true
 wgpu.workspace = true
 
 [dev-dependencies]
+et-test-helpers.workspace = true
 et-ws-test-server.workspace = true
 int-otlp-mock.workspace = true
+opentelemetry-proto.workspace = true
+prost.workspace = true
+reqwest = { workspace = true, features = ["blocking"] }
+retry.workspace = true
 rstest.workspace = true
+tempfile.workspace = true
 
 [lints]
 workspace = true

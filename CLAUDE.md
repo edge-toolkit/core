@@ -385,6 +385,32 @@ If a function is private but needs testing, add a `[lib]` target to the crate an
 
 Every file under `tests/` must start with `#![cfg(test)]` (placed after the file's `//!` doc comment, if any).
 
+Shared, **low-dependency** test helper functions -- free-port reservation, port-readiness waits, and the like --
+belong in the `et-test-helpers` crate (`libs/test-helpers`); reuse and extend it rather than re-implementing the same
+helper per test. Keep its dependency footprint small (currently just `port_check` + `retry`): anything heavier or
+domain-specific gets its own test-support crate instead (e.g. `et-ws-test-server` for an in-process ws-server, or
+`int-otlp-mock` for a mock OTLP collector).
+
+### NEVER skip, ignore, or platform-disable a test without explicit user approval
+
+A test that doesn't run is worse than no test: it reads as coverage while asserting nothing. Do not add `#[ignore]`,
+`#[cfg_attr(<cond>, ignore = "...")]`, an early `return` guard, a `cfg`-out, or any other skip to a test (or disable a
+feature) without the user explicitly approving that specific skip. Two rationalisations are specifically banned because
+both are false under this repo's design:
+
+- **"It might not work on Windows (or some OS) and I can't verify it here."** Every one of the five supported platforms
+  (macOS arm64/x64, Linux x64/arm64, Windows x64) is a first-class target, and CI runs the full matrix. Deciding whether
+  a test passes on an OS you can't run locally is **CI's job, not yours** -- write the test to run everywhere and let CI
+  report. Do not `#[cfg_attr(windows, ignore)]` (or similar) on the guess that it "wants a check first". If CI later
+  proves a genuine, understood platform incompatibility, that is the moment to gate it -- narrowly, with the CI evidence
+  cited (per the "Workarounds" rules below), and still only with user sign-off.
+- **"A required tool/binary may not be installed."** The README mandates `mise`; every sanctioned environment (CI,
+  Docker images, a contributor workstation) has every `[tools]` binary on `PATH`. A test must never self-skip because
+  a tool "might be missing" -- a missing mise tool means a misconfigured environment, which must **fail loudly**, not
+  silently pass. Spawn the binary and let the `.expect(...)` panic surface the misconfiguration.
+
+If you believe a skip is genuinely warranted, stop and ask the user; do not add it pre-emptively.
+
 ## Workarounds
 
 When you can't (or shouldn't) fix the root cause right now -- a libc race in an upstream dep, a flaky platform driver,

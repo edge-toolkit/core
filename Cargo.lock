@@ -489,9 +489,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.102"
+version = "1.0.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
+checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
 
 [[package]]
 name = "ar_archive_writer"
@@ -4232,6 +4232,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "et-test-helpers"
+version = "0.1.0"
+dependencies = [
+ "port_check",
+ "retry",
+]
+
+[[package]]
 name = "et-web"
 version = "0.1.0"
 dependencies = [
@@ -4418,6 +4426,7 @@ dependencies = [
  "futures-util",
  "pyo3",
  "pyo3-build-config",
+ "rstest",
  "serde",
  "serde-env",
  "serde_json",
@@ -4558,6 +4567,7 @@ dependencies = [
  "edge-toolkit",
  "et-modules-service",
  "et-storage-service",
+ "et-test-helpers",
  "et-ws-service",
  "futures-util",
  "serde_json",
@@ -4612,6 +4622,7 @@ dependencies = [
  "edge-toolkit",
  "et-otlp",
  "et-rest-client",
+ "et-test-helpers",
  "et-ws-runner-common",
  "et-ws-test-server",
  "futures-util",
@@ -4619,14 +4630,18 @@ dependencies = [
  "libc",
  "opentelemetry 0.31.0",
  "opentelemetry-http 0.31.0",
+ "opentelemetry-proto 0.31.0",
  "ort",
  "pollster",
+ "prost 0.14.4",
  "reqwest 0.13.4",
+ "retry",
  "rstest",
  "serde",
  "serde-env",
  "serde_json",
  "serde_path_to_error",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tokio-tungstenite",
@@ -6037,6 +6052,9 @@ version = "0.1.0"
 dependencies = [
  "actix-rt",
  "actix-web",
+ "et-test-helpers",
+ "opentelemetry-proto 0.31.0",
+ "prost 0.14.4",
  "serde_json",
 ]
 
@@ -7889,6 +7907,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "port_check"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2110609fb863cdb367d4e69d6c43c81ba6a8c7d18e80082fe9f3ef16b23afeed"
+
+[[package]]
 name = "portable-atomic"
 version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8756,6 +8780,12 @@ name = "resolv-conf"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e061d1b48cb8d38042de4ae0a7a6401009d6143dc80d2e2d6f31f0bdd6470c7"
+
+[[package]]
+name = "retry"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1cab9bd343c737660e523ee69f788018f3db686d537d2fd0f99c9f747c1bda4f"
 
 [[package]]
 name = "retry-policies"

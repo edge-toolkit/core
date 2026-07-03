@@ -8,8 +8,13 @@ message: |
   `edge_toolkit::config::get_project_root()` (runtime) instead.
 rule:
   any:
-    - pattern: env!("CARGO_MANIFEST_DIR")
     - pattern: std::env::var("CARGO_MANIFEST_DIR")
     - pattern: env::var("CARGO_MANIFEST_DIR")
+    # Ban `env!("CARGO_MANIFEST_DIR")` in every context, including when nested inside another macro.
+    # A nested `env!` parses as a raw token tree the bare pattern can't see, so match any `macro_invocation`
+    # node whose tokens contain it; a standalone `env!("CARGO_MANIFEST_DIR")` is itself a `macro_invocation`,
+    # so this one rule covers both the direct and the nested forms.
+    - kind: macro_invocation
+      regex: 'env!\s*\(\s*"CARGO_MANIFEST_DIR"'
 ignores:
   - libs/path/src/lib.rs

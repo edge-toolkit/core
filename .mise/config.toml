@@ -55,6 +55,7 @@ action-validator = "latest"
 "aqua:StyraInc/regal" = "latest"
 "aqua:koalaman/shellcheck" = "latest"
 "aqua:rustwasm/wasm-pack" = "latest"
+"aqua:vectordotdev/vector" = "0.56.0"
 ast-grep = "latest"
 cargo-binstall = "latest"
 "cargo:cargo-expand" = { version = "latest", os = ["linux", "macos"] }
@@ -814,14 +815,15 @@ run = "osv-scanner --lockfile Cargo.lock --config config/osv-scanner.toml"
 description = "Regenerate config/osv-scanner.toml from config/deny.toml's [advisories].ignore list"
 # osv-scanner and cargo-deny must ignore the same advisory IDs.
 # config/deny.toml is the source of truth (it carries the per-ID rationale). rg + coreutils only, so
-# the `dependencies` workflow can run it (via mise) next to the audit binaries.
+# the `dependencies` workflow can run it (via mise) next to the audit binaries. Both RUSTSEC-YYYY-NNNN and
+# GHSA-xxxx-xxxx-xxxx ids are extracted, so a GHSA-only advisory (one RustSec hasn't assigned) still filters.
 run = """
 {
   # backticks in the echoed line are literal markdown, not command substitution.
   # shellcheck disable=SC2016
   echo '# AUTO-GENERATED from config/deny.toml by `mise run gen:osv-scanner`.'
   echo 'IgnoredVulns = ['
-  rg -oN -r '  { id = $0 },' '"RUSTSEC-[0-9]{4}-[0-9]{4}"' config/deny.toml | coreutils sort -u
+  rg -oN -r '  { id = $0 },' '"(RUSTSEC-[0-9]{4}-[0-9]{4}|GHSA(-[0-9a-z]{4}){3})"' config/deny.toml | coreutils sort -u
   echo ']'
 } > config/osv-scanner.toml
 """
