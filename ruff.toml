@@ -15,6 +15,12 @@ line-length = 120
 # flags, and so they're skipped even when ruff runs with `--no-respect-gitignore`.
 extend-exclude = ["componentize_py_async_support", "wit_world"]
 
+[format]
+# Force LF so formatting is deterministic across platforms.
+# ruff's default (`auto`) writes platform line endings, so the gen:python-* codegen tasks emitted
+# CRLF-churned trees when run on Windows -- the sole reason those tasks used to skip there.
+line-ending = "lf"
+
 [lint]
 # On top of the default rule set (E, F).
 #   "I" -- isort import sorting. `ruff format` only handles whitespace; the "I" rules give deterministic
