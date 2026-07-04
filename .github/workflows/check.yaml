@@ -23,8 +23,28 @@ env:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            timeout: 25
+          - os: macos-latest
+            timeout: 45
+          - os: windows-latest
+            timeout: 75
+    # Windows runs the checkers under busybox-w32 ash, same as test.yaml's Windows lane.
+    # That's the shell mise's `shell = "bash"` tasks run on; Git Bash's MSYS fork-emulation cygheap breaks
+    # down on long task chains. The path matches the version pin in `.mise/config.windows.toml`'s
+    # [tools."http:busybox"] entry.
+    defaults:
+      run:
+        shell: >-
+          ${{ startsWith(matrix.os, 'windows') &&
+              'C:\Users\runneradmin\AppData\Local\mise\installs\http-busybox\1.37.0\ash.exe -euo pipefail {0}'
+              || 'bash --noprofile --norc -euo pipefail {0}' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,8 +52,13 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Free disk space on Windows
+        if: runner.os == 'Windows'
+        uses: ./.github/actions/free-disk-space-windows
+
       - name: Install mise + tools
         uses: ./.github/actions/install-mise-tools
+        timeout-minutes: 25
         with:
           github-token: ${{ github.token }}
 
@@ -42,6 +67,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           CARGO_NET_RETRY: "5"
+
+      # MISE_JOBS=1 serializes mise's task scheduler so the parallel cargo checkers don't race on Windows.
+      # cargo-check / cargo-clippy-check / cargo-doc-check otherwise contend on cargo's
+      # `.cargo/registry/index` lock -- on Linux/macOS cargo waits gracefully, on Windows it fails fast
+      # (see test.yaml's matching step). mise rejects an empty MISE_JOBS, and GHA has no `if:` on
+      # individual env entries, so it's a separate conditional step.
+      - name: Serialize mise tasks on Windows
+        if: runner.os == 'Windows'
+        run: echo "MISE_JOBS=1" >> "$GITHUB_ENV"
 
       - name: Run checkers
         run: |
