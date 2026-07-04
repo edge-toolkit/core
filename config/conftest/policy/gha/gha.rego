@@ -42,8 +42,8 @@ deny contains msg if {
 
 # The MISE_ENV VALUE must be the full guest-language set.
 # This makes every CI run exercise the same toolchain footprint as a local `mise install`. The docker-windows
-# workflow's Nano lane drops `python` via a matrix-specific build-arg override, and test-alt's matrix appends its
-# compiler target env at JOB level; both workflow-level values still match the standard, which is all this rule pins.
+# workflow's Nano lane drops `python` via a matrix-specific build-arg override, and test.yaml's `override` job
+# appends its compiler target env at JOB level; both workflow-level values still match the standard this rule pins.
 expected_mise_env := "dart,dotnet,java,js,python,rust,zig"
 
 deny contains msg if {
