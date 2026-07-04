@@ -411,6 +411,25 @@ both are false under this repo's design:
 
 If you believe a skip is genuinely warranted, stop and ask the user; do not add it pre-emptively.
 
+### Known intermittent CI failure: pyo3-runner torch registration timeout
+
+`et-ws-pyo3-runner`'s `module_behaves::case_5_torch` intermittently fails on test.yaml's Windows lane with the
+literal failure line
+
+    Error: "runner never registered"
+
+arriving a few seconds after torch's cold first import prints
+`UserWarning: Failed to initialize NumPy: No module named 'numpy'` (from
+`torch\_subclasses\functional_tensor.py:362`, a benign warning) and its
+`cpu = _conversion_method_template(device=torch.device("cpu"))` line -- i.e. the spawned runner was still inside
+torch's import when the test's registration timeout expired. The ~117 MB `pipx:torch` package's first import on a
+cold runner is the slow step; a rerun passes because the import caches warm. Observed on commit
+`6479913bdc288dd680fbe0520f63054e8c71fe6c` at
+https://github.com/edge-toolkit/core/actions/runs/28686533955/job/85080173283 (PR #70; the rerun passed and the PR
+merged). If this signature recurs, stop rerunning and fix the root cause: raise (or make torch-case-specific) the
+runner-registration timeout in the pyo3-runner module tests, or warm the torch import before the registration clock
+starts.
+
 ## Workarounds
 
 When you can't (or shouldn't) fix the root cause right now -- a libc race in an upstream dep, a flaky platform driver,

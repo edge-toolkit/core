@@ -1,0 +1,110 @@
+---
+name: test-alt
+
+# Alternate-compiler Windows lanes, one per mise target env (.mise/config.<compiler>.toml).
+# Both exist for et-ws-web-runner: rusty_v8 has no gnullvm prebuilt, so `msvc` builds it against the
+# native prebuilt with the portable MSVC toolchain (prefetch:msvc) and `mingw` links the msvc archive
+# into an x86_64-pc-windows-gnu binary with winlibs GCC. Everything installs through mise; the steps
+# mirror test.yaml's Windows job plus the dotnet-data1 module build (a workflow step because MSBuild's
+# BrowserWasmApp.targets emcc PATH quirk keeps it out of the mise dotnet tasks on Windows -- see
+# build-ws-dotnet-data1-module).
+"on":
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# this allows a subsequently queued workflow run to interrupt previous runs in pull requests only
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+env:
+  MISE_ENV: "dart,dotnet,java,js,python,rust,zig"
+
+jobs:
+  web-runner:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [mingw, msvc]
+    # Append the compiler's target env to the workflow-level language set.
+    # Job-level rather than a GITHUB_ENV step because the alias must already be loaded when
+    # install-mise-tools runs its first `mise install`: that pass installs the compiler env's tools and
+    # the rust toolchains' extra target std, and mise does not reconcile a changed `targets` list on an
+    # already-installed toolchain.
+    env:
+      MISE_ENV: "dart,dotnet,java,js,python,rust,zig,${{ matrix.compiler }}"
+    # Same busybox-w32 ash default as test.yaml's Windows runs.
+    # It is installed by `_setup_all` before the first `run:` step executes, and avoids Git Bash's MSYS
+    # fork-emulation cygheap pathology on long mise task chains. The path matches the version pin in
+    # `.mise/config.windows.toml`'s [tools."http:busybox"] entry.
+    defaults:
+      run:
+        shell: C:\Users\runneradmin\AppData\Local\mise\installs\http-busybox\1.37.0\ash.exe -euo pipefail {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Free disk space on Windows
+        uses: ./.github/actions/free-disk-space-windows
+
+      - name: Install mise + tools
+        uses: ./.github/actions/install-mise-tools
+        timeout-minutes: 25
+        with:
+          github-token: ${{ github.token }}
+
+      # Covers the compiler env's prefetch:mingw / prefetch:msvc via prefetch-ci's `prefetch:*` glob.
+      # GITHUB_TOKEN raises the rate-limit ceiling on mise's fetch of the rp-v<N> rustpython_wasm tarball.
+      - name: Prefetch dependencies
+        timeout-minutes: 20
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run prefetch-ci
+
+      # MISE_JOBS=1 serializes mise's task scheduler.
+      # See test.yaml's matching step for the captured cargo registry-lock race this avoids on Windows.
+      - name: Serialize mise tasks
+        run: echo "MISE_JOBS=1" >> "$GITHUB_ENV"
+
+      - name: Build WASM modules
+        timeout-minutes: 25
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run build-modules
+
+      # This step's shell script is written for busybox ash rather than Git Bash.
+      # No cygpath (PATH takes the Windows-form dir with a `;` separator), and the single-applet busybox
+      # has no bare head/dirname -- they go through the coreutils multicall.
+      - name: Build dotnet-data1 WASM module
+        timeout-minutes: 20
+        run: |
+          set -xeuo pipefail
+          cd services/ws-modules/dotnet-data1
+          dotnet workload install wasm-tools --skip-manifest-update
+          # MSBuild's BrowserWasmApp.targets link step calls bare `emcc` and relies on PATH.
+          # Surface the workload's emcc dir + EmscriptenLocation ourselves (same approach as the mise build task).
+          packs="${DOTNET_ROOT:-C:/Program Files/dotnet}/packs"
+          emcc_bat="$(find "$packs" -name emcc.bat 2>/dev/null | coreutils head -1)"
+          test -n "$emcc_bat" || { echo "emcc.bat not found under dotnet packs"; exit 1; }
+          emcc_dir="$(coreutils dirname "$emcc_bat")"
+          emsdk_loc="$(coreutils dirname "$(coreutils dirname "$emcc_dir")")/Sdk"
+          export PATH="$emcc_dir;$PATH"
+          dotnet publish -c Release -p:EmscriptenLocation="$emsdk_loc"
+          publish=bin/Release/net10.0/publish/wwwroot/_framework
+          coreutils cp "$publish"/*.js "$publish"/*.wasm "$publish"/*.dat pkg/
+
+      - name: Run tests
+        timeout-minutes: 40
+        run: mise run test

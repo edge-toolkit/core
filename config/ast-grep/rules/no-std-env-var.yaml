@@ -27,3 +27,6 @@ ignores:
   # The project-root helper reads CARGO_MANIFEST_DIR to locate the repo root from a build script.
   # That is a cargo build variable, not app config.
   - libs/path/src/lib.rs
+  # Build scripts have no serde-env config layer, so the app-config rule does not apply there.
+  # The CARGO_* / OUT_DIR variables cargo sets are a build script's input API.
+  - "**/build.rs"

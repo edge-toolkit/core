@@ -36,8 +36,12 @@ description = "Lint C sources (clang-tidy)"
 # Flags after `--` are the compile args.
 # clang_resource_arg points clang at its builtin headers (set per host -- see config.linux.toml). {{ }} renders
 # to empty where unset, leaving a bare `--`.
+# services/ws-web-runner/mingw-shim is excluded from the two clang-tidy tasks only: clang-tidy compiles
+# its input, and those Windows-only sources (windows.h, MSVC CRT identifiers) cannot compile on the Linux
+# host this task runs on in CI. clang-format and cpplint still cover them, and the mingw lane compiles
+# them for real with winlibs gcc.
 run = """
-git ls-files '*.c' '*.h' |
+git ls-files '*.c' '*.h' ':!services/ws-web-runner/mingw-shim' |
   xargs -I{} clang-tidy --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
 """
 shell = "bash -euo pipefail -c"
@@ -45,7 +49,7 @@ shell = "bash -euo pipefail -c"
 [tasks.clang-tidy-fix]
 description = "Apply clang-tidy's machine-applicable fix-its to C sources in place"
 run = """
-git ls-files '*.c' '*.h' |
+git ls-files '*.c' '*.h' ':!services/ws-web-runner/mingw-shim' |
   xargs -I{} clang-tidy --fix --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
 """
 shell = "bash -euo pipefail -c"

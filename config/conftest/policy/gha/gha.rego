@@ -34,17 +34,16 @@ step_shell_allowed(step) if {
 
 # Every workflow must declare MISE_ENV at the workflow level so the set of loaded language envs is visible at a glance.
 # This avoids per-job `mise run print-all-langs` runtime resolution. The matching `Show MISE_ENV` step in each job
-# echoes the value into the CI log. Carve-out: test-msvc deliberately doesn't use mise.
+# echoes the value into the CI log.
 deny contains msg if {
-	input.name != "test-msvc"
 	not input.env.MISE_ENV
 	msg := "workflow must set top-level env.MISE_ENV (the comma-separated language list)"
 }
 
 # The MISE_ENV VALUE must be the full guest-language set.
 # This makes every CI run exercise the same toolchain footprint as a local `mise install`. The docker-windows
-# workflow's Nano lane drops `python` via a matrix-specific build-arg override; the workflow-level value still matches
-# the standard.
+# workflow's Nano lane drops `python` via a matrix-specific build-arg override, and test-alt's matrix appends its
+# compiler target env at JOB level; both workflow-level values still match the standard, which is all this rule pins.
 expected_mise_env := "dart,dotnet,java,js,python,rust,zig"
 
 deny contains msg if {

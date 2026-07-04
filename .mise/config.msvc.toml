@@ -1,0 +1,128 @@
+# MSVC target environment: Windows-only, loaded with MISE_ENV=msvc.
+# Stackable after the language envs (e.g. MISE_ENV=dotnet,msvc). Retargets native builds from the gnullvm
+# default to x86_64-pc-windows-msvc, the target et-ws-web-runner's rusty_v8 ships prebuilts for natively.
+# The MSVC compiler + Windows SDK are NOT a host dependency: prefetch:msvc stages them portably (no
+# installer, no admin, no Visual Studio) under target/msvc via mmozeiko's portable-msvc script, which
+# downloads sha256-verified payloads from Microsoft's official Visual Studio manifest CDN. The versioned
+# install dirs it produces are discovered by the task, which renders them into target/msvc/msvc.env; the
+# `_.file` entry below loads that file (mise skips it silently until the task has run).
+
+[tools]
+# NASM for aws-lc-sys (deno_node_crypto's BoringSSL fork assembles its x86_64 .asm with nasm on msvc).
+# conda-forge build; pinned so the [env] _.path entry below stays valid (conftest's version_drift
+# enforces).
+"conda:nasm" = "2.16.03"
+
+# Rust toolchains: config.windows.toml's entries plus the x86_64-pc-windows-msvc target std.
+# A tools.rust redeclaration replaces (not merges with) the platform file's array, so every field repeats
+# here -- keep in sync with config.windows.toml. The host toolchains stay gnullvm; only the target std is
+# added, and the linker comes from the portable MSVC staged by prefetch:msvc.
+[[tools.rust]]
+components = "clippy,rust-analyzer"
+profile = "minimal"
+targets = "wasm32-unknown-unknown,wasm32-wasip2,x86_64-pc-windows-msvc"
+version = "stable-x86_64-pc-windows-gnullvm"
+
+[[tools.rust]]
+components = "rust-src,rustfmt"
+profile = "minimal"
+targets = "wasm32-unknown-unknown,wasm32-wasip2,x86_64-pc-windows-msvc"
+version = "nightly-x86_64-pc-windows-gnullvm"
+
+[vars]
+# portable-msvc script pin: gist id + revision (immutable content address) + sha256 of that revision.
+# Bump all three together after reviewing a new upstream revision.
+a_pmsvc_gist = "7f3162ec2988e81e56d5c4e22cde9977"
+a_pmsvc_rev = "ba48b0a3d9ea05c6caa5e583eda60fa7510da4bc"
+a_pmsvc_sha = "295a6d7e3e6a7132199ec51224216b07c54af29df9c8ba9bf01166ce12451c0a"
+# Clear config.windows.toml's et-ws-web-runner exclusion.
+# The crate builds on this target: rusty_v8 has native msvc prebuilts.
+cargo_ws_excludes = ""
+# et-cli lands under the msvc target dir once CARGO_BUILD_TARGET below is flipped.
+# Overridden wholesale rather than via a_et_cli_target_dir: config.toml's et_cli was already rendered
+# when that file loaded.
+et_cli = "{{ vars.config_root_fwd }}/target/x86_64-pc-windows-msvc/debug/et-cli.exe"
+msvc_base = "{{ vars.config_root_fwd }}/target/msvc"
+
+[env]
+# Build for the MSVC target.
+# The compiler/linker/INCLUDE/LIB env comes from the msvc.env file that prefetch:msvc renders (the
+# install dirs embed discovered version numbers, so they can't be static config); mise skips the
+# `_.file` silently while the file doesn't exist yet.
+CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc"
+_.file = "{{ vars.msvc_base }}/msvc.env"
+# PATH additions: the MSVC toolchain junctions and conda's nasm.
+# The two junctions are created by prefetch:msvc as stable aliases of the version-named toolchain dirs --
+# cc-rs discovers ml64.exe (MASM, needed by aws-lc-sys) and rc.exe via PATH, and PATH entries must be
+# static config unlike the `_.file` values. conda's nasm lands in the nested `Library\bin` layout mise's
+# bin-discovery misses (same shape as config.windows.toml's m2_gnupg_bin entry).
+_.path = [
+  "{{ vars.msvc_base }}/bin",
+  "{{ vars.msvc_base }}/sdkbin",
+  '{{ vars.mise_installs }}\conda-nasm\2.16.03\Library\bin',
+]
+
+[tasks."prefetch:msvc"]
+# Joins prefetch-ci automatically via its `prefetch:*` depends glob when this env is loaded.
+# msiexec (a Windows-inbox tool; the one host-tool exception here, there is genuinely no mise tool for
+# unpacking .msi) performs the administrative extracts inside the script -- no machine state is touched.
+description = "Stage the portable MSVC toolchain + Windows SDK under target/msvc and render msvc.env"
+run = """
+base="{{ vars.msvc_base }}"
+coreutils mkdir -p "$base"
+script="$base/portable-msvc.py"
+if [ ! -f "$script" ]; then
+  src=":http:mmozeiko/{{ vars.a_pmsvc_gist }}/raw/{{ vars.a_pmsvc_rev }}/portable-msvc.py"
+  rclone copyto "$src" "$script" --http-url https://gist.githubusercontent.com --progress
+fi
+actual=$(coreutils sha256sum -b "$script" | coreutils cut -c1-64)
+[ "$actual" = "{{ vars.a_pmsvc_sha }}" ] || { echo "portable-msvc.py checksum mismatch: $actual" >&2; exit 1; }
+# Versions pinned for reproducibility (`--show-versions` lists what the manifest offers).
+# The rendered msvc.env tracks whatever is installed, so a bump only needs these two flags changed and a
+# re-run after deleting target/msvc/msvc.
+if [ ! -d "$base/msvc/VC" ]; then
+  (cd "$base" && python portable-msvc.py --accept-license --msvc-version 14.51 --sdk-version 28000)
+fi
+python - "$base/msvc" "$base/msvc.env" <<'PY'
+import _winapi
+import os
+import pathlib
+import sys
+base = pathlib.Path(sys.argv[1])
+msvcv = next((base / "VC/Tools/MSVC").glob("*")).name
+sdkv = next((base / "Windows Kits/10/bin").glob("*")).name
+tools = base / "VC/Tools/MSVC" / msvcv
+kits = base / "Windows Kits/10"
+vbin = tools / "bin/Hostx64/x64"
+# Stable junctions over the version-named bin dirs, so the config's static _.path entries resolve.
+for link, target in {"bin": vbin, "sdkbin": kits / "bin" / sdkv / "x64"}.items():
+    lp = base.parent / link
+    if lp.exists() or os.path.lexists(lp):
+        os.rmdir(lp)
+    _winapi.CreateJunction(str(target), str(lp))
+def p(path):
+    return str(path).replace("\\\\", "/")
+kinc = kits / "Include" / sdkv
+include = ";".join(p(x) for x in [tools / "include", kinc / "ucrt", kinc / "shared", kinc / "um"])
+klib = kits / "Lib" / sdkv
+libs = ";".join(p(x) for x in [tools / "lib/x64", klib / "ucrt/x64", klib / "um/x64"])
+out = [
+    f"CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER='{p(vbin / 'link.exe')}'",
+    f"CC_x86_64_pc_windows_msvc='{p(vbin / 'cl.exe')}'",
+    f"CXX_x86_64_pc_windows_msvc='{p(vbin / 'cl.exe')}'",
+    f"AR_x86_64_pc_windows_msvc='{p(vbin / 'lib.exe')}'",
+    f"INCLUDE='{include}'",
+    f"LIB='{libs}'",
+]
+pathlib.Path(sys.argv[2]).write_text("\\n".join(out) + "\\n")
+print("rendered", sys.argv[2], "for MSVC", msvcv, "SDK", sdkv)
+PY
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.test-ws-web-runner]
+# Override config.windows.toml's skip -- the msvc target links rusty_v8's native prebuilt, so it runs.
+# Body matches config.toml's original definition.
+description = "Run et-ws-web-runner integration tests serialized"
+env = { RUST_TEST_THREADS = "1" }
+run = "cargo test -p et-ws-web-runner"

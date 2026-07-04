@@ -94,7 +94,10 @@ preinstalled on Windows 10/11 and Server, so you already have it -- only Nano Se
 Docker build installs the [VC++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe).
 
 mise-powered builds use the `x86_64-pc-windows-gnullvm` Rust target (llvm-mingw), which needs no MSVC toolchain or
-Windows SDK on disk. The native `x86_64-pc-windows-msvc` target can also be used.
+Windows SDK on disk. Two opt-in target envs retarget the native build: `MISE_ENV=mingw` switches to
+`x86_64-pc-windows-gnu` with the winlibs mingw-w64 GCC toolchain installed by mise, and `MISE_ENV=msvc` switches
+to `x86_64-pc-windows-msvc` with a portable MSVC compiler + Windows SDK staged by `mise run prefetch:msvc` -- no
+Visual Studio install or admin rights needed for either.
 
 ### Windows shell
 
@@ -252,18 +255,19 @@ Most are Rust built with `wasm-pack build --target web`; other languages:
 - Python, using [pyodide](https://pyodide.org/) and [RustPython](https://rustpython.github.io/)
 - Zig, including C code
 
-#### Windows MSVC
+#### et-ws-web-runner on Windows
 
-On Windows `et-ws-web-runner` must be built with the MSVC target (`x86_64-pc-windows-msvc`), not the gnullvm
-default the rest of the repo uses. It embeds V8 through `deno_core` and the `v8` crate, and gnullvm cannot be
-built: there is no `x86_64-pc-windows-gnullvm` `librusty_v8` prebuilt, the gnullvm build path in `rusty_v8` is
-still unfinished (open PRs [denoland/rusty_v8#1880](https://github.com/denoland/rusty_v8/pull/1880) and
-[#1957](https://github.com/denoland/rusty_v8/pull/1957)), and the MSVC prebuilt can't be linked into a gnullvm
-binary because the two ABIs are incompatible.
+`et-ws-web-runner` embeds V8 through `deno_core` and the `v8` crate, and cannot build on the gnullvm default
+target: there is no `x86_64-pc-windows-gnullvm` `librusty_v8` prebuilt and the gnullvm build path in `rusty_v8`
+is still unfinished (open PRs [denoland/rusty_v8#1880](https://github.com/denoland/rusty_v8/pull/1880) and
+[#1957](https://github.com/denoland/rusty_v8/pull/1957)). Two mise target envs each give it a working Windows
+build: `MISE_ENV=msvc` uses rusty_v8's native prebuilt on `x86_64-pc-windows-msvc`, and `MISE_ENV=mingw` links
+that same msvc prebuilt into an `x86_64-pc-windows-gnu` binary (the CRT bridging lives in
+`services/ws-web-runner/mingw-shim/` and the crate's `build.rs`).
 
 Also the build system for .Net C# to WASM does not work under Windows mise.
 
-See Github Action `test-msvc.yaml` for building and running .NET WASM modules.
+See Github Action `test-alt.yaml` for building and running .NET WASM modules.
 
 ### WASI runner ([ws-wasi-runner](services/ws-wasi-runner))
 

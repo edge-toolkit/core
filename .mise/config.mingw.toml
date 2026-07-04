@@ -1,0 +1,142 @@
+# MinGW (GNU) target environment: Windows-only, loaded with MISE_ENV=mingw.
+# Stackable after the language envs (e.g. MISE_ENV=rust,mingw). auto_env loads config.windows.toml first,
+# so the [vars]/[env] here override its gnullvm defaults: native builds retarget from
+# x86_64-pc-windows-gnullvm to x86_64-pc-windows-gnu. That target's link line demands the GCC runtime
+# (libgcc/libgcc_eh), which llvm-mingw does not ship, so this env installs a real mingw-w64 GCC toolchain
+# (winlibs) alongside. gnullvm stays the repo default; nothing in this file loads without MISE_ENV
+# including `mingw`.
+
+[tools]
+# msys2 Unix userland for the autotools build scripts in the web-runner tree.
+# libffi-sys runs `sh ./configure` + `make install` on windows-gnu. The repo's uutils coreutils is a
+# `coreutils <util>` multicall and rg replaces grep, so no standalone cat/mkdir/grep/sed/awk exist on PATH
+# otherwise -- configure dies with exit 127 ("could not change to default builddir"). Same msys2 conda
+# mirror as m2-git/m2-make/m2-gnupg; pinned because the [env] _.path entries below embed the versions
+# (conftest's version_drift enforces).
+"conda:m2-coreutils" = "8.32.5"
+"conda:m2-diffutils" = "3.12.1"
+"conda:m2-gawk" = "5.3.2.1"
+"conda:m2-grep" = "2.22"
+"conda:m2-sed" = "4.9.1"
+
+# winlibs standalone mingw-w64 GCC, prebuilt zip from the brechtsanders/winlibs_mingw GitHub releases.
+# The MSVCRT variant, not UCRT: Rust's x86_64-pc-windows-gnu std links msvcrt, and a ucrt-linked
+# libgcc/libstdc++ would drag a second CRT into every binary. x86_64-posix-seh matches the thread/exception
+# model of MSYS2's MINGW64, the toolchain upstream Rust documents for windows-gnu. `matching` pins the exact
+# zip asset because the release also carries i686 and .7z assets (mise cannot extract 7z). Pinned so the
+# win_gcc_bin var below stays valid (conftest's version_drift enforces); os-scoped because upstream only
+# ships Windows binaries (allowlisted in config/conftest/policy/mise/mise.rego).
+[tools."github:brechtsanders/winlibs_mingw"]
+matching = "winlibs-x86_64-posix-seh-gcc-16.1.0-mingw-w64msvcrt-14.0.0-r3.zip"
+os = ["windows"]
+version = "16.1.0posix-14.0.0-msvcrt-r3"
+
+# Rust toolchains: config.windows.toml's entries plus the x86_64-pc-windows-gnu target std.
+# A tools.rust redeclaration replaces (not merges with) the platform file's array, so every field repeats
+# here -- keep in sync with config.windows.toml. The host toolchains stay gnullvm; only the extra target
+# std is added, so the same install serves both targets and no msvc toolchain lands on disk.
+[[tools.rust]]
+components = "clippy,rust-analyzer"
+profile = "minimal"
+targets = "wasm32-unknown-unknown,wasm32-wasip2,x86_64-pc-windows-gnu"
+version = "stable-x86_64-pc-windows-gnullvm"
+
+[[tools.rust]]
+components = "rust-src,rustfmt"
+profile = "minimal"
+targets = "wasm32-unknown-unknown,wasm32-wasip2,x86_64-pc-windows-gnu"
+version = "nightly-x86_64-pc-windows-gnullvm"
+
+[vars]
+# Clear config.windows.toml's et-ws-web-runner exclusion.
+# The crate builds on this target -- the whole point of the lane; rusty_v8 has no gnullvm story.
+cargo_ws_excludes = ""
+# et-cli lands under the gnu target dir once CARGO_BUILD_TARGET below is flipped.
+# Overridden wholesale rather than via a_et_cli_target_dir: config.toml's et_cli was already rendered when
+# that file loaded, so overriding only its input var here would not change it.
+et_cli = "{{ vars.config_root_fwd }}/target/x86_64-pc-windows-gnu/debug/et-cli.exe"
+# rusty_v8's msvc prebuilts, linked into the gnu build.
+# Upstream ships no windows-gnu assets; x64 COFF + the C-ABI binding surface make the msvc archive
+# linkable, and services/ws-web-runner/build.rs closes the CRT gaps. The `simdutf` variants match the v8
+# crate features deno enables. The version segment must track the workspace's Cargo.lock `v8` pin -- bump
+# together.
+rusty_v8_binding = "src_binding_simdutf_release_x86_64-pc-windows-msvc.rs"
+rusty_v8_dir = "{{ vars.config_root_fwd }}/target/mingw/rusty-v8"
+rusty_v8_lib_gz = "rusty_v8_simdutf_release_x86_64-pc-windows-msvc.lib.gz"
+rusty_v8_src = ":http:denoland/rusty_v8/releases/download/v149.4.0"
+# Where rustc must find the archive when bundling the v8 rlib.
+# The v8 build script decompresses the archive to `rusty_v8.lib` under its deterministic gn_out dir, but
+# rustc on windows-gnu only accepts the `librusty_v8.a` spelling -- prefetch:mingw stages that copy.
+# Debug-profile path; a release build needs the same staging under target/x86_64-pc-windows-gnu/release.
+rusty_v8_gn_obj = "{{ vars.config_root_fwd }}/target/x86_64-pc-windows-gnu/debug/gn_out/obj"
+# winlibs GCC's bin dir, as an absolute path for the same reason config.windows.toml's win_llvm_bin is one.
+# mise flattens `_` to `-` in the install dir (winlibs-mingw, not winlibs_mingw). The version segment must
+# match the [tools] pin above (conftest's version_drift enforces).
+win_gcc_bin = '{{ vars.mise_installs }}\github-brechtsanders-winlibs-mingw\16.1.0posix-14.0.0-msvcrt-r3\bin'
+# Forward-slashed variant for the CC/CXX/AR/linker env values below.
+# autotools trees (libffi-sys) splice $CC into sh/libtool command lines, where backslashes are eaten
+# ("C:Users...gcc.exe: command not found"); Windows APIs accept forward slashes, so this form works for
+# cargo and sh alike.
+win_gcc_bin_fwd = "{{ vars.win_gcc_bin | replace(from='\\', to='/') }}"
+
+[env]
+# cc-rs (build scripts compiling bundled C) resolves the target compiler from these before probing PATH.
+AR_x86_64_pc_windows_gnu = "{{ vars.win_gcc_bin_fwd }}/ar.exe"
+# Build for the GNU mingw-w64 target, with winlibs GCC as the linker.
+# Binutils dlltool covers raw-dylib import libs. Overrides config.windows.toml's CARGO_BUILD_TARGET (this
+# file loads after the platform one); the gnullvm CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_* entries stay
+# set but are inert under this target.
+CARGO_BUILD_TARGET = "x86_64-pc-windows-gnu"
+CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = "{{ vars.win_gcc_bin_fwd }}/gcc.exe"
+CARGO_TARGET_X86_64_PC_WINDOWS_GNU_RUSTFLAGS = "-Cdlltool={{ vars.win_gcc_bin_fwd }}/dlltool.exe"
+CC_x86_64_pc_windows_gnu = "{{ vars.win_gcc_bin_fwd }}/gcc.exe"
+CXX_x86_64_pc_windows_gnu = "{{ vars.win_gcc_bin_fwd }}/g++.exe"
+# Point the v8 crate's build script at the staged msvc prebuilts (fetched by prefetch:mingw).
+# Without these it 404s on the nonexistent windows-gnu release asset.
+RUSTY_V8_ARCHIVE = "{{ vars.rusty_v8_dir }}/{{ vars.rusty_v8_lib_gz }}"
+RUSTY_V8_SRC_BINDING_PATH = "{{ vars.rusty_v8_dir }}/{{ vars.rusty_v8_binding }}"
+# Winlibs bin on PATH for the tools build scripts invoke bare (windres, dlltool, gcc, gendef).
+# Additive: mise appends `_.path` directives across config files, so config.windows.toml's entries
+# (including the libclang dir bindgen needs) stay on PATH too. The m2-* userland dirs use the nested msys2
+# `Library\usr\bin` layout mise's bin-discovery misses (same shape as config.windows.toml's m2_gnupg_bin).
+_.path = [
+  "{{ vars.win_gcc_bin }}",
+  '{{ vars.mise_installs }}\conda-m2-coreutils\8.32.5\Library\usr\bin',
+  '{{ vars.mise_installs }}\conda-m2-diffutils\3.12.1\Library\usr\bin',
+  '{{ vars.mise_installs }}\conda-m2-gawk\5.3.2.1\Library\usr\bin',
+  '{{ vars.mise_installs }}\conda-m2-grep\2.22\Library\usr\bin',
+  '{{ vars.mise_installs }}\conda-m2-sed\4.9.1\Library\usr\bin',
+  # m2-make's real binary dir, needed here even though the tool itself is config.windows.toml's.
+  # Only its `.mise-bins` symlink dir lands on PATH there, and the msys sh can't traverse those symlinks
+  # (the dir lists empty; `make: command not found` inside libffi's config.status). Version pin matches
+  # config.windows.toml's m2-make (conftest's version_drift enforces).
+  '{{ vars.mise_installs }}\conda-m2-make\4.4.1.2\Library\usr\bin',
+]
+
+[tasks."prefetch:mingw"]
+# Joins prefetch-ci automatically via its `prefetch:*` depends glob when this env is loaded.
+description = "Fetch the msvc rusty_v8 prebuilt + binding and stage librusty_v8.a for the gnu build"
+run = """
+dst="{{ vars.rusty_v8_dir }}"
+lib="{{ vars.rusty_v8_lib_gz }}"
+bind="{{ vars.rusty_v8_binding }}"
+rclone copyto "{{ vars.rusty_v8_src }}/$lib" "$dst/$lib" {{ vars.gh_http }}
+rclone copyto "{{ vars.rusty_v8_src }}/$bind" "$dst/$bind" {{ vars.gh_http }}
+# Stage librusty_v8.a where the v8 build script's -L will point, before cargo runs.
+# rustc only accepts that spelling on windows-gnu; the build script's own decompressed copy is named
+# rusty_v8.lib.
+gz="$dst/$lib"
+a="{{ vars.rusty_v8_gn_obj }}/librusty_v8.a"
+if [ ! -f "$a" ]; then
+  coreutils mkdir -p "{{ vars.rusty_v8_gn_obj }}"
+  python -c "import gzip,shutil,sys;shutil.copyfileobj(gzip.open(sys.argv[1]),open(sys.argv[2],'wb'))" "$gz" "$a"
+fi
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.test-ws-web-runner]
+# Override config.windows.toml's skip: the gnu target links rusty_v8's msvc prebuilt, so the suite runs.
+# Body matches config.toml's original definition.
+description = "Run et-ws-web-runner integration tests serialized"
+env = { RUST_TEST_THREADS = "1" }
+run = "cargo test -p et-ws-web-runner"

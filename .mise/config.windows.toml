@@ -17,6 +17,13 @@
 # Version pinned so the m2_gnupg_bin path stays in sync (conftest's version_drift enforces).
 "conda:m2-gnupg" = "2.2.41.1"
 "github:mstorsjo/llvm-mingw" = { version = "20260602", matching = "ucrt-x86_64" }
+# conda-forge's libclang: the libclang.dll bindgen loads.
+# The web-runner tree runs bindgen (libsqlite3-sys via deno) under the mingw and msvc target envs;
+# llvm-mingw ships only libclang-cpp.dll (the C++ API), not the C API DLL clang-sys looks for, and a
+# workstation can't be assumed to have a system LLVM. Pinned so the win_libclang var below stays valid
+# (conftest's version_drift enforces). The Nano docker build can drop it via MISE_DISABLE_TOOLS if image
+# size demands.
+"conda:libclang" = "22.1.8"
 
 # Windows cargo: builds pin a per-tool msvc install_env so cargo-binstall fetches the msvc prebuilt.
 # (cargo:dart-typegen has no quickinstall release at all -- not just no gnullvm one -- so it can't use this
@@ -81,6 +88,15 @@ targets = "wasm32-unknown-unknown,wasm32-wasip2"
 version = "nightly-x86_64-pc-windows-gnullvm"
 
 [vars]
+# Forward-slashed mise installs root, for values spliced unquoted into bash task command lines.
+# Composed from LOCALAPPDATA directly (not vars.mise_installs) because [vars] render alphabetically and
+# an a_-prefixed var cannot reference the later-sorting mise_installs.
+a_mise_installs_fwd = '{{ get_env(name="LOCALAPPDATA", default="") | replace(from=`\`, to="/") }}/mise/installs'
+# clang-tidy's builtin-header resource dir (config.linux.toml solves the same gap with conda's clang).
+# llvm-mingw ships the clang resource headers (stddef.h/stdint.h -- everything the zig-data1 C needs),
+# and conda's clang-tidy is the same LLVM 22 major. The trailing `22` is clang's major version, not the
+# tool version -- move it together with the llvm-mingw pin when its clang major changes.
+clang_resource_arg = "-resource-dir {{ vars.a_mise_installs_fwd }}/github-mstorsjo-llvm-mingw/20260602/lib/clang/22"
 # Upstream-cache `_asset` vars.
 # These pin the exact tarball filename each
 # `http:` Windows tool fetches from edge-toolkit/core's *-v<N> release.
@@ -115,9 +131,9 @@ m2_gnupg_bin = '{{ vars.mise_installs }}\conda-m2-gnupg\2.2.41.1\Library\usr\bin
 # mise's bin auto-discovery walks into this subdir on Linux/macOS but not on Windows, so `mvn` isn't on PATH
 # without an explicit entry. Pinned to the config.java.toml [tools] maven version -- bump both together.
 maven_bin = '{{ vars.mise_installs }}\maven\3.9.16\apache-maven-3.9.16\bin'
-# clang-sys finds libclang on PATH (Docker's gnu build has llvm-mingw there).
-# A workstation with system LLVM also works.
-win_libclang = "C:\\Program Files\\LLVM\\bin"
+# conda:libclang's binary dir, for the LIBCLANG_PATH below.
+# Pinned to the [tools] version above -- bump both together (conftest's version_drift enforces).
+win_libclang = '{{ vars.mise_installs }}\conda-libclang\22.1.8\Library\bin'
 # wasm-pack's wasm-opt (binaryen) can't execute on Nano Server (os error 3).
 # So the module + wasm-agent builds pass --no-opt; they reference {{ vars.no_opt }}.
 no_opt = "--no-opt"
@@ -155,7 +171,10 @@ ORT_PREFER_DYNAMIC_LINK = "1"
 # hard-fails ("gpg --quiet --import: program not found"). The maven_bin entry is the same shape -- nested
 # `apache-maven-X.Y.Z/bin/` that mise's Windows bin-discovery misses (works fine on Linux/macOS). Inert when
 # java isn't in MISE_ENV; just an unused dir reference.
-_.path = ["{{ vars.m2_gnupg_bin }}", "{{ vars.maven_bin }}"]
+# The libclang entry puts its dependency DLLs (zlib/zstd) where LoadLibrary's classic search finds them.
+# clang-sys loads libclang.dll via libloading with flags=0, where a DLL's dependencies resolve via PATH,
+# not via the loaded DLL's own directory (error 126 otherwise).
+_.path = ["{{ vars.m2_gnupg_bin }}", "{{ vars.maven_bin }}", "{{ vars.win_libclang }}"]
 
 [tasks.preinstall]
 # Preinstall, shared across every Windows host (CI runner, workstation, Nano container).
