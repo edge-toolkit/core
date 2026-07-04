@@ -4,10 +4,8 @@ name: test-alt
 # Alternate-compiler Windows lanes, one per mise target env (.mise/config.<compiler>.toml).
 # Both exist for et-ws-web-runner: rusty_v8 has no gnullvm prebuilt, so `msvc` builds it against the
 # native prebuilt with the portable MSVC toolchain (prefetch:msvc) and `mingw` links the msvc archive
-# into an x86_64-pc-windows-gnu binary with winlibs GCC. Everything installs through mise; the steps
-# mirror test.yaml's Windows job plus the dotnet-data1 module build (a workflow step because MSBuild's
-# BrowserWasmApp.targets emcc PATH quirk keeps it out of the mise dotnet tasks on Windows -- see
-# build-ws-dotnet-data1-module).
+# into an x86_64-pc-windows-gnu binary with winlibs GCC. Everything installs through mise and the steps
+# mirror test.yaml's Windows job -- build-modules covers every module, dotnet-data1 included.
 "on":
   pull_request:
   workflow_dispatch:
@@ -83,27 +81,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run build-modules
-
-      # This step's shell script is written for busybox ash rather than Git Bash.
-      # No cygpath (PATH takes the Windows-form dir with a `;` separator), and the single-applet busybox
-      # has no bare head/dirname -- they go through the coreutils multicall.
-      - name: Build dotnet-data1 WASM module
-        timeout-minutes: 20
-        run: |
-          set -xeuo pipefail
-          cd services/ws-modules/dotnet-data1
-          dotnet workload install wasm-tools --skip-manifest-update
-          # MSBuild's BrowserWasmApp.targets link step calls bare `emcc` and relies on PATH.
-          # Surface the workload's emcc dir + EmscriptenLocation ourselves (same approach as the mise build task).
-          packs="${DOTNET_ROOT:-C:/Program Files/dotnet}/packs"
-          emcc_bat="$(find "$packs" -name emcc.bat 2>/dev/null | coreutils head -1)"
-          test -n "$emcc_bat" || { echo "emcc.bat not found under dotnet packs"; exit 1; }
-          emcc_dir="$(coreutils dirname "$emcc_bat")"
-          emsdk_loc="$(coreutils dirname "$(coreutils dirname "$emcc_dir")")/Sdk"
-          export PATH="$emcc_dir;$PATH"
-          dotnet publish -c Release -p:EmscriptenLocation="$emsdk_loc"
-          publish=bin/Release/net10.0/publish/wwwroot/_framework
-          coreutils cp "$publish"/*.js "$publish"/*.wasm "$publish"/*.dat pkg/
 
       - name: Run tests
         timeout-minutes: 40

@@ -265,10 +265,6 @@ build: `MISE_ENV=msvc` uses rusty_v8's native prebuilt on `x86_64-pc-windows-msv
 that same msvc prebuilt into an `x86_64-pc-windows-gnu` binary (the CRT bridging lives in
 `services/ws-web-runner/mingw-shim/` and the crate's `build.rs`).
 
-Also the build system for .Net C# to WASM does not work under Windows mise.
-
-See Github Action `test-alt.yaml` for building and running .NET WASM modules.
-
 ### WASI runner ([ws-wasi-runner](services/ws-wasi-runner))
 
 Modules built as WASI Preview 2 components and run under wasmtime:
