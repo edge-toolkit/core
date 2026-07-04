@@ -66,26 +66,24 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
         return;
     }
     if module == "et-ws-dotnet-data1" && !dotnet_data1_pkg_built() {
-        println!("skipping {module}: pkg/ not built (dotnet build skipped on this host)");
+        println!("skipping {module}: pkg/ not built (build-ws-dotnet-data1-module has not run on this host)");
         return;
     }
     let server = et_ws_test_server::start();
     run_runner_with_timeout(module, &server.ws_url, 90);
 }
 
-/// dotnet-data1 builds via `dotnet publish` which calls `emcc` through
-/// `MSBuild`'s `BrowserWasmApp.targets`. On Windows the link target's
-/// `<Exec>` doesn't inherit `PATH` from bash, and there's no SDK
-/// property that overrides the link command, so
-/// `build-ws-dotnet-data1-module` exits early on Windows -- mirror that
-/// here so the test logs a skip instead of failing.
+/// dotnet-data1's `pkg/` wasm artifacts only exist after `build-ws-dotnet-data1-module` has run on this
+/// host, so probe one and log a skip instead of failing on a checkout where the module wasn't built. The
+/// probe file is `dotnet.js` -- the one stably-named artifact `dotnet publish` emits (the rest carry
+/// content-hash fingerprints) -- and NOT `package.json`, which is committed and therefore always present.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct probe step; kept named for the skip-trace log line"
 )]
 fn dotnet_data1_pkg_built() -> bool {
     edge_toolkit::config::get_project_root()
-        .join("services/ws-modules/dotnet-data1/pkg/package.json")
+        .join("services/ws-modules/dotnet-data1/pkg/dotnet.js")
         .exists()
 }
 
