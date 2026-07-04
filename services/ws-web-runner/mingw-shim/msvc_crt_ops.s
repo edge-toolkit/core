@@ -17,18 +17,22 @@ __tls_guard:
 
 # MSVC RTTI statics from libvcruntime's static portion. type_info's vtable has a single virtual slot (the
 # scalar deleting destructor); type_info objects are never deleted through that vtable here, so a stub
-# that aborts is safe. The root node is scratch space __std_type_info_compare/name (vcruntime140.dll)
-# chain undecorated-name allocations off; it just has to exist, zeroed.
+# that aborts is safe. The root node anchors the SLIST that __std_type_info_name (vcruntime140.dll)
+# chains undecorated-name allocations onto: an SLIST_HEADER, which x64 REQUIRES 16-byte aligned
+# (cmpxchg16b). At 8-mod-16 it access-violates inside ntdll!ExpInterlockedPopEntrySListEnd the first time
+# type_info::name() runs -- observed via Intl.DateTimeFormat -> v8/ICU LocaleCacheKey::hashCode ->
+# __std_type_info_name in the dotnet-data1 web-runner test, the only module whose JS touches Intl.
     .text
 type_info_stub_dtor:
     jmp abort
 
     .data
-    .align 8
+    .balign 8
     .globl "??_7type_info@@6B@"
 "??_7type_info@@6B@":
     .quad type_info_stub_dtor
 
+    .balign 16
     .globl "?__type_info_root_node@@3U__type_info_node@@A"
 "?__type_info_root_node@@3U__type_info_node@@A":
     .quad 0

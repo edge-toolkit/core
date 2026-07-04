@@ -127,9 +127,13 @@ rclone copyto "{{ vars.rusty_v8_src }}/$bind" "$dst/$bind" {{ vars.gh_http }}
 # rusty_v8.lib.
 gz="$dst/$lib"
 a="{{ vars.rusty_v8_gn_obj }}/librusty_v8.a"
+# The pinned CPython, not bare `python`.
+# With the python guest env loaded, PATH's first python is the ssl-less 32-bit Pyodide shim (see
+# py3_win_fwd in config.windows.toml).
+py="{{ vars.py3_win_fwd }}"
 if [ ! -f "$a" ]; then
   coreutils mkdir -p "{{ vars.rusty_v8_gn_obj }}"
-  python -c "import gzip,shutil,sys;shutil.copyfileobj(gzip.open(sys.argv[1]),open(sys.argv[2],'wb'))" "$gz" "$a"
+  "$py" -c "import gzip,shutil,sys;shutil.copyfileobj(gzip.open(sys.argv[1]),open(sys.argv[2],'wb'))" "$gz" "$a"
 fi
 """
 shell = "bash -euo pipefail -c"

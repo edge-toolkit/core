@@ -80,10 +80,14 @@ actual=$(coreutils sha256sum -b "$script" | coreutils cut -c1-64)
 # Versions pinned for reproducibility (`--show-versions` lists what the manifest offers).
 # The rendered msvc.env tracks whatever is installed, so a bump only needs these two flags changed and a
 # re-run after deleting target/msvc/msvc.
+# The pinned CPython, not bare `python`.
+# With the python guest env loaded, PATH's first python is the ssl-less Pyodide shim (see py3_win_fwd in
+# config.windows.toml).
+py="{{ vars.py3_win_fwd }}"
 if [ ! -d "$base/msvc/VC" ]; then
-  (cd "$base" && python portable-msvc.py --accept-license --msvc-version 14.51 --sdk-version 28000)
+  (cd "$base" && "$py" portable-msvc.py --accept-license --msvc-version 14.51 --sdk-version 28000)
 fi
-python - "$base/msvc" "$base/msvc.env" <<'PY'
+"$py" - "$base/msvc" "$base/msvc.env" <<'PY'
 import _winapi
 import os
 import pathlib
