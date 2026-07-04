@@ -1,9 +1,7 @@
 # Cross-checks for GitHub Actions workflows against the .mise/config*.toml pins, run with `--namespace gha_mise`.
 # Evaluated over the workflow YAML plus the .mise/config*.toml files combined (--combine, auto-detected parsers).
 # A workflow that hard-codes a toolchain version via an action input must match the corresponding mise [tools] pin,
-# so the CI runner SDK and the mise-built modules compile against the same toolchain. No workflow currently does
-# (the old test-msvc.yaml installed the .NET SDK via actions/setup-dotnet before the msvc lane moved onto mise);
-# the rule stays as the guard for any reappearance.
+# so the CI runner SDK and the mise-built modules compile against the same toolchain.
 package gha_mise
 
 import data.mise

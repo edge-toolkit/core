@@ -58,8 +58,7 @@ fn main() {
 
     // The archive's std::exception_ptr internals (__ExceptionPtr*) are exported by msvcp140.dll, which
     // winlibs ships no import lib for -- generate one from the system DLL with winlibs' gendef + dlltool
-    // (both on PATH via the mingw mise env). msvcp140.dll is part of the VC++ redistributable the README
-    // already requires for mise.exe itself, so it is present on every supported host.
+    // (both on PATH via the mingw mise env).
     let system32 = format!(
         "{}\\System32",
         std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".into())

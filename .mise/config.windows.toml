@@ -21,8 +21,7 @@
 # The web-runner tree runs bindgen (libsqlite3-sys via deno) under the mingw and msvc target envs;
 # llvm-mingw ships only libclang-cpp.dll (the C++ API), not the C API DLL clang-sys looks for, and a
 # workstation can't be assumed to have a system LLVM. Pinned so the win_libclang var below stays valid
-# (conftest's version_drift enforces). The Nano docker build can drop it via MISE_DISABLE_TOOLS if image
-# size demands.
+# (conftest's version_drift enforces).
 "conda:libclang" = "22.1.8"
 
 # Windows cargo: builds pin a per-tool msvc install_env so cargo-binstall fetches the msvc prebuilt.

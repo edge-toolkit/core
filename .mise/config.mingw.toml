@@ -3,8 +3,7 @@
 # so the [vars]/[env] here override its gnullvm defaults: native builds retarget from
 # x86_64-pc-windows-gnullvm to x86_64-pc-windows-gnu. That target's link line demands the GCC runtime
 # (libgcc/libgcc_eh), which llvm-mingw does not ship, so this env installs a real mingw-w64 GCC toolchain
-# (winlibs) alongside. gnullvm stays the repo default; nothing in this file loads without MISE_ENV
-# including `mingw`.
+# (winlibs) alongside.
 
 [tools]
 # msys2 Unix userland for the autotools build scripts in the web-runner tree.
@@ -33,8 +32,7 @@ version = "16.1.0posix-14.0.0-msvcrt-r3"
 
 # Rust toolchains: config.windows.toml's entries plus the x86_64-pc-windows-gnu target std.
 # A tools.rust redeclaration replaces (not merges with) the platform file's array, so every field repeats
-# here -- keep in sync with config.windows.toml. The host toolchains stay gnullvm; only the extra target
-# std is added, so the same install serves both targets and no msvc toolchain lands on disk.
+# here -- keep in sync with config.windows.toml.
 [[tools.rust]]
 components = "clippy,rust-analyzer"
 profile = "minimal"
@@ -49,7 +47,6 @@ version = "nightly-x86_64-pc-windows-gnullvm"
 
 [vars]
 # Clear config.windows.toml's et-ws-web-runner exclusion.
-# The crate builds on this target -- the whole point of the lane; rusty_v8 has no gnullvm story.
 cargo_ws_excludes = ""
 # et-cli lands under the gnu target dir once CARGO_BUILD_TARGET below is flipped.
 # Overridden wholesale rather than via a_et_cli_target_dir: config.toml's et_cli was already rendered when
@@ -114,7 +111,6 @@ _.path = [
 ]
 
 [tasks."prefetch:mingw"]
-# Joins prefetch-ci automatically via its `prefetch:*` depends glob when this env is loaded.
 description = "Fetch the msvc rusty_v8 prebuilt + binding and stage librusty_v8.a for the gnu build"
 run = """
 dst="{{ vars.rusty_v8_dir }}"
@@ -140,7 +136,6 @@ shell = "bash -euo pipefail -c"
 
 [tasks.test-ws-web-runner]
 # Override config.windows.toml's skip: the gnu target links rusty_v8's msvc prebuilt, so the suite runs.
-# Body matches config.toml's original definition.
 description = "Run et-ws-web-runner integration tests serialized"
 env = { RUST_TEST_THREADS = "1" }
 run = "cargo test -p et-ws-web-runner"

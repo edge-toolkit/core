@@ -1,7 +1,7 @@
-/* Locale-consistency redirects for the msvc rusty_v8 archive, compiled as a STANDALONE OBJECT passed
- * directly on the link line (see build.rs) -- an archive member would lose the left-to-right race: the
- * archive's undefined `setlocale` would be satisfied by -lmsvcrt before the linker ever reached a shim
- * archive appended after it.
+/* Locale-consistency redirects for the msvc rusty_v8 archive.
+ * Compiled as a STANDALONE OBJECT passed directly on the link line (see build.rs) -- an archive member
+ * would lose the left-to-right race: the archive's undefined `setlocale` would be satisfied by -lmsvcrt
+ * before the linker ever reached a shim archive appended after it.
  *
  * Why: the archive's libc++ creates locale handles with `_create_locale` and hands them to ucrt-only
  * stdio (`__stdio_common_vsprintf`). With mingw's default libs first, `_create_locale`/`setlocale` bind
@@ -73,9 +73,10 @@ void _free_locale(void *locale) {
     fn(locale);
 }
 
-/* _dupenv_s is ucrt-only, so it binds to ucrtbase and would allocate from the UCRT heap -- but the
- * archive frees the returned buffer with `free`, which is msvcrt-bound. Reimplement on the msvcrt heap
- * so allocation and release agree. errno values per the MSVC contract. */
+/* _dupenv_s, reimplemented on the msvcrt heap so allocation and release agree.
+ * The real one is ucrt-only, so it binds to ucrtbase and would allocate from the UCRT heap -- but the
+ * archive frees the returned buffer with `free`, which is msvcrt-bound. errno values per the MSVC
+ * contract. */
 int _dupenv_s(char **buf, size_t *len, const char *name) {
     if (buf == NULL || name == NULL) {
         return 22; /* EINVAL */

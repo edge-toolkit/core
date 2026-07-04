@@ -1,5 +1,5 @@
-/* Shims for MSVC static-CRT symbols referenced by the msvc-built rusty_v8 static lib that no runtime DLL
- * exports. On x86_64-pc-windows-gnu the prebuilt rusty_v8 archive is the MSVC one (upstream ships no gnu
+/* Shims for the MSVC static-CRT symbols the msvc-built rusty_v8 static lib needs but no runtime DLL exports.
+ * On x86_64-pc-windows-gnu the prebuilt rusty_v8 archive is the MSVC one (upstream ships no gnu
  * build; see build.rs), and MSVC normally links these from its static CRT pieces (msvcrt.lib /
  * libvcruntime.lib) -- mingw-w64 has no equivalent, so this file supplies them. Symbols exported by
  * vcruntime140.dll / ucrtbase.dll are NOT shimmed; build.rs links winlibs' import libs for those.
@@ -10,12 +10,14 @@
 #include <stdlib.h>
 #include <windows.h>
 
-/* MSVC's "floating point used" CRT marker; the value is what MSVC's own CRT sets. mingw-w64 keeps its
- * copy in a dedicated archive member that this force-linked object shadows without collision. */
+/* MSVC's "floating point used" CRT marker; the value is what MSVC's own CRT sets.
+ * mingw-w64 keeps its copy in a dedicated archive member that this force-linked object shadows without
+ * collision. */
 int _fltused = 0x9875;
 
-/* winlibs' libucrtbase.a import lib lacks _strtold_l. MSVC long double IS double (both return in xmm0
- * with identical argument registers), so forward to the _strtod_l import untouched. */
+/* winlibs' libucrtbase.a import lib lacks _strtold_l.
+ * MSVC long double IS double (both return in xmm0 with identical argument registers), so forward to the
+ * _strtod_l import untouched. */
 __attribute__((naked)) void _strtold_l(void) { __asm__("jmp _strtod_l"); }
 
 /* /GS stack cookie (libvcruntime static). Fixed default cookie; the check is a no-op. */
@@ -25,14 +27,16 @@ __attribute__((naked)) void __security_check_cookie(void) { __asm__("ret"); }
 /* MSVC stack probe: same contract as libgcc's ___chkstk_ms (rax = frame size, all regs preserved). */
 __attribute__((naked)) void __chkstk(void) { __asm__("jmp ___chkstk_ms"); }
 
-/* Control Flow Guard dispatch/check pointers (guarded code does `call *__guard_dispatch_icall_fptr` with
- * the target in rax). Non-CFG default behaviour: dispatch jumps to rax, check returns. */
+/* Control Flow Guard dispatch/check pointers, with the non-CFG default behaviour.
+ * Guarded code does `call *__guard_dispatch_icall_fptr` with the target in rax; the defaults are dispatch
+ * jumps to rax, check returns. */
 __attribute__((naked)) static void guard_dispatch_impl(void) { __asm__("jmp *%rax"); }
 __attribute__((naked)) static void guard_check_impl(void) { __asm__("ret"); }
 void (*__guard_dispatch_icall_fptr)(void) = guard_dispatch_impl;
 void (*__guard_check_icall_fptr)(void) = guard_check_impl;
 
-/* Thread-safe static init (vcruntime's thread_safe_statics.cpp contract). Call-site codegen:
+/* Thread-safe static init (vcruntime's thread_safe_statics.cpp contract).
+ * Call-site codegen:
  *   if (*g > _Init_thread_epoch) { header(g); if (*g == -1) { <init>; footer(g); } }
  * with guard values 0 = uninitialized, -1 = in progress, else = completion epoch. The per-thread
  * _Init_thread_epoch TLS int lives in msvc_crt_ops.s (a real .tls$ symbol; a gcc __thread variable would
@@ -60,19 +64,20 @@ void _Init_thread_footer(volatile int *g) { *g = 1; }
 
 void _Init_thread_abort(volatile int *g) { *g = 0; }
 
-/* MSVC dynamic-TLS on-demand hook. The __tls_guard TLS byte (msvc_crt_ops.s) is pre-set to 1, so MSVC
- * call sites skip this; the mingw-w64 crt's TLS callback already walks the .CRT$XD* initializer table. */
+/* MSVC dynamic-TLS on-demand hook.
+ * The __tls_guard TLS byte (msvc_crt_ops.s) is pre-set to 1, so MSVC call sites skip this; the mingw-w64
+ * crt's TLS callback already walks the .CRT$XD* initializer table. */
 void __dyn_tls_on_demand_init(void) {}
 
-/* Chromium libc++'s verbose abort (referenced from the archive's absl objects; its own definition is not
- * archive-extractable). Message formatting needs the MSVC-mangled thunk only to die loudly. */
+/* Chromium libc++'s verbose abort, which exists only to die loudly.
+ * It is referenced from the archive's absl objects but its own definition is not archive-extractable. */
 _Noreturn void shim_libcpp_verbose_abort(const char *fmt, ...) {
     (void)fmt;
     abort();
 }
 
-/* MSVC C++ operator new/delete impls (statically linked in MSVC's CRT). Forward to the mingw heap; V8
- * frees what it allocates, so pairing stays within one heap. Throwing-new degrades to abort-on-OOM. */
+/* MSVC C++ operator new/delete impls (statically linked in MSVC's CRT), forwarded to the mingw heap.
+ * V8 frees what it allocates, so pairing stays within one heap. Throwing-new degrades to abort-on-OOM. */
 void *shim_op_new(size_t n) {
     void *p = malloc(n ? n : 1);
     if (!p)

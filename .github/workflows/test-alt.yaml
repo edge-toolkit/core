@@ -2,10 +2,8 @@
 name: test-alt
 
 # Alternate-compiler Windows lanes, one per mise target env (.mise/config.<compiler>.toml).
-# Both exist for et-ws-web-runner: rusty_v8 has no gnullvm prebuilt, so `msvc` builds it against the
-# native prebuilt with the portable MSVC toolchain (prefetch:msvc) and `mingw` links the msvc archive
-# into an x86_64-pc-windows-gnu binary with winlibs GCC. Everything installs through mise and the steps
-# mirror test.yaml's Windows job -- build-modules covers every module, dotnet-data1 included.
+# `msvc` builds et-ws-web-runner against the native rusty_v8 prebuilt with the portable MSVC toolchain;
+# `mingw` links that msvc archive into an x86_64-pc-windows-gnu binary with winlibs GCC.
 "on":
   pull_request:
   workflow_dispatch:
@@ -41,9 +39,6 @@ jobs:
     env:
       MISE_ENV: "dart,dotnet,java,js,python,rust,zig,${{ matrix.compiler }}"
     # Same busybox-w32 ash default as test.yaml's Windows runs.
-    # It is installed by `_setup_all` before the first `run:` step executes, and avoids Git Bash's MSYS
-    # fork-emulation cygheap pathology on long mise task chains. The path matches the version pin in
-    # `.mise/config.windows.toml`'s [tools."http:busybox"] entry.
     defaults:
       run:
         shell: C:\Users\runneradmin\AppData\Local\mise\installs\http-busybox\1.37.0\ash.exe -euo pipefail {0}
@@ -63,8 +58,6 @@ jobs:
         with:
           github-token: ${{ github.token }}
 
-      # Covers the compiler env's prefetch:mingw / prefetch:msvc via prefetch-ci's `prefetch:*` glob.
-      # GITHUB_TOKEN raises the rate-limit ceiling on mise's fetch of the rp-v<N> rustpython_wasm tarball.
       - name: Prefetch dependencies
         timeout-minutes: 20
         env:
@@ -72,7 +65,6 @@ jobs:
         run: mise run prefetch-ci
 
       # MISE_JOBS=1 serializes mise's task scheduler.
-      # See test.yaml's matching step for the captured cargo registry-lock race this avoids on Windows.
       - name: Serialize mise tasks
         run: echo "MISE_JOBS=1" >> "$GITHUB_ENV"
 

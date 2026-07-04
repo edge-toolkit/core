@@ -3,9 +3,9 @@
 # hand-written file. MSVC x64 and mingw x64 share the Microsoft x64 calling convention, so bare jmps
 # forward arguments untouched. The plain-named impls live in msvc_crt_shim.c.
 
-# Per-thread ints MSVC objects bind with SECREL relocations, so they must be real .tls$ symbols (a gcc
-# __thread variable is emutls and can't satisfy them). _Init_thread_epoch stays INT_MIN forever (see the
-# _Init_thread_header comment in msvc_crt_shim.c); __tls_guard is pre-set so on-demand TLS init is
+# Per-thread ints MSVC objects bind with SECREL relocations, so they must be real .tls$ symbols.
+# A gcc __thread variable is emutls and can't satisfy them. _Init_thread_epoch stays INT_MIN forever (see
+# the _Init_thread_header comment in msvc_crt_shim.c); __tls_guard is pre-set so on-demand TLS init is
 # skipped -- the mingw-w64 crt's TLS callback already runs the .CRT$XD* initializers.
     .section .tls$,"dw"
     .globl _Init_thread_epoch
@@ -15,11 +15,12 @@ _Init_thread_epoch:
 __tls_guard:
     .byte 1
 
-# MSVC RTTI statics from libvcruntime's static portion. type_info's vtable has a single virtual slot (the
-# scalar deleting destructor); type_info objects are never deleted through that vtable here, so a stub
-# that aborts is safe. The root node anchors the SLIST that __std_type_info_name (vcruntime140.dll)
-# chains undecorated-name allocations onto: an SLIST_HEADER, which x64 REQUIRES 16-byte aligned
-# (cmpxchg16b). At 8-mod-16 it access-violates inside ntdll!ExpInterlockedPopEntrySListEnd the first time
+# MSVC RTTI statics from libvcruntime's static portion.
+# type_info's vtable has a single virtual slot (the scalar deleting destructor); type_info objects are
+# never deleted through that vtable here, so a stub that aborts is safe. The root node anchors the SLIST
+# that __std_type_info_name (vcruntime140.dll) chains undecorated-name allocations onto: an SLIST_HEADER,
+# which x64 REQUIRES 16-byte aligned (cmpxchg16b). At 8-mod-16 it access-violates inside
+# ntdll!ExpInterlockedPopEntrySListEnd the first time
 # type_info::name() runs -- observed via Intl.DateTimeFormat -> v8/ICU LocaleCacheKey::hashCode ->
 # __std_type_info_name in the dotnet-data1 web-runner test, the only module whose JS touches Intl.
     .text

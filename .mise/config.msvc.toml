@@ -15,8 +15,7 @@
 
 # Rust toolchains: config.windows.toml's entries plus the x86_64-pc-windows-msvc target std.
 # A tools.rust redeclaration replaces (not merges with) the platform file's array, so every field repeats
-# here -- keep in sync with config.windows.toml. The host toolchains stay gnullvm; only the target std is
-# added, and the linker comes from the portable MSVC staged by prefetch:msvc.
+# here -- keep in sync with config.windows.toml.
 [[tools.rust]]
 components = "clippy,rust-analyzer"
 profile = "minimal"
@@ -36,19 +35,15 @@ a_pmsvc_gist = "7f3162ec2988e81e56d5c4e22cde9977"
 a_pmsvc_rev = "ba48b0a3d9ea05c6caa5e583eda60fa7510da4bc"
 a_pmsvc_sha = "295a6d7e3e6a7132199ec51224216b07c54af29df9c8ba9bf01166ce12451c0a"
 # Clear config.windows.toml's et-ws-web-runner exclusion.
-# The crate builds on this target: rusty_v8 has native msvc prebuilts.
 cargo_ws_excludes = ""
 # et-cli lands under the msvc target dir once CARGO_BUILD_TARGET below is flipped.
-# Overridden wholesale rather than via a_et_cli_target_dir: config.toml's et_cli was already rendered
-# when that file loaded.
 et_cli = "{{ vars.config_root_fwd }}/target/x86_64-pc-windows-msvc/debug/et-cli.exe"
 msvc_base = "{{ vars.config_root_fwd }}/target/msvc"
 
 [env]
 # Build for the MSVC target.
 # The compiler/linker/INCLUDE/LIB env comes from the msvc.env file that prefetch:msvc renders (the
-# install dirs embed discovered version numbers, so they can't be static config); mise skips the
-# `_.file` silently while the file doesn't exist yet.
+# install dirs embed discovered version numbers, so they can't be static config).
 CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc"
 _.file = "{{ vars.msvc_base }}/msvc.env"
 # PATH additions: the MSVC toolchain junctions and conda's nasm.
@@ -63,9 +58,8 @@ _.path = [
 ]
 
 [tasks."prefetch:msvc"]
-# Joins prefetch-ci automatically via its `prefetch:*` depends glob when this env is loaded.
-# msiexec (a Windows-inbox tool; the one host-tool exception here, there is genuinely no mise tool for
-# unpacking .msi) performs the administrative extracts inside the script -- no machine state is touched.
+# msiexec, a Windows-inbox tool, is the one host-tool exception here.
+# There is genuinely no mise tool for unpacking .msi; the administrative extracts touch no machine state.
 description = "Stage the portable MSVC toolchain + Windows SDK under target/msvc and render msvc.env"
 run = """
 base="{{ vars.msvc_base }}"
@@ -126,7 +120,6 @@ shell = "bash -euo pipefail -c"
 
 [tasks.test-ws-web-runner]
 # Override config.windows.toml's skip -- the msvc target links rusty_v8's native prebuilt, so it runs.
-# Body matches config.toml's original definition.
 description = "Run et-ws-web-runner integration tests serialized"
 env = { RUST_TEST_THREADS = "1" }
 run = "cargo test -p et-ws-web-runner"
