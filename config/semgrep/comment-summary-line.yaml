@@ -6,6 +6,7 @@ rules:
         - "*.toml"
         - "*.yaml"
         - "*.rego"
+        - "*.s"
         - "Dockerfile*"
       exclude:
         # Skip machine-emitted TOML/YAML (int-gen / regen output).
@@ -27,7 +28,35 @@ rules:
       - pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^#\s][^\n]*)?\n)[ \t]*#[^\n]*:\n[ \t]*#(?![ \t]*([-*]|[0-9]+[.)])[ \t])'
     message: >-
       A multi-line `#` comment block must open with a single summary line ending in a full stop (PEP 257 style).
-      This applies to TOML, YAML, Rego, and Dockerfile comments. The summary describes the whole block in one
-      sentence; continuation lines follow. End the first comment line with `.` (a `:` introducing an enumeration
-      is also accepted).
+      This applies to TOML, YAML, Rego, GAS assembly, and Dockerfile comments. The summary describes the whole
+      block in one sentence; continuation lines follow. End the first comment line with `.` (a `:` introducing an
+      enumeration is also accepted).
+    severity: ERROR
+
+  - id: comment-summary-line-c
+    languages: [generic]
+    paths:
+      include:
+        - "*.c"
+        - "*.h"
+    # The C twin of comment-summary-line above -- the same convention over the C comment shapes.
+    # No dedicated C linter has this check (clang-tidy's comment checks stop at namespace-closing and
+    # task-tag formatting; cpplint only checks comment whitespace), so the generic-mode regexes carry it.
+    # Four alternatives, two per comment shape:
+    # - `/* ... */` blocks: a line opening `/*` WITHOUT `*/` on the same line (the negative lookahead
+    #   `(?![^\n]*\*/)` is the multi-line test, mirroring the next-line-is-also-comment test of the `#` rule)
+    #   must end in `.` -- or `:` when the ` * `-prefixed continuation line opens an enumeration item.
+    # - `//` runs: same block-start anchor trick as the `#` rule (preceding line is start-of-file, blank, or
+    #   starts with a non-`/` char), first line of a 2+-line run must end in `.`/enum-introducing `:`.
+    # Single-line `/* ... */` and lone `//` lines are exempt, as single `#` lines are above.
+    pattern-either:
+      - pattern-regex: '(?m)^[ \t]*/\*(?![^\n]*\*/)[^\n]*[^.\n:]\n'
+      - pattern-regex: '(?m)^[ \t]*/\*(?![^\n]*\*/)[^\n]*:\n(?![ \t]*\*[ \t]*(-[ \t]|[0-9]+[.)][ \t]))'
+      - pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^/\s][^\n]*)?\n)[ \t]*//[^\n]*[^.\n:]\n[ \t]*//'
+      - pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^/\s][^\n]*)?\n)[ \t]*//[^\n]*:\n[ \t]*//(?![ \t]*([-*]|[0-9]+[.)])[ \t])'
+    message: >-
+      A multi-line C comment must open with a single summary line ending in a full stop (PEP 257 style, as the
+      comment-summary-line rule enforces for `#` comments). The summary describes the whole block in one sentence;
+      continuation lines follow. End the first comment line with `.` (a `:` introducing an enumeration is also
+      accepted).
     severity: ERROR

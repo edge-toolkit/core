@@ -4675,6 +4675,7 @@ dependencies = [
 name = "et-ws-web-runner"
 version = "0.1.0"
 dependencies = [
+ "cc",
  "deno_core",
  "deno_error",
  "deno_resolver",
@@ -4683,6 +4684,7 @@ dependencies = [
  "et-rest-client",
  "et-ws-runner-common",
  "et-ws-test-server",
+ "fs-err",
  "futures-util",
  "reqwest 0.13.4",
  "rstest",

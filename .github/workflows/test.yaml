@@ -34,7 +34,7 @@ env:
   MISE_ENV: "dart,dotnet,java,js,python,rust,zig"
 
 jobs:
-  rust:
+  default:
     runs-on: ${{ matrix.os }}
     timeout-minutes: ${{ matrix.timeout }}
     # Override the workflow-level `shell: bash` default for Windows runs.
@@ -142,4 +142,62 @@ jobs:
 
       - name: Run tests
         timeout-minutes: 30
+        run: mise run test
+
+  # Alternate-compiler Windows lanes, one per mise target env (.mise/config.<compiler>.toml).
+  # `msvc` builds et-ws-web-runner against the native rusty_v8 prebuilt with the portable MSVC toolchain;
+  # `mingw` links that msvc archive into an x86_64-pc-windows-gnu binary with winlibs GCC. Separate from
+  # the `default` job because they override the gnullvm default target rather than exercising it.
+  override:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [mingw, msvc]
+    # Append the compiler's target env to the workflow-level language set.
+    # Job-level rather than a GITHUB_ENV step because the alias must already be loaded when
+    # install-mise-tools runs its first `mise install`: that pass installs the compiler env's tools and
+    # the rust toolchains' extra target std, and mise does not reconcile a changed `targets` list on an
+    # already-installed toolchain.
+    env:
+      MISE_ENV: "dart,dotnet,java,js,python,rust,zig,${{ matrix.compiler }}"
+    # Static busybox-w32 ash default (this job is always windows-latest, so no per-OS ternary).
+    defaults:
+      run:
+        shell: C:\Users\runneradmin\AppData\Local\mise\installs\http-busybox\1.37.0\ash.exe -euo pipefail {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Free disk space on Windows
+        uses: ./.github/actions/free-disk-space-windows
+
+      - name: Install mise + tools
+        uses: ./.github/actions/install-mise-tools
+        timeout-minutes: 25
+        with:
+          github-token: ${{ github.token }}
+
+      - name: Prefetch dependencies
+        timeout-minutes: 20
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run prefetch-ci
+
+      # MISE_JOBS=1 serializes mise's task scheduler.
+      - name: Serialize mise tasks
+        run: echo "MISE_JOBS=1" >> "$GITHUB_ENV"
+
+      - name: Build WASM modules
+        timeout-minutes: 25
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run build-modules
+
+      - name: Run tests
+        timeout-minutes: 40
         run: mise run test

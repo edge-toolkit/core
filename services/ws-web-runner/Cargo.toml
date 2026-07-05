@@ -45,6 +45,13 @@ tracing-subscriber.workspace = true
 [target.'cfg(windows)'.dependencies]
 winapi.workspace = true
 
+[build-dependencies]
+# Compiles mingw-shim/ for the x86_64-pc-windows-gnu build (see build.rs).
+# Unconditional so the build script itself compiles on every platform -- the shim branch is gated at
+# runtime on the target cfg.
+cc.workspace = true
+fs-err.workspace = true
+
 [dev-dependencies]
 et-ws-test-server.workspace = true
 rstest.workspace = true

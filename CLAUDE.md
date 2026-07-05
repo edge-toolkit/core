@@ -411,6 +411,41 @@ both are false under this repo's design:
 
 If you believe a skip is genuinely warranted, stop and ask the user; do not add it pre-emptively.
 
+### Known intermittent CI failure: pyo3-runner torch registration timeout
+
+`et-ws-pyo3-runner`'s `module_behaves::case_5_torch` intermittently fails on test.yaml's Windows lane with the
+literal failure line
+
+    Error: "runner never registered"
+
+arriving a few seconds after torch's cold first import prints
+`UserWarning: Failed to initialize NumPy: No module named 'numpy'` (from
+`torch\_subclasses\functional_tensor.py:362`, a benign warning) and its
+`cpu = _conversion_method_template(device=torch.device("cpu"))` line -- i.e. the spawned runner was still inside
+torch's import when the test's registration timeout expired. The ~117 MB `pipx:torch` package's first import on a
+cold runner is the slow step; a rerun passes because the import caches warm. Observed on commit
+`6479913bdc288dd680fbe0520f63054e8c71fe6c` at
+https://github.com/edge-toolkit/core/actions/runs/28686533955/job/85080173283 (PR #70; the rerun passed and the PR
+merged). If this signature recurs, stop rerunning and fix the root cause: raise (or make torch-case-specific) the
+runner-registration timeout in the pyo3-runner module tests, or warm the torch import before the registration clock
+starts.
+
+### Known intermittent CI failure: wasi-runner vector OTLP store-and-forward timeout
+
+`et-ws-wasi-runner`'s `vector_otlp_relay::vector_relays_buffered_otlp_after_backend_comes_online` intermittently
+fails on the Windows `override` job (test.yaml) with the literal failure line
+
+    mock never received the relayed `relay-probe` span -- store-and-forward failed
+
+from `services/ws-wasi-runner/tests/vector_otlp_relay.rs`. The test pushes an OTLP span into a Vector source whose
+sink points at a dead collector (Vector buffers it), brings the mock collector online, then polls ~30s
+(`Fixed::from_millis(250).take(120)`) for the buffered span to be relayed. The captured Vector stderr shows no sink
+errors -- the buffer just wasn't flushed inside the window, so Vector's post-reconnect sink retry/backoff on a cold
+runner is the suspect. Observed once on commit `a6d7cd5552586d95dc67e09d5800c347f368a998` at
+https://github.com/edge-toolkit/core/actions/runs/28690968262/job/85092063432 and passed on the next run with no
+code change. If this signature recurs, stop rerunning and fix the root cause: widen the poll window, or configure
+the Vector sink's retry/backoff so a freshly-online collector is hit promptly rather than after a long backoff.
+
 ## Workarounds
 
 When you can't (or shouldn't) fix the root cause right now -- a libc race in an upstream dep, a flaky platform driver,

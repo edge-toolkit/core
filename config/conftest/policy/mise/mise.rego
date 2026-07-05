@@ -3,7 +3,11 @@
 # `--all-namespaces`).
 package mise
 
-is_mise(file) if startswith(file.path, ".mise/config")
+# The separator replace keeps this true on Windows-local runs.
+# conftest reports native backslash paths when handed the `.mise` DIRECTORY (as conftest-check-yaml's
+# gha_mise pass and conftest-check-dockerfile do), which would otherwise silently empty every cross-check
+# derived from this predicate there; CI's Linux runs were unaffected.
+is_mise(file) if startswith(replace(file.path, "\\", "/"), ".mise/config")
 
 # A task `run` must be a string, not an array.
 # taplo's reorder_arrays would re-sort the commands of an array form and scramble the sequence.
@@ -140,6 +144,9 @@ allowed_os_scoped_tool := {
 	"cargo:dart-typegen",
 	# cargo:wasm-opt: gnullvm source-build fails, so os-scoped off Windows (msvc override in config.windows.toml).
 	"cargo:wasm-opt",
+	# winlibs mingw-w64 GCC: the toolchain for the x86_64-pc-windows-gnu target (config.mingw.toml).
+	# Upstream ships Windows-only zips, and the env that installs it is itself Windows-only.
+	"github:brechtsanders/winlibs_mingw",
 }
 
 deny contains msg if {
@@ -158,12 +165,19 @@ deny contains msg if {
 # must track the `[tools]` pin -- a bump that updates the tool but not the var silently points at a missing dir.
 # Collect every (install-dir, version) the [tools] tables pin, across all files (--combine), since a var in
 # config.<os>.toml can reference a tool pinned in config.toml.
+# mise names the install dir after the tool with `:` and `/` flattened to `-`, and (observed on the github
+# backend) `_` flattened too: winlibs_mingw lands under github-brechtsanders-winlibs-mingw. Register both
+# spellings so a [vars]/[env] path is checked against whichever the backend actually produces.
+install_dirs(name) := {base, replace(base, "_", "-")} if {
+	base := replace(replace(name, ":", "-"), "/", "-")
+}
+
 tool_versions contains [dir, version] if {
 	some file in input
 	is_mise(file)
 	some name, version in file.contents.tools
 	is_string(version)
-	dir := replace(replace(name, ":", "-"), "/", "-")
+	some dir in install_dirs(name)
 }
 
 tool_versions contains [dir, version] if {
@@ -171,7 +185,7 @@ tool_versions contains [dir, version] if {
 	is_mise(file)
 	some name, spec in file.contents.tools
 	is_object(spec)
-	dir := replace(replace(name, ":", "-"), "/", "-")
+	some dir in install_dirs(name)
 	version := spec.version
 }
 
