@@ -1040,15 +1040,7 @@ description = "Fail if any checked-in artifact under generated/ is stale"
 # All et-int-gen outputs land under generated/.
 # The runner's wit/deps/et-ws-messages is a symlink into that tree, so a single diff
 # against generated/ covers everything.
-#
-# Skipped on Windows: the regen pipeline produces non-deterministic drift there (nightly rustfmt formats
-# long signatures and doc-comment indentation differently across nightlies; pipx-driven python codegen
-# emits subtly different output). Linux/macOS runs are canonical.
-run = """
-[ "${OS:-}" = "Windows_NT" ] && { echo "gen-specs-check: skipped on Windows (non-deterministic)"; exit 0; }
-git diff --exit-code -- generated
-"""
-shell = "bash -euo pipefail -c"
+run = "git diff --exit-code -- generated"
 
 # `cargo-watch` is unmaintained; `watchexec` is its successor.
 # watchexec is what `cargo-watch` always called under the hood. Restart on .rs/.toml changes so a

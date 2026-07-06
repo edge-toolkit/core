@@ -35,7 +35,13 @@ sinks:
       # `otlp` is protobuf; Vector's json OTLP encoding is not a valid request body (vectordotdev/vector#23971).
       encoding:
         codec: otlp
-      # Cap the retry backoff so the buffered event is redelivered within seconds of the collector returning.
+      # Retry promptly but keep retrying long enough to survive an outage.
+      # retry_initial_backoff_secs makes the first retry quick, so a buffered event is redelivered within a
+      # second or two of the collector returning. retry_max_duration_secs is NOT a backoff-interval cap --
+      # it is the total per-request retry window, after which Vector DROPS the event ("retries exhausted").
+      # At 5s the buffered span was dropped before a cold CI runner could bind the collector, which timed out
+      # the ws-wasi-runner vector_otlp_relay test on Windows; 300s keeps store-and-forward durable across a
+      # real outage while staying finite.
       request:
         retry_initial_backoff_secs: 1
-        retry_max_duration_secs: 5
+        retry_max_duration_secs: 300

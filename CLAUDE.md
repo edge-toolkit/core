@@ -430,22 +430,6 @@ merged). If this signature recurs, stop rerunning and fix the root cause: raise 
 runner-registration timeout in the pyo3-runner module tests, or warm the torch import before the registration clock
 starts.
 
-### Known intermittent CI failure: wasi-runner vector OTLP store-and-forward timeout
-
-`et-ws-wasi-runner`'s `vector_otlp_relay::vector_relays_buffered_otlp_after_backend_comes_online` intermittently
-fails on the Windows `override` job (test.yaml) with the literal failure line
-
-    mock never received the relayed `relay-probe` span -- store-and-forward failed
-
-from `services/ws-wasi-runner/tests/vector_otlp_relay.rs`. The test pushes an OTLP span into a Vector source whose
-sink points at a dead collector (Vector buffers it), brings the mock collector online, then polls ~30s
-(`Fixed::from_millis(250).take(120)`) for the buffered span to be relayed. The captured Vector stderr shows no sink
-errors -- the buffer just wasn't flushed inside the window, so Vector's post-reconnect sink retry/backoff on a cold
-runner is the suspect. Observed once on commit `a6d7cd5552586d95dc67e09d5800c347f368a998` at
-https://github.com/edge-toolkit/core/actions/runs/28690968262/job/85092063432 and passed on the next run with no
-code change. If this signature recurs, stop rerunning and fix the root cause: widen the poll window, or configure
-the Vector sink's retry/backoff so a freshly-online collector is hit promptly rather than after a long backoff.
-
 ## Workarounds
 
 When you can't (or shouldn't) fix the root cause right now -- a libc race in an upstream dep, a flaky platform driver,
