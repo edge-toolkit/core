@@ -37,14 +37,15 @@ To use this module, set these env vars and run the runner:
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 _logger = logging.getLogger(__name__)
 
 # --- module state ----------------------------------------------------------
 
 _agent_id: str | None = None
-_send = None  # type: WsSender | None -- stashed for fan-out, unused here
-_storage = None  # type: WsStorage | None -- stashed for completeness
+_send: Any = None  # WsSender | None -- stashed for fan-out, unused here
+_storage: Any = None  # WsStorage | None -- stashed for completeness
 _echoed: int = 0
 
 

@@ -21,6 +21,12 @@
     // Worker.postMessage takes no targetOrigin (unlike Window.postMessage); the rule can't distinguish, so it
     // false-positives on every worker-side / main-side `worker.postMessage({...})` call we have.
     "unicorn/require-post-message-target-origin": "off",
+    // Type-aware rule (needs `--type-aware` + oxlint-tsgolint + config/tsconfig.json): the local equivalent of
+    // DeepSource's JS-W1044. Flags `a && a.b` chains that an optional chain (`a?.b`) expresses more safely.
+    "typescript/prefer-optional-chain": "error",
+    // Cyclomatic-complexity ceiling -- the local equivalent of DeepSource's JS-R1005. Keeps branchy functions in
+    // check; 10 is a practical ceiling (eslint's default 20 is too loose, DeepSource's medium=6 too strict here).
+    "eslint/complexity": ["error", { "max": 10 }],
   },
   "overrides": [
     {
@@ -47,6 +53,9 @@
         "eslint/no-await-in-loop": "off",
         "unicorn/consistent-function-scoping": "off",
         "unicorn/prefer-add-event-listener": "off",
+        // wasm-bindgen/build-emitted bundles and the browser glue entry points carry generated or inherently
+        // branchy setup; the complexity ceiling is for hand-written source, not these shims.
+        "eslint/complexity": "off",
       },
     },
   ],

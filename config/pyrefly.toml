@@ -1,0 +1,40 @@
+# Pyrefly config for the compiled (Rust) Python type checker that backs `check:python`.
+# Paths are relative to this file (config/), so repo-root trees are reached via `../`. Pyrefly catches the class
+# of issue DeepSource's typecheck analyzer reports (TYP-*): undefined names in annotations, wrong argument/return
+# types. It does NOT parse legacy `# type:` comments -- the `no-type-comments` semgrep rule bans those so the
+# annotation form Pyrefly does check is the only one in the tree.
+
+project-includes = ["../services/**/*.py"]
+
+# Generated / vendored trees we neither own nor hand-write.
+# Paths are anchored with `../` so the recursive globs match from the repo root, not from config/: the
+# componentize-py bindings regenerated per build, and poll_loop.py (vendored verbatim from componentize-py's
+# wasi-http example -- its AbstractEventLoop overrides are upstream's). `target/` and `node_modules/` are covered
+# by Pyrefly's .gitignore + default excludes.
+project-excludes = [
+  "../generated/**",
+  "../services/ws-modules/wasi-graphics-info/componentize_py_async_support/**",
+  "../services/ws-modules/wasi-graphics-info/poll_loop.py",
+  "../services/ws-modules/wasi-graphics-info/wit_world/**",
+]
+
+# Package roots so intra-package imports (`pyface1.face_detection`) resolve as real modules, not `__unknown__.*`.
+search-path = ["../services/ws-modules/pydata1", "../services/ws-modules/pyface1", "../services/ws-pyo3-runner/python"]
+
+# Third-party deps and generated packages that are absent from (or opaque to) the lint environment.
+# `replace-imports-with-any` (rather than a blanket ignore) keeps import resolution deterministic across every OS
+# and CI lane regardless of whether the optional `pipx:torch` wheel installed for that triple. The int-gen
+# `et_rest_client`/`et_ws` clients are attrs-based; Pyrefly can't model their generated `__init__`s, so they are
+# opaque here (their own generation is what validates them).
+replace-imports-with-any = [
+  "componentize_py_types",
+  "cowsay",
+  "et_rest_client",
+  "et_rest_client.*",
+  "et_ws",
+  "et_ws.*",
+  "pyodide_http",
+  "torch",
+  "wit_world",
+  "wit_world.*",
+]

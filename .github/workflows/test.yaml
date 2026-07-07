@@ -70,7 +70,7 @@ jobs:
           '{"os":"ubuntu-24.04-arm","timeout":40}',
           '{"os":"macos-latest","timeout":45}',
           '{"os":"macos-26-intel","timeout":60}',
-          '{"os":"windows-latest","timeout":60}',
+          '{"os":"windows-latest","timeout":120}',
           '{"os":"windows-11-arm","timeout":60}'
           )
           || github.event.inputs.os == 'ubuntu-latest' && '[{"os":"ubuntu-latest","timeout":40}]'
@@ -78,14 +78,14 @@ jobs:
           || github.event.inputs.os == 'ubuntu-24.04-arm' && '[{"os":"ubuntu-24.04-arm","timeout":40}]'
           || github.event.inputs.os == 'macos-latest' && '[{"os":"macos-latest","timeout":45}]'
           || github.event.inputs.os == 'macos-26-intel' && '[{"os":"macos-26-intel","timeout":60}]'
-          || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":60}]'
+          || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":120}]'
           || github.event.inputs.os == 'windows-11-arm' && '[{"os":"windows-11-arm","timeout":60}]'
           )
           || format('[{0},{1},{2},{3}]',
           '{"os":"ubuntu-latest","timeout":40}',
           '{"os":"ubuntu-24.04-arm","timeout":40}',
           '{"os":"macos-latest","timeout":45}',
-          '{"os":"windows-latest","timeout":60}')
+          '{"os":"windows-latest","timeout":120}')
           ) }}
     steps:
       - name: Checkout
@@ -108,9 +108,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends mesa-vulkan-drivers
 
+      # Windows tools source-build under mise 2026.7.1, so this step runs long (bumped from 20).
+      # The per-tool msvc `install_env` override no longer reaches cargo-binstall there, so cargo tools like
+      # action-validator compile from source instead of fetching their msvc prebuilts. Revert once mise fixes it.
       - name: Install mise + tools
         uses: ./.github/actions/install-mise-tools
-        timeout-minutes: 20
+        timeout-minutes: 60
         with:
           github-token: ${{ github.token }}
 
@@ -150,7 +153,7 @@ jobs:
   # the `default` job because they override the gnullvm default target rather than exercising it.
   override:
     runs-on: windows-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -176,9 +179,12 @@ jobs:
       - name: Free disk space on Windows
         uses: ./.github/actions/free-disk-space-windows
 
+      # Windows tools source-build under mise 2026.7.1, so this step runs long (bumped from 25).
+      # The per-tool msvc `install_env` override no longer reaches cargo-binstall there, so cargo tools like
+      # action-validator compile from source instead of fetching their msvc prebuilts. Revert once mise fixes it.
       - name: Install mise + tools
         uses: ./.github/actions/install-mise-tools
-        timeout-minutes: 25
+        timeout-minutes: 60
         with:
           github-token: ${{ github.token }}
 

@@ -11,7 +11,7 @@
 #   Make a selection sticky:            export MISE_ENV=dart
 
 # Require release that introduced auto_env enabled in .miserc.toml
-min_version = "2026.6.5"
+min_version = "2026.7.1"
 
 [settings]
 # Disable mise's two auto-install paths so tasks fail fast on a missing tool.
@@ -246,7 +246,7 @@ a_rp_release = "rp-v1"
 # erroring: every var built from it (mise_data_dir, conda_openssl, py3_unix, pylib_flag, ort_loc_unix) is Unix-only
 # and unused on Windows, where mise uses %LOCALAPPDATA%\mise and config.windows.toml supplies the real paths.
 a_home = '''{% if os() == "windows" -%}
-{{- get_env(name="USERPROFILE", default="") | replace(from=`\`, to="/") -}}
+{{- (env?.USERPROFILE or "") | replace(from="\\", to="/") -}}
 {%- else -%}
 {{- env.HOME -}}
 {%- endif %}'''
@@ -262,7 +262,7 @@ augeas_windows_x64_asset = "1.14.1-x86_64-pc-windows-mingw.tar.gz"
 # mise data dir -- the parent of `installs/<backend>-<name>/<version>`.
 # Used to compose absolute paths into a tool's install dir from [env] (e.g. AUGEAS_LENS_LIB). Honours
 # MISE_DATA_DIR if set; otherwise mise's default of $XDG_DATA_HOME (~/.local/share/mise on Linux/macOS).
-mise_data_dir = '{{ get_env(name="MISE_DATA_DIR", default=vars.a_home ~ "/.local/share/mise") }}'
+mise_data_dir = '{{ env?.MISE_DATA_DIR or (vars.a_home ~ "/.local/share/mise") }}'
 # clang-tidy's resource-dir arg (points clang at its builtin headers, e.g.
 # stddef.h). Empty default; config.linux.toml sets it from conda:clangxx.
 clang_resource_arg = ""
@@ -272,7 +272,7 @@ conda_openssl = "{{ vars.a_home }}/.local/share/mise/installs/conda-openssl/3"
 # command line trips `\a` -> alert, `\c` -> "suppress output" string mangling inside busybox ash, so paths
 # like `D:\a\core\core/target/...` become `D:acorecore/target/...`). Forward slashes Just Work on both
 # shells. Used as the root of every workspace-relative var below.
-config_root_fwd = "{{ config_root | replace(from='\\', to='/') }}"
+config_root_fwd = '{{ config_root | replace(from="\\", to="/") }}'
 # Absolute path to the workspace-built et-cli binary.
 # The parallel build-ws-*-module tasks each invoke `et-cli module-package-json`; using this var (rather than
 # `cargo run -p et-cli`) means every invocation execs the same pre-built binary instead of re-entering cargo,
@@ -359,7 +359,7 @@ a_rp_wasm_short = "08a1d6f"
 # normalizer (`cp: The system cannot find the path specified. (os error 3)`).
 gh_http = "--http-url https://github.com --progress --ignore-existing"
 rp_wasm_dir = '''{% if os() == "windows" -%}
-{%- set base = get_env(name="LOCALAPPDATA", default="") | replace(from=`\`, to="/") -%}
+{%- set base = (env?.LOCALAPPDATA or "") | replace(from="\\", to="/") -%}
 {{- base -}}/mise/installs/http-rp-wasm/{{- vars.a_rp_wasm_short -}}
 {%- else -%}
 {{- vars.mise_data_dir -}}/installs/http-rp-wasm/{{- vars.a_rp_wasm_short -}}

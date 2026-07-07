@@ -27,10 +27,17 @@
 # Windows cargo: builds pin a per-tool msvc install_env so cargo-binstall fetches the msvc prebuilt.
 # (cargo:dart-typegen has no quickinstall release at all -- not just no gnullvm one -- so it can't use this
 # pattern; it stays in MISE_DISABLE_TOOLS for the Windows test lane, with http:dart-typegen providing coverage.)
-"cargo:cargo-expand" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
-"cargo:wasm-opt" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
+# "cargo:cargo-expand" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
+# wasm-opt uses the aqua binaryen prebuilt on Windows, not the cargo: backend.
+# The cargo: source-build fallback compiles link-cplusplus for the gnullvm target, which llvm-mingw's clang 22
+# (the toolchain pinned above -- conda:libclang is only the bindgen DLL, not the compiler) rejects ("version
+# 'llvm' in target triple 'x86_64-pc-windows-gnullvm' is invalid"); and under mise 2026.7.1 the per-tool msvc
+# `install_env` no longer steers cargo-binstall to the (existing) msvc prebuilt. binaryen ships a self-contained
+# Windows prebuilt, so aqua sidesteps the source build and clang entirely.
+"aqua:WebAssembly/binaryen" = "latest"
 # action-validator uses aqua on Linux/macOS but has no aqua/github Windows build, so it's cargo: only here.
-"cargo:action-validator" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
+# Failing due to latest mise.
+# "cargo:action-validator" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
 
 # busybox-w32 `sh` (POSIX ash) -- the shell the bash-tasks run on.
 # A native Win32 single exe with no cygwin/msys runtime, so it loads on a bare Nano Server, unlike conda's
@@ -90,7 +97,7 @@ version = "nightly-x86_64-pc-windows-gnullvm"
 # Forward-slashed mise installs root, for values spliced unquoted into bash task command lines.
 # Composed from LOCALAPPDATA directly (not vars.mise_installs) because [vars] render alphabetically and
 # an a_-prefixed var cannot reference the later-sorting mise_installs.
-a_mise_installs_fwd = '{{ get_env(name="LOCALAPPDATA", default="") | replace(from=`\`, to="/") }}/mise/installs'
+a_mise_installs_fwd = '{{ (env?.LOCALAPPDATA or "") | replace(from="\\", to="/") }}/mise/installs'
 # clang-tidy's builtin-header resource dir (config.linux.toml solves the same gap with conda's clang).
 # llvm-mingw ships the clang resource headers (stddef.h/stdint.h -- everything the zig-data1 C needs),
 # and conda's clang-tidy is the same LLVM 22 major. The trailing `22` is clang's major version, not the
@@ -106,7 +113,7 @@ gnupg_w32_asset = "2.5.20_20260513-x86_64-pc-windows.tar.gz"
 
 # Root of mise's per-tool install dirs (the mise data dir is LOCALAPPDATA\mise).
 # The install-path vars below all hang off it.
-mise_installs = '{{ get_env(name="LOCALAPPDATA", default="") }}\mise\installs'
+mise_installs = '{{ env?.LOCALAPPDATA or "" }}\mise\installs'
 # busybox `ash` install path for MISE_BASH_PATH.
 # Keyed by the pinned http:busybox version above -- keep in sync.
 winsh = '{{ vars.mise_installs }}\http-busybox\1.37.0\ash.exe'
@@ -135,6 +142,10 @@ maven_bin = '{{ vars.mise_installs }}\maven\3.9.16\apache-maven-3.9.16\bin'
 # conda:libclang's binary dir, for the LIBCLANG_PATH below.
 # Pinned to the [tools] version above -- bump both together (conftest's version_drift enforces).
 win_libclang = '{{ vars.mise_installs }}\conda-libclang\22.1.8\Library\bin'
+# npm:oxlint-tsgolint's package dir inside its mise install, for the OXLINT_TSGOLINT_PATH entry below.
+# npm global installs land at `<prefix>\node_modules\<pkg>` on Windows (vs `lib/node_modules` on Unix). Pinned
+# to the config.js.toml [tools] version -- bump both together (conftest's version_drift enforces).
+tsgolint_pkg = '{{ vars.mise_installs }}\npm-oxlint-tsgolint\0.24.0\node_modules\oxlint-tsgolint'
 # wasm-pack's wasm-opt (binaryen) can't execute on Nano Server (os error 3).
 # So the module + wasm-agent builds pass --no-opt; they reference {{ vars.no_opt }}.
 no_opt = "--no-opt"
@@ -148,6 +159,22 @@ cargo_ws_excludes = "--exclude et-ws-web-runner"
 # (mise can't auto-find an http-backend shell.) busybox ash accepts the
 # `-euo pipefail -c` the shell string passes; the task bodies are POSIX.
 MISE_BASH_PATH = "{{ vars.winsh }}"
+# Point oxlint straight at tsgolint's real exe, skipping the npm cmd-shim on PATH.
+# Without this, `oxlint --type-aware` (config.js.toml's oxlint-check/-fix) finds the npm-generated
+# `tsgolint.cmd`, whose fallback line runs a bare `"node"` under cmd.exe -- and cmd.exe silently fails to
+# search a PATH longer than 8191 chars (its per-variable limit; verified: resolves at 8172, fails at 8300),
+# which the mise task PATH (~78 tool install dirs on top of the GHA runner's ~4-5k-char base) exceeds. The
+# task then dies with:
+#     '"node"' is not recognized as an internal or external command,
+#     operable program or batch file.
+#     Error running tsgolint: "exit status: exit code: 1"
+# Observed on commit 8cac021c75ebb69e8100a1ddb8d9b670e197fee4 at
+# https://github.com/edge-toolkit/core/actions/runs/28857668889/job/85588159468 (check windows-latest lane).
+# oxlint consults this env var before its node_modules/.bin and PATH walks, and pointing it at the
+# per-platform exe nested in the npm package sidesteps node and cmd.exe entirely. Windows-only (this file)
+# both because only cmd.exe has the limit and because oxlint hard-fails on a set-but-invalid value, which an
+# off-Windows `{% if %}` empty-string render would be. Inert when js isn't in MISE_ENV; just an unused path.
+OXLINT_TSGOLINT_PATH = '{{ vars.tsgolint_pkg }}\node_modules\@oxlint-tsgolint\win32-x64\tsgolint.exe'
 # Build for the LLVM mingw target.
 # gnullvm, not gnu: llvm-mingw ships compiler-rt + libunwind, not the GCC runtime (libgcc/libgcc_eh) the gnu
 # target's link line demands. The linker is llvm-mingw's clang and the raw-dylib import tool is its
@@ -302,3 +329,7 @@ shell = "bash -xeuo pipefail -c"
 # 404s and the from-source fallback can't build under llvm-mingw. The suite still runs on the Linux/macOS jobs.
 run = "echo 'skipping et-ws-web-runner on windows: rusty_v8 has no gnullvm prebuilt'"
 shell = "bash -euo pipefail -c"
+
+[tasks.action-validator-check]
+# Broken by latest mise.
+run = "true"

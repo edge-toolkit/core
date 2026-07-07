@@ -6,6 +6,7 @@
 "pipx:componentize-py" = "latest"
 "pipx:datamodel-code-generator" = { version = "latest", extras = "ruff" }
 "pipx:openapi-python-client" = "0.29.0"
+"pipx:pyrefly" = "latest"
 "pipx:pytest" = "latest"
 # PyTorch, for the et-ws-pyo3-runner `torch_inference` test.
 # Python-only (not in the always-loaded config) -- it's a large optional dependency, and the test skips itself
@@ -39,6 +40,7 @@ RUFF_CACHE_DIR = "{{ config_root }}/target/ruff-cache"
 # It honours .gitignore (so target/ is skipped) and ruff.toml's `exclude`/`extend-exclude`. Every tracked *.py
 # already lives under a dir we want linted, so discovery covers them without an explicit include list -- scope
 # is narrowed by excludes only.
+pyrefly-check = "pyrefly check -c config/pyrefly.toml"
 ruff-check = "ruff check"
 ruff-fix = "ruff check --fix"
 ruff-fmt = "ruff format"
@@ -47,8 +49,8 @@ ruff-fmt-check = "ruff format --check"
 # Namespaced aggregators picked up by the default config's globbed tasks.
 # Those are its `check`/`fmt`/`test`.
 [tasks."check:python"]
-depends = ["ruff-check", "ruff-fmt-check"]
-description = "Run Python checks (ruff lint + format-check)"
+depends = ["pyrefly-check", "ruff-check", "ruff-fmt-check"]
+description = "Run Python checks (ruff lint + format-check, Pyrefly type-check)"
 
 [tasks."fmt:python"]
 depends = ["ruff-fmt"]

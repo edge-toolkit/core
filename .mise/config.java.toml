@@ -18,15 +18,15 @@ maven = "3.9.16"
 # Windows-only slash normalization: %LOCALAPPDATA% arrives in mise's tera context with forward slashes
 # (`C:/Users/.../AppData/Local`) but our literal segments use backslashes; the resulting mixed-slash path
 # passes busybox `ls` but mvn.cmd's `if not exist "%JAVA_HOME%\bin\java.exe"` rejects it. The
-# `| replace(from="/", to=`\`)` pass on the prefix normalizes everything to a single backslash. Note the
-# backtick-quoted string for the replacement: tera 1.20's pest grammar treats strings verbatim (no `\\`-as-`\`
-# escape), so backticks + a single literal backslash are the way to express a one-char `\` argument.
+# `| replace(from="/", to="\\")` pass on the prefix normalizes everything to a single backslash. Note the
+# `"\\"` escape: Tera v2 (mise 2026.7.1+) parses C-style backslash escapes in double-quoted strings, so `"\\"`
+# is one literal `\`. (Tera v1 had no escapes and needed a backtick raw-string; Tera v2 dropped backtick strings.)
 java_home = '''{% if os() == "windows" -%}
-{%- set win_base = get_env(name="LOCALAPPDATA", default="") ~ "\mise" -%}
-{{- get_env(name="MISE_DATA_DIR", default=win_base) | replace(from="/", to=`\`) -}}
+{%- set win_base = (env?.LOCALAPPDATA or "") ~ "\\mise" -%}
+{{- (env?.MISE_DATA_DIR or win_base) | replace(from="/", to="\\") -}}
 \installs\java\26.0.1
 {%- else -%}
-{{- get_env(name="MISE_DATA_DIR", default=env.HOME ~ "/.local/share/mise") -}}
+{{- env?.MISE_DATA_DIR or (env.HOME ~ "/.local/share/mise") -}}
 /installs/java/26.0.1
 {%- endif %}'''
 

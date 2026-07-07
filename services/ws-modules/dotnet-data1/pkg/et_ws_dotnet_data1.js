@@ -3,6 +3,7 @@
 
 let exports = null;
 
+// skipcq: JS-0833 -- committed .NET WASM ES-module shim; DeepSource's script-mode parse is a false positive
 export default async function init() {
   const { dotnet } = await import(new URL("dotnet.js", import.meta.url).href);
   const { getAssemblyExports, setModuleImports } = await dotnet.create();
@@ -59,7 +60,7 @@ export default async function init() {
 
 export async function run() {
   if (!exports) throw new Error("dotnet-data1: not initialized");
-  await exports.DotnetData1.Run();
+  await exports.EtWsModules.DotnetData1.RunAsync();
 }
 
 function appendOutput(msg) {

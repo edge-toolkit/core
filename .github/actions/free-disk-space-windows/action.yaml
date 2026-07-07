@@ -108,7 +108,24 @@ runs:
       shell: bash --noprofile --norc -euo pipefail {0}
       env:
         KEEP_IMAGE: ${{ inputs.keep-image }}
+      # Start the Docker daemon first so the prune actually reclaims image space instead of skipping it.
+      # Skipping would leave several GB of preinstalled Windows base images consumed, which can starve a later
+      # step of disk. Hosted Windows runners don't reliably leave the daemon running (docker-windows.yaml starts
+      # it the same way), so start the service if `docker info` can't reach it, then wait for readiness. Only if
+      # it still can't come up do we skip (best-effort) rather than fail the whole disk-free step.
       run: |
+        if ! docker info >/dev/null 2>&1; then
+          echo "docker daemon not running; starting the docker service"
+          sc query docker | grep -q RUNNING || net start docker || true
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            docker info >/dev/null 2>&1 && break
+            sleep 3
+          done
+        fi
+        if ! docker info >/dev/null 2>&1; then
+          echo "docker daemon still unavailable after start attempt; skipping image/builder prune"
+          exit 0
+        fi
         docker images
         for img in $(docker images --format '{{.Repository}}:{{.Tag}}'); do
           if [ "$img" != "$KEEP_IMAGE" ]; then

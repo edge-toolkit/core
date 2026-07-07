@@ -425,10 +425,30 @@ arriving a few seconds after torch's cold first import prints
 torch's import when the test's registration timeout expired. The ~117 MB `pipx:torch` package's first import on a
 cold runner is the slow step; a rerun passes because the import caches warm. Observed on commit
 `6479913bdc288dd680fbe0520f63054e8c71fe6c` at
-https://github.com/edge-toolkit/core/actions/runs/28686533955/job/85080173283 (PR #70; the rerun passed and the PR
+`https://github.com/edge-toolkit/core/actions/runs/28686533955/job/85080173283` (PR #70; the rerun passed and the PR
 merged). If this signature recurs, stop rerunning and fix the root cause: raise (or make torch-case-specific) the
 runner-registration timeout in the pyo3-runner module tests, or warm the torch import before the registration clock
 starts.
+
+### Known intermittent CI failure: mise tool-install `api.github.com` attestation/metadata flake
+
+`mise install` (in the install-mise-tools composite action) intermittently fails on the Windows lanes when its
+calls to `api.github.com` -- GitHub artifact-attestation verification and release-metadata lookups -- get
+rate-limited or time out. The captured signature is a tool install aborting on the attestation endpoint, e.g.
+
+    mise ERROR Failed to install github:uutils/findutils@0.8.0: GitHub artifact attestations verification
+    error ...: HTTP error: error sending request for url
+    (https://api.github.com/repos/uutils/findutils/attestations/sha256:...)
+
+usually preceded by several retried `mise WARN HTTP GET https://api.github.com/repos/<owner>/<repo>/releases...`
+lines. When it strands the install, the composite's retry step can then trip the separate busybox/Git-Bash
+`cygheap read copy failed` fork pathology and the job hits its action timeout instead of a clean error. Observed on
+the `override (mingw)` job at commit `396aa98d24e4a945528cdbac33fbc61b66831e8a`,
+`https://github.com/edge-toolkit/core/actions/runs/28698136445/job/85111320237` (a rerun of the same commit
+installed cleanly). This is an api.github.com rate-limit/transient-network flake, not a repo defect -- a
+`GITHUB_TOKEN` is already forwarded to raise the ceiling. If it becomes frequent rather than occasional, the
+durable fix is to mirror the affected assets via the upstream-cache pattern (which fetches from our own release
+CDN, off the api.github.com attestation path) rather than adding a retry wrapper.
 
 ## Workarounds
 
@@ -456,6 +476,24 @@ a runner-image quirk, a toolchain bug, a CI-only flake -- and you decide to pape
   log expires at 3 months) but together they pin the WHERE and WHEN of the
   evidence well enough for the next reader to cross-reference your local
   notes, screenshots, or any persisted artifact.
+
+## NEVER disable anything on Windows without explicitly asking the user first
+
+Windows x64 is a first-tier platform with exactly the same standing as Linux x64 and macOS arm64 -- not a
+best-effort port. Any change that turns functionality off on Windows needs the user's explicit sign-off, requested
+BEFORE the change is made: `#[cfg(windows)]`-ing code out, excluding a crate from a Windows build or test run,
+os-scoping a mise tool away from Windows, skipping a task/check/lint on the Windows lane, weakening a Windows code
+path to a stub, or shipping a feature that silently no-ops there. This holds no matter how small or "temporary"
+the disable is, and no matter how red CI is -- a broken Windows lane is a bug to root-cause, not evidence that
+Windows support is optional.
+
+"It fails on Windows and works everywhere else" is the START of an investigation, not a justification for turning
+the feature off. The failure almost always has a specific, fixable Windows cause -- a cmd.exe or PATH-length
+quirk, a shim difference, a missing prebuilt for the target triple, a path-separator or encoding assumption -- and
+the fix keeps the functionality on. If, after root-causing, you still believe a Windows-scoped disable is
+genuinely the right call, stop, present the evidence and the exact proposed scope, and wait for the user to
+approve it explicitly. Do not bundle an unapproved Windows disable into a larger change, and do not widen one that
+already exists.
 
 ## Non-negotiable platform constraints
 

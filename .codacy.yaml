@@ -1,0 +1,11 @@
+# Codacy's in-repo config can only exclude paths -- it cannot disable individual patterns (dashboard-only).
+# These paths carry findings the repo already covers elsewhere or has consciously decided against:
+# - config/semgrep/: our Semgrep rule files; Codacy's own Semgrep misfires on the `- id:` each rule declares.
+# - Dockerfile: Codacy's default hadolint re-flags DL4006 (curl | sh pipefail), which config/hadolint.yaml
+#   deliberately ignores and the repo's own hadolint-check + DeepSource Docker already cover.
+# - dotnet-data1/Program.cs: Codacy's CA1054 wants URI-typed params, but [JSImport] partial methods can only
+#   marshal `string` across the JS boundary; DeepSource covers the C# there and reports no such issue.
+exclude_paths:
+  - "Dockerfile"
+  - "config/semgrep/**"
+  - "services/ws-modules/dotnet-data1/Program.cs"

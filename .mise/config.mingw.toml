@@ -74,7 +74,7 @@ win_gcc_bin = '{{ vars.mise_installs }}\github-brechtsanders-winlibs-mingw\16.1.
 # autotools trees (libffi-sys) splice $CC into sh/libtool command lines, where backslashes are eaten
 # ("C:Users...gcc.exe: command not found"); Windows APIs accept forward slashes, so this form works for
 # cargo and sh alike.
-win_gcc_bin_fwd = "{{ vars.win_gcc_bin | replace(from='\\', to='/') }}"
+win_gcc_bin_fwd = '{{ vars.win_gcc_bin | replace(from="\\", to="/") }}'
 
 [env]
 # cc-rs (build scripts compiling bundled C) resolves the target compiler from these before probing PATH.
