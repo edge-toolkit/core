@@ -212,18 +212,31 @@ _.path = ["{{ vars.m2_gnupg_bin }}", "{{ vars.maven_bin }}", "{{ vars.win_libcla
 # flips rustup's default host to gnullvm so both host and target link via llvm-mingw rather than the absent
 # MSVC link.exe (no Visual Studio Build Tools needed). The prereqs mise CAN'T supply (a recent mise + the
 # VC++ runtime) are in the README.
+#
+# The body opens with a sha256sum fail-fast diagnostic for the Nano CI lane. mise's conda backend (mise
+# 2026.6.5, src/hash.rs:file_hash_sha256, files > 50 MB only) shells out to whichever `sha256sum` PATH finds
+# to verify each conda tarball download. On the Nano docker build that lookup historically hit a
+# sha256sum.exe that fails to load with `STATUS_ENTRYPOINT_NOT_FOUND` (0xC0000139 == decimal -1073741511,
+# the msys2-runtime autoload-trap signature), surfacing as:
+#   mise ERROR Failed to install conda:m2-git@latest: command ["sha256sum",
+#   "<path>"] exited with code -1073741511
+# Dockerfile.nanoserver stages a busybox-w32-backed `sha256sum.exe` ahead of the broken shim on PATH so the
+# check should now pass; failing fast tells us which binary PATH picked when the next CI break hits.
+#
+# The pipx bootstrap's rustpython arm carries pinned-version baggage: RustPython's bundled ensurepip is pip
+# 26.1.1, which crashes on import via `sys.addaudithook` (rustpython 0.5.0 doesn't implement --
+# RustPython#7956), so that arm fetches pip 26.0.1 (the last release before that audit hook landed, commit
+# fb01b1830 / 2026-04-14), unzips the wheel, and puts it on RUSTPYTHONPATH so `rustpython -m pip` resolves
+# to that copy. config.maint.toml's `rustpython-investigation` task documents the workaround at length, and
+# also explains the PIPX_SHARED_LIBS pre-creation: pipx's first install creates a shared-libs venv via
+# `python -m venv --clear` (no --without-pip), which triggers RustPython's bundled ensurepip audit-hook
+# crash again. Pre-creating that venv with --without-pip and dropping the unpacked pip site-packages in lets
+# pipx's `is_valid()` short-circuit past `create()`. The Nano Dockerfile then exports PATH + PIPX_* env vars
+# so `mise install pipx:<tool>` can find this pipx and reuse the pre-created shared venv.
 depends = ["_setup_all"]
 description = "Preinstall: toolchain + pipx + flip rustup to the gnullvm host"
 run = """
-# sha256sum diagnostic for the Nano CI lane.
-# mise's conda backend in 2026.6.5 shells out to a `sha256sum` it finds on PATH (via src/hash.rs:file_hash_sha256,
-# only for files > 50 MB) to verify each conda tarball download. On the Nano docker build that lookup
-# historically hit a sha256sum.exe that fails to load with `STATUS_ENTRYPOINT_NOT_FOUND` (0xC0000139 ==
-# decimal -1073741511, the msys2-runtime autoload-trap signature), surfacing as:
-#   mise ERROR Failed to install conda:m2-git@latest: command ["sha256sum",
-#   "<path>"] exited with code -1073741511
-# Dockerfile.nanoserver stages a busybox-w32-backed `sha256sum.exe` ahead of the broken shim on PATH so this
-# should now pass; the diagnostic is fail-fast so the next CI break here tells us which binary PATH picked.
+# sha256sum fail-fast diagnostic for the Nano CI lane.
 sha256sum_path="$(command -v sha256sum 2>/dev/null || true)"
 echo "[sha256sum-check] command -v sha256sum: ${sha256sum_path:-<not found>}"
 if [ -z "$sha256sum_path" ]; then
@@ -256,17 +269,9 @@ mise exec -- rustup set default-host x86_64-pc-windows-gnullvm
 # pipx backs the pipx:* tools but isn't a mise tool on Windows.
 # On a workstation, the system python's Scripts dir already has pipx on PATH; use that python. On the Nano
 # container there's no CPython (Dockerfile.nanoserver drops the `mise install python` step now that we can
-# pipx-bootstrap via the `http:et-rp` rustpython mise installs as part of the global tool set). RustPython's
-# bundled ensurepip is pip 26.1.1, which crashes on import via `sys.addaudithook` (rustpython 0.5.0 doesn't
-# implement -- RustPython#7956), so the rustpython arm fetches pip 26.0.1 (the last release before that audit
-# hook landed, see commit fb01b1830 / 2026-04-14), unzips the wheel, and puts it on RUSTPYTHONPATH so
-# `rustpython -m pip` resolves to that copy. The matching workaround is documented at length in config.maint.toml's
-# `rustpython-investigation` task. The same task also explains the PIPX_SHARED_LIBS pre-creation below:
-# pipx's first install creates a shared-libs venv via `python -m venv --clear` (no --without-pip), which
-# triggers RustPython's bundled ensurepip + pip 26.1.1 audit-hook crash again. Pre-creating that venv with
-# --without-pip and dropping the unpacked pip-26.0.1 site-packages in lets pipx's `is_valid()` short-circuit
-# past `create()`. The Nano Dockerfile then exports PATH + PIPX_* env vars so `mise install pipx:<tool>` can
-# find this pipx and reuse the pre-created shared venv.
+# pipx-bootstrap via the `http:et-rp` rustpython mise installs as part of the global tool set), so the
+# rustpython arm fetches a pinned pre-audit-hook pip wheel, unzips it, and puts it on RUSTPYTHONPATH so
+# `rustpython -m pip` resolves to that copy.
 if command -v python >/dev/null 2>&1; then
   python -m pip install pipx
 elif [ "${ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP:-}" = "1" ]; then

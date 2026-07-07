@@ -358,6 +358,10 @@ a_rp_wasm_short = "08a1d6f"
 # ("C:/Users/runneradmin/AppData/Local"), and a mixed-slash path trips uutils-coreutils' Windows path
 # normalizer (`cp: The system cannot find the path specified. (os error 3)`).
 gh_http = "--http-url https://github.com --progress --ignore-existing"
+# OpenObserve docker image for the openobserve/o2 dev-observability task.
+o2_image = "openobserve/openobserve:v0.70.3"
+# pywasm1's own module version, templated into the pkg/package.json its build task emits.
+pywasm1_pkg_version = "0.1.0"
 rp_wasm_dir = '''{% if os() == "windows" -%}
 {%- set base = (env?.LOCALAPPDATA or "") | replace(from="\\", to="/") -%}
 {{- base -}}/mise/installs/http-rp-wasm/{{- vars.a_rp_wasm_short -}}
@@ -634,16 +638,15 @@ description = "Cross-check Dockerfiles against mise [tools] pins + heredoc body-
 #   2. `ignore` parser, which preserves every line of the file as a separate entry -- conftest's dockerfile parser
 #      flattens heredoc bodies out of the AST, so the body-first-line `set -euo pipefail` check lives in its
 #      own namespace + parser.
-# Each git-tracked Dockerfile* gets both passes.
+# Each git-tracked Dockerfile* gets both passes, except that the `ignore` pass only visits Dockerfiles that
+# actually contain heredocs: conftest 0.68.2's ignore parser panics with `runtime error: slice bounds out of
+# range` on plain Dockerfiles (no heredocs), and the body-first-line rule has nothing to check there anyway.
 run = """
 files=$(git ls-files '*Dockerfile' '*Dockerfile.*')
 # $files is a newline-separated path list; word-splitting is intentional (no spaces in paths).
 # shellcheck disable=SC2086
 conftest test --combine --namespace dockerfile -p config/conftest/policy $files .mise
 # Filter to Dockerfiles that actually use heredocs before the `ignore` parser.
-# conftest 0.68.2's ignore parser panics with
-# `runtime error: slice bounds out of range` on plain Dockerfiles (no
-# heredocs). The body-first-line rule has nothing to check there anyway.
 for f in $files; do
   if rg -q '^RUN[^\n]*<<' "$f"; then
     conftest test --parser ignore --namespace dockerfile_heredoc -p config/conftest/policy "$f"
@@ -1110,7 +1113,7 @@ description = "Run both the ws-server and ws-wasm-agent using Chrome"
 
 [tasks.openobserve]
 alias = "o2"
-run = "docker run --rm -it --name openobserve -p 5080:5080 --env-file config/o2.env openobserve/openobserve:v0.70.3"
+run = "docker run --rm -it --name openobserve -p 5080:5080 --env-file config/o2.env {{ vars.o2_image }}"
 
 [tasks.demo]
 depends = ["openobserve", "ws-server"]
@@ -1237,7 +1240,7 @@ coreutils cat > pkg/package.json <<'PKG_JSON'
 {
   "name": "et-ws-pywasm1",
   "type": "module",
-  "version": "0.1.0",
+  "version": "{{ vars.pywasm1_pkg_version }}",
   "main": "index.js",
   "files": [
     "index.js",

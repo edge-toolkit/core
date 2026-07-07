@@ -50,21 +50,41 @@ deny contains msg if {
 
 # `compgen` is a bash builtin that busybox-w32 ash (Nano Server's shell) does not provide.
 # A task using it fails on Nano with the literal error `<compgen>: not found` (verified in the build-rp-native task).
-# Skip lines whose first non-whitespace char is `#` so explanatory comments (like this one's siblings) don't
-# false-positive. POSIX-portable alternatives include `[ -e "$prefix/bin/foo" ] || [ -e "$prefix/bin/foo.exe" ]` for an
+# The whole run body is checked, comments included -- compgen-narrating prose belongs in a TOML comment on
+# the task, not inside the body. config.maint.toml is exempt: maintainer-only, never runs on Nano.
+# POSIX-portable alternatives include `[ -e "$prefix/bin/foo" ] || [ -e "$prefix/bin/foo.exe" ]` for an
 # extension-agnostic existence check, and `for f in "$prefix/bin/foo"*` to walk a literal glob (no-match leaves the
 # literal as the loop var).
 deny contains msg if {
 	some file in input
 	is_mise(file)
+	replace(file.path, "\\", "/") != ".mise/config.maint.toml"
 	some name, task in file.contents.tasks
 	is_string(task.run)
-	some line in split(task.run, "\n")
-	not startswith(trim_space(line), "#")
-	regex.match(`\bcompgen\b`, line)
+	regex.match(`\bcompgen\b`, task.run)
 	msg := sprintf(
 		"%s: task %q uses `compgen`, which is bash-only -- busybox ash (Nano) errors `compgen: not found`",
 		[file.path, name],
+	)
+}
+
+# A task `run` must not embed version-like text (an `X.Y.Z` literal), comments included.
+# A version baked into a run body silently goes stale when the pin it mirrors is bumped -- version_drift
+# only cross-checks [vars]/[env] values, never run strings. Keep the versioned fragment in a [vars] entry
+# beside the [tools] pin it tracks and template it into the run with `{{ vars.<name> }}`; version-narrating
+# prose belongs in a TOML comment on the task, not inside the body.
+# config.maint.toml is exempt: its maintainer-only investigation/publish tasks narrate and probe specific
+# upstream versions by design.
+deny contains msg if {
+	some file in input
+	is_mise(file)
+	replace(file.path, "\\", "/") != ".mise/config.maint.toml"
+	some name, task in file.contents.tasks
+	is_string(task.run)
+	some m in regex.find_all_string_submatch_n(`[0-9]+\.[0-9]+\.[0-9]+`, task.run, -1)
+	msg := sprintf(
+		"%s: task %q run embeds version-like text %q -- move it into a [vars] entry beside the pin it tracks",
+		[file.path, name, m[0]],
 	)
 }
 
