@@ -1,0 +1,5 @@
+# Codacy runs its own Semgrep over the repo and misfires on our Semgrep rule definitions.
+# It reports "the 'id' field was used multiple times" on the `- id:` that every rule file under config/semgrep/
+# legitimately declares (one id per rule). Exclude that tree; it is linter configuration, not application code.
+exclude_paths:
+  - "config/semgrep/**"

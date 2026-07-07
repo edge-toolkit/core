@@ -29,26 +29,9 @@ public partial class DotnetData1
     Host.Log("[dotnet-data1] entered Run()");
     Host.SetStatus("[dotnet-data1] entered Run()");
 
-    var wsUrl = Host.GetWsUrl();
-    Host.WsConnect(wsUrl);
-
-    // Wait for connected
-    for (int i = 0; i < 100; i++)
-    {
-      if (Host.WsGetState() == "connected") break;
-      await Host.SleepAsync(100);
-      if (i == 99) throw new TimeoutException("Timeout waiting for WebSocket connection");
-    }
-
-    // Wait for agent_id
-    string agentId = "";
-    for (int i = 0; i < 100; i++)
-    {
-      agentId = Host.WsGetAgentId();
-      if (!string.IsNullOrEmpty(agentId)) break;
-      await Host.SleepAsync(100);
-      if (i == 99) throw new TimeoutException("Timeout waiting for agent_id");
-    }
+    Host.WsConnect(Host.GetWsUrl());
+    await WaitForConnectedAsync();
+    var agentId = await WaitForAgentIdAsync();
 
     var msg = $"[dotnet-data1] connected as {agentId}";
     Host.Log(msg);
@@ -68,24 +51,55 @@ public partial class DotnetData1
     Host.SetStatus(msg);
     var retrieved = await Host.GetFileAsync(storageUrl);
 
-    if (retrieved == testContent)
-    {
-      const string ok = "[dotnet-data1] VERIFICATION SUCCESS - data matches!";
-      Host.Log(ok);
-      Host.SetStatus(ok);
-    }
-    else
-    {
-      var fail = $"[dotnet-data1] VERIFICATION FAILURE\nSent: {testContent}\nGot: {retrieved}";
-      Host.Log(fail);
-      Host.SetStatus(fail);
-      throw new InvalidOperationException("Data mismatch");
-    }
+    VerifyRoundTrip(testContent, retrieved);
 
     await Host.SleepAsync(2000);
     Host.WsDisconnect();
     const string done = "[dotnet-data1] workflow complete";
     Host.Log(done);
     Host.SetStatus(done);
+  }
+
+  private static async Task WaitForConnectedAsync()
+  {
+    for (int i = 0; i < 100; i++)
+    {
+      if (Host.WsGetState() == "connected")
+      {
+        return;
+      }
+      await Host.SleepAsync(100);
+    }
+    throw new TimeoutException("Timeout waiting for WebSocket connection");
+  }
+
+  private static async Task<string> WaitForAgentIdAsync()
+  {
+    for (int i = 0; i < 100; i++)
+    {
+      var agentId = Host.WsGetAgentId();
+      if (!string.IsNullOrEmpty(agentId))
+      {
+        return agentId;
+      }
+      await Host.SleepAsync(100);
+    }
+    throw new TimeoutException("Timeout waiting for agent_id");
+  }
+
+  private static void VerifyRoundTrip(string sent, string retrieved)
+  {
+    if (retrieved == sent)
+    {
+      const string ok = "[dotnet-data1] VERIFICATION SUCCESS - data matches!";
+      Host.Log(ok);
+      Host.SetStatus(ok);
+      return;
+    }
+
+    var fail = $"[dotnet-data1] VERIFICATION FAILURE\nSent: {sent}\nGot: {retrieved}";
+    Host.Log(fail);
+    Host.SetStatus(fail);
+    throw new InvalidOperationException("Data mismatch");
   }
 }

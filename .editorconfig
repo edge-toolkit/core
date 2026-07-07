@@ -83,3 +83,10 @@ max_line_length = unset
 
 [config/upstream-cache/data.toml]
 max_line_length = 200
+
+# We do not enable .NET analyzers in our build, but tools that do run them (Codacy's Roslyn engine) read these.
+# CA1054 wants URI-typed parameters instead of string, but the dotnet-data1 module's [JSImport] partial methods
+# can only marshal `string` across the JS boundary (System.Uri is not a supported interop type), so the rule is
+# not applicable here.
+[*.cs]
+dotnet_diagnostic.CA1054.severity = none

@@ -90,7 +90,7 @@ version = "nightly-x86_64-pc-windows-gnullvm"
 # Forward-slashed mise installs root, for values spliced unquoted into bash task command lines.
 # Composed from LOCALAPPDATA directly (not vars.mise_installs) because [vars] render alphabetically and
 # an a_-prefixed var cannot reference the later-sorting mise_installs.
-a_mise_installs_fwd = '{{ get_env(name="LOCALAPPDATA", default="") | replace(from=`\`, to="/") }}/mise/installs'
+a_mise_installs_fwd = '{{ (env?.LOCALAPPDATA or "") | replace(from="\\", to="/") }}/mise/installs'
 # clang-tidy's builtin-header resource dir (config.linux.toml solves the same gap with conda's clang).
 # llvm-mingw ships the clang resource headers (stddef.h/stdint.h -- everything the zig-data1 C needs),
 # and conda's clang-tidy is the same LLVM 22 major. The trailing `22` is clang's major version, not the
@@ -106,7 +106,7 @@ gnupg_w32_asset = "2.5.20_20260513-x86_64-pc-windows.tar.gz"
 
 # Root of mise's per-tool install dirs (the mise data dir is LOCALAPPDATA\mise).
 # The install-path vars below all hang off it.
-mise_installs = '{{ get_env(name="LOCALAPPDATA", default="") }}\mise\installs'
+mise_installs = '{{ env?.LOCALAPPDATA or "" }}\mise\installs'
 # busybox `ash` install path for MISE_BASH_PATH.
 # Keyed by the pinned http:busybox version above -- keep in sync.
 winsh = '{{ vars.mise_installs }}\http-busybox\1.37.0\ash.exe'

@@ -24,6 +24,10 @@ name = "javascript"
 # ("'import'/'export' may appear only with 'sourceType: module'").
 environment = ["browser", "nodejs"]
 module_system = "es-modules"
+# Align JS-R1005 with the local `eslint/complexity` ceiling (oxlintrc: max 10) so the two agree.
+# The default flags "medium" risk (complexity 6), stricter than the team ceiling; "high" lets the hand-written
+# shims through while still catching genuinely complex functions.
+cyclomatic_complexity_threshold = "high"
 
 [[analyzers]]
 enabled = true
