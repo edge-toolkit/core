@@ -1,0 +1,23 @@
+rules:
+  - id: no-type-comments
+    languages: [generic]
+    paths:
+      include:
+        - "*.py"
+      exclude:
+        # Generated / vendored Python is emitted by its tools, not hand-edited.
+        # The int-gen clients, the componentize-py bindings, and built pkg/ trees may carry generator-authored
+        # type comments we don't control.
+        - "/generated/**"
+        - "**/componentize_py_async_support/**"
+        - "**/pkg/**"
+        - "**/wit_world/**"
+    patterns:
+      - pattern-regex: '#\s*type:[^\n]*'
+      - pattern-not-regex: '#\s*type:\s*ignore'
+    message: >-
+      Legacy `# type:` comment. Use an inline annotation (`x: T = ...`, `def f(a: T) -> R:`) instead. The compiled
+      Pyrefly type checker that backs `check:python` parses annotations but silently ignores legacy type comments,
+      so a broken one (an undefined name, a stray `--`) rots unseen -- exactly DeepSource's TYP-025. Annotations are
+      the only form both tools check. `# type: ignore` (the suppression pragma) is exempt.
+    severity: ERROR

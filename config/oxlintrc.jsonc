@@ -21,6 +21,9 @@
     // Worker.postMessage takes no targetOrigin (unlike Window.postMessage); the rule can't distinguish, so it
     // false-positives on every worker-side / main-side `worker.postMessage({...})` call we have.
     "unicorn/require-post-message-target-origin": "off",
+    // Type-aware rule (needs `--type-aware` + oxlint-tsgolint + config/tsconfig.json): the local equivalent of
+    // DeepSource's JS-W1044. Flags `a && a.b` chains that an optional chain (`a?.b`) expresses more safely.
+    "typescript/prefer-optional-chain": "error",
   },
   "overrides": [
     {

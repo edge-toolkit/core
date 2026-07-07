@@ -9,6 +9,11 @@
 
 [tools]
 "npm:onnxruntime-web" = "latest"
+# oxlint-tsgolint is oxlint's type-aware engine.
+# It's a typescript-go type checker oxlint shells out to under `--type-aware`. npm-only: it ships no GitHub
+# release assets, distributing per-platform binaries via `@oxlint-tsgolint/<triple>` optional deps, so every OS
+# is covered without os-scoping.
+"npm:oxlint-tsgolint" = "0.24.0"
 "npm:pnpm" = { version = "latest", os = ["macos/x64"] }
 
 # oxlint + oxfmt are the Rust-native JS/TS linter + formatter from the oxc-project.
@@ -20,7 +25,7 @@
 [tools."http:oxlint"]
 bin = "oxlint"
 rename_exe = "oxlint"
-version = "1.69.0"
+version = "1.73.0"
 [tools."http:oxlint".platforms.linux-arm64]
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxlint-aarch64-unknown-linux-gnu.tar.gz"
 [tools."http:oxlint".platforms.linux-x64]
@@ -32,10 +37,11 @@ url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/ox
 [tools."http:oxlint".platforms.windows-x64]
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxlint-x86_64-pc-windows-msvc.zip"
 
-# oxfmt's binary version lags oxlint's.
-# They ship from the same apps_v tag but track separate semver. Pin the URL to the release tag that bundles
-# both (`apps_v<oxlint_ver>` -- here apps_v1.69.0); bump that string when
-# bumping oxlint above.
+# oxfmt is pinned independently of oxlint.
+# Both ship from per-version `apps_v` tags but track separate semver. oxfmt stays on apps_v1.69.0 / 0.54.0: its
+# output is tuned against dprint (config/oxfmtrc.jsonc + config/dprint.jsonc) at that version, and a bump risks
+# reformatting churn that fights dprint. oxlint above rode ahead to 1.73.0 for the `--type-aware` engine. Re-pin
+# oxfmt here only after re-validating the oxfmt <-> dprint agreement at the new version.
 [tools."http:oxfmt"]
 bin = "oxfmt"
 rename_exe = "oxfmt"
@@ -72,12 +78,14 @@ description = "Lint JavaScript/TypeScript sources (oxlint)"
 # oxlint walks the working tree from CWD, honouring .gitignore; no path arg needed.
 # Errors fail the task (correctness category, lifted in oxlintrc); warnings print but don't fail -- the initial
 # introduction kept stylistic warnings visible rather than blocking on the existing module shims' style. Tighten
-# with `--deny-warnings` once those are cleaned up.
-run = "oxlint --config config/oxlintrc.jsonc"
+# with `--deny-warnings` once those are cleaned up. `--type-aware` (backed by the oxlint-tsgolint tool +
+# config/tsconfig.json) enables the type-aware rule set; without it typescript/prefer-optional-chain silently
+# no-ops.
+run = "oxlint --config config/oxlintrc.jsonc --type-aware --tsconfig config/tsconfig.json"
 
 [tasks.oxlint-fix]
 description = "Auto-fix oxlint violations that have a machine-applicable suggestion"
-run = "oxlint --config config/oxlintrc.jsonc --fix"
+run = "oxlint --config config/oxlintrc.jsonc --type-aware --tsconfig config/tsconfig.json --fix"
 
 [tasks.oxfmt-check]
 description = "Check JS/TS formatting (oxfmt)"

@@ -23,6 +23,10 @@ line-ending = "lf"
 
 [lint]
 # On top of the default rule set (E, F).
+#   "ARG" -- flake8-unused-arguments: unused function/method/lambda arguments. This is the local equivalent of
+#   DeepSource's PYL-W0613; ruff honours the underscore-prefix convention (`dummy-variable-rgx`), so a param kept
+#   only to satisfy a fixed callback signature (the pyo3-runner `init`/`on_text_frame` hooks) is silenced by
+#   renaming it `_send` / `_text` rather than deleting it.
 #   "I" -- isort import sorting. `ruff format` only handles whitespace; the "I" rules give deterministic
 #   grouping. datamodel-codegen's ruff formatter doesn't sort imports, so without this the generated
 #   messages.py drifts between regens.
@@ -30,7 +34,7 @@ line-ending = "lf"
 # Use `extend-select`, not `select`, so we keep the default F401 (unused-import)
 # rule that openapi-python-client relies on internally -- it generates
 # speculative imports and trims them by re-running ruff with the default rules.
-extend-select = ["D", "I"]
+extend-select = ["ARG", "D", "I"]
 
 [lint.pydocstyle]
 convention = "pep257"

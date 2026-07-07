@@ -45,7 +45,7 @@ if (typeof globalThis.HTMLElement === "undefined") {
 if (typeof globalThis.HTMLCanvasElement === "undefined") {
   globalThis.HTMLCanvasElement = class HTMLCanvasElement {
     static [Symbol.hasInstance](instance) {
-      return !!(instance && instance.tagName === "CANVAS");
+      return instance?.tagName === "CANVAS";
     }
   };
 }

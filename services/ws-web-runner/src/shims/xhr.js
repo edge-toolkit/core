@@ -58,7 +58,7 @@ if (typeof globalThis.XMLHttpRequest === "undefined") {
     }
 
     send(body) {
-      const base = globalThis.location && globalThis.location.href;
+      const base = globalThis.location?.href;
       const url = base ? new URL(this.#url, base).href : this.#url;
       const init = {
         method: this.#method,
@@ -95,7 +95,7 @@ if (typeof globalThis.XMLHttpRequest === "undefined") {
           this.readyState = DONE;
           // AbortController.abort() rejects with an AbortError; dio's cancel and
           // timeout paths drive that and have already completed their futures.
-          if (err && err.name === "AbortError") return;
+          if (err?.name === "AbortError") return;
           this.dispatchEvent(new Event("error"));
         });
     }

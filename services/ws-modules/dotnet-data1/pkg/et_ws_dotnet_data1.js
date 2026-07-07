@@ -59,7 +59,7 @@ export default async function init() {
 
 export async function run() {
   if (!exports) throw new Error("dotnet-data1: not initialized");
-  await exports.DotnetData1.Run();
+  await exports.EtWsModules.DotnetData1.RunAsync();
 }
 
 function appendOutput(msg) {

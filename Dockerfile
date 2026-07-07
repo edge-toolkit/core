@@ -169,6 +169,7 @@ EOF
 # Install mise and put it + its shims on PATH.
 # In a non-interactive build that's the equivalent of the shell integration --
 # every `mise` / `mise run` below then resolves the workspace tools.
+# skipcq: DOK-DL4006
 RUN curl -fsSL https://mise.run | sh
 # Declare HOME explicitly rather than depending on the base image's ENV.
 # ubuntu/debian/fedora all set HOME=/root for the root user, but pinning it

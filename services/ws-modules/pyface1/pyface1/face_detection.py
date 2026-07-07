@@ -7,7 +7,7 @@ import math
 import time
 from datetime import datetime
 from functools import lru_cache
-from typing import Iterable, Sequence, TypedDict
+from typing import Any, Iterable, Sequence, TypedDict
 
 from et_ws.messages import WsClientEvent
 
@@ -148,10 +148,10 @@ def model_log_message() -> str:
 
 def validate_output_names(output_names: Iterable[object]) -> list[str]:
     """Coerce the session output names to strings, requiring at least three."""
-    output_names = [str(name) for name in output_names]
-    if len(output_names) < 3:
+    names = [str(name) for name in output_names]
+    if len(names) < 3:
         raise ValueError("RetinaFace session did not expose the expected outputs")
-    return output_names
+    return names
 
 
 def initial_summary() -> DetectionSummary:
@@ -396,13 +396,13 @@ def compute_iou(left: Detection, right: Detection) -> float:
     return intersection / max(left_area + right_area - intersection, 1e-6)
 
 
-def softmax(values: Iterable[object]) -> list[float]:
+def softmax(values: Iterable[Any]) -> list[float]:
     """Return the softmax of the values (empty list for empty input)."""
-    values = [float(value) for value in values]
-    if not values:
+    floats = [float(value) for value in values]
+    if not floats:
         return []
-    max_value = max(values)
-    exps = [math.exp(value - max_value) for value in values]
+    max_value = max(floats)
+    exps = [math.exp(value - max_value) for value in floats]
     total = sum(exps)
     return [value / total for value in exps]
 
@@ -412,7 +412,7 @@ def clamp(value: float, minimum: float, maximum: float) -> float:
     return max(minimum, min(value, maximum))
 
 
-def output_values(values: Iterable[object], name: str, stride: int) -> list[float]:
+def output_values(values: Iterable[Any], name: str, stride: int) -> list[float]:
     """Coerce a model output to floats, requiring a length multiple of `stride`."""
     if stride <= 0:
         raise ValueError("stride must be positive")

@@ -6,6 +6,8 @@
 "pipx:componentize-py" = "latest"
 "pipx:datamodel-code-generator" = { version = "latest", extras = "ruff" }
 "pipx:openapi-python-client" = "0.29.0"
+# Pyrefly: the compiled (Rust) type checker behind `check:python`; distributed as a prebuilt wheel like ruff.
+"pipx:pyrefly" = "latest"
 "pipx:pytest" = "latest"
 # PyTorch, for the et-ws-pyo3-runner `torch_inference` test.
 # Python-only (not in the always-loaded config) -- it's a large optional dependency, and the test skips itself
@@ -43,12 +45,16 @@ ruff-check = "ruff check"
 ruff-fix = "ruff check --fix"
 ruff-fmt = "ruff format"
 ruff-fmt-check = "ruff format --check"
+# Type-check with Pyrefly.
+# Config (includes, search-path, opaque generated/vendored trees) lives in config/pyrefly.toml; its paths are
+# relative to config/, so this must run from the repo root.
+pyrefly-check = "pyrefly check -c config/pyrefly.toml"
 
 # Namespaced aggregators picked up by the default config's globbed tasks.
 # Those are its `check`/`fmt`/`test`.
 [tasks."check:python"]
-depends = ["ruff-check", "ruff-fmt-check"]
-description = "Run Python checks (ruff lint + format-check)"
+depends = ["pyrefly-check", "ruff-check", "ruff-fmt-check"]
+description = "Run Python checks (ruff lint + format-check, Pyrefly type-check)"
 
 [tasks."fmt:python"]
 depends = ["ruff-fmt"]

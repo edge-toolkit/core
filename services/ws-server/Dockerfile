@@ -1,5 +1,6 @@
 FROM rust:1-bookworm AS builder
 
+# skipcq: DOK-DL3008, DOK-DL3016
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
@@ -27,6 +28,7 @@ RUN cargo build -p et-ws-server --release --locked
 
 FROM debian:bookworm-slim AS runtime
 
+# skipcq: DOK-DL3008
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/* \

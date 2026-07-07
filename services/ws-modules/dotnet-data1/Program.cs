@@ -2,6 +2,8 @@ using System;
 using System.Runtime.InteropServices.JavaScript;
 using System.Threading.Tasks;
 
+namespace EtWsModules;
+
 // JS-imported host functions provided by the shim
 partial class Host
 {
@@ -9,19 +11,20 @@ partial class Host
   [JSImport("wsDisconnect", "dotnet-data1")] internal static partial void WsDisconnect();
   [JSImport("wsGetState", "dotnet-data1")] internal static partial string WsGetState();
   [JSImport("wsGetAgentId", "dotnet-data1")] internal static partial string WsGetAgentId();
-  [JSImport("putFile", "dotnet-data1")] internal static partial Task PutFile(string url, string body);
-  [JSImport("getFile", "dotnet-data1")] internal static partial Task<string> GetFile(string url);
+  [JSImport("putFile", "dotnet-data1")] internal static partial Task PutFileAsync(string url, string body);
+  [JSImport("getFile", "dotnet-data1")] internal static partial Task<string> GetFileAsync(string url);
   [JSImport("log", "dotnet-data1")] internal static partial void Log(string msg);
   [JSImport("setStatus", "dotnet-data1")] internal static partial void SetStatus(string msg);
+  // skipcq: CS-A1000 -- [JSImport] marshals a string; System.Uri is not a supported JS-interop return type.
   [JSImport("getWsUrl", "dotnet-data1")] internal static partial string GetWsUrl();
   [JSImport("getIsoTimestamp", "dotnet-data1")] internal static partial string GetIsoTimestamp();
-  [JSImport("sleep", "dotnet-data1")] internal static partial Task Sleep(int ms);
+  [JSImport("sleep", "dotnet-data1")] internal static partial Task SleepAsync(int ms);
 }
 
 public partial class DotnetData1
 {
   [JSExport]
-  public static async Task Run()
+  public static async Task RunAsync()
   {
     Host.Log("[dotnet-data1] entered Run()");
     Host.SetStatus("[dotnet-data1] entered Run()");
@@ -33,8 +36,8 @@ public partial class DotnetData1
     for (int i = 0; i < 100; i++)
     {
       if (Host.WsGetState() == "connected") break;
-      await Host.Sleep(100);
-      if (i == 99) throw new Exception("Timeout waiting for WebSocket connection");
+      await Host.SleepAsync(100);
+      if (i == 99) throw new TimeoutException("Timeout waiting for WebSocket connection");
     }
 
     // Wait for agent_id
@@ -43,8 +46,8 @@ public partial class DotnetData1
     {
       agentId = Host.WsGetAgentId();
       if (!string.IsNullOrEmpty(agentId)) break;
-      await Host.Sleep(100);
-      if (i == 99) throw new Exception("Timeout waiting for agent_id");
+      await Host.SleepAsync(100);
+      if (i == 99) throw new TimeoutException("Timeout waiting for agent_id");
     }
 
     var msg = $"[dotnet-data1] connected as {agentId}";
@@ -58,12 +61,12 @@ public partial class DotnetData1
     msg = $"[dotnet-data1] storing data to {storageUrl}";
     Host.Log(msg);
     Host.SetStatus(msg);
-    await Host.PutFile(storageUrl, testContent);
+    await Host.PutFileAsync(storageUrl, testContent);
 
     msg = $"[dotnet-data1] fetching data from {storageUrl}";
     Host.Log(msg);
     Host.SetStatus(msg);
-    var retrieved = await Host.GetFile(storageUrl);
+    var retrieved = await Host.GetFileAsync(storageUrl);
 
     if (retrieved == testContent)
     {
@@ -76,10 +79,10 @@ public partial class DotnetData1
       var fail = $"[dotnet-data1] VERIFICATION FAILURE\nSent: {testContent}\nGot: {retrieved}";
       Host.Log(fail);
       Host.SetStatus(fail);
-      throw new Exception("Data mismatch");
+      throw new InvalidOperationException("Data mismatch");
     }
 
-    await Host.Sleep(2000);
+    await Host.SleepAsync(2000);
     Host.WsDisconnect();
     const string done = "[dotnet-data1] workflow complete";
     Host.Log(done);

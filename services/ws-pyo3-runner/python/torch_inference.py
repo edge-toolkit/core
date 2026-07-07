@@ -59,7 +59,7 @@ def _inference() -> int:
     return int(torch.argmax(logits, dim=1).item())
 
 
-def on_text_frame(text: str) -> str:
+def on_text_frame(_text: str) -> str:
     """Run both checks and return a JSON summary.
 
     Raise on any mismatch so a regression surfaces as a failed module rather

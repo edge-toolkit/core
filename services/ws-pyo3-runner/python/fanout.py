@@ -10,17 +10,18 @@ return `None` so reply-by-return doesn't add an extra frame.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 _logger = logging.getLogger(__name__)
 
-_send = None  # WsSender, set in init()
+_send: Any = None  # WsSender, set in init()
 
 
-def init(send, storage) -> None:
+def init(send, _storage) -> None:
     """Stash the WsSender for the fan-out path."""
     global _send
     _send = send
-    # `storage` ignored -- fanout doesn't persist anything.
+    # `_storage` ignored -- fanout doesn't persist anything.
     _logger.info("fanout agent initialised")
 
 

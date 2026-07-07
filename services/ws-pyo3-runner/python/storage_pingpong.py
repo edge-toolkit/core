@@ -13,11 +13,12 @@ the ws-server and reads them back.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 _logger = logging.getLogger(__name__)
 
-_send = None
-_storage = None
+_send: Any = None
+_storage: Any = None
 _agent_id: str | None = None
 
 
