@@ -1,0 +1,21 @@
+# Coverage env (MISE_ENV includes `coverage`).
+# A special stackable env like mingw/msvc, not a language -- so it is deliberately NOT in config.toml's ALL_LANGS
+# and the *-all tasks never touch it. Selected only by the coverage workflow, stacked on the language envs it also
+# loads (rust + the guest langs whose ws-modules the coverage build exercises, so the module-loading tests run
+# rather than self-skip). Houses the cargo-llvm-cov task so it stays out of the always-loaded config.toml.
+# cargo-llvm-cov is not a mise [tool] -- the workflow co-installs it via taiki-e/install-action -- so there is no
+# [tools] table here.
+
+[tasks.cargo-llvm-cov]
+description = "Rust coverage via cargo-llvm-cov; emits lcov.info for Codecov"
+# cargo-llvm-cov is deliberately NOT a mise [tool] (like cargo-unmaintained).
+# The coverage workflow installs it via taiki-e/install-action; this task just runs the binary. It needs the
+# `llvm-tools-preview` rustup component, which cargo-llvm-cov adds on demand against the mise-managed toolchain.
+# Mirrors cargo-test's split -- workspace minus et-ws-web-runner, then et-ws-web-runner serialized (same
+# RUST_TEST_THREADS=1 as test-ws-web-runner) -- with --no-report so both runs merge into one lcov report.
+run = """
+cargo llvm-cov --no-report --workspace --exclude et-ws-web-runner
+RUST_TEST_THREADS=1 cargo llvm-cov --no-report -p et-ws-web-runner
+cargo llvm-cov report --lcov --output-path lcov.info
+"""
+shell = "bash -euo pipefail -c"
