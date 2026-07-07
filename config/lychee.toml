@@ -36,4 +36,4 @@ exclude_path = ["data", "generated", "node_modules", "target"]
 #     [404] https://github.com/edge-toolkit/core/actions/runs/28698136445/job/85111320237 (at 447:1)
 # from CLAUDE.md's attestation-flake note on commit e401831a98197068f978ef760134caff882e2615 while the same
 # URL returned 200 to a local curl minutes later. Checking them is all noise, no signal.
-exclude = ['\{|%7B', '^https?://host[:/]', '^https://github\.com/[^/]+/[^/]+/actions/runs/']
+exclude = ['\{|%7B', '^https://github\.com/[^/]+/[^/]+/actions/runs/', '^https?://host[:/]']

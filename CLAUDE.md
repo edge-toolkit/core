@@ -425,7 +425,7 @@ arriving a few seconds after torch's cold first import prints
 torch's import when the test's registration timeout expired. The ~117 MB `pipx:torch` package's first import on a
 cold runner is the slow step; a rerun passes because the import caches warm. Observed on commit
 `6479913bdc288dd680fbe0520f63054e8c71fe6c` at
-https://github.com/edge-toolkit/core/actions/runs/28686533955/job/85080173283 (PR #70; the rerun passed and the PR
+`https://github.com/edge-toolkit/core/actions/runs/28686533955/job/85080173283` (PR #70; the rerun passed and the PR
 merged). If this signature recurs, stop rerunning and fix the root cause: raise (or make torch-case-specific) the
 runner-registration timeout in the pyo3-runner module tests, or warm the torch import before the registration clock
 starts.
@@ -444,7 +444,7 @@ usually preceded by several retried `mise WARN HTTP GET https://api.github.com/r
 lines. When it strands the install, the composite's retry step can then trip the separate busybox/Git-Bash
 `cygheap read copy failed` fork pathology and the job hits its action timeout instead of a clean error. Observed on
 the `override (mingw)` job at commit `396aa98d24e4a945528cdbac33fbc61b66831e8a`,
-https://github.com/edge-toolkit/core/actions/runs/28698136445/job/85111320237 (a rerun of the same commit
+`https://github.com/edge-toolkit/core/actions/runs/28698136445/job/85111320237` (a rerun of the same commit
 installed cleanly). This is an api.github.com rate-limit/transient-network flake, not a repo defect -- a
 `GITHUB_TOKEN` is already forwarded to raise the ceiling. If it becomes frequent rather than occasional, the
 durable fix is to mirror the affected assets via the upstream-cache pattern (which fetches from our own release
