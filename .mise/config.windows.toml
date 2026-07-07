@@ -142,6 +142,10 @@ maven_bin = '{{ vars.mise_installs }}\maven\3.9.16\apache-maven-3.9.16\bin'
 # conda:libclang's binary dir, for the LIBCLANG_PATH below.
 # Pinned to the [tools] version above -- bump both together (conftest's version_drift enforces).
 win_libclang = '{{ vars.mise_installs }}\conda-libclang\22.1.8\Library\bin'
+# npm:oxlint-tsgolint's package dir inside its mise install, for the OXLINT_TSGOLINT_PATH entry below.
+# npm global installs land at `<prefix>\node_modules\<pkg>` on Windows (vs `lib/node_modules` on Unix). Pinned
+# to the config.js.toml [tools] version -- bump both together (conftest's version_drift enforces).
+tsgolint_pkg = '{{ vars.mise_installs }}\npm-oxlint-tsgolint\0.24.0\node_modules\oxlint-tsgolint'
 # wasm-pack's wasm-opt (binaryen) can't execute on Nano Server (os error 3).
 # So the module + wasm-agent builds pass --no-opt; they reference {{ vars.no_opt }}.
 no_opt = "--no-opt"
@@ -155,6 +159,22 @@ cargo_ws_excludes = "--exclude et-ws-web-runner"
 # (mise can't auto-find an http-backend shell.) busybox ash accepts the
 # `-euo pipefail -c` the shell string passes; the task bodies are POSIX.
 MISE_BASH_PATH = "{{ vars.winsh }}"
+# Point oxlint straight at tsgolint's real exe, skipping the npm cmd-shim on PATH.
+# Without this, `oxlint --type-aware` (config.js.toml's oxlint-check/-fix) finds the npm-generated
+# `tsgolint.cmd`, whose fallback line runs a bare `"node"` under cmd.exe -- and cmd.exe silently fails to
+# search a PATH longer than 8191 chars (its per-variable limit; verified: resolves at 8172, fails at 8300),
+# which the mise task PATH (~78 tool install dirs on top of the GHA runner's ~4-5k-char base) exceeds. The
+# task then dies with:
+#     '"node"' is not recognized as an internal or external command,
+#     operable program or batch file.
+#     Error running tsgolint: "exit status: exit code: 1"
+# Observed on commit 8cac021c75ebb69e8100a1ddb8d9b670e197fee4 at
+# https://github.com/edge-toolkit/core/actions/runs/28857668889/job/85588159468 (check windows-latest lane).
+# oxlint consults this env var before its node_modules/.bin and PATH walks, and pointing it at the
+# per-platform exe nested in the npm package sidesteps node and cmd.exe entirely. Windows-only (this file)
+# both because only cmd.exe has the limit and because oxlint hard-fails on a set-but-invalid value, which an
+# off-Windows `{% if %}` empty-string render would be. Inert when js isn't in MISE_ENV; just an unused path.
+OXLINT_TSGOLINT_PATH = '{{ vars.tsgolint_pkg }}\node_modules\@oxlint-tsgolint\win32-x64\tsgolint.exe'
 # Build for the LLVM mingw target.
 # gnullvm, not gnu: llvm-mingw ships compiler-rt + libunwind, not the GCC runtime (libgcc/libgcc_eh) the gnu
 # target's link line demands. The linker is llvm-mingw's clang and the raw-dylib import tool is its
