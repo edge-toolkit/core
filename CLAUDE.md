@@ -441,8 +441,8 @@ If you believe a skip is genuinely warranted, stop and ask the user; do not add 
 
 ### Known intermittent CI failure: pyo3-runner torch registration timeout
 
-`et-ws-pyo3-runner`'s `module_behaves::case_5_torch` intermittently fails on test.yaml's Windows lane with the
-literal failure line
+`et-ws-pyo3-runner`'s `module_behaves::case_5_torch` intermittently fails on test.yaml's Windows and macOS lanes
+with the literal failure line
 
     Error: "runner never registered"
 
@@ -454,7 +454,11 @@ torch's import when the test's registration timeout expired. The ~117 MB `pipx:t
 cold runner is the slow step; a rerun passes because the import caches warm. Observed on commit
 `6479913bdc288dd680fbe0520f63054e8c71fe6c` at
 `https://github.com/edge-toolkit/core/actions/runs/28686533955/job/85080173283` (PR #70; the rerun passed and the PR
-merged). If this signature recurs, stop rerunning and fix the root cause: raise (or make torch-case-specific) the
+merged), and on the `default (macos-latest, 45)` job -- same signature, unix-form
+`torch/lib/python3.13/site-packages/torch/_subclasses/functional_tensor.py:362` warning path -- on commit
+`f2a85307a2415f4a50625627795e02c84f1c8e5d` at
+`https://github.com/edge-toolkit/core/actions/runs/28865327221/job/85613919558` (PR #73), 20.68s into the test
+run. If this signature recurs, stop rerunning and fix the root cause: raise (or make torch-case-specific) the
 runner-registration timeout in the pyo3-runner module tests, or warm the torch import before the registration clock
 starts.
 
