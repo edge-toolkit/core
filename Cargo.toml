@@ -315,6 +315,9 @@ ignore = [
   # Archived upstream (servo/bincode).
   # Pulled by deno_core for snapshot serialisation; will move when Deno upgrades to bincode 2.
   "bincode",
+  # Upstream contain-rs/bit-set is unmaintained; the newer 0.9.1 is flagged too.
+  # Pulled by the Deno stack (deno_core, and naga/wgpu-core via deno_webgpu).
+  "bit-set",
   # 1153 days since last update at bitvecto-rs/bitvec.
   # Pulled by sourcemap (via swc tooling under deno_ast).
   "bitvec",

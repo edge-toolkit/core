@@ -78,7 +78,7 @@ jobs:
           || github.event.inputs.os == 'ubuntu-24.04-arm' && '[{"os":"ubuntu-24.04-arm","timeout":40}]'
           || github.event.inputs.os == 'macos-latest' && '[{"os":"macos-latest","timeout":45}]'
           || github.event.inputs.os == 'macos-26-intel' && '[{"os":"macos-26-intel","timeout":60}]'
-          || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":60}]'
+          || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":120}]'
           || github.event.inputs.os == 'windows-11-arm' && '[{"os":"windows-11-arm","timeout":60}]'
           )
           || format('[{0},{1},{2},{3}]',

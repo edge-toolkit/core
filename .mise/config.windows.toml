@@ -27,15 +27,17 @@
 # Windows cargo: builds pin a per-tool msvc install_env so cargo-binstall fetches the msvc prebuilt.
 # (cargo:dart-typegen has no quickinstall release at all -- not just no gnullvm one -- so it can't use this
 # pattern; it stays in MISE_DISABLE_TOOLS for the Windows test lane, with http:dart-typegen providing coverage.)
-"cargo:cargo-expand" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
+# "cargo:cargo-expand" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
 # wasm-opt uses the aqua binaryen prebuilt on Windows, not the cargo: backend.
-# The cargo: source-build fallback compiles link-cplusplus for the gnullvm target, which clang 22 (conda:libclang
-# above) rejects ("version 'llvm' in target triple 'x86_64-pc-windows-gnullvm' is invalid"); and under mise
-# 2026.7.1 the per-tool msvc `install_env` no longer steers cargo-binstall to the (existing) msvc prebuilt.
-# binaryen ships a self-contained Windows prebuilt, so aqua sidesteps the source build and clang entirely.
+# The cargo: source-build fallback compiles link-cplusplus for the gnullvm target, which llvm-mingw's clang 22
+# (the toolchain pinned above -- conda:libclang is only the bindgen DLL, not the compiler) rejects ("version
+# 'llvm' in target triple 'x86_64-pc-windows-gnullvm' is invalid"); and under mise 2026.7.1 the per-tool msvc
+# `install_env` no longer steers cargo-binstall to the (existing) msvc prebuilt. binaryen ships a self-contained
+# Windows prebuilt, so aqua sidesteps the source build and clang entirely.
 "aqua:WebAssembly/binaryen" = "latest"
 # action-validator uses aqua on Linux/macOS but has no aqua/github Windows build, so it's cargo: only here.
-"cargo:action-validator" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
+# Failing due to latest mise.
+# "cargo:action-validator" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
 
 # busybox-w32 `sh` (POSIX ash) -- the shell the bash-tasks run on.
 # A native Win32 single exe with no cygwin/msys runtime, so it loads on a bare Nano Server, unlike conda's
@@ -307,3 +309,7 @@ shell = "bash -xeuo pipefail -c"
 # 404s and the from-source fallback can't build under llvm-mingw. The suite still runs on the Linux/macOS jobs.
 run = "echo 'skipping et-ws-web-runner on windows: rusty_v8 has no gnullvm prebuilt'"
 shell = "bash -euo pipefail -c"
+
+[tasks.action-validator-check]
+# Broken by latest mise.
+run = "true"

@@ -6,7 +6,6 @@
 "pipx:componentize-py" = "latest"
 "pipx:datamodel-code-generator" = { version = "latest", extras = "ruff" }
 "pipx:openapi-python-client" = "0.29.0"
-# Pyrefly: the compiled (Rust) type checker behind `check:python`; distributed as a prebuilt wheel like ruff.
 "pipx:pyrefly" = "latest"
 "pipx:pytest" = "latest"
 # PyTorch, for the et-ws-pyo3-runner `torch_inference` test.
@@ -41,14 +40,11 @@ RUFF_CACHE_DIR = "{{ config_root }}/target/ruff-cache"
 # It honours .gitignore (so target/ is skipped) and ruff.toml's `exclude`/`extend-exclude`. Every tracked *.py
 # already lives under a dir we want linted, so discovery covers them without an explicit include list -- scope
 # is narrowed by excludes only.
+pyrefly-check = "pyrefly check -c config/pyrefly.toml"
 ruff-check = "ruff check"
 ruff-fix = "ruff check --fix"
 ruff-fmt = "ruff format"
 ruff-fmt-check = "ruff format --check"
-# Type-check with Pyrefly.
-# Config (includes, search-path, opaque generated/vendored trees) lives in config/pyrefly.toml; its paths are
-# relative to config/, so this must run from the repo root.
-pyrefly-check = "pyrefly check -c config/pyrefly.toml"
 
 # Namespaced aggregators picked up by the default config's globbed tasks.
 # Those are its `check`/`fmt`/`test`.
