@@ -57,6 +57,7 @@ if (typeof globalThis.XMLHttpRequest === "undefined") {
       }
     }
 
+    // skipcq: JS-R1005 -- XHR shim; complexity 6 is within the repo's oxlint ceiling (eslint/complexity max 10)
     send(body) {
       const base = globalThis.location?.href;
       const url = base ? new URL(this.#url, base).href : this.#url;

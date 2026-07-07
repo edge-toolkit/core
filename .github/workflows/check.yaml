@@ -34,7 +34,7 @@ jobs:
           - os: macos-latest
             timeout: 45
           - os: windows-latest
-            timeout: 75
+            timeout: 120
     # Windows runs the checkers under busybox-w32 ash, same as test.yaml's Windows lane.
     # That's the shell mise's `shell = "bash"` tasks run on; Git Bash's MSYS fork-emulation cygheap breaks
     # down on long task chains. The path matches the version pin in `.mise/config.windows.toml`'s
@@ -56,9 +56,12 @@ jobs:
         if: runner.os == 'Windows'
         uses: ./.github/actions/free-disk-space-windows
 
+      # Windows tools source-build under mise 2026.7.1, so this step runs long (bumped from 25).
+      # The per-tool msvc `install_env` override no longer reaches cargo-binstall there, so cargo tools like
+      # action-validator compile from source instead of fetching their msvc prebuilts. Revert once mise fixes it.
       - name: Install mise + tools
         uses: ./.github/actions/install-mise-tools
-        timeout-minutes: 25
+        timeout-minutes: 60
         with:
           github-token: ${{ github.token }}
 
