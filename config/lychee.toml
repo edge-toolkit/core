@@ -29,4 +29,11 @@ exclude_path = ["data", "generated", "node_modules", "target"]
 # URL patterns (regex) to skip, none of which are real links.
 # doc/test placeholder hosts (e.g. http://host:8080/) and `{...}` format-string templates
 # (.../{repo}/{git_ref}/...).
-exclude = ['\{|%7B', '^https?://host[:/]']
+#
+# GitHub Actions run/job URLs are also skipped: workaround comments pin them as evidence of WHERE a failure
+# was observed, fully expecting them to age out (GHA log retention is 3 months), and github.com serves those
+# pages inconsistently to anonymous clients even while they exist -- the check lane got
+#     [404] https://github.com/edge-toolkit/core/actions/runs/28698136445/job/85111320237 (at 447:1)
+# from CLAUDE.md's attestation-flake note on commit e401831a98197068f978ef760134caff882e2615 while the same
+# URL returned 200 to a local curl minutes later. Checking them is all noise, no signal.
+exclude = ['\{|%7B', '^https?://host[:/]', '^https://github\.com/[^/]+/[^/]+/actions/runs/']
