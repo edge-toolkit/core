@@ -129,10 +129,19 @@ fn appendQueryParam(writer: *std.Io.Writer, first_query: *bool, name: []const u8
 }
 
 pub fn requestRaw(client: *Client, method: std.http.Method, url: []const u8, payload: ?[]const u8) !RawResponse {
+    return requestRawWithContentType(client, method, url, payload, "application/json");
+}
+
+pub fn requestRawWithContentType(client: *Client, method: std.http.Method, url: []const u8, payload: ?[]const u8, content_type_value: []const u8) !RawResponse {
     // Replaced by et-int-gen: dispatch via the host JS shim instead of
     // `std.http.Client.fetch`, which can't reach the network from
     // browser wasm. The JS side proxies to `fetch()` via
     // SharedArrayBuffer + Atomics so this stays synchronous in Zig.
+    // This is the single shared request function; `requestRaw` and every
+    // per-operation wrapper (including binary bodies rerouted by et-int-gen)
+    // funnel through here. `content_type_value` is carried in the signature
+    // for source compatibility but the JS shim derives it from the payload.
+    _ = content_type_value;
     const allocator = client.allocator;
     const method_str = @tagName(method);
     const body_slice = payload orelse "";
@@ -316,7 +325,7 @@ fn streamJson(client: *Client, path: []const u8, requestBody: anytype, callback:
 
     var headers = std.ArrayList(std.http.Header).empty;
     defer headers.deinit(allocator);
-    const auth_header = try appendClientHeaders(allocator, &headers, client, true, "text/event-stream");
+    const auth_header = try appendClientHeaders(allocator, &headers, client, "application/json", "text/event-stream");
     defer if (auth_header) |value| allocator.free(value);
 
     const url = try std.fmt.allocPrint(allocator, "{s}{s}", .{ client.base_url, path });
@@ -347,9 +356,9 @@ fn streamJson(client: *Client, path: []const u8, requestBody: anytype, callback:
     };
 }
 
-fn appendClientHeaders(allocator: std.mem.Allocator, headers: *std.ArrayList(std.http.Header), client: *Client, include_content_type: bool, accept: []const u8) !?[]u8 {
-    if (include_content_type) {
-        try headers.append(allocator, .{ .name = "Content-Type", .value = "application/json" });
+fn appendClientHeaders(allocator: std.mem.Allocator, headers: *std.ArrayList(std.http.Header), client: *Client, content_type: ?[]const u8, accept: []const u8) !?[]u8 {
+    if (content_type) |ct| {
+        try headers.append(allocator, .{ .name = "Content-Type", .value = ct });
     }
     try headers.append(allocator, .{ .name = "Accept", .value = accept });
 
@@ -480,10 +489,9 @@ pub fn put_fileRaw(client: *Client, agent_id: []const u8, filename: []const u8, 
     var uri_buf: std.Io.Writer.Allocating = .init(allocator);
     defer uri_buf.deinit();
     try uri_buf.writer.print("{s}/storage/{s}/{s}", .{ client.base_url, agent_id, filename });
-
     const payload: ?[]const u8 = requestBody;
 
-    return requestRaw(client, std.http.Method.PUT, uri_buf.written(), payload);
+    return requestRawWithContentType(client, std.http.Method.PUT, uri_buf.written(), payload, "application/octet-stream");
 }
 
 /////////////////

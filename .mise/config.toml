@@ -57,6 +57,7 @@ action-validator = { version = "latest", os = ["linux", "macos"] }
 "aqua:EmbarkStudios/cargo-deny" = "latest"
 "aqua:StyraInc/regal" = "latest"
 "aqua:koalaman/shellcheck" = "latest"
+"aqua:rhysd/actionlint" = "latest"
 "aqua:rustwasm/wasm-pack" = "latest"
 "aqua:vectordotdev/vector" = "0.56.0"
 ast-grep = "latest"
@@ -357,7 +358,13 @@ a_rp_wasm_short = "08a1d6f"
 # Forward slashes throughout the Windows suffix: GHA's LOCALAPPDATA arrives already-forward-slashed
 # ("C:/Users/runneradmin/AppData/Local"), and a mixed-slash path trips uutils-coreutils' Windows path
 # normalizer (`cp: The system cannot find the path specified. (os error 3)`).
+# Extra actionlint flags for actionlint-check; empty everywhere except the config.windows.toml override.
+actionlint_args = ""
 gh_http = "--http-url https://github.com --progress --ignore-existing"
+# OpenObserve docker image for the openobserve/o2 dev-observability task.
+o2_image = "openobserve/openobserve:v0.70.3"
+# pywasm1's own module version, templated into the pkg/package.json its build task emits.
+pywasm1_pkg_version = "0.1.0"
 rp_wasm_dir = '''{% if os() == "windows" -%}
 {%- set base = (env?.LOCALAPPDATA or "") | replace(from="\\", to="/") -%}
 {{- base -}}/mise/installs/http-rp-wasm/{{- vars.a_rp_wasm_short -}}
@@ -454,6 +461,7 @@ description = "Run all formatters: fmt:rust + any loaded guest fmt:<lang>"
 # loaded MISE_ENV configs).
 depends = [
   "action-validator-check",
+  "actionlint-check",
   "ast-grep-check",
   "cargo-check",
   "cargo-clippy-check",
@@ -506,6 +514,17 @@ description = "Apply all lint-fix passes: fix:rust + any loaded guest fix:<lang>
 [tasks.action-validator-check]
 description = "Validate GitHub Actions workflow + composite-action YAML"
 run = "action-validator .github/workflows/*.yaml .github/actions/*/action.yaml"
+
+[tasks.actionlint-check]
+description = "Lint GitHub Actions workflows (actionlint): local-action input validation, expression syntax, shellcheck"
+# Lint every workflow with actionlint's native checks plus its shellcheck integration over each `run:` script.
+# shellcheck is a mise [tool], so it is on PATH here and actionlint auto-detects and invokes it (except under
+# the Windows vars.actionlint_args override). The most load-bearing native rule is `[action]`, which fails
+# when a workflow step passes a `with:` key the referenced local action does not declare (GHA itself only
+# warns). actionlint lints workflows only, so it does NOT see composite-action -> action calls; the gha_uses
+# conftest rule covers that direction. Intentional word-splitting sites carry an inline
+# `# shellcheck disable=SC2086` directive in the run script, as the mise-task bodies do.
+run = "actionlint {{ vars.actionlint_args }} .github/workflows/*.yaml"
 
 [tasks.zizmor-check]
 description = "Audit GitHub Actions workflows + composite actions for security issues (zizmor)"
@@ -612,9 +631,11 @@ description = "Run conftest OPA/Rego policies over the GitHub Actions workflow +
 # workflow YAML for cross-cutting invariants where the rule has to compare each workflow's parsed body
 # against its own filename (the `paths:` self-reference check; conftest's per-file mode has no `input.path`);
 # gha_action over the composite actions under .github/actions/*/action.yaml (different schema, so its
-# own namespace); and gha_mise over the workflow YAML combined with .mise (auto-detected parsers) so a rule can
+# own namespace); gha_mise over the workflow YAML combined with .mise (auto-detected parsers) so a rule can
 # cross-check a hard-coded action-input version against the matching mise [tools] pin (setup-dotnet's
-# dotnet-version vs the `dotnet` pin).
+# dotnet-version vs the `dotnet` pin); and gha_uses over the workflow YAML combined with the composite actions so a
+# rule can resolve each `uses: ./.github/actions/<name>` against that action's declared `inputs:` (GHA only warns on
+# an undeclared input key, silently dropping the value).
 run = """
 ns="--namespace gha --namespace no_trailing_backslash"
 # $ns expands to repeated `--namespace <n>` pairs; word-splitting is intentional.
@@ -623,6 +644,7 @@ conftest test --parser yaml $ns -p config/conftest/policy .github/workflows
 conftest test --parser yaml --combine --namespace gha_combined -p config/conftest/policy .github/workflows
 conftest test --parser yaml --namespace gha_action -p config/conftest/policy .github/actions/*/action.yaml
 conftest test --combine --namespace gha_mise -p config/conftest/policy .github/workflows .mise
+conftest test --parser yaml --combine --namespace gha_uses -p config/conftest/policy .github/workflows .github/actions
 """
 shell = "bash -euo pipefail -c"
 
@@ -634,16 +656,15 @@ description = "Cross-check Dockerfiles against mise [tools] pins + heredoc body-
 #   2. `ignore` parser, which preserves every line of the file as a separate entry -- conftest's dockerfile parser
 #      flattens heredoc bodies out of the AST, so the body-first-line `set -euo pipefail` check lives in its
 #      own namespace + parser.
-# Each git-tracked Dockerfile* gets both passes.
+# Each git-tracked Dockerfile* gets both passes, except that the `ignore` pass only visits Dockerfiles that
+# actually contain heredocs: conftest 0.68.2's ignore parser panics with `runtime error: slice bounds out of
+# range` on plain Dockerfiles (no heredocs), and the body-first-line rule has nothing to check there anyway.
 run = """
 files=$(git ls-files '*Dockerfile' '*Dockerfile.*')
 # $files is a newline-separated path list; word-splitting is intentional (no spaces in paths).
 # shellcheck disable=SC2086
 conftest test --combine --namespace dockerfile -p config/conftest/policy $files .mise
 # Filter to Dockerfiles that actually use heredocs before the `ignore` parser.
-# conftest 0.68.2's ignore parser panics with
-# `runtime error: slice bounds out of range` on plain Dockerfiles (no
-# heredocs). The body-first-line rule has nothing to check there anyway.
 for f in $files; do
   if rg -q '^RUN[^\n]*<<' "$f"; then
     conftest test --parser ignore --namespace dockerfile_heredoc -p config/conftest/policy "$f"
@@ -1110,7 +1131,7 @@ description = "Run both the ws-server and ws-wasm-agent using Chrome"
 
 [tasks.openobserve]
 alias = "o2"
-run = "docker run --rm -it --name openobserve -p 5080:5080 --env-file config/o2.env openobserve/openobserve:v0.70.3"
+run = "docker run --rm -it --name openobserve -p 5080:5080 --env-file config/o2.env {{ vars.o2_image }}"
 
 [tasks.demo]
 depends = ["openobserve", "ws-server"]
@@ -1237,7 +1258,7 @@ coreutils cat > pkg/package.json <<'PKG_JSON'
 {
   "name": "et-ws-pywasm1",
   "type": "module",
-  "version": "0.1.0",
+  "version": "{{ vars.pywasm1_pkg_version }}",
   "main": "index.js",
   "files": [
     "index.js",

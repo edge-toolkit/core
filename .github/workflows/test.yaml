@@ -53,8 +53,9 @@ jobs:
       # Compute the OS list here in the strategy block, where `github.*` IS in scope.
       # `matrix` context isn't available in job-level `if:`, so we compute the
       # OS list right here:
-      #   pull_request       -> ubuntu-latest + ubuntu-24.04-arm + macos-latest
-      #                        + windows-latest (skip slow Intel Mac;
+      #   pull_request       -> ubuntu-24.04-arm + macos-latest + windows-latest
+      #                        (ubuntu-latest x64 is exercised by coverage.yaml, so
+      #                        it's dispatch-only here; skip slow Intel Mac;
       #                        ubuntu-26.04 + windows-11-arm are dispatch-only)
       #   workflow_dispatch  -> the OS picked in the dropdown, or all of them
       # The combos are emitted as a fully-formed list of `{os, timeout}`
@@ -81,8 +82,7 @@ jobs:
           || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":120}]'
           || github.event.inputs.os == 'windows-11-arm' && '[{"os":"windows-11-arm","timeout":60}]'
           )
-          || format('[{0},{1},{2},{3}]',
-          '{"os":"ubuntu-latest","timeout":40}',
+          || format('[{0},{1},{2}]',
           '{"os":"ubuntu-24.04-arm","timeout":40}',
           '{"os":"macos-latest","timeout":45}',
           '{"os":"windows-latest","timeout":120}')

@@ -5,7 +5,18 @@
 #   deliberately ignores and the repo's own hadolint-check + DeepSource Docker already cover.
 # - dotnet-data1/Program.cs: Codacy's CA1054 wants URI-typed params, but [JSImport] partial methods can only
 #   marshal `string` across the JS boundary; DeepSource covers the C# there and reports no such issue.
+# - .github/workflows/ + .github/actions/: Codacy flags GitHub Actions `uses:` not pinned to a commit SHA, but
+#   this repo deliberately pins actions by tag (config/zizmor.yaml turns off zizmor's matching hash-pin policy for
+#   the same reason). Workflows + composite actions are already linted by actionlint, zizmor, action-validator, the
+#   ast-grep gha rules, and the gha* conftest policies; since Codacy cannot disable an individual pattern in-repo,
+#   excluding these trees is the only way to silence its pin rule globally.
+# - CLAUDE.md: Codacy's prose rules (undefined-acronym, absolute-rule-without-escape-hatch) fight this
+#   agent-instructions doc, which is imperative and full of deliberate absolutes ("NEVER ...", "ALWAYS ...") by
+#   design; dprint + typos + editorconfig already lint it, so Codacy adds only false positives here.
 exclude_paths:
+  - ".github/actions/**"
+  - ".github/workflows/**"
+  - "CLAUDE.md"
   - "Dockerfile"
   - "config/semgrep/**"
   - "services/ws-modules/dotnet-data1/Program.cs"

@@ -1,0 +1,17 @@
+id: no-concat-raw-strings
+language: Rust
+severity: error
+message: |
+  `concat!(...)` of raw-string (`r#"..."#`) fragments is forbidden -- it is an unreadable way to build one string
+  (a regex, an embedded template) out of a stack of `r#"..."#,` lines. Use a single multi-line raw string literal
+  instead, or a named `const`, or -- for a regex -- `(?x)` verbose mode so the pattern can span lines without
+  concatenation. Plain-string `concat!` (wrapping a long message, `concat!(env!(...), "...")`) is fine; only
+  raw-string fragments are banned.
+rule:
+  all:
+    - pattern: concat!($$$ARGS)
+    - has:
+        kind: raw_string_literal
+        stopBy: end
+ignores:
+  - generated/**

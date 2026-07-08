@@ -1,0 +1,90 @@
+---
+name: coverage
+
+"on":
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Codecov's tokenless upload uses an OIDC id-token instead of a repository upload token.
+  id-token: write
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+env:
+  # Exact full guest-language set -- gha.rego pins this literal value at the workflow level.
+  # (It's what lets `build-modules` build every ws-module so the Rust tests run.) The coverage job appends the
+  # `coverage` env at job level below, mirroring test.yaml's override job's `,${{ matrix.compiler }}`.
+  MISE_ENV: dart,dotnet,java,js,python,rust,zig
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      MISE_ENV: dart,dotnet,java,js,python,rust,zig,coverage
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Free disk space on Linux
+        uses: jlumbroso/free-disk-space@v1.3.1
+
+      - name: Install Mesa Vulkan drivers (lavapipe)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mesa-vulkan-drivers
+
+      - name: Install mise + coverage tools
+        uses: ./.github/actions/install-mise-tools
+        timeout-minutes: 20
+        with:
+          github-token: ${{ github.token }}
+          install-action-tools: cargo-llvm-cov,cargo-nextest
+
+      - name: Prefetch dependencies
+        timeout-minutes: 15
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run prefetch-ci
+
+      - name: Build WASM modules
+        timeout-minutes: 25
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run build-modules
+
+      - name: Collect Rust coverage + test results
+        timeout-minutes: 75
+        run: mise run cargo-llvm-cov
+
+      - name: Upload coverage to Codecov (OIDC)
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          files: lcov.info
+          fail_ci_if_error: true
+
+      # Upload test results even when tests failed.
+      # nextest still wrote the JUnit report, and a failing run is exactly when the per-test results on Codecov
+      # matter most; `report_type: test_results` selects the JUnit upload path.
+      - name: Upload test results to Codecov (OIDC)
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          report_type: test_results
+          files: target/nextest/ci/junit.xml
+          fail_ci_if_error: true

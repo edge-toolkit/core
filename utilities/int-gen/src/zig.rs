@@ -1,35 +1,63 @@
 //! Post-process `openapi2zig`'s output into a `wasm32-unknown-unknown`-
 //! compatible Zig REST client.
 //!
-//! `openapi2zig` generates a fully typed client whose `requestRaw` calls
-//! `std.http.Client.fetch` -- which compiles for `wasm32-freestanding` but
-//! can't actually reach the network from a browser sandbox. We swap the
-//! body of `requestRaw` for one that delegates to a single
-//! `extern fn js_rest_request(...)` import (host-implemented via `fetch()`
-//! and `SharedArrayBuffer` in the JS shim), and append the extern
-//! declaration. Everything else -- schemas, `RawResponse`, `ApiResult`,
-//! per-operation wrappers, SSE helpers -- is left untouched; Zig's lazy
-//! evaluation + dead-code elimination shake out the now-unused
+//! `openapi2zig` generates a fully typed client that reaches the network
+//! through `std.http.Client.fetch` -- which compiles for
+//! `wasm32-freestanding` but can't actually reach the network from a
+//! browser sandbox. As of openapi2zig 0.3 the emission has two shapes:
+//!
+//! * JSON / form / empty bodies route through a single shared
+//!   `requestRawWithContentType` (with `requestRaw` a thin default-`content-type`
+//!   wrapper over it), which holds the one `client.http.fetch` call.
+//! * Binary / text bodies (e.g. `application/octet-stream`) *inline* their
+//!   own `client.http.fetch` in the per-operation `*Raw` function rather
+//!   than delegating.
+//!
+//! We funnel everything through one host import. First we swap the body of
+//! the shared `requestRawWithContentType` for one that delegates to a single
+//! `extern fn js_rest_request(...)` (host-implemented via `fetch()` and
+//! `SharedArrayBuffer` in the JS shim). Then we rewrite each inlined binary
+//! operation to delegate to that same shared function instead of calling
+//! `client.http.fetch` directly. Finally we assert no reachable
+//! `client.http.fetch` survived and append the extern declaration.
+//!
+//! Everything else -- schemas, `RawResponse`, `ApiResult`, per-operation
+//! wrappers, the unreachable SSE `streamJson` helper -- is left untouched;
+//! Zig's lazy evaluation + dead-code elimination shake out the now-unused
 //! `std.http.Client`/`std.Io` machinery (verified: the resulting wasm has
 //! a single `env.js_rest_request` import and is ~6 KB at `-O ReleaseSmall`).
 //!
-//! We use `tree-sitter-zig` to find `requestRaw` by name rather than
-//! string-matching its body -- that way `openapi2zig` version bumps that
-//! reshuffle the implementation don't break us.
+//! We use `tree-sitter-zig` to find `requestRawWithContentType` by name
+//! rather than string-matching its body -- that way `openapi2zig` version
+//! bumps that reshuffle the implementation don't break us.
 
 use std::path::Path;
 use std::process::Command;
 
 use fs_err as fs;
+use regex::Regex;
 use tree_sitter::{Node, Parser};
 
 use crate::Error;
 
-/// The replacement body spliced into `requestRaw` by [`rewrite`].
+/// Name of the single shared request function whose body we replace with the
+/// host-import dispatch; `requestRaw` and every per-operation wrapper funnel
+/// through it.
+const SHARED_REQUEST_FN: &str = "requestRawWithContentType";
+
+/// The replacement body spliced into [`SHARED_REQUEST_FN`] by [`rewrite`].
 const REQUEST_RAW_BODY: &str = include_str!("zig.in/request_raw_body.zig");
 
 /// The `extern fn js_rest_request(...)` declaration appended to the generated client by [`rewrite`].
 const JS_REST_REQUEST_EXTERN: &str = include_str!("zig.in/js_rest_request_extern.zig");
+
+/// Regex spanning the inlined request tail openapi2zig 0.3 emits for a binary/text body (its `.binary`/`.text`
+/// arm, which -- unlike JSON bodies -- does not delegate to [`SHARED_REQUEST_FN`]). It anchors on the
+/// `= requestBody;` payload assignment, which is unique to those ops (JSON ops assign `str.written()`, empty
+/// bodies `null`), then skips to the two captures: 1 = content-type, 2 = HTTP method. `[A-Z]+` (not `\w`) keeps
+/// it ASCII so no unicode regex feature is needed. [`reroute_inline_binary_ops`] splices both into a delegation.
+const INLINE_FETCH_BLOCK_PATTERN: &str =
+    r#"(?s)requestBody;.*?"([^"]+)".*?Method\.([A-Z]+).*?toOwnedSlice\(\),\n    \};"#;
 
 /// Return `true` if the `openapi2zig` binary is on `PATH`.
 ///
@@ -79,11 +107,11 @@ fn run_openapi2zig(rest_json: &Path, raw_out: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-/// Replace `requestRaw`'s body with our extern-backed implementation, fix
-/// the JSON-encoding of binary request bodies (openapi2zig blindly applies
-/// `std.json.Stringify.value` even when the `OpenAPI` content-type is
-/// `application/octet-stream`), and append the `extern fn js_rest_request`
-/// declaration. Everything else passes through verbatim.
+/// Replace the shared request function's body with our extern-backed
+/// implementation, reroute the inlined binary operations through it, assert
+/// no reachable `client.http.fetch` survived, and append the
+/// `extern fn js_rest_request` declaration. Everything else passes through
+/// verbatim.
 #[expect(
     clippy::single_call_fn,
     reason = "named helper; pairs with run_openapi2zig() as the two halves of render()"
@@ -95,11 +123,11 @@ fn rewrite(source: &str) -> Result<String, Error> {
         .parse(source, None)
         .ok_or_else(|| Error::ZigCodegen("tree-sitter parse returned None".into()))?;
 
-    let request_raw = find_fn(tree.root_node(), source, "requestRaw")
-        .ok_or_else(|| Error::ZigCodegen("requestRaw function not found in openapi2zig output".into()))?;
-    let body = request_raw
+    let shared_fn = find_fn(tree.root_node(), source, SHARED_REQUEST_FN)
+        .ok_or_else(|| Error::ZigCodegen(format!("{SHARED_REQUEST_FN} function not found in openapi2zig output")))?;
+    let body = shared_fn
         .child_by_field_name("body")
-        .ok_or_else(|| Error::ZigCodegen("requestRaw has no body field".into()))?;
+        .ok_or_else(|| Error::ZigCodegen(format!("{SHARED_REQUEST_FN} has no body field")))?;
 
     let body_start = body.start_byte();
     let body_end = body.end_byte();
@@ -120,49 +148,51 @@ fn rewrite(source: &str) -> Result<String, Error> {
         out.push_str(REQUEST_RAW_BODY.trim_end());
         out.push_str(&source[body_end..]);
     }
-    out = fix_binary_request_body(&out)?;
-    out.push_str(JS_REST_REQUEST_EXTERN);
-    Ok(out)
-}
-
-/// Replace openapi2zig's `std.json.Stringify.value(requestBody, ...)` block
-/// with a direct `requestBody` pass-through.
-#[expect(
-    clippy::single_call_fn,
-    reason = "named helper called once by rewrite(); kept separate for the long comment + clear scope"
-)]
-fn fix_binary_request_body(source: &str) -> Result<String, Error> {
-    // openapi2zig generates the `bad` block for every operation that has a
-    // `requestBody`, regardless of content-type.
-    //
-    // For `application/octet-stream` endpoints (every body in our spec) this
-    // corrupts the wire bytes -- `"Hello"` ships as `"\"Hello\""`. Replace
-    // the block with a direct `requestBody` pass-through. If openapi2zig
-    // changes the pattern we fail loudly rather than silently emitting
-    // JSON-encoded bodies.
-    //
-    // Upstream bug: <https://github.com/christianhelle/openapi2zig/issues/53>
-    // (emission sites: `src/generators/unified/api_generator.zig:611-617` and
-    // `:1431-1436`, both unconditional on content-type). Drop this workaround
-    // once the issue is fixed and we bump the pinned openapi2zig version.
-    let bad = concat!(
-        "    var str: std.Io.Writer.Allocating = .init(allocator);\n",
-        "    defer str.deinit();\n",
-        "    try std.json.Stringify.value(requestBody, .{ .emit_null_optional_fields = false }, &str.writer);\n",
-        "    const payload: ?[]const u8 = str.written();",
-    );
-    let good = "    const payload: ?[]const u8 = requestBody;";
-    let count = source.matches(bad).count();
-    if count == 0 {
+    out = reroute_inline_binary_ops(&out)?;
+    if out.contains("client.http.fetch") {
         return Err(Error::ZigCodegen(
             concat!(
-                "openapi2zig output no longer contains the std.json.Stringify(requestBody) pattern ",
-                "- its body-encoding may have changed; verify before relying on the binary fix-up",
+                "openapi2zig output still contains a reachable `client.http.fetch` after rewriting ",
+                "- an operation shape changed; it would attempt real HTTP from wasm. Verify the codegen.",
             )
             .into(),
         ));
     }
-    Ok(source.replace(bad, good))
+    out.push_str(JS_REST_REQUEST_EXTERN);
+    Ok(out)
+}
+
+/// Reroute openapi2zig's inlined binary/text-body operations through the
+/// shared, extern-backed request function.
+///
+/// Since openapi2zig 0.3, an operation whose request body is not JSON/form
+/// (e.g. `application/octet-stream`) does not delegate to
+/// `requestRawWithContentType`; it inlines the whole
+/// header-build + `std.Uri.parse` + `client.http.fetch` + `RawResponse`
+/// dance directly (`src/generators/unified/api_generator.zig`'s `.binary`/
+/// `.text` arm). That inlined `client.http.fetch` would try to reach the
+/// network from wasm. We rewrite the inlined tail back into a single
+/// `return requestRawWithContentType(...)` call so it funnels through the
+/// host import like every other operation; the captured method and
+/// content-type are preserved. The `rewrite` caller then asserts no
+/// `client.http.fetch` survived, so an emission shape we don't recognise
+/// fails loudly rather than silently emitting a real-HTTP path.
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by rewrite(); kept separate for the long comment + clear scope"
+)]
+fn reroute_inline_binary_ops(source: &str) -> Result<String, Error> {
+    let block = Regex::new(INLINE_FETCH_BLOCK_PATTERN)?;
+    Ok(block
+        .replace_all(source, |caps: &regex::Captures<'_>| {
+            format!(
+                r#"requestBody;
+
+    return {SHARED_REQUEST_FN}(client, std.http.Method.{}, uri_buf.written(), payload, "{}");"#,
+                &caps[2], &caps[1],
+            )
+        })
+        .into_owned())
 }
 
 /// Recursive walk: return the first `function_declaration` whose `name`

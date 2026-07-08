@@ -25,7 +25,35 @@ Reason: agents are bad at zsh-specific quoting and expansion rules, and the syst
 bash everyone else uses. Pinning to homebrew bash makes ad-hoc shell behavior predictable and matches what mise tasks
 already use.
 
+## Ad-hoc agent commands: use mise-managed tools, or recommend adding one
+
+The "Don't depend on host tools" rule further down is written for mise task bodies, but the same discipline applies to
+the ad-hoc commands the agent runs while working -- investigations, scratch-area probes, one-off transforms. Prefer the
+repo's mise-managed, version-pinned, cross-platform tools -- `coreutils` (uutils multicall), `rg` (ripgrep),
+`find`/`xargs` (uutils findutils), `goawk`, and whatever else the `[tools]` tables pin -- over whatever binary happens
+to be on the host (`perl`, the host's own `sed`, a random CLI). A host binary may be absent, a different version, or
+missing on another OS, and its shell-quoting is the exact fragility the homebrew-bash rule exists to avoid (a mangled
+`perl -pi -e` once silently no-op'd its edit and produced a bogus "passing" test result here before it was caught).
+
+For file edits specifically, reach for the Edit/Write tools rather than a stream editor (`perl -pi`, `sed -i`): they
+never touch the shell, so there is no quoting to get wrong.
+
+If you genuinely need a tool that is not installed (or is not mise-managed) to do the job well, do NOT quietly fall
+back to the host binary -- surface it. Recommend to the user that the tool be added as a mise `[tools]` entry
+(prebuilt-binary backend, cross-platform, per the "Tools must work on every OS" rule), and let them decide. A tool
+worth using in this repo is worth pinning.
+
 ## Polling cadence when monitoring a PR's CI runs
+
+**Watch at job/check granularity, never run granularity.** `gh run list` reports a _workflow run_ as `in_progress`
+for as long as any job in its matrix is still going -- even when other jobs in that same run have **already failed**.
+Polling only `gh run list` (or filtering to `status == "completed"`) therefore hides live failures and reads as
+"still healthy" when the PR is already red. Use `gh pr checks <pr>` as the primary signal: it lists every individual
+check (`check (ubuntu-latest, 25)`, `Codacy ...`, `coverage`, external DeepSource/Codacy/Codecov statuses, ...) with
+its own pass/fail/pending, so a failed matrix leg or external check shows immediately. Once a job shows `fail`, pull
+its failing step with `gh api repos/<owner>/<repo>/actions/jobs/<job-id>/logs` -- that returns the completed job's log
+even while the parent run is still `in_progress` (whereas `gh run view --log-failed` refuses until the whole run
+finishes). Only after `gh pr checks` is clean is the PR actually green.
 
 When an agent is watching a PR (e.g. via `/loop`), the next-poll delay follows three tiers -- tight at first (catch
 fail-fast errors), loose in the middle (long compile/test phases run on a 30-90 min scale), then loose again once
@@ -413,8 +441,8 @@ If you believe a skip is genuinely warranted, stop and ask the user; do not add 
 
 ### Known intermittent CI failure: pyo3-runner torch registration timeout
 
-`et-ws-pyo3-runner`'s `module_behaves::case_5_torch` intermittently fails on test.yaml's Windows lane with the
-literal failure line
+`et-ws-pyo3-runner`'s `module_behaves::case_5_torch` intermittently fails on test.yaml's Windows and macOS lanes
+with the literal failure line
 
     Error: "runner never registered"
 
@@ -426,7 +454,11 @@ torch's import when the test's registration timeout expired. The ~117 MB `pipx:t
 cold runner is the slow step; a rerun passes because the import caches warm. Observed on commit
 `6479913bdc288dd680fbe0520f63054e8c71fe6c` at
 `https://github.com/edge-toolkit/core/actions/runs/28686533955/job/85080173283` (PR #70; the rerun passed and the PR
-merged). If this signature recurs, stop rerunning and fix the root cause: raise (or make torch-case-specific) the
+merged), and on the `default (macos-latest, 45)` job -- same signature, unix-form
+`torch/lib/python3.13/site-packages/torch/_subclasses/functional_tensor.py:362` warning path -- on commit
+`f2a85307a2415f4a50625627795e02c84f1c8e5d` at
+`https://github.com/edge-toolkit/core/actions/runs/28865327221/job/85613919558` (PR #73), 20.68s into the test
+run. If this signature recurs, stop rerunning and fix the root cause: raise (or make torch-case-specific) the
 runner-registration timeout in the pyo3-runner module tests, or warm the torch import before the registration clock
 starts.
 

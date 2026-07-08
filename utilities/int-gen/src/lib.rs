@@ -74,6 +74,8 @@ pub enum Error {
     Semver(#[from] semver::Error),
     #[error(transparent)]
     Fmt(#[from] std::fmt::Error),
+    #[error(transparent)]
+    Regex(#[from] regex::Error),
 
     #[error("AsyncAPI spec missing required node: {0}")]
     SpecNodeMissing(&'static str),

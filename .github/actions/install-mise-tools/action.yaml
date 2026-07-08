@@ -29,7 +29,7 @@ runs:
     - name: Install mise binary
       uses: ./.github/actions/install-mise
       with:
-        install-action: ${{ inputs.install-action-tools }}
+        install-action-tools: ${{ inputs.install-action-tools }}
 
     # Optional npm backend, installed before the main `mise install`.
     # Only useful when js env is loaded (it's the backend for npm:* tools, all of which live in config.js.toml); skip

@@ -3,8 +3,13 @@
 [tools]
 # Pinned: SDK churn re-keys the wasm-tools workload manifest, forcing a ~1.5GB pack re-download on every bump.
 dotnet = "10.0.300"
-dotnet-core = "10.0.300"
 "dotnet:roslynator.dotnet.cli" = "latest"
+
+[vars]
+# MSBuild dir inside the mise dotnet SDK, for the roslynator `-m` flags below.
+# `$DOTNET_ROOT` stays literal here; the task shell expands it. The version segment is the [tools] dotnet
+# pin above -- bump together.
+dotnet_msbuild = "$DOTNET_ROOT/sdk/10.0.300"
 
 [tasks.dotnet-fmt]
 description = "Format dotnet C# code"
@@ -14,14 +19,40 @@ run = "dotnet format"
 description = "Check dotnet C# formatting"
 run = "dotnet format --verify-no-changes"
 
-# Namespaced aggregators picked up by the default config's globbed `check`/`fmt`.
+[tasks.roslynator-check]
+description = "Analyze C# sources (Roslynator)"
+# Roslynator analyzes with its embedded analyzer assemblies, against the mise dotnet SDK's own MSBuild.
+# The dotnet:roslynator.dotnet.cli tool ships the analyzers, so the csproj needs no analyzer
+# PackageReference. Diagnostics at the default info-and-up severity fail the task; loading the project
+# performs an implicit restore, so no `dotnet restore` dependency is needed.
+#
+# `-m` pins MSBuild to the mise dotnet SDK instead of MSBuildLocator's automatic discovery. On Windows the
+# inline-task shell is busybox ash (windows_default_inline_shell_args), and busybox-w32 rewrites `\` to `/`
+# in every env var it passes to children -- DOTNET_ROOT arrives as `C:/Users/...`, a form hostfxr accepts
+# (dotnet-check works) but MSBuildLocator's SDK discovery does not, failing with:
+#     Cannot choose MSBuild location automatically. Use option '-m, --msbuild-path' to specify MSBuild location
+# Observed on commit ef55945932f5d417b8d205530f0868cff6d73ffa (locally; reproduced under `mise exec` by
+# setting a forward-slashed DOTNET_ROOT). The env var itself is fine as the `-m` argument -- mise's core
+# dotnet plugin exports DOTNET_ROOT on every OS, and the forward-slashed form ash delivers on Windows is
+# accepted there; only MSBuildLocator's own probing of it breaks.
+run = 'roslynator analyze -m "{{ vars.dotnet_msbuild }}" services/ws-modules/dotnet-data1/dotnet-data1.csproj'
+
+[tasks.roslynator-fix]
+description = "Apply Roslynator diagnostics' machine-applicable C# fixes in place"
+run = 'roslynator fix -m "{{ vars.dotnet_msbuild }}" services/ws-modules/dotnet-data1/dotnet-data1.csproj'
+
+# Namespaced aggregators picked up by the default config's globbed `check`/`fmt`/`fix`.
 [tasks."check:dotnet"]
-depends = ["dotnet-check"]
-description = "Run .NET checks (format verification)"
+depends = ["dotnet-check", "roslynator-check"]
+description = "Run .NET checks (format verification + Roslynator analysis)"
 
 [tasks."fmt:dotnet"]
 depends = ["dotnet-fmt"]
 description = "Format .NET sources"
+
+[tasks."fix:dotnet"]
+depends = ["roslynator-fix"]
+description = "Apply .NET lint-fix passes (roslynator fix)"
 
 [tasks.build-ws-dotnet-data1-module]
 description = "Build the dotnet-data1 C# WASM workflow module"

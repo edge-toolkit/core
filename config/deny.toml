@@ -152,6 +152,12 @@ deny = [
   # parent (`ort-sys` via the `download-binaries` feature) is gone. The workspace `ort` dep now stages ONNX
   # Runtime through mise instead.
   { crate = "ureq" },
+  # `regress` (a JS-flavoured regex engine) is forbidden except via the wrapper below.
+  # It arrives only transitively through progenitor -> typify -> typify-impl, which uses it to validate the
+  # JSON-Schema `pattern` regexes in our generated REST client. We standardise on the `regex` crate everywhere
+  # else; any new parent that drags `regress` back in should migrate to `regex`. Direct workspace declaration is
+  # separately blocked by config/taplo/no-banned-deps.schema.json.
+  { crate = "regress", use-instead = "regex", wrappers = ["typify-impl"] },
 ]
 
 [sources]

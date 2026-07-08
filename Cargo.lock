@@ -4122,6 +4122,7 @@ dependencies = [
  "prettyplease",
  "progenitor",
  "quote",
+ "regex",
  "reqwest 0.13.4",
  "schemars 1.2.1",
  "semver",

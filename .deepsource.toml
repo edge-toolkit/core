@@ -10,6 +10,13 @@ exclude_patterns = ["**/pkg/**", "generated/**", "services/ws-web-runner/mingw-s
 # Repo convention: tests live in a `tests/` directory or in source files prefixed `test_`.
 test_patterns = ["**/test_*.py", "**/tests/**"]
 
+# Dart is explicitly deactivated; its coverage comes from the mise pipeline's check:dart instead.
+# DeepSource's Dart support is an AI-only analyzer (no classic static analysis), so with AI review off it
+# auto-surfaces as a perpetually-skipped "DeepSource: Dart" check on every PR.
+[[analyzers]]
+enabled = false
+name = "dart"
+
 [[analyzers]]
 enabled = true
 name = "python"

@@ -282,6 +282,8 @@ jobs:
         run: |
           sudo apt-get update
           pkgs="autoconf automake bison flex libtool-bin libxml2-dev libreadline-dev pkg-config"
+          # $pkgs is a word-split package list by design; do not quote it.
+          # shellcheck disable=SC2086
           sudo apt-get install -y --no-install-recommends $pkgs
 
       # On macOS, brew the build deps, mirroring the fork's build.yml `macos` job.
@@ -334,6 +336,8 @@ jobs:
           installdir="$RUNNER_TEMP/install"
           mkdir -p "$installdir"
           clone_args="--depth 1 --branch $AUG_REF --recurse-submodules"
+          # $clone_args is a word-split flag list by design; do not quote it.
+          # shellcheck disable=SC2086
           git clone $clone_args "$AUG_FORK_REPO" "$srcdir"
           cd "$srcdir"
           if [ "$RUNNER_OS" = "macOS" ]; then
@@ -347,6 +351,8 @@ jobs:
           fi
           autogen_args="--prefix=$installdir --disable-static --disable-gnulib-tests"
           autogen_args="$autogen_args --disable-dependency-tracking"
+          # $autogen_args is a word-split flag list by design; do not quote it.
+          # shellcheck disable=SC2086
           ./autogen.sh $autogen_args
           make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
           make install
@@ -361,6 +367,8 @@ jobs:
             sudo apt-get install -y --no-install-recommends patchelf
             for f in bin/* lib/lib*.so*; do
               [ -f "$f" ] && [ ! -L "$f" ] || continue
+              # '$ORIGIN' is a literal rpath token for the dynamic linker; single quotes are intentional.
+              # shellcheck disable=SC2016
               patchelf --set-rpath '$ORIGIN/../lib' "$f" 2>/dev/null || true
             done
           else
@@ -397,6 +405,8 @@ jobs:
             # otool -L on augtool tells us
             # which absolute brew paths got baked in; copy each, rewrite
             # its install_name + nested refs, and rewrite consumers.
+            # $1 is awk's field reference inside a single-quoted awk program, not a shell expansion.
+            # shellcheck disable=SC2016
             brew_filter='NR>1 && $1 ~ /^\/(usr\/local|opt\/homebrew)\// {print $1}'
             brew_deps_otool=$(otool -L bin/augtool lib/libaugeas*.dylib lib/libfa*.dylib 2>/dev/null)
             queue=$(echo "$brew_deps_otool" | awk "$brew_filter" | sort -u)
@@ -542,9 +552,11 @@ jobs:
             echo "::notice::$asset already in $DTG_RELEASE_TAG; skipping"
             echo "work=" >> "$GITHUB_OUTPUT"
           else
-            echo "work=yes" >> "$GITHUB_OUTPUT"
-            echo "triple=$triple" >> "$GITHUB_OUTPUT"
-            echo "asset=$asset" >> "$GITHUB_OUTPUT"
+            {
+              echo "work=yes"
+              echo "triple=$triple"
+              echo "asset=$asset"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       # No explicit setup-rust step is needed for this build.
@@ -564,6 +576,8 @@ jobs:
           # otherwise pick gnullvm and trip the same build failure we're working around.
           cargo_args="--version $DTG_VERSION --root $installdir"
           cargo_args="$cargo_args --target x86_64-pc-windows-msvc --locked"
+          # $cargo_args is a word-split flag list by design; do not quote it.
+          # shellcheck disable=SC2086
           cargo install dart-typegen $cargo_args
           ls "$installdir/bin"
           # `cd` into the dir and tar a relative path to avoid the colon.

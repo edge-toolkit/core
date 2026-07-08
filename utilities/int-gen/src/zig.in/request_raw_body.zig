@@ -3,6 +3,11 @@
     // `std.http.Client.fetch`, which can't reach the network from
     // browser wasm. The JS side proxies to `fetch()` via
     // SharedArrayBuffer + Atomics so this stays synchronous in Zig.
+    // This is the single shared request function; `requestRaw` and every
+    // per-operation wrapper (including binary bodies rerouted by et-int-gen)
+    // funnel through here. `content_type_value` is carried in the signature
+    // for source compatibility but the JS shim derives it from the payload.
+    _ = content_type_value;
     const allocator = client.allocator;
     const method_str = @tagName(method);
     const body_slice = payload orelse "";

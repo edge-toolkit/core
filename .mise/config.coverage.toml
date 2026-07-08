@@ -1,0 +1,26 @@
+# Coverage env (MISE_ENV includes `coverage`).
+# A special stackable env like mingw/msvc, not a language -- so it is deliberately NOT in config.toml's ALL_LANGS
+# and the *-all tasks never touch it. Selected only by the coverage workflow, stacked on the language envs it also
+# loads (rust + the guest langs whose ws-modules the coverage build exercises, so the module-loading tests run
+# rather than self-skip). Houses the cargo-llvm-cov task so it stays out of the always-loaded config.toml.
+# cargo-llvm-cov and cargo-nextest are not mise [tools] -- the workflow co-installs them via
+# taiki-e/install-action -- so there is no [tools] table here.
+
+[tasks.cargo-llvm-cov]
+description = "Rust coverage (cargo-llvm-cov) + JUnit test results (nextest); emits lcov.info + junit.xml"
+# cargo-llvm-cov and cargo-nextest are deliberately NOT mise [tools] (like cargo-unmaintained).
+# The coverage workflow installs both via taiki-e/install-action; this task just runs them. cargo-llvm-cov needs
+# the `llvm-tools-preview` rustup component, which it adds on demand against the mise-managed toolchain.
+# Running the suite through nextest (NEXTEST_PROFILE=ci) emits target/nextest/ci/junit.xml for the Codecov
+# test-results upload; et-ws-web-runner is serialized by the `web-runner` test-group in config/nextest.toml
+# rather than RUST_TEST_THREADS, which nextest ignores; `--config-file config/nextest.toml` selects that config.
+# No `--doc` pass: the workspace sets `[lib] doctest = false` on essentially every crate (doc comments are prose,
+# not runnable examples), and `cargo llvm-cov --doc` ignores that setting -- it drives rustdoc directly and chokes
+# on the generated et-rest-client's backtick prose. So coverage stays on stable, tests-only. `--no-report` defers
+# the report so `report` writes lcov.info from the nextest run's profiles.
+env = { NEXTEST_PROFILE = "ci" }
+run = """
+cargo llvm-cov --no-report nextest --config-file config/nextest.toml
+cargo llvm-cov report --lcov --output-path lcov.info
+"""
+shell = "bash -euo pipefail -c"
