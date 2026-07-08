@@ -64,6 +64,10 @@ ast-grep = "latest"
 cargo-binstall = "latest"
 "cargo:cargo-expand" = { version = "latest", os = ["linux", "macos"] }
 "cargo:wasm-opt" = { version = "latest", os = ["linux", "macos"] }
+# cargo-nextest test runner (github backend; ubi is disabled here).
+# mise picks the cargo-nextest-* release asset for the host triple (universal binary on macOS) and exposes the
+# `cargo-nextest` bin.
+"github:nextest-rs/nextest" = "latest"
 taplo = "latest"
 watchexec = "latest"
 # Chromedriver disabled (commented out below).
@@ -1173,29 +1177,16 @@ shell = "bash -euo pipefail -c"
 [tasks.download-models]
 depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "fetch-mnist-rclone"]
 
-[tasks.cargo-test-other]
-# Excludes `et-ws-web-runner`, whose tests need single-threaded execution.
-# See `test-ws-web-runner` below; running the rest of the workspace in parallel keeps the total
-# wall-clock down. Split out from `cargo-test` (which aggregates both halves) so CI can run each phase as
-# its own step -- helps isolate which phase consumes which disk / memory budget on tight runners.
-run = "cargo test --workspace --exclude et-ws-web-runner"
-
-[tasks.test-ws-web-runner]
-description = "Run et-ws-web-runner integration tests serialized"
-# Each test case boots a full `MainWorker` (deno_runtime).
-# That is ~10x heavier than the `JsRuntime` it replaced. 8 in parallel exhausts local fd/port budgets on
-# macOS, surfacing as "error sending request for url" when the runner's wrapper module dynamic-`import()`s
-# its module JS. Pin to one thread so the suite is deterministic.
-env = { RUST_TEST_THREADS = "1" }
-run = "cargo test -p et-ws-web-runner"
-
 [tasks.cargo-test]
-# Composite of two halves.
-# cargo-test-other (workspace minus et-ws-web-runner) + test-ws-web-runner (serialized). Local devs /
-# hosts where disk and memory aren't tight invoke this single task; CI splits the two halves into
-# separate workflow steps for debuggability.
-depends = ["cargo-test-other", "test-ws-web-runner"]
-description = "Run every Rust test (cargo-test-other + test-ws-web-runner)"
+description = "Run every Rust test via nextest (single run; et-ws-web-runner serialized, excluded on gnullvm)"
+# One nextest run over the whole workspace, replacing the old cargo-test-other + test-ws-web-runner split.
+# et-ws-web-runner's tests each boot a heavy deno_runtime MainWorker; running several in parallel exhausts fd/port
+# budgets. The `web-runner` test-group in config/nextest.toml caps them to one at a time (nextest ignores
+# RUST_TEST_THREADS), while the rest of the workspace stays parallel. `{{ vars.cargo_ws_excludes }}` is empty
+# except on the gnullvm Windows target, which cannot build et-ws-web-runner (rusty_v8 ships no gnullvm prebuilt);
+# there it expands to `--exclude et-ws-web-runner`, so the crate is dropped from the build (the config.mingw/msvc
+# envs clear the var, so those lanes build + run it against the msvc rusty_v8 prebuilt).
+run = "cargo nextest run --workspace {{ vars.cargo_ws_excludes }} --config-file config/nextest.toml"
 
 [tasks."test:rust"]
 # Rust tests. Always-loaded, so `test`'s glob always matches it.

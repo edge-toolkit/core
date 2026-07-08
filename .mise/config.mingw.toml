@@ -130,9 +130,3 @@ if [ ! -f "$a" ]; then
 fi
 """
 shell = "bash -euo pipefail -c"
-
-[tasks.test-ws-web-runner]
-# Override config.windows.toml's skip: the gnu target links rusty_v8's msvc prebuilt, so the suite runs.
-description = "Run et-ws-web-runner integration tests serialized"
-env = { RUST_TEST_THREADS = "1" }
-run = "cargo test -p et-ws-web-runner"

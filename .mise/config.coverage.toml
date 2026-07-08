@@ -3,14 +3,15 @@
 # and the *-all tasks never touch it. Selected only by the coverage workflow, stacked on the language envs it also
 # loads (rust + the guest langs whose ws-modules the coverage build exercises, so the module-loading tests run
 # rather than self-skip). Houses the cargo-llvm-cov task so it stays out of the always-loaded config.toml.
-# cargo-llvm-cov and cargo-nextest are not mise [tools] -- the workflow co-installs them via
-# taiki-e/install-action -- so there is no [tools] table here.
+# cargo-llvm-cov is not a mise [tool] -- the workflow co-installs it via taiki-e/install-action -- so there is no
+# [tools] table here. (cargo-nextest IS a mise tool, from config.toml's `github:nextest-rs/nextest` entry.)
 
 [tasks.cargo-llvm-cov]
 description = "Rust coverage (cargo-llvm-cov) + JUnit test results (nextest); emits lcov.info + junit.xml"
-# cargo-llvm-cov and cargo-nextest are deliberately NOT mise [tools] (like cargo-unmaintained).
-# The coverage workflow installs both via taiki-e/install-action; this task just runs them. cargo-llvm-cov needs
-# the `llvm-tools-preview` rustup component, which it adds on demand against the mise-managed toolchain.
+# cargo-llvm-cov is deliberately NOT a mise [tool] (like cargo-unmaintained).
+# The coverage workflow installs it via taiki-e/install-action; cargo-nextest comes from config.toml's mise tool.
+# This task just runs them. cargo-llvm-cov needs the `llvm-tools-preview` rustup component, which it adds on demand
+# against the mise-managed toolchain.
 # Running the suite through nextest (NEXTEST_PROFILE=ci) emits target/nextest/ci/junit.xml for the Codecov
 # test-results upload; et-ws-web-runner is serialized by the `web-runner` test-group in config/nextest.toml
 # rather than RUST_TEST_THREADS, which nextest ignores; `--config-file config/nextest.toml` selects that config.

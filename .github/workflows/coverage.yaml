@@ -52,7 +52,7 @@ jobs:
         timeout-minutes: 20
         with:
           github-token: ${{ github.token }}
-          install-action-tools: cargo-llvm-cov,cargo-nextest
+          install-action-tools: cargo-llvm-cov
 
       - name: Prefetch dependencies
         timeout-minutes: 15

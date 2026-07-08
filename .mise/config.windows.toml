@@ -150,8 +150,8 @@ tsgolint_pkg = '{{ vars.mise_installs }}\npm-oxlint-tsgolint\0.24.0\node_modules
 # So the module + wasm-agent builds pass --no-opt; they reference {{ vars.no_opt }}.
 no_opt = "--no-opt"
 # et-ws-web-runner's rusty_v8 (deno -> v8) gnullvm prebuilt is broken, so exclude it on Windows.
-# The build-based cargo checks (check/clippy/doc) skip it here, matching cargo test's --exclude and the
-# skipped test-ws-web-runner task.
+# The build-based cargo checks (check/clippy/doc) and the merged cargo-test (nextest) all splice this var, so the
+# crate is dropped from the build on gnullvm; config.mingw/msvc clear the var to build + run it against msvc v8.
 cargo_ws_excludes = "--exclude et-ws-web-runner"
 # Disable actionlint's shellcheck integration on Windows (user-approved 2026-07-08).
 # actionlint deadlocks here whenever a workflow `run:` script exceeds the ~4KB anonymous-pipe buffer. Its
@@ -337,14 +337,6 @@ shell = "bash -xeuo pipefail -c"
 # bash -x (xtrace) on this OS-specific preinstall.
 # CI failures on Nano (rclone-not-found, sha256 path mangling, etc.) are easier to diagnose with the full
 # per-command transcript than with the silent default.
-
-[tasks.test-ws-web-runner]
-# Override: skip et-ws-web-runner on Windows.
-# It pulls deno -> v8, whose build script downloads a prebuilt rusty_v8 static lib; denoland/rusty_v8 ships
-# Windows prebuilts only for x86_64-pc-windows-msvc, not the gnullvm target this build uses, so the fetch
-# 404s and the from-source fallback can't build under llvm-mingw. The suite still runs on the Linux/macOS jobs.
-run = "echo 'skipping et-ws-web-runner on windows: rusty_v8 has no gnullvm prebuilt'"
-shell = "bash -euo pipefail -c"
 
 [tasks.action-validator-check]
 # Broken by latest mise.
