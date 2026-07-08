@@ -153,6 +153,17 @@ no_opt = "--no-opt"
 # The build-based cargo checks (check/clippy/doc) skip it here, matching cargo test's --exclude and the
 # skipped test-ws-web-runner task.
 cargo_ws_excludes = "--exclude et-ws-web-runner"
+# Disable actionlint's shellcheck integration on Windows (user-approved 2026-07-08).
+# actionlint deadlocks here whenever a workflow `run:` script exceeds the ~4KB anonymous-pipe buffer. Its
+# process.go `cmdExecution.run()` writes the whole script to the child's stdin pipe BEFORE starting it, so a
+# big write blocks forever with no reader -- `mise run actionlint-check` then hangs with no output and an
+# `actionlint.exe` process pinned in tasklist. Present in every actionlint since the shellcheck rule landed
+# (v1.4.x; verified hanging on 1.7.7/1.7.11/1.7.12), masked on Linux/macOS by their 64KB pipe buffers, so
+# those lanes keep full shellcheck coverage. Reproduced on commit ef55945932f5d417b8d205530f0868cff6d73ffa
+# with a synthetic 29KB run body (hangs) vs a 178B one (passes); a fake instantly-exiting shellcheck still
+# hangs it, proving shellcheck itself is uninvolved. Upstream fix is one line
+# (`cmd.Stdin = strings.NewReader(e.stdin)`); drop this override once a fixed actionlint releases.
+actionlint_args = "-shellcheck="
 
 [env]
 # Run `shell = "bash ..."` tasks on busybox ash rather than the Windows WSL launcher.

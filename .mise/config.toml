@@ -358,6 +358,8 @@ a_rp_wasm_short = "08a1d6f"
 # Forward slashes throughout the Windows suffix: GHA's LOCALAPPDATA arrives already-forward-slashed
 # ("C:/Users/runneradmin/AppData/Local"), and a mixed-slash path trips uutils-coreutils' Windows path
 # normalizer (`cp: The system cannot find the path specified. (os error 3)`).
+# Extra actionlint flags for actionlint-check; empty everywhere except the config.windows.toml override.
+actionlint_args = ""
 gh_http = "--http-url https://github.com --progress --ignore-existing"
 # OpenObserve docker image for the openobserve/o2 dev-observability task.
 o2_image = "openobserve/openobserve:v0.70.3"
@@ -516,12 +518,13 @@ run = "action-validator .github/workflows/*.yaml .github/actions/*/action.yaml"
 [tasks.actionlint-check]
 description = "Lint GitHub Actions workflows (actionlint): local-action input validation, expression syntax, shellcheck"
 # Lint every workflow with actionlint's native checks plus its shellcheck integration over each `run:` script.
-# shellcheck is a mise [tool], so it is on PATH here and actionlint auto-detects and invokes it. The most
-# load-bearing native rule is `[action]`, which fails when a workflow step passes a `with:` key the referenced
-# local action does not declare (GHA itself only warns). actionlint lints workflows only, so it does NOT see
-# composite-action -> action calls; the gha_uses conftest rule covers that direction. Intentional word-splitting
-# sites carry an inline `# shellcheck disable=SC2086` directive in the run script, as the mise-task bodies do.
-run = "actionlint .github/workflows/*.yaml"
+# shellcheck is a mise [tool], so it is on PATH here and actionlint auto-detects and invokes it (except under
+# the Windows vars.actionlint_args override). The most load-bearing native rule is `[action]`, which fails
+# when a workflow step passes a `with:` key the referenced local action does not declare (GHA itself only
+# warns). actionlint lints workflows only, so it does NOT see composite-action -> action calls; the gha_uses
+# conftest rule covers that direction. Intentional word-splitting sites carry an inline
+# `# shellcheck disable=SC2086` directive in the run script, as the mise-task bodies do.
+run = "actionlint {{ vars.actionlint_args }} .github/workflows/*.yaml"
 
 [tasks.zizmor-check]
 description = "Audit GitHub Actions workflows + composite actions for security issues (zizmor)"
