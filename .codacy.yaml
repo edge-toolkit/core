@@ -10,9 +10,13 @@
 #   the same reason). Workflows + composite actions are already linted by actionlint, zizmor, action-validator, the
 #   ast-grep gha rules, and the gha* conftest policies; since Codacy cannot disable an individual pattern in-repo,
 #   excluding these trees is the only way to silence its pin rule globally.
+# - CLAUDE.md: Codacy's prose rules (undefined-acronym, absolute-rule-without-escape-hatch) fight this
+#   agent-instructions doc, which is imperative and full of deliberate absolutes ("NEVER ...", "ALWAYS ...") by
+#   design; dprint + typos + editorconfig already lint it, so Codacy adds only false positives here.
 exclude_paths:
   - ".github/actions/**"
   - ".github/workflows/**"
+  - "CLAUDE.md"
   - "Dockerfile"
   - "config/semgrep/**"
   - "services/ws-modules/dotnet-data1/Program.cs"
