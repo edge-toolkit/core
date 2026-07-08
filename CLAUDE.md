@@ -31,8 +31,8 @@ The "Don't depend on host tools" rule further down is written for mise task bodi
 the ad-hoc commands the agent runs while working -- investigations, scratch-area probes, one-off transforms. Prefer the
 repo's mise-managed, version-pinned, cross-platform tools -- `coreutils` (uutils multicall), `rg` (ripgrep),
 `find`/`xargs` (uutils findutils), `goawk`, and whatever else the `[tools]` tables pin -- over whatever binary happens
-to be on the host (`perl`, BSD `sed`, a random CLI). A host binary may be absent, a different version, or missing on
-another OS, and its shell-quoting is the exact fragility the homebrew-bash rule exists to avoid (a mangled
+to be on the host (`perl`, the host's own `sed`, a random CLI). A host binary may be absent, a different version, or
+missing on another OS, and its shell-quoting is the exact fragility the homebrew-bash rule exists to avoid (a mangled
 `perl -pi -e` once silently no-op'd its edit and produced a bogus "passing" test result here before it was caught).
 
 For file edits specifically, reach for the Edit/Write tools rather than a stream editor (`perl -pi`, `sed -i`): they

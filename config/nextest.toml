@@ -1,7 +1,6 @@
 # nextest profile used by the coverage workflow via `cargo llvm-cov nextest` (NEXTEST_PROFILE=ci).
 # It writes a JUnit report to target/nextest/ci/junit.xml, which the coverage job uploads to Codecov as test
-# results (report_type: test_results). Passed explicitly with `--config-file` since it lives here, not the
-# default .config/nextest.toml.
+# results (report_type: test_results). The coverage task loads it via `--config-file config/nextest.toml`.
 [profile.ci.junit]
 path = "junit.xml"
 

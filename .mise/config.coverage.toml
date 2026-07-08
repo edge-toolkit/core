@@ -13,13 +13,13 @@ description = "Rust coverage (cargo-llvm-cov) + JUnit test results (nextest); em
 # the `llvm-tools-preview` rustup component, which it adds on demand against the mise-managed toolchain.
 # Running the suite through nextest (NEXTEST_PROFILE=ci) emits target/nextest/ci/junit.xml for the Codecov
 # test-results upload; et-ws-web-runner is serialized by the `web-runner` test-group in config/nextest.toml
-# rather than RUST_TEST_THREADS, which nextest ignores. `--config-file` points at that config since it lives under
-# config/ rather than the default .config/. nextest does not run doctests, so a separate --doc pass keeps their
-# coverage; --no-report on both passes so they merge into one lcov report.
+# rather than RUST_TEST_THREADS, which nextest ignores; `--config-file config/nextest.toml` selects that config.
+# Doctests are not covered here -- nextest does not run them, and `cargo llvm-cov --doc` needs a nightly toolchain
+# this stable job does not have (the pre-nextest task skipped them too). `--no-report` defers reporting so `report`
+# writes lcov.info from the run's profiles.
 env = { NEXTEST_PROFILE = "ci" }
 run = """
 cargo llvm-cov --no-report nextest --config-file config/nextest.toml
-cargo llvm-cov --no-report --doc
 cargo llvm-cov report --lcov --output-path lcov.info
 """
 shell = "bash -euo pipefail -c"
