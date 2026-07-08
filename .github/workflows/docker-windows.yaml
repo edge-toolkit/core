@@ -108,6 +108,8 @@ jobs:
             args="$args --build-arg WINDOWS_VERSION=${{ matrix.windows_version }}"
           fi
           args="$args --target build-minimal -t $IMAGE_TAG"
+          # $args is a word-split flag list by design; do not quote it.
+          # shellcheck disable=SC2086
           docker build $args .
 
       # Diagnose whether the et-rp (rustpython) binary actually runs inside this base image.
@@ -139,10 +141,10 @@ jobs:
           DOCKERFILE: ${{ steps.dockerfile.outputs.dockerfile }}
         run: |
           if [ "${{ matrix.base }}" = "servercore" ]; then
-            target=test
+            target="test"
             tag="-t et-windows-test"
           else
-            target=precompile
+            target="precompile"
             tag=""
           fi
           args="-f $DOCKERFILE --build-arg MISE_ENV"
@@ -150,6 +152,8 @@ jobs:
             args="$args --build-arg WINDOWS_VERSION=${{ matrix.windows_version }}"
           fi
           args="$args --target $target $tag"
+          # $args is a word-split flag list by design; do not quote it.
+          # shellcheck disable=SC2086
           docker build $args .
 
       # Run the test suite split the same way docker-linux does.

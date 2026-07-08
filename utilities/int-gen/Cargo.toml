@@ -29,6 +29,8 @@ pretty_yaml.workspace = true
 prettyplease.workspace = true
 progenitor.workspace = true
 quote.workspace = true
+# Workspace regex has default-features off; `std` is what provides the `Regex` type used by the zig post-processor.
+regex = { workspace = true, features = ["std"] }
 reqwest = { workspace = true, features = ["blocking", "rustls"] }
 schemars.workspace = true
 semver.workspace = true

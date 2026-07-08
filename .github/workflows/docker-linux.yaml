@@ -89,6 +89,8 @@ jobs:
         run: |
           args="--target test --build-arg BASE_IMAGE --build-arg MISE_ENV"
           args="$args --secret id=gh_token,env=GITHUB_TOKEN -t et-test"
+          # $args is a word-split flag list by design; do not quote it.
+          # shellcheck disable=SC2086
           docker build $args .
 
       # The check stage needs `.git/` + every tracked Dockerfile.
@@ -110,6 +112,8 @@ jobs:
           git ls-files '*Dockerfile' '*Dockerfile.*' | xargs -I{} cp --parents {} "$CTX/"
           args="--target check --build-arg BASE_IMAGE --build-arg MISE_ENV"
           args="$args --build-context extras=$CTX --secret id=gh_token -t $TAG"
+          # $args is a word-split flag list by design; do not quote it.
+          # shellcheck disable=SC2086
           docker build $args .
 
       # Capture image + intermediate stage sizes after the builds.

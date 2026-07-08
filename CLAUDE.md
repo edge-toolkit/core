@@ -25,6 +25,24 @@ Reason: agents are bad at zsh-specific quoting and expansion rules, and the syst
 bash everyone else uses. Pinning to homebrew bash makes ad-hoc shell behavior predictable and matches what mise tasks
 already use.
 
+## Ad-hoc agent commands: use mise-managed tools, or recommend adding one
+
+The "Don't depend on host tools" rule further down is written for mise task bodies, but the same discipline applies to
+the ad-hoc commands the agent runs while working -- investigations, scratch-area probes, one-off transforms. Prefer the
+repo's mise-managed, version-pinned, cross-platform tools -- `coreutils` (uutils multicall), `rg` (ripgrep),
+`find`/`xargs` (uutils findutils), `goawk`, and whatever else the `[tools]` tables pin -- over whatever binary happens
+to be on the host (`perl`, BSD `sed`, a random CLI). A host binary may be absent, a different version, or missing on
+another OS, and its shell-quoting is the exact fragility the homebrew-bash rule exists to avoid (a mis-escaped
+`perl -pi -e` once silently no-op'd its edit and produced a bogus "passing" test result here before it was caught).
+
+For file edits specifically, reach for the Edit/Write tools rather than a stream editor (`perl -pi`, `sed -i`): they
+never touch the shell, so there is no quoting to get wrong.
+
+If you genuinely need a tool that is not installed (or is not mise-managed) to do the job well, do NOT quietly fall
+back to the host binary -- surface it. Recommend to the user that the tool be added as a mise `[tools]` entry
+(prebuilt-binary backend, cross-platform, per the "Tools must work on every OS" rule), and let them decide. A tool
+worth using in this repo is worth pinning.
+
 ## Polling cadence when monitoring a PR's CI runs
 
 When an agent is watching a PR (e.g. via `/loop`), the next-poll delay follows three tiers -- tight at first (catch

@@ -57,6 +57,7 @@ action-validator = { version = "latest", os = ["linux", "macos"] }
 "aqua:EmbarkStudios/cargo-deny" = "latest"
 "aqua:StyraInc/regal" = "latest"
 "aqua:koalaman/shellcheck" = "latest"
+"aqua:rhysd/actionlint" = "latest"
 "aqua:rustwasm/wasm-pack" = "latest"
 "aqua:vectordotdev/vector" = "0.56.0"
 ast-grep = "latest"
@@ -454,6 +455,7 @@ description = "Run all formatters: fmt:rust + any loaded guest fmt:<lang>"
 # loaded MISE_ENV configs).
 depends = [
   "action-validator-check",
+  "actionlint-check",
   "ast-grep-check",
   "cargo-check",
   "cargo-clippy-check",
@@ -506,6 +508,16 @@ description = "Apply all lint-fix passes: fix:rust + any loaded guest fix:<lang>
 [tasks.action-validator-check]
 description = "Validate GitHub Actions workflow + composite-action YAML"
 run = "action-validator .github/workflows/*.yaml .github/actions/*/action.yaml"
+
+[tasks.actionlint-check]
+description = "Lint GitHub Actions workflows (actionlint): local-action input validation, expression syntax, shellcheck"
+# Lint every workflow with actionlint's native checks plus its shellcheck integration over each `run:` script.
+# shellcheck is a mise [tool], so it is on PATH here and actionlint auto-detects and invokes it. The most
+# load-bearing native rule is `[action]`, which fails when a workflow step passes a `with:` key the referenced
+# local action does not declare (GHA itself only warns). actionlint lints workflows only, so it does NOT see
+# composite-action -> action calls; the gha_uses conftest rule covers that direction. Intentional word-splitting
+# sites carry an inline `# shellcheck disable=SC2086` directive in the run script, as the mise-task bodies do.
+run = "actionlint .github/workflows/*.yaml"
 
 [tasks.zizmor-check]
 description = "Audit GitHub Actions workflows + composite actions for security issues (zizmor)"
@@ -612,9 +624,11 @@ description = "Run conftest OPA/Rego policies over the GitHub Actions workflow +
 # workflow YAML for cross-cutting invariants where the rule has to compare each workflow's parsed body
 # against its own filename (the `paths:` self-reference check; conftest's per-file mode has no `input.path`);
 # gha_action over the composite actions under .github/actions/*/action.yaml (different schema, so its
-# own namespace); and gha_mise over the workflow YAML combined with .mise (auto-detected parsers) so a rule can
+# own namespace); gha_mise over the workflow YAML combined with .mise (auto-detected parsers) so a rule can
 # cross-check a hard-coded action-input version against the matching mise [tools] pin (setup-dotnet's
-# dotnet-version vs the `dotnet` pin).
+# dotnet-version vs the `dotnet` pin); and gha_uses over the workflow YAML combined with the composite actions so a
+# rule can resolve each `uses: ./.github/actions/<name>` against that action's declared `inputs:` (GHA only warns on
+# an undeclared input key, silently dropping the value).
 run = """
 ns="--namespace gha --namespace no_trailing_backslash"
 # $ns expands to repeated `--namespace <n>` pairs; word-splitting is intentional.
@@ -623,6 +637,7 @@ conftest test --parser yaml $ns -p config/conftest/policy .github/workflows
 conftest test --parser yaml --combine --namespace gha_combined -p config/conftest/policy .github/workflows
 conftest test --parser yaml --namespace gha_action -p config/conftest/policy .github/actions/*/action.yaml
 conftest test --combine --namespace gha_mise -p config/conftest/policy .github/workflows .mise
+conftest test --parser yaml --combine --namespace gha_uses -p config/conftest/policy .github/workflows .github/actions
 """
 shell = "bash -euo pipefail -c"
 
