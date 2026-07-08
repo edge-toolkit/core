@@ -14,14 +14,13 @@ description = "Rust coverage (cargo-llvm-cov) + JUnit test results (nextest); em
 # Running the suite through nextest (NEXTEST_PROFILE=ci) emits target/nextest/ci/junit.xml for the Codecov
 # test-results upload; et-ws-web-runner is serialized by the `web-runner` test-group in config/nextest.toml
 # rather than RUST_TEST_THREADS, which nextest ignores; `--config-file config/nextest.toml` selects that config.
-# Every pass runs on `+nightly` because doctest coverage (`--doc`, via `-Z persist-doctests`) is nightly-only;
-# keeping all passes on one toolchain lets their profiles merge, and cargo-llvm-cov adds the `llvm-tools-preview`
-# rustup component to that toolchain on demand. `--no-report` on the nextest + doc passes, then `report` writes the
-# merged lcov.info.
+# No `--doc` pass: the workspace sets `[lib] doctest = false` on essentially every crate (doc comments are prose,
+# not runnable examples), and `cargo llvm-cov --doc` ignores that setting -- it drives rustdoc directly and chokes
+# on the generated et-rest-client's backtick prose. So coverage stays on stable, tests-only. `--no-report` defers
+# the report so `report` writes lcov.info from the nextest run's profiles.
 env = { NEXTEST_PROFILE = "ci" }
 run = """
-cargo +nightly llvm-cov --no-report nextest --config-file config/nextest.toml
-cargo +nightly llvm-cov --no-report --doc
-cargo +nightly llvm-cov report --lcov --output-path lcov.info
+cargo llvm-cov --no-report nextest --config-file config/nextest.toml
+cargo llvm-cov report --lcov --output-path lcov.info
 """
 shell = "bash -euo pipefail -c"
