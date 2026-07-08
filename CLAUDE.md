@@ -32,7 +32,7 @@ the ad-hoc commands the agent runs while working -- investigations, scratch-area
 repo's mise-managed, version-pinned, cross-platform tools -- `coreutils` (uutils multicall), `rg` (ripgrep),
 `find`/`xargs` (uutils findutils), `goawk`, and whatever else the `[tools]` tables pin -- over whatever binary happens
 to be on the host (`perl`, BSD `sed`, a random CLI). A host binary may be absent, a different version, or missing on
-another OS, and its shell-quoting is the exact fragility the homebrew-bash rule exists to avoid (a mis-escaped
+another OS, and its shell-quoting is the exact fragility the homebrew-bash rule exists to avoid (a mangled
 `perl -pi -e` once silently no-op'd its edit and produced a bogus "passing" test result here before it was caught).
 
 For file edits specifically, reach for the Edit/Write tools rather than a stream editor (`perl -pi`, `sed -i`): they
@@ -44,6 +44,16 @@ back to the host binary -- surface it. Recommend to the user that the tool be ad
 worth using in this repo is worth pinning.
 
 ## Polling cadence when monitoring a PR's CI runs
+
+**Watch at job/check granularity, never run granularity.** `gh run list` reports a _workflow run_ as `in_progress`
+for as long as any job in its matrix is still going -- even when other jobs in that same run have **already failed**.
+Polling only `gh run list` (or filtering to `status == "completed"`) therefore hides live failures and reads as
+"still healthy" when the PR is already red. Use `gh pr checks <pr>` as the primary signal: it lists every individual
+check (`check (ubuntu-latest, 25)`, `Codacy ...`, `coverage`, external DeepSource/Codacy/Codecov statuses, ...) with
+its own pass/fail/pending, so a failed matrix leg or external check shows immediately. Once a job shows `fail`, pull
+its failing step with `gh api repos/<owner>/<repo>/actions/jobs/<job-id>/logs` -- that returns the completed job's log
+even while the parent run is still `in_progress` (whereas `gh run view --log-failed` refuses until the whole run
+finishes). Only after `gh pr checks` is clean is the PR actually green.
 
 When an agent is watching a PR (e.g. via `/loop`), the next-poll delay follows three tiers -- tight at first (catch
 fail-fast errors), loose in the middle (long compile/test phases run on a 30-90 min scale), then loose again once

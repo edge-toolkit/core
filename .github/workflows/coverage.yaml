@@ -52,7 +52,7 @@ jobs:
         timeout-minutes: 20
         with:
           github-token: ${{ github.token }}
-          install-action-tools: cargo-llvm-cov
+          install-action-tools: cargo-llvm-cov,cargo-nextest
 
       - name: Prefetch dependencies
         timeout-minutes: 15
@@ -66,7 +66,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run build-modules
 
-      - name: Collect Rust coverage
+      - name: Collect Rust coverage + test results
         timeout-minutes: 75
         run: mise run cargo-llvm-cov
 
@@ -75,4 +75,16 @@ jobs:
         with:
           use_oidc: true
           files: lcov.info
+          fail_ci_if_error: true
+
+      # Upload test results even when tests failed.
+      # nextest still wrote the JUnit report, and a failing run is exactly when the per-test results on Codecov
+      # matter most; `report_type: test_results` selects the JUnit upload path.
+      - name: Upload test results to Codecov (OIDC)
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          report_type: test_results
+          files: target/nextest/ci/junit.xml
           fail_ci_if_error: true

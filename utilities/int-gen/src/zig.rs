@@ -51,6 +51,14 @@ const REQUEST_RAW_BODY: &str = include_str!("zig.in/request_raw_body.zig");
 /// The `extern fn js_rest_request(...)` declaration appended to the generated client by [`rewrite`].
 const JS_REST_REQUEST_EXTERN: &str = include_str!("zig.in/js_rest_request_extern.zig");
 
+/// Regex spanning the inlined request tail openapi2zig 0.3 emits for a binary/text body (its `.binary`/`.text`
+/// arm, which -- unlike JSON bodies -- does not delegate to [`SHARED_REQUEST_FN`]). It anchors on the
+/// `= requestBody;` payload assignment, which is unique to those ops (JSON ops assign `str.written()`, empty
+/// bodies `null`), then skips to the two captures: 1 = content-type, 2 = HTTP method. `[A-Z]+` (not `\w`) keeps
+/// it ASCII so no unicode regex feature is needed. [`reroute_inline_binary_ops`] splices both into a delegation.
+const INLINE_FETCH_BLOCK_PATTERN: &str =
+    r#"(?s)requestBody;.*?"([^"]+)".*?Method\.([A-Z]+).*?toOwnedSlice\(\),\n    \};"#;
+
 /// Return `true` if the `openapi2zig` binary is on `PATH`.
 ///
 /// Upstream doesn't publish a `linux/arm64` release (see `.mise/config.zig.toml`).
@@ -174,43 +182,14 @@ fn rewrite(source: &str) -> Result<String, Error> {
     reason = "named helper called once by rewrite(); kept separate for the long comment + clear scope"
 )]
 fn reroute_inline_binary_ops(source: &str) -> Result<String, Error> {
-    // The inlined block openapi2zig emits after `const payload = requestBody;`:
-    // build headers (the 4th `appendClientHeaders` arg is the request
-    // content-type), parse the pre-built `uri_buf`, allocate a response
-    // writer, `client.http.fetch`, and assemble a `RawResponse`. The two
-    // capture groups pull out the content-type and the `std.http.Method.*`
-    // literal so the delegating call reproduces them. `[A-Z]+` (not `\w`)
-    // keeps the pattern ASCII so no unicode regex feature is required.
-    let inline_block = Regex::new(concat!(
-        r#"\n    var headers = std\.ArrayList\(std\.http\.Header\)\.empty;\n"#,
-        r#"    defer headers\.deinit\(allocator\);\n"#,
-        r#"    const auth_header = try appendClientHeaders\(allocator, &headers, client, "#,
-        r#""([^"]*)", "application/json"\);\n"#,
-        r#"    defer if \(auth_header\) \|value\| allocator\.free\(value\);\n\n"#,
-        r#"    const uri = try std\.Uri\.parse\(uri_buf\.written\(\)\);\n"#,
-        r#"    var response_body: std\.Io\.Writer\.Allocating = \.init\(allocator\);\n"#,
-        r#"    defer response_body\.deinit\(\);\n\n"#,
-        r#"    const result = try client\.http\.fetch\(\.\{\n"#,
-        r#"        \.location = \.\{ \.uri = uri \},\n"#,
-        r#"        \.method = (std\.http\.Method\.[A-Z]+),\n"#,
-        r#"        \.extra_headers = headers\.items,\n"#,
-        r#"        \.payload = payload,\n"#,
-        r#"        \.response_writer = &response_body\.writer,\n"#,
-        r#"    \}\);\n\n"#,
-        r#"    return \.\{\n"#,
-        r#"        \.allocator = allocator,\n"#,
-        r#"        \.status = result\.status,\n"#,
-        r#"        \.body = try response_body\.toOwnedSlice\(\),\n"#,
-        r#"    \};"#,
-    ))
-    .map_err(|err| Error::ZigCodegen(format!("inline-binary-op regex failed to compile: {err}")))?;
-
-    Ok(inline_block
+    let block = Regex::new(INLINE_FETCH_BLOCK_PATTERN)?;
+    Ok(block
         .replace_all(source, |caps: &regex::Captures<'_>| {
-            let content_type = &caps[1];
-            let method = &caps[2];
             format!(
-                "\n    return {SHARED_REQUEST_FN}(client, {method}, uri_buf.written(), payload, \"{content_type}\");"
+                r#"requestBody;
+
+    return {SHARED_REQUEST_FN}(client, std.http.Method.{}, uri_buf.written(), payload, "{}");"#,
+                &caps[2], &caps[1],
             )
         })
         .into_owned())
