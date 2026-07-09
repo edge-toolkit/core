@@ -156,3 +156,16 @@ deny contains msg if {
 	regex.match(`\bapt(\s|$)`, line)
 	msg := sprintf("job %q: use `apt-get`, not `apt` (apt's UI is not stable across releases)", [name])
 }
+
+# Every actions/upload-artifact step must set with.if-no-files-found: error.
+# The action defaults to "warn": when the path glob matches nothing it logs a warning and uploads an empty (or no)
+# artifact, so a run that produced no report reads as a successful upload and the gap surfaces only far downstream.
+# "error" fails the run at upload time instead, catching a step that produced no files immediately. object.get
+# supplies the "warn" default so an omitted key -- the common case -- counts as the violation it is.
+deny contains msg if {
+	some name, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/upload-artifact")
+	object.get(step, ["with", "if-no-files-found"], "warn") != "error"
+	msg := sprintf("job %q: actions/upload-artifact must set with.if-no-files-found: error", [name])
+}

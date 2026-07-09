@@ -81,6 +81,19 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run pytest-cov
 
+      # Persist the raw coverage reports as build artifacts for post-hoc inspection.
+      # Codecov only keeps its own processed view; the exact lcov.info / coverage-python.xml a run produced is
+      # otherwise lost. Uploaded even on failure so a red run's reports are still downloadable for debugging.
+      - name: Upload coverage reports as artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            lcov.info
+            coverage-python.xml
+          if-no-files-found: error
+
       - name: Upload Rust coverage to Codecov (OIDC)
         uses: codecov/codecov-action@v5
         with:

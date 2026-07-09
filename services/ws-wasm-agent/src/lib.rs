@@ -682,11 +682,10 @@ impl WsClient {
         self.send(&payload)
     }
 
-    pub fn send_agent_message<T: Into<String>>(
-        &self,
-        to_agent_id: T,
-        message: serde_json::Value,
-    ) -> Result<(), JsValue> {
+    pub fn send_agent_message<T>(&self, to_agent_id: T, message: serde_json::Value) -> Result<(), JsValue>
+    where
+        T: Into<String>,
+    {
         let payload = serde_json::to_string(&ClientMessage::SendAgentMessage {
             to_agent_id: to_agent_id.into(),
             message,
@@ -695,12 +694,11 @@ impl WsClient {
         self.send(&payload)
     }
 
-    pub fn send_client_event<C: Into<String>, A: Into<String>>(
-        &self,
-        capability: C,
-        action: A,
-        details: serde_json::Value,
-    ) -> Result<(), JsValue> {
+    pub fn send_client_event<C, A>(&self, capability: C, action: A, details: serde_json::Value) -> Result<(), JsValue>
+    where
+        C: Into<String>,
+        A: Into<String>,
+    {
         let message = ClientMessage::ClientEvent {
             capability: capability.into(),
             action: action.into(),

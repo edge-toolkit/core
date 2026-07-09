@@ -441,8 +441,8 @@ If you believe a skip is genuinely warranted, stop and ask the user; do not add 
 
 ### Known intermittent CI failure: pyo3-runner torch registration timeout
 
-`et-ws-pyo3-runner`'s `module_behaves::case_5_torch` intermittently fails on test.yaml's Windows and macOS lanes
-with the literal failure line
+`et-ws-pyo3-runner`'s `module_behaves::case_5_torch` intermittently fails on the Linux, Windows, and macOS lanes
+of test.yaml and build.yaml with the literal failure line
 
     Error: "runner never registered"
 
@@ -458,7 +458,16 @@ merged), and on the `default (macos-latest, 45)` job -- same signature, unix-for
 `torch/lib/python3.13/site-packages/torch/_subclasses/functional_tensor.py:362` warning path -- on commit
 `f2a85307a2415f4a50625627795e02c84f1c8e5d` at
 `https://github.com/edge-toolkit/core/actions/runs/28865327221/job/85613919558` (PR #73), 20.68s into the test
-run. If this signature recurs, stop rerunning and fix the root cause: raise (or make torch-case-specific) the
+run. Recurred at commit `1e323acb7fc433b66efed904b3b30ab3216dbf90` (PR #76) on three lanes of one run at once --
+the first Linux sighting, and the first time it took more than a single lane of a commit: build.yaml's
+`build (ubuntu:22.04)` (~15.76s) at
+`https://github.com/edge-toolkit/core/actions/runs/29034248895/job/86174973520`, and test.yaml's `override (mingw)`
+(~18.13s) and `override (msvc)` (~18.96s) at
+`https://github.com/edge-toolkit/core/actions/runs/29034248854/job/86174895528` and
+`https://github.com/edge-toolkit/core/actions/runs/29034248854/job/86174895194`. Three simultaneous same-commit
+failures read as the cold torch import consistently overrunning the timeout rather than an occasional flake -- so
+the root-cause fix below is now due, not optional. If this signature recurs, stop rerunning and fix the root cause:
+raise (or make torch-case-specific) the
 runner-registration timeout in the pyo3-runner module tests, or warm the torch import before the registration clock
 starts.
 

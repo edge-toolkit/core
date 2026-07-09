@@ -152,7 +152,12 @@ components = "clippy,rust-analyzer"
 os = ["linux", "macos"]
 profile = "minimal"
 targets = "wasm32-unknown-unknown,wasm32-wasip2"
-version = "latest"
+# Use `stable`, not `latest`, so every lane resolves through the same rustup channel.
+# mise's `latest` picks the max of rust-lang/rust's GitHub Releases, which are published by separate
+# automation that lags the `stable` rustup channel the Windows [[tools.rust]] entries resolve through. That
+# skew once shipped a newer clippy (with a new restriction lint) to Windows than Linux/macOS, breaking only
+# that lane.
+version = "stable"
 
 [[tools.rust]]
 # llvm-tools ships the version-matched llc + llvm-cov + llvm-profdata the wasm-coverage pipeline drives.

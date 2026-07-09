@@ -64,7 +64,10 @@ impl<T> From<PoisonError<T>> for StorageError {
 }
 
 /// Register `PUT /storage/{agent_id}/{filename}` and `GET /storage/...` (static file serving).
-pub fn configure<S: Clone + Send + 'static>(cfg: &mut web::ServiceConfig, config: &StorageConfig) {
+pub fn configure<S>(cfg: &mut web::ServiceConfig, config: &StorageConfig)
+where
+    S: Clone + Send + 'static,
+{
     let storage_dir = config.path.clone();
     let _configured = cfg
         .route("/storage/{agent_id}/{filename}", web::put().to(put_file::<S>))

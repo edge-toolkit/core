@@ -27,3 +27,15 @@ deny contains msg if {
 is_composite_action if {
 	input.runs.using == "composite"
 }
+
+# Every actions/upload-artifact step must set with.if-no-files-found: error.
+# Composite-action steps get their own copy of this guard because they live in runs.steps[], which the workflow
+# policy's jobs.*.steps[] iteration never reaches; the action's "warn" default silently uploads nothing when a path
+# matches no files, so a missing artifact reads as success. "error" fails the run at upload time instead.
+deny contains msg if {
+	is_composite_action
+	some step in input.runs.steps
+	startswith(step.uses, "actions/upload-artifact")
+	object.get(step, ["with", "if-no-files-found"], "warn") != "error"
+	msg := sprintf("step %q: actions/upload-artifact must set with.if-no-files-found: error", [step.name])
+}
