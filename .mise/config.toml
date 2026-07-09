@@ -155,7 +155,9 @@ targets = "wasm32-unknown-unknown,wasm32-wasip2"
 version = "latest"
 
 [[tools.rust]]
-components = "rust-src,rustfmt"
+# llvm-tools ships the version-matched llc + llvm-cov + llvm-profdata the wasm-coverage pipeline drives.
+# The instrumented guests build on nightly for -Zno-profiler-runtime, so the matching LLVM tools are nightly's.
+components = "rust-src,rustfmt,llvm-tools"
 os = ["linux", "macos"]
 profile = "minimal"
 targets = "wasm32-unknown-unknown,wasm32-wasip2"
@@ -303,6 +305,16 @@ rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
 # `python` pin), since the minor-version alias dir isn't created everywhere.
 pylib_flag = "-C link-arg=-Wl,-rpath,{{ vars.a_home }}/.local/share/mise/installs/python/3.13.14/lib"
 wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint,+reference-types"
+# RUSTFLAGS for the wasm coverage builds: instrument + emit LLVM IR, no profiler runtime (minicov provides it).
+# Single codegen unit + LTO off so each crate emits one .ll the wasm-cov task can gut and feed to llc/llvm-cov.
+wasm_cov_rustflags = "--emit=llvm-ir -Cinstrument-coverage -Ccodegen-units=1 -Clto=off -Zno-profiler-runtime"
+# Coverage fragments the wasm module build commands append unconditionally (empty unless ET_TEST_COVERAGE is set).
+# wasm_cov is an inline RUSTFLAGS env prefix; the nightly toolchain + conda clang come from the coverage [env].
+# The *_feat vars turn on minicov: cargo `--features` for the WASI cdylibs, wasm-pack `-- --features` for browsers
+# (comm1 pulls et-web only under this feature).
+wasi_cov_feat = '{% if env?.ET_TEST_COVERAGE == "true" %} --features coverage{% endif %}'
+wasm_cov = '{% if env?.ET_TEST_COVERAGE == "true" %}RUSTFLAGS="{{ vars.wasm_cov_rustflags }}"{% endif %}'
+web_cov_feat = '{% if env?.ET_TEST_COVERAGE == "true" %} -- --features et-web/coverage{% endif %}'
 # Extra flag for the wasm-pack module builds; empty so wasm-opt runs.
 # config.windows.toml overrides it to --no-opt where wasm-opt can't execute.
 no_opt = ""

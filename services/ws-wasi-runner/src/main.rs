@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let module = &config.runner.module;
     let ws_url = &config.ws.server_url;
     let timeout = config.runner.timeout;
-    let run = run_module(module, ws_url, config.ws.connect_ack_timeout);
+    let run = run_module(module, ws_url, config.ws.connect_ack_timeout, config.et_test_coverage);
     // `None` outcome == timed out; `Some(_)` carries the module's own result.
     let outcome = if let Some(limit) = timeout {
         info!("et-ws-wasi-runner: module={module} server={ws_url} timeout={limit:?}");

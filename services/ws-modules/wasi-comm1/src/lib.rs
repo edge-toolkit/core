@@ -101,6 +101,15 @@ impl Guest for Component {
 
         et::ws_wasi::ws::disconnect();
         info("workflow complete");
+        #[cfg(feature = "coverage")]
+        {
+            let mut coverage = Vec::new();
+            // SAFETY: single-threaded guest; capture_coverage reads the instrumented counters once at run() end.
+            unsafe {
+                minicov::capture_coverage(&mut coverage).expect("minicov capture_coverage");
+            }
+            fs_err::write("/cov/et_ws_wasi_comm1.profraw", coverage).expect("write /cov profraw");
+        }
         Ok(())
     }
 }

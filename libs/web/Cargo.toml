@@ -12,6 +12,7 @@ doctest = false
 
 [dependencies]
 js-sys.workspace = true
+minicov = { workspace = true, optional = true }
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
 web-sys = { workspace = true, features = [
@@ -22,6 +23,11 @@ web-sys = { workspace = true, features = [
   "MessageEvent",
   "Navigator",
 ] }
+
+# Coverage instrumentation, off by default and enabled only by the coverage build of the browser wasm modules.
+# Pulls minicov and exposes __et_capture_coverage, which wasm-bindgen collects into every dependent module's glue.
+[features]
+coverage = ["dep:minicov"]
 
 [lints]
 workspace = true

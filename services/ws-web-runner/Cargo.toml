@@ -54,6 +54,7 @@ fs-err.workspace = true
 
 [dev-dependencies]
 et-ws-test-server.workspace = true
+fs-err.workspace = true
 rstest.workspace = true
 
 [lints]

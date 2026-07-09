@@ -93,6 +93,7 @@ kdl = { version = "6", features = ["v1"] }
 libc = "0.2"
 local-ip-address = "0.6"
 log = "0.4"
+minicov = "0.3"
 onnx-extractor = "0.3"
 openapiv3 = "2"
 opentelemetry = "0.31"

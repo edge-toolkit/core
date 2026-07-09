@@ -29,10 +29,17 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
     // exit(0) short-circuit so ORT 1.22's libc++ teardown race doesn't surface
     // as a None exit code (see main.rs for the exact stderr signature).
     // No-op on Linux/Windows.
+    let mut envs = vec![
+        ("RUNNER_MODULE".to_owned(), module.to_owned()),
+        ("WS_SERVER_URL".to_owned(), server.ws_url),
+        ("ET_TEST_WS_WASI_RUNNER_FAST_EXIT".to_owned(), "1".to_owned()),
+    ];
+    // Forward the coverage gate so the runner preopens /cov and instrumented guests dump their .profraw there.
+    if let Some(value) = std::env::var("ET_TEST_COVERAGE").ok().filter(|value| !value.is_empty()) {
+        envs.push(("ET_TEST_COVERAGE".to_owned(), value));
+    }
     let status = std::process::Command::new(bin)
-        .env("RUNNER_MODULE", module)
-        .env("WS_SERVER_URL", &server.ws_url)
-        .env("ET_TEST_WS_WASI_RUNNER_FAST_EXIT", "1")
+        .envs(envs)
         .status()
         .expect("failed to spawn et-ws-wasi-runner");
 

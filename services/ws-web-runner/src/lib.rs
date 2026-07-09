@@ -26,7 +26,7 @@ pub use crate::error::RunnerError;
     clippy::future_not_send,
     reason = "MainWorker is !Send; the caller must use a current_thread tokio runtime"
 )]
-pub async fn run_module(module_name: &str, ws_url: &str) -> Result<(), RunnerError> {
+pub async fn run_module(module_name: &str, ws_url: &str, pycov: bool) -> Result<(), RunnerError> {
     // Ensure a rustls crypto provider is installed (needed by deno_tls/deno_fetch).
     // MainWorker bootstrap installs one but the workspace `et-rest-client` we
     // use ahead of MainWorker (to fetch package.json) also wants a provider, so
@@ -42,7 +42,7 @@ pub async fn run_module(module_name: &str, ws_url: &str) -> Result<(), RunnerErr
 
     tracing::info!(%entry_url, "running module JS");
 
-    runtime::run_js_module(&entry_url, &http_base, ws_url, rest).await?;
+    runtime::run_js_module(&entry_url, &http_base, ws_url, rest, pycov).await?;
     Ok(())
 }
 

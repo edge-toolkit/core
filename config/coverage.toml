@@ -1,0 +1,14 @@
+# coverage.py config for the combined Python report (referenced via COVERAGE_RCFILE by the pytest-cov task).
+# Three data sources feed one report: pyface1's pytest run, and the web-runner Pyodide runs of pydata1 + pyface1
+# (whose .coverage files the web-runner integration test drops into target/pycov/). `[tool.coverage.paths]` remaps
+# each source's recorded path to the repo-relative one so `coverage combine` merges them into a single file entry:
+# pytest records relative paths (pyface1/...); the Pyodide runs record absolute in-interpreter paths
+# (/tmp/<wheel>/<pkg>/...), matched by the `**/<pkg>` alias. First entry in each list is the canonical result and
+# must be a real on-disk path so `coverage xml` can read source.
+
+[tool.coverage.run]
+relative_files = true
+
+[tool.coverage.paths]
+pydata1 = ["**/pydata1", "pydata1", "services/ws-modules/pydata1/pydata1"]
+pyface1 = ["**/pyface1", "pyface1", "services/ws-modules/pyface1/pyface1"]

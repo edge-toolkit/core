@@ -29,6 +29,8 @@ jobs:
     timeout-minutes: 150
     env:
       MISE_ENV: dart,dotnet,java,js,python,rust,zig,coverage
+      # Gate the Pyodide module shims to collect coverage.py data during the web-runner tests (cargo-llvm-cov step).
+      ET_TEST_COVERAGE: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -67,6 +69,12 @@ jobs:
         timeout-minutes: 75
         run: mise run cargo-llvm-cov
 
+      # Fold the instrumented wasm guest modules' coverage into lcov.info so it rides the same `rust` flag.
+      # The WASI + browser modules dumped their .profraw to target/wasi-cov during the runner tests above.
+      - name: Merge wasm guest coverage into lcov.info
+        timeout-minutes: 10
+        run: mise run wasm-cov
+
       - name: Collect Python coverage
         timeout-minutes: 15
         env:
@@ -85,7 +93,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           use_oidc: true
-          files: services/ws-modules/pyface1/coverage-python.xml
+          files: coverage-python.xml
           flags: python
           fail_ci_if_error: true
 
@@ -93,9 +101,7 @@ jobs:
         run: deepsource report --analyzer test-coverage --key rust --value-file lcov.info --use-oidc
 
       - name: Upload Python coverage to DeepSource (OIDC)
-        run: |
-          f=services/ws-modules/pyface1/coverage-python.xml
-          deepsource report --analyzer test-coverage --key python --value-file "$f" --use-oidc
+        run: deepsource report --analyzer test-coverage --key python --value-file coverage-python.xml --use-oidc
 
       # Upload test results even when tests failed.
       # nextest still wrote the JUnit report, and a failing run is exactly when the per-test results on Codecov

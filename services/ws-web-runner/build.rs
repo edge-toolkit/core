@@ -25,6 +25,7 @@ fn main() {
     println!("cargo:rerun-if-changed=mingw-shim/msvc_crt_shim.c");
     println!("cargo:rerun-if-changed=mingw-shim/msvc_crt_ops.s");
     println!("cargo:rerun-if-changed=mingw-shim/msvc_crt_locale.c");
+    println!("cargo:rerun-if-changed=mingw-shim/msvc_crt_alloc.c");
 
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let target_env = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
@@ -47,6 +48,12 @@ fn main() {
     let locale_obj = format!("{out_dir}/msvc_crt_locale.o");
     let locale_args = ["-c", "-O2", "-o", &locale_obj, "mingw-shim/msvc_crt_locale.c"];
     run(std::process::Command::new(gcc.path()).args(locale_args));
+
+    // msvc_crt_alloc.c (operator new/delete + _dupenv_s) is a standalone object for the same reason: _dupenv_s
+    // must intercept -lmsvcrt, and the operator-new symbols resolve the msvc_crt_ops.s jumps in the archive.
+    let alloc_obj = format!("{out_dir}/msvc_crt_alloc.o");
+    let alloc_args = ["-c", "-O2", "-o", &alloc_obj, "mingw-shim/msvc_crt_alloc.c"];
+    run(std::process::Command::new(gcc.path()).args(alloc_args));
 
     // The msvc archive embeds `/defaultlib:libcmt` + `/defaultlib:oldnames` directives. lld honours them
     // (ld.bfd ignores directives) and errors when the libs don't exist; MSVC's static CRT has no mingw
@@ -72,6 +79,7 @@ fn main() {
         .current_dir(&out_dir));
 
     println!("cargo:rustc-link-arg={locale_obj}");
+    println!("cargo:rustc-link-arg={alloc_obj}");
     println!("cargo:rustc-link-arg={out_dir}/libmsvc_crt_shim.a");
     println!("cargo:rustc-link-arg=-lvcruntime140");
     println!("cargo:rustc-link-arg=-lucrtbase");

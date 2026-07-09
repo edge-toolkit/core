@@ -20,4 +20,8 @@ pub struct Config {
     /// OpenTelemetry config, from the `OTLP_*` env vars; `None` logs to stderr.
     #[serde(default)]
     pub otlp: Option<OtlpConfig>,
+    /// When `ET_TEST_COVERAGE=true`, preopen a `/cov` dir for instrumented guests to write their minicov
+    /// `.profraw` into (collected by the wasi-cov task into the combined Rust coverage). Test-only, defaults off.
+    #[serde(default)]
+    pub et_test_coverage: bool,
 }

@@ -4245,6 +4245,7 @@ name = "et-web"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "minicov",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -4291,6 +4292,7 @@ name = "et-ws-comm1"
 version = "0.1.0"
 dependencies = [
  "edge-toolkit",
+ "et-web",
  "et-ws-wasm-agent",
  "js-sys",
  "serde",
@@ -4601,6 +4603,8 @@ name = "et-ws-wasi-comm1"
 version = "0.1.0"
 dependencies = [
  "et-path",
+ "fs-err",
+ "minicov",
  "serde_json",
  "wit-bindgen",
 ]
@@ -4610,6 +4614,8 @@ name = "et-ws-wasi-data1"
 version = "0.1.0"
 dependencies = [
  "et-path",
+ "fs-err",
+ "minicov",
  "serde_json",
  "wit-bindgen",
 ]
@@ -4626,6 +4632,7 @@ dependencies = [
  "et-test-helpers",
  "et-ws-runner-common",
  "et-ws-test-server",
+ "fs-err",
  "futures-util",
  "int-otlp-mock",
  "libc",

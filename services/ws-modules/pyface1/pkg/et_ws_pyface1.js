@@ -46,6 +46,8 @@ export default async function init() {
   // package.json so a bump there doesn't require touching this file.
   const { installWheel: installEtWs } = await import("/modules/et-ws/et_ws.js");
   await installEtWs(pyodide);
+  // Start Pyodide coverage before importing so import-time lines count (no-op unless the runner set the gate).
+  if (globalThis.__etPyCov) await globalThis.__etPyCov.start(pyodide, "pyface1");
   py = pyodide.pyimport("pyface1");
   cfg = py.config().toJs({ dict_converter: Object.fromEntries });
 }
@@ -107,6 +109,8 @@ export async function run() {
       pyodide.toPy(() => runtime !== state),
     );
   } finally {
+    // Fires even when getUserMedia throws under the runner, so import + pre-camera lines still get credited.
+    if (globalThis.__etPyCov) await globalThis.__etPyCov.stop(pyodide, "pyface1");
     cleanup(state ?? { client, stream });
   }
 }

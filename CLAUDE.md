@@ -819,6 +819,20 @@ preference:
 Excluding a directory or disabling a rule class is the last resort, not the first. Treat any new blanket exclusion or
 disabled security lint in a diff as a red flag to push back on.
 
+When step 3 is genuinely forced -- the analyzer offers no per-line or per-pattern suppression (some external services,
+e.g. Codacy, only support path excludes) and the finding is a reviewed-safe necessity that cannot be fixed -- the
+exclusion must still be as **narrow as the file layout allows**. Do not exclude a whole directory (or a file that also
+holds analyzable code) to silence one un-suppressible construct: first refactor the code so the un-suppressible part is
+**isolated into its own smallest-possible file**, then exclude only that file. Everything factored out of it stays
+analyzed. The `services/ws-web-runner/mingw-shim/msvc_crt_alloc.c` split is the worked example -- the shim's only
+MISRA-21.3-unavoidable heap-allocation code (operator new/delete + `_dupenv_s`) was pulled out of
+`msvc_crt_shim.c` / `msvc_crt_locale.c` into that one file so Codacy's path exclude covers just it, leaving the rest of
+the shim under full analysis (and even the excluded file stays covered by DeepSource's clang-tidy plus the repo's own
+clang-tidy / cpplint / flawfinder). Record the exclusion rationale once, in the **excluded file's own header comment**
+-- that is its canonical home, because more than one analyzer config may exclude the same file and the reasoning must
+not be copied into each. Every config's exclude entry carries at most a one-line pointer back to the file, never a
+second copy of the rationale.
+
 ### When you spot a style or consistency issue, write a rule
 
 If a code-review comment, a fix-up commit, or a CLAUDE.md paragraph would tell the next contributor "don't do X"

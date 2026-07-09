@@ -8,6 +8,11 @@
 # The rest of the Rust toolchain + tasks (the `rust` tool itself, cargo-*, the universal repo-wide checks,
 # ws-server, the e2e tests) still live in the default config; moving those out is a later pass.
 
+# These browser wasm-pack builds are NOT yet coverage-instrumented (unlike the WASI guests below).
+# wasm-pack applies RUSTFLAGS build-wide, so -Cinstrument-coverage -Zno-profiler-runtime breaks dependency
+# cdylibs (e.g. tracing-wasm) that do not link minicov's __llvm_profile_runtime; per-crate instrumentation
+# (cargo rustc, not wasm-pack) is needed. The capture plumbing (et-web __et_capture_coverage, the runner, the
+# wasm-cov task) is already in place for when that lands.
 [tasks.build-ws-data1-module]
 description = "Build the data1 workflow WASM module"
 dir = "services/ws-modules/data1"
@@ -68,7 +73,7 @@ description = "Build the Rust WASI data1 module as a WASI Preview 2 component"
 # .wasm artifact lands in the workspace-shared `target/` and is then
 # copied into the module's pkg/ for et-modules-service to serve.
 run = """
-cargo build --release -p et-ws-wasi-data1 --target wasm32-wasip2
+{{ vars.wasm_cov }} cargo build --release -p et-ws-wasi-data1 --target wasm32-wasip2{{ vars.wasi_cov_feat }}
 mkdir -p services/ws-modules/wasi-data1/pkg
 cp target/wasm32-wasip2/release/et_ws_wasi_data1.wasm services/ws-modules/wasi-data1/pkg/et_ws_wasi_data1.wasm
 {{ vars.et_cli }} module-package-json --module-dir services/ws-modules/wasi-data1
@@ -79,7 +84,7 @@ shell = "bash -euo pipefail -c"
 depends = ["build-et-cli"]
 description = "Build the Rust WASI comm1 module as a WASI Preview 2 component"
 run = """
-cargo build --release -p et-ws-wasi-comm1 --target wasm32-wasip2
+{{ vars.wasm_cov }} cargo build --release -p et-ws-wasi-comm1 --target wasm32-wasip2{{ vars.wasi_cov_feat }}
 mkdir -p services/ws-modules/wasi-comm1/pkg
 cp target/wasm32-wasip2/release/et_ws_wasi_comm1.wasm services/ws-modules/wasi-comm1/pkg/et_ws_wasi_comm1.wasm
 {{ vars.et_cli }} module-package-json --module-dir services/ws-modules/wasi-comm1

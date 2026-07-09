@@ -13,6 +13,9 @@
 # - CLAUDE.md: Codacy's prose rules (undefined-acronym, absolute-rule-without-escape-hatch) fight this
 #   agent-instructions doc, which is imperative and full of deliberate absolutes ("NEVER ...", "ALWAYS ...") by
 #   design; dprint + typos + editorconfig already lint it, so Codacy adds only false positives here.
+# - services/ws-web-runner/mingw-shim/msvc_crt_alloc.c: MISRA-21.3-unavoidable heap-allocation code Codacy cannot
+#   suppress per line; isolated into that one file so this exclude stays minimal. Full rationale lives in the
+#   file's own header comment (its canonical home, since more than one analyzer config may exclude the same file).
 exclude_paths:
   - ".github/actions/**"
   - ".github/workflows/**"
@@ -20,3 +23,4 @@ exclude_paths:
   - "Dockerfile"
   - "config/semgrep/**"
   - "services/ws-modules/dotnet-data1/Program.cs"
+  - "services/ws-web-runner/mingw-shim/msvc_crt_alloc.c"

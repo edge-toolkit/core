@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         info!("applied V8_FLAGS: {v8_flags}");
     }
 
-    let run = run_module(module, ws_url);
+    let run = run_module(module, ws_url, config.et_test_coverage);
     let result = if let Some(timeout) = config.runner.timeout {
         info!("et-ws-web-runner: module={module} server={ws_url} timeout={timeout:?}");
         match tokio::time::timeout(timeout, run).await {

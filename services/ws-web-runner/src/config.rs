@@ -21,4 +21,10 @@ pub struct Config {
     /// dotnet-data1 crash (e.g. `--no-liftoff`, `--liftoff-only`, `--jitless`).
     #[serde(default)]
     pub v8_flags: Option<String>,
+    /// When `ET_TEST_COVERAGE=true`, the Pyodide module shims collect coverage.py data and PUT it to ws-server
+    /// storage for the web-runner integration test to gather into the combined Python coverage report. Test-only;
+    /// defaults off (serde-env parses the value with `str::parse::<bool>`, so it must be `true`/`false`), and in
+    /// production the coverage shim then does nothing.
+    #[serde(default)]
+    pub et_test_coverage: bool,
 }

@@ -42,6 +42,7 @@
 )]
 
 use edge_toolkit::config::{Language, mise_env_includes};
+use fs_err as fs;
 use rstest::rstest;
 
 #[rstest]
@@ -71,6 +72,7 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
     }
     let server = et_ws_test_server::start();
     run_runner_with_timeout(module, &server.ws_url, 90);
+    collect_module_coverage(&server);
 }
 
 /// dotnet-data1's `pkg/` wasm artifacts only exist after `build-ws-dotnet-data1-module` has run on this
@@ -164,6 +166,7 @@ fn hardware_module_load_fails(#[case] module: &str, #[case] language: Language) 
     // this bound; it only bites if a module instead awaits a device callback that never fires, in which case
     // RUNNER_TIMEOUT kills it -- still the non-zero exit we assert.
     let output = run_runner(module, &server.ws_url, 30);
+    collect_module_coverage(&server);
     assert!(
         !output.status.success(),
         concat!(
@@ -184,12 +187,64 @@ fn hardware_module_load_fails(#[case] module: &str, #[case] language: Language) 
 /// same box widen the discovery window past the single-agent budget.
 fn run_runner(module: &str, ws_url: &str, timeout_secs: u32) -> std::process::Output {
     let bin = env!("CARGO_BIN_EXE_et-ws-web-runner");
+    let mut envs = vec![
+        ("RUNNER_MODULE".to_owned(), module.to_owned()),
+        ("WS_SERVER_URL".to_owned(), ws_url.to_owned()),
+        ("RUNNER_TIMEOUT".to_owned(), format!("{timeout_secs}s")),
+    ];
+    // Forward the coverage gate so the child's Pyodide shims collect coverage.py data into ws-server storage.
+    if let Some(value) = std::env::var("ET_TEST_COVERAGE").ok().filter(|value| !value.is_empty()) {
+        envs.push(("ET_TEST_COVERAGE".to_owned(), value));
+    }
     std::process::Command::new(bin)
-        .env("RUNNER_MODULE", module)
-        .env("WS_SERVER_URL", ws_url)
-        .env("RUNNER_TIMEOUT", format!("{timeout_secs}s"))
+        .envs(envs)
         .output()
         .expect("failed to spawn et-ws-web-runner")
+}
+
+/// Collect the coverage a module PUT into the test server's storage, when `ET_TEST_COVERAGE` is set.
+///
+/// Two sources, both gathered so the later coverage tasks find them:
+/// - Pyodide modules write coverage.py `.coverage` data under `pycov/<pkg>.coverage`; copied to `target/pycov/`
+///   renamed to coverage.py's parallel-data convention (`.coverage.<pkg>`) for the `pytest-cov` combine.
+/// - Rust browser-wasm modules write minicov `.profraw` under `wasmcov/<crate>.profraw`; copied to
+///   `target/wasi-cov/` (where the `wasm-cov` task turns them into lcov via the same llc/llvm-cov pipeline).
+///
+/// A no-op when the gate is unset or the module wrote nothing.
+fn collect_module_coverage(server: &et_ws_test_server::TestServer) {
+    if !std::env::var("ET_TEST_COVERAGE")
+        .ok()
+        .and_then(|value| value.parse::<bool>().ok())
+        .unwrap_or(false)
+    {
+        return;
+    }
+    let root = edge_toolkit::config::get_project_root();
+    if let Ok(entries) = fs::read_dir(server.storage_dir.path().join("pycov")) {
+        let dest_dir = root.join("target/pycov");
+        fs::create_dir_all(&dest_dir).expect("create target/pycov");
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().is_some_and(|ext| ext == "coverage") {
+                let stem = path
+                    .file_stem()
+                    .expect("coverage data file has a stem")
+                    .to_string_lossy();
+                let _copied = fs::copy(&path, dest_dir.join(format!(".coverage.{stem}"))).expect("copy pycov");
+            }
+        }
+    }
+    if let Ok(entries) = fs::read_dir(server.storage_dir.path().join("wasmcov")) {
+        let dest_dir = root.join("target/wasi-cov");
+        fs::create_dir_all(&dest_dir).expect("create target/wasi-cov");
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().is_some_and(|ext| ext == "profraw") {
+                let name = path.file_name().expect("profraw has a file name");
+                let _copied = fs::copy(&path, dest_dir.join(name)).expect("copy wasmcov profraw");
+            }
+        }
+    }
 }
 
 /// Run `module` and panic with the captured stdout/stderr on non-zero exit.
