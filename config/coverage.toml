@@ -10,5 +10,5 @@
 relative_files = true
 
 [tool.coverage.paths]
-pydata1 = ["**/pydata1", "pydata1", "services/ws-modules/pydata1/pydata1"]
-pyface1 = ["**/pyface1", "pyface1", "services/ws-modules/pyface1/pyface1"]
+pydata1 = ["services/ws-modules/pydata1/pydata1", "pydata1", "**/pydata1"]
+pyface1 = ["services/ws-modules/pyface1/pyface1", "pyface1", "**/pyface1"]

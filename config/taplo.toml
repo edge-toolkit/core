@@ -21,6 +21,14 @@ keys = ["package"]
 formatting = { reorder_arrays = false }
 keys = ["workspace"]
 
+# Do not reorder the coverage.py path lists -- their order is semantic.
+# coverage uses each list's FIRST entry as the canonical result path, so alpha-sorting would push the `**/` glob
+# first and break the source-path remap.
+[[rule]]
+formatting = { reorder_arrays = false }
+include = ["**/coverage.toml"]
+keys = ["tool.coverage.paths"]
+
 # Forbid `path = "..."` dependencies in non-root Cargo.toml files.
 # The root Cargo.toml's `[workspace.dependencies]` is the only legitimate place for path deps; member crates
 # reference them via `dep.workspace = true`.
