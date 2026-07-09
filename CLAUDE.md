@@ -786,12 +786,38 @@ standalone file or a mise task `run`. The available linters:
   `{% ... %}` -> empty), and shellchecks the lot. This is how shell-quality
   lints reach mise task bodies (shellcheck itself doesn't read TOML).
 - plus hadolint, ls-lint (file/dir naming), zizmor (Actions security), ryl
-  (YAML), lychee (links), clang-format / clang-tidy / cpplint (C, in the zig config), editorconfig-checker, typos, and
-  action-validator for their domains.
+  (YAML), lychee (links), clang-format / clang-tidy / cpplint / flawfinder (C, in the zig config),
+  editorconfig-checker, typos, and action-validator for their domains.
 
 ast-grep has no TOML grammar, so it **cannot** lint TOML -- use a taplo schema or
 a semgrep `generic` rule there. If none of the above can express a check,
 propose adding a new mise-installable linter rather than scripting it by hand.
+
+### Maximise linter coverage; suppress only narrowly, with justification
+
+This project aims for an extremely high DevSecOps bar, and the governing goal is **maximum linter rule coverage** --
+across Rust, every guest language, the configs, Dockerfiles, GitHub Actions, and the external services (DeepSource,
+Codacy, ...). The default is always to enable more rules and more linters, never fewer; a rule that catches a real
+class of defect is worth the friction.
+
+Because of that, **never turn a lint off to make code pass, and never avoid a security-related lint.** Do not disable
+a rule, switch off a whole analyzer or rule class (e.g. an analyzer's `misra_compliance`-style toggle), exclude a
+whole file or directory from analysis, or otherwise silence findings wholesale -- each trades real coverage for a
+green check, and silencing a security lint is never acceptable.
+
+When a finding is a genuine false positive or an unavoidable, reviewed-safe necessity, suppress it at the **narrowest
+possible scope** -- one line, one rule -- with a justification stating _why_ it is safe or false. In order of
+preference:
+
+1. **Fix the code** so the finding no longer fires -- the only right answer for anything actionable.
+2. **Inline, per-finding suppression carrying a reason** -- `#[expect(..., reason = "...")]`, `// skipcq: <code>`,
+   `// flawfinder: ignore [why]`, a `nosemgrep: <rule>` note, etc. -- scoped to the single line and single rule,
+   never a bare blanket ignore that also hides future (possibly real) findings on that line.
+3. Only if neither works, a tightly-scoped path-or-rule carve-out in the linter config, commented with the exact
+   reason -- and this needs operator sign-off (see the rule-deletion note below).
+
+Excluding a directory or disabling a rule class is the last resort, not the first. Treat any new blanket exclusion or
+disabled security lint in a diff as a red flag to push back on.
 
 ### When you spot a style or consistency issue, write a rule
 

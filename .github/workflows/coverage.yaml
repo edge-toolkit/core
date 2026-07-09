@@ -21,9 +21,6 @@ defaults:
     shell: bash --noprofile --norc -euo pipefail {0}
 
 env:
-  # Exact full guest-language set -- gha.rego pins this literal value at the workflow level.
-  # (It's what lets `build-modules` build every ws-module so the Rust tests run.) The coverage job appends the
-  # `coverage` env at job level below, mirroring test.yaml's override job's `,${{ matrix.compiler }}`.
   MISE_ENV: dart,dotnet,java,js,python,rust,zig
 
 jobs:
@@ -52,7 +49,7 @@ jobs:
         timeout-minutes: 20
         with:
           github-token: ${{ github.token }}
-          install-action-tools: cargo-llvm-cov
+          install-action-tools: cargo-llvm-cov,deepsource
 
       - name: Prefetch dependencies
         timeout-minutes: 15
@@ -91,6 +88,14 @@ jobs:
           files: services/ws-modules/pyface1/coverage-python.xml
           flags: python
           fail_ci_if_error: true
+
+      - name: Upload Rust coverage to DeepSource (OIDC)
+        run: deepsource report --analyzer test-coverage --key rust --value-file lcov.info --use-oidc
+
+      - name: Upload Python coverage to DeepSource (OIDC)
+        run: |
+          f=services/ws-modules/pyface1/coverage-python.xml
+          deepsource report --analyzer test-coverage --key python --value-file "$f" --use-oidc
 
       # Upload test results even when tests failed.
       # nextest still wrote the JUnit report, and a failing run is exactly when the per-test results on Codecov

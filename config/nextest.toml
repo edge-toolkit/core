@@ -1,14 +1,9 @@
-# nextest config for the whole repo.
-# The merged `cargo-test` task and the coverage workflow both load it via `--config-file config/nextest.toml`
-# (nextest's default location is `.config/`, which the repo does not use). The coverage task additionally selects
-# the `ci` profile (NEXTEST_PROFILE=ci) to emit target/nextest/ci/junit.xml, uploaded to Codecov as test results.
+# The coverage mise task selects the `ci` profile to emit target/nextest/ci/junit.xml.
 [profile.ci.junit]
 path = "junit.xml"
 
 # Serialize et-ws-web-runner's tests (under `default`, so every profile inherits it).
-# Each boots a heavy deno_runtime MainWorker, and several at once exhaust fd/port budgets. `max-threads = 1`
-# runs them one at a time while the rest of the workspace stays parallel -- nextest's equivalent of the suite's
-# old single-threaded run (nextest ignores RUST_TEST_THREADS).
+# Each web-runner test launches a heavy deno_runtime MainWorker, and several at once exhaust fd/port budgets.
 [test-groups]
 web-runner = { max-threads = 1 }
 

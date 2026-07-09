@@ -64,9 +64,6 @@ ast-grep = "latest"
 cargo-binstall = "latest"
 "cargo:cargo-expand" = { version = "latest", os = ["linux", "macos"] }
 "cargo:wasm-opt" = { version = "latest", os = ["linux", "macos"] }
-# cargo-nextest test runner (github backend; ubi is disabled here).
-# mise picks the cargo-nextest-* release asset for the host triple (universal binary on macOS) and exposes the
-# `cargo-nextest` bin.
 "github:nextest-rs/nextest" = "latest"
 taplo = "latest"
 watchexec = "latest"
@@ -1185,14 +1182,7 @@ shell = "bash -euo pipefail -c"
 depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "fetch-mnist-rclone"]
 
 [tasks.cargo-test]
-description = "Run every Rust test via nextest (single run; et-ws-web-runner serialized, excluded on gnullvm)"
-# One nextest run over the whole workspace, replacing the old cargo-test-other + test-ws-web-runner split.
-# et-ws-web-runner's tests each boot a heavy deno_runtime MainWorker; running several in parallel exhausts fd/port
-# budgets. The `web-runner` test-group in config/nextest.toml caps them to one at a time (nextest ignores
-# RUST_TEST_THREADS), while the rest of the workspace stays parallel. `{{ vars.cargo_ws_excludes }}` is empty
-# except on the gnullvm Windows target, which cannot build et-ws-web-runner (rusty_v8 ships no gnullvm prebuilt);
-# there it expands to `--exclude et-ws-web-runner`, so the crate is dropped from the build (the config.mingw/msvc
-# envs clear the var, so those lanes build + run it against the msvc rusty_v8 prebuilt).
+description = "Run every Rust test via nextest (web-runner excluded on gnullvm)"
 run = "cargo nextest run --workspace {{ vars.cargo_ws_excludes }} --config-file config/nextest.toml"
 
 [tasks."test:rust"]

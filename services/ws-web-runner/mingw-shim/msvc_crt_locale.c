@@ -57,6 +57,7 @@ void *localeconv(void) {
     return fn();
 }
 
+// NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c)
 void *_create_locale(int category, const char *locale) {
     static void *(*fn)(int, const char *);
     if (fn == NULL) {
@@ -65,6 +66,7 @@ void *_create_locale(int category, const char *locale) {
     return fn(category, locale);
 }
 
+// NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c)
 void _free_locale(void *locale) {
     static void (*fn)(void *);
     if (fn == NULL) {
@@ -77,8 +79,11 @@ void _free_locale(void *locale) {
  * The real one is ucrt-only, so it binds to ucrtbase and would allocate from the UCRT heap -- but the
  * archive frees the returned buffer with `free`, which is msvcrt-bound. errno values per the MSVC
  * contract. */
+// _dupenv_s is declared __declspec(dllimport) by ucrt's stdlib.h, but here we define it on the mingw heap.
+// The redeclaration drops dllimport by design -- the archive links our definition, not an import thunk.
+// NOLINTNEXTLINE(clang-diagnostic-inconsistent-dllimport)
 int _dupenv_s(char **buf, size_t *len, const char *name) {
-    if (buf == NULL || name == NULL) {
+    if ((buf == NULL) || (name == NULL)) {
         return 22; /* EINVAL */
     }
     *buf = NULL;
@@ -94,7 +99,7 @@ int _dupenv_s(char **buf, size_t *len, const char *name) {
         return 12; /* ENOMEM */
     }
     if (len != NULL) {
-        *len = strlen(value) + 1;
+        *len = strlen(value) + 1U;
     }
     return 0;
 }

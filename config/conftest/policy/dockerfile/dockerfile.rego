@@ -3,8 +3,9 @@
 # rules:
 #   1. version drift -- the Dockerfile hard-codes mise install-dir paths (LLVMBIN, the busybox shell, the python dir
 #      on PATH) that embed a tool's pinned version; those must match the [tools] pins (reuses mise.rego's matcher).
-#   2. MISE_DISABLE_TOOLS -- every pipx: tool in the always-loaded config.toml must be disabled here (pipx can't run
-#      on Nano Server), so a newly added pipx tool can't silently break the Windows build.
+#   2. MISE_DISABLE_TOOLS -- every pipx: tool in the always-loaded config.toml and in each guest config Nano enables
+#      (its ENV MISE_ENV) must be disabled here (pipx can't run on Nano Server), so a newly added pipx tool in any of
+#      those can't silently break the Windows build.
 package dockerfile
 
 import data.mise
@@ -47,7 +48,37 @@ disabled_tools contains tool if {
 	tool := trim_space(token)
 }
 
-# Every pipx:* tool in the always-loaded config.toml must be in Dockerfile.nanoserver's MISE_DISABLE_TOOLS.
+# The guest languages Nano Server enables, read from its `ENV MISE_ENV=<langs>`.
+# Only the always-loaded config.toml and these guest configs load on Nano, so only their pipx tools can run there.
+# The dockerfile parser stores an ENV's key and value as adjacent Value elements (["MISE_ENV", "dart,java,..."]),
+# so find the "MISE_ENV" key and split the element that follows it.
+nano_langs contains lang if {
+	some file in input
+	is_array(file.contents)
+	some instr in file.contents
+	instr.Cmd == "env"
+	some i
+	instr.Value[i] == "MISE_ENV"
+	some lang in split(instr.Value[i + 1], ",")
+}
+
+# The pipx tools Nano can try to install come only from config.toml and its enabled guest configs.
+# Collect the always-loaded config.toml plus each config.<lang>.toml whose lang is in MISE_ENV.
+pipx_scope_path contains path if {
+	some file in input
+	endswith(file.path, ".mise/config.toml")
+	path := file.path
+}
+
+pipx_scope_path contains path if {
+	some file in input
+	some lang in nano_langs
+	endswith(file.path, sprintf(".mise/config.%s.toml", [lang]))
+	path := file.path
+}
+
+# Every pipx:* tool in an in-scope config must be in Dockerfile.nanoserver's MISE_DISABLE_TOOLS.
+# In-scope means the always-loaded config.toml plus each guest config Nano enables.
 # pipx:* tools can't run on Nano Server (no CPython, and the rustpython-based pipx bootstrap in config.windows.toml's
 # preinstall is currently broken with STATUS_DLL_NOT_FOUND / STATUS_ENTRYPOINT_NOT_FOUND on Nano's stripped API set,
 # hence the ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP env gate that defaults off). A previous canary carve-out (pipx:cowsay
@@ -55,7 +86,7 @@ disabled_tools contains tool if {
 # re-introduce when the bootstrap is fixed upstream and re-enabled by default.
 deny contains msg if {
 	some file in input
-	endswith(file.path, ".mise/config.toml")
+	file.path in pipx_scope_path
 	some name, _ in file.contents.tools
 	startswith(name, "pipx:")
 	not disabled_tools[name]
