@@ -1,10 +1,6 @@
 # Dart toolchain + tasks. Loaded when MISE_ENV includes `dart`.
 
 [vars]
-# Google dart-archive base URLs, split out so [tools.dart] below stays one line.
-# The release tree and the bucket listing are referenced by its url/version_list_url.
-dart_bucket = "https://storage.googleapis.com/storage/v1/b/dart-archive/o"
-dart_release = "https://storage.googleapis.com/dart-archive/channels/stable/release"
 # Every tracked Dart package: the two generated clients plus the two modules. Shared by analyze/format.
 dart_paths = "generated/dart-ws generated/dart-rest services/ws-modules/dart-comm1 services/ws-modules/dart-data1"
 

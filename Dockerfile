@@ -340,7 +340,7 @@ CMD ["et-ws-server"]
 # as `--build-context extras=target/check-ctx`. `COPY --from=extras . ./`
 # lands .git/ + Dockerfile* in the workspace. With .git/ on disk the git-
 # using checks (action-validator, hadolint via `git ls-files`,
-# conftest-check-toml, docker-check, gen-specs-check, verification-check)
+# conftest-check-toml, dockerignore-check, gen-specs-check, verification-check)
 # resolve normally. This stage exists only so docker-linux.yaml can run the
 # full `mise run check` against each matrix base. Being last in this file
 # means `docker build` with no `--target` builds this stage by default --

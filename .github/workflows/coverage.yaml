@@ -70,11 +70,26 @@ jobs:
         timeout-minutes: 75
         run: mise run cargo-llvm-cov
 
-      - name: Upload coverage to Codecov (OIDC)
+      - name: Collect Python coverage
+        timeout-minutes: 15
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run pytest-cov
+
+      - name: Upload Rust coverage to Codecov (OIDC)
         uses: codecov/codecov-action@v5
         with:
           use_oidc: true
           files: lcov.info
+          flags: rust
+          fail_ci_if_error: true
+
+      - name: Upload Python coverage to Codecov (OIDC)
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          files: services/ws-modules/pyface1/coverage-python.xml
+          flags: python
           fail_ci_if_error: true
 
       # Upload test results even when tests failed.

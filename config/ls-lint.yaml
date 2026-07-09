@@ -17,6 +17,10 @@ ls:
   .cs: PascalCase
   .java: PascalCase
 
+  # Ban the `.conf` extension: config files standardize on `.ini`/`.rc`, as rclone.ini and ripgrep.rc do.
+  # `regex:^$` matches no basename, so every `*.conf` file fails the check.
+  .conf: regex:^$
+
 ignore:
   - .git
   - target

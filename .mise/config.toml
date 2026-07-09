@@ -278,6 +278,11 @@ conda_openssl = "{{ vars.a_home }}/.local/share/mise/installs/conda-openssl/3"
 # like `D:\a\core\core/target/...` become `D:acorecore/target/...`). Forward slashes Just Work on both
 # shells. Used as the root of every workspace-relative var below.
 config_root_fwd = '{{ config_root | replace(from="\\", to="/") }}'
+# Google dart-archive base URLs for config.dart.toml's `[tools.dart]` url/version_list_url.
+# They live here (always-loaded), not in the dart config, because mise resolves tool URLs during
+# `mise upgrade`/`install` without that env config's own [vars] in scope -- the same reason augeas_* assets are here.
+dart_bucket = "https://storage.googleapis.com/storage/v1/b/dart-archive/o"
+dart_release = "https://storage.googleapis.com/dart-archive/channels/stable/release"
 # Absolute path to the workspace-built et-cli binary.
 # The parallel build-ws-*-module tasks each invoke `et-cli module-package-json`; using this var (rather than
 # `cargo run -p et-cli`) means every invocation execs the same pre-built binary instead of re-entering cargo,
@@ -399,8 +404,10 @@ OPENSSL_DIR = "{{ vars.conda_openssl }}"
 # Always-loaded so `cargo check --workspace` builds the pyo3 runner without MISE_ENV=python. This is the
 # Linux/macOS path; config.windows.toml overrides it with py3_win.
 PYO3_PYTHON = "{{ vars.py3_unix }}"
-RCLONE_CONFIG = "{{ config_root }}/config/rclone.conf"
+RCLONE_CONFIG = "{{ config_root }}/config/rclone.ini"
 RCLONE_RETRIES = "1"
+# Make a bare `rg` search the tracked hidden dirs (esp. `.mise/`) instead of skipping them. See the config file.
+RIPGREP_CONFIG_PATH = "{{ config_root }}/config/ripgrep.rc"
 
 # Scope to the wasm32 target only.
 # The env value is honoured by every `wasm-pack`/`cargo` invocation that targets wasm32-unknown-unknown but
@@ -472,7 +479,7 @@ depends = [
   "cargo-doc-check",
   "cargo-fmt-check",
   "conftest-check",
-  "docker-check",
+  "dockerignore-check",
   "dprint-check",
   "editorconfig-check",
   "gen-help-all",
@@ -654,7 +661,7 @@ shell = "bash -euo pipefail -c"
 
 [tasks.conftest-check-dockerfile]
 description = "Cross-check Dockerfiles against mise [tools] pins + heredoc body-first-line invariants"
-# Two passes over each Dockerfile:
+# Two passes over each Dockerfile.
 #   1. `dockerfile` parser (default) for AST-shape rules: version drift, pipx-disable, RUN heredoc must invoke bash.
 #      Combined with .mise so the AST rules can compare against [tools] pins.
 #   2. `ignore` parser, which preserves every line of the file as a separate entry -- conftest's dockerfile parser
@@ -929,7 +936,7 @@ run = '''
 '''
 shell = "bash -euo pipefail -c"
 
-[tasks.docker-check]
+[tasks.dockerignore-check]
 depends = ["gen:dockerignore"]
 description = "Fail if .dockerignore is stale vs .gitignore (run `mise run gen:dockerignore`)"
 run = "git diff --exit-code -- .dockerignore"

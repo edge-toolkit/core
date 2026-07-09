@@ -85,7 +85,7 @@ int _dupenv_s(char **buf, size_t *len, const char *name) {
     if (len != NULL) {
         *len = 0;
     }
-    const char *value = getenv(name);
+    const char *value = getenv(name); /* flawfinder: ignore [_dupenv_s shim: reading the env var is the point] */
     if (value == NULL) {
         return 0;
     }

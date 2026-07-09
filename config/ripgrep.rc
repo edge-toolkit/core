@@ -1,0 +1,7 @@
+# ripgrep default flags for this repo, loaded via RIPGREP_CONFIG_PATH (set in .mise/config.toml's [env]).
+# Search hidden dot-dirs by default -- above all `.mise/` (tracked task/tool config that rg would otherwise skip
+# because it is a hidden directory) and `.github/` -- so a bare `rg <pattern>` covers the whole tracked tree.
+# `.git/` is the one hidden dir still excluded (huge, never source); gitignored trees (target/, node_modules/)
+# stay excluded regardless because rg keeps honoring .gitignore even with --hidden.
+--hidden
+--glob=!.git/

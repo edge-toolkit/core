@@ -482,6 +482,29 @@ installed cleanly). This is an api.github.com rate-limit/transient-network flake
 durable fix is to mirror the affected assets via the upstream-cache pattern (which fetches from our own release
 CDN, off the api.github.com attestation path) rather than adding a retry wrapper.
 
+### Known intermittent CI failure: vector_otlp_relay store-and-forward timing
+
+`et-ws-wasi-runner`'s `vector_otlp_relay::vector_relays_buffered_otlp_after_backend_comes_online` intermittently
+fails with the literal panic line
+
+    mock never received the relayed `relay-probe` span -- store-and-forward failed
+
+from `services/ws-wasi-runner/tests/vector_otlp_relay.rs`. The test pushes one OTLP trace into Vector while the
+sink target is dead, brings a mock collector up on the sink port, then polls the mock for the redelivered span.
+The flake is a redelivery-latency race, not a store-and-forward defect: Vector retries the dead sink with an
+exponential backoff (`retry_initial_backoff_secs=1`, doubling; `retry_max_duration_secs=300` in
+`config/vector-otlp-relay.yaml`), so when its first attempts land in the gap between the mock being told to start
+and its listener actually accepting, the next retry can be tens of seconds out -- and at the original 30s poll
+ceiling that occasionally overran, so the span arrived just after the test gave up. Observed on the `default
+(windows-latest)` lane at commit `71e70e56946abefcea6daf47a7745e5f8f186dad`,
+`https://github.com/edge-toolkit/core/actions/runs/28923326008/job/85829470834` (the failure is OS-agnostic --
+any cold/contended runner, macOS included, can hit it). Fix applied: `wait_for_relayed_span` now polls ~120s
+(`Fixed::from_millis(250).take(480)`) instead of ~30s, which the poll exits the instant the span lands so the
+happy path is unaffected. If this signature recurs at the wider ceiling, the redelivery is being delayed past
+120s -- root-cause it rather than widening again: cap Vector's retry backoff interval (or make
+`int_otlp_mock::start_on` block until its listener is truly accepting so Vector's early retries don't grow the
+backoff), don't just bump the poll.
+
 ## Workarounds
 
 When you can't (or shouldn't) fix the root cause right now -- a libc race in an upstream dep, a flaky platform driver,

@@ -164,9 +164,14 @@ fn otlp_trace_request() -> Vec<u8> {
     request.encode_to_vec()
 }
 
-/// Poll the mock (via `retry`) until a span named [`SPAN_NAME`] arrives; ~30s.
+/// Poll the mock (via `retry`) until a span named [`SPAN_NAME`] arrives; ~120s.
+///
+/// Store-and-forward redelivery is inherently latent: Vector retries the initially-dead sink with an exponential
+/// backoff (`retry_initial_backoff_secs=1`, doubling), so when its first attempts race the mock's listener coming
+/// up, the next retry can land tens of seconds later. The old 30s ceiling intermittently timed that out on cold
+/// CI runners; the poll returns the instant the span lands, so the wider ceiling costs nothing on the happy path.
 fn wait_for_relayed_span(mock: &int_otlp_mock::OtlpMock) -> Option<int_otlp_mock::FlatSpan> {
-    retry(Fixed::from_millis(250).take(120), || {
+    retry(Fixed::from_millis(250).take(480), || {
         mock.flatten_spans()
             .into_iter()
             .find(|span| span.name == SPAN_NAME)

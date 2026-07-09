@@ -1,6 +1,6 @@
-// dprint anchors its base directory (the tree it formats) to the directory of
-// the config file it discovers. This stub keeps that base at the repo root while
-// the real config lives in config/ alongside the other linter configs.
+// Stub config at the repo root so dprint anchors its base directory (the tree it formats) here, not in config/.
+// dprint fixes its base to the directory of the config file it discovers, so the real config lives in config/
+// alongside the other linter configs, and this root stub just re-exports it via "extends".
 {
   "extends": "config/dprint.jsonc",
 }

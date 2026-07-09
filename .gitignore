@@ -1,3 +1,5 @@
+# `.dockerignore` is generated from `.gitignore` by `mise run gen:dockerignore` -- after editing `.gitignore`,
+# regenerate it and commit both, or the dockerignore-check task fails on drift.
 .claude/
 *.wasm
 *.onnx
@@ -23,6 +25,11 @@ pnpm-lock.yaml
 # `src/bin/` (e.g. utilities/int-gen/src/bin/).
 obj/
 services/ws-modules/dotnet-data1/bin/
+# Coverage-report artifacts produced by the coverage workflow (cargo-llvm-cov lcov + pytest-cov Cobertura +
+# pytest-cov's data file); uploaded to Codecov, never committed.
+/lcov.info
+coverage-python.xml
+.coverage
 # Editor dir (but keep the shared recommended-extensions list), tool caches, and
 # the ws-server's runtime file storage.
 .vscode/*

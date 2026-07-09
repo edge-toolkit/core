@@ -128,20 +128,73 @@ fn multi_agent_module(#[case] module: &str, #[case] language: Language) {
     assert!(failed.is_empty(), "{module} failed in: {}", failed.join(", "));
 }
 
-/// Spawn one `et-ws-web-runner` against `ws_url` and panic with the
-/// captured stdout/stderr on non-zero exit. `timeout_secs` is passed as
-/// `RUNNER_TIMEOUT` (humantime, e.g. `120s`); the multi-agent harness bumps
-/// it because two cold V8 starts contending for the same box widen the
-/// discovery window past the single-agent budget.
-fn run_runner_with_timeout(module: &str, ws_url: &str, timeout_secs: u32) {
+/// Load + run each hardware/sensor module and assert it fails without the device API it needs.
+///
+/// The modules listed under "Hardware / browser-only APIs" above touch a browser sensor/media API the runner's
+/// shims deliberately do NOT provide (only `navigator.userAgent` is stubbed) -- camera `getUserMedia`,
+/// `DeviceMotionEvent`, geolocation, `navigator.bluetooth`, `NDEFReader`, `webkitSpeechRecognition`. So they
+/// cannot complete under Deno, which is why they are excluded from `module_runs_successfully`. Running them
+/// anyway still exercises the fetch + module-graph load + entry-evaluation paths -- in the runner AND in each
+/// module's wasm-bindgen glue up to the point it reaches for the missing API -- which is otherwise uncovered
+/// (har1 and face-detection especially). We assert a non-zero exit: the module either throws when the absent API
+/// is touched or is killed by `RUNNER_TIMEOUT` while awaiting a device callback that never fires. A module that
+/// unexpectedly EXITS 0 here is a real finding -- the runner can now run it, so move it to
+/// `module_runs_successfully`.
+#[rstest]
+#[case::audio1("et-ws-audio1", Language::Rust)]
+#[case::bluetooth("et-ws-bluetooth", Language::Rust)]
+#[case::face_detection("et-ws-face-detection", Language::Rust)]
+#[case::geolocation("et-ws-geolocation", Language::Rust)]
+#[case::har1("et-ws-har1", Language::Rust)]
+#[case::nfc("et-ws-nfc", Language::Rust)]
+#[case::sensor1("et-ws-sensor1", Language::Rust)]
+#[case::speech_recognition("et-ws-speech-recognition", Language::Rust)]
+#[case::video1("et-ws-video1", Language::Rust)]
+#[case::pyface1("et-ws-pyface1", Language::Python)]
+fn hardware_module_load_fails(#[case] module: &str, #[case] language: Language) {
+    if !mise_env_includes(language) {
+        println!(
+            "skipping {module}: requires the `{}` mise env, not loaded",
+            language.as_str()
+        );
+        return;
+    }
+    let server = et_ws_test_server::start();
+    // A missing sensor/media API throws promptly once the module runs, so the module usually exits well under
+    // this bound; it only bites if a module instead awaits a device callback that never fires, in which case
+    // RUNNER_TIMEOUT kills it -- still the non-zero exit we assert.
+    let output = run_runner(module, &server.ws_url, 30);
+    assert!(
+        !output.status.success(),
+        concat!(
+            "{} exited 0, but it was expected to fail without its browser sensor/media API. ",
+            "If the runner can now run it, move it to `module_runs_successfully`.\n",
+            "--- stdout ---\n{}\n--- stderr ---\n{}",
+        ),
+        module,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+}
+
+/// Spawn one `et-ws-web-runner` against `ws_url` and return its captured output.
+///
+/// `timeout_secs` is passed as `RUNNER_TIMEOUT` (humantime, e.g. `120s`); the
+/// multi-agent harness bumps it because two cold V8 starts contending for the
+/// same box widen the discovery window past the single-agent budget.
+fn run_runner(module: &str, ws_url: &str, timeout_secs: u32) -> std::process::Output {
     let bin = env!("CARGO_BIN_EXE_et-ws-web-runner");
-    let output = std::process::Command::new(bin)
+    std::process::Command::new(bin)
         .env("RUNNER_MODULE", module)
         .env("WS_SERVER_URL", ws_url)
         .env("RUNNER_TIMEOUT", format!("{timeout_secs}s"))
         .output()
-        .expect("failed to spawn et-ws-web-runner");
+        .expect("failed to spawn et-ws-web-runner")
+}
 
+/// Run `module` and panic with the captured stdout/stderr on non-zero exit.
+fn run_runner_with_timeout(module: &str, ws_url: &str, timeout_secs: u32) {
+    let output = run_runner(module, ws_url, timeout_secs);
     if output.status.success() {
         return;
     }

@@ -10,11 +10,12 @@
 # C tooling for the zig-data1 module's hand-written C.
 # The C sources live under services/ws-modules/zig-data1/src/*.c. Two conda packages because mise hands the
 # `clang-format` name to conda:clang-format, so conda:clang-tools omits it and only supplies clang-tidy. Both
-# are conda-forge's native LLVM binaries. cpplint (Google C++ style) has no prebuilt binary -- pipx is its
-# only distribution.
+# are conda-forge's native LLVM binaries. cpplint (Google C++ style) and flawfinder (C/C++ security scanner)
+# have no prebuilt binary -- pipx is their only distribution.
 "conda:clang-format" = "latest"
 "conda:clang-tools" = "latest"
 "pipx:cpplint" = "latest"
+"pipx:flawfinder" = "latest"
 zig = "latest"
 
 [tasks.zig-check]
@@ -61,10 +62,21 @@ git ls-files '*.c' '*.h' |
 """
 shell = "bash -euo pipefail -c"
 
+[tasks.flawfinder-check]
+description = "Scan C sources for risky C APIs (flawfinder security lint)"
+# flawfinder is a lexical scanner (no compile), so unlike clang-tidy it also covers the mingw-shim sources.
+# Gate on risk level >= 2; the blanket level-1 notes (e.g. every strlen) are too noisy to fail CI on. A
+# reviewed-safe hit at or above the gate is silenced with an inline `flawfinder: ignore` comment stating why.
+run = """
+git ls-files '*.c' '*.h' |
+  xargs flawfinder --error-level=2 --minlevel=2 --quiet --dataonly
+"""
+shell = "bash -euo pipefail -c"
+
 # Namespaced aggregators picked up by the default config's globbed `check`/`fmt`.
 [tasks."check:zig"]
-depends = ["clang-format-check", "clang-tidy-check", "cpplint-check", "zig-check"]
-description = "Run Zig + C checks (zig fmt-check, clang-format, clang-tidy, cpplint)"
+depends = ["clang-format-check", "clang-tidy-check", "cpplint-check", "flawfinder-check", "zig-check"]
+description = "Run Zig + C checks (zig fmt-check, clang-format, clang-tidy, cpplint, flawfinder)"
 
 [tasks."fmt:zig"]
 depends = ["clang-format", "zig-fmt"]
