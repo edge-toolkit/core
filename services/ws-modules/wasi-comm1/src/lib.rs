@@ -39,6 +39,10 @@ use et::ws_wasi::ws::WsError;
 use exports::et::ws_wasi::entry::{EntryError, Guest};
 use wasi::logging::logging::{self, Level};
 
+// Coverage dump lives in its own module so Codacy can exclude just that file (its minicov call is unsafe).
+#[cfg(feature = "coverage")]
+mod coverage;
+
 const LOG_CONTEXT: &str = env!("CARGO_PKG_NAME");
 /// Total time we'll wait for a `list-agents-response`. The server replies
 /// immediately under normal load, but we leave headroom for the inbox queue.
@@ -102,14 +106,7 @@ impl Guest for Component {
         et::ws_wasi::ws::disconnect();
         info("workflow complete");
         #[cfg(feature = "coverage")]
-        {
-            let mut coverage = Vec::new();
-            // SAFETY: single-threaded guest; capture_coverage reads the instrumented counters once at run() end.
-            unsafe {
-                minicov::capture_coverage(&mut coverage).expect("minicov capture_coverage");
-            }
-            fs_err::write("/cov/et_ws_wasi_comm1.profraw", coverage).expect("write /cov profraw");
-        }
+        coverage::dump();
         Ok(())
     }
 }

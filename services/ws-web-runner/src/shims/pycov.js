@@ -19,20 +19,12 @@ _et_cov.start()
 `);
     },
     // Stop tracing, persist the .coverage data file, and PUT it to ws-server storage for the test to collect.
-    // Failures here must never fail the module run, so everything is swallowed with a diagnostic.
+    // A collection failure propagates and fails the coverage run -- capturing coverage is that run's purpose.
     async stop(pyodide, pkg) {
-      try {
-        pyodide.runPython(`
-_et_cov.stop()
-_et_cov.save()
-`);
-        const data = pyodide.FS.readFile(`/tmp/${pkg}.coverage`);
-        const base = typeof globalThis.__ET_HTTP_BASE === "string" ? globalThis.__ET_HTTP_BASE : "";
-        const url = `${base}/storage/pycov/${pkg}.coverage`;
-        await fetch(url, { method: "PUT", body: data });
-      } catch (err) {
-        console.error(`pycov: coverage collection failed for ${pkg}:`, err);
-      }
+      pyodide.runPython("_et_cov.stop()\n_et_cov.save()\n");
+      const data = pyodide.FS.readFile(`/tmp/${pkg}.coverage`);
+      const base = typeof globalThis.__ET_HTTP_BASE === "string" ? globalThis.__ET_HTTP_BASE : "";
+      await fetch(`${base}/storage/pycov/${pkg}.coverage`, { method: "PUT", body: data });
     },
   };
 }

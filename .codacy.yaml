@@ -16,6 +16,9 @@
 # - services/ws-web-runner/mingw-shim/msvc_crt_alloc.c: MISRA-21.3-unavoidable heap-allocation code Codacy cannot
 #   suppress per line; isolated into that one file so this exclude stays minimal. Full rationale lives in the
 #   file's own header comment (its canonical home, since more than one analyzer config may exclude the same file).
+# - services/ws-modules/wasi-{comm1,data1}/src/coverage.rs: each guest's minicov coverage dump, whose unsafe
+#   Codacy flags for audit and cannot suppress per line. Isolated into these one-function files so the exclude
+#   stays minimal; rationale in each file's header. The rest of each guest stays analyzed.
 exclude_paths:
   - ".github/actions/**"
   - ".github/workflows/**"
@@ -23,4 +26,6 @@ exclude_paths:
   - "Dockerfile"
   - "config/semgrep/**"
   - "services/ws-modules/dotnet-data1/Program.cs"
+  - "services/ws-modules/wasi-comm1/src/coverage.rs"
+  - "services/ws-modules/wasi-data1/src/coverage.rs"
   - "services/ws-web-runner/mingw-shim/msvc_crt_alloc.c"
