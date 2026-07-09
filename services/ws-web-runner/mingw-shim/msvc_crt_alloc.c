@@ -19,8 +19,10 @@
  * Reads the value with Win32 GetEnvironmentVariableA rather than stdlib getenv: getenv is untrusted-input-prone
  * (MISRA 21.8), whereas GetEnvironmentVariableA reports the length itself, so no strlen over-read (CWE-126). */
 // _dupenv_s is declared __declspec(dllimport) by ucrt's stdlib.h, but here we define it on the mingw heap.
-// The redeclaration drops dllimport by design -- the archive links our definition, not an import thunk.
-// NOLINTNEXTLINE(clang-diagnostic-inconsistent-dllimport)
+// The redeclaration drops dllimport by design -- the archive links our definition, not an import thunk. The
+// leading-underscore name is the CRT's, mandated by the archive's ABI, so the reserved-identifier check is
+// suppressed alongside it, as on the other shim symbols.
+// NOLINTNEXTLINE(clang-diagnostic-inconsistent-dllimport, bugprone-reserved-identifier, cert-dcl37-c)
 int _dupenv_s(char **buf, size_t *len, const char *name) {
     if ((buf == NULL) || (name == NULL)) {
         return 22; /* EINVAL */

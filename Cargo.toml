@@ -414,6 +414,9 @@ ignore = [
   "utf8parse",
   # 517 days since last update at daxpedda/web-time.
   "web-time",
+  # Not in declared repo (gfx-rs/wgpu): a per-platform helper crate from the wgpu monorepo.
+  # cargo-unmaintained can't find the individual member at the repo root -- false positive; pulled by wgpu-core.
+  "wgpu-core-deps-windows-linux-android",
   # Declared repository WebAssembly/WASI is spec-only (no `crates/` tree).
   # The crate is effectively orphaned upstream.
   "witx",

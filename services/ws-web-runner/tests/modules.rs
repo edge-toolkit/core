@@ -187,22 +187,17 @@ fn hardware_module_load_fails(#[case] module: &str, #[case] language: Language) 
 /// same box widen the discovery window past the single-agent budget.
 fn run_runner(module: &str, ws_url: &str, timeout_secs: u32) -> std::process::Output {
     let bin = env!("CARGO_BIN_EXE_et-ws-web-runner");
-    let mut envs = vec![
-        ("RUNNER_MODULE".to_owned(), module.to_owned()),
-        ("WS_SERVER_URL".to_owned(), ws_url.to_owned()),
-        ("RUNNER_TIMEOUT".to_owned(), format!("{timeout_secs}s")),
-    ];
-    // Forward the coverage gate so the child's Pyodide shims collect coverage.py data into ws-server storage.
-    if let Some(value) = std::env::var("ET_TEST_COVERAGE").ok().filter(|value| !value.is_empty()) {
-        envs.push(("ET_TEST_COVERAGE".to_owned(), value));
-    }
+    // ET_TEST_COVERAGE, when set by the coverage workflow, is inherited by the child (Command keeps the parent
+    // env), so the Pyodide shims collect coverage into ws-server storage -- no explicit forwarding needed.
     std::process::Command::new(bin)
-        .envs(envs)
+        .env("RUNNER_MODULE", module)
+        .env("WS_SERVER_URL", ws_url)
+        .env("RUNNER_TIMEOUT", format!("{timeout_secs}s"))
         .output()
         .expect("failed to spawn et-ws-web-runner")
 }
 
-/// Collect the coverage a module PUT into the test server's storage, when `ET_TEST_COVERAGE` is set.
+/// Collect the coverage a module PUT into the test server's storage.
 ///
 /// Two sources, both gathered so the later coverage tasks find them:
 /// - Pyodide modules write coverage.py `.coverage` data under `pycov/<pkg>.coverage`; copied to `target/pycov/`
@@ -210,15 +205,9 @@ fn run_runner(module: &str, ws_url: &str, timeout_secs: u32) -> std::process::Ou
 /// - Rust browser-wasm modules write minicov `.profraw` under `wasmcov/<crate>.profraw`; copied to
 ///   `target/wasi-cov/` (where the `wasm-cov` task turns them into lcov via the same llc/llvm-cov pipeline).
 ///
-/// A no-op when the gate is unset or the module wrote nothing.
+/// Inherently a no-op outside a coverage run: without `ET_TEST_COVERAGE` the module writes nothing, so the
+/// `pycov`/`wasmcov` storage dirs never exist and both `read_dir`s just skip.
 fn collect_module_coverage(server: &et_ws_test_server::TestServer) {
-    if !std::env::var("ET_TEST_COVERAGE")
-        .ok()
-        .and_then(|value| value.parse::<bool>().ok())
-        .unwrap_or(false)
-    {
-        return;
-    }
     let root = edge_toolkit::config::get_project_root();
     if let Ok(entries) = fs::read_dir(server.storage_dir.path().join("pycov")) {
         let dest_dir = root.join("target/pycov");
