@@ -19,8 +19,15 @@
 zig = "latest"
 
 # llvm-mingw provides a clang-tidy that can parse the Windows-only mingw-shim (windows.h + MSVC CRT identifiers).
+# This entry MUST keep a windows platform and MUST NOT carry an `os = ["linux", "macos"]` scope: MISE_ENV
+# configs load after config.windows.toml, so an os-scoped entry here overrides the Windows [tools] entry and
+# filters llvm-mingw out of the Windows toolset PATH. cc-rs builds then fall through to the GHA runner's
+# system clang (MSVC-default, no mingw sysroot) and every C-compiling build script dies with, e.g.:
+#     aws-lc-sys@0.41.0: ...\aws-lc\tests\compiler_features_tests\c11.c:7:10: fatal error: 'stdlib.h' file not found
+# which took down every Windows job on commit 60b631d4dea8d19f50386f1568bf6128c956795c at
+# https://github.com/edge-toolkit/core/actions/runs/28995222108/job/86043285466 (check windows-latest lane).
+# The windows-x64 matching below mirrors the config.windows.toml entry -- keep them identical.
 [tools."github:mstorsjo/llvm-mingw"]
-os = ["linux", "macos"]
 version = "20260602"
 
 [tools."github:mstorsjo/llvm-mingw".platforms.linux-arm64]
@@ -34,6 +41,9 @@ matching = "macos-universal"
 
 [tools."github:mstorsjo/llvm-mingw".platforms.macos-x64]
 matching = "macos-universal"
+
+[tools."github:mstorsjo/llvm-mingw".platforms.windows-x64]
+matching = "ucrt-x86_64"
 
 [tasks.zig-check]
 run = "zig fmt --check services/ws-modules/ generated/zig-rest/"
