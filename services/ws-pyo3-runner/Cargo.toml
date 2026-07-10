@@ -37,6 +37,7 @@ tracing-subscriber.workspace = true
 pyo3-build-config.workspace = true
 
 [dev-dependencies]
+backon = { workspace = true, features = ["tokio-sleep"] }
 base64.workspace = true
 et-ws-test-server.workspace = true
 rstest.workspace = true
