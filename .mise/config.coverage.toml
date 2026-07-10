@@ -37,12 +37,20 @@ description = "Rust coverage (cargo-llvm-cov) + JUnit test results (nextest); em
 env = { NEXTEST_PROFILE = "ci" }
 run = """
 cargo llvm-cov clean --workspace
-# shellcheck disable=SC1090 # sourcing cargo-llvm-cov's dynamic env export is the documented show-env pattern
-source <(cargo llvm-cov show-env --export-prefix)
+# Drop the native build dirs so every native crate rebuilds under cargo-llvm-cov's rustc wrapper.
+# The prior `build-modules` step compiled et-cli + its native dep tree (edge-toolkit, et-path, int-gen, ...)
+# NON-instrumented into target/{debug,release}, and `cargo llvm-cov clean` leaves those in place; without this the
+# coverage build reuses them uninstrumented so those crates report zero coverage (et-path was the symptom). The
+# wasm guest .ll that wasm-cov consumes live under target/wasm32-wasip2 and are left untouched.
+coreutils rm -rf target/debug target/release
+# Apply cargo-llvm-cov's instrumentation env via `eval` of its `show-env` exports.
+# `--sh` is the current flag (the old `--export-prefix` alias is deprecated). This sets the rustc wrapper +
+# LLVM_PROFILE_FILE + profile dir so nextest and the regens instrument into one profile set that `report` merges.
+eval "$(cargo llvm-cov show-env --sh)"
 cargo nextest run --config-file config/nextest.toml
 mise run gen-specs
 mise run regen-verification
-cargo llvm-cov report --lcov --output-path lcov.info
+cargo llvm-cov report --lcov --include-build-script --output-path lcov.info
 """
 shell = "bash -euo pipefail -c"
 
