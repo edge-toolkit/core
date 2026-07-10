@@ -14,11 +14,11 @@ if (globalThis.__ET_TEST_COVERAGE && typeof globalThis.WebSocket === "function")
         }
         try {
           const message = JSON.parse(event.data);
-          if (message && message.type === "et-connect-ack" && typeof message.agent_id === "string") {
+          if (message?.type === "et-connect-ack" && typeof message.agent_id === "string") {
             globalThis.__ET_AGENT_ID = message.agent_id;
           }
-        } catch (_error) {
-          // Non-JSON or non-ack frames are irrelevant to agent-id capture.
+        } catch {
+          /* Non-JSON or non-ack frames are irrelevant to agent-id capture. */
         }
       });
     }

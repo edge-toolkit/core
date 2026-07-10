@@ -19,6 +19,11 @@
 # - services/ws-modules/wasi-{comm1,data1}/src/coverage.rs: each guest's minicov coverage dump, whose unsafe
 #   Codacy flags for audit and cannot suppress per line. Isolated into these one-function files so the exclude
 #   stays minimal; rationale in each file's header. The rest of each guest stays analyzed.
+# - utilities/wasm-cov-wrapper/src/main.rs: a RUSTC_WORKSPACE_WRAPPER that reads its own argv (args_os) and forwards
+#   it to rustc; Codacy's Rust security rule flags args_os-into-a-subprocess as a command-injection shape and cannot
+#   suppress per line. It is a false positive -- the args are cargo's own trusted rustc invocation -- and forwarding
+#   argv to rustc is the whole file's purpose, so no code change removes it. The crate is already this one minimal
+#   file; rationale lives in its header. Still covered by clippy + DeepSource Rust.
 exclude_paths:
   - ".github/actions/**"
   - ".github/workflows/**"
@@ -29,3 +34,4 @@ exclude_paths:
   - "services/ws-modules/wasi-comm1/src/coverage.rs"
   - "services/ws-modules/wasi-data1/src/coverage.rs"
   - "services/ws-web-runner/mingw-shim/msvc_crt_alloc.c"
+  - "utilities/wasm-cov-wrapper/src/main.rs"

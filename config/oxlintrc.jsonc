@@ -14,11 +14,16 @@
     "nursery": "off",
   },
   "rules": {
-    // __ET_* are sentinel globals shared across the deno shim and the ws-modules via intentional underscore naming.
-    // et-ws-web-runner substitutes the `__ET_HTTP_BASE__` / `__ET_WS_URL__` placeholders before exec, and the
+    // __ET_* / __et* are sentinel globals shared across the deno shim and the ws-modules via intentional underscore
+    // naming. et-ws-web-runner substitutes the `__ET_HTTP_BASE__` / `__ET_WS_URL__` placeholders before exec, and the
     // resulting `globalThis.__ET_*` is how the modules read the host base URL -- a cross-boundary convention like
-    // webpack's `__webpack_*` or Python dunders.
-    "eslint/no-underscore-dangle": ["warn", { "allow": ["__ET_HTTP_BASE", "__ET_WS_URL"] }],
+    // webpack's `__webpack_*` or Python dunders. The coverage path adds `__ET_TEST_COVERAGE` (the on/off flag),
+    // `__ET_AGENT_ID` (the module's storage bucket, sniffed from et-connect-ack), and `__etPyCov` (the Pyodide
+    // coverage helper object) to the same convention.
+    "eslint/no-underscore-dangle": [
+      "warn",
+      { "allow": ["__ET_HTTP_BASE", "__ET_WS_URL", "__ET_TEST_COVERAGE", "__ET_AGENT_ID", "__etPyCov"] },
+    ],
     // Worker.postMessage takes no targetOrigin (unlike Window.postMessage), and the rule can't tell them apart.
     // So it false-positives on every worker-side / main-side `worker.postMessage({...})` call we have.
     "unicorn/require-post-message-target-origin": "off",

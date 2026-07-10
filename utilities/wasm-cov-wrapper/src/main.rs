@@ -7,6 +7,12 @@
 //! flags appended; cargo's `-vV` / `--print` probes pass through untouched. minicov (pulled by `et-web/coverage`)
 //! supplies the profiler runtime for the instrumented crates, and the `--emit=llvm-ir` output feeds the wasm-cov
 //! task that turns each module's coverage map into lcov.
+//!
+//! Excluded from Codacy analysis (`.codacy.yaml`): Codacy's Rust security rule flags `args_os()` flowing into a
+//! subprocess spawn as a command-injection shape and cannot suppress it per line. That is a false positive here --
+//! the args are cargo's own trusted rustc invocation, and forwarding argv to rustc is this file's entire purpose,
+//! so no code change removes it. The file is kept minimal and single-purpose so the path exclude is as narrow as
+//! possible; it stays fully covered by clippy and DeepSource's Rust analyzer.
 #![expect(
     clippy::print_stderr,
     reason = "a build-tool wrapper reports its own startup failure to stderr"
