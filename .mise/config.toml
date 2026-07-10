@@ -814,6 +814,12 @@ shell = "bash -euo pipefail -c"
 # No structural linter spans a markdown prose value and a TOML value, so this is a small goawk/coreutils compare.
 description = "Fail if README.md's mise version differs from min_version in .mise/config.toml"
 run = """
+# README.md is excluded from the docker build context, so it is absent when `check` runs inside an image.
+# gen:dockerignore adds /README.md. Skip there -- the native check lanes (which have README.md) enforce the sync.
+if [ ! -f README.md ]; then
+  echo "readme-mise-version-check: README.md absent (docker build context); skipping -- native lanes enforce it"
+  exit 0
+fi
 config_version="$(goawk -F'"' '/^min_version/{print $2; exit}' .mise/config.toml)"
 # shellcheck disable=SC2016 # $0/RSTART/RLENGTH are awk fields, not shell vars -- single quotes are intended
 readme_prog='/ or later/ && match($0,/[0-9]{4}\\.[0-9]+\\.[0-9]+/){print substr($0,RSTART,RLENGTH);exit}'
