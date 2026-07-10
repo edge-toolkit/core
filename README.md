@@ -301,13 +301,7 @@ Rust sources of truth by `mise run gen-specs-all`:
 See [`generated/README.md`](generated/README.md) for a full catalogue of what's regenerated vs. hand-maintained
 under `generated/`.
 
-## Run e2e
-
-Run the end-to-end tests using Chrome:
-
-```bash
-mise run ws-e2e-chrome
-```
+## et-cli
 
 Run an example demo scenario using et-cli
 

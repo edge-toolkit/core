@@ -146,9 +146,6 @@ jobs:
           docker run --rm et-test sh -c "find / -xdev -type f -size +50M -exec du -h {} + | sort -h | tail -50"
           echo "::endgroup::"
 
-      # Run the Rust tests in one container.
-      # `mise run cargo-test` is a single nextest pass over the workspace; the web-runner test-group serializes
-      # et-ws-web-runner (its Deno-runtime tests self-skip where the runtime is unavailable).
       - name: Run cargo-test
         run: docker run --rm et-test mise run cargo-test
 

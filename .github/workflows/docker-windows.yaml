@@ -156,9 +156,7 @@ jobs:
           # shellcheck disable=SC2086
           docker build $args .
 
-      # Run the Rust tests in one container (servercore only -- Nano has no test stage).
-      # `mise run cargo-test` is a single nextest pass; et-ws-web-runner is excluded on the gnullvm default target
-      # via cargo_ws_excludes (rusty_v8 has no gnullvm prebuilt), so this builds + runs the rest of the workspace.
+      # Run the Rust tests, excluding et-ws-web-runner on the gnullvm target.
       - name: Run cargo-test
         if: matrix.base == 'servercore'
         run: docker run --rm et-windows-test mise run cargo-test

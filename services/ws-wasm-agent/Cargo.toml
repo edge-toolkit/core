@@ -35,6 +35,7 @@ web-sys = { workspace = true, features = [
 ] }
 
 [dev-dependencies]
+wasm-bindgen-futures.workspace = true
 wasm-bindgen-test.workspace = true
 
 [lints]
