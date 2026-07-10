@@ -199,38 +199,44 @@ fn run_runner(module: &str, ws_url: &str, timeout_secs: u32) -> std::process::Ou
 
 /// Collect the coverage a module PUT into the test server's storage.
 ///
-/// Two sources, both gathered so the later coverage tasks find them:
-/// - Pyodide modules write coverage.py `.coverage` data under `pycov/<pkg>.coverage`; copied to `target/pycov/`
-///   renamed to coverage.py's parallel-data convention (`.coverage.<pkg>`) for the `pytest-cov` combine.
-/// - Rust browser-wasm modules write minicov `.profraw` under `wasmcov/<crate>.profraw`; copied to
-///   `target/wasi-cov/` (where the `wasm-cov` task turns them into lcov via the same llc/llvm-cov pipeline).
+/// Each module writes its coverage to its own agent bucket (`<agent_id>/`), because the storage `put_file` only
+/// accepts a registered agent as the bucket. So this scans every agent bucket under the storage dir and routes
+/// files by extension into the two later coverage tasks:
+/// - `.coverage` (Pyodide coverage.py data) -> `target/pycov/` renamed to coverage.py's parallel-data
+///   convention (`.coverage.<pkg>`) for the `pytest-cov` combine.
+/// - `.profraw` (Rust browser-wasm minicov) -> `target/wasi-cov/` (where the `wasm-cov` task turns each into
+///   lcov via the same llc/llvm-cov pipeline).
 ///
 /// Inherently a no-op outside a coverage run: without `ET_TEST_COVERAGE` the module writes nothing, so the
-/// `pycov`/`wasmcov` storage dirs never exist and both `read_dir`s just skip.
+/// buckets hold no coverage files and every branch just skips.
 fn collect_module_coverage(server: &et_ws_test_server::TestServer) {
     let root = edge_toolkit::config::get_project_root();
-    if let Ok(entries) = fs::read_dir(server.storage_dir.path().join("pycov")) {
-        let dest_dir = root.join("target/pycov");
-        fs::create_dir_all(&dest_dir).expect("create target/pycov");
+    let Ok(buckets) = fs::read_dir(server.storage_dir.path()) else {
+        return;
+    };
+    for bucket in buckets.flatten() {
+        let Ok(entries) = fs::read_dir(bucket.path()) else {
+            continue;
+        };
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.extension().is_some_and(|ext| ext == "coverage") {
-                let stem = path
-                    .file_stem()
-                    .expect("coverage data file has a stem")
-                    .to_string_lossy();
-                let _copied = fs::copy(&path, dest_dir.join(format!(".coverage.{stem}"))).expect("copy pycov");
-            }
-        }
-    }
-    if let Ok(entries) = fs::read_dir(server.storage_dir.path().join("wasmcov")) {
-        let dest_dir = root.join("target/wasi-cov");
-        fs::create_dir_all(&dest_dir).expect("create target/wasi-cov");
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().is_some_and(|ext| ext == "profraw") {
-                let name = path.file_name().expect("profraw has a file name");
-                let _copied = fs::copy(&path, dest_dir.join(name)).expect("copy wasmcov profraw");
+            match path.extension().and_then(|ext| ext.to_str()) {
+                Some("coverage") => {
+                    let dest_dir = root.join("target/pycov");
+                    fs::create_dir_all(&dest_dir).expect("create target/pycov");
+                    let stem = path
+                        .file_stem()
+                        .expect("coverage data file has a stem")
+                        .to_string_lossy();
+                    let _copied = fs::copy(&path, dest_dir.join(format!(".coverage.{stem}"))).expect("copy pycov");
+                }
+                Some("profraw") => {
+                    let dest_dir = root.join("target/wasi-cov");
+                    fs::create_dir_all(&dest_dir).expect("create target/wasi-cov");
+                    let name = path.file_name().expect("profraw has a file name");
+                    let _copied = fs::copy(&path, dest_dir.join(name)).expect("copy wasmcov profraw");
+                }
+                _ => {}
             }
         }
     }

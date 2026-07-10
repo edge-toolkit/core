@@ -108,6 +108,7 @@ const SHIMS: &[&str] = &[
     include_str!("shims/events.js"),
     include_str!("shims/wasm_streaming.js"),
     include_str!("shims/xhr.js"),
+    include_str!("shims/ws_agent_id.js"),
     include_str!("shims/pycov.js"),
 ];
 
@@ -335,11 +336,17 @@ try {{
         throw new Error("module {entry_url} exports neither a `default` nor a `run` function");
     }}
 }} finally {{
-    if (globalThis.__ET_TEST_COVERAGE && typeof mod.__et_capture_coverage === "function") {{
+    // Capture the module's minicov coverage (browser wasm has no filesystem) and PUT it to the module's own
+    // agent bucket. The ws-agent-id shim sniffed the server's et-connect-ack for globalThis.__ET_AGENT_ID; that
+    // bucket is a registered agent, so the storage PUT passes put_file's agent check. The web-runner test then
+    // scans every agent bucket for the .profraw. Skipped if the module never registered (no agent id).
+    if (globalThis.__ET_TEST_COVERAGE && globalThis.__ET_AGENT_ID
+        && typeof mod.__et_capture_coverage === "function") {{
         const covData = mod.__et_capture_coverage();
         if (covData && covData.length) {{
             const covBase = typeof globalThis.__ET_HTTP_BASE === "string" ? globalThis.__ET_HTTP_BASE : "";
-            await fetch(covBase + "/storage/wasmcov/{cov_name}.profraw", {{ method: "PUT", body: covData }});
+            const covUrl = covBase + "/storage/" + globalThis.__ET_AGENT_ID + "/{cov_name}.profraw";
+            await fetch(covUrl, {{ method: "PUT", body: covData }});
         }}
     }}
 }}

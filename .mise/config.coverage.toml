@@ -56,16 +56,19 @@ shell = "bash -euo pipefail -c"
 
 [tasks.wasm-cov]
 description = "Turn instrumented wasm guest .profraw into lcov (llc + llvm-cov) and merge into the workspace lcov.info"
-# The instrumented wasm guest builds drop their minicov .profraw into target/wasi-cov during the runner tests.
-# WASI guests (wasi-comm1/wasi-data1) dump via the runner's /cov preopen; the browser-module path (et-web's
-# __et_capture_coverage -> ws-server storage -> web-runner test) is wired but its build is not yet instrumented
-# (see config.rust.toml). Each instrumented build also emits an .ll next to its .wasm (in release/deps).
+# The instrumented wasm builds drop their minicov .profraw into target/wasi-cov during the runner tests.
+# WASI guests (wasi-comm1/wasi-data1) dump via the runner's /cov preopen; browser modules (data1, comm1, ...) go
+# through et-web's __et_capture_coverage -> the module's ws-server storage bucket -> the web-runner test (see
+# config.rust.toml's coverage wrapper). Each instrumented build also emits an .ll next to its .wasm (release/deps).
 # llvm-cov cannot read a coverage map from a .wasm, so (per taiki-e/cargo-llvm-cov#337 + hknio/wasmcov) we gut
 # every function body in the .ll to `unreachable` -- keeping only the signatures and the __llvm_covmap records --
-# then compile that to an ELF object with llc. The hit counts come from the .profraw, so the object needs no code;
-# the fixed x86_64 ELF target avoids the macOS Mach-O AsmPrinter aborting on the covmap globals, and llvm-cov reads
-# the covmap from any object format regardless of host. llc/llvm-cov/llvm-profdata are the version-matched nightly
-# llvm-tools that built the guests. Path remap of the emitted SF: lines to repo-relative may need a CI follow-up.
+# then compile that to an ELF object with llc. The gut also strips each function's "target-cpu"/"target-features"
+# attributes: browser .ll carries wasm `mvp` cpu + wasm features that make llc reject the x86_64 target
+# ("64-bit code requested on a subtarget that doesn't support it"); the WASI guest .ll lacks them. The hit counts
+# come from the .profraw, so the object needs no code; the fixed x86_64 ELF target avoids the macOS Mach-O
+# AsmPrinter aborting on the covmap globals, and llvm-cov reads the covmap from any object format regardless of
+# host. llc/llvm-cov/llvm-profdata are the version-matched nightly llvm-tools that built the guests. Path remap of
+# the emitted SF: lines to repo-relative may need a CI follow-up.
 run = """
 covdir=target/wasi-cov
 if [ -z "$(find "$covdir" -maxdepth 1 -name '*.profraw' -print -quit 2>/dev/null)" ]; then
@@ -81,7 +84,7 @@ coreutils cat > "$gut" <<'AWK'
 /^define/ { print; print "start:"; print "  unreachable"; print "}"; skip = 1; next }
 skip && /^}/ { skip = 0; next }
 skip { next }
-{ print }
+{ gsub(/"target-cpu"="[^"]*"/, ""); gsub(/"target-features"="[^"]*"/, ""); print }
 AWK
 : > "$covdir/wasi.lcov"
 for profraw in "$covdir"/*.profraw; do
