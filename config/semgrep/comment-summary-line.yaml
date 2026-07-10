@@ -10,12 +10,17 @@ rules:
         - "*.s"
         - "*.toml"
         - "*.yaml"
+        - ".dockerignore"
+        - ".gitignore"
         - "Dockerfile*"
       exclude:
         # Skip machine-emitted TOML/YAML (int-gen / regen output).
         # Hand-edits would drift on the next regeneration, so the comment style there is the generator's job, not ours.
         - "/generated/**"
         - "/verification/**"
+        # `dart pub`-generated module .gitignore boilerplate, whose comment style is dart's job, not ours.
+        # Its first line is a bare doc URL and the file is generator-owned, so we do not discipline its comments.
+        - "/services/ws-modules/dart-*/.gitignore"
     # Flag the first line of a multi-line `#` comment block when its final character is not a full stop.
     # The block-start anchor is the preceding line, consumed into the match: either start-of-file (`\A`) or a line
     # that is blank or whose first non-whitespace char is not `#` (`[^#\s]`). Keying off the first non-whitespace

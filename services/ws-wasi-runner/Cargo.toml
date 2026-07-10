@@ -27,6 +27,11 @@ default = []
 # Build on CUDA hosts with:
 #     cargo build -p et-ws-wasi-runner --features cuda
 cuda = ["wasmtime-wasi-nn/onnx-cuda"]
+# `coverage` (off by default): compiles the guest-coverage preopen into the runner.
+# It maps `/cov` to target/wasi-cov so instrumented WASI guests dump their minicov `.profraw` there for the
+# wasi-cov task. Only the coverage workflow builds with it (and sets ET_TEST_COVERAGE, which still gates the
+# preopen at runtime); every other build omits the code. Mirrors et-ws-web-runner's `coverage` feature.
+coverage = []
 
 [dependencies]
 async-trait.workspace = true

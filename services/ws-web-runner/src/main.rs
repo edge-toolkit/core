@@ -21,7 +21,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         info!("applied V8_FLAGS: {v8_flags}");
     }
 
-    let run = run_module(module, ws_url, config.et_test_coverage);
+    // Coverage capture exists only under the `coverage` feature; there `ET_TEST_COVERAGE` activates it.
+    #[cfg(feature = "coverage")]
+    let coverage = config.et_test_coverage;
+    #[cfg(not(feature = "coverage"))]
+    let coverage = false;
+    let run = run_module(module, ws_url, coverage);
     let result = if let Some(timeout) = config.runner.timeout {
         info!("et-ws-web-runner: module={module} server={ws_url} timeout={timeout:?}");
         match tokio::time::timeout(timeout, run).await {

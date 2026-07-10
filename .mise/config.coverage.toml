@@ -47,7 +47,11 @@ coreutils rm -rf target/debug target/release
 # `--sh` is the current flag (the old `--export-prefix` alias is deprecated). This sets the rustc wrapper +
 # LLVM_PROFILE_FILE + profile dir so nextest and the regens instrument into one profile set that `report` merges.
 eval "$(cargo llvm-cov show-env --sh)"
-cargo nextest run --config-file config/nextest.toml
+# The --features flags compile each runner's coverage code, off by default so non-coverage builds omit it.
+# et-ws-web-runner/coverage adds the browser-module capture (shims + the __et_capture_coverage PUT);
+# et-ws-wasi-runner/coverage adds the guest `/cov` preopen. ET_TEST_COVERAGE (set by the coverage job) still
+# gates capture at runtime within each build.
+cargo nextest run --config-file config/nextest.toml --features et-ws-web-runner/coverage,et-ws-wasi-runner/coverage
 mise run gen-specs
 mise run regen-verification
 cargo llvm-cov report --lcov --include-build-script --output-path lcov.info

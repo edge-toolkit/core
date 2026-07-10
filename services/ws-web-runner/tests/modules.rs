@@ -42,6 +42,7 @@
 )]
 
 use edge_toolkit::config::{Language, mise_env_includes};
+#[cfg(feature = "coverage")]
 use fs_err as fs;
 use rstest::rstest;
 
@@ -72,6 +73,7 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
     }
     let server = et_ws_test_server::start();
     run_runner_with_timeout(module, &server.ws_url, 90);
+    #[cfg(feature = "coverage")]
     collect_module_coverage(&server);
 }
 
@@ -166,6 +168,7 @@ fn hardware_module_load_fails(#[case] module: &str, #[case] language: Language) 
     // this bound; it only bites if a module instead awaits a device callback that never fires, in which case
     // RUNNER_TIMEOUT kills it -- still the non-zero exit we assert.
     let output = run_runner(module, &server.ws_url, 30);
+    #[cfg(feature = "coverage")]
     collect_module_coverage(&server);
     assert!(
         !output.status.success(),
@@ -207,8 +210,9 @@ fn run_runner(module: &str, ws_url: &str, timeout_secs: u32) -> std::process::Ou
 /// - `.profraw` (Rust browser-wasm minicov) -> `target/wasi-cov/` (where the `wasm-cov` task turns each into
 ///   lcov via the same llc/llvm-cov pipeline).
 ///
-/// Inherently a no-op outside a coverage run: without `ET_TEST_COVERAGE` the module writes nothing, so the
-/// buckets hold no coverage files and every branch just skips.
+/// Compiled in only under the `coverage` feature (like the runner's capture code); the call sites are gated to
+/// match. Without a coverage build this whole helper is absent, and a plain test run never captures.
+#[cfg(feature = "coverage")]
 fn collect_module_coverage(server: &et_ws_test_server::TestServer) {
     let root = edge_toolkit::config::get_project_root();
     let Ok(buckets) = fs::read_dir(server.storage_dir.path()) else {
