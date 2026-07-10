@@ -30,6 +30,8 @@ services/ws-modules/dotnet-data1/bin/
 /lcov.info
 coverage-python.xml
 .coverage
+# minicov/llvm raw profiles dropped by instrumented binaries run during coverage builds.
+*.profraw
 # Editor dir (but keep the shared recommended-extensions list), tool caches, and
 # the ws-server's runtime file storage.
 .vscode/*

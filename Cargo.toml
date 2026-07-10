@@ -39,6 +39,7 @@ members = [
   "utilities/int-gen",
   "utilities/cli",
   "utilities/onnx",
+  "utilities/wasm-cov-wrapper",
   "generated/rust-rest",
 ]
 resolver = "2"

@@ -8,60 +8,75 @@
 # The rest of the Rust toolchain + tasks (the `rust` tool itself, cargo-*, the universal repo-wide checks,
 # ws-server, the e2e tests) still live in the default config; moving those out is a later pass.
 
-# These browser wasm-pack builds are NOT yet coverage-instrumented (unlike the WASI guests below).
-# wasm-pack applies RUSTFLAGS build-wide, so -Cinstrument-coverage -Zno-profiler-runtime breaks dependency
-# cdylibs (e.g. tracing-wasm) that do not link minicov's __llvm_profile_runtime; per-crate instrumentation
-# (cargo rustc, not wasm-pack) is needed. The capture plumbing (et-web __et_capture_coverage, the runner, the
-# wasm-cov task) is already in place for when that lands.
+# Browser wasm-pack builds are coverage-instrumented when ET_TEST_COVERAGE is set.
+# The web_cov_wrapper RUSTC_WORKSPACE_WRAPPER (built by build-wasm-cov-wrapper) instruments only workspace
+# crates -- never the dependency cdylibs (tracing-wasm, wasm-streams) that don't link minicov's
+# __llvm_profile_runtime -- while web_cov_feat enables et-web/coverage to supply minicov's runtime. et-web's
+# __et_capture_coverage export (folded by wasm-bindgen into every module's glue) lets the web-runner pull each
+# module's .profraw for wasm-cov.
+[tasks.build-wasm-cov-wrapper]
+description = "Build the RUSTC_WORKSPACE_WRAPPER that instruments browser modules (our crates only) for coverage"
+run = "cargo build -p int-wasm-cov-wrapper"
+
 [tasks.build-ws-data1-module]
+depends = ["build-wasm-cov-wrapper"]
 description = "Build the data1 workflow WASM module"
 dir = "services/ws-modules/data1"
-run = "wasm-pack build . --target web {{ vars.no_opt }}"
+run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-comm1-module]
+depends = ["build-wasm-cov-wrapper"]
 description = "Build the comm1 workflow WASM module"
 dir = "services/ws-modules/comm1"
-run = "wasm-pack build . --target web {{ vars.no_opt }}"
+run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-sensor1-module]
+depends = ["build-wasm-cov-wrapper"]
 description = "Build the sensor1 workflow WASM module"
 dir = "services/ws-modules/sensor1"
-run = "wasm-pack build . --target web {{ vars.no_opt }}"
+run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-audio1-module]
+depends = ["build-wasm-cov-wrapper"]
 description = "Build the audio1 workflow WASM module"
 dir = "services/ws-modules/audio1"
-run = "wasm-pack build . --target web {{ vars.no_opt }}"
+run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-video1-module]
+depends = ["build-wasm-cov-wrapper"]
 description = "Build the video1 workflow WASM module"
 dir = "services/ws-modules/video1"
-run = "wasm-pack build . --target web {{ vars.no_opt }}"
+run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-bluetooth-module]
+depends = ["build-wasm-cov-wrapper"]
 description = "Build the bluetooth workflow WASM module"
 dir = "services/ws-modules/bluetooth"
-run = "wasm-pack build . --target web {{ vars.no_opt }}"
+run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-geolocation-module]
+depends = ["build-wasm-cov-wrapper"]
 description = "Build the geolocation workflow WASM module"
 dir = "services/ws-modules/geolocation"
-run = "wasm-pack build . --target web {{ vars.no_opt }}"
+run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-graphics-info-module]
+depends = ["build-wasm-cov-wrapper"]
 description = "Build the graphics info workflow WASM module"
 dir = "services/ws-modules/graphics-info"
-run = "wasm-pack build . --target web {{ vars.no_opt }}"
+run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-speech-recognition-module]
+depends = ["build-wasm-cov-wrapper"]
 description = "Build the speech recognition workflow WASM module"
 dir = "services/ws-modules/speech-recognition"
-run = "wasm-pack build . --target web {{ vars.no_opt }}"
+run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-nfc-module]
+depends = ["build-wasm-cov-wrapper"]
 description = "Build the nfc workflow WASM module"
 dir = "services/ws-modules/nfc"
-run = "wasm-pack build . --target web {{ vars.no_opt }}"
+run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-wasi-data1-module]
 depends = ["build-et-cli"]

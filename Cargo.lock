@@ -6081,6 +6081,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "int-wasm-cov-wrapper"
+version = "0.1.0"
+
+[[package]]
 name = "inventory"
 version = "0.3.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"

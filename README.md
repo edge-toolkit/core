@@ -12,7 +12,7 @@ device or your own network, never sent to an external cloud service.
 
 ## mise
 
-Please install [`mise`](https://mise.jdx.dev/) (2026.6.5 or later), including the shell integration. It is needed
+Please install [`mise`](https://mise.jdx.dev/) (2026.7.1 or later), including the shell integration. It is needed
 for all use of this repository.
 
 The `mise` configuration lives under [`.mise/`](.mise/): the always-loaded [`.mise/config.toml`](.mise/config.toml)

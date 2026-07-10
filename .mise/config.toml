@@ -297,6 +297,10 @@ dart_release = "https://storage.googleapis.com/dart-archive/channels/stable/rele
 # on it. `.exe` suffix on Windows matches cargo's output naming.
 a_et_cli_exe = "et-cli{% if os() == 'windows' %}.exe{% endif %}"
 a_et_cli_target_dir = "target{% if os() == 'windows' %}/x86_64-pc-windows-gnullvm{% endif %}/debug"
+# RUSTC_WORKSPACE_WRAPPER assignment for the coverage build; leaf var referenced by web_cov_wrapper below.
+# `a_` prefix so mise's alphabetical [vars] render defines it before web_cov_wrapper uses it. Split out from
+# web_cov_wrapper (rather than inlined) to keep that line under the 120-char limit.
+a_web_cov_wrapper_env = 'RUSTC_WORKSPACE_WRAPPER={{ config_root }}/target/debug/int-wasm-cov-wrapper '
 et_cli = "{{ vars.config_root_fwd }}/{{ vars.a_et_cli_target_dir }}/{{ vars.a_et_cli_exe }}"
 # mise-managed CPython (Linux/macOS); the PYO3_PYTHON default below.
 # Windows overrides PYO3_PYTHON with its own py3_win in config.windows.toml. The version
@@ -320,6 +324,15 @@ wasm_cov_rustflags = "--emit=llvm-ir -Cinstrument-coverage -Ccodegen-units=1 -Cl
 wasi_cov_feat = '{% if env?.ET_TEST_COVERAGE == "true" %} --features coverage{% endif %}'
 wasm_cov = '{% if env?.ET_TEST_COVERAGE == "true" %}RUSTFLAGS="{{ vars.wasm_cov_rustflags }}"{% endif %}'
 web_cov_feat = '{% if env?.ET_TEST_COVERAGE == "true" %} -- --features et-web/coverage{% endif %}'
+# Command prefix routing a browser module's wasm-pack build through the workspace-only coverage wrapper.
+# Instruments our crates, never dependency cdylibs. Empty unless ET_TEST_COVERAGE is set, so normal builds get
+# no wrapper (no fingerprint churn). The wrapper binary is built by the build-wasm-cov-wrapper task dependency.
+web_cov_wrapper = '{% if env?.ET_TEST_COVERAGE == "true" %}{{ vars.a_web_cov_wrapper_env }}{% endif %}'
+# Override-free head of a browser module's wasm-pack build: coverage wrapper prefix plus fixed build args.
+# Only the two modules that then run et-cli module-package-json (har1, face-detection) use it, so their
+# single-line `&&` run stays under 120. It excludes no_opt / web_cov_feat -- those are appended inline at the
+# call site because no_opt carries a per-platform override that a nested var would freeze at this file's value.
+web_pack_cov = '{{ vars.web_cov_wrapper }}wasm-pack build . --target web'
 # Extra flag for the wasm-pack module builds; empty so wasm-opt runs.
 # config.windows.toml overrides it to --no-opt where wasm-opt can't execute.
 no_opt = ""
@@ -502,6 +515,7 @@ depends = [
   "hadolint-check",
   "link-check",
   "ls-lint-check",
+  "readme-mise-version-check",
   "regal-check",
   "ryl-check",
   "semgrep-check",
@@ -792,6 +806,22 @@ non_maint=$(find .mise -maxdepth 1 -name 'config*.toml' ! -name 'config.maint.to
 # $non_maint holds a space-separated path list; word-splitting is intentional.
 # shellcheck disable=SC2086
 taplo lint --schema "file:///${PWD#/}/config/taplo/mise-cargo-backend-allowlist.schema.json" $non_maint
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.readme-mise-version-check]
+# Keep the README's stated minimum mise version in sync with the enforced `min_version` in .mise/config.toml.
+# No structural linter spans a markdown prose value and a TOML value, so this is a small goawk/coreutils compare.
+description = "Fail if README.md's mise version differs from min_version in .mise/config.toml"
+run = """
+config_version="$(goawk -F'"' '/^min_version/{print $2; exit}' .mise/config.toml)"
+# shellcheck disable=SC2016 # $0/RSTART/RLENGTH are awk fields, not shell vars -- single quotes are intended
+readme_prog='/ or later/ && match($0,/[0-9]{4}\\.[0-9]+\\.[0-9]+/){print substr($0,RSTART,RLENGTH);exit}'
+readme_version="$(goawk "$readme_prog" README.md)"
+if [ "$config_version" != "$readme_version" ]; then
+  echo "README mise version ($readme_version) != .mise/config.toml min_version ($config_version)" >&2
+  exit 1
+fi
 """
 shell = "bash -euo pipefail -c"
 
