@@ -24,6 +24,9 @@
 #   suppress per line. It is a false positive -- the args are cargo's own trusted rustc invocation -- and forwarding
 #   argv to rustc is the whole file's purpose, so no code change removes it. The crate is already this one minimal
 #   file; rationale lives in its header. Still covered by clippy + DeepSource Rust.
+# - uv.lock: the uv workspace's machine-generated dependency lock. Codacy's line-count metric flags its 500+ rows,
+#   but it is not hand-authored source and has nothing to review; the other lock files are well-known names Codacy
+#   already skips, whereas uv.lock is new enough that it isn't on that list yet.
 exclude_paths:
   - ".github/actions/**"
   - ".github/workflows/**"
@@ -35,3 +38,4 @@ exclude_paths:
   - "services/ws-modules/wasi-data1/src/coverage.rs"
   - "services/ws-web-runner/mingw-shim/msvc_crt_alloc.c"
   - "utilities/wasm-cov-wrapper/src/main.rs"
+  - "uv.lock"

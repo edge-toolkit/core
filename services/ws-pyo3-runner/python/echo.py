@@ -51,13 +51,7 @@ _echoed: int = 0
 
 
 def init(_send, _storage) -> None:
-    """Accept the host handles without keeping them.
-
-    This example replies purely by returning from the frame hooks, so it needs
-    neither the `WsSender` nor the `/storage` API. A module that wanted fan-out
-    or persistence would stash them, as `python/fanout.py` and
-    `python/storage_pingpong.py` do.
-    """
+    """Accept the host handles without keeping them -- this example replies by return."""
     _logger.info("echo agent initialised")
 
 

@@ -938,7 +938,7 @@ description = "Audit dependencies with cargo-deny (advisories, bans, licenses, s
 # expression must then land in clarify intentionally, not silently.
 run = """
 rc=0
-out="$(cargo deny check --config config/deny.toml 2>&1)" || rc=$?
+out="$(cargo deny --config config/deny.toml check 2>&1)" || rc=$?
 echo "$out"
 extra="$(echo "$out" | rg 'warning\\[no-license-field\\]' | rg -v 'saffron' || true)"
 if [ -n "$extra" ]; then
