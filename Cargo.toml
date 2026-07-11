@@ -398,6 +398,9 @@ ignore = [
   # 2154 days since last update at arcnmx/serde-value.
   # Pulled by deno_ffi.
   "serde-value",
+  # 732 days since last update at TedDriggs/serde_default; its `darling` requirement lags the latest release.
+  # A direct dependency of edge-toolkit for the serde-attribute `Default` derive.
+  "serde_default",
   # Archived upstream at bodil/smartstring.
   # Pulled by swc_ecma_lexer via deno_ast.
   "smartstring",
@@ -405,6 +408,9 @@ ignore = [
   "serde_yaml",
   # 700 days since last update at dalek-cryptography/subtle.
   "subtle",
+  # 1400 days since last update at hucsmn/suffix_array; its `bincode` requirement lags the latest release.
+  # Pulled by qbsdiff (binary diffing) via deno_runtime.
+  "suffix_array",
   # Archived upstream at rust-analyzer/text-size.
   "text-size",
   # Declared repository toml-rs/toml hosts `toml_writer` (with the `r`), not `toml_write`.
