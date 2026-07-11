@@ -281,6 +281,7 @@ fn create_web_worker_cb(
             format_js_error_fn: None,
             maybe_coverage_dir: None,
             maybe_cpu_prof_config: None,
+            maybe_main_module_blob: None,
             maybe_worker_metadata: None,
             residual_lazy_esm_sources: &[],
             residual_lazy_js_sources: &[],
@@ -289,6 +290,8 @@ fn create_web_worker_cb(
             stdio: Stdio::default(),
             trace_ops: None,
             unsafely_ignore_certificate_errors: None,
+            wait_for_debugger_on_start: false,
+            wait_for_page_wait_for_debugger: false,
         };
 
         // Pre-shim the worker so browser-environment fakes are in place
