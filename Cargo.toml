@@ -345,6 +345,9 @@ ignore = [
   # 3182 days since last update at faradayio/exec-rs.
   # Pulled by Deno's `node_shim` (process re-exec on Node compatibility shim).
   "exec",
+  # cargo-unmaintained can't find a crate of this name in the denoland/deno monorepo its `repository` field names.
+  # It is a workspace member there, so the "not in <repo>" heuristic misfires. Pulled by the Deno registry stack.
+  "fast-registry-json",
   # 933 days since last update at HdrHistogram/HdrHistogram_rust.
   # Pulled by deno_node (perf hooks).
   "hdrhistogram",
