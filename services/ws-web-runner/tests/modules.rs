@@ -42,6 +42,8 @@
 )]
 
 use edge_toolkit::config::{Language, mise_env_includes};
+#[cfg(feature = "coverage")]
+use fs_err as fs;
 use rstest::rstest;
 
 #[rstest]
@@ -71,6 +73,8 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
     }
     let server = et_ws_test_server::start();
     run_runner_with_timeout(module, &server.ws_url, 90);
+    #[cfg(feature = "coverage")]
+    collect_module_coverage(&server);
 }
 
 /// dotnet-data1's `pkg/` wasm artifacts only exist after `build-ws-dotnet-data1-module` has run on this
@@ -128,20 +132,123 @@ fn multi_agent_module(#[case] module: &str, #[case] language: Language) {
     assert!(failed.is_empty(), "{module} failed in: {}", failed.join(", "));
 }
 
-/// Spawn one `et-ws-web-runner` against `ws_url` and panic with the
-/// captured stdout/stderr on non-zero exit. `timeout_secs` is passed as
-/// `RUNNER_TIMEOUT` (humantime, e.g. `120s`); the multi-agent harness bumps
-/// it because two cold V8 starts contending for the same box widen the
-/// discovery window past the single-agent budget.
-fn run_runner_with_timeout(module: &str, ws_url: &str, timeout_secs: u32) {
+/// Load + run each hardware/sensor module and assert it fails without the device API it needs.
+///
+/// The modules listed under "Hardware / browser-only APIs" above touch a browser sensor/media API the runner's
+/// shims deliberately do NOT provide (only `navigator.userAgent` is stubbed) -- camera `getUserMedia`,
+/// `DeviceMotionEvent`, geolocation, `navigator.bluetooth`, `NDEFReader`, `webkitSpeechRecognition`. So they
+/// cannot complete under Deno, which is why they are excluded from `module_runs_successfully`. Running them
+/// anyway still exercises the fetch + module-graph load + entry-evaluation paths -- in the runner AND in each
+/// module's wasm-bindgen glue up to the point it reaches for the missing API -- which is otherwise uncovered
+/// (har1 and face-detection especially). We assert a non-zero exit: the module either throws when the absent API
+/// is touched or is killed by `RUNNER_TIMEOUT` while awaiting a device callback that never fires. A module that
+/// unexpectedly EXITS 0 here is a real finding -- the runner can now run it, so move it to
+/// `module_runs_successfully`.
+#[rstest]
+#[case::audio1("et-ws-audio1", Language::Rust)]
+#[case::bluetooth("et-ws-bluetooth", Language::Rust)]
+#[case::face_detection("et-ws-face-detection", Language::Rust)]
+#[case::geolocation("et-ws-geolocation", Language::Rust)]
+#[case::har1("et-ws-har1", Language::Rust)]
+#[case::nfc("et-ws-nfc", Language::Rust)]
+#[case::sensor1("et-ws-sensor1", Language::Rust)]
+#[case::speech_recognition("et-ws-speech-recognition", Language::Rust)]
+#[case::video1("et-ws-video1", Language::Rust)]
+#[case::pyface1("et-ws-pyface1", Language::Python)]
+fn hardware_module_load_fails(#[case] module: &str, #[case] language: Language) {
+    if !mise_env_includes(language) {
+        println!(
+            "skipping {module}: requires the `{}` mise env, not loaded",
+            language.as_str()
+        );
+        return;
+    }
+    let server = et_ws_test_server::start();
+    // A missing sensor/media API throws promptly once the module runs, so the module usually exits well under
+    // this bound; it only bites if a module instead awaits a device callback that never fires, in which case
+    // RUNNER_TIMEOUT kills it -- still the non-zero exit we assert.
+    let output = run_runner(module, &server.ws_url, 30);
+    #[cfg(feature = "coverage")]
+    collect_module_coverage(&server);
+    assert!(
+        !output.status.success(),
+        concat!(
+            "{} exited 0, but it was expected to fail without its browser sensor/media API. ",
+            "If the runner can now run it, move it to `module_runs_successfully`.\n",
+            "--- stdout ---\n{}\n--- stderr ---\n{}",
+        ),
+        module,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+}
+
+/// Spawn one `et-ws-web-runner` against `ws_url` and return its captured output.
+///
+/// `timeout_secs` is passed as `RUNNER_TIMEOUT` (humantime, e.g. `120s`); the
+/// multi-agent harness bumps it because two cold V8 starts contending for the
+/// same box widen the discovery window past the single-agent budget.
+fn run_runner(module: &str, ws_url: &str, timeout_secs: u32) -> std::process::Output {
     let bin = env!("CARGO_BIN_EXE_et-ws-web-runner");
-    let output = std::process::Command::new(bin)
+    // ET_TEST_COVERAGE, when set by the coverage workflow, is inherited by the child (Command keeps the parent
+    // env), so the Pyodide shims collect coverage into ws-server storage -- no explicit forwarding needed.
+    std::process::Command::new(bin)
         .env("RUNNER_MODULE", module)
         .env("WS_SERVER_URL", ws_url)
         .env("RUNNER_TIMEOUT", format!("{timeout_secs}s"))
         .output()
-        .expect("failed to spawn et-ws-web-runner");
+        .expect("failed to spawn et-ws-web-runner")
+}
 
+/// Collect the coverage a module PUT into the test server's storage.
+///
+/// Each module writes its coverage to its own agent bucket (`<agent_id>/`), because the storage `put_file` only
+/// accepts a registered agent as the bucket. So this scans every agent bucket under the storage dir and routes
+/// files by extension into the two later coverage tasks:
+/// - `.coverage` (Pyodide coverage.py data) -> `target/pycov/` renamed to coverage.py's parallel-data
+///   convention (`.coverage.<pkg>`) for the `pytest-cov` combine.
+/// - `.profraw` (Rust browser-wasm minicov) -> `target/wasi-cov/` (where the `wasm-cov` task turns each into
+///   lcov via the same llc/llvm-cov pipeline).
+///
+/// Compiled in only under the `coverage` feature (like the runner's capture code); the call sites are gated to
+/// match. Without a coverage build this whole helper is absent, and a plain test run never captures.
+#[cfg(feature = "coverage")]
+fn collect_module_coverage(server: &et_ws_test_server::TestServer) {
+    let root = edge_toolkit::config::get_project_root();
+    let Ok(buckets) = fs::read_dir(server.storage_dir.path()) else {
+        return;
+    };
+    for bucket in buckets.flatten() {
+        let Ok(entries) = fs::read_dir(bucket.path()) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            match path.extension().and_then(|ext| ext.to_str()) {
+                Some("coverage") => {
+                    let dest_dir = root.join("target/pycov");
+                    fs::create_dir_all(&dest_dir).expect("create target/pycov");
+                    let stem = path
+                        .file_stem()
+                        .expect("coverage data file has a stem")
+                        .to_string_lossy();
+                    let _copied = fs::copy(&path, dest_dir.join(format!(".coverage.{stem}"))).expect("copy pycov");
+                }
+                Some("profraw") => {
+                    let dest_dir = root.join("target/wasi-cov");
+                    fs::create_dir_all(&dest_dir).expect("create target/wasi-cov");
+                    let name = path.file_name().expect("profraw has a file name");
+                    let _copied = fs::copy(&path, dest_dir.join(name)).expect("copy wasmcov profraw");
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+/// Run `module` and panic with the captured stdout/stderr on non-zero exit.
+fn run_runner_with_timeout(module: &str, ws_url: &str, timeout_secs: u32) {
+    let output = run_runner(module, ws_url, timeout_secs);
     if output.status.success() {
         return;
     }

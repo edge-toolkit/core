@@ -146,17 +146,8 @@ jobs:
           docker run --rm et-test sh -c "find / -xdev -type f -size +50M -exec du -h {} + | sort -h | tail -50"
           echo "::endgroup::"
 
-      # Run the test phases as two separate `docker run` invocations.
-      # Each starts a fresh container with an empty writable layer, so the per-phase compile target/ doesn't share
-      # disk with the other phase. Splits cargo-test's two halves (workspace minus et-ws-web-runner, then
-      # et-ws-web-runner serialized) for clearer attribution when a tight-disk runner fails. test-ws-web-runner
-      # already skips itself on hosts that can't satisfy its Deno-runtime requirements, so this step is a no-op on
-      # those platforms.
-      - name: Run cargo-test-other
-        run: docker run --rm et-test mise run cargo-test-other
-
-      - name: Run test-ws-web-runner
-        run: docker run --rm et-test mise run test-ws-web-runner
+      - name: Run cargo-test
+        run: docker run --rm et-test mise run cargo-test
 
       - name: Run mise check
         run: docker run --rm et-check

@@ -39,6 +39,7 @@ members = [
   "utilities/int-gen",
   "utilities/cli",
   "utilities/onnx",
+  "utilities/wasm-cov-wrapper",
   "generated/rust-rest",
 ]
 resolver = "2"
@@ -52,6 +53,7 @@ actix-web-thiserror = "0.2"
 actix-ws = "0.3"
 async-trait = "0.1"
 asyncapi-rust = "0.2"
+backon = { version = "1.6", default-features = false }
 base64 = "0.22.1"
 bytemuck = { version = "1.16", features = ["derive"] }
 bytes = "1"
@@ -93,6 +95,7 @@ kdl = { version = "6", features = ["v1"] }
 libc = "0.2"
 local-ip-address = "0.6"
 log = "0.4"
+minicov = "0.3"
 onnx-extractor = "0.3"
 openapiv3 = "2"
 opentelemetry = "0.31"
@@ -413,6 +416,9 @@ ignore = [
   "utf8parse",
   # 517 days since last update at daxpedda/web-time.
   "web-time",
+  # Not in declared repo (gfx-rs/wgpu): a per-platform helper crate from the wgpu monorepo.
+  # cargo-unmaintained can't find the individual member at the repo root -- false positive; pulled by wgpu-core.
+  "wgpu-core-deps-windows-linux-android",
   # Declared repository WebAssembly/WASI is spec-only (no `crates/` tree).
   # The crate is effectively orphaned upstream.
   "witx",

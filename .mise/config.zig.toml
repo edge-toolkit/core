@@ -10,12 +10,40 @@
 # C tooling for the zig-data1 module's hand-written C.
 # The C sources live under services/ws-modules/zig-data1/src/*.c. Two conda packages because mise hands the
 # `clang-format` name to conda:clang-format, so conda:clang-tools omits it and only supplies clang-tidy. Both
-# are conda-forge's native LLVM binaries. cpplint (Google C++ style) has no prebuilt binary -- pipx is its
-# only distribution.
+# are conda-forge's native LLVM binaries. cpplint (Google C++ style) and flawfinder (C/C++ security scanner)
+# have no prebuilt binary -- pipx is their only distribution.
 "conda:clang-format" = "latest"
 "conda:clang-tools" = "latest"
 "pipx:cpplint" = "latest"
+"pipx:flawfinder" = "latest"
 zig = "latest"
+
+# llvm-mingw provides a clang-tidy that can parse the Windows-only mingw-shim (windows.h + MSVC CRT identifiers).
+# This entry MUST keep a windows platform and MUST NOT carry an `os = ["linux", "macos"]` scope: MISE_ENV
+# configs load after config.windows.toml, so an os-scoped entry here overrides the Windows [tools] entry and
+# filters llvm-mingw out of the Windows toolset PATH. cc-rs builds then fall through to the GHA runner's
+# system clang (MSVC-default, no mingw sysroot) and every C-compiling build script dies with, e.g.:
+#     aws-lc-sys@0.41.0: ...\aws-lc\tests\compiler_features_tests\c11.c:7:10: fatal error: 'stdlib.h' file not found
+# which took down every Windows job on commit 60b631d4dea8d19f50386f1568bf6128c956795c at
+# https://github.com/edge-toolkit/core/actions/runs/28995222108/job/86043285466 (check windows-latest lane).
+# The windows-x64 matching below mirrors the config.windows.toml entry -- keep them identical.
+[tools."github:mstorsjo/llvm-mingw"]
+version = "20260602"
+
+[tools."github:mstorsjo/llvm-mingw".platforms.linux-arm64]
+matching = "ubuntu-22.04-aarch64"
+
+[tools."github:mstorsjo/llvm-mingw".platforms.linux-x64]
+matching = "ubuntu-22.04-x86_64"
+
+[tools."github:mstorsjo/llvm-mingw".platforms.macos-arm64]
+matching = "macos-universal"
+
+[tools."github:mstorsjo/llvm-mingw".platforms.macos-x64]
+matching = "macos-universal"
+
+[tools."github:mstorsjo/llvm-mingw".platforms.windows-x64]
+matching = "ucrt-x86_64"
 
 [tasks.zig-check]
 run = "zig fmt --check services/ws-modules/ generated/zig-rest/"
@@ -35,36 +63,55 @@ run = "git ls-files '*.c' '*.h' | xargs clang-format --dry-run --Werror --style=
 description = "Lint C sources (clang-tidy)"
 # Flags after `--` are the compile args.
 # clang_resource_arg points clang at its builtin headers (set per host -- see config.linux.toml). {{ }} renders
-# to empty where unset, leaving a bare `--`.
-# services/ws-web-runner/mingw-shim is excluded from the two clang-tidy tasks only.
-# clang-tidy compiles its input, and those Windows-only sources (windows.h, MSVC CRT identifiers) cannot
-# compile on Linux.
+# to empty where unset, leaving a bare `--`. The host clang-tidy can't parse the Windows-only mingw-shim
+# (windows.h, MSVC CRT), so it gets a second pass with llvm-mingw's clang-tidy cross-targeting windows;
+# `mise where` locates that install on any host (config.windows.toml on Windows, config.zig.toml on Linux/macOS).
 run = """
 git ls-files '*.c' '*.h' ':!services/ws-web-runner/mingw-shim' |
   xargs -I{} clang-tidy --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
+llvm_ct="$(mise where 'github:mstorsjo/llvm-mingw')/bin/clang-tidy"
+git ls-files 'services/ws-web-runner/mingw-shim/*.c' |
+  xargs -I{} "$llvm_ct" --config-file=config/clang-tidy.yaml {} -- --target=x86_64-w64-mingw32 -std=c11
 """
 shell = "bash -euo pipefail -c"
 
 [tasks.clang-tidy-fix]
 description = "Apply clang-tidy's machine-applicable fix-its to C sources in place"
+# Mirrors clang-tidy-check's two passes: host clang-tidy for portable C, llvm-mingw's for the windows mingw-shim.
 run = """
 git ls-files '*.c' '*.h' ':!services/ws-web-runner/mingw-shim' |
   xargs -I{} clang-tidy --fix --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
+llvm_ct="$(mise where 'github:mstorsjo/llvm-mingw')/bin/clang-tidy"
+git ls-files 'services/ws-web-runner/mingw-shim/*.c' |
+  xargs -I{} "$llvm_ct" --fix --config-file=config/clang-tidy.yaml {} -- --target=x86_64-w64-mingw32 -std=c11
 """
 shell = "bash -euo pipefail -c"
 
 [tasks.cpplint-check]
 description = "Lint C sources for Google C++ style (cpplint)"
+# cpplint and clang-tidy share the `// NOLINT` syntax, so cpplint sees the shim's clang-tidy-named NOLINTs.
+# -readability/nolint stops it erroring on those (bugprone-*, clang-diagnostic-*) as unknown cpplint categories.
 run = """
 git ls-files '*.c' '*.h' |
-  xargs cpplint --quiet --linelength=120 --filter=-legal/copyright,-build/include_subdir
+  xargs cpplint --quiet --linelength=120 --filter=-legal/copyright,-build/include_subdir,-readability/nolint
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.flawfinder-check]
+description = "Scan C sources for risky C APIs (flawfinder security lint)"
+# flawfinder is a lexical scanner (no compile), so unlike clang-tidy it also covers the mingw-shim sources.
+# Gate on risk level >= 2; the blanket level-1 notes (e.g. every strlen) are too noisy to fail CI on. A
+# reviewed-safe hit at or above the gate is silenced with an inline `flawfinder: ignore` comment stating why.
+run = """
+git ls-files '*.c' '*.h' |
+  xargs flawfinder --error-level=2 --minlevel=2 --quiet --dataonly
 """
 shell = "bash -euo pipefail -c"
 
 # Namespaced aggregators picked up by the default config's globbed `check`/`fmt`.
 [tasks."check:zig"]
-depends = ["clang-format-check", "clang-tidy-check", "cpplint-check", "zig-check"]
-description = "Run Zig + C checks (zig fmt-check, clang-format, clang-tidy, cpplint)"
+depends = ["clang-format-check", "clang-tidy-check", "cpplint-check", "flawfinder-check", "zig-check"]
+description = "Run Zig + C checks (zig fmt-check, clang-format, clang-tidy, cpplint, flawfinder)"
 
 [tasks."fmt:zig"]
 depends = ["clang-format", "zig-fmt"]

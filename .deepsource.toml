@@ -2,10 +2,8 @@ version = 1
 
 # Trees that are generated or vendored rather than hand-written source.
 # Built module artifacts under any `pkg/`, the int-gen outputs under `generated/`, and the scenario `verification/`
-# fixtures. The mingw-shim is MSVC-CRT ABI glue (non-const ABI symbols like `__security_cookie`, lazy-init `static`
-# function-pointer caches, naked asm) where the general C best-practice rules only ever produce false positives;
-# clang-tidy/cpplint already cover that tree.
-exclude_patterns = ["**/pkg/**", "generated/**", "services/ws-web-runner/mingw-shim/**", "verification/**"]
+# fixtures.
+exclude_patterns = ["**/pkg/**", "generated/**", "verification/**"]
 
 # Repo convention: tests live in a `tests/` directory or in source files prefixed `test_`.
 test_patterns = ["**/test_*.py", "**/tests/**"]

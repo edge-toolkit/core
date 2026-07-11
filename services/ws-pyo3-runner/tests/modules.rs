@@ -24,6 +24,7 @@ use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
+use backon::{ExponentialBuilder, RetryableWithContext as _};
 use edge_toolkit::config::{Language, mise_env_includes};
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
 use futures_util::{SinkExt as _, StreamExt as _};
@@ -31,6 +32,26 @@ use rstest::rstest;
 use tokio_tungstenite::{connect_async, tungstenite};
 
 type ControlSocket = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+/// Total wall-clock wait for the runner to register as a peer.
+///
+/// Deliberately generous: the torch case's cold first `import torch` (a ~400 MB package) can take tens of
+/// seconds on a cold, contended CI runner before the runner even connects, and this wait must outlast that.
+/// See the pyo3-runner torch-registration-timeout note in CLAUDE.md.
+const PEER_REGISTER_TIMEOUT: Duration = Duration::from_mins(2);
+/// Overall `run_exchange` budget for the torch case; must exceed `PEER_REGISTER_TIMEOUT` (its cold import lands
+/// inside the peer wait) plus one reply.
+const TORCH_EXCHANGE_BUDGET: Duration = Duration::from_mins(3);
+/// Overall `run_exchange` budget for the quick (non-torch) cases, which register within a second.
+const EXCHANGE_BUDGET: Duration = Duration::from_secs(30);
+/// Wait for a single reply frame within an exchange step.
+const REPLY_TIMEOUT: Duration = Duration::from_secs(10);
+/// Exponential-backoff bounds for the peer-registration poll: tight at first, then cheap while we wait out a
+/// slow cold start. Driven by `backon`; the total wall-clock is capped by `PEER_REGISTER_TIMEOUT`.
+const POLL_BACKOFF_MIN: Duration = Duration::from_millis(50);
+const POLL_BACKOFF_MAX: Duration = Duration::from_millis(500);
+/// How long each poll round drains inbound frames looking for the peer before backing off.
+const POLL_DRAIN_WINDOW: Duration = Duration::from_millis(250);
 
 /// When a case may not be runnable, the condition under which it self-skips.
 enum Gate {
@@ -91,9 +112,9 @@ async fn module_behaves(
 
     // torch's cold import + first op is slow; the rest are quick.
     let budget = if matches!(gate, Gate::Torch) {
-        Duration::from_mins(1)
+        TORCH_EXCHANGE_BUDGET
     } else {
-        Duration::from_secs(30)
+        EXCHANGE_BUDGET
     };
     let outcome = tokio::time::timeout(budget, run_exchange(&mut control, &control_id, &exchange)).await;
 
@@ -258,38 +279,65 @@ async fn control_client(ws_url: &str) -> Result<(ControlSocket, String), Box<dyn
     }
 }
 
-/// Poll `list_agents` until a peer other than us (the runner) registers.
+/// Poll `list_agents` until a peer other than us (the runner) registers, backing off between rounds.
+///
+/// `backon` drives the exponential backoff (each miss returns `Err(())`, which its default predicate retries);
+/// `&mut control` is threaded through as the retry context because a borrowed socket can't escape a plain
+/// `FnMut` retry closure. The whole retry is wrapped in a `PEER_REGISTER_TIMEOUT` wall-clock timeout, so a
+/// runner that never registers (e.g. a cold torch import that overran even the generous budget) fails here.
 async fn wait_for_peer(control: &mut ControlSocket, self_id: &str) -> Result<(), Box<dyn Error>> {
-    // The runner needs ~1s to spawn + init Python + connect; give it room.
-    let deadline = Instant::now() + Duration::from_secs(15);
-    while Instant::now() < deadline {
-        let req = serde_json::to_string(&ClientMessage::ListAgents)?;
-        control.send(tungstenite::Message::Text(req)).await?;
-        // Drain responses for a short window before re-polling.
-        let poll_until = Instant::now() + Duration::from_millis(250);
-        while Instant::now() < poll_until {
-            let remaining = poll_until - Instant::now();
-            match tokio::time::timeout(remaining, control.next()).await {
-                Ok(Some(Ok(tungstenite::Message::Text(text)))) => {
-                    if let Ok(ServerMessage::ListAgentsResponse { agents }) =
-                        serde_json::from_str::<ServerMessage>(&text)
-                        && agents.iter().any(|summary| summary.agent_id != self_id)
-                    {
-                        return Ok(());
-                    }
-                }
-                Ok(Some(Ok(_))) => {}
-                _ => break,
-            }
-        }
-        tokio::time::sleep(Duration::from_millis(200)).await;
+    let backoff = ExponentialBuilder::default()
+        .with_min_delay(POLL_BACKOFF_MIN)
+        .with_max_delay(POLL_BACKOFF_MAX)
+        .without_max_times();
+    // Pass `peer_poll_step` as a bare `async fn` item, not a closure: only a function item can be
+    // higher-ranked over the socket's borrow (`for<'a> FnMut((&'a mut _, &'a str)) -> Fut<'a>`), which
+    // `backon`'s context-threading retry requires. `self_id` rides in the context tuple alongside the socket.
+    let poll = peer_poll_step.retry(backoff).context((control, self_id));
+    match tokio::time::timeout(PEER_REGISTER_TIMEOUT, poll).await {
+        Ok((_ctx, Ok(()))) => Ok(()),
+        _ => Err("runner never registered".into()),
     }
-    Err("runner never registered".into())
+}
+
+/// One `backon` retry step: run a poll round, then hand the context back so the next attempt reuses it.
+async fn peer_poll_step<'sock>(
+    (control, self_id): (&'sock mut ControlSocket, &'sock str),
+) -> ((&'sock mut ControlSocket, &'sock str), Result<(), ()>) {
+    let outcome = poll_for_peer_once(control, self_id).await;
+    ((control, self_id), outcome)
+}
+
+/// One registration poll round: request the roster, drain replies for `POLL_DRAIN_WINDOW`, and return
+/// `Ok(())` once a peer that isn't us appears. `Err(())` is the "not yet" sentinel `backon` retries on.
+async fn poll_for_peer_once(control: &mut ControlSocket, self_id: &str) -> Result<(), ()> {
+    let Ok(req) = serde_json::to_string(&ClientMessage::ListAgents) else {
+        return Err(());
+    };
+    if control.send(tungstenite::Message::Text(req)).await.is_err() {
+        return Err(());
+    }
+    let poll_until = Instant::now() + POLL_DRAIN_WINDOW;
+    while Instant::now() < poll_until {
+        let remaining = poll_until - Instant::now();
+        match tokio::time::timeout(remaining, control.next()).await {
+            Ok(Some(Ok(tungstenite::Message::Text(text)))) => {
+                if let Ok(ServerMessage::ListAgentsResponse { agents }) = serde_json::from_str::<ServerMessage>(&text)
+                    && agents.iter().any(|summary| summary.agent_id != self_id)
+                {
+                    return Ok(());
+                }
+            }
+            Ok(Some(Ok(_))) => {}
+            _ => break,
+        }
+    }
+    Err(())
 }
 
 /// Drain frames until the first non-protocol text frame (skipping typed et-* envelopes).
 async fn drain_text(control: &mut ControlSocket) -> Result<String, Box<dyn Error>> {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + REPLY_TIMEOUT;
     while Instant::now() < deadline {
         let remaining = deadline - Instant::now();
         match tokio::time::timeout(remaining, control.next()).await {
@@ -310,7 +358,7 @@ async fn drain_text(control: &mut ControlSocket) -> Result<String, Box<dyn Error
 
 /// Drain frames until the first binary frame.
 async fn drain_binary(control: &mut ControlSocket) -> Result<Vec<u8>, Box<dyn Error>> {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + REPLY_TIMEOUT;
     while Instant::now() < deadline {
         let remaining = deadline - Instant::now();
         match tokio::time::timeout(remaining, control.next()).await {
@@ -327,7 +375,7 @@ async fn drain_binary(control: &mut ControlSocket) -> Result<Vec<u8>, Box<dyn Er
 /// Collect exactly `count` one-byte binary frames (ignoring typed et-* envelopes).
 async fn collect_binary(control: &mut ControlSocket, count: usize) -> Result<Vec<u8>, Box<dyn Error>> {
     let mut received = Vec::with_capacity(count);
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + REPLY_TIMEOUT;
     while received.len() < count && Instant::now() < deadline {
         let remaining = deadline - Instant::now();
         match tokio::time::timeout(remaining, control.next()).await {

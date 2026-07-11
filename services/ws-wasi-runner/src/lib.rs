@@ -34,9 +34,10 @@ pub async fn run_module(
     module_name: &str,
     ws_url: &str,
     connect_ack_timeout: Option<std::time::Duration>,
+    coverage: bool,
 ) -> Result<(), RunnerError> {
     let span = tracing::info_span!("run_module", module = module_name);
-    run_module_inner(module_name, ws_url, connect_ack_timeout)
+    run_module_inner(module_name, ws_url, connect_ack_timeout, coverage)
         .instrument(span)
         .await
 }
@@ -49,6 +50,7 @@ async fn run_module_inner(
     module_name: &str,
     ws_url: &str,
     connect_ack_timeout: Option<std::time::Duration>,
+    coverage: bool,
 ) -> Result<(), RunnerError> {
     let http_base = derive_http_base(ws_url)?;
 
@@ -78,7 +80,7 @@ async fn run_module_inner(
     bindings::Runner::add_to_linker::<HostState, HasSelf<HostState>>(&mut linker, |state| state)?;
     wasmtime_wasi_nn::wit::add_to_linker(&mut linker, host::wasi_nn::view)?;
 
-    let host_state = HostState::new(&http_base, ws_url.to_string(), connect_ack_timeout);
+    let host_state = HostState::new(&http_base, ws_url.to_string(), connect_ack_timeout, coverage);
     let mut store = Store::new(&engine, host_state);
 
     let module = bindings::Runner::instantiate_async(&mut store, &component, &linker).await?;

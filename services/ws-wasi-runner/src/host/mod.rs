@@ -9,6 +9,9 @@ use std::sync::Arc;
 
 use tokio::sync::Mutex;
 use wasmtime::component::ResourceTable;
+// DirPerms/FilePerms are only used by the coverage `/cov` preopen below.
+#[cfg(feature = "coverage")]
+use wasmtime_wasi::{DirPerms, FilePerms};
 use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 
 mod error;
@@ -49,8 +52,42 @@ impl HostState {
         clippy::same_name_method,
         reason = "convention: HostState::new mirrors WasiCtxBuilder/ResourceTable/Client constructors used here"
     )]
-    pub fn new(http_base: &str, ws_url: String, connect_ack_timeout: Option<std::time::Duration>) -> Self {
-        let wasi_ctx = WasiCtxBuilder::new().inherit_stdio().inherit_env().build();
+    #[cfg_attr(
+        not(feature = "coverage"),
+        expect(
+            unused_variables,
+            reason = "coverage gates the /cov preopen, compiled only under the feature"
+        )
+    )]
+    pub fn new(
+        http_base: &str,
+        ws_url: String,
+        connect_ack_timeout: Option<std::time::Duration>,
+        coverage: bool,
+    ) -> Self {
+        let mut builder = WasiCtxBuilder::new();
+        #[expect(unused_results, reason = "WasiCtxBuilder setters return &mut Self")]
+        {
+            builder.inherit_stdio().inherit_env();
+        }
+        // Instrumented guests write their minicov `.profraw` to `/cov`; map it to target/wasi-cov so the
+        // wasi-cov task finds it. Repo-root-anchored (not CWD) so it lands consistently under nextest.
+        #[cfg(feature = "coverage")]
+        if coverage {
+            #[expect(
+                unused_results,
+                clippy::expect_used,
+                reason = "preopen setter returns &mut Self; a coverage-preopen failure is a misconfigured test run"
+            )]
+            {
+                let cov_dir = edge_toolkit::config::get_project_root().join("target/wasi-cov");
+                fs_err::create_dir_all(&cov_dir).expect("create target/wasi-cov");
+                builder
+                    .preopened_dir(&cov_dir, "/cov", DirPerms::all(), FilePerms::all())
+                    .expect("preopen /cov for wasm coverage");
+            }
+        }
+        let wasi_ctx = builder.build();
 
         Self {
             wasi_ctx,

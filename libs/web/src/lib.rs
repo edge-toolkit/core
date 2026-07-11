@@ -6,6 +6,28 @@ pub use self::error::{JsCastExt, JsFunctionExt, JsPromiseExt, JsResultExt};
 
 pub const SENSOR_PERMISSION_GRANTED: &str = "granted";
 
+/// Return this module's raw minicov coverage buffer (a `.profraw`), or empty on failure.
+///
+/// Present only in the `coverage` build. `wasm-bindgen` collects this export into every dependent browser
+/// module's JS glue, so the web-runner can pull each module's coverage after running it -- `wasm32-unknown-unknown`
+/// has no filesystem, so the bytes come back through JS rather than a file. The web-runner then routes them
+/// through the same llc + llvm-cov pipeline the WASI guests use (see the `wasi-cov` mise task).
+#[cfg(feature = "coverage")]
+#[wasm_bindgen]
+#[expect(
+    unsafe_code,
+    reason = "minicov::capture_coverage is unsafe; the browser wasm module is single-threaded"
+)]
+#[must_use]
+pub fn __et_capture_coverage() -> Vec<u8> {
+    let mut data = Vec::new();
+    // SAFETY: single-threaded browser wasm; called once after the module's run() completes.
+    match unsafe { minicov::capture_coverage(&mut data) } {
+        Ok(()) => data,
+        Err(_) => Vec::new(),
+    }
+}
+
 pub fn get_media_devices(navigator: &web_sys::Navigator) -> Result<web_sys::MediaDevices, JsValue> {
     let media_devices = js_sys::Reflect::get(navigator, &JsValue::from_str("mediaDevices"))?;
 

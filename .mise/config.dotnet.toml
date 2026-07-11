@@ -7,9 +7,12 @@ dotnet = "10.0.300"
 
 [vars]
 # MSBuild dir inside the mise dotnet SDK, for the roslynator `-m` flags below.
-# `$DOTNET_ROOT` stays literal here; the task shell expands it. The version segment is the [tools] dotnet
+# `$$DOTNET_ROOT` escapes mise's config-load `$VAR` expansion (`$$` -> literal `$`), so the value stays
+# `$DOTNET_ROOT/...` for the task shell to expand at run time. DOTNET_ROOT is a tool-plugin env var that mise
+# only injects once the dotnet tool is active; at config-parse time (e.g. mid `mise install`) it isn't set, so
+# a bare `$DOTNET_ROOT` would emit a spurious "not defined" warning. The version segment is the [tools] dotnet
 # pin above -- bump together.
-dotnet_msbuild = "$DOTNET_ROOT/sdk/10.0.300"
+dotnet_msbuild = "$$DOTNET_ROOT/sdk/10.0.300"
 
 [tasks.dotnet-fmt]
 description = "Format dotnet C# code"

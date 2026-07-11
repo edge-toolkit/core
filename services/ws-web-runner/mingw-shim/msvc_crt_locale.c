@@ -22,7 +22,6 @@
  * members define these same names and would collide. */
 
 #include <stdlib.h>
-#include <string.h>
 #include <windows.h>
 
 static void *ucrt_sym(const char *name) {
@@ -57,6 +56,7 @@ void *localeconv(void) {
     return fn();
 }
 
+// NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c)
 void *_create_locale(int category, const char *locale) {
     static void *(*fn)(int, const char *);
     if (fn == NULL) {
@@ -65,36 +65,11 @@ void *_create_locale(int category, const char *locale) {
     return fn(category, locale);
 }
 
+// NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c)
 void _free_locale(void *locale) {
     static void (*fn)(void *);
     if (fn == NULL) {
         fn = (void (*)(void *))ucrt_sym("_free_locale");
     }
     fn(locale);
-}
-
-/* _dupenv_s, reimplemented on the msvcrt heap so allocation and release agree.
- * The real one is ucrt-only, so it binds to ucrtbase and would allocate from the UCRT heap -- but the
- * archive frees the returned buffer with `free`, which is msvcrt-bound. errno values per the MSVC
- * contract. */
-int _dupenv_s(char **buf, size_t *len, const char *name) {
-    if (buf == NULL || name == NULL) {
-        return 22; /* EINVAL */
-    }
-    *buf = NULL;
-    if (len != NULL) {
-        *len = 0;
-    }
-    const char *value = getenv(name);
-    if (value == NULL) {
-        return 0;
-    }
-    *buf = _strdup(value);
-    if (*buf == NULL) {
-        return 12; /* ENOMEM */
-    }
-    if (len != NULL) {
-        *len = strlen(value) + 1;
-    }
-    return 0;
 }

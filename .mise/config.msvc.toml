@@ -114,9 +114,3 @@ print("rendered", sys.argv[2], "for MSVC", msvcv, "SDK", sdkv)
 PY
 """
 shell = "bash -euo pipefail -c"
-
-[tasks.test-ws-web-runner]
-# Override config.windows.toml's skip -- the msvc target links rusty_v8's native prebuilt, so it runs.
-description = "Run et-ws-web-runner integration tests serialized"
-env = { RUST_TEST_THREADS = "1" }
-run = "cargo test -p et-ws-web-runner"

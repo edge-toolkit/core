@@ -441,8 +441,8 @@ If you believe a skip is genuinely warranted, stop and ask the user; do not add 
 
 ### Known intermittent CI failure: pyo3-runner torch registration timeout
 
-`et-ws-pyo3-runner`'s `module_behaves::case_5_torch` intermittently fails on test.yaml's Windows and macOS lanes
-with the literal failure line
+`et-ws-pyo3-runner`'s `module_behaves::case_5_torch` intermittently fails on the Linux, Windows, and macOS lanes
+of test.yaml and build.yaml with the literal failure line
 
     Error: "runner never registered"
 
@@ -458,7 +458,16 @@ merged), and on the `default (macos-latest, 45)` job -- same signature, unix-for
 `torch/lib/python3.13/site-packages/torch/_subclasses/functional_tensor.py:362` warning path -- on commit
 `f2a85307a2415f4a50625627795e02c84f1c8e5d` at
 `https://github.com/edge-toolkit/core/actions/runs/28865327221/job/85613919558` (PR #73), 20.68s into the test
-run. If this signature recurs, stop rerunning and fix the root cause: raise (or make torch-case-specific) the
+run. Recurred at commit `1e323acb7fc433b66efed904b3b30ab3216dbf90` (PR #76) on three lanes of one run at once --
+the first Linux sighting, and the first time it took more than a single lane of a commit: build.yaml's
+`build (ubuntu:22.04)` (~15.76s) at
+`https://github.com/edge-toolkit/core/actions/runs/29034248895/job/86174973520`, and test.yaml's `override (mingw)`
+(~18.13s) and `override (msvc)` (~18.96s) at
+`https://github.com/edge-toolkit/core/actions/runs/29034248854/job/86174895528` and
+`https://github.com/edge-toolkit/core/actions/runs/29034248854/job/86174895194`. Three simultaneous same-commit
+failures read as the cold torch import consistently overrunning the timeout rather than an occasional flake -- so
+the root-cause fix below is now due, not optional. If this signature recurs, stop rerunning and fix the root cause:
+raise (or make torch-case-specific) the
 runner-registration timeout in the pyo3-runner module tests, or warm the torch import before the registration clock
 starts.
 
@@ -481,6 +490,29 @@ installed cleanly). This is an api.github.com rate-limit/transient-network flake
 `GITHUB_TOKEN` is already forwarded to raise the ceiling. If it becomes frequent rather than occasional, the
 durable fix is to mirror the affected assets via the upstream-cache pattern (which fetches from our own release
 CDN, off the api.github.com attestation path) rather than adding a retry wrapper.
+
+### Known intermittent CI failure: vector_otlp_relay store-and-forward timing
+
+`et-ws-wasi-runner`'s `vector_otlp_relay::vector_relays_buffered_otlp_after_backend_comes_online` intermittently
+fails with the literal panic line
+
+    mock never received the relayed `relay-probe` span -- store-and-forward failed
+
+from `services/ws-wasi-runner/tests/vector_otlp_relay.rs`. The test pushes one OTLP trace into Vector while the
+sink target is dead, brings a mock collector up on the sink port, then polls the mock for the redelivered span.
+The flake is a redelivery-latency race, not a store-and-forward defect: Vector retries the dead sink with an
+exponential backoff (`retry_initial_backoff_secs=1`, doubling; `retry_max_duration_secs=300` in
+`config/vector-otlp-relay.yaml`), so when its first attempts land in the gap between the mock being told to start
+and its listener actually accepting, the next retry can be tens of seconds out -- and at the original 30s poll
+ceiling that occasionally overran, so the span arrived just after the test gave up. Observed on the `default
+(windows-latest)` lane at commit `71e70e56946abefcea6daf47a7745e5f8f186dad`,
+`https://github.com/edge-toolkit/core/actions/runs/28923326008/job/85829470834` (the failure is OS-agnostic --
+any cold/contended runner, macOS included, can hit it). Fix applied: `wait_for_relayed_span` now polls ~120s
+(`Fixed::from_millis(250).take(480)`) instead of ~30s, which the poll exits the instant the span lands so the
+happy path is unaffected. If this signature recurs at the wider ceiling, the redelivery is being delayed past
+120s -- root-cause it rather than widening again: cap Vector's retry backoff interval (or make
+`int_otlp_mock::start_on` block until its listener is truly accepting so Vector's early retries don't grow the
+backoff), don't just bump the poll.
 
 ## Workarounds
 
@@ -763,12 +795,52 @@ standalone file or a mise task `run`. The available linters:
   `{% ... %}` -> empty), and shellchecks the lot. This is how shell-quality
   lints reach mise task bodies (shellcheck itself doesn't read TOML).
 - plus hadolint, ls-lint (file/dir naming), zizmor (Actions security), ryl
-  (YAML), lychee (links), clang-format / clang-tidy / cpplint (C, in the zig config), editorconfig-checker, typos, and
-  action-validator for their domains.
+  (YAML), lychee (links), clang-format / clang-tidy / cpplint / flawfinder (C, in the zig config),
+  editorconfig-checker, typos, and action-validator for their domains.
 
 ast-grep has no TOML grammar, so it **cannot** lint TOML -- use a taplo schema or
 a semgrep `generic` rule there. If none of the above can express a check,
 propose adding a new mise-installable linter rather than scripting it by hand.
+
+### Maximise linter coverage; suppress only narrowly, with justification
+
+This project aims for an extremely high DevSecOps bar, and the governing goal is **maximum linter rule coverage** --
+across Rust, every guest language, the configs, Dockerfiles, GitHub Actions, and the external services (DeepSource,
+Codacy, ...). The default is always to enable more rules and more linters, never fewer; a rule that catches a real
+class of defect is worth the friction.
+
+Because of that, **never turn a lint off to make code pass, and never avoid a security-related lint.** Do not disable
+a rule, switch off a whole analyzer or rule class (e.g. an analyzer's `misra_compliance`-style toggle), exclude a
+whole file or directory from analysis, or otherwise silence findings wholesale -- each trades real coverage for a
+green check, and silencing a security lint is never acceptable.
+
+When a finding is a genuine false positive or an unavoidable, reviewed-safe necessity, suppress it at the **narrowest
+possible scope** -- one line, one rule -- with a justification stating _why_ it is safe or false. In order of
+preference:
+
+1. **Fix the code** so the finding no longer fires -- the only right answer for anything actionable.
+2. **Inline, per-finding suppression carrying a reason** -- `#[expect(..., reason = "...")]`, `// skipcq: <code>`,
+   `// flawfinder: ignore [why]`, a `nosemgrep: <rule>` note, etc. -- scoped to the single line and single rule,
+   never a bare blanket ignore that also hides future (possibly real) findings on that line.
+3. Only if neither works, a tightly-scoped path-or-rule carve-out in the linter config, commented with the exact
+   reason -- and this needs operator sign-off (see the rule-deletion note below).
+
+Excluding a directory or disabling a rule class is the last resort, not the first. Treat any new blanket exclusion or
+disabled security lint in a diff as a red flag to push back on.
+
+When step 3 is genuinely forced -- the analyzer offers no per-line or per-pattern suppression (some external services,
+e.g. Codacy, only support path excludes) and the finding is a reviewed-safe necessity that cannot be fixed -- the
+exclusion must still be as **narrow as the file layout allows**. Do not exclude a whole directory (or a file that also
+holds analyzable code) to silence one un-suppressible construct: first refactor the code so the un-suppressible part is
+**isolated into its own smallest-possible file**, then exclude only that file. Everything factored out of it stays
+analyzed. The `services/ws-web-runner/mingw-shim/msvc_crt_alloc.c` split is the worked example -- the shim's only
+MISRA-21.3-unavoidable heap-allocation code (operator new/delete + `_dupenv_s`) was pulled out of
+`msvc_crt_shim.c` / `msvc_crt_locale.c` into that one file so Codacy's path exclude covers just it, leaving the rest of
+the shim under full analysis (and even the excluded file stays covered by DeepSource's clang-tidy plus the repo's own
+clang-tidy / cpplint / flawfinder). Record the exclusion rationale once, in the **excluded file's own header comment**
+-- that is its canonical home, because more than one analyzer config may exclude the same file and the reasoning must
+not be copied into each. Every config's exclude entry carries at most a one-line pointer back to the file, never a
+second copy of the rationale.
 
 ### When you spot a style or consistency issue, write a rule
 

@@ -39,6 +39,10 @@ use exports::et::ws_wasi::entry::{EntryError, Guest};
 use wasi::keyvalue::store;
 use wasi::logging::logging::{self, Level};
 
+// Coverage dump lives in its own module so Codacy can exclude just that file (its minicov call is unsafe).
+#[cfg(feature = "coverage")]
+mod coverage;
+
 const LOG_CONTEXT: &str = env!("CARGO_PKG_NAME");
 const FILENAME: &str = "test_data.txt";
 
@@ -97,6 +101,8 @@ impl Guest for Component {
 
         et::ws_wasi::ws::disconnect();
         info("workflow complete");
+        #[cfg(feature = "coverage")]
+        coverage::dump();
         Ok(())
     }
 }

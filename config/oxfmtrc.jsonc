@@ -1,5 +1,6 @@
-// oxfmt config (JSON/JSONC like oxlint -- same restriction). Knobs tuned so oxfmt's JS/TS output matches dprint's
-// typescript plugin output on this repo, so the two formatters can coexist without fighting:
+// oxfmt config, JSON/JSONC only like oxlint (it enforces the same loader restriction on its own config file).
+// Knobs are tuned so oxfmt's JS/TS output matches dprint's typescript plugin output on this repo, so the two
+// formatters can coexist without fighting:
 //
 //   - printWidth=120 matches dprint's lineWidth default (also our editorconfig and ruff line cap).
 //   - semi, singleQuote, trailingComma defaults already match dprint's prefer/double/onlyMultiLine equivalents.

@@ -29,6 +29,8 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
     // exit(0) short-circuit so ORT 1.22's libc++ teardown race doesn't surface
     // as a None exit code (see main.rs for the exact stderr signature).
     // No-op on Linux/Windows.
+    // ET_TEST_COVERAGE, when set by the coverage workflow, is inherited by the child (Command keeps the parent
+    // env), so the runner preopens /cov and instrumented guests dump their .profraw -- no forwarding needed.
     let status = std::process::Command::new(bin)
         .env("RUNNER_MODULE", module)
         .env("WS_SERVER_URL", &server.ws_url)

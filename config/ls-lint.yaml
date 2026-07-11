@@ -17,6 +17,10 @@ ls:
   .cs: PascalCase
   .java: PascalCase
 
+  # Ban the `.conf` extension: config files standardize on `.ini`/`.rc`, as rclone.ini and ripgrep.rc do.
+  # `regex:^$` matches no basename, so every `*.conf` file fails the check.
+  .conf: regex:^$
+
 ignore:
   - .git
   - target
@@ -34,16 +38,16 @@ ignore:
   - "**/.ruff_cache"
   - "**/.zig-cache"
   - "**/zig-out"
-  # `dart pub get` creates `.dart_tool/`, whose name fails the .dir rule, so it must be ignored.
+  # These dirs are created mid-run by parallel tasks, so they must be ignored by literal path, not glob.
   # ls-lint snapshots glob-based ignores once at startup and drops any matching nothing then
-  # (internal/glob/glob.go deletes zero-match keys), so a `**/.dart_tool` glob loses the race against the parallel
-  # `dart-pub-get` task creating these dirs mid-run. Literal paths are never glob-expanded, so they stay ignored
-  # whenever the dir appears; the generated/ dart packages' `.dart_tool` is already covered by `generated` above.
+  # (internal/glob/glob.go deletes zero-match keys), so a `**/.dart_tool` or `**/bin/Debug` glob loses the race
+  # against the `dart pub get` / `dotnet build` tasks creating the dirs. Literal paths are never glob-expanded, so
+  # they stay ignored whenever the dir appears. (generated/ dart packages' `.dart_tool` is covered by `generated`.)
   - services/ws-modules/dart-comm1/.dart_tool
   - services/ws-modules/dart-data1/.dart_tool
-  - "**/obj"
-  - "**/bin/Debug"
-  - "**/bin/Release"
+  - services/ws-modules/dotnet-data1/obj
+  - services/ws-modules/dotnet-data1/bin/Debug
+  - services/ws-modules/dotnet-data1/bin/Release
   # Built module artifacts (wheels, .wasm, generated JS) live under each pkg/.
   - "**/pkg"
   # Zig codegen templates dir whose name carries a literal `.in` suffix.

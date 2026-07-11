@@ -20,11 +20,11 @@ async fn test_websocket_connection() {
     // Give it a second to actually connect
     let promise = Promise::new(&mut |resolve, _| {
         let window = web_sys::window().unwrap();
-        window
+        let _timeout_id = window
             .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, 1000)
             .unwrap();
     });
-    let _ = JsFuture::from(promise).await;
+    drop(JsFuture::from(promise).await);
 
     // Assert connection state is successfully connected or at least it didn't fail
     let state = client.get_state();

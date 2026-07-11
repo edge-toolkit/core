@@ -1,5 +1,7 @@
 # clang-tidy checks for C sources.
 # Applied via `mise run clang-tidy-check` (passed as --config-file=<this>).
 # Bug-finding analysis only; opinionated readability/style checks are left off to avoid churn on the small C surface.
-Checks: "clang-analyzer-*,bugprone-*,performance-*,portability-*"
+# cppcoreguidelines-avoid-non-const-global-variables is pulled in specifically (not the whole cppcoreguidelines set)
+# to mirror DeepSource's cxx CXX-W2009, so the mingw-shim's ABI globals are caught here too, not only on DeepSource.
+Checks: "clang-analyzer-*,bugprone-*,performance-*,portability-*,cppcoreguidelines-avoid-non-const-global-variables"
 WarningsAsErrors: "*"

@@ -64,6 +64,7 @@ ast-grep = "latest"
 cargo-binstall = "latest"
 "cargo:cargo-expand" = { version = "latest", os = ["linux", "macos"] }
 "cargo:wasm-opt" = { version = "latest", os = ["linux", "macos"] }
+"github:nextest-rs/nextest" = "latest"
 taplo = "latest"
 watchexec = "latest"
 # Chromedriver disabled (commented out below).
@@ -151,10 +152,17 @@ components = "clippy,rust-analyzer"
 os = ["linux", "macos"]
 profile = "minimal"
 targets = "wasm32-unknown-unknown,wasm32-wasip2"
-version = "latest"
+# Use `stable`, not `latest`, so every lane resolves through the same rustup channel.
+# mise's `latest` picks the max of rust-lang/rust's GitHub Releases, which are published by separate
+# automation that lags the `stable` rustup channel the Windows [[tools.rust]] entries resolve through. That
+# skew once shipped a newer clippy (with a new restriction lint) to Windows than Linux/macOS, breaking only
+# that lane.
+version = "stable"
 
 [[tools.rust]]
-components = "rust-src,rustfmt"
+# llvm-tools ships the version-matched llc + llvm-cov + llvm-profdata the wasm-coverage pipeline drives.
+# The instrumented guests build on nightly for -Zno-profiler-runtime, so the matching LLVM tools are nightly's.
+components = "rust-src,rustfmt,llvm-tools"
 os = ["linux", "macos"]
 profile = "minimal"
 targets = "wasm32-unknown-unknown,wasm32-wasip2"
@@ -274,6 +282,11 @@ conda_openssl = "{{ vars.a_home }}/.local/share/mise/installs/conda-openssl/3"
 # like `D:\a\core\core/target/...` become `D:acorecore/target/...`). Forward slashes Just Work on both
 # shells. Used as the root of every workspace-relative var below.
 config_root_fwd = '{{ config_root | replace(from="\\", to="/") }}'
+# Google dart-archive base URLs for config.dart.toml's `[tools.dart]` url/version_list_url.
+# They live here (always-loaded), not in the dart config, because mise resolves tool URLs during
+# `mise upgrade`/`install` without that env config's own [vars] in scope -- the same reason augeas_* assets are here.
+dart_bucket = "https://storage.googleapis.com/storage/v1/b/dart-archive/o"
+dart_release = "https://storage.googleapis.com/dart-archive/channels/stable/release"
 # Absolute path to the workspace-built et-cli binary.
 # The parallel build-ws-*-module tasks each invoke `et-cli module-package-json`; using this var (rather than
 # `cargo run -p et-cli`) means every invocation execs the same pre-built binary instead of re-entering cargo,
@@ -284,6 +297,10 @@ config_root_fwd = '{{ config_root | replace(from="\\", to="/") }}'
 # on it. `.exe` suffix on Windows matches cargo's output naming.
 a_et_cli_exe = "et-cli{% if os() == 'windows' %}.exe{% endif %}"
 a_et_cli_target_dir = "target{% if os() == 'windows' %}/x86_64-pc-windows-gnullvm{% endif %}/debug"
+# RUSTC_WORKSPACE_WRAPPER assignment for the coverage build; leaf var referenced by web_cov_wrapper below.
+# `a_` prefix so mise's alphabetical [vars] render defines it before web_cov_wrapper uses it. Split out from
+# web_cov_wrapper (rather than inlined) to keep that line under the 120-char limit.
+a_web_cov_wrapper_env = 'RUSTC_WORKSPACE_WRAPPER={{ config_root }}/target/debug/int-wasm-cov-wrapper '
 et_cli = "{{ vars.config_root_fwd }}/{{ vars.a_et_cli_target_dir }}/{{ vars.a_et_cli_exe }}"
 # mise-managed CPython (Linux/macOS); the PYO3_PYTHON default below.
 # Windows overrides PYO3_PYTHON with its own py3_win in config.windows.toml. The version
@@ -297,6 +314,25 @@ rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
 # `python` pin), since the minor-version alias dir isn't created everywhere.
 pylib_flag = "-C link-arg=-Wl,-rpath,{{ vars.a_home }}/.local/share/mise/installs/python/3.13.14/lib"
 wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint,+reference-types"
+# RUSTFLAGS for the wasm coverage builds: instrument + emit LLVM IR, no profiler runtime (minicov provides it).
+# Single codegen unit + LTO off so each crate emits one .ll the wasm-cov task can gut and feed to llc/llvm-cov.
+wasm_cov_rustflags = "--emit=llvm-ir -Cinstrument-coverage -Ccodegen-units=1 -Clto=off -Zno-profiler-runtime"
+# Coverage fragments the wasm module build commands append unconditionally (empty unless ET_TEST_COVERAGE is set).
+# wasm_cov is an inline RUSTFLAGS env prefix; the nightly toolchain + conda clang come from the coverage [env].
+# The *_feat vars turn on minicov: cargo `--features` for the WASI cdylibs, wasm-pack `-- --features` for browsers
+# (comm1 pulls et-web only under this feature).
+wasi_cov_feat = '{% if env?.ET_TEST_COVERAGE == "true" %} --features coverage{% endif %}'
+wasm_cov = '{% if env?.ET_TEST_COVERAGE == "true" %}RUSTFLAGS="{{ vars.wasm_cov_rustflags }}"{% endif %}'
+web_cov_feat = '{% if env?.ET_TEST_COVERAGE == "true" %} -- --features et-web/coverage{% endif %}'
+# Command prefix routing a browser module's wasm-pack build through the workspace-only coverage wrapper.
+# Instruments our crates, never dependency cdylibs. Empty unless ET_TEST_COVERAGE is set, so normal builds get
+# no wrapper (no fingerprint churn). The wrapper binary is built by the build-wasm-cov-wrapper task dependency.
+web_cov_wrapper = '{% if env?.ET_TEST_COVERAGE == "true" %}{{ vars.a_web_cov_wrapper_env }}{% endif %}'
+# Override-free head of a browser module's wasm-pack build: coverage wrapper prefix plus fixed build args.
+# Only the two modules that then run et-cli module-package-json (har1, face-detection) use it, so their
+# single-line `&&` run stays under 120. It excludes no_opt / web_cov_feat -- those are appended inline at the
+# call site because no_opt carries a per-platform override that a nested var would freeze at this file's value.
+web_pack_cov = '{{ vars.web_cov_wrapper }}wasm-pack build . --target web'
 # Extra flag for the wasm-pack module builds; empty so wasm-opt runs.
 # config.windows.toml overrides it to --no-opt where wasm-opt can't execute.
 no_opt = ""
@@ -395,8 +431,10 @@ OPENSSL_DIR = "{{ vars.conda_openssl }}"
 # Always-loaded so `cargo check --workspace` builds the pyo3 runner without MISE_ENV=python. This is the
 # Linux/macOS path; config.windows.toml overrides it with py3_win.
 PYO3_PYTHON = "{{ vars.py3_unix }}"
-RCLONE_CONFIG = "{{ config_root }}/config/rclone.conf"
+RCLONE_CONFIG = "{{ config_root }}/config/rclone.ini"
 RCLONE_RETRIES = "1"
+# Make a bare `rg` search the tracked hidden dirs (esp. `.mise/`) instead of skipping them. See the config file.
+RIPGREP_CONFIG_PATH = "{{ config_root }}/config/ripgrep.rc"
 
 # Scope to the wasm32 target only.
 # The env value is honoured by every `wasm-pack`/`cargo` invocation that targets wasm32-unknown-unknown but
@@ -468,7 +506,7 @@ depends = [
   "cargo-doc-check",
   "cargo-fmt-check",
   "conftest-check",
-  "docker-check",
+  "dockerignore-check",
   "dprint-check",
   "editorconfig-check",
   "gen-help-all",
@@ -477,6 +515,7 @@ depends = [
   "hadolint-check",
   "link-check",
   "ls-lint-check",
+  "readme-mise-version-check",
   "regal-check",
   "ryl-check",
   "semgrep-check",
@@ -650,7 +689,7 @@ shell = "bash -euo pipefail -c"
 
 [tasks.conftest-check-dockerfile]
 description = "Cross-check Dockerfiles against mise [tools] pins + heredoc body-first-line invariants"
-# Two passes over each Dockerfile:
+# Two passes over each Dockerfile.
 #   1. `dockerfile` parser (default) for AST-shape rules: version drift, pipx-disable, RUN heredoc must invoke bash.
 #      Combined with .mise so the AST rules can compare against [tools] pins.
 #   2. `ignore` parser, which preserves every line of the file as a separate entry -- conftest's dockerfile parser
@@ -767,6 +806,28 @@ non_maint=$(find .mise -maxdepth 1 -name 'config*.toml' ! -name 'config.maint.to
 # $non_maint holds a space-separated path list; word-splitting is intentional.
 # shellcheck disable=SC2086
 taplo lint --schema "file:///${PWD#/}/config/taplo/mise-cargo-backend-allowlist.schema.json" $non_maint
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.readme-mise-version-check]
+# Keep the README's stated minimum mise version in sync with the enforced `min_version` in .mise/config.toml.
+# No structural linter spans a markdown prose value and a TOML value, so this is a small goawk/coreutils compare.
+description = "Fail if README.md's mise version differs from min_version in .mise/config.toml"
+run = """
+# README.md is excluded from the docker build context, so it is absent when `check` runs inside an image.
+# gen:dockerignore adds /README.md. Skip there -- the native check lanes (which have README.md) enforce the sync.
+if [ ! -f README.md ]; then
+  echo "readme-mise-version-check: README.md absent (docker build context); skipping -- native lanes enforce it"
+  exit 0
+fi
+config_version="$(goawk -F'"' '/^min_version/{print $2; exit}' .mise/config.toml)"
+# shellcheck disable=SC2016 # $0/RSTART/RLENGTH are awk fields, not shell vars -- single quotes are intended
+readme_prog='/ or later/ && match($0,/[0-9]{4}\\.[0-9]+\\.[0-9]+/){print substr($0,RSTART,RLENGTH);exit}'
+readme_version="$(goawk "$readme_prog" README.md)"
+if [ "$config_version" != "$readme_version" ]; then
+  echo "README mise version ($readme_version) != .mise/config.toml min_version ($config_version)" >&2
+  exit 1
+fi
 """
 shell = "bash -euo pipefail -c"
 
@@ -925,7 +986,7 @@ run = '''
 '''
 shell = "bash -euo pipefail -c"
 
-[tasks.docker-check]
+[tasks.dockerignore-check]
 depends = ["gen:dockerignore"]
 description = "Fail if .dockerignore is stale vs .gitignore (run `mise run gen:dockerignore`)"
 run = "git diff --exit-code -- .dockerignore"
@@ -1173,29 +1234,9 @@ shell = "bash -euo pipefail -c"
 [tasks.download-models]
 depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "fetch-mnist-rclone"]
 
-[tasks.cargo-test-other]
-# Excludes `et-ws-web-runner`, whose tests need single-threaded execution.
-# See `test-ws-web-runner` below; running the rest of the workspace in parallel keeps the total
-# wall-clock down. Split out from `cargo-test` (which aggregates both halves) so CI can run each phase as
-# its own step -- helps isolate which phase consumes which disk / memory budget on tight runners.
-run = "cargo test --workspace --exclude et-ws-web-runner"
-
-[tasks.test-ws-web-runner]
-description = "Run et-ws-web-runner integration tests serialized"
-# Each test case boots a full `MainWorker` (deno_runtime).
-# That is ~10x heavier than the `JsRuntime` it replaced. 8 in parallel exhausts local fd/port budgets on
-# macOS, surfacing as "error sending request for url" when the runner's wrapper module dynamic-`import()`s
-# its module JS. Pin to one thread so the suite is deterministic.
-env = { RUST_TEST_THREADS = "1" }
-run = "cargo test -p et-ws-web-runner"
-
 [tasks.cargo-test]
-# Composite of two halves.
-# cargo-test-other (workspace minus et-ws-web-runner) + test-ws-web-runner (serialized). Local devs /
-# hosts where disk and memory aren't tight invoke this single task; CI splits the two halves into
-# separate workflow steps for debuggability.
-depends = ["cargo-test-other", "test-ws-web-runner"]
-description = "Run every Rust test (cargo-test-other + test-ws-web-runner)"
+description = "Run every Rust test via nextest (web-runner excluded on gnullvm)"
+run = "cargo nextest run --workspace {{ vars.cargo_ws_excludes }} --config-file config/nextest.toml"
 
 [tasks."test:rust"]
 # Rust tests. Always-loaded, so `test`'s glob always matches it.

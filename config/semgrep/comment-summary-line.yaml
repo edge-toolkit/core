@@ -3,34 +3,36 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "*.toml"
-        - "*.yaml"
+        - "*.env"
+        - "*.ini"
+        - "*.rc"
         - "*.rego"
         - "*.s"
+        - "*.toml"
+        - "*.yaml"
+        - ".dockerignore"
+        - ".gitignore"
         - "Dockerfile*"
       exclude:
         # Skip machine-emitted TOML/YAML (int-gen / regen output).
         # Hand-edits would drift on the next regeneration, so the comment style there is the generator's job, not ours.
         - "/generated/**"
         - "/verification/**"
-    # Flag the FIRST line of a multi-line `#` comment block that lacks a closing full stop.
+        # `dart pub`-generated module .gitignore boilerplate, whose comment style is dart's job, not ours.
+        # Its first line is a bare doc URL and the file is generator-owned, so we do not discipline its comments.
+        - "/services/ws-modules/dart-*/.gitignore"
+    # Flag the first line of a multi-line `#` comment block when its final character is not a full stop.
     # The block-start anchor is the preceding line, consumed into the match: either start-of-file (`\A`) or a line
     # that is blank or whose first non-whitespace char is not `#` (`[^#\s]`). Keying off the first non-whitespace
     # char -- not the first raw char -- is what stops an INDENTED comment line (whose leading whitespace would
     # otherwise read as a non-comment line) from anchoring a spurious match: interior continuation lines, which need
-    # not end in a period, stay unflagged regardless of indentation. The check is two alternatives under
-    # `pattern-either` (kept separate so each regex line stays within the 120-char limit): the first flags a
-    # final char that is neither `.` nor `:` (`[^.\n:]`); the second flags a final `:` whose continuation line is
-    # NOT an enumeration item -- the negative lookahead `(?![ \t]*([-*]|[0-9]+[.)])[ \t])` reserves a trailing
-    # `:` for introducing a real list (`-`, `*`, or `N.`/`N)`), so a `:` followed by prose is still flagged.
-    pattern-either:
-      - pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^#\s][^\n]*)?\n)[ \t]*#[^\n]*[^.\n:]\n[ \t]*#'
-      - pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^#\s][^\n]*)?\n)[ \t]*#[^\n]*:\n[ \t]*#(?![ \t]*([-*]|[0-9]+[.)])[ \t])'
+    # not end in a period, stay unflagged regardless of indentation. The trailing `[^.\n]` matches any final char
+    # except `.`, so the summary line must end in a full stop -- a trailing `:` is not accepted.
+    pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^#\s][^\n]*)?\n)[ \t]*#[^\n]*[^.\n]\n[ \t]*#'
     message: >-
       A multi-line `#` comment block must open with a single summary line ending in a full stop (PEP 257 style).
-      This applies to TOML, YAML, Rego, GAS assembly, and Dockerfile comments. The summary describes the whole
-      block in one sentence; continuation lines follow. End the first comment line with `.` (a `:` introducing an
-      enumeration is also accepted).
+      The summary describes the whole block in one sentence; continuation lines follow. End the first comment line
+      with a `.`.
     severity: ERROR
 
   - id: comment-summary-line-c
@@ -39,24 +41,22 @@ rules:
       include:
         - "*.c"
         - "*.h"
-    # The C twin of comment-summary-line above -- the same convention over the C comment shapes.
-    # No dedicated C linter has this check (clang-tidy's comment checks stop at namespace-closing and
-    # task-tag formatting; cpplint only checks comment whitespace), so the generic-mode regexes carry it.
-    # Four alternatives, two per comment shape:
+        - "*.jsonc"
+    # The C-style twin of comment-summary-line above, covering `//` and `/* */` comments (so it also covers .jsonc).
+    # No dedicated linter has this check (clang-tidy's comment checks stop at namespace-closing and task-tag
+    # formatting; cpplint only checks comment whitespace), so the generic-mode regexes carry it. Two alternatives,
+    # one per comment shape:
     # - `/* ... */` blocks: a line opening `/*` WITHOUT `*/` on the same line (the negative lookahead
-    #   `(?![^\n]*\*/)` is the multi-line test, mirroring the next-line-is-also-comment test of the `#` rule)
-    #   must end in `.` -- or `:` when the ` * `-prefixed continuation line opens an enumeration item.
-    # - `//` runs: same block-start anchor trick as the `#` rule (preceding line is start-of-file, blank, or
-    #   starts with a non-`/` char), first line of a 2+-line run must end in `.`/enum-introducing `:`.
+    #   `(?![^\n]*\*/)` is the multi-line test, mirroring the next-line-is-also-comment test of the `#` rule) must
+    #   end in `.`.
+    # - `//` runs: same block-start anchor trick as the `#` rule (preceding line is start-of-file, blank, or starts
+    #   with a non-`/` char); the first line of a 2+-line run must end in `.`.
     # Single-line `/* ... */` and lone `//` lines are exempt, as single `#` lines are above.
     pattern-either:
-      - pattern-regex: '(?m)^[ \t]*/\*(?![^\n]*\*/)[^\n]*[^.\n:]\n'
-      - pattern-regex: '(?m)^[ \t]*/\*(?![^\n]*\*/)[^\n]*:\n(?![ \t]*\*[ \t]*(-[ \t]|[0-9]+[.)][ \t]))'
-      - pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^/\s][^\n]*)?\n)[ \t]*//[^\n]*[^.\n:]\n[ \t]*//'
-      - pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^/\s][^\n]*)?\n)[ \t]*//[^\n]*:\n[ \t]*//(?![ \t]*([-*]|[0-9]+[.)])[ \t])'
+      - pattern-regex: '(?m)^[ \t]*/\*(?![^\n]*\*/)[^\n]*[^.\n]\n'
+      - pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^/\s][^\n]*)?\n)[ \t]*//[^\n]*[^.\n]\n[ \t]*//'
     message: >-
-      A multi-line C comment must open with a single summary line ending in a full stop (PEP 257 style, as the
-      comment-summary-line rule enforces for `#` comments). The summary describes the whole block in one sentence;
-      continuation lines follow. End the first comment line with `.` (a `:` introducing an enumeration is also
-      accepted).
+      A multi-line C-style comment (a `/* */` block or a `//` run) must open with a single summary line ending in
+      a full stop (PEP 257 style). The summary describes the whole block in one sentence; continuation lines
+      follow. End the first comment line with a `.`.
     severity: ERROR

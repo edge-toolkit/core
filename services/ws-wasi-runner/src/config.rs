@@ -20,4 +20,13 @@ pub struct Config {
     /// OpenTelemetry config, from the `OTLP_*` env vars; `None` logs to stderr.
     #[serde(default)]
     pub otlp: Option<OtlpConfig>,
+    /// Runtime activation of the guest-coverage preopen, read from `ET_TEST_COVERAGE`.
+    ///
+    /// Only present under the `coverage` cargo feature -- the preopen code is compiled in only there. When the
+    /// feature is on, `ET_TEST_COVERAGE=true` preopens a `/cov` dir for instrumented guests to write their minicov
+    /// `.profraw` into (collected by the wasi-cov task into the combined Rust coverage); `false` (the default)
+    /// leaves the compiled-in preopen inert.
+    #[cfg(feature = "coverage")]
+    #[serde(default)]
+    pub et_test_coverage: bool,
 }

@@ -156,14 +156,7 @@ jobs:
           # shellcheck disable=SC2086
           docker build $args .
 
-      # Run the test suite split the same way docker-linux does.
-      # cargo-test-other (workspace minus et-ws-web-runner) and test-ws-web-runner (Deno-runtime gated, self-skips
-      # on hosts that can't satisfy it). Each runs in a fresh container so the per-phase compile target/ doesn't
-      # share the writable layer with the other phase. servercore-only -- Nano has no test stage.
-      - name: Run cargo-test-other
+      # Run the Rust tests, excluding et-ws-web-runner on the gnullvm target.
+      - name: Run cargo-test
         if: matrix.base == 'servercore'
-        run: docker run --rm et-windows-test mise run cargo-test-other
-
-      - name: Run test-ws-web-runner
-        if: matrix.base == 'servercore'
-        run: docker run --rm et-windows-test mise run test-ws-web-runner
+        run: docker run --rm et-windows-test mise run cargo-test

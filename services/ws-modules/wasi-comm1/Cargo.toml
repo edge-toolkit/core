@@ -14,8 +14,15 @@ test = false
 # See wasi-data1/Cargo.toml for the rationale behind the wasi-only target scope.
 # The lib body is gated identically.
 [target.'cfg(target_os = "wasi")'.dependencies]
+fs-err = { workspace = true, optional = true }
+minicov = { workspace = true, optional = true }
 serde_json.workspace = true
 wit-bindgen.workspace = true
+
+# Coverage instrumentation, off by default and enabled only by the coverage build.
+# Pulls minicov, whose capture_coverage the guest dumps to the runner's /cov preopen at the end of run().
+[features]
+coverage = ["dep:fs-err", "dep:minicov"]
 
 # Build script (runs on the host) locates the repo root to emit ET_WIT_DIR.
 [build-dependencies]

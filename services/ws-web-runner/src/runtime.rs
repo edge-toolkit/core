@@ -110,17 +110,103 @@ const SHIMS: &[&str] = &[
     include_str!("shims/xhr.js"),
 ];
 
+/// Coverage-capture shim fragments, compiled in only under the `coverage` feature.
+///
+/// `ws_agent_id` sniffs the module's server-assigned `agent_id` (its storage bucket); `pycov` defines the Pyodide
+/// coverage.py helper. Both are inert until `globalThis.__ET_TEST_COVERAGE` is set (see `shim_js`).
+#[cfg(feature = "coverage")]
+const COVERAGE_SHIMS: &[&str] = &[include_str!("shims/ws_agent_id.js"), include_str!("shims/pycov.js")];
+
 /// Render the full shim for a run.
 ///
 /// Emits the per-run URL globals -- the ws-server's HTTP base (used for
 /// `location` and module URL resolution) and the WebSocket URL (exposed on
 /// `globalThis.__ET_WS_URL`) -- then concatenates every `shims/*.js` fragment.
-fn shim_js(http_base: &str, ws_url: &str) -> String {
-    let prelude = format!("globalThis.__ET_HTTP_BASE = {http_base:?};\nglobalThis.__ET_WS_URL = {ws_url:?};");
+#[cfg_attr(
+    not(feature = "coverage"),
+    expect(
+        unused_variables,
+        reason = "coverage is only read into the shim under the `coverage` feature"
+    )
+)]
+fn shim_js(http_base: &str, ws_url: &str, coverage: bool) -> String {
+    // Under the `coverage` feature, ET_TEST_COVERAGE (threaded in as `coverage`) surfaces as the
+    // globalThis.__ET_TEST_COVERAGE the coverage shims key off. Without the feature the flag has no effect.
+    #[cfg(feature = "coverage")]
+    let coverage_line = if coverage {
+        "\nglobalThis.__ET_TEST_COVERAGE = true;"
+    } else {
+        ""
+    };
+    #[cfg(not(feature = "coverage"))]
+    let coverage_line = "";
+    let prelude =
+        format!("globalThis.__ET_HTTP_BASE = {http_base:?};\nglobalThis.__ET_WS_URL = {ws_url:?};{coverage_line}");
+    let shims = SHIMS.iter().copied();
+    #[cfg(feature = "coverage")]
+    let shims = shims.chain(COVERAGE_SHIMS.iter().copied());
     std::iter::once(prelude.as_str())
-        .chain(SHIMS.iter().copied())
+        .chain(shims)
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+/// Build the inline ES-module wrapper that imports and runs the fetched module.
+///
+/// Dynamic `import()` works from ES-module context but not from `execute_script`, so we synthesise a side ES
+/// module that awaits the module's `default`/`run` export. Under the `coverage` feature the `finally` also
+/// captures the module's minicov `.profraw` via et-web's `__et_capture_coverage` export (browser wasm has no
+/// filesystem) and PUTs it to the module's own agent bucket -- a registered agent (its id sniffed from
+/// et-connect-ack by the ws-agent-id shim), so `put_file`'s agent check passes; the web-runner test then scans
+/// every bucket for the .profraw. The `finally` means fail-fast modules still dump what they exercised. Without
+/// the feature the capture is empty, leaving a bare `finally {}`.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct wrapper-synthesis step; extracted to keep run_js_module small"
+)]
+fn build_wrapper_code(entry_url: &str) -> String {
+    #[cfg(feature = "coverage")]
+    let capture_block = {
+        let cov_name = entry_url
+            .rsplit('/')
+            .next()
+            .and_then(|file| file.strip_suffix(".js"))
+            .unwrap_or("module");
+        format!(
+            r#"
+    if (globalThis.__ET_TEST_COVERAGE && globalThis.__ET_AGENT_ID
+        && typeof mod.__et_capture_coverage === "function") {{
+        const covData = mod.__et_capture_coverage();
+        if (covData && covData.length) {{
+            const covBase = typeof globalThis.__ET_HTTP_BASE === "string" ? globalThis.__ET_HTTP_BASE : "";
+            const covUrl = covBase + "/storage/" + globalThis.__ET_AGENT_ID + "/{cov_name}.profraw";
+            await fetch(covUrl, {{ method: "PUT", body: covData }});
+        }}
+    }}"#
+        )
+    };
+    #[cfg(not(feature = "coverage"))]
+    let capture_block = "";
+    format!(
+        r#"
+const mod = await import("{entry_url}");
+let invoked = false;
+try {{
+    if (typeof mod.default === "function") {{
+        await mod.default();
+        invoked = true;
+    }}
+    if (typeof mod.run === "function") {{
+        await mod.run();
+        invoked = true;
+    }}
+    if (!invoked) {{
+        throw new Error("module {entry_url} exports neither a `default` nor a `run` function");
+    }}
+}} finally {{{capture_block}
+}}
+"#
+    )
 }
 
 /// Build the `CreateWebWorkerCb` that spawns child `WebWorker`s on fresh OS threads.
@@ -135,6 +221,7 @@ fn create_web_worker_cb(
     sab_store: CrossIsolateStore<SharedRef<BackingStore>>,
     http_base: String,
     ws_url: String,
+    coverage: bool,
 ) -> Arc<CreateWebWorkerCb> {
     Arc::new(move |args| {
         let rest = rest.clone();
@@ -152,6 +239,7 @@ fn create_web_worker_cb(
             sab_store.clone(),
             http_base.clone(),
             ws_url.clone(),
+            coverage,
         );
 
         let services = WebWorkerServiceOptions::<DenoInNpmPackageChecker, NpmResolver<RealSys>, RealSys> {
@@ -207,7 +295,7 @@ fn create_web_worker_cb(
         // before any module code runs. `bootstrap_from_options` returns
         // a `(WebWorker, SendableWebWorkerHandle)` tuple.
         let (mut worker, handle) = WebWorker::bootstrap_from_options(services, options);
-        let shim = shim_js(&http_base, &ws_url);
+        let shim = shim_js(&http_base, &ws_url, coverage);
         // No `Result` channel in this callback, so log and continue.
         if let Err(e) = worker.js_runtime.execute_script("<web-runner-worker-shim>", shim) {
             tracing::error!(
@@ -237,6 +325,7 @@ pub async fn run_js_module(
     http_base: &str,
     ws_url: &str,
     rest: et_rest_client::Client,
+    coverage: bool,
 ) -> Result<(), CoreError> {
     let module_loader: Rc<dyn deno_core::ModuleLoader> = Rc::new(ServerModuleLoader { rest: rest.clone() });
 
@@ -273,7 +362,8 @@ pub async fn run_js_module(
         ..Default::default()
     };
 
-    let create_web_worker_cb = create_web_worker_cb(rest, fs, sab_store, http_base.to_string(), ws_url.to_string());
+    let create_web_worker_cb =
+        create_web_worker_cb(rest, fs, sab_store, http_base.to_string(), ws_url.to_string(), coverage);
     let main_specifier = ModuleSpecifier::parse(entry_url).map_js_err()?;
     let mut worker = MainWorker::bootstrap_from_options::<DenoInNpmPackageChecker, NpmResolver<RealSys>, RealSys>(
         &main_specifier,
@@ -293,29 +383,11 @@ pub async fn run_js_module(
     drop(
         worker
             .js_runtime
-            .execute_script("<web-runner-shim>", shim_js(http_base, ws_url))?,
+            .execute_script("<web-runner-shim>", shim_js(http_base, ws_url, coverage))?,
     );
 
-    // Load + run the module via an inline wrapper: dynamic `import()` works
-    // from ES-module context but not from `execute_script`, so synthesise a
-    // side ES module.
-    let wrapper_code = format!(
-        r#"
-const mod = await import("{entry_url}");
-let invoked = false;
-if (typeof mod.default === "function") {{
-    await mod.default();
-    invoked = true;
-}}
-if (typeof mod.run === "function") {{
-    await mod.run();
-    invoked = true;
-}}
-if (!invoked) {{
-    throw new Error("module {entry_url} exports neither a `default` nor a `run` function");
-}}
-"#
-    );
+    // Coverage capture (compiled in only under the `coverage` feature), run in the wrapper's `finally`.
+    let wrapper_code = build_wrapper_code(entry_url);
     let wrapper_specifier = ModuleSpecifier::parse("internal:///runner-wrapper.js")?;
     let wrapper_id = worker
         .js_runtime

@@ -167,6 +167,14 @@ allowed_os_scoped_tool := {
 	# winlibs mingw-w64 GCC: the toolchain for the x86_64-pc-windows-gnu target (config.mingw.toml).
 	# Upstream ships Windows-only zips, and the env that installs it is itself Windows-only.
 	"github:brechtsanders/winlibs_mingw",
+	# github:mstorsjo/llvm-mingw: its clang-tidy analyzes the Windows-only mingw-shim C.
+	# config.zig.toml os-scopes it to linux/macos (the check hosts that lack it); on Windows config.windows.toml's
+	# own llvm-mingw is reused via auto_env.
+	"github:mstorsjo/llvm-mingw",
+	# conda:clang: a wasm-capable LLVM clang for the wasm-coverage builds (minicov's C profiler runtime).
+	# Scoped to linux/macos in config.coverage.toml -- the coverage workflow runs only there, and Windows
+	# has no coverage lane.
+	"conda:clang",
 }
 
 deny contains msg if {

@@ -58,20 +58,19 @@ url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x86_64-pc-windows-msvc.zip"
 
 [tasks.build-ws-har1-module]
-depends = ["build-et-cli"]
+depends = ["build-et-cli", "build-wasm-cov-wrapper"]
 description = "Build the har1 workflow WASM module"
 dir = "services/ws-modules/har1"
 # Chain with `&&` on one line rather than a multi-line `bash` block.
-# This is needed because wasm-pack shells out to `cargo metadata`, and that subprocess can't find `cargo`
-# under Git Bash on Windows. The default shell (cmd there) resolves cargo like the single-line wasm-pack
-# modules do.
-run = "wasm-pack build . --target web {{ vars.no_opt }} && {{ vars.et_cli }} module-package-json"
+# wasm-pack shells out to `cargo metadata`, which can't find `cargo` under Git Bash on Windows; the default
+# shell (cmd there) resolves it. web_pack_cov folds in the coverage wrapper prefix so this line stays under 120.
+run = "{{ vars.web_pack_cov }} {{ vars.no_opt }}{{ vars.web_cov_feat }} && {{ vars.et_cli }} module-package-json"
 
 [tasks.build-ws-face-detection-module]
-depends = ["build-et-cli"]
+depends = ["build-et-cli", "build-wasm-cov-wrapper"]
 description = "Build the face detection workflow WASM module"
 dir = "services/ws-modules/face-detection"
-run = "wasm-pack build . --target web {{ vars.no_opt }} && {{ vars.et_cli }} module-package-json"
+run = "{{ vars.web_pack_cov }} {{ vars.no_opt }}{{ vars.web_cov_feat }} && {{ vars.et_cli }} module-package-json"
 
 [tasks.oxlint-check]
 description = "Lint JavaScript/TypeScript sources (oxlint)"

@@ -22,7 +22,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let module = &config.runner.module;
     let ws_url = &config.ws.server_url;
     let timeout = config.runner.timeout;
-    let run = run_module(module, ws_url, config.ws.connect_ack_timeout);
+    // Coverage preopen exists only under the `coverage` feature; there `ET_TEST_COVERAGE` activates it.
+    #[cfg(feature = "coverage")]
+    let coverage = config.et_test_coverage;
+    #[cfg(not(feature = "coverage"))]
+    let coverage = false;
+    let run = run_module(module, ws_url, config.ws.connect_ack_timeout, coverage);
     // `None` outcome == timed out; `Some(_)` carries the module's own result.
     let outcome = if let Some(limit) = timeout {
         info!("et-ws-wasi-runner: module={module} server={ws_url} timeout={limit:?}");

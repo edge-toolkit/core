@@ -21,9 +21,6 @@ defaults:
     shell: bash --noprofile --norc -euo pipefail {0}
 
 env:
-  # Exact full guest-language set -- gha.rego pins this literal value at the workflow level.
-  # (It's what lets `build-modules` build every ws-module so the Rust tests run.) The coverage job appends the
-  # `coverage` env at job level below, mirroring test.yaml's override job's `,${{ matrix.compiler }}`.
   MISE_ENV: dart,dotnet,java,js,python,rust,zig
 
 jobs:
@@ -32,6 +29,7 @@ jobs:
     timeout-minutes: 150
     env:
       MISE_ENV: dart,dotnet,java,js,python,rust,zig,coverage
+      ET_TEST_COVERAGE: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,7 +50,7 @@ jobs:
         timeout-minutes: 20
         with:
           github-token: ${{ github.token }}
-          install-action-tools: cargo-llvm-cov,cargo-nextest
+          install-action-tools: cargo-llvm-cov,deepsource
 
       - name: Prefetch dependencies
         timeout-minutes: 15
@@ -70,12 +68,49 @@ jobs:
         timeout-minutes: 75
         run: mise run cargo-llvm-cov
 
-      - name: Upload coverage to Codecov (OIDC)
+      # Fold the instrumented wasm guest modules' coverage into lcov.info so it rides the same `rust` flag.
+      # The WASI + browser modules dumped their .profraw to target/wasi-cov during the runner tests above.
+      - name: Merge wasm guest coverage into lcov.info
+        timeout-minutes: 10
+        run: mise run wasm-cov
+
+      - name: Collect Python coverage
+        timeout-minutes: 15
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run pytest-cov
+
+      - name: Upload coverage reports as artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            lcov.info
+            coverage-python.xml
+          if-no-files-found: error
+
+      - name: Upload Rust coverage to Codecov (OIDC)
         uses: codecov/codecov-action@v5
         with:
           use_oidc: true
           files: lcov.info
+          flags: rust
           fail_ci_if_error: true
+
+      - name: Upload Python coverage to Codecov (OIDC)
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          files: coverage-python.xml
+          flags: python
+          fail_ci_if_error: true
+
+      - name: Upload Rust coverage to DeepSource (OIDC)
+        run: deepsource report --analyzer test-coverage --key rust --value-file lcov.info --use-oidc
+
+      - name: Upload Python coverage to DeepSource (OIDC)
+        run: deepsource report --analyzer test-coverage --key python --value-file coverage-python.xml --use-oidc
 
       # Upload test results even when tests failed.
       # nextest still wrote the JUnit report, and a failing run is exactly when the per-test results on Codecov

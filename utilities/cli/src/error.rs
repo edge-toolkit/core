@@ -87,9 +87,10 @@ pub enum CliError {
 
 /// Parse `src` as TOML into `T`, attaching `path` to the error on failure.
 /// Replaces a `.map_err(...)` at every call site.
-pub fn parse_toml<T, P: AsRef<Path>>(path: P, src: &str) -> Result<T, CliError>
+pub fn parse_toml<T, P>(path: P, src: &str) -> Result<T, CliError>
 where
     T: for<'de> serde::Deserialize<'de>,
+    P: AsRef<Path>,
 {
     match toml::from_str(src) {
         Ok(value) => Ok(value),
@@ -101,9 +102,10 @@ where
 }
 
 /// Parse `src` as JSON into `T`, attaching `path` to the error on failure.
-pub fn parse_json<T, P: AsRef<Path>>(path: P, src: &str) -> Result<T, CliError>
+pub fn parse_json<T, P>(path: P, src: &str) -> Result<T, CliError>
 where
     T: for<'de> serde::Deserialize<'de>,
+    P: AsRef<Path>,
 {
     match serde_json::from_str(src) {
         Ok(value) => Ok(value),
@@ -116,7 +118,10 @@ where
 
 /// Serialize `value` as pretty JSON, surfacing the failure as
 /// [`CliError::SerializeJson`]. There's no input path to attach.
-pub fn serialize_json_pretty<T: serde::Serialize>(value: &T) -> Result<String, CliError> {
+pub fn serialize_json_pretty<T>(value: &T) -> Result<String, CliError>
+where
+    T: serde::Serialize,
+{
     match serde_json::to_string_pretty(value) {
         Ok(out) => Ok(out),
         Err(source) => Err(CliError::SerializeJson(source)),

@@ -17,11 +17,16 @@ use wasm_bindgen::{JsCast, JsValue};
 /// Drops the original (irrelevant -- it's just the same `JsValue` we tried to
 /// cast) and surfaces a descriptive string instead.
 pub trait JsCastExt {
-    fn dyn_into_msg<T: JsCast>(self, msg: &str) -> Result<T, JsValue>;
+    fn dyn_into_msg<T>(self, msg: &str) -> Result<T, JsValue>
+    where
+        T: JsCast;
 }
 
 impl<S: JsCast> JsCastExt for S {
-    fn dyn_into_msg<T: JsCast>(self, msg: &str) -> Result<T, JsValue> {
+    fn dyn_into_msg<T>(self, msg: &str) -> Result<T, JsValue>
+    where
+        T: JsCast,
+    {
         self.dyn_into::<T>().map_err(|_original| JsValue::from_str(msg))
     }
 }

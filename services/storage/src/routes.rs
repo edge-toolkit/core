@@ -68,12 +68,15 @@ pub struct BinaryBlob(#[expect(dead_code)] Vec<u8>);
     clippy::future_not_send,
     reason = "actix-web Payload is !Send by design; handler runs on actix's single-threaded runtime"
 )]
-pub async fn put_file<S: Clone + Send + 'static>(
+pub async fn put_file<S>(
     req: HttpRequest,
     mut payload: web::Payload,
     registry: web::Data<AgentRegistry<S>>,
     config: web::Data<StorageConfig>,
-) -> Result<HttpResponse, StorageError> {
+) -> Result<HttpResponse, StorageError>
+where
+    S: Clone + Send + 'static,
+{
     let agent_id = req.match_info().query("agent_id").to_string();
     let filename = req
         .match_info()

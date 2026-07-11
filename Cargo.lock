@@ -772,6 +772,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be5eb007b7cacc6c660343e96f650fedf4b5a77512399eb952ca6642cf8d13f7"
 
 [[package]]
+name = "backon"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cffb0e931875b666fc4fcb20fee52e9bbd1ef836fd9e9e04ec21555f9f85f7ef"
+dependencies = [
+ "fastrand",
+ "tokio",
+]
+
+[[package]]
 name = "base16ct"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4245,6 +4255,7 @@ name = "et-web"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "minicov",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -4291,6 +4302,7 @@ name = "et-ws-comm1"
 version = "0.1.0"
 dependencies = [
  "edge-toolkit",
+ "et-web",
  "et-ws-wasm-agent",
  "js-sys",
  "serde",
@@ -4419,6 +4431,7 @@ dependencies = [
 name = "et-ws-pyo3-runner"
 version = "0.1.0"
 dependencies = [
+ "backon",
  "base64 0.22.1",
  "edge-toolkit",
  "et-rest-client",
@@ -4601,6 +4614,8 @@ name = "et-ws-wasi-comm1"
 version = "0.1.0"
 dependencies = [
  "et-path",
+ "fs-err",
+ "minicov",
  "serde_json",
  "wit-bindgen",
 ]
@@ -4610,6 +4625,8 @@ name = "et-ws-wasi-data1"
 version = "0.1.0"
 dependencies = [
  "et-path",
+ "fs-err",
+ "minicov",
  "serde_json",
  "wit-bindgen",
 ]
@@ -4626,6 +4643,7 @@ dependencies = [
  "et-test-helpers",
  "et-ws-runner-common",
  "et-ws-test-server",
+ "fs-err",
  "futures-util",
  "int-otlp-mock",
  "libc",
@@ -4668,6 +4686,7 @@ dependencies = [
  "tracing",
  "tracing-wasm",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "web-sys",
 ]
@@ -6060,6 +6079,10 @@ dependencies = [
  "prost 0.14.4",
  "serde_json",
 ]
+
+[[package]]
+name = "int-wasm-cov-wrapper"
+version = "0.1.0"
 
 [[package]]
 name = "inventory"

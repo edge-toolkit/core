@@ -70,6 +70,9 @@ export default async function init() {
   const ownWheel = `${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
   await injectWheel(ownWheel);
 
+  // Start Pyodide coverage before importing so import-time lines count (no-op unless the runner set the gate).
+  if (globalThis.__etPyCov) await globalThis.__etPyCov.start(pyodide, "pydata1");
+
   const pydata1 = pyodide.pyimport("pydata1");
   pyMod = {
     run: pydata1.run,
@@ -124,6 +127,7 @@ export async function run() {
       pyodide.toPy(() => {}),
     );
   } finally {
+    if (globalThis.__etPyCov) await globalThis.__etPyCov.stop(pyodide, "pydata1");
     client.disconnect();
   }
 }

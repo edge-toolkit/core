@@ -12,7 +12,7 @@ device or your own network, never sent to an external cloud service.
 
 ## mise
 
-Please install [`mise`](https://mise.jdx.dev/) (2026.6.5 or later), including the shell integration. It is needed
+Please install [`mise`](https://mise.jdx.dev/) (2026.7.1 or later), including the shell integration. It is needed
 for all use of this repository.
 
 The `mise` configuration lives under [`.mise/`](.mise/): the always-loaded [`.mise/config.toml`](.mise/config.toml)
@@ -301,13 +301,7 @@ Rust sources of truth by `mise run gen-specs-all`:
 See [`generated/README.md`](generated/README.md) for a full catalogue of what's regenerated vs. hand-maintained
 under `generated/`.
 
-## Run e2e
-
-Run the end-to-end tests using Chrome:
-
-```bash
-mise run ws-e2e-chrome
-```
+## et-cli
 
 Run an example demo scenario using et-cli
 

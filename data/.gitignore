@@ -1,6 +1,6 @@
-# Local-only working data: external upstream repos cloned here for development
-# carry their own .git history and must never be committed into this repo.
-# Ignore every top-level entry except this file and the tracked model-modules/.
+# Local-only working data cloned here for development, never committed into this repo.
+# External upstream repos cloned here carry their own .git history. Ignore every top-level
+# entry except this file and the tracked model-modules/.
 /*
 !/.gitignore
 !/model-modules/
