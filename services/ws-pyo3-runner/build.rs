@@ -10,7 +10,7 @@
 
 fn main() {
     let config = pyo3_build_config::get();
-    let Some(lib_dir) = &config.lib_dir else {
+    let Some(lib_dir) = config.lib_dir() else {
         // pyo3 will already have emitted its own diagnostics about
         // which Python it picked up; nothing useful for us to add.
         return;

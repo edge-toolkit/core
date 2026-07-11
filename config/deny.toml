@@ -43,28 +43,6 @@ ignore = [
   # unless guest JS explicitly imports crypto.subtle and performs RSA-OAEP decrypt with a private key. Our
   # modules don't.
   "RUSTSEC-2023-0071",
-  # rustls-webpki 0.102.8 -- four advisories, all unreachable here.
-  # All pinned by deno_fetch ^0.102 / deno_tls ^0.236 (under deno_runtime). The runner uses rustls only for
-  # HTTPS *client* verification against system roots:
-  #   * 2026-0049, 2026-0104 (CRL-parsing bugs) -- we never load CRLs into ClientConfig.
-  #   * 2026-0098, 2026-0099: name-constraint bypass for URI / wildcard certs. Relevant only when validating
-  #     certs whose subject names include URI SANs. Or certs wildcard-issued under name-constrained
-  #     intermediates. Our HTTPS endpoints don't.
-  # Drop all four when deno_fetch upgrades to rustls-webpki >=0.103.13.
-  "RUSTSEC-2026-0049",
-  "RUSTSEC-2026-0098",
-  "RUSTSEC-2026-0099",
-  "RUSTSEC-2026-0104",
-  # pyo3 0.28.3 -- two advisories, both unreachable in the embedded runner.
-  # Pulled only by et-ws-pyo3-runner (our sole pyo3 consumer).
-  # Fixed in pyo3 0.29; we stay on 0.28 for now and drop both on upgrade.
-  #   * 2026-0176 (OOB read in PyList/PyTuple iterator nth/nth_back). The runner never calls nth/nth_back on
-  #     a Python sequence iterator. It only inserts into sys.path and reads module return values.
-  #   * 2026-0177 (missing Sync bound on PyCFunction::new_closure). The runner exposes its host API as
-  #     #[pyclass]/#[pymethods] (WsSender, WsStorage). It never uses PyCFunction::new_closure. It drives a
-  #     single GIL-bound interpreter (not free-threaded), so no closure runs concurrently.
-  "RUSTSEC-2026-0176",
-  "RUSTSEC-2026-0177",
   # wasmtime-wasi 44.0.3 -- WASI hard links / renames bypass FilePerms on the rename/link *destination*.
   # Pinned to 44.x for ABI compat with wasmtime-wasi-nn 44 (see [workspace.dependencies] wasmtime note);
   # the fix is in 45.0.3 / 46.0.1. Unreachable here: et-ws-wasi-runner builds its WasiCtx with only
@@ -73,12 +51,19 @@ ignore = [
   # import (reqwest to ws-server), not WASI fs. Drop when wasmtime + wasmtime-wasi-nn bump to >=45 together.
   "RUSTSEC-2026-0188",
   # opentelemetry_sdk <=0.32.0 -- unbounded W3C baggage-header parse before size limits, a DoS (fixed 0.32.1).
-  # BaggagePropagator::extract_with_context parses inbound entries it then discards. Two copies are in the
-  # tree: ours (0.31.0) and Deno's (0.27.1, via deno_telemetry). Unreachable: et-otlp installs only the
-  # TraceContextPropagator, so BaggagePropagator is never constructed or invoked and no baggage header is ever
-  # parsed. GHSA-only (no RUSTSEC id assigned), so gen:osv-scanner picks it up via its GHSA branch. Drop when
-  # both copies reach >=0.32.1.
+  # BaggagePropagator::extract_with_context parses inbound entries it then discards. Only our own copy (0.31.0)
+  # is still affected -- the Deno-stack copy reached 0.32.1 in the deno_runtime 0.262 bump. Unreachable anyway:
+  # et-otlp installs only the TraceContextPropagator, so BaggagePropagator is never constructed or invoked and no
+  # baggage header is ever parsed. GHSA-only (no RUSTSEC id assigned), so gen:osv-scanner picks it up via its GHSA
+  # branch. Drop when our opentelemetry-otlp stack reaches >=0.32.1.
   "GHSA-w9wp-h8wv-79jx",
+  # org.mozilla:rhino 1.7.15 -- high-CPU/DoS in toFixed (Maven ecosystem, fixed 1.7.15.1).
+  # Build-time only: pulled by the teavm-maven-plugin (TeaVM's Java->JS compiler) via teavm-relocated-libs-rhino;
+  # not shipped in any artifact, and its only input is our own trusted Java, so unreachable. pom.xml overrides the
+  # plugin dep to 1.7.15.1, but TeaVM 0.13.1 shades rhino, so osv-scanner still resolves 1.7.15 from the relocated
+  # lib until TeaVM ships a release built against it. Flagged now that osv-scanner-check scans pom.xml; a Maven id
+  # so cargo-deny reports it unknown (osv-scanner honours it). Drop when teavm.version ships that rhino.
+  "GHSA-3w8q-xq97-5j7x",
 ]
 
 [licenses]
@@ -92,6 +77,11 @@ allow = [
   "Apache-2.0 WITH LLVM-exception",
   "BSD-2-Clause",
   "BSD-3-Clause",
+  # libbz2-rs-sys is the pure-Rust libbzip2 backend of the `bzip2` crate, transitive via deno_runtime -> qbsdiff.
+  # qbsdiff (a binary-diff lib) is new in the deno 0.262 stack. `bzip2-1.0.6` is a real SPDX id ("bzip2 and
+  # libbzip2 License v1.0.6") -- SPDX versions this license by the libbzip2 release its text matches; it is a
+  # permissive BSD-style license (OSI-adjacent, FSF Free/Libre). The `bzip2` wrapper crate is MIT OR Apache-2.0.
+  "bzip2-1.0.6",
   # clipboard-win + error-code (transitive via deno_runtime -> rustyline).
   # Boost Software License 1.0 -- permissive, OSI-approved, FSF Free/Libre.
   "BSL-1.0",

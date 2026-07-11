@@ -15,7 +15,7 @@ is_mise(file) if startswith(file.path, ".mise/config")
 
 is_upstream_cache(file) if file.path == "config/upstream-cache/data.toml"
 
-# Module-scope sprintf templates kept above the 120-char editorconfig limit only by living on their own lines.
+# Module-scope sprintf templates each live on their own line so the source stays readable.
 missing_sha256_msg := "config/upstream-cache/data.toml: [asset.%q] is missing `sha256` (use `\"\"` while bootstrapping)"
 
 # Asset filenames declared in any .mise/config*.toml's [vars].

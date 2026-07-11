@@ -9,3 +9,5 @@ environment:
   # Linux even on identical Dart SDK versions (dart-fmt-check found drift on
   # the generated client when the constraint was ^3.4.0).
   sdk: ^3.11.5
+
+resolution: workspace

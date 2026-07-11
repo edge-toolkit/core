@@ -73,6 +73,18 @@
         <groupId>org.teavm</groupId>
         <artifactId>teavm-maven-plugin</artifactId>
         <version>${teavm.version}</version>
+        <!--
+        Force rhino to the patched 1.7.15.1 (CVE: high-CPU/DoS in toFixed). TeaVM 0.13.1 pulls rhino 1.7.15
+        transitively (teavm-core -> teavm-relocated-libs-rhino) onto this plugin's build classpath; overriding it
+        here bumps it without waiting for a TeaVM release. Drop this once teavm.version ships >= 1.7.15.1.
+        -->
+        <dependencies>
+          <dependency>
+            <groupId>org.mozilla</groupId>
+            <artifactId>rhino</artifactId>
+            <version>1.7.15.1</version>
+          </dependency>
+        </dependencies>
         <executions>
           <execution>
             <id>build-js</id>

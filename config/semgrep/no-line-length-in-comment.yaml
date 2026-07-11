@@ -1,0 +1,34 @@
+rules:
+  - id: no-line-length-in-comment
+    languages: [generic]
+    paths:
+      include:
+        - "*.toml"
+        - "*.yaml"
+        - "*.jsonc"
+        - "*.rs"
+        - "*.js"
+        - "*.ts"
+        - "*.c"
+        - "*.h"
+        - "*.cs"
+        - "*.java"
+        - "*.zig"
+        - "*.dart"
+        - "*.py"
+        - "*.rego"
+        - "Dockerfile*"
+        - ".editorconfig"
+        - ".gitignore"
+        - ".dockerignore"
+      exclude:
+        # This rule's own pattern-regex necessarily contains the banned literal, so it can't scan itself.
+        - "/config/semgrep/no-line-length-in-comment.yaml"
+    # Do not hardcode the line-length number (from .editorconfig) in a comment; say "editorconfig line length".
+    # Only mention the constraint when the comment genuinely needs it -- otherwise drop it. Config keys that set the
+    # value (ruff.toml, .editorconfig, dprint.jsonc) are values, not comments, so this rule only matches comment syntax.
+    pattern-regex: '(?://|#)[^\n]*\b120[- ]?(?:char|chars|column|columns|width|line|lines|col|cols)\b'
+    message: >-
+      Do not hardcode the line-length number in a comment. Say "editorconfig line length" when the comment genuinely
+      needs the constraint, otherwise drop the mention entirely -- the number drifts and adds noise.
+    severity: ERROR

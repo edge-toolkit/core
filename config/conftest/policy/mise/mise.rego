@@ -38,7 +38,7 @@ deny contains msg if {
 	)
 }
 
-# Task descriptions must be single-line (keep them under the 120-char limit).
+# Task descriptions must be single-line.
 deny contains msg if {
 	some file in input
 	is_mise(file)

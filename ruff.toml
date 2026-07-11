@@ -4,7 +4,7 @@
 # would silently drop every editor back to ruff's defaults (line-length 88, no isort). The mise tasks could
 # pass --config, but the live editor experience can't, so it stays here.
 #
-# Match the repo-wide 120 line-length set in .editorconfig. Without this, ruff would use its default of 88, so files
+# Match the editorconfig line length. Without this, ruff would use its default of 88, so files
 # that ruff considered "already formatted" could still trip the editorconfig-check.
 line-length = 120
 
@@ -22,27 +22,42 @@ extend-exclude = ["componentize_py_async_support", "wit_world"]
 line-ending = "lf"
 
 [lint]
-# On top of the default rule set (E, F).
+# On top of the default rule set (E, F). Codes are kept alphabetically sorted.
 #   "ARG" -- flake8-unused-arguments: unused function/method/lambda arguments. This is the local equivalent of
 #   DeepSource's PYL-W0613; ruff honours the underscore-prefix convention (`dummy-variable-rgx`), so a param kept
 #   only to satisfy a fixed callback signature (the pyo3-runner `init`/`on_text_frame` hooks) is silenced by
 #   renaming it `_send` / `_text` rather than deleting it.
+#   "B" -- flake8-bugbear: likely bugs (mutable defaults, `zip` without `strict=`, loop-variable shadowing, ...).
+#   "C4" -- flake8-comprehensions: unnecessary or unpythonic comprehensions and generator calls.
+#   "D" -- pydocstyle (PEP 257) docstring checks; see [lint.pydocstyle].
 #   "I" -- isort import sorting. `ruff format` only handles whitespace; the "I" rules give deterministic
 #   grouping. datamodel-codegen's ruff formatter doesn't sort imports, so without this the generated
 #   messages.py drifts between regens.
-#   "D" -- pydocstyle (PEP 257) docstring checks; see [lint.pydocstyle].
+#   "N" -- pep8-naming: class / function / constant / exception naming conventions.
+#   "PIE" -- flake8-pie: unnecessary or duplicated constructs (redundant passes, dict literals, ...).
+#   "PLC" / "PLE" / "PLW" -- pylint conventions / errors / warnings. PLR (its refactor, complexity, and
+#   magic-value rules) is deliberately left out as too subjective for the numeric-heavy CV code here.
+#   "RUF" -- ruff-native checks (unsorted `__all__`, unused `noqa`, ...).
+#   "SIM" -- flake8-simplify: simplifiable conditionals, `return`s, and context managers.
+#   "UP" -- pyupgrade: modern syntax for the project's minimum Python.
 # Use `extend-select`, not `select`, so we keep the default F401 (unused-import)
 # rule that openapi-python-client relies on internally -- it generates
 # speculative imports and trims them by re-running ruff with the default rules.
-extend-select = ["ARG", "D", "I"]
+extend-select = ["ARG", "B", "C4", "D", "I", "N", "PIE", "PLC", "PLE", "PLW", "RUF", "SIM", "UP"]
 
 [lint.pydocstyle]
 convention = "pep257"
 
 [lint.per-file-ignores]
-# Generated clients are exempt from docstring checks.
-# For openapi-python-client / datamodel-codegen output, the docstrings come
-# verbatim from the OpenAPI/JSON-schema spec, not hand-written.
-"generated/**" = ["D"]
+# Generated clients are exempt from the hand-authoring quality families.
+# Their code is machine-emitted by openapi-python-client / datamodel-codegen and regenerated wholesale, so naming,
+# modernization, and refactor findings can't be hand-fixed and would break CI on the next regen. The E/F baseline
+# stays active, as does "I" (import sorting keeps messages.py stable across regens); "D" was already dropped
+# because the docstrings come verbatim from the OpenAPI/JSON-schema spec.
+"generated/**" = ["ARG", "B", "C4", "D", "N", "PIE", "PLC", "PLE", "PLW", "RUF", "SIM", "UP"]
+# The et-ws-pyo3-runner example modules keep per-process state in module-level globals by design.
+# The runner instantiates one copy per process and the contract is deliberately class-free (see echo.py's module
+# docstring), so PLW0603's "don't use the global statement" advice doesn't apply.
+"services/ws-pyo3-runner/python/**" = ["PLW0603"]
 # Test modules: docstrings on test classes/methods are noise, not API surface.
 "**/tests/**" = ["D"]

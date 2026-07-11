@@ -32,8 +32,13 @@ jobs:
       ET_TEST_COVERAGE: "true"
     steps:
       - name: Checkout
+        # DeepSource's test-coverage analyzer keys the uploaded artifact to the checked-out commit's SHA.
+        # actions/checkout defaults to the PR *merge* commit, which does not exist upstream, so DeepSource can't
+        # match it to the run it analyzed and the coverage reads as "never reported" (the check then times out).
+        # Check out the PR head SHA instead; `|| github.sha` keeps the push-to-main path working.
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           persist-credentials: false
 

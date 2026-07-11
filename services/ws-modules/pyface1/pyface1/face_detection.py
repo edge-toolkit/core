@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import math
 import time
+from collections.abc import Iterable, Sequence
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Iterable, Sequence, TypedDict
+from typing import Any, TypedDict
 
 from et_ws.messages import WsClientEvent
 
