@@ -4,7 +4,7 @@
 ls:
   # Directories are kebab-case (most) or snake_case (a few generated-style names).
   # The regex alternative permits leading-dot tool dirs (.github, .mise).
-  .dir: kebab-case | snake_case | regex:\.[a-z]+
+  .dir: kebab-case | snake_case | regex:\.[a-z_]+
 
   .rs: snake_case | kebab-case
   .py: snake_case | regex:__[a-z]+__
@@ -38,13 +38,11 @@ ignore:
   - "**/.ruff_cache"
   - "**/.zig-cache"
   - "**/zig-out"
-  # These dirs are created mid-run by parallel tasks, so they must be ignored by literal path, not glob.
+  # These dotnet dirs are created mid-run by parallel tasks, so they must be ignored by literal path, not glob.
   # ls-lint snapshots glob-based ignores once at startup and drops any matching nothing then
-  # (internal/glob/glob.go deletes zero-match keys), so a `**/.dart_tool` or `**/bin/Debug` glob loses the race
-  # against the `dart pub get` / `dotnet build` tasks creating the dirs. Literal paths are never glob-expanded, so
-  # they stay ignored whenever the dir appears. (generated/ dart packages' `.dart_tool` is covered by `generated`.)
-  - services/ws-modules/dart-comm1/.dart_tool
-  - services/ws-modules/dart-data1/.dart_tool
+  # (internal/glob/glob.go deletes zero-match keys), so a `**/bin/Debug` glob loses the race against the
+  # `dotnet build` task creating the dirs. Literal paths are never glob-expanded, so they stay ignored whenever the
+  # dir appears.
   - services/ws-modules/dotnet-data1/obj
   - services/ws-modules/dotnet-data1/bin/Debug
   - services/ws-modules/dotnet-data1/bin/Release

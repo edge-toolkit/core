@@ -31,7 +31,7 @@
 
 [env]
 # Shared HF base URLs + release-target coords hoisted out of every publish task.
-# Hoisted from every publish-*-to-hf-cache task so the xh/jaq/gh lines stay under 120 chars without
+# Hoisted from every publish-*-to-hf-cache task so the xh/jaq/gh lines stay short without
 # backslash continuations. All literals -- composing one from another (e.g. `HF_API = "{{ env.HF_CO }}/api/models"`)
 # would trip mise's alphabetical env render order.
 #

@@ -57,6 +57,13 @@ ignore = [
   # baggage header is ever parsed. GHSA-only (no RUSTSEC id assigned), so gen:osv-scanner picks it up via its GHSA
   # branch. Drop when our opentelemetry-otlp stack reaches >=0.32.1.
   "GHSA-w9wp-h8wv-79jx",
+  # org.mozilla:rhino 1.7.15 -- high-CPU/DoS in toFixed (Maven ecosystem, fixed 1.7.15.1).
+  # Build-time only: pulled by the teavm-maven-plugin (TeaVM's Java->JS compiler) via teavm-relocated-libs-rhino;
+  # not shipped in any artifact, and its only input is our own trusted Java, so unreachable. pom.xml overrides the
+  # plugin dep to 1.7.15.1, but TeaVM 0.13.1 shades rhino, so osv-scanner still resolves 1.7.15 from the relocated
+  # lib until TeaVM ships a release built against it. Flagged now that osv-scanner-check scans pom.xml; a Maven id
+  # so cargo-deny reports it unknown (osv-scanner honours it). Drop when teavm.version ships that rhino.
+  "GHSA-3w8q-xq97-5j7x",
 ]
 
 [licenses]

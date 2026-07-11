@@ -6,6 +6,8 @@ version: 0.1.0
 environment:
   sdk: ^3.11.5
 
+resolution: workspace
+
 dependencies:
   dio: ^5.9.2
   json_annotation: ^4.12.0

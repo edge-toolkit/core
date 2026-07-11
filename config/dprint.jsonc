@@ -4,13 +4,13 @@
   },
   "java": {},
   "json": {},
-  // Match the repo-wide 120 line-length (.editorconfig + ruff.toml) so dprint's bundled ruff agrees with them.
+  // Match the editorconfig line length so dprint's bundled ruff agrees with it.
   // Otherwise it reformats Python files to its own default line-length and fights with `mise run ruff-fmt`.
   "ruff": {
     "lineLength": 120,
   },
   "malva": {},
-  // Match the repo-wide 120 line cap for markdown, which dprint's markdown plugin otherwise sets to 80.
+  // Match the editorconfig line length for markdown, which dprint's markdown plugin otherwise sets to 80.
   // At that default it also reformats `js` code blocks more aggressively than the typescript plugin would on the
   // same source.
   "markdown": {

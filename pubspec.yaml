@@ -1,0 +1,16 @@
+# Dart pub workspace root: one shared lock (pubspec.lock) across every Dart member instead of a per-module lock.
+# Members are the two generated clients plus the two Dart ws-modules. A single resolution keeps their shared
+# packages on one version and gives osv-scanner-check a single committed lock to scan. Each member sets
+# `resolution: workspace`; `dart pub get` run here (or from any member) resolves the whole set into this lock.
+name: et_workspace
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.11.5
+
+workspace:
+  - generated/dart-ws
+  - generated/dart-rest
+  - services/ws-modules/dart-comm1
+  - services/ws-modules/dart-data1

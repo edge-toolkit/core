@@ -165,7 +165,7 @@ mkdir -p generated/python-rest/et_rest_client
 # None of these args move into config/openapi-python-client.yaml.
 # path / meta / overwrite / output-path are CLI-only `generate` options. Build
 # them up in a shell var (split over two lines) so neither line needs a backslash
-# continuation or runs past 120 cols; unquoted $args word-splits into argv.
+# continuation or runs past the line length; unquoted $args word-splits into argv.
 args="--config config/openapi-python-client.yaml --path generated/specs/rest.yaml"
 args="$args --meta none --overwrite --output-path generated/python-rest/et_rest_client"
 # $args is a space-separated CLI flag list; word-splitting is intentional.

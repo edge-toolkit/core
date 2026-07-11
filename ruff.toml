@@ -4,7 +4,7 @@
 # would silently drop every editor back to ruff's defaults (line-length 88, no isort). The mise tasks could
 # pass --config, but the live editor experience can't, so it stays here.
 #
-# Match the repo-wide 120 line-length set in .editorconfig. Without this, ruff would use its default of 88, so files
+# Match the editorconfig line length. Without this, ruff would use its default of 88, so files
 # that ruff considered "already formatted" could still trip the editorconfig-check.
 line-length = 120
 

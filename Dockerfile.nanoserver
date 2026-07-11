@@ -329,7 +329,7 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 # `cargo:dart-typegen` is os-scoped to non-Windows in config.dart.toml --
 # the Windows lane (incl. Nano) uses `http:dart-typegen` from the
 # upstream-cache release instead.
-# Two intermediate ARGs so each line fits 120 chars without backslash
+# Two intermediate ARGs so each line stays short without a backslash continuation
 # continuations (Dockerfile ENV doesn't support comment-aware joining and
 # the value is too long for a single line otherwise). The ARGs don't
 # persist into the runtime env; only the joined ENV does.

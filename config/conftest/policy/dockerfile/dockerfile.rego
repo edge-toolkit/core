@@ -33,9 +33,9 @@ deny contains msg if {
 }
 
 # Collect the comma-separated tools the Dockerfile asks mise to skip.
-# The value is usually built from multiple ARGs and composed into the final ENV (the 120-char limit plus the
-# project's no-backslash rule make a single `ENV MISE_DISABLE_TOOLS=...` line impractical), so scan every ARG/ENV
-# value in the file and take whichever tokens look like a tool name (contain `:`). The `${VAR}` placeholders the
+# The value is usually built from multiple ARGs and composed into the final ENV (a single
+# `ENV MISE_DISABLE_TOOLS=...` would be too long, and the no-backslash rule forbids continuing it), so scan every
+# ARG/ENV value in the file and take whichever tokens look like a tool name (contain `:`). The `${VAR}` placeholders the
 # composing ENV holds get rejected by the same filter -- only the leaf ARG values supply tools.
 disabled_tools contains tool if {
 	some file in input

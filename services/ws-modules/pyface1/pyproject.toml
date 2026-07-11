@@ -22,7 +22,7 @@ module-root = ""
 # bundled separately into pkg/ by the `build-ws-pyface1-module` mise task
 # (alongside the pyface1 wheel) so Pyodide can micropip-install it at runtime.
 [tool.uv.sources]
-et-ws = { path = "../../../generated/python-ws" }
+et-ws = { workspace = true }
 
 [tool.ws-module.dependencies]
 et-model-face1 = "*"

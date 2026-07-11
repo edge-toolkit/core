@@ -99,7 +99,7 @@ description = "Check JS/TS formatting (oxfmt)"
 # detection mis-parses the multiple `"""..."""` TOML basic-multiline strings in these files as JS template
 # literals (and silently concatenates `description = "..."` into the closing `"""` of an adjacent
 # `run = """..."""` block on --write); it also flattens short TOML arrays like `depends = [...]` into single
-# lines because they look like JS arrays under 120 chars. The `ignorePatterns: ["**/*.toml"]` in
+# lines because they look like short JS arrays. The `ignorePatterns: ["**/*.toml"]` in
 # config/oxfmtrc.jsonc filters every other TOML file correctly but fails to match dotfile-directory paths like
 # `.mise/config*.toml`, so we override here positionally.
 run = "oxfmt --config config/oxfmtrc.jsonc --check . '!.mise/config*.toml'"

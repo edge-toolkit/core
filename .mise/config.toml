@@ -101,7 +101,7 @@ ripgrep = "latest"
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
 "github:microsoft/onnxruntime" = "1.22.0"
 "github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
-"github:wasm-bindgen/wasm-bindgen" = "0.2.125"
+"github:wasm-bindgen/wasm-bindgen" = "0.2.126"
 # Sole consumer right now is the `go:` backend that source-builds jqfmt.
 # (noperator/jqfmt ships no release assets); add Go users here as they arrive.
 go = "latest"
@@ -144,7 +144,7 @@ zizmor = "latest"
 # `profile = "minimal"` to skip the ~1 GB rust-docs HTML tree per toolchain (the Nano docker build otherwise
 # filled its disk during the second toolchain install -- crashing inside an HCS re-exec on the rust-docs HTML
 # write under share/doc/rust/html/ with "There is not enough space on the disk"). Array-of-tables form
-# rather than inline so each entry fits within the 120-char limit alongside `os` + the component / target
+# rather than inline so each entry's fields sit on their own lines alongside `os` + the component / target
 # lists; must come at the end of [tools] (TOML can't re-open the table after the [[ ... ]] array-of-tables
 # headers below).
 [[tools.rust]]
@@ -272,6 +272,10 @@ augeas_windows_x64_asset = "1.14.1-x86_64-pc-windows-mingw.tar.gz"
 # Used to compose absolute paths into a tool's install dir from [env] (e.g. AUGEAS_LENS_LIB). Honours
 # MISE_DATA_DIR if set; otherwise mise's default of $XDG_DATA_HOME (~/.local/share/mise on Linux/macOS).
 mise_data_dir = '{{ env?.MISE_DATA_DIR or (vars.a_home ~ "/.local/share/mise") }}'
+# The committed lockfiles osv-scanner scans, one per ecosystem (Rust/Python/Dart/Java).
+# The gitignored pnpm-lock.yaml is intentionally excluded: it is regenerated per install (onnxruntime-web is
+# unpinned), so there is no stable committed file to scan.
+osv_locks = "--lockfile Cargo.lock --lockfile uv.lock --lockfile pubspec.lock --lockfile pom.xml"
 # clang-tidy's resource-dir arg (points clang at its builtin headers, e.g.
 # stddef.h). Empty default; config.linux.toml sets it from conda:clangxx.
 clang_resource_arg = ""
@@ -298,8 +302,8 @@ dart_release = "https://storage.googleapis.com/dart-archive/channels/stable/rele
 a_et_cli_exe = "et-cli{% if os() == 'windows' %}.exe{% endif %}"
 a_et_cli_target_dir = "target{% if os() == 'windows' %}/x86_64-pc-windows-gnullvm{% endif %}/debug"
 # RUSTC_WORKSPACE_WRAPPER assignment for the coverage build; leaf var referenced by web_cov_wrapper below.
-# `a_` prefix so mise's alphabetical [vars] render defines it before web_cov_wrapper uses it. Split out from
-# web_cov_wrapper (rather than inlined) to keep that line under the 120-char limit.
+# `a_` prefix so mise's alphabetical [vars] render defines it before web_cov_wrapper uses it. Split out so
+# web_cov_wrapper only adds the ET_TEST_COVERAGE conditional around this value.
 a_web_cov_wrapper_env = 'RUSTC_WORKSPACE_WRAPPER={{ config_root }}/target/debug/int-wasm-cov-wrapper '
 et_cli = "{{ vars.config_root_fwd }}/{{ vars.a_et_cli_target_dir }}/{{ vars.a_et_cli_exe }}"
 # mise-managed CPython (Linux/macOS); the PYO3_PYTHON default below.
@@ -329,9 +333,9 @@ web_cov_feat = '{% if env?.ET_TEST_COVERAGE == "true" %} -- --features et-web/co
 # no wrapper (no fingerprint churn). The wrapper binary is built by the build-wasm-cov-wrapper task dependency.
 web_cov_wrapper = '{% if env?.ET_TEST_COVERAGE == "true" %}{{ vars.a_web_cov_wrapper_env }}{% endif %}'
 # Override-free head of a browser module's wasm-pack build: coverage wrapper prefix plus fixed build args.
-# Only the two modules that then run et-cli module-package-json (har1, face-detection) use it, so their
-# single-line `&&` run stays under 120. It excludes no_opt / web_cov_feat -- those are appended inline at the
-# call site because no_opt carries a per-platform override that a nested var would freeze at this file's value.
+# Used by the two modules that also run et-cli module-package-json (har1, face-detection). It excludes no_opt /
+# web_cov_feat -- those are appended inline at the call site because no_opt carries a per-platform override that a
+# nested var would freeze at this file's value.
 web_pack_cov = '{{ vars.web_cov_wrapper }}wasm-pack build . --target web'
 # Extra flag for the wasm-pack module builds; empty so wasm-opt runs.
 # config.windows.toml overrides it to --no-opt where wasm-opt can't execute.
@@ -902,9 +906,10 @@ mise install rclone
 shell = "bash -euo pipefail -c"
 
 [tasks.osv-scanner]
-# Scans the committed Cargo.lock only, with no build dependency.
-# So the same task serves both ad-hoc local use and the dependencies workflow.
-run = "osv-scanner --lockfile Cargo.lock --config config/osv-scanner.toml"
+# Scans every committed lockfile across languages for known vulnerabilities.
+# Covers Cargo.lock, uv.lock, pubspec.lock, and pom.xml (one per ecosystem), with no build dependency, so the same
+# task serves both ad-hoc local use and the dependencies workflow. The `--lockfile` args live in vars.osv_locks.
+run = "osv-scanner {{ vars.osv_locks }} --config config/osv-scanner.toml"
 
 [tasks."gen:osv-scanner"]
 description = "Regenerate config/osv-scanner.toml from config/deny.toml's [advisories].ignore list"

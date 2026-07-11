@@ -27,19 +27,13 @@ fromJSON(body).prefixes
 version_list_url = "{{ vars.dart_bucket }}?prefix=channels/stable/release/&delimiter=/"
 
 [tasks.dart-pub-get]
-# Run `dart pub get` for every Dart package before any dart-* task.
-# This makes .dart_tool/ exist so the format is stable. `dart format` and `dart analyze` walk up to find
-# pubspec.yaml *and* read `.dart_tool/package_config.json` if present. With package_config.json, the formatter
-# picks the package's exact language version; without it, it falls back to a different default -- same source
-# file, different output. That mismatch is invisible locally (we accumulate .dart_tool/ over time) but bites
-# CI's fresh checkout.
-run = """
-dart pub get --directory generated/dart-ws
-dart pub get --directory generated/dart-rest
-dart pub get --directory services/ws-modules/dart-comm1
-dart pub get --directory services/ws-modules/dart-data1
-"""
-shell = "bash -euo pipefail -c"
+# Resolve the whole Dart pub workspace before any dart-* task.
+# One `dart pub get` at the workspace root (pubspec.yaml's `workspace:` list) resolves every member into the
+# single root pubspec.lock and writes the shared .dart_tool/package_config.json. `dart format` and `dart analyze`
+# walk up from each member to find pubspec.yaml *and* that package_config.json; with it, the formatter picks the
+# exact language version, without it a different default -- same source, different output. That mismatch is
+# invisible locally (we accumulate .dart_tool/ over time) but bites CI's fresh checkout.
+run = "dart pub get"
 
 [tasks.dart-check]
 depends = ["dart-pub-get"]
