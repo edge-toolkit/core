@@ -96,7 +96,10 @@ fn link_mingw_shim() {
 }
 
 #[cfg(windows)]
-#[expect(clippy::unwrap_used, reason = "build script: a panic is cargo's only failure channel for a failed command")]
+#[expect(
+    clippy::unwrap_used,
+    reason = "build script: a panic is cargo's only failure channel for a failed command"
+)]
 fn run(command: &mut std::process::Command) {
     let status = command.status().unwrap();
     assert!(status.success(), "{command:?} exited with {status}");
