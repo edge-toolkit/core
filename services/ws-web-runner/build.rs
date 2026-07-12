@@ -14,9 +14,12 @@
 //! rlib that carries the `rusty_v8` archive -- GNU linkers resolve archives left-to-right, so the same
 //! libs emitted as `rustc-link-lib` from this crate would precede the archive and satisfy nothing.
 
-#![expect(
-    clippy::unwrap_used,
-    reason = "build-script code: a panic is the only failure channel cargo gives; unwraps assert build invariants"
+#![cfg_attr(
+    windows,
+    expect(
+        clippy::unwrap_used,
+        reason = "build script: a panic is cargo's only failure channel; unwraps assert build invariants"
+    )
 )]
 
 fn main() {
@@ -27,6 +30,18 @@ fn main() {
     println!("cargo:rerun-if-changed=mingw-shim/msvc_crt_locale.c");
     println!("cargo:rerun-if-changed=mingw-shim/msvc_crt_alloc.c");
 
+    // The shim is only linked for the windows-gnu target, which is only ever built on a Windows host, so the
+    // whole branch compiles there and nowhere else -- keeping it out of the Linux coverage build entirely.
+    #[cfg(windows)]
+    link_mingw_shim();
+}
+
+#[cfg(windows)]
+#[expect(
+    clippy::single_call_fn,
+    reason = "windows-gnu link setup; one call site, split out to carry the cfg"
+)]
+fn link_mingw_shim() {
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let target_env = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
     let target_abi = std::env::var("CARGO_CFG_TARGET_ABI").unwrap_or_default();
@@ -87,6 +102,7 @@ fn main() {
     println!("cargo:rustc-link-arg=-fuse-ld=lld");
 }
 
+#[cfg(windows)]
 fn run(command: &mut std::process::Command) {
     let status = command.status().unwrap();
     assert!(status.success(), "{command:?} exited with {status}");

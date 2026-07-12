@@ -315,7 +315,7 @@ impl Connection {
             server_received_at,
             message,
         ) else {
-            warn!("direct message target {to_agent_id} left the registry before queueing");
+            warn!("direct message target {to_agent_id} is not a connected agent");
             self.send_invalid(None, format!("unknown target agent {to_agent_id}"))
                 .await;
             span.end();
@@ -484,18 +484,8 @@ impl Connection {
                                 return true;
                             }
 
-                            if !self
-                                .registry
-                                .list_agents()
-                                .iter()
-                                .any(|agent| agent.agent_id == to_agent_id)
-                            {
-                                self.send_invalid(None, format!("unknown target agent {to_agent_id}"))
-                                    .await;
-                                span.end();
-                                return true;
-                            }
-
+                            // Unknown / departed recipients are handled by handle_send_direct's queue miss
+                            // below -- a single place that answers Invalid -- so there is no pre-check here.
                             self.handle_send_direct(&mut span, from_agent_id, to_agent_id, message)
                                 .await;
                             return true;

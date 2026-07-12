@@ -93,16 +93,22 @@ pub async fn connect_agent(
     let connect_msg = serde_json::to_string(&ClientMessage::Connect { agent_id: None }).unwrap();
     stream.send(Message::text(connect_msg)).await.unwrap();
 
-    while let Some(msg) = stream.next().await {
-        let msg = msg.unwrap();
-        let Message::Text(text) = msg else {
-            continue;
-        };
-        if let Ok(ServerMessage::ConnectAck { agent_id, .. }) = serde_json::from_str::<ServerMessage>(&text) {
+    // Bound the ack wait: a server that accepts the socket but never sends `et-connect-ack` (and never closes)
+    // must fail the test fast rather than hang. Non-ack frames simply fall through and the loop reads the next.
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    while let Ok(Some(Ok(msg))) = tokio::time::timeout(
+        deadline.saturating_duration_since(tokio::time::Instant::now()),
+        stream.next(),
+    )
+    .await
+    {
+        if let Message::Text(text) = &msg
+            && let Ok(ServerMessage::ConnectAck { agent_id, .. }) = serde_json::from_str::<ServerMessage>(text)
+        {
             return (stream, agent_id);
         }
     }
-    panic!("never received et-connect-ack");
+    panic!("never received et-connect-ack within 5s");
 }
 
 /// Pull the next frame from `stream`, skipping known protocol acks (`et-connect-ack`,
@@ -117,21 +123,22 @@ pub async fn next_payload(
         let msg = next.unwrap().unwrap();
         match &msg {
             Message::Text(text) => {
-                if let Ok(parsed) = serde_json::from_str::<ServerMessage>(text)
-                    && matches!(
+                if serde_json::from_str::<ServerMessage>(text).is_ok_and(|parsed| {
+                    matches!(
                         parsed,
                         ServerMessage::ConnectAck { .. }
                             | ServerMessage::MessageStatus { .. }
                             | ServerMessage::Response { .. }
                     )
-                {
+                }) {
                     continue;
                 }
                 return msg;
             }
             Message::Binary(_) => return msg,
-            Message::Ping(_) | Message::Pong(_) => continue,
-            other => panic!("unexpected control frame: {other:?}"),
+            // Ping/pong and any other control frame: skip until a real payload arrives (or the deadline
+            // elapses / the stream closes, which then surfaces through the `.unwrap()` above).
+            _ => continue,
         }
     }
 }

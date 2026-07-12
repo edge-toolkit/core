@@ -10,6 +10,7 @@
 
 use std::time::Duration;
 
+use edge_toolkit::ws::ServerMessage;
 use et_ws_test_server::{connect_agent, next_payload};
 use futures_util::{SinkExt as _, StreamExt as _};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
@@ -105,5 +106,32 @@ async fn unconnected_client_is_auto_registered_and_relays_both_ways() {
         &*reply_bytes,
         grads.as_slice(),
         "auto-registered client must receive peer broadcasts"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn direct_message_to_unknown_agent_is_rejected() {
+    let server = et_ws_test_server::start();
+    let (mut agent, _agent_id) = connect_agent(&server.ws_url).await;
+
+    // No agent with this id is registered, so the hub answers Invalid via handle_send_direct's queue miss.
+    let send = serde_json::json!({
+        "type": "et-send-agent-message",
+        "to_agent_id": "no-such-agent",
+        "message": {"hello": "world"},
+    });
+    agent.send(Message::text(send.to_string())).await.unwrap();
+
+    let reply = next_payload(&mut agent).await;
+    let Message::Text(text) = reply else {
+        panic!("expected an Invalid text frame, got {reply:?}");
+    };
+    let parsed = serde_json::from_str::<ServerMessage>(&text).unwrap();
+    let ServerMessage::Invalid { detail, .. } = parsed else {
+        panic!("expected ServerMessage::Invalid, got {parsed:?}");
+    };
+    assert!(
+        detail.contains("unknown target agent") && detail.contains("no-such-agent"),
+        "unexpected invalid detail: {detail}"
     );
 }
