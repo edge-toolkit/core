@@ -15,6 +15,16 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
     let ws_server_dir = workspace_root.join("services/ws-server");
     let workspace_rel = relative_path_from(&output_abs, &workspace_root);
     let openobserve_env_file_rel = "config/o2.env";
+    // Emitted as a single line: with `run = "..."` it is 112 chars, inside the 120-col limit, so it needs no
+    // wrapping. Folding it would only reintroduce a hand-maintained multi-line copy to keep in sync with the
+    // command -- exactly the drift that once silently dropped `-it`.
+    let openobserve_run = format!(
+        concat!(
+            "docker run --rm --name openobserve -p 5080:5080 ",
+            "--env-file {} openobserve/openobserve:v0.70.3",
+        ),
+        openobserve_env_file_rel
+    );
     let module_names = cluster_module_names(cluster);
     let module_paths = scenario_module_paths(&ws_server_dir, &module_names)?;
     let module_paths_lines = module_paths
@@ -34,13 +44,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
             Some("o2"),
             None,
             Some(&workspace_rel),
-            Some(&format!(
-                concat!(
-                    "docker run --rm -it --name openobserve -p 5080:5080 ",
-                    "--env-file {} openobserve/openobserve:v0.70.3",
-                ),
-                openobserve_env_file_rel
-            )),
+            Some(&openobserve_run),
             None,
             None,
         )),
@@ -81,7 +85,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
 
     let _previous: Option<Value> = root.insert("tasks".to_string(), Value::Table(tasks));
 
-    let content = format_mise_toml(&toml::to_string(&Value::Table(root))?, openobserve_env_file_rel);
+    let content = toml::to_string(&Value::Table(root))?;
     fs::write(&output_path, content)?;
 
     Ok(())
@@ -98,27 +102,6 @@ pub fn scenario_module_paths(ws_server_dir: &Path, module_names: &[String]) -> R
         entry.mise_path.clone()
     })?);
     Ok(paths)
-}
-
-fn format_mise_toml(content: &str, openobserve_env_file_rel: &str) -> String {
-    let openobserve_run = format!(
-        concat!(
-            "run = \"docker run --rm -it --name openobserve -p 5080:5080 ",
-            "--env-file {0} openobserve/openobserve:v0.70.3\"",
-        ),
-        openobserve_env_file_rel
-    );
-    let wrapped_openobserve_run = format!(
-        concat!(
-            "run = \"\"\"\n",
-            "docker run --rm --name openobserve -p 5080:5080 \\\n",
-            "  --env-file {} \\\n",
-            "  openobserve/openobserve:v0.70.3\n",
-            "\"\"\""
-        ),
-        openobserve_env_file_rel
-    );
-    content.replace(&openobserve_run, &wrapped_openobserve_run)
 }
 
 fn mise_task(

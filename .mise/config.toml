@@ -1200,7 +1200,7 @@ description = "Run both the ws-server and ws-wasm-agent using Chrome"
 
 [tasks.openobserve]
 alias = "o2"
-run = "docker run --rm -it --name openobserve -p 5080:5080 --env-file config/o2.env {{ vars.o2_image }}"
+run = "docker run --rm --name openobserve -p 5080:5080 --env-file config/o2.env {{ vars.o2_image }}"
 
 [tasks.demo]
 depends = ["openobserve", "ws-server"]
