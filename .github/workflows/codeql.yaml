@@ -1,0 +1,111 @@
+---
+name: codeql
+
+# Advanced CodeQL setup that replaces GitHub's default setup.
+# Default setup must be disabled in repo Settings -> Code security -> Code scanning, or the Analyze jobs run
+# twice. Advanced setup earns its keep two ways. First, it can apply query-filters, which default setup cannot.
+# Second, Rust resolution: CodeQL analyzes Rust buildless (`build-mode: none` is the only mode it supports for
+# Rust -- there is no manual build to hook), and a bare default-setup checkout left cross-crate call targets
+# unresolved at 41% (below the 50% quality threshold) because it fetches neither dependencies nor the pinned
+# toolchain. So the Rust job installs the toolchain and prefetches deps before extraction (which for buildless
+# Rust happens during database init), and with the committed `generated/` trees already on disk the extractor
+# gets a resolvable workspace rather than dangling dependency and generated-code symbols. The other six
+# languages need none of that prep. `security-and-quality` mirrors default setup's query suite so the
+# maintainability queries (e.g. `py/unused-global-variable`) that already fired keep firing.
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "27 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+env:
+  MISE_ENV: dart,dotnet,java,js,python,rust,zig
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.language == 'rust' && 60 || 15 }}
+    permissions:
+      # Writing analysis results and reading the workflow/packages are the CodeQL-action minimum.
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: c-cpp
+            build-mode: none
+          - language: csharp
+            build-mode: none
+          - language: java-kotlin
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+          - language: rust
+            build-mode: none
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Free disk space on Linux
+        if: matrix.language == 'rust'
+        uses: jlumbroso/free-disk-space@v1.3.1
+
+      - name: Install mise + tools
+        if: matrix.language == 'rust'
+        uses: ./.github/actions/install-mise-tools
+        timeout-minutes: 60
+        with:
+          github-token: ${{ github.token }}
+
+      - name: Prefetch Rust dependencies
+        if: matrix.language == 'rust'
+        run: mise run prefetch:rust
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CARGO_NET_RETRY: "5"
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          # actions/unpinned-tag is excluded below as a deliberate policy choice here, not an actionable defect.
+          # This repo intentionally references Actions by version tag (e.g. actions/checkout@v4) rather than by
+          # full-length commit SHA, so the query's supply-chain "pin to a commit" finding does not apply. Filters
+          # need a config to attach to, hence the inline config block rather than the queries input.
+          config: |
+            queries:
+              - uses: security-and-quality
+            query-filters:
+              - exclude:
+                  id: actions/unpinned-tag
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"

@@ -14,12 +14,26 @@
 //! rlib that carries the `rusty_v8` archive -- GNU linkers resolve archives left-to-right, so the same
 //! libs emitted as `rustc-link-lib` from this crate would precede the archive and satisfy nothing.
 
+// std::env::var reads below take named constants, not inline literals.
+// A mistyped name is then a compile error rather than a silently-failing lookup.
+#[cfg(windows)]
+const CARGO_CFG_TARGET_OS: &str = "CARGO_CFG_TARGET_OS";
+#[cfg(windows)]
+const CARGO_CFG_TARGET_ENV: &str = "CARGO_CFG_TARGET_ENV";
+#[cfg(windows)]
+const CARGO_CFG_TARGET_ABI: &str = "CARGO_CFG_TARGET_ABI";
+#[cfg(windows)]
+const OUT_DIR: &str = "OUT_DIR";
+#[cfg(windows)]
+const SYSTEM_ROOT: &str = "SystemRoot";
+
 fn main() {
     // cc emits rerun-if-env-changed directives, which switches cargo off its rerun-on-any-file default --
     // so the shim sources must be declared explicitly or edits to them silently don't rebuild.
     println!("cargo:rerun-if-changed=mingw-shim/msvc_crt_shim.c");
     println!("cargo:rerun-if-changed=mingw-shim/msvc_crt_ops.s");
     println!("cargo:rerun-if-changed=mingw-shim/msvc_crt_locale.c");
+    println!("cargo:rerun-if-changed=mingw-shim/msvc_crt_locale_cache.c");
     println!("cargo:rerun-if-changed=mingw-shim/msvc_crt_alloc.c");
 
     // The shim is only linked for the windows-gnu target, which is only ever built on a Windows host, so the
@@ -35,9 +49,9 @@ fn main() {
     reason = "windows-gnu link setup: single call site, and unwraps assert build invariants"
 )]
 fn link_mingw_shim() {
-    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
-    let target_env = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
-    let target_abi = std::env::var("CARGO_CFG_TARGET_ABI").unwrap_or_default();
+    let target_os = std::env::var(CARGO_CFG_TARGET_OS).unwrap_or_default();
+    let target_env = std::env::var(CARGO_CFG_TARGET_ENV).unwrap_or_default();
+    let target_abi = std::env::var(CARGO_CFG_TARGET_ABI).unwrap_or_default();
     if target_os != "windows" || target_env != "gnu" || target_abi == "llvm" {
         return;
     }
@@ -47,7 +61,7 @@ fn link_mingw_shim() {
         .file("mingw-shim/msvc_crt_ops.s")
         .compile("msvc_crt_shim");
 
-    let out_dir = std::env::var("OUT_DIR").unwrap();
+    let out_dir = std::env::var(OUT_DIR).unwrap();
 
     // msvc_crt_locale.c must be a standalone OBJECT on the link line, not an archive member: its strong
     // definitions have to intercept names that -lmsvcrt (earlier in the default-libs block) would
@@ -56,6 +70,19 @@ fn link_mingw_shim() {
     let locale_obj = format!("{out_dir}/msvc_crt_locale.o");
     let locale_args = ["-c", "-O2", "-o", &locale_obj, "mingw-shim/msvc_crt_locale.c"];
     run(std::process::Command::new(gcc.path()).args(locale_args));
+
+    // The locale wrappers (setlocale, ...) are split into their own standalone object so Codacy can path-exclude
+    // just their write-once symbol caches; they intercept -lmsvcrt exactly as msvc_crt_locale.c does, so they too
+    // must be a link-line object rather than an archive member. They call ucrt_resolve_once from msvc_crt_locale.o.
+    let locale_cache_obj = format!("{out_dir}/msvc_crt_locale_cache.o");
+    let locale_cache_args = [
+        "-c",
+        "-O2",
+        "-o",
+        &locale_cache_obj,
+        "mingw-shim/msvc_crt_locale_cache.c",
+    ];
+    run(std::process::Command::new(gcc.path()).args(locale_cache_args));
 
     // msvc_crt_alloc.c (operator new/delete + _dupenv_s) is a standalone object for the same reason: _dupenv_s
     // must intercept -lmsvcrt, and the operator-new symbols resolve the msvc_crt_ops.s jumps in the archive.
@@ -76,7 +103,7 @@ fn link_mingw_shim() {
     // (both on PATH via the mingw mise env).
     let system32 = format!(
         "{}\\System32",
-        std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".into())
+        std::env::var(SYSTEM_ROOT).unwrap_or_else(|_| "C:\\Windows".into())
     );
     run(std::process::Command::new("gendef")
         .arg(format!("{system32}\\msvcp140.dll"))
@@ -87,6 +114,7 @@ fn link_mingw_shim() {
         .current_dir(&out_dir));
 
     println!("cargo:rustc-link-arg={locale_obj}");
+    println!("cargo:rustc-link-arg={locale_cache_obj}");
     println!("cargo:rustc-link-arg={alloc_obj}");
     println!("cargo:rustc-link-arg={out_dir}/libmsvc_crt_shim.a");
     println!("cargo:rustc-link-arg=-lvcruntime140");
