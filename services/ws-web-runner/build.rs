@@ -14,14 +14,6 @@
 //! rlib that carries the `rusty_v8` archive -- GNU linkers resolve archives left-to-right, so the same
 //! libs emitted as `rustc-link-lib` from this crate would precede the archive and satisfy nothing.
 
-#![cfg_attr(
-    windows,
-    expect(
-        clippy::unwrap_used,
-        reason = "build script: a panic is cargo's only failure channel; unwraps assert build invariants"
-    )
-)]
-
 fn main() {
     // cc emits rerun-if-env-changed directives, which switches cargo off its rerun-on-any-file default --
     // so the shim sources must be declared explicitly or edits to them silently don't rebuild.
@@ -39,7 +31,8 @@ fn main() {
 #[cfg(windows)]
 #[expect(
     clippy::single_call_fn,
-    reason = "windows-gnu link setup; one call site, split out to carry the cfg"
+    clippy::unwrap_used,
+    reason = "windows-gnu link setup: single call site, and unwraps assert build invariants"
 )]
 fn link_mingw_shim() {
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
@@ -103,6 +96,7 @@ fn link_mingw_shim() {
 }
 
 #[cfg(windows)]
+#[expect(clippy::unwrap_used, reason = "build script: a panic is cargo's only failure channel for a failed command")]
 fn run(command: &mut std::process::Command) {
     let status = command.status().unwrap();
     assert!(status.success(), "{command:?} exited with {status}");
