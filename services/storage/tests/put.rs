@@ -8,11 +8,6 @@
 //! what wires the route into the test app.
 
 #![cfg(test)]
-#![expect(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    reason = "test code: setup and route invocation failures should fail the test"
-)]
 
 use std::collections::BTreeMap;
 
@@ -82,7 +77,7 @@ async fn rejects_multi_component_filename_with_400() {
 
     let result = put_file::<()>(http_req, payload, web::Data::new(registry), web::Data::new(config)).await;
 
-    let err = result.expect_err("multi-component filename must be rejected");
+    let err = result.unwrap_err();
     assert!(matches!(err, StorageError::InvalidFilename));
     assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
 }

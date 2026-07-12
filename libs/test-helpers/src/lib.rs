@@ -4,7 +4,7 @@
 //! domain-specific fixtures live in their own test-support crate instead -- e.g. `et-ws-test-server`
 //! (an in-process ws-server) or `int-otlp-mock` (a mock OTLP collector).
 #![expect(
-    clippy::expect_used,
+    clippy::unwrap_used,
     reason = "test helper: a missing free port or unpiped child stderr should fail the test loudly"
 )]
 
@@ -21,7 +21,7 @@ use retry::retry;
 /// race (another process could grab the port before the caller binds it) that is acceptable in tests.
 #[must_use]
 pub fn reserve_port() -> u16 {
-    port_check::free_local_port().expect("no free local port")
+    port_check::free_local_port().unwrap()
 }
 
 /// Wait until `port` accepts a TCP connection, polling ~every 100ms for up to ~20s.
@@ -70,13 +70,13 @@ impl Drop for ChildGuard {
 /// so read it after shutting the child down. The child must have been spawned with `Stdio::piped()`.
 #[must_use]
 pub fn drain_stderr(child: &mut Child) -> Arc<Mutex<String>> {
-    let stderr = child.stderr.take().expect("child stderr was not piped");
+    let stderr = child.stderr.take().unwrap();
     let log = Arc::new(Mutex::new(String::new()));
     let sink = Arc::clone(&log);
     drop(std::thread::spawn(move || {
         let mut buffer = String::new();
         drop(std::io::BufReader::new(stderr).read_to_string(&mut buffer));
-        *sink.lock().expect("stderr log mutex") = buffer;
+        *sink.lock().unwrap() = buffer;
     }));
     log
 }

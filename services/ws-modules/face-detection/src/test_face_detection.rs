@@ -1,9 +1,8 @@
 #![cfg(test)]
 #![expect(
     clippy::float_cmp,
-    clippy::indexing_slicing,
     clippy::default_numeric_fallback,
-    reason = "test code: exact float comparisons, slice indexing, and inline f64 fixtures are intentional"
+    reason = "test code: exact float comparisons and inline f64 fixtures are intentional"
 )]
 
 use super::*;

@@ -12,11 +12,9 @@
 #![cfg(test)]
 #![expect(
     clippy::arithmetic_side_effects,
-    clippy::expect_used,
     clippy::float_arithmetic,
-    clippy::print_stderr,
     clippy::single_call_fn,
-    reason = "integration test: poll math, float tolerance check, spawn expects, skip notices, step helpers"
+    reason = "integration test: poll math, float tolerance check, step helpers"
 )]
 
 use std::error::Error;
@@ -259,7 +257,7 @@ fn spawn_runner(module: &str, ws_url: &str) -> Child {
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .spawn()
-        .expect("failed to spawn et-ws-pyo3-runner")
+        .unwrap()
 }
 
 /// Open a control client and drive et-connect until we have an `agent_id`.

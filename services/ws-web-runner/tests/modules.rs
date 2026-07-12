@@ -34,12 +34,6 @@
 //! the `SharedArrayBuffer` transfer.
 
 #![cfg(test)]
-#![expect(
-    clippy::expect_used,
-    clippy::panic,
-    clippy::print_stdout,
-    reason = "test code: process spawn failure or non-zero exit fails the test; module-skip log lines use println"
-)]
 
 use edge_toolkit::config::{Language, mise_env_includes};
 #[cfg(feature = "coverage")]
@@ -197,7 +191,7 @@ fn run_runner(module: &str, ws_url: &str, timeout_secs: u32) -> std::process::Ou
         .env("WS_SERVER_URL", ws_url)
         .env("RUNNER_TIMEOUT", format!("{timeout_secs}s"))
         .output()
-        .expect("failed to spawn et-ws-web-runner")
+        .unwrap()
 }
 
 /// Collect the coverage a module PUT into the test server's storage.
@@ -227,18 +221,15 @@ fn collect_module_coverage(server: &et_ws_test_server::TestServer) {
             match path.extension().and_then(|ext| ext.to_str()) {
                 Some("coverage") => {
                     let dest_dir = root.join("target/pycov");
-                    fs::create_dir_all(&dest_dir).expect("create target/pycov");
-                    let stem = path
-                        .file_stem()
-                        .expect("coverage data file has a stem")
-                        .to_string_lossy();
-                    let _copied = fs::copy(&path, dest_dir.join(format!(".coverage.{stem}"))).expect("copy pycov");
+                    fs::create_dir_all(&dest_dir).unwrap();
+                    let stem = path.file_stem().unwrap().to_string_lossy();
+                    let _copied = fs::copy(&path, dest_dir.join(format!(".coverage.{stem}"))).unwrap();
                 }
                 Some("profraw") => {
                     let dest_dir = root.join("target/wasi-cov");
-                    fs::create_dir_all(&dest_dir).expect("create target/wasi-cov");
-                    let name = path.file_name().expect("profraw has a file name");
-                    let _copied = fs::copy(&path, dest_dir.join(name)).expect("copy wasmcov profraw");
+                    fs::create_dir_all(&dest_dir).unwrap();
+                    let name = path.file_name().unwrap();
+                    let _copied = fs::copy(&path, dest_dir.join(name)).unwrap();
                 }
                 _ => {}
             }

@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
 use actix_web::{Error, HttpRequest, HttpResponse, web};
@@ -10,6 +11,7 @@ use edge_toolkit::ws_server::{AgentRecord, AgentRegistry, PendingDirectMessage, 
 use futures_util::StreamExt as _;
 use opentelemetry::{
     global,
+    metrics::{Counter, UpDownCounter},
     trace::{Span, Tracer as _},
 };
 use serde::Deserialize;
@@ -30,6 +32,21 @@ pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
 /// `WS_MAX_FRAME_SIZE` env var, as a human byte size (`serde-env` translates
 /// `[ws] max_frame_size` to `WS_MAX_FRAME_SIZE`).
 pub const DEFAULT_MAX_FRAME_SIZE: usize = 64 * 1024 * 1024;
+
+// Hub metrics, recorded through the global meter `et_otlp::init` installs (mirrors the `global::tracer` use above).
+// Built lazily on first use -- by then the meter provider is set -- and cached for the process.
+static MESSAGES_RECEIVED: LazyLock<Counter<u64>> = LazyLock::new(|| {
+    global::meter("ws-server")
+        .u64_counter("et_ws.messages.received")
+        .with_description("Inbound WebSocket frames the hub has handled")
+        .build()
+});
+static ACTIVE_CONNECTIONS: LazyLock<UpDownCounter<i64>> = LazyLock::new(|| {
+    global::meter("ws-server")
+        .i64_up_down_counter("et_ws.connections.active")
+        .with_description("Currently-open WebSocket connections")
+        .build()
+});
 
 /// Runtime knobs for the WebSocket hub. Populated by `serde-env` in
 /// `et-ws-server::main`, then handed to `configure`.
@@ -279,6 +296,10 @@ impl Connection {
         }
     }
 
+    #[expect(
+        clippy::cognitive_complexity,
+        reason = "linear send/queue/unknown-recipient dispatch; splitting scatters the three status replies"
+    )]
     async fn handle_send_direct(
         &mut self,
         span: &mut impl Span,
@@ -287,13 +308,19 @@ impl Connection {
         message: serde_json::Value,
     ) {
         let server_received_at = Utc::now().to_rfc3339();
-        let (pending, recipient_session) = self.registry.queue_direct(
+        let Some((pending, recipient_session)) = self.registry.queue_direct(
             Uuid::now_v7().to_string(),
             &from_agent_id,
             &to_agent_id,
             server_received_at,
             message,
-        );
+        ) else {
+            warn!("direct message target {to_agent_id} is not a connected agent");
+            self.send_invalid(None, format!("unknown target agent {to_agent_id}"))
+                .await;
+            span.end();
+            return;
+        };
         let message_id = pending.message_id.clone();
 
         if let Some(recipient) = recipient_session {
@@ -364,7 +391,9 @@ impl Connection {
         clippy::too_many_lines,
         reason = "single dispatcher for inbound ClientMessage variants; splitting it scatters handlers into trivial fns"
     )]
+    // skipcq: RS-R1000 -- dispatcher cyclomatic complexity is inherent to the ClientMessage match; not splittable
     async fn handle_inbound(&mut self, msg: AggregatedMessage) -> bool {
+        MESSAGES_RECEIVED.add(1, &[]);
         match msg {
             AggregatedMessage::Ping(ping) => {
                 self.mark_activity();
@@ -456,18 +485,8 @@ impl Connection {
                                 return true;
                             }
 
-                            if !self
-                                .registry
-                                .list_agents()
-                                .iter()
-                                .any(|agent| agent.agent_id == to_agent_id)
-                            {
-                                self.send_invalid(None, format!("unknown target agent {to_agent_id}"))
-                                    .await;
-                                span.end();
-                                return true;
-                            }
-
+                            // Unknown / departed recipients are handled by handle_send_direct's queue miss
+                            // below -- a single place that answers Invalid -- so there is no pre-check here.
                             self.handle_send_direct(&mut span, from_agent_id, to_agent_id, message)
                                 .await;
                             return true;
@@ -610,6 +629,7 @@ impl Connection {
             self.current_agent_id()
         );
         connect_span.end();
+        ACTIVE_CONNECTIONS.add(1, &[]);
 
         let mut heartbeat = tokio::time::interval(HEARTBEAT_INTERVAL);
         heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -661,6 +681,7 @@ impl Connection {
             }
         }
 
+        ACTIVE_CONNECTIONS.add(-1, &[]);
         if let Some(agent_id) = self.agent_id.as_deref() {
             self.registry.mark_disconnected(agent_id);
             info!("Agent {} disconnected; last known IP {}", agent_id, self.client_ip);

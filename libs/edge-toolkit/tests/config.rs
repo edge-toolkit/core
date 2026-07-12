@@ -5,7 +5,6 @@
 //! visible: `deserialize_optional::<String>` and the `Duration` humantime
 //! variant share one sentinel (`none` / `off` / `disabled`).
 #![cfg(test)]
-#![expect(clippy::expect_used, reason = "test code: expect panics surface the failure")]
 
 use std::time::Duration;
 
@@ -15,12 +14,12 @@ use serde::de::value::{Error as ValueError, StrDeserializer};
 
 fn optional_string(value: &str) -> Option<String> {
     let deser: StrDeserializer<'_, ValueError> = value.into_deserializer();
-    deserialize_optional::<_, String>(deser).expect("deserialize Option<String>")
+    deserialize_optional::<_, String>(deser).unwrap()
 }
 
 fn optional_duration(value: &str) -> Option<Duration> {
     let deser: StrDeserializer<'_, ValueError> = value.into_deserializer();
-    deserialize_optional_humantime(deser).expect("deserialize Option<Duration>")
+    deserialize_optional_humantime(deser).unwrap()
 }
 
 #[test]

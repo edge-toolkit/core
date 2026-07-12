@@ -1,15 +1,23 @@
 #![expect(
-    clippy::unwrap_used,
-    clippy::expect_used,
+    clippy::arithmetic_side_effects,
+    clippy::needless_continue,
     clippy::panic,
-    reason = "in-process test ws-server; bind/startup failures should fail the test fast"
+    clippy::unwrap_used,
+    clippy::wildcard_enum_match_arm,
+    reason = "in-process test ws-server + ws client helpers; setup/protocol failures should fail the test fast"
 )]
 
+use std::time::Duration;
+
 use actix_web::{App, HttpServer, web};
+use edge_toolkit::ws::{ClientMessage, ServerMessage};
 use et_modules_service::{ModulesConfig, configure as configure_modules};
 use et_storage_service::{StorageConfig, configure as configure_storage};
 use et_ws_service::{AgentSession, WsAgentRegistry, WsConfig, configure as configure_ws};
+use futures_util::{SinkExt as _, StreamExt as _};
 use tempfile::TempDir;
+use tokio_tungstenite::connect_async;
+use tokio_tungstenite::tungstenite::Message;
 use tracing_actix_web::TracingLogger;
 
 /// A running test server. The temporary storage directory is cleaned up on drop.
@@ -25,7 +33,7 @@ pub struct TestServer {
 /// Serves modules from the default module paths (same as production).
 #[must_use]
 pub fn start() -> TestServer {
-    let storage_dir = TempDir::new().expect("failed to create temp storage dir");
+    let storage_dir = TempDir::new().unwrap();
     let storage_path = storage_dir.path().to_path_buf();
 
     let port = et_test_helpers::reserve_port();
@@ -68,7 +76,69 @@ pub fn start() -> TestServer {
                 storage_dir,
             };
         }
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        std::thread::sleep(Duration::from_millis(100));
     }
     panic!("test ws-server did not start within 5 seconds on port {port}");
+}
+
+/// Open a ws connection to `ws_url`, send `et-connect`, and return `(stream, agent_id)` once the
+/// `et-connect-ack` has been observed. Lets a test drive the hub as a websocket client.
+pub async fn connect_agent(
+    ws_url: &str,
+) -> (
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+    String,
+) {
+    let (mut stream, _) = connect_async(ws_url).await.unwrap();
+    let connect_msg = serde_json::to_string(&ClientMessage::Connect { agent_id: None }).unwrap();
+    stream.send(Message::text(connect_msg)).await.unwrap();
+
+    // Bound the ack wait: a server that accepts the socket but never sends `et-connect-ack` (and never closes)
+    // must fail the test fast rather than hang. Non-ack frames simply fall through and the loop reads the next.
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    while let Ok(Some(Ok(msg))) = tokio::time::timeout(
+        deadline.saturating_duration_since(tokio::time::Instant::now()),
+        stream.next(),
+    )
+    .await
+    {
+        if let Message::Text(text) = &msg
+            && let Ok(ServerMessage::ConnectAck { agent_id, .. }) = serde_json::from_str::<ServerMessage>(text)
+        {
+            return (stream, agent_id);
+        }
+    }
+    panic!("never received et-connect-ack within 5s");
+}
+
+/// Pull the next frame from `stream`, skipping known protocol acks (`et-connect-ack`,
+/// `et-message-status`, `et-response`) so callers see the next "real" payload.
+pub async fn next_payload(
+    stream: &mut tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+) -> Message {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        let next = tokio::time::timeout(remaining, stream.next()).await.unwrap();
+        let msg = next.unwrap().unwrap();
+        match &msg {
+            Message::Text(text) => {
+                if serde_json::from_str::<ServerMessage>(text).is_ok_and(|parsed| {
+                    matches!(
+                        parsed,
+                        ServerMessage::ConnectAck { .. }
+                            | ServerMessage::MessageStatus { .. }
+                            | ServerMessage::Response { .. }
+                    )
+                }) {
+                    continue;
+                }
+                return msg;
+            }
+            Message::Binary(_) => return msg,
+            // Ping/pong and any other control frame: skip until a real payload arrives (or the deadline
+            // elapses / the stream closes, which then surfaces through the `.unwrap()` above).
+            _ => continue,
+        }
+    }
 }

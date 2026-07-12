@@ -29,20 +29,16 @@ struct Args {
 }
 
 #[actix_web::main]
-async fn main() -> Result<(), std::io::Error> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let args = Args::parse();
 
     let env = serde_env::from_env::<Config>().unwrap();
 
     eprintln!("Starting with env vars {env:#?}");
 
-    #[expect(
-        clippy::option_if_let_else,
-        reason = "both branches log and configure distinct tracing subscribers; map_or_else hides the structure"
-    )]
     let otel_handles = if let Some(otlp_config) = &env.otlp {
         info!("OpenTelemetry configuration detected, initializing tracing...");
-        Some(et_otlp::init(otlp_config))
+        Some(et_otlp::init(otlp_config)?)
     } else {
         info!("No OpenTelemetry configuration detected, using default tracing settings...");
         tracing_subscriber::registry()
@@ -144,5 +140,6 @@ async fn main() -> Result<(), std::io::Error> {
     if let Some(handles) = otel_handles {
         handles.shutdown();
     }
-    result
+    result?;
+    Ok(())
 }

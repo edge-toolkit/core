@@ -4,79 +4,16 @@
 
 #![cfg(test)]
 #![expect(
-    clippy::arithmetic_side_effects,
-    clippy::expect_used,
-    clippy::needless_continue,
-    clippy::panic,
     clippy::similar_names,
-    clippy::unwrap_used,
-    clippy::wildcard_enum_match_arm,
-    reason = "integration tests: panics/expects are how test failures surface; idiomatic test-time control flow"
+    reason = "integration tests: idiomatic test-time control flow"
 )]
 
 use std::time::Duration;
 
-use edge_toolkit::ws::{ClientMessage, ServerMessage};
+use edge_toolkit::ws::ServerMessage;
+use et_ws_test_server::{connect_agent, next_payload};
 use futures_util::{SinkExt as _, StreamExt as _};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
-
-/// Open a ws connection, send `et-connect`, and return `(stream, agent_id)`
-/// once `et-connect-ack` has been observed.
-async fn connect_agent(
-    ws_url: &str,
-) -> (
-    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
-    String,
-) {
-    let (mut stream, _) = connect_async(ws_url).await.expect("ws connect");
-    let connect_msg = serde_json::to_string(&ClientMessage::Connect { agent_id: None }).unwrap();
-    stream.send(Message::text(connect_msg)).await.expect("send connect");
-
-    while let Some(msg) = stream.next().await {
-        let msg = msg.expect("ws recv");
-        let Message::Text(text) = msg else {
-            continue;
-        };
-        if let Ok(ServerMessage::ConnectAck { agent_id, .. }) = serde_json::from_str::<ServerMessage>(&text) {
-            return (stream, agent_id);
-        }
-    }
-    panic!("never received et-connect-ack");
-}
-
-/// Pull the next frame from `stream`, ignoring known protocol acks
-/// (`et-message-status`, `et-connect-ack`, etc.) so callers see the
-/// next "real" payload.
-async fn next_payload(
-    stream: &mut tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
-) -> Message {
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
-    loop {
-        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
-        let next = tokio::time::timeout(remaining, stream.next())
-            .await
-            .expect("timed out waiting for ws frame");
-        let msg = next.expect("ws stream closed").expect("ws recv");
-        match &msg {
-            Message::Text(text) => {
-                if let Ok(parsed) = serde_json::from_str::<ServerMessage>(text)
-                    && matches!(
-                        parsed,
-                        ServerMessage::ConnectAck { .. }
-                            | ServerMessage::MessageStatus { .. }
-                            | ServerMessage::Response { .. }
-                    )
-                {
-                    continue;
-                }
-                return msg;
-            }
-            Message::Binary(_) => return msg,
-            Message::Ping(_) | Message::Pong(_) => continue,
-            other => panic!("unexpected control frame: {other:?}"),
-        }
-    }
-}
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn unrecognised_text_is_broadcast_verbatim() {
@@ -88,7 +25,7 @@ async fn unrecognised_text_is_broadcast_verbatim() {
     // A frame the server can't parse as ClientMessage -- no `type` field, no
     // recognisable shape. The hub fallback should forward it verbatim.
     let raw = r#"{"hello":"world","nested":{"n":42}}"#;
-    sender.send(Message::text(raw)).await.expect("send unknown text");
+    sender.send(Message::text(raw)).await.unwrap();
 
     let received = next_payload(&mut receiver).await;
     let Message::Text(received_text) = received else {
@@ -118,10 +55,7 @@ async fn unrecognised_binary_is_broadcast_verbatim() {
     // Arbitrary opaque bytes -- the server has no way to interpret these,
     // so the hub fallback must forward them as-is.
     let payload: Vec<u8> = vec![0x00, 0x01, 0x02, 0xff, 0xfe, 0xfd, b'a', b'b', b'c'];
-    sender
-        .send(Message::binary(payload.clone()))
-        .await
-        .expect("send binary");
+    sender.send(Message::binary(payload.clone())).await.unwrap();
 
     let received = next_payload(&mut receiver).await;
     let Message::Binary(received_bytes) = received else {
@@ -142,14 +76,12 @@ async fn unconnected_client_is_auto_registered_and_relays_both_ways() {
     let (mut peer, _peer_id) = connect_agent(&server.ws_url).await;
     // A "dumb" client that never sends et-connect -- e.g. a demo frontend on
     // a raw `new WebSocket(url)`.
-    let (mut dumb, _) = connect_async(&server.ws_url).await.expect("ws connect");
+    let (mut dumb, _) = connect_async(&server.ws_url).await.unwrap();
 
     // The dumb client's first binary frame must be broadcast to the peer:
     // sending it auto-registers the dumb client as an agent.
     let activations: Vec<u8> = vec![0x10, 0x20, 0x30, 0x40];
-    dumb.send(Message::binary(activations.clone()))
-        .await
-        .expect("dumb send binary");
+    dumb.send(Message::binary(activations.clone())).await.unwrap();
 
     let received = next_payload(&mut peer).await;
     let Message::Binary(received_bytes) = received else {
@@ -164,9 +96,7 @@ async fn unconnected_client_is_auto_registered_and_relays_both_ways() {
     // Reverse direction: the peer's reply must reach the now auto-registered
     // dumb client -- it became a broadcast recipient on its first frame.
     let grads: Vec<u8> = vec![0xaa, 0xbb, 0xcc];
-    peer.send(Message::binary(grads.clone()))
-        .await
-        .expect("peer send binary");
+    peer.send(Message::binary(grads.clone())).await.unwrap();
 
     let reply = next_payload(&mut dumb).await;
     let Message::Binary(reply_bytes) = reply else {
@@ -176,5 +106,32 @@ async fn unconnected_client_is_auto_registered_and_relays_both_ways() {
         &*reply_bytes,
         grads.as_slice(),
         "auto-registered client must receive peer broadcasts"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn direct_message_to_unknown_agent_is_rejected() {
+    let server = et_ws_test_server::start();
+    let (mut agent, _agent_id) = connect_agent(&server.ws_url).await;
+
+    // No agent with this id is registered, so the hub answers Invalid via handle_send_direct's queue miss.
+    let send = serde_json::json!({
+        "type": "et-send-agent-message",
+        "to_agent_id": "no-such-agent",
+        "message": {"hello": "world"},
+    });
+    agent.send(Message::text(send.to_string())).await.unwrap();
+
+    let reply = next_payload(&mut agent).await;
+    let Message::Text(text) = reply else {
+        panic!("expected an Invalid text frame, got {reply:?}");
+    };
+    let parsed = serde_json::from_str::<ServerMessage>(&text).unwrap();
+    let ServerMessage::Invalid { detail, .. } = parsed else {
+        panic!("expected ServerMessage::Invalid, got {parsed:?}");
+    };
+    assert!(
+        detail.contains("unknown target agent") && detail.contains("no-such-agent"),
+        "unexpected invalid detail: {detail}"
     );
 }

@@ -1,3 +1,23 @@
+allow-dbg-in-tests = true
+allow-indexing-slicing-in-tests = true
+allow-large-stack-frames-in-tests = true
+allow-panic-in-tests = true
+allow-print-in-tests = true
+allow-unwrap-in-tests = true
+allow-useless-vec-in-tests = true
+
+# Compile-time bans -- a second layer under the matching config/ast-grep/rules/*, which catch these at diff time.
+# `.expect()` itself is NOT listed here. `disallowed_methods` has no test exemption and does not skip
+# proc-macro-generated code, so it would flag the `.build().expect("Failed building the Runtime")` that the
+# `#[tokio::test]` macro expands into -- breaking every async test, even though that `.expect()` isn't ours. The
+# `clippy::expect_used` restriction lint (denied workspace-wide) is the right tool instead: it bans hand-written
+# `.expect()` everywhere but skips macro-generated calls, so `#[tokio::test]` is unaffected. `disallowed-methods`
+# covers `.expect_err()` (which `expect_used` misses -- use `.unwrap_err()`) and mirrors ast-grep's `no-current-dir`.
+disallowed-methods = [
+  { path = "std::env::current_dir", reason = "use get_project_root() / et_path::find_project_root()" },
+  { path = "std::result::Result::expect_err", reason = "use .unwrap_err() -- no message string needed" },
+]
+
 allowed-idents-below-min-chars = [
   # clippy defaults
   "Eq",

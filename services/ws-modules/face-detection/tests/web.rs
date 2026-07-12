@@ -15,7 +15,7 @@ fn init_can_be_called_more_than_once() {
 #[wasm_bindgen_test]
 fn stop_is_idempotent_when_runtime_has_not_started() {
     assert!(!is_running());
-    stop().expect("stop should succeed when face detection is not running");
+    stop().unwrap();
     assert!(!is_running());
 }
 
@@ -26,7 +26,7 @@ async fn run_failure_leaves_runtime_stopped() {
     match result {
         Ok(()) => {
             assert!(is_running());
-            stop().expect("stop should succeed after a successful run");
+            stop().unwrap();
             assert!(!is_running());
         }
         Err(_) => {

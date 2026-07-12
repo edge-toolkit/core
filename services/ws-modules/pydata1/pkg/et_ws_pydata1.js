@@ -126,6 +126,9 @@ export async function run() {
       pyodide.toPy(log),
       pyodide.toPy(() => {}),
     );
+  } catch (err) {
+    log(`pydata1 run failed: ${String(err)}`);
+    throw err;
   } finally {
     if (globalThis.__etPyCov) await globalThis.__etPyCov.stop(pyodide, "pydata1");
     client.disconnect();

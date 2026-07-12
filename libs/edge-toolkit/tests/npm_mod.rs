@@ -4,7 +4,6 @@
 //! verifies the resolver picks the right `node_modules` directory.
 
 #![cfg(test)]
-#![expect(clippy::unwrap_used, reason = "test code: failed tempdir setup should fail the test")]
 
 use edge_toolkit::config::find_npm_modules_path_in;
 use fs_err as fs;

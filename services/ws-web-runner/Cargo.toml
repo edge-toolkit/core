@@ -47,8 +47,9 @@ winapi.workspace = true
 
 [build-dependencies]
 # Compiles mingw-shim/ for the x86_64-pc-windows-gnu build (see build.rs).
-# Unconditional so the build script itself compiles on every platform -- the shim branch is gated at
-# runtime on the target cfg.
+# Used only in build.rs's `#[cfg(windows)]` branch, so these go unreferenced on non-Windows hosts -- harmless,
+# since that branch (and the functions it calls) don't compile there, which also keeps them out of the Linux
+# coverage report.
 cc.workspace = true
 fs-err.workspace = true
 

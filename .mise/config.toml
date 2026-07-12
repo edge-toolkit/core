@@ -849,7 +849,10 @@ run = "typos --config config/typos.toml --write-changes"
 # URLs from .rs comments and string literals too.
 [tasks.link-check]
 description = "Check that URLs in .md and .rs files are reachable (network)"
-run = "lychee --config config/lychee.toml '**/*.md' '**/*.rs'"
+# The .rs glob is scoped to the source dirs, not a bare `**/*.rs`.
+# A recursive `**/*.rs` walks target/'s churning rustc temp files, and lychee expands globs before applying
+# `exclude_path`, so it aborts with a GlobError when one of those temps vanishes mid-iteration.
+run = "lychee --config config/lychee.toml '**/*.md' 'libs/**/*.rs' 'services/**/*.rs' 'utilities/**/*.rs'"
 
 [tasks.ryl-check]
 description = "Lint YAML with ryl (a yamllint-compatible Rust linter)"

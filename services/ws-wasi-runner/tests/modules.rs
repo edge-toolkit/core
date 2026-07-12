@@ -4,7 +4,6 @@
 //! components rather than browser-targeted JS.
 
 #![cfg(test)]
-#![expect(clippy::expect_used, reason = "test code: process spawn failure fails the test")]
 
 use edge_toolkit::config::{Language, mise_env_includes};
 use rstest::rstest;
@@ -36,7 +35,7 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
         .env("WS_SERVER_URL", &server.ws_url)
         .env("ET_TEST_WS_WASI_RUNNER_FAST_EXIT", "1")
         .status()
-        .expect("failed to spawn et-ws-wasi-runner");
+        .unwrap();
 
     assert!(status.success(), "{module} exited with code {:?}", status.code());
 }

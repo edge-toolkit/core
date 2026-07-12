@@ -10,7 +10,7 @@ pub fn dump() {
     let mut coverage = Vec::new();
     // SAFETY: single-threaded guest; capture_coverage reads the instrumented counters once at run() end.
     unsafe {
-        minicov::capture_coverage(&mut coverage).expect("minicov capture_coverage");
+        minicov::capture_coverage(&mut coverage).unwrap();
     }
-    fs_err::write("/cov/et_ws_wasi_comm1.profraw", coverage).expect("write /cov profraw");
+    fs_err::write("/cov/et_ws_wasi_comm1.profraw", coverage).unwrap();
 }

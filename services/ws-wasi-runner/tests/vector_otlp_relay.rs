@@ -22,12 +22,7 @@
 //! wire format both into and out of Vector is protobuf on the `/traces` path.
 
 #![cfg(test)]
-#![expect(
-    clippy::expect_used,
-    clippy::panic,
-    clippy::single_call_fn,
-    reason = "test code: loud failures and named single-use step helpers"
-)]
+#![expect(clippy::single_call_fn, reason = "test code: named single-use step helpers")]
 
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
@@ -60,7 +55,7 @@ fn vector_relays_buffered_otlp_after_backend_comes_online() {
 
     // The tempdir is Vector's buffer data_dir; it exists, so Vector just nests
     // its buffer directory inside it.
-    let tmp = tempfile::tempdir().expect("create tempdir");
+    let tmp = tempfile::tempdir().unwrap();
     let config_path = edge_toolkit::config::get_project_root().join("config/vector-otlp-relay.yaml");
 
     // 2. Start Vector from the static config. Its sink target (mock_port) is
@@ -79,7 +74,7 @@ fn vector_relays_buffered_otlp_after_backend_comes_online() {
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("spawn vector");
+        .unwrap();
     // Drain Vector's stderr into memory so it stays quiet on success but is
     // available for failure messages (a file-backed `Stdio` would need the
     // banned `std::fs::File`).
@@ -100,7 +95,7 @@ fn vector_relays_buffered_otlp_after_backend_comes_online() {
         .header("content-type", "application/x-protobuf")
         .body(otlp_trace_request())
         .send()
-        .expect("POST OTLP to vector source");
+        .unwrap();
     assert!(
         response.status().is_success(),
         "vector source rejected the OTLP push: {}",
@@ -185,5 +180,5 @@ fn stop_and_read(vector: &mut ChildGuard, log: &Mutex<String>) -> String {
     vector.shutdown();
     // Give the drainer thread a moment to flush the final bytes.
     std::thread::sleep(Duration::from_millis(200));
-    format!("--- vector stderr ---\n{}", log.lock().expect("log mutex"))
+    format!("--- vector stderr ---\n{}", log.lock().unwrap())
 }

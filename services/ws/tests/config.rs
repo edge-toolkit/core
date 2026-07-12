@@ -4,9 +4,8 @@
 //! default when the variable is absent.
 #![cfg(test)]
 #![expect(
-    clippy::expect_used,
     clippy::decimal_literal_representation,
-    reason = "test code: expect panics carry context; byte sizes read clearer as decimal MiB math than hex"
+    reason = "test code: byte sizes read clearer as decimal MiB math than hex"
 )]
 
 use et_ws_service::WsConfig;
@@ -20,7 +19,7 @@ struct Wrapper {
 }
 
 fn load() -> WsConfig {
-    serde_env::from_env::<Wrapper>().expect("parse WsConfig from env").ws
+    serde_env::from_env::<Wrapper>().unwrap().ws
 }
 
 #[test]

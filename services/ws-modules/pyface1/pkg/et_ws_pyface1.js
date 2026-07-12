@@ -108,6 +108,9 @@ export async function run() {
       pyodide.toPy(setStatus),
       pyodide.toPy(() => runtime !== state),
     );
+  } catch (err) {
+    log(`pyface1 run failed: ${String(err)}`);
+    throw err;
   } finally {
     // Fires even when getUserMedia throws under the runner, so import + pre-camera lines still get credited.
     if (globalThis.__etPyCov) await globalThis.__etPyCov.stop(pyodide, "pyface1");

@@ -1,9 +1,10 @@
 version = 1
 
-# Trees that are generated or vendored rather than hand-written source.
-# Built module artifacts under any `pkg/`, the int-gen outputs under `generated/`, and the scenario `verification/`
-# fixtures.
-exclude_patterns = ["**/pkg/**", "generated/**", "verification/**"]
+# `pkg/` is deliberately NOT excluded from DeepSource analysis.
+# It holds hand-written module loaders (e.g. the Pyodide shim et_ws_pydata1.js) alongside build output. Only the
+# int-gen outputs under `generated/` and the scenario `verification/` fixtures are excluded, since those are fully
+# generated; if genuinely-generated glue under `pkg/` turns up as a finding, add a narrow per-file exclude then.
+exclude_patterns = ["generated/**", "verification/**"]
 
 # Repo convention: tests live in a `tests/` directory or in source files prefixed `test_`.
 test_patterns = ["**/test_*.py", "**/tests/**"]

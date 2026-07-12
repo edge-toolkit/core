@@ -4664,10 +4664,13 @@ dependencies = [
  "actix-web",
  "edge-toolkit",
  "et-modules-service",
+ "et-otlp",
  "et-storage-service",
  "et-test-helpers",
  "et-ws-service",
  "futures-util",
+ "int-otlp-mock",
+ "retry",
  "serde_json",
  "tempfile",
  "tokio",
@@ -6185,7 +6188,9 @@ dependencies = [
  "et-test-helpers",
  "opentelemetry-proto 0.31.0",
  "prost",
+ "reqwest 0.13.4",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]

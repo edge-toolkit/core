@@ -22,10 +22,9 @@
 
 #![cfg(test)]
 #![expect(
-    clippy::expect_used,
     clippy::uninlined_format_args,
     clippy::needless_collect,
-    reason = "test code: expect failures fail the test; assertion-helper format/collect idioms"
+    reason = "test code: assertion-helper format/collect idioms"
 )]
 
 use std::collections::HashSet;
@@ -61,7 +60,7 @@ fn trace_ids_propagate_between_runner_and_server() {
     server_otlp.protocol = OtlpProtocol::JSON;
     server_otlp.service_label = "et-ws-test".to_string();
     server_otlp.auth = None;
-    let server_handles = et_otlp::init(&server_otlp);
+    let server_handles = et_otlp::init(&server_otlp).unwrap();
 
     let server = et_ws_test_server::start();
 
@@ -76,7 +75,7 @@ fn trace_ids_propagate_between_runner_and_server() {
         .env("OTLP_PROTOCOL", "JSON")
         .env("OTLP_SERVICE_LABEL", "et-ws-wasi-runner")
         .status()
-        .expect("failed to spawn et-ws-wasi-runner");
+        .unwrap();
 
     assert!(status.success(), "runner exited with code {:?}", status.code());
 

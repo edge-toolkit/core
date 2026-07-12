@@ -1,9 +1,4 @@
 #![cfg(test)]
-#![expect(
-    clippy::unwrap_used,
-    clippy::indexing_slicing,
-    reason = "test code: setup failures and missing JSON fields should fail the test"
-)]
 
 use et_cli::generate_module_package_json;
 use fs_err as fs;

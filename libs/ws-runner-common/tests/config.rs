@@ -4,9 +4,8 @@
 //! variable is absent.
 #![cfg(test)]
 #![expect(
-    clippy::expect_used,
     clippy::duration_suboptimal_units,
-    reason = "test code: panics carry context, and exact second counts mirror the parsed inputs"
+    reason = "test code: exact second counts mirror the parsed inputs"
 )]
 
 use std::time::Duration;
@@ -29,7 +28,7 @@ fn maps_runner_and_ws_env_vars() {
         ("RUNNER_TIMEOUT", "3m"),
         ("WS_SERVER_URL", "ws://example:9000/ws"),
     ])
-    .expect("parse env");
+    .unwrap();
 
     assert_eq!(config.runner.module, "et-ws-data1");
     assert_eq!(config.runner.timeout, Some(Duration::from_secs(180)));
@@ -38,14 +37,14 @@ fn maps_runner_and_ws_env_vars() {
 
 #[test]
 fn humantime_seconds_suffix_parses() {
-    let config: Config = serde_env::from_iter([("RUNNER_MODULE", "m"), ("RUNNER_TIMEOUT", "120s")]).expect("parse env");
+    let config: Config = serde_env::from_iter([("RUNNER_MODULE", "m"), ("RUNNER_TIMEOUT", "120s")]).unwrap();
 
     assert_eq!(config.runner.timeout, Some(Duration::from_secs(120)));
 }
 
 #[test]
 fn absent_optionals_default() {
-    let config: Config = serde_env::from_iter([("RUNNER_MODULE", "m")]).expect("parse env");
+    let config: Config = serde_env::from_iter([("RUNNER_MODULE", "m")]).unwrap();
 
     assert_eq!(config.runner.timeout, None);
     assert!(config.ws.server_url.starts_with("ws://localhost:"));
@@ -74,7 +73,7 @@ struct WsOnly {
 }
 
 fn load_ws() -> WsConfig {
-    serde_env::from_env::<WsOnly>().expect("parse WsConfig from env").ws
+    serde_env::from_env::<WsOnly>().unwrap().ws
 }
 
 #[test]

@@ -12,10 +12,8 @@
 #![cfg(test)]
 #![cfg(unix)]
 #![expect(
-    clippy::unwrap_used,
-    clippy::expect_used,
     clippy::deref_by_slicing,
-    reason = "test code: fixture setup failures should fail the test"
+    reason = "test code: slice-deref in fixture assertions is intentional"
 )]
 
 use std::os::unix::fs::symlink;
@@ -78,9 +76,7 @@ async fn list_modules_follows_symlinks_to_package_dirs() {
     // symlinked stub root module -- should be discovered.
     let by_name: std::collections::HashMap<&str, &PathBuf> =
         found.iter().map(|(name, path)| (name.as_str(), path)).collect();
-    let pkg_path = by_name
-        .get("onnxruntime-web")
-        .expect("symlinked onnxruntime-web should be discovered");
+    let pkg_path = &by_name["onnxruntime-web"];
 
     // The discovered path must resolve to the real package dir so that
     // `Files::new("/modules/onnxruntime-web", pkg_path)` can serve
