@@ -3,15 +3,11 @@ use et_ws_wasi_runner::run_module;
 use tracing::info;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let config = serde_env::from_env::<Config>()?;
 
-    #[expect(
-        clippy::option_if_let_else,
-        reason = "None branch installs an alternate tracing subscriber as a side effect; map_or_else hides it"
-    )]
     let otel_handles = if let Some(otlp_config) = &config.otlp {
-        Some(et_otlp::init(otlp_config))
+        Some(et_otlp::init(otlp_config)?)
     } else {
         tracing_subscriber::fmt()
             .with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))

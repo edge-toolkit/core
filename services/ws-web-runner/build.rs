@@ -15,8 +15,8 @@
 //! libs emitted as `rustc-link-lib` from this crate would precede the archive and satisfy nothing.
 
 #![expect(
-    clippy::expect_used,
-    reason = "build-script code: a panic is the only failure channel cargo gives, and expect names the invariant"
+    clippy::unwrap_used,
+    reason = "build-script code: a panic is the only failure channel cargo gives; unwraps assert build invariants"
 )]
 
 fn main() {
@@ -39,7 +39,7 @@ fn main() {
         .file("mingw-shim/msvc_crt_ops.s")
         .compile("msvc_crt_shim");
 
-    let out_dir = std::env::var("OUT_DIR").expect("cargo always sets OUT_DIR");
+    let out_dir = std::env::var("OUT_DIR").unwrap();
 
     // msvc_crt_locale.c must be a standalone OBJECT on the link line, not an archive member: its strong
     // definitions have to intercept names that -lmsvcrt (earlier in the default-libs block) would
@@ -60,7 +60,7 @@ fn main() {
     // equivalent -- the shim + import libs below stand in for it. Satisfy the directives with empty
     // archives ("!<arch>\n" is a valid zero-member ar file) in OUT_DIR, which cc put on the search path.
     for name in ["liblibcmt.a", "liboldnames.a"] {
-        fs_err::write(format!("{out_dir}/{name}"), b"!<arch>\n").expect("OUT_DIR is writable during build scripts");
+        fs_err::write(format!("{out_dir}/{name}"), b"!<arch>\n").unwrap();
     }
 
     // The archive's std::exception_ptr internals (__ExceptionPtr*) are exported by msvcp140.dll, which
@@ -88,8 +88,6 @@ fn main() {
 }
 
 fn run(command: &mut std::process::Command) {
-    let status = command
-        .status()
-        .expect("gendef/dlltool come from winlibs, on PATH in the mingw mise env");
+    let status = command.status().unwrap();
     assert!(status.success(), "{command:?} exited with {status}");
 }

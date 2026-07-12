@@ -11,11 +11,6 @@
 //! silently passing.
 
 #![cfg(test)]
-#![expect(
-    clippy::panic,
-    clippy::unwrap_used,
-    reason = "test code: missing install fails loudly with a hint"
-)]
 
 use std::collections::HashSet;
 use std::path::PathBuf;

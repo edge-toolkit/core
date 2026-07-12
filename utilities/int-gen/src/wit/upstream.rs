@@ -275,7 +275,6 @@ fn fetch_and_trim_webgpu(deps_root: &Path) -> Result<(), Error> {
     clippy::unnecessary_wraps,
     clippy::single_call_fn,
     clippy::unwrap_used,
-    clippy::expect_used,
     clippy::unwrap_in_result,
     reason = "Result lets caller use ? like fetch_* helpers; called once; wit-parser anyhow::Error, inputs literals"
 )]
@@ -290,7 +289,7 @@ fn strip_webgpu(raw: &str) -> Result<String, Error> {
     let mut webgpu = wit_encoder::packages_from_parsed(&resolve)
         .into_iter()
         .find(|pkg| pkg.name().namespace() == "wasi" && pkg.name().name().raw_name() == "webgpu")
-        .expect("upstream webgpu.wit declared a non-`wasi:webgpu` package");
+        .unwrap();
 
     let keep: HashSet<&str> = WEBGPU_KEEP_NAMES.iter().copied().collect();
     let drop_methods: HashSet<&str> = WEBGPU_DROP_METHODS.iter().copied().collect();

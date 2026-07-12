@@ -13,9 +13,10 @@
 //!     such as Vector's opentelemetry sink emits) or JSON (what `et-otlp` sends
 //!     with `OTLP_PROTOCOL=JSON`). Both decode to the same `ExportTraceServiceRequest`.
 //!   - `POST <collector_url>/logs` -- OTLP/HTTP-JSON log payloads.
+//!   - `POST <collector_url>/metrics` -- OTLP/HTTP metric payloads (protobuf or JSON, like `/traces`).
 //!
-//! Read captured spans back via [`OtlpMock::flatten_spans`] and logs via
-//! [`OtlpMock::logs`].
+//! Read captured spans back via [`OtlpMock::flatten_spans`], logs via
+//! [`OtlpMock::logs`], and metrics via [`OtlpMock::flatten_metrics`].
 #![expect(
     clippy::unwrap_used,
     clippy::panic,
@@ -27,8 +28,10 @@ use std::sync::{Arc, Mutex};
 
 use actix_web::http::header::ContentType;
 use actix_web::{App, HttpResponse, HttpServer, post, web};
+use opentelemetry_proto::tonic::collector::metrics::v1::ExportMetricsServiceRequest;
 use opentelemetry_proto::tonic::collector::trace::v1::ExportTraceServiceRequest;
 use opentelemetry_proto::tonic::common::v1::any_value;
+use opentelemetry_proto::tonic::metrics::v1::{metric::Data, number_data_point};
 use prost::Message as _;
 use serde_json::Value;
 
@@ -36,6 +39,7 @@ use serde_json::Value;
 struct Captured {
     traces: Mutex<Vec<ExportTraceServiceRequest>>,
     logs: Mutex<Vec<Value>>,
+    metrics: Mutex<Vec<ExportMetricsServiceRequest>>,
 }
 
 /// Handle to a running mock collector.
@@ -104,6 +108,63 @@ impl OtlpMock {
         }
         out
     }
+
+    /// Walk every metric across every captured request, pairing each with its `Resource`'s `service.name`.
+    /// `value` sums the numeric (Sum/Gauge) data points -- so a monotonic counter reads as its running total --
+    /// while `data_points` counts them (histogram points are counted but don't contribute to `value`).
+    #[must_use]
+    pub fn flatten_metrics(&self) -> Vec<FlatMetric> {
+        let mut out = Vec::new();
+        for req in self.captured.metrics.lock().unwrap().iter() {
+            for resource_metric in &req.resource_metrics {
+                let service_name = resource_metric
+                    .resource
+                    .as_ref()
+                    .and_then(|resource| {
+                        resource
+                            .attributes
+                            .iter()
+                            .filter(|attr| attr.key == "service.name")
+                            .find_map(|attr| {
+                                let any_value::Value::StringValue(value) = attr.value.as_ref()?.value.as_ref()? else {
+                                    return None;
+                                };
+                                Some(value.clone())
+                            })
+                    })
+                    .unwrap_or_default();
+                for scope_metric in &resource_metric.scope_metrics {
+                    for metric in &scope_metric.metrics {
+                        let (value, data_points) = match &metric.data {
+                            Some(Data::Sum(sum)) => sum_number_points(&sum.data_points),
+                            Some(Data::Gauge(gauge)) => sum_number_points(&gauge.data_points),
+                            Some(Data::Histogram(histogram)) => (0, histogram.data_points.len()),
+                            _ => (0, 0),
+                        };
+                        out.push(FlatMetric {
+                            service_name: service_name.clone(),
+                            name: metric.name.clone(),
+                            unit: metric.unit.clone(),
+                            value,
+                            data_points,
+                        });
+                    }
+                }
+            }
+        }
+        out
+    }
+}
+
+/// Sum the integer OTLP data points into `(total, count)`; float data points don't contribute to `total`.
+fn sum_number_points(points: &[opentelemetry_proto::tonic::metrics::v1::NumberDataPoint]) -> (i64, usize) {
+    let mut total: i64 = 0;
+    for point in points {
+        if let Some(number_data_point::Value::AsInt(value)) = point.value {
+            total = total.saturating_add(value);
+        }
+    }
+    (total, points.len())
 }
 
 /// Lowercase-hex-encode bytes -- used for the trace/span ids in [`FlatSpan`].
@@ -128,6 +189,20 @@ pub struct FlatSpan {
     pub span_id: String,
     pub parent_span_id: String,
     pub name: String,
+}
+
+/// Flattened metric view for assertions.
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub struct FlatMetric {
+    pub service_name: String,
+    pub name: String,
+    pub unit: String,
+    /// Sum of the metric's integer (Sum/Gauge) data points -- a monotonic `u64`/`i64` counter's running total.
+    /// Floating-point data points are ignored (the metrics emitted here are integer counters).
+    pub value: i64,
+    /// Number of data points seen for this metric (includes histogram points).
+    pub data_points: usize,
 }
 
 #[expect(
@@ -175,6 +250,36 @@ async fn handle_logs(state: web::Data<Arc<Captured>>, body: web::Json<Value>) ->
     HttpResponse::Ok().content_type("application/json").body("{}")
 }
 
+#[expect(
+    clippy::single_call_fn,
+    reason = "actix-web route handler; registered via the #[post] macro"
+)]
+#[post("/metrics")]
+async fn handle_metrics(
+    state: web::Data<Arc<Captured>>,
+    content_type: web::Header<ContentType>,
+    body: web::Bytes,
+) -> HttpResponse {
+    // Same dual-encoding decode as `/traces`: protobuf from a real relay, JSON from `et-otlp`'s JSON protocol.
+    let is_protobuf = content_type.0.subtype().as_str().contains("protobuf");
+    let decoded = if is_protobuf {
+        ExportMetricsServiceRequest::decode(body.as_ref()).ok()
+    } else {
+        serde_json::from_slice::<ExportMetricsServiceRequest>(&body).ok()
+    };
+    let Some(metrics_request) = decoded else {
+        return HttpResponse::BadRequest().finish();
+    };
+    state.metrics.lock().unwrap().push(metrics_request);
+    if is_protobuf {
+        HttpResponse::Ok()
+            .content_type("application/x-protobuf")
+            .body(Vec::new())
+    } else {
+        HttpResponse::Ok().content_type("application/json").body("{}")
+    }
+}
+
 /// Start the mock on a free port and return its handle.
 ///
 /// The HTTP server runs on its own thread + actix runtime; the test's
@@ -206,6 +311,7 @@ pub fn start_on(port: u16) -> OtlpMock {
                     .app_data(web::PayloadConfig::new(64 * 1024 * 1024))
                     .service(handle_traces)
                     .service(handle_logs)
+                    .service(handle_metrics)
             })
             .bind(&addr)
             .unwrap()

@@ -39,7 +39,7 @@ fn to_kebab(input: &str) -> String {
 type EnumSet = HashSet<String>;
 
 #[expect(
-    clippy::expect_used,
+    clippy::unwrap_used,
     clippy::unwrap_in_result,
     reason = "the semver literal is a compile-time constant; an Err means the literal was mistyped"
 )]
@@ -62,7 +62,7 @@ pub fn render(client_schema: &Schema, server_schema: &Schema) -> Result<String, 
     let mut package = Package::new(PackageName::new(
         "et",
         "ws-messages",
-        Some(semver::Version::parse(WS_VERSION).expect("WS_VERSION is a valid semver literal")),
+        Some(semver::Version::parse(WS_VERSION).unwrap()),
     ));
     package.interface(interface);
 

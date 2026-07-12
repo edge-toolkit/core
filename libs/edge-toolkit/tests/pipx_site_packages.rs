@@ -5,7 +5,6 @@
 //! (`<install>/<pkg>/Lib/site-packages`, no Python-version subdir).
 
 #![cfg(test)]
-#![expect(clippy::unwrap_used, reason = "test code: failed tempdir setup should fail the test")]
 
 use edge_toolkit::config::find_site_packages_in;
 use fs_err as fs;

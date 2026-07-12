@@ -5,7 +5,6 @@
 //! warnings at startup.
 
 #![cfg(test)]
-#![expect(clippy::unwrap_used, reason = "test code: failed tempdir setup should fail the test")]
 
 use std::path::PathBuf;
 

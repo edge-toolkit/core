@@ -1,6 +1,5 @@
 #![expect(
     clippy::unwrap_used,
-    clippy::expect_used,
     clippy::panic,
     reason = "in-process test ws-server; bind/startup failures should fail the test fast"
 )]
@@ -25,7 +24,7 @@ pub struct TestServer {
 /// Serves modules from the default module paths (same as production).
 #[must_use]
 pub fn start() -> TestServer {
-    let storage_dir = TempDir::new().expect("failed to create temp storage dir");
+    let storage_dir = TempDir::new().unwrap();
     let storage_path = storage_dir.path().to_path_buf();
 
     let port = et_test_helpers::reserve_port();

@@ -6,15 +6,15 @@ use serde::{Deserialize, Serialize};
 /// payload is described as "arbitrary JSON" without tripping the parser.
 #[cfg(feature = "schema-export")]
 #[expect(
-    clippy::expect_used,
-    reason = "static JSON literal -> Schema is infallible; surfacing it loudly if asyncapi-rust ever changes shape"
+    clippy::unwrap_used,
+    reason = "static JSON literal -> Schema conversion is infallible by construction"
 )]
 fn any_json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
     serde_json::json!({
         "description": "Arbitrary JSON value (opaque to the protocol)",
     })
     .try_into()
-    .expect("any_json_schema is a valid object schema")
+    .unwrap()
 }
 
 /// Schema for `Vec<u8>` byte-array fields. schemars 1.x's default `Vec<u8>`
@@ -24,8 +24,8 @@ fn any_json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
 /// `list<u8>` representation.
 #[cfg(feature = "schema-export")]
 #[expect(
-    clippy::expect_used,
-    reason = "static JSON literal -> Schema is infallible; surfacing it loudly if asyncapi-rust ever changes shape"
+    clippy::unwrap_used,
+    reason = "static JSON literal -> Schema conversion is infallible by construction"
 )]
 fn byte_array_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
     serde_json::json!({
@@ -34,7 +34,7 @@ fn byte_array_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         "description": "Byte array (uint8)",
     })
     .try_into()
-    .expect("byte_array_schema is a valid array schema")
+    .unwrap()
 }
 
 #[expect(

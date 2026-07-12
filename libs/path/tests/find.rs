@@ -1,8 +1,4 @@
 #![cfg(test)]
-#![expect(
-    clippy::unwrap_used,
-    reason = "test code: failed tempdir/fs setup should fail the test"
-)]
 
 use et_path::find_project_root;
 use fs_err as fs;

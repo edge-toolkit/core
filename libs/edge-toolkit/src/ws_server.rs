@@ -207,14 +207,11 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
         summaries
     }
 
-    /// # Panics
-    /// Panics if `to_agent_id` is not present in the registry -- the caller is
-    /// expected to have validated that the recipient exists before queueing.
+    /// Queue a direct message for `to_agent_id`, returning the stored message and the recipient's session.
+    ///
+    /// Returns `None` when `to_agent_id` is not in the registry. The inner `Option<S>` is the recipient's live
+    /// session -- `Some` when connected, `None` when the message was queued for a disconnected agent.
     #[must_use]
-    #[expect(
-        clippy::expect_used,
-        reason = "caller contract: to_agent_id must reference a known agent"
-    )]
     pub fn queue_direct(
         &self,
         message_id: String,
@@ -222,11 +219,9 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
         to_agent_id: &str,
         server_received_at: String,
         message: serde_json::Value,
-    ) -> (PendingDirectMessage, Option<S>) {
+    ) -> Option<(PendingDirectMessage, Option<S>)> {
         let mut agents = lock_agents(&self.agents);
-        let recipient = agents
-            .get_mut(to_agent_id)
-            .expect("queue_direct called for unknown target agent");
+        let recipient = agents.get_mut(to_agent_id)?;
 
         let pending = PendingDirectMessage {
             message_id,
@@ -240,7 +235,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
             .insert(from_agent_id.to_string(), pending.clone());
         drop(agents);
 
-        (pending, session)
+        Some((pending, session))
     }
 
     #[must_use]

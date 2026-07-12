@@ -45,27 +45,27 @@ struct ApiDoc;
 /// but progenitor 0.14 only accepts 3.0.x and rejects the `identifier` field --
 /// downgrade those before serializing.
 #[expect(
-    clippy::expect_used,
+    clippy::unwrap_used,
     reason = "all conversions are between serde-derived types; the only way these expect calls fire is a serde_json bug"
 )]
 fn build_spec() -> openapiv3::OpenAPI {
     let mut doc = ApiDoc::openapi();
     doc.info.license = None;
-    let mut value = serde_json::to_value(&doc).expect("OpenApi is always JSON-serializable");
+    let mut value = serde_json::to_value(&doc).unwrap();
     if let Some(obj) = value.as_object_mut() {
         let _previous = obj.insert("openapi".into(), serde_json::Value::String("3.0.3".into()));
     }
-    serde_json::from_value(value).expect("downgraded OpenApi is always openapiv3::OpenAPI-shaped")
+    serde_json::from_value(value).unwrap()
 }
 
 /// Serialize the `OpenAPI` document as YAML for `generated/specs/rest.yaml`.
 #[must_use]
 #[expect(
-    clippy::expect_used,
+    clippy::unwrap_used,
     reason = "openapiv3::OpenAPI is serde-derived and round-trips through serde_yaml unconditionally"
 )]
 pub fn render_yaml() -> String {
-    serde_yaml::to_string(&build_spec()).expect("openapiv3::OpenAPI is always YAML-serializable")
+    serde_yaml::to_string(&build_spec()).unwrap()
 }
 
 /// Serialize the `OpenAPI` document as JSON.
@@ -74,11 +74,11 @@ pub fn render_yaml() -> String {
 /// v0.2.0).
 #[must_use]
 #[expect(
-    clippy::expect_used,
+    clippy::unwrap_used,
     reason = "openapiv3::OpenAPI is serde-derived and round-trips through serde_json unconditionally"
 )]
 pub fn render_json() -> String {
-    serde_json::to_string_pretty(&build_spec()).expect("openapiv3::OpenAPI is always JSON-serializable")
+    serde_json::to_string_pretty(&build_spec()).unwrap()
 }
 
 /// Generate the Rust REST client (`generated/rust-rest/src/lib.rs`) from the
@@ -93,7 +93,7 @@ pub fn render_json() -> String {
 /// tracing works without each call site repeating the boilerplate the old
 /// `inject_traceparent` helper did.
 #[expect(
-    clippy::expect_used,
+    clippy::unwrap_used,
     clippy::unwrap_in_result,
     reason = "progenitor's emit feeds straight into syn::parse2; a parse failure means progenitor produced invalid Rust"
 )]
@@ -131,7 +131,7 @@ pub fn render_rust_client() -> Result<String, Error> {
     let mut settings = progenitor::GenerationSettings::default();
     let mut generator = progenitor::Generator::new(settings.with_pre_hook_async(trace_hook));
     let tokens = generator.generate_tokens(&spec)?;
-    let ast = syn::parse2(tokens).expect("progenitor always emits valid Rust");
+    let ast = syn::parse2(tokens).unwrap();
     let body = prettyplease::unparse(&ast);
     let body = inject_wasm_baseurl_fallback(&body);
     let body = inject_retry_exec(&body);

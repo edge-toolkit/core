@@ -10,10 +10,8 @@
 
 #![cfg(test)]
 #![expect(
-    clippy::expect_used,
-    clippy::panic,
     clippy::wildcard_enum_match_arm,
-    reason = "test code: assertion panics carry enough context for tests"
+    reason = "test code: wildcard enum match arms are intentional"
 )]
 
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
@@ -30,93 +28,93 @@ fn client_expect_relay_text(msg: ClientMessage) -> String {
 
 #[test]
 fn client_relays_empty_string() {
-    let msg = ClientMessage::from_text_frame("").expect("relay must not error");
+    let msg = ClientMessage::from_text_frame("").unwrap();
     assert_eq!(client_expect_relay_text(msg), "");
 }
 
 #[test]
 fn client_relays_plain_text() {
-    let msg = ClientMessage::from_text_frame("hello world").expect("relay must not error");
+    let msg = ClientMessage::from_text_frame("hello world").unwrap();
     assert_eq!(client_expect_relay_text(msg), "hello world");
 }
 
 #[test]
 fn client_relays_malformed_json() {
-    let msg = ClientMessage::from_text_frame("{not json").expect("relay must not error");
+    let msg = ClientMessage::from_text_frame("{not json").unwrap();
     assert_eq!(client_expect_relay_text(msg), "{not json");
 }
 
 #[test]
 fn client_relays_json_number() {
-    let msg = ClientMessage::from_text_frame("42").expect("relay must not error");
+    let msg = ClientMessage::from_text_frame("42").unwrap();
     assert_eq!(client_expect_relay_text(msg), "42");
 }
 
 #[test]
 fn client_relays_json_string_literal() {
     let raw = "\"hello\"";
-    let msg = ClientMessage::from_text_frame(raw).expect("relay must not error");
+    let msg = ClientMessage::from_text_frame(raw).unwrap();
     assert_eq!(client_expect_relay_text(msg), raw);
 }
 
 #[test]
 fn client_relays_json_array() {
-    let msg = ClientMessage::from_text_frame("[1, 2, 3]").expect("relay must not error");
+    let msg = ClientMessage::from_text_frame("[1, 2, 3]").unwrap();
     assert_eq!(client_expect_relay_text(msg), "[1, 2, 3]");
 }
 
 #[test]
 fn client_relays_json_null() {
-    let msg = ClientMessage::from_text_frame("null").expect("relay must not error");
+    let msg = ClientMessage::from_text_frame("null").unwrap();
     assert_eq!(client_expect_relay_text(msg), "null");
 }
 
 #[test]
 fn client_relays_json_object_without_type() {
     let raw = r#"{"hello":"world"}"#;
-    let msg = ClientMessage::from_text_frame(raw).expect("relay must not error");
+    let msg = ClientMessage::from_text_frame(raw).unwrap();
     assert_eq!(client_expect_relay_text(msg), raw);
 }
 
 #[test]
 fn client_relays_json_object_with_non_string_type() {
     let raw = r#"{"type":42,"payload":true}"#;
-    let msg = ClientMessage::from_text_frame(raw).expect("relay must not error");
+    let msg = ClientMessage::from_text_frame(raw).unwrap();
     assert_eq!(client_expect_relay_text(msg), raw);
 }
 
 #[test]
 fn client_relays_json_object_with_non_et_type() {
     let raw = r#"{"type":"foo-bar","x":1}"#;
-    let msg = ClientMessage::from_text_frame(raw).expect("relay must not error");
+    let msg = ClientMessage::from_text_frame(raw).unwrap();
     assert_eq!(client_expect_relay_text(msg), raw);
 }
 
 #[test]
 fn client_relays_json_object_with_type_et_no_dash() {
     let raw = r#"{"type":"etwhatever"}"#;
-    let msg = ClientMessage::from_text_frame(raw).expect("relay must not error");
+    let msg = ClientMessage::from_text_frame(raw).unwrap();
     assert_eq!(client_expect_relay_text(msg), raw);
 }
 
 #[test]
 fn client_relays_json_object_with_capitalised_et_prefix() {
     let raw = r#"{"type":"Et-connect"}"#;
-    let msg = ClientMessage::from_text_frame(raw).expect("relay must not error");
+    let msg = ClientMessage::from_text_frame(raw).unwrap();
     assert_eq!(client_expect_relay_text(msg), raw);
 }
 
 #[test]
 fn client_relays_third_party_vendor_prefix() {
     let raw = r#"{"type":"vendor-x-event","seq":7}"#;
-    let msg = ClientMessage::from_text_frame(raw).expect("relay must not error");
+    let msg = ClientMessage::from_text_frame(raw).unwrap();
     assert_eq!(client_expect_relay_text(msg), raw);
 }
 
 #[test]
 fn client_typed_for_valid_et_message() {
     // `et-list-agents` has no payload fields; the bare envelope parses.
-    let msg = ClientMessage::from_text_frame(r#"{"type":"et-list-agents"}"#).expect("typed parse must succeed");
+    let msg = ClientMessage::from_text_frame(r#"{"type":"et-list-agents"}"#).unwrap();
     assert!(
         matches!(msg, ClientMessage::ListAgents),
         "expected ClientMessage::ListAgents, got {msg:?}"
@@ -128,14 +126,13 @@ fn client_typed_for_server_only_variant_is_decode_error() {
     // `et-connect-ack` lives in ServerMessage, not ClientMessage. A client
     // claiming to send a ConnectAck must surface as a decode error -- that's
     // the type-level enforcement the split exists to provide.
-    let _err = ClientMessage::from_text_frame(r#"{"type":"et-connect-ack","agent_id":"a","status":"assigned"}"#)
-        .expect_err("server-side variant in client decoder must surface a decode error");
+    let _err =
+        ClientMessage::from_text_frame(r#"{"type":"et-connect-ack","agent_id":"a","status":"assigned"}"#).unwrap_err();
 }
 
 #[test]
 fn client_decode_error_for_unknown_variant() {
-    let _err = ClientMessage::from_text_frame(r#"{"type":"et-bogus-variant"}"#)
-        .expect_err("et-prefixed unknown variants must surface a decode error");
+    let _err = ClientMessage::from_text_frame(r#"{"type":"et-bogus-variant"}"#).unwrap_err();
 }
 
 #[test]
@@ -158,21 +155,20 @@ fn server_expect_relay_text(msg: ServerMessage) -> String {
 
 #[test]
 fn server_relays_plain_text() {
-    let msg = ServerMessage::from_text_frame("hello").expect("relay must not error");
+    let msg = ServerMessage::from_text_frame("hello").unwrap();
     assert_eq!(server_expect_relay_text(msg), "hello");
 }
 
 #[test]
 fn server_relays_json_object_with_non_et_type() {
     let raw = r#"{"type":"vendor-y-broadcast","seq":1}"#;
-    let msg = ServerMessage::from_text_frame(raw).expect("relay must not error");
+    let msg = ServerMessage::from_text_frame(raw).unwrap();
     assert_eq!(server_expect_relay_text(msg), raw);
 }
 
 #[test]
 fn server_typed_for_response_variant() {
-    let msg =
-        ServerMessage::from_text_frame(r#"{"type":"et-response","message":"hi"}"#).expect("typed parse must succeed");
+    let msg = ServerMessage::from_text_frame(r#"{"type":"et-response","message":"hi"}"#).unwrap();
     match msg {
         ServerMessage::Response { message } => assert_eq!(message, "hi"),
         other => panic!("expected ServerMessage::Response, got {other:?}"),
@@ -183,8 +179,7 @@ fn server_typed_for_response_variant() {
 fn server_typed_for_client_only_variant_is_decode_error() {
     // `et-connect` lives in ClientMessage. A server claiming to send Connect
     // to a client must surface as a decode error.
-    let _err = ServerMessage::from_text_frame(r#"{"type":"et-connect"}"#)
-        .expect_err("client-side variant in server decoder must surface a decode error");
+    let _err = ServerMessage::from_text_frame(r#"{"type":"et-connect"}"#).unwrap_err();
 }
 
 #[test]

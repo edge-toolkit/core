@@ -81,7 +81,12 @@ where
 /// Helper to find repository root.
 ///
 /// This is the one sanctioned `current_dir()`.
-#[expect(clippy::missing_panics_doc, clippy::unwrap_used)]
+#[expect(
+    clippy::disallowed_methods,
+    clippy::missing_panics_doc,
+    clippy::unwrap_used,
+    reason = "the one sanctioned current_dir() -- this helper is what the disallowed-methods ban points callers to"
+)]
 #[must_use]
 pub fn get_project_root() -> PathBuf {
     et_path::find_project_root(&std::env::current_dir().unwrap())

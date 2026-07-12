@@ -122,7 +122,7 @@ pub fn generate() -> Result<(), Error> {
 /// `ws.kdl`/`*.schema.json`/`rest.yaml`), so this is the prerequisite step
 /// every per-language `gen:*` mise task depends on.
 #[expect(
-    clippy::expect_used,
+    clippy::unwrap_used,
     clippy::unwrap_in_result,
     reason = "pretty_yaml only fails on malformed YAML and serde output is always well-formed"
 )]
@@ -141,14 +141,12 @@ pub fn generate_core() -> Result<(), Error> {
     let yaml = serde_yaml::to_string(&spec_value)?;
     // serde_yaml always emits well-formed YAML, so pretty_yaml's parse step
     // can't fail here -- the only error variant is a syntax error.
-    let yaml = pretty_yaml::format_text(&yaml, &pretty_yaml::config::FormatOptions::default())
-        .expect("serde_yaml output should always be well-formed");
+    let yaml = pretty_yaml::format_text(&yaml, &pretty_yaml::config::FormatOptions::default()).unwrap();
     write_if_changed(&specs_dir.join("ws.yaml"), &yaml)?;
 
     // REST OpenAPI doc -- emitted from utoipa annotations on actual handlers.
     let rest_yaml = openapi::render_yaml();
-    let rest_yaml = pretty_yaml::format_text(&rest_yaml, &pretty_yaml::config::FormatOptions::default())
-        .expect("utoipa output should always be well-formed YAML");
+    let rest_yaml = pretty_yaml::format_text(&rest_yaml, &pretty_yaml::config::FormatOptions::default()).unwrap();
     write_if_changed(&specs_dir.join("rest.yaml"), &rest_yaml)?;
 
     // Build intermediates land in target/ -- datamodel-codegen reads the JSON

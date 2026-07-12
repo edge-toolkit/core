@@ -13,16 +13,12 @@
 //! so batched spans/logs are flushed -- otherwise short-lived processes
 //! (e.g. the wasi-runner, which exits as soon as a module finishes) drop
 //! their tail-end spans.
-#![expect(
-    clippy::expect_used,
-    reason = "init runs once at startup; exporter build / RUST_LOG / subscriber failures should crash early"
-)]
-
 use edge_toolkit::config::{OtlpConfig, OtlpProtocol};
 use opentelemetry::{KeyValue, trace::TracerProvider as _};
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
-use opentelemetry_otlp::{LogExporter, WithExportConfig as _, WithHttpConfig as _};
+use opentelemetry_otlp::{LogExporter, MetricExporter, WithExportConfig as _, WithHttpConfig as _};
 use opentelemetry_sdk::logs::SdkLoggerProvider;
+use opentelemetry_sdk::metrics::SdkMeterProvider;
 use opentelemetry_sdk::trace::SdkTracerProvider;
 use opentelemetry_sdk::{Resource, propagation::TraceContextPropagator};
 use tracing::subscriber::set_global_default;
@@ -31,7 +27,7 @@ use tracing_subscriber::{EnvFilter, Registry, layer::SubscriberExt as _};
 
 pub const RUST_LOG: &str = "RUST_LOG";
 
-/// Handles for the spans + logs pipelines.
+/// Handles for the spans + logs + metrics pipelines.
 ///
 /// Drop alone won't flush -- call [`OtelHandles::shutdown`] at the end of
 /// `main()` (or in a Drop guard).
@@ -39,23 +35,30 @@ pub const RUST_LOG: &str = "RUST_LOG";
 pub struct OtelHandles {
     pub tracer_provider: SdkTracerProvider,
     pub logger_provider: SdkLoggerProvider,
+    pub meter_provider: SdkMeterProvider,
 }
 
 impl OtelHandles {
-    /// Flush any buffered spans/logs and tear down the exporters.
+    /// Flush any buffered spans/logs/metrics and tear down the exporters.
     pub fn shutdown(self) {
         // Errors here are non-fatal -- the process is exiting anyway.
         drop(self.tracer_provider.shutdown());
         drop(self.logger_provider.shutdown());
+        drop(self.meter_provider.shutdown());
     }
 }
 
 /// Initialise the global tracing subscriber + `OTel` pipeline against `config`.
 ///
-/// Call exactly once per process; subsequent calls panic via
-/// `set_global_default`.
-#[must_use]
-pub fn init(config: &OtlpConfig) -> OtelHandles {
+/// Call exactly once per process; a second call returns an error from
+/// `set_global_default`. Exporter-build and `RUST_LOG`-parse failures are
+/// returned too, so `main` can surface them and exit non-zero.
+///
+/// # Errors
+///
+/// Returns an error if any OTLP exporter fails to build, `RUST_LOG` is
+/// invalid, or the global subscriber is already set.
+pub fn init(config: &OtlpConfig) -> Result<OtelHandles, Box<dyn std::error::Error + Send + Sync>> {
     // tracing_log forwards `log` crate records (used by transitive deps)
     // through the tracing subscriber.
     drop(tracing_log::LogTracer::init());
@@ -79,8 +82,7 @@ pub fn init(config: &OtlpConfig) -> OtelHandles {
         .with_protocol(protocol)
         .with_endpoint(trace_endpoint)
         .with_headers(headers.clone())
-        .build()
-        .expect("build OTLP span exporter");
+        .build()?;
 
     let mut service_descriptors = vec![KeyValue::new("service.version", env!("CARGO_PKG_VERSION").to_string())];
     if let Some(hostname) = hostname::get().ok().and_then(|host| host.into_string().ok()) {
@@ -95,19 +97,36 @@ pub fn init(config: &OtlpConfig) -> OtelHandles {
         .with_batch_exporter(span_exporter)
         .with_resource(resource.clone())
         .build();
+    // Set the global tracer provider so direct `global::tracer(...)` spans (e.g. the ws hub's `ws.connect`)
+    // export too -- not just the `tracing`-subscriber spans routed through the layer below.
+    opentelemetry::global::set_tracer_provider(tracer_provider.clone());
 
     let otel_tracing_layer = OpenTelemetryLayer::new(tracer_provider.tracer(config.service_label.clone()));
 
+    // Metrics ride the same OTLP/HTTP transport as spans and logs, posting to `<collector_url>/metrics`.
+    // The periodic reader batches on its own interval; `OtelHandles::shutdown` forces a final flush on exit.
+    let metric_endpoint = format!("{}/metrics", config.collector_url);
+    let metric_exporter = MetricExporter::builder()
+        .with_http()
+        .with_protocol(protocol)
+        .with_endpoint(metric_endpoint)
+        .with_headers(headers.clone())
+        .build()?;
+    let meter_provider = SdkMeterProvider::builder()
+        .with_periodic_exporter(metric_exporter)
+        .with_resource(resource.clone())
+        .build();
+    opentelemetry::global::set_meter_provider(meter_provider.clone());
+
     let log_directives = std::env::var(RUST_LOG).unwrap_or_else(|_| "info".to_string());
-    let env_filter = EnvFilter::try_new(log_directives).expect("valid RUST_LOG");
+    let env_filter = EnvFilter::try_new(log_directives)?;
 
     let log_exporter = LogExporter::builder()
         .with_http()
         .with_protocol(protocol)
         .with_endpoint(log_endpoint)
         .with_headers(headers)
-        .build()
-        .expect("build OTLP log exporter");
+        .build()?;
 
     let logger_provider = SdkLoggerProvider::builder()
         .with_batch_exporter(log_exporter)
@@ -123,10 +142,11 @@ pub fn init(config: &OtlpConfig) -> OtelHandles {
         .with(otel_tracing_layer)
         .with(otel_log_layer);
 
-    set_global_default(subscriber).expect("set tracing subscriber");
+    set_global_default(subscriber)?;
 
-    OtelHandles {
+    Ok(OtelHandles {
         tracer_provider,
         logger_provider,
-    }
+        meter_provider,
+    })
 }

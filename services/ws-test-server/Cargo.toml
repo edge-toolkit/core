@@ -24,7 +24,10 @@ tracing-actix-web.workspace = true
 
 [dev-dependencies]
 edge-toolkit.workspace = true
+et-otlp.workspace = true
 futures-util.workspace = true
+int-otlp-mock.workspace = true
+retry.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["macros", "rt", "time"] }
 tokio-tungstenite = { workspace = true, features = ["connect"] }
