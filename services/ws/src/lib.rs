@@ -391,6 +391,7 @@ impl Connection {
         clippy::too_many_lines,
         reason = "single dispatcher for inbound ClientMessage variants; splitting it scatters handlers into trivial fns"
     )]
+    // skipcq: RS-R1000 -- dispatcher cyclomatic complexity is inherent to the ClientMessage match; not splittable
     async fn handle_inbound(&mut self, msg: AggregatedMessage) -> bool {
         MESSAGES_RECEIVED.add(1, &[]);
         match msg {
