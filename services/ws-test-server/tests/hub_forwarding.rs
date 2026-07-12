@@ -4,74 +4,15 @@
 
 #![cfg(test)]
 #![expect(
-    clippy::arithmetic_side_effects,
-    clippy::needless_continue,
     clippy::similar_names,
-    clippy::wildcard_enum_match_arm,
     reason = "integration tests: idiomatic test-time control flow"
 )]
 
 use std::time::Duration;
 
-use edge_toolkit::ws::{ClientMessage, ServerMessage};
+use et_ws_test_server::{connect_agent, next_payload};
 use futures_util::{SinkExt as _, StreamExt as _};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
-
-/// Open a ws connection, send `et-connect`, and return `(stream, agent_id)`
-/// once `et-connect-ack` has been observed.
-async fn connect_agent(
-    ws_url: &str,
-) -> (
-    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
-    String,
-) {
-    let (mut stream, _) = connect_async(ws_url).await.unwrap();
-    let connect_msg = serde_json::to_string(&ClientMessage::Connect { agent_id: None }).unwrap();
-    stream.send(Message::text(connect_msg)).await.unwrap();
-
-    while let Some(msg) = stream.next().await {
-        let msg = msg.unwrap();
-        let Message::Text(text) = msg else {
-            continue;
-        };
-        if let Ok(ServerMessage::ConnectAck { agent_id, .. }) = serde_json::from_str::<ServerMessage>(&text) {
-            return (stream, agent_id);
-        }
-    }
-    panic!("never received et-connect-ack");
-}
-
-/// Pull the next frame from `stream`, ignoring known protocol acks
-/// (`et-message-status`, `et-connect-ack`, etc.) so callers see the
-/// next "real" payload.
-async fn next_payload(
-    stream: &mut tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
-) -> Message {
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
-    loop {
-        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
-        let next = tokio::time::timeout(remaining, stream.next()).await.unwrap();
-        let msg = next.unwrap().unwrap();
-        match &msg {
-            Message::Text(text) => {
-                if let Ok(parsed) = serde_json::from_str::<ServerMessage>(text)
-                    && matches!(
-                        parsed,
-                        ServerMessage::ConnectAck { .. }
-                            | ServerMessage::MessageStatus { .. }
-                            | ServerMessage::Response { .. }
-                    )
-                {
-                    continue;
-                }
-                return msg;
-            }
-            Message::Binary(_) => return msg,
-            Message::Ping(_) | Message::Pong(_) => continue,
-            other => panic!("unexpected control frame: {other:?}"),
-        }
-    }
-}
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn unrecognised_text_is_broadcast_verbatim() {

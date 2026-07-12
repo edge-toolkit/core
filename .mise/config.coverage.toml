@@ -102,7 +102,17 @@ for profraw in "$covdir"/*.profraw; do
   "$bin/llvm-profdata" merge -sparse -o "$pd" "$profraw"
   "$bin/llvm-cov" export --format=lcov --instr-profile "$pd" "$obj" >> "$covdir/wasi.lcov"
 done
-coreutils cat "$covdir/wasi.lcov" >> lcov.info
+# The wasm covmap records reference every source each module linked.
+# Dependency crates under ~/.cargo/registry and toolchain std under ~/.rustup are not in VCS -- DeepSource
+# flags them and they skew the aggregate metric -- so keep only workspace records (dropping .cargo/.rustup/rustc
+# blocks) before merging the wasm lcov into lcov.info.
+keep="$covdir/keep.awk"
+coreutils cat > "$keep" <<'AWK'
+{ buf = buf $0 ORS }
+/^SF:/ { p = substr($0, 4); drop = (index(p, "/.cargo/") || index(p, "/.rustup/") || index(p, "/rustc/")) }
+/^end_of_record$/ { if (!drop) printf "%s", buf; buf = ""; drop = 0 }
+AWK
+goawk -f "$keep" "$covdir/wasi.lcov" >> lcov.info
 """
 shell = "bash -euo pipefail -c"
 

@@ -9,11 +9,10 @@
 #![cfg(test)]
 
 use edge_toolkit::config::{OtlpConfig, OtlpProtocol};
-use edge_toolkit::ws::{ClientMessage, ServerMessage};
-use futures_util::{SinkExt as _, StreamExt as _};
+use et_ws_test_server::connect_agent;
+use futures_util::SinkExt as _;
 use retry::delay::Fixed;
 use retry::retry;
-use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
 
 #[tokio::test]
@@ -68,30 +67,4 @@ async fn hub_emits_traces_logs_and_metrics() {
         metrics.iter().any(|metric| metric.name == "et_ws.connections.active"),
         "expected the et_ws.connections.active gauge, got {metrics:?}"
     );
-}
-
-/// Open a ws connection, send `et-connect`, and return `(stream, agent_id)` once `et-connect-ack` is observed.
-#[expect(
-    clippy::single_call_fn,
-    reason = "named connect+handshake step; mirrors hub_forwarding's helper"
-)]
-async fn connect_agent(
-    ws_url: &str,
-) -> (
-    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
-    String,
-) {
-    let (mut stream, _) = connect_async(ws_url).await.unwrap();
-    let connect_msg = serde_json::to_string(&ClientMessage::Connect { agent_id: None }).unwrap();
-    stream.send(Message::text(connect_msg)).await.unwrap();
-    while let Some(msg) = stream.next().await {
-        let msg = msg.unwrap();
-        let Message::Text(text) = msg else {
-            continue;
-        };
-        if let Ok(ServerMessage::ConnectAck { agent_id, .. }) = serde_json::from_str::<ServerMessage>(&text) {
-            return (stream, agent_id);
-        }
-    }
-    panic!("never received et-connect-ack");
 }

@@ -6188,7 +6188,9 @@ dependencies = [
  "et-test-helpers",
  "opentelemetry-proto 0.31.0",
  "prost",
+ "reqwest 0.13.4",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]
