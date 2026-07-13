@@ -1,4 +1,4 @@
-// et_ws_pydata1.js — Pyodide-based Python module shim
+// et_ws_pydata1.js — Pyodide-based Python module shim.
 // Interface: default(wasmUrl), metadata(), run()
 
 const PYODIDE_BASE_PATH = "/modules/pyodide/";
