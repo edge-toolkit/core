@@ -156,11 +156,19 @@ allowed_os_scoped_tool := {
 	"github:christianhelle/openapi2zig",
 	"github:owenlamont/ryl",
 	"github:uutils/findutils",
+	# macmon is an Apple Silicon monitor with no Linux/Windows build, so the o2-macmon task scopes it to macOS.
+	"github:vladkens/macmon",
+	# nvidia_gpu_exporter is the Linux NVIDIA GPU path for o2-nvidia; Windows uses windows_exporter, macOS macmon.
+	"github:utkuozdemir/nvidia_gpu_exporter",
+	# windows_exporter is a Windows-only host/GPU Prometheus exporter, so the o2-winmetrics task scopes it to Windows.
+	"github:prometheus-community/windows_exporter",
 	"cargo:findutils",
 	"cargo:ryl",
 	# http:et-rp is os-scoped to only those platforms whose tarball is already in the rp-v<N> release.
 	# Add a platform by dispatching the upstream-cache.yaml workflow on that host.
 	"http:et-rp",
+	# openobserve ships no Windows binary, so the o2-native task scopes it to linux + macos.
+	"http:openobserve",
 	"conda:gnupg",
 	# cargo:cargo-expand: gnullvm source-build fails, so os-scoped off Windows (msvc override in config.windows.toml).
 	"cargo:cargo-expand",

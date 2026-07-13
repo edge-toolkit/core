@@ -90,6 +90,17 @@ ripgrep = "latest"
 # Separate binaries, not a multicall, so the mise shims shadow the host's find /
 # xargs in tasks. Every platform uses the 0.8.0 prebuilt via github: ...
 "github:uutils/findutils" = { version = "0.8.0", os = ["linux/x64", "macos", "windows"] }
+# Apple Silicon resource monitor (CPU/GPU/ANE/power) for the o2-macmon task; macOS-only, so os-scoped.
+"github:vladkens/macmon" = { version = "0.7.2", os = ["macos"] }
+# NVIDIA GPU Prometheus exporter (nvidia-smi) for the o2-nvidia task; Linux-only, so os-scoped.
+# Windows GPU coverage is windows_exporter's gpu collector; Apple Silicon is macmon.
+"github:utkuozdemir/nvidia_gpu_exporter" = { version = "1.10.0", os = ["linux"] }
+# Windows host + GPU Prometheus exporter for the o2-winmetrics task; Windows-only, so os-scoped.
+"github:prometheus-community/windows_exporter" = { version = "0.31.7", os = ["windows"] }
+# OpenTelemetry Collector (contrib distro) binary for the native, non-Docker o2-winmetrics-native / o2-winperf tasks.
+# The releases repo ships several distros in one tag; matching=contrib selects the contrib archive -- the only one
+# carrying the prometheus/hostmetrics/windowsperfcounters receivers + basicauth extension those configs use.
+"github:open-telemetry/opentelemetry-collector-releases[matching=contrib]" = { version = "0.156.0" }
 # aarch64-linux is the exception, building findutils from source instead.
 # Its 0.8.0 release has no asset, so it builds from
 # source via cargo: (same 0.8.0 pin, so every platform runs the same version).
@@ -217,6 +228,23 @@ url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-0
 checksum = "sha256:7b81d53f5b3a63c60fc2bc1717e87466026d796ec522b925f009532c7b0291f3"
 url = "https://github.com/edge-toolkit/core/releases/download/{{ vars.a_rp_release }}/{{ vars.a_rp_wasm_asset }}"
 version = "08a1d6f"
+
+# OpenObserve open-source binary for the o2-native task.
+# The same build the o2 docker image runs (its Dockerfile is just `CMD ["/openobserve"]`), pinned to the same
+# version. Direct upstream download, no checksum. No Windows build exists (downloads.openobserve.ai 403s the
+# windows asset), so os-scoped to linux + macos.
+[tools."http:openobserve"]
+bin = "openobserve"
+os = ["linux", "macos"]
+version = "0.70.3"
+[tools."http:openobserve".platforms.linux-arm64]
+url = "https://downloads.openobserve.ai/releases/openobserve/v0.70.3/openobserve-v0.70.3-linux-arm64.tar.gz"
+[tools."http:openobserve".platforms.linux-x64]
+url = "https://downloads.openobserve.ai/releases/openobserve/v0.70.3/openobserve-v0.70.3-linux-amd64.tar.gz"
+[tools."http:openobserve".platforms.macos-arm64]
+url = "https://downloads.openobserve.ai/releases/openobserve/v0.70.3/openobserve-v0.70.3-darwin-arm64.tar.gz"
+[tools."http:openobserve".platforms.macos-x64]
+url = "https://downloads.openobserve.ai/releases/openobserve/v0.70.3/openobserve-v0.70.3-darwin-amd64.tar.gz"
 
 [tools."http:augeas"]
 bin = "augtool"
@@ -404,6 +432,8 @@ actionlint_args = ""
 gh_http = "--http-url https://github.com --progress --ignore-existing"
 # OpenObserve docker image for the openobserve/o2 dev-observability task.
 o2_image = "openobserve/openobserve:v0.70.3"
+# OpenTelemetry Collector image for the o2-hostmetrics / o2-macmon / o2-nvidia / o2-winmetrics tasks.
+otelcol_image = "otel/opentelemetry-collector-contrib:0.156.0"
 # pywasm1's own module version, templated into the pkg/package.json its build task emits.
 pywasm1_pkg_version = "0.1.0"
 rp_wasm_dir = '''{% if os() == "windows" -%}
@@ -1138,10 +1168,15 @@ run = "git diff --exit-code -- generated"
 # workspace-wide edit (any library, any service the server depends on) triggers a rebuild. `--clear`
 # wipes the terminal between runs so cargo output starts at the top of the screen; `--restart` kills the
 # running `cargo run` before kicking off a fresh one. Respects `.gitignore`, so `target/` and friends
-# are skipped.
+# are skipped. `--shell=none` runs the command directly as a program instead of wrapping it in a shell:
+# without it, watchexec 2.x defaults to shell mode, and on Windows the mise task runs under MSYS `sh`, which
+# watchexec invokes as `sh -c cargo run -p et-ws-server` -- `cargo` runs with no args (run/-p/et-ws-server
+# become sh positional params $0/$1/$2), so it just prints `cargo`'s help and the server never starts
+# (with `--clear`, the screen simply blanks). The command has no shell features, so program mode is correct
+# on every OS. This is upstream watchexec#918 (open); drop --shell=none once it is fixed. Verified on 2.5.1.
 [tasks.ws-server]
 description = "Run the WebSocket server, restarting on .rs/.toml changes"
-run = "watchexec --restart --clear --exts rs,toml -i '**/tests/**' -- cargo run -p et-ws-server"
+run = "watchexec --restart --clear --exts rs,toml -i '**/tests/**' --shell=none -- cargo run -p et-ws-server"
 
 [tasks.ws-server.env]
 OTLP_AUTH_PASSWORD = "1234"
@@ -1208,6 +1243,118 @@ depends = ["openobserve", "ws-server"]
 
 [tasks.open-o2]
 run = "open http://localhost:5080/"
+
+# Native OpenObserve, an alternative to the docker `o2` task.
+# Same binary and config/o2.env, data under the gitignored target/. Binds :5080 like docker o2, so run one or
+# the other, not both.
+[tasks.o2-native]
+description = "Run OpenObserve natively (same binary the o2 docker image runs) with data under target/o2-data"
+run = """
+set -a
+# shellcheck source=/dev/null
+. ./config/o2.env
+set +a
+export ZO_DATA_DIR="$PWD/target/o2-data"
+openobserve init-dir -p "$ZO_DATA_DIR"
+openobserve
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.o2-native-clean]
+description = "Delete native OpenObserve data under target/o2-data (stop o2-native first if it is running)"
+run = """
+coreutils rm -rf target/o2-data
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.o2-hostmetrics]
+description = "Ship host CPU/memory/disk/network metrics to the local o2 via an OpenTelemetry Collector"
+run = """
+cfg="$PWD/config/otelcol-hostmetrics.yaml:/etc/otelcol-contrib/config.yaml:ro"
+img="{{ vars.otelcol_image }}"
+docker run --rm --name o2-hostmetrics --network host -v /:/hostfs:ro -v "$cfg" --env-file config/o2.env "$img"
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.o2-macmon]
+description = "Ship Apple Silicon CPU/GPU/power metrics to the local o2 (native macmon scraped by a collector)"
+run = """
+macmon serve -p 9090 &
+mpid=$!
+trap 'kill "$mpid" 2>/dev/null || true' EXIT
+cfg="$PWD/config/otelcol-macmon.yaml:/etc/otelcol-contrib/config.yaml:ro"
+img="{{ vars.otelcol_image }}"
+docker run --rm --name o2-macmon -v "$cfg" --env-file config/o2.env "$img"
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.o2-nvidia]
+description = "Ship NVIDIA GPU metrics to the local o2 (native nvidia_gpu_exporter scraped by a collector)"
+run = """
+nvidia_gpu_exporter --web.listen-address=:9835 &
+npid=$!
+trap 'kill "$npid" 2>/dev/null || true' EXIT
+cfg="$PWD/config/otelcol-nvidia.yaml:/etc/otelcol-contrib/config.yaml:ro"
+img="{{ vars.otelcol_image }}"
+# --network host: exporter + o2 both run on the host; Linux host network lets the collector reach them at localhost.
+docker run --rm --name o2-nvidia --network host -v "$cfg" --env-file config/o2.env "$img"
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.o2-nvidia-native]
+description = "Non-Docker o2-nvidia: native collector binary scrapes native nvidia_gpu_exporter into o2"
+run = """
+set -a
+# shellcheck disable=SC1091
+. ./config/o2.env
+set +a
+nvidia_gpu_exporter --web.listen-address=:9835 &
+npid=$!
+trap 'kill "$npid" 2>/dev/null || true' EXIT
+export NVIDIA_METRICS_TARGET=localhost:9835
+export O2_METRICS_ENDPOINT=http://localhost:5080/api/default/v1/metrics
+otelcol-contrib --config config/otelcol-nvidia.yaml
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.o2-winmetrics]
+description = "Ship Windows host CPU/mem/disk/net + GPU metrics to the local o2 (native windows_exporter + collector)"
+run = """
+windows_exporter --collectors.enabled=cpu,memory,logical_disk,physical_disk,net,os,system,gpu &
+wpid=$!
+trap 'kill "$wpid" 2>/dev/null || true' EXIT
+cfg="$PWD/config/otelcol-winmetrics.yaml:/etc/otelcol-contrib/config.yaml:ro"
+img="{{ vars.otelcol_image }}"
+docker run --rm --name o2-winmetrics -v "$cfg" --env-file config/o2.env "$img"
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.o2-winmetrics-native]
+description = "Non-Docker o2-winmetrics: native collector binary scrapes native windows_exporter (host + GPU) into o2"
+run = """
+set -a
+# shellcheck disable=SC1091
+. ./config/o2.env
+set +a
+windows_exporter --collectors.enabled=cpu,memory,logical_disk,physical_disk,net,os,system,gpu &
+wpid=$!
+trap 'kill "$wpid" 2>/dev/null || true' EXIT
+export WIN_METRICS_TARGET=localhost:9182
+export O2_METRICS_ENDPOINT=http://localhost:5080/api/default/v1/metrics
+otelcol-contrib --config config/otelcol-winmetrics.yaml
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.o2-winperf]
+description = "Self-contained non-Docker Windows metrics: one native collector reads host + GPU perf counters into o2"
+run = """
+set -a
+# shellcheck disable=SC1091
+. ./config/o2.env
+set +a
+otelcol-contrib --config config/otelcol-winperf.yaml
+"""
+shell = "bash -euo pipefail -c"
 
 # Note: bare `yq` / `coreutils` would fail inside the nanoserver docker build.
 # There mise's shims aren't on PATH for busybox-w32 ash (see the CLAUDE.md "Nano Server exception").

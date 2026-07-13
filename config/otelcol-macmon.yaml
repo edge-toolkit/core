@@ -1,0 +1,31 @@
+# OpenTelemetry Collector config for the `o2-macmon` mise task.
+# Scrapes the native macmon Prometheus endpoint (Apple Silicon CPU/GPU/ANE/power) and ships it to the local
+# OpenObserve (o2) over OTLP/HTTP. macmon runs on the macOS host, not in Docker (the Docker VM cannot see the
+# GPU), so both it and o2 are reached via host.docker.internal from inside the collector container.
+receivers:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: macmon
+          scrape_interval: 10s
+          static_configs:
+            - targets: ["host.docker.internal:9090"]
+
+extensions:
+  basicauth/o2:
+    client_auth:
+      username: ${env:ZO_ROOT_USER_EMAIL}
+      password: ${env:ZO_ROOT_USER_PASSWORD}
+
+exporters:
+  otlphttp/o2:
+    metrics_endpoint: http://host.docker.internal:5080/api/default/v1/metrics
+    auth:
+      authenticator: basicauth/o2
+
+service:
+  extensions: [basicauth/o2]
+  pipelines:
+    metrics:
+      receivers: [prometheus]
+      exporters: [otlphttp/o2]

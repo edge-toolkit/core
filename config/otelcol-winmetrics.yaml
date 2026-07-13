@@ -1,0 +1,33 @@
+# OpenTelemetry Collector config shared by the `o2-winmetrics` (Dockerized) and `o2-winmetrics-native` mise tasks.
+# Both scrape the native windows_exporter Prometheus endpoint (Windows CPU/memory/disk/network plus vendor-agnostic
+# GPU engine + memory counters) and ship it to the local OpenObserve (o2) over OTLP/HTTP. windows_exporter runs on
+# the Windows host, not in Docker (the Docker VM cannot read the host's GPU/perf counters). The scrape target and o2
+# endpoint default to host.docker.internal (the Dockerized task's view of the host); the native task overrides both
+# to localhost via WIN_METRICS_TARGET and O2_METRICS_ENDPOINT.
+receivers:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: windows_exporter
+          scrape_interval: 10s
+          static_configs:
+            - targets: ["${env:WIN_METRICS_TARGET:-host.docker.internal:9182}"]
+
+extensions:
+  basicauth/o2:
+    client_auth:
+      username: ${env:ZO_ROOT_USER_EMAIL}
+      password: ${env:ZO_ROOT_USER_PASSWORD}
+
+exporters:
+  otlphttp/o2:
+    metrics_endpoint: ${env:O2_METRICS_ENDPOINT:-http://host.docker.internal:5080/api/default/v1/metrics}
+    auth:
+      authenticator: basicauth/o2
+
+service:
+  extensions: [basicauth/o2]
+  pipelines:
+    metrics:
+      receivers: [prometheus]
+      exporters: [otlphttp/o2]
