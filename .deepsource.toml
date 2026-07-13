@@ -25,9 +25,12 @@ enabled = true
 name = "javascript"
 
 [analyzers.meta]
-# The browser modules and the ws-server `static/app.js` are ES modules (top-level `import`/`export`).
-# Without an es-modules parser the analyzer treats them as scripts and reports spurious JS-0833 errors
-# ("'import'/'export' may appear only with 'sourceType: module'").
+# The pkg/ loaders, browser modules, and ws-server `static/app.js` are ES modules with top-level import/export.
+# DeepSource's JS analyzer is ESLint-based; without a module signal its parser reads these as scripts and emits
+# spurious JS-0833 errors ("'import'/'export' may appear only with 'sourceType: module'"). This `module_system`
+# meta alone does not stop it (the errors persisted with it set); the working signal is the root `package.json`
+# "type": "module", which the analyzer honors to parse every `.js` as an ES module. The meta stays as the
+# documented default and to carry the browser + nodejs globals.
 environment = ["browser", "nodejs"]
 module_system = "es-modules"
 
