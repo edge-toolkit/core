@@ -15,9 +15,9 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
     let ws_server_dir = workspace_root.join("services/ws-server");
     let workspace_rel = relative_path_from(&output_abs, &workspace_root);
     let openobserve_env_file_rel = "config/o2.env";
-    // Emitted as a single line: with `run = "..."` it is 112 chars, inside the 120-col limit, so it needs no
-    // wrapping. Folding it would only reintroduce a hand-maintained multi-line copy to keep in sync with the
-    // command -- exactly the drift that once silently dropped `-it`.
+    // Emitted as a single line: it fits within the editorconfig line length, so it needs no wrapping.
+    // Folding it would only reintroduce a hand-maintained multi-line copy to keep in sync with the command --
+    // the drift that once silently dropped `-it`.
     let openobserve_run = format!(
         concat!(
             "docker run --rm --name openobserve -p 5080:5080 ",
@@ -27,11 +27,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
     );
     let module_names = cluster_module_names(cluster);
     let module_paths = scenario_module_paths(&ws_server_dir, &module_names)?;
-    let module_paths_lines = module_paths
-        .iter()
-        .map(|path| format!("  {path}"))
-        .collect::<Vec<_>>()
-        .join(",\\\n");
+    let module_paths_lines = wrap_module_paths(&module_paths);
     let ws_server_run = format!("export MODULES_PATHS=\"\\\n{module_paths_lines}\"\ncargo run\n");
     let ws_server_rel = relative_path_from(&output_abs, &ws_server_dir);
 
@@ -102,6 +98,52 @@ pub fn scenario_module_paths(ws_server_dir: &Path, module_names: &[String]) -> R
         entry.mise_path.clone()
     })?);
     Ok(paths)
+}
+
+// Pack `paths` into `,\`-continued lines within the editorconfig line length via textwrap first-fit bin-packing.
+// Each path is one atomic fragment (some hold spaces, e.g. `$(mise where ...)`, so they must never be split);
+// paths sharing a line are joined by `, `, and the shell `\` line-continuations plus the consumer's per-segment
+// trim make the folded value exactly the comma-separated path list. Every emitted line is `  <paths>` plus a
+// trailing `,\`, so the fit budget is that line length minus the 2-space indent and the 2-char continuation.
+fn wrap_module_paths(paths: &[String]) -> String {
+    #[derive(Debug)]
+    struct PathFragment<'path> {
+        path: &'path str,
+        width: f64,
+    }
+    impl textwrap::core::Fragment for PathFragment<'_> {
+        fn width(&self) -> f64 {
+            self.width
+        }
+        fn whitespace_width(&self) -> f64 {
+            2.0 // the ", " joining two paths on one line
+        }
+        fn penalty_width(&self) -> f64 {
+            0.0
+        }
+    }
+
+    const LINE_WIDTH: f64 = 116.0;
+    let fragments: Vec<PathFragment> = paths
+        .iter()
+        .map(|path| PathFragment {
+            path,
+            width: f64::from(u32::try_from(path.chars().count()).unwrap_or(u32::MAX)),
+        })
+        .collect();
+
+    textwrap::wrap_algorithms::wrap_first_fit(&fragments, &[LINE_WIDTH])
+        .iter()
+        .map(|group| {
+            let joined = group
+                .iter()
+                .map(|fragment| fragment.path)
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("  {joined}")
+        })
+        .collect::<Vec<_>>()
+        .join(",\\\n")
 }
 
 fn mise_task(
