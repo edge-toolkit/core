@@ -63,6 +63,7 @@ action-validator = { version = "latest", os = ["linux", "macos"] }
 ast-grep = "latest"
 cargo-binstall = "latest"
 "cargo:cargo-expand" = { version = "latest", os = ["linux", "macos"] }
+"cargo:open" = "latest"
 "cargo:wasm-opt" = { version = "latest", os = ["linux", "macos"] }
 "github:nextest-rs/nextest" = "latest"
 taplo = "latest"

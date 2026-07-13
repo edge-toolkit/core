@@ -26,6 +26,13 @@ inputs:
 runs:
   using: composite
   steps:
+    # No cargo: tool installs on the Windows lane right now -- cargo-binstall fails to execute there (os error 193).
+    # open-o2's opener isn't needed in CI, so skip cargo:open rather than let the install fail.
+    - name: Skip cargo:open on Windows
+      if: runner.os == 'Windows'
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: echo "MISE_DISABLE_TOOLS=cargo:open" >> "$GITHUB_ENV"
+
     - name: Install mise binary
       uses: ./.github/actions/install-mise
       with:

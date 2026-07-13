@@ -102,7 +102,13 @@ second_tier_platform := {"linux/arm64", "macos/x64"}
 # cargo:action-validator has no aqua/github Windows build, so config.windows.toml installs it via cargo.
 # cargo-binstall pulls the cargo-quickinstall x86_64-pc-windows-msvc prebuilt (verified present), routed via
 # the msvc install_env there -- a prebuilt fetch, not a source build.
-allowed_cargo_no_prebuilt := {"cargo:action-validator", "cargo:cargo-expand", "cargo:dart-typegen", "cargo:wasm-opt"}
+allowed_cargo_no_prebuilt := {
+	"cargo:action-validator",
+	"cargo:cargo-expand",
+	"cargo:dart-typegen",
+	"cargo:open",
+	"cargo:wasm-opt",
+}
 
 cargo_scoped_to_second_tier(spec) if {
 	is_object(spec)

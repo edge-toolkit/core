@@ -614,6 +614,21 @@ If no msvc prebuilt exists either, use a different backend (aqua/github/http, or
 pattern), or os-scope the tool off Windows and provide coverage another way (as `dart-typegen` does via
 `http:dart-typegen`).
 
+As of mise 2026.7.1 the `cargo:` backend is broken on the Windows lane in a further way: `cargo-binstall` itself
+fails to execute, so the source-build fallbacks above never even get a chance. `cargo:open` (a low-dep pure-Rust
+opener with no prebuilt anywhere) surfaced it:
+
+    mise ERROR Failed to install cargo:open@latest: failed to execute command: <mise>\shims\cargo-binstall
+    -y open@5.3.6 --locked --root <mise>\installs\cargo-open\5.3.6: %1 is not a valid Win32 application. (os error 193)
+
+os error 193 is ERROR_BAD_EXE_FORMAT -- the staged cargo-binstall is not a runnable Win32 image (a mise
+install-path / shim fault, not an `open`-specific one), so right now no `cargo:` tool installs on Windows at all.
+Until mise fixes it, keep new `cargo:` tools off the Windows lane -- os-scope them to `["linux", "macos"]` where
+Windows never needs them, or add the tool to `MISE_DISABLE_TOOLS` on every Windows surface that runs `mise install`.
+The `install-mise-tools` composite action sets it for the CI jobs, and the Windows Dockerfiles carry it in their own
+`MISE_DISABLE_TOOLS`. `cargo:open` takes the latter route: its open-o2 opener is a known Windows gap until the
+backend works again.
+
 ## Adding a new `upstream-cache` entry
 
 When upstream has no prebuilt binary for a platform we target (the case the "Tools must work on every OS" rule
