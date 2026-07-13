@@ -4193,6 +4193,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "tempfile",
+ "textwrap",
  "thiserror 2.0.18",
  "toml 0.8.23",
 ]
@@ -10759,6 +10760,12 @@ checksum = "7fd5828de7deaa782e1dd713006ae96b3bee32d3279b79eb67ecf8072c059bcf"
 dependencies = [
  "serde",
 ]
+
+[[package]]
+name = "textwrap"
+version = "0.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c13547615a44dc9c452a8a534638acdf07120d4b6847c8178705da06306a3057"
 
 [[package]]
 name = "thiserror"

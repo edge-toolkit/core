@@ -997,6 +997,12 @@ What to use instead of the common host utilities (a list, not a table -- dprint 
 - `awk` -> `goawk`
 - `sed` -> no tool; rewrite the step with `coreutils`, `rg -r`, or `goawk`
 
+Ripgrep is **recursive by default** -- there is no recursive flag to add, and `rg PATTERN` already walks the tree.
+In particular, do NOT reach for `-r` thinking it means "recursive": in ripgrep `-r`/`--replace` takes the
+replacement text as its value, so a bundled `-rn "PATTERN"` parses as `--replace=n` and silently rewrites every
+match to `n` in the output -- a mangled result that looks like a real search. Use `rg -n "PATTERN"` for line numbers
+(recursion is implicit); use `-r` only when you deliberately want substitution (as the `sed` row above does).
+
 `coreutils`, `ripgrep`, `findutils` and `goawk` are mise `[tools]`. `coreutils` and `ripgrep` are additionally
 force-installed by `_setup_all`, because the `preinstall` task itself uses them before the main `mise install` runs.
 
