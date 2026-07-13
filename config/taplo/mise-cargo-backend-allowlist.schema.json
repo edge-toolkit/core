@@ -15,6 +15,7 @@
               "cargo:cargo-expand",
               "cargo:dart-typegen",
               "cargo:findutils",
+              "cargo:open",
               "cargo:ryl",
               "cargo:wasm-opt"
             ]

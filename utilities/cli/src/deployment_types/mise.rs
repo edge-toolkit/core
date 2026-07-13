@@ -81,6 +81,10 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
 
     let _previous: Option<Value> = root.insert("tasks".to_string(), Value::Table(tasks));
 
+    let mut tools = Table::new();
+    let _previous: Option<Value> = tools.insert("cargo:open".to_string(), Value::String("latest".to_string()));
+    let _previous: Option<Value> = root.insert("tools".to_string(), Value::Table(tools));
+
     let content = toml::to_string(&Value::Table(root))?;
     fs::write(&output_path, content)?;
 

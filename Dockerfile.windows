@@ -158,7 +158,8 @@ ENV MISE_ENV=${MISE_ENV}
 # - pipx:torch ships ~1 GB of CUDA-less wheels we don't exercise in the
 #   docker lane (the torch-inference test is gated on
 #   mise_env_includes(Language::Python) -- it'll skip cleanly).
-ENV MISE_DISABLE_TOOLS=dotnet:roslynator.dotnet.cli,pipx:torch
+# - cargo:open can't install on Windows (cargo-binstall fails, os error 193); its open-o2 opener isn't used here.
+ENV MISE_DISABLE_TOOLS=cargo:open,dotnet:roslynator.dotnet.cli,pipx:torch
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
     mise install
 

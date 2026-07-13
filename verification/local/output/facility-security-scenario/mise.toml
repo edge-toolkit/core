@@ -26,3 +26,6 @@ cargo run
 [tasks.ws-server.env]
 OTLP_AUTH_PASSWORD = "1234"
 OTLP_AUTH_USERNAME = "root@example.com"
+
+[tools]
+"cargo:open" = "latest"
