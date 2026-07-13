@@ -679,7 +679,13 @@ pattern is the same for every cache entry; copy the `rustpython` / `augeas` / `d
    step should emit a `.sha256` sidecar alongside the tarball so the
    maintainer can paste the value into config.toml. (The rustpython
    publish task auto-edits config.toml -- same pattern is fine for new
-   entries.)
+   entries.) The `checksum` is specific to THIS pattern -- a mirror we
+   control and publish a sidecar for. A plain `http:` tool that points
+   straight at a stable third-party URL (not one of our mirrors) may
+   omit `checksum`: mise's http backend treats it as optional, and no
+   policy requires it (`checksums.rego` governs only the `data.toml`
+   mirror assets, not `[tools."http:*"]` entries). `http:openobserve`
+   is such a direct-upstream tool and carries no checksum.
 
 5. **Asset metadata source of truth: `config/upstream-cache/data.toml`.**
    Every tarball / wheel / model file fetched from one of our releases

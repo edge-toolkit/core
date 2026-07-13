@@ -1,0 +1,63 @@
+# OpenTelemetry Collector config for the `o2-winperf` mise task -- a self-contained, non-Docker Windows path.
+# A single native collector binary reads host CPU/memory/network/disk directly (hostmetrics) and GPU engine
+# utilization + adapter memory from Windows performance counters (windowsperfcounters), then ships everything to the
+# local OpenObserve (o2) over OTLP/HTTP. No windows_exporter and no Docker: the collector runs on the host, so it
+# reaches o2 at localhost. GPU series carry the raw perf-counter instance string (pid/luid/engine); use
+# o2-winmetrics(-native) instead if you want windows_exporter's structured device_id/engtype/process_id labels.
+receivers:
+  hostmetrics:
+    collection_interval: 10s
+    scrapers:
+      cpu: {}
+      memory: {}
+      disk: {}
+      filesystem: {}
+      network: {}
+      paging: {}
+  windowsperfcounters/gpu:
+    collection_interval: 10s
+    metrics:
+      gpu.engine.utilization:
+        description: Percent of time a GPU engine was busy, per process/engine instance.
+        unit: "%"
+        gauge: {}
+      gpu.adapter.memory.dedicated:
+        description: Dedicated GPU adapter memory in use, per adapter instance.
+        unit: By
+        gauge: {}
+      gpu.adapter.memory.shared:
+        description: Shared GPU adapter memory in use, per adapter instance.
+        unit: By
+        gauge: {}
+    perfcounters:
+      - object: "GPU Engine"
+        instances: ["*"]
+        counters:
+          - name: "Utilization Percentage"
+            metric: gpu.engine.utilization
+      - object: "GPU Adapter Memory"
+        instances: ["*"]
+        counters:
+          - name: "Dedicated Usage"
+            metric: gpu.adapter.memory.dedicated
+          - name: "Shared Usage"
+            metric: gpu.adapter.memory.shared
+
+extensions:
+  basicauth/o2:
+    client_auth:
+      username: ${env:ZO_ROOT_USER_EMAIL}
+      password: ${env:ZO_ROOT_USER_PASSWORD}
+
+exporters:
+  otlphttp/o2:
+    metrics_endpoint: http://localhost:5080/api/default/v1/metrics
+    auth:
+      authenticator: basicauth/o2
+
+service:
+  extensions: [basicauth/o2]
+  pipelines:
+    metrics:
+      receivers: [hostmetrics, windowsperfcounters/gpu]
+      exporters: [otlphttp/o2]

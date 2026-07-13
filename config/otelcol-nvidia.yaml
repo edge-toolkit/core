@@ -1,0 +1,33 @@
+# OpenTelemetry Collector config shared by the `o2-nvidia` (Dockerized) and `o2-nvidia-native` mise tasks.
+# Both scrape the native nvidia_gpu_exporter Prometheus endpoint (NVIDIA GPU utilization, memory, temp, power
+# via nvidia-smi) and ship it to the local OpenObserve (o2) over OTLP/HTTP. The exporter runs on the Linux host
+# (needs the host's nvidia-smi + driver), not in Docker. The Dockerized task uses --network host so both the
+# scrape target and o2 are localhost; the native task uses the same defaults (override via NVIDIA_METRICS_TARGET
+# / O2_METRICS_ENDPOINT if needed).
+receivers:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: nvidia_gpu_exporter
+          scrape_interval: 10s
+          static_configs:
+            - targets: ["${env:NVIDIA_METRICS_TARGET:-localhost:9835}"]
+
+extensions:
+  basicauth/o2:
+    client_auth:
+      username: ${env:ZO_ROOT_USER_EMAIL}
+      password: ${env:ZO_ROOT_USER_PASSWORD}
+
+exporters:
+  otlphttp/o2:
+    metrics_endpoint: ${env:O2_METRICS_ENDPOINT:-http://localhost:5080/api/default/v1/metrics}
+    auth:
+      authenticator: basicauth/o2
+
+service:
+  extensions: [basicauth/o2]
+  pipelines:
+    metrics:
+      receivers: [prometheus]
+      exporters: [otlphttp/o2]

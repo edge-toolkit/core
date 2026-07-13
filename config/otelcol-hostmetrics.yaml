@@ -1,0 +1,44 @@
+# OpenTelemetry Collector config for the `o2-hostmetrics` mise task.
+# Scrapes host resource usage and ships it to the local OpenObserve (o2) over OTLP/HTTP -- the same OTLP-to-o2
+# path the ws-server uses.
+receivers:
+  hostmetrics:
+    # Read the host's /proc and /sys rather than the collector container's own.
+    # `/hostfs` is the host root the task bind-mounts read-only.
+    root_path: /hostfs
+    collection_interval: 10s
+    scrapers:
+      cpu: {}
+      load: {}
+      memory: {}
+      disk: {}
+      filesystem: {}
+      network: {}
+      paging: {}
+  # GPU (NVIDIA) is not collected here.
+  # Use the dedicated `o2-nvidia` / `o2-nvidia-native` mise tasks (native nvidia_gpu_exporter + prometheus
+  # scrape). DCGM remains available if you prefer in-collector GPU metrics: it needs `--gpus all` on the docker
+  # run and a DCGM-capable host; uncomment this receiver and add `dcgm` to the metrics pipeline receivers below
+  # to enable it.
+  # dcgm:
+  #   collection_interval: 10s
+
+extensions:
+  # o2 ingests OTLP over HTTP with HTTP Basic auth; the credentials come from config/o2.env (passed via --env-file).
+  basicauth/o2:
+    client_auth:
+      username: ${env:ZO_ROOT_USER_EMAIL}
+      password: ${env:ZO_ROOT_USER_PASSWORD}
+
+exporters:
+  otlphttp/o2:
+    metrics_endpoint: http://localhost:5080/api/default/v1/metrics
+    auth:
+      authenticator: basicauth/o2
+
+service:
+  extensions: [basicauth/o2]
+  pipelines:
+    metrics:
+      receivers: [hostmetrics]
+      exporters: [otlphttp/o2]
