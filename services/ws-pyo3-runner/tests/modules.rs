@@ -116,8 +116,8 @@ async fn module_behaves(
     };
     let outcome = tokio::time::timeout(budget, run_exchange(&mut control, &control_id, &exchange)).await;
 
-    drop(runner.kill());
-    drop(runner.wait());
+    runner.kill().unwrap();
+    let _status = runner.wait().unwrap();
 
     match outcome {
         Ok(result) => result,

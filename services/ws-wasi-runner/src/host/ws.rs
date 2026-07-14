@@ -71,10 +71,11 @@ impl WsBackend {
         let (tx, rx) = mpsc::unbounded_channel::<ServerMessage>();
         // The handshake consumed the et-connect-ack frame; re-surface it to the
         // guest's `recv()` so guests that read it still see it as the first message.
-        drop(tx.send(ServerMessage::ConnectAck {
+        // Cannot fail: `rx` (created just above) is still alive, so the channel is open.
+        let _seeded = tx.send(ServerMessage::ConnectAck {
             agent_id: assigned_id.clone(),
             status,
-        }));
+        });
 
         let agent_id = Arc::new(Mutex::new(Some(assigned_id)));
         let connection_state = Arc::new(Mutex::new(State::Connected));

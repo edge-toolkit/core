@@ -219,7 +219,8 @@ impl Language {
 /// to branch on the returned bool -- they don't repeat the message themselves.
 #[must_use]
 pub fn mise_env_includes(language: Language) -> bool {
-    let Ok(value) = std::env::var("MISE_ENV") else {
+    const MISE_ENV: &str = "MISE_ENV";
+    let Ok(value) = std::env::var(MISE_ENV) else {
         return true;
     };
     let included = !value.is_empty() && value.split(',').any(|seg| seg.trim() == language.as_str());

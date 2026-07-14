@@ -16,7 +16,8 @@ use tokio_tungstenite::{accept_async, connect_async};
 async fn scripted_server(frames: Vec<Message>) -> String {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
-    drop(tokio::spawn(async move {
+    // Detached scripted server; the handle is intentionally not joined (the task runs until the test ends).
+    let _server = tokio::spawn(async move {
         let Ok((stream, _)) = listener.accept().await else {
             return;
         };
@@ -30,7 +31,7 @@ async fn scripted_server(frames: Vec<Message>) -> String {
         }
         // Keep the connection open so the client can finish reading rather than seeing an early close.
         std::future::pending::<()>().await;
-    }));
+    });
     format!("ws://127.0.0.1:{port}")
 }
 

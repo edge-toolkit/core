@@ -328,13 +328,13 @@ impl Connection {
                 "Direct message {} delivered from {} to {}",
                 message_id, from_agent_id, to_agent_id
             );
-            drop(recipient.send(SessionMessage::Json(ServerMessage::AgentMessage {
+            let _sent = recipient.send(SessionMessage::Json(ServerMessage::AgentMessage {
                 message_id: message_id.clone(),
                 from_agent_id,
                 scope: MessageScope::Direct,
                 server_received_at: pending.server_received_at,
                 message: pending.message,
-            })));
+            }));
             self.send_status(
                 Some(message_id),
                 MessageDeliveryStatus::Delivered,
@@ -367,7 +367,7 @@ impl Connection {
             recipients.len()
         );
         for (_, recipient) in recipients {
-            drop(recipient.send(SessionMessage::Text(text.to_string())));
+            let _sent = recipient.send(SessionMessage::Text(text.to_string()));
         }
     }
 
@@ -381,7 +381,7 @@ impl Connection {
             recipients.len()
         );
         for (_, recipient) in recipients {
-            drop(recipient.send(SessionMessage::Binary(bytes.clone())));
+            let _sent = recipient.send(SessionMessage::Binary(bytes.clone()));
         }
     }
 
@@ -509,13 +509,13 @@ impl Connection {
                                 recipients.len()
                             );
                             for (_, recipient) in &recipients {
-                                drop(recipient.send(SessionMessage::Json(ServerMessage::AgentMessage {
+                                let _sent = recipient.send(SessionMessage::Json(ServerMessage::AgentMessage {
                                     message_id: message_id.clone(),
                                     from_agent_id: from_agent_id.clone(),
                                     scope: MessageScope::Broadcast,
                                     server_received_at: server_received_at.clone(),
                                     message: message.clone(),
-                                })));
+                                }));
                             }
                             self.send_status(
                                 Some(message_id),
@@ -545,11 +545,11 @@ impl Connection {
                                     )
                                     .await;
                                     if let Some(sender) = sender_session {
-                                        drop(sender.send(SessionMessage::Json(ServerMessage::MessageStatus {
+                                        let _sent = sender.send(SessionMessage::Json(ServerMessage::MessageStatus {
                                             message_id: Some(message_id),
                                             status: MessageDeliveryStatus::Acknowledged,
                                             detail: format!("agent {recipient_agent_id} acknowledged receipt"),
-                                        })));
+                                        }));
                                     }
                                 }
                                 Err(error) => {

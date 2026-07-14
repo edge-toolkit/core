@@ -24,7 +24,7 @@ async fn test_websocket_connection() {
             .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, 1000)
             .unwrap();
     });
-    drop(JsFuture::from(promise).await);
+    let _resolved = JsFuture::from(promise).await.unwrap();
 
     // Assert connection state is successfully connected or at least it didn't fail
     let state = client.get_state();
