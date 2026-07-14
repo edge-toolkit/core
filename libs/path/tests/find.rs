@@ -1,8 +1,19 @@
 #![cfg(test)]
 
-use et_path::find_project_root;
+use et_path::{find_project_root, find_project_root_from_manifest};
 use fs_err as fs;
 use tempfile::tempdir;
+
+#[test]
+fn manifest_dir_resolves_to_an_existing_root() {
+    // cargo sets `CARGO_MANIFEST_DIR` in the test process env, so the helper reads this crate's
+    // directory and walks up to the workspace root (which carries project-root markers).
+    let root = find_project_root_from_manifest();
+    assert!(
+        root.is_dir(),
+        "resolved project root {root:?} should be an existing directory"
+    );
+}
 
 #[test]
 fn finds_marker_in_an_ancestor() {

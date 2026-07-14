@@ -111,17 +111,17 @@ impl SpeechRecognitionSession {
 
                     if has_final && !settled_for_result.replace(true) {
                         let payload = js_sys::Object::new();
-                        drop(js_sys::Reflect::set(
+                        et_web::ignore(js_sys::Reflect::set(
                             &payload,
                             &JsValue::from_str("transcript"),
                             &JsValue::from_str(&transcript),
                         ));
-                        drop(js_sys::Reflect::set(
+                        et_web::ignore(js_sys::Reflect::set(
                             &payload,
                             &JsValue::from_str("confidence"),
                             &JsValue::from_f64(confidence),
                         ));
-                        drop(resolve_for_result.call1(&JsValue::NULL, &payload));
+                        et_web::ignore(resolve_for_result.call1(&JsValue::NULL, &payload));
                     }
                 }
             });
@@ -135,7 +135,7 @@ impl SpeechRecognitionSession {
                     .ok()
                     .and_then(|value| value.as_string())
                     .unwrap_or_else(|| "speech recognition failed".to_string());
-                drop(reject_for_error.call1(&JsValue::NULL, &JsValue::from_str(&message)));
+                et_web::ignore(reject_for_error.call1(&JsValue::NULL, &JsValue::from_str(&message)));
             });
             let on_error = Closure::wrap(on_error_box);
 
@@ -145,24 +145,24 @@ impl SpeechRecognitionSession {
                 }
                 if let Some((transcript, confidence)) = transcript_state_for_end.borrow().clone() {
                     let payload = js_sys::Object::new();
-                    drop(js_sys::Reflect::set(
+                    et_web::ignore(js_sys::Reflect::set(
                         &payload,
                         &JsValue::from_str("transcript"),
                         &JsValue::from_str(&transcript),
                     ));
-                    drop(js_sys::Reflect::set(
+                    et_web::ignore(js_sys::Reflect::set(
                         &payload,
                         &JsValue::from_str("confidence"),
                         &JsValue::from_f64(confidence),
                     ));
-                    drop(resolve_for_end.call1(&JsValue::NULL, &payload));
+                    et_web::ignore(resolve_for_end.call1(&JsValue::NULL, &payload));
                 } else if stop_requested_for_end.get() {
-                    drop(reject_for_end.call1(
+                    et_web::ignore(reject_for_end.call1(
                         &JsValue::NULL,
                         &JsValue::from_str("speech recognition stopped before any transcript was captured"),
                     ));
                 } else {
-                    drop(reject_for_end.call1(
+                    et_web::ignore(reject_for_end.call1(
                         &JsValue::NULL,
                         &JsValue::from_str("speech recognition ended without a transcript"),
                     ));
@@ -170,17 +170,17 @@ impl SpeechRecognitionSession {
             });
             let on_end = Closure::wrap(on_end_box);
 
-            drop(js_sys::Reflect::set(
+            et_web::ignore(js_sys::Reflect::set(
                 &recognition,
                 &JsValue::from_str("onresult"),
                 on_result.as_ref().unchecked_ref(),
             ));
-            drop(js_sys::Reflect::set(
+            et_web::ignore(js_sys::Reflect::set(
                 &recognition,
                 &JsValue::from_str("onerror"),
                 on_error.as_ref().unchecked_ref(),
             ));
-            drop(js_sys::Reflect::set(
+            et_web::ignore(js_sys::Reflect::set(
                 &recognition,
                 &JsValue::from_str("onend"),
                 on_end.as_ref().unchecked_ref(),
@@ -190,10 +190,10 @@ impl SpeechRecognitionSession {
                 .and_then(|value| value.into_function("SpeechRecognition.start"))
             {
                 Ok(start) => {
-                    drop(start.call0(&recognition));
+                    et_web::ignore(start.call0(&recognition));
                 }
                 Err(err) => {
-                    drop(reject.call1(&JsValue::NULL, &err));
+                    et_web::ignore(reject.call1(&JsValue::NULL, &err));
                 }
             }
 
@@ -296,7 +296,7 @@ thread_local! {
 
 #[wasm_bindgen(start)]
 pub fn init() {
-    drop(tracing_wasm::try_set_as_global_default());
+    et_web::ignore(tracing_wasm::try_set_as_global_default());
     info!("speech-recognition module initialized");
 }
 
@@ -340,12 +340,12 @@ pub async fn run() -> Result<(), JsValue> {
         let elapsed_ms = js_sys::Date::now() - start_time;
         if elapsed_ms > 30_000_f64 {
             log("workflow finished automatically after 30 seconds");
-            drop(stop());
+            et_web::ignore(stop());
             break;
         }
         if result_count >= 3 {
             log("workflow finished automatically after 3 recognition results");
-            drop(stop());
+            et_web::ignore(stop());
             break;
         }
 
@@ -394,7 +394,7 @@ pub async fn run() -> Result<(), JsValue> {
 pub fn stop() -> Result<(), JsValue> {
     SPEECH_RECOGNITION_RUNTIME.with(|runtime| {
         if let Some(mut runtime) = runtime.borrow_mut().take() {
-            drop(runtime.session.stop());
+            et_web::ignore(runtime.session.stop());
             runtime.client.disconnect();
             log("speech-recognition stopped");
         }
@@ -448,13 +448,13 @@ async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let promise = Promise::new(&mut |resolve, reject| {
         let callback = Closure::once_into_js(move || {
-            drop(resolve.call0(&JsValue::NULL));
+            et_web::ignore(resolve.call0(&JsValue::NULL));
         });
 
         if let Err(error) =
             window.set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), duration_ms)
         {
-            drop(reject.call1(&JsValue::NULL, &error));
+            et_web::ignore(reject.call1(&JsValue::NULL, &error));
         }
     });
     JsFuture::from(promise).await.map(|_| ())

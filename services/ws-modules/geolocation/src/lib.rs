@@ -44,12 +44,12 @@ impl GeolocationReading {
         let promise = js_sys::Promise::new(&mut |resolve, reject| {
             let reject_for_callback = reject.clone();
             let success_box: Box<dyn FnOnce(JsValue)> = Box::new(move |position: JsValue| {
-                drop(resolve.call1(&JsValue::NULL, &position));
+                et_web::ignore(resolve.call1(&JsValue::NULL, &position));
             });
             let success = Closure::once(success_box);
 
             let failure_box: Box<dyn FnOnce(JsValue)> = Box::new(move |error: JsValue| {
-                drop(reject_for_callback.call1(&JsValue::NULL, &error));
+                et_web::ignore(reject_for_callback.call1(&JsValue::NULL, &error));
             });
             let failure = Closure::once(failure_box);
 
@@ -57,7 +57,7 @@ impl GeolocationReading {
                 .and_then(|value| value.into_function("navigator.geolocation.getCurrentPosition"))
             {
                 Ok(get_current_position) => {
-                    drop(get_current_position.call3(
+                    et_web::ignore(get_current_position.call3(
                         &geolocation,
                         success.as_ref().unchecked_ref(),
                         failure.as_ref().unchecked_ref(),
@@ -65,7 +65,7 @@ impl GeolocationReading {
                     ));
                 }
                 Err(err) => {
-                    drop(reject.call1(&JsValue::NULL, &err));
+                    et_web::ignore(reject.call1(&JsValue::NULL, &err));
                 }
             }
 
@@ -116,7 +116,7 @@ impl GeolocationReading {
 
 #[wasm_bindgen(start)]
 pub fn init() {
-    drop(tracing_wasm::try_set_as_global_default());
+    et_web::ignore(tracing_wasm::try_set_as_global_default());
     info!("geolocation module initialized");
 }
 
@@ -170,7 +170,7 @@ pub async fn run() -> Result<(), JsValue> {
 
     if let Err(error) = &outcome {
         let message = describe_js_error(error);
-        drop(set_module_status(&format!("geolocation: error\n{message}")));
+        et_web::ignore(set_module_status(&format!("geolocation: error\n{message}")));
         log(&format!("error: {message}"));
     }
 
@@ -221,13 +221,13 @@ async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let promise = Promise::new(&mut |resolve, reject| {
         let callback = Closure::once_into_js(move || {
-            drop(resolve.call0(&JsValue::NULL));
+            et_web::ignore(resolve.call0(&JsValue::NULL));
         });
 
         if let Err(error) =
             window.set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), duration_ms)
         {
-            drop(reject.call1(&JsValue::NULL, &error));
+            et_web::ignore(reject.call1(&JsValue::NULL, &error));
         }
     });
     JsFuture::from(promise).await.map(|_| ())

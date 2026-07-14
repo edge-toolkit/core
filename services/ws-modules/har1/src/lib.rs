@@ -332,7 +332,7 @@ impl DeviceSensors {
 
 #[wasm_bindgen(start)]
 pub fn init() {
-    drop(tracing_wasm::try_set_as_global_default());
+    et_web::ignore(tracing_wasm::try_set_as_global_default());
     info!("har1 workflow module initialized");
 }
 
@@ -371,7 +371,7 @@ pub async fn run() -> Result<(), JsValue> {
 
     if let Err(error) = &outcome {
         let message = describe_js_error(error);
-        drop(set_har_status(&format!("har1: error\n{message}")));
+        et_web::ignore(set_har_status(&format!("har1: error\n{message}")));
         log(&format!("error: {message}"));
     }
 
@@ -874,13 +874,13 @@ async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let promise = Promise::new(&mut |resolve, reject| {
         let callback = Closure::once_into_js(move || {
-            drop(resolve.call0(&JsValue::NULL));
+            et_web::ignore(resolve.call0(&JsValue::NULL));
         });
 
         if let Err(error) =
             window.set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), duration_ms)
         {
-            drop(reject.call1(&JsValue::NULL, &error));
+            et_web::ignore(reject.call1(&JsValue::NULL, &error));
         }
     });
     JsFuture::from(promise).await.map(|_| ())

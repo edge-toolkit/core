@@ -51,7 +51,7 @@ impl NfcScanResult {
             )]
             let timeout_seconds = timeout_ms / 1000_i32;
             let timeout_box: Box<dyn FnOnce()> = Box::new(move || {
-                drop(reject_for_timeout.call1(
+                et_web::ignore(reject_for_timeout.call1(
                     &JsValue::NULL,
                     &JsValue::from_str(&format!("NFC scan timed out after {timeout_seconds} seconds")),
                 ));
@@ -59,7 +59,7 @@ impl NfcScanResult {
             let timeout_closure = Closure::once(timeout_box);
 
             if let Some(window) = web_sys::window() {
-                drop(window.set_timeout_with_callback_and_timeout_and_arguments_0(
+                et_web::ignore(window.set_timeout_with_callback_and_timeout_and_arguments_0(
                     timeout_closure.as_ref().unchecked_ref(),
                     timeout_ms,
                 ));
@@ -87,7 +87,7 @@ impl NfcScanResult {
                     &JsValue::from_str(&record_summary),
                 )
                 .unwrap_or(false);
-                drop(resolve.call1(&JsValue::NULL, &payload));
+                et_web::ignore(resolve.call1(&JsValue::NULL, &payload));
             });
             let on_reading = Closure::once(on_reading_box);
 
@@ -96,7 +96,7 @@ impl NfcScanResult {
                     .ok()
                     .and_then(|value| value.as_string())
                     .unwrap_or_else(|| "NFC reading failed".to_string());
-                drop(reject_for_error.call1(&JsValue::NULL, &JsValue::from_str(&message)));
+                et_web::ignore(reject_for_error.call1(&JsValue::NULL, &JsValue::from_str(&message)));
             });
             let on_reading_error = Closure::once(on_reading_error_box);
 
@@ -208,7 +208,7 @@ fn summarize_ndef_records(event: &JsValue) -> String {
 
 #[wasm_bindgen(start)]
 pub fn init() {
-    drop(tracing_wasm::try_set_as_global_default());
+    et_web::ignore(tracing_wasm::try_set_as_global_default());
     info!("nfc module initialized");
 }
 
@@ -268,7 +268,7 @@ pub async fn run() -> Result<(), JsValue> {
         } else {
             format!("nfc: Error\n\n{message}")
         };
-        drop(set_module_status(&error_display));
+        et_web::ignore(set_module_status(&error_display));
         log(&format!("error: {message}"));
     }
 
@@ -330,13 +330,13 @@ async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let promise = Promise::new(&mut |resolve, reject| {
         let callback = Closure::once_into_js(move || {
-            drop(resolve.call0(&JsValue::NULL));
+            et_web::ignore(resolve.call0(&JsValue::NULL));
         });
 
         if let Err(error) =
             window.set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), duration_ms)
         {
-            drop(reject.call1(&JsValue::NULL, &error));
+            et_web::ignore(reject.call1(&JsValue::NULL, &error));
         }
     });
     JsFuture::from(promise).await.map(|_| ())

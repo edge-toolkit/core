@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use futures_util::{SinkExt as _, StreamExt as _};
 use tokio::net::TcpStream;
-use tokio::sync::mpsc;
+use tokio::sync::{Notify, mpsc};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, tungstenite};
 use tracing::{info, warn};
 
@@ -116,7 +116,7 @@ pub fn initialize(
 /// Spawns the storage worker and the Python dispatch thread, completes the
 /// `et-connect` handshake, then runs the WS loop. Returns once the socket
 /// closes or `drive` errors.
-pub async fn run(agent: InitializedAgent) -> Result<(), RunnerError> {
+pub async fn run(agent: InitializedAgent, shutdown: &Notify) -> Result<(), RunnerError> {
     let InitializedAgent {
         config,
         dispatcher,
@@ -158,7 +158,7 @@ pub async fn run(agent: InitializedAgent) -> Result<(), RunnerError> {
     *agent_id_slot.lock().unwrap_or_else(PoisonError::into_inner) = Some(agent_id.clone());
     let _connect_sent = inbound_tx.send(InboundEvent::Connect(agent_id));
 
-    let result = drive(&mut socket, &inbound_tx, &mut outbound_rx).await;
+    let result = drive(&mut socket, &inbound_tx, &mut outbound_rx, shutdown).await;
 
     // Queue `on_shutdown` (the worker drains any frames ahead of it first),
     // then drop our sender so the worker's recv loop ends. Join before aborting
@@ -265,13 +265,23 @@ async fn drive(
     socket: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
     inbound_tx: &mpsc::UnboundedSender<InboundEvent>,
     outbound_rx: &mut mpsc::UnboundedReceiver<OutboundFrame>,
+    shutdown: &Notify,
 ) -> Result<(), RunnerError> {
     // Keepalive: the server closes idle connections and never pings us, so a
     // module that only waits for inbound frames would be timed out. Ping on a
     // cadence well inside the server's timeout to stay registered.
     let mut heartbeat = et_ws_runner_common::heartbeat_interval().await;
+    // Fires when main trips `shutdown` (ctrl_c / RUNNER_TIMEOUT). Created once before the loop so no
+    // notification is lost, and returning here lets `run` fall through to its teardown (queue on_shutdown,
+    // join the worker, close the socket) rather than the run future being dropped mid-flight.
+    let shutdown_requested = shutdown.notified();
+    tokio::pin!(shutdown_requested);
     loop {
         tokio::select! {
+            () = &mut shutdown_requested => {
+                info!("shutdown requested; closing connection");
+                return Ok(());
+            }
             // Inbound: hand the frame to the dispatch worker and keep looping.
             // The worker emits any reply onto the same outbound queue Python
             // pushes to via WsSender, so multi-send + reply compose in order.

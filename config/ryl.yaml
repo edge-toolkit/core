@@ -3,6 +3,9 @@
 extends: default
 
 rules:
+  # A misindented comment reads as attached to the wrong block, so treat it as an error, not a warning.
+  comments-indentation:
+    level: error
   # dprint (the YAML formatter) writes one space before an inline `#`.
   # yamllint defaults to two. Defer to dprint so the two can't fight.
   comments:

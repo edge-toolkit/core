@@ -36,7 +36,7 @@ pub async fn run() -> Result<(), JsValue> {
         let Some(data) = value.as_string() else {
             return;
         };
-        drop(serde_json::from_str::<ServerMessage>(&data));
+        et_web::ignore(serde_json::from_str::<ServerMessage>(&data));
     }) as Box<dyn FnMut(JsValue)>);
 
     client.set_on_message(on_message.as_ref().clone());
@@ -134,7 +134,7 @@ async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let promise = Promise::new(&mut |resolve, _reject| {
         let callback = Closure::once_into_js(move || {
-            drop(resolve.call0(&JsValue::NULL));
+            et_web::ignore(resolve.call0(&JsValue::NULL));
         });
         let _id: Result<i32, JsValue> =
             window.set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), duration_ms);

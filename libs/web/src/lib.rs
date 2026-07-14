@@ -6,6 +6,14 @@ pub use self::error::{JsCastExt, JsFunctionExt, JsPromiseExt, JsResultExt};
 
 pub const SENSOR_PERMISSION_GRANTED: &str = "granted";
 
+/// Discard `value`, marking a `Result` (or other `#[must_use]`) as intentionally ignored.
+///
+/// The workspace denies `let_underscore*` and `unused_results`, and `DeepSource`'s RS-E1021 flags `drop()` on a
+/// non-`Drop` type (e.g. `Result`), so neither `let _ = expr` nor `drop(expr)` is available for discarding one.
+/// Passing the value here consumes it -- satisfying `must_use` / `unused_results` -- via neither. Intended for
+/// best-effort JS DOM calls in `()`-returning closures and event handlers where the error is deliberately dropped.
+pub fn ignore<T>(_value: T) {}
+
 /// Return this module's raw minicov coverage buffer (a `.profraw`), or empty on failure.
 ///
 /// Present only in the `coverage` build. `wasm-bindgen` collects this export into every dependent browser
