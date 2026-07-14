@@ -53,12 +53,19 @@ eval "$(cargo llvm-cov show-env --sh)"
 # the counter file so increments persist live and survive the kill. %c is incompatible with the merge-pool (%Nm)
 # specifier show-env emits, so use a per-process (%p) continuous file in the same profile dir -- `cargo llvm-cov
 # report` globs every *.profraw there regardless of name. On Linux continuous mode additionally needs relocatable
-# counters, enabled via an llvm-arg appended to the coverage rustc-wrapper flags on Linux only.
+# counters (`-Cllvm-args=-runtime-counter-relocation`). The wrapper flags env is CARGO_ENCODED_RUSTFLAGS format
+# (ASCII unit separator 0x1f between flags), not space-separated -- a space append glues the llvm-arg onto the
+# last existing flag and rustc rejects `--cfg=coverage_nightly -Cllvm-args=...` as one invalid --cfg value.
 cov_dir="$(coreutils dirname "$LLVM_PROFILE_FILE")"
 export LLVM_PROFILE_FILE="$cov_dir/core-cont-%p%c.profraw"
 if [ "$(coreutils uname -s)" = "Linux" ]; then
   reloc="-Cllvm-args=-runtime-counter-relocation"
-  export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS="${__CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS:-} ${reloc}"
+  flags="${__CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS:-}"
+  if [ -n "$flags" ]; then
+    export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS="${flags}"$'\x1f'"${reloc}"
+  else
+    export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS="${reloc}"
+  fi
 fi
 # The --features flags compile each runner's coverage code, off by default so non-coverage builds omit it.
 # et-ws-web-runner/coverage adds the browser-module capture (shims + the __et_capture_coverage PUT);
