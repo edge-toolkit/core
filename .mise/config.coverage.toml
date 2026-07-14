@@ -47,6 +47,19 @@ coreutils rm -rf target/debug target/release
 # `--sh` is the current flag (the old `--export-prefix` alias is deprecated). This sets the rustc wrapper +
 # LLVM_PROFILE_FILE + profile dir so nextest and the regens instrument into one profile set that `report` merges.
 eval "$(cargo llvm-cov show-env --sh)"
+# nextest SIGKILLs the spawned et-ws-pyo3-runner (services/ws-pyo3-runner/tests/modules.rs) after each exchange.
+# LLVM flushes a process's counters only at exit, so a SIGKILLed process contributes nothing: the runner's async
+# run/drive/worker paths reported 0% while its in-process initialize() was covered. Continuous mode (%c) memory-maps
+# the counter file so increments persist live and survive the kill. %c is incompatible with the merge-pool (%Nm)
+# specifier show-env emits, so use a per-process (%p) continuous file in the same profile dir -- `cargo llvm-cov
+# report` globs every *.profraw there regardless of name. On Linux continuous mode additionally needs relocatable
+# counters, enabled via an llvm-arg appended to the coverage rustc-wrapper flags on Linux only.
+cov_dir="$(coreutils dirname "$LLVM_PROFILE_FILE")"
+export LLVM_PROFILE_FILE="$cov_dir/core-cont-%p%c.profraw"
+if [ "$(coreutils uname -s)" = "Linux" ]; then
+  reloc="-Cllvm-args=-runtime-counter-relocation"
+  export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS="${__CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS:-} ${reloc}"
+fi
 # The --features flags compile each runner's coverage code, off by default so non-coverage builds omit it.
 # et-ws-web-runner/coverage adds the browser-module capture (shims + the __et_capture_coverage PUT);
 # et-ws-wasi-runner/coverage adds the guest `/cov` preopen. ET_TEST_COVERAGE (set by the coverage job) still

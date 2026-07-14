@@ -321,7 +321,7 @@ thread_local! {
 
 #[wasm_bindgen(start)]
 pub fn init() {
-    drop(tracing_wasm::try_set_as_global_default());
+    et_web::ignore(tracing_wasm::try_set_as_global_default());
     info!("sensor stream workflow module initialized");
 }
 
@@ -349,7 +349,7 @@ pub async fn run() -> Result<(), JsValue> {
                 return;
             };
 
-            drop(render_sensor_output(&runtime.sensors));
+            et_web::ignore(render_sensor_output(&runtime.sensors));
         });
     });
     let render_closure = Closure::wrap(render_boxed);
@@ -370,8 +370,8 @@ pub async fn run() -> Result<(), JsValue> {
 
     let stop_callback = Closure::once_into_js(move || {
         if is_running() {
-            drop(stop());
-            drop(set_sensor_status(
+            et_web::ignore(stop());
+            et_web::ignore(set_sensor_status(
                 "sensor stream: finished automatically after 15 seconds",
             ));
         }

@@ -123,7 +123,7 @@ fn wait_for_agent_id() -> Option<String> {
 
 fn sleep_ms(ms: u64) {
     let pollable = wasi::clocks::monotonic_clock::subscribe_duration(ms * 1_000_000);
-    drop(wasi::io::poll::poll(&[&pollable]));
+    let _ready = wasi::io::poll::poll(&[&pollable]);
 }
 
 export!(Component);

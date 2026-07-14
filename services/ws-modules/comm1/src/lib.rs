@@ -133,7 +133,7 @@ fn handle_incoming_message(
                 "comm1: received {scope:?} message {message_id} from {from_agent_id} at {server_received_at}: {summary}"
             );
             web_sys::console::log_1(&JsValue::from_str(&line));
-            drop(set_module_status(&line));
+            let _status = set_module_status(&line);
         }
         ServerMessage::MessageStatus {
             message_id,
@@ -142,12 +142,12 @@ fn handle_incoming_message(
         } => {
             let line = format!("comm1: message status update {message_id:?} {status:?}: {detail}");
             web_sys::console::log_1(&JsValue::from_str(&line));
-            drop(set_module_status(&line));
+            let _status = set_module_status(&line);
         }
         ServerMessage::Invalid { message_id, detail } => {
             let line = format!("comm1: invalid server response {message_id:?}: {detail}");
             web_sys::console::warn_1(&JsValue::from_str(&line));
-            drop(set_module_status(&line));
+            let _status = set_module_status(&line);
         }
         ServerMessage::ConnectAck { .. }
         | ServerMessage::Response { .. }
@@ -192,13 +192,13 @@ async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let promise = Promise::new(&mut |resolve, reject| {
         let callback = Closure::once_into_js(move || {
-            drop(resolve.call0(&JsValue::NULL));
+            let _resolved = resolve.call0(&JsValue::NULL);
         });
 
         if let Err(error) =
             window.set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), duration_ms)
         {
-            drop(reject.call1(&JsValue::NULL, &error));
+            let _rejected = reject.call1(&JsValue::NULL, &error);
         }
     });
     JsFuture::from(promise).await.map(|_| ())

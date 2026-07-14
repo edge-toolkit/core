@@ -43,24 +43,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
     )?;
 
-    let driven = async {
-        tokio::select! {
-            result = run_agent(agent) => result,
-            _ = tokio::signal::ctrl_c() => {
-                info!("interrupted; shutting down");
-                Ok(())
+    // Graceful shutdown: ctrl_c or the optional RUNNER_TIMEOUT trips `shutdown`, which `run_agent`'s `drive`
+    // loop selects on. That returns the run loop so `run_agent` still executes its teardown (queue on_shutdown,
+    // join the Python worker, close the socket) instead of the run future being dropped mid-flight. The watcher
+    // runs concurrently and is abandoned when `run_agent` returns and the process exits.
+    let shutdown = std::sync::Arc::new(tokio::sync::Notify::new());
+    let limit = config.runner.timeout;
+    let _watcher = tokio::spawn({
+        let shutdown = std::sync::Arc::clone(&shutdown);
+        async move {
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => info!("interrupted; shutting down"),
+                () = async {
+                    match limit {
+                        Some(dur) => tokio::time::sleep(dur).await,
+                        None => std::future::pending::<()>().await,
+                    }
+                } => info!("run timeout {limit:?} elapsed; shutting down"),
             }
+            shutdown.notify_one();
         }
-    };
-
-    let Some(limit) = config.runner.timeout else {
-        driven.await?;
-        return Ok(());
-    };
-    let Ok(result) = tokio::time::timeout(limit, driven).await else {
-        info!("run timeout {limit:?} elapsed; shutting down");
-        return Ok(());
-    };
-    result?;
+    });
+    run_agent(agent, &shutdown).await?;
     Ok(())
 }

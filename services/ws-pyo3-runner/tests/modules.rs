@@ -50,6 +50,7 @@ const POLL_BACKOFF_MIN: Duration = Duration::from_millis(50);
 const POLL_BACKOFF_MAX: Duration = Duration::from_millis(500);
 /// How long each poll round drains inbound frames looking for the peer before backing off.
 const POLL_DRAIN_WINDOW: Duration = Duration::from_millis(250);
+const RUST_LOG: &str = "RUST_LOG";
 
 /// When a case may not be runnable, the condition under which it self-skips.
 enum Gate {
@@ -145,6 +146,44 @@ fn no_hooks_fails_to_load() -> Result<(), Box<dyn Error>> {
     let stderr = String::from_utf8_lossy(&output.stderr);
     if !stderr.contains("none of the runner hooks") {
         return Err(format!("stderr should explain the missing hooks; got: {stderr}").into());
+    }
+    Ok(())
+}
+
+/// `RUNNER_TIMEOUT` must trigger a graceful shutdown, not an abrupt drop: `drive`'s shutdown arm returns so
+/// `run` still executes its teardown (queue `on_shutdown`, join the Python worker, close the socket). `echo`
+/// loads without any gated toolchain, so the runner reaches its connected run loop before the short timeout
+/// trips; a clean (zero) exit code then confirms the teardown path ran to completion.
+#[tokio::test(flavor = "current_thread")]
+async fn shuts_down_gracefully_on_timeout() -> Result<(), Box<dyn Error>> {
+    let server = et_ws_test_server::start();
+    let rust_log = std::env::var(RUST_LOG).unwrap_or_else(|_| "warn".to_string());
+    let mut runner = Command::new(env!("CARGO_BIN_EXE_et-ws-pyo3-runner"))
+        .env("RUNNER_MODULE", "echo")
+        .env("PYO3_PYTHONPATH", python_dir())
+        .env("WS_SERVER_URL", &server.ws_url)
+        .env("RUNNER_TIMEOUT", "3s")
+        .env("RUST_LOG", rust_log)
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .spawn()?;
+
+    // The runner self-exits shortly after the 3s timeout; the outer bound only stops a regression from hanging
+    // the suite. `try_wait` polls without blocking the current-thread runtime.
+    let start = std::time::Instant::now();
+    let status = loop {
+        if let Some(status) = runner.try_wait()? {
+            break status;
+        }
+        if start.elapsed() >= Duration::from_secs(30) {
+            runner.kill()?;
+            let _reaped = runner.wait()?;
+            return Err("runner did not shut down gracefully within 30s".into());
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    };
+    if !status.success() {
+        return Err(format!("runner should exit cleanly after graceful timeout shutdown, got {status:?}").into());
     }
     Ok(())
 }
@@ -248,7 +287,7 @@ fn python_dir() -> PathBuf {
 /// Spawn the runner subprocess for `module`, pointed at `ws_url`.
 fn spawn_runner(module: &str, ws_url: &str) -> Child {
     // Silence the runner unless invoked with --nocapture and RUST_LOG opted in.
-    let rust_log = std::env::var("RUST_LOG").unwrap_or_else(|_| "warn".to_string());
+    let rust_log = std::env::var(RUST_LOG).unwrap_or_else(|_| "warn".to_string());
     Command::new(env!("CARGO_BIN_EXE_et-ws-pyo3-runner"))
         .env("RUNNER_MODULE", module)
         .env("PYO3_PYTHONPATH", python_dir())
