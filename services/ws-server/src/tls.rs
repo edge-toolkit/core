@@ -1,7 +1,6 @@
 #![expect(
-    clippy::single_call_fn,
     clippy::unwrap_used,
-    reason = "TLS bootstrap helpers are single-use by main() and panic on invalid PEM / cert-gen failure intentionally"
+    reason = "TLS bootstrap helpers panic on invalid PEM / cert-gen failure intentionally; callers are main + tests"
 )]
 
 use std::path::Path;
@@ -13,12 +12,14 @@ type CertKeyPair = (
     rustls::pki_types::PrivateKeyDer<'static>,
 );
 
+#[must_use]
 pub fn load_tls_certs(cert_filename: &Path, key_filename: &Path) -> CertKeyPair {
     let cert_der = rustls::pki_types::CertificateDer::from_pem_file(cert_filename).unwrap();
     let key_der = rustls::pki_types::PrivateKeyDer::from_pem_file(key_filename).unwrap();
     (cert_der, key_der)
 }
 
+#[must_use]
 pub fn generate_tls_certs(cert_filename: &Path, key_filename: &Path) -> CertKeyPair {
     let certified = rcgen::generate_simple_self_signed(vec![
         "localhost".to_string(),
@@ -35,6 +36,7 @@ pub fn generate_tls_certs(cert_filename: &Path, key_filename: &Path) -> CertKeyP
     (cert_der, key_der)
 }
 
+#[must_use]
 pub fn build_tls_server_config(
     cert_der: rustls::pki_types::CertificateDer<'static>,
     key_der: rustls::pki_types::PrivateKeyDer<'static>,
