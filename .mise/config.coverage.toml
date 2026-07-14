@@ -61,8 +61,11 @@ export LLVM_PROFILE_FILE="$cov_dir/core-cont-%p%c.profraw"
 if [ "$(coreutils uname -s)" = "Linux" ]; then
   reloc="-Cllvm-args=-runtime-counter-relocation"
   flags="${__CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS:-}"
+  # Append the reloc flag with a TOML-injected unit separator (ASCII 31).
+  # Bash dollar-quote hex is not a valid TOML escape, so the separator has to be introduced by the
+  # TOML parser into the task body rather than written as a shell escape.
   if [ -n "$flags" ]; then
-    export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS="${flags}"$'\x1f'"${reloc}"
+    export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS="${flags}\u001f${reloc}"
   else
     export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS="${reloc}"
   fi
