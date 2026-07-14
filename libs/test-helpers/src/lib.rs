@@ -52,8 +52,9 @@ impl ChildGuard {
 
     /// Kill the child and reap it now (also runs on drop; errors are ignored).
     pub fn shutdown(&mut self) {
-        drop(self.child.kill());
-        drop(self.child.wait());
+        // Best-effort teardown, also invoked from Drop -- no caller to propagate to, so discard.
+        let _kill = self.child.kill();
+        let _wait = self.child.wait();
     }
 }
 
@@ -73,10 +74,13 @@ pub fn drain_stderr(child: &mut Child) -> Arc<Mutex<String>> {
     let stderr = child.stderr.take().unwrap();
     let log = Arc::new(Mutex::new(String::new()));
     let sink = Arc::clone(&log);
-    drop(std::thread::spawn(move || {
+    // Detached drainer: nothing joins the handle, so neither the read result nor the thread's own
+    // outcome has a caller to propagate to -- both are intentionally discarded (partial output on a
+    // read error is still worth keeping for diagnostics).
+    let _drainer = std::thread::spawn(move || {
         let mut buffer = String::new();
-        drop(std::io::BufReader::new(stderr).read_to_string(&mut buffer));
+        let _read = std::io::BufReader::new(stderr).read_to_string(&mut buffer);
         *sink.lock().unwrap() = buffer;
-    }));
+    });
     log
 }

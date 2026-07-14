@@ -156,7 +156,7 @@ pub async fn run(agent: InitializedAgent) -> Result<(), RunnerError> {
     // Populate the slot before `on_connect` so Python sees a valid
     // `storage.agent_id` from the first instant it can act.
     *agent_id_slot.lock().unwrap_or_else(PoisonError::into_inner) = Some(agent_id.clone());
-    drop(inbound_tx.send(InboundEvent::Connect(agent_id)));
+    let _connect_sent = inbound_tx.send(InboundEvent::Connect(agent_id));
 
     let result = drive(&mut socket, &inbound_tx, &mut outbound_rx).await;
 
@@ -164,10 +164,10 @@ pub async fn run(agent: InitializedAgent) -> Result<(), RunnerError> {
     // then drop our sender so the worker's recv loop ends. Join before aborting
     // the storage task so an `on_shutdown` that persists state can still reach
     // it; only then close the socket and stop storage.
-    drop(inbound_tx.send(InboundEvent::Shutdown));
+    let _shutdown_sent = inbound_tx.send(InboundEvent::Shutdown);
     drop(inbound_tx);
-    drop(worker.join());
-    drop(socket.send(tungstenite::Message::Close(None)).await);
+    let _joined = worker.join();
+    let _close_sent = socket.send(tungstenite::Message::Close(None)).await;
     storage_task.abort();
     result
 }
@@ -195,12 +195,16 @@ fn python_worker(
                 }
             }
             InboundEvent::Text(text) => match dispatcher.on_text_frame(&text) {
-                Ok(Some(reply)) => drop(outbound_tx.send(OutboundFrame::Text(reply))),
+                Ok(Some(reply)) => {
+                    let _sent = outbound_tx.send(OutboundFrame::Text(reply));
+                }
                 Ok(None) => {}
                 Err(err) => warn!("on_text_frame raised: {err}"),
             },
             InboundEvent::Binary(bytes) => match dispatcher.on_binary_frame(&bytes) {
-                Ok(Some(reply)) => drop(outbound_tx.send(OutboundFrame::Binary(reply))),
+                Ok(Some(reply)) => {
+                    let _sent = outbound_tx.send(OutboundFrame::Binary(reply));
+                }
                 Ok(None) => {}
                 Err(err) => warn!("on_binary_frame raised: {err}"),
             },
@@ -233,7 +237,7 @@ async fn storage_worker(http_base: String, mut rx: mpsc::UnboundedReceiver<Stora
                     Err(et_rest_client::Error::ErrorResponse(_)) => Ok(None),
                     Err(source) => Err(StorageError::get(&agent_id, &key, source.to_string())),
                 };
-                drop(reply.send(outcome));
+                let _reply_sent = reply.send(outcome);
             }
             StorageOp::Put {
                 agent_id,
@@ -245,7 +249,7 @@ async fn storage_worker(http_base: String, mut rx: mpsc::UnboundedReceiver<Stora
                     Ok(_) => Ok(()),
                     Err(source) => Err(StorageError::put(&agent_id, &key, source.to_string())),
                 };
-                drop(reply.send(outcome));
+                let _reply_sent = reply.send(outcome);
             }
         }
     }
@@ -273,10 +277,10 @@ async fn drive(
             // pushes to via WsSender, so multi-send + reply compose in order.
             frame = socket.next() => match frame {
                 Some(Ok(tungstenite::Message::Binary(bytes))) => {
-                    drop(inbound_tx.send(InboundEvent::Binary(bytes)));
+                    let _forwarded = inbound_tx.send(InboundEvent::Binary(bytes));
                 }
                 Some(Ok(tungstenite::Message::Text(text))) => {
-                    drop(inbound_tx.send(InboundEvent::Text(text)));
+                    let _forwarded = inbound_tx.send(InboundEvent::Text(text));
                 }
                 Some(Ok(tungstenite::Message::Close(_))) => {
                     info!("server closed connection");

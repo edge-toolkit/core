@@ -41,10 +41,11 @@ pub struct OtelHandles {
 impl OtelHandles {
     /// Flush any buffered spans/logs/metrics and tear down the exporters.
     pub fn shutdown(self) {
-        // Errors here are non-fatal -- the process is exiting anyway.
-        drop(self.tracer_provider.shutdown());
-        drop(self.logger_provider.shutdown());
-        drop(self.meter_provider.shutdown());
+        // Errors here are non-fatal -- the process is exiting anyway, and there is no caller to
+        // propagate to, so each teardown result is intentionally discarded.
+        let _tracer = self.tracer_provider.shutdown();
+        let _logger = self.logger_provider.shutdown();
+        let _meter = self.meter_provider.shutdown();
     }
 }
 
@@ -60,8 +61,8 @@ impl OtelHandles {
 /// invalid, or the global subscriber is already set.
 pub fn init(config: &OtlpConfig) -> Result<OtelHandles, Box<dyn std::error::Error + Send + Sync>> {
     // tracing_log forwards `log` crate records (used by transitive deps)
-    // through the tracing subscriber.
-    drop(tracing_log::LogTracer::init());
+    // through the tracing subscriber. A second init (global logger already set) is a real error here.
+    tracing_log::LogTracer::init()?;
 
     let mut headers = std::collections::HashMap::new();
     if let Some(auth) = &config.auth {

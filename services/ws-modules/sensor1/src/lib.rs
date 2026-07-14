@@ -133,18 +133,13 @@ impl MotionReading {
 }
 
 #[wasm_bindgen]
+#[derive(Default)]
 pub struct DeviceSensors {
     active: bool,
     orientation_state: Rc<RefCell<Option<OrientationReadingState>>>,
     motion_state: Rc<RefCell<Option<MotionReadingState>>>,
     orientation_listener: Option<Closure<dyn FnMut(Event)>>,
     motion_listener: Option<Closure<dyn FnMut(Event)>>,
-}
-
-impl Default for DeviceSensors {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 #[wasm_bindgen]

@@ -34,7 +34,8 @@ pub fn find_project_root(start: &Path) -> PathBuf {
 /// start, or `edge_toolkit::config::get_project_root`, instead.
 #[must_use]
 pub fn find_project_root_from_manifest() -> PathBuf {
-    let manifest = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default();
+    const CARGO_MANIFEST_DIR: &str = "CARGO_MANIFEST_DIR";
+    let manifest = std::env::var(CARGO_MANIFEST_DIR).unwrap_or_default();
     find_project_root(Path::new(&manifest))
 }
 
