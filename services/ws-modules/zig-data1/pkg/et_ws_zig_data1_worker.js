@@ -81,9 +81,15 @@ const imports = {
 };
 
 self.onmessage = async (e) => {
-  const { sab, wasmUrl } = e.data;
+  // Dedicated worker: messages only originate from the same-origin context that created it. Reject any
+  // cross-origin message defensively (the browser already guarantees this, but make the check explicit).
+  if (e.origin && e.origin !== self.location.origin) return;
+  const { sab } = e.data;
   ctrl = new Int32Array(sab, 0, 4);
   data = new Uint8Array(sab, DATA_OFFSET);
+  // Resolve the module wasm from this worker's own location (self.location), never from a postMessage value,
+  // so the fetch URL cannot depend on message data. The wasm is a fixed-name sibling of this worker script.
+  const wasmUrl = new URL("et_ws_zig_data1.wasm", self.location.href);
   const { instance } = await WebAssembly.instantiateStreaming(fetch(wasmUrl), imports);
   wasmMemory = instance.exports.memory;
   const ret = instance.exports.run();

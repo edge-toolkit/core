@@ -20,7 +20,6 @@ export async function run() {
   const enc = new TextEncoder();
   const dec = new TextDecoder();
 
-  const wasmUrl = new URL("et_ws_zig_data1.wasm", import.meta.url).href;
   const workerUrl = new URL("et_ws_zig_data1_worker.js", import.meta.url).href;
 
   const respond = (str = "") => {
@@ -166,7 +165,8 @@ export async function run() {
       worker.terminate();
       reject(e);
     };
-    worker.postMessage({ sab, wasmUrl });
+    // The worker resolves its own wasm URL from import.meta.url; only the shared buffer crosses the boundary.
+    worker.postMessage({ sab });
     poll();
   });
 }
