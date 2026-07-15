@@ -3,6 +3,7 @@ pub use et_ws_service::{AgentSession, WsAgentRegistry};
 
 pub mod config;
 pub mod routes;
+pub mod tls;
 
 pub use self::routes::health;
 use crate::config::Config;

@@ -13,12 +13,11 @@ use clap::Parser;
 use et_modules_service::list_modules;
 use et_ws_server::config::Config;
 use et_ws_server::configure_app;
+use et_ws_server::tls;
 use et_ws_service::load_registry;
 use tracing::{error, info};
 use tracing_actix_web::TracingLogger;
 use tracing_subscriber::{layer::SubscriberExt as _, util::SubscriberInitExt as _};
-
-mod tls;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

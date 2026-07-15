@@ -272,13 +272,11 @@ fn fetch_and_trim_webgpu(deps_root: &Path) -> Result<(), Error> {
 /// Parse the upstream `webgpu.wit` via `wit-parser`, filter the parsed AST
 /// down to our compute-only subset, and re-emit using `wit-encoder`.
 #[expect(
-    clippy::unnecessary_wraps,
-    clippy::single_call_fn,
     clippy::unwrap_used,
     clippy::unwrap_in_result,
-    reason = "Result lets caller use ? like fetch_* helpers; called once; wit-parser anyhow::Error, inputs literals"
+    reason = "inputs are trusted (upstream WIT or the committed fixture); a parse failure is a bug, so unwrap"
 )]
-fn strip_webgpu(raw: &str) -> Result<String, Error> {
+pub fn strip_webgpu(raw: &str) -> Result<String, Error> {
     let mut resolve = wit_parser::Resolve::default();
     let _stub: wit_parser::PackageId = resolve.push_str("wasi-io-stub.wit", WASI_IO_STUB).unwrap();
     let _stub: wit_parser::PackageId = resolve

@@ -50,5 +50,8 @@ tracing-subscriber.workspace = true
 utoipa = { workspace = true, optional = true }
 uuid.workspace = true
 
+[dev-dependencies]
+tempfile.workspace = true
+
 [lints]
 workspace = true
