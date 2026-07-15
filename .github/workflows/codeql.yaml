@@ -104,12 +104,13 @@ jobs:
             query-filters:
               - exclude:
                   id: actions/unpinned-tag
-              # rust/unused-variable + cpp/unused-static-variable are *quality* queries that systematically
-              # misfire here. CodeQL analyses Rust buildless (build-mode: none is the only Rust mode), so it
-              # cannot see bindings used inside format!/tracing macros; and its C read-analysis ignores
-              # address-of use in Win32 APIs (InterlockedCompareExchangePointer / SRWLOCK). Both rules are
-              # already enforced correctly by clippy (unused_variables = deny) and clang-tidy/cpplint, so
-              # excluding them drops no real coverage -- only the false positives. Security queries stay on.
+              # Exclude two quality queries that systematically misfire in this configuration.
+              # CodeQL analyses Rust buildless (build-mode: none is the only Rust mode), so it cannot see
+              # bindings used inside format!/tracing macros, and its C read-analysis ignores address-of use
+              # in Win32 APIs (InterlockedCompareExchangePointer / SRWLOCK). rust/unused-variable and
+              # cpp/unused-static-variable are already enforced correctly by clippy (unused_variables = deny)
+              # and clang-tidy/cpplint, so excluding them drops no real coverage -- only the false positives.
+              # Security queries stay on.
               - exclude:
                   id: rust/unused-variable
               - exclude:
