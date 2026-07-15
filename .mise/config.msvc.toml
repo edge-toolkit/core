@@ -76,7 +76,7 @@ actual=$(coreutils sha256sum -b "$script" | coreutils cut -c1-64)
 # re-run after deleting target/msvc/msvc.
 py="{{ vars.py3_win_fwd }}"
 if [ ! -d "$base/msvc/VC" ]; then
-  (cd "$base" && "$py" portable-msvc.py --accept-license --msvc-version 14.51 --sdk-version 28000)
+  (cd "$base" && "$py" portable-msvc.py --accept-license --msvc-version 14.51 --sdk-version 26100)
 fi
 "$py" - "$base/msvc" "$base/msvc.env" <<'PY'
 import _winapi
