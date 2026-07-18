@@ -33,10 +33,17 @@ pub struct TestServer {
 /// Serves modules from the default module paths (same as production).
 #[must_use]
 pub fn start() -> TestServer {
+    start_on(et_test_helpers::reserve_port())
+}
+
+/// Start an in-process ws-server bound to a specific `port` with a temporary storage directory.
+///
+/// Like [`start`], but for callers that must know the port ahead of time (e.g. a fixed-port launcher a separate
+/// process connects to). Panics if the port is already in use.
+#[must_use]
+pub fn start_on(port: u16) -> TestServer {
     let storage_dir = TempDir::new().unwrap();
     let storage_path = storage_dir.path().to_path_buf();
-
-    let port = et_test_helpers::reserve_port();
 
     let storage_config = StorageConfig::new(storage_path);
     let modules_config = ModulesConfig::default();

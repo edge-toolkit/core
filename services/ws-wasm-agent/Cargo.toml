@@ -38,5 +38,11 @@ web-sys = { workspace = true, features = [
 wasm-bindgen-futures.workspace = true
 wasm-bindgen-test.workspace = true
 
+# Coverage instrumentation, off by default and enabled only by the `wasm-agent-cov` mise task's test build.
+# Forwards to et-web/coverage, which links minicov's profiler runtime (`__llvm_profile_runtime`) that the
+# instrumented workspace crates reference -- the same mechanism the browser ws-modules use for coverage.
+[features]
+coverage = ["et-web/coverage"]
+
 [lints]
 workspace = true
