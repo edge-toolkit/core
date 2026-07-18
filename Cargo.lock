@@ -4670,6 +4670,7 @@ dependencies = [
  "et-storage-service",
  "et-test-helpers",
  "et-ws-service",
+ "fs-err",
  "futures-util",
  "int-otlp-mock",
  "retry",

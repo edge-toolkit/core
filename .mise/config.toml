@@ -65,17 +65,12 @@ cargo-binstall = "latest"
 "cargo:cargo-expand" = { version = "latest", os = ["linux", "macos"] }
 "cargo:open" = "latest"
 "cargo:wasm-opt" = { version = "latest", os = ["linux", "macos"] }
-"github:nextest-rs/nextest" = "latest"
-taplo = "latest"
-watchexec = "latest"
-# Chromedriver disabled (commented out below).
-# Only used by `test-ws-wasm-agent-chrome` / `ws-e2e-chrome`, neither of which run in the standard CI `test`
-# flow. Disabling chromedriver lets us also drop the vfox backend (see `[settings] disable_backends` above)
-# since chromedriver was the only [tools] entry that defaulted to vfox.
-# "chromedriver" = { version = "146", os = ["linux", "macos"] }
 cmake = "latest"
 "conda:openssl" = "3"
 conftest = "latest"
+"github:nextest-rs/nextest" = "latest"
+taplo = "latest"
+watchexec = "latest"
 # uutils coreutils: the Rust multicall binary, invoked as `coreutils <util>` in tasks.
 # Pinned to 0.6.0 (NOT the latest 0.9.0) because uutils 0.7.0+ ships the Windows release as 85 per-utility
 # .exes with no multicall coreutils.exe (see uutils/coreutils#11268). 0.6.0 keeps the multicall layout
@@ -243,8 +238,23 @@ url = "https://downloads.openobserve.ai/releases/openobserve/v0.70.3/openobserve
 url = "https://downloads.openobserve.ai/releases/openobserve/v0.70.3/openobserve-v0.70.3-linux-amd64.tar.gz"
 [tools."http:openobserve".platforms.macos-arm64]
 url = "https://downloads.openobserve.ai/releases/openobserve/v0.70.3/openobserve-v0.70.3-darwin-arm64.tar.gz"
-[tools."http:openobserve".platforms.macos-x64]
-url = "https://downloads.openobserve.ai/releases/openobserve/v0.70.3/openobserve-v0.70.3-darwin-amd64.tar.gz"
+# chromedriver from Google's Chrome for Testing CDN, driving the headless-browser wasm-bindgen tests.
+# Immutable per-version URLs mean no checksum -- the same direct-upstream posture as http:openobserve. Its
+# consumers are test-ws-wasm-agent-chrome / ws-e2e-chrome and the wasm-agent-cov coverage task. mise auto-strips
+# the single `chromedriver-<platform>/` archive dir, leaving the `chromedriver` binary at the install root. The
+# major version must track the Chrome the runner drives (a >1-major skew makes chromedriver refuse the session);
+# bump this pin when CI's Chrome moves. Chrome for Testing publishes no linux-arm64 chromedriver, so that
+# platform is intentionally absent -- the browser tests can't run there.
+[tools."http:chromedriver"]
+bin = "chromedriver"
+os = ["linux", "macos"]
+version = "150.0.7871.124"
+[tools."http:chromedriver".platforms.linux-x64]
+url = "https://storage.googleapis.com/chrome-for-testing-public/150.0.7871.124/linux64/chromedriver-linux64.zip"
+[tools."http:chromedriver".platforms.macos-arm64]
+url = "https://storage.googleapis.com/chrome-for-testing-public/150.0.7871.124/mac-arm64/chromedriver-mac-arm64.zip"
+[tools."http:chromedriver".platforms.macos-x64]
+url = "https://storage.googleapis.com/chrome-for-testing-public/150.0.7871.124/mac-x64/chromedriver-mac-x64.zip"
 
 [tools."http:augeas"]
 bin = "augtool"
@@ -1228,7 +1238,7 @@ description = "Run both the ws-server and ws-wasm-agent using Firefox"
 [tasks.test-ws-wasm-agent-chrome]
 description = "Run headless Chrome tests for the WebSocket WASM client"
 dir = "services/ws-wasm-agent"
-run = "env CHROMEDRIVER=\"$(mise where chromedriver)/bin/chromedriver\" wasm-pack test --headless --chrome"
+run = "env CHROMEDRIVER=\"$(mise which chromedriver)\" wasm-pack test --headless --chrome"
 
 [tasks.ws-e2e-chrome]
 depends = ["test-ws-wasm-agent-chrome", "ws-server"]

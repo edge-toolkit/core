@@ -161,3 +161,100 @@ shell = "bash -euo pipefail -c"
 [tasks.pytest-cov.env]
 COVERAGE_RCFILE = "{{ config_root }}/config/coverage.toml"
 UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}"
+
+[tasks.wasm-agent-cov]
+depends = ["build-wasm-cov-wrapper"]
+description = "Coverage for the browser ws-wasm-agent: run its wasm-bindgen tests headless, emit lcov into lcov.info"
+# The agent is a browser wasm client with no native tests, so its lib is invisible to the cargo-llvm-cov run.
+# This drives its wasm-bindgen tests (tests/client.rs) in a real headless Chrome and folds the result into the
+# same lcov.info the other coverage tasks feed. Two pieces make it work:
+#   1. A live backend. tests/client.rs covers the offline paths on its own, but the connected paths (onopen,
+#      the connect-ack dispatch, the online send/flush/keepalive) need a server, so we start the in-process
+#      et-ws-test-server (its cov-server bin) on the fixed port the tests dial, wait for its readiness marker,
+#      and kill it after. It is built without the coverage wrapper, so it stays uninstrumented.
+#   2. Instrumentation. wasm-bindgen-test 0.3 has built-in coverage under --cfg wasm_bindgen_unstable_test_coverage
+#      (it pulls minicov and exports __wbgtest_cov_dump, which the test runner POSTs back and writes to
+#      LLVM_PROFILE_FILE). The workspace wrapper adds -Cinstrument-coverage --emit=llvm-ir to our crates only,
+#      and --features coverage links minicov's profiler runtime the same way the browser modules do.
+# The .profraw -> lcov conversion mirrors wasm-cov (gut every .ll body to `unreachable`, keep the covmap, llc to a
+# fixed x86_64 ELF object, then llvm-cov), with one addition: the test binary links several workspace crates and
+# the agent's generic message helpers monomorphize into the test crate's object, so we compile every workspace
+# .ll (not one) and keep only the agent lib's records. Gutting can leave an attribute group empty, which llc
+# rejects, so emptied groups get a benign `nounwind`.
+run = """
+covdir=target/agent-cov
+coreutils mkdir -p "$covdir"
+coreutils rm -f "$covdir"/*.profraw "$covdir"/*.o "$covdir"/*.g.ll "$covdir/server-ready"
+# Force the agent crate (and its wasm test binary) to recompile so this run emits a fresh instrumented .ll.
+# Its covmap must match the .profraw we are about to capture, but cargo only re-emits `--emit=llvm-ir` when a
+# crate actually compiles, so on a warm cache a stale or missing .ll would otherwise make llvm-cov drop the
+# agent's functions (a bare `cargo test` cache hit yields only the generic helpers' covmap, which monomorphize
+# into the test crate's object). Only the agent's .ll is needed; other workspace crates' .ll are dropped by the
+# lib-only keep filter below whether fresh, stale, or absent.
+rustup target add wasm32-unknown-unknown
+cargo clean -p et-ws-wasm-agent --target wasm32-unknown-unknown
+
+# Resolve the webdriver, honouring a CHROMEDRIVER already in the environment before the mise-pinned one.
+# CI points CHROMEDRIVER at the runner's chromedriver (matched to its preinstalled Chrome); locally this falls
+# back to the mise-managed http:chromedriver.
+driver="${CHROMEDRIVER:-$(mise which chromedriver)}"
+
+cargo build -q -p et-ws-test-server --bin cov-server
+./target/debug/cov-server "$covdir/server-ready" &
+server_pid=$!
+trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+for _ in $(coreutils seq 1 100); do [ -s "$covdir/server-ready" ] && break; coreutils sleep 0.1; done
+[ -s "$covdir/server-ready" ] || { echo "cov-server never became ready"; exit 1; }
+
+# Export the instrumentation env for the coverage test build.
+# Trailing-backslash line continuations are banned repo-wide, so each variable is set on its own line; no later
+# step invokes cargo, so these staying set for the rest of the script is harmless.
+runner="$(mise which wasm-bindgen-test-runner)"
+export RUSTC_WORKSPACE_WRAPPER="{{ config_root }}/target/debug/int-wasm-cov-wrapper"
+export RUSTFLAGS="--cfg wasm_bindgen_unstable_test_coverage"
+export CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER="$runner"
+export CHROMEDRIVER="$driver"
+export LLVM_PROFILE_FILE="{{ config_root }}/$covdir/wasm-agent-%p.profraw"
+cargo test -p et-ws-wasm-agent --features coverage --target wasm32-unknown-unknown --test client
+
+kill "$server_pid" 2>/dev/null || true
+trap - EXIT
+
+host="$(rustc +nightly -vV | goawk '/^host:/ { print $2 }')"
+llbin="$(rustc +nightly --print sysroot)/lib/rustlib/$host/bin"
+gut="$covdir/gut.awk"
+coreutils cat > "$gut" <<'AWK'
+/^target datalayout/ { next }
+/^target triple/ { next }
+/^define/ { print; print "start:"; print "  unreachable"; print "}"; skip = 1; next }
+skip && /^}/ { skip = 0; next }
+skip { next }
+{
+  gsub(/"target-cpu"="[^"]*"/, "")
+  gsub(/"target-features"="[^"]*"/, "")
+  if ($0 ~ /^attributes #/ && $0 ~ /\\{[[:space:]]*\\}/) sub(/\\{[[:space:]]*\\}/, "{ nounwind }")
+  print
+}
+AWK
+"$llbin/llvm-profdata" merge -sparse -o "$covdir/agent.profdata" "$covdir"/*.profraw
+objs=()
+for ll in target/wasm32-unknown-unknown/debug/deps/*.ll; do
+  name="$(coreutils basename "$ll" .ll)"
+  goawk -f "$gut" "$ll" > "$covdir/$name.g.ll"
+  "$llbin/llc" -filetype=obj -mtriple=x86_64-unknown-linux-gnu -o "$covdir/$name.o" "$covdir/$name.g.ll"
+  objs+=("-object" "$covdir/$name.o")
+done
+"$llbin/llvm-cov" export --format=lcov --instr-profile "$covdir/agent.profdata" "${objs[@]}" > "$covdir/all.lcov"
+keep="$covdir/keep.awk"
+coreutils cat > "$keep" <<'AWK'
+{ buf = buf $0 ORS }
+/^SF:/ { keep = index($0, "ws-wasm-agent/src/") > 0 }
+/^end_of_record$/ { if (keep) printf "%s", buf; buf = ""; keep = 0 }
+AWK
+coreutils touch lcov.info
+goawk -f "$keep" "$covdir/all.lcov" >> lcov.info
+rpt="$covdir/report.txt"
+"$llbin/llvm-cov" report --instr-profile "$covdir/agent.profdata" "${objs[@]}" > "$rpt" 2>/dev/null || true
+rg "ws-wasm-agent/src/lib.rs|Filename|TOTAL" "$rpt" || true
+"""
+shell = "bash -euo pipefail -c"

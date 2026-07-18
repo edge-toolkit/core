@@ -79,6 +79,16 @@ jobs:
         timeout-minutes: 10
         run: mise run wasm-cov
 
+      # The browser ws-wasm-agent has no native tests, so it is invisible to the cargo-llvm-cov run above.
+      # This runs its wasm-bindgen tests in the runner's headless Chrome against an in-process ws-server and folds
+      # the agent lib's coverage into the same lcov.info. CHROMEWEBDRIVER is the GitHub image's chromedriver that
+      # matches its preinstalled Chrome; the task falls back to the mise-pinned http:chromedriver when it is unset.
+      - name: Merge ws-wasm-agent coverage into lcov.info
+        timeout-minutes: 20
+        run: |
+          export CHROMEDRIVER="${CHROMEWEBDRIVER:+$CHROMEWEBDRIVER/chromedriver}"
+          mise run wasm-agent-cov
+
       - name: Collect Python coverage
         timeout-minutes: 15
         env:

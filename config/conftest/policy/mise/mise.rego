@@ -148,7 +148,7 @@ allowed_os_scoped_tool := {
 	# action-validator (aqua) has no Windows build, so it is os-scoped off Windows.
 	# config.windows.toml installs cargo:action-validator there instead (cargo-quickinstall msvc prebuilt).
 	"action-validator",
-	"chromedriver",
+	"http:chromedriver",
 	"pipx",
 	"pipx:torch",
 	"npm:pnpm",
