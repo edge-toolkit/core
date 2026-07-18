@@ -2,11 +2,12 @@
 //!
 //! Starts the same hub the integration tests use on a fixed port (the one the browser wasm-agent tests connect
 //! to), writes a readiness marker to the file named by the first CLI argument once the server is accepting, then
-//! parks so the headless-browser tests can drive a real backend. The parent mise task waits for the marker and
-//! kills this process afterwards.
+//! stays up until the task deletes that marker -- its stop signal. Returning from `main` (rather than being
+//! killed) lets the coverage-instrumented build flush its counters on a clean exit; a SIGKILL would drop them.
 
 use std::error::Error;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use fs_err as fs;
 
@@ -23,12 +24,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let server = et_ws_test_server::start_on(COV_SERVER_PORT);
     fs::write(&ready_path, server.ws_url.as_bytes())?;
 
-    // Park indefinitely, keeping `server` (its worker thread + temp storage dir) alive until the task kills us.
-    #[expect(
-        clippy::infinite_loop,
-        reason = "a launcher that intentionally stays up until the task kills it"
-    )]
-    loop {
-        std::thread::park();
+    // Stay up until the task removes the readiness marker, then fall through to a clean exit so coverage flushes.
+    while ready_path.exists() {
+        std::thread::sleep(Duration::from_millis(100));
     }
+    Ok(())
 }

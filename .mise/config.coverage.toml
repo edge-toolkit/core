@@ -199,8 +199,11 @@ cargo clean -p et-ws-wasm-agent --target wasm32-unknown-unknown
 # back to the mise-managed http:chromedriver.
 driver="${CHROMEDRIVER:-$(mise which chromedriver)}"
 
-cargo build -q -p et-ws-test-server --bin cov-server
-./target/debug/cov-server "$covdir/server-ready" &
+# Build + run cov-server itself instrumented so the launcher is not reported as untested.
+# It uses native -Cinstrument-coverage and flushes its counters to this .profraw on the clean exit that removing
+# the marker below triggers.
+RUSTFLAGS="-Cinstrument-coverage" cargo build -q -p et-ws-test-server --bin cov-server
+LLVM_PROFILE_FILE="{{ config_root }}/$covdir/cov-server-%p.profraw" ./target/debug/cov-server "$covdir/server-ready" &
 server_pid=$!
 trap 'kill "$server_pid" 2>/dev/null || true' EXIT
 for _ in $(coreutils seq 1 100); do [ -s "$covdir/server-ready" ] && break; coreutils sleep 0.1; done
@@ -217,7 +220,9 @@ export CHROMEDRIVER="$driver"
 export LLVM_PROFILE_FILE="{{ config_root }}/$covdir/wasm-agent-%p.profraw"
 cargo test -p et-ws-wasm-agent --features coverage --target wasm32-unknown-unknown --test client
 
-kill "$server_pid" 2>/dev/null || true
+# Remove the marker so cov-server returns from main and flushes its coverage, then reap it (a kill would drop it).
+coreutils rm -f "$covdir/server-ready"
+wait "$server_pid" 2>/dev/null || true
 trap - EXIT
 
 host="$(rustc +nightly -vV | goawk '/^host:/ { print $2 }')"
@@ -236,7 +241,7 @@ skip { next }
   print
 }
 AWK
-"$llbin/llvm-profdata" merge -sparse -o "$covdir/agent.profdata" "$covdir"/*.profraw
+"$llbin/llvm-profdata" merge -sparse -o "$covdir/agent.profdata" "$covdir"/wasm-agent-*.profraw
 objs=()
 for ll in target/wasm32-unknown-unknown/debug/deps/*.ll; do
   name="$(coreutils basename "$ll" .ll)"
@@ -248,11 +253,19 @@ done
 keep="$covdir/keep.awk"
 coreutils cat > "$keep" <<'AWK'
 { buf = buf $0 ORS }
-/^SF:/ { keep = index($0, "ws-wasm-agent/src/") > 0 }
+/^SF:/ { keep = index($0, want) > 0 }
 /^end_of_record$/ { if (keep) printf "%s", buf; buf = ""; keep = 0 }
 AWK
 coreutils touch lcov.info
-goawk -f "$keep" "$covdir/all.lcov" >> lcov.info
+goawk -v want="ws-wasm-agent/src/" -f "$keep" "$covdir/all.lcov" >> lcov.info
+
+# Fold cov-server's own native coverage in from the instrumented run above (its cov-server-*.profraw).
+# The export object links its whole dep tree, so keep only the cov-server.rs launcher records.
+csp="$covdir/cov-server"
+"$llbin/llvm-profdata" merge -sparse -o "$csp.profdata" "$covdir"/cov-server-*.profraw
+"$llbin/llvm-cov" export --format=lcov --instr-profile "$csp.profdata" -object target/debug/cov-server > "$csp.lcov"
+goawk -v want="ws-test-server/src/bin/cov-server.rs" -f "$keep" "$csp.lcov" >> lcov.info
+
 rpt="$covdir/report.txt"
 "$llbin/llvm-cov" report --instr-profile "$covdir/agent.profdata" "${objs[@]}" > "$rpt" 2>/dev/null || true
 rg "ws-wasm-agent/src/lib.rs|Filename|TOTAL" "$rpt" || true
