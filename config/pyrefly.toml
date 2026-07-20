@@ -19,7 +19,12 @@ project-excludes = [
 ]
 
 # Package roots so intra-package imports (`pyface1.face_detection`) resolve as real modules, not `__unknown__.*`.
-search-path = ["../services/ws-modules/pydata1", "../services/ws-modules/pyface1", "../services/ws-pyo3-runner/python"]
+search-path = [
+  "../services/ws-modules/pydata1",
+  "../services/ws-modules/pyeye1",
+  "../services/ws-modules/pyface1",
+  "../services/ws-pyo3-runner/python",
+]
 
 # Third-party deps and generated packages that are absent from (or opaque to) the lint environment.
 # `replace-imports-with-any` (rather than a blanket ignore) keeps import resolution deterministic across every OS

@@ -8,6 +8,10 @@
 # there's no value in installing them when `js` isn't loaded.
 
 [tools]
+# MediaPipe tasks-vision runtime for pyeye1.
+# pyeye1 loads @mediapipe/tasks-vision (FaceLandmarker) at runtime via /modules/@mediapipe/tasks-vision, the
+# same npm-package-served-as-a-module pattern as onnxruntime-web (resolved in libs/edge-toolkit/src/config.rs).
+"npm:@mediapipe/tasks-vision" = "latest"
 "npm:onnxruntime-web" = "latest"
 # oxlint-tsgolint is oxlint's type-aware engine.
 # It's a typescript-go type checker oxlint shells out to under `--type-aware`. npm-only: it ships no GitHub

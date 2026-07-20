@@ -324,52 +324,52 @@ ignore = [
   # Upstream contain-rs/bit-set is unmaintained; the newer 0.9.1 is flagged too.
   # Pulled by the Deno stack (deno_core, and naga/wgpu-core via deno_webgpu).
   "bit-set",
-  # 1153 days since last update at bitvecto-rs/bitvec.
+  # Unmaintained upstream at bitvecto-rs/bitvec.
   # Pulled by sourcemap (via swc tooling under deno_ast).
   "bitvec",
-  # 536 days since last update at dsherret/capacity_builder.
+  # Unmaintained upstream at dsherret/capacity_builder.
   # Pulled by deno_ast.
   "capacity_builder",
-  # 1702 days since last update at jethrogb/rust-cexpr.
+  # Unmaintained upstream at jethrogb/rust-cexpr.
   # Pulled by bindgen (build-time only via aws-lc-sys / ort-sys).
   "cexpr",
-  # 577 days since last update at dajoha/color-print.
+  # Unmaintained upstream at dajoha/color-print.
   # Pulled by deno_node via color-print.
   "color-print-proc-macro",
   # Archived upstream at matklad/countme.
   "countme",
-  # 676 days since last update at denoland/deno_native_certs.
+  # Unmaintained upstream at denoland/deno_native_certs.
   # Pulled by deno_node + deno_tls.
   "deno_native_certs",
   # No `repository` declared. Pulled by deno_node for `os.userInfo()`.
   "deno_whoami",
-  # 1853 days since last update at xdg-rs/dirs.
+  # Unmaintained upstream at xdg-rs/dirs.
   "dirs-sys-next",
-  # 3182 days since last update at faradayio/exec-rs.
+  # Unmaintained upstream at faradayio/exec-rs.
   # Pulled by Deno's `node_shim` (process re-exec on Node compatibility shim).
   "exec",
   # cargo-unmaintained can't find a crate of this name in the denoland/deno monorepo its `repository` field names.
   # It is a workspace member there, so the "not in <repo>" heuristic misfires. Pulled by the Deno registry stack.
   "fast-registry-json",
-  # 933 days since last update at HdrHistogram/HdrHistogram_rust.
+  # Unmaintained upstream at HdrHistogram/HdrHistogram_rust.
   # Pulled by deno_node (perf hooks).
   "hdrhistogram",
-  # 460 days since last update at xacrimon/dashmap.
+  # Unmaintained upstream at xacrimon/dashmap.
   # Pulled by deno_maybe_sync. (Marked stable / feature-complete by upstream.)
   "dashmap",
   # jni-sys requirement ^0.3.0 (used 0.3.1, latest 0.4.1); pulled by ndk-sys, an Android-only dep.
   # Reached via wgpu-hal (deno_webgpu -> wgpu); never compiled on our target platforms.
   "jni-sys",
-  # 495 days since last update at rust-lang-nursery/lazy-static.rs.
+  # Unmaintained upstream at rust-lang-nursery/lazy-static.rs.
   # Pulled by actix-web-thiserror-derive (build proc-macro).
   "lazy_static",
-  # ndk-sys last updated ~365 days ago; Android-only, reached via wgpu-hal (deno_webgpu -> wgpu).
+  # ndk-sys unmaintained upstream; Android-only, reached via wgpu-hal (deno_webgpu -> wgpu).
   # Never compiled on our target platforms.
   "ndk-sys",
-  # 391 days since last update at rust-num/num-complex.
+  # Unmaintained upstream at rust-num/num-complex.
   # Pulled by nalgebra (via wgpu / naga). Stable foundational math crate.
   "num-complex",
-  # 2215 days since last update at SSheldon/rust-objc.
+  # Unmaintained upstream at SSheldon/rust-objc.
   # Pulled by `metal` (macOS GPU bindings via wgpu).
   "objc",
   # Not in declared repo (RustCrypto/utils).
@@ -378,7 +378,7 @@ ignore = [
   "opaque-debug",
   # cargo-unmaintained doesn't follow `hg` repositories.
   "oorandom",
-  # 1052 days since last update at hjiayz/p12.
+  # Unmaintained upstream at hjiayz/p12.
   # Pulled by deno_node_crypto for PKCS#12 cert bundles.
   "p12",
   # Archived upstream at dtolnay/paste.
@@ -389,7 +389,7 @@ ignore = [
   # Pulled by getset via neli via local-ip-address. Compile-time only.
   "proc-macro-error-attr2",
   "proc-macro-error2",
-  # 603 days since last update at timvisee/qr2term-rs.
+  # Unmaintained upstream at timvisee/qr2term-rs.
   "qr2term",
   # False positive.
   # rand_chacha lives in rust-random/rand as a workspace subdir (rand_chacha/).
@@ -398,10 +398,14 @@ ignore = [
   # Archived upstream at rustls/pemfile. Pulled by deno_native_certs.
   # rustls itself has moved to inline pemfile parsing.
   "rustls-pemfile",
-  # 2154 days since last update at arcnmx/serde-value.
+  # Unmaintained upstream at denoland/rustls-tokio-stream.
+  # Its derive-io (=0.4.1) and socket2 (^0.5) requirements lag latest; pulled by the Deno net/TLS stack
+  # (deno_net -> deno_runtime).
+  "rustls-tokio-stream",
+  # Unmaintained upstream at arcnmx/serde-value.
   # Pulled by deno_ffi.
   "serde-value",
-  # 732 days since last update at TedDriggs/serde_default; its `darling` requirement lags the latest release.
+  # Unmaintained upstream at TedDriggs/serde_default; its `darling` requirement lags the latest release.
   # A direct dependency of edge-toolkit for the serde-attribute `Default` derive.
   "serde_default",
   # Archived upstream at bodil/smartstring.
@@ -409,9 +413,9 @@ ignore = [
   "smartstring",
   # https://github.com/rustsec/advisory-db/issues/2132
   "serde_yaml",
-  # 700 days since last update at dalek-cryptography/subtle.
+  # Unmaintained upstream at dalek-cryptography/subtle.
   "subtle",
-  # 1400 days since last update at hucsmn/suffix_array; its `bincode` requirement lags the latest release.
+  # Unmaintained upstream at hucsmn/suffix_array; its `bincode` requirement lags the latest release.
   # Pulled by qbsdiff (binary diffing) via deno_runtime.
   "suffix_array",
   # Archived upstream at rust-analyzer/text-size.
@@ -426,7 +430,7 @@ ignore = [
   # Declared repository alacritty/vte is a single-crate repo with no `utf8parse` member.
   # The crate is effectively orphaned upstream.
   "utf8parse",
-  # 517 days since last update at daxpedda/web-time.
+  # Unmaintained upstream at daxpedda/web-time.
   "web-time",
   # Not in declared repo (gfx-rs/wgpu): a per-platform helper crate from the wgpu monorepo.
   # cargo-unmaintained can't find the individual member at the repo root -- false positive; pulled by wgpu-core.

@@ -140,19 +140,22 @@ goawk -f "$keep" "$covdir/wasi.lcov" >> lcov.info
 shell = "bash -euo pipefail -c"
 
 [tasks.pytest-cov]
-description = "Combined Python coverage (pyface1 pytest + web-runner Pyodide runs) -> Cobertura for Codecov/DeepSource"
-# One Python report is combined from three data sources: pyface1's pytest run plus the web-runner Pyodide runs.
-# The web-runner integration test drops pydata1's and pyface1's .coverage files into target/pycov/ when
-# ET_TEST_COVERAGE is set; `coverage combine` then merges all three via config/coverage.toml's `[paths]` remap into
-# a single Cobertura file. pytest-cov is a plugin, so it rides in pyface1's uv `dev` group -- the same venv as
-# pytest -- and `uv run` (a mise-managed tool) installs both into the one project venv. UV_PYTHON mirrors
-# test-pyface1's mise-CPython pin.
+description = "Combined Python coverage (pytest + web-runner Pyodide runs) -> Cobertura for Codecov/DeepSource"
+# One Python report is combined from several data sources: the pytest runs plus the web-runner Pyodide runs.
+# The pyface1 + pyeye1 pytest runs and the web-runner integration test (which drops the modules' .coverage files
+# into target/pycov/ when ET_TEST_COVERAGE is set) all feed `coverage combine`, which merges them via
+# config/coverage.toml's `[paths]` remap into a single Cobertura file. pytest-cov is a plugin, so it rides in
+# each module's uv `dev` group -- the same venv as pytest -- and `uv run` (a mise-managed tool) installs both
+# into the one project venv. UV_PYTHON mirrors test-pyface1's mise-CPython pin.
 run = """
 pyface=services/ws-modules/pyface1
+pyeye=services/ws-modules/pyeye1
 pycov=target/pycov
 mkdir -p "$pycov"
 uv run --directory "$pyface" pytest --cov=pyface1 --cov-report=
 cp "$pyface/.coverage" "$pycov/.coverage.pyface1_pytest"
+uv run --directory "$pyeye" pytest --cov=pyeye1 --cov-report=
+cp "$pyeye/.coverage" "$pycov/.coverage.pyeye1_pytest"
 uv run --project "$pyface" coverage combine "$pycov"
 uv run --project "$pyface" coverage xml -o coverage-python.xml
 """

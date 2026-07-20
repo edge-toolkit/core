@@ -3,6 +3,15 @@
 
 const PYODIDE_BASE_PATH = "/modules/pyodide/";
 
+// One colour per RetinaFace landmark, keyed by the label the Python decoder emits.
+const LANDMARK_COLORS = {
+  left_eye: "#ff4d4d",
+  right_eye: "#4dff88",
+  nose: "#ffd24d",
+  left_mouth: "#4db8ff",
+  right_mouth: "#c86bff",
+};
+
 let pyodide;
 let py;
 let cfg;
@@ -176,6 +185,13 @@ function render(detectionsJson) {
     ctx.fillRect(left, Math.max(top - 24, 0), ctx.measureText(label).width + 10, 22);
     ctx.fillStyle = "#fffdfa";
     ctx.fillText(label, left + 5, Math.max(top - 8, 16));
+
+    for (const point of detection.landmarks ?? []) {
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = LANDMARK_COLORS[point.label] ?? "#fffdfa";
+      ctx.fill();
+    }
   }
 }
 

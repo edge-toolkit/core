@@ -24,6 +24,15 @@ sha256 = "3b29de703b4641cb995754bc6294bd58b0fa5d859c838e9484c86d00251f8a08"
 upstream = "https://huggingface.co/amd/retinaface"
 url = "https://github.com/edge-toolkit/core/releases/download/hf-cache-v1/RetinaFace_int-7b69507.onnx"
 
+# pyeye1's MediaPipe FaceLandmarker model bundle (Apache-2.0), Google's face_landmarker.task used as-is.
+# Pinned to the stable float16/1 revision in the mediapipe-models bucket; publish-eye1-to-hf-cache mirrors the
+# same blob to the hf-cache release, so its upload matches this SHA256.
+[asset."face_landmarker.task"]
+license = "Apache-2.0"
+sha256 = "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff"
+upstream = "https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker"
+url = "https://github.com/edge-toolkit/core/releases/download/hf-cache-v1/face_landmarker.task"
+
 [asset."rustpython-wasm-08a1d6f.tar.gz"]
 license = "MIT"
 sha256 = "7b81d53f5b3a63c60fc2bc1717e87466026d796ec522b925f009532c7b0291f3"

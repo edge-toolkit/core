@@ -57,6 +57,29 @@ fn resolves_aube_backend_layout() {
 }
 
 #[test]
+fn resolves_scoped_package_layout() {
+    // A scoped npm package (e.g. @mediapipe/tasks-vision) lives at
+    // <install>/lib/node_modules/@mediapipe/tasks-vision. The resolver joins the full "@scope/pkg" name, so it
+    // returns the node_modules dir; mise_npm_package_path then appends the name to get the package dir served
+    // as one module.
+    let install = TempDir::new().unwrap();
+    let modules = install.path().join("lib/node_modules");
+    let package = modules.join("@mediapipe/tasks-vision");
+    fs::create_dir_all(&package).unwrap();
+    fs::write(package.join("package.json"), "{}").unwrap();
+
+    let found = find_npm_modules_path_in(install.path(), "@mediapipe/tasks-vision");
+    assert_eq!(found.as_deref(), Some(modules.as_path()));
+    assert!(
+        found
+            .unwrap()
+            .join("@mediapipe/tasks-vision")
+            .join("package.json")
+            .is_file()
+    );
+}
+
+#[test]
 fn returns_none_when_neither_layout_has_the_package() {
     let install = TempDir::new().unwrap();
     // Make `lib/node_modules` exist but with a *different* package, so

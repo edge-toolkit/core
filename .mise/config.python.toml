@@ -61,8 +61,14 @@ depends = ["ruff-fix"]
 description = "Apply Python lint-fix passes"
 
 [tasks."test:python"]
-depends = ["test-pyface1"]
+depends = ["test-pyeye1", "test-pyface1"]
 description = "Run Python tests"
+
+[tasks.test-pyeye1]
+dir = "services/ws-modules/pyeye1"
+# Same uv-interpreter pin as `[tasks."prefetch:python".env]`; see there.
+env = { UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}" }
+run = "uv run pytest"
 
 [tasks.test-pyface1]
 dir = "services/ws-modules/pyface1"
@@ -123,6 +129,20 @@ uv build --wheel --out-dir pkg
 """
 shell = "bash -euo pipefail -c"
 
+[tasks.build-ws-pyeye1-module]
+depends = ["build-et-ws-wheel"]
+description = "Build the pyeye1 Python MediaPipe eye detection workflow module"
+dir = "services/ws-modules/pyeye1"
+# et-ws is its own ws-module mounted at /modules/et-ws/, loaded at runtime, so only pyeye1's wheel builds here.
+# pyeye1 loads the et-ws wheel at runtime from that mount. The MediaPipe FaceLandmarker runtime
+# (@mediapipe/tasks-vision) and the model bundle (et-model-eye1) are served separately -- not part of this build.
+run = """
+rm -f pkg/*.whl
+uv build --wheel --out-dir pkg
+{{ vars.et_cli }} module-package-json
+"""
+shell = "bash -euo pipefail -c"
+
 [tasks.build-ws-wasi-graphics-info-module]
 depends = ["build-et-cli"]
 description = "Build the WASI graphics-info Python module as a WASI Preview 2 component"
@@ -153,6 +173,7 @@ description = "Prefetch Python (uv) dependencies"
 env = { UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}" }
 run = """
 uv sync --directory services/ws-modules/pydata1
+uv sync --directory services/ws-modules/pyeye1
 uv sync --directory services/ws-modules/pyface1
 """
 shell = "bash -euo pipefail -c"

@@ -7,6 +7,7 @@ members = [
     "et-rest-client",
     "et-ws",
     "et-ws-pydata1",
+    "et-ws-pyeye1",
     "et-ws-pyface1",
     "et-ws-wasi-graphics-info",
 ]
@@ -203,6 +204,29 @@ dependencies = [
 requires-dist = [
     { name = "et-rest-client", editable = "generated/python-rest" },
     { name = "pyodide-http" },
+]
+
+[[package]]
+name = "et-ws-pyeye1"
+version = "0.1.0"
+source = { editable = "services/ws-modules/pyeye1" }
+dependencies = [
+    { name = "et-ws" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "et-ws", editable = "generated/python-ws" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
 ]
 
 [[package]]

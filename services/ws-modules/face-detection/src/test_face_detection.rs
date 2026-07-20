@@ -22,6 +22,7 @@ fn detection(score: f64, box_coords: [f64; 4]) -> Detection {
         class_index: 0,
         score,
         box_coords,
+        landmarks: Vec::new(),
     }
 }
 
@@ -108,4 +109,24 @@ fn retinaface_zero_offsets_decode_to_prior_box() {
     assert!((decoded[1] - 0.25).abs() < 1e-6);
     assert!((decoded[2] - 0.625).abs() < 1e-6);
     assert!((decoded[3] - 0.75).abs() < 1e-6);
+}
+
+#[test]
+fn retinaface_zero_offsets_decode_landmarks_to_prior_centre() {
+    let points = decode_retinaface_landmarks(&[0.0_f32; 10], [0.5, 0.5, 0.25, 0.5]);
+
+    for point in points {
+        assert!((point[0] - 0.5).abs() < 1e-6);
+        assert!((point[1] - 0.5).abs() < 1e-6);
+    }
+}
+
+#[test]
+fn retinaface_landmarks_apply_offset_variance_and_prior_size() {
+    let landm = [1.0_f32, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+    let points = decode_retinaface_landmarks(&landm, [0.5, 0.5, 0.25, 0.5]);
+
+    assert!((points[0][0] - (0.5 + 1.0 * 0.1 * 0.25)).abs() < 1e-6);
+    assert!((points[0][1] - (0.5 + 2.0 * 0.1 * 0.5)).abs() < 1e-6);
+    assert!((points[1][0] - 0.5).abs() < 1e-6);
 }

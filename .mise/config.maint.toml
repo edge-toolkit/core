@@ -4,6 +4,9 @@
 #
 # - publish-face1-to-hf-cache: refreshes the Hugging Face asset mirror in
 #   edge-toolkit/core's hf-cache-v<N> release.
+# - publish-eye1-to-hf-cache: mirrors Google's face_landmarker.task
+#   (MediaPipe FaceLandmarker, used as-is) to the same hf-cache-v<N> release
+#   as the pyeye1 model.
 # - publish-rp-wasm-to-release: builds upstream RustPython main with
 #   wasm-pack + freeze-stdlib, tars the pkg/ output, and uploads to
 #   edge-toolkit/core's rp-v<N> release (same release that holds the
@@ -13,6 +16,7 @@
 # Not in ALL_LANGS (maint isn't a language); invoked manually:
 #
 #   MISE_ENV=maint mise run publish-face1-to-hf-cache
+#   MISE_ENV=maint mise run publish-eye1-to-hf-cache
 #   MISE_ENV=maint mise run publish-rp-wasm-to-release
 
 [tools]
@@ -128,6 +132,39 @@ EOF
 
 echo "uploaded $asset to {{ vars.a_hf_cache_tag }} (commit $commit)"
 echo "updated config/upstream-cache/data.toml + .mise/config.toml; conftest will catch any drift"
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.publish-eye1-to-hf-cache]
+depends = ["bootstrap-hf-cache-release"]
+description = "Refresh eye1 (MediaPipe FaceLandmarker) mirror in hf-cache-v<N> release (manual / on bump)"
+# Refresh the eye1 MediaPipe FaceLandmarker model mirror in the hf-cache release.
+# Downloads Google's Apache-2.0 face_landmarker.task from the mediapipe-models bucket (used as-is, no
+# conversion), computes the SHA256, uploads the .task + .task.sha256 sidecar to the release, then augtool-sets
+# data.toml's eye1 sha256 so the in-repo manifest stays in sync (checksums.rego catches drift on next
+# `mise run check`). eye1_asset has a stable name, so config.toml needs no edit.
+run = """
+work="$HF_CACHE_WORK/eye1"
+src="https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+asset="{{ vars.eye1_asset }}"
+
+coreutils rm -rf "$work"
+coreutils mkdir -p "$work"
+cd "$work"
+
+rclone copyurl "$src" "$asset"
+coreutils sha256sum "$asset" > "${asset}.sha256"
+actual=$(coreutils cut -c1-64 "${asset}.sha256")
+
+gh release upload "{{ vars.a_hf_cache_tag }}" --clobber --repo "$GH_REPO" "$asset" "${asset}.sha256"
+
+cksum_path="{{ config_root }}/config/upstream-cache/data.toml"
+augtool --transform="Toml incl $cksum_path" --autosave <<EOF
+set "/files$cksum_path/table[. = 'asset.\"$asset\"']/entry[. = 'sha256']/string" "$actual"
+EOF
+
+echo "uploaded $asset to {{ vars.a_hf_cache_tag }}"
+echo "updated config/upstream-cache/data.toml sha256; conftest will catch any drift"
 """
 shell = "bash -euo pipefail -c"
 
