@@ -878,6 +878,7 @@ depends = [
   "actionlint-check",
   "agent-lint-check",
   "ast-grep-check",
+  "ast-grep-check-rule-tests",
   "branch-up-to-date-check",
   "cargo-check",
   "cargo-clippy-check",
@@ -905,6 +906,7 @@ depends = [
   "repo-check",
   "ryl-check",
   "semgrep-check",
+  "semgrep-check-rule-tests",
   "shellcheck-check",
   "shellcheck-mise-check",
   "shfmt-mise-check",
@@ -1021,31 +1023,41 @@ echo "macos-sdk-check: SDK $sdk (minimum $min)"
 shell = "{{ vars.task_shell }}"
 
 [tasks.ast-grep-check]
-depends = ["python-safety-rules-test"]
+depends = ["ast-grep-check-rule-tests"]
 # --no-ignore hidden so the gha-* YAML rules reach .github/workflows.
 # ast-grep skips dot-dirs by default; gitignored paths like target/ stay skipped.
 description = "Run ast-grep structural-search rules"
 run = "ast-grep scan --error --no-ignore hidden -c config/ast-grep/sgconfig.yaml"
 
-[tasks.python-safety-rules-test]
-description = "Test Python exception safety rules against unsafe and intentional recovery handlers"
-run = """
-ast-grep test -c config/ast-grep/sgconfig.yaml --skip-snapshot-tests
-work=target/scratch/python-safety-rules
-coreutils mkdir -p "$work"
-yq -r '.code' config/semgrep-tests/python-exception-safety.yaml >"$work/python-exception-safety.py"
-semgrep --test --metrics=off --config config/semgrep/python-exception-safety.yaml "$work/python-exception-safety.py"
-"""
-shell = "{{ vars.task_shell }}"
+# The valid/invalid cases in config/ast-grep/tests, one file per rule id.
+[tasks.ast-grep-check-rule-tests]
+description = "Run the ast-grep rule tests against their valid and invalid cases (ast-grep test)"
+run = "ast-grep test -c config/ast-grep/sgconfig.yaml --skip-snapshot-tests"
 
 [tasks.ast-grep-fix]
 description = "Apply autofix for ast-grep rules that define a `fix:` field"
 run = "ast-grep scan --update-all --no-ignore hidden -c config/ast-grep/sgconfig.yaml"
 
 [tasks.semgrep-check]
-depends = ["python-safety-rules-test"]
+depends = ["semgrep-check-rule-tests"]
 description = "Run Semgrep code and configuration rules"
 run = "semgrep scan --config config/semgrep --error --metrics=off ."
+
+# Each case file in config/semgrep-tests is `<rule file stem>.<ext>.yaml`, its annotated target under `code:`.
+# The target is wrapped in YAML so the repo carries no loose source file in that language; it is unwrapped into
+# target/ under its real name, where `semgrep --test` pairs it with the rule file of the same stem.
+[tasks.semgrep-check-rule-tests]
+description = "Run the Semgrep rule tests against their annotated cases (semgrep --test)"
+run = """
+work=target/scratch/semgrep-rule-tests
+coreutils rm -rf "$work"
+coreutils mkdir -p "$work"
+for case in config/semgrep-tests/*.yaml; do
+  yq -r '.code' "$case" >"$work/$(coreutils basename "$case" .yaml)"
+done
+semgrep --test --metrics=off --config config/semgrep "$work"
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.semgrep-fix]
 description = "Apply autofix for Semgrep rules that define a `fix:` field"

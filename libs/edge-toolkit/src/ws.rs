@@ -1,3 +1,5 @@
+use std::net::IpAddr;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -95,12 +97,12 @@ pub enum AgentConnectionState {
 pub struct AgentSummary {
     pub agent_id: String,
     pub state: AgentConnectionState,
-    pub last_known_ip: Option<String>,
+    pub last_known_ip: IpAddr,
 }
 
 impl AgentSummary {
     #[must_use]
-    pub const fn new(agent_id: String, state: AgentConnectionState, last_known_ip: Option<String>) -> Self {
+    pub const fn new(agent_id: String, state: AgentConnectionState, last_known_ip: IpAddr) -> Self {
         Self {
             agent_id,
             state,

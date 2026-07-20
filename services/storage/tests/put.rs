@@ -10,6 +10,7 @@
 #![cfg(test)]
 
 use std::collections::BTreeMap;
+use std::net::Ipv4Addr;
 
 use actix_web::dev::Payload as DevPayload;
 use actix_web::error::ResponseError as _;
@@ -25,7 +26,7 @@ fn registry_with_agent(agent_id: &str) -> AgentRegistry<()> {
     let mut agents = BTreeMap::new();
     let _previous: Option<AgentRecord<()>> = agents.insert(
         agent_id.to_string(),
-        AgentRecord::new(AgentConnectionState::Connected, None, Some(())),
+        AgentRecord::new(AgentConnectionState::Connected, Ipv4Addr::LOCALHOST.into(), Some(())),
     );
     AgentRegistry::from_agents(agents)
 }

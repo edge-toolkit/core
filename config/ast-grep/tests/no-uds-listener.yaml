@@ -1,0 +1,19 @@
+id: no-uds-listener
+valid:
+  - |
+    fn serve() {
+        let _server = HttpServer::new(app).bind(("127.0.0.1", 8080));
+    }
+  - |
+    fn serve(listener: std::net::TcpListener) {
+        let _server = HttpServer::new(app).listen(listener);
+    }
+invalid:
+  - |
+    fn serve() {
+        let _server = HttpServer::new(app).bind_uds("/run/et.sock");
+    }
+  - |
+    fn serve(listener: std::os::unix::net::UnixListener) {
+        let _server = HttpServer::new(app).listen_uds(listener);
+    }

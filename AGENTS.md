@@ -1249,6 +1249,17 @@ When the rewrite can't be expressed as a single template (multiple match shapes,
 structural restructuring), keep the rule check-only and write a brief note in the rule body explaining why the
 autofix wasn't viable.
 
+### When you write or change an ast-grep or semgrep rule, give it tests
+
+A new ast-grep or semgrep rule lands with its test cases in the same change, and a modified rule lands with cases
+covering the shapes the modification added or stopped matching -- just as a conftest policy carries its
+`_test.rego` beside it. ast-grep cases go in `config/ast-grep/tests/<rule-id>.yaml` as `valid:` / `invalid:`
+snippets; semgrep cases go in `config/semgrep-tests/` as annotated targets. `ast-grep-check-rule-tests` and
+`semgrep-check-rule-tests` run them. Cover both directions: at least one snippet the rule must flag, and the
+nearest legitimate code it must leave alone, since a pattern that over-matches fails the repo far more often
+than one that under-matches. Confirm a new case can fail -- run the tool against a broken copy under
+`target/scratch/` and watch it go red -- because a case the rule never pairs with passes silently.
+
 ### NEVER delete a lint rule without explicit user permission
 
 **Do not delete a rule from `config/ast-grep/rules/`, `config/semgrep/`, `config/conftest/policy/`, `config/taplo/`,

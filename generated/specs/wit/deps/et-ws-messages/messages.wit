@@ -21,9 +21,14 @@ interface messages {
     broadcast,
   }
   type spec-version = string;
+  /// An IPv4 or IPv6 address, as a fixed-size tuple of its octets or hextets.
+  variant ip-address {
+    ipv4(tuple<u8, u8, u8, u8>),
+    ipv6(tuple<u16, u16, u16, u16, u16, u16, u16, u16>),
+  }
   record agent-summary {
     agent-id: string,
-    last-known-ip: option<string>,
+    last-known-ip: ip-address,
     state: agent-connection-state,
   }
   record cloud-event {

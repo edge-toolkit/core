@@ -372,6 +372,38 @@ pub mod et {
                     4 == < SpecVersion as wasmtime::component::ComponentType >::ALIGN32
                 );
             };
+            /// An IPv4 or IPv6 address, as a fixed-size tuple of its octets or hextets.
+            #[derive(wasmtime::component::ComponentType)]
+            #[derive(wasmtime::component::Lift)]
+            #[derive(wasmtime::component::Lower)]
+            #[component(variant)]
+            #[derive(Clone, Copy)]
+            pub enum IpAddress {
+                #[component(name = "ipv4")]
+                Ipv4((u8, u8, u8, u8)),
+                #[component(name = "ipv6")]
+                Ipv6((u16, u16, u16, u16, u16, u16, u16, u16)),
+            }
+            impl core::fmt::Debug for IpAddress {
+                fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                    match self {
+                        IpAddress::Ipv4(e) => {
+                            f.debug_tuple("IpAddress::Ipv4").field(e).finish()
+                        }
+                        IpAddress::Ipv6(e) => {
+                            f.debug_tuple("IpAddress::Ipv6").field(e).finish()
+                        }
+                    }
+                }
+            }
+            const _: () = {
+                assert!(
+                    18 == < IpAddress as wasmtime::component::ComponentType >::SIZE32
+                );
+                assert!(
+                    2 == < IpAddress as wasmtime::component::ComponentType >::ALIGN32
+                );
+            };
             #[derive(wasmtime::component::ComponentType)]
             #[derive(wasmtime::component::Lift)]
             #[derive(wasmtime::component::Lower)]
@@ -381,7 +413,7 @@ pub mod et {
                 #[component(name = "agent-id")]
                 pub agent_id: wasmtime::component::__internal::String,
                 #[component(name = "last-known-ip")]
-                pub last_known_ip: Option<wasmtime::component::__internal::String>,
+                pub last_known_ip: IpAddress,
                 #[component(name = "state")]
                 pub state: AgentConnectionState,
             }
@@ -396,7 +428,7 @@ pub mod et {
             }
             const _: () = {
                 assert!(
-                    24 == < AgentSummary as wasmtime::component::ComponentType >::SIZE32
+                    28 == < AgentSummary as wasmtime::component::ComponentType >::SIZE32
                 );
                 assert!(
                     4 == < AgentSummary as wasmtime::component::ComponentType >::ALIGN32

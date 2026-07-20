@@ -7,6 +7,7 @@
 //! to/from `edge_toolkit::ws::{ClientMessage, ServerMessage}` and serialises to JSON for the actual websocket frame.
 //! Guests no longer hand-craft JSON.
 
+use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -28,8 +29,9 @@ use crate::HostState;
 use crate::bindings::et::ws_messages::messages::{
     AgentConnectionState as WitAgentConnectionState, AgentSummary as WitAgentSummary,
     ClientMessage as WitClientMessage, ConnectAckPayload, ConnectStatus as WitConnectStatus, InvalidPayload,
-    ListAgentsResponsePayload, MessageDeliveryStatus as WitMessageDeliveryStatus, MessageScope as WitMessageScope,
-    MessageStatusPayload, RelayBinaryPayload, RelayTextPayload, ResponsePayload, ServerMessage as WitServerMessage,
+    IpAddress as WitIpAddress, ListAgentsResponsePayload, MessageDeliveryStatus as WitMessageDeliveryStatus,
+    MessageScope as WitMessageScope, MessageStatusPayload, RelayBinaryPayload, RelayTextPayload, ResponsePayload,
+    ServerMessage as WitServerMessage,
 };
 use crate::bindings::et::ws_wasi::ws::{Host, State};
 
@@ -315,11 +317,11 @@ fn wit_to_client_message(msg: WitClientMessage) -> Result<ClientMessage, WsError
 /// Convert a wire `ServerMessage` (inbound) into the WIT `server-message` the guest sees on `recv`.
 ///
 /// Re-serialises opaque JSON payloads so they cross the WIT boundary as strings.
-#[expect(
-    clippy::single_call_fn,
-    reason = "named converter; used once by <HostState as Host>::recv"
-)]
-fn server_message_to_wit(msg: ServerMessage) -> Result<WitServerMessage, WsError> {
+///
+/// # Errors
+///
+/// Fails when an agent message's opaque JSON payload cannot be re-serialised.
+pub fn server_message_to_wit(msg: ServerMessage) -> Result<WitServerMessage, WsError> {
     let serialize = |value: serde_json::Value| serde_json::to_string(&value);
     Ok(match msg {
         ServerMessage::ConnectAck { agent_id, status } => WitServerMessage::ConnectAck(ConnectAckPayload {
@@ -423,6 +425,17 @@ fn et_agent_summary(value: EtAgentSummary) -> WitAgentSummary {
     WitAgentSummary {
         agent_id: value.agent_id,
         state: et_agent_connection_state(value.state),
-        last_known_ip: value.last_known_ip,
+        last_known_ip: et_ip_address(value.last_known_ip),
+    }
+}
+
+#[expect(
+    clippy::single_call_fn,
+    reason = "address converter; one call site in et_agent_summary"
+)]
+fn et_ip_address(value: IpAddr) -> WitIpAddress {
+    match value {
+        IpAddr::V4(addr) => WitIpAddress::Ipv4(addr.octets().into()),
+        IpAddr::V6(addr) => WitIpAddress::Ipv6(addr.segments().into()),
     }
 }

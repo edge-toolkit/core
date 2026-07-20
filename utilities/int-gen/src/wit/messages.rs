@@ -8,6 +8,7 @@
 //!   * Variant rename `et-foo-bar` -> variant case `foo-bar`. The `et-` prefix is dropped because the WIT package
 //!     namespace (`et:`) already carries it.
 //!   * `serde_json::Value` fields -> `string` (the host serializes the opaque JSON when shipping to/from the guest).
+//!   * `IpAddr` (schema `format: ip`) -> `ip-address`, a variant of fixed-size octet / hextet tuples.
 //!   * `Option<T>` -> `option<T>`. `Vec<T>` -> `list<T>`. `String` -> `string`. Integers -> the narrowest WIT
 //!     integer type the schema's `format` hint names (`u8`, `s16`, ...), falling back to `s64` when there is none.
 //!   * `#[serde(rename_all = "snake_case")]` enums map directly to WIT `enum` with kebab-case case names.
@@ -33,6 +34,29 @@ fn to_kebab(input: &str) -> String {
 
 type EnumSet = HashSet<String>;
 
+/// The WIT type a `string` field with the schema `format: ip` (a Rust `IpAddr`) maps to.
+const IP_ADDRESS: &str = "ip-address";
+
+/// Define [`IP_ADDRESS`] in the shape `wasi:sockets/network` gives its own: four octets or eight hextets.
+///
+/// Declared here rather than imported, so the package needs no `wasi:sockets` dependency for one type.
+#[expect(
+    clippy::single_call_fn,
+    reason = "named helper called once by render(); kept separate so each emit_* phase has its own scope"
+)]
+fn emit_ip_address_def(interface: &mut Interface) {
+    let ipv4 = Type::tuple([Type::U8, Type::U8, Type::U8, Type::U8]);
+    let ipv6 = Type::tuple(core::iter::repeat_n(Type::U16, 8));
+    let mut def = TypeDef::variant(
+        IP_ADDRESS,
+        [VariantCase::value("ipv4", ipv4), VariantCase::value("ipv6", ipv6)],
+    );
+    def.set_docs(Some(
+        "An IPv4 or IPv6 address, as a fixed-size tuple of its octets or hextets.",
+    ));
+    interface.type_def(def);
+}
+
 #[expect(
     clippy::unwrap_in_result,
     clippy::unwrap_used,
@@ -41,12 +65,13 @@ type EnumSet = HashSet<String>;
 pub fn render(client_schema: &Schema, server_schema: &Schema) -> Result<String, Error> {
     let client_root = client_schema.as_value();
     let server_root = server_schema.as_value();
-    let merged_root = merge_defs(client_root, server_root);
+    let merged_root = merge_defs(client_root, server_root)?;
     let mut interface = Interface::new("messages");
     interface.set_docs(Some(WS_DESCRIPTION));
 
     let enums = collect_enum_names(&merged_root);
     emit_enum_defs(&merged_root, &mut interface)?;
+    emit_ip_address_def(&mut interface);
     emit_record_defs(&merged_root, &mut interface, &enums)?;
     let mut emitted_payloads: HashSet<String> = HashSet::new();
     emit_variant_payloads(client_root, &mut interface, &enums, &mut emitted_payloads)?;
@@ -72,11 +97,19 @@ pub fn render(client_schema: &Schema, server_schema: &Schema) -> Result<String, 
     clippy::single_call_fn,
     reason = "named helper called once by render(); kept separate for the dedup logic"
 )]
-fn merge_defs(client_root: &serde_json::Value, server_root: &serde_json::Value) -> serde_json::Value {
+fn merge_defs(client_root: &serde_json::Value, server_root: &serde_json::Value) -> Result<serde_json::Value, Error> {
     let mut merged = serde_json::Map::new();
     for root in [client_root, server_root] {
         if let Some(defs) = root.get("$defs").and_then(|val| val.as_object()) {
             for (name, def) in defs {
+                // A `$defs` name shared by both schemas must resolve to the same definition; a mismatch means
+                // the client and server disagree on a shared type, which would silently pick one arbitrarily.
+                if let Some(previous) = merged.get(name) {
+                    if previous != def {
+                        return Err(Error::ConflictingDefs(name.clone()));
+                    }
+                    continue;
+                }
                 let _previous: Option<serde_json::Value> = merged.insert(name.clone(), def.clone());
             }
         }
@@ -85,7 +118,7 @@ fn merge_defs(client_root: &serde_json::Value, server_root: &serde_json::Value) 
     if !merged.is_empty() {
         let _previous: Option<serde_json::Value> = root.insert("$defs".to_string(), serde_json::Value::Object(merged));
     }
-    serde_json::Value::Object(root)
+    Ok(serde_json::Value::Object(root))
 }
 
 #[expect(
@@ -333,6 +366,7 @@ fn primitive(kind: &str, schema: &serde_json::Value, enums: &EnumSet) -> Result<
     Ok(match kind {
         // serde_json::Value-shaped opaque objects collapse onto `string` alongside genuine strings -- the host
         // serialises them to JSON.
+        "string" if schema.get("format").and_then(|val| val.as_str()) == Some("ip") => Type::named(IP_ADDRESS),
         "string" | "object" => Type::String,
         "integer" => integer_type(schema),
         "number" => Type::F64,

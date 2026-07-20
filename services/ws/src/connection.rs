@@ -1,5 +1,6 @@
 //! One agent's WebSocket connection: its registry identity, its inbound dispatch, and the read/write/heartbeat loop.
 
+use std::net::IpAddr;
 use std::time::{Duration, Instant};
 
 use actix_ws::{AggregatedMessage, AggregatedMessageStream, CloseCode, CloseReason, Session};
@@ -21,7 +22,7 @@ use crate::{
 pub(crate) struct Connection {
     agent_id: Option<String>,
     last_activity: Instant,
-    client_ip: String,
+    client_ip: IpAddr,
     registry: WsAgentRegistry,
     session: Session,
     outbox: AgentSession,
@@ -33,7 +34,7 @@ impl Connection {
     #[expect(clippy::single_call_fn, reason = "inherent constructor; used once by ws_handler")]
     pub(crate) fn new(
         registry: WsAgentRegistry,
-        client_ip: String,
+        client_ip: IpAddr,
         session: Session,
         outbox: AgentSession,
         idle_timeout: Option<Duration>,
@@ -66,7 +67,7 @@ impl Connection {
         let new_id = Uuid::now_v7().to_string();
         let (assigned_id, status) =
             self.registry
-                .connect_agent(requested_id, new_id, &self.client_ip, self.outbox.clone());
+                .connect_agent(requested_id, new_id, self.client_ip, self.outbox.clone());
         self.agent_id = Some(assigned_id.clone());
         (assigned_id, status)
     }

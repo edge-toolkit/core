@@ -3,10 +3,15 @@
 //! and the malformed-YAML error path.
 #![cfg(test)]
 
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
 use edge_toolkit::ws::{AgentConnectionState, AgentSummary, ConnectStatus};
 use edge_toolkit::ws_server::RegistryError;
 use et_ws_service::{WsAgentRegistry, load_registry};
 use tempfile::tempdir;
+
+const AGENT_1_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 5));
+const AGENT_2_IP: IpAddr = IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 6));
 
 #[test]
 fn missing_file_yields_an_empty_registry() {
@@ -26,8 +31,8 @@ fn round_trips_state_ip_and_pending_messages_but_not_sessions() {
     let registry = WsAgentRegistry::default();
     let (tx1, _rx1) = tokio::sync::mpsc::unbounded_channel();
     let (tx2, _rx2) = tokio::sync::mpsc::unbounded_channel();
-    let (agent_1_id, agent_1_status) = registry.connect_agent(None, "agent-1".to_string(), "10.0.0.5", tx1);
-    let (agent_2_id, agent_2_status) = registry.connect_agent(None, "agent-2".to_string(), "10.0.0.6", tx2);
+    let (agent_1_id, agent_1_status) = registry.connect_agent(None, "agent-1".to_string(), AGENT_1_IP, tx1);
+    let (agent_2_id, agent_2_status) = registry.connect_agent(None, "agent-2".to_string(), AGENT_2_IP, tx2);
     assert_eq!(
         (agent_1_id.as_str(), agent_1_status),
         ("agent-1", ConnectStatus::Assigned)
@@ -52,16 +57,8 @@ fn round_trips_state_ip_and_pending_messages_but_not_sessions() {
     assert_eq!(
         loaded.list_agents(),
         vec![
-            AgentSummary::new(
-                "agent-1".to_string(),
-                AgentConnectionState::Connected,
-                Some("10.0.0.5".to_string())
-            ),
-            AgentSummary::new(
-                "agent-2".to_string(),
-                AgentConnectionState::Disconnected,
-                Some("10.0.0.6".to_string())
-            ),
+            AgentSummary::new("agent-1".to_string(), AgentConnectionState::Connected, AGENT_1_IP),
+            AgentSummary::new("agent-2".to_string(), AgentConnectionState::Disconnected, AGENT_2_IP),
         ]
     );
     assert!(

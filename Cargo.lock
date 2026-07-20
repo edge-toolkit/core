@@ -4991,6 +4991,7 @@ dependencies = [
 name = "et-ws-service"
 version = "0.2.0"
 dependencies = [
+ "actix-rt",
  "actix-web",
  "actix-ws",
  "bytes",
