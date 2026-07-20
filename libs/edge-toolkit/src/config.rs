@@ -153,6 +153,24 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
             );
         }
     }
+    // MediaPipe tasks-vision (pyeye1's FaceLandmarker runtime). A scoped npm package: serve its own dir as a
+    // single module at /modules/@mediapipe/tasks-vision (the modules service reads its package.json name).
+    match mise_npm_package_path("@mediapipe/tasks-vision") {
+        Some(path) => {
+            log::info!("Resolved npm:@mediapipe/tasks-vision modules path: {}", path.display());
+            paths.push(path);
+        }
+        None => {
+            log::warn!(
+                "{}",
+                concat!(
+                    "npm:@mediapipe/tasks-vision install path not found via `mise where` -- ",
+                    "requests to /modules/@mediapipe/tasks-vision/* will 404. ",
+                    "Run `mise install npm:@mediapipe/tasks-vision` and verify the package layout.",
+                )
+            );
+        }
+    }
     paths
 }
 
@@ -259,6 +277,16 @@ pub fn mise_where(tool: &str) -> Option<PathBuf> {
 pub fn mise_npm_modules_path(package: &str) -> Option<PathBuf> {
     let install = mise_where(&format!("npm:{package}"))?;
     find_npm_modules_path_in(&install, package)
+}
+
+/// The package's own directory (`<node_modules>/<package>`) rather than its parent `node_modules`.
+///
+/// Use this to serve a single scoped npm package (e.g. `@mediapipe/tasks-vision`) as one module at
+/// `/modules/<package-name>`: pointing the modules service at the whole `node_modules` tree wouldn't find a
+/// nested `@scope/pkg` (the scope dir has no `package.json`), so we push the package dir directly.
+#[must_use]
+pub fn mise_npm_package_path(package: &str) -> Option<PathBuf> {
+    mise_npm_modules_path(package).map(|node_modules| node_modules.join(package))
 }
 
 /// Pure-filesystem version of [`mise_npm_modules_path`]: given an

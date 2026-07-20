@@ -401,6 +401,13 @@ ort_loc_unix = "{{ vars.a_home }}/.local/share/mise/installs/github-microsoft-on
 face1_asset = "RetinaFace_int-7b69507.onnx"
 face1_dst = "data/model-modules/model-face1/pkg/video_cv.onnx"
 face1_src = ":http:edge-toolkit/core/releases/download/{{ vars.a_hf_cache_tag }}/{{ vars.face1_asset }}"
+# eye1 is pyeye1's MediaPipe FaceLandmarker model bundle (Apache-2.0), used as-is (no conversion).
+# It is Google's face_landmarker.task, mirrored from the mediapipe-models bucket to the same hf-cache-v<N>
+# release by publish-eye1-to-hf-cache in config.maint.toml. data.toml records the SHA256; checksums.rego
+# cross-checks both sides.
+eye1_asset = "face_landmarker.task"
+eye1_dst = "data/model-modules/model-eye1/pkg/face_landmarker.task"
+eye1_src = ":http:edge-toolkit/core/releases/download/{{ vars.a_hf_cache_tag }}/{{ vars.eye1_asset }}"
 har_dst = "data/model-modules/model-har-motion1/pkg/har-motion1.onnx"
 har_repo = ":http:acd17sk/MET-Metabolic-Equivalent-of-Task-AI-Android-APP"
 har_src = "{{ vars.har_repo }}/raw/refs/heads/main/Models/onnx/hybrid_met.onnx"
@@ -1002,9 +1009,16 @@ description = "Flag dependencies whose upstream repo is archived or unmaintained
 # cargo-unmaintained is deliberately NOT a mise [tool].
 # It has no prebuilt and a from-source `cargo install` is too heavy to pay on every `mise install`. The
 # `dependencies` workflow installs it via taiki-e/install-action; this task just runs the binary so the
-# audit command lives beside the others. A GITHUB_TOKEN in the env lets it check each upstream repo's
-# archival status.
-run = "cargo unmaintained"
+# audit command lives beside the others. cargo-unmaintained needs a GitHub token to check each upstream
+# repo's archival status: the CI workflow already sets GITHUB_TOKEN, so the `:=` default is a no-op there;
+# locally (where the env var is unset) it falls back to `gh auth token`, so a dev never has to export one by
+# hand. `set -u` is satisfied because `${VAR:=...}` assigns before the reference.
+run = """
+: "${GITHUB_TOKEN:=$(gh auth token)}"
+export GITHUB_TOKEN
+cargo unmaintained
+"""
+shell = "bash -euo pipefail -c"
 
 [tasks."gen:dockerignore"]
 description = "Regenerate .dockerignore from .gitignore + Docker-only excludes"
@@ -1058,7 +1072,7 @@ description = "Pre-download CI-required dependencies + the MNIST model"
 
 [tasks.prefetch]
 # "dprint-check" is here to trigger download of the dprint plugin WASM files.
-depends = ["dprint-check", "fetch-face1-rclone", "fetch-har-motion1-rclone", "prefetch-ci"]
+depends = ["dprint-check", "fetch-eye1-rclone", "fetch-face1-rclone", "fetch-har-motion1-rclone", "prefetch-ci"]
 description = "Pre-download all dependencies and models (superset of prefetch-ci)"
 
 [tasks."prefetch:rust"]
@@ -1389,6 +1403,19 @@ actual=$(mise exec -- coreutils sha256sum -b "{{ vars.face1_dst }}" | mise exec 
 """
 shell = "bash -euo pipefail -c"
 
+[tasks.fetch-eye1-rclone]
+# Same shape as fetch-face1-rclone (rclone copy + Windows-safe SHA256 verify against data.toml).
+# The FaceMesh .task is mirrored to the hf-cache-v<N> release by `MISE_ENV=maint mise run
+# publish-eye1-to-hf-cache`; refresh it there on an upstream bump.
+run = """
+rclone copyto {{ vars.eye1_src }} {{ vars.eye1_dst }} {{ vars.gh_http }}
+export asset='{{ vars.eye1_asset }}'
+sha=$(mise exec -- yq -p toml -oy '.asset[strenv(asset)].sha256' config/upstream-cache/data.toml)
+actual=$(mise exec -- coreutils sha256sum -b "{{ vars.eye1_dst }}" | mise exec -- coreutils cut -c1-64)
+[ "$actual" = "$sha" ] || { echo "eye1 checksum mismatch: expected=$sha actual=$actual" >&2; exit 1; }
+"""
+shell = "bash -euo pipefail -c"
+
 [tasks.fetch-har-motion1-rclone]
 run = "rclone copyto {{ vars.har_src }} {{ vars.har_dst }} {{ vars.gh_http }}"
 shell = "bash -euo pipefail -c"
@@ -1401,7 +1428,7 @@ run = "rclone copyto {{ vars.mnist_src }} {{ vars.mnist_dst }} {{ vars.gh_http }
 shell = "bash -euo pipefail -c"
 
 [tasks.download-models]
-depends = ["fetch-face1-rclone", "fetch-har-motion1-rclone", "fetch-mnist-rclone"]
+depends = ["fetch-eye1-rclone", "fetch-face1-rclone", "fetch-har-motion1-rclone", "fetch-mnist-rclone"]
 
 [tasks.cargo-test]
 description = "Run every Rust test via nextest (web-runner excluded on gnullvm)"

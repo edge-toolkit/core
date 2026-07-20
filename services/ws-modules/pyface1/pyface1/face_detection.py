@@ -30,14 +30,27 @@ Box = list[float]
 Prior = tuple[float, float, float, float]
 DecodedBox = tuple[float, float, float, float]
 
+# RetinaFace emits five landmark points per face, in this fixed order (subject's perspective, so the
+# "left" eye/mouth-corner appears on the right of a non-mirrored frame). The eye points are indices 0 and 1.
+LANDMARK_LABELS = ("left_eye", "right_eye", "nose", "left_mouth", "right_mouth")
+
+
+class Landmark(TypedDict):
+    """One facial landmark point: its label and its coordinates in source-image pixels."""
+
+    label: str
+    x: float
+    y: float
+
 
 class Detection(TypedDict):
-    """One detected face: label, class index, score, and bounding box."""
+    """One detected face: label, class index, score, bounding box, and the five landmark points."""
 
     label: str
     class_index: int
     score: float
     box: Box
+    landmarks: list[Landmark]
 
 
 class DetectionSummary(TypedDict):
@@ -243,12 +256,23 @@ def decode_outputs(
             clamp((decoded[3] * FACE_INPUT_HEIGHT) / resize_ratio, 0.0, source_height),
         ]
 
+        points = decode_landmarks(landm[index * 10 : index * 10 + 10], priors[index])
+        landmarks: list[Landmark] = [
+            {
+                "label": LANDMARK_LABELS[point_index],
+                "x": clamp((point[0] * FACE_INPUT_WIDTH) / resize_ratio, 0.0, source_width),
+                "y": clamp((point[1] * FACE_INPUT_HEIGHT) / resize_ratio, 0.0, source_height),
+            }
+            for point_index, point in enumerate(points)
+        ]
+
         detections.append(
             {
                 "label": "face",
                 "class_index": 0,
                 "score": score,
                 "box": box,
+                "landmarks": landmarks,
             }
         )
 
@@ -363,6 +387,26 @@ def decode_box(loc: Sequence[float], prior: Sequence[float]) -> DecodedBox:
         center_x + width / 2.0,
         center_y + height / 2.0,
     )
+
+
+def decode_landmarks(landm: Sequence[float], prior: Sequence[float]) -> list[tuple[float, float]]:
+    """Decode the five RetinaFace landmark points from their offsets and prior box.
+
+    Each point is a plain centre offset (no width/height exponent), so decode is simpler than the box: the
+    normalised coordinate is the prior centre plus the offset scaled by the first variance and the prior size.
+    """
+    if len(landm) != 10:
+        raise ValueError("landm must contain exactly 10 values")
+    if len(prior) != 4:
+        raise ValueError("prior must contain exactly 4 values")
+
+    return [
+        (
+            prior[0] + landm[point * 2] * RETINAFACE_VARIANCES[0] * prior[2],
+            prior[1] + landm[point * 2 + 1] * RETINAFACE_VARIANCES[0] * prior[3],
+        )
+        for point in range(5)
+    ]
 
 
 def apply_nms(detections: list[Detection], threshold: float) -> list[Detection]:

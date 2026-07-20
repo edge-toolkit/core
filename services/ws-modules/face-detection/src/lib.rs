@@ -45,6 +45,16 @@ const RETINAFACE_NMS_THRESHOLD: f64 = 0.4;
 const RETINAFACE_VARIANCES: [f64; 2] = [0.1, 0.2];
 const RETINAFACE_MIN_SIZES: [&[f64]; 3] = [&[16.0, 32.0], &[64.0, 128.0], &[256.0, 512.0]];
 const RETINAFACE_STEPS: [f64; 3] = [8.0, 16.0, 32.0];
+// RetinaFace emits five landmark points per face, in this fixed order (subject's perspective, so the
+// "left" eye/mouth-corner appears on the right of a non-mirrored frame). The eye points are indices 0 and 1.
+const LANDMARK_LABELS: [&str; 5] = ["left_eye", "right_eye", "nose", "left_mouth", "right_mouth"];
+
+#[derive(Clone)]
+struct Landmark {
+    label: &'static str,
+    pixel_x: f64,
+    pixel_y: f64,
+}
 
 #[derive(Clone)]
 struct Detection {
@@ -52,6 +62,7 @@ struct Detection {
     class_index: i32,
     score: f64,
     box_coords: [f64; 4],
+    landmarks: Vec<Landmark>,
 }
 
 #[derive(Clone)]
@@ -375,6 +386,11 @@ async fn infer_once(
                     "class_index": entry.class_index,
                     "score": entry.score,
                     "box": entry.box_coords,
+                    "landmarks": entry
+                        .landmarks
+                        .iter()
+                        .map(|point| json!({ "label": point.label, "x": point.pixel_x, "y": point.pixel_y }))
+                        .collect::<Vec<_>>(),
                 }))
                 .collect::<Vec<_>>(),
             "changed": changed,
@@ -464,11 +480,23 @@ fn decode_retinaface_outputs(
             clamp((decoded[3] * FACE_INPUT_HEIGHT_F64) / resize_ratio, 0.0, source_height),
         ];
 
+        let points = decode_retinaface_landmarks(&landm_values[index * 10..index * 10 + 10], priors[index]);
+        let landmarks = LANDMARK_LABELS
+            .into_iter()
+            .zip(points)
+            .map(|(label, point)| Landmark {
+                label,
+                pixel_x: clamp((point[0] * FACE_INPUT_WIDTH_F64) / resize_ratio, 0.0, source_width),
+                pixel_y: clamp((point[1] * FACE_INPUT_HEIGHT_F64) / resize_ratio, 0.0, source_height),
+            })
+            .collect();
+
         detections.push(Detection {
             label: String::from("face"),
             class_index: 0,
             score,
             box_coords,
+            landmarks,
         });
     }
 
@@ -523,6 +551,20 @@ fn decode_retinaface_box(loc: [f64; 4], prior: [f64; 4]) -> [f64; 4] {
         center_x + width / 2.0,
         center_y + height / 2.0,
     ]
+}
+
+// Decode the five RetinaFace landmark points from their offsets and prior box. Each point is a plain centre
+// offset (no width/height exponent), so decode is simpler than the box: the normalised coordinate is the
+// prior centre plus the offset scaled by the first variance and the prior size.
+fn decode_retinaface_landmarks(landm: &[f32], prior: [f64; 4]) -> [[f64; 2]; 5] {
+    let mut points = [[0.0_f64; 2]; 5];
+    for (point, slot) in points.iter_mut().enumerate() {
+        *slot = [
+            prior[0] + f64::from(landm[point * 2]) * RETINAFACE_VARIANCES[0] * prior[2],
+            prior[1] + f64::from(landm[point * 2 + 1]) * RETINAFACE_VARIANCES[0] * prior[3],
+        ];
+    }
+    points
 }
 
 fn compute_iou(left: &Detection, right: &Detection) -> f64 {
@@ -870,9 +912,28 @@ fn face_render(detections: &[Detection]) -> Result<(), JsValue> {
         context.fill_rect(left, (top - 24.0).max(0.0), text_width, 22.0);
         context.set_fill_style_str("#fffdfa");
         context.fill_text(&label, left + 5.0, (top - 8.0).max(16.0))?;
+
+        for point in &detection.landmarks {
+            context.begin_path();
+            context.arc(point.pixel_x, point.pixel_y, 3.0, 0.0, std::f64::consts::TAU)?;
+            context.set_fill_style_str(landmark_color(point.label));
+            context.fill();
+        }
     }
 
     Ok(())
+}
+
+// Colour for each RetinaFace landmark, keyed by the label the decoder emits.
+fn landmark_color(label: &str) -> &'static str {
+    match label {
+        "left_eye" => "#ff4d4d",
+        "right_eye" => "#4dff88",
+        "nose" => "#ffd24d",
+        "left_mouth" => "#4db8ff",
+        "right_mouth" => "#c86bff",
+        _ => "#fffdfa",
+    }
 }
 
 fn image_data_to_tensor(image_data: &ImageData) -> Vec<f32> {

@@ -1,0 +1,35 @@
+[project]
+dependencies = ["et-ws"]
+description = "Python eye detection (MediaPipe FaceLandmarker -> eye bounding boxes)"
+license = "Apache-2.0 OR MIT"
+name = "et-ws-pyeye1"
+requires-python = ">=3.10"
+version = "0.1.0"
+
+[dependency-groups]
+dev = ["pytest", "pytest-cov"]
+
+[build-system]
+build-backend = "uv_build"
+requires = ["uv_build==0.11.8"]
+
+[tool.uv.build-backend]
+module-name = "pyeye1"
+module-root = ""
+
+# `et-ws` is the generated Pydantic client used for the typed WsClientEvent message.
+# It is wired as a uv workspace source so `uv run pytest` resolves it locally; the wheel itself is its own
+# ws-module that Pyodide micropip-installs at runtime from its mount (`/modules/et-ws/`).
+[tool.uv.sources]
+et-ws = { workspace = true }
+
+[tool.ws-module.dependencies]
+"@mediapipe/tasks-vision" = "*"
+et-model-eye1 = "*"
+et-ws = "*"
+pyodide = "*"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+# Optional: helps with modern import resolution
+addopts = ["--import-mode=importlib"]

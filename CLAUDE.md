@@ -301,7 +301,7 @@ Languages:
 - **Rust -> WASM** (wasm-pack): audio1, bluetooth, comm1, data1, face-detection, geolocation, graphics-info, har1, nfc,
   sensor1, speech-recognition, video1
 - **Dart -> JS**: dart-comm1
-- **Python (Pyodide)**: pydata1, pyface1
+- **Python (Pyodide)**: pydata1, pyeye1, pyface1
 - **C# (.NET WASM)**: dotnet-data1
 - **Java (TeaVM -> JS)**: java-data1
 - **Zig -> WASM**: zig-data1

@@ -4,8 +4,10 @@ import unittest
 from pyface1.face_detection import (
     FACE_INPUT_HEIGHT,
     FACE_INPUT_WIDTH,
+    LANDMARK_LABELS,
     build_priors,
     decode_box,
+    decode_landmarks,
     decode_outputs,
     output_values,
     preprocess_geometry,
@@ -42,6 +44,45 @@ class RetinaFaceTests(unittest.TestCase):
         self.assertAlmostEqual(decoded[1], 0.25, places=6)
         self.assertAlmostEqual(decoded[2], 0.625, places=6)
         self.assertAlmostEqual(decoded[3], 0.75, places=6)
+
+    def test_zero_offsets_decode_landmarks_to_prior_centre(self) -> None:
+        points = decode_landmarks([0.0] * 10, [0.5, 0.5, 0.25, 0.5])
+
+        self.assertEqual(len(points), len(LANDMARK_LABELS))
+        for point in points:
+            self.assertAlmostEqual(point[0], 0.5, places=6)
+            self.assertAlmostEqual(point[1], 0.5, places=6)
+
+    def test_decode_landmarks_applies_offset_variance_and_prior_size(self) -> None:
+        landm = [1.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        points = decode_landmarks(landm, [0.5, 0.5, 0.25, 0.5])
+
+        self.assertAlmostEqual(points[0][0], 0.5 + 1.0 * 0.1 * 0.25, places=6)
+        self.assertAlmostEqual(points[0][1], 0.5 + 2.0 * 0.1 * 0.5, places=6)
+        self.assertAlmostEqual(points[1][0], 0.5, places=6)
+
+    def test_decode_landmarks_rejects_bad_lengths(self) -> None:
+        with self.assertRaisesRegex(ValueError, "landm"):
+            decode_landmarks([0.0] * 8, [0.5, 0.5, 0.25, 0.5])
+        with self.assertRaisesRegex(ValueError, "prior"):
+            decode_landmarks([0.0] * 10, [0.5, 0.5])
+
+    def test_decode_outputs_attaches_five_labelled_landmarks(self) -> None:
+        priors = build_priors(float(FACE_INPUT_HEIGHT), float(FACE_INPUT_WIDTH))
+        loc = [0.0] * (len(priors) * 4)
+        landm = [0.0] * (len(priors) * 10)
+        # Force a single high-confidence detection at prior 0 (softmax picks index 1 as the face class).
+        conf = [0.0] * (len(priors) * 2)
+        conf[1] = 20.0
+
+        summary = decode_outputs(loc, conf, landm, 1.0, float(FACE_INPUT_WIDTH), float(FACE_INPUT_HEIGHT))
+
+        self.assertEqual(len(summary["detections"]), 1)
+        landmarks = summary["detections"][0]["landmarks"]
+        self.assertEqual([point["label"] for point in landmarks], list(LANDMARK_LABELS))
+        for point in landmarks:
+            self.assertGreaterEqual(point["x"], 0.0)
+            self.assertGreaterEqual(point["y"], 0.0)
 
     def test_output_values_rejects_trailing_shape_data(self) -> None:
         with self.assertRaisesRegex(ValueError, "unexpected shapes"):
