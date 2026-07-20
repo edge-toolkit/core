@@ -85,6 +85,8 @@ pub enum Error {
     UnsupportedSchemaType(String),
     #[error("enum value not a string in `{0}`")]
     EnumValueNotString(String),
+    #[error("conflicting schema definitions for `$defs/{0}` between client and server schemas")]
+    ConflictingDefs(String),
     #[error("progenitor codegen: {0}")]
     Progenitor(String),
     #[error("zig codegen: {0}")]

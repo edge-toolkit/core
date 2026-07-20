@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 use std::time::{Duration, Instant};
 
 use actix_web::{Error, HttpRequest, HttpResponse, web};
@@ -108,7 +108,7 @@ const fn default_connection_timeout() -> Option<Duration> {
 #[non_exhaustive]
 pub enum SessionMessage {
     Json(ServerMessage),
-    Text(String),
+    Text(Arc<str>),
     Binary(Bytes),
 }
 
@@ -242,8 +242,8 @@ impl Connection {
         }
     }
 
-    async fn send_text(&mut self, text: String) {
-        if let Err(err) = self.session.text(text).await {
+    async fn send_text(&mut self, text: Arc<str>) {
+        if let Err(err) = self.session.text(text.as_ref()).await {
             warn!("Failed to forward text to {}: {:?}", self.current_agent_id(), err);
         }
     }
@@ -366,8 +366,10 @@ impl Connection {
             from_agent_id,
             recipients.len()
         );
+        // Allocate the payload once; each session gets a cheap Arc clone instead of a per-recipient String.
+        let payload: Arc<str> = Arc::from(text);
         for (_, recipient) in recipients {
-            let _sent = recipient.send(SessionMessage::Text(text.to_string()));
+            let _sent = recipient.send(SessionMessage::Text(Arc::clone(&payload)));
         }
     }
 
