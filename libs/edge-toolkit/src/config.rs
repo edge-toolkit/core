@@ -204,6 +204,7 @@ pub enum Language {
     Java,
     Js,
     Python,
+    R,
     Rust,
     Zig,
 }

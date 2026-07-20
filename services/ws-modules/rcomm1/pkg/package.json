@@ -1,0 +1,8 @@
+{
+  "description": "R comm 1",
+  "license": "Apache-2.0 OR MIT",
+  "main": "et_ws_rcomm1.js",
+  "name": "et-ws-rcomm1",
+  "type": "module",
+  "version": "0.1.0"
+}

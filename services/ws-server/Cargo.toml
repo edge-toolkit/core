@@ -27,6 +27,7 @@ edge-toolkit.workspace = true
 et-modules-service.workspace = true
 et-otlp.workspace = true
 et-storage-service.workspace = true
+et-websockify-service.workspace = true
 et-ws-service.workspace = true
 fs-err.workspace = true
 futures-util.workspace = true
