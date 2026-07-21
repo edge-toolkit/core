@@ -23,7 +23,7 @@ COPY . .
 # step picks up a real directory.
 RUN pnpm add --prod --dir /workspace/runtime-deps --config.node-linker=hoisted \
         --ignore-scripts --config.ignoredBuiltDependencies=protobufjs \
-        onnxruntime-web pyodide
+        onnxruntime-web pyodide stats-gl
 RUN cargo build -p et-ws-server --release --locked
 
 FROM debian:bookworm-slim AS runtime
@@ -43,6 +43,7 @@ COPY --from=builder /workspace/services/ws-modules ./services/ws-modules
 COPY --from=builder /workspace/data/model-modules ./data/model-modules
 COPY --from=builder /workspace/runtime-deps/node_modules/onnxruntime-web ./node_modules/onnxruntime-web
 COPY --from=builder /workspace/runtime-deps/node_modules/pyodide ./node_modules/pyodide
+COPY --from=builder /workspace/runtime-deps/node_modules/stats-gl ./node_modules/stats-gl
 
 RUN mkdir -p /app/storage \
     && chown -R app:app /app

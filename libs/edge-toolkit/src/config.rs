@@ -129,6 +129,24 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
             );
         }
     }
+    // stats-gl (the GPU utilisation meter overlay on the ws-server index page). Same
+    // npm-package-served-as-a-module pattern as onnxruntime-web above.
+    match mise_npm_modules_path("stats-gl") {
+        Some(path) => {
+            log::info!("Resolved npm:stats-gl modules path: {}", path.display());
+            paths.push(path);
+        }
+        None => {
+            log::warn!(
+                "{}",
+                concat!(
+                    "npm:stats-gl install path not found via `mise where` -- ",
+                    "requests to /modules/stats-gl/* will 404. ",
+                    "Run `mise install npm:stats-gl` and verify the package layout.",
+                )
+            );
+        }
+    }
     // Pyodide is installed from its GitHub release tarball (see
     // `.mise/config.python.toml`),
     // not via `npm:pyodide`. mise's http backend extracts the archive flat,

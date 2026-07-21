@@ -28,6 +28,7 @@ files:
   - libs/edge-toolkit/tests/no_mise.rs
   - libs/test-helpers/src/lib.rs
   - libs/ws-runner-common/tests/config.rs
+  - services/modules/tests/api_modules.rs
   - services/websockify/src/lib.rs
   - services/websockify/tests/relay.rs
   - services/ws-modules/except1/src/lib.rs
