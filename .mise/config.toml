@@ -413,6 +413,9 @@ har_repo = ":http:acd17sk/MET-Metabolic-Equivalent-of-Task-AI-Android-APP"
 har_src = "{{ vars.har_repo }}/raw/refs/heads/main/Models/onnx/hybrid_met.onnx"
 mnist_dst = "services/ws-modules/wasi-graphics-info/pkg/mnist-12.onnx"
 mnist_src = ":http:onnx/models/raw/main/validated/vision/classification/mnist/model/mnist-12.onnx"
+speech1_asset = "speech1-84f0d86.onnx"
+speech1_dst = "data/model-modules/model-speech1/pkg/speech1.onnx"
+speech1_src = ":http:onnx-community/silero-vad/resolve/84f0d86/onnx/model_fp16.onnx"
 # Pip 26.0.1 wheel via PyPI, pinned to stay compatible with RustPython.
 # Pinned because pip 26.1.1+ calls
 # `sys.addaudithook` in `_prevent_further_imports`, which RustPython 0.5.0
@@ -1431,8 +1434,26 @@ shell = "bash -euo pipefail -c"
 run = "rclone copyto {{ vars.mnist_src }} {{ vars.mnist_dst }} {{ vars.gh_http }}"
 shell = "bash -euo pipefail -c"
 
+[tasks.fetch-speech1-rclone]
+run = """
+opts="--http-url https://huggingface.co --progress --ignore-existing"
+# shellcheck disable=SC2086
+rclone copyto {{ vars.speech1_src }} {{ vars.speech1_dst }} $opts
+export asset='{{ vars.speech1_asset }}'
+sha=$(mise exec -- yq -p toml -oy '.asset[strenv(asset)].sha256' config/upstream-cache/data.toml)
+actual=$(mise exec -- coreutils sha256sum -b "{{ vars.speech1_dst }}" | mise exec -- coreutils cut -c1-64)
+[ "$actual" = "$sha" ] || { echo "speech1 checksum mismatch: expected=$sha actual=$actual" >&2; exit 1; }
+"""
+shell = "bash -euo pipefail -c"
+
 [tasks.download-models]
-depends = ["fetch-eye1-rclone", "fetch-face1-rclone", "fetch-har-motion1-rclone", "fetch-mnist-rclone"]
+depends = [
+  "fetch-eye1-rclone",
+  "fetch-face1-rclone",
+  "fetch-har-motion1-rclone",
+  "fetch-mnist-rclone",
+  "fetch-speech1-rclone",
+]
 
 [tasks.cargo-test]
 description = "Run every Rust test via nextest (web-runner excluded on gnullvm)"

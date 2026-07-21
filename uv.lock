@@ -9,6 +9,7 @@ members = [
     "et-ws-pydata1",
     "et-ws-pyeye1",
     "et-ws-pyface1",
+    "et-ws-pyspeech1",
     "et-ws-wasi-graphics-info",
 ]
 
@@ -233,6 +234,29 @@ dev = [
 name = "et-ws-pyface1"
 version = "0.1.0"
 source = { editable = "services/ws-modules/pyface1" }
+dependencies = [
+    { name = "et-ws" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "et-ws", editable = "generated/python-ws" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+
+[[package]]
+name = "et-ws-pyspeech1"
+version = "0.1.0"
+source = { editable = "services/ws-modules/pyspeech1" }
 dependencies = [
     { name = "et-ws" },
 ]

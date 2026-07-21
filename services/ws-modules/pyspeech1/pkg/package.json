@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "et-model-speech1": "*",
+    "et-ws": "*",
+    "onnxruntime-web": "*",
+    "pyodide": "*"
+  },
+  "description": "Python microphone speech detection",
+  "license": "Apache-2.0 OR MIT",
+  "main": "et_ws_pyspeech1.js",
+  "name": "et-ws-pyspeech1",
+  "type": "module",
+  "version": "0.1.0"
+}
