@@ -46,7 +46,7 @@ type EnumSet = HashSet<String>;
 pub fn render(client_schema: &Schema, server_schema: &Schema) -> Result<String, Error> {
     let client_root = client_schema.as_value();
     let server_root = server_schema.as_value();
-    let merged_root = merge_defs(client_root, server_root);
+    let merged_root = merge_defs(client_root, server_root)?;
     let mut interface = Interface::new("messages");
     interface.set_docs(Some(WS_DESCRIPTION));
 
@@ -77,11 +77,19 @@ pub fn render(client_schema: &Schema, server_schema: &Schema) -> Result<String, 
     clippy::single_call_fn,
     reason = "named helper called once by render(); kept separate for the dedup logic"
 )]
-fn merge_defs(client_root: &serde_json::Value, server_root: &serde_json::Value) -> serde_json::Value {
+fn merge_defs(client_root: &serde_json::Value, server_root: &serde_json::Value) -> Result<serde_json::Value, Error> {
     let mut merged = serde_json::Map::new();
     for root in [client_root, server_root] {
         if let Some(defs) = root.get("$defs").and_then(|val| val.as_object()) {
             for (name, def) in defs {
+                // A `$defs` name shared by both schemas must resolve to the same definition; a mismatch means
+                // the client and server disagree on a shared type, which would silently pick one arbitrarily.
+                if let Some(previous) = merged.get(name) {
+                    if previous != def {
+                        return Err(Error::ConflictingDefs(name.clone()));
+                    }
+                    continue;
+                }
                 let _previous: Option<serde_json::Value> = merged.insert(name.clone(), def.clone());
             }
         }
@@ -90,7 +98,7 @@ fn merge_defs(client_root: &serde_json::Value, server_root: &serde_json::Value) 
     if !merged.is_empty() {
         let _previous: Option<serde_json::Value> = root.insert("$defs".to_string(), serde_json::Value::Object(merged));
     }
-    serde_json::Value::Object(root)
+    Ok(serde_json::Value::Object(root))
 }
 
 #[expect(

@@ -2,6 +2,9 @@
 // Interface: default(wasmUrl), metadata(), run()
 
 const PYODIDE_BASE_PATH = "/modules/pyodide/";
+// ES-module entry used by the Deno / non-browser `import()` path below (its named export is `loadPyodide`);
+// the browser path loads the UMD `pyodide.js` via a <script> tag instead.
+const PYODIDE_CDN = `${PYODIDE_BASE_PATH}pyodide.mjs`;
 
 let pyodide = null;
 let pyMod = null;
