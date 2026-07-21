@@ -28,6 +28,7 @@ use std::process::{Command, Stdio};
 use std::sync::Mutex;
 use std::time::Duration;
 
+use command_error::CommandExt as _;
 use et_test_helpers::{ChildGuard, drain_stderr, reserve_port, wait_for_port};
 use opentelemetry_proto::tonic::collector::trace::v1::ExportTraceServiceRequest;
 use opentelemetry_proto::tonic::common::v1::{AnyValue, KeyValue, any_value};
@@ -73,8 +74,9 @@ fn vector_relays_buffered_otlp_after_backend_comes_online() {
         .env("RELAY_SINK_PORT", mock_port.to_string())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
+        .spawn_checked()
+        .unwrap()
+        .into_child();
     // Drain Vector's stderr into memory so it stays quiet on success but is
     // available for failure messages (a file-backed `Stdio` would need the
     // banned `std::fs::File`).

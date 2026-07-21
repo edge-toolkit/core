@@ -62,6 +62,7 @@ cc = "1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive"] }
 clap-markdown = "0.1.5"
+command-error = "0.8"
 deno_core = "0.407.0"
 deno_error = "=0.7.1"
 deno_resolver = "0.85.0"

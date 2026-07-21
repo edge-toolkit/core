@@ -51,6 +51,7 @@ winapi.workspace = true
 # since that branch (and the functions it calls) don't compile there, which also keeps them out of the Linux
 # coverage report.
 cc.workspace = true
+command-error.workspace = true
 fs-err.workspace = true
 
 [dev-dependencies]

@@ -21,6 +21,8 @@
 use std::ffi::OsString;
 use std::process::{Command, ExitCode};
 
+use command_error::CommandExt as _;
+
 fn main() -> ExitCode {
     let mut args = std::env::args_os().skip(1);
     let Some(rustc) = args.next() else {
@@ -47,9 +49,13 @@ fn main() -> ExitCode {
         );
     }
 
-    match Command::new(&rustc).args(&rustc_args).status() {
-        Ok(status) if status.success() => ExitCode::SUCCESS,
-        Ok(_nonzero) => ExitCode::FAILURE,
+    // `status_checked` returns `Ok` only on a zero exit; a non-zero exit is `Error::Output`, which we
+    // propagate silently as `FAILURE` (rustc already printed its own diagnostics), while a spawn failure
+    // (`Error::Exec`, or any future variant of this `#[non_exhaustive]` enum) is the only case that
+    // warrants our own message.
+    match Command::new(&rustc).args(&rustc_args).status_checked() {
+        Ok(_) => ExitCode::SUCCESS,
+        Err(command_error::Error::Output(_)) => ExitCode::FAILURE,
         Err(error) => {
             eprintln!("int-wasm-cov-wrapper: failed to run rustc: {error}");
             ExitCode::FAILURE

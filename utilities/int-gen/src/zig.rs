@@ -34,6 +34,7 @@
 use std::path::Path;
 use std::process::Command;
 
+use command_error::CommandExt as _;
 use fs_err as fs;
 use regex::Regex;
 use tree_sitter::{Node, Parser};
@@ -51,27 +52,31 @@ const REQUEST_RAW_BODY: &str = include_str!("zig.in/request_raw_body.zig");
 /// The `extern fn js_rest_request(...)` declaration appended to the generated client by [`rewrite`].
 const JS_REST_REQUEST_EXTERN: &str = include_str!("zig.in/js_rest_request_extern.zig");
 
-/// Regex spanning the inlined request tail openapi2zig 0.3 emits for a binary/text body (its `.binary`/`.text`
+/// Regex spanning the inlined request tail openapi2zig emits for a binary/text body (its `.binary`/`.text`
 /// arm, which -- unlike JSON bodies -- does not delegate to [`SHARED_REQUEST_FN`]). It anchors on the
 /// `= requestBody;` payload assignment, which is unique to those ops (JSON ops assign `str.written()`, empty
 /// bodies `null`), then skips to the two captures: 1 = content-type, 2 = HTTP method. `[A-Z]+` (not `\w`) keeps
-/// it ASCII so no unicode regex feature is needed. [`reroute_inline_binary_ops`] splices both into a delegation.
-const INLINE_FETCH_BLOCK_PATTERN: &str =
-    r#"(?s)requestBody;.*?"([^"]+)".*?Method\.([A-Z]+).*?toOwnedSlice\(\),\n    \};"#;
+/// it ASCII so no unicode regex feature is needed, and ends on the `RawResponse` struct literal's closing
+/// `.body = body,` field -- as of openapi2zig 0.4 that arm hoists the response body into a `const body` and
+/// stores it via `.body = body,` (0.3 inlined `.body = ...toOwnedSlice(),` in the struct literal directly).
+/// [`reroute_inline_binary_ops`] splices both captures into a delegation.
+const INLINE_FETCH_BLOCK_PATTERN: &str = r#"(?s)requestBody;.*?"([^"]+)".*?Method\.([A-Z]+).*?\.body = body,\n    \};"#;
 
 /// Return `true` if the `openapi2zig` binary is on `PATH`.
 ///
 /// Upstream doesn't publish a `linux/arm64` release (see `.mise/config.zig.toml`).
 #[must_use]
 pub fn is_available() -> bool {
-    Command::new("openapi2zig").arg("--version").output().is_ok()
+    // `--version` exits 0, so `output_checked` succeeds iff the binary is on `PATH` (a spawn failure is
+    // the only way it errors here); its captured output is discarded, same as the old `.output()` probe.
+    Command::new("openapi2zig").arg("--version").output_checked().is_ok()
 }
 
 /// Invoke `openapi2zig` against the `OpenAPI` JSON intermediate, post-process
 /// the result, and return the final Zig source.
 ///
-/// Subprocess errors are flattened into `Error::ZigCodegen` since we don't
-/// model them more precisely.
+/// A spawn failure or non-zero exit surfaces as `Error::Command` (via
+/// `command-error`), which carries the full command line and exit status.
 pub fn render(rest_json: &Path, raw_out: &Path) -> Result<String, Error> {
     run_openapi2zig(rest_json, raw_out)?;
     let raw = fs::read_to_string(raw_out)?;
@@ -83,14 +88,14 @@ pub fn render(rest_json: &Path, raw_out: &Path) -> Result<String, Error> {
     reason = "named helper; pairs with rewrite() as the two halves of render()"
 )]
 fn run_openapi2zig(rest_json: &Path, raw_out: &Path) -> Result<(), Error> {
-    if let Some(parent) = raw_out.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    // Surface the spawn failure as `Error::Io` (the `#[from]` variant)
-    // rather than a `ZigCodegen(format!(...))` wrap -- same diagnostic
-    // detail (`std::io::Error` carries the "No such file or directory"
-    // text) with the typed source preserved.
-    let status = Command::new("openapi2zig")
+    // `parent()` is `None` only for a root/prefix/empty path -- never for a real output file (it yields
+    // `Some("")` for a bare filename, which `create_dir_all` treats as a no-op `Ok`), so the empty-path
+    // fallback keeps this unconditional without a guard.
+    fs::create_dir_all(raw_out.parent().unwrap_or_else(|| Path::new("")))?;
+    // `status_checked` inherits stdio (so openapi2zig's `info:` lines still stream live) and turns both a
+    // spawn failure and a non-zero exit into an `Error::Command` carrying the command line + status -- no
+    // manual `status.success()` check, and a richer diagnostic than the old `ZigCodegen("exited with ...")`.
+    let _: std::process::ExitStatus = Command::new("openapi2zig")
         .args([
             "generate",
             "--resource-wrappers",
@@ -100,10 +105,7 @@ fn run_openapi2zig(rest_json: &Path, raw_out: &Path) -> Result<(), Error> {
             "-o",
             &raw_out.display().to_string(),
         ])
-        .status()?;
-    if !status.success() {
-        return Err(Error::ZigCodegen(format!("openapi2zig exited with {status}")));
-    }
+        .status_checked()?;
     Ok(())
 }
 

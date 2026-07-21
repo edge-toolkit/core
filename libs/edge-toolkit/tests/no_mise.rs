@@ -9,7 +9,6 @@
 use std::path::PathBuf;
 
 use edge_toolkit::config::default_modules_folders;
-use tempfile::TempDir;
 
 #[test]
 fn returns_only_workspace_paths_when_mise_missing() {
@@ -19,14 +18,9 @@ fn returns_only_workspace_paths_when_mise_missing() {
     // a parallel test runner.
     testing_logger::setup();
 
-    // Point PATH at an empty tempdir, hiding mise (and every other
-    // binary) from the spawn in `mise_is_available`. `temp-env`
-    // restores PATH after the closure, so we don't poison sibling
-    // tests in the same binary.
-    let empty_dir = TempDir::new().unwrap();
-    let path = empty_dir.path().to_string_lossy().into_owned();
-
-    let paths = temp_env::with_var("PATH", Some(path.as_str()), default_modules_folders);
+    // Empty PATH for the call, hiding mise (and every other binary) from the spawn in `mise_is_available`.
+    // `with_empty_path` restores PATH after the closure, so we don't poison sibling tests in the same binary.
+    let paths = et_test_helpers::with_empty_path(default_modules_folders);
 
     // Hardcoded workspace paths only, zero mise-resolved paths.
     let expected_suffixes = [

@@ -28,8 +28,8 @@ tracing.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+et-test-helpers.workspace = true
 serde-env.workspace = true
-temp-env.workspace = true
 
 [lints]
 workspace = true

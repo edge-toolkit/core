@@ -23,6 +23,7 @@ use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 use backon::{ExponentialBuilder, RetryableWithContext as _};
+use command_error::CommandExt as _;
 use edge_toolkit::config::{Language, mise_env_includes};
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
 use futures_util::{SinkExt as _, StreamExt as _};
@@ -131,6 +132,8 @@ async fn module_behaves(
 /// server is needed and the runner exits non-zero.
 #[test]
 fn no_hooks_fails_to_load() -> Result<(), Box<dyn Error>> {
+    // Raw `.output()` (not `output_checked`) on purpose: a non-zero exit is the asserted-for outcome here, so
+    // we must inspect `output.status`/`output.stderr` rather than have a checked call turn it into an error.
     let output = Command::new(env!("CARGO_BIN_EXE_et-ws-pyo3-runner"))
         .env("RUNNER_MODULE", "no_hooks")
         .env("PYO3_PYTHONPATH", python_dir())
@@ -166,7 +169,8 @@ async fn shuts_down_gracefully_on_timeout() -> Result<(), Box<dyn Error>> {
         .env("RUST_LOG", rust_log)
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
-        .spawn()?;
+        .spawn_checked()?
+        .into_child();
 
     // The runner self-exits shortly after the 3s timeout; the outer bound only stops a regression from hanging
     // the suite. `try_wait` polls without blocking the current-thread runtime.
@@ -295,8 +299,9 @@ fn spawn_runner(module: &str, ws_url: &str) -> Child {
         .env("RUST_LOG", rust_log)
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
-        .spawn()
+        .spawn_checked()
         .unwrap()
+        .into_child()
 }
 
 /// Open a control client and drive et-connect until we have an `agent_id`.

@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use command_error::CommandExt as _;
 use fs_err as fs;
 use serde::Deserialize;
 use serde_default::DefaultFromSerde;
@@ -174,12 +175,15 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
     paths
 }
 
-/// Returns `true` if the `mise` binary is reachable on `PATH`. A failed
-/// `Command::output()` indicates the binary couldn't be spawned --
-/// typically because it's not installed or the test is hiding `PATH`.
+/// Returns `true` if the `mise` binary is reachable on `PATH`.
+///
+/// It runs `mise --version` and checks the exit status is 0.
 #[must_use]
 pub fn mise_is_available() -> bool {
-    std::process::Command::new("mise").arg("--version").output().is_ok()
+    std::process::Command::new("mise")
+        .arg("--version")
+        .output_checked()
+        .is_ok()
 }
 
 /// Guest languages mise loads via `MISE_ENV`.
@@ -257,10 +261,12 @@ pub fn mise_env_includes(language: Language) -> bool {
 /// Returns the install path for a `mise` tool, e.g. `mise where npm:onnxruntime-web`.
 #[must_use]
 pub fn mise_where(tool: &str) -> Option<PathBuf> {
-    let output = std::process::Command::new("mise").args(["where", tool]).output().ok()?;
-    if !output.status.success() {
-        return None;
-    }
+    // `output_checked` folds the spawn check and the non-zero-exit check together, so a missing tool or a
+    // failed `mise where` both short-circuit to `None` without a manual `status.success()` guard.
+    let output = std::process::Command::new("mise")
+        .args(["where", tool])
+        .output_checked()
+        .ok()?;
     let stdout = std::str::from_utf8(&output.stdout).ok()?;
     let path = PathBuf::from(stdout.trim());
     path.is_dir().then_some(path)
@@ -338,11 +344,12 @@ pub fn mise_python_site_packages() -> Vec<PathBuf> {
     if !mise_is_available() {
         return Vec::new();
     }
-    let output = std::process::Command::new("mise")
+    // `output_checked` errors on both a spawn failure and a non-zero exit, so the `mise ls` best-effort
+    // path collapses to a single fallible call -- no separate `status.success()` filter.
+    let Ok(output) = std::process::Command::new("mise")
         .args(["ls", "--current", "--json"])
-        .output()
-        .ok();
-    let Some(output) = output.filter(|out| out.status.success()) else {
+        .output_checked()
+    else {
         return Vec::new();
     };
     let Ok(tools) = serde_json::from_slice::<serde_json::Map<String, serde_json::Value>>(&output.stdout) else {

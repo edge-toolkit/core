@@ -13,5 +13,8 @@ name = "int-wasm-cov-wrapper"
 path = "src/main.rs"
 test = false
 
+[dependencies]
+command-error.workspace = true
+
 [lints]
 workspace = true

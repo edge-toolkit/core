@@ -129,6 +129,10 @@ fn link_mingw_shim() {
     reason = "build script: a panic is cargo's only failure channel for a failed command"
 )]
 fn run(command: &mut std::process::Command) {
-    let status = command.status().unwrap();
-    assert!(status.success(), "{command:?} exited with {status}");
+    use command_error::CommandExt as _;
+
+    // `status_checked().unwrap()` panics on both a spawn failure and a non-zero exit, with the command line
+    // and status baked into the message -- the same diagnostic the old spawn `.unwrap()` + `assert!` pair
+    // produced, folded into one call. Scoped `use` because this fn (and the whole process path) is Windows-only.
+    let _: std::process::ExitStatus = command.status_checked().unwrap();
 }
