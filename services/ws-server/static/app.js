@@ -38,6 +38,7 @@ const append = (line) => {
 const describeError = (error) => (error instanceof Error ? error.message : String(error));
 
 const WORKFLOW_MODULES = new Map();
+let activeWorkflow = null;
 // Preselected in the dropdown when the server's module list includes it; otherwise the first option stays.
 const DEFAULT_MODULE = "et-ws-pyeye1";
 
@@ -148,6 +149,14 @@ const runSelectedWorkflowModule = async () => {
     throw new Error(`unknown workflow module: ${moduleKey}`);
   }
 
+  if (activeWorkflow && activeWorkflow.key !== moduleKey) {
+    if (typeof activeWorkflow.module.stop === "function") {
+      append(`${activeWorkflow.label} module: stopping before ${moduleConfig.label}`);
+      await activeWorkflow.module.stop();
+    }
+    activeWorkflow = null;
+  }
+
   const loadedModule = await loadWorkflowModule(moduleKey);
   if (
     typeof loadedModule.is_running === "function" &&
@@ -156,6 +165,7 @@ const runSelectedWorkflowModule = async () => {
   ) {
     append(`${moduleConfig.label} module: calling stop()`);
     loadedModule.stop();
+    activeWorkflow = null;
     append(`${moduleConfig.label} module stopped`);
     return;
   }
@@ -165,6 +175,9 @@ const runSelectedWorkflowModule = async () => {
   append(`${moduleConfig.label} module: run() started`);
   await runPromise;
   append(`${moduleConfig.label} module run() returned`);
+  if (typeof loadedModule.is_running === "function" && loadedModule.is_running()) {
+    activeWorkflow = { key: moduleKey, label: moduleConfig.label, module: loadedModule };
+  }
 };
 
 const handleProtocolMessage = (message) => {

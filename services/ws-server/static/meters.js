@@ -248,6 +248,7 @@ const startMeters = async () => {
   }
 
   const overlay = stats.dom;
+  overlay.id = "gpu-utilisation-meter";
   applyMeterScale(overlay, stats.gpuPanel, START_SCALE);
   suppressRangeSuffix(stats.gpuPanel);
   document.body.appendChild(overlay);

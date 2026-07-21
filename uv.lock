@@ -7,6 +7,7 @@ members = [
     "et-rest-client",
     "et-ws",
     "et-ws-pydata1",
+    "et-ws-pydemo1",
     "et-ws-pyeye1",
     "et-ws-pyface1",
     "et-ws-pyspeech1",
@@ -205,6 +206,35 @@ dependencies = [
 requires-dist = [
     { name = "et-rest-client", editable = "generated/python-rest" },
     { name = "pyodide-http" },
+]
+
+[[package]]
+name = "et-ws-pydemo1"
+version = "0.1.0"
+source = { editable = "services/ws-modules/pydemo1" }
+dependencies = [
+    { name = "et-ws" },
+    { name = "et-ws-pyeye1" },
+    { name = "et-ws-pyspeech1" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "et-ws", editable = "generated/python-ws" },
+    { name = "et-ws-pyeye1", editable = "services/ws-modules/pyeye1" },
+    { name = "et-ws-pyspeech1", editable = "services/ws-modules/pyspeech1" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
 ]
 
 [[package]]
