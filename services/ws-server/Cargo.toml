@@ -44,6 +44,7 @@ serde-inline-default.workspace = true
 serde_default.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
+thiserror.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tracing.workspace = true
 tracing-actix-web.workspace = true

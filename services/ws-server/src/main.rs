@@ -15,7 +15,7 @@ use et_ws_server::config::Config;
 use et_ws_server::configure_app;
 use et_ws_server::tls;
 use et_ws_service::load_registry;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use tracing_actix_web::TracingLogger;
 use tracing_subscriber::{layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
@@ -50,7 +50,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         None
     };
 
-    let network_ip = local_ip_address::local_ip().map_or_else(|_unused| "127.0.0.1".to_string(), |ip| ip.to_string());
+    let log_interface = env.net.log_interface.as_deref();
+    info!(
+        "Selecting advertised IP with log_interface={}",
+        log_interface.unwrap_or("(unset)")
+    );
+    let ip_candidates = et_ws_server::net::candidate_ipv4s(log_interface).inspect_err(|e| error!("{e}"))?;
+    let network_ip = ip_candidates
+        .first()
+        .map_or_else(|| "127.0.0.1".to_string(), |(_, addr)| addr.to_string());
+    if ip_candidates.is_empty() {
+        warn!("No usable IPv4 candidate found; advertising 127.0.0.1 (see the interface lines above)");
+    }
 
     let cert_filename = &env.tls.cert_file;
     let key_filename = &env.tls.key_file;
@@ -66,17 +77,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     };
     let rustls_config = tls::build_tls_server_config(cert_der, key_der);
 
-    let https_url = format!(
-        "https://{}:{}",
-        network_ip,
-        edge_toolkit::ports::Services::SecureWebSocketServer.port()
-    );
+    let https_port = edge_toolkit::ports::Services::SecureWebSocketServer.port();
+    let https_url = format!("https://{network_ip}:{https_port}");
     info!(
         "Starting WebSocket server on http://{}:{}",
         network_ip,
         edge_toolkit::ports::Services::InsecureWebSocketServer.port()
     );
     info!("Starting WebSocket server on {}", https_url);
+    for (interface, addr) in &ip_candidates {
+        info!("Reachable via {} at https://{}:{}", interface, addr, https_port);
+    }
     info!("Scan this QR code to open the browser interface:");
     if let Err(e) = qr2term::print_qr(&https_url) {
         error!("Failed to generate QR code: {}", e);

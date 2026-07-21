@@ -82,9 +82,10 @@ git ls-files '*.c' '*.cpp' '*.h' ':!services/ws-web-runner/mingw-shim' ':!servic
 llvm_ct="$(mise where 'github:mstorsjo/llvm-mingw')/bin/clang-tidy"
 git ls-files 'services/ws-web-runner/mingw-shim/*.c' |
   xargs -r -I{} "$llvm_ct" --config-file=config/clang-tidy.yaml {} -- --target=x86_64-w64-mingw32 -std=c11
-wasm_flags=({{ vars.clang_resource_arg }} --target=wasm32-unknown-unknown -fwasm-exceptions -mexception-handling)
+# set -- (POSIX positional params), not a bash array: busybox ash on the Windows lane has no arrays.
+set -- {{ vars.clang_resource_arg }} --target=wasm32-unknown-unknown -fwasm-exceptions -mexception-handling -fno-rtti
 git ls-files 'services/ws-modules/zig-*/src/*.c' 'services/ws-modules/zig-*/src/*.cpp' |
-  xargs -r -I{} clang-tidy --config-file=config/clang-tidy.yaml {} -- "${wasm_flags[@]}" -fno-rtti
+  xargs -r -I{} clang-tidy --config-file=config/clang-tidy.yaml {} -- "$@"
 """
 shell = "bash -euo pipefail -c"
 
@@ -99,9 +100,10 @@ git ls-files '*.c' '*.cpp' '*.h' ':!services/ws-web-runner/mingw-shim' ':!servic
 llvm_ct="$(mise where 'github:mstorsjo/llvm-mingw')/bin/clang-tidy"
 git ls-files 'services/ws-web-runner/mingw-shim/*.c' |
   xargs -r -I{} "$llvm_ct" --fix --config-file=config/clang-tidy.yaml {} -- --target=x86_64-w64-mingw32 -std=c11
-wasm_flags=({{ vars.clang_resource_arg }} --target=wasm32-unknown-unknown -fwasm-exceptions -mexception-handling)
+# set -- (POSIX positional params), not a bash array: busybox ash on the Windows lane has no arrays.
+set -- {{ vars.clang_resource_arg }} --target=wasm32-unknown-unknown -fwasm-exceptions -mexception-handling -fno-rtti
 git ls-files 'services/ws-modules/zig-*/src/*.c' 'services/ws-modules/zig-*/src/*.cpp' |
-  xargs -r -I{} clang-tidy --fix --config-file=config/clang-tidy.yaml {} -- "${wasm_flags[@]}" -fno-rtti
+  xargs -r -I{} clang-tidy --fix --config-file=config/clang-tidy.yaml {} -- "$@"
 """
 shell = "bash -euo pipefail -c"
 
