@@ -32,7 +32,11 @@ files:
   - services/websockify/tests/relay.rs
   - services/ws-modules/except1/src/lib.rs
   - services/ws-pyo3-runner/tests/modules.rs
+  - services/ws-server/src/config.rs
   - services/ws-server/src/lib.rs
+  - services/ws-server/src/main.rs
+  - services/ws-server/src/net.rs
+  - services/ws-server/tests/net.rs
   - services/ws-wasi-runner/tests/modules.rs
   - services/ws-wasi-runner/tests/otel_propagation.rs
   - services/ws-wasi-runner/tests/vector_otlp_relay.rs

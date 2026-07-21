@@ -1216,6 +1216,14 @@ description = "Run the WebSocket server without OTLP/o2 observability (OpenTelem
 # Use this when you don't want the o2/OpenObserve stack (`mise run o2`) running alongside the server.
 run = "watchexec --restart --clear --exts rs,toml -i '**/tests/**' --shell=none -- cargo run -p et-ws-server"
 
+[tasks.ws-server-offline-demo]
+description = "Run the WebSocket server for a hotspot demo: no OTLP, no watchexec, cargo --offline"
+# Demo the server from a machine that shares its own Wi-Fi hotspot and has no internet uplink.
+# Sets no OTLP_* env, runs cargo directly (no watchexec restart-on-change), and `--offline` makes cargo
+# resolve and build from the crates already in the local cache instead of touching the network.
+env = { NET_LOG_INTERFACE = "bridge100" }
+run = "cargo run --offline -p et-ws-server"
+
 [tasks.ws-wasi-runner]
 description = "Run the WebSocket WASI runner (set RUNNER_MODULE, e.g. wasi-graphics-info; RUNNER_FEATURES=cuda on CUDA)"
 dir = "services/ws-wasi-runner"

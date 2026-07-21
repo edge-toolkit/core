@@ -4,6 +4,7 @@ use actix_web::{HttpResponse, web};
 pub use et_ws_service::{AgentSession, WsAgentRegistry};
 
 pub mod config;
+pub mod net;
 pub mod routes;
 pub mod tls;
 
