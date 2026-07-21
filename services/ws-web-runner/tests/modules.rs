@@ -33,6 +33,24 @@
 //! workers can spawn their own workers, sharing a
 //! `CrossIsolateStore<SharedRef<BackingStore>>` across isolates for
 //! the `SharedArrayBuffer` transfer.
+//!
+//! ### R modules (webR spawns a *classic* Worker)
+//!
+//! - **et-ws-rdata1, et-ws-rcomm1** -- both run R via webR, whose
+//!   `WebR.init()` spawns its interpreter on a **classic** Web Worker
+//!   (`new Worker(url)`, no `{ type: "module" }`). Deno implements only
+//!   module workers, so that call throws `NotSupportedError: Classic
+//!   workers are not supported` -- the module aborts in its `init()`
+//!   default export before any of its own logic (rdata1's httr2
+//!   storage round-trip, rcomm1's WebSocket) runs. Unlike the
+//!   zig-data1 case above (a *module* worker the runner's recursive
+//!   `CreateWebWorkerCb` supports), there is no runner-side fix: the
+//!   limitation is Deno's, and webR's classic worker is upstream. These
+//!   modules work in a real browser (which supports classic workers +
+//!   the `SharedArrayBuffer` channel the ws-server's COOP/COEP headers
+//!   enable); `r_module_load_fails` pins the Deno failure so a future
+//!   runner that gains classic-worker support is caught and the module
+//!   is promoted to `module_runs_successfully`.
 
 #![cfg(test)]
 
@@ -72,6 +90,8 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
     collect_module_coverage(&server);
 }
 
+/// Probe for dotnet-data1's built `pkg/` wasm artifacts, logging a skip instead of failing when absent.
+///
 /// dotnet-data1's `pkg/` wasm artifacts only exist after `build-ws-dotnet-data1-module` has run on this
 /// host, so probe one and log a skip instead of failing on a checkout where the module wasn't built. The
 /// probe file is `dotnet.js` -- the one stably-named artifact `dotnet publish` emits (the rest carry
@@ -171,6 +191,47 @@ fn hardware_module_load_fails(#[case] module: &str, #[case] language: Language) 
         concat!(
             "{} exited 0, but it was expected to fail without its browser sensor/media API. ",
             "If the runner can now run it, move it to `module_runs_successfully`.\n",
+            "--- stdout ---\n{}\n--- stderr ---\n{}",
+        ),
+        module,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+}
+
+/// Load + run each R module and assert it fails under Deno's classic-worker limitation.
+///
+/// rdata1 and rcomm1 run R through webR, whose `WebR.init()` spawns the R interpreter on a *classic* Web Worker.
+/// Deno implements only module workers, so the spawn throws `NotSupportedError: Classic workers are not
+/// supported` and the module aborts in its `init()` default export -- before any WebSocket, peer-discovery, or
+/// storage logic runs (so one runner suffices even for the comm-style rcomm1). Running them here still exercises
+/// the fetch + module-graph load + entry-evaluation paths up to the failing `new Worker(...)`. We assert a
+/// non-zero exit; a module that unexpectedly EXITS 0 is a real finding -- the runner gained classic-worker
+/// support, so move it to `module_runs_successfully`. Both modules work in a real browser (classic workers +
+/// the `SharedArrayBuffer` channel the ws-server's COOP/COEP headers enable).
+#[rstest]
+#[case::rdata1("et-ws-rdata1", Language::R)]
+#[case::rcomm1("et-ws-rcomm1", Language::R)]
+fn r_module_load_fails(#[case] module: &str, #[case] language: Language) {
+    if !mise_env_includes(language) {
+        println!(
+            "skipping {module}: requires the `{}` mise env, not loaded",
+            language.as_str()
+        );
+        return;
+    }
+    let server = et_ws_test_server::start();
+    // webR's classic-worker spawn throws promptly in init(), so the module exits well under this bound; the
+    // budget only bites if webR instead hangs before that point, in which case RUNNER_TIMEOUT kills it -- still
+    // the non-zero exit we assert.
+    let output = run_runner(module, &server.ws_url, 30);
+    #[cfg(feature = "coverage")]
+    collect_module_coverage(&server);
+    assert!(
+        !output.status.success(),
+        concat!(
+            "{} exited 0, but it was expected to fail: webR spawns a classic Worker, which Deno does not ",
+            "support. If the runner can now run it, move it to `module_runs_successfully`.\n",
             "--- stdout ---\n{}\n--- stderr ---\n{}",
         ),
         module,

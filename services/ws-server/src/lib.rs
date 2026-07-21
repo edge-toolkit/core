@@ -1,3 +1,5 @@
+use std::net::{Ipv4Addr, SocketAddr};
+
 use actix_web::{HttpResponse, web};
 pub use et_ws_service::{AgentSession, WsAgentRegistry};
 
@@ -23,6 +25,14 @@ pub fn configure_app(cfg: &mut web::ServiceConfig, agent_registry: web::Data<WsA
 
     et_ws_service::configure(cfg, &config.ws);
     et_storage_service::configure::<AgentSession>(cfg, &config.storage);
+    // Relay for browser WASM runtimes (webR) that can only open a WebSocket: bridge /websockify to this
+    // server's own plain-HTTP loopback port so their libcurl/httr2 can reach the storage API. Loopback-only
+    // and server-fixed, so it is not an open proxy. Registered before the modules catch-all below.
+    let relay_target = SocketAddr::from((
+        Ipv4Addr::LOCALHOST,
+        edge_toolkit::ports::Services::InsecureWebSocketServer.port(),
+    ));
+    et_websockify_service::configure(cfg, relay_target);
     // Must be last: registers a catch-all Files::new("/", ...) for the root module.
     et_modules_service::configure(cfg, &config.modules);
 }

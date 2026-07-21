@@ -31,7 +31,7 @@ defaults:
     shell: bash --noprofile --norc -euo pipefail {0}
 
 env:
-  MISE_ENV: "dart,dotnet,java,js,python,rust,zig"
+  MISE_ENV: "dart,dotnet,java,js,python,r,rust,zig"
 
 jobs:
   default:
@@ -164,7 +164,7 @@ jobs:
     # the rust toolchains' extra target std, and mise does not reconcile a changed `targets` list on an
     # already-installed toolchain.
     env:
-      MISE_ENV: "dart,dotnet,java,js,python,rust,zig,${{ matrix.compiler }}"
+      MISE_ENV: "dart,dotnet,java,js,python,r,rust,zig,${{ matrix.compiler }}"
     # Static busybox-w32 ash default (this job is always windows-latest, so no per-OS ternary).
     defaults:
       run:

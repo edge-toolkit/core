@@ -1,0 +1,49 @@
+# R toolchain + tasks. Loaded when MISE_ENV includes `r`.
+#
+# The R-language modules (rdata1, rcomm1) run R via webR -- the R interpreter compiled to WebAssembly. There is
+# no host R toolchain, compiler, or linter to install: the R workload is an inline R program the module's JS shim
+# feeds to webR at runtime, the shim itself is linted by the `js` env (oxlint/oxfmt/dprint), and the webR
+# distribution is a prebuilt wasm bundle. So this env supplies just the webR tool plus the build tasks that
+# vendor it into each module's pkg/ -- there is no check:r / fmt:r / test:r because nothing R-specific is
+# statically analysable here. The build-ws-*-module tasks join the globbed `build-modules` aggregate when this
+# env is loaded, exactly like the Zig module's build task.
+
+[tools]
+# webR: the R interpreter compiled to WebAssembly, vendored into the R modules by their build tasks below.
+# Platform-independent (it is wasm), so one url covers every OS. Direct upstream release, no checksum -- same
+# posture as http:openobserve.
+[tools."http:webr"]
+url = "https://github.com/r-wasm/webr/releases/download/v{{version}}/webr-{{version}}.tar.gz"
+version = "0.6.0"
+
+# The two R modules share an identical vendoring step.
+# webR is a prebuilt wasm distribution, so "building" a module is just staging that distribution into the
+# module's pkg/webr/. `http:webr` downloads and unpacks it flat; copy that install dir into the module's
+# pkg/webr/ (dropping mise's own metadata.json). The module's package.json makes pkg/ a served package, so the
+# copied webr/ subtree rides along as static assets under /modules/<module>/webr/.
+
+[tasks.build-ws-rdata1-module]
+description = "Vendor the webR distribution into rdata1's pkg/webr/ (served at /modules/et-ws-rdata1/webr/)"
+dir = "services/ws-modules/rdata1"
+run = """
+src="$(mise where "http:webr")"
+[ -n "$src" ] || { echo "http:webr not installed; run 'MISE_ENV=r mise install' first" >&2; exit 1; }
+coreutils rm -rf pkg/webr
+coreutils mkdir -p pkg/webr
+coreutils cp -R "$src/." pkg/webr/
+coreutils rm -f pkg/webr/metadata.json
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.build-ws-rcomm1-module]
+description = "Vendor the webR distribution into rcomm1's pkg/webr/ (served at /modules/et-ws-rcomm1/webr/)"
+dir = "services/ws-modules/rcomm1"
+run = """
+src="$(mise where "http:webr")"
+[ -n "$src" ] || { echo "http:webr not installed; run 'MISE_ENV=r mise install' first" >&2; exit 1; }
+coreutils rm -rf pkg/webr
+coreutils mkdir -p pkg/webr
+coreutils cp -R "$src/." pkg/webr/
+coreutils rm -f pkg/webr/metadata.json
+"""
+shell = "bash -euo pipefail -c"

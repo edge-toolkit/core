@@ -47,6 +47,7 @@ allowed-idents-below-min-chars = [
   # workspace conventions
   "Io", # io::Error #[from] variant
   "Js", # ModuleKind::Js variant (peer of Wasi)
+  "R",  # Language::R variant -- R's canonical one-letter language name (config.r.toml, rdata1/rcomm1 modules)
   "et", # `et:ws-wasi` WIT package -- appears in generated `bindings::et::...`
   "id", # short alias for identifier inside closures
   "op", # operation-name parameter in et-web JS-interop traits

@@ -468,7 +468,7 @@ rp_wasm_dir = '''{% if os() == "windows" -%}
 # Used as MISE_ENV by the *-all tasks to act on every language at once (mise has
 # no MISE_ENV=all). Hardcoded rather than shell-discovered so it works on Windows
 # too -- keep in sync when adding/removing a config.<lang>.toml.
-ALL_LANGS = "dart,dotnet,java,js,python,rust,zig"
+ALL_LANGS = "dart,dotnet,java,js,python,r,rust,zig"
 CLIPPY_CONF_DIR = "{{ config_root }}/config"
 TAPLO_CONFIG = "{{ config_root }}/config/taplo.toml"
 # augtool's lens search path is compile-time pinned to the build-time --prefix.
@@ -1208,6 +1208,12 @@ run = "watchexec --restart --clear --exts rs,toml -i '**/tests/**' --shell=none 
 [tasks.ws-server.env]
 OTLP_AUTH_PASSWORD = "1234"
 OTLP_AUTH_USERNAME = "root@example.com"
+
+[tasks.ws-server-no-otel]
+description = "Run the WebSocket server without OTLP/o2 observability (OpenTelemetry init is skipped)"
+# Same as ws-server but sets no OTLP_* env, so Config.otlp deserialises to None and et_otlp::init is skipped.
+# Use this when you don't want the o2/OpenObserve stack (`mise run o2`) running alongside the server.
+run = "watchexec --restart --clear --exts rs,toml -i '**/tests/**' --shell=none -- cargo run -p et-ws-server"
 
 [tasks.ws-wasi-runner]
 description = "Run the WebSocket WASI runner (set RUNNER_MODULE, e.g. wasi-graphics-info; RUNNER_FEATURES=cuda on CUDA)"

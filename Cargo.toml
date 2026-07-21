@@ -29,6 +29,7 @@ members = [
   "services/ws-modules/wasi-data1",
   "services/modules",
   "services/storage",
+  "services/websockify",
   "services/ws",
   "services/ws-pyo3-runner",
   "services/ws-server",
@@ -79,6 +80,7 @@ et-rest-client = { path = "generated/rust-rest", version = "0.1.0", default-feat
 et-storage-service = { path = "services/storage", version = "0.1.0" }
 et-test-helpers = { path = "libs/test-helpers", version = "0.1.0" }
 et-web = { path = "libs/web", version = "0.1.0" }
+et-websockify-service = { path = "services/websockify", version = "0.1.0" }
 et-ws-runner-common = { path = "libs/ws-runner-common", version = "0.1.0" }
 et-ws-server = { path = "services/ws-server", version = "0.1.0" }
 et-ws-service = { path = "services/ws", version = "0.1.0" }

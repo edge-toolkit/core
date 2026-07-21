@@ -310,6 +310,8 @@ Languages:
 - **Python (Pyodide)**: pydata1, pyeye1, pyface1
 - **C# (.NET WASM)**: dotnet-data1
 - **Java (TeaVM -> JS)**: java-data1
+- **R (webR -> WASM)**: rdata1, rcomm1 -- browser-only (webR spawns a classic Worker, unsupported by Deno's
+  ws-web-runner). Their JS shims are linted by the `js` env; `MISE_ENV=r` supplies webR + the vendoring build tasks.
 - **Zig -> WASM**: zig-data1
 - **Python (componentize-py -> WASI Preview 2 component)**: wasi-graphics-info -- runs in
   `et-ws-wasi-runner` rather than the browser. The WIT world the component implements is at

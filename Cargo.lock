@@ -4363,6 +4363,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "et-websockify-service"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "actix-ws",
+ "bytes",
+ "futures-util",
+ "log",
+ "tokio",
+ "tokio-tungstenite",
+]
+
+[[package]]
 name = "et-ws-audio1"
 version = "0.1.0"
 dependencies = [
@@ -4606,6 +4619,7 @@ dependencies = [
  "et-modules-service",
  "et-otlp",
  "et-storage-service",
+ "et-websockify-service",
  "et-ws-service",
  "fs-err",
  "futures-util",
