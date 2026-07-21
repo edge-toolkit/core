@@ -10,6 +10,8 @@ ls:
   .py: snake_case | regex:__[a-z]+__
   .js: snake_case
   .zig: snake_case
+  .c: snake_case
+  .cpp: snake_case
   .dart: snake_case
   .wit: snake_case | kebab-case
   .rego: snake_case | kebab-case

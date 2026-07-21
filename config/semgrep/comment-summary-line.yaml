@@ -37,6 +37,7 @@ rules:
     paths:
       include:
         - "*.c"
+        - "*.cpp"
         - "*.h"
         - "*.jsonc"
     # The C-style twin of comment-summary-line above, covering `//` and `/* */` comments (so it also covers .jsonc).

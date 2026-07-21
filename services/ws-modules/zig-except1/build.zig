@@ -14,8 +14,13 @@ const name = @tagName(zon.name);
 const wasm_install_path = "../pkg/" ++ name ++ ".wasm";
 
 pub fn build(b: *std.Build) void {
+    // exception_handling is added to zig's baseline wasm CPU because -mcpu baseline is appended after any
+    // per-file cflags, so a plain -mexception-handling cflag on exceptions.cpp would be stripped again and
+    // its __builtin_wasm_throw would fail with "needs target feature exception-handling". Zig itself emits
+    // no EH instructions; only the exception-enabled C++ TU uses the feature.
     const target = b.resolveTargetQuery(.{
         .cpu_arch = .wasm32,
+        .cpu_features_add = std.Target.wasm.featureSet(&.{.exception_handling}),
         .os_tag = .freestanding,
     });
     const optimize = b.standardOptimizeOption(.{});
@@ -26,28 +31,17 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    // Generated REST client (path-pinned, lives under generated/zig-rest/).
-    // The single `extern fn js_rest_request` it relies on is satisfied by
-    // the worker shim in pkg/.
-    const rest_module = b.createModule(.{
-        .root_source_file = b.path("../../../generated/zig-rest/src/et_rest_client.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    root_module.addImport("et_rest_client", rest_module);
-
     const lib = b.addExecutable(.{
         .name = name,
         .root_module = root_module,
     });
     lib.entry = .disabled;
     lib.rdynamic = true;
-    root_module.addCSourceFile(.{ .file = b.path("src/util.c") });
-    // C++ compiles through the same clang, but freestanding wasm32 has no libc++: keep exceptions and RTTI
-    // off so nothing references the missing C++ runtime (unwind tables, type_info, __cxa_* symbols).
+    // Exception-enabled C++ TU: real wasm exception-handling instructions plus the minimal runtime defined in
+    // the file itself. See src/exceptions.cpp for the model and its catch (...)-only constraint.
     root_module.addCSourceFile(.{
-        .file = b.path("src/util.cpp"),
-        .flags = &.{ "-fno-exceptions", "-fno-rtti" },
+        .file = b.path("src/exceptions.cpp"),
+        .flags = &.{ "-fwasm-exceptions", "-mexception-handling", "-fno-rtti" },
     });
 
     const install = b.addInstallFile(lib.getEmittedBin(), wasm_install_path);

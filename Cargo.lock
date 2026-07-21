@@ -4452,6 +4452,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "et-ws-except1"
+version = "0.1.0"
+dependencies = [
+ "et-web",
+ "et-ws-wasm-agent",
+ "js-sys",
+ "tracing",
+ "tracing-wasm",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-bindgen-test",
+ "web-sys",
+]
+
+[[package]]
 name = "et-ws-face-detection"
 version = "0.1.0"
 dependencies = [

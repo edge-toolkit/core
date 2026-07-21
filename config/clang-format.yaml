@@ -1,6 +1,10 @@
-# clang-format style for C sources.
+# clang-format style for C/C++ sources.
 # Applied via `mise run clang-format` (and clang-format-check). Passed to clang-format as --style=file:<this>. LLVM
-# base with the editorconfig line length and 4-space indent (matches the C sources).
+# base with the editorconfig line length and 4-space indent (matches the C/C++ sources).
 BasedOnStyle: LLVM
 IndentWidth: 4
 ColumnLimit: 120
+# Two spaces before trailing comments, not LLVM's one.
+# cpplint's whitespace/comments rule demands >= 2 spaces before a trailing `//` comment, and its
+# readability/namespace rule demands a `}  // namespace` terminator -- so the two styles must agree.
+SpacesBeforeTrailingComments: 2

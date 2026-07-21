@@ -17,6 +17,7 @@ members = [
   "services/ws-modules/bluetooth",
   "services/ws-modules/comm1",
   "services/ws-modules/data1",
+  "services/ws-modules/except1",
   "services/ws-modules/face-detection",
   "services/ws-modules/geolocation",
   "services/ws-modules/graphics-info",

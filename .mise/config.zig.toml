@@ -7,8 +7,8 @@
 # artifact; the Zig REST-client generation step in et-int-gen detects the missing binary at runtime and is a
 # no-op when it's not on PATH.
 "github:christianhelle/openapi2zig" = { version = "latest", os = ["linux/x64", "macos", "windows"] }
-# C tooling for the zig-data1 module's hand-written C.
-# The C sources live under services/ws-modules/zig-data1/src/*.c. Two conda packages because mise hands the
+# C/C++ tooling for the zig-data1 module's hand-written C and C++.
+# The sources live under services/ws-modules/zig-data1/src/*.{c,cpp}. Two conda packages because mise hands the
 # `clang-format` name to conda:clang-format, so conda:clang-tools omits it and only supplies clang-tidy. Both
 # are conda-forge's native LLVM binaries. cpplint (Google C++ style) and flawfinder (C/C++ security scanner)
 # have no prebuilt binary -- pipx is their only distribution.
@@ -52,58 +52,76 @@ run = "zig fmt --check services/ws-modules/ generated/zig-rest/"
 run = "zig fmt services/ws-modules/ generated/zig-rest/"
 
 [tasks.clang-format]
-description = "Format C sources (clang-format)"
-run = "git ls-files '*.c' '*.h' | xargs clang-format -i --style=file:config/clang-format.yaml"
+description = "Format C/C++ sources (clang-format)"
+run = "git ls-files '*.c' '*.cpp' '*.h' | xargs clang-format -i --style=file:config/clang-format.yaml"
 
 [tasks.clang-format-check]
-description = "Check C source formatting (clang-format)"
-run = "git ls-files '*.c' '*.h' | xargs clang-format --dry-run --Werror --style=file:config/clang-format.yaml"
+description = "Check C/C++ source formatting (clang-format)"
+run = "git ls-files '*.c' '*.cpp' '*.h' | xargs clang-format --dry-run --Werror --style=file:config/clang-format.yaml"
 
 [tasks.clang-tidy-check]
-description = "Lint C sources (clang-tidy)"
-# Flags after `--` are the compile args.
-# clang_resource_arg points clang at its builtin headers (set per host -- see config.linux.toml). {{ }} renders
-# to empty where unset, leaving a bare `--`. The host clang-tidy can't parse the Windows-only mingw-shim
-# (windows.h, MSVC CRT), so it gets a second pass with llvm-mingw's clang-tidy cross-targeting windows;
-# `mise where` locates that install on any host (config.windows.toml on Windows, config.zig.toml on Linux/macOS).
+description = "Lint C/C++ sources (clang-tidy)"
+# Three passes, split by the compile target each bucket of C/C++ needs before clang-tidy can parse it.
+# Flags after `--` are the compile args; clang_resource_arg points clang at its builtin headers (set per host
+# -- see config.linux.toml), and {{ }} renders empty where unset, leaving a bare `--`.
+#   1. host pass -- portable C/C++ built for the native target. This currently matches NOTHING: every tracked
+#      C/C++ file lives under services/ws-web-runner/mingw-shim or services/ws-modules/zig-* (both excluded
+#      just below), so the pass is a reserved slot for future portable C/C++ that is neither the Windows shim
+#      nor a wasm module. (On main it matched zig-data1/src/util.c; PR #93 moved the zig sources to pass 3.)
+#   2. mingw-shim -- Windows-only (windows.h, MSVC CRT), so it goes through llvm-mingw's clang-tidy
+#      cross-targeting x86_64-w64-mingw32 (`mise where` locates that install on any host).
+#   3. zig modules -- compiled to wasm, so the host clang-tidy targets wasm32 with the same exception-handling
+#      flags their build.zig files use, so wasm-only builtins (__builtin_wasm_throw) parse.
+# `xargs -r` (--no-run-if-empty) guards every pass -- required because pass 1 matches nothing (above) and
+# uutils findutils 0.8.0 xargs panics on empty input in -I mode:
+#   thread 'main' panicked at src/xargs/mod.rs:411:46: index out of bounds: the len is 0 but the index is 0
+# (observed on PR #93's docker-linux build + check lanes). -r makes empty input a clean no-op.
 run = """
-git ls-files '*.c' '*.h' ':!services/ws-web-runner/mingw-shim' |
-  xargs -I{} clang-tidy --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
+git ls-files '*.c' '*.cpp' '*.h' ':!services/ws-web-runner/mingw-shim' ':!services/ws-modules/zig-*' |
+  xargs -r -I{} clang-tidy --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
 llvm_ct="$(mise where 'github:mstorsjo/llvm-mingw')/bin/clang-tidy"
 git ls-files 'services/ws-web-runner/mingw-shim/*.c' |
-  xargs -I{} "$llvm_ct" --config-file=config/clang-tidy.yaml {} -- --target=x86_64-w64-mingw32 -std=c11
+  xargs -r -I{} "$llvm_ct" --config-file=config/clang-tidy.yaml {} -- --target=x86_64-w64-mingw32 -std=c11
+wasm_flags=({{ vars.clang_resource_arg }} --target=wasm32-unknown-unknown -fwasm-exceptions -mexception-handling)
+git ls-files 'services/ws-modules/zig-*/src/*.c' 'services/ws-modules/zig-*/src/*.cpp' |
+  xargs -r -I{} clang-tidy --config-file=config/clang-tidy.yaml {} -- "${wasm_flags[@]}" -fno-rtti
 """
 shell = "bash -euo pipefail -c"
 
 [tasks.clang-tidy-fix]
-description = "Apply clang-tidy's machine-applicable fix-its to C sources in place"
-# Mirrors clang-tidy-check's two passes: host clang-tidy for portable C, llvm-mingw's for the windows mingw-shim.
+description = "Apply clang-tidy's machine-applicable fix-its to C/C++ sources in place"
+# Mirrors clang-tidy-check's three passes.
+# Host clang-tidy for portable C/C++, llvm-mingw's for the windows mingw-shim, and a wasm32 cross-target pass
+# for the zig modules' C/C++.
 run = """
-git ls-files '*.c' '*.h' ':!services/ws-web-runner/mingw-shim' |
-  xargs -I{} clang-tidy --fix --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
+git ls-files '*.c' '*.cpp' '*.h' ':!services/ws-web-runner/mingw-shim' ':!services/ws-modules/zig-*' |
+  xargs -r -I{} clang-tidy --fix --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
 llvm_ct="$(mise where 'github:mstorsjo/llvm-mingw')/bin/clang-tidy"
 git ls-files 'services/ws-web-runner/mingw-shim/*.c' |
-  xargs -I{} "$llvm_ct" --fix --config-file=config/clang-tidy.yaml {} -- --target=x86_64-w64-mingw32 -std=c11
+  xargs -r -I{} "$llvm_ct" --fix --config-file=config/clang-tidy.yaml {} -- --target=x86_64-w64-mingw32 -std=c11
+wasm_flags=({{ vars.clang_resource_arg }} --target=wasm32-unknown-unknown -fwasm-exceptions -mexception-handling)
+git ls-files 'services/ws-modules/zig-*/src/*.c' 'services/ws-modules/zig-*/src/*.cpp' |
+  xargs -r -I{} clang-tidy --fix --config-file=config/clang-tidy.yaml {} -- "${wasm_flags[@]}" -fno-rtti
 """
 shell = "bash -euo pipefail -c"
 
 [tasks.cpplint-check]
-description = "Lint C sources for Google C++ style (cpplint)"
+description = "Lint C/C++ sources for Google C++ style (cpplint)"
 # cpplint and clang-tidy share the `// NOLINT` syntax, so cpplint sees the shim's clang-tidy-named NOLINTs.
 # -readability/nolint stops it erroring on those (bugprone-*, clang-diagnostic-*) as unknown cpplint categories.
 run = """
-git ls-files '*.c' '*.h' |
+git ls-files '*.c' '*.cpp' '*.h' |
   xargs cpplint --quiet --linelength=120 --filter=-legal/copyright,-build/include_subdir,-readability/nolint
 """
 shell = "bash -euo pipefail -c"
 
 [tasks.flawfinder-check]
-description = "Scan C sources for risky C APIs (flawfinder security lint)"
+description = "Scan C/C++ sources for risky C APIs (flawfinder security lint)"
 # flawfinder is a lexical scanner (no compile), so unlike clang-tidy it also covers the mingw-shim sources.
 # Gate on risk level >= 2; the blanket level-1 notes (e.g. every strlen) are too noisy to fail CI on. A
 # reviewed-safe hit at or above the gate is silenced with an inline `flawfinder: ignore` comment stating why.
 run = """
-git ls-files '*.c' '*.h' |
+git ls-files '*.c' '*.cpp' '*.h' |
   xargs flawfinder --error-level=2 --minlevel=2 --quiet --dataonly
 """
 shell = "bash -euo pipefail -c"
@@ -111,19 +129,24 @@ shell = "bash -euo pipefail -c"
 # Namespaced aggregators picked up by the default config's globbed `check`/`fmt`.
 [tasks."check:zig"]
 depends = ["clang-format-check", "clang-tidy-check", "cpplint-check", "flawfinder-check", "zig-check"]
-description = "Run Zig + C checks (zig fmt-check, clang-format, clang-tidy, cpplint, flawfinder)"
+description = "Run Zig + C/C++ checks (zig fmt-check, clang-format, clang-tidy, cpplint, flawfinder)"
 
 [tasks."fmt:zig"]
 depends = ["clang-format", "zig-fmt"]
-description = "Format Zig + C sources"
+description = "Format Zig + C/C++ sources"
 
 [tasks."fix:zig"]
 depends = ["clang-tidy-fix"]
-description = "Apply C lint-fix passes"
+description = "Apply C/C++ lint-fix passes"
 
 [tasks.build-ws-zig-data1-module]
 description = "Build the zig-data1 workflow WASM module"
 dir = "services/ws-modules/zig-data1"
+run = "zig build -Doptimize=ReleaseSmall"
+
+[tasks.build-ws-zig-except1-module]
+description = "Build the zig-except1 exception-handling demo WASM module"
+dir = "services/ws-modules/zig-except1"
 run = "zig build -Doptimize=ReleaseSmall"
 
 [tasks."prefetch:zig"]

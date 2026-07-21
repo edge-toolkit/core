@@ -30,6 +30,12 @@ description = "Build the comm1 workflow WASM module"
 dir = "services/ws-modules/comm1"
 run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
+[tasks.build-ws-except1-module]
+depends = ["build-wasm-cov-wrapper"]
+description = "Build the except1 exception-handling demo WASM module"
+dir = "services/ws-modules/except1"
+run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
+
 [tasks.build-ws-sensor1-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the sensor1 workflow WASM module"
