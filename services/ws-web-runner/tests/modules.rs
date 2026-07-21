@@ -61,11 +61,13 @@ use rstest::rstest;
 
 #[rstest]
 #[case::data1("et-ws-data1", Language::Rust)]
+#[case::except1("et-ws-except1", Language::Rust)]
 #[case::pydata1("et-ws-pydata1", Language::Python)]
 #[case::graphics_info("et-ws-graphics-info", Language::Rust)]
 #[case::dotnet_data1("et-ws-dotnet-data1", Language::Dotnet)]
 #[case::java_data1("et-ws-java-data1", Language::Java)]
 #[case::zig_data1("et-ws-zig-data1", Language::Zig)]
+#[case::zig_except1("et-ws-zig-except1", Language::Zig)]
 #[case::dart_data1("et-ws-dart-data1", Language::Dart)]
 #[case::pywasm1("et-ws-pywasm1", Language::Python)]
 fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {

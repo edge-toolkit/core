@@ -255,7 +255,7 @@ Most are Rust built with `wasm-pack build --target web`; other languages:
 - Python, using [pyodide](https://pyodide.org/) and [RustPython](https://rustpython.github.io/)
 - R, using [webR](https://docs.r-wasm.org/webr/latest/) (rdata1, rcomm1) -- browser-only: webR spawns a classic
   Web Worker, which Deno's `et-ws-web-runner` does not support, so these fail there by design
-- Zig, including C code
+- Zig, including C and C++ code
 
 #### et-ws-web-runner on Windows
 

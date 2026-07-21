@@ -57,7 +57,7 @@ url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x
 # job runs and uploads each tarball.
 [asset."1.14.1-x86_64-unknown-linux-gnu.tar.xz"]
 license = "LGPL-2.1+"
-sha256 = "fc6345fb8ffb84e1f57f9144aacc059aa13687f6912ffe26f90713c771892ec6"
+sha256 = "76eb80c33355abe9f6ea01ac90a47a70d5917d940a0a843aed9d0b61feed7714"
 upstream = "https://github.com/hercules-team/augeas"
 url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x86_64-unknown-linux-gnu.tar.xz"
 

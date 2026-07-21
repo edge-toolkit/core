@@ -266,7 +266,7 @@ version = "1.14.1"
 checksum = "sha256:3303e8022294b04fe4ed567b0d88c10c1c7d5b51e443485251a6d4a606b1433a"
 url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-aarch64-unknown-linux-gnu.tar.xz"
 [tools."http:augeas".platforms.linux-x64]
-checksum = "sha256:fc6345fb8ffb84e1f57f9144aacc059aa13687f6912ffe26f90713c771892ec6"
+checksum = "sha256:76eb80c33355abe9f6ea01ac90a47a70d5917d940a0a843aed9d0b61feed7714"
 url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x86_64-unknown-linux-gnu.tar.xz"
 [tools."http:augeas".platforms.macos-arm64]
 checksum = "sha256:10fc4aff94a5c6016c51b4dbbc224277a340a083c315ca0a05e9f5ef9a869403"

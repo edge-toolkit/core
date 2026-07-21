@@ -20,6 +20,9 @@ extern fn js_get_iso_timestamp(buf: [*]u8, max: usize) usize;
 // Declared in src/util.c
 extern fn byte_sum(buf: [*]const u8, len: usize) u8;
 
+// Declared in src/util.cpp
+extern fn fnv1a_hash(buf: [*]const u8, len: usize) u32;
+
 // Bumped from 64K because the REST client allocates a 64K response buffer
 // per request and the workflow runs several round-trips before completing.
 var heap: [256 * 1024]u8 = undefined;
@@ -95,6 +98,9 @@ export fn run() i32 {
 
     const cksum = byte_sum(content.ptr, content.len);
     log("content checksum (byte_sum from C): {d}", .{cksum});
+
+    const hash = fnv1a_hash(content.ptr, content.len);
+    log("content hash (fnv1a_hash from C++): {x:0>8}", .{hash});
 
     // The REST client targets the same origin we were served from, so an
     // empty base_url leaves it with relative paths like `/storage/{id}/{f}`

@@ -1,4 +1,4 @@
-# clang-tidy checks for C sources.
+# clang-tidy checks for C/C++ sources.
 # Applied via `mise run clang-tidy-check` (passed as --config-file=<this>).
 # Bug-finding analysis only; opinionated readability/style checks are left off to avoid churn on the small C surface.
 # cppcoreguidelines-avoid-non-const-global-variables is pulled in specifically (not the whole cppcoreguidelines set)

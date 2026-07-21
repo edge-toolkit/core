@@ -109,7 +109,12 @@ jobs:
           native_asset="rustpython-${short}-${triple}.tar.gz"
           wasm_asset="rustpython-wasm-${short}.tar.gz"
           repo=edge-toolkit/core
-          assets=$(gh release view rp-v1 --repo "$repo" --json assets --jq '.assets[].name' 2>/dev/null || true)
+          # Fail closed: on a failed asset query, abort instead of rebuilding.
+          # A transient API error must not look like "asset missing" and clobber the pinned asset (new hash).
+          if ! assets=$(gh release view rp-v1 --repo "$repo" --json assets --jq '.assets[].name'); then
+            echo "::error::could not query rp-v1 assets; refusing to rebuild (transient API failure?)" >&2
+            exit 1
+          fi
           native_missing=true; wasm_missing=true
           if echo "$assets" | grep -Fxq "$native_asset"; then native_missing=false; fi
           if echo "$assets" | grep -Fxq "$wasm_asset";   then wasm_missing=false;   fi
@@ -264,7 +269,12 @@ jobs:
           asset="${AUG_VERSION}-${MATRIX_TRIPLE}.${MATRIX_EXT}"
           repo=edge-toolkit/core
           jq='.assets[].name'
-          assets=$(gh release view "$AUG_RELEASE_TAG" --repo "$repo" --json assets --jq "$jq" 2>/dev/null || true)
+          # Fail closed: on a failed asset query, abort instead of rebuilding.
+          # A transient API error must not look like "asset missing" and clobber the pinned asset (new hash).
+          if ! assets=$(gh release view "$AUG_RELEASE_TAG" --repo "$repo" --json assets --jq "$jq"); then
+            echo "::error::could not query $AUG_RELEASE_TAG assets; refusing to rebuild (transient API failure?)" >&2
+            exit 1
+          fi
           if echo "$assets" | grep -Fxq "$asset"; then
             echo "::notice::$asset already in $AUG_RELEASE_TAG; skipping"
             echo "work=" >> "$GITHUB_OUTPUT"
@@ -547,7 +557,12 @@ jobs:
           asset="${DTG_VERSION}-${triple}.tar.gz"
           repo=edge-toolkit/core
           jq='.assets[].name'
-          assets=$(gh release view "$DTG_RELEASE_TAG" --repo "$repo" --json assets --jq "$jq" 2>/dev/null || true)
+          # Fail closed: on a failed asset query, abort instead of rebuilding.
+          # A transient API error must not look like "asset missing" and clobber the pinned asset (new hash).
+          if ! assets=$(gh release view "$DTG_RELEASE_TAG" --repo "$repo" --json assets --jq "$jq"); then
+            echo "::error::could not query $DTG_RELEASE_TAG assets; refusing to rebuild (transient API failure?)" >&2
+            exit 1
+          fi
           if echo "$assets" | grep -Fxq "$asset"; then
             echo "::notice::$asset already in $DTG_RELEASE_TAG; skipping"
             echo "work=" >> "$GITHUB_OUTPUT"
@@ -638,7 +653,12 @@ jobs:
           asset="${GNUPG_VERSION}_${GNUPG_BUILD_STAMP}-x86_64-pc-windows.tar.gz"
           repo=edge-toolkit/core
           jq='.assets[].name'
-          assets=$(gh release view "$GNUPG_RELEASE_TAG" --repo "$repo" --json assets --jq "$jq" 2>/dev/null || true)
+          # Fail closed: on a failed asset query, abort instead of rebuilding.
+          # A transient API error must not look like "asset missing" and clobber the pinned asset (new hash).
+          if ! assets=$(gh release view "$GNUPG_RELEASE_TAG" --repo "$repo" --json assets --jq "$jq"); then
+            echo "::error::could not query $GNUPG_RELEASE_TAG assets; refusing to rebuild (transient API failure?)" >&2
+            exit 1
+          fi
           if echo "$assets" | grep -Fxq "$asset"; then
             echo "::notice::$asset already in $GNUPG_RELEASE_TAG; skipping"
             echo "work=" >> "$GITHUB_OUTPUT"

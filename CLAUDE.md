@@ -220,28 +220,28 @@ settings, different file globs). taplo specifically: the only right way to forma
 The `mise run <task>` formatters and checks per file type. The aggregates (`fmt`/`check`/`fmt-all`/`check-all`)
 run every loaded language's row; guest rows need their `MISE_ENV` loaded.
 
-| File type | Formatter task(s)               |
-| --------- | ------------------------------- |
-| `*.rs`    | `cargo-fmt`, `cargo-clippy-fix` |
-| `*.toml`  | `taplo-fmt`                     |
-| `*.py`    | `ruff-fmt`                      |
-| `*.dart`  | `fmt:dart`                      |
-| `*.zig`   | `fmt:zig`                       |
-| `*.c`     | `clang-format`                  |
-| `*.cs`    | `fmt:dotnet`                    |
+| File type      | Formatter task(s)               |
+| -------------- | ------------------------------- |
+| `*.rs`         | `cargo-fmt`, `cargo-clippy-fix` |
+| `*.toml`       | `taplo-fmt`                     |
+| `*.py`         | `ruff-fmt`                      |
+| `*.dart`       | `fmt:dart`                      |
+| `*.zig`        | `fmt:zig`                       |
+| `*.c`, `*.cpp` | `clang-format`                  |
+| `*.cs`         | `fmt:dotnet`                    |
 
-| File type | Check task(s)                                                                                  |
-| --------- | ---------------------------------------------------------------------------------------------- |
-| `*.rs`    | `cargo-check`, `cargo-clippy`, `cargo-fmt-check`, `cargo-doc-check`, `ast-grep-check`          |
-| `*.toml`  | `taplo-check`, `conftest-check-toml`, `semgrep-check`                                          |
-| `*.yaml`  | `ast-grep-check`, `conftest-check-yaml`, `ryl-check`, `action-validator-check`, `zizmor-check` |
-| `*.json`  | `semgrep-check`                                                                                |
-| `*.py`    | `check:python`                                                                                 |
-| `*.dart`  | `check:dart`                                                                                   |
-| `*.zig`   | `check:zig`                                                                                    |
-| `*.c`     | `clang-format-check`, `clang-tidy-check`, `cpplint-check`                                      |
-| `*.cs`    | `check:dotnet`                                                                                 |
-| `*.java`  | `check:java`                                                                                   |
+| File type      | Check task(s)                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------- |
+| `*.rs`         | `cargo-check`, `cargo-clippy`, `cargo-fmt-check`, `cargo-doc-check`, `ast-grep-check`          |
+| `*.toml`       | `taplo-check`, `conftest-check-toml`, `semgrep-check`                                          |
+| `*.yaml`       | `ast-grep-check`, `conftest-check-yaml`, `ryl-check`, `action-validator-check`, `zizmor-check` |
+| `*.json`       | `semgrep-check`                                                                                |
+| `*.py`         | `check:python`                                                                                 |
+| `*.dart`       | `check:dart`                                                                                   |
+| `*.zig`        | `check:zig`                                                                                    |
+| `*.c`, `*.cpp` | `clang-format-check`, `clang-tidy-check`, `cpplint-check`                                      |
+| `*.cs`         | `check:dotnet`                                                                                 |
+| `*.java`       | `check:java`                                                                                   |
 
 `dprint-fmt` / `dprint-check` cover `*.md`, `*.yaml`, `*.json`/`*.jsonc`, `*.ts`/`*.js`, `*.css`, `*.html`,
 `*.java`, and `Dockerfile*`; `hadolint-check` also lints Dockerfiles, and `link-check` scans `*.md` + `*.rs`. Every
@@ -304,15 +304,15 @@ The server only serves them from disk.
 
 Languages:
 
-- **Rust -> WASM** (wasm-pack): audio1, bluetooth, comm1, data1, face-detection, geolocation, graphics-info, har1, nfc,
-  sensor1, speech-recognition, video1
+- **Rust -> WASM** (wasm-pack): audio1, bluetooth, comm1, data1, except1, face-detection, geolocation, graphics-info,
+  har1, nfc, sensor1, speech-recognition, video1
 - **Dart -> JS**: dart-comm1
 - **Python (Pyodide)**: pydata1, pyeye1, pyface1
 - **C# (.NET WASM)**: dotnet-data1
 - **Java (TeaVM -> JS)**: java-data1
 - **R (webR -> WASM)**: rdata1, rcomm1 -- browser-only (webR spawns a classic Worker, unsupported by Deno's
   ws-web-runner). Their JS shims are linted by the `js` env; `MISE_ENV=r` supplies webR + the vendoring build tasks.
-- **Zig -> WASM**: zig-data1
+- **Zig -> WASM**: zig-data1, zig-except1 (C++ wasm-exception-handling demo)
 - **Python (componentize-py -> WASI Preview 2 component)**: wasi-graphics-info -- runs in
   `et-ws-wasi-runner` rather than the browser. The WIT world the component implements is at
   `services/ws-wasi-runner/wit/world.wit` and is mirrored under the module's own `wit/`.
