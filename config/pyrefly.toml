@@ -23,6 +23,7 @@ search-path = [
   "../services/ws-modules/pydata1",
   "../services/ws-modules/pyeye1",
   "../services/ws-modules/pyface1",
+  "../services/ws-modules/pyspeech1",
   "../services/ws-pyo3-runner/python",
 ]
 

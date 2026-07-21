@@ -61,7 +61,7 @@ depends = ["ruff-fix"]
 description = "Apply Python lint-fix passes"
 
 [tasks."test:python"]
-depends = ["test-pyeye1", "test-pyface1"]
+depends = ["test-pyeye1", "test-pyface1", "test-pyspeech1"]
 description = "Run Python tests"
 
 [tasks.test-pyeye1]
@@ -73,6 +73,11 @@ run = "uv run pytest"
 [tasks.test-pyface1]
 dir = "services/ws-modules/pyface1"
 # Same uv-interpreter pin as `[tasks."prefetch:python".env]`; see there.
+env = { UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}" }
+run = "uv run pytest"
+
+[tasks.test-pyspeech1]
+dir = "services/ws-modules/pyspeech1"
 env = { UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}" }
 run = "uv run pytest"
 
@@ -143,6 +148,17 @@ uv build --wheel --out-dir pkg
 """
 shell = "bash -euo pipefail -c"
 
+[tasks.build-ws-pyspeech1-module]
+depends = ["build-et-ws-wheel"]
+description = "Build the pyspeech1 Python Silero VAD workflow module"
+dir = "services/ws-modules/pyspeech1"
+run = """
+rm -f pkg/*.whl
+uv build --wheel --out-dir pkg
+{{ vars.et_cli }} module-package-json
+"""
+shell = "bash -euo pipefail -c"
+
 [tasks.build-ws-wasi-graphics-info-module]
 depends = ["build-et-cli"]
 description = "Build the WASI graphics-info Python module as a WASI Preview 2 component"
@@ -175,6 +191,7 @@ run = """
 uv sync --directory services/ws-modules/pydata1
 uv sync --directory services/ws-modules/pyeye1
 uv sync --directory services/ws-modules/pyface1
+uv sync --directory services/ws-modules/pyspeech1
 """
 shell = "bash -euo pipefail -c"
 

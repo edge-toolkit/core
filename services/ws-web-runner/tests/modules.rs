@@ -21,6 +21,7 @@
 //! - **et-ws-har1** -- accelerometer (`DeviceMotionEvent`) + ONNX model
 //! - **et-ws-pyface1** -- Pyodide + camera + ONNX model
 //! - **et-ws-pyeye1** -- Pyodide + camera + `MediaPipe` `FaceLandmarker` (tflite) -> eye boxes
+//! - **et-ws-pyspeech1** -- Pyodide + microphone + ONNX model
 //!
 //! ### Non-JS module loaders / incompatible runtimes
 //!
@@ -173,6 +174,7 @@ fn multi_agent_module(#[case] module: &str, #[case] language: Language) {
 #[case::video1("et-ws-video1", Language::Rust)]
 #[case::pyface1("et-ws-pyface1", Language::Python)]
 #[case::pyeye1("et-ws-pyeye1", Language::Python)]
+#[case::pyspeech1("et-ws-pyspeech1", Language::Python)]
 fn hardware_module_load_fails(#[case] module: &str, #[case] language: Language) {
     if !mise_env_includes(language) {
         println!(

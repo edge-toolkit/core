@@ -1,0 +1,31 @@
+[project]
+dependencies = ["et-ws"]
+description = "Python microphone speech detection"
+license = "Apache-2.0 OR MIT"
+name = "et-ws-pyspeech1"
+requires-python = ">=3.10"
+version = "0.1.0"
+
+[dependency-groups]
+dev = ["pytest", "pytest-cov"]
+
+[build-system]
+build-backend = "uv_build"
+requires = ["uv_build==0.11.8"]
+
+[tool.uv.build-backend]
+module-name = "pyspeech1"
+module-root = ""
+
+[tool.uv.sources]
+et-ws = { workspace = true }
+
+[tool.ws-module.dependencies]
+et-model-speech1 = "*"
+et-ws = "*"
+onnxruntime-web = "*"
+pyodide = "*"
+
+[tool.pytest.ini_options]
+addopts = ["--import-mode=importlib"]
+pythonpath = ["."]

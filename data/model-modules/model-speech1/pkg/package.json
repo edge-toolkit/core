@@ -1,0 +1,7 @@
+{
+  "description": "FP16 ONNX speech detection model",
+  "license": "MIT",
+  "name": "et-model-speech1",
+  "version": "0.1.0",
+  "files": ["speech1.onnx"]
+}
