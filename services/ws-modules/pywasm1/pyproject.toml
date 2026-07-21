@@ -1,0 +1,13 @@
+[project]
+description = "Python smoke test (RustPython WASM)"
+license = "Apache-2.0 OR MIT"
+name = "et-ws-pywasm1"
+requires-python = ">=3.10"
+version = "0.1.0"
+
+# No [build-system]: nothing is wheel-built here.
+# The module ships main.py verbatim next to the prebuilt rustpython_wasm artifacts its build task copies into
+# pkg/; this manifest exists so `et-cli module-package-json` derives pkg/package.json from statically
+# checkable input like every other module.
+[tool.ws-module]
+main = "index.js"

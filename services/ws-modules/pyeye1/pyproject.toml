@@ -1,6 +1,6 @@
 [project]
 dependencies = ["et-ws"]
-description = "Python eye detection (MediaPipe FaceLandmarker -> eye bounding boxes)"
+description = "Python eye detection (MediaPipe)"
 license = "Apache-2.0 OR MIT"
 name = "et-ws-pyeye1"
 requires-python = ">=3.10"

@@ -454,8 +454,6 @@ gh_http = "--http-url https://github.com --progress --ignore-existing"
 o2_image = "openobserve/openobserve:v0.70.3"
 # OpenTelemetry Collector image for the o2-hostmetrics / o2-macmon / o2-nvidia / o2-winmetrics tasks.
 otelcol_image = "otel/opentelemetry-collector-contrib:0.156.0"
-# pywasm1's own module version, templated into the pkg/package.json its build task emits.
-pywasm1_pkg_version = "0.1.0"
 rp_wasm_dir = '''{% if os() == "windows" -%}
 {%- set base = (env?.LOCALAPPDATA or "") | replace(from="\\", to="/") -%}
 {{- base -}}/mise/installs/http-rp-wasm/{{- vars.a_rp_wasm_short -}}
@@ -1487,6 +1485,7 @@ shell = "bash -euo pipefail -c"
 # like every other module task -- using the prebuilt tarball from the rp-v<N> release rather than
 # recompiling RustPython keeps the cost at one ~10 MB download, not a multi-minute upstream wasm-pack build.
 [tasks.build-ws-pywasm1-module]
+depends = ["build-et-cli"]
 description = "Build the pywasm1 module (fetched rustpython_wasm + main.py)"
 dir = "services/ws-modules/pywasm1"
 run = """
@@ -1497,22 +1496,7 @@ coreutils cp "$rp_pkg"/rustpython_wasm.js "$rp_pkg"/rustpython_wasm.d.ts pkg/
 coreutils cp "$rp_pkg"/rustpython_wasm_bg.wasm "$rp_pkg"/rustpython_wasm_bg.wasm.d.ts pkg/
 coreutils cp -R "$rp_pkg/snippets" pkg/
 coreutils cp index.js main.py pkg/
-coreutils cat > pkg/package.json <<'PKG_JSON'
-{
-  "name": "et-ws-pywasm1",
-  "type": "module",
-  "version": "{{ vars.pywasm1_pkg_version }}",
-  "main": "index.js",
-  "files": [
-    "index.js",
-    "main.py",
-    "rustpython_wasm.js",
-    "rustpython_wasm.d.ts",
-    "rustpython_wasm_bg.wasm",
-    "rustpython_wasm_bg.wasm.d.ts"
-  ]
-}
-PKG_JSON
+{{ vars.et_cli }} module-package-json
 """
 shell = "bash -euo pipefail -c"
 

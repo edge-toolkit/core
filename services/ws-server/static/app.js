@@ -45,11 +45,15 @@ const populateModuleDropdown = async () => {
         append(`Skipping ${name}: already loaded as the main WASM agent module`);
         continue;
       }
-      if (name === "onnxruntime-web" || name === "pyodide") {
-        append(`Skipping ${name}: already loaded as a dependency`);
+      if (!name.startsWith("et-ws-")) {
+        append(`Skipping ${name}: not an et-ws-* workflow module`);
         continue;
       }
-      const pkgResp = await fetch(`/modules/${name}/package.json`);
+      if (name.startsWith("et-ws-wasi-")) {
+        append(`Skipping ${name}: WASI module, runs in et-ws-wasi-runner rather than the browser`);
+        continue;
+      }
+      const pkgResp = await fetch(`/modules/${name}/package.json`, { cache: "no-cache" });
       if (!pkgResp.ok) {
         append(`Skipping ${name}: no package.json (${pkgResp.status})`);
         continue;
