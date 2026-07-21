@@ -1,0 +1,23 @@
+rules:
+  - id: module-description-length
+    languages: [generic]
+    paths:
+      include:
+        - "services/ws-modules/*/Cargo.toml"
+        - "services/ws-modules/*/pyproject.toml"
+        - "services/ws-modules/*/build.zig.zon"
+        - "services/ws-modules/*/pkg/package.json"
+    # Enforce ws-module description length at the source manifests, not by trimming labels in the browser.
+    # A ws-module description is the module-dropdown label on the ws-server index page. Two regex alternatives
+    # cover the syntaxes the description travels through: `description = "..."` (Cargo.toml / pyproject.toml,
+    # and build.zig.zon's `.description = "..."` which the same pattern matches) and `"description": "..."`
+    # (the hand-committed pkg/package.json files of the dart / dotnet / java / R modules). The generated
+    # pkg/package.json files are gitignored and semgrep scans only tracked files, so the manifest patterns are
+    # the ones that matter for generated modules.
+    pattern-either:
+      - pattern-regex: 'description = "[^"]{41,}"'
+      - pattern-regex: '"description": "[^"]{41,}"'
+    message: >-
+      A ws-module description is the module-dropdown label on the ws-server index page; keep it at most 40
+      characters so the dropdown stays readable.
+    severity: ERROR
