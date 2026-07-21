@@ -17,6 +17,7 @@ path = "src/bin/int-gen.rs"
 asyncapi-rust.workspace = true
 clap.workspace = true
 clap-markdown = { workspace = true, optional = true }
+command-error.workspace = true
 edge-toolkit = { workspace = true, features = ["schema-export"] }
 et-modules-service = { workspace = true, features = ["openapi-spec"] }
 et-storage-service = { workspace = true, features = ["openapi-spec"] }
@@ -46,6 +47,9 @@ wit-parser.workspace = true
 
 [features]
 markdown-help = ["dep:clap-markdown"]
+
+[dev-dependencies]
+et-test-helpers.workspace = true
 
 [lints]
 workspace = true

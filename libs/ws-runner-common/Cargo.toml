@@ -28,8 +28,8 @@ tokio-tungstenite = { workspace = true, features = ["connect"] }
 tracing.workspace = true
 
 [dev-dependencies]
+et-test-helpers.workspace = true
 serde-env.workspace = true
-temp-env.workspace = true
 
 [lints]
 workspace = true

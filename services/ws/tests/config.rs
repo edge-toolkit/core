@@ -8,6 +8,7 @@
     reason = "test code: byte sizes read clearer as decimal MiB math than hex"
 )]
 
+use et_test_helpers::temp_env;
 use et_ws_service::WsConfig;
 use serde::Deserialize;
 

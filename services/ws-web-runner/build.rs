@@ -129,6 +129,8 @@ fn link_mingw_shim() {
     reason = "build script: a panic is cargo's only failure channel for a failed command"
 )]
 fn run(command: &mut std::process::Command) {
-    let status = command.status().unwrap();
-    assert!(status.success(), "{command:?} exited with {status}");
+    // Scoped `use` to inherit "Windows only".
+    use command_error::CommandExt as _;
+
+    let _: std::process::ExitStatus = command.status_checked().unwrap();
 }

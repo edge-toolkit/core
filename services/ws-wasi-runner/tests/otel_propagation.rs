@@ -30,6 +30,7 @@
 use std::collections::HashSet;
 use std::time::Duration;
 
+use command_error::CommandExt as _;
 use edge_toolkit::config::{Language, OtlpConfig, OtlpProtocol, mise_env_includes};
 
 // Skipped on Windows: this test spawns the runner against the wasi-data1
@@ -68,16 +69,16 @@ fn trace_ids_propagate_between_runner_and_server() {
     //    OTLP. Every `OTLP_*` env var is consumed by the runner's
     //    `serde_env::from_env::<EnvConfig>()` call.
     let bin = env!("CARGO_BIN_EXE_et-ws-wasi-runner");
-    let status = std::process::Command::new(bin)
+    // `status_checked` panics on a non-zero exit or spawn failure, with the command line + status baked in --
+    // the same assertion the explicit `status.success()` check made, folded into the call.
+    let _: std::process::ExitStatus = std::process::Command::new(bin)
         .env("RUNNER_MODULE", "et-ws-wasi-data1")
         .env("WS_SERVER_URL", &server.ws_url)
         .env("OTLP_COLLECTOR_URL", mock.collector_url())
         .env("OTLP_PROTOCOL", "JSON")
         .env("OTLP_SERVICE_LABEL", "et-ws-wasi-runner")
-        .status()
+        .status_checked()
         .unwrap();
-
-    assert!(status.success(), "runner exited with code {:?}", status.code());
 
     // 4. Flush our own (server-side) batch exporter so any pending spans
     //    land in the mock before we read it.

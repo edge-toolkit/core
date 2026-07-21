@@ -44,64 +44,13 @@ use fs_err as fs;
 use schemars::schema_for;
 
 pub mod asyncapi;
+pub mod error;
 pub mod kdl;
 pub mod openapi;
 pub mod wit;
 pub mod zig;
 
-/// Errors raised by `et-int-gen`.
-///
-/// Every external error type that fallible functions can produce is wrapped
-/// transparently via `#[from]`, so call sites just use `?`. Domain errors
-/// (malformed schemas, missing `AsyncAPI` nodes, etc.) sit alongside as
-/// non-transparent variants with static messages.
-#[expect(
-    clippy::exhaustive_enums,
-    clippy::error_impl_error,
-    reason = "internal crate (no SemVer); new variants land with their change, and crate::Error is the sole error type"
-)]
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-    #[error(transparent)]
-    Json(#[from] serde_json::Error),
-    #[error(transparent)]
-    Yaml(#[from] serde_yaml::Error),
-    #[error(transparent)]
-    Http(#[from] reqwest::Error),
-    #[error(transparent)]
-    Semver(#[from] semver::Error),
-    #[error(transparent)]
-    Fmt(#[from] std::fmt::Error),
-    #[error(transparent)]
-    Regex(#[from] regex::Error),
-
-    #[error("AsyncAPI spec missing required node: {0}")]
-    SpecNodeMissing(&'static str),
-    #[error("WS message JSON Schema malformed: {0}")]
-    SchemaMalformed(&'static str),
-    #[error("unsupported JSON Schema `type`: `{0}`")]
-    UnsupportedSchemaType(String),
-    #[error("enum value not a string in `{0}`")]
-    EnumValueNotString(String),
-    #[error("progenitor codegen: {0}")]
-    Progenitor(String),
-    #[error("zig codegen: {0}")]
-    ZigCodegen(String),
-}
-
-impl From<progenitor::Error> for Error {
-    fn from(err: progenitor::Error) -> Self {
-        Self::Progenitor(err.to_string())
-    }
-}
-
-impl From<tree_sitter::LanguageError> for Error {
-    fn from(err: tree_sitter::LanguageError) -> Self {
-        Self::ZigCodegen(format!("set Zig language: {err}"))
-    }
-}
+pub use self::error::Error;
 
 /// Emit every checked-in artifact under `generated/` (core + Rust + Zig).
 ///
@@ -114,11 +63,10 @@ pub fn generate() -> Result<(), Error> {
     Ok(())
 }
 
-/// Emit the language-agnostic artifacts: `ws.yaml`, `rest.yaml`, the
-/// `ws.schema.json` intermediates, `ws.kdl`, and the `et:ws-messages` WIT
-/// package.
+/// Emit the language-agnostic artifacts.
 ///
-/// These feed every downstream client (the Dart/Python generators consume
+/// Namely `ws.yaml`, `rest.yaml`, the `ws.schema.json` intermediates, `ws.kdl`, and the `et:ws-messages` WIT
+/// package. These feed every downstream client (the Dart/Python generators consume
 /// `ws.kdl`/`*.schema.json`/`rest.yaml`), so this is the prerequisite step
 /// every per-language `gen:*` mise task depends on.
 #[expect(
@@ -222,8 +170,7 @@ pub fn generate_zig() -> Result<(), Error> {
     Ok(())
 }
 
-/// Write only when the contents differ -- keeps `mise run check` quiet on
-/// no-op regenerations.
+/// Write only when the contents differ, to keep `mise run check` quiet on no-op regenerations.
 #[expect(
     clippy::print_stdout,
     reason = "et-int-gen is a CLI; `wrote <path>` per generated file is intended user-visible progress output"

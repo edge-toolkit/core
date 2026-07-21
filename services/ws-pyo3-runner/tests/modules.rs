@@ -23,6 +23,7 @@ use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 use backon::{ExponentialBuilder, RetryableWithContext as _};
+use command_error::CommandExt as _;
 use edge_toolkit::config::{Language, mise_env_includes};
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
 use futures_util::{SinkExt as _, StreamExt as _};
@@ -37,15 +38,18 @@ type ControlSocket = tokio_tungstenite::WebSocketStream<tokio_tungstenite::Maybe
 /// seconds on a cold, contended CI runner before the runner even connects, and this wait must outlast that.
 /// See the pyo3-runner torch-registration-timeout note in CLAUDE.md.
 const PEER_REGISTER_TIMEOUT: Duration = Duration::from_mins(2);
-/// Overall `run_exchange` budget for the torch case; must exceed `PEER_REGISTER_TIMEOUT` (its cold import lands
-/// inside the peer wait) plus one reply.
+/// Overall `run_exchange` budget for the torch case.
+///
+/// Must exceed `PEER_REGISTER_TIMEOUT` (its cold import lands inside the peer wait) plus one reply.
 const TORCH_EXCHANGE_BUDGET: Duration = Duration::from_mins(3);
 /// Overall `run_exchange` budget for the quick (non-torch) cases, which register within a second.
 const EXCHANGE_BUDGET: Duration = Duration::from_secs(30);
 /// Wait for a single reply frame within an exchange step.
 const REPLY_TIMEOUT: Duration = Duration::from_secs(10);
-/// Exponential-backoff bounds for the peer-registration poll: tight at first, then cheap while we wait out a
-/// slow cold start. Driven by `backon`; the total wall-clock is capped by `PEER_REGISTER_TIMEOUT`.
+/// Exponential-backoff bounds for the peer-registration poll.
+///
+/// Tight at first, then cheap while we wait out a slow cold start. Driven by `backon`; the total wall-clock is
+/// capped by `PEER_REGISTER_TIMEOUT`.
 const POLL_BACKOFF_MIN: Duration = Duration::from_millis(50);
 const POLL_BACKOFF_MAX: Duration = Duration::from_millis(500);
 /// How long each poll round drains inbound frames looking for the peer before backing off.
@@ -126,11 +130,14 @@ async fn module_behaves(
     }
 }
 
-/// Load-time sanity check: a module defining none of the runner hooks must fail
-/// to load (the import happens in `initialize`, before any connection), so no
-/// server is needed and the runner exits non-zero.
+/// Load-time sanity check: a module defining none of the runner hooks must fail to load.
+///
+/// The import happens in `initialize`, before any connection, so no server is needed and the runner exits
+/// non-zero.
 #[test]
 fn no_hooks_fails_to_load() -> Result<(), Box<dyn Error>> {
+    // Raw `.output()` (not `output_checked`) on purpose: a non-zero exit is the asserted-for outcome here, so
+    // we must inspect `output.status`/`output.stderr` rather than have a checked call turn it into an error.
     let output = Command::new(env!("CARGO_BIN_EXE_et-ws-pyo3-runner"))
         .env("RUNNER_MODULE", "no_hooks")
         .env("PYO3_PYTHONPATH", python_dir())
@@ -150,10 +157,12 @@ fn no_hooks_fails_to_load() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// `RUNNER_TIMEOUT` must trigger a graceful shutdown, not an abrupt drop: `drive`'s shutdown arm returns so
-/// `run` still executes its teardown (queue `on_shutdown`, join the Python worker, close the socket). `echo`
-/// loads without any gated toolchain, so the runner reaches its connected run loop before the short timeout
-/// trips; a clean (zero) exit code then confirms the teardown path ran to completion.
+/// `RUNNER_TIMEOUT` must trigger a graceful shutdown, not an abrupt drop.
+///
+/// `drive`'s shutdown arm returns so `run` still executes its teardown (queue `on_shutdown`, join the Python
+/// worker, close the socket). `echo` loads without any gated toolchain, so the runner reaches its connected run
+/// loop before the short timeout trips; a clean (zero) exit code then confirms the teardown path ran to
+/// completion.
 #[tokio::test(flavor = "current_thread")]
 async fn shuts_down_gracefully_on_timeout() -> Result<(), Box<dyn Error>> {
     let server = et_ws_test_server::start();
@@ -166,7 +175,8 @@ async fn shuts_down_gracefully_on_timeout() -> Result<(), Box<dyn Error>> {
         .env("RUST_LOG", rust_log)
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
-        .spawn()?;
+        .spawn_checked()?
+        .into_child();
 
     // The runner self-exits shortly after the 3s timeout; the outer bound only stops a regression from hanging
     // the suite. `try_wait` polls without blocking the current-thread runtime.
@@ -278,8 +288,7 @@ fn check_torch(value: &serde_json::Value) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// Directory of the bundled test Python modules -- the single source of truth
-/// for `PYO3_PYTHONPATH` across every case.
+/// Directory of the bundled test Python modules -- the single source of truth for `PYO3_PYTHONPATH`.
 fn python_dir() -> PathBuf {
     edge_toolkit::config::get_project_root().join("services/ws-pyo3-runner/python")
 }
@@ -295,8 +304,9 @@ fn spawn_runner(module: &str, ws_url: &str) -> Child {
         .env("RUST_LOG", rust_log)
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
-        .spawn()
+        .spawn_checked()
         .unwrap()
+        .into_child()
 }
 
 /// Open a control client and drive et-connect until we have an `agent_id`.
@@ -345,8 +355,9 @@ async fn peer_poll_step<'sock>(
     ((control, self_id), outcome)
 }
 
-/// One registration poll round: request the roster, drain replies for `POLL_DRAIN_WINDOW`, and return
-/// `Ok(())` once a peer that isn't us appears. `Err(())` is the "not yet" sentinel `backon` retries on.
+/// One registration poll round: request the roster and drain replies for `POLL_DRAIN_WINDOW`.
+///
+/// Returns `Ok(())` once a peer that isn't us appears. `Err(())` is the "not yet" sentinel `backon` retries on.
 async fn poll_for_peer_once(control: &mut ControlSocket, self_id: &str) -> Result<(), ()> {
     let Ok(req) = serde_json::to_string(&ClientMessage::ListAgents) else {
         return Err(());
@@ -434,8 +445,9 @@ async fn collect_binary(control: &mut ControlSocket, count: usize) -> Result<Vec
     Ok(received)
 }
 
-/// True when `pipx:torch` is importable from a mise package `site-packages` --
-/// the exact condition under which the runner can `import torch`.
+/// True when `pipx:torch` is importable from a mise package `site-packages`.
+///
+/// The exact condition under which the runner can `import torch`.
 fn torch_reachable() -> bool {
     edge_toolkit::config::mise_python_site_packages()
         .iter()

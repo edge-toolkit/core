@@ -1,0 +1,23 @@
+id: command-requires-command-error
+language: Rust
+severity: error
+message: |
+  A file that imports `std::process::Command` via `use` must also `use command_error::CommandExt` (import it as
+  `use command_error::CommandExt as _;`) so command execution goes through the checked methods
+  (`status_checked` / `output_checked` / `spawn_checked`), whose errors carry the command line and exit status --
+  a raw `std` `Command`'s `.status()` / `.output()` / `.spawn()` errors carry none of that. If a call genuinely
+  needs the raw outcome (e.g. a test that asserts a non-zero exit, or an exit-code proxy), fully-qualify
+  `std::process::Command` at the call site instead of importing it, so this rule does not apply.
+rule:
+  kind: use_declaration
+  regex: 'std\s*::\s*process\s*::.*\bCommand\b'
+  not:
+    inside:
+      kind: source_file
+      stopBy: end
+      has:
+        kind: use_declaration
+        regex: "command_error"
+        stopBy: end
+ignores:
+  - generated/**

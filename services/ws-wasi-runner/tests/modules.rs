@@ -5,6 +5,7 @@
 
 #![cfg(test)]
 
+use command_error::CommandExt as _;
 use edge_toolkit::config::{Language, mise_env_includes};
 use rstest::rstest;
 
@@ -30,12 +31,12 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
     // No-op on Linux/Windows.
     // ET_TEST_COVERAGE, when set by the coverage workflow, is inherited by the child (Command keeps the parent
     // env), so the runner preopens /cov and instrumented guests dump their .profraw -- no forwarding needed.
-    let status = std::process::Command::new(bin)
+    // `status_checked` turns a non-zero exit (or a spawn failure) into a panic carrying the command line and
+    // status; `unwrap_or_else` adds the `module` name that isn't otherwise on the command line.
+    let _: std::process::ExitStatus = std::process::Command::new(bin)
         .env("RUNNER_MODULE", module)
         .env("WS_SERVER_URL", &server.ws_url)
         .env("ET_TEST_WS_WASI_RUNNER_FAST_EXIT", "1")
-        .status()
-        .unwrap();
-
-    assert!(status.success(), "{module} exited with code {:?}", status.code());
+        .status_checked()
+        .unwrap_or_else(|error| panic!("{module} runner failed: {error}"));
 }

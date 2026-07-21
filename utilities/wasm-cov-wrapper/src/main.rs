@@ -21,6 +21,8 @@
 use std::ffi::OsString;
 use std::process::{Command, ExitCode};
 
+use command_error::CommandExt as _;
+
 fn main() -> ExitCode {
     let mut args = std::env::args_os().skip(1);
     let Some(rustc) = args.next() else {
@@ -47,9 +49,9 @@ fn main() -> ExitCode {
         );
     }
 
-    match Command::new(&rustc).args(&rustc_args).status() {
-        Ok(status) if status.success() => ExitCode::SUCCESS,
-        Ok(_nonzero) => ExitCode::FAILURE,
+    match Command::new(&rustc).args(&rustc_args).status_checked() {
+        Ok(_) => ExitCode::SUCCESS,
+        Err(command_error::Error::Output(_)) => ExitCode::FAILURE,
         Err(error) => {
             eprintln!("int-wasm-cov-wrapper: failed to run rustc: {error}");
             ExitCode::FAILURE
