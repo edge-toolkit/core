@@ -436,6 +436,28 @@ ignore = [
   # Not in declared repo (gfx-rs/wgpu): a per-platform helper crate from the wgpu monorepo.
   # cargo-unmaintained can't find the individual member at the repo root -- false positive; pulled by wgpu-core.
   "wgpu-core-deps-windows-linux-android",
+  # windows-targets and the windows_* import-library crates are sunset false positives, not abandonment.
+  # They declare `repository = https://github.com/microsoft/windows-rs`, but Microsoft deleted them from that
+  # repo on 2026-07-20 (commit 201b9eaa7, "windows-targets" #4722), superseding them with `windows-link`.
+  # The final 0.52.x/0.53.x versions stay published on crates.io; since the declared repo no longer holds a
+  # Cargo.toml for them, cargo-unmaintained's "package in repo" heuristic reports "not in" -- a false positive
+  # for deliberately-sunset, still-functional crates, not abandonment.
+  #
+  # These can't be bumped out of the lock: they are pulled only transitively, via older windows-sys majors
+  # (0.52/0.59/0.60, all pre-windows-link) that upstream crates hard-require -- `ring` 0.17.14 pins
+  # windows-sys `^0.52` (via rcgen -> et-ws-server) and `notify` 8.2.0 pins `^0.60.1` (via deno_runtime), and
+  # neither has a windows-link-based release yet, so `cargo update` refuses windows-sys 0.61. Bumping
+  # windows-targets itself is futile -- no version of it exists in the repo any more. Delete these entries once
+  # the upstream stack adopts windows-link and the crates drop out of the lock.
+  "windows-targets",
+  "windows_aarch64_gnullvm",
+  "windows_aarch64_msvc",
+  "windows_i686_gnu",
+  "windows_i686_gnullvm",
+  "windows_i686_msvc",
+  "windows_x86_64_gnu",
+  "windows_x86_64_gnullvm",
+  "windows_x86_64_msvc",
   # Declared repository WebAssembly/WASI is spec-only (no `crates/` tree).
   # The crate is effectively orphaned upstream.
   "witx",

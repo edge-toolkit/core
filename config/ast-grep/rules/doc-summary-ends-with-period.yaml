@@ -1,0 +1,41 @@
+# This rule is rolled out incrementally, scoped by a `files:` allowlist rather than applied workspace-wide.
+# The workspace had ~113 pre-existing docstrings whose first line does not end in terminal punctuation, so
+# rather than rewrite them all at once, this rule only covers the files listed below. Grow the list (or drop
+# the scoping once the backlog is cleared) as more files are brought into line.
+id: doc-summary-ends-with-period
+language: Rust
+severity: error
+message: |
+  A doc comment's first line must be a complete one-line summary ending in terminal punctuation (`.`, `!`, or
+  `?`). Put any elaboration in a following paragraph after a blank `///` line so the summary stays a single line
+  -- rustdoc and readers treat that first line as the item's summary.
+rule:
+  all:
+    # A `///` outer-doc line with visible content (excludes an empty `///` and a `////` block comment).
+    - kind: line_comment
+    - regex: '^///\s*[^/\s]'
+    # ...whose text does not end in terminal punctuation (allowing a trailing `)`, quote, backtick, or `]`).
+    - not:
+        regex: '[.!?][")`\]]*\s*$'
+    # ...and which starts a doc block (is not preceded by another `///` doc line).
+    - not:
+        follows:
+          kind: line_comment
+          regex: "^///($|[^/])"
+          stopBy: neighbor
+files:
+  - libs/edge-toolkit/src/config.rs
+  - libs/edge-toolkit/tests/no_mise.rs
+  - libs/test-helpers/src/lib.rs
+  - libs/ws-runner-common/tests/config.rs
+  - services/ws-pyo3-runner/tests/modules.rs
+  - services/ws-wasi-runner/tests/modules.rs
+  - services/ws-wasi-runner/tests/otel_propagation.rs
+  - services/ws-wasi-runner/tests/vector_otlp_relay.rs
+  - services/ws-web-runner/build.rs
+  - services/ws/tests/config.rs
+  - utilities/int-gen/src/error.rs
+  - utilities/int-gen/src/lib.rs
+  - utilities/int-gen/src/zig.rs
+  - utilities/int-gen/tests/generate_zig.rs
+  - utilities/wasm-cov-wrapper/src/main.rs

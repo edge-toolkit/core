@@ -203,6 +203,12 @@ running the whole battery for every edit is slow, expensive, and almost always w
 types changed. Pick the targeted tasks from the tables below that match the extensions of the files you actually
 modified, and run only those. Same goes for `fmt`: run the per-file-type formatter, not the aggregate.
 
+**Always run `mise run semgrep-check` before finishing a set of changes to any files** -- it is the one check to
+run regardless of which file types you touched. It carries repo-wide, cross-cutting rules that the per-file-type
+tasks don't (comment summary lines across TOML/YAML/JSON/C, the `no-non-ascii` ban, banned constructs in
+`generic` mode over config text), and it is cheap. Skipping it is how comment-style and cross-file regressions
+slip through to CI.
+
 **Agents must not invoke formatter/linter binaries directly** (e.g. `mise exec -- taplo format`, raw
 `taplo`/`dprint`/`oxfmt`/`cargo fmt` calls). Always use the corresponding mise task (`mise run taplo-fmt`,
 `mise run taplo-check`, `mise run dprint-fmt`, etc.). The tasks carry the project's config-file paths
@@ -882,6 +888,16 @@ satisfy is much cheaper to land than one that requires a human edit per site, so
 When the rewrite can't be expressed as a single template (multiple match shapes, context-dependent replacement,
 structural restructuring), keep the rule check-only and write a brief note in the rule body explaining why the
 autofix wasn't viable.
+
+### Expand `doc-summary-ends-with-period` as you touch Rust files
+
+`config/ast-grep/rules/doc-summary-ends-with-period.yaml` enforces that a doc comment's first line is a
+one-line summary ending in terminal punctuation (`.`, `!`, or `?`). The workspace had a large pre-existing
+backlog of violations, so the rule is scoped by a `files:` allowlist rather than applied workspace-wide, and it
+is rolled out incrementally. **Whenever you modify a Rust file, add it to that rule's `files:` list (keep the
+list sorted) and fix any first-line-summary violations in it as part of the same change** -- so the rule's
+coverage only ever grows. Once the `files:` list covers effectively everything, drop the `files:` scoping and
+let it apply workspace-wide.
 
 ### NEVER delete a lint rule without explicit user permission
 

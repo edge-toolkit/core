@@ -14,8 +14,7 @@ use std::sync::{Arc, Mutex};
 
 use retry::delay::Fixed;
 use retry::retry;
-/// The workspace's canonical fake-environment test harness, re-exported so every test crate reaches it the
-/// same way.
+/// The workspace's canonical fake-environment test harness, re-exported for every test crate.
 ///
 /// `temp-env` runs a closure with environment variables temporarily set or unset and restores them afterward,
 /// serialised by its own global lock. Prefer it (e.g. `et_test_helpers::temp_env::with_var("KEY", Some("v"),
@@ -23,12 +22,11 @@ use retry::retry;
 /// other threads. For the common "make a `PATH`-resolved tool look absent" case, use [`with_empty_path`].
 pub use temp_env;
 
-/// Run `f` with `PATH` emptied, then restore it, so a bare-name `Command` spawn fails even when the tool is
-/// installed on the test runner.
+/// Run `run` with `PATH` emptied so a bare-name `Command` spawn fails, restoring `PATH` afterward.
 ///
 /// Exercises "tool not found on `PATH`" fallbacks deterministically: the OS-level program resolution inside
 /// `Command::new("<tool>")` sees the empty `PATH` and fails to find the binary. Thin wrapper over
-/// [`temp_env::with_var`]; returns whatever `f` returns.
+/// [`temp_env::with_var`]; returns whatever `run` returns.
 pub fn with_empty_path<Out, Body>(run: Body) -> Out
 where
     Body: FnOnce() -> Out,

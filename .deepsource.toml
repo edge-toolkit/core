@@ -1,10 +1,15 @@
 version = 1
 
 # `pkg/` is deliberately NOT excluded from DeepSource analysis.
-# It holds hand-written module loaders (e.g. the Pyodide shim et_ws_pydata1.js) alongside build output. Only the
-# int-gen outputs under `generated/` and the scenario `verification/` fixtures are excluded, since those are fully
-# generated; if genuinely-generated glue under `pkg/` turns up as a finding, add a narrow per-file exclude then.
-exclude_patterns = ["generated/**", "verification/**"]
+# It holds hand-written module loaders (e.g. the Pyodide shim et_ws_pydata1.js) alongside build output. The
+# int-gen outputs under `generated/` and the scenario `verification/` fixtures are excluded because they are
+# fully generated; if genuinely-generated glue under `pkg/` turns up as a finding, add a narrow per-file
+# exclude then.
+# `**/error.rs` is excluded from coverage tracking: these files are thin error-type plumbing (thiserror
+# `#[derive]` + `#[from]` conversions, plus the occasional unreachable defensive `From`), so their line
+# coverage is noise. No Rust static analyzer is configured here -- DeepSource only tracks Rust coverage -- so
+# the exclude costs no issue detection. (The matching Codecov exclusion is set in Codecov's web UI.)
+exclude_patterns = ["**/error.rs", "generated/**", "verification/**"]
 
 # Repo convention: tests live in a `tests/` directory or in source files prefixed `test_`.
 test_patterns = ["**/test_*.py", "**/tests/**"]

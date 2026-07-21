@@ -63,11 +63,10 @@ pub fn generate() -> Result<(), Error> {
     Ok(())
 }
 
-/// Emit the language-agnostic artifacts: `ws.yaml`, `rest.yaml`, the
-/// `ws.schema.json` intermediates, `ws.kdl`, and the `et:ws-messages` WIT
-/// package.
+/// Emit the language-agnostic artifacts.
 ///
-/// These feed every downstream client (the Dart/Python generators consume
+/// Namely `ws.yaml`, `rest.yaml`, the `ws.schema.json` intermediates, `ws.kdl`, and the `et:ws-messages` WIT
+/// package. These feed every downstream client (the Dart/Python generators consume
 /// `ws.kdl`/`*.schema.json`/`rest.yaml`), so this is the prerequisite step
 /// every per-language `gen:*` mise task depends on.
 #[expect(
@@ -171,8 +170,7 @@ pub fn generate_zig() -> Result<(), Error> {
     Ok(())
 }
 
-/// Write only when the contents differ -- keeps `mise run check` quiet on
-/// no-op regenerations.
+/// Write only when the contents differ, to keep `mise run check` quiet on no-op regenerations.
 #[expect(
     clippy::print_stdout,
     reason = "et-int-gen is a CLI; `wrote <path>` per generated file is intended user-visible progress output"

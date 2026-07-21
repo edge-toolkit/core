@@ -14,8 +14,9 @@ use crate::ports::Services;
 /// Localhost address 127.0.0.1 .
 pub const LOCALHOST: &str = "127.0.0.1";
 
-/// Whether a config value names the "disabled" state: `none`, `off`, or
-/// `disabled` (case-insensitive, surrounding whitespace ignored).
+/// Whether a config value names the "disabled" state: `none`, `off`, or `disabled`.
+///
+/// Matched case-insensitively, ignoring surrounding whitespace.
 ///
 /// These sentinels let an `Option<_>` env-var field be set to `None`. A blank
 /// value can't serve that role -- `serde-env` drops empty-valued vars, so a
@@ -28,8 +29,7 @@ pub fn is_disabled_sentinel(value: &str) -> bool {
         || trimmed.eq_ignore_ascii_case("disabled")
 }
 
-/// Deserialize `Option<T>` where a disable sentinel ([`is_disabled_sentinel`])
-/// maps to `None` and any other value to `Some(T)` via `T`'s own `Deserialize`.
+/// Deserialize `Option<T>`, mapping a disable sentinel ([`is_disabled_sentinel`]) to `None`, else `Some(T)`.
 ///
 /// Generic over the inner type, for fields read from env vars via `serde-env`:
 /// the value arrives as a string, so this works for any `T` whose `Deserialize`
@@ -56,8 +56,7 @@ where
     T::deserialize(inner).map(Some)
 }
 
-/// [`deserialize_optional`] for `Option<Duration>` fields, parsing the value as
-/// a humantime duration (e.g. `15s`, `1m30s`).
+/// [`deserialize_optional`] for `Option<Duration>` fields, parsing a humantime duration (e.g. `15s`, `1m30s`).
 ///
 /// Separate from the generic [`deserialize_optional`] because `Duration`'s own
 /// `Deserialize` expects a `{secs, nanos}` struct, not a humantime string.
@@ -210,8 +209,7 @@ pub enum Language {
 }
 
 impl Language {
-    /// Canonical lowercase name as used in `MISE_ENV` and the
-    /// `config.<name>.toml` filename.
+    /// Canonical lowercase name as used in `MISE_ENV` and the `config.<name>.toml` filename.
     #[must_use]
     pub fn as_str(self) -> &'static str {
         self.into()
@@ -295,9 +293,10 @@ pub fn mise_npm_package_path(package: &str) -> Option<PathBuf> {
     mise_npm_modules_path(package).map(|node_modules| node_modules.join(package))
 }
 
-/// Pure-filesystem version of [`mise_npm_modules_path`]: given an
-/// `<install>` root and a `<package>` name, return the `node_modules`
-/// directory that contains `<package>`. Supports the mise npm backends:
+/// Pure-filesystem version of [`mise_npm_modules_path`], resolving a package's `node_modules` directory.
+///
+/// Given an `<install>` root and a `<package>` name, return the `node_modules` directory that contains
+/// `<package>`. Supports the mise npm backends:
 ///
 /// 1. Classical npm/mise (Unix): `<install>/lib/node_modules/<package>`
 /// 2. npm on Windows: `<install>/node_modules/<package>` (no `lib/` segment --
@@ -330,8 +329,7 @@ pub fn find_npm_modules_path_in(install: &Path, package: &str) -> Option<PathBuf
     None
 }
 
-/// `site-packages` directories of every `pipx:` python package `mise` has
-/// installed for the current config.
+/// `site-packages` directories of every `pipx:` python package `mise` has installed for the current config.
 ///
 /// Intended for pre-populating an embedded interpreter's `sys.path` so the
 /// `et-ws-pyo3-runner` can `import` mise-managed packages without the operator
@@ -373,8 +371,7 @@ pub fn mise_python_site_packages() -> Vec<PathBuf> {
         .collect()
 }
 
-/// Pure-filesystem helper: given a mise `pipx:` `<install>` root, return the
-/// venv `site-packages` directory.
+/// Pure-filesystem helper returning the venv `site-packages` directory for a mise `pipx:` `<install>` root.
 ///
 /// pipx lays each tool out as `<install>/<pkg>/<venv-libdir>/site-packages`,
 /// where `<venv-libdir>` is `lib/python<X.Y>` on POSIX and `Lib` (no Python

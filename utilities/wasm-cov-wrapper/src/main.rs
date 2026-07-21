@@ -49,10 +49,6 @@ fn main() -> ExitCode {
         );
     }
 
-    // `status_checked` returns `Ok` only on a zero exit; a non-zero exit is `Error::Output`, which we
-    // propagate silently as `FAILURE` (rustc already printed its own diagnostics), while a spawn failure
-    // (`Error::Exec`, or any future variant of this `#[non_exhaustive]` enum) is the only case that
-    // warrants our own message.
     match Command::new(&rustc).args(&rustc_args).status_checked() {
         Ok(_) => ExitCode::SUCCESS,
         Err(command_error::Error::Output(_)) => ExitCode::FAILURE,
