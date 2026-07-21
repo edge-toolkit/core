@@ -28,11 +28,15 @@ files:
   - libs/edge-toolkit/tests/no_mise.rs
   - libs/test-helpers/src/lib.rs
   - libs/ws-runner-common/tests/config.rs
+  - services/websockify/src/lib.rs
+  - services/websockify/tests/relay.rs
   - services/ws-pyo3-runner/tests/modules.rs
+  - services/ws-server/src/lib.rs
   - services/ws-wasi-runner/tests/modules.rs
   - services/ws-wasi-runner/tests/otel_propagation.rs
   - services/ws-wasi-runner/tests/vector_otlp_relay.rs
   - services/ws-web-runner/build.rs
+  - services/ws-web-runner/tests/modules.rs
   - services/ws/tests/config.rs
   - utilities/int-gen/src/error.rs
   - utilities/int-gen/src/lib.rs

@@ -90,6 +90,8 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
     collect_module_coverage(&server);
 }
 
+/// Probe for dotnet-data1's built `pkg/` wasm artifacts, logging a skip instead of failing when absent.
+///
 /// dotnet-data1's `pkg/` wasm artifacts only exist after `build-ws-dotnet-data1-module` has run on this
 /// host, so probe one and log a skip instead of failing on a checkout where the module wasn't built. The
 /// probe file is `dotnet.js` -- the one stably-named artifact `dotnet publish` emits (the rest carry
