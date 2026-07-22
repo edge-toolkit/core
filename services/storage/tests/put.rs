@@ -55,13 +55,13 @@ async fn rejects_unknown_agent_with_404() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
-/// `actix-router` doesn't decode `%2F` in path captures (it would collide
-/// with segment matching), so a regular `PUT /storage/a/b%2Fc` request
-/// can't deliver a multi-component filename into the handler. Bypass the
-/// router and invoke the handler directly with the parameters that the
-/// filter expects to reject (`nested/path.txt` -> 2 components). This still
-/// exercises the same `StorageError::InvalidFilename` -> 400 path that the
-/// `ResponseError` impl wires up.
+/// Invokes the handler directly, since a multi-component filename can't otherwise reach it.
+///
+/// `actix-router` doesn't decode `%2F` in path captures (it would collide with segment matching), so a
+/// regular `PUT /storage/a/b%2Fc` request can't deliver a multi-component filename into the handler. Bypass
+/// the router and invoke the handler directly with the parameters that the filter expects to reject
+/// (`nested/path.txt` -> 2 components). This still exercises the same `StorageError::InvalidFilename` -> 400
+/// path that the `ResponseError` impl wires up.
 #[actix_rt::test]
 async fn rejects_multi_component_filename_with_400() {
     let tmp = tempfile::tempdir().unwrap();
@@ -107,9 +107,11 @@ async fn writes_file_for_registered_agent() {
     assert_eq!(written, body);
 }
 
-/// An image PUT under `cargo test` has no real terminal on stdout, so `viuer`'s decode-and-render step
-/// (triggered by the `.png` extension) is expected to fail internally. The route must still store the file
-/// and return 200 regardless -- tty display is a best-effort side effect, never a reason to fail the upload.
+/// Storing an image must succeed even though tty rendering cannot, since it is a best-effort side effect.
+///
+/// An image PUT under `cargo test` has no real terminal on stdout, so `tty_image::render`'s decode-and-render
+/// step (triggered by the `.png` extension) is expected to fail internally. The route must still store the
+/// file and return 200 regardless -- tty display is a best-effort side effect, never a reason to fail the upload.
 #[actix_rt::test]
 async fn stores_an_image_and_returns_200_even_though_tty_rendering_cannot_succeed_in_tests() {
     let tmp = tempfile::tempdir().unwrap();

@@ -116,10 +116,10 @@ where
     Ok(HttpResponse::Ok().finish())
 }
 
-/// Render a thumbnail of the image at `path` directly to stdout, so the operator actually *sees* what was
-/// stored rather than just its filename and byte count.
+/// Render a thumbnail of the image at `path` directly to stdout.
 ///
-/// This bypasses `tracing` entirely and writes straight to the terminal: the escape sequences (ANSI
+/// This lets the operator actually *see* what was stored, rather than just its filename and byte count. It
+/// bypasses `tracing` entirely and writes straight to the terminal: the escape sequences (ANSI
 /// truecolor half-block art -- see the `tty_image` module) are tty-only presentation, not structured log
 /// data, and would otherwise get shipped to the OTLP log exporter as log-record noise. Decode/render
 /// failures (a corrupt upload, a non-terminal stdout) only cost tty visibility, not the request, so they're

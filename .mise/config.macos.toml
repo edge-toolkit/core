@@ -17,6 +17,17 @@ lld_flag = "-C link-arg=-fuse-ld={{ vars.conda_lld }}/bin/ld64.lld"
 # Xcode's libclang (the lib dir beside `xcrun`'s clang).
 # clang-sys doesn't always auto-find it on CI. The system libclang knows the SDK, so no bindgen args.
 mac_libclang = "{{ exec(command='dirname $(dirname $(xcrun --find clang))') }}/lib"
+# Matches rustc's own per-arch default deployment target, so cc-rs compiles native C/asm to the same minimum.
+#
+# `rustc -Z unstable-options --print target-spec-json` describes aarch64-apple-darwin as "11.0+, Big Sur+" and
+# x86_64-apple-darwin as "10.12+, Sierra+". cc-rs (the `cc` crate) reads this env var when compiling aws-lc-
+# sys/tree-sitter's C and assembly sources, but without it clang stamps those .o files with the full installed
+# SDK version instead -- e.g. `ld64.lld: .../libaws_lc_sys-*.rlib(*-jitterentropy-base.o) has version 26.5.0,
+# which is newer than target minimum of 11.0.0`, one line per object file, surfaced as a build warning by
+# rustc's `linker_messages` lint. Setting it here makes cc-rs target the same minimum rustc's own codegen
+# already uses, so the .o files' stamped version and the linked binary's requested minimum agree and ld64.lld
+# has nothing to warn about -- fixing the mismatch instead of just silencing the lint that reports it.
+macosx_deployment_target = "{% if arch() == 'arm64' %}11.0{% else %}10.12{% endif %}"
 
 [env]
 # lld_flag points Apple's clang at ld64.lld (see [vars]).
@@ -24,7 +35,9 @@ mac_libclang = "{{ exec(command='dirname $(dirname $(xcrun --find clang))') }}/l
 # loader finds them. Applies to every rustc call, including the `cargo:` source-build subprocess.
 CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
 CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
+# See the macosx_deployment_target comment in [vars] above.
 LIBCLANG_PATH = "{{ vars.mac_libclang }}"
+MACOSX_DEPLOYMENT_TARGET = "{{ vars.macosx_deployment_target }}"
 # Pin SDKROOT so cc-rs and other build scripts find the macOS SDK.
 # This covers headers like stdlib.h regardless of which `cc` resolves first. With the `_.path` prepend below
 # putting Xcode CLT's /usr/bin/cc ahead of any brew gcc wrapper, the cc-rs invocation no longer inherits SDK
