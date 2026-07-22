@@ -4330,6 +4330,7 @@ dependencies = [
  "edge-toolkit",
  "fs-err",
  "futures-util",
+ "image",
  "log",
  "serde",
  "serde-inline-default",

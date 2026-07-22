@@ -6,9 +6,10 @@
 // the device, which rises as other GPU work (module matmuls, onnxruntime-web inference) contends
 // with it. Only the GPU panel is shown (no FPS/CPU), with a value line sized to span most of the
 // panel width and without the flickering "(min-max)" range suffix. Browsers without WebGPU or
-// without the timestamp-query feature get no overlay at all. The meter starts in the top-left
-// corner; it can be dragged anywhere, resized from its bottom-right corner handle, and closed with
-// the corner x button, which also stops the probe and releases the WebGPU device.
+// without the timestamp-query feature get no overlay at all. The meter starts in the bottom-right
+// corner (out of the way of the page content above it); it can be dragged anywhere, resized from
+// its bottom-right corner handle, and closed with the corner x button, which also stops the probe
+// and releases the WebGPU device.
 
 import Stats from "/modules/stats-gl/dist/main.js";
 
@@ -250,6 +251,10 @@ const startMeters = async () => {
   applyMeterScale(overlay, stats.gpuPanel, START_SCALE);
   suppressRangeSuffix(stats.gpuPanel);
   document.body.appendChild(overlay);
+  // stats-gl's own dom defaults to the top-left corner; place it bottom-right instead, clear of the
+  // page content. `makeDraggable`'s pointermove handler always writes pixel left/top, so switching
+  // away from right/bottom on the first drag is expected and fine.
+  Object.assign(overlay.style, { position: "fixed", top: "auto", left: "auto", right: "24px", bottom: "32px" });
   makeDraggable(overlay);
   addResizeHandle(overlay, (scale) => applyMeterScale(overlay, stats.gpuPanel, scale));
 

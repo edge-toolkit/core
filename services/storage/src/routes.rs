@@ -24,7 +24,7 @@ use std::path::PathBuf;
 use actix_web::{HttpRequest, HttpResponse, web};
 use edge_toolkit::ws_server::AgentRegistry;
 use futures_util::StreamExt as _;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::{StorageConfig, StorageError};
 
@@ -97,13 +97,54 @@ where
     let path = agent_dir.join(&filename);
     info!("Agent {} storing file: {:?}", agent_id, path);
 
-    let mut file = tokio::fs::File::create(path).await?;
+    let mut file = tokio::fs::File::create(&path).await?;
+    let mut bytes_written: u64 = 0;
     while let Some(chunk) = payload.next().await {
         let chunk = chunk?;
-        let _copied: u64 = tokio::io::copy(&mut chunk.as_ref(), &mut file).await?;
+        let copied = tokio::io::copy(&mut chunk.as_ref(), &mut file).await?;
+        bytes_written = bytes_written.saturating_add(copied);
+    }
+
+    // This handler is the only path a file reaches storage through, so it is where every stored file can be
+    // watched exactly once with an accurate byte count and zero extra I/O -- a separate filesystem watcher
+    // would duplicate that work and risk observing a write mid-flight.
+    if is_image_filename(&filename) {
+        info!("Agent {} stored image {:?} ({} bytes)", agent_id, path, bytes_written);
+        show_image_on_tty(&path);
     }
 
     Ok(HttpResponse::Ok().finish())
+}
+
+/// Render a thumbnail of the image at `path` directly to stdout, so the operator actually *sees* what was
+/// stored rather than just its filename and byte count.
+///
+/// This bypasses `tracing` entirely and writes straight to the terminal: the escape sequences (ANSI
+/// truecolor half-block art -- see the `tty_image` module) are tty-only presentation, not structured log
+/// data, and would otherwise get shipped to the OTLP log exporter as log-record noise. Decode/render
+/// failures (a corrupt upload, a non-terminal stdout) only cost tty visibility, not the request, so they're
+/// reported via `warn!` rather than via `?`.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of put_file; kept separate for readability and testing"
+)]
+fn show_image_on_tty(path: &std::path::Path) {
+    if let Err(error) = crate::tty_image::render(path) {
+        warn!("failed to render stored image {} to tty: {error}", path.display());
+    }
+}
+
+/// Return whether `filename`'s extension marks it as an image, for the tty log line in [`put_file`].
+///
+/// Extension-only: the handler streams bytes straight to disk without buffering, so sniffing magic bytes
+/// would need a peek-buffer or a post-write read-back, while the filename is already on hand for free.
+#[must_use]
+pub fn is_image_filename(filename: &std::path::Path) -> bool {
+    const IMAGE_EXTENSIONS: [&str; 6] = ["png", "jpg", "jpeg", "gif", "webp", "bmp"];
+    filename
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| IMAGE_EXTENSIONS.iter().any(|known| known.eq_ignore_ascii_case(ext)))
 }
 
 /// Download a file previously written to the named agent's storage bucket.

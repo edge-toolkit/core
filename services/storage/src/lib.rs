@@ -9,6 +9,7 @@ use serde_default::DefaultFromSerde;
 use thiserror::Error;
 
 pub mod routes;
+mod tty_image;
 
 pub use self::routes::put_file;
 

@@ -107,6 +107,34 @@ async fn writes_file_for_registered_agent() {
     assert_eq!(written, body);
 }
 
+/// An image PUT under `cargo test` has no real terminal on stdout, so `viuer`'s decode-and-render step
+/// (triggered by the `.png` extension) is expected to fail internally. The route must still store the file
+/// and return 200 regardless -- tty display is a best-effort side effect, never a reason to fail the upload.
+#[actix_rt::test]
+async fn stores_an_image_and_returns_200_even_though_tty_rendering_cannot_succeed_in_tests() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = storage_config(&tmp);
+    let registry = registry_with_agent("agent-1");
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(registry))
+            .app_data(web::Data::new(config.clone()))
+            .configure(|cfg| configure::<()>(cfg, &config)),
+    )
+    .await;
+
+    let body = b"\x89PNG\r\n\x1a\nnot a real png, just image-extension-shaped bytes".as_ref();
+    let req = test::TestRequest::put()
+        .uri("/storage/agent-1/capture.png")
+        .set_payload(body)
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    let written = fs_err::read(tmp.path().join("agent-1").join("capture.png")).unwrap();
+    assert_eq!(written, body);
+}
+
 #[actix_rt::test]
 async fn surfaces_io_failure_as_500() {
     // Point the storage root at a *file* (not a directory). The handler's

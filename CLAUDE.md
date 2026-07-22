@@ -1066,6 +1066,24 @@ and drop the `mise exec --` / shell-builtin workarounds.
 Single Cargo workspace (`Cargo.toml`). Shared dependency versions are declared in `[workspace.dependencies]`. Add
 new deps there, not in individual crate `[dependencies]`.
 
+## Avoid GPL and LGPL dependencies
+
+Every license `config/deny.toml`'s `[licenses] allow` list currently accepts is permissive (Apache-2.0, MIT,
+BSD, Zlib, ISC, MPL-2.0, etc.) -- none copyleft. Keep it that way: do not add a new direct or transitive
+dependency whose license is GPL (any version) or LGPL (any version), and do not add GPL/LGPL to the
+`deny.toml` allow list, even when the license is individually OSI-approved (LGPL is). Being OSI-approved is
+not sufficient on its own here -- copyleft obligations are a different category of concern from a permissive
+license, and accepting one is a project-policy decision, not a mechanical license check.
+
+Concrete precedent: `viuer` (added for the storage service's tty image-preview feature) pulled in
+`ansi_colours` under LGPL-3.0-or-later as an unconditional dependency for its RGB-to-256-color quantization
+path. Rather than allow-listing LGPL, the feature was reimplemented as a small hand-rolled ANSI truecolor
+renderer in `services/storage/src/tty_image.rs`, built on the `image` crate the workspace already depended on
+via `deno_image`/`ws-web-runner` -- truecolor output needs no palette quantization at all, so there was
+nothing left for the LGPL dependency to do. If a future dependency's only viable path involves a GPL/LGPL
+component, treat that the same way: look for a permissively-licensed alternative or a narrower reimplementation
+first, and only bring the question to the user if neither is workable -- don't add the exception yourself.
+
 ## Clippy lints
 
 **Never weaken or disable a lint to make code pass -- not the workspace lint config (`[workspace.lints.*]`,

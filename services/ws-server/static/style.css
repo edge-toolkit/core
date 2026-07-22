@@ -33,6 +33,29 @@ p {
   max-width: 65ch;
 }
 
+.module-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  max-width: none;
+}
+
+.module-row label {
+  flex-shrink: 0;
+}
+
+.module-row select {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.module-row button {
+  flex-shrink: 0;
+}
+
 .agent-card {
   display: flex;
   flex-wrap: wrap;
@@ -61,6 +84,17 @@ p {
   background: rgba(213, 155, 66, 0.12);
   font-size: 0.78rem;
   max-width: none;
+}
+
+.consent-note {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+}
+
+.consent-note label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
 }
 
 code {

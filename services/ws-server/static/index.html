@@ -9,10 +9,16 @@
   </head>
   <body>
     <main>
-      <p>
+      <p class="module-row">
         <label for="module-select">Workflow module</label>
         <select id="module-select"></select>
-        <button id="run-module-button" type="button">Run module</button>
+        <button id="run-module-button" type="button">Run</button>
+      </p>
+      <p class="consent-note">
+        <label>
+          <input id="upload-consent" type="checkbox" disabled />
+          Allow data uploads (may be PII)?
+        </label>
       </p>
       <p class="medical-note">
         <strong>Medical disclaimer:</strong> these modules are tech demos. Any

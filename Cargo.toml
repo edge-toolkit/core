@@ -93,6 +93,10 @@ futures-util = "0.3"
 heck = "0.5"
 hostname = "0.4"
 humantime-serde = "1"
+# Already a workspace dependency via deno_image/ws-web-runner, so this adds no new crate or license to review.
+# Explicit format features only (no avif/dds/exr/hdr/ico/pnm/qoi/tga/tiff): et-storage-service only decodes
+# the extensions is_image_filename() recognises.
+image = { version = "0.25", default-features = false, features = ["bmp", "gif", "jpeg", "png", "webp"] }
 int-otlp-mock = { path = "libs/otlp-mock", version = "0.1.0" }
 js-sys = "0.3"
 kdl = { version = "6", features = ["v1"] }

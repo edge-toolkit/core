@@ -194,7 +194,7 @@ requires-dist = [{ name = "pydantic", specifier = ">=2" }]
 
 [[package]]
 name = "et-ws-pydata1"
-version = "0.1.0"
+version = "0.1.2"
 source = { editable = "services/ws-modules/pydata1" }
 dependencies = [
     { name = "et-rest-client" },
@@ -209,7 +209,7 @@ requires-dist = [
 
 [[package]]
 name = "et-ws-pyeye1"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "services/ws-modules/pyeye1" }
 dependencies = [
     { name = "et-ws" },

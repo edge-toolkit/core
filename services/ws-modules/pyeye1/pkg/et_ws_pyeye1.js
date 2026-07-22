@@ -35,14 +35,17 @@ export default async function init() {
   const micropip = pyodide.pyimport("micropip");
   await micropip.install("pydantic");
 
-  // Install pyeye1's own wheel from pkg/ next to this shim.
+  // Install pyeye1's own wheel from pkg/ next to this shim. `no-cache` revalidates against the server so a
+  // rebuilt wheel is picked up immediately -- a stale cached wheel paired with a fresh shim (or vice versa)
+  // silently breaks the render/analysis payload contract between the two.
   const installLocalWheel = async (path) => {
-    const bytes = new Uint8Array(await fetch(new URL(path, import.meta.url)).then((r) => r.arrayBuffer()));
+    const wheelResp = await fetch(new URL(path, import.meta.url), { cache: "no-cache" });
+    const bytes = new Uint8Array(await wheelResp.arrayBuffer());
     pyodide.FS.writeFile(`/tmp/${path}`, bytes);
     pyodide.runPython(`import sys\nsys.path.insert(0, "/tmp/${path}")`);
   };
 
-  const pkg = await fetch(new URL("package.json", import.meta.url)).then((r) => r.json());
+  const pkg = await fetch(new URL("package.json", import.meta.url), { cache: "no-cache" }).then((r) => r.json());
   await installLocalWheel(`${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`);
   // et-ws is its own ws-module mounted at /modules/et-ws/; delegate its wheel install to its shim.
   const { installWheel: installEtWs } = await import("/modules/et-ws/et_ws.js");
@@ -117,6 +120,8 @@ function platformFor(state) {
     set_status: setStatus,
     should_stop: () => runtime !== state,
     cleanup: () => cleanup(state),
+    upload_consent: () => document.getElementById("upload-consent")?.checked ?? false,
+    save_eye_capture: () => saveEyeCapture(state),
   };
 }
 
@@ -177,8 +182,7 @@ function render(resultsJson) {
       const color = EYE_COLORS[eye.label] ?? "#fffdfa";
       ctx.strokeStyle = color;
       ctx.strokeRect(left, top, Math.max(right - left, 1), Math.max(bottom - top, 1));
-      ctx.fillStyle = color;
-      ctx.fillText(eye.label === "left_eye" ? "L" : "R", left, Math.max(top - 4, 12));
+      drawOutlinedText(ctx, eye.label === "left_eye" ? "L" : "R", left, Math.max(top - 4, 12), color, 3 / scale);
     }
 
     ctx.lineWidth = 2 / scale;
@@ -195,6 +199,26 @@ function render(resultsJson) {
   renderAnalysis(ctx, payload.analysis);
 }
 
+// Encodes whatever the overlay canvas currently shows (the cropped eye band plus its box/iris/verdict
+// overlay) as a PNG and uploads it to the connected agent's storage bucket. Python decides *whether* and
+// *when* to call this (gated on the upload-consent checkbox and fired at most once per run); this primitive
+// only performs the one browser-side operation of turning the current frame into stored bytes.
+async function saveEyeCapture(state) {
+  const canvas = element("video-output-canvas", HTMLCanvasElement);
+  const blob = await new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (result) => (result ? resolve(result) : reject(new Error("canvas.toBlob returned null"))),
+      "image/png",
+    );
+  });
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const agentId = state.client.get_agent_id();
+  const filename = `pyeye1-eye-capture-${Date.now()}.png`;
+  const resp = await fetch(`/storage/${agentId}/${filename}`, { method: "PUT", body: bytes });
+  if (!resp.ok) throw new Error(`eye capture upload failed: ${resp.status} ${resp.statusText}`);
+  log(`eye capture saved to storage: ${filename} (${bytes.length} bytes)`);
+}
+
 // Screening-verdict overlay, top-left. Python sends analysis=null until the first window completes, and each
 // screening reports status "insufficient_data" until it has enough non-blink samples to rate.
 function renderAnalysis(ctx, analysis) {
@@ -208,9 +232,22 @@ function renderAnalysis(ctx, analysis) {
   }
   if (lines.length > 0) lines.push("screening demo -- not a medical diagnosis");
   lines.forEach((line, index) => {
-    ctx.fillStyle = line.includes("DETECTED") ? "#ffb84d" : "#d7e0e8";
-    ctx.fillText(line, 8, 20 + index * 20);
+    const color = line.includes("DETECTED") ? "#1e90ff" : "#d7e0e8";
+    drawOutlinedText(ctx, line, 8, 20 + index * 20, color);
   });
+}
+
+// A single fill color can't stay legible against a live video feed: skin tone, lighting, and background all
+// vary per frame, and no one color reads well everywhere (the original amber DETECTED text all but vanished
+// against warm skin). A dark outline behind the fill guarantees contrast regardless of what's underneath,
+// the same trick broadcast captions and video overlays use.
+function drawOutlinedText(ctx, text, x, y, fillColor, lineWidth = 3) {
+  ctx.lineJoin = "round";
+  ctx.lineWidth = lineWidth;
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.85)";
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = fillColor;
+  ctx.fillText(text, x, y);
 }
 
 function cleanup(state) {

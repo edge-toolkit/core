@@ -5,6 +5,7 @@ const PYODIDE_BASE_PATH = "/modules/pyodide/";
 
 let pyodide = null;
 let pyMod = null;
+let moduleVersion = null;
 
 function loadPyodideScript() {
   return new Promise((resolve, reject) => {
@@ -67,6 +68,7 @@ export default async function init() {
     pyodide.runPython(`import sys\nsys.path.insert(0, "/tmp/${wheelName}")`);
   };
   const pkg = await fetch(new URL("package.json", import.meta.url)).then((r) => r.json());
+  moduleVersion = pkg.version;
   const ownWheel = `${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
   await injectWheel(ownWheel);
 
@@ -115,6 +117,10 @@ export async function run() {
     const el = document.getElementById("module-output");
     if (el) el.value = (el.value ? el.value + "\n" : "") + msg;
   };
+  // Diagnostic marker: this is the version fetched from package.json + injected as the wheel filename, so
+  // seeing the right number here after a version bump proves the module reloaded fresh (no stale-cache reuse
+  // of the package.json/wheel fetches below, neither of which is cache-busted).
+  log(`pydata1 version: ${moduleVersion}`);
 
   // The Python side runs `Client(base_url=...)` against this origin and
   // does PUT/GET itself via the generated client + pyodide-http patch.
@@ -125,6 +131,7 @@ export async function run() {
       pyodide.toPy(sleep),
       pyodide.toPy(log),
       pyodide.toPy(() => {}),
+      pyodide.toPy(() => document.getElementById("upload-consent")?.checked ?? false),
     );
   } catch (err) {
     log(`pydata1 run failed: ${String(err)}`);

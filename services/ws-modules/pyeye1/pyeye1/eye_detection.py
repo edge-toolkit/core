@@ -55,6 +55,9 @@ ANALYSIS_INTERVAL_MS = 1000
 ANALYSIS_WINDOW_MS = 2500
 MAX_SAMPLES = 600
 MAX_RUNTIME_MS = 30_000
+# Independent of the detection-triggered capture below: a fixed-cadence "heartbeat" capture so at least one
+# image gets stored periodically even across a long session where the screening indicators never fire.
+PERIODIC_CAPTURE_INTERVAL_MS = 5_000
 
 # Setup polling. Python owns all sequencing and timeouts; the JS primitives never loop or wait on their own.
 POLL_INTERVAL_MS = 100
@@ -101,11 +104,14 @@ async def run(platform) -> None:
 
     `platform` supplies the primitives Python cannot implement itself, each a single browser operation with
     no sequencing, polling, or timeout logic. Sync members: `ws_state()`, `agent_id()`, `send_event(json)`,
-    `video_size() -> [w, h]`, `render(json)`, `log(str)`, `set_status(str)`, `should_stop()`, `cleanup()`.
-    Async members: `connect_ws()`, `start_camera()`, `play_video()`, `sleep(ms)`,
-    `load_landmarker(model_path, bundle_path, wasm_path)`, and `infer()`, which returns one FaceLandmarker
-    pass as the JSON string `{"faces": [[x0, y0, x1, y1, ...], ...], "width": W, "height": H}` where each
-    face is the flat list of normalized landmark coordinates.
+    `video_size() -> [w, h]`, `render(json)`, `log(str)`, `set_status(str)`, `should_stop()`, `cleanup()`,
+    `upload_consent() -> bool` (the page's data-upload checkbox). Async members: `connect_ws()`,
+    `start_camera()`, `play_video()`, `sleep(ms)`, `load_landmarker(model_path, bundle_path, wasm_path)`,
+    `save_eye_capture()` (encodes the current overlay canvas as a PNG and uploads it to the connected
+    agent's storage bucket), and
+    `infer()`, which returns one FaceLandmarker pass as the JSON string
+    `{"faces": [[x0, y0, x1, y1, ...], ...], "width": W, "height": H}` where each face is the flat list of
+    normalized landmark coordinates.
     """
     platform.set_status(starting_status())
     platform.log(model_log_message())
@@ -152,6 +158,21 @@ async def wait_until(platform, predicate, timeout_ms: float, failure: str) -> No
         waited_ms += POLL_INTERVAL_MS
 
 
+async def attempt_eye_capture(platform) -> None:
+    """Try one `save_eye_capture()`, reporting a failure both locally and server-side without raising.
+
+    Shared by the two independent capture triggers in `sample_loop` (a detection's rising edge, and the
+    fixed-cadence periodic heartbeat) so a failed upload from either one is handled identically: logged
+    locally, reported as a server-visible event, and never allowed to abort the sample loop or be misreported
+    as an inference error.
+    """
+    try:
+        await platform.save_eye_capture()
+    except Exception as exc:
+        platform.log(f"eye capture failed: {exc}")
+        platform.send_event(eye_capture_error_event_json(str(exc)))
+
+
 async def sample_loop(platform) -> None:
     """Sample frames continuously; re-analyze the gaze window (status + event) per `ANALYSIS_INTERVAL_MS`."""
     sample_count = 0
@@ -161,6 +182,9 @@ async def sample_loop(platform) -> None:
     analysis: WindowAnalysis | None = None
     crop: Box | None = None
     last_analysis_ms = 0.0
+    last_periodic_capture_ms = 0.0
+    indicator_was_active = False
+    captured_for_episode = False
 
     while not platform.should_stop():
         loop_started = time.monotonic()
@@ -183,11 +207,38 @@ async def sample_loop(platform) -> None:
             while history and (now_s - history[0]["t"]) * 1000.0 > ANALYSIS_WINDOW_MS:
                 history.popleft()
 
-            if now_s * 1000.0 - last_analysis_ms >= ANALYSIS_INTERVAL_MS:
+            is_analysis_tick = now_s * 1000.0 - last_analysis_ms >= ANALYSIS_INTERVAL_MS
+            if is_analysis_tick:
                 last_analysis_ms = now_s * 1000.0
                 analysis = analyze_window(list(history))
                 platform.set_status(status_text(results, analysis))
                 platform.send_event(client_event_json(event_payload(results, analysis, width, height)))
+
+                # Save one eye capture per detection -- "detection" means a screening indicator (eye
+                # misalignment or rhythmic oscillation) newly firing, not merely a face/eyes being visible.
+                # Edge-triggered on the indicator's own rising edge (not-detected -> detected), tracked
+                # independently of consent: a new episode resets `captured_for_episode` regardless of
+                # whether consent is granted yet, so if consent arrives partway through an already-active
+                # episode, that episode still gets its one capture rather than the edge having been silently
+                # consumed earlier while consent was still off.
+                indicator_active = analysis["misalignment"]["detected"] or analysis["oscillation"]["detected"]
+                if indicator_active and not indicator_was_active:
+                    captured_for_episode = False
+                if indicator_active and not captured_for_episode and platform.upload_consent():
+                    captured_for_episode = True
+                    await attempt_eye_capture(platform)
+                indicator_was_active = indicator_active
+
+            # Independent, fixed-cadence capture on top of the detection-triggered one above: fires every
+            # PERIODIC_CAPTURE_INTERVAL_MS regardless of whether a screening indicator has ever activated, so
+            # a long quiet session still gets a periodic image, not only ever the first detection. The
+            # interval tracks wall-clock time unconditionally (like `last_analysis_ms` above) so it stays on
+            # schedule through stretches with no consent; only the capture attempt itself is gated on consent.
+            is_periodic_capture_tick = now_s * 1000.0 - last_periodic_capture_ms >= PERIODIC_CAPTURE_INTERVAL_MS
+            if is_periodic_capture_tick:
+                last_periodic_capture_ms = now_s * 1000.0
+                if platform.upload_consent():
+                    await attempt_eye_capture(platform)
             platform.render(results_json(results, analysis, crop))
         except Exception as exc:
             message = f"pyeye1 eye movement screening: inference error\n{exc}"
@@ -326,6 +377,21 @@ def client_event_json(details: dict[str, object]) -> str:
         capability="eye_detection",
         action="inference",
         details=details,
+    ).model_dump_json()
+
+
+def eye_capture_error_event_json(error: str) -> str:
+    """Build the et-client-event JSON envelope for a failed eye-capture upload.
+
+    `platform.log(...)` alone only reaches the browser's own on-page log, invisible to anyone watching the
+    server tty; this event puts the failure where it can actually be seen server-side, same as a successful
+    capture already is (via the storage service's own "stored image" log line).
+    """
+    return WsClientEvent(
+        type="et-client-event",
+        capability="pyeye1",
+        action="eye_capture_failed",
+        details={"error": error},
     ).model_dump_json()
 
 
