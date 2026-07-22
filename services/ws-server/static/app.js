@@ -26,6 +26,8 @@ const append = (line) => {
 const describeError = (error) => (error instanceof Error ? error.message : String(error));
 
 const WORKFLOW_MODULES = new Map();
+// Preselected in the dropdown when the server's module list includes it; otherwise the first option stays.
+const DEFAULT_MODULE = "et-ws-pyeye1";
 
 const populateModuleDropdown = async () => {
   append("Discovering modules via /modules...");
@@ -81,6 +83,8 @@ const populateModuleDropdown = async () => {
       console.error(`discovery error for ${name}:`, error);
     }
   }
+
+  if (WORKFLOW_MODULES.has(DEFAULT_MODULE)) moduleSelect.value = DEFAULT_MODULE;
 };
 
 const updateAgentCard = (status, agentId = currentAgentId) => {
