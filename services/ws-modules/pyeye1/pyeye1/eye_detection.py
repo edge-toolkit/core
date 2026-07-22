@@ -55,6 +55,9 @@ ANALYSIS_INTERVAL_MS = 1000
 ANALYSIS_WINDOW_MS = 2500
 MAX_SAMPLES = 600
 MAX_RUNTIME_MS = 30_000
+# Independent of the detection-triggered capture below: a fixed-cadence "heartbeat" capture so at least one
+# image gets stored periodically even across a long session where the screening indicators never fire.
+PERIODIC_CAPTURE_INTERVAL_MS = 5_000
 
 # Setup polling. Python owns all sequencing and timeouts; the JS primitives never loop or wait on their own.
 POLL_INTERVAL_MS = 100
@@ -155,6 +158,21 @@ async def wait_until(platform, predicate, timeout_ms: float, failure: str) -> No
         waited_ms += POLL_INTERVAL_MS
 
 
+async def attempt_eye_capture(platform) -> None:
+    """Try one `save_eye_capture()`, reporting a failure both locally and server-side without raising.
+
+    Shared by the two independent capture triggers in `sample_loop` (a detection's rising edge, and the
+    fixed-cadence periodic heartbeat) so a failed upload from either one is handled identically: logged
+    locally, reported as a server-visible event, and never allowed to abort the sample loop or be misreported
+    as an inference error.
+    """
+    try:
+        await platform.save_eye_capture()
+    except Exception as exc:
+        platform.log(f"eye capture failed: {exc}")
+        platform.send_event(eye_capture_error_event_json(str(exc)))
+
+
 async def sample_loop(platform) -> None:
     """Sample frames continuously; re-analyze the gaze window (status + event) per `ANALYSIS_INTERVAL_MS`."""
     sample_count = 0
@@ -164,6 +182,7 @@ async def sample_loop(platform) -> None:
     analysis: WindowAnalysis | None = None
     crop: Box | None = None
     last_analysis_ms = 0.0
+    last_periodic_capture_ms = 0.0
     indicator_was_active = False
     captured_for_episode = False
 
@@ -201,20 +220,25 @@ async def sample_loop(platform) -> None:
                 # independently of consent: a new episode resets `captured_for_episode` regardless of
                 # whether consent is granted yet, so if consent arrives partway through an already-active
                 # episode, that episode still gets its one capture rather than the edge having been silently
-                # consumed earlier while consent was still off. Its own try/except keeps a failed upload
-                # from being folded into (and misreported as) an inference error or aborting the loop; a
-                # failure still counts as "captured for this episode" so it isn't retried every tick.
+                # consumed earlier while consent was still off.
                 indicator_active = analysis["misalignment"]["detected"] or analysis["oscillation"]["detected"]
                 if indicator_active and not indicator_was_active:
                     captured_for_episode = False
                 if indicator_active and not captured_for_episode and platform.upload_consent():
                     captured_for_episode = True
-                    try:
-                        await platform.save_eye_capture()
-                    except Exception as exc:
-                        platform.log(f"eye capture failed: {exc}")
-                        platform.send_event(eye_capture_error_event_json(str(exc)))
+                    await attempt_eye_capture(platform)
                 indicator_was_active = indicator_active
+
+            # Independent, fixed-cadence capture on top of the detection-triggered one above: fires every
+            # PERIODIC_CAPTURE_INTERVAL_MS regardless of whether a screening indicator has ever activated, so
+            # a long quiet session still gets a periodic image, not only ever the first detection. The
+            # interval tracks wall-clock time unconditionally (like `last_analysis_ms` above) so it stays on
+            # schedule through stretches with no consent; only the capture attempt itself is gated on consent.
+            is_periodic_capture_tick = now_s * 1000.0 - last_periodic_capture_ms >= PERIODIC_CAPTURE_INTERVAL_MS
+            if is_periodic_capture_tick:
+                last_periodic_capture_ms = now_s * 1000.0
+                if platform.upload_consent():
+                    await attempt_eye_capture(platform)
             platform.render(results_json(results, analysis, crop))
         except Exception as exc:
             message = f"pyeye1 eye movement screening: inference error\n{exc}"

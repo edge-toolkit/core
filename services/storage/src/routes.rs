@@ -119,22 +119,17 @@ where
 /// Render a thumbnail of the image at `path` directly to stdout, so the operator actually *sees* what was
 /// stored rather than just its filename and byte count.
 ///
-/// This bypasses `tracing` entirely and writes straight to the terminal: the escape sequences (or the
-/// half-block art `viuer` falls back to) are tty-only presentation, not structured log data, and would
-/// otherwise get shipped to the OTLP log exporter as log-record noise. Capped to 48 terminal columns so a
-/// large capture doesn't flood the scrollback; decode/render failures (a corrupt upload, a non-terminal
-/// stdout) only cost tty visibility, not the request, so they're reported to stderr rather than via `?`.
+/// This bypasses `tracing` entirely and writes straight to the terminal: the escape sequences (ANSI
+/// truecolor half-block art -- see the `tty_image` module) are tty-only presentation, not structured log
+/// data, and would otherwise get shipped to the OTLP log exporter as log-record noise. Decode/render
+/// failures (a corrupt upload, a non-terminal stdout) only cost tty visibility, not the request, so they're
+/// reported via `warn!` rather than via `?`.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct step of put_file; kept separate for readability and testing"
 )]
 fn show_image_on_tty(path: &std::path::Path) {
-    let config = viuer::Config {
-        absolute_offset: false,
-        width: Some(48),
-        ..viuer::Config::default()
-    };
-    if let Err(error) = viuer::print_from_file(path, &config) {
+    if let Err(error) = crate::tty_image::render(path) {
         warn!("failed to render stored image {} to tty: {error}", path.display());
     }
 }

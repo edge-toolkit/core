@@ -284,6 +284,41 @@ class RunWorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(failure_logs), 2)
         self.assertEqual(platform.statuses[-1], stopped_status())
 
+    async def test_periodic_capture_fires_every_sample_when_its_interval_is_forced_to_zero(self) -> None:
+        # Detection interval is left huge so it can never tick, isolating the periodic mechanism: every
+        # sample is a periodic-capture tick, and no screening indicator ever fires.
+        platform = FakePlatform(stop_after=5)
+        platform.consent = True
+        with (
+            patch.object(eye_detection, "ANALYSIS_INTERVAL_MS", 999_999_999.0),
+            patch.object(eye_detection, "PERIODIC_CAPTURE_INTERVAL_MS", 0.0),
+        ):
+            await run(platform)
+        self.assertEqual(platform.capture_calls, 5)
+
+    async def test_periodic_capture_is_also_gated_on_consent(self) -> None:
+        platform = FakePlatform(stop_after=5)
+        with (
+            patch.object(eye_detection, "ANALYSIS_INTERVAL_MS", 999_999_999.0),
+            patch.object(eye_detection, "PERIODIC_CAPTURE_INTERVAL_MS", 0.0),
+        ):
+            await run(platform)
+        self.assertEqual(platform.capture_calls, 0)
+
+    async def test_periodic_and_detection_triggered_captures_are_additive(self) -> None:
+        # The indicator fires once (rising edge on the first sample, then stays active) while the periodic
+        # interval is forced to zero: the detection edge contributes one capture, the periodic heartbeat
+        # contributes one per sample, and the two mechanisms don't suppress each other.
+        platform = FakePlatform(stop_after=5)
+        platform.consent = True
+        with (
+            patch.object(eye_detection, "ANALYSIS_INTERVAL_MS", 0.0),
+            patch.object(eye_detection, "PERIODIC_CAPTURE_INTERVAL_MS", 0.0),
+            patch.object(eye_detection, "analyze_window", return_value=fake_analysis(misalignment=True)),
+        ):
+            await run(platform)
+        self.assertEqual(platform.capture_calls, 6)
+
     async def test_eye_capture_failure_is_also_reported_as_a_server_visible_event(self) -> None:
         # platform.log() alone only reaches the browser's own log box; a failure must also be sent as a
         # client-event so it's visible server-side without anyone having to watch the browser.
