@@ -35,14 +35,17 @@ export default async function init() {
   const micropip = pyodide.pyimport("micropip");
   await micropip.install("pydantic");
 
-  // Install pyeye1's own wheel from pkg/ next to this shim.
+  // Install pyeye1's own wheel from pkg/ next to this shim. `no-cache` revalidates against the server so a
+  // rebuilt wheel is picked up immediately -- a stale cached wheel paired with a fresh shim (or vice versa)
+  // silently breaks the render/analysis payload contract between the two.
   const installLocalWheel = async (path) => {
-    const bytes = new Uint8Array(await fetch(new URL(path, import.meta.url)).then((r) => r.arrayBuffer()));
+    const wheelResp = await fetch(new URL(path, import.meta.url), { cache: "no-cache" });
+    const bytes = new Uint8Array(await wheelResp.arrayBuffer());
     pyodide.FS.writeFile(`/tmp/${path}`, bytes);
     pyodide.runPython(`import sys\nsys.path.insert(0, "/tmp/${path}")`);
   };
 
-  const pkg = await fetch(new URL("package.json", import.meta.url)).then((r) => r.json());
+  const pkg = await fetch(new URL("package.json", import.meta.url), { cache: "no-cache" }).then((r) => r.json());
   await installLocalWheel(`${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`);
   // et-ws is its own ws-module mounted at /modules/et-ws/; delegate its wheel install to its shim.
   const { installWheel: installEtWs } = await import("/modules/et-ws/et_ws.js");
