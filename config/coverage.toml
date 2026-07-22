@@ -7,6 +7,11 @@
 # must be a real on-disk path so `coverage xml` can read source.
 
 [tool.coverage.run]
+# Branch coverage must be enabled identically on every data source `coverage combine` merges.
+# This rcfile covers the pytest runs (via COVERAGE_RCFILE); the Pyodide runs set branch=True on their Coverage()
+# constructor directly because no COVERAGE_RCFILE env reaches the in-browser interpreter. A mismatch makes
+# `coverage combine` refuse to merge arc data with line data for the same source files.
+branch = true
 relative_files = true
 
 [tool.coverage.paths]

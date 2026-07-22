@@ -360,9 +360,13 @@ rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
 # `python` pin), since the minor-version alias dir isn't created everywhere.
 pylib_flag = "-C link-arg=-Wl,-rpath,{{ vars.a_home }}/.local/share/mise/installs/python/3.13.14/lib"
 wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint,+reference-types"
+# Instrumentation flag pair (leaf var) shared by the wasm coverage builds.
+# The nightly -Z flag adds branch regions to the covmap so the lcov exports carry BRDA records. `a_` prefix so
+# mise's alphabetical [vars] render defines it before wasm_cov_rustflags uses it.
+a_wasm_cov_instr = "-Cinstrument-coverage -Zcoverage-options=branch"
 # RUSTFLAGS for the wasm coverage builds: instrument + emit LLVM IR, no profiler runtime (minicov provides it).
 # Single codegen unit + LTO off so each crate emits one .ll the wasm-cov task can gut and feed to llc/llvm-cov.
-wasm_cov_rustflags = "--emit=llvm-ir -Cinstrument-coverage -Ccodegen-units=1 -Clto=off -Zno-profiler-runtime"
+wasm_cov_rustflags = "--emit=llvm-ir {{ vars.a_wasm_cov_instr }} -Ccodegen-units=1 -Clto=off -Zno-profiler-runtime"
 # Coverage fragments the wasm module build commands append unconditionally (empty unless ET_TEST_COVERAGE is set).
 # wasm_cov is an inline RUSTFLAGS env prefix; the nightly toolchain + conda clang come from the coverage [env].
 # The *_feat vars turn on minicov: cargo `--features` for the WASI cdylibs, wasm-pack `-- --features` for browsers
