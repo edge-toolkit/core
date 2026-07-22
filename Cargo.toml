@@ -179,6 +179,7 @@ tree-sitter = "0.25"
 tree-sitter-zig = "1"
 utoipa = { version = "5", features = ["actix_extras", "yaml"] }
 uuid = { version = "1", features = ["serde", "v4", "v7"] }
+viuer = { version = "0.11", features = ["print-file"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 wasm-bindgen-test = "0.3"

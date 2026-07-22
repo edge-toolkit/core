@@ -8,7 +8,7 @@ from et_rest_client.api.storage import get_file, put_file
 from et_rest_client.types import File
 
 
-async def run(agent_id, base_url, sleep_ms, log, set_status) -> None:
+async def run(agent_id, base_url, sleep_ms, log, set_status, upload_consent) -> None:
     """Execute the data1 workflow: store, fetch, verify."""
     # httpx ships its own transport stack; in Pyodide that stack has no
     # network access. `pyodide_http.patch_all()` swaps httpx's transports
@@ -47,6 +47,29 @@ async def run(agent_id, base_url, sleep_ms, log, set_status) -> None:
         log(msg)
         set_status(msg)
         raise RuntimeError("Data mismatch")
+
+    # Diagnostic: exercises the exact same "read the page's upload-consent checkbox, then gate a storage
+    # PUT on it" mechanism pyeye1 uses, but fully within pydata1's headless, camera-free, fully-observable
+    # workflow -- so the checkbox/upload plumbing itself can be verified without needing a real camera or a
+    # remote device to drive it.
+    consent = upload_consent()
+    log(f"pydata1: upload_consent() returned {consent}")
+    if consent:
+        consent_filename = "consent_test.txt"
+        consent_content = f"consent test at {datetime.now(timezone.utc).isoformat()}"
+        try:
+            async with Client(base_url=base_url) as c:
+                await put_file.asyncio_detailed(
+                    agent_id,
+                    consent_filename,
+                    client=c,
+                    body=File(payload=consent_content.encode("utf-8")),
+                )
+            log(f"pydata1: consent-gated upload succeeded: {consent_filename}")
+        except Exception as exc:
+            log(f"pydata1: consent-gated upload failed: {exc}")
+    else:
+        log("pydata1: upload consent not granted, skipping consent-gated upload")
 
     await sleep_ms(2000)
     log("pydata1: workflow complete")

@@ -28,6 +28,7 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tracing.workspace = true
 utoipa = { workspace = true, optional = true }
+viuer.workspace = true
 
 [dev-dependencies]
 actix-rt.workspace = true

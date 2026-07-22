@@ -1,6 +1,12 @@
 import init, { initTracing, WsClient, WsClientConfig } from "/modules/et-ws-wasm-agent/et_ws_wasm_agent.js";
 
-console.log("app.js: module loading started");
+// Bump this string on every meaningful app.js edit. index.html loads this file via a plain, non-cache-busted
+// <script src="/app.js">, so a client running stale code is otherwise invisible -- this value round-trips to
+// the server tty (via the et-client-event sent below) so a stale load is diagnosable from server-side logs
+// alone, without trusting what the client claims to be running.
+const APP_JS_BUILD = "consent-log-v1";
+
+console.log(`app.js: module loading started (build ${APP_JS_BUILD})`);
 
 await new Promise((resolve, reject) => {
   const s = document.createElement("script");
@@ -15,6 +21,12 @@ const moduleSelect = document.getElementById("module-select");
 const runModuleButton = document.getElementById("run-module-button");
 const agentStatusEl = document.getElementById("agent-status");
 const agentIdEl = document.getElementById("agent-id");
+const uploadConsentCheckbox = document.getElementById("upload-consent");
+const medicalNoteEl = document.querySelector(".medical-note");
+
+// Set on the first "Run" click (of any module): hides the disclaimer for good and freezes the consent
+// checkbox at whatever value it held at that moment, so a run's consent can't be changed after the fact.
+let moduleHasRun = false;
 
 const STORED_AGENT_ID_KEY = "et_ws_wasm_agent.agent_id";
 let currentAgentId = null;
@@ -210,18 +222,37 @@ try {
   client.set_on_state_change((state) => {
     append(`state: ${state}`);
     if (state === "connecting") {
+      if (uploadConsentCheckbox) uploadConsentCheckbox.disabled = true;
       updateAgentCard("Connecting to websocket server...", client.get_agent_id() || readStoredAgentId());
     } else if (state === "connected") {
+      // Only enabled once the client can actually send: toggling it earlier would call client.send() on a
+      // not-yet-connected client, which silently never reaches the server (the checkbox reads "checked" on
+      // the page while the server never learns about it -- indistinguishable from the toggle just not
+      // working at all). Skipped once a module has run: its consent choice is frozen from then on, so a
+      // later reconnect must not re-enable it.
+      if (uploadConsentCheckbox && !moduleHasRun) uploadConsentCheckbox.disabled = false;
       updateAgentCard(
         "Socket connected. Waiting for server identity acknowledgement...",
         client.get_agent_id() || readStoredAgentId(),
       );
+      // Sent on every (re)connect, not just once: a reconnect after the server restarts is exactly when a
+      // stale client would otherwise go unnoticed, since app.js itself never reloads on a WebSocket bounce.
+      client.send(
+        JSON.stringify({
+          type: "et-client-event",
+          capability: "app",
+          action: "loaded",
+          details: { build: APP_JS_BUILD },
+        }),
+      );
     } else if (state === "reconnecting") {
+      if (uploadConsentCheckbox) uploadConsentCheckbox.disabled = true;
       updateAgentCard(
         "Disconnected. Trying to re-use retained agent ID...",
         client.get_agent_id() || readStoredAgentId(),
       );
     } else if (state === "disconnected") {
+      if (uploadConsentCheckbox) uploadConsentCheckbox.disabled = true;
       updateAgentCard(
         "Socket disconnected. Retained agent ID will be re-used on next connect.",
         client.get_agent_id() || readStoredAgentId(),
@@ -243,6 +274,13 @@ try {
   append(`agent_id: ${client.get_agent_id() || "(awaiting server assignment)"}`);
 
   runModuleButton.addEventListener("click", async () => {
+    if (!moduleHasRun) {
+      moduleHasRun = true;
+      medicalNoteEl?.setAttribute("hidden", "");
+      // Locked, not hidden: the choice made for this run stays visible but can no longer be changed.
+      if (uploadConsentCheckbox) uploadConsentCheckbox.disabled = true;
+    }
+
     const selectedModule = WORKFLOW_MODULES.get(moduleSelect.value);
     runModuleButton.disabled = true;
     moduleSelect.disabled = true;
@@ -256,8 +294,23 @@ try {
     } finally {
       runModuleButton.disabled = false;
       moduleSelect.disabled = false;
-      runModuleButton.textContent = "Run module";
+      runModuleButton.textContent = "Run";
     }
+  });
+
+  // Logged to the server tty (via the same "Client event from ..." line eye_detection events use) so a
+  // checkbox toggle is independently verifiable server-side, regardless of whether any module is running.
+  uploadConsentCheckbox?.addEventListener("change", () => {
+    const checked = uploadConsentCheckbox.checked;
+    append(`upload consent checkbox: ${checked ? "checked" : "unchecked"}`);
+    client.send(
+      JSON.stringify({
+        type: "et-client-event",
+        capability: "consent",
+        action: "upload_consent_changed",
+        details: { checked },
+      }),
+    );
   });
 
   window.client = client;
