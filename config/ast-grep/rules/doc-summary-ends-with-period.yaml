@@ -29,6 +29,11 @@ files:
   - libs/test-helpers/src/lib.rs
   - libs/ws-runner-common/tests/config.rs
   - services/modules/tests/api_modules.rs
+  - services/storage/src/lib.rs
+  - services/storage/src/routes.rs
+  - services/storage/src/tty_image.rs
+  - services/storage/tests/image_logging.rs
+  - services/storage/tests/put.rs
   - services/websockify/src/lib.rs
   - services/websockify/tests/relay.rs
   - services/ws-modules/except1/src/lib.rs
@@ -38,6 +43,7 @@ files:
   - services/ws-server/src/main.rs
   - services/ws-server/src/net.rs
   - services/ws-server/tests/net.rs
+  - services/ws-server/tests/tls.rs
   - services/ws-wasi-runner/tests/modules.rs
   - services/ws-wasi-runner/tests/otel_propagation.rs
   - services/ws-wasi-runner/tests/vector_otlp_relay.rs
