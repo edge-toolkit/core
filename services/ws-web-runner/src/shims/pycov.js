@@ -15,7 +15,7 @@ if (globalThis.__ET_TEST_COVERAGE) {
       await pyodide.loadPackage("coverage");
       pyodide.runPython(`
 import coverage as _et_cov_mod
-_et_cov = _et_cov_mod.Coverage(data_file="/tmp/${pkg}.coverage", source=["${pkg}"])
+_et_cov = _et_cov_mod.Coverage(data_file="/tmp/${pkg}.coverage", source=["${pkg}"], branch=True)
 _et_cov.start()
 `);
     },

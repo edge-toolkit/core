@@ -40,6 +40,7 @@ fn main() -> ExitCode {
             [
                 "--emit=llvm-ir",
                 "-Cinstrument-coverage",
+                "-Zcoverage-options=branch",
                 "-Ccodegen-units=1",
                 "-Clto=off",
                 "-Zno-profiler-runtime",

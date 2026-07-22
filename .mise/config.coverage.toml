@@ -52,24 +52,25 @@ eval "$(cargo llvm-cov show-env --sh)"
 # run/drive/worker paths reported 0% while its in-process initialize() was covered. Continuous mode (%c) memory-maps
 # the counter file so increments persist live and survive the kill. %c is incompatible with the merge-pool (%Nm)
 # specifier show-env emits, so use a per-process (%p) continuous file in the same profile dir -- `cargo llvm-cov
-# report` globs every *.profraw there regardless of name. On Linux continuous mode additionally needs relocatable
-# counters (`-Cllvm-args=-runtime-counter-relocation`). The wrapper flags env is CARGO_ENCODED_RUSTFLAGS format
-# (ASCII unit separator 0x1f between flags), not space-separated -- a space append glues the llvm-arg onto the
-# last existing flag and rustc rejects `--cfg=coverage_nightly -Cllvm-args=...` as one invalid --cfg value.
+# report` globs every *.profraw there regardless of name. Branch coverage: `show-env` has no --branch flag (only
+# the top-level `cargo llvm-cov` does), so the nightly `-Zcoverage-options=branch` is appended to the wrapper
+# RUSTFLAGS directly; `report`'s lcov export emits the BRDA records on its own once the covmap carries branch
+# regions. On Linux continuous mode additionally needs relocatable counters
+# (`-Cllvm-args=-runtime-counter-relocation`). The wrapper flags env is CARGO_ENCODED_RUSTFLAGS format (ASCII
+# unit separator 0x1f between flags), not space-separated -- a space append glues the llvm-arg onto the last
+# existing flag and rustc rejects `--cfg=coverage_nightly -Cllvm-args=...` as one invalid --cfg value. goawk
+# generates the separator byte at run time: bash dollar-quote hex is not a valid escape in this TOML basic
+# string, and a TOML unicode escape renders as an invisible byte in the body, so it is constructed visibly.
 cov_dir="$(coreutils dirname "$LLVM_PROFILE_FILE")"
 export LLVM_PROFILE_FILE="$cov_dir/core-cont-%p%c.profraw"
+us="$(goawk 'BEGIN { printf "%c", 31 }')"
+flags="${__CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS:-}"
+append_flag() { flags="${flags:+${flags}${us}}$1"; }
+append_flag "-Zcoverage-options=branch"
 if [ "$(coreutils uname -s)" = "Linux" ]; then
-  reloc="-Cllvm-args=-runtime-counter-relocation"
-  flags="${__CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS:-}"
-  # Append the reloc flag with a TOML-injected unit separator (ASCII 31).
-  # Bash dollar-quote hex is not a valid TOML escape, so the separator has to be introduced by the
-  # TOML parser into the task body rather than written as a shell escape.
-  if [ -n "$flags" ]; then
-    export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS="${flags}\u001f${reloc}"
-  else
-    export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS="${reloc}"
-  fi
+  append_flag "-Cllvm-args=-runtime-counter-relocation"
 fi
+export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS="$flags"
 # The --features flags compile each runner's coverage code, off by default so non-coverage builds omit it.
 # et-ws-web-runner/coverage adds the browser-module capture (shims + the __et_capture_coverage PUT);
 # et-ws-wasi-runner/coverage adds the guest `/cov` preopen. ET_TEST_COVERAGE (set by the coverage job) still
@@ -206,9 +207,9 @@ cargo clean -p et-ws-wasm-agent --target wasm32-unknown-unknown
 driver="${CHROMEDRIVER:-$(mise which chromedriver)}"
 
 # Build + run cov-server itself instrumented so the launcher is not reported as untested.
-# It uses native -Cinstrument-coverage and flushes its counters to this .profraw on the clean exit that removing
-# the marker below triggers.
-RUSTFLAGS="-Cinstrument-coverage" cargo build -q -p et-ws-test-server --bin cov-server
+# It uses native -Cinstrument-coverage (with nightly branch coverage, matching the rest of the pipeline) and
+# flushes its counters to this .profraw on the clean exit that removing the marker below triggers.
+RUSTFLAGS="-Cinstrument-coverage -Zcoverage-options=branch" cargo build -q -p et-ws-test-server --bin cov-server
 LLVM_PROFILE_FILE="{{ config_root }}/$covdir/cov-server-%p.profraw" ./target/debug/cov-server "$covdir/server-ready" &
 server_pid=$!
 trap 'kill "$server_pid" 2>/dev/null || true' EXIT
