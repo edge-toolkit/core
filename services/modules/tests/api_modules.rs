@@ -41,10 +41,11 @@ async fn list_modules_api() {
         }
     }
 
-    // onnxruntime-web is staged by the `js` env (npm:onnxruntime-web in
-    // config.js.toml); when MISE_ENV doesn't load js, the package isn't on
-    // disk and the modules listing doesn't include it.
+    // onnxruntime-web and stats-gl are staged by the `js` env (npm:onnxruntime-web
+    // and npm:stats-gl in config.js.toml); when MISE_ENV doesn't load js, the
+    // packages aren't on disk and the modules listing doesn't include them.
     if mise_env_includes(Language::Js) {
         assert!(resp.contains(&"onnxruntime-web".to_string()));
+        assert!(resp.contains(&"stats-gl".to_string()));
     }
 }

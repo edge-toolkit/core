@@ -94,8 +94,9 @@ textarea {
   min-height: 180px;
 }
 
-video,
-canvas {
+/* Scoped to main so the stats-gl overlay's own canvases keep their inline sizing. */
+main video,
+main canvas {
   box-sizing: border-box;
   display: block;
   width: auto;

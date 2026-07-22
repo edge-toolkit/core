@@ -198,6 +198,12 @@ All tasks run through `mise run <task>`. The aggregates below act on Rust + the 
 
 ## Formatters & checks by file type
 
+**Verify the change actually works before running the lint/format battery.** Functional verification comes first:
+run the affected tests, exercise the endpoint, or load the page in the browser and confirm the behaviour is right.
+Only then move on to the formatter/check passes below. Linting a broken change wastes the whole battery -- the
+functional fix that follows (a renamed symbol, a rewritten block, a CSS edit discovered only in the browser) dirties
+the files again and every check has to be re-run. Green checks on code that doesn't work are worthless.
+
 **Agents must not run `mise run check` (or `check-all`).** They are aggregate gates intended for CI and humans --
 running the whole battery for every edit is slow, expensive, and almost always wasteful when only a couple of file
 types changed. Pick the targeted tasks from the tables below that match the extensions of the files you actually

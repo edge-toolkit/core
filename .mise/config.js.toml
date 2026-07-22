@@ -13,6 +13,10 @@
 # same npm-package-served-as-a-module pattern as onnxruntime-web (resolved in libs/edge-toolkit/src/config.rs).
 "npm:@mediapipe/tasks-vision" = "latest"
 "npm:onnxruntime-web" = "latest"
+# stats-gl is the GPU utilisation meter overlay on the ws-server index page.
+# index.html loads it at runtime via /modules/stats-gl (same npm-package-served-as-a-module pattern as
+# onnxruntime-web, resolved in libs/edge-toolkit/src/config.rs).
+"npm:stats-gl" = "latest"
 # oxlint-tsgolint is oxlint's type-aware engine.
 # It's a typescript-go type checker oxlint shells out to under `--type-aware`. npm-only: it ships no GitHub
 # release assets, distributing per-platform binaries via `@oxlint-tsgolint/<triple>` optional deps, so every OS

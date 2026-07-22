@@ -7,10 +7,12 @@
     "app.js",
     "favicon.png",
     "index.html",
+    "meters.js",
     "style.css"
   ],
   "dependencies": {
     "et-ws-wasm-agent": "link:../../ws-wasm-agent/pkg",
-    "onnxruntime-web": "*"
+    "onnxruntime-web": "*",
+    "stats-gl": "*"
   }
 }
