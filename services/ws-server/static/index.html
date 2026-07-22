@@ -9,24 +9,17 @@
   </head>
   <body>
     <main>
-      <h1>WASM web agent</h1>
-      <p>
-        The page imports the generated module from <code>/pkg</code>,
-        initializes the WASM runtime, and connects to <code>/ws</code>.
-      </p>
-      <p>
-        Open the browser devtools as well if you want to inspect the module logs
-        from <code>tracing-wasm</code>.
-      </p>
-      <div class="agent-card">
-        <strong>Web Agent Identity</strong>
-        <div id="agent-status">Waiting for websocket handshake...</div>
-        <code id="agent-id">unassigned</code>
-      </div>
       <p>
         <label for="module-select">Workflow module</label>
         <select id="module-select"></select>
         <button id="run-module-button" type="button">Run module</button>
+      </p>
+      <p class="medical-note">
+        <strong>Medical disclaimer:</strong> these modules are tech demos. Any
+        health-related output, such as the eye-movement screening indicators, is
+        a heuristic signal from webcam landmarks -- not a medical device, a
+        diagnosis, or clinical advice. Consult a qualified clinician about any
+        health concern.
       </p>
       <video id="video-preview" autoplay playsinline muted hidden></video>
       <canvas id="video-output-canvas" hidden></canvas>
@@ -38,6 +31,15 @@
         <textarea id="sensor-output" readonly
         >Waiting for device sensor data...</textarea>
       </div>
+      <div class="agent-card">
+        <strong>Web Agent Identity</strong>
+        <span id="agent-status">Waiting for websocket handshake...</span>
+        <code id="agent-id">unassigned</code>
+      </div>
+      <p class="log-note">
+        Open the browser devtools as well if you want to inspect the module logs
+        from <code>tracing-wasm</code>.
+      </p>
       <pre id="log">Booting...</pre>
     </main>
     <script type="module" src="/app.js"></script>

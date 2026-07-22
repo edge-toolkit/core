@@ -1,8 +1,9 @@
-// et_ws_pyeye1.js - Browser adapter for the MediaPipe FaceLandmarker eye-detection Pyodide workflow.
+// et_ws_pyeye1.js - Browser adapter for the MediaPipe FaceLandmarker eye-movement Pyodide workflow.
 // Interface: default(), run(), start(), stop(), is_running()
 //
 // MediaPipe FaceLandmarker (a maintained, offline .task bundle that internally runs a face detector then a
-// mesh model) does the inference in JS; the Python layer turns its normalized landmarks into eye boxes.
+// mesh model) does the inference in JS; the Python layer turns its normalized landmarks into eye boxes,
+// iris circles, and the eye-misalignment / rhythmic-oscillation screening indicators this adapter renders.
 
 const PYODIDE_BASE_PATH = "/modules/pyodide/";
 
@@ -14,7 +15,6 @@ const EYE_COLORS = {
 
 let pyodide;
 let py;
-let cfg;
 let runtime = null;
 
 export default async function init() {
@@ -50,7 +50,6 @@ export default async function init() {
 
   if (globalThis.__etPyCov) await globalThis.__etPyCov.start(pyodide, "pyeye1");
   py = pyodide.pyimport("pyeye1");
-  cfg = py.config().toJs({ dict_converter: Object.fromEntries });
 }
 
 export const is_running = () => runtime !== null;
@@ -60,67 +59,71 @@ export async function run() {
   if (!py) throw new Error("pyeye1: not initialized");
   if (runtime) return;
 
-  setStatus(py.starting_status());
-  log(py.model_log_message());
-
-  let client = null;
-  let stream = null;
-  let state = null;
-
+  const state = { client: null, stream: null, landmarker: null };
+  runtime = state;
   try {
-    const wasmAgent = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
-    await wasmAgent.default();
-    const { WsClient, WsClientConfig } = wasmAgent;
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    client = new WsClient(new WsClientConfig(`${protocol}//${window.location.host}/ws`));
-    client.connect();
-    for (let i = 0; client.get_state() !== "connected" && i < 100; i++) await sleep(100);
-    if (client.get_state() !== "connected") throw new Error("Timed out waiting for websocket connection");
-    log(`websocket connected with agent_id=${client.get_agent_id()}`);
-
-    stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
-    const video = element("video-preview", HTMLVideoElement);
-    video.srcObject = stream;
-    video.hidden = false;
-    for (let i = 0; video.videoWidth === 0 && i < 50; i++) await sleep(100);
-    if (video.videoWidth === 0 || video.videoHeight === 0) throw new Error("Video stream metadata did not load");
-    await video.play();
-
-    // Load the MediaPipe tasks-vision runtime (served offline from its module mount) and build the landmarker.
-    const vision = await import(cfg.bundle_path);
-    const { FaceLandmarker, FilesetResolver } = vision;
-    const fileset = await FilesetResolver.forVisionTasks(cfg.wasm_path);
-    const landmarker = await FaceLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: cfg.model_path },
-      runningMode: "VIDEO",
-      numFaces: 1,
-    });
-
-    state = { client, stream, landmarker };
-    runtime = state;
-
-    await py.run(
-      pyodide.toPy(() => inferEyes(state)),
-      pyodide.toPy((message) => client.send(message)),
-      pyodide.toPy(render),
-      pyodide.toPy(sleep),
-      pyodide.toPy(log),
-      pyodide.toPy(setStatus),
-      pyodide.toPy(() => runtime !== state),
-    );
+    await py.run(platformFor(state));
   } catch (err) {
     log(`pyeye1 run failed: ${String(err)}`);
     throw err;
   } finally {
     if (globalThis.__etPyCov) await globalThis.__etPyCov.stop(pyodide, "pyeye1");
-    cleanup(state ?? { client, stream });
+    cleanup(state);
   }
+}
+
+// The Python workflow controls everything; each primitive here is one browser operation with no sequencing,
+// polling, or timeout logic (Python owns those). Members mirror the contract documented on pyeye1's run().
+function platformFor(state) {
+  return {
+    connect_ws: async () => {
+      const wasmAgent = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
+      await wasmAgent.default();
+      const { WsClient, WsClientConfig } = wasmAgent;
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      state.client = new WsClient(new WsClientConfig(`${protocol}//${window.location.host}/ws`));
+      state.client.connect();
+    },
+    ws_state: () => state.client?.get_state() ?? "disconnected",
+    agent_id: () => state.client?.get_agent_id(),
+    send_event: (message) => state.client.send(message),
+    start_camera: async () => {
+      state.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+      const video = element("video-preview", HTMLVideoElement);
+      video.srcObject = state.stream;
+      // The raw stream stays hidden; it still feeds the landmarker, and the canvas shows the cropped view.
+      video.hidden = true;
+    },
+    video_size: () => {
+      const video = element("video-preview", HTMLVideoElement);
+      return [video.videoWidth, video.videoHeight];
+    },
+    play_video: () => element("video-preview", HTMLVideoElement).play(),
+    load_landmarker: async (modelPath, bundlePath, wasmPath) => {
+      // Load the MediaPipe tasks-vision runtime (served offline from its module mount) and build the
+      // landmarker; Python passes the asset paths so the configuration stays on the Python side.
+      const vision = await import(bundlePath);
+      const fileset = await vision.FilesetResolver.forVisionTasks(wasmPath);
+      state.landmarker = await vision.FaceLandmarker.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: modelPath },
+        runningMode: "VIDEO",
+        numFaces: 1,
+      });
+    },
+    infer: () => inferEyes(state),
+    render,
+    sleep,
+    log,
+    set_status: setStatus,
+    should_stop: () => runtime !== state,
+    cleanup: () => cleanup(state),
+  };
 }
 
 export function stop() {
   if (!runtime) return;
   cleanup(runtime);
-  log("pyeye1 eye detection demo stopped");
+  log("pyeye1 eye movement screening demo stopped");
 }
 
 async function inferEyes(state) {
@@ -141,21 +144,34 @@ function render(resultsJson) {
   const video = element("video-preview", HTMLVideoElement);
   if (video.videoWidth === 0 || video.videoHeight === 0) return;
 
+  const payload = JSON.parse(resultsJson);
+  // Python decides the visible region (the face band around the eyes); before a face is seen the crop is
+  // null and the full frame shows. Overlay coordinates stay in source pixels; the scale+translate maps them.
+  const [cropLeft, cropTop, cropRight, cropBottom] = payload.crop ?? [0, 0, video.videoWidth, video.videoHeight];
+  const cropWidth = Math.max(cropRight - cropLeft, 1);
+  const cropHeight = Math.max(cropBottom - cropTop, 1);
+
+  // Zoom the cropped band to the page width: the canvas element fills its container, and its backing store
+  // matches the displayed size so the upscaled video stays as sharp as the source allows.
   const canvas = element("video-output-canvas", HTMLCanvasElement);
-  const ctx = canvas.getContext("2d");
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
   canvas.hidden = false;
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  ctx.font = "16px ui-monospace, monospace";
+  canvas.style.width = "100%";
+  canvas.style.height = "auto";
+  const displayWidth = Math.max(canvas.clientWidth, 1);
+  const scale = displayWidth / cropWidth;
+  canvas.width = displayWidth;
+  canvas.height = Math.max(Math.round(cropHeight * scale), 1);
 
-  for (const result of JSON.parse(resultsJson)) {
-    const [faceLeft, faceTop, faceRight, faceBottom] = result.face_box;
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = "#7a8794";
-    ctx.strokeRect(faceLeft, faceTop, Math.max(faceRight - faceLeft, 1), Math.max(faceBottom - faceTop, 1));
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, cropLeft, cropTop, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
 
-    ctx.lineWidth = 3;
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.translate(-cropLeft, -cropTop);
+  // Divide widths/sizes by the zoom so strokes and labels keep a constant on-screen weight.
+  ctx.font = `${16 / scale}px ui-monospace, monospace`;
+  for (const result of payload.faces ?? []) {
+    ctx.lineWidth = 3 / scale;
     for (const eye of result.eyes) {
       const [left, top, right, bottom] = eye.box;
       const color = EYE_COLORS[eye.label] ?? "#fffdfa";
@@ -164,7 +180,37 @@ function render(resultsJson) {
       ctx.fillStyle = color;
       ctx.fillText(eye.label === "left_eye" ? "L" : "R", left, Math.max(top - 4, 12));
     }
+
+    ctx.lineWidth = 2 / scale;
+    for (const iris of result.irises ?? []) {
+      const [centerX, centerY] = iris.center;
+      ctx.strokeStyle = EYE_COLORS[iris.label] ?? "#fffdfa";
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, Math.max(iris.radius, 1), 0, 2 * Math.PI);
+      ctx.stroke();
+    }
   }
+  ctx.restore();
+  ctx.font = "16px ui-monospace, monospace";
+  renderAnalysis(ctx, payload.analysis);
+}
+
+// Screening-verdict overlay, top-left. Python sends analysis=null until the first window completes, and each
+// screening reports status "insufficient_data" until it has enough non-blink samples to rate.
+function renderAnalysis(ctx, analysis) {
+  const screenings = [
+    ["eye misalignment", analysis?.misalignment],
+    ["rhythmic oscillation", analysis?.oscillation],
+  ];
+  const lines = [];
+  for (const [name, metrics] of screenings) {
+    if (metrics?.status === "ok") lines.push(`${name}: ${metrics.detected ? "DETECTED" : "none"}`);
+  }
+  if (lines.length > 0) lines.push("screening demo -- not a medical diagnosis");
+  lines.forEach((line, index) => {
+    ctx.fillStyle = line.includes("DETECTED") ? "#ffb84d" : "#d7e0e8";
+    ctx.fillText(line, 8, 20 + index * 20);
+  });
 }
 
 function cleanup(state) {
