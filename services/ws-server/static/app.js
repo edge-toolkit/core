@@ -40,7 +40,7 @@ const describeError = (error) => (error instanceof Error ? error.message : Strin
 const WORKFLOW_MODULES = new Map();
 let activeWorkflow = null;
 // Preselected in the dropdown when the server's module list includes it; otherwise the first option stays.
-const DEFAULT_MODULE = "et-ws-pyeye1";
+const DEFAULT_MODULE = "et-ws-pydemo1";
 
 const populateModuleDropdown = async () => {
   append("Discovering modules via /modules...");

@@ -2,7 +2,15 @@ import json
 import unittest
 from unittest.mock import patch
 
-from pydemo1 import config, eye_capture_error_json, process_eye_capture, process_speech_capture, reset_eye_capture, run
+from pydemo1 import (
+    config,
+    eye_capture_error_json,
+    eye_capture_stored_json,
+    process_eye_capture,
+    process_speech_capture,
+    reset_eye_capture,
+    run,
+)
 from pydemo1.demo import EyeCaptureProcessor
 
 
@@ -81,6 +89,12 @@ class DemoTests(unittest.TestCase):
         event = json.loads(eye_capture_error_json("upload failed"))
         self.assertEqual(event["capability"], "pyeye1")
         self.assertEqual(event["action"], "eye_capture_failed")
+
+    def test_eye_capture_stored_reuses_pyeye1_broadcast(self) -> None:
+        broadcast = json.loads(eye_capture_stored_json("agent-1", "capture.png"))
+        self.assertEqual(broadcast["type"], "et-broadcast-message")
+        self.assertEqual(broadcast["message"]["kind"], "pyeye1_capture_stored")
+        self.assertEqual(broadcast["message"]["url"], "/storage/agent-1/capture.png")
 
 
 class DemoRunTests(unittest.IsolatedAsyncioTestCase):
