@@ -15,6 +15,7 @@ from pyeye1.eye_detection import (
     VISION_BUNDLE_PATH,
     VISION_WASM_PATH,
     build_results,
+    capture_broadcast_json,
     eye_capture_error_event_json,
     eye_region_crop,
     results_json,
@@ -189,6 +190,11 @@ def reset_eye_capture() -> None:
 def eye_capture_error_json(error: str) -> str:
     """Reuse pyeye1's server-visible event for a failed consented image upload."""
     return eye_capture_error_event_json(error)
+
+
+def eye_capture_stored_json(agent_id: str, filename: str) -> str:
+    """Reuse pyeye1's broadcast announcing a stored eye capture, so pic-viewer displays pydemo1 uploads too."""
+    return capture_broadcast_json(agent_id, filename)
 
 
 def process_speech_capture(

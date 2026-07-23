@@ -1,6 +1,7 @@
 // Full-screen browser adapter for the combined Python eye and speech demo.
 const PYODIDE_BASE_PATH = "/modules/pyodide/";
-const EYE_DETECTION_SECONDS = 30;
+// Both detections run for the same fixed window: the eye loop and the speech recording each last this long.
+const CAPTURE_SECONDS = 30;
 
 const EYE_COLORS = {
   left_eye: "#ff6f7d",
@@ -25,40 +26,12 @@ export async function run() {
   const state = {
     activeDemo: null,
     client: null,
-    durationInput: null,
-    loadButton: null,
     popstateHandler: null,
     stopped: false,
   };
   runtime = state;
-  state.loadButton = createLoadDemoButton(state);
-  setMainStatus("Combined eye and speech demo is preparing the local Python runtime...");
-  log("preparing local Python runtime; waiting for Load demo");
-  void preloadPythonRuntimeWhenIdle()
-    .then(() => {
-      if (runtime !== state || state.stopped) return;
-      setLoadButtonReady(state.loadButton);
-      setMainStatus("Combined eye and speech demo ready. Local Python runtime preloaded.");
-      log("local Python runtime preloaded");
-    })
-    .catch((error) => {
-      if (runtime === state && !state.stopped) {
-        setLoadButtonReady(state.loadButton, "Retry loading");
-        setMainStatus("Local Python runtime preload failed. Press Retry loading to try again.");
-      }
-      log(`local Python runtime preload failed: ${String(error)}`);
-    });
-}
-
-async function preloadPythonRuntimeWhenIdle() {
-  await new Promise((resolve) => {
-    if (globalThis.requestIdleCallback) {
-      globalThis.requestIdleCallback(resolve, { timeout: 500 });
-    } else {
-      globalThis.setTimeout(resolve, 0);
-    }
-  });
-  return loadPythonRuntime();
+  log("launching the combined demo");
+  await enterDemo(state);
 }
 
 export function stop() {
@@ -70,7 +43,6 @@ export function stop() {
   } else {
     exitDemo(state);
   }
-  state.loadButton?.closest("#pydemo1-launch")?.remove();
   runtime = null;
   setMainStatus("pydemo1 stopped.");
 }
@@ -148,163 +120,30 @@ async function installModuleWheel(baseUrl) {
   pyodide.runPython(`import sys\nsys.path.insert(0, ${JSON.stringify(path)})`);
 }
 
-function createLoadDemoButton(state) {
-  document.getElementById("pydemo1-launch")?.remove();
-  const host = document.createElement("section");
-  host.id = "pydemo1-launch";
-  host.style.cssText = css([
-    "display:block",
-    "margin:20px 0",
-    "padding:20px 22px 0 20px",
-    "border:1px solid #dedbd3",
-    "border-left:4px solid #c9a24a",
-    "border-radius:0",
-    "background:linear-gradient(135deg,#ffffff 0%,#ffffff 62%,#faf8f2 100%)",
-    "box-shadow:0 12px 32px rgba(24,24,22,.08)",
-    "overflow:hidden",
-  ]);
-
-  const primary = document.createElement("div");
-  primary.style.cssText = css(["display:flex", "align-items:center", "justify-content:space-between", "gap:20px"]);
-
-  const copy = document.createElement("div");
-  const title = document.createElement("strong");
-  title.textContent = "Eye + speech detection";
-  title.style.cssText = "display:block;font-size:17px;color:#171715;letter-spacing:-.01em";
-  const detail = document.createElement("span");
-  detail.textContent = "Open an immersive multimodal demonstration using the duration configured below.";
-  detail.style.cssText = "display:block;margin-top:6px;color:#686762;font-size:13px;line-height:1.45";
-  copy.append(title, detail);
-
-  const button = document.createElement("button");
-  button.type = "button";
-  button.textContent = "Load demo";
-  button.style.cssText = css([
-    "box-sizing:border-box",
-    "flex:0 0 136px",
-    "width:136px",
-    "height:44px",
-    "padding:0 10px",
-    "border:1px solid #171715",
-    "border-radius:8px",
-    "background:linear-gradient(135deg,#292927,#111110)",
-    "color:#ffffff",
-    "font:700 14px ui-monospace,monospace",
-    "white-space:nowrap",
-    "cursor:pointer",
-    "box-shadow:0 8px 20px rgba(17,17,16,.18),0 0 0 2px rgba(201,162,74,.2)",
-  ]);
-  button.addEventListener("click", () => enterDemo(state));
-  setLoadButtonPreparing(button);
-  primary.append(copy, button);
-  host.append(primary, createDurationControl(state));
-  const anchor = document.querySelector(".medical-note");
-  if (anchor) {
-    anchor.after(host);
-  } else {
-    document.querySelector("main")?.append(host);
-  }
-  return button;
-}
-
-function setLoadButtonPreparing(button, label = "Preparing...") {
-  button.disabled = true;
-  button.textContent = label;
-  button.style.background = "#d6d5d1";
-  button.style.borderColor = "#c4c2bc";
-  button.style.color = "#77756f";
-  button.style.boxShadow = "none";
-  button.style.cursor = "wait";
-}
-
-function setLoadButtonReady(button, label = "Load demo") {
-  button.disabled = false;
-  button.textContent = label;
-  button.style.background = "linear-gradient(135deg,#292927,#111110)";
-  button.style.borderColor = "#171715";
-  button.style.color = "#ffffff";
-  button.style.boxShadow = "0 8px 20px rgba(17,17,16,.18),0 0 0 2px rgba(201,162,74,.2)";
-  button.style.cursor = "pointer";
-}
-
-function createDurationControl(state) {
-  const control = document.createElement("div");
-  control.style.cssText = css([
-    "display:flex",
-    "align-items:center",
-    "justify-content:space-between",
-    "gap:14px",
-    "margin:18px -22px 0 -20px",
-    "padding:12px 22px 12px 20px",
-    "border-top:1px solid #e1ded7",
-    "background:#faf9f6",
-  ]);
-  const label = document.createElement("label");
-  label.htmlFor = "pydemo1-duration";
-  label.textContent = "Speech Detection Time (s)";
-  label.style.cssText = "color:#66645f;font-size:12px;font-weight:600;letter-spacing:.01em";
-  const input = document.createElement("input");
-  input.id = "pydemo1-duration";
-  input.type = "number";
-  input.min = "1";
-  input.max = "300";
-  input.step = "1";
-  input.required = true;
-  input.value = "30";
-  input.inputMode = "numeric";
-  input.style.cssText = css([
-    "box-sizing:border-box",
-    "width:82px",
-    "padding:7px 9px",
-    "border:1px solid #cbc9c3",
-    "border-radius:9px",
-    "background:#ffffff",
-    "color:#171715",
-    "box-shadow:inset 0 1px 2px rgba(24,24,22,.05),0 0 0 2px rgba(201,162,74,.08)",
-    "font:600 13px ui-monospace,monospace",
-  ]);
-  control.append(label, input);
-  state.durationInput = input;
-  return control;
-}
-
 async function enterDemo(state) {
   if (state.activeDemo || state.stopped) return;
-  if (!state.durationInput?.reportValidity()) return;
-  const captureSeconds = state.durationInput.valueAsNumber;
-  if (!Number.isInteger(captureSeconds)) return;
   const uploadConsent = document.getElementById("upload-consent")?.checked ?? false;
-  setLoadButtonPreparing(state.loadButton, "Loading...");
-  state.durationInput.disabled = true;
 
   window.history.pushState({ pydemo1: true }, "", `${window.location.pathname}${window.location.search}#pydemo1`);
   state.popstateHandler = () => exitDemo(state);
   window.addEventListener("popstate", state.popstateHandler, { once: true });
 
-  const demo = createDemoView(captureSeconds, uploadConsent);
+  const demo = createDemoView(CAPTURE_SECONDS, uploadConsent);
   state.activeDemo = demo;
   demo.exitButton.addEventListener("click", () => window.history.back());
-  demo.speechRetryButton.addEventListener("click", () => {
-    void runSpeechDetection(state, demo).catch((error) => {
-      demo.speechRunning = false;
-      demo.speechRetryButton.hidden = false;
-      demo.speechStatus.hidden = false;
-      demo.speechStatus.textContent = `Speech retry failed: ${String(error)}`;
-    });
-  });
 
   try {
-    setLoadingMessage(demo, py ? "Local Python runtime ready" : "Finishing local Python runtime setup…");
+    setLoadingMessage(demo, py ? "Local Python runtime ready" : "Preparing the local Python runtime…");
     await loadPythonRuntime();
     if (demo.stopped) return;
     await py.run(platformFor(state, demo));
   } catch (error) {
     demo.loadingScreen.remove();
     demo.speechStatus.textContent = String(error);
+    // A failed demo never reaches the completion hand-off, so surface the exit control here instead.
+    demo.timerChip.hidden = true;
+    demo.exitButton.hidden = false;
     log(`demo failed: ${String(error)}`);
-  } finally {
-    setLoadButtonReady(state.loadButton);
-    state.durationInput.disabled = false;
   }
 }
 
@@ -312,9 +151,14 @@ function createDemoView(captureSeconds, uploadConsent) {
   const overlay = document.createElement("main");
   overlay.id = "pydemo1-view";
   overlay.setAttribute("aria-label", "Eye and speech detection demo");
+  // Row sizing lives in a media-queried rule rather than the inline style: the speech waveform only needs a
+  // slim strip, so wide (desktop/landscape) screens give its row to the eye panel; portrait phones keep more.
+  const layoutStyle = document.createElement("style");
+  const portraitRows = "#pydemo1-view{grid-template-rows:60dvh 25dvh 15dvh}";
+  const wideRows = "@media (min-aspect-ratio:4/3){#pydemo1-view{grid-template-rows:72dvh 18dvh 10dvh}}";
+  layoutStyle.textContent = portraitRows + wideRows;
   overlay.style.cssText = css([
     "display:grid",
-    "grid-template-rows:55dvh 30dvh 15dvh",
     "width:100vw",
     "height:100dvh",
     "max-width:none",
@@ -423,50 +267,46 @@ function createDemoView(captureSeconds, uploadConsent) {
   const speechStatus = document.createElement("span");
   speechStatus.textContent = "Preparing microphone…";
   speechStatus.style.cssText = "position:absolute;left:22px;bottom:16px;color:#adc8c9;font-size:15px";
-  const speechRetryButton = document.createElement("button");
-  speechRetryButton.type = "button";
-  speechRetryButton.hidden = true;
-  speechRetryButton.setAttribute("aria-label", "Retry speech detection");
-  speechRetryButton.title = "Retry speech detection";
-  const replayIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  replayIcon.setAttribute("viewBox", "0 0 24 24");
-  replayIcon.setAttribute("aria-hidden", "true");
-  replayIcon.style.cssText = "display:block;width:40px;height:40px";
-  const replayPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  replayPath.setAttribute("d", "M12 5a7 7 0 1 1-6.62 4.72l1.9.65A5 5 0 1 0 12 7v3L7.5 6 12 2v3Z");
-  replayPath.setAttribute("fill", "currentColor");
-  replayIcon.append(replayPath);
-  speechRetryButton.append(replayIcon);
-  speechRetryButton.style.cssText = css([
-    "position:absolute",
-    "right:26px",
-    "top:18px",
-    "z-index:4",
-    "display:grid",
-    "place-items:center",
-    "width:72px",
-    "height:72px",
-    "padding:0",
-    "border:2px solid rgba(104,190,169,.62)",
-    "border-radius:50%",
-    "background:rgba(16,45,50,.94)",
-    "color:#8fcbbb",
-    "cursor:pointer",
-    "box-shadow:0 0 18px rgba(104,190,169,.16)",
-  ]);
-  speechPanel.append(speechCanvas, speechBadge, countdown, speechStatus, speechRetryButton);
+  speechPanel.append(speechCanvas, speechBadge, countdown, speechStatus);
 
   const footer = document.createElement("footer");
   footer.setAttribute("aria-label", "GPU utilisation");
   footer.style.cssText = css(["position:relative", "min-height:0", "overflow:visible", "background:transparent"]);
-  const exitButton = document.createElement("button");
-  exitButton.type = "button";
-  exitButton.setAttribute("aria-label", "Exit demo");
-  exitButton.style.cssText = css([
+  // Bottom-left slot: the countdown chip runs for the whole recording, then swaps for the Exit Demo button
+  // once both detections complete.
+  const controls = document.createElement("div");
+  controls.style.cssText = css([
     "position:absolute",
     "left:6px",
     "bottom:6px",
     "z-index:2",
+    "display:flex",
+    "align-items:center",
+    "gap:10px",
+  ]);
+  const timerChip = document.createElement("span");
+  timerChip.setAttribute("aria-hidden", "true");
+  timerChip.textContent = `${captureSeconds}s`;
+  timerChip.style.cssText = css([
+    "display:inline-flex",
+    "align-items:center",
+    "justify-content:center",
+    "min-width:76px",
+    "height:44px",
+    "padding:0 16px",
+    "border:1px solid rgba(174,187,191,.58)",
+    "border-radius:8px",
+    "background:rgba(10,26,37,.94)",
+    "color:#edf4f3",
+    "font:700 15px ui-monospace,monospace",
+    "letter-spacing:.02em",
+    "box-shadow:0 8px 22px rgba(0,0,0,.28)",
+  ]);
+  const exitButton = document.createElement("button");
+  exitButton.type = "button";
+  exitButton.hidden = true;
+  exitButton.setAttribute("aria-label", "Exit demo");
+  exitButton.style.cssText = css([
     "display:inline-flex",
     "align-items:center",
     "justify-content:center",
@@ -492,10 +332,11 @@ function createDemoView(captureSeconds, uploadConsent) {
   const exitLabel = document.createElement("span");
   exitLabel.textContent = "Exit Demo";
   exitButton.append(exitIcon, exitLabel);
-  footer.append(exitButton);
+  controls.append(timerChip, exitButton);
+  footer.append(controls);
 
   const loading = createLoadingScreen();
-  overlay.append(eyePanel, speechPanel, footer, loading.screen);
+  overlay.append(layoutStyle, eyePanel, speechPanel, footer, loading.screen);
   const gpuMeterOverlay = document.getElementById("gpu-utilisation-meter");
   const previousGpuMeterStyle = gpuMeterOverlay?.getAttribute("style") ?? null;
   const previousBodyNodes = Array.from(document.body.childNodes);
@@ -522,7 +363,7 @@ function createDemoView(captureSeconds, uploadConsent) {
     eyeFrame: null,
     speechCanvas,
     exitButton,
-    speechRetryButton,
+    timerChip,
     speechStatus,
     countdown,
     captureSeconds,
@@ -715,7 +556,11 @@ async function startCapture(state, demo) {
   const speechPromise = runSpeechDetection(state, demo);
   const eyePromise = runEyeDetection(state, demo);
   await Promise.all([speechPromise, eyePromise]);
-  if (!demo.stopped) demo.keepMediaActive = true;
+  if (!demo.stopped) {
+    demo.keepMediaActive = true;
+    demo.timerChip.hidden = true;
+    demo.exitButton.hidden = false;
+  }
 }
 
 async function runSpeechDetection(state, demo) {
@@ -728,7 +573,6 @@ async function runSpeechDetection(state, demo) {
   demo.speechDetected = null;
   demo.speechConfidence = 0;
   demo.speechProbabilities = [];
-  demo.speechRetryButton.hidden = true;
   demo.speechStatus.hidden = false;
   demo.speechStatus.textContent = "Listening for speech";
   demo.countdown.textContent = `${demo.captureSeconds} seconds remaining`;
@@ -748,13 +592,12 @@ async function runSpeechDetection(state, demo) {
   demo.speechStatus.hidden = result.speech_detected;
   state.client?.send?.(result.event_json);
   drawSpeechPanel(demo);
-  demo.speechRetryButton.hidden = false;
   demo.speechRunning = false;
 }
 
 async function runEyeDetection(state, demo) {
   let lastInference = 0;
-  while (!demo.stopped && performance.now() - demo.startedAt < EYE_DETECTION_SECONDS * 1000) {
+  while (!demo.stopped && performance.now() - demo.startedAt < demo.captureSeconds * 1000) {
     const now = performance.now();
 
     if (now - lastInference >= 50) {
@@ -806,7 +649,8 @@ async function saveEyeCapture(state, demo) {
     if (!response.ok) {
       throw new Error(`eye capture upload failed: ${response.status} ${response.statusText}`);
     }
-    log(`eye capture saved to storage: ${filename} (${bytes.length} bytes)`);
+    state.client?.send?.(py.eye_capture_stored_json(agentId, filename));
+    log(`eye capture saved to storage and broadcast: ${filename} (${bytes.length} bytes)`);
   } catch (error) {
     const message = String(error);
     log(`eye capture failed: ${message}`);
@@ -1048,7 +892,10 @@ function drawSpeechPanel(demo) {
     : 0;
   const progress = demo.phase === "LOADING" ? 0 : Math.min(elapsed / demo.captureSeconds, 1);
   const remaining = Math.max(Math.ceil(demo.captureSeconds - elapsed), 0);
-  if (demo.phase === "RECORDING") demo.countdown.textContent = `${remaining} seconds remaining`;
+  if (demo.phase === "RECORDING") {
+    demo.countdown.textContent = `${remaining} seconds remaining`;
+    demo.timerChip.textContent = `${remaining}s`;
+  }
   const background = ctx.createLinearGradient(0, 0, width, height);
   background.addColorStop(0, "#0c1924");
   background.addColorStop(0.55, "#18313a");
@@ -1119,15 +966,13 @@ function drawSpeechPanel(demo) {
   ctx.fillRect(40, height - 24, width - 80, 6);
   ctx.fillStyle = "#67b7a3";
   ctx.fillRect(40, height - 24, (width - 80) * progress, 6);
-  if (demo.phase !== "COMPLETE") {
-    drawCountdownArc(ctx, width - 92, 78, 58, remaining, demo.captureSeconds);
-  }
 
   if (demo.speechDetected === true) {
     const badgeWidth = 620;
     const badgeHeight = 106;
     const x = (width - badgeWidth) / 2;
-    const y = height - 148;
+    // The slimmer desktop speech row can leave less canvas than the badge's usual bottom offset needs.
+    const y = Math.max(height - 148, 6);
     ctx.fillStyle = "rgba(28,73,66,.95)";
     roundedRect(ctx, x, y, badgeWidth, badgeHeight, 20);
     ctx.fillStyle = "#eafffa";
@@ -1221,6 +1066,9 @@ function exitDemo(state) {
   state.client = null;
   if (state.popstateHandler) window.removeEventListener("popstate", state.popstateHandler);
   state.popstateHandler = null;
+  // Leaving the demo IS stopping the module now that run() launches straight into it, so the next Run press
+  // relaunches immediately instead of toggling a stop first.
+  if (runtime === state) runtime = null;
 }
 
 function stopMedia(demo) {
@@ -1266,31 +1114,6 @@ function resample(input, sourceRate, targetRate) {
     output[index] = input[left] * (1 - fraction) + input[right] * fraction;
   }
   return output;
-}
-
-function drawCountdownArc(ctx, x, y, radius, remaining, duration) {
-  const ratio = Math.max(0, Math.min(remaining / duration, 1));
-  ctx.lineWidth = 8;
-  ctx.lineCap = "round";
-  ctx.strokeStyle = "rgba(158,210,201,.14)";
-  ctx.beginPath();
-  ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.strokeStyle = "#68b8a5";
-  ctx.shadowColor = "rgba(83,175,154,.28)";
-  ctx.shadowBlur = 10;
-  ctx.beginPath();
-  ctx.arc(x, y, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio);
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = "#edfffb";
-  ctx.font = "800 48px ui-monospace,monospace";
-  ctx.textAlign = "center";
-  ctx.fillText(String(remaining), x, y + 10);
-  ctx.fillStyle = "#88a5a4";
-  ctx.font = "800 17px ui-monospace,monospace";
-  ctx.fillText("SECONDS", x, y + radius + 24);
-  ctx.textAlign = "left";
 }
 
 function resizeCanvasToDisplaySize(canvas) {
