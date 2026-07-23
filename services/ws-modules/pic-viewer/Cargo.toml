@@ -1,0 +1,47 @@
+[package]
+description = "Picture viewer"
+name = "et-ws-pic-viewer"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+doctest = false
+test = false
+
+[dependencies]
+edge-toolkit.workspace = true
+et-web.workspace = true
+et-ws-wasm-agent.workspace = true
+js-sys.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-wasm.workspace = true
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+web-sys = { workspace = true, features = [
+  "CanvasRenderingContext2d",
+  "Document",
+  "Element",
+  "HtmlCanvasElement",
+  "HtmlElement",
+  "HtmlImageElement",
+  "Window",
+  "console",
+] }
+
+[dev-dependencies]
+wasm-bindgen-test.workspace = true
+# Extra web-sys surface used only by the browser tests; cargo unions it with the [dependencies] features.
+# Blob backs the object-URL serving the embedded test image, ImageData the drawn-pixel readback.
+web-sys = { workspace = true, features = ["Blob", "ImageData", "Url"] }
+
+[build-dependencies]
+# Stages the favicon test fixture into OUT_DIR (see build.rs).
+et-path.workspace = true
+fs-err.workspace = true
+
+[lints]
+workspace = true

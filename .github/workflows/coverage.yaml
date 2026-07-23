@@ -89,6 +89,15 @@ jobs:
           export CHROMEDRIVER="${CHROMEWEBDRIVER:+$CHROMEWEBDRIVER/chromedriver}"
           mise run wasm-agent-cov
 
+      # The pic-viewer display path only runs in a browser, so it is invisible to the cargo-llvm-cov run.
+      # Its native parse tests already ride that run; this drives the module's wasm-bindgen display tests in
+      # the same headless Chrome as the ws-wasm-agent step above and folds their lcov into lcov.info.
+      - name: Merge pic-viewer coverage into lcov.info
+        timeout-minutes: 20
+        run: |
+          export CHROMEDRIVER="${CHROMEWEBDRIVER:+$CHROMEWEBDRIVER/chromedriver}"
+          mise run pic-viewer-cov
+
       - name: Collect Python coverage
         timeout-minutes: 15
         env:

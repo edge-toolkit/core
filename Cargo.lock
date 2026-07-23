@@ -4558,6 +4558,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "et-ws-pic-viewer"
+version = "0.1.0"
+dependencies = [
+ "edge-toolkit",
+ "et-path",
+ "et-web",
+ "et-ws-wasm-agent",
+ "fs-err",
+ "js-sys",
+ "serde_json",
+ "tracing",
+ "tracing-wasm",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-bindgen-test",
+ "web-sys",
+]
+
+[[package]]
 name = "et-ws-pyo3-runner"
 version = "0.1.0"
 dependencies = [

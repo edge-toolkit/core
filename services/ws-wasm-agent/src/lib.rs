@@ -71,6 +71,7 @@ pub struct WsClientConfig {
     alive_interval_ms: u32,
     max_reconnect_attempts: u32,
     initial_reconnect_delay_ms: u32,
+    use_retained_agent_id: bool,
 }
 
 #[wasm_bindgen]
@@ -87,6 +88,7 @@ impl WsClientConfig {
             alive_interval_ms: DEFAULT_ALIVE_INTERVAL_MS,
             max_reconnect_attempts: 10,
             initial_reconnect_delay_ms: 1000,
+            use_retained_agent_id: true,
         }
     }
 
@@ -103,6 +105,17 @@ impl WsClientConfig {
     #[wasm_bindgen(setter)]
     pub fn set_initial_reconnect_delay(&mut self, delay_ms: u32) {
         self.initial_reconnect_delay_ms = delay_ms;
+    }
+
+    /// Opt out of the shared retained agent id for an ephemeral, per-client identity.
+    ///
+    /// Every client on an origin shares one retained agent id in localStorage, and the server keeps a single
+    /// session per agent id -- so a page's own client and a module's client using the same id steal each
+    /// other's registration on every (re)connect. A client that sets this to `false` neither loads nor
+    /// stores the retained id: the server assigns it a fresh id and it coexists with the page's client.
+    #[wasm_bindgen(setter)]
+    pub fn set_use_retained_agent_id(&mut self, use_retained: bool) {
+        self.use_retained_agent_id = use_retained;
     }
 }
 
@@ -133,7 +146,11 @@ impl WsClient {
     #[wasm_bindgen(constructor)]
     #[must_use]
     pub fn new(config: WsClientConfig) -> Self {
-        let agent_id = load_stored_agent_id();
+        let agent_id = if config.use_retained_agent_id {
+            load_stored_agent_id()
+        } else {
+            None
+        };
         info!("Creating new WebSocket client with retained agent ID: {:?}", agent_id);
 
         let shared = Rc::new(RefCell::new(SharedState {
@@ -156,7 +173,7 @@ impl WsClient {
         }
     }
 
-    /// Connect to the WebSocket server
+    /// Connect to the WebSocket server.
     #[wasm_bindgen]
     #[expect(
         clippy::too_many_lines,
@@ -212,6 +229,7 @@ impl WsClient {
         let on_message_box: Box<dyn FnMut(MessageEvent)> = Box::new({
             let shared = Rc::clone(&self.shared);
             let retained_agent_id = Rc::clone(&self.agent_id);
+            let use_retained_agent_id = self.config.use_retained_agent_id;
             move |event: MessageEvent| {
                 info!("WebSocket message received");
                 if let Some(data) = event.data().as_string() {
@@ -225,7 +243,9 @@ impl WsClient {
                                     agent_id, status
                                 );
                                 *retained_agent_id.borrow_mut() = Some(agent_id.clone());
-                                if let Err(error) = store_agent_id(&agent_id) {
+                                // An ephemeral-identity client must not clobber the page's shared retained
+                                // id with its own throwaway one.
+                                if use_retained_agent_id && let Err(error) = store_agent_id(&agent_id) {
                                     warn!("Failed to persist agent ID: {:?}", error);
                                 }
                                 match status {
@@ -319,7 +339,7 @@ impl WsClient {
         Ok(())
     }
 
-    /// Disconnect from the WebSocket server
+    /// Disconnect from the WebSocket server.
     #[wasm_bindgen]
     pub fn disconnect(&mut self) {
         info!("Disconnecting WebSocket client");
@@ -338,7 +358,7 @@ impl WsClient {
         self.notify_state_change();
     }
 
-    /// Send an alive message to the server
+    /// Send an alive message to the server.
     #[wasm_bindgen]
     pub fn send_alive(&self) -> Result<(), JsValue> {
         let state = self.shared.borrow();
@@ -359,7 +379,7 @@ impl WsClient {
         Ok(())
     }
 
-    /// Send a custom message to the server
+    /// Send a custom message to the server.
     #[wasm_bindgen]
     pub fn send(&self, message: &str) -> Result<(), JsValue> {
         let should_queue = {
@@ -396,7 +416,7 @@ impl WsClient {
         }
     }
 
-    /// Get the current connection state
+    /// Get the current connection state.
     #[wasm_bindgen]
     #[must_use]
     pub fn get_state(&self) -> String {
@@ -415,13 +435,13 @@ impl WsClient {
         self.agent_id.borrow().clone().unwrap_or_default()
     }
 
-    /// Set callback for message events
+    /// Set callback for message events.
     #[wasm_bindgen]
     pub fn set_on_message(&mut self, callback: JsValue) {
         self.shared.borrow_mut().on_message_callback = Some(callback);
     }
 
-    /// Set callback for state change events
+    /// Set callback for state change events.
     #[wasm_bindgen]
     pub fn set_on_state_change(&mut self, callback: JsValue) {
         self.shared.borrow_mut().on_state_change_callback = Some(callback);
@@ -718,6 +738,7 @@ impl Clone for WsClient {
                 alive_interval_ms: self.config.alive_interval_ms,
                 max_reconnect_attempts: self.config.max_reconnect_attempts,
                 initial_reconnect_delay_ms: self.config.initial_reconnect_delay_ms,
+                use_retained_agent_id: self.config.use_retained_agent_id,
             },
             agent_id: Rc::clone(&self.agent_id),
             shared: Rc::clone(&self.shared),

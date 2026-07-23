@@ -200,8 +200,9 @@ function render(resultsJson) {
 }
 
 // Encodes whatever the overlay canvas currently shows (the cropped eye band plus its box/iris/verdict
-// overlay) as a PNG and uploads it to the connected agent's storage bucket. Python decides *whether* and
-// *when* to call this (gated on the upload-consent checkbox and fired at most once per run); this primitive
+// overlay) as a PNG, uploads it to the connected agent's storage bucket, and returns the stored filename.
+// Python decides *whether* and *when* to call this (gated on the upload-consent checkbox), and uses the
+// returned filename to broadcast the capture announcement the pic-viewer module listens for; this primitive
 // only performs the one browser-side operation of turning the current frame into stored bytes.
 async function saveEyeCapture(state) {
   const canvas = element("video-output-canvas", HTMLCanvasElement);
@@ -217,6 +218,7 @@ async function saveEyeCapture(state) {
   const resp = await fetch(`/storage/${agentId}/${filename}`, { method: "PUT", body: bytes });
   if (!resp.ok) throw new Error(`eye capture upload failed: ${resp.status} ${resp.statusText}`);
   log(`eye capture saved to storage: ${filename} (${bytes.length} bytes)`);
+  return filename;
 }
 
 // Screening-verdict overlay, top-left. Python sends analysis=null until the first window completes, and each

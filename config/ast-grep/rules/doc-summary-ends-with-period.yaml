@@ -39,6 +39,10 @@ files:
   - services/websockify/src/lib.rs
   - services/websockify/tests/relay.rs
   - services/ws-modules/except1/src/lib.rs
+  - services/ws-modules/pic-viewer/build.rs
+  - services/ws-modules/pic-viewer/src/lib.rs
+  - services/ws-modules/pic-viewer/tests/parse.rs
+  - services/ws-modules/pic-viewer/tests/show_image.rs
   - services/ws-pyo3-runner/tests/modules.rs
   - services/ws-server/src/config.rs
   - services/ws-server/src/lib.rs
@@ -51,6 +55,7 @@ files:
   - services/ws-wasi-runner/tests/modules.rs
   - services/ws-wasi-runner/tests/otel_propagation.rs
   - services/ws-wasi-runner/tests/vector_otlp_relay.rs
+  - services/ws-wasm-agent/src/lib.rs
   - services/ws-web-runner/build.rs
   - services/ws-web-runner/tests/modules.rs
   - services/ws/tests/config.rs

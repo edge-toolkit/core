@@ -23,6 +23,7 @@ members = [
   "services/ws-modules/graphics-info",
   "services/ws-modules/har1",
   "services/ws-modules/nfc",
+  "services/ws-modules/pic-viewer",
   "services/ws-modules/sensor1",
   "services/ws-modules/speech-recognition",
   "services/ws-modules/video1",

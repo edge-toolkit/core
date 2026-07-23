@@ -20,7 +20,7 @@ from datetime import datetime
 from statistics import fmean
 from typing import Any, TypedDict
 
-from et_ws.messages import WsClientEvent
+from et_ws.messages import WsBroadcastMessage, WsClientEvent
 
 from .gaze_analysis import (
     LEFT_IRIS_CENTER,
@@ -107,8 +107,8 @@ async def run(platform) -> None:
     `video_size() -> [w, h]`, `render(json)`, `log(str)`, `set_status(str)`, `should_stop()`, `cleanup()`,
     `upload_consent() -> bool` (the page's data-upload checkbox). Async members: `connect_ws()`,
     `start_camera()`, `play_video()`, `sleep(ms)`, `load_landmarker(model_path, bundle_path, wasm_path)`,
-    `save_eye_capture()` (encodes the current overlay canvas as a PNG and uploads it to the connected
-    agent's storage bucket), and
+    `save_eye_capture()` (encodes the current overlay canvas as a PNG, uploads it to the connected agent's
+    storage bucket, and returns the stored filename), and
     `infer()`, which returns one FaceLandmarker pass as the JSON string
     `{"faces": [[x0, y0, x1, y1, ...], ...], "width": W, "height": H}` where each face is the flat list of
     normalized landmark coordinates.
@@ -159,18 +159,21 @@ async def wait_until(platform, predicate, timeout_ms: float, failure: str) -> No
 
 
 async def attempt_eye_capture(platform) -> None:
-    """Try one `save_eye_capture()`, reporting a failure both locally and server-side without raising.
+    """Try one `save_eye_capture()`; broadcast a success to other agents, report a failure without raising.
 
     Shared by the two independent capture triggers in `sample_loop` (a detection's rising edge, and the
-    fixed-cadence periodic heartbeat) so a failed upload from either one is handled identically: logged
-    locally, reported as a server-visible event, and never allowed to abort the sample loop or be misreported
-    as an inference error.
+    fixed-cadence periodic heartbeat) so both behave identically: each stored capture is announced to every
+    other connected agent (the pic-viewer module running on another device listens for these announcements
+    and displays the file), and a failed upload is logged locally plus reported as a server-visible event,
+    never allowed to abort the sample loop or be misreported as an inference error.
     """
     try:
-        await platform.save_eye_capture()
+        filename = await platform.save_eye_capture()
     except Exception as exc:
         platform.log(f"eye capture failed: {exc}")
         platform.send_event(eye_capture_error_event_json(str(exc)))
+        return
+    platform.send_event(capture_broadcast_json(str(platform.agent_id()), str(filename)))
 
 
 async def sample_loop(platform) -> None:
@@ -377,6 +380,24 @@ def client_event_json(details: dict[str, object]) -> str:
         capability="eye_detection",
         action="inference",
         details=details,
+    ).model_dump_json()
+
+
+def capture_broadcast_json(agent_id: str, filename: str) -> str:
+    """Build the et-broadcast-message JSON announcing a freshly stored eye capture to every other agent.
+
+    The server relays this to each other connected agent inside an `et-agent-message` envelope. The payload's
+    `kind` is the discriminator the pic-viewer module matches on, and `url` is the same-origin storage path
+    it fetches and displays.
+    """
+    return WsBroadcastMessage(
+        type="et-broadcast-message",
+        message={
+            "kind": "pyeye1_capture_stored",
+            "agent_id": agent_id,
+            "filename": filename,
+            "url": f"/storage/{agent_id}/{filename}",
+        },
     ).model_dump_json()
 
 
