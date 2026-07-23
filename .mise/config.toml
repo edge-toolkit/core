@@ -1276,6 +1276,16 @@ description = "Run headless Chrome tests for the WebSocket WASM client"
 dir = "services/ws-wasm-agent"
 run = "env CHROMEDRIVER=\"$(mise which chromedriver)\" wasm-pack test --headless --chrome"
 
+[tasks.test-pic-viewer-firefox]
+description = "Run headless Firefox tests for the pic-viewer module (image display onto the canvas)"
+dir = "services/ws-modules/pic-viewer"
+run = "wasm-pack test --headless --firefox"
+
+[tasks.test-pic-viewer-chrome]
+description = "Run headless Chrome tests for the pic-viewer module (image display onto the canvas)"
+dir = "services/ws-modules/pic-viewer"
+run = "env CHROMEDRIVER=\"$(mise which chromedriver)\" wasm-pack test --headless --chrome"
+
 [tasks.ws-e2e-chrome]
 depends = ["test-ws-wasm-agent-chrome", "ws-server"]
 description = "Run both the ws-server and ws-wasm-agent using Chrome"

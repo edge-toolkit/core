@@ -10,6 +10,16 @@
 # The wasm coverage builds need it: minicov's build.rs hardcodes bare `clang` to compile its C profiler runtime
 # for the guest target, so this wasm-capable clang must be first on PATH (the wasm build tasks prepend it). LLVM
 # 22 here matches rustc's LLVM, keeping the covmap format aligned with the llvm-tools llc/llvm-cov used downstream.
+#
+# Known-broken on macOS: mise resolves the [env] _.path prepend below to a PATH position BEHIND /usr/bin, so
+# under `mise run` bare `clang` still hits Apple's and minicov's C compile fails with "unable to create target:
+# No available targets are compatible with triple wasm32-unknown-unknown". The wasm coverage tasks
+# (wasm-agent-cov, pic-viewer-cov) therefore only work locally on Linux until that ordering is fixed; on a Mac,
+# run the task body manually in a shell with the conda-clang bin dir genuinely first on PATH. CI (ubuntu) is
+# unaffected because the distro clang already has the wasm backend.
+#
+# Windows is deliberately out of scope for this env (hence the os scoping here): coverage collection runs only
+# on the ubuntu CI lane, and there is no intention to make the wasm coverage pipeline work on Windows.
 [tools]
 "conda:clang" = { version = "latest", os = ["linux", "macos"] }
 
@@ -277,5 +287,74 @@ goawk -v want="ws-test-server/src/bin/cov-server.rs" -f "$keep" "$csp.lcov" >> l
 rpt="$covdir/report.txt"
 "$llbin/llvm-cov" report --instr-profile "$covdir/agent.profdata" "${objs[@]}" > "$rpt" 2>/dev/null || true
 rg "ws-wasm-agent/src/lib.rs|Filename|TOTAL" "$rpt" || true
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.pic-viewer-cov]
+depends = ["build-wasm-cov-wrapper"]
+description = "Coverage for pic-viewer: run its wasm-bindgen display tests headless, emit lcov into lcov.info"
+# Coverage for the module's browser-only display path; its native parse tests already ride cargo-llvm-cov.
+# show_image's fetch/decode/canvas-draw only runs in a real browser, so this drives the wasm-bindgen browser
+# tests (tests/show_image.rs) in headless Chrome, instrumented the same way as wasm-agent-cov -- the
+# workspace wrapper's -Cinstrument-coverage + --emit=llvm-ir, wasm-bindgen-test's built-in coverage cfg, and
+# et-web/coverage for minicov's profiler runtime -- then converts the .profraw the same way (gut every
+# workspace .ll body to `unreachable`, keep the covmap, llc to a fixed x86_64 ELF object, llvm-cov to lcov,
+# keep only this module's records). No backend is needed: the display tests are offline.
+run = """
+covdir=target/pic-viewer-cov
+coreutils mkdir -p "$covdir"
+coreutils rm -f "$covdir"/*.profraw "$covdir"/*.o "$covdir"/*.g.ll
+# Force a recompile so this run emits a fresh instrumented .ll whose covmap matches the captured .profraw.
+rustup target add wasm32-unknown-unknown
+cargo clean -p et-ws-pic-viewer --target wasm32-unknown-unknown
+
+# Resolve the webdriver, honouring a CHROMEDRIVER already in the environment before the mise-pinned one.
+driver="${CHROMEDRIVER:-$(mise which chromedriver)}"
+
+runner="$(mise which wasm-bindgen-test-runner)"
+export RUSTC_WORKSPACE_WRAPPER="{{ config_root }}/target/debug/int-wasm-cov-wrapper"
+export RUSTFLAGS="--cfg wasm_bindgen_unstable_test_coverage"
+export CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER="$runner"
+export CHROMEDRIVER="$driver"
+export LLVM_PROFILE_FILE="{{ config_root }}/$covdir/pic-viewer-%p.profraw"
+cargo test -p et-ws-pic-viewer --features et-web/coverage --target wasm32-unknown-unknown --test show_image
+
+host="$(rustc +nightly -vV | goawk '/^host:/ { print $2 }')"
+llbin="$(rustc +nightly --print sysroot)/lib/rustlib/$host/bin"
+gut="$covdir/gut.awk"
+coreutils cat > "$gut" <<'AWK'
+/^target datalayout/ { next }
+/^target triple/ { next }
+/^define/ { print; print "start:"; print "  unreachable"; print "}"; skip = 1; next }
+skip && /^}/ { skip = 0; next }
+skip { next }
+{
+  gsub(/"target-cpu"="[^"]*"/, "")
+  gsub(/"target-features"="[^"]*"/, "")
+  if ($0 ~ /^attributes #/ && $0 ~ /\\{[[:space:]]*\\}/) sub(/\\{[[:space:]]*\\}/, "{ nounwind }")
+  print
+}
+AWK
+"$llbin/llvm-profdata" merge -sparse -o "$covdir/pic-viewer.profdata" "$covdir"/pic-viewer-*.profraw
+objs=()
+for ll in target/wasm32-unknown-unknown/debug/deps/*.ll; do
+  name="$(coreutils basename "$ll" .ll)"
+  goawk -f "$gut" "$ll" > "$covdir/$name.g.ll"
+  "$llbin/llc" -filetype=obj -mtriple=x86_64-unknown-linux-gnu -o "$covdir/$name.o" "$covdir/$name.g.ll"
+  objs+=("-object" "$covdir/$name.o")
+done
+"$llbin/llvm-cov" export --format=lcov --instr-profile "$covdir/pic-viewer.profdata" "${objs[@]}" > "$covdir/all.lcov"
+keep="$covdir/keep.awk"
+coreutils cat > "$keep" <<'AWK'
+{ buf = buf $0 ORS }
+/^SF:/ { keep = index($0, want) > 0 }
+/^end_of_record$/ { if (keep) printf "%s", buf; buf = ""; keep = 0 }
+AWK
+coreutils touch lcov.info
+goawk -v want="ws-modules/pic-viewer/src/" -f "$keep" "$covdir/all.lcov" >> lcov.info
+
+rpt="$covdir/report.txt"
+"$llbin/llvm-cov" report --instr-profile "$covdir/pic-viewer.profdata" "${objs[@]}" > "$rpt" 2>/dev/null || true
+rg "ws-modules/pic-viewer/src/lib.rs|Filename|TOTAL" "$rpt" || true
 """
 shell = "bash -euo pipefail -c"
