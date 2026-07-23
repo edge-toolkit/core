@@ -20,6 +20,7 @@
 //! - **et-ws-face-detection** -- camera (`getUserMedia`) + ONNX model
 //! - **et-ws-har1** -- accelerometer (`DeviceMotionEvent`) + ONNX model
 //! - **et-ws-pyface1** -- Pyodide + camera + ONNX model
+//! - **et-ws-pydemo1** -- Pyodide + camera + microphone combined demo
 //! - **et-ws-pyeye1** -- Pyodide + camera + `MediaPipe` `FaceLandmarker` (tflite) -> eye boxes
 //! - **et-ws-pyspeech1** -- Pyodide + microphone + ONNX model
 //!
@@ -173,6 +174,7 @@ fn multi_agent_module(#[case] module: &str, #[case] language: Language) {
 #[case::speech_recognition("et-ws-speech-recognition", Language::Rust)]
 #[case::video1("et-ws-video1", Language::Rust)]
 #[case::pyface1("et-ws-pyface1", Language::Python)]
+#[case::pydemo1("et-ws-pydemo1", Language::Python)]
 #[case::pyeye1("et-ws-pyeye1", Language::Python)]
 #[case::pyspeech1("et-ws-pyspeech1", Language::Python)]
 fn hardware_module_load_fails(#[case] module: &str, #[case] language: Language) {

@@ -1,10 +1,7 @@
 # coverage.py config for the combined Python report (referenced via COVERAGE_RCFILE by the pytest-cov task).
-# Data sources feed one report: the pytest runs, and the web-runner Pyodide runs of pydata1 + pyface1 + pyeye1
-# (whose .coverage files the web-runner integration test drops into target/pycov/). `[tool.coverage.paths]` remaps
-# each source's recorded path to the repo-relative one so `coverage combine` merges them into a single file entry:
-# pytest records relative paths (pyface1/...); the Pyodide runs record absolute in-interpreter paths
-# (/tmp/<wheel>/<pkg>/...), matched by the `**/<pkg>` alias. First entry in each list is the canonical result and
-# must be a real on-disk path so `coverage xml` can read source.
+# Data sources feed one report: pytest plus web-runner Pyodide runs. The web runner drops its .coverage files
+# into target/pycov/. `[tool.coverage.paths]` remaps each source's recorded path to the repo-relative one so
+# `coverage combine` merges them into a single file entry. The first entry is the canonical on-disk source.
 
 [tool.coverage.run]
 # Branch coverage must be enabled identically on every data source `coverage combine` merges.
@@ -16,6 +13,7 @@ relative_files = true
 
 [tool.coverage.paths]
 pydata1 = ["services/ws-modules/pydata1/pydata1", "pydata1", "**/pydata1"]
+pydemo1 = ["services/ws-modules/pydemo1/pydemo1", "pydemo1", "**/pydemo1"]
 pyeye1 = ["services/ws-modules/pyeye1/pyeye1", "pyeye1", "**/pyeye1"]
 pyface1 = ["services/ws-modules/pyface1/pyface1", "pyface1", "**/pyface1"]
 pyspeech1 = ["services/ws-modules/pyspeech1/pyspeech1", "pyspeech1", "**/pyspeech1"]

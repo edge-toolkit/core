@@ -183,7 +183,7 @@ function createRecordingControls(state) {
 
   const controls = document.createElement("div");
   controls.id = "pyspeech1-recording-controls";
-  const controlStyles = [
+  controls.style.cssText = css([
     "display:flex",
     "align-items:center",
     "justify-content:space-between",
@@ -196,8 +196,7 @@ function createRecordingControls(state) {
     "border-radius:16px",
     "background:linear-gradient(135deg,rgba(255,255,255,.9),rgba(239,248,246,.88))",
     "box-shadow:0 12px 34px rgba(24,32,40,.10)",
-  ];
-  controls.style.cssText = controlStyles.join(";");
+  ]);
 
   const copy = document.createElement("div");
   const title = document.createElement("strong");
@@ -212,7 +211,7 @@ function createRecordingControls(state) {
   button.type = "button";
   button.dataset.state = "ready";
   button.setAttribute("aria-label", "Record audio for speech detection");
-  const buttonStyles = [
+  button.style.cssText = css([
     "display:inline-flex",
     "align-items:center",
     "gap:10px",
@@ -228,18 +227,16 @@ function createRecordingControls(state) {
     "cursor:pointer",
     "box-shadow:0 8px 20px rgba(16,83,72,.24)",
     "transition:transform .15s ease,box-shadow .15s ease,opacity .15s ease",
-  ];
-  button.style.cssText = buttonStyles.join(";");
+  ]);
   const recordingIndicator = document.createElement("span");
   recordingIndicator.setAttribute("aria-hidden", "true");
-  const indicatorStyles = [
+  recordingIndicator.style.cssText = css([
     "width:10px",
     "height:10px",
     "border-radius:50%",
     "background:#ff6577",
     "box-shadow:0 0 0 4px rgba(255,101,119,.16)",
-  ];
-  recordingIndicator.style.cssText = indicatorStyles.join(";");
+  ]);
   const buttonLabel = document.createElement("span");
   buttonLabel.textContent = "Record audio";
   button.append(recordingIndicator, buttonLabel);
@@ -403,6 +400,7 @@ function drawWaveform(visualization) {
   const width = canvas.width;
   const height = canvas.height;
   const elapsed = Math.min((performance.now() - visualization.startedAt) / 1000, visualization.durationSeconds);
+  const remaining = Math.max(visualization.durationSeconds - elapsed, 0);
   const progress = visualization.phase === "RECORDING" ? elapsed / visualization.durationSeconds : 1;
 
   const background = ctx.createLinearGradient(0, 0, width, height);
@@ -442,7 +440,7 @@ function drawWaveform(visualization) {
   ctx.fillText(visualization.phase, width - 275, 67);
   ctx.fillStyle = "#a9bec5";
   ctx.textAlign = "right";
-  ctx.fillText(`${elapsed.toFixed(1)} / ${visualization.durationSeconds.toFixed(1)}s`, width - 48, 103);
+  ctx.fillText(`${formatCountdown(remaining)} REMAINING`, width - 48, 103);
   ctx.textAlign = "left";
 
   const center = height * 0.52;
@@ -531,6 +529,13 @@ function roundedRect(ctx, x, y, width, height, radius) {
   ctx.fill();
 }
 
+function formatCountdown(seconds) {
+  const totalSeconds = Math.ceil(seconds);
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainder = String(totalSeconds % 60).padStart(2, "0");
+  return `${String(minutes).padStart(2, "0")}:${remainder}`;
+}
+
 function setStatus(message) {
   const output = document.getElementById("module-output");
   if (output) output.value = message;
@@ -545,4 +550,8 @@ function log(message) {
 
 function sleep(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function css(declarations) {
+  return declarations.join(";");
 }

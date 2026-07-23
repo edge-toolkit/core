@@ -21,6 +21,7 @@ project-excludes = [
 # Package roots so intra-package imports (`pyface1.face_detection`) resolve as real modules, not `__unknown__.*`.
 search-path = [
   "../services/ws-modules/pydata1",
+  "../services/ws-modules/pydemo1",
   "../services/ws-modules/pyeye1",
   "../services/ws-modules/pyface1",
   "../services/ws-modules/pyspeech1",

@@ -1,0 +1,18 @@
+{
+  "dependencies": {
+    "@mediapipe/tasks-vision": "*",
+    "et-model-eye1": "*",
+    "et-model-speech1": "*",
+    "et-ws": "*",
+    "et-ws-pyeye1": "*",
+    "et-ws-pyspeech1": "*",
+    "onnxruntime-web": "*",
+    "pyodide": "*"
+  },
+  "description": "Python eye and speech detection demo",
+  "license": "Apache-2.0 OR MIT",
+  "main": "et_ws_pydemo1.js",
+  "name": "et-ws-pydemo1",
+  "type": "module",
+  "version": "0.1.0"
+}
