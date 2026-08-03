@@ -65,17 +65,6 @@ url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x
 [tools."http:oxfmt".platforms.windows-x64]
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x86_64-pc-windows-msvc.zip"
 
-[env]
-# Exempt stats-gl from aube's add-time package-reputation gates.
-# `aube add` refuses (non-interactively) any package whose weekly npm downloads fall under
-# `lowDownloadThreshold`, whose name is within a short edit distance of a top-100,000 package, or that was
-# registered very recently -- a typosquat defence. stats-gl trips the similar-name arm and fails the install with
-# `ERR_AUBE_LOW_DOWNLOAD_PACKAGE` ("... edit distance 2)? Pass --allow-low-downloads after verifying the package
-# name."); mise's npm backend builds the aube command line itself, so the per-invocation flag isn't reachable.
-# This lists the one exact name affected rather than resetting the threshold or globbing, and aube's OSV `MAL-*`
-# malicious-package check is explicitly unaffected by the exemption, so the hard malware gate still applies.
-AUBE_ALLOWED_UNPOPULAR_PACKAGES = "stats-gl"
-
 [tasks.build-ws-har1-module]
 depends = ["build-et-cli", "build-wasm-cov-wrapper"]
 description = "Build the har1 workflow WASM module"
@@ -128,9 +117,10 @@ description = "Format JS/TS sources in place (oxfmt)"
 run = "oxfmt --config config/oxfmtrc.jsonc --write . '!.mise/config*.toml'"
 
 [tasks.osv-scanner-npm]
-depends = ["setup-aube"]
 description = "Scan the npm: tools' aube lockfiles for known vulnerabilities"
 # Collect each npm: tool's aube lockfile under one root, then scan that root.
+# The lockfile comes from mise's own embedded aube, which its default `npm.package_manager = "auto"` uses for
+# every `npm:` install -- no external package manager is involved, so nothing needs installing for this to work.
 # osv-scanner has no `aube-lock.yaml` extractor -- an explicit `--lockfile <path>` on one is rejected with
 # `could not determine extractor suitable to this file`, and a directory scan of the install tree reports
 # `No package sources found`. Its extractors are keyed on filename, so each lockfile is copied in as
@@ -174,7 +164,7 @@ for tool in $tools; do
   lock=$(find "$root" -name aube-lock.yaml -type f | coreutils head -1)
   if [ -z "$lock" ]; then
     echo "osv-scanner-npm: $tool has no aube-lock.yaml under $root" >&2
-    echo "osv-scanner-npm: it did not install via aube; check [settings] npm.package_manager" >&2
+    echo "osv-scanner-npm: reinstall it so mise's embedded aube writes one" >&2
     exit 1
   fi
   slug=$(coreutils basename "$(coreutils dirname "$root")")

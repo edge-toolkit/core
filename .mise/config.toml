@@ -10,20 +10,13 @@
 #   Run a check across everything:      mise run check-all  (or install-all)
 #   Make a selection sticky:            export MISE_ENV=dart
 
-# Require release that introduced auto_env enabled in .miserc.toml
-min_version = "2026.7.1"
+# Track the latest mise release; the floor still covers auto_env enabled in .miserc.toml.
+min_version = "2026.8.0"
 
 [settings]
 # Disable mise's two auto-install paths so tasks fail fast on a missing tool.
 # exec_auto_install covers `mise exec`, task.run_auto_install covers `mise run`.
 cargo.binstall = true
-# Make every inline task body run under bash by default (Windows-only effect).
-# bash is ash via MISE_BASH_PATH = busybox-w32 in config.windows.toml. Without this, mise spawns `cmd /c "<body>"`
-# and any task in the always-loaded base config hits the cmd-subprocess PATH dropout (cargo/pnpm/wasm-pack
-# /etc. unresolvable) we worked around piecemeal with `shell = "bash -euo pipefail -c"` on prefetch:rust,
-# prefetch:node, and build-et-cli. Setting the global flips every other task at once. Tasks that explicitly
-# need cmd (e.g. dotnet-data1's `dotnet publish` chain) still set `shell` on the task to override.
-windows_default_inline_shell_args = "bash -euo pipefail -c"
 # Disable mise backends we never use.
 # `asdf` is kept enabled because several of our bare-name tools (conftest, dprint, hadolint, pipx, rclone,
 # ruff, ...) list `asdf:` as the registry fallback after `aqua:`. `vfox` was the original target -- killed
@@ -39,14 +32,6 @@ http_timeout = "2m"
 # This disables idiomatic-version-file detection for every tool. We declare versions in `.mise/config*.toml`;
 # no need to parse `.tool-versions`/`.node-version`/etc. on top of that.
 idiomatic_version_file_enable_tools = []
-# Pin the npm: backend to aube rather than letting mise pick one.
-# The default "auto" uses aube when it happens to be installed and silently falls back to plain npm otherwise,
-# which produces two different install layouts: aube writes `global-aube/<hash>/aube-lock.yaml` (a full
-# transitive lockfile), plain npm writes a bare `lib/node_modules` tree with no lockfile at all. osv-scanner
-# cannot extract anything from a lockfile-less tree, so under "auto" a tool's vulnerability coverage depended on
-# whether aube was present the day it was installed. Pinning to aube makes every npm: tool emit a lockfile, which
-# is what osv-scanner-npm collects and scans.
-npm.package_manager = "aube"
 task.run_auto_install = false
 # Hard-verify tool signatures via gpg on every platform.
 # Propagates to node.gpg_verify and swift.gpg_verify per mise/src/config/settings.rs. mise's node plugin
@@ -69,13 +54,7 @@ action-validator = { version = "latest", os = ["linux", "macos"] }
 "aqua:rustwasm/wasm-pack" = "latest"
 "aqua:vectordotdev/vector" = "0.56.0"
 ast-grep = "latest"
-# aube is the npm: backend, and mandatory because npm.package_manager names it.
-# aqua covers linux + macos/arm64. macos/x64 has no aqua asset and takes the cargo backend, allowed there because
-# macos/x64 is second-tier. Windows has an aqua asset but its shim cannot resolve the extracted exe, so
-# config.windows.toml supplies http:aube instead; between the three entries every platform is covered.
-aube = { version = "latest", os = ["linux", "macos/arm64"] }
 cargo-binstall = "latest"
-"cargo:aube" = { version = "latest", os = ["macos/x64"] }
 "cargo:cargo-expand" = { version = "latest", os = ["linux", "macos"] }
 "cargo:open" = "latest"
 "cargo:wasm-opt" = { version = "latest", os = ["linux", "macos"] }
@@ -950,28 +929,6 @@ run = "lychee --config config/lychee.toml '**/*.md' 'libs/**/*.rs' 'services/**/
 [tasks.ryl-check]
 description = "Lint YAML with ryl (a yamllint-compatible Rust linter)"
 run = "ryl -c config/ryl.yaml .github config"
-
-[tasks.setup-aube]
-# Install the npm: backend ahead of the main `mise install`.
-# aube is a mandatory `[tools]` entry, so `mise install` would fetch it anyway; this task exists purely for
-# ordering. mise resolves tools concurrently and gives no guarantee that aube lands before the `npm:*` tools that
-# invoke it as their package manager, and a tool whose backend binary isn't there yet fails outright. CI runs this
-# first so the ordering is explicit rather than incidental.
-#
-# The tera branch picks the platform's backend, matching the three `[tools]` entries: aqua `aube` on
-# linux/macos-arm64, `cargo:aube` on macos/x64, `http:aube` on Windows. Versions come from those pins, so no
-# `@version` here.
-description = "Install the aube npm backend ahead of the npm: tools"
-run = """
-{% if os() == "windows" %}
-mise install http:aube
-{% elif os() == "macos" and arch() == "x64" %}
-mise install cargo:aube
-{% else %}
-mise install aube
-{% endif %}
-"""
-shell = "bash -euo pipefail -c"
 
 [tasks._setup_all]
 description = "Private shared cross-platform preinstall"

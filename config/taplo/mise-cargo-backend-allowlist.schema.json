@@ -12,7 +12,6 @@
           {
             "enum": [
               "cargo:action-validator",
-              "cargo:aube",
               "cargo:cargo-expand",
               "cargo:dart-typegen",
               "cargo:findutils",

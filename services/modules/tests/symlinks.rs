@@ -1,13 +1,15 @@
 //! Symlink-aware module discovery + serving.
 //!
-//! mise's `aube` npm backend lays out `node_modules/.aube/node_modules/<pkg>`
-//! as *symlinks* to a content-addressed store. The modules service has to
-//! follow those symlinks both when scanning (`list_modules`) and when
-//! actix-files serves files out of the discovered package dir. The tests
-//! here cover the full chain on a tempdir fixture that mirrors the aube
-//! layout. Regressing either half manifests as a 404 on
-//! `/modules/onnxruntime-web/dist/ort.min.js` (and similar) which is what
-//! these tests pin down.
+//! mise's embedded aube npm backend reaches a package through *two* symlink
+//! hops: `node_modules/<pkg>` points at
+//! `node_modules/.mise/<pkg>@<version>/node_modules/<pkg>`, and that
+//! `.mise/<pkg>@<version>` entry points in turn at the content-addressed aube
+//! virtual store. The modules service has to follow the whole chain both when
+//! scanning (`list_modules`) and when actix-files serves files out of the
+//! discovered package dir. The fixture below mirrors both hops so a regression
+//! in multi-hop resolution is caught, not just single-hop. Regressing either
+//! half manifests as a 404 on `/modules/onnxruntime-web/dist/ort.min.js` (and
+//! similar) which is what these tests pin down.
 
 #![cfg(test)]
 #![cfg(unix)]
@@ -28,36 +30,57 @@ use tempfile::TempDir;
 
 const ORT_BUNDLE: &[u8] = b"// pretend ort.min.js bundle";
 
-/// Build a fixture with `<store>/onnxruntime-web-real/` as the real
-/// package, and `<scan>/onnxruntime-web` as a symlink pointing at it.
-/// `<scan>` is what we hand to `ModulesConfig::paths`. Returns both
-/// tempdirs (kept alive by the caller) plus the modules config.
-fn aube_layout_fixture() -> (TempDir, TempDir, ModulesConfig) {
+/// Build a fixture mirroring mise's two-hop npm layout.
+///
+/// `<store>/<pkg>@<version>-<hash>/` holds the real package, standing in for the aube virtual store.
+/// `<scan>` plays the install's `node_modules` and is what we hand to `ModulesConfig::paths`; within it
+/// `<pkg>` symlinks to `.mise/<pkg>@<version>/node_modules/<pkg>`, and `.mise/<pkg>@<version>` symlinks to
+/// the store entry -- so resolving a package traverses both hops exactly as it does against a real install.
+/// Returns both tempdirs (kept alive by the caller) plus the modules config.
+fn mise_layout_fixture() -> (TempDir, TempDir, ModulesConfig) {
     let store = TempDir::new().unwrap();
-    let real_pkg = store.path().join("onnxruntime-web-real");
-    fs::create_dir_all(real_pkg.join("dist")).unwrap();
+    let scan = TempDir::new().unwrap();
+    let farm = scan.path().join(".mise");
+    fs::create_dir_all(&farm).unwrap();
+
+    // Second hop target: the store entry, named as aube names its virtual-store dirs.
+    let real_pkg = store.path().join("onnxruntime-web@1.27.0-ac0bad64e3fabd3b");
+    fs::create_dir_all(real_pkg.join("node_modules/onnxruntime-web/dist")).unwrap();
+    let pkg_inner = real_pkg.join("node_modules/onnxruntime-web");
     fs::write(
-        real_pkg.join("package.json"),
-        r#"{"name":"onnxruntime-web","version":"1.26.0"}"#,
+        pkg_inner.join("package.json"),
+        r#"{"name":"onnxruntime-web","version":"1.27.0"}"#,
     )
     .unwrap();
-    fs::write(real_pkg.join("dist/ort.min.js"), ORT_BUNDLE).unwrap();
+    fs::write(pkg_inner.join("dist/ort.min.js"), ORT_BUNDLE).unwrap();
 
-    // Also drop an et-ws-server-static stub next to it -- `configure`
-    // panics if the configured `root` module can't be found, so we
-    // satisfy that requirement here too.
-    let static_root = store.path().join("et-ws-server-static");
-    fs::create_dir_all(&static_root).unwrap();
+    // Also drop an et-ws-server-static stub -- `configure` panics if the
+    // configured `root` module can't be found, so we satisfy that here too.
+    let static_store = store.path().join("et-ws-server-static@0.0.0-0000000000000000");
+    let static_inner = static_store.join("node_modules/et-ws-server-static");
+    fs::create_dir_all(&static_inner).unwrap();
     fs::write(
-        static_root.join("package.json"),
+        static_inner.join("package.json"),
         r#"{"name":"et-ws-server-static","version":"0.0.0"}"#,
     )
     .unwrap();
-    fs::write(static_root.join("index.html"), b"<!doctype html>").unwrap();
+    fs::write(static_inner.join("index.html"), b"<!doctype html>").unwrap();
 
-    let scan = TempDir::new().unwrap();
-    symlink(&real_pkg, scan.path().join("onnxruntime-web")).unwrap();
-    symlink(&static_root, scan.path().join("et-ws-server-static")).unwrap();
+    // Hop 2: `.mise/<pkg>@<version>` -> the store entry.
+    symlink(&real_pkg, farm.join("onnxruntime-web@1.27.0")).unwrap();
+    symlink(&static_store, farm.join("et-ws-server-static@0.0.0")).unwrap();
+
+    // Hop 1: `<pkg>` -> `.mise/<pkg>@<version>/node_modules/<pkg>`, relative just as mise writes it.
+    symlink(
+        PathBuf::from(".mise/onnxruntime-web@1.27.0/node_modules/onnxruntime-web"),
+        scan.path().join("onnxruntime-web"),
+    )
+    .unwrap();
+    symlink(
+        PathBuf::from(".mise/et-ws-server-static@0.0.0/node_modules/et-ws-server-static"),
+        scan.path().join("et-ws-server-static"),
+    )
+    .unwrap();
 
     let config = ModulesConfig::new(vec![scan.path().to_path_buf()], "et-ws-server-static".to_string());
     (store, scan, config)
@@ -68,7 +91,7 @@ fn aube_layout_fixture() -> (TempDir, TempDir, ModulesConfig) {
 // synchronous; the async wrapper is harmless.
 #[actix_rt::test]
 async fn list_modules_follows_symlinks_to_package_dirs() {
-    let (_store, _scan, config) = aube_layout_fixture();
+    let (_store, _scan, config) = mise_layout_fixture();
 
     let found: Vec<(String, PathBuf)> = list_modules(&config);
 
@@ -89,7 +112,7 @@ async fn list_modules_follows_symlinks_to_package_dirs() {
 
 #[actix_rt::test]
 async fn lists_symlinked_module_in_modules_api() {
-    let (_store, _scan, config) = aube_layout_fixture();
+    let (_store, _scan, config) = mise_layout_fixture();
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(AgentRegistry::<()>::default()))
@@ -109,7 +132,7 @@ async fn lists_symlinked_module_in_modules_api() {
 
 #[actix_rt::test]
 async fn serves_file_under_symlinked_module() {
-    let (_store, _scan, config) = aube_layout_fixture();
+    let (_store, _scan, config) = mise_layout_fixture();
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(AgentRegistry::<()>::default()))
@@ -135,7 +158,7 @@ async fn serves_file_under_symlinked_module() {
 
 #[actix_rt::test]
 async fn returns_404_for_missing_file_under_symlinked_module() {
-    let (_store, _scan, config) = aube_layout_fixture();
+    let (_store, _scan, config) = mise_layout_fixture();
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(AgentRegistry::<()>::default()))

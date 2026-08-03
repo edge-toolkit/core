@@ -26,11 +26,13 @@ rule:
 files:
   - libs/edge-toolkit/src/config.rs
   - libs/edge-toolkit/tests/no_mise.rs
+  - libs/edge-toolkit/tests/npm_mod.rs
   - libs/test-helpers/src/lib.rs
   - libs/ws-runner-common/tests/config.rs
   - services/modules/tests/api_modules.rs
   - services/modules/tests/configure_missing_root.rs
   - services/modules/tests/get_module_file.rs
+  - services/modules/tests/symlinks.rs
   - services/storage/src/lib.rs
   - services/storage/src/routes.rs
   - services/storage/src/tty_image.rs

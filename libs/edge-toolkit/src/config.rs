@@ -318,9 +318,13 @@ pub fn mise_npm_package_path(package: &str) -> Option<PathBuf> {
 /// `<package>`. Supports the mise npm backends:
 ///
 /// 1. Classical npm/mise (Unix): `<install>/lib/node_modules/<package>`
-/// 2. npm on Windows: `<install>/node_modules/<package>` (no `lib/` segment --
-///    npm's global prefix layout differs by platform)
-/// 3. aube backend: `<install>/global-aube/<hash>/node_modules/.aube/node_modules/<package>`
+/// 2. `<install>/node_modules/<package>`, covering both npm on Windows (whose global prefix omits the `lib/`
+///    segment) and current mise, whose embedded aube writes that entry as a symlink to
+///    `node_modules/.mise/<package>@<version>/node_modules/<package>` -- itself a symlink into the shared
+///    aube virtual store. The `is_dir` probe below follows both hops, so one check covers the whole chain.
+/// 3. Legacy standalone-aube backend: `<install>/global-aube/<hash>/node_modules/.aube/node_modules/<package>`.
+///    Superseded by the `node_modules/.mise/` farm in 2, and kept only so trees an older mise already
+///    installed keep resolving; nothing produces this layout any more.
 ///
 /// Tried in that order; returns `None` if no layout has the package.
 #[must_use]

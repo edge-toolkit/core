@@ -39,27 +39,6 @@
 # Failing due to latest mise.
 # "cargo:action-validator" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
 
-# Prebuilt aube for Windows, replacing the aqua entry that config.toml scopes off this OS.
-# The aqua entry installs fine here (`mise aube@1.37.0 installed`) but its shim cannot resolve the binary: the
-# msvc zip holds aube.exe/aubr.exe/aubx.exe at the archive root with no bin/ dir, so every npm: install dies with
-#   mise ERROR cannot find binary path
-#   mise ERROR C:\Users\ContainerAdministrator\AppData\Local\mise\shims\aube.exe failed
-# then `npm:<pkg>: ...\shims\aube.exe exited with non-zero status: exit code 1` -- mise's npm backend invokes the
-# shim rather than the tool directly. Seen on commit 9440a53b3f632307d5a41b654ff526981021759f across all four
-# Windows build lanes, e.g. https://github.com/edge-toolkit/core/actions/runs/30782416387/job/91589563131.
-#
-# `bin` is the in-archive name and deliberately carries NO `.exe`, unlike http:busybox below. That entry
-# downloads a bare .exe rather than an archive, so mise writes the downloaded file using the bin name verbatim
-# and needs the extension; for an archive mise resolves `<install-root>/<bin>` and supplies the platform's
-# executable suffix itself. Spelling it `aube.exe` here reproduced the identical `cannot find binary path` on
-# commit b63888492c53cd403168ea24483cea53bde60899. Checksum-pinned so a silent upstream re-release fails
-# loudly. Bump url + version + checksum together.
-[tools."http:aube"]
-bin = "aube"
-checksum = "sha256:7a264819a7c05d107ac72916f82209a183bfd26842b9528f1ca281bb32596c5e"
-url = "https://github.com/jdx/aube/releases/download/v1.37.0/aube-v1.37.0-x86_64-pc-windows-msvc.zip"
-version = "1.37.0"
-
 # busybox-w32 `sh` (POSIX ash) -- the shell the bash-tasks run on.
 # A native Win32 single exe with no cygwin/msys runtime, so it loads on a bare Nano Server, unlike conda's
 # msys2 bash whose msys-2.0.dll imports KERNEL32!IdnToAscii / IdnToUnicode that Nano's stripped kernel32
@@ -282,6 +261,21 @@ if ! echo "" | sha256sum >/dev/null 2>&1; then
   exit 1
 fi
 echo "[sha256sum-check] OK"
+
+# Seed the inline-shell default into the GLOBAL mise config, the only place mise still honours it.
+# Current mise (see min_version in config.toml) strips every `global_only` setting from a non-global config
+# file -- strip_local_only_settings in its src/config/settings.rs -- and warns
+#   mise WARN  windows_default_inline_shell_args in non-global config <repo>/.mise/config.toml is ignored
+#   for security reasons
+# so this repo can no longer set it in .mise/config.toml. Without it, mise falls back to its `cmd /c` default
+# for every single-line task `run` on Windows -- 78 of them -- where cargo/pnpm/wasm-pack are unresolvable
+# (the cmd-subprocess PATH dropout). Multi-line bodies are unaffected: our semgrep
+# multiline-task-run-needs-bash-shell rule already forces an explicit `shell` on those, which is also why
+# THIS task still runs under bash and can bootstrap the setting.
+#
+# `mise settings set` writes the user's global config, so this covers workstations as well as CI -- an env var
+# exported by the workflows would only ever fix CI. Idempotent, and scoped to this one Windows-only key.
+mise settings set windows_default_inline_shell_args "bash -euo pipefail -c"
 
 mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
 
