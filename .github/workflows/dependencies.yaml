@@ -50,7 +50,7 @@ jobs:
       - name: Install mise + dependency-scan tools
         uses: ./.github/actions/install-mise
         with:
-          install-action-tools: cargo-deny,cargo-unmaintained,coreutils,osv-scanner,ripgrep
+          install-action-tools: cargo-deny,cargo-unmaintained,coreutils,jaq,osv-scanner,ripgrep
 
       - name: Generate config/osv-scanner.toml from config/deny.toml
         run: mise run gen:osv-scanner

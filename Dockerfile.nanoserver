@@ -105,6 +105,9 @@ COPY --from=gpgbin C:\gnupg C:\gnupg
 # Run as cmd (the only shell Nano Server has) and as ContainerAdministrator.
 # ContainerAdministrator is so we can write under C:\ (the backtick line continuations
 # below rely on the escape directive documented at the top of this file).
+# DL3066 wants a numeric user-id, which Windows containers have no equivalent of -- identities are SIDs behind
+# well-known account names, and ContainerAdministrator is the canonical one. There is nothing numeric to use.
+# hadolint ignore=DL3066
 USER ContainerAdministrator
 SHELL ["cmd", "/S", "/C"]
 
@@ -273,6 +276,10 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 # Smoke test (informational -- never fails the build): confirm busybox runs and finds `mise` on PATH.
 # This runs before the bash-shell tasks below rely on it.
 ENV WINSH=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\http-busybox\1.37.0\ash.exe
+# SC2288 comes from hadolint piping this body through shellcheck as POSIX sh regardless of the SHELL directive.
+# This stage's SHELL is cmd, where `("%WINSH%" ...)` is a grouped command invoking the exe named by an expanded
+# `%VAR%`; shellcheck reads that as a command name ending in `%` and warns. There is no sh reading this line.
+# hadolint ignore=SC2288
 RUN dir "%LOCALAPPDATA%\mise\installs\http-busybox\1.37.0" & `
     ("%WINSH%" -euo pipefail -c "command -v mise && echo [smoke] OK || echo [smoke] NOMISE") & `
     ver>nul
