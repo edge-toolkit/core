@@ -28,6 +28,21 @@
 # the minicov feature come from the wasm_cov / *_cov_feat vars so uninstrumented builds stay clean.
 [env]
 RUSTUP_TOOLCHAIN = "nightly"
+# Resolve libonnxruntime at runtime from the mise install rather than from ort-sys's dylib copies.
+# ort-sys symlinks the ONNX Runtime dylibs next to the built binaries, but it derives that directory from
+# `OUT_DIR/../../..`, which nightly's `build/<pkg>/<hash>/out` layout shifts down to `<target>/debug/build`.
+# The copies therefore land in `<target>/debug/build{,/examples,/deps}` and never beside the test binaries, so
+# et-ws-wasi-runner starts and immediately dies with no output -- surfacing in the wasi-runner tests as
+#   called `Result::unwrap()` on an `Err` value: Output(OutputError { program: ".../target/debug/et-ws-wasi-runner",
+#   status: ExitStatus(unix_wait_status(32512)), stdout_utf8: "", stderr_utf8: "", user_error: None })
+# (32512 >> 8 == 127, the loader's "cannot start" code). Seen on commit
+# b63888492c53cd403168ea24483cea53bde60899 at
+# https://github.com/edge-toolkit/core/actions/runs/30786563725/job/91601098246, in all four wasi-runner tests.
+# Pointing the loader straight at the install dir is layout-independent, so it holds however cargo lays the
+# build dir out. Scoped to this env because only the coverage lane runs binaries under nightly. Drop it together
+# with the cargo-doc-check mkdir once ort stops hardcoding the OUT_DIR depth.
+DYLD_LIBRARY_PATH = "{{ vars.ort_loc_unix }}/lib"
+LD_LIBRARY_PATH = "{{ vars.ort_loc_unix }}/lib"
 _.path = "{{ env.HOME }}/.local/share/mise/installs/conda-clang/latest/bin"
 
 [tasks.cargo-llvm-cov]

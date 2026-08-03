@@ -39,6 +39,27 @@
 # Failing due to latest mise.
 # "cargo:action-validator" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
 
+# Prebuilt aube for Windows, replacing the aqua entry that config.toml scopes off this OS.
+# The aqua entry installs fine here (`mise aube@1.37.0 installed`) but its shim cannot resolve the binary: the
+# msvc zip holds aube.exe/aubr.exe/aubx.exe at the archive root with no bin/ dir, so every npm: install dies with
+#   mise ERROR cannot find binary path
+#   mise ERROR C:\Users\ContainerAdministrator\AppData\Local\mise\shims\aube.exe failed
+# then `npm:<pkg>: ...\shims\aube.exe exited with non-zero status: exit code 1` -- mise's npm backend invokes the
+# shim rather than the tool directly. Seen on commit 9440a53b3f632307d5a41b654ff526981021759f across all four
+# Windows build lanes, e.g. https://github.com/edge-toolkit/core/actions/runs/30782416387/job/91589563131.
+#
+# `bin` is the in-archive name and deliberately carries NO `.exe`, unlike http:busybox below. That entry
+# downloads a bare .exe rather than an archive, so mise writes the downloaded file using the bin name verbatim
+# and needs the extension; for an archive mise resolves `<install-root>/<bin>` and supplies the platform's
+# executable suffix itself. Spelling it `aube.exe` here reproduced the identical `cannot find binary path` on
+# commit b63888492c53cd403168ea24483cea53bde60899. Checksum-pinned so a silent upstream re-release fails
+# loudly. Bump url + version + checksum together.
+[tools."http:aube"]
+bin = "aube"
+checksum = "sha256:7a264819a7c05d107ac72916f82209a183bfd26842b9528f1ca281bb32596c5e"
+url = "https://github.com/jdx/aube/releases/download/v1.37.0/aube-v1.37.0-x86_64-pc-windows-msvc.zip"
+version = "1.37.0"
+
 # busybox-w32 `sh` (POSIX ash) -- the shell the bash-tasks run on.
 # A native Win32 single exe with no cygwin/msys runtime, so it loads on a bare Nano Server, unlike conda's
 # msys2 bash whose msys-2.0.dll imports KERNEL32!IdnToAscii / IdnToUnicode that Nano's stripped kernel32
@@ -47,22 +68,6 @@
 # rewrite the task PATH into msys form, which native busybox-w32 can't resolve. Checksum-pinned so a silent
 # upstream rebuild fails loudly; `.exe` because mise writes the bin name verbatim and Windows launches by
 # extension.
-# Prebuilt aube for Windows, replacing the aqua entry that config.toml scopes off this OS.
-# The aqua entry installs fine here (`mise aube@1.37.0 installed`) but its shim cannot resolve the binary: the
-# msvc zip holds aube.exe/aubr.exe/aubx.exe at the archive root with no bin/ dir, so every npm: install dies with
-#   mise ERROR cannot find binary path
-#   mise ERROR C:\Users\ContainerAdministrator\AppData\Local\mise\shims\aube.exe failed
-# then `npm:<pkg>: ...\shims\aube.exe exited with non-zero status: exit code 1`. Seen on commit
-# 9440a53b3f632307d5a41b654ff526981021759f across all four Windows build lanes, e.g.
-# https://github.com/edge-toolkit/core/actions/runs/30782416387/job/91589563131. Naming the executable via `bin`
-# resolves it; `.exe` because mise writes the bin name verbatim and Windows launches by extension. Checksum-pinned
-# so a silent upstream re-release fails loudly. Bump url + version + checksum together.
-[tools."http:aube"]
-bin = "aube.exe"
-checksum = "sha256:7a264819a7c05d107ac72916f82209a183bfd26842b9528f1ca281bb32596c5e"
-url = "https://github.com/jdx/aube/releases/download/v1.37.0/aube-v1.37.0-x86_64-pc-windows-msvc.zip"
-version = "1.37.0"
-
 [tools."http:busybox"]
 bin = "ash.exe"
 checksum = "sha256:6e263d154d8548d1eb936f65d1d8312c80df31c45974e48d6335e4dcc0f4f34c"
