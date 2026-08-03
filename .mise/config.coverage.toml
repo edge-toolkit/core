@@ -291,12 +291,29 @@ skip { next }
 AWK
 "$llbin/llvm-profdata" merge -sparse -o "$covdir/agent.profdata" "$covdir"/wasm-agent-*.profraw
 objs=()
-for ll in target/wasm32-unknown-unknown/debug/deps/*.ll; do
+# Collect the instrumented .ll from whichever build-dir layout the toolchain produced.
+# A plain `deps/*.ll` glob broke when nightly made `-Z build-dir-new-layout` the default: per-crate
+# intermediates moved to `<profile>/build/<pkg>/<hash>/out/`, the glob matched nothing, and the unexpanded
+# pattern reached goawk as a literal filename -- `file "target/wasm32-unknown-unknown/debug/deps/*.ll" not
+# found` on commit 12bfe419 at https://github.com/edge-toolkit/core/actions/runs/30797697402/job/91634929015.
+# `find` also avoids the silent-nullglob trap the literal-pattern failure exposed.
+lls="$(find target/wasm32-unknown-unknown/debug -path '*/build/*' -name '*.ll' 2>/dev/null)"
+if [ -z "$lls" ]; then
+  lls="$(find target/wasm32-unknown-unknown/debug/deps -name '*.ll' 2>/dev/null)"
+fi
+if [ -z "$lls" ]; then
+  echo "wasm-agent-cov: no instrumented .ll under target/wasm32-unknown-unknown/debug" >&2
+  exit 1
+fi
+while IFS= read -r ll; do
+  [ -n "$ll" ] || continue
   name="$(coreutils basename "$ll" .ll)"
   goawk -f "$gut" "$ll" > "$covdir/$name.g.ll"
   "$llbin/llc" -filetype=obj -mtriple=x86_64-unknown-linux-gnu -o "$covdir/$name.o" "$covdir/$name.g.ll"
   objs+=("-object" "$covdir/$name.o")
-done
+done <<LLS
+$lls
+LLS
 "$llbin/llvm-cov" export --format=lcov --instr-profile "$covdir/agent.profdata" "${objs[@]}" > "$covdir/all.lcov"
 keep="$covdir/keep.awk"
 coreutils cat > "$keep" <<'AWK'
@@ -367,12 +384,24 @@ skip { next }
 AWK
 "$llbin/llvm-profdata" merge -sparse -o "$covdir/pic-viewer.profdata" "$covdir"/pic-viewer-*.profraw
 objs=()
-for ll in target/wasm32-unknown-unknown/debug/deps/*.ll; do
+# Same build-dir-layout handling as wasm-agent-cov above; this task shares the failure mode.
+lls="$(find target/wasm32-unknown-unknown/debug -path '*/build/*' -name '*.ll' 2>/dev/null)"
+if [ -z "$lls" ]; then
+  lls="$(find target/wasm32-unknown-unknown/debug/deps -name '*.ll' 2>/dev/null)"
+fi
+if [ -z "$lls" ]; then
+  echo "pic-viewer-cov: no instrumented .ll under target/wasm32-unknown-unknown/debug" >&2
+  exit 1
+fi
+while IFS= read -r ll; do
+  [ -n "$ll" ] || continue
   name="$(coreutils basename "$ll" .ll)"
   goawk -f "$gut" "$ll" > "$covdir/$name.g.ll"
   "$llbin/llc" -filetype=obj -mtriple=x86_64-unknown-linux-gnu -o "$covdir/$name.o" "$covdir/$name.g.ll"
   objs+=("-object" "$covdir/$name.o")
-done
+done <<LLS
+$lls
+LLS
 "$llbin/llvm-cov" export --format=lcov --instr-profile "$covdir/pic-viewer.profdata" "${objs[@]}" > "$covdir/all.lcov"
 keep="$covdir/keep.awk"
 coreutils cat > "$keep" <<'AWK'

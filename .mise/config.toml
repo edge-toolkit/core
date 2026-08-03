@@ -105,7 +105,14 @@ ripgrep = "latest"
 # Sole consumer right now is the `go:` backend that source-builds jqfmt.
 # (noperator/jqfmt ships no release assets); add Go users here as they arrive.
 go = "latest"
-"go:github.com/noperator/jqfmt/cmd/jqfmt" = "latest"
+# Version-pinned rather than `latest` so installing it needs no Go-proxy version lookup.
+# Resolving `latest` queries the proxy for the tag list, and that request is bound by
+# fetch_remote_versions_timeout (20s), which the Windows lanes' third-party egress overran:
+#   mise ERROR Failed to install go:github.com/noperator/jqfmt/cmd/jqfmt@latest: timed out after 20.00s
+# on commit 12bfe419 at https://github.com/edge-toolkit/core/actions/runs/30797697389/job/91634929057.
+# Pinning removes the lookup entirely instead of widening the timeout. upstream has exactly one release, so
+# this is also what `latest` already resolved to -- revisit only when noperator/jqfmt tags a second version.
+"go:github.com/noperator/jqfmt/cmd/jqfmt" = "0.1.0"
 hadolint = "latest"
 ls-lint = "latest"
 lychee = "latest"
