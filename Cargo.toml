@@ -188,10 +188,13 @@ wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 wasm-bindgen-test = "0.3"
 # 44.0.3 is the floor for the RUSTSEC-2026-0182 fix (fd_renumber leak in WASIp1).
-# Stay on 44.x for ABI compat with wasmtime-wasi-nn 44.x.
-wasmtime = { version = "44.0.3", features = ["async", "component-model"] }
-wasmtime-wasi = "44.0.3"
-wasmtime-wasi-nn = { version = "44", default-features = false, features = ["onnx"] }
+# Keep all three on the same major for ABI compat -- wasmtime-wasi-nn tracks wasmtime's version exactly.
+# 47.0.3 is the floor, not a preference: RUSTSEC-2026-0222 (GHSA-hgjw-h833-99q9) is fixed only in
+# >=24.0.12 <25, >=36.0.13 <37, >=46.0.2 <47, or >=47.0.3, so the 44.x line this used to pin has no patched
+# release at all and 47.0.2 is still affected.
+wasmtime = { version = "47.0.3", features = ["async", "component-model"] }
+wasmtime-wasi = "47.0.3"
+wasmtime-wasi-nn = { version = "47", default-features = false, features = ["onnx"] }
 web-sys = "0.3"
 wgpu = { version = "29", default-features = false, features = ["dx12", "metal", "vulkan", "wgsl"] }
 # Windows-only feature-unification shim: forces `winapi/std` on for deno_io.

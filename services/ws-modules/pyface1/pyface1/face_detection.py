@@ -6,7 +6,7 @@ import json
 import math
 import time
 from collections.abc import Iterable, Sequence
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, TypedDict
 
@@ -117,7 +117,9 @@ async def run(
                     )
                 )
             )
-        except Exception as exc:
+        # Broad by design: ONNX/wasm inference and the JS canvas calls raise arbitrary types, and a long-running
+        # detection loop must surface the error and keep detecting rather than die on one bad frame.
+        except Exception as exc:  # noqa: BLE001
             message = f"pyface1 face detection: inference error\n{exc}"
             set_status(message)
             log(f"inference error: {exc}")
@@ -281,7 +283,7 @@ def decode_outputs(
     return {
         "detections": detections,
         "confidence": float(confidence),
-        "processed_at": datetime.now().strftime("%X"),
+        "processed_at": datetime.now(timezone.utc).strftime("%X"),
     }
 
 

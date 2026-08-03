@@ -16,7 +16,7 @@ import math
 import time
 from collections import deque
 from collections.abc import Iterable, Sequence
-from datetime import datetime
+from datetime import datetime, timezone
 from statistics import fmean
 from typing import Any, TypedDict
 
@@ -169,7 +169,9 @@ async def attempt_eye_capture(platform) -> None:
     """
     try:
         filename = await platform.save_eye_capture()
-    except Exception as exc:
+    # Broad by contract: the capture crosses into JS (canvas encode, fetch upload), which surfaces arbitrary
+    # exception types through Pyodide, and this function's whole purpose is to report any of them without raising.
+    except Exception as exc:  # noqa: BLE001
         platform.log(f"eye capture failed: {exc}")
         platform.send_event(eye_capture_error_event_json(str(exc)))
         return
@@ -243,7 +245,9 @@ async def sample_loop(platform) -> None:
                 if platform.upload_consent():
                     await attempt_eye_capture(platform)
             platform.render(results_json(results, analysis, crop))
-        except Exception as exc:
+        # Broad by design: MediaPipe/wasm inference and the JS canvas calls raise arbitrary types, and a
+        # long-running sample loop must surface the error and keep sampling rather than die on one bad frame.
+        except Exception as exc:  # noqa: BLE001
             message = f"pyeye1 eye movement screening: inference error\n{exc}"
             platform.set_status(message)
             platform.log(f"inference error: {exc}")
@@ -426,7 +430,7 @@ def status_text(results: Sequence[FaceEyes], analysis: WindowAnalysis | None) ->
         f"eyes: {eye_count}",
         *analysis_lines(analysis),
         "screening heuristics only -- not a medical diagnosis",
-        f"processed at: {datetime.now().strftime('%X')}",
+        f"processed at: {datetime.now(timezone.utc).strftime('%X')}",
     ]
     return "\n".join(lines)
 
@@ -473,7 +477,7 @@ def event_payload(
         "eyes": eye_count,
         "results": list(results),
         "analysis": analysis,
-        "processed_at": datetime.now().strftime("%X"),
+        "processed_at": datetime.now(timezone.utc).strftime("%X"),
         "model_path": EYE_MODEL_PATH,
         "source_resolution": {"width": float(width), "height": float(height)},
     }

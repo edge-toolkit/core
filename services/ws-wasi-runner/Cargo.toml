@@ -65,7 +65,7 @@ wasmtime-wasi.workspace = true
 # wasi-nn standardised ML inference.
 # The workspace pin drops `openvino` + `winml` (which we don't use) and keeps `onnx`.
 wasmtime-wasi-nn.workspace = true
-# Workspace pins `ort = "=2.0.0-rc.10"` because wasmtime-wasi-nn 44.0.1 was built against it.
+# Workspace pins `ort = "=2.0.0-rc.10"` because wasmtime-wasi-nn 47.0.3 is still built against it.
 # That is a specific prerelease; rc.11+ moved
 # `ort::session::{Input, Output}` and `ort::tensor`, and the cargo resolver
 # would otherwise pick the latest rc.

@@ -979,10 +979,11 @@ mise install rclone
 """
 shell = "bash -euo pipefail -c"
 
-[tasks.osv-scanner]
+[tasks.osv-scanner-check]
 # Scans every committed lockfile across languages for known vulnerabilities.
 # The scanned set is vars.osv_locks. No build dependency, so the same task serves both ad-hoc local use and the
 # dependencies workflow.
+alias = "osv-scanner"
 run = "osv-scanner {{ vars.osv_locks }} --config config/osv-scanner.toml"
 
 [tasks."gen:osv-scanner"]

@@ -59,7 +59,7 @@ jobs:
         run: mise run cargo-deny-check
 
       - name: osv-scanner
-        run: mise run osv-scanner
+        run: mise run osv-scanner-check
 
       # Scans the npm-backend tool install trees, which no committed lockfile covers.
       # The task installs any missing npm: tool itself, so this job needs no full `mise install`.
