@@ -148,6 +148,10 @@ allowed_os_scoped_tool := {
 	# action-validator (aqua) has no Windows build, so it is os-scoped off Windows.
 	# config.windows.toml installs cargo:action-validator there instead (cargo-quickinstall msvc prebuilt).
 	"action-validator",
+	# aube is the mandatory npm: backend; aqua ships no darwin/amd64 asset, so macos/x64 takes cargo:aube instead.
+	# Between the two entries every platform is covered.
+	"aube",
+	"cargo:aube",
 	"http:chromedriver",
 	"pipx",
 	"pipx:torch",

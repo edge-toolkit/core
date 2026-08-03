@@ -1,0 +1,9 @@
+# pnpm workspace members, so a single repo-root pnpm-lock.yaml covers every JS package.
+# One lockfile at the root is what osv-scanner scans for npm advisories, which means a dependency added to any
+# member lands in the scanned set automatically instead of needing its own --lockfile argument.
+#
+# The generated `pkg/` directories under services/ws-modules/ each carry a package.json, but their `dependencies`
+# name modules the ws-server serves (et-ws, et-model-face1, ...) rather than published npm packages.
+# Some of their deps are loaded via mise installed tools, which are checked separately.
+packages:
+  - services/ws-server/static

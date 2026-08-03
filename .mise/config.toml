@@ -39,6 +39,14 @@ http_timeout = "2m"
 # This disables idiomatic-version-file detection for every tool. We declare versions in `.mise/config*.toml`;
 # no need to parse `.tool-versions`/`.node-version`/etc. on top of that.
 idiomatic_version_file_enable_tools = []
+# Pin the npm: backend to aube rather than letting mise pick one.
+# The default "auto" uses aube when it happens to be installed and silently falls back to plain npm otherwise,
+# which produces two different install layouts: aube writes `global-aube/<hash>/aube-lock.yaml` (a full
+# transitive lockfile), plain npm writes a bare `lib/node_modules` tree with no lockfile at all. osv-scanner
+# cannot extract anything from a lockfile-less tree, so under "auto" a tool's vulnerability coverage depended on
+# whether aube was present the day it was installed. Pinning to aube makes every npm: tool emit a lockfile, which
+# is what osv-scanner-npm collects and scans.
+npm.package_manager = "aube"
 task.run_auto_install = false
 # Hard-verify tool signatures via gpg on every platform.
 # Propagates to node.gpg_verify and swift.gpg_verify per mise/src/config/settings.rs. mise's node plugin
@@ -61,7 +69,12 @@ action-validator = { version = "latest", os = ["linux", "macos"] }
 "aqua:rustwasm/wasm-pack" = "latest"
 "aqua:vectordotdev/vector" = "0.56.0"
 ast-grep = "latest"
+# aube is the npm: backend, and mandatory because npm.package_manager names it.
+# aqua ships linux/macos-arm64/windows; macos/x64 has no aqua asset, so it takes the cargo backend -- allowed
+# there because macos/x64 is second-tier.
+aube = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 cargo-binstall = "latest"
+"cargo:aube" = { version = "latest", os = ["macos/x64"] }
 "cargo:cargo-expand" = { version = "latest", os = ["linux", "macos"] }
 "cargo:open" = "latest"
 "cargo:wasm-opt" = { version = "latest", os = ["linux", "macos"] }
@@ -314,10 +327,14 @@ augeas_windows_x64_asset = "1.14.1-x86_64-pc-windows-mingw.tar.gz"
 # Used to compose absolute paths into a tool's install dir from [env] (e.g. AUGEAS_LENS_LIB). Honours
 # MISE_DATA_DIR if set; otherwise mise's default of $XDG_DATA_HOME (~/.local/share/mise on Linux/macOS).
 mise_data_dir = '{{ env?.MISE_DATA_DIR or (vars.a_home ~ "/.local/share/mise") }}'
-# The committed lockfiles osv-scanner scans, one per ecosystem (Rust/Python/Dart/Java).
-# The gitignored pnpm-lock.yaml is intentionally excluded: it is regenerated per install (onnxruntime-web is
-# unpinned), so there is no stable committed file to scan.
-osv_locks = "--lockfile Cargo.lock --lockfile uv.lock --lockfile pubspec.lock --lockfile pom.xml"
+# The Rust/Python/Dart/Java half of the lockfile set osv-scanner scans, one file per ecosystem.
+# Split from the npm half (and composed into osv_locks below) so no single line exceeds the editorconfig line
+# length. The `a_` prefix puts both halves ahead of osv_locks in mise's alphabetical [vars] render order, so
+# they are defined before osv_locks interpolates them.
+a_osv_locks_base = "--lockfile Cargo.lock --lockfile uv.lock --lockfile pubspec.lock --lockfile pom.xml"
+# The npm half: the repo-root pnpm workspace lockfile, covering every member listed in pnpm-workspace.yaml.
+a_osv_locks_node = "--lockfile pnpm-lock.yaml"
+osv_locks = "{{ vars.a_osv_locks_base }} {{ vars.a_osv_locks_node }}"
 # clang-tidy's resource-dir arg (points clang at its builtin headers, e.g.
 # stddef.h). Empty default; config.linux.toml sets it from conda:clangxx.
 clang_resource_arg = ""
@@ -915,22 +932,20 @@ description = "Lint YAML with ryl (a yamllint-compatible Rust linter)"
 run = "ryl -c config/ryl.yaml .github config"
 
 [tasks.setup-aube]
-# `aube` is an OPTIONAL faster npm backend, kept out of the mandatory `[tools]` list.
-# It is omitted because its install is flaky on some platforms and edge-toolkit falls back to the
-# classical `lib/node_modules` layout without it (see `find_npm_modules_path_in`).
+# Install the npm: backend ahead of the main `mise install`.
+# aube is a mandatory `[tools]` entry, so `mise install` would fetch it anyway; this task exists purely for
+# ordering. mise resolves tools concurrently and gives no guarantee that aube lands before the `npm:*` tools that
+# invoke it as their package manager, and a tool whose backend binary isn't there yet fails outright. CI runs this
+# first so the ordering is explicit rather than incidental.
 #
-# CI (check.yaml / test.yaml) runs this task in its own allowed-to-fail step, placed BEFORE the main
-# `mise install` so the `npm:onnxruntime-web` install can pick up aube as its backend.
-#
-# Platform split: aqua ships aube for linux/macos-arm64/windows; macos/x64 has
-# no aqua asset, so use the cargo backend there. The branch is rendered by
-# mise's tera templating to pick the right backend per platform.
-description = "Install the optional aube npm backend (platform-specific, best-effort)"
+# The tera branch picks the platform's backend: aqua ships aube for linux/macos-arm64/windows, macos/x64 has no
+# aqua asset and takes cargo:aube. Versions come from the `[tools]` pins, so no `@version` here.
+description = "Install the aube npm backend ahead of the npm: tools"
 run = """
 {% if os() == "macos" and arch() == "x64" %}
-mise install cargo:aube@latest
+mise install cargo:aube
 {% else %}
-mise install aube@latest
+mise install aube
 {% endif %}
 """
 shell = "bash -euo pipefail -c"
@@ -966,8 +981,8 @@ shell = "bash -euo pipefail -c"
 
 [tasks.osv-scanner]
 # Scans every committed lockfile across languages for known vulnerabilities.
-# Covers Cargo.lock, uv.lock, pubspec.lock, and pom.xml (one per ecosystem), with no build dependency, so the same
-# task serves both ad-hoc local use and the dependencies workflow. The `--lockfile` args live in vars.osv_locks.
+# The scanned set is vars.osv_locks. No build dependency, so the same task serves both ad-hoc local use and the
+# dependencies workflow.
 run = "osv-scanner {{ vars.osv_locks }} --config config/osv-scanner.toml"
 
 [tasks."gen:osv-scanner"]
@@ -1109,13 +1124,15 @@ shell = "bash -euo pipefail -c"
 
 [tasks."prefetch:node"]
 # Needs `build-ws-wasm-agent` first.
-# The static workspace `link:`s its `pkg/`, so the link target must exist before `pnpm install`.
+# The static member `link:`s its `pkg/`, so the link target must exist before `pnpm install`.
 depends = ["build-ws-wasm-agent"]
-description = "Prefetch the Node (pnpm) static workspace"
+description = "Prefetch the Node (pnpm) workspace"
 # pnpm refuses non-TTY destructive node_modules cleanup unless CI=true.
 # That cleanup fires when an earlier install left a different layout. Treat as a CI batch.
 env = { CI = "true" }
-run = "pnpm install --dir services/ws-server/static --ignore-scripts --config.ignoredBuiltDependencies=protobufjs"
+# Installs the whole workspace from the repo root, so no --dir.
+# The members come from pnpm-workspace.yaml and the resolution lands in the single root pnpm-lock.yaml.
+run = "pnpm install --ignore-scripts --config.ignoredBuiltDependencies=protobufjs"
 # `shell = "bash"` on Windows for the same base-config-task PATH dropout.
 # Same dropout as `prefetch:rust` and `build-et-cli` -- cmd subprocess can't find pnpm. Captured on
 # 3ac0d60b windows test job 82282265424 (after the prefetch:rust fix, the same failure surfaced one step

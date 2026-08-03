@@ -19,7 +19,6 @@ __pycache__/
 .pytest_cache/
 .python-version
 node_modules/
-pnpm-lock.yaml
 .venv/
 # .NET build output.
 # `obj/` is safe globally (nothing tracked is named obj/), but `bin/` is scoped to the module so it never

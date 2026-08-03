@@ -9,6 +9,10 @@ name: dependencies
       - "**/Cargo.toml"
       - config/deny.toml
       - config/osv-scanner.toml
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - services/ws-server/static/package.json
       - .github/workflows/dependencies.yaml
       - .github/actions/install-mise/**
   workflow_dispatch:
@@ -56,6 +60,11 @@ jobs:
 
       - name: osv-scanner
         run: mise run osv-scanner
+
+      # Scans the npm-backend tool install trees, which no committed lockfile covers.
+      # The task installs any missing npm: tool itself, so this job needs no full `mise install`.
+      - name: osv-scanner npm tools
+        run: mise run osv-scanner-npm
 
       # Restore cached `cargo unmaintained` lookups to keep reruns fast.
       # `cargo unmaintained` persists per-repository archival/last-commit lookups under

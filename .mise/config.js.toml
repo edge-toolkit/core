@@ -65,6 +65,17 @@ url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x
 [tools."http:oxfmt".platforms.windows-x64]
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x86_64-pc-windows-msvc.zip"
 
+[env]
+# Exempt stats-gl from aube's add-time package-reputation gates.
+# `aube add` refuses (non-interactively) any package whose weekly npm downloads fall under
+# `lowDownloadThreshold`, whose name is within a short edit distance of a top-100,000 package, or that was
+# registered very recently -- a typosquat defence. stats-gl trips the similar-name arm and fails the install with
+# `ERR_AUBE_LOW_DOWNLOAD_PACKAGE` ("... edit distance 2)? Pass --allow-low-downloads after verifying the package
+# name."); mise's npm backend builds the aube command line itself, so the per-invocation flag isn't reachable.
+# This lists the one exact name affected rather than resetting the threshold or globbing, and aube's OSV `MAL-*`
+# malicious-package check is explicitly unaffected by the exemption, so the hard malware gate still applies.
+AUBE_ALLOWED_UNPOPULAR_PACKAGES = "stats-gl"
+
 [tasks.build-ws-har1-module]
 depends = ["build-et-cli", "build-wasm-cov-wrapper"]
 description = "Build the har1 workflow WASM module"
@@ -115,6 +126,65 @@ run = "oxfmt --config config/oxfmtrc.jsonc --check . '!.mise/config*.toml'"
 [tasks.oxfmt-fmt]
 description = "Format JS/TS sources in place (oxfmt)"
 run = "oxfmt --config config/oxfmtrc.jsonc --write . '!.mise/config*.toml'"
+
+[tasks.osv-scanner-npm]
+depends = ["setup-aube"]
+description = "Scan the npm: tools' aube lockfiles for known vulnerabilities"
+# Collect each npm: tool's aube lockfile under one root, then scan that root.
+# osv-scanner has no `aube-lock.yaml` extractor -- an explicit `--lockfile <path>` on one is rejected with
+# `could not determine extractor suitable to this file`, and a directory scan of the install tree reports
+# `No package sources found`. Its extractors are keyed on filename, so each lockfile is copied in as
+# `pnpm-lock.yaml`: aube emits pnpm-lockfile-v9 (same `lockfileVersion`, `importers` and `packages` shape, plus
+# a `time:` block the pnpm extractor ignores), so the native pnpm extractor reads it as-is.
+#
+# Every declared npm: tool must yield a lockfile or the task fails. That check is load-bearing: osv-scanner
+# exits 0 on `No package sources found`, so a tool that silently installed via a lockfile-less backend would
+# otherwise read as scanned-and-clean. `--no-ignore` is required because the collection root is under gitignored
+# target/.
+#
+# `mise ls --json` maps each tool to an ARRAY of installed versions, so the declared-tool test has to look for a
+# `requested_version` on ANY element, not on `.value[0]`. Indexing element 0 silently dropped onnxruntime-web from
+# the scan here, because a superseded 1.26.0 install still sat ahead of the active 1.27.0 entry and carried no
+# `requested_version` -- the task then scanned three tools instead of four and exited 0, the precise
+# reads-as-clean failure the lockfile check above is meant to rule out.
+#
+# A tool is installed only when entirely absent, which keeps the scan from mutating what it measures. An
+# unconditional `mise install` re-resolves a `latest` pin and upgrades the tool mid-scan: doing that here once
+# moved onnxruntime-web 1.26.0 -> 1.27.0, whose tree carries a patched protobufjs, so two real advisories against
+# the installed 1.26.0 tree (GHSA-f38q-mgvj-vph7, GHSA-j3f2-48v5-ccww) vanished from the report instead of being
+# reported. Installing only what is missing still lets a cold CI job run this without a full `mise install` of
+# every language toolchain, while a warm machine gets scanned exactly as it stands. Deriving the tool list from
+# `mise ls` rather than restating it means it cannot drift from the [tools] table above.
+run = """
+dest=target/osv-npm-locks
+coreutils rm -rf "$dest"
+coreutils mkdir -p "$dest"
+filter='to_entries[] | select(.key | startswith("npm:")) | select(any(.value[]; .requested_version)) | .key'
+tools=$(mise ls --json | jaq -r "$filter")
+if [ -z "$tools" ]; then
+  echo "osv-scanner-npm: no declared npm: tools found; is MISE_ENV=js loaded?" >&2
+  exit 1
+fi
+for tool in $tools; do
+  root=$(mise where "$tool" 2>/dev/null || true)
+  if [ -z "$root" ]; then
+    mise install "$tool"
+    root=$(mise where "$tool")
+  fi
+  lock=$(find "$root" -name aube-lock.yaml -type f | coreutils head -1)
+  if [ -z "$lock" ]; then
+    echo "osv-scanner-npm: $tool has no aube-lock.yaml under $root" >&2
+    echo "osv-scanner-npm: it did not install via aube; check [settings] npm.package_manager" >&2
+    exit 1
+  fi
+  slug=$(coreutils basename "$(coreutils dirname "$root")")
+  coreutils mkdir -p "$dest/$slug"
+  coreutils cp "$lock" "$dest/$slug/pnpm-lock.yaml"
+  echo "osv-scanner-npm: collected $tool -> $dest/$slug/pnpm-lock.yaml"
+done
+osv-scanner --recursive --no-ignore "$dest" --config config/osv-scanner.toml
+"""
+shell = "bash -euo pipefail -c"
 
 # Namespaced aggregators picked up by the default config's globbed `check`/`fmt`/`fix`.
 [tasks."check:js"]

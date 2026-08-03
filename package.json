@@ -1,0 +1,7 @@
+{
+  "name": "edge-toolkit-core",
+  "version": "0.1.0",
+  "description": "pnpm workspace root for the edge-toolkit JS packages",
+  "private": true,
+  "type": "module"
+}
