@@ -70,9 +70,10 @@ action-validator = { version = "latest", os = ["linux", "macos"] }
 "aqua:vectordotdev/vector" = "0.56.0"
 ast-grep = "latest"
 # aube is the npm: backend, and mandatory because npm.package_manager names it.
-# aqua ships linux/macos-arm64/windows; macos/x64 has no aqua asset, so it takes the cargo backend -- allowed
-# there because macos/x64 is second-tier.
-aube = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
+# aqua covers linux + macos/arm64. macos/x64 has no aqua asset and takes the cargo backend, allowed there because
+# macos/x64 is second-tier. Windows has an aqua asset but its shim cannot resolve the extracted exe, so
+# config.windows.toml supplies http:aube instead; between the three entries every platform is covered.
+aube = { version = "latest", os = ["linux", "macos/arm64"] }
 cargo-binstall = "latest"
 "cargo:aube" = { version = "latest", os = ["macos/x64"] }
 "cargo:cargo-expand" = { version = "latest", os = ["linux", "macos"] }
@@ -704,7 +705,26 @@ description = "Type-check rustdoc with -D warnings to fail on any doc issues"
 # `cargo +nightly fmt`. Drop `-Z unstable-options --check` and switch back to plain `cargo doc` once
 # rustdoc stabilises `--check`.
 env = { RUSTDOCFLAGS = "-Z unstable-options --check -D warnings" }
-run = "cargo +nightly doc --keep-going --workspace --no-deps --document-private-items {{ vars.cargo_ws_excludes }}"
+# The mkdir works around ort-sys assuming a fixed OUT_DIR depth; it must precede any nightly cargo build.
+# Nightly cargo (1.99.0-nightly, 7c83d4cc0, 2026-07-29) writes build-script output to `build/<pkg>/<hash>/out`
+# where stable still uses `build/<pkg>-<hash>/out`. ort-sys 2.0.0-rc.10's `copy_libraries` locates the profile
+# dir via `out_dir.ancestors().nth(3)`, so that extra path segment lands it on `<target>/debug/build` instead of
+# `<target>/debug`. It then symlinks the ONNX Runtime dylibs into that dir plus `examples/` and `deps/` beneath
+# it, and the unwrapped symlink aborts on the first of those that does not exist:
+#   thread 'main' panicked at .../ort-sys-2.0.0-rc.10/build.rs:129:66:
+#   called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+# Seen on commit 9440a53b3f632307d5a41b654ff526981021759f in the macos + ubuntu check lanes, e.g.
+# https://github.com/edge-toolkit/core/actions/runs/30782416445/job/91589563319 -- and reproducible locally.
+# The feature cannot simply be switched off: wasmtime-wasi-nn declares `features = ["copy-dylibs"]` on its own
+# ort dependency, so feature unification keeps it enabled regardless of this workspace's ort entry. Creating the
+# dirs is inert under the classic layout. Drop this once ort stops hardcoding the depth -- 2.0.0-rc.13 still
+# does, at build/dynamic_link.rs:18.
+run = """
+ort_build_dir="${CARGO_TARGET_DIR:-target}${CARGO_BUILD_TARGET:+/$CARGO_BUILD_TARGET}/debug/build"
+coreutils mkdir -p "$ort_build_dir/examples" "$ort_build_dir/deps"
+cargo +nightly doc --keep-going --workspace --no-deps --document-private-items {{ vars.cargo_ws_excludes }}
+"""
+shell = "bash -euo pipefail -c"
 
 [tasks.cargo-clippy-fix]
 run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace --tests {{ vars.cargo_ws_excludes }}"
@@ -938,11 +958,14 @@ run = "ryl -c config/ryl.yaml .github config"
 # invoke it as their package manager, and a tool whose backend binary isn't there yet fails outright. CI runs this
 # first so the ordering is explicit rather than incidental.
 #
-# The tera branch picks the platform's backend: aqua ships aube for linux/macos-arm64/windows, macos/x64 has no
-# aqua asset and takes cargo:aube. Versions come from the `[tools]` pins, so no `@version` here.
+# The tera branch picks the platform's backend, matching the three `[tools]` entries: aqua `aube` on
+# linux/macos-arm64, `cargo:aube` on macos/x64, `http:aube` on Windows. Versions come from those pins, so no
+# `@version` here.
 description = "Install the aube npm backend ahead of the npm: tools"
 run = """
-{% if os() == "macos" and arch() == "x64" %}
+{% if os() == "windows" %}
+mise install http:aube
+{% elif os() == "macos" and arch() == "x64" %}
 mise install cargo:aube
 {% else %}
 mise install aube

@@ -57,6 +57,12 @@ coreutils rm -rf target/debug target/release
 # `--sh` is the current flag (the old `--export-prefix` alias is deprecated). This sets the rustc wrapper +
 # LLVM_PROFILE_FILE + profile dir so nextest and the regens instrument into one profile set that `report` merges.
 eval "$(cargo llvm-cov show-env --sh)"
+# Pre-create the dirs ort-sys symlinks its dylibs into, for the same nightly-cargo reason as cargo-doc-check.
+# It has to come after the eval above, which is what points CARGO_TARGET_DIR at the instrumented target dir --
+# a `depends` task would run in its own process and never see it. This whole env builds on nightly
+# (RUSTUP_TOOLCHAIN above), so every cargo invocation below hits the same build-script layout.
+ort_build_dir="${CARGO_TARGET_DIR:-target}${CARGO_BUILD_TARGET:+/$CARGO_BUILD_TARGET}/debug/build"
+coreutils mkdir -p "$ort_build_dir/examples" "$ort_build_dir/deps"
 # nextest SIGKILLs the spawned et-ws-pyo3-runner (services/ws-pyo3-runner/tests/modules.rs) after each exchange.
 # LLVM flushes a process's counters only at exit, so a SIGKILLed process contributes nothing: the runner's async
 # run/drive/worker paths reported 0% while its in-process initialize() was covered. Continuous mode (%c) memory-maps
