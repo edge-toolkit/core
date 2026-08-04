@@ -15,11 +15,6 @@ inputs:
     description: >-
       Comma-separated tools to co-install via taiki-e/install-action in the
       same step as mise. Forwarded to install-mise's `extra-tools` input.
-      NOT used for `aube` -- install-action's manifest expects an `aubr`
-      binary that recent aube releases don't ship, so the install resolves
-      to a cargo source-build that flakes on crates.io SSL. The aube path
-      below uses the original `mise run setup-aube` (npm-backed, allowed
-      to fail) which has been the reliable install method.
     required: false
     default: ""
 
@@ -37,18 +32,6 @@ runs:
       uses: ./.github/actions/install-mise
       with:
         install-action-tools: ${{ inputs.install-action-tools }}
-
-    # Optional npm backend, installed before the main `mise install`.
-    # Only useful when js env is loaded (it's the backend for npm:* tools, all of which live in config.js.toml); skip
-    # otherwise to avoid the install cost on workflows that don't need any npm: install. See [tasks.setup-aube] in
-    # .mise/config.toml for the full rationale.
-    - name: Install aube (optional npm backend, allowed to fail)
-      if: contains(env.MISE_ENV, 'js')
-      continue-on-error: true
-      shell: bash --noprofile --norc -euo pipefail {0}
-      env:
-        GITHUB_TOKEN: ${{ inputs.github-token }}
-      run: mise run setup-aube
 
     - name: Install mise tools
       id: install-mise-tools

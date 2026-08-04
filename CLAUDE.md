@@ -361,7 +361,7 @@ Plus, attached to the same Linker but defined by external WIT packages:
   WIT plus its matching host crate once it ships.
 - `wasi:nn/{tensor, graph, inference, errors}` -- standardised ML inference. The host wires
   `wasmtime-wasi-nn` with the ONNX Runtime backend (`ort` 2.0.0-rc.10, pinned because rc.11+
-  moved API surface that wasmtime-wasi-nn 44 still uses). Guests load model bytes via
+  moved API surface that wasmtime-wasi-nn 47 still uses). Guests load model bytes via
   `graph.load`, build `Tensor`s, and call `compute` -- the same shape of calls Spin / wasmCloud
   / Fermyon production wasi-nn workloads use. CUDA dispatch is opt-in via the runner's
   `cuda` cargo feature (`cargo build -p et-ws-wasi-runner --features cuda` or

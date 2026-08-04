@@ -28,8 +28,8 @@ def init(send, _storage) -> None:
 def on_binary_frame(frame: bytes) -> None:
     """Push one binary frame per unit of the count in the first byte."""
     if not frame:
-        return None
+        return
     count = frame[0]
     for i in range(count):
         _send.binary(bytes([i]))
-    return None
+    return

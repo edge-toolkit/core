@@ -1,6 +1,8 @@
 import math
 import unittest
+import unittest.mock
 
+from pyface1 import face_detection
 from pyface1.face_detection import (
     FACE_INPUT_HEIGHT,
     FACE_INPUT_WIDTH,
@@ -11,6 +13,7 @@ from pyface1.face_detection import (
     decode_outputs,
     output_values,
     preprocess_geometry,
+    run,
     softmax,
 )
 
@@ -106,6 +109,52 @@ class RetinaFaceTests(unittest.TestCase):
         self.assertAlmostEqual(tall["resize_ratio"], FACE_INPUT_HEIGHT / 960.0)
         self.assertEqual(tall["resized_width"], 304.0)
         self.assertEqual(tall["resized_height"], 608.0)
+
+
+class InferenceFailureTests(unittest.IsolatedAsyncioTestCase):
+    """`run`'s broad handler must report a failing inference and keep the detection loop alive."""
+
+    async def test_inference_failure_is_reported_and_the_loop_keeps_going(self) -> None:
+        # The handler is broad by design so one bad frame cannot end a long-running session. Raising from
+        # infer_once drives it: every iteration must still run, with the error surfaced via log + status
+        # rather than propagating out of `run`.
+        iterations = 3
+        calls = {"infer": 0}
+        logs: list[str] = []
+        statuses: list[str] = []
+
+        async def infer_once():
+            calls["infer"] += 1
+            raise RuntimeError("onnx exploded")
+
+        async def sleep_ms(_ms) -> None:
+            pass
+
+        def should_stop() -> bool:
+            return calls["infer"] >= iterations
+
+        with unittest.mock.patch.object(face_detection, "FACE_INFERENCE_INTERVAL_MS", 0.0):
+            await run(
+                "input",
+                ["out0"],
+                infer_once,
+                lambda _message: None,
+                lambda _results: None,
+                sleep_ms,
+                logs.append,
+                statuses.append,
+                should_stop,
+            )
+
+        self.assertEqual(calls["infer"], iterations, "every iteration must still run after a failing one")
+        self.assertTrue(
+            any("inference error" in line and "onnx exploded" in line for line in logs),
+            f"expected the raised error logged, got {logs}",
+        )
+        self.assertTrue(
+            any("inference error" in status for status in statuses),
+            f"expected the error surfaced as status, got {statuses}",
+        )
 
 
 if __name__ == "__main__":

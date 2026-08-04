@@ -162,6 +162,14 @@ class FailingCapturePlatform(FakePlatform):
         raise RuntimeError("upload failed")
 
 
+class FailingInferencePlatform(FakePlatform):
+    """Inference itself raises, exercising `sample_loop`'s broad handler rather than the capture one."""
+
+    async def infer(self) -> str:
+        self.infer_calls += 1
+        raise RuntimeError("inference exploded")
+
+
 class RunWorkflowTests(unittest.IsolatedAsyncioTestCase):
     async def test_happy_path_drives_the_full_workflow(self) -> None:
         platform = FakePlatform(stop_after=5)
@@ -260,6 +268,25 @@ class RunWorkflowTests(unittest.IsolatedAsyncioTestCase):
         ):
             await run(platform)
         self.assertEqual(platform.capture_calls, 1)
+
+    async def test_inference_failure_is_reported_and_the_sample_loop_keeps_going(self) -> None:
+        # `sample_loop` wraps each iteration in a broad handler precisely so one bad frame cannot end the
+        # session. Raising from `infer()` drives that path: the loop must surface the error via status + log
+        # and still run every remaining iteration rather than propagating out of `run`.
+        platform = FailingInferencePlatform(stop_after=3)
+        with patch.object(eye_detection, "ANALYSIS_INTERVAL_MS", 0.0):
+            await run(platform)
+
+        self.assertEqual(platform.infer_calls, 3, "every iteration must still run after a failing one")
+        self.assertTrue(
+            any("inference error" in line and "inference exploded" in line for line in platform.logs),
+            f"expected the raised error logged, got {platform.logs}",
+        )
+        self.assertTrue(
+            any("inference error" in status for status in platform.statuses),
+            f"expected the error surfaced as status, got {platform.statuses}",
+        )
+        self.assertTrue(platform.cleaned, "cleanup must still run after inference failures")
 
     async def test_eye_capture_failure_is_logged_and_does_not_abort_the_run(self) -> None:
         platform = FailingCapturePlatform(stop_after=5)

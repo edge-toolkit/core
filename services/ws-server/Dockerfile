@@ -48,7 +48,8 @@ COPY --from=builder /workspace/runtime-deps/node_modules/stats-gl ./node_modules
 RUN mkdir -p /app/storage \
     && chown -R app:app /app
 
-USER app
+# Numeric uid, matching the useradd above, so a host inspecting the image resolves it without our passwd file.
+USER 10001
 
 EXPOSE 8080 8443
 

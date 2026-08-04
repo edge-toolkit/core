@@ -51,10 +51,12 @@ convention = "pep257"
 [lint.per-file-ignores]
 # Generated clients are exempt from the hand-authoring quality families.
 # Their code is machine-emitted by openapi-python-client / datamodel-codegen and regenerated wholesale, so naming,
-# modernization, and refactor findings can't be hand-fixed and would break CI on the next regen. The E/F baseline
-# stays active, as does "I" (import sorting keeps messages.py stable across regens); "D" was already dropped
-# because the docstrings come verbatim from the OpenAPI/JSON-schema spec.
-"generated/**" = ["ARG", "B", "C4", "D", "N", "PIE", "PLC", "PLE", "PLW", "RUF", "SIM", "UP"]
+# modernization, refactor, and annotation-style findings can't be hand-fixed and would break CI on the next regen.
+# The E/F baseline stays active, as does "I" (import sorting keeps messages.py stable across regens); "D" was
+# already dropped because the docstrings come verbatim from the OpenAPI/JSON-schema spec. "PYI" covers the
+# generated client's `__enter__`/`__exit__` annotations (return `Client` rather than `Self`, star-args typed as
+# `Any`), which come from openapi-python-client's templates.
+"generated/**" = ["ARG", "B", "C4", "D", "N", "PIE", "PLC", "PLE", "PLW", "PYI", "RUF", "SIM", "UP"]
 # The et-ws-pyo3-runner example modules keep per-process state in module-level globals by design.
 # The runner instantiates one copy per process and the contract is deliberately class-free (see echo.py's module
 # docstring), so PLW0603's "don't use the global statement" advice doesn't apply.

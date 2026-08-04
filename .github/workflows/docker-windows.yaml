@@ -50,7 +50,7 @@ jobs:
       # The classic Windows builder on windows-2022 can't substitute build-args into the Dockerfile's RUN, and
       # mise's prebuilt "latest" zip is stale (2026.3.0, too old for the config). 2026.7.1 is required: the config
       # templates use Tera v2 syntax, which mise switched to in 2026.7.1 (older mise fails to parse them).
-      MISE_VERSION: "2026.7.1"
+      MISE_VERSION: "2026.8.0"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -70,10 +70,16 @@ jobs:
           sc query docker | grep -q RUNNING || net start docker
           docker version
 
+      # Opt into the aggressive reclaims: this lane builds entirely inside the container.
+      # Visual Studio and the Windows Kits are only touched by a NATIVE msvc link, which this workflow never
+      # does -- it only runs `docker build` and `docker run`. check.yaml and test.yaml share this action and
+      # leave both off, because test.yaml's `override (msvc)` lane does link natively against them.
       - name: Free disk space on Windows runner
         uses: ./.github/actions/free-disk-space-windows
         with:
           keep-image: mcr.microsoft.com/windows/${{ matrix.base }}:${{ matrix.windows_version }}
+          visual-studio: "true"
+          windows-kits: "true"
 
       - name: Prepare mise and Github token for the build context
         run: |
@@ -132,31 +138,25 @@ jobs:
           docker run --rm "$IMAGE_TAG" cmd /c "mise exec -- rustpython -c \"print('et-rp ok')\""
           echo "::endgroup::"
 
-      # The build target depends on the base image.
-      # nanoserver stops at `precompile` (no python/dotnet/test-runtime; the test stage doesn't exist there),
-      # servercore goes all the way through `test` so the next two steps can `docker run` the suite. Both targets
-      # compose with the precompile-stage layer cache from the build-minimal step above.
-      - name: Build stage precompile (nanoserver) / test (servercore)
+      - name: Build stage test
         env:
           DOCKERFILE: ${{ steps.dockerfile.outputs.dockerfile }}
         run: |
-          if [ "${{ matrix.base }}" = "servercore" ]; then
-            target="test"
-            tag="-t et-windows-test"
-          else
-            target="precompile"
-            tag=""
-          fi
           args="-f $DOCKERFILE --build-arg MISE_ENV"
           if [ "${{ matrix.runner }}" != "windows-2022" ]; then
             args="$args --build-arg WINDOWS_VERSION=${{ matrix.windows_version }}"
           fi
-          args="$args --target $target $tag"
+          args="$args --target test -t et-windows-test"
           # $args is a word-split flag list by design; do not quote it.
           # shellcheck disable=SC2086
           docker build $args .
 
       # Run the Rust tests, excluding et-ws-web-runner on the gnullvm target.
+      # CARGO_INCREMENTAL=0 has to be passed into the container, not just set on the job: this compiles from
+      # scratch inside `docker run` (Dockerfile.windows's precompile stage deletes `target` after building the
+      # modules), so the incremental caches land on the runner's C: drive. They are pure waste on a
+      # single-shot CI compile and this lane has no disk to spare -- servercore ran out mid-link with
+      # `There is not enough space on the disk. (os error 112)` even after the disk-free step left 43 GB.
       - name: Run cargo-test
         if: matrix.base == 'servercore'
-        run: docker run --rm et-windows-test mise run cargo-test
+        run: docker run --rm -e CARGO_INCREMENTAL=0 et-windows-test mise run cargo-test

@@ -25,7 +25,11 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    # Raised from 120 for the opensuse lane's CARGO_BUILD_JOBS=2 cap (see the cargo-test step).
+    # Capping concurrent jobs trades wall-clock for peak memory, and opensuse was already the slowest lane at
+    # 47m51s when green, so the old ceiling left too little margin. The other lanes finish in 39-44m and are
+    # unaffected; this only stops a slower-but-succeeding build from being cut off.
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -146,8 +150,29 @@ jobs:
           docker run --rm et-test sh -c "find / -xdev -type f -size +50M -exec du -h {} + | sort -h | tail -50"
           echo "::endgroup::"
 
+      # Every cargo knob here is passed INTO the container, not set on the job.
+      # The compile happens inside `docker run`, so a job-level env would never reach cargo.
+      #
+      # CARGO_INCREMENTAL=0: incremental caches buy nothing on a single-shot CI compile and cost disk.
+      #
+      # CARGO_PROFILE_DEV_DEBUG=0: debug info is the bulk of what the linker reads and writes, so dropping it
+      # cuts peak linker memory and disk while making the build faster -- unlike a parallelism cap, it costs no
+      # wall-clock. The trade is shallower backtraces if a test panics on these lanes. Applied to every lane
+      # because two of them have already died mid-`cargo-test`: amazonlinux once, and opensuse on all three
+      # attempts of run 30872860977, each time with the log never published and the step frozen `in_progress`
+      # at ~1h13m against a 120m limit -- the shape of the runner being killed rather than a build error.
+      #
+      # CARGO_BUILD_JOBS=2 on opensuse only: it is the slowest lane even when green (47m51s vs 39-44m) and the
+      # only one still failing, so it links under the most memory pressure. Capping concurrent codegen/link jobs
+      # is the direct lever, kept off the other lanes because it does cost wall-clock -- which is why
+      # timeout-minutes went to 150 alongside it.
       - name: Run cargo-test
-        run: docker run --rm et-test mise run cargo-test
+        env:
+          LANE_ARGS: ${{ matrix.base == 'opensuse/leap:15.6' && '-e CARGO_BUILD_JOBS=2' || '' }}
+        run: |
+          # $LANE_ARGS is a word-split flag list by design; do not quote it.
+          # shellcheck disable=SC2086
+          docker run --rm -e CARGO_INCREMENTAL=0 -e CARGO_PROFILE_DEV_DEBUG=0 $LANE_ARGS et-test mise run cargo-test
 
       - name: Run mise check
         run: docker run --rm et-check

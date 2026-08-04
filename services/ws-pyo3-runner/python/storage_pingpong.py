@@ -42,7 +42,7 @@ def on_binary_frame(frame: bytes) -> None:
         key = key_bytes.decode("utf-8")
         _storage.put(key, value)
         _logger.info("stored %d bytes at key=%s", len(value), key)
-        return None
+        return
 
     key = frame.decode("utf-8")
     value = _storage.get(_agent_id, key)
@@ -51,4 +51,4 @@ def on_binary_frame(frame: bytes) -> None:
     else:
         _send.binary(value)
     _logger.info("fetched key=%s (%d bytes)", key, 0 if value is None else len(value))
-    return None
+    return

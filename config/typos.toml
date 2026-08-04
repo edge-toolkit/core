@@ -3,3 +3,8 @@
 # is not ours to police.
 [files]
 extend-exclude = ["data/"]
+
+[default]
+# "MIS Quarterly" is a journal title (Management Information Systems), not a typo of MISS/MIST.
+# Scoped to the exact two-word title so bare "MIS" elsewhere still gets flagged.
+extend-ignore-re = ["MIS Quarterly"]

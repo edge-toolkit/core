@@ -83,3 +83,7 @@ max_line_length = unset
 
 [config/upstream-cache/data.toml]
 max_line_length = 200
+
+# pnpm writes each package's `resolution: {integrity: sha512-...}` on one line, which exceeds the line length.
+[**/pnpm-lock.yaml]
+max_line_length = unset

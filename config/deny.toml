@@ -18,9 +18,6 @@ ignore = [
   # Build-time proc-macro pulled via macro_rules_attribute -> wgpu-core -> deno_webgpu. Used at compile time
   # only; no runtime exposure. Awaiting wgpu's migration.
   "RUSTSEC-2024-0436",
-  # proc-macro-error2 2.0.1 (unmaintained).
-  # Build-time proc-macro via getset -> neli -> local-ip-address. Compile-time only.
-  "RUSTSEC-2026-0173",
   # rustls-pemfile 2.2.0 (unmaintained).
   # PEM cert parser pulled by deno_native_certs for loading the system CA bundle. Unmaintained, not
   # vulnerable; rustls itself has moved to inline pemfile parsing.
@@ -33,9 +30,10 @@ ignore = [
   # Encoder side, hit only when we *send* a DNS message. The runner uses the OS resolver via hickory. It
   # never crafts outbound DNS frames with attacker-controlled name lists.
   "RUSTSEC-2026-0119",
-  # rand 0.8.5 -- transitive via cap-rand (wasi-runner) + deno_crypto / deno_fs / deno_node (web-runner).
-  # Used for non-cryptographic randomness (jitter, salt scratchpads). Awaiting upstream Deno + cap-rand
-  # migration to rand 0.9.
+  # rand 0.8.5 -- transitive via deno_crypto / deno_fs / deno_node (web-runner).
+  # Used for non-cryptographic randomness (jitter, salt scratchpads). Awaiting upstream Deno's migration to
+  # rand 0.9; the wasi-runner's own cap-rand path went away with the wasmtime 47 bump. cargo-deny reports this
+  # unmatched while osv-scanner still filters it, so the entry is live despite the advisory-not-detected warning.
   "RUSTSEC-2026-0097",
   # rsa 0.9.10 Marvin Attack timing sidechannel on RSA decryption.
   # Pulled by deno_crypto + deno_node_crypto. The runner doesn't hold private RSA keys or decrypt RSA
@@ -43,13 +41,6 @@ ignore = [
   # unless guest JS explicitly imports crypto.subtle and performs RSA-OAEP decrypt with a private key. Our
   # modules don't.
   "RUSTSEC-2023-0071",
-  # wasmtime-wasi 44.0.3 -- WASI hard links / renames bypass FilePerms on the rename/link *destination*.
-  # Pinned to 44.x for ABI compat with wasmtime-wasi-nn 44 (see [workspace.dependencies] wasmtime note);
-  # the fix is in 45.0.3 / 46.0.1. Unreachable here: et-ws-wasi-runner builds its WasiCtx with only
-  # inherit_stdio + inherit_env and grants the guest NO preopened directories, so there is no filesystem
-  # for a hard-link/rename to bypass FilePerms against. Guest storage is proxied through the host `storage`
-  # import (reqwest to ws-server), not WASI fs. Drop when wasmtime + wasmtime-wasi-nn bump to >=45 together.
-  "RUSTSEC-2026-0188",
   # opentelemetry_sdk <=0.32.0 -- unbounded W3C baggage-header parse before size limits, a DoS (fixed 0.32.1).
   # BaggagePropagator::extract_with_context parses inbound entries it then discards. Only our own copy (0.31.0)
   # is still affected -- the Deno-stack copy reached 0.32.1 in the deno_runtime 0.262 bump. Unreachable anyway:

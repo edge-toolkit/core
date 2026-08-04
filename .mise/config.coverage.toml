@@ -28,6 +28,21 @@
 # the minicov feature come from the wasm_cov / *_cov_feat vars so uninstrumented builds stay clean.
 [env]
 RUSTUP_TOOLCHAIN = "nightly"
+# Resolve libonnxruntime at runtime from the mise install rather than from ort-sys's dylib copies.
+# ort-sys symlinks the ONNX Runtime dylibs next to the built binaries, but it derives that directory from
+# `OUT_DIR/../../..`, which nightly's `build/<pkg>/<hash>/out` layout shifts down to `<target>/debug/build`.
+# The copies therefore land in `<target>/debug/build{,/examples,/deps}` and never beside the test binaries, so
+# et-ws-wasi-runner starts and immediately dies with no output -- surfacing in the wasi-runner tests as
+#   called `Result::unwrap()` on an `Err` value: Output(OutputError { program: ".../target/debug/et-ws-wasi-runner",
+#   status: ExitStatus(unix_wait_status(32512)), stdout_utf8: "", stderr_utf8: "", user_error: None })
+# (32512 >> 8 == 127, the loader's "cannot start" code). Seen on commit
+# b63888492c53cd403168ea24483cea53bde60899 at
+# https://github.com/edge-toolkit/core/actions/runs/30786563725/job/91601098246, in all four wasi-runner tests.
+# Pointing the loader straight at the install dir is layout-independent, so it holds however cargo lays the
+# build dir out. Scoped to this env because only the coverage lane runs binaries under nightly. Drop it together
+# with the cargo-doc-check mkdir once ort stops hardcoding the OUT_DIR depth.
+DYLD_LIBRARY_PATH = "{{ vars.ort_loc_unix }}/lib"
+LD_LIBRARY_PATH = "{{ vars.ort_loc_unix }}/lib"
 _.path = "{{ env.HOME }}/.local/share/mise/installs/conda-clang/latest/bin"
 
 [tasks.cargo-llvm-cov]
@@ -57,6 +72,12 @@ coreutils rm -rf target/debug target/release
 # `--sh` is the current flag (the old `--export-prefix` alias is deprecated). This sets the rustc wrapper +
 # LLVM_PROFILE_FILE + profile dir so nextest and the regens instrument into one profile set that `report` merges.
 eval "$(cargo llvm-cov show-env --sh)"
+# Pre-create the dirs ort-sys symlinks its dylibs into, for the same nightly-cargo reason as cargo-doc-check.
+# It has to come after the eval above, which is what points CARGO_TARGET_DIR at the instrumented target dir --
+# a `depends` task would run in its own process and never see it. This whole env builds on nightly
+# (RUSTUP_TOOLCHAIN above), so every cargo invocation below hits the same build-script layout.
+ort_build_dir="${CARGO_TARGET_DIR:-target}${CARGO_BUILD_TARGET:+/$CARGO_BUILD_TARGET}/debug/build"
+coreutils mkdir -p "$ort_build_dir/examples" "$ort_build_dir/deps"
 # nextest SIGKILLs the spawned et-ws-pyo3-runner (services/ws-pyo3-runner/tests/modules.rs) after each exchange.
 # LLVM flushes a process's counters only at exit, so a SIGKILLed process contributes nothing: the runner's async
 # run/drive/worker paths reported 0% while its in-process initialize() was covered. Continuous mode (%c) memory-maps
@@ -127,7 +148,16 @@ AWK
 : > "$covdir/wasi.lcov"
 for profraw in "$covdir"/*.profraw; do
   name="$(coreutils basename "$profraw" .profraw)"
-  ll="$(find target -path '*/release/deps/*' -name "$name*.ll" 2>/dev/null | coreutils head -n 1)"
+  # Look for the .ll in nightly's new build-dir layout first, then the classic one.
+  # `-Z build-dir-new-layout` (now the default on nightly, which this env pins) moved per-crate intermediates
+  # from `<profile>/deps/` to `<profile>/build/<pkg>/<hash>/out/`, so the deps-only glob this used to run found
+  # nothing and every module aborted the task with `wasi-cov: no .ll found for et_ws_audio1`. Observed on commit
+  # 3fe98398 at https://github.com/edge-toolkit/core/actions/runs/30789818011/job/91610793550. Both globs stay so
+  # the task works whichever layout the toolchain produces; drop the deps fallback once no supported cargo emits it.
+  ll="$(find target -path '*/release/build/*' -name "$name*.ll" 2>/dev/null | coreutils head -n 1)"
+  if [ -z "$ll" ]; then
+    ll="$(find target -path '*/release/deps/*' -name "$name*.ll" 2>/dev/null | coreutils head -n 1)"
+  fi
   if [ -z "$ll" ]; then echo "wasi-cov: no .ll found for $name"; exit 1; fi
   pd="$covdir/$name.profdata"
   obj="$covdir/$name.o"
@@ -261,12 +291,29 @@ skip { next }
 AWK
 "$llbin/llvm-profdata" merge -sparse -o "$covdir/agent.profdata" "$covdir"/wasm-agent-*.profraw
 objs=()
-for ll in target/wasm32-unknown-unknown/debug/deps/*.ll; do
+# Collect the instrumented .ll from whichever build-dir layout the toolchain produced.
+# A plain `deps/*.ll` glob broke when nightly made `-Z build-dir-new-layout` the default: per-crate
+# intermediates moved to `<profile>/build/<pkg>/<hash>/out/`, the glob matched nothing, and the unexpanded
+# pattern reached goawk as a literal filename -- `file "target/wasm32-unknown-unknown/debug/deps/*.ll" not
+# found` on commit 12bfe419 at https://github.com/edge-toolkit/core/actions/runs/30797697402/job/91634929015.
+# `find` also avoids the silent-nullglob trap the literal-pattern failure exposed.
+lls="$(find target/wasm32-unknown-unknown/debug -path '*/build/*' -name '*.ll' 2>/dev/null)"
+if [ -z "$lls" ]; then
+  lls="$(find target/wasm32-unknown-unknown/debug/deps -name '*.ll' 2>/dev/null)"
+fi
+if [ -z "$lls" ]; then
+  echo "wasm-agent-cov: no instrumented .ll under target/wasm32-unknown-unknown/debug" >&2
+  exit 1
+fi
+while IFS= read -r ll; do
+  [ -n "$ll" ] || continue
   name="$(coreutils basename "$ll" .ll)"
   goawk -f "$gut" "$ll" > "$covdir/$name.g.ll"
   "$llbin/llc" -filetype=obj -mtriple=x86_64-unknown-linux-gnu -o "$covdir/$name.o" "$covdir/$name.g.ll"
   objs+=("-object" "$covdir/$name.o")
-done
+done <<LLS
+$lls
+LLS
 "$llbin/llvm-cov" export --format=lcov --instr-profile "$covdir/agent.profdata" "${objs[@]}" > "$covdir/all.lcov"
 keep="$covdir/keep.awk"
 coreutils cat > "$keep" <<'AWK'
@@ -337,12 +384,24 @@ skip { next }
 AWK
 "$llbin/llvm-profdata" merge -sparse -o "$covdir/pic-viewer.profdata" "$covdir"/pic-viewer-*.profraw
 objs=()
-for ll in target/wasm32-unknown-unknown/debug/deps/*.ll; do
+# Same build-dir-layout handling as wasm-agent-cov above; this task shares the failure mode.
+lls="$(find target/wasm32-unknown-unknown/debug -path '*/build/*' -name '*.ll' 2>/dev/null)"
+if [ -z "$lls" ]; then
+  lls="$(find target/wasm32-unknown-unknown/debug/deps -name '*.ll' 2>/dev/null)"
+fi
+if [ -z "$lls" ]; then
+  echo "pic-viewer-cov: no instrumented .ll under target/wasm32-unknown-unknown/debug" >&2
+  exit 1
+fi
+while IFS= read -r ll; do
+  [ -n "$ll" ] || continue
   name="$(coreutils basename "$ll" .ll)"
   goawk -f "$gut" "$ll" > "$covdir/$name.g.ll"
   "$llbin/llc" -filetype=obj -mtriple=x86_64-unknown-linux-gnu -o "$covdir/$name.o" "$covdir/$name.g.ll"
   objs+=("-object" "$covdir/$name.o")
-done
+done <<LLS
+$lls
+LLS
 "$llbin/llvm-cov" export --format=lcov --instr-profile "$covdir/pic-viewer.profdata" "${objs[@]}" > "$covdir/all.lcov"
 keep="$covdir/keep.awk"
 coreutils cat > "$keep" <<'AWK'

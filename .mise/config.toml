@@ -10,20 +10,13 @@
 #   Run a check across everything:      mise run check-all  (or install-all)
 #   Make a selection sticky:            export MISE_ENV=dart
 
-# Require release that introduced auto_env enabled in .miserc.toml
-min_version = "2026.7.1"
+# Track the latest mise release; the floor still covers auto_env enabled in .miserc.toml.
+min_version = "2026.8.0"
 
 [settings]
 # Disable mise's two auto-install paths so tasks fail fast on a missing tool.
 # exec_auto_install covers `mise exec`, task.run_auto_install covers `mise run`.
 cargo.binstall = true
-# Make every inline task body run under bash by default (Windows-only effect).
-# bash is ash via MISE_BASH_PATH = busybox-w32 in config.windows.toml. Without this, mise spawns `cmd /c "<body>"`
-# and any task in the always-loaded base config hits the cmd-subprocess PATH dropout (cargo/pnpm/wasm-pack
-# /etc. unresolvable) we worked around piecemeal with `shell = "bash -euo pipefail -c"` on prefetch:rust,
-# prefetch:node, and build-et-cli. Setting the global flips every other task at once. Tasks that explicitly
-# need cmd (e.g. dotnet-data1's `dotnet publish` chain) still set `shell` on the task to override.
-windows_default_inline_shell_args = "bash -euo pipefail -c"
 # Disable mise backends we never use.
 # `asdf` is kept enabled because several of our bare-name tools (conftest, dprint, hadolint, pipx, rclone,
 # ruff, ...) list `asdf:` as the registry fallback after `aqua:`. `vfox` was the original target -- killed
@@ -112,7 +105,14 @@ ripgrep = "latest"
 # Sole consumer right now is the `go:` backend that source-builds jqfmt.
 # (noperator/jqfmt ships no release assets); add Go users here as they arrive.
 go = "latest"
-"go:github.com/noperator/jqfmt/cmd/jqfmt" = "latest"
+# Version-pinned rather than `latest` so installing it needs no Go-proxy version lookup.
+# Resolving `latest` queries the proxy for the tag list, and that request is bound by
+# fetch_remote_versions_timeout (20s), which the Windows lanes' third-party egress overran:
+#   mise ERROR Failed to install go:github.com/noperator/jqfmt/cmd/jqfmt@latest: timed out after 20.00s
+# on commit 12bfe419 at https://github.com/edge-toolkit/core/actions/runs/30797697389/job/91634929057.
+# Pinning removes the lookup entirely instead of widening the timeout. upstream has exactly one release, so
+# this is also what `latest` already resolved to -- revisit only when noperator/jqfmt tags a second version.
+"go:github.com/noperator/jqfmt/cmd/jqfmt" = "0.1.0"
 hadolint = "latest"
 ls-lint = "latest"
 lychee = "latest"
@@ -314,10 +314,14 @@ augeas_windows_x64_asset = "1.14.1-x86_64-pc-windows-mingw.tar.gz"
 # Used to compose absolute paths into a tool's install dir from [env] (e.g. AUGEAS_LENS_LIB). Honours
 # MISE_DATA_DIR if set; otherwise mise's default of $XDG_DATA_HOME (~/.local/share/mise on Linux/macOS).
 mise_data_dir = '{{ env?.MISE_DATA_DIR or (vars.a_home ~ "/.local/share/mise") }}'
-# The committed lockfiles osv-scanner scans, one per ecosystem (Rust/Python/Dart/Java).
-# The gitignored pnpm-lock.yaml is intentionally excluded: it is regenerated per install (onnxruntime-web is
-# unpinned), so there is no stable committed file to scan.
-osv_locks = "--lockfile Cargo.lock --lockfile uv.lock --lockfile pubspec.lock --lockfile pom.xml"
+# The Rust/Python/Dart/Java half of the lockfile set osv-scanner scans, one file per ecosystem.
+# Split from the npm half (and composed into osv_locks below) so no single line exceeds the editorconfig line
+# length. The `a_` prefix puts both halves ahead of osv_locks in mise's alphabetical [vars] render order, so
+# they are defined before osv_locks interpolates them.
+a_osv_locks_base = "--lockfile Cargo.lock --lockfile uv.lock --lockfile pubspec.lock --lockfile pom.xml"
+# The npm half: the repo-root pnpm workspace lockfile, covering every member listed in pnpm-workspace.yaml.
+a_osv_locks_node = "--lockfile pnpm-lock.yaml"
+osv_locks = "{{ vars.a_osv_locks_base }} {{ vars.a_osv_locks_node }}"
 # clang-tidy's resource-dir arg (points clang at its builtin headers, e.g.
 # stddef.h). Empty default; config.linux.toml sets it from conda:clangxx.
 clang_resource_arg = ""
@@ -687,7 +691,26 @@ description = "Type-check rustdoc with -D warnings to fail on any doc issues"
 # `cargo +nightly fmt`. Drop `-Z unstable-options --check` and switch back to plain `cargo doc` once
 # rustdoc stabilises `--check`.
 env = { RUSTDOCFLAGS = "-Z unstable-options --check -D warnings" }
-run = "cargo +nightly doc --keep-going --workspace --no-deps --document-private-items {{ vars.cargo_ws_excludes }}"
+# The mkdir works around ort-sys assuming a fixed OUT_DIR depth; it must precede any nightly cargo build.
+# Nightly cargo (1.99.0-nightly, 7c83d4cc0, 2026-07-29) writes build-script output to `build/<pkg>/<hash>/out`
+# where stable still uses `build/<pkg>-<hash>/out`. ort-sys 2.0.0-rc.10's `copy_libraries` locates the profile
+# dir via `out_dir.ancestors().nth(3)`, so that extra path segment lands it on `<target>/debug/build` instead of
+# `<target>/debug`. It then symlinks the ONNX Runtime dylibs into that dir plus `examples/` and `deps/` beneath
+# it, and the unwrapped symlink aborts on the first of those that does not exist:
+#   thread 'main' panicked at .../ort-sys-2.0.0-rc.10/build.rs:129:66:
+#   called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+# Seen on commit 9440a53b3f632307d5a41b654ff526981021759f in the macos + ubuntu check lanes, e.g.
+# https://github.com/edge-toolkit/core/actions/runs/30782416445/job/91589563319 -- and reproducible locally.
+# The feature cannot simply be switched off: wasmtime-wasi-nn declares `features = ["copy-dylibs"]` on its own
+# ort dependency, so feature unification keeps it enabled regardless of this workspace's ort entry. Creating the
+# dirs is inert under the classic layout. Drop this once ort stops hardcoding the depth -- 2.0.0-rc.13 still
+# does, at build/dynamic_link.rs:18.
+run = """
+ort_build_dir="${CARGO_TARGET_DIR:-target}${CARGO_BUILD_TARGET:+/$CARGO_BUILD_TARGET}/debug/build"
+coreutils mkdir -p "$ort_build_dir/examples" "$ort_build_dir/deps"
+cargo +nightly doc --keep-going --workspace --no-deps --document-private-items {{ vars.cargo_ws_excludes }}
+"""
+shell = "bash -euo pipefail -c"
 
 [tasks.cargo-clippy-fix]
 run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace --tests {{ vars.cargo_ws_excludes }}"
@@ -914,27 +937,6 @@ run = "lychee --config config/lychee.toml '**/*.md' 'libs/**/*.rs' 'services/**/
 description = "Lint YAML with ryl (a yamllint-compatible Rust linter)"
 run = "ryl -c config/ryl.yaml .github config"
 
-[tasks.setup-aube]
-# `aube` is an OPTIONAL faster npm backend, kept out of the mandatory `[tools]` list.
-# It is omitted because its install is flaky on some platforms and edge-toolkit falls back to the
-# classical `lib/node_modules` layout without it (see `find_npm_modules_path_in`).
-#
-# CI (check.yaml / test.yaml) runs this task in its own allowed-to-fail step, placed BEFORE the main
-# `mise install` so the `npm:onnxruntime-web` install can pick up aube as its backend.
-#
-# Platform split: aqua ships aube for linux/macos-arm64/windows; macos/x64 has
-# no aqua asset, so use the cargo backend there. The branch is rendered by
-# mise's tera templating to pick the right backend per platform.
-description = "Install the optional aube npm backend (platform-specific, best-effort)"
-run = """
-{% if os() == "macos" and arch() == "x64" %}
-mise install cargo:aube@latest
-{% else %}
-mise install aube@latest
-{% endif %}
-"""
-shell = "bash -euo pipefail -c"
-
 [tasks._setup_all]
 description = "Private shared cross-platform preinstall"
 hide = true
@@ -964,10 +966,11 @@ mise install rclone
 """
 shell = "bash -euo pipefail -c"
 
-[tasks.osv-scanner]
+[tasks.osv-scanner-check]
 # Scans every committed lockfile across languages for known vulnerabilities.
-# Covers Cargo.lock, uv.lock, pubspec.lock, and pom.xml (one per ecosystem), with no build dependency, so the same
-# task serves both ad-hoc local use and the dependencies workflow. The `--lockfile` args live in vars.osv_locks.
+# The scanned set is vars.osv_locks. No build dependency, so the same task serves both ad-hoc local use and the
+# dependencies workflow.
+alias = "osv-scanner"
 run = "osv-scanner {{ vars.osv_locks }} --config config/osv-scanner.toml"
 
 [tasks."gen:osv-scanner"]
@@ -1109,13 +1112,15 @@ shell = "bash -euo pipefail -c"
 
 [tasks."prefetch:node"]
 # Needs `build-ws-wasm-agent` first.
-# The static workspace `link:`s its `pkg/`, so the link target must exist before `pnpm install`.
+# The static member `link:`s its `pkg/`, so the link target must exist before `pnpm install`.
 depends = ["build-ws-wasm-agent"]
-description = "Prefetch the Node (pnpm) static workspace"
+description = "Prefetch the Node (pnpm) workspace"
 # pnpm refuses non-TTY destructive node_modules cleanup unless CI=true.
 # That cleanup fires when an earlier install left a different layout. Treat as a CI batch.
 env = { CI = "true" }
-run = "pnpm install --dir services/ws-server/static --ignore-scripts --config.ignoredBuiltDependencies=protobufjs"
+# Installs the whole workspace from the repo root, so no --dir.
+# The members come from pnpm-workspace.yaml and the resolution lands in the single root pnpm-lock.yaml.
+run = "pnpm install --ignore-scripts --config.ignoredBuiltDependencies=protobufjs"
 # `shell = "bash"` on Windows for the same base-config-task PATH dropout.
 # Same dropout as `prefetch:rust` and `build-et-cli` -- cmd subprocess can't find pnpm. Captured on
 # 3ac0d60b windows test job 82282265424 (after the prefetch:rust fix, the same failure surfaced one step

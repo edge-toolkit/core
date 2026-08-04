@@ -66,7 +66,9 @@ async def run(agent_id, base_url, sleep_ms, log, set_status, upload_consent) -> 
                     body=File(payload=consent_content.encode("utf-8")),
                 )
             log(f"pydata1: consent-gated upload succeeded: {consent_filename}")
-        except Exception as exc:
+        # Broad on purpose: this is the diagnostic half of the workflow, exercising the consent-gated upload
+        # path. Any failure is information to log, and must not fail the verification the test above just made.
+        except Exception as exc:  # noqa: BLE001
             log(f"pydata1: consent-gated upload failed: {exc}")
     else:
         log("pydata1: upload consent not granted, skipping consent-gated upload")

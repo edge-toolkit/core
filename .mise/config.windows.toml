@@ -142,10 +142,19 @@ maven_bin = '{{ vars.mise_installs }}\maven\3.9.16\apache-maven-3.9.16\bin'
 # conda:libclang's binary dir, for the LIBCLANG_PATH below.
 # Pinned to the [tools] version above -- bump both together (conftest's version_drift enforces).
 win_libclang = '{{ vars.mise_installs }}\conda-libclang\22.1.8\Library\bin'
-# npm:oxlint-tsgolint's package dir inside its mise install, for the OXLINT_TSGOLINT_PATH entry below.
-# npm global installs land at `<prefix>\node_modules\<pkg>` on Windows (vs `lib/node_modules` on Unix). Pinned
-# to the config.js.toml [tools] version -- bump both together (conftest's version_drift enforces).
-tsgolint_pkg = '{{ vars.mise_installs }}\npm-oxlint-tsgolint\0.24.0\node_modules\oxlint-tsgolint'
+# The flat dependency farm inside npm:oxlint-tsgolint's mise install, for the OXLINT_TSGOLINT_PATH entry below.
+# mise's embedded aube hoists a tool's dependencies rather than nesting them: `<install>\node_modules\<pkg>`
+# is a symlink to `.mise\<pkg>@<version>\node_modules\<pkg>`, and that package dir holds only its own files
+# (bin, package.json, ...) with NO nested `node_modules`. Its `@oxlint-tsgolint\<triple>` platform dep lives in
+# the flat farm instead, so the pre-aube
+# `...\node_modules\oxlint-tsgolint\node_modules\@oxlint-tsgolint\<triple>` path this used to build no longer
+# resolves and oxlint aborted with
+#   Failed to find tsgolint executable: OXLINT_TSGOLINT_PATH points to '...' which does not exist
+# on commit 12bfe419 at https://github.com/edge-toolkit/core/actions/runs/30797697407/job/91634929181.
+# The flat farm is preferred over the equivalent `.mise\oxlint-tsgolint@<version>\node_modules\...` path
+# because it carries no second copy of the version to keep in sync. Pinned to the config.js.toml [tools]
+# version -- bump both together (conftest's version_drift enforces).
+tsgolint_pkg = '{{ vars.mise_installs }}\npm-oxlint-tsgolint\0.24.0\node_modules\.mise\node_modules'
 # wasm-pack's wasm-opt (binaryen) can't execute on Nano Server (os error 3).
 # So the module + wasm-agent builds pass --no-opt; they reference {{ vars.no_opt }}.
 no_opt = "--no-opt"
@@ -185,7 +194,7 @@ MISE_BASH_PATH = "{{ vars.winsh }}"
 # per-platform exe nested in the npm package sidesteps node and cmd.exe entirely. Windows-only (this file)
 # both because only cmd.exe has the limit and because oxlint hard-fails on a set-but-invalid value, which an
 # off-Windows `{% if %}` empty-string render would be. Inert when js isn't in MISE_ENV; just an unused path.
-OXLINT_TSGOLINT_PATH = '{{ vars.tsgolint_pkg }}\node_modules\@oxlint-tsgolint\win32-x64\tsgolint.exe'
+OXLINT_TSGOLINT_PATH = '{{ vars.tsgolint_pkg }}\@oxlint-tsgolint\win32-x64\tsgolint.exe'
 # Build for the LLVM mingw target.
 # gnullvm, not gnu: llvm-mingw ships compiler-rt + libunwind, not the GCC runtime (libgcc/libgcc_eh) the gnu
 # target's link line demands. The linker is llvm-mingw's clang and the raw-dylib import tool is its
@@ -261,6 +270,21 @@ if ! echo "" | sha256sum >/dev/null 2>&1; then
   exit 1
 fi
 echo "[sha256sum-check] OK"
+
+# Seed the inline-shell default into the GLOBAL mise config, the only place mise still honours it.
+# Current mise (see min_version in config.toml) strips every `global_only` setting from a non-global config
+# file -- strip_local_only_settings in its src/config/settings.rs -- and warns
+#   mise WARN  windows_default_inline_shell_args in non-global config <repo>/.mise/config.toml is ignored
+#   for security reasons
+# so this repo can no longer set it in .mise/config.toml. Without it, mise falls back to its `cmd /c` default
+# for every single-line task `run` on Windows -- 78 of them -- where cargo/pnpm/wasm-pack are unresolvable
+# (the cmd-subprocess PATH dropout). Multi-line bodies are unaffected: our semgrep
+# multiline-task-run-needs-bash-shell rule already forces an explicit `shell` on those, which is also why
+# THIS task still runs under bash and can bootstrap the setting.
+#
+# `mise settings set` writes the user's global config, so this covers workstations as well as CI -- an env var
+# exported by the workflows would only ever fix CI. Idempotent, and scoped to this one Windows-only key.
+mise settings set windows_default_inline_shell_args "bash -euo pipefail -c"
 
 mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
 
