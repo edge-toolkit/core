@@ -7,7 +7,9 @@ description: >-
   jlumbroso/free-disk-space on Linux, which doesn't have a Windows path.
   Logs disk-free before + after so the reclaimed space is visible.
 
-  Enabling all makes approximately 10Gb free.
+  The default-on removals free roughly 17 GB. The two opt-in ones
+  (visual-studio, windows-kits) add up to another ~23 GB, but only a
+  caller that builds entirely inside a container may enable them.
 
   Caller is responsible for the `if: runner.os == 'Windows'` guard --
   every step here uses Git Bash with `C:\` mounted at `/c`; running this
@@ -42,6 +44,36 @@ inputs:
       Strawberry Perl) -- ~1 GB combined.
     required: false
     default: "true"
+  hostedtoolcache-unused-runtimes:
+    description: >-
+      Remove the `hostedtoolcache` Ruby, Go and CodeQL trees (~4 GB
+      combined). Nothing here uses Ruby; Go comes from mise's own `go`
+      pin rather than setup-go's copy; CodeQL runs only in codeql.yaml,
+      which does not call this action.
+    required: false
+    default: "true"
+  cloud-clis:
+    description: >-
+      Remove the preinstalled Azure, AWS and Google Cloud SDK trees
+      (~3 GB combined). No lane in this repo talks to a cloud provider.
+    required: false
+    default: "true"
+  visual-studio:
+    description: >-
+      Remove the preinstalled Visual Studio tree (~10-20 GB, the single
+      largest reclaim available). OFF by default because it is only safe
+      when the caller builds entirely inside a container: test.yaml's
+      `override (msvc)` lane needs MSVC's link.exe on the runner itself.
+      docker-windows.yaml opts in.
+    required: false
+    default: "false"
+  windows-kits:
+    description: >-
+      Remove the preinstalled Windows SDKs under `Windows Kits` (~3 GB).
+      OFF by default for the same reason as visual-studio -- a native
+      msvc link needs these headers and import libraries.
+    required: false
+    default: "false"
   keep-image:
     description: >-
       Docker image (repo:tag) to preserve during the docker prune.
@@ -101,6 +133,42 @@ runs:
         pf="/c/Program Files"
         pf86="/c/Program Files (x86)"
         for p in "$pf/MongoDB" "$pf/PostgreSQL" "$pf86/Heroku" "/c/Strawberry"; do
+          [ -e "$p" ] && { echo "removing $p"; rm -rf -- "$p"; } || true
+        done
+
+    - name: Remove hostedtoolcache unused runtimes
+      if: inputs.hostedtoolcache-unused-runtimes == 'true'
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: |
+        for p in /c/hostedtoolcache/{Ruby,go,CodeQL}; do
+          [ -e "$p" ] && { echo "removing $p"; rm -rf -- "$p"; } || true
+        done
+
+    - name: Remove cloud CLIs
+      if: inputs.cloud-clis == 'true'
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: |
+        pf="/c/Program Files"
+        pf86="/c/Program Files (x86)"
+        paths=("$pf/Microsoft SDKs/Azure" "$pf86/Microsoft SDKs/Azure")
+        paths+=("$pf/Amazon" "$pf86/AWSCLIV2" "$pf86/Google/Cloud SDK")
+        for p in "${paths[@]}"; do
+          [ -e "$p" ] && { echo "removing $p"; rm -rf -- "$p"; } || true
+        done
+
+    - name: Remove Visual Studio
+      if: inputs.visual-studio == 'true'
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: |
+        for p in "/c/Program Files/Microsoft Visual Studio" "/c/Program Files (x86)/Microsoft Visual Studio"; do
+          [ -e "$p" ] && { echo "removing $p"; rm -rf -- "$p"; } || true
+        done
+
+    - name: Remove Windows Kits
+      if: inputs.windows-kits == 'true'
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: |
+        for p in "/c/Program Files (x86)/Windows Kits" "/c/Program Files/Windows Kits"; do
           [ -e "$p" ] && { echo "removing $p"; rm -rf -- "$p"; } || true
         done
 

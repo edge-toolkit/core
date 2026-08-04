@@ -146,8 +146,12 @@ jobs:
           docker run --rm et-test sh -c "find / -xdev -type f -size +50M -exec du -h {} + | sort -h | tail -50"
           echo "::endgroup::"
 
+      # CARGO_INCREMENTAL=0 is passed into the container rather than set on the job.
+      # The compile happens inside `docker run`, so a job-level env would never reach cargo. Incremental caches
+      # buy nothing on a single-shot CI compile and cost disk, which these lanes are tight on -- amazonlinux and
+      # opensuse have both died mid-`cargo-test` with the runner losing its volume.
       - name: Run cargo-test
-        run: docker run --rm et-test mise run cargo-test
+        run: docker run --rm -e CARGO_INCREMENTAL=0 et-test mise run cargo-test
 
       - name: Run mise check
         run: docker run --rm et-check
