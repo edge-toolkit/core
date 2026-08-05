@@ -61,7 +61,7 @@ cargo-binstall = "latest"
 cmake = "latest"
 "conda:openssl" = "3"
 conftest = "latest"
-"github:nextest-rs/nextest" = "latest"
+"github:nextest-rs/nextest" = { version = "latest", version_prefix = "cargo-nextest-" }
 taplo = "latest"
 watchexec = "latest"
 # uutils coreutils: the Rust multicall binary, invoked as `coreutils <util>` in tasks.
