@@ -248,9 +248,29 @@ cargo clean -p et-ws-wasm-agent --target wasm32-unknown-unknown
 driver="${CHROMEDRIVER:-$(mise which chromedriver)}"
 
 # Build + run cov-server itself instrumented so the launcher is not reported as untested.
-# It uses native -Cinstrument-coverage (with nightly branch coverage, matching the rest of the pipeline) and
-# flushes its counters to this .profraw on the clean exit that removing the marker below triggers.
-RUSTFLAGS="-Cinstrument-coverage -Zcoverage-options=branch" cargo build -q -p et-ws-test-server --bin cov-server
+# It uses native -Cinstrument-coverage and flushes its counters to this .profraw on the clean exit that removing
+# the marker below triggers.
+#
+# Deliberately WITHOUT `-Zcoverage-options=branch`, unlike the rest of the pipeline: branch regions over async
+# code make llvm-cov segfault while reading this binary's coverage map, so the `-object target/debug/cov-server`
+# export below aborts the whole task with
+#     bash: line 98: 49175 Segmentation fault: 11  "$llbin/llvm-cov" export --format=lcov
+#       --instr-profile "$csp.profdata" -object target/debug/cov-server > "$csp.lcov"
+# and no LLVM stack trace. Under lldb the frame is
+# `llvm::coverage::CoverageMapping::getInstantiationGroups(llvm::StringRef) const + 412`, an EXC_BAD_ACCESS on a
+# near-null address -- the open upstream bug https://github.com/llvm/llvm-project/issues/189169 ("Crash in
+# llvm-cov for rust with async code and --branch option", minimal repro at
+# https://github.com/mscharley/llvm-cov-crash). It reproduces identically under every llvm-cov on hand (the
+# nightly, stable and previous-stable toolchains' copies), is unaffected by `-num-threads=1` or an 8x larger
+# stack, and follows the object rather than the profile.
+# cov-server crossed the threshold when it gained the storage service's object_store dependency tree (285 crates,
+# a 10.4 MB __llvm_covfun), which is why the coverage lane passed on commit d8d42f9c and failed from
+# 6e80f4decd7d7d78ec6bd770d52105f4bd5db15a onward -- e.g.
+# https://github.com/edge-toolkit/core/actions/runs/30988267419/job/92248023234.
+# Dropping branch regions for this one binary keeps its line coverage and costs only its own BRDA records; every
+# other crate still gets branch coverage via `a_wasm_cov_instr` / the show-env wrapper. Restore the flag here
+# once #189169 is fixed and the toolchain ships it.
+RUSTFLAGS="-Cinstrument-coverage" cargo build -q -p et-ws-test-server --bin cov-server
 LLVM_PROFILE_FILE="{{ config_root }}/$covdir/cov-server-%p.profraw" ./target/debug/cov-server "$covdir/server-ready" &
 server_pid=$!
 trap 'kill "$server_pid" 2>/dev/null || true' EXIT
