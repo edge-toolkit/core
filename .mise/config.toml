@@ -97,6 +97,12 @@ ripgrep = "latest"
 "github:benhoyt/goawk" = "latest"
 "github:caldempsey/parfit" = "latest"
 "github:grok-rs/waitup" = "latest"
+# The macos/x64 half of rustfs, the one platform upstream ships no prebuilt for.
+# A git spec rather than a bare `cargo:rustfs`: the crates.io crate is a stale 0.0.2 placeholder while real
+# releases are 1.0.0-beta.x on GitHub only, so installing the crate would give this platform different software
+# than every other one. `tag:` builds the exact source the prebuilt is cut from, keeping them aligned -- bump it
+# with the `rustfs` entry. A source build is acceptable here because macos/x64 is second-tier.
+"cargo:rustfs/rustfs" = { version = "tag:1.0.0-beta.12", os = ["macos/x64"] }
 # ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
 "github:microsoft/onnxruntime" = "1.22.0"
@@ -139,6 +145,12 @@ protoc = "latest"
 # exact `3.x.y` dir. Bump in lockstep with py3_unix/py3_win/pylib.
 python = "3.13.14"
 rclone = "latest"
+# rustfs is the S3-compatible server the et-storage-service S3-backend test runs against.
+# Version-pinned rather than `latest` because upstream has published only prereleases so far, which mise's
+# version list filters out -- `latest` resolves to nothing. Upstream ships prebuilts for linux (x64+arm64,
+# gnu+musl), macos/arm64 and windows/x64 but NOT macos/x64, so that one platform builds from source via the
+# cargo entry below. Bump both in lockstep.
+rustfs = { version = "1.0.0-beta.12", os = ["linux", "macos/arm64", "windows"] }
 typos = "latest"
 uv = "0.11.8"
 wasm-tools = "latest"

@@ -16,6 +16,7 @@
               "cargo:dart-typegen",
               "cargo:findutils",
               "cargo:open",
+              "cargo:rustfs/rustfs",
               "cargo:ryl",
               "cargo:wasm-opt"
             ]

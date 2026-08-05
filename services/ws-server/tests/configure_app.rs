@@ -19,7 +19,7 @@ async fn no_content_returns_204() {
 async fn configure_app_wires_favicon_health_and_modules() {
     let storage_dir = tempdir().unwrap();
     let mut config = Config::default();
-    config.storage = StorageConfig::new(storage_dir.path().to_path_buf());
+    config.storage = StorageConfig::local(storage_dir.path());
 
     let registry = web::Data::new(WsAgentRegistry::default());
     let app = test::init_service(App::new().configure(|cfg| configure_app(cfg, registry, &config))).await;

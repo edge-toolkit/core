@@ -17,7 +17,7 @@ use actix_web::http::StatusCode;
 use actix_web::{App, FromRequest as _, test, web};
 use edge_toolkit::ws::AgentConnectionState;
 use edge_toolkit::ws_server::{AgentRecord, AgentRegistry};
-use et_storage_service::{StorageConfig, StorageError, configure, put_file};
+use et_storage_service::{StorageConfig, StorageError, build_store, configure, put_file};
 use tempfile::TempDir;
 
 /// Build a registry with a single connected agent.
@@ -31,7 +31,7 @@ fn registry_with_agent(agent_id: &str) -> AgentRegistry<()> {
 }
 
 fn storage_config(tmp: &TempDir) -> StorageConfig {
-    StorageConfig::new(tmp.path().to_path_buf())
+    StorageConfig::local(tmp.path())
 }
 
 #[actix_rt::test]
@@ -75,7 +75,8 @@ async fn rejects_multi_component_filename_with_400() {
     let mut payload = DevPayload::None;
     let payload = web::Payload::from_request(&http_req, &mut payload).await.unwrap();
 
-    let result = put_file::<()>(http_req, payload, web::Data::new(registry), web::Data::new(config)).await;
+    let store = web::Data::<dyn object_store::ObjectStore>::from(build_store(&config).unwrap());
+    let result = put_file::<()>(http_req, payload, web::Data::new(registry), store).await;
 
     let err = result.unwrap_err();
     assert!(matches!(err, StorageError::InvalidFilename));
@@ -139,14 +140,16 @@ async fn stores_an_image_and_returns_200_even_though_tty_rendering_cannot_succee
 
 #[actix_rt::test]
 async fn surfaces_io_failure_as_500() {
-    // Point the storage root at a *file* (not a directory). The handler's
-    // first I/O op is `create_dir_all`, which fails with `NotADirectory`
-    // when one of the ancestors is a regular file. That propagates through
-    // `StorageError::Io` and the derived `ResponseError` impl returns 500.
+    // Block the *agent's* directory with a regular file, so the store's write fails on an ancestor that is not
+    // a directory. That surfaces as `StorageError::Store` and the derived `ResponseError` impl returns 500.
+    //
+    // The storage root itself stays a valid directory on purpose: an unusable root is a misconfigured
+    // deployment, which `configure` now rejects at startup rather than turning into a per-request 500, so
+    // pointing the root at a file (what this test used to do) would panic before any request was served.
+    // Blocking one level down keeps the test on the request path it is actually about.
     let tmp = tempfile::tempdir().unwrap();
-    let blocker = tmp.path().join("blocker");
-    fs_err::write(&blocker, b"i am a file, not a directory").unwrap();
-    let config = StorageConfig::new(blocker);
+    fs_err::write(tmp.path().join("agent-1"), b"i am a file, not a directory").unwrap();
+    let config = StorageConfig::local(tmp.path());
     let registry = registry_with_agent("agent-1");
     let app = test::init_service(
         App::new()

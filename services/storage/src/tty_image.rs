@@ -14,12 +14,15 @@
 
 use std::fmt::Write as _;
 use std::io::Write as _;
-use std::path::Path;
 
 /// Terminal columns the rendered thumbnail is resized to fit within.
 const TARGET_COLUMNS: u32 = 48;
 
-/// Render a thumbnail of the image at `path` directly to stdout using ANSI truecolor half-block art.
+/// Render a thumbnail of in-memory image bytes to stdout using ANSI truecolor half-block art.
+///
+/// Takes bytes rather than a path because the object may never exist on the local filesystem: with a remote
+/// `object_store` backend there is nothing to open, and even locally the storage handler already holds the
+/// buffer it just wrote, so decoding from memory avoids a read-back.
 ///
 /// Returns the underlying `image` decode error on failure; the caller decides how to report it (this module
 /// stays IO-boundary-agnostic rather than picking a logging mechanism itself).
@@ -27,8 +30,8 @@ const TARGET_COLUMNS: u32 = 48;
     clippy::single_call_fn,
     reason = "distinct step of show_image_on_tty; kept separate for readability and testing"
 )]
-pub fn render(path: &Path) -> image::ImageResult<()> {
-    let source = image::open(path)?;
+pub fn render_bytes(bytes: &[u8]) -> image::ImageResult<()> {
+    let source = image::load_from_memory(bytes)?;
     if source.width() == 0 || source.height() == 0 {
         return Ok(());
     }

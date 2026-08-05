@@ -106,6 +106,11 @@ local-ip-address = "0.6"
 log = "0.4"
 minicov = "0.3"
 onnx-extractor = "0.3"
+# Storage backend abstraction: local disk by default, any object_store backend via a URL.
+# `aws` pulls the S3 client (which also covers S3-compatible servers such as the rustfs mise tool the backend
+# test runs against). Only `aws` is enabled -- adding `gcp`/`azure`/`http` is a one-word change if a consumer
+# ever needs them, and each drags its own SDK surface, so they stay off until asked for.
+object_store = { version = "0.14", default-features = false, features = ["aws", "fs"] }
 openapiv3 = "2"
 opentelemetry = "0.31"
 opentelemetry-appender-tracing = "0.31"
@@ -182,6 +187,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-wasm = "0.2"
 tree-sitter = "0.25"
 tree-sitter-zig = "1"
+# Already resolved transitively (object_store, reqwest, ...), so this adds no new crate or license to review.
+# object_store's parse_url_opts takes a `&Url` and does not re-export the type, so a backend-URL config needs it.
+url = "2"
 utoipa = { version = "5", features = ["actix_extras", "yaml"] }
 uuid = { version = "1", features = ["serde", "v4", "v7"] }
 wasm-bindgen = "0.2"
