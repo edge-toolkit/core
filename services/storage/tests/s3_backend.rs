@@ -105,7 +105,27 @@ fn aws_env(port: u16) -> Vec<(&'static str, Option<String>)> {
     ]
 }
 
+// Skipped on Windows: the pinned rustfs 1.0.0-beta.12 cannot initialise its storage on Windows, so it never
+// reaches quorum and answers every request with `503 Service not ready: waiting for storage_quorum` -- which
+// object_store retries a handful of times and then surfaces, turning the PUT below into a 500. The rustfs cause
+// is a self-inflicted sharing violation: on Windows it opens each guarded ancestor directory (`.rustfs.sys` and
+// friends) with FILE_SHARE_READ only, then renames a freshly-written child into that guarded parent, and Windows
+// rejects the parent write with ERROR_SHARING_VIOLATION (Win32 code 32) -- logged by rustfs as
+//   reliable_rename failed. src_file_path: "...\\.rustfs.sys\\<uuid>", dst_file_path: "...\\.rustfs.sys\\format.json",
+//   err: Os { code: 32, ... "The process cannot access the file because it is being used by another process." }
+// This is not init-only: the same guarded rename backs the object-commit path (rustfs `rename_all` / `rename_data`),
+// so no store-an-object round-trip can pass on Windows with this build -- there is no pre-seed or wait that helps.
+// Fixed upstream in rustfs PR https://github.com/rustfs/rustfs/pull/5663 (guarded dirs now share FILE_SHARE_WRITE
+// too; related issue https://github.com/rustfs/rustfs/issues/5419), merged 2026-08-03 -- AFTER the beta.12 tag
+// (2026-07-30), so no released rustfs contains it yet. Observed on our commit
+// 59f4ab6368af5c6824dafe2e11c9c598f16f5334 at
+// https://github.com/edge-toolkit/core/actions/runs/30980282749/job/92223040435 (default (windows-latest, 120)).
+// Re-enable by dropping this attribute once the `rustfs` mise tool is bumped to a release that includes #5663.
 #[actix_rt::test]
+#[cfg_attr(
+    windows,
+    ignore = "rustfs beta.12 cannot init storage on Windows (ERROR_SHARING_VIOLATION) -- see above"
+)]
 async fn round_trips_put_and_get_through_the_s3_backend() {
     let volume = tempfile::tempdir().unwrap();
     // Pre-create the bucket: rustfs adopts an existing volume directory but will not create one on demand.
