@@ -75,6 +75,32 @@ everything's settled (waiting for the user to push):
 `/loop` dynamic-mode wakeups are bounded [60, 3600] by the runtime, so each cadence maps directly: 1 min ->
 `delaySeconds: 60`, 5 min -> `delaySeconds: 300`, 20 min -> `delaySeconds: 1200`.
 
+## Reproduce a CI failure locally BEFORE fixing it
+
+When a CI check fails, reproduce the exact failure on your own machine **before** changing anything, then verify
+the fix against that reproduction. Do NOT push a fix you have only reasoned about -- a blind fix that "should work"
+wastes a full CI round-trip (10-30 min) per attempt and erodes trust when it lands still-red.
+
+"It passes when I run the task locally" is NOT a reproduction and NOT proof of a fix. CI runs on a **fresh**
+environment; your machine carries months of accumulated state that silently masks the failure. The failures that
+bite are environment differences your green local run hides:
+
+- **Floating toolchains/tools** (`nightly`, `latest`, unpinned `conda:`/`npm:`): CI installs today's version; yours is
+  whatever you installed weeks ago. A green local run just means your cached version predates the regression. To
+  reproduce, install the _exact_ version CI used (read it from the job log -- e.g. `rustc -Vv`, the `mise ... @X`
+  install lines) and run with that.
+- **Stale install artifacts:** old `mise`/package installs leave symlinks (`.../latest`), directories, and even
+  bundled headers that a **fresh** install no longer creates or ships. A hardcoded path that resolves locally can be
+  a dead path on CI. Reproduce by removing the stale artifact (or `mise uninstall <tool> && mise install`) so your
+  layout matches a clean runner, then re-run.
+- **OS-specific behaviour:** the failing lane may be macOS/Windows/Linux-specific. Reproduce on that OS (you are on
+  one of the tier-1 platforms); if you cannot, say so rather than guessing.
+
+The loop is: read the CI job log for the exact error + the exact versions -> recreate those conditions locally ->
+confirm you see the identical failure -> fix -> confirm the fix turns that same local reproduction green -> only then
+push. If you genuinely cannot reproduce locally (e.g. a lane you have no access to), say so explicitly and do not
+pass off an unverified change as a fix.
+
 ## Keep lines <= 120 characters
 
 `editorconfig-checker` (`ec`, wired into `mise run check` via the `editorconfig-check` task) enforces a 120-char

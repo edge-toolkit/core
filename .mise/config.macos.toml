@@ -28,13 +28,6 @@ mac_libclang = "{{ exec(command='dirname $(dirname $(xcrun --find clang))') }}/l
 # already uses, so the .o files' stamped version and the linked binary's requested minimum agree and ld64.lld
 # has nothing to warn about -- fixing the mismatch instead of just silencing the lint that reports it.
 macosx_deployment_target = "{% if arch() == 'arm64' %}11.0{% else %}10.12{% endif %}"
-# Point clang-tidy at conda:clang-tools' builtin-header resource dir so the zig/wasm32 pass finds stddef.h.
-# On macOS clang-tidy cannot auto-locate its resource dir from the mise-installed conda binary the way Linux and
-# Windows do -- both pass an explicit `-resource-dir` (config.linux.toml / config.windows.toml) while the
-# config.toml default is empty -- so without this the clang-tidy-check pass fails with `'stddef.h' file not
-# found`. The trailing `22` is clang's major version; bump it with the conda:clang-tools major (see the same
-# note in config.windows.toml).
-clang_resource_arg = "-resource-dir {{ env.HOME }}/.local/share/mise/installs/conda-clang-tools/latest/lib/clang/22"
 
 [env]
 # lld_flag points Apple's clang at ld64.lld (see [vars]).
