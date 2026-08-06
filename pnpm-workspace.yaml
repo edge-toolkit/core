@@ -7,3 +7,11 @@
 # Some of their deps are loaded via mise installed tools, which are checked separately.
 packages:
   - services/ws-server/static
+  # js-data1 is a real workspace member, not a served pkg/ dir.
+  # It declares published npm deps (@aws-sdk/client-s3, esbuild) that must land in the root lockfile for
+  # osv-scanner; its bundled output under pkg/ is generated, not a member.
+  - services/ws-modules/js-data1
+# esbuild ships its platform binary via a postinstall build script; allow it so the js-data1 bundle can build.
+# Everything else stays blocked by pnpm's default supply-chain policy.
+allowBuilds:
+  esbuild: true

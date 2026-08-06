@@ -1,7 +1,11 @@
 openapi: 3.0.3
 info:
   title: Edge Toolkit REST API
-  description: "ws-server HTTP surface: health probe, module discovery, module assets, per-agent storage."
+  description: |-
+    ws-server HTTP surface: health probe, module discovery, module assets, and per-agent storage.
+    The storage routes are an anonymous S3-compatible interface, addressed path-style as
+    /storage/{agent_id}/{filename} (bucket = agent_id, key = filename), they answer PUT/GET/HEAD with an ETag, so a
+    standard S3 client can read and write objects without credentials.
   version: 0.1.0
 servers:
   - url: http://localhost:8080
@@ -93,6 +97,12 @@ paths:
       responses:
         "200":
           description: Stored file contents
+          headers:
+            ETag:
+              description: Entity tag of the stored object
+              style: simple
+              schema:
+                type: string
           content:
             application/octet-stream: {}
         "404":
@@ -137,10 +147,57 @@ paths:
       responses:
         "200":
           description: File stored
+          headers:
+            ETag:
+              description: Entity tag of the stored object
+              style: simple
+              schema:
+                type: string
         "400":
           description: Invalid filename
         "404":
           description: Agent not found
+    head:
+      tags:
+        - storage
+      summary: Return a stored object's metadata without its body (S3 `HeadObject`).
+      description: |-
+        Same addressing and 404 handling as [`get_file`], but the response carries headers only: the object's `ETag`
+        and its size as `Content-Length`. S3 clients issue `HEAD` to stat an object (existence, size, entity tag)
+        before downloading, so it reports the same `ETag` a `GET` would.
+      operationId: head_file
+      parameters:
+        - in: path
+          name: agent_id
+          description: Agent identifier
+          required: true
+          schema:
+            type: string
+          style: simple
+        - in: path
+          name: filename
+          description: Stored filename
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        "200":
+          description: Object metadata (no body)
+          headers:
+            Content-Length:
+              description: Size of the stored object in bytes
+              style: simple
+              schema:
+                type: integer
+                format: int64
+            ETag:
+              description: Entity tag of the stored object
+              style: simple
+              schema:
+                type: string
+        "404":
+          description: No such file
 components:
   schemas:
     HealthResponse:

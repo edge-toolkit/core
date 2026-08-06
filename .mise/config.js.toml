@@ -80,6 +80,17 @@ description = "Build the face detection workflow WASM module"
 dir = "services/ws-modules/face-detection"
 run = "{{ vars.web_pack_cov }} {{ vars.no_opt }}{{ vars.web_cov_feat }} && {{ vars.et_cli }} module-package-json"
 
+[tasks.build-ws-js-data1-module]
+description = "Bundle the js-data1 module (AWS SDK for JS v3) into pkg/ with esbuild"
+dir = "services/ws-modules/js-data1"
+# esbuild bundles @aws-sdk/client-s3 into one self-contained ESM.
+# Its @aws-sdk/* + @smithy/* graph uses bare-specifier imports that don't resolve as served static files, so
+# bundling is required; pnpm install brings the workspace deps in first. `node build.mjs` is invoked directly
+# rather than via `pnpm run build`, because mise's standalone pnpm does not put mise's node on PATH for the
+# script child on Windows (`'node' is not recognized`), whereas the mise task shell always has node (a `[tools]`
+# entry) resolvable -- the same way `pnpm` itself resolves here.
+run = "pnpm install && node build.mjs"
+
 [tasks.oxlint-check]
 description = "Lint JavaScript/TypeScript sources (oxlint)"
 # oxlint walks the working tree from CWD, honouring .gitignore; no path arg needed.

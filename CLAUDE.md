@@ -10,6 +10,17 @@ directory (which is already gitignored). Do **not** write to `/tmp`, `/var/tmp`,
 `~/scratch`, or any other path outside this working directory. `target/scratch/` is fine; create subdirectories
 under it freely and clean up when done.
 
+### NEVER reference a file that isn't in this repo
+
+Do not mention, link to, or write a path to any file that is not tracked in this repo -- not from a tracked file
+(source, `*.md`, config, a comment) and not in a commit message, PR body, or code-review note. A relative path
+that escapes the repo root, an absolute filesystem path, or prose like "see the write-up in the parent directory"
+is meaningless to everyone who clones the repo and reads as a dangling pointer. If the thing being referenced
+matters to the repo, it must live **inside** the repo; if it deliberately lives elsewhere (the operator keeps it
+outside the tree on purpose), then simply never point at it from inside. Creating or editing files outside the
+repo is fine when the operator wants that -- this rule is **only** about never referring to out-of-repo files
+from within the repo.
+
 ## On macOS: use homebrew bash for ad-hoc agent commands
 
 On macOS, every ad-hoc command the agent runs that is **not** a `mise run <task>` invocation -- investigations,
@@ -74,6 +85,32 @@ everything's settled (waiting for the user to push):
 
 `/loop` dynamic-mode wakeups are bounded [60, 3600] by the runtime, so each cadence maps directly: 1 min ->
 `delaySeconds: 60`, 5 min -> `delaySeconds: 300`, 20 min -> `delaySeconds: 1200`.
+
+## Reproduce a CI failure locally BEFORE fixing it
+
+When a CI check fails, reproduce the exact failure on your own machine **before** changing anything, then verify
+the fix against that reproduction. Do NOT push a fix you have only reasoned about -- a blind fix that "should work"
+wastes a full CI round-trip (10-30 min) per attempt and erodes trust when it lands still-red.
+
+"It passes when I run the task locally" is NOT a reproduction and NOT proof of a fix. CI runs on a **fresh**
+environment; your machine carries months of accumulated state that silently masks the failure. The failures that
+bite are environment differences your green local run hides:
+
+- **Floating toolchains/tools** (`nightly`, `latest`, unpinned `conda:`/`npm:`): CI installs today's version; yours is
+  whatever you installed weeks ago. A green local run just means your cached version predates the regression. To
+  reproduce, install the _exact_ version CI used (read it from the job log -- e.g. `rustc -Vv`, the `mise ... @X`
+  install lines) and run with that.
+- **Stale install artifacts:** old `mise`/package installs leave symlinks (`.../latest`), directories, and even
+  bundled headers that a **fresh** install no longer creates or ships. A hardcoded path that resolves locally can be
+  a dead path on CI. Reproduce by removing the stale artifact (or `mise uninstall <tool> && mise install`) so your
+  layout matches a clean runner, then re-run.
+- **OS-specific behaviour:** the failing lane may be macOS/Windows/Linux-specific. Reproduce on that OS (you are on
+  one of the tier-1 platforms); if you cannot, say so rather than guessing.
+
+The loop is: read the CI job log for the exact error + the exact versions -> recreate those conditions locally ->
+confirm you see the identical failure -> fix -> confirm the fix turns that same local reproduction green -> only then
+push. If you genuinely cannot reproduce locally (e.g. a lane you have no access to), say so explicitly and do not
+pass off an unverified change as a fix.
 
 ## Keep lines <= 120 characters
 

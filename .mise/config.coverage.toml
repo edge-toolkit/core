@@ -27,7 +27,7 @@
 # It is set env-wide here because this env loads only under the coverage workflow; per-command RUSTFLAGS and
 # the minicov feature come from the wasm_cov / *_cov_feat vars so uninstrumented builds stay clean.
 [env]
-RUSTUP_TOOLCHAIN = "nightly"
+RUSTUP_TOOLCHAIN = "{{ vars.rust_nightly }}"
 # Resolve libonnxruntime at runtime from the mise install rather than from ort-sys's dylib copies.
 # ort-sys symlinks the ONNX Runtime dylibs next to the built binaries, but it derives that directory from
 # `OUT_DIR/../../..`, which nightly's `build/<pkg>/<hash>/out` layout shifts down to `<target>/debug/build`.
@@ -135,7 +135,7 @@ if [ -z "$(find "$covdir" -maxdepth 1 -name '*.profraw' -print -quit 2>/dev/null
   exit 0
 fi
 host="$(rustc -vV | goawk '/^host:/ { print $2 }')"
-bin="$(rustc +nightly --print sysroot)/lib/rustlib/$host/bin"
+bin="$(rustc +{{ vars.rust_nightly }} --print sysroot)/lib/rustlib/$host/bin"
 gut="$covdir/gut.awk"
 coreutils cat > "$gut" <<'AWK'
 /^target datalayout/ { next }
@@ -293,8 +293,8 @@ coreutils rm -f "$covdir/server-ready"
 wait "$server_pid" 2>/dev/null || true
 trap - EXIT
 
-host="$(rustc +nightly -vV | goawk '/^host:/ { print $2 }')"
-llbin="$(rustc +nightly --print sysroot)/lib/rustlib/$host/bin"
+host="$(rustc +{{ vars.rust_nightly }} -vV | goawk '/^host:/ { print $2 }')"
+llbin="$(rustc +{{ vars.rust_nightly }} --print sysroot)/lib/rustlib/$host/bin"
 gut="$covdir/gut.awk"
 coreutils cat > "$gut" <<'AWK'
 /^target datalayout/ { next }
@@ -386,8 +386,8 @@ export CHROMEDRIVER="$driver"
 export LLVM_PROFILE_FILE="{{ config_root }}/$covdir/pic-viewer-%p.profraw"
 cargo test -p et-ws-pic-viewer --features et-web/coverage --target wasm32-unknown-unknown --test show_image
 
-host="$(rustc +nightly -vV | goawk '/^host:/ { print $2 }')"
-llbin="$(rustc +nightly --print sysroot)/lib/rustlib/$host/bin"
+host="$(rustc +{{ vars.rust_nightly }} -vV | goawk '/^host:/ { print $2 }')"
+llbin="$(rustc +{{ vars.rust_nightly }} --print sysroot)/lib/rustlib/$host/bin"
 gut="$covdir/gut.awk"
 coreutils cat > "$gut" <<'AWK'
 /^target datalayout/ { next }

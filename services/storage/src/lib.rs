@@ -1,7 +1,7 @@
 //! Agent file storage, backed by any `object_store` backend.
 //!
-//! The wire protocol is unchanged (`PUT`/`GET /storage/{agent_id}/{filename}`); only the storage layer beneath
-//! it is pluggable. [`StorageConfig::url`] selects the backend and defaults to a `file://` URL under
+//! The wire protocol (`PUT`/`GET`/`HEAD /storage/{agent_id}/{filename}`) is stable across backends; only the storage
+//! layer beneath it is pluggable. [`StorageConfig::url`] selects the backend and defaults to a `file://` URL under
 //! [`default_storage_folder`], so nothing needs configuring for research use; an `object_store` URL such as
 //! `s3://bucket` points at a remote instead. Objects are addressed as `<agent_id>/<filename>` under whichever
 //! store is in use, so the local-disk layout is the same as before.
@@ -20,7 +20,7 @@ use thiserror::Error;
 pub mod routes;
 mod tty_image;
 
-pub use self::routes::{get_file, put_file};
+pub use self::routes::{get_file, head_file, put_file};
 
 /// Default storage directory.
 #[must_use]
@@ -152,7 +152,7 @@ pub fn build_store(config: &StorageConfig) -> Result<SharedStore, StorageError> 
     Ok(Arc::from(store))
 }
 
-/// Register `PUT /storage/{agent_id}/{filename}` and `GET /storage/{agent_id}/{filename}`.
+/// Register `PUT`, `GET` and `HEAD` on `/storage/{agent_id}/{filename}`.
 ///
 /// # Panics
 ///
@@ -174,5 +174,6 @@ where
     let _configured = cfg
         .app_data(web::Data::<dyn ObjectStore>::from(store))
         .route("/storage/{agent_id}/{filename}", web::put().to(put_file::<S>))
-        .route("/storage/{agent_id}/{filename}", web::get().to(get_file));
+        .route("/storage/{agent_id}/{filename}", web::get().to(get_file))
+        .route("/storage/{agent_id}/{filename}", web::head().to(head_file));
 }
