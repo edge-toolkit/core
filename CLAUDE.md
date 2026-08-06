@@ -10,6 +10,17 @@ directory (which is already gitignored). Do **not** write to `/tmp`, `/var/tmp`,
 `~/scratch`, or any other path outside this working directory. `target/scratch/` is fine; create subdirectories
 under it freely and clean up when done.
 
+### NEVER reference a file that isn't in this repo
+
+Do not mention, link to, or write a path to any file that is not tracked in this repo -- not from a tracked file
+(source, `*.md`, config, a comment) and not in a commit message, PR body, or code-review note. A relative path
+that escapes the repo root, an absolute filesystem path, or prose like "see the write-up in the parent directory"
+is meaningless to everyone who clones the repo and reads as a dangling pointer. If the thing being referenced
+matters to the repo, it must live **inside** the repo; if it deliberately lives elsewhere (the operator keeps it
+outside the tree on purpose), then simply never point at it from inside. Creating or editing files outside the
+repo is fine when the operator wants that -- this rule is **only** about never referring to out-of-repo files
+from within the repo.
+
 ## On macOS: use homebrew bash for ad-hoc agent commands
 
 On macOS, every ad-hoc command the agent runs that is **not** a `mise run <task>` invocation -- investigations,

@@ -16,7 +16,7 @@ is pointed at the existing service with:
 
 so `PutObject` / `GetObject` / `HeadObject` map straight onto the `PUT` / `GET` / `HEAD /storage/{agent_id}/{filename}`
 routes. All three are verified end to end: the object round-trips byte-for-byte, and `PutObject` and `HeadObject`
-both return an `ETag`. See `../../../s3.md` (repo parent dir) for the wider S3 migration notes.
+both return an `ETag`.
 
 ## Build
 
