@@ -95,6 +95,7 @@ const MinimalTypeInfo int_type_info = {nullptr, "i"};
 namespace {
 
 // Throwing callee: the int payload is trivially destructible, so __cxa_throw records a null destructor.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- num/den are named, order-obvious division operands.
 int32_t checked_divide(int32_t num, int32_t den) {
     if (den == 0) {
         throw den;
@@ -107,6 +108,7 @@ int32_t checked_divide(int32_t num, int32_t den) {
 // Exception-safe boundary: returns the quotient, or -1 when checked_divide() throws.
 // The catch-all is the house rule above -- nothing may unwind past an extern "C" entry point into the Zig
 // caller.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- num/den are named, order-obvious division operands.
 extern "C" int32_t try_divide(int32_t num, int32_t den) {
     try {
         return checked_divide(num, den);
