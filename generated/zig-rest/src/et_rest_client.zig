@@ -559,6 +559,31 @@ pub fn put_fileRaw(client: *Client, agent_id: []const u8, filename: []const u8, 
 
 /////////////////
 // Summary:
+// Return a stored object's metadata without its body (S3 `HeadObject`).
+//
+// Description:
+// Same addressing and 404 handling as [`get_file`], but the response carries headers only: the object's `ETag`
+// and its size as `Content-Length`. S3 clients issue `HEAD` to stat an object (existence, size, entity tag)
+// before downloading, so it reports the same `ETag` a `GET` would.
+//
+pub fn head_file(client: *Client, agent_id: []const u8, filename: []const u8) !void {
+    var raw = try head_fileRaw(client, agent_id, filename);
+    defer raw.deinit();
+    if (raw.status.class() != .success) return error.ResponseError;
+}
+
+pub fn head_fileRaw(client: *Client, agent_id: []const u8, filename: []const u8) !RawResponse {
+    const allocator = client.allocator;
+    var uri_buf: std.Io.Writer.Allocating = .init(allocator);
+    defer uri_buf.deinit();
+    try uri_buf.writer.print("{s}/storage/{s}/{s}", .{ client.base_url, agent_id, filename });
+    const payload: ?[]const u8 = null;
+
+    return requestRaw(client, std.http.Method.HEAD, uri_buf.written(), payload);
+}
+
+/////////////////
+// Summary:
 // Fetch a file from a module's bundled static assets.
 //
 // Description:

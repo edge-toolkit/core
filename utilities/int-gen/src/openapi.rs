@@ -22,7 +22,10 @@ use crate::Error;
     info(
         title = "Edge Toolkit REST API",
         version = "0.1.0",
-        description = "ws-server HTTP surface: health probe, module discovery, module assets, per-agent storage."
+        description = "ws-server HTTP surface: health probe, module discovery, module assets, and per-agent storage.
+The storage routes are an anonymous S3-compatible interface -- addressed path-style as
+/storage/{agent_id}/{filename} (bucket = agent_id, key = filename), they answer PUT/GET/HEAD with an ETag, so a
+standard S3 client can read and write objects without credentials."
     ),
     servers(
         (url = "http://localhost:8080", description = "Default ws-server bind address")
@@ -32,6 +35,7 @@ use crate::Error;
         et_modules_service::routes::list_modules_handler,
         et_modules_service::routes::get_module_file,
         et_storage_service::routes::get_file,
+        et_storage_service::routes::head_file,
         et_storage_service::routes::put_file::<et_ws_server::AgentSession>,
     ),
     components(schemas(et_ws_server::routes::HealthResponse))

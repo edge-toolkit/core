@@ -13,6 +13,7 @@ services/ws-wasm-agent/pkg/
 services/ws-modules/pywasm1/pkg/
 services/ws-modules/rdata1/pkg/webr/
 services/ws-modules/rcomm1/pkg/webr/
+services/ws-modules/js-data1/pkg/et_ws_js_data1.js
 services/ws-server/static/models/
 **/.zig-cache/
 **/zig-out/

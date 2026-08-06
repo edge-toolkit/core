@@ -66,7 +66,10 @@ pub mod types {
 #[derive(Clone, Debug)]
 /**Client for Edge Toolkit REST API
 
-ws-server HTTP surface: health probe, module discovery, module assets, per-agent storage.
+ws-server HTTP surface: health probe, module discovery, module assets, and per-agent storage.
+The storage routes are an anonymous S3-compatible interface -- addressed path-style as
+/storage/{agent_id}/{filename} (bucket = agent_id, key = filename), they answer PUT/GET/HEAD with an ETag, so a
+standard S3 client can read and write objects without credentials.
 
 Version: 0.1.0*/
 pub struct Client {
@@ -463,6 +466,64 @@ impl Client {
         match response.status().as_u16() {
             200u16 => Ok(ResponseValue::empty(response)),
             400u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
+            404u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
+            _ => Err(Error::UnexpectedResponse(response)),
+        }
+    }
+    /**Return a stored object's metadata without its body (S3 `HeadObject`)
+
+    Same addressing and 404 handling as [`get_file`], but the response carries headers only: the object's `ETag`
+    and its size as `Content-Length`. S3 clients issue `HEAD` to stat an object (existence, size, entity tag)
+    before downloading, so it reports the same `ETag` a `GET` would.
+
+    Sends a `HEAD` request to `/storage/{agent_id}/{filename}`
+
+    Arguments:
+    - `agent_id`: Agent identifier
+    - `filename`: Stored filename
+    */
+    pub async fn head_file<'a>(&'a self, agent_id: &'a str, filename: &'a str) -> Result<ResponseValue<()>, Error<()>> {
+        let url = format!(
+            "{}/storage/{}/{}",
+            self.baseurl,
+            encode_path(&agent_id.to_string()),
+            encode_path(&filename.to_string()),
+        );
+        let mut header_map = ::reqwest::header::HeaderMap::with_capacity(1usize);
+        header_map.append(
+            ::reqwest::header::HeaderName::from_static("api-version"),
+            ::reqwest::header::HeaderValue::from_static(Self::api_version()),
+        );
+        #[allow(unused_mut)]
+        let mut request = self.client.head(url).headers(header_map).build()?;
+        let info = OperationInfo {
+            operation_id: "head_file",
+        };
+        match (|request: &mut ::reqwest::Request| {
+            #[cfg(feature = "tracing")]
+            {
+                let cx = <::tracing::Span as ::tracing_opentelemetry::OpenTelemetrySpanExt>::context(
+                    &::tracing::Span::current(),
+                );
+                ::opentelemetry::global::get_text_map_propagator(|propagator| {
+                    propagator.inject_context(&cx, &mut ::opentelemetry_http::HeaderInjector(request.headers_mut()));
+                });
+            }
+            #[cfg(not(feature = "tracing"))]
+            let _ = request;
+            async { Ok::<(), ::std::convert::Infallible>(()) }
+        })(&mut request)
+        .await
+        {
+            Ok(_) => {}
+            Err(e) => return Err(Error::Custom(e.to_string())),
+        }
+        self.pre(&mut request, &info).await?;
+        let result = self.exec(request, &info).await;
+        self.post(&result, &info).await?;
+        let response = result?;
+        match response.status().as_u16() {
+            200u16 => Ok(ResponseValue::empty(response)),
             404u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
             _ => Err(Error::UnexpectedResponse(response)),
         }

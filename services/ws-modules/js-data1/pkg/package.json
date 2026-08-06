@@ -1,0 +1,8 @@
+{
+  "name": "et-ws-js-data1",
+  "type": "module",
+  "description": "data1 twin using AWS SDK v3 (S3)",
+  "version": "0.1.0",
+  "license": "Apache-2.0 OR MIT",
+  "main": "et_ws_js_data1.js"
+}

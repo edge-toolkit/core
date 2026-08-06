@@ -23,7 +23,8 @@
 
 use std::path::PathBuf;
 
-use actix_web::{HttpRequest, HttpResponse, web};
+use actix_web::http::header;
+use actix_web::{HttpRequest, HttpResponse, HttpResponseBuilder, web};
 use edge_toolkit::ws_server::AgentRegistry;
 use futures_util::StreamExt as _;
 use object_store::{ObjectStore, ObjectStoreExt as _, PutPayload};
@@ -56,6 +57,17 @@ fn agent_and_filename(req: &HttpRequest) -> Result<(String, PathBuf), StorageErr
     Ok((agent_id, filename))
 }
 
+/// Attach the object's `ETag` header to a response when the backend reported one.
+///
+/// `object_store` surfaces an entity tag on writes (`PutResult`) and reads (`ObjectMeta`) for every backend that
+/// has one -- the S3 MD5/opaque tag, or a size+mtime tag for local disk -- and `None` only when a backend cannot
+/// produce one. Emitting it lets S3 clients (and HTTP conditional requests) observe the same tag the store holds.
+fn insert_etag(response: &mut HttpResponseBuilder, e_tag: Option<&str>) {
+    if let Some(etag) = e_tag {
+        let _inserted = response.insert_header((header::ETAG, etag));
+    }
+}
+
 /// Phantom type used to label binary request/response bodies as `string`/`binary`.
 ///
 /// Never constructed at runtime; only exists under the `openapi-spec` feature
@@ -86,7 +98,9 @@ pub struct BinaryBlob(#[expect(dead_code)] Vec<u8>);
             description = "Raw file bytes"
         ),
         responses(
-            (status = 200, description = "File stored"),
+            (status = 200, description = "File stored", headers(
+                ("ETag" = String, description = "Entity tag of the stored object")
+            )),
             (status = 400, description = "Invalid filename"),
             (status = 404, description = "Agent not found")
         )
@@ -124,7 +138,7 @@ where
 
     let path = object_path(&agent_id, &filename);
     info!("Agent {} storing file: {}", agent_id, path);
-    let _put_result = store.put(&path, PutPayload::from(body.clone())).await?;
+    let put_result = store.put(&path, PutPayload::from(body.clone())).await?;
 
     // This handler is the only path a file reaches storage through, so it is where every stored file can be
     // watched exactly once with an accurate byte count and zero extra I/O -- a separate filesystem watcher
@@ -134,7 +148,9 @@ where
         show_image_on_tty(&body);
     }
 
-    Ok(HttpResponse::Ok().finish())
+    let mut response = HttpResponse::Ok();
+    insert_etag(&mut response, put_result.e_tag.as_deref());
+    Ok(response.finish())
 }
 
 /// Render a thumbnail of the just-stored image bytes directly to stdout.
@@ -183,7 +199,9 @@ pub fn is_image_filename(filename: &std::path::Path) -> bool {
             ("filename" = String, Path, description = "Stored filename")
         ),
         responses(
-            (status = 200, description = "Stored file contents", content_type = "application/octet-stream"),
+            (status = 200, description = "Stored file contents", content_type = "application/octet-stream", headers(
+                ("ETag" = String, description = "Entity tag of the stored object")
+            )),
             (status = 404, description = "No such file")
         )
     )
@@ -203,7 +221,59 @@ pub async fn get_file(req: HttpRequest, store: web::Data<dyn ObjectStore>) -> Re
         Err(object_store::Error::NotFound { .. }) => return Err(StorageError::ObjectNotFound),
         Err(error) => return Err(error.into()),
     };
+    // Read the entity tag off the metadata before `bytes()` consumes the `GetResult`.
+    let e_tag = object.meta.e_tag.clone();
     let body = object.bytes().await?;
 
-    Ok(HttpResponse::Ok().content_type("application/octet-stream").body(body))
+    let mut response = HttpResponse::Ok();
+    let _typed = response.content_type("application/octet-stream");
+    insert_etag(&mut response, e_tag.as_deref());
+    Ok(response.body(body))
+}
+
+/// Return a stored object's metadata without its body (S3 `HeadObject`).
+///
+/// Same addressing and 404 handling as [`get_file`], but the response carries headers only: the object's `ETag`
+/// and its size as `Content-Length`. S3 clients issue `HEAD` to stat an object (existence, size, entity tag)
+/// before downloading, so it reports the same `ETag` a `GET` would.
+#[cfg_attr(
+    feature = "openapi-spec",
+    utoipa::path(
+        head,
+        path = "/storage/{agent_id}/{filename}",
+        tag = "storage",
+        params(
+            ("agent_id" = String, Path, description = "Agent identifier"),
+            ("filename" = String, Path, description = "Stored filename")
+        ),
+        responses(
+            (status = 200, description = "Object metadata (no body)", headers(
+                ("ETag" = String, description = "Entity tag of the stored object"),
+                ("Content-Length" = i64, description = "Size of the stored object in bytes")
+            )),
+            (status = 404, description = "No such file")
+        )
+    )
+)]
+#[expect(
+    clippy::future_not_send,
+    reason = "actix-web HttpRequest is !Send by design; handler runs on actix's single-threaded runtime"
+)]
+pub async fn head_file(req: HttpRequest, store: web::Data<dyn ObjectStore>) -> Result<HttpResponse, StorageError> {
+    let (agent_id, filename) = agent_and_filename(&req)?;
+    let path = object_path(&agent_id, &filename);
+
+    let meta = match store.head(&path).await {
+        Ok(meta) => meta,
+        Err(object_store::Error::NotFound { .. }) => return Err(StorageError::ObjectNotFound),
+        Err(error) => return Err(error.into()),
+    };
+
+    // `no_chunking` sets Content-Length to the object's size so a `HEAD` reports it exactly as the matching
+    // `GET` would, without sending a body.
+    let mut response = HttpResponse::Ok();
+    let _typed = response.content_type("application/octet-stream");
+    let _sized = response.no_chunking(meta.size);
+    insert_etag(&mut response, meta.e_tag.as_deref());
+    Ok(response.finish())
 }

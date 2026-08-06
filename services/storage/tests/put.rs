@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 
 use actix_web::dev::Payload as DevPayload;
 use actix_web::error::ResponseError as _;
-use actix_web::http::StatusCode;
+use actix_web::http::{Method, StatusCode, header};
 use actix_web::{App, FromRequest as _, test, web};
 use edge_toolkit::ws::AgentConnectionState;
 use edge_toolkit::ws_server::{AgentRecord, AgentRegistry};
@@ -136,6 +136,88 @@ async fn stores_an_image_and_returns_200_even_though_tty_rendering_cannot_succee
     assert_eq!(resp.status(), StatusCode::OK);
     let written = fs_err::read(tmp.path().join("agent-1").join("capture.png")).unwrap();
     assert_eq!(written, body);
+}
+
+/// PUT returns an `ETag`, and GET and HEAD report the same entity tag; HEAD also reports the object size.
+///
+/// Exercises the S3-compatible surface the storage service exposes: an S3 client stats an object with `HEAD`
+/// (entity tag + `Content-Length`, no body) and reads its `ETag` off `GET`. The GET and HEAD tags are compared
+/// to each other because both come from the stored object's metadata, so they match regardless of how a given
+/// backend derives the tag on write.
+#[actix_rt::test]
+async fn get_and_head_expose_etag_and_head_reports_size() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = storage_config(&tmp);
+    let registry = registry_with_agent("agent-1");
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(registry))
+            .app_data(web::Data::new(config.clone()))
+            .configure(|cfg| configure::<()>(cfg, &config)),
+    )
+    .await;
+
+    let body = b"etag round-trip payload".as_ref();
+    let put = test::TestRequest::put()
+        .uri("/storage/agent-1/payload.txt")
+        .set_payload(body)
+        .to_request();
+    let put_resp = test::call_service(&app, put).await;
+    assert_eq!(put_resp.status(), StatusCode::OK);
+    assert!(
+        put_resp.headers().contains_key(header::ETAG),
+        "PUT should return an ETag"
+    );
+
+    let get = test::TestRequest::get()
+        .uri("/storage/agent-1/payload.txt")
+        .to_request();
+    let get_resp = test::call_service(&app, get).await;
+    assert_eq!(get_resp.status(), StatusCode::OK);
+    let get_etag = get_resp.headers().get(header::ETAG).cloned();
+    assert!(get_etag.is_some(), "GET should return an ETag");
+
+    let head = test::TestRequest::default()
+        .method(Method::HEAD)
+        .uri("/storage/agent-1/payload.txt")
+        .to_request();
+    let head_resp = test::call_service(&app, head).await;
+    assert_eq!(head_resp.status(), StatusCode::OK);
+    assert_eq!(
+        head_resp.headers().get(header::ETAG).cloned(),
+        get_etag,
+        "HEAD ETag should match GET"
+    );
+    assert_eq!(
+        head_resp
+            .headers()
+            .get(header::CONTENT_LENGTH)
+            .and_then(|value| value.to_str().ok()),
+        Some(body.len().to_string().as_str()),
+        "HEAD should report the object size as Content-Length"
+    );
+}
+
+/// HEAD on an object that was never stored is a 404, like GET.
+#[actix_rt::test]
+async fn head_missing_object_returns_404() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = storage_config(&tmp);
+    let registry = registry_with_agent("agent-1");
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(registry))
+            .app_data(web::Data::new(config.clone()))
+            .configure(|cfg| configure::<()>(cfg, &config)),
+    )
+    .await;
+
+    let head = test::TestRequest::default()
+        .method(Method::HEAD)
+        .uri("/storage/agent-1/absent.txt")
+        .to_request();
+    let resp = test::call_service(&app, head).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
 #[actix_rt::test]

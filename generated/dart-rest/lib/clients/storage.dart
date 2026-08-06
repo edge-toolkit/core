@@ -45,4 +45,19 @@ abstract class Storage {
     @Path('filename') required String filename,
     @Body() required Uint8List body,
   });
+
+  /// Return a stored object's metadata without its body (S3 `HeadObject`).
+  ///
+  /// Same addressing and 404 handling as [`get_file`], but the response carries headers only: the object's `ETag`.
+  /// and its size as `Content-Length`. S3 clients issue `HEAD` to stat an object (existence, size, entity tag).
+  /// before downloading, so it reports the same `ETag` a `GET` would.
+  ///
+  /// [agentId] - Agent identifier.
+  ///
+  /// [filename] - Stored filename.
+  @HEAD('/storage/{agent_id}/{filename}')
+  Future<void> headFile({
+    @Path('agent_id') required String agentId,
+    @Path('filename') required String filename,
+  });
 }

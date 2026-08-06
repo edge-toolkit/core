@@ -1,0 +1,17 @@
+{
+  "name": "et-ws-js-data1",
+  "version": "0.1.0",
+  "description": "JS data1 twin using AWS SDK v3 (S3)",
+  "license": "Apache-2.0 OR MIT",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25"
+  }
+}
