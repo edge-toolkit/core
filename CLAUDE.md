@@ -126,7 +126,7 @@ languages this repo uses:
 - **Dockerfile `RUN` block**: switch to BuildKit's HEREDOC form
   (`RUN bash <<'EOF'` ... `EOF`) -- each shell command sits on its own line
   with no continuation needed. Three rules, all enforced by
-  `config/conftest/policy/dockerfile.rego` + the matching semgrep rule
+  `config/conftest/policy/dockerfile/dockerfile.rego` + the matching semgrep rule
   under `config/semgrep/`: (1) interpreter is **`bash`, placed BEFORE the
   `<<TAG`** (default `/bin/sh` on Debian/Ubuntu is dash, which rejects
   `set -euo pipefail`; the inverse `RUN <<EOF bash` form is silently
@@ -599,7 +599,7 @@ Five supported platforms in two tiers. **Main tier:** macOS arm64, Linux x64, Wi
 source-build isn't acceptable. **Second tier:** Linux arm64, macOS x64 -- every tool must still install and run,
 but slower install mechanisms are allowed because release authors often skip prebuilts for these arches: a
 `cargo:` source-build (or alternate backend) `os`-scoped to a second-tier-only platform is fine. The conftest
-mise policy (`config/conftest/policy/mise.rego`) enforces both rules, including the narrow per-name allowlist for
+mise policy (`config/conftest/policy/mise/mise.rego`) enforces both rules, including the narrow per-name allowlist for
 tools that have no prebuilt at any triple.
 
 Skipping a tool entirely with `MISE_DISABLE_TOOLS` is reserved for `Dockerfile.nanoserver`, where trimming the
@@ -727,7 +727,7 @@ pattern is the same for every cache entry; copy the `rustpython` / `augeas` / `d
    for ad-hoc rebuilds (e.g. version bump). No `push:` trigger -- we
    don't want a `main`-merge to rebuild assets.
 
-Required side-effect: an `etc-` entry in `config/conftest/policy/mise.rego`'s allowlist of `http:` tools that have
+Required side-effect: an `etc-` entry in `config/conftest/policy/mise/mise.rego`'s allowlist of `http:` tools that have
 no prebuilt at any triple, if applicable. (Skip if the tool is OS-scoped and the allowlist already covers it.)
 
 ## Fetch resilience: prefer upstream-cache, not retry wrappers
@@ -798,14 +798,10 @@ When the question is "can install-action install X?", check the TOOLS.md first; 
 cargo-quickinstall's release tags for `X-<ver>`. A hit in either tier means install-action will fetch a prebuilt;
 absence in both means CI would pay a source-build cost.
 
-Even a manifest hit isn't a guarantee -- install-action's resolver is strict about the binary names it expects to
-find inside the prebuilt archive, and upstream renames break it silently. Concrete cautionary tale: `aube` IS in
-install-action's manifest, but the manifest expects an `aubr` binary
-(`When resolving aube bin aubr is not found. This binary is not optional so it must be included in the archive`),
-which recent aube releases don't ship. install-action then falls through to a real `cargo install` source build,
-which then flakes on crates.io. The mise-managed `setup-aube` task (npm-backed, `continue-on-error`) was the
-reliable path here; reach for install-action only when the prebuilt actually exists for the target triple _and_
-the binary names still match.
+Even a manifest hit isn't a guarantee -- install-action's resolver insists on the exact binary names its manifest
+expects to find inside the prebuilt archive, so an upstream rename makes it fall through to a real `cargo install`
+source build (which then flakes on crates.io) with no signal beyond a `bin <name> is not found` line. Reach for
+install-action only when the prebuilt actually exists for the target triple _and_ the binary names still match.
 
 ## Linting
 
@@ -1087,7 +1083,7 @@ first, and only bring the question to the user if neither is workable -- don't a
 ## Clippy lints
 
 **Never weaken or disable a lint to make code pass -- not the workspace lint config (`[workspace.lints.*]`,
-`.clippy.toml` thresholds, the ast-grep / taplo rules) -- without explicit operator permission.** Setting a
+`config/clippy.toml` thresholds, the ast-grep / taplo rules) -- without explicit operator permission.** Setting a
 denied lint to `allow` or raising a threshold is a project-policy change, not a fix. If a lint is in the way, fix
 the code (or justify it with a scoped `#[expect(..., reason = "...")]`); if you believe the lint itself is wrong,
 stop and ask.

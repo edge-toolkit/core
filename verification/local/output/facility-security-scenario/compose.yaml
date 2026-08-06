@@ -38,7 +38,7 @@ services:
       OTLP_AUTH_PASSWORD: "1234"
       OTLP_AUTH_USERNAME: root@example.com
       OTLP_COLLECTOR_URL: http://127.0.0.1:5080/api/default/v1
-      STORAGE_PATH: /app/storage
+      STORAGE_URL: file:///app/storage
     volumes:
       - ws-server-storage:/app/storage
     depends_on:

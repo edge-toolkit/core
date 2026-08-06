@@ -38,6 +38,7 @@ files:
   - services/storage/src/tty_image.rs
   - services/storage/tests/image_logging.rs
   - services/storage/tests/put.rs
+  - services/storage/tests/s3_backend.rs
   - services/websockify/src/lib.rs
   - services/websockify/tests/relay.rs
   - services/ws-modules/except1/src/lib.rs

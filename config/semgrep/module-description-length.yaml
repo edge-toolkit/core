@@ -3,10 +3,10 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "services/ws-modules/*/Cargo.toml"
-        - "services/ws-modules/*/pyproject.toml"
-        - "services/ws-modules/*/build.zig.zon"
-        - "services/ws-modules/*/pkg/package.json"
+        - "/services/ws-modules/*/Cargo.toml"
+        - "/services/ws-modules/*/pyproject.toml"
+        - "/services/ws-modules/*/build.zig.zon"
+        - "/services/ws-modules/*/pkg/package.json"
     # Enforce ws-module description length at the source manifests, not by trimming labels in the browser.
     # A ws-module description is the module-dropdown label on the ws-server index page. Two regex alternatives
     # cover the syntaxes the description travels through: `description = "..."` (Cargo.toml / pyproject.toml,

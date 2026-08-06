@@ -43,9 +43,8 @@ pub fn start() -> TestServer {
 #[must_use]
 pub fn start_on(port: u16) -> TestServer {
     let storage_dir = TempDir::new().unwrap();
-    let storage_path = storage_dir.path().to_path_buf();
 
-    let storage_config = StorageConfig::new(storage_path);
+    let storage_config = StorageConfig::local(storage_dir.path());
     let modules_config = ModulesConfig::default();
     let addr = format!("127.0.0.1:{port}");
 

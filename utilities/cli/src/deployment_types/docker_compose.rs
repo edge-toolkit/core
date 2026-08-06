@@ -66,8 +66,8 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
                             ComposeValue::Plain("http://127.0.0.1:5080/api/default/v1".to_string()),
                         ),
                         (
-                            "STORAGE_PATH".to_string(),
-                            ComposeValue::Plain("/app/storage".to_string()),
+                            "STORAGE_URL".to_string(),
+                            ComposeValue::Plain("file:///app/storage".to_string()),
                         ),
                     ],
                     volumes: vec!["ws-server-storage:/app/storage".to_string()],

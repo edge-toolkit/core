@@ -1,10 +1,12 @@
 //! Storage HTTP routes carrying `#[utoipa::path]` annotations.
 //!
-//! `put_file` is the live PUT handler; `get_file` is a fake stub whose
-//! only role is to host the `#[utoipa::path]` annotation for the GET
-//! route (actually served by an `actix_files::Files` mount registered
-//! in [`crate::configure`]). `BinaryBlob` is the phantom request-body
-//! schema both routes reference.
+//! Both handlers are live and go through the configured `object_store`
+//! backend, so the same code serves local disk and any remote store.
+//! `get_file` used to be a stub hosting only the `#[utoipa::path]`
+//! annotation, with an `actix_files::Files` mount doing the real work --
+//! that mount could only ever read local disk, so it is gone.
+//! `BinaryBlob` is the phantom request-body schema both routes
+//! reference.
 //!
 //! The file-level `#![expect(clippy::exhaustive_structs)]` (active
 //! under `openapi-spec`) is scoped here because utoipa's derives emit
@@ -24,9 +26,35 @@ use std::path::PathBuf;
 use actix_web::{HttpRequest, HttpResponse, web};
 use edge_toolkit::ws_server::AgentRegistry;
 use futures_util::StreamExt as _;
+use object_store::{ObjectStore, ObjectStoreExt as _, PutPayload};
 use tracing::{info, warn};
 
-use crate::{StorageConfig, StorageError};
+use crate::StorageError;
+
+/// Object key for `filename` inside `agent_id`'s bucket.
+///
+/// Every backend addresses objects the same way, so this is the one place the `<agent_id>/<filename>` layout is
+/// spelled out -- it is also what keeps a local-disk store laid out exactly as the previous fs implementation.
+fn object_path(agent_id: &str, filename: &std::path::Path) -> object_store::path::Path {
+    object_store::path::Path::from(format!("{agent_id}/{}", filename.display()))
+}
+
+/// Extract and validate the `{agent_id}`/`{filename}` pair from the request path.
+///
+/// The filename must be a single path component: a nested or absolute path would let a caller address objects
+/// outside its own bucket.
+fn agent_and_filename(req: &HttpRequest) -> Result<(String, PathBuf), StorageError> {
+    let agent_id = req.match_info().query("agent_id").to_string();
+    let filename = req
+        .match_info()
+        .query("filename")
+        .parse::<PathBuf>()
+        .ok()
+        .filter(|filename| filename.components().count() == 1)
+        .ok_or(StorageError::InvalidFilename)?;
+
+    Ok((agent_id, filename))
+}
 
 /// Phantom type used to label binary request/response bodies as `string`/`binary`.
 ///
@@ -72,51 +100,44 @@ pub async fn put_file<S>(
     req: HttpRequest,
     mut payload: web::Payload,
     registry: web::Data<AgentRegistry<S>>,
-    config: web::Data<StorageConfig>,
+    store: web::Data<dyn ObjectStore>,
 ) -> Result<HttpResponse, StorageError>
 where
     S: Clone + Send + 'static,
 {
-    let agent_id = req.match_info().query("agent_id").to_string();
-    let filename = req
-        .match_info()
-        .query("filename")
-        .parse::<PathBuf>()
-        .ok()
-        .filter(|filename| filename.components().count() == 1)
-        .ok_or(StorageError::InvalidFilename)?;
+    let (agent_id, filename) = agent_and_filename(&req)?;
 
     if !registry.agents.lock()?.contains_key(&agent_id) {
         return Err(StorageError::AgentNotFound);
     }
 
-    let storage_dir = &config.path;
-    let agent_dir = storage_dir.join(&agent_id);
-    fs_err::create_dir_all(&agent_dir)?;
-
-    let path = agent_dir.join(&filename);
-    info!("Agent {} storing file: {:?}", agent_id, path);
-
-    let mut file = tokio::fs::File::create(&path).await?;
-    let mut bytes_written: u64 = 0;
+    // The body is buffered rather than streamed to the store.
+    // `ObjectStore::put` takes a whole payload, and the alternative (`put_multipart`) buys streaming at the
+    // cost of chunk bookkeeping that these payloads -- module output and captured frames -- do not need. The
+    // buffer also gives the tty preview below the bytes for free, where the previous fs implementation could
+    // rely on re-reading the file it had just written.
+    let mut body: Vec<u8> = Vec::new();
     while let Some(chunk) = payload.next().await {
-        let chunk = chunk?;
-        let copied = tokio::io::copy(&mut chunk.as_ref(), &mut file).await?;
-        bytes_written = bytes_written.saturating_add(copied);
+        body.extend_from_slice(&chunk?);
     }
+    let bytes_written = body.len();
+
+    let path = object_path(&agent_id, &filename);
+    info!("Agent {} storing file: {}", agent_id, path);
+    let _put_result = store.put(&path, PutPayload::from(body.clone())).await?;
 
     // This handler is the only path a file reaches storage through, so it is where every stored file can be
     // watched exactly once with an accurate byte count and zero extra I/O -- a separate filesystem watcher
-    // would duplicate that work and risk observing a write mid-flight.
+    // would duplicate that work, risk observing a write mid-flight, and could not see a remote backend at all.
     if is_image_filename(&filename) {
-        info!("Agent {} stored image {:?} ({} bytes)", agent_id, path, bytes_written);
-        show_image_on_tty(&path);
+        info!("Agent {} stored image {} ({} bytes)", agent_id, path, bytes_written);
+        show_image_on_tty(&body);
     }
 
     Ok(HttpResponse::Ok().finish())
 }
 
-/// Render a thumbnail of the image at `path` directly to stdout.
+/// Render a thumbnail of the just-stored image bytes directly to stdout.
 ///
 /// This lets the operator actually *see* what was stored, rather than just its filename and byte count. It
 /// bypasses `tracing` entirely and writes straight to the terminal: the escape sequences (ANSI
@@ -124,13 +145,16 @@ where
 /// data, and would otherwise get shipped to the OTLP log exporter as log-record noise. Decode/render
 /// failures (a corrupt upload, a non-terminal stdout) only cost tty visibility, not the request, so they're
 /// reported via `warn!` rather than via `?`.
+///
+/// Takes bytes rather than a path because the object may never exist on the local filesystem -- with a remote
+/// backend there is nothing to re-read.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct step of put_file; kept separate for readability and testing"
 )]
-fn show_image_on_tty(path: &std::path::Path) {
-    if let Err(error) = crate::tty_image::render(path) {
-        warn!("failed to render stored image {} to tty: {error}", path.display());
+fn show_image_on_tty(bytes: &[u8]) {
+    if let Err(error) = crate::tty_image::render_bytes(bytes) {
+        warn!("failed to render stored image to tty: {error}");
     }
 }
 
@@ -148,25 +172,38 @@ pub fn is_image_filename(filename: &std::path::Path) -> bool {
 }
 
 /// Download a file previously written to the named agent's storage bucket.
-#[cfg(feature = "openapi-spec")]
-#[utoipa::path(
-    get,
-    path = "/storage/{agent_id}/{filename}",
-    tag = "storage",
-    params(
-        ("agent_id" = String, Path, description = "Agent identifier"),
-        ("filename" = String, Path, description = "Stored filename")
-    ),
-    responses(
-        (status = 200, description = "Stored file contents", content_type = "application/octet-stream"),
-        (status = 404, description = "No such file")
+#[cfg_attr(
+    feature = "openapi-spec",
+    utoipa::path(
+        get,
+        path = "/storage/{agent_id}/{filename}",
+        tag = "storage",
+        params(
+            ("agent_id" = String, Path, description = "Agent identifier"),
+            ("filename" = String, Path, description = "Stored filename")
+        ),
+        responses(
+            (status = 200, description = "Stored file contents", content_type = "application/octet-stream"),
+            (status = 404, description = "No such file")
+        )
     )
 )]
-#[must_use]
-pub fn get_file() -> HttpResponse {
-    // Fake handler -- the GET route is actually served by the
-    // `actix_files::Files` mount registered in `crate::configure`; this
-    // stub exists only to host the `#[utoipa::path]` annotation so
-    // `et-int-gen` can include the GET route in `generated/specs/rest.yaml`.
-    HttpResponse::NotImplemented().finish()
+#[expect(
+    clippy::future_not_send,
+    reason = "actix-web HttpRequest is !Send by design; handler runs on actix's single-threaded runtime"
+)]
+pub async fn get_file(req: HttpRequest, store: web::Data<dyn ObjectStore>) -> Result<HttpResponse, StorageError> {
+    let (agent_id, filename) = agent_and_filename(&req)?;
+    let path = object_path(&agent_id, &filename);
+
+    // A missing object is a 404, not a 500, and it is the one store error worth distinguishing. Matched rather
+    // than mapped because `.map_err` is banned outside this workspace's designated error-wrapper modules.
+    let object = match store.get(&path).await {
+        Ok(object) => object,
+        Err(object_store::Error::NotFound { .. }) => return Err(StorageError::ObjectNotFound),
+        Err(error) => return Err(error.into()),
+    };
+    let body = object.bytes().await?;
+
+    Ok(HttpResponse::Ok().content_type("application/octet-stream").body(body))
 }

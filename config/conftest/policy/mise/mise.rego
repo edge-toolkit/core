@@ -163,6 +163,11 @@ allowed_os_scoped_tool := {
 	# windows_exporter is a Windows-only host/GPU Prometheus exporter, so the o2-winmetrics task scopes it to Windows.
 	"github:prometheus-community/windows_exporter",
 	"cargo:findutils",
+	# rustfs is the S3 server the storage backend test runs against.
+	# Upstream ships no macos/x64 prebuilt, so that one platform builds from the same git tag via cargo while the
+	# others take the github release. Between the two entries every platform is covered.
+	"rustfs",
+	"cargo:rustfs/rustfs",
 	"cargo:ryl",
 	# http:et-rp is os-scoped to only those platforms whose tarball is already in the rp-v<N> release.
 	# Add a platform by dispatching the upstream-cache.yaml workflow on that host.
