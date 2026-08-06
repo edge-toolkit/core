@@ -11,7 +11,7 @@ import 'clients/storage.dart';
 /// Edge Toolkit REST API `v0.1.0`.
 ///
 /// ws-server HTTP surface: health probe, module discovery, module assets, and per-agent storage.
-/// The storage routes are an anonymous S3-compatible interface -- addressed path-style as.
+/// The storage routes are an anonymous S3-compatible interface, addressed path-style as.
 /// /storage/{agent_id}/{filename} (bucket = agent_id, key = filename), they answer PUT/GET/HEAD with an ETag, so a.
 /// standard S3 client can read and write objects without credentials.
 class RestClient {

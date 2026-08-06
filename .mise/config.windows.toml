@@ -91,7 +91,7 @@ version = "stable-x86_64-pc-windows-gnullvm"
 components = "rust-src,rustfmt"
 profile = "minimal"
 targets = "wasm32-unknown-unknown,wasm32-wasip2"
-version = "nightly-x86_64-pc-windows-gnullvm"
+version = "{{ vars.rust_nightly }}-x86_64-pc-windows-gnullvm"
 
 [vars]
 # Forward-slashed mise installs root, for values spliced unquoted into bash task command lines.
