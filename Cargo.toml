@@ -373,9 +373,9 @@ ignore = [
   # cargo-unmaintained can't find a crate of this name in the denoland/deno monorepo its `repository` field names.
   # It is a workspace member there, so the "not in <repo>" heuristic misfires. Pulled by the Deno registry stack.
   "fast-registry-json",
-  # fs-set-times 0.20.3 (the latest release) still requires io-lifetimes ^2.0.0 (uses 2.0.4, latest 3.0.1),
-  # which -- with a long-stale upstream at bytecodealliance/fs-set-times -- trips cargo-unmaintained. Pulled by
-  # cap-primitives (cap-std / cap-fs-ext) via the version-pinned wasmtime-wasi 47, so it can't be bumped out;
+  # fs-set-times has a long-stale upstream (bytecodealliance/fs-set-times) that cargo-unmaintained flags.
+  # Its 0.20.3 (the latest release) still requires io-lifetimes ^2.0.0 (uses 2.0.4, latest 3.0.1); pulled by
+  # cap-primitives (cap-std / cap-fs-ext) via the version-pinned wasmtime-wasi 47, so it can't be bumped out.
   # io-lifetimes 2.x is not a defect -- its I/O-safety types were upstreamed into std, leaving it frozen.
   "fs-set-times",
   # Unmaintained upstream at HdrHistogram/HdrHistogram_rust.
@@ -440,6 +440,10 @@ ignore = [
   "smartstring",
   # https://github.com/rustsec/advisory-db/issues/2132
   "serde_yaml",
+  # spin's upstream is archived (mvdnes/spin-rs); the newer 0.10.1 is from the same archived repo, not a fix.
+  # Both versions are pulled transitively -- 0.9.9 via lazy_static, 0.10.1 via crc-fast (object_store) -- so
+  # neither can be bumped out to a maintained release.
+  "spin",
   # Unmaintained upstream at dalek-cryptography/subtle.
   "subtle",
   # Unmaintained upstream at hucsmn/suffix_array; its `bincode` requirement lags the latest release.

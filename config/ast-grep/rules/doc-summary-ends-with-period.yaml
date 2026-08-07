@@ -65,6 +65,8 @@ files:
   - services/ws-web-runner/tests/modules.rs
   - services/ws/tests/config.rs
   - services/ws/tests/load_registry.rs
+  - utilities/cli/src/deployment_types/docker_compose.rs
+  - utilities/cli/src/deployment_types/mise.rs
   - utilities/int-gen/src/error.rs
   - utilities/int-gen/src/lib.rs
   - utilities/int-gen/src/zig.rs
