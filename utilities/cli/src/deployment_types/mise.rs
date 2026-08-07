@@ -21,7 +21,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
     let openobserve_run = format!(
         concat!(
             "docker run --rm --name openobserve -p 5080:5080 ",
-            "--env-file {} openobserve/openobserve:v0.70.3",
+            "--env-file {} openobserve/openobserve:v0.91.5",
         ),
         openobserve_env_file_rel
     );

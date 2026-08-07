@@ -20,7 +20,7 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
             (
                 "openobserve".to_string(),
                 ComposeService {
-                    image: Some("openobserve/openobserve:v0.70.3".to_string()),
+                    image: Some("openobserve/openobserve:v0.91.5".to_string()),
                     healthcheck: Some(ComposeHealthcheck {
                         test: vec![
                             "CMD".to_string(),

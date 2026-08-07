@@ -238,18 +238,22 @@ version = "08a1d6f"
 
 # OpenObserve open-source binary for the o2-native task.
 # The same build the o2 docker image runs (its Dockerfile is just `CMD ["/openobserve"]`), pinned to the same
-# version. Direct upstream download, no checksum. No Windows build exists (downloads.openobserve.ai 403s the
-# windows asset), so os-scoped to linux + macos.
+# version. Direct upstream, per-version immutable URLs, so no checksum. Every supported platform has a prebuilt:
+# the Windows asset is a `.zip` (holding `openobserve.exe`) rather than the `.tar.gz` the others use -- probing the
+# `.tar.gz` name is what previously read as "no Windows build". windows-arm64 has no prebuilt but is not a target.
 [tools."http:openobserve"]
 bin = "openobserve"
-os = ["linux", "macos"]
-version = "0.70.3"
+version = "0.91.5"
 [tools."http:openobserve".platforms.linux-arm64]
-url = "https://downloads.openobserve.ai/releases/openobserve/v0.70.3/openobserve-v0.70.3-linux-arm64.tar.gz"
+url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-linux-arm64.tar.gz"
 [tools."http:openobserve".platforms.linux-x64]
-url = "https://downloads.openobserve.ai/releases/openobserve/v0.70.3/openobserve-v0.70.3-linux-amd64.tar.gz"
+url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-linux-amd64.tar.gz"
 [tools."http:openobserve".platforms.macos-arm64]
-url = "https://downloads.openobserve.ai/releases/openobserve/v0.70.3/openobserve-v0.70.3-darwin-arm64.tar.gz"
+url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-darwin-arm64.tar.gz"
+[tools."http:openobserve".platforms.macos-x64]
+url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-darwin-amd64.tar.gz"
+[tools."http:openobserve".platforms.windows-x64]
+url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-windows-amd64.zip"
 
 # chromedriver from Google's Chrome for Testing CDN, for the headless-browser wasm-bindgen tests.
 # The `os` list uses mise's os/arch compound syntax (mise >= 2026.4, jdx/mise#9088) to skip linux-arm64: Chrome
@@ -484,7 +488,7 @@ a_rp_wasm_short = "08a1d6f"
 actionlint_args = ""
 gh_http = "--http-url https://github.com --progress --ignore-existing"
 # OpenObserve docker image for the openobserve/o2 dev-observability task.
-o2_image = "openobserve/openobserve:v0.70.3"
+o2_image = "openobserve/openobserve:v0.91.5"
 # OpenTelemetry Collector image for the o2-hostmetrics / o2-macmon / o2-nvidia / o2-winmetrics tasks.
 otelcol_image = "otel/opentelemetry-collector-contrib:0.156.0"
 rp_wasm_dir = '''{% if os() == "windows" -%}

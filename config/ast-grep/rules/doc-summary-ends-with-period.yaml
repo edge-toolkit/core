@@ -27,6 +27,7 @@ files:
   - libs/edge-toolkit/src/config.rs
   - libs/edge-toolkit/tests/no_mise.rs
   - libs/edge-toolkit/tests/npm_mod.rs
+  - libs/otlp-emit/src/lib.rs
   - libs/test-helpers/src/lib.rs
   - libs/ws-runner-common/tests/config.rs
   - services/modules/tests/api_modules.rs
@@ -56,6 +57,7 @@ files:
   - services/ws-server/tests/net.rs
   - services/ws-server/tests/tls.rs
   - services/ws-wasi-runner/tests/modules.rs
+  - services/ws-wasi-runner/tests/o2_ingest_search.rs
   - services/ws-wasi-runner/tests/otel_propagation.rs
   - services/ws-wasi-runner/tests/vector_otlp_relay.rs
   - services/ws-wasm-agent/src/lib.rs
@@ -63,6 +65,8 @@ files:
   - services/ws-web-runner/tests/modules.rs
   - services/ws/tests/config.rs
   - services/ws/tests/load_registry.rs
+  - utilities/cli/src/deployment_types/docker_compose.rs
+  - utilities/cli/src/deployment_types/mise.rs
   - utilities/int-gen/src/error.rs
   - utilities/int-gen/src/lib.rs
   - utilities/int-gen/src/zig.rs

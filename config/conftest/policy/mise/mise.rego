@@ -172,8 +172,6 @@ allowed_os_scoped_tool := {
 	# http:et-rp is os-scoped to only those platforms whose tarball is already in the rp-v<N> release.
 	# Add a platform by dispatching the upstream-cache.yaml workflow on that host.
 	"http:et-rp",
-	# openobserve ships no Windows binary, so the o2-native task scopes it to linux + macos.
-	"http:openobserve",
 	"conda:gnupg",
 	# cargo:cargo-expand: gnullvm source-build fails, so os-scoped off Windows (msvc override in config.windows.toml).
 	"cargo:cargo-expand",
