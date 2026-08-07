@@ -373,6 +373,11 @@ ignore = [
   # cargo-unmaintained can't find a crate of this name in the denoland/deno monorepo its `repository` field names.
   # It is a workspace member there, so the "not in <repo>" heuristic misfires. Pulled by the Deno registry stack.
   "fast-registry-json",
+  # fs-set-times 0.20.3 (the latest release) still requires io-lifetimes ^2.0.0 (uses 2.0.4, latest 3.0.1),
+  # which -- with a long-stale upstream at bytecodealliance/fs-set-times -- trips cargo-unmaintained. Pulled by
+  # cap-primitives (cap-std / cap-fs-ext) via the version-pinned wasmtime-wasi 47, so it can't be bumped out;
+  # io-lifetimes 2.x is not a defect -- its I/O-safety types were upstreamed into std, leaving it frozen.
+  "fs-set-times",
   # Unmaintained upstream at HdrHistogram/HdrHistogram_rust.
   # Pulled by deno_node (perf hooks).
   "hdrhistogram",
