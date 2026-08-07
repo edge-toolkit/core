@@ -85,20 +85,38 @@ impl Drop for ChildGuard {
 
 /// Drain a child's piped stderr into a shared buffer on a background thread.
 ///
-/// Reading in a thread avoids the deadlock where the child fills its stderr pipe while the test is
-/// blocked elsewhere. The buffer is populated once the child's stderr reaches EOF (i.e. it exits),
-/// so read it after shutting the child down. The child must have been spawned with `Stdio::piped()`.
+/// The buffer is populated once the child's stderr reaches EOF (i.e. it exits), so read it after shutting
+/// the child down. The child must have been spawned with `Stdio::piped()` on stderr. Use this for daemons
+/// that log to stderr (e.g. vector); use [`drain_stdout`] for those that log to stdout (e.g. openobserve).
 #[must_use]
 pub fn drain_stderr(child: &mut Child) -> Arc<Mutex<String>> {
-    let stderr = child.stderr.take().unwrap();
+    drain_pipe(child.stderr.take().unwrap())
+}
+
+/// Drain a child's piped stdout into a shared buffer on a background thread.
+///
+/// The stdout counterpart of [`drain_stderr`], for daemons that log to stdout. Same EOF-on-exit semantics;
+/// the child must have been spawned with `Stdio::piped()` on stdout.
+#[must_use]
+pub fn drain_stdout(child: &mut Child) -> Arc<Mutex<String>> {
+    drain_pipe(child.stdout.take().unwrap())
+}
+
+/// Spawn a detached thread that reads `pipe` to EOF into a shared string buffer.
+///
+/// Reading in a thread avoids the deadlock where the child fills its output pipe while the test is blocked
+/// elsewhere. Nothing joins the handle, so neither the read result nor the thread's own outcome has a caller
+/// to propagate to -- both are intentionally discarded (partial output on a read error is still worth keeping
+/// for diagnostics).
+fn drain_pipe<Pipe>(pipe: Pipe) -> Arc<Mutex<String>>
+where
+    Pipe: std::io::Read + Send + 'static,
+{
     let log = Arc::new(Mutex::new(String::new()));
     let sink = Arc::clone(&log);
-    // Detached drainer: nothing joins the handle, so neither the read result nor the thread's own
-    // outcome has a caller to propagate to -- both are intentionally discarded (partial output on a
-    // read error is still worth keeping for diagnostics).
     let _drainer = std::thread::spawn(move || {
         let mut buffer = String::new();
-        let _read = std::io::BufReader::new(stderr).read_to_string(&mut buffer);
+        let _read = std::io::BufReader::new(pipe).read_to_string(&mut buffer);
         *sink.lock().unwrap() = buffer;
     });
     log

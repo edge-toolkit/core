@@ -4787,17 +4787,17 @@ dependencies = [
  "et-ws-test-server",
  "fs-err",
  "futures-util",
+ "int-otlp-emit",
  "int-otlp-mock",
  "libc",
  "opentelemetry 0.31.0",
  "opentelemetry-http 0.31.0",
- "opentelemetry-proto 0.31.0",
  "ort",
  "pollster",
- "prost",
  "reqwest 0.13.4",
  "retry",
  "rstest",
+ "secrecy",
  "serde",
  "serde-env",
  "serde_json",
@@ -6235,6 +6235,15 @@ checksum = "879f10e63c20629ecabbb64a8010319738c66a5cd0c29b02d63d272b03751d01"
 dependencies = [
  "block-padding",
  "generic-array",
+]
+
+[[package]]
+name = "int-otlp-emit"
+version = "0.1.0"
+dependencies = [
+ "opentelemetry 0.31.0",
+ "opentelemetry-otlp 0.31.1",
+ "opentelemetry_sdk 0.31.0",
 ]
 
 [[package]]
