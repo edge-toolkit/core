@@ -68,24 +68,25 @@ struct WsApiClient;
 #[asyncapi_messages(ServerMessage)]
 struct WsApiServer;
 
-/// Build the merged, slimmed `AsyncAPI` spec as a `serde_json::Value`.
+/// Build the merged `AsyncAPI` spec as a `serde_json::Value`.
 ///
 /// Steps:
 ///   1. Derive the two halves via `WsApiClient` / `WsApiServer`.
 ///   2. Merge the server-side channels / operations / messages into the
 ///      client-side document (`merge_asyncapi`).
-///   3. Slim each `components.messages.<name>.payload` to just its
-///      tagged variant and hoist shared `$defs` into
-///      `components.schemas` (`slim_component_messages`).
-///   4. Assert that `info.version` matches [`WS_VERSION`] so any drift
+///   3. Assert that `info.version` matches [`WS_VERSION`] so any drift
 ///      between the derive literal and the const is caught loudly.
+///
+/// `asyncapi-rust` 0.5 already emits each message's payload as its own object
+/// schema (no `oneOf` fan-out), with shared definitions hoisted into
+/// `components.schemas` and canonical `#/components/schemas/...` refs, so no
+/// payload-slimming post-processing is needed -- unlike 0.2, which required it.
 pub fn build_spec() -> Result<serde_json::Value, Error> {
     let client_spec = WsApiClient::asyncapi_spec();
     let server_spec = WsApiServer::asyncapi_spec();
     let mut spec_value = serde_json::to_value(&client_spec)?;
     let server_value = serde_json::to_value(&server_spec)?;
     merge_asyncapi(&mut spec_value, &server_value);
-    slim_component_messages(&mut spec_value)?;
     let info_version = spec_value
         .get("info")
         .and_then(|info| info.get("version"))
@@ -156,107 +157,4 @@ fn merge_asyncapi(target: &mut serde_json::Value, source: &serde_json::Value) {
     merge_object_field(target, source, "operations");
     merge_nested(target, source, "components", "messages");
     merge_nested(target, source, "components", "schemas");
-}
-
-/// Replace each component message's payload with just its variant schema and
-/// hoist the shared `$defs` into `components.schemas`. Mutates `spec` in place.
-#[expect(
-    clippy::single_call_fn,
-    reason = "named helper called once by build_spec(); the slim-down is one logical step"
-)]
-fn slim_component_messages(spec: &mut serde_json::Value) -> Result<(), Error> {
-    use serde_json::Value;
-
-    // Pluck one variant payload off any message -- they're all identical, so
-    // we use the first to harvest the `oneOf` array and `$defs`.
-    let components = spec
-        .get_mut("components")
-        .and_then(Value::as_object_mut)
-        .ok_or(Error::SpecNodeMissing("components"))?;
-
-    let messages = components
-        .get_mut("messages")
-        .and_then(Value::as_object_mut)
-        .ok_or(Error::SpecNodeMissing("components.messages"))?;
-
-    let any_payload = messages
-        .values()
-        .find_map(|msg| msg.get("payload").cloned())
-        .ok_or(Error::SpecNodeMissing("any message payload"))?;
-    let one_of = any_payload
-        .get("oneOf")
-        .and_then(Value::as_array)
-        .ok_or(Error::SpecNodeMissing("payload.oneOf"))?
-        .clone();
-    let defs = any_payload
-        .get("$defs")
-        .and_then(Value::as_object)
-        .cloned()
-        .unwrap_or_default();
-
-    // Index variants by their `type.const` discriminator so we can match each
-    // component message name (`et-connect`, ...) to its slim schema.
-    let mut variants_by_tag: std::collections::HashMap<String, Value> = std::collections::HashMap::new();
-    for variant in one_of {
-        let tag = variant
-            .get("properties")
-            .and_then(|props| props.get("type"))
-            .and_then(|kind| kind.get("const"))
-            .and_then(Value::as_str)
-            .map(str::to_string);
-        let Some(tag) = tag else {
-            continue;
-        };
-        // Rewrite `$ref: "#/$defs/Foo"` -> `"#/components/schemas/Foo"` so the
-        // hoisted defs land in the AsyncAPI-canonical location.
-        let mut variant = variant;
-        rewrite_refs(&mut variant);
-        let _previous: Option<Value> = variants_by_tag.insert(tag, variant);
-    }
-
-    for (name, message) in messages.iter_mut() {
-        if let Some(variant) = variants_by_tag.get(name)
-            && let Some(obj) = message.as_object_mut()
-        {
-            let _previous: Option<Value> = obj.insert("payload".to_string(), variant.clone());
-        }
-    }
-
-    // Hoist `$defs` to `components.schemas`. Rewrite refs inside each def too.
-    let mut hoisted = serde_json::Map::new();
-    for (name, mut value) in defs {
-        rewrite_refs(&mut value);
-        let _previous: Option<Value> = hoisted.insert(name, value);
-    }
-    if !hoisted.is_empty() {
-        let _previous: Option<Value> = components.insert("schemas".to_string(), Value::Object(hoisted));
-    }
-    Ok(())
-}
-
-/// Recursively replace `$ref: "#/$defs/Foo"` with `"#/components/schemas/Foo"`.
-fn rewrite_refs(value: &mut serde_json::Value) {
-    match value {
-        serde_json::Value::Object(map) => {
-            if let Some(reference) = map.get_mut("$ref")
-                && let Some(raw) = reference.as_str()
-                && let Some(rest) = raw.strip_prefix("#/$defs/")
-            {
-                *reference = serde_json::Value::String(format!("#/components/schemas/{rest}"));
-            }
-            for inner in map.values_mut() {
-                rewrite_refs(inner);
-            }
-        }
-        serde_json::Value::Array(items) => {
-            for inner in items {
-                rewrite_refs(inner);
-            }
-        }
-        // primitives have no refs to rewrite.
-        serde_json::Value::Null
-        | serde_json::Value::Bool(_)
-        | serde_json::Value::Number(_)
-        | serde_json::Value::String(_) => {}
-    }
 }

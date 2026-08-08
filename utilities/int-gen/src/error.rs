@@ -30,8 +30,6 @@ pub enum Error {
     #[error(transparent)]
     Regex(#[from] regex::Error),
 
-    #[error("AsyncAPI spec missing required node: {0}")]
-    SpecNodeMissing(&'static str),
     #[error("WS message JSON Schema malformed: {0}")]
     SchemaMalformed(&'static str),
     #[error("unsupported JSON Schema `type`: `{0}`")]

@@ -28,9 +28,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("--filename is required".into());
     };
 
-    let model = onnx_extractor::OnnxModel::load_from_file(&filename.to_string_lossy())?;
+    let model = onnx_extractor::Model::load_from_file(filename)?;
 
-    model.print_summary();
-    model.print_model_info();
+    println!("{model}");
     Ok(())
 }

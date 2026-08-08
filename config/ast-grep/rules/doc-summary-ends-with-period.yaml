@@ -71,4 +71,5 @@ files:
   - utilities/int-gen/src/lib.rs
   - utilities/int-gen/src/zig.rs
   - utilities/int-gen/tests/generate_zig.rs
+  - utilities/onnx/src/main.rs
   - utilities/wasm-cov-wrapper/src/main.rs

@@ -207,6 +207,19 @@ When you find yourself about to explain something that is already explained else
 is the right home (so say nothing here), or this is the better home (so move it here and remove the original). One
 canonical location, never two.
 
+## Don't narrate dependency version changes in comments
+
+A comment describes what the code does now, not how it got there. When you bump a dependency and update code to its
+new API, do **not** add a comment explaining the change -- no "0.4 renamed `Foo` to `Bar`", no "replaces the old
+`x()`/`y()` calls", no "the 0.3 API used to ...". The renamed symbol and the new call are already visible in the code,
+and git history records what changed, so the note is pure duplication that goes stale the moment the next version
+lands. Comment the current code as if the old version never existed.
+
+The narrow exception is a version fact that is load-bearing -- it explains something that would otherwise read as
+arbitrary or wrong and that a reader needs in order not to break things: a pin deliberately held back for
+compatibility, or a workaround for a specific upstream bug. "The implementation changed but the behaviour did not"
+never qualifies. When in doubt, leave it out.
+
 ## Common Commands
 
 All tasks run through `mise run <task>`. The aggregates below act on Rust + the universal checks

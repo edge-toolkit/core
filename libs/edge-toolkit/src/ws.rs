@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// Schema for `serde_json::Value`-typed fields. schemars 1.x renders bare
 /// `Value` as the boolean schema `true`, which the `AsyncAPI` Schema model in
-/// `asyncapi-rust` 0.2 doesn't accept. Emit an explicit object schema so the
+/// `asyncapi-rust` doesn't accept. Emit an explicit object schema so the
 /// payload is described as "arbitrary JSON" without tripping the parser.
 #[cfg(feature = "schema-export")]
 #[expect(

@@ -703,12 +703,13 @@ dependencies = [
 
 [[package]]
 name = "asyncapi-rust"
-version = "0.2.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80ca4d85b1ab04475b03e84a38385786632200879127fd4cbc7da83c8fa7fe72"
+checksum = "b78e4b1b517a0ed363afe4ce5f3c654f9dad71ae219b493326edd0fba90931e8"
 dependencies = [
  "asyncapi-rust-codegen",
  "asyncapi-rust-models",
+ "indexmap",
  "schemars 1.2.2",
  "serde",
  "serde_json",
@@ -716,9 +717,9 @@ dependencies = [
 
 [[package]]
 name = "asyncapi-rust-codegen"
-version = "0.2.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc20d497b19e9f06ba3fad2938f6bf696184a72d44d8e9d44208303409e3a0af"
+checksum = "4cfe26564ef0eb43900f482d827f5a2d6360bd0361de4fd1c77d87e0f7517e2c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -730,10 +731,11 @@ dependencies = [
 
 [[package]]
 name = "asyncapi-rust-models"
-version = "0.2.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "076c77e2a619f709f613e50ea1bcb58211539cbf2f1eaa9fad140e93a15f8950"
+checksum = "0ff7f79a0864d5c8f1fbd83f9c7eb5c07d623cf50196ea54213e6592ae4ec341"
 dependencies = [
+ "indexmap",
  "serde",
  "serde_json",
 ]
@@ -827,6 +829,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "base64"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
+
+[[package]]
 name = "base64-simd"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -871,7 +879,7 @@ dependencies = [
  "clang-sys",
  "itertools 0.13.0",
  "log",
- "prettyplease",
+ "prettyplease 0.2.37",
  "proc-macro2",
  "quote",
  "regex",
@@ -891,7 +899,7 @@ dependencies = [
  "clang-sys",
  "itertools 0.13.0",
  "log",
- "prettyplease",
+ "prettyplease 0.2.37",
  "proc-macro2",
  "quote",
  "regex",
@@ -3031,8 +3039,8 @@ dependencies = [
  "proc-macro2",
  "quote",
  "stringcase",
- "strum",
- "strum_macros",
+ "strum 0.27.2",
+ "strum_macros 0.27.2",
  "syn 2.0.119",
  "syn-match",
  "thiserror 2.0.19",
@@ -4034,7 +4042,7 @@ name = "edge-toolkit"
 version = "0.1.0"
 dependencies = [
  "asyncapi-rust",
- "base64 0.22.1",
+ "base64 0.23.1",
  "command-error",
  "et-path",
  "et-test-helpers",
@@ -4051,7 +4059,7 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "serde_yaml",
- "strum",
+ "strum 0.28.0",
  "tempfile",
  "testing_logger",
  "thiserror 2.0.19",
@@ -4209,7 +4217,7 @@ dependencies = [
  "kdl 6.7.1",
  "openapiv3",
  "pretty_yaml",
- "prettyplease",
+ "prettyplease 0.3.0",
  "progenitor",
  "quote",
  "regex",
@@ -4219,7 +4227,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "syn 2.0.119",
+ "syn 3.0.3",
  "thiserror 2.0.19",
  "tree-sitter",
  "tree-sitter-zig",
@@ -4566,7 +4574,7 @@ name = "et-ws-pyo3-runner"
 version = "0.1.0"
 dependencies = [
  "backon",
- "base64 0.22.1",
+ "base64 0.23.1",
  "command-error",
  "edge-toolkit",
  "et-rest-client",
@@ -7550,9 +7558,9 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "onnx-extractor"
-version = "0.3.10"
+version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f8a7b1752ce77203505f0939b9861ec10905100d017720bc66400502ce1e531"
+checksum = "531e693927327eef6b84c2051e1d0453d2ea5b2f658f1ab3463100716d8ed6d6"
 dependencies = [
  "memmap2",
  "prost",
@@ -8134,9 +8142,9 @@ dependencies = [
 
 [[package]]
 name = "port_check"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2110609fb863cdb367d4e69d6c43c81ba6a8c7d18e80082fe9f3ef16b23afeed"
+checksum = "4c2749dcd0984ec1be3c01001bb1d83623a58c3c0049a99b9afec61464fa98e7"
 
 [[package]]
 name = "portable-atomic"
@@ -8226,6 +8234,16 @@ checksum = "479ca8adacdd7ce8f1fb39ce9ecccbfe93a3f1344b3d0d97f20bc0196208f62b"
 dependencies = [
  "proc-macro2",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "prettyplease"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bfe0f4c752e450fc2faf62654f1c134747922825d5b04ca717b8874f41a40c0"
+dependencies = [
+ "proc-macro2",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -8375,7 +8393,7 @@ dependencies = [
  "log",
  "multimap",
  "petgraph 0.8.3",
- "prettyplease",
+ "prettyplease 0.2.37",
  "prost",
  "prost-types",
  "regex",
@@ -10198,7 +10216,16 @@ version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
 dependencies = [
- "strum_macros",
+ "strum_macros 0.27.2",
+]
+
+[[package]]
+name = "strum"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9628de9b8791db39ceda2b119bbe13134770b56c138ec1d3af810d045c04f9bd"
+dependencies = [
+ "strum_macros 0.28.0",
 ]
 
 [[package]]
@@ -10206,6 +10233,18 @@ name = "strum_macros"
 version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7695ce3845ea4b33927c055a39dc438a45b059f7c1b3d91d38d10355fb8cbca7"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab85eea0270ee17587ed4156089e10b9e6880ee688791d45a905f5b1ca36f664"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -11353,9 +11392,9 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter"
-version = "0.25.10"
+version = "0.26.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78f873475d258561b06f1c595d93308a7ed124d9977cb26b148c2084a4a3cc87"
+checksum = "af1c71c1c4cc0920b20d6b0f6572e7682cd07a6a2faec71067a31fa394c586df"
 dependencies = [
  "cc",
  "regex",
@@ -13143,7 +13182,7 @@ dependencies = [
  "anyhow",
  "heck",
  "indexmap",
- "prettyplease",
+ "prettyplease 0.2.37",
  "syn 2.0.119",
  "wasm-metadata",
  "wit-bindgen-core",
@@ -13158,7 +13197,7 @@ checksum = "af9237d678e3513ad24e96fe98beacdc0db6405284ba2a2400418cf0d42caa89"
 dependencies = [
  "anyhow",
  "macro-string",
- "prettyplease",
+ "prettyplease 0.2.37",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
