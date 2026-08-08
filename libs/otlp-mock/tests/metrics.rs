@@ -43,6 +43,7 @@ fn sample_request() -> ExportMetricsServiceRequest {
             value: Some(AnyValue {
                 value: Some(any_value::Value::IntValue(7)),
             }),
+            ..Default::default()
         }],
         ..Default::default()
     };

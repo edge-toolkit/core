@@ -54,11 +54,11 @@ actix-files = "0.6"
 actix-rt = "2"
 actix-web = { version = "4", features = ["rustls-0_23"] }
 actix-web-thiserror = "0.2"
-actix-ws = "0.3"
+actix-ws = "0.4"
 async-trait = "0.1"
-asyncapi-rust = "0.2"
+asyncapi-rust = "0.5"
 backon = { version = "1.6", default-features = false }
-base64 = "0.22.1"
+base64 = "0.23"
 bytemuck = { version = "1.16", features = ["derive"] }
 bytes = "1"
 bytesize = { version = "2", features = ["serde"] }
@@ -107,17 +107,17 @@ libc = "0.2"
 local-ip-address = "0.6"
 log = "0.4"
 minicov = "0.3"
-onnx-extractor = "0.3"
+onnx-extractor = "0.4"
 # Storage backend abstraction: local disk by default, any object_store backend via a URL.
 # `aws` pulls the S3 client (which also covers S3-compatible servers such as the rustfs mise tool the backend
 # test runs against). Only `aws` is enabled -- adding `gcp`/`azure`/`http` is a one-word change if a consumer
 # ever needs them, and each drags its own SDK surface, so they stay off until asked for.
 object_store = { version = "0.14", default-features = false, features = ["aws", "fs"] }
 openapiv3 = "2"
-opentelemetry = "0.31"
-opentelemetry-appender-tracing = "0.31"
-opentelemetry-http = "0.31"
-opentelemetry-otlp = { version = "0.31", default-features = false, features = [
+opentelemetry = "0.32"
+opentelemetry-appender-tracing = "0.32"
+opentelemetry-http = "0.32"
+opentelemetry-otlp = { version = "0.32", default-features = false, features = [
   "http-json",
   "http-proto",
   "logs",
@@ -125,18 +125,18 @@ opentelemetry-otlp = { version = "0.31", default-features = false, features = [
   "reqwest-blocking-client",
   "trace",
 ] }
-opentelemetry-proto = { version = "0.31", default-features = false, features = [
+opentelemetry-proto = { version = "0.32", default-features = false, features = [
   "gen-tonic-messages",
   "metrics",
   "trace",
   "with-serde",
 ] }
-opentelemetry_sdk = "0.31"
+opentelemetry_sdk = "0.32"
 ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dylibs"] }
 pollster = "0.4"
-port_check = "0.2"
+port_check = "0.3"
 pretty_yaml = "0.6"
-prettyplease = "0.2"
+prettyplease = "0.3"
 progenitor = "0.14"
 progenitor-client = "0.14"
 prost = "0.14"
@@ -166,8 +166,8 @@ serde_json = "1"
 serde_path_to_error = "0.1"
 serde_urlencoded = "0.7"
 serde_yaml = "0.9"
-strum = { version = "0.27", features = ["derive"] }
-syn = "2"
+strum = { version = "0.28", features = ["derive"] }
+syn = "3"
 sys_traits = { version = "0.1.28", features = ["libc", "real"] }
 temp-env = "0.3"
 tempfile = "3"
@@ -180,14 +180,14 @@ toml = "0.8"
 tracing = "0.1"
 tracing-actix-web = { version = "0.7", default-features = false, features = [
   "emit_event_on_error",
-  "opentelemetry_0_31",
+  "opentelemetry_0_32",
   "uuid_v7",
 ] }
 tracing-log = "0.2"
-tracing-opentelemetry = "0.32"
+tracing-opentelemetry = "0.33"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-wasm = "0.2"
-tree-sitter = "0.25"
+tree-sitter = "0.26"
 tree-sitter-zig = "1"
 # Already resolved transitively (object_store, reqwest, ...), so this adds no new crate or license to review.
 # object_store's parse_url_opts takes a `&Url` and does not re-export the type, so a backend-URL config needs it.

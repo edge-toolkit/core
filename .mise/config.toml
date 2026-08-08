@@ -1510,6 +1510,7 @@ depends = [
 ]
 
 [tasks.cargo-test]
+alias = "cargo-nextest"
 description = "Run every Rust test via nextest (web-runner excluded on gnullvm)"
 run = "cargo nextest run --workspace {{ vars.cargo_ws_excludes }} --config-file config/nextest.toml"
 
