@@ -503,7 +503,7 @@ rp_wasm_dir = '''{% if os() == "windows" -%}
 # Used as MISE_ENV by the *-all tasks to act on every language at once (mise has
 # no MISE_ENV=all). Hardcoded rather than shell-discovered so it works on Windows
 # too -- keep in sync when adding/removing a config.<lang>.toml.
-ALL_LANGS = "dart,dotnet,java,js,python,r,rust,zig"
+ALL_LANGS = "dart,dotnet,java,js,kotlin,python,r,rust,zig"
 CLIPPY_CONF_DIR = "{{ config_root }}/config"
 TAPLO_CONFIG = "{{ config_root }}/config/taplo.toml"
 # augtool's lens search path is compile-time pinned to the build-time --prefix.

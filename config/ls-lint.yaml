@@ -18,6 +18,9 @@ ls:
   .yaml: snake_case | kebab-case
   .cs: PascalCase
   .java: PascalCase
+  .kt: PascalCase
+  # Gradle build scripts: the fixed names `build.gradle.kts` / `settings.gradle.kts`.
+  .gradle.kts: regex:(build|settings)
 
   # Ban the `.conf` extension: config files standardize on `.ini`/`.rc`, as rclone.ini and ripgrep.rc do.
   # `regex:^$` matches no basename, so every `*.conf` file fails the check.
@@ -52,3 +55,10 @@ ignore:
   - "**/pkg"
   # Zig codegen templates dir whose name carries a literal `.in` suffix.
   - "**/zig.in"
+  # Gradle/Kotlin trees ls-lint would otherwise walk.
+  # The build/cache dirs are gitignored (ls-lint can't read .gitignore); wasmJsMain stays tracked but its
+  # camelCase name is fixed by Kotlin Multiplatform's `src/<sourceSetName>/kotlin` layout contract.
+  - "**/.gradle"
+  - "**/.kotlin"
+  - services/ws-modules/kotlin-data1/build
+  - services/ws-modules/kotlin-data1/src/wasmJsMain

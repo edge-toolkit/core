@@ -363,6 +363,8 @@ Languages:
 - **Rust -> WASM** (wasm-pack): audio1, bluetooth, comm1, data1, except1, face-detection, geolocation, graphics-info,
   har1, nfc, sensor1, speech-recognition, video1
 - **Dart -> JS**: dart-comm1
+- **Kotlin -> WASM (WasmGC)**: kotlin-data1 -- compiled by the Kotlin Gradle plugin's `wasmJs` target; the
+  module is a WasmGC binary (browser GC manages the Kotlin heap), so it needs a WasmGC-capable engine
 - **Python (Pyodide)**: pydata1, pyeye1, pyface1
 - **C# (.NET WASM)**: dotnet-data1
 - **Java (TeaVM -> JS)**: java-data1

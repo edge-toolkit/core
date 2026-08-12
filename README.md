@@ -2,7 +2,8 @@
 
 edge-toolkit is a WebSocket-based edge-computing framework that runs AI on hardware you control, so nothing has to leave
 your network. A lightweight server acts as a hub that serves small AI modules -- written in Rust, Python, Dart, C#,
-Java and more, each compiled to WebAssembly or transpiled to JavaScript -- straight to a browser, where they run locally
+Java, Kotlin and more, each compiled to WebAssembly or transpiled to JavaScript -- straight to a browser, where they run
+locally
 and can reach the browser's own Web APIs (camera, microphone, geolocation, motion sensors, Bluetooth, NFC) to sense the
 real world directly. The same framework also drives larger models on local GPU hardware through standardised WebAssembly
 interfaces, so one toolkit spans on-device and server inference without changing the protocol.
@@ -251,6 +252,8 @@ Most are Rust built with `wasm-pack build --target web`; other languages:
 
 - Dart
 - Java
+- Kotlin, compiled to a [WasmGC](https://github.com/WebAssembly/gc) module by Kotlin/Wasm (kotlin-data1) -- the
+  browser's (or Deno's V8) garbage collector manages the Kotlin heap, so the module ships no bundled runtime
 - .Net C#
 - Python, using [pyodide](https://pyodide.org/) and [RustPython](https://rustpython.github.io/)
 - R, using [webR](https://docs.r-wasm.org/webr/latest/) (rdata1, rcomm1) -- browser-only: webR spawns a classic

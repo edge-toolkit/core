@@ -422,6 +422,16 @@ ignore = [
   # rand_chacha lives in rust-random/rand as a workspace subdir (rand_chacha/).
   # But cargo-unmaintained looks only at the repo root and reports "not in".
   "rand_chacha",
+  # Unmaintained upstream at gitlab redox-os/users; its getrandom (^0.2) and thiserror (^1.0) pins lag latest.
+  # Redox-OS-only code, pulled via the version-pinned wasmtime 47's cache stack (wasmtime-internal-cache ->
+  # directories-next -> dirs-sys-next, the same family as the dirs-sys-next entry above); never compiled on
+  # our target platforms.
+  "redox_users",
+  # Unmaintained upstream at rust-analyzer/rowan (rust-analyzer moved its syntax trees in-tree).
+  # Its hashbrown (^0.14.3) and rustc-hash (^1.0.1) pins lag latest. Both lock versions are transitive: 0.15
+  # via deno_resolver's yaml_parser, 0.16 via pretty_yaml (et-int-gen's YAML emitter). Its helper crates
+  # countme + text-size carry entries above/below for the same reason.
+  "rowan",
   # Archived upstream at rustls/pemfile. Pulled by deno_native_certs.
   # rustls itself has moved to inline pemfile parsing.
   "rustls-pemfile",

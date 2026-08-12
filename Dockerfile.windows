@@ -147,7 +147,7 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 FROM build-minimal AS build
 COPY .mise/ .mise/
 RUN mise trust
-ARG MISE_ENV=dart,dotnet,java,js,python,r,rust,zig
+ARG MISE_ENV=dart,dotnet,java,js,kotlin,python,r,rust,zig
 ENV MISE_ENV=${MISE_ENV}
 # Disable a few heavy tools on the servercore docker lane to save disk.
 # This keeps the
