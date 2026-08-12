@@ -139,6 +139,12 @@ m2_gnupg_bin = '{{ vars.mise_installs }}\conda-m2-gnupg\2.2.41.1\Library\usr\bin
 # mise's bin auto-discovery walks into this subdir on Linux/macOS but not on Windows, so `mvn` isn't on PATH
 # without an explicit entry. Pinned to the config.java.toml [tools] maven version -- bump both together.
 maven_bin = '{{ vars.mise_installs }}\maven\3.9.16\apache-maven-3.9.16\bin'
+# Gradle's bin dir lives nested at `gradle-X.Y.Z/bin/` inside its install, the same shape as maven above.
+# mise's Windows bin discovery misses it (it also expects a `gradle.exe` that Gradle doesn't ship). Pinned to
+# the config.kotlin.toml [tools] gradle version -- bump both together. Consumed by the kotlin env's GRADLE env
+# var only; deliberately NOT added to `_.path`, because the dir holds the extensionless Unix `gradle` script
+# side-by-side with `gradle.bat`, and busybox bash would resolve the Unix script first (the mvn pathology).
+gradle_bin = '{{ vars.mise_installs }}\gradle\9.7.0\gradle-9.7.0\bin'
 # conda:libclang's binary dir, for the LIBCLANG_PATH below.
 # Pinned to the [tools] version above -- bump both together (conftest's version_drift enforces).
 win_libclang = '{{ vars.mise_installs }}\conda-libclang\22.1.8\Library\bin'

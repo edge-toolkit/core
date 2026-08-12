@@ -250,15 +250,14 @@ Modules loaded by a web browser, or using Deno as the "web browser" in `et-ws-we
 
 Most are Rust built with `wasm-pack build --target web`; other languages:
 
-- Dart
-- Java
-- Kotlin, compiled to a [WasmGC](https://github.com/WebAssembly/gc) module by Kotlin/Wasm (kotlin-data1) -- the
-  browser's (or Deno's V8) garbage collector manages the Kotlin heap, so the module ships no bundled runtime
-- .Net C#
+- Dart, transpiled to JavaScript
+- Java, using [TeaVM](https://teavm.org/) to transpile to JavaScript
+- Kotlin, compiled to a [WasmGC](https://github.com/WebAssembly/gc), supported by Chrome, Firefox and Deno.
+- .Net C#, compiled to WASM
 - Python, using [pyodide](https://pyodide.org/) and [RustPython](https://rustpython.github.io/)
 - R, using [webR](https://docs.r-wasm.org/webr/latest/) (rdata1, rcomm1) -- browser-only: webR spawns a classic
-  Web Worker, which Deno's `et-ws-web-runner` does not support, so these fail there by design
-- Zig, including C and C++ code
+  Web Worker, which the Deno runner does not support yet
+- Zig, including C and C++ code, compiled to WASM
 
 #### et-ws-web-runner on Windows
 
