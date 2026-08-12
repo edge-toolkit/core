@@ -147,10 +147,12 @@ python = "3.13.14"
 rclone = "latest"
 # rustfs is the S3-compatible server the et-storage-service S3-backend test runs against.
 # Version-pinned rather than `latest` because upstream has published only prereleases so far, which mise's
-# version list filters out -- `latest` resolves to nothing. Upstream ships prebuilts for linux (x64+arm64,
-# gnu+musl), macos/arm64 and windows/x64 but NOT macos/x64, so that one platform builds from source via the
-# cargo entry below. Bump both in lockstep.
-rustfs = { version = "1.0.0-beta.12", os = ["linux", "macos/arm64", "windows"] }
+# version list filters out -- `latest` resolves to nothing. Coverage is split three ways: this aqua entry
+# takes upstream's macos/arm64 + windows/x64 prebuilts, linux takes the static musl prebuilts via the
+# `http:rustfs` entry below (the aqua-selected gnu build needs a newer glibc than several docker-linux
+# distros carry), and macos/x64 (no prebuilt at all) builds from source via the cargo entry below. Bump all
+# three in lockstep.
+rustfs = { version = "1.0.0-beta.12", os = ["macos/arm64", "windows"] }
 typos = "latest"
 uv = "0.11.8"
 wasm-tools = "latest"
@@ -241,19 +243,52 @@ version = "08a1d6f"
 # version. Direct upstream, per-version immutable URLs, so no checksum. Every supported platform has a prebuilt:
 # the Windows asset is a `.zip` (holding `openobserve.exe`) rather than the `.tar.gz` the others use -- probing the
 # `.tar.gz` name is what previously read as "no Windows build". windows-arm64 has no prebuilt but is not a target.
+#
+# The linux URLs take upstream's `-musl` static builds, not the default gnu ones: the gnu binary imports
+# GLIBC_2.39 symbols, so on every docker-linux matrix distro with glibc <= 2.38 (ubuntu:22.04,
+# debian:bookworm, amazonlinux:2023, opensuse/leap:15.6, azurelinux 3.0) it dies at exec and the
+# ws-wasi-runner o2_ingest_search test times out with the literal panic
+#
+#     openobserve never bound its HTTP port :36657
+#
+# observed on commit 1f544590b473887015754f67c3af843f970d8dbc at
+# https://github.com/edge-toolkit/core/actions/runs/31559765133/job/94267330524 (and the three sibling
+# old-glibc lanes of that run), while every glibc >= 2.39 lane passed. The musl build has no glibc floor.
 [tools."http:openobserve"]
 bin = "openobserve"
 version = "0.91.5"
 [tools."http:openobserve".platforms.linux-arm64]
-url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-linux-arm64.tar.gz"
+url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-linux-arm64-musl.tar.gz"
 [tools."http:openobserve".platforms.linux-x64]
-url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-linux-amd64.tar.gz"
+url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-linux-amd64-musl.tar.gz"
 [tools."http:openobserve".platforms.macos-arm64]
 url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-darwin-arm64.tar.gz"
 [tools."http:openobserve".platforms.macos-x64]
 url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-darwin-amd64.tar.gz"
 [tools."http:openobserve".platforms.windows-x64]
 url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-windows-amd64.zip"
+
+# rustfs static musl prebuilts for linux.
+# Pairs with the aqua `rustfs` entry above (macos/arm64 + windows/x64) and the `cargo:rustfs/rustfs` source
+# build (macos/x64). Same GitHub release the aqua entry resolves, but aqua selects the gnu asset, which
+# imports GLIBC_2.39 symbols -- on every
+# docker-linux matrix distro with glibc <= 2.38 it dies at exec and the et-storage-service s3_backend test
+# times out with the literal panic
+#
+#     rustfs did not start listening on port 33649
+#
+# observed on commit 1f544590b473887015754f67c3af843f970d8dbc at
+# https://github.com/edge-toolkit/core/actions/runs/31559765133/job/94267330524 (and the three sibling
+# old-glibc lanes of that run), while every glibc >= 2.39 lane passed. The musl build has no glibc floor.
+# Direct upstream, per-version immutable URLs, so no checksum. Bump in lockstep with the two entries above.
+[tools."http:rustfs"]
+bin = "rustfs"
+os = ["linux"]
+version = "1.0.0-beta.12"
+[tools."http:rustfs".platforms.linux-arm64]
+url = "https://github.com/rustfs/rustfs/releases/download/{{version}}/rustfs-linux-aarch64-musl-v{{version}}.zip"
+[tools."http:rustfs".platforms.linux-x64]
+url = "https://github.com/rustfs/rustfs/releases/download/{{version}}/rustfs-linux-x86_64-musl-v{{version}}.zip"
 
 # chromedriver from Google's Chrome for Testing CDN, for the headless-browser wasm-bindgen tests.
 # The `os` list uses mise's os/arch compound syntax (mise >= 2026.4, jdx/mise#9088) to skip linux-arm64: Chrome
