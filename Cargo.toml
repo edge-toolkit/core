@@ -340,6 +340,8 @@ missing_panics_doc = { level = "allow", priority = 4 }
 ignore = [
   # No `repository` declared. Pulled by deno_node_crypto for AES-GCM.
   "aead-gcm-stream",
+  # actix-web-thiserror-derive still uses syn v1
+  "actix-web-thiserror-derive",
   # Archived upstream (servo/bincode).
   # Pulled by deno_core for snapshot serialisation; will move when Deno upgrades to bincode 2.
   "bincode",

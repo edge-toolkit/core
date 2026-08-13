@@ -1210,10 +1210,13 @@ run = "git diff --exit-code -- verification/"
 depends = ["cargo-check", "cargo-clippy-check", "cargo-doc-check", "regenerate-verification"]
 description = "Regenerate HELP.md for every clap-using utility under utilities/"
 run = """
+s=target/scratch/gen-help
+mkdir -p "$s"
 for crate in et-cli et-int-gen et-onnx; do
   helpmd="utilities/${crate#et-}/HELP.md"
   echo "[gen-help-all] $crate -> $helpmd"
-  cargo run --features markdown-help -q -p "$crate" -- --markdown-help | dprint fmt --stdin md > "$helpmd"
+  cargo run --features markdown-help -q -p "$crate" -- --markdown-help | dprint fmt --stdin md > "$s/$crate.md"
+  coreutils mv "$s/$crate.md" "$helpmd"
 done
 """
 shell = "bash -euo pipefail -c"

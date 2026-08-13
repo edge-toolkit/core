@@ -695,6 +695,15 @@ The `install-mise-tools` composite action sets it for the CI jobs, and the Windo
 `MISE_DISABLE_TOOLS`. `cargo:open` takes the latter route: its open-o2 opener is a known Windows gap until the
 backend works again.
 
+## NEVER read or edit `.github/workflows/upstream-cache.yaml` without explicit permission
+
+Agents are not allowed to open, read, or modify `.github/workflows/upstream-cache.yaml` unless the operator has
+explicitly permitted that specific access in the current conversation. This workflow publishes binary artifacts
+to the project's GitHub releases; unsupervised changes to it are a supply-chain risk, so it is maintained by the
+operator only. If a task appears to need a new cached asset or a change to an existing job, describe what is
+needed and stop -- do not touch the file, and do not add the surrounding pieces (bootstrap task, `data.toml`
+entry, tool URL swap) that would depend on it.
+
 ## Adding a new `upstream-cache` entry
 
 When upstream has no prebuilt binary for a platform we target (the case the "Tools must work on every OS" rule
