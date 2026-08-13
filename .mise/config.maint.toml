@@ -529,6 +529,8 @@ shell = "bash -euo pipefail -c"
 [tasks.push-mise-tools]
 description = "Publish this platform's mise tool tree to its per-platform GHCR store (maintainer-only)"
 run = """
+# Self-install the tools this body uses; `task.run_auto_install = false` keeps `mise run` from doing it.
+mise install coreutils crane
 detected=$(coreutils uname -sm)
 case "$detected" in
   Darwin*arm64) plat=macos-arm64 ;;
@@ -559,6 +561,9 @@ shell = "bash -euo pipefail -c"
 [tasks.push-mise-tools-linux-x64]
 description = "Publish the linux-x64 mise tools store via docker from any host (maintainer-only)"
 run = """
+# Self-install the tools this body uses; `task.run_auto_install = false` keeps `mise run` from doing it.
+# (docker itself is a host daemon, not a mise tool.)
+mise install coreutils crane gh
 ref="ghcr.io/edge-toolkit/core/mise-tools/linux-x64:latest"
 out="target/scratch/mise-oci-linux-x64"
 GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token)}"
@@ -591,6 +596,8 @@ shell = "bash -euo pipefail -c"
 [tasks.check-mise-tools-visibility]
 description = "Verify every mise-tools GHCR store is public; print settings URLs for any still private"
 run = """
+# Self-install the tools this body uses; `task.run_auto_install = false` keeps `mise run` from doing it.
+mise install gh 'aqua:01mf02/jaq'
 json=$(gh api "/orgs/edge-toolkit/packages?package_type=container" --paginate)
 filter='.[] | select(.name | startswith("core/mise-tools/"))'
 report='.name + ": " + .visibility'

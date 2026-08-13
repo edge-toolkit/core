@@ -56,11 +56,10 @@ runs:
         GH_TOKEN: ${{ inputs.github-token }}
       run: |
         # CI dogfoods the same `pull-mise-tools` task local devs run, not its own copy of the pull logic.
-        # The repo's `task.run_auto_install = false` setting means running the task does NOT first
-        # cold-install every missing tool of the loaded envs -- so crane, which the task body needs, is
-        # installed individually up front. (An explicit install also dodges a `mise x` quirk: it has been
-        # seen exec-failing on the very call that triggers a tool's install -- "couldn't exec process: No
-        # such file or directory".)
+        # The task self-installs its own tools, but the ghcr login below runs BEFORE it, so crane is
+        # installed up front here. (An explicit install also dodges a `mise x` quirk: it has been seen
+        # exec-failing on the very call that triggers a tool's install -- "couldn't exec process: No such
+        # file or directory".)
         mise install crane
         # crane's login writes the standard ~/.docker/config.json for the task's pull.
         # printf-pipe rather than a `<<<` herestring: this step's declared bash has herestrings, but the

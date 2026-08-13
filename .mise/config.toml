@@ -1363,6 +1363,10 @@ shell = "bash -euo pipefail -c"
 [tasks.pull-mise-tools]
 description = "Pre-populate the local mise data dir from this platform's GHCR tool store"
 run = """
+# Self-install the tools this body uses.
+# `task.run_auto_install = false` means running a task installs nothing, and this task exists precisely
+# for checkouts that haven't run a full `mise install` yet.
+mise install coreutils crane
 detected=$(coreutils uname -sm)
 case "$detected" in
   Darwin*arm64) def_plat=macos-arm64 ;;
@@ -1379,9 +1383,28 @@ if [ "$plat" = "windows-x64" ]; then
 else
   data="${MISE_DATA_DIR:-$HOME/.local/share/mise}"
 fi
-coreutils mkdir -p "$data"
-echo "pulling $ref -> $data"
-crane export "$ref" - | tar -x -C "$data" --strip-components=1 mise/installs
+# Extract to scratch, then move over only the tool versions not already installed.
+# Extracting straight onto a populated data dir fails -- tar refuses to write through existing symlinks
+# ("Cannot extract through symlink installs/http-augeas/<ver>/bin", observed locally) -- and
+# already-installed tools should win over the store's copies anyway.
+tmp="target/scratch/pull-mise-tools"
+coreutils rm -rf "$tmp"
+coreutils mkdir -p "$tmp" "$data/installs"
+echo "pulling $ref"
+crane export "$ref" - | tar -x -C "$tmp" --strip-components=1 mise/installs
+restored=0
+for d in "$tmp"/installs/*/*/; do
+  [ -d "$d" ] || continue
+  rel="${d#"$tmp"/installs/}"
+  dest="$data/installs/$rel"
+  if [ ! -e "$dest" ]; then
+    coreutils mkdir -p "$(coreutils dirname "$dest")"
+    coreutils mv "$d" "$dest"
+    restored=$((restored + 1))
+  fi
+done
+coreutils rm -rf "$tmp"
+echo "restored $restored tool versions into $data/installs"
 echo "done; run 'mise install' to fill gaps and regenerate shims"
 """
 shell = "bash -euo pipefail -c"
