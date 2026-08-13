@@ -128,14 +128,18 @@ jobs:
         env:
           IMAGE_TAG: ${{ steps.dockerfile.outputs.tag }}
         run: |
+          # `--pull=never` on every run of a locally-built tag.
+          # A bare name is also a valid Docker Hub reference, so if the local image were ever missing, docker
+          # would try to pull (and run) whatever squats that name upstream instead of failing with a clear
+          # "No such image".
           echo "::group::which rustpython"
-          docker run --rm "$IMAGE_TAG" cmd /c "mise where http:et-rp & where rustpython"
+          docker run --rm --pull=never "$IMAGE_TAG" cmd /c "mise where http:et-rp & where rustpython"
           echo "::endgroup::"
           echo "::group::rustpython --version"
-          docker run --rm "$IMAGE_TAG" cmd /c "mise exec -- rustpython --version"
+          docker run --rm --pull=never "$IMAGE_TAG" cmd /c "mise exec -- rustpython --version"
           echo "::endgroup::"
           echo "::group::rustpython -c hello"
-          docker run --rm "$IMAGE_TAG" cmd /c "mise exec -- rustpython -c \"print('et-rp ok')\""
+          docker run --rm --pull=never "$IMAGE_TAG" cmd /c "mise exec -- rustpython -c \"print('et-rp ok')\""
           echo "::endgroup::"
 
       - name: Build stage test
@@ -159,4 +163,4 @@ jobs:
       # `There is not enough space on the disk. (os error 112)` even after the disk-free step left 43 GB.
       - name: Run cargo-test
         if: matrix.base == 'servercore'
-        run: docker run --rm -e CARGO_INCREMENTAL=0 et-windows-test mise run cargo-test
+        run: docker run --rm --pull=never -e CARGO_INCREMENTAL=0 et-windows-test mise run cargo-test

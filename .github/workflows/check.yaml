@@ -8,6 +8,9 @@ name: check
 permissions:
   id-token: write
   contents: write
+  # Read-only pull of the maintainer-published ghcr.io mise-tools store (install-mise-tools restore step).
+  # Never write: the stores are published only from a maintainer's machine via `mise run push-mise-tools`.
+  packages: read
 
 # this allows a subsequently queued workflow run to interrupt previous runs in pull requests only
 concurrency:

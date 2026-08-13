@@ -87,7 +87,7 @@ git ls-files 'services/ws-web-runner/mingw-shim/*.c' |
 # clang builtin headers (stddef.h etc.), so point -resource-dir at llvm-mingw's headers -- already installed for
 # the mingw pass above, and the same set the Windows lane's clang_resource_arg uses. Linux keeps conda-clangxx's.
 set -- --target=wasm32-unknown-unknown -fwasm-exceptions -mexception-handling -fno-rtti
-if [ "$(uname -s)" = "Darwin" ]; then
+if [ "$(coreutils uname -s)" = "Darwin" ]; then
   set -- -resource-dir "$(mise where 'github:mstorsjo/llvm-mingw')/lib/clang/22" "$@"
 else
   set -- {{ vars.clang_resource_arg }} "$@"
@@ -113,7 +113,7 @@ git ls-files 'services/ws-web-runner/mingw-shim/*.c' |
 # clang builtin headers (stddef.h etc.), so point -resource-dir at llvm-mingw's headers -- already installed for
 # the mingw pass above, and the same set the Windows lane's clang_resource_arg uses. Linux keeps conda-clangxx's.
 set -- --target=wasm32-unknown-unknown -fwasm-exceptions -mexception-handling -fno-rtti
-if [ "$(uname -s)" = "Darwin" ]; then
+if [ "$(coreutils uname -s)" = "Darwin" ]; then
   set -- -resource-dir "$(mise where 'github:mstorsjo/llvm-mingw')/lib/clang/22" "$@"
 else
   set -- {{ vars.clang_resource_arg }} "$@"

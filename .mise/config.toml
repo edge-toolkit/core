@@ -117,6 +117,10 @@ ripgrep = "latest"
 "github:microsoft/onnxruntime" = "1.22.0"
 "github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 "github:wasm-bindgen/wasm-bindgen" = "0.2.126"
+# go-containerregistry's crane fetches the per-platform ghcr.io mise-tools stores.
+# Its `crane export` rootfs-flatten is what the pull-mise-tools task and CI's install-mise-tools restore
+# step extract tool trees with.
+crane = "latest"
 # Sole consumer right now is the `go:` backend that source-builds jqfmt.
 # (noperator/jqfmt ships no release assets); add Go users here as they arrive.
 go = "latest"
@@ -1347,6 +1351,41 @@ shell = "bash -euo pipefail -c"
 description = "Build et-cli (prereq for the module-package-json steps)"
 run = "cargo build -p et-cli"
 shell = "bash -euo pipefail -c"
+
+# Pre-populate the local mise data dir from this platform's GHCR tool store.
+# A maintainer publishes each platform's tool tree to ghcr.io/<repo>/mise-tools/<os>-<arch> with the maint
+# env's push-mise-tools task (`mise oci push`, one content-addressed layer per tool); this flattens that
+# image with `crane export` straight into the local data dir's installs/, so a fresh `mise install`
+# afterwards only fills the gaps and regenerates shims instead of downloading everything. Tools that bake
+# absolute paths at install time (e.g. pipx venv shebangs) carry the publishing machine's home dir --
+# reinstall any misbehaving one with `mise install --force <tool>`. Private packages need a one-time
+# `docker login ghcr.io` (or `crane auth login ghcr.io`).
+[tasks.pull-mise-tools]
+description = "Pre-populate the local mise data dir from this platform's GHCR tool store"
+run = """
+detected=$(coreutils uname -sm)
+case "$detected" in
+  Darwin*arm64) def_plat=macos-arm64 ;;
+  Darwin*x86_64) def_plat=macos-x64 ;;
+  Linux*aarch64 | Linux*arm64) def_plat=linux-arm64 ;;
+  Linux*x86_64) def_plat=linux-x64 ;;
+  Windows*) def_plat=windows-x64 ;;
+  *) echo "unrecognised platform '$detected'; pass one explicitly" >&2 && exit 1 ;;
+esac
+plat="${usage_platform:-$def_plat}"
+ref="ghcr.io/edge-toolkit/core/mise-tools/${plat}:latest"
+if [ "$plat" = "windows-x64" ]; then
+  data="$LOCALAPPDATA/mise"
+else
+  data="${MISE_DATA_DIR:-$HOME/.local/share/mise}"
+fi
+coreutils mkdir -p "$data"
+echo "pulling $ref -> $data"
+crane export "$ref" - | tar -x -C "$data" --strip-components=1 mise/installs
+echo "done; run 'mise install' to fill gaps and regenerate shims"
+"""
+shell = "bash -euo pipefail -c"
+usage = 'arg "[platform]" help="CI platform store to pull (default: the current platform)" default=""'
 
 [tasks.build-modules]
 # Native `depends` glob over `build-ws-*`.
