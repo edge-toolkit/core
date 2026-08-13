@@ -1352,6 +1352,18 @@ description = "Build et-cli (prereq for the module-package-json steps)"
 run = "cargo build -p et-cli"
 shell = "bash -euo pipefail -c"
 
+# Install the tools the GHCR-store tasks call, before their PATH is composed.
+# A task's PATH is fixed when the task starts, so a `mise install` INSIDE a body leaves the just-installed
+# bare names unresolvable ("bash: line 4: coreutils: command not found" on a cold runner, observed at
+# https://github.com/edge-toolkit/core/actions/runs/31670112517/job/94352839713 on commit
+# d8ad8cb99cf58a1e505cdbebc5b94f9893532b4f). A `depends` task runs before that composition, so the
+# store tasks (pull-mise-tools here, the push/visibility maint tasks) get working tools on any checkout
+# that has never run a full `mise install`. gh is only needed by the maint tasks, but one shared helper
+# beats three near-copies.
+[tasks._setup-store-tools]
+description = "Install the tools the mise-tools store tasks depend on (cold-checkout helper)"
+run = "mise install coreutils crane gh 'aqua:01mf02/jaq'"
+
 # Pre-populate the local mise data dir from this platform's GHCR tool store.
 # A maintainer publishes each platform's tool tree to ghcr.io/<repo>/mise-tools/<os>-<arch> with the maint
 # env's push-mise-tools task (`mise oci push`, one content-addressed layer per tool); this flattens that
@@ -1361,12 +1373,9 @@ shell = "bash -euo pipefail -c"
 # reinstall any misbehaving one with `mise install --force <tool>`. Private packages need a one-time
 # `docker login ghcr.io` (or `crane auth login ghcr.io`).
 [tasks.pull-mise-tools]
+depends = ["_setup-store-tools"]
 description = "Pre-populate the local mise data dir from this platform's GHCR tool store"
 run = """
-# Self-install the tools this body uses.
-# `task.run_auto_install = false` means running a task installs nothing, and this task exists precisely
-# for checkouts that haven't run a full `mise install` yet.
-mise install coreutils crane
 detected=$(coreutils uname -sm)
 case "$detected" in
   Darwin*arm64) def_plat=macos-arm64 ;;
@@ -1383,15 +1392,27 @@ if [ "$plat" = "windows-x64" ]; then
 else
   data="${MISE_DATA_DIR:-$HOME/.local/share/mise}"
 fi
-# Extract to scratch, then move over only the tool versions not already installed.
-# Extracting straight onto a populated data dir fails -- tar refuses to write through existing symlinks
-# ("Cannot extract through symlink installs/http-augeas/<ver>/bin", observed locally) -- and
-# already-installed tools should win over the store's copies anyway.
+# Pull the image as an OCI layout, then extract its layers locally into scratch.
+# One `crane export` stream of the whole multi-GB rootfs is fragile -- GHCR killed it mid-transfer with
+#
+#     Error: http2: server sent GOAWAY and closed the connection; ... debug="idle timeout"
+#     ...: Truncated tar archive
+#
+# (observed locally). `crane pull` instead fetches each digest-verified layer as its own retried request.
+# The layers land in scratch rather than straight onto the data dir, both to survive a mid-pull failure
+# and because tar refuses to write through existing symlinks on a populated data dir ("Cannot extract
+# through symlink installs/http-augeas/<ver>/bin", observed locally).
 tmp="target/scratch/pull-mise-tools"
 coreutils rm -rf "$tmp"
 coreutils mkdir -p "$tmp" "$data/installs"
 echo "pulling $ref"
-crane export "$ref" - | tar -x -C "$tmp" --strip-components=1 mise/installs
+crane pull --format=oci "$ref" "$tmp/oci"
+manifest=$(jaq -r '.manifests[0].digest | ltrimstr("sha256:")' "$tmp/oci/index.json")
+layers=$(jaq -r '.layers[].digest | ltrimstr("sha256:")' "$tmp/oci/blobs/sha256/$manifest")
+# Layers that carry no mise/installs entries (the base image's) make tar exit non-zero; that miss is fine.
+for layer in $layers; do
+  tar -xzf "$tmp/oci/blobs/sha256/$layer" -C "$tmp" --strip-components=1 mise/installs 2>/dev/null || true
+done
 restored=0
 for d in "$tmp"/installs/*/*/; do
   [ -d "$d" ] || continue

@@ -527,10 +527,9 @@ shell = "bash -euo pipefail -c"
 #
 # (observed locally on macos-arm64, mise 2026.8.0). Revisit once a mise release fixes the chunked upload.
 [tasks.push-mise-tools]
+depends = ["_setup-store-tools"]
 description = "Publish this platform's mise tool tree to its per-platform GHCR store (maintainer-only)"
 run = """
-# Self-install the tools this body uses; `task.run_auto_install = false` keeps `mise run` from doing it.
-mise install coreutils crane
 detected=$(coreutils uname -sm)
 case "$detected" in
   Darwin*arm64) plat=macos-arm64 ;;
@@ -559,11 +558,10 @@ shell = "bash -euo pipefail -c"
 # isn't already set. On arm64 hosts the amd64 build runs emulated -- the first build is slow (the toolchain
 # install runs under qemu/Rosetta); later runs reuse docker layers.
 [tasks.push-mise-tools-linux-x64]
+depends = ["_setup-store-tools"]
 description = "Publish the linux-x64 mise tools store via docker from any host (maintainer-only)"
+# docker itself is a host daemon, not a mise tool; everything else comes from the depends helper.
 run = """
-# Self-install the tools this body uses; `task.run_auto_install = false` keeps `mise run` from doing it.
-# (docker itself is a host daemon, not a mise tool.)
-mise install coreutils crane gh
 ref="ghcr.io/edge-toolkit/core/mise-tools/linux-x64:latest"
 out="target/scratch/mise-oci-linux-x64"
 GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token)}"
@@ -594,10 +592,9 @@ shell = "bash -euo pipefail -c"
 # this exactly once, right after its first `push-mise-tools*` publish. The listing call needs gh auth with
 # the read:packages scope -- grant it once with `gh auth refresh -s read:packages`.
 [tasks.check-mise-tools-visibility]
+depends = ["_setup-store-tools"]
 description = "Verify every mise-tools GHCR store is public; print settings URLs for any still private"
 run = """
-# Self-install the tools this body uses; `task.run_auto_install = false` keeps `mise run` from doing it.
-mise install gh 'aqua:01mf02/jaq'
 json=$(gh api "/orgs/edge-toolkit/packages?package_type=container" --paginate)
 filter='.[] | select(.name | startswith("core/mise-tools/"))'
 report='.name + ": " + .visibility'
