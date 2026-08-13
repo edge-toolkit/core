@@ -163,12 +163,9 @@ allowed_os_scoped_tool := {
 	# windows_exporter is a Windows-only host/GPU Prometheus exporter, so the o2-winmetrics task scopes it to Windows.
 	"github:prometheus-community/windows_exporter",
 	"cargo:findutils",
-	# rustfs is the S3 server the storage backend test runs against, covered by three per-platform entries.
-	# aqua takes the macos/arm64 + windows prebuilts; http: takes the linux static musl prebuilts (the
-	# aqua-selected gnu build has a glibc floor above several docker-linux distros); a cargo source build from
-	# the same git tag covers macos/x64, which has no prebuilt at all. Between the three every platform is
-	# covered.
-	"rustfs",
+	# rustfs is the S3 server the storage backend test runs against, covered by two per-platform entries.
+	# http: names an upstream asset for every platform that ships one; a cargo source build from the same git
+	# tag covers macos/x64, which has no prebuilt at all. Between the two every platform is covered.
 	"cargo:rustfs/rustfs",
 	"http:rustfs",
 	"cargo:ryl",

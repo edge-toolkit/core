@@ -1121,6 +1121,12 @@ url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-l
 checksum = "blake3:80465dac5a67ca0109addee06073e8dcac277bf74083b7756a68c4ab708a26ad"
 url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-linux-x86_64-musl-v1.0.0-beta.12.zip"
 
+[tools."http:rustfs"."platforms.macos-arm64"]
+url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-macos-aarch64-v1.0.0-beta.12.zip"
+
+[tools."http:rustfs"."platforms.windows-x64"]
+url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-windows-x86_64-v1.0.0-beta.12.zip"
+
 [[tools.ls-lint]]
 version = "2.3.1"
 backend = "aqua:loeffel-io/ls-lint"
@@ -1469,42 +1475,6 @@ backend = "core:rust"
 components = "clippy,rust-analyzer"
 profile = "minimal"
 targets = "wasm32-unknown-unknown,wasm32-wasip2"
-
-[[tools.rustfs]]
-version = "1.0.0-beta.12"
-backend = "github:rustfs/rustfs"
-
-[tools.rustfs."platforms.linux-arm64"]
-checksum = "sha256:a6615b98973d7dbaf6308b2b39faf1a7387b1eefcc4b96932d3bfe51b291a121"
-url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-linux-aarch64-gnu-v1.0.0-beta.12.zip"
-url_api = "https://api.github.com/repos/rustfs/rustfs/releases/assets/494901608"
-
-[tools.rustfs."platforms.linux-arm64".provenance.slsa]
-url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-1.0.0-beta.12.provenance.json"
-
-[tools.rustfs."platforms.linux-x64"]
-checksum = "sha256:9b9a17fb006acd7ae2bcb8227ba4ba10b81d7cafe08081701643951fdca57fb8"
-url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-linux-x86_64-gnu-v1.0.0-beta.12.zip"
-url_api = "https://api.github.com/repos/rustfs/rustfs/releases/assets/494901795"
-
-[tools.rustfs."platforms.linux-x64".provenance.slsa]
-url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-1.0.0-beta.12.provenance.json"
-
-[tools.rustfs."platforms.macos-arm64"]
-checksum = "sha256:f5266eda245fa4dab5acf28bef7bbab6c1da7f3e9575ddc7db803894107e09f5"
-url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-macos-aarch64-v1.0.0-beta.12.zip"
-url_api = "https://api.github.com/repos/rustfs/rustfs/releases/assets/494901929"
-
-[tools.rustfs."platforms.macos-arm64".provenance.slsa]
-url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-1.0.0-beta.12.provenance.json"
-
-[tools.rustfs."platforms.windows-x64"]
-checksum = "sha256:6bab1b4fecda037e26664cc0720c4584d221c86ba5fd7e384f3b9b8997238d89"
-url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-windows-x86_64-v1.0.0-beta.12.zip"
-url_api = "https://api.github.com/repos/rustfs/rustfs/releases/assets/494902013"
-
-[tools.rustfs."platforms.windows-x64".provenance.slsa]
-url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-1.0.0-beta.12.provenance.json"
 
 [[tools.taplo]]
 version = "0.10.0"
