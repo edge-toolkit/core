@@ -199,6 +199,22 @@ ENV RUST_BACKTRACE=full
 # revert once mise stops panicking.
 ENV MISE_GPG_VERIFY=false
 
+# Lockfiles are off on Nano because this image cannot satisfy the provenance they record.
+# `mise settings set aqua.{github_attestations,cosign,slsa} false` below is required here (their sigstore/TUF
+# step has no cache dir on Nano), so aqua verifies nothing -- but .mise/mise.lock carries a recorded
+# `provenance` for every aqua tool, and mise treats "lockfile expects provenance, none was verified" as a
+# downgrade attack and refuses the install:
+# mise ERROR Failed to install aqua:cli/cli@latest: Lockfile requires github-attestations provenance for
+# aqua:cli/cli@2.97.0 but no verification was used. This may indicate a downgrade attack. Enable the
+# corresponding verification setting or update the lockfile.
+# observed on commit 4f28cf1e3fa71ac195c8189d35b014823d2e54e6 at
+# https://github.com/edge-toolkit/core/actions/runs/31685098295/job/94399242373, where gh was simply the
+# first aqua tool to install -- every other one would have hit it in turn. `lockfile = false` makes every
+# lockfile read return None (mise's settings.lockfile_enabled gate), so no expectation reaches the installer.
+# The cost is that this lane resolves `latest` against api.github.com again, which the GITHUB_TOKEN staged
+# below covers. Drop this line once aqua verification can run on Nano.
+ENV MISE_LOCKFILE=false
+
 # Verbose mise is disabled because it floods the log with tool/task resolution and the exact bash it launches.
 # Re-enable it (noisy but invaluable) when diagnosing a
 # Windows build failure on the bare-Nano-Server path:
@@ -258,11 +274,7 @@ WORKDIR C:\workspace
 # + .miserc.toml (auto_env=true, which makes mise load config.windows.toml on
 # Windows).
 COPY .mise/config.toml .mise/config.toml
-# Each config's lockfile rides with it so in-container resolution stays offline.
-# Without them, every `latest` pin costs a per-tool api.github.com /releases lookup.
-COPY .mise/mise.lock .mise/mise.lock
 COPY .mise/config.windows.toml .mise/config.windows.toml
-COPY .mise/mise.windows.lock .mise/mise.windows.lock
 COPY .miserc.toml .miserc.toml
 
 # gh_token (a GitHub token) is OPTIONAL.

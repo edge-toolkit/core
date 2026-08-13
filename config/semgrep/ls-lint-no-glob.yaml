@@ -1,0 +1,17 @@
+rules:
+  - id: ls-lint-no-glob
+    languages: [generic]
+    paths:
+      include:
+        - "/config/ls-lint.yaml"
+    pattern-regex: '\*\*'
+    message: >-
+      ls-lint config entries must be literal paths -- `**` (and any other glob syntax) is banned. ls-lint
+      snapshots glob-based ignores once at startup and deletes every key that matches nothing at that moment
+      (internal/glob/glob.go), so a glob covering a directory that a parallel task creates mid-run silently
+      stops applying and ls-lint walks the tree it was supposed to skip. That is how `**/.gradle` let
+      `services/ws-modules/kotlin-data1/.gradle/9.7.0` reach the `.dir` rules while `check:kotlin` ran
+      alongside `ls-lint-check`. A literal path is never expanded, so it holds no matter when the directory
+      appears, and one naming a path that never appears costs nothing. List each directory explicitly, adding
+      a new entry per module rather than reaching for a pattern that covers them all.
+    severity: ERROR
