@@ -258,6 +258,9 @@ WORKDIR C:\workspace
 # + .miserc.toml (auto_env=true, which makes mise load config.windows.toml on
 # Windows).
 COPY .mise/config.toml .mise/config.toml
+# The lockfile rides with the config so in-container resolution stays offline.
+# Without it, every `latest` pin costs a per-tool api.github.com /releases lookup.
+COPY .mise/mise.lock .mise/mise.lock
 COPY .mise/config.windows.toml .mise/config.windows.toml
 COPY .miserc.toml .miserc.toml
 

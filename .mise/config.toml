@@ -11,7 +11,7 @@
 #   Make a selection sticky:            export MISE_ENV=dart
 
 # Track the latest mise release; the floor still covers auto_env enabled in .miserc.toml.
-min_version = "2026.8.0"
+min_version = "2026.8.5"
 
 [settings]
 # Disable mise's two auto-install paths so tasks fail fast on a missing tool.
@@ -32,6 +32,15 @@ http_timeout = "2m"
 # This disables idiomatic-version-file detection for every tool. We declare versions in `.mise/config*.toml`;
 # no need to parse `.tool-versions`/`.node-version`/etc. on top of that.
 idiomatic_version_file_enable_tools = []
+# Lock every tool resolution to the committed .mise/mise.lock.
+# Reading the lockfile is mise's default; `lockfile = true` additionally keeps it updated on installs and
+# upgrades. The lock pins each `latest` to a concrete version + checksum, so composing a task/exec env
+# resolves entirely offline -- without it, every `mise x`/`mise run` on a cold-cache CI runner re-resolves
+# every `latest` tool against api.github.com (one /releases list per tool), burning the shared rate-limit
+# bucket for tools that are not even being installed. Refresh with `mise lock` (all five platforms below);
+# `mise lock --bump` re-resolves the `latest` selectors when a deliberate tool refresh is wanted.
+lockfile = true
+lockfile_platforms = ["linux-arm64", "linux-x64", "macos-arm64", "macos-x64", "windows-x64"]
 task.run_auto_install = false
 # Hard-verify tool signatures via gpg on every platform.
 # Propagates to node.gpg_verify and swift.gpg_verify per mise/src/config/settings.rs. mise's node plugin

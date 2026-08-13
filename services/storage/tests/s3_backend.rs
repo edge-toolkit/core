@@ -60,14 +60,22 @@ fn registry_with_agent(agent_id: &str) -> AgentRegistry<()> {
 
 /// Start `rustfs` on `port` serving `volume`, and wait for it to accept connections.
 ///
-/// Spawned by bare name so the mise-managed binary on `PATH` is used. If it is missing the `expect` below fails
-/// loudly -- a missing mise tool is a misconfigured environment, not a reason for this test to quietly pass.
+/// Spawned by bare name so the mise-managed binary on `PATH` is used. If it is missing, the spawn unwrap
+/// fails loudly -- a missing mise tool is a misconfigured environment, not a reason to quietly pass.
+///
+/// Both output streams land in `log_path`, and every server-dependent assertion replays that file on failure.
+/// The beta server can fail entirely server-side -- a CI run answered the PUT below with a bare 500 -- and with
+/// its output discarded such a failure is undiagnosable from the test output alone. Observed on commit
+/// d8ad8cb99cf58a1e505cdbebc5b94f9893532b4f at
+/// <https://github.com/edge-toolkit/core/actions/runs/31659062139/job/94361390116> (build (ubuntu:26.04) rerun).
 #[expect(
-    clippy::expect_used,
     clippy::single_call_fn,
-    reason = "distinct setup step, and the expect message names the missing mise tool an unwrap would hide"
+    reason = "distinct setup step; kept separate for readability"
 )]
-fn start_rustfs(volume: &Path, port: u16) -> ChildGuard {
+fn start_rustfs(volume: &Path, port: u16, log_path: &Path) -> ChildGuard {
+    let log_file = fs_err::File::create(log_path).unwrap();
+    let stdout = log_file.file().try_clone().unwrap();
+    let stderr = log_file.file().try_clone().unwrap();
     let child = Command::new("rustfs")
         .arg("server")
         .arg(volume)
@@ -77,13 +85,17 @@ fn start_rustfs(volume: &Path, port: u16) -> ChildGuard {
         .arg(ACCESS_KEY)
         .arg("--secret-key")
         .arg(SECRET_KEY)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stdout(Stdio::from(stdout))
+        .stderr(Stdio::from(stderr))
         .spawn_checked()
-        .expect("rustfs must be on PATH (mise tool `rustfs`)")
+        .unwrap()
         .into_child();
     let guard = ChildGuard::new(child);
-    assert!(wait_for_port(port), "rustfs did not start listening on port {port}");
+    assert!(
+        wait_for_port(port),
+        "rustfs did not start listening on port {port}\n--- rustfs output ---\n{}",
+        fs_err::read_to_string(log_path).unwrap_or_default()
+    );
     guard
 }
 
@@ -130,8 +142,12 @@ async fn round_trips_put_and_get_through_the_s3_backend() {
     let volume = tempfile::tempdir().unwrap();
     // Pre-create the bucket: rustfs adopts an existing volume directory but will not create one on demand.
     fs_err::create_dir_all(volume.path().join(BUCKET)).unwrap();
+    // The log lives in its own tempdir, not the volume: rustfs scans the volume, and a stray file at its
+    // root should not be part of what the server adopts.
+    let log_dir = tempfile::tempdir().unwrap();
+    let log_path = log_dir.path().join("rustfs.log");
     let port = reserve_port();
-    let mut rustfs = start_rustfs(volume.path(), port);
+    let mut rustfs = start_rustfs(volume.path(), port, &log_path);
 
     let config = StorageConfig::new(format!("s3://{BUCKET}"));
 
@@ -162,8 +178,20 @@ async fn round_trips_put_and_get_through_the_s3_backend() {
 
     rustfs.shutdown();
 
-    assert_eq!(put_status, StatusCode::OK, "PUT through the S3 backend should succeed");
-    assert_eq!(get_status, StatusCode::OK, "GET through the S3 backend should succeed");
+    // Evaluated only inside a failing assertion's format args, i.e. after the shutdown above flushed the child.
+    let rustfs_log = || fs_err::read_to_string(&log_path).unwrap_or_default();
+    assert_eq!(
+        put_status,
+        StatusCode::OK,
+        "PUT through the S3 backend should succeed\n--- rustfs output ---\n{}",
+        rustfs_log()
+    );
+    assert_eq!(
+        get_status,
+        StatusCode::OK,
+        "GET through the S3 backend should succeed\n--- rustfs output ---\n{}",
+        rustfs_log()
+    );
     assert_eq!(&*body, BODY, "bytes must survive the S3 round-trip unchanged");
 
     // Proves the S3 backend actually served the request rather than some local fallback: the object exists

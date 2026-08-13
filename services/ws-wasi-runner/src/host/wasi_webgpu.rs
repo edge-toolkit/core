@@ -23,7 +23,6 @@
     clippy::doc_markdown,
     clippy::exhaustive_enums,
     clippy::exhaustive_structs,
-    clippy::expect_used,
     clippy::indexing_slicing,
     clippy::let_underscore_must_use,
     clippy::let_underscore_untyped,
@@ -34,6 +33,7 @@
     clippy::single_call_fn,
     clippy::too_long_first_doc_paragraph,
     clippy::unimplemented,
+    clippy::unwrap_used,
     let_underscore_drop,
     unused_results,
     reason = "trimmed wasi-webgpu host: only matmul path is wired, others trap; to be replaced by upstream"
@@ -59,10 +59,10 @@ use crate::bindings::wasi::webgpu::webgpu::{
 };
 use crate::host::{RequestDeviceErrExt as _, WitErrExt as _};
 
-/// wgpu buffer-usage flags as the host wire-format. The WIT-side
-/// `gpu-buffer-usage.STORAGE()` style accessors return these constants and
-/// the guest ORs them into `gpu-buffer-descriptor.usage`. Matches the
-/// WebGPU spec values so we can hand them directly to `wgpu::BufferUsages`.
+/// wgpu buffer-usage flags as the host wire-format.
+/// The WIT-side `gpu-buffer-usage.STORAGE()` style accessors return these constants and the guest ORs them
+/// into `gpu-buffer-descriptor.usage`. Matches the WebGPU spec values so we can hand them directly to
+/// `wgpu::BufferUsages`.
 struct Usage;
 impl Usage {
     const MAP_READ: u32 = 0x0001;
@@ -92,8 +92,8 @@ impl ShaderStage {
     const COMPUTE: u32 = 0x4;
 }
 
-/// Top-level handle: no per-instance state -- `request-adapter` constructs a
-/// fresh `wgpu::Instance` each call rather than sharing one across guests.
+/// Top-level handle with no per-instance state.
+/// `request-adapter` constructs a fresh `wgpu::Instance` each call rather than sharing one across guests.
 pub struct Gpu;
 
 pub struct GpuAdapter {
@@ -149,10 +149,9 @@ pub struct GpuComputePipeline {
     pub pipeline: Arc<wgpu::ComputePipeline>,
 }
 
-/// Buffered command for a not-yet-replayed compute pass. We clone the wgpu
-/// objects (all `Clone` thanks to wgpu's internal Arc-ing), so the pass can
-/// be replayed inside `compute-pass.end()` without holding live borrows
-/// across resource-table calls.
+/// Buffered command for a not-yet-replayed compute pass.
+/// We clone the wgpu objects (all `Clone` thanks to wgpu's internal Arc-ing), so the pass can be replayed
+/// inside `compute-pass.end()` without holding live borrows across resource-table calls.
 pub enum PassCommand {
     SetPipeline(Arc<wgpu::ComputePipeline>),
     SetBindGroup {
@@ -166,16 +165,16 @@ pub enum PassCommand {
 pub struct GpuCommandEncoder {
     pub device: Arc<wgpu::Device>,
     pub encoder: Option<wgpu::CommandEncoder>,
-    /// Set to `Some(vec)` while a compute pass is being recorded; replayed
-    /// against a freshly-opened `wgpu::ComputePass` when the pass's
-    /// `end()` is called, then taken back out.
+    /// Set to `Some(vec)` while a compute pass is being recorded.
+    /// Replayed against a freshly-opened `wgpu::ComputePass` when the pass's `end()` is called, then taken
+    /// back out.
     pub pending_pass: Option<Vec<PassCommand>>,
 }
 
-/// Compute-pass resource: a tag pointing back at its parent encoder so
-/// command-recording methods can find the pending command list. We use the
-/// resource `rep()` (a u32 identity) rather than holding a `Resource<...>`
-/// since the parent encoder might be looked up in either get/get_mut form.
+/// Compute-pass resource: a tag pointing back at its parent encoder.
+/// Command-recording methods use it to find the pending command list. We use the resource `rep()` (a u32
+/// identity) rather than holding a `Resource<...>` since the parent encoder might be looked up in either
+/// get/get_mut form.
 pub struct GpuComputePassEncoder {
     pub encoder_rep: u32,
     pub ended: bool,
@@ -185,11 +184,10 @@ pub struct GpuCommandBuffer {
     pub buffer: Option<wgpu::CommandBuffer>,
 }
 
-/// `record-option-gpu-size64` and `record-gpu-pipeline-constant-value` are
-/// WIT-side associative maps the guest can build up to pass to
-/// `gpu-device-descriptor` / `gpu-programmable-stage`. We never actually
-/// consume them in the matmul path, but they need at least a working ctor
-/// so the WIT round-trip doesn't trap.
+/// WIT-side associative-map records.
+/// `record-option-gpu-size64` and `record-gpu-pipeline-constant-value` are maps the guest can build up to
+/// pass to `gpu-device-descriptor` / `gpu-programmable-stage`. We never actually consume them in the matmul
+/// path, but they need at least a working ctor so the WIT round-trip doesn't trap.
 pub struct RecordOptionGpuSize64 {
     pub map: BTreeMap<String, Option<u64>>,
 }
@@ -198,9 +196,9 @@ pub struct RecordGpuPipelineConstantValue {
     pub map: BTreeMap<String, f64>,
 }
 
-/// Build a fresh adapter from a new instance. `request-adapter` could be
-/// called multiple times by a guest; each call gets its own adapter handle,
-/// even if they all back onto the same underlying GPU.
+/// Build a fresh adapter from a new instance.
+/// `request-adapter` could be called multiple times by a guest; each call gets its own adapter handle, even
+/// if they all back onto the same underlying GPU.
 async fn request_adapter_inner(_options: Option<GpuRequestAdapterOptions>) -> Option<wgpu::Adapter> {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
         backends: wgpu::Backends::PRIMARY,
@@ -278,7 +276,7 @@ fn buffer_binding_type(t: Option<wg::GpuBufferBindingType>) -> wgpu::BufferBindi
 
 impl Host for HostState {
     async fn get_gpu(&mut self) -> Resource<Gpu> {
-        self.resource_table.push(Gpu).expect("resource table push")
+        self.resource_table.push(Gpu).unwrap()
     }
 }
 
@@ -294,7 +292,7 @@ impl HostGpu for HostState {
             .push(GpuAdapter {
                 adapter: Arc::new(adapter),
             })
-            .expect("resource table push");
+            .unwrap();
         Some(res)
     }
 
@@ -306,11 +304,9 @@ impl HostGpu for HostState {
 
 impl HostGpuAdapter for HostState {
     async fn info(&mut self, rep: Resource<GpuAdapter>) -> Resource<GpuAdapterInfo> {
-        let adapter = self.resource_table.get(&rep).expect("adapter handle");
+        let adapter = self.resource_table.get(&rep).unwrap();
         let info = adapter.adapter.get_info();
-        self.resource_table
-            .push(GpuAdapterInfo { info })
-            .expect("resource table push")
+        self.resource_table.push(GpuAdapterInfo { info }).unwrap()
     }
 
     async fn request_device(
@@ -318,7 +314,7 @@ impl HostGpuAdapter for HostState {
         rep: Resource<GpuAdapter>,
         _descriptor: Option<wg::GpuDeviceDescriptor>,
     ) -> Result<Resource<GpuDevice>, RequestDeviceError> {
-        let adapter = self.resource_table.get(&rep).expect("adapter handle").adapter.clone();
+        let adapter = self.resource_table.get(&rep).unwrap().adapter.clone();
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: Some("wasi-webgpu host device"),
@@ -338,7 +334,7 @@ impl HostGpuAdapter for HostState {
                 device: device.clone(),
                 queue: queue.clone(),
             })
-            .expect("resource table push");
+            .unwrap();
         Ok(res)
     }
 
@@ -362,22 +358,22 @@ impl HostGpuAdapter for HostState {
 
 impl HostGpuAdapterInfo for HostState {
     async fn vendor(&mut self, rep: Resource<GpuAdapterInfo>) -> String {
-        let info = &self.resource_table.get(&rep).expect("info handle").info;
+        let info = &self.resource_table.get(&rep).unwrap().info;
         vendor_name(info.vendor)
     }
 
     async fn architecture(&mut self, rep: Resource<GpuAdapterInfo>) -> String {
-        let info = &self.resource_table.get(&rep).expect("info handle").info;
+        let info = &self.resource_table.get(&rep).unwrap().info;
         format!("{:?}", info.device_type).to_lowercase()
     }
 
     async fn device(&mut self, rep: Resource<GpuAdapterInfo>) -> String {
-        let info = &self.resource_table.get(&rep).expect("info handle").info;
+        let info = &self.resource_table.get(&rep).unwrap().info;
         info.name.clone()
     }
 
     async fn description(&mut self, rep: Resource<GpuAdapterInfo>) -> String {
-        let info = &self.resource_table.get(&rep).expect("info handle").info;
+        let info = &self.resource_table.get(&rep).unwrap().info;
         format!("{} ({:?}, {})", info.name, info.backend, info.driver_info)
     }
 
@@ -395,8 +391,8 @@ impl HostGpuAdapterInfo for HostState {
     }
 }
 
-/// Map a PCI vendor id (as wgpu reports it) to a human-friendly name. Falls
-/// back to the raw hex so unknown vendors still surface usefully.
+/// Map a PCI vendor id (as wgpu reports it) to a human-friendly name.
+/// Falls back to the raw hex so unknown vendors still surface usefully.
 fn vendor_name(id: u32) -> String {
     match id {
         0x1002 => "AMD".into(),
@@ -524,11 +520,9 @@ impl HostGpuSupportedLimits for HostState {
 
 impl HostGpuDevice for HostState {
     async fn queue(&mut self, rep: Resource<GpuDevice>) -> Resource<GpuQueue> {
-        let dev = self.resource_table.get(&rep).expect("device handle");
+        let dev = self.resource_table.get(&rep).unwrap();
         let (device, queue) = (dev.device.clone(), dev.queue.clone());
-        self.resource_table
-            .push(GpuQueue { device, queue })
-            .expect("resource table push")
+        self.resource_table.push(GpuQueue { device, queue }).unwrap()
     }
 
     async fn create_buffer(
@@ -536,7 +530,7 @@ impl HostGpuDevice for HostState {
         rep: Resource<GpuDevice>,
         descriptor: GpuBufferDescriptor,
     ) -> Resource<GpuBuffer> {
-        let dev = self.resource_table.get(&rep).expect("device handle");
+        let dev = self.resource_table.get(&rep).unwrap();
         let device = dev.device.clone();
         let usage_flags = descriptor.usage;
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -558,7 +552,7 @@ impl HostGpuDevice for HostState {
                 usage: usage_flags,
                 map_state,
             })
-            .expect("resource table push")
+            .unwrap()
     }
 
     async fn create_bind_group_layout(
@@ -566,7 +560,7 @@ impl HostGpuDevice for HostState {
         rep: Resource<GpuDevice>,
         descriptor: GpuBindGroupLayoutDescriptor,
     ) -> Resource<GpuBindGroupLayout> {
-        let device = self.resource_table.get(&rep).expect("device handle").device.clone();
+        let device = self.resource_table.get(&rep).unwrap().device.clone();
         let entries: Vec<wgpu::BindGroupLayoutEntry> = descriptor
             .entries
             .into_iter()
@@ -578,7 +572,7 @@ impl HostGpuDevice for HostState {
                         has_dynamic_offset: b.has_dynamic_offset.unwrap_or(false),
                         min_binding_size: b.min_binding_size.and_then(std::num::NonZeroU64::new),
                     })
-                    .expect("matmul subset only uses buffer bindings");
+                    .unwrap();
                 wgpu::BindGroupLayoutEntry {
                     binding: e.binding,
                     visibility: shader_stages_from_flags(e.visibility),
@@ -595,7 +589,7 @@ impl HostGpuDevice for HostState {
             .push(GpuBindGroupLayout {
                 layout: Arc::new(layout),
             })
-            .expect("resource table push")
+            .unwrap()
     }
 
     async fn create_pipeline_layout(
@@ -603,17 +597,13 @@ impl HostGpuDevice for HostState {
         rep: Resource<GpuDevice>,
         descriptor: GpuPipelineLayoutDescriptor,
     ) -> Resource<GpuPipelineLayout> {
-        let device = self.resource_table.get(&rep).expect("device handle").device.clone();
+        let device = self.resource_table.get(&rep).unwrap().device.clone();
         let layouts_owned: Vec<Arc<wgpu::BindGroupLayout>> = descriptor
             .bind_group_layouts
             .iter()
             .map(|b| {
-                let b = b.as_ref().expect("matmul: pipeline layout entries must be Some");
-                self.resource_table
-                    .get(b)
-                    .expect("bind-group-layout handle")
-                    .layout
-                    .clone()
+                let b = b.as_ref().unwrap();
+                self.resource_table.get(b).unwrap().layout.clone()
             })
             .collect();
         let layout_refs: Vec<Option<&wgpu::BindGroupLayout>> = layouts_owned.iter().map(|a| Some(a.as_ref())).collect();
@@ -626,7 +616,7 @@ impl HostGpuDevice for HostState {
             .push(GpuPipelineLayout {
                 layout: Arc::new(layout),
             })
-            .expect("resource table push")
+            .unwrap()
     }
 
     async fn create_bind_group(
@@ -634,13 +624,8 @@ impl HostGpuDevice for HostState {
         rep: Resource<GpuDevice>,
         descriptor: GpuBindGroupDescriptor,
     ) -> Resource<GpuBindGroup> {
-        let device = self.resource_table.get(&rep).expect("device handle").device.clone();
-        let layout = self
-            .resource_table
-            .get(&descriptor.layout)
-            .expect("bind-group-layout handle")
-            .layout
-            .clone();
+        let device = self.resource_table.get(&rep).unwrap().device.clone();
+        let layout = self.resource_table.get(&descriptor.layout).unwrap().layout.clone();
         // Two passes: first materialize the (buffer Arc, offset, size) tuples,
         // then borrow the buffers into BindingResource::Buffer with lifetimes
         // that outlive the create_bind_group call.
@@ -650,12 +635,7 @@ impl HostGpuDevice for HostState {
         for e in &descriptor.entries {
             match &e.resource {
                 wg::GpuBindingResource::GpuBufferBinding(b) => {
-                    let buf = self
-                        .resource_table
-                        .get(&b.buffer)
-                        .expect("buffer handle")
-                        .buffer
-                        .clone();
+                    let buf = self.resource_table.get(&b.buffer).unwrap().buffer.clone();
                     let offset = b.offset.unwrap_or(0);
                     let size = b.size.and_then(std::num::NonZeroU64::new);
                     buffer_keep.push((buf, offset, size));
@@ -684,7 +664,7 @@ impl HostGpuDevice for HostState {
         });
         self.resource_table
             .push(GpuBindGroup { group: Arc::new(group) })
-            .expect("resource table push")
+            .unwrap()
     }
 
     async fn create_shader_module(
@@ -692,7 +672,7 @@ impl HostGpuDevice for HostState {
         rep: Resource<GpuDevice>,
         descriptor: GpuShaderModuleDescriptor,
     ) -> Resource<GpuShaderModule> {
-        let device = self.resource_table.get(&rep).expect("device handle").device.clone();
+        let device = self.resource_table.get(&rep).unwrap().device.clone();
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: descriptor.label.as_deref(),
             source: wgpu::ShaderSource::Wgsl(descriptor.code.into()),
@@ -701,7 +681,7 @@ impl HostGpuDevice for HostState {
             .push(GpuShaderModule {
                 module: Arc::new(module),
             })
-            .expect("resource table push")
+            .unwrap()
     }
 
     async fn create_compute_pipeline(
@@ -709,21 +689,15 @@ impl HostGpuDevice for HostState {
         rep: Resource<GpuDevice>,
         descriptor: GpuComputePipelineDescriptor,
     ) -> Resource<GpuComputePipeline> {
-        let device = self.resource_table.get(&rep).expect("device handle").device.clone();
+        let device = self.resource_table.get(&rep).unwrap().device.clone();
         let module = self
             .resource_table
             .get(&descriptor.compute.module)
-            .expect("shader-module handle")
+            .unwrap()
             .module
             .clone();
         let layout: Option<Arc<wgpu::PipelineLayout>> = match &descriptor.layout {
-            GpuLayoutMode::Specific(l) => Some(
-                self.resource_table
-                    .get(l)
-                    .expect("pipeline-layout handle")
-                    .layout
-                    .clone(),
-            ),
+            GpuLayoutMode::Specific(l) => Some(self.resource_table.get(l).unwrap().layout.clone()),
             GpuLayoutMode::Auto => None,
         };
         let entry_point = descriptor.compute.entry_point.as_deref();
@@ -739,7 +713,7 @@ impl HostGpuDevice for HostState {
             .push(GpuComputePipeline {
                 pipeline: Arc::new(pipeline),
             })
-            .expect("resource table push")
+            .unwrap()
     }
 
     async fn create_command_encoder(
@@ -747,7 +721,7 @@ impl HostGpuDevice for HostState {
         rep: Resource<GpuDevice>,
         descriptor: Option<wg::GpuCommandEncoderDescriptor>,
     ) -> Resource<GpuCommandEncoder> {
-        let device = self.resource_table.get(&rep).expect("device handle").device.clone();
+        let device = self.resource_table.get(&rep).unwrap().device.clone();
         let label = descriptor.as_ref().and_then(|d| d.label.as_deref());
         let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label });
         self.resource_table
@@ -756,7 +730,7 @@ impl HostGpuDevice for HostState {
                 encoder: Some(encoder),
                 pending_pass: None,
             })
-            .expect("resource table push")
+            .unwrap()
     }
 
     async fn features(&mut self, _rep: Resource<GpuDevice>) -> Resource<GpuSupportedFeatures> {
@@ -792,7 +766,7 @@ impl HostGpuBuffer for HostState {
         offset: Option<u64>,
         size: Option<u64>,
     ) -> Result<(), MapAsyncError> {
-        let buf = self.resource_table.get(&rep).expect("buffer handle");
+        let buf = self.resource_table.get(&rep).unwrap();
         let buffer = buf.buffer.clone();
         let device = buf.device.clone();
         let total_size = buf.size;
@@ -816,7 +790,7 @@ impl HostGpuBuffer for HostState {
         .await;
         match result {
             Ok(Ok(())) => {
-                let buf = self.resource_table.get_mut(&rep).expect("buffer handle");
+                let buf = self.resource_table.get_mut(&rep).unwrap();
                 buf.map_state = GpuBufferMapState::Mapped;
                 Ok(())
             }
@@ -837,7 +811,7 @@ impl HostGpuBuffer for HostState {
         offset: Option<u64>,
         size: Option<u64>,
     ) -> Result<Vec<u8>, GetMappedRangeError> {
-        let buf = self.resource_table.get(&rep).expect("buffer handle");
+        let buf = self.resource_table.get(&rep).unwrap();
         let offset = offset.unwrap_or(0);
         let size = size.unwrap_or(buf.size - offset);
         let slice = buf.buffer.slice(offset..offset + size);
@@ -848,14 +822,14 @@ impl HostGpuBuffer for HostState {
     }
 
     async fn unmap(&mut self, rep: Resource<GpuBuffer>) -> Result<(), UnmapError> {
-        let buf = self.resource_table.get_mut(&rep).expect("buffer handle");
+        let buf = self.resource_table.get_mut(&rep).unwrap();
         buf.buffer.unmap();
         buf.map_state = GpuBufferMapState::Unmapped;
         Ok(())
     }
 
     async fn destroy(&mut self, rep: Resource<GpuBuffer>) {
-        let buf = self.resource_table.get(&rep).expect("buffer handle");
+        let buf = self.resource_table.get(&rep).unwrap();
         buf.buffer.destroy();
     }
 
@@ -1051,7 +1025,7 @@ impl HostGpuCommandEncoder for HostState {
         _descriptor: Option<GpuComputePassDescriptor>,
     ) -> Resource<GpuComputePassEncoder> {
         let encoder_rep = rep.rep();
-        let enc = self.resource_table.get_mut(&rep).expect("encoder handle");
+        let enc = self.resource_table.get_mut(&rep).unwrap();
         assert!(
             enc.pending_pass.is_none(),
             "wasi-webgpu: nested compute passes not supported"
@@ -1062,7 +1036,7 @@ impl HostGpuCommandEncoder for HostState {
                 encoder_rep,
                 ended: false,
             })
-            .expect("resource table push")
+            .unwrap()
     }
 
     async fn copy_buffer_to_buffer(
@@ -1074,20 +1048,10 @@ impl HostGpuCommandEncoder for HostState {
         destination_offset: u64,
         size: u64,
     ) {
-        let src = self
-            .resource_table
-            .get(&source)
-            .expect("src buffer handle")
-            .buffer
-            .clone();
-        let dst = self
-            .resource_table
-            .get(&destination)
-            .expect("dst buffer handle")
-            .buffer
-            .clone();
-        let enc = self.resource_table.get_mut(&rep).expect("encoder handle");
-        let encoder = enc.encoder.as_mut().expect("encoder already finished");
+        let src = self.resource_table.get(&source).unwrap().buffer.clone();
+        let dst = self.resource_table.get(&destination).unwrap().buffer.clone();
+        let enc = self.resource_table.get_mut(&rep).unwrap();
+        let encoder = enc.encoder.as_mut().unwrap();
         encoder.copy_buffer_to_buffer(src.as_ref(), source_offset, dst.as_ref(), destination_offset, size);
     }
 
@@ -1096,12 +1060,12 @@ impl HostGpuCommandEncoder for HostState {
         rep: Resource<GpuCommandEncoder>,
         _descriptor: Option<wg::GpuCommandBufferDescriptor>,
     ) -> Resource<GpuCommandBuffer> {
-        let enc = self.resource_table.get_mut(&rep).expect("encoder handle");
-        let encoder = enc.encoder.take().expect("encoder already finished");
+        let enc = self.resource_table.get_mut(&rep).unwrap();
+        let encoder = enc.encoder.take().unwrap();
         let buffer = encoder.finish();
         self.resource_table
             .push(GpuCommandBuffer { buffer: Some(buffer) })
-            .expect("resource table push")
+            .unwrap()
     }
 
     async fn label(&mut self, _rep: Resource<GpuCommandEncoder>) -> String {
@@ -1117,24 +1081,16 @@ impl HostGpuCommandEncoder for HostState {
 }
 
 fn encoder_from_pass_rep(state: &mut HostState, pass: &Resource<GpuComputePassEncoder>) -> u32 {
-    state.resource_table.get(pass).expect("pass handle").encoder_rep
+    state.resource_table.get(pass).unwrap().encoder_rep
 }
 
 impl HostGpuComputePassEncoder for HostState {
     async fn set_pipeline(&mut self, rep: Resource<GpuComputePassEncoder>, pipeline: Resource<wg::GpuComputePipeline>) {
-        let pipe = self
-            .resource_table
-            .get(&pipeline)
-            .expect("pipeline handle")
-            .pipeline
-            .clone();
+        let pipe = self.resource_table.get(&pipeline).unwrap().pipeline.clone();
         let encoder_rep = encoder_from_pass_rep(self, &rep);
         let enc_handle: Resource<GpuCommandEncoder> = Resource::new_borrow(encoder_rep);
-        let enc = self.resource_table.get_mut(&enc_handle).expect("encoder handle");
-        enc.pending_pass
-            .as_mut()
-            .expect("compute pass not active")
-            .push(PassCommand::SetPipeline(pipe));
+        let enc = self.resource_table.get_mut(&enc_handle).unwrap();
+        enc.pending_pass.as_mut().unwrap().push(PassCommand::SetPipeline(pipe));
     }
 
     async fn set_bind_group(
@@ -1150,18 +1106,15 @@ impl HostGpuComputePassEncoder for HostState {
             kind: SetBindGroupErrorKind::RangeError,
             message: "set-bind-group with None not supported in matmul subset".into(),
         })?;
-        let group = self.resource_table.get(&bg).expect("bind-group handle").group.clone();
+        let group = self.resource_table.get(&bg).unwrap().group.clone();
         let encoder_rep = encoder_from_pass_rep(self, &rep);
         let enc_handle: Resource<GpuCommandEncoder> = Resource::new_borrow(encoder_rep);
-        let enc = self.resource_table.get_mut(&enc_handle).expect("encoder handle");
-        enc.pending_pass
-            .as_mut()
-            .expect("compute pass not active")
-            .push(PassCommand::SetBindGroup {
-                index,
-                group,
-                offsets: Vec::new(),
-            });
+        let enc = self.resource_table.get_mut(&enc_handle).unwrap();
+        enc.pending_pass.as_mut().unwrap().push(PassCommand::SetBindGroup {
+            index,
+            group,
+            offsets: Vec::new(),
+        });
         Ok(())
     }
 
@@ -1174,16 +1127,16 @@ impl HostGpuComputePassEncoder for HostState {
     ) {
         let encoder_rep = encoder_from_pass_rep(self, &rep);
         let enc_handle: Resource<GpuCommandEncoder> = Resource::new_borrow(encoder_rep);
-        let enc = self.resource_table.get_mut(&enc_handle).expect("encoder handle");
+        let enc = self.resource_table.get_mut(&enc_handle).unwrap();
         enc.pending_pass
             .as_mut()
-            .expect("compute pass not active")
+            .unwrap()
             .push(PassCommand::DispatchWorkgroups(x, y.unwrap_or(1), z.unwrap_or(1)));
     }
 
     async fn end(&mut self, rep: Resource<GpuComputePassEncoder>) {
         let encoder_rep = {
-            let pass = self.resource_table.get_mut(&rep).expect("pass handle");
+            let pass = self.resource_table.get_mut(&rep).unwrap();
             if pass.ended {
                 return;
             }
@@ -1192,11 +1145,11 @@ impl HostGpuComputePassEncoder for HostState {
         };
         let enc_handle: Resource<GpuCommandEncoder> = Resource::new_borrow(encoder_rep);
         let commands = {
-            let enc = self.resource_table.get_mut(&enc_handle).expect("encoder handle");
-            enc.pending_pass.take().expect("compute pass not active at end()")
+            let enc = self.resource_table.get_mut(&enc_handle).unwrap();
+            enc.pending_pass.take().unwrap()
         };
-        let enc = self.resource_table.get_mut(&enc_handle).expect("encoder handle");
-        let encoder = enc.encoder.as_mut().expect("encoder already finished");
+        let enc = self.resource_table.get_mut(&enc_handle).unwrap();
+        let encoder = enc.encoder.as_mut().unwrap();
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("wasi-webgpu buffered pass"),
             timestamp_writes: None,
@@ -1227,16 +1180,10 @@ impl HostGpuComputePassEncoder for HostState {
 
 impl HostGpuQueue for HostState {
     async fn submit(&mut self, rep: Resource<GpuQueue>, command_buffers: Vec<Resource<wg::GpuCommandBuffer>>) {
-        let queue = self.resource_table.get(&rep).expect("queue handle").queue.clone();
+        let queue = self.resource_table.get(&rep).unwrap().queue.clone();
         let mut buffers: Vec<wgpu::CommandBuffer> = Vec::with_capacity(command_buffers.len());
         for cb_res in command_buffers {
-            let cb = self
-                .resource_table
-                .get_mut(&cb_res)
-                .expect("command-buffer handle")
-                .buffer
-                .take()
-                .expect("command buffer already submitted");
+            let cb = self.resource_table.get_mut(&cb_res).unwrap().buffer.take().unwrap();
             buffers.push(cb);
         }
         queue.submit(buffers);
@@ -1251,8 +1198,8 @@ impl HostGpuQueue for HostState {
         data_offset: Option<u64>,
         size: Option<u64>,
     ) -> Result<(), WriteBufferError> {
-        let queue = self.resource_table.get(&rep).expect("queue handle").queue.clone();
-        let buf = self.resource_table.get(&buffer).expect("buffer handle").buffer.clone();
+        let queue = self.resource_table.get(&rep).unwrap().queue.clone();
+        let buf = self.resource_table.get(&buffer).unwrap().buffer.clone();
         let data_offset = data_offset.unwrap_or(0) as usize;
         let end = size.map_or(data.len(), |s| data_offset + s as usize);
         if end > data.len() {
@@ -1282,59 +1229,30 @@ impl HostRecordOptionGpuSize64 for HostState {
     async fn new(&mut self) -> Resource<RecordOptionGpuSize64> {
         self.resource_table
             .push(RecordOptionGpuSize64 { map: BTreeMap::new() })
-            .expect("resource table push")
+            .unwrap()
     }
     async fn add(&mut self, rep: Resource<RecordOptionGpuSize64>, key: String, value: Option<u64>) {
-        self.resource_table
-            .get_mut(&rep)
-            .expect("record handle")
-            .map
-            .insert(key, value);
+        self.resource_table.get_mut(&rep).unwrap().map.insert(key, value);
     }
     async fn get(&mut self, rep: Resource<RecordOptionGpuSize64>, key: String) -> Option<Option<u64>> {
-        self.resource_table
-            .get(&rep)
-            .expect("record handle")
-            .map
-            .get(&key)
-            .copied()
+        self.resource_table.get(&rep).unwrap().map.get(&key).copied()
     }
     async fn has(&mut self, rep: Resource<RecordOptionGpuSize64>, key: String) -> bool {
-        self.resource_table
-            .get(&rep)
-            .expect("record handle")
-            .map
-            .contains_key(&key)
+        self.resource_table.get(&rep).unwrap().map.contains_key(&key)
     }
     async fn remove(&mut self, rep: Resource<RecordOptionGpuSize64>, key: String) {
-        self.resource_table
-            .get_mut(&rep)
-            .expect("record handle")
-            .map
-            .remove(&key);
+        self.resource_table.get_mut(&rep).unwrap().map.remove(&key);
     }
     async fn keys(&mut self, rep: Resource<RecordOptionGpuSize64>) -> Vec<String> {
-        self.resource_table
-            .get(&rep)
-            .expect("record handle")
-            .map
-            .keys()
-            .cloned()
-            .collect()
+        self.resource_table.get(&rep).unwrap().map.keys().cloned().collect()
     }
     async fn values(&mut self, rep: Resource<RecordOptionGpuSize64>) -> Vec<Option<u64>> {
-        self.resource_table
-            .get(&rep)
-            .expect("record handle")
-            .map
-            .values()
-            .copied()
-            .collect()
+        self.resource_table.get(&rep).unwrap().map.values().copied().collect()
     }
     async fn entries(&mut self, rep: Resource<RecordOptionGpuSize64>) -> Vec<(String, Option<u64>)> {
         self.resource_table
             .get(&rep)
-            .expect("record handle")
+            .unwrap()
             .map
             .iter()
             .map(|(k, v)| (k.clone(), *v))
@@ -1350,59 +1268,30 @@ impl HostRecordGpuPipelineConstantValue for HostState {
     async fn new(&mut self) -> Resource<RecordGpuPipelineConstantValue> {
         self.resource_table
             .push(RecordGpuPipelineConstantValue { map: BTreeMap::new() })
-            .expect("resource table push")
+            .unwrap()
     }
     async fn add(&mut self, rep: Resource<RecordGpuPipelineConstantValue>, key: String, value: f64) {
-        self.resource_table
-            .get_mut(&rep)
-            .expect("record handle")
-            .map
-            .insert(key, value);
+        self.resource_table.get_mut(&rep).unwrap().map.insert(key, value);
     }
     async fn get(&mut self, rep: Resource<RecordGpuPipelineConstantValue>, key: String) -> Option<f64> {
-        self.resource_table
-            .get(&rep)
-            .expect("record handle")
-            .map
-            .get(&key)
-            .copied()
+        self.resource_table.get(&rep).unwrap().map.get(&key).copied()
     }
     async fn has(&mut self, rep: Resource<RecordGpuPipelineConstantValue>, key: String) -> bool {
-        self.resource_table
-            .get(&rep)
-            .expect("record handle")
-            .map
-            .contains_key(&key)
+        self.resource_table.get(&rep).unwrap().map.contains_key(&key)
     }
     async fn remove(&mut self, rep: Resource<RecordGpuPipelineConstantValue>, key: String) {
-        self.resource_table
-            .get_mut(&rep)
-            .expect("record handle")
-            .map
-            .remove(&key);
+        self.resource_table.get_mut(&rep).unwrap().map.remove(&key);
     }
     async fn keys(&mut self, rep: Resource<RecordGpuPipelineConstantValue>) -> Vec<String> {
-        self.resource_table
-            .get(&rep)
-            .expect("record handle")
-            .map
-            .keys()
-            .cloned()
-            .collect()
+        self.resource_table.get(&rep).unwrap().map.keys().cloned().collect()
     }
     async fn values(&mut self, rep: Resource<RecordGpuPipelineConstantValue>) -> Vec<f64> {
-        self.resource_table
-            .get(&rep)
-            .expect("record handle")
-            .map
-            .values()
-            .copied()
-            .collect()
+        self.resource_table.get(&rep).unwrap().map.values().copied().collect()
     }
     async fn entries(&mut self, rep: Resource<RecordGpuPipelineConstantValue>) -> Vec<(String, f64)> {
         self.resource_table
             .get(&rep)
-            .expect("record handle")
+            .unwrap()
             .map
             .iter()
             .map(|(k, v)| (k.clone(), *v))

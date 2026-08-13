@@ -172,7 +172,7 @@ EOF
 # Pin the mise version: the config templates need Tera v2 (mise >= 2026.7.1), and mise.run honours MISE_VERSION.
 # Keep this in lockstep with min_version in .mise/config.toml.
 # skipcq: DOK-DL4006
-RUN curl -fsSL https://mise.run | MISE_VERSION=v2026.8.0 sh
+RUN curl -fsSL https://mise.run | MISE_VERSION=v2026.8.5 sh
 # Declare HOME explicitly rather than depending on the base image's ENV.
 # ubuntu/debian/fedora all set HOME=/root for the root user, but pinning it
 # here means the PATH expansion below doesn't silently break against a future
@@ -191,6 +191,9 @@ WORKDIR /workspace
 # runs.
 COPY .miserc.toml .miserc.toml
 COPY .mise/config.toml .mise/config.toml
+# The lockfile rides with the config so in-container resolution stays offline.
+# Without it, every `latest` pin costs a per-tool api.github.com /releases lookup.
+COPY .mise/mise.lock .mise/mise.lock
 COPY .mise/config.linux.toml .mise/config.linux.toml
 
 RUN mise trust
