@@ -16,6 +16,22 @@ checksum = "sha256:88a3d400c678df034c9d498f32503779977d5ea826063687c663e42c945ab
 url = "https://conda.anaconda.org/conda-forge/linux-aarch64/libgomp-16.1.0-h8acb6b2_1.conda"
 checksum = "sha256:1c609a4a72597350317b92c4d9dfb85d21740219048e2b1d458925a6ccfa3d7a"
 
+[conda-packages.linux-x64."_openmp_mutex-4.5-20_gnu"]
+url = "https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-20_gnu.conda"
+checksum = "sha256:1dd3fffd892081df9726d7eb7e0dea6198962ba775bd88842135a4ddb4deb3c9"
+
+[conda-packages.linux-x64."ca-certificates-2026.7.22-hbd8a1cb_0"]
+url = "https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.7.22-hbd8a1cb_0.conda"
+checksum = "sha256:0a0544cf95f64394fe4959286f5c71f5444ad58feb0602e53becb27448d24da6"
+
+[conda-packages.linux-x64."libgcc-16.1.0-ha9f2e26_1"]
+url = "https://conda.anaconda.org/conda-forge/linux-64/libgcc-16.1.0-ha9f2e26_1.conda"
+checksum = "sha256:d5cb8475131c31680f8fd30512c418f373064e272e452063276a8fb14c9fa42f"
+
+[conda-packages.linux-x64."libgomp-16.1.0-he0feb66_1"]
+url = "https://conda.anaconda.org/conda-forge/linux-64/libgomp-16.1.0-he0feb66_1.conda"
+checksum = "sha256:62cb599ad0539d99386515326d9d5e8f51f75a60c69c2131b21df76edf35bd89"
+
 [conda-packages.macos-arm64."ca-certificates-2026.7.22-hbd8a1cb_0"]
 url = "https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.7.22-hbd8a1cb_0.conda"
 checksum = "sha256:0a0544cf95f64394fe4959286f5c71f5444ad58feb0602e53becb27448d24da6"
@@ -404,6 +420,16 @@ conda_deps = [
     "libgomp-16.1.0-h8acb6b2_1",
 ]
 
+[tools."conda:openssl"."platforms.linux-x64"]
+checksum = "sha256:c0ef482280e38c71a08ad6d71448194b719630345b0c9c60744a2010e8a8e0cb"
+url = "https://conda.anaconda.org/conda-forge/linux-64/openssl-3.6.2-h35e630c_0.conda"
+conda_deps = [
+    "ca-certificates-2026.7.22-hbd8a1cb_0",
+    "libgcc-16.1.0-ha9f2e26_1",
+    "_openmp_mutex-4.5-20_gnu",
+    "libgomp-16.1.0-he0feb66_1",
+]
+
 [tools."conda:openssl"."platforms.macos-arm64"]
 checksum = "sha256:c91bf510c130a1ea1b6ff023e28bac0ccaef869446acd805e2016f69ebdc49ea"
 url = "https://conda.anaconda.org/conda-forge/osx-arm64/openssl-3.6.2-hd24854e_0.conda"
@@ -619,6 +645,7 @@ checksum = "sha256:7613f981c721563544826968054e23911b38bb291aa69673d32c7e0c58228
 url = "https://github.com/caldempsey/parfit/releases/download/v0.4.4/parfit-x86_64-unknown-linux-gnu.tar.xz"
 url_api = "https://api.github.com/repos/caldempsey/parfit/releases/assets/404472618"
 provenance = "github-attestations"
+provenance_verified = true
 
 [tools."github:caldempsey/parfit"."platforms.macos-arm64"]
 checksum = "sha256:f42ab7fa4beef2e480c0167788da67eaefcd096181bafa14aabcd5bff294153a"
@@ -710,6 +737,7 @@ checksum = "sha256:4ee9aaa0d0171a985a5d0eb735b87355894c1c455972e9674fb9fdbd1387c
 url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.140/cargo-nextest-0.9.140-x86_64-unknown-linux-gnu.tar.gz"
 url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/467470185"
 provenance = "github-attestations"
+provenance_verified = true
 
 [tools."github:nextest-rs/nextest"."platforms.macos-arm64"]
 checksum = "sha256:58e0a722f9444078fab447783f322acf15a2a771ba785b3fbbe8bacda31c3df9"
@@ -774,6 +802,7 @@ checksum = "sha256:38dd3f408b08dec2fc33957af74a307273c36d2c35e55bed64fbdcaecae66
 url = "https://github.com/owenlamont/ryl/releases/download/v0.19.1/ryl-x86_64-unknown-linux-gnu.tar.gz"
 url_api = "https://api.github.com/repos/owenlamont/ryl/releases/assets/451334911"
 provenance = "github-attestations"
+provenance_verified = true
 
 [tools."github:owenlamont/ryl"."platforms.macos-arm64"]
 checksum = "sha256:0d9a3d56c773404405489b6bc3dd6aa8ccb2935c08df8e337e7883c008b04329"
@@ -894,6 +923,7 @@ checksum = "sha256:064948d58e2d6c0a745216477a639ba696216d6309aaa902939d1b865b1d8
 url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.126/wasm-bindgen-0.2.126-x86_64-unknown-linux-musl.tar.gz"
 url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/456882695"
 provenance = "github-attestations"
+provenance_verified = true
 
 [tools."github:wasm-bindgen/wasm-bindgen"."platforms.macos-arm64"]
 checksum = "sha256:7df536babe345deb68828148dbdc71179118afdab42d83547c7cebfbf1426bd5"
@@ -1088,6 +1118,7 @@ backend = "http:rustfs"
 url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-linux-aarch64-musl-v1.0.0-beta.12.zip"
 
 [tools."http:rustfs"."platforms.linux-x64"]
+checksum = "blake3:80465dac5a67ca0109addee06073e8dcac277bf74083b7756a68c4ab708a26ad"
 url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-linux-x86_64-musl-v1.0.0-beta.12.zip"
 
 [[tools.ls-lint]]
@@ -1422,20 +1453,20 @@ url = "https://github.com/BurntSushi/ripgrep/releases/download/15.1.0/ripgrep-15
 url_api = "https://api.github.com/repos/BurntSushi/ripgrep/releases/assets/307305871"
 
 [[tools.rust]]
-version = "stable"
-backend = "core:rust"
-
-[tools.rust.options]
-components = "clippy,rust-analyzer"
-profile = "minimal"
-targets = "wasm32-unknown-unknown,wasm32-wasip2"
-
-[[tools.rust]]
 version = "nightly-2026-08-05"
 backend = "core:rust"
 
 [tools.rust.options]
 components = "llvm-tools,rust-src,rustfmt"
+profile = "minimal"
+targets = "wasm32-unknown-unknown,wasm32-wasip2"
+
+[[tools.rust]]
+version = "stable"
+backend = "core:rust"
+
+[tools.rust.options]
+components = "clippy,rust-analyzer"
 profile = "minimal"
 targets = "wasm32-unknown-unknown,wasm32-wasip2"
 
@@ -1463,6 +1494,9 @@ url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-1
 checksum = "sha256:f5266eda245fa4dab5acf28bef7bbab6c1da7f3e9575ddc7db803894107e09f5"
 url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-macos-aarch64-v1.0.0-beta.12.zip"
 url_api = "https://api.github.com/repos/rustfs/rustfs/releases/assets/494901929"
+
+[tools.rustfs."platforms.macos-arm64".provenance.slsa]
+url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-1.0.0-beta.12.provenance.json"
 
 [tools.rustfs."platforms.windows-x64"]
 checksum = "sha256:6bab1b4fecda037e26664cc0720c4584d221c86ba5fd7e384f3b9b8997238d89"

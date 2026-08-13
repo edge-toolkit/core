@@ -92,10 +92,11 @@ ENV PATH="C:\mise\bin;${MISESHIMS};C:\Windows\System32;C:\Windows;${PWSH};${LLVM
 WORKDIR C:\workspace
 # config.toml (always-loaded) + config.windows.toml + .miserc.toml (auto_env=true).
 COPY .mise/config.toml .mise/config.toml
-# The lockfile rides with the config so in-container resolution stays offline.
-# Without it, every `latest` pin costs a per-tool api.github.com /releases lookup.
+# Each config's lockfile rides with it so in-container resolution stays offline.
+# Without them, every `latest` pin costs a per-tool api.github.com /releases lookup.
 COPY .mise/mise.lock .mise/mise.lock
 COPY .mise/config.windows.toml .mise/config.windows.toml
+COPY .mise/mise.windows.lock .mise/mise.windows.lock
 COPY .miserc.toml .miserc.toml
 
 # gh_token (optional GitHub token) -- same pattern as Dockerfile.nanoserver.

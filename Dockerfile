@@ -191,10 +191,11 @@ WORKDIR /workspace
 # runs.
 COPY .miserc.toml .miserc.toml
 COPY .mise/config.toml .mise/config.toml
-# The lockfile rides with the config so in-container resolution stays offline.
-# Without it, every `latest` pin costs a per-tool api.github.com /releases lookup.
+# Each config's lockfile rides with it so in-container resolution stays offline.
+# Without them, every `latest` pin costs a per-tool api.github.com /releases lookup.
 COPY .mise/mise.lock .mise/mise.lock
 COPY .mise/config.linux.toml .mise/config.linux.toml
+COPY .mise/mise.linux.lock .mise/mise.linux.lock
 
 RUN mise trust
 

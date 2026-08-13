@@ -14,4 +14,4 @@ rule:
     - any:
         - kind: attribute_item
         - kind: inner_attribute_item
-    - regex: 'clippy::expect_used'
+    - regex: "clippy::expect_used"
