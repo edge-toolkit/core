@@ -845,6 +845,7 @@ checksum = "sha256:c6faa02823d9ad2c99d0d377a778daa925e7ad2ef9beb96a180236fd2f551
 url = "https://github.com/owenlamont/ryl/releases/download/v0.19.1/ryl-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/owenlamont/ryl/releases/assets/451334907"
 provenance = "github-attestations"
+provenance_verified = true
 
 [[tools."github:prometheus-community/windows_exporter"]]
 version = "0.31.7"
@@ -1113,6 +1114,7 @@ url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve
 url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-darwin-amd64.tar.gz"
 
 [tools."http:openobserve"."platforms.windows-x64"]
+checksum = "blake3:297959bde6dd30397317a6be78f3d74463aeab5f555dc44283f6a21231b452c3"
 url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-windows-amd64.zip"
 
 [[tools."http:rp-wasm"]]
@@ -1154,6 +1156,7 @@ url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-l
 url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-macos-aarch64-v1.0.0-beta.12.zip"
 
 [tools."http:rustfs"."platforms.windows-x64"]
+checksum = "blake3:d79f0eddd9c9c68df0c4c4c7f744639bf2ded714be0ccd2f52f3f27c372e2630"
 url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-windows-x86_64-v1.0.0-beta.12.zip"
 
 [[tools.ls-lint]]

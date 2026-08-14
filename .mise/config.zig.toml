@@ -12,6 +12,18 @@
 # `clang-format` name to conda:clang-format, so conda:clang-tools omits it and only supplies clang-tidy. Both
 # are conda-forge's native LLVM binaries. cpplint (Google C++ style) and flawfinder (C/C++ security scanner)
 # have no prebuilt binary -- pipx is their only distribution.
+#
+# Tasks must invoke both conda binaries by absolute path (`$(mise which clang-format)`), never by bare name.
+# mise 2026.8.5 (jdx/mise#11855) stopped copying conda executables into `<install>/.mise-bins/` and writes a
+# `<tool>.cmd` prefix-activation launcher there instead. Windows can only run a `.cmd` through cmd.exe, and the
+# spawner starts it by bare name, so cmd.exe has to find it again on the PATH it inherited -- which on the
+# Windows lane is long enough that cmd.exe discards it, leaving nothing to search:
+#     'clang-format' is not recognized as an internal or external command,
+#     operable program or batch file.
+# That took down the windows-latest check lane on commit 0dd8cb009e2b81f9013d7a647092adf383391284 at
+# https://github.com/edge-toolkit/core/actions/runs/31773896309/job/94685231006. An absolute path needs no
+# lookup, so the launcher runs whatever cmd.exe did with the PATH. pipx's Windows entry points are real
+# `.exe`s, so cpplint and flawfinder are unaffected.
 "conda:clang-format" = "latest"
 "conda:clang-tools" = "latest"
 "pipx:cpplint" = "latest"
@@ -53,11 +65,20 @@ run = "zig fmt services/ws-modules/ generated/zig-rest/"
 
 [tasks.clang-format]
 description = "Format C/C++ sources (clang-format)"
-run = "git ls-files '*.c' '*.cpp' '*.h' | xargs clang-format -i --style=file:config/clang-format.yaml"
+run = """
+clang_format="$(mise which clang-format)"
+git ls-files '*.c' '*.cpp' '*.h' | xargs "$clang_format" -i --style=file:config/clang-format.yaml
+"""
+shell = "bash -euo pipefail -c"
 
 [tasks.clang-format-check]
 description = "Check C/C++ source formatting (clang-format)"
-run = "git ls-files '*.c' '*.cpp' '*.h' | xargs clang-format --dry-run --Werror --style=file:config/clang-format.yaml"
+run = """
+clang_format="$(mise which clang-format)"
+git ls-files '*.c' '*.cpp' '*.h' |
+  xargs "$clang_format" --dry-run --Werror --style=file:config/clang-format.yaml
+"""
+shell = "bash -euo pipefail -c"
 
 [tasks.clang-tidy-check]
 description = "Lint C/C++ sources (clang-tidy)"
@@ -77,8 +98,9 @@ description = "Lint C/C++ sources (clang-tidy)"
 #   thread 'main' panicked at src/xargs/mod.rs:411:46: index out of bounds: the len is 0 but the index is 0
 # (observed on PR #93's docker-linux build + check lanes). -r makes empty input a clean no-op.
 run = """
+clang_tidy="$(mise which clang-tidy)"
 git ls-files '*.c' '*.cpp' '*.h' ':!services/ws-web-runner/mingw-shim' ':!services/ws-modules/zig-*' |
-  xargs -r -I{} clang-tidy --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
+  xargs -r -I{} "$clang_tidy" --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
 llvm_ct="$(mise where 'github:mstorsjo/llvm-mingw')/bin/clang-tidy"
 git ls-files 'services/ws-web-runner/mingw-shim/*.c' |
   xargs -r -I{} "$llvm_ct" --config-file=config/clang-tidy.yaml {} -- --target=x86_64-w64-mingw32 -std=c11
@@ -93,7 +115,7 @@ else
   set -- {{ vars.clang_resource_arg }} "$@"
 fi
 git ls-files 'services/ws-modules/zig-*/src/*.c' 'services/ws-modules/zig-*/src/*.cpp' |
-  xargs -r -I{} clang-tidy --config-file=config/clang-tidy.yaml {} -- "$@"
+  xargs -r -I{} "$clang_tidy" --config-file=config/clang-tidy.yaml {} -- "$@"
 """
 shell = "bash -euo pipefail -c"
 
@@ -103,8 +125,9 @@ description = "Apply clang-tidy's machine-applicable fix-its to C/C++ sources in
 # Host clang-tidy for portable C/C++, llvm-mingw's for the windows mingw-shim, and a wasm32 cross-target pass
 # for the zig modules' C/C++.
 run = """
+clang_tidy="$(mise which clang-tidy)"
 git ls-files '*.c' '*.cpp' '*.h' ':!services/ws-web-runner/mingw-shim' ':!services/ws-modules/zig-*' |
-  xargs -r -I{} clang-tidy --fix --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
+  xargs -r -I{} "$clang_tidy" --fix --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
 llvm_ct="$(mise where 'github:mstorsjo/llvm-mingw')/bin/clang-tidy"
 git ls-files 'services/ws-web-runner/mingw-shim/*.c' |
   xargs -r -I{} "$llvm_ct" --fix --config-file=config/clang-tidy.yaml {} -- --target=x86_64-w64-mingw32 -std=c11
@@ -119,7 +142,7 @@ else
   set -- {{ vars.clang_resource_arg }} "$@"
 fi
 git ls-files 'services/ws-modules/zig-*/src/*.c' 'services/ws-modules/zig-*/src/*.cpp' |
-  xargs -r -I{} clang-tidy --fix --config-file=config/clang-tidy.yaml {} -- "$@"
+  xargs -r -I{} "$clang_tidy" --fix --config-file=config/clang-tidy.yaml {} -- "$@"
 """
 shell = "bash -euo pipefail -c"
 

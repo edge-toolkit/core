@@ -28,7 +28,7 @@ gradle
 [tasks.build-ws-kotlin-data1-module]
 description = "Build the kotlin-data1 workflow module (Kotlin/Wasm -> WasmGC)"
 dir = "services/ws-modules/kotlin-data1"
-run = "$GRADLE --console=plain pkgDist"
+run = "\"$GRADLE\" --console=plain pkgDist"
 shell = "bash -euo pipefail -c"
 
 # Namespaced aggregator picked up by the default config's globbed `check`.
@@ -36,11 +36,11 @@ shell = "bash -euo pipefail -c"
 [tasks."check:kotlin"]
 description = "Run Kotlin checks (kotlinc allWarningsAsErrors via the Gradle compile)"
 dir = "services/ws-modules/kotlin-data1"
-run = "$GRADLE --console=plain compileKotlinWasmJs"
+run = "\"$GRADLE\" --console=plain compileKotlinWasmJs"
 shell = "bash -euo pipefail -c"
 
 [tasks."prefetch:kotlin"]
 description = "Prefetch Kotlin (Gradle plugin + Maven Central) dependencies"
 dir = "services/ws-modules/kotlin-data1"
-run = "$GRADLE --console=plain dependencies"
+run = "\"$GRADLE\" --console=plain dependencies"
 shell = "bash -euo pipefail -c"

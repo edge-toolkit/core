@@ -1352,17 +1352,28 @@ description = "Build et-cli (prereq for the module-package-json steps)"
 run = "cargo build -p et-cli"
 shell = "bash -euo pipefail -c"
 
-# Install the tools the GHCR-store tasks call, before their PATH is composed.
-# A task's PATH is fixed when the task starts, so a `mise install` INSIDE a body leaves the just-installed
-# bare names unresolvable ("bash: line 4: coreutils: command not found" on a cold runner, observed at
-# https://github.com/edge-toolkit/core/actions/runs/31670112517/job/94352839713 on commit
-# d8ad8cb99cf58a1e505cdbebc5b94f9893532b4f). A `depends` task runs before that composition, so the
-# store tasks (pull-mise-tools here, the push/visibility maint tasks) get working tools on any checkout
-# that has never run a full `mise install`. gh is only needed by the maint tasks, but one shared helper
-# beats three near-copies.
+# Install the tools the GHCR-store tasks call, so they work on a checkout that never ran a full `mise install`.
+# gh is only needed by the maint tasks, but one shared helper beats three near-copies.
+#
+# Installing is all this buys: PATH does NOT follow. mise composes a task's PATH from what is installed when
+# the `mise run` starts, and a `depends` install lands after that snapshot just as an in-body `mise install`
+# does -- so a cold runner still gets "bash: line 1: coreutils: command not found" (first seen with the in-body
+# form at https://github.com/edge-toolkit/core/actions/runs/31670112517/job/94352839713 on commit
+# d8ad8cb99cf58a1e505cdbebc5b94f9893532b4f, then again through `depends` at
+# https://github.com/edge-toolkit/core/actions/runs/31773896309/job/94685230924 on commit
+# 0dd8cb009e2b81f9013d7a647092adf383391284). Every consumer therefore resolves these tools with `mise which`
+# and calls them by absolute path, which needs no PATH entry at all.
+#
+# Keep the tool specs unquoted. This body is a single line, so on Windows it runs under mise's default
+# `cmd /c` -- the repo's bash inline-shell default is set by `preinstall`, which has not run yet when CI
+# restores the store. cmd.exe does not strip quotes, so a quoted spec reaches mise verbatim and it tries to
+# clone a plugin from the literal name: `mise plugin:01mf02/jaq' clone https://github.com/01mf02/jaq'.git`,
+# ending in `Failed to install 'aqua:01mf02/jaq'@latest`, which stranded the Windows lane's restore on commit
+# 0dd8cb009e2b81f9013d7a647092adf383391284 at
+# https://github.com/edge-toolkit/core/actions/runs/31773896309/job/94685231006.
 [tasks._setup-store-tools]
 description = "Install the tools the mise-tools store tasks depend on (cold-checkout helper)"
-run = "mise install coreutils crane gh 'aqua:01mf02/jaq'"
+run = "mise install coreutils crane gh aqua:01mf02/jaq"
 
 # Pre-populate the local mise data dir from this platform's GHCR tool store.
 # A maintainer publishes each platform's tool tree to ghcr.io/<repo>/mise-tools/<os>-<arch> with the maint
@@ -1376,7 +1387,10 @@ run = "mise install coreutils crane gh 'aqua:01mf02/jaq'"
 depends = ["_setup-store-tools"]
 description = "Pre-populate the local mise data dir from this platform's GHCR tool store"
 run = """
-detected=$(coreutils uname -sm)
+coreutils="$(mise which coreutils)"
+crane="$(mise which crane)"
+jaq="$(mise which jaq)"
+detected=$("$coreutils" uname -sm)
 case "$detected" in
   Darwin*arm64) def_plat=macos-arm64 ;;
   Darwin*x86_64) def_plat=macos-x64 ;;
@@ -1403,12 +1417,12 @@ fi
 # and because tar refuses to write through existing symlinks on a populated data dir ("Cannot extract
 # through symlink installs/http-augeas/<ver>/bin", observed locally).
 tmp="target/scratch/pull-mise-tools"
-coreutils rm -rf "$tmp"
-coreutils mkdir -p "$tmp" "$data/installs"
+"$coreutils" rm -rf "$tmp"
+"$coreutils" mkdir -p "$tmp" "$data/installs"
 echo "pulling $ref"
-crane pull --format=oci "$ref" "$tmp/oci"
-manifest=$(jaq -r '.manifests[0].digest | ltrimstr("sha256:")' "$tmp/oci/index.json")
-layers=$(jaq -r '.layers[].digest | ltrimstr("sha256:")' "$tmp/oci/blobs/sha256/$manifest")
+"$crane" pull --format=oci "$ref" "$tmp/oci"
+manifest=$("$jaq" -r '.manifests[0].digest | ltrimstr("sha256:")' "$tmp/oci/index.json")
+layers=$("$jaq" -r '.layers[].digest | ltrimstr("sha256:")' "$tmp/oci/blobs/sha256/$manifest")
 # Layers that carry no mise/installs entries (the base image's) make tar exit non-zero; that miss is fine.
 for layer in $layers; do
   tar -xzf "$tmp/oci/blobs/sha256/$layer" -C "$tmp" --strip-components=1 mise/installs 2>/dev/null || true
@@ -1419,12 +1433,12 @@ for d in "$tmp"/installs/*/*/; do
   rel="${d#"$tmp"/installs/}"
   dest="$data/installs/$rel"
   if [ ! -e "$dest" ]; then
-    coreutils mkdir -p "$(coreutils dirname "$dest")"
-    coreutils mv "$d" "$dest"
+    "$coreutils" mkdir -p "$("$coreutils" dirname "$dest")"
+    "$coreutils" mv "$d" "$dest"
     restored=$((restored + 1))
   fi
 done
-coreutils rm -rf "$tmp"
+"$coreutils" rm -rf "$tmp"
 echo "restored $restored tool versions into $data/installs"
 echo "done; run 'mise install' to fill gaps and regenerate shims"
 """
