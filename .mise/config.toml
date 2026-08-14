@@ -1375,14 +1375,57 @@ shell = "bash -euo pipefail -c"
 description = "Install the tools the mise-tools store tasks depend on (cold-checkout helper)"
 run = "mise install coreutils crane gh aqua:01mf02/jaq"
 
+# Build the OCI layout for a mise-tools store, carrying only relocatable tools.
+# Shared by every push-mise-tools* task (native and docker) so all platforms' stores hold the same set of
+# backends, and lives here rather than in config.maint.toml because the docker publisher runs it INSIDE the
+# build container, where only the always-loaded configs exist.
+#
+# A tool is relocatable when its install tree is a plain extracted archive: aqua, github, http and ubi all
+# unpack a tarball and stop, so moving the tree to another machine's data dir works. Every other backend
+# writes the publishing machine's absolute paths into the tree at install time, which then breaks on a
+# consumer whose $HOME differs -- conda emits `.mise-bins/<tool>` wrappers holding
+#
+#     export CONDA_PREFIX='/home/<publisher>/.local/share/mise/installs/conda-<tool>/<ver>'
+#     exec '/home/<publisher>/.local/share/mise/installs/conda-<tool>/<ver>/bin/<tool>'
+#
+# so a restored `clang-format` dies with `exec: /home/<publisher>/...: not found` (exit 127), and pipx does
+# the same through venv shebangs + pyvenv.cfg. `mise install` cannot repair those: it treats a tool with an
+# install dir as installed, so a poisoned tree survives every later install. Excluding them costs nothing --
+# the store exists to spare api.github.com the per-tool release/attestation lookups that aqua, github and
+# http tools make, and conda / pipx / cargo / go / core-runtime installs never touch that API.
+[tasks.oci-build-store]
+depends = ["_setup-store-tools"]
+description = "Build the mise-tools OCI layout for the current toolset, relocatable backends only"
+run = """
+coreutils="$(mise which coreutils)"
+jaq="$(mise which jaq)"
+out="${usage_out:?output directory required}"
+# Prefixed names carry their own backend; bare ones are registry short names to resolve.
+# `mise registry <tool>` prints every backend for the name, preferred first, so take the first field.
+disabled=""
+for tool in $(mise ls --current --json | "$jaq" -r 'keys[]'); do
+  case "$tool" in
+    *:*) backend="$tool" ;;
+    *) backend="$(mise registry "$tool" | "$coreutils" head -n1 | "$coreutils" cut -d' ' -f1)" ;;
+  esac
+  case "$backend" in
+    aqua:* | github:* | http:* | ubi:*) ;;
+    *) disabled="${disabled:+$disabled,}$tool" ;;
+  esac
+done
+echo "store excludes non-relocatable tools: ${disabled:-<none>}"
+MISE_DISABLE_TOOLS="$disabled" MISE_EXPERIMENTAL=1 mise oci build -o "$out"
+"""
+shell = "bash -euo pipefail -c"
+usage = 'arg "<out>" help="Output directory for the OCI image layout"'
+
 # Pre-populate the local mise data dir from this platform's GHCR tool store.
 # A maintainer publishes each platform's tool tree to ghcr.io/<repo>/mise-tools/<os>-<arch> with the maint
 # env's push-mise-tools task (`mise oci push`, one content-addressed layer per tool); this flattens that
 # image with `crane export` straight into the local data dir's installs/, so a fresh `mise install`
-# afterwards only fills the gaps and regenerates shims instead of downloading everything. Tools that bake
-# absolute paths at install time (e.g. pipx venv shebangs) carry the publishing machine's home dir --
-# reinstall any misbehaving one with `mise install --force <tool>`. Private packages need a one-time
-# `docker login ghcr.io` (or `crane auth login ghcr.io`).
+# afterwards only fills the gaps and regenerates shims instead of downloading everything. The store carries
+# only relocatable backends, so a restored tree needs no repair; everything else installs cold as usual.
+# Private packages need a one-time `docker login ghcr.io` (or `crane auth login ghcr.io`).
 [tasks.pull-mise-tools]
 depends = ["_setup-store-tools"]
 description = "Pre-populate the local mise data dir from this platform's GHCR tool store"

@@ -545,7 +545,7 @@ ref="ghcr.io/edge-toolkit/core/mise-tools/${plat}:latest"
 out="target/scratch/mise-oci-${plat}"
 "$coreutils" rm -rf "$out"
 MISE_ENV="$ALL_LANGS" mise install
-MISE_ENV="$ALL_LANGS" MISE_EXPERIMENTAL=1 mise oci build -o "$out"
+MISE_ENV="$ALL_LANGS" mise run oci-build-store "$out"
 "$crane" push "$out" "$ref"
 """
 shell = "bash -euo pipefail -c"
@@ -583,7 +583,7 @@ args="--platform linux/amd64 --target build --secret id=gh_token,env=GITHUB_TOKE
 # shellcheck disable=SC2086
 DOCKER_BUILDKIT=1 docker build $args -t et-mise-linux .
 mnt="$PWD/$out:/oci-out"
-docker run --rm --platform linux/amd64 -e MISE_EXPERIMENTAL=1 -v "$mnt" et-mise-linux mise oci build -o /oci-out
+docker run --rm --platform linux/amd64 -v "$mnt" et-mise-linux mise run oci-build-store /oci-out
 "$crane" push "$out" "$ref"
 """
 shell = "bash -euo pipefail -c"
