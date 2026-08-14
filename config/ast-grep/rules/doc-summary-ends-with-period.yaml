@@ -47,6 +47,8 @@ files:
   - services/ws-modules/pic-viewer/src/lib.rs
   - services/ws-modules/pic-viewer/tests/parse.rs
   - services/ws-modules/pic-viewer/tests/show_image.rs
+  - services/ws-modules/wasi-comm1/src/lib.rs
+  - services/ws-modules/wasi-data1/src/lib.rs
   - services/ws-pyo3-runner/tests/modules.rs
   - services/ws-server/src/config.rs
   - services/ws-server/src/lib.rs
@@ -56,8 +58,10 @@ files:
   - services/ws-server/tests/health.rs
   - services/ws-server/tests/net.rs
   - services/ws-server/tests/tls.rs
+  - services/ws-wasi-runner/src/bindings.rs
+  - services/ws-wasi-runner/src/host/error.rs
   - services/ws-wasi-runner/src/host/mod.rs
-  - services/ws-wasi-runner/src/host/wasi_webgpu.rs
+  - services/ws-wasi-runner/src/lib.rs
   - services/ws-wasi-runner/tests/modules.rs
   - services/ws-wasi-runner/tests/o2_ingest_search.rs
   - services/ws-wasi-runner/tests/otel_propagation.rs
@@ -71,6 +75,8 @@ files:
   - utilities/cli/src/deployment_types/mise.rs
   - utilities/int-gen/src/error.rs
   - utilities/int-gen/src/lib.rs
+  - utilities/int-gen/src/wit/mod.rs
+  - utilities/int-gen/src/wit/upstream.rs
   - utilities/int-gen/src/zig.rs
   - utilities/int-gen/tests/generate_zig.rs
   - utilities/onnx/src/main.rs

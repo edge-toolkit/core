@@ -18,12 +18,9 @@ mod error;
 mod log;
 pub mod wasi_keyvalue;
 pub mod wasi_nn;
-pub mod wasi_webgpu;
 pub mod ws;
 
-pub use self::error::{
-    KvErrExt, RequestDeviceErrExt, WitErrExt, WsDecodeErrExt, WsTransportErrExt, kv_not_implemented,
-};
+pub use self::error::{KvErrExt, WitErrExt, WsDecodeErrExt, WsTransportErrExt, kv_not_implemented};
 pub use self::ws::WsBackend;
 
 #[non_exhaustive]
@@ -44,14 +41,15 @@ pub struct HostState {
     /// wasi-nn context.
     /// Constructed once at startup so model loads + compute reuse the same `ort` session pool across calls.
     pub wasi_nn_ctx: wasmtime_wasi_nn::wit::WasiNnCtx,
+
+    /// wgpu instance backing `wasi:webgpu`.
+    /// One per store, created eagerly: adapter enumeration is what the guest's first call needs, and
+    /// `wasi-webgpu-wasmtime` borrows this handle rather than owning it.
+    pub wgpu_instance: Arc<wgpu_core::global::Global>,
 }
 
 impl HostState {
     #[must_use]
-    #[expect(
-        clippy::same_name_method,
-        reason = "convention: HostState::new mirrors WasiCtxBuilder/ResourceTable/Client constructors used here"
-    )]
     #[cfg_attr(
         not(feature = "coverage"),
         expect(
@@ -97,6 +95,26 @@ impl HostState {
             rest: et_rest_client::Client::new(http_base),
             ws: Arc::new(Mutex::new(None)),
             wasi_nn_ctx: wasi_nn::new_ctx(),
+            wgpu_instance: Arc::new(wgpu_core::global::Global::new(
+                "webgpu",
+                wgpu_types::InstanceDescriptor {
+                    backends: wgpu_types::Backends::all(),
+                    flags: wgpu_types::InstanceFlags::from_build_config(),
+                    backend_options: wgpu_types::BackendOptions::default(),
+                    memory_budget_thresholds: wgpu_types::MemoryBudgetThresholds::default(),
+                    display: None,
+                },
+                None,
+            )),
+        }
+    }
+}
+
+impl wasi_webgpu_wasmtime::WasiWebGpuCtxView for HostState {
+    fn webgpu_ctx(&mut self) -> wasi_webgpu_wasmtime::WasiWebGpuCtx<'_> {
+        wasi_webgpu_wasmtime::WasiWebGpuCtx {
+            instance: &self.wgpu_instance,
+            table: &mut self.resource_table,
         }
     }
 }

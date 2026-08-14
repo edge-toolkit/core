@@ -44,8 +44,8 @@ use wasi::logging::logging::{self, Level};
 mod coverage;
 
 const LOG_CONTEXT: &str = env!("CARGO_PKG_NAME");
-/// Total time we'll wait for a `list-agents-response`. The server replies
-/// immediately under normal load, but we leave headroom for the inbox queue.
+/// Total time we'll wait for a `list-agents-response`.
+/// The server replies immediately under normal load, but we leave headroom for the inbox queue.
 const LIST_AGENTS_TIMEOUT_MS: u32 = 2_000;
 
 fn info(message: &str) {
@@ -64,7 +64,7 @@ impl From<WsError> for EntryError {
 struct Component;
 
 impl Guest for Component {
-    fn run() -> Result<(), EntryError> {
+    async fn run() -> Result<(), EntryError> {
         info("entered run()");
 
         et::ws_wasi::ws::connect()?;
@@ -111,9 +111,9 @@ impl Guest for Component {
     }
 }
 
-/// Drain the recv inbox until we see a `list-agents-response`. Each `recv`
-/// call blocks for the remaining budget; keep going until either the budget
-/// is exhausted or we get the message we want.
+/// Drain the recv inbox until we see a `list-agents-response`.
+/// Each `recv` call blocks for the remaining budget; keep going until either the budget is exhausted or we
+/// get the message we want.
 fn wait_for_list_agents_response(
     total_timeout_ms: u32,
 ) -> Option<et::ws_messages::messages::ListAgentsResponsePayload> {

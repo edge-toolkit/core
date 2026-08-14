@@ -70,6 +70,10 @@ async fn run_module_inner(
     )]
     {
         config.wasm_component_model(true);
+        // wasi:webgpu@0.3.0-rc.2 declares `request-adapter`, `request-device` and `map-async` as
+        // `async func`, which is component-model-async (WASI Preview 3) ABI. Without this the guest's
+        // webgpu imports fail to instantiate.
+        config.wasm_component_model_async(true);
     }
     let engine = Engine::new(&config)?;
 
@@ -79,11 +83,19 @@ async fn run_module_inner(
     wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
     bindings::Runner::add_to_linker::<HostState, HasSelf<HostState>>(&mut linker, |state| state)?;
     wasmtime_wasi_nn::wit::add_to_linker(&mut linker, host::wasi_nn::view)?;
+    wasi_webgpu_wasmtime::add_to_linker(&mut linker)?;
 
     let host_state = HostState::new(&http_base, ws_url.to_string(), connect_ack_timeout, coverage);
     let mut store = Store::new(&engine, host_state);
 
     let module = bindings::Runner::instantiate_async(&mut store, &component, &linker).await?;
 
-    Ok(module.et_ws_wasi_entry().call_run(&mut store).await??)
+    // `entry.run` is an async export, so it is driven through the concurrent API rather than called
+    // directly against the store: the guest may await a host import (wasi-webgpu's `request-adapter`,
+    // `request-device`, `map-async`) mid-call, and only an `Accessor` can hand the store back to the
+    // host while the guest task is suspended.
+    store
+        .run_concurrent(async |accessor| module.et_ws_wasi_entry().call_run(accessor).await)
+        .await???;
+    Ok(())
 }

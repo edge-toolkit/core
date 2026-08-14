@@ -23,6 +23,7 @@ import array
 import json
 import struct
 
+import wit_world.exports
 from componentize_py_types import Err
 from wit_world.exports.entry import (
     EntryError_Nn,
@@ -219,12 +220,15 @@ def _entry(binding: int, read_only: bool) -> GpuBindGroupLayoutEntry:
     """
     return GpuBindGroupLayoutEntry(
         binding=binding,
-        visibility=GpuShaderStage.compute(),
+        visibility=GpuShaderStage.COMPUTE,
         buffer=GpuBufferBindingLayout(
             type=GpuBufferBindingType.READ_ONLY_STORAGE if read_only else GpuBufferBindingType.STORAGE,
             has_dynamic_offset=False,
             min_binding_size=None,
         ),
+        sampler=None,
+        texture=None,
+        storage_texture=None,
     )
 
 
@@ -237,7 +241,7 @@ def _bind_entry(binding: int, buffer) -> GpuBindGroupEntry:
     )
 
 
-def _run_matmul() -> dict:
+async def _run_matmul() -> dict:
     """Build a full wasi-webgpu compute pipeline and run the 4x4 matmul.
 
     Returns the wire-format dict for `gpu_compute`. Raises `RuntimeError`
@@ -245,7 +249,7 @@ def _run_matmul() -> dict:
     """
     _log("wasi-webgpu: requesting adapter")
     gpu = webgpu.get_gpu()
-    adapter = gpu.request_adapter(None)
+    adapter = await gpu.request_adapter(None)
     if adapter is None:
         raise Err(
             EntryError_Webgpu(
@@ -266,14 +270,14 @@ def _run_matmul() -> dict:
         f" architecture={gpu_info['architecture']}"
     )
 
-    device = adapter.request_device(None)
+    device = await adapter.request_device(None)
     queue = device.queue()
 
     started = _now_ms()
 
-    storage_init_usage = GpuBufferUsage.storage() | GpuBufferUsage.copy_dst()
-    storage_out_usage = GpuBufferUsage.storage() | GpuBufferUsage.copy_src()
-    readback_usage = GpuBufferUsage.map_read() | GpuBufferUsage.copy_dst()
+    storage_init_usage = GpuBufferUsage.STORAGE | GpuBufferUsage.COPY_DST
+    storage_out_usage = GpuBufferUsage.STORAGE | GpuBufferUsage.COPY_SRC
+    readback_usage = GpuBufferUsage.MAP_READ | GpuBufferUsage.COPY_DST
 
     buf_a = device.create_buffer(
         GpuBufferDescriptor(
@@ -325,7 +329,9 @@ def _run_matmul() -> dict:
             label="matmul-bgl",
         )
     )
-    pl = device.create_pipeline_layout(GpuPipelineLayoutDescriptor(bind_group_layouts=[bgl], label="matmul-pl"))
+    pl = device.create_pipeline_layout(
+        GpuPipelineLayoutDescriptor(bind_group_layouts=[bgl], immediate_size=None, label="matmul-pl")
+    )
 
     pipeline = device.create_compute_pipeline(
         GpuComputePipelineDescriptor(
@@ -359,7 +365,7 @@ def _run_matmul() -> dict:
     command_buffer = encoder.finish(None)
     queue.submit([command_buffer])
 
-    buf_readback.map_async(GpuMapMode.read(), 0, MATRIX_BYTES)
+    await buf_readback.map_async(GpuMapMode.READ, 0, MATRIX_BYTES)
     data = buf_readback.get_mapped_range_get_with_copy(0, MATRIX_BYTES)
     buf_readback.unmap()
     elapsed_ms = float(_now_ms() - started)
@@ -471,8 +477,15 @@ def _webgpu_to_entry(value: object) -> WebgpuError:
     return WebgpuError(operation=operation, kind=kind, message=message)
 
 
-class Entry:
+class Entry(wit_world.exports.Entry):
     """Implements the `entry` interface exported by the world.
+
+    Subclassing the generated `wit_world.exports.Entry` is load-bearing for the
+    async export: componentize-py puts the `_async_start_run` shim (which hands
+    the coroutine to `componentize_py_async_support.first_poll`) on that class,
+    and the component's lift calls it by that name -- a bare class that merely
+    defines `async def run` fails at runtime with
+    `AttributeError: 'Entry' object has no attribute '_async_start_run'`.
 
     componentize-py renders the success path as `-> None` and failures as
     `raise Err(<variant case>)`. Workflow code lives in `_run_workflow`;
@@ -481,10 +494,10 @@ class Entry:
     typed cause instead of a stringified `Runtime` blob.
     """
 
-    def run(self) -> None:
+    async def run(self) -> None:
         """Run the workflow, mapping any WASI `Err` to a typed `EntryError_*`."""
         try:
-            _run_workflow()
+            await _run_workflow()
         except Err as exc:
             value = exc.value
             if isinstance(value, _WS_ERROR_VARIANTS):
@@ -502,7 +515,7 @@ class Entry:
             raise Err(EntryError_Runtime(str(value))) from exc
 
 
-def _run_workflow() -> None:
+async def _run_workflow() -> None:
     _log("entered run()")
 
     ws.connect()
@@ -512,7 +525,7 @@ def _run_workflow() -> None:
     agent_id = ws.agent_id()
     _log(f"websocket connected with agent_id={agent_id}")
 
-    gpu_block = _run_matmul()
+    gpu_block = await _run_matmul()
     # No browser-level detection in WASI; report the wasi-webgpu fact as
     # the only WebGPU signal and the legacy WebGL / WebNN flags as False.
     support = {"webgl": False, "webgl2": False, "webgpu": True, "webnn": False}

@@ -71,7 +71,7 @@ impl From<store::Error> for EntryError {
 struct Component;
 
 impl Guest for Component {
-    fn run() -> Result<(), EntryError> {
+    async fn run() -> Result<(), EntryError> {
         info("entered run()");
 
         et::ws_wasi::ws::connect()?;
@@ -107,9 +107,9 @@ impl Guest for Component {
     }
 }
 
-/// `ws.connect` waits briefly for the `ConnectAck` server message, but the
-/// host returns once that wait expires regardless. Poll `agent_id` to be
-/// safe under load.
+/// Poll `agent_id` until the server's `ConnectAck` has landed.
+/// `ws.connect` waits briefly for that message, but the host returns once its wait expires regardless, so
+/// polling is what keeps this safe under load.
 fn wait_for_agent_id() -> Option<String> {
     for _ in 0..100 {
         let id = et::ws_wasi::ws::agent_id();
