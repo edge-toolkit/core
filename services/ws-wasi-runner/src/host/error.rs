@@ -1,12 +1,11 @@
 //! Error helpers for the runner's host impls. Each trait carries the
 //! only `.map_err(...)` for the pattern it covers; every host file
 //! reaches the conversions through one of the `.map_tungstenite_err(...)`
-//! / `.map_decode_err(...)` / `.kv_context(...)` / `.request_device_err()`
-//! / `.wit_context(...)` shorthands.
+//! / `.map_decode_err(...)` / `.kv_context(...)` / `.wit_context(...)`
+//! shorthands.
 
 use crate::bindings::et::ws_wasi::ws::WsError;
 use crate::bindings::wasi::keyvalue::store::Error as KvError;
-use crate::bindings::wasi::webgpu::webgpu::{RequestDeviceError, RequestDeviceErrorKind};
 
 /// Generic fallback: maps any `Display` error to `Result<_, String>`.
 /// Used in spots (e.g. inside `tokio::task::spawn_blocking`) where the
@@ -21,8 +20,7 @@ impl<T, E: std::fmt::Display> WitErrExt<T> for Result<T, E> {
     }
 }
 
-/// Maps any `Display` error into `wasi:keyvalue/store`'s
-/// `error.other(message)` variant.
+/// Maps any `Display` error into `wasi:keyvalue/store`'s `error.other(message)` variant.
 pub trait KvErrExt<T> {
     fn kv_context(self, context: &str) -> Result<T, KvError>;
 }
@@ -33,26 +31,11 @@ impl<T, E: std::fmt::Display> KvErrExt<T> for Result<T, E> {
     }
 }
 
-/// Build a `wasi:keyvalue/store.error.other("<op> not implemented")` -- the
-/// closest thing the WIT-spec enum has to a `NotImplemented` variant.
+/// Build a `wasi:keyvalue/store.error.other("<op> not implemented")`.
+/// That is the closest thing the WIT-spec enum has to a `NotImplemented` variant.
 #[must_use]
 pub fn kv_not_implemented(operation: &str) -> KvError {
     KvError::Other(format!("{operation} not implemented"))
-}
-
-/// Maps any `Display` error into `wasi:webgpu/webgpu`'s
-/// `request-device-error.operation-error` variant.
-pub trait RequestDeviceErrExt<T> {
-    fn request_device_err(self) -> Result<T, RequestDeviceError>;
-}
-
-impl<T, E: std::fmt::Display> RequestDeviceErrExt<T> for Result<T, E> {
-    fn request_device_err(self) -> Result<T, RequestDeviceError> {
-        self.map_err(|err| RequestDeviceError {
-            kind: RequestDeviceErrorKind::OperationError,
-            message: format!("{err}"),
-        })
-    }
 }
 
 /// Maps a `tokio_tungstenite::tungstenite::Error` into a typed `WsError`.
@@ -101,10 +84,9 @@ impl<T, E: std::fmt::Display> WsDecodeErrExt<T> for Result<T, E> {
     }
 }
 
-/// Transparent conversion so `et_ws_runner_common::connect_and_register`'s error
-/// cascades through `?` in `WsBackend::connect` -- no `.map_err` closure at the
-/// call site. `WsError` is WIT-generated, so this hand `From` impl stands in for
-/// a thiserror `#[from]`.
+/// Transparent conversion so `et_ws_runner_common::connect_and_register`'s error cascades through `?`.
+/// `WsBackend::connect` then needs no `.map_err` closure at the call site. `WsError` is WIT-generated, so
+/// this hand-written `From` impl stands in for a thiserror `#[from]`.
 impl From<et_ws_runner_common::ConnectError> for WsError {
     fn from(err: et_ws_runner_common::ConnectError) -> Self {
         Self::Transport(format!("ws connect/register: {err}"))

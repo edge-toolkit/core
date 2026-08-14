@@ -374,8 +374,8 @@ Languages:
 - **Python (componentize-py -> WASI Preview 2 component)**: wasi-graphics-info -- runs in
   `et-ws-wasi-runner` rather than the browser. The WIT world the component implements is at
   `services/ws-wasi-runner/wit/world.wit` and is mirrored under the module's own `wit/`.
-  Drives two standardised WASI interfaces end-to-end: (1) `wasi:webgpu/webgpu` (trimmed subset
-  of WebAssembly/wasi-gfx) for a real 4x4 compute matmul through a host wgpu device, and
+  Drives two standardised WASI interfaces end-to-end: (1) `wasi:webgpu/webgpu@0.3.0-rc.2` for a real
+  4x4 compute matmul through a host wgpu device, and
   (2) `wasi:nn/{graph, tensor, inference}` for MNIST inference. Bundles `mnist-12.onnx` (served
   from `pkg/` as a static asset; the guest fetches it via the `storage` host import because
   componentize-py 0.23 doesn't bundle non-Python data files), then runs inference through ONNX
@@ -403,14 +403,15 @@ Host imports (defined in `wit/world.wit`, package `et:ws-wasi@0.1.0`):
 
 Plus, attached to the same Linker but defined by external WIT packages:
 
-- `wasi:webgpu/webgpu@0.0.1` -- trimmed subset of WebAssembly/wasi-gfx, vendored under
-  `wit/deps/wasi-webgpu/`. Compute-only (render pipelines, textures, samplers, canvas/surface,
-  query sets, async pipeline creation are stripped; the trimmed surface is just what's needed
-  to run a compute pipeline through to a mappable readback buffer). The host impl in
-  `src/host/wasi_webgpu.rs` is wgpu-backed (Metal / Vulkan / DX12) for the matmul path;
-  every other kept method traps with `unimplemented!`. We carry this divergence from upstream
-  because wasi-gfx isn't published to crates.io -- replace this whole tree with the upstream
-  WIT plus its matching host crate once it ships.
+- `wasi:webgpu/webgpu@0.3.0-rc.2` -- the full upstream interface, implemented by the
+  `wasi-webgpu-wasmtime` crate from the wasi-gfx project. The runner supplies only a
+  `wgpu_core::global::Global` handle and the resource table, via `WasiWebGpuCtxView` on `HostState`;
+  everything else (every resource, every method, render paths included) is upstream's. The WIT is
+  fetched verbatim into `generated/specs/wit/deps/wasi-webgpu/` by `fetch-wit-deps`, not trimmed.
+  This interface is where the `async` on `entry.run` comes from: `request-adapter`, `request-device`
+  and `map-async` are `async func`, a component can only await an async import from an async export,
+  so every WASI guest's entrypoint carries the async ABI and the host drives it through
+  `Store::run_concurrent`.
 - `wasi:nn/{tensor, graph, inference, errors}` -- standardised ML inference. The host wires
   `wasmtime-wasi-nn` with the ONNX Runtime backend (`ort` 2.0.0-rc.10, pinned because rc.11+
   moved API surface that wasmtime-wasi-nn 47 still uses). Guests load model bytes via

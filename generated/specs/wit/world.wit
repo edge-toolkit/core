@@ -98,22 +98,29 @@ interface entry {
     webgpu(webgpu-error),
     runtime(string),
   }
-  run: func() -> result<_, entry-error>;
+  // `async` because wasi:webgpu@0.3.0-rc.2 declares `request-adapter`, `request-device` and `map-async` as
+  // `async func`: a component can only await an async import from an async export, so the entrypoint every
+  // module implements has to carry the async ABI even for guests that never await.
+  run: async func() -> result<_, entry-error>;
 }
 
 world runner {
   import wasi:logging/logging@0.1.0-draft;
   import wasi:keyvalue/store@0.2.0-draft;
   import ws;
-  import wasi:webgpu/webgpu@0.0.1;
   export entry;
 }
 
+// Interfaces whose host side comes from an external crate live here rather than in `runner`: the runner's
+// own `bindgen!` targets `runner`, so anything listed there would need host trait impls in this repo.
+// wasi-nn is served by `wasmtime-wasi-nn` and wasi-webgpu by `wasi-webgpu-wasmtime`, each with its own
+// `add_to_linker`.
 world module {
   include runner;
   import wasi:clocks/wall-clock@0.2.6;
   import wasi:clocks/monotonic-clock@0.2.6;
   import wasi:io/poll@0.2.6;
+  import wasi:webgpu/webgpu@0.3.0-rc.2;
   import wasi:nn/tensor@0.2.0-rc-2024-10-28;
   import wasi:nn/graph@0.2.0-rc-2024-10-28;
   import wasi:nn/inference@0.2.0-rc-2024-10-28;

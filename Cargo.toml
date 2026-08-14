@@ -194,6 +194,7 @@ tree-sitter-zig = "1"
 url = "2"
 utoipa = { version = "5", features = ["actix_extras", "yaml"] }
 uuid = { version = "1", features = ["serde", "v4", "v7"] }
+wasi-webgpu-wasmtime = "0.2.0"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 wasm-bindgen-test = "0.3"
@@ -206,7 +207,9 @@ wasmtime = { version = "47.0.3", features = ["async", "component-model"] }
 wasmtime-wasi = "47.0.3"
 wasmtime-wasi-nn = { version = "47", default-features = false, features = ["onnx"] }
 web-sys = "0.3"
-wgpu = { version = "29", default-features = false, features = ["dx12", "metal", "vulkan", "wgsl"] }
+# wgpu-core/wgpu-types come in via wasi-webgpu-wasmtime's re-exports; only the instance handle is ours.
+wgpu-core = { version = "29", default-features = false }
+wgpu-types = "29"
 # Windows-only feature-unification shim: forces `winapi/std` on for deno_io.
 winapi = { version = "0.3.9", features = ["std"] }
 wit-bindgen = "0.57"

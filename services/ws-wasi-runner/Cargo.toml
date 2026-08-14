@@ -70,7 +70,12 @@ wasmtime-wasi-nn.workspace = true
 # `ort::session::{Input, Output}` and `ort::tensor`, and the cargo resolver
 # would otherwise pick the latest rc.
 ort.workspace = true
-wgpu.workspace = true
+# Upstream host impl of `wasi:webgpu@0.3.0-rc.2`, from the wasi-gfx project.
+# It owns every resource and method in the interface; the runner supplies only the wgpu instance handle and
+# the resource table it stores them in.
+wasi-webgpu-wasmtime.workspace = true
+wgpu-core.workspace = true
+wgpu-types.workspace = true
 
 [dev-dependencies]
 command-error.workspace = true
