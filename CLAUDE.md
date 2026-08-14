@@ -363,6 +363,8 @@ Languages:
 - **Rust -> WASM** (wasm-pack): audio1, bluetooth, comm1, data1, except1, face-detection, geolocation, graphics-info,
   har1, nfc, sensor1, speech-recognition, video1
 - **Dart -> JS**: dart-comm1
+- **Kotlin -> WASM (WasmGC)**: kotlin-data1 -- compiled by the Kotlin Gradle plugin's `wasmJs` target; the
+  module is a WasmGC binary (browser GC manages the Kotlin heap), so it needs a WasmGC-capable engine
 - **Python (Pyodide)**: pydata1, pyeye1, pyface1
 - **C# (.NET WASM)**: dotnet-data1
 - **Java (TeaVM -> JS)**: java-data1
@@ -692,6 +694,15 @@ Windows never needs them, or add the tool to `MISE_DISABLE_TOOLS` on every Windo
 The `install-mise-tools` composite action sets it for the CI jobs, and the Windows Dockerfiles carry it in their own
 `MISE_DISABLE_TOOLS`. `cargo:open` takes the latter route: its open-o2 opener is a known Windows gap until the
 backend works again.
+
+## NEVER read or edit `.github/workflows/upstream-cache.yaml` without explicit permission
+
+Agents are not allowed to open, read, or modify `.github/workflows/upstream-cache.yaml` unless the operator has
+explicitly permitted that specific access in the current conversation. This workflow publishes binary artifacts
+to the project's GitHub releases; unsupervised changes to it are a supply-chain risk, so it is maintained by the
+operator only. If a task appears to need a new cached asset or a change to an existing job, describe what is
+needed and stop -- do not touch the file, and do not add the surrounding pieces (bootstrap task, `data.toml`
+entry, tool URL swap) that would depend on it.
 
 ## Adding a new `upstream-cache` entry
 

@@ -1,6 +1,11 @@
 ---
 name: upstream-cache
 
+# AGENTS: HANDS OFF.
+# Coding agents (Claude etc.) are NOT allowed to read or edit this file without the operator's explicit
+# permission for that specific access, granted in the current conversation. Do not open it "for context",
+# do not append jobs to it, do not propose diffs to it -- ask first and wait.
+#
 # Manually-dispatched maintainer workflow that builds + publishes upstream-sourced binary artifacts.
 # Artifacts go to GitHub releases owned by this repo, so consumers (CI + workstations) can `mise install` prebuilts
 # instead of compiling from source. One job per cached upstream; add more jobs as new upstreams need caching.
@@ -44,7 +49,7 @@ defaults:
     shell: bash --noprofile --norc -euo pipefail {0}
 
 env:
-  MISE_ENV: dart,dotnet,java,js,python,r,rust,zig
+  MISE_ENV: dart,dotnet,java,js,kotlin,python,r,rust,zig
 
 jobs:
   rustpython:

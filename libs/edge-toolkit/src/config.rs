@@ -221,6 +221,7 @@ pub enum Language {
     Dotnet,
     Java,
     Js,
+    Kotlin,
     Python,
     R,
     Rust,

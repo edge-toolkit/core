@@ -2,7 +2,8 @@
 
 edge-toolkit is a WebSocket-based edge-computing framework that runs AI on hardware you control, so nothing has to leave
 your network. A lightweight server acts as a hub that serves small AI modules -- written in Rust, Python, Dart, C#,
-Java and more, each compiled to WebAssembly or transpiled to JavaScript -- straight to a browser, where they run locally
+Java, Kotlin and more, each compiled to WebAssembly or transpiled to JavaScript -- straight to a browser, where they run
+locally
 and can reach the browser's own Web APIs (camera, microphone, geolocation, motion sensors, Bluetooth, NFC) to sense the
 real world directly. The same framework also drives larger models on local GPU hardware through standardised WebAssembly
 interfaces, so one toolkit spans on-device and server inference without changing the protocol.
@@ -12,7 +13,7 @@ device or your own network, never sent to an external cloud service.
 
 ## mise
 
-Please install [`mise`](https://mise.jdx.dev/) (2026.8.0 or later), including the shell integration. It is needed
+Please install [`mise`](https://mise.jdx.dev/) (2026.8.5 or later), including the shell integration. It is needed
 for all use of this repository.
 
 The `mise` configuration lives under [`.mise/`](.mise/): the always-loaded [`.mise/config.toml`](.mise/config.toml)
@@ -249,13 +250,14 @@ Modules loaded by a web browser, or using Deno as the "web browser" in `et-ws-we
 
 Most are Rust built with `wasm-pack build --target web`; other languages:
 
-- Dart
-- Java
-- .Net C#
+- Dart, transpiled to JavaScript
+- Java, using [TeaVM](https://teavm.org/) to transpile to JavaScript
+- Kotlin, compiled to a [WasmGC](https://github.com/WebAssembly/gc), supported by Chrome, Firefox and Deno.
+- .Net C#, compiled to WASM
 - Python, using [pyodide](https://pyodide.org/) and [RustPython](https://rustpython.github.io/)
 - R, using [webR](https://docs.r-wasm.org/webr/latest/) (rdata1, rcomm1) -- browser-only: webR spawns a classic
-  Web Worker, which Deno's `et-ws-web-runner` does not support, so these fail there by design
-- Zig, including C and C++ code
+  Web Worker, which the Deno runner does not support yet
+- Zig, including C and C++ code, compiled to WASM
 
 #### et-ws-web-runner on Windows
 

@@ -11,7 +11,7 @@
 #   Make a selection sticky:            export MISE_ENV=dart
 
 # Track the latest mise release; the floor still covers auto_env enabled in .miserc.toml.
-min_version = "2026.8.0"
+min_version = "2026.8.5"
 
 [settings]
 # Disable mise's two auto-install paths so tasks fail fast on a missing tool.
@@ -32,6 +32,15 @@ http_timeout = "2m"
 # This disables idiomatic-version-file detection for every tool. We declare versions in `.mise/config*.toml`;
 # no need to parse `.tool-versions`/`.node-version`/etc. on top of that.
 idiomatic_version_file_enable_tools = []
+# Lock every tool resolution to the committed .mise/mise.lock.
+# Reading the lockfile is mise's default; `lockfile = true` additionally keeps it updated on installs and
+# upgrades. The lock pins each `latest` to a concrete version + checksum, so composing a task/exec env
+# resolves entirely offline -- without it, every `mise x`/`mise run` on a cold-cache CI runner re-resolves
+# every `latest` tool against api.github.com (one /releases list per tool), burning the shared rate-limit
+# bucket for tools that are not even being installed. Refresh with `mise lock` (all five platforms below);
+# `mise lock --bump` re-resolves the `latest` selectors when a deliberate tool refresh is wanted.
+lockfile = true
+lockfile_platforms = ["linux-arm64", "linux-x64", "macos-arm64", "macos-x64", "windows-x64"]
 task.run_auto_install = false
 # Hard-verify tool signatures via gpg on every platform.
 # Propagates to node.gpg_verify and swift.gpg_verify per mise/src/config/settings.rs. mise's node plugin
@@ -101,7 +110,7 @@ ripgrep = "latest"
 # A git spec rather than a bare `cargo:rustfs`: the crates.io crate is a stale 0.0.2 placeholder while real
 # releases are 1.0.0-beta.x on GitHub only, so installing the crate would give this platform different software
 # than every other one. `tag:` builds the exact source the prebuilt is cut from, keeping them aligned -- bump it
-# with the `rustfs` entry. A source build is acceptable here because macos/x64 is second-tier.
+# with the `http:rustfs` entry. A source build is acceptable here because macos/x64 is second-tier.
 "cargo:rustfs/rustfs" = { version = "tag:1.0.0-beta.12", os = ["macos/x64"] }
 # ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
@@ -145,12 +154,6 @@ protoc = "latest"
 # exact `3.x.y` dir. Bump in lockstep with py3_unix/py3_win/pylib.
 python = "3.13.14"
 rclone = "latest"
-# rustfs is the S3-compatible server the et-storage-service S3-backend test runs against.
-# Version-pinned rather than `latest` because upstream has published only prereleases so far, which mise's
-# version list filters out -- `latest` resolves to nothing. Upstream ships prebuilts for linux (x64+arm64,
-# gnu+musl), macos/arm64 and windows/x64 but NOT macos/x64, so that one platform builds from source via the
-# cargo entry below. Bump both in lockstep.
-rustfs = { version = "1.0.0-beta.12", os = ["linux", "macos/arm64", "windows"] }
 typos = "latest"
 uv = "0.11.8"
 wasm-tools = "latest"
@@ -241,19 +244,74 @@ version = "08a1d6f"
 # version. Direct upstream, per-version immutable URLs, so no checksum. Every supported platform has a prebuilt:
 # the Windows asset is a `.zip` (holding `openobserve.exe`) rather than the `.tar.gz` the others use -- probing the
 # `.tar.gz` name is what previously read as "no Windows build". windows-arm64 has no prebuilt but is not a target.
+#
+# The linux URLs take upstream's `-musl` static builds, not the default gnu ones: the gnu binary imports
+# GLIBC_2.39 symbols, so on every docker-linux matrix distro with glibc <= 2.38 (ubuntu:22.04,
+# debian:bookworm, amazonlinux:2023, opensuse/leap:15.6, azurelinux 3.0) it dies at exec and the
+# ws-wasi-runner o2_ingest_search test times out with the literal panic
+#
+#     openobserve never bound its HTTP port :36657
+#
+# observed on commit 1f544590b473887015754f67c3af843f970d8dbc at
+# https://github.com/edge-toolkit/core/actions/runs/31559765133/job/94267330524 (and the three sibling
+# old-glibc lanes of that run), while every glibc >= 2.39 lane passed. The musl build has no glibc floor.
 [tools."http:openobserve"]
 bin = "openobserve"
 version = "0.91.5"
 [tools."http:openobserve".platforms.linux-arm64]
-url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-linux-arm64.tar.gz"
+url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-linux-arm64-musl.tar.gz"
 [tools."http:openobserve".platforms.linux-x64]
-url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-linux-amd64.tar.gz"
+url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-linux-amd64-musl.tar.gz"
 [tools."http:openobserve".platforms.macos-arm64]
 url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-darwin-arm64.tar.gz"
 [tools."http:openobserve".platforms.macos-x64]
 url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-darwin-amd64.tar.gz"
 [tools."http:openobserve".platforms.windows-x64]
 url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-windows-amd64.zip"
+
+# rustfs is the S3-compatible server the et-storage-service S3-backend test runs against.
+# Version-pinned rather than `latest` because upstream has published only prereleases so far, which mise's
+# version list filters out -- `latest` resolves to nothing. This entry names an upstream asset per platform;
+# macos/x64 is the one platform with no prebuilt at all and builds from source via `cargo:rustfs/rustfs`
+# above. Bump both in lockstep.
+#
+# Naming a URL directly is what keeps this installable. The aqua/github entry this replaced resolved the same
+# release through GitHub's API, which meant mise also read the release's `rustfs-<version>.provenance.json`,
+# recorded `provenance.slsa` in mise.lock, and then refused to install because that file is a bare unsigned
+# in-toto Statement (no DSSE envelope, no sigstore material) that can never verify:
+#
+#     mise ERROR Failed to install github:rustfs/rustfs@1.0.0-beta.12: Lockfile requires slsa provenance for
+#     github:rustfs/rustfs@1.0.0-beta.12 but verification was not performed. This may indicate a downgrade
+#     attack. Enable the corresponding verification setting or update the lockfile.
+#
+# observed on macos-arm64 and windows-x64 with mise 2026.8.5 at commit
+# 20b91714e47f52e7fcd898fc3df3dbf35bb53242. The http backend performs no provenance lookup, so nothing
+# unverifiable lands in the lockfile. It also records no cross-platform checksums the way the github backend
+# did: `mise lock` only hashes the asset for the platform it runs on, so each platform's checksum appears the
+# first time the lockfile is refreshed there.
+#
+# Linux takes the static musl assets rather than the gnu ones aqua used to select, which import GLIBC_2.39
+# symbols -- on every docker-linux matrix distro with glibc <= 2.38 the gnu build dies at exec and the
+# et-storage-service s3_backend test times out with the literal panic
+#
+#     rustfs did not start listening on port 33649
+#
+# observed on commit 1f544590b473887015754f67c3af843f970d8dbc at
+# https://github.com/edge-toolkit/core/actions/runs/31559765133/job/94267330524 (and the three sibling
+# old-glibc lanes of that run), while every glibc >= 2.39 lane passed. The musl build has no glibc floor;
+# macOS and Windows have only the one build each. Direct upstream, per-version immutable URLs, so no checksum.
+[tools."http:rustfs"]
+bin = "rustfs"
+os = ["linux", "macos/arm64", "windows"]
+version = "1.0.0-beta.12"
+[tools."http:rustfs".platforms.linux-arm64]
+url = "https://github.com/rustfs/rustfs/releases/download/{{version}}/rustfs-linux-aarch64-musl-v{{version}}.zip"
+[tools."http:rustfs".platforms.linux-x64]
+url = "https://github.com/rustfs/rustfs/releases/download/{{version}}/rustfs-linux-x86_64-musl-v{{version}}.zip"
+[tools."http:rustfs".platforms.macos-arm64]
+url = "https://github.com/rustfs/rustfs/releases/download/{{version}}/rustfs-macos-aarch64-v{{version}}.zip"
+[tools."http:rustfs".platforms.windows-x64]
+url = "https://github.com/rustfs/rustfs/releases/download/{{version}}/rustfs-windows-x86_64-v{{version}}.zip"
 
 # chromedriver from Google's Chrome for Testing CDN, for the headless-browser wasm-bindgen tests.
 # The `os` list uses mise's os/arch compound syntax (mise >= 2026.4, jdx/mise#9088) to skip linux-arm64: Chrome
@@ -503,7 +561,7 @@ rp_wasm_dir = '''{% if os() == "windows" -%}
 # Used as MISE_ENV by the *-all tasks to act on every language at once (mise has
 # no MISE_ENV=all). Hardcoded rather than shell-discovered so it works on Windows
 # too -- keep in sync when adding/removing a config.<lang>.toml.
-ALL_LANGS = "dart,dotnet,java,js,python,r,rust,zig"
+ALL_LANGS = "dart,dotnet,java,js,kotlin,python,r,rust,zig"
 CLIPPY_CONF_DIR = "{{ config_root }}/config"
 TAPLO_CONFIG = "{{ config_root }}/config/taplo.toml"
 # augtool's lens search path is compile-time pinned to the build-time --prefix.
@@ -1175,10 +1233,13 @@ run = "git diff --exit-code -- verification/"
 depends = ["cargo-check", "cargo-clippy-check", "cargo-doc-check", "regenerate-verification"]
 description = "Regenerate HELP.md for every clap-using utility under utilities/"
 run = """
+s=target/scratch/gen-help
+mkdir -p "$s"
 for crate in et-cli et-int-gen et-onnx; do
   helpmd="utilities/${crate#et-}/HELP.md"
   echo "[gen-help-all] $crate -> $helpmd"
-  cargo run --features markdown-help -q -p "$crate" -- --markdown-help | dprint fmt --stdin md > "$helpmd"
+  cargo run --features markdown-help -q -p "$crate" -- --markdown-help | dprint fmt --stdin md > "$s/$crate.md"
+  coreutils mv "$s/$crate.md" "$helpmd"
 done
 """
 shell = "bash -euo pipefail -c"

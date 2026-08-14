@@ -44,7 +44,7 @@ deny contains msg if {
 # This makes every CI run exercise the same toolchain footprint as a local `mise install`. The docker-windows
 # workflow's Nano lane drops `python` via a matrix-specific build-arg override, and test.yaml's `override` job
 # appends its compiler target env at JOB level; both workflow-level values still match the standard this rule pins.
-expected_mise_env := "dart,dotnet,java,js,python,r,rust,zig"
+expected_mise_env := "dart,dotnet,java,js,kotlin,python,r,rust,zig"
 
 deny contains msg if {
 	input.env.MISE_ENV != expected_mise_env

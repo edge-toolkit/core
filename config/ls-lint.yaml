@@ -18,37 +18,114 @@ ls:
   .yaml: snake_case | kebab-case
   .cs: PascalCase
   .java: PascalCase
+  .kt: PascalCase
+  # Gradle build scripts: the fixed names `build.gradle.kts` / `settings.gradle.kts`.
+  .gradle.kts: regex:(build|settings)
 
   # Ban the `.conf` extension: config files standardize on `.ini`/`.rc`, as rclone.ini and ripgrep.rc do.
   # `regex:^$` matches no basename, so every `*.conf` file fails the check.
   .conf: regex:^$
 
 ignore:
+  # Every entry is a literal path -- no glob or wildcard syntax of any kind.
+  # ls-lint snapshots glob ignores once at startup and drops any key matching nothing then (internal/glob/glob.go
+  # deletes zero-match keys), so a glob covering a dir that a parallel task creates mid-run silently stops applying
+  # and the tree gets walked. A literal path is never expanded, so it holds whenever the dir appears -- and costs
+  # nothing on a tree where it never does.
   - .git
   - target
-  # `**/` because a pnpm workspace puts `node_modules` at the root AND under each member package dir.
-  # E.g. both `node_modules` and `services/ws-server/static/node_modules`.
-  - "**/node_modules"
   - generated
   # Bundled data/model assets -- names are not hand-chosen.
+  # This also covers the pnpm symlink farm under data/split-learning-demo, whose nested package dirs are vendored.
   - data
-  # Build/vendor output that ls-lint would otherwise walk (it can't read .gitignore).
-  # The `**/` form matches each at any depth.
-  - "**/.venv"
-  - "**/__pycache__"
-  - "**/.pytest_cache"
-  - "**/.ruff_cache"
-  - "**/.zig-cache"
-  - "**/zig-out"
-  # These dotnet dirs are created mid-run by parallel tasks, so they must be ignored by literal path, not glob.
-  # ls-lint snapshots glob-based ignores once at startup and drops any matching nothing then
-  # (internal/glob/glob.go deletes zero-match keys), so a `**/bin/Debug` glob loses the race against the
-  # `dotnet build` task creating the dirs. Literal paths are never glob-expanded, so they stay ignored whenever the
-  # dir appears.
+  # pnpm puts node_modules at the workspace root and under each member package (pnpm-workspace.yaml).
+  - node_modules
+  - services/ws-server/static/node_modules
+  - services/ws-modules/js-data1/node_modules
+  # Built module artifacts (wheels, .wasm, generated JS) live under each module's pkg/.
+  - services/ws-modules/audio1/pkg
+  - services/ws-modules/bluetooth/pkg
+  - services/ws-modules/comm1/pkg
+  - services/ws-modules/dart-comm1/pkg
+  - services/ws-modules/dart-data1/pkg
+  - services/ws-modules/data1/pkg
+  - services/ws-modules/dotnet-data1/pkg
+  - services/ws-modules/except1/pkg
+  - services/ws-modules/face-detection/pkg
+  - services/ws-modules/geolocation/pkg
+  - services/ws-modules/graphics-info/pkg
+  - services/ws-modules/har1/pkg
+  - services/ws-modules/java-data1/pkg
+  - services/ws-modules/js-data1/pkg
+  - services/ws-modules/kotlin-data1/pkg
+  - services/ws-modules/nfc/pkg
+  - services/ws-modules/pic-viewer/pkg
+  - services/ws-modules/pydata1/pkg
+  - services/ws-modules/pydemo1/pkg
+  - services/ws-modules/pyeye1/pkg
+  - services/ws-modules/pyface1/pkg
+  - services/ws-modules/pyspeech1/pkg
+  - services/ws-modules/pywasm1/pkg
+  - services/ws-modules/rcomm1/pkg
+  - services/ws-modules/rdata1/pkg
+  - services/ws-modules/sensor1/pkg
+  - services/ws-modules/speech-recognition/pkg
+  - services/ws-modules/video1/pkg
+  - services/ws-modules/wasi-comm1/pkg
+  - services/ws-modules/wasi-data1/pkg
+  - services/ws-modules/wasi-graphics-info/pkg
+  - services/ws-modules/zig-data1/pkg
+  - services/ws-modules/zig-except1/pkg
+  - services/ws-wasm-agent/pkg
+  # Python venvs plus the pytest and bytecode caches each Python module's test run leaves behind.
+  - .venv
+  - .pytest_cache
+  - .ruff_cache
+  - services/ws-modules/pydata1/pydata1/__pycache__
+  - services/ws-modules/pydemo1/pydemo1/__pycache__
+  - services/ws-modules/pydemo1/tests/__pycache__
+  - services/ws-modules/pyeye1/pyeye1/__pycache__
+  - services/ws-modules/pyeye1/tests/__pycache__
+  - services/ws-modules/pyface1/pyface1/__pycache__
+  - services/ws-modules/pyface1/tests/__pycache__
+  - services/ws-modules/pyspeech1/pyspeech1/__pycache__
+  - services/ws-modules/pyspeech1/tests/__pycache__
+  - services/ws-modules/pywasm1/__pycache__
+  - services/ws-modules/wasi-graphics-info/__pycache__
+  - services/ws-modules/wasi-graphics-info/componentize_py_async_support/__pycache__
+  - services/ws-modules/wasi-graphics-info/wasi_graphics_info/__pycache__
+  - services/ws-modules/wasi-graphics-info/wit_world/__pycache__
+  - services/ws-modules/wasi-graphics-info/wit_world/exports/__pycache__
+  - services/ws-modules/wasi-graphics-info/wit_world/imports/__pycache__
+  - services/ws-pyo3-runner/python/__pycache__
+  - services/ws-modules/pydata1/.venv
+  - services/ws-modules/pydata1/.pytest_cache
+  - services/ws-modules/pydemo1/.venv
+  - services/ws-modules/pydemo1/.pytest_cache
+  - services/ws-modules/pyeye1/.venv
+  - services/ws-modules/pyeye1/.pytest_cache
+  - services/ws-modules/pyface1/.venv
+  - services/ws-modules/pyface1/.pytest_cache
+  - services/ws-modules/pyspeech1/.venv
+  - services/ws-modules/pyspeech1/.pytest_cache
+  - services/ws-modules/pywasm1/.venv
+  - services/ws-modules/pywasm1/.pytest_cache
+  - services/ws-modules/wasi-graphics-info/.venv
+  - services/ws-modules/wasi-graphics-info/.pytest_cache
+  # dotnet build output.
   - services/ws-modules/dotnet-data1/obj
   - services/ws-modules/dotnet-data1/bin/Debug
   - services/ws-modules/dotnet-data1/bin/Release
-  # Built module artifacts (wheels, .wasm, generated JS) live under each pkg/.
-  - "**/pkg"
-  # Zig codegen templates dir whose name carries a literal `.in` suffix.
-  - "**/zig.in"
+  # Zig build output and caches, plus the codegen templates dir whose name carries a literal `.in` suffix.
+  - services/ws-modules/zig-data1/.zig-cache
+  - services/ws-modules/zig-data1/zig-out
+  - services/ws-modules/zig-except1/.zig-cache
+  - services/ws-modules/zig-except1/zig-out
+  - utilities/int-gen/src/zig.in
+  # Gradle build + cache trees, plus the one tracked source dir whose name ls-lint would reject.
+  # wasmJsMain stays tracked but its camelCase name is fixed by Kotlin Multiplatform's
+  # `src/<sourceSetName>/kotlin` layout contract.
+  - services/ws-modules/kotlin-data1/.gradle
+  - services/ws-modules/kotlin-data1/.kotlin
+  - services/ws-modules/kotlin-data1/build
+  - services/ws-modules/kotlin-data1/src/wasmJsMain

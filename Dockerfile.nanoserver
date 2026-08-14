@@ -41,12 +41,9 @@
 # package (m2-git, m2-make), which happen not to hit IDN today.
 #
 # Nano carve-out: MISE_DISABLE_TOOLS skips `conda:m2-gnupg` here, and the
-# `gpgbin` donor stage below stages the GnuPG simple Windows installer
-# (gnupg-w32-*.exe -- a clean MinGW-w64 native gpg.exe with no msys runtime,
-# no msys-2.0.dll, no IDN code path) at C:\gnupg\bin, which the build-minimal
-# PATH below prepends so `mise install node`'s gpg lookup finds it. NSIS
-# installer extraction needs an installer stack Nano lacks, so the donor
-# stage runs on Server Core like the VC++ runtime donor.
+# `gpgbin` donor stage below stages a clean MinGW-w64 native gpg.exe (no msys
+# runtime, no msys-2.0.dll, no IDN code path) at C:\gnupg\bin, which the
+# build-minimal PATH below prepends so `mise install node`'s gpg lookup finds it.
 
 # vcruntime: donor stage for the VC++ runtime DLLs.
 # Nano Server omits the VC++ runtime that msvc-built executables (mise.exe, and
@@ -69,20 +66,47 @@ RUN curl -fsSL -o vc_redist.exe https://aka.ms/vs/17/release/vc_redist.x64.exe &
     (vc_redist.exe /install /quiet /norestart || ver>nul) && `
     del vc_redist.exe
 
-# gpgbin: donor stage for the GnuPG simple-installer payload.
-# GnuPG's official simple Windows installer is an NSIS .exe that installs a
-# MinGW-w64 native gpg.exe (no msys runtime); Nano Server can't run NSIS but
-# Server Core can, so we install silently here (`/S` NSIS silent mode, `/D=`
-# target dir -- must be the last arg, no quotes) and COPY the result to the
-# Nano stage below. SHA256 pin: an upstream republish under the same URL
-# fails the build instead of silently changing the gpg we ship.
+# gpgbin: donor stage for the GnuPG payload.
+# Fetches the upstream-cache tarball -- the same asset (release tag, filename
+# and sha256) the `http:gnupg-w32` tool in .mise/config.windows.toml installs,
+# produced by the `gnupg-w32` job in .github/workflows/upstream-cache.yaml,
+# which unpacks GnuPG's NSIS "Simple installer for Windows" into a flat
+# bin/+lib/+share/+include/ tree of MinGW-w64 native PE binaries. Extracting
+# that here needs no NSIS, so this could now run on Nano; it stays a Server
+# Core donor alongside the VC++ one so the archive and the fetch never enter
+# the Nano image -- only the unpacked tree is COPYed forward.
+#
+# Fetching gnupg.org directly is what this stage used to do, and it must not
+# go back to it: that host intermittently refuses the request outright --
+#
+# curl: (22) The requested URL returned error: 403
+#
+# -- which failed `build (windows-2022, nanoserver)` at step 7 on commit
+# 1f544590b473887015754f67c3af843f970d8dbc
+# (https://github.com/edge-toolkit/core/actions/runs/31559765225/job/94252377147)
+# while the windows-2025 lane of that same run downloaded it fine. Per the
+# CLAUDE.md fetch-resilience rule, the fix for a blocked upstream is to serve
+# the asset from a release we control, never a retry wrapper.
+#
+# SHA256 pin: a republish under the same URL fails the build instead of
+# silently changing the gpg we ship. Bump it, the asset name and the
+# config.windows.toml checksum in lockstep.
+#
+# The URL is composed across two ARGs into an ENV because it exceeds the
+# editorconfig line length inline, and a RUN cannot read the ARGs directly: the
+# classic Windows builder substitutes build-args into ENV but not into RUN,
+# so `%GNUPG_URL%` must come from a baked ENV to expand under cmd.
 FROM mcr.microsoft.com/windows/servercore:${WINDOWS_VERSION} AS gpgbin
 SHELL ["cmd", "/S", "/C"]
-RUN curl -fsSL -o gnupg.exe https://gnupg.org/ftp/gcrypt/binary/gnupg-w32-2.5.20_20260513.exe && `
-    certutil -hashfile gnupg.exe SHA256 | findstr /i `
-        "ca26cd20602581b2ce05e95b16f6249f6fb6c4dcf32304165fc90519328d7981" >nul && `
-    start /wait "" gnupg.exe /S /D=C:\gnupg && `
-    del gnupg.exe && `
+ARG GNUPG_BASE=https://github.com/edge-toolkit/core/releases/download/gnupg-w32-v1
+ARG GNUPG_ASSET=2.5.20_20260513-x86_64-pc-windows.tar.gz
+ENV GNUPG_URL=${GNUPG_BASE}/${GNUPG_ASSET}
+RUN curl -fsSL -o gnupg.tar.gz %GNUPG_URL% && `
+    certutil -hashfile gnupg.tar.gz SHA256 | findstr /i `
+        "e04493f469fd3861e119a603700cfeafe8da0090aed39b547ad3975b21f48f0b" >nul && `
+    mkdir C:\gnupg && `
+    tar -xzf gnupg.tar.gz -C C:\gnupg && `
+    del gnupg.tar.gz && `
     if not exist C:\gnupg\bin\gpg.exe exit /b 1
 
 # build-minimal: mise + the always-loaded toolchain (config.toml only).
@@ -174,6 +198,22 @@ ENV RUST_BACKTRACE=full
 # settings.toml). Keep the donor stage + PATH so re-enabling is a one-line
 # revert once mise stops panicking.
 ENV MISE_GPG_VERIFY=false
+
+# Lockfiles are off on Nano because this image cannot satisfy the provenance they record.
+# `mise settings set aqua.{github_attestations,cosign,slsa} false` below is required here (their sigstore/TUF
+# step has no cache dir on Nano), so aqua verifies nothing -- but .mise/mise.lock carries a recorded
+# `provenance` for every aqua tool, and mise treats "lockfile expects provenance, none was verified" as a
+# downgrade attack and refuses the install:
+# mise ERROR Failed to install aqua:cli/cli@latest: Lockfile requires github-attestations provenance for
+# aqua:cli/cli@2.97.0 but no verification was used. This may indicate a downgrade attack. Enable the
+# corresponding verification setting or update the lockfile.
+# observed on commit 4f28cf1e3fa71ac195c8189d35b014823d2e54e6 at
+# https://github.com/edge-toolkit/core/actions/runs/31685098295/job/94399242373, where gh was simply the
+# first aqua tool to install -- every other one would have hit it in turn. `lockfile = false` makes every
+# lockfile read return None (mise's settings.lockfile_enabled gate), so no expectation reaches the installer.
+# The cost is that this lane resolves `latest` against api.github.com again, which the GITHUB_TOKEN staged
+# below covers. Drop this line once aqua verification can run on Nano.
+ENV MISE_LOCKFILE=false
 
 # Verbose mise is disabled because it floods the log with tool/task resolution and the exact bash it launches.
 # Re-enable it (noisy but invaluable) when diagnosing a

@@ -49,6 +49,19 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
+        # Drop mise's self-referential shim before retrying, so PATH falls through to the real mise.exe.
+        # A failed first install has usually already written that shim, and this fresh bash then resolves
+        # `mise` to it, aborting the whole retry in seconds with
+        #
+        #     mise: recursive shim invocation detected for mise: /c/Users/runneradmin/AppData/Local/mise/shims/mise
+        #
+        # (the removal step below runs too late for this step, and is skipped entirely once this step fails)
+        # -- observed on commit d801ec192814cf8de880c5935d83232222907975 at
+        # https://github.com/edge-toolkit/core/actions/runs/31652059090/job/94298363388, where the first
+        # install died on a frippery.org (http:busybox) connect timeout.
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          rm -fv "$LOCALAPPDATA/mise/shims/mise.cmd" "$LOCALAPPDATA/mise/shims/mise"
+        fi
         sleep 20
         mise install
 

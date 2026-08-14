@@ -172,7 +172,7 @@ EOF
 # Pin the mise version: the config templates need Tera v2 (mise >= 2026.7.1), and mise.run honours MISE_VERSION.
 # Keep this in lockstep with min_version in .mise/config.toml.
 # skipcq: DOK-DL4006
-RUN curl -fsSL https://mise.run | MISE_VERSION=v2026.8.0 sh
+RUN curl -fsSL https://mise.run | MISE_VERSION=v2026.8.5 sh
 # Declare HOME explicitly rather than depending on the base image's ENV.
 # ubuntu/debian/fedora all set HOME=/root for the root user, but pinning it
 # here means the PATH expansion below doesn't silently break against a future
@@ -191,7 +191,11 @@ WORKDIR /workspace
 # runs.
 COPY .miserc.toml .miserc.toml
 COPY .mise/config.toml .mise/config.toml
+# Each config's lockfile rides with it so in-container resolution stays offline.
+# Without them, every `latest` pin costs a per-tool api.github.com /releases lookup.
+COPY .mise/mise.lock .mise/mise.lock
 COPY .mise/config.linux.toml .mise/config.linux.toml
+COPY .mise/mise.linux.lock .mise/mise.linux.lock
 
 RUN mise trust
 
@@ -220,7 +224,7 @@ EOF
 FROM build-minimal AS build
 COPY .mise/ .mise/
 RUN mise trust
-ARG MISE_ENV=dart,dotnet,java,js,python,r,rust,zig
+ARG MISE_ENV=dart,dotnet,java,js,kotlin,python,r,rust,zig
 ENV MISE_ENV=${MISE_ENV}
 RUN --mount=type=secret,id=gh_token,required=false bash <<'EOF'
 set -euo pipefail

@@ -21,14 +21,14 @@ defaults:
     shell: bash --noprofile --norc -euo pipefail {0}
 
 env:
-  MISE_ENV: dart,dotnet,java,js,python,r,rust,zig
+  MISE_ENV: dart,dotnet,java,js,kotlin,python,r,rust,zig
 
 jobs:
   coverage:
     runs-on: ubuntu-latest
     timeout-minutes: 150
     env:
-      MISE_ENV: dart,dotnet,java,js,python,r,rust,zig,coverage
+      MISE_ENV: dart,dotnet,java,js,kotlin,python,r,rust,zig,coverage
       ET_TEST_COVERAGE: "true"
     steps:
       - name: Checkout

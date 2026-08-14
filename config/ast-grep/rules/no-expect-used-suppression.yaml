@@ -1,0 +1,17 @@
+id: no-expect-used-suppression
+language: Rust
+severity: error
+message: |
+  Suppressing `clippy::expect_used` is forbidden -- `.expect("...")` messages are not wanted in this codebase, so
+  the workspace-denied lint must stay in force everywhere. Use `.unwrap()` instead: tests get it for free
+  (clippy.toml's `allow-unwrap-in-tests`), and non-test code that genuinely must panic suppresses
+  `clippy::unwrap_used` narrowly with a reason, or better, handles the error.
+
+  No autofix: these attributes usually list other lints that must be kept, so removing just the
+  `clippy::expect_used` entry (and rewriting the `.expect(...)` calls it permitted) is context-dependent.
+rule:
+  all:
+    - any:
+        - kind: attribute_item
+        - kind: inner_attribute_item
+    - regex: "clippy::expect_used"

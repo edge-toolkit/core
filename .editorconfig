@@ -54,6 +54,11 @@ indent_style = unset
 trim_trailing_whitespace = unset
 max_line_length = unset
 
+# mise-generated lockfiles (one per config file: mise.lock + mise.<env>.lock). Tracked so CI resolves tool
+# versions offline, but `mise lock` owns their layout, and asset-URL lines run past the line length.
+[.mise/mise*.lock]
+max_line_length = unset
+
 # openapi-python-client emits framework-boilerplate docstrings (e.g. the
 # "errors.UnexpectedStatus: If the server returns an undocumented status code ..." line in every operation) that exceed
 # the line length, and continuation lines inside the generated function signatures use 3-space indentation that

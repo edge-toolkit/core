@@ -1,0 +1,46 @@
+# Kotlin toolchain + tasks. Loaded when MISE_ENV includes `kotlin`.
+
+[tools]
+# Gradle drives the Kotlin/Wasm build.
+# The Kotlin Gradle plugin bundles the compiler, resolved from the Gradle Plugin Portal on first build, the
+# same way the java env's Maven pulls TeaVM from Central. Gradle finds its JVM via the `java` tool on PATH --
+# unlike mvn.cmd it does not require JAVA_HOME on any platform.
+gradle = "9.7.0"
+# Same JDK pin as config.java.toml carries for Maven; bump the two in lockstep.
+java = "26.0.1"
+
+[env]
+# Cross-platform gradle invocation.
+# On Windows, mise creates no working gradle shim (see the gradle_bin var in config.windows.toml), and a bare
+# `gradle` under busybox bash resolves the extensionless Unix launcher, whose `JAVACMD="$JAVA_HOME/bin/java"`
+# (no `.exe`) check dies with "JAVA_HOME is set to an invalid directory" even though the JDK is present --
+# observed on commit 88825a7217aa80c04171a735fec8f7a550fb75d1 at
+# https://github.com/edge-toolkit/core/actions/runs/31558277244/job/93995051606 (check:kotlin) and
+# https://github.com/edge-toolkit/core/actions/runs/31558277392/job/93995052197 (prefetch:kotlin). The
+# absolute path to `gradle.bat` sidesteps the PATH lookup; busybox's spawnve auto-wraps `.bat` with cmd.exe,
+# the same way the java env's MVN does for mvn.cmd.
+GRADLE = '''{% if os() == "windows" -%}
+{{- vars.gradle_bin -}}\gradle.bat
+{%- else -%}
+gradle
+{%- endif %}'''
+
+[tasks.build-ws-kotlin-data1-module]
+description = "Build the kotlin-data1 workflow module (Kotlin/Wasm -> WasmGC)"
+dir = "services/ws-modules/kotlin-data1"
+run = "$GRADLE --console=plain pkgDist"
+shell = "bash -euo pipefail -c"
+
+# Namespaced aggregator picked up by the default config's globbed `check`.
+# The compile runs kotlinc with allWarningsAsErrors (set in build.gradle.kts), the Kotlin analogue of -Werror.
+[tasks."check:kotlin"]
+description = "Run Kotlin checks (kotlinc allWarningsAsErrors via the Gradle compile)"
+dir = "services/ws-modules/kotlin-data1"
+run = "$GRADLE --console=plain compileKotlinWasmJs"
+shell = "bash -euo pipefail -c"
+
+[tasks."prefetch:kotlin"]
+description = "Prefetch Kotlin (Gradle plugin + Maven Central) dependencies"
+dir = "services/ws-modules/kotlin-data1"
+run = "$GRADLE --console=plain dependencies"
+shell = "bash -euo pipefail -c"
