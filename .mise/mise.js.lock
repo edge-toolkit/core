@@ -11,6 +11,7 @@ rename_exe = "oxfmt"
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-aarch64-unknown-linux-gnu.tar.gz"
 
 [tools."http:oxfmt"."platforms.linux-x64"]
+checksum = "blake3:81f1adca5230c938968d88e06bc9d9ae6d9d34ee0c849d1e4b43d07562605ec5"
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x86_64-unknown-linux-gnu.tar.gz"
 
 [tools."http:oxfmt"."platforms.macos-arm64"]
@@ -33,6 +34,7 @@ rename_exe = "oxlint"
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.73.0/oxlint-aarch64-unknown-linux-gnu.tar.gz"
 
 [tools."http:oxlint"."platforms.linux-x64"]
+checksum = "blake3:974e8e6b96e5e21882977efdf829ae4043e5424351f27a245ce22da93670fd94"
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.73.0/oxlint-x86_64-unknown-linux-gnu.tar.gz"
 
 [tools."http:oxlint"."platforms.macos-arm64"]

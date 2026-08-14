@@ -10,4 +10,7 @@ extend-exclude = ["data/"]
 # `lod-min-clamp` / `lod-max-clamp` are WebGPU sampler fields (level-of-detail) in the vendored
 # wasi:webgpu WIT, not misspellings of "load". Scoped to those two identifiers so bare "lod" is still
 # flagged everywhere else.
-extend-ignore-re = ["MIS Quarterly", "lod-(min|max)-clamp"]
+# "Functionality is equivelant to" is upstream wasi-io 0.2.8's own typo in a vendored WIT doc comment;
+# the file is fetched verbatim by fetch-wit-deps, so it cannot be corrected here. Anchored to the whole
+# phrase so the misspelling is still caught in prose we write.
+extend-ignore-re = ["Functionality is equivelant to", "MIS Quarterly", "lod-(min|max)-clamp"]

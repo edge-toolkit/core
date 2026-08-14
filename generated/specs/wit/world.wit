@@ -117,9 +117,9 @@ world runner {
 // `add_to_linker`.
 world module {
   include runner;
-  import wasi:clocks/wall-clock@0.2.6;
-  import wasi:clocks/monotonic-clock@0.2.6;
-  import wasi:io/poll@0.2.6;
+  import wasi:clocks/wall-clock@0.2.8;
+  import wasi:clocks/monotonic-clock@0.2.8;
+  import wasi:io/poll@0.2.8;
   import wasi:webgpu/webgpu@0.3.0-rc.2;
   import wasi:nn/tensor@0.2.0-rc-2024-10-28;
   import wasi:nn/graph@0.2.0-rc-2024-10-28;

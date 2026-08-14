@@ -53,7 +53,7 @@ runs:
     - name: Restore mise tools from GHCR
       shell: bash --noprofile --norc -euo pipefail {0}
       env:
-        GH_TOKEN: ${{ inputs.github-token }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         # CI dogfoods the same `pull-mise-tools` task local devs run, not its own copy of the pull logic.
         # The task self-installs its own tools, but the ghcr login below runs BEFORE it, so crane is
@@ -64,7 +64,7 @@ runs:
         # crane's login writes the standard ~/.docker/config.json for the task's pull.
         # printf-pipe rather than a `<<<` herestring: this step's declared bash has herestrings, but the
         # repo's Windows task shell (busybox ash) does not, and this line is the kind that gets copied.
-        printf %s "$GH_TOKEN" | mise x crane -- crane auth login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+        printf %s "$GITHUB_TOKEN" | mise x crane -- crane auth login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
         if mise run pull-mise-tools; then
           echo "restored this platform's mise-tools store"
         else
