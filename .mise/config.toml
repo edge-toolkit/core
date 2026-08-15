@@ -1385,12 +1385,14 @@ run = "mise install coreutils crane gh aqua:01mf02/jaq"
 # node and zig core runtimes are the same shape -- a plain toolchain-archive extract, each locating its own
 # libs relative to the running binary (or, for java, to JAVA_HOME) -- except for one absolute artifact, the
 # macOS Contents/Home convenience symlink mise creates at java install time, which the body below repoints
-# to a relative target. The rust core runtime can NOT join them: mise never materialises rust
-# under installs/ at all -- installs/rust/<ver> is an absolute symlink into $CARGO_HOME/bin and the toolchain
-# itself lives in $RUSTUP_HOME (both outside the data dir), so a rust layer would carry nothing but a
-# dangling publisher-path symlink. Every other backend writes the publishing machine's
-# absolute paths into the tree at install time, which then breaks on a consumer whose $HOME differs -- conda
-# emits `.mise-bins/<tool>` wrappers holding
+# to a relative target. cargo: tools ride along too -- cargo-binstall drops plain prebuilt binaries under
+# bin/, and the .crates.toml / .crates2.json metadata beside them records only crate names and versions -- as
+# do go: tools, which are single self-contained static executables. The rust core runtime can NOT join them:
+# mise never materialises rust under installs/ at all -- installs/rust/<ver> is an absolute symlink into
+# $CARGO_HOME/bin and the toolchain itself lives in $RUSTUP_HOME (both outside the data dir), so a rust layer
+# would carry nothing but a dangling publisher-path symlink. Every other backend writes the publishing
+# machine's absolute paths into the tree at install time, which then breaks on a consumer whose $HOME differs
+# -- conda emits `.mise-bins/<tool>` wrappers holding
 #
 #     export CONDA_PREFIX='/home/<publisher>/.local/share/mise/installs/conda-<tool>/<ver>'
 #     exec '/home/<publisher>/.local/share/mise/installs/conda-<tool>/<ver>/bin/<tool>'
@@ -1399,7 +1401,8 @@ run = "mise install coreutils crane gh aqua:01mf02/jaq"
 # the same through venv shebangs + pyvenv.cfg. `mise install` cannot repair those: it treats a tool with an
 # install dir as installed, so a poisoned tree survives every later install. aqua/github/http/ubi earn their
 # place by sparing api.github.com the per-tool release/attestation lookups CI would otherwise repeat; the
-# core runtimes never touch that API but are carried because their cold downloads are among the slow steps.
+# core runtimes and the cargo:/go: tools never touch that API but are carried because their cold installs are
+# the slow ones (source-build fallbacks, toolchain downloads).
 [tasks.oci-build-store]
 depends = ["_setup-store-tools"]
 description = "Build the mise-tools OCI layout for the current toolset, relocatable backends only"
@@ -1416,7 +1419,7 @@ for tool in $(mise ls --current --json | "$jaq" -r 'keys[]'); do
     *) backend="$(mise registry "$tool" | "$coreutils" head -n1 | "$coreutils" cut -d' ' -f1)" ;;
   esac
   case "$backend" in
-    aqua:* | core:go | core:java | core:node | core:zig | github:* | http:* | ubi:*) ;;
+    aqua:* | cargo:* | core:go | core:java | core:node | core:zig | github:* | go:* | http:* | ubi:*) ;;
     *) disabled="${disabled:+$disabled,}$tool" ;;
   esac
 done
