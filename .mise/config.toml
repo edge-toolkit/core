@@ -1380,19 +1380,29 @@ run = "mise install coreutils crane gh aqua:01mf02/jaq"
 # backends, and lives here rather than in config.maint.toml because the docker publisher runs it INSIDE the
 # build container, where only the always-loaded configs exist.
 #
-# A tool is relocatable when its install tree is a plain extracted archive: aqua, github, http and ubi all
-# unpack a tarball and stop, so moving the tree to another machine's data dir works. Every other backend
-# writes the publishing machine's absolute paths into the tree at install time, which then breaks on a
-# consumer whose $HOME differs -- conda emits `.mise-bins/<tool>` wrappers holding
+# A tool is relocatable when its install tree carries no machine-specific absolute paths. aqua, github, http
+# and ubi unpack an archive and stop, so moving the tree to another machine's data dir works. The go, java,
+# node and zig core runtimes are the same shape -- a plain toolchain-archive extract, each locating its own
+# libs relative to the running binary (or, for java, to JAVA_HOME) -- except for one absolute artifact, the
+# macOS Contents/Home convenience symlink mise creates at java install time, which the body below repoints
+# to a relative target. cargo: tools ride along too -- cargo-binstall drops plain prebuilt binaries under
+# bin/, and the .crates.toml / .crates2.json metadata beside them records only crate names and versions -- as
+# do go: tools, which are single self-contained static executables. The rust core runtime can NOT join them:
+# mise never materialises rust under installs/ at all -- installs/rust/<ver> is an absolute symlink into
+# $CARGO_HOME/bin and the toolchain itself lives in $RUSTUP_HOME (both outside the data dir), so a rust layer
+# would carry nothing but a dangling publisher-path symlink. Every other backend writes the publishing
+# machine's absolute paths into the tree at install time, which then breaks on a consumer whose $HOME differs
+# -- conda emits `.mise-bins/<tool>` wrappers holding
 #
 #     export CONDA_PREFIX='/home/<publisher>/.local/share/mise/installs/conda-<tool>/<ver>'
 #     exec '/home/<publisher>/.local/share/mise/installs/conda-<tool>/<ver>/bin/<tool>'
 #
 # so a restored `clang-format` dies with `exec: /home/<publisher>/...: not found` (exit 127), and pipx does
 # the same through venv shebangs + pyvenv.cfg. `mise install` cannot repair those: it treats a tool with an
-# install dir as installed, so a poisoned tree survives every later install. Excluding them costs nothing --
-# the store exists to spare api.github.com the per-tool release/attestation lookups that aqua, github and
-# http tools make, and conda / pipx / cargo / go / core-runtime installs never touch that API.
+# install dir as installed, so a poisoned tree survives every later install. aqua/github/http/ubi earn their
+# place by sparing api.github.com the per-tool release/attestation lookups CI would otherwise repeat; the
+# core runtimes and the cargo:/go: tools never touch that API but are carried because their cold installs are
+# the slow ones (source-build fallbacks, toolchain downloads).
 [tasks.oci-build-store]
 depends = ["_setup-store-tools"]
 description = "Build the mise-tools OCI layout for the current toolset, relocatable backends only"
@@ -1409,11 +1419,23 @@ for tool in $(mise ls --current --json | "$jaq" -r 'keys[]'); do
     *) backend="$(mise registry "$tool" | "$coreutils" head -n1 | "$coreutils" cut -d' ' -f1)" ;;
   esac
   case "$backend" in
-    aqua:* | github:* | http:* | ubi:*) ;;
+    aqua:* | cargo:* | core:go | core:java | core:node | core:zig | github:* | go:* | http:* | ubi:*) ;;
     *) disabled="${disabled:+$disabled,}$tool" ;;
   esac
 done
 echo "store excludes non-relocatable tools: ${disabled:-<none>}"
+# Repoint the macOS java Contents/Home symlink at its version root relatively.
+# The link mise creates at install time is absolute (the publisher's data dir), so it dangles on any consumer
+# whose data dir differs; the relative target resolves identically everywhere. No-op on linux/windows JDK
+# layouts, which have no Contents/.
+installs="${MISE_DATA_DIR:-$HOME/.local/share/mise}/installs"
+for home in "$installs"/java/*/Contents/Home; do
+  if [ -L "$home" ]; then
+    case "$("$coreutils" readlink "$home")" in
+      /*) "$coreutils" ln -sfn .. "$home" ;;
+    esac
+  fi
+done
 MISE_DISABLE_TOOLS="$disabled" MISE_EXPERIMENTAL=1 mise oci build -o "$out"
 """
 shell = "bash -euo pipefail -c"

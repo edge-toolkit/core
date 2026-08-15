@@ -1153,6 +1153,7 @@ checksum = "blake3:80465dac5a67ca0109addee06073e8dcac277bf74083b7756a68c4ab708a2
 url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-linux-x86_64-musl-v1.0.0-beta.12.zip"
 
 [tools."http:rustfs"."platforms.macos-arm64"]
+checksum = "blake3:171658d8a364d5a43a8b316ab7977aa8cd6e7badac2e3b1162f3e99d5f88c488"
 url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-macos-aarch64-v1.0.0-beta.12.zip"
 
 [tools."http:rustfs"."platforms.windows-x64"]
