@@ -1381,11 +1381,11 @@ run = "mise install coreutils crane gh aqua:01mf02/jaq"
 # build container, where only the always-loaded configs exist.
 #
 # A tool is relocatable when its install tree carries no machine-specific absolute paths. aqua, github, http
-# and ubi unpack an archive and stop, so moving the tree to another machine's data dir works. The go and java
-# core runtimes are the same shape -- a plain toolchain-archive extract (go discovers GOROOT from the running
-# binary's own location; a JDK resolves everything relative to JAVA_HOME) -- except for one absolute
-# artifact, the macOS Contents/Home convenience symlink mise creates at java install time, which the body
-# below repoints to a relative target. The rust core runtime can NOT join them: mise never materialises rust
+# and ubi unpack an archive and stop, so moving the tree to another machine's data dir works. The go, java,
+# node and zig core runtimes are the same shape -- a plain toolchain-archive extract, each locating its own
+# libs relative to the running binary (or, for java, to JAVA_HOME) -- except for one absolute artifact, the
+# macOS Contents/Home convenience symlink mise creates at java install time, which the body below repoints
+# to a relative target. The rust core runtime can NOT join them: mise never materialises rust
 # under installs/ at all -- installs/rust/<ver> is an absolute symlink into $CARGO_HOME/bin and the toolchain
 # itself lives in $RUSTUP_HOME (both outside the data dir), so a rust layer would carry nothing but a
 # dangling publisher-path symlink. Every other backend writes the publishing machine's
@@ -1398,8 +1398,8 @@ run = "mise install coreutils crane gh aqua:01mf02/jaq"
 # so a restored `clang-format` dies with `exec: /home/<publisher>/...: not found` (exit 127), and pipx does
 # the same through venv shebangs + pyvenv.cfg. `mise install` cannot repair those: it treats a tool with an
 # install dir as installed, so a poisoned tree survives every later install. aqua/github/http/ubi earn their
-# place by sparing api.github.com the per-tool release/attestation lookups CI would otherwise repeat; go and
-# java never touch that API but are carried because their cold toolchain downloads are among the slow steps.
+# place by sparing api.github.com the per-tool release/attestation lookups CI would otherwise repeat; the
+# core runtimes never touch that API but are carried because their cold downloads are among the slow steps.
 [tasks.oci-build-store]
 depends = ["_setup-store-tools"]
 description = "Build the mise-tools OCI layout for the current toolset, relocatable backends only"
@@ -1416,7 +1416,7 @@ for tool in $(mise ls --current --json | "$jaq" -r 'keys[]'); do
     *) backend="$(mise registry "$tool" | "$coreutils" head -n1 | "$coreutils" cut -d' ' -f1)" ;;
   esac
   case "$backend" in
-    aqua:* | core:go | core:java | github:* | http:* | ubi:*) ;;
+    aqua:* | core:go | core:java | core:node | core:zig | github:* | http:* | ubi:*) ;;
     *) disabled="${disabled:+$disabled,}$tool" ;;
   esac
 done
