@@ -1043,19 +1043,19 @@ checksum = "sha256:e04493f469fd3861e119a603700cfeafe8da0090aed39b547ad3975b21f48
 url = "https://github.com/edge-toolkit/core/releases/download/gnupg-w32-v1/2.5.20_20260513-x86_64-pc-windows.tar.gz"
 
 [[tools.rust]]
-version = "stable-x86_64-pc-windows-gnullvm"
-backend = "core:rust"
-
-[tools.rust.options]
-components = "clippy,rust-analyzer"
-profile = "minimal"
-targets = "wasm32-unknown-unknown,wasm32-wasip2"
-
-[[tools.rust]]
 version = "nightly-2026-08-05-x86_64-pc-windows-gnullvm"
 backend = "core:rust"
 
 [tools.rust.options]
 components = "rust-src,rustfmt"
+profile = "minimal"
+targets = "wasm32-unknown-unknown,wasm32-wasip2"
+
+[[tools.rust]]
+version = "stable-x86_64-pc-windows-gnullvm"
+backend = "core:rust"
+
+[tools.rust.options]
+components = "clippy,rust-analyzer"
 profile = "minimal"
 targets = "wasm32-unknown-unknown,wasm32-wasip2"

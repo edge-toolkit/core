@@ -143,12 +143,30 @@ jobs:
           # /var stragglers); `find ... -size +50M` for the individual heavyweights. Run in a throwaway container
           # so the host's writable layer doesn't tilt the numbers; find/du stderr noise (unreadable /proc entries
           # etc.) prints to the log but doesn't affect the sort pipeline.
-          echo "::group::et-test: largest dirs (depth 2, >=10M)"
-          docker run --rm et-test sh -c "du -h --threshold=10M --max-depth=2 / | sort -h | tail -50"
-          echo "::endgroup::"
-          echo "::group::et-test: individual files >50M"
-          docker run --rm et-test sh -c "find / -xdev -type f -size +50M -exec du -h {} + | sort -h | tail -50"
-          echo "::endgroup::"
+          #
+          # Both runs are gated on the tag existing locally: this step is `always()`, and when the build died
+          # before tagging, a bare `docker run et-test` falls through to pulling `et-test:latest` from Docker
+          # Hub -- failing this debug step with the misleading
+          #
+          #     docker: Error response from daemon: pull access denied for et-test, repository does not exist
+          #     or may require 'docker login': denied: requested access to the resource is denied
+          #
+          # on top of the real build error (observed on commit 5c08a759202d166ac9fac48f5e54ec998d5fcb6e at
+          # https://github.com/edge-toolkit/core/actions/runs/31659062139/job/94319942583), and handing
+          # execution to whoever squats that name on Docker Hub if the pull ever resolved. `--pull=never`
+          # keeps the registry unreachable even if the gate is edited away.
+          if docker image inspect et-test >/dev/null 2>&1; then
+            echo "::group::et-test: largest dirs (depth 2, >=10M)"
+            du_cmd="du -h --threshold=10M --max-depth=2 / | sort -h | tail -50"
+            docker run --rm --pull=never et-test sh -c "$du_cmd"
+            echo "::endgroup::"
+            echo "::group::et-test: individual files >50M"
+            find_cmd="find / -xdev -type f -size +50M -exec du -h {} + | sort -h | tail -50"
+            docker run --rm --pull=never et-test sh -c "$find_cmd"
+            echo "::endgroup::"
+          else
+            echo "et-test image not present (build failed before tagging); skipping in-image size report"
+          fi
 
       # Every cargo knob here is passed INTO the container, not set on the job.
       # The compile happens inside `docker run`, so a job-level env would never reach cargo.
@@ -170,9 +188,10 @@ jobs:
         env:
           LANE_ARGS: ${{ matrix.base == 'opensuse/leap:15.6' && '-e CARGO_BUILD_JOBS=2' || '' }}
         run: |
-          # $LANE_ARGS is a word-split flag list by design; do not quote it.
+          args="--rm --pull=never -e CARGO_INCREMENTAL=0 -e CARGO_PROFILE_DEV_DEBUG=0 $LANE_ARGS"
+          # $args is a word-split flag list by design; do not quote it.
           # shellcheck disable=SC2086
-          docker run --rm -e CARGO_INCREMENTAL=0 -e CARGO_PROFILE_DEV_DEBUG=0 $LANE_ARGS et-test mise run cargo-test
+          docker run $args et-test mise run cargo-test
 
       - name: Run mise check
-        run: docker run --rm et-check
+        run: docker run --rm --pull=never et-check

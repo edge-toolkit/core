@@ -509,6 +509,35 @@ checksum = "sha256:f223058a51e8a2a4b92d9f1a1b2954f7a02b6d0f42e4a7e0413fcdb93be2e
 url = "https://github.com/uutils/coreutils/releases/download/0.6.0/coreutils-0.6.0-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/uutils/coreutils/releases/assets/349509944"
 
+[[tools.crane]]
+version = "0.21.9"
+backend = "aqua:google/go-containerregistry"
+
+[tools.crane."platforms.linux-arm64"]
+checksum = "sha256:1f4c647b7bb260ab5435661df5b526cf59950ebf95201790db7183ac189cbcbd"
+url = "https://github.com/google/go-containerregistry/releases/download/v0.21.9/go-containerregistry_Linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/google/go-containerregistry/releases/assets/503108017"
+
+[tools.crane."platforms.linux-x64"]
+checksum = "sha256:5c16d8ddb971cb1d5e6ed8b1e743da8224414eeba2c2762d8f1a61b2f095699e"
+url = "https://github.com/google/go-containerregistry/releases/download/v0.21.9/go-containerregistry_Linux_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/google/go-containerregistry/releases/assets/503108053"
+
+[tools.crane."platforms.macos-arm64"]
+checksum = "sha256:11cc3640e53473eb0d8c501068573e52a259f4d82177e6dd11b7bacb8955459e"
+url = "https://github.com/google/go-containerregistry/releases/download/v0.21.9/go-containerregistry_Darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/google/go-containerregistry/releases/assets/503108022"
+
+[tools.crane."platforms.macos-x64"]
+checksum = "sha256:f31075b3375f79b406a600e090d5c4778b3c6598a01c817dc7898c05c7c00a56"
+url = "https://github.com/google/go-containerregistry/releases/download/v0.21.9/go-containerregistry_Darwin_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/google/go-containerregistry/releases/assets/503108009"
+
+[tools.crane."platforms.windows-x64"]
+checksum = "sha256:2309f41ce9a31b6096fd590a57b00b0fd1d6dc41d315dc820795f64be070fe03"
+url = "https://github.com/google/go-containerregistry/releases/download/v0.21.9/go-containerregistry_Windows_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/google/go-containerregistry/releases/assets/503108006"
+
 [[tools.dprint]]
 version = "0.54.0"
 backend = "aqua:dprint/dprint"
@@ -816,6 +845,7 @@ checksum = "sha256:c6faa02823d9ad2c99d0d377a778daa925e7ad2ef9beb96a180236fd2f551
 url = "https://github.com/owenlamont/ryl/releases/download/v0.19.1/ryl-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/owenlamont/ryl/releases/assets/451334907"
 provenance = "github-attestations"
+provenance_verified = true
 
 [[tools."github:prometheus-community/windows_exporter"]]
 version = "0.31.7"
@@ -1084,6 +1114,7 @@ url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve
 url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-darwin-amd64.tar.gz"
 
 [tools."http:openobserve"."platforms.windows-x64"]
+checksum = "blake3:297959bde6dd30397317a6be78f3d74463aeab5f555dc44283f6a21231b452c3"
 url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-windows-amd64.zip"
 
 [[tools."http:rp-wasm"]]
@@ -1125,6 +1156,7 @@ url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-l
 url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-macos-aarch64-v1.0.0-beta.12.zip"
 
 [tools."http:rustfs"."platforms.windows-x64"]
+checksum = "blake3:d79f0eddd9c9c68df0c4c4c7f744639bf2ded714be0ccd2f52f3f27c372e2630"
 url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-windows-x86_64-v1.0.0-beta.12.zip"
 
 [[tools.ls-lint]]

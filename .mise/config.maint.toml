@@ -508,11 +508,127 @@ step rustpython -m cowsay -t "rustpython lives via pip-only path"
 """
 shell = "bash -euo pipefail -c"
 
+# Publish this platform's mise tool tree to its per-platform GHCR store (maintainer-only).
+# The stores under ghcr.io/edge-toolkit/core/mise-tools/<os>-<arch> feed CI's install-mise-tools restore
+# step and the pull-mise-tools task, and are written ONLY from a maintainer's machine -- no workflow holds
+# packages:write, so a compromised workflow cannot poison what every job then executes. `mise oci build`
+# emits one content-addressed layer per tool; crane does the upload, skipping blobs the registry already
+# holds, so re-publishing after a config bump uploads just the changed tools. Each store carries
+# host-native binaries: run this on a machine of the platform being published. Needs a one-time
+# `docker login ghcr.io` (or `crane auth login ghcr.io`) with a packages:write PAT, and installs the full
+# language set first so the image matches what CI expects.
+#
+# crane pushes the layout rather than `mise oci push` because mise 2026.8.0's built-in registry client
+# trips GHCR's chunked blob-upload range rules on large layers and dies mid-push with
+#
+#     mise ERROR uploading blob sha256:0f89655a801ea25e9d3c000287ca276eb8e2b2f890ec3e393e2517facfd7cb9a
+#     mise ERROR HTTP status client error (416 Range Not Satisfiable) for url
+#     (https://ghcr.io/v2/edge-toolkit/core/mise-tools/macos-arm64/blobs/upload/3.4effcd8a-...)
+#
+# (observed locally on macos-arm64, mise 2026.8.0). Revisit once a mise release fixes the chunked upload.
+[tasks.push-mise-tools]
+depends = ["_setup-store-tools"]
+description = "Publish this platform's mise tool tree to its per-platform GHCR store (maintainer-only)"
+run = """
+coreutils="$(mise which coreutils)"
+crane="$(mise which crane)"
+detected=$("$coreutils" uname -sm)
+case "$detected" in
+  Darwin*arm64) plat=macos-arm64 ;;
+  Darwin*x86_64) plat=macos-x64 ;;
+  Linux*aarch64 | Linux*arm64) plat=linux-arm64 ;;
+  Linux*x86_64) plat=linux-x64 ;;
+  Windows*) plat=windows-x64 ;;
+  *) echo "unrecognised platform '$detected'" >&2 && exit 1 ;;
+esac
+ref="ghcr.io/edge-toolkit/core/mise-tools/${plat}:latest"
+out="target/scratch/mise-oci-${plat}"
+"$coreutils" rm -rf "$out"
+MISE_ENV="$ALL_LANGS" mise install
+MISE_ENV="$ALL_LANGS" mise run oci-build-store "$out"
+"$crane" push "$out" "$ref"
+"""
+shell = "bash -euo pipefail -c"
+
+# Publish the linux-x64 mise tool tree store from any host via docker (maintainer-only).
+# Lets a maintainer on a macOS laptop refresh the store CI's linux lanes restore from. Reuses the
+# Dockerfile's `build` stage -- the same canonical linux tool install CI's docker images use, with docker's
+# layer cache making repeats cheap -- then runs `mise oci build` inside the container onto a bind mount and
+# pushes the resulting OCI layout from the HOST with crane. Pushing host-side means registry credentials
+# never enter the container: the one-time `docker login ghcr.io` (keychain-backed on macOS) covers it. The
+# build secret lifts mise's anonymous GitHub rate limit; `gh auth token` supplies it when GITHUB_TOKEN
+# isn't already set. On arm64 hosts the amd64 build runs emulated -- the first build is slow (the toolchain
+# install runs under qemu/Rosetta); later runs reuse docker layers.
+[tasks.push-mise-tools-linux-x64]
+depends = ["_setup-store-tools"]
+description = "Publish the linux-x64 mise tools store via docker from any host (maintainer-only)"
+# docker itself is a host daemon, not a mise tool; everything else comes from the depends helper.
+run = """
+coreutils="$(mise which coreutils)"
+crane="$(mise which crane)"
+gh="$(mise which gh)"
+GITHUB_TOKEN="${GITHUB_TOKEN:-$("$gh" auth token)}"
+export GITHUB_TOKEN
+ref="ghcr.io/edge-toolkit/core/mise-tools/linux-x64:latest"
+out="target/scratch/mise-oci-linux-x64"
+"$coreutils" rm -rf "$out"
+"$coreutils" mkdir -p "$out"
+# Bare --build-arg forwards $BASE_IMAGE when set, falling back to the Dockerfile default otherwise.
+# (E.g. BASE_IMAGE=ubuntu:26.04 to test another base.) Keep the default: the store's consumers are the
+# hosted CI runners on ubuntu 24.04, and tools compiled during install (the go: backend build, any cargo:
+# fallback) link the build container's glibc -- a newer base risks GLIBC_2.xx-not-found breakage in the
+# restored tree.
+args="--platform linux/amd64 --target build --secret id=gh_token,env=GITHUB_TOKEN --build-arg BASE_IMAGE"
+# $args is a word-split flag list by design; do not quote it.
+# shellcheck disable=SC2086
+DOCKER_BUILDKIT=1 docker build $args -t et-mise-linux .
+mnt="$PWD/$out:/oci-out"
+docker run --rm --platform linux/amd64 -v "$mnt" et-mise-linux mise run oci-build-store /oci-out
+"$crane" push "$out" "$ref"
+"""
+shell = "bash -euo pipefail -c"
+
+# Verify every mise-tools GHCR store is public, so unauthenticated users can pull-mise-tools.
+# GHCR has NO API to change package visibility -- the packages REST surface is read/delete/restore only,
+# and the web UI's toggle posts a session-cookie form -- so flipping a store public is a one-time manual
+# click. This task automates everything around that click: it lists the org's container packages, prints
+# each store's visibility, and fails with the exact settings page URL for any still-private store (flip it
+# under Danger Zone -> Change visibility -> Public). Visibility survives later pushes, so each store needs
+# this exactly once, right after its first `push-mise-tools*` publish. The listing call needs gh auth with
+# the read:packages scope -- grant it once with `gh auth refresh -s read:packages`.
+[tasks.check-mise-tools-visibility]
+depends = ["_setup-store-tools"]
+description = "Verify every mise-tools GHCR store is public; print settings URLs for any still private"
+run = """
+gh="$(mise which gh)"
+jaq="$(mise which jaq)"
+json=$("$gh" api "/orgs/edge-toolkit/packages?package_type=container" --paginate)
+filter='.[] | select(.name | startswith("core/mise-tools/"))'
+report='.name + ": " + .visibility'
+still_private='select(.visibility != "public") | .name | @uri'
+echo "$json" | "$jaq" -r "$filter | $report"
+if [ -z "$(echo "$json" | "$jaq" -r "$filter | .name")" ]; then
+  echo "no mise-tools packages exist yet; publish one with push-mise-tools first" >&2
+  exit 1
+fi
+private=$(echo "$json" | "$jaq" -r "$filter | $still_private")
+if [ -z "$private" ]; then
+  echo "all mise-tools stores are public"
+  exit 0
+fi
+echo "still private -- make each public at its settings page (Danger Zone -> Change visibility):" >&2
+for p in $private; do
+  echo "  https://github.com/orgs/edge-toolkit/packages/container/$p/settings" >&2
+done
+exit 1
+"""
+shell = "bash -euo pipefail -c"
+
 # --- Bootstrap tasks for upstream-cache releases.
-# Idempotent gh release view+create -- safe to re-run. Each release's notes are the upstream project URL and
-# its license, nothing else (consumers can read the release body to know where the asset came from and under
-# what terms). Each release is marked --prerelease so it stays off the repo's "Latest release" badge
-# alongside the rp-v<N> release.
+# Idempotent gh release view+create -- safe to re-run.
+# Each release's notes are the upstream project URL and its license, nothing else (consumers can read the
+# release body to know where the asset came from and under what terms). Each release is marked --prerelease
+# so it stays off the repo's "Latest release" badge alongside the rp-v<N> release.
 [tasks.bootstrap-augeas-release]
 description = "Create the augeas-v1 GitHub release if it doesn't exist (idempotent)"
 run = """

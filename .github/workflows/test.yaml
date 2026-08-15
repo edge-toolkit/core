@@ -35,6 +35,11 @@ env:
 
 jobs:
   default:
+    # Read-only pull of the maintainer-published ghcr.io mise-tools store (install-mise-tools restore step).
+    # Never write: the stores are published only from a maintainer's machine via `mise run push-mise-tools`.
+    permissions:
+      contents: read
+      packages: read
     runs-on: ${{ matrix.os }}
     timeout-minutes: ${{ matrix.timeout }}
     # Override the workflow-level `shell: bash` default for Windows runs.
@@ -152,6 +157,11 @@ jobs:
   # `mingw` links that msvc archive into an x86_64-pc-windows-gnu binary with winlibs GCC. Separate from
   # the `default` job because they override the gnullvm default target rather than exercising it.
   override:
+    # Read-only pull of the maintainer-published ghcr.io mise-tools store (install-mise-tools restore step).
+    # Never write: the stores are published only from a maintainer's machine via `mise run push-mise-tools`.
+    permissions:
+      contents: read
+      packages: read
     runs-on: windows-latest
     timeout-minutes: 120
     strategy:

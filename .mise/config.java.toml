@@ -47,8 +47,9 @@ MAVEN_ARGS = "--no-transfer-progress"
 # busybox's own sh applet -- but the Unix script's JAVACMD composition (`JAVACMD="$JAVA_HOME/bin/java"`, no
 # `.exe`) then fails its `[ -x "$JAVACMD" ]` test because on Windows the file is named `bin/java.exe`. Bare
 # `mvn.cmd` (and `cmd.exe /c mvn`) both fail in the all-langs MISE_ENV with "'mvn[.cmd]' is not recognized" --
-# the wrapping cmd.exe cannot see maven\bin in its inherited PATH (likely a length/encoding issue introduced
-# by the wider tool set; works fine with MISE_ENV=java alone). Use the absolute path to `mvn.cmd` instead:
+# the wrapping cmd.exe discards the over-long PATH it inherits, so maven\bin is not there to be found (which
+# is also why MISE_ENV=java alone works: its narrower tool set stays under cmd.exe's per-variable PATH limit).
+# Use the absolute path to `mvn.cmd` instead:
 # busybox-w32's spawnve detects `.cmd` and auto-wraps with cmd.exe, which runs the full path directly with no
 # PATH lookup required. `vars.maven_bin` is defined in config.windows.toml; vars merge across all loaded
 # configs.
@@ -60,17 +61,17 @@ mvn
 
 [tasks.build-ws-java-data1-module]
 description = "Build the java-data1 workflow module"
-run = "$MVN package"
+run = "\"$MVN\" package"
 shell = "bash -euo pipefail -c"
 
 # Namespaced aggregator picked up by the default config's globbed `check`.
 # The compile triggers maven-compiler-plugin with -Xlint:all -Werror + Error Prone.
 [tasks."check:java"]
 description = "Run Java checks (javac -Xlint:all -Werror, Error Prone)"
-run = "$MVN -q compile"
+run = "\"$MVN\" -q compile"
 shell = "bash -euo pipefail -c"
 
 [tasks."prefetch:java"]
 description = "Prefetch Java (Maven) dependencies"
-run = "$MVN dependency:resolve --quiet"
+run = "\"$MVN\" dependency:resolve --quiet"
 shell = "bash -euo pipefail -c"

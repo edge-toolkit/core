@@ -33,6 +33,44 @@ runs:
       with:
         install-action-tools: ${{ inputs.install-action-tools }}
 
+    # Seed the mise data dir from this platform's GHCR store before installing.
+    # Every job used to cold-install every tool, and each github:/aqua tool costs api.github.com calls
+    # (version lists, artifact-attestation verification) against the repo installation's shared 5000/hr
+    # bucket; a push's ~30 parallel jobs drained it and `mise install` died with
+    #
+    #     mise ERROR Failed to install github:benhoyt/goawk@latest: GitHub artifact attestations
+    #     verification error ...: API error: GitHub API returned 403 Forbidden
+    #     "message": "API rate limit exceeded for installation. ..."
+    #
+    # observed on commit 5c08a759202d166ac9fac48f5e54ec998d5fcb6e at
+    # https://github.com/edge-toolkit/core/actions/runs/31659062139/job/94319942583. The store is one OCI
+    # image per platform, published exclusively by a maintainer running `mise run push-mise-tools` on a
+    # machine of that platform -- CI only ever reads (no workflow holds packages:write), so a compromised
+    # workflow cannot poison the store. The image is flattened into the data dir with `crane export`; the
+    # `mise install` that follows then verifies mostly-installed tools with near-zero API traffic. Any
+    # restore failure (store not yet published, or a token that can't read it) falls through to the plain
+    # cold install.
+    - name: Restore mise tools from GHCR
+      shell: bash --noprofile --norc -euo pipefail {0}
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        # CI dogfoods the same `pull-mise-tools` task local devs run, not its own copy of the pull logic.
+        # The task self-installs its own tools, but the ghcr login below runs BEFORE it, so crane is
+        # installed up front here. (An explicit install also dodges a `mise x` quirk: it has been seen
+        # exec-failing on the very call that triggers a tool's install -- "couldn't exec process: No such
+        # file or directory".)
+        mise install crane
+        # crane's login writes the standard ~/.docker/config.json for the task's pull.
+        # printf-pipe rather than a `<<<` herestring: this step's declared bash has herestrings, but the
+        # repo's Windows task shell (busybox ash) does not, and this line is the kind that gets copied.
+        printf %s "$GITHUB_TOKEN" | mise x crane -- crane auth login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+        if mise run pull-mise-tools; then
+          echo "restored this platform's mise-tools store"
+        else
+          echo "store not restorable (not yet published, or unreadable with this token); cold install"
+        fi
+
     - name: Install mise tools
       id: install-mise-tools
       continue-on-error: true

@@ -35,7 +35,7 @@ const PACKAGES: &[UpstreamPackage] = &[
     UpstreamPackage {
         local_dir: "wasi-clocks",
         repo: "wasi-clocks",
-        git_ref: "v0.2.6",
+        git_ref: "v0.2.8",
         files: &[
             File {
                 name: "monotonic-clock.wit",
@@ -48,7 +48,7 @@ const PACKAGES: &[UpstreamPackage] = &[
     UpstreamPackage {
         local_dir: "wasi-io",
         repo: "wasi-io",
-        git_ref: "v0.2.6",
+        git_ref: "v0.2.8",
         files: &[
             File { name: "error.wit" },
             File { name: "poll.wit" },

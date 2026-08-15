@@ -8,6 +8,7 @@ backend = "http:webr"
 url = "https://github.com/r-wasm/webr/releases/download/v0.6.0/webr-0.6.0.tar.gz"
 
 [tools."http:webr"."platforms.linux-x64"]
+checksum = "blake3:764c56176d67d64b858325fcc245d653ef5993dc01df3e7f8929448439d9785d"
 url = "https://github.com/r-wasm/webr/releases/download/v0.6.0/webr-0.6.0.tar.gz"
 
 [tools."http:webr"."platforms.macos-arm64"]
@@ -17,4 +18,5 @@ url = "https://github.com/r-wasm/webr/releases/download/v0.6.0/webr-0.6.0.tar.gz
 url = "https://github.com/r-wasm/webr/releases/download/v0.6.0/webr-0.6.0.tar.gz"
 
 [tools."http:webr"."platforms.windows-x64"]
+checksum = "blake3:764c56176d67d64b858325fcc245d653ef5993dc01df3e7f8929448439d9785d"
 url = "https://github.com/r-wasm/webr/releases/download/v0.6.0/webr-0.6.0.tar.gz"

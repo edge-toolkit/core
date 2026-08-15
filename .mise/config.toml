@@ -117,6 +117,10 @@ ripgrep = "latest"
 "github:microsoft/onnxruntime" = "1.22.0"
 "github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 "github:wasm-bindgen/wasm-bindgen" = "0.2.126"
+# go-containerregistry's crane fetches the per-platform ghcr.io mise-tools stores.
+# Its `crane export` rootfs-flatten is what the pull-mise-tools task and CI's install-mise-tools restore
+# step extract tool trees with.
+crane = "latest"
 # Sole consumer right now is the `go:` backend that source-builds jqfmt.
 # (noperator/jqfmt ships no release assets); add Go users here as they arrive.
 go = "latest"
@@ -1347,6 +1351,142 @@ shell = "bash -euo pipefail -c"
 description = "Build et-cli (prereq for the module-package-json steps)"
 run = "cargo build -p et-cli"
 shell = "bash -euo pipefail -c"
+
+# Install the tools the GHCR-store tasks call, so they work on a checkout that never ran a full `mise install`.
+# gh is only needed by the maint tasks, but one shared helper beats three near-copies.
+#
+# Installing is all this buys: PATH does NOT follow. mise composes a task's PATH from what is installed when
+# the `mise run` starts, and a `depends` install lands after that snapshot just as an in-body `mise install`
+# does -- so a cold runner still gets "bash: line 1: coreutils: command not found" (first seen with the in-body
+# form at https://github.com/edge-toolkit/core/actions/runs/31670112517/job/94352839713 on commit
+# d8ad8cb99cf58a1e505cdbebc5b94f9893532b4f, then again through `depends` at
+# https://github.com/edge-toolkit/core/actions/runs/31773896309/job/94685230924 on commit
+# 0dd8cb009e2b81f9013d7a647092adf383391284). Every consumer therefore resolves these tools with `mise which`
+# and calls them by absolute path, which needs no PATH entry at all.
+#
+# Keep the tool specs unquoted. This body is a single line, so on Windows it runs under mise's default
+# `cmd /c` -- the repo's bash inline-shell default is set by `preinstall`, which has not run yet when CI
+# restores the store. cmd.exe does not strip quotes, so a quoted spec reaches mise verbatim and it tries to
+# clone a plugin from the literal name: `mise plugin:01mf02/jaq' clone https://github.com/01mf02/jaq'.git`,
+# ending in `Failed to install 'aqua:01mf02/jaq'@latest`, which stranded the Windows lane's restore on commit
+# 0dd8cb009e2b81f9013d7a647092adf383391284 at
+# https://github.com/edge-toolkit/core/actions/runs/31773896309/job/94685231006.
+[tasks._setup-store-tools]
+description = "Install the tools the mise-tools store tasks depend on (cold-checkout helper)"
+run = "mise install coreutils crane gh aqua:01mf02/jaq"
+
+# Build the OCI layout for a mise-tools store, carrying only relocatable tools.
+# Shared by every push-mise-tools* task (native and docker) so all platforms' stores hold the same set of
+# backends, and lives here rather than in config.maint.toml because the docker publisher runs it INSIDE the
+# build container, where only the always-loaded configs exist.
+#
+# A tool is relocatable when its install tree is a plain extracted archive: aqua, github, http and ubi all
+# unpack a tarball and stop, so moving the tree to another machine's data dir works. Every other backend
+# writes the publishing machine's absolute paths into the tree at install time, which then breaks on a
+# consumer whose $HOME differs -- conda emits `.mise-bins/<tool>` wrappers holding
+#
+#     export CONDA_PREFIX='/home/<publisher>/.local/share/mise/installs/conda-<tool>/<ver>'
+#     exec '/home/<publisher>/.local/share/mise/installs/conda-<tool>/<ver>/bin/<tool>'
+#
+# so a restored `clang-format` dies with `exec: /home/<publisher>/...: not found` (exit 127), and pipx does
+# the same through venv shebangs + pyvenv.cfg. `mise install` cannot repair those: it treats a tool with an
+# install dir as installed, so a poisoned tree survives every later install. Excluding them costs nothing --
+# the store exists to spare api.github.com the per-tool release/attestation lookups that aqua, github and
+# http tools make, and conda / pipx / cargo / go / core-runtime installs never touch that API.
+[tasks.oci-build-store]
+depends = ["_setup-store-tools"]
+description = "Build the mise-tools OCI layout for the current toolset, relocatable backends only"
+run = """
+coreutils="$(mise which coreutils)"
+jaq="$(mise which jaq)"
+out="${usage_out:?output directory required}"
+# Prefixed names carry their own backend; bare ones are registry short names to resolve.
+# `mise registry <tool>` prints every backend for the name, preferred first, so take the first field.
+disabled=""
+for tool in $(mise ls --current --json | "$jaq" -r 'keys[]'); do
+  case "$tool" in
+    *:*) backend="$tool" ;;
+    *) backend="$(mise registry "$tool" | "$coreutils" head -n1 | "$coreutils" cut -d' ' -f1)" ;;
+  esac
+  case "$backend" in
+    aqua:* | github:* | http:* | ubi:*) ;;
+    *) disabled="${disabled:+$disabled,}$tool" ;;
+  esac
+done
+echo "store excludes non-relocatable tools: ${disabled:-<none>}"
+MISE_DISABLE_TOOLS="$disabled" MISE_EXPERIMENTAL=1 mise oci build -o "$out"
+"""
+shell = "bash -euo pipefail -c"
+usage = 'arg "<out>" help="Output directory for the OCI image layout"'
+
+# Pre-populate the local mise data dir from this platform's GHCR tool store.
+# A maintainer publishes each platform's tool tree to ghcr.io/<repo>/mise-tools/<os>-<arch> with the maint
+# env's push-mise-tools task (`mise oci push`, one content-addressed layer per tool); this flattens that
+# image with `crane export` straight into the local data dir's installs/, so a fresh `mise install`
+# afterwards only fills the gaps and regenerates shims instead of downloading everything. The store carries
+# only relocatable backends, so a restored tree needs no repair; everything else installs cold as usual.
+# Private packages need a one-time `docker login ghcr.io` (or `crane auth login ghcr.io`).
+[tasks.pull-mise-tools]
+depends = ["_setup-store-tools"]
+description = "Pre-populate the local mise data dir from this platform's GHCR tool store"
+run = """
+coreutils="$(mise which coreutils)"
+crane="$(mise which crane)"
+jaq="$(mise which jaq)"
+detected=$("$coreutils" uname -sm)
+case "$detected" in
+  Darwin*arm64) def_plat=macos-arm64 ;;
+  Darwin*x86_64) def_plat=macos-x64 ;;
+  Linux*aarch64 | Linux*arm64) def_plat=linux-arm64 ;;
+  Linux*x86_64) def_plat=linux-x64 ;;
+  Windows*) def_plat=windows-x64 ;;
+  *) echo "unrecognised platform '$detected'; pass one explicitly" >&2 && exit 1 ;;
+esac
+plat="${usage_platform:-$def_plat}"
+ref="ghcr.io/edge-toolkit/core/mise-tools/${plat}:latest"
+if [ "$plat" = "windows-x64" ]; then
+  data="$LOCALAPPDATA/mise"
+else
+  data="${MISE_DATA_DIR:-$HOME/.local/share/mise}"
+fi
+# Pull the image as an OCI layout, then extract its layers locally into scratch.
+# One `crane export` stream of the whole multi-GB rootfs is fragile -- GHCR killed it mid-transfer with
+#
+#     Error: http2: server sent GOAWAY and closed the connection; ... debug="idle timeout"
+#     ...: Truncated tar archive
+#
+# (observed locally). `crane pull` instead fetches each digest-verified layer as its own retried request.
+# The layers land in scratch rather than straight onto the data dir, both to survive a mid-pull failure
+# and because tar refuses to write through existing symlinks on a populated data dir ("Cannot extract
+# through symlink installs/http-augeas/<ver>/bin", observed locally).
+tmp="target/scratch/pull-mise-tools"
+"$coreutils" rm -rf "$tmp"
+"$coreutils" mkdir -p "$tmp" "$data/installs"
+echo "pulling $ref"
+"$crane" pull --format=oci "$ref" "$tmp/oci"
+manifest=$("$jaq" -r '.manifests[0].digest | ltrimstr("sha256:")' "$tmp/oci/index.json")
+layers=$("$jaq" -r '.layers[].digest | ltrimstr("sha256:")' "$tmp/oci/blobs/sha256/$manifest")
+# Layers that carry no mise/installs entries (the base image's) make tar exit non-zero; that miss is fine.
+for layer in $layers; do
+  tar -xzf "$tmp/oci/blobs/sha256/$layer" -C "$tmp" --strip-components=1 mise/installs 2>/dev/null || true
+done
+restored=0
+for d in "$tmp"/installs/*/*/; do
+  [ -d "$d" ] || continue
+  rel="${d#"$tmp"/installs/}"
+  dest="$data/installs/$rel"
+  if [ ! -e "$dest" ]; then
+    "$coreutils" mkdir -p "$("$coreutils" dirname "$dest")"
+    "$coreutils" mv "$d" "$dest"
+    restored=$((restored + 1))
+  fi
+done
+"$coreutils" rm -rf "$tmp"
+echo "restored $restored tool versions into $data/installs"
+echo "done; run 'mise install' to fill gaps and regenerate shims"
+"""
+shell = "bash -euo pipefail -c"
+usage = 'arg "[platform]" help="CI platform store to pull (default: the current platform)" default=""'
 
 [tasks.build-modules]
 # Native `depends` glob over `build-ws-*`.
