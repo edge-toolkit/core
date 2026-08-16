@@ -422,7 +422,7 @@ fn render_sensor_output(sensors: &DeviceSensors) -> Result<(), JsValue> {
             "updated: {}",
             String::from(js_sys::Date::new_0().to_locale_time_string("en-US"))
         ),
-        String::new(),
+        String::default(),
         String::from("orientation"),
     ];
 
@@ -435,7 +435,7 @@ fn render_sensor_output(sensors: &DeviceSensors) -> Result<(), JsValue> {
         lines.push(String::from("waiting for orientation event..."));
     }
 
-    lines.push(String::new());
+    lines.push(String::default());
     lines.push(String::from("motion"));
     if let Some(motion) = motion {
         lines.push(format!(

@@ -79,9 +79,9 @@ pub async fn drive_math1_exchange(
     socket.send(Message::Text(connect)).await?;
 
     let deadline = tokio::time::Instant::now() + budget;
-    let mut fake_id = String::new();
+    let mut fake_id = String::default();
     let mut peers: Vec<String> = Vec::new();
-    let mut pointer = String::new();
+    let mut pointer = String::default();
 
     loop {
         if tokio::time::Instant::now() >= deadline {

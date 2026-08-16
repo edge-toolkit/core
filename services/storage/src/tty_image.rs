@@ -59,7 +59,7 @@ pub fn render_bytes(bytes: &[u8]) -> image::ImageResult<()> {
         .resize_exact(TARGET_COLUMNS, sample_height, image::imageops::FilterType::Triangle)
         .to_rgba8();
 
-    let mut out = String::new();
+    let mut out = String::default();
     for row in 0..rows {
         let top_y = row.saturating_mul(2);
         let bottom_y = top_y.saturating_add(1);

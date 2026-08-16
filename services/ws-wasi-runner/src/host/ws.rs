@@ -43,8 +43,9 @@ use crate::bindings::et::ws_wasi::ws::WsError;
 use crate::host::error::WsDecodeErrExt as _;
 use crate::host::error::WsTransportErrExt as _;
 
-/// Live state for an open websocket connection. Owned by `HostState` behind a
-/// `Mutex`; replaced on disconnect.
+/// Live state for an open websocket connection.
+///
+/// Owned by `HostState` behind a `Mutex`; replaced on disconnect.
 pub struct WsBackend {
     sink: Arc<Mutex<WsSink>>,
     inbox: Arc<Mutex<mpsc::UnboundedReceiver<ServerMessage>>>,
@@ -186,7 +187,7 @@ impl Host for HostState {
         let slot = self.ws.lock().await;
         match slot.as_ref() {
             Some(bridge) => bridge.current_agent_id().await,
-            None => String::new(),
+            None => String::default(),
         }
     }
 
@@ -251,9 +252,10 @@ impl Host for HostState {
     }
 }
 
-/// Convert a guest-emitted WIT `client-message` into the canonical Rust
-/// `ClientMessage`. Opaque JSON fields (sent as `string` over WIT) are parsed
-/// here so the host always works with `serde_json::Value` payloads.
+/// Convert a guest-emitted WIT `client-message` into the canonical Rust `ClientMessage`.
+///
+/// Opaque JSON fields (sent as `string` over WIT) are parsed here so the host always works with
+/// `serde_json::Value` payloads.
 #[expect(
     clippy::single_call_fn,
     reason = "named converter; used once by <HostState as Host>::send"
@@ -295,9 +297,9 @@ fn wit_to_client_message(msg: WitClientMessage) -> Result<ClientMessage, WsError
     })
 }
 
-/// Convert a wire `ServerMessage` (inbound from the server) into the WIT
-/// `server-message` the guest sees on `recv`. Re-serialises opaque JSON
-/// payloads so they cross the WIT boundary as strings.
+/// Convert a wire `ServerMessage` (inbound) into the WIT `server-message` the guest sees on `recv`.
+///
+/// Re-serialises opaque JSON payloads so they cross the WIT boundary as strings.
 #[expect(
     clippy::single_call_fn,
     reason = "named converter; used once by <HostState as Host>::recv"

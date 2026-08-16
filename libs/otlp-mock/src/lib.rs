@@ -54,9 +54,10 @@ pub struct OtlpMock {
 }
 
 impl OtlpMock {
-    /// Pass this to `OTLP_COLLECTOR_URL` in env so OTLP exporters target
-    /// the mock. Trace endpoint is `<collector_url>/traces`; logs is
-    /// `<collector_url>/logs` -- matches `et_otlp::init`'s URL convention.
+    /// Pass this to `OTLP_COLLECTOR_URL` in env so OTLP exporters target the mock.
+    ///
+    /// Trace endpoint is `<collector_url>/traces`; logs is `<collector_url>/logs` -- matches
+    /// `et_otlp::init`'s URL convention.
     #[must_use]
     pub fn collector_url(&self) -> &str {
         &self.collector_url
@@ -68,10 +69,11 @@ impl OtlpMock {
         self.captured.logs.lock().unwrap().clone()
     }
 
-    /// Walk every span across every captured request, returning each span with
-    /// its parent `Resource`'s `service.name` attribute (so the test can group
-    /// spans by service). Trace/span ids are lowercase-hex-encoded from the
-    /// decoded bytes -- compare against [`to_hex`] of the raw ids you sent.
+    /// Walk every span across every captured request, pairing each with its service name.
+    ///
+    /// The name is the parent `Resource`'s `service.name` attribute (so the test can group spans
+    /// by service). Trace/span ids are lowercase-hex-encoded from the decoded bytes -- compare
+    /// against [`to_hex`] of the raw ids you sent.
     #[must_use]
     pub fn flatten_spans(&self) -> Vec<FlatSpan> {
         let mut out = Vec::new();
@@ -171,7 +173,7 @@ fn sum_number_points(points: &[opentelemetry_proto::tonic::metrics::v1::NumberDa
 #[must_use]
 pub fn to_hex(bytes: &[u8]) -> String {
     use std::fmt::Write as _;
-    let mut out = String::new();
+    let mut out = String::default();
     for byte in bytes {
         // Writing to a String is infallible; unwrap is allowed crate-wide.
         write!(out, "{byte:02x}").unwrap();

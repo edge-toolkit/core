@@ -420,7 +420,7 @@ fn update_face_status(input_name: &str, output_names: &[String], summary: &Detec
     ];
 
     if let Some(best) = summary.detections.first() {
-        lines.push(String::new());
+        lines.push(String::default());
         lines.push(format!(
             "best box: {:.1}, {:.1}, {:.1}, {:.1}",
             best.box_coords[0], best.box_coords[1], best.box_coords[2], best.box_coords[3]

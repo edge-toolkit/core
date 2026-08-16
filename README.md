@@ -281,6 +281,17 @@ Modules built as WASI Preview 2 components and run under wasmtime:
 Native CPython modules linked via [PyO3](https://pyo3.rs) -- used for workloads that need a real CPython runtime
 (e.g. PyTorch inference).
 
+### The math1 family
+
+The `math1` modules are the same federated-learning demo implemented once per guest language (Rust, JavaScript,
+Dart, Python, Kotlin, C#, Java, R, and Zig in the browser runner, plus WASI-component and native-CPython twins for
+the other two runners). A test-harness "fake agent" uploads a canonical input file
+([math1-input.json](services/ws-test-server/data/math1-input.json)) into the server's storage and broadcasts a
+pointer to it over the hub; each module reads the input, runs the same FedAvg simulation -- rounds of local
+gradient-descent epochs per simulated client, merged with a sample-count-weighted average, using only `+ - * /` on
+IEEE-754 doubles -- and stores its resulting global model back to storage, where the test harness verifies that
+every language produced bit-identical weights.
+
 ## Root module
 
 The default UX in the web-browser is also a loadable module located in

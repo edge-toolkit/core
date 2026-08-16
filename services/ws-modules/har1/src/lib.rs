@@ -517,7 +517,7 @@ fn render_sensor_output(sensors: &DeviceSensors) -> Result<(), JsValue> {
             "updated: {}",
             String::from(js_sys::Date::new_0().to_locale_time_string("en-US"))
         ),
-        String::new(),
+        String::default(),
         String::from("orientation"),
     ];
 
@@ -530,7 +530,7 @@ fn render_sensor_output(sensors: &DeviceSensors) -> Result<(), JsValue> {
         lines.push(String::from("waiting for orientation event..."));
     }
 
-    lines.push(String::new());
+    lines.push(String::default());
     lines.push(String::from("motion"));
     if let Some(motion) = motion {
         lines.push(format!(
@@ -791,9 +791,10 @@ fn create_feat_tensor(values: &[f32]) -> Result<JsValue, JsValue> {
     Reflect::construct(&tensor_ctor, &args)
 }
 
-/// Compute 36 hand-crafted features from the sample buffer:
-/// 8 channels x 4 stats (mean, std, min, max) = 32, plus 4 stats on the
-/// per-sample vector magnitude (mean, std, min, max) = 36 total.
+/// Compute 36 hand-crafted features from the sample buffer.
+///
+/// 8 channels x 4 stats (mean, std, min, max) = 32, plus 4 stats on the per-sample vector
+/// magnitude (mean, std, min, max) = 36 total.
 fn compute_feat_input(sample_buffer: &VecDeque<[f32; HAR_FEATURE_COUNT]>) -> [f32; HAR_FEAT_INPUT_SIZE] {
     let sample_count = sample_buffer.len() as f32;
     let mut out = [0.0f32; HAR_FEAT_INPUT_SIZE];
