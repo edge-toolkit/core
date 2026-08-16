@@ -15,6 +15,10 @@ export default async function init() {
     inputPointer = null,
     input = null;
 
+  // Ack/broadcast values feed the /storage/ fetch URLs below; accept only single, traversal-free
+  // path segments so a hostile frame cannot steer those requests.
+  const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
   // TeaVM @JSBody calls reference `host` as a global
   globalThis.host = {
     wsConnect: (url) => {
@@ -27,8 +31,12 @@ export default async function init() {
       ws.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data);
-          if (msg.type === "et-connect-ack" && msg.agent_id) agentId = msg.agent_id;
-          if (msg.type === "math1-input" && msg.bucket && msg.filename) inputPointer = msg;
+          if (msg.type === "et-connect-ack" && SAFE_SEGMENT.test(msg.agent_id)) agentId = msg.agent_id;
+          const bucket = msg.bucket;
+          const filename = msg.filename;
+          if (msg.type === "math1-input" && SAFE_SEGMENT.test(bucket) && SAFE_SEGMENT.test(filename)) {
+            inputPointer = { bucket, filename };
+          }
         } catch {}
       };
       ws.onclose = ws.onerror = () => {

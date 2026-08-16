@@ -55,6 +55,7 @@ files:
   - services/ws-pyo3-runner/tests/modules.rs
   - services/ws-test-server/src/lib.rs
   - services/ws-test-server/src/math1.rs
+  - services/ws-test-server/tests/math1_exchange.rs
   - services/ws-server/src/config.rs
   - services/ws-server/src/lib.rs
   - services/ws-server/src/main.rs

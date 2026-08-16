@@ -126,7 +126,7 @@ public final class Math1 {
         }
         if (hasInput()) {
             loadInput().then(v -> {
-                computeAndStore(resolve, reject);
+                computeAndStore(resolve);
                 return null;
             });
             return;
@@ -185,7 +185,7 @@ public final class Math1 {
         return new double[] {weight, bias};
     }
 
-    private static void computeAndStore(JSConsumer<JSObject> resolve, JSConsumer<Object> reject) {
+    private static void computeAndStore(JSConsumer<JSObject> resolve) {
         status("running FedAvg - " + inputDescribe());
         double[] model = fedAvg();
         double weight = model[0];
