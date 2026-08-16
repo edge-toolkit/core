@@ -4554,6 +4554,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "et-ws-math1"
+version = "0.1.0"
+dependencies = [
+ "et-rest-client",
+ "et-web",
+ "et-ws-wasm-agent",
+ "futures-util",
+ "js-sys",
+ "serde",
+ "serde_json",
+ "tracing",
+ "tracing-wasm",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-bindgen-test",
+ "web-sys",
+]
+
+[[package]]
 name = "et-ws-nfc"
 version = "0.1.0"
 dependencies = [
@@ -4758,6 +4777,7 @@ dependencies = [
  "retry",
  "serde_json",
  "tempfile",
+ "thiserror 2.0.19",
  "tokio",
  "tokio-tungstenite",
  "tracing-actix-web",
@@ -4799,6 +4819,18 @@ dependencies = [
  "et-path",
  "fs-err",
  "minicov",
+ "serde_json",
+ "wit-bindgen",
+]
+
+[[package]]
+name = "et-ws-wasi-math1"
+version = "0.1.0"
+dependencies = [
+ "et-path",
+ "fs-err",
+ "minicov",
+ "serde",
  "serde_json",
  "wit-bindgen",
 ]

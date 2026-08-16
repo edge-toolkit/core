@@ -1,0 +1,4 @@
+/pkg/*.wasm
+/pkg/package.json
+et_ws_wasi_math1.wasm
+package.json

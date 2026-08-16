@@ -43,13 +43,18 @@ files:
   - services/websockify/src/lib.rs
   - services/websockify/tests/relay.rs
   - services/ws-modules/except1/src/lib.rs
+  - services/ws-modules/math1/src/lib.rs
   - services/ws-modules/pic-viewer/build.rs
   - services/ws-modules/pic-viewer/src/lib.rs
   - services/ws-modules/pic-viewer/tests/parse.rs
   - services/ws-modules/pic-viewer/tests/show_image.rs
   - services/ws-modules/wasi-comm1/src/lib.rs
   - services/ws-modules/wasi-data1/src/lib.rs
+  - services/ws-modules/wasi-math1/src/coverage.rs
+  - services/ws-modules/wasi-math1/src/lib.rs
   - services/ws-pyo3-runner/tests/modules.rs
+  - services/ws-test-server/src/lib.rs
+  - services/ws-test-server/src/math1.rs
   - services/ws-server/src/config.rs
   - services/ws-server/src/lib.rs
   - services/ws-server/src/main.rs

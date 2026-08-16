@@ -1,0 +1,19 @@
+[project]
+dependencies = []
+description = "Python math 1"
+license = "Apache-2.0 OR MIT"
+name = "et-ws-pymath1"
+requires-python = ">=3.10"
+version = "0.1.0"
+
+[build-system]
+build-backend = "uv_build"
+requires = ["uv_build==0.11.8"]
+
+[tool.uv.build-backend]
+module-name = "pymath1"
+module-root = ""
+
+# Browser-side module dependency: the Pyodide runtime served at /modules/pyodide/.
+[tool.ws-module.dependencies]
+pyodide = "*"

@@ -129,6 +129,17 @@ uv build --wheel --out-dir pkg
 """
 shell = "bash -euo pipefail -c"
 
+[tasks.build-ws-pymath1-module]
+depends = ["build-et-cli"]
+description = "Build the pymath1 FedAvg module"
+dir = "services/ws-modules/pymath1"
+run = """
+coreutils rm -f pkg/*.whl
+uv build --wheel --out-dir pkg
+{{ vars.et_cli }} module-package-json
+"""
+shell = "bash -euo pipefail -c"
+
 [tasks.build-ws-pydata1-module]
 depends = ["build-et-rest-client-wheel"]
 description = "Build the pydata1 Python workflow module"

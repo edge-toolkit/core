@@ -104,6 +104,86 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
     collect_module_coverage(&server);
 }
 
+/// Run each math1 module through the storage-driven exchange and verify its stored model.
+///
+/// The fake-agent side lives in `et_ws_test_server::math1`: it injects the canonical input JSON
+/// into storage, broadcasts the `math1-input` pointer, and reads back the module's
+/// `math1-output.json`, which is verified against the expected weights for that input. The
+/// runner's own exit status is asserted too, so a module that errors after storing its output
+/// still fails the case.
+#[rstest]
+#[case::math1("et-ws-math1", Language::Rust)]
+#[case::dart_math1("et-ws-dart-math1", Language::Dart)]
+#[case::dotnet_math1("et-ws-dotnet-math1", Language::Dotnet)]
+#[case::java_math1("et-ws-java-math1", Language::Java)]
+#[case::js_math1("et-ws-js-math1", Language::Js)]
+#[case::kotlin_math1("et-ws-kotlin-math1", Language::Kotlin)]
+#[case::pymath1("et-ws-pymath1", Language::Python)]
+#[case::zig_math1("et-ws-zig-math1", Language::Zig)]
+#[tokio::test(flavor = "current_thread")]
+async fn math1_module_stores_verified_model(#[case] module: &str, #[case] language: Language) {
+    if !mise_env_includes(language) {
+        println!(
+            "skipping {module}: requires the `{}` mise env, not loaded",
+            language.as_str()
+        );
+        return;
+    }
+    if module == "et-ws-dotnet-math1" && !dotnet_math1_pkg_built() {
+        println!("skipping {module}: pkg/ not built (build-ws-dotnet-math1-module has not run on this host)");
+        return;
+    }
+    if module == "et-ws-kotlin-math1" && !kotlin_math1_pkg_built() {
+        println!("skipping {module}: pkg/ not built (build-ws-kotlin-math1-module has not run on this host)");
+        return;
+    }
+    let server = et_ws_test_server::start();
+    let bin = env!("CARGO_BIN_EXE_et-ws-web-runner");
+    let mut runner = std::process::Command::new(bin)
+        .env("RUNNER_MODULE", module)
+        .env("WS_SERVER_URL", &server.ws_url)
+        .env("RUNNER_TIMEOUT", "90s")
+        .spawn()
+        .unwrap();
+    let outcome = et_ws_test_server::math1::drive_math1_exchange(
+        &server.ws_url,
+        server.storage_dir.path(),
+        std::time::Duration::from_secs(90),
+    )
+    .await;
+    // Reap the runner regardless of the exchange outcome; it exits on its own once the module
+    // completes (RUNNER_TIMEOUT bounds a hung module).
+    let status = wait_for_runner_exit(&mut runner);
+    let (weight, bias) = outcome.unwrap_or_else(|err| panic!("{module}: {err}"));
+    et_ws_test_server::math1::verify_math1_model(weight, bias).unwrap_or_else(|err| panic!("{module}: {err}"));
+    assert!(status.success(), "{module} runner exited {status:?}");
+    #[cfg(feature = "coverage")]
+    collect_module_coverage(&server);
+}
+
+/// Poll the spawned runner until it exits, killing it if it overstays the runner-timeout bound.
+///
+/// Blocking here is fine: this runs after the exchange future has already resolved, so nothing
+/// else is pending on the current-thread runtime.
+#[expect(
+    clippy::arithmetic_side_effects,
+    clippy::single_call_fn,
+    reason = "distinct reap step; the deadline addition cannot overflow within a test's lifetime"
+)]
+fn wait_for_runner_exit(runner: &mut std::process::Child) -> std::process::ExitStatus {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_mins(2);
+    loop {
+        if let Some(status) = runner.try_wait().unwrap() {
+            return status;
+        }
+        if std::time::Instant::now() >= deadline {
+            runner.kill().unwrap();
+            return runner.wait().unwrap();
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+}
+
 /// Probe for dotnet-data1's built `pkg/` wasm artifacts, logging a skip instead of failing when absent.
 ///
 /// dotnet-data1's `pkg/` wasm artifacts only exist after `build-ws-dotnet-data1-module` has run on this
@@ -117,6 +197,20 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
 fn dotnet_data1_pkg_built() -> bool {
     edge_toolkit::config::get_project_root()
         .join("services/ws-modules/dotnet-data1/pkg/dotnet.js")
+        .exists()
+}
+
+/// Probe for dotnet-math1's built `pkg/` wasm artifacts, logging a skip instead of failing when absent.
+///
+/// Same shape as [`dotnet_data1_pkg_built`]: probe the stably-named `dotnet.js` that
+/// `build-ws-dotnet-math1-module` copies into `pkg/`, and skip rather than 404 on the fetch.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct probe step; kept named for the skip-trace log line"
+)]
+fn dotnet_math1_pkg_built() -> bool {
+    edge_toolkit::config::get_project_root()
+        .join("services/ws-modules/dotnet-math1/pkg/dotnet.js")
         .exists()
 }
 
@@ -148,6 +242,20 @@ fn js_data1_pkg_built() -> bool {
 fn kotlin_data1_pkg_built() -> bool {
     edge_toolkit::config::get_project_root()
         .join("services/ws-modules/kotlin-data1/pkg/et_ws_kotlin_data1_compiled.mjs")
+        .exists()
+}
+
+/// Probe for kotlin-math1's Kotlin/Wasm build output, logging a skip instead of failing when absent.
+///
+/// Same shape as [`kotlin_data1_pkg_built`]: the `WasmGC` module and loader glue are generated by
+/// `build-ws-kotlin-math1-module` and gitignored, so probe the loader and skip rather than 404 on the fetch.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct probe step; kept named for the skip-trace log line"
+)]
+fn kotlin_math1_pkg_built() -> bool {
+    edge_toolkit::config::get_project_root()
+        .join("services/ws-modules/kotlin-math1/pkg/et_ws_kotlin_math1_compiled.mjs")
         .exists()
 }
 
@@ -259,6 +367,7 @@ fn hardware_module_load_fails(#[case] module: &str, #[case] language: Language) 
 #[rstest]
 #[case::rdata1("et-ws-rdata1", Language::R)]
 #[case::rcomm1("et-ws-rcomm1", Language::R)]
+#[case::rmath1("et-ws-rmath1", Language::R)]
 fn r_module_load_fails(#[case] module: &str, #[case] language: Language) {
     if !mise_env_includes(language) {
         println!(

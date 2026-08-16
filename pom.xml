@@ -35,6 +35,27 @@
     <sourceDirectory>${project.basedir}/services/ws-modules/java-data1/src/main/java</sourceDirectory>
     <plugins>
       <plugin>
+        <!-- Maven allows one <sourceDirectory>; the other Java modules join the same compilation as extra
+          source roots. Each teavm execution below then tree-shakes its own <mainClass> into its own pkg/. -->
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <id>add-java-math1-source</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>${project.basedir}/services/ws-modules/java-math1/src/main/java</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
@@ -95,6 +116,22 @@
             <configuration>
               <mainClass>au.edu.curtin.et.Data1</mainClass>
               <targetDirectory>${project.basedir}/services/ws-modules/java-data1/pkg</targetDirectory>
+              <targetFileName>classes.js</targetFileName>
+              <targetType>JAVASCRIPT</targetType>
+              <moduleType>ES2015</moduleType>
+              <optimizationLevel>ADVANCED</optimizationLevel>
+              <minifying>true</minifying>
+            </configuration>
+          </execution>
+          <execution>
+            <id>build-math1-js</id>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+            <phase>package</phase>
+            <configuration>
+              <mainClass>au.edu.curtin.et.Math1</mainClass>
+              <targetDirectory>${project.basedir}/services/ws-modules/java-math1/pkg</targetDirectory>
               <targetFileName>classes.js</targetFileName>
               <targetType>JAVASCRIPT</targetType>
               <moduleType>ES2015</moduleType>

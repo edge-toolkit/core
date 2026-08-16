@@ -58,6 +58,7 @@ fs-err.workspace = true
 et-ws-test-server.workspace = true
 fs-err.workspace = true
 rstest.workspace = true
+tokio = { workspace = true, features = ["macros", "rt", "time"] }
 
 # `coverage` (off by default): compiles the browser-module coverage-capture code into the runner.
 # It adds the pycov + ws-agent-id shims, the __ET_TEST_COVERAGE prelude, and the wrapper's __et_capture_coverage

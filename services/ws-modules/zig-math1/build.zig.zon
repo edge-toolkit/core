@@ -1,0 +1,9 @@
+.{
+    .name = .et_ws_zig_math1,
+    .version = "0.1.0",
+    .description = "Zig math 1",
+    .license = "Apache-2.0 or MIT",
+    .main = "et_ws_zig_math1.js",
+    .fingerprint = 0x50849fc82a52afc5,
+    .paths = .{""},
+}

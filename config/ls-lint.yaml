@@ -48,34 +48,44 @@ ignore:
   - services/ws-modules/comm1/pkg
   - services/ws-modules/dart-comm1/pkg
   - services/ws-modules/dart-data1/pkg
+  - services/ws-modules/dart-math1/pkg
   - services/ws-modules/data1/pkg
   - services/ws-modules/dotnet-data1/pkg
+  - services/ws-modules/dotnet-math1/pkg
   - services/ws-modules/except1/pkg
   - services/ws-modules/face-detection/pkg
   - services/ws-modules/geolocation/pkg
   - services/ws-modules/graphics-info/pkg
   - services/ws-modules/har1/pkg
   - services/ws-modules/java-data1/pkg
+  - services/ws-modules/java-math1/pkg
   - services/ws-modules/js-data1/pkg
+  - services/ws-modules/js-math1/pkg
   - services/ws-modules/kotlin-data1/pkg
+  - services/ws-modules/kotlin-math1/pkg
+  - services/ws-modules/math1/pkg
   - services/ws-modules/nfc/pkg
   - services/ws-modules/pic-viewer/pkg
   - services/ws-modules/pydata1/pkg
   - services/ws-modules/pydemo1/pkg
   - services/ws-modules/pyeye1/pkg
   - services/ws-modules/pyface1/pkg
+  - services/ws-modules/pymath1/pkg
   - services/ws-modules/pyspeech1/pkg
   - services/ws-modules/pywasm1/pkg
   - services/ws-modules/rcomm1/pkg
   - services/ws-modules/rdata1/pkg
+  - services/ws-modules/rmath1/pkg
   - services/ws-modules/sensor1/pkg
   - services/ws-modules/speech-recognition/pkg
   - services/ws-modules/video1/pkg
   - services/ws-modules/wasi-comm1/pkg
   - services/ws-modules/wasi-data1/pkg
+  - services/ws-modules/wasi-math1/pkg
   - services/ws-modules/wasi-graphics-info/pkg
   - services/ws-modules/zig-data1/pkg
   - services/ws-modules/zig-except1/pkg
+  - services/ws-modules/zig-math1/pkg
   - services/ws-wasm-agent/pkg
   # Python venvs plus the pytest and bytecode caches each Python module's test run leaves behind.
   - .venv
@@ -83,6 +93,7 @@ ignore:
   - .ruff_cache
   - services/ws-modules/pydata1/pydata1/__pycache__
   - services/ws-modules/pydemo1/pydemo1/__pycache__
+  - services/ws-modules/pymath1/pymath1/__pycache__
   - services/ws-modules/pydemo1/tests/__pycache__
   - services/ws-modules/pyeye1/pyeye1/__pycache__
   - services/ws-modules/pyeye1/tests/__pycache__
@@ -106,6 +117,8 @@ ignore:
   - services/ws-modules/pyeye1/.pytest_cache
   - services/ws-modules/pyface1/.venv
   - services/ws-modules/pyface1/.pytest_cache
+  - services/ws-modules/pymath1/.venv
+  - services/ws-modules/pymath1/.pytest_cache
   - services/ws-modules/pyspeech1/.venv
   - services/ws-modules/pyspeech1/.pytest_cache
   - services/ws-modules/pywasm1/.venv
@@ -116,11 +129,16 @@ ignore:
   - services/ws-modules/dotnet-data1/obj
   - services/ws-modules/dotnet-data1/bin/Debug
   - services/ws-modules/dotnet-data1/bin/Release
+  - services/ws-modules/dotnet-math1/obj
+  - services/ws-modules/dotnet-math1/bin/Debug
+  - services/ws-modules/dotnet-math1/bin/Release
   # Zig build output and caches, plus the codegen templates dir whose name carries a literal `.in` suffix.
   - services/ws-modules/zig-data1/.zig-cache
   - services/ws-modules/zig-data1/zig-out
   - services/ws-modules/zig-except1/.zig-cache
   - services/ws-modules/zig-except1/zig-out
+  - services/ws-modules/zig-math1/.zig-cache
+  - services/ws-modules/zig-math1/zig-out
   - utilities/int-gen/src/zig.in
   # Gradle build + cache trees, plus the one tracked source dir whose name ls-lint would reject.
   # wasmJsMain stays tracked but its camelCase name is fixed by Kotlin Multiplatform's
@@ -129,3 +147,7 @@ ignore:
   - services/ws-modules/kotlin-data1/.kotlin
   - services/ws-modules/kotlin-data1/build
   - services/ws-modules/kotlin-data1/src/wasmJsMain
+  - services/ws-modules/kotlin-math1/.gradle
+  - services/ws-modules/kotlin-math1/.kotlin
+  - services/ws-modules/kotlin-math1/build
+  - services/ws-modules/kotlin-math1/src/wasmJsMain

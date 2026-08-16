@@ -6,6 +6,7 @@ members = [
   "services/ws-modules/pydemo1",
   "services/ws-modules/pyeye1",
   "services/ws-modules/pyface1",
+  "services/ws-modules/pymath1",
   "services/ws-modules/pyspeech1",
   "services/ws-modules/wasi-graphics-info",
 ]

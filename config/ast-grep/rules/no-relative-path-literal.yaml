@@ -17,5 +17,8 @@ ignores:
   - libs/path/src/lib.rs
   # --module-dir defaults to the current directory.
   - utilities/cli/src/cli.rs
+  # include_str! resolves its path against this source file at compile time, not the process cwd.
+  # The one `..` up to the crate's committed data/ dir is therefore stable by construction.
+  - services/ws-test-server/src/math1.rs
   # Asserts the relative paths that the generators above produce.
   - utilities/cli/tests/scenario_generation.rs

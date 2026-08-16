@@ -185,6 +185,11 @@ description = "Build the zig-data1 workflow WASM module"
 dir = "services/ws-modules/zig-data1"
 run = "zig build -Doptimize=ReleaseSmall"
 
+[tasks.build-ws-zig-math1-module]
+description = "Build the zig-math1 FedAvg WASM module"
+dir = "services/ws-modules/zig-math1"
+run = "zig build -Doptimize=ReleaseSmall"
+
 [tasks.build-ws-zig-except1-module]
 description = "Build the zig-except1 exception-handling demo WASM module"
 dir = "services/ws-modules/zig-except1"

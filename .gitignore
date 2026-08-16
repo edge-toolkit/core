@@ -9,6 +9,7 @@ services/ws-wasm-agent/pkg/
 services/ws-modules/pywasm1/pkg/
 services/ws-modules/rdata1/pkg/webr/
 services/ws-modules/rcomm1/pkg/webr/
+services/ws-modules/rmath1/pkg/webr/
 services/ws-modules/js-data1/pkg/et_ws_js_data1.js
 services/ws-server/static/models/
 .zig-cache/
@@ -30,6 +31,7 @@ services/ws-modules/dotnet-data1/bin/
 .gradle/
 .kotlin/
 services/ws-modules/kotlin-data1/build/
+services/ws-modules/kotlin-math1/build/
 # Coverage-report artifacts produced by the coverage workflow, uploaded to Codecov and never committed.
 # Covers cargo-llvm-cov's lcov, pytest-cov's Cobertura xml, and pytest-cov's .coverage data file.
 /lcov.info

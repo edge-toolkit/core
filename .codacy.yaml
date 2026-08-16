@@ -43,6 +43,7 @@ exclude_paths:
   - "services/ws-modules/dotnet-data1/Program.cs"
   - "services/ws-modules/wasi-comm1/src/coverage.rs"
   - "services/ws-modules/wasi-data1/src/coverage.rs"
+  - "services/ws-modules/wasi-math1/src/coverage.rs"
   - "services/ws-test-server/src/bin/cov-server.rs"
   - "services/ws-web-runner/mingw-shim/msvc_crt_alloc.c"
   - "services/ws-web-runner/mingw-shim/msvc_crt_locale_cache.c"

@@ -1,0 +1,8 @@
+{
+  "name": "et-ws-dart-math1",
+  "type": "module",
+  "description": "dart math1",
+  "version": "0.1.0",
+  "license": "Apache-2.0 OR MIT",
+  "main": "et_ws_dart_math1.js"
+}

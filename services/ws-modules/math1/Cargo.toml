@@ -1,0 +1,32 @@
+[package]
+description = "math 1"
+name = "et-ws-math1"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+doctest = false
+test = false
+
+[dependencies]
+et-rest-client.workspace = true
+et-web.workspace = true
+et-ws-wasm-agent.workspace = true
+futures-util.workspace = true
+js-sys.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-wasm.workspace = true
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+web-sys = { workspace = true, features = ["Window", "console"] }
+
+[dev-dependencies]
+wasm-bindgen-test.workspace = true
+
+[lints]
+workspace = true
