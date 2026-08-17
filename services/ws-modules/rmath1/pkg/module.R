@@ -117,6 +117,8 @@ run <- function() {
     sleep_ms(100)
   }
   parts <- strsplit(pointer, "\n", fixed = TRUE)[[1]]
+  # The literal loopback host is required, NOT a stand-in for the page origin: the relay only honours loopback
+  # CONNECT targets (its SSRF guard) and always bridges to its own fixed server target, whatever host:port says.
   input_url <- sprintf("http://127.0.0.1:8080/storage/%s/%s", parts[[1]], parts[[2]])
   agent_log(sprintf("rmath1: reading input from %s", input_url))
   input_text <- httr2::request(input_url) |>

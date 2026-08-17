@@ -374,15 +374,6 @@ Languages:
   ws-web-runner). Their JS shims are linted by the `js` env; `MISE_ENV=r` supplies webR + the vendoring build tasks.
 - **Zig -> WASM**: zig-data1, zig-except1 (C++ wasm-exception-handling demo), zig-math1
 
-The math1 modules are one family, driven by a storage exchange: a fake agent (the shared helper in
-`et-ws-test-server`, embedding the canonical committed input at its `data/math1-input.json`) injects the
-input JSON into ws-server storage and broadcasts a `math1-input` pointer over the hub; each module reads the
-input, runs the same FedAvg simulation (`+ - * /` on f64 only), and stores its global model to
-`math1-output.json` in its own bucket, which the test harness reads and verifies against the expected
-weights -- proving bit-identical float math across every guest runtime. Beyond the browser twins the family
-also covers wasi-math1 (a WASI Preview 2 component under `et-ws-wasi-runner`'s wasmtime) and the `math1.py`
-module under `et-ws-pyo3-runner` (native CPython) -- the two non-browser executors.
-
 - **Python (componentize-py -> WASI Preview 2 component)**: wasi-graphics-info -- runs in
   `et-ws-wasi-runner` rather than the browser. The WIT world the component implements is at
   `services/ws-wasi-runner/wit/world.wit` and is mirrored under the module's own `wit/`.
