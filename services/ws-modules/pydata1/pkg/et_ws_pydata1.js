@@ -1,4 +1,4 @@
-// et_ws_pydata1.js — Pyodide-based Python module shim
+// et_ws_pydata1.js -- Pyodide-based Python module shim
 // Interface: default(wasmUrl), metadata(), run()
 
 const PYODIDE_BASE_PATH = "/modules/pyodide/";
@@ -40,13 +40,13 @@ export default async function init() {
   await loadPyodideScript();
   // `mise install pyodide` extracts the full GitHub-release distribution
   // (~200 MB of pinned wheels) at /modules/pyodide/, so both the runtime
-  // and `micropip.install("httpx")` resolve from this same origin — no CDN
+  // and `micropip.install("httpx")` resolve from this same origin -- no CDN
   // dependency at runtime.
   pyodide = await globalThis.loadPyodide({ indexURL: PYODIDE_BASE_PATH });
 
   // pydata1's runtime stack: PyPI deps via micropip (httpx + attrs power
   // the generated client; pyodide-http rewires httpx to use the browser's
-  // fetch()), plus two local wheels — pydata1 itself (next to this shim)
+  // fetch()), plus two local wheels -- pydata1 itself (next to this shim)
   // and the generated et-rest-client wheel served by its own ws-module
   // mount at /modules/et-rest-client/. Going through micropip for the
   // local wheels would make it look up "et-rest-client" on PyPI, which we

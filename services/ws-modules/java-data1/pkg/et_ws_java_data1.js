@@ -1,4 +1,4 @@
-// et_ws_java_data1.js — TeaVM JS shim for java-data1
+// et_ws_java_data1.js -- TeaVM JS shim for java-data1
 // Interface: default(), run()
 
 let javaRun = null;

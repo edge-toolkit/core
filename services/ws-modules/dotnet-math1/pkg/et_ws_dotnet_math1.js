@@ -1,4 +1,4 @@
-// et_ws_dotnet_math1.js — .NET WASM shim for dotnet-math1
+// et_ws_dotnet_math1.js -- .NET WASM shim for dotnet-math1
 // Interface: default(), run()
 //
 // Storage-driven FedAvg: the shim owns the browser I/O -- the WebSocket (including capturing the

@@ -1,4 +1,4 @@
-// et_ws_zig_math1.js — zig-math1 WASM module
+// et_ws_zig_math1.js -- zig-math1 WASM module
 // Runs WASM in a Web Worker; main thread proxies WebSocket + REST calls via
 // SharedArrayBuffer. Shared memory layout (Int32 offsets):
 //   [0] signal: 0=idle, 1=request-pending

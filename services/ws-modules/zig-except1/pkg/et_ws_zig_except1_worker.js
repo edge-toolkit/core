@@ -1,4 +1,4 @@
-// et_ws_zig_except1_worker.js — Web Worker for zig-except1 WASM module
+// et_ws_zig_except1_worker.js -- Web Worker for zig-except1 WASM module
 const DATA_OFFSET = 16;
 let ctrl, data, wasmMemory;
 const enc = new TextEncoder(),

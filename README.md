@@ -120,6 +120,19 @@ mise install-all
 The `preinstall` task will advise if there are any required dependencies are are missing, such as Xcode Command
 Line Tools on MacOS.
 
+### Optionally pre-populating tools from the OCI stores
+
+Most of the tool tree can be restored from this project's per-platform OCI packages on ghcr.io instead of
+downloaded tool-by-tool from each upstream:
+
+```bash
+mise run pull-mise-tools
+```
+
+This pre-populates the local mise data dir from `ghcr.io/edge-toolkit/core/mise-tools/<os>-<arch>`, so the
+`mise install` that follows only fills the gaps (the store carries relocatable tools only) and regenerates shims.
+This is the same store CI restores from; it needs no authentication.
+
 ### Install failures
 
 `mise install` runs tool installs in parallel. If they fail intermittently -- a download race, or a `cargo:` source

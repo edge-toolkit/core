@@ -1,4 +1,4 @@
-// et_ws_zig_data1_worker.js — Web Worker for zig-data1 WASM module
+// et_ws_zig_data1_worker.js -- Web Worker for zig-data1 WASM module
 const DATA_OFFSET = 16;
 let ctrl, data, wasmMemory;
 const enc = new TextEncoder(),
@@ -37,7 +37,7 @@ function callRest(method, url, body) {
   Atomics.notify(ctrl, 0);
   Atomics.wait(ctrl, 0, 1);
   const rlen = Atomics.load(ctrl, 2);
-  // Negative response length is the error sentinel — the main-thread
+  // Negative response length is the error sentinel -- the main-thread
   // dispatch encodes (max int32 + 1 - n) to signal failure.
   if (rlen < 0) return null;
   // Slice copies the bytes out of the SAB region so the wasm caller can

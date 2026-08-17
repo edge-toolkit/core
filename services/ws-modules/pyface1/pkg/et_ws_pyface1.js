@@ -51,7 +51,7 @@ export default async function init() {
   await installLocalWheel(pyfaceWheel);
   // The generated et-ws Pydantic-models wheel is its own ws-module mounted
   // at /modules/et-ws/. We declare it in [tool.ws-module.dependencies] and
-  // delegate wheel install to its shim — version lives in its own
+  // delegate wheel install to its shim -- version lives in its own
   // package.json so a bump there doesn't require touching this file.
   const { installWheel: installEtWs } = await import("/modules/et-ws/et_ws.js");
   await installEtWs(pyodide);

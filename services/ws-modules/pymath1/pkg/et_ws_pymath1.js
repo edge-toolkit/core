@@ -1,4 +1,4 @@
-// et_ws_pymath1.js — Pyodide-based Python module shim
+// et_ws_pymath1.js -- Pyodide-based Python module shim
 // Interface: default() (init), run()
 //
 // Storage-driven FedAvg: the shim owns the browser I/O (WebSocket, the math1-input pointer
@@ -25,7 +25,7 @@ function loadPyodideScript() {
 export default async function init() {
   await loadPyodideScript();
   // The full Pyodide distribution is served at /modules/pyodide/, so the runtime resolves from this
-  // same origin — no CDN dependency. pymath1 has no PyPI deps: its FedAvg kernel is stdlib-only, so
+  // same origin -- no CDN dependency. pymath1 has no PyPI deps: its FedAvg kernel is stdlib-only, so
   // the only wheel to load is its own, served next to this shim.
   pyodide = await globalThis.loadPyodide({ indexURL: PYODIDE_BASE_PATH });
 

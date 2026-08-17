@@ -1,4 +1,4 @@
-// et_ws_zig_except1.js — zig-except1 WASM module
+// et_ws_zig_except1.js -- zig-except1 WASM module
 // Runs WASM in a Web Worker; main thread proxies WebSocket calls via
 // SharedArrayBuffer. Shared memory layout (Int32 offsets):
 //   [0] signal: 0=idle, 1=request-pending

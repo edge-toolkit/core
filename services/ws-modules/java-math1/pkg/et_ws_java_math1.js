@@ -1,4 +1,4 @@
-// et_ws_java_math1.js — TeaVM JS shim for java-math1
+// et_ws_java_math1.js -- TeaVM JS shim for java-math1
 // Interface: default(), run()
 //
 // Storage-driven FedAvg: the shim owns the browser I/O -- the WebSocket (including capturing the

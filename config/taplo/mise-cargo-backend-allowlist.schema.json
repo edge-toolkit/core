@@ -18,6 +18,7 @@
               "cargo:open",
               "cargo:rustfs/rustfs",
               "cargo:ryl",
+              "cargo:vectordotdev/vector",
               "cargo:wasm-opt"
             ]
           }

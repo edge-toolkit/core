@@ -4,13 +4,14 @@ rules:
     paths:
       exclude:
         # Generated / build-output trees regenerate non-ASCII from their tools.
-        # The source of truth there is the generator, not a hand edit: clap's HELP.md carries a jump glyph; wasm-pack
-        # pkg/ bundles and the AsyncAPI/OpenAPI/WIT output under generated/ plus the regen-verification output under
-        # verification/ all reintroduce it.
+        # The source of truth there is the generator, not a hand edit: clap's HELP.md carries a jump glyph and the
+        # AsyncAPI/OpenAPI/WIT output under generated/ plus the regen-verification output under verification/ all
+        # reintroduce it. Module pkg/ dirs are NOT excluded: their generated contents (wasm-pack bundles, wheels,
+        # compiled JS) are gitignored and semgrep scans only tracked files, while the committed shims in pkg/ are
+        # hand-written source the ban must cover -- a blanket pkg/ exclude once hid shim em-dashes for months.
         - "/generated/**"
         - "/verification/**"
         - "**/HELP.md"
-        - "**/pkg/**"
         # License texts carry non-ASCII legal glyphs and are not ours to edit.
         - "LICENSE*"
         # Binary assets.

@@ -514,9 +514,23 @@ shell = "bash -euo pipefail -c"
 # packages:write, so a compromised workflow cannot poison what every job then executes. `mise oci build`
 # emits one content-addressed layer per tool; crane does the upload, skipping blobs the registry already
 # holds, so re-publishing after a config bump uploads just the changed tools. Each store carries
-# host-native binaries: run this on a machine of the platform being published. Needs a one-time
-# `docker login ghcr.io` (or `crane auth login ghcr.io`) with a packages:write PAT, and installs the full
+# host-native binaries: run this on a machine of the platform being published; it installs the full
 # language set first so the image matches what CI expects.
+#
+# One-time auth setup (the push needs a GitHub token that can write packages):
+#   1. Add the `write:packages` scope to the gh CLI's existing token:
+#        gh auth refresh -s write:packages
+#   2. Log the local credential store into ghcr.io with that token, via docker:
+#        gh auth token | docker login ghcr.io -u "$(gh api user --jq .login)" --password-stdin
+#      or, on a machine without docker, via the crane this repo already installs:
+#        mise exec -E maint -- crane auth login ghcr.io -u "$(gh api user --jq .login)" -p "$(gh auth token)"
+#      The `-u` username must be NON-EMPTY (ghcr accepts any value alongside a token). A login without it
+#      stores an auth entry whose username half is blank, which docker/cli then refuses to parse back, and
+#      every later crane/docker call on that machine dies with
+#
+#          Error: parsing config file (~/.docker/config.json): invalid auth configuration file
+#
+#      (observed on a linux maintainer host).
 #
 # crane pushes the layout rather than `mise oci push` because mise 2026.8.0's built-in registry client
 # trips GHCR's chunked blob-upload range rules on large layers and dies mid-push with
