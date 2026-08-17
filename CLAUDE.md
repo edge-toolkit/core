@@ -361,7 +361,7 @@ The server only serves them from disk.
 Languages:
 
 - **Rust -> WASM** (wasm-pack): audio1, bluetooth, comm1, data1, except1, face-detection, geolocation, graphics-info,
-  har1, math1, nfc, sensor1, speech-recognition, video1
+  har1, math1, math1-sender, nfc, sensor1, speech-recognition, video1
 - **JavaScript**: js-data1 (esbuild bundle of the AWS SDK v3 twin), js-math1 (dependency-free, committed as-is)
 - **Dart -> JS**: dart-comm1, dart-data1, dart-math1
 - **Kotlin -> WASM (WasmGC)**: kotlin-data1, kotlin-math1 -- compiled by the Kotlin Gradle plugin's `wasmJs` target;

@@ -303,7 +303,9 @@ the other two runners). A test-harness "fake agent" uploads a canonical input fi
 pointer to it over the hub; each module reads the input, runs the same FedAvg simulation -- rounds of local
 gradient-descent epochs per simulated client, merged with a sample-count-weighted average, using only `+ - * /` on
 IEEE-754 doubles -- and stores its resulting global model back to storage, where the test harness verifies that
-every language produced bit-identical weights.
+every language produced bit-identical weights. To trigger the twins manually, run the `math1-sender` module in
+another browser tab: it plays the fake-agent side itself, uploading the canonical input and broadcasting the
+pointer once a second for a minute.
 
 ## Root module
 

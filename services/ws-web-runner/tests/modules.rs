@@ -161,14 +161,59 @@ async fn math1_module_stores_verified_model(#[case] module: &str, #[case] langua
     collect_module_coverage(&server);
 }
 
+/// The manual-trigger pair: math1-sender plays the fake agent while the Rust math1 twin computes.
+///
+/// Both modules spawn against one server. The sender uploads the embedded canonical input,
+/// broadcasts the pointer (for a minute -- its manual-use window, which this test's wall clock
+/// includes), and math1 stores its model, which is then verified against the expected weights.
+/// This is the end-to-end proof of the browser-only trigger path, with no harness fake agent.
+#[test]
+fn math1_sender_triggers_math1() {
+    if !mise_env_includes(Language::Rust) {
+        println!("skipping et-ws-math1-sender: requires the `rust` mise env, not loaded");
+        return;
+    }
+    let server = et_ws_test_server::start();
+    let bin = env!("CARGO_BIN_EXE_et-ws-web-runner");
+    let spawn = |module: &str| {
+        std::process::Command::new(bin)
+            .env("RUNNER_MODULE", module)
+            .env("WS_SERVER_URL", &server.ws_url)
+            .env("RUNNER_TIMEOUT", "110s")
+            .spawn()
+            .unwrap()
+    };
+    let mut sender = spawn("et-ws-math1-sender");
+    let mut math1 = spawn("et-ws-math1");
+    let math1_status = wait_for_runner_exit(&mut math1);
+    let sender_status = wait_for_runner_exit(&mut sender);
+    assert!(math1_status.success(), "math1 runner exited {math1_status:?}");
+    assert!(sender_status.success(), "math1-sender runner exited {sender_status:?}");
+
+    // The twin stored its model in its own bucket; find it and verify the weights.
+    let mut verified = false;
+    for bucket in fs_err::read_dir(server.storage_dir.path()).unwrap().flatten() {
+        let output_path = bucket.path().join("math1-output.json");
+        if let Ok(bytes) = fs_err::read(&output_path) {
+            let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            let weight = value.get("weight").and_then(serde_json::Value::as_f64).unwrap();
+            let bias = value.get("bias").and_then(serde_json::Value::as_f64).unwrap();
+            et_ws_test_server::math1::verify_math1_model(weight, bias).unwrap();
+            verified = true;
+        }
+    }
+    assert!(verified, "no math1-output.json found in any storage bucket");
+    #[cfg(feature = "coverage")]
+    collect_module_coverage(&server);
+}
+
 /// Poll the spawned runner until it exits, killing it if it overstays the runner-timeout bound.
 ///
 /// Blocking here is fine: this runs after the exchange future has already resolved, so nothing
 /// else is pending on the current-thread runtime.
 #[expect(
     clippy::arithmetic_side_effects,
-    clippy::single_call_fn,
-    reason = "distinct reap step; the deadline addition cannot overflow within a test's lifetime"
+    reason = "the deadline addition cannot overflow within a test's lifetime"
 )]
 fn wait_for_runner_exit(runner: &mut std::process::Child) -> std::process::ExitStatus {
     let deadline = std::time::Instant::now() + std::time::Duration::from_mins(2);

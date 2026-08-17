@@ -4573,6 +4573,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "et-ws-math1-sender"
+version = "0.1.0"
+dependencies = [
+ "et-path",
+ "et-rest-client",
+ "et-web",
+ "et-ws-wasm-agent",
+ "js-sys",
+ "tracing",
+ "tracing-wasm",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-bindgen-test",
+ "web-sys",
+]
+
+[[package]]
 name = "et-ws-nfc"
 version = "0.1.0"
 dependencies = [
@@ -4918,6 +4935,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde-env",
+ "serde_json",
  "sys_traits",
  "thiserror 2.0.19",
  "tokio",

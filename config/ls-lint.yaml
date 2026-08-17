@@ -63,6 +63,7 @@ ignore:
   - services/ws-modules/js-math1/pkg
   - services/ws-modules/kotlin-data1/pkg
   - services/ws-modules/kotlin-math1/pkg
+  - services/ws-modules/math1-sender/pkg
   - services/ws-modules/math1/pkg
   - services/ws-modules/nfc/pkg
   - services/ws-modules/pic-viewer/pkg
