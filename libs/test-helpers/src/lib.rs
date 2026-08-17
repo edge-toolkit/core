@@ -112,10 +112,10 @@ fn drain_pipe<Pipe>(pipe: Pipe) -> Arc<Mutex<String>>
 where
     Pipe: std::io::Read + Send + 'static,
 {
-    let log = Arc::new(Mutex::new(String::new()));
+    let log = Arc::new(Mutex::new(String::default()));
     let sink = Arc::clone(&log);
     let _drainer = std::thread::spawn(move || {
-        let mut buffer = String::new();
+        let mut buffer = String::default();
         let _read = std::io::BufReader::new(pipe).read_to_string(&mut buffer);
         *sink.lock().unwrap() = buffer;
     });

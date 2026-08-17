@@ -38,11 +38,19 @@ description = "Analyze C# sources (Roslynator)"
 # setting a forward-slashed DOTNET_ROOT). The env var itself is fine as the `-m` argument -- mise's core
 # dotnet plugin exports DOTNET_ROOT on every OS, and the forward-slashed form ash delivers on Windows is
 # accepted there; only MSBuildLocator's own probing of it breaks.
-run = 'roslynator analyze -m "{{ vars.dotnet_msbuild }}" services/ws-modules/dotnet-data1/dotnet-data1.csproj'
+run = """
+roslynator analyze -m "{{ vars.dotnet_msbuild }}" services/ws-modules/dotnet-data1/dotnet-data1.csproj
+roslynator analyze -m "{{ vars.dotnet_msbuild }}" services/ws-modules/dotnet-math1/dotnet-math1.csproj
+"""
+shell = "bash -euo pipefail -c"
 
 [tasks.roslynator-fix]
 description = "Apply Roslynator diagnostics' machine-applicable C# fixes in place"
-run = 'roslynator fix -m "{{ vars.dotnet_msbuild }}" services/ws-modules/dotnet-data1/dotnet-data1.csproj'
+run = """
+roslynator fix -m "{{ vars.dotnet_msbuild }}" services/ws-modules/dotnet-data1/dotnet-data1.csproj
+roslynator fix -m "{{ vars.dotnet_msbuild }}" services/ws-modules/dotnet-math1/dotnet-math1.csproj
+"""
+shell = "bash -euo pipefail -c"
 
 # Namespaced aggregators picked up by the default config's globbed `check`/`fmt`/`fix`.
 [tasks."check:dotnet"]
@@ -82,6 +90,29 @@ dotnet workload install wasm-tools --skip-manifest-update
 # while the process-environment PATH stays untouched. The compile step never needed this (absolute emcc path,
 # no PATH lookup), and emcc's own subprocesses find python/node via EMSDK_PYTHON / DOTNET_EMSCRIPTEN_NODE_JS
 # rather than PATH -- verified: the compile succeeds even when cmd can read no PATH whatsoever.
+publish_args=""
+if [ "${OS:-}" = "Windows_NT" ]; then
+    publish_args="-p:PATH=C:\\Windows\\System32"
+fi
+
+# $publish_args holds zero or one CLI flag; word-splitting is intentional.
+# shellcheck disable=SC2086
+dotnet publish -c Release $publish_args
+
+PUBLISH=bin/Release/net10.0/publish/wwwroot/_framework
+cp "$PUBLISH"/*.js "$PUBLISH"/*.wasm "$PUBLISH"/*.dat pkg/
+'''
+shell = "bash -euo pipefail -c"
+
+[tasks.build-ws-dotnet-math1-module]
+description = "Build the dotnet-math1 C# WASM FedAvg module"
+dir = "services/ws-modules/dotnet-math1"
+# Same publish flow as build-ws-dotnet-data1-module, including its Windows PATH-cap workaround.
+run = '''
+set -x
+
+dotnet workload install wasm-tools --skip-manifest-update
+
 publish_args=""
 if [ "${OS:-}" = "Windows_NT" ]; then
     publish_args="-p:PATH=C:\\Windows\\System32"

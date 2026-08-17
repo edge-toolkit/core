@@ -133,7 +133,7 @@ async function enterDemo(state) {
   demo.exitButton.addEventListener("click", () => window.history.back());
 
   try {
-    setLoadingMessage(demo, py ? "Local Python runtime ready" : "Preparing the local Python runtime…");
+    setLoadingMessage(demo, py ? "Local Python runtime ready" : "Preparing the local Python runtime...");
     await loadPythonRuntime();
     if (demo.stopped) return;
     await py.run(platformFor(state, demo));
@@ -265,7 +265,7 @@ function createDemoView(captureSeconds, uploadConsent) {
     "border:0",
   ]);
   const speechStatus = document.createElement("span");
-  speechStatus.textContent = "Preparing microphone…";
+  speechStatus.textContent = "Preparing microphone...";
   speechStatus.style.cssText = "position:absolute;left:22px;bottom:16px;color:#adc8c9;font-size:15px";
   speechPanel.append(speechCanvas, speechBadge, countdown, speechStatus);
 
@@ -441,7 +441,7 @@ function createLoadingScreen() {
   title.textContent = "Preparing local AI";
   title.style.cssText = "display:block;color:#effffb;font-size:17px";
   const message = document.createElement("span");
-  message.textContent = "Starting the demo…";
+  message.textContent = "Starting the demo...";
   message.style.cssText = "display:block;margin-top:6px;color:#94bab8;font-size:13px";
   const style = document.createElement("style");
   style.textContent = "@keyframes pydemo1-spin{to{transform:rotate(360deg)}}";
@@ -503,7 +503,7 @@ function platformFor(state, demo) {
 }
 
 async function loadModels(demo) {
-  setLoadingMessage(demo, "Loading eye and speech detection models…");
+  setLoadingMessage(demo, "Loading eye and speech detection models...");
   [demo.landmarker, demo.speechSession] = await initializeModels(demo);
 }
 
@@ -512,8 +512,8 @@ async function initializeModels(demo) {
   let eyeReady = false;
   let speechReady = false;
   const reportModelProgress = () => {
-    if (eyeReady && !speechReady) setLoadingMessage(demo, "Eye model ready; finishing the speech model…");
-    if (speechReady && !eyeReady) setLoadingMessage(demo, "Speech model ready; finishing the eye model…");
+    if (eyeReady && !speechReady) setLoadingMessage(demo, "Eye model ready; finishing the speech model...");
+    if (speechReady && !eyeReady) setLoadingMessage(demo, "Speech model ready; finishing the eye model...");
   };
   const eyeModel = (async () => {
     const vision = await import(cfg.eye.bundle_path);
@@ -587,7 +587,7 @@ async function runSpeechDetection(state, demo) {
   demo.phase = "COMPLETE";
   demo.countdown.textContent = "Complete";
   demo.speechStatus.textContent = result.speech_detected
-    ? `Speech detected · ${(result.confidence * 100).toFixed(1)}% peak confidence`
+    ? `Speech detected - ${(result.confidence * 100).toFixed(1)}% peak confidence`
     : "No speech detected";
   demo.speechStatus.hidden = result.speech_detected;
   state.client?.send?.(result.event_json);

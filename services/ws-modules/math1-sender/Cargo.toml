@@ -1,0 +1,33 @@
+[package]
+description = "math 1 sender"
+name = "et-ws-math1-sender"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+doctest = false
+test = false
+
+[dependencies]
+et-rest-client.workspace = true
+et-web.workspace = true
+et-ws-wasm-agent.workspace = true
+js-sys.workspace = true
+tracing.workspace = true
+tracing-wasm.workspace = true
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+web-sys = { workspace = true, features = ["Window", "console"] }
+
+# Build script (runs on the host) locates the repo root to emit ET_MATH1_INPUT_PATH.
+[build-dependencies]
+et-path.workspace = true
+
+[dev-dependencies]
+wasm-bindgen-test.workspace = true
+
+[lints]
+workspace = true

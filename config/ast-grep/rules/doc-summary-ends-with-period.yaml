@@ -28,6 +28,7 @@ files:
   - libs/edge-toolkit/tests/no_mise.rs
   - libs/edge-toolkit/tests/npm_mod.rs
   - libs/otlp-emit/src/lib.rs
+  - libs/otlp-mock/src/lib.rs
   - libs/test-helpers/src/lib.rs
   - libs/ws-runner-common/tests/config.rs
   - services/modules/tests/api_modules.rs
@@ -40,16 +41,31 @@ files:
   - services/storage/tests/image_logging.rs
   - services/storage/tests/put.rs
   - services/storage/tests/s3_backend.rs
+  - services/storage/tests/tty_render.rs
   - services/websockify/src/lib.rs
   - services/websockify/tests/relay.rs
+  - services/ws-modules/comm1/src/lib.rs
   - services/ws-modules/except1/src/lib.rs
+  - services/ws-modules/face-detection/src/lib.rs
+  - services/ws-modules/face-detection/tests/status_lines.rs
+  - services/ws-modules/har1/src/lib.rs
+  - services/ws-modules/har1/tests/status_lines.rs
+  - services/ws-modules/math1-sender/build.rs
+  - services/ws-modules/math1-sender/src/lib.rs
+  - services/ws-modules/math1/src/lib.rs
   - services/ws-modules/pic-viewer/build.rs
   - services/ws-modules/pic-viewer/src/lib.rs
   - services/ws-modules/pic-viewer/tests/parse.rs
   - services/ws-modules/pic-viewer/tests/show_image.rs
+  - services/ws-modules/sensor1/src/lib.rs
   - services/ws-modules/wasi-comm1/src/lib.rs
   - services/ws-modules/wasi-data1/src/lib.rs
+  - services/ws-modules/wasi-math1/src/coverage.rs
+  - services/ws-modules/wasi-math1/src/lib.rs
   - services/ws-pyo3-runner/tests/modules.rs
+  - services/ws-test-server/src/lib.rs
+  - services/ws-test-server/src/math1.rs
+  - services/ws-test-server/tests/math1_exchange.rs
   - services/ws-server/src/config.rs
   - services/ws-server/src/lib.rs
   - services/ws-server/src/main.rs
@@ -61,6 +77,7 @@ files:
   - services/ws-wasi-runner/src/bindings.rs
   - services/ws-wasi-runner/src/host/error.rs
   - services/ws-wasi-runner/src/host/mod.rs
+  - services/ws-wasi-runner/src/host/ws.rs
   - services/ws-wasi-runner/src/lib.rs
   - services/ws-wasi-runner/tests/modules.rs
   - services/ws-wasi-runner/tests/o2_ingest_search.rs

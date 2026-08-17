@@ -32,7 +32,7 @@ pub async fn run() -> Result<(), JsValue> {
     log(&format!("comm1: resolved websocket URL: {ws_url}"));
 
     let mut client = WsClient::new(WsClientConfig::new(ws_url));
-    let self_agent_id = Rc::new(RefCell::new(String::new()));
+    let self_agent_id = Rc::new(RefCell::new(String::default()));
     let other_connected_agents: Rc<RefCell<Vec<AgentSummary>>> = Rc::new(RefCell::new(Vec::new()));
 
     let on_message_boxed: Box<dyn FnMut(JsValue)> = Box::new({

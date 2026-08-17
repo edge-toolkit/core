@@ -499,6 +499,15 @@ async fn run_inner(client: &WsClient, sensors: &mut DeviceSensors) -> Result<(),
     Ok(())
 }
 
+/// Append a blank-line-separated section header to the status-panel lines.
+///
+/// Pure (no DOM/interop calls), so the host-side test can cover the separator formatting the
+/// sensor display builds its orientation/motion sections through.
+pub fn push_section(lines: &mut Vec<String>, title: &str) {
+    lines.push(String::default());
+    lines.push(String::from(title));
+}
+
 fn render_sensor_output(sensors: &DeviceSensors) -> Result<(), JsValue> {
     let orientation = if sensors.has_orientation() {
         Some(sensors.orientation_snapshot()?)
@@ -517,9 +526,8 @@ fn render_sensor_output(sensors: &DeviceSensors) -> Result<(), JsValue> {
             "updated: {}",
             String::from(js_sys::Date::new_0().to_locale_time_string("en-US"))
         ),
-        String::new(),
-        String::from("orientation"),
     ];
+    push_section(&mut lines, "orientation");
 
     if let Some(orientation) = orientation {
         lines.push(format!("alpha: {}", format_number(orientation.alpha(), 3)));
@@ -530,8 +538,7 @@ fn render_sensor_output(sensors: &DeviceSensors) -> Result<(), JsValue> {
         lines.push(String::from("waiting for orientation event..."));
     }
 
-    lines.push(String::new());
-    lines.push(String::from("motion"));
+    push_section(&mut lines, "motion");
     if let Some(motion) = motion {
         lines.push(format!(
             "acceleration: x={} y={} z={}",
@@ -791,9 +798,10 @@ fn create_feat_tensor(values: &[f32]) -> Result<JsValue, JsValue> {
     Reflect::construct(&tensor_ctor, &args)
 }
 
-/// Compute 36 hand-crafted features from the sample buffer:
-/// 8 channels x 4 stats (mean, std, min, max) = 32, plus 4 stats on the
-/// per-sample vector magnitude (mean, std, min, max) = 36 total.
+/// Compute 36 hand-crafted features from the sample buffer.
+///
+/// 8 channels x 4 stats (mean, std, min, max) = 32, plus 4 stats on the per-sample vector
+/// magnitude (mean, std, min, max) = 36 total.
 fn compute_feat_input(sample_buffer: &VecDeque<[f32; HAR_FEATURE_COUNT]>) -> [f32; HAR_FEAT_INPUT_SIZE] {
     let sample_count = sample_buffer.len() as f32;
     let mut out = [0.0f32; HAR_FEAT_INPUT_SIZE];

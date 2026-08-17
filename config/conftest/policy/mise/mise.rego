@@ -163,6 +163,11 @@ allowed_os_scoped_tool := {
 	# windows_exporter is a Windows-only host/GPU Prometheus exporter, so the o2-winmetrics task scopes it to Windows.
 	"github:prometheus-community/windows_exporter",
 	"cargo:findutils",
+	# vector is the OTLP store-and-forward relay, covered by two per-platform entries.
+	# The aqua prebuilt covers every platform upstream ships (no darwin/amd64 asset exists); a cargo source
+	# build from the same git tag covers macos/x64. Between the two every platform is covered.
+	"aqua:vectordotdev/vector",
+	"cargo:vectordotdev/vector",
 	# rustfs is the S3 server the storage backend test runs against, covered by two per-platform entries.
 	# http: names an upstream asset for every platform that ships one; a cargo source build from the same git
 	# tag covers macos/x64, which has no prebuilt at all. Between the two every platform is covered.

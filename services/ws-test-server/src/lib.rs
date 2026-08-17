@@ -20,6 +20,8 @@ use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
 use tracing_actix_web::TracingLogger;
 
+pub mod math1;
+
 /// A running test server. The temporary storage directory is cleaned up on drop.
 #[non_exhaustive]
 pub struct TestServer {
@@ -87,8 +89,10 @@ pub fn start_on(port: u16) -> TestServer {
     panic!("test ws-server did not start within 5 seconds on port {port}");
 }
 
-/// Open a ws connection to `ws_url`, send `et-connect`, and return `(stream, agent_id)` once the
-/// `et-connect-ack` has been observed. Lets a test drive the hub as a websocket client.
+/// Open a ws connection to `ws_url` and drive `et-connect` through its ack.
+///
+/// Returns `(stream, agent_id)` once the `et-connect-ack` has been observed. Lets a test drive the
+/// hub as a websocket client.
 pub async fn connect_agent(
     ws_url: &str,
 ) -> (
@@ -117,8 +121,10 @@ pub async fn connect_agent(
     panic!("never received et-connect-ack within 5s");
 }
 
-/// Pull the next frame from `stream`, skipping known protocol acks (`et-connect-ack`,
-/// `et-message-status`, `et-response`) so callers see the next "real" payload.
+/// Pull the next non-ack frame from `stream`.
+///
+/// Skips known protocol acks (`et-connect-ack`, `et-message-status`, `et-response`) so callers see
+/// the next "real" payload.
 pub async fn next_payload(
     stream: &mut tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
 ) -> Message {

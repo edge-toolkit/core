@@ -24,6 +24,18 @@ description = "Build the data1 workflow WASM module"
 dir = "services/ws-modules/data1"
 run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
+[tasks.build-ws-math1-module]
+depends = ["build-wasm-cov-wrapper"]
+description = "Build the math1 FedAvg WASM module"
+dir = "services/ws-modules/math1"
+run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
+
+[tasks.build-ws-math1-sender-module]
+depends = ["build-wasm-cov-wrapper"]
+description = "Build the math1-sender trigger WASM module"
+dir = "services/ws-modules/math1-sender"
+run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
+
 [tasks.build-ws-comm1-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the comm1 workflow WASM module"
@@ -104,6 +116,17 @@ run = """
 mkdir -p services/ws-modules/wasi-data1/pkg
 cp target/wasm32-wasip2/release/et_ws_wasi_data1.wasm services/ws-modules/wasi-data1/pkg/et_ws_wasi_data1.wasm
 {{ vars.et_cli }} module-package-json --module-dir services/ws-modules/wasi-data1
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.build-ws-wasi-math1-module]
+depends = ["build-et-cli"]
+description = "Build the Rust WASI math1 module as a WASI Preview 2 component"
+run = """
+{{ vars.wasm_cov }} cargo build --release -p et-ws-wasi-math1 --target wasm32-wasip2{{ vars.wasi_cov_feat }}
+mkdir -p services/ws-modules/wasi-math1/pkg
+cp target/wasm32-wasip2/release/et_ws_wasi_math1.wasm services/ws-modules/wasi-math1/pkg/et_ws_wasi_math1.wasm
+{{ vars.et_cli }} module-package-json --module-dir services/ws-modules/wasi-math1
 """
 shell = "bash -euo pipefail -c"
 

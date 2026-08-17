@@ -61,7 +61,9 @@ action-validator = { version = "latest", os = ["linux", "macos"] }
 "aqua:koalaman/shellcheck" = "latest"
 "aqua:rhysd/actionlint" = "latest"
 "aqua:rustwasm/wasm-pack" = "latest"
-"aqua:vectordotdev/vector" = "0.56.0"
+# Vector ships no darwin/amd64 prebuilt, so second-tier macos/x64 builds the same pin from source below.
+# The aqua error was: `unsupported env: darwin/amd64 (supported: ["linux", "darwin/arm64", "windows/amd64"])`.
+"aqua:vectordotdev/vector" = { version = "0.56.0", os = ["linux", "macos/arm64", "windows"] }
 ast-grep = "latest"
 cargo-binstall = "latest"
 "cargo:cargo-expand" = { version = "latest", os = ["linux", "macos"] }
@@ -106,6 +108,11 @@ ripgrep = "latest"
 "github:benhoyt/goawk" = "latest"
 "github:caldempsey/parfit" = "latest"
 "github:grok-rs/waitup" = "latest"
+# The macos/x64 half of vector (see the aqua:vectordotdev/vector note above).
+# A git `tag:` spec rather than the crates.io crate so this platform builds the exact source the other
+# platforms' 0.56.0 prebuilts are cut from -- bump it with the aqua entry. A source build is acceptable here
+# because macos/x64 is second-tier.
+"cargo:vectordotdev/vector" = { version = "tag:v0.56.0", os = ["macos/x64"] }
 # The macos/x64 half of rustfs, the one platform upstream ships no prebuilt for.
 # A git spec rather than a bare `cargo:rustfs`: the crates.io crate is a stale 0.0.2 placeholder while real
 # releases are 1.0.0-beta.x on GitHub only, so installing the crate would give this platform different software

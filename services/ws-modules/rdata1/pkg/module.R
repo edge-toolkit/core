@@ -95,6 +95,8 @@ run <- function() {
   agent_log(sprintf("rdata1: registered as %s", bucket))
 
   # Compute in R, then PUT and GET the payload with httr2 (tunnelled to the server via the relay), and verify.
+  # The literal loopback host is required, NOT a stand-in for the page origin: the relay only honours loopback
+  # CONNECT targets (its SSRF guard) and always bridges to its own fixed server target, whatever host:port says.
   content <- rdata1_payload()
   url <- sprintf("http://127.0.0.1:8080/storage/%s/%s", bucket, rdata1_filename())
   httr2::request(url) |>

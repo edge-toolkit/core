@@ -1,0 +1,4 @@
+*.wasm
+*.dat
+dotnet.js
+dotnet.*.js

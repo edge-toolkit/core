@@ -120,6 +120,19 @@ mise install-all
 The `preinstall` task will advise if there are any required dependencies are are missing, such as Xcode Command
 Line Tools on MacOS.
 
+### Optionally pre-populating tools from the OCI stores
+
+Most of the tool tree can be restored from this project's per-platform OCI packages on ghcr.io instead of
+downloaded tool-by-tool from each upstream:
+
+```bash
+mise run pull-mise-tools
+```
+
+This pre-populates the local mise data dir from `ghcr.io/edge-toolkit/core/mise-tools/<os>-<arch>`, so the
+`mise install` that follows only fills the gaps (the store carries relocatable tools only) and regenerates shims.
+This is the same store CI restores from; it needs no authentication.
+
 ### Install failures
 
 `mise install` runs tool installs in parallel. If they fail intermittently -- a download race, or a `cargo:` source
@@ -280,6 +293,19 @@ Modules built as WASI Preview 2 components and run under wasmtime:
 
 Native CPython modules linked via [PyO3](https://pyo3.rs) -- used for workloads that need a real CPython runtime
 (e.g. PyTorch inference).
+
+### The math1 family
+
+The `math1` modules are the same federated-learning demo implemented once per guest language (Rust, JavaScript,
+Dart, Python, Kotlin, C#, Java, R, and Zig in the browser runner, plus WASI-component and native-CPython twins for
+the other two runners). A test-harness "fake agent" uploads a canonical input file
+([math1-input.json](services/ws-test-server/data/math1-input.json)) into the server's storage and broadcasts a
+pointer to it over the hub; each module reads the input, runs the same FedAvg simulation -- rounds of local
+gradient-descent epochs per simulated client, merged with a sample-count-weighted average, using only `+ - * /` on
+IEEE-754 doubles -- and stores its resulting global model back to storage, where the test harness verifies that
+every language produced bit-identical weights. To trigger the twins manually, run the `math1-sender` module in
+another browser tab: it plays the fake-agent side itself, uploading the canonical input and broadcasting the
+pointer once a second for a minute.
 
 ## Root module
 

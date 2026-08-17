@@ -31,16 +31,27 @@ dir = "services/ws-modules/kotlin-data1"
 run = "\"$GRADLE\" --console=plain pkgDist"
 shell = "bash -euo pipefail -c"
 
+[tasks.build-ws-kotlin-math1-module]
+description = "Build the kotlin-math1 FedAvg module (Kotlin/Wasm -> WasmGC)"
+dir = "services/ws-modules/kotlin-math1"
+run = "\"$GRADLE\" --console=plain pkgDist"
+shell = "bash -euo pipefail -c"
+
 # Namespaced aggregator picked up by the default config's globbed `check`.
 # The compile runs kotlinc with allWarningsAsErrors (set in build.gradle.kts), the Kotlin analogue of -Werror.
+# Each Kotlin module is its own Gradle root project, so the check compiles them one -p at a time.
 [tasks."check:kotlin"]
 description = "Run Kotlin checks (kotlinc allWarningsAsErrors via the Gradle compile)"
-dir = "services/ws-modules/kotlin-data1"
-run = "\"$GRADLE\" --console=plain compileKotlinWasmJs"
+run = """
+"$GRADLE" --console=plain -p services/ws-modules/kotlin-data1 compileKotlinWasmJs
+"$GRADLE" --console=plain -p services/ws-modules/kotlin-math1 compileKotlinWasmJs
+"""
 shell = "bash -euo pipefail -c"
 
 [tasks."prefetch:kotlin"]
 description = "Prefetch Kotlin (Gradle plugin + Maven Central) dependencies"
-dir = "services/ws-modules/kotlin-data1"
-run = "\"$GRADLE\" --console=plain dependencies"
+run = """
+"$GRADLE" --console=plain -p services/ws-modules/kotlin-data1 dependencies
+"$GRADLE" --console=plain -p services/ws-modules/kotlin-math1 dependencies
+"""
 shell = "bash -euo pipefail -c"

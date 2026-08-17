@@ -1,4 +1,4 @@
-// et_ws_dart_comm1.js — ES module shim for dart-comm1
+// et_ws_dart_comm1.js -- ES module shim for dart-comm1
 
 export default async function init() {
   await new Promise((resolve, reject) => {

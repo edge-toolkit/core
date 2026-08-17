@@ -1,4 +1,4 @@
-// et_ws_dotnet_data1.js — .NET WASM shim for dotnet-data1
+// et_ws_dotnet_data1.js -- .NET WASM shim for dotnet-data1
 // Interface: default(), run()
 
 let exports = null;

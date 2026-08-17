@@ -409,25 +409,49 @@ async fn infer_once(
 }
 
 fn update_face_status(input_name: &str, output_names: &[String], summary: &DetectionSummary) {
+    let lines = face_status_lines(
+        input_name,
+        output_names,
+        summary.detections.len(),
+        summary.confidence,
+        &summary.processed_at,
+        summary.detections.first().map(|best| best.box_coords),
+    );
+    face_set_status(&lines.join("\n"));
+}
+
+/// Build the status-panel lines for a detection summary.
+///
+/// Pure (no DOM/interop calls) and parameterised on plain values, so the host-side test can cover
+/// the formatting -- including the blank separator ahead of the best-box section.
+#[must_use]
+pub fn face_status_lines(
+    input_name: &str,
+    output_names: &[String],
+    detection_count: usize,
+    confidence: f64,
+    processed_at: &str,
+    best_box: Option<[f64; 4]>,
+) -> Vec<String> {
     let mut lines = vec![
         String::from("face detection demo"),
         format!("model file: {FACE_MODEL_PATH}"),
         format!("input: {input_name}"),
         format!("outputs: {}", output_names.join(", ")),
-        format!("detections: {}", summary.detections.len()),
-        format!("best confidence: {:.4}", summary.confidence),
-        format!("processed at: {}", summary.processed_at),
+        format!("detections: {detection_count}"),
+        format!("best confidence: {confidence:.4}"),
+        format!("processed at: {processed_at}"),
     ];
 
-    if let Some(best) = summary.detections.first() {
-        lines.push(String::new());
+    if let Some(coords) = best_box {
+        lines.push(String::default());
         lines.push(format!(
             "best box: {:.1}, {:.1}, {:.1}, {:.1}",
-            best.box_coords[0], best.box_coords[1], best.box_coords[2], best.box_coords[3]
+            coords[0], coords[1], coords[2], coords[3]
         ));
     }
 
-    face_set_status(&lines.join("\n"));
+    lines
 }
 
 fn decode_retinaface_outputs(

@@ -145,7 +145,7 @@ async function recordAndDetect(state) {
   button.style.cursor = "wait";
   button.style.opacity = "0.72";
   button.dataset.state = "recording";
-  button.querySelector("span:last-child").textContent = "Recording…";
+  button.querySelector("span:last-child").textContent = "Recording...";
   setStatus(py.starting_status());
 
   try {

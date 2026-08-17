@@ -14,3 +14,4 @@ workspace:
   - generated/dart-rest
   - services/ws-modules/dart-comm1
   - services/ws-modules/dart-data1
+  - services/ws-modules/dart-math1

@@ -18,6 +18,7 @@ rules:
         - "oxlintrc.jsonc" # oxlint: only JSON / JSONC supported
         - "oxfmtrc.jsonc" # oxfmt: only JSON / JSONC supported
         - "tsconfig.json" # TypeScript/tsgolint: mandates the JSON `tsconfig.json` name (oxlint --type-aware)
+        - "math1-input.json" # math1 wire payload: served to modules verbatim, parsed by their JSON parsers
     pattern-regex: \A
     message: >-
       Prefer YAML or TOML over JSON/JSONC/JSONL for config.

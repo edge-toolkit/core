@@ -1,0 +1,12 @@
+id: no-string-new
+language: Rust
+severity: error
+message: |
+  `String::new()` is banned (DeepSource RS-W1079): construct empty strings with `String::default()` instead, so
+  the zero value routes through the `Default` impl like every other default-constructed value in the codebase.
+rule:
+  pattern: String::new()
+# Mechanical autofix: the two constructors are documented to produce the identical empty string.
+fix: String::default()
+ignores:
+  - generated/**

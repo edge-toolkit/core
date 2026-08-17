@@ -270,6 +270,26 @@ async fn run_exchange(control: &mut ControlSocket, self_id: &str, exchange: &Exc
     Ok(())
 }
 
+/// math1's storage-driven exchange: inject the canonical input, then verify the stored model.
+///
+/// The fake-agent side lives in `et_ws_test_server::math1`; the module reads the input through the
+/// runner's storage handle, computes, and stores its global model, which is verified against the
+/// expected weights for the canonical input. The runner is long-lived, so it is killed once the
+/// exchange resolves (mirroring `module_behaves`).
+#[tokio::test(flavor = "current_thread")]
+async fn math1_stores_verified_model() -> Result<(), Box<dyn Error>> {
+    let server = et_ws_test_server::start();
+    let mut runner = spawn_runner("math1", &server.ws_url);
+    let outcome =
+        et_ws_test_server::math1::drive_math1_exchange(&server.ws_url, server.storage_dir.path(), EXCHANGE_BUDGET)
+            .await;
+    runner.kill().unwrap();
+    let _status = runner.wait().unwrap();
+    let (weight, bias) = outcome?;
+    et_ws_test_server::math1::verify_math1_model(weight, bias)?;
+    Ok(())
+}
+
 /// Torch case checker: matmul + tiny-classifier summary from `torch_inference.py`.
 fn check_torch(value: &serde_json::Value) -> Result<(), Box<dyn Error>> {
     if value.get("framework").and_then(serde_json::Value::as_str) != Some("torch") {

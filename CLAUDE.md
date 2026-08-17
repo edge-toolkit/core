@@ -361,16 +361,19 @@ The server only serves them from disk.
 Languages:
 
 - **Rust -> WASM** (wasm-pack): audio1, bluetooth, comm1, data1, except1, face-detection, geolocation, graphics-info,
-  har1, nfc, sensor1, speech-recognition, video1
-- **Dart -> JS**: dart-comm1
-- **Kotlin -> WASM (WasmGC)**: kotlin-data1 -- compiled by the Kotlin Gradle plugin's `wasmJs` target; the
-  module is a WasmGC binary (browser GC manages the Kotlin heap), so it needs a WasmGC-capable engine
-- **Python (Pyodide)**: pydata1, pyeye1, pyface1
-- **C# (.NET WASM)**: dotnet-data1
-- **Java (TeaVM -> JS)**: java-data1
-- **R (webR -> WASM)**: rdata1, rcomm1 -- browser-only (webR spawns a classic Worker, unsupported by Deno's
+  har1, math1, math1-sender, nfc, sensor1, speech-recognition, video1
+- **JavaScript**: js-data1 (esbuild bundle of the AWS SDK v3 twin), js-math1 (dependency-free, committed as-is)
+- **Dart -> JS**: dart-comm1, dart-data1, dart-math1
+- **Kotlin -> WASM (WasmGC)**: kotlin-data1, kotlin-math1 -- compiled by the Kotlin Gradle plugin's `wasmJs` target;
+  each module is a WasmGC binary (browser GC manages the Kotlin heap), so it needs a WasmGC-capable engine
+- **Python (Pyodide)**: pydata1, pyeye1, pyface1, pymath1
+- **C# (.NET WASM)**: dotnet-data1, dotnet-math1
+- **Java (TeaVM -> JS)**: java-data1, java-math1 -- both built by the single root `pom.xml` (one compilation, one
+  teavm-maven-plugin execution per module)
+- **R (webR -> WASM)**: rdata1, rcomm1, rmath1 -- browser-only (webR spawns a classic Worker, unsupported by Deno's
   ws-web-runner). Their JS shims are linted by the `js` env; `MISE_ENV=r` supplies webR + the vendoring build tasks.
-- **Zig -> WASM**: zig-data1, zig-except1 (C++ wasm-exception-handling demo)
+- **Zig -> WASM**: zig-data1, zig-except1 (C++ wasm-exception-handling demo), zig-math1
+
 - **Python (componentize-py -> WASI Preview 2 component)**: wasi-graphics-info -- runs in
   `et-ws-wasi-runner` rather than the browser. The WIT world the component implements is at
   `services/ws-wasi-runner/wit/world.wit` and is mirrored under the module's own `wit/`.

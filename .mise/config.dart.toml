@@ -76,12 +76,22 @@ dart compile js lib/dart_data1.dart -o pkg/et_ws_dart_data1_compiled.js --no-sou
 """
 shell = "bash -euo pipefail -c"
 
+[tasks.build-ws-dart-math1-module]
+description = "Build the dart-math1 FedAvg module"
+dir = "services/ws-modules/dart-math1"
+run = """
+dart pub get
+dart compile js lib/dart_math1.dart -o pkg/et_ws_dart_math1_compiled.js --no-source-maps
+"""
+shell = "bash -euo pipefail -c"
+
 [tasks."prefetch:dart"]
 description = "Prefetch Dart (pub) dependencies"
 run = """
 dart pub get --directory generated/dart-rest
 dart pub get --directory services/ws-modules/dart-comm1
 dart pub get --directory services/ws-modules/dart-data1
+dart pub get --directory services/ws-modules/dart-math1
 """
 shell = "bash -euo pipefail -c"
 
