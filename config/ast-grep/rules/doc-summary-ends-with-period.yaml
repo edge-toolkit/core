@@ -41,6 +41,7 @@ files:
   - services/storage/tests/image_logging.rs
   - services/storage/tests/put.rs
   - services/storage/tests/s3_backend.rs
+  - services/storage/tests/tty_render.rs
   - services/websockify/src/lib.rs
   - services/websockify/tests/relay.rs
   - services/ws-modules/comm1/src/lib.rs

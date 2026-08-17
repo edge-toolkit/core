@@ -13,7 +13,7 @@ use et_ws_test_server::math1::{
     MATH1_EXPECTED_BIAS, MATH1_EXPECTED_WEIGHT, MATH1_OUTPUT_FILENAME, Math1Error, drive_math1_exchange,
     verify_math1_model,
 };
-use futures_util::SinkExt as _;
+use futures_util::{SinkExt as _, StreamExt as _};
 use tokio_tungstenite::tungstenite::Message;
 
 /// Budget generous enough for the driver to see the peer and its pre-written output.
@@ -43,6 +43,51 @@ async fn unreachable_server_is_a_transport_error() {
         .await
         .unwrap_err();
     assert!(matches!(err, Math1Error::Transport(_)), "unexpected error: {err}");
+}
+
+/// A server that closes the websocket cleanly mid-exchange surfaces as the socket-closed error.
+#[tokio::test(flavor = "current_thread")]
+async fn server_close_is_a_protocol_error() {
+    let ws_url = accept_one_connection_then(true).await;
+    let err = drive_math1_exchange(&ws_url, std::env::temp_dir().as_path(), EXCHANGE_BUDGET)
+        .await
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("socket closed"),
+        "expected the socket-closed protocol error, got: {err}"
+    );
+}
+
+/// A server that drops the TCP stream without a close handshake surfaces as a transport error.
+#[tokio::test(flavor = "current_thread")]
+async fn abrupt_server_drop_is_a_transport_error() {
+    let ws_url = accept_one_connection_then(false).await;
+    let err = drive_math1_exchange(&ws_url, std::env::temp_dir().as_path(), EXCHANGE_BUDGET)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, Math1Error::Transport(_)), "unexpected error: {err}");
+}
+
+/// Accept exactly one ws connection, consume its first frame, then close it (gracefully or not).
+///
+/// Returns the `ws://` URL to hand to the driver. The close style picks which driver arm trips:
+/// a clean close handshake ends the stream (`None`), an abrupt TCP drop yields a protocol `Err`.
+async fn accept_one_connection_then(close_gracefully: bool) -> String {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let _server = tokio::spawn(async move {
+        let (stream, _peer) = listener.accept().await.unwrap();
+        let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+        // Consume the driver's et-connect frame so its send completes before the teardown.
+        let _frame = socket.next().await;
+        if close_gracefully {
+            socket.close(None).await.unwrap();
+            // Hold the stream open long enough for the close handshake to reach the driver.
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+        // Dropping the socket here tears the TCP stream down without a close handshake.
+    });
+    format!("ws://{addr}/ws")
 }
 
 /// With no module ever answering, the driver keeps re-broadcasting until the budget expires.

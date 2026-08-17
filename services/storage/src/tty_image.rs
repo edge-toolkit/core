@@ -26,10 +26,6 @@ const TARGET_COLUMNS: u32 = 48;
 ///
 /// Returns the underlying `image` decode error on failure; the caller decides how to report it (this module
 /// stays IO-boundary-agnostic rather than picking a logging mechanism itself).
-#[expect(
-    clippy::single_call_fn,
-    reason = "distinct step of show_image_on_tty; kept separate for readability and testing"
-)]
 pub fn render_bytes(bytes: &[u8]) -> image::ImageResult<()> {
     let source = image::load_from_memory(bytes)?;
     if source.width() == 0 || source.height() == 0 {

@@ -18,6 +18,10 @@ name: test
           - macos-26-intel
           - windows-latest
           - windows-11-arm
+      windows-overrides:
+        description: "Also run the msvc + mingw override lanes"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -157,6 +161,10 @@ jobs:
   # `mingw` links that msvc archive into an x86_64-pc-windows-gnu binary with winlibs GCC. Separate from
   # the `default` job because they override the gnullvm default target rather than exercising it.
   override:
+    # Always on for pull requests; opt-in on manual dispatches.
+    # The windows-overrides checkbox gates these lanes so a dispatch aimed at one OS doesn't also spawn two
+    # long Windows jobs.
+    if: github.event_name != 'workflow_dispatch' || inputs.windows-overrides
     # Read-only pull of the maintainer-published ghcr.io mise-tools store (install-mise-tools restore step).
     # Never write: the stores are published only from a maintainer's machine via `mise run push-mise-tools`.
     permissions:
