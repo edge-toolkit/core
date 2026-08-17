@@ -154,9 +154,17 @@ for profraw in "$covdir"/*.profraw; do
   # nothing and every module aborted the task with `wasi-cov: no .ll found for et_ws_audio1`. Observed on commit
   # 3fe98398 at https://github.com/edge-toolkit/core/actions/runs/30789818011/job/91610793550. Both globs stay so
   # the task works whichever layout the toolchain produces; drop the deps fallback once no supported cargo emits it.
-  ll="$(find target -path '*/release/build/*' -name "$name*.ll" 2>/dev/null | coreutils head -n 1)"
+  # `-print -quit` (not `| coreutils head -n 1`) and an exact-or-hash-suffixed name pattern, both load-bearing:
+  # (1) `$name*.ll` also matched prefix-sharing sibling crates once math1-sender landed next to math1, risking a
+  # profraw paired with the wrong module's covmap; (2) with 2+ matches, head exits after the first line and the
+  # uutils find dies on the broken pipe (Rust ignores SIGPIPE) -- a panic on the Linux runners, exiting 101 with
+  # its message discarded by the 2>/dev/null, so `pipefail` killed this task with no output at all. Observed on
+  # commit db374f051f72f7c285fe8267f5acc80a52cfcfd9 at
+  # https://github.com/edge-toolkit/core/actions/runs/31994728610/job/95284251850; reproduced locally on macOS
+  # as `find: stdout: Undefined error: 0` (EPIPE, exit 1) once the second match exists.
+  ll="$(find target -path '*/release/build/*' \\( -name "$name.ll" -o -name "$name-*.ll" \\) -print -quit 2>/dev/null)"
   if [ -z "$ll" ]; then
-    ll="$(find target -path '*/release/deps/*' -name "$name*.ll" 2>/dev/null | coreutils head -n 1)"
+    ll="$(find target -path '*/release/deps/*' \\( -name "$name.ll" -o -name "$name-*.ll" \\) -print -quit 2>/dev/null)"
   fi
   if [ -z "$ll" ]; then echo "wasi-cov: no .ll found for $name"; exit 1; fi
   pd="$covdir/$name.profdata"
