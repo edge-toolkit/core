@@ -27,7 +27,10 @@ description = "Vendor the webR distribution into rdata1's pkg/webr/ (served at /
 dir = "services/ws-modules/rdata1"
 run = """
 src="$(mise where "http:webr")"
-[ -n "$src" ] || { echo "http:webr not installed; run 'MISE_ENV=r mise install' first" >&2; exit 1; }
+[ -n "$src" ] || {
+  echo "http:webr not installed; run 'MISE_ENV=r mise install' first" >&2
+  exit 1
+}
 coreutils rm -rf pkg/webr
 coreutils mkdir -p pkg/webr
 coreutils cp -R "$src/." pkg/webr/
@@ -40,7 +43,10 @@ description = "Vendor the webR distribution into rmath1's pkg/webr/ (served at /
 dir = "services/ws-modules/rmath1"
 run = """
 src="$(mise where "http:webr")"
-[ -n "$src" ] || { echo "http:webr not installed; run 'MISE_ENV=r mise install' first" >&2; exit 1; }
+[ -n "$src" ] || {
+  echo "http:webr not installed; run 'MISE_ENV=r mise install' first" >&2
+  exit 1
+}
 coreutils rm -rf pkg/webr
 coreutils mkdir -p pkg/webr
 coreutils cp -R "$src/." pkg/webr/
@@ -53,7 +59,10 @@ description = "Vendor the webR distribution into rcomm1's pkg/webr/ (served at /
 dir = "services/ws-modules/rcomm1"
 run = """
 src="$(mise where "http:webr")"
-[ -n "$src" ] || { echo "http:webr not installed; run 'MISE_ENV=r mise install' first" >&2; exit 1; }
+[ -n "$src" ] || {
+  echo "http:webr not installed; run 'MISE_ENV=r mise install' first" >&2
+  exit 1
+}
 coreutils rm -rf pkg/webr
 coreutils mkdir -p pkg/webr
 coreutils cp -R "$src/." pkg/webr/

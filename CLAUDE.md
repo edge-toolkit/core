@@ -302,7 +302,8 @@ run every loaded language's row; guest rows need their `MISE_ENV` loaded.
 `dprint-fmt` / `dprint-check` cover `*.md`, `*.yaml`, `*.json`/`*.jsonc`, `*.ts`/`*.js`, `*.css`, `*.html`,
 `*.java`, and `Dockerfile*`; `hadolint-check` also lints Dockerfiles, and `link-check` scans `*.md` + `*.rs`. Every
 file is covered by `editorconfig-check` and `typos-check`, file and directory names by `ls-lint-check`, and `*.yml` is
-rejected by `semgrep-check` (use `*.yaml`).
+rejected by `semgrep-check` (use `*.yaml`). A multi-line task body inside `.mise/config*.toml` is shell, not TOML, so
+it carries two more of its own: `shfmt-mise-fmt` / `shfmt-mise-check` format it, and `shellcheck-mise-check` lints it.
 
 For Rust inner-loop iteration on a single crate, use `mise run cargo-clippy-check-pkg <package>` (alias
 `clippy-pkg`) instead of `cargo-clippy-check` -- it runs `cargo clippy --keep-going --tests -p <package>` so you
@@ -890,6 +891,12 @@ standalone file or a mise task `run`. The available linters:
   """` from `.mise/config*.toml`, masks Tera tokens (`{{ ... }}` -> `MISEVAR`,
   `{% ... %}` -> empty), and shellchecks the lot. This is how shell-quality
   lints reach mise task bodies (shellcheck itself doesn't read TOML).
+- **shfmt on mise task bodies** (`.mise/shfmt-mise.awk`, via `shfmt-mise-fmt` and `shfmt-mise-check`) -- splits those
+  same bodies out, shfmt-formats each one, and merges the result back over the config, so a task body is held to the
+  same formatting as any other shell in the repo. The check reports shfmt's own diff and names `shfmt-mise-fmt` as the
+  fix. Its one demand on how a body is written: inside a `"""` block every backslash escape must be doubled, since a
+  lone `\n` / `\r` / `\b` is TOML syntax that folds into a control character rather than the two bytes the shell wants
+  -- the split pass rejects one instead of guessing which was meant.
 - plus hadolint, ls-lint (file/dir naming), zizmor (Actions security), ryl
   (YAML), lychee (links), clang-format / clang-tidy / cpplint / flawfinder (C, in the zig config),
   editorconfig-checker, typos, and action-validator for their domains.

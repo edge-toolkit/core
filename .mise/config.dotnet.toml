@@ -92,7 +92,7 @@ dotnet workload install wasm-tools --skip-manifest-update
 # rather than PATH -- verified: the compile succeeds even when cmd can read no PATH whatsoever.
 publish_args=""
 if [ "${OS:-}" = "Windows_NT" ]; then
-    publish_args="-p:PATH=C:\\Windows\\System32"
+  publish_args="-p:PATH=C:\\Windows\\System32"
 fi
 
 # $publish_args holds zero or one CLI flag; word-splitting is intentional.
@@ -115,7 +115,7 @@ dotnet workload install wasm-tools --skip-manifest-update
 
 publish_args=""
 if [ "${OS:-}" = "Windows_NT" ]; then
-    publish_args="-p:PATH=C:\\Windows\\System32"
+  publish_args="-p:PATH=C:\\Windows\\System32"
 fi
 
 # $publish_args holds zero or one CLI flag; word-splitting is intentional.

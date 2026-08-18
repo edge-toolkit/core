@@ -353,7 +353,7 @@ elif [ "${ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP:-}" = "1" ]; then
     shared_site="$(coreutils ls -d "$shared_venv"/lib/*/site-packages)"
     coreutils cp -R "$pip_extracted/pip" "$shared_site/"
     coreutils cp -R "$pip_extracted"/pip-*.dist-info "$shared_site/"
-    coreutils cat > "$shared_venv/bin/pip" <<'PIP_SHIM'
+    coreutils cat >"$shared_venv/bin/pip" <<'PIP_SHIM'
 #!/bin/sh
 exec "$(dirname "$0")/python" -m pip "$@"
 PIP_SHIM

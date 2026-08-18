@@ -70,7 +70,10 @@ if [ ! -f "$script" ]; then
   rclone copyto "$src" "$script" --http-url https://gist.githubusercontent.com --progress
 fi
 actual=$(coreutils sha256sum -b "$script" | coreutils cut -c1-64)
-[ "$actual" = "{{ vars.a_pmsvc_sha }}" ] || { echo "portable-msvc.py checksum mismatch: $actual" >&2; exit 1; }
+[ "$actual" = "{{ vars.a_pmsvc_sha }}" ] || {
+  echo "portable-msvc.py checksum mismatch: $actual" >&2
+  exit 1
+}
 # Versions pinned for reproducibility (`--show-versions` lists what the manifest offers).
 # The rendered msvc.env tracks whatever is installed, so a bump only needs these two flags changed and a
 # re-run after deleting target/msvc/msvc.
