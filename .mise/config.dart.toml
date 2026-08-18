@@ -143,10 +143,10 @@ END {
     printf("gen:dart-rest storage fixup miss: io=%d get=%d body=%d\\n", io, get, body) > "/dev/stderr"
     exit 1
   }
-}' lib/clients/storage.dart | coreutils tr -d '\\r' > "$s/storage.dart"
+}' lib/clients/storage.dart | coreutils tr -d '\\r' >"$s/storage.dart"
 coreutils mv "$s/storage.dart" lib/clients/storage.dart
 goawk '/^import / && /clients/ { gsub(/_\\.dart/, ".dart") } { print }' lib/rest_client.dart |
-  coreutils tr -d '\\r' > "$s/rest_client.dart"
+  coreutils tr -d '\\r' >"$s/rest_client.dart"
 coreutils mv "$s/rest_client.dart" lib/rest_client.dart
 dart run build_runner build
 dart format lib

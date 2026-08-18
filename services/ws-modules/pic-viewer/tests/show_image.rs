@@ -14,10 +14,24 @@ use wasm_bindgen_test::wasm_bindgen_test;
 
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
-/// The ws-server page favicon: a real 64x64 PNG, staged into `OUT_DIR` by build.rs and embedded here.
+/// The ws-server page favicon: a real PNG, staged into `OUT_DIR` by build.rs and embedded here.
 const FAVICON_PNG: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/favicon.png"));
-const FAVICON_WIDTH: u32 = 64;
-const FAVICON_HEIGHT: u32 = 64;
+/// The fixture's natural size, read out of its own header rather than restated as a literal.
+/// A PNG's width and height are the big-endian `u32`s at bytes 16 and 20 (the first two fields of the IHDR
+/// chunk's data), so what this test expects on the canvas comes from the very bytes the browser decodes.
+/// Deriving it is what keeps the test honest when the favicon is redrawn at a different size.
+const FAVICON_WIDTH: u32 = ihdr_u32(16);
+const FAVICON_HEIGHT: u32 = ihdr_u32(20);
+
+/// Read the big-endian `u32` that the PNG header carries at byte `at`.
+const fn ihdr_u32(at: usize) -> u32 {
+    u32::from_be_bytes([
+        FAVICON_PNG[at],
+        FAVICON_PNG[at + 1],
+        FAVICON_PNG[at + 2],
+        FAVICON_PNG[at + 3],
+    ])
+}
 
 /// Insert the page's shared output canvas (`show_image` looks it up by this id), hidden like the real page.
 fn install_output_canvas() -> web_sys::HtmlCanvasElement {
@@ -57,15 +71,18 @@ async fn shows_the_favicon_on_the_output_canvas() {
     assert_eq!(canvas.width(), FAVICON_WIDTH);
     assert_eq!(canvas.height(), FAVICON_HEIGHT);
 
-    // ...and actually carry the drawn pixels: the favicon is an opaque RGB PNG, so every pixel of a real
-    // draw has full alpha, while an untouched canvas is all-transparent (alpha 0).
+    // ...and actually carry the drawn pixels: an untouched canvas is all-transparent (alpha 0), so a fully
+    // opaque pixel can only have come from a real draw. The centre is sampled because the favicon carries an
+    // alpha channel and only its artwork is guaranteed opaque -- a corner may legitimately be transparent.
     let context = canvas
         .get_context("2d")
         .unwrap()
         .unwrap()
         .dyn_into::<web_sys::CanvasRenderingContext2d>()
         .unwrap();
-    let center = context.get_image_data(32.0, 32.0, 1.0, 1.0).unwrap();
+    let center_x = f64::from(FAVICON_WIDTH) / 2.0;
+    let center_y = f64::from(FAVICON_HEIGHT) / 2.0;
+    let center = context.get_image_data(center_x, center_y, 1.0, 1.0).unwrap();
     let pixel = center.data();
     assert_eq!(pixel[3], 255, "center pixel should be opaque after drawing the favicon");
 }

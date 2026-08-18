@@ -59,6 +59,8 @@ action-validator = { version = "latest", os = ["linux", "macos"] }
 "aqua:EmbarkStudios/cargo-deny" = "latest"
 "aqua:StyraInc/regal" = "latest"
 "aqua:koalaman/shellcheck" = "latest"
+# shfmt (the `sh` repo's formatter binary) formats the multi-line bash bodies of mise tasks.
+"aqua:mvdan/sh" = "latest"
 "aqua:rhysd/actionlint" = "latest"
 "aqua:rustwasm/wasm-pack" = "latest"
 # Vector ships no darwin/amd64 prebuilt, so second-tier macos/x64 builds the same pin from source below.
@@ -556,6 +558,11 @@ a_rp_wasm_short = "08a1d6f"
 # Extra actionlint flags for actionlint-check; empty everywhere except the config.windows.toml override.
 actionlint_args = ""
 gh_http = "--http-url https://github.com --progress --ignore-existing"
+# Shared shfmt flags for the shfmt-mise-check / shfmt-mise-fmt pair.
+# `-ln bash` because a split-out body carries no shebang for shfmt to sniff, `-i 2` to match the indent_size
+# .editorconfig sets for every file in the repo, and `-ci` to keep `case` arms indented under their `case`
+# (shfmt's default pulls them back to the `case` column, which every body in these configs disagrees with).
+shfmt_args = "-ln bash -i 2 -ci"
 # OpenObserve docker image for the openobserve/o2 dev-observability task.
 o2_image = "openobserve/openobserve:v0.91.5"
 # OpenTelemetry Collector image for the o2-hostmetrics / o2-macmon / o2-nvidia / o2-winmetrics tasks.
@@ -632,7 +639,7 @@ description = "Format every checked-in .jq file with jqfmt (in-place)"
 # worth keeping, lift them into the calling task / source-of-truth file before running this.
 run = """
 git ls-files '*.jq' | while read -r f; do
-  jqfmt -f "$f" -op pipe -ob -ar | goawk '{ sub(/[ \\t]+$/, ""); print }' > "$f.tmp"
+  jqfmt -f "$f" -op pipe -ob -ar | goawk '{ sub(/[ \\t]+$/, ""); print }' >"$f.tmp"
   coreutils mv "$f.tmp" "$f"
 done
 """
@@ -640,7 +647,7 @@ shell = "bash -euo pipefail -c"
 
 [tasks."fmt:rust"]
 # Rust + universal formatters. Always-loaded, so `fmt`'s glob always matches it.
-depends = ["cargo-clippy-fix", "cargo-fmt", "dprint-fmt", "jq-fmt", "taplo-fmt"]
+depends = ["cargo-clippy-fix", "cargo-fmt", "dprint-fmt", "jq-fmt", "shfmt-mise-fmt", "taplo-fmt"]
 description = "Run the Rust + universal repo-wide formatters"
 
 [tasks.fmt]
@@ -679,6 +686,7 @@ depends = [
   "ryl-check",
   "semgrep-check",
   "shellcheck-mise-check",
+  "shfmt-mise-check",
   "taplo-check",
   "taplo-fmt-check",
   "typos-check",
@@ -884,7 +892,7 @@ files=$(git ls-files '*Dockerfile' '*Dockerfile.*')
 conftest test --combine --namespace dockerfile -p config/conftest/policy $files .mise
 # Filter to Dockerfiles that actually use heredocs before the `ignore` parser.
 for f in $files; do
-  if rg -q '^RUN[^\n]*<<' "$f"; then
+  if rg -q '^RUN[^\\n]*<<' "$f"; then
     conftest test --parser ignore --namespace dockerfile_heredoc -p config/conftest/policy "$f"
   fi
 done
@@ -925,12 +933,70 @@ for cfg in .mise/config*.toml; do
       echo '#!/usr/bin/env bash'
       echo 'set -euo pipefail'
       printf '%s' "$b64" | coreutils base64 -d | goawk "$mask"
-    } | coreutils tr -d '\r' > "$out"
+    } | coreutils tr -d '\r' >"$out"
   done
 done
 shellcheck --shell=bash --exclude=SC2034,SC2154 "$boot"/*.sh
 '''
 shell = "bash -euo pipefail -c"
+
+[tasks.shfmt-mise-check]
+description = "Check that every multi-line bash mise task body is shfmt-formatted"
+# Run the shfmt-mise-fmt pipeline against scratch copies and compare, rather than over the configs themselves.
+# The `-d` pass is what makes a failure actionable -- shfmt prints the offending body's own diff -- while the
+# hash compare additionally catches whatever the merge pass would rewrite outside shfmt's view (the TOML
+# escape normalisation .mise/shfmt-mise.awk performs on a `"""` body).
+run = '''
+work="{{ vars.config_root_fwd }}/target/scratch/shfmt-mise-check"
+coreutils rm -rf "$work"
+status=0
+for cfg in .mise/config*.toml; do
+  d="$work/$(coreutils basename "$cfg" .toml)"
+  coreutils mkdir -p "$d"
+  goawk -N raw -v mode=split -v dir="$d" -f .mise/shfmt-mise.awk "$cfg"
+done
+shfmt {{ vars.shfmt_args }} -d "$work"/*/*.sh || status=1
+shfmt {{ vars.shfmt_args }} -w "$work"/*/*.sh
+for cfg in .mise/config*.toml; do
+  d="$work/$(coreutils basename "$cfg" .toml)"
+  goawk -N raw -v mode=merge -v dir="$d" -f .mise/shfmt-mise.awk "$cfg" >"$d/merged.toml"
+  have=$(coreutils sha256sum -b "$cfg" | coreutils cut -c1-64)
+  want=$(coreutils sha256sum -b "$d/merged.toml" | coreutils cut -c1-64)
+  if [ "$have" != "$want" ]; then
+    echo "$cfg: task bodies need reformatting; run 'mise run shfmt-mise-fmt'" >&2
+    status=1
+  fi
+done
+exit $status
+'''
+shell = "bash -euo pipefail -c"
+
+[tasks.shfmt-mise-fmt]
+description = "Format every multi-line bash mise task body with shfmt"
+# Split each config's task bodies into scratch scripts, shfmt them, then merge them back over the config.
+# .mise/shfmt-mise.awk owns both halves of that trip; the two loops here are split around one shfmt call so
+# the glob always has something to match (config.java.toml carries no multi-line body of its own).
+run = '''
+work="{{ vars.config_root_fwd }}/target/scratch/shfmt-mise-fmt"
+coreutils rm -rf "$work"
+for cfg in .mise/config*.toml; do
+  d="$work/$(coreutils basename "$cfg" .toml)"
+  coreutils mkdir -p "$d"
+  goawk -N raw -v mode=split -v dir="$d" -f .mise/shfmt-mise.awk "$cfg"
+done
+shfmt {{ vars.shfmt_args }} -w "$work"/*/*.sh
+for cfg in .mise/config*.toml; do
+  d="$work/$(coreutils basename "$cfg" .toml)"
+  goawk -N raw -v mode=merge -v dir="$d" -f .mise/shfmt-mise.awk "$cfg" >"$d/merged.toml"
+  coreutils cp "$d/merged.toml" "$cfg"
+done
+'''
+shell = "bash -euo pipefail -c"
+# taplo-fmt rewrites every .mise/config*.toml in full, and so does this task.
+# fmt:rust runs its dependencies as parallel siblings, so with no ordering edge between the two the second
+# writer silently drops the first one's work. `wait_for` rather than `depends` because the edge only matters
+# when both are already scheduled -- `mise run shfmt-mise-fmt` alone should stay one task, not two.
+wait_for = ["taplo-fmt"]
 
 [tasks.taplo-check]
 alias = "toml-check"
@@ -1083,7 +1149,7 @@ run = """
   echo 'IgnoredVulns = ['
   rg -oN -r '  { id = $0 },' '"(RUSTSEC-[0-9]{4}-[0-9]{4}|GHSA(-[0-9a-z]{4}){3})"' config/deny.toml | coreutils sort -u
   echo ']'
-} > config/osv-scanner.toml
+} >config/osv-scanner.toml
 """
 shell = "bash -euo pipefail -c"
 
@@ -1249,7 +1315,7 @@ mkdir -p "$s"
 for crate in et-cli et-int-gen et-onnx; do
   helpmd="utilities/${crate#et-}/HELP.md"
   echo "[gen-help-all] $crate -> $helpmd"
-  cargo run --features markdown-help -q -p "$crate" -- --markdown-help | dprint fmt --stdin md > "$s/$crate.md"
+  cargo run --features markdown-help -q -p "$crate" -- --markdown-help | dprint fmt --stdin md >"$s/$crate.md"
   coreutils mv "$s/$crate.md" "$helpmd"
 done
 """
@@ -1690,7 +1756,10 @@ rclone copyto {{ vars.face1_src }} {{ vars.face1_dst }} {{ vars.gh_http }}
 export asset='{{ vars.face1_asset }}'
 sha=$(mise exec -- yq -p toml -oy '.asset[strenv(asset)].sha256' config/upstream-cache/data.toml)
 actual=$(mise exec -- coreutils sha256sum -b "{{ vars.face1_dst }}" | mise exec -- coreutils cut -c1-64)
-[ "$actual" = "$sha" ] || { echo "face1 checksum mismatch: expected=$sha actual=$actual" >&2; exit 1; }
+[ "$actual" = "$sha" ] || {
+  echo "face1 checksum mismatch: expected=$sha actual=$actual" >&2
+  exit 1
+}
 """
 shell = "bash -euo pipefail -c"
 
@@ -1703,7 +1772,10 @@ rclone copyto {{ vars.eye1_src }} {{ vars.eye1_dst }} {{ vars.gh_http }}
 export asset='{{ vars.eye1_asset }}'
 sha=$(mise exec -- yq -p toml -oy '.asset[strenv(asset)].sha256' config/upstream-cache/data.toml)
 actual=$(mise exec -- coreutils sha256sum -b "{{ vars.eye1_dst }}" | mise exec -- coreutils cut -c1-64)
-[ "$actual" = "$sha" ] || { echo "eye1 checksum mismatch: expected=$sha actual=$actual" >&2; exit 1; }
+[ "$actual" = "$sha" ] || {
+  echo "eye1 checksum mismatch: expected=$sha actual=$actual" >&2
+  exit 1
+}
 """
 shell = "bash -euo pipefail -c"
 
@@ -1726,7 +1798,10 @@ rclone copyto {{ vars.speech1_src }} {{ vars.speech1_dst }} $opts
 export asset='{{ vars.speech1_asset }}'
 sha=$(mise exec -- yq -p toml -oy '.asset[strenv(asset)].sha256' config/upstream-cache/data.toml)
 actual=$(mise exec -- coreutils sha256sum -b "{{ vars.speech1_dst }}" | mise exec -- coreutils cut -c1-64)
-[ "$actual" = "$sha" ] || { echo "speech1 checksum mismatch: expected=$sha actual=$actual" >&2; exit 1; }
+[ "$actual" = "$sha" ] || {
+  echo "speech1 checksum mismatch: expected=$sha actual=$actual" >&2
+  exit 1
+}
 """
 shell = "bash -euo pipefail -c"
 
@@ -1773,14 +1848,14 @@ assets=$(gh release view "$tag" --repo edge-toolkit/core --json assets --jq '.as
 native_missing=true
 wasm_missing=true
 if echo "$assets" | rg -Fxq "$native_asset"; then native_missing=false; fi
-if echo "$assets" | rg -Fxq "$wasm_asset";   then wasm_missing=false;   fi
+if echo "$assets" | rg -Fxq "$wasm_asset"; then wasm_missing=false; fi
 out="${GITHUB_OUTPUT:-/dev/stdout}"
 {
   echo "short=$short"
   echo "triple=$triple"
   echo "native_missing=$native_missing"
   echo "wasm_missing=$wasm_missing"
-} >> "$out"
+} >>"$out"
 echo "[rp-detect-missing] triple=$triple short=$short native_missing=$native_missing wasm_missing=$wasm_missing" >&2
 """
 shell = "bash -euo pipefail -c"

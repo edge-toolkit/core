@@ -281,7 +281,7 @@ datamodel-codegen --input ../../target/int-gen/ws.schema.json --output et_ws/mes
 # Drop the 2-line header that custom-file-header = "#" emits, so the file starts cleanly.
 # That header is a lone `#` + the blank after it. tail, not sed: datamodel-codegen always emits exactly those
 # two lines, so a fixed offset is safe.
-coreutils tail -n +3 et_ws/messages.py > et_ws/messages.py.tmp
+coreutils tail -n +3 et_ws/messages.py >et_ws/messages.py.tmp
 coreutils mv et_ws/messages.py.tmp et_ws/messages.py
 # Re-run repo ruff because datamodel-codegen's bundled ruff uses its own defaults.
 # Those defaults aren't our repo ruff.toml, so re-run repo ruff: `check --fix`

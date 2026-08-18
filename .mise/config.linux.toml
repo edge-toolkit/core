@@ -101,7 +101,7 @@ fi
 pkgs="$common $specific"
 # Azure Linux / openSUSE rename a few DNF_PACKAGES entries.
 # Remap before the iteration so the checks (and the printed `Install with: ...` hint) refer to the right
-# names. Word-by-word in pure bash avoids the regex escape gymnastics that `\b` or awk word-boundary tokens
+# names. Word-by-word in pure bash avoids the regex escape gymnastics that `\\b` or awk word-boundary tokens
 # would need through the TOML basic-string layer.
 if [ "$arg" = DNF_PACKAGES ] && grep -q '^ID=azurelinux$' /etc/os-release 2>/dev/null; then
   remapped=""
@@ -137,10 +137,11 @@ for pkg in $pkgs; do
       # Debian/Ubuntu: /etc/ssl/certs/ca-certificates.crt.
       # Fedora/RHEL/AL2023: /etc/pki/tls/certs/ca-bundle.crt; openSUSE: /etc/ssl/ca-bundle.pem.
       [ -r /etc/ssl/certs/ca-certificates.crt ] ||
-      [ -r /etc/pki/tls/certs/ca-bundle.crt ] ||
-      [ -r /etc/ssl/ca-bundle.pem ] ;;
-    libc6-dev|glibc-devel) [ -r /usr/include/stdio.h ] ;;
-    g++|gcc-c++) command -v g++ >/dev/null 2>&1 ;;
+        [ -r /etc/pki/tls/certs/ca-bundle.crt ] ||
+        [ -r /etc/ssl/ca-bundle.pem ]
+      ;;
+    libc6-dev | glibc-devel) [ -r /usr/include/stdio.h ] ;;
+    g++ | gcc-c++) command -v g++ >/dev/null 2>&1 ;;
     # `binutils` provides the assembler/linker (as/ld).
     # The package itself has no binary called `binutils`. So probe via `as`, which it ships.
     binutils) command -v as >/dev/null 2>&1 ;;
@@ -148,18 +149,20 @@ for pkg in $pkgs; do
     # Fedora pre-includes it in the base image; Azure Linux base/core does not. So we install it explicitly
     # on Azure Linux. Debian/Ubuntu get the same headers via libc6-dev's transitive linux-libc-dev. That
     # path is already checked above. openSUSE names the same package linux-glibc-devel.
-    kernel-headers|linux-glibc-devel) [ -r /usr/include/linux/limits.h ] ;;
-    libicu*|icu)
+    kernel-headers | linux-glibc-devel) [ -r /usr/include/linux/limits.h ] ;;
+    libicu* | icu)
       # Try both libicu install layouts.
       # Debian/Ubuntu install libicu under /usr/lib/<triple>/. Fedora and Azure Linux put it under /usr/lib64/ directly.
       coreutils ls /usr/lib/*/libicui18n.so.* >/dev/null 2>&1 ||
-      coreutils ls /usr/lib64/libicui18n.so.* >/dev/null 2>&1 ;;
-    libatomic*|libgcc-atomic)
+        coreutils ls /usr/lib64/libicui18n.so.* >/dev/null 2>&1
+      ;;
+    libatomic* | libgcc-atomic)
       # Fedora and Azure Linux need libatomic explicitly for pnpm's prebuilt binary.
       # Ubuntu gcc pulls it via libgcc-s1 by default. Same dual-layout split as libicu above. Debian/Ubuntu use
       # a per-triple subdir vs RPM-family's /usr/lib64.
       coreutils ls /usr/lib/*/libatomic.so.* >/dev/null 2>&1 ||
-      coreutils ls /usr/lib64/libatomic.so.* >/dev/null 2>&1 ;;
+        coreutils ls /usr/lib64/libatomic.so.* >/dev/null 2>&1
+      ;;
     *) command -v "$pkg" >/dev/null 2>&1 ;;
   esac || missing="$missing $pkg"
 done

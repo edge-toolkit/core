@@ -99,7 +99,7 @@ short=$(echo "$commit" | coreutils cut -c1-7)
 
 asset="${stem}-${short}.onnx"
 coreutils mv original.onnx "$asset"
-coreutils sha256sum "$asset" > "${asset}.sha256"
+coreutils sha256sum "$asset" >"${asset}.sha256"
 
 # Sanity-check the computed SHA256 against HF's recorded LFS oid.
 # The SHA256 we just computed must match HF's recorded LFS oid for the blob; mismatch means the download was
@@ -123,7 +123,7 @@ cksum_path="{{ config_root }}/config/upstream-cache/data.toml"
 mise_path="{{ config_root }}/.mise/config.toml"
 
 augtool --transform="Toml incl $cksum_path" --autosave <<EOF
-set "/files$cksum_path/table[. = 'asset.\"$asset\"']/entry[. = 'sha256']/string" "$actual"
+set "/files$cksum_path/table[. = 'asset."$asset"']/entry[. = 'sha256']/string" "$actual"
 EOF
 
 augtool --transform="Toml incl $mise_path" --autosave <<EOF
@@ -153,14 +153,14 @@ coreutils mkdir -p "$work"
 cd "$work"
 
 rclone copyurl "$src" "$asset"
-coreutils sha256sum "$asset" > "${asset}.sha256"
+coreutils sha256sum "$asset" >"${asset}.sha256"
 actual=$(coreutils cut -c1-64 "${asset}.sha256")
 
 gh release upload "{{ vars.a_hf_cache_tag }}" --clobber --repo "$GH_REPO" "$asset" "${asset}.sha256"
 
 cksum_path="{{ config_root }}/config/upstream-cache/data.toml"
 augtool --transform="Toml incl $cksum_path" --autosave <<EOF
-set "/files$cksum_path/table[. = 'asset.\"$asset\"']/entry[. = 'sha256']/string" "$actual"
+set "/files$cksum_path/table[. = 'asset."$asset"']/entry[. = 'sha256']/string" "$actual"
 EOF
 
 echo "uploaded $asset to {{ vars.a_hf_cache_tag }}"
@@ -228,7 +228,7 @@ tarball="$RP_WORK/$asset"
 
 pkg_dir="$rp_dir/crates/wasm/pkg"
 tar -C "$pkg_dir" --exclude='package.json' --exclude='README.md' --exclude='.gitignore' -czf "$tarball" .
-coreutils sha256sum "$tarball" > "${tarball}.sha256"
+coreutils sha256sum "$tarball" >"${tarball}.sha256"
 actual=$(coreutils cut -c1-64 "${tarball}.sha256")
 
 gh release upload "$RP_RELEASE" --clobber --repo "$GH_REPO" "$tarball" "${tarball}.sha256"
@@ -240,13 +240,13 @@ gh release upload "$RP_RELEASE" --clobber --repo "$GH_REPO" "$tarball" "${tarbal
 cksum_path="{{ config_root }}/config/upstream-cache/data.toml"
 mise_path="{{ config_root }}/.mise/config.toml"
 augtool --transform="Toml incl $cksum_path" --autosave <<EOF
-set "/files$cksum_path/table[. = 'asset.\"$asset\"']/entry[. = 'sha256']/string" "$actual"
+set "/files$cksum_path/table[. = 'asset."$asset"']/entry[. = 'sha256']/string" "$actual"
 EOF
 augtool --transform="Toml incl $mise_path" --autosave <<EOF
 set "/files$mise_path/table[. = 'vars']/entry[. = 'a_rp_wasm_short']/string" "$short"
 set "/files$mise_path/table[. = 'vars']/entry[. = 'a_rp_wasm_asset']/string" "$asset"
-set "/files$mise_path/table[. = 'tools.\"http:rp-wasm\"']/entry[. = 'version']/string" "$short"
-set "/files$mise_path/table[. = 'tools.\"http:rp-wasm\"']/entry[. = 'checksum']/string" "sha256:$actual"
+set "/files$mise_path/table[. = 'tools."http:rp-wasm"']/entry[. = 'version']/string" "$short"
+set "/files$mise_path/table[. = 'tools."http:rp-wasm"']/entry[. = 'checksum']/string" "sha256:$actual"
 EOF
 
 echo "uploaded $asset to $RP_RELEASE (commit $commit)"
@@ -304,12 +304,12 @@ if [ "${OS:-}" = "Windows_NT" ]; then
   # lookup below works regardless of which envs were exported. The conda-m2-gnupg directory is only needed by
   # this repo's own build (NOT rustpython's), so dropping it for the cargo install is safe. PATH on git-bash
   # uses `:` as the separator.
-  PATH=$(echo "$PATH" | tr ':' '\n' | grep -v 'conda-m2-gnupg' | paste -sd ':' -)
+  PATH=$(echo "$PATH" | tr ':' '\\n' | grep -v 'conda-m2-gnupg' | paste -sd ':' -)
   export PATH
   # Pick the first where.exe match under an MSVC tools dir.
   # where.exe returns every match newline-separated. If none is found we
   # leave the default lookup alone (the PATH strip above is usually enough).
-  msvc_link=$(where.exe link.exe 2>/dev/null | tr -d '\r' | grep -iE 'MSVC[\\/].*Hostx64' | head -1 || true)
+  msvc_link=$(where.exe link.exe 2>/dev/null | tr -d '\\r' | grep -iE 'MSVC[\\/].*Hostx64' | head -1 || true)
   if [ -n "${msvc_link:-}" ]; then
     export CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER="$msvc_link"
   fi
@@ -348,12 +348,15 @@ else
 fi
 
 case "$triple" in
-  x86_64-apple-darwin)        plat="macos-x64" ;;
-  aarch64-apple-darwin)       plat="macos-arm64" ;;
-  x86_64-unknown-linux-gnu)   plat="linux-x64" ;;
-  aarch64-unknown-linux-gnu)  plat="linux-arm64" ;;
-  x86_64-pc-windows-*)        plat="windows-x64" ;;
-  *) echo "unsupported host triple: $triple" >&2; exit 1 ;;
+  x86_64-apple-darwin) plat="macos-x64" ;;
+  aarch64-apple-darwin) plat="macos-arm64" ;;
+  x86_64-unknown-linux-gnu) plat="linux-x64" ;;
+  aarch64-unknown-linux-gnu) plat="linux-arm64" ;;
+  x86_64-pc-windows-*) plat="windows-x64" ;;
+  *)
+    echo "unsupported host triple: $triple" >&2
+    exit 1
+    ;;
 esac
 
 # Glob the produced binary so the same tar line works on every host.
@@ -367,7 +370,7 @@ fi
 asset="rustpython-${short}-${triple}.tar.gz"
 tarball="$RP_WORK/$asset"
 tar -C "$prefix" -czf "$tarball" "$bin_rel"
-coreutils sha256sum "$tarball" > "${tarball}.sha256"
+coreutils sha256sum "$tarball" >"${tarball}.sha256"
 actual=$(coreutils cut -c1-64 "${tarball}.sha256")
 
 gh release upload "$RP_RELEASE" --clobber --repo "$GH_REPO" "$tarball" "${tarball}.sha256"
@@ -387,9 +390,9 @@ if ! command -v augtool >/dev/null 2>&1; then
   exit 0
 fi
 augtool --transform="Toml incl $mise_path" --autosave <<EOF
-set "/files$mise_path/table[. = 'tools.\"http:et-rp\"']/entry[. = 'version']/string" "$short"
-set "/files$mise_path/table[. = 'tools.\"http:et-rp\".platforms.$plat']/entry[. = 'url']/string" "$new_url"
-set "/files$mise_path/table[. = 'tools.\"http:et-rp\".platforms.$plat']/entry[. = 'checksum']/string" "sha256:$actual"
+set "/files$mise_path/table[. = 'tools."http:et-rp"']/entry[. = 'version']/string" "$short"
+set "/files$mise_path/table[. = 'tools."http:et-rp".platforms.$plat']/entry[. = 'url']/string" "$new_url"
+set "/files$mise_path/table[. = 'tools."http:et-rp".platforms.$plat']/entry[. = 'checksum']/string" "sha256:$actual"
 EOF
 
 echo "updated http:et-rp version + platforms.${plat}.{url,checksum} in .mise/config.toml"
@@ -463,7 +466,7 @@ if [ ! -f "$shared_venv/bin/pip" ]; then
   shared_site="$(coreutils ls -d "$shared_venv"/lib/*/site-packages)"
   coreutils cp -R "$pip_extracted/pip" "$shared_site/"
   coreutils cp -R "$pip_extracted"/pip-*.dist-info "$shared_site/"
-  coreutils cat > "$shared_venv/bin/pip" <<'PIP_SHIM'
+  coreutils cat >"$shared_venv/bin/pip" <<'PIP_SHIM'
 #!/bin/sh
 exec "$(dirname "$0")/python" -m pip "$@"
 PIP_SHIM

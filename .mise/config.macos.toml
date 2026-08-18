@@ -88,7 +88,7 @@ missing=""
 brewy=""
 for pkg in $pkgs; do
   case "$pkg" in
-    ca-certificates|libc6-dev|libicu*|binutils) cmd="" ;;
+    ca-certificates | libc6-dev | libicu* | binutils) cmd="" ;;
     *) cmd="$pkg" ;;
   esac
   case "$pkg" in
@@ -99,7 +99,10 @@ for pkg in $pkgs; do
     # The probe via the assembler binary still confirms the assembler is reachable.
     binutils) command -v as >/dev/null 2>&1 ;;
     *) command -v "$pkg" >/dev/null 2>&1 ;;
-  esac || { missing="$missing $pkg"; continue; }
+  esac || {
+    missing="$missing $pkg"
+    continue
+  }
   # Reject Homebrew-installed tools, since this repo deliberately avoids Brew.
   # A tool under a brew prefix means PATH shadowed the Xcode CLT / native one.
   # Skip the file-based pkgs (no binary to check).
@@ -107,8 +110,9 @@ for pkg in $pkgs; do
   path="$(command -v "$cmd")" || continue
   real="$(coreutils readlink -f "$path" 2>/dev/null || echo "$path")"
   case "$real" in
-    /opt/homebrew/*|/usr/local/Cellar/*|/usr/local/opt/*|/usr/local/Homebrew/*)
-      brewy="$brewy $cmd($real)" ;;
+    /opt/homebrew/* | /usr/local/Cellar/* | /usr/local/opt/* | /usr/local/Homebrew/*)
+      brewy="$brewy $cmd($real)"
+      ;;
   esac
 done
 if [ -n "$missing" ]; then
