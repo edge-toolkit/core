@@ -94,9 +94,30 @@ description = "Stage transformers.js's pinned ORT wasm runtime into llm1's pkg/o
 dir = "services/ws-modules/llm1"
 run = """
 install="$(mise where "npm:@huggingface/transformers")"
-dist="$(find "$install" -type d -path "*/onnxruntime-web/dist" | coreutils head -1)"
+# mise reports a mixed-separator install path on Windows (C:/Users/...\\mise\\installs\\...).
+# MSYS bash reads a backslash as an escape rather than a separator, so compose child paths from a
+# forward-slash-only copy.
+install="${install//\\\\//}"
+pkg="$install/node_modules/@huggingface/transformers"
+ort_version="$(mise exec -- yq -p json -oy '.dependencies."onnxruntime-web"' "$pkg/package.json")"
+# transformers.js pins onnxruntime-web to one exact version, so the dist dir is addressable directly.
+# Walking the install tree instead overruns Windows' 260-char MAX_PATH inside ort's own flatbuffers sources
+# (the deepest, `runtime-optimization-record-container-entry.js.map`, lands at 279 chars), and uutils find
+# then reports every unstattable entry as `find: <path>: No such file or directory` -- on files that do
+# exist -- and exits 1. Seen on commit 189935fddb306fa8e4dc36007fd73f6edf0ca2ee at
+# https://github.com/edge-toolkit/core/actions/runs/32195702185/job/95899138206
+store="$install/node_modules/.mise/onnxruntime-web@$ort_version/node_modules/onnxruntime-web/dist"
+# The npm backend keeps pinned transitive deps in the .mise store above; a hoisted layout is the fallback.
+hoisted="$install/node_modules/onnxruntime-web/dist"
+dist=""
+for candidate in "$store" "$hoisted"; do
+  if [ -d "$candidate" ]; then
+    dist="$candidate"
+    break
+  fi
+done
 [ -n "$dist" ] || {
-  echo "no onnxruntime-web dist under $install; run 'MISE_ENV=js mise install' first" >&2
+  echo "no onnxruntime-web@$ort_version dist under $install; run 'MISE_ENV=js mise install' first" >&2
   exit 1
 }
 coreutils rm -rf pkg/ort
