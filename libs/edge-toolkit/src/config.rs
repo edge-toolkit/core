@@ -171,6 +171,27 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
             );
         }
     }
+    // transformers.js (llm1's text-generation runtime). Scoped, so serve its own dir as one module at
+    // /modules/@huggingface/transformers, the same way tasks-vision is served below.
+    match mise_npm_package_path("@huggingface/transformers") {
+        Some(path) => {
+            log::info!(
+                "Resolved npm:@huggingface/transformers modules path: {}",
+                path.display()
+            );
+            paths.push(path);
+        }
+        None => {
+            log::warn!(
+                "{}",
+                concat!(
+                    "npm:@huggingface/transformers install path not found via `mise where` -- ",
+                    "requests to /modules/@huggingface/transformers/* will 404. ",
+                    "Run `mise install npm:@huggingface/transformers` and verify the package layout.",
+                )
+            );
+        }
+    }
     // MediaPipe tasks-vision (pyeye1's FaceLandmarker runtime). A scoped npm package: serve its own dir as a
     // single module at /modules/@mediapipe/tasks-vision (the modules service reads its package.json name).
     match mise_npm_package_path("@mediapipe/tasks-vision") {

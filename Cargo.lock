@@ -4554,6 +4554,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "et-ws-llm1"
+version = "0.1.0"
+dependencies = [
+ "et-web",
+ "et-ws-wasm-agent",
+ "js-sys",
+ "serde_json",
+ "tracing",
+ "tracing-wasm",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-bindgen-test",
+ "web-sys",
+]
+
+[[package]]
 name = "et-ws-math1"
 version = "0.1.0"
 dependencies = [

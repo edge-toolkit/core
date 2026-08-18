@@ -1,0 +1,42 @@
+[package]
+description = "LLM chat"
+name = "et-ws-llm1"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+doctest = false
+test = false
+
+[package.metadata.ws-module.dependencies]
+"@huggingface/transformers" = "*"
+et-model-llm1 = "*"
+
+[dependencies]
+et-web.workspace = true
+et-ws-wasm-agent.workspace = true
+js-sys.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-wasm.workspace = true
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+web-sys = { workspace = true, features = [
+  "Document",
+  "Element",
+  "HtmlButtonElement",
+  "HtmlElement",
+  "HtmlTextAreaElement",
+  "KeyboardEvent",
+  "Window",
+  "console",
+] }
+
+[dev-dependencies]
+wasm-bindgen-test.workspace = true
+
+[lints]
+workspace = true

@@ -33,6 +33,40 @@ sha256 = "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff"
 upstream = "https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker"
 url = "https://github.com/edge-toolkit/core/releases/download/hf-cache-v1/face_landmarker.task"
 
+# llm1's chat model: the five SmolLM2-135M-Instruct files transformers.js loads as a local pipeline.
+# Fetched straight from HuggingFaceTB at commit 12fd25f rather than mirrored to one of our own releases -- this
+# repo is not among the CI fetches that hit HuggingFace's rate limits, because only the developer-side
+# `download-models` task ever pulls it.
+[asset."llm1-12fd25f-config.json"]
+license = "Apache-2.0"
+sha256 = "8eb740e8bbe4cff95ea7b4588d17a2432deb16e8075bc5828ff7ba9be94d982a"
+upstream = "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct"
+url = "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/12fd25f/config.json"
+
+[asset."llm1-12fd25f-generation_config.json"]
+license = "Apache-2.0"
+sha256 = "87b916edaaab66b3899b9d0dd0752727dff6666686da0504d89ae0a6e055a013"
+upstream = "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct"
+url = "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/12fd25f/generation_config.json"
+
+[asset."llm1-12fd25f-model_q4f16.onnx"]
+license = "Apache-2.0"
+sha256 = "9358cd4ce037c304621f8c194a525607ae7c5ea73239fcae4c21bd02f2e34ff7"
+upstream = "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct"
+url = "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/12fd25f/onnx/model_q4f16.onnx"
+
+[asset."llm1-12fd25f-tokenizer.json"]
+license = "Apache-2.0"
+sha256 = "9ca9acddb6525a194ec8ac7a87f24fbba7232a9a15ffa1af0c1224fcd888e47c"
+upstream = "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct"
+url = "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/12fd25f/tokenizer.json"
+
+[asset."llm1-12fd25f-tokenizer_config.json"]
+license = "Apache-2.0"
+sha256 = "4ec77d44f62efeb38d7e044a1db318f6a939438425312dfa333b8382dbad98df"
+upstream = "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct"
+url = "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/12fd25f/tokenizer_config.json"
+
 [asset."speech1-84f0d86.onnx"]
 license = "MIT"
 sha256 = "7ed49c2c170aefe81e7e91b472a761d922ef3c064b6051068c2dc0ccc98bd53b"

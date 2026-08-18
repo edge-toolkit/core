@@ -29,6 +29,18 @@
       </p>
       <video id="video-preview" autoplay playsinline muted hidden></video>
       <canvas id="video-output-canvas" hidden></canvas>
+      <section id="chat-panel" hidden>
+        <div id="chat-log" aria-live="polite"></div>
+        <p class="chat-controls">
+          <textarea
+            id="chat-input"
+            rows="2"
+            placeholder="Ask the local model; Enter sends"
+          ></textarea>
+          <button id="chat-send" type="button">Send</button>
+          <button id="chat-close" type="button">Close</button>
+        </p>
+      </section>
       <div class="status-grid">
         <textarea id="module-output" readonly
         >Workflow module not running.</textarea>

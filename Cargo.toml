@@ -23,6 +23,7 @@ members = [
   "services/ws-modules/geolocation",
   "services/ws-modules/graphics-info",
   "services/ws-modules/har1",
+  "services/ws-modules/llm1",
   "services/ws-modules/math1",
   "services/ws-modules/math1-sender",
   "services/ws-modules/nfc",

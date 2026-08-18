@@ -46,6 +46,10 @@ url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.73.0/oxlint-
 [tools."http:oxlint"."platforms.windows-x64"]
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.73.0/oxlint-x86_64-pc-windows-msvc.zip"
 
+[[tools."npm:@huggingface/transformers"]]
+version = "4.2.0"
+backend = "npm:@huggingface/transformers"
+
 [[tools."npm:@mediapipe/tasks-vision"]]
 version = "1.0.0"
 backend = "npm:@mediapipe/tasks-vision"

@@ -12,6 +12,10 @@
 # pyeye1 loads @mediapipe/tasks-vision (FaceLandmarker) at runtime via /modules/@mediapipe/tasks-vision, the
 # same npm-package-served-as-a-module pattern as onnxruntime-web (resolved in libs/edge-toolkit/src/config.rs).
 "npm:@mediapipe/tasks-vision" = "latest"
+# transformers.js is llm1's WebGPU text-generation runtime.
+# llm1 loads it at runtime via /modules/@huggingface/transformers and points its ONNX weights at the
+# et-model-llm1 model module, so no request ever leaves the ws-server origin.
+"npm:@huggingface/transformers" = "latest"
 "npm:onnxruntime-web" = "latest"
 # stats-gl is the GPU utilisation meter overlay on the ws-server index page.
 # index.html loads it at runtime via /modules/stats-gl (same npm-package-served-as-a-module pattern as
@@ -78,6 +82,36 @@ run = "{{ vars.web_pack_cov }} {{ vars.no_opt }}{{ vars.web_cov_feat }} && {{ va
 depends = ["build-et-cli", "build-wasm-cov-wrapper"]
 description = "Build the face detection workflow WASM module"
 dir = "services/ws-modules/face-detection"
+run = "{{ vars.web_pack_cov }} {{ vars.no_opt }}{{ vars.web_cov_feat }} && {{ vars.et_cli }} module-package-json"
+
+[tasks.vendor-llm1-ort]
+description = "Stage transformers.js's pinned ORT wasm runtime into llm1's pkg/ort/"
+# transformers.js pins its own onnxruntime-web build and defaults its wasm pair to a CDN.
+# llm1 has to answer with no internet access, so the pair is copied out of the npm install (mise's npm backend
+# keeps the pinned transitive dep under node_modules/.mise/) and served from the module itself at
+# /modules/et-ws-llm1/ort/. Both the asyncify and the plain build are staged because transformers.js picks
+# between them per browser at import time, and llm1 only rewrites the directory of whichever it chose.
+dir = "services/ws-modules/llm1"
+run = """
+install="$(mise where "npm:@huggingface/transformers")"
+dist="$(find "$install" -type d -path "*/onnxruntime-web/dist" | coreutils head -1)"
+[ -n "$dist" ] || {
+  echo "no onnxruntime-web dist under $install; run 'MISE_ENV=js mise install' first" >&2
+  exit 1
+}
+coreutils rm -rf pkg/ort
+coreutils mkdir -p pkg/ort
+coreutils cp "$dist/ort-wasm-simd-threaded.mjs" pkg/ort/
+coreutils cp "$dist/ort-wasm-simd-threaded.wasm" pkg/ort/
+coreutils cp "$dist/ort-wasm-simd-threaded.asyncify.mjs" pkg/ort/
+coreutils cp "$dist/ort-wasm-simd-threaded.asyncify.wasm" pkg/ort/
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.build-ws-llm1-module]
+depends = ["build-et-cli", "build-wasm-cov-wrapper", "vendor-llm1-ort"]
+description = "Build the llm1 chat WASM module"
+dir = "services/ws-modules/llm1"
 run = "{{ vars.web_pack_cov }} {{ vars.no_opt }}{{ vars.web_cov_feat }} && {{ vars.et_cli }} module-package-json"
 
 [tasks.build-ws-js-data1-module]

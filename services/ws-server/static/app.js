@@ -4,7 +4,7 @@ import init, { initTracing, WsClient, WsClientConfig } from "/modules/et-ws-wasm
 // <script src="/app.js">, so a client running stale code is otherwise invisible -- this value round-trips to
 // the server tty (via the et-client-event sent below) so a stale load is diagnosable from server-side logs
 // alone, without trusting what the client claims to be running.
-const APP_JS_BUILD = "consent-log-v1";
+const APP_JS_BUILD = "llm1-loader-v1";
 
 console.log(`app.js: module loading started (build ${APP_JS_BUILD})`);
 
@@ -15,6 +15,13 @@ await new Promise((resolve, reject) => {
   s.onerror = reject;
   document.head.appendChild(s);
 });
+
+// llm1's transformers.js runtime, loaded on demand rather than with the page.
+// The URL lives here with the other served-npm-package URLs, and the loader stays lazy so the runtime bundle
+// and its ~23 MB of ORT wasm only download for a session that actually opens the chat module. `transformers.js`
+// is the fully-bundled build; the `.web` variants import "onnxruntime-web/webgpu" by bare specifier, which no
+// browser can resolve from a statically served directory.
+window.loadTransformers = () => import("/modules/@huggingface/transformers/dist/transformers.js");
 
 const logEl = document.getElementById("log");
 const moduleSelect = document.getElementById("module-select");
