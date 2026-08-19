@@ -227,7 +227,11 @@ for tool in $tools; do
     mise install "$tool"
     root=$(mise where "$tool")
   fi
-  lock=$(find "$root" -name aube-lock.yaml -type f | coreutils head -1)
+  # Bounded depth so the search never descends into node_modules.
+  # -maxdepth 3 still reaches both layouts mise writes the lock to (the install root, or
+  # global-aube/<hash>/), while the deepest node_modules entries in the transformers tree overrun Windows'
+  # 260-char MAX_PATH and make uutils find exit 1 -- which under `pipefail` fails the whole task.
+  lock=$(find "$root" -maxdepth 3 -name aube-lock.yaml -type f | coreutils head -1)
   if [ -z "$lock" ]; then
     echo "osv-scanner-npm: $tool has no aube-lock.yaml under $root" >&2
     echo "osv-scanner-npm: reinstall it so mise's embedded aube writes one" >&2
