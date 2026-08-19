@@ -12,6 +12,10 @@
 # pyeye1 loads @mediapipe/tasks-vision (FaceLandmarker) at runtime via /modules/@mediapipe/tasks-vision, the
 # same npm-package-served-as-a-module pattern as onnxruntime-web (resolved in libs/edge-toolkit/src/config.rs).
 "npm:@mediapipe/tasks-vision" = "latest"
+# transformers.js is llm1's WebGPU text-generation runtime.
+# llm1 loads it at runtime via /modules/@huggingface/transformers and points its ONNX weights at the
+# et-model-llm1 model module, so no request ever leaves the ws-server origin.
+"npm:@huggingface/transformers" = "latest"
 "npm:onnxruntime-web" = "latest"
 # stats-gl is the GPU utilisation meter overlay on the ws-server index page.
 # index.html loads it at runtime via /modules/stats-gl (same npm-package-served-as-a-module pattern as
@@ -78,6 +82,57 @@ run = "{{ vars.web_pack_cov }} {{ vars.no_opt }}{{ vars.web_cov_feat }} && {{ va
 depends = ["build-et-cli", "build-wasm-cov-wrapper"]
 description = "Build the face detection workflow WASM module"
 dir = "services/ws-modules/face-detection"
+run = "{{ vars.web_pack_cov }} {{ vars.no_opt }}{{ vars.web_cov_feat }} && {{ vars.et_cli }} module-package-json"
+
+[tasks.vendor-llm1-ort]
+description = "Stage transformers.js's pinned ORT wasm runtime into llm1's pkg/ort/"
+# transformers.js pins its own onnxruntime-web build and defaults its wasm pair to a CDN.
+# llm1 has to answer with no internet access, so the pair is copied out of the npm install (mise's npm backend
+# keeps the pinned transitive dep under node_modules/.mise/) and served from the module itself at
+# /modules/et-ws-llm1/ort/. Both the asyncify and the plain build are staged because transformers.js picks
+# between them per browser at import time, and llm1 only rewrites the directory of whichever it chose.
+dir = "services/ws-modules/llm1"
+run = """
+install="$(mise where "npm:@huggingface/transformers")"
+# mise reports a mixed-separator install path on Windows (C:/Users/...\\mise\\installs\\...).
+# MSYS bash reads a backslash as an escape rather than a separator, so compose child paths from a
+# forward-slash-only copy.
+install="${install//\\\\//}"
+pkg="$install/node_modules/@huggingface/transformers"
+ort_version="$(mise exec -- yq -p json -oy '.dependencies."onnxruntime-web"' "$pkg/package.json")"
+# transformers.js pins onnxruntime-web to one exact version, so the dist dir is addressable directly.
+# Walking the install tree instead overruns Windows' 260-char MAX_PATH inside ort's own flatbuffers sources
+# (the deepest, `runtime-optimization-record-container-entry.js.map`, lands at 279 chars), and uutils find
+# then reports every unstattable entry as `find: <path>: No such file or directory` -- on files that do
+# exist -- and exits 1. Seen on commit 189935fddb306fa8e4dc36007fd73f6edf0ca2ee at
+# https://github.com/edge-toolkit/core/actions/runs/32195702185/job/95899138206
+store="$install/node_modules/.mise/onnxruntime-web@$ort_version/node_modules/onnxruntime-web/dist"
+# The npm backend keeps pinned transitive deps in the .mise store above; a hoisted layout is the fallback.
+hoisted="$install/node_modules/onnxruntime-web/dist"
+dist=""
+for candidate in "$store" "$hoisted"; do
+  if [ -d "$candidate" ]; then
+    dist="$candidate"
+    break
+  fi
+done
+[ -n "$dist" ] || {
+  echo "no onnxruntime-web@$ort_version dist under $install; run 'MISE_ENV=js mise install' first" >&2
+  exit 1
+}
+coreutils rm -rf pkg/ort
+coreutils mkdir -p pkg/ort
+coreutils cp "$dist/ort-wasm-simd-threaded.mjs" pkg/ort/
+coreutils cp "$dist/ort-wasm-simd-threaded.wasm" pkg/ort/
+coreutils cp "$dist/ort-wasm-simd-threaded.asyncify.mjs" pkg/ort/
+coreutils cp "$dist/ort-wasm-simd-threaded.asyncify.wasm" pkg/ort/
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.build-ws-llm1-module]
+depends = ["build-et-cli", "build-wasm-cov-wrapper", "vendor-llm1-ort"]
+description = "Build the llm1 chat WASM module"
+dir = "services/ws-modules/llm1"
 run = "{{ vars.web_pack_cov }} {{ vars.no_opt }}{{ vars.web_cov_feat }} && {{ vars.et_cli }} module-package-json"
 
 [tasks.build-ws-js-data1-module]
@@ -172,7 +227,11 @@ for tool in $tools; do
     mise install "$tool"
     root=$(mise where "$tool")
   fi
-  lock=$(find "$root" -name aube-lock.yaml -type f | coreutils head -1)
+  # Bounded depth so the search never descends into node_modules.
+  # -maxdepth 3 still reaches both layouts mise writes the lock to (the install root, or
+  # global-aube/<hash>/), while the deepest node_modules entries in the transformers tree overrun Windows'
+  # 260-char MAX_PATH and make uutils find exit 1 -- which under `pipefail` fails the whole task.
+  lock=$(find "$root" -maxdepth 3 -name aube-lock.yaml -type f | coreutils head -1)
   if [ -z "$lock" ]; then
     echo "osv-scanner-npm: $tool has no aube-lock.yaml under $root" >&2
     echo "osv-scanner-npm: reinstall it so mise's embedded aube writes one" >&2

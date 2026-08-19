@@ -149,6 +149,66 @@ main canvas {
   object-fit: contain;
 }
 
+#chat-panel {
+  margin-top: 18px;
+}
+
+/* Light like the status textareas rather than dark like `pre`: the transcript is content, not log output. */
+#chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: min(50vh, 460px);
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid rgba(24, 32, 40, 0.18);
+  background: #fffdfa;
+  color: #182028;
+}
+
+.chat-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 85%;
+  padding: 8px 10px;
+  border: 1px solid rgba(24, 32, 40, 0.12);
+  background: rgba(24, 32, 40, 0.05);
+}
+
+.chat-turn strong {
+  font-size: 0.72em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  /* 0.82, not less: at 0.62 the label sits at 4.48:1 on .chat-turn, just under the 4.5:1 small-text floor. */
+  color: rgba(24, 32, 40, 0.82);
+}
+
+/* The reader's own turns carry the same amber accent the disclaimer note uses. */
+.chat-turn-user {
+  align-self: flex-end;
+  border-color: rgba(213, 155, 66, 0.55);
+  background: rgba(213, 155, 66, 0.14);
+}
+
+/* Model output arrives token by token, so keep its own newlines and let long words wrap. */
+.chat-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-controls {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.chat-controls textarea {
+  flex: 1;
+  margin: 0;
+  min-height: 0;
+}
+
 [hidden] {
   display: none !important;
 }

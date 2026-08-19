@@ -1,2 +1,8 @@
 *.onnx
 *.task
+# llm1's tokenizer + model configs, fetched by fetch-llm1-rclone alongside the (already ignored) weights.
+# Listed by name rather than as `*.json` so each model module's own package.json stays tracked.
+model-llm1/pkg/config.json
+model-llm1/pkg/generation_config.json
+model-llm1/pkg/tokenizer.json
+model-llm1/pkg/tokenizer_config.json

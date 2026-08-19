@@ -53,6 +53,28 @@ ignore = [
   # lib until TeaVM ships a release built against it. Flagged now that osv-scanner-check scans pom.xml; a Maven id
   # so cargo-deny reports it unknown (osv-scanner honours it). Drop when teavm.version ships that rhino.
   "GHSA-3w8q-xq97-5j7x",
+  # h2 0.3.27 unbounded empty DATA frames (low-severity HTTP/2 DoS: undrained streams grow memory).
+  # Accepted for the 0.3 copy only. hyperium patched the 0.4 line (>= 0.4.16, which Cargo.lock now pins for the
+  # hyper/reqwest path) and shipped no 0.3 backport, so 0.3.27 is the last release of a dead line. It arrives
+  # via actix-http, and no feature selection can drop it: actix-web's `rustls-0_23` hard-enables `http2`, and
+  # ws-server needs rustls to serve HTTPS/WSS. Only the TLS listener negotiates h2 via ALPN; the plaintext
+  # port stays HTTP/1.1. Drop when actix-http ships a release built on h2 0.4. cargo-deny 0.20 ignores by id
+  # only (no version scoping), so this also mutes the 0.4 line -- Cargo.lock pins 0.4.16 there, and a bump
+  # below that would have to come back through this entry, so re-check both copies when touching it.
+  "RUSTSEC-2026-0258",
+  # adm-zip 0.5.18 arbitrary file write via a crafted archive entry (npm ecosystem, fixed 0.6.0).
+  # Reaches us only through onnxruntime-node, which @huggingface/transformers declares for its Node backend --
+  # llm1 serves the browser bundle (dist/transformers.web.js) instead, and that file is self-contained and
+  # imports no Node package. No archive of any kind is opened by what we ship. transformers 4.2.0 pins
+  # onnxruntime-node 1.24.3 exactly, so the bump has to come from upstream. Reported by osv-scanner against
+  # the collected npm lock; a GHSA id, so cargo-deny reports it unknown while osv-scanner honours it.
+  "GHSA-xcpc-8h2w-3j85",
+  # sharp 0.34.5 heap overflow in its bundled libvips when decoding a malformed image (fixed 0.35.0).
+  # Same path and same reasoning as adm-zip above: sharp is transformers' Node-side image decoder, and the
+  # served browser bundle decodes images through the DOM instead. transformers 4.2.0 requires sharp ^0.34.5,
+  # which excludes 0.35.0, so widening it is upstream's call. Drop both entries when a transformers release
+  # ships sharp >= 0.35.0 and onnxruntime-node >= a build carrying adm-zip 0.6.0.
+  "GHSA-f88m-g3jw-g9cj",
 ]
 
 [licenses]

@@ -50,6 +50,7 @@ files:
   - services/ws-modules/face-detection/tests/status_lines.rs
   - services/ws-modules/har1/src/lib.rs
   - services/ws-modules/har1/tests/status_lines.rs
+  - services/ws-modules/llm1/src/lib.rs
   - services/ws-modules/math1-sender/build.rs
   - services/ws-modules/math1-sender/src/lib.rs
   - services/ws-modules/math1/src/lib.rs

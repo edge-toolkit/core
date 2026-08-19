@@ -516,6 +516,19 @@ eye1_src = ":http:edge-toolkit/core/releases/download/{{ vars.a_hf_cache_tag }}/
 har_dst = "data/model-modules/model-har-motion1/pkg/har-motion1.onnx"
 har_repo = ":http:acd17sk/MET-Metabolic-Equivalent-of-Task-AI-Android-APP"
 har_src = "{{ vars.har_repo }}/raw/refs/heads/main/Models/onnx/hybrid_met.onnx"
+# llm1's chat model: SmolLM2-135M-Instruct (Apache-2.0), fetched from HuggingFaceTB at a pinned commit.
+# transformers.js resolves a local model as `<localModelPath>/<model-id>/`, so every file keeps its upstream
+# name under model-llm1/pkg/ and the weights keep their `onnx/` subdir. The q4f16 export is ~118 MB -- the
+# smallest instruct model that still holds a chat turn; point llm1_repo and the asset names at
+# SmolLM2-360M-Instruct for noticeably better replies at ~273 MB. Each asset name carries the upstream short
+# SHA; config/upstream-cache/data.toml records the matching SHA256s and checksums.rego cross-checks both sides.
+llm1_config_asset = "llm1-12fd25f-config.json"
+llm1_dir = "data/model-modules/model-llm1/pkg"
+llm1_gen_asset = "llm1-12fd25f-generation_config.json"
+llm1_repo = ":http:HuggingFaceTB/SmolLM2-135M-Instruct/resolve/12fd25f"
+llm1_tokenizer_asset = "llm1-12fd25f-tokenizer.json"
+llm1_tokenizer_config_asset = "llm1-12fd25f-tokenizer_config.json"
+llm1_weights_asset = "llm1-12fd25f-model_q4f16.onnx"
 mnist_dst = "services/ws-modules/wasi-graphics-info/pkg/mnist-12.onnx"
 mnist_src = ":http:onnx/models/raw/main/validated/vision/classification/mnist/model/mnist-12.onnx"
 speech1_asset = "speech1-84f0d86.onnx"
@@ -1790,6 +1803,36 @@ shell = "bash -euo pipefail -c"
 run = "rclone copyto {{ vars.mnist_src }} {{ vars.mnist_dst }} {{ vars.gh_http }}"
 shell = "bash -euo pipefail -c"
 
+[tasks.fetch-llm1-rclone]
+# llm1's SmolLM2 weights, tokenizer and configs, fetched straight from HuggingFace.
+# The five files land under the model module's gitignored pkg/, which et-modules-service then serves as
+# /modules/et-model-llm1/... -- exactly the layout transformers.js expects of a local model. Deliberately not
+# in prefetch-ci: at ~118 MB the weights are a developer-side download, and only llm1 reads them.
+run = """
+opts="--http-url https://huggingface.co --progress --ignore-existing"
+files=(config.json generation_config.json tokenizer.json tokenizer_config.json onnx/model_q4f16.onnx)
+assets=(
+  '{{ vars.llm1_config_asset }}'
+  '{{ vars.llm1_gen_asset }}'
+  '{{ vars.llm1_tokenizer_asset }}'
+  '{{ vars.llm1_tokenizer_config_asset }}'
+  '{{ vars.llm1_weights_asset }}'
+)
+for index in "${!files[@]}"; do
+  dst="{{ vars.llm1_dir }}/${files[index]}"
+  # shellcheck disable=SC2086
+  rclone copyto "{{ vars.llm1_repo }}/${files[index]}" "$dst" $opts
+  export asset="${assets[index]}"
+  sha=$(mise exec -- yq -p toml -oy '.asset[strenv(asset)].sha256' config/upstream-cache/data.toml)
+  actual=$(mise exec -- coreutils sha256sum -b "$dst" | mise exec -- coreutils cut -c1-64)
+  [ "$actual" = "$sha" ] || {
+    echo "llm1 checksum mismatch for ${files[index]}: expected=$sha actual=$actual" >&2
+    exit 1
+  }
+done
+"""
+shell = "bash -euo pipefail -c"
+
 [tasks.fetch-speech1-rclone]
 run = """
 opts="--http-url https://huggingface.co --progress --ignore-existing"
@@ -1810,6 +1853,7 @@ depends = [
   "fetch-eye1-rclone",
   "fetch-face1-rclone",
   "fetch-har-motion1-rclone",
+  "fetch-llm1-rclone",
   "fetch-mnist-rclone",
   "fetch-speech1-rclone",
 ]

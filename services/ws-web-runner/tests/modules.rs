@@ -19,6 +19,7 @@
 //! - **et-ws-geolocation** -- `navigator.geolocation`
 //! - **et-ws-face-detection** -- camera (`getUserMedia`) + ONNX model
 //! - **et-ws-har1** -- accelerometer (`DeviceMotionEvent`) + ONNX model
+//! - **et-ws-llm1** -- `navigator.gpu` (WebGPU) + the page's transformers.js loader and chat panel
 //! - **et-ws-pyface1** -- Pyodide + camera + ONNX model
 //! - **et-ws-pydemo1** -- Pyodide + camera + microphone combined demo
 //! - **et-ws-pyeye1** -- Pyodide + camera + `MediaPipe` `FaceLandmarker` (tflite) -> eye boxes
@@ -363,6 +364,7 @@ fn multi_agent_module(#[case] module: &str, #[case] language: Language) {
 #[case::face_detection("et-ws-face-detection", Language::Rust)]
 #[case::geolocation("et-ws-geolocation", Language::Rust)]
 #[case::har1("et-ws-har1", Language::Rust)]
+#[case::llm1("et-ws-llm1", Language::Rust)]
 #[case::nfc("et-ws-nfc", Language::Rust)]
 #[case::sensor1("et-ws-sensor1", Language::Rust)]
 #[case::speech_recognition("et-ws-speech-recognition", Language::Rust)]
