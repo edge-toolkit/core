@@ -73,10 +73,15 @@ pub fn is_running() -> bool {
 }
 
 /// Request the active chat loop to stop; it exits at its next poll and cleans up after itself.
+///
+/// The flag stays registered until `run()` returns, so `is_running()` keeps reporting true while a
+/// generation already in flight finishes. Deregistering it here would open a gap as long as one generation
+/// in which a second `run()` starts a concurrent session -- two sets of panel listeners over one panel, two
+/// sockets -- and the first session's `detach()` would then strip the second session's listeners.
 #[wasm_bindgen]
 pub fn stop() {
     STOP_FLAG.with(|flag| {
-        if let Some(stop_requested) = flag.borrow_mut().take() {
+        if let Some(stop_requested) = flag.borrow().as_ref() {
             stop_requested.set(true);
         }
     });
@@ -101,15 +106,30 @@ pub async fn run() -> Result<(), JsValue> {
     outcome
 }
 
-/// Connect, load the model, then serve prompts from the page's chat panel until stopped.
+/// Connect, then run a chat session, disconnecting however the session ends.
+///
+/// The session's own `?` failures are as routine as its success: `create_generator` fails on every browser
+/// without WebGPU. Binding the outcome keeps the socket from being left registered on the server on those
+/// paths, which an early `?` out of the session body would do.
 async fn chat_workflow(stop_requested: &Rc<Cell<bool>>) -> Result<(), JsValue> {
     log("entered run()");
     set_module_status("llm1: connecting")?;
 
     let mut client = WsClient::new(WsClientConfig::new(websocket_url()?));
     client.connect()?;
-    wait_for_connected(&client).await?;
-    let agent_id = wait_for_agent_id(&client).await?;
+    let outcome = chat_session(&client, stop_requested).await;
+    client.disconnect();
+    outcome
+}
+
+/// Load the runtime and model, then serve prompts, detaching the panel listeners however serving ends.
+///
+/// The listeners are detached on the failure paths too: a `Listeners` that drops while its closures are
+/// still registered leaves the panel's buttons calling into dropped `Closure` shims, so a later click
+/// throws instead of doing nothing.
+async fn chat_session(client: &WsClient, stop_requested: &Rc<Cell<bool>>) -> Result<(), JsValue> {
+    wait_for_connected(client).await?;
+    let agent_id = wait_for_agent_id(client).await?;
     log(&format!("websocket connected with agent_id={agent_id}"));
 
     let transformers = load_runtime().await?;
@@ -120,12 +140,10 @@ async fn chat_workflow(stop_requested: &Rc<Cell<bool>>) -> Result<(), JsValue> {
 
     let prompts: Rc<RefCell<VecDeque<String>>> = Rc::new(RefCell::new(VecDeque::new()));
     let listeners = attach_panel_listeners(&prompts)?;
-    show_panel()?;
-    set_module_status("llm1: ready -- type a message and press Enter")?;
 
-    let outcome = serve_prompts(
+    let outcome = serve_panel(
         &ChatContext {
-            client: &client,
+            client,
             generate: &generate,
             streamer_ctor: streamer_constructor(&transformers)?,
             tokenizer: &tokenizer,
@@ -136,8 +154,18 @@ async fn chat_workflow(stop_requested: &Rc<Cell<bool>>) -> Result<(), JsValue> {
     .await;
 
     listeners.detach();
-    client.disconnect();
     outcome
+}
+
+/// Reveal the panel and serve prompts from it until stopped.
+async fn serve_panel(
+    context: &ChatContext<'_>,
+    prompts: &Rc<RefCell<VecDeque<String>>>,
+    stop_requested: &Rc<Cell<bool>>,
+) -> Result<(), JsValue> {
+    show_panel()?;
+    set_module_status("llm1: ready -- type a message and press Enter")?;
+    serve_prompts(context, prompts, stop_requested).await
 }
 
 /// The per-session JS handles one chat turn needs, bundled so the turn loop takes a single argument.

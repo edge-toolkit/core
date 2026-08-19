@@ -180,7 +180,8 @@ main canvas {
   font-size: 0.72em;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(24, 32, 40, 0.62);
+  /* 0.82, not less: at 0.62 the label sits at 4.48:1 on .chat-turn, just under the 4.5:1 small-text floor. */
+  color: rgba(24, 32, 40, 0.82);
 }
 
 /* The reader's own turns carry the same amber accent the disclaimer note uses. */
