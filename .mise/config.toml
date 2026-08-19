@@ -1295,7 +1295,7 @@ description = "Prefetch the Node (pnpm) workspace"
 env = { CI = "true" }
 # Installs the whole workspace from the repo root, so no --dir.
 # The members come from pnpm-workspace.yaml and the resolution lands in the single root pnpm-lock.yaml.
-run = "pnpm install --ignore-scripts --config.ignoredBuiltDependencies=protobufjs"
+run = "pnpm install --ignore-scripts"
 # `shell = "bash"` on Windows for the same base-config-task PATH dropout.
 # Same dropout as `prefetch:rust` and `build-et-cli` -- cmd subprocess can't find pnpm. Captured on
 # 3ac0d60b windows test job 82282265424 (after the prefetch:rust fix, the same failure surfaced one step

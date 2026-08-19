@@ -22,6 +22,8 @@ export default async function init() {
   // TeaVM @JSBody calls reference `host` as a global
   globalThis.host = {
     wsConnect: (url) => {
+      // Cleared per connect: the page caches this module, so a second run() must not see the first run's id.
+      agentId = "";
       ws = new WebSocket(url);
       wsState = "connecting";
       ws.onopen = () => {

@@ -23,6 +23,8 @@ export default async function init() {
 
   setModuleImports("dotnet-math1", {
     wsConnect: (url) => {
+      // Cleared per connect: the page caches this module, so a second run() must not see the first run's id.
+      agentId = "";
       ws = new WebSocket(url);
       wsState = "connecting";
       ws.onopen = () => {

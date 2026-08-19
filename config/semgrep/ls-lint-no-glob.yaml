@@ -4,7 +4,9 @@ rules:
     paths:
       include:
         - "/config/ls-lint.yaml"
-    pattern-regex: '\*\*'
+    # Matches a list item (the `ignore:` entries are the file's only sequence) carrying any glob metacharacter.
+    # Scoping to `- ` keeps the `ls:` rules above clear, whose `regex:` values legitimately contain `[`.
+    pattern-regex: '-\s+\S*[*?\[{]'
     message: >-
       ls-lint config entries must be literal paths -- `**` (and any other glob syntax) is banned. ls-lint
       snapshots glob-based ignores once at startup and deletes every key that matches nothing at that moment

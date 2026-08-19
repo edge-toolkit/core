@@ -304,12 +304,13 @@ if [ "${OS:-}" = "Windows_NT" ]; then
   # lookup below works regardless of which envs were exported. The conda-m2-gnupg directory is only needed by
   # this repo's own build (NOT rustpython's), so dropping it for the cargo install is safe. PATH on git-bash
   # uses `:` as the separator.
-  PATH=$(echo "$PATH" | tr ':' '\\n' | grep -v 'conda-m2-gnupg' | paste -sd ':' -)
+  PATH=$(echo "$PATH" | coreutils tr ':' '\\n' | rg -v 'conda-m2-gnupg' | coreutils paste -sd ':' -)
   export PATH
   # Pick the first where.exe match under an MSVC tools dir.
   # where.exe returns every match newline-separated. If none is found we
   # leave the default lookup alone (the PATH strip above is usually enough).
-  msvc_link=$(where.exe link.exe 2>/dev/null | tr -d '\\r' | grep -iE 'MSVC[\\/].*Hostx64' | head -1 || true)
+  msvc_where=$(where.exe link.exe 2>/dev/null | coreutils tr -d '\\r' | rg -i 'MSVC[\\/].*Hostx64' || true)
+  msvc_link=$(printf '%s\\n' "$msvc_where" | coreutils head -1)
   if [ -n "${msvc_link:-}" ]; then
     export CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER="$msvc_link"
   fi

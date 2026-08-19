@@ -76,13 +76,22 @@ Future<T> waitFor<T>(String what, T? Function() ready) async {
 /// The broadcast pointer naming the storage bucket + filename of the input JSON.
 ({String bucket, String filename})? inputPointer;
 
+/// One path segment of a storage URL, with no separator or traversal syntax.
+///
+/// The pointer arrives in a relayed broadcast from an arbitrary peer, so a `bucket` of `../..` would
+/// otherwise steer the read at another storage path. The java, kotlin, and dotnet twins hold their pointers
+/// to the same shape, so every math1 twin shares one trust model.
+final _safeSegment = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
+
 void captureInputPointer(String frame) {
   try {
     final msg = jsonDecode(frame);
     if (msg is Map<String, dynamic> &&
         msg['type'] == 'math1-input' &&
         msg['bucket'] is String &&
-        msg['filename'] is String) {
+        msg['filename'] is String &&
+        _safeSegment.hasMatch(msg['bucket'] as String) &&
+        _safeSegment.hasMatch(msg['filename'] as String)) {
       inputPointer = (
         bucket: msg['bucket'] as String,
         filename: msg['filename'] as String,
@@ -102,7 +111,8 @@ List<double> fedAvg(Map<String, dynamic> input) {
       .map(
         (samples) => (samples as List)
             .map(
-              (sample) => (sample as List).map((v) => (v as num).toDouble()).toList(),
+              (sample) =>
+                  (sample as List).map((v) => (v as num).toDouble()).toList(),
             )
             .toList(),
       )
@@ -155,7 +165,10 @@ Future<void> run() async {
     }).toJS,
   );
   client.connect();
-  await waitFor('WebSocket connection', () => client.get_state() == 'connected' ? true : null);
+  await waitFor(
+    'WebSocket connection',
+    () => client.get_state() == 'connected' ? true : null,
+  );
   final agentId = await waitFor('agent_id', () {
     final id = client.get_agent_id();
     return id.isEmpty ? null : id;
@@ -177,13 +190,19 @@ Future<void> run() async {
   final input = jsonDecode(utf8.decode(inputBytes)) as Map<String, dynamic>;
 
   final clientCount = (input['clients'] as List).length;
-  log('running FedAvg - $clientCount clients x ${input['rounds']} rounds x ${input['epochs']} local epochs');
+  log(
+    'running FedAvg - $clientCount clients x ${input['rounds']} rounds x ${input['epochs']} local epochs',
+  );
   final model = fedAvg(input);
   final weight = model[0];
   final bias = model[1];
   log('global model weight=$weight bias=$bias');
 
-  final output = jsonEncode({'module': 'dart-math1', 'weight': weight, 'bias': bias});
+  final output = jsonEncode({
+    'module': 'dart-math1',
+    'weight': weight,
+    'bias': bias,
+  });
   await rest.storage.putFile(
     agentId: agentId,
     filename: 'math1-output.json',

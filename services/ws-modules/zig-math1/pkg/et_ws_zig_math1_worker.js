@@ -78,8 +78,14 @@ self.onmessage = async (e) => {
   // Resolve the module wasm from this worker's own location (self.location), never from a postMessage value,
   // so the fetch URL cannot depend on message data. The wasm is a fixed-name sibling of this worker script.
   const wasmUrl = new URL("et_ws_zig_math1.wasm", self.location.href);
-  const { instance } = await WebAssembly.instantiateStreaming(fetch(wasmUrl), imports);
-  wasmMemory = instance.exports.memory;
-  const ret = instance.exports.run();
-  self.postMessage({ done: true, ret });
+  // Every failure still has to post `done`: instantiateStreaming can reject and run() can trap, and an
+  // unhandled rejection here posts nothing at all, leaving the page waiting on a message that never arrives.
+  try {
+    const { instance } = await WebAssembly.instantiateStreaming(fetch(wasmUrl), imports);
+    wasmMemory = instance.exports.memory;
+    const ret = instance.exports.run();
+    self.postMessage({ done: true, ret });
+  } catch (error) {
+    self.postMessage({ done: true, error: String(error), ret: -1 });
+  }
 };

@@ -13,5 +13,13 @@ packages:
   - services/ws-modules/js-data1
 # esbuild ships its platform binary via a postinstall build script; allow it so the js-data1 bundle can build.
 # Everything else stays blocked by pnpm's default supply-chain policy.
+#
+# A blocked script still has to be named here with `false`. pnpm aborts an install that silently ignored one
+# (`[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: protobufjs@7.6.5`, telling you to run
+# `pnpm approve-builds`), so an undeclared entry fails every cold tree while a warm one passes on recorded
+# state -- which is how build-ws-js-data1-module broke on a fresh linux-arm64 clone but nowhere else.
+# protobufjs (transitive, via the aws-sdk graph) only uses its postinstall to pick a native codec, and the
+# bundle runs the pure-JS path, so blocking it is the outcome we want -- just declared rather than implied.
 allowBuilds:
   esbuild: true
+  protobufjs: false

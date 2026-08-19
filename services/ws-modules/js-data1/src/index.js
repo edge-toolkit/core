@@ -51,7 +51,18 @@ function httpBase() {
 function connectAgent() {
   const ws = new WebSocket(websocketUrl());
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("timed out waiting for et-connect-ack")), 10000);
+    // `run`'s finally block only closes the socket it was handed, so a rejection here has to close its own --
+    // otherwise a failed handshake leaves the runner holding an open socket the server keeps registered.
+    // `settled` keeps a late ack from resolving a promise already rejected, which would hand back a closed ws.
+    let settled = false;
+    const fail = (message) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      ws.close();
+      reject(new Error(message));
+    };
+    const timer = setTimeout(() => fail("timed out waiting for et-connect-ack"), 10000);
     ws.addEventListener("message", (event) => {
       let frame;
       try {
@@ -60,14 +71,13 @@ function connectAgent() {
         return;
       }
       if (frame.type === "et-connect-ack" && frame.agent_id) {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
         resolve({ agentId: frame.agent_id, ws });
       }
     });
-    ws.addEventListener("error", () => {
-      clearTimeout(timer);
-      reject(new Error("websocket error before et-connect-ack"));
-    });
+    ws.addEventListener("error", () => fail("websocket error before et-connect-ack"));
     ws.addEventListener("open", () => ws.send(JSON.stringify({ agent_id: null, type: "et-connect" })));
   });
 }
