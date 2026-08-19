@@ -895,9 +895,10 @@ standalone file or a mise task `run`. The available linters:
 - **shfmt on mise task bodies** (`.mise/shfmt-mise.awk`, via `shfmt-mise-fmt` and `shfmt-mise-check`) -- splits those
   same bodies out, shfmt-formats each one, and merges the result back over the config, so a task body is held to the
   same formatting as any other shell in the repo. The check reports shfmt's own diff and names `shfmt-mise-fmt` as the
-  fix. Its one demand on how a body is written: inside a `"""` block every backslash escape must be doubled, since a
-  lone `\n` / `\r` / `\b` is TOML syntax that folds into a control character rather than the two bytes the shell wants
-  -- the split pass rejects one instead of guessing which was meant.
+  fix. Its one demand on how a body is written: inside a `"""` block a backslash meant to reach the shell must be
+  doubled, since a lone `\n` / `\r` / `\b` is TOML syntax that folds into a control character rather than the two bytes
+  the shell wants -- the split pass rejects one instead of guessing which was meant. `\\` and `\"` are the two escapes
+  it does decode, so an embedded quote stays written the TOML way.
 - plus hadolint, ls-lint (file/dir naming), zizmor (Actions security), ryl
   (YAML), lychee (links), clang-format / clang-tidy / cpplint / flawfinder (C, in the zig config),
   editorconfig-checker, typos, and action-validator for their domains.

@@ -88,7 +88,9 @@ missing=""
 brewy=""
 for pkg in $pkgs; do
   case "$pkg" in
-    ca-certificates | libc6-dev | libicu* | binutils) cmd="" ;;
+    # binutils names the package, `as` is the binary -- so the Homebrew check below has something to resolve.
+    binutils) cmd="as" ;;
+    ca-certificates | libc6-dev | libicu*) cmd="" ;;
     *) cmd="$pkg" ;;
   esac
   case "$pkg" in

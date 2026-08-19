@@ -72,6 +72,8 @@ export async function run() {
           );
           return;
         case 1:
+          // Cleared per connect: the page caches this module, so a second run() must not see the first run's id.
+          agentId = "";
           ws = new WebSocket(payload);
           wsState = "connecting";
           ws.onopen = () => {
@@ -157,6 +159,8 @@ export async function run() {
         worker.terminate();
         if (e.data.ret === 0) {
           resolve();
+        } else if (e.data.error) {
+          reject(new Error("zig-math1: worker failed: " + e.data.error));
         } else {
           reject(new Error("zig-math1: run() returned " + e.data.ret));
         }

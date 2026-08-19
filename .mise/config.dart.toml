@@ -1,8 +1,11 @@
 # Dart toolchain + tasks. Loaded when MISE_ENV includes `dart`.
 
 [vars]
-# Every tracked Dart package: the two generated clients plus the two modules. Shared by analyze/format.
-dart_paths = "generated/dart-ws generated/dart-rest services/ws-modules/dart-comm1 services/ws-modules/dart-data1"
+# Every tracked Dart package: the two generated clients plus the three modules. Shared by analyze/format.
+# Split in two only to stay inside the editorconfig line length; dart_paths is the one callers use.
+dart_generated_paths = "generated/dart-ws generated/dart-rest"
+dart_module_paths = "services/ws-modules/dart-comm1 services/ws-modules/dart-data1 services/ws-modules/dart-math1"
+dart_paths = "{{ vars.dart_generated_paths }} {{ vars.dart_module_paths }}"
 
 [tools]
 "cargo:dart-typegen" = { version = "latest", os = ["linux", "macos"] }
