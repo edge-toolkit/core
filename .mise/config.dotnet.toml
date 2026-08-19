@@ -77,15 +77,18 @@ description = "Install the wasm-tools workload once, before any dotnet module bu
 #   the assembly '<dotnet-root>/packs/Microsoft.NET.Runtime.MonoTargets.Sdk/10.0.8/Sdk/../tasks/net10.0/
 #   MonoTargetsTasks.dll'. The system cannot find the file specified.
 # Seen on linux-arm64 running build-modules-all, where the two dotnet builds start close enough together to
-# overlap. Skipping when the workload is already listed also keeps a stale library-packs nupkg from a killed
-# install from failing every later build.
-run = '''
-if dotnet workload list | rg -q '(^|[[:space:]])wasm-tools([[:space:]]|$)'; then
-  echo "wasm-tools workload already installed"
-  exit 0
-fi
-dotnet workload install wasm-tools --skip-manifest-update
-'''
+# overlap.
+#
+# The install runs unconditionally: `dotnet workload list` naming wasm-tools does NOT mean the packs are
+# usable, and skipping on that basis broke every Windows lane. There the publish silently left the
+# WebAssembly SDK path and ILLink demanded an entry point these `OutputType=Library` modules do not have:
+#   ILLink : error IL1034: Root assembly 'dotnet-data1, Version=1.0.0.0, Culture=neutral,
+#   PublicKeyToken=null' does not have entry point.
+#   error NETSDK1144: Optimizing assemblies for size failed.
+# All three Windows lanes at once on commit 017a9aa4035a50db663ad6a800d1005051ca9a78,
+# https://github.com/edge-toolkit/core/actions/runs/32226380541/job/95986792705 -- serializing the install was
+# the fix for the race, guarding it was not part of that and only hid a broken workload state.
+run = "dotnet workload install wasm-tools --skip-manifest-update"
 shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-dotnet-data1-module]
