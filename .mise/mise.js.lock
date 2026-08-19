@@ -8,6 +8,7 @@ backend = "http:oxfmt"
 rename_exe = "oxfmt"
 
 [tools."http:oxfmt"."platforms.linux-arm64"]
+checksum = "blake3:dd01694ec12d56044335c46dac31c81818301f1105a070daa3a7a17b4c3c43e0"
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-aarch64-unknown-linux-gnu.tar.gz"
 
 [tools."http:oxfmt"."platforms.linux-x64"]
@@ -31,6 +32,7 @@ backend = "http:oxlint"
 rename_exe = "oxlint"
 
 [tools."http:oxlint"."platforms.linux-arm64"]
+checksum = "blake3:eed69dc4ba51208c71166f27a022e6864f01e58ce96f8590972b59359e2bcc91"
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.73.0/oxlint-aarch64-unknown-linux-gnu.tar.gz"
 
 [tools."http:oxlint"."platforms.linux-x64"]

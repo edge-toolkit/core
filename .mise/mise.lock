@@ -701,6 +701,7 @@ checksum = "sha256:c7cc1da47358e455505c5937f6363263ae560126ca728d1c96d2114eb71d3
 url = "https://github.com/caldempsey/parfit/releases/download/v0.4.4/parfit-aarch64-unknown-linux-gnu.tar.xz"
 url_api = "https://api.github.com/repos/caldempsey/parfit/releases/assets/404472599"
 provenance = "github-attestations"
+provenance_verified = true
 
 [tools."github:caldempsey/parfit"."platforms.linux-x64"]
 checksum = "sha256:7613f981c721563544826968054e23911b38bb291aa69673d32c7e0c58228db6"
@@ -762,6 +763,7 @@ version = "1.22.0"
 backend = "github:microsoft/onnxruntime"
 
 [tools."github:microsoft/onnxruntime"."platforms.linux-arm64"]
+checksum = "blake3:51c33bfd5c886d3ec77a8e4eaf249aa04893b0eaa55b0c85d2dc1960da256484"
 url = "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-aarch64-1.22.0.tgz"
 url_api = "https://api.github.com/repos/microsoft/onnxruntime/releases/assets/253300383"
 
@@ -793,6 +795,7 @@ checksum = "sha256:8b3f4d4560b6b0f83774fecc6be07e47716dbad0eb0bb6c3890f478f4affe
 url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.140/cargo-nextest-0.9.140-aarch64-unknown-linux-gnu.tar.gz"
 url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/467464894"
 provenance = "github-attestations"
+provenance_verified = true
 
 [tools."github:nextest-rs/nextest"."platforms.linux-x64"]
 checksum = "sha256:4ee9aaa0d0171a985a5d0eb735b87355894c1c455972e9674fb9fdbd1387c9a3"
@@ -858,6 +861,7 @@ checksum = "sha256:519797a066436e7ccbbf6acd01820c2ceda781e95ccf7e828d66b12b1c2c5
 url = "https://github.com/owenlamont/ryl/releases/download/v0.19.1/ryl-aarch64-unknown-linux-gnu.tar.gz"
 url_api = "https://api.github.com/repos/owenlamont/ryl/releases/assets/451334890"
 provenance = "github-attestations"
+provenance_verified = true
 
 [tools."github:owenlamont/ryl"."platforms.linux-x64"]
 checksum = "sha256:38dd3f408b08dec2fc33957af74a307273c36d2c35e55bed64fbdcaecae66f32"
@@ -980,6 +984,7 @@ checksum = "sha256:96864b3992ad45536deb59fc62edc5b845376b7d8b4ac670a6bdab4ab8d2c
 url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.126/wasm-bindgen-0.2.126-aarch64-unknown-linux-gnu.tar.gz"
 url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/456882701"
 provenance = "github-attestations"
+provenance_verified = true
 
 [tools."github:wasm-bindgen/wasm-bindgen"."platforms.linux-x64"]
 checksum = "sha256:064948d58e2d6c0a745216477a639ba696216d6309aaa902939d1b865b1d869d"
@@ -1135,6 +1140,7 @@ version = "0.91.5"
 backend = "http:openobserve"
 
 [tools."http:openobserve"."platforms.linux-arm64"]
+checksum = "blake3:f7ac088c91c3300e6f3b43025fcf2d2e0656516292b8c79964be9e62df89cc2c"
 url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-linux-arm64-musl.tar.gz"
 
 [tools."http:openobserve"."platforms.linux-x64"]
@@ -1179,6 +1185,7 @@ version = "1.0.0-beta.12"
 backend = "http:rustfs"
 
 [tools."http:rustfs"."platforms.linux-arm64"]
+checksum = "blake3:4519ceb7937a6cb895a5ae56f778d1924e17ace9320c2bfdfa1075455b2b8278"
 url = "https://github.com/rustfs/rustfs/releases/download/1.0.0-beta.12/rustfs-linux-aarch64-musl-v1.0.0-beta.12.zip"
 
 [tools."http:rustfs"."platforms.linux-x64"]
@@ -1547,6 +1554,7 @@ version = "0.10.0"
 backend = "aqua:tamasfe/taplo"
 
 [tools.taplo."platforms.linux-arm64"]
+checksum = "blake3:7f7a3ddaa5acf0bc243fc1134dc68a94a39b2bef91000f7866dd90e4bd670b5e"
 url = "https://github.com/tamasfe/taplo/releases/download/0.10.0/taplo-linux-aarch64.gz"
 url_api = "https://api.github.com/repos/tamasfe/taplo/releases/assets/257322597"
 
