@@ -21,6 +21,14 @@
 # Windows is deliberately out of scope for this env (hence the os scoping here): coverage collection runs only
 # on the ubuntu CI lane, and there is no intention to make the wasm coverage pipeline work on Windows.
 [tools]
+# scc is the primary line counter behind the sloc task.
+# Picked over the alternatives on three grounds: a prebuilt binary for every target platform, counting rules
+# documented upstream, and json/csv output so a reported figure can be regenerated rather than transcribed.
+"aqua:boyter/scc" = "latest"
+# gocloc re-counts the same file sets for sloc-crosscheck, as an independent implementation of cloc's rules.
+# cloc itself cannot be a mise tool: upstream ships a Perl script plus a Windows .exe, so every non-Windows
+# platform would fall back to host perl. gocloc is the closest thing that installs as a prebuilt binary.
+"aqua:hhatto/gocloc" = "latest"
 "conda:clang" = { version = "latest", os = ["linux", "macos"] }
 
 # The wasm coverage builds run on nightly (-Zno-profiler-runtime) with the wasm-capable conda clang on PATH.
@@ -452,5 +460,103 @@ goawk -v want="ws-modules/pic-viewer/src/" -f "$keep" "$covdir/all.lcov" >>lcov.
 rpt="$covdir/report.txt"
 "$llbin/llvm-cov" report --instr-profile "$covdir/pic-viewer.profdata" "${objs[@]}" >"$rpt" 2>/dev/null || true
 rg "ws-modules/pic-viewer/src/lib.rs|Filename|TOTAL" "$rpt" || true
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.sloc]
+description = "Count source lines of code: non-test vs test totals plus a per-language split (scc)"
+run = """
+out=target/sloc
+coreutils rm -rf "$out"
+coreutils mkdir -p "$out"
+
+# Count the repository of record rather than the working tree.
+# `git ls-files` fixes the input set without relying on either counter's own ignore handling, and it hands this
+# task and sloc-crosscheck byte-identical lists so a difference between the two tools is only ever a counting
+# rule. verification/ is the one exclusion: those files are expected-output fixtures a generator emits for
+# byte-comparison, so they are data the counts would inflate, not source anyone reads.
+excluded='^verification/'
+# A test is a file under a `tests/` directory, or one whose basename starts with `test_`.
+# That is the repo's stated test convention and, checked against the tree, the only two shapes in it.
+tests='(^|/)(tests/|test_[^/]*$)'
+# generated/ counts as source, and is also measured on its own so a report can state how much is machine-made.
+# It holds no test-shaped path, so it sits entirely inside the non-test partition and cannot split across the
+# two -- which is what keeps the identity check below meaningful.
+generated='^generated/'
+
+git ls-files | rg -v "$excluded" >"$out/all.txt"
+rg "$tests" <"$out/all.txt" >"$out/test.txt"
+rg -v "$tests" <"$out/all.txt" >"$out/non-test.txt"
+rg "$generated" <"$out/all.txt" >"$out/generated.txt"
+
+# --no-cocomo drops the cost estimate: COCOMO is a model with its own assumptions, not a measurement.
+# Each partition also lands as json + csv so a figure in prose can be regenerated instead of transcribed.
+count() {
+  echo "== $2 =="
+  fmt="tabular:stdout,json:$out/$1.json,csv:$out/$1.csv"
+  xargs scc --no-cocomo --sort code --format-multi "$fmt" <"$out/$1.txt"
+}
+count all "all source"
+count non-test "non-test source"
+count test "test source"
+count generated "generated source (a subset of non-test, shown for reference)"
+
+# Per-language test vs non-test, joined from the same json the totals come from so the two cannot disagree.
+# scc counts one partition per run, so the split has to be assembled here rather than read off a single table.
+{
+  printf 'language\\tnon_test_code\\ttest_code\\ttotal_code\\n'
+  # $doc and $l are jaq bindings, not shell variables, so the program stays single-quoted.
+  # shellcheck disable=SC2016
+  printf '{"nontest":%s,"test":%s}' "$(coreutils cat "$out/non-test.json")" "$(coreutils cat "$out/test.json")" |
+    jaq -r '. as $doc
+      | (reduce $doc.nontest[] as $l ({}; .[$l.Name] = {nontest: $l.Code, test: 0}))
+      | (reduce $doc.test[] as $l (.; .[$l.Name] = {nontest: (.[$l.Name].nontest // 0), test: $l.Code}))
+      | to_entries
+      | map({lang: .key, nontest: .value.nontest, test: .value.test, total: (.value.nontest + .value.test)})
+      | sort_by(-.total)
+      | .[]
+      | [.lang, .nontest, .test, .total]
+      | @tsv'
+} >"$out/by-language.tsv"
+
+# The test share is derived at print time rather than stored, so the tsv holds only measured counts.
+echo "== per-language test vs non-test =="
+goawk -F '\\t' 'NR == 1 { printf "%-30s %10s %10s %10s %7s\\n", "Language", $2, $3, $4, "test%"; next }
+  { nt += $2; t += $3; total += $4
+    printf "%-30s %10d %10d %10d %7s\\n", substr($1, 1, 30), $2, $3, $4,
+      ($4 > 0 ? sprintf("%.1f", 100 * $3 / $4) : "-") }
+  END { printf "%-30s %10d %10d %10d %7s\\n", "TOTAL", nt, t, total,
+      (total > 0 ? sprintf("%.1f", 100 * t / total) : "-") }' "$out/by-language.tsv"
+
+# Every counted line must fall in exactly one partition, so a classification miss fails instead of passing.
+code() { jaq '[.[].Code] | add' <"$out/$1.json"; }
+total=$(code all)
+production=$(code non-test)
+tested=$(code test)
+machine=$(code generated)
+if [ "$total" -ne "$((production + tested))" ]; then
+  echo "sloc partitions do not sum: all=$total non-test=$production test=$tested" >&2
+  exit 1
+fi
+echo "sloc: $total code lines = $production non-test + $tested test; $machine of the non-test lines generated"
+"""
+shell = "bash -euo pipefail -c"
+
+[tasks.sloc-crosscheck]
+depends = ["sloc"]
+description = "Re-count sloc's file lists with gocloc, an independent implementation of cloc's rules"
+# Corroboration, not a gate.
+# Two implementations disagree by a few lines wherever their comment and blank-line rules differ, and the
+# point is to show the primary figure does not rest on a single tool. A wide gap means something is being
+# counted that should not be, so the deltas are printed for a human to read rather than asserted on.
+run = """
+out=target/sloc
+for part in all non-test test generated; do
+  xargs gocloc --output-type=json <"$out/$part.txt" >"$out/gocloc-$part.json"
+  scc_code=$(jaq '[.[].Code] | add' <"$out/$part.json")
+  gocloc_code=$(jaq '.total.code' <"$out/gocloc-$part.json")
+  delta=$((scc_code - gocloc_code))
+  printf "%-9s scc=%s gocloc=%s delta=%s\\n" "$part" "$scc_code" "$gocloc_code" "$delta"
+done
 """
 shell = "bash -euo pipefail -c"

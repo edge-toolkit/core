@@ -50,7 +50,7 @@ jobs:
               || 'bash --noprofile --norc -euo pipefail {0}' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           persist-credentials: false

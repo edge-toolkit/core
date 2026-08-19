@@ -42,7 +42,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           persist-credentials: false
@@ -73,7 +73,7 @@ jobs:
       # timeout. Key on Cargo.lock so a dependency change refreshes; the prefix restore-key reuses the previous
       # cache for crates that didn't change.
       - name: Cache cargo-unmaintained lookups
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/cargo-unmaintained
           key: cargo-unmaintained-${{ hashFiles('**/Cargo.lock') }}
