@@ -65,15 +65,40 @@ description = "Format .NET sources"
 depends = ["roslynator-fix"]
 description = "Apply .NET lint-fix passes (roslynator fix)"
 
+[tasks.dotnet-workload-wasm-tools]
+description = "Install the wasm-tools workload once, before any dotnet module build"
+# One installer for a workload two module builds share, because a second concurrent install destroys the first.
+# `dotnet workload install` unpacks into the single mise dotnet-root, and a second copy racing the first hits
+# the half-written nupkg, fails, and *rolls back* -- uninstalling the packs the winning build is mid-publish
+# against. The victim then dies on a pack that vanished underneath it:
+#   Workload installation failed: The file '<dotnet-root>/library-packs/
+#   microsoft.net.sdk.webassembly.pack.10.0.8.nupkg' already exists.
+#   error MSB4175: The task factory "JsonToItemsTaskFactory.JsonToItemsTaskFactory" could not be loaded from
+#   the assembly '<dotnet-root>/packs/Microsoft.NET.Runtime.MonoTargets.Sdk/10.0.8/Sdk/../tasks/net10.0/
+#   MonoTargetsTasks.dll'. The system cannot find the file specified.
+# Seen on linux-arm64 running build-modules-all, where the two dotnet builds start close enough together to
+# overlap.
+#
+# The install runs unconditionally: `dotnet workload list` naming wasm-tools does NOT mean the packs are
+# usable, and skipping on that basis broke every Windows lane. There the publish silently left the
+# WebAssembly SDK path and ILLink demanded an entry point these `OutputType=Library` modules do not have:
+#   ILLink : error IL1034: Root assembly 'dotnet-data1, Version=1.0.0.0, Culture=neutral,
+#   PublicKeyToken=null' does not have entry point.
+#   error NETSDK1144: Optimizing assemblies for size failed.
+# All three Windows lanes at once on commit 017a9aa4035a50db663ad6a800d1005051ca9a78,
+# https://github.com/edge-toolkit/core/actions/runs/32226380541/job/95986792705 -- serializing the install was
+# the fix for the race, guarding it was not part of that and only hid a broken workload state.
+run = "dotnet workload install wasm-tools --skip-manifest-update"
+shell = "bash -euo pipefail -c"
+
 [tasks.build-ws-dotnet-data1-module]
+depends = ["dotnet-workload-wasm-tools"]
 description = "Build the dotnet-data1 C# WASM workflow module"
 dir = "services/ws-modules/dotnet-data1"
 run = '''
 # `set -x` so every command is echoed to the log.
 # The Windows lane is newly re-enabled; keep the trace until it is reliably green in CI.
 set -x
-
-dotnet workload install wasm-tools --skip-manifest-update
 
 # Windows: cap the PATH the SDK's emcc link <Exec> constructs, or bare `emcc` becomes unresolvable.
 # BrowserWasmApp.targets(522) runs the link as `<Exec Command='emcc ...'>` with an EnvironmentVariables PATH
@@ -105,13 +130,12 @@ cp "$PUBLISH"/*.js "$PUBLISH"/*.wasm "$PUBLISH"/*.dat pkg/
 shell = "bash -euo pipefail -c"
 
 [tasks.build-ws-dotnet-math1-module]
+depends = ["dotnet-workload-wasm-tools"]
 description = "Build the dotnet-math1 C# WASM FedAvg module"
 dir = "services/ws-modules/dotnet-math1"
 # Same publish flow as build-ws-dotnet-data1-module, including its Windows PATH-cap workaround.
 run = '''
 set -x
-
-dotnet workload install wasm-tools --skip-manifest-update
 
 publish_args=""
 if [ "${OS:-}" = "Windows_NT" ]; then
@@ -126,11 +150,12 @@ PUBLISH=bin/Release/net10.0/publish/wwwroot/_framework
 cp "$PUBLISH"/*.js "$PUBLISH"/*.wasm "$PUBLISH"/*.dat pkg/
 '''
 shell = "bash -euo pipefail -c"
+# Both dotnet publishes drive emscripten out of one shared workload pack tree, so they run one at a time.
+# `wait_for` rather than `depends` because the edge only matters when both are already scheduled -- building
+# math1 alone stays one task.
+wait_for = ["build-ws-dotnet-data1-module"]
 
 [tasks."prefetch:dotnet"]
+depends = ["dotnet-workload-wasm-tools"]
 description = "Prefetch .NET dependencies and the wasm-tools workload"
-run = """
-dotnet restore
-dotnet workload install wasm-tools --skip-manifest-update
-"""
-shell = "bash -euo pipefail -c"
+run = "dotnet restore"

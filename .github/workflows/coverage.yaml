@@ -36,7 +36,7 @@ jobs:
         # actions/checkout defaults to the PR *merge* commit, which does not exist upstream, so DeepSource can't
         # match it to the run it analyzed and the coverage reads as "never reported" (the check then times out).
         # Check out the PR head SHA instead; `|| github.sha` keeps the push-to-main path working.
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
@@ -56,6 +56,29 @@ jobs:
         with:
           github-token: ${{ github.token }}
           install-action-tools: cargo-llvm-cov,deepsource
+
+      # Counted here, before the build and coverage steps, because sloc needs only git plus the two counters.
+      # Running it early means the figures land in the job summary even when a later coverage step fails, and a
+      # misclassification (the task's partition-sum check) fails in seconds rather than after the long run.
+      # sloc-crosscheck depends on sloc, so this one invocation emits both the tables and the gocloc deltas.
+      - name: Count source lines (scc, cross-checked with gocloc)
+        timeout-minutes: 5
+        run: |
+          mise run sloc-crosscheck | tee "$RUNNER_TEMP/sloc-report.txt"
+          {
+            echo '### Source lines of code'
+            echo '```'
+            cat "$RUNNER_TEMP/sloc-report.txt"
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Upload sloc reports as artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: sloc-reports
+          path: target/sloc
+          if-no-files-found: error
 
       - name: Prefetch dependencies
         timeout-minutes: 15
@@ -106,7 +129,7 @@ jobs:
 
       - name: Upload coverage reports as artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-reports
           path: |
@@ -115,7 +138,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload Rust coverage to Codecov (OIDC)
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           use_oidc: true
           files: lcov.info
@@ -123,7 +146,7 @@ jobs:
           fail_ci_if_error: true
 
       - name: Upload Python coverage to Codecov (OIDC)
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           use_oidc: true
           files: coverage-python.xml
@@ -141,7 +164,7 @@ jobs:
       # matter most; `report_type: test_results` selects the JUnit upload path.
       - name: Upload test results to Codecov (OIDC)
         if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           use_oidc: true
           report_type: test_results

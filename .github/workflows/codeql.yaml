@@ -66,7 +66,7 @@ jobs:
             build-mode: none
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           persist-credentials: false
@@ -95,7 +95,7 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
           # actions/unpinned-tag is excluded below as a deliberate policy choice here, not an actionable defect.
-          # This repo intentionally references Actions by version tag (e.g. actions/checkout@v4) rather than by
+          # This repo intentionally references Actions by version tag (e.g. actions/checkout@v7) rather than by
           # full-length commit SHA, so the query's supply-chain "pin to a commit" finding does not apply. Filters
           # need a config to attach to, hence the inline config block rather than the queries input.
           config: |
