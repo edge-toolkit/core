@@ -1,8 +1,6 @@
 # AUTO-GENERATED from config/deny.toml by `mise run gen:osv-scanner`.
 IgnoredVulns = [
   { id = "GHSA-3w8q-xq97-5j7x" },
-  { id = "GHSA-f88m-g3jw-g9cj" },
-  { id = "GHSA-xcpc-8h2w-3j85" },
   { id = "RUSTSEC-2023-0071" },
   { id = "RUSTSEC-2024-0436" },
   { id = "RUSTSEC-2025-0134" },

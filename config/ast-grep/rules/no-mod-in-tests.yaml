@@ -4,7 +4,7 @@ severity: error
 message: |
   `mod` is forbidden inside test files (`tests/**/*.rs` and `src/test_*.rs`). Keep shared test helpers in a
   test-support library crate -- `et-test-helpers` for low-dependency helpers, or a dedicated crate such as
-  `et-ws-test-server` / `int-otlp-mock` -- and `use` them, rather than a `tests/common/mod.rs` include or an
+  `et-ws-test-server` / `et-test-otlp` -- and `use` them, rather than a `tests/common/mod.rs` include or an
   inline `mod { ... }`. A library gives each helper one compiled home (so coverage and lints see it once) instead
   of recompiling it per test binary, and it keeps integration-test files flat: one file per test binary.
 rule:

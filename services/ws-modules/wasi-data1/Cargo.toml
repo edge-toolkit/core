@@ -1,5 +1,6 @@
 [package]
 name = "et-ws-wasi-data1"
+publish = true
 description = "WASI Preview 2 port of data1"
 version = "0.1.0"
 edition.workspace = true

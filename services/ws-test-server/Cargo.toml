@@ -1,5 +1,6 @@
 [package]
 name = "et-ws-test-server"
+publish = true
 description = "In-process ws-server for integration tests"
 version = "0.1.0"
 edition.workspace = true
@@ -31,7 +32,7 @@ tracing-actix-web.workspace = true
 
 [dev-dependencies]
 et-otlp.workspace = true
-int-otlp-mock.workspace = true
+et-test-otlp.workspace = true
 retry.workspace = true
 
 [lints]

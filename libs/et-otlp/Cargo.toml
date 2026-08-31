@@ -1,5 +1,6 @@
 [package]
 name = "et-otlp"
+publish = true
 description = "Shared OTLP tracing setup for edge-toolkit services"
 version = "0.1.0"
 edition.workspace = true

@@ -1,6 +1,7 @@
 [package]
 description = "human activity recognition 1"
 name = "et-ws-har1"
+publish = true
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true

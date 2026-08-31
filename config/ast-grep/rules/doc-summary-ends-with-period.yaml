@@ -27,9 +27,8 @@ files:
   - libs/edge-toolkit/src/config.rs
   - libs/edge-toolkit/tests/no_mise.rs
   - libs/edge-toolkit/tests/npm_mod.rs
-  - libs/otlp-emit/src/lib.rs
-  - libs/otlp-mock/src/lib.rs
   - libs/test-helpers/src/lib.rs
+  - libs/test-otlp/src/lib.rs
   - libs/ws-runner-common/tests/config.rs
   - services/modules/tests/api_modules.rs
   - services/modules/tests/configure_missing_root.rs

@@ -148,22 +148,51 @@ deny contains msg if {
 	msg := sprintf("%s: [package] %s must inherit via %s.workspace = true", [file.path, field, field])
 }
 
-# Crate names are namespaced: "edge-toolkit" or "et-" for normal crates, "int-" for internal (publish = false) ones.
-allowed_crate_name(name, _) if startswith(name, "edge-toolkit")
+# Crate names are namespaced: "edge-toolkit" or "et-" for normal crates, "int-" marking an internal one.
+allowed_crate_name(name) if startswith(name, "edge-toolkit")
 
-allowed_crate_name(name, _) if startswith(name, "et-")
+allowed_crate_name(name) if startswith(name, "et-")
 
-allowed_crate_name(name, pkg) if {
-	startswith(name, "int-")
-	pkg.publish == false
+allowed_crate_name(name) if startswith(name, "int-")
+
+deny contains msg if {
+	some file in input
+	is_member(file)
+	name := file.contents.package.name
+	not allowed_crate_name(name)
+	msg := sprintf("%s: crate name %q must start with edge-toolkit/et-/int-", [file.path, name])
+}
+
+# `publish` is stated in every manifest rather than left to cargo's implicit default.
+# Publishing is the consequential choice here (a crates.io upload cannot be withdrawn), so each crate declares
+# its intent where a reader looks for it instead of the reader having to know the default.
+deny contains msg if {
+	some file in input
+	is_member(file)
+	not is_boolean(file.contents.package.publish)
+	msg := sprintf("%s: [package] must set publish explicitly (true, or false for an int- crate)", [file.path])
+}
+
+# The "int-" marker and publishability are the same fact, so the name and the flag must agree both ways.
+# The marker is anywhere in the name, not just the prefix: `et-int-gen` is as internal as `int-wasm-cov-wrapper`.
+# Keeping it biconditional means the crate list cannot drift into a state where a reader has to open the
+# manifest to learn whether a crate ships -- the name alone answers it.
+deny contains msg if {
+	some file in input
+	is_member(file)
+	name := file.contents.package.name
+	contains(name, "int-")
+	not file.contents.package.publish == false
+	msg := sprintf("%s: crate %q carries the int- marker, so it must set publish = false", [file.path, name])
 }
 
 deny contains msg if {
 	some file in input
 	is_member(file)
 	name := file.contents.package.name
-	not allowed_crate_name(name, file.contents.package)
-	msg := sprintf("%s: crate name %q must start with edge-toolkit/et- (int- if publish=false)", [file.path, name])
+	not contains(name, "int-")
+	not file.contents.package.publish == true
+	msg := sprintf("%s: crate %q must set publish = true; add an int- marker to keep it internal", [file.path, name])
 }
 
 # An empty `features = []` on a dependency is pointless noise -- drop it.

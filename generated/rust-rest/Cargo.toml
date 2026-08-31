@@ -1,5 +1,6 @@
 [package]
 name = "et-rest-client"
+publish = true
 description = "Rust client for ws-server's REST API. src/lib.rs regenerated; this Cargo.toml is hand-maintained."
 version = "0.1.0"
 edition.workspace = true

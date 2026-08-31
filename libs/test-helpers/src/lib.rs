@@ -2,7 +2,7 @@
 //!
 //! Only genuinely reusable, low-dependency utilities belong here (see CLAUDE.md). Heavier or
 //! domain-specific fixtures live in their own test-support crate instead -- e.g. `et-ws-test-server`
-//! (an in-process ws-server) or `int-otlp-mock` (a mock OTLP collector).
+//! (an in-process ws-server) or `et-test-otlp` (OTLP emit + capture-assertion support).
 #![expect(
     clippy::unwrap_used,
     reason = "test helper: a missing free port or unpiped child stderr should fail the test loudly"

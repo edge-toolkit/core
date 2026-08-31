@@ -1,5 +1,6 @@
 [package]
 name = "et-ws-pyo3-runner"
+publish = true
 description = "Generic edge-toolkit agent runtime that hosts a user-supplied Python module via PyO3"
 version = "0.1.0"
 edition.workspace = true

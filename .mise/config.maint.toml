@@ -12,12 +12,15 @@
 #   edge-toolkit/core's rp-v<N> release (same release that holds the
 #   matching native rustpython binary tarballs). Consumers pick up the
 #   asset via the `http:et-rp-wasm` mise tool entry in config.toml.
+# - release-rust-crates: version-bumps, tags and publishes every
+#   publishable workspace crate to crates.io via cargo-release.
 #
 # Not in ALL_LANGS (maint isn't a language); invoked manually:
 #
 #   MISE_ENV=maint mise run publish-face1-to-hf-cache
 #   MISE_ENV=maint mise run publish-eye1-to-hf-cache
 #   MISE_ENV=maint mise run publish-rp-wasm-to-release
+#   MISE_ENV=maint mise run release-rust-crates patch
 
 [tools]
 # Rust-native HTTP client replacing the host `curl`.
@@ -29,6 +32,11 @@
 # upstream-cache job to extract the NSIS-wrapped GnuPG installer (mise's built-in sevenz_rust2 only handles
 # canonical .7z, not the NSIS wrapper).
 "aqua:ip7z/7zip" = "latest"
+# Workspace release driver for release-rust-crates.
+# Resolves to the `github:crate-ci/cargo-release` backend, whose releases carry prebuilts for all five
+# supported triples (aarch64/x86_64 apple-darwin, aarch64/x86_64 unknown-linux-musl, x86_64-pc-windows-msvc),
+# so no tier pays a source build.
+cargo-release = "latest"
 # augtool registration lives in the workspace-level config.toml.
 # That way it installs without MISE_ENV=maint -- publish-* tasks need it
 # but so does anyone running `mise install` against a fresh checkout.
@@ -688,3 +696,27 @@ GPL-3.0+"
 gh release create "$tag" --repo "$GH_REPO" --title "$tag" --notes "$notes" --prerelease </dev/null
 """
 shell = "bash -euo pipefail -c"
+
+[tasks.release-rust-crates]
+description = "Bump, tag and publish every publishable workspace crate to crates.io (dry run without --execute)"
+# cargo-release drives the whole workspace in one pass.
+# It bumps each crate's version, rewrites the matching `version = ` on every intra-workspace path dependency
+# in the root Cargo.toml, creates the git tag, and runs `cargo publish` in dependency order so no crate is
+# uploaded before something it depends on.
+#
+# Dry run is the default and deliberately so -- cargo-release mutates nothing until handed `--execute`. Read
+# the printed plan first: a crates.io upload cannot be withdrawn, and a failure partway through leaves some
+# members released at the new version and the rest at the old, which no rerun can reconcile. Expect the dry
+# run to take minutes -- it refreshes the crates.io index and packages each member to verify it.
+run = """
+args=(release "$usage_level" --workspace)
+if [ "${usage_execute:-}" = "true" ]; then
+  args+=(--execute)
+fi
+cargo "${args[@]}"
+"""
+shell = "bash -euo pipefail -c"
+usage = """
+arg "<level>" help="Version bump: major | minor | patch | rc | beta | alpha | release"
+flag "--execute" help="Actually tag and publish; omit to print the plan and change nothing"
+"""

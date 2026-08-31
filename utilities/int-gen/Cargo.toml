@@ -1,5 +1,6 @@
 [package]
 name = "et-int-gen"
+publish = false
 description = "Internal repo-only code generator emitting artifacts under generated/ from Rust sources of truth"
 version = "0.1.0"
 edition.workspace = true

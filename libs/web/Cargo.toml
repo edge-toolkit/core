@@ -1,5 +1,6 @@
 [package]
 name = "et-web"
+publish = true
 description = "Web helpers for WASM modules"
 version = "0.1.0"
 edition.workspace = true

@@ -125,7 +125,7 @@ ripgrep = "latest"
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
 "github:microsoft/onnxruntime" = "1.22.0"
 "github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
-"github:wasm-bindgen/wasm-bindgen" = "0.2.126"
+"github:wasm-bindgen/wasm-bindgen" = "0.2.127"
 # go-containerregistry's crane fetches the per-platform ghcr.io mise-tools stores.
 # Its `crane export` rootfs-flatten is what the pull-mise-tools task and CI's install-mise-tools restore
 # step extract tool trees with.

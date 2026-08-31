@@ -2,16 +2,15 @@
 edition = "2024"
 license = "Apache-2.0 or MIT"
 repository = "https://github.com/edge-toolkit/core"
-rust-version = "1.87.0"
+rust-version = "1.91.1"
 
 [workspace]
 members = [
   "libs/edge-toolkit",
   "libs/et-otlp",
-  "libs/otlp-emit",
-  "libs/otlp-mock",
   "libs/path",
   "libs/test-helpers",
+  "libs/test-otlp",
   "libs/web",
   "libs/ws-runner-common",
   "services/ws-modules/audio1",
@@ -71,6 +70,7 @@ chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive"] }
 clap-markdown = "0.1.5"
 command-error = "0.8"
+const-hex = "1.19"
 deno_core = "0.407.0"
 deno_error = "=0.7.1"
 deno_resolver = "0.85.0"
@@ -86,6 +86,7 @@ et-path = { path = "libs/path", version = "0.1.0" }
 et-rest-client = { path = "generated/rust-rest", version = "0.1.0", default-features = false }
 et-storage-service = { path = "services/storage", version = "0.1.0" }
 et-test-helpers = { path = "libs/test-helpers", version = "0.1.0" }
+et-test-otlp = { path = "libs/test-otlp", version = "0.1.0" }
 et-web = { path = "libs/web", version = "0.1.0" }
 et-websockify-service = { path = "services/websockify", version = "0.1.0" }
 et-ws-runner-common = { path = "libs/ws-runner-common", version = "0.1.0" }
@@ -103,14 +104,16 @@ humantime-serde = "1"
 # Explicit format features only (no avif/dds/exr/hdr/ico/pnm/qoi/tga/tiff): et-storage-service only decodes
 # the extensions is_image_filename() recognises.
 image = { version = "0.25", default-features = false, features = ["bmp", "gif", "jpeg", "png", "webp"] }
-int-otlp-emit = { path = "libs/otlp-emit", version = "0.1.0" }
-int-otlp-mock = { path = "libs/otlp-mock", version = "0.1.0" }
 js-sys = "0.3"
 kdl = { version = "6", features = ["v1"] }
 libc = "0.2"
 local-ip-address = "0.6"
 log = "0.4"
 minicov = "0.3"
+# Third-party OTLP mock collector, wrapped by et-test-otlp for the workspace's integration tests.
+# Serves the spec paths (/v1/traces, ...), so a consumer points `collector_url` at `http://host:port/v1`
+# for `et-otlp`'s `{collector_url}/traces` shape to land on them.
+mock-collector = "0.2"
 onnx-extractor = "0.4"
 # Storage backend abstraction: local disk by default, any object_store backend via a URL.
 # `aws` pulls the S3 client (which also covers S3-compatible servers such as the rustfs mise tool the backend
@@ -131,6 +134,7 @@ opentelemetry-otlp = { version = "0.32", default-features = false, features = [
 ] }
 opentelemetry-proto = { version = "0.32", default-features = false, features = [
   "gen-tonic-messages",
+  "logs",
   "metrics",
   "trace",
   "with-serde",

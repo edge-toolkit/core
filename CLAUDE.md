@@ -489,7 +489,7 @@ Shared, **low-dependency** test helper functions -- free-port reservation, port-
 belong in the `et-test-helpers` crate (`libs/test-helpers`); reuse and extend it rather than re-implementing the same
 helper per test. Keep its dependency footprint small (currently just `port_check` + `retry`): anything heavier or
 domain-specific gets its own test-support crate instead (e.g. `et-ws-test-server` for an in-process ws-server, or
-`int-otlp-mock` for a mock OTLP collector).
+`et-test-otlp` for OTLP emit + capture-assertion support).
 
 ### NEVER skip, ignore, or platform-disable a test without explicit user approval
 

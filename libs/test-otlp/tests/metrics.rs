@@ -4,6 +4,7 @@
 //! `et-ws-test-server` `OTel` test, which only drives the integer-counter path the hub actually emits.
 #![cfg(test)]
 
+use et_test_otlp::{Protocol, ServerHandle};
 use opentelemetry_proto::tonic::collector::metrics::v1::ExportMetricsServiceRequest;
 use opentelemetry_proto::tonic::common::v1::{AnyValue, KeyValue, any_value};
 use opentelemetry_proto::tonic::metrics::v1::{
@@ -82,50 +83,49 @@ fn sample_request() -> ExportMetricsServiceRequest {
     }
 }
 
+/// POST `body` to the handle's `/v1/metrics` under `content_type`, returning the HTTP status.
+async fn post_metrics(mock: &ServerHandle, content_type: &str, body: Vec<u8>) -> u16 {
+    reqwest::Client::new()
+        .post(format!("{}/metrics", et_test_otlp::collector_url(mock)))
+        .header("content-type", content_type)
+        .body(body)
+        .send()
+        .await
+        .unwrap()
+        .status()
+        .as_u16()
+}
+
 #[tokio::test]
 async fn metrics_endpoint_decodes_json_protobuf_and_flattens_every_shape() {
-    let mock = int_otlp_mock::start();
-    let url = format!("{}/metrics", mock.collector_url());
-    let client = reqwest::Client::new();
+    // One server per encoding: `mock-collector` fixes the wire encoding at construction rather than sniffing
+    // `Content-Type`. Both feed the same flattener, so the assertions below hold across the pair.
+    let json_mock = et_test_otlp::start(Protocol::HttpJson).await;
+    let proto_mock = et_test_otlp::start(Protocol::HttpBinary).await;
     let request = sample_request();
 
-    // JSON body -- the encoding `et-otlp`'s JSON protocol uses; drives handle_metrics' serde_json branch.
-    let json_resp = client
-        .post(&url)
-        .header("content-type", "application/json")
-        .body(serde_json::to_vec(&request).unwrap())
-        .send()
-        .await
-        .unwrap();
-    assert!(json_resp.status().is_success(), "JSON /metrics POST should succeed");
+    // JSON body -- the encoding `et-otlp`'s JSON protocol uses.
+    let json_status = post_metrics(&json_mock, "application/json", serde_json::to_vec(&request).unwrap()).await;
+    assert_eq!(json_status, 200, "JSON /metrics POST should succeed");
 
-    // Protobuf body -- what a real OTLP relay sends; drives handle_metrics' prost branch.
+    // Protobuf body -- what a real OTLP relay sends.
     let mut proto_body = Vec::new();
     request.encode(&mut proto_body).unwrap();
-    let proto_resp = client
-        .post(&url)
-        .header("content-type", "application/x-protobuf")
-        .body(proto_body)
-        .send()
-        .await
-        .unwrap();
-    assert!(
-        proto_resp.status().is_success(),
-        "protobuf /metrics POST should succeed"
-    );
+    let proto_status = post_metrics(&proto_mock, "application/x-protobuf", proto_body).await;
+    assert_eq!(proto_status, 200, "protobuf /metrics POST should succeed");
 
-    // Malformed body -- neither JSON nor protobuf decodes, so the handler must answer 400.
-    let bad_resp = client
-        .post(&url)
-        .header("content-type", "application/json")
-        .body(b"this is not a metrics payload".to_vec())
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(bad_resp.status().as_u16(), 400, "undecodable body must be rejected");
+    // Malformed body -- nothing decodes, so the handler must answer 400.
+    let bad_status = post_metrics(
+        &json_mock,
+        "application/json",
+        b"this is not a metrics payload".to_vec(),
+    )
+    .await;
+    assert_eq!(bad_status, 400, "undecodable body must be rejected");
 
-    // Both good posts landed, so every metric appears twice.
-    let flat = mock.flatten_metrics();
+    // Both good posts landed -- one per server -- so every metric appears twice across the pair.
+    let mut flat = et_test_otlp::flatten_metrics(&json_mock).await;
+    flat.extend(et_test_otlp::flatten_metrics(&proto_mock).await);
     let count = |name: &str| flat.iter().filter(|rec| rec.name == name).count();
     assert_eq!(count("sum.metric"), 2);
     assert_eq!(count("gauge.metric"), 2);

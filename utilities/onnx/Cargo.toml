@@ -1,5 +1,6 @@
 [package]
 name = "et-onnx"
+publish = true
 description = "CLI to investigate ONNX models"
 version = "0.1.0"
 edition.workspace = true

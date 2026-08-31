@@ -26,11 +26,19 @@ use std::time::Duration;
 
 use command_error::CommandExt as _;
 use et_test_helpers::{ChildGuard, drain_stderr, reserve_port, wait_for_port};
-use retry::delay::Fixed;
-use retry::retry;
+use et_test_otlp::{Protocol, ServerHandle};
+use tokio::runtime::Runtime;
 
 const SERVICE_NAME: &str = "vector-relay-test";
 const SPAN_NAME: &str = "relay-probe";
+
+/// Redelivery ceiling, matching the `retry`-based poll this replaced.
+///
+/// Store-and-forward redelivery is inherently latent: Vector retries the initially-dead sink with an exponential
+/// backoff (`retry_initial_backoff_secs=1`, doubling), so when its first attempts race the mock's listener coming
+/// up, the next retry can land tens of seconds later. The old 30s ceiling intermittently timed that out on cold
+/// CI runners; the wait returns the instant the span lands, so the wider ceiling costs nothing on the happy path.
+const RELAY_TIMEOUT: Duration = Duration::from_mins(2);
 
 #[test]
 fn vector_relays_buffered_otlp_after_backend_comes_online() {
@@ -77,7 +85,7 @@ fn vector_relays_buffered_otlp_after_backend_comes_online() {
 
     // 3. Emit one span through the real OTLP/HTTP exporter into Vector's source. Vector returns 200 and
     //    buffers the event because the sink can't reach the (dead) collector.
-    int_otlp_emit::emit_span(
+    et_test_otlp::emit_span(
         &format!("http://127.0.0.1:{http_port}/v1/traces"),
         HashMap::new(),
         SERVICE_NAME,
@@ -85,10 +93,17 @@ fn vector_relays_buffered_otlp_after_backend_comes_online() {
     );
 
     // 4. Bring the collector online on the reserved port.
-    let mock = int_otlp_mock::start_on(mock_port);
+    //    This test is a plain sync `#[test]`, but `mock-collector` is async and spawns its server onto the
+    //    *caller's* runtime, so the test has to own one. A multi-thread `Runtime` keeps polling the spawned
+    //    server on its own worker threads once `block_on` returns -- which is what makes the later blocking
+    //    steps (`Command`, `ChildGuard`, `thread::sleep`) safe. Vector's sink encodes `codec: otlp`
+    //    (protobuf), and `mock-collector` fixes the encoding at construction rather than sniffing
+    //    `Content-Type`, so the server must be built as `HttpBinary`.
+    let runtime = Runtime::new().unwrap();
+    let mock = runtime.block_on(et_test_otlp::start_on(mock_port, Protocol::HttpBinary));
 
     // 5. The buffered span must now be forwarded, intact.
-    let Some(relayed) = wait_for_relayed_span(&mock) else {
+    let Some(relayed) = wait_for_relayed_span(&runtime, &mock) else {
         panic!(
             "mock never received the relayed `{SPAN_NAME}` span -- store-and-forward failed\n{}",
             stop_and_read(&mut vector, &log),
@@ -101,20 +116,9 @@ fn vector_relays_buffered_otlp_after_backend_comes_online() {
     assert!(!relayed.span_id.is_empty(), "relayed span is missing its span id");
 }
 
-/// Poll the mock (via `retry`) until a span named [`SPAN_NAME`] arrives; ~120s.
-///
-/// Store-and-forward redelivery is inherently latent: Vector retries the initially-dead sink with an exponential
-/// backoff (`retry_initial_backoff_secs=1`, doubling), so when its first attempts race the mock's listener coming
-/// up, the next retry can land tens of seconds later. The old 30s ceiling intermittently timed that out on cold
-/// CI runners; the poll returns the instant the span lands, so the wider ceiling costs nothing on the happy path.
-fn wait_for_relayed_span(mock: &int_otlp_mock::OtlpMock) -> Option<int_otlp_mock::FlatSpan> {
-    retry(Fixed::from_millis(250).take(480), || {
-        mock.flatten_spans()
-            .into_iter()
-            .find(|span| span.name == SPAN_NAME)
-            .ok_or(())
-    })
-    .ok()
+/// Wait until a span named [`SPAN_NAME`] arrives, flattened for the assertions above.
+fn wait_for_relayed_span(runtime: &Runtime, mock: &ServerHandle) -> Option<et_test_otlp::FlatSpan> {
+    runtime.block_on(et_test_otlp::wait_for_span(mock, SPAN_NAME, RELAY_TIMEOUT))
 }
 
 /// Shut Vector down so its stderr drainer reaches EOF, then return the captured log.

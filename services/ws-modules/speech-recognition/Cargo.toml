@@ -1,6 +1,7 @@
 [package]
 description = "speech recognition module"
 name = "et-ws-speech-recognition"
+publish = true
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
