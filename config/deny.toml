@@ -76,6 +76,24 @@ ignore = [
   # 0.15.0, the newest release. Flagged now that osv-scanner-check scans pom.xml; a Maven id so cargo-deny reports
   # it unknown (osv-scanner honours it). Drop when a TeaVM release declares 1.7.15.1 or later.
   "GHSA-3w8q-xq97-5j7x",
+  # adm-zip 0.5.18 arbitrary file write via a crafted archive entry (npm ecosystem, Node.js; fixed 0.6.0).
+  # Reaches us only through onnxruntime-node, which @huggingface/transformers declares for its Node backend --
+  # llm1 serves the browser bundle (dist/transformers.web.js) instead, and that file is self-contained and
+  # imports no Node package, so nothing we ship opens an archive at all. No bump helps: transformers 4.2.0 is
+  # the newest release and pins onnxruntime-node 1.24.3 exactly.
+  #
+  # Both npm entries are matched by `osv-scanner-npm`, which scans the collected `npm:` tool lockfiles under
+  # target/. `osv-scanner-check` scans the committed lockfiles instead, does not see these packages, and so
+  # reports both ids under "unused ignores" -- that report is NOT grounds for deleting them. Doing so turns
+  # the dependencies workflow red, because the npm scan then has nothing to filter these findings with.
+  "GHSA-xcpc-8h2w-3j85",
+  # sharp 0.34.5 heap overflow in bundled libvips decoding a malformed image (npm ecosystem, Node.js).
+  # Fixed in 0.35.0. Same path and reasoning as adm-zip above: sharp is transformers' Node-side image decoder,
+  # and the served browser bundle decodes images through the DOM instead. No bump helps here either --
+  # transformers 4.2.0 requires sharp ^0.34.5, which excludes 0.35.0, so widening it is upstream's call. Drop
+  # both npm entries when a transformers release ships sharp >= 0.35.0 and an onnxruntime-node carrying
+  # adm-zip 0.6.0.
+  "GHSA-f88m-g3jw-g9cj",
 ]
 
 [licenses]

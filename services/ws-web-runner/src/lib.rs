@@ -57,11 +57,7 @@ pub async fn run_module(module_name: &str, ws_url: &str, coverage: bool) -> Resu
 /// So classify any transport error (a send that produced no response) as
 /// retryable, scoped to the ws-server host, with no budget so the idempotent,
 /// low-volume module GETs always get their retry.
-#[expect(
-    clippy::single_call_fn,
-    clippy::result_large_err,
-    reason = "split out of run_module for readability; RunnerError::Common wraps a ~136 B BootstrapError"
-)]
+#[expect(clippy::single_call_fn, reason = "split out of run_module for readability")]
 fn build_rest_client(http_base: &str) -> Result<et_rest_client::Client, RunnerError> {
     let host = reqwest::Url::parse(http_base)
         .ok()

@@ -216,8 +216,12 @@ pub enum BootstrapError {
     InvalidWsUrl { ws_url: String },
 
     /// A REST request to the ws-server failed.
+    ///
+    /// Boxed: progenitor's `Error<()>` is ~136 bytes, which alone pushed this enum -- and every
+    /// `Result<_, BootstrapError>` in both runners, which wrap it -- past `clippy::result_large_err`.
+    /// The `From` impl below keeps `?` converting from the unboxed source.
     #[error(transparent)]
-    Rest(#[from] et_rest_client::Error<()>),
+    Rest(Box<et_rest_client::Error<()>>),
 
     /// Streaming a response body chunk from the ws-server failed.
     ///
@@ -232,6 +236,12 @@ pub enum BootstrapError {
     /// A module's `package.json` parsed but had no `main` field.
     #[error("module {module} package.json missing `main` field")]
     PackageJsonMissingMain { module: String },
+}
+
+impl From<et_rest_client::Error<()>> for BootstrapError {
+    fn from(err: et_rest_client::Error<()>) -> Self {
+        Self::Rest(Box::new(err))
+    }
 }
 
 /// Derive a module's HTTP base URL from the ws-server WebSocket URL.

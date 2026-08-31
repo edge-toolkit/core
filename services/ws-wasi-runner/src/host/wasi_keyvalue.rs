@@ -66,6 +66,10 @@ async fn collect_stream(mut stream: et_rest_client::ByteStream) -> Result<Vec<u8
     Ok(out)
 }
 
+#[expect(
+    clippy::unused_async_trait_impl,
+    reason = "wasi:keyvalue/store's generated Host trait declares every method async; the impl cannot drop it"
+)]
 impl Host for HostState {
     async fn open(&mut self, identifier: String) -> Result<Resource<Bucket>, Error> {
         let bucket = bucket_from_identifier(&identifier)?;
@@ -74,6 +78,10 @@ impl Host for HostState {
     }
 }
 
+#[expect(
+    clippy::unused_async_trait_impl,
+    reason = "generated HostBucket trait declares every method async; the not-implemented ones never await"
+)]
 impl HostBucket for HostState {
     async fn get(&mut self, self_: Resource<Bucket>, key: String) -> Result<Option<Vec<u8>>, Error> {
         let bucket = self.resource_table.get(&self_)?;
