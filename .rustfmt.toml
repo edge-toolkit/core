@@ -5,4 +5,6 @@
 edition = "2021"
 error_on_line_overflow = true
 group_imports = "StdExternalCrate"
+# Refer to int-gen bindings.rs for details.
+ignore = ["services/ws-wasi-runner/src/bindings.rs"]
 max_width = 120

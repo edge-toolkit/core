@@ -32,8 +32,12 @@ dep contains [file.path, name, spec] if {
 
 # Banned crates -> rejection reason.
 # Members must use workspace = true, so the root's [workspace.dependencies] is the only place a ban can bite.
+#
+# `anyhow` is not listed here, and is instead constrained at the source level by the semgrep rule
+# `anyhow-only-in-error-rs`: a crate may depend on it, but may only name it in an `error.rs` `#[from]` variant.
+# A blanket dependency ban was unworkable because `?` on a foreign `anyhow::Result` needs
+# `From<anyhow::Error>`, which cannot be written without naming the type.
 banned := {
-	"anyhow": "define a thiserror enum instead",
 	"openssl": "use rustls + aws-lc-rs -- one TLS/crypto stack only",
 	"openssl-sys": "use rustls + aws-lc-rs -- one TLS/crypto stack only",
 	"ring": "use aws-lc-rs (transitive via rcgen only; gated in config/deny.toml)",
@@ -193,6 +197,39 @@ deny contains msg if {
 	not contains(name, "int-")
 	not file.contents.package.publish == true
 	msg := sprintf("%s: crate %q must set publish = true; add an int- marker to keep it internal", [file.path, name])
+}
+
+# The version each member crate declares, keyed by crate name.
+member_version[name] := version if {
+	some file in input
+	is_member(file)
+	name := file.contents.package.name
+	version := file.contents.package.version
+}
+
+# A path dependency's `version` must match the version its crate actually declares.
+# Cargo resolves path deps by path for local builds and only enforces the version requirement when packaging,
+# so a stale pin here stays invisible to check/test/clippy and first fails during `cargo publish` -- partway
+# through a workspace release, once earlier crates are already uploaded and cannot be withdrawn.
+deny contains msg if {
+	some file in input
+	file.path == "Cargo.toml"
+	some name, spec in file.contents.workspace.dependencies
+	is_object(spec)
+	spec.path
+	spec.version != member_version[name]
+	msg := sprintf("Cargo.toml: %q pins version %q but that crate declares %q", [name, spec.version, member_version[name]])
+}
+
+# crates.io rejects an upload whose manifest carries no description, so every publishable crate has one.
+# cargo only warns locally, which means a missing description fails at upload time -- partway through a
+# workspace release, leaving some crates published at the new version and the rest behind.
+deny contains msg if {
+	some file in input
+	is_member(file)
+	file.contents.package.publish == true
+	not is_string(file.contents.package.description)
+	msg := sprintf("%s: crate %q is published, so it must set a description", [file.path, file.contents.package.name])
 }
 
 # An empty `features = []` on a dependency is pointless noise -- drop it.

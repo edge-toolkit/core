@@ -1,0 +1,21 @@
+rules:
+  - id: anyhow-only-in-error-rs
+    languages: [generic]
+    paths:
+      include:
+        - "*.rs"
+      exclude:
+        # `error.rs` is the only place the name may appear.
+        # It belongs in a `#[from]` variant, so that `?` converts a foreign `anyhow::Result` at the call
+        # site and everything downstream sees the crate's own error enum, never an `anyhow::Error`.
+        - "**/error.rs"
+        # Generated trees; their contents are not ours to shape.
+        - "/generated/**"
+        - "/services/ws-wasi-runner/src/bindings.rs"
+    pattern-regex: '\banyhow\b'
+    message: >-
+      `anyhow` may only be named in an `error.rs`, in a `#[from]` variant of the crate's error enum.
+      Domain code returns that enum and relies on `?`, so an `anyhow::Error` never reaches a public
+      signature or a match arm. If a foreign API hands you one here, add the `#[from]` variant to this
+      crate's `error.rs` and let `?` do the conversion.
+    severity: ERROR

@@ -1,33 +1,27 @@
-//! Error helpers for the runner's host impls. Each trait carries the
-//! only `.map_err(...)` for the pattern it covers; every host file
-//! reaches the conversions through one of the `.map_tungstenite_err(...)`
-//! / `.map_decode_err(...)` / `.kv_context(...)` / `.wit_context(...)`
-//! shorthands.
+//! Error conversions for the runner's host impls.
 
 use crate::bindings::et::ws_wasi::ws::WsError;
 use crate::bindings::wasi::keyvalue::store::Error as KvError;
 
-/// Generic fallback: maps any `Display` error to `Result<_, String>`.
-/// Used in spots (e.g. inside `tokio::task::spawn_blocking`) where the
-/// scope is small enough that a typed enum would be overkill.
-pub trait WitErrExt<T> {
-    fn wit_context(self, context: &str) -> Result<T, String>;
-}
-
-impl<T, E: std::fmt::Display> WitErrExt<T> for Result<T, E> {
-    fn wit_context(self, context: &str) -> Result<T, String> {
-        self.map_err(|err| format!("{context}: {err}"))
+/// Conversions into `wasi:keyvalue/store`'s `error.other(message)` variant.
+///
+/// One impl per concrete source type: the resource table, the REST client's byte stream, and its
+/// request errors are the only things the `keyvalue` host impls can fail on.
+impl From<wasmtime::component::ResourceTableError> for KvError {
+    fn from(err: wasmtime::component::ResourceTableError) -> Self {
+        Self::Other(err.to_string())
     }
 }
 
-/// Maps any `Display` error into `wasi:keyvalue/store`'s `error.other(message)` variant.
-pub trait KvErrExt<T> {
-    fn kv_context(self, context: &str) -> Result<T, KvError>;
+impl From<reqwest::Error> for KvError {
+    fn from(err: reqwest::Error) -> Self {
+        Self::Other(err.to_string())
+    }
 }
 
-impl<T, E: std::fmt::Display> KvErrExt<T> for Result<T, E> {
-    fn kv_context(self, context: &str) -> Result<T, KvError> {
-        self.map_err(|err| KvError::Other(format!("{context}: {err}")))
+impl From<et_rest_client::Error<()>> for KvError {
+    fn from(err: et_rest_client::Error<()>) -> Self {
+        Self::Other(err.to_string())
     }
 }
 
@@ -47,48 +41,34 @@ pub fn kv_not_implemented(operation: &str) -> KvError {
 ///   - Everything else (IO, TLS, URL, HTTP-upgrade, write-buffer-full,
 ///     Capacity, Protocol, `AttackAttempt`, Utf8) is transport-level -- the
 ///     wire never delivered cleanly -- and lands in `WsError::Transport`.
-///
-/// The context string is prefixed onto the source's `Display` rendering so
-/// the carried message reads as `"ws <context>: <source>"`.
-pub trait WsTransportErrExt<T> {
-    fn map_tungstenite_err(self, context: &str) -> Result<T, WsError>;
-}
-
-impl<T> WsTransportErrExt<T> for Result<T, tokio_tungstenite::tungstenite::Error> {
-    #[expect(
-        clippy::wildcard_enum_match_arm,
-        reason = "tungstenite::Error is non_exhaustive; the wildcard absorbs every non-ConnectionClosed variant"
-    )]
-    fn map_tungstenite_err(self, context: &str) -> Result<T, WsError> {
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    reason = "tungstenite::Error is non_exhaustive; the wildcard absorbs every non-ConnectionClosed variant"
+)]
+impl From<tokio_tungstenite::tungstenite::Error> for WsError {
+    fn from(err: tokio_tungstenite::tungstenite::Error) -> Self {
         use tokio_tungstenite::tungstenite::Error as Tungstenite;
-        self.map_err(|err| match &err {
-            Tungstenite::ConnectionClosed | Tungstenite::AlreadyClosed => WsError::NotConnected,
-            _ => WsError::Transport(format!("ws {context}: {err}")),
-        })
+        match &err {
+            Tungstenite::ConnectionClosed | Tungstenite::AlreadyClosed => Self::NotConnected,
+            _ => Self::Transport(err.to_string()),
+        }
     }
 }
 
-/// Maps a JSON serialize / deserialize error into `WsError::Decode`.
-///
-/// Generic over `Display` so plain `serde_json::Error` (from
-/// `to_string`) and `serde_path_to_error::Error<serde_json::Error>`
-/// (from path-tracking `deserialize`) both flow through the same
-/// `?`-friendly conversion.
-pub trait WsDecodeErrExt<T> {
-    fn map_decode_err(self, context: &str) -> Result<T, WsError>;
-}
-
-impl<T, E: std::fmt::Display> WsDecodeErrExt<T> for Result<T, E> {
-    fn map_decode_err(self, context: &str) -> Result<T, WsError> {
-        self.map_err(|err| WsError::Decode(format!("{context}: {err}")))
+impl From<serde_json::Error> for WsError {
+    fn from(err: serde_json::Error) -> Self {
+        Self::Decode(err.to_string())
     }
 }
 
-/// Transparent conversion so `et_ws_runner_common::connect_and_register`'s error cascades through `?`.
-/// `WsBackend::connect` then needs no `.map_err` closure at the call site. `WsError` is WIT-generated, so
-/// this hand-written `From` impl stands in for a thiserror `#[from]`.
+impl From<serde_path_to_error::Error<serde_json::Error>> for WsError {
+    fn from(err: serde_path_to_error::Error<serde_json::Error>) -> Self {
+        Self::Decode(err.to_string())
+    }
+}
+
 impl From<et_ws_runner_common::ConnectError> for WsError {
     fn from(err: et_ws_runner_common::ConnectError) -> Self {
-        Self::Transport(format!("ws connect/register: {err}"))
+        Self::Transport(err.to_string())
     }
 }

@@ -15,7 +15,7 @@ use wasmtime::component::Resource;
 
 use crate::HostState;
 use crate::bindings::wasi::keyvalue::store::{Error, Host, HostBucket, KeyResponse};
-use crate::host::{KvErrExt as _, kv_not_implemented};
+use crate::host::kv_not_implemented;
 
 /// Bucket-kind discriminator. The wire prefix on the ws-server is implied by
 /// the variant; the typed REST client picks the right operation.
@@ -60,7 +60,7 @@ fn bucket_from_identifier(identifier: &str) -> Result<Bucket, Error> {
 async fn collect_stream(mut stream: et_rest_client::ByteStream) -> Result<Vec<u8>, Error> {
     let mut out = Vec::new();
     while let Some(chunk) = stream.next().await {
-        let chunk = chunk.kv_context("stream chunk")?;
+        let chunk = chunk?;
         out.extend_from_slice(&chunk);
     }
     Ok(out)
@@ -69,14 +69,14 @@ async fn collect_stream(mut stream: et_rest_client::ByteStream) -> Result<Vec<u8
 impl Host for HostState {
     async fn open(&mut self, identifier: String) -> Result<Resource<Bucket>, Error> {
         let bucket = bucket_from_identifier(&identifier)?;
-        let res = self.resource_table.push(bucket).kv_context("resource table push")?;
+        let res = self.resource_table.push(bucket)?;
         Ok(res)
     }
 }
 
 impl HostBucket for HostState {
     async fn get(&mut self, self_: Resource<Bucket>, key: String) -> Result<Option<Vec<u8>>, Error> {
-        let bucket = self.resource_table.get(&self_).kv_context("bucket handle")?;
+        let bucket = self.resource_table.get(&self_)?;
         let result = match bucket {
             Bucket::Storage { agent_id } => self.rest.get_file(agent_id, &key).await,
             Bucket::Modules { module_name } => self.rest.get_module_file(module_name, &key).await,
@@ -91,16 +91,12 @@ impl HostBucket for HostState {
     }
 
     async fn set(&mut self, self_: Resource<Bucket>, key: String, value: Vec<u8>) -> Result<(), Error> {
-        let bucket = self.resource_table.get(&self_).kv_context("bucket handle")?;
+        let bucket = self.resource_table.get(&self_)?;
         let agent_id = match bucket {
             Bucket::Storage { agent_id } => agent_id.clone(),
             Bucket::Modules { .. } => return Err(Error::AccessDenied),
         };
-        let _response = self
-            .rest
-            .put_file(&agent_id, &key, value)
-            .await
-            .kv_context(&format!("PUT {key}"))?;
+        let _response = self.rest.put_file(&agent_id, &key, value).await?;
         Ok(())
     }
 

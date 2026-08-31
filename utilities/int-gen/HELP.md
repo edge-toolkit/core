@@ -36,10 +36,12 @@ Emit the generated artifacts for one target (default: all)
     Language-agnostic specs: AsyncAPI/OpenAPI YAML, WIT, KDL, schema JSON
   - `rust`:
     The typed Rust REST client
+  - `bindings`:
+    The wasmtime host bindings for the ws-wasi-runner `runner` world
   - `zig`:
     The Zig REST client (skipped when openapi2zig is absent)
   - `all`:
-    Core + Rust + Zig
+    Core + Rust + bindings + Zig
 
 ## `et-int-gen fetch-deps`
 

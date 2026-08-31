@@ -4114,7 +4114,7 @@ dependencies = [
 
 [[package]]
 name = "edge-toolkit"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "asyncapi-rust",
  "base64 0.23.1",
@@ -4278,6 +4278,7 @@ dependencies = [
 name = "et-int-gen"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "asyncapi-rust",
  "clap",
  "clap-markdown",
@@ -4307,8 +4308,9 @@ dependencies = [
  "tree-sitter",
  "tree-sitter-zig",
  "utoipa",
+ "wasmtime-internal-wit-bindgen",
  "wit-encoder",
- "wit-parser 0.249.0",
+ "wit-parser 0.252.0",
 ]
 
 [[package]]
@@ -12306,17 +12308,6 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.249.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30538cae9a794215f490b532df01c557e2e2bfac92569482554acd0992a102ea"
-dependencies = [
- "bitflags",
- "indexmap",
- "semver",
-]
-
-[[package]]
-name = "wasmparser"
 version = "0.252.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3eb099dcadcde5be9eef55e3a337128efd4e44b4c93122487e4d2e4e1c6627c"
@@ -13506,15 +13497,15 @@ dependencies = [
 
 [[package]]
 name = "wit-encoder"
-version = "0.249.0"
+version = "0.252.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e9f2894b253e84a32f686e29b1625b3907bea19f0af39d9f2cadc11749ea598"
+checksum = "6b9290403ac4d75957e2633cde0854e807970d7eedc75ab3b8fba068b948dbe0"
 dependencies = [
  "id-arena",
  "pretty_assertions",
  "semver",
  "serde",
- "wit-parser 0.249.0",
+ "wit-parser 0.252.0",
 ]
 
 [[package]]
@@ -13534,25 +13525,6 @@ dependencies = [
  "serde_json",
  "unicode-xid",
  "wasmparser 0.247.0",
-]
-
-[[package]]
-name = "wit-parser"
-version = "0.249.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50840f2e2cf170d910858089d7dfb3e97c6f9a0d6ec7bff7f7cc28f5aeacc15f"
-dependencies = [
- "anyhow",
- "hashbrown 0.17.1",
- "id-arena",
- "indexmap",
- "log",
- "semver",
- "serde",
- "serde_derive",
- "serde_json",
- "unicode-xid",
- "wasmparser 0.249.0",
 ]
 
 [[package]]

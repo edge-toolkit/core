@@ -4,11 +4,13 @@ version = 1
 # It holds hand-written module loaders (e.g. the Pyodide shim et_ws_pydata1.js) alongside build output. The int-gen
 # outputs under `generated/` and the scenario `verification/` fixtures are excluded because they are fully generated;
 # if genuinely-generated glue under `pkg/` turns up as a finding, add a narrow per-file exclude then.
+# The runner's `src/bindings.rs` is the one int-gen output that cannot sit under `generated/`, so it is excluded
+# by path; refer to int-gen bindings.rs for details.
 # `**/error.rs` is excluded outright: these files are thin error-type plumbing (thiserror `#[derive]` + `#[from]`
 # conversions, plus the occasional unreachable defensive `From`), so their line coverage is noise. The exclude also
 # suppresses issue detection there, because the Rust analyzer runs -- it is enabled in the DeepSource dashboard
 # rather than in this file. (The matching Codecov exclusion is set in Codecov's web UI.)
-exclude_patterns = ["**/error.rs", "generated/**", "verification/**"]
+exclude_patterns = ["**/error.rs", "generated/**", "services/ws-wasi-runner/src/bindings.rs", "verification/**"]
 
 # Repo convention: tests live in a `tests/` directory or in source files prefixed `test_`.
 test_patterns = ["**/test_*.py", "**/tests/**"]

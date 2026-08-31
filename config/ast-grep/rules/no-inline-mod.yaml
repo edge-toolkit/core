@@ -10,3 +10,5 @@ rule:
     kind: declaration_list
 ignores:
   - generated/**
+  # Generated; refer to int-gen bindings.rs for details.
+  - services/ws-wasi-runner/src/bindings.rs

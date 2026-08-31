@@ -58,6 +58,10 @@ actix-rt = "2"
 actix-web = { version = "4", features = ["rustls-0_23"] }
 actix-web-thiserror = "0.2"
 actix-ws = "0.4"
+# Only ever named in an `error.rs` `#[from]` variant; the anyhow-only-in-error-rs semgrep rule enforces that.
+# Present because wit-parser and the wasmtime bindgen return `anyhow::Result`, and `?` cannot convert one
+# without a `From<anyhow::Error>` impl, which has to name the type.
+anyhow = "1"
 async-trait = "0.1"
 asyncapi-rust = "0.5"
 backon = { version = "1.6", default-features = false }
@@ -79,7 +83,7 @@ deno_resolver = "0.85.0"
 # instead of panicking when no SnapshotOptions struct is in OpState -- without
 # baking our own startup snapshot we'd otherwise hit the panic on first run.
 deno_runtime = { version = "0.262.0", features = ["transpile", "hmr"] }
-edge-toolkit = { path = "libs/edge-toolkit", version = "0.1.0" }
+edge-toolkit = { path = "libs/edge-toolkit", version = "0.2.0" }
 et-modules-service = { path = "services/modules", version = "0.1.0" }
 et-otlp = { path = "libs/et-otlp", version = "0.1.0" }
 et-path = { path = "libs/path", version = "0.1.0" }
@@ -212,6 +216,12 @@ wasm-bindgen-test = "0.3"
 # >=24.0.12 <25, >=36.0.13 <37, >=46.0.2 <47, or >=47.0.3, so the 44.x line this used to pin has no patched
 # release at all and 47.0.2 is still affected.
 wasmtime = { version = "47.0.3", features = ["async", "component-model"] }
+# The generator behind wasmtime's `bindgen!` macro, driven directly by et-int-gen.
+# Emitting the runner's host bindings as a checked-in source file keeps ws-wasi-runner self-contained: the
+# macro read WIT from `../../generated/specs/wit`, which `cargo package` cannot include, so the crate failed
+# to build from its own tarball. Named `internal` upstream, so treat its API as unstable and pinned to the
+# wasmtime version above; gen-specs-check catches any drift in what it emits.
+wasmtime-internal-wit-bindgen = { version = "47.0.4", features = ["async", "component-model-async"] }
 wasmtime-wasi = "47.0.3"
 wasmtime-wasi-nn = { version = "47", default-features = false, features = ["onnx"] }
 web-sys = "0.3"
@@ -221,8 +231,8 @@ wgpu-types = "29"
 # Windows-only feature-unification shim: forces `winapi/std` on for deno_io.
 winapi = { version = "0.3.9", features = ["std"] }
 wit-bindgen = "0.57"
-wit-encoder = "0.249"
-wit-parser = "0.249"
+wit-encoder = "0.252"
+wit-parser = "0.252"
 
 [profile.release.package.et-ws-wasm-agent]
 opt-level = "s"

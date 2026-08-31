@@ -38,6 +38,12 @@ pub enum Error {
     EnumValueNotString(String),
     #[error("progenitor codegen: {0}")]
     Progenitor(#[from] progenitor::Error),
+    #[error(transparent)]
+    Syn(#[from] syn::Error),
+    // `wit-parser` and the wasmtime bindgen return `anyhow::Result`; this variant is what lets `?` convert
+    // one. The anyhow-only-in-error-rs semgrep rule keeps the name confined to this line.
+    #[error(transparent)]
+    Anyhow(#[from] anyhow::Error),
     #[error("zig codegen: {0}")]
     ZigCodegen(String),
 }
