@@ -113,6 +113,12 @@ kdl = { version = "6", features = ["v1"] }
 libc = "0.2"
 local-ip-address = "0.6"
 log = "0.4"
+# minicov's profiler runtime must match the LLVM of the toolchain that instruments the guests.
+# 0.3.9 moved to profraw format 11 ("Sync with LLVM 23.1.0-rc3"), so `vars.rust_nightly` has to stay on a
+# nightly carrying LLVM 23.1 or later. Pairing 0.3.9 with an LLVM 22 nightly makes capture_coverage walk
+# value-profile records with the wrong layout, trapping inside every instrumented WASI guest with
+# `memory fault at wasm address 0xecec7ccd` / `wasm trap: out of bounds memory access` from
+# `initializeValueProfRuntimeRecord`. Bump both together, never one alone.
 minicov = "0.3"
 # Third-party OTLP mock collector, wrapped by et-test-otlp for the workspace's integration tests.
 # Serves the spec paths (/v1/traces, ...), so a consumer points `collector_url` at `http://host:port/v1`

@@ -1530,7 +1530,7 @@ url = "https://github.com/BurntSushi/ripgrep/releases/download/15.1.0/ripgrep-15
 url_api = "https://api.github.com/repos/BurntSushi/ripgrep/releases/assets/307305871"
 
 [[tools.rust]]
-version = "nightly-2026-08-05"
+version = "nightly-2026-08-31"
 backend = "core:rust"
 
 [tools.rust.options]
