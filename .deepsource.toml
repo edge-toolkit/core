@@ -10,7 +10,7 @@ version = 1
 # conversions, plus the occasional unreachable defensive `From`), so their line coverage is noise. The exclude also
 # suppresses issue detection there, because the Rust analyzer runs -- it is enabled in the DeepSource dashboard
 # rather than in this file. (The matching Codecov exclusion is set in Codecov's web UI.)
-exclude_patterns = ["**/error.rs", "generated/**", "services/ws-wasi-runner/src/bindings.rs", "verification/**"]
+exclude_patterns = ["**/error.rs", "**/ws-wasi-runner/src/bindings.rs", "generated/**", "verification/**"]
 
 # Repo convention: tests live in a `tests/` directory or in source files prefixed `test_`.
 test_patterns = ["**/test_*.py", "**/tests/**"]

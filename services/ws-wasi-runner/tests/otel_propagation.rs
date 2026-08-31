@@ -53,7 +53,6 @@ fn trace_ids_propagate_between_runner_and_server() {
     //    `Command` and `thread::sleep`.
     let runtime = Runtime::new().unwrap();
     let mock = runtime.block_on(et_test_otlp::start(Protocol::HttpJson));
-    let collector_url = et_test_otlp::collector_url(&mock);
 
     // 2. Init OTLP in the test process *before* spawning the test server,
     //    so the global tracing subscriber + propagator are in place when
@@ -64,7 +63,7 @@ fn trace_ids_propagate_between_runner_and_server() {
     // OtlpConfig is `non_exhaustive`, so build via Default + field
     // assignment.
     let mut server_otlp = OtlpConfig::default();
-    server_otlp.collector_url = collector_url.clone();
+    server_otlp.collector_url = et_test_otlp::collector_url(&mock);
     server_otlp.protocol = OtlpProtocol::JSON;
     server_otlp.service_label = "et-ws-test".to_string();
     server_otlp.auth = None;
@@ -81,7 +80,7 @@ fn trace_ids_propagate_between_runner_and_server() {
     let _: std::process::ExitStatus = std::process::Command::new(bin)
         .env("RUNNER_MODULE", "et-ws-wasi-data1")
         .env("WS_SERVER_URL", &server.ws_url)
-        .env("OTLP_COLLECTOR_URL", &collector_url)
+        .env("OTLP_COLLECTOR_URL", &server_otlp.collector_url)
         .env("OTLP_PROTOCOL", "JSON")
         .env("OTLP_SERVICE_LABEL", "et-ws-wasi-runner")
         .status_checked()

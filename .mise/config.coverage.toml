@@ -117,7 +117,14 @@ export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS="$flags"
 cargo nextest run --config-file config/nextest.toml --features et-ws-web-runner/coverage,et-ws-wasi-runner/coverage
 mise run gen-specs
 mise run regen-verification
-cargo llvm-cov report --lcov --include-build-script --output-path lcov.info
+# The runner's host bindings are excluded from the report, not just from analysis.
+# et-int-gen emits them from WIT (gen:wasmtime-bindings), and they have to live inside the crate for
+# `cargo package` to include them -- so unlike the rest of the generated code they are not under
+# `generated/`, which is what every other tool keys its exclusion on. Left in, ~2k machine-written lines
+# land in lcov.info at near-zero coverage and drag the repo metric under DeepSource's threshold; the
+# `.deepsource.toml` exclude only stops the analyzers, not the coverage aggregate.
+cov_ignore='^services/ws-wasi-runner/src/bindings\\.rs$'
+cargo llvm-cov report --lcov --include-build-script --ignore-filename-regex "$cov_ignore" --output-path lcov.info
 """
 shell = "bash -euo pipefail -c"
 
