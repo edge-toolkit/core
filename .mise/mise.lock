@@ -990,6 +990,7 @@ checksum = "sha256:61d4a7dc85acfa0d2354ccc0b8361928c7e52a746d17f28ebaa795ed3dc16
 url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.127/wasm-bindgen-0.2.127-x86_64-unknown-linux-musl.tar.gz"
 url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/505858453"
 provenance = "github-attestations"
+provenance_verified = true
 
 [tools."github:wasm-bindgen/wasm-bindgen"."platforms.macos-arm64"]
 checksum = "sha256:cd93e691eb5953ace5d8ffce52a20b024077a3dac3e2215b8224136b0efb7585"

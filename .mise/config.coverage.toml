@@ -123,7 +123,10 @@ mise run regen-verification
 # `generated/`, which is what every other tool keys its exclusion on. Left in, ~2k machine-written lines
 # land in lcov.info at near-zero coverage and drag the repo metric under DeepSource's threshold; the
 # `.deepsource.toml` exclude only stops the analyzers, not the coverage aggregate.
-cov_ignore='^services/ws-wasi-runner/src/bindings\\.rs$'
+# Deliberately NOT anchored with `^`: llvm-cov matches this regex against the absolute path recorded in the
+# coverage map (`/home/runner/work/core/core/services/...`), which is what the lcov SF: lines then carry, so a
+# leading `^` matches nothing and the file stays in the report. Match the path tail instead.
+cov_ignore='services/ws-wasi-runner/src/bindings\\.rs$'
 cargo llvm-cov report --lcov --include-build-script --ignore-filename-regex "$cov_ignore" --output-path lcov.info
 """
 shell = "bash -euo pipefail -c"
