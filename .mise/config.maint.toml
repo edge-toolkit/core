@@ -710,17 +710,31 @@ description = "Publish one batch of five workspace crates to crates.io (dry run 
 # ships, so batches cannot disagree about a version the way a per-batch `cargo release <level>` would. It
 # also skips already-published versions, so re-running a batch after a partial failure is safe.
 #
-# CRATES is in cargo-release's own dependency order (`cargo release --workspace` prints it), which is what
-# makes fixed batches safe: a crate is never uploaded before something it depends on. Regenerate the list
-# from a dry run if the workspace graph changes; crates carrying `[package.metadata.release] release = false`
-# (the browser modules) and the `int-` crates are absent because neither is published.
+# The crates list is ordered so every crate's workspace dependencies sit in an earlier or the same batch.
+# Only crossing a batch boundary matters: cargo-release topologically orders whatever one invocation selects,
+# so order within a batch is its problem, not this list's. Crates carrying
+# `[package.metadata.release] release = false` (the browser modules) and the `int-` crates are absent because
+# neither is published.
+#
+# Rebuild the order from `cargo metadata` when the workspace graph changes -- NOT from the crate list a
+# `cargo release --workspace` run prints, which is its version-bump order and put a dev-dependency
+# (et-ws-pyo3-runner -> et-ws-test-server) a batch too late. Dependency kind is what makes the difference:
+# dev-dependencies still have to be on crates.io before their dependent publishes, and they are easy to miss
+# by eye. Emit `<dependency> <dependent>` pairs for every path dependency, of any kind, and sort them:
+#
+#   cargo metadata --no-deps --format-version 1 |
+#     jaq -r '.packages[] as $p | $p.dependencies[] | select(.path != null) | "\(.name) \($p.name)"' |
+#     tsort
+#
+# tsort's output is one valid order; keep the existing sequence where it already satisfies the graph so batch
+# numbers stay stable for a part-published release, and re-check with the same pairs afterwards.
 run = """
 crates=(
   et-path edge-toolkit et-test-helpers et-otlp et-test-otlp
   et-web et-rest-client et-ws-runner-common et-ws-wasm-agent et-ws-comm1
   et-ws-data1 et-ws-math1 et-ws-wasi-comm1 et-ws-wasi-data1 et-ws-wasi-math1
-  et-modules-service et-storage-service et-websockify-service et-ws-service et-ws-pyo3-runner
-  et-ws-test-server et-ws-server et-ws-wasi-runner et-ws-web-runner et-cli
+  et-modules-service et-storage-service et-websockify-service et-ws-service et-ws-test-server
+  et-ws-pyo3-runner et-ws-server et-ws-wasi-runner et-ws-web-runner et-cli
   et-onnx
 )
 per_batch=5
