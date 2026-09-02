@@ -402,6 +402,15 @@ ignore = [
   # cargo-unmaintained can't find a crate of this name in the denoland/deno monorepo its `repository` field names.
   # It is a workspace member there, so the "not in <repo>" heuristic misfires. Pulled by the Deno registry stack.
   "fast-registry-json",
+  # Upstream integritychain/fips203 has been quiet for a year, with dependency bounds left behind.
+  # Its rand_core ^0.6.4 / sha3 ^0.10.2 requirements now trail the current releases. Pulled by deno_crypto for
+  # the ML-KEM WebCrypto algorithms. Nothing to upgrade to on either side: 0.4.3 is the newest published
+  # fips203, and every deno_crypto through 0.272.0 requires exactly ^0.4.3, so neither bumping deno nor the
+  # crate itself clears this.
+  "fips203",
+  # Same upstream, same story as fips203, for SLH-DSA: quiet a year, stale rand_core / sha2 / sha3 bounds.
+  # 0.4.1 is the newest published, and every deno_crypto through 0.272.0 pins ^0.4.1.
+  "fips205",
   # fs-set-times has a long-stale upstream (bytecodealliance/fs-set-times) that cargo-unmaintained flags.
   # Its 0.20.3 (the latest release) still requires io-lifetimes ^2.0.0 (uses 2.0.4, latest 3.0.1); pulled by
   # cap-primitives (cap-std / cap-fs-ext) via the version-pinned wasmtime-wasi 47, so it can't be bumped out.
