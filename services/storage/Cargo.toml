@@ -1,5 +1,6 @@
 [package]
 name = "et-storage-service"
+publish = true
 description = "E.T. anonymous S3-compatible service"
 version = "0.1.0"
 edition.workspace = true

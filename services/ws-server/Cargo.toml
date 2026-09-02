@@ -1,5 +1,7 @@
 [package]
 name = "et-ws-server"
+publish = true
+description = "Actix-web entry point wiring the ws hub, storage and modules services together"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true

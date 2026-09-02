@@ -3,7 +3,7 @@
 
 use clap::{Parser, Subcommand, ValueEnum};
 use edge_toolkit::config::get_project_root;
-use et_int_gen::{generate, generate_core, generate_rust, generate_zig, wit::upstream};
+use et_int_gen::{generate, generate_bindings, generate_core, generate_rust, generate_zig, wit::upstream};
 
 #[derive(Parser)]
 #[command(about = "Generate checked-in artifacts under generated/ from in-repo Rust sources of truth")]
@@ -31,16 +31,18 @@ enum Command {
 
 /// Per-language target selector for the `generate` subcommand, mirroring the
 /// `MISE_ENV`-scoped `gen:*` tasks: `core` (language-agnostic specs), `rust`,
-/// `zig`, or `all`.
+/// `bindings`, `zig`, or `all`.
 #[derive(Clone, Copy, ValueEnum)]
 enum Target {
     /// Language-agnostic specs: AsyncAPI/OpenAPI YAML, WIT, KDL, schema JSON.
     Core,
     /// The typed Rust REST client.
     Rust,
+    /// The wasmtime host bindings for the ws-wasi-runner `runner` world.
+    Bindings,
     /// The Zig REST client (skipped when openapi2zig is absent).
     Zig,
-    /// Core + Rust + Zig.
+    /// Core + Rust + bindings + Zig.
     All,
 }
 
@@ -57,6 +59,7 @@ fn main() -> Result<(), et_int_gen::Error> {
         Command::Generate { target } => match target {
             Target::Core => generate_core(),
             Target::Rust => generate_rust(),
+            Target::Bindings => generate_bindings(),
             Target::Zig => generate_zig(),
             Target::All => generate(),
         },

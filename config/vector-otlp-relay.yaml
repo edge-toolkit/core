@@ -30,7 +30,7 @@ sinks:
       when_full: block
     protocol:
       type: http
-      uri: "http://127.0.0.1:${RELAY_SINK_PORT}/traces"
+      uri: "http://127.0.0.1:${RELAY_SINK_PORT}/v1/traces"
       method: post
       # `otlp` is protobuf; Vector's json OTLP encoding is not a valid request body (vectordotdev/vector#23971).
       encoding:

@@ -14,5 +14,4 @@ ignores:
   # Treat these as the only places allowed to construct an error type *from* a foreign error type.
   - libs/web/src/error.rs
   - utilities/cli/src/error.rs
-  - services/ws-wasi-runner/src/host/error.rs
   - services/ws-web-runner/src/error.rs

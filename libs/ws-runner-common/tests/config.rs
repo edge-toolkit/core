@@ -3,10 +3,6 @@
 //! Covers humantime `RUNNER_TIMEOUT` parsing and the defaults applied when a
 //! variable is absent.
 #![cfg(test)]
-#![expect(
-    clippy::duration_suboptimal_units,
-    reason = "test code: exact second counts mirror the parsed inputs"
-)]
 
 use std::time::Duration;
 

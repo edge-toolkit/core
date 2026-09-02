@@ -2,6 +2,9 @@
 # The workspace had ~113 pre-existing docstrings whose first line does not end in terminal punctuation, so
 # rather than rewrite them all at once, this rule only covers the files listed below. Grow the list (or drop
 # the scoping once the backlog is cleared) as more files are brought into line.
+#
+# One deliberate absence: services/ws-wasi-runner/src/bindings.rs is generated and its doc comments come from
+# wasmtime, so it is not listed and must not be re-added. Refer to int-gen bindings.rs for details.
 id: doc-summary-ends-with-period
 language: Rust
 severity: error
@@ -27,9 +30,8 @@ files:
   - libs/edge-toolkit/src/config.rs
   - libs/edge-toolkit/tests/no_mise.rs
   - libs/edge-toolkit/tests/npm_mod.rs
-  - libs/otlp-emit/src/lib.rs
-  - libs/otlp-mock/src/lib.rs
   - libs/test-helpers/src/lib.rs
+  - libs/test-otlp/src/lib.rs
   - libs/ws-runner-common/tests/config.rs
   - services/modules/tests/api_modules.rs
   - services/modules/tests/configure_missing_root.rs
@@ -75,7 +77,6 @@ files:
   - services/ws-server/tests/health.rs
   - services/ws-server/tests/net.rs
   - services/ws-server/tests/tls.rs
-  - services/ws-wasi-runner/src/bindings.rs
   - services/ws-wasi-runner/src/host/error.rs
   - services/ws-wasi-runner/src/host/mod.rs
   - services/ws-wasi-runner/src/host/ws.rs

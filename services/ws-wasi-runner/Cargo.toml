@@ -1,5 +1,6 @@
 [package]
 name = "et-ws-wasi-runner"
+publish = true
 description = "Native runner that fetches a ws-module WASI component from the server and executes it via wasmtime"
 version = "0.1.0"
 edition.workspace = true
@@ -80,9 +81,8 @@ wgpu-types.workspace = true
 [dev-dependencies]
 command-error.workspace = true
 et-test-helpers.workspace = true
+et-test-otlp.workspace = true
 et-ws-test-server.workspace = true
-int-otlp-emit.workspace = true
-int-otlp-mock.workspace = true
 reqwest = { workspace = true, features = ["blocking"] }
 retry.workspace = true
 rstest.workspace = true

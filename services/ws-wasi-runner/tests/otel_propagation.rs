@@ -32,6 +32,8 @@ use std::time::Duration;
 
 use command_error::CommandExt as _;
 use edge_toolkit::config::{Language, OtlpConfig, OtlpProtocol, mise_env_includes};
+use et_test_otlp::Protocol;
+use tokio::runtime::Runtime;
 
 // Skipped on Windows: this test spawns the runner against the wasi-data1
 // module via ws-test-server, so it hits the same `pkg/package.json` 404
@@ -46,7 +48,11 @@ fn trace_ids_propagate_between_runner_and_server() {
         return;
     }
     // 1. Start the mock collector. Both processes will export to it.
-    let mock = int_otlp_mock::start();
+    //    This is a sync `#[test]`, so it owns the runtime the collector's server task is spawned onto; a
+    //    multi-thread `Runtime` keeps polling that task on its own workers while the body blocks on
+    //    `Command` and `thread::sleep`.
+    let runtime = Runtime::new().unwrap();
+    let mock = runtime.block_on(et_test_otlp::start(Protocol::HttpJson));
 
     // 2. Init OTLP in the test process *before* spawning the test server,
     //    so the global tracing subscriber + propagator are in place when
@@ -57,7 +63,7 @@ fn trace_ids_propagate_between_runner_and_server() {
     // OtlpConfig is `non_exhaustive`, so build via Default + field
     // assignment.
     let mut server_otlp = OtlpConfig::default();
-    server_otlp.collector_url = mock.collector_url().to_owned();
+    server_otlp.collector_url = et_test_otlp::collector_url(&mock);
     server_otlp.protocol = OtlpProtocol::JSON;
     server_otlp.service_label = "et-ws-test".to_string();
     server_otlp.auth = None;
@@ -74,7 +80,7 @@ fn trace_ids_propagate_between_runner_and_server() {
     let _: std::process::ExitStatus = std::process::Command::new(bin)
         .env("RUNNER_MODULE", "et-ws-wasi-data1")
         .env("WS_SERVER_URL", &server.ws_url)
-        .env("OTLP_COLLECTOR_URL", mock.collector_url())
+        .env("OTLP_COLLECTOR_URL", &server_otlp.collector_url)
         .env("OTLP_PROTOCOL", "JSON")
         .env("OTLP_SERVICE_LABEL", "et-ws-wasi-runner")
         .status_checked()
@@ -89,7 +95,7 @@ fn trace_ids_propagate_between_runner_and_server() {
     std::thread::sleep(Duration::from_millis(500));
 
     // 5. Inspect captured spans.
-    let spans = mock.flatten_spans();
+    let spans = runtime.block_on(et_test_otlp::flatten_spans(&mock));
     assert!(
         !spans.is_empty(),
         "mock OTLP received zero spans -- exporters may not be flushing"

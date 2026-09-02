@@ -1,5 +1,6 @@
 [package]
 name = "et-ws-runner-common"
+publish = true
 description = "Shared helpers + constants for the native ws-server agent runners"
 version = "0.1.0"
 edition.workspace = true

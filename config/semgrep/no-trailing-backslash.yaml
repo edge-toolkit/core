@@ -12,6 +12,9 @@ rules:
         # Generated deployment artifacts (regen-verification output).
         - "/verification/**/mise.toml"
         - "/verification/**/compose.yaml"
+        # Generated: wasmtime's format_err! messages wrap with a string-literal continuation.
+        # Refer to int-gen bindings.rs for details.
+        - "/services/ws-wasi-runner/src/bindings.rs"
     pattern-regex: '\\[ \t]*$'
     message: >-
       Trailing-backslash line continuations are not allowed in this repo.

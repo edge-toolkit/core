@@ -1,5 +1,6 @@
 [package]
 name = "et-ws-web-runner"
+publish = true
 description = "Runner that fetches a ws-module from the server and executes its JS via embedded Deno"
 version = "0.1.0"
 edition.workspace = true

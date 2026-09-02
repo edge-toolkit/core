@@ -9,15 +9,6 @@
 //! These were duplicated across the runner crates; one implementation here
 //! keeps them in sync with the server.
 
-// `BootstrapError` is large because `et_rest_client::Error<()>` carries an
-// inline `reqwest::Response` (~136 B). Boxing would cost a `From` impl per
-// variant; not worth it for these one-shot runner helpers (the two runner
-// crates carry the same expectation for the same reason).
-#![expect(
-    clippy::result_large_err,
-    reason = "et_rest_client::Error<()> dominates the footprint; boxing would force per-variant From impls"
-)]
-
 use std::time::{Duration, SystemTime};
 
 use edge_toolkit::ws::{ClientMessage, ConnectStatus, ServerMessage};
@@ -72,8 +63,12 @@ pub async fn heartbeat_interval() -> tokio::time::Interval {
 #[non_exhaustive]
 pub enum ConnectError {
     /// Opening, sending on, or reading the websocket failed.
+    ///
+    /// Boxed: `tungstenite::Error` is ~136 bytes, enough on its own to trip `clippy::result_large_err` on
+    /// every `Result<_, ConnectError>` here. The `From` impl below keeps `?` converting from the unboxed
+    /// source.
     #[error("websocket error during connect/register: {0}")]
-    WebSocket(#[from] tungstenite::Error),
+    WebSocket(Box<tungstenite::Error>),
 
     /// The `et-connect` frame could not be serialised.
     #[error("failed to serialize the et-connect frame: {0}")]
@@ -86,6 +81,12 @@ pub enum ConnectError {
     /// The connection closed before any `et-connect-ack` arrived.
     #[error("connection closed before et-connect-ack")]
     ConnectionClosed,
+}
+
+impl From<tungstenite::Error> for ConnectError {
+    fn from(err: tungstenite::Error) -> Self {
+        Self::WebSocket(Box::new(err))
+    }
 }
 
 /// Human label for a [`ConnectStatus`], for log lines.
@@ -216,8 +217,12 @@ pub enum BootstrapError {
     InvalidWsUrl { ws_url: String },
 
     /// A REST request to the ws-server failed.
+    ///
+    /// Boxed: progenitor's `Error<()>` is ~136 bytes, which alone pushed this enum -- and every
+    /// `Result<_, BootstrapError>` in both runners, which wrap it -- past `clippy::result_large_err`.
+    /// The `From` impl below keeps `?` converting from the unboxed source.
     #[error(transparent)]
-    Rest(#[from] et_rest_client::Error<()>),
+    Rest(Box<et_rest_client::Error<()>>),
 
     /// Streaming a response body chunk from the ws-server failed.
     ///
@@ -232,6 +237,12 @@ pub enum BootstrapError {
     /// A module's `package.json` parsed but had no `main` field.
     #[error("module {module} package.json missing `main` field")]
     PackageJsonMissingMain { module: String },
+}
+
+impl From<et_rest_client::Error<()>> for BootstrapError {
+    fn from(err: et_rest_client::Error<()>) -> Self {
+        Self::Rest(Box::new(err))
+    }
 }
 
 /// Derive a module's HTTP base URL from the ws-server WebSocket URL.

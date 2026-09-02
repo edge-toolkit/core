@@ -9,7 +9,9 @@ use crate::bindings::wasi::logging::logging::{Host, Level};
 impl Host for HostState {
     #[expect(
         clippy::cognitive_complexity,
-        reason = "match arm per WASI logging level -- flat dispatch is the readable shape"
+        clippy::unused_async_trait_impl,
+        reason = "a match arm per WASI level is the readable shape; the generated Host trait declares log
+        async, and the tracing macros never await"
     )]
     async fn log(&mut self, level: Level, context: String, message: String) {
         match level {

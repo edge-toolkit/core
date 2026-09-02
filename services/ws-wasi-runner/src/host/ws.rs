@@ -40,8 +40,6 @@ impl crate::bindings::et::ws_messages::messages::Host for HostState {}
 type WsSink = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, tungstenite::Message>;
 
 use crate::bindings::et::ws_wasi::ws::WsError;
-use crate::host::error::WsDecodeErrExt as _;
-use crate::host::error::WsTransportErrExt as _;
 
 /// Live state for an open websocket connection.
 ///
@@ -205,7 +203,7 @@ impl Host for HostState {
             ClientMessage::RelayText { content } => tungstenite::Message::text(content),
             ClientMessage::RelayBinary { content } => tungstenite::Message::binary(content),
             typed => {
-                let payload = serde_json::to_string(&typed).map_decode_err("serialize ws-message")?;
+                let payload = serde_json::to_string(&typed)?;
                 tungstenite::Message::text(payload)
             }
         };
@@ -219,7 +217,7 @@ impl Host for HostState {
             .as_ref()
             .map(|backend| Arc::clone(&backend.sink))
             .ok_or(WsError::NotConnected)?;
-        sink.lock().await.send(outgoing).await.map_tungstenite_err("send frame")
+        Ok(sink.lock().await.send(outgoing).await?)
     }
 
     async fn recv(&mut self, timeout_ms: u32) -> Result<Option<WitServerMessage>, WsError> {
@@ -261,9 +259,9 @@ impl Host for HostState {
     reason = "named converter; used once by <HostState as Host>::send"
 )]
 fn wit_to_client_message(msg: WitClientMessage) -> Result<ClientMessage, WsError> {
-    let parse_value = |raw: String, label: &str| -> Result<serde_json::Value, WsError> {
+    let parse_value = |raw: String| -> Result<serde_json::Value, WsError> {
         let mut deserializer = serde_json::Deserializer::from_str(&raw);
-        serde_path_to_error::deserialize(&mut deserializer).map_decode_err(&format!("{label}: opaque JSON payload"))
+        Ok(serde_path_to_error::deserialize(&mut deserializer)?)
     };
     Ok(match msg {
         WitClientMessage::Connect(payload) => ClientMessage::Connect {
@@ -275,10 +273,10 @@ fn wit_to_client_message(msg: WitClientMessage) -> Result<ClientMessage, WsError
         WitClientMessage::ListAgents => ClientMessage::ListAgents,
         WitClientMessage::SendAgentMessage(payload) => ClientMessage::SendAgentMessage {
             to_agent_id: payload.to_agent_id,
-            message: parse_value(payload.message, "send-agent-message")?,
+            message: parse_value(payload.message)?,
         },
         WitClientMessage::BroadcastMessage(payload) => ClientMessage::BroadcastMessage {
-            message: parse_value(payload.message, "broadcast-message")?,
+            message: parse_value(payload.message)?,
         },
         WitClientMessage::MessageAck(payload) => ClientMessage::MessageAck {
             message_id: payload.message_id,
@@ -286,7 +284,7 @@ fn wit_to_client_message(msg: WitClientMessage) -> Result<ClientMessage, WsError
         WitClientMessage::ClientEvent(payload) => ClientMessage::ClientEvent {
             capability: payload.capability,
             action: payload.action,
-            details: parse_value(payload.details, "client-event")?,
+            details: parse_value(payload.details)?,
         },
         WitClientMessage::RelayText(payload) => ClientMessage::RelayText {
             content: payload.content,
@@ -305,8 +303,7 @@ fn wit_to_client_message(msg: WitClientMessage) -> Result<ClientMessage, WsError
     reason = "named converter; used once by <HostState as Host>::recv"
 )]
 fn server_message_to_wit(msg: ServerMessage) -> Result<WitServerMessage, WsError> {
-    let serialize =
-        |value: serde_json::Value| serde_json::to_string(&value).map_decode_err("re-serialize opaque payload");
+    let serialize = |value: serde_json::Value| serde_json::to_string(&value);
     Ok(match msg {
         ServerMessage::ConnectAck { agent_id, status } => WitServerMessage::ConnectAck(ConnectAckPayload {
             agent_id,

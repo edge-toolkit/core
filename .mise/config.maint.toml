@@ -12,12 +12,15 @@
 #   edge-toolkit/core's rp-v<N> release (same release that holds the
 #   matching native rustpython binary tarballs). Consumers pick up the
 #   asset via the `http:et-rp-wasm` mise tool entry in config.toml.
+# - release-rust-crates: version-bumps, tags and publishes every
+#   publishable workspace crate to crates.io via cargo-release.
 #
 # Not in ALL_LANGS (maint isn't a language); invoked manually:
 #
 #   MISE_ENV=maint mise run publish-face1-to-hf-cache
 #   MISE_ENV=maint mise run publish-eye1-to-hf-cache
 #   MISE_ENV=maint mise run publish-rp-wasm-to-release
+#   MISE_ENV=maint mise run release-rust-crates patch
 
 [tools]
 # Rust-native HTTP client replacing the host `curl`.
@@ -29,6 +32,11 @@
 # upstream-cache job to extract the NSIS-wrapped GnuPG installer (mise's built-in sevenz_rust2 only handles
 # canonical .7z, not the NSIS wrapper).
 "aqua:ip7z/7zip" = "latest"
+# Workspace release driver for release-rust-crates.
+# Resolves to the `github:crate-ci/cargo-release` backend, whose releases carry prebuilts for all five
+# supported triples (aarch64/x86_64 apple-darwin, aarch64/x86_64 unknown-linux-musl, x86_64-pc-windows-msvc),
+# so no tier pays a source build.
+cargo-release = "latest"
 # augtool registration lives in the workspace-level config.toml.
 # That way it installs without MISE_ENV=maint -- publish-* tasks need it
 # but so does anyone running `mise install` against a fresh checkout.
@@ -688,3 +696,68 @@ GPL-3.0+"
 gh release create "$tag" --repo "$GH_REPO" --title "$tag" --notes "$notes" --prerelease </dev/null
 """
 shell = "bash -euo pipefail -c"
+
+[tasks.release-rust-crates]
+description = "Publish one batch of five workspace crates to crates.io (dry run without --execute)"
+# Batched because crates.io rate-limits new crate names.
+# Its PublishNew bucket is a burst of 5 refilling one token every 10 minutes (PublishUpdate, for a name that
+# already exists, is a separate burst-30 bucket at one per minute). All but `edge-toolkit` are new names, so
+# a single whole-workspace run is rejected outright -- and cargo-release does not wait for refills, so it
+# would abort mid-sequence having already uploaded the earlier crates. Uploads cannot be withdrawn, only
+# yanked. Hence one batch per invocation, with the maintainer waiting ~10 minutes per crate between batches.
+#
+# `cargo release publish` publishes only: no version bump, no tag. The versions in the manifests are what
+# ships, so batches cannot disagree about a version the way a per-batch `cargo release <level>` would. It
+# also skips already-published versions, so re-running a batch after a partial failure is safe.
+#
+# The crates list is ordered so every crate's workspace dependencies sit in an earlier or the same batch.
+# Only crossing a batch boundary matters: cargo-release topologically orders whatever one invocation selects,
+# so order within a batch is its problem, not this list's. Crates carrying
+# `[package.metadata.release] release = false` (the browser modules) and the `int-` crates are absent because
+# neither is published.
+#
+# Rebuild the order from `cargo metadata` when the workspace graph changes -- NOT from the crate list a
+# `cargo release --workspace` run prints, which is its version-bump order and put a dev-dependency
+# (et-ws-pyo3-runner -> et-ws-test-server) a batch too late. Dependency kind is what makes the difference:
+# dev-dependencies still have to be on crates.io before their dependent publishes, and they are easy to miss
+# by eye. Emit `<dependency> <dependent>` pairs for every path dependency, of any kind, and sort them:
+#
+#   cargo metadata --no-deps --format-version 1 |
+#     jaq -r '.packages[] as $p | $p.dependencies[] | select(.path != null) | "\(.name) \($p.name)"' |
+#     tsort
+#
+# tsort's output is one valid order; keep the existing sequence where it already satisfies the graph so batch
+# numbers stay stable for a part-published release, and re-check with the same pairs afterwards.
+run = """
+crates=(
+  et-path edge-toolkit et-test-helpers et-otlp et-test-otlp
+  et-web et-rest-client et-ws-runner-common et-ws-wasm-agent et-ws-comm1
+  et-ws-data1 et-ws-math1 et-ws-wasi-comm1 et-ws-wasi-data1 et-ws-wasi-math1
+  et-modules-service et-storage-service et-websockify-service et-ws-service et-ws-test-server
+  et-ws-pyo3-runner et-ws-server et-ws-wasi-runner et-ws-web-runner et-cli
+  et-onnx
+)
+per_batch=5
+# `set --` then `$#` counts the array without the `${` + `#` pair, which mise's Tera pass reads as a comment.
+set -- "${crates[@]}"
+count=$#
+start=$(((usage_batch - 1) * per_batch))
+if [ "$start" -ge "$count" ]; then
+  echo "batch $usage_batch is past the end: $count crates, $per_batch per batch" >&2
+  exit 1
+fi
+args=(release publish)
+for crate in "${crates[@]:start:per_batch}"; do
+  args+=(-p "$crate")
+done
+if [ "${usage_execute:-}" = "true" ]; then
+  args+=(--execute)
+fi
+echo "batch $usage_batch: ${crates[*]:start:per_batch}"
+cargo "${args[@]}"
+"""
+shell = "bash -euo pipefail -c"
+usage = """
+arg "<batch>" help="Which batch of five to publish, counting from 1"
+flag "--execute" help="Actually publish; omit to print the plan and change nothing"
+"""

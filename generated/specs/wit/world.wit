@@ -12,7 +12,7 @@ interface ws {
     // of our messages) but the rest of the payload doesn't match the
     // declared variant. Raised ONLY for that case: any other inbound
     // parse failure (non-JSON, JSON without a `type`, JSON with a
-    // non-et-prefixed `type`) is relayed instead — the ws protocol
+    // non-et-prefixed `type`) is relayed instead -- the ws protocol
     // forwards binary and unrecognised frames unchanged. Also raised
     // for host-side serialize failures of outbound messages.
     decode(string),
@@ -98,9 +98,10 @@ interface entry {
     webgpu(webgpu-error),
     runtime(string),
   }
-  // `async` because wasi:webgpu@0.3.0-rc.2 declares `request-adapter`, `request-device` and `map-async` as
-  // `async func`: a component can only await an async import from an async export, so the entrypoint every
-  // module implements has to carry the async ABI even for guests that never await.
+  // `async` because wasi:webgpu@0.3.0-rc.2 declares `request-adapter`,
+  // `request-device` and `map-async` as `async func`: a component can only
+  // await an async import from an async export, so the entrypoint every module
+  // implements carries the async ABI even for guests that never await.
   run: async func() -> result<_, entry-error>;
 }
 

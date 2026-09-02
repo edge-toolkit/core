@@ -1,7 +1,7 @@
 //! End-to-end proof that the pinned `http:openobserve` binary ingests real OTLP and serves it back.
 //!
 //! Sibling to `vector_otlp_relay.rs`: both spawn a real observability binary and push a span through the
-//! OpenTelemetry SDK's OTLP/HTTP exporter (`int-otlp-emit`, the same `opentelemetry-otlp` transport the
+//! OpenTelemetry SDK's OTLP/HTTP exporter (`et-test-otlp`, the same `opentelemetry-otlp` transport the
 //! services use via `et-otlp`). Here the subject is the o2 server the `o2` / `o2-native` tasks run, so a
 //! version bump that breaks OTLP ingestion or search is caught by the suite, not only by manual checking:
 //!
@@ -89,7 +89,7 @@ fn openobserve_serves_back_a_span_ingested_over_otlp() {
     let mut headers = HashMap::new();
     BasicAuth::new(ROOT_EMAIL.to_owned(), SecretString::from(ROOT_PASSWORD.to_owned()))
         .add_basic_auth_header(&mut headers);
-    int_otlp_emit::emit_span(&format!("{base}/api/{ORG}/v1/traces"), headers, SERVICE_NAME, MARKER);
+    et_test_otlp::emit_span(&format!("{base}/api/{ORG}/v1/traces"), headers, SERVICE_NAME, MARKER);
 
     // 4. Search o2's traces until the span surfaces, then verify it came back carrying our marker + service.
     let Some(hit) = wait_for_marker(&client, &base) else {

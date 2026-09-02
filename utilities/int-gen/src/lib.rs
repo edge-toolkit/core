@@ -59,7 +59,21 @@ pub use self::error::Error;
 pub fn generate() -> Result<(), Error> {
     generate_core()?;
     generate_rust()?;
+    generate_bindings()?;
     generate_zig()?;
+    Ok(())
+}
+
+/// Emit the wasmtime host bindings for the `runner` world.
+///
+/// Writes `services/ws-wasi-runner/src/bindings.rs`, which used to be expanded from
+/// `wasmtime::component::bindgen!` at build time against a WIT path outside that crate -- a path
+/// `cargo package` cannot include, leaving the crate unable to build from its own tarball. Depends on the
+/// `et:ws-messages` WIT that [`generate_core`] emits, so run it after that.
+pub fn generate_bindings() -> Result<(), Error> {
+    let project_root = get_project_root();
+    let rendered = wit::bindings::render(&project_root.join("generated/specs/wit"))?;
+    write_if_changed(&project_root.join("services/ws-wasi-runner/src/bindings.rs"), &rendered)?;
     Ok(())
 }
 

@@ -125,7 +125,7 @@ ripgrep = "latest"
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
 "github:microsoft/onnxruntime" = "1.22.0"
 "github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
-"github:wasm-bindgen/wasm-bindgen" = "0.2.126"
+"github:wasm-bindgen/wasm-bindgen" = "0.2.127"
 # go-containerregistry's crane fetches the per-platform ghcr.io mise-tools stores.
 # Its `crane export` rootfs-flatten is what the pull-mise-tools task and CI's install-mise-tools restore
 # step extract tool trees with.
@@ -368,14 +368,14 @@ url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x
 [vars]
 # Rust nightly channel, pinned to a single version used for every nightly toolchain in the repo.
 # One value drives the coverage build + its llvm-tools, cargo-fmt, cargo-doc-check, the et-rest-client fmt, and
-# the Windows/mingw/msvc host toolchains, so no lane silently floats to a different nightly. Pinned because
-# the 2026-08-05 nightly (rustc 7608eb7b0) regressed wasm coverage codegen -- minicov's `capture_coverage` reads
-# the instrumented counter buffers out of bounds, so the guest traps with `wasm trap: out of bounds memory
-# access` in `coverage::dump` and the et-ws-wasi-runner coverage tests (wasi-comm1/wasi-data1) fail. The
-# 2026-08-04 nightly (rustc 1ed2df61a), which `nightly-2026-08-05` resolves to, is the last good one. minicov has
-# shipped no release since 0.3.8 to absorb the codegen change, so pinning the toolchain is the only lever. Unpin
-# (back to `nightly`) once a later nightly fixes the codegen or a new minicov handles it.
-rust_nightly = "nightly-2026-08-05"
+# the Windows/mingw/msvc host toolchains, so no lane silently floats to a different nightly.
+#
+# The version is chosen by its LLVM, which has to match the `minicov` in [workspace.dependencies]: minicov
+# writes the guests' profraw and this toolchain's llvm-tools reads it, so a mismatch traps the guest with
+# `wasm trap: out of bounds memory access` in `coverage::dump`. `nightly-2026-08-31` (rustc 908501772) carries
+# LLVM 23.1.0, which is the profraw-11 format minicov 0.3.9 emits. Bump this and minicov together, never one
+# alone, and check `rustc +<nightly> --version --verbose` reports an LLVM the minicov release names.
+rust_nightly = "nightly-2026-08-31"
 # Tier-`a_` prefix marks leaf values referenced by later vars.
 # a_* vars are referenced by later vars (face1_src), and mise renders [vars] in alphabetical order; `a_` sorts
 # before every non-prefixed var name so the reference resolves. Shared GitHub release tag for the HF-asset
@@ -1362,6 +1362,18 @@ cargo +{{ vars.rust_nightly }} fmt -p et-rest-client
 """
 shell = "bash -euo pipefail -c"
 
+[tasks."gen:wasmtime-bindings"]
+depends = ["gen:ws-spec"]
+description = "Run et-int-gen: emit the ws-wasi-runner host bindings for the `runner` world"
+# Output lands in the consuming crate, not generated/.
+# `cargo package` only includes files under a crate's own directory, so bindings that live anywhere else
+# leave et-ws-wasi-runner unable to build from its own tarball -- which is what retired the
+# `wasmtime::component::bindgen!` macro that read WIT from `../../generated/specs/wit`.
+#
+# Depends on gen:ws-spec for the `et:ws-messages` WIT its `generate core` step emits.
+# Unlike gen:ws-spec there is no rustfmt post-process; refer to int-gen bindings.rs for details.
+run = "cargo run -q -p et-int-gen --bin et-int-gen -- generate bindings"
+
 [tasks.gen-specs]
 # Native `depends` glob anchored by gen:ws-spec (core + Rust client, always loaded).
 # That anchor keeps the glob from matching zero; guest `gen:<lang>` tasks join from their
@@ -1372,11 +1384,12 @@ description = "Regenerate every loaded spec artifact under generated/ (core + Ru
 
 [tasks.gen-specs-check]
 depends = ["gen-specs"]
-description = "Fail if any checked-in artifact under generated/ is stale"
-# All et-int-gen outputs land under generated/.
-# The runner's wit/deps/et-ws-messages is a symlink into that tree, so a single diff
-# against generated/ covers everything.
-run = "git diff --exit-code -- generated"
+description = "Fail if any checked-in et-int-gen artifact is stale"
+# Nearly every et-int-gen output lands under generated/.
+# The runner's wit/deps/et-ws-messages is a symlink into that tree, so a single diff against generated/
+# covers those. The runner's host bindings are the exception: they must sit inside the crate for
+# `cargo package` to include them, so that path is diffed explicitly.
+run = "git diff --exit-code -- generated services/ws-wasi-runner/src/bindings.rs"
 
 # `cargo-watch` is unmaintained; `watchexec` is its successor.
 # watchexec is what `cargo-watch` always called under the hood. Restart on .rs/.toml changes so a

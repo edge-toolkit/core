@@ -14,3 +14,5 @@ rule:
     - pattern: "#![allow($$$ARGS)]"
 ignores:
   - generated/**
+  # Generated; refer to int-gen bindings.rs for details.
+  - services/ws-wasi-runner/src/bindings.rs

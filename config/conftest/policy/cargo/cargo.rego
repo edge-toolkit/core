@@ -32,8 +32,12 @@ dep contains [file.path, name, spec] if {
 
 # Banned crates -> rejection reason.
 # Members must use workspace = true, so the root's [workspace.dependencies] is the only place a ban can bite.
+#
+# `anyhow` is not listed here, and is instead constrained at the source level by the semgrep rule
+# `anyhow-only-in-error-rs`: a crate may depend on it, but may only name it in an `error.rs` `#[from]` variant.
+# A blanket dependency ban was unworkable because `?` on a foreign `anyhow::Result` needs
+# `From<anyhow::Error>`, which cannot be written without naming the type.
 banned := {
-	"anyhow": "define a thiserror enum instead",
 	"openssl": "use rustls + aws-lc-rs -- one TLS/crypto stack only",
 	"openssl-sys": "use rustls + aws-lc-rs -- one TLS/crypto stack only",
 	"ring": "use aws-lc-rs (transitive via rcgen only; gated in config/deny.toml)",
@@ -148,22 +152,84 @@ deny contains msg if {
 	msg := sprintf("%s: [package] %s must inherit via %s.workspace = true", [file.path, field, field])
 }
 
-# Crate names are namespaced: "edge-toolkit" or "et-" for normal crates, "int-" for internal (publish = false) ones.
-allowed_crate_name(name, _) if startswith(name, "edge-toolkit")
+# Crate names are namespaced: "edge-toolkit" or "et-" for normal crates, "int-" marking an internal one.
+allowed_crate_name(name) if startswith(name, "edge-toolkit")
 
-allowed_crate_name(name, _) if startswith(name, "et-")
+allowed_crate_name(name) if startswith(name, "et-")
 
-allowed_crate_name(name, pkg) if {
-	startswith(name, "int-")
-	pkg.publish == false
+allowed_crate_name(name) if startswith(name, "int-")
+
+deny contains msg if {
+	some file in input
+	is_member(file)
+	name := file.contents.package.name
+	not allowed_crate_name(name)
+	msg := sprintf("%s: crate name %q must start with edge-toolkit/et-/int-", [file.path, name])
+}
+
+# `publish` is stated in every manifest rather than left to cargo's implicit default.
+# Publishing is the consequential choice here (a crates.io upload cannot be withdrawn), so each crate declares
+# its intent where a reader looks for it instead of the reader having to know the default.
+deny contains msg if {
+	some file in input
+	is_member(file)
+	not is_boolean(file.contents.package.publish)
+	msg := sprintf("%s: [package] must set publish explicitly (true, or false for an int- crate)", [file.path])
+}
+
+# The "int-" marker and publishability are the same fact, so the name and the flag must agree both ways.
+# The marker is anywhere in the name, not just the prefix: `et-int-gen` is as internal as `int-wasm-cov-wrapper`.
+# Keeping it biconditional means the crate list cannot drift into a state where a reader has to open the
+# manifest to learn whether a crate ships -- the name alone answers it.
+deny contains msg if {
+	some file in input
+	is_member(file)
+	name := file.contents.package.name
+	contains(name, "int-")
+	not file.contents.package.publish == false
+	msg := sprintf("%s: crate %q carries the int- marker, so it must set publish = false", [file.path, name])
 }
 
 deny contains msg if {
 	some file in input
 	is_member(file)
 	name := file.contents.package.name
-	not allowed_crate_name(name, file.contents.package)
-	msg := sprintf("%s: crate name %q must start with edge-toolkit/et- (int- if publish=false)", [file.path, name])
+	not contains(name, "int-")
+	not file.contents.package.publish == true
+	msg := sprintf("%s: crate %q must set publish = true; add an int- marker to keep it internal", [file.path, name])
+}
+
+# The version each member crate declares, keyed by crate name.
+member_version[name] := version if {
+	some file in input
+	is_member(file)
+	name := file.contents.package.name
+	version := file.contents.package.version
+}
+
+# A path dependency's `version` must match the version its crate actually declares.
+# Cargo resolves path deps by path for local builds and only enforces the version requirement when packaging,
+# so a stale pin here stays invisible to check/test/clippy and first fails during `cargo publish` -- partway
+# through a workspace release, once earlier crates are already uploaded and cannot be withdrawn.
+deny contains msg if {
+	some file in input
+	file.path == "Cargo.toml"
+	some name, spec in file.contents.workspace.dependencies
+	is_object(spec)
+	spec.path
+	spec.version != member_version[name]
+	msg := sprintf("Cargo.toml: %q pins version %q but that crate declares %q", [name, spec.version, member_version[name]])
+}
+
+# crates.io rejects an upload whose manifest carries no description, so every publishable crate has one.
+# cargo only warns locally, which means a missing description fails at upload time -- partway through a
+# workspace release, leaving some crates published at the new version and the rest behind.
+deny contains msg if {
+	some file in input
+	is_member(file)
+	file.contents.package.publish == true
+	not is_string(file.contents.package.description)
+	msg := sprintf("%s: crate %q is published, so it must set a description", [file.path, file.contents.package.name])
 }
 
 # An empty `features = []` on a dependency is pointless noise -- drop it.

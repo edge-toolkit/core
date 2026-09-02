@@ -20,7 +20,7 @@ pub mod wasi_keyvalue;
 pub mod wasi_nn;
 pub mod ws;
 
-pub use self::error::{KvErrExt, WitErrExt, WsDecodeErrExt, WsTransportErrExt, kv_not_implemented};
+pub use self::error::kv_not_implemented;
 pub use self::ws::WsBackend;
 
 #[non_exhaustive]
