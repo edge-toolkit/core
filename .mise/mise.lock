@@ -1133,17 +1133,18 @@ checksum = "sha256:6d97229c53cc0af09635bfd85b15169704ab9c07d5e23090252ac80746260
 url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x86_64-pc-windows-mingw.tar.gz"
 
 [[tools."http:chromedriver"]]
-version = "150.0.7871.124"
+version = "152.0.7977.75"
 backend = "http:chromedriver"
 
 [tools."http:chromedriver"."platforms.linux-x64"]
-url = "https://storage.googleapis.com/chrome-for-testing-public/150.0.7871.124/linux64/chromedriver-linux64.zip"
+checksum = "blake3:8b39e7bc80d0aa31a7f0527fdba86721ecfdf7198bf88b9d4a83e5ad005915b4"
+url = "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.75/linux64/chromedriver-linux64.zip"
 
 [tools."http:chromedriver"."platforms.macos-arm64"]
-url = "https://storage.googleapis.com/chrome-for-testing-public/150.0.7871.124/mac-arm64/chromedriver-mac-arm64.zip"
+url = "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.75/mac-arm64/chromedriver-mac-arm64.zip"
 
 [tools."http:chromedriver"."platforms.macos-x64"]
-url = "https://storage.googleapis.com/chrome-for-testing-public/150.0.7871.124/mac-x64/chromedriver-mac-x64.zip"
+url = "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.75/mac-x64/chromedriver-mac-x64.zip"
 
 [[tools."http:et-rp"]]
 version = "08a1d6f"

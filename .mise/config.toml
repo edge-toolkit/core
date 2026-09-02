@@ -344,13 +344,13 @@ url = "https://github.com/rustfs/rustfs/releases/download/{{version}}/rustfs-win
 [tools."http:chromedriver"]
 bin = "chromedriver"
 os = ["linux/x64", "macos"]
-version = "150.0.7871.124"
+version = "152.0.7977.75"
 [tools."http:chromedriver".platforms.linux-x64]
-url = "https://storage.googleapis.com/chrome-for-testing-public/150.0.7871.124/linux64/chromedriver-linux64.zip"
+url = "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.75/linux64/chromedriver-linux64.zip"
 [tools."http:chromedriver".platforms.macos-arm64]
-url = "https://storage.googleapis.com/chrome-for-testing-public/150.0.7871.124/mac-arm64/chromedriver-mac-arm64.zip"
+url = "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.75/mac-arm64/chromedriver-mac-arm64.zip"
 [tools."http:chromedriver".platforms.macos-x64]
-url = "https://storage.googleapis.com/chrome-for-testing-public/150.0.7871.124/mac-x64/chromedriver-mac-x64.zip"
+url = "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.75/mac-x64/chromedriver-mac-x64.zip"
 
 [tools."http:augeas"]
 bin = "augtool"

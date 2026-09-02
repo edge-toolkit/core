@@ -243,8 +243,8 @@ UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_u
 depends = ["build-wasm-cov-wrapper"]
 description = "Coverage for the browser ws-wasm-agent: run its wasm-bindgen tests headless, emit lcov into lcov.info"
 # The agent is a browser wasm client with no native tests, so its lib is invisible to the cargo-llvm-cov run.
-# This drives its wasm-bindgen tests (tests/client.rs) in a real headless Chrome and folds the result into the
-# same lcov.info the other coverage tasks feed. Two pieces make it work:
+# This drives its wasm-bindgen tests (tests/client.rs and tests/web.rs) in a real headless Chrome and folds the
+# result into the same lcov.info the other coverage tasks feed. Two pieces make it work:
 #   1. A live backend. tests/client.rs covers the offline paths on its own, but the connected paths (onopen,
 #      the connect-ack dispatch, the online send/flush/keepalive) need a server, so we start the in-process
 #      et-ws-test-server (its cov-server bin) on the fixed port the tests dial, wait for its readiness marker,
@@ -325,7 +325,7 @@ export RUSTFLAGS="--cfg wasm_bindgen_unstable_test_coverage"
 export CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER="$runner"
 export CHROMEDRIVER="$driver"
 export LLVM_PROFILE_FILE="{{ config_root }}/$covdir/wasm-agent-%p.profraw"
-cargo test -p et-ws-wasm-agent --features coverage --target wasm32-unknown-unknown --test client
+cargo test -p et-ws-wasm-agent --features coverage --target wasm32-unknown-unknown --test client --test web
 
 # Remove the marker so cov-server returns from main and flushes its coverage, then reap it (a kill would drop it).
 coreutils rm -f "$covdir/server-ready"
