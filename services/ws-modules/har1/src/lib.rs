@@ -17,11 +17,14 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-use et_web::{JsFunctionExt as _, JsPromiseExt as _, SENSOR_PERMISSION_GRANTED, request_sensor_permission};
-use et_ws_wasm_agent::{
-    WsClient, WsClientConfig, js_bool_field, js_nested_object, js_number_field, set_textarea_value,
+use et_web::{
+    JsFunctionExt as _, JsPromiseExt as _, SENSOR_PERMISSION_GRANTED, describe_js_error, request_sensor_permission,
+    sleep_ms, websocket_url,
 };
-use js_sys::{Array, Float32Array, Function, Promise, Reflect};
+use et_ws_wasm_agent::{
+    WsClient, WsClientConfig, js_bool_field, js_nested_object, js_number_field, set_textarea_value, wait_for_connected,
+};
+use js_sys::{Array, Float32Array, Function, Reflect};
 use serde_json::json;
 use tracing::info;
 use wasm_bindgen::prelude::*;
@@ -604,26 +607,8 @@ fn format_number(value: f64, digits: usize) -> String {
     }
 }
 
-fn describe_js_error(error: &JsValue) -> String {
-    error
-        .as_string()
-        .or_else(|| js_sys::JSON::stringify(error).ok().map(String::from))
-        .unwrap_or_else(|| format!("{error:?}"))
-}
-
 fn method(target: &JsValue, name: &str) -> Result<Function, JsValue> {
     Reflect::get(target, &JsValue::from_str(name))?.into_function(name)
-}
-
-async fn wait_for_connected(client: &WsClient) -> Result<(), JsValue> {
-    for _ in 0_u32..100 {
-        if client.get_state() == "connected" {
-            return Ok(());
-        }
-        sleep_ms(100).await?;
-    }
-
-    Err(JsValue::from_str("Timed out waiting for websocket connection"))
 }
 
 async fn wait_for_motion_sample(sensors: &DeviceSensors) -> Result<(), JsValue> {
@@ -635,19 +620,6 @@ async fn wait_for_motion_sample(sensors: &DeviceSensors) -> Result<(), JsValue> 
     }
 
     Err(JsValue::from_str("Timed out waiting for initial motion sample"))
-}
-
-fn websocket_url() -> Result<String, JsValue> {
-    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
-    let location = Reflect::get(window.as_ref(), &JsValue::from_str("location"))?;
-    let protocol = Reflect::get(&location, &JsValue::from_str("protocol"))?
-        .as_string()
-        .ok_or_else(|| JsValue::from_str("window.location.protocol is unavailable"))?;
-    let host = Reflect::get(&location, &JsValue::from_str("host"))?
-        .as_string()
-        .ok_or_else(|| JsValue::from_str("window.location.host is unavailable"))?;
-    let ws_protocol = if protocol == "https:" { "wss:" } else { "ws:" };
-    Ok(format!("{ws_protocol}//{host}/ws"))
 }
 
 async fn create_har_session(model_path: &str) -> Result<JsValue, JsValue> {
@@ -876,22 +848,6 @@ fn degrees_to_radians(value: f64) -> f64 {
 
 fn to_g(value: f64) -> f64 {
     value / STANDARD_GRAVITY
-}
-
-async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
-    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
-    let promise = Promise::new(&mut |resolve, reject| {
-        let callback = Closure::once_into_js(move || {
-            et_web::ignore(resolve.call0(&JsValue::NULL));
-        });
-
-        if let Err(error) =
-            window.set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), duration_ms)
-        {
-            et_web::ignore(reject.call1(&JsValue::NULL, &error));
-        }
-    });
-    JsFuture::from(promise).await.map(|_| ())
 }
 
 #[cfg(test)]

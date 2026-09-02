@@ -8,12 +8,11 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use edge_toolkit::ws::{AgentConnectionState, AgentSummary, ServerMessage};
-use et_ws_wasm_agent::{WsClient, WsClientConfig, append_to_textarea};
-use js_sys::{Promise, Reflect};
+use et_web::{sleep_ms, websocket_url};
+use et_ws_wasm_agent::{WsClient, WsClientConfig, append_to_textarea, wait_for_connected};
 use serde_json::json;
 use tracing::info;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::JsFuture;
 
 const LIST_AGENTS_POLL_MS: i32 = 1_000;
 const MESSAGE_PAUSE_MS: i32 = 3_000;
@@ -165,17 +164,6 @@ fn set_module_status(message: &str) -> Result<(), JsValue> {
     append_to_textarea("module-output", message)
 }
 
-async fn wait_for_connected(client: &WsClient) -> Result<(), JsValue> {
-    for _ in 0_u32..100 {
-        if client.get_state() == "connected" {
-            return Ok(());
-        }
-        sleep_ms(100).await?;
-    }
-
-    Err(JsValue::from_str("Timed out waiting for websocket connection"))
-}
-
 async fn wait_for_agent_id(client: &WsClient) -> Result<String, JsValue> {
     for _ in 0_u32..100 {
         let agent_id = client.get_agent_id();
@@ -186,33 +174,4 @@ async fn wait_for_agent_id(client: &WsClient) -> Result<String, JsValue> {
     }
 
     Err(JsValue::from_str("Timed out waiting for assigned agent_id"))
-}
-
-async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
-    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
-    let promise = Promise::new(&mut |resolve, reject| {
-        let callback = Closure::once_into_js(move || {
-            let _resolved = resolve.call0(&JsValue::NULL);
-        });
-
-        if let Err(error) =
-            window.set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), duration_ms)
-        {
-            let _rejected = reject.call1(&JsValue::NULL, &error);
-        }
-    });
-    JsFuture::from(promise).await.map(|_| ())
-}
-
-fn websocket_url() -> Result<String, JsValue> {
-    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
-    let location = Reflect::get(window.as_ref(), &JsValue::from_str("location"))?;
-    let protocol = Reflect::get(&location, &JsValue::from_str("protocol"))?
-        .as_string()
-        .ok_or_else(|| JsValue::from_str("window.location.protocol is unavailable"))?;
-    let host = Reflect::get(&location, &JsValue::from_str("host"))?
-        .as_string()
-        .ok_or_else(|| JsValue::from_str("window.location.host is unavailable"))?;
-    let ws_protocol = if protocol == "https:" { "wss:" } else { "ws:" };
-    Ok(format!("{ws_protocol}//{host}/ws"))
 }

@@ -1,8 +1,13 @@
 # data/ is out of scope for the typos check.
 # It holds vendored demo + model assets (not our own prose), so its spelling
 # is not ours to police.
+# config/jscpd-baseline.json holds nothing but machine-written 16-char clone fingerprints, and hex digits spell
+# enough near-words to trip the dictionary ("...b76ded1373" -> "dead", "...747afe01f" -> "safe"). Excluded as a
+# whole file rather than via extend-ignore-re, which would have to match any 16-hex run and would blind the
+# checker to real typos elsewhere. Nothing is lost: the file contains no prose. It cannot be gitignored -- the
+# ratchet in jscpd-check needs it tracked.
 [files]
-extend-exclude = ["data/"]
+extend-exclude = ["config/jscpd-baseline.json", "data/"]
 
 [default]
 # "MIS Quarterly" is a journal title (Management Information Systems), not a typo of MISS/MIST.

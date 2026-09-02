@@ -110,6 +110,12 @@ ripgrep = "latest"
 "github:benhoyt/goawk" = "latest"
 "github:caldempsey/parfit" = "latest"
 "github:grok-rs/waitup" = "latest"
+# jscpd: the cross-language copy/paste detector behind jscpd-check.
+# Upstream ships prebuilt tarballs for every tier-1 and tier-2 triple, so the github (ubi) backend covers all five
+# platforms with no os-scoping. Pinned rather than "latest" because clone fingerprints are tokenizer-derived: a
+# jscpd bump can rewrite them and redden an unrelated PR against config/jscpd-baseline.json. Bump the pin and
+# regenerate the baseline together.
+"github:kucherenko/jscpd" = "5.1.1"
 # The macos/x64 half of vector (see the aqua:vectordotdev/vector note above).
 # A git `tag:` spec rather than the crates.io crate so this platform builds the exact source the other
 # platforms' 0.56.0 prebuilts are cut from -- bump it with the aqua entry. A source build is acceptable here
@@ -680,6 +686,7 @@ depends = [
   "action-validator-check",
   "actionlint-check",
   "ast-grep-check",
+  "branch-up-to-date-check",
   "cargo-check",
   "cargo-clippy-check",
   "cargo-doc-check",
@@ -692,6 +699,7 @@ depends = [
   "gen-help-check",
   "gen-specs-check",
   "hadolint-check",
+  "jscpd-check",
   "link-check",
   "ls-lint-check",
   "readme-mise-version-check",
@@ -777,6 +785,28 @@ run = "semgrep scan --config config/semgrep --autofix --metrics=off ."
 description = "Lint the Dockerfiles with hadolint"
 run = "git ls-files '*Dockerfile' '*Dockerfile.*' | xargs hadolint --config config/hadolint.yaml"
 
+# Duplication is gated as a fingerprint ratchet, not as a percentage.
+# config/jscpd-baseline.json records the fingerprint of every clone that already existed, and only a clone absent
+# from it fails, so nothing is permanently silenced and the ledger shrinks as duplication is removed --
+# `--update-baseline` prints the added/removed counts. A percentage gate was rejected because removing duplicated
+# code also shrinks the denominator: this change deleted 653 duplicated lines and moved the total only 9.11% ->
+# 9.00%. The baseline lives on the task rather than in config/jscpd.json so jscpd-report, which shares that
+# config, still shows the whole picture instead of filtering to new clones. That config's `ignore` list covers
+# only generator-owned output nobody hand-writes -- note the files under a module's pkg/ other than package.json
+# are hand-written shims, so they stay in scope.
+[tasks.jscpd-check]
+description = "Detect copy/pasted code across every language (jscpd)"
+run = "jscpd . --config config/jscpd.json --baseline config/jscpd-baseline.json --fail-on-new-clones"
+
+[tasks.jscpd-baseline-update]
+description = "Rewrite config/jscpd-baseline.json from the current tree, printing added/removed clone counts"
+run = "jscpd . --config config/jscpd.json --baseline config/jscpd-baseline.json --update-baseline"
+
+# No baseline here on purpose -- a human reading the report wants every clone, not just the new ones.
+[tasks.jscpd-report]
+description = "Write an HTML duplication report to target/jscpd for browsing"
+run = "jscpd . --config config/jscpd.json --reporters html,console --output target/jscpd"
+
 [tasks.cargo-check]
 run = "cargo check --workspace {{ vars.cargo_ws_excludes }}"
 
@@ -860,6 +890,23 @@ ns=$(for n in $ns_list; do echo -n " --namespace $n"; done)
 # shellcheck disable=SC2086
 git ls-files '*Cargo.toml' '.mise/config*.toml' '*pyproject.toml' Cargo.lock config/upstream-cache/data.toml |
   xargs conftest test --combine --parser toml $ns -p config/conftest/policy
+"""
+shell = "bash -euo pipefail -c"
+
+# Rego unit tests living beside the policies, for invariants the real policy runs cannot reach from one OS.
+# Named into the conftest-check-* family so the `check` aggregate always picks it up.
+[tasks.conftest-check-policy-tests]
+description = "Run the Rego unit tests beside the conftest policies (conftest verify)"
+run = "conftest verify -p config/conftest/policy"
+
+[tasks.conftest-check-generated-trees]
+description = "Cross-check config/generated-trees.toml against the linter configs it governs (conftest)"
+# --combine over a deliberately mixed file set, with conftest auto-detecting each parser (TOML, YAML, JSON).
+# The declaration and every governed config must arrive in one evaluation so a rule can compare across them.
+run = """
+files="config/generated-trees.toml config/jscpd.json config/pyrefly.toml config/ast-grep/rules config/semgrep"
+# shellcheck disable=SC2086 # $files is a word-split path list by design; do not quote it.
+conftest test --combine --namespace generated_trees -p config/conftest/policy $files
 """
 shell = "bash -euo pipefail -c"
 
@@ -1239,6 +1286,33 @@ shell = "bash -euo pipefail -c"
 depends = ["gen:dockerignore"]
 description = "Fail if .dockerignore is stale vs .gitignore (run `mise run gen:dockerignore`)"
 run = "git diff --exit-code -- .dockerignore"
+
+# Fail when HEAD does not already contain origin/main, because a stale branch makes every other check untrustworthy.
+# A branch behind main runs its lints against code the rest of the repo has already moved past, so failures land in
+# files the branch never touched and read as though the branch broke them. No linter can express this -- it is git
+# topology rather than file content -- so it is a small git compare, in the same spirit as dockerignore-check above.
+# Deliberately does not fetch: checks make no network calls, and a stale origin/main can only cause a missed warning,
+# never a spurious failure. Skips when it cannot tell rather than guessing. CI checks out with `fetch-depth: 1`, so
+# origin/main is simply absent there and the honest answer is "unknown" -- GitHub's own up-to-date-branch protection
+# governs merging. This guard exists for developer machines, which is where the confusing failures happen.
+[tasks.branch-up-to-date-check]
+description = "Fail if the current branch does not already contain origin/main (rebase needed)"
+run = """
+if ! git rev-parse --verify --quiet origin/main >/dev/null; then
+  echo "branch-up-to-date-check: origin/main not available (shallow clone?); skipping"
+  exit 0
+fi
+
+if git merge-base --is-ancestor origin/main HEAD; then
+  exit 0
+fi
+
+behind="$(git rev-list --count HEAD..origin/main)"
+echo "branch-up-to-date-check: HEAD is behind origin/main by $behind commit(s)."
+echo "Other checks may fail in files this branch never touched. Rebase first: git pull --rebase origin main"
+exit 1
+"""
+shell = "bash -euo pipefail -c"
 
 [tasks.prefetch-ci]
 # `build-ws-wasm-agent` produces `services/ws-wasm-agent/pkg/`.

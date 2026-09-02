@@ -19,9 +19,9 @@ use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-use et_web::{JsFunctionExt as _, JsPromiseExt as _, JsResultExt as _};
-use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value};
-use js_sys::{Array, Function, Object, Promise, Reflect};
+use et_web::{JsFunctionExt as _, JsPromiseExt as _, JsResultExt as _, sleep_ms, websocket_url};
+use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value, wait_for_connected};
+use js_sys::{Array, Function, Object, Reflect};
 use serde_json::json;
 use tracing::info;
 use wasm_bindgen::prelude::*;
@@ -611,18 +611,6 @@ fn set_module_status(message: &str) -> Result<(), JsValue> {
     set_textarea_value("module-output", message)
 }
 
-/// Wait until the WebSocket client reports the connected state, or time out after ~10 seconds.
-async fn wait_for_connected(client: &WsClient) -> Result<(), JsValue> {
-    for _attempt in 0_u32..100 {
-        if client.get_state() == "connected" {
-            return Ok(());
-        }
-        sleep_ms(100).await?;
-    }
-
-    Err(JsValue::from_str("Timed out waiting for websocket connection"))
-}
-
 /// Wait until the server has acknowledged the connection with an agent id, or time out after ~10 seconds.
 async fn wait_for_agent_id(client: &WsClient) -> Result<String, JsValue> {
     for _attempt in 0_u32..100 {
@@ -634,35 +622,4 @@ async fn wait_for_agent_id(client: &WsClient) -> Result<String, JsValue> {
     }
 
     Err(JsValue::from_str("Timed out waiting for assigned agent_id"))
-}
-
-/// Sleep for `duration_ms` via the window's timer, yielding to the browser event loop.
-async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
-    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
-    let promise = Promise::new(&mut |resolve, reject| {
-        let callback = Closure::once_into_js(move || {
-            let _resolved = resolve.call0(&JsValue::NULL);
-        });
-
-        if let Err(error) =
-            window.set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), duration_ms)
-        {
-            let _rejected = reject.call1(&JsValue::NULL, &error);
-        }
-    });
-    JsFuture::from(promise).await.map(et_web::ignore)
-}
-
-/// Derive the WebSocket endpoint from the page's own origin (ws:// for http, wss:// for https).
-fn websocket_url() -> Result<String, JsValue> {
-    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
-    let location = Reflect::get(window.as_ref(), &JsValue::from_str("location"))?;
-    let protocol = Reflect::get(&location, &JsValue::from_str("protocol"))?
-        .as_string()
-        .ok_or_else(|| JsValue::from_str("window.location.protocol is unavailable"))?;
-    let host = Reflect::get(&location, &JsValue::from_str("host"))?
-        .as_string()
-        .ok_or_else(|| JsValue::from_str("window.location.host is unavailable"))?;
-    let ws_protocol = if protocol == "https:" { "wss:" } else { "ws:" };
-    Ok(format!("{ws_protocol}//{host}/ws"))
 }

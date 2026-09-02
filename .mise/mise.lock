@@ -758,6 +758,41 @@ checksum = "sha256:96a597048a5b8bde03769d3e55fdd54a4073eaab7d9d4e2accf601445e9a6
 url = "https://github.com/grok-rs/waitup/releases/download/v2.0.0/waitup-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/grok-rs/waitup/releases/assets/348807986"
 
+[[tools."github:kucherenko/jscpd"]]
+version = "5.1.1"
+backend = "github:kucherenko/jscpd"
+
+[tools."github:kucherenko/jscpd"."platforms.linux-arm64"]
+checksum = "sha256:656f0b8f6c238d06ab2b13ac83dd238eac0105da3b6603dcfa387f278196dfad"
+url = "https://github.com/kucherenko/jscpd/releases/download/v5.1.1/jscpd-linux-arm64-gnu.tar.gz"
+url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/538185422"
+provenance = "github-attestations"
+
+[tools."github:kucherenko/jscpd"."platforms.linux-x64"]
+checksum = "sha256:c2a9aa5c63293d3523edf6682ede95cc9aebbdc12abb6bb0399636ea3e23f86a"
+url = "https://github.com/kucherenko/jscpd/releases/download/v5.1.1/jscpd-linux-x64-gnu.tar.gz"
+url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/538185420"
+provenance = "github-attestations"
+
+[tools."github:kucherenko/jscpd"."platforms.macos-arm64"]
+checksum = "sha256:0fc3f35fcac0eadde77803fd3b656d2b3699e7046ed4fb034a5a4bf4b9d71aad"
+url = "https://github.com/kucherenko/jscpd/releases/download/v5.1.1/jscpd-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/538185419"
+provenance = "github-attestations"
+provenance_verified = true
+
+[tools."github:kucherenko/jscpd"."platforms.macos-x64"]
+checksum = "sha256:3948dbdd5cb165864b88b21456e583dc27b0af365d2585557789dea50dd9fe0e"
+url = "https://github.com/kucherenko/jscpd/releases/download/v5.1.1/jscpd-darwin-x64.tar.gz"
+url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/538185417"
+provenance = "github-attestations"
+
+[tools."github:kucherenko/jscpd"."platforms.windows-x64"]
+checksum = "sha256:d877aaa4a1571639b737d38793ef6bdd1f9db1a9c0c732be3341ea31766cd46d"
+url = "https://github.com/kucherenko/jscpd/releases/download/v5.1.1/jscpd-windows-x64-msvc.tar.gz"
+url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/538185436"
+provenance = "github-attestations"
+
 [[tools."github:microsoft/onnxruntime"]]
 version = "1.22.0"
 backend = "github:microsoft/onnxruntime"

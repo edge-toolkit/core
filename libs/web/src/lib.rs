@@ -69,3 +69,47 @@ pub async fn request_sensor_permission(target: JsValue) -> Result<String, JsValu
         .as_string()
         .unwrap_or_else(|| SENSOR_PERMISSION_GRANTED.to_string()))
 }
+
+/// Resolve after `duration_ms` milliseconds via `window.setTimeout`.
+#[expect(
+    clippy::future_not_send,
+    reason = "wasm_bindgen_futures::JsFuture is Rc-backed and never Send; runs in single-threaded browser WASM"
+)]
+pub async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
+    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
+    let promise = js_sys::Promise::new(&mut |resolve, reject| {
+        let callback = Closure::once_into_js(move || {
+            ignore(resolve.call0(&JsValue::NULL));
+        });
+
+        if let Err(error) =
+            window.set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), duration_ms)
+        {
+            ignore(reject.call1(&JsValue::NULL, &error));
+        }
+    });
+    wasm_bindgen_futures::JsFuture::from(promise).await.map(ignore)
+}
+
+/// Build this page's `/ws` endpoint URL from `window.location`, upgrading to `wss:` on an https page.
+pub fn websocket_url() -> Result<String, JsValue> {
+    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
+    let location = js_sys::Reflect::get(window.as_ref(), &JsValue::from_str("location"))?;
+    let protocol = js_sys::Reflect::get(&location, &JsValue::from_str("protocol"))?
+        .as_string()
+        .ok_or_else(|| JsValue::from_str("window.location.protocol is unavailable"))?;
+    let host = js_sys::Reflect::get(&location, &JsValue::from_str("host"))?
+        .as_string()
+        .ok_or_else(|| JsValue::from_str("window.location.host is unavailable"))?;
+    let ws_protocol = if protocol == "https:" { "wss:" } else { "ws:" };
+    Ok(format!("{ws_protocol}//{host}/ws"))
+}
+
+/// Render a `JsValue` error as a displayable string, falling back to `JSON.stringify` then `Debug`.
+#[must_use]
+pub fn describe_js_error(error: &JsValue) -> String {
+    error
+        .as_string()
+        .or_else(|| js_sys::JSON::stringify(error).ok().map(String::from))
+        .unwrap_or_else(|| format!("{error:?}"))
+}

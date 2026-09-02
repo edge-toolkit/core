@@ -1,0 +1,77 @@
+# Single source of truth for the generator-owned trees and which linter configs must skip each one.
+#
+# These exclusion lists cannot be made identical across linters, and must not be: a rule scoped to one language
+# has no reason to skip a tree holding none of it, which is why the ast-grep Rust rules skip generated/ but not
+# verification/ (scenario YAML and TOML output, no Rust). no-non-ascii goes further and deliberately does NOT
+# skip module pkg/, because a blanket pkg/ exclude once hid hand-written shim glyphs for months.
+#
+# What must stay in sync is narrower: every config that ought to skip a given tree does, written against the base
+# its own tool resolves paths from. Declaring that here once -- instead of trusting two dozen configs to stay
+# aligned by hand -- is what the `generated_trees` conftest policy enforces, in both directions, so a config
+# cannot drift out of the declaration either.
+#
+# Adding a generator-owned tree: add a [tree.<name>] block naming the configs that must skip it. The policy then
+# fails until each one carries the exclusion, built from the [anchor] entry covering that config.
+
+# What each tool resolves an exclusion path against, keyed by the config path (or path prefix) it applies to.
+# `{tree}` stands in for the tree name. These are three different bases, not three ways of writing one path:
+# semgrep anchors `paths.exclude` at the repo root, so it needs a leading slash; ast-grep and jscpd take a path
+# relative to the repo root; and pyrefly resolves `project-excludes` relative to its own config file, which sits
+# one level down inside config/, so its entries climb out with `../`.
+[anchor]
+"config/ast-grep/" = "{tree}/**"
+"config/jscpd.json" = "{tree}/**"
+"config/pyrefly.toml" = "../{tree}/**"
+"config/semgrep/" = "/{tree}/**"
+
+# AsyncAPI/OpenAPI/WIT specs plus the generated language clients.
+#
+# One deliberate absence: config/semgrep/no-trailing-backslash.yaml is not listed and must not be added. The
+# backslash ban holds for generated Rust and Python too -- a generator emitting a line continuation is a generator
+# bug to fix at the source, not output to forgive here -- so that rule keeps this tree in scope on purpose.
+[tree.generated]
+regenerated_by = "mise run gen-specs-all"
+required_in = [
+  "config/ast-grep/rules/command-requires-command-error.yaml",
+  "config/ast-grep/rules/no-allow-attributes.yaml",
+  "config/ast-grep/rules/no-concat-raw-strings.yaml",
+  "config/ast-grep/rules/no-consecutive-expect.yaml",
+  "config/ast-grep/rules/no-doctest.yaml",
+  "config/ast-grep/rules/no-extern-crate-self.yaml",
+  "config/ast-grep/rules/no-inline-mod.yaml",
+  "config/ast-grep/rules/no-map-err.yaml",
+  "config/ast-grep/rules/no-mixed-doc-line-comments.yaml",
+  "config/ast-grep/rules/no-non-ascii.yaml",
+  "config/ast-grep/rules/no-result-alias.yaml",
+  "config/ast-grep/rules/no-result-string-err.yaml",
+  "config/ast-grep/rules/no-shadow-result.yaml",
+  "config/ast-grep/rules/no-string-literal-line-continuation.yaml",
+  "config/ast-grep/rules/no-string-new.yaml",
+  "config/ast-grep/rules/prefer-self-mod-use.yaml",
+  "config/ast-grep/rules/use-mod-order.yaml",
+  "config/jscpd.json",
+  "config/pyrefly.toml",
+  "config/semgrep/anyhow-only-in-error-rs.yaml",
+  "config/semgrep/comment-summary-line.yaml",
+  "config/semgrep/no-non-ascii.yaml",
+  "config/semgrep/no-todo.yaml",
+  "config/semgrep/no-type-comments.yaml",
+]
+
+# Scenario-generator outputs checked in beside their inputs; holds no Rust, so the Rust-only rules are absent.
+[tree.verification]
+regenerated_by = "mise run regen-verification"
+required_in = [
+  "config/jscpd.json",
+  "config/semgrep/comment-summary-line.yaml",
+  "config/semgrep/no-non-ascii.yaml",
+  "config/semgrep/no-todo.yaml",
+  "config/semgrep/no-trailing-backslash.yaml",
+]
+
+# Configs that deliberately skip only part of a tree, with the exact globs they carry instead.
+# Recorded rather than waved through, so narrowing stays a visible decision: the trailing-backslash ban only has
+# generated output to forgive in the two deployment artifacts regen-verification writes, and keeping the rest of
+# the tree in scope is the point.
+[tree.verification.narrower]
+"config/semgrep/no-trailing-backslash.yaml" = ["/verification/**/compose.yaml", "/verification/**/mise.toml"]
