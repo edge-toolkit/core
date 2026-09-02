@@ -42,3 +42,6 @@ wasm-bindgen-test.workspace = true
 
 [lints]
 workspace = true
+
+[package.metadata.release]
+release = false

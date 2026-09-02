@@ -698,25 +698,52 @@ gh release create "$tag" --repo "$GH_REPO" --title "$tag" --notes "$notes" --pre
 shell = "bash -euo pipefail -c"
 
 [tasks.release-rust-crates]
-description = "Bump, tag and publish every publishable workspace crate to crates.io (dry run without --execute)"
-# cargo-release drives the whole workspace in one pass.
-# It bumps each crate's version, rewrites the matching `version = ` on every intra-workspace path dependency
-# in the root Cargo.toml, creates the git tag, and runs `cargo publish` in dependency order so no crate is
-# uploaded before something it depends on.
+description = "Publish one batch of five workspace crates to crates.io (dry run without --execute)"
+# Batched because crates.io rate-limits new crate names.
+# Its PublishNew bucket is a burst of 5 refilling one token every 10 minutes (PublishUpdate, for a name that
+# already exists, is a separate burst-30 bucket at one per minute). All but `edge-toolkit` are new names, so
+# a single whole-workspace run is rejected outright -- and cargo-release does not wait for refills, so it
+# would abort mid-sequence having already uploaded the earlier crates. Uploads cannot be withdrawn, only
+# yanked. Hence one batch per invocation, with the maintainer waiting ~10 minutes per crate between batches.
 #
-# Dry run is the default and deliberately so -- cargo-release mutates nothing until handed `--execute`. Read
-# the printed plan first: a crates.io upload cannot be withdrawn, and a failure partway through leaves some
-# members released at the new version and the rest at the old, which no rerun can reconcile. Expect the dry
-# run to take minutes -- it refreshes the crates.io index and packages each member to verify it.
+# `cargo release publish` publishes only: no version bump, no tag. The versions in the manifests are what
+# ships, so batches cannot disagree about a version the way a per-batch `cargo release <level>` would. It
+# also skips already-published versions, so re-running a batch after a partial failure is safe.
+#
+# CRATES is in cargo-release's own dependency order (`cargo release --workspace` prints it), which is what
+# makes fixed batches safe: a crate is never uploaded before something it depends on. Regenerate the list
+# from a dry run if the workspace graph changes; crates carrying `[package.metadata.release] release = false`
+# (the browser modules) and the `int-` crates are absent because neither is published.
 run = """
-args=(release "$usage_level" --workspace)
+crates=(
+  et-path edge-toolkit et-test-helpers et-otlp et-test-otlp
+  et-web et-rest-client et-ws-runner-common et-ws-wasm-agent et-ws-comm1
+  et-ws-data1 et-ws-math1 et-ws-wasi-comm1 et-ws-wasi-data1 et-ws-wasi-math1
+  et-modules-service et-storage-service et-websockify-service et-ws-service et-ws-pyo3-runner
+  et-ws-test-server et-ws-server et-ws-wasi-runner et-ws-web-runner et-cli
+  et-onnx
+)
+per_batch=5
+# `set --` then `$#` counts the array without the `${` + `#` pair, which mise's Tera pass reads as a comment.
+set -- "${crates[@]}"
+count=$#
+start=$(((usage_batch - 1) * per_batch))
+if [ "$start" -ge "$count" ]; then
+  echo "batch $usage_batch is past the end: $count crates, $per_batch per batch" >&2
+  exit 1
+fi
+args=(release publish)
+for crate in "${crates[@]:start:per_batch}"; do
+  args+=(-p "$crate")
+done
 if [ "${usage_execute:-}" = "true" ]; then
   args+=(--execute)
 fi
+echo "batch $usage_batch: ${crates[*]:start:per_batch}"
 cargo "${args[@]}"
 """
 shell = "bash -euo pipefail -c"
 usage = """
-arg "<level>" help="Version bump: major | minor | patch | rc | beta | alpha | release"
-flag "--execute" help="Actually tag and publish; omit to print the plan and change nothing"
+arg "<batch>" help="Which batch of five to publish, counting from 1"
+flag "--execute" help="Actually publish; omit to print the plan and change nothing"
 """
