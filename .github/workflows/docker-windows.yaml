@@ -50,7 +50,7 @@ jobs:
       # The classic Windows builder on windows-2022 can't substitute build-args into the Dockerfile's RUN, and
       # mise's prebuilt "latest" zip is stale (2026.3.0, too old for the config). 2026.7.1 is required: the config
       # templates use Tera v2 syntax, which mise switched to in 2026.7.1 (older mise fails to parse them).
-      MISE_VERSION: "2026.9.0"
+      MISE_VERSION: "2026.8.5"
     steps:
       - name: Checkout
         uses: actions/checkout@v4

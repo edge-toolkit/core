@@ -22,7 +22,7 @@ runs:
     - name: Install mise
       uses: taiki-e/install-action@v2
       with:
-        tool: cargo-binstall,mise@2026.9.0
+        tool: cargo-binstall,mise@2026.8.5
 
     - name: Install extra tools via install-action
       if: inputs.install-action-tools != ''
