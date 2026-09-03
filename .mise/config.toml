@@ -10,7 +10,29 @@
 #   Run a check across everything:      mise run check-all  (or install-all)
 #   Make a selection sticky:            export MISE_ENV=dart
 
-# Track the latest mise release; the floor still covers auto_env enabled in .miserc.toml.
+# Held deliberately below the latest mise release; the floor still covers auto_env enabled in .miserc.toml.
+# 2026.9.0 was tried and reverted -- it reddens three lanes that the branch merged immediately before had green,
+# all observed on commit 0e7273a1154db315a0f584077db4565ba66be603. Two of the three follow a pull-mise-tools
+# restore, so a mise-tools store published by an older mise is a live candidate for those rather than a mise
+# regression; the first rules out blaming the store for all of it, since that workflow restores no store. Expect
+# a republished store to be a prerequisite of the next bump rather than something the bump's PR can fix itself.
+#
+# 1. dependencies (linux), a workflow that restores no store: a tool whose declared install dependency is not
+#    installed yet is now a hard error --
+#    `tool 'npm:@huggingface/transformers@latest' requires configured install dependency 'node@22', but its
+#    selected version is not installed`. Nothing installs node before osv-scanner-npm runs.
+#    https://github.com/edge-toolkit/core/actions/runs/33727571401/job/100559961260
+# 2. check (windows), after restoring 63 tool versions: mise stops resolving itself by bare name inside a task
+#    body, so _setup_all dies on its first `mise install` line with `ash: line 5: mise: not found`. The same run
+#    warns `MISE_BASH_PATH=...\http-busybox\1.37.0\ash.exe does not exist`, which points at the restored tree --
+#    though 2026.9.0 also added the shims_dir / system_shims_dir settings and reworked shim generation, and
+#    install-mise puts a hardcoded %LOCALAPPDATA%\mise\shims on PATH.
+#    https://github.com/edge-toolkit/core/actions/runs/33727571395/job/100559961676
+# 3. test (macos), after restoring 65 tool versions: a restored tool counts as installed yet never reaches PATH,
+#    so the build hits `bash: wasm-pack: command not found` once `mise install` has filled 30 other gaps and
+#    exited 0. mise writes no install receipt, so "installed" is directory existence alone -- exactly the shape
+#    a store built by a different mise version would produce.
+#    https://github.com/edge-toolkit/core/actions/runs/33727571518/job/100559962060
 min_version = "2026.8.5"
 
 [settings]
@@ -1115,8 +1137,9 @@ taplo lint --schema "file:///${PWD#/}/config/taplo/mise-cargo-backend-allowlist.
 shell = "bash -euo pipefail -c"
 
 [tasks.readme-mise-version-check]
-# Keep the README's stated minimum mise version in sync with the enforced `min_version` in .mise/config.toml.
+# Keep the README's stated mise version in sync with the enforced `min_version` in .mise/config.toml.
 # No structural linter spans a markdown prose value and a TOML value, so this is a small goawk/coreutils compare.
+# The README names one exact version rather than a floor, so the match anchors on its install line.
 description = "Fail if README.md's mise version differs from min_version in .mise/config.toml"
 run = """
 # README.md is excluded from the docker build context, so it is absent when `check` runs inside an image.
@@ -1127,7 +1150,7 @@ if [ ! -f README.md ]; then
 fi
 config_version="$(goawk -F'"' '/^min_version/{print $2; exit}' .mise/config.toml)"
 # shellcheck disable=SC2016 # $0/RSTART/RLENGTH are awk fields, not shell vars -- single quotes are intended
-readme_prog='/ or later/ && match($0,/[0-9]{4}\\.[0-9]+\\.[0-9]+/){print substr($0,RSTART,RLENGTH);exit}'
+readme_prog='/Please install/ && match($0,/[0-9]{4}\\.[0-9]+\\.[0-9]+/){print substr($0,RSTART,RLENGTH);exit}'
 readme_version="$(goawk "$readme_prog" README.md)"
 if [ "$config_version" != "$readme_version" ]; then
   echo "README mise version ($readme_version) != .mise/config.toml min_version ($config_version)" >&2

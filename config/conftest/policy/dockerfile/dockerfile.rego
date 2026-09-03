@@ -166,3 +166,69 @@ deny contains msg if {
 	regex.match(`\bapt(\s|$)`, line)
 	msg := sprintf("%s: use `apt-get`, not `apt` (apt's UI is not stable across releases)", [file.path])
 }
+
+# config.linux.toml's [bootstrap.packages] rows must enumerate the Dockerfile's package-list ARGs.
+# A workstation verifies itself from that table (`mise bootstrap packages status`) while the Docker build installs
+# from COMMON_PACKAGES + APT_PACKAGES / DNF_PACKAGES, so the two describe one prerequisite set from two places and
+# would otherwise drift apart with nothing to catch it. Compared per manager: apt against COMMON_PACKAGES +
+# APT_PACKAGES, dnf against COMMON_PACKAGES + DNF_PACKAGES.
+package_arg_names := {"APT_PACKAGES", "COMMON_PACKAGES", "DNF_PACKAGES"}
+
+# Each package-list ARG in the Linux Dockerfile, as a set of package names.
+# The parser hands an ARG back as one `NAME="a b c"` string, so split off the name and strip the quotes.
+# `endswith(path, "Dockerfile")` keeps this off Dockerfile.nanoserver, which carries no package ARGs.
+arg_packages[name] := pkgs if {
+	some file in input
+	is_array(file.contents)
+	endswith(file.path, "Dockerfile")
+	some instr in file.contents
+	instr.Cmd == "arg"
+	some value in instr.Value
+	some name in package_arg_names
+	startswith(value, concat("", [name, "="]))
+	raw := trim(substring(value, count(name) + 1, -1), "\"")
+	pkgs := {p | some p in split(raw, " "); p != ""}
+}
+
+# The packages each manager declares in config.linux.toml's [bootstrap.packages], keyed by manager.
+bootstrap_packages[mgr] := pkgs if {
+	some file in input
+	endswith(file.path, ".mise/config.linux.toml")
+	some mgr in {"apt", "dnf"}
+	pkgs := {p |
+		some key, _ in file.contents.bootstrap.packages
+		startswith(key, concat("", [mgr, ":"]))
+		p := substring(key, count(mgr) + 1, -1)
+	}
+}
+
+expected_packages["apt"] := arg_packages.COMMON_PACKAGES | arg_packages.APT_PACKAGES
+
+expected_packages["dnf"] := arg_packages.COMMON_PACKAGES | arg_packages.DNF_PACKAGES
+
+# A renamed or removed ARG would leave the comparison undefined, which reads as a pass; fail instead.
+deny contains msg if {
+	some name in package_arg_names
+	not arg_packages[name]
+	msg := sprintf("Dockerfile: ARG %s not found -- the [bootstrap.packages] cross-check cannot run", [name])
+}
+
+deny contains msg if {
+	some mgr, want in expected_packages
+	missing := want - bootstrap_packages[mgr]
+	count(missing) > 0
+	msg := sprintf(
+		".mise/config.linux.toml: [bootstrap.packages] lacks %q rows for %s, which the Dockerfile ARGs install",
+		[mgr, concat(", ", sort(missing))],
+	)
+}
+
+deny contains msg if {
+	some mgr, want in expected_packages
+	extra := bootstrap_packages[mgr] - want
+	count(extra) > 0
+	msg := sprintf(
+		".mise/config.linux.toml: [bootstrap.packages] has %q rows for %s that the Dockerfile ARGs do not install",
+		[mgr, concat(", ", sort(extra))],
+	)
+}
