@@ -224,6 +224,15 @@ fi
 for tool in $tools; do
   root=$(mise where "$tool" 2>/dev/null || true)
   if [ -z "$root" ]; then
+    # node first: mise refuses to install an npm: tool while the node its backend depends on is absent.
+    # The dependency comes from the npm backend rather than from [tools], so it cannot be declared away here,
+    # and this task is the one caller that installs an npm: tool on a job which never ran a full `mise install`
+    # (the dependencies workflow). Installing what is already present is a no-op, so warm machines are
+    # unaffected -- the failure without it is
+    # `tool 'npm:@huggingface/transformers@latest' requires configured install dependency 'node@22', but its
+    # selected version is not installed`, on commit 0e7273a1154db315a0f584077db4565ba66be603 at
+    # https://github.com/edge-toolkit/core/actions/runs/33727571401/job/100559961260.
+    mise install node
     mise install "$tool"
     root=$(mise where "$tool")
   fi

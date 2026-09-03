@@ -10,30 +10,23 @@
 #   Run a check across everything:      mise run check-all  (or install-all)
 #   Make a selection sticky:            export MISE_ENV=dart
 
-# Held deliberately below the latest mise release; the floor still covers auto_env enabled in .miserc.toml.
-# 2026.9.0 was tried and reverted -- it reddens three lanes that the branch merged immediately before had green,
-# all observed on commit 0e7273a1154db315a0f584077db4565ba66be603. Two of the three follow a pull-mise-tools
-# restore, so a mise-tools store published by an older mise is a live candidate for those rather than a mise
-# regression; the first rules out blaming the store for all of it, since that workflow restores no store. Expect
-# a republished store to be a prerequisite of the next bump rather than something the bump's PR can fix itself.
+# Pinned at the newest mise taiki-e/install-action can fetch; the floor also covers auto_env in .miserc.toml.
+# 2026.9.1 exists but is absent from install-action's manifest, so requesting it drops CI into a cargo-binstall
+# source build. Coming off 2026.8.5 took two workarounds, each carried at its own call site: osv-scanner-npm
+# installs node ahead of any npm: tool, and install-mise-tools stops restoring the GHCR store. A warm checkout
+# needs `mise install` re-run once -- a tool this mise cannot resolve still reports as installed, so nothing
+# refetches it on its own.
 #
-# 1. dependencies (linux), a workflow that restores no store: a tool whose declared install dependency is not
-#    installed yet is now a hard error --
-#    `tool 'npm:@huggingface/transformers@latest' requires configured install dependency 'node@22', but its
-#    selected version is not installed`. Nothing installs node before osv-scanner-npm runs.
-#    https://github.com/edge-toolkit/core/actions/runs/33727571401/job/100559961260
-# 2. check (windows), after restoring 63 tool versions: mise stops resolving itself by bare name inside a task
-#    body, so _setup_all dies on its first `mise install` line with `ash: line 5: mise: not found`. The same run
-#    warns `MISE_BASH_PATH=...\http-busybox\1.37.0\ash.exe does not exist`, which points at the restored tree --
-#    though 2026.9.0 also added the shims_dir / system_shims_dir settings and reworked shim generation, and
-#    install-mise puts a hardcoded %LOCALAPPDATA%\mise\shims on PATH.
-#    https://github.com/edge-toolkit/core/actions/runs/33727571395/job/100559961676
-# 3. test (macos), after restoring 65 tool versions: a restored tool counts as installed yet never reaches PATH,
-#    so the build hits `bash: wasm-pack: command not found` once `mise install` has filled 30 other gaps and
-#    exited 0. mise writes no install receipt, so "installed" is directory existence alone -- exactly the shape
-#    a store built by a different mise version would produce.
-#    https://github.com/edge-toolkit/core/actions/runs/33727571518/job/100559962060
-min_version = "2026.8.5"
+# One upstream problem behind that move has no released fix, and it is why the Windows lane needs watching.
+# mise normalises the Windows task environment's paths (jdx/mise#12173, first released in 2026.8.9), mangling
+# the PATH handed to the busybox ash the tasks run under: on 2026.9.0 `_setup_all` died on its first
+# `mise install` line with `ash: line 5: mise: not found`, on commit
+# 0e7273a1154db315a0f584077db4565ba66be603 at
+# https://github.com/edge-toolkit/core/actions/runs/33727571395/job/100559961676. Upstream deleted that
+# machinery in jdx/mise#12696 ("stop pre-converting PATH for POSIX shells; the shell already does it"), which
+# as of 2026.9.1 sits in no release. Dropping the store restore may take the stale tree feeding it away too --
+# but if that same line is still red, nothing here fixes it and this pin goes back to 2026.8.5.
+min_version = "2026.9.0"
 
 [settings]
 # Disable mise's two auto-install paths so tasks fail fast on a missing tool.
