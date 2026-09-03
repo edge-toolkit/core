@@ -11,7 +11,7 @@
 #   Make a selection sticky:            export MISE_ENV=dart
 
 # Track the latest mise release; the floor still covers auto_env enabled in .miserc.toml.
-min_version = "2026.8.5"
+min_version = "2026.9.0"
 
 [settings]
 # Disable mise's two auto-install paths so tasks fail fast on a missing tool.

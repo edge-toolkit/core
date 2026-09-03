@@ -290,21 +290,20 @@ deny contains msg if {
 }
 
 # Linux + macOS preinstall MUST read its prerequisite package list from the Dockerfile.
-# The relevant ARGs are COMMON_PACKAGES + APT_PACKAGES / DNF_PACKAGES. The Dockerfile is the single source of truth: a
-# capability-based or hardcoded check would diverge from it silently. Guard by requiring the preinstall task body to
-# reference both COMMON_PACKAGES and APT_PACKAGES somewhere (env var or rg-parse of the file).
-preinstall_must_reference_apt_packages := {
-	".mise/config.linux.toml",
-	".mise/config.macos.toml",
+# The Dockerfile's ARGs are the single source of truth: a capability-based or hardcoded check would diverge from them
+# silently. Guard by requiring the preinstall task body to name the ARGs it has to parse. macOS follows the apt naming,
+# so it needs COMMON_PACKAGES + APT_PACKAGES. Linux verifies apt and dnf hosts from [bootstrap.packages] instead, and
+# the dockerfile policy holds that table to these same ARGs; only its Azure Linux / openSUSE arm still parses the file,
+# for which the RPM-family list applies.
+required_package_args := {
+	".mise/config.linux.toml": {"COMMON_PACKAGES", "DNF_PACKAGES"},
+	".mise/config.macos.toml": {"APT_PACKAGES", "COMMON_PACKAGES"},
 }
-
-required_package_args := {"APT_PACKAGES", "COMMON_PACKAGES"}
 
 deny contains msg if {
 	some file in input
-	preinstall_must_reference_apt_packages[file.path]
+	some required in required_package_args[file.path]
 	task := file.contents.tasks.preinstall
-	some required in required_package_args
 	not contains(task.run, required)
 	msg := sprintf(
 		"%s: tasks.preinstall.run must reference %s (Dockerfile is the single source of truth)",
