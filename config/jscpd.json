@@ -1,0 +1,6 @@
+{
+  "minTokens": 40,
+  "minLines": 5,
+  "mode": "mild",
+  "ignore": ["generated/**", "verification/**", "**/pkg/package.json", "services/ws-wasi-runner/src/bindings.rs"]
+}

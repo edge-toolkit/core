@@ -6,9 +6,9 @@
 
 use std::cell::RefCell;
 
-use et_web::{JsCastExt as _, get_media_devices};
-use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value};
-use js_sys::{Promise, Reflect};
+use et_web::{JsCastExt as _, describe_js_error, get_media_devices, websocket_url};
+use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value, wait_for_connected};
+use js_sys::Reflect;
 use serde_json::json;
 use tracing::info;
 use wasm_bindgen::prelude::*;
@@ -204,51 +204,4 @@ fn log(message: &str) {
 
 fn set_module_status(message: &str) -> Result<(), JsValue> {
     set_textarea_value("module-output", message)
-}
-
-fn describe_js_error(error: &JsValue) -> String {
-    error
-        .as_string()
-        .or_else(|| js_sys::JSON::stringify(error).ok().map(String::from))
-        .unwrap_or_else(|| format!("{error:?}"))
-}
-
-async fn wait_for_connected(client: &WsClient) -> Result<(), JsValue> {
-    for _ in 0_u32..100 {
-        if client.get_state() == "connected" {
-            return Ok(());
-        }
-        sleep_ms(100).await?;
-    }
-
-    Err(JsValue::from_str("Timed out waiting for websocket connection"))
-}
-
-async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
-    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
-    let promise = Promise::new(&mut |resolve, reject| {
-        let callback = Closure::once_into_js(move || {
-            et_web::ignore(resolve.call0(&JsValue::NULL));
-        });
-
-        if let Err(error) =
-            window.set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), duration_ms)
-        {
-            et_web::ignore(reject.call1(&JsValue::NULL, &error));
-        }
-    });
-    JsFuture::from(promise).await.map(|_| ())
-}
-
-fn websocket_url() -> Result<String, JsValue> {
-    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
-    let location = Reflect::get(window.as_ref(), &JsValue::from_str("location"))?;
-    let protocol = Reflect::get(&location, &JsValue::from_str("protocol"))?
-        .as_string()
-        .ok_or_else(|| JsValue::from_str("window.location.protocol is unavailable"))?;
-    let host = Reflect::get(&location, &JsValue::from_str("host"))?
-        .as_string()
-        .ok_or_else(|| JsValue::from_str("window.location.host is unavailable"))?;
-    let ws_protocol = if protocol == "https:" { "wss:" } else { "ws:" };
-    Ok(format!("{ws_protocol}//{host}/ws"))
 }

@@ -824,3 +824,19 @@ pub fn append_to_textarea(element_id: &str, message: &str) -> Result<(), JsValue
 
     Ok(())
 }
+
+/// Poll `client` until it reports `connected`, for up to ten seconds.
+#[expect(
+    clippy::future_not_send,
+    reason = "awaits et_web::sleep_ms, whose JsFuture is Rc-backed and never Send; single-threaded browser WASM"
+)]
+pub async fn wait_for_connected(client: &WsClient) -> Result<(), JsValue> {
+    for _ in 0_u32..100 {
+        if client.get_state() == "connected" {
+            return Ok(());
+        }
+        et_web::sleep_ms(100).await?;
+    }
+
+    Err(JsValue::from_str("Timed out waiting for websocket connection"))
+}

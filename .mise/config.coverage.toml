@@ -243,8 +243,8 @@ UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_u
 depends = ["build-wasm-cov-wrapper"]
 description = "Coverage for the browser ws-wasm-agent: run its wasm-bindgen tests headless, emit lcov into lcov.info"
 # The agent is a browser wasm client with no native tests, so its lib is invisible to the cargo-llvm-cov run.
-# This drives its wasm-bindgen tests (tests/client.rs) in a real headless Chrome and folds the result into the
-# same lcov.info the other coverage tasks feed. Two pieces make it work:
+# This drives its wasm-bindgen tests (tests/client.rs and tests/web.rs) in a real headless Chrome and folds the
+# result into the same lcov.info the other coverage tasks feed. Two pieces make it work:
 #   1. A live backend. tests/client.rs covers the offline paths on its own, but the connected paths (onopen,
 #      the connect-ack dispatch, the online send/flush/keepalive) need a server, so we start the in-process
 #      et-ws-test-server (its cov-server bin) on the fixed port the tests dial, wait for its readiness marker,
@@ -256,20 +256,24 @@ description = "Coverage for the browser ws-wasm-agent: run its wasm-bindgen test
 # The .profraw -> lcov conversion mirrors wasm-cov (gut every .ll body to `unreachable`, keep the covmap, llc to a
 # fixed x86_64 ELF object, then llvm-cov), with one addition: the test binary links several workspace crates and
 # the agent's generic message helpers monomorphize into the test crate's object, so we compile every workspace
-# .ll (not one) and keep only the agent lib's records. Gutting can leave an attribute group empty, which llc
-# rejects, so emptied groups get a benign `nounwind`.
+# .ll (not one) and keep only the records of the two crates these tests actually drive -- the agent lib and
+# et-web. Gutting can leave an attribute group empty, which llc rejects, so emptied groups get a benign
+# `nounwind`.
 run = """
 covdir=target/agent-cov
 coreutils mkdir -p "$covdir"
 coreutils rm -f "$covdir"/*.profraw "$covdir"/*.o "$covdir"/*.g.ll "$covdir/server-ready"
-# Force the agent crate (and its wasm test binary) to recompile so this run emits a fresh instrumented .ll.
-# Its covmap must match the .profraw we are about to capture, but cargo only re-emits `--emit=llvm-ir` when a
-# crate actually compiles, so on a warm cache a stale or missing .ll would otherwise make llvm-cov drop the
-# agent's functions (a bare `cargo test` cache hit yields only the generic helpers' covmap, which monomorphize
-# into the test crate's object). Only the agent's .ll is needed; other workspace crates' .ll are dropped by the
-# lib-only keep filter below whether fresh, stale, or absent.
+# Force the agent and et-web crates to recompile so this run emits fresh instrumented .ll for both.
+# A covmap must match the .profraw we are about to capture, but cargo only re-emits `--emit=llvm-ir` when a crate
+# actually compiles, so on a warm cache a stale or missing .ll would make llvm-cov drop that crate's functions (a
+# bare `cargo test` cache hit yields only the generic helpers' covmap, which monomorphize into the test crate's
+# object). et-web is cleaned alongside the agent because tests/web.rs exercises its browser helpers directly --
+# `websocket_url` and `describe_js_error` have no other route to coverage, since they run only in a browser and
+# the ws-modules guests reach them through paths the runner tests never take. Every other workspace crate's .ll
+# is still dropped by the keep filters below, fresh or stale.
 rustup target add wasm32-unknown-unknown
 cargo clean -p et-ws-wasm-agent --target wasm32-unknown-unknown
+cargo clean -p et-web --target wasm32-unknown-unknown
 
 # Resolve the webdriver, honouring a CHROMEDRIVER already in the environment before the mise-pinned one.
 # CI points CHROMEDRIVER at the runner's chromedriver (matched to its preinstalled Chrome); locally this falls
@@ -321,7 +325,7 @@ export RUSTFLAGS="--cfg wasm_bindgen_unstable_test_coverage"
 export CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER="$runner"
 export CHROMEDRIVER="$driver"
 export LLVM_PROFILE_FILE="{{ config_root }}/$covdir/wasm-agent-%p.profraw"
-cargo test -p et-ws-wasm-agent --features coverage --target wasm32-unknown-unknown --test client
+cargo test -p et-ws-wasm-agent --features coverage --target wasm32-unknown-unknown --test client --test web
 
 # Remove the marker so cov-server returns from main and flushes its coverage, then reap it (a kill would drop it).
 coreutils rm -f "$covdir/server-ready"
@@ -378,6 +382,10 @@ coreutils cat >"$keep" <<'AWK'
 AWK
 coreutils touch lcov.info
 goawk -v want="ws-wasm-agent/src/" -f "$keep" "$covdir/all.lcov" >>lcov.info
+# Second pass for et-web, whose browser helpers tests/web.rs drives.
+# One `want` substring per pass, matching the cov-server fold below, rather than a combined pattern the filter
+# cannot express.
+goawk -v want="libs/web/src/" -f "$keep" "$covdir/all.lcov" >>lcov.info
 
 # Fold cov-server's own native coverage in from the instrumented run above (its cov-server-*.profraw).
 # The export object links its whole dep tree, so keep only the cov-server.rs launcher records.

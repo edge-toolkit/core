@@ -32,6 +32,7 @@ files:
   - libs/edge-toolkit/tests/npm_mod.rs
   - libs/test-helpers/src/lib.rs
   - libs/test-otlp/src/lib.rs
+  - libs/web/src/lib.rs
   - libs/ws-runner-common/tests/config.rs
   - services/modules/tests/api_modules.rs
   - services/modules/tests/configure_missing_root.rs
@@ -46,21 +47,29 @@ files:
   - services/storage/tests/tty_render.rs
   - services/websockify/src/lib.rs
   - services/websockify/tests/relay.rs
+  - services/ws-modules/audio1/src/lib.rs
+  - services/ws-modules/bluetooth/src/lib.rs
   - services/ws-modules/comm1/src/lib.rs
+  - services/ws-modules/data1/src/lib.rs
   - services/ws-modules/except1/src/lib.rs
   - services/ws-modules/face-detection/src/lib.rs
   - services/ws-modules/face-detection/tests/status_lines.rs
+  - services/ws-modules/geolocation/src/lib.rs
+  - services/ws-modules/graphics-info/src/lib.rs
   - services/ws-modules/har1/src/lib.rs
   - services/ws-modules/har1/tests/status_lines.rs
   - services/ws-modules/llm1/src/lib.rs
   - services/ws-modules/math1-sender/build.rs
   - services/ws-modules/math1-sender/src/lib.rs
   - services/ws-modules/math1/src/lib.rs
+  - services/ws-modules/nfc/src/lib.rs
   - services/ws-modules/pic-viewer/build.rs
   - services/ws-modules/pic-viewer/src/lib.rs
   - services/ws-modules/pic-viewer/tests/parse.rs
   - services/ws-modules/pic-viewer/tests/show_image.rs
   - services/ws-modules/sensor1/src/lib.rs
+  - services/ws-modules/speech-recognition/src/lib.rs
+  - services/ws-modules/video1/src/lib.rs
   - services/ws-modules/wasi-comm1/src/lib.rs
   - services/ws-modules/wasi-data1/src/lib.rs
   - services/ws-modules/wasi-math1/src/coverage.rs
@@ -86,6 +95,7 @@ files:
   - services/ws-wasi-runner/tests/otel_propagation.rs
   - services/ws-wasi-runner/tests/vector_otlp_relay.rs
   - services/ws-wasm-agent/src/lib.rs
+  - services/ws-wasm-agent/tests/web.rs
   - services/ws-web-runner/build.rs
   - services/ws-web-runner/tests/modules.rs
   - services/ws/tests/config.rs

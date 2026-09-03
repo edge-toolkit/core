@@ -2,6 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Check the branch is on top of `origin/main` before starting
+
+Run `mise run branch-up-to-date-check` as the first action of any task, and again before diagnosing any check or
+test failure. A branch that is behind `origin/main` runs its lints and tests against code the rest of the repo has
+already moved past, so failures surface in files the branch never touched -- and they read as though the branch
+caused them. If the check reports the branch is behind, say so and get it rebased before doing anything else;
+`git pull --rebase origin main` is not the agent's call to make unprompted, so ask.
+
+Do not theorise about why an unrelated crate is suddenly failing until this check has passed. A worked example
+from this repo: a branch sitting one commit behind `origin/main` produced 10 clippy errors across
+`libs/ws-runner-common`, `services/ws-web-runner` and `services/ws-wasi-runner` -- three crates the branch had not
+touched and which did not depend on anything it changed. Every one of those lints had already been fixed by the
+single missing commit. The wrong diagnosis reached for first was a toolchain change, which the dates flatly
+contradicted; `git rev-list --left-right --count origin/main...HEAD` would have settled it immediately.
+
 ## Scratch work stays inside this repo
 
 Any throwaway file the agent needs while working -- backup copies of files before destructive edits, generated
@@ -300,7 +315,11 @@ run every loaded language's row; guest rows need their `MISE_ENV` loaded.
 | `*.java`       | `check:java`                                                                                   |
 
 `dprint-fmt` / `dprint-check` cover `*.md`, `*.yaml`, `*.json`/`*.jsonc`, `*.ts`/`*.js`, `*.css`, `*.html`,
-`*.java`, and `Dockerfile*`; `hadolint-check` also lints Dockerfiles, and `link-check` scans `*.md` + `*.rs`. Every
+`*.java`, and `Dockerfile*`. `*.json`/`*.jsonc` is formatted by **two** tools, so a new config JSON must satisfy
+both: `oxfmt-fmt` / `oxfmt-check` (in the `js` env, alongside `oxlint-check`) also claim it, and they break ties
+differently -- oxfmt collapses a short array onto one line where dprint leaves it expanded, so a file dprint
+accepts can still fail `oxfmt-check` in CI. `hadolint-check` also lints Dockerfiles, and `link-check` scans
+`*.md` + `*.rs`. Every
 file is covered by `editorconfig-check` and `typos-check`, file and directory names by `ls-lint-check`, and `*.yml` is
 rejected by `semgrep-check` (use `*.yaml`). A multi-line task body inside `.mise/config*.toml` is shell, not TOML, so
 it carries two more of its own: `shfmt-mise-fmt` / `shfmt-mise-check` format it, and `shellcheck-mise-check` lints it.

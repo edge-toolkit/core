@@ -20,6 +20,9 @@ rules:
         # Vendored upstream WIT specs / generated bindings.
         # TODOs in there belong to wasi-nn / wasi-webgpu / etc. upstream.
         - "/generated/**"
+        # regen-verification output, whose TODOs are nobody's deferred work.
+        # They come from the scenario inputs, so resolve them in verification/*/input/ and regenerate.
+        - "/verification/**"
         # This rule file itself contains the word `TODO` in its own docstring and message.
         # Allowlist or the rule trips on itself.
         - "/config/semgrep/no-todo.yaml"

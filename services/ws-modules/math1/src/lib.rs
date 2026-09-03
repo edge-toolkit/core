@@ -18,14 +18,12 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use et_web::JsResultExt as _;
-use et_ws_wasm_agent::{WsClient, WsClientConfig, append_to_textarea};
+use et_web::{JsResultExt as _, sleep_ms, websocket_url};
+use et_ws_wasm_agent::{WsClient, WsClientConfig, append_to_textarea, wait_for_connected};
 use futures_util::StreamExt as _;
-use js_sys::{Promise, Reflect};
 use serde::Deserialize;
 use tracing::info;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::JsFuture;
 
 /// The canonical input: per-client (feature, target) samples plus the training hyperparameters.
 #[derive(Deserialize)]
@@ -198,16 +196,6 @@ fn set_module_status(message: &str) -> Result<(), JsValue> {
     append_to_textarea("module-output", message)
 }
 
-async fn wait_for_connected(client: &WsClient) -> Result<(), JsValue> {
-    for _ in 0_u32..100 {
-        if client.get_state() == "connected" {
-            return Ok(());
-        }
-        sleep_ms(100).await?;
-    }
-    Err(JsValue::from_str("Timed out waiting for websocket connection"))
-}
-
 async fn wait_for_agent_id(client: &WsClient) -> Result<String, JsValue> {
     for _ in 0_u32..100 {
         let agent_id = client.get_agent_id();
@@ -227,29 +215,4 @@ async fn wait_for_pointer(slot: &Rc<RefCell<Option<InputPointer>>>) -> Result<In
         sleep_ms(100).await?;
     }
     Err(JsValue::from_str("Timed out waiting for the math1-input pointer"))
-}
-
-async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
-    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
-    let promise = Promise::new(&mut |resolve, _reject| {
-        let callback = Closure::once_into_js(move || {
-            et_web::ignore(resolve.call0(&JsValue::NULL));
-        });
-        let _id: Result<i32, JsValue> =
-            window.set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), duration_ms);
-    });
-    JsFuture::from(promise).await.map(|_| ())
-}
-
-fn websocket_url() -> Result<String, JsValue> {
-    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
-    let location = Reflect::get(window.as_ref(), &JsValue::from_str("location"))?;
-    let protocol = Reflect::get(&location, &JsValue::from_str("protocol"))?
-        .as_string()
-        .ok_or_else(|| JsValue::from_str("window.location.protocol is unavailable"))?;
-    let host = Reflect::get(&location, &JsValue::from_str("host"))?
-        .as_string()
-        .ok_or_else(|| JsValue::from_str("window.location.host is unavailable"))?;
-    let ws_protocol = if protocol == "https:" { "wss:" } else { "ws:" };
-    Ok(format!("{ws_protocol}//{host}/ws"))
 }

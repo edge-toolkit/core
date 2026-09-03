@@ -19,6 +19,13 @@ rules:
         - "oxfmtrc.jsonc" # oxfmt: only JSON / JSONC supported
         - "tsconfig.json" # TypeScript/tsgolint: mandates the JSON `tsconfig.json` name (oxlint --type-aware)
         - "math1-input.json" # math1 wire payload: served to modules verbatim, parsed by their JSON parsers
+        # Both jscpd files have to be plain JSON, and .jsonc would misrepresent them.
+        # jscpd parses its config with plain serde_json and reads no YAML/TOML, so a `//` comment aborts it with
+        # `key must be a string at line 2 column 3` -- a .jsonc extension would advertise comments the parser
+        # rejects. jscpd-baseline.json is machine-written by `jscpd --update-baseline`; its shape is not ours to
+        # choose at all.
+        - "jscpd.json" # jscpd config
+        - "jscpd-baseline.json" # jscpd clone-fingerprint ratchet
     pattern-regex: \A
     message: >-
       Prefer YAML or TOML over JSON/JSONC/JSONL for config.

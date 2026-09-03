@@ -14,9 +14,7 @@ test = false
 
 [dependencies]
 edge-toolkit.workspace = true
-# Optional and coverage-only: unlike the other browser modules, comm1 has no et-web dependency of its own.
-# Pull it under the coverage feature purely for its __et_capture_coverage export (wasm-bindgen collects it into glue).
-et-web = { workspace = true, optional = true }
+et-web.workspace = true
 et-ws-wasm-agent.workspace = true
 js-sys.workspace = true
 serde.workspace = true

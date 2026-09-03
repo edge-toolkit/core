@@ -23,6 +23,7 @@ web-sys = { workspace = true, features = [
   "MediaStreamTrack",
   "MessageEvent",
   "Navigator",
+  "Window",
 ] }
 
 # Coverage instrumentation, off by default and enabled only by the coverage build of the browser wasm modules.
