@@ -146,6 +146,18 @@ ort_loc_win = '{{ vars.mise_installs }}\github-microsoft-onnxruntime\1.22.0'
 # LLVM, which defaults to the MSVC target and can't link gnullvm objects.
 win_llvm_bin = '{{ vars.mise_installs }}\github-mstorsjo-llvm-mingw\20260602\bin'
 # conda:m2-gnupg's msys2 binary dir.
+# Cargo's own bin dir, prepended by the [env] `_.path` below so `cargo` resolves inside a task body.
+# mise's rust runtime never materialises a tool tree: it points installs/rust/<ver> at $CARGO_HOME/bin as an
+# absolute symlink, so that dir is where cargo actually lives. On the Windows lanes a task body still could
+# not see it -- `ash: line 0: cargo: not found` from prefetch:rust's `cargo fetch`, on commit
+# db14f344b954... at https://github.com/edge-toolkit/core/actions/runs/33850033002/job/100950506987, with
+# rust reported installed and PATH already back under the 8191-character ceiling. Naming the dir outright
+# does not depend on that symlink resolving.
+cargo_bin = '''{% if env?.CARGO_HOME -%}
+{{- env.CARGO_HOME -}}\bin
+{%- else -%}
+{{- env?.USERPROFILE or "" -}}\.cargo\bin
+{%- endif %}'''
 # Pinned to the [tools] version so the [env] _.path entry resolves; bump both together.
 m2_gnupg_bin = '{{ vars.mise_installs }}\conda-m2-gnupg\2.2.41.1\Library\usr\bin'
 # Maven's bin dir lives nested at `apache-maven-X.Y.Z/bin/` inside its install.
@@ -241,7 +253,7 @@ ORT_PREFER_DYNAMIC_LINK = "1"
 # The libclang entry puts its dependency DLLs (zlib/zstd) where LoadLibrary's classic search finds them.
 # clang-sys loads libclang.dll via libloading with flags=0, where a DLL's dependencies resolve via PATH,
 # not via the loaded DLL's own directory (error 126 otherwise).
-_.path = ["{{ vars.m2_gnupg_bin }}", "{{ vars.maven_bin }}", "{{ vars.win_libclang }}"]
+_.path = ["{{ vars.cargo_bin }}", "{{ vars.m2_gnupg_bin }}", "{{ vars.maven_bin }}", "{{ vars.win_libclang }}"]
 
 [tasks.preinstall]
 # Preinstall, shared across every Windows host (CI runner, workstation, Nano container).

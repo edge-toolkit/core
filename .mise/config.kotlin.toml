@@ -36,6 +36,25 @@ description = "Build the kotlin-math1 FedAvg module (Kotlin/Wasm -> WasmGC)"
 dir = "services/ws-modules/kotlin-math1"
 run = "\"$GRADLE\" --console=plain pkgDist"
 shell = "bash -euo pipefail -c"
+# Never extract binaryen at the same moment the sibling Kotlin module does.
+# The Kotlin Gradle plugin's `kotlinWasmBinaryenSetup` unpacks binaryen into one shared GRADLE_USER_HOME path,
+# and the two modules are separate Gradle root projects that build-modules fans out in parallel, so whichever
+# reaches the extraction second lands on a tree the first is still writing:
+#
+#     Execution failed for task ':kotlinWasmBinaryenSetup'
+#     > Could not copy tar entry '/root/.gradle/caches/modules-2/files-2.1/com.github.webassembly/binaryen/...
+#        > Could not set file mode 755 on '/root/.gradle/binaryen/binaryen-version_125'
+#
+# The loser alternates, which is why it reads as an unrelated flake: kotlin-data1 lost on the ubuntu:24.04
+# build at commit 0e7273a1154db315a0f584077db4565ba66be603
+# (https://github.com/edge-toolkit/core/actions/runs/33727571318/job/100559961182), then kotlin-math1 lost on
+# fedora:42 and kotlin-data1 again on opensuse/leap:15.6, both at commit
+# 6c6b6e6f0d123f131d3f41e188660151f6994f9e
+# (https://github.com/edge-toolkit/core/actions/runs/33847012202/job/100941026418 and
+# .../job/100941026442). `wait_for` rather than `depends`: math1 needs nothing kotlin-data1 produces, so this
+# must not pull that module into a build that only asked for this one -- it only defers when both are already
+# running. check:kotlin and prefetch:kotlin avoid the same race by running both modules in one task body.
+wait_for = ["build-ws-kotlin-data1-module"]
 
 # Namespaced aggregator picked up by the default config's globbed `check`.
 # The compile runs kotlinc with allWarningsAsErrors (set in build.gradle.kts), the Kotlin analogue of -Werror.
