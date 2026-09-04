@@ -74,6 +74,22 @@ jobs:
         with:
           github-token: ${{ github.token }}
 
+      # TEMPORARY: report how mise resolves cargo on Windows, then delete this step.
+      # `prefetch:rust` dies on `cargo: not found` while `_setup_all` in the step above resolves bare `mise`
+      # from the very same directory (`.cargo\bin` holds both binaries), and rust reports itself installed.
+      # Two hypotheses have already failed on this -- PATH length, then naming the cargo dir in `_.path` --
+      # so this prints what mise actually computes instead of inferring a third time. Never fails the job.
+      - name: Diagnose cargo resolution on Windows
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        run: |
+          echo "--- mise which cargo"; mise which cargo || echo "(mise cannot resolve cargo)"
+          echo "--- mise ls rust"; mise ls rust || true
+          echo "--- rust install dir"; mise where rust || echo "(no install dir)"
+          echo "--- cargo on the raw PATH"; command -v cargo || echo "(not on this shell's PATH)"
+          echo "--- PATH mise hands a task"
+          mise env -s bash | rg "^export PATH" | tr ':' '\n' | rg -i "cargo|rust" || true
+
       - name: Prefetch Rust dependencies
         run: mise run prefetch:rust
         env:
