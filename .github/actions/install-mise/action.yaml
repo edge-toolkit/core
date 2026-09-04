@@ -40,6 +40,17 @@ runs:
     # plainly via cmd). Since `mise-shim.exe` is deliberately absent, pin `MISE_WINDOWS_SHIM_MODE=file` so mise
     # selects file mode up front rather than defaulting to "exe", failing to find `mise-shim.exe`, and logging a
     # "falling back to file shim mode" WARN on every reshim.
+    # MISE_INSTALLS_DIR moves the per-tool install dirs to a short root, because mise puts one PATH entry per
+    # tool and the default `C:\Users\runneradmin\AppData\Local\mise\installs\` root spends 48 of each entry's
+    # characters on a prefix that repeats. Windows hands a child process at most 8191 characters of PATH and
+    # ignores the variable outright past that, so every tool stops resolving at the same moment -- the mingw
+    # lane reached 11215 characters and reported `dart: not found`, `uv: not found`, `cargo: not found`,
+    # `rclone: not found` and `zig: not found` in one go, on commit
+    # eb5ade87e8bbf7c31b6e0e2c39fbaf0f4e2e01c2 at
+    # https://github.com/edge-toolkit/core/actions/runs/33746317422/job/100619492734. Trimming the prefix to
+    # `C:\i` reclaims ~43 characters per entry, which scales with the toolset -- so the lanes carrying the most
+    # tools, the ones that overran first, save the most. config.windows.toml's mise_installs reads this same
+    # variable, which is what keeps MISE_BASH_PATH and the other install-path vars pointing at the tools.
     - name: Configure mise file shims on Windows
       if: runner.os == 'Windows'
       shell: bash --noprofile --norc -euo pipefail {0}
@@ -48,6 +59,7 @@ runs:
       run: | # zizmor: ignore[github-env]
         echo "$LOCALAPPDATA\mise\shims" >> "$GITHUB_PATH"
         echo "MISE_WINDOWS_SHIM_MODE=file" >> "$GITHUB_ENV"
+        echo 'MISE_INSTALLS_DIR=C:\i' >> "$GITHUB_ENV"
 
     - name: Trust mise config
       shell: bash --noprofile --norc -euo pipefail {0}

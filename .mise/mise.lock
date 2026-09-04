@@ -278,9 +278,9 @@ url = "https://github.com/wasm-bindgen/wasm-pack/releases/download/v0.15.0/wasm-
 url_api = "https://api.github.com/repos/wasm-bindgen/wasm-pack/releases/assets/420850440"
 
 [tools."aqua:rustwasm/wasm-pack"."platforms.macos-arm64"]
-checksum = "sha256:d3f1a4a33e95f8f0d7801b024e08624c479999ac96aa150908b2394015cd0363"
-url = "https://github.com/wasm-bindgen/wasm-pack/releases/download/v0.15.0/wasm-pack-v0.15.0-x86_64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/wasm-bindgen/wasm-pack/releases/assets/420850460"
+checksum = "sha256:0abff4a03d670b6c00ea31d0e1608a72407e355f3d3765e9c30eb45cd5b7e318"
+url = "https://github.com/wasm-bindgen/wasm-pack/releases/download/v0.15.0/wasm-pack-v0.15.0-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/wasm-bindgen/wasm-pack/releases/assets/420850469"
 
 [tools."aqua:rustwasm/wasm-pack"."platforms.macos-x64"]
 checksum = "sha256:d3f1a4a33e95f8f0d7801b024e08624c479999ac96aa150908b2394015cd0363"

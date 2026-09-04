@@ -3,6 +3,9 @@
 # rules:
 #   1. version drift -- the Dockerfile hard-codes mise install-dir paths (LLVMBIN, the busybox shell, the python dir
 #      on PATH) that embed a tool's pinned version; those must match the [tools] pins (reuses mise.rego's matcher).
+#      Every ENV/RUN string is scanned rather than only those naming an `installs` dir, so shortening the install
+#      root (MISE_INSTALLS_DIR) cannot quietly take these paths out of the matcher's reach. mise.version_drift
+#      keys on `<tool-dir>/<version>`, which is selective enough on its own.
 #   2. MISE_DISABLE_TOOLS -- every pipx: tool in the always-loaded config.toml and in each guest config Nano enables
 #      (its ENV MISE_ENV) must be disabled here (pipx can't run on Nano Server), so a newly added pipx tool in any of
 #      those can't silently break the Windows build.
@@ -24,7 +27,6 @@ docker_strings contains entry if {
 
 deny contains msg if {
 	some entry in docker_strings
-	contains(entry.value, "installs")
 	some d in mise.version_drift(entry.value)
 	msg := sprintf(
 		"%s: hard-codes %q version %q, but [tools] pins it to %q -- keep them in sync",

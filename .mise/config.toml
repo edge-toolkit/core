@@ -601,7 +601,9 @@ shfmt_args = "-ln bash -i 2 -ci"
 o2_image = "openobserve/openobserve:v0.91.5"
 # OpenTelemetry Collector image for the o2-hostmetrics / o2-macmon / o2-nvidia / o2-winmetrics tasks.
 otelcol_image = "otel/opentelemetry-collector-contrib:0.156.0"
-rp_wasm_dir = '''{% if os() == "windows" -%}
+rp_wasm_dir = '''{% if os() == "windows" and env?.MISE_INSTALLS_DIR -%}
+{{- env.MISE_INSTALLS_DIR | replace(from="\\", to="/") -}}/http-rp-wasm/{{- vars.a_rp_wasm_short -}}
+{%- elif os() == "windows" -%}
 {%- set base = (env?.LOCALAPPDATA or "") | replace(from="\\", to="/") -%}
 {{- base -}}/mise/installs/http-rp-wasm/{{- vars.a_rp_wasm_short -}}
 {%- else -%}
