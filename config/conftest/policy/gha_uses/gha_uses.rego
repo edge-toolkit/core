@@ -46,3 +46,38 @@ deny contains msg if {
 		[entry.path, key, name],
 	)
 }
+
+# A workflow's hard-coded Windows tool paths must sit under the install root install-mise exports.
+# A job's `defaults.run.shell` is resolved before any step runs, so it cannot read MISE_INSTALLS_DIR and has
+# to spell the root out; nothing then stops the two drifting apart. When they do, the runner cannot find the
+# shell and every step of the job dies at once on `Second path fragment must not be a drive or UNC name`,
+# which names neither mise nor the path at fault -- so this pins the literal to the exported value.
+mise_installs_dir := dir if {
+	some file in input
+	endswith(file.path, "install-mise/action.yaml")
+	some step in file.contents.runs.steps
+	some m in regex.find_all_string_submatch_n(`MISE_INSTALLS_DIR=([^'"\s]+)`, step.run, -1)
+	dir := m[1]
+}
+
+# Every workflow string naming a mise-installed Windows tool, keyed on the install dir of the shell we pin.
+windows_tool_path contains entry if {
+	some file in input
+	endswith(file.path, ".yaml")
+	walk(file.contents, [_, value])
+	is_string(value)
+	contains(value, "http-busybox")
+	entry := {"path": file.path, "value": value}
+}
+
+# Matched with `contains` rather than `startswith`, since the root need not begin the string.
+# Two of the three sites wrap the path in a `${{ ... }}` per-OS ternary, so the root sits mid-string.
+# Requiring it immediately before the tool dir is the actual invariant either way.
+deny contains msg if {
+	some entry in windows_tool_path
+	not contains(entry.value, sprintf("%s\\http-busybox", [mise_installs_dir]))
+	msg := sprintf(
+		"%s: the http-busybox path must sit under the MISE_INSTALLS_DIR install-mise exports (%q)",
+		[entry.path, mise_installs_dir],
+	)
+}

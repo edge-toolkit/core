@@ -41,12 +41,14 @@ jobs:
     # Windows runs the checkers under busybox-w32 ash, same as test.yaml's Windows lane.
     # That's the shell mise's `shell = "bash"` tasks run on; Git Bash's MSYS fork-emulation cygheap breaks
     # down on long task chains. The path matches the version pin in `.mise/config.windows.toml`'s
-    # [tools."http:busybox"] entry.
+    # [tools."http:busybox"] entry, and its `C:\i` root is the MISE_INSTALLS_DIR install-mise exports on
+    # Windows. A job's `shell` default is resolved before any step runs, so it cannot read that variable and
+    # has to spell the root out -- the gha_mise policy holds the two together.
     defaults:
       run:
         shell: >-
           ${{ startsWith(matrix.os, 'windows') &&
-              'C:\Users\runneradmin\AppData\Local\mise\installs\http-busybox\1.37.0\ash.exe -euo pipefail {0}'
+              'C:\i\http-busybox\1.37.0\ash.exe -euo pipefail {0}'
               || 'bash --noprofile --norc -euo pipefail {0}' }}
     steps:
       - name: Checkout
