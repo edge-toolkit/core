@@ -13,6 +13,43 @@ dotnet = "10.0.300"
 # a bare `$DOTNET_ROOT` would emit a spurious "not defined" warning. The version segment is the [tools] dotnet
 # pin above -- bump together.
 dotnet_msbuild = "$$DOTNET_ROOT/sdk/10.0.300"
+# The publish-and-stage step both C# WASM modules share.
+# `set -x` echoes every command: the Windows lane is newly re-enabled, so keep the trace until it is reliably
+# green in CI. The two publishes are otherwise identical, down to the PATH cap below.
+#
+# Windows: cap the PATH the SDK's emcc link <Exec> constructs, or bare `emcc` becomes unresolvable.
+# BrowserWasmApp.targets(522) runs the link as `<Exec Command='emcc ...'>` with an EnvironmentVariables PATH
+# composed of the Emscripten workload pack dirs + $([MSBuild]::Escape($(PATH))). cmd.exe cannot read an
+# environment variable longer than 8191 chars, and on GHA windows-latest the inherited PATH (mise's
+# seven-language toolchain dirs + the runner's own) pushes the composed value past that limit -- cmd then sees
+# no PATH at all and the link dies with:
+#   'emcc' is not recognized as an internal or external command,
+#   error MSB3073: The command "emcc "@...emcc-default.rsp" ..." exited with code 9009.
+# Observed on commit 3c0d34021daa989a565aca1860ee41b638b90ff6 at
+# https://github.com/edge-toolkit/core/actions/runs/28678866448/job/85058000145 and reproduced locally by
+# padding PATH past 8191 chars. Overriding the MSBuild PATH *property* (global properties take precedence over
+# environment-derived ones) shortens only that composed tail: the Exec gets pack dirs + System32 (~650 chars)
+# while the process-environment PATH stays untouched. The compile step never needed this (absolute emcc path,
+# no PATH lookup), and emcc's own subprocesses find python/node via EMSDK_PYTHON / DOTNET_EMSCRIPTEN_NODE_JS
+# rather than PATH -- verified: the compile succeeds even when cmd can read no PATH whatsoever.
+#
+# Every `$` here is doubled: a [vars] value goes through mise's config-load `$VAR` expansion (a task `run` body
+# does not), so a bare `$PUBLISH` would resolve against the loading environment and warn when unset.
+dotnet_publish_pkg = '''
+set -x
+
+publish_args=""
+if [ "$${OS:-}" = "Windows_NT" ]; then
+  publish_args="-p:PATH=C:\\Windows\\System32"
+fi
+
+# $$publish_args holds zero or one CLI flag; word-splitting is intentional.
+# shellcheck disable=SC2086
+dotnet publish -c Release $$publish_args
+
+PUBLISH=bin/Release/net10.0/publish/wwwroot/_framework
+cp "$$PUBLISH"/*.js "$$PUBLISH"/*.wasm "$$PUBLISH"/*.dat pkg/
+'''
 
 [tasks.dotnet-fmt]
 description = "Format dotnet C# code"
@@ -95,60 +132,14 @@ shell = "{{ vars.task_shell }}"
 depends = ["dotnet-workload-wasm-tools"]
 description = "Build the dotnet-data1 C# WASM workflow module"
 dir = "services/ws-modules/dotnet-data1"
-run = '''
-# `set -x` so every command is echoed to the log.
-# The Windows lane is newly re-enabled; keep the trace until it is reliably green in CI.
-set -x
-
-# Windows: cap the PATH the SDK's emcc link <Exec> constructs, or bare `emcc` becomes unresolvable.
-# BrowserWasmApp.targets(522) runs the link as `<Exec Command='emcc ...'>` with an EnvironmentVariables PATH
-# composed of the Emscripten workload pack dirs + $([MSBuild]::Escape($(PATH))). cmd.exe cannot read an
-# environment variable longer than 8191 chars, and on GHA windows-latest the inherited PATH (mise's
-# seven-language toolchain dirs + the runner's own) pushes the composed value past that limit -- cmd then sees
-# no PATH at all and the link dies with:
-#   'emcc' is not recognized as an internal or external command,
-#   error MSB3073: The command "emcc "@...emcc-default.rsp" ..." exited with code 9009.
-# Observed on commit 3c0d34021daa989a565aca1860ee41b638b90ff6 at
-# https://github.com/edge-toolkit/core/actions/runs/28678866448/job/85058000145 and reproduced locally by
-# padding PATH past 8191 chars. Overriding the MSBuild PATH *property* (global properties take precedence over
-# environment-derived ones) shortens only that composed tail: the Exec gets pack dirs + System32 (~650 chars)
-# while the process-environment PATH stays untouched. The compile step never needed this (absolute emcc path,
-# no PATH lookup), and emcc's own subprocesses find python/node via EMSDK_PYTHON / DOTNET_EMSCRIPTEN_NODE_JS
-# rather than PATH -- verified: the compile succeeds even when cmd can read no PATH whatsoever.
-publish_args=""
-if [ "${OS:-}" = "Windows_NT" ]; then
-  publish_args="-p:PATH=C:\\Windows\\System32"
-fi
-
-# $publish_args holds zero or one CLI flag; word-splitting is intentional.
-# shellcheck disable=SC2086
-dotnet publish -c Release $publish_args
-
-PUBLISH=bin/Release/net10.0/publish/wwwroot/_framework
-cp "$PUBLISH"/*.js "$PUBLISH"/*.wasm "$PUBLISH"/*.dat pkg/
-'''
+run = "{{ vars.dotnet_publish_pkg }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-dotnet-math1-module]
 depends = ["dotnet-workload-wasm-tools"]
 description = "Build the dotnet-math1 C# WASM FedAvg module"
 dir = "services/ws-modules/dotnet-math1"
-# Same publish flow as build-ws-dotnet-data1-module, including its Windows PATH-cap workaround.
-run = '''
-set -x
-
-publish_args=""
-if [ "${OS:-}" = "Windows_NT" ]; then
-  publish_args="-p:PATH=C:\\Windows\\System32"
-fi
-
-# $publish_args holds zero or one CLI flag; word-splitting is intentional.
-# shellcheck disable=SC2086
-dotnet publish -c Release $publish_args
-
-PUBLISH=bin/Release/net10.0/publish/wwwroot/_framework
-cp "$PUBLISH"/*.js "$PUBLISH"/*.wasm "$PUBLISH"/*.dat pkg/
-'''
+run = "{{ vars.dotnet_publish_pkg }}"
 shell = "{{ vars.task_shell }}"
 # Both dotnet publishes drive emscripten out of one shared workload pack tree, so they run one at a time.
 # `wait_for` rather than `depends` because the edge only matters when both are already scheduled -- building

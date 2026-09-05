@@ -143,6 +143,57 @@ deny contains msg if {
 	msg := sprintf("%s: tool %q uses the deprecated ubi backend; use http: instead", [file.path, name])
 }
 
+# A new `http:` tool must not point at a forge release URL; use the `github:` backend for those.
+# `http:` takes a hardcoded URL, so it resolves no versions and verifies nothing: a version bump means editing
+# every per-platform URL by hand, and the download arrives with neither the release metadata nor the artifact
+# attestation the `github:` backend checks. Naming the repo instead keeps version resolution and verification.
+#
+# The entries below predate the rule. Two groups, kept apart because only one is a candidate for removal: the
+# edge-toolkit/core ones are this repo's own upstream-cache mirrors, where a pinned URL plus the `checksum` the
+# checksums policy enforces is the documented pattern and `github:` cannot express what is being fetched. The
+# third-party ones are the ones to migrate to `github:` as they come up for maintenance.
+allowed_http_forge_url := {
+	# This repo's own upstream-cache mirror releases -- the documented pattern, not migration candidates.
+	"http:augeas",
+	"http:dart-typegen",
+	"http:et-rp",
+	"http:gnupg-w32",
+	"http:rp-wasm",
+	# Third-party forge releases predating the rule; migrate to `github:` when each is next touched.
+	"http:oxfmt",
+	"http:oxlint",
+	"http:pyodide",
+	"http:rustfs",
+	"http:webr",
+}
+
+forge_url(url) if contains(url, "github.com")
+
+forge_url(url) if contains(url, "gitlab.com")
+
+http_forge_msg := "%s: tool %q fetches %s over http:; use the github: backend so versions resolve and artifacts verify"
+
+deny contains msg if {
+	some file in input
+	is_mise(file)
+	some name, tool in file.contents.tools
+	startswith(name, "http:")
+	not name in allowed_http_forge_url
+	forge_url(tool.url)
+	msg := sprintf(http_forge_msg, [file.path, name, tool.url])
+}
+
+deny contains msg if {
+	some file in input
+	is_mise(file)
+	some name, tool in file.contents.tools
+	startswith(name, "http:")
+	not name in allowed_http_forge_url
+	some platform in tool.platforms
+	forge_url(platform.url)
+	msg := sprintf(http_forge_msg, [file.path, name, platform.url])
+}
+
 # Tools should work on every OS (CLAUDE.md "Tools must work on every OS").
 # Any os-scoped [tools] entry must be in this list -- a genuinely platform-specific tool, a per-platform backend pair
 # that still covers every OS (findutils, ryl), or an optional tool that self-skips on the omitted platform (pipx:torch).

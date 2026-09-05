@@ -4,13 +4,22 @@
 # py3_*, ...) come from config.toml, which loads first.
 
 [tools]
-# msys2 mirror packages: git (for cargo git deps) and make (some -sys build scripts shell out to it).
+# msys2 mirror package: make, which some -sys crates' build scripts shell out to.
+# msys2 puts make.exe at the nested `Library\usr\bin\`, which mise leaves off PATH by itself -- so the [vars]
+# m2_make_bin + [env] `_.path` below prepend that dir, the same treatment conda:m2-gnupg needs. Without it the
+# task PATH carries only the install's empty `.mise-bins`, and `make` resolves nowhere: mise stopped copying
+# conda executables into `.mise-bins` in 2026.8.5 (jdx/mise#11855), which silently took make off PATH here.
+# Version pinned so the m2_make_bin path stays in sync (conftest's version_drift enforces).
+#
+# git is deliberately NOT a tool: it is a documented Windows prerequisite, installed alongside mise per the
+# README because Git for Windows ships the real bash.exe the tasks need. Linux and macOS declare neither git
+# nor make, taking both from the system, so this keeps Windows closer to them rather than further away.
+#
 # The MSVC CRT + Windows SDK can't come from mise, so the build uses the LLVM mingw toolchain (the gnullvm
 # target below); llvm-mingw bundles clang + lld + the mingw-w64 runtime/headers/libs + the libclang.dll
 # bindgen loads. Pinned so its install dir is deterministic: the version segment is repeated in the
 # win_llvm_bin var below -- bump together (conftest's version_drift enforces).
-"conda:m2-git" = "latest"
-"conda:m2-make" = "latest"
+"conda:m2-make" = "4.4.1.2"
 # gpg for mise's node-verify path, replacing the global `conda:gnupg`.
 # (conda-forge doesn't build that for win-64.) msys2 layout puts gpg.exe at the nested `Library\usr\bin\` --
 # the [vars] m2_gnupg_bin + [env] `_.path` below prepend that dir so subprocess PATH actually finds it.
@@ -160,6 +169,8 @@ cargo_bin = '''{% if env?.CARGO_HOME -%}
 {%- endif %}'''
 # Pinned to the [tools] version so the [env] _.path entry resolves; bump both together.
 m2_gnupg_bin = '{{ vars.mise_installs }}\conda-m2-gnupg\2.2.41.1\Library\usr\bin'
+# msys2's make.exe dir, on the same terms as m2_gnupg_bin above.
+m2_make_bin = '{{ vars.mise_installs }}\conda-m2-make\4.4.1.2\Library\usr\bin'
 # Maven's bin dir lives nested at `apache-maven-X.Y.Z/bin/` inside its install.
 # mise's bin auto-discovery walks into this subdir on Linux/macOS but not on Windows, so `mvn` isn't on PATH
 # without an explicit entry. Pinned to the config.java.toml [tools] maven version -- bump both together.
@@ -253,12 +264,18 @@ ORT_PREFER_DYNAMIC_LINK = "1"
 # The libclang entry puts its dependency DLLs (zlib/zstd) where LoadLibrary's classic search finds them.
 # clang-sys loads libclang.dll via libloading with flags=0, where a DLL's dependencies resolve via PATH,
 # not via the loaded DLL's own directory (error 126 otherwise).
-_.path = ["{{ vars.cargo_bin }}", "{{ vars.m2_gnupg_bin }}", "{{ vars.maven_bin }}", "{{ vars.win_libclang }}"]
+_.path = [
+  "{{ vars.cargo_bin }}",
+  "{{ vars.m2_gnupg_bin }}",
+  "{{ vars.m2_make_bin }}",
+  "{{ vars.maven_bin }}",
+  "{{ vars.win_libclang }}",
+]
 
 [tasks.preinstall]
 # Preinstall, shared across every Windows host (CI runner, workstation, Nano container).
 # The busybox `sh` (http:busybox) is installed by an earlier cmd bootstrap, so this task's `bash -euo pipefail`
-# shell (= busybox ash via MISE_BASH_PATH) works. Installs the build utils (git/gpg/make), llvm-mingw and
+# shell (= busybox ash via MISE_BASH_PATH) works. Installs the build utils (gpg/make), llvm-mingw and
 # rust, pip-installs pipx (the backend for the pipx:* tools, since aqua has no Windows pipx build), then
 # flips rustup's default host to gnullvm so both host and target link via llvm-mingw rather than the absent
 # MSVC link.exe (no Visual Studio Build Tools needed). The prereqs mise CAN'T supply (a recent mise + the
@@ -323,7 +340,7 @@ echo "[sha256sum-check] OK"
 # one operand reach mise intact.
 mise settings set windows_default_inline_shell_args '{{ vars.task_shell }}'
 
-mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
+mise install conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
 
 # rustup's default-host still resolves bare channel names to msvc on Windows.
 # Even though [[tools.rust]] above installs the *gnullvm*-host toolchains

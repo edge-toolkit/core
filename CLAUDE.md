@@ -17,6 +17,26 @@ touched and which did not depend on anything it changed. Every one of those lint
 single missing commit. The wrong diagnosis reached for first was a toolchain change, which the dates flatly
 contradicted; `git rev-list --left-right --count origin/main...HEAD` would have settled it immediately.
 
+## Install the mise tools at the start of every session
+
+Run `mise install` right after the branch check, once per session, before touching anything else. It is idempotent
+and near-instant when everything is already present, so the cost of running it is far below the cost of not
+running it. `mise install` covers only the envs `MISE_ENV` currently loads -- reach for `mise run install-all`
+when the work spans guest languages, since a tool from an unloaded env is missing in exactly the same way.
+
+A tool that is absent does not announce itself up front. It surfaces much later as a bare `<tool>: not found` in
+the middle of a check, at which point the failure looks like a bug in the thing being checked rather than a gap in
+the environment, and the tempting next move -- calling the host's copy, or hardcoding an absolute path into an
+install dir -- quietly violates the mise-managed-tools rules further down and produces results that do not match
+the canonical pipeline. Install the tool instead; a missing mise tool is a misconfigured environment, never a
+reason to route around it.
+
+The same applies the moment a `not found` does appear mid-task: stop and install, rather than reaching for a
+fallback. Treat it as a signal that this session skipped the step above, or that a config bump added a tool the
+existing install predates -- a warm checkout that already has an older tool set still needs `mise install` re-run
+after pulling, because a tool the current mise cannot resolve can still report as installed and nothing will
+refetch it on its own.
+
 ## Scratch work stays inside this repo
 
 Any throwaway file the agent needs while working -- backup copies of files before destructive edits, generated
@@ -965,6 +985,36 @@ clang-tidy / cpplint / flawfinder). Record the exclusion rationale once, in the 
 -- that is its canonical home, because more than one analyzer config may exclude the same file and the reasoning must
 not be copied into each. Every config's exclude entry carries at most a one-line pointer back to the file, never a
 second copy of the rationale.
+
+### NEVER regenerate a lint baseline to make a finding go away
+
+Some checks gate on a committed baseline rather than an absolute count -- `jscpd-check` is the current example,
+running `--baseline config/jscpd-baseline.json --fail-on-new-clones` so only clones the baseline does not already
+record fail the build. Rewriting that baseline (`jscpd-baseline-update`, or any equivalent "accept current state"
+task another linter grows) is **suppression, and the broadest kind there is**: it silences the finding in front of
+you and every future finding that happens to land in the same shape, with no comment, no scope, and nothing in the
+diff that reads as a suppression to a reviewer. It is the wholesale exclusion the rules above forbid, wearing the
+costume of a routine chore.
+
+The baseline is a **debt ledger, and the debt is meant to be paid down**: jscpd exists to remove duplication, so
+over the life of the repo its entries should only ever be deleted as clones get factored away. A diff that adds
+entries is moving the number the wrong way. Treat the count as a ratchet that turns one direction.
+
+So a baseline is never the answer to "the check went red". Fix the duplication -- factor the repeated block into a
+shared var, task dependency, or helper -- exactly as you would fix any other finding. The narrow, justified,
+per-finding suppression the rules above describe is still available, and still preferred over anything wider.
+
+**`[NEW]` does not mean newly duplicated.** `config/jscpd-baseline.json` keys on a **content fingerprint** -- a hash
+of the duplicated text -- not on a file path or line range. So editing any line that falls _inside_ an
+already-duplicated block re-hashes it, and a clone the baseline has recorded for months is reported as `[NEW]`
+without one line of fresh copy-paste. A repo-wide mechanical edit lights up every duplicated block it touches at
+once, which reads alarmingly and tempts exactly the baseline rewrite this rule forbids. Read a `[NEW]` clone as
+"this duplication is now in front of you", not as "you wrote this duplication": check whether the pair predates
+your change, then remove the duplication on its merits.
+
+A baseline gets rewritten only for a change that is genuinely not about the finding: a mass rename, a directory
+move, a vendored tree landing wholesale. Even then, say so explicitly, get the operator's sign-off first, and
+report the added/removed counts the update task prints so the delta is reviewable rather than opaque.
 
 ### When you spot a style or consistency issue, write a rule
 

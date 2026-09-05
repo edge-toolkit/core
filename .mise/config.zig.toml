@@ -57,6 +57,29 @@ matching = "macos-universal"
 [tools."github:mstorsjo/llvm-mingw".platforms.windows-x64]
 matching = "ucrt-x86_64"
 
+[vars]
+# Shell helper resolving a conda tool's real executable, for the tasks below to source before using one.
+# `mise which` names the `.mise-bins/<tool>.cmd` prefix-activation launcher on Windows, and that launcher opens
+# with `set "PATH=<six conda dirs>;%PATH%"`. cmd.exe caps a command line at 8191 characters, so on an all-language
+# MISE_ENV -- where PATH already measures ~8150 -- prepending those dirs overflows it and the launcher dies before
+# reaching the binary:
+#     The input line is too long.
+#     The syntax of the command is incorrect.
+#     xargs: ...\.mise-bins\clang-format.cmd: exited with status 255; aborting
+# Naming the conda-forge binary under `Library/bin` instead keeps cmd.exe out of the chain entirely, so the limit
+# becomes CreateProcess's 32767 and no amount of PATH growth reaches it. Same shape as the `llvm_ct` line below,
+# which has always addressed llvm-mingw's clang-tidy by absolute path. Every `$` is doubled because a [vars] value
+# goes through mise's config-load `$VAR` expansion, which a task `run` body does not.
+conda_exe = """
+conda_exe() {
+  if [ "$${OS:-}" = "Windows_NT" ]; then
+    echo "$$(mise where "conda:$$1")/Library/bin/$$2.exe"
+  else
+    mise which "$$2"
+  fi
+}
+"""
+
 [tasks.zig-check]
 run = "zig fmt --check services/ws-modules/ generated/zig-rest/"
 
@@ -66,7 +89,8 @@ run = "zig fmt services/ws-modules/ generated/zig-rest/"
 [tasks.clang-format]
 description = "Format C/C++ sources (clang-format)"
 run = """
-clang_format="$(mise which clang-format)"
+{{ vars.conda_exe }}
+clang_format="$(conda_exe clang-format clang-format)"
 git ls-files '*.c' '*.cpp' '*.h' | xargs "$clang_format" -i --style=file:config/clang-format.yaml
 """
 shell = "{{ vars.task_shell }}"
@@ -74,7 +98,8 @@ shell = "{{ vars.task_shell }}"
 [tasks.clang-format-check]
 description = "Check C/C++ source formatting (clang-format)"
 run = """
-clang_format="$(mise which clang-format)"
+{{ vars.conda_exe }}
+clang_format="$(conda_exe clang-format clang-format)"
 git ls-files '*.c' '*.cpp' '*.h' |
   xargs "$clang_format" --dry-run --Werror --style=file:config/clang-format.yaml
 """
@@ -98,7 +123,8 @@ description = "Lint C/C++ sources (clang-tidy)"
 #   thread 'main' panicked at src/xargs/mod.rs:411:46: index out of bounds: the len is 0 but the index is 0
 # (observed on PR #93's docker-linux build + check lanes). -r makes empty input a clean no-op.
 run = """
-clang_tidy="$(mise which clang-tidy)"
+{{ vars.conda_exe }}
+clang_tidy="$(conda_exe clang-tools clang-tidy)"
 git ls-files '*.c' '*.cpp' '*.h' ':!services/ws-web-runner/mingw-shim' ':!services/ws-modules/zig-*' |
   xargs -r -I{} "$clang_tidy" --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
 llvm_ct="$(mise where 'github:mstorsjo/llvm-mingw')/bin/clang-tidy"
@@ -125,7 +151,8 @@ description = "Apply clang-tidy's machine-applicable fix-its to C/C++ sources in
 # Host clang-tidy for portable C/C++, llvm-mingw's for the windows mingw-shim, and a wasm32 cross-target pass
 # for the zig modules' C/C++.
 run = """
-clang_tidy="$(mise which clang-tidy)"
+{{ vars.conda_exe }}
+clang_tidy="$(conda_exe clang-tools clang-tidy)"
 git ls-files '*.c' '*.cpp' '*.h' ':!services/ws-web-runner/mingw-shim' ':!services/ws-modules/zig-*' |
   xargs -r -I{} "$clang_tidy" --fix --config-file=config/clang-tidy.yaml {} -- {{ vars.clang_resource_arg }}
 llvm_ct="$(mise where 'github:mstorsjo/llvm-mingw')/bin/clang-tidy"

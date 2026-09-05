@@ -191,6 +191,7 @@ WORKDIR /workspace
 # runs.
 COPY .miserc.toml .miserc.toml
 COPY .mise/config.toml .mise/config.toml
+COPY .mise/task-shell.sh .mise/task-shell.sh
 # Each config's lockfile rides with it so in-container resolution stays offline.
 # Without them, every `latest` pin costs a per-tool api.github.com /releases lookup.
 COPY .mise/mise.lock .mise/mise.lock

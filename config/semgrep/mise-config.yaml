@@ -15,7 +15,7 @@ rules:
     paths:
       include:
         - "/.mise/config*.toml"
-    pattern-regex: 'run = ("""|'''''')\n(?:(?!\1\n).*\n)*?\1\n(?!shell = "\{\{ vars\.task_shell(?:_trace)? \}\}")'
+    pattern-regex: 'run = ("""|'''''')\n(?:(?!\1\n).*\n)*?\1\n(?!shell = [''"]\{\{ vars\.task_shell(?:_trace)? \}\})'
     message: >-
       A mise task with a multiline `run` must be immediately followed by `shell = "{{ vars.task_shell }}"`.
       Put `shell` on the line right after the closing `"""`/`'''`, so a failing command fails the task instead of
@@ -33,7 +33,8 @@ rules:
     # The three spellings it replaced each map to a different var (`-euo pipefail -c` -> task_shell,
     # `-xeuo pipefail -c` -> task_shell_trace, bare `-c` -> task_shell_plain), and one replacement template
     # cannot express that choice.
-    pattern-regex: '(?m)^shell = "bash'
+    # Both TOML string forms: a literal `'...'` assignment is just as valid as a basic `"..."` one.
+    pattern-regex: '(?m)^shell = [''"]bash'
     message: >-
       Declare a task `shell` through one of the `task_shell` vars, never as a bare `bash ...` command line.
       The vars run the body through a wrapper script instead of `-c`, which is what repairs the mangled PATH

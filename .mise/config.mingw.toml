@@ -10,7 +10,7 @@
 # libffi-sys runs `sh ./configure` + `make install` on windows-gnu. The repo's uutils coreutils is a
 # `coreutils <util>` multicall and rg replaces grep, so no standalone cat/mkdir/grep/sed/awk exist on PATH
 # otherwise -- configure dies with exit 127 ("could not change to default builddir"). Same msys2 conda
-# mirror as m2-git/m2-make/m2-gnupg; pinned because the [env] _.path entries below embed the versions
+# mirror as m2-make/m2-gnupg; pinned because the [env] _.path entries below embed the versions
 # (conftest's version_drift enforces).
 "conda:m2-coreutils" = "8.32.5"
 "conda:m2-diffutils" = "3.12.1"

@@ -45,6 +45,14 @@ url = "https://github.com/pyodide/pyodide/releases/download/{{ version }}/pyodid
 version = "0.29.3"
 
 [vars]
+# Wheel build every Python ws-module and generated package shares.
+# Stale wheels go first because uv build leaves prior versions in place, and the whole pkg/ dir is what
+# et-modules-service mounts -- an old wheel left beside the new one would be served alongside it.
+py_wheel_pkg = """
+coreutils rm -f pkg/*.whl
+uv build --wheel --out-dir pkg
+{{ vars.et_cli }} module-package-json
+"""
 # Shared WIT dir for the wasi-graphics-info componentize-py build.
 # It is relative to that module's dir; used by both the bindings and componentize steps.
 wit_dir = "../../../generated/specs/wit"
@@ -111,33 +119,21 @@ dir = "generated/python-ws"
 # Wheel goes straight into pkg/ alongside the committed et_ws.js shim.
 # The whole dir is what et-modules-service mounts at /modules/et-ws/. Delete
 # stale wheels first -- uv build leaves prior versions in place.
-run = """
-rm -f pkg/*.whl
-uv build --wheel --out-dir pkg
-{{ vars.et_cli }} module-package-json
-"""
+run = "{{ vars.py_wheel_pkg }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-et-rest-client-wheel]
 depends = ["build-et-cli"]
 description = "Build the generated et-rest-client Python package as a wheel + ws-module pkg/"
 dir = "generated/python-rest"
-run = """
-rm -f pkg/*.whl
-uv build --wheel --out-dir pkg
-{{ vars.et_cli }} module-package-json
-"""
+run = "{{ vars.py_wheel_pkg }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pymath1-module]
 depends = ["build-et-cli"]
 description = "Build the pymath1 FedAvg module"
 dir = "services/ws-modules/pymath1"
-run = """
-coreutils rm -f pkg/*.whl
-uv build --wheel --out-dir pkg
-{{ vars.et_cli }} module-package-json
-"""
+run = "{{ vars.py_wheel_pkg }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pydata1-module]
@@ -147,11 +143,7 @@ dir = "services/ws-modules/pydata1"
 # et-rest-client is its own ws-module mounted at /modules/et-rest-client/.
 # pydata1 declares it under [tool.ws-module.dependencies] and loads the wheel at runtime from that mount via
 # the shim's `installWheel` helper -- no need to copy the wheel here.
-run = """
-rm -f pkg/*.whl
-uv build --wheel --out-dir pkg
-{{ vars.et_cli }} module-package-json
-"""
+run = "{{ vars.py_wheel_pkg }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pyface1-module]
@@ -161,11 +153,7 @@ dir = "services/ws-modules/pyface1"
 # et-ws is its own ws-module mounted at /modules/et-ws/.
 # pyface1 declares it under [tool.ws-module.dependencies] and loads the wheel at runtime from that mount via
 # the shim's `installWheel` helper -- no need to copy the wheel here.
-run = """
-rm -f pkg/*.whl
-uv build --wheel --out-dir pkg
-{{ vars.et_cli }} module-package-json
-"""
+run = "{{ vars.py_wheel_pkg }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pyeye1-module]
@@ -175,33 +163,21 @@ dir = "services/ws-modules/pyeye1"
 # et-ws is its own ws-module mounted at /modules/et-ws/, loaded at runtime, so only pyeye1's wheel builds here.
 # pyeye1 loads the et-ws wheel at runtime from that mount. The MediaPipe FaceLandmarker runtime
 # (@mediapipe/tasks-vision) and the model bundle (et-model-eye1) are served separately -- not part of this build.
-run = """
-rm -f pkg/*.whl
-uv build --wheel --out-dir pkg
-{{ vars.et_cli }} module-package-json
-"""
+run = "{{ vars.py_wheel_pkg }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pyspeech1-module]
 depends = ["build-et-ws-wheel"]
 description = "Build the pyspeech1 Python Silero VAD workflow module"
 dir = "services/ws-modules/pyspeech1"
-run = """
-rm -f pkg/*.whl
-uv build --wheel --out-dir pkg
-{{ vars.et_cli }} module-package-json
-"""
+run = "{{ vars.py_wheel_pkg }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pydemo1-module]
 depends = ["build-ws-pyeye1-module", "build-ws-pyspeech1-module"]
 description = "Build the combined pydemo1 Python eye and speech workflow module"
 dir = "services/ws-modules/pydemo1"
-run = """
-rm -f pkg/*.whl
-uv build --wheel --out-dir pkg
-{{ vars.et_cli }} module-package-json
-"""
+run = "{{ vars.py_wheel_pkg }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-wasi-graphics-info-module]

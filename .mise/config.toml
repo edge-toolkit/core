@@ -910,6 +910,12 @@ git ls-files '*Cargo.toml' '.mise/config*.toml' '*pyproject.toml' Cargo.lock con
 """
 shell = "{{ vars.task_shell }}"
 
+# Ratchet the jscpd duplication baseline against the count declared in the policy.
+# One file, no --combine, so the policy reads the parsed baseline as `input` directly.
+[tasks.conftest-check-jscpd]
+description = "Check the jscpd baseline has not grown (conftest)"
+run = "conftest test --namespace jscpd -p config/conftest/policy config/jscpd-baseline.json"
+
 # Rego unit tests living beside the policies, for invariants the real policy runs cannot reach from one OS.
 # Named into the conftest-check-* family so the `check` aggregate always picks it up.
 [tasks.conftest-check-policy-tests]
@@ -1134,7 +1140,8 @@ shell = "{{ vars.task_shell }}"
 [tasks.readme-mise-version-check]
 # Keep the README's stated mise version in sync with the enforced `min_version` in .mise/config.toml.
 # No structural linter spans a markdown prose value and a TOML value, so this is a small goawk/coreutils compare.
-# The README names one exact version rather than a floor, so the match anchors on its install line.
+# The README states the same version as a floor ("or later"), so the match takes the first version on its
+# install line and compares that; the trailing words are not part of the comparison.
 description = "Fail if README.md's mise version differs from min_version in .mise/config.toml"
 run = """
 # README.md is excluded from the docker build context, so it is absent when `check` runs inside an image.

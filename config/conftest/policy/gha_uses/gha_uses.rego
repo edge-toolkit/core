@@ -8,10 +8,16 @@
 # `no such command: llvm-cov`.) This promotes that class of typo to a hard failure.
 package gha_uses
 
+# Path separators, normalised so the Windows lane compares equal to the forward-slash paths written here.
+# conftest reports each path the way the OS handed it over, so a rule splitting or ending on `/` sees
+# `.github\actions\x\action.yaml` on Windows and matches nothing. That fails open: the namespace reports
+# clean there while checking nothing, so a violation only ever surfaces on the Linux lanes.
+normalised(path) := replace(path, "\\", "/")
+
 # action dir name -> set of declared input keys, one entry per parsed .github/actions/<name>/action.yaml.
 declared_inputs[name] := names if {
 	some file in input
-	parts := split(file.path, "/")
+	parts := split(normalised(file.path), "/")
 	n := count(parts)
 	parts[n - 1] == "action.yaml"
 	name := parts[n - 2]
@@ -54,7 +60,7 @@ deny contains msg if {
 # which names neither mise nor the path at fault -- so this pins the literal to the exported value.
 mise_installs_dir := dir if {
 	some file in input
-	endswith(file.path, "install-mise/action.yaml")
+	endswith(normalised(file.path), "install-mise/action.yaml")
 	some step in file.contents.runs.steps
 	some m in regex.find_all_string_submatch_n(`MISE_INSTALLS_DIR=([^'"\s]+)`, step.run, -1)
 	dir := m[1]

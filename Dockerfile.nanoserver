@@ -38,7 +38,7 @@
 # (0xC0000139) -- the same code a static load failure produces, which is
 # what the CI log surfaced as `gpg exited with non-zero status: exit code
 # -1073741511`. Same autoload trap lurks behind every other conda:m2-*
-# package (m2-git, m2-make), which happen not to hit IDN today.
+# package (m2-make), which happens not to hit IDN today.
 #
 # Nano carve-out: MISE_DISABLE_TOOLS skips `conda:m2-gnupg` here, and the
 # `gpgbin` donor stage below stages a clean MinGW-w64 native gpg.exe (no msys
@@ -109,6 +109,25 @@ RUN curl -fsSL -o gnupg.tar.gz %GNUPG_URL% && `
     del gnupg.tar.gz && `
     if not exist C:\gnupg\bin\gpg.exe exit /b 1
 
+# gitbin: stages git for the Nano stage, which the tasks need and mise cannot supply.
+# 21 task bodies drive `git ls-files` to enumerate what to lint or format, so git is a prerequisite of the
+# toolchain rather than a tool inside it -- exactly as on Linux and macOS, where it comes from the system and
+# no mise entry declares it. A container has no system git to inherit. MinGit is the distribution built for
+# this: git alone, no shell or GUI, since busybox already supplies the shell here. Staged from Server Core for
+# the same reason gpg is -- Nano has no unzip stack of its own, so the extraction happens in the donor.
+FROM mcr.microsoft.com/windows/servercore:${WINDOWS_VERSION} AS gitbin
+SHELL ["cmd", "/S", "/C"]
+ARG GIT_BASE=https://github.com/git-for-windows/git/releases/download/v2.55.0.windows.5
+ARG GIT_ASSET=MinGit-2.55.0.5-64-bit.zip
+ENV GIT_URL=${GIT_BASE}/${GIT_ASSET}
+RUN curl -fsSL -o git.zip %GIT_URL% && `
+    certutil -hashfile git.zip SHA256 | findstr /i `
+        "56d7b226b7693196cfc71fef26568f536c4a021ab6c37ff2db4287bed908e96e" >nul && `
+    mkdir C:\git && `
+    tar -xf git.zip -C C:\git && `
+    del git.zip && `
+    if not exist C:\git\cmd\git.exe exit /b 1
+
 # build-minimal: mise + the always-loaded toolchain (config.toml only).
 # Mirrors the Linux build-minimal: copies just .mise/config.toml + installs the
 # default tools, so this layer is reused until the always-loaded toolset changes,
@@ -125,6 +144,11 @@ COPY --from=vcruntime C:\Windows\System32\msvcp140.dll C:\Windows\System32\msvcp
 # must be on PATH before the first `mise install node` below; C:\gnupg\bin is
 # added to PATH in the ENV PATH= line later in this stage.
 COPY --from=gpgbin C:\gnupg C:\gnupg
+
+# Bring in MinGit (see gitbin stage above).
+# C:\git\cmd is added to PATH in the ENV PATH= line later in this stage; that is the launcher dir Git for
+# Windows itself puts on PATH, with the real binary under mingw64\bin beside it.
+COPY --from=gitbin C:\git C:\git
 
 # Run as cmd (the only shell Nano Server has) and as ContainerAdministrator.
 # ContainerAdministrator is so we can write under C:\ (the backtick line continuations
@@ -255,8 +279,9 @@ ENV MISE_INSTALLS_DIR=C:\i
 # below -- `mise trust` then rejected the missing file outright rather than acting on its parent directory.
 ENV MISE_GLOBAL_CONFIG_FILE=C:\.config\mise\config.toml
 ENV MISESHIMS=C:\Users\ContainerAdministrator\AppData\Local\mise\shims
-ENV LLVMBIN=C:\i\github-mstorsjo-llvm-mingw\20260602\bin
-ENV PATH="C:\mise\bin;C:\sha-shim;${MISESHIMS};C:\Windows\System32;C:\Windows;${LLVMBIN};C:\gnupg\bin;${PATH}"
+ENV LLVMBIN=${MISE_INSTALLS_DIR}\github-mstorsjo-llvm-mingw\20260602\bin
+ENV GITCMD=C:\git\cmd
+ENV PATH="C:\mise\bin;C:\sha-shim;${MISESHIMS};C:\Windows\System32;C:\Windows;${LLVMBIN};C:\gnupg\bin;${GITCMD};${PATH}"
 
 # Diagnostic for gpg-on-Nano (fail-fast): check gpg three ways before mise touches it.
 # With gpg only newly here via the
@@ -285,6 +310,7 @@ WORKDIR C:\workspace
 # Windows).
 COPY .mise/config.toml .mise/config.toml
 COPY .mise/config.windows.toml .mise/config.windows.toml
+COPY .mise/task-shell.sh .mise/task-shell.sh
 COPY .miserc.toml .miserc.toml
 
 # gh_token (a GitHub token) is OPTIONAL.
@@ -325,7 +351,7 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 
 # Smoke test (informational -- never fails the build): confirm busybox runs and finds `mise` on PATH.
 # This runs before the bash-shell tasks below rely on it.
-ENV WINSH=C:\i\http-busybox\1.37.0\ash.exe
+ENV WINSH=${MISE_INSTALLS_DIR}\http-busybox\1.37.0\ash.exe
 # SC2288 comes from hadolint piping this body through shellcheck as POSIX sh regardless of the SHELL directive.
 # This stage's SHELL is cmd, where `("%WINSH%" ...)` is a grouped command invoking the exe named by an expanded
 # `%VAR%`; shellcheck reads that as a command name ending in `%` and warns. There is no sh reading this line.
