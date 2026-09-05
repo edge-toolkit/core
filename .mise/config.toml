@@ -89,7 +89,15 @@ watchexec = "latest"
 # confirm the Windows zip layout hasn't reverted before raising the pin.
 coreutils = "0.6.0"
 dprint = "latest"
-editorconfig-checker = "latest"
+# Held at the last release whose assets aqua's registry entry still names.
+# v4.0.0 renamed every asset from `ec-<os>-<arch>` to `editorconfig-checker-<os>-<arch>`, and aqua's manifest
+# was not updated, so `latest` resolves to a version whose download it cannot find:
+#   aqua:editorconfig-checker/editorconfig-checker@latest: no asset found: ec-windows-amd64.zip
+# on commit 02d645a30b89850b5d27711e0dd8f61780dcdcb3 at
+# https://github.com/edge-toolkit/core/actions/runs/33945730231/job/101251329874. The rename is not
+# Windows-specific -- every platform's asset moved -- so this holds every lane, not just that one. Drop the pin
+# once the aqua registry ships a version_overrides entry for 4.x.
+editorconfig-checker = "3.11.3"
 # ripgrep (rg): the Rust grep that tasks use in place of the host's grep.
 ripgrep = "latest"
 # uutils findutils (find + xargs), pinned to 0.8.0 (0.9.0 ships no binaries).

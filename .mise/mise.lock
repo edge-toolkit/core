@@ -601,33 +601,33 @@ url = "https://github.com/dprint/dprint/releases/download/0.54.0/dprint-x86_64-p
 url_api = "https://api.github.com/repos/dprint/dprint/releases/assets/391792284"
 
 [[tools.editorconfig-checker]]
-version = "3.7.0"
+version = "3.11.3"
 backend = "aqua:editorconfig-checker/editorconfig-checker"
 
 [tools.editorconfig-checker."platforms.linux-arm64"]
-checksum = "sha256:e978f3f0940469989930311af8e101dd9ce8c2ee4da69264f3d76a3787e961ad"
-url = "https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v3.7.0/ec-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/editorconfig-checker/editorconfig-checker/releases/assets/429522941"
+checksum = "sha256:6d333917ad3c21cf0a23c191ec660549de381e6df56ee5e76ace0c513da2b7b4"
+url = "https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v3.11.3/ec-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/editorconfig-checker/editorconfig-checker/releases/assets/543324052"
 
 [tools.editorconfig-checker."platforms.linux-x64"]
-checksum = "sha256:9a0c3a5170bffa24f9e5f0def53d285777b6c5284a95367f40d399d0b76af552"
-url = "https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v3.7.0/ec-linux-amd64.tar.gz"
-url_api = "https://api.github.com/repos/editorconfig-checker/editorconfig-checker/releases/assets/429522924"
+checksum = "sha256:6a73858f8906e466910fb3b3b525c206b27dacdad138910b0b0513f021ab32c4"
+url = "https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v3.11.3/ec-linux-amd64.tar.gz"
+url_api = "https://api.github.com/repos/editorconfig-checker/editorconfig-checker/releases/assets/543324059"
 
 [tools.editorconfig-checker."platforms.macos-arm64"]
-checksum = "sha256:727e6ef506c6fbe7719cc29c69b495715b64514a00059f3f179077bfad0580e5"
-url = "https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v3.7.0/ec-darwin-arm64.tar.gz"
-url_api = "https://api.github.com/repos/editorconfig-checker/editorconfig-checker/releases/assets/429522922"
+checksum = "sha256:eeb0e5d1db4a913277da781bc40802542eb42c4f3f43b7c87c000714dd905faf"
+url = "https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v3.11.3/ec-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/editorconfig-checker/editorconfig-checker/releases/assets/543324096"
 
 [tools.editorconfig-checker."platforms.macos-x64"]
-checksum = "sha256:6cd2e4aa2a374d391e3baeaae43fc28906fd15b09490f5669eee206a63eef00a"
-url = "https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v3.7.0/ec-darwin-amd64.tar.gz"
-url_api = "https://api.github.com/repos/editorconfig-checker/editorconfig-checker/releases/assets/429522923"
+checksum = "sha256:126c8fa83500389078f6b2072a04170f063787ec9905e5d1ab69a5a62ee5b10d"
+url = "https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v3.11.3/ec-darwin-amd64.tar.gz"
+url_api = "https://api.github.com/repos/editorconfig-checker/editorconfig-checker/releases/assets/543324099"
 
 [tools.editorconfig-checker."platforms.windows-x64"]
-checksum = "sha256:9c6b8a4cd7ccc5826ab96d34c460f37ab18b9cb50607d3ee9eb743fc47335da7"
-url = "https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v3.7.0/ec-windows-amd64.zip"
-url_api = "https://api.github.com/repos/editorconfig-checker/editorconfig-checker/releases/assets/429522912"
+checksum = "sha256:0d6739507ac0b57099f0339fce1de0856584c71dd878c89cbc07845884f42ab5"
+url = "https://github.com/editorconfig-checker/editorconfig-checker/releases/download/v3.11.3/ec-windows-amd64.zip"
+url_api = "https://api.github.com/repos/editorconfig-checker/editorconfig-checker/releases/assets/543324056"
 
 [[tools.gh]]
 version = "2.97.0"
