@@ -13,7 +13,11 @@ maven = "3.9.16"
 # mise's java plugin extracts the OpenJDK archive flat on every platform (Linux/macOS tarball and Windows zip
 # alike -- `bin/java[.exe]` sits directly under the install dir; no `jdk-X.Y.Z+N\` wrapper). Default base
 # directory is mise's per-platform data dir (`~/.local/share/mise` on Unix, `%LOCALAPPDATA%\mise` on Windows);
-# MISE_DATA_DIR overrides on either.
+# MISE_DATA_DIR overrides on either, and MISE_INSTALLS_DIR -- which CI sets to a short root -- relocates the
+# per-tool dirs out from under the data dir entirely, so it has to win where it is set. Missing that branch
+# pointed JAVA_HOME at a path no install ever wrote, and mvn.cmd rejected it with `The JAVA_HOME environment
+# variable is not defined correctly` on commit 4e3ce2838f5f72717114b940ffed37c4e370e1a3 at
+# https://github.com/edge-toolkit/core/actions/runs/33937604970/job/101228460727.
 #
 # Windows-only slash normalization: %LOCALAPPDATA% arrives in mise's tera context with forward slashes
 # (`C:/Users/.../AppData/Local`) but our literal segments use backslashes; the resulting mixed-slash path
@@ -21,7 +25,10 @@ maven = "3.9.16"
 # `| replace(from="/", to="\\")` pass on the prefix normalizes everything to a single backslash. Note the
 # `"\\"` escape: Tera v2 (mise 2026.7.1+) parses C-style backslash escapes in double-quoted strings, so `"\\"`
 # is one literal `\`. (Tera v1 had no escapes and needed a backtick raw-string; Tera v2 dropped backtick strings.)
-java_home = '''{% if os() == "windows" -%}
+java_home = '''{% if os() == "windows" and env?.MISE_INSTALLS_DIR -%}
+{{- env.MISE_INSTALLS_DIR | replace(from="/", to="\\") -}}
+\java\26.0.1
+{%- elif os() == "windows" -%}
 {%- set win_base = (env?.LOCALAPPDATA or "") ~ "\\mise" -%}
 {{- (env?.MISE_DATA_DIR or win_base) | replace(from="/", to="\\") -}}
 \installs\java\26.0.1
@@ -62,16 +69,16 @@ mvn
 [tasks.build-ws-java-data1-module]
 description = "Build the java-data1 workflow module"
 run = "\"$MVN\" package"
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 # Namespaced aggregator picked up by the default config's globbed `check`.
 # The compile triggers maven-compiler-plugin with -Xlint:all -Werror + Error Prone.
 [tasks."check:java"]
 description = "Run Java checks (javac -Xlint:all -Werror, Error Prone)"
 run = "\"$MVN\" -q compile"
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks."prefetch:java"]
 description = "Prefetch Java (Maven) dependencies"
 run = "\"$MVN\" dependency:resolve --quiet"
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"

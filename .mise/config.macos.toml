@@ -130,4 +130,4 @@ if [ -n "$brewy" ]; then
 fi
 mise install conda:lld
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"

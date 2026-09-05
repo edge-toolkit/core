@@ -50,12 +50,15 @@ jobs:
     # This uses the busybox-w32 ash that mise installs in `_setup_all` (the same shell `MISE_BASH_PATH` already
     # points at for `shell = "bash"` tasks on the Windows Docker images). Avoids Git Bash's MSYS fork-emulation
     # cygheap pathology on long-running mise task chains. The path matches the version pin in
-    # `.mise/config.windows.toml`'s [tools."http:busybox"] entry.
+    # `.mise/config.windows.toml`'s [tools."http:busybox"] entry, and its `C:\i` root is the
+    # MISE_INSTALLS_DIR install-mise exports on Windows. A job's `shell` default is resolved before any step
+    # runs, so it cannot read that variable and has to spell the root out -- the gha_mise policy holds the
+    # two together.
     defaults:
       run:
         shell: >-
           ${{ startsWith(matrix.os, 'windows') &&
-              'C:\Users\runneradmin\AppData\Local\mise\installs\http-busybox\1.37.0\ash.exe -euo pipefail {0}'
+              'C:\i\http-busybox\1.37.0\ash.exe -euo pipefail {0}'
               || 'bash --noprofile --norc -euo pipefail {0}' }}
     strategy:
       fail-fast: false
@@ -186,7 +189,7 @@ jobs:
     # Static busybox-w32 ash default (this job is always windows-latest, so no per-OS ternary).
     defaults:
       run:
-        shell: C:\Users\runneradmin\AppData\Local\mise\installs\http-busybox\1.37.0\ash.exe -euo pipefail {0}
+        shell: C:\i\http-busybox\1.37.0\ash.exe -euo pipefail {0}
     steps:
       - name: Checkout
         uses: actions/checkout@v7

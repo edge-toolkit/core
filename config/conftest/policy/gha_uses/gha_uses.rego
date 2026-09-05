@@ -8,10 +8,16 @@
 # `no such command: llvm-cov`.) This promotes that class of typo to a hard failure.
 package gha_uses
 
+# Path separators, normalised so the Windows lane compares equal to the forward-slash paths written here.
+# conftest reports each path the way the OS handed it over, so a rule splitting or ending on `/` sees
+# `.github\actions\x\action.yaml` on Windows and matches nothing. That fails open: the namespace reports
+# clean there while checking nothing, so a violation only ever surfaces on the Linux lanes.
+normalised(path) := replace(path, "\\", "/")
+
 # action dir name -> set of declared input keys, one entry per parsed .github/actions/<name>/action.yaml.
 declared_inputs[name] := names if {
 	some file in input
-	parts := split(file.path, "/")
+	parts := split(normalised(file.path), "/")
 	n := count(parts)
 	parts[n - 1] == "action.yaml"
 	name := parts[n - 2]
@@ -44,5 +50,40 @@ deny contains msg if {
 	msg := sprintf(
 		"%s: step passes input %q to local action %q, which declares no such input (GHA only warns -- treat as error)",
 		[entry.path, key, name],
+	)
+}
+
+# A workflow's hard-coded Windows tool paths must sit under the install root install-mise exports.
+# A job's `defaults.run.shell` is resolved before any step runs, so it cannot read MISE_INSTALLS_DIR and has
+# to spell the root out; nothing then stops the two drifting apart. When they do, the runner cannot find the
+# shell and every step of the job dies at once on `Second path fragment must not be a drive or UNC name`,
+# which names neither mise nor the path at fault -- so this pins the literal to the exported value.
+mise_installs_dir := dir if {
+	some file in input
+	endswith(normalised(file.path), "install-mise/action.yaml")
+	some step in file.contents.runs.steps
+	some m in regex.find_all_string_submatch_n(`MISE_INSTALLS_DIR=([^'"\s]+)`, step.run, -1)
+	dir := m[1]
+}
+
+# Every workflow string naming a mise-installed Windows tool, keyed on the install dir of the shell we pin.
+windows_tool_path contains entry if {
+	some file in input
+	endswith(file.path, ".yaml")
+	walk(file.contents, [_, value])
+	is_string(value)
+	contains(value, "http-busybox")
+	entry := {"path": file.path, "value": value}
+}
+
+# Matched with `contains` rather than `startswith`, since the root need not begin the string.
+# Two of the three sites wrap the path in a `${{ ... }}` per-OS ternary, so the root sits mid-string.
+# Requiring it immediately before the tool dir is the actual invariant either way.
+deny contains msg if {
+	some entry in windows_tool_path
+	not contains(entry.value, sprintf("%s\\http-busybox", [mise_installs_dir]))
+	msg := sprintf(
+		"%s: the http-busybox path must sit under the MISE_INSTALLS_DIR install-mise exports (%q)",
+		[entry.path, mise_installs_dir],
 	)
 }

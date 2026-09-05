@@ -4,13 +4,22 @@
 # py3_*, ...) come from config.toml, which loads first.
 
 [tools]
-# msys2 mirror packages: git (for cargo git deps) and make (some -sys build scripts shell out to it).
+# msys2 mirror package: make, which some -sys crates' build scripts shell out to.
+# msys2 puts make.exe at the nested `Library\usr\bin\`, which mise leaves off PATH by itself -- so the [vars]
+# m2_make_bin + [env] `_.path` below prepend that dir, the same treatment conda:m2-gnupg needs. Without it the
+# task PATH carries only the install's empty `.mise-bins`, and `make` resolves nowhere: mise stopped copying
+# conda executables into `.mise-bins` in 2026.8.5 (jdx/mise#11855), which silently took make off PATH here.
+# Version pinned so the m2_make_bin path stays in sync (conftest's version_drift enforces).
+#
+# git is deliberately NOT a tool: it is a documented Windows prerequisite, installed alongside mise per the
+# README because Git for Windows ships the real bash.exe the tasks need. Linux and macOS declare neither git
+# nor make, taking both from the system, so this keeps Windows closer to them rather than further away.
+#
 # The MSVC CRT + Windows SDK can't come from mise, so the build uses the LLVM mingw toolchain (the gnullvm
 # target below); llvm-mingw bundles clang + lld + the mingw-w64 runtime/headers/libs + the libclang.dll
 # bindgen loads. Pinned so its install dir is deterministic: the version segment is repeated in the
 # win_llvm_bin var below -- bump together (conftest's version_drift enforces).
-"conda:m2-git" = "latest"
-"conda:m2-make" = "latest"
+"conda:m2-make" = "4.4.1.2"
 # gpg for mise's node-verify path, replacing the global `conda:gnupg`.
 # (conda-forge doesn't build that for win-64.) msys2 layout puts gpg.exe at the nested `Library\usr\bin\` --
 # the [vars] m2_gnupg_bin + [env] `_.path` below prepend that dir so subprocess PATH actually finds it.
@@ -43,10 +52,10 @@
 # A native Win32 single exe with no cygwin/msys runtime, so it loads on a bare Nano Server, unlike conda's
 # msys2 bash whose msys-2.0.dll imports KERNEL32!IdnToAscii / IdnToUnicode that Nano's stripped kernel32
 # forwarder doesn't re-export (-> 0xC0000139; unfixable -- the system file + registry are ACL-locked).
-# Renamed `ash.exe` so mise -- whose POSIX-shell list is bash/sh/zsh/fish/ksh/dash, NOT ash -- doesn't
-# rewrite the task PATH into msys form, which native busybox-w32 can't resolve. Checksum-pinned so a silent
-# upstream rebuild fails loudly; `.exe` because mise writes the bin name verbatim and Windows launches by
-# extension.
+# Renamed `ash.exe` to say what the binary is wherever it appears; `.exe` because mise writes the bin name
+# verbatim and Windows launches by extension. The name buys nothing beyond that -- mise normalises a task's
+# PATH whatever the shell is called, which is why the tasks route their bodies through a wrapper rather than
+# relying on the name. Checksum-pinned so a silent upstream rebuild fails loudly.
 [tools."http:busybox"]
 bin = "ash.exe"
 checksum = "sha256:6e263d154d8548d1eb936f65d1d8312c80df31c45974e48d6335e4dcc0f4f34c"
@@ -96,8 +105,13 @@ version = "{{ vars.rust_nightly }}-x86_64-pc-windows-gnullvm"
 [vars]
 # Forward-slashed mise installs root, for values spliced unquoted into bash task command lines.
 # Composed from LOCALAPPDATA directly (not vars.mise_installs) because [vars] render alphabetically and
-# an a_-prefixed var cannot reference the later-sorting mise_installs.
-a_mise_installs_fwd = '{{ (env?.LOCALAPPDATA or "") | replace(from="\\", to="/") }}/mise/installs'
+# an a_-prefixed var cannot reference the later-sorting mise_installs. Honours MISE_INSTALLS_DIR for the
+# same reason mise_installs does.
+a_mise_installs_fwd = '''{% if env?.MISE_INSTALLS_DIR -%}
+{{- env.MISE_INSTALLS_DIR | replace(from="\\", to="/") -}}
+{%- else -%}
+{{- (env?.LOCALAPPDATA or "") | replace(from="\\", to="/") -}}/mise/installs
+{%- endif %}'''
 # clang-tidy's builtin-header resource dir (config.linux.toml solves the same gap with conda's clang).
 # llvm-mingw ships the clang resource headers (stddef.h/stdint.h -- everything the zig-data1 C needs),
 # and conda's clang-tidy is the same LLVM 22 major. The trailing `22` is clang's major version, not the
@@ -112,8 +126,16 @@ dart_typegen_asset = "0.1.13-x86_64-pc-windows-msvc.tar.gz"
 gnupg_w32_asset = "2.5.20_20260513-x86_64-pc-windows.tar.gz"
 
 # Root of mise's per-tool install dirs (the mise data dir is LOCALAPPDATA\mise).
-# The install-path vars below all hang off it.
-mise_installs = '{{ env?.LOCALAPPDATA or "" }}\mise\installs'
+# The install-path vars below all hang off it, MISE_BASH_PATH among them, so it has to name wherever mise
+# actually installed -- hence the MISE_INSTALLS_DIR branch. CI sets that variable to a short path because
+# one PATH entry per tool under the default 48-character LOCALAPPDATA root overruns the 8191 characters
+# Windows hands a child process, at which point every tool stops resolving at once. Left unset (a normal
+# workstation), this stays mise's own default.
+mise_installs = '''{% if env?.MISE_INSTALLS_DIR -%}
+{{- env.MISE_INSTALLS_DIR -}}
+{%- else -%}
+{{- env?.LOCALAPPDATA or "" -}}\mise\installs
+{%- endif %}'''
 # busybox `ash` install path for MISE_BASH_PATH.
 # Keyed by the pinned http:busybox version above -- keep in sync.
 winsh = '{{ vars.mise_installs }}\http-busybox\1.37.0\ash.exe'
@@ -133,8 +155,22 @@ ort_loc_win = '{{ vars.mise_installs }}\github-microsoft-onnxruntime\1.22.0'
 # LLVM, which defaults to the MSVC target and can't link gnullvm objects.
 win_llvm_bin = '{{ vars.mise_installs }}\github-mstorsjo-llvm-mingw\20260602\bin'
 # conda:m2-gnupg's msys2 binary dir.
+# Cargo's own bin dir, prepended by the [env] `_.path` below so `cargo` resolves inside a task body.
+# mise's rust runtime never materialises a tool tree: it points installs/rust/<ver> at $CARGO_HOME/bin as an
+# absolute symlink, so that dir is where cargo actually lives. On the Windows lanes a task body still could
+# not see it -- `ash: line 0: cargo: not found` from prefetch:rust's `cargo fetch`, on commit
+# db14f344b954... at https://github.com/edge-toolkit/core/actions/runs/33850033002/job/100950506987, with
+# rust reported installed and PATH already back under the 8191-character ceiling. Naming the dir outright
+# does not depend on that symlink resolving.
+cargo_bin = '''{% if env?.CARGO_HOME -%}
+{{- env.CARGO_HOME -}}\bin
+{%- else -%}
+{{- env?.USERPROFILE or "" -}}\.cargo\bin
+{%- endif %}'''
 # Pinned to the [tools] version so the [env] _.path entry resolves; bump both together.
 m2_gnupg_bin = '{{ vars.mise_installs }}\conda-m2-gnupg\2.2.41.1\Library\usr\bin'
+# msys2's make.exe dir, on the same terms as m2_gnupg_bin above.
+m2_make_bin = '{{ vars.mise_installs }}\conda-m2-make\4.4.1.2\Library\usr\bin'
 # Maven's bin dir lives nested at `apache-maven-X.Y.Z/bin/` inside its install.
 # mise's bin auto-discovery walks into this subdir on Linux/macOS but not on Windows, so `mvn` isn't on PATH
 # without an explicit entry. Pinned to the config.java.toml [tools] maven version -- bump both together.
@@ -228,12 +264,18 @@ ORT_PREFER_DYNAMIC_LINK = "1"
 # The libclang entry puts its dependency DLLs (zlib/zstd) where LoadLibrary's classic search finds them.
 # clang-sys loads libclang.dll via libloading with flags=0, where a DLL's dependencies resolve via PATH,
 # not via the loaded DLL's own directory (error 126 otherwise).
-_.path = ["{{ vars.m2_gnupg_bin }}", "{{ vars.maven_bin }}", "{{ vars.win_libclang }}"]
+_.path = [
+  "{{ vars.cargo_bin }}",
+  "{{ vars.m2_gnupg_bin }}",
+  "{{ vars.m2_make_bin }}",
+  "{{ vars.maven_bin }}",
+  "{{ vars.win_libclang }}",
+]
 
 [tasks.preinstall]
 # Preinstall, shared across every Windows host (CI runner, workstation, Nano container).
 # The busybox `sh` (http:busybox) is installed by an earlier cmd bootstrap, so this task's `bash -euo pipefail`
-# shell (= busybox ash via MISE_BASH_PATH) works. Installs the build utils (git/gpg/make), llvm-mingw and
+# shell (= busybox ash via MISE_BASH_PATH) works. Installs the build utils (gpg/make), llvm-mingw and
 # rust, pip-installs pipx (the backend for the pipx:* tools, since aqua has no Windows pipx build), then
 # flips rustup's default host to gnullvm so both host and target link via llvm-mingw rather than the absent
 # MSVC link.exe (no Visual Studio Build Tools needed). The prereqs mise CAN'T supply (a recent mise + the
@@ -290,9 +332,15 @@ echo "[sha256sum-check] OK"
 #
 # `mise settings set` writes the user's global config, so this covers workstations as well as CI -- an env var
 # exported by the workflows would only ever fix CI. Idempotent, and scoped to this one Windows-only key.
-mise settings set windows_default_inline_shell_args "bash -euo pipefail -c"
+#
+# The value carries this checkout's absolute path, because a global setting is stored verbatim and gets no
+# template rendering or cwd-relative resolution of its own. Two checkouts therefore share whichever one ran
+# preinstall last; harmless while both exist, since the wrapper is identical in each, and re-running preinstall
+# repoints it if that checkout goes away. Single-quoted so the double quotes that keep a space-bearing path in
+# one operand reach mise intact.
+mise settings set windows_default_inline_shell_args '{{ vars.task_shell }}'
 
-mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
+mise install conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
 
 # rustup's default-host still resolves bare channel names to msvc on Windows.
 # Even though [[tools.rust]] above installs the *gnullvm*-host toolchains
@@ -363,7 +411,7 @@ else
   echo "[preinstall] no python on PATH and ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP unset; skipping pipx setup"
 fi
 """
-shell = "bash -xeuo pipefail -c"
+shell = "{{ vars.task_shell_trace }}"
 # bash -x (xtrace) on this OS-specific preinstall.
 # CI failures on Nano (rclone-not-found, sha256 path mangling, etc.) are easier to diagnose with the full
 # per-command transcript than with the silent default.

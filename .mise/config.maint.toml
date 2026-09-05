@@ -78,7 +78,7 @@ fi
 title="Hugging Face asset mirror ($tag)"
 gh release create "$tag" --repo "$GH_REPO" --title "$title" --notes "" --prerelease </dev/null
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.publish-face1-to-hf-cache]
 depends = ["bootstrap-hf-cache-release"]
@@ -141,7 +141,7 @@ EOF
 echo "uploaded $asset to {{ vars.a_hf_cache_tag }} (commit $commit)"
 echo "updated config/upstream-cache/data.toml + .mise/config.toml; conftest will catch any drift"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.publish-eye1-to-hf-cache]
 depends = ["bootstrap-hf-cache-release"]
@@ -174,7 +174,7 @@ EOF
 echo "uploaded $asset to {{ vars.a_hf_cache_tag }}"
 echo "updated config/upstream-cache/data.toml sha256; conftest will catch any drift"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-rp-wasm]
 description = "Build rustpython_wasm via wasm-pack from a local RustPython checkout"
@@ -197,7 +197,7 @@ if [ -f "$rp_dir/crates/wasm/pkg/rustpython_wasm_bg.wasm" ]; then
 fi
 wasm-pack build "$rp_dir/crates/wasm" --target web {{ vars.no_opt }}
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.bootstrap-rp-release]
 description = "Create the rp-v<N> GitHub release if it doesn't exist (idempotent)"
@@ -211,7 +211,7 @@ fi
 title="Pre-built rustpython artifacts ($RP_RELEASE)"
 gh release create "$RP_RELEASE" --repo "$GH_REPO" --title "$title" --notes "" --prerelease </dev/null
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.publish-rp-wasm-to-release]
 depends = ["bootstrap-rp-release", "build-rp-wasm"]
@@ -260,7 +260,7 @@ EOF
 echo "uploaded $asset to $RP_RELEASE (commit $commit)"
 echo "updated config/upstream-cache/data.toml + .mise/config.toml; conftest will catch any drift"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 # Source-build rustpython with the upstream `freeze-stdlib` feature.
 # The resulting binary embeds the Python stdlib -- no RUSTPYTHONPATH dance required at consumer side, unlike
@@ -325,7 +325,7 @@ if [ "${OS:-}" = "Windows_NT" ]; then
 fi
 cargo install --path "$rp_dir" --features freeze-stdlib --root "$prefix" rustpython
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.publish-rp-native-to-release]
 depends = ["bootstrap-rp-release", "build-rp-native"]
@@ -406,7 +406,7 @@ EOF
 
 echo "updated http:et-rp version + platforms.${plat}.{url,checksum} in .mise/config.toml"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 # Probe how far rustpython gets at hosting real Python tooling.
 # Load an older extracted pip onto sys.path, use pipx to install + run cowsay, and fall back to a pip-only
@@ -518,7 +518,7 @@ echo
 echo "== run cowsay via rustpython -m cowsay =="
 step rustpython -m cowsay -t "rustpython lives via pip-only path"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 # Publish this platform's mise tool tree to its per-platform GHCR store (maintainer-only).
 # The stores under ghcr.io/edge-toolkit/core/mise-tools/<os>-<arch> feed CI's install-mise-tools restore
@@ -574,7 +574,7 @@ MISE_ENV="$ALL_LANGS" mise install
 MISE_ENV="$ALL_LANGS" mise run oci-build-store "$out"
 "$crane" push "$out" "$ref"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 # Publish the linux-x64 mise tool tree store from any host via docker (maintainer-only).
 # Lets a maintainer on a macOS laptop refresh the store CI's linux lanes restore from. Reuses the
@@ -612,7 +612,7 @@ mnt="$PWD/$out:/oci-out"
 docker run --rm --platform linux/amd64 -v "$mnt" et-mise-linux mise run oci-build-store /oci-out
 "$crane" push "$out" "$ref"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 # Verify every mise-tools GHCR store is public, so unauthenticated users can pull-mise-tools.
 # GHCR has NO API to change package visibility -- the packages REST surface is read/delete/restore only,
@@ -648,7 +648,7 @@ for p in $private; do
 done
 exit 1
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 # --- Bootstrap tasks for upstream-cache releases.
 # Idempotent gh release view+create -- safe to re-run.
@@ -667,7 +667,7 @@ notes="https://github.com/hercules-team/augeas
 LGPL-2.1+"
 gh release create "$tag" --repo "$GH_REPO" --title "$tag" --notes "$notes" --prerelease </dev/null
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.bootstrap-dart-typegen-release]
 description = "Create the dart-typegen-v1 GitHub release if it doesn't exist (idempotent)"
@@ -681,7 +681,7 @@ notes="https://github.com/cameron1024/dart-typegen
 MIT OR Apache-2.0"
 gh release create "$tag" --repo "$GH_REPO" --title "$tag" --notes "$notes" --prerelease </dev/null
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.bootstrap-gnupg-w32-release]
 description = "Create the gnupg-w32-v1 GitHub release if it doesn't exist (idempotent)"
@@ -695,7 +695,7 @@ notes="https://gnupg.org
 GPL-3.0+"
 gh release create "$tag" --repo "$GH_REPO" --title "$tag" --notes "$notes" --prerelease </dev/null
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.release-rust-crates]
 description = "Publish one batch of five workspace crates to crates.io (dry run without --execute)"
@@ -756,7 +756,7 @@ fi
 echo "batch $usage_batch: ${crates[*]:start:per_batch}"
 cargo "${args[@]}"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 usage = """
 arg "<batch>" help="Which batch of five to publish, counting from 1"
 flag "--execute" help="Actually publish; omit to print the plan and change nothing"

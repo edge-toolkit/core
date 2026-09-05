@@ -17,6 +17,16 @@ inputs:
       same step as mise. Forwarded to install-mise's `extra-tools` input.
     required: false
     default: ""
+  restore-store:
+    description: >-
+      Whether to seed the mise data dir from this platform's GHCR store before
+      installing. Off while the published store predates the pinned mise: its
+      tool layouts read as installed but do not resolve, so a restore hides
+      tools from `mise install` instead of saving it work. Flip the default
+      back to "true" once a maintainer has republished every platform's store
+      with the pinned mise.
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -50,7 +60,16 @@ runs:
     # `mise install` that follows then verifies mostly-installed tools with near-zero API traffic. Any
     # restore failure (store not yet published, or a token that can't read it) falls through to the plain
     # cold install.
+    #
+    # Gated off by the `restore-store` input's default for now -- a store published by an older mise lays down
+    # tool layouts the pinned mise counts as installed but cannot resolve, so `mise install` finds no gap to fill
+    # and the tool never reaches PATH. On macOS that surfaced as `bash: wasm-pack: command not found` on commit
+    # 0e7273a1154db315a0f584077db4565ba66be603 at
+    # https://github.com/edge-toolkit/core/actions/runs/33727571518/job/100559962060, reproduced since against a
+    # 2026.9.0 binary on an install tree 2026.8.5 resolves fine. Cold-installing everything reinstates the
+    # rate-limit exposure described above, so this is a stopgap until the stores are republished.
     - name: Restore mise tools from GHCR
+      if: inputs.restore-store == 'true'
       shell: bash --noprofile --norc -euo pipefail {0}
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}

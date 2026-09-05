@@ -216,4 +216,4 @@ if [ -n "$missing" ]; then
   exit 1
 fi
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"

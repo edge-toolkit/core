@@ -16,56 +16,41 @@
 url = "https://github.com/r-wasm/webr/releases/download/v{{version}}/webr-{{version}}.tar.gz"
 version = "0.6.0"
 
-# The two R modules share an identical vendoring step.
+[vars]
+# The vendoring step every R module shares.
 # webR is a prebuilt wasm distribution, so "building" a module is just staging that distribution into the
 # module's pkg/webr/. `http:webr` downloads and unpacks it flat; copy that install dir into the module's
 # pkg/webr/ (dropping mise's own metadata.json). The module's package.json makes pkg/ a served package, so the
 # copied webr/ subtree rides along as static assets under /modules/<module>/webr/.
+#
+# Every `$` here is doubled: a [vars] value goes through mise's config-load `$VAR` expansion (a task `run` body
+# does not), so a bare `$src` would resolve against the loading environment and warn when unset.
+webr_vendor_sh = """
+src="$$(mise where "http:webr")"
+[ -n "$$src" ] || {
+  echo "http:webr not installed; run 'MISE_ENV=r mise install' first" >&2
+  exit 1
+}
+coreutils rm -rf pkg/webr
+coreutils mkdir -p pkg/webr
+coreutils cp -R "$$src/." pkg/webr/
+coreutils rm -f pkg/webr/metadata.json
+"""
 
 [tasks.build-ws-rdata1-module]
 description = "Vendor the webR distribution into rdata1's pkg/webr/ (served at /modules/et-ws-rdata1/webr/)"
 dir = "services/ws-modules/rdata1"
-run = """
-src="$(mise where "http:webr")"
-[ -n "$src" ] || {
-  echo "http:webr not installed; run 'MISE_ENV=r mise install' first" >&2
-  exit 1
-}
-coreutils rm -rf pkg/webr
-coreutils mkdir -p pkg/webr
-coreutils cp -R "$src/." pkg/webr/
-coreutils rm -f pkg/webr/metadata.json
-"""
-shell = "bash -euo pipefail -c"
+run = "{{ vars.webr_vendor_sh }}"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-rmath1-module]
 description = "Vendor the webR distribution into rmath1's pkg/webr/ (served at /modules/et-ws-rmath1/webr/)"
 dir = "services/ws-modules/rmath1"
-run = """
-src="$(mise where "http:webr")"
-[ -n "$src" ] || {
-  echo "http:webr not installed; run 'MISE_ENV=r mise install' first" >&2
-  exit 1
-}
-coreutils rm -rf pkg/webr
-coreutils mkdir -p pkg/webr
-coreutils cp -R "$src/." pkg/webr/
-coreutils rm -f pkg/webr/metadata.json
-"""
-shell = "bash -euo pipefail -c"
+run = "{{ vars.webr_vendor_sh }}"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-rcomm1-module]
 description = "Vendor the webR distribution into rcomm1's pkg/webr/ (served at /modules/et-ws-rcomm1/webr/)"
 dir = "services/ws-modules/rcomm1"
-run = """
-src="$(mise where "http:webr")"
-[ -n "$src" ] || {
-  echo "http:webr not installed; run 'MISE_ENV=r mise install' first" >&2
-  exit 1
-}
-coreutils rm -rf pkg/webr
-coreutils mkdir -p pkg/webr
-coreutils cp -R "$src/." pkg/webr/
-coreutils rm -f pkg/webr/metadata.json
-"""
-shell = "bash -euo pipefail -c"
+run = "{{ vars.webr_vendor_sh }}"
+shell = "{{ vars.task_shell }}"

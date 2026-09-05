@@ -10,30 +10,13 @@
 #   Run a check across everything:      mise run check-all  (or install-all)
 #   Make a selection sticky:            export MISE_ENV=dart
 
-# Held deliberately below the latest mise release; the floor still covers auto_env enabled in .miserc.toml.
-# 2026.9.0 was tried and reverted -- it reddens three lanes that the branch merged immediately before had green,
-# all observed on commit 0e7273a1154db315a0f584077db4565ba66be603. Two of the three follow a pull-mise-tools
-# restore, so a mise-tools store published by an older mise is a live candidate for those rather than a mise
-# regression; the first rules out blaming the store for all of it, since that workflow restores no store. Expect
-# a republished store to be a prerequisite of the next bump rather than something the bump's PR can fix itself.
-#
-# 1. dependencies (linux), a workflow that restores no store: a tool whose declared install dependency is not
-#    installed yet is now a hard error --
-#    `tool 'npm:@huggingface/transformers@latest' requires configured install dependency 'node@22', but its
-#    selected version is not installed`. Nothing installs node before osv-scanner-npm runs.
-#    https://github.com/edge-toolkit/core/actions/runs/33727571401/job/100559961260
-# 2. check (windows), after restoring 63 tool versions: mise stops resolving itself by bare name inside a task
-#    body, so _setup_all dies on its first `mise install` line with `ash: line 5: mise: not found`. The same run
-#    warns `MISE_BASH_PATH=...\http-busybox\1.37.0\ash.exe does not exist`, which points at the restored tree --
-#    though 2026.9.0 also added the shims_dir / system_shims_dir settings and reworked shim generation, and
-#    install-mise puts a hardcoded %LOCALAPPDATA%\mise\shims on PATH.
-#    https://github.com/edge-toolkit/core/actions/runs/33727571395/job/100559961676
-# 3. test (macos), after restoring 65 tool versions: a restored tool counts as installed yet never reaches PATH,
-#    so the build hits `bash: wasm-pack: command not found` once `mise install` has filled 30 other gaps and
-#    exited 0. mise writes no install receipt, so "installed" is directory existence alone -- exactly the shape
-#    a store built by a different mise version would produce.
-#    https://github.com/edge-toolkit/core/actions/runs/33727571518/job/100559962060
-min_version = "2026.8.5"
+# Pinned at the newest mise taiki-e/install-action can fetch; the floor also covers auto_env in .miserc.toml.
+# 2026.9.1 exists but is absent from install-action's manifest, so requesting it drops CI into a cargo-binstall
+# source build. Coming off 2026.8.5 took three workarounds, each carried at its own call site: osv-scanner-npm
+# installs node ahead of any npm: tool, install-mise-tools stops restoring the GHCR store, and every task
+# declares a `shell` that routes its body through a wrapper script. A warm checkout needs `mise install` re-run
+# once -- a tool this mise cannot resolve still reports as installed, so nothing refetches it on its own.
+min_version = "2026.9.0"
 
 [settings]
 # Disable mise's two auto-install paths so tasks fail fast on a missing tool.
@@ -106,7 +89,15 @@ watchexec = "latest"
 # confirm the Windows zip layout hasn't reverted before raising the pin.
 coreutils = "0.6.0"
 dprint = "latest"
-editorconfig-checker = "latest"
+# Held at the last release whose assets aqua's registry entry still names.
+# v4.0.0 renamed every asset from `ec-<os>-<arch>` to `editorconfig-checker-<os>-<arch>`, and aqua's manifest
+# was not updated, so `latest` resolves to a version whose download it cannot find:
+#   aqua:editorconfig-checker/editorconfig-checker@latest: no asset found: ec-windows-amd64.zip
+# on commit 02d645a30b89850b5d27711e0dd8f61780dcdcb3 at
+# https://github.com/edge-toolkit/core/actions/runs/33945730231/job/101251329874. The rename is not
+# Windows-specific -- every platform's asset moved -- so this holds every lane, not just that one. Drop the pin
+# once the aqua registry ships a version_overrides entry for 4.x.
+editorconfig-checker = "3.11.3"
 # ripgrep (rg): the Rust grep that tasks use in place of the host's grep.
 ripgrep = "latest"
 # uutils findutils (find + xargs), pinned to 0.8.0 (0.9.0 ships no binaries).
@@ -604,11 +595,23 @@ gh_http = "--http-url https://github.com --progress --ignore-existing"
 # .editorconfig sets for every file in the repo, and `-ci` to keep `case` arms indented under their `case`
 # (shfmt's default pulls them back to the `case` column, which every body in these configs disagrees with).
 shfmt_args = "-ln bash -i 2 -ci"
+# Shell every task runs its body under.
+# The trailing operand is a wrapper script rather than `-c`: mise hands the body over as the argument after the
+# shell operands either way, and a script file is the only one of the two forms that can run anything before the
+# body does. Double-quoted so a checkout path containing a space still arrives as one operand -- mise splits a
+# `shell` string on whitespace, honouring double quotes but not single.
+task_shell = 'bash -euo pipefail "{{ config_root }}/.mise/task-shell.sh"'
+# `set -x` variant, for a body whose every command should be traced.
+task_shell_trace = 'bash -xeuo pipefail "{{ config_root }}/.mise/task-shell.sh"'
+# Unguarded variant, for a body that checks its own exit codes and must not abort on the first failure.
+task_shell_plain = 'bash "{{ config_root }}/.mise/task-shell.sh"'
 # OpenObserve docker image for the openobserve/o2 dev-observability task.
 o2_image = "openobserve/openobserve:v0.91.5"
 # OpenTelemetry Collector image for the o2-hostmetrics / o2-macmon / o2-nvidia / o2-winmetrics tasks.
 otelcol_image = "otel/opentelemetry-collector-contrib:0.156.0"
-rp_wasm_dir = '''{% if os() == "windows" -%}
+rp_wasm_dir = '''{% if os() == "windows" and env?.MISE_INSTALLS_DIR -%}
+{{- env.MISE_INSTALLS_DIR | replace(from="\\", to="/") -}}/http-rp-wasm/{{- vars.a_rp_wasm_short -}}
+{%- elif os() == "windows" -%}
 {%- set base = (env?.LOCALAPPDATA or "") | replace(from="\\", to="/") -%}
 {{- base -}}/mise/installs/http-rp-wasm/{{- vars.a_rp_wasm_short -}}
 {%- else -%}
@@ -684,7 +687,7 @@ git ls-files '*.jq' | while read -r f; do
   coreutils mv "$f.tmp" "$f"
 done
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks."fmt:rust"]
 # Rust + universal formatters. Always-loaded, so `fmt`'s glob always matches it.
@@ -879,7 +882,7 @@ coreutils mkdir -p "$ort_build_dir/examples" "$ort_build_dir/deps"
 tc="{{ vars.rust_nightly }}"
 cargo "+$tc" doc --keep-going --workspace --no-deps --document-private-items {{ vars.cargo_ws_excludes }}
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.cargo-clippy-fix]
 run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace --tests {{ vars.cargo_ws_excludes }}"
@@ -913,7 +916,13 @@ ns=$(for n in $ns_list; do echo -n " --namespace $n"; done)
 git ls-files '*Cargo.toml' '.mise/config*.toml' '*pyproject.toml' Cargo.lock config/upstream-cache/data.toml |
   xargs conftest test --combine --parser toml $ns -p config/conftest/policy
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
+
+# Ratchet the jscpd duplication baseline against the count declared in the policy.
+# One file, no --combine, so the policy reads the parsed baseline as `input` directly.
+[tasks.conftest-check-jscpd]
+description = "Check the jscpd baseline has not grown (conftest)"
+run = "conftest test --namespace jscpd -p config/conftest/policy config/jscpd-baseline.json"
 
 # Rego unit tests living beside the policies, for invariants the real policy runs cannot reach from one OS.
 # Named into the conftest-check-* family so the `check` aggregate always picks it up.
@@ -930,7 +939,7 @@ files="config/generated-trees.toml config/jscpd.json config/pyrefly.toml config/
 # shellcheck disable=SC2086 # $files is a word-split path list by design; do not quote it.
 conftest test --combine --namespace generated_trees -p config/conftest/policy $files
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.conftest-check-yaml]
 description = "Run conftest OPA/Rego policies over the GitHub Actions workflow + action YAML"
@@ -954,7 +963,7 @@ conftest test --parser yaml --namespace gha_action -p config/conftest/policy .gi
 conftest test --combine --namespace gha_mise -p config/conftest/policy .github/workflows .mise
 conftest test --parser yaml --combine --namespace gha_uses -p config/conftest/policy .github/workflows .github/actions
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.conftest-check-dockerfile]
 description = "Cross-check Dockerfiles against mise [tools] pins + heredoc body-first-line invariants"
@@ -979,7 +988,7 @@ for f in $files; do
   fi
 done
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.regal-check]
 description = "Lint Rego policy files with Regal (style, idiomatic, bugs)"
@@ -1020,7 +1029,7 @@ for cfg in .mise/config*.toml; do
 done
 shellcheck --shell=bash --exclude=SC2034,SC2154 "$boot"/*.sh
 '''
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.shfmt-mise-check]
 description = "Check that every multi-line bash mise task body is shfmt-formatted"
@@ -1051,7 +1060,7 @@ for cfg in .mise/config*.toml; do
 done
 exit $status
 '''
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.shfmt-mise-fmt]
 description = "Format every multi-line bash mise task body with shfmt"
@@ -1073,7 +1082,7 @@ for cfg in .mise/config*.toml; do
   coreutils cp "$d/merged.toml" "$cfg"
 done
 '''
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 # taplo-fmt rewrites every .mise/config*.toml in full, and so does this task.
 # fmt:rust runs its dependencies as parallel siblings, so with no ordering edge between the two the second
 # writer silently drops the first one's work. `wait_for` rather than `depends` because the edge only matters
@@ -1134,12 +1143,13 @@ non_maint=$(find .mise -maxdepth 1 -name 'config*.toml' ! -name 'config.maint.to
 # shellcheck disable=SC2086
 taplo lint --schema "file:///${PWD#/}/config/taplo/mise-cargo-backend-allowlist.schema.json" $non_maint
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.readme-mise-version-check]
 # Keep the README's stated mise version in sync with the enforced `min_version` in .mise/config.toml.
 # No structural linter spans a markdown prose value and a TOML value, so this is a small goawk/coreutils compare.
-# The README names one exact version rather than a floor, so the match anchors on its install line.
+# The README states the same version as a floor ("or later"), so the match takes the first version on its
+# install line and compares that; the trailing words are not part of the comparison.
 description = "Fail if README.md's mise version differs from min_version in .mise/config.toml"
 run = """
 # README.md is excluded from the docker build context, so it is absent when `check` runs inside an image.
@@ -1157,7 +1167,7 @@ if [ "$config_version" != "$readme_version" ]; then
   exit 1
 fi
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.typos-check]
 alias = "typos"
@@ -1209,7 +1219,7 @@ mise install github:benhoyt/goawk
 # doesn't trip with `rclone: command was not found`.
 mise install rclone
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.osv-scanner-check]
 # Scans every committed lockfile across languages for known vulnerabilities.
@@ -1234,7 +1244,7 @@ run = """
   echo ']'
 } >config/osv-scanner.toml
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.cargo-deny-check]
 description = "Audit dependencies with cargo-deny (advisories, bans, licenses, sources)"
@@ -1255,7 +1265,7 @@ if [ -n "$extra" ]; then
 fi
 exit "$rc"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.cargo-unmaintained-check]
 description = "Flag dependencies whose upstream repo is archived or unmaintained"
@@ -1271,7 +1281,7 @@ run = """
 export GITHUB_TOKEN
 cargo unmaintained
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks."gen:dockerignore"]
 description = "Regenerate .dockerignore from .gitignore + Docker-only excludes"
@@ -1303,7 +1313,7 @@ run = '''
   '
 } | coreutils tr -d '\r' >.dockerignore
 '''
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.dockerignore-check]
 depends = ["gen:dockerignore"]
@@ -1335,7 +1345,7 @@ echo "branch-up-to-date-check: HEAD is behind origin/main by $behind commit(s)."
 echo "Other checks may fail in files this branch never touched. Rebase first: git pull --rebase origin main"
 exit 1
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.prefetch-ci]
 # `build-ws-wasm-agent` produces `services/ws-wasm-agent/pkg/`.
@@ -1361,13 +1371,13 @@ description = "Prefetch the Rust (cargo) dependencies"
 # The actual build happens in build-modules / the test step. Avoids
 # the redundant `cargo check --workspace` compile (and its large target/ dir).
 #
-# `shell = "bash"` is load-bearing on Windows: as a base-config task, mise's child-cmd PATH composition
-# drops the shim-dir / `~/.cargo/bin` entries (the same dropout the build-et-cli task uses `shell = "bash"`
-# to avoid). Captured on 3ac0d60b, windows job 82277109482 -- bare `cargo` resolved via pwsh `where.exe`
+# Declaring a bash `shell` is load-bearing on Windows: as a base-config task, mise's child-cmd PATH composition
+# drops the shim-dir / `~/.cargo/bin` entries (the same dropout the build-et-cli task declares one to
+# avoid). Captured on 3ac0d60b, windows job 82277109482 -- bare `cargo` resolved via pwsh `where.exe`
 # in the parent step but the cmd subprocess mise spawned didn't see it. Bash (ash via MISE_BASH_PATH on
 # Windows) inherits the right PATH.
 run = "cargo fetch"
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-wasm-agent]
 description = "Build the WebSocket WASM client"
@@ -1377,10 +1387,10 @@ dir = "services/ws-wasm-agent"
 # `-Z build-std=std,panic_abort`. Without build-std the precompiled std doesn't get the mvp target-feature
 # treatment, but the agent doesn't need that for correctness. Lives in the global config (not config.rust.toml)
 # so other globally-loaded tasks -- prefetch-ci's transitive deps via `prefetch:node` -- can reference it
-# without forcing `rust` into MISE_ENV. `shell = "bash"` for the same base-config PATH-dropout reason
-# `prefetch:rust` carries it.
+# without forcing `rust` into MISE_ENV. A bash `shell` for the same base-config PATH-dropout reason
+# `prefetch:rust` carries one.
 run = "wasm-pack build . --target web {{ vars.no_opt }}"
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks."prefetch:node"]
 # Needs `build-ws-wasm-agent` first.
@@ -1393,11 +1403,11 @@ env = { CI = "true" }
 # Installs the whole workspace from the repo root, so no --dir.
 # The members come from pnpm-workspace.yaml and the resolution lands in the single root pnpm-lock.yaml.
 run = "pnpm install --ignore-scripts"
-# `shell = "bash"` on Windows for the same base-config-task PATH dropout.
+# A bash `shell` on Windows for the same base-config-task PATH dropout.
 # Same dropout as `prefetch:rust` and `build-et-cli` -- cmd subprocess can't find pnpm. Captured on
 # 3ac0d60b windows test job 82282265424 (after the prefetch:rust fix, the same failure surfaced one step
 # downstream in prefetch:node).
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.regenerate-verification]
 alias = "regen-verification"
@@ -1429,7 +1439,7 @@ for crate in et-cli et-int-gen et-onnx; do
   coreutils mv "$s/$crate.md" "$helpmd"
 done
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.gen-help-check]
 depends = ["gen-help-all"]
@@ -1457,7 +1467,7 @@ cargo run -q -p et-int-gen --bin et-int-gen -- generate core
 cargo run -q -p et-int-gen --bin et-int-gen -- generate rust
 cargo +{{ vars.rust_nightly }} fmt -p et-rest-client
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks."gen:wasmtime-bindings"]
 depends = ["gen:ws-spec"]
@@ -1531,7 +1541,7 @@ else
   cargo run
 fi
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-et-cli]
 # Pre-build et-cli once.
@@ -1546,7 +1556,7 @@ shell = "bash -euo pipefail -c"
 # cmd-subprocess failure.
 description = "Build et-cli (prereq for the module-package-json steps)"
 run = "cargo build -p et-cli"
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 # Install the tools the GHCR-store tasks call, so they work on a checkout that never ran a full `mise install`.
 # gh is only needed by the maint tasks, but one shared helper beats three near-copies.
@@ -1634,7 +1644,7 @@ for home in "$installs"/java/*/Contents/Home; do
 done
 MISE_DISABLE_TOOLS="$disabled" MISE_EXPERIMENTAL=1 mise oci build -o "$out"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 usage = 'arg "<out>" help="Output directory for the OCI image layout"'
 
 # Pre-populate the local mise data dir from this platform's GHCR tool store.
@@ -1703,7 +1713,7 @@ done
 echo "restored $restored tool versions into $data/installs"
 echo "done; run 'mise install' to fill gaps and regenerate shims"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 usage = 'arg "[platform]" help="CI platform store to pull (default: the current platform)" default=""'
 
 [tasks.build-modules]
@@ -1765,14 +1775,14 @@ export ZO_DATA_DIR="$PWD/target/o2-data"
 openobserve init-dir -p "$ZO_DATA_DIR"
 openobserve
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.o2-native-clean]
 description = "Delete native OpenObserve data under target/o2-data (stop o2-native first if it is running)"
 run = """
 coreutils rm -rf target/o2-data
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.o2-hostmetrics]
 description = "Ship host CPU/memory/disk/network metrics to the local o2 via an OpenTelemetry Collector"
@@ -1781,7 +1791,7 @@ cfg="$PWD/config/otelcol-hostmetrics.yaml:/etc/otelcol-contrib/config.yaml:ro"
 img="{{ vars.otelcol_image }}"
 docker run --rm --name o2-hostmetrics --network host -v /:/hostfs:ro -v "$cfg" --env-file config/o2.env "$img"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.o2-macmon]
 description = "Ship Apple Silicon CPU/GPU/power metrics to the local o2 (native macmon scraped by a collector)"
@@ -1793,7 +1803,7 @@ cfg="$PWD/config/otelcol-macmon.yaml:/etc/otelcol-contrib/config.yaml:ro"
 img="{{ vars.otelcol_image }}"
 docker run --rm --name o2-macmon -v "$cfg" --env-file config/o2.env "$img"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.o2-nvidia]
 description = "Ship NVIDIA GPU metrics to the local o2 (native nvidia_gpu_exporter scraped by a collector)"
@@ -1806,7 +1816,7 @@ img="{{ vars.otelcol_image }}"
 # --network host: exporter + o2 both run on the host; Linux host network lets the collector reach them at localhost.
 docker run --rm --name o2-nvidia --network host -v "$cfg" --env-file config/o2.env "$img"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.o2-nvidia-native]
 description = "Non-Docker o2-nvidia: native collector binary scrapes native nvidia_gpu_exporter into o2"
@@ -1822,7 +1832,7 @@ export NVIDIA_METRICS_TARGET=localhost:9835
 export O2_METRICS_ENDPOINT=http://localhost:5080/api/default/v1/metrics
 otelcol-contrib --config config/otelcol-nvidia.yaml
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.o2-winmetrics]
 description = "Ship Windows host CPU/mem/disk/net + GPU metrics to the local o2 (native windows_exporter + collector)"
@@ -1834,7 +1844,7 @@ cfg="$PWD/config/otelcol-winmetrics.yaml:/etc/otelcol-contrib/config.yaml:ro"
 img="{{ vars.otelcol_image }}"
 docker run --rm --name o2-winmetrics -v "$cfg" --env-file config/o2.env "$img"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.o2-winmetrics-native]
 description = "Non-Docker o2-winmetrics: native collector binary scrapes native windows_exporter (host + GPU) into o2"
@@ -1850,7 +1860,7 @@ export WIN_METRICS_TARGET=localhost:9182
 export O2_METRICS_ENDPOINT=http://localhost:5080/api/default/v1/metrics
 otelcol-contrib --config config/otelcol-winmetrics.yaml
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.o2-winperf]
 description = "Self-contained non-Docker Windows metrics: one native collector reads host + GPU perf counters into o2"
@@ -1861,7 +1871,7 @@ set -a
 set +a
 otelcol-contrib --config config/otelcol-winperf.yaml
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 # Note: bare `yq` / `coreutils` would fail inside the nanoserver docker build.
 # There mise's shims aren't on PATH for busybox-w32 ash (see the CLAUDE.md "Nano Server exception").
@@ -1884,7 +1894,7 @@ actual=$(mise exec -- coreutils sha256sum -b "{{ vars.face1_dst }}" | mise exec 
   exit 1
 }
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.fetch-eye1-rclone]
 # Same shape as fetch-face1-rclone (rclone copy + Windows-safe SHA256 verify against data.toml).
@@ -1900,18 +1910,18 @@ actual=$(mise exec -- coreutils sha256sum -b "{{ vars.eye1_dst }}" | mise exec -
   exit 1
 }
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.fetch-har-motion1-rclone]
 run = "rclone copyto {{ vars.har_src }} {{ vars.har_dst }} {{ vars.gh_http }}"
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.fetch-mnist-rclone]
 # MNIST classifier used by services/ws-modules/wasi-graphics-info to exercise wasi-nn.
 # Exercises wasi-nn end-to-end. Sourced from the canonical ONNX Model Zoo; size 26143 bytes. Lands under
 # the module's gitignored pkg/ so et-modules-service can serve it statically alongside the .wasm.
 run = "rclone copyto {{ vars.mnist_src }} {{ vars.mnist_dst }} {{ vars.gh_http }}"
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.fetch-llm1-rclone]
 # llm1's SmolLM2 weights, tokenizer and configs, fetched straight from HuggingFace.
@@ -1941,7 +1951,7 @@ for index in "${!files[@]}"; do
   }
 done
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.fetch-speech1-rclone]
 run = """
@@ -1956,7 +1966,7 @@ actual=$(mise exec -- coreutils sha256sum -b "{{ vars.speech1_dst }}" | mise exe
   exit 1
 }
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.download-models]
 depends = [
@@ -2012,7 +2022,7 @@ out="${GITHUB_OUTPUT:-/dev/stdout}"
 } >>"$out"
 echo "[rp-detect-missing] triple=$triple short=$short native_missing=$native_missing wasm_missing=$wasm_missing" >&2
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 # Build the pywasm1 ws-module from the prebuilt rustpython_wasm tarball.
 # The tarball is installed by mise as [tools."http:rp-wasm"] (download + sha256 + extract handled by
@@ -2033,7 +2043,7 @@ coreutils cp -R "$rp_pkg/snippets" pkg/
 coreutils cp index.js main.py pkg/
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 # Cross-language orchestration (stand-ins for the MISE_ENV=all mise lacks).
 # `$ALL_LANGS` is auto-discovered in `[env]` above from the config.<lang>.toml filenames, so adding a
@@ -2042,41 +2052,41 @@ shell = "bash -euo pipefail -c"
 [tasks.print-all-langs]
 description = "Print $ALL_LANGS -- the comma-separated list of every language env"
 run = 'echo "$ALL_LANGS"'
-shell = "bash -c"
+shell = "{{ vars.task_shell_plain }}"
 
 [tasks.install-all]
 description = "Install every language toolchain (all .mise/config.<lang>.toml)"
 run = 'MISE_ENV="$ALL_LANGS" mise install'
-shell = "bash -c"
+shell = "{{ vars.task_shell_plain }}"
 
 [tasks.all]
 # Generic stand-in: run any command with every language env enabled.
 # mise appends the task's CLI args after `mise exec --`, e.g. `mise run all zig version`.
 description = "Run a command with every language env enabled (MISE_ENV=all)"
 run = 'MISE_ENV="$ALL_LANGS" mise exec --'
-shell = "bash -c"
+shell = "{{ vars.task_shell_plain }}"
 
 [tasks.check-all]
 description = "Run check across every language env"
 run = 'MISE_ENV="$ALL_LANGS" mise run check'
-shell = "bash -c"
+shell = "{{ vars.task_shell_plain }}"
 
 [tasks.fmt-all]
 description = "Run fmt across every language env"
 run = 'MISE_ENV="$ALL_LANGS" mise run fmt'
-shell = "bash -c"
+shell = "{{ vars.task_shell_plain }}"
 
 [tasks.test-all]
 description = "Run tests across every language env"
 run = 'MISE_ENV="$ALL_LANGS" mise run test'
-shell = "bash -c"
+shell = "{{ vars.task_shell_plain }}"
 
 [tasks.build-modules-all]
 description = "Build modules across every language env"
 run = 'MISE_ENV="$ALL_LANGS" mise run build-modules'
-shell = "bash -c"
+shell = "{{ vars.task_shell_plain }}"
 
 [tasks.gen-specs-all]
 description = "Regenerate every spec artifact across every language env"
 run = 'MISE_ENV="$ALL_LANGS" mise run gen-specs'
-shell = "bash -c"
+shell = "{{ vars.task_shell_plain }}"

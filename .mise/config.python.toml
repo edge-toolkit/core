@@ -45,6 +45,18 @@ url = "https://github.com/pyodide/pyodide/releases/download/{{ version }}/pyodid
 version = "0.29.3"
 
 [vars]
+# Wheel build every Python ws-module and generated package shares.
+# Stale wheels go first because uv build leaves prior versions in place, and the whole pkg/ dir is what
+# et-modules-service mounts -- an old wheel left beside the new one would be served alongside it.
+#
+# The `et-cli module-package-json` step that follows this stays in each task rather than joining it here:
+# `vars.et_cli` is overridden per compiler env (config.msvc.toml, config.mingw.toml) and a var referenced
+# from inside another var does not pick that override up, so nesting it silently produced the default
+# gnullvm path on the msvc lane -- `target/x86_64-pc-windows-gnullvm/debug/et-cli.exe: not found`.
+py_wheel_sh = """
+coreutils rm -f pkg/*.whl
+uv build --wheel --out-dir pkg
+"""
 # Shared WIT dir for the wasi-graphics-info componentize-py build.
 # It is relative to that module's dir; used by both the bindings and componentize steps.
 wit_dir = "../../../generated/specs/wit"
@@ -112,33 +124,30 @@ dir = "generated/python-ws"
 # The whole dir is what et-modules-service mounts at /modules/et-ws/. Delete
 # stale wheels first -- uv build leaves prior versions in place.
 run = """
-rm -f pkg/*.whl
-uv build --wheel --out-dir pkg
+{{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-et-rest-client-wheel]
 depends = ["build-et-cli"]
 description = "Build the generated et-rest-client Python package as a wheel + ws-module pkg/"
 dir = "generated/python-rest"
 run = """
-rm -f pkg/*.whl
-uv build --wheel --out-dir pkg
+{{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pymath1-module]
 depends = ["build-et-cli"]
 description = "Build the pymath1 FedAvg module"
 dir = "services/ws-modules/pymath1"
 run = """
-coreutils rm -f pkg/*.whl
-uv build --wheel --out-dir pkg
+{{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pydata1-module]
 depends = ["build-et-rest-client-wheel"]
@@ -148,11 +157,10 @@ dir = "services/ws-modules/pydata1"
 # pydata1 declares it under [tool.ws-module.dependencies] and loads the wheel at runtime from that mount via
 # the shim's `installWheel` helper -- no need to copy the wheel here.
 run = """
-rm -f pkg/*.whl
-uv build --wheel --out-dir pkg
+{{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pyface1-module]
 depends = ["build-et-ws-wheel"]
@@ -162,11 +170,10 @@ dir = "services/ws-modules/pyface1"
 # pyface1 declares it under [tool.ws-module.dependencies] and loads the wheel at runtime from that mount via
 # the shim's `installWheel` helper -- no need to copy the wheel here.
 run = """
-rm -f pkg/*.whl
-uv build --wheel --out-dir pkg
+{{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pyeye1-module]
 depends = ["build-et-ws-wheel"]
@@ -176,33 +183,30 @@ dir = "services/ws-modules/pyeye1"
 # pyeye1 loads the et-ws wheel at runtime from that mount. The MediaPipe FaceLandmarker runtime
 # (@mediapipe/tasks-vision) and the model bundle (et-model-eye1) are served separately -- not part of this build.
 run = """
-rm -f pkg/*.whl
-uv build --wheel --out-dir pkg
+{{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pyspeech1-module]
 depends = ["build-et-ws-wheel"]
 description = "Build the pyspeech1 Python Silero VAD workflow module"
 dir = "services/ws-modules/pyspeech1"
 run = """
-rm -f pkg/*.whl
-uv build --wheel --out-dir pkg
+{{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pydemo1-module]
 depends = ["build-ws-pyeye1-module", "build-ws-pyspeech1-module"]
 description = "Build the combined pydemo1 Python eye and speech workflow module"
 dir = "services/ws-modules/pydemo1"
 run = """
-rm -f pkg/*.whl
-uv build --wheel --out-dir pkg
+{{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-wasi-graphics-info-module]
 depends = ["build-et-cli"]
@@ -220,7 +224,7 @@ componentize-py -d {{ vars.wit_dir }} -w module bindings .
 componentize-py -d {{ vars.wit_dir }} -w module componentize wasi_graphics_info -o pkg/et_ws_wasi_graphics_info.wasm
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks."prefetch:python"]
 description = "Prefetch Python (uv) dependencies"
@@ -239,7 +243,7 @@ uv sync --directory services/ws-modules/pyeye1
 uv sync --directory services/ws-modules/pyface1
 uv sync --directory services/ws-modules/pyspeech1
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks."gen:python-rest"]
 depends = ["gen:ws-spec"]
@@ -266,7 +270,7 @@ rm -rf generated/python-rest/et_rest_client/.ruff_cache
 ruff check --fix generated/python-rest/et_rest_client
 ruff format generated/python-rest/et_rest_client
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks."gen:python-ws"]
 depends = ["gen:ws-spec"]
@@ -289,4 +293,4 @@ coreutils mv et_ws/messages.py.tmp et_ws/messages.py
 ruff check --fix et_ws/messages.py
 ruff format et_ws/messages.py
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"

@@ -127,7 +127,7 @@ coreutils cp "$dist/ort-wasm-simd-threaded.wasm" pkg/ort/
 coreutils cp "$dist/ort-wasm-simd-threaded.asyncify.mjs" pkg/ort/
 coreutils cp "$dist/ort-wasm-simd-threaded.asyncify.wasm" pkg/ort/
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-llm1-module]
 depends = ["build-et-cli", "build-wasm-cov-wrapper", "vendor-llm1-ort"]
@@ -224,6 +224,15 @@ fi
 for tool in $tools; do
   root=$(mise where "$tool" 2>/dev/null || true)
   if [ -z "$root" ]; then
+    # node first: mise refuses to install an npm: tool while the node its backend depends on is absent.
+    # The dependency comes from the npm backend rather than from [tools], so it cannot be declared away here,
+    # and this task is the one caller that installs an npm: tool on a job which never ran a full `mise install`
+    # (the dependencies workflow). Installing what is already present is a no-op, so warm machines are
+    # unaffected -- the failure without it is
+    # `tool 'npm:@huggingface/transformers@latest' requires configured install dependency 'node@22', but its
+    # selected version is not installed`, on commit 0e7273a1154db315a0f584077db4565ba66be603 at
+    # https://github.com/edge-toolkit/core/actions/runs/33727571401/job/100559961260.
+    mise install node
     mise install "$tool"
     root=$(mise where "$tool")
   fi
@@ -244,7 +253,7 @@ for tool in $tools; do
 done
 osv-scanner --recursive --no-ignore "$dest" --config config/osv-scanner.toml
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 # Namespaced aggregators picked up by the default config's globbed `check`/`fmt`/`fix`.
 [tasks."check:js"]

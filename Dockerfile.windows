@@ -47,6 +47,24 @@ RUN curl -fsSL -o vc_redist.exe https://aka.ms/vs/17/release/vc_redist.x64.exe &
     (vc_redist.exe /install /quiet /norestart || ver>nul) && `
     del vc_redist.exe
 
+# Install git, which the tasks need and mise cannot supply.
+# 21 task bodies drive `git ls-files` to enumerate what to lint or format, so git is a prerequisite of the
+# toolchain rather than a tool inside it -- exactly as on Linux and macOS, where it comes from the system and
+# no mise entry declares it. A container has no system git to inherit, so the image installs it. MinGit is the
+# distribution built for this: git alone, no shell or GUI, since busybox already supplies the shell here.
+# The URL is split across ARGs to stay inside the line limit, and composed into an ENV because the classic
+# Windows builder substitutes build-args into ENV but not into RUN.
+ARG GIT_BASE=https://github.com/git-for-windows/git/releases/download/v2.55.0.windows.5
+ARG GIT_ASSET=MinGit-2.55.0.5-64-bit.zip
+ENV GIT_URL=${GIT_BASE}/${GIT_ASSET}
+RUN curl -fsSL -o git.zip %GIT_URL% && `
+    certutil -hashfile git.zip SHA256 | findstr /i `
+        "56d7b226b7693196cfc71fef26568f536c4a021ab6c37ff2db4287bed908e96e" >nul && `
+    mkdir C:\git && `
+    tar -xf git.zip -C C:\git && `
+    del git.zip && `
+    if not exist C:\git\cmd\git.exe exit /b 1
+
 # HOME is intentionally left unset on Windows.
 # No build tool consumes it -- mise uses C:\.config\mise, cargo uses CARGO_HOME/RUSTUP_HOME, gpg uses
 # %APPDATA%, and the mise config vars derive from USERPROFILE, not $HOME.
@@ -84,14 +102,26 @@ RUN tar -xf C:\mise.zip -C C:\ && del C:\mise.zip
 # `core:dotnet` install (its dotnet-install.ps1 invocation needs `powershell`
 # resolvable). llvm-mingw lives under a version-pinned dir that doesn't exist
 # until preinstall installs it; adding it now is fine (PATH search is lazy).
+# Short install root: mise adds one PATH entry per tool, and the default
+# `C:\Users\ContainerAdministrator\AppData\Local\mise\installs\` root spends 60 characters of every entry on
+# a prefix that repeats. Windows hands a child process at most 8191 characters of PATH and ignores the
+# variable outright past that, so all tools stop resolving at once. config.windows.toml's mise_installs reads
+# this same variable, which is what keeps MISE_BASH_PATH and the other install-path vars aimed at the tools.
+ENV MISE_INSTALLS_DIR=C:\i
+# Pin where `mise settings` writes, so the trust below names the file it actually created.
+# mise resolves the global config from HOME when this is unset, and it stopped landing on the path trusted
+# below -- `mise trust` then rejected the missing file outright rather than acting on its parent directory.
+ENV MISE_GLOBAL_CONFIG_FILE=C:\.config\mise\config.toml
 ENV MISESHIMS=C:\Users\ContainerAdministrator\AppData\Local\mise\shims
-ENV LLVMBIN=C:\Users\ContainerAdministrator\AppData\Local\mise\installs\github-mstorsjo-llvm-mingw\20260602\bin
+ENV LLVMBIN=${MISE_INSTALLS_DIR}\github-mstorsjo-llvm-mingw\20260602\bin
 ENV PWSH=C:\Windows\System32\WindowsPowerShell\v1.0
-ENV PATH="C:\mise\bin;${MISESHIMS};C:\Windows\System32;C:\Windows;${PWSH};${LLVMBIN};${PATH}"
+ENV GITCMD=C:\git\cmd
+ENV PATH="C:\mise\bin;${MISESHIMS};C:\Windows\System32;C:\Windows;${PWSH};${LLVMBIN};${GITCMD};${PATH}"
 
 WORKDIR C:\workspace
 # config.toml (always-loaded) + config.windows.toml + .miserc.toml (auto_env=true).
 COPY .mise/config.toml .mise/config.toml
+COPY .mise/task-shell.sh .mise/task-shell.sh
 # Each config's lockfile rides with it so in-container resolution stays offline.
 # Without them, every `latest` pin costs a per-tool api.github.com /releases lookup.
 COPY .mise/mise.lock .mise/mise.lock

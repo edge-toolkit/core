@@ -19,11 +19,13 @@ deny contains msg if {
 	msg := sprintf("%s: task %q run must be a string, not an array", [file.path, name])
 }
 
-# A multiline `run` must use `shell = "bash -euo pipefail -c"`.
-# This makes a failing command fail the task instead of being masked. The xtrace variant (`bash -xeuo pipefail -c`) is
+# A multiline `run` must use `shell = "{{ vars.task_shell }}"`.
+# This makes a failing command fail the task instead of being masked. The xtrace variant (`task_shell_trace`) is
 # also accepted: it prints every command as it runs, used on the Windows OS-specific preinstall where full transcripts
-# matter for diagnosing busybox-ash + path-mangling failures.
-allowed_run_shells := {"bash -euo pipefail -c", "bash -xeuo pipefail -c"}
+# matter for diagnosing busybox-ash + path-mangling failures. `task_shell_plain` is deliberately absent -- it carries
+# no `-e`, which is exactly the masking this rule exists to prevent. Conftest reads the TOML unrendered, so these are
+# the literal template strings rather than the shell command lines they expand to.
+allowed_run_shells := {"{{ vars.task_shell }}", "{{ vars.task_shell_trace }}"}
 
 deny contains msg if {
 	some file in input
@@ -33,7 +35,7 @@ deny contains msg if {
 	contains(task.run, "\n")
 	not task.shell in allowed_run_shells
 	msg := sprintf(
-		"%s: task %q has a multiline run; set shell = \"bash -euo pipefail -c\" (or `bash -xeuo` for xtrace)",
+		"%s: task %q has a multiline run; set shell = \"{{ vars.task_shell }}\" (or task_shell_trace for xtrace)",
 		[file.path, name],
 	)
 }
@@ -139,6 +141,57 @@ deny contains msg if {
 	some name, _ in file.contents.tools
 	startswith(name, "ubi:")
 	msg := sprintf("%s: tool %q uses the deprecated ubi backend; use http: instead", [file.path, name])
+}
+
+# A new `http:` tool must not point at a forge release URL; use the `github:` backend for those.
+# `http:` takes a hardcoded URL, so it resolves no versions and verifies nothing: a version bump means editing
+# every per-platform URL by hand, and the download arrives with neither the release metadata nor the artifact
+# attestation the `github:` backend checks. Naming the repo instead keeps version resolution and verification.
+#
+# The entries below predate the rule. Two groups, kept apart because only one is a candidate for removal: the
+# edge-toolkit/core ones are this repo's own upstream-cache mirrors, where a pinned URL plus the `checksum` the
+# checksums policy enforces is the documented pattern and `github:` cannot express what is being fetched. The
+# third-party ones are the ones to migrate to `github:` as they come up for maintenance.
+allowed_http_forge_url := {
+	# This repo's own upstream-cache mirror releases -- the documented pattern, not migration candidates.
+	"http:augeas",
+	"http:dart-typegen",
+	"http:et-rp",
+	"http:gnupg-w32",
+	"http:rp-wasm",
+	# Third-party forge releases predating the rule; migrate to `github:` when each is next touched.
+	"http:oxfmt",
+	"http:oxlint",
+	"http:pyodide",
+	"http:rustfs",
+	"http:webr",
+}
+
+forge_url(url) if contains(url, "github.com")
+
+forge_url(url) if contains(url, "gitlab.com")
+
+http_forge_msg := "%s: tool %q fetches %s over http:; use the github: backend so versions resolve and artifacts verify"
+
+deny contains msg if {
+	some file in input
+	is_mise(file)
+	some name, tool in file.contents.tools
+	startswith(name, "http:")
+	not name in allowed_http_forge_url
+	forge_url(tool.url)
+	msg := sprintf(http_forge_msg, [file.path, name, tool.url])
+}
+
+deny contains msg if {
+	some file in input
+	is_mise(file)
+	some name, tool in file.contents.tools
+	startswith(name, "http:")
+	not name in allowed_http_forge_url
+	some platform in tool.platforms
+	forge_url(platform.url)
+	msg := sprintf(http_forge_msg, [file.path, name, platform.url])
 }
 
 # Tools should work on every OS (CLAUDE.md "Tools must work on every OS").
