@@ -25,7 +25,7 @@ version = "0.6.0"
 #
 # Every `$` here is doubled: a [vars] value goes through mise's config-load `$VAR` expansion (a task `run` body
 # does not), so a bare `$src` would resolve against the loading environment and warn when unset.
-webr_vendor = """
+webr_vendor_sh = """
 src="$$(mise where "http:webr")"
 [ -n "$$src" ] || {
   echo "http:webr not installed; run 'MISE_ENV=r mise install' first" >&2
@@ -40,17 +40,17 @@ coreutils rm -f pkg/webr/metadata.json
 [tasks.build-ws-rdata1-module]
 description = "Vendor the webR distribution into rdata1's pkg/webr/ (served at /modules/et-ws-rdata1/webr/)"
 dir = "services/ws-modules/rdata1"
-run = "{{ vars.webr_vendor }}"
+run = "{{ vars.webr_vendor_sh }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-rmath1-module]
 description = "Vendor the webR distribution into rmath1's pkg/webr/ (served at /modules/et-ws-rmath1/webr/)"
 dir = "services/ws-modules/rmath1"
-run = "{{ vars.webr_vendor }}"
+run = "{{ vars.webr_vendor_sh }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-rcomm1-module]
 description = "Vendor the webR distribution into rcomm1's pkg/webr/ (served at /modules/et-ws-rcomm1/webr/)"
 dir = "services/ws-modules/rcomm1"
-run = "{{ vars.webr_vendor }}"
+run = "{{ vars.webr_vendor_sh }}"
 shell = "{{ vars.task_shell }}"

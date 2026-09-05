@@ -35,7 +35,7 @@ dotnet_msbuild = "$$DOTNET_ROOT/sdk/10.0.300"
 #
 # Every `$` here is doubled: a [vars] value goes through mise's config-load `$VAR` expansion (a task `run` body
 # does not), so a bare `$PUBLISH` would resolve against the loading environment and warn when unset.
-dotnet_publish_pkg = '''
+dotnet_publish_sh = '''
 set -x
 
 publish_args=""
@@ -132,14 +132,14 @@ shell = "{{ vars.task_shell }}"
 depends = ["dotnet-workload-wasm-tools"]
 description = "Build the dotnet-data1 C# WASM workflow module"
 dir = "services/ws-modules/dotnet-data1"
-run = "{{ vars.dotnet_publish_pkg }}"
+run = "{{ vars.dotnet_publish_sh }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-dotnet-math1-module]
 depends = ["dotnet-workload-wasm-tools"]
 description = "Build the dotnet-math1 C# WASM FedAvg module"
 dir = "services/ws-modules/dotnet-math1"
-run = "{{ vars.dotnet_publish_pkg }}"
+run = "{{ vars.dotnet_publish_sh }}"
 shell = "{{ vars.task_shell }}"
 # Both dotnet publishes drive emscripten out of one shared workload pack tree, so they run one at a time.
 # `wait_for` rather than `depends` because the edge only matters when both are already scheduled -- building

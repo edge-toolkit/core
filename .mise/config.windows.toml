@@ -52,10 +52,10 @@
 # A native Win32 single exe with no cygwin/msys runtime, so it loads on a bare Nano Server, unlike conda's
 # msys2 bash whose msys-2.0.dll imports KERNEL32!IdnToAscii / IdnToUnicode that Nano's stripped kernel32
 # forwarder doesn't re-export (-> 0xC0000139; unfixable -- the system file + registry are ACL-locked).
-# Renamed `ash.exe` so mise -- whose POSIX-shell list is bash/sh/zsh/fish/ksh/dash, NOT ash -- doesn't
-# rewrite the task PATH into msys form, which native busybox-w32 can't resolve. Checksum-pinned so a silent
-# upstream rebuild fails loudly; `.exe` because mise writes the bin name verbatim and Windows launches by
-# extension.
+# Renamed `ash.exe` to say what the binary is wherever it appears; `.exe` because mise writes the bin name
+# verbatim and Windows launches by extension. The name buys nothing beyond that -- mise normalises a task's
+# PATH whatever the shell is called, which is why the tasks route their bodies through a wrapper rather than
+# relying on the name. Checksum-pinned so a silent upstream rebuild fails loudly.
 [tools."http:busybox"]
 bin = "ash.exe"
 checksum = "sha256:6e263d154d8548d1eb936f65d1d8312c80df31c45974e48d6335e4dcc0f4f34c"

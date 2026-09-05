@@ -128,19 +128,7 @@ runs:
     - name: Remove self-recursive mise.cmd shim on Windows
       if: runner.os == 'Windows'
       shell: bash --noprofile --norc -euo pipefail {0}
-      # The trailing `diag:` lines are TEMPORARY -- delete them once the Windows lanes are green.
-      # prefetch:rust dies on `cargo: not found` while _setup_all resolves bare `mise` out of the very same
-      # directory (`.cargo\bin` holds both binaries) and rust reports itself installed. Two hypotheses have
-      # already failed on it -- the PATH-length ceiling, then naming cargo's dir in config.windows.toml's
-      # `_.path` -- so report what mise computes rather than infer a third time. They live here, not in a
-      # workflow step, because another step in check.yaml lengthens the Checkout/install block that file
-      # shares with test.yaml past jscpd's clone threshold. `|| true` throughout: this must never fail a job.
       run: |
         shims="$LOCALAPPDATA/mise/shims"
         rm -fv "$shims/mise.cmd" "$shims/mise"
         ls "$shims" | grep -i '^mise' || true
-        echo "diag: mise which cargo"; mise which cargo || echo "diag: mise cannot resolve cargo"
-        echo "diag: mise where rust"; mise where rust || echo "diag: rust has no install dir"
-        echo "diag: cargo on this shell's PATH"; command -v cargo || echo "diag: not on PATH"
-        echo "diag: cargo/rust entries of the PATH mise computes"
-        mise env -s bash | grep '^export PATH' | tr ':' '\n' | grep -iE 'cargo|rust' || true

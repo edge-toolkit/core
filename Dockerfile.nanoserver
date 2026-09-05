@@ -420,7 +420,18 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 ARG MISE_DT_BASE=cargo:open,conda:m2-gnupg,lychee,pipx:cowsay,pipx:cpplint,pipx:flawfinder,pipx:semgrep
 ARG MISE_DT_DOTNET=dotnet:roslynator.dotnet.cli
 ARG MISE_DT_PY=pipx:componentize-py,pipx:datamodel-code-generator,pipx:openapi-python-client,pipx:pytest,pipx:torch
-ENV MISE_DISABLE_TOOLS=${MISE_DT_BASE},${MISE_DT_DOTNET},${MISE_DT_PY}
+# jscpd additionally trips mise's attestation verifier, which cannot resolve a cache directory on Nano.
+# mise ERROR Failed to install github:kucherenko/jscpd@5.1.1: GitHub artifact attestations verification
+# error for github:kucherenko/jscpd@5.1.1: Verification failed: Sigstore error: TUF error: Could not
+# determine cache directory
+# on commit 5212a7a84adf4c9b9332ee882410d5e68155f692 at
+# https://github.com/edge-toolkit/core/actions/runs/33950696515/job/101264776072. Dropping the tool rather
+# than the verification keeps attestation checking on everywhere it works. jscpd drives only jscpd-check and
+# its siblings, every one of them part of `check`, which this image never runs -- it stops at preinstall,
+# prefetch-ci, build-modules and test -- so it joins lychee/cpplint/flawfinder/semgrep as a lint tool Nano
+# has no use for.
+ARG MISE_DT_LINT=github:kucherenko/jscpd
+ENV MISE_DISABLE_TOOLS=${MISE_DT_BASE},${MISE_DT_DOTNET},${MISE_DT_PY},${MISE_DT_LINT}
 
 # Wire mise's pipx backend at the bootstrapped pipx.
 # preinstall above installed it via rustpython into target/preinstall-pipx. PATH points at

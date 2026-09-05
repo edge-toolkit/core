@@ -53,7 +53,7 @@ version = "0.29.3"
 # `vars.et_cli` is overridden per compiler env (config.msvc.toml, config.mingw.toml) and a var referenced
 # from inside another var does not pick that override up, so nesting it silently produced the default
 # gnullvm path on the msvc lane -- `target/x86_64-pc-windows-gnullvm/debug/et-cli.exe: not found`.
-py_wheel_pkg = """
+py_wheel_sh = """
 coreutils rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 """
@@ -124,7 +124,7 @@ dir = "generated/python-ws"
 # The whole dir is what et-modules-service mounts at /modules/et-ws/. Delete
 # stale wheels first -- uv build leaves prior versions in place.
 run = """
-{{ vars.py_wheel_pkg }}
+{{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
 """
 shell = "{{ vars.task_shell }}"
@@ -134,7 +134,7 @@ depends = ["build-et-cli"]
 description = "Build the generated et-rest-client Python package as a wheel + ws-module pkg/"
 dir = "generated/python-rest"
 run = """
-{{ vars.py_wheel_pkg }}
+{{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
 """
 shell = "{{ vars.task_shell }}"
@@ -144,7 +144,7 @@ depends = ["build-et-cli"]
 description = "Build the pymath1 FedAvg module"
 dir = "services/ws-modules/pymath1"
 run = """
-{{ vars.py_wheel_pkg }}
+{{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
 """
 shell = "{{ vars.task_shell }}"
@@ -157,7 +157,7 @@ dir = "services/ws-modules/pydata1"
 # pydata1 declares it under [tool.ws-module.dependencies] and loads the wheel at runtime from that mount via
 # the shim's `installWheel` helper -- no need to copy the wheel here.
 run = """
-{{ vars.py_wheel_pkg }}
+{{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
 """
 shell = "{{ vars.task_shell }}"
@@ -170,7 +170,7 @@ dir = "services/ws-modules/pyface1"
 # pyface1 declares it under [tool.ws-module.dependencies] and loads the wheel at runtime from that mount via
 # the shim's `installWheel` helper -- no need to copy the wheel here.
 run = """
-{{ vars.py_wheel_pkg }}
+{{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
 """
 shell = "{{ vars.task_shell }}"
@@ -183,7 +183,7 @@ dir = "services/ws-modules/pyeye1"
 # pyeye1 loads the et-ws wheel at runtime from that mount. The MediaPipe FaceLandmarker runtime
 # (@mediapipe/tasks-vision) and the model bundle (et-model-eye1) are served separately -- not part of this build.
 run = """
-{{ vars.py_wheel_pkg }}
+{{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
 """
 shell = "{{ vars.task_shell }}"
@@ -193,7 +193,7 @@ depends = ["build-et-ws-wheel"]
 description = "Build the pyspeech1 Python Silero VAD workflow module"
 dir = "services/ws-modules/pyspeech1"
 run = """
-{{ vars.py_wheel_pkg }}
+{{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
 """
 shell = "{{ vars.task_shell }}"
@@ -203,7 +203,7 @@ depends = ["build-ws-pyeye1-module", "build-ws-pyspeech1-module"]
 description = "Build the combined pydemo1 Python eye and speech workflow module"
 dir = "services/ws-modules/pydemo1"
 run = """
-{{ vars.py_wheel_pkg }}
+{{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
 """
 shell = "{{ vars.task_shell }}"
