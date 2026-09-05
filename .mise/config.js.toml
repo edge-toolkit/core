@@ -127,7 +127,7 @@ coreutils cp "$dist/ort-wasm-simd-threaded.wasm" pkg/ort/
 coreutils cp "$dist/ort-wasm-simd-threaded.asyncify.mjs" pkg/ort/
 coreutils cp "$dist/ort-wasm-simd-threaded.asyncify.wasm" pkg/ort/
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-llm1-module]
 depends = ["build-et-cli", "build-wasm-cov-wrapper", "vendor-llm1-ort"]
@@ -253,7 +253,7 @@ for tool in $tools; do
 done
 osv-scanner --recursive --no-ignore "$dest" --config config/osv-scanner.toml
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 # Namespaced aggregators picked up by the default config's globbed `check`/`fmt`/`fix`.
 [tasks."check:js"]

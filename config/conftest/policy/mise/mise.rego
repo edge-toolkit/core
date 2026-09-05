@@ -19,11 +19,13 @@ deny contains msg if {
 	msg := sprintf("%s: task %q run must be a string, not an array", [file.path, name])
 }
 
-# A multiline `run` must use `shell = "bash -euo pipefail -c"`.
-# This makes a failing command fail the task instead of being masked. The xtrace variant (`bash -xeuo pipefail -c`) is
+# A multiline `run` must use `shell = "{{ vars.task_shell }}"`.
+# This makes a failing command fail the task instead of being masked. The xtrace variant (`task_shell_trace`) is
 # also accepted: it prints every command as it runs, used on the Windows OS-specific preinstall where full transcripts
-# matter for diagnosing busybox-ash + path-mangling failures.
-allowed_run_shells := {"bash -euo pipefail -c", "bash -xeuo pipefail -c"}
+# matter for diagnosing busybox-ash + path-mangling failures. `task_shell_plain` is deliberately absent -- it carries
+# no `-e`, which is exactly the masking this rule exists to prevent. Conftest reads the TOML unrendered, so these are
+# the literal template strings rather than the shell command lines they expand to.
+allowed_run_shells := {"{{ vars.task_shell }}", "{{ vars.task_shell_trace }}"}
 
 deny contains msg if {
 	some file in input
@@ -33,7 +35,7 @@ deny contains msg if {
 	contains(task.run, "\n")
 	not task.shell in allowed_run_shells
 	msg := sprintf(
-		"%s: task %q has a multiline run; set shell = \"bash -euo pipefail -c\" (or `bash -xeuo` for xtrace)",
+		"%s: task %q has a multiline run; set shell = \"{{ vars.task_shell }}\" (or task_shell_trace for xtrace)",
 		[file.path, name],
 	)
 }

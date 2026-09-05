@@ -29,13 +29,13 @@ gradle
 description = "Build the kotlin-data1 workflow module (Kotlin/Wasm -> WasmGC)"
 dir = "services/ws-modules/kotlin-data1"
 run = "\"$GRADLE\" --console=plain pkgDist"
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-kotlin-math1-module]
 description = "Build the kotlin-math1 FedAvg module (Kotlin/Wasm -> WasmGC)"
 dir = "services/ws-modules/kotlin-math1"
 run = "\"$GRADLE\" --console=plain pkgDist"
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 # Never extract binaryen at the same moment the sibling Kotlin module does.
 # The Kotlin Gradle plugin's `kotlinWasmBinaryenSetup` unpacks binaryen into one shared GRADLE_USER_HOME path,
 # and the two modules are separate Gradle root projects that build-modules fans out in parallel, so whichever
@@ -65,7 +65,7 @@ run = """
 "$GRADLE" --console=plain -p services/ws-modules/kotlin-data1 compileKotlinWasmJs
 "$GRADLE" --console=plain -p services/ws-modules/kotlin-math1 compileKotlinWasmJs
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks."prefetch:kotlin"]
 description = "Prefetch Kotlin (Gradle plugin + Maven Central) dependencies"
@@ -73,4 +73,4 @@ run = """
 "$GRADLE" --console=plain -p services/ws-modules/kotlin-data1 dependencies
 "$GRADLE" --console=plain -p services/ws-modules/kotlin-math1 dependencies
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"

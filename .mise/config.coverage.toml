@@ -129,7 +129,7 @@ mise run regen-verification
 cov_ignore='services/ws-wasi-runner/src/bindings\\.rs$'
 cargo llvm-cov report --lcov --include-build-script --ignore-filename-regex "$cov_ignore" --output-path lcov.info
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.wasm-cov]
 description = "Turn instrumented wasm guest .profraw into lcov (llc + llvm-cov) and merge into the workspace lcov.info"
@@ -207,7 +207,7 @@ coreutils cat >"$keep" <<'AWK'
 AWK
 goawk -f "$keep" "$covdir/wasi.lcov" >>lcov.info
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.pytest-cov]
 description = "Combined Python coverage (pytest + web-runner Pyodide runs) -> Cobertura for Codecov/DeepSource"
@@ -233,7 +233,7 @@ cp "$pyspeech/.coverage" "$pycov/.coverage.pyspeech1_pytest"
 uv run --project "$pyface" coverage combine "$pycov"
 uv run --project "$pyface" coverage xml -o coverage-python.xml
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.pytest-cov.env]
 COVERAGE_RCFILE = "{{ config_root }}/config/coverage.toml"
@@ -398,7 +398,7 @@ rpt="$covdir/report.txt"
 "$llbin/llvm-cov" report --instr-profile "$covdir/agent.profdata" "${objs[@]}" >"$rpt" 2>/dev/null || true
 rg "ws-wasm-agent/src/lib.rs|Filename|TOTAL" "$rpt" || true
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.pic-viewer-cov]
 depends = ["build-wasm-cov-wrapper"]
@@ -479,7 +479,7 @@ rpt="$covdir/report.txt"
 "$llbin/llvm-cov" report --instr-profile "$covdir/pic-viewer.profdata" "${objs[@]}" >"$rpt" 2>/dev/null || true
 rg "ws-modules/pic-viewer/src/lib.rs|Filename|TOTAL" "$rpt" || true
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.sloc]
 description = "Count source lines of code: non-test vs test totals plus a per-language split (scc)"
@@ -558,7 +558,7 @@ if [ "$total" -ne "$((production + tested))" ]; then
 fi
 echo "sloc: $total code lines = $production non-test + $tested test; $machine of the non-test lines generated"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.sloc-crosscheck]
 depends = ["sloc"]
@@ -577,4 +577,4 @@ for part in all non-test test generated; do
   printf "%-9s scc=%s gocloc=%s delta=%s\\n" "$part" "$scc_code" "$gocloc_code" "$delta"
 done
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"

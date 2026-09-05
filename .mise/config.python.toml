@@ -116,7 +116,7 @@ rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-et-rest-client-wheel]
 depends = ["build-et-cli"]
@@ -127,7 +127,7 @@ rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pymath1-module]
 depends = ["build-et-cli"]
@@ -138,7 +138,7 @@ coreutils rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pydata1-module]
 depends = ["build-et-rest-client-wheel"]
@@ -152,7 +152,7 @@ rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pyface1-module]
 depends = ["build-et-ws-wheel"]
@@ -166,7 +166,7 @@ rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pyeye1-module]
 depends = ["build-et-ws-wheel"]
@@ -180,7 +180,7 @@ rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pyspeech1-module]
 depends = ["build-et-ws-wheel"]
@@ -191,7 +191,7 @@ rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pydemo1-module]
 depends = ["build-ws-pyeye1-module", "build-ws-pyspeech1-module"]
@@ -202,7 +202,7 @@ rm -f pkg/*.whl
 uv build --wheel --out-dir pkg
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-wasi-graphics-info-module]
 depends = ["build-et-cli"]
@@ -220,7 +220,7 @@ componentize-py -d {{ vars.wit_dir }} -w module bindings .
 componentize-py -d {{ vars.wit_dir }} -w module componentize wasi_graphics_info -o pkg/et_ws_wasi_graphics_info.wasm
 {{ vars.et_cli }} module-package-json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks."prefetch:python"]
 description = "Prefetch Python (uv) dependencies"
@@ -239,7 +239,7 @@ uv sync --directory services/ws-modules/pyeye1
 uv sync --directory services/ws-modules/pyface1
 uv sync --directory services/ws-modules/pyspeech1
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks."gen:python-rest"]
 depends = ["gen:ws-spec"]
@@ -266,7 +266,7 @@ rm -rf generated/python-rest/et_rest_client/.ruff_cache
 ruff check --fix generated/python-rest/et_rest_client
 ruff format generated/python-rest/et_rest_client
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks."gen:python-ws"]
 depends = ["gen:ws-spec"]
@@ -289,4 +289,4 @@ coreutils mv et_ws/messages.py.tmp et_ws/messages.py
 ruff check --fix et_ws/messages.py
 ruff format et_ws/messages.py
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"

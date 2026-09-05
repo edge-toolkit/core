@@ -62,16 +62,16 @@ mvn
 [tasks.build-ws-java-data1-module]
 description = "Build the java-data1 workflow module"
 run = "\"$MVN\" package"
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 # Namespaced aggregator picked up by the default config's globbed `check`.
 # The compile triggers maven-compiler-plugin with -Xlint:all -Werror + Error Prone.
 [tasks."check:java"]
 description = "Run Java checks (javac -Xlint:all -Werror, Error Prone)"
 run = "\"$MVN\" -q compile"
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks."prefetch:java"]
 description = "Prefetch Java (Maven) dependencies"
 run = "\"$MVN\" dependency:resolve --quiet"
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"

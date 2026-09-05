@@ -116,4 +116,4 @@ pathlib.Path(sys.argv[2]).write_text("\\n".join(out) + "\\n")
 print("rendered", sys.argv[2], "for MSVC", msvcv, "SDK", sdkv)
 PY
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"

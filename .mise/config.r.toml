@@ -36,7 +36,7 @@ coreutils mkdir -p pkg/webr
 coreutils cp -R "$src/." pkg/webr/
 coreutils rm -f pkg/webr/metadata.json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-rmath1-module]
 description = "Vendor the webR distribution into rmath1's pkg/webr/ (served at /modules/et-ws-rmath1/webr/)"
@@ -52,7 +52,7 @@ coreutils mkdir -p pkg/webr
 coreutils cp -R "$src/." pkg/webr/
 coreutils rm -f pkg/webr/metadata.json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-rcomm1-module]
 description = "Vendor the webR distribution into rcomm1's pkg/webr/ (served at /modules/et-ws-rcomm1/webr/)"
@@ -68,4 +68,4 @@ coreutils mkdir -p pkg/webr
 coreutils cp -R "$src/." pkg/webr/
 coreutils rm -f pkg/webr/metadata.json
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"

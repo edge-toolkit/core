@@ -15,13 +15,31 @@ rules:
     paths:
       include:
         - "/.mise/config*.toml"
-    pattern-regex: 'run = ("""|'''''')\n(?:(?!\1\n).*\n)*?\1\n(?!shell = "bash -x?euo pipefail -c")'
+    pattern-regex: 'run = ("""|'''''')\n(?:(?!\1\n).*\n)*?\1\n(?!shell = "\{\{ vars\.task_shell(?:_trace)? \}\}")'
     message: >-
-      A mise task with a multiline `run` must be immediately followed by `shell = "bash -euo pipefail -c"`.
+      A mise task with a multiline `run` must be immediately followed by `shell = "{{ vars.task_shell }}"`.
       Put `shell` on the line right after the closing `"""`/`'''`, so a failing command fails the task instead of
-      being masked. The `-x` variant (`bash -xeuo pipefail -c`) is also accepted (xtrace, used on the Windows
-      OS-specific preinstall for failure-diagnosis transcripts). bash is installed before any task on Windows
-      (see preinstall), so even the setup tasks can use it.
+      being masked. `task_shell_trace` is also accepted (xtrace, used on the Windows OS-specific preinstall for
+      failure-diagnosis transcripts); `task_shell_plain` is not, since it carries no `-e`. bash is installed
+      before any task on Windows (see preinstall), so even the setup tasks can use it.
+    severity: ERROR
+
+  - id: task-shell-must-use-task-shell-var
+    languages: [generic]
+    paths:
+      include:
+        - "/.mise/config*.toml"
+    # No autofix is viable for this rule.
+    # The three spellings it replaced each map to a different var (`-euo pipefail -c` -> task_shell,
+    # `-xeuo pipefail -c` -> task_shell_trace, bare `-c` -> task_shell_plain), and one replacement template
+    # cannot express that choice.
+    pattern-regex: '(?m)^shell = "bash'
+    message: >-
+      Declare a task `shell` through one of the `task_shell` vars, never as a bare `bash ...` command line.
+      The vars run the body through a wrapper script instead of `-c`, which is what repairs the mangled PATH
+      mise hands a Windows task; a raw `bash ... -c` bypasses the wrapper and every tool goes missing on the
+      Windows lanes. Use `{{ vars.task_shell }}`, or `task_shell_trace` for xtrace, or `task_shell_plain` for a
+      body that checks its own exit codes.
     severity: ERROR
 
   - id: single-key-env-subtable-should-be-inline

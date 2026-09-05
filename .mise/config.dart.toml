@@ -68,7 +68,7 @@ run = """
 dart pub get
 dart compile js lib/dart_comm1.dart -o pkg/et_ws_dart_comm1_compiled.js --no-source-maps
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-dart-data1-module]
 description = "Build the dart-data1 workflow module"
@@ -77,7 +77,7 @@ run = """
 dart pub get
 dart compile js lib/dart_data1.dart -o pkg/et_ws_dart_data1_compiled.js --no-source-maps
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-dart-math1-module]
 description = "Build the dart-math1 FedAvg module"
@@ -86,7 +86,7 @@ run = """
 dart pub get
 dart compile js lib/dart_math1.dart -o pkg/et_ws_dart_math1_compiled.js --no-source-maps
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks."prefetch:dart"]
 description = "Prefetch Dart (pub) dependencies"
@@ -96,7 +96,7 @@ dart pub get --directory services/ws-modules/dart-comm1
 dart pub get --directory services/ws-modules/dart-data1
 dart pub get --directory services/ws-modules/dart-math1
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks."gen:dart-ws"]
 depends = ["gen:ws-spec"]
@@ -106,7 +106,7 @@ mkdir -p generated/dart-ws/lib
 dart-typegen generate -i generated/specs/ws.kdl -o generated/dart-ws/lib/ws_messages.dart
 dart format generated/dart-ws/lib/ws_messages.dart
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks."gen:dart-rest"]
 depends = ["gen:ws-spec"]
@@ -154,4 +154,4 @@ coreutils mv "$s/rest_client.dart" lib/rest_client.dart
 dart run build_runner build
 dart format lib
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"

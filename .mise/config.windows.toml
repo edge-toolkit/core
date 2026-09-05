@@ -315,7 +315,13 @@ echo "[sha256sum-check] OK"
 #
 # `mise settings set` writes the user's global config, so this covers workstations as well as CI -- an env var
 # exported by the workflows would only ever fix CI. Idempotent, and scoped to this one Windows-only key.
-mise settings set windows_default_inline_shell_args "bash -euo pipefail -c"
+#
+# The value carries this checkout's absolute path, because a global setting is stored verbatim and gets no
+# template rendering or cwd-relative resolution of its own. Two checkouts therefore share whichever one ran
+# preinstall last; harmless while both exist, since the wrapper is identical in each, and re-running preinstall
+# repoints it if that checkout goes away. Single-quoted so the double quotes that keep a space-bearing path in
+# one operand reach mise intact.
+mise settings set windows_default_inline_shell_args '{{ vars.task_shell }}'
 
 mise install conda:m2-git conda:m2-gnupg github:mstorsjo/llvm-mingw conda:m2-make rust
 
@@ -388,7 +394,7 @@ else
   echo "[preinstall] no python on PATH and ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP unset; skipping pipx setup"
 fi
 """
-shell = "bash -xeuo pipefail -c"
+shell = "{{ vars.task_shell_trace }}"
 # bash -x (xtrace) on this OS-specific preinstall.
 # CI failures on Nano (rclone-not-found, sha256 path mangling, etc.) are easier to diagnose with the full
 # per-command transcript than with the silent default.

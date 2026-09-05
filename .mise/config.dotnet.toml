@@ -42,7 +42,7 @@ run = """
 roslynator analyze -m "{{ vars.dotnet_msbuild }}" services/ws-modules/dotnet-data1/dotnet-data1.csproj
 roslynator analyze -m "{{ vars.dotnet_msbuild }}" services/ws-modules/dotnet-math1/dotnet-math1.csproj
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.roslynator-fix]
 description = "Apply Roslynator diagnostics' machine-applicable C# fixes in place"
@@ -50,7 +50,7 @@ run = """
 roslynator fix -m "{{ vars.dotnet_msbuild }}" services/ws-modules/dotnet-data1/dotnet-data1.csproj
 roslynator fix -m "{{ vars.dotnet_msbuild }}" services/ws-modules/dotnet-math1/dotnet-math1.csproj
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 # Namespaced aggregators picked up by the default config's globbed `check`/`fmt`/`fix`.
 [tasks."check:dotnet"]
@@ -89,7 +89,7 @@ description = "Install the wasm-tools workload once, before any dotnet module bu
 # https://github.com/edge-toolkit/core/actions/runs/32226380541/job/95986792705 -- serializing the install was
 # the fix for the race, guarding it was not part of that and only hid a broken workload state.
 run = "dotnet workload install wasm-tools --skip-manifest-update"
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-dotnet-data1-module]
 depends = ["dotnet-workload-wasm-tools"]
@@ -127,7 +127,7 @@ dotnet publish -c Release $publish_args
 PUBLISH=bin/Release/net10.0/publish/wwwroot/_framework
 cp "$PUBLISH"/*.js "$PUBLISH"/*.wasm "$PUBLISH"/*.dat pkg/
 '''
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-dotnet-math1-module]
 depends = ["dotnet-workload-wasm-tools"]
@@ -149,7 +149,7 @@ dotnet publish -c Release $publish_args
 PUBLISH=bin/Release/net10.0/publish/wwwroot/_framework
 cp "$PUBLISH"/*.js "$PUBLISH"/*.wasm "$PUBLISH"/*.dat pkg/
 '''
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 # Both dotnet publishes drive emscripten out of one shared workload pack tree, so they run one at a time.
 # `wait_for` rather than `depends` because the edge only matters when both are already scheduled -- building
 # math1 alone stays one task.

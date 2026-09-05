@@ -129,4 +129,4 @@ if [ ! -f "$a" ]; then
   "$py" -c "import gzip,shutil,sys;shutil.copyfileobj(gzip.open(sys.argv[1]),open(sys.argv[2],'wb'))" "$gz" "$a"
 fi
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"

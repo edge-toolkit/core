@@ -117,7 +117,7 @@ mkdir -p services/ws-modules/wasi-data1/pkg
 cp target/wasm32-wasip2/release/et_ws_wasi_data1.wasm services/ws-modules/wasi-data1/pkg/et_ws_wasi_data1.wasm
 {{ vars.et_cli }} module-package-json --module-dir services/ws-modules/wasi-data1
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-wasi-math1-module]
 depends = ["build-et-cli"]
@@ -128,7 +128,7 @@ mkdir -p services/ws-modules/wasi-math1/pkg
 cp target/wasm32-wasip2/release/et_ws_wasi_math1.wasm services/ws-modules/wasi-math1/pkg/et_ws_wasi_math1.wasm
 {{ vars.et_cli }} module-package-json --module-dir services/ws-modules/wasi-math1
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-wasi-comm1-module]
 depends = ["build-et-cli"]
@@ -139,4 +139,4 @@ mkdir -p services/ws-modules/wasi-comm1/pkg
 cp target/wasm32-wasip2/release/et_ws_wasi_comm1.wasm services/ws-modules/wasi-comm1/pkg/et_ws_wasi_comm1.wasm
 {{ vars.et_cli }} module-package-json --module-dir services/ws-modules/wasi-comm1
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"

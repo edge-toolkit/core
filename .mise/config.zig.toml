@@ -69,7 +69,7 @@ run = """
 clang_format="$(mise which clang-format)"
 git ls-files '*.c' '*.cpp' '*.h' | xargs "$clang_format" -i --style=file:config/clang-format.yaml
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.clang-format-check]
 description = "Check C/C++ source formatting (clang-format)"
@@ -78,7 +78,7 @@ clang_format="$(mise which clang-format)"
 git ls-files '*.c' '*.cpp' '*.h' |
   xargs "$clang_format" --dry-run --Werror --style=file:config/clang-format.yaml
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.clang-tidy-check]
 description = "Lint C/C++ sources (clang-tidy)"
@@ -117,7 +117,7 @@ fi
 git ls-files 'services/ws-modules/zig-*/src/*.c' 'services/ws-modules/zig-*/src/*.cpp' |
   xargs -r -I{} "$clang_tidy" --config-file=config/clang-tidy.yaml {} -- "$@"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.clang-tidy-fix]
 description = "Apply clang-tidy's machine-applicable fix-its to C/C++ sources in place"
@@ -144,7 +144,7 @@ fi
 git ls-files 'services/ws-modules/zig-*/src/*.c' 'services/ws-modules/zig-*/src/*.cpp' |
   xargs -r -I{} "$clang_tidy" --fix --config-file=config/clang-tidy.yaml {} -- "$@"
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.cpplint-check]
 description = "Lint C/C++ sources for Google C++ style (cpplint)"
@@ -154,7 +154,7 @@ run = """
 git ls-files '*.c' '*.cpp' '*.h' |
   xargs cpplint --quiet --linelength=120 --filter=-legal/copyright,-build/include_subdir,-readability/nolint
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 [tasks.flawfinder-check]
 description = "Scan C/C++ sources for risky C APIs (flawfinder security lint)"
@@ -165,7 +165,7 @@ run = """
 git ls-files '*.c' '*.cpp' '*.h' |
   xargs flawfinder --error-level=2 --minlevel=2 --quiet --dataonly
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
 
 # Namespaced aggregators picked up by the default config's globbed `check`/`fmt`.
 [tasks."check:zig"]
@@ -209,4 +209,4 @@ run = """
 cargo run -q -p et-int-gen --bin et-int-gen -- generate zig
 zig fmt generated/zig-rest/src/et_rest_client.zig
 """
-shell = "bash -euo pipefail -c"
+shell = "{{ vars.task_shell }}"
