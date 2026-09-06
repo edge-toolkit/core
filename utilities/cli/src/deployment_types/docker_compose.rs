@@ -7,11 +7,18 @@ use fs_err as fs;
 use crate::error::CliError;
 use crate::{OutputType, cluster_module_names, module_registry, resolve_module_paths};
 
-pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
+pub fn generate_docker_compose_deployment(
+    cluster: &ClusterInput,
+    output_dir: &Path,
+    password: &str,
+) -> Result<(), CliError> {
     let output_path = output_dir.join(OutputType::DockerCompose.output_file_name());
     let workspace_root = edge_toolkit::config::get_project_root();
     let output_abs = absolute_from(&workspace_root, output_dir);
     let workspace_rel = relative_path_from(&output_abs, &workspace_root);
+    // `dockerfile` is resolved against the build context, not against this compose file, so the scenario image
+    // is named by its path down from the repository root rather than as a sibling of the compose file.
+    let scenario_dockerfile_rel = format!("{}/Dockerfile", relative_path_from(&workspace_root, &output_abs));
     let openobserve_env_file_rel = relative_path_from(&output_abs, &workspace_root.join("config/o2.env"));
     let module_names = cluster_module_names(cluster);
     let module_paths = docker_image_module_paths(&module_names)?;
@@ -19,24 +26,21 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
         services: vec![
             (
                 "openobserve".to_string(),
+                openobserve_service(openobserve_env_file_rel, password),
+            ),
+            (
+                "ws-server-hub".to_string(),
                 ComposeService {
-                    image: Some("openobserve/openobserve:v0.91.5".to_string()),
-                    healthcheck: Some(ComposeHealthcheck {
-                        test: vec![
-                            "CMD".to_string(),
-                            "/openobserve".to_string(),
-                            "node".to_string(),
-                            "status".to_string(),
-                        ],
-                        interval: "5s".to_string(),
-                        timeout: "3s".to_string(),
-                        retries: 20,
-                        start_period: "10s".to_string(),
+                    build: Some(ComposeBuild {
+                        context: workspace_rel.clone(),
+                        dockerfile: "services/ws-server/Dockerfile".to_string(),
+                        additional_contexts: Vec::new(),
                     }),
-                    ports: vec!["5080:5080".to_string()],
-                    env_file: vec![openobserve_env_file_rel],
-                    environment: vec![("ZO_DATA_DIR".to_string(), ComposeValue::Plain("/data".to_string()))],
-                    volumes: vec!["openobserve-data:/data".to_string()],
+                    // Build-only: `ws-server` layers this cluster's modules onto it, and nothing runs it directly.
+                    // `scale: 0` is what keeps `docker compose up` from creating a second, module-less container;
+                    // a `profiles:` entry would instead hide the service from the build resolver, which fails the
+                    // `service:` reference below with "declares unknown service".
+                    scale: Some(0),
                     ..ComposeService::default()
                 },
             ),
@@ -45,7 +49,8 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
                 ComposeService {
                     build: Some(ComposeBuild {
                         context: workspace_rel,
-                        dockerfile: "services/ws-server/Dockerfile".to_string(),
+                        dockerfile: scenario_dockerfile_rel,
+                        additional_contexts: vec![("hub".to_string(), "service:ws-server-hub".to_string())],
                     }),
                     network_mode: Some("host".to_string()),
                     environment: vec![
@@ -55,7 +60,7 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
                         ),
                         (
                             "OTLP_AUTH_PASSWORD".to_string(),
-                            ComposeValue::DoubleQuoted("1234".to_string()),
+                            ComposeValue::DoubleQuoted(password.to_string()),
                         ),
                         (
                             "OTLP_AUTH_USERNAME".to_string(),
@@ -92,6 +97,38 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
     Ok(())
 }
 
+/// Build the `OpenObserve` collector service the scenario's traces are exported to.
+fn openobserve_service(env_file: String, password: &str) -> ComposeService {
+    ComposeService {
+        image: Some("openobserve/openobserve:v0.91.5".to_string()),
+        healthcheck: Some(ComposeHealthcheck {
+            test: vec![
+                "CMD".to_string(),
+                "/openobserve".to_string(),
+                "node".to_string(),
+                "status".to_string(),
+            ],
+            interval: "5s".to_string(),
+            timeout: "3s".to_string(),
+            retries: 20,
+            start_period: "10s".to_string(),
+        }),
+        ports: vec!["5080:5080".to_string()],
+        env_file: vec![env_file],
+        // The scenario password overrides the one in the env file, which compose applies first. Per-scenario
+        // credentials mean two stacks running side by side cannot authenticate against each other's collector.
+        environment: vec![
+            ("ZO_DATA_DIR".to_string(), ComposeValue::Plain("/data".to_string())),
+            (
+                "ZO_ROOT_USER_PASSWORD".to_string(),
+                ComposeValue::DoubleQuoted(password.to_string()),
+            ),
+        ],
+        volumes: vec!["openobserve-data:/data".to_string()],
+        ..ComposeService::default()
+    }
+}
+
 pub fn docker_image_module_paths(module_names: &[String]) -> Result<Vec<String>, CliError> {
     let project_root = edge_toolkit::config::get_project_root();
     let ws_server_dir = project_root.join("services/ws-server");
@@ -117,6 +154,7 @@ struct ComposeService {
     image: Option<String>,
     healthcheck: Option<ComposeHealthcheck>,
     network_mode: Option<String>,
+    scale: Option<u32>,
     ports: Vec<String>,
     env_file: Vec<String>,
     environment: Vec<(String, ComposeValue)>,
@@ -128,6 +166,7 @@ struct ComposeService {
 struct ComposeBuild {
     context: String,
     dockerfile: String,
+    additional_contexts: Vec<(String, String)>,
 }
 
 #[derive(Debug)]
@@ -215,6 +254,15 @@ impl ComposeRenderer {
             self.push_line(2, "build:");
             self.push_line(3, &format!("context: {}", build.context));
             self.push_line(3, &format!("dockerfile: {}", build.dockerfile));
+            if !build.additional_contexts.is_empty() {
+                self.push_line(3, "additional_contexts:");
+                for (name, source) in &build.additional_contexts {
+                    self.push_line(4, &format!("{name}: {source}"));
+                }
+            }
+        }
+        if let Some(scale) = service.scale {
+            self.push_line(2, &format!("scale: {scale}"));
         }
         if let Some(network_mode) = &service.network_mode {
             self.push_line(2, &format!("network_mode: {network_mode}"));

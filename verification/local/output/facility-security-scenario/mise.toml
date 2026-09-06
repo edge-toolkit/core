@@ -9,7 +9,11 @@ run = "open http://localhost:5080/"
 [tasks.openobserve]
 alias = "o2"
 dir = "../../../.."
-run = "docker run --rm --name openobserve -p 5080:5080 --env-file config/o2.env openobserve/openobserve:v0.91.5"
+run = """
+image=openobserve/openobserve:v0.91.5
+credential=ZO_ROOT_USER_PASSWORD=Et+quis8784
+docker run --rm --name openobserve -p 5080:5080 --env-file config/o2.env -e "$credential" "$image"
+"""
 
 [tasks.ws-server]
 description = "Run the WebSocket server"
@@ -17,14 +21,13 @@ dir = "../../../../services/ws-server"
 run = '''
 export MODULES_PATHS="\
   static, ../ws-wasm-agent, ../ws-modules/face-detection, ../ws-modules/har1, ../ws-modules/pyface1,\
-  ../../data/model-modules/model-face1, $(mise where npm:onnxruntime-web)/lib/node_modules/onnxruntime-web,\
-  ../../data/model-modules/model-har-motion1, ../../generated/python-ws,\
-  $(mise where npm:pyodide)/lib/node_modules/pyodide"
+  ../../data/model-modules/model-face1, $(cargo run --quiet -p et-cli -- npm-module-path --package onnxruntime-web),\
+  ../../data/model-modules/model-har-motion1, ../../generated/python-ws, $(mise where http:pyodide)"
 cargo run
 '''
 
 [tasks.ws-server.env]
-OTLP_AUTH_PASSWORD = "1234"
+OTLP_AUTH_PASSWORD = "Et+quis8784"
 OTLP_AUTH_USERNAME = "root@example.com"
 
 [tools]

@@ -17,12 +17,20 @@ services:
       - ../../../../config/o2.env
     environment:
       ZO_DATA_DIR: /data
+      ZO_ROOT_USER_PASSWORD: "Et+quis8784"
     volumes:
       - openobserve-data:/data
-  ws-server:
+  ws-server-hub:
     build:
       context: ../../../..
       dockerfile: services/ws-server/Dockerfile
+    scale: 0
+  ws-server:
+    build:
+      context: ../../../..
+      dockerfile: verification/local/output/facility-security-scenario/Dockerfile
+      additional_contexts:
+        hub: service:ws-server-hub
     network_mode: host
     environment:
       MODULES_PATHS: "/app/services/ws-server/static,\
@@ -35,7 +43,7 @@ services:
         /app/data/model-modules/model-har-motion1,\
         /app/generated/python-ws,\
         /app/node_modules/pyodide"
-      OTLP_AUTH_PASSWORD: "1234"
+      OTLP_AUTH_PASSWORD: "Et+quis8784"
       OTLP_AUTH_USERNAME: root@example.com
       OTLP_COLLECTOR_URL: http://127.0.0.1:5080/api/default/v1
       STORAGE_URL: file:///app/storage

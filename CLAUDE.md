@@ -515,7 +515,9 @@ mise run o2          # starts Docker container on :5080
 mise run open-o2     # opens browser UI
 ```
 
-Dev credentials: `root@example.com` / `1234` (set in `[tasks.ws-server.env]`).
+Dev credentials: `root@example.com` / `Complexpass#123` (set in `[tasks.ws-server.env]`). OpenObserve enforces a
+password policy at startup, so a weaker value aborts the container rather than degrading gracefully. Generated
+scenario deployments do not use this password -- `et-cli` derives a per-scenario one from the scenario input.
 
 ## Testing
 
@@ -1268,3 +1270,10 @@ restriction lints whose pattern is intentional in a given spot -- prefer a justi
   `services/ws-web-runner/src/error.rs` exposes `.map_js_err()` and
   `.map_js_err_with_context(...)`, never `.js_err()` / `.to_js_err()` /
   similar.
+- **A changed signature is not a reason to rename a function.** Adding a
+  parameter, returning an extra value, or making a function fallible does not change what it _is_, and its name
+  describes that -- not its argument list. Keep the name and update the callers. Renaming `load_cluster_input` to
+  `load_cluster_with_seed` because it grew a second return value is the anti-pattern: the name got longer, every
+  call site churned, and `load_cluster_input` was left behind as a thin wrapper that existed only to keep the old
+  name alive -- two functions where one belonged. Rename only when the meaning genuinely changed, and then say so
+  explicitly rather than folding it into an unrelated diff.

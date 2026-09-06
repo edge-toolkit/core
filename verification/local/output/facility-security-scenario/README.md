@@ -31,7 +31,10 @@ From this directory, start the scenario with:
 docker compose up --build
 ```
 
-The compose stack starts OpenObserve and builds a `ws-server` image from the repository Dockerfile.
+The compose stack starts OpenObserve and builds `ws-server` in two layers: the module-less hub
+image from the repository's `services/ws-server/Dockerfile`, then the `Dockerfile` in this
+directory, which stages this scenario's modules onto it. The hub is build-only and never runs as a
+container of its own.
 `ws-server` runs with host networking so it advertises the same LAN IP as the `mise` deployment.
 
 ### Open The UIs
