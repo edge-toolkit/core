@@ -79,6 +79,13 @@ cargo-binstall = "latest"
 cmake = "latest"
 "conda:openssl" = "3"
 conftest = "latest"
+# Compose CLI for the generated scenario stacks under verification/.
+# The aqua backend rather than the registry default (`github:docker/compose`): the github backend records SLSA
+# provenance in the lockfile, and a mise older than the one that wrote it refuses the entry outright with
+# "Lockfile requires slsa provenance for github:docker/compose@<ver> but verification was not performed".
+# aqua records `provenance = "github-attestations"` instead, which is what every other pinned tool here uses.
+# This is the compose implementation only -- a docker daemon still has to come from the host.
+"aqua:docker/compose" = "latest"
 "github:nextest-rs/nextest" = { version = "latest", version_prefix = "cargo-nextest-" }
 taplo = "latest"
 watchexec = "latest"
@@ -727,6 +734,7 @@ depends = [
   "jscpd-check",
   "link-check",
   "ls-lint-check",
+  "mise-lock-check",
   "readme-mise-version-check",
   "regal-check",
   "ryl-check",
@@ -808,7 +816,15 @@ run = "semgrep scan --config config/semgrep --autofix --metrics=off ."
 
 [tasks.hadolint-check]
 description = "Lint the Dockerfiles with hadolint"
-run = "git ls-files '*Dockerfile' '*Dockerfile.*' | xargs hadolint --config config/hadolint.yaml"
+# `*Dockerfile.*` also catches a BuildKit per-Dockerfile ignore file, which is not a Dockerfile.
+# BuildKit looks for `<path-to-dockerfile>.dockerignore` beside the Dockerfile it is told to build, so the name
+# is fixed and cannot be moved out of the glob's way; hadolint parses it as Dockerfile syntax and stops on the
+# first ignore pattern with `unexpected '*' expecting ... a pragma, at least one space, or end of input`.
+run = """
+git ls-files '*Dockerfile' '*Dockerfile.*' | rg -v '\\.dockerignore$' |
+  xargs hadolint --config config/hadolint.yaml
+"""
+shell = "{{ vars.task_shell }}"
 
 # Duplication is gated as a fingerprint ratchet, not as a percentage.
 # config/jscpd-baseline.json records the fingerprint of every clone that already existed, and only a clone absent
@@ -976,8 +992,12 @@ description = "Cross-check Dockerfiles against mise [tools] pins + heredoc body-
 # Each git-tracked Dockerfile* gets both passes, except that the `ignore` pass only visits Dockerfiles that
 # actually contain heredocs: conftest 0.68.2's ignore parser panics with `runtime error: slice bounds out of
 # range` on plain Dockerfiles (no heredocs), and the body-first-line rule has nothing to check there anyway.
+# A BuildKit per-Dockerfile ignore file is dropped from the list first. `<path-to-dockerfile>.dockerignore` is
+# the name BuildKit demands beside the Dockerfile it builds, so it cannot be moved out of the glob's way, and
+# the dockerfile parser reads its first pattern as an instruction:
+#   unknown instruction: **/.claude/
 run = """
-files=$(git ls-files '*Dockerfile' '*Dockerfile.*')
+files=$(git ls-files '*Dockerfile' '*Dockerfile.*' | rg -v '\\.dockerignore$')
 # $files is a newline-separated path list; word-splitting is intentional (no spaces in paths).
 # shellcheck disable=SC2086
 conftest test --combine --namespace dockerfile -p config/conftest/policy $files .mise
@@ -1514,7 +1534,8 @@ description = "Run the WebSocket server, restarting on .rs/.toml changes"
 run = "watchexec --restart --clear --exts rs,toml -i '**/tests/**' --shell=none -- cargo run -p et-ws-server"
 
 [tasks.ws-server.env]
-OTLP_AUTH_PASSWORD = "1234"
+# Must match ZO_ROOT_USER_PASSWORD in config/o2.env; the server authenticates its OTLP exports as that root user.
+OTLP_AUTH_PASSWORD = "Complexpass#123"  # skipcq: SCT-A000 -- local dev-only credential, committed deliberately
 OTLP_AUTH_USERNAME = "root@example.com"
 
 [tasks.ws-server-no-otel]
@@ -2058,6 +2079,32 @@ shell = "{{ vars.task_shell_plain }}"
 description = "Install every language toolchain (all .mise/config.<lang>.toml)"
 run = 'MISE_ENV="$ALL_LANGS" mise install'
 shell = "{{ vars.task_shell_plain }}"
+
+# Fail when a full install resolves a different tool set or version than the committed lockfiles record.
+# Only the platform-independent fields are compared, because mise fills a lockfile's per-platform rows in lazily on
+# whichever platform runs the install: `checksum`, `url`, `url_api`, `provenance` and `provenance_verified` appear
+# for macos-arm64 on a developer's machine and for linux-x64 on a runner. A whole-file `git diff` therefore can
+# never be clean across the five-platform matrix -- every lane legitimately adds its own rows, and the committed
+# lockfile already carries a checksum for some platforms of a tool and not others. The `[[tools.<name>]]` headers
+# and their `version` / `backend` are identical everywhere, so those are what this gates on: a tool added, removed
+# or bumped without regenerating the lockfiles is caught, while a lane recording its own checksums is not.
+# install-all rather than a bare install, so guest-language tools reach their lockfiles too -- MISE_ENV only
+# loads a subset, and a partial install leaves every unloaded config's lockfile unexamined.
+[tasks.mise-lock-check]
+depends = ["install-all"]
+description = "Fail if .mise/mise*.lock records a different tool set or version than a full install resolves"
+# `|| true` because rg exits 1 on no matches, which under pipefail would abort the whole task on the clean path.
+# `^[-+][-+]` drops git's `+++`/`---` file headers; `@@` hunk headers never match the leading `[-+]`.
+run = """
+drift=$(git diff -U0 -- .mise/mise*.lock | rg "^[-+]" | rg -v "^[-+][-+]" |
+  rg "^[-+](version|backend) = |^[-+]\\[\\[tools\\." || true)
+if [ -n "$drift" ]; then
+  echo "$drift"
+  echo "Lockfile tool set/versions differ from install-all; commit the regenerated .mise/mise*.lock" >&2
+  exit 1
+fi
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.all]
 # Generic stand-in: run any command with every language env enabled.

@@ -35,4 +35,10 @@ pub enum Commands {
         #[arg(long, default_value = ".")]
         module_dir: PathBuf,
     },
+    /// Print the directory holding a mise-staged npm package.
+    NpmModulePath {
+        /// Published package name, as it appears in the mise tool id (e.g. `onnxruntime-web`).
+        #[arg(long)]
+        package: String,
+    },
 }

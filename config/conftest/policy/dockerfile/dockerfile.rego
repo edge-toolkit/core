@@ -34,14 +34,20 @@ deny contains msg if {
 	)
 }
 
-# Collect the comma-separated tools the Dockerfile asks mise to skip.
+# Collect the comma-separated tools Dockerfile.nanoserver asks mise to skip.
 # The value is usually built from multiple ARGs and composed into the final ENV (a single
 # `ENV MISE_DISABLE_TOOLS=...` would be too long, and the no-backslash rule forbids continuing it), so scan every
 # ARG/ENV value in the file and take whichever tokens look like a tool name (contain `:`). The `${VAR}` placeholders the
 # composing ENV holds get rejected by the same filter -- only the leaf ARG values supply tools.
+#
+# Scoped to Dockerfile.nanoserver, which is the only file whose disable list this rule is about. Unscoped, every
+# other Dockerfile in the combined input donates its own colon-bearing ARG/ENV values to this set -- the generated
+# scenario images carry `ENV STAGE_TOOL="npm:..."` and similar -- and a pipx tool named in one of those would
+# satisfy the deny rule below without ever appearing in Nano's disable list, silently weakening the check.
 disabled_tools contains tool if {
 	some file in input
 	is_array(file.contents)
+	endswith(file.path, "Dockerfile.nanoserver")
 	some instr in file.contents
 	instr.Cmd in {"arg", "env"}
 	some value in instr.Value
@@ -54,9 +60,15 @@ disabled_tools contains tool if {
 # Only the always-loaded config.toml and these guest configs load on Nano, so only their pipx tools can run there.
 # The dockerfile parser stores an ENV's key and value as adjacent Value elements (["MISE_ENV", "dart,java,..."]),
 # so find the "MISE_ENV" key and split the element that follows it.
+#
+# Scoped to Dockerfile.nanoserver for the same reason as `disabled_tools` above: any other Dockerfile setting
+# MISE_ENV would otherwise widen what Nano is believed to enable. The generated scenario images set it to the
+# full guest list, which made this demand that every pipx tool in config.python.toml be disabled on Nano even
+# though Nano's own MISE_ENV names no python.
 nano_langs contains lang if {
 	some file in input
 	is_array(file.contents)
+	endswith(file.path, "Dockerfile.nanoserver")
 	some instr in file.contents
 	instr.Cmd == "env"
 	some i

@@ -83,6 +83,9 @@ pub enum CliError {
 
     #[error("No local module or runtime package found for dependency {0:?}")]
     UnknownDependency(String),
+
+    #[error("npm package {0:?} is not staged by mise; run `mise install npm:{0}`")]
+    UnresolvedNpmModule(String),
 }
 
 /// Parse `src` as TOML into `T`, attaching `path` to the error on failure.

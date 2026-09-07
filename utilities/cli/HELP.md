@@ -8,6 +8,7 @@ This document contains the help content for the `et-cli` command-line program.
 - [`et-cli generate-deployment`↴](#et-cli-generate-deployment)
 - [`et-cli regen-verification`↴](#et-cli-regen-verification)
 - [`et-cli module-package-json`↴](#et-cli-module-package-json)
+- [`et-cli npm-module-path`↴](#et-cli-npm-module-path)
 
 ## `et-cli`
 
@@ -18,6 +19,7 @@ This document contains the help content for the `et-cli` command-line program.
 - `generate-deployment` — Generate deployment config from a cluster input YAML
 - `regen-verification` — Regenerate verification outputs using verification input/output naming conventions
 - `module-package-json` — Generate pkg/package.json from module metadata
+- `npm-module-path` — Print the directory holding a mise-staged npm package
 
 ## `et-cli generate-deployment`
 
@@ -58,6 +60,16 @@ Generate pkg/package.json from module metadata
 - `--module-dir <MODULE_DIR>`
 
   Default value: `.`
+
+## `et-cli npm-module-path`
+
+Print the directory holding a mise-staged npm package
+
+**Usage:** `et-cli npm-module-path --package <PACKAGE>`
+
+###### **Options:**
+
+- `--package <PACKAGE>` — Published package name, as it appears in the mise tool id (e.g. `onnxruntime-web`)
 
 <hr/>
 

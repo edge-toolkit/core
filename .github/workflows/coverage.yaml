@@ -121,7 +121,9 @@ jobs:
           export CHROMEDRIVER="${CHROMEWEBDRIVER:+$CHROMEWEBDRIVER/chromedriver}"
           mise run pic-viewer-cov
 
+      # Python coverage does not depend on the Rust result, so a failing Rust test must not skip it.
       - name: Collect Python coverage
+        if: ${{ !cancelled() }}
         timeout-minutes: 15
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -137,7 +139,13 @@ jobs:
             coverage-python.xml
           if-no-files-found: error
 
+      # Every upload below runs on a failed run too, gated on its report actually existing.
+      # A failing test is when the coverage delta matters most, and the coverage task now writes lcov.info before
+      # re-raising the test status. The `hashFiles` half keeps a genuinely absent report from turning into a
+      # second, misleading failure: when an earlier step (a tool install, say) means nothing was ever produced,
+      # these skip instead of erroring on a missing file and burying the real cause.
       - name: Upload Rust coverage to Codecov (OIDC)
+        if: ${{ !cancelled() && hashFiles('lcov.info') != '' }}
         uses: codecov/codecov-action@v7
         with:
           use_oidc: true
@@ -146,6 +154,7 @@ jobs:
           fail_ci_if_error: true
 
       - name: Upload Python coverage to Codecov (OIDC)
+        if: ${{ !cancelled() && hashFiles('coverage-python.xml') != '' }}
         uses: codecov/codecov-action@v7
         with:
           use_oidc: true
@@ -154,9 +163,11 @@ jobs:
           fail_ci_if_error: true
 
       - name: Upload Rust coverage to DeepSource (OIDC)
+        if: ${{ !cancelled() && hashFiles('lcov.info') != '' }}
         run: deepsource report --analyzer test-coverage --key rust --value-file lcov.info --use-oidc
 
       - name: Upload Python coverage to DeepSource (OIDC)
+        if: ${{ !cancelled() && hashFiles('coverage-python.xml') != '' }}
         run: deepsource report --analyzer test-coverage --key python --value-file coverage-python.xml --use-oidc
 
       # Upload test results even when tests failed.

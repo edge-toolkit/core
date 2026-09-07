@@ -53,7 +53,7 @@ fn scenario_module_paths_include_selected_modules_and_dependencies() {
             "../ws-modules/face-detection".to_string(),
             "../ws-modules/har1".to_string(),
             "../../data/model-modules/model-face1".to_string(),
-            "$(mise where npm:onnxruntime-web)/lib/node_modules/onnxruntime-web".to_string(),
+            "$(cargo run --quiet -p et-cli -- npm-module-path --package onnxruntime-web)".to_string(),
             "../../data/model-modules/model-har-motion1".to_string(),
         ],
     );
@@ -69,8 +69,9 @@ fn scenario_module_paths_include_pyface1_python_runtime_dependencies() {
 
     assert!(paths.contains(&"../ws-modules/pyface1".to_string()));
     assert!(paths.contains(&"../../data/model-modules/model-face1".to_string()));
-    assert!(paths.contains(&"$(mise where npm:onnxruntime-web)/lib/node_modules/onnxruntime-web".to_string()));
-    assert!(paths.contains(&"$(mise where npm:pyodide)/lib/node_modules/pyodide".to_string()));
+    assert!(paths.contains(&"$(cargo run --quiet -p et-cli -- npm-module-path --package onnxruntime-web)".to_string()));
+    // pyface1 calls `micropip.install`, so it needs the full GitHub-release distribution rather than the npm one.
+    assert!(paths.contains(&"$(mise where http:pyodide)".to_string()));
 }
 
 #[test]
