@@ -12,7 +12,7 @@ services:
       retries: 20
       start_period: 10s
     ports:
-      - 5080:5080
+      - 127.0.0.1:5080:5080
     env_file:
       - ../../../../config/o2.env
     environment:

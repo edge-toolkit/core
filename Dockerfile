@@ -169,10 +169,37 @@ EOF
 # Install mise and put it + its shims on PATH.
 # In a non-interactive build that's the equivalent of the shell integration --
 # every `mise` / `mise run` below then resolves the workspace tools.
-# Pin the mise version: the config templates need Tera v2 (mise >= 2026.7.1), and mise.run honours MISE_VERSION.
-# Keep this in lockstep with min_version in .mise/config.toml.
-# skipcq: DOK-DL4006
-RUN curl -fsSL https://mise.run | MISE_VERSION=v2026.9.0 sh
+# Pin the mise version: the config templates need Tera v2 (mise >= 2026.7.1).
+# Keep MISE_VERSION in lockstep with min_version in .mise/config.toml.
+#
+# Fetched to a file and checksum-verified rather than piped from mise.run into a shell, which would execute an
+# unreviewed remote script and is banned repo-wide by the no-curl-pipe rule. The upstream release ships a
+# SHASUMS256.txt covering every asset, so `--ignore-missing` verifies exactly the one archive downloaded here.
+# mise's own apt repository was the obvious alternative and was rejected: it publishes only the newest version,
+# so it cannot honour the pin, and a floating mise is what writes lockfile entries an older CI mise then refuses.
+ARG MISE_VERSION=v2026.9.0
+# TARGETARCH is an automatic BuildKit build ARG; re-declaring it brings it into this stage.
+ARG TARGETARCH
+ENV MISE_VERSION=${MISE_VERSION}
+ENV TARGETARCH=${TARGETARCH}
+RUN bash <<'EOF'
+set -euo pipefail
+case "${TARGETARCH}" in
+    amd64) arch=x64 ;;
+    arm64) arch=arm64 ;;
+    *) echo "unsupported TARGETARCH ${TARGETARCH}: mise ships x64 and arm64 linux builds" >&2; exit 1 ;;
+esac
+asset="mise-${MISE_VERSION}-linux-${arch}.tar.gz"
+base="https://github.com/jdx/mise/releases/download/${MISE_VERSION}"
+cd /tmp
+curl -fsSL -o "${asset}" "${base}/${asset}"
+curl -fsSL -o SHASUMS256.txt "${base}/SHASUMS256.txt"
+sha256sum -c --ignore-missing SHASUMS256.txt
+tar -xzf "${asset}"
+install -m 0755 /tmp/mise/bin/mise /usr/local/bin/mise
+rm -rf /tmp/mise "/tmp/${asset}" /tmp/SHASUMS256.txt
+EOF
+
 # Declare HOME explicitly rather than depending on the base image's ENV.
 # ubuntu/debian/fedora all set HOME=/root for the root user, but pinning it
 # here means the PATH expansion below doesn't silently break against a future

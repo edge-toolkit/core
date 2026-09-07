@@ -12,10 +12,6 @@ ignored:
   - DL3037
   # Same for npm: `npm install -g pnpm` tracks latest; we don't pin it here.
   - DL3016
-  # The `curl ... | sh` mise installer doesn't need pipefail on its own line.
-  # If curl fails, sh gets empty input and the next `mise` command then fails anyway, so the pipe failure is caught
-  # downstream -- no need to set SHELL -o pipefail just for that one line.
-  - DL4006
   # Consecutive RUNs are kept separate on purpose.
   # For layer caching and so a change to one step doesn't bust the others.
   - DL3059

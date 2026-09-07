@@ -37,23 +37,33 @@ EOF
 
 # wasm-pack builds the browser client; keep this in step with the `aqua:rustwasm/wasm-pack` pin in .mise/mise.lock.
 ARG WASM_PACK_VERSION=0.15.0
+# The two digests are that lockfile's `platforms.linux-{arm64,x64}` checksums for this exact version.
+# They are what makes the download verifiable: the archive is fetched to a file and checked before anything in it
+# is unpacked or run, rather than being streamed straight into tar. Bump all three ARGs together.
+ARG WASM_PACK_SHA256_AARCH64=e17ef0806381c3a0acb9c9ddad643a49facaa5a2ecf657a421d4d8f3357a24b7
+ARG WASM_PACK_SHA256_X86_64=c09f971ecaed9a2efc80fdcea7a00ef6b53c7fadc8c57d1f61b53a6aa66b668a
 # TARGETARCH is an automatic BuildKit build ARG, and re-declaring it is what brings it into this stage.
 ARG TARGETARCH
-# Promote both ARGs to ENV so the quoted heredoc below can read them.
+# Promote the ARGs to ENV so the quoted heredoc below can read them.
 # A body opened with a quoted delimiter (`<<'EOF'`) is expanded by bash at run time, not by the frontend at build
 # time, so an ARG reaches it only through the environment.
 ENV WASM_PACK_VERSION=${WASM_PACK_VERSION}
+ENV WASM_PACK_SHA256_AARCH64=${WASM_PACK_SHA256_AARCH64}
+ENV WASM_PACK_SHA256_X86_64=${WASM_PACK_SHA256_X86_64}
 ENV TARGETARCH=${TARGETARCH}
 RUN bash <<'EOF'
 set -euo pipefail
 case "${TARGETARCH}" in
-    amd64) arch=x86_64 ;;
-    arm64) arch=aarch64 ;;
+    amd64) arch=x86_64; sha="${WASM_PACK_SHA256_X86_64}" ;;
+    arm64) arch=aarch64; sha="${WASM_PACK_SHA256_AARCH64}" ;;
     *) echo "unsupported TARGETARCH ${TARGETARCH}: wasm-pack ships x86_64 and aarch64 only" >&2; exit 1 ;;
 esac
 release="wasm-pack-v${WASM_PACK_VERSION}-${arch}-unknown-linux-musl"
 url="https://github.com/wasm-bindgen/wasm-pack/releases/download/v${WASM_PACK_VERSION}/${release}.tar.gz"
-curl -fsSL "${url}" | tar -xzf - -C /usr/local/bin --strip-components=1 "${release}/wasm-pack"
+curl -fsSL -o /tmp/wasm-pack.tar.gz "${url}"
+echo "${sha}  /tmp/wasm-pack.tar.gz" | sha256sum -c -
+tar -xzf /tmp/wasm-pack.tar.gz -C /usr/local/bin --strip-components=1 "${release}/wasm-pack"
+rm -f /tmp/wasm-pack.tar.gz
 rustup target add wasm32-unknown-unknown
 EOF
 

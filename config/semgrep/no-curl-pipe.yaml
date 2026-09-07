@@ -1,0 +1,32 @@
+rules:
+  - id: no-curl-pipe
+    languages: [generic]
+    paths:
+      exclude:
+        # Generated trees are deliberately NOT excluded.
+        # A generated Dockerfile is built and run like any other, so a piped download in one is a real
+        # vulnerability rather than a copy of a finding reported elsewhere. Catching it here also catches the
+        # case the generator's own source cannot: a template assembled from fragments no single source line
+        # shows as a pipe.
+        #
+        # This file is excluded, because it otherwise matches itself.
+        # Not just the prose: the `pattern-regex` below is a literal `curl` followed by a literal `|`, so the
+        # rule flags its own definition however the message is worded. Scoped to this one file rather than the
+        # whole rules directory, so every other rule here stays covered.
+        - "/config/semgrep/no-curl-pipe.yaml"
+    # Match a `curl` whose output is piped into anything other than `tar`.
+    # `[^|\n]*` keeps the match inside one command rather than reaching a later, unrelated pipe, and the negative
+    # lookahead is the whole carve-out: `| tar` is permitted, every other pipe target is not.
+    # The whitespace sits INSIDE the lookahead on purpose. Written as `\|\s*(?!tar\b)` the `\s*` can match zero
+    # characters, so the lookahead is tested against the space rather than against `tar` and every `| tar` is
+    # flagged anyway -- the carve-out silently does nothing.
+    pattern-regex: '\bcurl\b[^|\n]*\|(?!\s*tar\b)'
+    message: >-
+      Piping `curl` into a command that runs what it reads is banned in this repo.
+      `curl ... | sh` executes an unreviewed remote script outright: whoever controls the URL, or anyone able to
+      substitute the response, chooses what runs, and a truncated download is indistinguishable from a good one.
+      Download to a file first, verify it with a pinned `sha256sum -c` or a signature, and only then execute it.
+      `| tar` is the one allowed target -- it unpacks rather than executes, so a bad archive yields bad files
+      instead of running code -- but prefer the download-then-verify form there too when a published checksum
+      exists, because it turns a corrupted or substituted archive into a failed build rather than a silent one.
+    severity: ERROR

@@ -26,10 +26,36 @@ apt-get clean
 rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb
 EOF
 
-# skipcq: DOK-DL4006
-RUN curl -fsSL https://mise.run | sh
+# mise is fetched to a file and checksum-verified, never piped from mise.run into a shell.
+# Piping a remote script into an interpreter runs unreviewed code straight off the network, which the
+# repo's no-curl-pipe rule bans. The release's SHASUMS256.txt covers every asset, so `--ignore-missing`
+# checks exactly the archive downloaded here. Pinned rather than installed from mise's apt repository,
+# which carries only the newest version: a floating mise writes lockfile entries an older CI mise
+# then refuses to install.
+ARG MISE_VERSION=v2026.9.0
+ARG TARGETARCH
+ENV MISE_VERSION=${MISE_VERSION}
+ENV TARGETARCH=${TARGETARCH}
+RUN bash <<'EOF'
+set -euo pipefail
+case "${TARGETARCH}" in
+    amd64) arch=x64 ;;
+    arm64) arch=arm64 ;;
+    *) echo "unsupported TARGETARCH ${TARGETARCH}" >&2; exit 1 ;;
+esac
+asset="mise-${MISE_VERSION}-linux-${arch}.tar.gz"
+base="https://github.com/jdx/mise/releases/download/${MISE_VERSION}"
+cd /tmp
+curl -fsSL -o "${asset}" "${base}/${asset}"
+curl -fsSL -o SHASUMS256.txt "${base}/SHASUMS256.txt"
+sha256sum -c --ignore-missing SHASUMS256.txt
+tar -xzf "${asset}"
+install -m 0755 /tmp/mise/bin/mise /usr/local/bin/mise
+rm -rf /tmp/mise "/tmp/${asset}" /tmp/SHASUMS256.txt
+EOF
+
 ENV HOME=/root
-ENV PATH="/root/.local/bin:/root/.local/share/mise/shims:${PATH}"
+ENV PATH="/root/.local/share/mise/shims:${PATH}"
 WORKDIR /workspace
 COPY .miserc.toml .miserc.toml
 COPY .mise/ .mise/

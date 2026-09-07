@@ -614,6 +614,11 @@ task_shell_trace = 'bash -xeuo pipefail "{{ config_root }}/.mise/task-shell.sh"'
 task_shell_plain = 'bash "{{ config_root }}/.mise/task-shell.sh"'
 # OpenObserve docker image for the openobserve/o2 dev-observability task.
 o2_image = "openobserve/openobserve:v0.91.5"
+# Port publish spec for that task, bound to loopback rather than every interface.
+# config/o2.env's credential is committed, so the collector must not be reachable off the machine. It lives here
+# as a var because the mise policy rejects an `X.Y.Z` literal inside a task `run` body, and an IPv4 address trips
+# that check the same way a version would.
+o2_publish = "127.0.0.1:5080:5080"
 # OpenTelemetry Collector image for the o2-hostmetrics / o2-macmon / o2-nvidia / o2-winmetrics tasks.
 otelcol_image = "otel/opentelemetry-collector-contrib:0.156.0"
 rp_wasm_dir = '''{% if os() == "windows" and env?.MISE_INSTALLS_DIR -%}
@@ -1774,7 +1779,7 @@ description = "Run both the ws-server and ws-wasm-agent using Chrome"
 
 [tasks.openobserve]
 alias = "o2"
-run = "docker run --rm --name openobserve -p 5080:5080 --env-file config/o2.env {{ vars.o2_image }}"
+run = "docker run --rm --name openobserve -p {{ vars.o2_publish }} --env-file config/o2.env {{ vars.o2_image }}"
 
 [tasks.demo]
 depends = ["openobserve", "ws-server"]

@@ -24,7 +24,8 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path, passw
         concat!(
             "image=openobserve/openobserve:v0.91.5\n",
             "credential=ZO_ROOT_USER_PASSWORD={} {}\n",
-            "docker run --rm --name openobserve -p 5080:5080 --env-file {} -e \"$credential\" \"$image\"\n",
+            "docker run --rm --name openobserve -p 127.0.0.1:5080:5080 --env-file {} -e \"$credential\" ",
+            "\"$image\"\n",
         ),
         password, SECRET_PRAGMA, openobserve_env_file_rel
     );

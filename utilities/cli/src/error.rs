@@ -86,6 +86,9 @@ pub enum CliError {
 
     #[error("npm package {0:?} is not staged by mise; run `mise install npm:{0}`")]
     UnresolvedNpmModule(String),
+
+    #[error("cluster_name {0:?} contains a line break, which would break out of a generated comment")]
+    ClusterNameHasLineBreak(String),
 }
 
 /// Parse `src` as TOML into `T`, attaching `path` to the error on failure.

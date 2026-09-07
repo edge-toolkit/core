@@ -12,7 +12,7 @@ dir = "../../../.."
 run = """
 image=openobserve/openobserve:v0.91.5
 credential=ZO_ROOT_USER_PASSWORD=Et+quis8784 # skipcq: SCT-A000 -- generated dev-only scenario credential
-docker run --rm --name openobserve -p 5080:5080 --env-file config/o2.env -e "$credential" "$image"
+docker run --rm --name openobserve -p 127.0.0.1:5080:5080 --env-file config/o2.env -e "$credential" "$image"
 """
 
 [tasks.ws-server]

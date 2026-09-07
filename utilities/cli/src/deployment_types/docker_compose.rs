@@ -113,7 +113,11 @@ fn openobserve_service(env_file: String, password: &str) -> ComposeService {
             retries: 20,
             start_period: "10s".to_string(),
         }),
-        ports: vec!["5080:5080".to_string()],
+        // Bound to loopback, not every interface.
+        // The scenario credential is committed in this repo, so a collector published on 0.0.0.0 hands its root
+        // login to anyone who can reach the host and read the repo. Nothing outside the developer's machine needs
+        // to talk to it: the ws-server exports to 127.0.0.1:5080 and the UI is opened locally.
+        ports: vec!["127.0.0.1:5080:5080".to_string()],
         env_file: vec![env_file],
         // The scenario password overrides the one in the env file, which compose applies first. Per-scenario
         // credentials mean two stacks running side by side cannot authenticate against each other's collector.
