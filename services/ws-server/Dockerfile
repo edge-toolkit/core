@@ -73,6 +73,11 @@ set -euo pipefail
 cargo build --release --locked -p et-ws-server
 EOF
 
+# The browser client is built in its own layer, deliberately not folded into the cargo build above.
+# The two compile different targets from different inputs, so keeping them apart means editing the agent does
+# not invalidate the server's release build and vice versa. That is the same reasoning behind hadolint's DL3059
+# sitting in config/hadolint.yaml's ignore list; DeepSource raises it separately, hence the pragma.
+# skipcq: DOK-DL3059
 RUN bash <<'EOF'
 set -euo pipefail
 cd services/ws-wasm-agent

@@ -89,6 +89,25 @@ back to the host binary -- surface it. Recommend to the user that the tool be ad
 (prebuilt-binary backend, cross-platform, per the "Tools must work on every OS" rule), and let them decide. A tool
 worth using in this repo is worth pinning.
 
+## Kill any command past an hour unless it is visibly progressing
+
+A command that has run for an hour is presumed hung and must be killed, unless there is positive evidence it is
+still doing work -- log lines still arriving, a download counter climbing, a compile naming new crates. "It is a
+big task, it is probably fine" is not evidence; neither is the absence of an error. Check the output before
+deciding, and if it has not moved, kill it and find out why rather than waiting longer.
+
+Elapsed time alone says nothing, which is why the output is the signal. A worked example from this repo: a
+`mise run mise-lock-check` (which depends on `install-all`) sat for **4.4 hours** having emitted exactly five log
+lines, none of them after the opening `$ MISE_ENV="$ALL_LANGS" mise install`. A genuine full toolchain install
+prints continuously -- per-tool download and extract progress -- so five silent lines meant it was blocked, not
+busy. The likely cause was a mise process killed earlier in the same session leaving its state lock held, i.e. the
+agent's own doing.
+
+Two habits follow. Run anything that could be long in the background rather than blocking a foreground call on it,
+so the output stays readable while it runs. And when a command has to be killed, check what it left behind before
+carrying on -- a half-finished `mise install` can rewrite `.mise/mise*.lock`, and an interrupted script that moved
+files aside may never have restored them.
+
 ## Polling cadence when monitoring a PR's CI runs
 
 **Watch at job/check granularity, never run granularity.** `gh run list` reports a _workflow run_ as `in_progress`

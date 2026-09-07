@@ -79,6 +79,13 @@ cargo-binstall = "latest"
 cmake = "latest"
 "conda:openssl" = "3"
 conftest = "latest"
+# Compose CLI for the generated scenario stacks under verification/.
+# The aqua backend rather than the registry default (`github:docker/compose`): the github backend records SLSA
+# provenance in the lockfile, and a mise older than the one that wrote it refuses the entry outright with
+# "Lockfile requires slsa provenance for github:docker/compose@<ver> but verification was not performed".
+# aqua records `provenance = "github-attestations"` instead, which is what every other pinned tool here uses.
+# This is the compose implementation only -- a docker daemon still has to come from the host.
+"aqua:docker/compose" = "latest"
 "github:nextest-rs/nextest" = { version = "latest", version_prefix = "cargo-nextest-" }
 taplo = "latest"
 watchexec = "latest"
@@ -88,10 +95,6 @@ watchexec = "latest"
 # uniform across Linux/macOS/Windows, so tasks can keep using `coreutils <util>` everywhere. Bump cautiously:
 # confirm the Windows zip layout hasn't reverted before raising the pin.
 coreutils = "0.6.0"
-# Compose CLI for the generated scenario stacks under verification/.
-# Resolves through the registry to `github:docker/compose`, a prebuilt-binary backend on every supported
-# platform. It is the compose implementation only -- a docker daemon still has to be supplied by the host.
-docker-compose = "latest"
 dprint = "latest"
 # Held at the last release whose assets aqua's registry entry still names.
 # v4.0.0 renamed every asset from `ec-<os>-<arch>` to `editorconfig-checker-<os>-<arch>`, and aqua's manifest
@@ -731,6 +734,7 @@ depends = [
   "jscpd-check",
   "link-check",
   "ls-lint-check",
+  "mise-lock-check",
   "readme-mise-version-check",
   "regal-check",
   "ryl-check",
@@ -2075,6 +2079,21 @@ shell = "{{ vars.task_shell_plain }}"
 description = "Install every language toolchain (all .mise/config.<lang>.toml)"
 run = 'MISE_ENV="$ALL_LANGS" mise install'
 shell = "{{ vars.task_shell_plain }}"
+
+# Fail when a full install rewrites a lockfile, which means the committed lockfiles are not what mise resolves.
+# `lockfile = true` has mise update .mise/mise*.lock on every install, so a mise that resolves anything
+# differently from the one that last wrote them leaves a diff here. That is how a tool entry carrying provenance
+# the pinned mise cannot verify reaches CI: it is written by a newer mise locally, installs fine there, and then
+# fails the whole `mise install` step on every runner. Captured verbatim from the linux-x64 coverage job on
+# commit 19b5e5b3f0f0c56b4bbd0d0e1b1e0a6f8a5f5f2b, where a `github:docker/compose` entry aborted the install:
+#     Failed to install github:docker/compose@latest: Lockfile requires slsa provenance for
+#     github:docker/compose@5.5.1 but verification was not performed.
+# install-all rather than a bare install, so guest-language tools reach their lockfiles too -- MISE_ENV only
+# loads a subset, and a partial install leaves every unloaded config's lockfile unexamined.
+[tasks.mise-lock-check]
+depends = ["install-all"]
+description = "Fail if .mise/mise*.lock is stale vs what a full `install-all` resolves"
+run = "git diff --exit-code -- .mise/mise*.lock"
 
 [tasks.all]
 # Generic stand-in: run any command with every language env enabled.
