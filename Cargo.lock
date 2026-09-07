@@ -4430,6 +4430,7 @@ dependencies = [
 name = "et-test-helpers"
 version = "0.1.0"
 dependencies = [
+ "command-error",
  "port_check",
  "retry",
  "temp-env",

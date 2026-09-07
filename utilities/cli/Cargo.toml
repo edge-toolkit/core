@@ -33,13 +33,8 @@ thiserror.workspace = true
 toml.workspace = true
 
 [dev-dependencies]
-# Checked `spawn_checked`, so a failure to launch a generated task reports the command line it tried.
 command-error.workspace = true
-# Port-readiness wait for the generated deployment's hub.
 et-test-helpers.workspace = true
-# Expected math1 weights for the generated-deployment test.
-# The canonical input's model is this crate's to state, so reimplementing the values here would let the two
-# drift apart silently.
 et-ws-test-server.workspace = true
 tempfile.workspace = true
 

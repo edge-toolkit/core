@@ -30,10 +30,13 @@ files:
   - libs/edge-toolkit/src/config.rs
   - libs/edge-toolkit/tests/no_mise.rs
   - libs/edge-toolkit/tests/npm_mod.rs
+  - libs/test-helpers/src/bin/child-guard-probe.rs
   - libs/test-helpers/src/lib.rs
+  - libs/test-helpers/tests/child_guard.rs
   - libs/test-otlp/src/lib.rs
   - libs/web/src/lib.rs
   - libs/ws-runner-common/tests/config.rs
+  - libs/ws-runner-common/tests/fetch_main_field.rs
   - services/modules/tests/api_modules.rs
   - services/modules/tests/configure_missing_root.rs
   - services/modules/tests/get_module_file.rs

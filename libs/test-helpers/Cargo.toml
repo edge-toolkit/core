@@ -15,5 +15,8 @@ port_check.workspace = true
 retry.workspace = true
 temp-env.workspace = true
 
+[dev-dependencies]
+command-error.workspace = true
+
 [lints]
 workspace = true

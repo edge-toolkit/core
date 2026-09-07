@@ -35,8 +35,6 @@ web-sys = { workspace = true, features = [
 
 [dev-dependencies]
 wasm-bindgen-test.workspace = true
-# Extra web-sys surface used only by the browser tests; cargo unions it with the [dependencies] features.
-# Blob backs the object-URL serving the embedded test image, ImageData the drawn-pixel readback.
 web-sys = { workspace = true, features = ["Blob", "ImageData", "Url"] }
 
 [build-dependencies]

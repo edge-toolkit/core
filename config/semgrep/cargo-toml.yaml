@@ -10,3 +10,20 @@ rules:
       Use the dotted form `dep.workspace = true` instead of the inline table `dep = { workspace = true }`.
       (Inline tables with extra keys, e.g. `dep = { workspace = true, features = [...] }`, are fine.)
     severity: ERROR
+
+  - id: no-comment-in-dev-dependencies
+    languages: [generic]
+    paths:
+      include:
+        - "**/Cargo.toml"
+    # Matches a dev-dependencies header followed by a comment line, with only dependency entries in between.
+    # The header spelling covers `[target.'cfg(...)'.dev-dependencies]` and `[dev-dependencies.<name>]` too.
+    # Blank lines are not crossed: a comment sitting after one heads the block that follows it, which is the
+    # next section's business rather than this one's.
+    # No autofix: deleting a comment is a judgement the author has to make, not a mechanical rewrite.
+    pattern-regex: '(?m)^\[(?:[^\]\n]*\.)?dev-dependencies(?:\.[^\]\n]+)?\]\n(?:[^\[#\n][^\n]*\n)*[ \t]*#'
+    message: >-
+      Do not comment entries in a `[dev-dependencies]` section. What a test dependency is for belongs in the test
+      that uses it, where the reader is already looking; a note here duplicates that and goes stale the moment the
+      test changes. Delete the comment, and put anything genuinely worth saying next to the code that depends on it.
+    severity: ERROR
