@@ -101,11 +101,14 @@ EOF
 FROM debian:bookworm-slim AS runtime
 
 # ca-certificates supplies the trust store the OTLP exporter needs for an https collector.
+# curl is here so a deployment can health-check the hub, and for nothing else. The base image ships no HTTP client
+# of any kind, so without it a compose stack has no way to ask whether the hub is serving yet -- and anything that
+# must not start before it, such as a runner that fetches its module over HTTP, has nothing to wait on.
 # The unprivileged `app` account owns everything the server writes.
 RUN bash <<'EOF'
 set -euo pipefail
 apt-get update
-apt-get install -y --no-install-recommends ca-certificates
+apt-get install -y --no-install-recommends ca-certificates curl
 apt-get clean
 rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb
 useradd --create-home --uid 10001 --user-group app

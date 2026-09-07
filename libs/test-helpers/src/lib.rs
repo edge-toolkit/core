@@ -11,6 +11,7 @@
 use std::io::Read as _;
 use std::process::Child;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use retry::delay::Fixed;
 use retry::retry;
@@ -74,6 +75,29 @@ impl ChildGuard {
         // Best-effort teardown, also invoked from Drop -- no caller to propagate to, so discard.
         let _kill = self.child.kill();
         let _wait = self.child.wait();
+    }
+
+    /// Wait up to `timeout` for the child to exit on its own, killing it if it overstays.
+    ///
+    /// Returns whether it exited by itself. Prefer this to [`Self::shutdown`] for a child that spawns its own
+    /// children: killing the process this guard holds does not reach its descendants, so a wrapper such as
+    /// `mise run` or `cargo run` leaves the real workload running after the guard is dropped. Letting the chain
+    /// exit reaps all of it, which is what stops one test run from interfering with the next.
+    pub fn wait_for_exit(&mut self, timeout: Duration) -> bool {
+        // Elapsed-versus-timeout rather than a computed deadline: comparing two `Duration`s needs no arithmetic
+        // on an `Instant`, which the workspace's restriction lints would otherwise object to.
+        let start = Instant::now();
+        while start.elapsed() < timeout {
+            match self.child.try_wait() {
+                Ok(Some(_status)) => return true,
+                // Not exited yet; poll again rather than blocking, so the deadline is honoured.
+                Ok(None) => std::thread::sleep(Duration::from_millis(200)),
+                // Unwaitable (already reaped elsewhere): nothing left to wait for.
+                Err(_unwaitable) => return true,
+            }
+        }
+        self.shutdown();
+        false
     }
 }
 

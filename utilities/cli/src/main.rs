@@ -1,7 +1,12 @@
 #![expect(clippy::print_stdout, reason = "CLI tool: println! is the intended UX")]
 
+use std::time::Duration;
+
 use clap::{CommandFactory as _, Parser as _};
-use et_cli::{CliError, generate_deployment, generate_module_package_json, npm_module_path, regenerate_verification};
+use et_cli::{
+    CliError, generate_deployment, generate_module_package_json, npm_module_path, regenerate_verification,
+    wait_for_module,
+};
 
 mod cli;
 
@@ -67,6 +72,10 @@ fn main() -> Result<(), CliError> {
         Commands::NpmModulePath { package } => {
             // Bare path on stdout, nothing else: generated deployments capture this in a `$(...)`.
             println!("{}", npm_module_path(package)?.display());
+        }
+        Commands::WaitForModule { module, timeout_secs } => {
+            let url = wait_for_module(module, Duration::from_secs(*timeout_secs))?;
+            println!("Hub is serving {url}");
         }
     }
 

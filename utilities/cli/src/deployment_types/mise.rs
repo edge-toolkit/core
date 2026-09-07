@@ -7,7 +7,10 @@ use fs_err as fs;
 use toml::{Table, Value};
 
 use crate::error::CliError;
-use crate::{SECRET_PRAGMA, cluster_module_names, module_registry, resolve_module_paths};
+use crate::{
+    RunnerInstance, SECRET_PRAGMA, cluster_module_names, hub_ws_url, module_registry, resolve_cluster_runners,
+    resolve_module_paths, runner_crate,
+};
 
 pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path, password: &str) -> Result<(), CliError> {
     let output_path = output_dir.join("mise.toml");
@@ -61,6 +64,27 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path, passw
             Some(mise_env(password)),
         )),
     );
+    // Each runner agent becomes its own task, and `generated-scenario` depends on all of them.
+    // mise runs `depends` concurrently, which is what a cluster wants -- the hub and every runner are
+    // long-running peers, not a pipeline -- but it also means a runner starts before the hub is listening. Each
+    // runner body therefore waits for the hub's own health endpoint first; see `runner_run_body`.
+    let runners = resolve_cluster_runners(&module_registry(&workspace_root, &ws_server_dir), cluster)?;
+    for runner in &runners {
+        let _previous: Option<Value> = tasks.insert(
+            runner.name.clone(),
+            Value::Table(mise_task(
+                None,
+                Some(&format!("Run {} in the {} runner", runner.module, runner.runner)),
+                Some(&workspace_rel),
+                Some(&runner_run_body(runner)),
+                None,
+                Some(runner_env(runner)),
+            )),
+        );
+    }
+
+    let mut scenario_depends = vec!["openobserve".to_string(), "ws-server".to_string()];
+    scenario_depends.extend(runners.iter().map(|runner| runner.name.clone()));
     let _previous: Option<Value> = tasks.insert(
         "generated-scenario".to_string(),
         Value::Table(mise_task(
@@ -68,7 +92,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path, passw
             Some(&format!("Run generated scenario for {}", cluster.cluster_name)),
             None,
             None,
-            Some(mise_depends(["openobserve", "ws-server"])),
+            Some(mise_depends(&scenario_depends)),
             None,
         )),
     );
@@ -88,6 +112,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path, passw
 
     let mut tools = Table::new();
     let _previous: Option<Value> = tools.insert("cargo:open".to_string(), Value::String("latest".to_string()));
+    // No extra tools for the runner tasks: `runner_run_body` calls only `cargo`, which the hub task needs anyway.
     let _previous: Option<Value> = root.insert("tools".to_string(), Value::Table(tools));
 
     // The pragma is inserted after serialization because the toml crate has no way to emit a comment.
@@ -212,16 +237,57 @@ fn mise_env(password: &str) -> Table {
     env
 }
 
-fn mise_depends<const N: usize>(depends: [&str; N]) -> Table {
+/// Build a task's `depends` array, sorted.
+///
+/// Sorted because `config/taplo.toml` sets `reorder_arrays = true`, so `taplo-fmt` sorts this array in the
+/// committed file. Emitting it in the order the tasks happen to be assembled leaves the two permanently at odds:
+/// the formatter sorts the generated file and the next `regen-verification` unsorts it, so `verification-check`
+/// reports drift whichever ran last. The order carries no meaning to mise either -- `depends` is a set of
+/// prerequisites it starts together, not a sequence.
+fn mise_depends(depends: &[String]) -> Table {
+    let mut sorted = depends.to_vec();
+    sorted.sort_unstable();
     let mut extra = Table::new();
     let _previous: Option<Value> = extra.insert(
         "depends".to_string(),
-        Value::Array(
-            depends
-                .into_iter()
-                .map(|dependency| Value::String(dependency.to_string()))
-                .collect(),
-        ),
+        Value::Array(sorted.into_iter().map(Value::String).collect()),
     );
     extra
+}
+
+/// Render a runner task's body: wait for the hub to serve this module, then run the runner.
+///
+/// The wait is the whole reason this is two commands rather than a bare `cargo run`. `depends` starts the hub and
+/// the runners together, and a runner that wins the race dies immediately -- it resolves the module by fetching
+/// `/modules/<name>/package.json` over HTTP, which fails outright rather than retrying, so without this the
+/// scenario is a coin toss.
+///
+/// `et-cli wait-for-module` does the waiting rather than a shell poll loop, and that choice is load-bearing. A
+/// loop needs an HTTP client, and a generated deployment cannot guarantee one: an earlier version polled with
+/// `xh`, declared in this file's own `[tools]` -- but `task.run_auto_install` is off, so nothing installed it,
+/// and it is pinned only in the maintainer-only env. The task read as correct and silently spun out its whole
+/// timeout wherever that tool was absent, CI included. Deferring to `et-cli` leaves the body needing no tool
+/// beyond the `cargo` it already uses for the runner, and retires the shell-portability question with the loop
+/// (`SECONDS` is a bashism, `sleep` another tool).
+fn runner_run_body(runner: &RunnerInstance) -> String {
+    let crate_name = runner_crate(&runner.runner);
+    let mut body = String::default();
+    let _write_result = writeln!(
+        body,
+        "cargo run --quiet -p et-cli -- wait-for-module --module {}",
+        runner.module
+    );
+    let _write_result = writeln!(body, "cargo run --quiet -p {crate_name}");
+    body
+}
+
+/// The `RUNNER_*`/`WS_*` environment a runner task needs.
+///
+/// `WS_SERVER_URL` is spelled out rather than left to the runner's default so the generated task keeps working
+/// if that default ever moves, and it is also what the runner derives its HTTP base from.
+fn runner_env(runner: &RunnerInstance) -> Table {
+    let mut env = Table::new();
+    let _previous: Option<Value> = env.insert("RUNNER_MODULE".to_string(), Value::String(runner.module.clone()));
+    let _previous: Option<Value> = env.insert("WS_SERVER_URL".to_string(), Value::String(hub_ws_url()));
+    env
 }

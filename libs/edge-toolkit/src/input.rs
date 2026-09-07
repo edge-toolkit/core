@@ -13,6 +13,13 @@ pub struct ClusterInput {
 #[non_exhaustive]
 pub struct Agent {
     pub name: String,
+    /// Runner that executes this agent's modules, from `runner:`.
+    ///
+    /// Unset means the modules are only served, for a browser to load and run itself -- which is what every
+    /// deployment did before this field existed. Set, the generated deployment also starts a runner process per
+    /// resource, so the cluster runs headless.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runner: Option<String>,
     pub resources: Vec<Resource>,
 }
 

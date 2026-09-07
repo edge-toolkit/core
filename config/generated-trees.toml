@@ -12,6 +12,15 @@
 #
 # Adding a generator-owned tree: add a [tree.<name>] block naming the configs that must skip it. The policy then
 # fails until each one carries the exclusion, built from the [anchor] entry covering that config.
+#
+# One generator-owned set is deliberately NOT a [tree] block: the per-utility HELP.md files, which
+# `mise run gen-help-all` writes from each crate's clap tree. They are scattered leaves rather than a directory,
+# so the `{tree}/**` anchors above cannot express them, and only one config needs to skip them -- jscpd, which
+# carries `**/HELP.md`. The reason lives here because jscpd.json is plain JSON and cannot hold a comment:
+# clap-markdown ends every file it writes with the same footer (an `<hr/>` and a "generated automatically by
+# clap-markdown" note), so any two HELP.md files duplicate those lines by construction. That is duplication in a
+# tool's output, not in code anyone here wrote, and adding a subcommand re-hashes the window around it -- so
+# without the exclusion the check fails afresh on changes that have nothing to do with duplication.
 
 # What each tool resolves an exclusion path against, keyed by the config path (or path prefix) it applies to.
 # `{tree}` stands in for the tree name. These are three different bases, not three ways of writing one path:

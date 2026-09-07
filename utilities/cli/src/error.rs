@@ -89,6 +89,19 @@ pub enum CliError {
 
     #[error("cluster_name {0:?} contains a line break, which would break out of a generated comment")]
     ClusterNameHasLineBreak(String),
+
+    #[error("Agent {agent:?} asks for runner {runner:?}. Supported values are currently: {supported}")]
+    UnsupportedRunner {
+        agent: String,
+        runner: String,
+        supported: String,
+    },
+
+    #[error("Could not build the HTTP client used to probe the hub")]
+    HubProbe(#[from] reqwest::Error),
+
+    #[error("Hub did not serve {url} within {seconds}s")]
+    HubNotReady { url: String, seconds: u64 },
 }
 
 /// Parse `src` as TOML into `T`, attaching `path` to the error on failure.

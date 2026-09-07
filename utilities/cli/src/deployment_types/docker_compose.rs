@@ -5,7 +5,10 @@ use et_path::{absolute_from, relative_path_from};
 use fs_err as fs;
 
 use crate::error::CliError;
-use crate::{OutputType, SECRET_PRAGMA, cluster_module_names, module_registry, resolve_module_paths};
+use crate::{
+    OutputType, RunnerInstance, SECRET_PRAGMA, cluster_module_names, hub_http_base, hub_ws_url, module_registry,
+    resolve_cluster_runners, resolve_module_paths,
+};
 
 pub fn generate_docker_compose_deployment(
     cluster: &ClusterInput,
@@ -22,70 +25,94 @@ pub fn generate_docker_compose_deployment(
     let openobserve_env_file_rel = relative_path_from(&output_abs, &workspace_root.join("config/o2.env"));
     let module_names = cluster_module_names(cluster);
     let module_paths = docker_image_module_paths(&module_names)?;
-    let compose = ComposeFile {
-        services: vec![
-            (
-                "openobserve".to_string(),
-                openobserve_service(openobserve_env_file_rel, password),
-            ),
-            (
-                "ws-server-hub".to_string(),
-                ComposeService {
-                    build: Some(ComposeBuild {
-                        context: workspace_rel.clone(),
-                        dockerfile: "services/ws-server/Dockerfile".to_string(),
-                        additional_contexts: Vec::new(),
-                    }),
-                    // Build-only: `ws-server` layers this cluster's modules onto it, and nothing runs it directly.
-                    // `scale: 0` is what keeps `docker compose up` from creating a second, module-less container;
-                    // a `profiles:` entry would instead hide the service from the build resolver, which fails the
-                    // `service:` reference below with "declares unknown service".
-                    scale: Some(0),
-                    ..ComposeService::default()
-                },
-            ),
-            (
-                "ws-server".to_string(),
-                ComposeService {
-                    build: Some(ComposeBuild {
-                        context: workspace_rel,
-                        dockerfile: scenario_dockerfile_rel,
-                        additional_contexts: vec![("hub".to_string(), "service:ws-server-hub".to_string())],
-                    }),
-                    network_mode: Some("host".to_string()),
-                    environment: vec![
-                        (
-                            "MODULES_PATHS".to_string(),
-                            ComposeValue::WrappedDoubleQuoted(module_paths),
-                        ),
-                        (
-                            "OTLP_AUTH_PASSWORD".to_string(),
-                            ComposeValue::Secret(password.to_string()),
-                        ),
-                        (
-                            "OTLP_AUTH_USERNAME".to_string(),
-                            ComposeValue::Plain("root@example.com".to_string()),
-                        ),
-                        (
-                            "OTLP_COLLECTOR_URL".to_string(),
-                            ComposeValue::Plain("http://127.0.0.1:5080/api/default/v1".to_string()),
-                        ),
-                        (
-                            "STORAGE_URL".to_string(),
-                            ComposeValue::Plain("file:///app/storage".to_string()),
-                        ),
+    let mut services = vec![
+        (
+            "openobserve".to_string(),
+            openobserve_service(openobserve_env_file_rel, password),
+        ),
+        (
+            "ws-server-hub".to_string(),
+            ComposeService {
+                build: Some(ComposeBuild {
+                    context: workspace_rel.clone(),
+                    dockerfile: "services/ws-server/Dockerfile".to_string(),
+                    additional_contexts: Vec::new(),
+                }),
+                // Build-only: `ws-server` layers this cluster's modules onto it, and nothing runs it directly.
+                // `scale: 0` is what keeps `docker compose up` from creating a second, module-less container;
+                // a `profiles:` entry would instead hide the service from the build resolver, which fails the
+                // `service:` reference below with "declares unknown service".
+                scale: Some(0),
+                ..ComposeService::default()
+            },
+        ),
+        (
+            "ws-server".to_string(),
+            ComposeService {
+                build: Some(ComposeBuild {
+                    context: workspace_rel,
+                    dockerfile: scenario_dockerfile_rel,
+                    additional_contexts: vec![("hub".to_string(), "service:ws-server-hub".to_string())],
+                }),
+                network_mode: Some("host".to_string()),
+                environment: vec![
+                    (
+                        "MODULES_PATHS".to_string(),
+                        ComposeValue::WrappedDoubleQuoted(module_paths),
+                    ),
+                    (
+                        "OTLP_AUTH_PASSWORD".to_string(),
+                        ComposeValue::Secret(password.to_string()),
+                    ),
+                    (
+                        "OTLP_AUTH_USERNAME".to_string(),
+                        ComposeValue::Plain("root@example.com".to_string()),
+                    ),
+                    (
+                        "OTLP_COLLECTOR_URL".to_string(),
+                        ComposeValue::Plain("http://127.0.0.1:5080/api/default/v1".to_string()),
+                    ),
+                    (
+                        "STORAGE_URL".to_string(),
+                        ComposeValue::Plain("file:///app/storage".to_string()),
+                    ),
+                ],
+                volumes: vec!["ws-server-storage:/app/storage".to_string()],
+                depends_on: vec![(
+                    "openobserve".to_string(),
+                    ComposeDependsOnCondition {
+                        condition: "service_healthy".to_string(),
+                    },
+                )],
+                // The hub reports its own readiness so the runners have something to gate on.
+                // A runner resolves its module by fetching `/modules/<name>/package.json`, which fails
+                // outright instead of retrying, so "container started" is not a strong enough edge --
+                // `service_started` would let a runner ask before the listener exists.
+                healthcheck: Some(ComposeHealthcheck {
+                    test: vec![
+                        "CMD".to_string(),
+                        "curl".to_string(),
+                        "-fsS".to_string(),
+                        format!("{}/health", hub_http_base()),
                     ],
-                    volumes: vec!["ws-server-storage:/app/storage".to_string()],
-                    depends_on: vec![(
-                        "openobserve".to_string(),
-                        ComposeDependsOnCondition {
-                            condition: "service_healthy".to_string(),
-                        },
-                    )],
-                    ..ComposeService::default()
-                },
-            ),
-        ],
+                    interval: "5s".to_string(),
+                    timeout: "3s".to_string(),
+                    retries: 20,
+                    start_period: "10s".to_string(),
+                }),
+                ..ComposeService::default()
+            },
+        ),
+    ];
+    services.extend(runner_services(
+        &resolve_cluster_runners(
+            &module_registry(&workspace_root, &workspace_root.join("services/ws-server")),
+            cluster,
+        )?,
+        &relative_path_from(&output_abs, &workspace_root),
+    ));
+    let compose = ComposeFile {
+        services,
         volumes: vec![
             ("openobserve-data".to_string(), ComposeVolume),
             ("ws-server-storage".to_string(), ComposeVolume),
@@ -95,6 +122,43 @@ pub fn generate_docker_compose_deployment(
     fs::write(&output_path, content)?;
 
     Ok(())
+}
+
+/// Build one service per runner the cluster declares, each hosting a single module.
+///
+/// `network_mode: host` matches the hub's, and that pairing is what makes the URLs below resolve: the hub puts its
+/// listener on the host rather than on a compose network, so a runner on the default bridge would have no route to
+/// it that is portable across platforms. Sharing the host namespace instead means `localhost` means the same thing
+/// in both containers.
+///
+/// The dependency is on the hub being HEALTHY, not merely started -- a runner resolves its module over HTTP and
+/// fails outright rather than retrying, so an early start is a lost run rather than a slow one.
+fn runner_services(runners: &[RunnerInstance], context: &str) -> Vec<(String, ComposeService)> {
+    runners
+        .iter()
+        .map(|runner| {
+            let service = ComposeService {
+                build: Some(ComposeBuild {
+                    context: context.to_string(),
+                    dockerfile: format!("services/ws-{}-runner/Dockerfile", runner.runner),
+                    additional_contexts: Vec::new(),
+                }),
+                network_mode: Some("host".to_string()),
+                environment: vec![
+                    ("RUNNER_MODULE".to_string(), ComposeValue::Plain(runner.module.clone())),
+                    ("WS_SERVER_URL".to_string(), ComposeValue::Plain(hub_ws_url())),
+                ],
+                depends_on: vec![(
+                    "ws-server".to_string(),
+                    ComposeDependsOnCondition {
+                        condition: "service_healthy".to_string(),
+                    },
+                )],
+                ..ComposeService::default()
+            };
+            (runner.name.clone(), service)
+        })
+        .collect()
 }
 
 /// Build the `OpenObserve` collector service the scenario's traces are exported to.
