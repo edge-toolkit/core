@@ -41,15 +41,4 @@ pub enum Commands {
         #[arg(long)]
         package: String,
     },
-    /// Wait until the hub serves a module, so a generated deployment's runner does not start too early.
-    WaitForModule {
-        /// Module package name, as the hub serves it (e.g. `et-ws-math1`).
-        #[arg(long)]
-        module: String,
-        /// Seconds to keep polling before giving up.
-        ///
-        /// Generous by default: the hub it is waiting on may still be compiling.
-        #[arg(long, default_value_t = 600)]
-        timeout_secs: u64,
-    },
 }

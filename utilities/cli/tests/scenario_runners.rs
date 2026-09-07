@@ -35,15 +35,18 @@ const EXCHANGE_TIMEOUT: Duration = Duration::from_secs(180);
 /// `RUNNER_TIMEOUT` handed to both runners so they exit on their own rather than running until killed.
 ///
 /// The generated tasks deliberately set no timeout -- a deployed cluster runs until it is stopped -- so this
-/// bound belongs to the test. Kept short because the test waits it out: the twin stores its model within a few
-/// seconds and then keeps listening, so this is what decides when it stops.
-const RUNNER_TIMEOUT: &str = "30s";
+/// bound belongs to the test. It matches the 110s that `services/ws-web-runner/tests/modules.rs` gives the same
+/// pair, and that figure is not padding: a shorter bound was tried and killed the sender before the exchange
+/// finished on CI, where module fetch and Deno startup are far slower than on a workstation. The test waits this
+/// out, so it also sets how long the test takes.
+const RUNNER_TIMEOUT: &str = "110s";
 
 /// Ceiling for waiting out a runner after the model has been stored.
 ///
-/// Comfortably longer than [`RUNNER_TIMEOUT`], since that is what actually ends the runner; this only catches one
-/// that ignores it, so the test kills rather than hangs.
-const RUNNER_EXIT_TIMEOUT: Duration = Duration::from_secs(90);
+/// Must stay comfortably longer than [`RUNNER_TIMEOUT`], because that is what actually ends the runner and this
+/// only catches one that ignores it. Set below that bound, the wait would kill a runner that was about to exit
+/// on its own and then report it as a timeout.
+const RUNNER_EXIT_TIMEOUT: Duration = Duration::from_secs(150);
 
 /// A spawned runner task, with its stderr captured for the failure message.
 struct Runner {

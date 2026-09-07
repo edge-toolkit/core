@@ -9,7 +9,6 @@ This document contains the help content for the `et-cli` command-line program.
 - [`et-cli regen-verification`↴](#et-cli-regen-verification)
 - [`et-cli module-package-json`↴](#et-cli-module-package-json)
 - [`et-cli npm-module-path`↴](#et-cli-npm-module-path)
-- [`et-cli wait-for-module`↴](#et-cli-wait-for-module)
 
 ## `et-cli`
 
@@ -21,7 +20,6 @@ This document contains the help content for the `et-cli` command-line program.
 - `regen-verification` — Regenerate verification outputs using verification input/output naming conventions
 - `module-package-json` — Generate pkg/package.json from module metadata
 - `npm-module-path` — Print the directory holding a mise-staged npm package
-- `wait-for-module` — Wait until the hub serves a module, so a generated deployment's runner does not start too early
 
 ## `et-cli generate-deployment`
 
@@ -72,21 +70,6 @@ Print the directory holding a mise-staged npm package
 ###### **Options:**
 
 - `--package <PACKAGE>` — Published package name, as it appears in the mise tool id (e.g. `onnxruntime-web`)
-
-## `et-cli wait-for-module`
-
-Wait until the hub serves a module, so a generated deployment's runner does not start too early
-
-**Usage:** `et-cli wait-for-module [OPTIONS] --module <MODULE>`
-
-###### **Options:**
-
-- `--module <MODULE>` — Module package name, as the hub serves it (e.g. `et-ws-math1`)
-- `--timeout-secs <TIMEOUT_SECS>` — Seconds to keep polling before giving up.
-
-  Generous by default: the hub it is waiting on may still be compiling.
-
-  Default value: `600`
 
 <hr/>
 

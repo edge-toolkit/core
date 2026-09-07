@@ -15,7 +15,6 @@ use serde::Deserialize;
 
 mod deployment_types;
 mod error;
-mod hub_ready;
 mod module_package_json;
 mod scenario_password;
 
@@ -24,7 +23,6 @@ pub use self::deployment_types::{
     scenario_module_paths,
 };
 pub use self::error::CliError;
-pub use self::hub_ready::wait_for_module;
 pub use self::module_package_json::generate_module_package_json;
 pub use self::scenario_password::{scenario_password, scenario_seed};
 
@@ -789,6 +787,21 @@ pub struct RunnerInstance {
 /// service/task shape is the whole change.
 pub const SUPPORTED_RUNNERS: [(&str, &str); 1] = [("web", "et-ws-web-runner")];
 
+/// Names the generated deployment already uses for its own tasks, services and aliases.
+///
+/// A runner is named after the agent that declares it, and both generators key on that name: mise inserts each
+/// task into a table and compose writes each service as a mapping key. Either way a collision replaces rather
+/// than reports -- an agent called `ws-server` would quietly take the hub's place, and the deployment would come
+/// up missing the thing it was meant to talk to. Rejecting the name is the only way that surfaces.
+pub const RESERVED_RUNNER_NAMES: [&str; 6] = [
+    "generated-scenario",
+    "o2",
+    "open-o2",
+    "openobserve",
+    "ws-server",
+    "ws-server-hub",
+];
+
 /// Resolve every agent that names a `runner:` into the processes the deployment has to start.
 ///
 /// One process per resource rather than per agent, because a runner hosts exactly one module -- `RUNNER_MODULE`
@@ -831,6 +844,15 @@ pub fn resolve_cluster_runners(
             } else {
                 agent.name.clone()
             };
+            if RESERVED_RUNNER_NAMES.contains(&name.as_str()) {
+                return Err(CliError::ReservedRunnerName {
+                    agent: agent.name.clone(),
+                    name,
+                });
+            }
+            if runners.iter().any(|existing: &RunnerInstance| existing.name == name) {
+                return Err(CliError::DuplicateRunnerName { name });
+            }
             runners.push(RunnerInstance {
                 name,
                 runner: runner.to_string(),

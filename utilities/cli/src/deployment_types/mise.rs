@@ -255,28 +255,21 @@ fn mise_depends(depends: &[String]) -> Table {
     extra
 }
 
-/// Render a runner task's body: wait for the hub to serve this module, then run the runner.
+/// Render a runner task's body, which is just the runner.
 ///
-/// The wait is the whole reason this is two commands rather than a bare `cargo run`. `depends` starts the hub and
-/// the runners together, and a runner that wins the race dies immediately -- it resolves the module by fetching
-/// `/modules/<name>/package.json` over HTTP, which fails outright rather than retrying, so without this the
-/// scenario is a coin toss.
+/// No readiness wait here, deliberately. `depends` starts the hub and the runners together, so a runner can and
+/// does win the race -- but the retry that handles it belongs in the runner's own module fetch, where it covers
+/// every deployment shape. A wait bolted onto these tasks could never help the compose stack, whose runners gate
+/// on the hub's `/health` and so can still arrive before the module scan finishes.
 ///
-/// `et-cli wait-for-module` does the waiting rather than a shell poll loop, and that choice is load-bearing. A
-/// loop needs an HTTP client, and a generated deployment cannot guarantee one: an earlier version polled with
-/// `xh`, declared in this file's own `[tools]` -- but `task.run_auto_install` is off, so nothing installed it,
-/// and it is pinned only in the maintainer-only env. The task read as correct and silently spun out its whole
-/// timeout wherever that tool was absent, CI included. Deferring to `et-cli` leaves the body needing no tool
-/// beyond the `cargo` it already uses for the runner, and retires the shell-portability question with the loop
-/// (`SECONDS` is a bashism, `sleep` another tool).
+/// Two earlier attempts lived here and both were worse. A shell poll loop needed an HTTP client the generated
+/// deployment could not guarantee (`xh` was declared in this file's own `[tools]`, but `task.run_auto_install` is
+/// off, so nothing installed it and the task silently spun out its whole timeout). Replacing that with
+/// `et-cli wait-for-module` fixed the tool problem but added a second `cargo run` to every runner task, which
+/// under the coverage profile rebuilt the CLI before it could poll.
 fn runner_run_body(runner: &RunnerInstance) -> String {
     let crate_name = runner_crate(&runner.runner);
     let mut body = String::default();
-    let _write_result = writeln!(
-        body,
-        "cargo run --quiet -p et-cli -- wait-for-module --module {}",
-        runner.module
-    );
     let _write_result = writeln!(body, "cargo run --quiet -p {crate_name}");
     body
 }

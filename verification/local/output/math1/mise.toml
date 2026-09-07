@@ -6,7 +6,6 @@ description = "Run generated scenario for math1"
 description = "Run et-ws-math1-sender in the web runner"
 dir = "../../../.."
 run = """
-cargo run --quiet -p et-cli -- wait-for-module --module et-ws-math1-sender
 cargo run --quiet -p et-ws-web-runner
 """
 
@@ -18,7 +17,6 @@ WS_SERVER_URL = "ws://localhost:8080/ws"
 description = "Run et-ws-math1 in the web runner"
 dir = "../../../.."
 run = """
-cargo run --quiet -p et-cli -- wait-for-module --module et-ws-math1
 cargo run --quiet -p et-ws-web-runner
 """
 

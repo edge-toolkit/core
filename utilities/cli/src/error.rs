@@ -97,11 +97,11 @@ pub enum CliError {
         supported: String,
     },
 
-    #[error("Could not build the HTTP client used to probe the hub")]
-    HubProbe(#[from] reqwest::Error),
+    #[error("Agent {agent:?} would create runner {name:?}, a name the generated deployment already uses")]
+    ReservedRunnerName { agent: String, name: String },
 
-    #[error("Hub did not serve {url} within {seconds}s")]
-    HubNotReady { url: String, seconds: u64 },
+    #[error("Runner {name:?} is declared more than once; each runner needs its own name")]
+    DuplicateRunnerName { name: String },
 }
 
 /// Parse `src` as TOML into `T`, attaching `path` to the error on failure.

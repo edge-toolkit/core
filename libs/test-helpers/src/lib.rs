@@ -96,6 +96,13 @@ impl ChildGuard {
                 Err(_unwaitable) => return true,
             }
         }
+        // One last look before declaring a timeout.
+        // The loop sleeps between polls, so a child that exits during that final sleep would otherwise be
+        // reported as still running: `shutdown` below would reap it and this would return false, telling the
+        // caller the process had to be killed when in fact it finished on its own.
+        if matches!(self.child.try_wait(), Ok(Some(_)) | Err(_)) {
+            return true;
+        }
         self.shutdown();
         false
     }

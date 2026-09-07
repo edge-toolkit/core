@@ -24,9 +24,6 @@ fake.workspace = true
 fs-err.workspace = true
 rand.workspace = true
 rand_chacha.workspace = true
-# Blocking HTTP for the `wait-for-module` hub probe, matching how et-int-gen fetches upstream WIT.
-# rustls rather than the platform stack, as everywhere else in this workspace.
-reqwest = { workspace = true, features = ["blocking", "rustls"] }
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
