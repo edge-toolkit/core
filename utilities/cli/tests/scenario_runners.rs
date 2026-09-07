@@ -23,7 +23,7 @@ use std::time::{Duration, Instant};
 
 use command_error::CommandExt as _;
 use edge_toolkit::ports::Services;
-use et_test_helpers::{ChildGuard, drain_stderr};
+use et_test_helpers::{ChildGuard, drain_stderr, drain_stdout};
 use fs_err as fs;
 
 /// Wall-clock ceiling for the whole exchange once the hub is up.
@@ -48,9 +48,10 @@ const RUNNER_TIMEOUT: &str = "110s";
 /// on its own and then report it as a timeout.
 const RUNNER_EXIT_TIMEOUT: Duration = Duration::from_secs(150);
 
-/// A spawned runner task, with its stderr captured for the failure message.
+/// A spawned runner task, with both its output streams captured for the failure message.
 struct Runner {
     guard: ChildGuard,
+    stdout: Arc<Mutex<String>>,
     stderr: Arc<Mutex<String>>,
 }
 
@@ -60,10 +61,11 @@ struct Runner {
 /// generated file, because those values are exactly what is under test. `mise` is spawned by name because the
 /// README mandates it, so it is on `PATH` in every sanctioned environment.
 ///
-/// stderr is piped and drained rather than discarded. Sent to `Stdio::null()` it was, and a CI failure then said
-/// only "no math1-output.json appeared" -- the reason the runners never got going was in the output that had been
-/// thrown away. The drained buffer fills once the child reaches EOF, which is after the wait below, so the
-/// failure message can quote it.
+/// BOTH streams are piped and drained rather than discarded, and that has already been got wrong twice.
+/// First everything went to `Stdio::null()`, so a CI failure said only "no math1-output.json appeared" with no
+/// hint why. Then stderr alone was captured -- which caught a runner's exit error, but the runner writes its
+/// `tracing` output to stdout, so the next failure came back with an empty capture and nothing to go on. The
+/// drained buffers fill once the child reaches EOF, which is after the wait below, so the failure can quote both.
 fn spawn_runner(task: &str) -> Runner {
     let scenario_dir = edge_toolkit::config::get_project_root().join("verification/local/output/math1");
     let mut child = Command::new("mise")
@@ -71,14 +73,16 @@ fn spawn_runner(task: &str) -> Runner {
         .arg(task)
         .current_dir(scenario_dir)
         .env("RUNNER_TIMEOUT", RUNNER_TIMEOUT)
-        .stdout(Stdio::null())
+        .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn_checked()
         .unwrap()
         .into_child();
+    let stdout = drain_stdout(&mut child);
     let stderr = drain_stderr(&mut child);
     Runner {
         guard: ChildGuard::new(child),
+        stdout,
         stderr,
     }
 }
@@ -162,11 +166,13 @@ fn math1_scenario_generated_runner_tasks_compute_the_model() {
         panic!(
             concat!(
                 "no math1-output.json appeared in any storage bucket under {}\n",
-                "--- math1-twin stderr ---\n{}\n",
-                "--- math1-trigger stderr ---\n{}"
+                "--- math1-twin stdout ---\n{}\n--- math1-twin stderr ---\n{}\n",
+                "--- math1-trigger stdout ---\n{}\n--- math1-trigger stderr ---\n{}"
             ),
             storage_dir.display(),
+            captured(&twin.stdout),
             captured(&twin.stderr),
+            captured(&trigger.stdout),
             captured(&trigger.stderr)
         );
     };

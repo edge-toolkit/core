@@ -839,20 +839,7 @@ pub fn resolve_cluster_runners(
                 .ok_or_else(|| CliError::UnknownDependency(module_name.to_string()))?;
             // The hub serves a module under its package name, so that is what the runner has to ask for.
             let module = entry.package_name.clone().unwrap_or_else(|| module_name.to_string());
-            let name = if multi_resource {
-                format!("{}-{module_name}", agent.name)
-            } else {
-                agent.name.clone()
-            };
-            if RESERVED_RUNNER_NAMES.contains(&name.as_str()) {
-                return Err(CliError::ReservedRunnerName {
-                    agent: agent.name.clone(),
-                    name,
-                });
-            }
-            if runners.iter().any(|existing: &RunnerInstance| existing.name == name) {
-                return Err(CliError::DuplicateRunnerName { name });
-            }
+            let name = runner_name(&agent.name, module_name, multi_resource, &runners)?;
             runners.push(RunnerInstance {
                 name,
                 runner: runner.to_string(),
@@ -877,6 +864,41 @@ pub fn hub_http_base() -> String {
 #[must_use]
 pub fn hub_ws_url() -> String {
     format!("ws://localhost:{}/ws", Services::InsecureWebSocketServer.port())
+}
+
+/// Derive one runner's deployment-unique name, rejecting the two ways it can collide.
+///
+/// An agent with a single resource keeps its own name, so the common case reads as the scenario wrote it; only a
+/// multi-resource agent gets the resource suffixed, because each resource becomes its own process.
+///
+/// Both checks exist because a collision would otherwise be silent rather than wrong-looking: mise inserts each
+/// task into a table and compose writes each service as a mapping key, so a repeated name replaces what was there.
+/// A scenario could lose its hub and only find out when the runners had nothing to talk to.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of resolve_cluster_runners; separate to keep that function within its complexity budget"
+)]
+fn runner_name(
+    agent_name: &str,
+    module_name: &str,
+    multi_resource: bool,
+    existing: &[RunnerInstance],
+) -> Result<String, CliError> {
+    let name = if multi_resource {
+        format!("{agent_name}-{module_name}")
+    } else {
+        agent_name.to_string()
+    };
+    if RESERVED_RUNNER_NAMES.contains(&name.as_str()) {
+        return Err(CliError::ReservedRunnerName {
+            agent: agent_name.to_string(),
+            name,
+        });
+    }
+    if existing.iter().any(|runner| runner.name == name) {
+        return Err(CliError::DuplicateRunnerName { name });
+    }
+    Ok(name)
 }
 
 /// The crate whose binary runs `runner`, which [`resolve_cluster_runners`] has already validated.
