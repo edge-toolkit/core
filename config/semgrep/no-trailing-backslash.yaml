@@ -5,10 +5,6 @@ rules:
       exclude:
         - "/README.md"
         - "/utilities/cli/README.md"
-        # `services/ws-server/Dockerfile` still uses `\` RUN line-continuations.
-        # The top-level `Dockerfile` has migrated to BuildKit HEREDOC RUNs (no continuations needed). Drop this entry
-        # once ws-server's Dockerfile also migrates.
-        - "/services/ws-server/Dockerfile"
         # Generated deployment artifacts (regen-verification output).
         - "/verification/**/mise.toml"
         - "/verification/**/compose.yaml"

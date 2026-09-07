@@ -1,0 +1,23 @@
+rules:
+  - id: no-wget
+    languages: [generic]
+    paths:
+      exclude:
+        # Generated trees are deliberately NOT excluded.
+        # The reason is the one the curl rule gives: a generated Dockerfile is built and run like any other, and
+        # a template assembled from fragments can produce a call that no single line of the generator shows.
+        #
+        # This file is excluded, because it otherwise matches itself.
+        # Naming the banned command is unavoidable in a rule that bans it, so the id, the message and the
+        # pattern below would each be a finding.
+        - "/config/semgrep/no-wget.yaml"
+    pattern-regex: '\bwget\b'
+    message: >-
+      Use `curl` instead of `wget` for downloads in this repo.
+      Two download tools means two sets of flags, two retry behaviours and two failure modes for one job, and the
+      difference is easy to get wrong: `wget` writes a file by default while `curl` writes to stdout unless told
+      otherwise, so a command translated between them silently changes what it produces. `curl` is also the one
+      already installed -- it is in the Dockerfiles' COMMON_PACKAGES and present on the CI runners, whereas `wget`
+      is in none of the image package lists, so reaching for it adds an undeclared dependency on whatever the host
+      happens to ship. Note that piping a download into an interpreter stays banned whichever tool fetches it.
+    severity: ERROR

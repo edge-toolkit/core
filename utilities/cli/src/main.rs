@@ -1,7 +1,7 @@
 #![expect(clippy::print_stdout, reason = "CLI tool: println! is the intended UX")]
 
 use clap::{CommandFactory as _, Parser as _};
-use et_cli::{CliError, generate_deployment, generate_module_package_json, regenerate_verification};
+use et_cli::{CliError, generate_deployment, generate_module_package_json, npm_module_path, regenerate_verification};
 
 mod cli;
 
@@ -63,6 +63,10 @@ fn main() -> Result<(), CliError> {
         Commands::ModulePackageJson { module_dir } => {
             let output_path = generate_module_package_json(module_dir)?;
             println!("Wrote {}", output_path.display());
+        }
+        Commands::NpmModulePath { package } => {
+            // Bare path on stdout, nothing else: generated deployments capture this in a `$(...)`.
+            println!("{}", npm_module_path(package)?.display());
         }
     }
 

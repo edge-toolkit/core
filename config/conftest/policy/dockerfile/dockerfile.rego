@@ -34,14 +34,20 @@ deny contains msg if {
 	)
 }
 
-# Collect the comma-separated tools the Dockerfile asks mise to skip.
+# Collect the comma-separated tools Dockerfile.nanoserver asks mise to skip.
 # The value is usually built from multiple ARGs and composed into the final ENV (a single
 # `ENV MISE_DISABLE_TOOLS=...` would be too long, and the no-backslash rule forbids continuing it), so scan every
 # ARG/ENV value in the file and take whichever tokens look like a tool name (contain `:`). The `${VAR}` placeholders the
 # composing ENV holds get rejected by the same filter -- only the leaf ARG values supply tools.
+#
+# Scoped to Dockerfile.nanoserver, which is the only file whose disable list this rule is about. Unscoped, every
+# other Dockerfile in the combined input donates its own colon-bearing ARG/ENV values to this set -- the generated
+# scenario images carry `ENV STAGE_TOOL="npm:..."` and similar -- and a pipx tool named in one of those would
+# satisfy the deny rule below without ever appearing in Nano's disable list, silently weakening the check.
 disabled_tools contains tool if {
 	some file in input
 	is_array(file.contents)
+	endswith(file.path, "Dockerfile.nanoserver")
 	some instr in file.contents
 	instr.Cmd in {"arg", "env"}
 	some value in instr.Value
@@ -54,9 +60,15 @@ disabled_tools contains tool if {
 # Only the always-loaded config.toml and these guest configs load on Nano, so only their pipx tools can run there.
 # The dockerfile parser stores an ENV's key and value as adjacent Value elements (["MISE_ENV", "dart,java,..."]),
 # so find the "MISE_ENV" key and split the element that follows it.
+#
+# Scoped to Dockerfile.nanoserver for the same reason as `disabled_tools` above: any other Dockerfile setting
+# MISE_ENV would otherwise widen what Nano is believed to enable. The generated scenario images set it to the
+# full guest list, which made this demand that every pipx tool in config.python.toml be disabled on Nano even
+# though Nano's own MISE_ENV names no python.
 nano_langs contains lang if {
 	some file in input
 	is_array(file.contents)
+	endswith(file.path, "Dockerfile.nanoserver")
 	some instr in file.contents
 	instr.Cmd == "env"
 	some i
@@ -178,11 +190,13 @@ package_arg_names := {"APT_PACKAGES", "COMMON_PACKAGES", "DNF_PACKAGES"}
 
 # Each package-list ARG in the Linux Dockerfile, as a set of package names.
 # The parser hands an ARG back as one `NAME="a b c"` string, so split off the name and strip the quotes.
-# `endswith(path, "Dockerfile")` keeps this off Dockerfile.nanoserver, which carries no package ARGs.
+# Matched against the repo-root path exactly rather than by suffix. A suffix match also selects the generated
+# scenario Dockerfiles, which declare a COMMON_PACKAGES of their own, and a second value for the same key makes
+# this rule abort the whole evaluation with `object keys must be unique` rather than fail a test.
 arg_packages[name] := pkgs if {
 	some file in input
 	is_array(file.contents)
-	endswith(file.path, "Dockerfile")
+	replace(file.path, "\\", "/") == "Dockerfile"
 	some instr in file.contents
 	instr.Cmd == "arg"
 	some value in instr.Value
@@ -232,5 +246,91 @@ deny contains msg if {
 	msg := sprintf(
 		".mise/config.linux.toml: [bootstrap.packages] has %q rows for %s that the Dockerfile ARGs do not install",
 		[mgr, concat(", ", sort(extra))],
+	)
+}
+
+# Every Dockerfile that names the guest-language set must name exactly the one .mise/config.toml declares.
+# That list is hardcoded in several places on purpose -- ALL_LANGS itself is not shell-discovered so it works on
+# Windows, the workflows spell it out so the loaded envs are visible at a glance, and the generated scenario image
+# carries it because `et-cli` must not depend on reading a mise config at generation time. Hardcoding is fine;
+# silently drifting apart is not, so this pins every Dockerfile copy to ALL_LANGS. Adding a config.<lang>.toml
+# without updating a copy would otherwise leave that image loading a stale env set, and the only symptom would be
+# a tool the image cannot resolve much later in the build.
+all_langs := value if {
+	some file in input
+	endswith(replace(file.path, "\\", "/"), ".mise/config.toml")
+	value := file.contents.env.ALL_LANGS
+}
+
+# Each literal MISE_ENV a Dockerfile declares, as {path, value}.
+# The parser hands an ARG back as one `NAME=value` string, and an ENV as adjacent Value elements, so both shapes
+# are collected separately.
+mise_env_decls contains entry if {
+	some file in input
+	is_array(file.contents)
+	some instr in file.contents
+	instr.Cmd == "arg"
+	some value in instr.Value
+	startswith(value, "MISE_ENV=")
+	entry := {"path": file.path, "value": substring(value, count("MISE_ENV="), -1)}
+}
+
+mise_env_decls contains entry if {
+	some file in input
+	is_array(file.contents)
+	some instr in file.contents
+	instr.Cmd == "env"
+	some i
+	instr.Value[i] == "MISE_ENV"
+	entry := {"path": file.path, "value": instr.Value[i + 1]}
+}
+
+# Dockerfile.nanoserver is exempt: it deliberately loads a subset, because pipx tools cannot run on Nano Server.
+# A value starting with `$` is an indirection such as `ENV MISE_ENV=${MISE_ENV}`, which carries no list to check.
+deny contains msg if {
+	some decl in mise_env_decls
+	not endswith(replace(decl.path, "\\", "/"), "Dockerfile.nanoserver")
+	not startswith(decl.value, "$")
+	decl.value != all_langs
+	msg := sprintf(
+		"%s: MISE_ENV is %q but .mise/config.toml's ALL_LANGS is %q -- keep the guest-language copies in sync",
+		[decl.path, decl.value, all_langs],
+	)
+}
+
+# Every COMMON_PACKAGES list must be drawn from the one the repo-root Dockerfile declares.
+# That file installs the superset its multi-distro build needs, and a purpose-built image trims the list to what
+# it actually uses, so the invariant is subset rather than equality -- the root's compiler packages have no place
+# in an image that compiles nothing. What it catches is a name that exists in no other list: a typo, or a package
+# added to one image while the root build was never taught to install it, which surfaces only as a missing binary
+# partway through a build on whichever distro arm lacks it.
+common_packages_decls contains entry if {
+	some file in input
+	is_array(file.contents)
+	some instr in file.contents
+	instr.Cmd == "arg"
+	some value in instr.Value
+	startswith(value, "COMMON_PACKAGES=")
+	entry := {
+		"path": replace(file.path, "\\", "/"),
+		"packages": split(trim(substring(value, count("COMMON_PACKAGES="), -1), "\""), " "),
+	}
+}
+
+root_common_packages contains pkg if {
+	some decl in common_packages_decls
+	decl.path == "Dockerfile"
+	some pkg in decl.packages
+}
+
+deny contains msg if {
+	some decl in common_packages_decls
+	decl.path != "Dockerfile"
+	some pkg in decl.packages
+	pkg != ""
+	not pkg in root_common_packages
+	msg := sprintf(
+		"%s: COMMON_PACKAGES names %q, absent from the root Dockerfile's COMMON_PACKAGES -- keep the lists in sync",
+		[decl.path, pkg],
 	)
 }

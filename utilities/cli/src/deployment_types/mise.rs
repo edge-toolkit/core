@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use std::path::Path;
 
 use edge_toolkit::input::ClusterInput;
@@ -6,29 +7,33 @@ use fs_err as fs;
 use toml::{Table, Value};
 
 use crate::error::CliError;
-use crate::{cluster_module_names, module_registry, resolve_module_paths};
+use crate::{SECRET_PRAGMA, cluster_module_names, module_registry, resolve_module_paths};
 
-pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
+pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path, password: &str) -> Result<(), CliError> {
     let output_path = output_dir.join("mise.toml");
     let workspace_root = edge_toolkit::config::get_project_root();
     let output_abs = absolute_from(&workspace_root, output_dir);
     let ws_server_dir = workspace_root.join("services/ws-server");
     let workspace_rel = relative_path_from(&output_abs, &workspace_root);
     let openobserve_env_file_rel = "config/o2.env";
-    // Emitted as a single line: it fits within the editorconfig line length, so it needs no wrapping.
-    // Folding it would only reintroduce a hand-maintained multi-line copy to keep in sync with the command --
-    // the drift that once silently dropped `-it`.
+    // The image and the credential override are lifted into shell variables, not folded with continuations.
+    // Inlining both would put the `docker run` past the editorconfig line length once the generated password is
+    // long enough, and a wrapped copy is what once silently dropped `-it`; a variable keeps the command one
+    // statement whatever the password turns out to be. `-e` comes after `--env-file` so the scenario password
+    // wins over the repo-wide one the env file carries.
     let openobserve_run = format!(
         concat!(
-            "docker run --rm --name openobserve -p 5080:5080 ",
-            "--env-file {} openobserve/openobserve:v0.91.5",
+            "image=openobserve/openobserve:v0.91.5\n",
+            "credential=ZO_ROOT_USER_PASSWORD={} {}\n",
+            "docker run --rm --name openobserve -p 127.0.0.1:5080:5080 --env-file {} -e \"$credential\" ",
+            "\"$image\"\n",
         ),
-        openobserve_env_file_rel
+        password, SECRET_PRAGMA, openobserve_env_file_rel
     );
     let module_names = cluster_module_names(cluster);
     let module_paths = scenario_module_paths(&ws_server_dir, &module_names)?;
     let module_paths_lines = wrap_module_paths(&module_paths);
-    let ws_server_run = format!("export MODULES_PATHS=\"\\\n{module_paths_lines}\"\ncargo run\n");
+    let ws_server_run = format!("{module_paths_lines}export MODULES_PATHS\ncargo run\n");
     let ws_server_rel = relative_path_from(&output_abs, &ws_server_dir);
 
     let mut root = Table::new();
@@ -53,7 +58,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
             Some(&ws_server_rel),
             Some(&ws_server_run),
             None,
-            Some(mise_env()),
+            Some(mise_env(password)),
         )),
     );
     let _previous: Option<Value> = tasks.insert(
@@ -85,7 +90,15 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
     let _previous: Option<Value> = tools.insert("cargo:open".to_string(), Value::String("latest".to_string()));
     let _previous: Option<Value> = root.insert("tools".to_string(), Value::Table(tools));
 
-    let content = toml::to_string(&Value::Table(root))?;
+    // The pragma is inserted after serialization because the toml crate has no way to emit a comment.
+    // Everything else here goes through the `Value` tree, but a comment is not part of the data model, so the
+    // one credential line is rewritten in the finished document instead.
+    //
+    // On its own line rather than trailing the value, because taplo aligns trailing comments across a table
+    // while this emits a single space. Trailing, the two disagree permanently: `taplo-fmt` pads the generated
+    // file and the next `regen-verification` unpads it, so `verification-check` reports drift either way round.
+    let credential = format!("OTLP_AUTH_PASSWORD = \"{password}\"");
+    let content = toml::to_string(&Value::Table(root))?.replace(&credential, &format!("{SECRET_PRAGMA}\n{credential}"));
     fs::write(&output_path, content)?;
 
     Ok(())
@@ -104,11 +117,14 @@ pub fn scenario_module_paths(ws_server_dir: &Path, module_names: &[String]) -> R
     Ok(paths)
 }
 
-// Pack `paths` into `,\`-continued lines within the editorconfig line length via textwrap first-fit bin-packing.
-// Each path is one atomic fragment (some hold spaces, e.g. `$(mise where ...)`, so they must never be split);
-// paths sharing a line are joined by `, `, and the shell `\` line-continuations plus the consumer's per-segment
-// trim make the folded value exactly the comma-separated path list. Every emitted line is `  <paths>` plus a
-// trailing `,\`, so the fit budget is that line length minus the 2-space indent and the 2-char continuation.
+// Pack `paths` into a run of `MODULES_PATHS=` assignments within the editorconfig line length, via textwrap
+// first-fit bin-packing. Each path is one atomic fragment (some hold spaces, e.g. `$(mise where ...)`, so they
+// must never be split) and paths sharing a line are joined by `, `. Each line after the first appends to the
+// variable instead of continuing it with a trailing `\`, so the assembled value is the same comma-separated list
+// the consumer's per-segment trim expects while the body stays free of line-continuations -- a `\` that picks up
+// trailing whitespace silently ends the statement early, and the repo bans the form outside README files.
+// The two fit budgets are the line length minus each form's fixed prefix and its closing quote: `MODULES_PATHS="`
+// for the opening line, `MODULES_PATHS="$MODULES_PATHS, ` for every later one.
 fn wrap_module_paths(paths: &[String]) -> String {
     #[derive(Debug)]
     struct PathFragment<'path> {
@@ -127,7 +143,8 @@ fn wrap_module_paths(paths: &[String]) -> String {
         }
     }
 
-    const LINE_WIDTH: f64 = 116.0;
+    const FIRST_LINE_WIDTH: f64 = 104.0;
+    const APPEND_LINE_WIDTH: f64 = 88.0;
     let fragments: Vec<PathFragment> = paths
         .iter()
         .map(|path| PathFragment {
@@ -136,18 +153,21 @@ fn wrap_module_paths(paths: &[String]) -> String {
         })
         .collect();
 
-    textwrap::wrap_algorithms::wrap_first_fit(&fragments, &[LINE_WIDTH])
-        .iter()
-        .map(|group| {
-            let joined = group
-                .iter()
-                .map(|fragment| fragment.path)
-                .collect::<Vec<_>>()
-                .join(", ");
-            format!("  {joined}")
-        })
-        .collect::<Vec<_>>()
-        .join(",\\\n")
+    let groups = textwrap::wrap_algorithms::wrap_first_fit(&fragments, &[FIRST_LINE_WIDTH, APPEND_LINE_WIDTH]);
+    let mut out = String::default();
+    for (index, group) in groups.iter().enumerate() {
+        let joined = group
+            .iter()
+            .map(|fragment| fragment.path)
+            .collect::<Vec<_>>()
+            .join(", ");
+        let _write_result = if index == 0 {
+            writeln!(out, "MODULES_PATHS=\"{joined}\"")
+        } else {
+            writeln!(out, "MODULES_PATHS=\"$MODULES_PATHS, {joined}\"")
+        };
+    }
+    out
 }
 
 fn mise_task(
@@ -182,9 +202,9 @@ fn mise_task(
     task
 }
 
-fn mise_env() -> Table {
+fn mise_env(password: &str) -> Table {
     let mut env = Table::new();
-    let _previous: Option<Value> = env.insert("OTLP_AUTH_PASSWORD".to_string(), Value::String("1234".to_string()));
+    let _previous: Option<Value> = env.insert("OTLP_AUTH_PASSWORD".to_string(), Value::String(password.to_string()));
     let _previous: Option<Value> = env.insert(
         "OTLP_AUTH_USERNAME".to_string(),
         Value::String("root@example.com".to_string()),

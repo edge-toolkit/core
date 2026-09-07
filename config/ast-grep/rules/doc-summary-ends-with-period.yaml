@@ -102,6 +102,9 @@ files:
   - services/ws/tests/load_registry.rs
   - utilities/cli/src/deployment_types/docker_compose.rs
   - utilities/cli/src/deployment_types/mise.rs
+  - utilities/cli/src/deployment_types/scenario_image.rs
+  - utilities/cli/src/lib.rs
+  - utilities/cli/tests/scenario_generation.rs
   - utilities/int-gen/src/error.rs
   - utilities/int-gen/src/lib.rs
   - utilities/int-gen/src/wit/mod.rs

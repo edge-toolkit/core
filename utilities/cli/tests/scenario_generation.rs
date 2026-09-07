@@ -53,7 +53,7 @@ fn scenario_module_paths_include_selected_modules_and_dependencies() {
             "../ws-modules/face-detection".to_string(),
             "../ws-modules/har1".to_string(),
             "../../data/model-modules/model-face1".to_string(),
-            "$(mise where npm:onnxruntime-web)/lib/node_modules/onnxruntime-web".to_string(),
+            "$(cargo run --quiet -p et-cli -- npm-module-path --package onnxruntime-web)".to_string(),
             "../../data/model-modules/model-har-motion1".to_string(),
         ],
     );
@@ -69,8 +69,9 @@ fn scenario_module_paths_include_pyface1_python_runtime_dependencies() {
 
     assert!(paths.contains(&"../ws-modules/pyface1".to_string()));
     assert!(paths.contains(&"../../data/model-modules/model-face1".to_string()));
-    assert!(paths.contains(&"$(mise where npm:onnxruntime-web)/lib/node_modules/onnxruntime-web".to_string()));
-    assert!(paths.contains(&"$(mise where npm:pyodide)/lib/node_modules/pyodide".to_string()));
+    assert!(paths.contains(&"$(cargo run --quiet -p et-cli -- npm-module-path --package onnxruntime-web)".to_string()));
+    // pyface1 calls `micropip.install`, so it needs the full GitHub-release distribution rather than the npm one.
+    assert!(paths.contains(&"$(mise where http:pyodide)".to_string()));
 }
 
 #[test]
@@ -162,7 +163,13 @@ agents:
     assert!(output_dir.join("compose.yaml").exists());
     assert!(output_dir.join("README.md").exists());
     let mise = fs::read_to_string(output_dir.join("mise.toml")).unwrap();
-    assert!(mise.contains("export MODULES_PATHS="));
+    assert!(mise.contains("MODULES_PATHS=\""));
+    assert!(mise.contains("export MODULES_PATHS\n"));
+    // The path list is assembled by appending to the variable, never by continuing the line with a trailing `\`.
+    assert!(
+        !mise.contains('\\'),
+        "generated mise.toml must carry no line-continuations"
+    );
     let readme = fs::read_to_string(output_dir.join("README.md")).unwrap();
     assert!(readme.contains("`mise.toml`"));
     assert!(readme.contains("`compose.yaml`"));

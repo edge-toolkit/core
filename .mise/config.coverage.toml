@@ -114,7 +114,14 @@ export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS="$flags"
 # et-ws-web-runner/coverage adds the browser-module capture (shims + the __et_capture_coverage PUT);
 # et-ws-wasi-runner/coverage adds the guest `/cov` preopen. ET_TEST_COVERAGE (set by the coverage job) still
 # gates capture at runtime within each build.
-cargo nextest run --config-file config/nextest.toml --features et-ws-web-runner/coverage,et-ws-wasi-runner/coverage
+# A failing test must not cost the whole report: capture the status and re-raise it once lcov.info is written.
+# Under `set -e` a nextest failure would abort the task here, so `cargo llvm-cov report` below never runs and
+# lcov.info is never produced -- the coverage upload steps then have nothing to send and the run reports no
+# coverage at all. A failing run is exactly when the per-test results and the coverage delta matter most, so the
+# profile data nextest has already written gets turned into a report either way.
+test_status=0
+cargo nextest run --config-file config/nextest.toml --features et-ws-web-runner/coverage,et-ws-wasi-runner/coverage ||
+  test_status=$?
 mise run gen-specs
 mise run regen-verification
 # The runner's host bindings are excluded from the report, not just from analysis.
@@ -128,6 +135,7 @@ mise run regen-verification
 # leading `^` matches nothing and the file stays in the report. Match the path tail instead.
 cov_ignore='services/ws-wasi-runner/src/bindings\\.rs$'
 cargo llvm-cov report --lcov --include-build-script --ignore-filename-regex "$cov_ignore" --output-path lcov.info
+exit "$test_status"
 """
 shell = "{{ vars.task_shell }}"
 

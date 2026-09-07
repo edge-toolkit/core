@@ -98,6 +98,7 @@ et-ws-server = { path = "services/ws-server", version = "0.1.0" }
 et-ws-service = { path = "services/ws", version = "0.1.0" }
 et-ws-test-server = { path = "services/ws-test-server", version = "0.1.0" }
 et-ws-wasm-agent = { path = "services/ws-wasm-agent", version = "0.1.0" }
+fake = "4"
 fs-err = "3"
 futures-core = "0.3"
 futures-util = "0.3"
@@ -165,6 +166,14 @@ pyo3 = { version = "0.29", features = ["auto-initialize"] }
 pyo3-build-config = "0.29"
 qr2term = "0.3"
 quote = "1"
+# Kept in lockstep with whichever rand major `fake` builds against.
+# The generated deployments seed a fake-driven RNG, so the two crates have to agree on the `Rng` trait.
+rand = "0.9"
+# Reproducibility is the whole point of this dependency, not randomness quality.
+# ChaCha is the one rand generator whose output is guaranteed stable across releases for a given seed, so a
+# regenerated deployment keeps the credentials it had. `rand`'s own SmallRng/StdRng explicitly do not promise
+# that, and StepRng (the obvious "just count up" answer) is deprecated without replacement in rand 0.9.
+rand_chacha = "0.9"
 rcgen = "0.14"
 regex = { version = "1.12", default-features = false }
 reqwest = { version = "0.13", default-features = false }
@@ -184,6 +193,7 @@ serde_json = "1"
 serde_path_to_error = "0.1"
 serde_urlencoded = "0.7"
 serde_yaml = "0.9"
+sha2 = { version = "0.10", default-features = false }
 strum = { version = "0.28", features = ["derive"] }
 syn = "3"
 sys_traits = { version = "0.1.28", features = ["libc", "real"] }

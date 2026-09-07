@@ -23,6 +23,10 @@ url = "https://github.com/pyodide/pyodide/releases/download/0.29.3/pyodide-0.29.
 [tools."http:pyodide"."platforms.windows-x64"]
 url = "https://github.com/pyodide/pyodide/releases/download/0.29.3/pyodide-0.29.3.tar.bz2"
 
+[[tools."npm:pyodide"]]
+version = "0.29.3"
+backend = "npm:pyodide"
+
 [[tools."pipx:componentize-py"]]
 version = "0.23.0"
 backend = "pipx:componentize-py"

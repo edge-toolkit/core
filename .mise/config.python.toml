@@ -16,12 +16,19 @@
 "pipx:torch" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
 ruff = "latest"
 
-# Use the GitHub release tarball, not `npm:pyodide`.
-# The npm package is only the runtime (pyodide.js, .wasm, stdlib, micropip) ~5 MB -- it's designed for JS apps
-# that fetch the rest from JsDelivr's Pyodide custom-CDN namespace (https://www.jsdelivr.com/oss-cdn) at
-# runtime. We need the ~200 MB "full" distribution served locally so browser modules work offline; that's
-# only published as a tarball on GitHub releases. The extracted tarball contains a top-level `pyodide/`
-# directory the modules service picks up -- see `default_modules_folders` in libs/edge-toolkit/src/config.rs.
+# Both pyodide distributions are pinned, because a deployment needs one or the other depending on its modules.
+# The npm package is only the runtime (pyodide.js, .wasm, stdlib, micropip) -- it's designed for JS apps that
+# fetch the rest from JsDelivr's Pyodide custom-CDN namespace (https://www.jsdelivr.com/oss-cdn) at runtime, so
+# it suffices for a module that imports the stdlib and nothing more. A module calling `micropip.install` pulls a
+# non-stdlib wheel and needs the "full" distribution served locally to work offline; that is published only as a
+# tarball on GitHub releases. This workspace serves the full one by default; `et-cli` picks between them per
+# scenario. The extracted tarball contains a top-level `pyodide/` directory the modules service picks up -- see
+# `default_modules_folders` in libs/edge-toolkit/src/config.rs.
+#
+# Hold both rows on the same pyodide release when bumping. Note the npm package renumbered after 0.29.x: its
+# `latest` is now 314.x, tracking the bundled CPython (314 = Python 3.14) rather than continuing the 0.29 line,
+# so an unpinned `latest` here would silently cross a major boundary the http row has not.
+"npm:pyodide" = "0.29.3"
 [tools."http:pyodide"]
 # Keep every pyodide executable OFF the task PATH.
 # The dist root carries `python` / `python.bat` / `python.exe` wrapper scripts, and with no bin_path set

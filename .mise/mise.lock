@@ -171,6 +171,40 @@ checksum = "sha256:8c1a9597a7188d539536ef8ce30526373476c3e6e4e9a148d8c918f9142a7
 url = "https://github.com/open-policy-agent/regal/releases/download/v0.41.1/regal_Windows_x86_64.exe"
 url_api = "https://api.github.com/repos/open-policy-agent/regal/releases/assets/436462513"
 
+[[tools."aqua:docker/compose"]]
+version = "5.5.1"
+backend = "aqua:docker/compose"
+
+[tools."aqua:docker/compose"."platforms.linux-arm64"]
+checksum = "sha256:732e3a84c1a0f67256ce80bc2598a24546b10ca05f9faa97efceb1171ece2ef7"
+url = "https://github.com/docker/compose/releases/download/v5.5.1/docker-compose-linux-aarch64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/542966295"
+provenance = "cosign"
+
+[tools."aqua:docker/compose"."platforms.linux-x64"]
+checksum = "sha256:db1889184726840f75c4f9c001048430d4f25b3be3cb084d3ddd762bc0aed576"
+url = "https://github.com/docker/compose/releases/download/v5.5.1/docker-compose-linux-x86_64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/542966285"
+provenance = "cosign"
+
+[tools."aqua:docker/compose"."platforms.macos-arm64"]
+checksum = "sha256:998735c9b6fe68a4f05895e6ea73d71ad06f9fc7046383ad89e47346781b6af5"
+url = "https://github.com/docker/compose/releases/download/v5.5.1/docker-compose-darwin-aarch64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/542966325"
+provenance = "cosign"
+
+[tools."aqua:docker/compose"."platforms.macos-x64"]
+checksum = "sha256:a264d61e824bf08a78867e59cdf32eb09f0aee9ecdf9f6ebfa43f76dc52880f1"
+url = "https://github.com/docker/compose/releases/download/v5.5.1/docker-compose-darwin-x86_64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/542966307"
+provenance = "cosign"
+
+[tools."aqua:docker/compose"."platforms.windows-x64"]
+checksum = "sha256:a3c0c73033eaede90210345d0cc2233edf4fab8fe0282a91dad8fd8436809d2f"
+url = "https://github.com/docker/compose/releases/download/v5.5.1/docker-compose-windows-x86_64.exe"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/542966280"
+provenance = "cosign"
+
 [[tools."aqua:koalaman/shellcheck"]]
 version = "0.11.0"
 backend = "aqua:koalaman/shellcheck"
