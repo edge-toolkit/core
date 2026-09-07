@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use std::path::Path;
 
 use edge_toolkit::input::ClusterInput;
@@ -32,7 +33,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path, passw
     let module_names = cluster_module_names(cluster);
     let module_paths = scenario_module_paths(&ws_server_dir, &module_names)?;
     let module_paths_lines = wrap_module_paths(&module_paths);
-    let ws_server_run = format!("export MODULES_PATHS=\"\\\n{module_paths_lines}\"\ncargo run\n");
+    let ws_server_run = format!("{module_paths_lines}export MODULES_PATHS\ncargo run\n");
     let ws_server_rel = relative_path_from(&output_abs, &ws_server_dir);
 
     let mut root = Table::new();
@@ -116,11 +117,14 @@ pub fn scenario_module_paths(ws_server_dir: &Path, module_names: &[String]) -> R
     Ok(paths)
 }
 
-// Pack `paths` into `,\`-continued lines within the editorconfig line length via textwrap first-fit bin-packing.
-// Each path is one atomic fragment (some hold spaces, e.g. `$(mise where ...)`, so they must never be split);
-// paths sharing a line are joined by `, `, and the shell `\` line-continuations plus the consumer's per-segment
-// trim make the folded value exactly the comma-separated path list. Every emitted line is `  <paths>` plus a
-// trailing `,\`, so the fit budget is that line length minus the 2-space indent and the 2-char continuation.
+// Pack `paths` into a run of `MODULES_PATHS=` assignments within the editorconfig line length, via textwrap
+// first-fit bin-packing. Each path is one atomic fragment (some hold spaces, e.g. `$(mise where ...)`, so they
+// must never be split) and paths sharing a line are joined by `, `. Each line after the first appends to the
+// variable instead of continuing it with a trailing `\`, so the assembled value is the same comma-separated list
+// the consumer's per-segment trim expects while the body stays free of line-continuations -- a `\` that picks up
+// trailing whitespace silently ends the statement early, and the repo bans the form outside README files.
+// The two fit budgets are the line length minus each form's fixed prefix and its closing quote: `MODULES_PATHS="`
+// for the opening line, `MODULES_PATHS="$MODULES_PATHS, ` for every later one.
 fn wrap_module_paths(paths: &[String]) -> String {
     #[derive(Debug)]
     struct PathFragment<'path> {
@@ -139,7 +143,8 @@ fn wrap_module_paths(paths: &[String]) -> String {
         }
     }
 
-    const LINE_WIDTH: f64 = 116.0;
+    const FIRST_LINE_WIDTH: f64 = 104.0;
+    const APPEND_LINE_WIDTH: f64 = 88.0;
     let fragments: Vec<PathFragment> = paths
         .iter()
         .map(|path| PathFragment {
@@ -148,18 +153,21 @@ fn wrap_module_paths(paths: &[String]) -> String {
         })
         .collect();
 
-    textwrap::wrap_algorithms::wrap_first_fit(&fragments, &[LINE_WIDTH])
-        .iter()
-        .map(|group| {
-            let joined = group
-                .iter()
-                .map(|fragment| fragment.path)
-                .collect::<Vec<_>>()
-                .join(", ");
-            format!("  {joined}")
-        })
-        .collect::<Vec<_>>()
-        .join(",\\\n")
+    let groups = textwrap::wrap_algorithms::wrap_first_fit(&fragments, &[FIRST_LINE_WIDTH, APPEND_LINE_WIDTH]);
+    let mut out = String::default();
+    for (index, group) in groups.iter().enumerate() {
+        let joined = group
+            .iter()
+            .map(|fragment| fragment.path)
+            .collect::<Vec<_>>()
+            .join(", ");
+        let _write_result = if index == 0 {
+            writeln!(out, "MODULES_PATHS=\"{joined}\"")
+        } else {
+            writeln!(out, "MODULES_PATHS=\"$MODULES_PATHS, {joined}\"")
+        };
+    }
+    out
 }
 
 fn mise_task(

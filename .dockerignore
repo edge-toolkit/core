@@ -55,4 +55,3 @@ services/ws-server/storage/
 **/.git/
 **/Dockerfile*
 README.md
-**/.dockerignore

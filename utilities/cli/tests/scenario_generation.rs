@@ -163,7 +163,13 @@ agents:
     assert!(output_dir.join("compose.yaml").exists());
     assert!(output_dir.join("README.md").exists());
     let mise = fs::read_to_string(output_dir.join("mise.toml")).unwrap();
-    assert!(mise.contains("export MODULES_PATHS="));
+    assert!(mise.contains("MODULES_PATHS=\""));
+    assert!(mise.contains("export MODULES_PATHS\n"));
+    // The path list is assembled by appending to the variable, never by continuing the line with a trailing `\`.
+    assert!(
+        !mise.contains('\\'),
+        "generated mise.toml must carry no line-continuations"
+    );
     let readme = fs::read_to_string(output_dir.join("README.md")).unwrap();
     assert!(readme.contains("`mise.toml`"));
     assert!(readme.contains("`compose.yaml`"));

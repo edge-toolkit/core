@@ -62,7 +62,6 @@ services/ws-server/storage/
 **/.git/
 **/Dockerfile*
 README.md
-**/.dockerignore
 
 # Re-admit the built module artifacts this scenario serves.
 # The rules above drop every `*.wasm` and `*.onnx`, which is what keeps the CI images small; these

@@ -1314,6 +1314,11 @@ description = "Regenerate .dockerignore from .gitignore + Docker-only excludes"
 # A bare pattern there is root-anchored -- whereas a slash-less .gitignore pattern matches at any depth.
 # So mirror .gitignore, add the Docker-only excludes (`.git/`, plus the build recipe + docs so editing
 # them doesn't bust the `COPY . .` cache), and `**/`-prefix each non-anchored pattern.
+# `.dockerignore` itself is deliberately NOT excluded any more. Excluding it saved nothing (the file is tiny) and
+# meant it was absent from the build context, so `et-cli` -- which derives each scenario's per-Dockerfile ignore
+# file from it -- could not run inside an image built from this Dockerfile:
+#     called `Result::unwrap()` on an `Err` value: Io(... NotFound ... path: "/workspace/.dockerignore")
+# That surfaced only in the docker build.yaml lanes, because every other environment has the file on disk.
 # goawk emits CRLF on Windows, so the whole block is piped through `tr -d '\r'` -- .dockerignore must stay
 # LF-only (editorconfig enforces it, and CRLF would also make dockerignore-check see a spurious diff).
 run = '''
@@ -1324,7 +1329,7 @@ run = '''
   echo
   {
     cat .gitignore
-    printf '%s\n' '.git/' 'Dockerfile*' '/README.md' '.dockerignore'
+    printf '%s\n' '.git/' 'Dockerfile*' '/README.md'
   } | goawk '
     /^[[:space:]]*#/ { print; next }
     /^[[:space:]]*$/ { print; next }

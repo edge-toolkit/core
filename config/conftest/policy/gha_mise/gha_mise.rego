@@ -46,3 +46,25 @@ deny contains msg if {
 		[file.path, d.dir, d.seg, d.pinned],
 	)
 }
+
+# Every workflow's MISE_ENV must be the list .mise/config.toml declares as ALL_LANGS.
+# gha.rego pins the same value per-workflow, but against a literal in the policy itself, so it cannot tell whether
+# that literal still matches the repo. Anchoring here instead makes ALL_LANGS the thing everything else tracks:
+# adding a config.<lang>.toml and updating ALL_LANGS lights up every workflow that was left behind.
+all_langs := value if {
+	some file in input
+	mise.is_mise(file)
+	endswith(replace(file.path, "\\", "/"), ".mise/config.toml")
+	value := file.contents.env.ALL_LANGS
+}
+
+deny contains msg if {
+	some file in input
+	endswith(file.path, ".yaml")
+	declared := file.contents.env.MISE_ENV
+	declared != all_langs
+	msg := sprintf(
+		"%s: env.MISE_ENV is %q but .mise/config.toml's ALL_LANGS is %q -- keep the guest-language copies in sync",
+		[file.path, declared, all_langs],
+	)
+}

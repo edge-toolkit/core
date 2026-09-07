@@ -111,6 +111,99 @@ fn render_dockerfile(
     out
 }
 
+/// The fixed head of the deps stage: the base image, the packages it installs, and a verified mise.
+///
+/// Held as a const rather than inlined so the rendering function below stays a short composer of named parts.
+/// Nothing in this block varies with the cluster, so there is nothing here to parameterise.
+const DEPS_BASE_STAGE: &str = concat!(
+    "# Stage the packages that live outside the repository.\n",
+    "# These are published packages the modules load at runtime, provisioned by mise rather than built\n",
+    "# here, so this stage installs them from the repo's own pins and copies each one to the `/app` path\n",
+    "# the hub serves it from.\n",
+    "FROM debian:bookworm-slim AS deps\n",
+    "\n",
+    "# The package list is named rather than inlined so a policy can hold it against the repo-root Dockerfile.\n",
+    "# Every name here is drawn from that file's own COMMON_PACKAGES: the shell, the archive tools mise unpacks\n",
+    "# downloads with, plus git and curl. Its compiler packages are deliberately absent -- nothing is compiled\n",
+    "# in this stage -- so the two lists are checked as subset rather than equality.\n",
+    "# Promoted to ENV because the quoted heredoc below is expanded by bash at run time, which an ARG alone\n",
+    "# does not reach.\n",
+    "ARG COMMON_PACKAGES=\"bash bzip2 ca-certificates curl git gzip tar unzip\"\n",
+    "ENV COMMON_PACKAGES=${COMMON_PACKAGES}\n",
+    "RUN bash <<'EOF'\n",
+    "set -euo pipefail\n",
+    "apt-get update\n",
+    "# Word-splitting $COMMON_PACKAGES into separate arguments is the intent, so it is deliberately unquoted.\n",
+    "apt-get install -y --no-install-recommends $COMMON_PACKAGES\n",
+    "apt-get clean\n",
+    "rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb\n",
+    "EOF\n",
+    "\n",
+    "# mise is fetched to a file and checksum-verified, never piped from mise.run into a shell.\n",
+    "# Piping a remote script into an interpreter runs unreviewed code straight off the network, which the\n",
+    "# repo's no-curl-pipe rule bans. The release's SHASUMS256.txt covers every asset, so `--ignore-missing`\n",
+    "# checks exactly the archive downloaded here. Pinned rather than installed from mise's apt repository,\n",
+    "# which carries only the newest version: a floating mise writes lockfile entries an older CI mise\n",
+    "# then refuses to install.\n",
+    "ARG MISE_VERSION=v2026.9.0\n",
+    "ARG TARGETARCH\n",
+    "ENV MISE_VERSION=${MISE_VERSION}\n",
+    "ENV TARGETARCH=${TARGETARCH}\n",
+    "RUN bash <<'EOF'\n",
+    "set -euo pipefail\n",
+    "case \"${TARGETARCH}\" in\n",
+    "    amd64) arch=x64 ;;\n",
+    "    arm64) arch=arm64 ;;\n",
+    "    *) echo \"unsupported TARGETARCH ${TARGETARCH}\" >&2; exit 1 ;;\n",
+    "esac\n",
+    "asset=\"mise-${MISE_VERSION}-linux-${arch}.tar.gz\"\n",
+    "base=\"https://github.com/jdx/mise/releases/download/${MISE_VERSION}\"\n",
+    "cd /tmp\n",
+    "curl -fsSL -o \"${asset}\" \"${base}/${asset}\"\n",
+    "curl -fsSL -o SHASUMS256.txt \"${base}/SHASUMS256.txt\"\n",
+    "sha256sum -c --ignore-missing SHASUMS256.txt\n",
+    "tar -xzf \"${asset}\"\n",
+    "install -m 0755 /tmp/mise/bin/mise /usr/local/bin/mise\n",
+    "rm -rf /tmp/mise \"/tmp/${asset}\" /tmp/SHASUMS256.txt\n",
+    "EOF\n",
+    "\n",
+    "ENV HOME=/root\n",
+    "ENV PATH=\"/root/.local/share/mise/shims:${PATH}\"\n",
+    "WORKDIR /workspace\n",
+    "COPY .miserc.toml .miserc.toml\n",
+    "COPY .mise/ .mise/\n",
+    "RUN mise trust\n",
+);
+
+/// The per-tool copy step, driven entirely by the `STAGE_*` variables the loop emits ahead of it.
+///
+/// Locates the package rather than assuming where the backend put it. The npm backend nests it under one of
+/// several layouts (`lib/node_modules/`, `node_modules/`, or an aube virtual store below a content-hashed
+/// directory) that vary by platform, so this searches for the named directory instead. The named directory is
+/// tried FIRST and the install root only as a fallback: the npm backend drops its own wrapper manifest
+/// (`"name": "mise-npm-install"`) at that root, so a root-first probe stages the wrapper and the module is then
+/// served under the wrapper's name. The fallback is what covers an archive-backed `http:` tool, which extracts
+/// flat so the root really is the package. `-L` and `cp -L` resolve the symlinks the aube store is built from,
+/// so real files land in the image.
+const DEPS_STAGE_TOOL_COPY: &str = concat!(
+    "RUN bash <<'EOF'\n",
+    "set -euo pipefail\n",
+    "root=\"$(mise where \"${STAGE_TOOL}\")\"\n",
+    "src=\"$(find -L \"${root}\" -type d -name \"${STAGE_PACKAGE}\" ",
+    "-exec test -f '{}/package.json' ';' -print -quit)\"\n",
+    "if [ -z \"${src}\" ] && [ -f \"${root}/package.json\" ]; then\n",
+    "    src=\"${root}\"\n",
+    "fi\n",
+    "if [ -z \"${src}\" ]; then\n",
+    "    echo \"no ${STAGE_PACKAGE} package dir under the ${STAGE_TOOL} install at ${root}\" >&2\n",
+    "    exit 1\n",
+    "fi\n",
+    "mkdir -p \"$(dirname \"${STAGE_DEST}\")\"\n",
+    "cp -rL \"${src}\" \"${STAGE_DEST}\"\n",
+    "EOF\n",
+    "\n",
+);
+
 /// Render the stage that installs the mise-staged packages the cluster's modules depend on.
 ///
 /// The repo's own `.mise/` configs and lockfiles are the version source, so nothing here pins a version that
@@ -122,55 +215,7 @@ fn render_deps_stage(mise_tools: &[(String, String, String)]) -> String {
         .collect::<Vec<_>>()
         .join(" ");
     let mut stage = String::default();
-    stage.push_str(concat!(
-        "# Stage the packages that live outside the repository.\n",
-        "# These are published packages the modules load at runtime, provisioned by mise rather than built\n",
-        "# here, so this stage installs them from the repo's own pins and copies each one to the `/app` path\n",
-        "# the hub serves it from.\n",
-        "FROM debian:bookworm-slim AS deps\n",
-        "RUN bash <<'EOF'\n",
-        "set -euo pipefail\n",
-        "apt-get update\n",
-        "apt-get install -y --no-install-recommends bash bzip2 ca-certificates curl git gzip tar unzip\n",
-        "apt-get clean\n",
-        "rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb\n",
-        "EOF\n",
-        "\n",
-        "# mise is fetched to a file and checksum-verified, never piped from mise.run into a shell.\n",
-        "# Piping a remote script into an interpreter runs unreviewed code straight off the network, which the\n",
-        "# repo's no-curl-pipe rule bans. The release's SHASUMS256.txt covers every asset, so `--ignore-missing`\n",
-        "# checks exactly the archive downloaded here. Pinned rather than installed from mise's apt repository,\n",
-        "# which carries only the newest version: a floating mise writes lockfile entries an older CI mise\n",
-        "# then refuses to install.\n",
-        "ARG MISE_VERSION=v2026.9.0\n",
-        "ARG TARGETARCH\n",
-        "ENV MISE_VERSION=${MISE_VERSION}\n",
-        "ENV TARGETARCH=${TARGETARCH}\n",
-        "RUN bash <<'EOF'\n",
-        "set -euo pipefail\n",
-        "case \"${TARGETARCH}\" in\n",
-        "    amd64) arch=x64 ;;\n",
-        "    arm64) arch=arm64 ;;\n",
-        "    *) echo \"unsupported TARGETARCH ${TARGETARCH}\" >&2; exit 1 ;;\n",
-        "esac\n",
-        "asset=\"mise-${MISE_VERSION}-linux-${arch}.tar.gz\"\n",
-        "base=\"https://github.com/jdx/mise/releases/download/${MISE_VERSION}\"\n",
-        "cd /tmp\n",
-        "curl -fsSL -o \"${asset}\" \"${base}/${asset}\"\n",
-        "curl -fsSL -o SHASUMS256.txt \"${base}/SHASUMS256.txt\"\n",
-        "sha256sum -c --ignore-missing SHASUMS256.txt\n",
-        "tar -xzf \"${asset}\"\n",
-        "install -m 0755 /tmp/mise/bin/mise /usr/local/bin/mise\n",
-        "rm -rf /tmp/mise \"/tmp/${asset}\" /tmp/SHASUMS256.txt\n",
-        "EOF\n",
-        "\n",
-        "ENV HOME=/root\n",
-        "ENV PATH=\"/root/.local/share/mise/shims:${PATH}\"\n",
-        "WORKDIR /workspace\n",
-        "COPY .miserc.toml .miserc.toml\n",
-        "COPY .mise/ .mise/\n",
-        "RUN mise trust\n",
-    ));
+    stage.push_str(DEPS_BASE_STAGE);
     let _write_result = writeln!(stage, "ENV MISE_ENV={DEPS_MISE_ENV}");
     if mise_tools.iter().any(|(tool, _, _)| tool.starts_with("npm:")) {
         // mise's npm backend shells out to npm, and refuses an `npm:` tool whose configured `node` dependency
@@ -201,32 +246,7 @@ fn render_deps_stage(mise_tools: &[(String, String, String)]) -> String {
         let _write_result = writeln!(stage, "ENV STAGE_TOOL=\"{tool}\"");
         let _write_result = writeln!(stage, "ENV STAGE_PACKAGE=\"{package}\"");
         let _write_result = writeln!(stage, "ENV STAGE_DEST=\"/staged{docker_path}\"");
-        // Locate the package rather than assume where the backend put it. The npm backend nests it under one
-        // of several layouts (`lib/node_modules/`, `node_modules/`, or an aube virtual store below a
-        // content-hashed directory) that vary by platform, so search for the named directory instead. The
-        // named directory is tried FIRST and the install root only as a fallback: the npm backend drops its own
-        // wrapper manifest (`"name": "mise-npm-install"`) at that root, so a root-first probe stages the
-        // wrapper and the module is then served under the wrapper's name. The fallback is what covers an
-        // archive-backed `http:` tool, which extracts flat so the root really is the package. `-L` and `cp -L`
-        // resolve the symlinks the aube store is built from, so real files land in the image.
-        stage.push_str(concat!(
-            "RUN bash <<'EOF'\n",
-            "set -euo pipefail\n",
-            "root=\"$(mise where \"${STAGE_TOOL}\")\"\n",
-            "src=\"$(find -L \"${root}\" -type d -name \"${STAGE_PACKAGE}\" ",
-            "-exec test -f '{}/package.json' ';' -print -quit)\"\n",
-            "if [ -z \"${src}\" ] && [ -f \"${root}/package.json\" ]; then\n",
-            "    src=\"${root}\"\n",
-            "fi\n",
-            "if [ -z \"${src}\" ]; then\n",
-            "    echo \"no ${STAGE_PACKAGE} package dir under the ${STAGE_TOOL} install at ${root}\" >&2\n",
-            "    exit 1\n",
-            "fi\n",
-            "mkdir -p \"$(dirname \"${STAGE_DEST}\")\"\n",
-            "cp -rL \"${src}\" \"${STAGE_DEST}\"\n",
-            "EOF\n",
-            "\n",
-        ));
+        stage.push_str(DEPS_STAGE_TOOL_COPY);
     }
     stage
 }

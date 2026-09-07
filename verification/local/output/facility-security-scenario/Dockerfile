@@ -18,10 +18,20 @@
 # here, so this stage installs them from the repo's own pins and copies each one to the `/app` path
 # the hub serves it from.
 FROM debian:bookworm-slim AS deps
+
+# The package list is named rather than inlined so a policy can hold it against the repo-root Dockerfile.
+# Every name here is drawn from that file's own COMMON_PACKAGES: the shell, the archive tools mise unpacks
+# downloads with, plus git and curl. Its compiler packages are deliberately absent -- nothing is compiled
+# in this stage -- so the two lists are checked as subset rather than equality.
+# Promoted to ENV because the quoted heredoc below is expanded by bash at run time, which an ARG alone
+# does not reach.
+ARG COMMON_PACKAGES="bash bzip2 ca-certificates curl git gzip tar unzip"
+ENV COMMON_PACKAGES=${COMMON_PACKAGES}
 RUN bash <<'EOF'
 set -euo pipefail
 apt-get update
-apt-get install -y --no-install-recommends bash bzip2 ca-certificates curl git gzip tar unzip
+# Word-splitting $COMMON_PACKAGES into separate arguments is the intent, so it is deliberately unquoted.
+apt-get install -y --no-install-recommends $COMMON_PACKAGES
 apt-get clean
 rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb
 EOF
