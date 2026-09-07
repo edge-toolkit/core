@@ -87,6 +87,26 @@ fn spawn_runner(task: &str) -> Runner {
     }
 }
 
+/// Build the runner binary before any of the timed work starts.
+///
+/// The generated task runs `cargo run --quiet -p et-ws-web-runner`, and that build is not free here: nextest
+/// compiles the workspace under the `test` profile while `cargo run` uses `dev`, so the first task invocation
+/// links the web runner -- V8 and all -- from scratch. Left inside the exchange window it consumed 117s of a 180s
+/// budget on CI, and the model was stored just after the poll loop gave up. The failure then read as
+/// "no math1-output.json appeared", which looks like a broken deployment rather than a test timing its own
+/// compiler. Paying for the build up front keeps the deadline measuring the exchange and nothing else.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct setup step; separate so the test body reads as hub, runners, exchange"
+)]
+fn prebuild_runner() {
+    let _status = Command::new("cargo")
+        .args(["build", "--quiet", "-p", "et-ws-web-runner"])
+        .current_dir(edge_toolkit::config::get_project_root())
+        .status_checked()
+        .unwrap();
+}
+
 /// Read a drained stderr buffer, tolerating a panic in the draining thread having poisoned it.
 fn captured(buffer: &Arc<Mutex<String>>) -> String {
     buffer
@@ -137,6 +157,9 @@ fn stored_model(storage_dir: &std::path::Path) -> Option<(f64, f64)> {
     ignore = "Windows CI excludes et-ws-web-runner, the crate the generated runner task builds"
 )]
 fn math1_scenario_generated_runner_tasks_compute_the_model() {
+    // Build the runner before anything is timed.
+    prebuild_runner();
+
     // The generated tasks name the hub's standard port, so the hub has to be on that port rather than a
     // reserved one. `start_on` fails loudly if it is already taken, which is the right outcome: a leftover
     // server would otherwise answer the runners' readiness check and quietly serve a different storage root.
