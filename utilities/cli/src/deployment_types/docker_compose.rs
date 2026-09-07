@@ -5,7 +5,7 @@ use et_path::{absolute_from, relative_path_from};
 use fs_err as fs;
 
 use crate::error::CliError;
-use crate::{OutputType, cluster_module_names, module_registry, resolve_module_paths};
+use crate::{OutputType, SECRET_PRAGMA, cluster_module_names, module_registry, resolve_module_paths};
 
 pub fn generate_docker_compose_deployment(
     cluster: &ClusterInput,
@@ -60,7 +60,7 @@ pub fn generate_docker_compose_deployment(
                         ),
                         (
                             "OTLP_AUTH_PASSWORD".to_string(),
-                            ComposeValue::DoubleQuoted(password.to_string()),
+                            ComposeValue::Secret(password.to_string()),
                         ),
                         (
                             "OTLP_AUTH_USERNAME".to_string(),
@@ -121,7 +121,7 @@ fn openobserve_service(env_file: String, password: &str) -> ComposeService {
             ("ZO_DATA_DIR".to_string(), ComposeValue::Plain("/data".to_string())),
             (
                 "ZO_ROOT_USER_PASSWORD".to_string(),
-                ComposeValue::DoubleQuoted(password.to_string()),
+                ComposeValue::Secret(password.to_string()),
             ),
         ],
         volumes: vec!["openobserve-data:/data".to_string()],
@@ -189,7 +189,8 @@ struct ComposeVolume;
 #[derive(Debug)]
 enum ComposeValue {
     Plain(String),
-    DoubleQuoted(String),
+    /// A generated dev-only credential, rendered quoted and with the secret-scanner pragma.
+    Secret(String),
     WrappedDoubleQuoted(Vec<String>),
 }
 
@@ -291,7 +292,7 @@ impl ComposeRenderer {
     fn render_environment_value(&mut self, key: &str, value: &ComposeValue) {
         match value {
             ComposeValue::Plain(value) => self.push_line(3, &format!("{key}: {value}")),
-            ComposeValue::DoubleQuoted(value) => self.push_line(3, &format!("{key}: \"{value}\"")),
+            ComposeValue::Secret(value) => self.push_line(3, &format!("{key}: \"{value}\" {SECRET_PRAGMA}")),
             ComposeValue::WrappedDoubleQuoted(parts) => {
                 if let Some((first, rest)) = parts.split_first() {
                     self.push_line(3, &format!("{key}: \"{first},\\"));

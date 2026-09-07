@@ -150,6 +150,15 @@ pub enum ModuleSource {
 /// Where the hub serves pyodide from, whichever distribution was selected.
 const PYODIDE_DOCKER_PATH: &str = "/app/node_modules/pyodide";
 
+/// Pragma marking a generated credential as a deliberate, dev-only literal.
+///
+/// The scenario password is derived from the scenario input so a deployment is reproducible, which means it is
+/// written into files that are committed, which means the secret scanner finds it. It is a local dev credential
+/// for a collector nothing outside the developer's machine talks to, so the finding is suppressed per line rather
+/// than by excluding the tree -- `.deepsource.toml` already excludes `verification/**`, and the secrets analyzer
+/// scans it regardless.
+pub const SECRET_PRAGMA: &str = "# skipcq: SCT-A000 -- generated dev-only scenario credential";
+
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct ModuleRegistryEntry {

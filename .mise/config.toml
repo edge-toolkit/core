@@ -1535,7 +1535,7 @@ run = "watchexec --restart --clear --exts rs,toml -i '**/tests/**' --shell=none 
 
 [tasks.ws-server.env]
 # Must match ZO_ROOT_USER_PASSWORD in config/o2.env; the server authenticates its OTLP exports as that root user.
-OTLP_AUTH_PASSWORD = "Complexpass#123"
+OTLP_AUTH_PASSWORD = "Complexpass#123"  # skipcq: SCT-A000 -- local dev-only credential, committed deliberately
 OTLP_AUTH_USERNAME = "root@example.com"
 
 [tasks.ws-server-no-otel]
@@ -2080,20 +2080,31 @@ description = "Install every language toolchain (all .mise/config.<lang>.toml)"
 run = 'MISE_ENV="$ALL_LANGS" mise install'
 shell = "{{ vars.task_shell_plain }}"
 
-# Fail when a full install rewrites a lockfile, which means the committed lockfiles are not what mise resolves.
-# `lockfile = true` has mise update .mise/mise*.lock on every install, so a mise that resolves anything
-# differently from the one that last wrote them leaves a diff here. That is how a tool entry carrying provenance
-# the pinned mise cannot verify reaches CI: it is written by a newer mise locally, installs fine there, and then
-# fails the whole `mise install` step on every runner. Captured verbatim from the linux-x64 coverage job on
-# commit 19b5e5b3f0f0c56b4bbd0d0e1b1e0a6f8a5f5f2b, where a `github:docker/compose` entry aborted the install:
-#     Failed to install github:docker/compose@latest: Lockfile requires slsa provenance for
-#     github:docker/compose@5.5.1 but verification was not performed.
+# Fail when a full install resolves a different tool set or version than the committed lockfiles record.
+# Only the platform-independent fields are compared, because mise fills a lockfile's per-platform rows in lazily on
+# whichever platform runs the install: `checksum`, `url`, `url_api`, `provenance` and `provenance_verified` appear
+# for macos-arm64 on a developer's machine and for linux-x64 on a runner. A whole-file `git diff` therefore can
+# never be clean across the five-platform matrix -- every lane legitimately adds its own rows, and the committed
+# lockfile already carries a checksum for some platforms of a tool and not others. The `[[tools.<name>]]` headers
+# and their `version` / `backend` are identical everywhere, so those are what this gates on: a tool added, removed
+# or bumped without regenerating the lockfiles is caught, while a lane recording its own checksums is not.
 # install-all rather than a bare install, so guest-language tools reach their lockfiles too -- MISE_ENV only
 # loads a subset, and a partial install leaves every unloaded config's lockfile unexamined.
 [tasks.mise-lock-check]
 depends = ["install-all"]
-description = "Fail if .mise/mise*.lock is stale vs what a full `install-all` resolves"
-run = "git diff --exit-code -- .mise/mise*.lock"
+description = "Fail if .mise/mise*.lock records a different tool set or version than a full install resolves"
+# `|| true` because rg exits 1 on no matches, which under pipefail would abort the whole task on the clean path.
+# `^[-+][-+]` drops git's `+++`/`---` file headers; `@@` hunk headers never match the leading `[-+]`.
+run = """
+drift=$(git diff -U0 -- .mise/mise*.lock | rg "^[-+]" | rg -v "^[-+][-+]" |
+  rg "^[-+](version|backend) = |^[-+]\\[\\[tools\\." || true)
+if [ -n "$drift" ]; then
+  echo "$drift"
+  echo "Lockfile tool set/versions differ from install-all; commit the regenerated .mise/mise*.lock" >&2
+  exit 1
+fi
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.all]
 # Generic stand-in: run any command with every language env enabled.

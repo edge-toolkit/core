@@ -6,7 +6,7 @@ use fs_err as fs;
 use toml::{Table, Value};
 
 use crate::error::CliError;
-use crate::{cluster_module_names, module_registry, resolve_module_paths};
+use crate::{SECRET_PRAGMA, cluster_module_names, module_registry, resolve_module_paths};
 
 pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path, password: &str) -> Result<(), CliError> {
     let output_path = output_dir.join("mise.toml");
@@ -23,10 +23,10 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path, passw
     let openobserve_run = format!(
         concat!(
             "image=openobserve/openobserve:v0.91.5\n",
-            "credential=ZO_ROOT_USER_PASSWORD={}\n",
+            "credential=ZO_ROOT_USER_PASSWORD={} {}\n",
             "docker run --rm --name openobserve -p 5080:5080 --env-file {} -e \"$credential\" \"$image\"\n",
         ),
-        password, openobserve_env_file_rel
+        password, SECRET_PRAGMA, openobserve_env_file_rel
     );
     let module_names = cluster_module_names(cluster);
     let module_paths = scenario_module_paths(&ws_server_dir, &module_names)?;
@@ -88,7 +88,15 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path, passw
     let _previous: Option<Value> = tools.insert("cargo:open".to_string(), Value::String("latest".to_string()));
     let _previous: Option<Value> = root.insert("tools".to_string(), Value::Table(tools));
 
-    let content = toml::to_string(&Value::Table(root))?;
+    // The pragma is inserted after serialization because the toml crate has no way to emit a comment.
+    // Everything else here goes through the `Value` tree, but a comment is not part of the data model, so the
+    // one credential line is rewritten in the finished document instead.
+    //
+    // On its own line rather than trailing the value, because taplo aligns trailing comments across a table
+    // while this emits a single space. Trailing, the two disagree permanently: `taplo-fmt` pads the generated
+    // file and the next `regen-verification` unpads it, so `verification-check` reports drift either way round.
+    let credential = format!("OTLP_AUTH_PASSWORD = \"{password}\"");
+    let content = toml::to_string(&Value::Table(root))?.replace(&credential, &format!("{SECRET_PRAGMA}\n{credential}"));
     fs::write(&output_path, content)?;
 
     Ok(())
