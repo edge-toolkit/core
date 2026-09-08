@@ -12,15 +12,11 @@ crate-type = ["cdylib"]
 doctest = false
 test = false
 
-# See wasi-data1/Cargo.toml for the rationale behind the wasi-only target scope.
-# The lib body is gated identically.
-#
-# No `coverage` feature, unlike the other WASI guests. Those carry a kernel worth measuring; this one uploads a
-# constant and loops on send, so an instrumented build would report the coverage of the twin it triggers, not of
-# anything here.
 [target.'cfg(target_os = "wasi")'.dependencies]
 et-wasi-guest.workspace = true
-serde_json.workspace = true
+
+[features]
+coverage = ["et-wasi-guest/coverage"]
 
 # Build script (runs on the host) emits ET_MATH1_INPUT_PATH for the embedded canonical input.
 [build-dependencies]

@@ -18,8 +18,6 @@ fs-err = { workspace = true, optional = true }
 minicov = { workspace = true, optional = true }
 wit-bindgen.workspace = true
 
-# Coverage instrumentation, off by default and enabled only by the coverage build.
-# Pulls minicov, whose capture_coverage the guests dump to the runner's /cov preopen at the end of run().
 [features]
 coverage = ["dep:fs-err", "dep:minicov"]
 

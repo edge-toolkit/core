@@ -18,9 +18,6 @@ test = false
 et-wasi-guest.workspace = true
 serde_json.workspace = true
 
-# Coverage instrumentation, off by default and enabled only by the coverage build.
-# Forwards to the shared guest crate, which owns the minicov capture the instrumented guest dumps to the
-# runner's /cov preopen at the end of run().
 [features]
 coverage = ["et-wasi-guest/coverage"]
 

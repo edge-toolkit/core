@@ -4961,7 +4961,6 @@ version = "0.1.0"
 dependencies = [
  "et-path",
  "et-wasi-guest",
- "serde_json",
 ]
 
 [[package]]

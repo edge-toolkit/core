@@ -54,12 +54,9 @@ impl Guest for Component {
         own_bucket.set(INPUT_FILENAME, MATH1_INPUT_JSON.as_bytes())?;
         info(&format!("uploaded {INPUT_FILENAME} to bucket={agent_id}"));
 
-        let pointer = serde_json::json!({
-            "type": "math1-input",
-            "bucket": agent_id,
-            "filename": INPUT_FILENAME,
-        })
-        .to_string();
+        // Built by hand rather than through serde_json, as the browser sender's identical pointer is: one
+        // fixed-shape object with no parsing anywhere in this module, so a JSON dependency would earn nothing.
+        let pointer = format!(r#"{{"type":"math1-input","bucket":"{agent_id}","filename":"{INPUT_FILENAME}"}}"#);
 
         info(&format!(
             "broadcasting the math1-input pointer every {BROADCAST_INTERVAL_MS}ms, {BROADCASTS} times"
@@ -74,6 +71,8 @@ impl Guest for Component {
 
         ws::disconnect();
         info("workflow complete");
+        #[cfg(feature = "coverage")]
+        et_wasi_guest::dump_coverage("et_ws_wasi_math1_sender.profraw");
         Ok(())
     }
 }
