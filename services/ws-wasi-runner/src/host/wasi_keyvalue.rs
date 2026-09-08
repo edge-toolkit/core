@@ -2,9 +2,10 @@
 //! `et-rest-client`. The bucket identifier names a namespace:
 //!
 //! * `<agent-uuid>` -> per-agent storage bucket. Reads work for any agent's bucket (server static-serves everything
-//! under `/storage/`); writes only succeed when the runner's own agent owns the bucket (server enforces `agent_id`
-//! is registered). * `modules/<module-name>` -> module asset bucket. Used by guests to fetch their own static assets
-//! bundled in `pkg/`. Writes return `access-denied` since et-modules-service serves files static.
+//!   under `/storage/`); writes only succeed when the runner's own agent owns the bucket (server enforces `agent_id`
+//!   is registered).
+//! * `modules/<module-name>` -> module asset bucket. Used by guests to fetch their own static assets bundled in
+//!   `pkg/`. Writes return `access-denied` since et-modules-service serves files static.
 
 use futures_util::StreamExt as _;
 use wasmtime::component::Resource;

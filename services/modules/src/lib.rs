@@ -90,7 +90,7 @@ pub fn list_modules(config: &ModulesConfig) -> Vec<(String, PathBuf)> {
 /// Register `GET /modules/` (JSON list), `GET /modules/{name}/...` (static files), and `GET /` (root module).
 ///
 /// # Panics
-/// Panics if `config.root` is not present in `config.paths` -- server config is fatal early so the operator sees the
+/// Panics if no discovered module is named `config.root` -- server config is fatal early so the operator sees the
 /// misconfiguration at startup.
 #[expect(
     clippy::panic,

@@ -1,5 +1,5 @@
-//! Exercises the `connect_agent` / `next_payload` client helpers' fail-fast and frame-skipping paths that the happy-
-//! path hub tests never reach: the ack-wait timeout, protocol-ack skipping, and control-frame skipping. Each test
+//! Exercises the `connect_agent` / `next_payload` client helpers' fail-fast and frame-skipping paths that the
+//! happy-path hub tests never reach: the ack-wait timeout, protocol-ack skipping, and control-frame skipping. Each test
 //! drives the helper against a tiny scripted ws server that emits an exact frame sequence, so the behaviour is
 //! deterministic rather than dependent on real-hub timing.
 #![cfg(test)]

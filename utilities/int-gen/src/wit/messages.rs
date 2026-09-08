@@ -4,13 +4,15 @@
 //! Built with `wit-encoder` so the output format is canonical and the construction is type-checked -- we never produce
 //! manual `writeln!` lines.
 //!
-//! Mapping rules: * Variant rename `et-foo-bar` -> variant case `foo-bar`. The `et-` prefix is dropped because the
-//! WIT package namespace (`et:`) already carries it. * `serde_json::Value` fields -> `string` (the host serializes
-//! the opaque JSON when shipping to/from the guest). * `Option<T>` -> `option<T>`. `Vec<T>` -> `list<T>`. `String`
-//! -> `string`. Integers -> `s64` (the wire format never narrows). * `#[serde(rename_all = "snake_case")]` enums map
-//! directly to WIT `enum` with kebab-case case names. * `ClientMessage` and `ServerMessage` each produce a top-level
-//! variant (`client-message` / `server-message`); shared payload records (`relay-text-payload`, etc.) and support types
-//! are deduplicated by name.
+//! Mapping rules:
+//!   * Variant rename `et-foo-bar` -> variant case `foo-bar`. The `et-` prefix is dropped because the WIT package
+//!     namespace (`et:`) already carries it.
+//!   * `serde_json::Value` fields -> `string` (the host serializes the opaque JSON when shipping to/from the guest).
+//!   * `Option<T>` -> `option<T>`. `Vec<T>` -> `list<T>`. `String` -> `string`. Integers -> the narrowest WIT
+//!     integer type the schema's `format` hint names (`u8`, `s16`, ...), falling back to `s64` when there is none.
+//!   * `#[serde(rename_all = "snake_case")]` enums map directly to WIT `enum` with kebab-case case names.
+//!   * `ClientMessage` and `ServerMessage` each produce a top-level variant (`client-message` / `server-message`);
+//!     shared payload records (`relay-text-payload`, etc.) and support types are deduplicated by name.
 
 use std::collections::HashSet;
 

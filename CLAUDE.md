@@ -120,6 +120,12 @@ its failing step with `gh api repos/<owner>/<repo>/actions/jobs/<job-id>/logs` -
 even while the parent run is still `in_progress` (whereas `gh run view --log-failed` refuses until the whole run
 finishes). Only after `gh pr checks` is clean is the PR actually green.
 
+**Ignore `DeepSource: Test coverage`; `codecov/patch` is the coverage check that has to pass.** The repo's line
+coverage sits under the threshold set in the DeepSource dashboard, so that one check reports `failure` on every PR
+and on every `main` commit alike -- it carries no information about the change under review, and no diff can turn it
+green. Read `gh pr checks` as clean once everything except that check is passing. Every other `DeepSource: *` check
+(Rust, Python, Secrets, ...) is a real signal and must stay green.
+
 When an agent is watching a PR (e.g. via `/loop`), the next-poll delay follows three tiers -- tight at first (catch
 fail-fast errors), loose in the middle (long compile/test phases run on a 30-90 min scale), then loose again once
 everything's settled (waiting for the user to push):

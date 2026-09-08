@@ -2,9 +2,9 @@
 //!
 //! `MainWorker` (from `deno_runtime`) wires the standard web platform onto `globalThis` via its bootstrap: timers,
 //! `fetch`, `WebSocket`, `Headers`/`Request`/`Response`, crypto, `localStorage`, `Event`/`EventTarget`, `URL`, `Blob`,
-//! `File`, base64, performance, and console. On top of that we add a custom module loader that fetches from the ws-
-//! server, plus the browser-environment shims that wasm-bindgen, dart2js, and Pyodide modules expect -- one concern per
-//! `shims/*.js` fragment, concatenated by `shim_js()`.
+//! `File`, base64, performance, and console. On top of that we add a custom module loader that fetches from the
+//! ws-server, plus the browser-environment shims that wasm-bindgen, dart2js, and Pyodide modules expect -- one concern
+//! per `shims/*.js` fragment, concatenated by `shim_js()`.
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -205,9 +205,9 @@ try {{
 
 /// Build the `CreateWebWorkerCb` that spawns child `WebWorker`s on fresh OS threads.
 ///
-/// The closure captures the bits a worker needs (REST client to build its own module loader, the `fs`, the cross-
-/// isolate `SharedArrayBuffer` store) and recurses by handing itself (cloned `Arc`) to each child so workers can spawn
-/// grand-children.
+/// The closure captures the bits a worker needs (REST client to build its own module loader, the `fs`, the
+/// cross-isolate `SharedArrayBuffer` store) and recurses by handing itself (cloned `Arc`) to each child so workers can
+/// spawn grand-children.
 fn create_web_worker_cb(
     rest: et_rest_client::Client,
     fs: FileSystemRc,

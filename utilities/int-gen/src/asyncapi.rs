@@ -65,9 +65,12 @@ struct WsApiServer;
 
 /// Build the merged `AsyncAPI` spec as a `serde_json::Value`.
 ///
-/// Steps: 1. Derive the two halves via `WsApiClient` / `WsApiServer`. 2. Merge the server-side channels / operations /
-/// messages into the client-side document (`merge_asyncapi`). 3. Assert that `info.version` matches [`WS_VERSION`] so
-/// any drift between the derive literal and the const is caught loudly.
+/// Steps:
+///   1. Derive the two halves via `WsApiClient` / `WsApiServer`.
+///   2. Merge the server-side channels / operations / `components.messages` / `components.schemas` into the
+///      client-side document (`merge_asyncapi`).
+///   3. Assert that `info.version` matches [`WS_VERSION`] so any drift between the derive literal and the const is
+///      caught loudly.
 ///
 /// `asyncapi-rust` 0.5 already emits each message's payload as its own object schema (no `oneOf` fan-out), with shared
 /// definitions hoisted into `components.schemas` and canonical `#/components/schemas/...` refs, so no payload-slimming
@@ -90,7 +93,7 @@ pub fn build_spec() -> Result<serde_json::Value, Error> {
     Ok(spec_value)
 }
 
-/// Fold `source`'s channels, operations, and `components.messages` into `target`.
+/// Fold `source`'s channels, operations, `components.messages` and `components.schemas` into `target`.
 ///
 /// Top-level metadata (title, info, servers) is retained from `target`. Used to combine the client-side and server-side
 /// `AsyncAPI` documents into a single spec with both directions on one channel.

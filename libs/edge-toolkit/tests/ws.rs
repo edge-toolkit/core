@@ -1,5 +1,5 @@
-//! `ClientMessage::from_text_frame` and `ServerMessage::from_text_frame` are the on-recv decoders shared by the ws-
-//! server and the ws-wasi-runner host respectively. Per the protocol design: a frame whose JSON has `type` starting
+//! `ClientMessage::from_text_frame` and `ServerMessage::from_text_frame` are the on-recv decoders shared by the
+//! ws-server and the ws-wasi-runner host respectively. Per the protocol design: a frame whose JSON has `type` starting
 //! with `et-` is ours and must deserialise; anything else (non-JSON, JSON without a `type`, JSON with a non-et `type`)
 //! is foreign and surfaces as `RelayText` so the hub-relay path through the ws-server is lossless. These tests assert
 //! that every plausible "deserialisation problem" relays cleanly on both sides rather than failing.

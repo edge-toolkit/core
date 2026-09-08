@@ -148,8 +148,8 @@ fn package_json_from_pyproject(module_dir: &Path) -> Result<Value, CliError> {
 
 /// Pick the source-of-truth URL out of a PEP 621 `[project.urls]` map.
 ///
-/// `[project.urls]` is a free-form map keyed by display name. The PyPI-recommended convention is to call the source-of-
-/// truth URL one of these (case-sensitive); we accept all of them.
+/// `[project.urls]` is a free-form map keyed by display name. The PyPI-recommended convention is to call the
+/// source-of-truth URL one of these (case-sensitive); we accept all of them.
 fn project_repository(urls: &BTreeMap<String, String>) -> Option<&str> {
     ["Repository", "repository", "Source", "source"]
         .iter()

@@ -86,9 +86,10 @@ pub fn render_json() -> String {
 /// Same engine the retired `cargo-progenitor` CLI used, just driven in-process so the only install target is the
 /// workspace itself.
 ///
-/// The async pre-hook injects the W3C `traceparent` for the current tracing span into every outgoing request, so the
-/// runner's span chain extends into the server's `tracing-actix-web` request span end-to-end -- distributed tracing
-/// works without each call site repeating the boilerplate the old `inject_traceparent` helper did.
+/// With the client's `tracing` feature on, the async pre-hook injects the W3C `traceparent` for the current tracing
+/// span into every outgoing request, so the runner's span chain extends into the server's `tracing-actix-web` request
+/// span end-to-end -- distributed tracing works without each call site repeating the boilerplate the old
+/// `inject_traceparent` helper did. With the feature off the hook is a no-op.
 #[expect(
     clippy::unwrap_used,
     clippy::unwrap_in_result,
@@ -98,10 +99,10 @@ pub fn render_rust_client() -> Result<String, Error> {
     let spec = build_spec();
 
     // progenitor splices `(#hook)(&mut request).await` into every generated method. We hand it a closure that mutates
-    // the request synchronously (cheap, no I/O) and then returns a trivially-Ok async block, sidestepping the still-
-    // unstable `async ||` closures. The OTel injection itself is `#[cfg(feature = "tracing")]`-gated so WASM consumers
-    // (e.g. the browser data1 module) can disable the feature and avoid pulling in the opentelemetry/tracing-
-    // opentelemetry deps, which don't compile on `wasm32-unknown-unknown`.
+    // the request synchronously (cheap, no I/O) and then returns a trivially-Ok async block, sidestepping the
+    // still-unstable `async ||` closures. The OTel injection itself is `#[cfg(feature = "tracing")]`-gated so WASM
+    // consumers (e.g. the browser data1 module) can disable the feature and avoid pulling in the
+    // opentelemetry/tracing-opentelemetry deps, which don't compile on `wasm32-unknown-unknown`.
     let trace_hook = quote::quote! {
         |request: &mut ::reqwest::Request| {
             #[cfg(feature = "tracing")]
@@ -181,7 +182,7 @@ fn inject_wasm_baseurl_fallback(body: &str) -> String {
 /// progenitor's per-call flow is `pre()` -> `exec()` -> `post()`, and `exec`'s default just calls
 /// `self.client().execute(request)` once. We override it so every REST call (module discovery, asset fetch, per-agent
 /// storage) tolerates a transient failure -- in particular a ws-server that isn't up yet at startup -- by retrying
-/// with backoff.
+/// with backoff. Only requests that `try_clone()` (no streaming body) are retried; any other request runs once.
 ///
 /// NOTE: we hand-inject this only because reqwest's own retry support (`ClientBuilder::retries`, shipped in
 /// 0.12.23) has **no backoff yet** -- its `tower::retry::Policy::retry` returns `std::future::Ready<()>` (retries
