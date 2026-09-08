@@ -87,13 +87,26 @@ ignore = [
   # reports both ids under "unused ignores" -- that report is NOT grounds for deleting them. Doing so turns
   # the dependencies workflow red, because the npm scan then has nothing to filter these findings with.
   "GHSA-xcpc-8h2w-3j85",
+  # adm-zip 0.5.18 extraction follows symlinks in the destination directory, allowing arbitrary file overwrite.
+  # Same package and same unreachable path as the entry above -- nothing we ship opens an archive at all. This
+  # one has no patched release: the advisory covers >= 0.5.9 through 0.6.0 inclusive, so the 0.6.0 that clears
+  # GHSA-xcpc-8h2w-3j85 does not clear this, and only onnxruntime-node dropping adm-zip will.
+  "GHSA-vwc7-r8mq-g2x9",
   # sharp 0.34.5 heap overflow in bundled libvips decoding a malformed image (npm ecosystem, Node.js).
   # Fixed in 0.35.0. Same path and reasoning as adm-zip above: sharp is transformers' Node-side image decoder,
   # and the served browser bundle decodes images through the DOM instead. No bump helps here either --
-  # transformers 4.2.0 requires sharp ^0.34.5, which excludes 0.35.0, so widening it is upstream's call. Drop
-  # both npm entries when a transformers release ships sharp >= 0.35.0 and an onnxruntime-node carrying
-  # adm-zip 0.6.0.
+  # transformers 4.2.0 requires sharp ^0.34.5, which excludes 0.35.0, so widening it is upstream's call.
   "GHSA-f88m-g3jw-g9cj",
+  # sharp 0.34.5 bundles a libheif carrying GHSA-g89c-p67h-r497 and GHSA-2jg2-4ch7-h545.
+  # Reached only by decoding a HEIF/AVIF image, on the same package and the same unreachable path as the entry
+  # above. Fixed in 0.35.4 rather than the 0.35.0 that clears GHSA-f88m-g3jw-g9cj, so it is the later bound
+  # that governs when the sharp pair can go.
+  #
+  # Drop the two sharp ids when a transformers release ships sharp >= 0.35.4, and the two adm-zip ids when an
+  # onnxruntime-node release stops carrying adm-zip -- no adm-zip version fixes GHSA-vwc7-r8mq-g2x9, so waiting
+  # for one is not a plan. All four are npm-ecosystem ids that cargo-deny reports unknown; osv-scanner honours
+  # them.
+  "GHSA-rgj7-g3m4-5g8c",
 ]
 
 [licenses]
