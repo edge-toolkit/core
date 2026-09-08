@@ -215,7 +215,87 @@ fn skipped(module: &str, gate: &Gate) -> bool {
     }
 }
 
+/// Broadcast `send` and require the reply to carry it back plus every `extra` needle.
+#[expect(
+    clippy::single_call_fn,
+    reason = "one Exchange variant's protocol; kept separate so run_exchange stays a dispatcher"
+)]
+async fn exchange_text_contains(control: &mut ControlSocket, send: &str, extra: &[&str]) -> Result<(), Box<dyn Error>> {
+    control.send(tungstenite::Message::Text(send.to_string())).await?;
+    let reply = drain_text(control).await?;
+    if !reply.contains(send) {
+        return Err(format!("reply {reply:?} did not contain the sent {send:?}").into());
+    }
+    for needle in extra {
+        if !reply.contains(needle) {
+            return Err(format!("reply {reply:?} is missing {needle:?}").into());
+        }
+    }
+    Ok(())
+}
+
+/// Broadcast `payload`, parse the reply as JSON, and hand it to `check`.
+#[expect(
+    clippy::single_call_fn,
+    reason = "one Exchange variant's protocol; kept separate so run_exchange stays a dispatcher"
+)]
+async fn exchange_text_json(
+    control: &mut ControlSocket,
+    payload: &str,
+    check: fn(&serde_json::Value) -> Result<(), Box<dyn Error>>,
+) -> Result<(), Box<dyn Error>> {
+    control.send(tungstenite::Message::Text(payload.to_string())).await?;
+    let reply = drain_text(control).await?;
+    let value: serde_json::Value = match serde_json::from_str(&reply) {
+        Ok(value) => value,
+        Err(err) => return Err(format!("reply not JSON: {err}: {reply}").into()),
+    };
+    check(&value)
+}
+
+/// Send `key\0value`, then `key`, and require the binary reply to be `value` again.
+#[expect(
+    clippy::single_call_fn,
+    reason = "one Exchange variant's protocol; kept separate so run_exchange stays a dispatcher"
+)]
+async fn exchange_storage_put_get(control: &mut ControlSocket, key: &str, value: &[u8]) -> Result<(), Box<dyn Error>> {
+    let mut put_frame = Vec::with_capacity(key.len() + 1 + value.len());
+    put_frame.extend_from_slice(key.as_bytes());
+    put_frame.push(0);
+    put_frame.extend_from_slice(value);
+    control.send(tungstenite::Message::Binary(put_frame)).await?;
+    // Let the storage worker PUT to disk before we GET.
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    control
+        .send(tungstenite::Message::Binary(key.as_bytes().to_vec()))
+        .await?;
+    let reply = drain_binary(control).await?;
+    if reply.as_slice() != value {
+        return Err(format!("stored bytes {reply:?} did not round-trip").into());
+    }
+    Ok(())
+}
+
+/// Send `[count]` and require exactly `count` one-byte frames numbered `0..count`.
+#[expect(
+    clippy::single_call_fn,
+    reason = "one Exchange variant's protocol; kept separate so run_exchange stays a dispatcher"
+)]
+async fn exchange_fanout(control: &mut ControlSocket, count: u8) -> Result<(), Box<dyn Error>> {
+    control.send(tungstenite::Message::Binary(vec![count])).await?;
+    let frames = collect_binary(control, usize::from(count)).await?;
+    let expected: Vec<u8> = (0..count).collect();
+    if frames != expected {
+        return Err(format!("fan-out frames {frames:?} did not match {expected:?}").into());
+    }
+    Ok(())
+}
+
 /// Send the module's trigger and assert on its reply.
+///
+/// Each variant's send-and-check sequence lives in its own function above rather than in an arm here. Inline,
+/// the four of them made one 55-line body whose cyclomatic complexity was 19 against Codacy's limit of 10, and
+/// they share nothing but the socket -- the reply is text, JSON, one binary frame or many, per variant.
 async fn run_exchange(
     control: &mut ControlSocket,
     self_id: &str,
@@ -224,53 +304,11 @@ async fn run_exchange(
 ) -> Result<(), Box<dyn Error>> {
     wait_for_peer(control, self_id, budget).await?;
     match exchange {
-        Exchange::TextContains { send, extra } => {
-            control.send(tungstenite::Message::Text(send.to_string())).await?;
-            let reply = drain_text(control).await?;
-            if !reply.contains(send) {
-                return Err(format!("reply {reply:?} did not contain the sent {send:?}").into());
-            }
-            for needle in *extra {
-                if !reply.contains(needle) {
-                    return Err(format!("reply {reply:?} is missing {needle:?}").into());
-                }
-            }
-        }
-        Exchange::TextJson(payload, check) => {
-            control.send(tungstenite::Message::Text(payload.to_string())).await?;
-            let reply = drain_text(control).await?;
-            let value: serde_json::Value = match serde_json::from_str(&reply) {
-                Ok(value) => value,
-                Err(err) => return Err(format!("reply not JSON: {err}: {reply}").into()),
-            };
-            check(&value)?;
-        }
-        Exchange::StoragePutGet { key, value } => {
-            let mut put_frame = Vec::with_capacity(key.len() + 1 + value.len());
-            put_frame.extend_from_slice(key.as_bytes());
-            put_frame.push(0);
-            put_frame.extend_from_slice(value);
-            control.send(tungstenite::Message::Binary(put_frame)).await?;
-            // Let the storage worker PUT to disk before we GET.
-            tokio::time::sleep(Duration::from_millis(200)).await;
-            control
-                .send(tungstenite::Message::Binary(key.as_bytes().to_vec()))
-                .await?;
-            let reply = drain_binary(control).await?;
-            if reply.as_slice() != *value {
-                return Err(format!("stored bytes {reply:?} did not round-trip").into());
-            }
-        }
-        Exchange::Fanout(count) => {
-            control.send(tungstenite::Message::Binary(vec![*count])).await?;
-            let frames = collect_binary(control, usize::from(*count)).await?;
-            let expected: Vec<u8> = (0..*count).collect();
-            if frames != expected {
-                return Err(format!("fan-out frames {frames:?} did not match {expected:?}").into());
-            }
-        }
+        Exchange::TextContains { send, extra } => exchange_text_contains(control, send, extra).await,
+        Exchange::TextJson(payload, check) => exchange_text_json(control, payload, *check).await,
+        Exchange::StoragePutGet { key, value } => exchange_storage_put_get(control, key, value).await,
+        Exchange::Fanout(count) => exchange_fanout(control, *count).await,
     }
-    Ok(())
 }
 
 /// math1's storage-driven exchange: inject the canonical input, then verify the stored model.

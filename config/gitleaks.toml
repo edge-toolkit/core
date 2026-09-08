@@ -1,0 +1,61 @@
+# Secret-scanning rules for `mise run gitleaks-check`.
+#
+# gitleaks walks the working tree directly and does NOT read .gitignore, so every untracked tree it would
+# otherwise descend into has to be listed here -- keep this allowlist in sync with .gitignore. Two reasons it
+# matters, not one: `target/` alone is tens of gigabytes, so an unfiltered scan never finishes; and a finding in
+# an untracked file is a false alarm, because the analyzers this check mirrors only ever see what git tracks.
+#
+# `useDefault` takes gitleaks' full upstream ruleset. Do not trim it to silence a finding -- fix the finding, or
+# suppress the single line with a trailing `gitleaks:allow`. Note that a marker only works where the scanner
+# reads it: gitleaks honours it on the secret's own line and nowhere else, and Codacy's scan ignores it entirely,
+# so a committed credential cannot be made to pass everywhere by annotation. Don't commit one.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Untracked build, tool and cache trees; gitleaks has no .gitignore support of its own."
+paths = [
+  '''(^|/)\.claude/''',
+  '''(^|/)\.dart_tool/''',
+  '''(^|/)\.git/''',
+  '''(^|/)\.gradle/''',
+  '''(^|/)\.kotlin/''',
+  '''(^|/)\.pytest_cache/''',
+  '''(^|/)\.ruff_cache/''',
+  '''(^|/)\.venv/''',
+  '''(^|/)\.zig-cache/''',
+  '''(^|/)__pycache__/''',
+  '''(^|/)node_modules/''',
+  '''(^|/)obj/''',
+  '''^services/ws-modules/dotnet-data1/bin/''',
+  '''^services/ws-modules/js-data1/pkg/et_ws_js_data1\.js$''',
+  '''^services/ws-modules/kotlin-data1/build/''',
+  '''^services/ws-modules/kotlin-math1/build/''',
+  '''^services/ws-modules/pywasm1/pkg/''',
+  '''^services/ws-modules/rcomm1/pkg/webr/''',
+  '''^services/ws-modules/rdata1/pkg/webr/''',
+  '''^services/ws-modules/rmath1/pkg/webr/''',
+  '''^services/ws-server/static/models/''',
+  '''^services/ws-server/storage/''',
+  '''^services/ws-wasm-agent/pkg/''',
+  '''^target/''',
+  '''^zig-out/''',
+]
+
+[[allowlists]]
+description = "Untracked artifacts matched by extension rather than location, per .gitignore's file patterns."
+paths = [
+  '''\.coverage$''',
+  '''\.o$''',
+  '''\.onnx$''',
+  '''\.pem$''',
+  '''\.profraw$''',
+  '''\.wasm$''',
+  '''^coverage-python\.xml$''',
+  '''^lcov\.info$''',
+  '''^mprocs\.log$''',
+]
+
+[[allowlists]]
+description = "Per-scenario credential file that et-cli generates and .gitignore keeps out of the repo."
+paths = ['''(^|/)secrets\.env$''']

@@ -15,9 +15,9 @@ services:
       - 127.0.0.1:5080:5080
     env_file:
       - ../../../../config/o2.env
+      - secrets.env
     environment:
       ZO_DATA_DIR: /data
-      ZO_ROOT_USER_PASSWORD: "Aspernatur%in2445" # skipcq: SCT-A000 -- dev-only scenario credential gitleaks:allow
     volumes:
       - openobserve-data:/data
   ws-server-hub:
@@ -36,6 +36,8 @@ services:
       timeout: 3s
       retries: 20
       start_period: 10s
+    env_file:
+      - secrets.env
     build:
       context: ../../../..
       dockerfile: verification/local/output/wasi-math1/Dockerfile
@@ -47,8 +49,6 @@ services:
         /app/services/ws-wasm-agent,\
         /app/services/ws-modules/wasi-math1,\
         /app/services/ws-modules/wasi-math1-sender"
-      OTLP_AUTH_PASSWORD: "Aspernatur%in2445" # skipcq: SCT-A000 -- dev-only scenario credential gitleaks:allow
-      OTLP_AUTH_USERNAME: root@example.com
       OTLP_COLLECTOR_URL: http://127.0.0.1:5080/api/default/v1
       STORAGE_URL: file:///app/storage
     volumes:

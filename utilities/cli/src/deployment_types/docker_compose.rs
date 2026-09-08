@@ -6,15 +6,11 @@ use fs_err as fs;
 
 use crate::error::CliError;
 use crate::{
-    OutputType, RunnerInstance, SECRET_PRAGMA, cluster_module_names, hub_http_base, hub_ws_url, module_registry,
+    OutputType, RunnerInstance, SECRETS_ENV_FILE, cluster_module_names, hub_http_base, hub_ws_url, module_registry,
     resolve_cluster_runners, resolve_module_paths,
 };
 
-pub fn generate_docker_compose_deployment(
-    cluster: &ClusterInput,
-    output_dir: &Path,
-    password: &str,
-) -> Result<(), CliError> {
+pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
     let output_path = output_dir.join(OutputType::DockerCompose.output_file_name());
     let workspace_root = edge_toolkit::config::get_project_root();
     let output_abs = absolute_from(&workspace_root, output_dir);
@@ -26,10 +22,7 @@ pub fn generate_docker_compose_deployment(
     let module_names = cluster_module_names(cluster);
     let module_paths = docker_image_module_paths(&module_names)?;
     let mut services = vec![
-        (
-            "openobserve".to_string(),
-            openobserve_service(openobserve_env_file_rel, password),
-        ),
+        ("openobserve".to_string(), openobserve_service(openobserve_env_file_rel)),
         (
             "ws-server-hub".to_string(),
             ComposeService {
@@ -55,18 +48,13 @@ pub fn generate_docker_compose_deployment(
                     additional_contexts: vec![("hub".to_string(), "service:ws-server-hub".to_string())],
                 }),
                 network_mode: Some("host".to_string()),
+                // Carries `OTLP_AUTH_PASSWORD` and `OTLP_AUTH_USERNAME`: the server authenticates its OTLP
+                // exports against the same root credential the collector above was started with.
+                env_file: vec![SECRETS_ENV_FILE.to_string()],
                 environment: vec![
                     (
                         "MODULES_PATHS".to_string(),
                         ComposeValue::WrappedDoubleQuoted(module_paths),
-                    ),
-                    (
-                        "OTLP_AUTH_PASSWORD".to_string(),
-                        ComposeValue::Secret(password.to_string()),
-                    ),
-                    (
-                        "OTLP_AUTH_USERNAME".to_string(),
-                        ComposeValue::Plain("root@example.com".to_string()),
                     ),
                     (
                         "OTLP_COLLECTOR_URL".to_string(),
@@ -162,7 +150,7 @@ fn runner_services(runners: &[RunnerInstance], context: &str) -> Vec<(String, Co
 }
 
 /// Build the `OpenObserve` collector service the scenario's traces are exported to.
-fn openobserve_service(env_file: String, password: &str) -> ComposeService {
+fn openobserve_service(env_file: String) -> ComposeService {
     ComposeService {
         image: Some("openobserve/openobserve:v0.91.5".to_string()),
         healthcheck: Some(ComposeHealthcheck {
@@ -178,20 +166,15 @@ fn openobserve_service(env_file: String, password: &str) -> ComposeService {
             start_period: "10s".to_string(),
         }),
         // Bound to loopback, not every interface.
-        // The scenario credential is committed in this repo, so a collector published on 0.0.0.0 hands its root
-        // login to anyone who can reach the host and read the repo. Nothing outside the developer's machine needs
-        // to talk to it: the ws-server exports to 127.0.0.1:5080 and the UI is opened locally.
+        // A collector published on 0.0.0.0 would hand its root login to anyone who can reach the host and read
+        // the scenario's generated env file. Nothing outside the developer's machine needs to talk to it: the
+        // ws-server exports to 127.0.0.1:5080 and the UI is opened locally.
         ports: vec!["127.0.0.1:5080:5080".to_string()],
-        env_file: vec![env_file],
-        // The scenario password overrides the one in the env file, which compose applies first. Per-scenario
-        // credentials mean two stacks running side by side cannot authenticate against each other's collector.
-        environment: vec![
-            ("ZO_DATA_DIR".to_string(), ComposeValue::Plain("/data".to_string())),
-            (
-                "ZO_ROOT_USER_PASSWORD".to_string(),
-                ComposeValue::Secret(password.to_string()),
-            ),
-        ],
+        // The scenario's own file comes second, so its password overrides the repo-wide one in `config/o2.env`
+        // -- compose applies the list in order. Per-scenario credentials mean two stacks running side by side
+        // cannot authenticate against each other's collector.
+        env_file: vec![env_file, SECRETS_ENV_FILE.to_string()],
+        environment: vec![("ZO_DATA_DIR".to_string(), ComposeValue::Plain("/data".to_string()))],
         volumes: vec!["openobserve-data:/data".to_string()],
         ..ComposeService::default()
     }
@@ -257,8 +240,6 @@ struct ComposeVolume;
 #[derive(Debug)]
 enum ComposeValue {
     Plain(String),
-    /// A generated dev-only credential, rendered quoted and with the secret-scanner pragma.
-    Secret(String),
     WrappedDoubleQuoted(Vec<String>),
 }
 
@@ -360,7 +341,6 @@ impl ComposeRenderer {
     fn render_environment_value(&mut self, key: &str, value: &ComposeValue) {
         match value {
             ComposeValue::Plain(value) => self.push_line(3, &format!("{key}: {value}")),
-            ComposeValue::Secret(value) => self.push_line(3, &format!("{key}: \"{value}\" {SECRET_PRAGMA}")),
             ComposeValue::WrappedDoubleQuoted(parts) => {
                 if let Some((first, rest)) = parts.split_first() {
                     self.push_line(3, &format!("{key}: \"{first},\\"));

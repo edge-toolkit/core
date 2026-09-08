@@ -51,6 +51,17 @@ struct Pyproject {
 struct CargoToml {
     package: Option<CargoPackageMetadata>,
     workspace: Option<CargoWorkspace>,
+    #[serde(default)]
+    dependencies: BTreeMap<String, toml::Value>,
+    #[serde(default)]
+    target: BTreeMap<String, CargoTarget>,
+}
+
+/// One `[target.<cfg>]` table, carrying only the runtime dependencies the module kind is read from.
+#[derive(Deserialize)]
+struct CargoTarget {
+    #[serde(default)]
+    dependencies: BTreeMap<String, toml::Value>,
 }
 
 #[derive(Deserialize)]
@@ -160,12 +171,13 @@ fn project_repository(urls: &BTreeMap<String, String>) -> Option<&str> {
 fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value, CliError> {
     let cargo_toml_path = module_dir.join("Cargo.toml");
     let cargo_toml_src = fs::read_to_string(&cargo_toml_path)?;
-    let cargo_toml: CargoToml = parse_toml(&cargo_toml_path, &cargo_toml_src)?;
+    let mut cargo_toml: CargoToml = parse_toml(&cargo_toml_path, &cargo_toml_src)?;
+    let kind = detect_cargo_kind(&cargo_toml);
     let package = cargo_toml
         .package
+        .take()
         .ok_or_else(|| CliError::MissingPackageSection(cargo_toml_path.clone()))?;
     let crate_name = package.name;
-    let kind = detect_cargo_kind(&cargo_toml_src);
     let workspace = find_workspace_package(module_dir)?;
 
     let mut pkg = read_package_json(out_path)?.unwrap_or_else(|| {
@@ -280,6 +292,9 @@ fn detect_python_kind(module_dir: &Path) -> ModuleKind {
     }
 }
 
+/// The runtime dependency names that identify a WASI component guest.
+const WASI_GUEST_MARKERS: [&str; 2] = ["et-wasi-guest", "wit-bindgen"];
+
 /// WASI Rust modules reach the component bindings one of two ways; wasm-pack browser modules do neither.
 ///
 /// `et-wasi-guest` generates the bindings once and shares them, so a guest that depends on it names no
@@ -288,10 +303,18 @@ fn detect_python_kind(module_dir: &Path) -> ModuleKind {
 /// picks the extension the entry file is looked up by, so a component read as a browser module goes looking for a
 /// `.js` that was never built and the module's `package.json` cannot be written at all.
 ///
-/// The substring check covers `[dependencies]`, `[target.*.dependencies]`, and workspace-dep lines alike without
-/// needing to model Cargo.toml's full dependency tree.
-fn detect_cargo_kind(cargo_toml_src: &str) -> ModuleKind {
-    if cargo_toml_src.contains("wit-bindgen") || cargo_toml_src.contains("et-wasi-guest") {
+/// Only a runtime dependency counts -- `[dependencies]` or `[target.<cfg>.dependencies]`. The name turning up in
+/// a comment, in `[package.metadata]`, in a `[patch]` pin, or under `dev-`/`build-dependencies` says nothing
+/// about what the module compiles to, and reading one of those as a component sends the resolver after a `.wasm`
+/// that was never built, failing a browser module that would otherwise have generated cleanly.
+fn detect_cargo_kind(cargo_toml: &CargoToml) -> ModuleKind {
+    let target_deps = cargo_toml.target.values().flat_map(|target| target.dependencies.keys());
+    if cargo_toml
+        .dependencies
+        .keys()
+        .chain(target_deps)
+        .any(|name| WASI_GUEST_MARKERS.contains(&name.as_str()))
+    {
         ModuleKind::Wasi
     } else {
         ModuleKind::Js

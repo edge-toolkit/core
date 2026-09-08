@@ -76,7 +76,8 @@ wit-bindgen = "0.57"
 
 /// A guest that reaches the component bindings through `et-wasi-guest` is still a component.
 ///
-/// The kind is detected from the manifest text, and the marker used to be `wit-bindgen` alone. Once the shared
+/// The kind is detected from the manifest's runtime dependencies, and the marker used to be `wit-bindgen`
+/// alone. Once the shared
 /// guest crate generated the bindings for everyone, no guest named `wit-bindgen` any more, every WASI module
 /// silently became a browser module, and the entry lookup went hunting for a `.js` that is never built --
 /// `UnresolvedMainFile { ..., ext: "js" }` for all four of them, with nothing in the crate itself changed.
@@ -97,6 +98,49 @@ et-wasi-guest = { workspace = true }
     );
 
     assert_eq!(package["main"], "et_ws_wasi_shared.wasm");
+}
+
+/// A browser module stays a browser module however often the guest markers appear outside its runtime deps.
+///
+/// Detection reads the parsed dependency tables, not the manifest text, so none of the spellings below is a
+/// component: a marker can name a test-only or build-time tool, sit in `[package.metadata]`, be pinned in
+/// `[patch]`, or simply be mentioned in a comment. Read as a component, this module's entry would be looked up
+/// as `et_ws_browser_module.wasm` -- a file wasm-pack never emits -- and generation would fail outright rather
+/// than degrade, so a false positive here is as damaging as the false negative the test above covers.
+#[test]
+fn module_package_json_ignores_guest_markers_outside_runtime_dependencies() {
+    let package = generated_package(
+        "Cargo.toml",
+        r#"[package]
+name = "et-ws-browser-module"
+version = "0.1.0"
+edition = "2024"
+
+# Deliberately names et-wasi-guest and wit-bindgen in a comment.
+
+[dependencies]
+wasm-bindgen = "0.2"
+
+[dev-dependencies]
+wit-bindgen = "0.57"
+
+[build-dependencies]
+et-wasi-guest = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+et-wasi-guest = { workspace = true }
+
+[package.metadata.ws-module.dependencies]
+wit-bindgen = "*"
+
+[patch.crates-io]
+wit-bindgen = { path = "../wit-bindgen" }
+"#,
+        "et_ws_browser_module.js",
+        &[],
+    );
+
+    assert_eq!(package["main"], "et_ws_browser_module.js");
 }
 
 #[test]

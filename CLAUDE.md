@@ -376,10 +376,10 @@ below, the two tables' shared file-type rows read as a clone to jscpd):
 both: `oxfmt-fmt` / `oxfmt-check` (in the `js` env, alongside `oxlint-check`) also claim it, and they break ties
 differently -- oxfmt collapses a short array onto one line where dprint leaves it expanded, so a file dprint
 accepts can still fail `oxfmt-check` in CI. `hadolint-check` also lints Dockerfiles, and `link-check` scans
-`*.md` + `*.rs`. Every
-file is covered by `editorconfig-check` and `typos-check`, file and directory names by `ls-lint-check`, and `*.yml` is
-rejected by `semgrep-check` (use `*.yaml`). A multi-line task body inside `.mise/config*.toml` is shell, not TOML, so
-it carries two more of its own: `shfmt-mise-fmt` / `shfmt-mise-check` format it, and `shellcheck-mise-check` lints it.
+`*.md` + `*.rs`. Every file is covered by `editorconfig-check`, `typos-check` and `gitleaks-check`, file and
+directory names by `ls-lint-check`, and `*.yml` is rejected by `semgrep-check` (use `*.yaml`). A multi-line task
+body inside `.mise/config*.toml` is shell, not TOML, so it carries two more of its own: `shfmt-mise-fmt` /
+`shfmt-mise-check` format it, and `shellcheck-mise-check` lints it.
 
 For Rust inner-loop iteration on a single crate, use `mise run cargo-clippy-check-pkg <package>` (alias
 `clippy-pkg`) instead of `cargo-clippy-check` -- it runs `cargo clippy --keep-going --tests -p <package>` so you
@@ -663,11 +663,18 @@ while `gnu` failed twice with the identical signature -- 644s at
 `https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101938939834`, then 591s on a deliberate
 re-run at `https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101958844541`.
 
-The defect is older than its discovery: every file under `services/ws-wasi-runner/tests/` carries
-`#[cfg_attr(windows, ignore)]` for an unrelated `pkg/package.json` 404, so the runner had never executed on any
-Windows lane until `utilities/cli/tests/scenario_runners.rs` drove it through a generated deployment. Only the
-`wasi-math1` scenario test is gated on `gnu`; the `pyo3-math1` one is not, because fail-fast cancelled it before
-it ever ran there and its result on that target is still unknown.
+The defect is older than its discovery. Only two tests in `services/ws-wasi-runner/tests/` instantiate the
+runner at all -- `modules.rs` and `otel_propagation.rs`, the other two driving `openobserve` and `vector`
+instead -- and both carry `#[cfg_attr(windows, ignore)]` for an unrelated `pkg/package.json` 404, so the runner
+had never executed on any Windows lane until `utilities/cli/tests/scenario_runners.rs` drove it through a
+generated deployment.
+
+Every scenario whose trigger is `wasi-math1-sender` hits it, which is both of them. `pyo3-math1` was left
+ungated on the first pass because fail-fast had cancelled it before it ever ran on `gnu`; it then failed there
+with the identical signature at 579s on commit `29dfe80a62ba7a27d8119c5b6332c3dbe2df815e`
+(`https://github.com/edge-toolkit/core/actions/runs/34211905976/job/102014621776`) while passing on `gnullvm`
+in 472s and `msvc` in 458s. Its pyo3 twin registers and idles cleanly throughout -- what aborts is the wasi
+trigger, so the scenario fails for the reason above and not for anything to do with the pyo3 runner.
 
 ### Known intermittent CI failure: mise tool-install `api.github.com` attestation/metadata flake
 
@@ -1232,6 +1239,11 @@ you add a path to `.gitignore`, update their ignore lists too:
 - **ls-lint** -- `config/ls-lint.yaml`'s `ignore`. Patterns are gitignore-style
   globs; bare names match only top-level -- use `**/<name>` for nested matches
   (e.g. pnpm puts `node_modules` under each package dir, not the repo root).
+- **gitleaks** -- `config/gitleaks.toml`'s `[[allowlists]] paths`, which take
+  regexes rather than globs. Both halves of the sync matter here: an unlisted
+  `target/` makes the scan walk tens of gigabytes and never finish, and a
+  finding in an untracked file is a false alarm, since the external analyzers
+  this check mirrors only ever see what git tracks.
 
 A new linter that surfaces ignored paths in its output belongs on this list.
 

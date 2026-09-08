@@ -63,6 +63,10 @@ action-validator = { version = "latest", os = ["linux", "macos"] }
 "aqua:01mf02/jaq" = "latest"
 "aqua:EmbarkStudios/cargo-deny" = "latest"
 "aqua:StyraInc/regal" = "latest"
+# The secret scanner Codacy and DeepSource both run against a pushed branch.
+# Having it here means a finding that would otherwise only ever surface as an external check is reproducible
+# locally first.
+"aqua:gitleaks/gitleaks" = "latest"
 "aqua:koalaman/shellcheck" = "latest"
 # shfmt (the `sh` repo's formatter binary) formats the multi-line bash bodies of mise tasks.
 "aqua:mvdan/sh" = "latest"
@@ -735,6 +739,7 @@ depends = [
   "gen-help-all",
   "gen-help-check",
   "gen-specs-check",
+  "gitleaks-check",
   "hadolint-check",
   "jscpd-check",
   "link-check",
@@ -818,6 +823,15 @@ run = "semgrep scan --config config/semgrep --error --metrics=off ."
 [tasks.semgrep-fix]
 description = "Apply autofix for Semgrep rules that define a `fix:` field"
 run = "semgrep scan --config config/semgrep --autofix --metrics=off ."
+
+# Part of the `check` aggregate.
+# `--ignore-gitleaks-allow` on purpose: Codacy runs its own gitleaks and does not read `gitleaks:allow`, so a
+# marker that satisfies a bare local run still fails the pushed branch. Honouring markers here would make this
+# check weaker than the one it exists to predict, which is the whole point of running it locally.
+[tasks.gitleaks-check]
+alias = "gitleaks"
+description = "Scan the working tree for committed secrets with gitleaks"
+run = "gitleaks dir . --config config/gitleaks.toml --no-banner --ignore-gitleaks-allow"
 
 [tasks.hadolint-check]
 description = "Lint the Dockerfiles with hadolint"

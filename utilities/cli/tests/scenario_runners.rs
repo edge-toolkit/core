@@ -175,9 +175,11 @@ fn math1_scenario_generated_runner_tasks_compute_the_model() {
     run_scenario("math1", "math1-twin", "et-ws-web-runner", "et-ws-web-runner");
 }
 
-// Not run on the mingw lane, with the operator's sign-off, because `et-ws-wasi-runner` does not work on
-// `x86_64-pc-windows-gnu`. Both runner processes get as far as instantiating the component and logging
-// `entered run()`, then abort while connecting:
+// Neither of the two tests below runs on the mingw lane, with the operator's sign-off, because
+// `et-ws-wasi-runner` does not work on `x86_64-pc-windows-gnu`, and it is the trigger for both of them. The
+// evidence is shared rather than repeated per test: the signature is the same one, and writing it out twice
+// would duplicate ~25 lines inside a single file. A runner process gets as far as instantiating the component
+// and logging `entered run()`, then aborts while connecting:
 //
 //   thread 'main' panicked at libs\ws-runner-common\src\lib.rs:206:5:
 //   there is no reactor running, must be called from the context of a Tokio 1.x runtime
@@ -190,14 +192,22 @@ fn math1_scenario_generated_runner_tasks_compute_the_model() {
 // import -- an async host call awaited on a wasmtime fiber. The reading that fits is tokio's thread-local
 // runtime context not surviving the fiber stack switch under that target's TLS model.
 //
-// It is the target env, not Windows. On commit 5998313315c491a6abffb7c1507e4adc4a4f3559 the same test passed
-// on `gnullvm` (which `config.windows.toml` actually builds) in 426s and on `msvc` in 443s, while `gnu` failed
+// It is the target env, not Windows. On commit 5998313315c491a6abffb7c1507e4adc4a4f3559 `wasi-math1` passed on
+// `gnullvm` (which `config.windows.toml` actually builds) in 426s and on `msvc` in 443s, while `gnu` failed
 // twice with the identical signature -- 644s at
 // https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101938939834 and 591s on the re-run at
 // https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101958844541 -- so it is reproducible
-// rather than a flake. The defect predates this test: every file under `services/ws-wasi-runner/tests/` is
-// `#[cfg_attr(windows, ignore)]` for an unrelated `pkg/package.json` 404, so the runner had never run on any
-// Windows lane and nothing had ever exercised this path there.
+// rather than a flake. `pyo3-math1` was left ungated at that point because fail-fast had cancelled it before
+// it ran on `gnu`; it then reproduced the same abort there at 579s on commit
+// 29dfe80a62ba7a27d8119c5b6332c3dbe2df815e,
+// https://github.com/edge-toolkit/core/actions/runs/34211905976/job/102014621776, having passed on `gnullvm` in
+// 472s and `msvc` in 458s. Its captured output puts the fault squarely on the trigger: the pyo3 twin registers
+// as an agent and idles to its own timeout, while the wasi trigger aborts as above.
+//
+// The defect predates these tests. Only `services/ws-wasi-runner/tests/modules.rs` and `otel_propagation.rs`
+// instantiate the runner at all -- the other two files in that directory drive `openobserve` and `vector` --
+// and both are `#[cfg_attr(windows, ignore)]` for an unrelated `pkg/package.json` 404, so the runner had never
+// run on any Windows lane and nothing had ever exercised this path there.
 //
 // Gated on `target_env = "gnu"` rather than on `windows`, so the two target envs that work keep running it.
 // `ignore` rather than `cfg` keeps the test listed and compiled everywhere. Drop the attribute once the runner
@@ -218,11 +228,13 @@ fn wasi_math1_scenario_generated_runner_tasks_compute_the_model() {
 
 /// The cross-runtime scenario: a WASI trigger driving a native-`CPython` twin.
 ///
-/// Deliberately not gated, even though its trigger is the same `et-ws-wasi-runner` the case above cannot run
-/// on `gnu`. It has never actually run on that lane -- both mingw attempts cancelled it under fail-fast before
-/// it started -- and guessing at a platform result that CI can simply report is not this test's call to make.
-/// If it turns out to abort the same way, gate it then, with its own evidence.
+/// Gated for the trigger's sake only -- the pyo3 runner itself is fine on that target, and is left doing
+/// nothing once the sender that would have broadcast to it has gone.
 #[test]
+#[cfg_attr(
+    all(windows, target_env = "gnu"),
+    ignore = "trigger et-ws-wasi-runner aborts on x86_64-pc-windows-gnu; gnullvm and msvc pass"
+)]
 fn pyo3_math1_scenario_generated_runner_tasks_compute_the_model() {
     run_scenario(
         "pyo3-math1",
