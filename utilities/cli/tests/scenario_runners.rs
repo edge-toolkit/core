@@ -209,12 +209,22 @@ fn math1_scenario_generated_runner_tasks_compute_the_model() {
 // and both are `#[cfg_attr(windows, ignore)]` for an unrelated `pkg/package.json` 404, so the runner had never
 // run on any Windows lane and nothing had ever exercised this path there.
 //
-// Gated on `target_env = "gnu"` rather than on `windows`, so the two target envs that work keep running it.
+// Gated on the target rather than on `windows`, so the two targets that work keep running it -- and `gnu` alone
+// is not that gate. `x86_64-pc-windows-gnullvm`, the default this repo builds, reports `target_env = "gnu"` too
+// and is separated from mingw only by its ABI:
+//
+//   x86_64-pc-windows-gnullvm    target_abi="llvm" target_env="gnu"
+//   x86_64-pc-windows-gnu        target_abi=""     target_env="gnu"
+//
+// so `not(target_abi = "llvm")` is what narrows it to mingw. Without that clause the default Windows lane
+// skipped these too, silently: run 34265416244 ran 190 tests in 46.9s with no `scenario_runners` at all, where
+// the run before it had passed `pyo3_math1_scenario` there in 472.5s.
+//
 // `ignore` rather than `cfg` keeps the test listed and compiled everywhere. Drop the attribute once the runner
 // works on that target -- the test body has no platform dependence of its own.
 #[test]
 #[cfg_attr(
-    all(windows, target_env = "gnu"),
+    all(windows, target_env = "gnu", not(target_abi = "llvm")),
     ignore = "et-ws-wasi-runner aborts on x86_64-pc-windows-gnu; gnullvm and msvc pass"
 )]
 fn wasi_math1_scenario_generated_runner_tasks_compute_the_model() {
@@ -232,7 +242,7 @@ fn wasi_math1_scenario_generated_runner_tasks_compute_the_model() {
 /// nothing once the sender that would have broadcast to it has gone.
 #[test]
 #[cfg_attr(
-    all(windows, target_env = "gnu"),
+    all(windows, target_env = "gnu", not(target_abi = "llvm")),
     ignore = "trigger et-ws-wasi-runner aborts on x86_64-pc-windows-gnu; gnullvm and msvc pass"
 )]
 fn pyo3_math1_scenario_generated_runner_tasks_compute_the_model() {

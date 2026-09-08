@@ -104,7 +104,8 @@ Visual Studio install or admin rights needed for either.
 a WASI component and then aborts while connecting, with tokio reporting no running reactor from inside a host
 call, followed by a non-unwinding panic that takes the process down (`Error 0xc0000409`). The default `gnullvm`
 target and `MISE_ENV=msvc` both run the same workload cleanly, so use either of those if you need the WASI
-runner; the two scenario tests it triggers are skipped on `gnu` alone. Nothing else is known to be affected -- the
+runner; the two scenario tests it triggers are skipped on the mingw target alone. Nothing else is known to be
+affected -- the
 mingw lane otherwise runs the full suite, including crates the default Windows target skips.
 
 ### Windows shell

@@ -657,7 +657,13 @@ not surviving the fiber stack switch under that target's TLS model; the candidat
 `tokio::runtime::Handle` in `HostState` and `enter()` it inside the host imports, which nobody has tried yet
 because it cannot be validated anywhere but that lane.
 
-It is the target env rather than Windows. On commit `5998313315c491a6abffb7c1507e4adc4a4f3559` the same
+It is one Windows target rather than Windows, and `target_env` alone does not name it: `x86_64-pc-windows-gnu`
+and the default `x86_64-pc-windows-gnullvm` both report `target_env = "gnu"`, and only the ABI separates them
+(`target_abi = ""` versus `"llvm"`). A gate meaning mingw must therefore say
+`all(windows, target_env = "gnu", not(target_abi = "llvm"))`; written without that last clause it silently takes
+the default Windows lane with it.
+
+On commit `5998313315c491a6abffb7c1507e4adc4a4f3559` the same
 workload passed on `gnullvm` (the default the Windows Dockerfiles and CI build) in 426s and on `msvc` in 443s,
 while `gnu` failed twice with the identical signature -- 644s at
 `https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101938939834`, then 591s on a deliberate
