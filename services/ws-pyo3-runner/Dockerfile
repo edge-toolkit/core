@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1
 
 # The PyO3-runner image: `et-ws-pyo3-runner` plus the CPython it embeds.
-# The runner is a WebSocket client, not a server, so this image serves no port. Unlike the WASI runner it does not
-# download its module: it imports RUNNER_MODULE from `sys.path` first and only then dials the hub named by
-# WS_SERVER_URL, which it uses for the agent connection and for storage. The module therefore has to be present
-# locally, and PYO3_PYTHONPATH is how a deployment says where -- its colon-separated entries are prepended to
-# `sys.path` before the import.
+# The runner is a WebSocket client, not a server, so this image serves no port. RUNNER_MODULE is resolved on
+# `sys.path` first, and PYO3_PYTHONPATH is how a deployment puts a module there -- its colon-separated entries
+# are prepended before the import. A name that resolves nowhere on that path is then fetched from the hub named
+# by WS_SERVER_URL, the way the WASI runner fetches its component, so a deployment can name a module the hub
+# publishes instead of mounting one in. WS_SERVER_URL carries the agent connection and storage either way.
 #
 # Nothing is baked in: no module, and deliberately no third-party Python package either. A module that imports
 # torch needs torch provisioned beside it, which is a per-cluster decision `et-cli` makes exactly as it does for

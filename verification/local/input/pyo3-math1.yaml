@@ -1,0 +1,18 @@
+cluster_name: "pyo3-math1"
+deployment_type: "mise"
+
+# The math1 exchange with a native-CPython twin, driven by the WASI trigger. The twin is plain Python:
+# `et-ws-pyo3-runner` embeds CPython, fetches `et-ws-pyo3-math1` from the hub because the name resolves nowhere
+# on `sys.path`, and compiles it in process. Both ends speak the same `math1-input` pointer frame, so the hub
+# relays between two unlike runtimes and the model that comes back through storage is bit-identical to the one
+# the wasm and WASI twins compute -- the FedAvg kernel is float arithmetic only, in every language.
+agents:
+  - name: "math1-trigger"
+    runner: "wasi"
+    resources:
+      - type: "wasi-math1-sender"
+
+  - name: "pyo3-math1-twin"
+    runner: "pyo3"
+    resources:
+      - type: "pyo3-math1"

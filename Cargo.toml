@@ -11,6 +11,7 @@ members = [
   "libs/path",
   "libs/test-helpers",
   "libs/test-otlp",
+  "libs/wasi-guest",
   "libs/web",
   "libs/ws-runner-common",
   "services/ws-modules/audio1",
@@ -33,6 +34,7 @@ members = [
   "services/ws-modules/wasi-comm1",
   "services/ws-modules/wasi-data1",
   "services/ws-modules/wasi-math1",
+  "services/ws-modules/wasi-math1-sender",
   "services/modules",
   "services/storage",
   "services/websockify",
@@ -91,6 +93,7 @@ et-rest-client = { path = "generated/rust-rest", version = "0.1.0", default-feat
 et-storage-service = { path = "services/storage", version = "0.1.0" }
 et-test-helpers = { path = "libs/test-helpers", version = "0.1.0" }
 et-test-otlp = { path = "libs/test-otlp", version = "0.1.0" }
+et-wasi-guest = { path = "libs/wasi-guest", version = "0.1.0" }
 et-web = { path = "libs/web", version = "0.1.0" }
 et-websockify-service = { path = "services/websockify", version = "0.1.0" }
 et-ws-runner-common = { path = "libs/ws-runner-common", version = "0.1.0" }

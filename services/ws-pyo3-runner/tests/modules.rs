@@ -276,10 +276,16 @@ async fn run_exchange(control: &mut ControlSocket, self_id: &str, exchange: &Exc
 /// runner's storage handle, computes, and stores its global model, which is verified against the
 /// expected weights for the canonical input. The runner is long-lived, so it is killed once the
 /// exchange resolves (mirroring `module_behaves`).
+///
+/// This is the hub-fetch case, and the only one: `et-ws-pyo3-math1` is a published ws-module rather than a
+/// file under `python/`, and the name is not a legal Python identifier, so it cannot resolve on `sys.path` at
+/// all. `spawn_runner` still sets `PYO3_PYTHONPATH`, which is the point -- a configured python path that does
+/// not happen to contain the module must fall through to the hub rather than fail. Every other case here
+/// names a module under `python/` and so still takes the local import.
 #[tokio::test(flavor = "current_thread")]
 async fn math1_stores_verified_model() -> Result<(), Box<dyn Error>> {
     let server = et_ws_test_server::start();
-    let mut runner = spawn_runner("math1", &server.ws_url);
+    let mut runner = spawn_runner("et-ws-pyo3-math1", &server.ws_url);
     let outcome =
         et_ws_test_server::math1::drive_math1_exchange(&server.ws_url, server.storage_dir.path(), EXCHANGE_BUDGET)
             .await;

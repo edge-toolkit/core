@@ -445,6 +445,9 @@ Languages:
 - **Kotlin -> WASM (WasmGC)**: kotlin-data1, kotlin-math1 -- compiled by the Kotlin Gradle plugin's `wasmJs` target;
   each module is a WasmGC binary (browser GC manages the Kotlin heap), so it needs a WasmGC-capable engine
 - **Python (Pyodide)**: pydata1, pyeye1, pyface1, pymath1
+- **Python (native CPython)**: pyo3-math1 -- runs in `et-ws-pyo3-runner` rather than the browser, so it is plain
+  `.py` source committed as-is rather than a wheel or a wasm binary. The runner fetches the single file its
+  `main` field names and compiles it in process; the same file also runs from `PYO3_PYTHONPATH` unchanged.
 - **C# (.NET WASM)**: dotnet-data1, dotnet-math1
 - **Java (TeaVM -> JS)**: java-data1, java-math1 -- both built by the single root `pom.xml` (one compilation, one
   teavm-maven-plugin execution per module)

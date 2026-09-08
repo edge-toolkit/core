@@ -4277,6 +4277,7 @@ dependencies = [
  "fs-err",
  "rand 0.9.5",
  "rand_chacha 0.9.0",
+ "rstest",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -4450,6 +4451,16 @@ dependencies = [
  "reqwest",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "et-wasi-guest"
+version = "0.1.0"
+dependencies = [
+ "et-path",
+ "fs-err",
+ "minicov",
+ "wit-bindgen",
 ]
 
 [[package]]
@@ -4924,34 +4935,33 @@ dependencies = [
 name = "et-ws-wasi-comm1"
 version = "0.1.0"
 dependencies = [
- "et-path",
- "fs-err",
- "minicov",
+ "et-wasi-guest",
  "serde_json",
- "wit-bindgen",
 ]
 
 [[package]]
 name = "et-ws-wasi-data1"
 version = "0.1.0"
 dependencies = [
- "et-path",
- "fs-err",
- "minicov",
- "serde_json",
- "wit-bindgen",
+ "et-wasi-guest",
 ]
 
 [[package]]
 name = "et-ws-wasi-math1"
 version = "0.1.0"
 dependencies = [
- "et-path",
- "fs-err",
- "minicov",
+ "et-wasi-guest",
  "serde",
  "serde_json",
- "wit-bindgen",
+]
+
+[[package]]
+name = "et-ws-wasi-math1-sender"
+version = "0.1.0"
+dependencies = [
+ "et-path",
+ "et-wasi-guest",
+ "serde_json",
 ]
 
 [[package]]

@@ -34,6 +34,7 @@
 //! out *before* the returned reply, because both push onto the same
 //! outbound queue and the queue is drained in order.
 
+use std::ffi::CString;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, PoisonError};
 
@@ -338,6 +339,57 @@ impl WsStorage {
     }
 }
 
+/// Convert to the NUL-terminated form `CPython`'s compiler takes, naming `what` if the value has an interior NUL.
+///
+/// Python source and module names reach the runner from the wire, so a NUL is reachable input rather than a
+/// programmer error, and it has to come back as a load failure naming what was wrong.
+fn nul_free(value: &str, what: &str) -> Result<CString, PythonError> {
+    match CString::new(value) {
+        Ok(c_string) => Ok(c_string),
+        Err(_interior_nul) => Err(PythonError::Py(format!("{what} contains a NUL byte"))),
+    }
+}
+
+/// Prepend `extras` to `sys.path`, skipping any entry already on it.
+///
+/// Called once per load attempt, and a load can be attempted twice -- [`module_is_importable`] probes before
+/// [`Dispatcher::import`] runs -- so the same entries would otherwise pile up and `sys.path` would grow a
+/// duplicate for every extra.
+fn prepend_sys_path(py: Python<'_>, extras: &[PathBuf]) -> Result<(), PythonError> {
+    if extras.is_empty() {
+        return Ok(());
+    }
+    let sys = py.import("sys")?;
+    let sys_path = sys.getattr("path")?.cast_into::<PyList>()?;
+    for extra in extras {
+        let entry = PyString::new(py, &extra.to_string_lossy());
+        if !sys_path.contains(&entry)? {
+            sys_path.insert(0, entry)?;
+        }
+    }
+    Ok(())
+}
+
+/// Report whether `module_name` can be found on `sys.path` once `extras` are on it.
+///
+/// This is what decides between the two ways the runner gets its module: a name that resolves locally is
+/// imported as it always has been, and only a name that does not is fetched from the hub. `find_spec` locates
+/// the module without executing it, so the probe cannot half-run a module that the import below then runs again.
+///
+/// Any error from `find_spec` is reported as "not importable" rather than propagated. A missing parent package
+/// raises rather than returning `None`, and a name the hub serves -- `et-ws-pyo3-math1`, say -- is not a legal
+/// identifier at all; both mean the same thing here, and a name that is genuinely broken surfaces when the
+/// import itself is attempted.
+pub fn module_is_importable(module_name: &str, extras: &[PathBuf]) -> Result<bool, PythonError> {
+    Python::attach(|py| -> Result<bool, PythonError> {
+        prepend_sys_path(py, extras)?;
+        let util = py.import("importlib.util")?;
+        Ok(util
+            .call_method1("find_spec", (module_name,))
+            .is_ok_and(|spec| !spec.is_none()))
+    })
+}
+
 /// Holds the imported user module across the lifetime of the agent loop.
 pub struct Dispatcher {
     module: Py<PyModule>,
@@ -355,43 +407,71 @@ impl Dispatcher {
         storage: WsStorage,
     ) -> Result<Self, PythonError> {
         Python::attach(|py| -> Result<Self, PythonError> {
-            if !python_path_extras.is_empty() {
-                let sys = py.import("sys")?;
-                let sys_path = sys.getattr("path")?.cast_into::<PyList>()?;
-                for extra in python_path_extras {
-                    let entry = PyString::new(py, &extra.to_string_lossy());
-                    sys_path.insert(0, entry)?;
-                }
-            }
-
+            prepend_sys_path(py, python_path_extras)?;
             let module = py.import(module_name)?;
+            Self::from_module(py, &module, module_name, sender, storage)
+        })
+    }
 
-            // Sanity check: a module that defines none of the hooks can never
-            // be driven, so importing it is almost certainly a misconfiguration
-            // (wrong RUNNER_MODULE, or a misspelt hook). Fail loudly at load
-            // rather than connect and sit idle.
-            let mut has_hook = false;
-            for hook in HOOKS {
-                if module.hasattr(hook)? {
-                    has_hook = true;
-                    break;
-                }
-            }
-            if !has_hook {
-                return Err(PythonError::Py(format!(
-                    "module `{module_name}` defines none of the runner hooks ({})",
-                    HOOKS.join(", ")
-                )));
-            }
+    /// Build the user module from `source` fetched over the wire, rather than importing it from `sys.path`.
+    ///
+    /// `module_name` is the name the module is compiled under, so tracebacks and `__name__` read as they would
+    /// had it been imported normally. The module is not inserted into `sys.modules`: nothing else in the process
+    /// imports it, and leaving it out keeps a fetched module from shadowing a same-named one on `sys.path`.
+    ///
+    /// `python_path_extras` still apply -- the source is compiled here, but whatever it imports resolves through
+    /// the usual paths, so a fetched module's third-party dependencies come from mise's site-packages exactly as
+    /// a local module's do.
+    pub fn import_source(
+        module_name: &str,
+        source: &str,
+        python_path_extras: &[PathBuf],
+        sender: WsSender,
+        storage: WsStorage,
+    ) -> Result<Self, PythonError> {
+        let code = nul_free(source, "module source")?;
+        let file_name = nul_free(&format!("{module_name}.py"), "module file name")?;
+        let name = nul_free(module_name, "module name")?;
+        Python::attach(|py| -> Result<Self, PythonError> {
+            prepend_sys_path(py, python_path_extras)?;
+            let module = PyModule::from_code(py, &code, &file_name, &name)?;
+            Self::from_module(py, &module, module_name, sender, storage)
+        })
+    }
 
-            if module.hasattr(HOOK_INIT)? {
-                let py_sender = Py::new(py, sender)?;
-                let py_storage = Py::new(py, storage)?;
-                drop(module.call_method1(HOOK_INIT, (py_sender, py_storage))?);
+    /// Check the hook contract and run `init`, for a module however it was loaded.
+    fn from_module(
+        py: Python<'_>,
+        module: &Bound<'_, PyModule>,
+        module_name: &str,
+        sender: WsSender,
+        storage: WsStorage,
+    ) -> Result<Self, PythonError> {
+        // Sanity check: a module that defines none of the hooks can never
+        // be driven, so importing it is almost certainly a misconfiguration
+        // (wrong RUNNER_MODULE, or a misspelt hook). Fail loudly at load
+        // rather than connect and sit idle.
+        let mut has_hook = false;
+        for hook in HOOKS {
+            if module.hasattr(hook)? {
+                has_hook = true;
+                break;
             }
-            Ok(Self {
-                module: module.unbind(),
-            })
+        }
+        if !has_hook {
+            return Err(PythonError::Py(format!(
+                "module `{module_name}` defines none of the runner hooks ({})",
+                HOOKS.join(", ")
+            )));
+        }
+
+        if module.hasattr(HOOK_INIT)? {
+            let py_sender = Py::new(py, sender)?;
+            let py_storage = Py::new(py, storage)?;
+            drop(module.call_method1(HOOK_INIT, (py_sender, py_storage))?);
+        }
+        Ok(Self {
+            module: module.clone().unbind(),
         })
     }
 

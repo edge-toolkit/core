@@ -38,6 +38,25 @@ pub fn find_project_root_from_manifest() -> PathBuf {
     find_project_root(Path::new(&manifest))
 }
 
+/// From a build script: point `var` at a repo-relative file, and re-run when that file changes.
+///
+/// The whole of a build script whose only job is to hand a path to `include_str!`, which is otherwise the same
+/// four lines wherever it appears -- locate the root, emit the var, declare the two rerun triggers -- and was
+/// duplicated verbatim across the crates that embed the same committed data file.
+///
+/// `repo_relative` is anchored to the repository root rather than to the calling crate, so the caller does not
+/// hardcode its own depth below that root.
+#[expect(
+    clippy::print_stdout,
+    reason = "a build script's directives to cargo are its stdout; there is no other channel"
+)]
+pub fn emit_repo_file_env(var: &str, repo_relative: &str) {
+    let path = find_project_root_from_manifest().join(repo_relative);
+    println!("cargo:rustc-env={var}={}", path.display());
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed={}", path.display());
+}
+
 /// Resolve `path` against `base` when relative, then lexically normalize it.
 #[must_use]
 pub fn absolute_from(base: &Path, path: &Path) -> PathBuf {

@@ -36,6 +36,7 @@ toml.workspace = true
 command-error.workspace = true
 et-test-helpers.workspace = true
 et-ws-test-server.workspace = true
+rstest.workspace = true
 tempfile.workspace = true
 
 [features]

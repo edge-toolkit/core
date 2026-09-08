@@ -1,13 +1,22 @@
 #![cfg(test)]
-//! End-to-end check that the `math1` scenario's generated runner tasks actually run their modules.
+//! End-to-end check that each math1 scenario's generated runner tasks actually run their modules.
 //!
-//! This is deployment verification, not module verification. `services/ws-web-runner/tests/modules.rs` already
-//! proves the math1 pair computes the right model when a test spawns the runners itself; what that leaves
-//! unproven is whether the tasks `et-cli` *generates* spawn them correctly -- the task names, the `RUNNER_MODULE`
-//! values and the readiness wait are all this generator's output, and running the modules directly exercises
-//! none of them. So the runners are started with `mise run` against the committed
-//! `verification/local/output/math1/mise.toml` rather than by reimplementing what those tasks do. A generator
-//! change that renames a task, emits the wrong module name, or drops the readiness wait fails here.
+//! This is deployment verification, not module verification. Each runner's own `tests/modules.rs` already
+//! proves its math1 twin computes the right model when a test spawns it directly; what that leaves unproven is
+//! whether the tasks `et-cli` *generates* spawn them correctly -- the task names, the `RUNNER_MODULE` values and
+//! the readiness wait are all this generator's output, and running the modules directly exercises none of them.
+//! So the runners are started with `mise run` against the committed `verification/local/output/<scenario>/
+//! mise.toml` rather than by reimplementing what those tasks do. A generator change that renames a task, emits
+//! the wrong module name, or drops the readiness wait fails here.
+//!
+//! One case per runner kind, because the kinds are what the generator varies: a wasm twin in the web runner, a
+//! WASI component in the wasi runner, and native `CPython` in the pyo3 runner. All three compute the same model
+//! from the same input -- the `FedAvg` kernel is float arithmetic only -- so one expectation covers them, and a
+//! scenario whose twin never stores is a deployment fault rather than a disagreement about the answer.
+//!
+//! The trigger differs by scenario and that is the point of having two senders: `math1` is driven by the
+//! browser-targeted `math1-sender`, while the other two use `wasi-math1-sender`, so a deployment whose twin
+//! never touches a browser does not have to start a web runner merely to be triggered.
 //!
 //! The hub is the in-process `et-ws-test-server` rather than the generated `ws-server` task, and that is
 //! deliberate. Going through `mise run` for the hub means `mise` spawns `cargo run` spawns the server, and
@@ -25,6 +34,7 @@ use command_error::CommandExt as _;
 use edge_toolkit::ports::Services;
 use et_test_helpers::{ChildGuard, drain_stderr, drain_stdout};
 use fs_err as fs;
+use rstest::rstest;
 
 /// Wall-clock ceiling for the whole exchange once the hub is up.
 ///
@@ -66,8 +76,8 @@ struct Runner {
 /// hint why. Then stderr alone was captured -- which caught a runner's exit error, but the runner writes its
 /// `tracing` output to stdout, so the next failure came back with an empty capture and nothing to go on. The
 /// drained buffers fill once the child reaches EOF, which is after the wait below, so the failure can quote both.
-fn spawn_runner(task: &str) -> Runner {
-    let scenario_dir = edge_toolkit::config::get_project_root().join("verification/local/output/math1");
+fn spawn_runner(scenario: &str, task: &str) -> Runner {
+    let scenario_dir = edge_toolkit::config::get_project_root().join(format!("verification/local/output/{scenario}"));
     let mut child = Command::new("mise")
         .arg("run")
         .arg(task)
@@ -87,24 +97,28 @@ fn spawn_runner(task: &str) -> Runner {
     }
 }
 
-/// Build the runner binary before any of the timed work starts.
+/// Build the runner binaries before any of the timed work starts.
 ///
-/// The generated task runs `cargo run --quiet -p et-ws-web-runner`, and that build is not free here: nextest
-/// compiles the workspace under the `test` profile while `cargo run` uses `dev`, so the first task invocation
-/// links the web runner -- V8 and all -- from scratch. Left inside the exchange window it consumed 117s of a 180s
-/// budget on CI, and the model was stored just after the poll loop gave up. The failure then read as
+/// The generated tasks run `cargo run --quiet -p <crate>`, and that build is not free here: nextest compiles
+/// the workspace under the `test` profile while `cargo run` uses `dev`, so the first task invocation links the
+/// runner -- V8 and all, for the web one -- from scratch. Left inside the exchange window it consumed 117s of a
+/// 180s budget on CI, and the model was stored just after the poll loop gave up. The failure then read as
 /// "no math1-output.json appeared", which looks like a broken deployment rather than a test timing its own
 /// compiler. Paying for the build up front keeps the deadline measuring the exchange and nothing else.
+///
+/// Both halves are named, because a scenario's trigger and twin can run on different runners.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct setup step; separate so the test body reads as hub, runners, exchange"
 )]
-fn prebuild_runner() {
-    let _status = Command::new("cargo")
-        .args(["build", "--quiet", "-p", "et-ws-web-runner"])
-        .current_dir(edge_toolkit::config::get_project_root())
-        .status_checked()
-        .unwrap();
+fn prebuild_runners(trigger_crate: &str, twin_crate: &str) {
+    for package in [trigger_crate, twin_crate] {
+        let _status = Command::new("cargo")
+            .args(["build", "--quiet", "-p", package])
+            .current_dir(edge_toolkit::config::get_project_root())
+            .status_checked()
+            .unwrap();
+    }
 }
 
 /// Read a drained stderr buffer, tolerating a panic in the draining thread having poisoned it.
@@ -157,8 +171,30 @@ fn stored_model(storage_dir: &std::path::Path) -> Option<(f64, f64)> {
     ignore = "Windows CI excludes et-ws-web-runner, the crate the generated runner task builds"
 )]
 fn math1_scenario_generated_runner_tasks_compute_the_model() {
-    // Build the runner before anything is timed.
-    prebuild_runner();
+    run_scenario("math1", "math1-twin", "et-ws-web-runner", "et-ws-web-runner");
+}
+
+/// The scenarios with no browser-targeted module in them, and so no web runner.
+///
+/// These carry no platform gate. `et-ws-web-runner` is the only crate the Windows lane excludes, and neither
+/// of these builds it: both are triggered by `wasi-math1-sender`, which exists precisely so a scenario whose
+/// twin runs somewhere other than a browser is not dragged onto the web runner just to be started.
+#[rstest]
+#[case::wasi("wasi-math1", "wasi-math1-twin", "et-ws-wasi-runner", "et-ws-wasi-runner")]
+#[case::pyo3("pyo3-math1", "pyo3-math1-twin", "et-ws-pyo3-runner", "et-ws-wasi-runner")]
+fn scenario_generated_runner_tasks_compute_the_model(
+    #[case] scenario: &str,
+    #[case] twin_task: &str,
+    #[case] twin_crate: &str,
+    #[case] trigger_crate: &str,
+) {
+    run_scenario(scenario, twin_task, twin_crate, trigger_crate);
+}
+
+/// Start one scenario's generated trigger and twin tasks against an in-process hub, and verify the model.
+fn run_scenario(scenario: &str, twin_task: &str, twin_crate: &str, trigger_crate: &str) {
+    // Build the runners before anything is timed.
+    prebuild_runners(trigger_crate, twin_crate);
 
     // The generated tasks name the hub's standard port, so the hub has to be on that port rather than a
     // reserved one. `start_on` fails loudly if it is already taken, which is the right outcome: a leftover
@@ -167,12 +203,14 @@ fn math1_scenario_generated_runner_tasks_compute_the_model() {
     let storage_dir = server.storage_dir.path();
 
     // Both runners come up together, exactly as `generated-scenario` starts them.
-    let mut twin = spawn_runner("math1-twin");
-    let mut trigger = spawn_runner("math1-trigger");
+    let mut twin = spawn_runner(scenario, twin_task);
+    let mut trigger = spawn_runner(scenario, "math1-trigger");
 
-    let deadline = Instant::now() + EXCHANGE_TIMEOUT;
+    // Elapsed-versus-budget rather than a computed deadline: comparing two `Duration`s needs no arithmetic on
+    // an `Instant`, which the workspace's restriction lints would otherwise object to.
+    let started = Instant::now();
     let mut model = None;
-    while Instant::now() < deadline {
+    while started.elapsed() < EXCHANGE_TIMEOUT {
         if let Some(found) = stored_model(storage_dir) {
             model = Some(found);
             break;
@@ -188,18 +226,21 @@ fn math1_scenario_generated_runner_tasks_compute_the_model() {
     let Some((weight, bias)) = model else {
         panic!(
             concat!(
-                "no math1-output.json appeared in any storage bucket under {}\n",
-                "--- math1-twin stdout ---\n{}\n--- math1-twin stderr ---\n{}\n",
+                "{}: no math1-output.json appeared in any storage bucket under {}\n",
+                "--- {} stdout ---\n{}\n--- {} stderr ---\n{}\n",
                 "--- math1-trigger stdout ---\n{}\n--- math1-trigger stderr ---\n{}"
             ),
+            scenario,
             storage_dir.display(),
+            twin_task,
             captured(&twin.stdout),
+            twin_task,
             captured(&twin.stderr),
             captured(&trigger.stdout),
             captured(&trigger.stderr)
         );
     };
     et_ws_test_server::math1::verify_math1_model(weight, bias).unwrap();
-    assert!(twin_exited, "math1-twin did not exit within its RUNNER_TIMEOUT");
+    assert!(twin_exited, "{twin_task} did not exit within its RUNNER_TIMEOUT");
     assert!(trigger_exited, "math1-trigger did not exit within its RUNNER_TIMEOUT");
 }

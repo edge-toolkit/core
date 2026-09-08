@@ -782,10 +782,16 @@ pub struct RunnerInstance {
 
 /// Runner kinds a scenario may name, mapped to the crate that runs them.
 ///
-/// Only the web runner is wired up so far. The others have images but no generator support, and rejecting them
-/// by name is what stops a scenario from asking for one and silently getting nothing; adding one here plus its
-/// service/task shape is the whole change.
-pub const SUPPORTED_RUNNERS: [(&str, &str); 1] = [("web", "et-ws-web-runner")];
+/// All three share one deployment shape, which is what lets one generator serve them: each takes the module's
+/// published name in `RUNNER_MODULE`, fetches it from the hub named by `WS_SERVER_URL`, and builds from
+/// `services/ws-<kind>-runner/Dockerfile`. Nothing else distinguishes a runner here, so a fourth is this line
+/// plus an image. Rejecting a kind by name is what stops a scenario from asking for one and silently getting
+/// nothing.
+pub const SUPPORTED_RUNNERS: [(&str, &str); 3] = [
+    ("pyo3", "et-ws-pyo3-runner"),
+    ("wasi", "et-ws-wasi-runner"),
+    ("web", "et-ws-web-runner"),
+];
 
 /// Names the generated deployment already uses for its own tasks, services and aliases.
 ///

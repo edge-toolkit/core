@@ -1,0 +1,10 @@
+{
+  "main": "et_ws_wasi_math1_sender.wasm",
+  "name": "et-ws-wasi-math1-sender",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/edge-toolkit/core"
+  },
+  "type": "module",
+  "version": "0.1.0"
+}
