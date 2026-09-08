@@ -89,6 +89,19 @@ pub enum CliError {
 
     #[error("cluster_name {0:?} contains a line break, which would break out of a generated comment")]
     ClusterNameHasLineBreak(String),
+
+    #[error("Agent {agent:?} asks for runner {runner:?}. Supported values are currently: {supported}")]
+    UnsupportedRunner {
+        agent: String,
+        runner: String,
+        supported: String,
+    },
+
+    #[error("Agent {agent:?} would create runner {name:?}, a name the generated deployment already uses")]
+    ReservedRunnerName { agent: String, name: String },
+
+    #[error("Runner {name:?} is declared more than once; each runner needs its own name")]
+    DuplicateRunnerName { name: String },
 }
 
 /// Parse `src` as TOML into `T`, attaching `path` to the error on failure.

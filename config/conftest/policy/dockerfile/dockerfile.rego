@@ -334,3 +334,35 @@ deny contains msg if {
 		[decl.path, pkg],
 	)
 }
+
+# Every Dockerfile that bootstraps mise must pin the version `.mise/config.toml` declares as min_version.
+# The bootstrap downloads a specific release rather than taking mise's apt package, so the version is written out
+# in each file that needs it -- three of them now, plus the copy `et-cli` emits into every generated scenario
+# image. A stale copy installs a mise older than the repo's floor, which then reads a lockfile written by a newer
+# one and refuses the install; anchoring each copy to min_version makes a bump a single edit that fails loudly
+# everywhere it was not followed through. The `v` prefix is the release tag's, not part of the version.
+mise_min_version := value if {
+	some file in input
+	endswith(replace(file.path, "\\", "/"), ".mise/config.toml")
+	value := file.contents.min_version
+}
+
+mise_version_args contains entry if {
+	some file in input
+	is_array(file.contents)
+	some instr in file.contents
+	instr.Cmd == "arg"
+	some value in instr.Value
+	startswith(value, "MISE_VERSION=")
+	entry := {"path": file.path, "value": substring(value, count("MISE_VERSION="), -1)}
+}
+
+deny contains msg if {
+	some decl in mise_version_args
+	not startswith(decl.value, "$")
+	trim_prefix(decl.value, "v") != mise_min_version
+	msg := sprintf(
+		"%s: MISE_VERSION is %q but .mise/config.toml's min_version is %q -- keep them in sync",
+		[decl.path, decl.value, mise_min_version],
+	)
+}

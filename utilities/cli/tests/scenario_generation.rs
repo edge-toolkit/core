@@ -6,25 +6,80 @@ use et_cli::{
 use fs_err as fs;
 use tempfile::tempdir;
 
-#[test]
-fn generate_deployment_rejects_unsupported_deployment_type() {
+/// Write `input` as a scenario input file and return the error that generating from it produces.
+///
+/// Every rejection test below needs the same scaffolding -- a temp root, an input and output directory, the YAML
+/// written out -- and differs only in the document and the message it expects, so the scaffolding lives here once.
+fn deployment_error_for(input: &str) -> String {
     let test_root = tempdir().unwrap();
     let input_dir = test_root.path().join("input");
     let output_dir = test_root.path().join("output");
     fs::create_dir_all(&input_dir).unwrap();
 
     let input_file = input_dir.join("cluster.yaml");
-    fs::write(
-        &input_file,
+    fs::write(&input_file, input).unwrap();
+
+    generate_deployment(&input_file, &output_dir, None)
+        .unwrap_err()
+        .to_string()
+}
+
+#[test]
+fn generate_deployment_rejects_unsupported_deployment_type() {
+    let error = deployment_error_for(
         r#"cluster_name: "test-cluster"
 deployment_type: yaml
 agents: []
 "#,
-    )
-    .unwrap();
+    );
 
-    let error = generate_deployment(&input_file, &output_dir, None).unwrap_err();
-    assert!(error.to_string().contains("Unsupported deployment_type"));
+    assert!(error.contains("Unsupported deployment_type"), "got: {error}");
+}
+
+#[test]
+fn generate_deployment_rejects_a_runner_named_after_a_generated_task() {
+    // `ws-server` is the hub's own task and compose service. Left unchecked the runner would replace it, and the
+    // deployment would come up with nothing to connect to rather than reporting a problem.
+    let error = deployment_error_for(
+        r#"cluster_name: "name-collision"
+deployment_type: "mise"
+agents:
+  - name: "ws-server"
+    runner: "web"
+    resources:
+      - type: "math1"
+"#,
+    );
+
+    assert!(
+        error.contains("ws-server") && error.contains("already uses"),
+        "expected a reserved-name error, got: {error}"
+    );
+}
+
+#[test]
+fn generate_deployment_rejects_two_runners_with_the_same_name() {
+    // Two agents sharing a name derive one runner name; mise would keep the last task inserted under it and
+    // compose would emit a duplicate service key, so one of the two runners would silently vanish.
+    let error = deployment_error_for(
+        r#"cluster_name: "name-collision"
+deployment_type: "mise"
+agents:
+  - name: "twin"
+    runner: "web"
+    resources:
+      - type: "math1"
+  - name: "twin"
+    runner: "web"
+    resources:
+      - type: "math1-sender"
+"#,
+    );
+
+    assert!(
+        error.contains("twin") && error.contains("more than once"),
+        "expected a duplicate-name error, got: {error}"
+    );
 }
 
 #[test]

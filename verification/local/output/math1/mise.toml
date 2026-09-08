@@ -1,0 +1,55 @@
+[tasks.generated-scenario]
+depends = ["math1-trigger", "math1-twin", "openobserve", "ws-server"]
+description = "Run generated scenario for math1"
+
+[tasks.math1-trigger]
+description = "Run et-ws-math1-sender in the web runner"
+dir = "../../../.."
+run = """
+cargo run --quiet -p et-ws-web-runner
+"""
+
+[tasks.math1-trigger.env]
+RUNNER_MODULE = "et-ws-math1-sender"
+WS_SERVER_URL = "ws://localhost:8080/ws"
+
+[tasks.math1-twin]
+description = "Run et-ws-math1 in the web runner"
+dir = "../../../.."
+run = """
+cargo run --quiet -p et-ws-web-runner
+"""
+
+[tasks.math1-twin.env]
+RUNNER_MODULE = "et-ws-math1"
+WS_SERVER_URL = "ws://localhost:8080/ws"
+
+[tasks.open-o2]
+description = "Open the OpenObserve UI"
+run = "open http://localhost:5080/"
+
+[tasks.openobserve]
+alias = "o2"
+dir = "../../../.."
+run = """
+image=openobserve/openobserve:v0.91.5
+credential=ZO_ROOT_USER_PASSWORD=Qui%recusandae6594 # skipcq: SCT-A000 -- generated dev-only scenario credential
+docker run --rm --name openobserve -p 127.0.0.1:5080:5080 --env-file config/o2.env -e "$credential" "$image"
+"""
+
+[tasks.ws-server]
+description = "Run the WebSocket server"
+dir = "../../../../services/ws-server"
+run = """
+MODULES_PATHS="static, ../ws-wasm-agent, ../ws-modules/math1, ../ws-modules/math1-sender"
+export MODULES_PATHS
+cargo run
+"""
+
+[tasks.ws-server.env]
+# skipcq: SCT-A000 -- generated dev-only scenario credential
+OTLP_AUTH_PASSWORD = "Qui%recusandae6594"
+OTLP_AUTH_USERNAME = "root@example.com"
+
+[tools]
+"cargo:open" = "latest"

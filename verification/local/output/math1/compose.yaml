@@ -17,7 +17,7 @@ services:
       - ../../../../config/o2.env
     environment:
       ZO_DATA_DIR: /data
-      ZO_ROOT_USER_PASSWORD: "Et+quis8784" # skipcq: SCT-A000 -- generated dev-only scenario credential
+      ZO_ROOT_USER_PASSWORD: "Qui%recusandae6594" # skipcq: SCT-A000 -- generated dev-only scenario credential
     volumes:
       - openobserve-data:/data
   ws-server-hub:
@@ -38,22 +38,16 @@ services:
       start_period: 10s
     build:
       context: ../../../..
-      dockerfile: verification/local/output/facility-security-scenario/Dockerfile
+      dockerfile: verification/local/output/math1/Dockerfile
       additional_contexts:
         hub: service:ws-server-hub
     network_mode: host
     environment:
       MODULES_PATHS: "/app/services/ws-server/static,\
         /app/services/ws-wasm-agent,\
-        /app/services/ws-modules/face-detection,\
-        /app/services/ws-modules/har1,\
-        /app/services/ws-modules/pyface1,\
-        /app/data/model-modules/model-face1,\
-        /app/node_modules/onnxruntime-web,\
-        /app/data/model-modules/model-har-motion1,\
-        /app/generated/python-ws,\
-        /app/node_modules/pyodide"
-      OTLP_AUTH_PASSWORD: "Et+quis8784" # skipcq: SCT-A000 -- generated dev-only scenario credential
+        /app/services/ws-modules/math1,\
+        /app/services/ws-modules/math1-sender"
+      OTLP_AUTH_PASSWORD: "Qui%recusandae6594" # skipcq: SCT-A000 -- generated dev-only scenario credential
       OTLP_AUTH_USERNAME: root@example.com
       OTLP_COLLECTOR_URL: http://127.0.0.1:5080/api/default/v1
       STORAGE_URL: file:///app/storage
@@ -61,6 +55,28 @@ services:
       - ws-server-storage:/app/storage
     depends_on:
       openobserve:
+        condition: service_healthy
+  math1-twin:
+    build:
+      context: ../../../..
+      dockerfile: services/ws-web-runner/Dockerfile
+    network_mode: host
+    environment:
+      RUNNER_MODULE: et-ws-math1
+      WS_SERVER_URL: ws://localhost:8080/ws
+    depends_on:
+      ws-server:
+        condition: service_healthy
+  math1-trigger:
+    build:
+      context: ../../../..
+      dockerfile: services/ws-web-runner/Dockerfile
+    network_mode: host
+    environment:
+      RUNNER_MODULE: et-ws-math1-sender
+      WS_SERVER_URL: ws://localhost:8080/ws
+    depends_on:
+      ws-server:
         condition: service_healthy
 volumes:
   openobserve-data: {}

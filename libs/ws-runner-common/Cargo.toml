@@ -29,8 +29,10 @@ tokio-tungstenite = { workspace = true, features = ["connect"] }
 tracing.workspace = true
 
 [dev-dependencies]
+et-rest-client.workspace = true
 et-test-helpers.workspace = true
 serde-env.workspace = true
+tokio = { workspace = true, features = ["macros", "rt"] }
 
 [lints]
 workspace = true

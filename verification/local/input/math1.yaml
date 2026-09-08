@@ -1,0 +1,18 @@
+cluster_name: "math1"
+deployment_type: "mise"
+
+# The math1 pair, run headless rather than served to a browser.
+# `runner: web` is what makes the deployment start a process per resource instead of only publishing the module
+# for a page to load. math1-sender injects the canonical input into its own storage bucket and broadcasts the
+# pointer; the math1 twin picks that up, computes its model and writes `math1-output.json` back to storage. So the
+# two together exercise the hub's agent registry, its relay and its storage service with no browser involved.
+agents:
+  - name: "math1-twin"
+    runner: "web"
+    resources:
+      - type: "math1"
+
+  - name: "math1-trigger"
+    runner: "web"
+    resources:
+      - type: "math1-sender"

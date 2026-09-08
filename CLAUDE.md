@@ -319,6 +319,16 @@ tasks don't (comment summary lines across TOML/YAML/JSON/C, the `no-non-ascii` b
 `generic` mode over config text), and it is cheap. Skipping it is how comment-style and cross-file regressions
 slip through to CI.
 
+**Run `mise run jscpd-check` just as regularly, and run it again after every follow-up edit.** It is the other
+language-agnostic check, and unlike the per-file-type tasks it reacts to code you did not touch: the baseline
+keys on a content fingerprint, so editing inside an existing clone re-hashes it and reports it as new. Two habits
+follow from how it actually fails in practice. Run it _early_, because a clone is far cheaper to remove while the
+code is still being written than after the shape has settled. And run it _again_ after each fix-up, because the
+usual way to introduce one is extracting a helper for the new code that then duplicates scaffolding already
+present in the same file -- a de-duplicating change that adds a clone. When it fires, factor the duplication out
+so the shared part exists once (often by routing the older code through the new helper); never reach for
+`jscpd-baseline-update`, which the rules further down forbid.
+
 **Agents must not invoke formatter/linter binaries directly** (e.g. `mise exec -- taplo format`, raw
 `taplo`/`dprint`/`oxfmt`/`cargo fmt` calls). Always use the corresponding mise task (`mise run taplo-fmt`,
 `mise run taplo-check`, `mise run dprint-fmt`, etc.). The tasks carry the project's config-file paths

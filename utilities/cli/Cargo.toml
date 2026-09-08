@@ -33,6 +33,9 @@ thiserror.workspace = true
 toml.workspace = true
 
 [dev-dependencies]
+command-error.workspace = true
+et-test-helpers.workspace = true
+et-ws-test-server.workspace = true
 tempfile.workspace = true
 
 [features]

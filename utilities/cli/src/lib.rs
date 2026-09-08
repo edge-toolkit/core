@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 
 use clap::ValueEnum;
 use edge_toolkit::input::ClusterInput;
+use edge_toolkit::ports::Services;
 use et_path::relative_path_from;
 use fs_err as fs;
 use serde::Deserialize;
@@ -166,6 +167,12 @@ pub struct ModuleRegistryEntry {
     pub docker_path: String,
     pub dependencies: BTreeSet<String>,
     pub source: ModuleSource,
+    /// The module's published package name, as `pkg/package.json` declares it.
+    ///
+    /// This is what a runner has to be told: `RUNNER_MODULE` is resolved against the names the hub serves
+    /// modules under, which is the package name (`et-ws-math1`) and not the directory a scenario names it by
+    /// (`math1`). `None` for a mise-staged package, which is already keyed by its published name.
+    pub package_name: Option<String>,
 }
 
 pub fn generate_deployment(
@@ -547,6 +554,7 @@ fn register_module(
             .map(|package| package.dependencies.keys().cloned().collect())
             .unwrap_or_default(),
         source: ModuleSource::Repo(repo_path),
+        package_name: package.as_ref().and_then(|package| package.name.clone()),
     };
 
     let _previous: Option<ModuleRegistryEntry> = registry.insert(directory_name.to_string(), entry.clone());
@@ -591,6 +599,7 @@ fn external_module_entry(package_name: &str, tool: &str, docker_path: &str) -> M
             tool: tool.to_string(),
             package: package_name.to_string(),
         },
+        package_name: None,
     }
 }
 
@@ -757,6 +766,148 @@ fn module_installs_wheels(project_root: &Path, entry: &ModuleRegistryEntry) -> b
 pub fn npm_module_path(package: &str) -> Result<PathBuf, CliError> {
     edge_toolkit::config::mise_npm_package_path(package)
         .ok_or_else(|| CliError::UnresolvedNpmModule(package.to_string()))
+}
+
+/// One runner process the generated deployment starts, resolved from an agent that names a `runner:`.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct RunnerInstance {
+    /// Deployment-unique name for the process: the task name in `mise.toml`, the service name in `compose.yaml`.
+    pub name: String,
+    /// Runner kind the agent asked for, already validated against [`SUPPORTED_RUNNERS`].
+    pub runner: String,
+    /// Value for the runner's `RUNNER_MODULE`, i.e. the module's published package name.
+    pub module: String,
+}
+
+/// Runner kinds a scenario may name, mapped to the crate that runs them.
+///
+/// Only the web runner is wired up so far. The others have images but no generator support, and rejecting them
+/// by name is what stops a scenario from asking for one and silently getting nothing; adding one here plus its
+/// service/task shape is the whole change.
+pub const SUPPORTED_RUNNERS: [(&str, &str); 1] = [("web", "et-ws-web-runner")];
+
+/// Names the generated deployment already uses for its own tasks, services and aliases.
+///
+/// A runner is named after the agent that declares it, and both generators key on that name: mise inserts each
+/// task into a table and compose writes each service as a mapping key. Either way a collision replaces rather
+/// than reports -- an agent called `ws-server` would quietly take the hub's place, and the deployment would come
+/// up missing the thing it was meant to talk to. Rejecting the name is the only way that surfaces.
+pub const RESERVED_RUNNER_NAMES: [&str; 6] = [
+    "generated-scenario",
+    "o2",
+    "open-o2",
+    "openobserve",
+    "ws-server",
+    "ws-server-hub",
+];
+
+/// Resolve every agent that names a `runner:` into the processes the deployment has to start.
+///
+/// One process per resource rather than per agent, because a runner hosts exactly one module -- `RUNNER_MODULE`
+/// is a single name. An agent with one resource (the usual shape) therefore keeps the agent's own name, and only
+/// a multi-resource agent gets the resource suffixed, so the common case reads as the scenario wrote it.
+pub fn resolve_cluster_runners(
+    registry: &BTreeMap<String, ModuleRegistryEntry>,
+    cluster: &ClusterInput,
+) -> Result<Vec<RunnerInstance>, CliError> {
+    let mut runners = Vec::new();
+    for agent in &cluster.agents {
+        let Some(runner) = agent.runner.as_deref().map(str::trim).filter(|kind| !kind.is_empty()) else {
+            continue;
+        };
+        if !SUPPORTED_RUNNERS.iter().any(|(kind, _)| *kind == runner) {
+            let supported = SUPPORTED_RUNNERS
+                .iter()
+                .map(|(kind, _)| *kind)
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(CliError::UnsupportedRunner {
+                agent: agent.name.clone(),
+                runner: runner.to_string(),
+                supported,
+            });
+        }
+        let multi_resource = agent.resources.len() > 1;
+        for resource in &agent.resources {
+            let module_name = resource.resource_type.trim();
+            if module_name.is_empty() {
+                continue;
+            }
+            let entry = registry
+                .get(module_name)
+                .ok_or_else(|| CliError::UnknownDependency(module_name.to_string()))?;
+            // The hub serves a module under its package name, so that is what the runner has to ask for.
+            let module = entry.package_name.clone().unwrap_or_else(|| module_name.to_string());
+            let name = runner_name(&agent.name, module_name, multi_resource, &runners)?;
+            runners.push(RunnerInstance {
+                name,
+                runner: runner.to_string(),
+                module,
+            });
+        }
+    }
+    Ok(runners)
+}
+
+/// Base HTTP URL a generated deployment reaches the hub on.
+///
+/// Every generator addresses the hub by its standard insecure port, so spelling the URL out in each of them
+/// meant writing the same format string more than once. One definition here serves the compose services, the
+/// mise tasks and whatever is added next, and it is the only place that has to change if the port moves.
+#[must_use]
+pub fn hub_http_base() -> String {
+    format!("http://localhost:{}", Services::InsecureWebSocketServer.port())
+}
+
+/// WebSocket URL a generated deployment points a runner's `WS_SERVER_URL` at.
+#[must_use]
+pub fn hub_ws_url() -> String {
+    format!("ws://localhost:{}/ws", Services::InsecureWebSocketServer.port())
+}
+
+/// Derive one runner's deployment-unique name, rejecting the two ways it can collide.
+///
+/// An agent with a single resource keeps its own name, so the common case reads as the scenario wrote it; only a
+/// multi-resource agent gets the resource suffixed, because each resource becomes its own process.
+///
+/// Both checks exist because a collision would otherwise be silent rather than wrong-looking: mise inserts each
+/// task into a table and compose writes each service as a mapping key, so a repeated name replaces what was there.
+/// A scenario could lose its hub and only find out when the runners had nothing to talk to.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of resolve_cluster_runners; separate to keep that function within its complexity budget"
+)]
+fn runner_name(
+    agent_name: &str,
+    module_name: &str,
+    multi_resource: bool,
+    existing: &[RunnerInstance],
+) -> Result<String, CliError> {
+    let name = if multi_resource {
+        format!("{agent_name}-{module_name}")
+    } else {
+        agent_name.to_string()
+    };
+    if RESERVED_RUNNER_NAMES.contains(&name.as_str()) {
+        return Err(CliError::ReservedRunnerName {
+            agent: agent_name.to_string(),
+            name,
+        });
+    }
+    if existing.iter().any(|runner| runner.name == name) {
+        return Err(CliError::DuplicateRunnerName { name });
+    }
+    Ok(name)
+}
+
+/// The crate whose binary runs `runner`, which [`resolve_cluster_runners`] has already validated.
+#[must_use]
+pub fn runner_crate(runner: &str) -> &'static str {
+    SUPPORTED_RUNNERS
+        .iter()
+        .find(|(kind, _)| *kind == runner)
+        .map_or("et-ws-web-runner", |(_, crate_name)| *crate_name)
 }
 
 #[must_use]

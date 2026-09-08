@@ -4268,8 +4268,11 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "clap-markdown",
+ "command-error",
  "edge-toolkit",
  "et-path",
+ "et-test-helpers",
+ "et-ws-test-server",
  "fake",
  "fs-err",
  "rand 0.9.5",
@@ -4427,6 +4430,7 @@ dependencies = [
 name = "et-test-helpers"
 version = "0.1.0"
 dependencies = [
+ "command-error",
  "port_check",
  "retry",
  "temp-env",

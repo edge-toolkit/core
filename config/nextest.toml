@@ -4,9 +4,13 @@ path = "junit.xml"
 
 # Serialize et-ws-web-runner's tests (under `default`, so every profile inherits it).
 # Each web-runner test launches a heavy deno_runtime MainWorker, and several at once exhaust fd/port budgets.
+#
+# et-cli's scenario_runners test joins the same group for the same reason: it starts two web runners of its own,
+# so run alongside the web-runner tests it multiplies exactly the load this group exists to bound. It also holds
+# the hub's fixed port for its duration, which nothing else may take while it runs.
 [test-groups]
 web-runner = { max-threads = 1 }
 
 [[profile.default.overrides]]
-filter = 'package(et-ws-web-runner)'
+filter = 'package(et-ws-web-runner) or binary(scenario_runners)'
 test-group = 'web-runner'
