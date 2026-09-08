@@ -1058,6 +1058,31 @@ A baseline gets rewritten only for a change that is genuinely not about the find
 move, a vendored tree landing wholesale. Even then, say so explicitly, get the operator's sign-off first, and
 report the added/removed counts the update task prints so the delta is reviewable rather than opaque.
 
+### A finding from an external analyzer must end up in a local checker
+
+DeepSource, Codacy and Codecov run only after a push, so a rule that lives solely in one of them is a rule the
+repo cannot enforce before CI. **When an external analyzer reports a finding the local battery did not, close
+that gap in the same change as the fix** -- otherwise the next contributor rediscovers the same rule the same
+slow way, one CI round-trip at a time.
+
+Work the gap in this order, and prefer the earliest step that applies:
+
+1. **Find the local equivalent -- it usually already exists.** The linters here overlap the external services
+   heavily, and the codes often correspond directly: DeepSource's `PYL-*` are pylint codes, which ruff
+   implements as `PL*` (`PYL-W0603` is ruff's `PLW0603`, `PYL-W0613` is ruff's `ARG`). If the rule is already
+   enabled, the gap is not the rule -- see step 2.
+2. **Check whether an exemption is what hid it.** A path-glob carve-out (a `[lint.per-file-ignores]` entry, a
+   `files:` allowlist, an `exclude_paths`) silences the rule for files that do not exist yet, so the local check
+   stays quiet while the external analyzer flags each new file. Narrow it: replace the glob with per-site inline
+   suppressions carrying their reason (`# noqa: <CODE> -- why`, `#[expect(..., reason = "...")]`, `// skipcq`),
+   which cover exactly today's known cases and let tomorrow's fire. That is the same hierarchy the suppression
+   rules above describe, applied to an exemption that has quietly grown into a blanket one.
+3. **Only if there is no local equivalent, write one**, following the rule-authoring guidance below, and say in
+   its comment which external code it mirrors so the pair stays recognisable.
+
+Enabling the rule locally is not optional just because the external finding was easy to fix by hand: the fix
+addresses one occurrence, and the local rule is what stops the next one.
+
 ### When you spot a style or consistency issue, write a rule
 
 If a code-review comment, a fix-up commit, or a CLAUDE.md paragraph would tell the next contributor "don't do X"

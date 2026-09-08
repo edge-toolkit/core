@@ -280,13 +280,18 @@ fn detect_python_kind(module_dir: &Path) -> ModuleKind {
     }
 }
 
-/// Classify a Rust module as WASI or browser by whether its Cargo.toml depends on `wit-bindgen`.
+/// WASI Rust modules reach the component bindings one of two ways; wasm-pack browser modules do neither.
 ///
-/// WASI Rust modules use `wit-bindgen` to generate component bindings; wasm-pack browser modules don't. The substring
-/// check covers `[dependencies]`, `[target.*.dependencies]`, and workspace-dep lines alike without needing to model
-/// Cargo.toml's full dependency tree.
+/// `et-wasi-guest` generates the bindings once and shares them, so a guest that depends on it names no
+/// `wit-bindgen` of its own -- and a guest predating that crate, or generating its own for some reason, still
+/// names `wit-bindgen` directly. Either marker identifies a component, and missing one is not cosmetic: the kind
+/// picks the extension the entry file is looked up by, so a component read as a browser module goes looking for a
+/// `.js` that was never built and the module's `package.json` cannot be written at all.
+///
+/// The substring check covers `[dependencies]`, `[target.*.dependencies]`, and workspace-dep lines alike without
+/// needing to model Cargo.toml's full dependency tree.
 fn detect_cargo_kind(cargo_toml_src: &str) -> ModuleKind {
-    if cargo_toml_src.contains("wit-bindgen") {
+    if cargo_toml_src.contains("wit-bindgen") || cargo_toml_src.contains("et-wasi-guest") {
         ModuleKind::Wasi
     } else {
         ModuleKind::Js

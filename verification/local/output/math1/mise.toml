@@ -33,7 +33,7 @@ alias = "o2"
 dir = "../../../.."
 run = """
 image=openobserve/openobserve:v0.91.5
-credential=ZO_ROOT_USER_PASSWORD=Qui%recusandae6594 # skipcq: SCT-A000 -- generated dev-only scenario credential
+credential=ZO_ROOT_USER_PASSWORD=Qui%recusandae6594 # skipcq: SCT-A000 -- dev-only scenario credential gitleaks:allow
 docker run --rm --name openobserve -p 127.0.0.1:5080:5080 --env-file config/o2.env -e "$credential" "$image"
 """
 
@@ -47,7 +47,7 @@ cargo run
 """
 
 [tasks.ws-server.env]
-# skipcq: SCT-A000 -- generated dev-only scenario credential
+# skipcq: SCT-A000 -- dev-only scenario credential gitleaks:allow
 OTLP_AUTH_PASSWORD = "Qui%recusandae6594"
 OTLP_AUTH_USERNAME = "root@example.com"
 

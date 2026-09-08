@@ -158,7 +158,15 @@ const PYODIDE_DOCKER_PATH: &str = "/app/node_modules/pyodide";
 /// for a collector nothing outside the developer's machine talks to, so the finding is suppressed per line rather
 /// than by excluding the tree -- `.deepsource.toml` already excludes `verification/**`, and the secrets analyzer
 /// scans it regardless.
-pub const SECRET_PRAGMA: &str = "# skipcq: SCT-A000 -- generated dev-only scenario credential";
+///
+/// Two scanners, so two markers on the one line. Codacy runs gitleaks, which reads only its own `gitleaks:allow`,
+/// and without it whether a scenario passes depends on which separator its derived password happened to draw:
+/// `Voluptatem_ut8447` matches gitleaks' `hashicorp-tf-password` rule while `Qui%recusandae6594` does not. That
+/// made every new scenario a coin toss, which is the real reason this marker is here rather than any one finding.
+///
+/// Kept terse because it is appended to generated lines that already carry a key and a quoted password, and the
+/// whole line still has to fit the editorconfig line length -- the wording that explains it belongs here instead.
+pub const SECRET_PRAGMA: &str = "# skipcq: SCT-A000 -- dev-only scenario credential gitleaks:allow";
 
 #[derive(Debug, Clone)]
 #[non_exhaustive]

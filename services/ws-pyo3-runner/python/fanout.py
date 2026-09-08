@@ -19,7 +19,7 @@ _send: Any = None  # WsSender, set in init()
 
 def init(send, _storage) -> None:
     """Stash the WsSender for the fan-out path."""
-    global _send
+    global _send  # noqa: PLW0603 -- runner contract: one module per process, state in module globals
     _send = send
     # `_storage` ignored -- fanout doesn't persist anything.
     _logger.info("fanout agent initialised")

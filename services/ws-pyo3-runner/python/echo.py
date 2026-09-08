@@ -62,14 +62,14 @@ def on_connect(agent_id: str) -> None:
 
 def on_text_frame(text: str) -> str | None:
     """Echo the incoming text frame back verbatim (return-style)."""
-    global _echoed
+    global _echoed  # noqa: PLW0603 -- runner contract: one module per process, state in module globals
     _echoed += 1
     return text
 
 
 def on_binary_frame(frame: bytes) -> bytes | None:
     """Echo the incoming binary frame back verbatim (return-style)."""
-    global _echoed
+    global _echoed  # noqa: PLW0603 -- runner contract: one module per process, state in module globals
     _echoed += 1
     return frame
 
