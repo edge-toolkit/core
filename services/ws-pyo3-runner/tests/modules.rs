@@ -32,15 +32,13 @@ use tokio_tungstenite::{connect_async, tungstenite};
 
 type ControlSocket = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
-/// Total wall-clock wait for the runner to register as a peer.
-///
-/// Deliberately generous: the torch case's cold first `import torch` (a ~400 MB package) can take tens of
-/// seconds on a cold, contended CI runner before the runner even connects, and this wait must outlast that.
-/// See the pyo3-runner torch-registration-timeout note in CLAUDE.md.
-const PEER_REGISTER_TIMEOUT: Duration = Duration::from_mins(2);
 /// Overall `run_exchange` budget for the torch case.
 ///
-/// Must exceed `PEER_REGISTER_TIMEOUT` (its cold import lands inside the peer wait) plus one reply.
+/// Covers the whole exchange, the peer wait included -- and the peer wait is the long part, because the case's
+/// cold first `import torch` (a ~400 MB package) happens before the runner connects at all. One deadline for
+/// the case rather than a separate, tighter one around the peer wait: nested deadlines meant the inner one
+/// decided the outcome while the outer still had time left, which is how this case failed at 122.2s against a
+/// 2-minute peer wait with ~58s of this budget unused.
 const TORCH_EXCHANGE_BUDGET: Duration = Duration::from_mins(3);
 /// Overall `run_exchange` budget for the quick (non-torch) cases, which register within a second.
 const EXCHANGE_BUDGET: Duration = Duration::from_secs(30);
@@ -49,7 +47,7 @@ const REPLY_TIMEOUT: Duration = Duration::from_secs(10);
 /// Exponential-backoff bounds for the peer-registration poll.
 ///
 /// Tight at first, then cheap while we wait out a slow cold start. Driven by `backon`; the total wall-clock is
-/// capped by `PEER_REGISTER_TIMEOUT`.
+/// capped by the case's exchange budget.
 const POLL_BACKOFF_MIN: Duration = Duration::from_millis(50);
 const POLL_BACKOFF_MAX: Duration = Duration::from_millis(500);
 /// How long each poll round drains inbound frames looking for the peer before backing off.
@@ -119,7 +117,7 @@ async fn module_behaves(
     } else {
         EXCHANGE_BUDGET
     };
-    let outcome = tokio::time::timeout(budget, run_exchange(&mut control, &control_id, &exchange)).await;
+    let outcome = tokio::time::timeout(budget, run_exchange(&mut control, &control_id, &exchange, budget)).await;
 
     runner.kill().unwrap();
     let _status = runner.wait().unwrap();
@@ -218,8 +216,13 @@ fn skipped(module: &str, gate: &Gate) -> bool {
 }
 
 /// Send the module's trigger and assert on its reply.
-async fn run_exchange(control: &mut ControlSocket, self_id: &str, exchange: &Exchange) -> Result<(), Box<dyn Error>> {
-    wait_for_peer(control, self_id).await?;
+async fn run_exchange(
+    control: &mut ControlSocket,
+    self_id: &str,
+    exchange: &Exchange,
+    budget: Duration,
+) -> Result<(), Box<dyn Error>> {
+    wait_for_peer(control, self_id, budget).await?;
     match exchange {
         Exchange::TextContains { send, extra } => {
             control.send(tungstenite::Message::Text(send.to_string())).await?;
@@ -356,9 +359,11 @@ async fn control_client(ws_url: &str) -> Result<(ControlSocket, String), Box<dyn
 ///
 /// `backon` drives the exponential backoff (each miss returns `Err(())`, which its default predicate retries);
 /// `&mut control` is threaded through as the retry context because a borrowed socket can't escape a plain
-/// `FnMut` retry closure. The whole retry is wrapped in a `PEER_REGISTER_TIMEOUT` wall-clock timeout, so a
-/// runner that never registers (e.g. a cold torch import that overran even the generous budget) fails here.
-async fn wait_for_peer(control: &mut ControlSocket, self_id: &str) -> Result<(), Box<dyn Error>> {
+/// `FnMut` retry closure. The whole retry is wrapped in `budget`, the caller's own deadline, so a runner that
+/// never registers (e.g. a cold torch import that overran even the generous budget) fails here and says so --
+/// which is the reason the budget is passed in rather than the poll simply running until the caller's timeout
+/// fires: reaching the deadline inside this wait is worth a message naming registration, not a generic one.
+async fn wait_for_peer(control: &mut ControlSocket, self_id: &str, budget: Duration) -> Result<(), Box<dyn Error>> {
     let backoff = ExponentialBuilder::default()
         .with_min_delay(POLL_BACKOFF_MIN)
         .with_max_delay(POLL_BACKOFF_MAX)
@@ -367,7 +372,7 @@ async fn wait_for_peer(control: &mut ControlSocket, self_id: &str) -> Result<(),
     // higher-ranked over the socket's borrow (`for<'a> FnMut((&'a mut _, &'a str)) -> Fut<'a>`), which
     // `backon`'s context-threading retry requires. `self_id` rides in the context tuple alongside the socket.
     let poll = peer_poll_step.retry(backoff).context((control, self_id));
-    match tokio::time::timeout(PEER_REGISTER_TIMEOUT, poll).await {
+    match tokio::time::timeout(budget, poll).await {
         Ok((_ctx, Ok(()))) => Ok(()),
         _ => Err("runner never registered".into()),
     }

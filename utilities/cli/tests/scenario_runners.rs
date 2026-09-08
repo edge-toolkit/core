@@ -9,10 +9,12 @@
 //! mise.toml` rather than by reimplementing what those tasks do. A generator change that renames a task, emits
 //! the wrong module name, or drops the readiness wait fails here.
 //!
-//! One case per runner kind, because the kinds are what the generator varies: a wasm twin in the web runner, a
+//! One test per runner kind, because the kinds are what the generator varies: a wasm twin in the web runner, a
 //! WASI component in the wasi runner, and native `CPython` in the pyo3 runner. All three compute the same model
 //! from the same input -- the `FedAvg` kernel is float arithmetic only -- so one expectation covers them, and a
-//! scenario whose twin never stores is a deployment fault rather than a disagreement about the answer.
+//! scenario whose twin never stores is a deployment fault rather than a disagreement about the answer. Three
+//! separate tests rather than one parameterised over the kinds, because they no longer share a platform gate:
+//! each is skipped, or not, on its own evidence.
 //!
 //! The trigger differs by scenario and that is the point of having two senders: `math1` is driven by the
 //! browser-targeted `math1-sender`, while the other two use `wasi-math1-sender`, so a deployment whose twin
@@ -34,7 +36,6 @@ use command_error::CommandExt as _;
 use edge_toolkit::ports::Services;
 use et_test_helpers::{ChildGuard, drain_stderr, drain_stdout};
 use fs_err as fs;
-use rstest::rstest;
 
 /// Wall-clock ceiling for the whole exchange once the hub is up.
 ///
@@ -174,21 +175,61 @@ fn math1_scenario_generated_runner_tasks_compute_the_model() {
     run_scenario("math1", "math1-twin", "et-ws-web-runner", "et-ws-web-runner");
 }
 
-/// The scenarios with no browser-targeted module in them, and so no web runner.
+// Not run on the mingw lane, with the operator's sign-off, because `et-ws-wasi-runner` does not work on
+// `x86_64-pc-windows-gnu`. Both runner processes get as far as instantiating the component and logging
+// `entered run()`, then abort while connecting:
+//
+//   thread 'main' panicked at libs\ws-runner-common\src\lib.rs:206:5:
+//   there is no reactor running, must be called from the context of a Tokio 1.x runtime
+//   thread 'main' panicked at tokio-1.53.1\src\runtime\context\runtime.rs:85:13:
+//   assertion failed: c.runtime.get().is_entered()
+//   panic in a destructor during cleanup / thread caused non-unwinding panic. aborting.
+//   cargo.exe: The system detected an overrun of a stack-based buffer in this application. Error 0xc0000409
+//
+// That line is `tokio::time::timeout` inside `connect_and_register`, reached from the `ws::connect` host
+// import -- an async host call awaited on a wasmtime fiber. The reading that fits is tokio's thread-local
+// runtime context not surviving the fiber stack switch under that target's TLS model.
+//
+// It is the target env, not Windows. On commit 5998313315c491a6abffb7c1507e4adc4a4f3559 the same test passed
+// on `gnullvm` (which `config.windows.toml` actually builds) in 426s and on `msvc` in 443s, while `gnu` failed
+// twice with the identical signature -- 644s at
+// https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101938939834 and 591s on the re-run at
+// https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101958844541 -- so it is reproducible
+// rather than a flake. The defect predates this test: every file under `services/ws-wasi-runner/tests/` is
+// `#[cfg_attr(windows, ignore)]` for an unrelated `pkg/package.json` 404, so the runner had never run on any
+// Windows lane and nothing had ever exercised this path there.
+//
+// Gated on `target_env = "gnu"` rather than on `windows`, so the two target envs that work keep running it.
+// `ignore` rather than `cfg` keeps the test listed and compiled everywhere. Drop the attribute once the runner
+// works on that target -- the test body has no platform dependence of its own.
+#[test]
+#[cfg_attr(
+    all(windows, target_env = "gnu"),
+    ignore = "et-ws-wasi-runner aborts on x86_64-pc-windows-gnu; gnullvm and msvc pass"
+)]
+fn wasi_math1_scenario_generated_runner_tasks_compute_the_model() {
+    run_scenario(
+        "wasi-math1",
+        "wasi-math1-twin",
+        "et-ws-wasi-runner",
+        "et-ws-wasi-runner",
+    );
+}
+
+/// The cross-runtime scenario: a WASI trigger driving a native-`CPython` twin.
 ///
-/// These carry no platform gate. `et-ws-web-runner` is the only crate the Windows lane excludes, and neither
-/// of these builds it: both are triggered by `wasi-math1-sender`, which exists precisely so a scenario whose
-/// twin runs somewhere other than a browser is not dragged onto the web runner just to be started.
-#[rstest]
-#[case::wasi("wasi-math1", "wasi-math1-twin", "et-ws-wasi-runner", "et-ws-wasi-runner")]
-#[case::pyo3("pyo3-math1", "pyo3-math1-twin", "et-ws-pyo3-runner", "et-ws-wasi-runner")]
-fn scenario_generated_runner_tasks_compute_the_model(
-    #[case] scenario: &str,
-    #[case] twin_task: &str,
-    #[case] twin_crate: &str,
-    #[case] trigger_crate: &str,
-) {
-    run_scenario(scenario, twin_task, twin_crate, trigger_crate);
+/// Deliberately not gated, even though its trigger is the same `et-ws-wasi-runner` the case above cannot run
+/// on `gnu`. It has never actually run on that lane -- both mingw attempts cancelled it under fail-fast before
+/// it started -- and guessing at a platform result that CI can simply report is not this test's call to make.
+/// If it turns out to abort the same way, gate it then, with its own evidence.
+#[test]
+fn pyo3_math1_scenario_generated_runner_tasks_compute_the_model() {
+    run_scenario(
+        "pyo3-math1",
+        "pyo3-math1-twin",
+        "et-ws-pyo3-runner",
+        "et-ws-wasi-runner",
+    );
 }
 
 /// Start one scenario's generated trigger and twin tasks against an in-process hub, and verify the model.
