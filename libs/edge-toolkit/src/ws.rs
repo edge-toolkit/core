@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-/// Schema for `serde_json::Value`-typed fields. schemars 1.x renders bare
-/// `Value` as the boolean schema `true`, which the `AsyncAPI` Schema model in
-/// `asyncapi-rust` doesn't accept. Emit an explicit object schema so the
-/// payload is described as "arbitrary JSON" without tripping the parser.
+/// Schema for `serde_json::Value`-typed fields.
+///
+/// schemars 1.x renders bare `Value` as the boolean schema `true`, which the `AsyncAPI` Schema model in `asyncapi-rust`
+/// doesn't accept. Emit an explicit object schema so the payload is described as "arbitrary JSON" without tripping
+/// the parser.
 #[cfg(feature = "schema-export")]
 #[expect(
     clippy::unwrap_used,
@@ -17,11 +18,11 @@ fn any_json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
     .unwrap()
 }
 
-/// Schema for `Vec<u8>` byte-array fields. schemars 1.x's default `Vec<u8>`
-/// rendering is `{"type":"array","items":{"type":"integer"}}` with no width
-/// hint, which int-gen's WIT emitter widens to `list<s64>`. Stamping
-/// `format: "uint8"` on the items lets the emitter pick the right
-/// `list<u8>` representation.
+/// Schema for `Vec<u8>` byte-array fields.
+///
+/// schemars 1.x's default `Vec<u8>` rendering is `{"type":"array","items":{"type":"integer"}}` with no width hint,
+/// which int-gen's WIT emitter widens to `list<s64>`. Stamping `format: "uint8"` on the items lets the emitter pick the
+/// right `list<u8>` representation.
 #[cfg(feature = "schema-export")]
 #[expect(
     clippy::unwrap_used,
@@ -107,10 +108,10 @@ impl AgentSummary {
     }
 }
 
-/// Returns `true` if `text` decodes as a JSON object whose `type` field is
-/// a string starting with `et-`. The shared gate used by
-/// [`ClientMessage::from_text_frame`] and [`ServerMessage::from_text_frame`]
-/// to decide whether to parse strictly (our schema) or relay raw (foreign).
+/// Returns `true` if `text` decodes as a JSON object whose `type` field is a string starting with `et-`.
+///
+/// The shared gate used by [`ClientMessage::from_text_frame`] and [`ServerMessage::from_text_frame`] to decide whether
+/// to parse strictly (our schema) or relay raw (foreign).
 fn has_et_prefix(text: &str) -> bool {
     serde_json::from_str::<serde_json::Value>(text)
         .ok()
@@ -122,10 +123,8 @@ fn has_et_prefix(text: &str) -> bool {
 
 /// Messages a client is allowed to SEND to the server.
 ///
-/// Split from [`ServerMessage`] so the type system rejects client code
-/// constructing a `ConnectAck`, and so the server's inbound match arms
-/// can be exhaustive without an "unexpected server-originated message"
-/// trap.
+/// Split from [`ServerMessage`] so the type system rejects client code constructing a `ConnectAck`, and so the server's
+/// inbound match arms can be exhaustive without an "unexpected server-originated message" trap.
 #[expect(
     clippy::exhaustive_enums,
     reason = "wire protocol enum: variants exhaustively describe the JSON shape, downstream matches are exhaustive"
@@ -170,12 +169,10 @@ pub enum ClientMessage {
         #[cfg_attr(feature = "schema-export", schemars(schema_with = "any_json_schema"))]
         details: serde_json::Value,
     },
-    // Foreign frames the server forwards verbatim via its hub-relay path.
-    // Allowed in both directions: a client can also explicitly send a
-    // relay frame for a peer to receive (the server passes it through
-    // unchanged). Wire convention: the JSON envelope is bypassed --
-    // `from_text_frame` constructs this when no et- tag matches, and the
-    // host's `send` emits the raw `content` as the WebSocket frame.
+    // Foreign frames the server forwards verbatim via its hub-relay path. Allowed in both directions: a client can also
+    // explicitly send a relay frame for a peer to receive (the server passes it through unchanged). Wire convention:
+    // the JSON envelope is bypassed -- `from_text_frame` constructs this when no et- tag matches, and the host's `send`
+    // emits the raw `content` as the WebSocket frame.
     #[serde(rename = "et-relay-text")]
     #[cfg_attr(feature = "schema-export", schemars(title = "WsClientRelayText"))]
     RelayText { content: String },
@@ -188,11 +185,11 @@ pub enum ClientMessage {
 }
 
 impl ClientMessage {
-    /// Decode an inbound text WebSocket frame as a `ClientMessage`. If
-    /// the JSON's `type` field starts with `et-`, parse strictly via the
-    /// tagged catalog -- failure surfaces as `Err`. Otherwise (non-JSON,
-    /// no `type`, or non-et `type`) the frame is wrapped in
-    /// `ClientMessage::RelayText { content }` for the hub-relay path.
+    /// Decode an inbound text WebSocket frame as a `ClientMessage`.
+    ///
+    /// If the JSON's `type` field starts with `et-`, parse strictly via the tagged catalog -- failure surfaces as
+    /// `Err`. Otherwise (non-JSON, no `type`, or non-et `type`) the frame is wrapped in `ClientMessage::RelayText {
+    /// content }` for the hub-relay path.
     pub fn from_text_frame(text: &str) -> Result<Self, serde_path_to_error::Error<serde_json::Error>> {
         if has_et_prefix(text) {
             let mut deserializer = serde_json::Deserializer::from_str(text);
@@ -205,6 +202,7 @@ impl ClientMessage {
     }
 
     /// Wrap an inbound binary WebSocket frame as a `ClientMessage`.
+    ///
     /// Binary frames are always relays; the typed catalog is JSON-only.
     #[must_use]
     pub const fn from_binary_frame(bytes: Vec<u8>) -> Self {
@@ -212,9 +210,9 @@ impl ClientMessage {
     }
 }
 
-/// Messages the server is allowed to SEND to a client (and clients
-/// receive). The mirror of [`ClientMessage`]; see that type's doc for
-/// the rationale of the split.
+/// Messages the server is allowed to SEND to a client (and clients receive).
+///
+/// The mirror of [`ClientMessage`]; see that type's doc for the rationale of the split.
 #[expect(
     clippy::exhaustive_enums,
     reason = "wire protocol enum: variants exhaustively describe the JSON shape, downstream matches are exhaustive"
@@ -267,10 +265,9 @@ pub enum ServerMessage {
 }
 
 impl ServerMessage {
-    /// Decode an inbound text WebSocket frame as a `ServerMessage` (the
-    /// thing a client sees coming from the server). Same gate as
-    /// [`ClientMessage::from_text_frame`]: strict et- parse, otherwise
-    /// wrap in `RelayText`.
+    /// Decode an inbound text WebSocket frame as a `ServerMessage` (the thing a client sees coming from the server).
+    ///
+    /// Same gate as [`ClientMessage::from_text_frame`]: strict et- parse, otherwise wrap in `RelayText`.
     pub fn from_text_frame(text: &str) -> Result<Self, serde_path_to_error::Error<serde_json::Error>> {
         if has_et_prefix(text) {
             let mut deserializer = serde_json::Deserializer::from_str(text);

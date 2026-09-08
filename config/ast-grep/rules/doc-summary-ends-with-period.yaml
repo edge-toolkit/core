@@ -1,10 +1,3 @@
-# This rule is rolled out incrementally, scoped by a `files:` allowlist rather than applied workspace-wide.
-# The workspace had ~113 pre-existing docstrings whose first line does not end in terminal punctuation, so
-# rather than rewrite them all at once, this rule only covers the files listed below. Grow the list (or drop
-# the scoping once the backlog is cleared) as more files are brought into line.
-#
-# One deliberate absence: services/ws-wasi-runner/src/bindings.rs is generated and its doc comments come from
-# wasmtime, so it is not listed and must not be re-added. Refer to int-gen bindings.rs for details.
 id: doc-summary-ends-with-period
 language: Rust
 severity: error
@@ -26,93 +19,6 @@ rule:
           kind: line_comment
           regex: "^///($|[^/])"
           stopBy: neighbor
-files:
-  - libs/edge-toolkit/src/config.rs
-  - libs/edge-toolkit/tests/no_mise.rs
-  - libs/edge-toolkit/tests/npm_mod.rs
-  - libs/test-helpers/src/bin/child-guard-probe.rs
-  - libs/test-helpers/src/lib.rs
-  - libs/test-helpers/tests/child_guard.rs
-  - libs/test-otlp/src/lib.rs
-  - libs/web/src/lib.rs
-  - libs/ws-runner-common/tests/config.rs
-  - libs/ws-runner-common/tests/fetch_main_field.rs
-  - services/modules/tests/api_modules.rs
-  - services/modules/tests/configure_missing_root.rs
-  - services/modules/tests/get_module_file.rs
-  - services/modules/tests/symlinks.rs
-  - services/storage/src/lib.rs
-  - services/storage/src/routes.rs
-  - services/storage/src/tty_image.rs
-  - services/storage/tests/image_logging.rs
-  - services/storage/tests/put.rs
-  - services/storage/tests/s3_backend.rs
-  - services/storage/tests/tty_render.rs
-  - services/websockify/src/lib.rs
-  - services/websockify/tests/relay.rs
-  - services/ws-modules/audio1/src/lib.rs
-  - services/ws-modules/bluetooth/src/lib.rs
-  - services/ws-modules/comm1/src/lib.rs
-  - services/ws-modules/data1/src/lib.rs
-  - services/ws-modules/except1/src/lib.rs
-  - services/ws-modules/face-detection/src/lib.rs
-  - services/ws-modules/face-detection/tests/status_lines.rs
-  - services/ws-modules/geolocation/src/lib.rs
-  - services/ws-modules/graphics-info/src/lib.rs
-  - services/ws-modules/har1/src/lib.rs
-  - services/ws-modules/har1/tests/status_lines.rs
-  - services/ws-modules/llm1/src/lib.rs
-  - services/ws-modules/math1-sender/build.rs
-  - services/ws-modules/math1-sender/src/lib.rs
-  - services/ws-modules/math1/src/lib.rs
-  - services/ws-modules/nfc/src/lib.rs
-  - services/ws-modules/pic-viewer/build.rs
-  - services/ws-modules/pic-viewer/src/lib.rs
-  - services/ws-modules/pic-viewer/tests/parse.rs
-  - services/ws-modules/pic-viewer/tests/show_image.rs
-  - services/ws-modules/sensor1/src/lib.rs
-  - services/ws-modules/speech-recognition/src/lib.rs
-  - services/ws-modules/video1/src/lib.rs
-  - services/ws-modules/wasi-comm1/src/lib.rs
-  - services/ws-modules/wasi-data1/src/lib.rs
-  - services/ws-modules/wasi-math1/src/coverage.rs
-  - services/ws-modules/wasi-math1/src/lib.rs
-  - services/ws-pyo3-runner/tests/modules.rs
-  - services/ws-test-server/src/lib.rs
-  - services/ws-test-server/src/math1.rs
-  - services/ws-test-server/tests/math1_exchange.rs
-  - services/ws-server/src/config.rs
-  - services/ws-server/src/lib.rs
-  - services/ws-server/src/main.rs
-  - services/ws-server/src/net.rs
-  - services/ws-server/tests/configure_app.rs
-  - services/ws-server/tests/health.rs
-  - services/ws-server/tests/net.rs
-  - services/ws-server/tests/tls.rs
-  - services/ws-wasi-runner/src/host/error.rs
-  - services/ws-wasi-runner/src/host/mod.rs
-  - services/ws-wasi-runner/src/host/ws.rs
-  - services/ws-wasi-runner/src/lib.rs
-  - services/ws-wasi-runner/tests/modules.rs
-  - services/ws-wasi-runner/tests/o2_ingest_search.rs
-  - services/ws-wasi-runner/tests/otel_propagation.rs
-  - services/ws-wasi-runner/tests/vector_otlp_relay.rs
-  - services/ws-wasm-agent/src/lib.rs
-  - services/ws-wasm-agent/tests/web.rs
-  - services/ws-web-runner/build.rs
-  - services/ws-web-runner/tests/modules.rs
-  - services/ws/tests/config.rs
-  - services/ws/tests/load_registry.rs
-  - utilities/cli/src/deployment_types/docker_compose.rs
-  - utilities/cli/src/deployment_types/mise.rs
-  - utilities/cli/src/deployment_types/scenario_image.rs
-  - utilities/cli/src/lib.rs
-  - utilities/cli/tests/scenario_generation.rs
-  - utilities/int-gen/src/error.rs
-  - utilities/int-gen/src/lib.rs
-  - utilities/int-gen/src/wit/mod.rs
-  - utilities/int-gen/src/wit/upstream.rs
-  - utilities/int-gen/src/zig.rs
-  - utilities/int-gen/tests/generate_zig.rs
-  - utilities/onnx/src/main.rs
-  - utilities/wasm-cov-wrapper/src/main.rs
+ignores:
+  - generated/**
+  - services/ws-wasi-runner/src/bindings.rs

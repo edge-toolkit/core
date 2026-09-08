@@ -1,14 +1,11 @@
-//! Verifies the `http:pyodide` mise install carries the *full* release
-//! distribution -- not just the runtime (`pyodide.asm.{js,wasm}` +
-//! `python_stdlib.zip`). This is the difference between the ~200 MB
-//! GitHub release tarball (~300 wheels: numpy, scipy, pandas, ...) and
-//! `npm:pyodide`, which ships only the runtime. ws-server's modules
-//! service prefers `http:pyodide` precisely so that browser modules
-//! calling `micropip.install("numpy")` can resolve the wheel offline.
+//! Verifies the `http:pyodide` mise install carries the *full* release distribution -- not just the runtime
+//! (`pyodide.asm.{js,wasm}` + `python_stdlib.zip`). This is the difference between the ~200 MB GitHub release tarball
+//! (~300 wheels: numpy, scipy, pandas, ...) and `npm:pyodide`, which ships only the runtime. ws-server's modules
+//! service prefers `http:pyodide` precisely so that browser modules calling `micropip.install("numpy")` can resolve the
+//! wheel offline.
 //!
-//! The test runs against the live mise install -- if `http:pyodide` is
-//! missing, the test fails with a `mise install` hint rather than
-//! silently passing.
+//! The test runs against the live mise install -- if `http:pyodide` is missing, the test fails with a `mise install`
+//! hint rather than silently passing.
 
 #![cfg(test)]
 
@@ -18,10 +15,10 @@ use std::path::PathBuf;
 use edge_toolkit::config::{Language, default_modules_folders, mise_env_includes, mise_where};
 
 /// Shared resolver -- every test in this file wants the install path.
-/// Returns `Some(path)` when found; `None` (and logs a skip line) when
-/// `http:pyodide` is intentionally not installed because `MISE_ENV` doesn't
-/// include the `python` env; panics with a `mise install` hint when
-/// `MISE_ENV` expects python but the install is missing.
+///
+/// Returns `Some(path)` when found; `None` (and logs a skip line) when `http:pyodide` is intentionally not installed
+/// because `MISE_ENV` doesn't include the `python` env; panics with a `mise install` hint when `MISE_ENV` expects
+/// python but the install is missing.
 fn find_http_pyodide_install() -> Option<PathBuf> {
     if let Some(path) = mise_where("http:pyodide") {
         return Some(path);
@@ -40,14 +37,14 @@ fn find_http_pyodide_install() -> Option<PathBuf> {
 }
 
 /// Lower bound -- the official 0.29.x release ships well over 300 wheels.
-/// 100 is conservative enough to survive minor releases dropping a few
-/// rarely-used packages without flapping in CI.
+///
+/// 100 is conservative enough to survive minor releases dropping a few rarely-used packages without flapping in CI.
 const MIN_WHEEL_COUNT: usize = 100;
 
-/// Wheels we always expect in the full distribution. Each entry is a
-/// `<package>-` prefix; the test passes if at least one filename in
-/// the install starts with it. These three are the "is this the full
-/// release?" canaries: none of them ship with `npm:pyodide`.
+/// Wheels we always expect in the full distribution.
+///
+/// Each entry is a `<package>-` prefix; the test passes if at least one filename in the install starts with it. These
+/// three are the "is this the full release?" canaries: none of them ship with `npm:pyodide`.
 const REQUIRED_WHEEL_PREFIXES: &[&str] = &["numpy-", "scipy-", "pandas-"];
 
 #[test]
@@ -82,10 +79,8 @@ fn http_pyodide_install_contains_full_wheel_set() {
 
 #[test]
 fn http_pyodide_install_has_runtime_too() {
-    // The runtime files live next to the wheels in the same flat dir.
-    // ws-server's static-file serve relies on this -- guests fetch
-    // `/modules/pyodide/pyodide.asm.wasm` from the same prefix as
-    // `/modules/pyodide/numpy-*.whl`.
+    // The runtime files live next to the wheels in the same flat dir. ws-server's static-file serve relies on this --
+    // guests fetch `/modules/pyodide/pyodide.asm.wasm` from the same prefix as `/modules/pyodide/numpy-*.whl`.
     let Some(install) = find_http_pyodide_install() else {
         return;
     };
@@ -108,11 +103,9 @@ fn http_pyodide_install_has_runtime_too() {
 
 #[test]
 fn default_modules_folders_prefers_http_pyodide() {
-    // When `http:pyodide` is present, `default_modules_folders` returns
-    // the http install dir (one directory, treated as a single module
-    // named "pyodide") rather than the npm `node_modules` parent dir.
-    // This pins the resolver behaviour so a future refactor that
-    // accidentally reorders the fallback gets caught.
+    // When `http:pyodide` is present, `default_modules_folders` returns the http install dir (one directory, treated as
+    // a single module named "pyodide") rather than the npm `node_modules` parent dir. This pins the resolver behaviour
+    // so a future refactor that accidentally reorders the fallback gets caught.
     let Some(http_install) = find_http_pyodide_install() else {
         return;
     };

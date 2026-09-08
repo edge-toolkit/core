@@ -1,23 +1,16 @@
-//! Translates `schemars` JSON Schemas for `ClientMessage` and
-//! `ServerMessage` into the `et:ws-messages@0.1.0` WIT package.
+//! Translates `schemars` JSON Schemas for `ClientMessage` and `ServerMessage` into the `et:ws-messages@0.1.0` WIT
+//! package.
 //!
-//! Built with `wit-encoder` so the output format is canonical and the
-//! construction is type-checked -- we never produce manual `writeln!` lines.
+//! Built with `wit-encoder` so the output format is canonical and the construction is type-checked -- we never produce
+//! manual `writeln!` lines.
 //!
-//! Mapping rules:
-//!   * Variant rename `et-foo-bar` -> variant case `foo-bar`. The `et-`
-//!     prefix is dropped because the WIT package namespace (`et:`)
-//!     already carries it.
-//!   * `serde_json::Value` fields -> `string` (the host serializes the
-//!     opaque JSON when shipping to/from the guest).
-//!   * `Option<T>` -> `option<T>`. `Vec<T>` -> `list<T>`. `String` ->
-//!     `string`. Integers -> `s64` (the wire format never narrows).
-//!   * `#[serde(rename_all = "snake_case")]` enums map directly to WIT
-//!     `enum` with kebab-case case names.
-//!   * `ClientMessage` and `ServerMessage` each produce a top-level
-//!     variant (`client-message` / `server-message`); shared payload
-//!     records (`relay-text-payload`, etc.) and support types are
-//!     deduplicated by name.
+//! Mapping rules: * Variant rename `et-foo-bar` -> variant case `foo-bar`. The `et-` prefix is dropped because the
+//! WIT package namespace (`et:`) already carries it. * `serde_json::Value` fields -> `string` (the host serializes
+//! the opaque JSON when shipping to/from the guest). * `Option<T>` -> `option<T>`. `Vec<T>` -> `list<T>`. `String`
+//! -> `string`. Integers -> `s64` (the wire format never narrows). * `#[serde(rename_all = "snake_case")]` enums map
+//! directly to WIT `enum` with kebab-case case names. * `ClientMessage` and `ServerMessage` each produce a top-level
+//! variant (`client-message` / `server-message`); shared payload records (`relay-text-payload`, etc.) and support types
+//! are deduplicated by name.
 
 use std::collections::HashSet;
 
@@ -28,10 +21,10 @@ use wit_encoder::{EnumCase, Field, Ident, Interface, Package, PackageName, Type,
 use crate::Error;
 use crate::asyncapi::{WS_DESCRIPTION, WS_VERSION};
 
-/// Wire identifiers (`WsConnectAck`, `agent_id`, `et-connect-ack`, ...) ->
-/// canonical WIT kebab-case (`ws-connect-ack`, `agent-id`, `connect-ack`).
-/// The `et-` prefix is dropped because the `et:ws-messages` WIT package
-/// namespace already carries it.
+/// Convert a wire identifier (`WsConnectAck`, `agent_id`, `et-connect-ack`, ...) to canonical WIT kebab-case.
+///
+/// The results are `ws-connect-ack`, `agent-id`, `connect-ack`. The `et-` prefix is dropped because the
+/// `et:ws-messages` WIT package namespace already carries it.
 fn to_kebab(input: &str) -> String {
     input.strip_prefix("et-").unwrap_or(input).to_kebab_case()
 }
@@ -69,10 +62,10 @@ pub fn render(client_schema: &Schema, server_schema: &Schema) -> Result<String, 
     Ok(package.to_string())
 }
 
-/// Combine `$defs` maps from two schemas (client + server) into a single
-/// synthetic root with deduplicated definitions. The combined root has
-/// no `oneOf` -- the variant emitters consume each schema's `oneOf`
-/// separately so we can label each variant by direction.
+/// Combine `$defs` maps from two schemas (client + server) into a single synthetic root with deduplicated definitions.
+///
+/// The combined root has no `oneOf` -- the variant emitters consume each schema's `oneOf` separately so we can label
+/// each variant by direction.
 #[expect(
     clippy::single_call_fn,
     reason = "named helper called once by render(); kept separate for the dedup logic"
@@ -262,8 +255,7 @@ fn wit_type_from(schema: &serde_json::Value, force_optional: bool, enums: &EnumS
             .rsplit('/')
             .next()
             .ok_or(Error::SchemaMalformed("malformed $ref"))?;
-        // `enums` is tracked for future use (e.g. payload typing); not
-        // needed on the `$ref` branch.
+        // `enums` is tracked for future use (e.g. payload typing); not needed on the `$ref` branch.
         return Ok(wrap_optional(Type::Named(to_kebab(name).into()), force_optional));
     }
     if let Some(any_of) = schema.get("anyOf").and_then(|val| val.as_array()) {
@@ -288,16 +280,15 @@ fn wit_type_from(schema: &serde_json::Value, force_optional: bool, enums: &EnumS
     if let Some(kind) = schema.get("type").and_then(|val| val.as_str()) {
         return Ok(wrap_optional(primitive(kind, schema, enums)?, force_optional));
     }
-    // `serde_json::Value` fields hit this branch via the `any_json_schema`
-    // hook -- no `type` keyword, just a description. Ship them as opaque
-    // JSON strings so the host can round-trip arbitrary payloads.
+    // `serde_json::Value` fields hit this branch via the `any_json_schema` hook -- no `type` keyword, just a
+    // description. Ship them as opaque JSON strings so the host can round-trip arbitrary payloads.
     Ok(wrap_optional(Type::String, force_optional))
 }
 
-/// Pick the narrowest WIT integer type that matches the schema's
-/// `format` hint. Defaults to `s64` (the original behaviour) when no
-/// hint is present, so existing fields that lean on schemars's bare
-/// `integer` shape stay where they were.
+/// Pick the narrowest WIT integer type that matches the schema's `format` hint.
+///
+/// Defaults to `s64` when no hint is present, so existing fields that lean on schemars's bare `integer` shape stay
+/// where they were.
 #[expect(
     clippy::single_call_fn,
     reason = "named helper called once by primitive(); kept separate so the format-table is self-contained"
@@ -317,8 +308,8 @@ fn integer_type(schema: &serde_json::Value) -> Type {
 
 fn primitive(kind: &str, schema: &serde_json::Value, enums: &EnumSet) -> Result<Type, Error> {
     Ok(match kind {
-        // serde_json::Value-shaped opaque objects collapse onto `string`
-        // alongside genuine strings -- the host serialises them to JSON.
+        // serde_json::Value-shaped opaque objects collapse onto `string` alongside genuine strings -- the host
+        // serialises them to JSON.
         "string" | "object" => Type::String,
         "integer" => integer_type(schema),
         "number" => Type::F64,

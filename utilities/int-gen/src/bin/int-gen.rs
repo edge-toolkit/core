@@ -1,5 +1,5 @@
-//! CLI entrypoint for `et-int-gen`. All real work lives in the library
-//! (`et_int_gen`); this file just parses arguments and dispatches.
+//! CLI entrypoint for `et-int-gen`. All real work lives in the library (`et_int_gen`); this file just parses arguments
+//! and dispatches.
 
 use clap::{Parser, Subcommand, ValueEnum};
 use edge_toolkit::config::get_project_root;
@@ -29,9 +29,9 @@ enum Command {
     FetchDeps,
 }
 
-/// Per-language target selector for the `generate` subcommand, mirroring the
-/// `MISE_ENV`-scoped `gen:*` tasks: `core` (language-agnostic specs), `rust`,
-/// `bindings`, `zig`, or `all`.
+/// Per-language target selector for the `generate` subcommand.
+///
+/// Mirrors the `MISE_ENV`-scoped `gen:*` tasks: `core` (language-agnostic specs), `rust`, `bindings`, `zig`, or `all`.
 #[derive(Clone, Copy, ValueEnum)]
 enum Target {
     /// Language-agnostic specs: AsyncAPI/OpenAPI YAML, WIT, KDL, schema JSON.

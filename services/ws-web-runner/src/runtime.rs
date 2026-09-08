@@ -1,13 +1,10 @@
 //! Deno `MainWorker` setup and module evaluation.
 //!
-//! `MainWorker` (from `deno_runtime`) wires the standard web platform onto
-//! `globalThis` via its bootstrap: timers, `fetch`, `WebSocket`,
-//! `Headers`/`Request`/`Response`, crypto, `localStorage`,
-//! `Event`/`EventTarget`, `URL`, `Blob`, `File`, base64, performance, and
-//! console. On top of that we add a custom module loader that fetches from the
-//! ws-server, plus the browser-environment shims that wasm-bindgen, dart2js,
-//! and Pyodide modules expect -- one concern per `shims/*.js` fragment,
-//! concatenated by `shim_js()`.
+//! `MainWorker` (from `deno_runtime`) wires the standard web platform onto `globalThis` via its bootstrap: timers,
+//! `fetch`, `WebSocket`, `Headers`/`Request`/`Response`, crypto, `localStorage`, `Event`/`EventTarget`, `URL`, `Blob`,
+//! `File`, base64, performance, and console. On top of that we add a custom module loader that fetches from the ws-
+//! server, plus the browser-environment shims that wasm-bindgen, dart2js, and Pyodide modules expect -- one concern per
+//! `shims/*.js` fragment, concatenated by `shim_js()`.
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -35,9 +32,8 @@ use crate::error::JsErrExt as _;
 
 /// Module loader that fetches JavaScript from the ws-server over HTTP.
 ///
-/// Uses the typed REST client's inner `reqwest::Client` so the loader can
-/// fetch arbitrary module sub-paths (ES `import("/modules/x/sub/dir/y.js")`)
-/// that the typed `get_module_file` would percent-encode incorrectly via
+/// Uses the typed REST client's inner `reqwest::Client` so the loader can fetch arbitrary module sub-paths (ES
+/// `import("/modules/x/sub/dir/y.js")`) that the typed `get_module_file` would percent-encode incorrectly via
 /// `encode_path` (slashes inside the path segment get turned into `%2F`).
 struct ServerModuleLoader {
     rest: et_rest_client::Client,
@@ -77,11 +73,9 @@ impl deno_core::ModuleLoader for ServerModuleLoader {
         let client = self.rest.client().clone();
         ModuleLoadResponse::Async(
             async move {
-                // The keep-alive race (server closes a pooled idle connection
-                // while the slow MainWorker bootstrap runs, so `send()` fails
-                // with "error sending request") is handled by the reqwest retry
-                // policy configured on this client in `lib.rs::build_rest_client`
-                // -- a transport-error classifier, since reqwest's default
+                // The keep-alive race (server closes a pooled idle connection while the slow MainWorker bootstrap runs,
+                // so `send()` fails with "error sending request") is handled by the reqwest retry policy configured on
+                // this client in `lib.rs::build_rest_client` -- a transport-error classifier, since reqwest's default
                 // `ProtocolNacks` policy doesn't cover the HTTP/1 case.
                 let response = client.get(url.as_str()).send().await.map_js_err()?;
 
@@ -100,8 +94,9 @@ impl deno_core::ModuleLoader for ServerModuleLoader {
     }
 }
 
-/// Browser-environment shim fragments, concatenated in order ahead of the
-/// module. Split by concern under `shims/`; each fragment documents itself.
+/// Browser-environment shim fragments, concatenated in order ahead of the module.
+///
+/// Split by concern under `shims/`; each fragment documents itself.
 const SHIMS: &[&str] = &[
     include_str!("shims/main.js"),
     include_str!("shims/document.js"),
@@ -119,9 +114,8 @@ const COVERAGE_SHIMS: &[&str] = &[include_str!("shims/ws_agent_id.js"), include_
 
 /// Render the full shim for a run.
 ///
-/// Emits the per-run URL globals -- the ws-server's HTTP base (used for
-/// `location` and module URL resolution) and the WebSocket URL (exposed on
-/// `globalThis.__ET_WS_URL`) -- then concatenates every `shims/*.js` fragment.
+/// Emits the per-run URL globals -- the ws-server's HTTP base (used for `location` and module URL resolution) and the
+/// WebSocket URL (exposed on `globalThis.__ET_WS_URL`) -- then concatenates every `shims/*.js` fragment.
 #[cfg_attr(
     not(feature = "coverage"),
     expect(
@@ -153,13 +147,13 @@ fn shim_js(http_base: &str, ws_url: &str, coverage: bool) -> String {
 
 /// Build the inline ES-module wrapper that imports and runs the fetched module.
 ///
-/// Dynamic `import()` works from ES-module context but not from `execute_script`, so we synthesise a side ES
-/// module that awaits the module's `default`/`run` export. Under the `coverage` feature the `finally` also
-/// captures the module's minicov `.profraw` via et-web's `__et_capture_coverage` export (browser wasm has no
-/// filesystem) and PUTs it to the module's own agent bucket -- a registered agent (its id sniffed from
-/// et-connect-ack by the ws-agent-id shim), so `put_file`'s agent check passes; the web-runner test then scans
-/// every bucket for the .profraw. The `finally` means fail-fast modules still dump what they exercised. Without
-/// the feature the capture is empty, leaving a bare `finally {}`.
+/// Dynamic `import()` works from ES-module context but not from `execute_script`, so we synthesise a side ES module
+/// that awaits the module's `default`/`run` export. Under the `coverage` feature the `finally` also captures the
+/// module's minicov `.profraw` via et-web's `__et_capture_coverage` export (browser wasm has no filesystem) and PUTs it
+/// to the module's own agent bucket -- a registered agent (its id sniffed from et-connect-ack by the ws-agent-id shim),
+/// so `put_file`'s agent check passes; the web-runner test then scans every bucket for the .profraw. The `finally`
+/// means fail-fast modules still dump what they exercised. Without the feature the capture is empty, leaving a bare
+/// `finally {}`.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct wrapper-synthesis step; extracted to keep run_js_module small"
@@ -211,9 +205,8 @@ try {{
 
 /// Build the `CreateWebWorkerCb` that spawns child `WebWorker`s on fresh OS threads.
 ///
-/// The closure captures the bits a worker needs (REST client to build its own
-/// module loader, the `fs`, the cross-isolate `SharedArrayBuffer` store) and
-/// recurses by handing itself (cloned `Arc`) to each child so workers can spawn
+/// The closure captures the bits a worker needs (REST client to build its own module loader, the `fs`, the cross-
+/// isolate `SharedArrayBuffer` store) and recurses by handing itself (cloned `Arc`) to each child so workers can spawn
 /// grand-children.
 fn create_web_worker_cb(
     rest: et_rest_client::Client,
@@ -294,9 +287,8 @@ fn create_web_worker_cb(
             wait_for_page_wait_for_debugger: false,
         };
 
-        // Pre-shim the worker so browser-environment fakes are in place
-        // before any module code runs. `bootstrap_from_options` returns
-        // a `(WebWorker, SendableWebWorkerHandle)` tuple.
+        // Pre-shim the worker so browser-environment fakes are in place before any module code runs.
+        // `bootstrap_from_options` returns a `(WebWorker, SendableWebWorkerHandle)` tuple.
         let (mut worker, handle) = WebWorker::bootstrap_from_options(services, options);
         let shim = shim_js(&http_base, &ws_url, coverage);
         // No `Result` channel in this callback, so log and continue.
@@ -312,12 +304,10 @@ fn create_web_worker_cb(
 
 /// Construct a `MainWorker` and run the entry-point module.
 ///
-/// `MainWorker` brings the standard web-platform globals (fetch,
-/// WebSocket, timers, etc.); `shim_js` layers the browser-environment
-/// fakes browser-targeted WASM expects on top. `create_web_worker_cb`
-/// hooks `new Worker(...)` to spawn fresh `WebWorker`s on their own
-/// threads sharing a `BackingStore` store for `SharedArrayBuffer`
-/// cross-isolate transfer.
+/// `MainWorker` brings the standard web-platform globals (fetch, WebSocket, timers, etc.); `shim_js` layers the
+/// browser-environment fakes browser-targeted WASM expects on top. `create_web_worker_cb` hooks `new Worker(...)` to
+/// spawn fresh `WebWorker`s on their own threads sharing a `BackingStore` store for `SharedArrayBuffer` cross-isolate
+/// transfer.
 #[expect(
     clippy::single_call_fn,
     clippy::future_not_send,
@@ -380,9 +370,8 @@ pub async fn run_js_module(
         },
     );
 
-    // Apply our browser-environment shims on top of Deno's globals. The
-    // `Global<v8::Value>` returned by `execute_script` is just the
-    // last-expression result; we don't need it.
+    // Apply our browser-environment shims on top of Deno's globals. The `Global<v8::Value>` returned by
+    // `execute_script` is just the last-expression result; we don't need it.
     drop(
         worker
             .js_runtime

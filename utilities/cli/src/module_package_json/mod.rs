@@ -22,13 +22,12 @@ struct Project {
     urls: BTreeMap<String, String>,
 }
 
-/// Shared shape of `[tool.ws-module]` (pyproject.toml) and
-/// `[package.metadata.ws-module]` (Cargo.toml).
+/// Shared shape of `[tool.ws-module]` (pyproject.toml) and `[package.metadata.ws-module]` (Cargo.toml).
 #[derive(Deserialize, Default)]
 struct WsModule {
-    /// Override for the resolved entry file (relative to `pkg/`). When
-    /// `None`, the entry is derived from the package name -- see
-    /// [`resolve_main`].
+    /// Override for the resolved entry file (relative to `pkg/`).
+    ///
+    /// When `None`, the entry is derived from the package name -- see [`resolve_main`].
     #[serde(default)]
     main: Option<String>,
     #[serde(default)]
@@ -79,9 +78,9 @@ struct WorkspacePackage {
     repository: Option<String>,
 }
 
-/// A Cargo `[package]` field that can be either a literal value
-/// (`version = "0.1.0"`) or inherited from the workspace
-/// (`version.workspace = true`).
+/// A Cargo `[package]` field that is either a literal value or inherited from the workspace.
+///
+/// The two spellings are `version = "0.1.0"` and `version.workspace = true`.
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum MaybeInherited {
@@ -147,9 +146,10 @@ fn package_json_from_pyproject(module_dir: &Path) -> Result<Value, CliError> {
     Ok(Value::Object(pkg))
 }
 
-/// PEP 621 `[project.urls]` is a free-form map keyed by display name. The
-/// PyPI-recommended convention is to call the source-of-truth URL one of
-/// these (case-sensitive); we accept all of them.
+/// Pick the source-of-truth URL out of a PEP 621 `[project.urls]` map.
+///
+/// `[project.urls]` is a free-form map keyed by display name. The PyPI-recommended convention is to call the source-of-
+/// truth URL one of these (case-sensitive); we accept all of them.
 fn project_repository(urls: &BTreeMap<String, String>) -> Option<&str> {
     ["Repository", "repository", "Source", "source"]
         .iter()
@@ -218,10 +218,9 @@ fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value, 
 }
 
 /// Resolve a `[package]` field that may be inherited from the workspace.
-/// `direct` is the value read from the crate's Cargo.toml; `workspace`
-/// is the corresponding `[workspace.package]` value (if any). Returns
-/// the literal direct value, or the workspace value when the crate
-/// declares `field.workspace = true`.
+///
+/// `direct` is the value read from the crate's Cargo.toml; `workspace` is the corresponding `[workspace.package]` value
+/// (if any). Returns the literal direct value, or the workspace value when the crate declares `field.workspace = true`.
 fn resolve_inherited(direct: Option<&MaybeInherited>, workspace: Option<&str>) -> Option<String> {
     match direct {
         Some(MaybeInherited::Direct(value)) => Some(value.clone()),
@@ -230,8 +229,7 @@ fn resolve_inherited(direct: Option<&MaybeInherited>, workspace: Option<&str>) -
     }
 }
 
-/// Walk parents of `start` looking for a Cargo.toml containing a
-/// `[workspace]` table; return its `[workspace.package]` if present.
+/// Walk parents of `start` for a Cargo.toml with a `[workspace]` table and return its `[workspace.package]`.
 fn find_workspace_package(start: &Path) -> Result<Option<WorkspacePackage>, CliError> {
     for dir in start.ancestors().skip(1) {
         let cargo = dir.join("Cargo.toml");
@@ -246,15 +244,15 @@ fn find_workspace_package(start: &Path) -> Result<Option<WorkspacePackage>, CliE
     Ok(None)
 }
 
-/// npm's `repository` field accepts either a bare URL string or the
-/// object form. The object form matches what wasm-pack emits, so we use
+/// Build the object form of npm's `repository` field for `url`.
+///
+/// npm accepts either a bare URL string or the object form. The object form matches what wasm-pack emits, so we use
 /// that for visual consistency across generated package.json files.
 fn repository_json(url: &str) -> Value {
     json!({ "type": "git", "url": url })
 }
 
-/// Whether a module is built as a WASI Preview 2 component or as JS that
-/// browser/Pyodide loads.
+/// Whether a module is built as a WASI Preview 2 component or as JS that browser/Pyodide loads.
 #[derive(Clone, Copy)]
 enum ModuleKind {
     Wasi,
@@ -270,9 +268,10 @@ impl ModuleKind {
     }
 }
 
-/// `componentize-py bindings` writes a `wit_world/` package next to the
-/// module's `pyproject.toml`. Its presence is what tells us this is a
-/// WASI Python module rather than a Pyodide module.
+/// Classify a Python module as WASI or Pyodide by the presence of a `wit_world/` package.
+///
+/// `componentize-py bindings` writes `wit_world/` next to the module's `pyproject.toml`, so it only exists for a WASI
+/// Python module.
 fn detect_python_kind(module_dir: &Path) -> ModuleKind {
     if module_dir.join("wit_world").is_dir() {
         ModuleKind::Wasi
@@ -281,10 +280,11 @@ fn detect_python_kind(module_dir: &Path) -> ModuleKind {
     }
 }
 
-/// WASI Rust modules use `wit-bindgen` to generate component bindings;
-/// wasm-pack browser modules don't. The substring check covers
-/// `[dependencies]`, `[target.*.dependencies]`, and workspace-dep lines
-/// alike without needing to model Cargo.toml's full dependency tree.
+/// Classify a Rust module as WASI or browser by whether its Cargo.toml depends on `wit-bindgen`.
+///
+/// WASI Rust modules use `wit-bindgen` to generate component bindings; wasm-pack browser modules don't. The substring
+/// check covers `[dependencies]`, `[target.*.dependencies]`, and workspace-dep lines alike without needing to model
+/// Cargo.toml's full dependency tree.
 fn detect_cargo_kind(cargo_toml_src: &str) -> ModuleKind {
     if cargo_toml_src.contains("wit-bindgen") {
         ModuleKind::Wasi
@@ -295,10 +295,9 @@ fn detect_cargo_kind(cargo_toml_src: &str) -> ModuleKind {
 
 /// Resolve the `main` entry file in `pkg_dir`.
 ///
-/// If `main_override` is set, that filename is used. Otherwise the entry
-/// is derived from `name` by trying both its `_` and `-` variants with the
-/// extension dictated by `kind` (`.wasm` for WASI, `.js` for browser/Pyodide).
-/// The resolved file must exist in `pkg_dir`; this errors otherwise.
+/// If `main_override` is set, that filename is used. Otherwise the entry is derived from `name` by trying both its `_`
+/// and `-` variants with the extension dictated by `kind` (`.wasm` for WASI, `.js` for browser/Pyodide). The resolved
+/// file must exist in `pkg_dir`; this errors otherwise.
 fn resolve_main(pkg_dir: &Path, name: &str, kind: ModuleKind, main_override: Option<&str>) -> Result<String, CliError> {
     if let Some(main) = main_override {
         if !pkg_dir.join(main).is_file() {

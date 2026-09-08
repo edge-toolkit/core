@@ -1,7 +1,7 @@
-//! Exercises the `connect_agent` / `next_payload` client helpers' fail-fast and frame-skipping paths that the
-//! happy-path hub tests never reach: the ack-wait timeout, protocol-ack skipping, and control-frame skipping.
-//! Each test drives the helper against a tiny scripted ws server that emits an exact frame sequence, so the
-//! behaviour is deterministic rather than dependent on real-hub timing.
+//! Exercises the `connect_agent` / `next_payload` client helpers' fail-fast and frame-skipping paths that the happy-
+//! path hub tests never reach: the ack-wait timeout, protocol-ack skipping, and control-frame skipping. Each test
+//! drives the helper against a tiny scripted ws server that emits an exact frame sequence, so the behaviour is
+//! deterministic rather than dependent on real-hub timing.
 #![cfg(test)]
 
 use edge_toolkit::ws::{ConnectStatus, ServerMessage};
@@ -11,8 +11,9 @@ use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{accept_async, connect_async};
 
-/// Start a ws server on a free port that accepts one connection, sends `frames` in order, then holds the
-/// socket open. With an empty `frames` it simply accepts and stays silent -- a server that never acks.
+/// Start a ws server on a free port that accepts one connection, sends `frames` in order, then holds the socket open.
+///
+/// With an empty `frames` it simply accepts and stays silent -- a server that never acks.
 async fn scripted_server(frames: Vec<Message>) -> String {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -38,8 +39,8 @@ async fn scripted_server(frames: Vec<Message>) -> String {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[should_panic(expected = "et-connect-ack")]
 async fn connect_agent_times_out_when_server_never_acks() {
-    // The server accepts the socket but never sends `et-connect-ack`, so connect_agent must give up (panic)
-    // once its bound elapses rather than hang the test indefinitely.
+    // The server accepts the socket but never sends `et-connect-ack`, so connect_agent must give up (panic) once its
+    // bound elapses rather than hang the test indefinitely.
     let url = scripted_server(Vec::new()).await;
     let _connected = connect_agent(&url).await;
 }

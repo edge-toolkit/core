@@ -183,7 +183,8 @@ repo-wide. Fill each line close to 120 before wrapping rather than breaking earl
 wraps narrowly wastes vertical space and reads as ragged. This applies to every prose surface: `#`/`//`/`--`
 comments, Rust doc comments and `reason = "..."` strings, YAML folded `>-` blocks (semgrep `message:` fields, lint
 rule messages), markdown, and Rego/policy headers. When you touch a block that wraps narrowly, reflow it to fill
-the width.
+the width -- for Rust, run `mise run parfit-fmt <file>` on the files you changed rather than re-wrapping by hand;
+every other surface is still reflowed manually.
 
 ## Keep everything ASCII
 
@@ -340,15 +341,16 @@ settings, different file globs). taplo specifically: the only right way to forma
 The `mise run <task>` formatters and checks per file type. The aggregates (`fmt`/`check`/`fmt-all`/`check-all`)
 run every loaded language's row; guest rows need their `MISE_ENV` loaded.
 
-| File type      | Formatter task(s)               |
-| -------------- | ------------------------------- |
-| `*.rs`         | `cargo-fmt`, `cargo-clippy-fix` |
-| `*.toml`       | `taplo-fmt`                     |
-| `*.py`         | `ruff-fmt`                      |
-| `*.dart`       | `fmt:dart`                      |
-| `*.zig`        | `fmt:zig`                       |
-| `*.c`, `*.cpp` | `clang-format`                  |
-| `*.cs`         | `fmt:dotnet`                    |
+Formatter task(s) per file type (a list rather than a table: padded to the same column widths as the check table
+below, the two tables' shared file-type rows read as a clone to jscpd):
+
+- `*.rs` -> `cargo-fmt`, `cargo-clippy-fix`, `parfit-fmt`
+- `*.toml` -> `taplo-fmt`
+- `*.py` -> `ruff-fmt`
+- `*.dart` -> `fmt:dart`
+- `*.zig` -> `fmt:zig`
+- `*.c`, `*.cpp` -> `clang-format`
+- `*.cs` -> `fmt:dotnet`
 
 | File type      | Check task(s)                                                                                  |
 | -------------- | ---------------------------------------------------------------------------------------------- |
@@ -1066,16 +1068,6 @@ satisfy is much cheaper to land than one that requires a human edit per site, so
 When the rewrite can't be expressed as a single template (multiple match shapes, context-dependent replacement,
 structural restructuring), keep the rule check-only and write a brief note in the rule body explaining why the
 autofix wasn't viable.
-
-### Expand `doc-summary-ends-with-period` as you touch Rust files
-
-`config/ast-grep/rules/doc-summary-ends-with-period.yaml` enforces that a doc comment's first line is a
-one-line summary ending in terminal punctuation (`.`, `!`, or `?`). The workspace had a large pre-existing
-backlog of violations, so the rule is scoped by a `files:` allowlist rather than applied workspace-wide, and it
-is rolled out incrementally. **Whenever you modify a Rust file, add it to that rule's `files:` list (keep the
-list sorted) and fix any first-line-summary violations in it as part of the same change** -- so the rule's
-coverage only ever grows. Once the `files:` list covers effectively everything, drop the `files:` scoping and
-let it apply workspace-wide.
 
 ### NEVER delete a lint rule without explicit user permission
 

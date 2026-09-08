@@ -1,14 +1,12 @@
 //! `AsyncAPI` spec emission for the WS protocol.
 //!
-//! The Rust source of truth is `edge_toolkit::ws::{ClientMessage,
-//! ServerMessage}`. This module wires those enums through the
-//! `asyncapi-rust` derive macros and post-processes the two halves into
-//! a single merged `AsyncAPI` 3.0 document.
+//! The Rust source of truth is `edge_toolkit::ws::{ClientMessage, ServerMessage}`. This module wires those enums
+//! through the `asyncapi-rust` derive macros and post-processes the two halves into a single merged `AsyncAPI` 3.0
+//! document.
 //!
-//! The version and description literals on the `#[asyncapi(...)]` derive
-//! attributes are mirrored as [`WS_VERSION`] and [`WS_DESCRIPTION`]
-//! constants so the WIT and KDL generators can reference the same
-//! values; [`build_spec`] asserts they're in sync at runtime.
+//! The version and description literals on the `#[asyncapi(...)]` derive attributes are mirrored as [`WS_VERSION`] and
+//! [`WS_DESCRIPTION`] constants so the WIT and KDL generators can reference the same values; [`build_spec`] asserts
+//! they're in sync at runtime.
 
 use asyncapi_rust::AsyncApi;
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
@@ -17,23 +15,20 @@ use crate::Error;
 
 /// Wire-protocol version.
 ///
-/// Mirrors the `version = ...` literal on `WsApiClient`'s
-/// `#[asyncapi(...)]` derive below; if you bump one, bump the other
-/// (and the runtime check in [`build_spec`] will catch you if you don't).
+/// Mirrors the `version = ...` literal on `WsApiClient`'s `#[asyncapi(...)]` derive below; if you bump one, bump the
+/// other (and the runtime check in [`build_spec`] will catch you if you don't).
 pub const WS_VERSION: &str = "0.1.0";
 
 /// Wire-protocol description.
 ///
-/// Mirrors the `description = ...` literal on `WsApiClient`'s
-/// `#[asyncapi(...)]` derive below.
+/// Mirrors the `description = ...` literal on `WsApiClient`'s `#[asyncapi(...)]` derive below.
 pub const WS_DESCRIPTION: &str =
     "Edge Toolkit WS protocol -- typed et-* messages plus relay envelopes for foreign frames.";
 
 /// `AsyncAPI` doc for the ws-server's `/ws` hub channel.
 ///
-/// Split into client + server derives so each operation references only
-/// the variants it can legally carry. The two halves are merged in
-/// [`build_spec`]; `WsApiClient` provides the surviving `info` block.
+/// Split into client + server derives so each operation references only the variants it can legally carry. The two
+/// halves are merged in [`build_spec`]; `WsApiClient` provides the surviving `info` block.
 #[derive(AsyncApi)]
 #[asyncapi(
     title = "Edge Toolkit WebSocket Protocol",
@@ -70,17 +65,13 @@ struct WsApiServer;
 
 /// Build the merged `AsyncAPI` spec as a `serde_json::Value`.
 ///
-/// Steps:
-///   1. Derive the two halves via `WsApiClient` / `WsApiServer`.
-///   2. Merge the server-side channels / operations / messages into the
-///      client-side document (`merge_asyncapi`).
-///   3. Assert that `info.version` matches [`WS_VERSION`] so any drift
-///      between the derive literal and the const is caught loudly.
+/// Steps: 1. Derive the two halves via `WsApiClient` / `WsApiServer`. 2. Merge the server-side channels / operations /
+/// messages into the client-side document (`merge_asyncapi`). 3. Assert that `info.version` matches [`WS_VERSION`] so
+/// any drift between the derive literal and the const is caught loudly.
 ///
-/// `asyncapi-rust` 0.5 already emits each message's payload as its own object
-/// schema (no `oneOf` fan-out), with shared definitions hoisted into
-/// `components.schemas` and canonical `#/components/schemas/...` refs, so no
-/// payload-slimming post-processing is needed -- unlike 0.2, which required it.
+/// `asyncapi-rust` 0.5 already emits each message's payload as its own object schema (no `oneOf` fan-out), with shared
+/// definitions hoisted into `components.schemas` and canonical `#/components/schemas/...` refs, so no payload-slimming
+/// post-processing is needed -- unlike 0.2, which required it.
 pub fn build_spec() -> Result<serde_json::Value, Error> {
     let client_spec = WsApiClient::asyncapi_spec();
     let server_spec = WsApiServer::asyncapi_spec();
@@ -99,10 +90,10 @@ pub fn build_spec() -> Result<serde_json::Value, Error> {
     Ok(spec_value)
 }
 
-/// Fold `source`'s channels, operations, and `components.messages` into
-/// `target`. Top-level metadata (title, info, servers) is retained from
-/// `target`. Used to combine the client-side and server-side `AsyncAPI`
-/// documents into a single spec with both directions on one channel.
+/// Fold `source`'s channels, operations, and `components.messages` into `target`.
+///
+/// Top-level metadata (title, info, servers) is retained from `target`. Used to combine the client-side and server-side
+/// `AsyncAPI` documents into a single spec with both directions on one channel.
 #[expect(
     clippy::single_call_fn,
     reason = "named helper called once by build_spec(); the merge is a logical step worth its own scope"

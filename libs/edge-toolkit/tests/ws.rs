@@ -1,12 +1,8 @@
-//! `ClientMessage::from_text_frame` and `ServerMessage::from_text_frame`
-//! are the on-recv decoders shared by the ws-server and the
-//! ws-wasi-runner host respectively. Per the protocol design: a frame
-//! whose JSON has `type` starting with `et-` is ours and must
-//! deserialise; anything else (non-JSON, JSON without a `type`, JSON
-//! with a non-et `type`) is foreign and surfaces as `RelayText` so the
-//! hub-relay path through the ws-server is lossless. These tests assert
-//! that every plausible "deserialisation problem" relays cleanly on
-//! both sides rather than failing.
+//! `ClientMessage::from_text_frame` and `ServerMessage::from_text_frame` are the on-recv decoders shared by the ws-
+//! server and the ws-wasi-runner host respectively. Per the protocol design: a frame whose JSON has `type` starting
+//! with `et-` is ours and must deserialise; anything else (non-JSON, JSON without a `type`, JSON with a non-et `type`)
+//! is foreign and surfaces as `RelayText` so the hub-relay path through the ws-server is lossless. These tests assert
+//! that every plausible "deserialisation problem" relays cleanly on both sides rather than failing.
 
 #![cfg(test)]
 #![expect(
@@ -16,9 +12,9 @@
 
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
 
-/// Pull the `content` out of `ClientMessage::RelayText`, panicking if the
-/// decoder routed the input elsewhere. (`ClientMessage` is the server-side
-/// decoder -- the server sees client traffic in this shape.)
+/// Pull the `content` out of `ClientMessage::RelayText`, panicking if the decoder routed the input elsewhere.
+///
+/// `ClientMessage` is the server-side decoder -- the server sees client traffic in this shape.
 fn client_expect_relay_text(msg: ClientMessage) -> String {
     match msg {
         ClientMessage::RelayText { content } => content,
@@ -123,9 +119,8 @@ fn client_typed_for_valid_et_message() {
 
 #[test]
 fn client_typed_for_server_only_variant_is_decode_error() {
-    // `et-connect-ack` lives in ServerMessage, not ClientMessage. A client
-    // claiming to send a ConnectAck must surface as a decode error -- that's
-    // the type-level enforcement the split exists to provide.
+    // `et-connect-ack` lives in ServerMessage, not ClientMessage. A client claiming to send a ConnectAck must surface
+    // as a decode error -- that's the type-level enforcement the split exists to provide.
     let _err =
         ClientMessage::from_text_frame(r#"{"type":"et-connect-ack","agent_id":"a","status":"assigned"}"#).unwrap_err();
 }
@@ -177,8 +172,8 @@ fn server_typed_for_response_variant() {
 
 #[test]
 fn server_typed_for_client_only_variant_is_decode_error() {
-    // `et-connect` lives in ClientMessage. A server claiming to send Connect
-    // to a client must surface as a decode error.
+    // `et-connect` lives in ClientMessage. A server claiming to send Connect to a client must surface as a decode
+    // error.
     let _err = ServerMessage::from_text_frame(r#"{"type":"et-connect"}"#).unwrap_err();
 }
 
