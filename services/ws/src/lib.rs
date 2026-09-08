@@ -27,10 +27,9 @@ pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
 
 /// Default max WebSocket frame size (64 MiB).
 ///
-/// Large binary payloads fanned out via default broadcast (e.g. tensors)
-/// easily blow past actix-ws's 64 KiB default. Override via the
-/// `WS_MAX_FRAME_SIZE` env var, as a human byte size (`serde-env` translates
-/// `[ws] max_frame_size` to `WS_MAX_FRAME_SIZE`).
+/// Large binary payloads fanned out via default broadcast (e.g. tensors) easily blow past actix-ws's 64 KiB default.
+/// Override via the `WS_MAX_FRAME_SIZE` env var, as a human byte size (`serde-env` translates `[ws] max_frame_size`
+/// to `WS_MAX_FRAME_SIZE`).
 pub const DEFAULT_MAX_FRAME_SIZE: usize = 64 * 1024 * 1024;
 
 // Hub metrics, recorded through the global meter `et_otlp::init` installs (mirrors the `global::tracer` use above).
@@ -48,24 +47,25 @@ static ACTIVE_CONNECTIONS: LazyLock<UpDownCounter<i64>> = LazyLock::new(|| {
         .build()
 });
 
-/// Runtime knobs for the WebSocket hub. Populated by `serde-env` in
-/// `et-ws-server::main`, then handed to `configure`.
+/// Runtime knobs for the WebSocket hub.
+///
+/// Populated by `serde-env` in `et-ws-server::main`, then handed to `configure`.
 #[serde_inline_default]
 #[derive(Clone, Debug, DefaultFromSerde, Deserialize)]
 #[non_exhaustive]
 pub struct WsConfig {
-    /// Largest single WebSocket frame the hub will accept. Frames above this
-    /// are dropped by actix-ws before they reach the handler, so callers
-    /// shipping big tensors / blobs need to raise it above their payload size.
-    /// `WS_MAX_FRAME_SIZE` takes a human byte size (e.g. `64MiB`, `64MB`,
+    /// Largest single WebSocket frame the hub will accept.
+    ///
+    /// Frames above this are dropped by actix-ws before they reach the handler, so callers shipping big tensors / blobs
+    /// need to raise it above their payload size. `WS_MAX_FRAME_SIZE` takes a human byte size (e.g. `64MiB`, `64MB`,
     /// `512KiB`) or a plain byte count; unset defaults to 64 MiB.
     #[serde(default = "default_max_frame_size", deserialize_with = "deserialize_byte_size")]
     pub max_frame_size: usize,
 
-    /// Idle period before the hub closes a connection, as a humantime
-    /// duration (e.g. `15s`, `1m30s`). Unset defaults to 15s;
-    /// `none`/`off`/`disabled` turns the idle timeout off (the hub never closes
-    /// a connection for inactivity), which suits a frontend that sits idle.
+    /// Idle period before the hub closes a connection, as a humantime duration (e.g. `15s`, `1m30s`).
+    ///
+    /// Unset defaults to 15s; `none`/`off`/`disabled` turns the idle timeout off (the hub never closes a connection for
+    /// inactivity), which suits a frontend that sits idle.
     #[serde(
         default = "default_connection_timeout",
         deserialize_with = "edge_toolkit::config::deserialize_optional_humantime"
@@ -77,16 +77,16 @@ const fn default_max_frame_size() -> usize {
     DEFAULT_MAX_FRAME_SIZE
 }
 
-/// Parse `WS_MAX_FRAME_SIZE` as a human byte size (e.g. `64MiB`, `64MB`,
-/// `512KiB`) or a plain byte count, via `bytesize`.
+/// Parse `WS_MAX_FRAME_SIZE` as a human byte size (e.g. `64MiB`, `64MB`, `512KiB`) or a plain byte count.
+///
+/// Delegates the parsing to `bytesize`.
 fn deserialize_byte_size<'de, D>(deserializer: D) -> Result<usize, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    // `bytesize`'s own `Deserialize` parses the human size ("64MiB", "512KiB",
-    // a bare byte count); its `D::Error` cascades through `?`, no `.map_err`.
-    // `usize::try_from` only narrows on 32-bit hosts, where clamping a frame
-    // cap to `usize::MAX` is harmless.
+    // `bytesize`'s own `Deserialize` parses the human size ("64MiB", "512KiB", a bare byte count); its `D::Error`
+    // cascades through `?`, no `.map_err`. `usize::try_from` only narrows on 32-bit hosts, where clamping a frame cap
+    // to `usize::MAX` is harmless.
     let size = <bytesize::ByteSize as serde::Deserialize>::deserialize(deserializer)?;
     Ok(usize::try_from(size.as_u64()).unwrap_or(usize::MAX))
 }
@@ -101,9 +101,8 @@ const fn default_connection_timeout() -> Option<Duration> {
 
 /// Outbound envelope written to an agent's websocket session.
 ///
-/// `Json` is the normal path for protocol messages. `Text` and `Binary` carry
-/// payloads the server forwards verbatim -- used by the hub-style fallback
-/// that broadcasts unrecognised frames to every other connected agent.
+/// `Json` is the normal path for protocol messages. `Text` and `Binary` carry payloads the server forwards verbatim --
+/// used by the hub-style fallback that broadcasts unrecognised frames to every other connected agent.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum SessionMessage {
@@ -210,11 +209,9 @@ impl Connection {
 
     /// This connection's agent id, auto-registering one on first use.
     ///
-    /// A client that never sends `et-connect` -- e.g. a frontend that speaks
-    /// only its own protocol -- still joins the hub relay: its first
-    /// unrecognised frame implicitly registers the session, so the frame is
-    /// broadcast to the other agents and this client then receives the
-    /// relayed replies. et-protocol agents send `et-connect` first, so they
+    /// A client that never sends `et-connect` -- e.g. a frontend that speaks only its own protocol -- still joins the
+    /// hub relay: its first unrecognised frame implicitly registers the session, so the frame is broadcast to the other
+    /// agents and this client then receives the relayed replies. et-protocol agents send `et-connect` first, so they
     /// are already assigned by the time they relay and this is a no-op.
     fn ensure_assigned_agent(&mut self) -> String {
         if let Some(id) = self.assigned_agent_id() {
@@ -356,9 +353,10 @@ impl Connection {
         span.end();
     }
 
-    /// Hub-style fallback: forward raw text to every connected agent except
-    /// the sender. Used by the `RelayText` / `RelayBinary` arms of the
-    /// inbound dispatcher when a frame doesn't carry our `et-*` tag.
+    /// Hub-style fallback: forward raw text to every connected agent except the sender.
+    ///
+    /// Used by the `RelayText` / `RelayBinary` arms of the inbound dispatcher when a frame doesn't carry our `et-*`
+    /// tag.
     fn broadcast_raw_text(&self, from_agent_id: &str, text: &str) {
         let recipients = self.registry.connected_sessions(from_agent_id);
         info!(
@@ -485,8 +483,8 @@ impl Connection {
                                 return true;
                             }
 
-                            // Unknown / departed recipients are handled by handle_send_direct's queue miss
-                            // below -- a single place that answers Invalid -- so there is no pre-check here.
+                            // Unknown / departed recipients are handled by handle_send_direct's queue miss below -- a
+                            // single place that answers Invalid -- so there is no pre-check here.
                             self.handle_send_direct(&mut span, from_agent_id, to_agent_id, message)
                                 .await;
                             return true;
@@ -597,12 +595,9 @@ impl Connection {
                             self.broadcast_raw_text(&from_agent_id, &content);
                         }
                         ClientMessage::RelayBinary { content } => {
-                            // A binary tungstenite frame is dispatched
-                            // by the outer `AggregatedMessage::Binary`
-                            // arm. If a client explicitly sends
-                            // `{"type":"et-relay-binary",...}` as a
-                            // text frame, honour it by relaying the
-                            // payload as a binary frame.
+                            // A binary tungstenite frame is dispatched by the outer `AggregatedMessage::Binary` arm. If
+                            // a client explicitly sends `{"type":"et-relay-binary",...}` as a text frame, honour it by
+                            // relaying the payload as a binary frame.
                             let from_agent_id = self.ensure_assigned_agent();
                             self.broadcast_raw_binary(&from_agent_id, &Bytes::from(content));
                         }

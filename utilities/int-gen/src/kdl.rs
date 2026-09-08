@@ -1,14 +1,11 @@
-//! Emit a `dart-typegen`-flavoured KDL document from the `ClientMessage`
-//! and `ServerMessage` JSON Schemas.
+//! Emit a `dart-typegen`-flavoured KDL document from the `ClientMessage` and `ServerMessage` JSON Schemas.
 //!
-//! The KDL goes to `generated/specs/ws.kdl` (checked in alongside
-//! `ws.yaml`); `dart-typegen generate -i generated/specs/ws.kdl -o ...`
-//! consumes it to produce `generated/dart-ws/lib/ws_messages.dart`.
+//! The KDL goes to `generated/specs/ws.kdl` (checked in alongside `ws.yaml`); `dart-typegen generate -i
+//! generated/specs/ws.kdl -o ...` consumes it to produce `generated/dart-ws/lib/ws_messages.dart`.
 //!
-//! Why this layer exists: dart-typegen consumes KDL declaratively (classes,
-//! enums, unions with `json-discriminant`), so we only have to bridge from
-//! schemars' JSON Schema shape to that vocabulary. The hand-rolled Dart
-//! emitter previously lived in `dart.rs`.
+//! Why this layer exists: dart-typegen consumes KDL declaratively (classes, enums, unions with `json-discriminant`), so
+//! we only have to bridge from schemars' JSON Schema shape to that vocabulary. The hand-rolled Dart emitter previously
+//! lived in `dart.rs`.
 
 use heck::{ToLowerCamelCase as _, ToPascalCase as _};
 use kdl::{KdlDocument, KdlEntry, KdlEntryFormat, KdlIdentifier, KdlNode, KdlValue};
@@ -16,11 +13,11 @@ use schemars::Schema;
 
 use crate::Error;
 
-/// `dart-typegen` parses KDL v1 via knus 3.x, which is stricter than the
-/// shipping KDL v1/v2 specs: identifier-shaped strings (`String`, `AgentSummary`)
-/// must always appear quoted. The kdl crate's auto-formatter happily drops
-/// those quotes, so every entry we emit explicitly pins its `value_repr` and
-/// flips `autoformat_keep` to prevent that.
+/// Build a KDL entry whose string value is pinned to its quoted representation.
+///
+/// `dart-typegen` parses KDL v1 via knus 3.x, which is stricter than the shipping KDL v1/v2 specs: identifier-shaped
+/// strings (`String`, `AgentSummary`) must always appear quoted. The kdl crate's auto-formatter happily drops those
+/// quotes, so every entry we emit explicitly pins its `value_repr` and flips `autoformat_keep` to prevent that.
 fn quoted_string_entry(raw: &str) -> KdlEntry {
     let mut entry = KdlEntry::new(KdlValue::String(raw.into()));
     let mut format = KdlEntryFormat::default();
@@ -51,9 +48,8 @@ pub fn render(client_schema: &Schema, server_schema: &Schema) -> Result<String, 
     let mut doc = KdlDocument::new();
     doc.nodes_mut().push(defaults_node());
 
-    // Merge `$defs` from both schemas, deduplicated by name. The two
-    // enums share most support types (AgentSummary, ConnectStatus, ...);
-    // we emit each definition exactly once.
+    // Merge `$defs` from both schemas, deduplicated by name. The two enums share most support types (AgentSummary,
+    // ConnectStatus, ...); we emit each definition exactly once.
     let mut merged_defs: std::collections::BTreeMap<String, serde_json::Value> = std::collections::BTreeMap::new();
     for root in [client_root, server_root] {
         if let Some(defs) = root.get("$defs").and_then(|val| val.as_object()) {
@@ -73,11 +69,9 @@ pub fn render(client_schema: &Schema, server_schema: &Schema) -> Result<String, 
         }
     }
 
-    // Compute which variant tags appear in BOTH unions; those payload
-    // classes get a per-direction prefix (`WsClientRelayText` vs
-    // `WsServerRelayText`) so dart-typegen sees them as distinct
-    // declarations. Variants unique to a single union keep the bare
-    // `Ws<Pascal>` name.
+    // Compute which variant tags appear in BOTH unions; those payload classes get a per-direction prefix
+    // (`WsClientRelayText` vs `WsServerRelayText`) so dart-typegen sees them as distinct declarations. Variants unique
+    // to a single union keep the bare `Ws<Pascal>` name.
     let shared_tags: std::collections::HashSet<String> = variant_tags(client_root)?
         .intersection(&variant_tags(server_root)?)
         .cloned()
@@ -87,17 +81,16 @@ pub fn render(client_schema: &Schema, server_schema: &Schema) -> Result<String, 
     doc.nodes_mut()
         .push(message_union(server_root, "WsServerMessage", "WsServer", &shared_tags)?);
     doc.autoformat();
-    // `dart-typegen` parses KDL v1 (via knus); the kdl crate emits v2 syntax
-    // by default (`#true`/`#null`). Force v1 so booleans and null render as
-    // bare `true`/`null` tokens that knus understands.
+    // `dart-typegen` parses KDL v1 (via knus); the kdl crate emits v2 syntax by default (`#true`/`#null`). Force v1 so
+    // booleans and null render as bare `true`/`null` tokens that knus understands.
     doc.ensure_v1();
     Ok(format!("{doc}"))
 }
 
-/// The `defaults` block tells dart-typegen to emit sealed unions keyed on
-/// `"type"` and to convert `camelCase` Dart field names to `snake_case` JSON
-/// keys -- matching how the Rust serde tag/`rename_all` configuration writes
-/// the wire.
+/// Build the `defaults` block that aligns dart-typegen's output with the Rust serde wire format.
+///
+/// It tells dart-typegen to emit sealed unions keyed on `"type"` and to convert `camelCase` Dart field names to
+/// `snake_case` JSON keys -- matching how the Rust serde tag/`rename_all` configuration writes the wire.
 #[expect(
     clippy::single_call_fn,
     reason = "named helper for the top-level `defaults` block; kept separate to scope its nested children"
@@ -153,8 +146,10 @@ fn enum_node(name: &str, def: &serde_json::Value) -> Result<KdlNode, Error> {
     Ok(node)
 }
 
-/// `discriminator` is set when the class belongs to a union -- dart-typegen
-/// then emits `json-discriminant-value "et-..."` inside the class body.
+/// Build the KDL `class` node for one schema.
+///
+/// `discriminator` is set when the class belongs to a union -- dart-typegen then emits `json-discriminant-value
+/// "et-..."` inside the class body.
 fn class_node(name: &str, schema: &serde_json::Value, discriminator: Option<&str>) -> Result<KdlNode, Error> {
     let props = schema.get("properties").and_then(|val| val.as_object());
     let required: std::collections::HashSet<&str> = schema
@@ -234,9 +229,9 @@ fn message_union(
     Ok(node)
 }
 
-/// Collect every variant's `type` discriminator string from a top-level
-/// `oneOf` schema. Used to identify variants that appear in both the
-/// client and server unions so their payload classes can be uniquely
+/// Collect every variant's `type` discriminator string from a top-level `oneOf` schema.
+///
+/// Used to identify variants that appear in both the client and server unions so their payload classes can be uniquely
 /// named.
 fn variant_tags(root: &serde_json::Value) -> Result<std::collections::HashSet<String>, Error> {
     let variants = root
@@ -258,9 +253,8 @@ fn variant_tag(variant: &serde_json::Value) -> Result<String, Error> {
 
 /// JSON Schema -> Dart type expression understood by `dart-typegen`.
 ///
-/// Mirrors the matching helper in the WIT emitter, but spells primitives the
-/// Dart way (`String`, `int`, ...) and uses `List<T>` / `Map<String, dynamic>`
-/// for collection / opaque-JSON shapes.
+/// Mirrors the matching helper in the WIT emitter, but spells primitives the Dart way (`String`, `int`, ...) and uses
+/// `List<T>` / `Map<String, dynamic>` for collection / opaque-JSON shapes.
 fn dart_type_from(schema: &serde_json::Value, force_optional: bool) -> Result<String, Error> {
     if let Some(reference) = schema.get("$ref").and_then(|val| val.as_str()) {
         let name = reference

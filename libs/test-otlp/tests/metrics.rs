@@ -1,7 +1,7 @@
-//! Exercises the mock's `/metrics` endpoint and `flatten_metrics` across every OTLP metric shape:
-//! `Sum`, `Gauge`, `Histogram`, and a data-less metric, decoded from both JSON and protobuf bodies, plus a
-//! non-string `service.name` and a malformed body. This is the direct-injection counterpart to the end-to-end
-//! `et-ws-test-server` `OTel` test, which only drives the integer-counter path the hub actually emits.
+//! Exercises the mock's `/metrics` endpoint and `flatten_metrics` across every OTLP metric shape: `Sum`, `Gauge`,
+//! `Histogram`, and a data-less metric, decoded from both JSON and protobuf bodies, plus a non-string `service.name`
+//! and a malformed body. This is the direct-injection counterpart to the end-to-end `et-ws-test-server` `OTel` test,
+//! which only drives the integer-counter path the hub actually emits.
 #![cfg(test)]
 
 use et_test_otlp::{Protocol, ServerHandle};
@@ -30,8 +30,10 @@ fn metric(name: &str, data: Option<Data>) -> Metric {
     }
 }
 
-/// One resource carrying a non-string `service.name` (so the `StringValue` guard falls through to the empty
-/// default) and one metric of every `Data` variant the flattener branches on, including a data-less one.
+/// Fixture covering the non-string `service.name` guard and every `Data` variant the flattener branches on.
+///
+/// One resource carrying a non-string `service.name` (so the `StringValue` guard falls through to the empty default)
+/// and one metric of every `Data` variant, including a data-less one.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct fixture builder for the metric-shape matrix; kept separate"

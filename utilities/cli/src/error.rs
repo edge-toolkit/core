@@ -4,11 +4,9 @@ use thiserror::Error;
 
 /// Errors returned by `et-cli` operations.
 ///
-/// Variants carry the path or value they failed on so users can see *what*
-/// went wrong, not just the underlying error text. `Io` is
-/// `#[from]`-forwarded -- the inner `std::io::Error` arrives from `fs_err`,
-/// which already embeds the failing path in its `Display`, so we don't need
-/// a path field here.
+/// Variants carry the path or value they failed on so users can see *what* went wrong, not just the underlying error
+/// text. `Io` is `#[from]`-forwarded -- the inner `std::io::Error` arrives from `fs_err`, which already embeds the
+/// failing path in its `Display`, so we don't need a path field here.
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum CliError {
@@ -21,9 +19,8 @@ pub enum CliError {
     #[error("Failed to parse {path}")]
     ParseToml {
         path: PathBuf,
-        // Boxed because `toml::de::Error` is large enough on Windows
-        // (with MSVC alignment) to push the enum past clippy's
-        // `result_large_err` 128-byte threshold.
+        // Boxed because `toml::de::Error` is large enough on Windows (with MSVC alignment) to push the enum past
+        // clippy's `result_large_err` 128-byte threshold.
         #[source]
         source: Box<toml::de::Error>,
     },
@@ -105,6 +102,7 @@ pub enum CliError {
 }
 
 /// Parse `src` as TOML into `T`, attaching `path` to the error on failure.
+///
 /// Replaces a `.map_err(...)` at every call site.
 pub fn parse_toml<T, P>(path: P, src: &str) -> Result<T, CliError>
 where
@@ -135,8 +133,9 @@ where
     }
 }
 
-/// Serialize `value` as pretty JSON, surfacing the failure as
-/// [`CliError::SerializeJson`]. There's no input path to attach.
+/// Serialize `value` as pretty JSON, surfacing the failure as [`CliError::SerializeJson`].
+///
+/// There's no input path to attach.
 pub fn serialize_json_pretty<T>(value: &T) -> Result<String, CliError>
 where
     T: serde::Serialize,

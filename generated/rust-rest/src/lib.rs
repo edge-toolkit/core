@@ -130,9 +130,8 @@ impl ClientInfo<()> for Client {
     }
 }
 impl ClientHooks<()> for &Client {
-    // Injected by `utilities/int-gen` (inject_retry_exec): retry request
-    // execution with exponential backoff. reqwest's native retry has no
-    // backoff yet -- remove this and use `ClientBuilder::retries` once it does.
+    // Injected by `utilities/int-gen` (inject_retry_exec): retry request execution with exponential backoff. reqwest's
+    // native retry has no backoff yet -- remove this and use `ClientBuilder::retries` once it does.
     #[cfg(not(target_arch = "wasm32"))]
     async fn exec(&self, request: ::reqwest::Request, _info: &OperationInfo) -> ::reqwest::Result<::reqwest::Response> {
         use ::retry_policies::policies::ExponentialBackoff;

@@ -859,6 +859,31 @@ run = "cargo check --workspace {{ vars.cargo_ws_excludes }}"
 [tasks.cargo-fmt]
 run = "cargo +{{ vars.rust_nightly }} fmt"
 
+[tasks.parfit-fmt]
+description = "Reflow Rust comment prose to the 120-column width with parfit (in-place)"
+# Reflow Rust comment prose with parfit, skipping the constructs it would otherwise flatten.
+#
+# Rust only: parfit's `toml` / `yaml` language modes emit an empty file, and its plain-text mode joins keys and
+# table headers into the surrounding comment prose, so TOML, YAML and markdown stay hand-wrapped. The width matches
+# .rustfmt.toml's max_width. The skip regexes pass rustdoc `# Heading` lines and list items (`*`, `-`, `1.`) through
+# verbatim -- without them parfit folds `# Panics` into the sentence below it and a bulleted list into one paragraph.
+# It also breaks a line after a hyphen, inside backticks included, and has no switch for that, so check the diff for
+# comment lines ending in `-` and rejoin the word by hand. Given file paths, reflows just those; with none, every
+# tracked Rust file except the generator-owned ones. The usage-spec is what carries the paths: mise appends bare task
+# arguments to the body text, which the eval in task-shell.sh then rejects, whereas a `var` arg arrives space-joined
+# in $usage_file for xargs to split.
+run = """
+heading='^\\s*//[/!]?\\s*#'
+item='^\\s*//[/!]?\\s*([-*]|[0-9]+\\.)\\s'
+if [ -z "${usage_file:-}" ]; then
+  git ls-files '*.rs' ':!generated/**' ':!services/ws-wasi-runner/src/bindings.rs'
+else
+  printf '%s\\n' "$usage_file"
+fi | xargs -r parfit -w 120 -s "$heading" -s "$item"
+"""
+shell = "{{ vars.task_shell }}"
+usage = 'arg "[file]..." var=#true help="Rust files to reflow (default: every tracked hand-written .rs file)"'
+
 [tasks.cargo-fmt-check]
 run = "cargo +{{ vars.rust_nightly }} fmt -- --check"
 

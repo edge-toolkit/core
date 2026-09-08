@@ -56,11 +56,9 @@ pub fn list_modules(config: &ModulesConfig) -> Vec<(String, PathBuf)> {
             }
         } else if let Ok(entries) = fs::read_dir(path) {
             for entry in entries.flatten() {
-                // `Path::is_dir` follows symlinks; `entry.file_type().is_dir()`
-                // would skip them. mise's aube npm backend lays out
-                // `node_modules/.aube/node_modules/<pkg>` as a symlink farm,
-                // so the symlink-following variant is required to discover
-                // those packages.
+                // `Path::is_dir` follows symlinks; `entry.file_type().is_dir()` would skip them. mise's aube npm
+                // backend lays out `node_modules/.aube/node_modules/<pkg>` as a symlink farm, so the symlink-following
+                // variant is required to discover those packages.
                 let entry_path = entry.path();
                 if entry_path.is_dir() && !config.paths.contains(&entry_path) {
                     let pkg_dir = entry_path.join("pkg");
@@ -89,12 +87,11 @@ pub fn list_modules(config: &ModulesConfig) -> Vec<(String, PathBuf)> {
     modules
 }
 
-/// Register `GET /modules/` (JSON list), `GET /modules/{name}/...` (static files),
-/// and `GET /` (root module).
+/// Register `GET /modules/` (JSON list), `GET /modules/{name}/...` (static files), and `GET /` (root module).
 ///
 /// # Panics
-/// Panics if `config.root` is not present in `config.paths` -- server config
-/// is fatal early so the operator sees the misconfiguration at startup.
+/// Panics if no discovered module is named `config.root` -- server config is fatal early so the operator sees the
+/// misconfiguration at startup.
 #[expect(
     clippy::panic,
     reason = "missing root module is a config error; failing fast at startup is intentional"

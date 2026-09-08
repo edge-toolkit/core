@@ -1,13 +1,11 @@
 //! Native runner that executes browser-targeted ws-modules under embedded Deno.
 //!
-//! Counterpart to `et-ws-wasi-runner` (which runs WASI components inside
-//! wasmtime); this crate runs the JavaScript entry points (wasm-bindgen glue,
-//! Pyodide shims, Dart/Zig/Java shims) that normally load in a real browser.
+//! Counterpart to `et-ws-wasi-runner` (which runs WASI components inside wasmtime); this crate runs the JavaScript
+//! entry points (wasm-bindgen glue, Pyodide shims, Dart/Zig/Java shims) that normally load in a real browser.
 //!
-//! The runner fetches `package.json` from the ws-server, downloads the `main`
-//! JS file, and evaluates it inside a Deno `JsRuntime` equipped with the
-//! standard web platform extensions (fetch, `WebSocket`, `WebStorage`, timers,
-//! crypto, WebGPU).
+//! The runner fetches `package.json` from the ws-server, downloads the `main` JS file, and evaluates it inside a Deno
+//! `JsRuntime` equipped with the standard web platform extensions (fetch, `WebSocket`, `WebStorage`, timers, crypto,
+//! WebGPU).
 
 use std::time::Duration;
 
@@ -27,9 +25,8 @@ pub use crate::error::RunnerError;
     reason = "MainWorker is !Send; the caller must use a current_thread tokio runtime"
 )]
 pub async fn run_module(module_name: &str, ws_url: &str, coverage: bool) -> Result<(), RunnerError> {
-    // Ensure a rustls crypto provider is installed (needed by deno_tls/deno_fetch).
-    // MainWorker bootstrap installs one but the workspace `et-rest-client` we
-    // use ahead of MainWorker (to fetch package.json) also wants a provider, so
+    // Ensure a rustls crypto provider is installed (needed by deno_tls/deno_fetch). MainWorker bootstrap installs one
+    // but the workspace `et-rest-client` we use ahead of MainWorker (to fetch package.json) also wants a provider, so
     // install eagerly here.
     let _ignore = deno_runtime::deno_tls::rustls::crypto::aws_lc_rs::default_provider().install_default();
     let http_base = derive_http_base(ws_url)?;
@@ -46,17 +43,13 @@ pub async fn run_module(module_name: &str, ws_url: &str, coverage: bool) -> Resu
     Ok(())
 }
 
-/// Build the REST client with a reqwest retry policy that replays transport-
-/// level send failures.
+/// Build the REST client with a reqwest retry policy that replays transport-level send failures.
 ///
-/// The pooled keep-alive race: the ws-server can close an idle connection while
-/// the slow `MainWorker` bootstrap runs, so the next `send()` fails with "error
-/// sending request". reqwest's default `ProtocolNacks` policy does NOT cover
-/// this -- it only retries h2 `REFUSED_STREAM` / h3 timeouts, and we build
-/// reqwest without the `http2` feature, so it's a no-op for these h1 fetches.
-/// So classify any transport error (a send that produced no response) as
-/// retryable, scoped to the ws-server host, with no budget so the idempotent,
-/// low-volume module GETs always get their retry.
+/// The pooled keep-alive race: the ws-server can close an idle connection while the slow `MainWorker` bootstrap runs,
+/// so the next `send()` fails with "error sending request". reqwest's default `ProtocolNacks` policy does NOT cover
+/// this -- it only retries h2 `REFUSED_STREAM` / h3 timeouts, and we build reqwest without the `http2` feature, so
+/// it's a no-op for these h1 fetches. So classify any transport error (a send that produced no response) as retryable,
+/// scoped to the ws-server host, with no budget so the idempotent, low-volume module GETs always get their retry.
 #[expect(clippy::single_call_fn, reason = "split out of run_module for readability")]
 fn build_rest_client(http_base: &str) -> Result<et_rest_client::Client, RunnerError> {
     let host = reqwest::Url::parse(http_base)

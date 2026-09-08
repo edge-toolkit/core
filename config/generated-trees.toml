@@ -42,6 +42,7 @@
 regenerated_by = "mise run gen-specs-all"
 required_in = [
   "config/ast-grep/rules/command-requires-command-error.yaml",
+  "config/ast-grep/rules/doc-summary-ends-with-period.yaml",
   "config/ast-grep/rules/no-allow-attributes.yaml",
   "config/ast-grep/rules/no-concat-raw-strings.yaml",
   "config/ast-grep/rules/no-consecutive-expect.yaml",

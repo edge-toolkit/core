@@ -1,14 +1,11 @@
-//! Implements `wasi:keyvalue/store` against the ws-server's storage and
-//! modules services via the typed `et-rest-client`. The bucket identifier
-//! names a namespace:
+//! Implements `wasi:keyvalue/store` against the ws-server's storage and modules services via the typed
+//! `et-rest-client`. The bucket identifier names a namespace:
 //!
-//! * `<agent-uuid>` -> per-agent storage bucket. Reads work for any agent's
-//!   bucket (server static-serves everything under `/storage/`); writes only
-//!   succeed when the runner's own agent owns the bucket (server enforces
-//!   `agent_id` is registered).
-//! * `modules/<module-name>` -> module asset bucket. Used by guests to fetch
-//!   their own static assets bundled in `pkg/`. Writes return
-//!   `access-denied` since et-modules-service serves files static.
+//! * `<agent-uuid>` -> per-agent storage bucket. Reads work for any agent's bucket (server static-serves everything
+//!   under `/storage/`); writes only succeed when the runner's own agent owns the bucket (server enforces `agent_id`
+//!   is registered).
+//! * `modules/<module-name>` -> module asset bucket. Used by guests to fetch their own static assets bundled in
+//!   `pkg/`. Writes return `access-denied` since et-modules-service serves files static.
 
 use futures_util::StreamExt as _;
 use wasmtime::component::Resource;
@@ -17,8 +14,9 @@ use crate::HostState;
 use crate::bindings::wasi::keyvalue::store::{Error, Host, HostBucket, KeyResponse};
 use crate::host::kv_not_implemented;
 
-/// Bucket-kind discriminator. The wire prefix on the ws-server is implied by
-/// the variant; the typed REST client picks the right operation.
+/// Bucket-kind discriminator.
+///
+/// The wire prefix on the ws-server is implied by the variant; the typed REST client picks the right operation.
 #[non_exhaustive]
 pub enum Bucket {
     /// `/storage/{agent_id}/` -- writable, owned by the named agent.
@@ -51,8 +49,9 @@ fn bucket_from_identifier(identifier: &str) -> Result<Bucket, Error> {
     })
 }
 
-/// Drain a progenitor `ByteStream` into a `Vec<u8>`. Used by both bucket
-/// kinds since the wasi:keyvalue/store interface returns whole values.
+/// Drain a progenitor `ByteStream` into a `Vec<u8>`.
+///
+/// Used by both bucket kinds since the wasi:keyvalue/store interface returns whole values.
 #[expect(
     clippy::single_call_fn,
     reason = "named helper; used once by <HostState as HostBucket>::get"
@@ -91,8 +90,8 @@ impl HostBucket for HostState {
         };
         match result {
             Ok(response) => Ok(Some(collect_stream(response.into_inner()).await?)),
-            // The OpenAPI spec gives both endpoints a 404 variant, so progenitor
-            // surfaces "no such key" as `Error::ErrorResponse`.
+            // The OpenAPI spec gives both endpoints a 404 variant, so progenitor surfaces "no such key" as
+            // `Error::ErrorResponse`.
             Err(et_rest_client::Error::ErrorResponse(_)) => Ok(None),
             Err(e) => Err(Error::Other(format!("GET {key}: {e}"))),
         }

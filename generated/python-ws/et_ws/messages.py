@@ -9,10 +9,8 @@ class WsConnect(BaseModel):
     """
     Messages a client is allowed to SEND to the server.
 
-    Split from [`ServerMessage`] so the type system rejects client code
-    constructing a `ConnectAck`, and so the server's inbound match arms
-    can be exhaustive without an "unexpected server-originated message"
-    trap.
+    Split from [`ServerMessage`] so the type system rejects client code constructing a `ConnectAck`, and so the server's
+    inbound match arms can be exhaustive without an "unexpected server-originated message" trap.
     """
 
     agent_id: str | None = None
@@ -23,10 +21,8 @@ class WsAlive(BaseModel):
     """
     Messages a client is allowed to SEND to the server.
 
-    Split from [`ServerMessage`] so the type system rejects client code
-    constructing a `ConnectAck`, and so the server's inbound match arms
-    can be exhaustive without an "unexpected server-originated message"
-    trap.
+    Split from [`ServerMessage`] so the type system rejects client code constructing a `ConnectAck`, and so the server's
+    inbound match arms can be exhaustive without an "unexpected server-originated message" trap.
     """
 
     timestamp: str
@@ -37,10 +33,8 @@ class WsListAgents(BaseModel):
     """
     Messages a client is allowed to SEND to the server.
 
-    Split from [`ServerMessage`] so the type system rejects client code
-    constructing a `ConnectAck`, and so the server's inbound match arms
-    can be exhaustive without an "unexpected server-originated message"
-    trap.
+    Split from [`ServerMessage`] so the type system rejects client code constructing a `ConnectAck`, and so the server's
+    inbound match arms can be exhaustive without an "unexpected server-originated message" trap.
     """
 
     type: Literal["et-list-agents"]
@@ -50,10 +44,8 @@ class WsSendAgentMessage(BaseModel):
     """
     Messages a client is allowed to SEND to the server.
 
-    Split from [`ServerMessage`] so the type system rejects client code
-    constructing a `ConnectAck`, and so the server's inbound match arms
-    can be exhaustive without an "unexpected server-originated message"
-    trap.
+    Split from [`ServerMessage`] so the type system rejects client code constructing a `ConnectAck`, and so the server's
+    inbound match arms can be exhaustive without an "unexpected server-originated message" trap.
     """
 
     message: Any = Field(..., description="Arbitrary JSON value (opaque to the protocol)")
@@ -65,10 +57,8 @@ class WsBroadcastMessage(BaseModel):
     """
     Messages a client is allowed to SEND to the server.
 
-    Split from [`ServerMessage`] so the type system rejects client code
-    constructing a `ConnectAck`, and so the server's inbound match arms
-    can be exhaustive without an "unexpected server-originated message"
-    trap.
+    Split from [`ServerMessage`] so the type system rejects client code constructing a `ConnectAck`, and so the server's
+    inbound match arms can be exhaustive without an "unexpected server-originated message" trap.
     """
 
     message: Any = Field(..., description="Arbitrary JSON value (opaque to the protocol)")
@@ -79,10 +69,8 @@ class WsMessageAck(BaseModel):
     """
     Messages a client is allowed to SEND to the server.
 
-    Split from [`ServerMessage`] so the type system rejects client code
-    constructing a `ConnectAck`, and so the server's inbound match arms
-    can be exhaustive without an "unexpected server-originated message"
-    trap.
+    Split from [`ServerMessage`] so the type system rejects client code constructing a `ConnectAck`, and so the server's
+    inbound match arms can be exhaustive without an "unexpected server-originated message" trap.
     """
 
     message_id: str
@@ -93,10 +81,8 @@ class WsClientEvent(BaseModel):
     """
     Messages a client is allowed to SEND to the server.
 
-    Split from [`ServerMessage`] so the type system rejects client code
-    constructing a `ConnectAck`, and so the server's inbound match arms
-    can be exhaustive without an "unexpected server-originated message"
-    trap.
+    Split from [`ServerMessage`] so the type system rejects client code constructing a `ConnectAck`, and so the server's
+    inbound match arms can be exhaustive without an "unexpected server-originated message" trap.
     """
 
     action: str
@@ -109,10 +95,8 @@ class WsClientRelayText(BaseModel):
     """
     Messages a client is allowed to SEND to the server.
 
-    Split from [`ServerMessage`] so the type system rejects client code
-    constructing a `ConnectAck`, and so the server's inbound match arms
-    can be exhaustive without an "unexpected server-originated message"
-    trap.
+    Split from [`ServerMessage`] so the type system rejects client code constructing a `ConnectAck`, and so the server's
+    inbound match arms can be exhaustive without an "unexpected server-originated message" trap.
     """
 
     content: str
@@ -127,10 +111,8 @@ class WsClientRelayBinary(BaseModel):
     """
     Messages a client is allowed to SEND to the server.
 
-    Split from [`ServerMessage`] so the type system rejects client code
-    constructing a `ConnectAck`, and so the server's inbound match arms
-    can be exhaustive without an "unexpected server-originated message"
-    trap.
+    Split from [`ServerMessage`] so the type system rejects client code constructing a `ConnectAck`, and so the server's
+    inbound match arms can be exhaustive without an "unexpected server-originated message" trap.
     """
 
     content: list[ContentItem] = Field(..., description="Byte array (uint8)")
@@ -162,6 +144,6 @@ class ClientMessage(
         | WsClientRelayBinary
     ) = Field(
         ...,
-        description='Messages a client is allowed to SEND to the server.\n\nSplit from [`ServerMessage`] so the type system rejects client code\nconstructing a `ConnectAck`, and so the server\'s inbound match arms\ncan be exhaustive without an "unexpected server-originated message"\ntrap.',
+        description='Messages a client is allowed to SEND to the server.\n\nSplit from [`ServerMessage`] so the type system rejects client code constructing a `ConnectAck`, and so the server\'s\ninbound match arms can be exhaustive without an "unexpected server-originated message" trap.',
         title="ClientMessage",
     )
