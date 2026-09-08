@@ -136,7 +136,21 @@ pub fn render_rust_client() -> Result<String, Error> {
     // compile it as Rust and trips on the surrounding backticks. Allow the rustdoc codeblock lint at the generated-file
     // level rather than fighting the upstream emit (or rewriting every public-API description to dodge the markdown
     // rule).
-    Ok(format!("#![allow(rustdoc::invalid_rust_codeblocks)]\n{body}"))
+    // The pre-hook above cannot fail, so the future it returns carries `Infallible` as its error type. That makes
+    // the `Err(e) => return Err(Error::Custom(e.to_string()))` arm progenitor wraps around every hook call
+    // uninhabited, and `e.to_string()` an unreachable call in each one. Giving the hook an inhabited error type it
+    // never produces would clear the lint by making the signature lie about what the hook does, so it is allowed at
+    // the generated-file level instead. Nothing in this file is hand-written, so no real unreachable code hides
+    // behind it.
+    //
+    // `unused_results` is denied workspace-wide and fires on progenitor's `header_map.append(..)` calls, whose
+    // `bool` says only whether that header was already set -- nothing a generated client could act on.
+    let header = concat!(
+        "#![allow(rustdoc::invalid_rust_codeblocks)]\n",
+        "#![allow(unreachable_code)]\n",
+        "#![allow(unused_results)]",
+    );
+    Ok(format!("{header}\n{body}"))
 }
 
 /// Wrap progenitor's `pub fn new(baseurl: &str) -> Self` with a browser-origin fallback for an empty `baseurl`.

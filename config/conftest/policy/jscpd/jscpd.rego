@@ -24,7 +24,7 @@ package jscpd
 
 # Ceiling on the clone fingerprints recorded in config/jscpd-baseline.json.
 # May only ever be lowered. See the header for what raising it implies.
-declared_clones := 359
+declared_clones := 322
 
 # How far under the ceiling the baseline may sit before the ceiling has to be banked downward.
 max_slack := 20

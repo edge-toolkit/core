@@ -1,4 +1,6 @@
 #![allow(rustdoc::invalid_rust_codeblocks)]
+#![allow(unreachable_code)]
+#![allow(unused_results)]
 #[allow(unused_imports)]
 pub use progenitor_client::{ByteStream, ClientInfo, Error, ResponseValue};
 #[allow(unused_imports)]
