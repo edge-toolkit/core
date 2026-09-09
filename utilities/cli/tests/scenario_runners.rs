@@ -1,4 +1,3 @@
-#![cfg(test)]
 //! End-to-end check that each math1 scenario's generated runner tasks actually run their modules.
 //!
 //! This is deployment verification, not module verification. Each runner's own `tests/modules.rs` already
@@ -27,6 +26,7 @@
 //! stored -- observed exactly that way before this rewrite. An in-process hub has no tree to reap, brings its own
 //! temporary storage root so no previous run's output can be mistaken for this one's, and is the same server the
 //! sibling runner tests use.
+#![cfg(test)]
 
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -262,6 +262,14 @@ fn run_scenario(scenario: &str, twin_task: &str, twin_crate: &str, trigger_crate
     // The generated tasks name the hub's standard port, so the hub has to be on that port rather than a
     // reserved one. `start_on` fails loudly if it is already taken, which is the right outcome: a leftover
     // server would otherwise answer the runners' readiness check and quietly serve a different storage root.
+    //
+    // Every test in this file therefore wants that one port, and none of them may overlap. That is enforced by
+    // `config/nextest.toml`, which puts this binary in a `max-threads = 1` test group -- not by anything here.
+    // An in-process lock would be the wrong instrument and would not work: nextest runs each test in its own
+    // process, so a `Mutex` or `OnceLock` in this file guards nothing across the tests it appears to guard. The
+    // repo runs tests only through nextest with that config (`mise run cargo-test`); a bare `cargo nextest run`
+    // that omits `--config-file config/nextest.toml` silently drops the group and the tests then race for the
+    // port, which looks like a deployment bug and is not one.
     let server = et_ws_test_server::start_on(Services::InsecureWebSocketServer.port());
     let storage_dir = server.storage_dir.path();
 

@@ -73,6 +73,8 @@ action-validator = { version = "latest", os = ["linux", "macos"] }
 # Vector ships no darwin/amd64 prebuilt, so second-tier macos/x64 builds the same pin from source below.
 # The aqua error was: `unsupported env: darwin/amd64 (supported: ["linux", "darwin/arm64", "windows/amd64"])`.
 "aqua:vectordotdev/vector" = { version = "0.56.0", os = ["linux", "macos/arm64", "windows"] }
+# Validates the generated Kubernetes manifests against the API schemas, which the drift check cannot do.
+"aqua:yannh/kubeconform" = "latest"
 ast-grep = "latest"
 cargo-binstall = "latest"
 "cargo:cargo-expand" = { version = "latest", os = ["linux", "macos"] }
@@ -740,6 +742,7 @@ depends = [
   "gitleaks-check",
   "hadolint-check",
   "jscpd-check",
+  "kubeconform-check",
   "link-check",
   "ls-lint-check",
   "mise-lock-check",
@@ -1242,6 +1245,23 @@ run = "typos --config config/typos.toml --write-changes"
 # lychee makes live network requests, so config/lychee.toml is tuned to keep it from being flaky.
 # Retries, 429-tolerance and a disk cache. It checks every URL in the repo's Markdown + Rust sources; lychee
 # extracts URLs from .rs comments and string literals too.
+# Validates the generated Kubernetes manifests against the real API schemas.
+# `verification-check` only proves the manifests are stable across regenerations, not that a cluster would
+# accept them, so a generator that emitted a malformed object would drift-check clean forever. `-strict` also
+# rejects unknown fields, which is what turns a mistyped manifest key into a failure here rather than at
+# `kubectl apply`. The schemas are fetched on first use and cached under target/; it is a handful of files
+# from raw.githubusercontent.com, far inside the rate limit that makes larger fetches worth mirroring.
+[tasks.kubeconform-check]
+alias = "kubeconform"
+description = "Validate the generated Kubernetes manifests against the Kubernetes API schemas"
+run = """
+cache=target/kubeconform-cache
+coreutils mkdir -p "$cache"
+find verification -name k3s.yaml -print0 |
+  xargs -0 -r kubeconform -strict -summary -cache "$cache"
+"""
+shell = "{{ vars.task_shell }}"
+
 [tasks.link-check]
 description = "Check that URLs in .md and .rs files are reachable (network)"
 # The .rs glob is scoped to the source dirs, not a bare `**/*.rs`.

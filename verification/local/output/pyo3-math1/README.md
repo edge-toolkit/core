@@ -1,7 +1,7 @@
 # pyo3-math1
 
 This directory contains generated deployment configs for the `pyo3-math1` scenario.
-Files: `mise.toml`, `compose.yaml`.
+Files: `mise.toml`, `compose.yaml`, `k3s.yaml`.
 
 The scenario exposes these workflow modules: pyo3-math1, wasi-math1-sender.
 
@@ -50,4 +50,43 @@ Stop the scenario with:
 
 ```bash
 docker compose down
+```
+
+## Run With k3s
+
+The manifests reference images by name and never build them, so build and import each one first.
+For the hub, from the repository root:
+
+```bash
+scenario=pyo3-math1
+image="et-ws-server-$scenario:latest"
+docker build -t "$image" -f "verification/local/output/$scenario/Dockerfile" .
+docker save "$image" | sudo k3s ctr images import -
+```
+
+Each runner image is built the same way from its own `services/ws-<kind>-runner/Dockerfile` and
+tagged `et-ws-<kind>-runner:latest`.
+
+### Load The Credential
+
+`secrets.env` is generated but deliberately not committed, so the `Secret` is created from it rather
+than shipped inside `k3s.yaml`. From this directory:
+
+```bash
+ns=et-pyo3-math1
+kubectl create namespace "$ns"
+kubectl create secret generic "$ns-secrets" --from-env-file=secrets.env -n "$ns"
+```
+
+### Apply
+
+```bash
+kubectl apply -f k3s.yaml
+```
+
+The runners exit and restart until the hub reports ready, so `CrashLoopBackOff` while the hub
+starts is expected here rather than a fault. Watch it settle with:
+
+```bash
+kubectl get pods -n "$ns" --watch
 ```

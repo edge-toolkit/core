@@ -1,0 +1,163 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: et-facility-security-scenario
+---
+apiVersion: v1
+kind: ConfigMap
+data:
+  RUST_LOG: warn
+  ZO_DATA_DIR: /data
+  ZO_ROOT_USER_EMAIL: root@example.com
+metadata:
+  name: openobserve-config
+  namespace: et-facility-security-scenario
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openobserve-data
+  namespace: et-facility-security-scenario
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: openobserve
+  name: openobserve
+  namespace: et-facility-security-scenario
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openobserve
+  template:
+    metadata:
+      labels:
+        app: openobserve
+    spec:
+      containers:
+        - envFrom:
+            - configMapRef:
+                name: openobserve-config
+            - secretRef:
+                name: et-facility-security-scenario-secrets
+          image: openobserve/openobserve:v0.91.5
+          imagePullPolicy: IfNotPresent
+          name: openobserve
+          ports:
+            - containerPort: 5080
+          readinessProbe:
+            exec:
+              command:
+                - /openobserve
+                - node
+                - status
+            failureThreshold: 20
+            periodSeconds: 5
+          volumeMounts:
+            - mountPath: /data
+              name: openobserve-data
+      volumes:
+        - name: openobserve-data
+          persistentVolumeClaim:
+            claimName: openobserve-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: openobserve
+  name: openobserve
+  namespace: et-facility-security-scenario
+spec:
+  ports:
+    - name: http
+      port: 5080
+      targetPort: 5080
+  selector:
+    app: openobserve
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ws-server-storage
+  namespace: et-facility-security-scenario
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ws-server
+  name: ws-server
+  namespace: et-facility-security-scenario
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ws-server
+  template:
+    metadata:
+      labels:
+        app: ws-server
+    spec:
+      containers:
+        - env:
+            - name: MODULES_PATHS
+              value: /app/services/ws-server/static,/app/services/ws-wasm-agent,/app/services/ws-modules/face-detection,/app/services/ws-modules/har1,/app/services/ws-modules/pyface1,/app/data/model-modules/model-face1,/app/node_modules/onnxruntime-web,/app/data/model-modules/model-har-motion1,/app/generated/python-ws,/app/node_modules/pyodide
+            - name: OTLP_COLLECTOR_URL
+              value: http://openobserve:5080/api/default/v1
+            - name: STORAGE_URL
+              value: file:///app/storage
+          envFrom:
+            - secretRef:
+                name: et-facility-security-scenario-secrets
+          image: et-ws-server-facility-security-scenario:latest
+          imagePullPolicy: IfNotPresent
+          name: ws-server
+          ports:
+            - containerPort: 8080
+            - containerPort: 8443
+          readinessProbe:
+            failureThreshold: 20
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 5
+          volumeMounts:
+            - mountPath: /app/storage
+              name: ws-server-storage
+      volumes:
+        - name: ws-server-storage
+          persistentVolumeClaim:
+            claimName: ws-server-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ws-server
+  name: ws-server
+  namespace: et-facility-security-scenario
+spec:
+  ports:
+    - name: ws
+      port: 8080
+      targetPort: 8080
+    - name: wss
+      port: 8443
+      targetPort: 8443
+  selector:
+    app: ws-server

@@ -19,8 +19,8 @@ mod module_package_json;
 mod scenario_password;
 
 pub use self::deployment_types::{
-    docker_image_module_paths, generate_docker_compose_deployment, generate_mise_deployment, generate_scenario_image,
-    scenario_module_paths,
+    docker_image_module_paths, generate_docker_compose_deployment, generate_k3s_deployment, generate_mise_deployment,
+    generate_scenario_image, scenario_module_paths,
 };
 pub use self::error::CliError;
 pub use self::module_package_json::generate_module_package_json;
@@ -37,16 +37,18 @@ pub enum OutputType {
     Mise,
     #[serde(rename = "docker-compose", alias = "docker_compose")]
     DockerCompose,
+    K3s,
 }
 
 impl OutputType {
-    pub const ALL: &'static [Self] = &[Self::Mise, Self::DockerCompose];
+    pub const ALL: &'static [Self] = &[Self::Mise, Self::DockerCompose, Self::K3s];
 
     #[must_use]
     pub const fn output_file_name(self) -> &'static str {
         match self {
             Self::Mise => "mise.toml",
             Self::DockerCompose => "compose.yaml",
+            Self::K3s => "k3s.yaml",
         }
     }
 }
@@ -258,6 +260,8 @@ pub fn output_type_from_input(value: &str) -> Result<OutputType, CliError> {
         Ok(OutputType::Mise)
     } else if matches!(value.to_ascii_lowercase().as_str(), "docker-compose" | "docker_compose") {
         Ok(OutputType::DockerCompose)
+    } else if value.eq_ignore_ascii_case("k3s") {
+        Ok(OutputType::K3s)
     } else {
         Err(CliError::UnsupportedDeploymentType(value.to_string()))
     }
@@ -297,6 +301,7 @@ fn generate_deployment_outputs(
                 generate_docker_compose_deployment(cluster, output_dir)?;
                 generate_scenario_image(cluster, output_dir)?;
             }
+            OutputType::K3s => generate_k3s_deployment(cluster, output_dir)?,
         }
     }
 
@@ -408,7 +413,7 @@ fn generated_readme(cluster: &ClusterInput, module_names: &[String], output_type
     };
     let run_instructions = output_types
         .iter()
-        .map(|output_type| generated_run_instructions(*output_type))
+        .map(|output_type| generated_run_instructions(*output_type, &cluster.cluster_name))
         .collect::<Vec<_>>()
         .join("\n");
 
@@ -444,7 +449,7 @@ fn secrets_note() -> String {
     )
 }
 
-fn generated_run_instructions(output_type: OutputType) -> String {
+fn generated_run_instructions(output_type: OutputType, cluster_name: &str) -> String {
     match output_type {
         OutputType::Mise => concat!(
             "## Run With Mise\n\n",
@@ -480,7 +485,51 @@ fn generated_run_instructions(output_type: OutputType) -> String {
             "```\n"
         )
         .to_string(),
+        OutputType::K3s => k3s_run_instructions(cluster_name),
     }
+}
+
+/// Render the k3s half of the generated README.
+///
+/// Longer than the other two because a Kubernetes deployment needs two things done before `kubectl apply`
+/// that neither `mise` nor compose does: the images have to exist on the node, since manifests reference
+/// images rather than building them, and the credential has to be loaded as a `Secret`, since it is the one
+/// generated file the repository does not carry.
+fn k3s_run_instructions(cluster_name: &str) -> String {
+    format!(
+        concat!(
+            "## Run With k3s\n\n",
+            "The manifests reference images by name and never build them, so build and import each one first.\n",
+            "For the hub, from the repository root:\n\n",
+            "```bash\n",
+            "scenario={name}\n",
+            "image=\"et-ws-server-$scenario:latest\"\n",
+            "docker build -t \"$image\" -f \"verification/local/output/$scenario/Dockerfile\" .\n",
+            "docker save \"$image\" | sudo k3s ctr images import -\n",
+            "```\n\n",
+            "Each runner image is built the same way from its own `services/ws-<kind>-runner/Dockerfile` and\n",
+            "tagged `et-ws-<kind>-runner:latest`.\n\n",
+            "### Load The Credential\n\n",
+            "`{file}` is generated but deliberately not committed, so the `Secret` is created from it rather\n",
+            "than shipped inside `k3s.yaml`. From this directory:\n\n",
+            "```bash\n",
+            "ns=et-{name}\n",
+            "kubectl create namespace \"$ns\"\n",
+            "kubectl create secret generic \"$ns-secrets\" --from-env-file={file} -n \"$ns\"\n",
+            "```\n\n",
+            "### Apply\n\n",
+            "```bash\n",
+            "kubectl apply -f k3s.yaml\n",
+            "```\n\n",
+            "The runners exit and restart until the hub reports ready, so `CrashLoopBackOff` while the hub\n",
+            "starts is expected here rather than a fault. Watch it settle with:\n\n",
+            "```bash\n",
+            "kubectl get pods -n \"$ns\" --watch\n",
+            "```\n"
+        ),
+        file = SECRETS_ENV_FILE,
+        name = cluster_name
+    )
 }
 
 #[must_use]

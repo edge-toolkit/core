@@ -564,7 +564,24 @@ scenario deployments do not use this password -- `et-cli` derives a per-scenario
 Tests must live in a `tests/` directory or in source files prefixed `test_`. Do not use inline `#[cfg(test)]` modules.
 If a function is private but needs testing, add a `[lib]` target to the crate and export it so `tests/` can reach it.
 
-Every file under `tests/` must start with `#![cfg(test)]` (placed after the file's `//!` doc comment, if any).
+Every file under `tests/` carries `#![cfg(test)]`, and the preamble order is fixed: the `//!` module doc comes
+**first**, then the attribute. Both are inner attributes, so either order compiles -- this is a house style, not
+a language rule, and it exists so the file opens by saying what it covers rather than with a cfg gate. A file
+with no module doc simply opens with the attribute. The two shapes, in full:
+
+    //! What this file covers, in one line.
+    //!
+    //! Any elaboration.
+    #![cfg(test)]
+
+    #![cfg(test)]
+
+    use std::process::Command;
+
+Read "starts with `#![cfg(test)]`" as "the attribute precedes the first item", not "the attribute is line 1" --
+a `//!` block above it is required, not a violation. As of this writing every one of the 45 test files that has
+a module doc puts it first, so a review comment claiming the attribute must lead is reading a rule this repo
+does not have.
 
 Shared, **low-dependency** test helper functions -- free-port reservation, port-readiness waits, and the like --
 belong in the `et-test-helpers` crate (`libs/test-helpers`); reuse and extend it rather than re-implementing the same

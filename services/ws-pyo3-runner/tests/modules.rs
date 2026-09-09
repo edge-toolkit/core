@@ -117,6 +117,12 @@ async fn module_behaves(
     } else {
         EXCHANGE_BUDGET
     };
+    // This `timeout` is the case's only real deadline, and passing `budget` twice is deliberate: it bounds the
+    // whole exchange here, while the inner copy lets the peer wait use all of it rather than reserving a slice.
+    // So the per-step `REPLY_TIMEOUT` inside the exchange helpers cannot push a case past `budget` -- whatever
+    // the steps do, this call cuts them off at it. Deriving an inner deadline from the remaining time instead
+    // would restore the nested-deadline shape that made the torch case fail at 122.2s with ~58s of its three
+    // minutes unspent, the inner bound deciding an outcome the outer one still had room for.
     let outcome = tokio::time::timeout(budget, run_exchange(&mut control, &control_id, &exchange, budget)).await;
 
     runner.kill().unwrap();
