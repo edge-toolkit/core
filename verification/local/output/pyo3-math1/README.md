@@ -55,17 +55,22 @@ docker compose down
 ## Run With k3s
 
 The manifests reference images by name and never build them, so build and import each one first.
-For the hub, from the repository root:
+This scenario's image layers its modules onto the module-less hub image and takes that hub as a
+_named build context_ rather than building it, so the hub has to exist first -- a plain
+`docker build` of the scenario Dockerfile fails on `FROM hub`. From the repository root:
 
 ```bash
 scenario=pyo3-math1
+hub=et-ws-server-hub:latest
 image="et-ws-server-$scenario:latest"
-docker build -t "$image" -f "verification/local/output/$scenario/Dockerfile" .
+dockerfile="verification/local/output/$scenario/Dockerfile"
+docker build -t "$hub" -f services/ws-server/Dockerfile .
+docker build --build-context "hub=docker-image://$hub" -t "$image" -f "$dockerfile" .
 docker save "$image" | sudo k3s ctr images import -
 ```
 
-Each runner image is built the same way from its own `services/ws-<kind>-runner/Dockerfile` and
-tagged `et-ws-<kind>-runner:latest`.
+Each runner image builds straight from its own `services/ws-<kind>-runner/Dockerfile`, needs no
+build context, and is tagged `et-ws-<kind>-runner:latest`.
 
 ### Load The Credential
 
@@ -74,7 +79,7 @@ than shipped inside `k3s.yaml`. From this directory:
 
 ```bash
 ns=et-pyo3-math1
-kubectl create namespace "$ns"
+kubectl create namespace "$ns" --save-config
 kubectl create secret generic "$ns-secrets" --from-env-file=secrets.env -n "$ns"
 ```
 

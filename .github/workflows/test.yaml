@@ -225,6 +225,10 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run build-modules
 
+      # Raised from 40, which `override (msvc)` overran at test 232 of 233 -- one short of the whole suite.
+      # msvc does the most test work of any lane: it is the only Windows lane that builds and runs
+      # et-ws-web-runner, which the gnullvm default excludes, so its 233 tests take far longer than that lane's
+      # 20.9m. The other lanes sat at 22.8-29.3m against their own bounds when msvc hit this one.
       - name: Run tests
-        timeout-minutes: 40
+        timeout-minutes: 55
         run: mise run test

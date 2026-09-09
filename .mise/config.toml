@@ -75,6 +75,10 @@ action-validator = { version = "latest", os = ["linux", "macos"] }
 "aqua:vectordotdev/vector" = { version = "0.56.0", os = ["linux", "macos/arm64", "windows"] }
 # Validates the generated Kubernetes manifests against the API schemas, which the drift check cannot do.
 "aqua:yannh/kubeconform" = "latest"
+# k3d runs a real k3s cluster in Docker, paired with kubectl to drive it.
+# That is what lets the generated manifests be applied and asserted against rather than only schema-checked.
+"aqua:k3d-io/k3d" = "latest"
+"aqua:kubernetes/kubernetes/kubectl" = "latest"
 ast-grep = "latest"
 cargo-binstall = "latest"
 "cargo:cargo-expand" = { version = "latest", os = ["linux", "macos"] }
@@ -1259,6 +1263,86 @@ cache=target/kubeconform-cache
 coreutils mkdir -p "$cache"
 find verification -name k3s.yaml -print0 |
   xargs -0 -r kubeconform -strict -summary -cache "$cache"
+"""
+shell = "{{ vars.task_shell }}"
+
+# End-to-end check that the generated k3s manifests actually run the math1 scenario on a real cluster.
+# `kubeconform-check` proves the manifests are valid and `verification-check` proves they are stable, and
+# neither applies them -- a manifest that is both can still describe a deployment that does not work. This
+# stands up a throwaway k3s cluster (k3d runs one in Docker, so no root and no systemd), applies the scenario,
+# and asserts the twin stored the same model the mise and compose deployments are held to.
+#
+# The images are the caller's to build: they come from this repository rather than a registry, and building
+# them dwarfs the run itself, so a missing one fails immediately rather than starting a deployment whose pods
+# can only sit in ErrImagePull. Deliberately not part of the `check` aggregate -- it needs Docker and those
+# images, which no other check does.
+[tasks.k3s-verify]
+description = "Apply the generated math1 k3s manifests to a throwaway cluster and verify the stored model"
+run = """
+scenario=math1
+ns="et-$scenario"
+cluster="et-$scenario-verify"
+out="verification/local/output/$scenario"
+hub_image="et-ws-server-$scenario:latest"
+runner_image="et-ws-web-runner:latest"
+manifest_wait=300s
+
+for image in "$hub_image" "$runner_image"; do
+  if ! docker image inspect "$image" >/dev/null 2>&1; then
+    echo "k3s-verify: $image is not built; $out/README.md has the build and import steps" >&2
+    exit 1
+  fi
+done
+
+# Generate into a throwaway directory, purely to obtain `secrets.env`.
+# That file is deliberately uncommitted, so the Secret has no source until it is produced -- and its password
+# is derived from the scenario input, so a copy generated anywhere carries the same value. Generating beside
+# the committed manifests instead would rewrite their README with a k3s-only one and show up as drift, and
+# regenerating the whole tree would drag in the guest toolchains the other scenarios' module paths need. The
+# manifest applied below is the committed one either way.
+secrets_dir=$(coreutils mktemp -d)
+input="verification/local/input/$scenario.yaml"
+cargo run -q -p et-cli -- generate-deployment --input-file "$input" --output-dir "$secrets_dir"
+
+trap 'k3d cluster delete "$cluster" >/dev/null 2>&1 || true; coreutils rm -rf "$secrets_dir"' EXIT
+k3d cluster delete "$cluster" >/dev/null 2>&1 || true
+k3d cluster create "$cluster" --wait
+k3d image import -c "$cluster" "$hub_image" "$runner_image"
+
+# --save-config so the `kubectl apply` below does not warn about adopting a namespace it did not create.
+kubectl create namespace "$ns" --save-config
+kubectl create secret generic "$ns-secrets" --from-env-file="$secrets_dir/secrets.env" -n "$ns"
+kubectl apply -f "$out/k3s.yaml"
+kubectl rollout status deploy/openobserve -n "$ns" --timeout="$manifest_wait"
+kubectl rollout status deploy/ws-server -n "$ns" --timeout="$manifest_wait"
+
+# The runners restart until the hub answers, so the model is what says the exchange ran -- not pod readiness.
+#
+# Only the first bucket is read. Both agents register and each gets its own storage bucket, so the glob matches
+# two identical `math1-output.json` files once the exchange completes, and `cat`ting both yields two
+# concatenated JSON documents rather than one. The sibling mise and compose test reads the first match for the
+# same reason.
+stored=""
+# The glob and `$1` are for the pod's shell to expand, so they must reach it unexpanded.
+# shellcheck disable=SC2016
+read_model='set -- /app/storage/*/math1-output.json; cat "$1"'
+for _ in $(coreutils seq 1 60); do
+  stored=$(kubectl exec -n "$ns" deploy/ws-server -- sh -c "$read_model" 2>/dev/null || true)
+  if [ -n "$stored" ]; then
+    break
+  fi
+  coreutils sleep 5
+done
+
+if [ -z "$stored" ]; then
+  echo "k3s-verify: no math1-output.json appeared under /app/storage" >&2
+  kubectl get pods -n "$ns" >&2
+  kubectl logs -n "$ns" --all-containers --tail=50 --selector app=math1-twin >&2 || true
+  kubectl logs -n "$ns" --all-containers --tail=50 --selector app=math1-trigger >&2 || true
+  exit 1
+fi
+
+printf '%s' "$stored" | cargo run -q -p et-ws-test-server --bin verify-math1
 """
 shell = "{{ vars.task_shell }}"
 
