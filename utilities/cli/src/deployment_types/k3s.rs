@@ -43,8 +43,8 @@ use serde::Serialize;
 
 use crate::error::CliError;
 use crate::{
-    OutputType, RunnerInstance, cluster_module_names, docker_image_module_paths, module_registry,
-    resolve_cluster_runners,
+    HUB_SERVICE, OutputType, RunnerInstance, cluster_module_names, docker_image_module_paths, hub_service_ws_url,
+    module_registry, resolve_cluster_runners,
 };
 
 /// Pull policy that lets an image built from this repository and imported into the node satisfy a manifest.
@@ -59,13 +59,12 @@ const IMAGE_TAG: &str = "latest";
 /// Collector image, matching the one `compose.yaml` runs.
 const OPENOBSERVE_IMAGE: &str = "openobserve/openobserve:v0.91.5";
 
-/// Service names, which are also the Deployment names and the DNS names the in-cluster URLs resolve.
+/// Service name of the collector, which is also its Deployment name and the DNS name its in-cluster URL resolves.
 ///
-/// Held as constants so a URL cannot drift from the `Service` it addresses. Composing the URLs from them
-/// rather than writing the host into the literal also keeps `link-check` from reading an in-cluster DNS name
-/// as an external link it should be able to reach.
+/// Held as a constant so a URL cannot drift from the `Service` it addresses. Composing the URL from it rather
+/// than writing the host into the literal also keeps `link-check` from reading an in-cluster DNS name as an
+/// external link it should be able to reach. The hub's equivalent lives beside the URL builder that needs it.
 const COLLECTOR_SERVICE: &str = "openobserve";
-const HUB_SERVICE: &str = "ws-server";
 
 /// How long a probe waits, and how many misses it tolerates, mirroring `compose.yaml`'s healthchecks.
 const PROBE_PERIOD_SECONDS: i32 = 5;
@@ -328,6 +327,11 @@ fn volume_mount(name: &str, path: &str) -> VolumeMount {
 }
 
 /// An in-memory scratch volume, for the paths a read-only root filesystem would otherwise deny.
+///
+/// `path` is a container mount point in the manifest this generator emits, not a path anything in this process
+/// opens, so a caller passing `/tmp` is naming the containerised program's own temp directory rather than
+/// creating a world-writable file on the host. `DeepSource`'s `RS-S1003` reads the literal as the latter, which
+/// is why every call site passing `/tmp` carries a `skipcq` for that one rule.
 fn scratch(name: &str, path: &str) -> (VolumeMount, Volume) {
     let volume = Volume {
         empty_dir: Some(EmptyDirVolumeSource::default()),
@@ -405,6 +409,7 @@ fn port(name: &str, number: u16) -> ServicePort {
 fn collector_deployment(namespace: &str) -> Deployment {
     let (data_mount, data_volume) = mount("openobserve-data", "/data");
     // The collector writes transient state outside its data directory, which a read-only root would refuse.
+    // skipcq: RS-S1003
     let (tmp_mount, tmp_volume) = scratch("openobserve-tmp", "/tmp");
     let container = Container {
         resources: Some(container_resources()),
@@ -442,6 +447,27 @@ fn collector_service(namespace: &str) -> Service {
     )
 }
 
+/// The hub's environment, everything it needs that is not the credential the `Secret` carries.
+///
+/// The paths under the runtime directory are the writable ones: a read-only root filesystem cannot take the
+/// self-signed certificate the hub generates on first start, so both halves are redirected to the scratch mount.
+fn hub_env(module_paths: &[String]) -> Vec<EnvVar> {
+    vec![
+        env("MODULES_PATHS", module_paths.join(",")),
+        env(
+            "OTLP_COLLECTOR_URL",
+            format!(
+                "http://{}:{}/api/default/v1",
+                COLLECTOR_SERVICE,
+                Services::OtlpCollector.port()
+            ),
+        ),
+        env("STORAGE_URL", "file:///app/storage".to_string()),
+        env("TLS_CERT_FILE", format!("{HUB_RUNTIME_DIR}/cert.pem")),
+        env("TLS_KEY_FILE", format!("{HUB_RUNTIME_DIR}/key.pem")),
+    ]
+}
+
 /// The hub, running this scenario's image because that is what carries its module set.
 fn hub_deployment(namespace: &str, cluster_name: &str, module_paths: &[String]) -> Deployment {
     let insecure = Services::InsecureWebSocketServer.port();
@@ -460,20 +486,7 @@ fn hub_deployment(namespace: &str, cluster_name: &str, module_paths: &[String]) 
             format!("{HUB_RUNTIME_DIR}/registry.yaml"),
         ]),
         command: Some(vec!["et-ws-server".to_string()]),
-        env: Some(vec![
-            env("MODULES_PATHS", module_paths.join(",")),
-            env(
-                "OTLP_COLLECTOR_URL",
-                format!(
-                    "http://{}:{}/api/default/v1",
-                    COLLECTOR_SERVICE,
-                    Services::OtlpCollector.port()
-                ),
-            ),
-            env("STORAGE_URL", "file:///app/storage".to_string()),
-            env("TLS_CERT_FILE", format!("{HUB_RUNTIME_DIR}/cert.pem")),
-            env("TLS_KEY_FILE", format!("{HUB_RUNTIME_DIR}/key.pem")),
-        ]),
+        env: Some(hub_env(module_paths)),
         env_from: Some(vec![from_secret(namespace)]),
         image: Some(format!("et-ws-server-{cluster_name}:{IMAGE_TAG}")),
         image_pull_policy: Some(IMAGE_PULL_POLICY.to_string()),
@@ -520,14 +533,12 @@ fn hub_service(namespace: &str) -> Service {
 fn runner_deployment(namespace: &str, runner: &RunnerInstance) -> Deployment {
     // A runner fetches its module to a scratch directory and, for the web runner, lets Deno cache there, so a
     // read-only root needs somewhere writable even though nothing is meant to persist.
+    // skipcq: RS-S1003
     let (runtime_mount, runtime_volume) = scratch("runner-tmp", "/tmp");
     let container = Container {
         env: Some(vec![
             env("RUNNER_MODULE", runner.module.clone()),
-            env(
-                "WS_SERVER_URL",
-                format!("ws://{}:{}/ws", HUB_SERVICE, Services::InsecureWebSocketServer.port()),
-            ),
+            env("WS_SERVER_URL", hub_service_ws_url()),
         ]),
         image: Some(format!("et-ws-{}-runner:{IMAGE_TAG}", runner.runner)),
         image_pull_policy: Some(IMAGE_PULL_POLICY.to_string()),

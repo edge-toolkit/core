@@ -16,6 +16,7 @@ use serde::Deserialize;
 
 mod deployment_types;
 mod error;
+mod hub_ws_url;
 mod module_package_json;
 mod scenario_password;
 
@@ -24,6 +25,7 @@ pub use self::deployment_types::{
     generate_scenario_image, scenario_module_paths,
 };
 pub use self::error::CliError;
+pub use self::hub_ws_url::{HUB_SERVICE, hub_service_ws_url, hub_ws_url};
 pub use self::module_package_json::generate_module_package_json;
 pub use self::scenario_password::{scenario_password, scenario_seed};
 
@@ -1051,12 +1053,6 @@ pub fn resolve_cluster_runners(
 #[must_use]
 pub fn hub_http_base() -> String {
     format!("http://localhost:{}", Services::InsecureWebSocketServer.port())
-}
-
-/// WebSocket URL a generated deployment points a runner's `WS_SERVER_URL` at.
-#[must_use]
-pub fn hub_ws_url() -> String {
-    format!("ws://localhost:{}/ws", Services::InsecureWebSocketServer.port())
 }
 
 /// Derive one runner's deployment-unique name, rejecting the two ways it can collide.

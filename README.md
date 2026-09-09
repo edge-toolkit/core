@@ -374,11 +374,43 @@ to be handled separately from the repository root.
 
 To regenerate all checked-in verification outputs from `verification/*/input`, writing each scenario to the
 matching `verification/*/output/<input-file-stem>` folder. This generates all supported deployment files for each
-scenario, currently `mise.toml` and `compose.yaml`:
+scenario, currently `mise.toml`, `compose.yaml` and `k3s.yaml`:
 
 ```bash
 mise run regen-verification
 ```
+
+### k3s
+
+The third output type writes Kubernetes manifests. Pass `--output-type k3s`, or set `deployment_type: k3s` in the
+scenario input YAML, and the output directory gains a `k3s.yaml` holding one document per component -- a
+`Namespace`, the collector's `ConfigMap`, a `PersistentVolumeClaim` plus `Deployment` plus `Service` for both the
+collector and the hub, and then one `Deployment` per runner:
+
+```bash
+et-cli generate-deployment \
+  --input-file verification/local/input/math1.yaml \
+  --output-dir verification/local/output/math1 \
+  --output-type k3s
+```
+
+Two things separate it from the other two formats. The manifests reference images by name and never build them, so
+every image has to exist on the node before `kubectl apply`. And the scenario's derived credential stays out of
+`k3s.yaml`, which instead names a `Secret` for the operator to create from the generated `secrets.env`. Generating
+the scenario also writes a `README.md` beside the manifests carrying that scenario's own build, import and
+secret-loading commands.
+
+Applying them to a live cluster is Linux-only, because k3s is a Linux Kubernetes distribution. `mise run k3s-verify`
+does the whole round trip for the `math1` scenario against a disposable k3d cluster -- create, import, apply, wait
+for both rollouts, then read back the model the two runners exchanged -- and deletes the cluster on the way out. It
+expects the images to have been built already and says so if they have not. Generating and checking the manifests
+is not Linux-only: `verification-check` fails on drift, `kubeconform-check` validates them against the Kubernetes
+schemas, and `trivy-check` applies its Kubernetes security rules, all on every platform.
+
+The containers run hardened: a read-only root filesystem, no privilege escalation, every capability dropped, and a
+non-root user, with `emptyDir` mounts for the paths that still have to be writable. Traffic between them is
+plaintext -- `ws://` to the hub, `http://` to the collector -- because the hub's self-signed certificate is issued
+for `localhost` only and the runners have no way to be told to trust it.
 
 ## Grant
 

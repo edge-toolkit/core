@@ -1,7 +1,8 @@
 #![cfg(test)]
 
 use et_cli::{
-    docker_image_module_paths, generate_deployment, module_package_json, regenerate_verification, scenario_module_paths,
+    docker_image_module_paths, generate_deployment, hub_service_ws_url, hub_ws_url, module_package_json,
+    regenerate_verification, scenario_module_paths,
 };
 use fs_err as fs;
 use serde::Deserialize as _;
@@ -343,8 +344,10 @@ fn regenerate_verification_keeps_the_credential_out_of_the_k3s_manifest() {
     );
 
     // The runners address the hub by its Service, not by the `localhost` the host-networked formats use.
-    assert!(text.contains("ws://ws-server:8080/ws"));
-    assert!(!text.contains("ws://localhost:8080/ws"));
+    // Asserted against the builders rather than two literals, so a port change cannot leave the test passing
+    // against a URL the generator no longer emits.
+    assert!(text.contains(&hub_service_ws_url()));
+    assert!(!text.contains(&hub_ws_url()));
 }
 
 #[test]
