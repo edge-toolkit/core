@@ -53,6 +53,24 @@ agents: []
 }
 
 #[test]
+fn generate_deployment_rejects_a_cluster_name_that_is_not_an_rfc_1123_label() {
+    // The name reaches a shell in the generated README (`scenario=<name>`) and a Kubernetes namespace in
+    // `k3s.yaml`, so anything outside the label alphabet is either an injection vector or a manifest the API
+    // server rejects. A `;` is the shell half of that in its shortest form.
+    let error = deployment_error_for(
+        r#"cluster_name: "oops; echo pwned"
+deployment_type: "mise"
+agents: []
+"#,
+    );
+
+    assert!(
+        error.contains("RFC 1123") && error.contains(';'),
+        "expected an invalid-name error naming the character, got: {error}"
+    );
+}
+
+#[test]
 fn generate_deployment_rejects_a_runner_named_after_a_generated_task() {
     // `ws-server` is the hub's own task and compose service. Left unchecked the runner would replace it, and the
     // deployment would come up with nothing to connect to rather than reporting a problem.
@@ -246,9 +264,12 @@ agents:
 /// The credential half is the point of the `envFrom` assertion: the value lives in the uncommitted env file
 /// and reaches the pods through a `Secret` the operator creates, so a regression that inlined it would put a
 /// password into a committed tree. Asserting the literal is absent is what catches that.
-#[test]
-fn regenerate_verification_emits_k3s_manifests_without_the_credential() {
-    let (_test_root, verification_root, output_dir) = scenario_tree(
+/// Regenerate one k3s scenario and return its output directory.
+///
+/// The two tests below assert on different halves of the same manifest, so the generation lives here once. The
+/// temp root comes back alongside the directory because dropping it deletes the tree.
+fn k3s_scenario() -> (tempfile::TempDir, std::path::PathBuf) {
+    let (test_root, verification_root, output_dir) = scenario_tree(
         r#"cluster_name: "k3s-cluster"
 deployment_type: "k3s"
 agents:
@@ -260,9 +281,14 @@ agents:
     );
 
     let _regenerated = regenerate_verification(&verification_root, None).unwrap();
+    (test_root, output_dir)
+}
 
-    let manifest_path = output_dir.join("k3s.yaml");
-    let text = fs::read_to_string(&manifest_path).unwrap();
+#[test]
+fn regenerate_verification_emits_one_k3s_document_per_component() {
+    let (_test_root, output_dir) = k3s_scenario();
+
+    let text = fs::read_to_string(output_dir.join("k3s.yaml")).unwrap();
     let documents: Vec<serde_yaml::Value> = serde_yaml::Deserializer::from_str(&text)
         .map(|document| serde_yaml::Value::deserialize(document).unwrap())
         .collect();
@@ -295,8 +321,13 @@ agents:
             "every object after the Namespace carries it: {document:?}"
         );
     }
+}
 
-    let text = fs::read_to_string(&manifest_path).unwrap();
+#[test]
+fn regenerate_verification_keeps_the_credential_out_of_the_k3s_manifest() {
+    let (_test_root, output_dir) = k3s_scenario();
+
+    let text = fs::read_to_string(output_dir.join("k3s.yaml")).unwrap();
     let secrets = fs::read_to_string(output_dir.join("secrets.env")).unwrap();
     let password = secrets
         .lines()

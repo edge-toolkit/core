@@ -61,13 +61,38 @@ spec:
                 - status
             failureThreshold: 20
             periodSeconds: 5
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
           volumeMounts:
             - mountPath: /data
               name: openobserve-data
+            - mountPath: /tmp
+              name: openobserve-tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
       volumes:
         - name: openobserve-data
           persistentVolumeClaim:
             claimName: openobserve-data
+        - emptyDir: {}
+          name: openobserve-tmp
 ---
 apiVersion: v1
 kind: Service
@@ -114,13 +139,22 @@ spec:
         app: ws-server
     spec:
       containers:
-        - env:
+        - args:
+            - --agent-registry
+            - /app/runtime/registry.yaml
+          command:
+            - et-ws-server
+          env:
             - name: MODULES_PATHS
               value: /app/services/ws-server/static,/app/services/ws-wasm-agent,/app/services/ws-modules/pyo3-math1,/app/services/ws-modules/wasi-math1-sender
             - name: OTLP_COLLECTOR_URL
               value: http://openobserve:5080/api/default/v1
             - name: STORAGE_URL
               value: file:///app/storage
+            - name: TLS_CERT_FILE
+              value: /app/runtime/cert.pem
+            - name: TLS_KEY_FILE
+              value: /app/runtime/key.pem
           envFrom:
             - secretRef:
                 name: et-pyo3-math1-secrets
@@ -136,13 +170,38 @@ spec:
               path: /health
               port: 8080
             periodSeconds: 5
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
           volumeMounts:
             - mountPath: /app/storage
               name: ws-server-storage
+            - mountPath: /app/runtime
+              name: ws-server-runtime
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
       volumes:
         - name: ws-server-storage
           persistentVolumeClaim:
             claimName: ws-server-storage
+        - emptyDir: {}
+          name: ws-server-runtime
 ---
 apiVersion: v1
 kind: Service
@@ -188,6 +247,33 @@ spec:
           image: et-ws-wasi-runner:latest
           imagePullPolicy: IfNotPresent
           name: math1-trigger
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: runner-tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - emptyDir: {}
+          name: runner-tmp
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -215,3 +301,30 @@ spec:
           image: et-ws-pyo3-runner:latest
           imagePullPolicy: IfNotPresent
           name: pyo3-math1-twin
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: runner-tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - emptyDir: {}
+          name: runner-tmp

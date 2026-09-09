@@ -15,6 +15,10 @@ name: k3s
     paths:
       - .github/actions/install-mise-tools/**
       - .github/workflows/k3s.yaml
+      # The `k3s-verify` task itself lives here.
+      # A change to it must re-trigger this job rather than letting an edit to the verification steps ship
+      # without ever having run them.
+      - .mise/config.toml
       - services/ws-server/Dockerfile
       - services/ws-web-runner/Dockerfile
       - services/ws-test-server/src/bin/verify-math1.rs
@@ -68,6 +72,19 @@ jobs:
         timeout-minutes: 60
         with:
           github-token: ${{ github.token }}
+
+      # The scenario image stages each module's built `pkg/`, which is a wasm-pack artifact and gitignored.
+      # A fresh checkout has neither, so the image build fails on its own COPY:
+      #   failed to calculate checksum of ref ...: "/services/ws-modules/math1/pkg": not found
+      # Only this scenario's two modules are built, not the whole `build-modules` glob, which would compile
+      # every guest language's module for a job that stages two of them.
+      - name: Build the math1 modules
+        timeout-minutes: 30
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mise run build-ws-math1-module
+          mise run build-ws-math1-sender-module
 
       # The hub is built first and handed to the scenario image by reference.
       # That image takes the hub as a named build context rather than building it, so a plain build of the

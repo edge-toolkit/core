@@ -69,8 +69,12 @@ docker build --build-context "hub=docker-image://$hub" -t "$image" -f "$dockerfi
 docker save "$image" | sudo k3s ctr images import -
 ```
 
-Each runner image builds straight from its own `services/ws-<kind>-runner/Dockerfile`, needs no
-build context, and is tagged `et-ws-<kind>-runner:latest`.
+Then this scenario's runner images, which need no build context of their own:
+
+```bash
+docker build -t et-ws-web-runner:latest -f services/ws-web-runner/Dockerfile .
+docker save et-ws-web-runner:latest | sudo k3s ctr images import -
+```
 
 ### Load The Credential
 

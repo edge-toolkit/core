@@ -174,7 +174,11 @@ jobs:
       contents: read
       packages: read
     runs-on: windows-latest
-    timeout-minutes: 120
+    # Covers the step ceilings this job declares, which now sum past the old 120.
+    # Install 60 + prefetch 20 + build-modules 25 + tests 55 is 160, so at 120 a slow setup could have the
+    # job cancelled while the test step still had budget left -- the test step's own limit would never apply.
+    # In practice msvc runs ~68m end to end; this only binds when something is already pathological.
+    timeout-minutes: 165
     strategy:
       fail-fast: false
       matrix:

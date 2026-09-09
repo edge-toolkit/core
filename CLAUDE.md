@@ -81,8 +81,29 @@ to be on the host (`perl`, the host's own `sed`, a random CLI). A host binary ma
 missing on another OS, and its shell-quoting is the exact fragility the homebrew-bash rule exists to avoid (a mangled
 `perl -pi -e` once silently no-op'd its edit and produced a bogus "passing" test result here before it was caught).
 
-For file edits specifically, reach for the Edit/Write tools rather than a stream editor (`perl -pi`, `sed -i`): they
-never touch the shell, so there is no quoting to get wrong.
+### NEVER edit a file with perl, sed, or any other stream editor
+
+**File edits go through the Edit/Write tools. Never `perl -pi`, never `sed -i`, never `awk`-into-a-temp-and-move,
+and never a heredoc that rewrites a tracked file.** This is not a preference to weigh against convenience; it is a
+ban. The Edit tool never touches the shell, so there is no quoting layer to get wrong, and it fails loudly when its
+match is not unique rather than silently doing the wrong thing.
+
+`perl` is additionally forbidden for the reason the rule above gives: it is a host binary, not a mise `[tools]`
+entry, so its version and even its presence vary by machine.
+
+The failure mode is not hypothetical, and it is not always visible. Two worked examples from this repo:
+
+- A mangled `perl -pi -e` silently no-op'd its edit and produced a bogus "passing" test result, which stood until
+  someone noticed the file had never changed.
+- A `perl -0pi -e` rewriting a Rust `vec![...]` expression died mid-file with
+  `Not enough arguments for vec at -e line 2` -- perl parsed the `!` and brackets as its own syntax -- and left the
+  source broken with `cannot find value volume_mount in this scope`. The repair was done with the Edit tool that
+  should have been used in the first place, so the stream editor cost time and bought nothing.
+
+Multi-line and repeated replacements are not an exception. Edit handles a multi-line `old_string`, and
+`replace_all` handles every occurrence; if a match is not unique, widen the `old_string` with surrounding context
+rather than reaching for a regex. Reading with `rg`, `goawk` or `coreutils` is fine and encouraged -- the ban is on
+using them to **write**.
 
 If you genuinely need a tool that is not installed (or is not mise-managed) to do the job well, do NOT quietly fall
 back to the host binary -- surface it. Recommend to the user that the tool be added as a mise `[tools]` entry

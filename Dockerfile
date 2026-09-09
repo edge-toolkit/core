@@ -355,13 +355,27 @@ CMD ["mise", "run", "test"]
 # MISE_ENV is set, so the server's `mise where` module-path lookups resolve.
 # docker run --rm -p 8080:8080 edge-toolkit   # then open http://localhost:8080
 FROM precompile AS server
+# The server runs as an unprivileged account, matching services/ws-server/Dockerfile's uid.
+# Three things have to give way for that. /workspace is the working directory the server writes its
+# self-signed cert.pem and key.pem into on first start, and its agent registry on shutdown, so it changes
+# owner. /root has to become traversable because HOME is set there and mise resolves both its data dir and the
+# shims on PATH beneath it -- the toolchains themselves are already world-readable, so only the one directory
+# bit changes and no layer is rewritten. And mise's cache moves to /tmp, since the default sits under a $HOME
+# this account cannot write to.
 RUN bash <<'EOF'
 set -euo pipefail
 mise exec -- cargo build --release -p et-ws-server
 cp target/release/et-ws-server /usr/local/bin/et-ws-server
 rm -rf target/
+useradd --create-home --uid 10001 --user-group app
+chown -R 10001:10001 /workspace
+chmod a+rx /root
 EOF
 
+ENV MISE_CACHE_DIR=/tmp/mise-cache
+
+# Numeric uid, matching the useradd above, so a host inspecting the image resolves it without our passwd file.
+USER 10001
 EXPOSE 8080 8443
 CMD ["et-ws-server"]
 

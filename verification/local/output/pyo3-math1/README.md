@@ -69,8 +69,14 @@ docker build --build-context "hub=docker-image://$hub" -t "$image" -f "$dockerfi
 docker save "$image" | sudo k3s ctr images import -
 ```
 
-Each runner image builds straight from its own `services/ws-<kind>-runner/Dockerfile`, needs no
-build context, and is tagged `et-ws-<kind>-runner:latest`.
+Then this scenario's runner images, which need no build context of their own:
+
+```bash
+docker build -t et-ws-wasi-runner:latest -f services/ws-wasi-runner/Dockerfile .
+docker save et-ws-wasi-runner:latest | sudo k3s ctr images import -
+docker build -t et-ws-pyo3-runner:latest -f services/ws-pyo3-runner/Dockerfile .
+docker save et-ws-pyo3-runner:latest | sudo k3s ctr images import -
+```
 
 ### Load The Credential
 

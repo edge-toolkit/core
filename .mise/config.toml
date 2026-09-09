@@ -79,6 +79,11 @@ action-validator = { version = "latest", os = ["linux", "macos"] }
 # That is what lets the generated manifests be applied and asserted against rather than only schema-checked.
 "aqua:k3d-io/k3d" = "latest"
 "aqua:kubernetes/kubernetes/kubectl" = "latest"
+# Reproduces locally the Kubernetes hardening findings Codacy reports on the generated manifests.
+# Codacy's three -- privilege escalation, writable root filesystem, absent security context -- are trivy's
+# KSV-0001, KSV-0014 and KSV-0118, and trivy additionally covers seccomp, capabilities, resource bounds and
+# UID/GID, so the local check is a superset of the pushed one rather than a mirror of it.
+"aqua:aquasecurity/trivy" = "latest"
 ast-grep = "latest"
 cargo-binstall = "latest"
 "cargo:cargo-expand" = { version = "latest", os = ["linux", "macos"] }
@@ -758,6 +763,7 @@ depends = [
   "shfmt-mise-check",
   "taplo-check",
   "taplo-fmt-check",
+  "trivy-check",
   "typos-check",
   "verification-check",
   "zizmor-check",
@@ -1301,10 +1307,28 @@ done
 # regenerating the whole tree would drag in the guest toolchains the other scenarios' module paths need. The
 # manifest applied below is the committed one either way.
 secrets_dir=$(coreutils mktemp -d)
+
+# Diagnostics run before the teardown, and on any failure rather than only a missing model.
+# A rollout that never completes exits the task under `set -e` several steps before the model is looked for,
+# so without this the only output is `timed out waiting for the condition` -- and the cluster that could have
+# explained it is already gone.
+dump_state() {
+  echo "k3s-verify: cluster state at failure" >&2
+  kubectl get pods -n "$ns" >&2 || true
+  kubectl describe pods -n "$ns" >&2 || true
+  # A label selector, because `kubectl logs` needs a resource and every pod here carries an `app` label.
+  kubectl logs -n "$ns" --all-containers --tail=40 --prefix --selector app >&2 || true
+}
+# Installed before the credential is generated, not after.
+# The trap is what removes the directory holding it, so generating first would leave the password on disk for
+# any failure between the two.
+trap 'status=$?;
+  if [ "$status" -ne 0 ]; then dump_state; fi
+  k3d cluster delete "$cluster" >/dev/null 2>&1 || true
+  coreutils rm -rf "$secrets_dir"' EXIT
+
 input="verification/local/input/$scenario.yaml"
 cargo run -q -p et-cli -- generate-deployment --input-file "$input" --output-dir "$secrets_dir"
-
-trap 'k3d cluster delete "$cluster" >/dev/null 2>&1 || true; coreutils rm -rf "$secrets_dir"' EXIT
 k3d cluster delete "$cluster" >/dev/null 2>&1 || true
 k3d cluster create "$cluster" --wait
 k3d image import -c "$cluster" "$hub_image" "$runner_image"
@@ -1336,13 +1360,36 @@ done
 
 if [ -z "$stored" ]; then
   echo "k3s-verify: no math1-output.json appeared under /app/storage" >&2
-  kubectl get pods -n "$ns" >&2
-  kubectl logs -n "$ns" --all-containers --tail=50 --selector app=math1-twin >&2 || true
-  kubectl logs -n "$ns" --all-containers --tail=50 --selector app=math1-trigger >&2 || true
   exit 1
 fi
 
 printf '%s' "$stored" | cargo run -q -p et-ws-test-server --bin verify-math1
+"""
+shell = "{{ vars.task_shell }}"
+
+# Hardening checks over the generated Kubernetes manifests, mirroring what Codacy reports on a pushed branch.
+# Codacy's three findings are trivy's KSV-0001 (privilege escalation), KSV-0014 (writable root filesystem) and
+# KSV-0118 (no security context); trivy adds seccomp, capabilities, resource bounds and UID/GID on top, so this
+# is a superset of the external check rather than a copy of it. `kubeconform-check` answers whether a cluster
+# would accept these manifests; this answers whether it should.
+#
+# Dockerfiles are covered as well as the manifests. hadolint already lints them, but for different things:
+# hadolint is style and shell correctness, trivy is image posture -- running as root, an unpinned tag, a
+# missing healthcheck. The two overlap on almost nothing.
+#
+# One scan of the whole repository rather than a list of files, so a Dockerfile or manifest added later is
+# covered without anyone remembering to extend a glob. It also keeps the reported paths repo-relative, which
+# is what lets config/trivyignore.yaml scope a suppression to a directory: scanning a single file makes trivy
+# report that file as the scan root, so any path pattern longer than its basename matches nothing.
+#
+# `target` has to be skipped explicitly -- trivy does not read .gitignore, and walking tens of gigabytes of
+# build output takes the scan from 23 seconds to five minutes without finding one extra file.
+[tasks.trivy-check]
+alias = "trivy"
+description = "Check every Dockerfile and generated Kubernetes manifest for hardening findings"
+run = """
+set -- --skip-dirs target --skip-dirs '**/node_modules'
+trivy config --quiet --exit-code 1 --ignorefile config/trivyignore.yaml "$@" .
 """
 shell = "{{ vars.task_shell }}"
 

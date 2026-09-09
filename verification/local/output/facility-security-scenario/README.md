@@ -69,9 +69,6 @@ docker build --build-context "hub=docker-image://$hub" -t "$image" -f "$dockerfi
 docker save "$image" | sudo k3s ctr images import -
 ```
 
-Each runner image builds straight from its own `services/ws-<kind>-runner/Dockerfile`, needs no
-build context, and is tagged `et-ws-<kind>-runner:latest`.
-
 ### Load The Credential
 
 `secrets.env` is generated but deliberately not committed, so the `Secret` is created from it rather
