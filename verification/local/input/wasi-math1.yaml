@@ -1,0 +1,18 @@
+cluster_name: "wasi-math1"
+deployment_type: "mise"
+
+# The math1 exchange run entirely on WASI Preview 2 components under wasmtime, with no browser-targeted module
+# and so no web runner anywhere in the deployment. The trigger uploads the canonical input to its own storage
+# bucket and broadcasts the `math1-input` pointer; the twin picks that up, computes, and stores its model back.
+# Two runners of the same kind, which is what distinguishes this from `pyo3-math1`: there the same trigger
+# drives a twin of a different kind, so the hub is relaying between unlike runtimes.
+agents:
+  - name: "math1-trigger"
+    runner: "wasi"
+    resources:
+      - type: "wasi-math1-sender"
+
+  - name: "wasi-math1-twin"
+    runner: "wasi"
+    resources:
+      - type: "wasi-math1"

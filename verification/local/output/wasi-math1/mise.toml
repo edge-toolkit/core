@@ -1,0 +1,52 @@
+[env._]
+file = "secrets.env"
+
+[tasks.generated-scenario]
+depends = ["math1-trigger", "openobserve", "wasi-math1-twin", "ws-server"]
+description = "Run generated scenario for wasi-math1"
+
+[tasks.math1-trigger]
+description = "Run et-ws-wasi-math1-sender in the wasi runner"
+dir = "../../../.."
+run = """
+cargo run --quiet -p et-ws-wasi-runner
+"""
+
+[tasks.math1-trigger.env]
+RUNNER_MODULE = "et-ws-wasi-math1-sender"
+WS_SERVER_URL = "ws://localhost:8080/ws"
+
+[tasks.open-o2]
+description = "Open the OpenObserve UI"
+run = "open http://localhost:5080/"
+
+[tasks.openobserve]
+alias = "o2"
+dir = "../../../.."
+run = """
+image=openobserve/openobserve:v0.91.5
+docker run --rm --name openobserve -p 127.0.0.1:5080:5080 --env-file config/o2.env -e ZO_ROOT_USER_PASSWORD "$image"
+"""
+
+[tasks.wasi-math1-twin]
+description = "Run et-ws-wasi-math1 in the wasi runner"
+dir = "../../../.."
+run = """
+cargo run --quiet -p et-ws-wasi-runner
+"""
+
+[tasks.wasi-math1-twin.env]
+RUNNER_MODULE = "et-ws-wasi-math1"
+WS_SERVER_URL = "ws://localhost:8080/ws"
+
+[tasks.ws-server]
+description = "Run the WebSocket server"
+dir = "../../../../services/ws-server"
+run = """
+MODULES_PATHS="static, ../ws-wasm-agent, ../ws-modules/wasi-math1, ../ws-modules/wasi-math1-sender"
+export MODULES_PATHS
+cargo run
+"""
+
+[tools]
+"cargo:open" = "latest"

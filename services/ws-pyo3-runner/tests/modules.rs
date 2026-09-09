@@ -32,15 +32,13 @@ use tokio_tungstenite::{connect_async, tungstenite};
 
 type ControlSocket = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
-/// Total wall-clock wait for the runner to register as a peer.
-///
-/// Deliberately generous: the torch case's cold first `import torch` (a ~400 MB package) can take tens of
-/// seconds on a cold, contended CI runner before the runner even connects, and this wait must outlast that.
-/// See the pyo3-runner torch-registration-timeout note in CLAUDE.md.
-const PEER_REGISTER_TIMEOUT: Duration = Duration::from_mins(2);
 /// Overall `run_exchange` budget for the torch case.
 ///
-/// Must exceed `PEER_REGISTER_TIMEOUT` (its cold import lands inside the peer wait) plus one reply.
+/// Covers the whole exchange, the peer wait included -- and the peer wait is the long part, because the case's
+/// cold first `import torch` (a ~400 MB package) happens before the runner connects at all. One deadline for
+/// the case rather than a separate, tighter one around the peer wait: nested deadlines meant the inner one
+/// decided the outcome while the outer still had time left, which is how this case failed at 122.2s against a
+/// 2-minute peer wait with ~58s of this budget unused.
 const TORCH_EXCHANGE_BUDGET: Duration = Duration::from_mins(3);
 /// Overall `run_exchange` budget for the quick (non-torch) cases, which register within a second.
 const EXCHANGE_BUDGET: Duration = Duration::from_secs(30);
@@ -49,7 +47,7 @@ const REPLY_TIMEOUT: Duration = Duration::from_secs(10);
 /// Exponential-backoff bounds for the peer-registration poll.
 ///
 /// Tight at first, then cheap while we wait out a slow cold start. Driven by `backon`; the total wall-clock is
-/// capped by `PEER_REGISTER_TIMEOUT`.
+/// capped by the case's exchange budget.
 const POLL_BACKOFF_MIN: Duration = Duration::from_millis(50);
 const POLL_BACKOFF_MAX: Duration = Duration::from_millis(500);
 /// How long each poll round drains inbound frames looking for the peer before backing off.
@@ -119,7 +117,7 @@ async fn module_behaves(
     } else {
         EXCHANGE_BUDGET
     };
-    let outcome = tokio::time::timeout(budget, run_exchange(&mut control, &control_id, &exchange)).await;
+    let outcome = tokio::time::timeout(budget, run_exchange(&mut control, &control_id, &exchange, budget)).await;
 
     runner.kill().unwrap();
     let _status = runner.wait().unwrap();
@@ -217,57 +215,100 @@ fn skipped(module: &str, gate: &Gate) -> bool {
     }
 }
 
-/// Send the module's trigger and assert on its reply.
-async fn run_exchange(control: &mut ControlSocket, self_id: &str, exchange: &Exchange) -> Result<(), Box<dyn Error>> {
-    wait_for_peer(control, self_id).await?;
-    match exchange {
-        Exchange::TextContains { send, extra } => {
-            control.send(tungstenite::Message::Text(send.to_string())).await?;
-            let reply = drain_text(control).await?;
-            if !reply.contains(send) {
-                return Err(format!("reply {reply:?} did not contain the sent {send:?}").into());
-            }
-            for needle in *extra {
-                if !reply.contains(needle) {
-                    return Err(format!("reply {reply:?} is missing {needle:?}").into());
-                }
-            }
-        }
-        Exchange::TextJson(payload, check) => {
-            control.send(tungstenite::Message::Text(payload.to_string())).await?;
-            let reply = drain_text(control).await?;
-            let value: serde_json::Value = match serde_json::from_str(&reply) {
-                Ok(value) => value,
-                Err(err) => return Err(format!("reply not JSON: {err}: {reply}").into()),
-            };
-            check(&value)?;
-        }
-        Exchange::StoragePutGet { key, value } => {
-            let mut put_frame = Vec::with_capacity(key.len() + 1 + value.len());
-            put_frame.extend_from_slice(key.as_bytes());
-            put_frame.push(0);
-            put_frame.extend_from_slice(value);
-            control.send(tungstenite::Message::Binary(put_frame)).await?;
-            // Let the storage worker PUT to disk before we GET.
-            tokio::time::sleep(Duration::from_millis(200)).await;
-            control
-                .send(tungstenite::Message::Binary(key.as_bytes().to_vec()))
-                .await?;
-            let reply = drain_binary(control).await?;
-            if reply.as_slice() != *value {
-                return Err(format!("stored bytes {reply:?} did not round-trip").into());
-            }
-        }
-        Exchange::Fanout(count) => {
-            control.send(tungstenite::Message::Binary(vec![*count])).await?;
-            let frames = collect_binary(control, usize::from(*count)).await?;
-            let expected: Vec<u8> = (0..*count).collect();
-            if frames != expected {
-                return Err(format!("fan-out frames {frames:?} did not match {expected:?}").into());
-            }
+/// Broadcast `send` and require the reply to carry it back plus every `extra` needle.
+#[expect(
+    clippy::single_call_fn,
+    reason = "one Exchange variant's protocol; kept separate so run_exchange stays a dispatcher"
+)]
+async fn exchange_text_contains(control: &mut ControlSocket, send: &str, extra: &[&str]) -> Result<(), Box<dyn Error>> {
+    control.send(tungstenite::Message::Text(send.to_string())).await?;
+    let reply = drain_text(control).await?;
+    if !reply.contains(send) {
+        return Err(format!("reply {reply:?} did not contain the sent {send:?}").into());
+    }
+    for needle in extra {
+        if !reply.contains(needle) {
+            return Err(format!("reply {reply:?} is missing {needle:?}").into());
         }
     }
     Ok(())
+}
+
+/// Broadcast `payload`, parse the reply as JSON, and hand it to `check`.
+#[expect(
+    clippy::single_call_fn,
+    reason = "one Exchange variant's protocol; kept separate so run_exchange stays a dispatcher"
+)]
+async fn exchange_text_json(
+    control: &mut ControlSocket,
+    payload: &str,
+    check: fn(&serde_json::Value) -> Result<(), Box<dyn Error>>,
+) -> Result<(), Box<dyn Error>> {
+    control.send(tungstenite::Message::Text(payload.to_string())).await?;
+    let reply = drain_text(control).await?;
+    let value: serde_json::Value = match serde_json::from_str(&reply) {
+        Ok(value) => value,
+        Err(err) => return Err(format!("reply not JSON: {err}: {reply}").into()),
+    };
+    check(&value)
+}
+
+/// Send `key\0value`, then `key`, and require the binary reply to be `value` again.
+#[expect(
+    clippy::single_call_fn,
+    reason = "one Exchange variant's protocol; kept separate so run_exchange stays a dispatcher"
+)]
+async fn exchange_storage_put_get(control: &mut ControlSocket, key: &str, value: &[u8]) -> Result<(), Box<dyn Error>> {
+    let mut put_frame = Vec::with_capacity(key.len() + 1 + value.len());
+    put_frame.extend_from_slice(key.as_bytes());
+    put_frame.push(0);
+    put_frame.extend_from_slice(value);
+    control.send(tungstenite::Message::Binary(put_frame)).await?;
+    // Let the storage worker PUT to disk before we GET.
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    control
+        .send(tungstenite::Message::Binary(key.as_bytes().to_vec()))
+        .await?;
+    let reply = drain_binary(control).await?;
+    if reply.as_slice() != value {
+        return Err(format!("stored bytes {reply:?} did not round-trip").into());
+    }
+    Ok(())
+}
+
+/// Send `[count]` and require exactly `count` one-byte frames numbered `0..count`.
+#[expect(
+    clippy::single_call_fn,
+    reason = "one Exchange variant's protocol; kept separate so run_exchange stays a dispatcher"
+)]
+async fn exchange_fanout(control: &mut ControlSocket, count: u8) -> Result<(), Box<dyn Error>> {
+    control.send(tungstenite::Message::Binary(vec![count])).await?;
+    let frames = collect_binary(control, usize::from(count)).await?;
+    let expected: Vec<u8> = (0..count).collect();
+    if frames != expected {
+        return Err(format!("fan-out frames {frames:?} did not match {expected:?}").into());
+    }
+    Ok(())
+}
+
+/// Send the module's trigger and assert on its reply.
+///
+/// Each variant's send-and-check sequence lives in its own function above rather than in an arm here. Inline,
+/// the four of them made one 55-line body whose cyclomatic complexity was 19 against Codacy's limit of 10, and
+/// they share nothing but the socket -- the reply is text, JSON, one binary frame or many, per variant.
+async fn run_exchange(
+    control: &mut ControlSocket,
+    self_id: &str,
+    exchange: &Exchange,
+    budget: Duration,
+) -> Result<(), Box<dyn Error>> {
+    wait_for_peer(control, self_id, budget).await?;
+    match exchange {
+        Exchange::TextContains { send, extra } => exchange_text_contains(control, send, extra).await,
+        Exchange::TextJson(payload, check) => exchange_text_json(control, payload, *check).await,
+        Exchange::StoragePutGet { key, value } => exchange_storage_put_get(control, key, value).await,
+        Exchange::Fanout(count) => exchange_fanout(control, *count).await,
+    }
 }
 
 /// math1's storage-driven exchange: inject the canonical input, then verify the stored model.
@@ -276,10 +317,16 @@ async fn run_exchange(control: &mut ControlSocket, self_id: &str, exchange: &Exc
 /// runner's storage handle, computes, and stores its global model, which is verified against the
 /// expected weights for the canonical input. The runner is long-lived, so it is killed once the
 /// exchange resolves (mirroring `module_behaves`).
+///
+/// This is the hub-fetch case, and the only one: `et-ws-pyo3-math1` is a published ws-module rather than a
+/// file under `python/`, and the name is not a legal Python identifier, so it cannot resolve on `sys.path` at
+/// all. `spawn_runner` still sets `PYO3_PYTHONPATH`, which is the point -- a configured python path that does
+/// not happen to contain the module must fall through to the hub rather than fail. Every other case here
+/// names a module under `python/` and so still takes the local import.
 #[tokio::test(flavor = "current_thread")]
 async fn math1_stores_verified_model() -> Result<(), Box<dyn Error>> {
     let server = et_ws_test_server::start();
-    let mut runner = spawn_runner("math1", &server.ws_url);
+    let mut runner = spawn_runner("et-ws-pyo3-math1", &server.ws_url);
     let outcome =
         et_ws_test_server::math1::drive_math1_exchange(&server.ws_url, server.storage_dir.path(), EXCHANGE_BUDGET)
             .await;
@@ -350,9 +397,11 @@ async fn control_client(ws_url: &str) -> Result<(ControlSocket, String), Box<dyn
 ///
 /// `backon` drives the exponential backoff (each miss returns `Err(())`, which its default predicate retries);
 /// `&mut control` is threaded through as the retry context because a borrowed socket can't escape a plain
-/// `FnMut` retry closure. The whole retry is wrapped in a `PEER_REGISTER_TIMEOUT` wall-clock timeout, so a
-/// runner that never registers (e.g. a cold torch import that overran even the generous budget) fails here.
-async fn wait_for_peer(control: &mut ControlSocket, self_id: &str) -> Result<(), Box<dyn Error>> {
+/// `FnMut` retry closure. The whole retry is wrapped in `budget`, the caller's own deadline, so a runner that
+/// never registers (e.g. a cold torch import that overran even the generous budget) fails here and says so --
+/// which is the reason the budget is passed in rather than the poll simply running until the caller's timeout
+/// fires: reaching the deadline inside this wait is worth a message naming registration, not a generic one.
+async fn wait_for_peer(control: &mut ControlSocket, self_id: &str, budget: Duration) -> Result<(), Box<dyn Error>> {
     let backoff = ExponentialBuilder::default()
         .with_min_delay(POLL_BACKOFF_MIN)
         .with_max_delay(POLL_BACKOFF_MAX)
@@ -361,7 +410,7 @@ async fn wait_for_peer(control: &mut ControlSocket, self_id: &str) -> Result<(),
     // higher-ranked over the socket's borrow (`for<'a> FnMut((&'a mut _, &'a str)) -> Fut<'a>`), which
     // `backon`'s context-threading retry requires. `self_id` rides in the context tuple alongside the socket.
     let poll = peer_poll_step.retry(backoff).context((control, self_id));
-    match tokio::time::timeout(PEER_REGISTER_TIMEOUT, poll).await {
+    match tokio::time::timeout(budget, poll).await {
         Ok((_ctx, Ok(()))) => Ok(()),
         _ => Err("runner never registered".into()),
     }

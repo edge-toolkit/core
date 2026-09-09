@@ -1,0 +1,29 @@
+[package]
+name = "et-wasi-guest"
+publish = true
+description = "Shared bindings + helpers for the WASI Preview 2 ws-modules"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+doctest = false
+
+# Same wasi-only target scope as the guests that depend on this.
+# The generated extern declarations only resolve on wasm32-wasip2, and the lib body is gated identically so a
+# host-target `cargo check --workspace` sees an empty crate rather than link errors.
+[target.'cfg(target_os = "wasi")'.dependencies]
+fs-err = { workspace = true, optional = true }
+minicov = { workspace = true, optional = true }
+wit-bindgen.workspace = true
+
+[features]
+coverage = ["dep:fs-err", "dep:minicov"]
+
+# Build script (runs on the host) locates the repo root to emit ET_WIT_DIR.
+[build-dependencies]
+et-path.workspace = true
+
+[lints]
+workspace = true

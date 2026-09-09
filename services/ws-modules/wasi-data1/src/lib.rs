@@ -20,65 +20,20 @@
 //! empty cdylib for the host target without linker errors.
 
 #![cfg(target_os = "wasi")]
-// wit_bindgen::generate! emits `unsafe fn` and `#[export_name]` items;
-// `export!(Component)` does the same. Both trip workspace
-// `unsafe_code = "deny"` lint; expect it at crate scope because outer
-// `#[expect]` on the macro invocations themselves doesn't propagate to
-// the items they expand into.
-#![expect(unsafe_code)]
 
-wit_bindgen::generate!({
-    // ET_WIT_DIR is the absolute path to generated/specs/wit, emitted by build.rs.
-    path: env!("ET_WIT_DIR"),
-    world: "module",
-    generate_all,
-});
-
-use et::ws_wasi::ws::WsError;
-use exports::et::ws_wasi::entry::{EntryError, Guest};
-use wasi::keyvalue::store;
-use wasi::logging::logging::{self, Level};
-
-// Coverage dump lives in its own module so Codacy can exclude just that file (its minicov call is unsafe).
-#[cfg(feature = "coverage")]
-mod coverage;
+use et_wasi_guest::et::ws_wasi::ws;
+use et_wasi_guest::exports::et::ws_wasi::entry::{EntryError, Guest};
+use et_wasi_guest::wasi::keyvalue::store;
+use et_wasi_guest::{info, start};
 
 const LOG_CONTEXT: &str = env!("CARGO_PKG_NAME");
 const FILENAME: &str = "test_data.txt";
-
-fn info(message: &str) {
-    logging::log(Level::Info, LOG_CONTEXT, message);
-}
-
-// Lets `?` lift a `ws-error` into `entry-error.ws(...)` so the body of `run`
-// stays free of explicit `.map_err`s (which the workspace's no-map-err
-// ast-grep rule bans outside listed error.rs files anyway).
-impl From<WsError> for EntryError {
-    fn from(err: WsError) -> Self {
-        Self::Ws(err)
-    }
-}
-
-// Same idea for `wasi:keyvalue/store.error` -- the upstream type is a
-// value variant (no resources involved), so `entry-error.store(...)`
-// carries it through unchanged and guests propagate via `?`.
-impl From<store::Error> for EntryError {
-    fn from(err: store::Error) -> Self {
-        Self::Store(err)
-    }
-}
 
 struct Component;
 
 impl Guest for Component {
     async fn run() -> Result<(), EntryError> {
-        info("entered run()");
-
-        et::ws_wasi::ws::connect()?;
-        let agent_id =
-            wait_for_agent_id().ok_or_else(|| EntryError::Runtime("did not receive agent_id".to_string()))?;
-        info(&format!("websocket connected with agent_id={agent_id}"));
-
+        let agent_id = start(LOG_CONTEXT)?;
         let bucket = store::open(&agent_id)?;
 
         let test_content = format!("Hello from wasi-data1, agent={agent_id}!").into_bytes();
@@ -99,31 +54,12 @@ impl Guest for Component {
         }
         info("VERIFICATION SUCCESS -- keyvalue roundtrip matches");
 
-        et::ws_wasi::ws::disconnect();
+        ws::disconnect();
         info("workflow complete");
         #[cfg(feature = "coverage")]
-        coverage::dump();
+        et_wasi_guest::dump_coverage("et_ws_wasi_data1.profraw");
         Ok(())
     }
 }
 
-/// Poll `agent_id` until the server's `ConnectAck` has landed.
-/// `ws.connect` waits briefly for that message, but the host returns once its wait expires regardless, so
-/// polling is what keeps this safe under load.
-fn wait_for_agent_id() -> Option<String> {
-    for _ in 0..100 {
-        let id = et::ws_wasi::ws::agent_id();
-        if !id.is_empty() {
-            return Some(id);
-        }
-        sleep_ms(50);
-    }
-    None
-}
-
-fn sleep_ms(ms: u64) {
-    let pollable = wasi::clocks::monotonic_clock::subscribe_duration(ms * 1_000_000);
-    let _ready = wasi::io::poll::poll(&[&pollable]);
-}
-
-export!(Component);
+et_wasi_guest::export!(Component);

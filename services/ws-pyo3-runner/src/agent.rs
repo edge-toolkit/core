@@ -18,6 +18,7 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, tungstenite};
 use tracing::{info, warn};
 
 use crate::error::RunnerError;
+use crate::hub_module::HubModule;
 use crate::python::{AgentIdSlot, Dispatcher, OutboundFrame, StorageError, StorageOp, WsSender, WsStorage};
 
 /// One unit of work for the Python dispatch thread.
@@ -72,6 +73,22 @@ pub struct InitializedAgent {
     pub http_base: String,
 }
 
+/// Full `sys.path` prefix a module resolves against: mise's site-packages, then `PYO3_PYTHONPATH`.
+///
+/// Prepending mise-managed pipx `site-packages` lets a module `import` packages preinstalled via mise (e.g.
+/// cowsay) without the operator setting `PYTHONPATH` by hand. The explicit `PYO3_PYTHONPATH` entries come last
+/// so they keep priority -- each is inserted at `sys.path[0]`, so the last entry wins.
+///
+/// Shared rather than built inline because the same list decides two things that have to agree: whether a
+/// module is importable at all, and what it resolves against once it is. Built twice, a module could be judged
+/// present against one path and then imported against another.
+#[must_use]
+pub fn resolved_python_path(python_path_extras: &[std::path::PathBuf]) -> Vec<std::path::PathBuf> {
+    let mut python_path = edge_toolkit::config::mise_python_site_packages();
+    python_path.extend_from_slice(python_path_extras);
+    python_path
+}
+
 /// Build the channels, `WsSender`, and `WsStorage`, then import the module.
 ///
 /// The Sender and Storage are built first so they can be handed to the
@@ -83,6 +100,7 @@ pub fn initialize(
     module_name: &str,
     python_path_extras: &[std::path::PathBuf],
     config: AgentConfig,
+    fetched: Option<HubModule>,
 ) -> Result<InitializedAgent, RunnerError> {
     let (tx, rx) = mpsc::unbounded_channel::<OutboundFrame>();
     let sender = WsSender::new(tx.clone());
@@ -92,14 +110,13 @@ pub fn initialize(
     let (storage_tx, storage_rx) = mpsc::unbounded_channel::<StorageOp>();
     let storage = WsStorage::new(Arc::clone(&agent_id_slot), storage_tx);
 
-    // Prepend mise-managed pipx `site-packages` so the module can `import`
-    // packages preinstalled via mise (e.g. cowsay) without the operator setting
-    // PYTHONPATH by hand. The explicit PYO3_PYTHONPATH entries come last so they
-    // keep priority -- `Dispatcher::import` inserts each at `sys.path[0]`, so the
-    // last entry wins.
-    let mut python_path = edge_toolkit::config::mise_python_site_packages();
-    python_path.extend_from_slice(python_path_extras);
-    let dispatcher = Dispatcher::import(module_name, &python_path, sender, storage)?;
+    let python_path = resolved_python_path(python_path_extras);
+    // `fetched` is `Some` only for a name that did not resolve on that path, so the local import stays the
+    // path every module that has one takes.
+    let dispatcher = match fetched {
+        Some(module) => Dispatcher::import_source(&module.import_name, &module.source, &python_path, sender, storage)?,
+        None => Dispatcher::import(module_name, &python_path, sender, storage)?,
+    };
     Ok(InitializedAgent {
         config,
         dispatcher,

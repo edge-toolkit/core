@@ -21,4 +21,5 @@
 pub mod agent;
 pub mod config;
 pub mod error;
+pub mod hub_module;
 pub mod python;

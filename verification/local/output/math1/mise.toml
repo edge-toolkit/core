@@ -1,3 +1,6 @@
+[env._]
+file = "secrets.env"
+
 [tasks.generated-scenario]
 depends = ["math1-trigger", "math1-twin", "openobserve", "ws-server"]
 description = "Run generated scenario for math1"
@@ -33,8 +36,7 @@ alias = "o2"
 dir = "../../../.."
 run = """
 image=openobserve/openobserve:v0.91.5
-credential=ZO_ROOT_USER_PASSWORD=Qui%recusandae6594 # skipcq: SCT-A000 -- generated dev-only scenario credential
-docker run --rm --name openobserve -p 127.0.0.1:5080:5080 --env-file config/o2.env -e "$credential" "$image"
+docker run --rm --name openobserve -p 127.0.0.1:5080:5080 --env-file config/o2.env -e ZO_ROOT_USER_PASSWORD "$image"
 """
 
 [tasks.ws-server]
@@ -45,11 +47,6 @@ MODULES_PATHS="static, ../ws-wasm-agent, ../ws-modules/math1, ../ws-modules/math
 export MODULES_PATHS
 cargo run
 """
-
-[tasks.ws-server.env]
-# skipcq: SCT-A000 -- generated dev-only scenario credential
-OTLP_AUTH_PASSWORD = "Qui%recusandae6594"
-OTLP_AUTH_USERNAME = "root@example.com"
 
 [tools]
 "cargo:open" = "latest"

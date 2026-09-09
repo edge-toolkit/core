@@ -10,8 +10,9 @@
     reason = "tokio::select! expands to % internally"
 )]
 
-use et_ws_pyo3_runner::agent::{AgentConfig, initialize, run as run_agent};
+use et_ws_pyo3_runner::agent::{AgentConfig, initialize, resolved_python_path, run as run_agent};
 use et_ws_pyo3_runner::config::Config;
+use et_ws_pyo3_runner::hub_module::fetch_if_absent;
 use tracing::info;
 
 // Multi-threaded runtime. Python runs on its own OS thread (see
@@ -33,6 +34,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("module={module} python_path={python_path:?} ws_url={ws_url}");
 
+    // Only a module that does not resolve locally is fetched, so a runner pointed at a module on
+    // PYO3_PYTHONPATH never asks the hub for one.
+    let fetched = fetch_if_absent(&module, &resolved_python_path(&python_path), &ws_url).await?;
+
     let agent = initialize(
         &module,
         &python_path,
@@ -41,6 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             requested_agent_id,
             connect_ack_timeout,
         },
+        fetched,
     )?;
 
     // Graceful shutdown: ctrl_c or the optional RUNNER_TIMEOUT trips `shutdown`, which `run_agent`'s `drive`

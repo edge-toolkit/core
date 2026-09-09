@@ -376,10 +376,10 @@ below, the two tables' shared file-type rows read as a clone to jscpd):
 both: `oxfmt-fmt` / `oxfmt-check` (in the `js` env, alongside `oxlint-check`) also claim it, and they break ties
 differently -- oxfmt collapses a short array onto one line where dprint leaves it expanded, so a file dprint
 accepts can still fail `oxfmt-check` in CI. `hadolint-check` also lints Dockerfiles, and `link-check` scans
-`*.md` + `*.rs`. Every
-file is covered by `editorconfig-check` and `typos-check`, file and directory names by `ls-lint-check`, and `*.yml` is
-rejected by `semgrep-check` (use `*.yaml`). A multi-line task body inside `.mise/config*.toml` is shell, not TOML, so
-it carries two more of its own: `shfmt-mise-fmt` / `shfmt-mise-check` format it, and `shellcheck-mise-check` lints it.
+`*.md` + `*.rs`. Every file is covered by `editorconfig-check`, `typos-check` and `gitleaks-check`, file and
+directory names by `ls-lint-check`, and `*.yml` is rejected by `semgrep-check` (use `*.yaml`). A multi-line task
+body inside `.mise/config*.toml` is shell, not TOML, so it carries two more of its own: `shfmt-mise-fmt` /
+`shfmt-mise-check` format it, and `shellcheck-mise-check` lints it.
 
 For Rust inner-loop iteration on a single crate, use `mise run cargo-clippy-check-pkg <package>` (alias
 `clippy-pkg`) instead of `cargo-clippy-check` -- it runs `cargo clippy --keep-going --tests -p <package>` so you
@@ -445,6 +445,9 @@ Languages:
 - **Kotlin -> WASM (WasmGC)**: kotlin-data1, kotlin-math1 -- compiled by the Kotlin Gradle plugin's `wasmJs` target;
   each module is a WasmGC binary (browser GC manages the Kotlin heap), so it needs a WasmGC-capable engine
 - **Python (Pyodide)**: pydata1, pyeye1, pyface1, pymath1
+- **Python (native CPython)**: pyo3-math1 -- runs in `et-ws-pyo3-runner` rather than the browser, so it is plain
+  `.py` source committed as-is rather than a wheel or a wasm binary. The runner fetches the single file its
+  `main` field names and compiles it in process; the same file also runs from `PYO3_PYTHONPATH` unchanged.
 - **C# (.NET WASM)**: dotnet-data1, dotnet-math1
 - **Java (TeaVM -> JS)**: java-data1, java-math1 -- both built by the single root `pom.xml` (one compilation, one
   teavm-maven-plugin execution per module)
@@ -616,10 +619,68 @@ the first Linux sighting, and the first time it took more than a single lane of 
 `https://github.com/edge-toolkit/core/actions/runs/29034248854/job/86174895528` and
 `https://github.com/edge-toolkit/core/actions/runs/29034248854/job/86174895194`. Three simultaneous same-commit
 failures read as the cold torch import consistently overrunning the timeout rather than an occasional flake -- so
-the root-cause fix below is now due, not optional. If this signature recurs, stop rerunning and fix the root cause:
-raise (or make torch-case-specific) the
-runner-registration timeout in the pyo3-runner module tests, or warm the torch import before the registration clock
-starts.
+the root-cause fix below is now due, not optional.
+
+Recurred once more on the `override (mingw)` lane at commit `5998313315c491a6abffb7c1507e4adc4a4f3559`,
+`https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101938939834`, failing at **122.2s** -- and
+that figure is the diagnosis. The test had two nested deadlines: a 2-minute `PEER_REGISTER_TIMEOUT` around the
+peer wait, inside a 3-minute `TORCH_EXCHANGE_BUDGET` around the whole exchange. The inner one decided every
+outcome while the outer still had ~58s unused, so the case only ever had two of its three minutes to get
+registered. Fix applied: the peer wait now takes the caller's budget rather than a tighter deadline of its own,
+so the torch case gets its full three minutes and the total bound on the test is unchanged. `wait_for_peer`
+still owns the timeout call (rather than letting the caller's fire) so exhausting it keeps naming registration
+instead of reporting a generic exchange timeout.
+
+One hypothesis was tested and ruled out locally: bytecode compilation is not the cost. Deleting every
+`__pycache__` under the `pipx:torch` install and re-running made the case _faster_ (7.6s versus 12.4s), so the
+first-import expense on CI is cold page-cache and disk rather than compiling `.py` files. That leaves warming
+the import in a throwaway process as the remaining lever if three minutes also proves too tight -- but note it
+cannot be validated on a workstation whose page cache is already warm, so treat any such change as
+CI-verified-only.
+
+### Known reproducible failure: et-ws-wasi-runner aborts on the mingw target
+
+Not intermittent -- `et-ws-wasi-runner` fails every time on `x86_64-pc-windows-gnu` (the `override (mingw)`
+lane, `MISE_ENV=mingw`). The component instantiates and logs `entered run()`, then the process aborts while
+connecting:
+
+    thread 'main' panicked at libs\ws-runner-common\src\lib.rs:206:5:
+    there is no reactor running, must be called from the context of a Tokio 1.x runtime
+    thread 'main' panicked at tokio-1.53.1\src\runtime\context\runtime.rs:85:13:
+    assertion failed: c.runtime.get().is_entered()
+    panic in a destructor during cleanup / thread caused non-unwinding panic. aborting.
+    cargo.exe: The system detected an overrun of a stack-based buffer in this application. Error 0xc0000409
+
+That line is `tokio::time::timeout` inside `connect_and_register`, reached from the `ws::connect` host import --
+an async host call awaited on a wasmtime fiber. The reading that fits is tokio's thread-local runtime context
+not surviving the fiber stack switch under that target's TLS model; the candidate fix is to hold a
+`tokio::runtime::Handle` in `HostState` and `enter()` it inside the host imports, which nobody has tried yet
+because it cannot be validated anywhere but that lane.
+
+It is one Windows target rather than Windows, and `target_env` alone does not name it: `x86_64-pc-windows-gnu`
+and the default `x86_64-pc-windows-gnullvm` both report `target_env = "gnu"`, and only the ABI separates them
+(`target_abi = ""` versus `"llvm"`). A gate meaning mingw must therefore say
+`all(windows, target_env = "gnu", not(target_abi = "llvm"))`; written without that last clause it silently takes
+the default Windows lane with it.
+
+On commit `5998313315c491a6abffb7c1507e4adc4a4f3559` the same
+workload passed on `gnullvm` (the default the Windows Dockerfiles and CI build) in 426s and on `msvc` in 443s,
+while `gnu` failed twice with the identical signature -- 644s at
+`https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101938939834`, then 591s on a deliberate
+re-run at `https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101958844541`.
+
+The defect is older than its discovery. Only two tests in `services/ws-wasi-runner/tests/` instantiate the
+runner at all -- `modules.rs` and `otel_propagation.rs`, the other two driving `openobserve` and `vector`
+instead -- and both carry `#[cfg_attr(windows, ignore)]` for an unrelated `pkg/package.json` 404, so the runner
+had never executed on any Windows lane until `utilities/cli/tests/scenario_runners.rs` drove it through a
+generated deployment.
+
+Every scenario whose trigger is `wasi-math1-sender` hits it, which is both of them. `pyo3-math1` was left
+ungated on the first pass because fail-fast had cancelled it before it ever ran on `gnu`; it then failed there
+with the identical signature at 579s on commit `29dfe80a62ba7a27d8119c5b6332c3dbe2df815e`
+(`https://github.com/edge-toolkit/core/actions/runs/34211905976/job/102014621776`) while passing on `gnullvm`
+in 472s and `msvc` in 458s. Its pyo3 twin registers and idles cleanly throughout -- what aborts is the wasi
+trigger, so the scenario fails for the reason above and not for anything to do with the pyo3 runner.
 
 ### Known intermittent CI failure: mise tool-install `api.github.com` attestation/metadata flake
 
@@ -1055,6 +1116,31 @@ A baseline gets rewritten only for a change that is genuinely not about the find
 move, a vendored tree landing wholesale. Even then, say so explicitly, get the operator's sign-off first, and
 report the added/removed counts the update task prints so the delta is reviewable rather than opaque.
 
+### A finding from an external analyzer must end up in a local checker
+
+DeepSource, Codacy and Codecov run only after a push, so a rule that lives solely in one of them is a rule the
+repo cannot enforce before CI. **When an external analyzer reports a finding the local battery did not, close
+that gap in the same change as the fix** -- otherwise the next contributor rediscovers the same rule the same
+slow way, one CI round-trip at a time.
+
+Work the gap in this order, and prefer the earliest step that applies:
+
+1. **Find the local equivalent -- it usually already exists.** The linters here overlap the external services
+   heavily, and the codes often correspond directly: DeepSource's `PYL-*` are pylint codes, which ruff
+   implements as `PL*` (`PYL-W0603` is ruff's `PLW0603`, `PYL-W0613` is ruff's `ARG`). If the rule is already
+   enabled, the gap is not the rule -- see step 2.
+2. **Check whether an exemption is what hid it.** A path-glob carve-out (a `[lint.per-file-ignores]` entry, a
+   `files:` allowlist, an `exclude_paths`) silences the rule for files that do not exist yet, so the local check
+   stays quiet while the external analyzer flags each new file. Narrow it: replace the glob with per-site inline
+   suppressions carrying their reason (`# noqa: <CODE> -- why`, `#[expect(..., reason = "...")]`, `// skipcq`),
+   which cover exactly today's known cases and let tomorrow's fire. That is the same hierarchy the suppression
+   rules above describe, applied to an exemption that has quietly grown into a blanket one.
+3. **Only if there is no local equivalent, write one**, following the rule-authoring guidance below, and say in
+   its comment which external code it mirrors so the pair stays recognisable.
+
+Enabling the rule locally is not optional just because the external finding was easy to fix by hand: the fix
+addresses one occurrence, and the local rule is what stops the next one.
+
 ### When you spot a style or consistency issue, write a rule
 
 If a code-review comment, a fix-up commit, or a CLAUDE.md paragraph would tell the next contributor "don't do X"
@@ -1159,6 +1245,11 @@ you add a path to `.gitignore`, update their ignore lists too:
 - **ls-lint** -- `config/ls-lint.yaml`'s `ignore`. Patterns are gitignore-style
   globs; bare names match only top-level -- use `**/<name>` for nested matches
   (e.g. pnpm puts `node_modules` under each package dir, not the repo root).
+- **gitleaks** -- `config/gitleaks.toml`'s `[[allowlists]] paths`, which take
+  regexes rather than globs. Both halves of the sync matter here: an unlisted
+  `target/` makes the scan walk tens of gigabytes and never finish, and a
+  finding in an untracked file is a false alarm, since the external analyzers
+  this check mirrors only ever see what git tracks.
 
 A new linter that surfaces ignored paths in its output belongs on this list.
 

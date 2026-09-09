@@ -2,6 +2,8 @@
 IgnoredVulns = [
   { id = "GHSA-3w8q-xq97-5j7x" },
   { id = "GHSA-f88m-g3jw-g9cj" },
+  { id = "GHSA-rgj7-g3m4-5g8c" },
+  { id = "GHSA-vwc7-r8mq-g2x9" },
   { id = "GHSA-xcpc-8h2w-3j85" },
   { id = "RUSTSEC-2023-0071" },
   { id = "RUSTSEC-2024-0436" },

@@ -27,4 +27,13 @@ pub enum RunnerError {
     /// The dedicated Python dispatch thread could not be spawned.
     #[error("failed to spawn the Python dispatch thread: {0}")]
     WorkerSpawn(#[from] std::io::Error),
+
+    /// A module fetched from the hub was not valid UTF-8, so it is not Python source.
+    #[error("module `{module}`: hub served `{file}`, which is not UTF-8")]
+    ModuleNotUtf8 {
+        /// Published name the module was fetched under.
+        module: String,
+        /// File the module's `package.json` named as its entry point.
+        file: String,
+    },
 }

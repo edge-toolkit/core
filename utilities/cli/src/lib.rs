@@ -151,14 +151,21 @@ pub enum ModuleSource {
 /// Where the hub serves pyodide from, whichever distribution was selected.
 const PYODIDE_DOCKER_PATH: &str = "/app/node_modules/pyodide";
 
-/// Pragma marking a generated credential as a deliberate, dev-only literal.
+/// Name of the generated env file that carries the scenario's derived credential.
 ///
-/// The scenario password is derived from the scenario input so a deployment is reproducible, which means it is
-/// written into files that are committed, which means the secret scanner finds it. It is a local dev credential
-/// for a collector nothing outside the developer's machine talks to, so the finding is suppressed per line rather
-/// than by excluding the tree -- `.deepsource.toml` already excludes `verification/**`, and the secrets analyzer
-/// scans it regardless.
-pub const SECRET_PRAGMA: &str = "# skipcq: SCT-A000 -- generated dev-only scenario credential";
+/// The password is derived from the scenario input so a deployment is reproducible from it, which used to mean
+/// writing the literal into `mise.toml` and `compose.yaml` -- both committed under `verification/`, where every
+/// secret scanner duly found it. Holding it in one uncommitted file instead keeps the deployment reproducible
+/// (regenerating the scenario rewrites this file too) while leaving no credential in a tracked file to suppress.
+///
+/// Suppression was the previous answer and it did not hold. Inline markers only work where the scanner reads
+/// them: gitleaks honours `gitleaks:allow` on the same line, so the trailing marker in `compose.yaml` worked
+/// locally while Codacy's own scan ignored it, and the `mise.toml` marker sat on its own line -- forced there
+/// because taplo realigns trailing comments and the drift check then failed either way round -- where gitleaks
+/// never read it at all. Whether any of it mattered came down to the separator the password happened to draw:
+/// gitleaks' `generic-api-key` and `hashicorp-tf-password` rules match a run of `[\w.=-]`, so a password joined
+/// by `_` was reported while one containing `%` was not, and each new scenario was a coin toss.
+pub const SECRETS_ENV_FILE: &str = "secrets.env";
 
 #[derive(Debug, Clone)]
 #[non_exhaustive]
@@ -282,11 +289,12 @@ fn generate_deployment_outputs(
     // OpenObserve and the ws-server have to agree on it: the server authenticates its OTLP exports against the
     // same root credentials the collector was started with.
     let password = scenario_password(seed);
+    fs::write(output_dir.join(SECRETS_ENV_FILE), secrets_env(&password))?;
     for output_type in output_types {
         match output_type {
-            OutputType::Mise => generate_mise_deployment(cluster, output_dir, &password)?,
+            OutputType::Mise => generate_mise_deployment(cluster, output_dir)?,
             OutputType::DockerCompose => {
-                generate_docker_compose_deployment(cluster, output_dir, &password)?;
+                generate_docker_compose_deployment(cluster, output_dir)?;
                 generate_scenario_image(cluster, output_dir)?;
             }
         }
@@ -297,6 +305,23 @@ fn generate_deployment_outputs(
     fs::write(&readme_path, generated_readme(cluster, &module_names, output_types))?;
 
     Ok(())
+}
+
+/// Render the env file both deployment formats read the scenario credential from.
+///
+/// Two names for the one password because the services that share it read different variables: `OpenObserve`
+/// takes `ZO_ROOT_USER_PASSWORD` as its root credential, and the ws-server authenticates its OTLP exports with
+/// `OTLP_AUTH_PASSWORD`. The username is here too so everything the pair needs to agree on lives in one file.
+fn secrets_env(password: &str) -> String {
+    format!(
+        concat!(
+            "# Generated, and deliberately not committed -- regenerating the scenario rewrites it.\n",
+            "ZO_ROOT_USER_PASSWORD={password}\n",
+            "OTLP_AUTH_PASSWORD={password}\n",
+            "OTLP_AUTH_USERNAME=root@example.com\n",
+        ),
+        password = password
+    )
 }
 
 fn discover_verification_scenarios(verification_root: &Path) -> Result<Vec<(PathBuf, PathBuf)>, CliError> {
@@ -392,12 +417,30 @@ fn generated_readme(cluster: &ClusterInput, module_names: &[String], output_type
             "# {name}\n\n",
             "{output_summary}\n\n",
             "{module_summary}\n\n",
+            "{secrets_note}\n\n",
             "{run_instructions}",
         ),
         name = cluster.cluster_name,
         output_summary = output_summary,
         module_summary = module_summary,
+        secrets_note = secrets_note(),
         run_instructions = run_instructions,
+    )
+}
+
+/// Explain the credential file, since it is the one generated file the repository does not carry.
+///
+/// Worth saying out loud because its absence is silent: `mise` skips an `_.file` it cannot find without a
+/// warning, and Docker Compose treats a missing `env_file` the same way, so a checkout without it starts a
+/// collector with no root password rather than failing.
+fn secrets_note() -> String {
+    format!(
+        concat!(
+            "`{file}` holds the scenario's derived OpenObserve and OTLP credentials, and is deliberately not\n",
+            "committed. Regenerating this scenario writes it; if it is missing, run\n",
+            "`mise run regen-verification` (or `et-cli generate-deployment`) before starting the stack.",
+        ),
+        file = SECRETS_ENV_FILE
     )
 }
 
@@ -782,10 +825,16 @@ pub struct RunnerInstance {
 
 /// Runner kinds a scenario may name, mapped to the crate that runs them.
 ///
-/// Only the web runner is wired up so far. The others have images but no generator support, and rejecting them
-/// by name is what stops a scenario from asking for one and silently getting nothing; adding one here plus its
-/// service/task shape is the whole change.
-pub const SUPPORTED_RUNNERS: [(&str, &str); 1] = [("web", "et-ws-web-runner")];
+/// All three share one deployment shape, which is what lets one generator serve them: each takes the module's
+/// published name in `RUNNER_MODULE`, fetches it from the hub named by `WS_SERVER_URL`, and builds from
+/// `services/ws-<kind>-runner/Dockerfile`. Nothing else distinguishes a runner here, so a fourth is this line
+/// plus an image. Rejecting a kind by name is what stops a scenario from asking for one and silently getting
+/// nothing.
+pub const SUPPORTED_RUNNERS: [(&str, &str); 3] = [
+    ("pyo3", "et-ws-pyo3-runner"),
+    ("wasi", "et-ws-wasi-runner"),
+    ("web", "et-ws-web-runner"),
+];
 
 /// Names the generated deployment already uses for its own tasks, services and aliases.
 ///

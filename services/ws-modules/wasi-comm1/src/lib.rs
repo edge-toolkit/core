@@ -20,59 +20,23 @@
 // from the repo root produces an empty cdylib for the host target without
 // linker errors.
 #![cfg(target_os = "wasi")]
-// wit_bindgen::generate! emits `unsafe fn` and `#[export_name]` items;
-// `export!(Component)` does the same. Both trip workspace
-// `unsafe_code = "deny"` lint; expect it at crate scope because outer
-// `#[expect]` on the macro invocations themselves doesn't propagate to
-// the items they expand into.
-#![expect(unsafe_code)]
 
-wit_bindgen::generate!({
-    // ET_WIT_DIR is the absolute path to generated/specs/wit, emitted by build.rs.
-    path: env!("ET_WIT_DIR"),
-    world: "module",
-    generate_all,
-});
-
-use et::ws_messages::messages::{BroadcastMessagePayload, ClientMessage, ServerMessage};
-use et::ws_wasi::ws::WsError;
-use exports::et::ws_wasi::entry::{EntryError, Guest};
-use wasi::logging::logging::{self, Level};
-
-// Coverage dump lives in its own module so Codacy can exclude just that file (its minicov call is unsafe).
-#[cfg(feature = "coverage")]
-mod coverage;
+use et_wasi_guest::et::ws_messages::messages::{BroadcastMessagePayload, ClientMessage, ServerMessage};
+use et_wasi_guest::et::ws_wasi::ws;
+use et_wasi_guest::exports::et::ws_wasi::entry::{EntryError, Guest};
+use et_wasi_guest::{info, start};
 
 const LOG_CONTEXT: &str = env!("CARGO_PKG_NAME");
 /// Total time we'll wait for a `list-agents-response`.
 /// The server replies immediately under normal load, but we leave headroom for the inbox queue.
 const LIST_AGENTS_TIMEOUT_MS: u32 = 2_000;
 
-fn info(message: &str) {
-    logging::log(Level::Info, LOG_CONTEXT, message);
-}
-
-// Lets `?` lift a `ws-error` into `entry-error.ws(...)` so the body of `run`
-// stays free of explicit `.map_err`s (which the workspace's no-map-err
-// ast-grep rule bans outside listed error.rs files anyway).
-impl From<WsError> for EntryError {
-    fn from(err: WsError) -> Self {
-        Self::Ws(err)
-    }
-}
-
 struct Component;
 
 impl Guest for Component {
     async fn run() -> Result<(), EntryError> {
-        info("entered run()");
-
-        et::ws_wasi::ws::connect()?;
-        let agent_id =
-            wait_for_agent_id().ok_or_else(|| EntryError::Runtime("did not receive agent_id".to_string()))?;
-        info(&format!("websocket connected with agent_id={agent_id}"));
-
-        et::ws_wasi::ws::send(&ClientMessage::ListAgents)?;
+        let agent_id = start(LOG_CONTEXT)?;
+        ws::send(&ClientMessage::ListAgents)?;
 
         let response = wait_for_list_agents_response(LIST_AGENTS_TIMEOUT_MS)
             .ok_or_else(|| EntryError::Runtime("no list-agents-response within timeout".to_string()))?;
@@ -98,15 +62,15 @@ impl Guest for Component {
             Ok(rendered) => rendered,
             Err(e) => return Err(EntryError::Runtime(format!("serialize broadcast body: {e}"))),
         };
-        et::ws_wasi::ws::send(&ClientMessage::BroadcastMessage(BroadcastMessagePayload {
+        ws::send(&ClientMessage::BroadcastMessage(BroadcastMessagePayload {
             message: body_str,
         }))?;
         info("broadcast sent");
 
-        et::ws_wasi::ws::disconnect();
+        ws::disconnect();
         info("workflow complete");
         #[cfg(feature = "coverage")]
-        coverage::dump();
+        et_wasi_guest::dump_coverage("et_ws_wasi_comm1.profraw");
         Ok(())
     }
 }
@@ -116,11 +80,11 @@ impl Guest for Component {
 /// get the message we want.
 fn wait_for_list_agents_response(
     total_timeout_ms: u32,
-) -> Option<et::ws_messages::messages::ListAgentsResponsePayload> {
+) -> Option<et_wasi_guest::et::ws_messages::messages::ListAgentsResponsePayload> {
     let mut remaining = total_timeout_ms;
     while remaining > 0 {
         let chunk = remaining.min(200);
-        match et::ws_wasi::ws::recv(chunk).ok()? {
+        match ws::recv(chunk).ok()? {
             Some(ServerMessage::ListAgentsResponse(payload)) => return Some(payload),
             Some(_) => {}
             None => {}
@@ -130,20 +94,4 @@ fn wait_for_list_agents_response(
     None
 }
 
-fn wait_for_agent_id() -> Option<String> {
-    for _ in 0..100 {
-        let id = et::ws_wasi::ws::agent_id();
-        if !id.is_empty() {
-            return Some(id);
-        }
-        sleep_ms(50);
-    }
-    None
-}
-
-fn sleep_ms(ms: u64) {
-    let pollable = wasi::clocks::monotonic_clock::subscribe_duration(ms * 1_000_000);
-    let _ready = wasi::io::poll::poll(&[&pollable]);
-}
-
-export!(Component);
+et_wasi_guest::export!(Component);

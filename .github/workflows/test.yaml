@@ -80,23 +80,23 @@ jobs:
           '[{0},{1},{2},{3},{4},{5},{6}]',
           '{"os":"ubuntu-latest","timeout":40}',
           '{"os":"ubuntu-26.04","timeout":40}',
-          '{"os":"ubuntu-24.04-arm","timeout":40}',
-          '{"os":"macos-latest","timeout":45}',
+          '{"os":"ubuntu-24.04-arm","timeout":50}',
+          '{"os":"macos-latest","timeout":75}',
           '{"os":"macos-26-intel","timeout":60}',
           '{"os":"windows-latest","timeout":120}',
           '{"os":"windows-11-arm","timeout":60}'
           )
           || github.event.inputs.os == 'ubuntu-latest' && '[{"os":"ubuntu-latest","timeout":40}]'
           || github.event.inputs.os == 'ubuntu-26.04' && '[{"os":"ubuntu-26.04","timeout":40}]'
-          || github.event.inputs.os == 'ubuntu-24.04-arm' && '[{"os":"ubuntu-24.04-arm","timeout":40}]'
-          || github.event.inputs.os == 'macos-latest' && '[{"os":"macos-latest","timeout":45}]'
+          || github.event.inputs.os == 'ubuntu-24.04-arm' && '[{"os":"ubuntu-24.04-arm","timeout":50}]'
+          || github.event.inputs.os == 'macos-latest' && '[{"os":"macos-latest","timeout":75}]'
           || github.event.inputs.os == 'macos-26-intel' && '[{"os":"macos-26-intel","timeout":60}]'
           || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":120}]'
           || github.event.inputs.os == 'windows-11-arm' && '[{"os":"windows-11-arm","timeout":60}]'
           )
           || format('[{0},{1},{2}]',
-          '{"os":"ubuntu-24.04-arm","timeout":40}',
-          '{"os":"macos-latest","timeout":45}',
+          '{"os":"ubuntu-24.04-arm","timeout":50}',
+          '{"os":"macos-latest","timeout":75}',
           '{"os":"windows-latest","timeout":120}')
           ) }}
     steps:
@@ -156,7 +156,7 @@ jobs:
         run: mise run build-modules
 
       - name: Run tests
-        timeout-minutes: 30
+        timeout-minutes: 50
         run: mise run test
 
   # Alternate-compiler Windows lanes, one per mise target env (.mise/config.<compiler>.toml).

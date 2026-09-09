@@ -5,6 +5,10 @@ Files: `mise.toml`, `compose.yaml`.
 
 The scenario exposes these workflow modules: math1, math1-sender.
 
+`secrets.env` holds the scenario's derived OpenObserve and OTLP credentials, and is deliberately not
+committed. Regenerating this scenario writes it; if it is missing, run
+`mise run regen-verification` (or `et-cli generate-deployment`) before starting the stack.
+
 ## Run With Mise
 
 From this directory, start the scenario with:

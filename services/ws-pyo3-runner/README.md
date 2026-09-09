@@ -12,7 +12,7 @@ chosen Python module differs.
 
 ## How it loads your module
 
-You point it at a Python module by name and tell it where to find that module on disk:
+You point it at a Python module by name, and tell it where to find that module on disk:
 
 ```sh
 RUNNER_MODULE=echo                          # which Python module to load (required)
@@ -24,6 +24,24 @@ cargo run -p et-ws-pyo3-runner
 On startup the runner embeds a Python interpreter, `import`s the module named by `RUNNER_MODULE`, and from then
 on just calls functions on it as things happen. Your module keeps its own state in ordinary Python globals; the
 runner never looks inside.
+
+Or you don't tell it where, and let it fetch the module from the ws-server:
+
+```sh
+RUNNER_MODULE=et-ws-pyo3-math1              # a module the ws-server publishes
+WS_SERVER_URL=ws://127.0.0.1:8080/ws
+cargo run -p et-ws-pyo3-runner
+```
+
+A name that resolves nowhere on `sys.path` is fetched from the ws-server, which serves it as a static asset the
+way it serves every other module: the runner reads the module's `package.json`, downloads the single file its
+`main` field names, and compiles that source under the file's own stem. This is the shape the WASI and web
+runners already have, and it is what lets a generated deployment name a pyo3 module without also arranging for
+that module to be on the runner's filesystem -- see `services/ws-modules/pyo3-math1/` for one.
+
+The local path is tried first and is unchanged, so a module on `PYO3_PYTHONPATH` never causes a fetch. Only the
+module itself arrives over the wire: whatever it imports still resolves through `sys.path`, so its third-party
+dependencies come from mise's site-packages exactly as a local module's do.
 
 ## The contract (every function is optional)
 

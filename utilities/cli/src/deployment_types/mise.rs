@@ -8,30 +8,29 @@ use toml::{Table, Value};
 
 use crate::error::CliError;
 use crate::{
-    RunnerInstance, SECRET_PRAGMA, cluster_module_names, hub_ws_url, module_registry, resolve_cluster_runners,
-    resolve_module_paths, runner_crate,
+    RunnerInstance, cluster_module_names, hub_ws_url, module_registry, resolve_cluster_runners, resolve_module_paths,
+    runner_crate,
 };
 
-pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path, password: &str) -> Result<(), CliError> {
+pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
     let output_path = output_dir.join("mise.toml");
     let workspace_root = edge_toolkit::config::get_project_root();
     let output_abs = absolute_from(&workspace_root, output_dir);
     let ws_server_dir = workspace_root.join("services/ws-server");
     let workspace_rel = relative_path_from(&output_abs, &workspace_root);
     let openobserve_env_file_rel = "config/o2.env";
-    // The image and the credential override are lifted into shell variables, not folded with continuations.
-    // Inlining both would put the `docker run` past the editorconfig line length once the generated password is
-    // long enough, and a wrapped copy is what once silently dropped `-it`; a variable keeps the command one
-    // statement whatever the password turns out to be. `-e` comes after `--env-file` so the scenario password
-    // wins over the repo-wide one the env file carries.
+    // The image is lifted into a shell variable, not folded with a continuation: inlining it would put the
+    // `docker run` past the editorconfig line length, and a wrapped copy is what once silently dropped `-it`.
+    // `-e ZO_ROOT_USER_PASSWORD` passes the name only, so Docker forwards the value from the task environment
+    // that `[env] _.file` loaded -- and being after `--env-file`, the scenario's password still wins over the
+    // repo-wide one that file carries.
     let openobserve_run = format!(
         concat!(
             "image=openobserve/openobserve:v0.91.5\n",
-            "credential=ZO_ROOT_USER_PASSWORD={} {}\n",
-            "docker run --rm --name openobserve -p 127.0.0.1:5080:5080 --env-file {} -e \"$credential\" ",
-            "\"$image\"\n",
+            "docker run --rm --name openobserve -p 127.0.0.1:5080:5080 --env-file {} ",
+            "-e ZO_ROOT_USER_PASSWORD \"$image\"\n",
         ),
-        password, SECRET_PRAGMA, openobserve_env_file_rel
+        openobserve_env_file_rel
     );
     let module_names = cluster_module_names(cluster);
     let module_paths = scenario_module_paths(&ws_server_dir, &module_names)?;
@@ -61,7 +60,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path, passw
             Some(&ws_server_rel),
             Some(&ws_server_run),
             None,
-            Some(mise_env(password)),
+            None,
         )),
     );
     // Each runner agent becomes its own task, and `generated-scenario` depends on all of them.
@@ -108,6 +107,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path, passw
         )),
     );
 
+    let _previous: Option<Value> = root.insert("env".to_string(), Value::Table(mise_env()));
     let _previous: Option<Value> = root.insert("tasks".to_string(), Value::Table(tasks));
 
     let mut tools = Table::new();
@@ -115,16 +115,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path, passw
     // No extra tools for the runner tasks: `runner_run_body` calls only `cargo`, which the hub task needs anyway.
     let _previous: Option<Value> = root.insert("tools".to_string(), Value::Table(tools));
 
-    // The pragma is inserted after serialization because the toml crate has no way to emit a comment.
-    // Everything else here goes through the `Value` tree, but a comment is not part of the data model, so the
-    // one credential line is rewritten in the finished document instead.
-    //
-    // On its own line rather than trailing the value, because taplo aligns trailing comments across a table
-    // while this emits a single space. Trailing, the two disagree permanently: `taplo-fmt` pads the generated
-    // file and the next `regen-verification` unpads it, so `verification-check` reports drift either way round.
-    let credential = format!("OTLP_AUTH_PASSWORD = \"{password}\"");
-    let content = toml::to_string(&Value::Table(root))?.replace(&credential, &format!("{SECRET_PRAGMA}\n{credential}"));
-    fs::write(&output_path, content)?;
+    fs::write(&output_path, toml::to_string(&Value::Table(root))?)?;
 
     Ok(())
 }
@@ -227,13 +218,19 @@ fn mise_task(
     task
 }
 
-fn mise_env(password: &str) -> Table {
+/// The `[env]` table that loads the scenario credential for every task in the file.
+///
+/// `_.file` is mise's env-file directive, resolved relative to this config, so both the OTLP variables the
+/// ws-server needs and the root password the `OpenObserve` task passes through to Docker arrive from one place.
+///
+/// Built as a nested `_` table, which is what makes it a *dotted* key. Inserting the string `"_.file"` instead
+/// produces the quoted key `"_.file" = "secrets.env"`, a single key whose name happens to contain a dot -- and
+/// mise reads that as an ordinary variable, exporting `_.file=secrets.env` and loading nothing.
+fn mise_env() -> Table {
+    let mut file = Table::new();
+    let _previous: Option<Value> = file.insert("file".to_string(), Value::String(crate::SECRETS_ENV_FILE.to_string()));
     let mut env = Table::new();
-    let _previous: Option<Value> = env.insert("OTLP_AUTH_PASSWORD".to_string(), Value::String(password.to_string()));
-    let _previous: Option<Value> = env.insert(
-        "OTLP_AUTH_USERNAME".to_string(),
-        Value::String("root@example.com".to_string()),
-    );
+    let _previous: Option<Value> = env.insert("_".to_string(), Value::Table(file));
     env
 }
 

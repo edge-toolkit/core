@@ -17,9 +17,9 @@
 # - services/ws-web-runner/mingw-shim/msvc_crt_locale_cache.c: the locale wrappers' write-once symbol caches, which
 #   Codacy's "Local static variable" rule flags for audit and cannot suppress per line. Isolated into that one file
 #   so this exclude stays minimal; rationale in its header. The ucrt_resolve_once resolver it calls stays analyzed.
-# - services/ws-modules/wasi-{comm1,data1}/src/coverage.rs: each guest's minicov coverage dump, whose unsafe
-#   Codacy flags for audit and cannot suppress per line. Isolated into these one-function files so the exclude
-#   stays minimal; rationale in each file's header. The rest of each guest stays analyzed.
+# - libs/wasi-guest/src/coverage.rs: the WASI guests' shared minicov coverage dump, whose unsafe Codacy flags for
+#   audit and cannot suppress per line. Isolated into that one-function file so the exclude stays minimal;
+#   rationale in its header. The rest of the crate, and every guest depending on it, stays analyzed.
 # - services/ws-test-server/src/bin/cov-server.rs: the wasm-agent-cov launcher reads its marker-file path from
 #   argv (args_os); Codacy's Rust security rule flags args_os-into-a-file-operation and cannot suppress per line.
 #   A false positive -- the path comes from the trusted mise task -- and taking it as an argument beats hardcoding
@@ -38,9 +38,7 @@ exclude_paths:
   - "CLAUDE.md"
   - "config/semgrep/**"
   - "services/ws-modules/dotnet-data1/Program.cs"
-  - "services/ws-modules/wasi-comm1/src/coverage.rs"
-  - "services/ws-modules/wasi-data1/src/coverage.rs"
-  - "services/ws-modules/wasi-math1/src/coverage.rs"
+  - "libs/wasi-guest/src/coverage.rs"
   - "services/ws-test-server/src/bin/cov-server.rs"
   - "services/ws-web-runner/mingw-shim/msvc_crt_alloc.c"
   - "services/ws-web-runner/mingw-shim/msvc_crt_locale_cache.c"

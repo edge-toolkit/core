@@ -4453,6 +4453,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "et-wasi-guest"
+version = "0.1.0"
+dependencies = [
+ "et-path",
+ "fs-err",
+ "minicov",
+ "wit-bindgen",
+]
+
+[[package]]
 name = "et-web"
 version = "0.1.0"
 dependencies = [
@@ -4924,34 +4934,32 @@ dependencies = [
 name = "et-ws-wasi-comm1"
 version = "0.1.0"
 dependencies = [
- "et-path",
- "fs-err",
- "minicov",
+ "et-wasi-guest",
  "serde_json",
- "wit-bindgen",
 ]
 
 [[package]]
 name = "et-ws-wasi-data1"
 version = "0.1.0"
 dependencies = [
- "et-path",
- "fs-err",
- "minicov",
- "serde_json",
- "wit-bindgen",
+ "et-wasi-guest",
 ]
 
 [[package]]
 name = "et-ws-wasi-math1"
 version = "0.1.0"
 dependencies = [
- "et-path",
- "fs-err",
- "minicov",
+ "et-wasi-guest",
  "serde",
  "serde_json",
- "wit-bindgen",
+]
+
+[[package]]
+name = "et-ws-wasi-math1-sender"
+version = "0.1.0"
+dependencies = [
+ "et-path",
+ "et-wasi-guest",
 ]
 
 [[package]]

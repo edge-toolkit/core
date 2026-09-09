@@ -15,7 +15,11 @@ from typing import Any
 
 _logger = logging.getLogger(__name__)
 
-_storage: Any = None
+# Module-level state, held in a container rather than a rebindable name.
+# The runner's contract is deliberately class-free -- one module instance per process, state in module globals --
+# but `init` only has to *populate* that state, not rebind the name it lives under, so mutating a dict does the
+# job without a `global` statement and the anti-pattern warning that comes with one.
+_state: dict[str, Any] = {}
 
 
 def fed_avg(clients: list, rounds: int, epochs: int, learning_rate: float) -> tuple[float, float]:
@@ -50,8 +54,7 @@ def fed_avg(clients: list, rounds: int, epochs: int, learning_rate: float) -> tu
 
 def init(_send, storage) -> None:
     """Stash the WsStorage handle for the exchange."""
-    global _storage
-    _storage = storage
+    _state["storage"] = storage
 
 
 def on_text_frame(text: str) -> None:
@@ -66,7 +69,7 @@ def on_text_frame(text: str) -> None:
         return
     if not (isinstance(msg, dict) and msg.get("type") == "math1-input"):
         return
-    input_bytes = _storage.get(msg["bucket"], msg["filename"])
+    input_bytes = _state["storage"].get(msg["bucket"], msg["filename"])
     if input_bytes is None:
         raise RuntimeError(f"input {msg['filename']} not found in bucket {msg['bucket']}")
     params = json.loads(bytes(input_bytes).decode("utf-8"))
@@ -79,4 +82,4 @@ def on_text_frame(text: str) -> None:
     weight, bias = fed_avg(params["clients"], params["rounds"], params["epochs"], params["learning_rate"])
     _logger.info("global model weight=%r bias=%r", weight, bias)
     output = json.dumps({"module": "math1", "weight": weight, "bias": bias})
-    _storage.put("math1-output.json", output.encode("utf-8"))
+    _state["storage"].put("math1-output.json", output.encode("utf-8"))

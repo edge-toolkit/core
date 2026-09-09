@@ -12,6 +12,15 @@ repository.workspace = true
 # markdown backtick prose that Rust's doctest runner tries to compile as code.
 doctest = false
 
+# Every rustc warning here is an error, as it is in every hand-written crate.
+# This was the one workspace member with no [lints] table at all, so its warnings stayed warnings -- which is how
+# six unreachable calls sat in `cargo-doc-check` output instead of failing it. The full `[workspace.lints]` set is
+# deliberately not inherited: its clippy half is written for hand-authored code, and progenitor's output cannot
+# satisfy it (inline modules, `#[allow]` attributes, scoped field visibility). Lints the generated shape cannot
+# avoid are allowed at the top of src/lib.rs by the generator, where the reason for each one lives.
+[lints.rust]
+warnings = "deny"
+
 [features]
 default = ["tracing"]
 # OTel traceparent injection runs in the progenitor pre-hook. The hook body

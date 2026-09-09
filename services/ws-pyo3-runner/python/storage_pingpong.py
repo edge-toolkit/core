@@ -24,14 +24,14 @@ _agent_id: str | None = None
 
 def init(send, storage) -> None:
     """Stash the WsSender and WsStorage handles."""
-    global _send, _storage
+    global _send, _storage  # noqa: PLW0603 -- runner contract: one module per process, state in module globals
     _send = send
     _storage = storage
 
 
 def on_connect(agent_id: str) -> None:
     """Record the assigned agent id for later get/put calls."""
-    global _agent_id
+    global _agent_id  # noqa: PLW0603 -- runner contract: one module per process, state in module globals
     _agent_id = agent_id
 
 
