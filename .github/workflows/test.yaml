@@ -174,7 +174,11 @@ jobs:
       contents: read
       packages: read
     runs-on: windows-latest
-    timeout-minutes: 120
+    # Covers the step ceilings this job declares, which now sum past the old 120.
+    # Install 60 + prefetch 20 + build-modules 25 + tests 55 is 160, so at 120 a slow setup could have the
+    # job cancelled while the test step still had budget left -- the test step's own limit would never apply.
+    # In practice msvc runs ~68m end to end; this only binds when something is already pathological.
+    timeout-minutes: 165
     strategy:
       fail-fast: false
       matrix:
@@ -225,6 +229,10 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run build-modules
 
+      # Raised from 40, which `override (msvc)` overran at test 232 of 233 -- one short of the whole suite.
+      # msvc does the most test work of any lane: it is the only Windows lane that builds and runs
+      # et-ws-web-runner, which the gnullvm default excludes, so its 233 tests take far longer than that lane's
+      # 20.9m. The other lanes sat at 22.8-29.3m against their own bounds when msvc hit this one.
       - name: Run tests
-        timeout-minutes: 40
+        timeout-minutes: 55
         run: mise run test

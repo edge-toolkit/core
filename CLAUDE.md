@@ -81,8 +81,29 @@ to be on the host (`perl`, the host's own `sed`, a random CLI). A host binary ma
 missing on another OS, and its shell-quoting is the exact fragility the homebrew-bash rule exists to avoid (a mangled
 `perl -pi -e` once silently no-op'd its edit and produced a bogus "passing" test result here before it was caught).
 
-For file edits specifically, reach for the Edit/Write tools rather than a stream editor (`perl -pi`, `sed -i`): they
-never touch the shell, so there is no quoting to get wrong.
+### NEVER edit a file with perl, sed, or any other stream editor
+
+**File edits go through the Edit/Write tools. Never `perl -pi`, never `sed -i`, never `awk`-into-a-temp-and-move,
+and never a heredoc that rewrites a tracked file.** This is not a preference to weigh against convenience; it is a
+ban. The Edit tool never touches the shell, so there is no quoting layer to get wrong, and it fails loudly when its
+match is not unique rather than silently doing the wrong thing.
+
+`perl` is additionally forbidden for the reason the rule above gives: it is a host binary, not a mise `[tools]`
+entry, so its version and even its presence vary by machine.
+
+The failure mode is not hypothetical, and it is not always visible. Two worked examples from this repo:
+
+- A mangled `perl -pi -e` silently no-op'd its edit and produced a bogus "passing" test result, which stood until
+  someone noticed the file had never changed.
+- A `perl -0pi -e` rewriting a Rust `vec![...]` expression died mid-file with
+  `Not enough arguments for vec at -e line 2` -- perl parsed the `!` and brackets as its own syntax -- and left the
+  source broken with `cannot find value volume_mount in this scope`. The repair was done with the Edit tool that
+  should have been used in the first place, so the stream editor cost time and bought nothing.
+
+Multi-line and repeated replacements are not an exception. Edit handles a multi-line `old_string`, and
+`replace_all` handles every occurrence; if a match is not unique, widen the `old_string` with surrounding context
+rather than reaching for a regex. Reading with `rg`, `goawk` or `coreutils` is fine and encouraged -- the ban is on
+using them to **write**.
 
 If you genuinely need a tool that is not installed (or is not mise-managed) to do the job well, do NOT quietly fall
 back to the host binary -- surface it. Recommend to the user that the tool be added as a mise `[tools]` entry
@@ -564,7 +585,24 @@ scenario deployments do not use this password -- `et-cli` derives a per-scenario
 Tests must live in a `tests/` directory or in source files prefixed `test_`. Do not use inline `#[cfg(test)]` modules.
 If a function is private but needs testing, add a `[lib]` target to the crate and export it so `tests/` can reach it.
 
-Every file under `tests/` must start with `#![cfg(test)]` (placed after the file's `//!` doc comment, if any).
+Every file under `tests/` carries `#![cfg(test)]`, and the preamble order is fixed: the `//!` module doc comes
+**first**, then the attribute. Both are inner attributes, so either order compiles -- this is a house style, not
+a language rule, and it exists so the file opens by saying what it covers rather than with a cfg gate. A file
+with no module doc simply opens with the attribute. The two shapes, in full:
+
+    //! What this file covers, in one line.
+    //!
+    //! Any elaboration.
+    #![cfg(test)]
+
+    #![cfg(test)]
+
+    use std::process::Command;
+
+Read "starts with `#![cfg(test)]`" as "the attribute precedes the first item", not "the attribute is line 1" --
+a `//!` block above it is required, not a violation. As of this writing every one of the 45 test files that has
+a module doc puts it first, so a review comment claiming the attribute must lead is reading a rule this repo
+does not have.
 
 Shared, **low-dependency** test helper functions -- free-port reservation, port-readiness waits, and the like --
 belong in the `et-test-helpers` crate (`libs/test-helpers`); reuse and extend it rather than re-implementing the same

@@ -32,6 +32,13 @@
 # - uv.lock: the uv workspace's machine-generated dependency lock. Codacy's line-count metric flags its 500+ rows,
 #   but it is not hand-authored source and has nothing to review; the other lock files are well-known names Codacy
 #   already skips, whereas uv.lock is new enough that it isn't on that list yet.
+# - utilities/cli/src/hub_ws_url.rs: the only `ws://` scheme et-cli writes, which Codacy's "Insecure WebSocket
+#   Detected" rule flags and cannot suppress per line. Isolated into that two-function file so this exclude stays
+#   minimal; rationale in its header. Every other line of the generators stays analyzed.
+# - verification/local/output/*/k3s.yaml: the same finding in the manifests that file's output reaches, which are
+#   generated rather than hand-authored so they can hold no marker of their own. Only these four are excluded, not
+#   the scenario trees around them, and the Kubernetes security rules Codacy would otherwise apply to them are
+#   covered before push by trivy-check (the same KSV ruleset) plus kubeconform-check.
 exclude_paths:
   - ".github/actions/**"
   - ".github/workflows/**"
@@ -42,5 +49,7 @@ exclude_paths:
   - "services/ws-test-server/src/bin/cov-server.rs"
   - "services/ws-web-runner/mingw-shim/msvc_crt_alloc.c"
   - "services/ws-web-runner/mingw-shim/msvc_crt_locale_cache.c"
+  - "utilities/cli/src/hub_ws_url.rs"
   - "utilities/wasm-cov-wrapper/src/main.rs"
   - "uv.lock"
+  - "verification/local/output/*/k3s.yaml"

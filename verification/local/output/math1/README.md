@@ -1,7 +1,7 @@
 # math1
 
 This directory contains generated deployment configs for the `math1` scenario.
-Files: `mise.toml`, `compose.yaml`.
+Files: `mise.toml`, `compose.yaml`, `k3s.yaml`.
 
 The scenario exposes these workflow modules: math1, math1-sender.
 
@@ -50,4 +50,52 @@ Stop the scenario with:
 
 ```bash
 docker compose down
+```
+
+## Run With k3s
+
+The manifests reference images by name and never build them, so build and import each one first.
+This scenario's image layers its modules onto the module-less hub image and takes that hub as a
+_named build context_ rather than building it, so the hub has to exist first -- a plain
+`docker build` of the scenario Dockerfile fails on `FROM hub`. From the repository root:
+
+```bash
+scenario=math1
+hub=et-ws-server-hub:latest
+image="et-ws-server-$scenario:latest"
+dockerfile="verification/local/output/$scenario/Dockerfile"
+docker build -t "$hub" -f services/ws-server/Dockerfile .
+docker build --build-context "hub=docker-image://$hub" -t "$image" -f "$dockerfile" .
+docker save "$image" | sudo k3s ctr images import -
+```
+
+Then this scenario's runner images, which need no build context of their own:
+
+```bash
+docker build -t et-ws-web-runner:latest -f services/ws-web-runner/Dockerfile .
+docker save et-ws-web-runner:latest | sudo k3s ctr images import -
+```
+
+### Load The Credential
+
+`secrets.env` is generated but deliberately not committed, so the `Secret` is created from it rather
+than shipped inside `k3s.yaml`. From this directory:
+
+```bash
+ns=et-math1
+kubectl create namespace "$ns" --save-config
+kubectl create secret generic "$ns-secrets" --from-env-file=secrets.env -n "$ns"
+```
+
+### Apply
+
+```bash
+kubectl apply -f k3s.yaml
+```
+
+The runners exit and restart until the hub reports ready, so `CrashLoopBackOff` while the hub
+starts is expected here rather than a fault. Watch it settle with:
+
+```bash
+kubectl get pods -n "$ns" --watch
 ```

@@ -92,3 +92,10 @@ max_line_length = 200
 # pnpm writes each package's `resolution: {integrity: sha512-...}` on one line, which exceeds the line length.
 [**/pnpm-lock.yaml]
 max_line_length = unset
+
+# The generated Kubernetes manifests carry the hub's module list as one `MODULES_PATHS` env value -- ten absolute
+# container paths on the widest scenario, 341 characters. A Kubernetes env value is a single YAML scalar with no
+# line-continuation form available to the emitter, and the `mise` and `compose` outputs' trick of wrapping it does
+# not apply. Only the manifests are exempt; the mise.toml, compose.yaml and README.md beside them still fit.
+[verification/**/k3s.yaml]
+max_line_length = unset

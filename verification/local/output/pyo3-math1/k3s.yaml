@@ -1,0 +1,330 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: et-pyo3-math1
+---
+apiVersion: v1
+kind: ConfigMap
+data:
+  RUST_LOG: warn
+  ZO_DATA_DIR: /data
+  ZO_ROOT_USER_EMAIL: root@example.com
+metadata:
+  name: openobserve-config
+  namespace: et-pyo3-math1
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openobserve-data
+  namespace: et-pyo3-math1
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: openobserve
+  name: openobserve
+  namespace: et-pyo3-math1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openobserve
+  template:
+    metadata:
+      labels:
+        app: openobserve
+    spec:
+      containers:
+        - envFrom:
+            - configMapRef:
+                name: openobserve-config
+            - secretRef:
+                name: et-pyo3-math1-secrets
+          image: openobserve/openobserve:v0.91.5
+          imagePullPolicy: IfNotPresent
+          name: openobserve
+          ports:
+            - containerPort: 5080
+          readinessProbe:
+            exec:
+              command:
+                - /openobserve
+                - node
+                - status
+            failureThreshold: 20
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /data
+              name: openobserve-data
+            - mountPath: /tmp
+              name: openobserve-tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: openobserve-data
+          persistentVolumeClaim:
+            claimName: openobserve-data
+        - emptyDir: {}
+          name: openobserve-tmp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: openobserve
+  name: openobserve
+  namespace: et-pyo3-math1
+spec:
+  ports:
+    - name: http
+      port: 5080
+      targetPort: 5080
+  selector:
+    app: openobserve
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ws-server-storage
+  namespace: et-pyo3-math1
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ws-server
+  name: ws-server
+  namespace: et-pyo3-math1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ws-server
+  template:
+    metadata:
+      labels:
+        app: ws-server
+    spec:
+      containers:
+        - args:
+            - --agent-registry
+            - /app/runtime/registry.yaml
+          command:
+            - et-ws-server
+          env:
+            - name: MODULES_PATHS
+              value: /app/services/ws-server/static,/app/services/ws-wasm-agent,/app/services/ws-modules/pyo3-math1,/app/services/ws-modules/wasi-math1-sender
+            - name: OTLP_COLLECTOR_URL
+              value: http://openobserve:5080/api/default/v1
+            - name: STORAGE_URL
+              value: file:///app/storage
+            - name: TLS_CERT_FILE
+              value: /app/runtime/cert.pem
+            - name: TLS_KEY_FILE
+              value: /app/runtime/key.pem
+          envFrom:
+            - secretRef:
+                name: et-pyo3-math1-secrets
+          image: et-ws-server-pyo3-math1:latest
+          imagePullPolicy: IfNotPresent
+          name: ws-server
+          ports:
+            - containerPort: 8080
+            - containerPort: 8443
+          readinessProbe:
+            failureThreshold: 20
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /app/storage
+              name: ws-server-storage
+            - mountPath: /app/runtime
+              name: ws-server-runtime
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: ws-server-storage
+          persistentVolumeClaim:
+            claimName: ws-server-storage
+        - emptyDir: {}
+          name: ws-server-runtime
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ws-server
+  name: ws-server
+  namespace: et-pyo3-math1
+spec:
+  ports:
+    - name: ws
+      port: 8080
+      targetPort: 8080
+    - name: wss
+      port: 8443
+      targetPort: 8443
+  selector:
+    app: ws-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: math1-trigger
+  name: math1-trigger
+  namespace: et-pyo3-math1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: math1-trigger
+  template:
+    metadata:
+      labels:
+        app: math1-trigger
+    spec:
+      containers:
+        - env:
+            - name: RUNNER_MODULE
+              value: et-ws-wasi-math1-sender
+            - name: WS_SERVER_URL
+              value: ws://ws-server:8080/ws
+          image: et-ws-wasi-runner:latest
+          imagePullPolicy: IfNotPresent
+          name: math1-trigger
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: runner-tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - emptyDir: {}
+          name: runner-tmp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: pyo3-math1-twin
+  name: pyo3-math1-twin
+  namespace: et-pyo3-math1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pyo3-math1-twin
+  template:
+    metadata:
+      labels:
+        app: pyo3-math1-twin
+    spec:
+      containers:
+        - env:
+            - name: RUNNER_MODULE
+              value: et-ws-pyo3-math1
+            - name: WS_SERVER_URL
+              value: ws://ws-server:8080/ws
+          image: et-ws-pyo3-runner:latest
+          imagePullPolicy: IfNotPresent
+          name: pyo3-math1-twin
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: runner-tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - emptyDir: {}
+          name: runner-tmp

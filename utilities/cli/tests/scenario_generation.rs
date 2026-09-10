@@ -1,10 +1,27 @@
 #![cfg(test)]
 
 use et_cli::{
-    docker_image_module_paths, generate_deployment, module_package_json, regenerate_verification, scenario_module_paths,
+    docker_image_module_paths, generate_deployment, hub_service_ws_url, hub_ws_url, module_package_json,
+    regenerate_verification, scenario_module_paths,
 };
 use fs_err as fs;
+use serde::Deserialize as _;
 use tempfile::tempdir;
+
+/// Lay out a `verification/` tree holding one scenario input, and return its root and the output directory.
+///
+/// Both regeneration tests below need the same four paths in the same shape and differ only in the document
+/// they write, so the scaffolding lives here once. The temp root is returned alongside them because dropping
+/// it deletes the tree, so the caller has to keep it alive for the length of the test.
+fn scenario_tree(input: &str) -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
+    let test_root = tempdir().unwrap();
+    let verification_root = test_root.path().join("verification");
+    let input_dir = verification_root.join("local/input");
+    let output_dir = verification_root.join("local/output/cluster");
+    fs::create_dir_all(&input_dir).unwrap();
+    fs::write(input_dir.join("cluster.yaml"), input).unwrap();
+    (test_root, verification_root, output_dir)
+}
 
 /// Write `input` as a scenario input file and return the error that generating from it produces.
 ///
@@ -34,6 +51,24 @@ agents: []
     );
 
     assert!(error.contains("Unsupported deployment_type"), "got: {error}");
+}
+
+#[test]
+fn generate_deployment_rejects_a_cluster_name_that_is_not_an_rfc_1123_label() {
+    // The name reaches a shell in the generated README (`scenario=<name>`) and a Kubernetes namespace in
+    // `k3s.yaml`, so anything outside the label alphabet is either an injection vector or a manifest the API
+    // server rejects. A `;` is the shell half of that in its shortest form.
+    let error = deployment_error_for(
+        r#"cluster_name: "oops; echo pwned"
+deployment_type: "mise"
+agents: []
+"#,
+    );
+
+    assert!(
+        error.contains("RFC 1123") && error.contains(';'),
+        "expected an invalid-name error naming the character, got: {error}"
+    );
 }
 
 #[test]
@@ -188,16 +223,7 @@ et-model-har-motion1 = "*"
 
 #[test]
 fn regenerate_verification_generates_all_deployment_types() {
-    let test_root = tempdir().unwrap();
-    let verification_root = test_root.path().join("verification");
-    let input_dir = verification_root.join("local/input");
-    let output_dir = verification_root.join("local/output/cluster");
-    fs::create_dir_all(&input_dir).unwrap();
-
-    let input_file = input_dir.join("cluster.yaml");
-
-    fs::write(
-        &input_file,
+    let (_test_root, verification_root, output_dir) = scenario_tree(
         r#"cluster_name: "manifest-cluster"
 deployment_type: "mise"
 agents:
@@ -205,8 +231,8 @@ agents:
     resources:
       - type: "face-detection"
 "#,
-    )
-    .unwrap();
+    );
+    let input_file = verification_root.join("local/input/cluster.yaml");
 
     let regenerated = regenerate_verification(&verification_root, None).unwrap();
 
@@ -216,6 +242,7 @@ agents:
     assert_eq!(regenerated[0].summary.cluster_name, "manifest-cluster");
     assert!(output_dir.join("mise.toml").exists());
     assert!(output_dir.join("compose.yaml").exists());
+    assert!(output_dir.join("k3s.yaml").exists());
     assert!(output_dir.join("README.md").exists());
     let mise = fs::read_to_string(output_dir.join("mise.toml")).unwrap();
     assert!(mise.contains("MODULES_PATHS=\""));
@@ -230,6 +257,97 @@ agents:
     assert!(readme.contains("`compose.yaml`"));
     assert!(readme.contains("mise run generated-scenario"));
     assert!(readme.contains("docker compose up"));
+    assert!(readme.contains("kubectl apply -f k3s.yaml"));
+}
+
+/// The generated manifests describe the whole scenario and keep the credential out of the file.
+///
+/// The credential half is the point of the `envFrom` assertion: the value lives in the uncommitted env file
+/// and reaches the pods through a `Secret` the operator creates, so a regression that inlined it would put a
+/// password into a committed tree. Asserting the literal is absent is what catches that.
+/// Regenerate one k3s scenario and return its output directory.
+///
+/// The two tests below assert on different halves of the same manifest, so the generation lives here once. The
+/// temp root comes back alongside the directory because dropping it deletes the tree.
+fn k3s_scenario() -> (tempfile::TempDir, std::path::PathBuf) {
+    let (test_root, verification_root, output_dir) = scenario_tree(
+        r#"cluster_name: "k3s-cluster"
+deployment_type: "k3s"
+agents:
+  - name: "math1-twin"
+    runner: "wasi"
+    resources:
+      - type: "wasi-math1"
+"#,
+    );
+
+    let _regenerated = regenerate_verification(&verification_root, None).unwrap();
+    (test_root, output_dir)
+}
+
+#[test]
+fn regenerate_verification_emits_one_k3s_document_per_component() {
+    let (_test_root, output_dir) = k3s_scenario();
+
+    let text = fs::read_to_string(output_dir.join("k3s.yaml")).unwrap();
+    let documents: Vec<serde_yaml::Value> = serde_yaml::Deserializer::from_str(&text)
+        .map(|document| serde_yaml::Value::deserialize(document).unwrap())
+        .collect();
+    let kinds: Vec<&str> = documents
+        .iter()
+        .map(|document| document.get("kind").and_then(serde_yaml::Value::as_str).unwrap())
+        .collect();
+    assert_eq!(
+        kinds,
+        vec![
+            "Namespace",
+            "ConfigMap",
+            "PersistentVolumeClaim",
+            "Deployment",
+            "Service",
+            "PersistentVolumeClaim",
+            "Deployment",
+            "Service",
+            "Deployment",
+        ],
+        "one document per component, runners last"
+    );
+
+    // Every namespaced object names the scenario's namespace, so `kubectl apply` needs no `-n`.
+    for document in documents.iter().skip(1) {
+        let namespace = document.get("metadata").and_then(|meta| meta.get("namespace"));
+        assert_eq!(
+            namespace.and_then(serde_yaml::Value::as_str),
+            Some("et-k3s-cluster"),
+            "every object after the Namespace carries it: {document:?}"
+        );
+    }
+}
+
+#[test]
+fn regenerate_verification_keeps_the_credential_out_of_the_k3s_manifest() {
+    let (_test_root, output_dir) = k3s_scenario();
+
+    let text = fs::read_to_string(output_dir.join("k3s.yaml")).unwrap();
+    let secrets = fs::read_to_string(output_dir.join("secrets.env")).unwrap();
+    let password = secrets
+        .lines()
+        .find_map(|line| line.strip_prefix("ZO_ROOT_USER_PASSWORD="))
+        .unwrap();
+    assert!(
+        !text.contains(password),
+        "the scenario credential must never reach a committed manifest"
+    );
+    assert!(
+        text.contains("et-k3s-cluster-secrets"),
+        "the Secret is referenced by name"
+    );
+
+    // The runners address the hub by its Service, not by the `localhost` the host-networked formats use.
+    // Asserted against the builders rather than two literals, so a port change cannot leave the test passing
+    // against a URL the generator no longer emits.
+    assert!(text.contains(&hub_service_ws_url()));
+    assert!(!text.contains(&hub_ws_url()));
 }
 
 #[test]

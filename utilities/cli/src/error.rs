@@ -84,8 +84,8 @@ pub enum CliError {
     #[error("npm package {0:?} is not staged by mise; run `mise install npm:{0}`")]
     UnresolvedNpmModule(String),
 
-    #[error("cluster_name {0:?} contains a line break, which would break out of a generated comment")]
-    ClusterNameHasLineBreak(String),
+    #[error("cluster_name {name:?} is not an RFC 1123 label: {reason}")]
+    InvalidClusterName { name: String, reason: String },
 
     #[error("Agent {agent:?} asks for runner {runner:?}. Supported values are currently: {supported}")]
     UnsupportedRunner {

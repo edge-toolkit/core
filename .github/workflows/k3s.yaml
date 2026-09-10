@@ -1,0 +1,110 @@
+---
+name: k3s
+
+# Linux only, because k3s is a Linux Kubernetes distribution.
+# There is no Windows or macOS k3s to run this against, so that is a property of the thing under test rather
+# than a platform being switched off: the manifests are still generated on every platform by
+# `regen-verification`, drift-checked by `verification-check`, and schema-validated by `kubeconform-check`, all
+# of which run in the full check matrix. Only applying them to a live cluster is confined here.
+#
+# Path-gated because the job builds two release images from this repository (the hub and the web runner, the
+# latter linking V8) and that dominates its runtime. Running it on every pull request would add that cost to
+# changes that cannot affect the outcome.
+"on":
+  pull_request:
+    paths:
+      - .github/actions/install-mise-tools/**
+      - .github/workflows/k3s.yaml
+      # The `k3s-verify` task itself lives here.
+      # A change to it must re-trigger this job rather than letting an edit to the verification steps ship
+      # without ever having run them.
+      - .mise/config.toml
+      - services/ws-server/Dockerfile
+      - services/ws-web-runner/Dockerfile
+      - services/ws-test-server/src/bin/verify-math1.rs
+      - utilities/cli/src/deployment_types/k3s.rs
+      - verification/local/output/math1/Dockerfile
+      - verification/local/output/math1/k3s.yaml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+env:
+  MISE_ENV: dart,dotnet,java,js,kotlin,python,r,rust,zig
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    # Read-only pull of the maintainer-published ghcr.io mise-tools store (install-mise-tools restore step).
+    # Never write: the stores are published only from a maintainer's machine via `mise run push-mise-tools`.
+    permissions:
+      contents: read
+      packages: read
+    # Two release image builds plus a cluster run, on a generous bound.
+    # Neither Dockerfile is built by any other workflow, so this figure has no prior measurement to lean on;
+    # the root-image builds in docker-linux.yaml take 39-47m for a comparable amount of work, and this leaves
+    # room for the cluster on top.
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Show MISE_ENV
+        run: echo "MISE_ENV=$MISE_ENV"
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@v1.3.1
+
+      - name: Install mise + tools
+        uses: ./.github/actions/install-mise-tools
+        timeout-minutes: 60
+        with:
+          github-token: ${{ github.token }}
+
+      # The scenario image stages each module's built `pkg/`, which is a wasm-pack artifact and gitignored.
+      # A fresh checkout has neither, so the image build fails on its own COPY:
+      #   failed to calculate checksum of ref ...: "/services/ws-modules/math1/pkg": not found
+      # Only this scenario's two modules are built, not the whole `build-modules` glob, which would compile
+      # every guest language's module for a job that stages two of them.
+      - name: Build the math1 modules
+        timeout-minutes: 30
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mise run build-ws-math1-module
+          mise run build-ws-math1-sender-module
+
+      # The hub is built first and handed to the scenario image by reference.
+      # That image takes the hub as a named build context rather than building it, so a plain build of the
+      # scenario Dockerfile fails on its `FROM hub`.
+      - name: Build the hub image
+        timeout-minutes: 60
+        run: docker build -t et-ws-server-hub:latest -f services/ws-server/Dockerfile .
+
+      - name: Build the math1 scenario image
+        run: |
+          dockerfile=verification/local/output/math1/Dockerfile
+          hub=docker-image://et-ws-server-hub:latest
+          docker build --build-context "hub=$hub" -t et-ws-server-math1:latest -f "$dockerfile" .
+
+      - name: Build the web runner image
+        timeout-minutes: 60
+        run: docker build -t et-ws-web-runner:latest -f services/ws-web-runner/Dockerfile .
+
+      - name: Apply the manifests and verify the stored model
+        timeout-minutes: 20
+        env:
+          CARGO_NET_RETRY: "5"
+        run: mise run k3s-verify

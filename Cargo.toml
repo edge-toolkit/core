@@ -113,6 +113,11 @@ humantime-serde = "1"
 # the extensions is_image_filename() recognises.
 image = { version = "0.25", default-features = false, features = ["bmp", "gif", "jpeg", "png", "webp"] }
 js-sys = "0.3"
+# Pinned to the earliest API version the crate offers.
+# The generated manifests use only long-stable objects (Namespace, ConfigMap, PersistentVolumeClaim, Deployment,
+# Service), so generating against the oldest supported version keeps them applicable to the widest range of k3s
+# releases without giving anything up.
+k8s-openapi = { version = "0.28", features = ["v1_32"] }
 kdl = { version = "6", features = ["v1"] }
 libc = "0.2"
 local-ip-address = "0.6"

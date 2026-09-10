@@ -1,0 +1,106 @@
+# Suppressions for `trivy-check`, each scoped to the paths it applies to and carrying its reason.
+#
+# Path-scoped rather than bare IDs: trivy's plain `.trivyignore` silences a rule everywhere, so a genuine
+# `:latest` or an untrusted registry appearing in a hand-written manifest later would go unreported. Each
+# entry below is confined to the generated scenario manifests, so the three findings stay suppressed exactly
+# where they are unavoidable and nowhere else.
+#
+# These patterns only work because `trivy-check` scans the repository root. Trivy reports a path relative to
+# the scan root, so scanning an individual file makes that file the root and reduces its reported path to a
+# bare basename -- against which any longer pattern matches nothing and silently suppresses nothing.
+#
+# `statement` is trivy's own field for the justification, so the reason travels with the suppression rather
+# than living in a comment beside it.
+---
+misconfigurations:
+  # A locally built image has no registry version for a tag to name.
+  # The scenario images are built from this working tree and imported into the node with
+  # `k3s ctr images import`; they are never pushed to or pulled from a registry, so a semver tag would be
+  # fiction. The hazard the rule actually guards against -- `:latest` implying `imagePullPolicy: Always` --
+  # is already closed, because the manifests set `IfNotPresent` explicitly. The one image that does come from
+  # a registry, the collector, is pinned.
+  - id: KSV-0013
+    paths:
+      - "verification/*/output/*/k3s.yaml"
+    statement: >-
+      Locally built, node-imported images have no registry version to tag; imagePullPolicy is pinned to
+      IfNotPresent so the implicit-always-pull hazard does not apply.
+
+  # Docker Hub is the only source this image has.
+  # The collector is the upstream `openobserve/openobserve` image at the same pinned tag the compose
+  # deployment runs. This repository mirrors assets it controls to its own releases (the upstream-cache
+  # pattern) but has no mirror for a third-party container image.
+  - id: KSV-0125
+    paths:
+      - "verification/*/output/*/k3s.yaml"
+    statement: >-
+      The collector image is the pinned upstream openobserve release, matching the compose deployment; no
+      private mirror of it exists to prefer.
+
+  # The flagged value is an account name, not a credential.
+  # It is `ZO_ROOT_USER_EMAIL=root@example.com`, the collector's dev-only account. Its password is
+  # deliberately absent from the ConfigMap and reaches the pods from a Secret the operator creates from the
+  # uncommitted env file, which is the whole point of splitting the two.
+  - id: KSV-01010
+    paths:
+      - "verification/*/output/*/k3s.yaml"
+    statement: >-
+      The ConfigMap holds the collector's dev-only account name, not a secret; the password is held in an
+      operator-created Secret and never written to a committed file.
+
+  # Trivy cannot resolve the generated Dockerfiles' base, so three findings about it are all artifacts.
+  # Each scenario image opens `FROM hub`, a named build context the compose file wires to the hub service and
+  # a plain `docker build` supplies with `--build-context`. Trivy reads that as an image reference it cannot
+  # fetch, and so reports it as untagged (DS-0001), as running whatever user it cannot see (DS-0002), and as
+  # lacking the healthcheck it cannot read (DS-0026). The hub Dockerfile actually declares `USER 10001`, and a
+  # build context has no tag to give. hadolint needs `DL3006` suppressed at the same `FROM` for the same
+  # reason, which is stated in the generated file itself.
+  - id: DS-0001
+    paths:
+      - "verification/*/output/*/Dockerfile"
+    statement: >-
+      `FROM hub` is a named build context, not a registry reference; a build context cannot carry a tag.
+  - id: DS-0002
+    paths:
+      - "verification/*/output/*/Dockerfile"
+    statement: >-
+      The base this inherits from declares USER 10001; trivy cannot resolve a named build context to see it.
+  - id: DS-0026
+    paths:
+      - "verification/*/output/*/Dockerfile"
+    statement: >-
+      Any healthcheck is inherited from the hub base, which trivy cannot resolve to read.
+
+  # The runners exit when their module finishes, so there is no steady state for a healthcheck to report.
+  # A HEALTHCHECK describes a long-running service. These images run one module to completion and stop, which
+  # is why the generated deployments give them no probe either -- the orchestrator restarts them until the hub
+  # answers, and their exit is the result rather than a fault.
+  - id: DS-0026
+    paths:
+      - "services/ws-pyo3-runner/Dockerfile"
+      - "services/ws-wasi-runner/Dockerfile"
+      - "services/ws-web-runner/Dockerfile"
+    statement: >-
+      A runner runs one module to completion and exits; it has no serving state to health-check.
+
+  # The root Dockerfiles are build and CI harnesses rather than shipped services.
+  # Their stages run `mise run test`, `mise run check` and a convenience server build against the in-image
+  # source; nothing consumes them as a long-lived deployment, and the hardened server image consumers actually
+  # deploy is services/ws-server/Dockerfile.
+  - id: DS-0026
+    paths:
+      - "Dockerfile"
+      - "Dockerfile.nanoserver"
+      - "Dockerfile.windows"
+    statement: >-
+      Build and CI images, not deployed services; the deployable server image is services/ws-server.
+
+  # The hub's health endpoint is checked by whatever deploys it, not by the image.
+  # `compose.yaml` declares a `healthcheck` against /health and the k3s manifests declare a `readinessProbe`
+  # against the same endpoint, both generated by et-cli, so the check exists once per deployment rather than
+  # being baked in. The image ships curl specifically so those external checks have a client to use.
+  - id: DS-0026
+    paths:
+      - "services/ws-server/Dockerfile"
+    statement: >-
+      Every generated deployment declares its own /health check; the image ships curl for exactly that.
