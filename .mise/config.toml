@@ -152,14 +152,16 @@ ripgrep = "latest"
 # The macos/x64 half of vector (see the aqua:vectordotdev/vector note above).
 # A git `tag:` spec rather than the crates.io crate so this platform builds the exact source the other
 # platforms' 0.56.0 prebuilts are cut from -- bump it with the aqua entry. A source build is acceptable here
-# because macos/x64 is second-tier.
-"cargo:vectordotdev/vector" = { version = "tag:v0.56.0", os = ["macos/x64"] }
+# because macos/x64 is second-tier. `crate` names the package to build, and is required rather than tidy: a
+# git install searches the whole repo, so cargo refuses with `error: multiple packages with binaries found`
+# on any workspace carrying more than one binary rather than choosing between them.
+"cargo:vectordotdev/vector" = { version = "tag:v0.56.0", os = ["macos/x64"], crate = "vector" }
 # The macos/x64 half of rustfs, the one platform upstream ships no prebuilt for.
 # A git spec rather than a bare `cargo:rustfs`: the crates.io crate is a stale 0.0.2 placeholder while real
 # releases are 1.0.0-beta.x on GitHub only, so installing the crate would give this platform different software
 # than every other one. `tag:` builds the exact source the prebuilt is cut from, keeping them aligned -- bump it
 # with the `http:rustfs` entry. A source build is acceptable here because macos/x64 is second-tier.
-"cargo:rustfs/rustfs" = { version = "tag:1.0.0-beta.12", os = ["macos/x64"] }
+"cargo:rustfs/rustfs" = { version = "tag:1.0.0-beta.12", os = ["macos/x64"], crate = "rustfs" }
 # ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
 "github:microsoft/onnxruntime" = "1.22.0"
@@ -880,6 +882,12 @@ run = "jscpd . --config config/jscpd.json --reporters html,console --output targ
 
 [tasks.cargo-check]
 run = "cargo check --workspace {{ vars.cargo_ws_excludes }}"
+
+# A real codegen + link pass, where cargo-check stops after type-checking.
+# That distinction is the whole point on a platform being brought up: the linker, the CRT and the -sys crates'
+# build scripts are exactly what a new host triple gets wrong, and `cargo check` reaches none of them.
+[tasks.cargo-build]
+run = "cargo build --workspace {{ vars.cargo_ws_excludes }}"
 
 [tasks.cargo-fmt]
 run = "cargo +{{ vars.rust_nightly }} fmt"

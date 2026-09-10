@@ -236,3 +236,53 @@ jobs:
       - name: Run tests
         timeout-minutes: 55
         run: mise run test
+
+  # Windows-on-arm bring-up lane: proves the Rust toolchain alone works there, and nothing more.
+  # windows-arm64 is not one of the five supported platforms, and the `default` matrix's dispatch-only
+  # windows-11-arm entry cannot get past `mise install` -- it ends on
+  #
+  #     mise ERROR Failed to install tools: conda:m2-gnupg@2.2.41.1, core:java@26.0.1, core:rust@...
+  #
+  # naming 18 tools, observed on commit 4488443a7f56398a3a27c4bca9713ba6900a755c at
+  # https://github.com/edge-toolkit/core/actions/runs/34409246713/job/102659546843. The causes are upstream,
+  # not ours: torch and cryptography publish no `win_arm64` wheel, msys2's conda channel is x86_64-only,
+  # Adoptium's newest windows/aarch64 JDK is 23 against the pinned 26, and wasm-bindgen, openobserve, rustfs,
+  # waitup and openapi2zig ship no aarch64 Windows asset at all. This job sidesteps all 18 rather than fixing
+  # them: MISE_ENV=rust drops the guest-language configs, and it installs the single `rust` tool instead of
+  # running the whole `mise install`. Kept a separate job for that reason -- it shares no step with `default`
+  # beyond checkout, so folding it into that matrix would mean an `if:` on almost every step.
+  minimal:
+    permissions:
+      contents: read
+    runs-on: windows-11-arm
+    timeout-minutes: 45
+    # Job-level so it is already set when install-mise runs `mise trust` and reports the value.
+    env:
+      MISE_ENV: rust
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      # install-mise here, not install-mise-tools.
+      # The latter runs `mise run preinstall` plus a full `mise install`, which is exactly the all-tools pass
+      # that cannot succeed on this arch. No busybox `defaults.run.shell` override either (the `default` job's
+      # reason for one) -- busybox-w32 is an x64 exe, and this job's single task chain is far too short for the
+      # Git Bash cygheap pathology that override exists to dodge.
+      - name: Install mise
+        uses: ./.github/actions/install-mise
+
+      # Both toolchains the Windows [[tools.rust]] entries name, resolved at the arm64 host triple.
+      # GITHUB_TOKEN raises the api.github.com ceiling that mise's version lookups draw on.
+      - name: Install Rust toolchain
+        timeout-minutes: 25
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise install rust
+
+      # A build, not a check: codegen and linking are where a new host triple actually fails.
+      - name: Build workspace
+        timeout-minutes: 30
+        run: mise run cargo-build

@@ -85,22 +85,28 @@ version = "2.5.20"
 checksum = "sha256:e04493f469fd3861e119a603700cfeafe8da0090aed39b547ad3975b21f48f0b"
 url = "https://github.com/edge-toolkit/core/releases/download/gnupg-w32-v1/2.5.20_20260513-x86_64-pc-windows.tar.gz"
 
-# Rust toolchains for Windows: gnullvm host directly, so no msvc toolchain ever lands on disk.
+# Rust toolchains for Windows: the host triple directly, so no second toolchain ever lands on disk.
 # (The old preinstall did install-msvc-then-rustup-reinstall-gnullvm, which doubled toolchain weight and
 # exhausted Nano's disk quota). `version = "<channel>-<triple>"` is the rustup spec form; mise's rust plugin
 # passes it straight through to `rustup toolchain install`. `profile = "minimal"` skips rust-docs
-# (~1 GB/toolchain). The CARGO_BUILD_TARGET + linker env below stays gnullvm-targeted regardless.
+# (~1 GB/toolchain). The triple has to be the host's: rustup refuses a foreign-arch toolchain outright with
+#
+#     error: toolchain 'stable-x86_64-pc-windows-gnullvm' may not be able to run on this system
+#     note: add the `--force-non-host` flag to install the toolchain anyway
+#
+# so the x64 spelling cannot simply be reused on arm64 -- see win_rust_host in [vars] for which triple each
+# arch picks and why. CARGO_BUILD_TARGET below tracks the same var, so host and target stay in step.
 [[tools.rust]]
 components = "clippy,rust-analyzer"
 profile = "minimal"
 targets = "wasm32-unknown-unknown,wasm32-wasip2"
-version = "stable-x86_64-pc-windows-gnullvm"
+version = "stable-{{ vars.win_rust_host }}"
 
 [[tools.rust]]
 components = "rust-src,rustfmt"
 profile = "minimal"
 targets = "wasm32-unknown-unknown,wasm32-wasip2"
-version = "{{ vars.rust_nightly }}-x86_64-pc-windows-gnullvm"
+version = "{{ vars.rust_nightly }}-{{ vars.win_rust_host }}"
 
 [vars]
 # Forward-slashed mise installs root, for values spliced unquoted into bash task command lines.
@@ -184,6 +190,14 @@ gradle_bin = '{{ vars.mise_installs }}\gradle\9.7.0\gradle-9.7.0\bin'
 # conda:libclang's binary dir, for the LIBCLANG_PATH below.
 # Pinned to the [tools] version above -- bump both together (conftest's version_drift enforces).
 win_libclang = '{{ vars.mise_installs }}\conda-libclang\22.1.8\Library\bin'
+# The rustup host triple for this machine's arch, used as both the toolchain spec and CARGO_BUILD_TARGET.
+# x64 keeps gnullvm: llvm-mingw supplies a full compiler + CRT from mise, so nothing depends on a system MSVC
+# install, which is what lets the Nano Server image build at all. arm64 has no such option -- llvm-mingw
+# publishes ucrt-x86_64 only, and every other native prerequisite the gnullvm lane leans on (conda:m2-make,
+# conda:m2-gnupg, conda:libclang) is x86_64-only in its channel too. The windows-11-arm runner does ship
+# Visual Studio with the arm64 MSVC toolset, so msvc is the one triple that can build there today; it is also
+# rustup's own host default on that arch, so this asks for exactly the toolchain rustup would pick unaided.
+win_rust_host = "{% if arch() == 'arm64' %}aarch64-pc-windows-msvc{% else %}x86_64-pc-windows-gnullvm{% endif %}"
 # The flat dependency farm inside npm:oxlint-tsgolint's mise install, for the OXLINT_TSGOLINT_PATH entry below.
 # mise's embedded aube hoists a tool's dependencies rather than nesting them: `<install>\node_modules\<pkg>`
 # is a symlink to `.mise\<pkg>@<version>\node_modules\<pkg>`, and that package dir holds only its own files
@@ -237,13 +251,14 @@ MISE_BASH_PATH = "{{ vars.winsh }}"
 # both because only cmd.exe has the limit and because oxlint hard-fails on a set-but-invalid value, which an
 # off-Windows `{% if %}` empty-string render would be. Inert when js isn't in MISE_ENV; just an unused path.
 OXLINT_TSGOLINT_PATH = '{{ vars.tsgolint_pkg }}\@oxlint-tsgolint\win32-x64\tsgolint.exe'
-# Build for the LLVM mingw target.
+# Build for the host's own target -- the LLVM mingw one on x64 (see win_rust_host above for the arm64 case).
 # gnullvm, not gnu: llvm-mingw ships compiler-rt + libunwind, not the GCC runtime (libgcc/libgcc_eh) the gnu
 # target's link line demands. The linker is llvm-mingw's clang and the raw-dylib import tool is its
 # llvm-dlltool, both given as absolute paths (see win_llvm_bin above) so the cargo: source-build subprocess
-# resolves them without a PATH lookup. These can live in [env] here (unlike config.toml) because this file
-# only loads on Windows, so there's no empty off-Windows value to break Linux cargo.
-CARGO_BUILD_TARGET = "x86_64-pc-windows-gnullvm"
+# resolves them without a PATH lookup. Those two are named per-target, so they simply go unread on arm64
+# rather than needing an arch guard of their own. These can live in [env] here (unlike config.toml) because
+# this file only loads on Windows, so there's no empty off-Windows value to break Linux cargo.
+CARGO_BUILD_TARGET = "{{ vars.win_rust_host }}"
 CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_LINKER = "{{ vars.win_llvm_bin }}\\clang.exe"
 CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_RUSTFLAGS = "-Cdlltool={{ vars.win_llvm_bin }}\\llvm-dlltool.exe"
 LIBCLANG_PATH = "{{ vars.win_libclang }}"
