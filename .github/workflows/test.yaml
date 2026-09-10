@@ -263,8 +263,22 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || inputs.windows-overrides
     permissions:
       contents: read
-    runs-on: windows-11-arm
-    timeout-minutes: 45
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      # The two platforms whose full tool set cannot install, for unrelated upstream reasons.
+      # windows-arm64 has no arm64 build for 18 of the tools, and macos/x64 is the one platform that has to
+      # source-build vector and rustfs, neither of which completes. Naming tools individually sidesteps both,
+      # so these lanes exercise the compiler and the self-contained tests where `default` cannot run at all.
+      # macos/x64 gets the larger bound because its cargo_ws_excludes is empty, so it also builds
+      # et-ws-web-runner (deno -> rusty_v8) that the Windows lanes drop.
+      matrix:
+        include:
+          - os: windows-11-arm
+            timeout: 45
+          - os: macos-26-intel
+            timeout: 75
     # Job-level so it is already set when install-mise runs `mise trust` and reports the value.
     env:
       MISE_ENV: rust
@@ -298,18 +312,19 @@ jobs:
       #
       #     LINK : fatal error LNK1181: cannot open input file 'onnxruntime.lib'
       #
-      # It is spelled as the full backend spec because the bare name is not in mise's registry -- `mise
-      # install onnxruntime` fails with "onnxruntime not found in mise tool registry".
+      # onnxruntime and nextest are spelled as full backend specs because their bare names are not in mise's
+      # registry -- `mise install onnxruntime` and `mise install cargo-nextest` both fail with "not found in
+      # mise tool registry". nextest is what runs the tests below.
       #
       # Naming the tools rather than widening MISE_ENV is what keeps config.python.toml out of this job: its
       # pipx:torch and pipx:semgrep have no win_arm64 wheel and would fail the install outright, whereas
-      # every pin named here lives in the base config and resolves on this arch.
+      # every pin named here lives in the base config and resolves on both of this job's platforms.
       # GITHUB_TOKEN raises the api.github.com ceiling that mise's version lookups draw on.
       - name: Install the toolchains the workspace build needs
         timeout-minutes: 25
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: mise install rust python protoc github:microsoft/onnxruntime
+        run: mise install rust python protoc github:microsoft/onnxruntime github:nextest-rs/nextest
 
       # install-mise-tools ends with this, but this job deliberately does not use it, so it clears its own.
       - name: Remove mise shim
@@ -319,3 +334,8 @@ jobs:
       - name: Build workspace
         timeout-minutes: 30
         run: mise run cargo-build
+
+      # Only the tests that need no server, module or network -- see the cargo-test-libs task for which and why.
+      - name: Run the self-contained tests
+        timeout-minutes: 20
+        run: mise run cargo-test-libs

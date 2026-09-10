@@ -2228,6 +2228,16 @@ alias = "cargo-nextest"
 description = "Run every Rust test via nextest (web-runner excluded on gnullvm)"
 run = "cargo nextest run --workspace {{ vars.cargo_ws_excludes }} --config-file config/nextest.toml"
 
+# The self-contained slice of the suite, for platforms still being brought up.
+# These three crates' tests need nothing the host has to provide: no built WASM module, no ws-server, no
+# docker, no network. That is what makes them meaningful on a lane whose job is to prove the toolchain
+# works rather than to gate the product -- a failure here is a real defect on that platform, not a missing
+# fixture. Everything else in the suite wants at least one of those, so widening this list means teaching
+# the lane to build modules and start servers, which is the full `test` task by another name.
+[tasks.cargo-test-libs]
+description = "Run the tests that need no server, module or network (toolchain bring-up lanes)"
+run = "cargo nextest run --config-file config/nextest.toml -p edge-toolkit -p et-path -p et-ws-runner-common"
+
 [tasks."test:rust"]
 # Rust tests. Always-loaded, so `test`'s glob always matches it.
 depends = ["cargo-test"]
