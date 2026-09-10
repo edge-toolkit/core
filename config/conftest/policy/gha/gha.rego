@@ -169,3 +169,52 @@ deny contains msg if {
 	object.get(step, ["with", "if-no-files-found"], "warn") != "error"
 	msg := sprintf("job %q: actions/upload-artifact must set with.if-no-files-found: error", [name])
 }
+
+# Every matrix value is spliced into the GitHub job name, so a long one wrecks the Actions UI.
+# GHA names a matrix job `<job> (<value>, <value>, ...)` across every key, with no way to opt a key out. A
+# short OS or version reads fine -- `minimal (windows-11-arm, 45)` -- but parking something like a tool list
+# there produces a job name hundreds of characters wide, which then truncates in the checks list, the PR
+# page and the branch protection settings, making the lanes indistinguishable at a glance. Anything that
+# long belongs in the step that consumes it (a per-OS `if:` step, say), not in the matrix.
+#
+# The bound clears the longest legitimate values in the repo with a little room: a Rust target triple, at
+# 25 for `aarch64-unknown-linux-gnu` and up to 27 for `riscv64gc-unknown-linux-gnu`, and codeql's
+# `javascript-typescript` at 21. Those all read fine in a job name. 32 still rejects anything list-shaped --
+# the tool list that prompted this rule was 85. Raise it only for a value that truly has to reach the name.
+max_matrix_value_len := 32
+
+# `${{ ... }}` values are skipped: the expression text is not what lands in the job name, its result is.
+# test.yaml's `default` builds its whole `include` from one fromJSON expression whose resolved entries are
+# all short, and reading the unexpanded source as a value would flag it for something the UI never shows.
+matrix_value_too_long(value) if {
+	is_string(value)
+	not startswith(value, "${{")
+	count(value) > max_matrix_value_len
+}
+
+# Scalar lists: `matrix.<key>: [a, b, c]`.
+deny contains msg if {
+	some name, job in input.jobs
+	some key, dimension in job.strategy.matrix
+	not key in {"include", "exclude"}
+	is_array(dimension)
+	some value in dimension
+	matrix_value_too_long(value)
+	msg := sprintf(
+		"job %q: matrix value %q for key %q is %d chars (max %d) -- it lands in the job name; move it to a step",
+		[name, value, key, count(value), max_matrix_value_len],
+	)
+}
+
+# `include:` entries, which is where the per-combination keys live.
+deny contains msg if {
+	some name, job in input.jobs
+	is_array(job.strategy.matrix.include)
+	some entry in job.strategy.matrix.include
+	some key, value in entry
+	matrix_value_too_long(value)
+	msg := sprintf(
+		"job %q: matrix value %q for key %q is %d chars (max %d) -- it lands in the job name; move it to a step",
+		[name, value, key, count(value), max_matrix_value_len],
+	)
+}

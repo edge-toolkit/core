@@ -245,8 +245,11 @@ version = "{{ vars.rust_nightly }}"
 #        --> lib/vector-config/src/schema/visitors/merge.rs:265:17
 #     = note: `#[deny(unstable_name_collisions)]` implied by `#[deny(warnings)]`
 #
-# Capping every lint to `warn` for this one install leaves the deny in place for our own crates. Plain
-# RUSTFLAGS rather than the CARGO_TARGET_<triple>_ form because only the plain one is read here.
+# Capping every lint to `warn` for this one install leaves the deny in place for our own crates. It has to
+# ride on plain RUSTFLAGS rather than joining config.macos.toml's CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS,
+# because install_env values are passed through literally -- no `{{ vars.x }}`, no `$HOME` -- so the lld and
+# rpath flags that value is built from cannot be restated here. Plain RUSTFLAGS wins over the target-specific
+# form, so this install alone links with the default linker instead of conda:lld.
 [tools."cargo:vectordotdev/vector"]
 crate = "vector"
 install_env = { RUSTFLAGS = "--cap-lints=warn" }
