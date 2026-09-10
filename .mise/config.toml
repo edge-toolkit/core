@@ -149,19 +149,6 @@ ripgrep = "latest"
 # jscpd bump can rewrite them and redden an unrelated PR against config/jscpd-baseline.json. Bump the pin and
 # regenerate the baseline together.
 "github:kucherenko/jscpd" = "5.1.1"
-# The macos/x64 half of vector (see the aqua:vectordotdev/vector note above).
-# A git `tag:` spec rather than the crates.io crate so this platform builds the exact source the other
-# platforms' 0.56.0 prebuilts are cut from -- bump it with the aqua entry. A source build is acceptable here
-# because macos/x64 is second-tier. `crate` names the package to build, and is required rather than tidy: a
-# git install searches the whole repo, so cargo refuses with `error: multiple packages with binaries found`
-# on any workspace carrying more than one binary rather than choosing between them.
-"cargo:vectordotdev/vector" = { version = "tag:v0.56.0", os = ["macos/x64"], crate = "vector" }
-# The macos/x64 half of rustfs, the one platform upstream ships no prebuilt for.
-# A git spec rather than a bare `cargo:rustfs`: the crates.io crate is a stale 0.0.2 placeholder while real
-# releases are 1.0.0-beta.x on GitHub only, so installing the crate would give this platform different software
-# than every other one. `tag:` builds the exact source the prebuilt is cut from, keeping them aligned -- bump it
-# with the `http:rustfs` entry. A source build is acceptable here because macos/x64 is second-tier.
-"cargo:rustfs/rustfs" = { version = "tag:1.0.0-beta.12", os = ["macos/x64"], crate = "rustfs" }
 # ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
 "github:microsoft/onnxruntime" = "1.22.0"
@@ -243,6 +230,46 @@ os = ["linux", "macos"]
 profile = "minimal"
 targets = "wasm32-unknown-unknown,wasm32-wasip2"
 version = "{{ vars.rust_nightly }}"
+
+# The macos/x64 half of vector (see the aqua:vectordotdev/vector note above).
+# A git `tag:` spec rather than the crates.io crate so this platform builds the exact source the other
+# platforms' 0.56.0 prebuilts are cut from -- bump it with the aqua entry. A source build is acceptable here
+# because macos/x64 is second-tier. `crate` names the package to build, and is required rather than tidy: a
+# git install searches the whole repo, so cargo refuses with `error: multiple packages with binaries found`
+# on any workspace carrying more than one binary rather than choosing between them.
+#
+# `--cap-lints=warn` is what makes the source build survive a toolchain newer than the one upstream cut the
+# release with. vector-config carries `#![deny(warnings)]`, so a future-compat warning is fatal there:
+#
+#     error: a method with this name may be added to the standard library in the future
+#        --> lib/vector-config/src/schema/visitors/merge.rs:265:17
+#     = note: `#[deny(unstable_name_collisions)]` implied by `#[deny(warnings)]`
+#
+# Capping every lint to `warn` for this one install leaves the deny in place for our own crates. Plain
+# RUSTFLAGS rather than the CARGO_TARGET_<triple>_ form because only the plain one is read here.
+[tools."cargo:vectordotdev/vector"]
+crate = "vector"
+install_env = { RUSTFLAGS = "--cap-lints=warn" }
+os = ["macos/x64"]
+version = "tag:v0.56.0"
+
+# The macos/x64 half of rustfs, the one platform upstream ships no prebuilt for.
+# A git spec rather than a bare `cargo:rustfs`: the crates.io crate is a stale 0.0.2 placeholder while real
+# releases are 1.0.0-beta.x on GitHub only, so installing the crate would give this platform different software
+# than every other one. `tag:` builds the exact source the prebuilt is cut from, keeping them aligned -- bump it
+# with the `http:rustfs` entry. A source build is acceptable here because macos/x64 is second-tier.
+#
+# PROTOC is an absolute path for the same reason lld_flag is one: the cargo subprocess mise spawns has no
+# sibling mise tool on PATH, so a transitive `pulsar` build script that shells out to protoc dies with
+#
+#     Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable
+#
+# even though protoc installed cleanly moments earlier.
+[tools."cargo:rustfs/rustfs"]
+crate = "rustfs"
+install_env = { PROTOC = "{{ vars.protoc_bin }}" }
+os = ["macos/x64"]
+version = "tag:1.0.0-beta.12"
 
 # Native rustpython binary built from upstream RustPython main.
 # Built with `freeze-stdlib` (so the binary embeds the Python stdlib and doesn't need a RUSTPYTHONPATH dance)
@@ -490,6 +517,10 @@ a_et_cli_target_dir = "target{% if os() == 'windows' %}/x86_64-pc-windows-gnullv
 # web_cov_wrapper only adds the ET_TEST_COVERAGE conditional around this value.
 a_web_cov_wrapper_env = 'RUSTC_WORKSPACE_WRAPPER={{ config_root }}/target/debug/int-wasm-cov-wrapper '
 et_cli = "{{ vars.config_root_fwd }}/{{ vars.a_et_cli_target_dir }}/{{ vars.a_et_cli_exe }}"
+# mise-managed protoc, for the PROTOC install_env on the cargo:rustfs/rustfs source build.
+# `latest` is a real directory mise maintains beside the resolved version, so this tracks the `protoc`
+# [tools] pin without repeating a version segment that would then have to be kept in step.
+protoc_bin = "{{ vars.a_home }}/.local/share/mise/installs/protoc/latest/bin/protoc"
 # mise-managed CPython (Linux/macOS); the PYO3_PYTHON default below.
 # Windows overrides PYO3_PYTHON with its own py3_win in config.windows.toml. The version
 # segment must equal the `python` [tools] pin (conftest enforces both).

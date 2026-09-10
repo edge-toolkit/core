@@ -82,7 +82,7 @@ jobs:
           '{"os":"ubuntu-26.04","timeout":40}',
           '{"os":"ubuntu-24.04-arm","timeout":50}',
           '{"os":"macos-latest","timeout":75}',
-          '{"os":"macos-26-intel","timeout":60}',
+          '{"os":"macos-26-intel","timeout":225,"install_timeout":120}',
           '{"os":"windows-latest","timeout":120}',
           '{"os":"windows-11-arm","timeout":60}'
           )
@@ -90,7 +90,8 @@ jobs:
           || github.event.inputs.os == 'ubuntu-26.04' && '[{"os":"ubuntu-26.04","timeout":40}]'
           || github.event.inputs.os == 'ubuntu-24.04-arm' && '[{"os":"ubuntu-24.04-arm","timeout":50}]'
           || github.event.inputs.os == 'macos-latest' && '[{"os":"macos-latest","timeout":75}]'
-          || github.event.inputs.os == 'macos-26-intel' && '[{"os":"macos-26-intel","timeout":60}]'
+          || github.event.inputs.os == 'macos-26-intel'
+          && '[{"os":"macos-26-intel","timeout":225,"install_timeout":120}]'
           || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":120}]'
           || github.event.inputs.os == 'windows-11-arm' && '[{"os":"windows-11-arm","timeout":60}]'
           )
@@ -123,9 +124,13 @@ jobs:
       # Windows tools source-build under mise 2026.7.1, so this step runs long (bumped from 20).
       # The per-tool msvc `install_env` override no longer reaches cargo-binstall there, so cargo tools like
       # action-validator compile from source instead of fetching their msvc prebuilts. Revert once mise fixes it.
+      #
+      # macos-26-intel raises its own ceiling through the matrix, because it is the only lane that source-builds
+      # vector and rustfs -- upstream ships no macos/x64 prebuilt for either. Those two overran the flat 60 even
+      # while still failing early; completing them needs more. Every other lane falls back to 60 via the `||`.
       - name: Install mise + tools
         uses: ./.github/actions/install-mise-tools
-        timeout-minutes: 60
+        timeout-minutes: ${{ matrix.install_timeout || 60 }}
         with:
           github-token: ${{ github.token }}
 
@@ -252,6 +257,10 @@ jobs:
   # running the whole `mise install`. Kept a separate job for that reason -- it shares no step with `default`
   # beyond checkout, so folding it into that matrix would mean an `if:` on almost every step.
   minimal:
+    # Gated exactly as `override` is, and for the same reason.
+    # A dispatch aimed at one OS should not also spawn an unrelated Windows job -- without this, picking
+    # macos-26-intel from the dropdown still started this arm64 lane alongside it.
+    if: github.event_name != 'workflow_dispatch' || inputs.windows-overrides
     permissions:
       contents: read
     runs-on: windows-11-arm
@@ -275,12 +284,21 @@ jobs:
         uses: ./.github/actions/install-mise
 
       # Both toolchains the Windows [[tools.rust]] entries name, resolved at the arm64 host triple.
+      # python is here because a workspace build reaches et-ws-pyo3-runner, whose pyo3-ffi build script runs
+      # the exact interpreter PYO3_PYTHON names, and without it the whole build stops on
+      #
+      #     error: failed to run the Python interpreter at C:\i\python\3.13.14\python.exe:
+      #     The system cannot find the path specified. (os error 3)
+      #
+      # Naming the tool rather than adding `python` to MISE_ENV is what keeps config.python.toml out of this
+      # job: its pipx:torch and pipx:semgrep have no win_arm64 wheel and would fail the install outright,
+      # whereas the `python` pin itself lives in the base config and has an aarch64-pc-windows-msvc build.
       # GITHUB_TOKEN raises the api.github.com ceiling that mise's version lookups draw on.
-      - name: Install Rust toolchain
+      - name: Install Rust and Python toolchains
         timeout-minutes: 25
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: mise install rust
+        run: mise install rust python
 
       # install-mise-tools ends with this, but this job deliberately does not use it, so it clears its own.
       - name: Remove mise shim
