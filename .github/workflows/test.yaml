@@ -290,15 +290,26 @@ jobs:
       #     error: failed to run the Python interpreter at C:\i\python\3.13.14\python.exe:
       #     The system cannot find the path specified. (os error 3)
       #
-      # Naming the tool rather than adding `python` to MISE_ENV is what keeps config.python.toml out of this
-      # job: its pipx:torch and pipx:semgrep have no win_arm64 wheel and would fail the install outright,
-      # whereas the `python` pin itself lives in the base config and has an aarch64-pc-windows-msvc build.
+      # protoc is here for the same reason: utilities/onnx pulls in onnx-extractor, whose build script shells
+      # out to it, so a workspace build stops on the same NotFound panic. Upstream publishes no arm64 Windows
+      # protoc, but mise takes the win64 build, which runs under this host's x64 emulation. onnxruntime is
+      # the last of them: ORT_LIB_LOCATION puts its install dir on the linker's search path whether or not
+      # the tool is present, so et-ws-wasi-runner reaches the link step and dies on
+      #
+      #     LINK : fatal error LNK1181: cannot open input file 'onnxruntime.lib'
+      #
+      # It is spelled as the full backend spec because the bare name is not in mise's registry -- `mise
+      # install onnxruntime` fails with "onnxruntime not found in mise tool registry".
+      #
+      # Naming the tools rather than widening MISE_ENV is what keeps config.python.toml out of this job: its
+      # pipx:torch and pipx:semgrep have no win_arm64 wheel and would fail the install outright, whereas
+      # every pin named here lives in the base config and resolves on this arch.
       # GITHUB_TOKEN raises the api.github.com ceiling that mise's version lookups draw on.
-      - name: Install Rust and Python toolchains
+      - name: Install the toolchains the workspace build needs
         timeout-minutes: 25
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: mise install rust python
+        run: mise install rust python protoc github:microsoft/onnxruntime
 
       # install-mise-tools ends with this, but this job deliberately does not use it, so it clears its own.
       - name: Remove mise shim
