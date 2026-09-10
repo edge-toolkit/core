@@ -282,6 +282,10 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise install rust
 
+      # install-mise-tools ends with this, but this job deliberately does not use it, so it clears its own.
+      - name: Remove mise shim
+        uses: ./.github/actions/remove-mise-shim
+
       # A build, not a check: codegen and linking are where a new host triple actually fails.
       - name: Build workspace
         timeout-minutes: 30

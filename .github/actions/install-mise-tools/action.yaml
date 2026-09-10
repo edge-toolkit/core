@@ -100,35 +100,24 @@ runs:
         mise run preinstall
         mise install
 
+    # A failed first install has usually already written the shim, so clear it before the retry runs.
+    # The trailing removal at the end of this action is too late to help here, and is skipped entirely once
+    # the retry itself fails -- so without this the retry aborts in seconds. Observed on commit
+    # d801ec192814cf8de880c5935d83232222907975 at
+    # https://github.com/edge-toolkit/core/actions/runs/31652059090/job/94298363388, where the first install
+    # died on a frippery.org (http:busybox) connect timeout.
+    - name: Remove mise shim before the retry
+      if: steps.install-mise-tools.outcome == 'failure'
+      uses: ./.github/actions/remove-mise-shim
+
     - name: Install mise tools (retry)
       if: steps.install-mise-tools.outcome == 'failure'
       shell: bash --noprofile --norc -euo pipefail {0}
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
-        # Drop mise's self-referential shim before retrying, so PATH falls through to the real mise.exe.
-        # A failed first install has usually already written that shim, and this fresh bash then resolves
-        # `mise` to it, aborting the whole retry in seconds with
-        #
-        #     mise: recursive shim invocation detected for mise: /c/Users/runneradmin/AppData/Local/mise/shims/mise
-        #
-        # (the removal step below runs too late for this step, and is skipped entirely once this step fails)
-        # -- observed on commit d801ec192814cf8de880c5935d83232222907975 at
-        # https://github.com/edge-toolkit/core/actions/runs/31652059090/job/94298363388, where the first
-        # install died on a frippery.org (http:busybox) connect timeout.
-        if [ "$RUNNER_OS" = "Windows" ]; then
-          rm -fv "$LOCALAPPDATA/mise/shims/mise.cmd" "$LOCALAPPDATA/mise/shims/mise"
-        fi
         sleep 20
         mise install
 
-    # Delete mise's auto-generated `mise.cmd` shim on Windows.
-    # This lets cmd's PATH search fall through to the real `mise.exe` at `~/.cargo/bin/mise.exe` (staged by
-    # taiki-e/install-action). Must run AFTER `mise install` -- that's the step that creates the shims.
-    - name: Remove self-recursive mise.cmd shim on Windows
-      if: runner.os == 'Windows'
-      shell: bash --noprofile --norc -euo pipefail {0}
-      run: |
-        shims="$LOCALAPPDATA/mise/shims"
-        rm -fv "$shims/mise.cmd" "$shims/mise"
-        ls "$shims" | grep -i '^mise' || true
+    - name: Remove mise shim
+      uses: ./.github/actions/remove-mise-shim
