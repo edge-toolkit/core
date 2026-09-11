@@ -18,8 +18,8 @@ name: test
           - macos-26-intel
           - windows-latest
           - windows-11-arm
-      windows-overrides:
-        description: "Also run the msvc + mingw override lanes"
+      extra-lanes:
+        description: "Also run the opt-in lanes (override compilers, minimal bring-up platforms)"
         type: boolean
         default: false
 
@@ -170,9 +170,10 @@ jobs:
   # the `default` job because they override the gnullvm default target rather than exercising it.
   override:
     # Always on for pull requests; opt-in on manual dispatches.
-    # The windows-overrides checkbox gates these lanes so a dispatch aimed at one OS doesn't also spawn two
-    # long Windows jobs.
-    if: github.event_name != 'workflow_dispatch' || inputs.windows-overrides
+    # The extra-lanes checkbox gates these lanes so a dispatch aimed at one OS doesn't also spawn two long
+    # Windows jobs. It is one switch for every opt-in lane rather than one per job, so a dispatch is either
+    # the `default` matrix alone or the whole set; `minimal` reads the same input for that reason.
+    if: github.event_name != 'workflow_dispatch' || inputs.extra-lanes
     # Read-only pull of the maintainer-published ghcr.io mise-tools store (install-mise-tools restore step).
     # Never write: the stores are published only from a maintainer's machine via `mise run push-mise-tools`.
     permissions:
@@ -257,10 +258,11 @@ jobs:
   # running the whole `mise install`. Kept a separate job for that reason -- it shares no step with `default`
   # beyond checkout, so folding it into that matrix would mean an `if:` on almost every step.
   minimal:
-    # Gated exactly as `override` is, and for the same reason.
-    # A dispatch aimed at one OS should not also spawn an unrelated Windows job -- without this, picking
-    # macos-26-intel from the dropdown still started this arm64 lane alongside it.
-    if: github.event_name != 'workflow_dispatch' || inputs.windows-overrides
+    # Gated on the same checkbox as `override`, so both opt-in lane sets turn on together.
+    # Keying this on the `os` dropdown instead would let a dispatch pick one of these two platforms, but it
+    # would also make a bare OS dispatch start a bring-up lane nobody asked for, which is what the gate
+    # exists to stop. One switch for every opt-in lane is the simpler contract.
+    if: github.event_name != 'workflow_dispatch' || inputs.extra-lanes
     permissions:
       contents: read
     runs-on: ${{ matrix.os }}

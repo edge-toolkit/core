@@ -24,7 +24,7 @@ use std::time::{Duration, Instant};
 
 use backon::{ExponentialBuilder, RetryableWithContext as _};
 use command_error::CommandExt as _;
-use edge_toolkit::config::{Language, mise_env_includes};
+use edge_toolkit::config::{Language, mise_env_includes, mise_python_site_packages, mise_where};
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
 use futures_util::{SinkExt as _, StreamExt as _};
 use rstest::rstest;
@@ -104,6 +104,10 @@ async fn module_behaves(
 ) -> Result<(), Box<dyn Error>> {
     if skipped(module, &gate) {
         return Ok(());
+    }
+
+    if matches!(gate, Gate::Torch) {
+        warm_torch_import();
     }
 
     let server = et_ws_test_server::start();
@@ -520,11 +524,51 @@ async fn collect_binary(control: &mut ControlSocket, count: usize) -> Result<Vec
     Ok(received)
 }
 
+/// Pay torch's cold first import in a throwaway process, before the timed exchange starts.
+///
+/// The runner imports torch before it connects, so that import is charged against the registration
+/// deadline -- and on a cold runner the ~400 MB package's first import has overrun every budget it has been
+/// given, most recently the full three minutes at 181.8s on `default (windows-latest)`, reported as
+///
+///     Error: "runner never registered"
+///
+/// The cost is cold page cache and disk, not bytecode compilation: deleting every `__pycache__` under the
+/// install and re-running made the case *faster* locally. So doing one import up here, outside the budget,
+/// leaves the runner's own import reading warm pages. `sys.path` is built from the same
+/// `mise_python_site_packages` the runner uses, so this imports exactly what the runner will.
+///
+/// Best-effort throughout: every failure path returns quietly, because this only ever makes the real import
+/// faster. If torch genuinely cannot be imported, the runner says so with its own error.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct pre-step of the torch case; kept separate so module_behaves stays readable"
+)]
+fn warm_torch_import() {
+    let Some(install) = mise_where("python") else {
+        return;
+    };
+    // config.windows.toml's py3_win puts the interpreter at the install root; py3_unix puts it under bin/.
+    let python = if cfg!(windows) {
+        install.join("python.exe")
+    } else {
+        install.join("bin").join("python3")
+    };
+    let Ok(python_path) = std::env::join_paths(mise_python_site_packages()) else {
+        return;
+    };
+    let _warmed = Command::new(python)
+        .args(["-c", "import torch"])
+        .env("PYTHONPATH", python_path)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+}
+
 /// True when `pipx:torch` is importable from a mise package `site-packages`.
 ///
 /// The exact condition under which the runner can `import torch`.
 fn torch_reachable() -> bool {
-    edge_toolkit::config::mise_python_site_packages()
+    mise_python_site_packages()
         .iter()
         .any(|site_packages| site_packages.join("torch").is_dir())
 }
