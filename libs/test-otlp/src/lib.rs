@@ -39,11 +39,22 @@ use opentelemetry_sdk::trace::SdkTracerProvider;
 /// (synchronous) span processor is used, so the span has been exported by the time this returns -- no async
 /// runtime and no batch-flush race. Panics on exporter-build failure: in a test that means a misconfigured
 /// environment, which must fail loudly rather than silently skip.
+///
+/// # Errors
+///
+/// Returns the exporter's shutdown error when the collector refused the span or could not be reached, so a
+/// caller can retry a collector that is not accepting writes yet, or report the real reason it never landed.
 #[expect(
     clippy::implicit_hasher,
-    reason = "test-support: callers pass a std-hasher header map"
+    clippy::unwrap_in_result,
+    reason = "test-support: callers pass a std-hasher map; a build failure is a misconfigured env and must panic"
 )]
-pub fn emit_span(endpoint: &str, headers: HashMap<String, String>, service_name: &str, span_name: &str) {
+pub fn emit_span(
+    endpoint: &str,
+    headers: HashMap<String, String>,
+    service_name: &str,
+    span_name: &str,
+) -> opentelemetry_sdk::error::OTelSdkResult {
     let exporter = SpanExporter::builder()
         .with_http()
         .with_protocol(ExportProtocol::HttpBinary)
@@ -61,9 +72,11 @@ pub fn emit_span(endpoint: &str, headers: HashMap<String, String>, service_name:
         .with_attributes([opentelemetry::KeyValue::new("probe", span_name.to_owned())])
         .start(&tracer);
     span.end();
-    // Simple processor exports on span end; shutdown then flushes and tears the exporter down. Discard the
-    // result -- the process is a test and there is no caller to propagate an exporter teardown error to.
-    let _shutdown = provider.shutdown();
+    // Simple processor exports on span end; shutdown then flushes and tears the exporter down, so this
+    // result is where a rejected or unreachable collector shows up. Returned rather than discarded: a
+    // caller that swallows it spends its whole search timeout hunting a span that was never stored, and
+    // then blames the search. Callers that cannot proceed without the span should expect() it.
+    provider.shutdown()
 }
 
 /// Start a collector on an OS-assigned port, speaking `protocol`.

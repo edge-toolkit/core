@@ -574,6 +574,9 @@ backend = "cargo:open"
 version = "tag:1.0.0-beta.12"
 backend = "cargo:rustfs/rustfs"
 
+[tools."cargo:rustfs/rustfs".options]
+crate = "rustfs"
+
 [[tools."cargo:ryl"]]
 version = "0.21.0"
 backend = "cargo:ryl"
@@ -581,6 +584,9 @@ backend = "cargo:ryl"
 [[tools."cargo:vectordotdev/vector"]]
 version = "tag:v0.56.0"
 backend = "cargo:vectordotdev/vector"
+
+[tools."cargo:vectordotdev/vector".options]
+crate = "vector"
 
 [[tools."cargo:wasm-opt"]]
 version = "0.116.1"

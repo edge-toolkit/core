@@ -149,17 +149,6 @@ ripgrep = "latest"
 # jscpd bump can rewrite them and redden an unrelated PR against config/jscpd-baseline.json. Bump the pin and
 # regenerate the baseline together.
 "github:kucherenko/jscpd" = "5.1.1"
-# The macos/x64 half of vector (see the aqua:vectordotdev/vector note above).
-# A git `tag:` spec rather than the crates.io crate so this platform builds the exact source the other
-# platforms' 0.56.0 prebuilts are cut from -- bump it with the aqua entry. A source build is acceptable here
-# because macos/x64 is second-tier.
-"cargo:vectordotdev/vector" = { version = "tag:v0.56.0", os = ["macos/x64"] }
-# The macos/x64 half of rustfs, the one platform upstream ships no prebuilt for.
-# A git spec rather than a bare `cargo:rustfs`: the crates.io crate is a stale 0.0.2 placeholder while real
-# releases are 1.0.0-beta.x on GitHub only, so installing the crate would give this platform different software
-# than every other one. `tag:` builds the exact source the prebuilt is cut from, keeping them aligned -- bump it
-# with the `http:rustfs` entry. A source build is acceptable here because macos/x64 is second-tier.
-"cargo:rustfs/rustfs" = { version = "tag:1.0.0-beta.12", os = ["macos/x64"] }
 # ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
 "github:microsoft/onnxruntime" = "1.22.0"
@@ -241,6 +230,41 @@ os = ["linux", "macos"]
 profile = "minimal"
 targets = "wasm32-unknown-unknown,wasm32-wasip2"
 version = "{{ vars.rust_nightly }}"
+
+# The macos/x64 half of vector (see the aqua:vectordotdev/vector note above).
+# A git `tag:` spec rather than the crates.io crate so this platform builds the exact source the other
+# platforms' 0.56.0 prebuilts are cut from -- bump it with the aqua entry. A source build is acceptable here
+# because macos/x64 is second-tier. `crate` names the package to build, and is required rather than tidy: a
+# git install searches the whole repo, so cargo refuses with `error: multiple packages with binaries found`
+# on any workspace carrying more than one binary rather than choosing between them.
+#
+# `--cap-lints=warn` is what makes the source build survive a toolchain newer than the one upstream cut the
+# release with. vector-config carries `#![deny(warnings)]`, so a future-compat warning is fatal there:
+#
+#     error: a method with this name may be added to the standard library in the future
+#        --> lib/vector-config/src/schema/visitors/merge.rs:265:17
+#     = note: `#[deny(unstable_name_collisions)]` implied by `#[deny(warnings)]`
+#
+# Capping every lint to `warn` for this one install leaves the deny in place for our own crates. It has to
+# ride on plain RUSTFLAGS rather than joining config.macos.toml's CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS,
+# because install_env values are passed through literally -- no `{{ vars.x }}`, no `$HOME` -- so the lld and
+# rpath flags that value is built from cannot be restated here. Plain RUSTFLAGS wins over the target-specific
+# form, so this install alone links with the default linker instead of conda:lld.
+[tools."cargo:vectordotdev/vector"]
+crate = "vector"
+install_env = { RUSTFLAGS = "--cap-lints=warn" }
+os = ["macos/x64"]
+version = "tag:v0.56.0"
+
+# The macos/x64 half of rustfs, the one platform upstream ships no prebuilt for.
+# A git spec rather than a bare `cargo:rustfs`: the crates.io crate is a stale 0.0.2 placeholder while real
+# releases are 1.0.0-beta.x on GitHub only, so installing the crate would give this platform different software
+# than every other one. `tag:` builds the exact source the prebuilt is cut from, keeping them aligned -- bump it
+# with the `http:rustfs` entry. A source build is acceptable here because macos/x64 is second-tier.
+[tools."cargo:rustfs/rustfs"]
+crate = "rustfs"
+os = ["macos/x64"]
+version = "tag:1.0.0-beta.12"
 
 # Native rustpython binary built from upstream RustPython main.
 # Built with `freeze-stdlib` (so the binary embeds the Python stdlib and doesn't need a RUSTPYTHONPATH dance)
@@ -880,6 +904,12 @@ run = "jscpd . --config config/jscpd.json --reporters html,console --output targ
 
 [tasks.cargo-check]
 run = "cargo check --workspace {{ vars.cargo_ws_excludes }}"
+
+# A real codegen + link pass, where cargo-check stops after type-checking.
+# That distinction is the whole point on a platform being brought up: the linker, the CRT and the -sys crates'
+# build scripts are exactly what a new host triple gets wrong, and `cargo check` reaches none of them.
+[tasks.cargo-build]
+run = "cargo build --workspace {{ vars.cargo_ws_excludes }}"
 
 [tasks.cargo-fmt]
 run = "cargo +{{ vars.rust_nightly }} fmt"
@@ -2200,6 +2230,16 @@ depends = [
 alias = "cargo-nextest"
 description = "Run every Rust test via nextest (web-runner excluded on gnullvm)"
 run = "cargo nextest run --workspace {{ vars.cargo_ws_excludes }} --config-file config/nextest.toml"
+
+# The self-contained slice of the suite, for platforms still being brought up.
+# These three crates' tests need nothing the host has to provide: no built WASM module, no ws-server, no
+# docker, no network. That is what makes them meaningful on a lane whose job is to prove the toolchain
+# works rather than to gate the product -- a failure here is a real defect on that platform, not a missing
+# fixture. Everything else in the suite wants at least one of those, so widening this list means teaching
+# the lane to build modules and start servers, which is the full `test` task by another name.
+[tasks.cargo-test-libs]
+description = "Run the tests that need no server, module or network (toolchain bring-up lanes)"
+run = "cargo nextest run --config-file config/nextest.toml -p edge-toolkit -p et-path -p et-ws-runner-common"
 
 [tasks."test:rust"]
 # Rust tests. Always-loaded, so `test`'s glob always matches it.

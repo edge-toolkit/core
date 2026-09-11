@@ -18,8 +18,8 @@ name: test
           - macos-26-intel
           - windows-latest
           - windows-11-arm
-      windows-overrides:
-        description: "Also run the msvc + mingw override lanes"
+      extra-lanes:
+        description: "Also run the opt-in lanes (override compilers, minimal bring-up platforms)"
         type: boolean
         default: false
 
@@ -82,7 +82,7 @@ jobs:
           '{"os":"ubuntu-26.04","timeout":40}',
           '{"os":"ubuntu-24.04-arm","timeout":50}',
           '{"os":"macos-latest","timeout":75}',
-          '{"os":"macos-26-intel","timeout":60}',
+          '{"os":"macos-26-intel","timeout":225,"install_timeout":120}',
           '{"os":"windows-latest","timeout":120}',
           '{"os":"windows-11-arm","timeout":60}'
           )
@@ -90,7 +90,8 @@ jobs:
           || github.event.inputs.os == 'ubuntu-26.04' && '[{"os":"ubuntu-26.04","timeout":40}]'
           || github.event.inputs.os == 'ubuntu-24.04-arm' && '[{"os":"ubuntu-24.04-arm","timeout":50}]'
           || github.event.inputs.os == 'macos-latest' && '[{"os":"macos-latest","timeout":75}]'
-          || github.event.inputs.os == 'macos-26-intel' && '[{"os":"macos-26-intel","timeout":60}]'
+          || github.event.inputs.os == 'macos-26-intel'
+          && '[{"os":"macos-26-intel","timeout":225,"install_timeout":120}]'
           || github.event.inputs.os == 'windows-latest' && '[{"os":"windows-latest","timeout":120}]'
           || github.event.inputs.os == 'windows-11-arm' && '[{"os":"windows-11-arm","timeout":60}]'
           )
@@ -123,9 +124,13 @@ jobs:
       # Windows tools source-build under mise 2026.7.1, so this step runs long (bumped from 20).
       # The per-tool msvc `install_env` override no longer reaches cargo-binstall there, so cargo tools like
       # action-validator compile from source instead of fetching their msvc prebuilts. Revert once mise fixes it.
+      #
+      # macos-26-intel raises its own ceiling through the matrix, because it is the only lane that source-builds
+      # vector and rustfs -- upstream ships no macos/x64 prebuilt for either. Those two overran the flat 60 even
+      # while still failing early; completing them needs more. Every other lane falls back to 60 via the `||`.
       - name: Install mise + tools
         uses: ./.github/actions/install-mise-tools
-        timeout-minutes: 60
+        timeout-minutes: ${{ matrix.install_timeout || 60 }}
         with:
           github-token: ${{ github.token }}
 
@@ -165,9 +170,10 @@ jobs:
   # the `default` job because they override the gnullvm default target rather than exercising it.
   override:
     # Always on for pull requests; opt-in on manual dispatches.
-    # The windows-overrides checkbox gates these lanes so a dispatch aimed at one OS doesn't also spawn two
-    # long Windows jobs.
-    if: github.event_name != 'workflow_dispatch' || inputs.windows-overrides
+    # The extra-lanes checkbox gates these lanes so a dispatch aimed at one OS doesn't also spawn two long
+    # Windows jobs. It is one switch for every opt-in lane rather than one per job, so a dispatch is either
+    # the `default` matrix alone or the whole set; `minimal` reads the same input for that reason.
+    if: github.event_name != 'workflow_dispatch' || inputs.extra-lanes
     # Read-only pull of the maintainer-published ghcr.io mise-tools store (install-mise-tools restore step).
     # Never write: the stores are published only from a maintainer's machine via `mise run push-mise-tools`.
     permissions:
@@ -236,3 +242,117 @@ jobs:
       - name: Run tests
         timeout-minutes: 55
         run: mise run test
+
+  # Windows-on-arm bring-up lane: proves the Rust toolchain alone works there, and nothing more.
+  # windows-arm64 is not one of the five supported platforms, and the `default` matrix's dispatch-only
+  # windows-11-arm entry cannot get past `mise install` -- it ends on
+  #
+  #     mise ERROR Failed to install tools: conda:m2-gnupg@2.2.41.1, core:java@26.0.1, core:rust@...
+  #
+  # naming 18 tools, observed on commit 4488443a7f56398a3a27c4bca9713ba6900a755c at
+  # https://github.com/edge-toolkit/core/actions/runs/34409246713/job/102659546843. The causes are upstream,
+  # not ours: torch and cryptography publish no `win_arm64` wheel, msys2's conda channel is x86_64-only,
+  # Adoptium's newest windows/aarch64 JDK is 23 against the pinned 26, and wasm-bindgen, openobserve, rustfs,
+  # waitup and openapi2zig ship no aarch64 Windows asset at all. This job sidesteps all 18 rather than fixing
+  # them: MISE_ENV=rust drops the guest-language configs, and it installs the single `rust` tool instead of
+  # running the whole `mise install`. Kept a separate job for that reason -- it shares no step with `default`
+  # beyond checkout, so folding it into that matrix would mean an `if:` on almost every step.
+  minimal:
+    # Gated on the same checkbox as `override`, so both opt-in lane sets turn on together.
+    # Keying this on the `os` dropdown instead would let a dispatch pick one of these two platforms, but it
+    # would also make a bare OS dispatch start a bring-up lane nobody asked for, which is what the gate
+    # exists to stop. One switch for every opt-in lane is the simpler contract.
+    if: github.event_name != 'workflow_dispatch' || inputs.extra-lanes
+    permissions:
+      contents: read
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      # The two platforms whose full tool set cannot install, for unrelated upstream reasons.
+      # windows-arm64 has no arm64 build for 18 of the tools, and macos/x64 is the one platform that has to
+      # source-build vector and rustfs, neither of which completes. Naming tools individually sidesteps both,
+      # so these lanes exercise the compiler and the self-contained tests where `default` cannot run at all.
+      # macos/x64 gets the larger bound because its cargo_ws_excludes is empty, so it also builds
+      # et-ws-web-runner (deno -> rusty_v8) that the Windows lanes drop.
+      matrix:
+        include:
+          - os: windows-11-arm
+            timeout: 45
+          - os: macos-26-intel
+            timeout: 75
+    # Job-level so it is already set when install-mise runs `mise trust` and reports the value.
+    env:
+      MISE_ENV: rust
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      # install-mise here, not install-mise-tools.
+      # The latter runs `mise run preinstall` plus a full `mise install`, which is exactly the all-tools pass
+      # that cannot succeed on this arch. No busybox `defaults.run.shell` override either (the `default` job's
+      # reason for one) -- busybox-w32 is an x64 exe, and this job's single task chain is far too short for the
+      # Git Bash cygheap pathology that override exists to dodge.
+      - name: Install mise
+        uses: ./.github/actions/install-mise
+
+      # Both toolchains the Windows [[tools.rust]] entries name, resolved at the arm64 host triple.
+      # python is here because a workspace build reaches et-ws-pyo3-runner, whose pyo3-ffi build script runs
+      # the exact interpreter PYO3_PYTHON names, and without it the whole build stops on
+      #
+      #     error: failed to run the Python interpreter at C:\i\python\3.13.14\python.exe:
+      #     The system cannot find the path specified. (os error 3)
+      #
+      # protoc is here for the same reason: utilities/onnx pulls in onnx-extractor, whose build script shells
+      # out to it, so a workspace build stops on the same NotFound panic. Upstream publishes no arm64 Windows
+      # protoc, but mise takes the win64 build, which runs under this host's x64 emulation. onnxruntime is
+      # the last of them: ORT_LIB_LOCATION puts its install dir on the linker's search path whether or not
+      # the tool is present, so et-ws-wasi-runner reaches the link step and dies on
+      #
+      #     LINK : fatal error LNK1181: cannot open input file 'onnxruntime.lib'
+      #
+      # onnxruntime and nextest are spelled as full backend specs because their bare names are not in mise's
+      # registry -- `mise install onnxruntime` and `mise install cargo-nextest` both fail with "not found in
+      # mise tool registry". nextest is what runs the tests below.
+      #
+      # Naming the tools rather than widening MISE_ENV is what keeps config.python.toml out of this job: its
+      # pipx:torch and pipx:semgrep have no win_arm64 wheel and would fail the install outright, whereas
+      # every pin named here lives in the base config and resolves on both of this job's platforms.
+      # GITHUB_TOKEN raises the api.github.com ceiling that mise's version lookups draw on.
+      - name: Install the toolchains the workspace build needs
+        timeout-minutes: 25
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise install rust python protoc github:microsoft/onnxruntime github:nextest-rs/nextest
+
+      # conda:lld is macOS-only, and only config.macos.toml declares it, so it cannot join the list above.
+      # Its rustflags pass `-fuse-ld=<conda-lld>/bin/ld64.lld`, and a missing path there is fatal rather than
+      # ignored -- every build script fails to link with
+      #
+      #     cc: error: invalid linker name in argument '-fuse-ld=.../conda-lld/latest/bin/ld64.lld'
+      #
+      # The sibling rpath flags need no tool of their own: they point at conda:openssl, and nothing in this
+      # workspace links openssl-sys, so an unresolved rpath costs nothing.
+      - name: Install the macOS linker
+        if: runner.os == 'macOS'
+        timeout-minutes: 10
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise install conda:lld
+
+      # install-mise-tools ends with this, but this job deliberately does not use it, so it clears its own.
+      - name: Remove mise shim
+        uses: ./.github/actions/remove-mise-shim
+
+      # A build, not a check: codegen and linking are where a new host triple actually fails.
+      - name: Build workspace
+        timeout-minutes: 30
+        run: mise run cargo-build
+
+      # Only the tests that need no server, module or network -- see the cargo-test-libs task for which and why.
+      - name: Run the self-contained tests
+        timeout-minutes: 20
+        run: mise run cargo-test-libs

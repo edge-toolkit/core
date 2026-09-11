@@ -90,7 +90,8 @@ fn vector_relays_buffered_otlp_after_backend_comes_online() {
         HashMap::new(),
         SERVICE_NAME,
         SPAN_NAME,
-    );
+    )
+    .unwrap_or_else(|err| panic!("vector refused the OTLP span, so nothing is buffered to relay: {err:?}"));
 
     // 4. Bring the collector online on the reserved port.
     //    This test is a plain sync `#[test]`, but `mock-collector` is async and spawns its server onto the

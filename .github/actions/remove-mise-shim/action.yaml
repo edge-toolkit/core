@@ -1,0 +1,28 @@
+---
+name: Remove mise shim
+description: >-
+  Delete mise's own auto-generated shims on Windows so a later bare `mise` runs
+  the real binary instead of re-execing itself. A no-op on Linux and macOS.
+  Only meaningful after a `mise install`, which is what writes them.
+
+runs:
+  using: composite
+  steps:
+    # Delete mise's auto-generated `mise.cmd` + `mise` shims on Windows.
+    # taiki-e/install-action stages the real `mise.exe` under `~/.cargo/bin`, while install-mise puts mise's shim
+    # dir on PATH ahead of it. `mise install` then writes shims for everything it installed -- mise itself
+    # included -- so the next bare `mise` resolves to a shim whose job is to re-exec mise, and it dies on the spot:
+    #
+    #     mise: recursive shim invocation detected for mise: /c/Users/runneradmin/AppData/Local/mise/shims/mise
+    #
+    # Removing just those two entries lets the PATH search fall through to the real binary while every other
+    # tool keeps the shim it needs. Observed on commit e8e44afc899591ac5cd9b5313e99b2f76a5a23cc at
+    # https://github.com/edge-toolkit/core/actions/runs/34430184394/job/102723879106, where test.yaml's
+    # `minimal` job installed its toolchain and then could not run a single `mise run` afterwards.
+    - name: Remove self-recursive mise shim on Windows
+      if: runner.os == 'Windows'
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: |
+        shims="$LOCALAPPDATA/mise/shims"
+        rm -fv "$shims/mise.cmd" "$shims/mise"
+        ls "$shims" | grep -i '^mise' || true

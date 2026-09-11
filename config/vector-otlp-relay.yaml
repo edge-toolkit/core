@@ -35,13 +35,21 @@ sinks:
       # `otlp` is protobuf; Vector's json OTLP encoding is not a valid request body (vectordotdev/vector#23971).
       encoding:
         codec: otlp
-      # Retry promptly but keep retrying long enough to survive an outage.
-      # retry_initial_backoff_secs makes the first retry quick, so a buffered event is redelivered within a
-      # second or two of the collector returning. retry_max_duration_secs is NOT a backoff-interval cap --
-      # it is the total per-request retry window, after which Vector DROPS the event ("retries exhausted").
-      # At 5s the buffered span was dropped before a cold CI runner could bind the collector, which timed out
-      # the ws-wasi-runner vector_otlp_relay test on Windows; 300s keeps store-and-forward durable across a
-      # real outage while staying finite.
+      # Retry on a short, bounded interval so redelivery tracks the collector coming back.
+      # retry_max_duration_secs is a cap on the interval BETWEEN retries, not a total retry window and not a
+      # deadline after which events drop: Vector's FibonacciRetryPolicy computes the next wait as
+      # `cmp::min(sum, self.max_duration)`, and retry_attempts (unset here) is what bounds the count, which
+      # defaults to unbounded. So a low cap costs nothing in durability -- the disk buffer still holds the
+      # event and Vector still retries forever -- while a high one only delays redelivery.
+      #
+      # It was 300, read as a total window. That let the Fibonacci sequence climb to a 300s gap, so once an
+      # outage ran long the next attempt could be scheduled minutes after the collector returned, and the
+      # ws-wasi-runner vector_otlp_relay test failed with
+      #
+      #     mock never received the relayed `relay-probe` span -- store-and-forward failed
+      #
+      # after its 120s poll, most recently at 133s on the override (msvc) lane. At 5s the worst case between
+      # the collector accepting and the next attempt is 5s, whatever the outage length.
       request:
         retry_initial_backoff_secs: 1
-        retry_max_duration_secs: 300
+        retry_max_duration_secs: 5

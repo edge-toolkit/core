@@ -89,7 +89,20 @@ fn openobserve_serves_back_a_span_ingested_over_otlp() {
     let mut headers = HashMap::new();
     BasicAuth::new(ROOT_EMAIL.to_owned(), SecretString::from(ROOT_PASSWORD.to_owned()))
         .add_basic_auth_header(&mut headers);
-    et_test_otlp::emit_span(&format!("{base}/api/{ORG}/v1/traces"), headers, SERVICE_NAME, MARKER);
+    //    Retried until o2 accepts it. `/healthz` reporting ok is not the same as the ingest path being
+    //    ready, and an export rejected in that window used to be discarded -- the test then spent its whole
+    //    search timeout hunting a span that had never been stored, and reported it as a search failure. The
+    //    giveaway was the diagnostic listing no trace stream at all rather than a stream without the span.
+    let ingest = format!("{base}/api/{ORG}/v1/traces");
+    retry(Fixed::from_millis(500).take(40), || {
+        et_test_otlp::emit_span(&ingest, headers.clone(), SERVICE_NAME, MARKER)
+    })
+    .unwrap_or_else(|err| {
+        panic!(
+            "openobserve never accepted the OTLP span: {err:?}\n{}",
+            stop_and_read(&mut server, &log),
+        )
+    });
 
     // 4. Search o2's traces until the span surfaces, then verify it came back carrying our marker + service.
     let Some(hit) = wait_for_marker(&client, &base) else {

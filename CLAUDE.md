@@ -630,7 +630,16 @@ both are false under this repo's design:
 
 If you believe a skip is genuinely warranted, stop and ask the user; do not add it pre-emptively.
 
-### Known intermittent CI failure: pyo3-runner torch registration timeout
+### Fixed: pyo3-runner torch registration timeout
+
+The warm-import lever the history below names as the last remaining one was taken on 2026-09-11, after the case
+overran even its full three minutes -- 181.8s on `default (windows-latest)`. `module_behaves` now calls
+`warm_torch_import` before the timed exchange starts, running one `import torch` in a throwaway interpreter
+built from the same `mise_python_site_packages` the runner uses, so the runner's own import reads warm pages
+and the cost falls outside the registration budget. It is best-effort: every failure path returns quietly,
+because it can only make the real import faster. As the history warns, this cannot be validated on a warm
+workstation -- locally the case takes 11.3s either way -- so it is CI-verified only. The history is kept below
+because the failure line is what a future reader will grep for.
 
 `et-ws-pyo3-runner`'s `module_behaves::case_5_torch` intermittently fails on the Linux, Windows, and macOS lanes
 of test.yaml and build.yaml with the literal failure line
@@ -740,7 +749,17 @@ installed cleanly). This is an api.github.com rate-limit/transient-network flake
 durable fix is to mirror the affected assets via the upstream-cache pattern (which fetches from our own release
 CDN, off the api.github.com attestation path) rather than adding a retry wrapper.
 
-### Known intermittent CI failure: vector_otlp_relay store-and-forward timing
+### Fixed: vector_otlp_relay store-and-forward timing
+
+Root-caused and fixed on 2026-09-11 by capping the retry interval; kept here because the panic line is what a
+future reader will grep for. `retry_max_duration_secs` had been read as a total retry window after which Vector
+drops the event, and set to 300 on that basis. It is neither: Vector's `FibonacciRetryPolicy` computes the next
+wait as `cmp::min(sum, self.max_duration)`, so the value caps the interval BETWEEN retries, and `retry_attempts`
+-- unset, defaulting to unbounded -- is what bounds the count. The 300 therefore let the backoff climb to a
+300-second gap, so after a long enough outage the next attempt landed minutes after the collector returned. It is
+now 5 in `config/vector-otlp-relay.yaml`, which bounds redelivery to 5s after the collector accepts regardless of
+outage length, and costs nothing in durability. The last failure under the old value was the `override (msvc)`
+lane at 133s, against the 120s poll described below. The history below is left for context.
 
 `et-ws-wasi-runner`'s `vector_otlp_relay::vector_relays_buffered_otlp_after_backend_comes_online` intermittently
 fails with the literal panic line
