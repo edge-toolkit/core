@@ -405,6 +405,12 @@ ignore = [
   # Unmaintained upstream at dajoha/color-print.
   # Pulled by deno_node via color-print.
   "color-print-proc-macro",
+  # Archived upstream at rustwasm/console_error_panic_hook.
+  # Pulled by wasm-bindgen-test, so it arrives with the test harness every browser module and the wasm agent
+  # already depend on rather than by a choice of ours, and only ever builds for wasm32 test targets. Archived
+  # as finished rather than abandoned: it installs a panic hook that forwards to `console.error`, which is a
+  # handful of lines against a web API that has not moved in a decade.
+  "console_error_panic_hook",
   # Archived upstream at matklad/countme.
   "countme",
   # Unmaintained upstream at denoland/deno_native_certs.

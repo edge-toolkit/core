@@ -794,6 +794,7 @@ depends = [
   "regal-check",
   "ryl-check",
   "semgrep-check",
+  "shellcheck-check",
   "shellcheck-mise-check",
   "shfmt-mise-check",
   "taplo-check",
@@ -1177,6 +1178,18 @@ run = "regal lint -c config/regal.yaml config/conftest/policy/"
 [tasks.regal-fix]
 description = "Auto-fix the regal violations that have an auto-fixer (e.g. opa-fmt)"
 run = "regal fix -c config/regal.yaml config/conftest/policy/"
+
+[tasks.shellcheck-check]
+description = "shellcheck the standalone shell fragments committed under .mise/"
+# The sibling task below reads shell out of the TOML; this one covers the files that are already shell on disk.
+# Nothing was linting them, so an external analyzer reported their findings first -- a `.sh` under `.mise/` is
+# exactly as much shell as a task body is, and had none of the same coverage.
+# No `--shell` override and no `--exclude`: each file declares its own interpreter through a shebang or a
+# `shell=` directive, and the exclusions the sibling task carries exist for extracted bodies, whose
+# Tera-masked names read as unassigned variables. Applying either here would hide real findings.
+# `-x` follows what a fragment sources, resolved from the repo root, which is the base a task body's relative
+# `source` path resolves against when it pulls one of these in.
+run = 'shellcheck -x --source-path="{{ vars.config_root_fwd }}" .mise/*.sh'
 
 [tasks.shellcheck-mise-check]
 description = "shellcheck every bash-shell mise task body across .mise/config*.toml"

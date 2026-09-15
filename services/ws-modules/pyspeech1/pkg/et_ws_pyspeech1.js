@@ -6,6 +6,7 @@ let py;
 let cfg;
 let runtime = null;
 
+// skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export default async function init() {
   if (!globalThis.loadPyodide) {
     await new Promise((resolve, reject) => {

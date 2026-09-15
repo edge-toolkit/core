@@ -22,6 +22,7 @@ function loadPyodideScript() {
   });
 }
 
+// skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export default async function init() {
   await loadPyodideScript();
   // The full Pyodide distribution is served at /modules/pyodide/, so the runtime resolves from this

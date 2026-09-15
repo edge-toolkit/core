@@ -41,6 +41,14 @@ name = "python"
 # Also ruled out: the files themselves. The repo's own JS linter parses every one of them as an ES module
 # with no parse error, and `module_system` is a documented key whose value here is one of its documented
 # options -- so neither the source nor the spelling of this setting is what the analyzer is objecting to.
+#
+# Ruled out last, and the reason no spelling of the key below can ever be the fix: `es-modules` is the
+# analyzer's own DOCUMENTED DEFAULT for `module_system`, so writing it out restates what was already in force
+# and changes nothing by construction. The package boundary a parser would otherwise resolve a bare `.js`
+# against says the same thing -- every module's `pkg/package.json` already carries `"type": "module"`. Both
+# inputs declare an ES module, JS-0833 is reported regardless, and the finding is reported only for files a
+# given diff touches, so it arrives two or three at a time rather than all at once. What remains is a per-file
+# `// skipcq: JS-0833` above the first export, added as each shim next comes up in a review.
 [[analyzers]]
 enabled = true
 meta = { environment = ["browser", "nodejs"], module_system = "es-modules" }

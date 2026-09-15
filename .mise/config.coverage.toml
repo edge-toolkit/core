@@ -201,11 +201,24 @@ arg "<libs>" help="Space-separated libs/ directory names that must be at 100% br
 # `--branch` flag: branch regions are baked into the covmap by the `-Zcoverage-options=branch` that task
 # appends, and every export carries them from there. With no profile data the underlying command fails on its
 # own, which is the right answer -- there is nothing to assert.
+#
+# The `show-env` eval is what points `report` at that data instead of at an empty directory. Under `show-env`
+# the profiles land in the plain target dir, which is where the collecting task's cargo invocations put them;
+# a bare `cargo llvm-cov report` -- which is what this is, running in its own process one CI step later --
+# defaults to `target/llvm-cov-target` instead and finds nothing:
+#   error: failed to merge profile data: not found *.profraw files in
+#   /home/runner/work/core/core/target/llvm-cov-target; this may occur if target directory is accidentally
+#   cleared, or running report subcommand without running any tests or binaries
+# on commit 52b2a6a67087fab043c1ea8c520373f5ba2477a4 at
+# https://github.com/edge-toolkit/core/actions/runs/35005110677/job/104502812372. The raw profiles are still
+# on disk at that point -- the collecting task's own `report` leaves them alone -- so the only thing this
+# process was missing is the environment that says where to look.
 [tasks.cargo-llvm-cov-branch-check]
 description = "Fail unless every native libs/ crate is at 100% branch coverage"
 run = """
 coreutils mkdir -p target/cov
 report=target/cov/native-libs.json
+eval "$(cargo llvm-cov show-env --sh)"
 cargo llvm-cov report --json --summary-only --output-path "$report"
 mise run _cov-branch-assert "$report" "{{ vars.native_cov_libs }}"
 """
@@ -439,8 +452,7 @@ trap - EXIT
 host="$(rustc +{{ vars.rust_nightly }} -vV | goawk '/^host:/ { print $2 }')"
 llbin="$(rustc +{{ vars.rust_nightly }} --print sysroot)/lib/rustlib/$host/bin"
 "$llbin/llvm-profdata" merge -sparse -o "$covdir/agent.profdata" "$covdir"/wasm-agent-*.profraw
-task=wasm-agent-cov
-. .mise/wasm-ll-objs.sh
+. .mise/wasm-ll-objs.sh "$covdir" "$llbin" wasm-agent-cov
 "$llbin/llvm-cov" export --format=lcov --instr-profile "$covdir/agent.profdata" "${objs[@]}" >"$covdir/all.lcov"
 coreutils touch lcov.info
 goawk -v want="ws-wasm-agent/src/" -f .mise/lcov-keep-want.awk "$covdir/all.lcov" >>lcov.info
@@ -494,8 +506,7 @@ cargo test -p et-ws-pic-viewer --features et-web/coverage --target wasm32-unknow
 host="$(rustc +{{ vars.rust_nightly }} -vV | goawk '/^host:/ { print $2 }')"
 llbin="$(rustc +{{ vars.rust_nightly }} --print sysroot)/lib/rustlib/$host/bin"
 "$llbin/llvm-profdata" merge -sparse -o "$covdir/pic-viewer.profdata" "$covdir"/pic-viewer-*.profraw
-task=pic-viewer-cov
-. .mise/wasm-ll-objs.sh
+. .mise/wasm-ll-objs.sh "$covdir" "$llbin" pic-viewer-cov
 "$llbin/llvm-cov" export --format=lcov --instr-profile "$covdir/pic-viewer.profdata" "${objs[@]}" >"$covdir/all.lcov"
 coreutils touch lcov.info
 goawk -v want="ws-modules/pic-viewer/src/" -f .mise/lcov-keep-want.awk "$covdir/all.lcov" >>lcov.info

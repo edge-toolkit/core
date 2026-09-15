@@ -211,8 +211,6 @@ rules:
         - "/.deepsource.toml" # Its own config.
         - "/.codacy.yaml" # Names it as the analyzer still covering what Codacy skips.
         - "/.github/workflows/coverage.yaml" # Reports coverage to it on CI.
-        - "/services/ws-modules/dotnet-data1/pkg/et_ws_dotnet_data1.js" # A `skipcq` pragma's own justification.
-        - "/services/ws-modules/dotnet-math1/pkg/et_ws_dotnet_math1.js" # The same pragma in the twin shim.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)deepsource"
     message: >-

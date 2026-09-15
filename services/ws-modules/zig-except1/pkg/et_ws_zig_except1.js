@@ -8,6 +8,7 @@
 //   [3] aux length (unused by this module; kept for shim parity with zig-data1)
 // Data area starts at byte offset 16.
 
+// skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export default async function init() {}
 
 export async function run() {

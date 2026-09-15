@@ -11,6 +11,7 @@
 // its bottom-right corner handle, and closed with the corner x button, which also stops the probe
 // and releases the WebGPU device.
 
+// skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 import Stats from "/modules/stats-gl/dist/main.js";
 
 const PROBE_SHADER = `

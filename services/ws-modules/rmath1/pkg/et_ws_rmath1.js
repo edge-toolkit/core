@@ -12,6 +12,7 @@ const R_SOURCE_URL = "/modules/et-ws-rmath1/module.R";
 
 let webR = null;
 
+// skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export default async function init() {
   const { WebR } = await import(`${WEBR_BASE_URL}webr.mjs`);
   webR = new WebR({ baseUrl: WEBR_BASE_URL });
