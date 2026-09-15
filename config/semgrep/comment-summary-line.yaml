@@ -15,6 +15,7 @@ rules:
         - "*.yaml"
         - ".dockerignore"
         - ".gitignore"
+        - ".semgrepignore"
         - "Dockerfile*"
       exclude:
         # Skip machine-emitted TOML/YAML (int-gen / regen output).

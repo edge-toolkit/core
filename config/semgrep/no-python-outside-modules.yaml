@@ -1,0 +1,19 @@
+rules:
+  - id: no-python-outside-modules
+    languages: [generic]
+    paths:
+      include:
+        - "*.py"
+      exclude:
+        - "/services/ws-modules/**" # The Python modules, whose source is why the language is here at all.
+        - "/services/ws-pyo3-runner/python/**" # Guest programs the runner loads, module payloads in all but name.
+        - "/generated/**" # Generated clients, owned by the generator that emits them.
+    pattern-regex: \A
+    message: >-
+      Python outside the module trees is banned. It is a guest language in this repo, not a tooling language:
+      it is here so that a module can be written in it and run in a browser or a runner, and every such file
+      sits under `services/ws-modules/` beside the manifest that builds and packages it. A `.py` anywhere else
+      is a loose script by another name, carrying every problem one brings -- nothing invokes it, nothing
+      tests it, and nothing fails when it stops working. Short and simple belongs in a task body under
+      `.mise/`; anything more involved gets its own directory under `utilities/` with a `README.md`.
+    severity: ERROR

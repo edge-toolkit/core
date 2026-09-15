@@ -28,14 +28,19 @@ name = "python"
 
 # The browser modules and the ws-server `static/app.js` are ES modules (top-level `import`/`export`).
 # Without an es-modules parser the analyzer treats them as scripts and reports spurious JS-0833 errors
-# ("'import'/'export' may appear only with 'sourceType: module'").
+# ("'import'/'export' may appear only with 'sourceType: module'"), which it still does despite this setting.
 #
-# Written inline rather than as a `[analyzers.meta]` table, and that is the point rather than a style choice.
-# TOML binds a `[analyzers.meta]` header to the last `[[analyzers]]` element declared before it, so three such
-# headers in one file rely on the reader tracking which element each attaches to. Every JS file in the repo
-# kept reporting JS-0833 while this said `es-modules`, which is what a setting that never reached the analyzer
-# looks like -- and the two `[analyzers.meta]` blocks below it are the only candidates for clobbering it. An
-# inline table cannot be reattached or overwritten: it is a key of the element it sits in.
+# Ruled out, so nobody spends a fourth attempt on it: the settings reaching the analyzer at all.
+# These were `[analyzers.meta]` table headers, three of them in this file, each binding to the last
+# `[[analyzers]]` declared above it -- a shape a lenient parser could flatten so that only the final one
+# survives, which would leave javascript with no module_system and explain the errors exactly. Rewriting all
+# three as inline `meta` keys, which cannot be reattached or overwritten, changed nothing: run
+# 4e3986bd-db2f-440a-84fc-9163ef240292 on commit ab14bf545bf62125dfa4f314952f5cd2b5a6be61 still failed.
+# The inline form is kept only because it is unambiguous; it is not the fix.
+#
+# Also ruled out: the files themselves. The repo's own JS linter parses every one of them as an ES module
+# with no parse error, and `module_system` is a documented key whose value here is one of its documented
+# options -- so neither the source nor the spelling of this setting is what the analyzer is objecting to.
 [[analyzers]]
 enabled = true
 meta = { environment = ["browser", "nodejs"], module_system = "es-modules" }

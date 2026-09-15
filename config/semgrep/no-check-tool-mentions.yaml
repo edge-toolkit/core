@@ -544,6 +544,7 @@ rules:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the scan/fix tasks.
         - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/.semgrepignore" # Its own ignore file, whose comments explain what the tool's default skips.
         - "/.codacy.yaml" # Excludes this ruleset, which its own copy of the tool misparses.
         - "/.github/workflows/test.yaml" # Notes the Windows lane's handling of the tool.
         - "/Dockerfile.nanoserver" # Disables the tool for an image whose build does not need it.

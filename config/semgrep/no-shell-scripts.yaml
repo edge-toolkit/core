@@ -15,3 +15,38 @@ rules:
       beside the config that invokes it, named for the interpreter that reads it -- that file is formatted and
       linted as the shell it is, which a string embedded in a config never can be.
     severity: ERROR
+
+  - id: no-windows-shell-scripts
+    languages: [generic]
+    paths:
+      include:
+        - "*.bat"
+        - "*.ps1"
+      exclude:
+        - "**/.venv/**" # Where `activate.bat` / `activate.ps1` are written by the venv tool, not by us.
+    pattern-regex: \A
+    message: >-
+      A `.bat` or `.ps1` file is banned. Windows is a first-tier platform here, which is precisely why its
+      shell gets no scripts of its own: a task body runs the same way on all five supported platforms, so
+      logic written once is logic every lane exercises, whereas a batch or PowerShell file is reachable from
+      one platform and silently untested on the other four. That is how a Windows-only path rots unnoticed
+      until it is the lane holding up a merge. Write the logic once in a task body under `.mise/`, or in its
+      own directory under `utilities/` when it has outgrown one, and let every platform run the same thing.
+      The `.venv/` exemption covers the activation scripts a virtualenv generates for itself, which are the
+      tool's output rather than anyone's source.
+    severity: ERROR
+
+  - id: no-cmd-scripts
+    languages: [generic]
+    paths:
+      include:
+        - "*.cmd"
+    pattern-regex: \A
+    message: >-
+      A `.cmd` file is banned everywhere in this tree, with no exemption at all -- not in `.mise/`, and not
+      under a `.venv/` the way its sibling extensions are. The reasoning is the same one that bans `.bat` and
+      `.ps1`: a Windows-only shell file is exercised on one of five platforms and silently untested on the
+      other four. It gets no carve-out because nothing generates one -- a virtualenv writes `activate.bat`
+      and `activate.ps1` but never a `.cmd` -- so every `.cmd` in the tree is something a person wrote by
+      hand, and belongs in a task body under `.mise/` or its own directory under `utilities/` instead.
+    severity: ERROR

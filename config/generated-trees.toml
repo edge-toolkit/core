@@ -65,6 +65,7 @@ required_in = [
   "config/semgrep/comment-summary-line.yaml",
   "config/semgrep/no-check-tool-mentions.yaml",
   "config/semgrep/no-non-ascii.yaml",
+  "config/semgrep/no-python-outside-modules.yaml",
   "config/semgrep/no-task-name-mentions.yaml",
   "config/semgrep/no-todo.yaml",
   "config/semgrep/no-type-comments.yaml",
