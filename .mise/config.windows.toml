@@ -156,9 +156,8 @@ py3_win_fwd = "{{ vars.a_mise_installs_fwd }}/python/3.13.14/python.exe"
 ort_loc_win = '{{ vars.mise_installs }}\github-microsoft-onnxruntime\1.22.0'
 # llvm-mingw's bin dir (the github:mstorsjo/llvm-mingw install above).
 # The linker/dlltool [env] vars below point at absolute exes in here rather than bare names because mise's
-# cargo backend doesn't activate llvm-mingw onto the cargo: source-build subprocess's PATH (same problem
-# config.macos.toml's absolute ld64.lld path solves): a bare `clang` would resolve to a runner's system
-# LLVM, which defaults to the MSVC target and can't link gnullvm objects.
+# cargo backend doesn't activate llvm-mingw onto the cargo: source-build subprocess's PATH: a bare `clang`
+# would resolve to a runner's system LLVM, which defaults to the MSVC target and can't link gnullvm objects.
 win_llvm_bin = '{{ vars.mise_installs }}\github-mstorsjo-llvm-mingw\20260602\bin'
 # conda:m2-gnupg's msys2 binary dir.
 # Cargo's own bin dir, prepended by the [env] `_.path` below so `cargo` resolves inside a task body.

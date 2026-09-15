@@ -8,7 +8,7 @@ use edge_toolkit::ws::{ConnectStatus, ServerMessage};
 use et_ws_test_server::{connect_agent, next_payload};
 use futures_util::SinkExt as _;
 use tokio::net::TcpListener;
-use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::tungstenite::{Bytes, Message};
 use tokio_tungstenite::{accept_async, connect_async};
 
 /// Start a ws server on a free port that accepts one connection, sends `frames` in order, then holds the socket open.
@@ -54,7 +54,7 @@ async fn next_payload_skips_control_frames_and_protocol_acks() {
     .unwrap();
     let frames = vec![
         // A control frame and a protocol ack both precede the real payload; next_payload must skip both.
-        Message::Ping(Vec::new()),
+        Message::Ping(Bytes::new()),
         Message::text(ack),
         Message::text("actual-payload"),
     ];

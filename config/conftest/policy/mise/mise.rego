@@ -33,7 +33,12 @@ deny contains msg if {
 	some name, task in file.contents.tasks
 	is_string(task.run)
 	contains(task.run, "\n")
-	not task.shell in allowed_run_shells
+
+	# Read `shell` through object.get rather than naming it directly.
+	# `in` is a builtin, so OPA hoists its operands out of the negation and has to ground them first: a task
+	# with no `shell` key at all made that hoist fail, which failed the whole body and let the commonest
+	# mistake -- forgetting the key outright -- through while a wrong value was still caught.
+	not object.get(task, "shell", "") in allowed_run_shells
 	msg := sprintf(
 		"%s: task %q has a multiline run; set shell = \"{{ vars.task_shell }}\" (or task_shell_trace for xtrace)",
 		[file.path, name],

@@ -190,7 +190,7 @@ async fn register_once(
         let connect = serde_json::to_string(&ClientMessage::Connect {
             agent_id: requested_agent_id,
         })?;
-        socket.send(tungstenite::Message::Text(connect)).await?;
+        socket.send(tungstenite::Message::text(connect)).await?;
         while let Some(frame) = socket.next().await {
             let tungstenite::Message::Text(text) = frame? else {
                 continue;

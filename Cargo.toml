@@ -55,7 +55,7 @@ resolver = "2"
 
 [workspace.dependencies]
 actix = "0.13"
-actix-files = "0.6"
+actix-files = "0.7"
 actix-rt = "2"
 actix-web = { version = "4", features = ["rustls-0_23"] }
 actix-web-thiserror = "0.2"
@@ -74,17 +74,17 @@ bytesize = { version = "2", features = ["serde"] }
 cc = "1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive"] }
-clap-markdown = "0.1.5"
+clap-markdown = "0.1"
 command-error = "0.8"
 const-hex = "1.19"
-deno_core = "0.407.0"
+deno_core = "0.407"
 deno_error = "=0.7.1"
-deno_resolver = "0.85.0"
+deno_resolver = "0.85"
 # `transpile` enables on-the-fly TS transpilation (deno_node ships its own TS).
 # `hmr` makes `op_snapshot_options` use `state.try_take(...).unwrap_or_default()`
 # instead of panicking when no SnapshotOptions struct is in OpState -- without
 # baking our own startup snapshot we'd otherwise hit the panic on first run.
-deno_runtime = { version = "0.262.0", features = ["transpile", "hmr"] }
+deno_runtime = { version = "0.262", features = ["transpile", "hmr"] }
 edge-toolkit = { path = "libs/edge-toolkit", version = "0.2.0" }
 et-modules-service = { path = "services/modules", version = "0.1.0" }
 et-otlp = { path = "libs/et-otlp", version = "0.1.0" }
@@ -101,7 +101,7 @@ et-ws-server = { path = "services/ws-server", version = "0.1.0" }
 et-ws-service = { path = "services/ws", version = "0.1.0" }
 et-ws-test-server = { path = "services/ws-test-server", version = "0.1.0" }
 et-ws-wasm-agent = { path = "services/ws-wasm-agent", version = "0.1.0" }
-fake = "4"
+fake = "5"
 fs-err = "3"
 futures-core = "0.3"
 futures-util = "0.3"
@@ -133,7 +133,7 @@ minicov = "0.3"
 # Serves the spec paths (/v1/traces, ...), so a consumer points `collector_url` at `http://host:port/v1`
 # for `et-otlp`'s `{collector_url}/traces` shape to land on them.
 mock-collector = "0.2"
-onnx-extractor = "0.4"
+onnx-extractor = "0.5"
 # Storage backend abstraction: local disk by default, any object_store backend via a URL.
 # `aws` pulls the S3 client (which also covers S3-compatible servers such as the rustfs mise tool the backend
 # test runs against). Only `aws` is enabled -- adding `gcp`/`azure`/`http` is a one-word change if a consumer
@@ -160,12 +160,12 @@ opentelemetry-proto = { version = "0.32", default-features = false, features = [
 ] }
 opentelemetry_sdk = "0.32"
 ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dylibs"] }
-pollster = "0.4"
+pollster = "1.0"
 port_check = "0.3"
 pretty_yaml = "0.6"
 prettyplease = "0.3"
-progenitor = "0.14"
-progenitor-client = "0.14"
+progenitor = "0.15"
+progenitor-client = "0.15"
 prost = "0.14"
 # `auto-initialize` starts the embedded CPython interpreter on first use.
 # The pyo3 runner never calls `Py_Initialize` itself.
@@ -176,23 +176,23 @@ qr2term = "0.3"
 quote = "1"
 # Kept in lockstep with whichever rand major `fake` builds against.
 # The generated deployments seed a fake-driven RNG, so the two crates have to agree on the `Rng` trait.
-rand = "0.9"
+rand = "0.10"
 # Reproducibility is the whole point of this dependency, not randomness quality.
 # ChaCha is the one rand generator whose output is guaranteed stable across releases for a given seed, so a
 # regenerated deployment keeps the credentials it had. `rand`'s own SmallRng/StdRng explicitly do not promise
 # that, and StepRng (the obvious "just count up" answer) is deprecated without replacement in rand 0.9.
-rand_chacha = "0.9"
+rand_chacha = "0.10"
 rcgen = "0.14"
 regex = { version = "1.12", default-features = false }
 reqwest = { version = "0.13", default-features = false }
 retry = { version = "2", default-features = false }
 retry-policies = "0.5"
-rstest = "0.26"
+rstest = "0.27"
 rustls = "0.23"
-schemars = { version = "1.1", features = ["derive"] }
-secrecy = { version = "0.10.3", features = ["serde"] }
+schemars = { version = "1.2", features = ["derive"] }
+secrecy = { version = "0.10", features = ["serde"] }
 semver = "1"
-serde = { version = "1.0.228", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
 serde-env = "0.3"
 serde-inline-default = "1.0"
 serde-wasm-bindgen = "0.6"
@@ -201,18 +201,18 @@ serde_json = "1"
 serde_path_to_error = "0.1"
 serde_urlencoded = "0.7"
 serde_yaml = "0.9"
-sha2 = { version = "0.10", default-features = false }
+sha2 = { version = "0.11", default-features = false }
 strum = { version = "0.28", features = ["derive"] }
 syn = "3"
-sys_traits = { version = "0.1.28", features = ["libc", "real"] }
+sys_traits = { version = "0.1", features = ["libc", "real"] }
 temp-env = "0.3"
 tempfile = "3"
 testing_logger = "0.1"
 textwrap = { version = "0.16", default-features = false }
 thiserror = "2"
 tokio = "1"
-tokio-tungstenite = { version = "0.24", default-features = false }
-toml = "0.8"
+tokio-tungstenite = { version = "0.30", default-features = false }
+toml = "1.1"
 tracing = "0.1"
 tracing-actix-web = { version = "0.7", default-features = false, features = [
   "emit_event_on_error",
@@ -223,14 +223,14 @@ tracing-log = "0.2"
 tracing-opentelemetry = "0.33"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-wasm = "0.2"
-tree-sitter = "0.26"
+tree-sitter = "0.27"
 tree-sitter-zig = "1"
 # Already resolved transitively (object_store, reqwest, ...), so this adds no new crate or license to review.
 # object_store's parse_url_opts takes a `&Url` and does not re-export the type, so a backend-URL config needs it.
 url = "2"
 utoipa = { version = "5", features = ["actix_extras", "yaml"] }
 uuid = { version = "1", features = ["serde", "v4", "v7"] }
-wasi-webgpu-wasmtime = "0.2.0"
+wasi-webgpu-wasmtime = "0.2"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 wasm-bindgen-test = "0.3"
@@ -253,8 +253,8 @@ web-sys = "0.3"
 wgpu-core = { version = "29", default-features = false }
 wgpu-types = "29"
 # Windows-only feature-unification shim: forces `winapi/std` on for deno_io.
-winapi = { version = "0.3.9", features = ["std"] }
-wit-bindgen = "0.57"
+winapi = { version = "0.3", features = ["std"] }
+wit-bindgen = "0.62"
 wit-encoder = "0.252"
 wit-parser = "0.252"
 

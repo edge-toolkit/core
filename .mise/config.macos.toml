@@ -3,17 +3,10 @@
 # loads first; PYO3_PYTHON keeps its config.toml default (py3_unix).
 
 [tools]
-# The LLD linker (ships ld64.lld) the RUSTFLAGS below use.
-# Apple's /usr/bin/clang can't resolve `-fuse-ld=lld` without it.
 # gpg for mise's gpg_verify signature checks; _setup_all installs it up front.
 "conda:gnupg" = "latest"
-"conda:lld" = "latest"
 
 [vars]
-conda_lld = "{{ env.HOME }}/.local/share/mise/installs/conda-lld/latest"
-# Point `-fuse-ld=` at the absolute ld64.lld so it resolves without a PATH lookup.
-# The cargo subprocess mise spawns for a `cargo:` source build doesn't have sibling tools like conda:lld on PATH.
-lld_flag = "-C link-arg=-fuse-ld={{ vars.conda_lld }}/bin/ld64.lld"
 # Xcode's libclang (the lib dir beside `xcrun`'s clang).
 # clang-sys doesn't always auto-find it on CI. The system libclang knows the SDK, so no bindgen args.
 mac_libclang = "{{ exec(command='dirname $(dirname $(xcrun --find clang))') }}/lib"
@@ -22,19 +15,20 @@ mac_libclang = "{{ exec(command='dirname $(dirname $(xcrun --find clang))') }}/l
 # `rustc -Z unstable-options --print target-spec-json` describes aarch64-apple-darwin as "11.0+, Big Sur+" and
 # x86_64-apple-darwin as "10.12+, Sierra+". cc-rs (the `cc` crate) reads this env var when compiling aws-lc-
 # sys/tree-sitter's C and assembly sources, but without it clang stamps those .o files with the full installed
-# SDK version instead -- e.g. `ld64.lld: .../libaws_lc_sys-*.rlib(*-jitterentropy-base.o) has version 26.5.0,
-# which is newer than target minimum of 11.0.0`, one line per object file, surfaced as a build warning by
-# rustc's `linker_messages` lint. Setting it here makes cc-rs target the same minimum rustc's own codegen
-# already uses, so the .o files' stamped version and the linked binary's requested minimum agree and ld64.lld
-# has nothing to warn about -- fixing the mismatch instead of just silencing the lint that reports it.
+# SDK version instead: `otool -l` on aws-lc-sys's jitterentropy-base.o then reports `minos 27.0` inside a
+# binary whose own LC_BUILD_VERSION asks for 11.0, which is a real portability bug -- those objects use
+# whatever the newest SDK offers while the binary claims to run on Big Sur. Apple's ld links the mismatch
+# without complaint, so nothing surfaces it; only the stamps disagree. Setting it here makes cc-rs target the
+# same minimum rustc's own codegen already uses, so the two agree.
 macosx_deployment_target = "{% if arch() == 'arm64' %}11.0{% else %}10.12{% endif %}"
 
 [env]
-# lld_flag points Apple's clang at ld64.lld (see [vars]).
-# The rpath/pylib flags (from config.toml) record conda's OpenSSL soname + the CPython lib dir so the runtime
-# loader finds them. Applies to every rustc call, including the `cargo:` source-build subprocess.
-CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
-CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.lld_flag }} {{ vars.rpath_flag }} {{ vars.pylib_flag }}"
+# rpath_flag (from config.toml) records conda's OpenSSL soname so the runtime loader finds it.
+# Applies to every rustc call, including the `cargo:` source-build subprocess. config.toml's pylib_flag is
+# deliberately absent: pyo3's build script already emits that same rpath on darwin, and passing it twice makes
+# Apple's linker report `ld: duplicate -rpath '<python>/lib' ignored` through rustc's `linker_messages` lint.
+CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.rpath_flag }}"
+CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.rpath_flag }}"
 # See the macosx_deployment_target comment in [vars] above.
 LIBCLANG_PATH = "{{ vars.mac_libclang }}"
 MACOSX_DEPLOYMENT_TARGET = "{{ vars.macosx_deployment_target }}"
@@ -55,10 +49,9 @@ _.path = ["/Library/Developer/CommandLineTools/usr/bin", "/bin", "/sbin", "/usr/
 # Linux. The package list has a single source of truth -- the Dockerfile's APT_PACKAGES ARG: a workstation
 # reads it back from the Dockerfile in the checkout, so adding/removing a prereq there propagates here
 # automatically. Most apt names map cleanly to Xcode CLT binaries or macOS pre-installed tools; the case
-# patterns below adjust the few that don't (cert path, SDK headers via xcrun). Finally install conda:lld (the
-# darwin linker the RUSTFLAGS use).
+# patterns below adjust the few that don't (cert path, SDK headers via xcrun).
 depends = ["_setup_all"]
-description = "Preinstall: verify Xcode CLT + Dockerfile prereqs + conda:lld"
+description = "Preinstall: verify Xcode CLT + Dockerfile prereqs"
 run = """
 xcode-select -p >/dev/null 2>&1 || {
   echo "preinstall: Xcode command-line tools not found." >&2
@@ -128,6 +121,5 @@ if [ -n "$brewy" ]; then
   echo "Adjust PATH so Xcode CLT / macOS-native tools resolve first." >&2
   exit 1
 fi
-mise install conda:lld
 """
 shell = "{{ vars.task_shell }}"

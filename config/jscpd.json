@@ -2,6 +2,7 @@
   "minTokens": 40,
   "minLines": 5,
   "mode": "mild",
+  "ignorePattern": ["- name: Checkout[\\s\\S]*?persist-credentials: false"],
   "ignore": [
     "generated/**",
     "verification/**",

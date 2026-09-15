@@ -153,7 +153,7 @@ ripgrep = "latest"
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
 "github:microsoft/onnxruntime" = "1.22.0"
 "github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
-"github:wasm-bindgen/wasm-bindgen" = "0.2.127"
+"github:wasm-bindgen/wasm-bindgen" = "0.2.128"
 # go-containerregistry's crane fetches the per-platform ghcr.io mise-tools stores.
 # Its `crane export` rootfs-flatten is what the pull-mise-tools task and CI's install-mise-tools restore
 # step extract tool trees with.
@@ -247,9 +247,9 @@ version = "{{ vars.rust_nightly }}"
 #
 # Capping every lint to `warn` for this one install leaves the deny in place for our own crates. It has to
 # ride on plain RUSTFLAGS rather than joining config.macos.toml's CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS,
-# because install_env values are passed through literally -- no `{{ vars.x }}`, no `$HOME` -- so the lld and
-# rpath flags that value is built from cannot be restated here. Plain RUSTFLAGS wins over the target-specific
-# form, so this install alone links with the default linker instead of conda:lld.
+# because install_env values are passed through literally -- no `{{ vars.x }}`, no `$HOME` -- so the rpath
+# flag that value is built from cannot be restated here. Plain RUSTFLAGS wins over the target-specific form,
+# so this install alone links without the conda OpenSSL rpath.
 [tools."cargo:vectordotdev/vector"]
 crate = "vector"
 install_env = { RUSTFLAGS = "--cap-lints=warn" }
@@ -512,6 +512,16 @@ a_et_cli_target_dir = "target{% if os() == 'windows' %}/x86_64-pc-windows-gnullv
 # web_cov_wrapper only adds the ET_TEST_COVERAGE conditional around this value.
 a_web_cov_wrapper_env = 'RUSTC_WORKSPACE_WRAPPER={{ config_root }}/target/debug/int-wasm-cov-wrapper '
 et_cli = "{{ vars.config_root_fwd }}/{{ vars.a_et_cli_target_dir }}/{{ vars.a_et_cli_exe }}"
+# Oldest macOS SDK macos-sdk-check accepts, held as high as CI can actually satisfy.
+# This is a track-the-latest policy rather than a floor the build forces: the deployment target (11.0 on
+# arm64) is the only figure the repo itself requires, and every SDK since is technically sufficient. Pinning
+# near the newest keeps contributors on one known SDK, so a build difference is never "which Xcode is this".
+#
+# 26.0 is that policy capped by the runners. GitHub's macOS images are macOS 26 -- macos-latest is macOS 26
+# arm64, macos-26-intel its x64 twin -- so they carry a 26.x SDK, and 27.0 would fail every macOS lane rather
+# than any real defect. Raise this to 27.0 once those images ship Xcode 27; a contributor already on 27 keeps
+# passing meanwhile, since the check is a floor and not an equality.
+macos_min_sdk = "26.0"
 # mise-managed CPython (Linux/macOS); the PYO3_PYTHON default below.
 # Windows overrides PYO3_PYTHON with its own py3_win in config.windows.toml. The version
 # segment must equal the `python` [tools] pin (conftest enforces both).
@@ -778,6 +788,7 @@ depends = [
   "kubeconform-check",
   "link-check",
   "ls-lint-check",
+  "macos-sdk-check",
   "mise-lock-check",
   "readme-mise-version-check",
   "regal-check",
@@ -841,6 +852,45 @@ run = "zizmor --offline --no-progress -c config/zizmor.yaml .github/workflows .g
 description = "Lint file and directory naming conventions (ls-lint)"
 run = "ls-lint --config config/ls-lint.yaml"
 
+# Verify the host's macOS SDK before anything tries to link against it.
+# Two failures, and the first is the common one. `xcrun` reporting no SDK at all means the command-line tools
+# are absent or the active developer dir points at nothing -- config.macos.toml's `SDKROOT` is computed by
+# exactly this command, so that state poisons every cc-rs build script with "'stdlib.h' file not found"
+# rather than saying what is wrong. Catching it here names it once, up front. The second is an SDK older than
+# the deployment target the build asks for, which is incoherent: you cannot target macOS 11 with a 10.x SDK.
+#
+# Lives in the always-loaded config rather than config.macos.toml, and no-ops elsewhere.
+# `check:rust` and `test:rust` both depend on it, and their depends lists are static -- a task defined only in
+# the macOS config would be an unresolvable dependency on every other platform.
+#
+# This does NOT exist to demand a recent Xcode. Apple's `ld` reads its own SDK whatever its vintage, so there
+# is no upper-bound problem to guard against; the floor is only a floor.
+[tasks.macos-sdk-check]
+description = "Fail if the macOS SDK is missing or older than the minimum this repo builds against"
+run = """
+if [ "$(coreutils uname -s)" != "Darwin" ]; then
+  echo "macos-sdk-check: not macOS; nothing to verify"
+  exit 0
+fi
+sdk="$(xcrun --show-sdk-version 2>/dev/null || true)"
+if [ -z "$sdk" ]; then
+  echo "macos-sdk-check: xcrun reported no SDK version." >&2
+  echo "Install the Xcode command-line tools with: xcode-select --install" >&2
+  exit 1
+fi
+min="{{ vars.macos_min_sdk }}"
+# `sort -V` puts the lower version first, so the minimum staying first means the SDK is at least it.
+# Equal versions sort to the same value, which lands on the pass side, as an exact match should.
+lowest="$(printf '%s\\n%s\\n' "$min" "$sdk" | coreutils sort -V | coreutils head -n 1)"
+if [ "$lowest" != "$min" ]; then
+  echo "macos-sdk-check: SDK $sdk is older than the required $min." >&2
+  echo "Update the Xcode command-line tools via Software Update, or: xcode-select --install" >&2
+  exit 1
+fi
+echo "macos-sdk-check: SDK $sdk (minimum $min)"
+"""
+shell = "{{ vars.task_shell }}"
+
 [tasks.ast-grep-check]
 # --no-ignore hidden so the gha-* YAML rules reach .github/workflows.
 # ast-grep skips dot-dirs by default; gitignored paths like target/ stay skipped.
@@ -889,6 +939,16 @@ shell = "{{ vars.task_shell }}"
 # config, still shows the whole picture instead of filtering to new clones. That config's `ignore` list covers
 # only generator-owned output nobody hand-writes -- note the files under a module's pkg/ other than package.json
 # are hand-written shims, so they stay in scope.
+#
+# The one `ignorePattern` entry, whose reason has to live here because that config is plain JSON.
+# It matches the `actions/checkout` step, which every workflow is obliged to write out in full: a composite
+# action is referenced by a path inside the repo, so it cannot run until the repo has been checked out, which
+# makes this the one step that can never be factored into `.github/actions/`. Six workflows therefore repeat the
+# same five lines with the same `fetch-depth` / `persist-credentials` pins, and reported as a clone it asks for a
+# refactor that the platform does not permit. `ignorePattern` drops those tokens before detection, which is
+# narrower than excluding the workflow files: everything else in them -- job bodies, step sequences, run blocks
+# -- is still compared. Delete this the day a checkout can be shared, and expect the clone count to rise by the
+# handful of pairs it is currently hiding.
 [tasks.jscpd-check]
 description = "Detect copy/pasted code across every language (jscpd)"
 run = "jscpd . --config config/jscpd.json --baseline config/jscpd-baseline.json --fail-on-new-clones"
@@ -1030,6 +1090,17 @@ run = "conftest test --namespace jscpd -p config/conftest/policy config/jscpd-ba
 [tasks.conftest-check-policy-tests]
 description = "Run the Rego unit tests beside the conftest policies (conftest verify)"
 run = "conftest verify -p config/conftest/policy"
+
+# The policy tree checked against itself: every policy must have a test file beside it, or a recorded reason.
+# `--parser ignore` because .rego has no parser and only the paths are read; the policy contents are never
+# inspected, so the entries the parser produces per line go unused.
+[tasks.conftest-check-policy-pairs]
+description = "Check every conftest policy has a test file beside it (conftest)"
+run = """
+find config/conftest/policy -name '*.rego' -print0 |
+  xargs -0 conftest test --combine --parser ignore --namespace policy_tests -p config/conftest/policy
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.conftest-check-generated-trees]
 description = "Cross-check config/generated-trees.toml against the linter configs it governs (conftest)"
@@ -2243,7 +2314,11 @@ run = "cargo nextest run --config-file config/nextest.toml -p edge-toolkit -p et
 
 [tasks."test:rust"]
 # Rust tests. Always-loaded, so `test`'s glob always matches it.
-depends = ["cargo-test"]
+# macos-sdk-check rides here as well as on check:rust so both GHA workflows get it without a workflow edit:
+# `check` globs check:*, `test` globs test:*, and these two are the members that are always loaded. It is a
+# host precondition rather than a test, but a broken SDK fails the compile it precedes with a far worse
+# message, so naming it up front is worth the slight category stretch.
+depends = ["cargo-test", "macos-sdk-check"]
 description = "Run the Rust tests"
 
 [tasks.test]

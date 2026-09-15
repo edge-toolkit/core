@@ -231,7 +231,7 @@ fn skipped(module: &str, gate: &Gate) -> bool {
     reason = "one Exchange variant's protocol; kept separate so run_exchange stays a dispatcher"
 )]
 async fn exchange_text_contains(control: &mut ControlSocket, send: &str, extra: &[&str]) -> Result<(), Box<dyn Error>> {
-    control.send(tungstenite::Message::Text(send.to_string())).await?;
+    control.send(tungstenite::Message::text(send)).await?;
     let reply = drain_text(control).await?;
     if !reply.contains(send) {
         return Err(format!("reply {reply:?} did not contain the sent {send:?}").into());
@@ -254,7 +254,7 @@ async fn exchange_text_json(
     payload: &str,
     check: fn(&serde_json::Value) -> Result<(), Box<dyn Error>>,
 ) -> Result<(), Box<dyn Error>> {
-    control.send(tungstenite::Message::Text(payload.to_string())).await?;
+    control.send(tungstenite::Message::text(payload)).await?;
     let reply = drain_text(control).await?;
     let value: serde_json::Value = match serde_json::from_str(&reply) {
         Ok(value) => value,
@@ -273,11 +273,11 @@ async fn exchange_storage_put_get(control: &mut ControlSocket, key: &str, value:
     put_frame.extend_from_slice(key.as_bytes());
     put_frame.push(0);
     put_frame.extend_from_slice(value);
-    control.send(tungstenite::Message::Binary(put_frame)).await?;
+    control.send(tungstenite::Message::binary(put_frame)).await?;
     // Let the storage worker PUT to disk before we GET.
     tokio::time::sleep(Duration::from_millis(200)).await;
     control
-        .send(tungstenite::Message::Binary(key.as_bytes().to_vec()))
+        .send(tungstenite::Message::binary(key.as_bytes().to_vec()))
         .await?;
     let reply = drain_binary(control).await?;
     if reply.as_slice() != value {
@@ -292,7 +292,7 @@ async fn exchange_storage_put_get(control: &mut ControlSocket, key: &str, value:
     reason = "one Exchange variant's protocol; kept separate so run_exchange stays a dispatcher"
 )]
 async fn exchange_fanout(control: &mut ControlSocket, count: u8) -> Result<(), Box<dyn Error>> {
-    control.send(tungstenite::Message::Binary(vec![count])).await?;
+    control.send(tungstenite::Message::binary(vec![count])).await?;
     let frames = collect_binary(control, usize::from(count)).await?;
     let expected: Vec<u8> = (0..count).collect();
     if frames != expected {
@@ -390,7 +390,7 @@ fn spawn_runner(module: &str, ws_url: &str) -> Child {
 async fn control_client(ws_url: &str) -> Result<(ControlSocket, String), Box<dyn Error>> {
     let (mut socket, _) = connect_async(ws_url).await?;
     let connect = serde_json::to_string(&ClientMessage::Connect { agent_id: None })?;
-    socket.send(tungstenite::Message::Text(connect)).await?;
+    socket.send(tungstenite::Message::text(connect)).await?;
     loop {
         let Some(frame) = socket.next().await else {
             return Err("control socket closed before connect-ack".into());
@@ -441,7 +441,7 @@ async fn poll_for_peer_once(control: &mut ControlSocket, self_id: &str) -> Resul
     let Ok(req) = serde_json::to_string(&ClientMessage::ListAgents) else {
         return Err(());
     };
-    if control.send(tungstenite::Message::Text(req)).await.is_err() {
+    if control.send(tungstenite::Message::text(req)).await.is_err() {
         return Err(());
     }
     let poll_until = Instant::now() + POLL_DRAIN_WINDOW;
@@ -462,23 +462,35 @@ async fn poll_for_peer_once(control: &mut ControlSocket, self_id: &str) -> Resul
     Err(())
 }
 
+/// Await one frame from `control`, failing if `deadline` passes first.
+///
+/// Every drain below wants the same four outcomes off the socket -- a frame, a recv error, a closed
+/// socket, or the deadline -- and differs only in which frames it keeps. `what` names the wait in the
+/// two error strings, so each caller still reports what it was waiting for.
+async fn next_frame(
+    control: &mut ControlSocket,
+    deadline: Instant,
+    what: &str,
+) -> Result<tungstenite::Message, Box<dyn Error>> {
+    match tokio::time::timeout(deadline - Instant::now(), control.next()).await {
+        Ok(Some(Ok(frame))) => Ok(frame),
+        Ok(Some(Err(err))) => Err(format!("recv error: {err}").into()),
+        Ok(None) => Err("control socket closed".into()),
+        Err(_) => Err(format!("timed out waiting for {what}").into()),
+    }
+}
+
 /// Drain frames until the first non-protocol text frame (skipping typed et-* envelopes).
 async fn drain_text(control: &mut ControlSocket) -> Result<String, Box<dyn Error>> {
     let deadline = Instant::now() + REPLY_TIMEOUT;
     while Instant::now() < deadline {
-        let remaining = deadline - Instant::now();
-        match tokio::time::timeout(remaining, control.next()).await {
-            Ok(Some(Ok(tungstenite::Message::Text(text)))) => {
-                if serde_json::from_str::<ServerMessage>(&text).is_ok() {
-                    continue; // typed et-* envelope (status / list / ack), keep draining
-                }
-                return Ok(text);
-            }
-            Ok(Some(Ok(_))) => {}
-            Ok(Some(Err(err))) => return Err(format!("recv error: {err}").into()),
-            Ok(None) => return Err("control socket closed".into()),
-            Err(_) => return Err("timed out waiting for text reply".into()),
+        let tungstenite::Message::Text(text) = next_frame(control, deadline, "text reply").await? else {
+            continue;
+        };
+        if serde_json::from_str::<ServerMessage>(&text).is_ok() {
+            continue; // typed et-* envelope (status / list / ack), keep draining
         }
+        return Ok(text.to_string());
     }
     Err("deadline exceeded waiting for text reply".into())
 }
@@ -487,14 +499,10 @@ async fn drain_text(control: &mut ControlSocket) -> Result<String, Box<dyn Error
 async fn drain_binary(control: &mut ControlSocket) -> Result<Vec<u8>, Box<dyn Error>> {
     let deadline = Instant::now() + REPLY_TIMEOUT;
     while Instant::now() < deadline {
-        let remaining = deadline - Instant::now();
-        match tokio::time::timeout(remaining, control.next()).await {
-            Ok(Some(Ok(tungstenite::Message::Binary(bytes)))) => return Ok(bytes),
-            Ok(Some(Ok(_))) => {}
-            Ok(Some(Err(err))) => return Err(format!("recv error: {err}").into()),
-            Ok(None) => return Err("control socket closed".into()),
-            Err(_) => return Err("timed out waiting for binary reply".into()),
-        }
+        let tungstenite::Message::Binary(bytes) = next_frame(control, deadline, "binary reply").await? else {
+            continue;
+        };
+        return Ok(bytes.to_vec());
     }
     Err("deadline exceeded waiting for binary reply".into())
 }
@@ -504,19 +512,13 @@ async fn collect_binary(control: &mut ControlSocket, count: usize) -> Result<Vec
     let mut received = Vec::with_capacity(count);
     let deadline = Instant::now() + REPLY_TIMEOUT;
     while received.len() < count && Instant::now() < deadline {
-        let remaining = deadline - Instant::now();
-        match tokio::time::timeout(remaining, control.next()).await {
-            Ok(Some(Ok(tungstenite::Message::Binary(bytes)))) => {
-                let [byte] = bytes.as_slice() else {
-                    return Err(format!("fan-out produced a {}-byte frame, expected 1", bytes.len()).into());
-                };
-                received.push(*byte);
-            }
-            Ok(Some(Ok(_))) => {}
-            Ok(Some(Err(err))) => return Err(format!("recv error: {err}").into()),
-            Ok(None) => return Err("control socket closed".into()),
-            Err(_) => return Err("timed out waiting for fan-out frames".into()),
-        }
+        let tungstenite::Message::Binary(bytes) = next_frame(control, deadline, "fan-out frames").await? else {
+            continue;
+        };
+        let [byte] = &*bytes else {
+            return Err(format!("fan-out produced a {}-byte frame, expected 1", bytes.len()).into());
+        };
+        received.push(*byte);
     }
     if received.len() != count {
         return Err(format!("got {} frames, expected {count}", received.len()).into());

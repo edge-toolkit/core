@@ -31,6 +31,16 @@
 "aqua:hhatto/gocloc" = "latest"
 "conda:clang" = { version = "latest", os = ["linux", "macos"] }
 
+[vars]
+# The libs/ crates each branch-coverage check is answerable for, as directory names under libs/.
+# The split is which pipeline carries the crate's coverage, not a judgement about how well tested it is.
+# The native set is everything cargo-llvm-cov's own run instruments and reports; the wasm set is the two
+# crates that only ever compile to wasm, whose covmaps reach lcov.info through wasm-cov's .ll-gutting path
+# and so can only be asserted where that path runs. A crate belongs to exactly one list: naming it in both
+# would let a gap in one pipeline be answered by the other.
+native_cov_libs = "edge-toolkit et-otlp path test-helpers test-otlp ws-runner-common"
+wasm_cov_libs = "wasi-guest web"
+
 # The wasm coverage builds run on nightly (-Zno-profiler-runtime) with the wasm-capable conda clang on PATH.
 # It is set env-wide here because this env loads only under the coverage workflow; per-command RUSTFLAGS and
 # the minicov feature come from the wasm_cov / *_cov_feat vars so uninstrumented builds stay clean.
@@ -49,6 +59,17 @@ RUSTUP_TOOLCHAIN = "{{ vars.rust_nightly }}"
 # Pointing the loader straight at the install dir is layout-independent, so it holds however cargo lays the
 # build dir out. Scoped to this env because only the coverage lane runs binaries under nightly. Drop it together
 # with the cargo-doc-check mkdir once ort stops hardcoding the OUT_DIR depth.
+# Keep host links on Apple's cc, which the conda-clang prepend below otherwise shadows.
+# That prepend is there so minicov's build.rs finds a bare `clang` with a wasm32 backend, but conda-clang ships
+# a `cc` too and wins the lookup for it -- and conda's clang knows nothing of the macOS SDK, so every host link
+# in the coverage env dies with libSystem unresolved, one undefined symbol per libstd call:
+#     "_writev", referenced from: ...std::sys::stdio::unix::Stderr...write_vectored in libstd-*.rlib
+#     ld: symbol(s) not found for architecture arm64
+# Naming the linker outright is narrower than reordering PATH: `clang` stays conda's for the wasm guest builds
+# that need it, and only rustc's choice of linker driver moves back. The var is per-target, so the Linux lane
+# ignores both lines. Drop them if the conda-clang bin dir ever stops carrying a `cc`.
+CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER = "/usr/bin/cc"
+CARGO_TARGET_X86_64_APPLE_DARWIN_LINKER = "/usr/bin/cc"
 DYLD_LIBRARY_PATH = "{{ vars.ort_loc_unix }}/lib"
 LD_LIBRARY_PATH = "{{ vars.ort_loc_unix }}/lib"
 _.path = "{{ env.HOME }}/.local/share/mise/installs/conda-clang/latest/bin"
@@ -139,6 +160,80 @@ exit "$test_status"
 """
 shell = "{{ vars.task_shell }}"
 
+# The assertion both branch-coverage checks make, kept in one place so the two differ only in what they feed it.
+# Hidden because it is meaningless without a report: the caller decides which pipeline produced one and which
+# crates that pipeline answers for, and this only reads the result.
+#
+# Two ways to fail, and the second is the one that matters.
+# A crate whose files are all at 100% passes, and so does a file with no branch regions at all (`count` 0 is
+# vacuously complete). But a crate with NO records in the report also has nothing under 100%, so a check that
+# only looked for shortfalls would go green for a crate the run never executed -- exactly backwards, since a
+# crate dropping out of the report is how coverage silently stops being measured. A named crate contributing
+# no records is therefore an error, which is why the lists are spelled out rather than globbed from libs/.
+[tasks."_cov-branch-assert"]
+description = "Assert every named libs/ crate is at 100% branch coverage in an llvm-cov JSON summary"
+hide = true
+# The whole assertion is one jaq query over llvm-cov's own JSON, with no parsing of our own.
+# That JSON (`--format=text`, confusingly) carries a per-file `summary.branches` object, so `.data[0].files[]`
+# already holds everything the check reads. The query is written to a file with a quoted heredoc, as wasm-cov
+# does with its awk programs: no shell expansion, and no backslash survives the TOML string otherwise. It
+# builds its strings with `+` for that reason -- jq's `"\(...)"` interpolation would need every backslash
+# doubled to reach the shell.
+run = """
+report="$usage_report"
+if [ ! -f "$report" ]; then
+  echo "cov-branch-assert: no coverage report at $report" >&2
+  echo "Run the coverage task that produces it first; a missing report is a failure, not a skip." >&2
+  exit 1
+fi
+coreutils mkdir -p target/cov
+prog=target/cov/branch-assert.jaq
+coreutils cat >"$prog" <<'JAQ'
+($libs | split(" ")) as $names
+| .data[0].files as $files
+| [ $names[]
+    | . as $n
+    | ("/libs/" + $n + "/") as $dir
+    | ($files | map(select(.filename | contains($dir)))) as $hit
+    | if ($hit | length) == 0
+      then "libs/" + $n + ": no records in the report -- this run never exercised the crate"
+      else ($hit[]
+            | select(.summary.branches.covered < .summary.branches.count)
+            | "libs/" + $n + ": " + .filename + " "
+              + (.summary.branches.covered | tostring) + "/"
+              + (.summary.branches.count | tostring) + " branches")
+      end ]
+| .[]
+JAQ
+shortfall="$(jaq -r --arg libs "$usage_libs" -f "$prog" "$report")"
+if [ -n "$shortfall" ]; then
+  echo "cov-branch-assert: libs/ must be at 100% branch coverage, and is not:" >&2
+  echo "$shortfall" >&2
+  exit 1
+fi
+echo "cov-branch-assert: 100% branch coverage across $usage_libs"
+"""
+shell = "{{ vars.task_shell }}"
+usage = """
+arg "<report>" help="llvm-cov JSON summary (--format=text) to assert over"
+arg "<libs>" help="Space-separated libs/ directory names that must be at 100% branch coverage"
+"""
+
+# Reports on the profile data cargo-llvm-cov already wrote; it does not re-run the tests.
+# `report` re-reads that data, so this is cheap and must follow cargo-llvm-cov in the same job. It needs no
+# `--branch` flag: branch regions are baked into the covmap by the `-Zcoverage-options=branch` that task
+# appends, and every export carries them from there. With no profile data the underlying command fails on its
+# own, which is the right answer -- there is nothing to assert.
+[tasks.cargo-llvm-cov-branch-check]
+description = "Fail unless every native libs/ crate is at 100% branch coverage"
+run = """
+coreutils mkdir -p target/cov
+report=target/cov/native-libs.json
+cargo llvm-cov report --json --summary-only --output-path "$report"
+mise run _cov-branch-assert "$report" "{{ vars.native_cov_libs }}"
+"""
+shell = "{{ vars.task_shell }}"
+
 [tasks.wasm-cov]
 description = "Turn instrumented wasm guest .profraw into lcov (llc + llvm-cov) and merge into the workspace lcov.info"
 # The instrumented wasm builds drop their minicov .profraw into target/wasi-cov during the runner tests.
@@ -214,6 +309,53 @@ coreutils cat >"$keep" <<'AWK'
 /^end_of_record$/ { if (!drop) printf "%s", buf; buf = ""; drop = 0 }
 AWK
 goawk -f "$keep" "$covdir/wasi.lcov" >>lcov.info
+"""
+shell = "{{ vars.task_shell }}"
+
+# Linux-only, because the pipeline feeding it is.
+# The guest .profraw this reads exist only if the instrumented wasm builds ran, and those need the wasm-capable
+# conda clang genuinely first on PATH -- which this env's `_.path` prepend does not achieve on macOS (see the
+# header). Windows never runs coverage at all. So on any other OS there is no data to judge and the check says
+# so and stops, rather than passing on an empty report.
+#
+# One export over every module at once, not one per module.
+# libs/web and libs/wasi-guest are linked into several guests, so each module's covmap holds its own partial
+# view of the same source file. Exported separately those views would be judged separately and a branch
+# covered by one guest would still read as missed in another; merging the profraw first makes the export the
+# union, which is what "did anything exercise this branch" means. Same shape wasm-agent-cov already uses.
+[tasks.wasm-cov-branch-check]
+description = "Linux-only: fail unless every wasm libs/ crate is at 100% branch coverage"
+run = """
+os="$(coreutils uname -s)"
+if [ "$os" != "Linux" ]; then
+  echo "wasm-cov-branch-check: the wasm coverage pipeline only runs on Linux; nothing to check on $os"
+  exit 0
+fi
+covdir=target/wasi-cov
+if [ -z "$(find "$covdir" -maxdepth 1 -name '*.profraw' -print -quit 2>/dev/null)" ]; then
+  echo "wasm-cov-branch-check: no $covdir/*.profraw -- run the instrumented wasm build and wasm-cov first" >&2
+  exit 1
+fi
+found="$(find "$covdir" -maxdepth 1 -name '*.o' -print 2>/dev/null | coreutils sort)"
+if [ -z "$found" ]; then
+  echo "wasm-cov-branch-check: no $covdir/*.o -- wasm-cov has not gutted the guest .ll into objects yet" >&2
+  exit 1
+fi
+objs=()
+while IFS= read -r obj; do
+  [ -n "$obj" ] || continue
+  objs+=("-object" "$obj")
+done <<OBJS
+$found
+OBJS
+host="$(rustc -vV | goawk '/^host:/ { print $2 }')"
+bin="$(rustc +{{ vars.rust_nightly }} --print sysroot)/lib/rustlib/$host/bin"
+coreutils mkdir -p target/cov
+report=target/cov/wasm-libs.json
+prof="$covdir/all.profdata"
+"$bin/llvm-profdata" merge -sparse -o "$prof" "$covdir"/*.profraw
+"$bin/llvm-cov" export --format=text --summary-only --instr-profile "$prof" "${objs[@]}" >"$report"
+mise run _cov-branch-assert "$report" "{{ vars.wasm_cov_libs }}"
 """
 shell = "{{ vars.task_shell }}"
 

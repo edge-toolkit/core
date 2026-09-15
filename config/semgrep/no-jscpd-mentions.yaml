@@ -1,0 +1,46 @@
+rules:
+  - id: no-jscpd-mentions-outside-its-own-wiring
+    languages: [generic]
+    paths:
+      # Repo-wide, with the allowlist below naming every file the word is allowed to appear in.
+      # Each entry is there because the name is load-bearing -- a task that invokes the tool, a config it reads,
+      # a policy package, an exclude another linter needs for its files, the ratchet's own documentation. A file
+      # that merely mentions it in passing does not belong here; the whole point is that the duplication checker
+      # stays invisible to everything it is not wired into. Adding an entry to explain that some code was
+      # written a certain way to satisfy the tool is precisely the thing this rule exists to prevent: it
+      # documents a tool's reaction rather than the code, and goes stale the moment the thresholds move.
+      exclude:
+        # The tool pin, the tasks that run it, and the lockfile entry for the pinned binary.
+        - "/.mise/config.toml"
+        - "/.mise/mise.lock"
+        # Its own config and the clone-fingerprint baseline it reads.
+        - "/config/jscpd.json"
+        - "/config/jscpd-baseline.json"
+        # The conftest policy that ratchets the baseline; `jscpd` is its package name, so `--namespace` needs it.
+        - "/config/conftest/policy/jscpd/jscpd.rego"
+        # Name the policy file above by path, as the pairing rule's exception list and its tests.
+        - "/config/conftest/policy/policy_tests/policy_tests.rego"
+        - "/config/conftest/policy/policy_tests/policy_tests_test.rego"
+        # Map the generated trees onto each linter's exclude key, the tool's among them.
+        - "/config/conftest/policy/generated_trees/generated_trees.rego"
+        - "/config/generated-trees.toml"
+        # Other linters' carve-outs for its two JSON files, which cannot be YAML or carry comments.
+        - "/config/semgrep/prefer-yaml-toml.yaml"
+        - "/config/typos.toml"
+        # Skips the tool in the Nano Server image, whose attestation verifier cannot install it.
+        - "/Dockerfile.nanoserver"
+        # Documents the baseline-is-a-debt-ledger rule, which is where that policy belongs.
+        - "/CLAUDE.md"
+        # This rule, which cannot help but name what it bans.
+        - "/config/semgrep/no-jscpd-mentions.yaml"
+    pattern-regex: (?i)jscpd
+    message: >-
+      Do not name the duplication checker outside the files it is wired into, and never in a comment explaining
+      that something was written a certain way to satisfy it -- not in source, not in a workflow, not in an
+      ignore marker. Such a comment documents a tool's reaction rather than the code, reads as noise to everyone
+      who does not run that tool, and goes stale the moment its thresholds move. A reported clone is a request
+      to remove duplication: factor the shared part out so it exists once. Where a clone is genuinely
+      irreducible -- the same few lines every caller must write verbatim -- leave the code plain and raise it,
+      rather than annotating the source. If a new file genuinely has to wire the tool up, add it to this rule's
+      paths.exclude allowlist with a comment saying which part of the wiring needs it.
+    severity: ERROR

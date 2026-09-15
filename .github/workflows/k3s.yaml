@@ -64,9 +64,6 @@ jobs:
       - name: Show MISE_ENV
         run: echo "MISE_ENV=$MISE_ENV"
 
-      - name: Free disk space
-        uses: jlumbroso/free-disk-space@v1.3.1
-
       - name: Install mise + tools
         uses: ./.github/actions/install-mise-tools
         timeout-minutes: 60

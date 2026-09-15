@@ -107,19 +107,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Free disk space on Linux
-        if: runner.os == 'Linux'
-        uses: jlumbroso/free-disk-space@v1.3.1
-
-      - name: Free disk space on Windows
-        if: runner.os == 'Windows'
-        uses: ./.github/actions/free-disk-space-windows
-
       - name: Install Mesa Vulkan drivers (lavapipe)
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends mesa-vulkan-drivers
+        uses: ./.github/actions/install-lavapipe
 
       # Windows tools source-build under mise 2026.7.1, so this step runs long (bumped from 20).
       # The per-tool msvc `install_env` override no longer reaches cargo-binstall there, so cargo tools like
@@ -131,8 +121,6 @@ jobs:
       - name: Install mise + tools
         uses: ./.github/actions/install-mise-tools
         timeout-minutes: ${{ matrix.install_timeout || 60 }}
-        with:
-          github-token: ${{ github.token }}
 
       # GITHUB_TOKEN raises the rate-limit ceiling on mise's fetch of the rp-v<N> rustpython_wasm tarball.
       # (The fetch is [tools."http:rp-wasm"], via mise's http backend against github.com release assets.)
@@ -207,17 +195,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Free disk space on Windows
-        uses: ./.github/actions/free-disk-space-windows
-
-      # Windows tools source-build under mise 2026.7.1, so this step runs long (bumped from 25).
-      # The per-tool msvc `install_env` override no longer reaches cargo-binstall there, so cargo tools like
-      # action-validator compile from source instead of fetching their msvc prebuilts. Revert once mise fixes it.
       - name: Install mise + tools
         uses: ./.github/actions/install-mise-tools
         timeout-minutes: 60
-        with:
-          github-token: ${{ github.token }}
 
       - name: Prefetch dependencies
         timeout-minutes: 20

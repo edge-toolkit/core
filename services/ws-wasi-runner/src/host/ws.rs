@@ -101,7 +101,7 @@ impl WsBackend {
                             continue;
                         }
                     },
-                    tungstenite::Message::Binary(bytes) => ServerMessage::from_binary_frame(bytes.clone()),
+                    tungstenite::Message::Binary(bytes) => ServerMessage::from_binary_frame(bytes.to_vec()),
                     _ => continue,
                 };
                 if tx.send(parsed).is_err() {
@@ -129,7 +129,11 @@ impl WsBackend {
                     break;
                 }
                 let mut guard = pinger_sink.lock().await;
-                if guard.send(tungstenite::Message::Ping(Vec::new())).await.is_err() {
+                if guard
+                    .send(tungstenite::Message::Ping(tungstenite::Bytes::new()))
+                    .await
+                    .is_err()
+                {
                     break;
                 }
             }

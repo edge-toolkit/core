@@ -6,11 +6,19 @@ description: >-
   HTTP flakes). Shared by check.yaml and test.yaml; the caller must run
   `actions/checkout` before this so .mise/config*.toml exists for `mise trust`.
 
+  Allow well over the usual budget on any lane that includes Windows. Under
+  mise 2026.7.1 the per-tool msvc `install_env` override no longer reaches
+  cargo-binstall there, so `cargo:` tools such as action-validator compile
+  from source instead of fetching their msvc prebuilts; that is why the
+  callers sit at `timeout-minutes: 60`. Bring it back down once mise fixes it.
+
 inputs:
   github-token:
     description: >-
       GitHub token forwarded as `$GITHUB_TOKEN` to the mise install steps.
-    required: true
+      Defaults to the workflow's own token.
+    required: false
+    default: ${{ github.token }}
   install-action-tools:
     description: >-
       Comma-separated tools to co-install via taiki-e/install-action in the
@@ -31,6 +39,15 @@ inputs:
 runs:
   using: composite
   steps:
+    # Reclaim runner disk before anything is installed into it.
+    # Folded in here rather than written at each call site, where every caller had it immediately before this
+    # action anyway -- six workflows opening with the same checkout / free-disk / install-mise trio is a lot of
+    # copy-paste for one fixed order. The action dispatches per OS internally (jlumbroso on Linux, this repo's
+    # Windows reclaim on Windows, nothing on macOS), so it needs no guard here. A caller that wants the Windows
+    # reclaim's opt-in removals still calls free-disk-space-windows directly, as docker-windows.yaml does.
+    - name: Free disk space
+      uses: ./.github/actions/free-disk-space
+
     # No cargo: tool installs on the Windows lane right now -- cargo-binstall fails to execute there (os error 193).
     # open-o2's opener isn't needed in CI, so skip cargo:open rather than let the install fail.
     - name: Skip cargo:open on Windows

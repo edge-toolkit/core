@@ -76,7 +76,7 @@ pub async fn drive_math1_exchange(
 ) -> Result<(f64, f64), Math1Error> {
     let (mut socket, _response) = connect_async(ws_url).await?;
     let connect = serde_json::to_string(&ClientMessage::Connect { agent_id: None })?;
-    socket.send(Message::Text(connect)).await?;
+    socket.send(Message::text(connect)).await?;
 
     let deadline = tokio::time::Instant::now() + budget;
     let mut fake_id = String::default();
@@ -140,9 +140,9 @@ pub async fn drive_math1_exchange(
 
         // Ask for the roster and re-broadcast the pointer; both are safe to repeat.
         let list = serde_json::to_string(&ClientMessage::ListAgents)?;
-        socket.send(Message::Text(list)).await?;
+        socket.send(Message::text(list)).await?;
         if !pointer.is_empty() {
-            socket.send(Message::Text(pointer.clone())).await?;
+            socket.send(Message::text(pointer.clone())).await?;
         }
     }
 }
