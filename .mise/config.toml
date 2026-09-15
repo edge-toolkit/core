@@ -537,17 +537,10 @@ wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext
 # Instrumentation flags (leaf var) shared by the wasm coverage builds.
 # The nightly -Z flag adds branch regions to the covmap so the lcov exports carry BRDA records. `a_` prefix so
 # mise's alphabetical [vars] render defines it before wasm_cov_rustflags uses it.
-#
-# `coverage_nightly` is cargo-llvm-cov's convention, set here by hand because these builds do not go through
-# it. The wasm-bindgen-test macro expands to `#[coverage(off)]`, whose feature is still unstable (rust-lang
-# /rust#84605 is open, so no nightly stabilises it), and the test crates gate the matching `feature(...)` on
-# this cfg. Paired with its own --check-cfg so the cfg stays declared rather than tripping unexpected_cfgs.
-a_wasm_cov_ccfg = "--check-cfg=cfg(coverage_nightly)"
-a_wasm_cov_instr = "-Cinstrument-coverage -Zcoverage-options=branch --cfg=coverage_nightly"
+a_wasm_cov_instr = "-Cinstrument-coverage -Zcoverage-options=branch"
 # RUSTFLAGS for the wasm coverage builds: instrument + emit LLVM IR, no profiler runtime (minicov provides it).
 # Single codegen unit + LTO off so each crate emits one .ll the wasm-cov task can gut and feed to llc/llvm-cov.
-a_wasm_cov_tail = "-Ccodegen-units=1 -Clto=off -Zno-profiler-runtime"
-wasm_cov_rustflags = "--emit=llvm-ir {{ vars.a_wasm_cov_instr }} {{ vars.a_wasm_cov_ccfg }} {{ vars.a_wasm_cov_tail }}"
+wasm_cov_rustflags = "--emit=llvm-ir {{ vars.a_wasm_cov_instr }} -Ccodegen-units=1 -Clto=off -Zno-profiler-runtime"
 # Coverage fragments the wasm module build commands append unconditionally (empty unless ET_TEST_COVERAGE is set).
 # wasm_cov is an inline RUSTFLAGS env prefix; the nightly toolchain + conda clang come from the coverage [env].
 # The *_feat vars turn on minicov: cargo `--features` for the WASI cdylibs, wasm-pack `-- --features` for browsers
@@ -1555,20 +1548,29 @@ run = "osv-scanner {{ vars.osv_locks }} --config config/osv-scanner.toml"
 [tasks."gen:osv-scanner"]
 description = "Regenerate config/osv-scanner.toml from config/deny.toml's [advisories].ignore list"
 # osv-scanner and cargo-deny must ignore the same advisory IDs.
-# config/deny.toml is the source of truth (it carries the per-ID rationale). goawk + coreutils only, so
-# the `dependencies` workflow can run it (via mise) next to the audit binaries. Both RUSTSEC-YYYY-NNNN and
+# config/deny.toml is the source of truth (it carries the per-ID rationale). Both RUSTSEC-YYYY-NNNN and
 # GHSA-xxxx-xxxx-xxxx ids are extracted, so a GHSA-only advisory (one RustSec hasn't assigned) still filters.
 #
-# An entry's `expires` date rides along as `ignoreUntil`, so the entry stops being honoured the day it lapses.
-# An id that appears only in prose (the GHSA ones, which have no entry of their own) carries no date and stays
-# ignored indefinitely.
+# rg + coreutils ONLY, and that is a hard constraint rather than a preference.
+# The `dependencies` workflow does no `mise install`: it names its six tools outright in the install-mise
+# step, so anything outside that list is simply absent. A goawk rewrite of this task looked tidier and died
+# there with `goawk: command not found`, and goawk cannot join that list either -- it is a Go binary, absent
+# from taiki-e/install-action's manifest and not a crate cargo-binstall could fetch. Keep to the tools the
+# workflow already installs, or add the tool to the workflow first and prove it resolves.
+#
+# One pattern, matching an id and the review date beside it, because every ignore entry carries one: the
+# advisories conftest policy fails the build for any that does not. The date becomes osv-scanner's native
+# `ignoreUntil`, which it enforces itself, so a lapsed entry stops being honoured rather than silently
+# outliving its review.
 run = """
 {
   # backticks in the echoed line are literal markdown, not command substitution.
   # shellcheck disable=SC2016
   echo '# AUTO-GENERATED from config/deny.toml by `mise run gen:osv-scanner`.'
   echo 'IgnoredVulns = ['
-  goawk -f .mise/osv-ids.awk config/deny.toml | coreutils sort -u
+  id_re='"(RUSTSEC-[0-9]{4}-[0-9]{4}|GHSA(?:-[0-9a-z]{4}){3})"'
+  date_re='reason = "expires ([0-9]{4}-[0-9]{2}-[0-9]{2})"'
+  rg -oN -r '  { id = "$1", ignoreUntil = $2 },' "$id_re, $date_re" config/deny.toml | coreutils sort -u
   echo ']'
 } >config/osv-scanner.toml
 """

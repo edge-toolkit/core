@@ -1,6 +1,6 @@
 #![cfg(test)]
 #![cfg(target_arch = "wasm32")]
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+#![cfg_attr(wasm_bindgen_unstable_test_coverage, feature(coverage_attribute))]
 
 use et_web::{describe_js_error, sleep_ms, websocket_url};
 use et_ws_wasm_agent::{WsClient, WsClientConfig, wait_for_connected};

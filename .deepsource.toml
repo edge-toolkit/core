@@ -26,16 +26,20 @@ name = "dart"
 enabled = true
 name = "python"
 
-[[analyzers]]
-enabled = true
-name = "javascript"
-
-[analyzers.meta]
 # The browser modules and the ws-server `static/app.js` are ES modules (top-level `import`/`export`).
 # Without an es-modules parser the analyzer treats them as scripts and reports spurious JS-0833 errors
 # ("'import'/'export' may appear only with 'sourceType: module'").
-environment = ["browser", "nodejs"]
-module_system = "es-modules"
+#
+# Written inline rather than as a `[analyzers.meta]` table, and that is the point rather than a style choice.
+# TOML binds a `[analyzers.meta]` header to the last `[[analyzers]]` element declared before it, so three such
+# headers in one file rely on the reader tracking which element each attaches to. Every JS file in the repo
+# kept reporting JS-0833 while this said `es-modules`, which is what a setting that never reached the analyzer
+# looks like -- and the two `[analyzers.meta]` blocks below it are the only candidates for clobbering it. An
+# inline table cannot be reattached or overwritten: it is a key of the element it sits in.
+[[analyzers]]
+enabled = true
+meta = { environment = ["browser", "nodejs"], module_system = "es-modules" }
+name = "javascript"
 
 [[analyzers]]
 enabled = true
@@ -49,23 +53,19 @@ name = "docker"
 enabled = true
 name = "cxx"
 
-[[analyzers]]
-enabled = true
-name = "java"
-
-[analyzers.meta]
 # runtime_version is required, and its range stops at 21 while config.java.toml pins JDK 26.
 # DeepSource reports incorrect results when the value is unset or mismatched, so it tracks the newest runtime the
 # analyzer offers rather than the one java-data1 actually compiles against.
-runtime_version = "21"
-
 [[analyzers]]
 enabled = true
-name = "kotlin"
+meta = { runtime_version = "21" }
+name = "java"
 
-[analyzers.meta]
 # language_version stops at 2.1 while kotlin-data1's Gradle build pins Kotlin 2.4.10.
 # The module's source stays within the 2.1 dialect, so the older parser still reads it; a future file that reaches
 # for newer syntax would fail to parse instead. runtime_version is left at its default because a wasmJs-only
 # multiplatform target has no JVM runtime for the JVM-API rules to judge.
-language_version = "2.1"
+[[analyzers]]
+enabled = true
+meta = { language_version = "2.1" }
+name = "kotlin"

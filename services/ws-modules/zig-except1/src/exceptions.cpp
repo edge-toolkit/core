@@ -22,7 +22,12 @@
 // (Zig has no C++ cleanup semantics and the exception would escape as a raw `WebAssembly.Exception`), so every
 // extern "C" entry point in an exception-enabled TU catches everything it can throw and translates the failure
 // to a status code at the boundary, as try_divide() does at the bottom of this file.
+// The <cstddef>/<cstdint> these would normally prefer are libc++ headers, and this target links no libc++.
+// Only <stddef.h>/<stdint.h> are compiler-provided (they sit in clang's own resource include dir), so taking
+// the advice would fail the build outright rather than modernise it.
+// skipcq: CXX-W2030 -- freestanding wasm32: no libc++, so the C++ spellings do not exist here
 #include <stddef.h>
+// skipcq: CXX-W2030 -- freestanding wasm32: no libc++, so the C++ spellings do not exist here
 #include <stdint.h>
 
 namespace {
@@ -74,7 +79,7 @@ void *__cxa_begin_catch(void *thrown) { return thrown; }
 // NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c, cert-dcl51-cpp)
 void __cxa_end_catch(void) {
     if (pending_dtor != nullptr) {
-        pending_dtor(exception_slot);
+        pending_dtor(static_cast<void *>(exception_slot));
         pending_dtor = nullptr;
     }
 }
