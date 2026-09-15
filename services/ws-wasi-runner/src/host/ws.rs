@@ -54,11 +54,11 @@ pub struct WsBackend {
 }
 
 impl WsBackend {
-    #[expect(
-        clippy::single_call_fn,
-        reason = "inherent constructor; used once by <HostState as Host>::connect"
-    )]
-    async fn connect(ws_url: &str, ack_timeout: Option<Duration>) -> Result<Self, WsError> {
+    /// Open the socket and complete the et-connect handshake.
+    ///
+    /// Public so `tests/ws_backend.rs` can drive the reader pump and the heartbeat without standing up a
+    /// wasmtime store: both live in tasks this constructor spawns, and nothing else reaches them.
+    pub async fn connect(ws_url: &str, ack_timeout: Option<Duration>) -> Result<Self, WsError> {
         // The shared helper opens the socket and completes the et-connect
         // handshake (with bounded retries), so the agent_id is known the moment
         // it returns -- no polling for ConnectAck afterwards.
@@ -149,8 +149,18 @@ impl WsBackend {
         })
     }
 
-    async fn current_state(&self) -> State {
+    /// The connection's state as the reader pump last left it.
+    pub async fn current_state(&self) -> State {
         *self.connection_state.lock().await
+    }
+
+    /// Take the next inbound message, or `None` if none arrives within `timeout`.
+    ///
+    /// The guest-facing `recv` converts to WIT types on the way out; this is the same drain without that
+    /// step, so a test can assert on the `ServerMessage` the reader pump actually produced.
+    pub async fn next_message(&self, timeout: Duration) -> Option<ServerMessage> {
+        let mut rx = self.inbox.lock().await;
+        tokio::time::timeout(timeout, rx.recv()).await.ok().flatten()
     }
 
     async fn current_agent_id(&self) -> String {

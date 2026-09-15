@@ -12,7 +12,7 @@
 //! subprocess spawn as a command-injection shape and cannot suppress it per line. That is a false positive here --
 //! the args are cargo's own trusted rustc invocation, and forwarding argv to rustc is this file's entire purpose,
 //! so no code change removes it. The file is kept minimal and single-purpose so the path exclude is as narrow as
-//! possible; it stays fully covered by clippy and DeepSource's Rust analyzer.
+//! possible; every other analyzer the repo runs over Rust still reads it.
 #![expect(
     clippy::print_stderr,
     reason = "a build-tool wrapper reports its own startup failure to stderr"

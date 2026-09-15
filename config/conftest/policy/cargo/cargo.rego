@@ -33,8 +33,8 @@ dep contains [file.path, name, spec] if {
 # Banned crates -> rejection reason.
 # Members must use workspace = true, so the root's [workspace.dependencies] is the only place a ban can bite.
 #
-# `anyhow` is not listed here, and is instead constrained at the source level by the semgrep rule
-# `anyhow-only-in-error-rs`: a crate may depend on it, but may only name it in an `error.rs` `#[from]` variant.
+# `anyhow` is not listed here, and is instead constrained at the source level: a crate may depend on it, but
+# may only name it in an `error.rs` `#[from]` variant.
 # A blanket dependency ban was unworkable because `?` on a foreign `anyhow::Result` needs
 # `From<anyhow::Error>`, which cannot be written without naming the type.
 banned := {

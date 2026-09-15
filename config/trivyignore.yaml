@@ -53,8 +53,7 @@ misconfigurations:
   # a plain `docker build` supplies with `--build-context`. Trivy reads that as an image reference it cannot
   # fetch, and so reports it as untagged (DS-0001), as running whatever user it cannot see (DS-0002), and as
   # lacking the healthcheck it cannot read (DS-0026). The hub Dockerfile actually declares `USER 10001`, and a
-  # build context has no tag to give. hadolint needs `DL3006` suppressed at the same `FROM` for the same
-  # reason, which is stated in the generated file itself.
+  # build context has no tag to give.
   - id: DS-0001
     paths:
       - "verification/*/output/*/Dockerfile"

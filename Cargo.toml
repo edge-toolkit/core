@@ -60,7 +60,7 @@ actix-rt = "2"
 actix-web = { version = "4", features = ["rustls-0_23"] }
 actix-web-thiserror = "0.2"
 actix-ws = "0.4"
-# Only ever named in an `error.rs` `#[from]` variant; the anyhow-only-in-error-rs semgrep rule enforces that.
+# Only ever named in an `error.rs` `#[from]` variant, which a repo-wide rule enforces.
 # Present because wit-parser and the wasmtime bindgen return `anyhow::Result`, and `?` cannot convert one
 # without a `From<anyhow::Error>` impl, which has to name the type.
 anyhow = "1"
@@ -244,7 +244,7 @@ wasmtime = { version = "47.0.3", features = ["async", "component-model"] }
 # Emitting the runner's host bindings as a checked-in source file keeps ws-wasi-runner self-contained: the
 # macro read WIT from `../../generated/specs/wit`, which `cargo package` cannot include, so the crate failed
 # to build from its own tarball. Named `internal` upstream, so treat its API as unstable and pinned to the
-# wasmtime version above; gen-specs-check catches any drift in what it emits.
+# wasmtime version above; the drift check catches any change in what it emits.
 wasmtime-internal-wit-bindgen = { version = "47.0.4", features = ["async", "component-model-async"] }
 wasmtime-wasi = "47.0.3"
 wasmtime-wasi-nn = { version = "47", default-features = false, features = ["onnx"] }

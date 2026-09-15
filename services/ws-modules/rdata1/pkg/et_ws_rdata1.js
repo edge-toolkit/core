@@ -4,7 +4,7 @@
 // webR cannot open the agent WebSocket itself, so the transport (the shared et-ws-wasm-agent WsClient) lives
 // here and is exposed on globalThis.__etAgent for R to drive. Everything else -- sequencing, the storage
 // round-trip (httr2 over the /websockify relay), verification -- happens in module.R. webR is vendored under
-// pkg/webr/ (see build-ws-rdata1-module) and served at the path below.
+// pkg/webr/ and served at the path below.
 
 const WEBR_BASE_URL = "/modules/et-ws-rdata1/webr/";
 const R_SOURCE_URL = "/modules/et-ws-rdata1/module.R";

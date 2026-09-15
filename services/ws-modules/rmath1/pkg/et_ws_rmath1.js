@@ -4,8 +4,8 @@
 // webR cannot open the agent WebSocket itself, so the transport (the shared et-ws-wasm-agent WsClient) lives
 // here and is exposed on globalThis.__etAgent for R to drive; the broadcast math1-input pointer is captured
 // onto __etAgent.input for R to poll. Everything else -- sequencing, the storage reads/writes (httr2 over the
-// /websockify relay), the FedAvg kernel -- happens in module.R. webR is vendored under pkg/webr/ (see
-// build-ws-rmath1-module) and served at the path below.
+// /websockify relay), the FedAvg kernel -- happens in module.R. webR is vendored under pkg/webr/ and served
+// at the path below.
 
 const WEBR_BASE_URL = "/modules/et-ws-rmath1/webr/";
 const R_SOURCE_URL = "/modules/et-ws-rmath1/module.R";

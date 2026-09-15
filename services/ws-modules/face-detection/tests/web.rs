@@ -1,5 +1,6 @@
 #![cfg(test)]
 #![cfg(target_arch = "wasm32")]
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
 use et_ws_face_detection::{init, is_running, run, stop};
 use wasm_bindgen_test::*;

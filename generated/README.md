@@ -38,8 +38,7 @@ directly:
   omitted — progenitor's generated source contains patterns the
   workspace lint set flags (doc-comment shapes that trip rustdoc's
   invalid-code-block lint, etc.), so the lint-inheritance schema
-  (`config/taplo/require-lints-section.schema.json`) exempts this
-  Cargo.toml. The deps-inheritance schema does not.
+  exempts this Cargo.toml. The deps-inheritance schema does not.
 - `zig-rest/build.zig.zon` — Zig package manifest (name, version,
   fingerprint). Regen writes only `src/et_rest_client.zig`.
 - `specs/wit/world.wit` — The top-level `et:ws-wasi@0.1.0` package

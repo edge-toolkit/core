@@ -6,6 +6,10 @@
 //! `wasm-agent-cov` mise task builds instrumented to measure the agent's coverage.
 #![cfg(test)]
 #![cfg(target_arch = "wasm32")]
+// `wasm_bindgen_test` expands to `#[coverage(off)]`, whose feature is still unstable, so the instrumented
+// build needs the gate and every other build must not carry it. `coverage_nightly` is set only by the wasm
+// coverage RUSTFLAGS, which run on nightly; rust-lang/rust#84605 is open, so no toolchain bump removes this.
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
 use std::cell::RefCell;
 use std::rc::Rc;

@@ -64,7 +64,7 @@ include = ["**/Cargo.toml"]
 schema = { path = "config/taplo/no-banned-deps.schema.json" }
 
 # Require `[lib] doctest = false` for every member crate with a [lib].
-# Pairs with the `no-doctest` ast-grep rule: that one bans ``` fenced blocks inside doc comments; this one
+# Pairs with the structural ban on ``` fenced blocks inside doc comments: this one
 # disables the doctest harness at the crate level so the prohibition has cargo-level parity. Runnable
 # examples belong in `tests/` files (each with `#![cfg(test)]`).
 [[rule]]

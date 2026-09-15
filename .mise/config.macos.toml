@@ -23,12 +23,21 @@ mac_libclang = "{{ exec(command='dirname $(dirname $(xcrun --find clang))') }}/l
 macosx_deployment_target = "{% if arch() == 'arm64' %}11.0{% else %}10.12{% endif %}"
 
 [env]
-# rpath_flag (from config.toml) records conda's OpenSSL soname so the runtime loader finds it.
-# Applies to every rustc call, including the `cargo:` source-build subprocess. config.toml's pylib_flag is
-# deliberately absent: pyo3's build script already emits that same rpath on darwin, and passing it twice makes
-# Apple's linker report `ld: duplicate -rpath '<python>/lib' ignored` through rustc's `linker_messages` lint.
-CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.rpath_flag }}"
-CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.rpath_flag }}"
+# The rpath/pylib flags (from config.toml) point the runtime loader at conda's OpenSSL and CPython libraries.
+# They record the OpenSSL soname and the CPython lib dir, and apply to every rustc call, including the `cargo:`
+# source-build subprocess.
+#
+# pylib_flag stays even though Apple's linker reports `ld: duplicate -rpath '<python>/lib' ignored` on the
+# et-ws-pyo3-runner binary, which pyo3's build script has already rpath'd. That warning is only true of the
+# binary: the crate's TEST executables get no such rpath from pyo3, so dropping the flag leaves them unable to
+# start at all, and nextest cannot even enumerate them --
+#     error: creating test list failed
+#     dyld[94600]: Library not loaded: @rpath/libpython3.13.dylib
+# on commit 8e1d10ba04c3baa27ba3ca6d29e9dd7b9d9d7b5a at
+# https://github.com/edge-toolkit/core/actions/runs/34925257378/job/104241837125 (and the coverage lane's
+# nightly build alongside it). A duplicate-rpath warning on one binary is the cheaper of the two.
+CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
+CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
 # See the macosx_deployment_target comment in [vars] above.
 LIBCLANG_PATH = "{{ vars.mac_libclang }}"
 MACOSX_DEPLOYMENT_TARGET = "{{ vars.macosx_deployment_target }}"

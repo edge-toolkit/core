@@ -1,0 +1,17 @@
+rules:
+  - id: no-shell-scripts
+    languages: [generic]
+    paths:
+      include:
+        - "*.sh"
+      exclude:
+        - "/.mise/**" # A task body split out of its TOML string, which is the one shell this repo asks for.
+    pattern-regex: \A
+    message: >-
+      A `.sh` file outside `.mise/` is banned. Shell that is short and simple belongs inline in a task body,
+      where it is discoverable and runs by name; shell that has outgrown that is a program, and belongs in its
+      own directory under `utilities/`, written in a language with types, tests and a linter behind it. The
+      one exception is `.mise/`, where a task body too long to sit inside a TOML string is split into a file
+      beside the config that invokes it, named for the interpreter that reads it -- that file is formatted and
+      linted as the shell it is, which a string embedded in a config never can be.
+    severity: ERROR

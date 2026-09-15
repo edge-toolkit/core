@@ -236,11 +236,10 @@ fn mise_env() -> Table {
 
 /// Build a task's `depends` array, sorted.
 ///
-/// Sorted because `config/taplo.toml` sets `reorder_arrays = true`, so `taplo-fmt` sorts this array in the
-/// committed file. Emitting it in the order the tasks happen to be assembled leaves the two permanently at odds:
-/// the formatter sorts the generated file and the next `regen-verification` unsorts it, so `verification-check`
-/// reports drift whichever ran last. The order carries no meaning to mise either -- `depends` is a set of
-/// prerequisites it starts together, not a sequence.
+/// The committed file is formatted with its arrays reordered, so emitting this one in the order the tasks happen
+/// to be assembled leaves formatter and generator permanently at odds: each unsorts what the other sorted, and
+/// the drift check reports whichever ran last. The order carries no meaning to mise either -- `depends` is a set
+/// of prerequisites it starts together, not a sequence.
 fn mise_depends(depends: &[String]) -> Table {
     let mut sorted = depends.to_vec();
     sorted.sort_unstable();

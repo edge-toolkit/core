@@ -1,14 +1,5 @@
 name: Install Mesa Vulkan drivers (lavapipe)
-description: >-
-  Install Mesa's lavapipe software Vulkan driver on a GHA Linux runner, so
-  the wasi-webgpu tests find a wgpu adapter on an image that has no GPU.
-
-  There is no counterpart on the other platforms: macOS runners reach Metal
-  through the OS itself, and no Windows lane runs these tests.
-
-  Caller is responsible for the `if: runner.os == 'Linux'` guard, the same
-  way free-disk-space-windows expects its own -- the apt-get calls below
-  mean nothing on an image that has no apt.
+description: Install Mesa's lavapipe Vulkan driver on Linux for WebGPU w/o GPU.
 
 runs:
   using: composite

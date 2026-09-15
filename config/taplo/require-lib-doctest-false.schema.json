@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Workspace member Cargo.toml -- [lib] must set doctest = false",
-  "description": "Pairs with the no-doctest ast-grep rule; runnable examples go in tests/.",
+  "description": "Pairs with the ban on fenced blocks in doc comments; runnable examples go in tests/.",
   "type": "object",
   "properties": {
     "lib": {

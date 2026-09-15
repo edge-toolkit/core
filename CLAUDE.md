@@ -37,6 +37,33 @@ existing install predates -- a warm checkout that already has an older tool set 
 after pulling, because a tool the current mise cannot resolve can still report as installed and nothing will
 refetch it on its own.
 
+## Work through the session's tasks in the order they were given
+
+Finish the tasks the user has asked for in the order they asked for them. A later request is a task added to
+the end of the queue, not an instruction to abandon the one in flight -- switching to it first leaves the
+earlier work half-done, and half-done work is the kind that gets forgotten and rediscovered as a regression.
+Reorder only for a strong reason, and say so: a later task is a prerequisite of an earlier one, the earlier one
+is blocked waiting on something, or the later one is a live breakage (a red CI lane, a broken build) that makes
+the rest moot until it is fixed.
+
+## Don't stop to ask; decide, act, and report
+
+Questions cost a round trip each, and a session that stops at every fork gets nothing finished. Default to
+making the call yourself and reporting what you chose and why. Ask only when proceeding either way would be
+unsafe or would waste substantial work that the answer might invalidate -- and when the answer is a fact rather
+than a preference, find the fact instead of asking for it.
+
+Two specific calls that have come up repeatedly and never need asking:
+
+- **Prefer upgrading to downgrading.** When a version bump breaks something, fix the code against the new
+  version. Downgrading is a last resort, reserved for when upstream genuinely cannot support the new version
+  yet -- and then say which upstream release is the blocker, so the note survives as evidence.
+- **Never propose forking or patching a published crate or tool.** Carrying a fork of someone else's release --
+  a `[patch.crates-io]` entry, a vendored copy, a local patch to a mise tool -- is almost never acceptable
+  here: it is invisible to anything consuming our published crates, and it becomes a maintenance burden nobody
+  signed up for. If the only way past a problem looks like a fork, that is a signal the approach is wrong. Find
+  another route, or accept the constraint and record it, rather than raising the fork as an option.
+
 ## Scratch work stays inside this repo
 
 Any throwaway file the agent needs while working -- backup copies of files before destructive edits, generated

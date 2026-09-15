@@ -4,8 +4,8 @@
  * <stdlib.h> allocation functions MISRA 21.3 forbids -- you cannot implement an allocator without an allocator --
  * so this code is isolated here precisely so the one analyzer that cannot suppress that rule per line (Codacy's
  * cxx / cppcheck, which offers only path-level excludes) can exclude just this file while the rest of the shim
- * stays fully analyzed. It remains covered by DeepSource's clang-tidy and the repo's own clang-tidy / cpplint /
- * flawfinder. Like msvc_crt_locale.c it links as a standalone object so _dupenv_s intercepts -lmsvcrt, and the
+ * stays fully analyzed. Every other analyzer the repo runs over C still reads it.
+ * Like msvc_crt_locale.c it links as a standalone object so _dupenv_s intercepts -lmsvcrt, and the
  * operator-new symbols resolve the msvc_crt_ops.s jumps in the shim archive. */
 
 #include <malloc.h>

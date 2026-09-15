@@ -59,6 +59,7 @@ RUSTUP_TOOLCHAIN = "{{ vars.rust_nightly }}"
 # Pointing the loader straight at the install dir is layout-independent, so it holds however cargo lays the
 # build dir out. Scoped to this env because only the coverage lane runs binaries under nightly. Drop it together
 # with the cargo-doc-check mkdir once ort stops hardcoding the OUT_DIR depth.
+#
 # Keep host links on Apple's cc, which the conda-clang prepend below otherwise shadows.
 # That prepend is there so minicov's build.rs finds a bare `clang` with a wasm32 backend, but conda-clang ships
 # a `cc` too and wins the lookup for it -- and conda's clang knows nothing of the macOS SDK, so every host link
@@ -174,11 +175,6 @@ shell = "{{ vars.task_shell }}"
 description = "Assert every named libs/ crate is at 100% branch coverage in an llvm-cov JSON summary"
 hide = true
 # The whole assertion is one jaq query over llvm-cov's own JSON, with no parsing of our own.
-# That JSON (`--format=text`, confusingly) carries a per-file `summary.branches` object, so `.data[0].files[]`
-# already holds everything the check reads. The query is written to a file with a quoted heredoc, as wasm-cov
-# does with its awk programs: no shell expansion, and no backslash survives the TOML string otherwise. It
-# builds its strings with `+` for that reason -- jq's `"\(...)"` interpolation would need every backslash
-# doubled to reach the shell.
 run = """
 report="$usage_report"
 if [ ! -f "$report" ]; then
@@ -186,26 +182,7 @@ if [ ! -f "$report" ]; then
   echo "Run the coverage task that produces it first; a missing report is a failure, not a skip." >&2
   exit 1
 fi
-coreutils mkdir -p target/cov
-prog=target/cov/branch-assert.jaq
-coreutils cat >"$prog" <<'JAQ'
-($libs | split(" ")) as $names
-| .data[0].files as $files
-| [ $names[]
-    | . as $n
-    | ("/libs/" + $n + "/") as $dir
-    | ($files | map(select(.filename | contains($dir)))) as $hit
-    | if ($hit | length) == 0
-      then "libs/" + $n + ": no records in the report -- this run never exercised the crate"
-      else ($hit[]
-            | select(.summary.branches.covered < .summary.branches.count)
-            | "libs/" + $n + ": " + .filename + " "
-              + (.summary.branches.covered | tostring) + "/"
-              + (.summary.branches.count | tostring) + " branches")
-      end ]
-| .[]
-JAQ
-shortfall="$(jaq -r --arg libs "$usage_libs" -f "$prog" "$report")"
+shortfall="$(jaq -r --arg libs "$usage_libs" -f .mise/cov-branch-assert.jq "$report")"
 if [ -n "$shortfall" ]; then
   echo "cov-branch-assert: libs/ must be at 100% branch coverage, and is not:" >&2
   echo "$shortfall" >&2
@@ -240,15 +217,11 @@ description = "Turn instrumented wasm guest .profraw into lcov (llc + llvm-cov) 
 # WASI guests (wasi-comm1/wasi-data1) dump via the runner's /cov preopen; browser modules (data1, comm1, ...) go
 # through et-web's __et_capture_coverage -> the module's ws-server storage bucket -> the web-runner test (see
 # config.rust.toml's coverage wrapper). Each instrumented build also emits an .ll next to its .wasm (release/deps).
-# llvm-cov cannot read a coverage map from a .wasm, so (per taiki-e/cargo-llvm-cov#337 + hknio/wasmcov) we gut
-# every function body in the .ll to `unreachable` -- keeping only the signatures and the __llvm_covmap records --
-# then compile that to an ELF object with llc. The gut also strips each function's "target-cpu"/"target-features"
-# attributes: browser .ll carries wasm `mvp` cpu + wasm features that make llc reject the x86_64 target
-# ("64-bit code requested on a subtarget that doesn't support it"); the WASI guest .ll lacks them. The hit counts
-# come from the .profraw, so the object needs no code; the fixed x86_64 ELF target avoids the macOS Mach-O
-# AsmPrinter aborting on the covmap globals, and llvm-cov reads the covmap from any object format regardless of
-# host. llc/llvm-cov/llvm-profdata are the version-matched nightly llvm-tools that built the guests. Path remap of
-# the emitted SF: lines to repo-relative may need a CI follow-up.
+# The .ll is gutted and compiled to an ELF object with llc (per taiki-e/cargo-llvm-cov#337 + hknio/wasmcov).
+# The fixed x86_64 ELF target avoids the macOS Mach-O AsmPrinter aborting on the covmap globals, and llvm-cov
+# reads the covmap from any object format regardless of host. llc/llvm-cov/llvm-profdata are the version-matched
+# nightly llvm-tools that built the guests. Path remap of the emitted SF: lines to repo-relative may need a CI
+# follow-up.
 run = """
 covdir=target/wasi-cov
 if [ -z "$(find "$covdir" -maxdepth 1 -name '*.profraw' -print -quit 2>/dev/null)" ]; then
@@ -257,15 +230,6 @@ if [ -z "$(find "$covdir" -maxdepth 1 -name '*.profraw' -print -quit 2>/dev/null
 fi
 host="$(rustc -vV | goawk '/^host:/ { print $2 }')"
 bin="$(rustc +{{ vars.rust_nightly }} --print sysroot)/lib/rustlib/$host/bin"
-gut="$covdir/gut.awk"
-coreutils cat >"$gut" <<'AWK'
-/^target datalayout/ { next }
-/^target triple/ { next }
-/^define/ { print; print "start:"; print "  unreachable"; print "}"; skip = 1; next }
-skip && /^}/ { skip = 0; next }
-skip { next }
-{ gsub(/"target-cpu"="[^"]*"/, ""); gsub(/"target-features"="[^"]*"/, ""); print }
-AWK
 : >"$covdir/wasi.lcov"
 for profraw in "$covdir"/*.profraw; do
   name="$(coreutils basename "$profraw" .profraw)"
@@ -293,22 +257,12 @@ for profraw in "$covdir"/*.profraw; do
   fi
   pd="$covdir/$name.profdata"
   obj="$covdir/$name.o"
-  goawk -f "$gut" "$ll" >"$covdir/$name.gutted.ll"
+  goawk -f .mise/llvm-cov-gut.awk "$ll" >"$covdir/$name.gutted.ll"
   "$bin/llc" -filetype=obj -mtriple=x86_64-unknown-linux-gnu -o "$obj" "$covdir/$name.gutted.ll"
   "$bin/llvm-profdata" merge -sparse -o "$pd" "$profraw"
   "$bin/llvm-cov" export --format=lcov --instr-profile "$pd" "$obj" >>"$covdir/wasi.lcov"
 done
-# The wasm covmap records reference every source each module linked.
-# Dependency crates under ~/.cargo/registry and toolchain std under ~/.rustup are not in VCS -- DeepSource
-# flags them and they skew the aggregate metric -- so keep only workspace records (dropping .cargo/.rustup/rustc
-# blocks) before merging the wasm lcov into lcov.info.
-keep="$covdir/keep.awk"
-coreutils cat >"$keep" <<'AWK'
-{ buf = buf $0 ORS }
-/^SF:/ { p = substr($0, 4); drop = (index(p, "/.cargo/") || index(p, "/.rustup/") || index(p, "/rustc/")) }
-/^end_of_record$/ { if (!drop) printf "%s", buf; buf = ""; drop = 0 }
-AWK
-goawk -f "$keep" "$covdir/wasi.lcov" >>lcov.info
+goawk -f .mise/lcov-drop-external.awk "$covdir/wasi.lcov" >>lcov.info
 """
 shell = "{{ vars.task_shell }}"
 
@@ -484,65 +438,23 @@ trap - EXIT
 
 host="$(rustc +{{ vars.rust_nightly }} -vV | goawk '/^host:/ { print $2 }')"
 llbin="$(rustc +{{ vars.rust_nightly }} --print sysroot)/lib/rustlib/$host/bin"
-gut="$covdir/gut.awk"
-coreutils cat >"$gut" <<'AWK'
-/^target datalayout/ { next }
-/^target triple/ { next }
-/^define/ { print; print "start:"; print "  unreachable"; print "}"; skip = 1; next }
-skip && /^}/ { skip = 0; next }
-skip { next }
-{
-  gsub(/"target-cpu"="[^"]*"/, "")
-  gsub(/"target-features"="[^"]*"/, "")
-  if ($0 ~ /^attributes #/ && $0 ~ /\\{[[:space:]]*\\}/) sub(/\\{[[:space:]]*\\}/, "{ nounwind }")
-  print
-}
-AWK
 "$llbin/llvm-profdata" merge -sparse -o "$covdir/agent.profdata" "$covdir"/wasm-agent-*.profraw
-objs=()
-# Collect the instrumented .ll from whichever build-dir layout the toolchain produced.
-# A plain `deps/*.ll` glob broke when nightly made `-Z build-dir-new-layout` the default: per-crate
-# intermediates moved to `<profile>/build/<pkg>/<hash>/out/`, the glob matched nothing, and the unexpanded
-# pattern reached goawk as a literal filename -- `file "target/wasm32-unknown-unknown/debug/deps/*.ll" not
-# found` on commit 12bfe419 at https://github.com/edge-toolkit/core/actions/runs/30797697402/job/91634929015.
-# `find` also avoids the silent-nullglob trap the literal-pattern failure exposed.
-lls="$(find target/wasm32-unknown-unknown/debug -path '*/build/*' -name '*.ll' 2>/dev/null)"
-if [ -z "$lls" ]; then
-  lls="$(find target/wasm32-unknown-unknown/debug/deps -name '*.ll' 2>/dev/null)"
-fi
-if [ -z "$lls" ]; then
-  echo "wasm-agent-cov: no instrumented .ll under target/wasm32-unknown-unknown/debug" >&2
-  exit 1
-fi
-while IFS= read -r ll; do
-  [ -n "$ll" ] || continue
-  name="$(coreutils basename "$ll" .ll)"
-  goawk -f "$gut" "$ll" >"$covdir/$name.g.ll"
-  "$llbin/llc" -filetype=obj -mtriple=x86_64-unknown-linux-gnu -o "$covdir/$name.o" "$covdir/$name.g.ll"
-  objs+=("-object" "$covdir/$name.o")
-done <<LLS
-$lls
-LLS
+task=wasm-agent-cov
+. .mise/wasm-ll-objs.sh
 "$llbin/llvm-cov" export --format=lcov --instr-profile "$covdir/agent.profdata" "${objs[@]}" >"$covdir/all.lcov"
-keep="$covdir/keep.awk"
-coreutils cat >"$keep" <<'AWK'
-{ buf = buf $0 ORS }
-/^SF:/ { keep = index($0, want) > 0 }
-/^end_of_record$/ { if (keep) printf "%s", buf; buf = ""; keep = 0 }
-AWK
 coreutils touch lcov.info
-goawk -v want="ws-wasm-agent/src/" -f "$keep" "$covdir/all.lcov" >>lcov.info
+goawk -v want="ws-wasm-agent/src/" -f .mise/lcov-keep-want.awk "$covdir/all.lcov" >>lcov.info
 # Second pass for et-web, whose browser helpers tests/web.rs drives.
 # One `want` substring per pass, matching the cov-server fold below, rather than a combined pattern the filter
 # cannot express.
-goawk -v want="libs/web/src/" -f "$keep" "$covdir/all.lcov" >>lcov.info
+goawk -v want="libs/web/src/" -f .mise/lcov-keep-want.awk "$covdir/all.lcov" >>lcov.info
 
 # Fold cov-server's own native coverage in from the instrumented run above (its cov-server-*.profraw).
 # The export object links its whole dep tree, so keep only the cov-server.rs launcher records.
 csp="$covdir/cov-server"
 "$llbin/llvm-profdata" merge -sparse -o "$csp.profdata" "$covdir"/cov-server-*.profraw
 "$llbin/llvm-cov" export --format=lcov --instr-profile "$csp.profdata" -object target/debug/cov-server >"$csp.lcov"
-goawk -v want="ws-test-server/src/bin/cov-server.rs" -f "$keep" "$csp.lcov" >>lcov.info
+goawk -v want="ws-test-server/src/bin/cov-server.rs" -f .mise/lcov-keep-want.awk "$csp.lcov" >>lcov.info
 
 rpt="$covdir/report.txt"
 "$llbin/llvm-cov" report --instr-profile "$covdir/agent.profdata" "${objs[@]}" >"$rpt" 2>/dev/null || true
@@ -581,49 +493,12 @@ cargo test -p et-ws-pic-viewer --features et-web/coverage --target wasm32-unknow
 
 host="$(rustc +{{ vars.rust_nightly }} -vV | goawk '/^host:/ { print $2 }')"
 llbin="$(rustc +{{ vars.rust_nightly }} --print sysroot)/lib/rustlib/$host/bin"
-gut="$covdir/gut.awk"
-coreutils cat >"$gut" <<'AWK'
-/^target datalayout/ { next }
-/^target triple/ { next }
-/^define/ { print; print "start:"; print "  unreachable"; print "}"; skip = 1; next }
-skip && /^}/ { skip = 0; next }
-skip { next }
-{
-  gsub(/"target-cpu"="[^"]*"/, "")
-  gsub(/"target-features"="[^"]*"/, "")
-  if ($0 ~ /^attributes #/ && $0 ~ /\\{[[:space:]]*\\}/) sub(/\\{[[:space:]]*\\}/, "{ nounwind }")
-  print
-}
-AWK
 "$llbin/llvm-profdata" merge -sparse -o "$covdir/pic-viewer.profdata" "$covdir"/pic-viewer-*.profraw
-objs=()
-# Same build-dir-layout handling as wasm-agent-cov above; this task shares the failure mode.
-lls="$(find target/wasm32-unknown-unknown/debug -path '*/build/*' -name '*.ll' 2>/dev/null)"
-if [ -z "$lls" ]; then
-  lls="$(find target/wasm32-unknown-unknown/debug/deps -name '*.ll' 2>/dev/null)"
-fi
-if [ -z "$lls" ]; then
-  echo "pic-viewer-cov: no instrumented .ll under target/wasm32-unknown-unknown/debug" >&2
-  exit 1
-fi
-while IFS= read -r ll; do
-  [ -n "$ll" ] || continue
-  name="$(coreutils basename "$ll" .ll)"
-  goawk -f "$gut" "$ll" >"$covdir/$name.g.ll"
-  "$llbin/llc" -filetype=obj -mtriple=x86_64-unknown-linux-gnu -o "$covdir/$name.o" "$covdir/$name.g.ll"
-  objs+=("-object" "$covdir/$name.o")
-done <<LLS
-$lls
-LLS
+task=pic-viewer-cov
+. .mise/wasm-ll-objs.sh
 "$llbin/llvm-cov" export --format=lcov --instr-profile "$covdir/pic-viewer.profdata" "${objs[@]}" >"$covdir/all.lcov"
-keep="$covdir/keep.awk"
-coreutils cat >"$keep" <<'AWK'
-{ buf = buf $0 ORS }
-/^SF:/ { keep = index($0, want) > 0 }
-/^end_of_record$/ { if (keep) printf "%s", buf; buf = ""; keep = 0 }
-AWK
 coreutils touch lcov.info
-goawk -v want="ws-modules/pic-viewer/src/" -f "$keep" "$covdir/all.lcov" >>lcov.info
+goawk -v want="ws-modules/pic-viewer/src/" -f .mise/lcov-keep-want.awk "$covdir/all.lcov" >>lcov.info
 
 rpt="$covdir/report.txt"
 "$llbin/llvm-cov" report --instr-profile "$covdir/pic-viewer.profdata" "${objs[@]}" >"$rpt" 2>/dev/null || true

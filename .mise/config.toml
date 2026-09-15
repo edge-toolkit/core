@@ -534,13 +534,20 @@ rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
 # `python` pin), since the minor-version alias dir isn't created everywhere.
 pylib_flag = "-C link-arg=-Wl,-rpath,{{ vars.a_home }}/.local/share/mise/installs/python/3.13.14/lib"
 wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint,+reference-types"
-# Instrumentation flag pair (leaf var) shared by the wasm coverage builds.
+# Instrumentation flags (leaf var) shared by the wasm coverage builds.
 # The nightly -Z flag adds branch regions to the covmap so the lcov exports carry BRDA records. `a_` prefix so
 # mise's alphabetical [vars] render defines it before wasm_cov_rustflags uses it.
-a_wasm_cov_instr = "-Cinstrument-coverage -Zcoverage-options=branch"
+#
+# `coverage_nightly` is cargo-llvm-cov's convention, set here by hand because these builds do not go through
+# it. The wasm-bindgen-test macro expands to `#[coverage(off)]`, whose feature is still unstable (rust-lang
+# /rust#84605 is open, so no nightly stabilises it), and the test crates gate the matching `feature(...)` on
+# this cfg. Paired with its own --check-cfg so the cfg stays declared rather than tripping unexpected_cfgs.
+a_wasm_cov_ccfg = "--check-cfg=cfg(coverage_nightly)"
+a_wasm_cov_instr = "-Cinstrument-coverage -Zcoverage-options=branch --cfg=coverage_nightly"
 # RUSTFLAGS for the wasm coverage builds: instrument + emit LLVM IR, no profiler runtime (minicov provides it).
 # Single codegen unit + LTO off so each crate emits one .ll the wasm-cov task can gut and feed to llc/llvm-cov.
-wasm_cov_rustflags = "--emit=llvm-ir {{ vars.a_wasm_cov_instr }} -Ccodegen-units=1 -Clto=off -Zno-profiler-runtime"
+a_wasm_cov_tail = "-Ccodegen-units=1 -Clto=off -Zno-profiler-runtime"
+wasm_cov_rustflags = "--emit=llvm-ir {{ vars.a_wasm_cov_instr }} {{ vars.a_wasm_cov_ccfg }} {{ vars.a_wasm_cov_tail }}"
 # Coverage fragments the wasm module build commands append unconditionally (empty unless ET_TEST_COVERAGE is set).
 # wasm_cov is an inline RUSTFLAGS env prefix; the nightly toolchain + conda clang come from the coverage [env].
 # The *_feat vars turn on minicov: cargo `--features` for the WASI cdylibs, wasm-pack `-- --features` for browsers
@@ -1069,12 +1076,14 @@ description = "Run conftest OPA/Rego policies over the TOML config + lock files"
 # namespaces are listed explicitly, so the per-file `gha` (YAML) namespace is never evaluated against this
 # combined TOML input.
 run = """
-ns_list="cross cargo mise pyproject no_trailing_backslash checksums"
-# $ns_list iteration relies on word-splitting; $ns expands to repeated `--namespace <n>` pairs.
+ns_list="cross cargo mise pyproject no_trailing_backslash checksums advisories"
+named="Cargo.lock config/upstream-cache/data.toml config/deny.toml"
+# Both lists rely on word-splitting when they expand.
+# $ns expands to repeated `--namespace <n>` pairs; $named is a space-separated path list.
 # shellcheck disable=SC2086
 ns=$(for n in $ns_list; do echo -n " --namespace $n"; done)
 # shellcheck disable=SC2086
-git ls-files '*Cargo.toml' '.mise/config*.toml' '*pyproject.toml' Cargo.lock config/upstream-cache/data.toml |
+git ls-files '*Cargo.toml' '.mise/config*.toml' '*pyproject.toml' $named |
   xargs conftest test --combine --parser toml $ns -p config/conftest/policy
 """
 shell = "{{ vars.task_shell }}"
@@ -1187,6 +1196,8 @@ description = "shellcheck every bash-shell mise task body across .mise/config*.t
 # .mise/shellcheck-mise.jq emits one `<name> <body-b64>` line per eligible task (base64 so newlines +
 # quotes survive the pipe). goawk emits CRLF on Windows, so `tr -d '\r'` normalises each generated script
 # back to LF (a no-op on Unix) -- without it shellcheck flags every body with SC1017 (literal carriage return).
+# `-x` with the repo root as source path follows what a body sources, so a shared fragment is linted with it
+# rather than reported unread; the extracted scripts sit under target/, so a relative source needs that root.
 run = '''
 boot="{{ vars.config_root_fwd }}/target/scratch/shellcheck-mise"
 coreutils rm -rf "$boot"
@@ -1203,7 +1214,7 @@ for cfg in .mise/config*.toml; do
     } | coreutils tr -d '\r' >"$out"
   done
 done
-shellcheck --shell=bash --exclude=SC2034,SC2154 "$boot"/*.sh
+shellcheck --shell=bash -x --source-path="{{ vars.config_root_fwd }}" --exclude=SC2034,SC2154 "$boot"/*.sh
 '''
 shell = "{{ vars.task_shell }}"
 
@@ -1544,16 +1555,20 @@ run = "osv-scanner {{ vars.osv_locks }} --config config/osv-scanner.toml"
 [tasks."gen:osv-scanner"]
 description = "Regenerate config/osv-scanner.toml from config/deny.toml's [advisories].ignore list"
 # osv-scanner and cargo-deny must ignore the same advisory IDs.
-# config/deny.toml is the source of truth (it carries the per-ID rationale). rg + coreutils only, so
+# config/deny.toml is the source of truth (it carries the per-ID rationale). goawk + coreutils only, so
 # the `dependencies` workflow can run it (via mise) next to the audit binaries. Both RUSTSEC-YYYY-NNNN and
 # GHSA-xxxx-xxxx-xxxx ids are extracted, so a GHSA-only advisory (one RustSec hasn't assigned) still filters.
+#
+# An entry's `expires` date rides along as `ignoreUntil`, so the entry stops being honoured the day it lapses.
+# An id that appears only in prose (the GHSA ones, which have no entry of their own) carries no date and stays
+# ignored indefinitely.
 run = """
 {
   # backticks in the echoed line are literal markdown, not command substitution.
   # shellcheck disable=SC2016
   echo '# AUTO-GENERATED from config/deny.toml by `mise run gen:osv-scanner`.'
   echo 'IgnoredVulns = ['
-  rg -oN -r '  { id = $0 },' '"(RUSTSEC-[0-9]{4}-[0-9]{4}|GHSA(-[0-9a-z]{4}){3})"' config/deny.toml | coreutils sort -u
+  goawk -f .mise/osv-ids.awk config/deny.toml | coreutils sort -u
   echo ']'
 } >config/osv-scanner.toml
 """

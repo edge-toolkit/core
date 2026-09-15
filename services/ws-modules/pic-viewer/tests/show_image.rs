@@ -7,6 +7,7 @@
 
 #![cfg(test)]
 #![cfg(target_arch = "wasm32")]
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
 use et_ws_pic_viewer::show_image;
 use wasm_bindgen::JsCast;

@@ -1,14 +1,5 @@
 name: Free disk space
-description: >-
-  Reclaim runner disk before the long build and test steps, on whichever
-  platform the job is running: jlumbroso/free-disk-space on Linux, this
-  repo's free-disk-space-windows on Windows. macOS runners need neither.
-
-  Each step carries its own `runner.os` guard, so a caller needs none --
-  that is the point of one entry rather than a matched pair at every call
-  site. A caller wanting the Windows reclaim's opt-in removals (the
-  visual-studio / windows-kits inputs) calls free-disk-space-windows
-  directly instead, as docker-windows.yaml does.
+description: Reclaim runner disk before the long build and test steps
 
 runs:
   using: composite

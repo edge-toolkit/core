@@ -4,11 +4,11 @@
  * object on the link line, not an archive member -- a linker only extracts archive members left-to-right, so an
  * archived setlocale would lose to msvcrt's. Each wrapper caches its resolved ucrtbase target in a write-once
  * static populated race-free by ucrt_resolve_once. Those function-local statics are why this file is isolated:
- * Codacy's "Local static variable" rule flags them for audit and, unlike DeepSource (suppressed inline with
- * skipcq), offers only path-level excludes -- so .codacy.yaml excludes just this file while the rest of the shim,
- * including the ucrt_resolve_once / ucrt_sym resolver these call, stays fully analyzed. It also stays covered by
- * DeepSource's clang-tidy and the repo's own clang-tidy / cpplint / flawfinder. The caches are reviewed-safe:
- * each is written exactly once, to a resolved function address. */
+ * Codacy's "Local static variable" rule flags them for audit and, unlike the analyzers that take an inline
+ * skipcq, offers only path-level excludes -- so .codacy.yaml excludes just this file while the rest of the shim,
+ * including the ucrt_resolve_once / ucrt_sym resolver these call, stays fully analyzed. Every other analyzer the
+ * repo runs over C still reads it. The caches are reviewed-safe: each is written exactly once, to a resolved
+ * function address. */
 
 // ucrt_resolve_once is defined in msvc_crt_locale.c; declared here so this standalone object links against it.
 void *ucrt_resolve_once(void *volatile *cache, const char *name);

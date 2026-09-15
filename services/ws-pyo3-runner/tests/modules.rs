@@ -304,7 +304,7 @@ async fn exchange_fanout(control: &mut ControlSocket, count: u8) -> Result<(), B
 /// Send the module's trigger and assert on its reply.
 ///
 /// Each variant's send-and-check sequence lives in its own function above rather than in an arm here. Inline,
-/// the four of them made one 55-line body whose cyclomatic complexity was 19 against Codacy's limit of 10, and
+/// the four of them made one 55-line body whose cyclomatic complexity was 19 against a ceiling of 10, and
 /// they share nothing but the socket -- the reply is text, JSON, one binary frame or many, per variant.
 async fn run_exchange(
     control: &mut ControlSocket,

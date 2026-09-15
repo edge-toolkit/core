@@ -7,9 +7,9 @@
  * the plain-named impls below -- MSVC x64 and mingw x64 share the Microsoft x64 calling convention.
  * These symbols must keep the CRT's exact reserved names (`_`/`__`-prefixed) and, for the mutable ones,
  * non-const storage, to match the archive's ABI -- renaming or const-ing them would break the link. Each
- * therefore carries an inline clang-tidy `// NOLINT` for bugprone-reserved-identifier / cert-dcl37-c (plus
- * cppcoreguidelines-avoid-non-const-global-variables on the globals) -- the narrowest scope, honored by both
- * our clang-tidy and DeepSource's clang-tidy-based cxx (CXX-E2000 reserved identifier, CXX-W2009 non-const). */
+ * therefore carries an inline `// NOLINT` for bugprone-reserved-identifier / cert-dcl37-c (plus
+ * cppcoreguidelines-avoid-non-const-global-variables on the globals) -- the narrowest scope, and honored by
+ * every analyzer that reports those, `CXX-E2000` (reserved identifier) and `CXX-W2009` (non-const) included. */
 
 #include <stdint.h>
 #include <stdlib.h>

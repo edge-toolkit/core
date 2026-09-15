@@ -1,0 +1,235 @@
+# One rule per family of mise task, each banning those task names everywhere except the files that need them.
+#
+# A task name is an entry point, not a fact about the code. Writing one into a source file, a manifest or a
+# neighbouring config makes that file depend on a name it never invokes: the task can be renamed, split, folded
+# into an aggregate or dropped, and nothing fails -- the reference just quietly becomes a lie. Worse, it usually
+# stands in for something the reader actually needs. "Sorted because <task> reformats it" hides the shape the
+# file has to have; "this broke <task> once" hides the invariant that broke.
+#
+# The name is critical, and so allowlisted, in four places. A task definition or its `depends`. A command that
+# actually runs it -- CI, an image build, a process manager. A generated file's header, which is the only way a
+# reader can rebuild it. And documentation whose subject is what to run. Everything else states the constraint
+# and leaves the task out of it.
+#
+# The families are split by what the tasks do, because that decides where they can legitimately appear: a build
+# task belongs in an image, a generator in the header of what it wrote, an observability task in the collector
+# config it loads. Names that are also a crate, module, directory or package name are absent -- `ws-server` and
+# `pyo3-math1` name components far more often than tasks -- as are the aggregates whose names are ordinary words
+# (`check`, `fmt`, `test`, `all`). The `(?x)` flag is what lets each alternation wrap inside the line limit.
+rules:
+  - id: no-generator-task-name-mentions
+    languages: [generic]
+    paths:
+      exclude:
+        - "/.mise/**" # Where the tasks are defined and depend on each other.
+        - "/.github/**" # Runs them, and fails a PR on drift between their output and what is committed.
+        - "/CLAUDE.md" # Documents which generator to run after changing a source of truth.
+        - "/README.md" # Same, for a contributor.
+        - "**/README.md" # A generated tree's README names the command that rewrites it.
+        - "/generated/**" # Generator-owned output, whose headers name the task that wrote it.
+        - "/verification/**" # The same, for the scenario outputs.
+        - "/.gitignore" # Half of a generated pair, naming the task that derives the other half.
+        - "/.dockerignore" # The generated half, with the same header.
+        - "/Dockerfile" # Runs the drift checks against the in-image source.
+        - "/config/generated-trees.toml" # `regenerated_by` is a value, read by the policy that enforces it.
+        - "/config/osv-scanner.toml" # Generated, and says so in its first line.
+        - "/config/openapi-python-client.yaml" # Disables hooks a generator task already performs itself.
+        - "/config/typos.toml" # A vendored word that cannot be corrected here, only where it is fetched from.
+        - "/services/ws-wasi-runner/src/bindings.rs" # Generated; the header is how a reader rebuilds it.
+        - "/utilities/int-gen/src/**" # The generator itself, whose entry points are these tasks.
+        - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
+    pattern-regex: >-
+      (?ix)(?<![\w-])( dockerignore-check|fetch-wit-deps|gen-help-all|gen-help-check|gen-specs|gen-specs-all
+      |gen-specs-check|gen:dart-rest|gen:dart-ws|gen:dockerignore|gen:osv-scanner|gen:python-rest|gen:python-ws
+      |gen:wasmtime-bindings|gen:ws-spec|gen:zig-rest|regenerate-verification|verification-check )(?![\w-])
+    message: >-
+      Do not name a generator task outside the generator, the files it writes, and the docs that say when to run
+      it. A generated file's own header is where the name belongs, because a reader who must not hand-edit the
+      file needs the command that rebuilds it. Elsewhere, "the drift check fails" says everything the reader can
+      act on, and survives the task being renamed or folded into an aggregate.
+    severity: ERROR
+
+  - id: no-build-task-name-mentions
+    languages: [generic]
+    paths:
+      exclude:
+        - "/.mise/**" # Where the tasks are defined and depend on each other.
+        - "/.github/**" # Builds the modules on CI.
+        - "/CLAUDE.md" # Documents how to build one module rather than the whole set.
+        - "/README.md" # Tells a contributor how to build a module.
+        - "**/README.md" # A module's own README names the command that builds it.
+        - "/Dockerfile" # Builds the modules into the image.
+        - "/Dockerfile.nanoserver" # Same, for the Nano Server image.
+        - "/Dockerfile.windows" # Same, for the Windows image.
+        - "/generated/**" # Generator-owned output, carrying whatever the generator wrote.
+        - "/config/conftest/policy/mise/mise.rego" # Names the task a shell builtin was verified to break in.
+        - "/pnpm-workspace.yaml" # The lockfile layout exists because one module's build depends on it.
+        - "/services/ws-modules/pyface1/pyproject.toml" # Names the task that puts a bundled asset in `pkg/`.
+        - "/services/ws-modules/wasi-graphics-info/.gitignore" # Names the task that writes the ignored files.
+        # These three skip when a module's `pkg/` is absent, and print or explain which build fills it.
+        - "/services/ws-wasi-runner/tests/modules.rs"
+        - "/services/ws-wasi-runner/tests/otel_propagation.rs"
+        - "/services/ws-web-runner/tests/modules.rs"
+        - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
+    pattern-regex: >-
+      (?ix)(?<![\w-])( build-et-cli|build-et-rest-client-wheel|build-et-ws-wheel|build-modules|build-modules-all
+      |build-rp-native|build-rp-wasm|build-wasm-cov-wrapper|build-ws-wasm-agent|build-ws-[a-z0-9-]+-module
+      )(?![\w-])
+    message: >-
+      Do not name a module build task outside the images, jobs and READMEs that run it. A skip message telling a
+      developer which build to run is the exception, and the reason it works is that it is addressed to someone
+      at a terminal; a comment in the module's own source is not.
+    severity: ERROR
+
+  - id: no-coverage-task-name-mentions
+    languages: [generic]
+    paths:
+      exclude:
+        - "/.mise/**" # Where the tasks are defined and depend on each other.
+        - "/.github/**" # Runs the coverage pipeline and uploads its reports.
+        - "/CLAUDE.md" # Documents how coverage is collected for each runtime.
+        - "/.codacy.yaml" # Names the task whose trusted argv is why an excluded file is a false positive.
+        - "/services/ws-test-server/src/bin/cov-server.rs" # The same rationale, in the excluded file's header.
+        - "/utilities/wasm-cov-wrapper/src/main.rs" # Likewise.
+        - "/services/ws-wasm-agent/Cargo.toml" # Names the task that turns the instrumentation feature on.
+        - "/services/ws-wasm-agent/tests/client.rs" # Names the task that must have a backend listening.
+        - "/services/ws-web-runner/tests/modules.rs" # Names where each profile artifact is routed for processing.
+        - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
+    pattern-regex: >-
+      (?ix)(?<![\w-])( _cov-branch-assert|build-wasm-cov-wrapper|cargo-llvm-cov-branch-check|pic-viewer-cov
+      |wasm-agent-cov|wasm-cov|wasm-cov-branch-check )(?![\w-])
+    message: >-
+      Do not name a coverage task outside the pipeline that runs it. Where one is a genuine precondition -- it
+      starts the server a test needs, or it is the trusted caller that makes an argv-derived path safe -- the
+      name is the precondition and belongs there. A test's own assertions never are.
+    severity: ERROR
+
+  - id: no-observability-task-name-mentions
+    languages: [generic]
+    paths:
+      exclude:
+        - "/.mise/**" # Where the tasks are defined and depend on each other.
+        - "/.github/**" # Skips the opener one of them uses on a lane that cannot install it.
+        - "/CLAUDE.md" # Documents how to bring the local collector up.
+        - "/README.md" # Same, for a contributor.
+        - "/Dockerfile" # Skips the runtime services it would otherwise stage.
+        - "/Dockerfile.windows" # Notes which opener is unavailable on that lane.
+        - "/mprocs.yaml" # Process entries are the tasks it launches.
+        - "/verification/**" # Generated deployments whose own task list includes them.
+        - "/config/otelcol-hostmetrics.yaml" # Loaded by the task named in its header.
+        - "/config/otelcol-macmon.yaml" # Likewise.
+        - "/config/otelcol-nvidia.yaml" # Likewise.
+        - "/config/otelcol-winmetrics.yaml" # Likewise.
+        - "/config/otelcol-winperf.yaml" # Likewise.
+        - "/config/conftest/policy/mise/mise.rego" # Names the task each os-scoped exporter tool exists for.
+        - "/services/ws-wasi-runner/tests/o2_ingest_search.rs" # Its subject is the server those tasks run.
+        - "/utilities/cli/src/lib.rs" # Emits those task names into the deployments it generates.
+        - "/utilities/cli/src/deployment_types/mise.rs" # Likewise.
+        - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
+    pattern-regex: >-
+      (?ix)(?<![\w-])( o2-hostmetrics|o2-macmon|o2-native|o2-native-clean|o2-nvidia|o2-nvidia-native
+      |o2-winmetrics|o2-winmetrics-native|o2-winperf|open-o2 )(?![\w-])
+    message: >-
+      Do not name an observability task outside the configs it loads and the things that launch it. A collector
+      config naming the task that reads it is how a reader finds its way in; a comment elsewhere saying some
+      value exists for one of these tasks is not.
+    severity: ERROR
+
+  - id: no-maintainer-task-name-mentions
+    languages: [generic]
+    paths:
+      exclude:
+        - "/.mise/**" # Where the tasks are defined and depend on each other.
+        - "/.github/**" # Runs the install and asset jobs, and records what only a maintainer may run.
+        - "/CLAUDE.md" # Documents the bootstrap-then-publish sequence for a new cached asset.
+        - "/README.md" # Tells a contributor which install to run first.
+        - "/Dockerfile" # Installs the toolchain and prefetches models.
+        - "/Dockerfile.nanoserver" # Same, with a narrower prefetch.
+        - "/Dockerfile.windows" # Same.
+        - "/config/upstream-cache/data.toml" # Names the task that mirrors each asset to our own release.
+        - "/data/model-modules/.gitignore" # Names the task that fetches the ignored weights.
+        - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
+    pattern-regex: >-
+      (?ix)(?<![\w-])( _setup-store-tools|bootstrap-[a-z0-9-]+-release|dart-pub-get|dotnet-workload-wasm-tools
+      |download-models|fetch-[a-z0-9-]+-rclone|install-all|oci-build-store|prefetch-ci|prefetch:[a-z]+
+      |print-all-langs|publish-[a-z0-9-]+-to-(hf-cache|release)|pull-mise-tools|push-mise-tools
+      |push-mise-tools-linux-x64|release-rust-crates|rp-detect-missing|rustpython-investigation|vendor-llm1-ort
+      )(?![\w-])
+    message: >-
+      Do not name an install, prefetch or asset-publishing task outside the jobs, images and asset tables that
+      invoke it. These run on a maintainer's machine or a runner, never from the code, so a source file naming
+      one is describing an operation it has no part in.
+    severity: ERROR
+
+  - id: no-test-task-name-mentions
+    languages: [generic]
+    paths:
+      exclude:
+        - "/.mise/**" # Where the tasks are defined and depend on each other.
+        - "/.github/**" # Runs the suites on CI.
+        - "/CLAUDE.md" # Documents which suite covers which language.
+        - "/README.md" # Tells a contributor how to run them.
+        - "**/README.md" # A module's own README names the command that exercises it.
+        - "/services/ws-modules/pic-viewer/tests/show_image.rs" # Needs a browser harness no plain test run gives.
+        - "/services/ws-test-server/src/bin/cov-server.rs" # Names the end-to-end run sharing its fixed port.
+        - "/services/ws-test-server/src/bin/verify-math1.rs" # Names the task that pipes cluster output into it.
+        - "/services/ws-wasm-agent/tests/client.rs" # Names the runs that must have a backend on its port.
+        - "/utilities/cli/tests/scenario_runners.rs" # Drives the generated tasks, and needs the group config.
+        - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
+    pattern-regex: >-
+      (?ix)(?<![\w-])( cargo-test|cargo-test-libs|k3s-verify|test-all|test-pic-viewer-(chrome|firefox)
+      |test-pydemo1|test-pyeye1|test-pyface1|test-pyspeech1|test-ws-wasm-agent-(chrome|firefox)|test:python
+      |test:rust|ws-e2e-chrome|ws-e2e-firefox|ws-server-no-otel|ws-server-offline-demo )(?![\w-])
+    message: >-
+      Do not name a test or server task outside the jobs and docs that run it. A test file may name the task
+      that supplies something it cannot create for itself -- a browser harness, a listening backend, a port
+      group -- because that is a precondition. Naming one to explain why an assertion exists is not.
+    severity: ERROR
+
+  - id: no-check-task-name-mentions
+    languages: [generic]
+    paths:
+      exclude:
+        - "/.mise/**" # Where the tasks are defined and depend on each other.
+        - "/.github/**" # Runs the battery on CI.
+        - "/CLAUDE.md" # Documents which check an agent runs for which file type.
+        - "/README.md" # Tells a contributor which checks gate a change.
+        - "/Dockerfile" # Runs the battery against the in-image source.
+        - "/Dockerfile.nanoserver" # Names the tasks a skipped tool would otherwise gate.
+        - "/generated/**" # Generator-owned output, carrying whatever the generator wrote.
+        - "/.codacy.yaml" # Names the local checks it defers to, as its exclusion rationale.
+        - "/.deepsource.toml" # Likewise, for the language it leaves to the local pipeline.
+        # Each tool config's header names the task that applies it, which is how a reader learns what runs it.
+        - "/config/clang-format.yaml"
+        - "/config/clang-tidy.yaml"
+        - "/config/deny.toml"
+        - "/config/gitleaks.toml"
+        - "/config/ls-lint.yaml"
+        - "/config/lychee.toml"
+        - "/config/pyrefly.toml"
+        - "/config/trivyignore.yaml"
+        - "/config/typos.toml"
+        - "/config/zizmor.yaml"
+        - "/config/conftest/policy/**" # Each policy names the task that feeds it, which fixes what it can see.
+        - "/config/semgrep/ls-lint-no-glob.yaml" # Its worked example is two checks disagreeing about a path.
+        - "/config/semgrep/no-type-comments.yaml" # Names the check whose coverage the rule exists to protect.
+        - "/pubspec.yaml" # One root lockfile exists so a single scan has a committed target.
+        - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
+    pattern-regex: >-
+      (?ix)(?<![\w-])( action-validator-check|actionlint-check|ast-grep-(check|fix)|branch-up-to-date-check
+      |cargo-(build|check|doc-check|fmt|fmt-check)|cargo-clippy-(check|check-pkg|fix)|cargo-deny-check
+      |cargo-unmaintained-check|check-all|check-mise-tools-visibility|check:[a-z]+|clang-format-check
+      |clang-tidy-(check|fix)|conftest-check|conftest-check-(dockerfile|generated-trees|jscpd|policy-pairs)
+      |conftest-check-(policy-tests|toml|yaml)|cpplint-check|dart-(check|fmt|fmt-check)|dotnet-(check|fmt)
+      |dprint-(check|fmt)|fix:[a-z]+|flawfinder-check|fmt-all|fmt:[a-z]+|gitleaks-check|hadolint-check|jq-fmt
+      |jscpd-(check|report|baseline-update)|kubeconform-check|link-check|ls-lint-check|macos-sdk-check
+      |mise-lock-check|osv-scanner-(check|npm)|oxfmt-(check|fmt)|oxlint-(check|fix)|parfit-fmt
+      |readme-mise-version-check|regal-(check|fix)|roslynator-(check|fix)|ryl-check|semgrep-(check|fix)
+      |shellcheck-mise-check|shfmt-mise-(check|fmt)|sloc-crosscheck|taplo-(check|fmt|fmt-check)|trivy-check
+      |typos-(check|fix)|zig-(check|fmt)|zizmor-check )(?![\w-])
+    message: >-
+      Do not name a check or formatter task outside its own config, the images and jobs that run it, and the
+      docs that say when to. Saying code is written a certain way because one of these would object describes
+      the check rather than the code, and it is the first thing to rot: the task gets renamed, folded into an
+      aggregate, or its rule moves, and the comment keeps asserting the old arrangement. State the constraint.
+    severity: ERROR

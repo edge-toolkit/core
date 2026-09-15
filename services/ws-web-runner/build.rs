@@ -71,9 +71,10 @@ fn link_mingw_shim() {
     let locale_args = ["-c", "-O2", "-o", &locale_obj, "mingw-shim/msvc_crt_locale.c"];
     run(std::process::Command::new(gcc.path()).args(locale_args));
 
-    // The locale wrappers (setlocale, ...) are split into their own standalone object so Codacy can path-exclude
-    // just their write-once symbol caches; they intercept -lmsvcrt exactly as msvc_crt_locale.c does, so they too
-    // must be a link-line object rather than an archive member. They call ucrt_resolve_once from msvc_crt_locale.o.
+    // The locale wrappers (setlocale, ...) are split into their own standalone object so their write-once symbol
+    // caches sit alone in one path-excludable file; they intercept -lmsvcrt exactly as msvc_crt_locale.c does, so
+    // they too must be a link-line object rather than an archive member. They call ucrt_resolve_once from
+    // msvc_crt_locale.o.
     let locale_cache_obj = format!("{out_dir}/msvc_crt_locale_cache.o");
     let locale_cache_args = [
         "-c",

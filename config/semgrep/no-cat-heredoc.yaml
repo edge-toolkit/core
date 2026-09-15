@@ -1,0 +1,20 @@
+rules:
+  - id: no-cat-heredoc
+    languages: [generic]
+    paths:
+      exclude:
+        # This file, because the pattern below is a literal `cat` followed by a literal heredoc operator.
+        # The rule therefore flags its own definition however the message is worded, so it is scoped out here
+        # rather than across the whole rules directory, leaving every other rule covered.
+        - "/config/semgrep/no-cat-heredoc.yaml"
+    # Match a `cat` whose input comes from a heredoc, on one line so the match stays inside a single command.
+    pattern-regex: '\bcat\b[^\n<]*<<'
+    message: >-
+      Writing a file by piping a heredoc through `cat` is banned in this repo. A program embedded that way is
+      invisible to every checker: it is a string as far as the surrounding file is concerned, so nothing lints
+      it, formats it, or reports it in a diff as the language it is written in, and the quoting rules of two
+      layers have to be satisfied before its first byte reaches the interpreter. Put the content in its own
+      file beside whatever runs it -- `.mise/` for a mise task body -- named with the extension of whatever
+      reads it (`.awk`, `.jq`, `.sh`), and point the tool at that path instead. It then reads as the program
+      it is, and a path is all the caller needs.
+    severity: ERROR

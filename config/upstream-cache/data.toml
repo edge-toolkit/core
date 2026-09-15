@@ -13,7 +13,7 @@
 #   - license:  SPDX expression for the upstream content. Bump alongside `upstream` whenever upstream
 #               re-licenses.
 #
-# config/conftest/policy/checksums/checksums.rego enforces a bidirectional cross-reference: every
+# A policy enforces a bidirectional cross-reference: every
 # `<name>_asset` var in .mise/config*.toml must have a matching `[asset.<filename>]` table here, and vice
 # versa. Filename keys pin the upstream commit SHA (short) or version; bump in lockstep with the var and the
 # release tag.

@@ -8,8 +8,8 @@ pub const SENSOR_PERMISSION_GRANTED: &str = "granted";
 
 /// Discard `value`, marking a `Result` (or other `#[must_use]`) as intentionally ignored.
 ///
-/// The workspace denies `let_underscore*` and `unused_results`, and `DeepSource`'s RS-E1021 flags `drop()` on a
-/// non-`Drop` type (e.g. `Result`), so neither `let _ = expr` nor `drop(expr)` is available for discarding one.
+/// The workspace denies `let_underscore*` and `unused_results`, and `RS-E1021` flags `drop()` on a non-`Drop`
+/// type (e.g. `Result`), so neither `let _ = expr` nor `drop(expr)` is available for discarding one.
 /// Passing the value here consumes it -- satisfying `must_use` / `unused_results` -- via neither. Intended for
 /// best-effort JS DOM calls in `()`-returning closures and event handlers where the error is deliberately dropped.
 pub fn ignore<T>(_value: T) {}
@@ -19,7 +19,7 @@ pub fn ignore<T>(_value: T) {}
 /// Present only in the `coverage` build. `wasm-bindgen` collects this export into every dependent browser
 /// module's JS glue, so the web-runner can pull each module's coverage after running it -- `wasm32-unknown-unknown`
 /// has no filesystem, so the bytes come back through JS rather than a file. The web-runner then routes them
-/// through the same llc + llvm-cov pipeline the WASI guests use (see the `wasi-cov` mise task).
+/// through the same llc + llvm-cov pipeline the WASI guests use.
 #[cfg(feature = "coverage")]
 #[wasm_bindgen]
 #[expect(

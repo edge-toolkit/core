@@ -74,8 +74,7 @@ BINDGEN_EXTRA_CLANG_ARGS = "{{ vars.c_bindgen_args }}"
 # rpath/pylib flags are shared, from config.toml.
 # OPENSSL_DIR points openssl-sys at conda's OpenSSL, so anything linking it records conda's libssl soname;
 # without an rpath the loader only finds it when conda's soname matches the system one (it broke when conda
-# bumped to libssl.so.4). pylib_flag does the same for the CPython lib dir -- unlike darwin, where pyo3's
-# build script already emits that rpath itself and a second copy draws a linker warning.
+# bumped to libssl.so.4). pylib_flag does the same for the CPython lib dir.
 CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
 CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
 LIBCLANG_PATH = "{{ vars.a_conda_clangxx }}/lib"
