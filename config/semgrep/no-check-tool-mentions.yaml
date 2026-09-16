@@ -59,6 +59,7 @@ rules:
         - "/config/conftest/policy/generated_trees/generated_trees.rego" # Enforces that mapping.
         - "/config/conftest/policy/generated_trees/generated_trees_test.rego" # Unit tests for it.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
+        - "/libs/test-helpers/src/lib.rs" # Carries a suppression pragma, which only works spelled out.
     pattern-regex: "(?i)ast-grep"
     message: >-
       Do not name the structural search tool outside its own ruleset and the configs that scope it. Pointing at
@@ -212,11 +213,16 @@ rules:
         - "/.codacy.yaml" # Names it as the analyzer still covering what Codacy skips.
         - "/.github/workflows/coverage.yaml" # Reports coverage to it on CI.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
-    pattern-regex: "(?i)deepsource"
+        - "/config/semgrep/deepsource-codes-are-qualified.yaml" # Requires the name, so it has to write it.
+    # Unlike its siblings, this one permits the name where it qualifies one of the analyzer's codes.
+    # A bare code does not identify itself: `RS-`, `JS-` and `CXX-` could belong to any analyzer the repo
+    # runs, so the vendor in front is what makes the reference readable and searchable. The separate rule
+    # requiring that shape is what keeps this from being a way back in for prose about the tool.
+    pattern-regex: '(?i)deepsource(?! (RS|JS|CXX|CS|DOK|PYL|SCT|TYP)-[A-Z]{0,2}[0-9]{3,4}\b)'
     message: >-
-      Do not name this analyzer outside its own config and the pragmas it reads. A local rule mirroring one of
-      its findings names the code -- `RS-W1079`, `TYP-025`, `CXX-W2009` -- and stops there: the code identifies
-      the finding, survives a change of vendor, and is what a search will actually turn up.
+      Do not name this analyzer outside its own config, the pragmas it reads, and a reference to one of its
+      codes. Naming it in front of a code -- `DeepSource RS-W1079` -- is required, because the code alone does
+      not say whose it is. Naming it anywhere else describes the tool's reaction rather than the code.
     severity: ERROR
 
   - id: no-dprint-mentions
@@ -319,8 +325,8 @@ rules:
         - "/config/jscpd.json" # Its own config.
         - "/config/jscpd-baseline.json" # The clone-fingerprint baseline it reads.
         - "/config/conftest/policy/jscpd/jscpd.rego" # Ratchets that baseline, and takes the tool as its package.
-        - "/config/conftest/policy/policy_tests/policy_tests.rego" # Names that policy path in its exception list.
-        - "/config/conftest/policy/policy_tests/policy_tests_test.rego" # Unit tests for it.
+        - "/config/conftest/policy/policy_pairing/policy_pairing.rego" # Names that policy path in its exception list.
+        - "/config/conftest/policy/policy_pairing/policy_pairing_test.rego" # Unit tests for it.
         - "/config/conftest/policy/generated_trees/generated_trees.rego" # Enforces the linter/tree mapping.
         - "/config/generated-trees.toml" # Maps each generated tree onto the exclusion key this tool needs.
         - "/config/semgrep/prefer-yaml-toml.yaml" # Allowlists its two files, which cannot be YAML or take comments.

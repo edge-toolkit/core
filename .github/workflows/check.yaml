@@ -51,10 +51,11 @@ jobs:
               'C:\i\http-busybox\1.37.0\ash.exe -euo pipefail {0}'
               || 'bash --noprofile --norc -euo pipefail {0}' }}
     steps:
+      # Full history here due to checks that use git log.
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          fetch-depth: 1
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Install mise + tools

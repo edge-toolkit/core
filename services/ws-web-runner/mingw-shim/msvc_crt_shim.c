@@ -9,7 +9,8 @@
  * non-const storage, to match the archive's ABI -- renaming or const-ing them would break the link. Each
  * therefore carries an inline `// NOLINT` for bugprone-reserved-identifier / cert-dcl37-c (plus
  * cppcoreguidelines-avoid-non-const-global-variables on the globals) -- the narrowest scope, and honored by
- * every analyzer that reports those, `CXX-E2000` (reserved identifier) and `CXX-W2009` (non-const) included. */
+ * every analyzer that reports those, `DeepSource CXX-E2000` (reserved identifier) and `DeepSource CXX-W2009`
+ * (non-const) included. */
 
 #include <stdint.h>
 #include <stdlib.h>

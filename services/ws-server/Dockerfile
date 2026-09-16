@@ -86,8 +86,8 @@ EOF
 # The browser client is built in its own layer, deliberately not folded into the cargo build above.
 # The two compile different targets from different inputs, so keeping them apart means editing the agent does
 # not invalidate the server's release build and vice versa. Three analyzers raise that split as the same
-# consecutive-RUN anti-pattern under three different codes, so it takes three pragmas: `DOK-W1001`
-# (`DOK-DL3059` is not a code anything here issues, so it suppressed nothing), and hadolint's DL3059 -- named
+# consecutive-RUN anti-pattern under three different codes, so it takes three pragmas: `DeepSource DOK-W1001`
+# (`DeepSource DOK-DL3059` is not a code it issues, so it suppressed nothing), and hadolint's DL3059 -- named
 # inline here rather than left to config/hadolint.yaml's ignore list, because one of the three runs its own
 # hadolint and reads neither that file nor a skipcq.
 # skipcq: DOK-W1001

@@ -33,7 +33,7 @@ macosx_deployment_target = "{% if arch() == 'arm64' %}11.0{% else %}10.12{% endi
 # start at all, and nextest cannot even enumerate them --
 #     error: creating test list failed
 #     dyld[94600]: Library not loaded: @rpath/libpython3.13.dylib
-# on commit 8e1d10ba04c3baa27ba3ca6d29e9dd7b9d9d7b5a at
+# on commit https://github.com/edge-toolkit/core/commit/e1363ae2ae2936c21df97d2ab0fe410857c860fa at
 # https://github.com/edge-toolkit/core/actions/runs/34925257378/job/104241837125 (and the coverage lane's
 # nightly build alongside it). A duplicate-rpath warning on one binary is the cheaper of the two.
 CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
@@ -59,8 +59,8 @@ _.path = ["/Library/Developer/CommandLineTools/usr/bin", "/bin", "/sbin", "/usr/
 # reads it back from the Dockerfile in the checkout, so adding/removing a prereq there propagates here
 # automatically. Most apt names map cleanly to Xcode CLT binaries or macOS pre-installed tools; the case
 # patterns below adjust the few that don't (cert path, SDK headers via xcrun).
-depends = ["_setup_all"]
-description = "Preinstall: verify Xcode CLT + Dockerfile prereqs"
+depends = ["_setup_all", "macos-sdk-check"]
+description = "Preinstall: verify Xcode CLT + Dockerfile prereqs + the macOS SDK"
 run = """
 xcode-select -p >/dev/null 2>&1 || {
   echo "preinstall: Xcode command-line tools not found." >&2

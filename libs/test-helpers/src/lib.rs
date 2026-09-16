@@ -35,6 +35,31 @@ where
     temp_env::with_var("PATH", Some(""), run)
 }
 
+/// Run `run` with `dir` in front of `PATH`, so a stand-in there shadows the real tool.
+///
+/// In front of rather than instead of: an executable the toolchain has just built may still resolve part of
+/// its runtime through `PATH`. With `PATH` cut down to the stand-in's own directory, the x64 Windows lanes
+/// (whose Rust host is `x86_64-pc-windows-gnullvm`) compiled a stand-in and then reported the real tool absent
+/// -- `the stand-in must answer --version, or this asserts the wrong branch` on commit
+/// <https://github.com/edge-toolkit/core/commit/c6c4fce73dd25aa58754963867ccf9523caae1bb> at
+/// <https://github.com/edge-toolkit/core/actions/runs/35045764412/job/104635143708> -- while the arm64 lane,
+/// hosted on `aarch64-pc-windows-msvc`, found it. Search order still puts `dir` first, which is all the
+/// shadowing needs.
+pub fn with_path_prefix<Out, Body>(dir: &std::path::Path, run: Body) -> Out
+where
+    Body: FnOnce() -> Out,
+{
+    // Reading the inherited `PATH` is the one thing this helper cannot avoid, and the reason it lives here
+    // rather than in each test: the value has to be handed back with `dir` in front, and nothing else carries
+    // the directories a freshly built stand-in needs to start. Suppressed on this line alone so the ban keeps
+    // applying to every other read in the crate, including a future one in this same function.
+    // ast-grep-ignore: no-std-env-var
+    let inherited = std::env::var_os("PATH").unwrap_or_default();
+    let ordered = std::iter::once(dir.to_path_buf()).chain(std::env::split_paths(&inherited));
+    let prefixed = std::env::join_paths(ordered).unwrap();
+    temp_env::with_var("PATH", Some(&prefixed), run)
+}
+
 /// Reserve a free loopback TCP port, bound then released for the caller to claim.
 ///
 /// Same bind-`:0`-then-drop trick every test-support crate used to hand-roll; there is an inherent

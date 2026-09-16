@@ -37,19 +37,17 @@ fn resolves_windows_pipx_venv_layout() {
     resolves_venv_layout("cowsay/Lib/site-packages");
 }
 
-/// Probe availability and run the lookup with `path` as the whole of `PATH`, reporting both.
+/// Probe availability and run the lookup under whatever `PATH` the caller has arranged, reporting both.
 ///
 /// Both are read under one `PATH` so the pair can be compared: the lookup answers with an empty list for two
 /// quite different reasons -- mise was never found, or mise was found and its query failed -- and only the
 /// availability flag distinguishes them. Asserting the list alone would let a test pass while exercising the
 /// wrong path entirely.
-fn availability_and_lookup(path: &str) -> (bool, Vec<std::path::PathBuf>) {
-    et_test_helpers::temp_env::with_var("PATH", Some(path), || {
-        (
-            edge_toolkit::config::mise_is_available(),
-            edge_toolkit::config::mise_python_site_packages(),
-        )
-    })
+fn availability_and_lookup() -> (bool, Vec<std::path::PathBuf>) {
+    (
+        edge_toolkit::config::mise_is_available(),
+        edge_toolkit::config::mise_python_site_packages(),
+    )
 }
 
 #[test]
@@ -58,7 +56,7 @@ fn site_packages_lookup_is_empty_when_mise_is_missing() {
     // an empty list rather than panicking when there is no mise to ask. An empty PATH makes the availability
     // probe's spawn fail the same way it would on a deployment that never installed mise, so the function
     // returns before it tries to parse any tool list.
-    let (available, found) = availability_and_lookup("");
+    let (available, found) = et_test_helpers::with_empty_path(availability_and_lookup);
     assert!(!available, "an empty PATH must hide mise from the availability probe");
     assert!(
         found.is_empty(),
@@ -74,7 +72,8 @@ fn site_packages_lookup_is_empty_when_mise_is_missing() {
 /// A real executable, compiled here by `rustc`, rather than a script: the probe spawns the bare name `mise`,
 /// which Windows resolves to `mise.exe` and nothing else, so a `mise.bat` on the same `PATH` is never found
 /// and the probe reports mise absent -- the very branch this fixture exists to get past. That is how the
-/// windows-11-arm lane failed on commit aec4133097f57ad406fb16ad5231fafb31641e09 with
+/// windows-11-arm lane failed on commit
+/// <https://github.com/edge-toolkit/core/commit/aec4133097f57ad406fb16ad5231fafb31641e09> with
 /// `the stand-in must answer --version, or this asserts the wrong branch`
 /// (<https://github.com/edge-toolkit/core/actions/runs/35042685720/job/104625726124>). Compiling costs a second
 /// and needs `rustc` on `PATH`, which anything running `cargo test` already has; the one shape then serves
@@ -109,26 +108,6 @@ fn write_fake_mise_that_fails_its_queries(dir: &TempDir) {
         .unwrap();
 }
 
-/// `PATH` with `dir` in front of the current value, so a stand-in there shadows the real tool.
-///
-/// In front of rather than instead of: the probe runs under this `PATH`, and an executable the toolchain has
-/// just built may still resolve part of its runtime through it. With `PATH` cut down to the stand-in's own
-/// directory, the x64 Windows lanes (whose Rust host is `x86_64-pc-windows-gnullvm`) compiled the stand-in
-/// and then reported mise absent -- `the stand-in must answer --version, or this asserts the wrong branch`
-/// on commit c6c4fce73dd25aa58754963867ccf9523caae1bb at
-/// <https://github.com/edge-toolkit/core/actions/runs/35045764412/job/104635143708> -- while the arm64 lane,
-/// hosted on `aarch64-pc-windows-msvc`, found it. Search order still puts `dir` first, which is all the
-/// shadowing needs.
-#[expect(
-    clippy::single_call_fn,
-    reason = "distinct fixture step beside the stand-in builder; kept separate so the PATH shape is explained once"
-)]
-fn path_with_first(dir: &std::path::Path) -> String {
-    let rest = std::env::var_os("PATH").unwrap_or_default();
-    let joined = std::env::join_paths(std::iter::once(dir.to_path_buf()).chain(std::env::split_paths(&rest))).unwrap();
-    joined.to_string_lossy().into_owned()
-}
-
 #[test]
 fn a_failing_tool_list_query_yields_no_paths() {
     // mise resolves and reports a version, so the availability probe passes, but the tool-list query exits
@@ -138,7 +117,7 @@ fn a_failing_tool_list_query_yields_no_paths() {
     let dir = TempDir::new().unwrap();
     write_fake_mise_that_fails_its_queries(&dir);
 
-    let (available, found) = availability_and_lookup(&path_with_first(dir.path()));
+    let (available, found) = et_test_helpers::with_path_prefix(dir.path(), availability_and_lookup);
 
     // Asserted first, and separately: an empty list is also what a *missing* mise produces, so without
     // pinning the stand-in as present this test would still pass if it were never found at all -- exercising

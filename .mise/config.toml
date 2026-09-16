@@ -113,7 +113,7 @@ dprint = "latest"
 # v4.0.0 renamed every asset from `ec-<os>-<arch>` to `editorconfig-checker-<os>-<arch>`, and aqua's manifest
 # was not updated, so `latest` resolves to a version whose download it cannot find:
 #   aqua:editorconfig-checker/editorconfig-checker@latest: no asset found: ec-windows-amd64.zip
-# on commit 02d645a30b89850b5d27711e0dd8f61780dcdcb3 at
+# on commit https://github.com/edge-toolkit/core/commit/02d645a30b89850b5d27711e0dd8f61780dcdcb3 at
 # https://github.com/edge-toolkit/core/actions/runs/33945730231/job/101251329874. The rename is not
 # Windows-specific -- every platform's asset moved -- so this holds every lane, not just that one. Drop the pin
 # once the aqua registry ships a version_overrides entry for 4.x.
@@ -328,7 +328,7 @@ version = "08a1d6f"
 #
 #     openobserve never bound its HTTP port :36657
 #
-# observed on commit 1f544590b473887015754f67c3af843f970d8dbc at
+# observed on commit https://github.com/edge-toolkit/core/commit/1f544590b473887015754f67c3af843f970d8dbc at
 # https://github.com/edge-toolkit/core/actions/runs/31559765133/job/94267330524 (and the three sibling
 # old-glibc lanes of that run), while every glibc >= 2.39 lane passed. The musl build has no glibc floor.
 [tools."http:openobserve"]
@@ -361,10 +361,10 @@ url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve
 #     attack. Enable the corresponding verification setting or update the lockfile.
 #
 # observed on macos-arm64 and windows-x64 with mise 2026.8.5 at commit
-# 20b91714e47f52e7fcd898fc3df3dbf35bb53242. The http backend performs no provenance lookup, so nothing
-# unverifiable lands in the lockfile. It also records no cross-platform checksums the way the github backend
-# did: `mise lock` only hashes the asset for the platform it runs on, so each platform's checksum appears the
-# first time the lockfile is refreshed there.
+# https://github.com/edge-toolkit/core/commit/20b91714e47f52e7fcd898fc3df3dbf35bb53242. The http backend
+# performs no provenance lookup, so nothing unverifiable lands in the lockfile. It also records no
+# cross-platform checksums the way the github backend did: `mise lock` only hashes the asset for the platform
+# it runs on, so each platform's checksum appears the first time the lockfile is refreshed there.
 #
 # Linux takes the static musl assets rather than the gnu ones aqua used to select, which import GLIBC_2.39
 # symbols -- on every docker-linux matrix distro with glibc <= 2.38 the gnu build dies at exec and the
@@ -372,7 +372,7 @@ url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve
 #
 #     rustfs did not start listening on port 33649
 #
-# observed on commit 1f544590b473887015754f67c3af843f970d8dbc at
+# observed on commit https://github.com/edge-toolkit/core/commit/1f544590b473887015754f67c3af843f970d8dbc at
 # https://github.com/edge-toolkit/core/actions/runs/31559765133/job/94267330524 (and the three sibling
 # old-glibc lanes of that run), while every glibc >= 2.39 lane passed. The musl build has no glibc floor;
 # macOS and Windows have only the one build each. Direct upstream, per-version immutable URLs, so no checksum.
@@ -788,10 +788,10 @@ depends = [
   "kubeconform-check",
   "link-check",
   "ls-lint-check",
-  "macos-sdk-check",
   "mise-lock-check",
   "readme-mise-version-check",
   "regal-check",
+  "repo-check",
   "ryl-check",
   "semgrep-check",
   "shellcheck-check",
@@ -1032,7 +1032,8 @@ env = { RUSTDOCFLAGS = "-Z unstable-options --check -D warnings" }
 # it, and the unwrapped symlink aborts on the first of those that does not exist:
 #   thread 'main' panicked at .../ort-sys-2.0.0-rc.10/build.rs:129:66:
 #   called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
-# Seen on commit 9440a53b3f632307d5a41b654ff526981021759f in the macos + ubuntu check lanes, e.g.
+# Seen on commit https://github.com/edge-toolkit/core/commit/9440a53b3f632307d5a41b654ff526981021759f in the
+# macos + ubuntu check lanes, e.g.
 # https://github.com/edge-toolkit/core/actions/runs/30782416445/job/91589563319 -- and reproducible locally.
 # The feature cannot simply be switched off: wasmtime-wasi-nn declares `features = ["copy-dylibs"]` on its own
 # ort dependency, so feature unification keeps it enabled regardless of this workspace's ort entry. Creating the
@@ -1101,7 +1102,7 @@ run = "conftest verify -p config/conftest/policy"
 description = "Check every conftest policy has a test file beside it (conftest)"
 run = """
 find config/conftest/policy -name '*.rego' -print0 |
-  xargs -0 conftest test --combine --parser ignore --namespace policy_tests -p config/conftest/policy
+  xargs -0 conftest test --combine --parser ignore --namespace policy_pairing -p config/conftest/policy
 """
 shell = "{{ vars.task_shell }}"
 
@@ -1511,6 +1512,10 @@ trivy config --quiet --exit-code 1 --ignorefile config/trivyignore.yaml "$@" .
 """
 shell = "{{ vars.task_shell }}"
 
+[tasks.repo-check]
+description = "Repository-wide checks that need to read git itself (commit hashes, ...)"
+run = "cargo run -q -p et-repo-check"
+
 [tasks.link-check]
 description = "Check that URLs in .md and .rs files are reachable (network)"
 # The .rs glob is scoped to the source dirs, not a bare `**/*.rs`.
@@ -1914,17 +1919,18 @@ shell = "{{ vars.task_shell }}"
 # the `mise run` starts, and a `depends` install lands after that snapshot just as an in-body `mise install`
 # does -- so a cold runner still gets "bash: line 1: coreutils: command not found" (first seen with the in-body
 # form at https://github.com/edge-toolkit/core/actions/runs/31670112517/job/94352839713 on commit
-# d8ad8cb99cf58a1e505cdbebc5b94f9893532b4f, then again through `depends` at
-# https://github.com/edge-toolkit/core/actions/runs/31773896309/job/94685230924 on commit
-# 0dd8cb009e2b81f9013d7a647092adf383391284). Every consumer therefore resolves these tools with `mise which`
-# and calls them by absolute path, which needs no PATH entry at all.
+# https://github.com/edge-toolkit/core/commit/d8ad8cb99cf58a1e505cdbebc5b94f9893532b4f, then again through
+# `depends` at https://github.com/edge-toolkit/core/actions/runs/31773896309/job/94685230924 on commit
+# https://github.com/edge-toolkit/core/commit/0dd8cb009e2b81f9013d7a647092adf383391284). Every consumer
+# therefore resolves these tools with `mise which` and calls them by absolute path, which needs no PATH entry
+# at all.
 #
 # Keep the tool specs unquoted. This body is a single line, so on Windows it runs under mise's default
 # `cmd /c` -- the repo's bash inline-shell default is set by `preinstall`, which has not run yet when CI
 # restores the store. cmd.exe does not strip quotes, so a quoted spec reaches mise verbatim and it tries to
 # clone a plugin from the literal name: `mise plugin:01mf02/jaq' clone https://github.com/01mf02/jaq'.git`,
 # ending in `Failed to install 'aqua:01mf02/jaq'@latest`, which stranded the Windows lane's restore on commit
-# 0dd8cb009e2b81f9013d7a647092adf383391284 at
+# https://github.com/edge-toolkit/core/commit/0dd8cb009e2b81f9013d7a647092adf383391284 at
 # https://github.com/edge-toolkit/core/actions/runs/31773896309/job/94685231006.
 [tasks._setup-store-tools]
 description = "Install the tools the mise-tools store tasks depend on (cold-checkout helper)"
@@ -2344,11 +2350,7 @@ run = "cargo nextest run --config-file config/nextest.toml -p edge-toolkit -p et
 
 [tasks."test:rust"]
 # Rust tests. Always-loaded, so `test`'s glob always matches it.
-# macos-sdk-check rides here as well as on check:rust so both GHA workflows get it without a workflow edit:
-# `check` globs check:*, `test` globs test:*, and these two are the members that are always loaded. It is a
-# host precondition rather than a test, but a broken SDK fails the compile it precedes with a far worse
-# message, so naming it up front is worth the slight category stretch.
-depends = ["cargo-test", "macos-sdk-check"]
+depends = ["cargo-test"]
 description = "Run the Rust tests"
 
 [tasks.test]

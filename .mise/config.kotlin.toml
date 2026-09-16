@@ -14,7 +14,7 @@ java = "26.0.1"
 # On Windows, mise creates no working gradle shim (see the gradle_bin var in config.windows.toml), and a bare
 # `gradle` under busybox bash resolves the extensionless Unix launcher, whose `JAVACMD="$JAVA_HOME/bin/java"`
 # (no `.exe`) check dies with "JAVA_HOME is set to an invalid directory" even though the JDK is present --
-# observed on commit 88825a7217aa80c04171a735fec8f7a550fb75d1 at
+# observed on commit https://github.com/edge-toolkit/core/commit/88825a7217aa80c04171a735fec8f7a550fb75d1 at
 # https://github.com/edge-toolkit/core/actions/runs/31558277244/job/93995051606 (check:kotlin) and
 # https://github.com/edge-toolkit/core/actions/runs/31558277392/job/93995052197 (prefetch:kotlin). The
 # absolute path to `gradle.bat` sidesteps the PATH lookup; busybox's spawnve auto-wraps `.bat` with cmd.exe,
@@ -46,10 +46,10 @@ shell = "{{ vars.task_shell }}"
 #        > Could not set file mode 755 on '/root/.gradle/binaryen/binaryen-version_125'
 #
 # The loser alternates, which is why it reads as an unrelated flake: kotlin-data1 lost on the ubuntu:24.04
-# build at commit 0e7273a1154db315a0f584077db4565ba66be603
+# build at commit https://github.com/edge-toolkit/core/commit/0e7273a1154db315a0f584077db4565ba66be603
 # (https://github.com/edge-toolkit/core/actions/runs/33727571318/job/100559961182), then kotlin-math1 lost on
 # fedora:42 and kotlin-data1 again on opensuse/leap:15.6, both at commit
-# 6c6b6e6f0d123f131d3f41e188660151f6994f9e
+# https://github.com/edge-toolkit/core/commit/6c6b6e6f0d123f131d3f41e188660151f6994f9e
 # (https://github.com/edge-toolkit/core/actions/runs/33847012202/job/100941026418 and
 # .../job/100941026442). `wait_for` rather than `depends`: math1 needs nothing kotlin-data1 produces, so this
 # must not pull that module into a build that only asked for this one -- it only defers when both are already

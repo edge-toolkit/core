@@ -75,7 +75,7 @@ fn unknown_ids_fall_through_to_the_assign_and_no_op_paths() {
     // of it (llvm-cov merges an instantiation group's branch counts by taking the maximum, not the union), so
     // the no-op arm above covered here and the update arm covered only under the server's session type read as
     // one arm each, never both: `libs/edge-toolkit/src/ws_server.rs 9/10 branches` on commit
-    // c6c4fce73dd25aa58754963867ccf9523caae1bb at
+    // https://github.com/edge-toolkit/core/commit/c6c4fce73dd25aa58754963867ccf9523caae1bb at
     // https://github.com/edge-toolkit/core/actions/runs/35045764477/job/104635181514, while the lcov export,
     // which sums instantiations, showed every branch taken.
     registry.mark_disconnected("agent-fresh");

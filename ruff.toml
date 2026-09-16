@@ -24,8 +24,8 @@ line-ending = "lf"
 [lint]
 # On top of the default rule set (E, F). Codes are kept alphabetically sorted.
 #   "ARG" -- flake8-unused-arguments: unused function/method/lambda arguments. This is the local equivalent of
-#   `PYL-W0613`; ruff honours the underscore-prefix convention (`dummy-variable-rgx`), so a param kept
-#   only to satisfy a fixed callback signature (the pyo3-runner `init`/`on_text_frame` hooks) is silenced by
+#   `DeepSource PYL-W0613`; ruff honours the underscore-prefix convention (`dummy-variable-rgx`), so a param
+#   kept only to satisfy a fixed callback signature (the pyo3-runner `init`/`on_text_frame` hooks) is silenced by
 #   renaming it `_send` / `_text` rather than deleting it.
 #   "B" -- flake8-bugbear: likely bugs (mutable defaults, `zip` without `strict=`, loop-variable shadowing, ...).
 #   "C4" -- flake8-comprehensions: unnecessary or unpythonic comprehensions and generator calls.

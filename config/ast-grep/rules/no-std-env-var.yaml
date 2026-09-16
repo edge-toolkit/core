@@ -10,8 +10,11 @@ message: |
     services/ws-wasi-runner/tests/ sets one to opt the spawned runner into a macOS-only fast-exit path.
   - `MISE_*` (e.g. `MISE_ENV`) -- the mise tool's own state, not app config; reading these lets helpers like
     `mise_env_includes` reflect tooling behaviour without round-tripping through a struct.
-  - `PATH` -- the process's own executable search path, not app config; a test that shadows a tool reads it
-    only to hand it back with the stand-in's directory in front.
+
+  Every exemption above is a name prefix, which keeps it self-limiting: a variable has to be named into the
+  exemption to use it. A bare variable name would not be -- it would open that read to every file in the repo,
+  including production code that has a config struct to put it in. `PATH` was such an entry, and is now a
+  one-line `ast-grep-ignore` on the single test helper that shapes `PATH` for a stand-in.
 rule:
   any:
     - pattern: std::env::var($ARG)
@@ -21,10 +24,10 @@ rule:
 constraints:
   ARG:
     not:
-      # Allow a string literal or a const identifier with one of the exempt prefixes, or the exact name PATH.
-      # That is a string literal ("RUST_LOG" / "ET_TEST_..." / "MISE_..." / "PATH") or a const identifier
-      # (RUST_LOG / ET_TEST_... / MISE_... / PATH).
-      regex: '^"?(RUST_|ET_TEST_|MISE_|PATH"?$)'
+      # Allow a string literal or a const identifier carrying one of the exempt prefixes.
+      # That is a string literal ("RUST_LOG" / "ET_TEST_..." / "MISE_...") or a const identifier
+      # (RUST_LOG / ET_TEST_... / MISE_...). Prefixes only -- see the message for why.
+      regex: '^"?(RUST_|ET_TEST_|MISE_)'
 ignores:
   # The project-root helper reads CARGO_MANIFEST_DIR to locate the repo root from a build script.
   # That is a cargo build variable, not app config.

@@ -35,7 +35,8 @@ name = "python"
 # `[[analyzers]]` declared above it -- a shape a lenient parser could flatten so that only the final one
 # survives, which would leave javascript with no module_system and explain the errors exactly. Rewriting all
 # three as inline `meta` keys, which cannot be reattached or overwritten, changed nothing: run
-# 4e3986bd-db2f-440a-84fc-9163ef240292 on commit ab14bf545bf62125dfa4f314952f5cd2b5a6be61 still failed.
+# 4e3986bd-db2f-440a-84fc-9163ef240292 on commit
+# https://github.com/edge-toolkit/core/commit/ab14bf545bf62125dfa4f314952f5cd2b5a6be61 still failed.
 # The inline form is kept only because it is unambiguous; it is not the fix.
 #
 # Also ruled out: the files themselves. The repo's own JS linter parses every one of them as an ES module

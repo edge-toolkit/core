@@ -229,7 +229,8 @@ jobs:
   #
   #     mise ERROR Failed to install tools: conda:m2-gnupg@2.2.41.1, core:java@26.0.1, core:rust@...
   #
-  # naming 18 tools, observed on commit 4488443a7f56398a3a27c4bca9713ba6900a755c at
+  # naming 18 tools, observed on commit
+  # https://github.com/edge-toolkit/core/commit/4488443a7f56398a3a27c4bca9713ba6900a755c at
   # https://github.com/edge-toolkit/core/actions/runs/34409246713/job/102659546843. The causes are upstream,
   # not ours: torch and cryptography publish no `win_arm64` wheel, msys2's conda channel is x86_64-only,
   # Adoptium's newest windows/aarch64 JDK is 23 against the pinned 26, and wasm-bindgen, openobserve, rustfs,
@@ -333,7 +334,7 @@ jobs:
       # runs of the same tree: the full build took 13 to 24 minutes across the branch's earlier runs, then a
       # run that changed no compiled code was cut off at 30 with 798 of 1167 crates done and rustc still
       # visibly working -- `The action 'Build workspace' has timed out after 30 minutes.` on commit
-      # c6c4fce73dd25aa58754963867ccf9523caae1bb at
+      # https://github.com/edge-toolkit/core/commit/c6c4fce73dd25aa58754963867ccf9523caae1bb at
       # https://github.com/edge-toolkit/core/actions/runs/35045764412/job/104635143568.
       - name: Build workspace
         timeout-minutes: 45

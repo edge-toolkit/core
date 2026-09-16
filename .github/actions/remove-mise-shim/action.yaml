@@ -16,7 +16,8 @@ runs:
     #     mise: recursive shim invocation detected for mise: /c/Users/runneradmin/AppData/Local/mise/shims/mise
     #
     # Removing just those two entries lets the PATH search fall through to the real binary while every other
-    # tool keeps the shim it needs. Observed on commit e8e44afc899591ac5cd9b5313e99b2f76a5a23cc at
+    # tool keeps the shim it needs. Observed on commit
+    # https://github.com/edge-toolkit/core/commit/e8e44afc899591ac5cd9b5313e99b2f76a5a23cc at
     # https://github.com/edge-toolkit/core/actions/runs/34430184394/job/102723879106, where test.yaml's
     # `minimal` job installed its toolchain and then could not run a single `mise run` afterwards.
     - name: Remove self-recursive mise shim on Windows

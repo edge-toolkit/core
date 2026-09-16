@@ -48,6 +48,7 @@ members = [
   "utilities/int-gen",
   "utilities/cli",
   "utilities/onnx",
+  "utilities/repo-check",
   "utilities/wasm-cov-wrapper",
   "generated/rust-rest",
 ]
@@ -128,7 +129,8 @@ log = "0.4"
 # and cargo unifies every 0.3.x onto one copy. As a caret range the resolver satisfied that pin the other way
 # round: it kept 0.3.9 for us and dropped wasm-bindgen-test to 0.3.45, whose test exports the 0.2.128 runner
 # cannot see, so every browser coverage build reported `no tests to run!` and then failed on its missing
-# `*.profraw` (`No such file or directory`). Seen on commit e8a38b44eba21f46001ec01cd1ddccdd3eeca4ea at
+# `*.profraw` (`No such file or directory`). Seen on commit
+# https://github.com/edge-toolkit/core/commit/e8a38b44eba21f46001ec01cd1ddccdd3eeca4ea at
 # https://github.com/edge-toolkit/core/actions/runs/35032214650/job/104593077391.
 #
 # `vars.rust_nightly` has to carry the LLVM this minicov targets. 0.3.9 moved to profraw format 11 ("Sync with

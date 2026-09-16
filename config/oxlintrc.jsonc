@@ -28,9 +28,9 @@
     // So it false-positives on every worker-side / main-side `worker.postMessage({...})` call we have.
     "unicorn/require-post-message-target-origin": "off",
     // Type-aware rule flagging `a && a.b` chains that an optional chain (`a?.b`) expresses more safely.
-    // The local equivalent of `JS-W1044`; needs `--type-aware` + oxlint-tsgolint + config/tsconfig.json.
+    // The local equivalent of `DeepSource JS-W1044`; needs `--type-aware` + oxlint-tsgolint + config/tsconfig.json.
     "typescript/prefer-optional-chain": "error",
-    // Cyclomatic-complexity ceiling -- the local twin of `JS-R1005`, keeping branchy code in check.
+    // Cyclomatic-complexity ceiling -- the local twin of `DeepSource JS-R1005`, keeping branchy code in check.
     // 10 is a practical ceiling: eslint's default of 20 is too loose, and that rule's medium=6 too strict here.
     "eslint/complexity": ["error", { "max": 10 }],
   },

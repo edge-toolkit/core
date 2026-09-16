@@ -637,6 +637,25 @@ helper per test. Keep its dependency footprint small (currently just `port_check
 domain-specific gets its own test-support crate instead (e.g. `et-ws-test-server` for an in-process ws-server, or
 `et-test-otlp` for OTLP emit + capture-assertion support).
 
+### Everything under `libs/` carries 100% test coverage
+
+A crate in `libs/` is shared infrastructure: every service and utility in the workspace builds on it, so a gap
+there is a gap in everything downstream, and it is the place where a test costs least relative to what it
+protects. The bar is therefore the whole of it -- every line and every branch, not an aggregate percentage that
+lets one untested helper hide behind a well-covered neighbour. Services and utilities are held to no such
+number; they are covered on their merits, which is exactly why the shared layer underneath has to be total.
+
+Write the tests with the code, not after it. A new function in `libs/` lands in the same change as the tests
+that cover it, and a new branch in an existing one lands with the case that takes it. Finding the gap from a
+red coverage lane instead means the change is already written, reviewed and pushed -- the most expensive moment
+to discover that a branch was unreachable from the public API all along and the function needed a different
+shape. A test that cannot fail is not coverage either: check a new test actually catches the bug it describes
+by breaking the code under it once and watching it go red.
+
+Where a line genuinely cannot be reached -- a platform-gated arm, an error only the OS can produce -- restructure
+so the unreachable part is as small as it can be, and say at the site why it is unreachable. A bare gap reads as
+an oversight to the next person, who then spends the afternoon working out whether it is one.
+
 ### NEVER skip, ignore, or platform-disable a test without explicit user approval
 
 A test that doesn't run is worse than no test: it reads as coverage while asserting nothing. Do not add `#[ignore]`,
@@ -679,14 +698,15 @@ arriving a few seconds after torch's cold first import prints
 `cpu = _conversion_method_template(device=torch.device("cpu"))` line -- i.e. the spawned runner was still inside
 torch's import when the test's registration timeout expired. The ~117 MB `pipx:torch` package's first import on a
 cold runner is the slow step; a rerun passes because the import caches warm. Observed on commit
-`6479913bdc288dd680fbe0520f63054e8c71fe6c` at
+https://github.com/edge-toolkit/core/commit/6479913bdc288dd680fbe0520f63054e8c71fe6c at
 `https://github.com/edge-toolkit/core/actions/runs/28686533955/job/85080173283` (PR #70; the rerun passed and the PR
 merged), and on the `default (macos-latest, 45)` job -- same signature, unix-form
 `torch/lib/python3.13/site-packages/torch/_subclasses/functional_tensor.py:362` warning path -- on commit
-`f2a85307a2415f4a50625627795e02c84f1c8e5d` at
+https://github.com/edge-toolkit/core/commit/f2a85307a2415f4a50625627795e02c84f1c8e5d at
 `https://github.com/edge-toolkit/core/actions/runs/28865327221/job/85613919558` (PR #73), 20.68s into the test
-run. Recurred at commit `1e323acb7fc433b66efed904b3b30ab3216dbf90` (PR #76) on three lanes of one run at once --
-the first Linux sighting, and the first time it took more than a single lane of a commit: build.yaml's
+run. Recurred at commit https://github.com/edge-toolkit/core/commit/1e323acb7fc433b66efed904b3b30ab3216dbf90
+(PR #76) on three lanes of one run at once -- the first Linux sighting, and the first time it took more than a
+single lane of a commit: build.yaml's
 `build (ubuntu:22.04)` (~15.76s) at
 `https://github.com/edge-toolkit/core/actions/runs/29034248895/job/86174973520`, and test.yaml's `override (mingw)`
 (~18.13s) and `override (msvc)` (~18.96s) at
@@ -695,7 +715,8 @@ the first Linux sighting, and the first time it took more than a single lane of 
 failures read as the cold torch import consistently overrunning the timeout rather than an occasional flake -- so
 the root-cause fix below is now due, not optional.
 
-Recurred once more on the `override (mingw)` lane at commit `5998313315c491a6abffb7c1507e4adc4a4f3559`,
+Recurred once more on the `override (mingw)` lane at commit
+https://github.com/edge-toolkit/core/commit/5998313315c491a6abffb7c1507e4adc4a4f3559,
 `https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101938939834`, failing at **122.2s** -- and
 that figure is the diagnosis. The test had two nested deadlines: a 2-minute `PEER_REGISTER_TIMEOUT` around the
 peer wait, inside a 3-minute `TORCH_EXCHANGE_BUDGET` around the whole exchange. The inner one decided every
@@ -737,7 +758,7 @@ and the default `x86_64-pc-windows-gnullvm` both report `target_env = "gnu"`, an
 `all(windows, target_env = "gnu", not(target_abi = "llvm"))`; written without that last clause it silently takes
 the default Windows lane with it.
 
-On commit `5998313315c491a6abffb7c1507e4adc4a4f3559` the same
+On commit https://github.com/edge-toolkit/core/commit/5998313315c491a6abffb7c1507e4adc4a4f3559 the same
 workload passed on `gnullvm` (the default the Windows Dockerfiles and CI build) in 426s and on `msvc` in 443s,
 while `gnu` failed twice with the identical signature -- 644s at
 `https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101938939834`, then 591s on a deliberate
@@ -751,7 +772,8 @@ generated deployment.
 
 Every scenario whose trigger is `wasi-math1-sender` hits it, which is both of them. `pyo3-math1` was left
 ungated on the first pass because fail-fast had cancelled it before it ever ran on `gnu`; it then failed there
-with the identical signature at 579s on commit `29dfe80a62ba7a27d8119c5b6332c3dbe2df815e`
+with the identical signature at 579s on commit
+https://github.com/edge-toolkit/core/commit/29dfe80a62ba7a27d8119c5b6332c3dbe2df815e
 (`https://github.com/edge-toolkit/core/actions/runs/34211905976/job/102014621776`) while passing on `gnullvm`
 in 472s and `msvc` in 458s. Its pyo3 twin registers and idles cleanly throughout -- what aborts is the wasi
 trigger, so the scenario fails for the reason above and not for anything to do with the pyo3 runner.
@@ -769,7 +791,8 @@ rate-limited or time out. The captured signature is a tool install aborting on t
 usually preceded by several retried `mise WARN HTTP GET https://api.github.com/repos/<owner>/<repo>/releases...`
 lines. When it strands the install, the composite's retry step can then trip the separate busybox/Git-Bash
 `cygheap read copy failed` fork pathology and the job hits its action timeout instead of a clean error. Observed on
-the `override (mingw)` job at commit `396aa98d24e4a945528cdbac33fbc61b66831e8a`,
+the `override (mingw)` job at commit
+https://github.com/edge-toolkit/core/commit/396aa98d24e4a945528cdbac33fbc61b66831e8a,
 `https://github.com/edge-toolkit/core/actions/runs/28698136445/job/85111320237` (a rerun of the same commit
 installed cleanly). This is an api.github.com rate-limit/transient-network flake, not a repo defect -- a
 `GITHUB_TOKEN` is already forwarded to raise the ceiling. If it becomes frequent rather than occasional, the
@@ -800,7 +823,8 @@ exponential backoff (`retry_initial_backoff_secs=1`, doubling; `retry_max_durati
 `config/vector-otlp-relay.yaml`), so when its first attempts land in the gap between the mock being told to start
 and its listener actually accepting, the next retry can be tens of seconds out -- and at the original 30s poll
 ceiling that occasionally overran, so the span arrived just after the test gave up. Observed on the `default
-(windows-latest)` lane at commit `71e70e56946abefcea6daf47a7745e5f8f186dad`,
+(windows-latest)` lane at commit
+https://github.com/edge-toolkit/core/commit/71e70e56946abefcea6daf47a7745e5f8f186dad,
 `https://github.com/edge-toolkit/core/actions/runs/28923326008/job/85829470834` (the failure is OS-agnostic --
 any cold/contended runner, macOS included, can hit it). Fix applied: `wait_for_relayed_span` now polls ~120s
 (`Fixed::from_millis(250).take(480)`) instead of ~30s, which the poll exits the instant the span lands so the
@@ -1053,7 +1077,8 @@ not as a repo-wide var-prefix.
 One transient class that hits the `cargo fetch` path specifically: libcurl's `[16] Error in the HTTP2 framing layer`
 during a `crates.io` download. Captured example:
 `https://github.com/edge-toolkit/core/actions/runs/27900771461/job/82560594632`
-on commit `6e4c0030a830e4f8e6b15381cb5c2fbf481af704` -- `asyncapi-rust-codegen` download bailed with `curl failed` ->
+on commit https://github.com/edge-toolkit/core/commit/6e4c0030a830e4f8e6b15381cb5c2fbf481af704 --
+`asyncapi-rust-codegen` download bailed with `curl failed` ->
 `[16] Error in the HTTP2 framing layer`.
 
 `CARGO_NET_RETRY` does **not** cover this -- the framing error surfaces from inside libcurl as a generic
@@ -1211,8 +1236,8 @@ Work the gap in this order, and prefer the earliest step that applies:
 
 1. **Find the local equivalent -- it usually already exists.** The linters here overlap the external services
    heavily, and the codes often correspond directly: DeepSource's `PYL-*` are pylint codes, which ruff
-   implements as `PL*` (`PYL-W0603` is ruff's `PLW0603`, `PYL-W0613` is ruff's `ARG`). If the rule is already
-   enabled, the gap is not the rule -- see step 2.
+   implements as `PL*` (`DeepSource PYL-W0603` is ruff's `PLW0603`, `DeepSource PYL-W0613` is ruff's `ARG`).
+   If the rule is already enabled, the gap is not the rule -- see step 2.
 2. **Check whether an exemption is what hid it.** A path-glob carve-out (a `[lint.per-file-ignores]` entry, a
    `files:` allowlist, an `exclude_paths`) silences the rule for files that do not exist yet, so the local check
    stays quiet while the external analyzer flags each new file. Narrow it: replace the glob with per-site inline

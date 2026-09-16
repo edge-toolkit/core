@@ -1,12 +1,12 @@
 # Every conftest policy carries an accompanying `<name>_test.rego`, or an entry saying why it does not.
-# Run with `--namespace policy_tests` over the policy tree itself, parsed with `ignore` so each file arrives as
-# a path; only the paths are read here, never the contents.
+# Run with `--namespace policy_pairing` over the policy tree itself, parsed with `ignore` so each file arrives
+# as a path; only the paths are read here, never the contents.
 #
 # A policy rule that stops matching does not report anything -- it reports nothing, which is the same output as
 # a clean repo. The real `conftest-check-*` tasks only ever run over files that already comply, so they cannot
 # tell those two apart, and a rule can sit dead for months looking like a passing check. Feeding a known-bad
 # input is the only thing that distinguishes them, and a test file is where that input lives.
-package policy_tests
+package policy_pairing
 
 # conftest reports native separators when it walks a directory, so a Windows lane sees backslashes.
 normalised(path) := replace(path, "\\", "/")

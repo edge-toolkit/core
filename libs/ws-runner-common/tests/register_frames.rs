@@ -85,7 +85,8 @@ async fn a_socket_closed_before_the_ack_reports_connection_closed() {
             // down with a reset instead of a FIN; Linux still hands the client its end-of-stream, but Windows
             // surfaces the reset first, so the client saw
             // `WebSocket(Io(Os { code: 10053, kind: ConnectionAborted, ... }))` instead of `ConnectionClosed`
-            // on the windows-11-arm lane at commit c6c4fce73dd25aa58754963867ccf9523caae1bb
+            // on the windows-11-arm lane at commit
+            // https://github.com/edge-toolkit/core/commit/c6c4fce73dd25aa58754963867ccf9523caae1bb
             // (<https://github.com/edge-toolkit/core/actions/runs/35045764412/job/104635143335>).
             while let Some(Ok(_frame)) = socket.next().await {}
         }

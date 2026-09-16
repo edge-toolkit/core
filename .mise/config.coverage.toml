@@ -55,7 +55,7 @@ RUSTUP_TOOLCHAIN = "{{ vars.rust_nightly }}"
 #   called `Result::unwrap()` on an `Err` value: Output(OutputError { program: ".../target/debug/et-ws-wasi-runner",
 #   status: ExitStatus(unix_wait_status(32512)), stdout_utf8: "", stderr_utf8: "", user_error: None })
 # (32512 >> 8 == 127, the loader's "cannot start" code). Seen on commit
-# b63888492c53cd403168ea24483cea53bde60899 at
+# https://github.com/edge-toolkit/core/commit/b63888492c53cd403168ea24483cea53bde60899 at
 # https://github.com/edge-toolkit/core/actions/runs/30786563725/job/91601098246, in all four wasi-runner tests.
 # Pointing the loader straight at the install dir is layout-independent, so it holds however cargo lays the
 # build dir out. Scoped to this env because only the coverage lane runs binaries under nightly. Drop it together
@@ -123,7 +123,8 @@ coreutils mkdir -p "$ort_build_dir/examples" "$ort_build_dir/deps"
 # nothing back at all. The run completes and the report generates, but every counter in it reads zero:
 #   lines:    0/8677 hit
 #   branches: 0/954 hit
-# from that lane's own artifact on commit 52b2a6a67087fab043c1ea8c520373f5ba2477a4 at
+# from that lane's own artifact on commit
+# https://github.com/edge-toolkit/core/commit/52b2a6a67087fab043c1ea8c520373f5ba2477a4 at
 # https://github.com/edge-toolkit/core/actions/runs/35032214650/job/104593077352, and reproduced on a
 # workstation by changing this one variable and nothing else -- the same crates and tests report real
 # numbers under the merge-pool pattern and zeros under %c. The relocation flag above is what makes %c work
@@ -224,7 +225,7 @@ arg "<libs>" help="Space-separated libs/ directory names that must be at 100% br
 #   error: failed to merge profile data: not found *.profraw files in
 #   /home/runner/work/core/core/target/llvm-cov-target; this may occur if target directory is accidentally
 #   cleared, or running report subcommand without running any tests or binaries
-# on commit 52b2a6a67087fab043c1ea8c520373f5ba2477a4 at
+# on commit https://github.com/edge-toolkit/core/commit/52b2a6a67087fab043c1ea8c520373f5ba2477a4 at
 # https://github.com/edge-toolkit/core/actions/runs/35005110677/job/104502812372. The raw profiles are still
 # on disk at that point -- the collecting task's own `report` leaves them alone -- so the only thing this
 # process was missing is the environment that says where to look.
@@ -272,7 +273,7 @@ for profraw in "$covdir"/*.profraw; do
   # profraw paired with the wrong module's covmap; (2) with 2+ matches, head exits after the first line and the
   # uutils find dies on the broken pipe (Rust ignores SIGPIPE) -- a panic on the Linux runners, exiting 101 with
   # its message discarded by the 2>/dev/null, so `pipefail` killed this task with no output at all. Observed on
-  # commit db374f051f72f7c285fe8267f5acc80a52cfcfd9 at
+  # commit https://github.com/edge-toolkit/core/commit/db374f051f72f7c285fe8267f5acc80a52cfcfd9 at
   # https://github.com/edge-toolkit/core/actions/runs/31994728610/job/95284251850; reproduced locally on macOS
   # as `find: stdout: Undefined error: 0` (EPIPE, exit 1) once the second match exists.
   ll="$(find target -path '*/release/build/*' \\( -name "$name.ll" -o -name "$name-*.ll" \\) -print -quit 2>/dev/null)"
@@ -310,7 +311,7 @@ shell = "{{ vars.task_shell }}"
 # _cov-branch-assert reads. A single export over every guest object against one merged profile was the first
 # shape, and it reported libs/web as absent even though the same objects export it one at a time:
 # `libs/web: no records in the report -- this run never exercised the crate` on commit
-# d32048c2e87fea4693efed25d1f12482cca28248 at
+# https://github.com/edge-toolkit/core/commit/d32048c2e87fea4693efed25d1f12482cca28248 at
 # https://github.com/edge-toolkit/core/actions/runs/35051118134/job/104651501456.
 [tasks.wasm-cov-branch-check]
 description = "Linux-only: fail unless every wasm libs/ crate is at 100% branch coverage"
@@ -456,7 +457,7 @@ driver="${CHROMEDRIVER:-$(mise which chromedriver)}"
 # stack, and follows the object rather than the profile.
 # cov-server crossed the threshold when it gained the storage service's object_store dependency tree (285 crates,
 # a 10.4 MB __llvm_covfun), which is why the coverage lane passed on commit d8d42f9c and failed from
-# 6e80f4decd7d7d78ec6bd770d52105f4bd5db15a onward -- e.g.
+# https://github.com/edge-toolkit/core/commit/6e80f4decd7d7d78ec6bd770d52105f4bd5db15a onward -- e.g.
 # https://github.com/edge-toolkit/core/actions/runs/30988267419/job/92248023234.
 # Dropping branch regions for this one binary keeps its line coverage and costs only its own BRDA records; every
 # other crate still gets branch coverage via `a_wasm_cov_instr` / the show-env wrapper. Restore the flag here

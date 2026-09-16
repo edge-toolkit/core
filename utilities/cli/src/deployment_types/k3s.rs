@@ -330,8 +330,8 @@ fn volume_mount(name: &str, path: &str) -> VolumeMount {
 ///
 /// `path` is a container mount point in the manifest this generator emits, not a path anything in this process
 /// opens, so a caller passing `/tmp` is naming the containerised program's own temp directory rather than
-/// creating a world-writable file on the host. `RS-S1003` reads the literal as the latter, which is why every
-/// call site passing `/tmp` carries a `skipcq` for that one rule.
+/// creating a world-writable file on the host. `DeepSource RS-S1003` reads the literal as the latter, which is
+/// why every call site passing `/tmp` carries a `skipcq` for that one rule.
 fn scratch(name: &str, path: &str) -> (VolumeMount, Volume) {
     let volume = Volume {
         empty_dir: Some(EmptyDirVolumeSource::default()),

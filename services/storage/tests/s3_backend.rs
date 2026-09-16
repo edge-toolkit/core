@@ -66,7 +66,7 @@ fn registry_with_agent(agent_id: &str) -> AgentRegistry<()> {
 /// Both output streams land in `log_path`, and every server-dependent assertion replays that file on failure.
 /// The beta server can fail entirely server-side -- a CI run answered the PUT below with a bare 500 -- and with
 /// its output discarded such a failure is undiagnosable from the test output alone. Observed on commit
-/// d8ad8cb99cf58a1e505cdbebc5b94f9893532b4f at
+/// <https://github.com/edge-toolkit/core/commit/d8ad8cb99cf58a1e505cdbebc5b94f9893532b4f> at
 /// <https://github.com/edge-toolkit/core/actions/runs/31659062139/job/94361390116> (build (ubuntu:26.04) rerun).
 #[expect(
     clippy::single_call_fn,
@@ -130,7 +130,7 @@ fn aws_env(port: u16) -> Vec<(&'static str, Option<String>)> {
 // Fixed upstream in rustfs PR https://github.com/rustfs/rustfs/pull/5663 (guarded dirs now share FILE_SHARE_WRITE
 // too; related issue https://github.com/rustfs/rustfs/issues/5419), merged 2026-08-03 -- AFTER the beta.12 tag
 // (2026-07-30), so no released rustfs contains it yet. Observed on our commit
-// 59f4ab6368af5c6824dafe2e11c9c598f16f5334 at
+// https://github.com/edge-toolkit/core/commit/59f4ab6368af5c6824dafe2e11c9c598f16f5334 at
 // https://github.com/edge-toolkit/core/actions/runs/30980282749/job/92223040435 (default (windows-latest, 120)).
 // Re-enable by dropping this attribute once the `rustfs` mise tool is bumped to a release that includes #5663.
 #[actix_rt::test]

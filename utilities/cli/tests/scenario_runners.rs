@@ -157,7 +157,7 @@ fn stored_model(storage_dir: &std::path::Path) -> Option<(f64, f64)> {
 // test drives runs `cargo run --quiet -p et-ws-web-runner`. Asking Windows to build the one crate CI has decided
 // to skip there is not a gap this test can close; that is the gnullvm rusty_v8 work, tracked separately.
 //
-// Observed on commit 809600492822c600f14c19a35b1ff50bef687c23 at
+// Observed on commit https://github.com/edge-toolkit/core/commit/809600492822c600f14c19a35b1ff50bef687c23 at
 // https://github.com/edge-toolkit/core/actions/runs/34108671291/job/101699520407 as
 //   FAIL + LEAK [ 363.640s] (177/177) et-cli::scenario_runners math1_scenario_generated_runner_tasks_compute_the_model
 //   no math1-output.json appeared in any storage bucket under C:\Users\RUNNER~1\AppData\Local\Temp\.tmpKcKuqX
@@ -192,14 +192,15 @@ fn math1_scenario_generated_runner_tasks_compute_the_model() {
 // import -- an async host call awaited on a wasmtime fiber. The reading that fits is tokio's thread-local
 // runtime context not surviving the fiber stack switch under that target's TLS model.
 //
-// It is the target env, not Windows. On commit 5998313315c491a6abffb7c1507e4adc4a4f3559 `wasi-math1` passed on
+// It is the target env, not Windows. On commit
+// https://github.com/edge-toolkit/core/commit/5998313315c491a6abffb7c1507e4adc4a4f3559 `wasi-math1` passed on
 // `gnullvm` (which `config.windows.toml` actually builds) in 426s and on `msvc` in 443s, while `gnu` failed
 // twice with the identical signature -- 644s at
 // https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101938939834 and 591s on the re-run at
 // https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101958844541 -- so it is reproducible
 // rather than a flake. `pyo3-math1` was left ungated at that point because fail-fast had cancelled it before
 // it ran on `gnu`; it then reproduced the same abort there at 579s on commit
-// 29dfe80a62ba7a27d8119c5b6332c3dbe2df815e,
+// https://github.com/edge-toolkit/core/commit/29dfe80a62ba7a27d8119c5b6332c3dbe2df815e,
 // https://github.com/edge-toolkit/core/actions/runs/34211905976/job/102014621776, having passed on `gnullvm` in
 // 472s and `msvc` in 458s. Its captured output puts the fault squarely on the trigger: the pyo3 twin registers
 // as an agent and idles to its own timeout, while the wasi trigger aborts as above.

@@ -9,7 +9,7 @@
 #   c:/i/http-busybox/1.37.0/ash: line 0: cargo: not found
 #
 # with dart, uv, rclone, zig, wasm-pack and coreutils all failing the same way in the same run, on commit
-# 17056fad10ade2af7b2df3eced29f9ae77d20f3e at
+# https://github.com/edge-toolkit/core/commit/17056fad10ade2af7b2df3eced29f9ae77d20f3e at
 # https://github.com/edge-toolkit/core/actions/runs/33877826343/job/101038940930. Upstream deleted the rewrite in
 # jdx/mise#12696, which sits in no release yet -- once it ships, this file becomes a no-op on every platform and
 # can go. Repointing MISE_BASH_PATH at an msys2 bash would also fix it, since that runtime renormalises the

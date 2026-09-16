@@ -39,7 +39,7 @@ ruff = "latest"
 #
 #     Cannot find pyodide pip. Make a pyodide venv first?
 #
-# on commit 5fb4626293685ee13b2da3b19686830ec5833cbb at
+# on commit https://github.com/edge-toolkit/core/commit/5fb4626293685ee13b2da3b19686830ec5833cbb at
 # https://github.com/edge-toolkit/core/actions/runs/31864076908/job/94962233487, passing only on the retry
 # step once the full `mise install` had put real CPython on PATH. Nothing runs pyodide from PATH (the modules
 # service reads the install dir straight off disk), so point bin_path at a deliberately nonexistent subdir --

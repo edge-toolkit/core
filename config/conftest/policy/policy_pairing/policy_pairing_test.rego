@@ -8,9 +8,9 @@
 # A fixture holds a handful of paths rather than the whole policy tree, so every real `untested_policy` entry is
 # absent from it and the stale-entry rule reports each one. That noise is expected here, and is why these assert
 # on the message they are about rather than on a count.
-package policy_tests_test
+package policy_pairing_test
 
-import data.policy_tests
+import data.policy_pairing
 
 files(paths) := [entry | some p in paths; entry := {"path": p, "contents": [[]]}]
 
@@ -22,7 +22,7 @@ names(msgs, fragment) if {
 demo_wanted := "add config/conftest/policy/demo/demo_test.rego"
 
 test_policy_with_its_test_is_accepted if {
-	msgs := policy_tests.deny with input as files([
+	msgs := policy_pairing.deny with input as files([
 		"config/conftest/policy/demo/demo.rego",
 		"config/conftest/policy/demo/demo_test.rego",
 	])
@@ -30,19 +30,19 @@ test_policy_with_its_test_is_accepted if {
 }
 
 test_policy_without_a_test_is_flagged if {
-	msgs := policy_tests.deny with input as files(["config/conftest/policy/demo/demo.rego"])
+	msgs := policy_pairing.deny with input as files(["config/conftest/policy/demo/demo.rego"])
 	names(msgs, demo_wanted)
 }
 
 # A test file is not itself a policy, so it must not demand a test of its own.
 test_test_file_does_not_demand_its_own_test if {
-	msgs := policy_tests.deny with input as files(["config/conftest/policy/demo/demo_test.rego"])
+	msgs := policy_pairing.deny with input as files(["config/conftest/policy/demo/demo_test.rego"])
 	not names(msgs, "demo_test_test.rego")
 }
 
 # Pairing is per policy, so another policy's test does not answer for this one.
 test_another_policy_test_does_not_count if {
-	msgs := policy_tests.deny with input as files([
+	msgs := policy_pairing.deny with input as files([
 		"config/conftest/policy/demo/demo.rego",
 		"config/conftest/policy/other/other_test.rego",
 	])
@@ -53,7 +53,7 @@ test_another_policy_test_does_not_count if {
 # Unnormalised, the `.rego` suffix still matches, so the policy is still demanded -- but its test is never
 # recognised as the answer, and the check goes red on that lane alone for files that are perfectly paired.
 test_windows_separators_still_pair_up if {
-	msgs := policy_tests.deny with input as files([
+	msgs := policy_pairing.deny with input as files([
 		"config\\conftest\\policy\\demo\\demo.rego",
 		"config\\conftest\\policy\\demo\\demo_test.rego",
 	])
@@ -62,18 +62,18 @@ test_windows_separators_still_pair_up if {
 
 # Anything that is not a .rego is none of this rule's business.
 test_non_rego_files_are_ignored if {
-	msgs := policy_tests.deny with input as files(["config/conftest/policy/demo/README.md"])
+	msgs := policy_pairing.deny with input as files(["config/conftest/policy/demo/README.md"])
 	not names(msgs, "README")
 }
 
 # An exception excuses the policy it names, and only that one.
 test_excepted_policy_needs_no_test if {
-	msgs := policy_tests.deny with input as files(["config/conftest/policy/jscpd/jscpd.rego"])
+	msgs := policy_pairing.deny with input as files(["config/conftest/policy/jscpd/jscpd.rego"])
 	not names(msgs, "add config/conftest/policy/jscpd/jscpd_test.rego")
 }
 
 test_exception_does_not_cover_other_policies if {
-	msgs := policy_tests.deny with input as files([
+	msgs := policy_pairing.deny with input as files([
 		"config/conftest/policy/jscpd/jscpd.rego",
 		"config/conftest/policy/demo/demo.rego",
 	])
@@ -82,7 +82,7 @@ test_exception_does_not_cover_other_policies if {
 
 # Writing the test is what retires the entry, so an entry that outlives its answer reports.
 test_excepted_policy_that_gained_a_test_reports_the_stale_entry if {
-	msgs := policy_tests.deny with input as files([
+	msgs := policy_pairing.deny with input as files([
 		"config/conftest/policy/jscpd/jscpd.rego",
 		"config/conftest/policy/jscpd/jscpd_test.rego",
 	])
@@ -90,6 +90,6 @@ test_excepted_policy_that_gained_a_test_reports_the_stale_entry if {
 }
 
 test_excepted_policy_that_was_deleted_reports_the_stale_entry if {
-	msgs := policy_tests.deny with input as files(["config/conftest/policy/demo/demo.rego"])
+	msgs := policy_pairing.deny with input as files(["config/conftest/policy/demo/demo.rego"])
 	names(msgs, "names a policy that no longer exists")
 }

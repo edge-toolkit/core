@@ -20,7 +20,8 @@
 # Windows lane is long enough that cmd.exe discards it, leaving nothing to search:
 #     'clang-format' is not recognized as an internal or external command,
 #     operable program or batch file.
-# That took down the windows-latest check lane on commit 0dd8cb009e2b81f9013d7a647092adf383391284 at
+# That took down the windows-latest check lane on commit
+# https://github.com/edge-toolkit/core/commit/0dd8cb009e2b81f9013d7a647092adf383391284 at
 # https://github.com/edge-toolkit/core/actions/runs/31773896309/job/94685231006. An absolute path needs no
 # lookup, so the launcher runs whatever cmd.exe did with the PATH. pipx's Windows entry points are real
 # `.exe`s, so cpplint and flawfinder are unaffected.
@@ -36,7 +37,8 @@ zig = "latest"
 # filters llvm-mingw out of the Windows toolset PATH. cc-rs builds then fall through to the GHA runner's
 # system clang (MSVC-default, no mingw sysroot) and every C-compiling build script dies with, e.g.:
 #     aws-lc-sys@0.41.0: ...\aws-lc\tests\compiler_features_tests\c11.c:7:10: fatal error: 'stdlib.h' file not found
-# which took down every Windows job on commit 60b631d4dea8d19f50386f1568bf6128c956795c at
+# which took down every Windows job on commit
+# https://github.com/edge-toolkit/core/commit/60b631d4dea8d19f50386f1568bf6128c956795c at
 # https://github.com/edge-toolkit/core/actions/runs/28995222108/job/86043285466 (check windows-latest lane).
 # The windows-x64 matching below mirrors the config.windows.toml entry -- keep them identical.
 [tools."github:mstorsjo/llvm-mingw"]

@@ -4417,6 +4417,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "et-repo-check"
+version = "0.1.0"
+dependencies = [
+ "command-error",
+ "fs-err",
+ "regex",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "et-rest-client"
 version = "0.1.0"
 dependencies = [
@@ -4469,9 +4479,11 @@ name = "et-test-helpers"
 version = "0.1.0"
 dependencies = [
  "command-error",
+ "fs-err",
  "port_check",
  "retry",
  "temp-env",
+ "tempfile",
 ]
 
 [[package]]
