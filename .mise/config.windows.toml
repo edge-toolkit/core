@@ -154,6 +154,15 @@ py3_win_fwd = "{{ vars.a_mise_installs_fwd }}/python/3.13.14/python.exe"
 # ORT_LIB_LOCATION in config.toml [env] picks this on Windows. Version segment must match the
 # [tools] pin (conftest's version_drift enforces this).
 ort_loc_win = '{{ vars.mise_installs }}\github-microsoft-onnxruntime\1.22.0'
+# The same install's DLL dir, prepended by the [env] `_.path` below so a binary linking ORT can start.
+# ORT_LIB_LOCATION only tells the build where to link from; at load time Windows resolves onnxruntime.dll
+# through the classic search, which reaches PATH but not the mise install dir. Until a test linked the
+# et-ws-wasi-runner library nothing exercised that -- the runner binary is built but never started in the
+# image -- so the servercore container aborted test enumeration outright:
+#     error: creating test list failed
+#     for `et-ws-wasi-runner::ws_backend`, command `...\ws_backend-<hash>.exe --list --format terse`
+#     aborted with code 0xc0000135: The specified module could not be found. (os error 126)
+ort_bin_win = '{{ vars.ort_loc_win }}\lib'
 # llvm-mingw's bin dir (the github:mstorsjo/llvm-mingw install above).
 # The linker/dlltool [env] vars below point at absolute exes in here rather than bare names because mise's
 # cargo backend doesn't activate llvm-mingw onto the cargo: source-build subprocess's PATH: a bare `clang`
@@ -284,6 +293,7 @@ _.path = [
   "{{ vars.m2_gnupg_bin }}",
   "{{ vars.m2_make_bin }}",
   "{{ vars.maven_bin }}",
+  "{{ vars.ort_bin_win }}",
   "{{ vars.win_libclang }}",
 ]
 
