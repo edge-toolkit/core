@@ -296,14 +296,22 @@ fn run_scenario(scenario: &str, twin_task: &str, twin_crate: &str, trigger_crate
     let trigger_exited = trigger.guard.wait_for_exit(RUNNER_EXIT_TIMEOUT);
 
     let Some((weight, bias)) = model else {
+        // The two exit flags are reported here, not just asserted on the happy path below.
+        // A runner that writes nothing is the hard case to read: empty output alone cannot distinguish a
+        // process that died before it could log from one that started and sat idle, and the assertions that
+        // would have said which are never reached once this branch panics.
         panic!(
             concat!(
                 "{}: no math1-output.json appeared in any storage bucket under {}\n",
+                "exited within RUNNER_EXIT_TIMEOUT: {}={}, math1-trigger={}\n",
                 "--- {} stdout ---\n{}\n--- {} stderr ---\n{}\n",
                 "--- math1-trigger stdout ---\n{}\n--- math1-trigger stderr ---\n{}"
             ),
             scenario,
             storage_dir.display(),
+            twin_task,
+            twin_exited,
+            trigger_exited,
             twin_task,
             captured(&twin.stdout),
             twin_task,
