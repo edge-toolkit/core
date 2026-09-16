@@ -35,9 +35,10 @@
 # The libs/ crates each branch-coverage check is answerable for, as directory names under libs/.
 # The split is which pipeline carries the crate's coverage, not a judgement about how well tested it is.
 # The native set is everything cargo-llvm-cov's own run instruments and reports; the wasm set is the two
-# crates that only ever compile to wasm, whose covmaps reach lcov.info through wasm-cov's .ll-gutting path
-# and so can only be asserted where that path runs. A crate belongs to exactly one list: naming it in both
-# would let a gap in one pipeline be answered by the other.
+# crates that only ever compile to wasm, whose covmaps come out of the .ll-gutting path the three wasm-side
+# tasks share (wasm-cov for the guests, wasm-agent-cov and pic-viewer-cov for the browser tests) and so can
+# only be asserted where that path runs. A crate belongs to exactly one list: naming it in both would let a
+# gap in one pipeline be answered by the other.
 native_cov_libs = "edge-toolkit et-otlp path test-helpers test-otlp ws-runner-common"
 wasm_cov_libs = "wasi-guest web"
 
@@ -299,11 +300,18 @@ shell = "{{ vars.task_shell }}"
 # header). Windows never runs coverage at all. So on any other OS there is no data to judge and the check says
 # so and stops, rather than passing on an empty report.
 #
-# One export over every module at once, not one per module.
-# libs/web and libs/wasi-guest are linked into several guests, so each module's covmap holds its own partial
-# view of the same source file. Exported separately those views would be judged separately and a branch
-# covered by one guest would still read as missed in another; merging the profraw first makes the export the
-# union, which is what "did anything exercise this branch" means. Same shape wasm-agent-cov already uses.
+# One export per coverage source, folded into a union, rather than one export over everything.
+# libs/web and libs/wasi-guest are linked into several guests and into the browser test binaries, so every
+# source holds its own partial view of the same file, and "did anything exercise this branch" is the union of
+# those views. The sources are what the three merge tasks leave behind: wasm-cov's per-guest profdata and gutted
+# object under target/wasi-cov, and the agent's and pic-viewer's profdata plus every object their test binary
+# linked under target/agent-cov and target/pic-viewer-cov. Each is exported on its own, with the branch regions a
+# full `--format=text` export carries, and cov-branch-union.jq folds them into the summary shape
+# _cov-branch-assert reads. A single export over every guest object against one merged profile was the first
+# shape, and it reported libs/web as absent even though the same objects export it one at a time:
+# `libs/web: no records in the report -- this run never exercised the crate` on commit
+# d32048c2e87fea4693efed25d1f12482cca28248 at
+# https://github.com/edge-toolkit/core/actions/runs/35051118134/job/104651501456.
 [tasks.wasm-cov-branch-check]
 description = "Linux-only: fail unless every wasm libs/ crate is at 100% branch coverage"
 run = """
@@ -312,30 +320,49 @@ if [ "$os" != "Linux" ]; then
   echo "wasm-cov-branch-check: the wasm coverage pipeline only runs on Linux; nothing to check on $os"
   exit 0
 fi
-covdir=target/wasi-cov
-if [ -z "$(find "$covdir" -maxdepth 1 -name '*.profraw' -print -quit 2>/dev/null)" ]; then
-  echo "wasm-cov-branch-check: no $covdir/*.profraw -- run the instrumented wasm build and wasm-cov first" >&2
-  exit 1
-fi
-found="$(find "$covdir" -maxdepth 1 -name '*.o' -print 2>/dev/null | coreutils sort)"
-if [ -z "$found" ]; then
-  echo "wasm-cov-branch-check: no $covdir/*.o -- wasm-cov has not gutted the guest .ll into objects yet" >&2
-  exit 1
-fi
-objs=()
-while IFS= read -r obj; do
-  [ -n "$obj" ] || continue
-  objs+=("-object" "$obj")
-done <<OBJS
-$found
-OBJS
 host="$(rustc -vV | goawk '/^host:/ { print $2 }')"
 bin="$(rustc +{{ vars.rust_nightly }} --print sysroot)/lib/rustlib/$host/bin"
-coreutils mkdir -p target/cov
+exports=target/cov/wasm-branch
+coreutils rm -rf "$exports"
+coreutils mkdir -p "$exports"
+export_branches() {
+  out=$1
+  profdata=$2
+  shift 2
+  "$bin/llvm-cov" export --format=text --instr-profile "$profdata" "$@" >"$exports/$out.json"
+}
+
+guests=target/wasi-cov
+if [ -z "$(find "$guests" -maxdepth 1 -name '*.o' -print -quit 2>/dev/null)" ]; then
+  echo "wasm-cov-branch-check: no $guests/*.o -- run the instrumented wasm build and wasm-cov first" >&2
+  exit 1
+fi
+for obj in "$guests"/*.o; do
+  name="$(coreutils basename "$obj" .o)"
+  export_branches "guest-$name" "$guests/$name.profdata" -object "$obj"
+done
+
+for run in "agent-cov agent" "pic-viewer-cov pic-viewer"; do
+  dir="target/${run%% *}"
+  profdata="$dir/${run#* }.profdata"
+  if [ ! -f "$profdata" ]; then
+    echo "wasm-cov-branch-check: no $profdata -- run the browser coverage task that writes it first" >&2
+    exit 1
+  fi
+  objs=()
+  while IFS= read -r obj; do
+    [ -n "$obj" ] || continue
+    objs+=("-object" "$obj")
+  done <<OBJS
+$(find "$dir" -maxdepth 1 -name '*.o' -print 2>/dev/null | coreutils sort)
+OBJS
+  export_branches "${run#* }" "$profdata" "${objs[@]}"
+done
+
 report=target/cov/wasm-libs.json
-prof="$covdir/all.profdata"
-"$bin/llvm-profdata" merge -sparse -o "$prof" "$covdir"/*.profraw
-"$bin/llvm-cov" export --format=text --summary-only --instr-profile "$prof" "${objs[@]}" >"$report"
+coreutils cat "$exports"/*.json | jaq -n -f .mise/cov-branch-union.jq >"$report"
+echo "wasm-cov-branch-check: libs/ files in the union:"
+jaq -r '.data[0].files[].filename | select(contains("/libs/"))' "$report" | coreutils sort
 mise run _cov-branch-assert "$report" "{{ vars.wasm_cov_libs }}"
 """
 shell = "{{ vars.task_shell }}"

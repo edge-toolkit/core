@@ -77,6 +77,19 @@ pub async fn request_sensor_permission(target: JsValue) -> Result<String, JsValu
 )]
 pub async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
+    sleep_ms_on(&window, duration_ms).await
+}
+
+/// Resolve after `duration_ms` milliseconds via `window`'s `setTimeout`, rejecting if that call throws.
+///
+/// Takes the window rather than reading it, for the reason [`websocket_url_from_location`] takes the location:
+/// the browser's own `setTimeout` never throws for a callback and a delay, so the rejection this returns when
+/// it does can only be asserted against a window handed in.
+#[expect(
+    clippy::future_not_send,
+    reason = "wasm_bindgen_futures::JsFuture is Rc-backed and never Send; runs in single-threaded browser WASM"
+)]
+pub async fn sleep_ms_on(window: &web_sys::Window, duration_ms: i32) -> Result<(), JsValue> {
     let promise = js_sys::Promise::new(&mut |resolve, reject| {
         let callback = Closure::once_into_js(move || {
             ignore(resolve.call0(&JsValue::NULL));
@@ -95,10 +108,19 @@ pub async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
 pub fn websocket_url() -> Result<String, JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let location = js_sys::Reflect::get(window.as_ref(), &JsValue::from_str("location"))?;
-    let protocol = js_sys::Reflect::get(&location, &JsValue::from_str("protocol"))?
+    websocket_url_from_location(&location)
+}
+
+/// The `/ws` endpoint URL for a page at `location`, upgrading to `wss:` when its protocol is `https:`.
+///
+/// Takes the location rather than reading `window.location`: a test page is only ever served over plain
+/// http, so the `wss:` upgrade can be asserted only against a location handed in. `location` needs just the
+/// `protocol` and `host` properties, which is what makes a plain object stand in for the real one.
+pub fn websocket_url_from_location(location: &JsValue) -> Result<String, JsValue> {
+    let protocol = js_sys::Reflect::get(location, &JsValue::from_str("protocol"))?
         .as_string()
         .ok_or_else(|| JsValue::from_str("window.location.protocol is unavailable"))?;
-    let host = js_sys::Reflect::get(&location, &JsValue::from_str("host"))?
+    let host = js_sys::Reflect::get(location, &JsValue::from_str("host"))?
         .as_string()
         .ok_or_else(|| JsValue::from_str("window.location.host is unavailable"))?;
     let ws_protocol = if protocol == "https:" { "wss:" } else { "ws:" };

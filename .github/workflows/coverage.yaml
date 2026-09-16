@@ -162,7 +162,9 @@ jobs:
         timeout-minutes: 20
         run: mise run pic-viewer-cov
 
-      # After all three merges, because it reads what they leave in target/wasi-cov.
+      # After all three merges, because it reads what they leave behind.
+      # That is the guests' profiles and objects under target/wasi-cov, and the two browser runs' under
+      # target/agent-cov and target/pic-viewer-cov.
       # The task is Linux-gated internally as well as here: this `if` keeps the step off the macOS lane at all,
       # and the gate inside it keeps a direct `mise run` on a workstation from passing on an empty report.
       - name: Check wasm libs/ branch coverage
