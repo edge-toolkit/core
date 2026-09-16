@@ -435,10 +435,10 @@ url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x
 #
 # The version is chosen by its LLVM, which has to match the `minicov` in [workspace.dependencies]: minicov
 # writes the guests' profraw and this toolchain's llvm-tools reads it, so a mismatch traps the guest with
-# `wasm trap: out of bounds memory access` in `coverage::dump`. `nightly-2026-08-31` (rustc 908501772) carries
-# LLVM 23.1.0, which is the profraw-11 format minicov 0.3.9 emits. Bump this and minicov together, never one
+# `wasm trap: out of bounds memory access` in `coverage::dump`. `nightly-2026-08-05` (rustc 1ed2df61a) carries
+# LLVM 22.1.8, which is the profraw-10 format minicov 0.3.8 emits. Bump this and minicov together, never one
 # alone, and check `rustc +<nightly> --version --verbose` reports an LLVM the minicov release names.
-rust_nightly = "nightly-2026-08-31"
+rust_nightly = "nightly-2026-08-05"
 # Tier-`a_` prefix marks leaf values referenced by later vars.
 # a_* vars are referenced by later vars (face1_src), and mise renders [vars] in alphabetical order; `a_` sorts
 # before every non-prefixed var name so the reference resolves. Shared GitHub release tag for the HF-asset

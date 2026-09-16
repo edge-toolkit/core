@@ -232,6 +232,7 @@ deny contains msg if {
 # crate's own `package.version` -- the rule above enforces exactly that -- which is always a full triple.
 patch_pin_exception := {
 	"deno_error": "exact pin: JsErrorBox must be the type deno_core holds, so a 0.7.2 would be a second copy",
+	"minicov": "exact pin: wasm-bindgen-test 0.3.78 requires =0.3.8, and cargo holds one 0.3.x copy for both",
 	"ort": "exact pin on a prerelease, which has no two-part form; rc.11+ moved API wasmtime-wasi-nn calls",
 	"wasmtime": "47.0.3 is the security floor; RUSTSEC-2026-0222 has no fix anywhere below it in the 47 line",
 	"wasmtime-internal-wit-bindgen": "47.0.4 tracks the wasmtime release; the crate is internal and its API can move",

@@ -1210,6 +1210,7 @@ checksum = "sha256:b51f0208fdff83515a787bd8ab9ac5865ed84dabb66d0c709957bb59793c6
 url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.128/wasm-bindgen-0.2.128-x86_64-unknown-linux-musl.tar.gz"
 url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/545035799"
 provenance = "github-attestations"
+provenance_verified = true
 
 [tools."github:wasm-bindgen/wasm-bindgen"."platforms.macos-arm64"]
 checksum = "sha256:67ba17f260977725c0b541b516dbb5153538140f079a900329fb6077661b47ab"
@@ -1751,7 +1752,7 @@ url = "https://github.com/BurntSushi/ripgrep/releases/download/15.1.0/ripgrep-15
 url_api = "https://api.github.com/repos/BurntSushi/ripgrep/releases/assets/307305871"
 
 [[tools.rust]]
-version = "nightly-2026-08-31"
+version = "nightly-2026-08-05"
 backend = "core:rust"
 
 [tools.rust.options]
