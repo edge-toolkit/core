@@ -79,6 +79,15 @@ async fn a_socket_closed_before_the_ack_reports_connection_closed() {
             };
             let _connect = socket.next().await;
             let _closed = socket.close(None).await;
+            // Drain until the client's close reply has been read and the stream ends, so the socket is
+            // dropped only after the close handshake completes. Dropping it straight after sending the close
+            // frame leaves that reply unread in the receive buffer, which makes the kernel tear the connection
+            // down with a reset instead of a FIN; Linux still hands the client its end-of-stream, but Windows
+            // surfaces the reset first, so the client saw
+            // `WebSocket(Io(Os { code: 10053, kind: ConnectionAborted, ... }))` instead of `ConnectionClosed`
+            // on the windows-11-arm lane at commit c6c4fce73dd25aa58754963867ccf9523caae1bb
+            // (<https://github.com/edge-toolkit/core/actions/runs/35045764412/job/104635143335>).
+            while let Some(Ok(_frame)) = socket.next().await {}
         }
     });
 

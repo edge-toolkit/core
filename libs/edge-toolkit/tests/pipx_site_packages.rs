@@ -101,6 +101,32 @@ fn write_fake_mise_that_fails_its_queries(dir: &TempDir) {
         .arg(&source)
         .output_checked()
         .unwrap();
+    // Run it once by path before anything depends on it, so a stand-in that compiled but cannot start fails
+    // here with its own error instead of surfacing later as "mise is absent".
+    let _probed: std::process::Output = std::process::Command::new(&exe)
+        .arg("--version")
+        .output_checked()
+        .unwrap();
+}
+
+/// `PATH` with `dir` in front of the current value, so a stand-in there shadows the real tool.
+///
+/// In front of rather than instead of: the probe runs under this `PATH`, and an executable the toolchain has
+/// just built may still resolve part of its runtime through it. With `PATH` cut down to the stand-in's own
+/// directory, the x64 Windows lanes (whose Rust host is `x86_64-pc-windows-gnullvm`) compiled the stand-in
+/// and then reported mise absent -- `the stand-in must answer --version, or this asserts the wrong branch`
+/// on commit c6c4fce73dd25aa58754963867ccf9523caae1bb at
+/// <https://github.com/edge-toolkit/core/actions/runs/35045764412/job/104635143708> -- while the arm64 lane,
+/// hosted on `aarch64-pc-windows-msvc`, found it. Search order still puts `dir` first, which is all the
+/// shadowing needs.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct fixture step beside the stand-in builder; kept separate so the PATH shape is explained once"
+)]
+fn path_with_first(dir: &std::path::Path) -> String {
+    let rest = std::env::var_os("PATH").unwrap_or_default();
+    let joined = std::env::join_paths(std::iter::once(dir.to_path_buf()).chain(std::env::split_paths(&rest))).unwrap();
+    joined.to_string_lossy().into_owned()
 }
 
 #[test]
@@ -112,7 +138,7 @@ fn a_failing_tool_list_query_yields_no_paths() {
     let dir = TempDir::new().unwrap();
     write_fake_mise_that_fails_its_queries(&dir);
 
-    let (available, found) = availability_and_lookup(&dir.path().display().to_string());
+    let (available, found) = availability_and_lookup(&path_with_first(dir.path()));
 
     // Asserted first, and separately: an empty list is also what a *missing* mise produces, so without
     // pinning the stand-in as present this test would still pass if it were never found at all -- exercising

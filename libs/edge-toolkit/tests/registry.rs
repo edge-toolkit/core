@@ -69,6 +69,23 @@ fn unknown_ids_fall_through_to_the_assign_and_no_op_paths() {
     );
     assert_eq!(summaries[0].agent_id, "agent-fresh");
     assert_eq!(summaries[0].state, AgentConnectionState::Connected);
+
+    // The known-id arm, asserted in this same `S = String` instantiation rather than left to the server tests
+    // that hit it for real. The branch gate scores a generic function by the instantiation that covers the most
+    // of it (llvm-cov merges an instantiation group's branch counts by taking the maximum, not the union), so
+    // the no-op arm above covered here and the update arm covered only under the server's session type read as
+    // one arm each, never both: `libs/edge-toolkit/src/ws_server.rs 9/10 branches` on commit
+    // c6c4fce73dd25aa58754963867ccf9523caae1bb at
+    // https://github.com/edge-toolkit/core/actions/runs/35045764477/job/104635181514, while the lcov export,
+    // which sums instantiations, showed every branch taken.
+    registry.mark_disconnected("agent-fresh");
+    let summaries = registry.list_agents();
+    assert_eq!(summaries[0].state, AgentConnectionState::Disconnected);
+    assert_eq!(
+        registry.agent_session("agent-fresh"),
+        None,
+        "disconnecting must drop the session handle"
+    );
 }
 
 #[test]

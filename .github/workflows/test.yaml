@@ -254,13 +254,14 @@ jobs:
       # source-build vector and rustfs, neither of which completes. Naming tools individually sidesteps both,
       # so these lanes exercise the compiler and the self-contained tests where `default` cannot run at all.
       # macos/x64 gets the larger bound because its cargo_ws_excludes is empty, so it also builds
-      # et-ws-web-runner (deno -> rusty_v8) that the Windows lanes drop.
+      # et-ws-web-runner (deno -> rusty_v8) that the Windows lanes drop; it covers the sum of the step ceilings
+      # below (install 25 + lld 10 + build 45 + tests 20), so the build step's own limit is the one that binds.
       matrix:
         include:
           - os: windows-11-arm
             timeout: 45
           - os: macos-26-intel
-            timeout: 75
+            timeout: 100
     # Job-level so it is already set when install-mise runs `mise trust` and reports the value.
     env:
       MISE_ENV: rust
@@ -328,8 +329,14 @@ jobs:
         uses: ./.github/actions/remove-mise-shim
 
       # A build, not a check: codegen and linking are where a new host triple actually fails.
+      # The ceiling allows for the macos-26-intel runners' pace, which swings by more than two to one between
+      # runs of the same tree: the full build took 13 to 24 minutes across the branch's earlier runs, then a
+      # run that changed no compiled code was cut off at 30 with 798 of 1167 crates done and rustc still
+      # visibly working -- `The action 'Build workspace' has timed out after 30 minutes.` on commit
+      # c6c4fce73dd25aa58754963867ccf9523caae1bb at
+      # https://github.com/edge-toolkit/core/actions/runs/35045764412/job/104635143568.
       - name: Build workspace
-        timeout-minutes: 30
+        timeout-minutes: 45
         run: mise run cargo-build
 
       # Only the tests that need no server, module or network -- see the cargo-test-libs task for which and why.
