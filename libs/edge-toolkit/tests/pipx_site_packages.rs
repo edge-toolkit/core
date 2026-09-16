@@ -6,6 +6,7 @@
 
 #![cfg(test)]
 
+use command_error::CommandExt as _;
 use edge_toolkit::config::find_site_packages_in;
 use fs_err as fs;
 use tempfile::TempDir;
@@ -65,42 +66,41 @@ fn site_packages_lookup_is_empty_when_mise_is_missing() {
     );
 }
 
-/// Write a stand-in `mise` into `dir` that answers `--version` and fails every other invocation.
+/// Build a stand-in `mise` into `dir` that answers `--version` and fails every other invocation.
 ///
 /// The availability probe and the tool-list call are two separate spawns of the same name, so the only way to
 /// reach the "mise is here but the query failed" path is a command that distinguishes between them.
+///
+/// A real executable, compiled here by `rustc`, rather than a script: the probe spawns the bare name `mise`,
+/// which Windows resolves to `mise.exe` and nothing else, so a `mise.bat` on the same `PATH` is never found
+/// and the probe reports mise absent -- the very branch this fixture exists to get past. That is how the
+/// windows-11-arm lane failed on commit aec4133097f57ad406fb16ad5231fafb31641e09 with
+/// `the stand-in must answer --version, or this asserts the wrong branch`
+/// (<https://github.com/edge-toolkit/core/actions/runs/35042685720/job/104625726124>). Compiling costs a second
+/// and needs `rustc` on `PATH`, which anything running `cargo test` already has; the one shape then serves
+/// every platform, with no shell or batch dialect to keep in step.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct fixture builder for the stand-in command; kept separate from the assertions it feeds"
 )]
 fn write_fake_mise_that_fails_its_queries(dir: &TempDir) {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt as _;
-
-        let script = dir.path().join("mise");
-        fs::write(
-            &script,
-            "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then\n  echo 2026.1.1\n  exit 0\nfi\nexit 1\n",
-        )
-        .unwrap();
-        // Read the mode back and set the execute bits, rather than building a permissions value from
-        // scratch, so nothing here has to name the standard filesystem module the repo routes around.
-        let mut permissions = fs::metadata(&script).unwrap().permissions();
-        permissions.set_mode(0o755);
-        fs::set_permissions(&script, permissions).unwrap();
+    const STAND_IN: &str = r#"fn main() {
+    if std::env::args().nth(1).as_deref() == Some("--version") {
+        println!("2026.1.1");
+    } else {
+        std::process::exit(1);
     }
-    #[cfg(not(unix))]
-    {
-        // A batch stand-in, which Windows resolves through the system command processor: that is located
-        // from the system directory rather than from `PATH`, so it stays reachable even though the probe
-        // below hands the process a `PATH` containing only this directory.
-        fs::write(
-            dir.path().join("mise.bat"),
-            "@echo off\r\nif \"%1\"==\"--version\" (echo 2026.1.1& exit /b 0)\r\nexit /b 1\r\n",
-        )
+}
+"#;
+    let source = dir.path().join("mise.rs");
+    fs::write(&source, STAND_IN).unwrap();
+    let exe = dir.path().join(format!("mise{}", std::env::consts::EXE_SUFFIX));
+    let _compiled: std::process::Output = std::process::Command::new("rustc")
+        .args(["--edition", "2021", "-o"])
+        .arg(&exe)
+        .arg(&source)
+        .output_checked()
         .unwrap();
-    }
 }
 
 #[test]

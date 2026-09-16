@@ -40,11 +40,6 @@ runs:
   using: composite
   steps:
     # Reclaim runner disk before anything is installed into it.
-    # Folded in here rather than written at each call site, where every caller had it immediately before this
-    # action anyway -- six workflows opening with the same checkout / free-disk / install-mise trio is a lot of
-    # copy-paste for one fixed order. The action dispatches per OS internally (jlumbroso on Linux, this repo's
-    # Windows reclaim on Windows, nothing on macOS), so it needs no guard here. A caller that wants the Windows
-    # reclaim's opt-in removals still calls free-disk-space-windows directly, as docker-windows.yaml does.
     - name: Free disk space
       uses: ./.github/actions/free-disk-space
 

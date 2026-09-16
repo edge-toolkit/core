@@ -4395,6 +4395,7 @@ name = "et-otlp"
 version = "0.1.0"
 dependencies = [
  "edge-toolkit",
+ "fs-err",
  "hostname",
  "log",
  "opentelemetry",

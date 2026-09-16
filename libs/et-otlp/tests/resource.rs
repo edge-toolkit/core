@@ -7,7 +7,9 @@
 #![cfg(test)]
 
 use edge_toolkit::auth::BasicAuth;
+use edge_toolkit::config::get_project_root;
 use et_otlp::{exporter_headers, service_descriptors};
+use fs_err as fs;
 use opentelemetry::Value;
 
 #[test]
@@ -18,9 +20,24 @@ fn headers_carry_basic_auth_only_when_the_config_supplies_it() {
         "an unauthenticated config must add no headers at all"
     );
 
+    // The credential comes from the committed dev-only env file the local collector starts from, so the
+    // header is built from the value that collector actually accepts and a rotation there needs no matching
+    // edit here. Read the way docker's `--env-file` reads it: everything after the `=` is the value, verbatim.
+    let env_file = get_project_root().join("config/o2.env");
+    let env_text = fs::read_to_string(&env_file).unwrap();
+    let env_value = |key: &str| -> String {
+        env_text
+            .lines()
+            .find_map(|line| line.strip_prefix(key)?.strip_prefix('='))
+            .unwrap_or_else(|| panic!("no {key} in {}", env_file.display()))
+            .to_string()
+    };
+    let user = env_value("ZO_ROOT_USER_EMAIL");
+    let password = env_value("ZO_ROOT_USER_PASSWORD");
+
     // With auth: exactly one `authorization` header, and the value is the base64 of `user:password`
     // rather than either half in the clear.
-    let auth = BasicAuth::new("root@example.com".to_string(), "Complexpass#123".to_string().into());
+    let auth = BasicAuth::new(user, password.clone().into());
     let headers = exporter_headers(Some(&auth));
     let authorization = &headers["authorization"];
     assert!(
@@ -28,7 +45,7 @@ fn headers_carry_basic_auth_only_when_the_config_supplies_it() {
         "expected an HTTP basic credential, got {authorization:?}"
     );
     assert!(
-        !authorization.contains("Complexpass#123"),
+        !authorization.contains(&password),
         "the password must be encoded, not passed through in the clear"
     );
     assert_eq!(headers.len(), 1, "no other headers should be added: {headers:?}");
