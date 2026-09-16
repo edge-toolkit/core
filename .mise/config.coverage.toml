@@ -117,18 +117,32 @@ coreutils mkdir -p "$ort_build_dir/examples" "$ort_build_dir/deps"
 # the top-level `cargo llvm-cov` does), so the nightly `-Zcoverage-options=branch` is appended to the wrapper
 # RUSTFLAGS directly; `report`'s lcov export emits the BRDA records on its own once the covmap carries branch
 # regions. On Linux continuous mode additionally needs relocatable counters
-# (`-Cllvm-args=-runtime-counter-relocation`). The wrapper flags env is CARGO_ENCODED_RUSTFLAGS format (ASCII
+# (`-Cllvm-args=-runtime-counter-relocation`).
+# macOS is the exception and keeps the profile pattern show-env emits, because continuous mode there writes
+# nothing back at all. The run completes and the report generates, but every counter in it reads zero:
+#   lines:    0/8677 hit
+#   branches: 0/954 hit
+# from that lane's own artifact on commit 52b2a6a67087fab043c1ea8c520373f5ba2477a4 at
+# https://github.com/edge-toolkit/core/actions/runs/35032214650/job/104593077352, and reproduced on a
+# workstation by changing this one variable and nothing else -- the same crates and tests report real
+# numbers under the merge-pool pattern and zeros under %c. The relocation flag above is what makes %c work
+# on Linux and has no Mach-O counterpart to reach for. The carve-out costs exactly what %c was added for:
+# the pyo3 runner that nextest SIGKILLs contributes nothing on macOS, so its async paths read 0% there and
+# the Linux lane is the one that measures them. The wrapper flags env is CARGO_ENCODED_RUSTFLAGS format (ASCII
 # unit separator 0x1f between flags), not space-separated -- a space append glues the llvm-arg onto the last
 # existing flag and rustc rejects `--cfg=coverage_nightly -Cllvm-args=...` as one invalid --cfg value. goawk
 # generates the separator byte at run time: bash dollar-quote hex is not a valid escape in this TOML basic
 # string, and a TOML unicode escape renders as an invisible byte in the body, so it is constructed visibly.
-cov_dir="$(coreutils dirname "$LLVM_PROFILE_FILE")"
-export LLVM_PROFILE_FILE="$cov_dir/core-cont-%p%c.profraw"
+host_os="$(coreutils uname -s)"
+if [ "$host_os" != "Darwin" ]; then
+  cov_dir="$(coreutils dirname "$LLVM_PROFILE_FILE")"
+  export LLVM_PROFILE_FILE="$cov_dir/core-cont-%p%c.profraw"
+fi
 us="$(goawk 'BEGIN { printf "%c", 31 }')"
 flags="${__CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS:-}"
 append_flag() { flags="${flags:+${flags}${us}}$1"; }
 append_flag "-Zcoverage-options=branch"
-if [ "$(coreutils uname -s)" = "Linux" ]; then
+if [ "$host_os" = "Linux" ]; then
   append_flag "-Cllvm-args=-runtime-counter-relocation"
 fi
 export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS="$flags"

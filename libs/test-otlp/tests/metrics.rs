@@ -21,6 +21,18 @@ fn int_point(value: i64) -> NumberDataPoint {
     }
 }
 
+/// A floating-point data point, which the flattener counts but must not add into the summed value.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the float twin of int_point above; kept beside it so the pair reads as one fixture vocabulary"
+)]
+fn double_point(value: f64) -> NumberDataPoint {
+    NumberDataPoint {
+        value: Some(number_data_point::Value::AsDouble(value)),
+        ..Default::default()
+    }
+}
+
 fn metric(name: &str, data: Option<Data>) -> Metric {
     Metric {
         name: name.to_owned(),
@@ -60,8 +72,10 @@ fn sample_request() -> ExportMetricsServiceRequest {
         ),
         metric(
             "gauge.metric",
+            // One integer point and one float, so the summing walk takes both its arms: the float is counted
+            // among the data points but contributes nothing to the total.
             Some(Data::Gauge(Gauge {
-                data_points: vec![int_point(9)],
+                data_points: vec![int_point(9), double_point(2.5)],
             })),
         ),
         metric(
@@ -142,6 +156,10 @@ async fn metrics_endpoint_decodes_json_protobuf_and_flattens_every_shape() {
 
     let gauge = flat.iter().find(|rec| rec.name == "gauge.metric").unwrap();
     assert_eq!(gauge.value, 9, "Gauge sums its integer data points");
+    assert_eq!(
+        gauge.data_points, 2,
+        "the float point is counted even though it adds nothing to the value"
+    );
 
     let hist = flat.iter().find(|rec| rec.name == "hist.metric").unwrap();
     assert_eq!(hist.value, 0, "Histogram contributes no summed value");

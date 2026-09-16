@@ -72,6 +72,32 @@ async fn fetch_main_field_retries_until_the_hub_serves_the_module() {
     assert_eq!(main_field_after(2).await, "index.js");
 }
 
+#[tokio::test(start_paused = true)]
+async fn fetch_main_field_gives_up_once_the_wait_window_is_spent() {
+    let port = reserve_port();
+    // A hub that never admits to having the module: the count of 404s to serve is larger than the window can
+    // ask for, so every attempt misses and the loop runs until it is out of time. That is a genuinely absent
+    // module rather than a slow one, and it has to be reported instead of retried forever -- a runner stuck
+    // here looks identical to one that is working.
+    //
+    // Paused time is what makes this affordable. The window is two minutes of retries half a second apart;
+    // the sleeps between attempts advance the clock instantly, so the test spends real time only on the
+    // request each attempt makes.
+    //
+    // The handle is dropped rather than joined: this hub never stops answering, so there is nothing to wait
+    // for. Each test runs in its own process, so the listener goes away with it.
+    let _hub = spawn_hub(port, usize::MAX, PACKAGE_JSON);
+
+    let error = fetch_main_field(&client_for(port), "et-ws-never-served")
+        .await
+        .unwrap_err();
+
+    assert!(
+        matches!(&error, BootstrapError::Rest(_)),
+        "expected the last fetch failure to be reported, got: {error:?}"
+    );
+}
+
 #[tokio::test]
 async fn fetch_main_field_rejects_a_package_json_without_a_main_field() {
     let port = reserve_port();

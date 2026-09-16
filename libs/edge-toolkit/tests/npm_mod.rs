@@ -124,6 +124,26 @@ fn resolves_scoped_package_layout() {
 }
 
 #[test]
+fn aube_scan_skips_entries_that_do_not_carry_the_package() {
+    // A single `global-aube/<content-hash>` entry carrying the full `.aube/node_modules` scaffolding but a
+    // different package inside it. The scan enters the loop, finds the wanted package absent, and has to keep
+    // going rather than returning the enclosing directory -- returning it would hand the modules service a
+    // `node_modules` that does not contain the package it is about to serve, and every request would 404.
+    //
+    // Exactly one entry on purpose: `read_dir` yields entries in an order the filesystem chooses, so a fixture
+    // with a decoy *and* a match could satisfy itself on the match first and never take the skip path at all.
+    // `returns_none_when_neither_layout_has_the_package` below creates no `global-aube`, so it never enters
+    // this loop; this is the only fixture that walks it without finding anything.
+    let install = TempDir::new().unwrap();
+    let decoy = install
+        .path()
+        .join("global-aube/decoy-hash/node_modules/.aube/node_modules");
+    fs::create_dir_all(decoy.join("some-other-package")).unwrap();
+
+    assert!(find_npm_modules_path_in(install.path(), "onnxruntime-web").is_none());
+}
+
+#[test]
 fn returns_none_when_neither_layout_has_the_package() {
     let install = TempDir::new().unwrap();
     // Make `lib/node_modules` exist but with a *different* package, so

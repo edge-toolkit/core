@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use edge_toolkit::ws::AgentConnectionState;
+use edge_toolkit::ws::{AgentConnectionState, ConnectStatus};
 use edge_toolkit::ws_server::{AgentRecord, AgentRegistry};
 use tempfile::tempdir;
 
@@ -40,6 +40,35 @@ fn save_load_roundtrip_and_session_lookup() {
     // load() on a missing file yields an empty registry rather than erroring.
     let empty = AgentRegistry::<String>::load(&dir.path().join("absent.yaml")).unwrap();
     assert_eq!(empty.agent_session(&agent_id), None);
+}
+
+#[test]
+fn unknown_ids_fall_through_to_the_assign_and_no_op_paths() {
+    let registry = AgentRegistry::<String>::default();
+
+    // A requested id the registry has never seen is not a reconnect: the lookup misses, so the caller's
+    // `new_id` is inserted fresh and the status comes back Assigned. Getting this wrong would hand a
+    // reconnecting client someone else's identity, or resurrect an id the server has forgotten.
+    let (agent_id, status) = registry.connect_agent(
+        Some("never-registered".to_string()),
+        "agent-fresh".to_string(),
+        "127.0.0.1",
+        "sess-a".to_string(),
+    );
+    assert_eq!(agent_id, "agent-fresh");
+    assert_eq!(status, ConnectStatus::Assigned);
+
+    // Disconnecting an id that was never registered is a no-op rather than an insert: the registry still
+    // holds exactly the one agent above, still Connected.
+    registry.mark_disconnected("never-registered");
+    let summaries = registry.list_agents();
+    assert_eq!(
+        summaries.len(),
+        1,
+        "no record should have been created, got {summaries:?}"
+    );
+    assert_eq!(summaries[0].agent_id, "agent-fresh");
+    assert_eq!(summaries[0].state, AgentConnectionState::Connected);
 }
 
 #[test]

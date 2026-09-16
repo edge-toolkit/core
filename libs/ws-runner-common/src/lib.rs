@@ -9,7 +9,7 @@
 //! These were duplicated across the runner crates; one implementation here
 //! keeps them in sync with the server.
 
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, SystemTime};
 
 use edge_toolkit::ws::{ClientMessage, ConnectStatus, ServerMessage};
 use futures_util::{SinkExt as _, StreamExt as _};
@@ -329,7 +329,11 @@ async fn fetch_package_json_bytes(
     client: &et_rest_client::Client,
     module_name: &str,
 ) -> Result<Vec<u8>, BootstrapError> {
-    let start = Instant::now();
+    // Tokio's clock rather than the standard one, so the window is the same two minutes in production and
+    // something a paused-time test can step through. The two are identical when time is running: this type
+    // reads the same monotonic source, and only a runtime that has explicitly paused it behaves differently.
+    // Without it the only way to reach the give-up arm below is to wait out the full `MODULE_WAIT`.
+    let start = tokio::time::Instant::now();
     loop {
         match try_fetch_package_json(client, module_name).await {
             Ok(bytes) => return Ok(bytes),
