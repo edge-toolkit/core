@@ -1,0 +1,27 @@
+id: gha-check-lane-fetch-depth-0
+language: yaml
+severity: error
+message: |
+  The check lane's `actions/checkout@...` step must declare `fetch-depth: 0` in its `with:` block.
+  Two of the checks this lane runs read the commit graph rather than the worktree. At depth 1 the only commit that
+  exists is the tip, so every commit hash written into a tracked file resolves to nothing and the lane fails on a repo
+  that is perfectly fine -- while the branch-freshness check, having no `origin/main` to compare against, quietly skips
+  itself and reports success. The history is a few MiB, so fetching all of it costs close to nothing here.
+files:
+  - .github/workflows/check.yaml
+# Match every `uses: actions/checkout@...` whose surrounding step body lacks `fetch-depth: 0`.
+# Same shape as the depth-1 rule this one inverts: the `@$V` portion of the action ref is not a separable meta-var
+# (it is part of a single plain_scalar token), which is why the action is matched with a `pattern:` plus a
+# `field-regex` rather than one pattern.
+rule:
+  all:
+    - pattern: "uses: $X"
+    - has:
+        field: value
+        regex: "^actions/checkout@"
+  not:
+    inside:
+      kind: block_mapping
+      has:
+        pattern: "fetch-depth: 0"
+        stopBy: end

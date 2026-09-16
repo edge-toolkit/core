@@ -90,10 +90,21 @@ fn collect(files: &[String]) -> Result<BTreeMap<String, Vec<Site>>, Error> {
     clippy::single_call_fn,
     reason = "distinct step of the scan; kept separate for readability"
 )]
-fn permanent_commits() -> Result<HashSet<String>, Error> {
+/// `None` where the ref is absent, which is a checkout this check cannot speak about rather than a failure.
+/// The docker image builds copy the tree in and run the battery inside the container, where there is no remote
+/// and so no `origin/main`; a hard error there would fail a lane over the shape of its checkout instead of over
+/// anything in the repo.
+fn permanent_commits() -> Result<Option<HashSet<String>>, Error> {
+    if Command::new("git")
+        .args(["rev-parse", "--verify", "--quiet", "origin/main"])
+        .output_checked()
+        .is_err()
+    {
+        return Ok(None);
+    }
     let listing = Command::new("git").args(["rev-list", "origin/main"]).output_checked()?;
     let text = String::from_utf8(listing.stdout)?;
-    Ok(text.lines().map(str::to_owned).collect())
+    Ok(Some(text.lines().map(str::to_owned).collect()))
 }
 
 /// The `owner/repo` this checkout pushes to, so the suggested replacement URL points at the right place.
@@ -117,7 +128,10 @@ fn origin_slug() -> Option<String> {
 /// Reports every unreachable hash and returns how many there were.
 pub(crate) fn run(files: &[String]) -> Result<usize, Error> {
     let hashes = collect(files)?;
-    let known = permanent_commits()?;
+    let Some(known) = permanent_commits()? else {
+        println!("repo-check commit-hashes: no origin/main to judge against in this checkout; skipping");
+        return Ok(0);
+    };
     let missing: Vec<&String> = hashes.keys().filter(|hash| !known.contains(*hash)).collect();
     if missing.is_empty() {
         println!("repo-check commit-hashes: {} hashes, all reachable", hashes.len());
