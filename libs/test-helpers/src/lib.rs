@@ -102,6 +102,15 @@ impl ChildGuard {
         let _wait = self.child.wait();
     }
 
+    /// Whether the child has already exited, without waiting on it and without killing it.
+    ///
+    /// The non-destructive counterpart to [`Self::wait_for_exit`], for a caller that is waiting on something else
+    /// -- a port, an agent registration -- and wants to stop early once the process it is waiting for has gone. An
+    /// unwaitable child (already reaped elsewhere) reads as exited, matching [`Self::wait_for_exit`].
+    pub fn has_exited(&mut self) -> bool {
+        matches!(self.child.try_wait(), Ok(Some(_)) | Err(_))
+    }
+
     /// Wait up to `timeout` for the child to exit on its own, killing it if it overstays.
     ///
     /// Returns whether it exited by itself. Prefer this to [`Self::shutdown`] for a child that spawns its own
@@ -125,7 +134,7 @@ impl ChildGuard {
         // The loop sleeps between polls, so a child that exits during that final sleep would otherwise be
         // reported as still running: `shutdown` below would reap it and this would return false, telling the
         // caller the process had to be killed when in fact it finished on its own.
-        if matches!(self.child.try_wait(), Ok(Some(_)) | Err(_)) {
+        if self.has_exited() {
             return true;
         }
         self.shutdown();

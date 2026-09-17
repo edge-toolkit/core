@@ -111,3 +111,55 @@ test_multiline_run_with_the_strict_shell_is_accepted if {
 	msgs := mise.deny with input as config(".mise/config.toml", task("build", body))
 	count(msgs) == 0
 }
+
+# A declared arg the body never reads is the parfit-fmt failure mode: accepted, then silently ignored.
+test_declared_arg_must_be_read_by_the_body if {
+	body := {"usage": `arg "[file]..." var=#true`, "run": "git ls-files '*.rs' | xargs -r parfit"}
+	msgs := mise.deny with input as config(".mise/config.toml", task("parfit-fmt", body))
+	reports(msgs, "declares a usage arg its run never reads as $USAGE_FILE")
+}
+
+test_declared_arg_that_is_read_is_accepted if {
+	body := {"usage": `arg "[file]..." var=#true`, "run": `echo "$USAGE_FILE" | xargs -r parfit`}
+	msgs := mise.deny with input as config(".mise/config.toml", task("parfit-fmt", body))
+	count(msgs) == 0
+}
+
+# A required arg is declared `<name>` rather than `[name]`, and reaches the body under the same rule.
+test_required_arg_is_checked_too if {
+	body := {"usage": `arg "<package>" help="Workspace package"`, "run": "cargo clippy -p \"$usage_package\""}
+	msgs := mise.deny with input as config(".mise/config.toml", task("clippy-pkg", body))
+	reports(msgs, "declares a usage arg its run never reads as $USAGE_PACKAGE")
+}
+
+# A flag's dashes become underscores, so `--dry-run` has to be read as `$USAGE_DRY_RUN`.
+test_flag_dashes_become_underscores if {
+	body := {"usage": `flag "--dry-run" help="Print the plan"`, "run": "echo \"${USAGE_DRY_RUN:-}\""}
+	msgs := mise.deny with input as config(".mise/config.toml", task("release", body))
+	count(msgs) == 0
+}
+
+test_flag_that_is_never_read_is_denied if {
+	body := {"usage": `flag "--execute" help="Actually publish"`, "run": "cargo release"}
+	msgs := mise.deny with input as config(".mise/config.toml", task("publish", body))
+	reports(msgs, "declares a usage arg its run never reads as $USAGE_EXECUTE")
+}
+
+# The lowercase spelling is reported on its own terms, so the message names the mistake rather than the symptom.
+test_lowercase_usage_variable_is_denied if {
+	body := {"run": "out=\"${usage_out:?output directory required}\""}
+	msgs := mise.deny with input as config(".mise/config.toml", task("oci", body))
+	reports(msgs, "reads $usage_* -- mise exports usage args uppercased")
+}
+
+test_uppercase_usage_variable_is_not_denied if {
+	body := {"run": "out=\"${USAGE_OUT:?output directory required}\""}
+	msgs := mise.deny with input as config(".mise/config.toml", task("oci", body))
+	count(msgs) == 0
+}
+
+# A task with no usage spec at all is none of this rule's business.
+test_a_task_without_a_usage_spec_is_ignored if {
+	msgs := mise.deny with input as config(".mise/config.toml", task("plain", {"run": "cargo build"}))
+	count(msgs) == 0
+}

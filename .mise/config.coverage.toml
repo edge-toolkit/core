@@ -192,19 +192,19 @@ description = "Assert every named libs/ crate is at 100% branch coverage in an l
 hide = true
 # The whole assertion is one jaq query over llvm-cov's own JSON, with no parsing of our own.
 run = """
-report="$usage_report"
+report="$USAGE_REPORT"
 if [ ! -f "$report" ]; then
   echo "cov-branch-assert: no coverage report at $report" >&2
   echo "Run the coverage task that produces it first; a missing report is a failure, not a skip." >&2
   exit 1
 fi
-shortfall="$(jaq -r --arg libs "$usage_libs" -f .mise/cov-branch-assert.jq "$report")"
+shortfall="$(jaq -r --arg libs "$USAGE_LIBS" -f .mise/cov-branch-assert.jq "$report")"
 if [ -n "$shortfall" ]; then
   echo "cov-branch-assert: libs/ must be at 100% branch coverage, and is not:" >&2
   echo "$shortfall" >&2
   exit 1
 fi
-echo "cov-branch-assert: 100% branch coverage across $usage_libs"
+echo "cov-branch-assert: 100% branch coverage across $USAGE_LIBS"
 """
 shell = "{{ vars.task_shell }}"
 usage = """

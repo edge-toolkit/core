@@ -368,3 +368,51 @@ deny contains msg if {
 		[file.path, required],
 	)
 }
+
+# Every arg or flag a task declares in its `usage` spec must be read by its `run` body.
+#
+# mise validates the CALLER's arguments against the spec -- an unknown arg or a missing required one is rejected up
+# front -- but nothing checks the other side, so a task can declare an arg, accept it happily, and then ignore it.
+# `parfit-fmt` did exactly that for months: it declared `arg "[file]..."` and guarded on `$usage_file`, a name mise
+# has never set, so every invocation took the no-arguments branch and reflowed every tracked Rust file instead of the
+# ones it was handed. Nothing failed; the blast radius was just silently the whole repo.
+#
+# The variable mise exports is `USAGE_` plus the declared name uppercased with `-` turned into `_`, so `--dry-run`
+# arrives as `$USAGE_DRY_RUN`. Matching on the name alone (rather than the whole `${...}` form) keeps this true for
+# a body that reads `$USAGE_OUT`, `"$USAGE_OUT"` or `${USAGE_OUT:?...}` alike.
+usage_vars(spec) := vars if {
+	declarations := array.concat(
+		regex.find_all_string_submatch_n(`arg\s+"[<\[]([A-Za-z0-9_-]+)`, spec, -1),
+		regex.find_all_string_submatch_n(`flag\s+"--([A-Za-z0-9_-]+)`, spec, -1),
+	)
+	vars := {var |
+		some declaration in declarations
+		var := sprintf("USAGE_%s", [upper(replace(declaration[1], "-", "_"))])
+	}
+}
+
+deny contains msg if {
+	some file in input
+	is_mise(file)
+	some name, task in file.contents.tasks
+	is_string(task.usage)
+	is_string(task.run)
+	some var in usage_vars(task.usage)
+	not contains(task.run, var)
+	msg := sprintf("%s: task %q declares a usage arg its run never reads as $%s", [file.path, name, var])
+}
+
+# The lowercase spelling of that variable is always a silent no-op.
+#
+# Called out separately from the rule above so the message names the actual mistake rather than reporting the arg as
+# unused: every task in this repo was written against `$usage_<name>`, which mise does not set and a `${...:-}` guard
+# then reads as "no argument given". Flagged wherever it appears, including in a body whose declared args are read
+# correctly elsewhere.
+deny contains msg if {
+	some file in input
+	is_mise(file)
+	some name, task in file.contents.tasks
+	is_string(task.run)
+	regex.match(`\$\{?usage_[a-z]`, task.run)
+	msg := sprintf("%s: task %q reads $usage_* -- mise exports usage args uppercased, as $USAGE_*", [file.path, name])
+}

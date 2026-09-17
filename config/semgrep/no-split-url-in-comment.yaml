@@ -1,0 +1,33 @@
+rules:
+  - id: no-split-url-in-comment
+    languages: [generic]
+    paths:
+      include:
+        - "*.rs"
+        - "*.toml"
+        - "*.yaml"
+        - "*.rego"
+        - "*.py"
+        - "*.zig"
+        - "*.c"
+        - "*.h"
+        - "*.cs"
+        - "*.java"
+        - "Dockerfile*"
+      exclude:
+        # This rule's own pattern-regex and message necessarily contain the banned shape, so it can't scan itself.
+        - "/config/semgrep/no-split-url-in-comment.yaml"
+    # A comment line whose trailing token is an unfinished URL: the wrap landed inside the URL and broke the link.
+    # `parfit` (the Rust comment reflower) does this routinely -- it reflows a whole paragraph before re-breaking it,
+    # and breaks after a hyphen wherever one falls, so `https://github.com/edge-toolkit/core/...` comes back split
+    # after `edge-`. Nothing downstream complains; the link is simply dead, and the evidence a workaround comment
+    # exists to preserve goes with it. Anchored on a line ending in `-` because that is the shape the reflow leaves
+    # and a deliberately wrapped URL would not: a URL is never hand-broken mid-token.
+    # No autofix is viable here. Rejoining means deleting the newline AND the leading comment marker of the next
+    # line, then re-wrapping the paragraph, which is a multi-line restructure rather than one substitution.
+    pattern-regex: '(?m)^[^\n]*(?://|#)[^\n]*https?://[^\s]*-$'
+    message: >-
+      A URL is broken across two comment lines, which leaves a dead link. Rejoin it onto one line, even if that
+      line then runs past the usual width, and re-wrap the surrounding prose around it. A comment reflow that
+      split it cannot be told to keep a URL whole, so the repair is always by hand.
+    severity: ERROR

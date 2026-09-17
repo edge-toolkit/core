@@ -10,7 +10,7 @@
 use std::time::Duration;
 
 use actix_web::{App, HttpServer, web};
-use edge_toolkit::ws::{ClientMessage, ServerMessage};
+use edge_toolkit::ws::{AgentConnectionState, AgentSummary, ClientMessage, ServerMessage};
 use et_modules_service::{ModulesConfig, configure as configure_modules};
 use et_storage_service::{StorageConfig, configure as configure_storage};
 use et_ws_service::{AgentSession, WsAgentRegistry, WsConfig, configure as configure_ws};
@@ -87,6 +87,89 @@ pub fn start_on(port: u16) -> TestServer {
         std::thread::sleep(Duration::from_millis(100));
     }
     panic!("test ws-server did not start within 5 seconds on port {port}");
+}
+
+/// How long one [`wait_for_connected_agents`] round reads replies before asking the hub again.
+const ROSTER_POLL_INTERVAL: Duration = Duration::from_millis(250);
+
+/// Block until `count` agents other than the waiter itself are connected to the hub at `ws_url`.
+///
+/// Returns the connected peer ids from the last roster the hub sent: at least `count` of them once the wait
+/// succeeds, and whoever was present when the budget ran out otherwise, so a caller that gives up can report who
+/// did come up rather than only that someone did not.
+///
+/// Reading the roster means being an agent -- `et-list-agents` is a websocket request, not an HTTP route -- so the
+/// waiter registers one of its own and filters itself out of every reply. Entries whose state is `Disconnected`
+/// are filtered out too: the registry keeps listing an agent after its socket drops, so a runner that registered
+/// and then exited would otherwise still read as up.
+///
+/// Synchronous, and owns the runtime it needs, so a plain `#[test]` can gate on hub state without taking a tokio
+/// dependency of its own.
+#[must_use]
+pub fn wait_for_connected_agents(ws_url: &str, count: usize, budget: Duration) -> Vec<String> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime.block_on(poll_roster(ws_url, count, budget))
+}
+
+/// The async body of [`wait_for_connected_agents`], split out so the public helper can stay synchronous.
+///
+/// One socket serves the whole wait: re-asking on a fresh connection each round would leave a trail of
+/// disconnected waiter entries in the registry, and a stale one still marked connected would be counted as a peer
+/// by the very filter that exists to exclude it.
+#[expect(
+    clippy::single_call_fn,
+    reason = "async body of wait_for_connected_agents; separate so the public helper stays sync"
+)]
+async fn poll_roster(ws_url: &str, count: usize, budget: Duration) -> Vec<String> {
+    let (mut socket, self_id) = connect_agent(ws_url).await;
+    let deadline = tokio::time::Instant::now() + budget;
+    let mut peers = Vec::new();
+    let mut ask_again = tokio::time::Instant::now();
+    while tokio::time::Instant::now() < deadline {
+        if tokio::time::Instant::now() >= ask_again {
+            let request = serde_json::to_string(&ClientMessage::ListAgents).unwrap();
+            if socket.send(Message::text(request)).await.is_err() {
+                break;
+            }
+            ask_again = tokio::time::Instant::now() + ROSTER_POLL_INTERVAL;
+        }
+        let wait = deadline
+            .saturating_duration_since(tokio::time::Instant::now())
+            .min(ROSTER_POLL_INTERVAL);
+        let Ok(frame) = tokio::time::timeout(wait, socket.next()).await else {
+            continue;
+        };
+        match frame {
+            Some(Ok(Message::Text(text))) => {
+                let parsed = serde_json::from_str::<ServerMessage>(&text);
+                if let Ok(ServerMessage::ListAgentsResponse { agents }) = parsed {
+                    peers = connected_peers(agents, &self_id);
+                    if peers.len() >= count {
+                        return peers;
+                    }
+                }
+            }
+            Some(Ok(_)) => {}
+            Some(Err(_)) | None => break,
+        }
+    }
+    peers
+}
+
+/// Reduce one roster reply to the ids of the connected agents that are not the waiter.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct filtering step; kept out of the poll loop for readability"
+)]
+fn connected_peers(agents: Vec<AgentSummary>, self_id: &str) -> Vec<String> {
+    agents
+        .into_iter()
+        .filter(|agent| agent.agent_id != self_id && agent.state == AgentConnectionState::Connected)
+        .map(|agent| agent.agent_id)
+        .collect()
 }
 
 /// Open a ws connection to `ws_url` and drive `et-connect` through its ack.

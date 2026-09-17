@@ -983,18 +983,20 @@ description = "Reflow Rust comment prose to the 120-column width with parfit (in
 # table headers into the surrounding comment prose, so TOML, YAML and markdown stay hand-wrapped. The width matches
 # .rustfmt.toml's max_width. The skip regexes pass rustdoc `# Heading` lines and list items (`*`, `-`, `1.`) through
 # verbatim -- without them parfit folds `# Panics` into the sentence below it and a bulleted list into one paragraph.
-# It also breaks a line after a hyphen, inside backticks included, and has no switch for that, so check the diff for
-# comment lines ending in `-` and rejoin the word by hand. Given file paths, reflows just those; with none, every
-# tracked Rust file except the generator-owned ones. The usage-spec is what carries the paths: mise appends bare task
-# arguments to the body text, which the eval in task-shell.sh then rejects, whereas a `var` arg arrives space-joined
-# in $usage_file for xargs to split.
+# It also breaks a line after a hyphen, inside backticks and URLs included, and has no switch for that: it reflows
+# a whole paragraph before re-breaking it, so a skip regex cannot protect a URL that starts mid-paragraph. Check
+# the diff for comment lines ending in `-` and rejoin the word by hand; a split
+# `https://github.com/edge-toolkit/core/...` leaves a dead link behind.
+# Given file paths, reflows just those; with none, every tracked Rust file except the generator-owned ones. The
+# usage-spec is what carries the paths: mise appends bare task arguments to the body text, which the eval in
+# task-shell.sh then rejects, whereas a `var` arg arrives space-joined in $USAGE_FILE for xargs to split.
 run = """
 heading='^\\s*//[/!]?\\s*#'
 item='^\\s*//[/!]?\\s*([-*]|[0-9]+\\.)\\s'
-if [ -z "${usage_file:-}" ]; then
+if [ -z "${USAGE_FILE:-}" ]; then
   git ls-files '*.rs' ':!generated/**' ':!services/ws-wasi-runner/src/bindings.rs'
 else
-  printf '%s\\n' "$usage_file"
+  printf '%s\\n' "$USAGE_FILE"
 fi | xargs -r parfit -w 120 -s "$heading" -s "$item"
 """
 shell = "{{ vars.task_shell }}"
@@ -1011,9 +1013,9 @@ run = "cargo clippy --keep-going --workspace --tests {{ vars.cargo_ws_excludes }
 alias = ["clippy-pkg"]
 description = "cargo clippy on a single workspace package (narrow inner-loop check)"
 # Same flags as cargo-clippy-check minus --workspace.
-# Usage-spec captures the package name and exposes it as $usage_package; a missing arg fails up front with
+# Usage-spec captures the package name and exposes it as $USAGE_PACKAGE; a missing arg fails up front with
 # mise's auto-generated usage message instead of clippy's generic "--package <SPEC> not found" error.
-run = 'cargo clippy --keep-going --tests -p "$usage_package"'
+run = 'cargo clippy --keep-going --tests -p "$USAGE_PACKAGE"'
 usage = 'arg "<package>" help="Workspace package name (e.g. edge-toolkit)"'
 
 [tasks.cargo-doc-check]
@@ -1970,7 +1972,7 @@ description = "Build the mise-tools OCI layout for the current toolset, relocata
 run = """
 coreutils="$(mise which coreutils)"
 jaq="$(mise which jaq)"
-out="${usage_out:?output directory required}"
+out="${USAGE_OUT:?output directory required}"
 # Prefixed names carry their own backend; bare ones are registry short names to resolve.
 # `mise registry <tool>` prints every backend for the name, preferred first, so take the first field.
 disabled=""
@@ -2025,7 +2027,7 @@ case "$detected" in
   Windows*) def_plat=windows-x64 ;;
   *) echo "unrecognised platform '$detected'; pass one explicitly" >&2 && exit 1 ;;
 esac
-plat="${usage_platform:-$def_plat}"
+plat="${USAGE_PLATFORM:-$def_plat}"
 ref="ghcr.io/edge-toolkit/core/mise-tools/${plat}:latest"
 if [ "$plat" = "windows-x64" ]; then
   data="$LOCALAPPDATA/mise"

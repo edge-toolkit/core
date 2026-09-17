@@ -37,11 +37,32 @@ use edge_toolkit::ports::Services;
 use et_test_helpers::{ChildGuard, drain_stderr, drain_stdout};
 use fs_err as fs;
 
-/// Wall-clock ceiling for the whole exchange once the hub is up.
+/// Wall-clock ceiling for the exchange itself, measured from the moment the trigger is a registered agent.
 ///
 /// The sender broadcasts its pointer once a second across its manual-use window, and the twin stores its model on
-/// the first one it sees, so this only has to outlast the runners' own startup.
+/// the first one it sees, so this covers the twin's startup and one broadcast reaching it -- not the trigger's own
+/// startup, which [`RUNNER_STARTUP_TIMEOUT`] absorbs before this clock starts.
 const EXCHANGE_TIMEOUT: Duration = Duration::from_secs(180);
+
+/// Ceiling for a runner to get from `mise run` to a registered agent on the hub.
+///
+/// Deliberately far larger than the exchange it precedes, because it measures something else entirely: `mise`
+/// startup plus the generated task's `cargo run`, which on a cold CI container is minutes rather than seconds. On
+/// the `build (windows-2025, servercore)` lane the trigger's first log line arrived 195s after it was spawned --
+/// and 83s after the twin had already exited, which is the failure this whole sequencing exists to prevent.
+/// Observed on commit
+/// <https://github.com/edge-toolkit/core/commit/a9817a998e4cf773be23eb944d8358e9ae0d70e6> at
+/// <https://github.com/edge-toolkit/core/actions/runs/35125253728/job/104892604466>.
+///
+/// Costs nothing when the runners are quick: the wait returns the moment the roster shows them.
+const RUNNER_STARTUP_TIMEOUT: Duration = Duration::from_secs(300);
+
+/// How much of [`RUNNER_STARTUP_TIMEOUT`] one roster wait consumes before the runner is checked for signs of life.
+///
+/// The wait has to be re-entered to look at the process at all, and each re-entry registers a fresh waiter agent,
+/// so this trades a handful of spent registry entries against how long a runner that died on its first breath
+/// keeps the test sitting there. A runner that comes up normally is seen inside the first slice and costs one.
+const REGISTRATION_SLICE: Duration = Duration::from_secs(15);
 
 /// `RUNNER_TIMEOUT` handed to both runners so they exit on their own rather than running until killed.
 ///
@@ -127,6 +148,43 @@ fn captured(buffer: &Arc<Mutex<String>>) -> String {
     buffer
         .lock()
         .map_or_else(|poisoned| poisoned.into_inner().clone(), |guard| guard.clone())
+}
+
+/// Both of one runner's captured streams, labelled, for a failure message.
+///
+/// A runner that writes nothing is the hard case to read: empty output alone cannot distinguish a process that died
+/// before it could log from one that started and sat idle, so every failure path quotes both streams.
+fn quoted(label: &str, runner: &Runner) -> String {
+    format!(
+        "--- {label} stdout ---\n{}\n--- {label} stderr ---\n{}",
+        captured(&runner.stdout),
+        captured(&runner.stderr)
+    )
+}
+
+/// Wait for `runner` to appear on the hub's roster, returning the peers seen or an empty vec if it never does.
+///
+/// Gives up as soon as the runner's process has gone, rather than sitting out the whole startup budget waiting for
+/// an agent that can no longer register -- a runner that fails during bootstrap (a module fetch 404, say) exits in
+/// about a second, and the budget above is measured in minutes.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of the exchange; separate so the test body reads as hub, runners, exchange"
+)]
+fn wait_for_registration(ws_url: &str, runner: &mut Runner) -> Vec<String> {
+    // Elapsed-versus-budget rather than a computed deadline: comparing two `Duration`s needs no arithmetic on an
+    // `Instant`, which the workspace's restriction lints would otherwise object to.
+    let started = Instant::now();
+    while started.elapsed() < RUNNER_STARTUP_TIMEOUT {
+        let peers = et_ws_test_server::wait_for_connected_agents(ws_url, 1, REGISTRATION_SLICE);
+        if !peers.is_empty() {
+            return peers;
+        }
+        if runner.guard.has_exited() {
+            break;
+        }
+    }
+    Vec::new()
 }
 
 /// Return the first stored `math1-output.json` as `(weight, bias)`, or `None` until the twin has written one.
@@ -274,9 +332,27 @@ fn run_scenario(scenario: &str, twin_task: &str, twin_crate: &str, trigger_crate
     let server = et_ws_test_server::start_on(Services::InsecureWebSocketServer.port());
     let storage_dir = server.storage_dir.path();
 
-    // Both runners come up together, exactly as `generated-scenario` starts them.
-    let mut twin = spawn_runner(scenario, twin_task);
+    // The trigger comes up first, and the twin only once the hub has actually seen it register.
+    //
+    // `generated-scenario` starts both at once and this test used to as well, which is what made it fail on the
+    // servercore lane: each runner's `RUNNER_TIMEOUT` starts when that runner starts, so two staggered startups
+    // give two disjoint lifetimes. The twin registered, idled out its 110s and exited, and the trigger's first log
+    // line arrived 83s after that -- it then broadcast its whole window to an empty hub, and the test read the
+    // result as a deployment that never stored anything. Waiting here ties the two lifetimes together at the point
+    // that matters: the sender re-broadcasts its pointer once a second across its manual-use window, so a twin
+    // spawned the moment the sender is live has that whole window to register and catch one.
+    //
+    // Starting the twin second also means its `cargo run` no longer races the trigger's for cargo's build lock,
+    // which is startup cost neither of them pays on a workstation and both were paying on CI.
     let mut trigger = spawn_runner(scenario, "math1-trigger");
+    let registered = wait_for_registration(&server.ws_url, &mut trigger);
+    assert!(
+        !registered.is_empty(),
+        "math1-trigger never registered with the hub within {:?}\n{}",
+        RUNNER_STARTUP_TIMEOUT,
+        quoted("math1-trigger", &trigger)
+    );
+    let mut twin = spawn_runner(scenario, twin_task);
 
     // Elapsed-versus-budget rather than a computed deadline: comparing two `Duration`s needs no arithmetic on
     // an `Instant`, which the workspace's restriction lints would otherwise object to.
@@ -296,28 +372,21 @@ fn run_scenario(scenario: &str, twin_task: &str, twin_crate: &str, trigger_crate
     let trigger_exited = trigger.guard.wait_for_exit(RUNNER_EXIT_TIMEOUT);
 
     let Some((weight, bias)) = model else {
-        // The two exit flags are reported here, not just asserted on the happy path below.
-        // A runner that writes nothing is the hard case to read: empty output alone cannot distinguish a
-        // process that died before it could log from one that started and sat idle, and the assertions that
-        // would have said which are never reached once this branch panics.
+        // The two exit flags are reported here, not just asserted on the happy path below, because the assertions
+        // that would have said which runner misbehaved are never reached once this branch panics.
         panic!(
             concat!(
                 "{}: no math1-output.json appeared in any storage bucket under {}\n",
                 "exited within RUNNER_EXIT_TIMEOUT: {}={}, math1-trigger={}\n",
-                "--- {} stdout ---\n{}\n--- {} stderr ---\n{}\n",
-                "--- math1-trigger stdout ---\n{}\n--- math1-trigger stderr ---\n{}"
+                "{}\n{}"
             ),
             scenario,
             storage_dir.display(),
             twin_task,
             twin_exited,
             trigger_exited,
-            twin_task,
-            captured(&twin.stdout),
-            twin_task,
-            captured(&twin.stderr),
-            captured(&trigger.stdout),
-            captured(&trigger.stderr)
+            quoted(twin_task, &twin),
+            quoted("math1-trigger", &trigger)
         );
     };
     et_ws_test_server::math1::verify_math1_model(weight, bias).unwrap();
