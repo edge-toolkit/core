@@ -32,6 +32,7 @@ ARG WINDOWS_VERSION=ltsc2022
 # stages mise.exe + the gh_token from the build context, trusts the project
 # config, and runs `mise install` against the always-loaded `[tools]` set.
 FROM mcr.microsoft.com/windows/servercore:${WINDOWS_VERSION} AS build-minimal
+LABEL org.opencontainers.image.source="https://github.com/edge-toolkit/core"
 SHELL ["cmd", "/S", "/C"]
 # DL3066 wants a numeric user-id, which Windows containers have no equivalent of.
 # Identities are SIDs behind well-known account names; ContainerAdministrator is the canonical one.

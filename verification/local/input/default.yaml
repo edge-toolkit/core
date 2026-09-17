@@ -1,0 +1,6 @@
+# Every field but the name left out, so this scenario is whatever the defaults make it.
+# It is here to hold those defaults still: the committed output beside it is what an input that asks for
+# nothing produces, so a change to any default shows up as a diff rather than as a surprise to whoever
+# generates a deployment next. Inside this repository an unstated `artifact_source` infers `local`, which is
+# what distinguishes this from its twin under `verification/published`.
+cluster_name: "default"

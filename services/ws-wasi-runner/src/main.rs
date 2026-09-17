@@ -4,16 +4,8 @@ use tracing::info;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let config = serde_env::from_env::<Config>()?;
-
-    let otel_handles = if let Some(otlp_config) = &config.otlp {
-        Some(et_otlp::init(otlp_config)?)
-    } else {
-        tracing_subscriber::fmt()
-            .with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
-            .init();
-        None
-    };
+    // The guard is named rather than discarded because this runner has an exit that runs no destructors.
+    let (config, telemetry) = et_otlp::load_telemetered::<Config>()?;
 
     let module = &config.runner.module;
     let ws_url = &config.ws.server_url;
@@ -33,17 +25,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Some(run.await)
     };
 
-    // Flush before exit so the mock OTLP collector sees the spans we emitted
-    // -- `BatchExporter` would otherwise drop the tail when the process exits.
-    if let Some(handles) = otel_handles {
-        handles.shutdown();
-    }
-
     let Some(result) = outcome else {
         return Err(format!("module {module} timed out after {:?}", timeout.unwrap_or_default()).into());
     };
     result?;
     info!("module {module} completed successfully");
+    // Flushed here rather than left to the drop, because `_exit` below runs no destructors at all.
+    drop(telemetry);
     // macOS test-only fast exit. ORT 1.22's threadpool unwind races libc++ at
     // process exit on macOS, with this exact stderr at the crash site:
     //

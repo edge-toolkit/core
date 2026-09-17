@@ -1,13 +1,13 @@
 use std::path::Path;
 
-use edge_toolkit::input::ClusterInput;
 use et_path::{absolute_from, relative_path_from};
 use fs_err as fs;
 
 use crate::error::CliError;
+use crate::input::{ArtifactSource, ClusterInput};
 use crate::{
-    OutputType, RunnerInstance, SECRETS_ENV_FILE, cluster_module_names, hub_http_base, hub_ws_url, module_registry,
-    resolve_cluster_runners, resolve_module_paths,
+    COLLECTOR_SETTINGS, COLLECTOR_USERNAME, IMAGE_REGISTRY, OutputType, RunnerInstance, SECRETS_ENV_FILE,
+    cluster_module_names, hub_http_base, hub_ws_url, module_registry, resolve_cluster_runners, resolve_module_paths,
 };
 
 pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
@@ -18,12 +18,20 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
     // `dockerfile` is resolved against the build context, not against this compose file, so the scenario image
     // is named by its path down from the repository root rather than as a sibling of the compose file.
     let scenario_dockerfile_rel = format!("{}/Dockerfile", relative_path_from(&workspace_root, &output_abs));
-    let openobserve_env_file_rel = relative_path_from(&output_abs, &workspace_root.join("config/o2.env"));
     let module_names = cluster_module_names(cluster);
     let module_paths = docker_image_module_paths(&module_names)?;
-    let mut services = vec![
-        ("openobserve".to_string(), openobserve_service(openobserve_env_file_rel)),
-        (
+    let artifacts = cluster.artifact_source;
+    let published = matches!(artifacts, ArtifactSource::Published);
+    let mut services = vec![("openobserve".to_string(), openobserve_service())];
+    // A local scenario builds the hub it layers onto; a published one takes the released image instead.
+    // The build-only service exists solely to be that named context, so it is absent when nothing is built.
+    // `scale: 0` is what keeps `docker compose up` from creating a second, module-less container; a
+    // `profiles:` entry would instead hide the service from the build resolver, which fails the `service:`
+    // reference below with "declares unknown service".
+    let hub_context = if published {
+        format!("docker-image://{IMAGE_REGISTRY}/et-ws-server:latest")
+    } else {
+        services.push((
             "ws-server-hub".to_string(),
             ComposeService {
                 build: Some(ComposeBuild {
@@ -31,73 +39,75 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
                     dockerfile: "services/ws-server/Dockerfile".to_string(),
                     additional_contexts: Vec::new(),
                 }),
-                // Build-only: `ws-server` layers this cluster's modules onto it, and nothing runs it directly.
-                // `scale: 0` is what keeps `docker compose up` from creating a second, module-less container;
-                // a `profiles:` entry would instead hide the service from the build resolver, which fails the
-                // `service:` reference below with "declares unknown service".
                 scale: Some(0),
                 ..ComposeService::default()
             },
-        ),
-        (
-            "ws-server".to_string(),
-            ComposeService {
-                build: Some(ComposeBuild {
-                    context: workspace_rel,
-                    dockerfile: scenario_dockerfile_rel,
-                    additional_contexts: vec![("hub".to_string(), "service:ws-server-hub".to_string())],
-                }),
-                network_mode: Some("host".to_string()),
-                // Carries `OTLP_AUTH_PASSWORD` and `OTLP_AUTH_USERNAME`: the server authenticates its OTLP
-                // exports against the same root credential the collector above was started with.
-                env_file: vec![SECRETS_ENV_FILE.to_string()],
-                environment: vec![
-                    (
-                        "MODULES_PATHS".to_string(),
-                        ComposeValue::WrappedDoubleQuoted(module_paths),
-                    ),
-                    (
-                        "OTLP_COLLECTOR_URL".to_string(),
-                        ComposeValue::Plain("http://127.0.0.1:5080/api/default/v1".to_string()),
-                    ),
-                    (
-                        "STORAGE_URL".to_string(),
-                        ComposeValue::Plain("file:///app/storage".to_string()),
-                    ),
+        ));
+        "service:ws-server-hub".to_string()
+    };
+    services.push((
+        "ws-server".to_string(),
+        ComposeService {
+            build: Some(ComposeBuild {
+                context: workspace_rel,
+                dockerfile: scenario_dockerfile_rel,
+                additional_contexts: vec![("hub".to_string(), hub_context)],
+            }),
+            network_mode: Some("host".to_string()),
+            // Carries `OTLP_AUTH_PASSWORD`: the server authenticates its OTLP exports against the same root
+            // credential the collector above was started with. The account it authenticates as is below.
+            env_file: vec![SECRETS_ENV_FILE.to_string()],
+            environment: vec![
+                (
+                    "MODULES_PATHS".to_string(),
+                    ComposeValue::WrappedDoubleQuoted(module_paths),
+                ),
+                (
+                    "OTLP_AUTH_USERNAME".to_string(),
+                    ComposeValue::Plain(COLLECTOR_USERNAME.to_string()),
+                ),
+                (
+                    "OTLP_COLLECTOR_URL".to_string(),
+                    ComposeValue::Plain("http://127.0.0.1:5080/api/default/v1".to_string()),
+                ),
+                (
+                    "STORAGE_URL".to_string(),
+                    ComposeValue::Plain("file:///app/storage".to_string()),
+                ),
+            ],
+            volumes: vec!["ws-server-storage:/app/storage".to_string()],
+            depends_on: vec![(
+                "openobserve".to_string(),
+                ComposeDependsOnCondition {
+                    condition: "service_healthy".to_string(),
+                },
+            )],
+            // The hub reports its own readiness so the runners have something to gate on.
+            // A runner resolves its module by fetching `/modules/<name>/package.json`, which fails
+            // outright instead of retrying, so "container started" is not a strong enough edge --
+            // `service_started` would let a runner ask before the listener exists.
+            healthcheck: Some(ComposeHealthcheck {
+                test: vec![
+                    "CMD".to_string(),
+                    "curl".to_string(),
+                    "-fsS".to_string(),
+                    format!("{}/health", hub_http_base()),
                 ],
-                volumes: vec!["ws-server-storage:/app/storage".to_string()],
-                depends_on: vec![(
-                    "openobserve".to_string(),
-                    ComposeDependsOnCondition {
-                        condition: "service_healthy".to_string(),
-                    },
-                )],
-                // The hub reports its own readiness so the runners have something to gate on.
-                // A runner resolves its module by fetching `/modules/<name>/package.json`, which fails
-                // outright instead of retrying, so "container started" is not a strong enough edge --
-                // `service_started` would let a runner ask before the listener exists.
-                healthcheck: Some(ComposeHealthcheck {
-                    test: vec![
-                        "CMD".to_string(),
-                        "curl".to_string(),
-                        "-fsS".to_string(),
-                        format!("{}/health", hub_http_base()),
-                    ],
-                    interval: "5s".to_string(),
-                    timeout: "3s".to_string(),
-                    retries: 20,
-                    start_period: "10s".to_string(),
-                }),
-                ..ComposeService::default()
-            },
-        ),
-    ];
+                interval: "5s".to_string(),
+                timeout: "3s".to_string(),
+                retries: 20,
+                start_period: "10s".to_string(),
+            }),
+            ..ComposeService::default()
+        },
+    ));
     services.extend(runner_services(
         &resolve_cluster_runners(
             &module_registry(&workspace_root, &workspace_root.join("services/ws-server")),
             cluster,
         )?,
         &relative_path_from(&output_abs, &workspace_root),
+        artifacts,
     ));
     let compose = ComposeFile {
         services,
@@ -121,21 +131,28 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
 ///
 /// The dependency is on the hub being HEALTHY, not merely started -- a runner resolves its module over HTTP and
 /// fails outright rather than retrying, so an early start is a lost run rather than a slow one.
-fn runner_services(runners: &[RunnerInstance], context: &str) -> Vec<(String, ComposeService)> {
+///
+/// Nothing about a runner image varies by scenario, so a published one is named rather than built. That is the
+/// same image the Kubernetes manifests name, and the same binary the `mise` deployment installs from crates.io.
+fn runner_services(
+    runners: &[RunnerInstance],
+    context: &str,
+    artifacts: ArtifactSource,
+) -> Vec<(String, ComposeService)> {
+    let published = matches!(artifacts, ArtifactSource::Published);
     runners
         .iter()
         .map(|runner| {
+            let kind = &runner.runner;
             let service = ComposeService {
-                build: Some(ComposeBuild {
+                build: (!published).then(|| ComposeBuild {
                     context: context.to_string(),
-                    dockerfile: format!("services/ws-{}-runner/Dockerfile", runner.runner),
+                    dockerfile: format!("services/ws-{kind}-runner/Dockerfile"),
                     additional_contexts: Vec::new(),
                 }),
+                image: published.then(|| format!("{IMAGE_REGISTRY}/et-ws-{kind}-runner:latest")),
                 network_mode: Some("host".to_string()),
-                environment: vec![
-                    ("RUNNER_MODULE".to_string(), ComposeValue::Plain(runner.module.clone())),
-                    ("WS_SERVER_URL".to_string(), ComposeValue::Plain(hub_ws_url())),
-                ],
+                environment: runner_environment(runner),
                 depends_on: vec![(
                     "ws-server".to_string(),
                     ComposeDependsOnCondition {
@@ -149,8 +166,35 @@ fn runner_services(runners: &[RunnerInstance], context: &str) -> Vec<(String, Co
         .collect()
 }
 
+/// What wires a runner to its module and its hub, plus whatever the scenario declared for that agent.
+///
+/// The scenario's entries cannot collide with the derived two: the resolver rejects an `env:` naming either.
+fn runner_environment(runner: &RunnerInstance) -> Vec<(String, ComposeValue)> {
+    let mut environment = vec![
+        ("RUNNER_MODULE".to_string(), ComposeValue::Plain(runner.module.clone())),
+        ("WS_SERVER_URL".to_string(), ComposeValue::Plain(hub_ws_url())),
+    ];
+    environment.extend(
+        runner
+            .env
+            .iter()
+            .map(|(name, value)| (name.clone(), ComposeValue::Plain(value.clone()))),
+    );
+    environment
+}
+
+/// The collector's non-secret settings, plus the data directory the named volume below makes meaningful.
+fn collector_environment() -> Vec<(String, ComposeValue)> {
+    let mut environment: Vec<(String, ComposeValue)> = COLLECTOR_SETTINGS
+        .iter()
+        .map(|(name, value)| ((*name).to_string(), ComposeValue::Plain((*value).to_string())))
+        .collect();
+    environment.push(("ZO_DATA_DIR".to_string(), ComposeValue::Plain("/data".to_string())));
+    environment
+}
+
 /// Build the `OpenObserve` collector service the scenario's traces are exported to.
-fn openobserve_service(env_file: String) -> ComposeService {
+fn openobserve_service() -> ComposeService {
     ComposeService {
         image: Some("openobserve/openobserve:v0.91.5".to_string()),
         healthcheck: Some(ComposeHealthcheck {
@@ -170,11 +214,11 @@ fn openobserve_service(env_file: String) -> ComposeService {
         // the scenario's generated env file. Nothing outside the developer's machine needs to talk to it: the
         // ws-server exports to 127.0.0.1:5080 and the UI is opened locally.
         ports: vec!["127.0.0.1:5080:5080".to_string()],
-        // The scenario's own file comes second, so its password overrides the repo-wide one in `config/o2.env`
-        // -- compose applies the list in order. Per-scenario credentials mean two stacks running side by side
-        // cannot authenticate against each other's collector.
-        env_file: vec![env_file, SECRETS_ENV_FILE.to_string()],
-        environment: vec![("ZO_DATA_DIR".to_string(), ComposeValue::Plain("/data".to_string()))],
+        // The scenario's own file is the only one, and it carries only the credential.
+        // Per-scenario credentials mean two stacks running side by side cannot authenticate against each
+        // other's collector.
+        env_file: vec![SECRETS_ENV_FILE.to_string()],
+        environment: collector_environment(),
         volumes: vec!["openobserve-data:/data".to_string()],
         ..ComposeService::default()
     }
@@ -341,12 +385,17 @@ impl ComposeRenderer {
     fn render_environment_value(&mut self, key: &str, value: &ComposeValue) {
         match value {
             ComposeValue::Plain(value) => self.push_line(3, &format!("{key}: {value}")),
+            // Wrapped by YAML's own line folding rather than by escaping the breaks away with a trailing
+            // `\`. Both keep the value one scalar; folding differs only in leaving a space where the break
+            // was, so the list arrives comma-and-space separated -- which is what the `mise` deployment has
+            // always written and what the server's per-segment trim expects. The backslash form is banned
+            // repo-wide, and this was the one generator still emitting it.
             ComposeValue::WrappedDoubleQuoted(parts) => {
                 if let Some((first, rest)) = parts.split_first() {
-                    self.push_line(3, &format!("{key}: \"{first},\\"));
+                    self.push_line(3, &format!("{key}: \"{first},"));
                     let last_index = rest.len().saturating_sub(1);
                     for (index, part) in rest.iter().enumerate() {
-                        let suffix = if index == last_index { "\"" } else { ",\\" };
+                        let suffix = if index == last_index { "\"" } else { "," };
                         self.push_line(4, &format!("{part}{suffix}"));
                     }
                 } else {

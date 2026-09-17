@@ -135,6 +135,7 @@ RUN curl -fsSL -o git.zip %GIT_URL% && `
 # (VC++ DLLs, mise.exe, TEMP) and the gnu-host rust flip live here too,
 # since every later stage builds on it.
 FROM mcr.microsoft.com/windows/nanoserver:${WINDOWS_VERSION} AS build-minimal
+LABEL org.opencontainers.image.source="https://github.com/edge-toolkit/core"
 COPY --from=vcruntime C:\Windows\System32\vcruntime140.dll C:\Windows\System32\vcruntime140.dll
 COPY --from=vcruntime C:\Windows\System32\vcruntime140_1.dll C:\Windows\System32\vcruntime140_1.dll
 COPY --from=vcruntime C:\Windows\System32\msvcp140.dll C:\Windows\System32\msvcp140.dll

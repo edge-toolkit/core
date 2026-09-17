@@ -7,8 +7,6 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
-use clap::ValueEnum;
-use edge_toolkit::input::ClusterInput;
 use edge_toolkit::ports::Services;
 use et_path::relative_path_from;
 use fs_err as fs;
@@ -17,44 +15,29 @@ use serde::Deserialize;
 mod deployment_types;
 mod error;
 mod hub_ws_url;
+mod input;
 mod module_package_json;
 mod scenario_password;
 
-pub use self::deployment_types::{
-    docker_image_module_paths, generate_docker_compose_deployment, generate_k3s_deployment, generate_mise_deployment,
-    generate_scenario_image, scenario_module_paths,
+// `pub` here means "reachable from the binary or from `tests/`", and nothing else.
+// This crate is a command line tool that happens to be split into a lib target so integration tests can drive
+// it; no consumer outside this directory builds on it, and nothing exported is a promise. Everything the
+// generators share among themselves is `pub(crate)`, so what remains below is the whole of the surface anyone
+// could depend on -- short enough to read, which is what makes an accidental addition to it visible.
+pub use self::deployment_types::{docker_image_module_paths, scenario_module_paths};
+pub(crate) use self::deployment_types::{
+    generate_docker_compose_deployment, generate_k3s_deployment, generate_mise_deployment, generate_scenario_image,
 };
 pub use self::error::CliError;
-pub use self::hub_ws_url::{HUB_SERVICE, hub_service_ws_url, hub_ws_url};
+pub(crate) use self::hub_ws_url::HUB_SERVICE;
+pub use self::hub_ws_url::{hub_service_ws_url, hub_ws_url};
+pub(crate) use self::input::running_in_this_repository;
+pub use self::input::{
+    ArtifactSource, ClusterInput, DEFAULT_CLUSTER_NAME, OutputType, infer_artifact_source,
+    manifest_declares_this_repository,
+};
 pub use self::module_package_json::generate_module_package_json;
-pub use self::scenario_password::{scenario_password, scenario_seed};
-
-#[expect(
-    clippy::exhaustive_enums,
-    reason = "OutputType enumerates the supported deployment formats; downstream code matches exhaustively"
-)]
-#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq, ValueEnum)]
-#[serde(rename_all = "lowercase")]
-pub enum OutputType {
-    #[default]
-    Mise,
-    #[serde(rename = "docker-compose", alias = "docker_compose")]
-    DockerCompose,
-    K3s,
-}
-
-impl OutputType {
-    pub const ALL: &'static [Self] = &[Self::Mise, Self::DockerCompose, Self::K3s];
-
-    #[must_use]
-    pub const fn output_file_name(self) -> &'static str {
-        match self {
-            Self::Mise => "mise.toml",
-            Self::DockerCompose => "compose.yaml",
-            Self::K3s => "k3s.yaml",
-        }
-    }
-}
+pub(crate) use self::scenario_password::{scenario_password, scenario_seed};
 
 fn generated_output_files(output_types: &[OutputType]) -> Vec<&'static str> {
     let mut files = Vec::new();
@@ -141,7 +124,7 @@ struct CargoWsModule {
 /// install dir and has to be installed before it can be staged.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
-pub enum ModuleSource {
+pub(crate) enum ModuleSource {
     /// A directory in this repository, as a path relative to the repository root.
     Repo(String),
     /// A package staged by a mise tool.
@@ -160,17 +143,59 @@ const PYODIDE_DOCKER_PATH: &str = "/app/node_modules/pyodide";
 ///
 /// The password is derived from the scenario input so a deployment is reproducible from it, which used to mean
 /// writing the literal into `mise.toml` and `compose.yaml` -- both committed under `verification/`, where every
-/// secret scanner duly found it. Holding it in one uncommitted file instead keeps the deployment reproducible
-/// (regenerating the scenario rewrites this file too) while leaving no credential in a tracked file to suppress.
+/// secret scanner duly found it. Collecting it into one file keeps the deployment reproducible while leaving
+/// the rest of the generated output free of anything a scanner reads as a credential.
 ///
-/// An inline suppression marker is not an alternative here. Each scanner reads only its own marker syntax, some
-/// read none at all from a committed file, and whether a given password is reported at all comes down to the
-/// separator it happens to draw -- so the same marker holds for one scenario and not the next.
-pub const SECRETS_ENV_FILE: &str = "secrets.env";
+/// Whether that one file is committed depends on where it was generated, and [`write_secrets_gitignore`]
+/// decides: under `verification/` it is a fixture the drift check reads, and anywhere else it is a real
+/// credential that gets an ignore file written beside it.
+pub(crate) const SECRETS_ENV_FILE: &str = "secrets.env";
+
+/// Account the collector is created with, and the one the hub authenticates its OTLP exports as.
+///
+/// One constant because the two are the same account seen from either end: the collector is created with it as
+/// `ZO_ROOT_USER_EMAIL` and the hub presents it as `OTLP_AUTH_USERNAME`, so a deployment where they disagree
+/// comes up healthy and then rejects every export. Written in two files before this existed, with nothing
+/// checking that they matched.
+pub const COLLECTOR_USERNAME: &str = "root@example.com";
+
+/// The collector's non-secret settings, which every generated deployment carries rather than sourcing.
+///
+/// Three formats render this -- a `ConfigMap`, a compose `environment:` block, a `docker run` flag list -- so
+/// it is one list and a setting cannot reach some deployments and not others. Reading it from a file in this
+/// repository instead is what made a generated deployment unable to leave the tree, for the sake of two values
+/// neither secret nor scenario-specific.
+///
+/// Two things are deliberately absent. The root password is derived per scenario and reaches each format from
+/// the generated env file. `ZO_DATA_DIR` is per format rather than shared, because it only means anything
+/// alongside the storage that format declares -- a named volume, a claim, or nothing at all.
+pub(crate) const COLLECTOR_SETTINGS: [(&str, &str); 2] =
+    [("RUST_LOG", "warn"), ("ZO_ROOT_USER_EMAIL", COLLECTOR_USERNAME)];
+
+/// Registry path the repository's own images are published under.
+///
+/// A runner image is the same for every deployment -- nothing in one varies by scenario -- so a scenario that
+/// asks for published images names it here and the cluster pulls it, leaving the node with nothing to build or
+/// import. The hub image is published alongside them but no manifest names it: it is the base a scenario image
+/// is layered onto, so it reaches a deployment as a build context rather than as something a pod runs.
+pub(crate) const IMAGE_REGISTRY: &str = "ghcr.io/edge-toolkit/core";
+
+/// Prefix that turns a bare image name into the one a scenario's `artifact_source` asks for.
+///
+/// A prefix rather than two parallel name builders, because that is the whole of the difference: the tags are
+/// identical, and an unqualified one is what a container runtime treats as local-or-Docker-Hub.
+#[must_use]
+pub(crate) fn image_prefix(images: ArtifactSource) -> String {
+    if matches!(images, ArtifactSource::Published) {
+        format!("{IMAGE_REGISTRY}/")
+    } else {
+        String::default()
+    }
+}
 
 #[derive(Debug, Clone)]
 #[non_exhaustive]
-pub struct ModuleRegistryEntry {
+pub(crate) struct ModuleRegistryEntry {
     pub mise_path: String,
     pub docker_path: String,
     pub dependencies: BTreeSet<String>,
@@ -189,10 +214,8 @@ pub fn generate_deployment(
     output_type: Option<OutputType>,
 ) -> Result<DeploymentSummary, CliError> {
     let (cluster, seed) = load_cluster_input(input_file)?;
-    let output_type = output_type
-        .map(Ok)
-        .or_else(|| cluster.deployment_type.as_deref().map(output_type_from_input))
-        .unwrap_or(Ok(OutputType::Mise))?;
+    // The flag wins where it is given; otherwise the input's own choice, which defaults to `Mise`.
+    let output_type = output_type.unwrap_or(cluster.deployment_type);
 
     let module_names = cluster_module_names(&cluster);
     generate_deployment_outputs(&cluster, output_dir, &[output_type], seed)?;
@@ -208,7 +231,7 @@ pub fn generate_deployment(
 ///
 /// Read once and hashed here so the seed covers the exact file the deployment was generated from, comments and
 /// formatting included, rather than a re-serialization of the parsed struct.
-pub fn load_cluster_input(input_file: &Path) -> Result<(ClusterInput, u64), CliError> {
+pub(crate) fn load_cluster_input(input_file: &Path) -> Result<(ClusterInput, u64), CliError> {
     let content = fs::read(input_file)?;
     let cluster: ClusterInput = serde_yaml::from_slice(&content)?;
     validate_cluster_name(&cluster.cluster_name)?;
@@ -289,18 +312,6 @@ pub fn regenerate_verification(
     Ok(regenerated)
 }
 
-pub fn output_type_from_input(value: &str) -> Result<OutputType, CliError> {
-    if value.eq_ignore_ascii_case("mise") {
-        Ok(OutputType::Mise)
-    } else if matches!(value.to_ascii_lowercase().as_str(), "docker-compose" | "docker_compose") {
-        Ok(OutputType::DockerCompose)
-    } else if value.eq_ignore_ascii_case("k3s") {
-        Ok(OutputType::K3s)
-    } else {
-        Err(CliError::UnsupportedDeploymentType(value.to_string()))
-    }
-}
-
 const fn deployment_summary(
     cluster_name: String,
     agent_templates: usize,
@@ -328,6 +339,7 @@ fn generate_deployment_outputs(
     // same root credentials the collector was started with.
     let password = scenario_password(seed);
     fs::write(output_dir.join(SECRETS_ENV_FILE), secrets_env(&password))?;
+    write_secrets_gitignore(output_dir)?;
     for output_type in output_types {
         match output_type {
             OutputType::Mise => generate_mise_deployment(cluster, output_dir)?,
@@ -348,23 +360,70 @@ fn generate_deployment_outputs(
 
     let readme_path = output_dir.join("README.md");
     let module_names = cluster_module_names(cluster);
-    fs::write(&readme_path, generated_readme(cluster, &module_names, output_types))?;
+    // The README's build command names this scenario's directory, which is the output path it was handed.
+    // Only the parent is rendered, so the command keeps naming the last segment through the `scenario` shell
+    // variable it already sets rather than repeating the name. Joined from the path's own components rather
+    // than displayed, because the result is committed: a `Display` of the same path writes `\` on Windows and
+    // `/` everywhere else, which would make the file drift by platform and fail the check that holds it
+    // stable. Regeneration passes a repository-relative path, which is what the command needs, since it runs
+    // from the repository root.
+    let output_parent = output_dir
+        .parent()
+        .unwrap_or(output_dir)
+        .iter()
+        .map(|component| component.to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/");
+    let dockerfile = format!("{output_parent}/$scenario/Dockerfile");
+    fs::write(
+        &readme_path,
+        generated_readme(cluster, &module_names, output_types, &dockerfile),
+    )?;
 
     Ok(())
 }
 
-/// Render the env file both deployment formats read the scenario credential from.
+/// Keep a generated deployment's credential out of whatever repository it was generated into.
+///
+/// Written beside the file it covers rather than left to the operator, because the failure is silent and
+/// permanent: a credential committed once stays in the history after it is deleted. A nested `.gitignore` is
+/// what makes the deployment directory safe to drop anywhere, which is the point of generating it.
+///
+/// Not written inside this repository. Here the verification outputs are committed evidence -- their whole
+/// purpose is to be diffed when a generator changes -- and the password is derived from an input this
+/// repository also carries, so it is reproducible from what is already public rather than a secret the file
+/// is keeping. An ignore file here would only hide them from the drift check that exists to read them.
+fn write_secrets_gitignore(output_dir: &Path) -> Result<(), CliError> {
+    if running_in_this_repository() {
+        return Ok(());
+    }
+    let body = format!(
+        concat!(
+            "# Written by `et-cli` beside the credential it covers.\n",
+            "# The password is derived from the scenario input, so regenerating this deployment rewrites it;\n",
+            "# committing it would publish the credential of every deployment generated from that input.\n",
+            "{file}\n",
+        ),
+        file = SECRETS_ENV_FILE
+    );
+    fs::write(output_dir.join(".gitignore"), body)?;
+    Ok(())
+}
+
+/// Render the env file every deployment format reads the scenario credential from.
 ///
 /// Two names for the one password because the services that share it read different variables: `OpenObserve`
 /// takes `ZO_ROOT_USER_PASSWORD` as its root credential, and the ws-server authenticates its OTLP exports with
-/// `OTLP_AUTH_PASSWORD`. The username is here too so everything the pair needs to agree on lives in one file.
+/// `OTLP_AUTH_PASSWORD`. Nothing else belongs here. The account those two authenticate as is not a secret and
+/// each format states it outright, so keeping it in this file would have meant an uncommitted file standing
+/// between a reader and a value there was never any reason to withhold -- and, in the Kubernetes case, a
+/// `Secret` holding something that is not one.
 fn secrets_env(password: &str) -> String {
     format!(
         concat!(
-            "# Generated, and deliberately not committed -- regenerating the scenario rewrites it.\n",
+            "# Generated from the scenario input -- regenerating this deployment rewrites it.\n",
             "ZO_ROOT_USER_PASSWORD={password}\n",
             "OTLP_AUTH_PASSWORD={password}\n",
-            "OTLP_AUTH_USERNAME=root@example.com\n",
         ),
         password = password
     )
@@ -422,7 +481,12 @@ fn discover_verification_scenarios(verification_root: &Path) -> Result<Vec<(Path
     Ok(scenarios)
 }
 
-fn generated_readme(cluster: &ClusterInput, module_names: &[String], output_types: &[OutputType]) -> String {
+fn generated_readme(
+    cluster: &ClusterInput,
+    module_names: &[String],
+    output_types: &[OutputType],
+    dockerfile: &str,
+) -> String {
     let module_summary = if module_names.is_empty() {
         "No workflow modules were selected in the scenario input.".to_string()
     } else {
@@ -454,7 +518,15 @@ fn generated_readme(cluster: &ClusterInput, module_names: &[String], output_type
     };
     let run_instructions = output_types
         .iter()
-        .map(|output_type| generated_run_instructions(*output_type, &cluster.cluster_name, &runner_kinds(cluster)))
+        .map(|output_type| {
+            generated_run_instructions(
+                *output_type,
+                &cluster.cluster_name,
+                dockerfile,
+                &runner_kinds(cluster),
+                cluster.artifact_source,
+            )
+        })
         .collect::<Vec<_>>()
         .join("\n");
 
@@ -463,10 +535,12 @@ fn generated_readme(cluster: &ClusterInput, module_names: &[String], output_type
             "# {name}\n\n",
             "{output_summary}\n\n",
             "{module_summary}\n\n",
+            "{artifact_note}",
             "{secrets_note}\n\n",
             "{run_instructions}",
         ),
         name = cluster.cluster_name,
+        artifact_note = artifact_source_note(cluster.artifact_source),
         output_summary = output_summary,
         module_summary = module_summary,
         secrets_note = secrets_note(),
@@ -474,17 +548,37 @@ fn generated_readme(cluster: &ClusterInput, module_names: &[String], output_type
     )
 }
 
-/// Explain the credential file, since it is the one generated file the repository does not carry.
+/// State where this scenario's artifacts come from, for a scenario that does not build them.
+///
+/// Above the run sections rather than inside one, because it is true of every way this scenario starts: the
+/// `mise` deployment runs released binaries, and the compose and Kubernetes ones run published images. Said
+/// once per run mode it would be three copies of one fact, and said inside `mise` alone it would read as a
+/// property of that mode. A local scenario says nothing here -- building what it runs is the unremarkable
+/// case, and the run sections already show the builds.
+const fn artifact_source_note(artifacts: ArtifactSource) -> &'static str {
+    if matches!(artifacts, ArtifactSource::Published) {
+        return concat!(
+            "This scenario is rendered against released artifacts rather than builds of this repository:\n",
+            "the images it names are published, and the binaries it runs are the released ones. Only the\n",
+            "image carrying its own module set is still built locally, since no release can hold a module\n",
+            "set particular to one deployment.\n\n"
+        );
+    }
+    ""
+}
+
+/// Explain the credential file, since a deployment that reaches a new machine without it fails obscurely.
 ///
 /// Worth saying out loud because its absence is silent: `mise` skips an `_.file` it cannot find without a
-/// warning, and Docker Compose treats a missing `env_file` the same way, so a checkout without it starts a
+/// warning, and Docker Compose treats a missing `env_file` the same way, so a copy without it starts a
 /// collector with no root password rather than failing.
 fn secrets_note() -> String {
     format!(
         concat!(
-            "`{file}` holds the scenario's derived OpenObserve and OTLP credentials, and is deliberately not\n",
-            "committed. Regenerating this scenario writes it; if it is missing, run\n",
-            "`mise run regen-verification` (or `et-cli generate-deployment`) before starting the stack.",
+            "`{file}` holds the scenario's derived OpenObserve and OTLP credentials. It is derived from the\n",
+            "scenario input, so regenerating this deployment rewrites it; if it is missing, regenerate before\n",
+            "starting the stack. A deployment generated outside the repository is written with a `.gitignore`\n",
+            "covering it, so its credential is not committed by whatever repository it lands in.",
         ),
         file = SECRETS_ENV_FILE
     )
@@ -507,55 +601,120 @@ fn runner_kinds(cluster: &ClusterInput) -> Vec<String> {
     kinds
 }
 
-fn generated_run_instructions(output_type: OutputType, cluster_name: &str, runners: &[String]) -> String {
+/// Render the step that installs a published deployment's binaries, and nothing at all for a local one.
+///
+/// A local deployment compiles what it runs from the working tree, so `mise run` is the whole of it. A
+/// published one declares its binaries as `cargo:` tools, and `task.run_auto_install` is off, so without this
+/// step the first task dies on a command it cannot find rather than fetching it. Why the binaries are released
+/// rather than built is said once, above the run sections, because it is true of every mode.
+const fn mise_install_note(artifacts: ArtifactSource) -> &'static str {
+    if matches!(artifacts, ArtifactSource::Published) {
+        return concat!(
+            "Fetch the binaries the tasks below name before the first run:\n\n",
+            "```bash\n",
+            "mise install\n",
+            "```\n\n"
+        );
+    }
+    ""
+}
+
+fn generated_run_instructions(
+    output_type: OutputType,
+    cluster_name: &str,
+    dockerfile: &str,
+    runners: &[String],
+    artifacts: ArtifactSource,
+) -> String {
     match output_type {
-        OutputType::Mise => concat!(
-            "## Run With Mise\n\n",
-            "From this directory, start the scenario with:\n\n",
-            "```bash\n",
-            "mise run generated-scenario\n",
-            "```\n\n",
-            "That task starts both OpenObserve and `ws-server` for this scenario.\n\n",
-            "### Open The OpenObserve UI\n\n",
-            "From this directory, open the OpenObserve UI with:\n\n",
-            "```bash\n",
-            "mise run open-o2\n",
-            "```\n"
-        )
-        .to_string(),
-        OutputType::DockerCompose => concat!(
-            "## Run With Docker Compose\n\n",
-            "From this directory, start the scenario with:\n\n",
-            "```bash\n",
-            "docker compose up --build\n",
-            "```\n\n",
-            "The compose stack starts OpenObserve and builds `ws-server` in two layers: the module-less hub\n",
-            "image from the repository's `services/ws-server/Dockerfile`, then the `Dockerfile` in this\n",
-            "directory, which stages this scenario's modules onto it. The hub is build-only and never runs as a\n",
-            "container of its own.\n",
-            "`ws-server` runs with host networking so it advertises the same LAN IP as the `mise` deployment.\n\n",
-            "### Open The UIs\n\n",
-            "OpenObserve is available at <http://localhost:5080/>.\n",
-            "`ws-server` is available at <http://localhost:8080/> and <https://localhost:8443/>.\n\n",
-            "Stop the scenario with:\n\n",
-            "```bash\n",
-            "docker compose down\n",
-            "```\n"
-        )
-        .to_string(),
-        OutputType::K3s => k3s_run_instructions(cluster_name, runners),
+        OutputType::Mise => format!(
+            concat!(
+                "## Run With Mise\n\n",
+                "{install}",
+                "From this directory, start the scenario with:\n\n",
+                "```bash\n",
+                "mise run generated-scenario\n",
+                "```\n\n",
+                "That task starts both OpenObserve and `ws-server` for this scenario.\n\n",
+                "### Open The OpenObserve UI\n\n",
+                "From this directory, open the OpenObserve UI with:\n\n",
+                "```bash\n",
+                "mise run open-o2\n",
+                "```\n"
+            ),
+            install = mise_install_note(artifacts)
+        ),
+        OutputType::DockerCompose => format!(
+            concat!(
+                "## Run With Docker Compose\n\n",
+                "From this directory, start the scenario with:\n\n",
+                "```bash\n",
+                "docker compose up --build\n",
+                "```\n\n",
+                "{hub}",
+                "`ws-server` runs with host networking so it advertises the same LAN IP as the `mise` deployment.\n\n",
+                "### Open The UIs\n\n",
+                "OpenObserve is available at <http://localhost:5080/>.\n",
+                "`ws-server` is available at <http://localhost:8080/> and <https://localhost:8443/>.\n\n",
+                "Stop the scenario with:\n\n",
+                "```bash\n",
+                "docker compose down\n",
+                "```\n"
+            ),
+            hub = compose_hub_note(artifacts)
+        ),
+        OutputType::K3s => k3s_run_instructions(cluster_name, dockerfile, runners, artifacts),
     }
 }
 
-/// Render the build-and-import section for each runner image the scenario's manifests name.
+/// Explain where the module-less hub image the scenario layers onto comes from.
 ///
-/// Emitted as commands rather than described in prose, because a runner image the node does not have leaves
-/// its pod in `ErrImagePull` indefinitely -- the manifests name `et-ws-<kind>-runner:latest` and nothing in
-/// the deployment builds it. A scenario whose agents are all browser-side names no runner image, so the whole
-/// section including its heading sentence is omitted rather than left as an empty code fence.
-fn runner_image_commands(runners: &[String]) -> String {
+/// The two answers are structurally different rather than differently worded: a local scenario declares a
+/// build-only service for the hub and takes that service as the named build context, so `docker compose up`
+/// builds two images; a published one points the context straight at the released image and builds one. A
+/// reader who does not know which shape they have is reading a `compose.yaml` with a service in it they
+/// cannot account for, or missing one the other scenarios have.
+const fn compose_hub_note(artifacts: ArtifactSource) -> &'static str {
+    if matches!(artifacts, ArtifactSource::Published) {
+        return concat!(
+            "The compose stack starts OpenObserve and builds one image: the `Dockerfile` in this directory,\n",
+            "which stages this scenario's modules onto the released hub image it names as a build context.\n"
+        );
+    }
+    concat!(
+        "The compose stack starts OpenObserve and builds `ws-server` in two layers: the module-less hub\n",
+        "image from the repository's `services/ws-server/Dockerfile`, then the `Dockerfile` in this\n",
+        "directory, which stages this scenario's modules onto it. The hub is build-only and never runs as a\n",
+        "container of its own.\n"
+    )
+}
+
+/// Render the section covering each runner image the scenario's manifests name.
+///
+/// Commands for a locally sourced scenario and a plain list for a published one, because that is the
+/// difference the reader has to act on: in the first case a runner image the node does not have leaves its pod
+/// in `ErrImagePull` and nothing in the deployment builds it, and in the second the cluster fetches it and
+/// there is nothing to run at all. The published case still names the refs, since a reader who just built the
+/// scenario image by hand will otherwise go looking for the step that produces these. A scenario whose agents
+/// are all browser-side names no runner image, so the whole section including its heading sentence is omitted
+/// rather than left as an empty code fence.
+fn runner_image_note(runners: &[String], images: ArtifactSource) -> String {
     if runners.is_empty() {
         return String::default();
+    }
+    if matches!(images, ArtifactSource::Published) {
+        let mut refs = String::default();
+        for kind in runners {
+            let _write_result = writeln!(refs, "- `{IMAGE_REGISTRY}/et-ws-{kind}-runner:latest`");
+        }
+        return format!(
+            concat!(
+                "The cluster pulls this scenario's runner images, so nothing has to be built or imported for\n",
+                "them:\n\n",
+                "{refs}\n"
+            ),
+            refs = refs
+        );
     }
     let mut commands = String::default();
     for kind in runners {
@@ -577,33 +736,62 @@ fn runner_image_commands(runners: &[String]) -> String {
     )
 }
 
+/// Render the paragraph and the hub reference that differ between the two image sources.
+///
+/// Kept apart from the shell below rather than templating two whole sections, because everything else about
+/// producing the scenario image is the same either way: only what supplies `FROM hub`, and whether that hub is
+/// a build of its own, actually change.
+fn k3s_image_preamble(images: ArtifactSource) -> (&'static str, String, &'static str) {
+    if matches!(images, ArtifactSource::Published) {
+        return (
+            concat!(
+                "The manifests reference images by name and never build them, so this scenario's own image has\n",
+                "to reach the node first. It layers its modules onto the module-less hub image and takes that\n",
+                "hub as a _named build context_ rather than building it, so a plain `docker build` of the\n",
+                "scenario Dockerfile fails on `FROM hub` -- pointing the context at the published hub is what\n",
+                "supplies it. From the repository root:\n\n"
+            ),
+            format!("{IMAGE_REGISTRY}/et-ws-server:latest"),
+            "",
+        );
+    }
+    (
+        concat!(
+            "The manifests reference images by name and never build them, so build and import each one first.\n",
+            "This scenario's image layers its modules onto the module-less hub image and takes that hub as a\n",
+            "_named build context_ rather than building it, so the hub has to exist first -- a plain\n",
+            "`docker build` of the scenario Dockerfile fails on `FROM hub`. From the repository root:\n\n"
+        ),
+        "et-ws-server-hub:latest".to_string(),
+        "docker build -t \"$hub\" -f services/ws-server/Dockerfile .\n",
+    )
+}
+
 /// Render the k3s half of the generated README.
 ///
 /// Longer than the other two because a Kubernetes deployment needs two things done before `kubectl apply`
 /// that neither `mise` nor compose does: the images have to exist on the node, since manifests reference
 /// images rather than building them, and the credential has to be loaded as a `Secret`, since it is the one
 /// generated file the repository does not carry.
-fn k3s_run_instructions(cluster_name: &str, runners: &[String]) -> String {
+fn k3s_run_instructions(cluster_name: &str, dockerfile: &str, runners: &[String], images: ArtifactSource) -> String {
+    let (preamble, hub, hub_build) = k3s_image_preamble(images);
     format!(
         concat!(
             "## Run With k3s\n\n",
-            "The manifests reference images by name and never build them, so build and import each one first.\n",
-            "This scenario's image layers its modules onto the module-less hub image and takes that hub as a\n",
-            "_named build context_ rather than building it, so the hub has to exist first -- a plain\n",
-            "`docker build` of the scenario Dockerfile fails on `FROM hub`. From the repository root:\n\n",
+            "{preamble}",
             "```bash\n",
             "scenario={name}\n",
-            "hub=et-ws-server-hub:latest\n",
+            "hub={hub}\n",
             "image=\"et-ws-server-$scenario:latest\"\n",
-            "dockerfile=\"verification/local/output/$scenario/Dockerfile\"\n",
-            "docker build -t \"$hub\" -f services/ws-server/Dockerfile .\n",
+            "dockerfile=\"{dockerfile}\"\n",
+            "{hub_build}",
             "docker build --build-context \"hub=docker-image://$hub\" -t \"$image\" -f \"$dockerfile\" .\n",
             "docker save \"$image\" | sudo k3s ctr images import -\n",
             "```\n\n",
-            "{runner_commands}",
+            "{runner_note}",
             "### Load The Credential\n\n",
-            "`{file}` is generated but deliberately not committed, so the `Secret` is created from it rather\n",
-            "than shipped inside `k3s.yaml`. From this directory:\n\n",
+            "The credential reaches the pods as a `Secret` created from `{file}`, rather than written into\n",
+            "`k3s.yaml` where it would be committed alongside the manifests. From this directory:\n\n",
             "```bash\n",
             "ns=et-{name}\n",
             "kubectl create namespace \"$ns\" --save-config\n",
@@ -619,14 +807,18 @@ fn k3s_run_instructions(cluster_name: &str, runners: &[String]) -> String {
             "kubectl get pods -n \"$ns\" --watch\n",
             "```\n"
         ),
+        dockerfile = dockerfile,
         file = SECRETS_ENV_FILE,
+        hub = hub,
+        hub_build = hub_build,
         name = cluster_name,
-        runner_commands = runner_image_commands(runners)
+        preamble = preamble,
+        runner_note = runner_image_note(runners, images)
     )
 }
 
 #[must_use]
-pub fn module_registry(project_root: &Path, ws_server_dir: &Path) -> BTreeMap<String, ModuleRegistryEntry> {
+pub(crate) fn module_registry(project_root: &Path, ws_server_dir: &Path) -> BTreeMap<String, ModuleRegistryEntry> {
     let mut registry = BTreeMap::new();
 
     register_modules_under(
@@ -870,7 +1062,7 @@ fn resolve_module_entries<'registry>(
     Ok(entries)
 }
 
-pub fn resolve_module_paths<F>(
+pub(crate) fn resolve_module_paths<F>(
     registry: &BTreeMap<String, ModuleRegistryEntry>,
     module_names: &[String],
     path_for: F,
@@ -885,7 +1077,7 @@ where
 }
 
 /// Resolve the cluster's modules to the docker path each is served from and how it is provisioned.
-pub fn resolve_module_sources(
+pub(crate) fn resolve_module_sources(
     registry: &BTreeMap<String, ModuleRegistryEntry>,
     module_names: &[String],
 ) -> Result<Vec<(String, ModuleSource)>, CliError> {
@@ -900,7 +1092,7 @@ pub fn resolve_module_sources(
 /// Everything is taken from the registry as-is except pyodide, whose distribution depends on the cluster: the
 /// registry cannot decide that, because pyodide arrives as a dependency of whichever Python modules the cluster
 /// happens to declare.
-pub fn resolve_cluster_modules(
+pub(crate) fn resolve_cluster_modules(
     registry: &BTreeMap<String, ModuleRegistryEntry>,
     module_names: &[String],
 ) -> Result<Vec<ModuleRegistryEntry>, CliError> {
@@ -953,16 +1145,21 @@ pub fn npm_module_path(package: &str) -> Result<PathBuf, CliError> {
         .ok_or_else(|| CliError::UnresolvedNpmModule(package.to_string()))
 }
 
+/// Environment a runner gets from the deployment rather than from the scenario, and so cannot be overridden.
+pub(crate) const DERIVED_RUNNER_ENV: [&str; 2] = ["RUNNER_MODULE", "WS_SERVER_URL"];
+
 /// One runner process the generated deployment starts, resolved from an agent that names a `runner:`.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
-pub struct RunnerInstance {
+pub(crate) struct RunnerInstance {
     /// Deployment-unique name for the process: the task name in `mise.toml`, the service name in `compose.yaml`.
     pub name: String,
     /// Runner kind the agent asked for, already validated against [`SUPPORTED_RUNNERS`].
     pub runner: String,
     /// Value for the runner's `RUNNER_MODULE`, i.e. the module's published package name.
     pub module: String,
+    /// Extra environment the scenario declared for this agent, rendered by every deployment format.
+    pub env: BTreeMap<String, String>,
 }
 
 /// Runner kinds a scenario may name, mapped to the crate that runs them.
@@ -972,7 +1169,7 @@ pub struct RunnerInstance {
 /// `services/ws-<kind>-runner/Dockerfile`. Nothing else distinguishes a runner here, so a fourth is this line
 /// plus an image. Rejecting a kind by name is what stops a scenario from asking for one and silently getting
 /// nothing.
-pub const SUPPORTED_RUNNERS: [(&str, &str); 3] = [
+pub(crate) const SUPPORTED_RUNNERS: [(&str, &str); 3] = [
     ("pyo3", "et-ws-pyo3-runner"),
     ("wasi", "et-ws-wasi-runner"),
     ("web", "et-ws-web-runner"),
@@ -984,7 +1181,7 @@ pub const SUPPORTED_RUNNERS: [(&str, &str); 3] = [
 /// task into a table and compose writes each service as a mapping key. Either way a collision replaces rather
 /// than reports -- an agent called `ws-server` would quietly take the hub's place, and the deployment would come
 /// up missing the thing it was meant to talk to. Rejecting the name is the only way that surfaces.
-pub const RESERVED_RUNNER_NAMES: [&str; 6] = [
+pub(crate) const RESERVED_RUNNER_NAMES: [&str; 6] = [
     "generated-scenario",
     "o2",
     "open-o2",
@@ -998,7 +1195,7 @@ pub const RESERVED_RUNNER_NAMES: [&str; 6] = [
 /// One process per resource rather than per agent, because a runner hosts exactly one module -- `RUNNER_MODULE`
 /// is a single name. An agent with one resource (the usual shape) therefore keeps the agent's own name, and only
 /// a multi-resource agent gets the resource suffixed, so the common case reads as the scenario wrote it.
-pub fn resolve_cluster_runners(
+pub(crate) fn resolve_cluster_runners(
     registry: &BTreeMap<String, ModuleRegistryEntry>,
     cluster: &ClusterInput,
 ) -> Result<Vec<RunnerInstance>, CliError> {
@@ -1019,6 +1216,19 @@ pub fn resolve_cluster_runners(
                 supported,
             });
         }
+        // A scenario cannot set the two the deployment derives for it.
+        // `RUNNER_MODULE` and `WS_SERVER_URL` are what wire a runner to its module and its hub, and both are
+        // computed from the rest of the input. Letting `env:` win would mean a scenario whose generated files
+        // describe one deployment and whose runners join another; letting the derived value win would mean an
+        // `env:` entry that is silently ignored. Neither is worth allowing, so it is an error to write one.
+        for variable in DERIVED_RUNNER_ENV {
+            if agent.env.contains_key(variable) {
+                return Err(CliError::ReservedRunnerEnv {
+                    agent: agent.name.clone(),
+                    variable: (*variable).to_string(),
+                });
+            }
+        }
         let multi_resource = agent.resources.len() > 1;
         for resource in &agent.resources {
             let module_name = resource.resource_type.trim();
@@ -1035,6 +1245,9 @@ pub fn resolve_cluster_runners(
                 name,
                 runner: runner.to_string(),
                 module,
+                // Every resource of a multi-resource agent gets its own runner process, and the agent's
+                // environment describes the agent, so each of them carries it.
+                env: agent.env.clone(),
             });
         }
     }
@@ -1047,7 +1260,7 @@ pub fn resolve_cluster_runners(
 /// meant writing the same format string more than once. One definition here serves the compose services, the
 /// mise tasks and whatever is added next, and it is the only place that has to change if the port moves.
 #[must_use]
-pub fn hub_http_base() -> String {
+pub(crate) fn hub_http_base() -> String {
     format!("http://localhost:{}", Services::InsecureWebSocketServer.port())
 }
 
@@ -1088,7 +1301,7 @@ fn runner_name(
 
 /// The crate whose binary runs `runner`, which [`resolve_cluster_runners`] has already validated.
 #[must_use]
-pub fn runner_crate(runner: &str) -> &'static str {
+pub(crate) fn runner_crate(runner: &str) -> &'static str {
     SUPPORTED_RUNNERS
         .iter()
         .find(|(kind, _)| *kind == runner)
@@ -1096,7 +1309,7 @@ pub fn runner_crate(runner: &str) -> &'static str {
 }
 
 #[must_use]
-pub fn cluster_module_names(cluster: &ClusterInput) -> Vec<String> {
+pub(crate) fn cluster_module_names(cluster: &ClusterInput) -> Vec<String> {
     cluster
         .agents
         .iter()

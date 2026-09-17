@@ -611,32 +611,117 @@ docker run --rm --platform linux/amd64 -v "$mnt" et-mise-linux mise run oci-buil
 """
 shell = "{{ vars.task_shell }}"
 
-# Verify every mise-tools GHCR store is public, so unauthenticated users can pull-mise-tools.
+# Publish the hub and runner images to GHCR as multi-arch manifests (maintainer-only).
+# A generated k3s deployment names these images rather than building them, so the cluster pulls
+# ghcr.io/edge-toolkit/core/et-<service>:latest and only the scenario image -- the one carrying that
+# deployment's module set -- is still built by whoever deploys it. Written ONLY from a maintainer's machine,
+# for the same reason the tool stores are: no workflow holds packages:write, so a compromised workflow cannot
+# replace what a cluster then runs.
+#
+# Auth is the one-time `docker login ghcr.io` the tool-store tasks above set up; docker pushes here rather
+# than crane because buildx is what assembles the manifest list, and it uploads as part of the build.
+#
+# Each image's runtime stage carries `org.opencontainers.image.source`. GHCR reads that label to attach the
+# package to the repository, which is what gives the package page its README and source link and lets it
+# inherit the repository's access rather than standing on its own; a package pushed without it arrives
+# unlinked and stays that way until a later push supplies one.
+#
+# Both platforms come from one build by default, so an arm64 node and an amd64 node resolve the same tag. That
+# needs a `docker-container` builder -- the default `docker` driver builds a single platform and fails the
+# moment two are asked for -- and binfmt registered for the foreign architecture. The foreign leg is emulated,
+# and ws-web-runner links V8, so expect that one to take hours rather than minutes; pass image names to publish
+# a subset rather than rebuilding all four.
+#
+# `IMAGE_PLATFORMS` narrows that list for a host that cannot emulate the other architecture. On Apple silicon
+# the emulator decides whether it can at all: under Rosetta the x86 build works, while plain QEMU cannot run
+# rustc and dies before compiling anything, with
+#
+#     qemu: uncaught target signal 11 (Segmentation fault) - core dumped
+#     error: process didn't exit successfully: `.../rustc -vV` (signal: 11, SIGSEGV: invalid memory reference)
+#
+# (observed on a macOS arm64 host running Rancher Desktop with `useRosetta: false`, building ws-server for
+# linux/amd64).
+#
+# Which is why each architecture is pushed under its own `:latest-<arch>` tag and `:latest` is then assembled
+# from those with `docker buildx imagetools create`. A push of a tag replaces it rather than adding to it, so
+# building straight to `:latest` would mean the two halves could only ever come from one host in one run --
+# the amd64 push would drop the arm64 image. Assembling instead lets a host publish the architecture it can
+# build and leaves the other half of `:latest` intact, and the assembly reads the registry rather than this
+# run, so it picks up an architecture a different machine published months earlier. The cost is one extra tag
+# per architecture, which shares every blob with the image it points at.
+[tasks.push-service-images]
+description = "Build and push the hub and runner images to GHCR for linux/amd64 + linux/arm64 (maintainer-only)"
+# docker is a host daemon rather than a mise tool, and these images install nothing through mise.
+run = """
+images="${usage_image:-ws-server ws-web-runner ws-wasi-runner ws-pyo3-runner}"
+every_platform="linux/amd64,linux/arm64"
+platforms="${IMAGE_PLATFORMS:-$every_platform}"
+tag=latest
+builder=et-service-images
+if ! docker buildx inspect "$builder" >/dev/null 2>&1; then
+  docker buildx create --name "$builder" --driver docker-container --bootstrap >/dev/null
+fi
+for name in $images; do
+  dockerfile="services/$name/Dockerfile"
+  if [ ! -f "$dockerfile" ]; then
+    echo "push-service-images: no Dockerfile at $dockerfile" >&2
+    exit 1
+  fi
+  repo="ghcr.io/edge-toolkit/core/et-$name"
+  for platform in ${platforms//,/ }; do
+    arch="${platform##*/}"
+    echo "push-service-images: $dockerfile -> $repo:$tag-$arch"
+    args="--builder $builder --platform $platform --file $dockerfile --tag $repo:$tag-$arch --push"
+    # $args is a word-split flag list by design; do not quote it.
+    # shellcheck disable=SC2086
+    docker buildx build $args .
+  done
+  # Rebuild the multi-arch tag from whichever per-architecture tags the registry now holds.
+  # Every architecture is probed, not just the ones this run built, so a host that can only produce one of
+  # them still leaves the tag naming both once the other host has published its half.
+  sources=""
+  for platform in ${every_platform//,/ }; do
+    candidate="$repo:$tag-${platform##*/}"
+    if docker buildx imagetools inspect "$candidate" >/dev/null 2>&1; then
+      sources="$sources $candidate"
+    fi
+  done
+  echo "push-service-images: $repo:$tag <-$sources"
+  # $sources is a word-split list of image references by design; do not quote it.
+  # shellcheck disable=SC2086
+  docker buildx imagetools create --tag "$repo:$tag" $sources
+done
+"""
+shell = "{{ vars.task_shell }}"
+usage = 'arg "[image]..." var=#true help="Service directory names to publish (default: the hub and every runner)"'
+
+# Verify every GHCR package is public, so unauthenticated users can pull a tool store or a service image.
 # GHCR has NO API to change package visibility -- the packages REST surface is read/delete/restore only,
-# and the web UI's toggle posts a session-cookie form -- so flipping a store public is a one-time manual
+# and the web UI's toggle posts a session-cookie form -- so flipping a package public is a one-time manual
 # click. This task automates everything around that click: it lists the org's container packages, prints
-# each store's visibility, and fails with the exact settings page URL for any still-private store (flip it
-# under Danger Zone -> Change visibility -> Public). Visibility survives later pushes, so each store needs
-# this exactly once, right after its first `push-mise-tools*` publish. The listing call needs gh auth with
-# the read:packages scope -- grant it once with `gh auth refresh -s read:packages`.
-[tasks.check-mise-tools-visibility]
+# each one's visibility, and fails with the exact settings page URL for any still private (flip it under
+# Danger Zone -> Change visibility -> Public). Visibility survives later pushes, so each package needs this
+# exactly once, right after its first publish -- a private service image is what leaves a pod in
+# ImagePullBackOff on a cluster holding no credential. The listing call needs gh auth with the read:packages
+# scope -- grant it once with `gh auth refresh -s read:packages`.
+[tasks.check-ghcr-visibility]
 depends = ["_setup-store-tools"]
-description = "Verify every mise-tools GHCR store is public; print settings URLs for any still private"
+description = "Verify every GHCR package is public; print settings URLs for any still private"
 run = """
 gh="$(mise which gh)"
 jaq="$(mise which jaq)"
 json=$("$gh" api "/orgs/edge-toolkit/packages?package_type=container" --paginate)
-filter='.[] | select(.name | startswith("core/mise-tools/"))'
+filter='.[] | select(.name | startswith("core/"))'
 report='.name + ": " + .visibility'
 still_private='select(.visibility != "public") | .name | @uri'
 echo "$json" | "$jaq" -r "$filter | $report"
 if [ -z "$(echo "$json" | "$jaq" -r "$filter | .name")" ]; then
-  echo "no mise-tools packages exist yet; publish one with push-mise-tools first" >&2
+  echo "no packages exist yet; publish one first" >&2
   exit 1
 fi
 private=$(echo "$json" | "$jaq" -r "$filter | $still_private")
 if [ -z "$private" ]; then
-  echo "all mise-tools stores are public"
+  echo "all packages are public"
   exit 0
 fi
 echo "still private -- make each public at its settings page (Danger Zone -> Change visibility):" >&2

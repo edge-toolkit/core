@@ -4402,6 +4402,9 @@ dependencies = [
  "opentelemetry-appender-tracing",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
+ "serde",
+ "serde-env",
+ "serde_json",
  "tracing",
  "tracing-log",
  "tracing-opentelemetry",
@@ -4796,6 +4799,7 @@ dependencies = [
  "base64 0.23.1",
  "command-error",
  "edge-toolkit",
+ "et-otlp",
  "et-rest-client",
  "et-ws-runner-common",
  "et-ws-test-server",
@@ -4810,7 +4814,6 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -4818,6 +4821,7 @@ name = "et-ws-runner-common"
 version = "0.1.0"
 dependencies = [
  "edge-toolkit",
+ "et-otlp",
  "et-rest-client",
  "et-test-helpers",
  "futures-util",
@@ -5047,7 +5051,6 @@ dependencies = [
  "tokio-tungstenite",
  "tracing",
  "tracing-opentelemetry",
- "tracing-subscriber",
  "wasi-webgpu-wasmtime",
  "wasmtime",
  "wasmtime-wasi",
@@ -5085,6 +5088,7 @@ dependencies = [
  "deno_resolver",
  "deno_runtime",
  "edge-toolkit",
+ "et-otlp",
  "et-rest-client",
  "et-ws-runner-common",
  "et-ws-test-server",
@@ -5099,7 +5103,6 @@ dependencies = [
  "thiserror 2.0.20",
  "tokio",
  "tracing",
- "tracing-subscriber",
  "winapi",
 ]
 

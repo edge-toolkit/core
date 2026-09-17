@@ -2,10 +2,10 @@ use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::path::Path;
 
-use edge_toolkit::input::ClusterInput;
 use fs_err as fs;
 
 use crate::error::CliError;
+use crate::input::ClusterInput;
 use crate::{ModuleSource, cluster_module_names, module_registry, resolve_module_sources};
 
 /// Build context path of the hub image's Dockerfile, which the scenario image layers on top of.
@@ -34,10 +34,11 @@ pub fn generate_scenario_image(cluster: &ClusterInput, output_dir: &Path) -> Res
         }
     }
 
-    fs::write(
-        output_dir.join("Dockerfile"),
-        render_dockerfile(&cluster.cluster_name, &repo_paths, &mise_tools),
-    )?;
+    // Trimmed to exactly one trailing newline, because each section appends its own separating blank line
+    // and whichever section ends up last therefore leaves one behind. A scenario with no modules at all has
+    // no `COPY` sections, so the separator after the label is the end of the file.
+    let dockerfile = render_dockerfile(&cluster.cluster_name, &repo_paths, &mise_tools);
+    fs::write(output_dir.join("Dockerfile"), format!("{}\n", dockerfile.trim_end()))?;
     fs::write(
         output_dir.join("Dockerfile.dockerignore"),
         render_dockerignore(&project_root, &cluster.cluster_name, &repo_paths)?,
@@ -88,6 +89,8 @@ fn render_dockerfile(
         "# build context, and the image it resolves to is pinned by the hub Dockerfile rather than here.\n",
         "# hadolint ignore=DL3006\n",
         "FROM hub\n",
+        "\n",
+        "LABEL org.opencontainers.image.source=\"https://github.com/edge-toolkit/core\"\n",
         "\n",
     ));
 

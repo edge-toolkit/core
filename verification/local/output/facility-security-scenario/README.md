@@ -5,9 +5,10 @@ Files: `mise.toml`, `compose.yaml`, `k3s.yaml`.
 
 The scenario exposes these workflow modules: face-detection, har1, pyface1.
 
-`secrets.env` holds the scenario's derived OpenObserve and OTLP credentials, and is deliberately not
-committed. Regenerating this scenario writes it; if it is missing, run
-`mise run regen-verification` (or `et-cli generate-deployment`) before starting the stack.
+`secrets.env` holds the scenario's derived OpenObserve and OTLP credentials. It is derived from the
+scenario input, so regenerating this deployment rewrites it; if it is missing, regenerate before
+starting the stack. A deployment generated outside the repository is written with a `.gitignore`
+covering it, so its credential is not committed by whatever repository it lands in.
 
 ## Run With Mise
 
@@ -71,8 +72,8 @@ docker save "$image" | sudo k3s ctr images import -
 
 ### Load The Credential
 
-`secrets.env` is generated but deliberately not committed, so the `Secret` is created from it rather
-than shipped inside `k3s.yaml`. From this directory:
+The credential reaches the pods as a `Secret` created from `secrets.env`, rather than written into
+`k3s.yaml` where it would be committed alongside the manifests. From this directory:
 
 ```bash
 ns=et-facility-security-scenario

@@ -1,0 +1,34 @@
+[env]
+OTLP_AUTH_USERNAME = "root@example.com"
+
+[env._]
+file = "secrets.env"
+
+[tasks.generated-scenario]
+depends = ["openobserve", "ws-server"]
+description = "Run generated scenario for default"
+
+[tasks.open-o2]
+description = "Open the OpenObserve UI"
+run = "open http://localhost:5080/"
+
+[tasks.openobserve]
+alias = "o2"
+run = """
+image=openobserve/openobserve:v0.91.5
+settings="-e RUST_LOG=warn -e ZO_ROOT_USER_EMAIL=root@example.com"
+# $settings is a word-split flag list by design; do not quote it.
+docker run --rm --name openobserve -p 127.0.0.1:5080:5080 $settings -e ZO_ROOT_USER_PASSWORD "$image"
+"""
+
+[tasks.ws-server]
+description = "Run the WebSocket server"
+dir = "../../../../services/ws-server"
+run = """
+MODULES_PATHS="static, ../ws-wasm-agent"
+export MODULES_PATHS
+cargo run
+"""
+
+[tools]
+"cargo:open" = "latest"

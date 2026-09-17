@@ -128,6 +128,8 @@ EOF
 # hadolint ignore=DL3006
 FROM hub
 
+LABEL org.opencontainers.image.source="https://github.com/edge-toolkit/core"
+
 COPY --chown=10001:10001 services/ws-modules/face-detection/pkg /app/services/ws-modules/face-detection/pkg
 COPY --chown=10001:10001 services/ws-modules/har1/pkg /app/services/ws-modules/har1/pkg
 COPY --chown=10001:10001 services/ws-modules/pyface1/pkg /app/services/ws-modules/pyface1/pkg

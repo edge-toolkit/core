@@ -20,12 +20,9 @@ use tracing::info;
 // thread on a oneshot reply; the runtime's worker threads keep driving the
 // storage task and the WS loop so those replies resolve while Python waits.
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
-        .init();
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let (config, _telemetry) = et_otlp::load_telemetered::<Config>()?;
 
-    let config = serde_env::from_env::<Config>()?;
     let module = config.runner.module.clone();
     let python_path = config.pyo3.python_path();
     let ws_url = config.ws.server_url.clone();
