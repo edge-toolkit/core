@@ -799,6 +799,33 @@ installed cleanly). This is an api.github.com rate-limit/transient-network flake
 durable fix is to mirror the affected assets via the upstream-cache pattern (which fetches from our own release
 CDN, off the api.github.com attestation path) rather than adding a retry wrapper.
 
+### Known intermittent CI failure: a long job dies with no log at all
+
+A `build` or `default` lane fails having produced **no log blob** -- `gh api .../jobs/<id>/logs` answers
+`BlobNotFound`, the step that was running has a `null` conclusion rather than `failure`, and `Post Checkout`
+never ran either. There is nothing to grep for, because nothing was written; the absence is the signature.
+
+It is the GitHub-hosted runner being reclaimed, not anything in the build. The one sighting that did retain its
+log said so outright --
+
+    ##[error]The runner has received a shutdown signal. This can happen when the runner service is stopped,
+    or a manually started runner is canceled.
+    [cargo-test] ERROR sh exited with non-zero status: killed by SIGTERM
+
+-- on `default (ubuntu-24.04-arm, 50)` at
+`https://github.com/edge-toolkit/core/actions/runs/35083902481/job/104754130780`. Three later sightings on
+commit https://github.com/edge-toolkit/core/commit/cf33e2c0f573 lost their logs entirely: `build (fedora:42)`
+at 71 minutes, `build (ubuntu:24.04)` at 80, and `build (debian:bookworm)` at 90, each well inside the 150-minute
+job budget and each in a different run.
+
+Two things rule out a resource ceiling in our own build, which is the tempting reading. The lane **rotates** --
+fedora and ubuntu:24.04 both passed in the run that killed bookworm -- and the siblings sharing that runner image
+and workload go green in the same run. A ceiling would hit the same heaviest lanes every time. Duration is the
+only correlate: every sighting was a long job.
+
+So the remedy is `gh run rerun --job <id>` once the parent run completes, and there is nothing to fix. Do not
+spend a diagnosis on it; check for the empty log first, and if the siblings passed, re-run and move on.
+
 ### Fixed: vector_otlp_relay store-and-forward timing
 
 Root-caused and fixed on 2026-09-11 by capping the retry interval; kept here because the panic line is what a

@@ -34,10 +34,11 @@ const SPAN_NAME: &str = "relay-probe";
 
 /// Redelivery ceiling, matching the `retry`-based poll this replaced.
 ///
-/// Store-and-forward redelivery is inherently latent: Vector retries the initially-dead sink with an exponential
-/// backoff (`retry_initial_backoff_secs=1`, doubling), so when its first attempts race the mock's listener coming
-/// up, the next retry can land tens of seconds later. The old 30s ceiling intermittently timed that out on cold
-/// CI runners; the wait returns the instant the span lands, so the wider ceiling costs nothing on the happy path.
+/// Store-and-forward redelivery is inherently latent: Vector retries the initially-dead sink on a backoff, so
+/// the span arrives some interval after the collector starts answering rather than at once. The old 30s ceiling
+/// intermittently timed that out on cold CI runners; the wait returns the instant the span lands, so the wider
+/// ceiling costs nothing on the happy path. What bounds the interval is the sink's `retry_max_duration_secs`,
+/// which caps the gap between attempts -- so this ceiling should now be many attempts wide, not one or two.
 const RELAY_TIMEOUT: Duration = Duration::from_mins(2);
 
 #[test]
@@ -102,6 +103,18 @@ fn vector_relays_buffered_otlp_after_backend_comes_online() {
     //    `Content-Type`, so the server must be built as `HttpBinary`.
     let runtime = Runtime::new().unwrap();
     let mock = runtime.block_on(et_test_otlp::start_on(mock_port, Protocol::HttpBinary));
+
+    // Wait for the listener before starting the clock on redelivery, so the two failures stay distinguishable.
+    // `start_on` returns once the server is constructed, which is not the same instant it accepts, and every
+    // retry that lands in that gap is one Vector spends against a closed port. Without this the test reports
+    // "store-and-forward failed" either way -- whether the relay is broken or the collector simply never came
+    // up -- and the second reading is the one the panic cannot say. A listener that is already accepting makes
+    // this return immediately, so the happy path pays nothing.
+    assert!(
+        wait_for_port(mock_port),
+        "the mock collector never accepted on :{mock_port}, so there was nothing for Vector to relay to\n{}",
+        stop_and_read(&mut vector, &log),
+    );
 
     // 5. The buffered span must now be forwarded, intact.
     let Some(relayed) = wait_for_relayed_span(&runtime, &mock) else {

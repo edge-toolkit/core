@@ -80,6 +80,13 @@ const RUNNER_TIMEOUT: &str = "110s";
 /// on its own and then report it as a timeout.
 const RUNNER_EXIT_TIMEOUT: Duration = Duration::from_secs(150);
 
+/// How long a failure message waits for a killed runner's drain threads to hand over what they read.
+///
+/// Only ever spent on a path that is already failing, and only when both buffers are still empty, so a runner
+/// that logged anything at all is quoted as soon as the thread stores it. Short because it covers a handoff
+/// between two threads on the same machine, not any work the runner does.
+const DRAIN_SETTLE: Duration = Duration::from_secs(2);
+
 /// A spawned runner task, with both its output streams captured for the failure message.
 struct Runner {
     guard: ChildGuard,
@@ -150,11 +157,33 @@ fn captured(buffer: &Arc<Mutex<String>>) -> String {
         .map_or_else(|poisoned| poisoned.into_inner().clone(), |guard| guard.clone())
 }
 
-/// Both of one runner's captured streams, labelled, for a failure message.
+/// Both of one runner's captured streams, labelled, for a failure message, after ending it so they are filled.
 ///
 /// A runner that writes nothing is the hard case to read: empty output alone cannot distinguish a process that died
-/// before it could log from one that started and sat idle, so every failure path quotes both streams.
-fn quoted(label: &str, runner: &Runner) -> String {
+/// before it could log from one that started and sat idle, so every failure path quotes both streams. That only
+/// works on a runner that has finished. The drain threads hand their buffer over at EOF, so quoting one still
+/// holding its pipes open reports two empty streams whatever it wrote -- which is how a hung trigger came to look
+/// like a silent one across several CI rounds. Ending it first closes the pipes; the poll then covers the moment
+/// between that and the drain thread storing what it read, and gives up rather than hanging if it stays empty,
+/// since empty is a legitimate answer for a process that really did write nothing.
+#[expect(
+    clippy::single_call_fn,
+    reason = "paired with quoted_now on purpose: inlining it invites a future path to quote a still-running runner"
+)]
+fn quoted(label: &str, runner: &mut Runner) -> String {
+    runner.guard.shutdown();
+    let started = Instant::now();
+    while started.elapsed() < DRAIN_SETTLE && captured(&runner.stdout).is_empty() && captured(&runner.stderr).is_empty()
+    {
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    quoted_now(label, runner)
+}
+
+/// Format whatever the buffers hold right now, without touching the process.
+///
+/// Split out for the paths that have already waited the runner out, which must not shut it down a second time.
+fn quoted_now(label: &str, runner: &Runner) -> String {
     format!(
         "--- {label} stdout ---\n{}\n--- {label} stderr ---\n{}",
         captured(&runner.stdout),
@@ -350,7 +379,7 @@ fn run_scenario(scenario: &str, twin_task: &str, twin_crate: &str, trigger_crate
         !registered.is_empty(),
         "math1-trigger never registered with the hub within {:?}\n{}",
         RUNNER_STARTUP_TIMEOUT,
-        quoted("math1-trigger", &trigger)
+        quoted("math1-trigger", &mut trigger)
     );
     let mut twin = spawn_runner(scenario, twin_task);
 
@@ -385,8 +414,8 @@ fn run_scenario(scenario: &str, twin_task: &str, twin_crate: &str, trigger_crate
             twin_task,
             twin_exited,
             trigger_exited,
-            quoted(twin_task, &twin),
-            quoted("math1-trigger", &trigger)
+            quoted_now(twin_task, &twin),
+            quoted_now("math1-trigger", &trigger)
         );
     };
     et_ws_test_server::math1::verify_math1_model(weight, bias).unwrap();
