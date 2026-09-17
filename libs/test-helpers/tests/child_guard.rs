@@ -18,6 +18,18 @@ fn spawn_probe(millis: u64) -> ChildGuard {
     ChildGuard::new(child)
 }
 
+/// Poll until the probe has genuinely exited, giving up after ~30s.
+///
+/// The probe exits immediately, but "immediately" still means once the OS has got round to scheduling it, and a
+/// bare assertion would race that on a loaded runner. Returning quietly on the timeout rather than asserting
+/// leaves the caller to say what it expected, so each failure reads as the thing that test was about.
+fn wait_until_gone(guard: &mut ChildGuard) {
+    let started = Instant::now();
+    while started.elapsed() < Duration::from_secs(30) && !guard.has_exited() {
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
 #[test]
 fn wait_for_exit_reports_a_child_that_ends_on_its_own() {
     let mut guard = spawn_probe(0);
@@ -44,16 +56,32 @@ fn wait_for_exit_kills_a_child_that_overstays() {
 fn has_exited_reports_a_child_that_has_ended() {
     let mut guard = spawn_probe(0);
 
-    // Polled rather than asserted once: the probe exits immediately, but "immediately" still means once the OS
-    // has got round to scheduling it, and a bare assertion would race that on a loaded runner.
-    let started = Instant::now();
-    while started.elapsed() < Duration::from_secs(30) && !guard.has_exited() {
-        std::thread::sleep(Duration::from_millis(50));
-    }
+    wait_until_gone(&mut guard);
 
     assert!(
         guard.has_exited(),
         "a probe asked to sleep for 0ms should read as exited well inside the bound"
+    );
+}
+
+/// A child that exited without the polling loop noticing is still reported as having exited on its own.
+///
+/// The loop sleeps between polls, so a child can exit inside that gap and the loop run out of budget without
+/// ever seeing it; the look after the loop is what catches that, and reporting it as a kill would tell the
+/// caller the process had to be forced when it finished by itself. Racing a real sleep would be the obvious way
+/// to arrive there and a flaky one -- a zero budget reaches the same branch every time, because the loop cannot
+/// run at all and the look after it is the only thing left to decide the answer.
+#[test]
+fn wait_for_exit_credits_a_child_the_loop_never_saw_finish() {
+    let mut guard = spawn_probe(0);
+
+    // Waited out first so the probe is genuinely gone before the zero-budget call, which otherwise reaches the
+    // same branch and answers "still running" simply because the OS had not scheduled the exit yet.
+    wait_until_gone(&mut guard);
+
+    assert!(
+        guard.wait_for_exit(Duration::ZERO),
+        "a child that has already exited must read as exited even with no time left to look for it"
     );
 }
 
