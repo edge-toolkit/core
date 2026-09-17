@@ -1118,6 +1118,27 @@ expects to find inside the prebuilt archive, so an upstream rename makes it fall
 source build (which then flakes on crates.io) with no signal beyond a `bin <name> is not found` line. Reach for
 install-action only when the prebuilt actually exists for the target triple _and_ the binary names still match.
 
+## Revisit on Windows: why `parfit-fmt` read as needing an uppercase `usage` arg
+
+A task's `usage` args are read as `$usage_<name>`, lowercased with `-` turned into `_`, and the mise conftest
+policy holds every task to that. That is measured, not assumed: an `env` dump from inside a task body on mise
+2026.9.1 macos-arm64 lists `usage_report` and `usage_libs` for a task declaring `<report>` and `<libs>`, and no
+`USAGE_*` name exists in the environment at all.
+
+The uppercase spelling was briefly standardised here on Windows evidence, and it survives on Windows because
+environment names resolve case-insensitively there, so both spellings reach the one variable mise set. Everywhere
+else `$USAGE_REPORT` is simply unset -- fatal under the task shell's `set -u`, and silently "no argument given"
+behind a `${...:-}` guard. `cargo-clippy-check-pkg` spent that period linting nothing on Linux and macOS, passing
+an empty `-p` to clippy, which reports `error: package name cannot be empty` only because the value reached a tool
+that objected.
+
+What remains unexplained is the observation that started it. `parfit-fmt` declares `arg "[file]..."` and guarded
+on `$usage_file`, and every invocation took the no-arguments branch and reflowed every tracked Rust file rather
+than the ones it was handed. Casing cannot account for that on its own, since on Windows the lowercase read should
+have resolved just as well as the uppercase one -- so a variadic arg may not be exported as a scalar at all.
+Settle it on Windows before touching the convention again: dump the environment inside two task bodies, one with a
+variadic arg and one with a plain arg, on the mise version the CI lanes install.
+
 ## Linting
 
 Lint checks must be expressed through one of the repo's linters -- **never** as a bespoke shell script, whether a

@@ -738,19 +738,19 @@ per_batch=5
 # `set --` then `$#` counts the array without the `${` + `#` pair, which mise's Tera pass reads as a comment.
 set -- "${crates[@]}"
 count=$#
-start=$(((USAGE_BATCH - 1) * per_batch))
+start=$(((usage_batch - 1) * per_batch))
 if [ "$start" -ge "$count" ]; then
-  echo "batch $USAGE_BATCH is past the end: $count crates, $per_batch per batch" >&2
+  echo "batch $usage_batch is past the end: $count crates, $per_batch per batch" >&2
   exit 1
 fi
 args=(release publish)
 for crate in "${crates[@]:start:per_batch}"; do
   args+=(-p "$crate")
 done
-if [ "${USAGE_EXECUTE:-}" = "true" ]; then
+if [ "${usage_execute:-}" = "true" ]; then
   args+=(--execute)
 fi
-echo "batch $USAGE_BATCH: ${crates[*]:start:per_batch}"
+echo "batch $usage_batch: ${crates[*]:start:per_batch}"
 cargo "${args[@]}"
 """
 shell = "{{ vars.task_shell }}"

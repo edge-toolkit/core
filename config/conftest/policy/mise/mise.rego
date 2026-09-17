@@ -373,13 +373,20 @@ deny contains msg if {
 #
 # mise validates the CALLER's arguments against the spec -- an unknown arg or a missing required one is rejected up
 # front -- but nothing checks the other side, so a task can declare an arg, accept it happily, and then ignore it.
-# `parfit-fmt` did exactly that for months: it declared `arg "[file]..."` and guarded on `$usage_file`, a name mise
-# has never set, so every invocation took the no-arguments branch and reflowed every tracked Rust file instead of the
-# ones it was handed. Nothing failed; the blast radius was just silently the whole repo.
+# `parfit-fmt` did exactly that for months: it declared `arg "[file]..."` and guarded on a name that was not set, so
+# every invocation took the no-arguments branch and reflowed every tracked Rust file instead of the ones it was
+# handed. Nothing failed; the blast radius was just silently the whole repo.
 #
-# The variable mise exports is `USAGE_` plus the declared name uppercased with `-` turned into `_`, so `--dry-run`
-# arrives as `$USAGE_DRY_RUN`. Matching on the name alone (rather than the whole `${...}` form) keeps this true for
-# a body that reads `$USAGE_OUT`, `"$USAGE_OUT"` or `${USAGE_OUT:?...}` alike.
+# The variable mise exports is `usage_` plus the declared name lowercased with `-` turned into `_`, so `--dry-run`
+# arrives as `$usage_dry_run`. Matching on the name alone (rather than the whole `${...}` form) keeps this true for
+# a body that reads `$usage_out`, `"$usage_out"` or `${usage_out:?...}` alike.
+#
+# Measured rather than assumed, because the uppercase spelling reads as correct on one platform.
+# An `env` dump from inside a task body on mise 2026.9.1 macos-arm64 lists the lowercase names and nothing else: an
+# arg declared `<report>` arrives as `usage_report`, with no `USAGE_REPORT` present at all. Windows resolves
+# environment names case-insensitively, so there both spellings reach that same variable and the mistake is
+# invisible -- which is why an uppercase convention can survive a Windows-only check. Lowercase is what mise sets,
+# and is therefore the spelling that works on every platform.
 usage_vars(spec) := vars if {
 	declarations := array.concat(
 		regex.find_all_string_submatch_n(`arg\s+"[<\[]([A-Za-z0-9_-]+)`, spec, -1),
@@ -387,7 +394,7 @@ usage_vars(spec) := vars if {
 	)
 	vars := {var |
 		some declaration in declarations
-		var := sprintf("USAGE_%s", [upper(replace(declaration[1], "-", "_"))])
+		var := sprintf("usage_%s", [lower(replace(declaration[1], "-", "_"))])
 	}
 }
 
@@ -402,17 +409,18 @@ deny contains msg if {
 	msg := sprintf("%s: task %q declares a usage arg its run never reads as $%s", [file.path, name, var])
 }
 
-# The lowercase spelling of that variable is always a silent no-op.
+# The uppercase spelling is a no-op everywhere except Windows, so it is rejected on sight.
 #
 # Called out separately from the rule above so the message names the actual mistake rather than reporting the arg as
-# unused: every task in this repo was written against `$usage_<name>`, which mise does not set and a `${...:-}` guard
-# then reads as "no argument given". Flagged wherever it appears, including in a body whose declared args are read
-# correctly elsewhere.
+# unused. Unguarded it is an unset variable, which the task shell's `set -u` turns into an immediate failure; behind
+# a `${...:-}` guard it is worse, because the task then runs to completion having silently taken the "no argument
+# given" branch. Flagged wherever it appears, including in a body whose declared args are read correctly elsewhere,
+# so the two spellings never get mixed within one task.
 deny contains msg if {
 	some file in input
 	is_mise(file)
 	some name, task in file.contents.tasks
 	is_string(task.run)
-	regex.match(`\$\{?usage_[a-z]`, task.run)
-	msg := sprintf("%s: task %q reads $usage_* -- mise exports usage args uppercased, as $USAGE_*", [file.path, name])
+	regex.match(`\$\{?USAGE_[A-Z]`, task.run)
+	msg := sprintf("%s: task %q reads $USAGE_* -- mise exports usage args lowercased, as $usage_*", [file.path, name])
 }
