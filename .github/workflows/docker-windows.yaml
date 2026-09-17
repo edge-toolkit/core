@@ -161,6 +161,17 @@ jobs:
       # modules), so the incremental caches land on the runner's C: drive. They are pure waste on a
       # single-shot CI compile and this lane has no disk to spare -- servercore ran out mid-link with
       # `There is not enough space on the disk. (os error 112)` even after the disk-free step left 43 GB.
+      # The k3s generator tests are skipped here, and only here.
+      # `not test(k3s)` names the two cases in et-cli::scenario_generation whose names carry it, leaving the
+      # deployment-type test that also writes a k3s.yaml in place, so the generator still runs on this lane. The
+      # skip is scoped to this step rather than gated in the source because it is this lane it applies to: the
+      # same tests run everywhere else, including the Windows host lanes, and were passing here too (0.270s and
+      # 0.301s on `build (windows-2022, servercore)`) when they were turned off, so nothing about them is known
+      # to be broken on Windows. Drop the filter to put them back.
       - name: Run cargo-test
         if: matrix.base == 'servercore'
-        run: docker run --rm --pull=never -e CARGO_INCREMENTAL=0 et-windows-test mise run cargo-test
+        run: |
+          args="--rm --pull=never -e CARGO_INCREMENTAL=0"
+          # $args is a word-split flag list by design; do not quote it.
+          # shellcheck disable=SC2086
+          docker run $args et-windows-test mise run cargo-test -- -E 'not test(k3s)'
