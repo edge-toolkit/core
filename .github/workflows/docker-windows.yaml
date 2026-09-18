@@ -169,7 +169,7 @@ jobs:
       # 0.301s on `build (windows-2022, servercore)`) when they were turned off, so nothing about them is known
       # to be broken on Windows. Drop the filter to put them back.
       #
-      # `not test(pyo3_math1_scenario)` is the second skip, and unlike the k3s one it covers a real failure.
+      # The two scenario skips are the second and third, and unlike the k3s one they cover a real failure.
       # Its trigger never registers on either servercore image, and nothing says why:
       #     math1-trigger never registered with the hub within 300s
       #     --- math1-trigger stdout ---
@@ -185,12 +185,17 @@ jobs:
       # https://github.com/edge-toolkit/core/actions/runs/35307356357/job/105482172400 (windows-2025).
       # It is this image only: the same test passes on every Windows host lane and on a workstation, so the
       # skip hides a difference between servercore and every other Windows environment rather than a defect in
-      # the test. Its two sibling scenarios stay on, and both keep exercising the same runner pair.
+      # the test. Both skipped scenarios are driven by `wasi-math1-sender`, which is why skipping one moved the
+      # same failure onto the other rather than turning the lane green -- the fault is the wasi trigger, not
+      # anything either twin does. `math1_scenario` stays on and is the one driven by the browser-targeted
+      # `math1-sender`, so the generator itself is still covered end to end here; what this lane loses is the
+      # wasi trigger, which no container currently starts.
       - name: Run cargo-test
         if: matrix.base == 'servercore'
         run: |
           args="--rm --pull=never -e CARGO_INCREMENTAL=0"
-          skip='not test(k3s) and not test(pyo3_math1_scenario)'
+          scenarios='not test(pyo3_math1_scenario) and not test(wasi_math1_scenario)'
+          skip="not test(k3s) and $scenarios"
           # $args is a word-split flag list by design; do not quote it.
           # shellcheck disable=SC2086
           docker run $args et-windows-test mise run cargo-test -- -E "$skip"
