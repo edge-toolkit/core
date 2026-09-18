@@ -1,4 +1,4 @@
-# Defense-in-depth duplicate of config/semgrep/no-trailing-backslash.yaml.
+# Defense-in-depth duplicate of the repo-wide raw-text trailing-backslash ban.
 # Flags the trailing-backslash line continuation we don't want anywhere in the repo, by walking every string
 # anywhere in the combined input and flagging any literal `\` immediately followed by a newline.
 #
@@ -9,8 +9,8 @@
 #   block-scalar values, similarly preserved by the YAML parser.
 # - Dockerfile: NOT covered here -- conftest's dockerfile parser already consumes line-continuation backslashes when
 #   it joins each instruction's value, so by the time Rego sees the parsed input the backslashes are gone. The
-#   semgrep rule (which scans the raw text) is the source of truth for Dockerfile coverage, allowlisting Dockerfile*
-#   per its `paths.exclude` (Dockerfile RUN bodies legitimately need line continuations).
+#   raw-text rule is the source of truth for Dockerfile coverage, and allowlists `Dockerfile*` there because
+#   Dockerfile RUN bodies legitimately need line continuations.
 package no_trailing_backslash
 
 # Flag any string leaf containing `\` followed by `\n` (LF), reporting its path key in the message.
@@ -23,7 +23,7 @@ deny contains msg if {
 	is_string(value)
 	regex.match(`\\\n`, value)
 	msg := sprintf(
-		"%s: trailing-backslash line continuation in string at %v -- not allowed (see no-trailing-backslash semgrep rule)",
+		"%s: trailing-backslash line continuation in string at %v -- the form is banned repo-wide",
 		[file.path, path],
 	)
 }

@@ -1,0 +1,13 @@
+name: Free disk space
+description: Reclaim runner disk before the long build and test steps
+
+runs:
+  using: composite
+  steps:
+    - name: Free disk space on Linux
+      if: runner.os == 'Linux'
+      uses: jlumbroso/free-disk-space@v1.3.1
+
+    - name: Free disk space on Windows
+      if: runner.os == 'Windows'
+      uses: ./.github/actions/free-disk-space-windows

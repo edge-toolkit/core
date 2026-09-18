@@ -46,7 +46,7 @@ runs:
     # ignores the variable outright past that, so every tool stops resolving at the same moment -- the mingw
     # lane reached 11215 characters and reported `dart: not found`, `uv: not found`, `cargo: not found`,
     # `rclone: not found` and `zig: not found` in one go, on commit
-    # eb5ade87e8bbf7c31b6e0e2c39fbaf0f4e2e01c2 at
+    # https://github.com/edge-toolkit/core/commit/eb5ade8f5b762191f805135f30cf58dce7d4ef83 at
     # https://github.com/edge-toolkit/core/actions/runs/33746317422/job/100619492734. Trimming the prefix to
     # `C:\i` reclaims ~43 characters per entry, which scales with the toolset -- so the lanes carrying the most
     # tools, the ones that overran first, save the most. config.windows.toml's mise_installs reads this same

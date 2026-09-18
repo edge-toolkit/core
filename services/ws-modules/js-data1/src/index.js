@@ -11,6 +11,7 @@
 // failure (runner exits non-zero). We throw only on the core round-trip failing, never on an S3 feature the
 // service is simply missing.
 
+// skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 const MODULE = "js-data1";

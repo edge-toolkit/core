@@ -63,7 +63,10 @@ required_in = [
   "config/pyrefly.toml",
   "config/semgrep/anyhow-only-in-error-rs.yaml",
   "config/semgrep/comment-summary-line.yaml",
+  "config/semgrep/no-check-tool-mentions.yaml",
   "config/semgrep/no-non-ascii.yaml",
+  "config/semgrep/no-python-outside-modules.yaml",
+  "config/semgrep/no-task-name-mentions.yaml",
   "config/semgrep/no-todo.yaml",
   "config/semgrep/no-type-comments.yaml",
 ]
@@ -74,7 +77,9 @@ regenerated_by = "mise run regen-verification"
 required_in = [
   "config/jscpd.json",
   "config/semgrep/comment-summary-line.yaml",
+  "config/semgrep/no-check-tool-mentions.yaml",
   "config/semgrep/no-non-ascii.yaml",
+  "config/semgrep/no-task-name-mentions.yaml",
   "config/semgrep/no-todo.yaml",
   "config/semgrep/no-trailing-backslash.yaml",
 ]

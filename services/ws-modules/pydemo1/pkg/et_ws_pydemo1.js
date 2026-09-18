@@ -15,6 +15,7 @@ let runtime = null;
 let pythonScriptPromise = null;
 let pythonRuntimePromise = null;
 
+// skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export default async function init() {}
 
 export const is_running = () => runtime !== null;

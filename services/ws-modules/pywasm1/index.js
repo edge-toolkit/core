@@ -1,3 +1,4 @@
+// skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 import init, { pyExec } from "./rustpython_wasm.js";
 
 export async function run() {

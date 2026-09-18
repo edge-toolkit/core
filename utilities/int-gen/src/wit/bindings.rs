@@ -11,8 +11,8 @@
 //! so a wasmtime bump that changes the generated code surfaces as a failing check rather than silently.
 //!
 //! WIT doc comments are copied through verbatim and land nested ~20 columns deep, so a comment in the WIT
-//! that fits the editorconfig line length on its own can overflow once emitted here. That is why the world's
-//! comments wrap well short of it; `editorconfig-check` on the emitted file is what enforces the result.
+//! that fits the editorconfig line length on its own can overflow once emitted here, which is why the world's
+//! comments wrap well short of it.
 //!
 //! prettyplease is the emitted file's only formatter, and `.rustfmt.toml` lists it under `ignore` for that
 //! reason: running rustfmt over it as well is what breaks. prettyplease's output fits `max_width`, but

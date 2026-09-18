@@ -56,10 +56,17 @@
 # verbatim and Windows launches by extension. The name buys nothing beyond that -- mise normalises a task's
 # PATH whatever the shell is called, which is why the tasks route their bodies through a wrapper rather than
 # relying on the name. Checksum-pinned so a silent upstream rebuild fails loudly.
+#
+# Served from our own release rather than frippery.org, which took down five Windows lanes in four days.
+# Every one failed the same way: ten retries, each timing out at 120s, killing `mise install` before any of the
+# repo's own code ran. Retrying is not the lever -- mise already does it ten times -- and this is the shell every
+# Windows surface runs its tasks under, so one slow afternoon at that host reddens the whole Windows matrix. The
+# binary is upstream's own, byte for byte: only the host it is fetched from changed, and the checksum below is
+# the same one that verified it before, so a mirror that ever stopped matching upstream would fail loudly here.
 [tools."http:busybox"]
 bin = "ash.exe"
 checksum = "sha256:6e263d154d8548d1eb936f65d1d8312c80df31c45974e48d6335e4dcc0f4f34c"
-url = "https://frippery.org/files/busybox/busybox64u.exe"
+url = "https://github.com/edge-toolkit/core/releases/download/busybox-w32-v1/busybox64u.exe"
 version = "1.37.0"
 
 # Prebuilt dart-typegen for Windows.
@@ -128,6 +135,7 @@ clang_resource_arg = "-resource-dir {{ vars.a_mise_installs_fwd }}/github-mstors
 # `http:` Windows tool fetches from edge-toolkit/core's *-v<N> release.
 # Each matches a `[asset."<filename>"]` row in config/upstream-cache/data.toml
 # (the checksums.rego policy enforces the bidirectional cross-reference).
+busybox_asset = "busybox64u.exe"
 dart_typegen_asset = "0.1.13-x86_64-pc-windows-msvc.tar.gz"
 gnupg_w32_asset = "2.5.20_20260513-x86_64-pc-windows.tar.gz"
 
@@ -154,11 +162,19 @@ py3_win_fwd = "{{ vars.a_mise_installs_fwd }}/python/3.13.14/python.exe"
 # ORT_LIB_LOCATION in config.toml [env] picks this on Windows. Version segment must match the
 # [tools] pin (conftest's version_drift enforces this).
 ort_loc_win = '{{ vars.mise_installs }}\github-microsoft-onnxruntime\1.22.0'
+# The same install's DLL dir, prepended by the [env] `_.path` below so a binary linking ORT can start.
+# ORT_LIB_LOCATION only tells the build where to link from; at load time Windows resolves onnxruntime.dll
+# through the classic search, which reaches PATH but not the mise install dir. Until a test linked the
+# et-ws-wasi-runner library nothing exercised that -- the runner binary is built but never started in the
+# image -- so the servercore container aborted test enumeration outright:
+#     error: creating test list failed
+#     for `et-ws-wasi-runner::ws_backend`, command `...\ws_backend-<hash>.exe --list --format terse`
+#     aborted with code 0xc0000135: The specified module could not be found. (os error 126)
+ort_bin_win = '{{ vars.ort_loc_win }}\lib'
 # llvm-mingw's bin dir (the github:mstorsjo/llvm-mingw install above).
 # The linker/dlltool [env] vars below point at absolute exes in here rather than bare names because mise's
-# cargo backend doesn't activate llvm-mingw onto the cargo: source-build subprocess's PATH (same problem
-# config.macos.toml's absolute ld64.lld path solves): a bare `clang` would resolve to a runner's system
-# LLVM, which defaults to the MSVC target and can't link gnullvm objects.
+# cargo backend doesn't activate llvm-mingw onto the cargo: source-build subprocess's PATH: a bare `clang`
+# would resolve to a runner's system LLVM, which defaults to the MSVC target and can't link gnullvm objects.
 win_llvm_bin = '{{ vars.mise_installs }}\github-mstorsjo-llvm-mingw\20260602\bin'
 # conda:m2-gnupg's msys2 binary dir.
 # Cargo's own bin dir, prepended by the [env] `_.path` below so `cargo` resolves inside a task body.
@@ -224,7 +240,8 @@ cargo_ws_excludes = "--exclude et-ws-web-runner"
 # big write blocks forever with no reader -- `mise run actionlint-check` then hangs with no output and an
 # `actionlint.exe` process pinned in tasklist. Present in every actionlint since the shellcheck rule landed
 # (v1.4.x; verified hanging on 1.7.7/1.7.11/1.7.12), masked on Linux/macOS by their 64KB pipe buffers, so
-# those lanes keep full shellcheck coverage. Reproduced on commit ef55945932f5d417b8d205530f0868cff6d73ffa
+# those lanes keep full shellcheck coverage. Reproduced on commit
+# https://github.com/edge-toolkit/core/commit/ef55945932f5d417b8d205530f0868cff6d73ffa
 # with a synthetic 29KB run body (hangs) vs a 178B one (passes); a fake instantly-exiting shellcheck still
 # hangs it, proving shellcheck itself is uninvolved. Upstream fix is one line
 # (`cmd.Stdin = strings.NewReader(e.stdin)`); drop this override once a fixed actionlint releases.
@@ -244,7 +261,7 @@ MISE_BASH_PATH = "{{ vars.winsh }}"
 #     '"node"' is not recognized as an internal or external command,
 #     operable program or batch file.
 #     Error running tsgolint: "exit status: exit code: 1"
-# Observed on commit 8cac021c75ebb69e8100a1ddb8d9b670e197fee4 at
+# Observed on commit https://github.com/edge-toolkit/core/commit/8cac021c75ebb69e8100a1ddb8d9b670e197fee4 at
 # https://github.com/edge-toolkit/core/actions/runs/28857668889/job/85588159468 (check windows-latest lane).
 # oxlint consults this env var before its node_modules/.bin and PATH walks, and pointing it at the
 # per-platform exe nested in the npm package sidesteps node and cmd.exe entirely. Windows-only (this file)
@@ -284,6 +301,7 @@ _.path = [
   "{{ vars.m2_gnupg_bin }}",
   "{{ vars.m2_make_bin }}",
   "{{ vars.maven_bin }}",
+  "{{ vars.ort_bin_win }}",
   "{{ vars.win_libclang }}",
 ]
 
@@ -416,10 +434,7 @@ elif [ "${ENABLE_RUSTPYTHON_PIPX_BOOTSTRAP:-}" = "1" ]; then
     shared_site="$(coreutils ls -d "$shared_venv"/lib/*/site-packages)"
     coreutils cp -R "$pip_extracted/pip" "$shared_site/"
     coreutils cp -R "$pip_extracted"/pip-*.dist-info "$shared_site/"
-    coreutils cat >"$shared_venv/bin/pip" <<'PIP_SHIM'
-#!/bin/sh
-exec "$(dirname "$0")/python" -m pip "$@"
-PIP_SHIM
+    coreutils cp "{{ vars.config_root_fwd }}/.mise/pip-shim.sh" "$shared_venv/bin/pip"
     coreutils chmod +x "$shared_venv/bin/pip"
   fi
 else

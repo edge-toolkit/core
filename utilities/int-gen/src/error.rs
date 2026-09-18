@@ -41,7 +41,7 @@ pub enum Error {
     #[error(transparent)]
     Syn(#[from] syn::Error),
     // `wit-parser` and the wasmtime bindgen return `anyhow::Result`; this variant is what lets `?` convert
-    // one. The anyhow-only-in-error-rs semgrep rule keeps the name confined to this line.
+    // one. A repo-wide rule keeps the name confined to this line.
     #[error(transparent)]
     Anyhow(#[from] anyhow::Error),
     #[error("zig codegen: {0}")]

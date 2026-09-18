@@ -3,7 +3,12 @@
 // compiler-provided C headers only, no exceptions/RTTI (build.zig passes -fno-exceptions -fno-rtti), no operator
 // new, and no non-trivial static initializers. Language-level features -- templates, constexpr, namespaces --
 // all work.
+// The <cstddef>/<cstdint> these would normally prefer are libc++ headers, and this target links no libc++.
+// Only <stddef.h>/<stdint.h> are compiler-provided (they sit in clang's own resource include dir), so taking
+// the advice would fail the build outright rather than modernise it.
+// skipcq: CXX-W2030 -- freestanding wasm32: no libc++, so the C++ spellings do not exist here
 #include <stddef.h>
+// skipcq: CXX-W2030 -- freestanding wasm32: no libc++, so the C++ spellings do not exist here
 #include <stdint.h>
 
 namespace {

@@ -14,34 +14,47 @@ ignore = [
   # Pulled by deno_core for snapshot / cache serialization -- its only consumer, requiring ^1 through its
   # newest release. Unmaintained != vulnerable. No upgrade clears this: the advisory covers every version of
   # the crate, 2.x and 3.0.0 included, so only deno_core dropping bincode outright would.
-  "RUSTSEC-2025-0141",
+  { id = "RUSTSEC-2025-0141", reason = "expires 2026-10-15" },
   # paste 1.0.15 (unmaintained).
   # Proc-macro pulled by v8 (rusty_v8) via deno_core / serde_v8; expands at compile time only, so there is no
   # runtime exposure. Every published v8 release through 152.2.0 declares it as a non-optional dependency, so no
   # upgrade clears this -- only a rusty_v8 move to the maintained pastey fork. Awaiting that migration.
-  "RUSTSEC-2024-0436",
+  { id = "RUSTSEC-2024-0436", reason = "expires 2026-10-15" },
   # rustls-pemfile 2.2.0 (unmaintained; final release -- parsing moved into rustls-pki-types).
   # PEM cert parser for loading the system CA bundle. Unmaintained, not vulnerable. Pulled directly by both
   # deno_native_certs and deno_tls, each at its newest release, so no bump drops it. rustls-native-certs
   # migrated at 0.8.1 and our 0.8.4 copy is clean; the affected 0.7.3 copy is pinned by deno_native_certs.
-  "RUSTSEC-2025-0134",
+  { id = "RUSTSEC-2025-0134", reason = "expires 2026-10-15" },
+  # rustls 0.23.40 -- TLS 1.3 handshake messages accepted across encryption-level boundaries.
+  # The only real vulnerability in this list rather than an unmaintained-crate notice, so unlike its neighbours
+  # it is time-boxed instead of held open until upstream moves. RFC 8446 section 5.1 requires a connection to
+  # terminate with `unexpected_message` when a handshake message spans a key change; rustls accepted one
+  # instead, for example a plaintext `EncryptedExtensions` packed into the same record as the `ServerHello`.
+  # CVSS 5.3 MEDIUM, low confidentiality impact, client and server roles alike; fixed in rustls 0.23.45.
+  # No bump reaches that fix: deno_tls pins `rustls = "=0.23.40"` by equality, and every release through
+  # 0.245.0 still does, so bumping deno_runtime changes nothing. A [patch.crates-io] on rustls does not help
+  # either -- a patch replaces a source, not a requirement, so a 0.23.45 patch is reported unused and the
+  # pinned copy stays. Only patching deno_tls itself clears it, which means carrying a fork of it.
+  # When the expiry below lapses the answer is one of two things: deno_tls has relaxed the pin, so drop this
+  # entry; or it has not, so carry a fork of deno_tls rather than extend the date again.
+  { id = "RUSTSEC-2026-0285", reason = "expires 2026-10-15" },
   # smartstring 1.0.1 (unmaintained; repo archived 2026-05-03).
   # Pulled only by the swc stack (swc_ecma_lexer/parser 26/27) under deno_ast -> deno_runtime. Maintenance
   # notice, not a vulnerability. Upstream swc migrated to compact_str at swc_ecma_lexer 41.0.0 and
   # swc_ecma_parser 42.0.0, but deno_ast pins both by equality (=26.0.0 / =27.0.7) through its newest release,
   # so no bump on our side reaches them. Drop when a deno_runtime/deno_ast bump pulls the migrated swc.
-  "RUSTSEC-2026-0249",
+  { id = "RUSTSEC-2026-0249", reason = "expires 2026-10-15" },
   # hickory-proto 0.25.2 NSEC3 closest-encloser proof unbounded loop (DoS on DNSSEC validation).
   # Pulled by deno_net for resolver. The advisory scopes reachability to builds carrying dnssec-ring or
   # dnssec-aws-lc-rs, and our resolution enables neither -- cargo tree -i hickory-proto -f "{p} [{f}]" reports
   # default,futures-io,serde,std,tokio -- so DnssecDnsHandle is never compiled in. (Cargo.lock listing ring
   # under hickory-proto is not evidence otherwise; it records optional deps regardless of activation.) The fix
   # landed in 0.26.0-beta.1, but deno_net requires ^0.25.2 through its newest release, so it is out of reach.
-  "RUSTSEC-2026-0118",
+  { id = "RUSTSEC-2026-0118", reason = "expires 2026-10-15" },
   # hickory-proto 0.25.2 O(n^2) name compression during message encode.
   # Encoder side, hit only when we *send* a DNS message. The runner uses the OS resolver via hickory. It
   # never crafts outbound DNS frames with attacker-controlled name lists.
-  "RUSTSEC-2026-0119",
+  { id = "RUSTSEC-2026-0119", reason = "expires 2026-10-15" },
   # rand 0.8.5 unsound ThreadRng reseed when a custom `log` logger calls rand::rng() (UB via aliased &mut).
   # Transitive via deno_crypto / deno_fs / deno_node (web-runner), used for non-cryptographic randomness
   # (jitter, salt scratchpads). The advisory's first precondition is the `log` feature, which our resolution
@@ -49,7 +62,7 @@ ignore = [
   # Fixed in the 0.8 line at 0.8.6, which deleted the log optional dep -- but deno_crypto pins rand "=0.8.5"
   # by equality through its newest release, so neither a lockfile bump nor a deno bump moves it. cargo-deny
   # does not match this id and warns advisory-not-detected; the entry stays because osv-scanner does flag it.
-  "RUSTSEC-2026-0097",
+  { id = "RUSTSEC-2026-0097", reason = "expires 2026-10-15" },
   # rsa 0.9.10 Marvin Attack timing sidechannel on RSA decryption.
   # No patched version exists -- the advisory lists none, upstream is still migrating to a constant-time
   # implementation, and 0.9.10 is the newest stable (the 0.10 line is release candidates, equally affected),
@@ -57,7 +70,7 @@ ignore = [
   # RSA keys or decrypt RSA payloads. Only TLS server cert verification, which uses *signature* checks, no
   # decryption. Not reachable unless guest JS explicitly imports crypto.subtle and performs RSA-OAEP decrypt
   # with a private key. Our modules don't.
-  "RUSTSEC-2023-0071",
+  { id = "RUSTSEC-2023-0071", reason = "expires 2026-10-15" },
   # h2 0.3.27 unbounded empty DATA frames (low-severity HTTP/2 DoS: undrained streams grow memory).
   # Accepted for the 0.3 copy only. hyperium patched the 0.4 line (>= 0.4.16, which Cargo.lock now pins for the
   # hyper/reqwest path) and shipped no 0.3 backport, so 0.3.27 is the last release of a dead line. It arrives
@@ -67,7 +80,7 @@ ignore = [
   # this when it ships one built on h2 0.4. cargo-deny 0.20 ignores by id only (no version scoping), so this
   # also mutes the 0.4 line -- Cargo.lock pins 0.4.16 there, and a bump below that would have to come back
   # through this entry, so re-check both copies when touching it.
-  "RUSTSEC-2026-0258",
+  { id = "RUSTSEC-2026-0258", reason = "expires 2026-10-15" },
   # org.mozilla:rhino 1.7.15 -- high-CPU/DoS in toFixed. Maven ecosystem: the Java toolchain, not a Rust crate.
   # Build-time only: pulled by the teavm-maven-plugin (TeaVM's Java->JS compiler) via teavm-relocated-libs-rhino;
   # not shipped in any artifact, and its only input is our own trusted Java, so unreachable. pom.xml overrides the
@@ -75,7 +88,7 @@ ignore = [
   # relocated lib. A TeaVM bump does not help either: teavm-relocated-libs-rhino still declares rhino 1.7.15 at
   # 0.15.0, the newest release. Flagged now that osv-scanner-check scans pom.xml; a Maven id so cargo-deny reports
   # it unknown (osv-scanner honours it). Drop when a TeaVM release declares 1.7.15.1 or later.
-  "GHSA-3w8q-xq97-5j7x",
+  { id = "GHSA-3w8q-xq97-5j7x", reason = "expires 2026-10-15" },
   # adm-zip 0.5.18 arbitrary file write via a crafted archive entry (npm ecosystem, Node.js; fixed 0.6.0).
   # Reaches us only through onnxruntime-node, which @huggingface/transformers declares for its Node backend --
   # llm1 serves the browser bundle (dist/transformers.web.js) instead, and that file is self-contained and
@@ -86,17 +99,17 @@ ignore = [
   # target/. `osv-scanner-check` scans the committed lockfiles instead, does not see these packages, and so
   # reports both ids under "unused ignores" -- that report is NOT grounds for deleting them. Doing so turns
   # the dependencies workflow red, because the npm scan then has nothing to filter these findings with.
-  "GHSA-xcpc-8h2w-3j85",
+  { id = "GHSA-xcpc-8h2w-3j85", reason = "expires 2026-10-15" },
   # adm-zip 0.5.18 extraction follows symlinks in the destination directory, allowing arbitrary file overwrite.
   # Same package and same unreachable path as the entry above -- nothing we ship opens an archive at all. This
   # one has no patched release: the advisory covers >= 0.5.9 through 0.6.0 inclusive, so the 0.6.0 that clears
   # GHSA-xcpc-8h2w-3j85 does not clear this, and only onnxruntime-node dropping adm-zip will.
-  "GHSA-vwc7-r8mq-g2x9",
+  { id = "GHSA-vwc7-r8mq-g2x9", reason = "expires 2026-10-15" },
   # sharp 0.34.5 heap overflow in bundled libvips decoding a malformed image (npm ecosystem, Node.js).
   # Fixed in 0.35.0. Same path and reasoning as adm-zip above: sharp is transformers' Node-side image decoder,
   # and the served browser bundle decodes images through the DOM instead. No bump helps here either --
   # transformers 4.2.0 requires sharp ^0.34.5, which excludes 0.35.0, so widening it is upstream's call.
-  "GHSA-f88m-g3jw-g9cj",
+  { id = "GHSA-f88m-g3jw-g9cj", reason = "expires 2026-10-15" },
   # sharp 0.34.5 bundles a libheif carrying GHSA-g89c-p67h-r497 and GHSA-2jg2-4ch7-h545.
   # Reached only by decoding a HEIF/AVIF image, on the same package and the same unreachable path as the entry
   # above. Fixed in 0.35.4 rather than the 0.35.0 that clears GHSA-f88m-g3jw-g9cj, so it is the later bound
@@ -106,7 +119,7 @@ ignore = [
   # onnxruntime-node release stops carrying adm-zip -- no adm-zip version fixes GHSA-vwc7-r8mq-g2x9, so waiting
   # for one is not a plan. All four are npm-ecosystem ids that cargo-deny reports unknown; osv-scanner honours
   # them.
-  "GHSA-rgj7-g3m4-5g8c",
+  { id = "GHSA-rgj7-g3m4-5g8c", reason = "expires 2026-10-15" },
 ]
 
 [licenses]
@@ -153,12 +166,12 @@ license-files = [{ path = "LICENSE", hash = 0x0bcebb0f }]
 # Warn (not deny) on multiple-versions.
 # Useful to surface duplicate transitive dep trees without blocking on every cargo update.
 multiple-versions = "warn"
-# Wildcard version specs in member crates are already forbidden by the taplo `no-wildcard-or-git-deps` schema.
-# Double-cover here so it shows up in a security-style report too.
+# Wildcard version specs in member crates are already forbidden where they are declared.
+# Double-cover here so they show up in a security-style report too.
 wildcards = "deny"
-# Crate-by-crate bans live in `config/taplo/no-banned-deps.schema.json`.
-# That is a declaration-time check on workspace [dependencies].
-# The `deny` entries below catch *transitive* uses that the taplo rule can't see.
+# Crate-by-crate bans are declared twice over, and the two halves see different things.
+# A declaration-time check on the workspace `[dependencies]` table catches a direct dep, while the `deny`
+# entries below are the only thing that catches a *transitive* one.
 deny = [
   # `openssl` and `openssl-sys` link to libssl/libcrypto.
   # We use rustls + aws-lc-rs as the single TLS+crypto stack across the workspace. Any new transitive dep
@@ -175,12 +188,10 @@ deny = [
   # Current allowed parents:
   #   * `rcgen` -- server-side TLS cert generation in et-ws-server.
   #     Intentional; rcgen's ring feature is what we want for the cert generator.
-  #   * `rustls-webpki` -- pulled by deno_fetch + deno_tls (default features include `ring`).
-  #     Drop once Deno's TLS stack migrates to aws-lc-rs defaults.
   #   * `quinn-proto` -- pulled by deno_net via quinn (default features include `ring`).
   #     Drop once Deno's quinn config switches to the `rustls-aws-lc-rs` feature.
-  { crate = "ring", wrappers = ["quinn-proto", "rcgen", "rustls-webpki"] },
-  # `ureq` is forbidden -- direct use is blocked by the taplo no-banned-deps schema.
+  { crate = "ring", wrappers = ["quinn-proto", "rcgen"] },
+  # `ureq` is forbidden -- direct use is blocked where deps are declared.
   # This entry catches transitive paths the same way as `ring` above. No wrappers allowed. The only previous
   # parent (`ort-sys` via the `download-binaries` feature) is gone. The workspace `ort` dep now stages ONNX
   # Runtime through mise instead.
@@ -189,7 +200,7 @@ deny = [
   # It arrives only transitively through progenitor -> typify -> typify-impl, which uses it to validate the
   # JSON-Schema `pattern` regexes in our generated REST client. We standardise on the `regex` crate everywhere
   # else; any new parent that drags `regress` back in should migrate to `regex`. Direct workspace declaration is
-  # separately blocked by config/taplo/no-banned-deps.schema.json.
+  # separately blocked where deps are declared.
   { crate = "regress", use-instead = "regex", wrappers = ["typify-impl"] },
 ]
 

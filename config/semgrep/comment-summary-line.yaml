@@ -3,15 +3,19 @@ rules:
     languages: [generic]
     paths:
       include:
+        - "*.awk"
         - "*.env"
         - "*.ini"
+        - "*.jq"
         - "*.rc"
         - "*.rego"
         - "*.s"
+        - "*.sh"
         - "*.toml"
         - "*.yaml"
         - ".dockerignore"
         - ".gitignore"
+        - ".semgrepignore"
         - "Dockerfile*"
       exclude:
         # Skip machine-emitted TOML/YAML (int-gen / regen output).
@@ -19,13 +23,17 @@ rules:
         - "/generated/**"
         - "/verification/**"
     # Flag the first line of a multi-line `#` comment block when its final character is not a full stop.
-    # The block-start anchor is the preceding line, consumed into the match: either start-of-file (`\A`) or a line
-    # that is blank or whose first non-whitespace char is not `#` (`[^#\s]`). Keying off the first non-whitespace
+    # The block-start anchor is the preceding line, consumed into the match: start-of-file (`\A`), a shebang --
+    # an interpreter directive rather than a comment, so it anchors a block instead of opening one, and only at
+    # start-of-file where it means anything -- or a line that is blank or whose first non-whitespace char is not
+    # `#` (`[^#\s]`). Without the shebang arm every `#!`-headed file whose second line is a comment reads as a
+    # two-line block whose summary is the shebang, which can never end in a full stop. Keying off the first
+    # non-whitespace
     # char -- not the first raw char -- is what stops an INDENTED comment line (whose leading whitespace would
     # otherwise read as a non-comment line) from anchoring a spurious match: interior continuation lines, which need
     # not end in a period, stay unflagged regardless of indentation. The trailing `[^.\n]` matches any final char
     # except `.`, so the summary line must end in a full stop -- a trailing `:` is not accepted.
-    pattern-regex: '(?m)(?:\A|^[ \t]*(?:[^#\s][^\n]*)?\n)[ \t]*#[^\n]*[^.\n]\n[ \t]*#'
+    pattern-regex: '(?m)(?:\A(?!#!)|\A#![^\n]*\n|^[ \t]*(?:[^#\s][^\n]*)?\n)[ \t]*#[^\n]*[^.\n]\n[ \t]*#'
     message: >-
       A multi-line `#` comment block must open with a single summary line ending in a full stop (PEP 257 style).
       The summary describes the whole block in one sentence; continuation lines follow. End the first comment line
@@ -41,8 +49,8 @@ rules:
         - "*.h"
         - "*.jsonc"
     # The C-style twin of comment-summary-line above, covering `//` and `/* */` comments (so it also covers .jsonc).
-    # No dedicated linter has this check (clang-tidy's comment checks stop at namespace-closing and task-tag
-    # formatting; cpplint only checks comment whitespace), so the generic-mode regexes carry it. Two alternatives,
+    # No dedicated C linter has this check -- their comment rules stop at namespace-closing markers, task-tag
+    # formatting and whitespace -- so the generic-mode regexes carry it. Two alternatives,
     # one per comment shape:
     # - `/* ... */` blocks: a line opening `/*` WITHOUT `*/` on the same line (the negative lookahead
     #   `(?![^\n]*\*/)` is the multi-line test, mirroring the next-line-is-also-comment test of the `#` rule) must

@@ -23,5 +23,8 @@ tracing-log.workspace = true
 tracing-opentelemetry.workspace = true
 tracing-subscriber.workspace = true
 
+[dev-dependencies]
+fs-err.workspace = true
+
 [lints]
 workspace = true

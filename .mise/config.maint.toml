@@ -475,10 +475,7 @@ if [ ! -f "$shared_venv/bin/pip" ]; then
   shared_site="$(coreutils ls -d "$shared_venv"/lib/*/site-packages)"
   coreutils cp -R "$pip_extracted/pip" "$shared_site/"
   coreutils cp -R "$pip_extracted"/pip-*.dist-info "$shared_site/"
-  coreutils cat >"$shared_venv/bin/pip" <<'PIP_SHIM'
-#!/bin/sh
-exec "$(dirname "$0")/python" -m pip "$@"
-PIP_SHIM
+  coreutils cp "{{ config_root }}/.mise/pip-shim.sh" "$shared_venv/bin/pip"
   coreutils chmod +x "$shared_venv/bin/pip"
 fi
 
@@ -679,6 +676,20 @@ if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
 fi
 notes="https://github.com/cameron1024/dart-typegen
 MIT OR Apache-2.0"
+gh release create "$tag" --repo "$GH_REPO" --title "$tag" --notes "$notes" --prerelease </dev/null
+"""
+shell = "{{ vars.task_shell }}"
+
+[tasks.bootstrap-busybox-w32-release]
+description = "Create the busybox-w32-v1 GitHub release if it doesn't exist (idempotent)"
+run = """
+tag=busybox-w32-v1
+if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+  echo "release $tag already exists on $GH_REPO"
+  exit 0
+fi
+notes="https://frippery.org/busybox/
+GPL-2.0-only"
 gh release create "$tag" --repo "$GH_REPO" --title "$tag" --notes "$notes" --prerelease </dev/null
 """
 shell = "{{ vars.task_shell }}"

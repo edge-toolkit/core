@@ -96,10 +96,10 @@ pub fn generate_core() -> Result<(), Error> {
     // logic lives in `asyncapi`. The returned `Value` is what we serialise
     // to ws.yaml below.
     let spec_value = asyncapi::build_spec()?;
-    // serde_yaml's emitter quotes/indents differently than dprint's
-    // `pretty_yaml` plugin -- pipe the output through `pretty_yaml` (the same
-    // engine dprint uses) so the committed YAML stays dprint-canonical and
-    // `dprint check` doesn't drift between regenerations.
+    // serde_yaml's emitter quotes/indents differently than the repo's YAML
+    // formatter -- pipe the output through `pretty_yaml`, the same engine that
+    // formatter runs on, so the committed YAML is already canonical and the
+    // format check doesn't drift between regenerations.
     let yaml = serde_yaml::to_string(&spec_value)?;
     // serde_yaml always emits well-formed YAML, so pretty_yaml's parse step
     // can't fail here -- the only error variant is a syntax error.
@@ -184,7 +184,7 @@ pub fn generate_zig() -> Result<(), Error> {
     Ok(())
 }
 
-/// Write only when the contents differ, to keep `mise run check` quiet on no-op regenerations.
+/// Write only when the contents differ, so a no-op regeneration leaves no diff behind.
 #[expect(
     clippy::print_stdout,
     reason = "et-int-gen is a CLI; `wrote <path>` per generated file is intended user-visible progress output"

@@ -4,13 +4,14 @@
 // webR cannot open the agent WebSocket itself, so the transport (the shared et-ws-wasm-agent WsClient) lives
 // here and is exposed on globalThis.__etAgent for R to drive. The on_message callback stashes the latest agent
 // list (R selects the peer from it) and logs inbound messages. All sequencing and message composition happen in
-// module.R. webR is vendored under pkg/webr/ (see build-ws-rcomm1-module).
+// module.R. webR is vendored under pkg/webr/ and served at the path below.
 
 const WEBR_BASE_URL = "/modules/et-ws-rcomm1/webr/";
 const R_SOURCE_URL = "/modules/et-ws-rcomm1/module.R";
 
 let webR = null;
 
+// skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export default async function init() {
   const { WebR } = await import(`${WEBR_BASE_URL}webr.mjs`);
   webR = new WebR({ baseUrl: WEBR_BASE_URL });

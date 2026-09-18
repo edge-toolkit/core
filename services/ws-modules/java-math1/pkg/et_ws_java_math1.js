@@ -8,6 +8,7 @@
 
 let javaRun = null;
 
+// skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export default async function init() {
   let ws = null,
     wsState = "disconnected",

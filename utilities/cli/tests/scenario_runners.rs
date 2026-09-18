@@ -37,11 +37,32 @@ use edge_toolkit::ports::Services;
 use et_test_helpers::{ChildGuard, drain_stderr, drain_stdout};
 use fs_err as fs;
 
-/// Wall-clock ceiling for the whole exchange once the hub is up.
+/// Wall-clock ceiling for the exchange itself, measured from the moment the trigger is a registered agent.
 ///
 /// The sender broadcasts its pointer once a second across its manual-use window, and the twin stores its model on
-/// the first one it sees, so this only has to outlast the runners' own startup.
+/// the first one it sees, so this covers the twin's startup and one broadcast reaching it -- not the trigger's own
+/// startup, which [`RUNNER_STARTUP_TIMEOUT`] absorbs before this clock starts.
 const EXCHANGE_TIMEOUT: Duration = Duration::from_secs(180);
+
+/// Ceiling for a runner to get from `mise run` to a registered agent on the hub.
+///
+/// Deliberately far larger than the exchange it precedes, because it measures something else entirely: `mise`
+/// startup plus the generated task's `cargo run`, which on a cold CI container is minutes rather than seconds. On
+/// the `build (windows-2025, servercore)` lane the trigger's first log line arrived 195s after it was spawned --
+/// and 83s after the twin had already exited, which is the failure this whole sequencing exists to prevent.
+/// Observed on commit
+/// <https://github.com/edge-toolkit/core/commit/a9817a998e4cf773be23eb944d8358e9ae0d70e6> at
+/// <https://github.com/edge-toolkit/core/actions/runs/35125253728/job/104892604466>.
+///
+/// Costs nothing when the runners are quick: the wait returns the moment the roster shows them.
+const RUNNER_STARTUP_TIMEOUT: Duration = Duration::from_secs(300);
+
+/// How much of [`RUNNER_STARTUP_TIMEOUT`] one roster wait consumes before the runner is checked for signs of life.
+///
+/// The wait has to be re-entered to look at the process at all, and each re-entry registers a fresh waiter agent,
+/// so this trades a handful of spent registry entries against how long a runner that died on its first breath
+/// keeps the test sitting there. A runner that comes up normally is seen inside the first slice and costs one.
+const REGISTRATION_SLICE: Duration = Duration::from_secs(15);
 
 /// `RUNNER_TIMEOUT` handed to both runners so they exit on their own rather than running until killed.
 ///
@@ -58,6 +79,13 @@ const RUNNER_TIMEOUT: &str = "110s";
 /// only catches one that ignores it. Set below that bound, the wait would kill a runner that was about to exit
 /// on its own and then report it as a timeout.
 const RUNNER_EXIT_TIMEOUT: Duration = Duration::from_secs(150);
+
+/// How long a failure message waits for a killed runner's drain threads to hand over what they read.
+///
+/// Only ever spent on a path that is already failing, and only when both buffers are still empty, so a runner
+/// that logged anything at all is quoted as soon as the thread stores it. Short because it covers a handoff
+/// between two threads on the same machine, not any work the runner does.
+const DRAIN_SETTLE: Duration = Duration::from_secs(2);
 
 /// A spawned runner task, with both its output streams captured for the failure message.
 struct Runner {
@@ -84,6 +112,13 @@ fn spawn_runner(scenario: &str, task: &str) -> Runner {
         .arg(task)
         .current_dir(scenario_dir)
         .env("RUNNER_TIMEOUT", RUNNER_TIMEOUT)
+        // Make mise narrate its own startup, so a runner that never reaches its task can still be placed.
+        // On `build (windows-2025, servercore)` a trigger stayed alive for the whole 300s startup budget and
+        // wrote nothing at all -- not even the `$ cargo run ...` line mise echoes before it runs a task -- while
+        // the same commit on `windows-2022` logged normally and registered. Zero bytes says only "stalled before
+        // the task began", which covers tool resolution, the config load and the build lock alike; mise's own
+        // output distinguishes them. It rides on stderr, which is captured either way.
+        .env("MISE_VERBOSE", "1")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn_checked()
@@ -129,6 +164,68 @@ fn captured(buffer: &Arc<Mutex<String>>) -> String {
         .map_or_else(|poisoned| poisoned.into_inner().clone(), |guard| guard.clone())
 }
 
+/// Both of one runner's captured streams, labelled, for a failure message, after ending it so they are filled.
+///
+/// A runner that writes nothing is the hard case to read: empty output alone cannot distinguish a process that died
+/// before it could log from one that started and sat idle, so every failure path quotes both streams. That only
+/// works on a runner that has finished. The drain threads hand their buffer over at EOF, so quoting one still
+/// holding its pipes open reports two empty streams whatever it wrote -- which is how a hung trigger came to look
+/// like a silent one across several CI rounds. Ending it first closes the pipes so there is something to read.
+#[expect(
+    clippy::single_call_fn,
+    reason = "paired with quoted_now on purpose: inlining it invites a future path to quote a still-running runner"
+)]
+fn quoted(label: &str, runner: &mut Runner) -> String {
+    runner.guard.shutdown();
+    quoted_now(label, runner)
+}
+
+/// Quote a runner this path has already ended, waiting for its drain threads to hand over what they read.
+///
+/// Split from [`quoted`] for the paths that waited the runner out themselves, which must not end it a second
+/// time -- but they need the same wait. A runner killed at the end of `wait_for_exit` has its pipes closed only
+/// microseconds before this reads them, so quoting it immediately races the drain thread and prints the blanks
+/// that ending the process was supposed to prevent. The poll gives up rather than hanging, since empty is a
+/// legitimate answer for a process that really did write nothing, and costs nothing once either stream has
+/// anything in it.
+fn quoted_now(label: &str, runner: &Runner) -> String {
+    let started = Instant::now();
+    while started.elapsed() < DRAIN_SETTLE && captured(&runner.stdout).is_empty() && captured(&runner.stderr).is_empty()
+    {
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    format!(
+        "--- {label} stdout ---\n{}\n--- {label} stderr ---\n{}",
+        captured(&runner.stdout),
+        captured(&runner.stderr)
+    )
+}
+
+/// Wait for `runner` to appear on the hub's roster, returning the peers seen or an empty vec if it never does.
+///
+/// Gives up as soon as the runner's process has gone, rather than sitting out the whole startup budget waiting for
+/// an agent that can no longer register -- a runner that fails during bootstrap (a module fetch 404, say) exits in
+/// about a second, and the budget above is measured in minutes.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of the exchange; separate so the test body reads as hub, runners, exchange"
+)]
+fn wait_for_registration(ws_url: &str, runner: &mut Runner) -> Vec<String> {
+    // Elapsed-versus-budget rather than a computed deadline: comparing two `Duration`s needs no arithmetic on an
+    // `Instant`, which the workspace's restriction lints would otherwise object to.
+    let started = Instant::now();
+    while started.elapsed() < RUNNER_STARTUP_TIMEOUT {
+        let peers = et_ws_test_server::wait_for_connected_agents(ws_url, 1, REGISTRATION_SLICE);
+        if !peers.is_empty() {
+            return peers;
+        }
+        if runner.guard.has_exited() {
+            break;
+        }
+    }
+    Vec::new()
+}
+
 /// Return the first stored `math1-output.json` as `(weight, bias)`, or `None` until the twin has written one.
 #[expect(
     clippy::single_call_fn,
@@ -157,7 +254,7 @@ fn stored_model(storage_dir: &std::path::Path) -> Option<(f64, f64)> {
 // test drives runs `cargo run --quiet -p et-ws-web-runner`. Asking Windows to build the one crate CI has decided
 // to skip there is not a gap this test can close; that is the gnullvm rusty_v8 work, tracked separately.
 //
-// Observed on commit 809600492822c600f14c19a35b1ff50bef687c23 at
+// Observed on commit https://github.com/edge-toolkit/core/commit/809600492822c600f14c19a35b1ff50bef687c23 at
 // https://github.com/edge-toolkit/core/actions/runs/34108671291/job/101699520407 as
 //   FAIL + LEAK [ 363.640s] (177/177) et-cli::scenario_runners math1_scenario_generated_runner_tasks_compute_the_model
 //   no math1-output.json appeared in any storage bucket under C:\Users\RUNNER~1\AppData\Local\Temp\.tmpKcKuqX
@@ -192,14 +289,15 @@ fn math1_scenario_generated_runner_tasks_compute_the_model() {
 // import -- an async host call awaited on a wasmtime fiber. The reading that fits is tokio's thread-local
 // runtime context not surviving the fiber stack switch under that target's TLS model.
 //
-// It is the target env, not Windows. On commit 5998313315c491a6abffb7c1507e4adc4a4f3559 `wasi-math1` passed on
+// It is the target env, not Windows. On commit
+// https://github.com/edge-toolkit/core/commit/5998313315c491a6abffb7c1507e4adc4a4f3559 `wasi-math1` passed on
 // `gnullvm` (which `config.windows.toml` actually builds) in 426s and on `msvc` in 443s, while `gnu` failed
 // twice with the identical signature -- 644s at
 // https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101938939834 and 591s on the re-run at
 // https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101958844541 -- so it is reproducible
 // rather than a flake. `pyo3-math1` was left ungated at that point because fail-fast had cancelled it before
 // it ran on `gnu`; it then reproduced the same abort there at 579s on commit
-// 29dfe80a62ba7a27d8119c5b6332c3dbe2df815e,
+// https://github.com/edge-toolkit/core/commit/29dfe80a62ba7a27d8119c5b6332c3dbe2df815e,
 // https://github.com/edge-toolkit/core/actions/runs/34211905976/job/102014621776, having passed on `gnullvm` in
 // 472s and `msvc` in 458s. Its captured output puts the fault squarely on the trigger: the pyo3 twin registers
 // as an agent and idles to its own timeout, while the wasi trigger aborts as above.
@@ -273,9 +371,27 @@ fn run_scenario(scenario: &str, twin_task: &str, twin_crate: &str, trigger_crate
     let server = et_ws_test_server::start_on(Services::InsecureWebSocketServer.port());
     let storage_dir = server.storage_dir.path();
 
-    // Both runners come up together, exactly as `generated-scenario` starts them.
-    let mut twin = spawn_runner(scenario, twin_task);
+    // The trigger comes up first, and the twin only once the hub has actually seen it register.
+    //
+    // `generated-scenario` starts both at once and this test used to as well, which is what made it fail on the
+    // servercore lane: each runner's `RUNNER_TIMEOUT` starts when that runner starts, so two staggered startups
+    // give two disjoint lifetimes. The twin registered, idled out its 110s and exited, and the trigger's first log
+    // line arrived 83s after that -- it then broadcast its whole window to an empty hub, and the test read the
+    // result as a deployment that never stored anything. Waiting here ties the two lifetimes together at the point
+    // that matters: the sender re-broadcasts its pointer once a second across its manual-use window, so a twin
+    // spawned the moment the sender is live has that whole window to register and catch one.
+    //
+    // Starting the twin second also means its `cargo run` no longer races the trigger's for cargo's build lock,
+    // which is startup cost neither of them pays on a workstation and both were paying on CI.
     let mut trigger = spawn_runner(scenario, "math1-trigger");
+    let registered = wait_for_registration(&server.ws_url, &mut trigger);
+    assert!(
+        !registered.is_empty(),
+        "math1-trigger never registered with the hub within {:?}\n{}",
+        RUNNER_STARTUP_TIMEOUT,
+        quoted("math1-trigger", &mut trigger)
+    );
+    let mut twin = spawn_runner(scenario, twin_task);
 
     // Elapsed-versus-budget rather than a computed deadline: comparing two `Duration`s needs no arithmetic on
     // an `Instant`, which the workspace's restriction lints would otherwise object to.
@@ -295,20 +411,21 @@ fn run_scenario(scenario: &str, twin_task: &str, twin_crate: &str, trigger_crate
     let trigger_exited = trigger.guard.wait_for_exit(RUNNER_EXIT_TIMEOUT);
 
     let Some((weight, bias)) = model else {
+        // The two exit flags are reported here, not just asserted on the happy path below, because the assertions
+        // that would have said which runner misbehaved are never reached once this branch panics.
         panic!(
             concat!(
                 "{}: no math1-output.json appeared in any storage bucket under {}\n",
-                "--- {} stdout ---\n{}\n--- {} stderr ---\n{}\n",
-                "--- math1-trigger stdout ---\n{}\n--- math1-trigger stderr ---\n{}"
+                "exited within RUNNER_EXIT_TIMEOUT: {}={}, math1-trigger={}\n",
+                "{}\n{}"
             ),
             scenario,
             storage_dir.display(),
             twin_task,
-            captured(&twin.stdout),
-            twin_task,
-            captured(&twin.stderr),
-            captured(&trigger.stdout),
-            captured(&trigger.stderr)
+            twin_exited,
+            trigger_exited,
+            quoted_now(twin_task, &twin),
+            quoted_now("math1-trigger", &trigger)
         );
     };
     et_ws_test_server::math1::verify_math1_model(weight, bias).unwrap();

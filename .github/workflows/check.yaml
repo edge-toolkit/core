@@ -51,28 +51,16 @@ jobs:
               'C:\i\http-busybox\1.37.0\ash.exe -euo pipefail {0}'
               || 'bash --noprofile --norc -euo pipefail {0}' }}
     steps:
+      # Full history here due to checks that use git log.
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          fetch-depth: 1
+          fetch-depth: 0
           persist-credentials: false
 
-      - name: Free disk space on Linux
-        if: runner.os == 'Linux'
-        uses: jlumbroso/free-disk-space@v1.3.1
-
-      - name: Free disk space on Windows
-        if: runner.os == 'Windows'
-        uses: ./.github/actions/free-disk-space-windows
-
-      # Windows tools source-build under mise 2026.7.1, so this step runs long (bumped from 25).
-      # The per-tool msvc `install_env` override no longer reaches cargo-binstall there, so cargo tools like
-      # action-validator compile from source instead of fetching their msvc prebuilts. Revert once mise fixes it.
       - name: Install mise + tools
         uses: ./.github/actions/install-mise-tools
         timeout-minutes: 60
-        with:
-          github-token: ${{ github.token }}
 
       - name: Prefetch Rust dependencies
         run: mise run prefetch:rust

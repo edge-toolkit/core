@@ -13,7 +13,7 @@
 #   - license:  SPDX expression for the upstream content. Bump alongside `upstream` whenever upstream
 #               re-licenses.
 #
-# config/conftest/policy/checksums/checksums.rego enforces a bidirectional cross-reference: every
+# A policy enforces a bidirectional cross-reference: every
 # `<name>_asset` var in .mise/config*.toml must have a matching `[asset.<filename>]` table here, and vice
 # versa. Filename keys pin the upstream commit SHA (short) or version; bump in lockstep with the var and the
 # release tag.
@@ -118,6 +118,12 @@ license = "LGPL-2.1+"
 sha256 = "10fc4aff94a5c6016c51b4dbbc224277a340a083c315ca0a05e9f5ef9a869403"
 upstream = "https://github.com/hercules-team/augeas"
 url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-aarch64-apple-darwin.tar.xz"
+
+[asset."busybox64u.exe"]
+license = "GPL-2.0-only"
+sha256 = "6e263d154d8548d1eb936f65d1d8312c80df31c45974e48d6335e4dcc0f4f34c"
+upstream = "https://frippery.org/busybox/"
+url = "https://github.com/edge-toolkit/core/releases/download/busybox-w32-v1/busybox64u.exe"
 
 [asset."0.1.13-x86_64-pc-windows-msvc.tar.gz"]
 license = "MIT OR Apache-2.0"

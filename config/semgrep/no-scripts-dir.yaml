@@ -1,0 +1,15 @@
+rules:
+  - id: no-scripts-dir
+    languages: [generic]
+    paths:
+      include:
+        - "**/scripts/**"
+    pattern-regex: \A
+    message: >-
+      A `scripts/` directory is banned in this repo. Every script belongs in one of exactly two places, and
+      neither of them is a loose tree of files that nothing points at. Short and simple goes inline in a task
+      body under `.mise/`, where it is listed alongside every other entry point and runs by name. Anything
+      more involved gets its own directory under `utilities/`, with a `README.md` saying what it does and how
+      to run it. A file under `scripts/` has neither: no caller, no documentation, and nothing that fails when
+      it stops working. Move it to whichever of the two fits, and drop the directory.
+    severity: ERROR

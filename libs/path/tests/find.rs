@@ -56,7 +56,7 @@ fn repo_file_env_directives_name_the_var_the_file_and_both_rerun_triggers() {
     // stands rather than rewriting it to the platform separator, so on Windows the value is a mixed
     // `D:\checkout\services/ws-test-server/data/math1-input.json`, which every path API there accepts. Expecting
     // the separator to be rewritten failed on all three Windows lanes of commit
-    // 29dfe80a62ba7a27d8119c5b6332c3dbe2df815e with
+    // https://github.com/edge-toolkit/core/commit/29dfe80a62ba7a27d8119c5b6332c3dbe2df815e with
     //
     //     unexpected rustc-env directive:
     //     cargo:rustc-env=ET_PROBE_PATH=D:\a\core\core\services/ws-test-server/data/math1-input.json

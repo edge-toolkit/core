@@ -95,7 +95,7 @@ fn render_dockerfile(
     // Every module serves out of `pkg/`, whether that directory is committed (the JS shims) or produced by a
     // build (wasm-pack output, wheels). Probing for it makes this file depend on what happens to be built in the
     // working tree: CI checks out unbuilt Rust modules, found no `services/ws-modules/har1/pkg`, and emitted the
-    // module root instead -- so the committed output and the CI regeneration disagreed and verification-check
+    // module root instead -- so the committed output and the CI regeneration disagreed, and the drift check
     // failed. A module that genuinely has no `pkg/` now fails loudly at image build rather than silently
     // generating a different Dockerfile per machine.
     for (repo_path, docker_path) in repo_paths {

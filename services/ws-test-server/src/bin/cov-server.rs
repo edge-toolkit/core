@@ -9,7 +9,7 @@
 //! operation as a path-traversal shape and cannot suppress it per line. That is a false positive here -- the single
 //! argument is the marker path the trusted `wasm-agent-cov` mise task passes -- and taking that path as an argument
 //! (rather than hardcoding one) is the point. The crate exposes this as its own minimal file so the path exclude stays
-//! narrow; it is still covered by clippy and `DeepSource`'s Rust analyzer.
+//! narrow; every other analyzer the repo runs over Rust still reads it.
 
 use std::error::Error;
 use std::path::PathBuf;

@@ -7,6 +7,7 @@
 // accessors below (WasmGC has no JSON parser of its own; the accessors keep the guest
 // dependency-free).
 
+// skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export default async function init() {
   let ws = null,
     wsState = "disconnected",

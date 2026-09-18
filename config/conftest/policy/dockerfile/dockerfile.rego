@@ -124,8 +124,8 @@ deny contains msg if {
 #    expansion to bash, which only evaluates the line inside the correct package-manager branch. ARG values needed
 #    inside the body are promoted to ENV before the RUN so bash can resolve them from the environment.
 #
-# The `set -euo pipefail` first-line check itself is a semgrep rule (the Dockerfile parser flattens heredoc bodies out
-# of the AST, so conftest can't see them; semgrep operates on the raw file text).
+# The `set -euo pipefail` first-line check itself lives in a raw-text rule: the Dockerfile parser flattens heredoc
+# bodies out of the AST, so this policy never sees them.
 deny contains msg if {
 	some file in input
 	is_array(file.contents)

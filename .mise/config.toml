@@ -113,7 +113,7 @@ dprint = "latest"
 # v4.0.0 renamed every asset from `ec-<os>-<arch>` to `editorconfig-checker-<os>-<arch>`, and aqua's manifest
 # was not updated, so `latest` resolves to a version whose download it cannot find:
 #   aqua:editorconfig-checker/editorconfig-checker@latest: no asset found: ec-windows-amd64.zip
-# on commit 02d645a30b89850b5d27711e0dd8f61780dcdcb3 at
+# on commit https://github.com/edge-toolkit/core/commit/02d645a30b89850b5d27711e0dd8f61780dcdcb3 at
 # https://github.com/edge-toolkit/core/actions/runs/33945730231/job/101251329874. The rename is not
 # Windows-specific -- every platform's asset moved -- so this holds every lane, not just that one. Drop the pin
 # once the aqua registry ships a version_overrides entry for 4.x.
@@ -153,7 +153,7 @@ ripgrep = "latest"
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
 "github:microsoft/onnxruntime" = "1.22.0"
 "github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
-"github:wasm-bindgen/wasm-bindgen" = "0.2.127"
+"github:wasm-bindgen/wasm-bindgen" = "0.2.128"
 # go-containerregistry's crane fetches the per-platform ghcr.io mise-tools stores.
 # Its `crane export` rootfs-flatten is what the pull-mise-tools task and CI's install-mise-tools restore
 # step extract tool trees with.
@@ -247,9 +247,9 @@ version = "{{ vars.rust_nightly }}"
 #
 # Capping every lint to `warn` for this one install leaves the deny in place for our own crates. It has to
 # ride on plain RUSTFLAGS rather than joining config.macos.toml's CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS,
-# because install_env values are passed through literally -- no `{{ vars.x }}`, no `$HOME` -- so the lld and
-# rpath flags that value is built from cannot be restated here. Plain RUSTFLAGS wins over the target-specific
-# form, so this install alone links with the default linker instead of conda:lld.
+# because install_env values are passed through literally -- no `{{ vars.x }}`, no `$HOME` -- so the rpath
+# flag that value is built from cannot be restated here. Plain RUSTFLAGS wins over the target-specific form,
+# so this install alone links without the conda OpenSSL rpath.
 [tools."cargo:vectordotdev/vector"]
 crate = "vector"
 install_env = { RUSTFLAGS = "--cap-lints=warn" }
@@ -328,7 +328,7 @@ version = "08a1d6f"
 #
 #     openobserve never bound its HTTP port :36657
 #
-# observed on commit 1f544590b473887015754f67c3af843f970d8dbc at
+# observed on commit https://github.com/edge-toolkit/core/commit/1f544590b473887015754f67c3af843f970d8dbc at
 # https://github.com/edge-toolkit/core/actions/runs/31559765133/job/94267330524 (and the three sibling
 # old-glibc lanes of that run), while every glibc >= 2.39 lane passed. The musl build has no glibc floor.
 [tools."http:openobserve"]
@@ -361,10 +361,10 @@ url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve
 #     attack. Enable the corresponding verification setting or update the lockfile.
 #
 # observed on macos-arm64 and windows-x64 with mise 2026.8.5 at commit
-# 20b91714e47f52e7fcd898fc3df3dbf35bb53242. The http backend performs no provenance lookup, so nothing
-# unverifiable lands in the lockfile. It also records no cross-platform checksums the way the github backend
-# did: `mise lock` only hashes the asset for the platform it runs on, so each platform's checksum appears the
-# first time the lockfile is refreshed there.
+# https://github.com/edge-toolkit/core/commit/20b91714e47f52e7fcd898fc3df3dbf35bb53242. The http backend
+# performs no provenance lookup, so nothing unverifiable lands in the lockfile. It also records no
+# cross-platform checksums the way the github backend did: `mise lock` only hashes the asset for the platform
+# it runs on, so each platform's checksum appears the first time the lockfile is refreshed there.
 #
 # Linux takes the static musl assets rather than the gnu ones aqua used to select, which import GLIBC_2.39
 # symbols -- on every docker-linux matrix distro with glibc <= 2.38 the gnu build dies at exec and the
@@ -372,7 +372,7 @@ url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve
 #
 #     rustfs did not start listening on port 33649
 #
-# observed on commit 1f544590b473887015754f67c3af843f970d8dbc at
+# observed on commit https://github.com/edge-toolkit/core/commit/1f544590b473887015754f67c3af843f970d8dbc at
 # https://github.com/edge-toolkit/core/actions/runs/31559765133/job/94267330524 (and the three sibling
 # old-glibc lanes of that run), while every glibc >= 2.39 lane passed. The musl build has no glibc floor;
 # macOS and Windows have only the one build each. Direct upstream, per-version immutable URLs, so no checksum.
@@ -435,10 +435,10 @@ url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x
 #
 # The version is chosen by its LLVM, which has to match the `minicov` in [workspace.dependencies]: minicov
 # writes the guests' profraw and this toolchain's llvm-tools reads it, so a mismatch traps the guest with
-# `wasm trap: out of bounds memory access` in `coverage::dump`. `nightly-2026-08-31` (rustc 908501772) carries
-# LLVM 23.1.0, which is the profraw-11 format minicov 0.3.9 emits. Bump this and minicov together, never one
+# `wasm trap: out of bounds memory access` in `coverage::dump`. `nightly-2026-08-05` (rustc 1ed2df61a) carries
+# LLVM 22.1.8, which is the profraw-10 format minicov 0.3.8 emits. Bump this and minicov together, never one
 # alone, and check `rustc +<nightly> --version --verbose` reports an LLVM the minicov release names.
-rust_nightly = "nightly-2026-08-31"
+rust_nightly = "nightly-2026-08-05"
 # Tier-`a_` prefix marks leaf values referenced by later vars.
 # a_* vars are referenced by later vars (face1_src), and mise renders [vars] in alphabetical order; `a_` sorts
 # before every non-prefixed var name so the reference resolves. Shared GitHub release tag for the HF-asset
@@ -512,6 +512,16 @@ a_et_cli_target_dir = "target{% if os() == 'windows' %}/x86_64-pc-windows-gnullv
 # web_cov_wrapper only adds the ET_TEST_COVERAGE conditional around this value.
 a_web_cov_wrapper_env = 'RUSTC_WORKSPACE_WRAPPER={{ config_root }}/target/debug/int-wasm-cov-wrapper '
 et_cli = "{{ vars.config_root_fwd }}/{{ vars.a_et_cli_target_dir }}/{{ vars.a_et_cli_exe }}"
+# Oldest macOS SDK macos-sdk-check accepts, held as high as CI can actually satisfy.
+# This is a track-the-latest policy rather than a floor the build forces: the deployment target (11.0 on
+# arm64) is the only figure the repo itself requires, and every SDK since is technically sufficient. Pinning
+# near the newest keeps contributors on one known SDK, so a build difference is never "which Xcode is this".
+#
+# 26.0 is that policy capped by the runners. GitHub's macOS images are macOS 26 -- macos-latest is macOS 26
+# arm64, macos-26-intel its x64 twin -- so they carry a 26.x SDK, and 27.0 would fail every macOS lane rather
+# than any real defect. Raise this to 27.0 once those images ship Xcode 27; a contributor already on 27 keeps
+# passing meanwhile, since the check is a floor and not an equality.
+macos_min_sdk = "26.0"
 # mise-managed CPython (Linux/macOS); the PYO3_PYTHON default below.
 # Windows overrides PYO3_PYTHON with its own py3_win in config.windows.toml. The version
 # segment must equal the `python` [tools] pin (conftest enforces both).
@@ -524,7 +534,7 @@ rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
 # `python` pin), since the minor-version alias dir isn't created everywhere.
 pylib_flag = "-C link-arg=-Wl,-rpath,{{ vars.a_home }}/.local/share/mise/installs/python/3.13.14/lib"
 wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint,+reference-types"
-# Instrumentation flag pair (leaf var) shared by the wasm coverage builds.
+# Instrumentation flags (leaf var) shared by the wasm coverage builds.
 # The nightly -Z flag adds branch regions to the covmap so the lcov exports carry BRDA records. `a_` prefix so
 # mise's alphabetical [vars] render defines it before wasm_cov_rustflags uses it.
 a_wasm_cov_instr = "-Cinstrument-coverage -Zcoverage-options=branch"
@@ -781,8 +791,10 @@ depends = [
   "mise-lock-check",
   "readme-mise-version-check",
   "regal-check",
+  "repo-check",
   "ryl-check",
   "semgrep-check",
+  "shellcheck-check",
   "shellcheck-mise-check",
   "shfmt-mise-check",
   "taplo-check",
@@ -841,6 +853,45 @@ run = "zizmor --offline --no-progress -c config/zizmor.yaml .github/workflows .g
 description = "Lint file and directory naming conventions (ls-lint)"
 run = "ls-lint --config config/ls-lint.yaml"
 
+# Verify the host's macOS SDK before anything tries to link against it.
+# Two failures, and the first is the common one. `xcrun` reporting no SDK at all means the command-line tools
+# are absent or the active developer dir points at nothing -- config.macos.toml's `SDKROOT` is computed by
+# exactly this command, so that state poisons every cc-rs build script with "'stdlib.h' file not found"
+# rather than saying what is wrong. Catching it here names it once, up front. The second is an SDK older than
+# the deployment target the build asks for, which is incoherent: you cannot target macOS 11 with a 10.x SDK.
+#
+# Lives in the always-loaded config rather than config.macos.toml, and no-ops elsewhere.
+# `check:rust` and `test:rust` both depend on it, and their depends lists are static -- a task defined only in
+# the macOS config would be an unresolvable dependency on every other platform.
+#
+# This does NOT exist to demand a recent Xcode. Apple's `ld` reads its own SDK whatever its vintage, so there
+# is no upper-bound problem to guard against; the floor is only a floor.
+[tasks.macos-sdk-check]
+description = "Fail if the macOS SDK is missing or older than the minimum this repo builds against"
+run = """
+if [ "$(coreutils uname -s)" != "Darwin" ]; then
+  echo "macos-sdk-check: not macOS; nothing to verify"
+  exit 0
+fi
+sdk="$(xcrun --show-sdk-version 2>/dev/null || true)"
+if [ -z "$sdk" ]; then
+  echo "macos-sdk-check: xcrun reported no SDK version." >&2
+  echo "Install the Xcode command-line tools with: xcode-select --install" >&2
+  exit 1
+fi
+min="{{ vars.macos_min_sdk }}"
+# `sort -V` puts the lower version first, so the minimum staying first means the SDK is at least it.
+# Equal versions sort to the same value, which lands on the pass side, as an exact match should.
+lowest="$(printf '%s\\n%s\\n' "$min" "$sdk" | coreutils sort -V | coreutils head -n 1)"
+if [ "$lowest" != "$min" ]; then
+  echo "macos-sdk-check: SDK $sdk is older than the required $min." >&2
+  echo "Update the Xcode command-line tools via Software Update, or: xcode-select --install" >&2
+  exit 1
+fi
+echo "macos-sdk-check: SDK $sdk (minimum $min)"
+"""
+shell = "{{ vars.task_shell }}"
+
 [tasks.ast-grep-check]
 # --no-ignore hidden so the gha-* YAML rules reach .github/workflows.
 # ast-grep skips dot-dirs by default; gitignored paths like target/ stay skipped.
@@ -889,6 +940,16 @@ shell = "{{ vars.task_shell }}"
 # config, still shows the whole picture instead of filtering to new clones. That config's `ignore` list covers
 # only generator-owned output nobody hand-writes -- note the files under a module's pkg/ other than package.json
 # are hand-written shims, so they stay in scope.
+#
+# The one `ignorePattern` entry, whose reason has to live here because that config is plain JSON.
+# It matches the `actions/checkout` step, which every workflow is obliged to write out in full: a composite
+# action is referenced by a path inside the repo, so it cannot run until the repo has been checked out, which
+# makes this the one step that can never be factored into `.github/actions/`. Six workflows therefore repeat the
+# same five lines with the same `fetch-depth` / `persist-credentials` pins, and reported as a clone it asks for a
+# refactor that the platform does not permit. `ignorePattern` drops those tokens before detection, which is
+# narrower than excluding the workflow files: everything else in them -- job bodies, step sequences, run blocks
+# -- is still compared. Delete this the day a checkout can be shared, and expect the clone count to rise by the
+# handful of pairs it is currently hiding.
 [tasks.jscpd-check]
 description = "Detect copy/pasted code across every language (jscpd)"
 run = "jscpd . --config config/jscpd.json --baseline config/jscpd-baseline.json --fail-on-new-clones"
@@ -922,11 +983,13 @@ description = "Reflow Rust comment prose to the 120-column width with parfit (in
 # table headers into the surrounding comment prose, so TOML, YAML and markdown stay hand-wrapped. The width matches
 # .rustfmt.toml's max_width. The skip regexes pass rustdoc `# Heading` lines and list items (`*`, `-`, `1.`) through
 # verbatim -- without them parfit folds `# Panics` into the sentence below it and a bulleted list into one paragraph.
-# It also breaks a line after a hyphen, inside backticks included, and has no switch for that, so check the diff for
-# comment lines ending in `-` and rejoin the word by hand. Given file paths, reflows just those; with none, every
-# tracked Rust file except the generator-owned ones. The usage-spec is what carries the paths: mise appends bare task
-# arguments to the body text, which the eval in task-shell.sh then rejects, whereas a `var` arg arrives space-joined
-# in $usage_file for xargs to split.
+# It also breaks a line after a hyphen, inside backticks and URLs included, and has no switch for that: it reflows
+# a whole paragraph before re-breaking it, so a skip regex cannot protect a URL that starts mid-paragraph. Check
+# the diff for comment lines ending in `-` and rejoin the word by hand; a split
+# `https://github.com/edge-toolkit/core/...` leaves a dead link behind.
+# Given file paths, reflows just those; with none, every tracked Rust file except the generator-owned ones. The
+# usage-spec is what carries the paths: mise appends bare task arguments to the body text, which the eval in
+# task-shell.sh then rejects, whereas a `var` arg arrives space-joined in $usage_file for xargs to split.
 run = """
 heading='^\\s*//[/!]?\\s*#'
 item='^\\s*//[/!]?\\s*([-*]|[0-9]+\\.)\\s'
@@ -971,7 +1034,8 @@ env = { RUSTDOCFLAGS = "-Z unstable-options --check -D warnings" }
 # it, and the unwrapped symlink aborts on the first of those that does not exist:
 #   thread 'main' panicked at .../ort-sys-2.0.0-rc.10/build.rs:129:66:
 #   called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
-# Seen on commit 9440a53b3f632307d5a41b654ff526981021759f in the macos + ubuntu check lanes, e.g.
+# Seen on commit https://github.com/edge-toolkit/core/commit/9440a53b3f632307d5a41b654ff526981021759f in the
+# macos + ubuntu check lanes, e.g.
 # https://github.com/edge-toolkit/core/actions/runs/30782416445/job/91589563319 -- and reproducible locally.
 # The feature cannot simply be switched off: wasmtime-wasi-nn declares `features = ["copy-dylibs"]` on its own
 # ort dependency, so feature unification keeps it enabled regardless of this workspace's ort entry. Creating the
@@ -1009,12 +1073,14 @@ description = "Run conftest OPA/Rego policies over the TOML config + lock files"
 # namespaces are listed explicitly, so the per-file `gha` (YAML) namespace is never evaluated against this
 # combined TOML input.
 run = """
-ns_list="cross cargo mise pyproject no_trailing_backslash checksums"
-# $ns_list iteration relies on word-splitting; $ns expands to repeated `--namespace <n>` pairs.
+ns_list="cross cargo mise pyproject no_trailing_backslash checksums advisories"
+named="Cargo.lock config/upstream-cache/data.toml config/deny.toml"
+# Both lists rely on word-splitting when they expand.
+# $ns expands to repeated `--namespace <n>` pairs; $named is a space-separated path list.
 # shellcheck disable=SC2086
 ns=$(for n in $ns_list; do echo -n " --namespace $n"; done)
 # shellcheck disable=SC2086
-git ls-files '*Cargo.toml' '.mise/config*.toml' '*pyproject.toml' Cargo.lock config/upstream-cache/data.toml |
+git ls-files '*Cargo.toml' '.mise/config*.toml' '*pyproject.toml' $named |
   xargs conftest test --combine --parser toml $ns -p config/conftest/policy
 """
 shell = "{{ vars.task_shell }}"
@@ -1030,6 +1096,17 @@ run = "conftest test --namespace jscpd -p config/conftest/policy config/jscpd-ba
 [tasks.conftest-check-policy-tests]
 description = "Run the Rego unit tests beside the conftest policies (conftest verify)"
 run = "conftest verify -p config/conftest/policy"
+
+# The policy tree checked against itself: every policy must have a test file beside it, or a recorded reason.
+# `--parser ignore` because .rego has no parser and only the paths are read; the policy contents are never
+# inspected, so the entries the parser produces per line go unused.
+[tasks.conftest-check-policy-pairs]
+description = "Check every conftest policy has a test file beside it (conftest)"
+run = """
+find config/conftest/policy -name '*.rego' -print0 |
+  xargs -0 conftest test --combine --parser ignore --namespace policy_pairing -p config/conftest/policy
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.conftest-check-generated-trees]
 description = "Cross-check config/generated-trees.toml against the linter configs it governs (conftest)"
@@ -1105,6 +1182,18 @@ run = "regal lint -c config/regal.yaml config/conftest/policy/"
 description = "Auto-fix the regal violations that have an auto-fixer (e.g. opa-fmt)"
 run = "regal fix -c config/regal.yaml config/conftest/policy/"
 
+[tasks.shellcheck-check]
+description = "shellcheck the standalone shell fragments committed under .mise/"
+# The sibling task below reads shell out of the TOML; this one covers the files that are already shell on disk.
+# Nothing was linting them, so an external analyzer reported their findings first -- a `.sh` under `.mise/` is
+# exactly as much shell as a task body is, and had none of the same coverage.
+# No `--shell` override and no `--exclude`: each file declares its own interpreter through a shebang or a
+# `shell=` directive, and the exclusions the sibling task carries exist for extracted bodies, whose
+# Tera-masked names read as unassigned variables. Applying either here would hide real findings.
+# `-x` follows what a fragment sources, resolved from the repo root, which is the base a task body's relative
+# `source` path resolves against when it pulls one of these in.
+run = 'shellcheck -x --source-path="{{ vars.config_root_fwd }}" .mise/*.sh'
+
 [tasks.shellcheck-mise-check]
 description = "shellcheck every bash-shell mise task body across .mise/config*.toml"
 # Extract each multi-line bash-shell task body and shellcheck it in isolation.
@@ -1116,6 +1205,8 @@ description = "shellcheck every bash-shell mise task body across .mise/config*.t
 # .mise/shellcheck-mise.jq emits one `<name> <body-b64>` line per eligible task (base64 so newlines +
 # quotes survive the pipe). goawk emits CRLF on Windows, so `tr -d '\r'` normalises each generated script
 # back to LF (a no-op on Unix) -- without it shellcheck flags every body with SC1017 (literal carriage return).
+# `-x` with the repo root as source path follows what a body sources, so a shared fragment is linted with it
+# rather than reported unread; the extracted scripts sit under target/, so a relative source needs that root.
 run = '''
 boot="{{ vars.config_root_fwd }}/target/scratch/shellcheck-mise"
 coreutils rm -rf "$boot"
@@ -1132,7 +1223,7 @@ for cfg in .mise/config*.toml; do
     } | coreutils tr -d '\r' >"$out"
   done
 done
-shellcheck --shell=bash --exclude=SC2034,SC2154 "$boot"/*.sh
+shellcheck --shell=bash -x --source-path="{{ vars.config_root_fwd }}" --exclude=SC2034,SC2154 "$boot"/*.sh
 '''
 shell = "{{ vars.task_shell }}"
 
@@ -1423,12 +1514,44 @@ trivy config --quiet --exit-code 1 --ignorefile config/trivyignore.yaml "$@" .
 """
 shell = "{{ vars.task_shell }}"
 
+[tasks.repo-check]
+description = "Repository-wide checks that need to read git itself (commit hashes, ...)"
+run = "cargo run -q -p et-repo-check"
+
 [tasks.link-check]
-description = "Check that URLs in .md and .rs files are reachable (network)"
+description = "Check that URLs in prose, source and config files are reachable (network)"
 # The .rs glob is scoped to the source dirs, not a bare `**/*.rs`.
 # A recursive `**/*.rs` walks target/'s churning rustc temp files, and lychee expands globs before applying
 # `exclude_path`, so it aborts with a GlobError when one of those temps vanishes mid-iteration.
-run = "lychee --config config/lychee.toml '**/*.md' 'libs/**/*.rs' 'services/**/*.rs' 'utilities/**/*.rs'"
+#
+# The config, workflow and Dockerfile globs are here because those files carry links nothing else validates.
+# Every commit a workaround comment cites is written as a `/commit/<sha>` URL, and most of them live in a mise
+# config, a workflow or a Dockerfile rather than in prose -- so with only the .md and .rs globs the majority of
+# this repo's commit references were checked by nothing at all.
+run = """
+cfg=config/lychee.toml
+lychee --config "$cfg" '**/*.md' 'libs/**/*.rs' 'services/**/*.rs' 'utilities/**/*.rs'
+# Everything except the commit URLs is excluded on the second pass, by `--exclude .*` with `--include` winning.
+# Those files hold links this repo does not otherwise own -- release-asset bases joined to a filename at run
+# time, doc placeholders, a regex quoted inside a comment -- and none of them is a URL a reader could follow.
+# Checking the whole set reports 21 such fragments as broken. `--scheme https` drops the `file:` and
+# `docker-image:` values for the same reason, and every commit URL is https.
+conf=".mise/config*.toml .mise/*.sh config/*.toml Cargo.toml .deepsource.toml"
+gha=".github/workflows/*.yaml .github/actions/*/*.yaml"
+# k3s.yaml is skipped as a whole because one value in it cannot be filtered any other way.
+# It passes a BuildKit named-context reference to `docker build`, and the `:latest` tag on the end reads as
+# an invalid port number, so lychee fails to parse the token -- which happens before `--scheme` or
+# `--exclude` get a say, and is why neither can reach it. Naming the value here would reproduce the problem
+# in this file. The workflow carries no commit URLs today; one added there would go unchecked, which is the
+# cost of the skip.
+skip="--exclude-path .github/workflows/k3s.yaml"
+# The flag patterns stay quoted while the glob lists are deliberately split and expanded by the shell.
+# `--exclude .*` unquoted is a glob the shell resolves against the working directory, which hands lychee every
+# dotfile as an input -- including its own `.lycheecache`, whose every line then reads as a broken URL.
+# shellcheck disable=SC2086
+lychee --config "$cfg" --scheme https --exclude '.*' --include '/commit/[0-9a-f]{40}' $skip $conf $gha Dockerfile*
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.ryl-check]
 description = "Lint YAML with ryl (a yamllint-compatible Rust linter)"
@@ -1473,16 +1596,29 @@ run = "osv-scanner {{ vars.osv_locks }} --config config/osv-scanner.toml"
 [tasks."gen:osv-scanner"]
 description = "Regenerate config/osv-scanner.toml from config/deny.toml's [advisories].ignore list"
 # osv-scanner and cargo-deny must ignore the same advisory IDs.
-# config/deny.toml is the source of truth (it carries the per-ID rationale). rg + coreutils only, so
-# the `dependencies` workflow can run it (via mise) next to the audit binaries. Both RUSTSEC-YYYY-NNNN and
+# config/deny.toml is the source of truth (it carries the per-ID rationale). Both RUSTSEC-YYYY-NNNN and
 # GHSA-xxxx-xxxx-xxxx ids are extracted, so a GHSA-only advisory (one RustSec hasn't assigned) still filters.
+#
+# rg + coreutils ONLY, and that is a hard constraint rather than a preference.
+# The `dependencies` workflow does no `mise install`: it names its six tools outright in the install-mise
+# step, so anything outside that list is simply absent. A goawk rewrite of this task looked tidier and died
+# there with `goawk: command not found`, and goawk cannot join that list either -- it is a Go binary, absent
+# from taiki-e/install-action's manifest and not a crate cargo-binstall could fetch. Keep to the tools the
+# workflow already installs, or add the tool to the workflow first and prove it resolves.
+#
+# One pattern, matching an id and the review date beside it, because every ignore entry carries one: the
+# advisories conftest policy fails the build for any that does not. The date becomes osv-scanner's native
+# `ignoreUntil`, which it enforces itself, so a lapsed entry stops being honoured rather than silently
+# outliving its review.
 run = """
 {
   # backticks in the echoed line are literal markdown, not command substitution.
   # shellcheck disable=SC2016
   echo '# AUTO-GENERATED from config/deny.toml by `mise run gen:osv-scanner`.'
   echo 'IgnoredVulns = ['
-  rg -oN -r '  { id = $0 },' '"(RUSTSEC-[0-9]{4}-[0-9]{4}|GHSA(-[0-9a-z]{4}){3})"' config/deny.toml | coreutils sort -u
+  id_re='"(RUSTSEC-[0-9]{4}-[0-9]{4}|GHSA(?:-[0-9a-z]{4}){3})"'
+  date_re='reason = "expires ([0-9]{4}-[0-9]{2}-[0-9]{2})"'
+  rg -oN -r '  { id = "$1", ignoreUntil = $2 },' "$id_re, $date_re" config/deny.toml | coreutils sort -u
   echo ']'
 } >config/osv-scanner.toml
 """
@@ -1813,17 +1949,18 @@ shell = "{{ vars.task_shell }}"
 # the `mise run` starts, and a `depends` install lands after that snapshot just as an in-body `mise install`
 # does -- so a cold runner still gets "bash: line 1: coreutils: command not found" (first seen with the in-body
 # form at https://github.com/edge-toolkit/core/actions/runs/31670112517/job/94352839713 on commit
-# d8ad8cb99cf58a1e505cdbebc5b94f9893532b4f, then again through `depends` at
-# https://github.com/edge-toolkit/core/actions/runs/31773896309/job/94685230924 on commit
-# 0dd8cb009e2b81f9013d7a647092adf383391284). Every consumer therefore resolves these tools with `mise which`
-# and calls them by absolute path, which needs no PATH entry at all.
+# https://github.com/edge-toolkit/core/commit/d8ad8cb99cf58a1e505cdbebc5b94f9893532b4f, then again through
+# `depends` at https://github.com/edge-toolkit/core/actions/runs/31773896309/job/94685230924 on commit
+# https://github.com/edge-toolkit/core/commit/0dd8cb009e2b81f9013d7a647092adf383391284). Every consumer
+# therefore resolves these tools with `mise which` and calls them by absolute path, which needs no PATH entry
+# at all.
 #
 # Keep the tool specs unquoted. This body is a single line, so on Windows it runs under mise's default
 # `cmd /c` -- the repo's bash inline-shell default is set by `preinstall`, which has not run yet when CI
 # restores the store. cmd.exe does not strip quotes, so a quoted spec reaches mise verbatim and it tries to
 # clone a plugin from the literal name: `mise plugin:01mf02/jaq' clone https://github.com/01mf02/jaq'.git`,
 # ending in `Failed to install 'aqua:01mf02/jaq'@latest`, which stranded the Windows lane's restore on commit
-# 0dd8cb009e2b81f9013d7a647092adf383391284 at
+# https://github.com/edge-toolkit/core/commit/0dd8cb009e2b81f9013d7a647092adf383391284 at
 # https://github.com/edge-toolkit/core/actions/runs/31773896309/job/94685231006.
 [tasks._setup-store-tools]
 description = "Install the tools the mise-tools store tasks depend on (cold-checkout helper)"

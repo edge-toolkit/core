@@ -39,6 +39,9 @@ pub const MATH1_TOLERANCE: f64 = 1e-12;
 /// How often the pointer is re-broadcast and the output file re-polled.
 const POLL_INTERVAL: Duration = Duration::from_millis(250);
 
+/// What a peer closing the socket is reported as, whichever side of the exchange notices it.
+const SOCKET_CLOSED: &str = "fake agent socket closed";
+
 /// Failure of the math1 exchange, either in the fake agent's transport or in the module's output.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -76,7 +79,7 @@ pub async fn drive_math1_exchange(
 ) -> Result<(f64, f64), Math1Error> {
     let (mut socket, _response) = connect_async(ws_url).await?;
     let connect = serde_json::to_string(&ClientMessage::Connect { agent_id: None })?;
-    socket.send(Message::Text(connect)).await?;
+    socket.send(Message::text(connect)).await?;
 
     let deadline = tokio::time::Instant::now() + budget;
     let mut fake_id = String::default();
@@ -116,7 +119,7 @@ pub async fn drive_math1_exchange(
                 },
                 Ok(Some(Ok(_))) => {}
                 Ok(Some(Err(err))) => return Err(err.into()),
-                Ok(None) => return Err(Math1Error::Protocol("fake agent socket closed".to_string())),
+                Ok(None) => return Err(Math1Error::Protocol(SOCKET_CLOSED.to_string())),
                 Err(_elapsed) => break,
             }
         }
@@ -140,10 +143,33 @@ pub async fn drive_math1_exchange(
 
         // Ask for the roster and re-broadcast the pointer; both are safe to repeat.
         let list = serde_json::to_string(&ClientMessage::ListAgents)?;
-        socket.send(Message::Text(list)).await?;
+        send_frame(&mut socket, list).await?;
         if !pointer.is_empty() {
-            socket.send(Message::Text(pointer.clone())).await?;
+            send_frame(&mut socket, pointer.clone()).await?;
         }
+    }
+}
+
+/// Send one frame, reporting a peer that has already closed the same way the read side reports it.
+///
+/// A peer's close reaches this exchange on whichever side happens to notice it first, and those were two
+/// different errors: the drain loop returns the socket-closed protocol error, while a send issued after the
+/// close lands surfaces tungstenite's `Sending after closing is not allowed` as a transport error. Which one a
+/// caller saw depended on whether the close arrived inside the drain window or in the gap before the next send,
+/// so a test asserting on the close was asserting on that timing. They are one condition and now read as one.
+async fn send_frame<Socket>(socket: &mut Socket, frame: String) -> Result<(), Math1Error>
+where
+    Socket: futures_util::Sink<Message, Error = tokio_tungstenite::tungstenite::Error> + Unpin,
+{
+    use tokio_tungstenite::tungstenite::Error as WsError;
+    use tokio_tungstenite::tungstenite::error::ProtocolError;
+
+    match socket.send(Message::text(frame)).await {
+        Ok(()) => Ok(()),
+        Err(
+            WsError::ConnectionClosed | WsError::AlreadyClosed | WsError::Protocol(ProtocolError::SendAfterClosing),
+        ) => Err(Math1Error::Protocol(SOCKET_CLOSED.to_string())),
+        Err(other) => Err(other.into()),
     }
 }
 

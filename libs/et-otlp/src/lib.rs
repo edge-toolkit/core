@@ -49,6 +49,36 @@ impl OtelHandles {
     }
 }
 
+/// The HTTP headers every OTLP exporter is built with, carrying basic auth when the config supplies it.
+///
+/// Split out of [`init`] so both shapes are reachable from a test. `init` installs a process-global
+/// subscriber and can therefore run at most once per process, which leaves anything decided inside it
+/// testable only in whichever configuration that single call happens to use -- and a collector reached
+/// without its credentials rejects every export, silently, for the life of the process.
+#[must_use]
+pub fn exporter_headers(auth: Option<&edge_toolkit::auth::BasicAuth>) -> std::collections::HashMap<String, String> {
+    let mut headers = std::collections::HashMap::new();
+    if let Some(auth) = auth {
+        auth.add_basic_auth_header(&mut headers);
+    }
+    headers
+}
+
+/// The resource attributes describing this service, given whatever the host's name resolved to.
+///
+/// Takes the hostname rather than reading it, for the same reason as [`exporter_headers`] and one more:
+/// the `None` case is a host whose name does not resolve or is not UTF-8, which no test can bring about
+/// by asking the real machine. Passing it in is what makes the attribute's absence an asserted behaviour
+/// instead of an assumption -- the resource must still carry the version, and simply omit the instance.
+#[must_use]
+pub fn service_descriptors(hostname: Option<String>) -> Vec<KeyValue> {
+    let mut descriptors = vec![KeyValue::new("service.version", env!("CARGO_PKG_VERSION").to_string())];
+    if let Some(hostname) = hostname {
+        descriptors.push(KeyValue::new("service.instance", hostname));
+    }
+    descriptors
+}
+
 /// Initialise the global tracing subscriber + `OTel` pipeline against `config`.
 ///
 /// Call exactly once per process; a second call returns an error from
@@ -64,10 +94,7 @@ pub fn init(config: &OtlpConfig) -> Result<OtelHandles, Box<dyn std::error::Erro
     // through the tracing subscriber. A second init (global logger already set) is a real error here.
     tracing_log::LogTracer::init()?;
 
-    let mut headers = std::collections::HashMap::new();
-    if let Some(auth) = &config.auth {
-        auth.add_basic_auth_header(&mut headers);
-    }
+    let headers = exporter_headers(config.auth.as_ref());
 
     opentelemetry::global::set_text_map_propagator(TraceContextPropagator::new());
 
@@ -85,10 +112,7 @@ pub fn init(config: &OtlpConfig) -> Result<OtelHandles, Box<dyn std::error::Erro
         .with_headers(headers.clone())
         .build()?;
 
-    let mut service_descriptors = vec![KeyValue::new("service.version", env!("CARGO_PKG_VERSION").to_string())];
-    if let Some(hostname) = hostname::get().ok().and_then(|host| host.into_string().ok()) {
-        service_descriptors.push(KeyValue::new("service.instance", hostname));
-    }
+    let service_descriptors = service_descriptors(hostname::get().ok().and_then(|host| host.into_string().ok()));
     let resource = Resource::builder()
         .with_service_name(config.service_label.clone())
         .with_attributes(service_descriptors)

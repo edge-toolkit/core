@@ -28,7 +28,7 @@ pub fn find_project_root(start: &Path) -> PathBuf {
 /// Locate the repository root from a build script.
 ///
 /// Reads `CARGO_MANIFEST_DIR` (which cargo sets for build scripts), so this is the single sanctioned use
-/// of that variable (see the `no-cargo-manifest-dir` ast-grep rule). Outside a build script the variable
+/// of that variable, and every other read of it is banned. Outside a build script the variable
 /// is unset and this returns a meaningless path; use [`find_project_root`] with an explicit start, or
 /// `edge_toolkit::config::get_project_root`, instead.
 #[must_use]

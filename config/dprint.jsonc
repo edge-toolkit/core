@@ -5,7 +5,7 @@
   "java": {},
   "json": {},
   // Match the editorconfig line length so dprint's bundled ruff agrees with it.
-  // Otherwise it reformats Python files to its own default line-length and fights with `mise run ruff-fmt`.
+  // Otherwise it reformats Python files to its own default line-length and fights with the standalone ruff run.
   "ruff": {
     "lineLength": 120,
   },

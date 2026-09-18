@@ -7,8 +7,9 @@
 #
 # `useDefault` takes gitleaks' full upstream ruleset. Do not trim it to silence a finding -- fix the finding, or
 # suppress the single line with a trailing `gitleaks:allow`. Note that a marker only works where the scanner
-# reads it: gitleaks honours it on the secret's own line and nowhere else, and Codacy's scan ignores it entirely,
-# so a committed credential cannot be made to pass everywhere by annotation. Don't commit one.
+# reads it: gitleaks honours it on the secret's own line and nowhere else, and a pushed branch is scanned again
+# by a service that ignores it entirely, so a committed credential cannot be made to pass everywhere by
+# annotation. Don't commit one.
 [extend]
 useDefault = true
 

@@ -25,8 +25,26 @@ env:
 
 jobs:
   coverage:
-    runs-on: ubuntu-latest
-    timeout-minutes: 150
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.timeout }}
+    # Two lanes, with only one of them reporting outward.
+    # ubuntu-latest stays the canonical lane: it is the only one that can run the wasm/browser half of the
+    # pipeline, and it alone uploads to Codecov and DeepSource, so the published numbers keep meaning exactly
+    # what they did before. macos-latest re-runs the native half as a second platform, which is what catches a
+    # branch reachable only under a different target's cfg. Its report is kept as an artifact rather than
+    # uploaded: both lanes would otherwise land on the same commit under the same `rust` flag / `--key rust`,
+    # and the two partial pictures would fight rather than merge.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            timeout: 150
+          # Longer than the Linux lane, despite doing less.
+          # The macOS runners are slower per-core, and this one still pays the full instrumented rebuild even
+          # though it skips the wasm/browser steps.
+          - os: macos-latest
+            timeout: 180
     env:
       MISE_ENV: dart,dotnet,java,js,kotlin,python,r,rust,zig,coverage
       ET_TEST_COVERAGE: "true"
@@ -42,26 +60,23 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Free disk space on Linux
-        uses: jlumbroso/free-disk-space@v1.3.1
-
       - name: Install Mesa Vulkan drivers (lavapipe)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends mesa-vulkan-drivers
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/install-lavapipe
 
       - name: Install mise + coverage tools
         uses: ./.github/actions/install-mise-tools
         timeout-minutes: 20
         with:
-          github-token: ${{ github.token }}
           install-action-tools: cargo-llvm-cov,deepsource
 
       # Counted here, before the build and coverage steps, because sloc needs only git plus the two counters.
       # Running it early means the figures land in the job summary even when a later coverage step fails, and a
       # misclassification (the task's partition-sum check) fails in seconds rather than after the long run.
       # sloc-crosscheck depends on sloc, so this one invocation emits both the tables and the gocloc deltas.
+      # Linux only: the count is of the checked-out tree, so the second lane would recompute the same figures.
       - name: Count source lines (scc, cross-checked with gocloc)
+        if: runner.os == 'Linux'
         timeout-minutes: 5
         run: |
           mise run sloc-crosscheck | tee "$RUNNER_TEMP/sloc-report.txt"
@@ -73,7 +88,7 @@ jobs:
           } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Upload sloc reports as artifacts
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && runner.os == 'Linux' }}
         uses: actions/upload-artifact@v7
         with:
           name: sloc-reports
@@ -96,6 +111,15 @@ jobs:
         timeout-minutes: 75
         run: mise run cargo-llvm-cov
 
+      # Deliberately unguarded, unlike the merges and uploads below.
+      # Those carry `!cancelled()` so a failing test still publishes a report; this is a gate, and a gate has
+      # nothing to say about a run whose tests did not pass. Leaving it on the default "skip if an earlier step
+      # failed" means a red test run reports the test failure, not a coverage shortfall caused by it. It reads
+      # the profile data the step above already wrote, so it re-runs nothing.
+      - name: Check native libs/ branch coverage
+        timeout-minutes: 10
+        run: mise run cargo-llvm-cov-branch-check
+
       # Fold the instrumented wasm guest modules' coverage into lcov.info so it rides the same `rust` flag.
       # The WASI + browser modules dumped their .profraw to target/wasi-cov during the runner tests above.
       #
@@ -104,31 +128,49 @@ jobs:
       # still upload -- publishing a Rust-only report as though it were the whole picture, which reads downstream
       # as a large coverage drop rather than as a failed run. `hashFiles` keeps them off a run that produced no
       # report at all, where there is nothing to merge into.
+      #
+      # Linux only, here and for the two browser merges below. The instrumented guest builds need the
+      # wasm-capable conda clang resolving as bare `clang`, and the headless-Chrome steps need the image's
+      # chromedriver; neither holds on the macOS lane, which is why wasm-cov-branch-check is Linux-gated too.
       - name: Merge wasm guest coverage into lcov.info
-        if: ${{ !cancelled() && hashFiles('lcov.info') != '' }}
+        if: ${{ !cancelled() && runner.os == 'Linux' && hashFiles('lcov.info') != '' }}
         timeout-minutes: 10
         run: mise run wasm-cov
 
+      # Both browser steps below want the image's chromedriver, so it is resolved once here.
+      # CHROMEWEBDRIVER is the GitHub image's own, matched to its preinstalled Chrome. Leaving CHROMEDRIVER
+      # empty when the image does not set it is deliberate: the tasks read `${CHROMEDRIVER:-...}`, which treats
+      # empty and unset alike and falls back to the mise-pinned http:chromedriver either way. Carries the same
+      # `!cancelled()` as the steps it feeds, so a failing test run still merges against the matched driver.
+      - name: Point the browser coverage tasks at the runner's chromedriver
+        if: ${{ !cancelled() && runner.os == 'Linux' }}
+        run: echo "CHROMEDRIVER=${CHROMEWEBDRIVER:+$CHROMEWEBDRIVER/chromedriver}" >>"$GITHUB_ENV"
+
       # The browser ws-wasm-agent has no native tests, so it is invisible to the cargo-llvm-cov run above.
       # This runs its wasm-bindgen tests in the runner's headless Chrome against an in-process ws-server and folds
-      # the agent lib's coverage into the same lcov.info. CHROMEWEBDRIVER is the GitHub image's chromedriver that
-      # matches its preinstalled Chrome; the task falls back to the mise-pinned http:chromedriver when it is unset.
+      # the agent lib's coverage into the same lcov.info.
       - name: Merge ws-wasm-agent coverage into lcov.info
-        if: ${{ !cancelled() && hashFiles('lcov.info') != '' }}
+        if: ${{ !cancelled() && runner.os == 'Linux' && hashFiles('lcov.info') != '' }}
         timeout-minutes: 20
-        run: |
-          export CHROMEDRIVER="${CHROMEWEBDRIVER:+$CHROMEWEBDRIVER/chromedriver}"
-          mise run wasm-agent-cov
+        run: mise run wasm-agent-cov
 
       # The pic-viewer display path only runs in a browser, so it is invisible to the cargo-llvm-cov run.
       # Its native parse tests already ride that run; this drives the module's wasm-bindgen display tests in
       # the same headless Chrome as the ws-wasm-agent step above and folds their lcov into lcov.info.
       - name: Merge pic-viewer coverage into lcov.info
-        if: ${{ !cancelled() && hashFiles('lcov.info') != '' }}
+        if: ${{ !cancelled() && runner.os == 'Linux' && hashFiles('lcov.info') != '' }}
         timeout-minutes: 20
-        run: |
-          export CHROMEDRIVER="${CHROMEWEBDRIVER:+$CHROMEWEBDRIVER/chromedriver}"
-          mise run pic-viewer-cov
+        run: mise run pic-viewer-cov
+
+      # After all three merges, because it reads what they leave behind.
+      # That is the guests' profiles and objects under target/wasi-cov, and the two browser runs' under
+      # target/agent-cov and target/pic-viewer-cov.
+      # The task is Linux-gated internally as well as here: this `if` keeps the step off the macOS lane at all,
+      # and the gate inside it keeps a direct `mise run` on a workstation from passing on an empty report.
+      - name: Check wasm libs/ branch coverage
+        if: runner.os == 'Linux'
+        timeout-minutes: 10
+        run: mise run wasm-cov-branch-check
 
       # Python coverage does not depend on the Rust result, so a failing Rust test must not skip it.
       - name: Collect Python coverage
@@ -138,11 +180,12 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: mise run pytest-cov
 
+      # Per-OS name because both lanes produce one and artifact names have to be unique within a run.
       - name: Upload coverage reports as artifacts
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: coverage-reports
+          name: coverage-reports-${{ matrix.os }}
           path: |
             lcov.info
             coverage-python.xml
@@ -153,8 +196,14 @@ jobs:
       # re-raising the test status. The `hashFiles` half keeps a genuinely absent report from turning into a
       # second, misleading failure: when an earlier step (a tool install, say) means nothing was ever produced,
       # these skip instead of erroring on a missing file and burying the real cause.
+      #
+      # All four carry `runner.os == 'Linux'` so only the canonical lane reports outward.
+      # Both lanes land on the same commit, so an unguarded upload would send two partial pictures under one
+      # `rust` flag / one `--key rust`: the macOS lcov.info covers the native half only, and whichever arrived
+      # second would read as a coverage collapse rather than as a second platform's result. The macOS numbers
+      # are kept as that lane's artifact instead, and its branch gate fails the job directly when they slip.
       - name: Upload Rust coverage to Codecov (OIDC)
-        if: ${{ !cancelled() && hashFiles('lcov.info') != '' }}
+        if: ${{ !cancelled() && runner.os == 'Linux' && hashFiles('lcov.info') != '' }}
         uses: codecov/codecov-action@v7
         with:
           use_oidc: true
@@ -163,7 +212,7 @@ jobs:
           fail_ci_if_error: true
 
       - name: Upload Python coverage to Codecov (OIDC)
-        if: ${{ !cancelled() && hashFiles('coverage-python.xml') != '' }}
+        if: ${{ !cancelled() && runner.os == 'Linux' && hashFiles('coverage-python.xml') != '' }}
         uses: codecov/codecov-action@v7
         with:
           use_oidc: true
@@ -172,18 +221,18 @@ jobs:
           fail_ci_if_error: true
 
       - name: Upload Rust coverage to DeepSource (OIDC)
-        if: ${{ !cancelled() && hashFiles('lcov.info') != '' }}
+        if: ${{ !cancelled() && runner.os == 'Linux' && hashFiles('lcov.info') != '' }}
         run: deepsource report --analyzer test-coverage --key rust --value-file lcov.info --use-oidc
 
       - name: Upload Python coverage to DeepSource (OIDC)
-        if: ${{ !cancelled() && hashFiles('coverage-python.xml') != '' }}
+        if: ${{ !cancelled() && runner.os == 'Linux' && hashFiles('coverage-python.xml') != '' }}
         run: deepsource report --analyzer test-coverage --key python --value-file coverage-python.xml --use-oidc
 
       # Upload test results even when tests failed.
       # nextest still wrote the JUnit report, and a failing run is exactly when the per-test results on Codecov
       # matter most; `report_type: test_results` selects the JUnit upload path.
       - name: Upload test results to Codecov (OIDC)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && runner.os == 'Linux' }}
         uses: codecov/codecov-action@v7
         with:
           use_oidc: true

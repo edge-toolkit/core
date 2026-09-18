@@ -163,13 +163,9 @@ const PYODIDE_DOCKER_PATH: &str = "/app/node_modules/pyodide";
 /// secret scanner duly found it. Holding it in one uncommitted file instead keeps the deployment reproducible
 /// (regenerating the scenario rewrites this file too) while leaving no credential in a tracked file to suppress.
 ///
-/// Suppression was the previous answer and it did not hold. Inline markers only work where the scanner reads
-/// them: gitleaks honours `gitleaks:allow` on the same line, so the trailing marker in `compose.yaml` worked
-/// locally while Codacy's own scan ignored it, and the `mise.toml` marker sat on its own line -- forced there
-/// because taplo realigns trailing comments and the drift check then failed either way round -- where gitleaks
-/// never read it at all. Whether any of it mattered came down to the separator the password happened to draw:
-/// gitleaks' `generic-api-key` and `hashicorp-tf-password` rules match a run of `[\w.=-]`, so a password joined
-/// by `_` was reported while one containing `%` was not, and each new scenario was a coin toss.
+/// An inline suppression marker is not an alternative here. Each scanner reads only its own marker syntax, some
+/// read none at all from a committed file, and whether a given password is reported at all comes down to the
+/// separator it happens to draw -- so the same marker holds for one scenario and not the next.
 pub const SECRETS_ENV_FILE: &str = "secrets.env";
 
 #[derive(Debug, Clone)]

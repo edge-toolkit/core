@@ -29,8 +29,8 @@ use crate::python::{AgentIdSlot, Dispatcher, OutboundFrame, StorageError, Storag
 #[derive(Debug)]
 enum InboundEvent {
     Connect(String),
-    Text(String),
-    Binary(Vec<u8>),
+    Text(tungstenite::Utf8Bytes),
+    Binary(tungstenite::Bytes),
     Shutdown,
 }
 
@@ -322,14 +322,14 @@ async fn drive(
             // sends or return-value replies).
             Some(out) = outbound_rx.recv() => {
                 let msg = match out {
-                    OutboundFrame::Text(text) => tungstenite::Message::Text(text),
-                    OutboundFrame::Binary(bytes) => tungstenite::Message::Binary(bytes),
+                    OutboundFrame::Text(text) => tungstenite::Message::text(text),
+                    OutboundFrame::Binary(bytes) => tungstenite::Message::binary(bytes),
                 };
                 socket.send(msg).await?;
             }
             // Keepalive ping; the server treats it as activity and pongs back.
             _ = heartbeat.tick() => {
-                socket.send(tungstenite::Message::Ping(Vec::new())).await?;
+                socket.send(tungstenite::Message::Ping(tungstenite::Bytes::new())).await?;
             }
         }
     }

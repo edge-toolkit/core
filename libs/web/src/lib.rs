@@ -8,7 +8,7 @@ pub const SENSOR_PERMISSION_GRANTED: &str = "granted";
 
 /// Discard `value`, marking a `Result` (or other `#[must_use]`) as intentionally ignored.
 ///
-/// The workspace denies `let_underscore*` and `unused_results`, and `DeepSource`'s RS-E1021 flags `drop()` on a
+/// The workspace denies `let_underscore*` and `unused_results`, and `DeepSource RS-E1021` flags `drop()` on a
 /// non-`Drop` type (e.g. `Result`), so neither `let _ = expr` nor `drop(expr)` is available for discarding one.
 /// Passing the value here consumes it -- satisfying `must_use` / `unused_results` -- via neither. Intended for
 /// best-effort JS DOM calls in `()`-returning closures and event handlers where the error is deliberately dropped.
@@ -19,7 +19,7 @@ pub fn ignore<T>(_value: T) {}
 /// Present only in the `coverage` build. `wasm-bindgen` collects this export into every dependent browser
 /// module's JS glue, so the web-runner can pull each module's coverage after running it -- `wasm32-unknown-unknown`
 /// has no filesystem, so the bytes come back through JS rather than a file. The web-runner then routes them
-/// through the same llc + llvm-cov pipeline the WASI guests use (see the `wasi-cov` mise task).
+/// through the same llc + llvm-cov pipeline the WASI guests use.
 #[cfg(feature = "coverage")]
 #[wasm_bindgen]
 #[expect(
@@ -77,6 +77,19 @@ pub async fn request_sensor_permission(target: JsValue) -> Result<String, JsValu
 )]
 pub async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
+    sleep_ms_on(&window, duration_ms).await
+}
+
+/// Resolve after `duration_ms` milliseconds via `window`'s `setTimeout`, rejecting if that call throws.
+///
+/// Takes the window rather than reading it, for the reason [`websocket_url_from_location`] takes the location:
+/// the browser's own `setTimeout` never throws for a callback and a delay, so the rejection this returns when
+/// it does can only be asserted against a window handed in.
+#[expect(
+    clippy::future_not_send,
+    reason = "wasm_bindgen_futures::JsFuture is Rc-backed and never Send; runs in single-threaded browser WASM"
+)]
+pub async fn sleep_ms_on(window: &web_sys::Window, duration_ms: i32) -> Result<(), JsValue> {
     let promise = js_sys::Promise::new(&mut |resolve, reject| {
         let callback = Closure::once_into_js(move || {
             ignore(resolve.call0(&JsValue::NULL));
@@ -95,10 +108,19 @@ pub async fn sleep_ms(duration_ms: i32) -> Result<(), JsValue> {
 pub fn websocket_url() -> Result<String, JsValue> {
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
     let location = js_sys::Reflect::get(window.as_ref(), &JsValue::from_str("location"))?;
-    let protocol = js_sys::Reflect::get(&location, &JsValue::from_str("protocol"))?
+    websocket_url_from_location(&location)
+}
+
+/// The `/ws` endpoint URL for a page at `location`, upgrading to `wss:` when its protocol is `https:`.
+///
+/// Takes the location rather than reading `window.location`: a test page is only ever served over plain
+/// http, so the `wss:` upgrade can be asserted only against a location handed in. `location` needs just the
+/// `protocol` and `host` properties, which is what makes a plain object stand in for the real one.
+pub fn websocket_url_from_location(location: &JsValue) -> Result<String, JsValue> {
+    let protocol = js_sys::Reflect::get(location, &JsValue::from_str("protocol"))?
         .as_string()
         .ok_or_else(|| JsValue::from_str("window.location.protocol is unavailable"))?;
-    let host = js_sys::Reflect::get(&location, &JsValue::from_str("host"))?
+    let host = js_sys::Reflect::get(location, &JsValue::from_str("host"))?
         .as_string()
         .ok_or_else(|| JsValue::from_str("window.location.host is unavailable"))?;
     let ws_protocol = if protocol == "https:" { "wss:" } else { "ws:" };

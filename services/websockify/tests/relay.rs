@@ -151,7 +151,7 @@ async fn relay_echoes_bytes_both_directions() {
     let port = start_relay(start_echo_target().await).await;
     let mut ws = open_ws(port).await;
 
-    ws.send(Message::Binary(b"hello relay".to_vec())).await.unwrap();
+    ws.send(Message::binary(b"hello relay".to_vec())).await.unwrap();
     let echoed = recv_bytes(&mut ws, b"hello relay".len()).await;
 
     assert_eq!(echoed, b"hello relay");
@@ -164,7 +164,7 @@ async fn relay_carries_a_full_http_get() {
 
     // Exactly what libcurl/httr2 would write over the tunnel.
     let request = "GET /storage/agent/data.txt HTTP/1.1\r\nHost: relay\r\nConnection: close\r\n\r\n";
-    ws.send(Message::Binary(request.as_bytes().to_vec())).await.unwrap();
+    ws.send(Message::binary(request.as_bytes().to_vec())).await.unwrap();
 
     let response = String::from_utf8(recv_bytes(&mut ws, 48).await).unwrap();
     assert!(
@@ -181,7 +181,7 @@ async fn relay_handles_a_large_chunked_payload() {
 
     // Larger than the relay's 16 KiB read buffer, so both directions must span multiple reads/frames.
     let payload = vec![0xAB_u8; 200 * 1024];
-    ws.send(Message::Binary(payload.clone())).await.unwrap();
+    ws.send(Message::binary(payload.clone())).await.unwrap();
     let echoed = recv_bytes(&mut ws, payload.len()).await;
 
     assert_eq!(echoed.len(), payload.len());
@@ -193,7 +193,7 @@ async fn relay_closes_when_target_closes() {
     let port = start_relay(start_closing_target().await).await;
     let mut ws = open_ws(port).await;
     // Send a (non-SOCKS5) byte so the relay sniffs the protocol and connects to the target, which closed.
-    ws.send(Message::Binary(b"GET / HTTP/1.1\r\n\r\n".to_vec()))
+    ws.send(Message::binary(b"GET / HTTP/1.1\r\n\r\n".to_vec()))
         .await
         .unwrap();
 
@@ -208,7 +208,7 @@ async fn relay_closes_when_target_unreachable() {
     let port = start_relay(unreachable_target().await).await;
     let mut ws = open_ws(port).await;
     // The relay only connects to the target after the client's first byte; send one so it tries (and fails).
-    ws.send(Message::Binary(b"GET / HTTP/1.1\r\n\r\n".to_vec()))
+    ws.send(Message::binary(b"GET / HTTP/1.1\r\n\r\n".to_vec()))
         .await
         .unwrap();
 
@@ -227,7 +227,7 @@ async fn relay_accepts_an_appended_target_path() {
         .await
         .unwrap();
 
-    ws.send(Message::Binary(b"suffixed".to_vec())).await.unwrap();
+    ws.send(Message::binary(b"suffixed".to_vec())).await.unwrap();
     let echoed = recv_bytes(&mut ws, b"suffixed".len()).await;
 
     assert_eq!(echoed, b"suffixed");
@@ -237,13 +237,13 @@ async fn relay_accepts_an_appended_target_path() {
 async fn socks5_connect(port: u16, request: &[u8]) -> (WsStream, Vec<u8>) {
     let mut ws = open_ws(port).await;
     // Method selection: version 5, one method, "no authentication".
-    ws.send(Message::Binary(vec![0x05, 0x01, 0x00])).await.unwrap();
+    ws.send(Message::binary(vec![0x05, 0x01, 0x00])).await.unwrap();
     assert_eq!(
         recv_bytes(&mut ws, 2).await,
         vec![0x05, 0x00],
         "SOCKS5 method-selection reply"
     );
-    ws.send(Message::Binary(request.to_vec())).await.unwrap();
+    ws.send(Message::binary(request.to_vec())).await.unwrap();
     let reply = recv_bytes(&mut ws, 10).await;
     (ws, reply)
 }
@@ -261,7 +261,7 @@ async fn relay_socks5_connect_to_loopback_bridges() {
     );
 
     // Tunnel is live -> bytes echo back through the bridged target.
-    ws.send(Message::Binary(b"socks-hi".to_vec())).await.unwrap();
+    ws.send(Message::binary(b"socks-hi".to_vec())).await.unwrap();
     assert_eq!(recv_bytes(&mut ws, b"socks-hi".len()).await, b"socks-hi");
 }
 

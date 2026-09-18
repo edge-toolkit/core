@@ -1,8 +1,8 @@
 # Pyrefly config for the compiled (Rust) Python type checker that backs `check:python`.
 # Paths are relative to this file (config/), so repo-root trees are reached via `../`. Pyrefly catches the class
-# of issue DeepSource's typecheck analyzer reports (TYP-*): undefined names in annotations, wrong argument/return
-# types. It does NOT parse legacy `# type:` comments -- the `no-type-comments` semgrep rule bans those so the
-# annotation form Pyrefly does check is the only one in the tree.
+# of issue reported under `TYP-*`: undefined names in annotations, wrong argument/return types. It does NOT
+# parse legacy `# type:` comments -- a rule of our own bans those, so the annotation form Pyrefly does check is
+# the only one in the tree.
 
 project-includes = ["../services/**/*.py"]
 

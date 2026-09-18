@@ -69,7 +69,7 @@ impl HostState {
             builder.inherit_stdio().inherit_env();
         }
         // Instrumented guests write their minicov `.profraw` to `/cov`; map it to target/wasi-cov so the
-        // wasi-cov task finds it. Repo-root-anchored (not CWD) so it lands consistently under nextest.
+        // wasi-cov task finds it. Repo-root-anchored (not CWD) so it lands consistently under the test harness.
         #[cfg(feature = "coverage")]
         if coverage {
             #[expect(

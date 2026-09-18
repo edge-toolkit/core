@@ -14,7 +14,6 @@
 #![expect(
     clippy::single_call_fn,
     clippy::integer_division_remainder_used,
-    clippy::result_large_err,
     reason = "register/drive/storage_worker/python_worker single-use; select! uses %; RunnerError: tungstenite::Error"
 )]
 

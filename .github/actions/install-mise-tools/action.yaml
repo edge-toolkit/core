@@ -6,11 +6,19 @@ description: >-
   HTTP flakes). Shared by check.yaml and test.yaml; the caller must run
   `actions/checkout` before this so .mise/config*.toml exists for `mise trust`.
 
+  Allow well over the usual budget on any lane that includes Windows. Under
+  mise 2026.7.1 the per-tool msvc `install_env` override no longer reaches
+  cargo-binstall there, so `cargo:` tools such as action-validator compile
+  from source instead of fetching their msvc prebuilts; that is why the
+  callers sit at `timeout-minutes: 60`. Bring it back down once mise fixes it.
+
 inputs:
   github-token:
     description: >-
       GitHub token forwarded as `$GITHUB_TOKEN` to the mise install steps.
-    required: true
+      Defaults to the workflow's own token.
+    required: false
+    default: ${{ github.token }}
   install-action-tools:
     description: >-
       Comma-separated tools to co-install via taiki-e/install-action in the
@@ -31,6 +39,10 @@ inputs:
 runs:
   using: composite
   steps:
+    # Reclaim runner disk before anything is installed into it.
+    - name: Free disk space
+      uses: ./.github/actions/free-disk-space
+
     # No cargo: tool installs on the Windows lane right now -- cargo-binstall fails to execute there (os error 193).
     # open-o2's opener isn't needed in CI, so skip cargo:open rather than let the install fail.
     - name: Skip cargo:open on Windows
@@ -52,7 +64,8 @@ runs:
     #     verification error ...: API error: GitHub API returned 403 Forbidden
     #     "message": "API rate limit exceeded for installation. ..."
     #
-    # observed on commit 5c08a759202d166ac9fac48f5e54ec998d5fcb6e at
+    # observed on commit
+    # https://github.com/edge-toolkit/core/commit/5c08a759202d166ac9fac48f5e54ec998d5fcb6e at
     # https://github.com/edge-toolkit/core/actions/runs/31659062139/job/94319942583. The store is one OCI
     # image per platform, published exclusively by a maintainer running `mise run push-mise-tools` on a
     # machine of that platform -- CI only ever reads (no workflow holds packages:write), so a compromised
@@ -64,7 +77,7 @@ runs:
     # Gated off by the `restore-store` input's default for now -- a store published by an older mise lays down
     # tool layouts the pinned mise counts as installed but cannot resolve, so `mise install` finds no gap to fill
     # and the tool never reaches PATH. On macOS that surfaced as `bash: wasm-pack: command not found` on commit
-    # 0e7273a1154db315a0f584077db4565ba66be603 at
+    # https://github.com/edge-toolkit/core/commit/0e7273a1154db315a0f584077db4565ba66be603 at
     # https://github.com/edge-toolkit/core/actions/runs/33727571518/job/100559962060, reproduced since against a
     # 2026.9.0 binary on an install tree 2026.8.5 resolves fine. Cold-installing everything reinstates the
     # rate-limit exposure described above, so this is a stopgap until the stores are republished.
@@ -103,7 +116,7 @@ runs:
     # A failed first install has usually already written the shim, so clear it before the retry runs.
     # The trailing removal at the end of this action is too late to help here, and is skipped entirely once
     # the retry itself fails -- so without this the retry aborts in seconds. Observed on commit
-    # d801ec192814cf8de880c5935d83232222907975 at
+    # https://github.com/edge-toolkit/core/commit/d801ec192814cf8de880c5935d83232222907975 at
     # https://github.com/edge-toolkit/core/actions/runs/31652059090/job/94298363388, where the first install
     # died on a frippery.org (http:busybox) connect timeout.
     - name: Remove mise shim before the retry

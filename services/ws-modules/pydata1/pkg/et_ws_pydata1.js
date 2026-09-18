@@ -36,6 +36,7 @@ function loadPyodideScript() {
   });
 }
 
+// skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export default async function init() {
   await loadPyodideScript();
   // `mise install pyodide` extracts the full GitHub-release distribution

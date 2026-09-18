@@ -62,7 +62,7 @@ const OPENOBSERVE_IMAGE: &str = "openobserve/openobserve:v0.91.5";
 /// Service name of the collector, which is also its Deployment name and the DNS name its in-cluster URL resolves.
 ///
 /// Held as a constant so a URL cannot drift from the `Service` it addresses. Composing the URL from it rather
-/// than writing the host into the literal also keeps `link-check` from reading an in-cluster DNS name as an
+/// than writing the host into the literal also keeps link checking from reading an in-cluster DNS name as an
 /// external link it should be able to reach. The hub's equivalent lives beside the URL builder that needs it.
 const COLLECTOR_SERVICE: &str = "openobserve";
 
@@ -118,8 +118,8 @@ pub fn generate_k3s_deployment(cluster: &ClusterInput, output_dir: &Path) -> Res
 /// Serialise the documents every scenario emits, in apply order.
 ///
 /// Split from the caller so the per-runner documents append to a finished list: each serialisation is a
-/// fallible step, and eight of them in one function put it past the cyclomatic-complexity ceiling Codacy
-/// enforces without saying anything about how the deployment is shaped.
+/// fallible step, and eight of them in one function put it past the repo's cyclomatic-complexity ceiling
+/// without saying anything about how the deployment is shaped.
 fn fixed_documents(namespace: &str, cluster_name: &str, module_paths: &[String]) -> Result<Vec<String>, CliError> {
     Ok(vec![
         document(&namespace_object(namespace))?,
@@ -133,7 +133,7 @@ fn fixed_documents(namespace: &str, cluster_name: &str, module_paths: &[String])
     ])
 }
 
-/// Serialise one object, in the YAML style `dprint-check` expects of a committed file.
+/// Serialise one object, in the YAML style the repo's formatters hold a committed file to.
 #[expect(
     clippy::unwrap_used,
     clippy::unwrap_in_result,
@@ -330,8 +330,8 @@ fn volume_mount(name: &str, path: &str) -> VolumeMount {
 ///
 /// `path` is a container mount point in the manifest this generator emits, not a path anything in this process
 /// opens, so a caller passing `/tmp` is naming the containerised program's own temp directory rather than
-/// creating a world-writable file on the host. `DeepSource`'s `RS-S1003` reads the literal as the latter, which
-/// is why every call site passing `/tmp` carries a `skipcq` for that one rule.
+/// creating a world-writable file on the host. `DeepSource RS-S1003` reads the literal as the latter, which is
+/// why every call site passing `/tmp` carries a `skipcq` for that one rule.
 fn scratch(name: &str, path: &str) -> (VolumeMount, Volume) {
     let volume = Volume {
         empty_dir: Some(EmptyDirVolumeSource::default()),

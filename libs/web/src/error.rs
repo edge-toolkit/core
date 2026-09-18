@@ -7,8 +7,7 @@
 //!   -- replace with `.js_context("ctx")` (it formats the inner `JsValue`
 //!   into the prefix string itself).
 //!
-//! This is the only file in the workspace where `map_err` is permitted --
-//! the `no-map-err` ast-grep rule exempts it.
+//! This is the only file in the workspace where `map_err` is permitted.
 
 use wasm_bindgen::{JsCast, JsValue};
 

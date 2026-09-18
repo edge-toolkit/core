@@ -1,5 +1,6 @@
 #![cfg(test)]
 #![cfg(target_arch = "wasm32")]
+#![cfg_attr(wasm_bindgen_unstable_test_coverage, feature(coverage_attribute))]
 
 use et_ws_har1::{init, run};
 use wasm_bindgen_test::*;

@@ -117,10 +117,8 @@ async fn reads_and_verifies_a_peer_output() {
     let noise_then_output = tokio::spawn(async move {
         // Let the fake agent connect and start draining, then relay noise before the output lands.
         tokio::time::sleep(Duration::from_millis(600)).await;
-        peer.send(Message::Text(r#"{"type":"noise"}"#.to_string()))
-            .await
-            .unwrap();
-        peer.send(Message::Binary(vec![1, 2, 3])).await.unwrap();
+        peer.send(Message::text(r#"{"type":"noise"}"#)).await.unwrap();
+        peer.send(Message::binary(vec![1, 2, 3])).await.unwrap();
         tokio::time::sleep(Duration::from_millis(300)).await;
         let bucket = storage_dir.join(&peer_id);
         fs_err::create_dir_all(&bucket).unwrap();

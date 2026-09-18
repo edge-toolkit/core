@@ -33,7 +33,12 @@ deny contains msg if {
 	some name, task in file.contents.tasks
 	is_string(task.run)
 	contains(task.run, "\n")
-	not task.shell in allowed_run_shells
+
+	# Read `shell` through object.get rather than naming it directly.
+	# `in` is a builtin, so OPA hoists its operands out of the negation and has to ground them first: a task
+	# with no `shell` key at all made that hoist fail, which failed the whole body and let the commonest
+	# mistake -- forgetting the key outright -- through while a wrong value was still caught.
+	not object.get(task, "shell", "") in allowed_run_shells
 	msg := sprintf(
 		"%s: task %q has a multiline run; set shell = \"{{ vars.task_shell }}\" (or task_shell_trace for xtrace)",
 		[file.path, name],
@@ -155,6 +160,7 @@ deny contains msg if {
 allowed_http_forge_url := {
 	# This repo's own upstream-cache mirror releases -- the documented pattern, not migration candidates.
 	"http:augeas",
+	"http:busybox",
 	"http:dart-typegen",
 	"http:et-rp",
 	"http:gnupg-w32",
@@ -362,4 +368,60 @@ deny contains msg if {
 		"%s: tasks.preinstall.run must reference %s (Dockerfile is the single source of truth)",
 		[file.path, required],
 	)
+}
+
+# Every arg or flag a task declares in its `usage` spec must be read by its `run` body.
+#
+# mise validates the CALLER's arguments against the spec -- an unknown arg or a missing required one is rejected up
+# front -- but nothing checks the other side, so a task can declare an arg, accept it happily, and then ignore it.
+# `parfit-fmt` did exactly that for months: it declared `arg "[file]..."` and guarded on a name that was not set, so
+# every invocation took the no-arguments branch and reflowed every tracked Rust file instead of the ones it was
+# handed. Nothing failed; the blast radius was just silently the whole repo.
+#
+# The variable mise exports is `usage_` plus the declared name lowercased with `-` turned into `_`, so `--dry-run`
+# arrives as `$usage_dry_run`. Matching on the name alone (rather than the whole `${...}` form) keeps this true for
+# a body that reads `$usage_out`, `"$usage_out"` or `${usage_out:?...}` alike.
+#
+# Measured rather than assumed, because the uppercase spelling reads as correct on one platform.
+# An `env` dump from inside a task body on mise 2026.9.1 macos-arm64 lists the lowercase names and nothing else: an
+# arg declared `<report>` arrives as `usage_report`, with no `USAGE_REPORT` present at all. Windows resolves
+# environment names case-insensitively, so there both spellings reach that same variable and the mistake is
+# invisible -- which is why an uppercase convention can survive a Windows-only check. Lowercase is what mise sets,
+# and is therefore the spelling that works on every platform.
+usage_vars(spec) := vars if {
+	declarations := array.concat(
+		regex.find_all_string_submatch_n(`arg\s+"[<\[]([A-Za-z0-9_-]+)`, spec, -1),
+		regex.find_all_string_submatch_n(`flag\s+"--([A-Za-z0-9_-]+)`, spec, -1),
+	)
+	vars := {var |
+		some declaration in declarations
+		var := sprintf("usage_%s", [lower(replace(declaration[1], "-", "_"))])
+	}
+}
+
+deny contains msg if {
+	some file in input
+	is_mise(file)
+	some name, task in file.contents.tasks
+	is_string(task.usage)
+	is_string(task.run)
+	some var in usage_vars(task.usage)
+	not contains(task.run, var)
+	msg := sprintf("%s: task %q declares a usage arg its run never reads as $%s", [file.path, name, var])
+}
+
+# The uppercase spelling is a no-op everywhere except Windows, so it is rejected on sight.
+#
+# Called out separately from the rule above so the message names the actual mistake rather than reporting the arg as
+# unused. Unguarded it is an unset variable, which the task shell's `set -u` turns into an immediate failure; behind
+# a `${...:-}` guard it is worse, because the task then runs to completion having silently taken the "no argument
+# given" branch. Flagged wherever it appears, including in a body whose declared args are read correctly elsewhere,
+# so the two spellings never get mixed within one task.
+deny contains msg if {
+	some file in input
+	is_mise(file)
+	some name, task in file.contents.tasks
+	is_string(task.run)
+	regex.match(`\$\{?USAGE_[A-Z]`, task.run)
+	msg := sprintf("%s: task %q reads $USAGE_* -- mise exports usage args lowercased, as $usage_*", [file.path, name])
 }

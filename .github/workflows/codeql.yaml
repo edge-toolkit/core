@@ -71,16 +71,10 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Free disk space on Linux
-        if: matrix.language == 'rust'
-        uses: jlumbroso/free-disk-space@v1.3.1
-
       - name: Install mise + tools
         if: matrix.language == 'rust'
         uses: ./.github/actions/install-mise-tools
         timeout-minutes: 60
-        with:
-          github-token: ${{ github.token }}
 
       - name: Prefetch Rust dependencies
         if: matrix.language == 'rust'

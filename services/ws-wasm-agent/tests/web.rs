@@ -1,10 +1,14 @@
 #![cfg(test)]
 #![cfg(target_arch = "wasm32")]
+#![cfg_attr(wasm_bindgen_unstable_test_coverage, feature(coverage_attribute))]
 
-use et_web::{describe_js_error, sleep_ms, websocket_url};
+use et_web::{
+    SENSOR_PERMISSION_GRANTED, describe_js_error, get_media_devices, request_sensor_permission, sleep_ms, sleep_ms_on,
+    websocket_url, websocket_url_from_location,
+};
 use et_ws_wasm_agent::{WsClient, WsClientConfig, wait_for_connected};
-use js_sys::{Object, Reflect};
-use wasm_bindgen::JsValue;
+use js_sys::{Function, Object, Reflect};
+use wasm_bindgen::{JsCast as _, JsValue};
 use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
@@ -101,5 +105,152 @@ fn describe_js_error_falls_back_to_debug_when_json_throws() {
     assert!(
         !described.is_empty(),
         "the Debug fallback must still describe the error"
+    );
+}
+
+/// A fresh object carrying one property, standing in for a browser object the helper under test reads.
+///
+/// The helpers reach their properties through `Reflect::get`, so a plain object with the right key is
+/// indistinguishable from the real navigator, window or location -- which is what lets each refusal arm be
+/// driven on demand instead of waiting for a browser that happens to lack the feature.
+fn object_with(key: &str, value: &JsValue) -> Object {
+    let object = Object::new();
+    let _set = Reflect::set(object.as_ref(), &JsValue::from_str(key), value)
+        .expect("setting a property on a fresh object cannot fail");
+    object
+}
+
+/// A `location` stand-in with just the two properties `websocket_url_from_location` reads.
+fn location_with(protocol: &str, host: &str) -> JsValue {
+    let location = object_with("protocol", &JsValue::from_str(protocol));
+    let _set = Reflect::set(location.as_ref(), &JsValue::from_str("host"), &JsValue::from_str(host))
+        .expect("setting a property on a fresh object cannot fail");
+    location.into()
+}
+
+/// The endpoint follows the page's scheme: `wss:` behind https, plain `ws:` otherwise.
+#[wasm_bindgen_test]
+fn websocket_url_upgrades_to_wss_only_on_an_https_page() {
+    let secure = websocket_url_from_location(&location_with("https:", "edge.example:8443"))
+        .expect("a location with protocol and host yields a URL");
+    assert_eq!(secure, "wss://edge.example:8443/ws");
+
+    let plain = websocket_url_from_location(&location_with("http:", "localhost:8080"))
+        .expect("a location with protocol and host yields a URL");
+    assert_eq!(plain, "ws://localhost:8080/ws");
+}
+
+/// A location without a string `protocol` is refused rather than defaulted, so a broken page fails loudly.
+#[wasm_bindgen_test]
+fn websocket_url_refuses_a_location_without_a_protocol() {
+    let err = websocket_url_from_location(&Object::new().into()).unwrap_err();
+
+    assert_eq!(
+        err.as_string().as_deref(),
+        Some("window.location.protocol is unavailable")
+    );
+}
+
+/// Each of the three shapes `get_media_devices` refuses: the property missing, null, or not a `MediaDevices`.
+///
+/// The first two are the insecure-context case (a page served over plain http from a non-local host), where
+/// the browser leaves `navigator.mediaDevices` undefined; the third is a navigator whose property exists but
+/// is not the real API object, which the cast catches.
+#[wasm_bindgen_test]
+fn get_media_devices_refuses_a_navigator_without_a_usable_media_devices() {
+    let unavailable = "navigator.mediaDevices is unavailable. Use https://... or http://localhost and allow access.";
+    let cases = [
+        (Object::new(), unavailable),
+        (object_with("mediaDevices", &JsValue::NULL), unavailable),
+        (
+            object_with("mediaDevices", Object::new().as_ref()),
+            "navigator.mediaDevices is not accessible in this browser",
+        ),
+    ];
+    for (navigator, expected) in cases {
+        let navigator: web_sys::Navigator = navigator.unchecked_into();
+        let err = get_media_devices(&navigator).unwrap_err();
+        assert_eq!(err.as_string().as_deref(), Some(expected));
+    }
+}
+
+/// On a secure page the real navigator's `MediaDevices` is handed back as-is.
+///
+/// The test page is served from a loopback origin, which the browser treats as secure, so the real navigator
+/// carries the API object.
+#[wasm_bindgen_test]
+fn get_media_devices_returns_the_real_api_on_a_secure_page() {
+    let navigator = web_sys::window().expect("the test page has a window").navigator();
+
+    let devices = get_media_devices(&navigator).expect("a loopback page is a secure context");
+    assert!(devices.is_instance_of::<web_sys::MediaDevices>());
+}
+
+/// Every target that cannot be asked is treated as already granted.
+///
+/// That is no target at all, or one without a callable `requestPermission` -- which is every browser except
+/// iOS Safari, where the method exists.
+#[wasm_bindgen_test]
+async fn request_sensor_permission_is_granted_wherever_nothing_can_be_asked() {
+    let targets = [
+        JsValue::NULL,
+        JsValue::UNDEFINED,
+        Object::new().into(),
+        object_with("requestPermission", &JsValue::NULL).into(),
+    ];
+    for target in targets {
+        let outcome = request_sensor_permission(target)
+            .await
+            .expect("an unaskable target must not be an error");
+        assert_eq!(outcome, SENSOR_PERMISSION_GRANTED);
+    }
+}
+
+/// With a callable `requestPermission`, its promise decides the answer.
+///
+/// A string answer is returned as-is, anything else reads as granted, and a property that is not callable is
+/// an error rather than a silent grant.
+#[wasm_bindgen_test]
+async fn request_sensor_permission_asks_a_target_that_can_answer() {
+    let denies = object_with(
+        "requestPermission",
+        Function::new_no_args("return Promise.resolve('denied');").as_ref(),
+    );
+    let outcome = request_sensor_permission(denies.into())
+        .await
+        .expect("a resolving requestPermission is not an error");
+    assert_eq!(outcome, "denied");
+
+    let answers_nonsense = object_with(
+        "requestPermission",
+        Function::new_no_args("return Promise.resolve(42);").as_ref(),
+    );
+    let outcome = request_sensor_permission(answers_nonsense.into())
+        .await
+        .expect("a non-string answer falls back to granted rather than failing");
+    assert_eq!(outcome, SENSOR_PERMISSION_GRANTED);
+
+    let not_callable = object_with("requestPermission", &JsValue::from_f64(1.0));
+    let err = request_sensor_permission(not_callable.into()).await.unwrap_err();
+    assert_eq!(err.as_string().as_deref(), Some("requestPermission is not callable"));
+}
+
+/// A `setTimeout` that throws turns into a rejection of the sleep, carrying the thrown error.
+///
+/// The browser's own `setTimeout` never throws for a callback and a delay, so a window stand-in whose
+/// `setTimeout` does is the only way to see the rejection arm run.
+#[wasm_bindgen_test]
+async fn sleep_ms_on_rejects_when_set_timeout_throws() {
+    let refusing = object_with(
+        "setTimeout",
+        Function::new_no_args("throw new Error('no timers here');").as_ref(),
+    );
+    let window: web_sys::Window = refusing.unchecked_into();
+
+    let err = sleep_ms_on(&window, 1).await.unwrap_err();
+    assert!(
+        err.is_instance_of::<js_sys::Error>(),
+        "the rejection must carry the thrown error, got {}",
+        describe_js_error(&err)
     );
 }

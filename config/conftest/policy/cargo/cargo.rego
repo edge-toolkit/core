@@ -33,8 +33,8 @@ dep contains [file.path, name, spec] if {
 # Banned crates -> rejection reason.
 # Members must use workspace = true, so the root's [workspace.dependencies] is the only place a ban can bite.
 #
-# `anyhow` is not listed here, and is instead constrained at the source level by the semgrep rule
-# `anyhow-only-in-error-rs`: a crate may depend on it, but may only name it in an `error.rs` `#[from]` variant.
+# `anyhow` is not listed here, and is instead constrained at the source level: a crate may depend on it, but
+# may only name it in an `error.rs` `#[from]` variant.
 # A blanket dependency ban was unworkable because `?` on a foreign `anyhow::Result` needs
 # `From<anyhow::Error>`, which cannot be written without naming the type.
 banned := {
@@ -219,6 +219,66 @@ deny contains msg if {
 	spec.path
 	spec.version != member_version[name]
 	msg := sprintf("Cargo.toml: %q pins version %q but that crate declares %q", [name, spec.version, member_version[name]])
+}
+
+# Every requirement in the root [workspace.dependencies] names a major and a minor, and stops there.
+# A third component is a claim that one specific release is required. Left on by default it claims nothing --
+# it is only whatever happened to be current the day the dep was added -- and once most entries carry one, a
+# reader can no longer tell the load-bearing pins from the incidental ones, while every routine bump has to
+# rewrite a digit that never meant anything. A dep that genuinely needs the patch component says so below,
+# in a line that has to name the release and the reason it cannot move.
+#
+# Path deps are exempt by construction rather than by entry: cargo wants their `version` to equal the member
+# crate's own `package.version` -- the rule above enforces exactly that -- which is always a full triple.
+patch_pin_exception := {
+	"deno_error": "exact pin: JsErrorBox must be the type deno_core holds, so a 0.7.2 would be a second copy",
+	"minicov": "exact pin: wasm-bindgen-test 0.3.78 requires =0.3.8, and cargo holds one 0.3.x copy for both",
+	"ort": "exact pin on a prerelease, which has no two-part form; rc.11+ moved API wasmtime-wasi-nn calls",
+	"wasmtime": "47.0.3 is the security floor; RUSTSEC-2026-0222 has no fix anywhere below it in the 47 line",
+	"wasmtime-internal-wit-bindgen": "47.0.4 tracks the wasmtime release; the crate is internal and its API can move",
+	"wasmtime-wasi": "47.0.3 carries the same RUSTSEC-2026-0222 floor as the wasmtime entry it ships beside",
+}
+
+# Matches the requirement's leading version token rather than splitting the whole string on dots.
+# That keeps a comparator (`=`, `>=`, `~`) and a prerelease suffix (`-rc.10`, whose dot is its own) out of the
+# component count, so only the version core decides.
+patch_pinned(req) if regex.match(`^[^0-9]*[0-9]+\.[0-9]+\.[0-9]+`, req)
+
+requirement(spec) := spec if is_string(spec)
+
+requirement(spec) := spec.version if is_object(spec)
+
+path_dep(spec) if {
+	is_object(spec)
+	spec.path
+}
+
+root_dep[name] := spec if {
+	some file in input
+	file.path == "Cargo.toml"
+	some name, spec in file.contents.workspace.dependencies
+}
+
+deny contains msg if {
+	some name, spec in root_dep
+	not path_dep(spec)
+	not patch_pin_exception[name]
+	patch_pinned(requirement(spec))
+	msg := sprintf(
+		"Cargo.toml: %q pins %q to a patch version; use major.minor, or add a reasoned patch_pin_exception",
+		[name, requirement(spec)],
+	)
+}
+
+# The exception map is a two-way contract.
+# An entry that no longer describes the manifest misleads exactly as much as a missing one would, so a dep that
+# has since been trimmed back to major.minor, or dropped altogether, takes its exception entry with it.
+exception_is_live(name) if patch_pinned(requirement(root_dep[name]))
+
+deny contains msg if {
+	some name, reason in patch_pin_exception
+	not exception_is_live(name)
+	msg := sprintf("Cargo.toml: patch_pin_exception entry %q is stale (%s); remove it", [name, reason])
 }
 
 # crates.io rejects an upload whose manifest carries no description, so every publishable crate has one.

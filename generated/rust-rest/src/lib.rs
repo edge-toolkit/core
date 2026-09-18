@@ -8,6 +8,14 @@ use progenitor_client::{ClientHooks, OperationInfo, RequestBuilderExt, encode_pa
 /// Types used as operation parameters and responses.
 #[allow(clippy::all)]
 pub mod types {
+    /**Server liveness probe response.
+
+    Returned by `GET /health`.*/
+    #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+    pub struct HealthResponse {
+        pub service: ::std::string::String,
+        pub status: ::std::string::String,
+    }
     /// Error types.
     pub mod error {
         /// Error from a `TryFrom` or `FromStr` implementation.
@@ -33,36 +41,6 @@ pub mod types {
                 Self(value.into())
             }
         }
-    }
-    /**Server liveness probe response.
-
-    Returned by `GET /health`.*/
-    ///
-    /// <details><summary>JSON schema</summary>
-    ///
-    /// ```json
-    ///{
-    ///  "description": "Server liveness probe response.\n\nReturned by `GET /health`.",
-    ///  "type": "object",
-    ///  "required": [
-    ///    "service",
-    ///    "status"
-    ///  ],
-    ///  "properties": {
-    ///    "service": {
-    ///      "type": "string"
-    ///    },
-    ///    "status": {
-    ///      "type": "string"
-    ///    }
-    ///  }
-    ///}
-    /// ```
-    /// </details>
-    #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
-    pub struct HealthResponse {
-        pub service: ::std::string::String,
-        pub status: ::std::string::String,
     }
 }
 #[derive(Clone, Debug)]

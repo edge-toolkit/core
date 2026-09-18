@@ -395,7 +395,19 @@ pub fn mise_python_site_packages() -> Vec<PathBuf> {
     else {
         return Vec::new();
     };
-    let Ok(tools) = serde_json::from_slice::<serde_json::Map<String, serde_json::Value>>(&output.stdout) else {
+    site_packages_from_tool_list(&output.stdout)
+}
+
+/// The `site-packages` directories named by a `mise ls --current --json` payload.
+///
+/// Split from [`mise_python_site_packages`] so the shape of the payload can be exercised without a `mise` to
+/// produce it. Every failure here is a silent empty list -- an embedded interpreter simply starts with a bare
+/// `sys.path` and the first `import` of a mise-managed package fails far from the cause -- so the payload
+/// shapes that yield nothing are worth pinning: a body that is not JSON at all, a tool that is not a `pipx:`
+/// one, and an install whose directory carries no venv.
+#[must_use]
+pub fn site_packages_from_tool_list(tool_list_json: &[u8]) -> Vec<PathBuf> {
+    let Ok(tools) = serde_json::from_slice::<serde_json::Map<String, serde_json::Value>>(tool_list_json) else {
         return Vec::new();
     };
     tools

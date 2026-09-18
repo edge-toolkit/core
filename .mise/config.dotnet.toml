@@ -25,7 +25,7 @@ dotnet_msbuild = "$$DOTNET_ROOT/sdk/10.0.300"
 # no PATH at all and the link dies with:
 #   'emcc' is not recognized as an internal or external command,
 #   error MSB3073: The command "emcc "@...emcc-default.rsp" ..." exited with code 9009.
-# Observed on commit 3c0d34021daa989a565aca1860ee41b638b90ff6 at
+# Observed on commit https://github.com/edge-toolkit/core/commit/3c0d34021daa989a565aca1860ee41b638b90ff6 at
 # https://github.com/edge-toolkit/core/actions/runs/28678866448/job/85058000145 and reproduced locally by
 # padding PATH past 8191 chars. Overriding the MSBuild PATH *property* (global properties take precedence over
 # environment-derived ones) shortens only that composed tail: the Exec gets pack dirs + System32 (~650 chars)
@@ -71,7 +71,8 @@ description = "Analyze C# sources (Roslynator)"
 # in every env var it passes to children -- DOTNET_ROOT arrives as `C:/Users/...`, a form hostfxr accepts
 # (dotnet-check works) but MSBuildLocator's SDK discovery does not, failing with:
 #     Cannot choose MSBuild location automatically. Use option '-m, --msbuild-path' to specify MSBuild location
-# Observed on commit ef55945932f5d417b8d205530f0868cff6d73ffa (locally; reproduced under `mise exec` by
+# Observed on commit https://github.com/edge-toolkit/core/commit/ef55945932f5d417b8d205530f0868cff6d73ffa
+# (locally; reproduced under `mise exec` by
 # setting a forward-slashed DOTNET_ROOT). The env var itself is fine as the `-m` argument -- mise's core
 # dotnet plugin exports DOTNET_ROOT on every OS, and the forward-slashed form ash delivers on Windows is
 # accepted there; only MSBuildLocator's own probing of it breaks.
@@ -122,7 +123,8 @@ description = "Install the wasm-tools workload once, before any dotnet module bu
 #   ILLink : error IL1034: Root assembly 'dotnet-data1, Version=1.0.0.0, Culture=neutral,
 #   PublicKeyToken=null' does not have entry point.
 #   error NETSDK1144: Optimizing assemblies for size failed.
-# All three Windows lanes at once on commit 017a9aa4035a50db663ad6a800d1005051ca9a78,
+# All three Windows lanes at once on commit
+# https://github.com/edge-toolkit/core/commit/017a9aa4035a50db663ad6a800d1005051ca9a78,
 # https://github.com/edge-toolkit/core/actions/runs/32226380541/job/95986792705 -- serializing the install was
 # the fix for the race, guarding it was not part of that and only hid a broken workload state.
 run = "dotnet workload install wasm-tools --skip-manifest-update"

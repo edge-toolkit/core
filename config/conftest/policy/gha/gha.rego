@@ -1,6 +1,6 @@
 # GitHub Actions workflow policy, evaluated per file.
 # conftest reads each .yaml independently (no --combine, since there are no cross-file YAML rules). Replicates the
-# gha-* ast-grep rules; running both is fine. Selected with `--namespace gha`, so it only runs against workflow YAML,
+# structural gha-* rules; running both is fine. Selected with `--namespace gha`, so it only runs against workflow YAML,
 # never the TOML inputs.
 package gha
 
@@ -33,7 +33,7 @@ step_shell_allowed(step) if {
 }
 
 # Every workflow must declare MISE_ENV at the workflow level so the set of loaded language envs is visible at a glance.
-# This avoids per-job `mise run print-all-langs` runtime resolution. The matching `Show MISE_ENV` step in each job
+# That avoids resolving the list per job at runtime. The matching `Show MISE_ENV` step in each job
 # echoes the value into the CI log.
 deny contains msg if {
 	not input.env.MISE_ENV

@@ -67,6 +67,7 @@ function fedAvg(input) {
   return [weight, bias];
 }
 
+// skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export default async function init() {}
 
 export async function run() {

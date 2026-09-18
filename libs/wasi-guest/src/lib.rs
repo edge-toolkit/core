@@ -46,7 +46,7 @@ const AGENT_ID_POLL_INTERVAL_MS: u64 = 50;
 const NANOS_PER_MILLI: u64 = 1_000_000;
 
 // Lets `?` lift a `ws-error` into `entry-error.ws(...)` so a guest's `run` body stays free of explicit
-// `.map_err`s (which the workspace's no-map-err ast-grep rule bans outside listed error.rs files anyway).
+// `.map_err`s, which the workspace bans outside the error.rs files it names anyway.
 impl From<WsError> for EntryError {
     fn from(err: WsError) -> Self {
         Self::Ws(err)

@@ -17,7 +17,11 @@ deny contains msg if {
 	items := entries(file)
 	some i, entry in items
 	is_string(entry.Original)
-	regex.match(`^RUN[^\n]*<<[A-Z]`, entry.Original)
+
+	# Everything between `<<` and the delimiter tag's first character is optional.
+	# The tag may be quoted (`<<'EOF'`, the form this repo requires) or bare, and `<<-` strips leading tabs, so
+	# a pattern that insists on the tag starting immediately after `<<` sees only the bare form.
+	regex.match(`^RUN[^\n]*<<-?['"]?[A-Za-z_]`, entry.Original)
 
 	# Bounds-check before indexing to avoid a `panic: slice bounds out of range`.
 	# An unterminated heredoc at EOF would otherwise trip it.

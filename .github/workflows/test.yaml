@@ -107,19 +107,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Free disk space on Linux
-        if: runner.os == 'Linux'
-        uses: jlumbroso/free-disk-space@v1.3.1
-
-      - name: Free disk space on Windows
-        if: runner.os == 'Windows'
-        uses: ./.github/actions/free-disk-space-windows
-
       - name: Install Mesa Vulkan drivers (lavapipe)
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends mesa-vulkan-drivers
+        uses: ./.github/actions/install-lavapipe
 
       # Windows tools source-build under mise 2026.7.1, so this step runs long (bumped from 20).
       # The per-tool msvc `install_env` override no longer reaches cargo-binstall there, so cargo tools like
@@ -131,8 +121,6 @@ jobs:
       - name: Install mise + tools
         uses: ./.github/actions/install-mise-tools
         timeout-minutes: ${{ matrix.install_timeout || 60 }}
-        with:
-          github-token: ${{ github.token }}
 
       # GITHUB_TOKEN raises the rate-limit ceiling on mise's fetch of the rp-v<N> rustpython_wasm tarball.
       # (The fetch is [tools."http:rp-wasm"], via mise's http backend against github.com release assets.)
@@ -207,17 +195,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Free disk space on Windows
-        uses: ./.github/actions/free-disk-space-windows
-
-      # Windows tools source-build under mise 2026.7.1, so this step runs long (bumped from 25).
-      # The per-tool msvc `install_env` override no longer reaches cargo-binstall there, so cargo tools like
-      # action-validator compile from source instead of fetching their msvc prebuilts. Revert once mise fixes it.
       - name: Install mise + tools
         uses: ./.github/actions/install-mise-tools
         timeout-minutes: 60
-        with:
-          github-token: ${{ github.token }}
 
       - name: Prefetch dependencies
         timeout-minutes: 20
@@ -249,7 +229,8 @@ jobs:
   #
   #     mise ERROR Failed to install tools: conda:m2-gnupg@2.2.41.1, core:java@26.0.1, core:rust@...
   #
-  # naming 18 tools, observed on commit 4488443a7f56398a3a27c4bca9713ba6900a755c at
+  # naming 18 tools, observed on commit
+  # https://github.com/edge-toolkit/core/commit/4488443a7f56398a3a27c4bca9713ba6900a755c at
   # https://github.com/edge-toolkit/core/actions/runs/34409246713/job/102659546843. The causes are upstream,
   # not ours: torch and cryptography publish no `win_arm64` wheel, msys2's conda channel is x86_64-only,
   # Adoptium's newest windows/aarch64 JDK is 23 against the pinned 26, and wasm-bindgen, openobserve, rustfs,
@@ -274,13 +255,14 @@ jobs:
       # source-build vector and rustfs, neither of which completes. Naming tools individually sidesteps both,
       # so these lanes exercise the compiler and the self-contained tests where `default` cannot run at all.
       # macos/x64 gets the larger bound because its cargo_ws_excludes is empty, so it also builds
-      # et-ws-web-runner (deno -> rusty_v8) that the Windows lanes drop.
+      # et-ws-web-runner (deno -> rusty_v8) that the Windows lanes drop; it covers the sum of the step ceilings
+      # below (install 25 + lld 10 + build 45 + tests 20), so the build step's own limit is the one that binds.
       matrix:
         include:
           - os: windows-11-arm
             timeout: 45
           - os: macos-26-intel
-            timeout: 75
+            timeout: 100
     # Job-level so it is already set when install-mise runs `mise trust` and reports the value.
     env:
       MISE_ENV: rust
@@ -348,8 +330,14 @@ jobs:
         uses: ./.github/actions/remove-mise-shim
 
       # A build, not a check: codegen and linking are where a new host triple actually fails.
+      # The ceiling allows for the macos-26-intel runners' pace, which swings by more than two to one between
+      # runs of the same tree: the full build took 13 to 24 minutes across the branch's earlier runs, then a
+      # run that changed no compiled code was cut off at 30 with 798 of 1167 crates done and rustc still
+      # visibly working -- `The action 'Build workspace' has timed out after 30 minutes.` on commit
+      # https://github.com/edge-toolkit/core/commit/c6c4fce73dd25aa58754963867ccf9523caae1bb at
+      # https://github.com/edge-toolkit/core/actions/runs/35045764412/job/104635143568.
       - name: Build workspace
-        timeout-minutes: 30
+        timeout-minutes: 45
         run: mise run cargo-build
 
       # Only the tests that need no server, module or network -- see the cargo-test-libs task for which and why.

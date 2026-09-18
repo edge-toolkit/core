@@ -1,3 +1,4 @@
+// skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 import init, { initTracing, WsClient, WsClientConfig } from "/modules/et-ws-wasm-agent/et_ws_wasm_agent.js";
 
 // Bump this string on every meaningful app.js edit. index.html loads this file via a plain, non-cache-busted

@@ -151,7 +151,8 @@ jobs:
           #     docker: Error response from daemon: pull access denied for et-test, repository does not exist
           #     or may require 'docker login': denied: requested access to the resource is denied
           #
-          # on top of the real build error (observed on commit 5c08a759202d166ac9fac48f5e54ec998d5fcb6e at
+          # on top of the real build error (observed on commit
+          # https://github.com/edge-toolkit/core/commit/5c08a759202d166ac9fac48f5e54ec998d5fcb6e at
           # https://github.com/edge-toolkit/core/actions/runs/31659062139/job/94319942583), and handing
           # execution to whoever squats that name on Docker Hub if the pull ever resolved. `--pull=never`
           # keeps the registry unreachable even if the gate is edited away.

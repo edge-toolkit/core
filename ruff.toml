@@ -1,11 +1,11 @@
-# Kept at the repo root on purpose (unlike config/deny.toml, config/osv-scanner.toml, config/taplo.toml).
+# Kept at the repo root on purpose, unlike every other tool config in this repo, which lives under config/.
 # Editors/IDEs (the VS Code Ruff extension, PyCharm) and pre-commit auto-discover ruff config only as a root
 # ruff.toml / .ruff.toml / pyproject.toml. ruff has no config-path env var, so moving this under config/
 # would silently drop every editor back to ruff's defaults (line-length 88, no isort). The mise tasks could
 # pass --config, but the live editor experience can't, so it stays here.
 #
 # Match the editorconfig line length. Without this, ruff would use its default of 88, so files
-# that ruff considered "already formatted" could still trip the editorconfig-check.
+# that ruff considered "already formatted" could still sit over the limit.
 line-length = 120
 
 # Exclude componentize-py's generated bindings, which we don't own and don't ship.
@@ -24,8 +24,8 @@ line-ending = "lf"
 [lint]
 # On top of the default rule set (E, F). Codes are kept alphabetically sorted.
 #   "ARG" -- flake8-unused-arguments: unused function/method/lambda arguments. This is the local equivalent of
-#   DeepSource's PYL-W0613; ruff honours the underscore-prefix convention (`dummy-variable-rgx`), so a param kept
-#   only to satisfy a fixed callback signature (the pyo3-runner `init`/`on_text_frame` hooks) is silenced by
+#   `DeepSource PYL-W0613`; ruff honours the underscore-prefix convention (`dummy-variable-rgx`), so a param
+#   kept only to satisfy a fixed callback signature (the pyo3-runner `init`/`on_text_frame` hooks) is silenced by
 #   renaming it `_send` / `_text` rather than deleting it.
 #   "B" -- flake8-bugbear: likely bugs (mutable defaults, `zip` without `strict=`, loop-variable shadowing, ...).
 #   "C4" -- flake8-comprehensions: unnecessary or unpythonic comprehensions and generator calls.

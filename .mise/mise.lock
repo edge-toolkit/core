@@ -1196,39 +1196,39 @@ url = "https://github.com/vladkens/macmon/releases/download/v0.7.2/macmon-v0.7.2
 url_api = "https://api.github.com/repos/vladkens/macmon/releases/assets/410521089"
 
 [[tools."github:wasm-bindgen/wasm-bindgen"]]
-version = "0.2.127"
+version = "0.2.128"
 backend = "github:wasm-bindgen/wasm-bindgen"
 
 [tools."github:wasm-bindgen/wasm-bindgen"."platforms.linux-arm64"]
-checksum = "sha256:1ce0ebd74e378d989651091f93c917bd7700996945d4c5ce37ec9507f149225c"
-url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.127/wasm-bindgen-0.2.127-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/505858464"
+checksum = "sha256:2f61267bbef279c2d6357b199649468b073223febde4ae108d30ac3d6b5540af"
+url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.128/wasm-bindgen-0.2.128-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/545035805"
 provenance = "github-attestations"
 
 [tools."github:wasm-bindgen/wasm-bindgen"."platforms.linux-x64"]
-checksum = "sha256:61d4a7dc85acfa0d2354ccc0b8361928c7e52a746d17f28ebaa795ed3dc1614a"
-url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.127/wasm-bindgen-0.2.127-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/505858453"
+checksum = "sha256:b51f0208fdff83515a787bd8ab9ac5865ed84dabb66d0c709957bb59793c645f"
+url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.128/wasm-bindgen-0.2.128-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/545035799"
 provenance = "github-attestations"
 provenance_verified = true
 
 [tools."github:wasm-bindgen/wasm-bindgen"."platforms.macos-arm64"]
-checksum = "sha256:cd93e691eb5953ace5d8ffce52a20b024077a3dac3e2215b8224136b0efb7585"
-url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.127/wasm-bindgen-0.2.127-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/505858463"
+checksum = "sha256:67ba17f260977725c0b541b516dbb5153538140f079a900329fb6077661b47ab"
+url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.128/wasm-bindgen-0.2.128-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/545035806"
 provenance = "github-attestations"
 provenance_verified = true
 
 [tools."github:wasm-bindgen/wasm-bindgen"."platforms.macos-x64"]
-checksum = "sha256:81049c79f4e283e1725e6582a0528af1301a70ad23add1df1c4d042ec825263d"
-url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.127/wasm-bindgen-0.2.127-x86_64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/505858457"
+checksum = "sha256:59d9af11d0a61b8019898d555de31153c3a50e7f1797e9849fb38589d16add43"
+url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.128/wasm-bindgen-0.2.128-x86_64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/545035803"
 provenance = "github-attestations"
 
 [tools."github:wasm-bindgen/wasm-bindgen"."platforms.windows-x64"]
-checksum = "sha256:fd52ef9896cbb0f4f59ef115bdf2f4664a76d716b6201c35e5936018ad680cfc"
-url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.127/wasm-bindgen-0.2.127-x86_64-pc-windows-msvc.tar.gz"
-url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/505858456"
+checksum = "sha256:8fd8e2165da16b21ee3f5efd19e7f97d8d27cb7832f54edaef4b18e830283ec0"
+url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.128/wasm-bindgen-0.2.128-x86_64-pc-windows-msvc.tar.gz"
+url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/545035796"
 provenance = "github-attestations"
 
 [[tools.go]]
@@ -1752,7 +1752,7 @@ url = "https://github.com/BurntSushi/ripgrep/releases/download/15.1.0/ripgrep-15
 url_api = "https://api.github.com/repos/BurntSushi/ripgrep/releases/assets/307305871"
 
 [[tools.rust]]
-version = "nightly-2026-08-31"
+version = "nightly-2026-08-05"
 backend = "core:rust"
 
 [tools.rust.options]

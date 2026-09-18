@@ -6,6 +6,11 @@
 //! `wasm-agent-cov` mise task builds instrumented to measure the agent's coverage.
 #![cfg(test)]
 #![cfg(target_arch = "wasm32")]
+// `wasm_bindgen_test` expands to `#[coverage(off)]` under the cfg below, and that feature is still unstable
+// (rust-lang/rust#84605 is open, so no toolchain bump removes this). Gating on the very cfg that makes the
+// macro emit the attribute keeps cause and gate in step -- the coverage tasks set it in their own RUSTFLAGS,
+// which overrides the target-specific coverage flags, so any cfg of our own would not reach this build.
+#![cfg_attr(wasm_bindgen_unstable_test_coverage, feature(coverage_attribute))]
 
 use std::cell::RefCell;
 use std::rc::Rc;

@@ -37,6 +37,33 @@ existing install predates -- a warm checkout that already has an older tool set 
 after pulling, because a tool the current mise cannot resolve can still report as installed and nothing will
 refetch it on its own.
 
+## Work through the session's tasks in the order they were given
+
+Finish the tasks the user has asked for in the order they asked for them. A later request is a task added to
+the end of the queue, not an instruction to abandon the one in flight -- switching to it first leaves the
+earlier work half-done, and half-done work is the kind that gets forgotten and rediscovered as a regression.
+Reorder only for a strong reason, and say so: a later task is a prerequisite of an earlier one, the earlier one
+is blocked waiting on something, or the later one is a live breakage (a red CI lane, a broken build) that makes
+the rest moot until it is fixed.
+
+## Don't stop to ask; decide, act, and report
+
+Questions cost a round trip each, and a session that stops at every fork gets nothing finished. Default to
+making the call yourself and reporting what you chose and why. Ask only when proceeding either way would be
+unsafe or would waste substantial work that the answer might invalidate -- and when the answer is a fact rather
+than a preference, find the fact instead of asking for it.
+
+Two specific calls that have come up repeatedly and never need asking:
+
+- **Prefer upgrading to downgrading.** When a version bump breaks something, fix the code against the new
+  version. Downgrading is a last resort, reserved for when upstream genuinely cannot support the new version
+  yet -- and then say which upstream release is the blocker, so the note survives as evidence.
+- **Never propose forking or patching a published crate or tool.** Carrying a fork of someone else's release --
+  a `[patch.crates-io]` entry, a vendored copy, a local patch to a mise tool -- is almost never acceptable
+  here: it is invisible to anything consuming our published crates, and it becomes a maintenance burden nobody
+  signed up for. If the only way past a problem looks like a fork, that is a signal the approach is wrong. Find
+  another route, or accept the constraint and record it, rather than raising the fork as an option.
+
 ## Scratch work stays inside this repo
 
 Any throwaway file the agent needs while working -- backup copies of files before destructive edits, generated
@@ -610,6 +637,25 @@ helper per test. Keep its dependency footprint small (currently just `port_check
 domain-specific gets its own test-support crate instead (e.g. `et-ws-test-server` for an in-process ws-server, or
 `et-test-otlp` for OTLP emit + capture-assertion support).
 
+### Everything under `libs/` carries 100% test coverage
+
+A crate in `libs/` is shared infrastructure: every service and utility in the workspace builds on it, so a gap
+there is a gap in everything downstream, and it is the place where a test costs least relative to what it
+protects. The bar is therefore the whole of it -- every line and every branch, not an aggregate percentage that
+lets one untested helper hide behind a well-covered neighbour. Services and utilities are held to no such
+number; they are covered on their merits, which is exactly why the shared layer underneath has to be total.
+
+Write the tests with the code, not after it. A new function in `libs/` lands in the same change as the tests
+that cover it, and a new branch in an existing one lands with the case that takes it. Finding the gap from a
+red coverage lane instead means the change is already written, reviewed and pushed -- the most expensive moment
+to discover that a branch was unreachable from the public API all along and the function needed a different
+shape. A test that cannot fail is not coverage either: check a new test actually catches the bug it describes
+by breaking the code under it once and watching it go red.
+
+Where a line genuinely cannot be reached -- a platform-gated arm, an error only the OS can produce -- restructure
+so the unreachable part is as small as it can be, and say at the site why it is unreachable. A bare gap reads as
+an oversight to the next person, who then spends the afternoon working out whether it is one.
+
 ### NEVER skip, ignore, or platform-disable a test without explicit user approval
 
 A test that doesn't run is worse than no test: it reads as coverage while asserting nothing. Do not add `#[ignore]`,
@@ -652,14 +698,15 @@ arriving a few seconds after torch's cold first import prints
 `cpu = _conversion_method_template(device=torch.device("cpu"))` line -- i.e. the spawned runner was still inside
 torch's import when the test's registration timeout expired. The ~117 MB `pipx:torch` package's first import on a
 cold runner is the slow step; a rerun passes because the import caches warm. Observed on commit
-`6479913bdc288dd680fbe0520f63054e8c71fe6c` at
+https://github.com/edge-toolkit/core/commit/6479913bdc288dd680fbe0520f63054e8c71fe6c at
 `https://github.com/edge-toolkit/core/actions/runs/28686533955/job/85080173283` (PR #70; the rerun passed and the PR
 merged), and on the `default (macos-latest, 45)` job -- same signature, unix-form
 `torch/lib/python3.13/site-packages/torch/_subclasses/functional_tensor.py:362` warning path -- on commit
-`f2a85307a2415f4a50625627795e02c84f1c8e5d` at
+https://github.com/edge-toolkit/core/commit/f2a85307a2415f4a50625627795e02c84f1c8e5d at
 `https://github.com/edge-toolkit/core/actions/runs/28865327221/job/85613919558` (PR #73), 20.68s into the test
-run. Recurred at commit `1e323acb7fc433b66efed904b3b30ab3216dbf90` (PR #76) on three lanes of one run at once --
-the first Linux sighting, and the first time it took more than a single lane of a commit: build.yaml's
+run. Recurred at commit https://github.com/edge-toolkit/core/commit/1e323acb7fc433b66efed904b3b30ab3216dbf90
+(PR #76) on three lanes of one run at once -- the first Linux sighting, and the first time it took more than a
+single lane of a commit: build.yaml's
 `build (ubuntu:22.04)` (~15.76s) at
 `https://github.com/edge-toolkit/core/actions/runs/29034248895/job/86174973520`, and test.yaml's `override (mingw)`
 (~18.13s) and `override (msvc)` (~18.96s) at
@@ -668,7 +715,8 @@ the first Linux sighting, and the first time it took more than a single lane of 
 failures read as the cold torch import consistently overrunning the timeout rather than an occasional flake -- so
 the root-cause fix below is now due, not optional.
 
-Recurred once more on the `override (mingw)` lane at commit `5998313315c491a6abffb7c1507e4adc4a4f3559`,
+Recurred once more on the `override (mingw)` lane at commit
+https://github.com/edge-toolkit/core/commit/5998313315c491a6abffb7c1507e4adc4a4f3559,
 `https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101938939834`, failing at **122.2s** -- and
 that figure is the diagnosis. The test had two nested deadlines: a 2-minute `PEER_REGISTER_TIMEOUT` around the
 peer wait, inside a 3-minute `TORCH_EXCHANGE_BUDGET` around the whole exchange. The inner one decided every
@@ -710,7 +758,7 @@ and the default `x86_64-pc-windows-gnullvm` both report `target_env = "gnu"`, an
 `all(windows, target_env = "gnu", not(target_abi = "llvm"))`; written without that last clause it silently takes
 the default Windows lane with it.
 
-On commit `5998313315c491a6abffb7c1507e4adc4a4f3559` the same
+On commit https://github.com/edge-toolkit/core/commit/5998313315c491a6abffb7c1507e4adc4a4f3559 the same
 workload passed on `gnullvm` (the default the Windows Dockerfiles and CI build) in 426s and on `msvc` in 443s,
 while `gnu` failed twice with the identical signature -- 644s at
 `https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101938939834`, then 591s on a deliberate
@@ -724,7 +772,8 @@ generated deployment.
 
 Every scenario whose trigger is `wasi-math1-sender` hits it, which is both of them. `pyo3-math1` was left
 ungated on the first pass because fail-fast had cancelled it before it ever ran on `gnu`; it then failed there
-with the identical signature at 579s on commit `29dfe80a62ba7a27d8119c5b6332c3dbe2df815e`
+with the identical signature at 579s on commit
+https://github.com/edge-toolkit/core/commit/29dfe80a62ba7a27d8119c5b6332c3dbe2df815e
 (`https://github.com/edge-toolkit/core/actions/runs/34211905976/job/102014621776`) while passing on `gnullvm`
 in 472s and `msvc` in 458s. Its pyo3 twin registers and idles cleanly throughout -- what aborts is the wasi
 trigger, so the scenario fails for the reason above and not for anything to do with the pyo3 runner.
@@ -742,12 +791,40 @@ rate-limited or time out. The captured signature is a tool install aborting on t
 usually preceded by several retried `mise WARN HTTP GET https://api.github.com/repos/<owner>/<repo>/releases...`
 lines. When it strands the install, the composite's retry step can then trip the separate busybox/Git-Bash
 `cygheap read copy failed` fork pathology and the job hits its action timeout instead of a clean error. Observed on
-the `override (mingw)` job at commit `396aa98d24e4a945528cdbac33fbc61b66831e8a`,
+the `override (mingw)` job at commit
+https://github.com/edge-toolkit/core/commit/396aa98d24e4a945528cdbac33fbc61b66831e8a,
 `https://github.com/edge-toolkit/core/actions/runs/28698136445/job/85111320237` (a rerun of the same commit
 installed cleanly). This is an api.github.com rate-limit/transient-network flake, not a repo defect -- a
 `GITHUB_TOKEN` is already forwarded to raise the ceiling. If it becomes frequent rather than occasional, the
 durable fix is to mirror the affected assets via the upstream-cache pattern (which fetches from our own release
 CDN, off the api.github.com attestation path) rather than adding a retry wrapper.
+
+### Known intermittent CI failure: a long job dies with no log at all
+
+A `build` or `default` lane fails having produced **no log blob** -- `gh api .../jobs/<id>/logs` answers
+`BlobNotFound`, the step that was running has a `null` conclusion rather than `failure`, and `Post Checkout`
+never ran either. There is nothing to grep for, because nothing was written; the absence is the signature.
+
+It is the GitHub-hosted runner being reclaimed, not anything in the build. The one sighting that did retain its
+log said so outright --
+
+    ##[error]The runner has received a shutdown signal. This can happen when the runner service is stopped,
+    or a manually started runner is canceled.
+    [cargo-test] ERROR sh exited with non-zero status: killed by SIGTERM
+
+-- on `default (ubuntu-24.04-arm, 50)` at
+`https://github.com/edge-toolkit/core/actions/runs/35083902481/job/104754130780`. Three later sightings on
+commit https://github.com/edge-toolkit/core/commit/cf33e2c0f573 lost their logs entirely: `build (fedora:42)`
+at 71 minutes, `build (ubuntu:24.04)` at 80, and `build (debian:bookworm)` at 90, each well inside the 150-minute
+job budget and each in a different run.
+
+Two things rule out a resource ceiling in our own build, which is the tempting reading. The lane **rotates** --
+fedora and ubuntu:24.04 both passed in the run that killed bookworm -- and the siblings sharing that runner image
+and workload go green in the same run. A ceiling would hit the same heaviest lanes every time. Duration is the
+only correlate: every sighting was a long job.
+
+So the remedy is `gh run rerun --job <id>` once the parent run completes, and there is nothing to fix. Do not
+spend a diagnosis on it; check for the empty log first, and if the siblings passed, re-run and move on.
 
 ### Fixed: vector_otlp_relay store-and-forward timing
 
@@ -773,7 +850,8 @@ exponential backoff (`retry_initial_backoff_secs=1`, doubling; `retry_max_durati
 `config/vector-otlp-relay.yaml`), so when its first attempts land in the gap between the mock being told to start
 and its listener actually accepting, the next retry can be tens of seconds out -- and at the original 30s poll
 ceiling that occasionally overran, so the span arrived just after the test gave up. Observed on the `default
-(windows-latest)` lane at commit `71e70e56946abefcea6daf47a7745e5f8f186dad`,
+(windows-latest)` lane at commit
+https://github.com/edge-toolkit/core/commit/71e70e56946abefcea6daf47a7745e5f8f186dad,
 `https://github.com/edge-toolkit/core/actions/runs/28923326008/job/85829470834` (the failure is OS-agnostic --
 any cold/contended runner, macOS included, can hit it). Fix applied: `wait_for_relayed_span` now polls ~120s
 (`Fixed::from_millis(250).take(480)`) instead of ~30s, which the poll exits the instant the span lands so the
@@ -800,14 +878,19 @@ a runner-image quirk, a toolchain bug, a CI-only flake -- and you decide to pape
   only way someone hitting the same symptom later finds your workaround is
   by grepping the repo for the error string. This applies equally to
   symptoms first seen locally and to GHA-only flakes. Alongside the error
-  string, **record the commit SHA the failure was observed on** (full
-  40-char hash, so the comment stays unambiguous after force-pushes /
-  rebases) and, when applicable, **the GHA job-run URL**
+  string, **record the commit the failure was observed on as its web URL**
+  -- `https://github.com/<owner>/<repo>/commit/<full-40-char-sha>`, never
+  the bare hash -- and, when applicable, **the GHA job-run URL**
   (`https://github.com/<owner>/<repo>/actions/runs/<run-id>/job/<job-id>`).
-  Both age out (the SHA may stop existing if a branch is deleted; the GHA
-  log expires at 3 months) but together they pin the WHERE and WHEN of the
-  evidence well enough for the next reader to cross-reference your local
-  notes, screenshots, or any persisted artifact.
+  The URL form is not decoration: pull requests here merge by squash, so a
+  commit written down while a branch is in flight stops existing the moment
+  it lands, and a bare hash that resolved when you wrote it resolves for
+  nobody afterwards. GitHub keeps serving the commit at that URL. This is
+  also enforced -- `repo-check` rejects any bare 40-char hash that is not
+  reachable from `origin/main`, which in practice means every one of them.
+  The GHA log still expires at 3 months, but the commit link does not, and
+  together they pin the WHERE and WHEN of the evidence well enough for the
+  next reader to cross-reference notes, screenshots, or any artifact.
 
 ## NEVER disable anything on Windows without explicitly asking the user first
 
@@ -1026,7 +1109,8 @@ not as a repo-wide var-prefix.
 One transient class that hits the `cargo fetch` path specifically: libcurl's `[16] Error in the HTTP2 framing layer`
 during a `crates.io` download. Captured example:
 `https://github.com/edge-toolkit/core/actions/runs/27900771461/job/82560594632`
-on commit `6e4c0030a830e4f8e6b15381cb5c2fbf481af704` -- `asyncapi-rust-codegen` download bailed with `curl failed` ->
+on commit https://github.com/edge-toolkit/core/commit/6e4c0030a830e4f8e6b15381cb5c2fbf481af704 --
+`asyncapi-rust-codegen` download bailed with `curl failed` ->
 `[16] Error in the HTTP2 framing layer`.
 
 `CARGO_NET_RETRY` does **not** cover this -- the framing error surfaces from inside libcurl as a generic
@@ -1065,6 +1149,27 @@ Even a manifest hit isn't a guarantee -- install-action's resolver insists on th
 expects to find inside the prebuilt archive, so an upstream rename makes it fall through to a real `cargo install`
 source build (which then flakes on crates.io) with no signal beyond a `bin <name> is not found` line. Reach for
 install-action only when the prebuilt actually exists for the target triple _and_ the binary names still match.
+
+## Revisit on Windows: why `parfit-fmt` read as needing an uppercase `usage` arg
+
+A task's `usage` args are read as `$usage_<name>`, lowercased with `-` turned into `_`, and the mise conftest
+policy holds every task to that. That is measured, not assumed: an `env` dump from inside a task body on mise
+2026.9.1 macos-arm64 lists `usage_report` and `usage_libs` for a task declaring `<report>` and `<libs>`, and no
+`USAGE_*` name exists in the environment at all.
+
+The uppercase spelling was briefly standardised here on Windows evidence, and it survives on Windows because
+environment names resolve case-insensitively there, so both spellings reach the one variable mise set. Everywhere
+else `$USAGE_REPORT` is simply unset -- fatal under the task shell's `set -u`, and silently "no argument given"
+behind a `${...:-}` guard. `cargo-clippy-check-pkg` spent that period linting nothing on Linux and macOS, passing
+an empty `-p` to clippy, which reports `error: package name cannot be empty` only because the value reached a tool
+that objected.
+
+What remains unexplained is the observation that started it. `parfit-fmt` declares `arg "[file]..."` and guarded
+on `$usage_file`, and every invocation took the no-arguments branch and reflowed every tracked Rust file rather
+than the ones it was handed. Casing cannot account for that on its own, since on Windows the lowercase read should
+have resolved just as well as the uppercase one -- so a variadic arg may not be exported as a scalar at all.
+Settle it on Windows before touching the convention again: dump the environment inside two task bodies, one with a
+variadic arg and one with a plain arg, on the mise version the CI lanes install.
 
 ## Linting
 
@@ -1184,8 +1289,8 @@ Work the gap in this order, and prefer the earliest step that applies:
 
 1. **Find the local equivalent -- it usually already exists.** The linters here overlap the external services
    heavily, and the codes often correspond directly: DeepSource's `PYL-*` are pylint codes, which ruff
-   implements as `PL*` (`PYL-W0603` is ruff's `PLW0603`, `PYL-W0613` is ruff's `ARG`). If the rule is already
-   enabled, the gap is not the rule -- see step 2.
+   implements as `PL*` (`DeepSource PYL-W0603` is ruff's `PLW0603`, `DeepSource PYL-W0613` is ruff's `ARG`).
+   If the rule is already enabled, the gap is not the rule -- see step 2.
 2. **Check whether an exemption is what hid it.** A path-glob carve-out (a `[lint.per-file-ignores]` entry, a
    `files:` allowlist, an `exclude_paths`) silences the rule for files that do not exist yet, so the local check
    stays quiet while the external analyzer flags each new file. Narrow it: replace the glob with per-site inline

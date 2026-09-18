@@ -72,8 +72,8 @@ WORKDIR /workspace
 COPY . .
 
 # The wasm flags mirror CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS in .mise/config.toml.
-# That is what `mise run build-ws-wasm-agent` builds the agent with on a workstation, so the served artifact is the
-# same one either way. They are split across two ARGs purely so the composed ENV fits the line limit.
+# A workstation builds the agent with those same flags, so the served artifact is the same one either way.
+# They are split across two ARGs purely so the composed ENV fits the line limit.
 ARG WASM_TARGET_CPU="-C target-cpu=mvp"
 ARG WASM_FEATURES="+mutable-globals,+sign-ext,+nontrapping-fptoint,+reference-types"
 ENV CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS="${WASM_TARGET_CPU} -C target-feature=${WASM_FEATURES}"
@@ -86,10 +86,10 @@ EOF
 # The browser client is built in its own layer, deliberately not folded into the cargo build above.
 # The two compile different targets from different inputs, so keeping them apart means editing the agent does
 # not invalidate the server's release build and vice versa. Three analyzers raise that split as the same
-# consecutive-RUN anti-pattern under three different codes, so it takes three pragmas: DeepSource's DOK-W1001
-# (DOK-DL3059 is not a code DeepSource issues, so it suppressed nothing), and hadolint's DL3059 -- named inline
-# here rather than left to config/hadolint.yaml's ignore list, because Codacy runs its own hadolint and reads
-# neither that file nor a skipcq.
+# consecutive-RUN anti-pattern under three different codes, so it takes three pragmas: `DeepSource DOK-W1001`
+# (`DeepSource DOK-DL3059` is not a code it issues, so it suppressed nothing), and hadolint's DL3059 -- named
+# inline here rather than left to config/hadolint.yaml's ignore list, because one of the three runs its own
+# hadolint and reads neither that file nor a skipcq.
 # skipcq: DOK-W1001
 # hadolint ignore=DL3059
 RUN bash <<'EOF'

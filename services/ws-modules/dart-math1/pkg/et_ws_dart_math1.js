@@ -1,5 +1,6 @@
 // et_ws_dart_math1.js -- ES module shim for dart-math1
 
+// skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
 export default async function init() {
   await new Promise((resolve, reject) => {
     const s = document.createElement("script");
