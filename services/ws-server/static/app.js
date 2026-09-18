@@ -4,15 +4,20 @@ import init, { initTracing, WsClient, WsClientConfig } from "/modules/et-ws-wasm
 // <script src="/app.js">, so a client running stale code is otherwise invisible -- this value round-trips to
 // the server tty (via the et-client-event sent below) so a stale load is diagnosable from server-side logs
 // alone, without trusting what the client claims to be running.
-const APP_JS_BUILD = "llm1-loader-v1";
+const APP_JS_BUILD = "module-instances-v1";
 
 console.log(`app.js: module loading started (build ${APP_JS_BUILD})`);
 
-await new Promise((resolve, reject) => {
+let ortLoadError = null;
+await new Promise((resolve) => {
   const s = document.createElement("script");
   s.src = "/modules/onnxruntime-web/dist/ort.min.js";
   s.onload = resolve;
-  s.onerror = reject;
+  s.onerror = () => {
+    ortLoadError = `optional runtime unavailable: ${s.src}`;
+    console.warn(ortLoadError);
+    resolve();
+  };
   document.head.appendChild(s);
 });
 
@@ -46,8 +51,9 @@ const describeError = (error) => (error instanceof Error ? error.message : Strin
 
 const WORKFLOW_MODULES = new Map();
 let activeWorkflow = null;
-// Preselected in the dropdown when the server's module list includes it; otherwise the first option stays.
-const DEFAULT_MODULE = "et-ws-pydemo1";
+// Prefer a deployment-specific controller when present, then the general demo;
+// otherwise the browser keeps the first discovered workflow selected.
+const PREFERRED_MODULES = ["et-ws-vessel-fl-coordinator", "et-ws-pydemo1"];
 
 const populateModuleDropdown = async () => {
   append("Discovering modules via /modules...");
@@ -75,6 +81,10 @@ const populateModuleDropdown = async () => {
         append(`Skipping ${name}: WASI module, runs in et-ws-wasi-runner rather than the browser`);
         continue;
       }
+      if (name.startsWith("et-ws-pyo3-")) {
+        append(`Skipping ${name}: Pyo3 module, runs in et-ws-pyo3-runner rather than the browser`);
+        continue;
+      }
       const pkgResp = await fetch(`/modules/${name}/package.json`, { cache: "no-cache" });
       if (!pkgResp.ok) {
         append(`Skipping ${name}: no package.json (${pkgResp.status})`);
@@ -89,13 +99,26 @@ const populateModuleDropdown = async () => {
 
       const moduleUrl = `/modules/${name}/${pkg.main}`;
 
-      const label = pkg.description || pkg.name || name;
-      WORKFLOW_MODULES.set(name, { label, moduleUrl, loaded: null });
+      const instances = Array.isArray(pkg.instances) && pkg.instances.length ? pkg.instances : [null];
+      for (const instance of instances) {
+        const instanceId = instance?.id;
+        if (instance && typeof instanceId !== "string") {
+          throw new Error(`${name} instance is missing a string id`);
+        }
+        const key = instance ? `${name}:${instanceId}` : name;
+        const label = instance?.description || pkg.description || pkg.name || name;
+        WORKFLOW_MODULES.set(key, {
+          label,
+          moduleUrl,
+          instanceConfig: instance?.config ?? null,
+          loaded: null,
+        });
 
-      const option = document.createElement("option");
-      option.value = name;
-      option.textContent = label;
-      moduleSelect.appendChild(option);
+        const option = document.createElement("option");
+        option.value = key;
+        option.textContent = label;
+        moduleSelect.appendChild(option);
+      }
 
       append(`Discovered module: ${name} (${pkg.version})`);
     } catch (error) {
@@ -104,7 +127,8 @@ const populateModuleDropdown = async () => {
     }
   }
 
-  if (WORKFLOW_MODULES.has(DEFAULT_MODULE)) moduleSelect.value = DEFAULT_MODULE;
+  const preferredModule = PREFERRED_MODULES.find((name) => WORKFLOW_MODULES.has(name));
+  if (preferredModule) moduleSelect.value = preferredModule;
 };
 
 const updateAgentCard = (status, agentId = currentAgentId) => {
@@ -144,6 +168,12 @@ const loadWorkflowModule = async (moduleKey) => {
   const moduleUrl = `${moduleConfig.moduleUrl}?v=${cacheBust}`;
   append(`${moduleConfig.label} module: importing ${moduleUrl}`);
   const loadedModule = await import(moduleUrl);
+  if (moduleConfig.instanceConfig !== null) {
+    if (typeof loadedModule.configure !== "function") {
+      throw new Error(`${moduleConfig.label} declares an instance but does not export configure()`);
+    }
+    await loadedModule.configure(moduleConfig.instanceConfig);
+  }
   await loadedModule.default();
   moduleConfig.loaded = loadedModule;
   return loadedModule;
@@ -218,6 +248,7 @@ const retainedAgentId = readStoredAgentId();
 
 const wasmUrl = "/modules/et-ws-wasm-agent/et_ws_wasm_agent_bg.wasm";
 logEl.textContent = `Initializing WASM from ${wasmUrl}\nWebSocket endpoint: ${wsUrl}`;
+if (ortLoadError) append(ortLoadError);
 updateAgentCard(
   retainedAgentId
     ? "Found retained agent ID in local storage. It will be re-used on connect."

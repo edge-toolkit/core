@@ -1,0 +1,25 @@
+{
+  "name": "et-ws-vessel-fl-client",
+  "type": "module",
+  "description": "Vessel FL client",
+  "version": "0.1.0",
+  "license": "Apache-2.0 OR MIT",
+  "main": "et_ws_vessel_fl_client.js",
+  "instances": [
+    {
+      "id": "vessel_1",
+      "description": "Vessel 1 FL client",
+      "config": { "clientId": "vessel_1", "label": "vessel_1" }
+    },
+    {
+      "id": "vessel_2",
+      "description": "Vessel 2 FL client",
+      "config": { "clientId": "vessel_2", "label": "vessel_2" }
+    },
+    {
+      "id": "vessel_3",
+      "description": "Vessel 3 FL client",
+      "config": { "clientId": "vessel_3", "label": "vessel_3" }
+    }
+  ]
+}

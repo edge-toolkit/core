@@ -1,0 +1,23 @@
+# syntax=docker/dockerfile:1
+
+# `runner` is supplied by compose as the generated build-only Pyo3 runner
+# service. Keeping this as a thin dependency layer avoids copying the base
+# runner Dockerfile into the vessel scenario.
+FROM runner
+
+USER 0
+
+RUN /opt/cpython/bin/python3 -m pip install --no-cache-dir \
+      --target /opt/vessel-python-packages \
+      --index-url https://download.pytorch.org/whl/cpu \
+      "torch==2.12.1" \
+    && /opt/cpython/bin/python3 -m pip install --no-cache-dir \
+      --target /opt/vessel-python-packages \
+      "mlflow==3.15.1" \
+      "pillow==12.3.0" \
+    && mkdir -p /mlflow/artifacts \
+    && chown -R 10001:10001 /opt/vessel-python-packages /mlflow
+
+ENV PYTHONPATH=/opt/vessel-python-packages
+
+USER 10001

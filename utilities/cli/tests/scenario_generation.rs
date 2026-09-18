@@ -260,6 +260,32 @@ agents:
     assert!(readme.contains("kubectl apply -f k3s.yaml"));
 }
 
+#[test]
+fn scenario_agent_environment_reaches_every_runner_deployment() {
+    let (_test_root, verification_root, output_dir) = scenario_tree(
+        r#"cluster_name: "configured-runner"
+deployment_type: "mise"
+agents:
+  - name: "configured-client"
+    runner: "web"
+    env:
+      DEMO_CLIENT_ID: "client_1"
+    resources:
+      - type: "math1"
+"#,
+    );
+
+    let _regenerated = regenerate_verification(&verification_root, None).unwrap();
+
+    for file in ["mise.toml", "compose.yaml", "k3s.yaml"] {
+        let generated = fs::read_to_string(output_dir.join(file)).unwrap();
+        assert!(
+            generated.contains("DEMO_CLIENT_ID") && generated.contains("client_1"),
+            "{file} omitted the scenario-provided runner environment"
+        );
+    }
+}
+
 /// The generated manifests describe the whole scenario and keep the credential out of the file.
 ///
 /// The credential half is the point of the `envFrom` assertion: the value lives in the uncommitted env file

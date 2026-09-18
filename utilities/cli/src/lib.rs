@@ -967,6 +967,8 @@ pub struct RunnerInstance {
     pub runner: String,
     /// Value for the runner's `RUNNER_MODULE`, i.e. the module's published package name.
     pub module: String,
+    /// Scenario-provided runtime configuration inherited from the owning agent.
+    pub env: BTreeMap<String, String>,
 }
 
 /// Runner kinds a scenario may name, mapped to the crate that runs them.
@@ -1039,6 +1041,7 @@ pub fn resolve_cluster_runners(
                 name,
                 runner: runner.to_string(),
                 module,
+                env: agent.env.clone(),
             });
         }
     }

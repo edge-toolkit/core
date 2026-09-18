@@ -25,6 +25,8 @@ async fn list_modules_api() {
     assert!(resp.contains(&"et-ws-server-static".to_string()));
     assert!(resp.contains(&"et-ws-wasm-agent".to_string()));
     assert!(resp.contains(&"et-model-har-motion1".to_string()));
+    assert!(resp.contains(&"et-ws-vessel-fl-client".to_string()));
+    assert!(resp.contains(&"et-ws-vessel-fl-coordinator".to_string()));
 
     // The remaining modules each live in a per-language env: their
     // `build-ws-*-module` task is loaded only when MISE_ENV includes that

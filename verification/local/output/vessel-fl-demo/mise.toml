@@ -1,0 +1,106 @@
+[env._]
+file = "secrets.env"
+
+[tasks.generated-scenario]
+depends = ["openobserve", "vessel-1", "vessel-2", "vessel-3", "vessel-coordinator-native", "vessel-mlflow-bridge", "ws-server"]
+description = "Run generated scenario for vessel-fl-demo"
+
+[tasks.open-o2]
+description = "Open the OpenObserve UI"
+run = "open http://localhost:5080/"
+
+[tasks.openobserve]
+alias = "o2"
+dir = "../../../.."
+run = """
+image=openobserve/openobserve:v0.91.5
+docker run --rm --name openobserve -p 127.0.0.1:5080:5080 --env-file config/o2.env -e ZO_ROOT_USER_PASSWORD "$image"
+"""
+
+[tasks.vessel-1]
+description = "Run et-ws-pyo3-vessel-fl-demo in the pyo3 runner"
+dir = "../../../.."
+run = """
+cargo run --quiet -p et-ws-pyo3-runner
+"""
+
+[tasks.vessel-1.env]
+PYO3_AGENT_ID = "vessel-1"
+PYO3_PYTHONPATH = "services/ws-modules/pyo3-vessel-fl-demo/.python-packages"
+RUNNER_MODULE = "et-ws-pyo3-vessel-fl-demo"
+VESSEL_FL_CLIENT_ID = "vessel_1"
+VESSEL_FL_ROLE = "client"
+WS_SERVER_URL = "ws://localhost:8080/ws"
+
+[tasks.vessel-2]
+description = "Run et-ws-pyo3-vessel-fl-demo in the pyo3 runner"
+dir = "../../../.."
+run = """
+cargo run --quiet -p et-ws-pyo3-runner
+"""
+
+[tasks.vessel-2.env]
+PYO3_AGENT_ID = "vessel-2"
+PYO3_PYTHONPATH = "services/ws-modules/pyo3-vessel-fl-demo/.python-packages"
+RUNNER_MODULE = "et-ws-pyo3-vessel-fl-demo"
+VESSEL_FL_CLIENT_ID = "vessel_2"
+VESSEL_FL_ROLE = "client"
+WS_SERVER_URL = "ws://localhost:8080/ws"
+
+[tasks.vessel-3]
+description = "Run et-ws-pyo3-vessel-fl-demo in the pyo3 runner"
+dir = "../../../.."
+run = """
+cargo run --quiet -p et-ws-pyo3-runner
+"""
+
+[tasks.vessel-3.env]
+PYO3_AGENT_ID = "vessel-3"
+PYO3_PYTHONPATH = "services/ws-modules/pyo3-vessel-fl-demo/.python-packages"
+RUNNER_MODULE = "et-ws-pyo3-vessel-fl-demo"
+VESSEL_FL_CLIENT_ID = "vessel_3"
+VESSEL_FL_ROLE = "client"
+WS_SERVER_URL = "ws://localhost:8080/ws"
+
+[tasks.vessel-coordinator-native]
+description = "Run et-ws-pyo3-vessel-fl-demo in the pyo3 runner"
+dir = "../../../.."
+run = """
+cargo run --quiet -p et-ws-pyo3-runner
+"""
+
+[tasks.vessel-coordinator-native.env]
+PYO3_AGENT_ID = "vessel-coordinator"
+PYO3_PYTHONPATH = "services/ws-modules/pyo3-vessel-fl-demo/.python-packages"
+RUNNER_MODULE = "et-ws-pyo3-vessel-fl-demo"
+VESSEL_FL_CLIENTS = "vessel_1,vessel_2,vessel_3"
+VESSEL_FL_ROLE = "coordinator"
+WS_SERVER_URL = "ws://localhost:8080/ws"
+
+[tasks.vessel-mlflow-bridge]
+description = "Run et-ws-pyo3-mlflow in the pyo3 runner"
+dir = "../../../.."
+run = """
+cargo run --quiet -p et-ws-pyo3-runner
+"""
+
+[tasks.vessel-mlflow-bridge.env]
+MLFLOW_TRACKING_URI = "http://127.0.0.1:5000"
+PYO3_AGENT_ID = "vessel-mlflow"
+PYO3_PYTHONPATH = "services/ws-modules/pyo3-vessel-fl-demo/.python-packages"
+RUNNER_MODULE = "et-ws-pyo3-mlflow"
+WS_SERVER_URL = "ws://localhost:8080/ws"
+
+[tasks.ws-server]
+description = "Run the WebSocket server"
+dir = "../../../../services/ws-server"
+run = """
+MODULES_PATHS="static, ../ws-wasm-agent, ../ws-modules/pyo3-mlflow, ../ws-modules/pyo3-vessel-fl-demo"
+MODULES_PATHS="$MODULES_PATHS, ../ws-modules/vessel-fl-client, ../ws-modules/vessel-fl-coordinator"
+MODULES_PATHS="$MODULES_PATHS, ../ws-modules/vessel-fl-mlflow"
+export MODULES_PATHS
+cargo run
+"""
+
+[tools]
+"cargo:open" = "latest"

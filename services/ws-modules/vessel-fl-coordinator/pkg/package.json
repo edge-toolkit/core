@@ -1,0 +1,8 @@
+{
+  "name": "et-ws-vessel-fl-coordinator",
+  "type": "module",
+  "description": "Vessel FL coordinator",
+  "version": "0.1.0",
+  "license": "Apache-2.0 OR MIT",
+  "main": "et_ws_vessel_fl_coordinator.js"
+}

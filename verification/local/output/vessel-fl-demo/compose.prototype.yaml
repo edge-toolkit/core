@@ -1,0 +1,75 @@
+services:
+  # Build-only dependency image used by the thin vessel runner image below.
+  vessel-pyo3-runner-base:
+    build:
+      context: ../../../..
+      dockerfile: services/ws-pyo3-runner/Dockerfile
+    scale: 0
+
+  vessel-1:
+    build: &vessel-runner-build
+      context: ../../../..
+      dockerfile: verification/local/output/vessel-fl-demo/Dockerfile.pyo3
+      additional_contexts:
+        runner: service:vessel-pyo3-runner-base
+    environment: &vessel-runner-environment
+      PYO3_PYTHONPATH: /opt/vessel-python-packages
+      VESSEL_FL_DATA_ROOT: /data/vessel
+    volumes: &vessel-data-volume
+      - ${VESSEL_FL_DATA_ROOT:?Set VESSEL_FL_DATA_ROOT to the prepared dataset directory}:/data/vessel:ro
+
+  vessel-2:
+    build: *vessel-runner-build
+    environment: *vessel-runner-environment
+    volumes: *vessel-data-volume
+
+  vessel-3:
+    build: *vessel-runner-build
+    environment: *vessel-runner-environment
+    volumes: *vessel-data-volume
+
+  vessel-coordinator-native:
+    build: *vessel-runner-build
+    environment: *vessel-runner-environment
+    volumes: *vessel-data-volume
+
+  mlflow:
+    build: *vessel-runner-build
+    network_mode: host
+    command:
+      - /opt/cpython/bin/python3
+      - -m
+      - mlflow
+      - server
+      - --host
+      - 127.0.0.1
+      - --port
+      - "5000"
+      - --backend-store-uri
+      - sqlite:////mlflow/mlflow.db
+      - --artifacts-destination
+      - /mlflow/artifacts
+    volumes:
+      - mlflow-data:/mlflow
+    healthcheck:
+      test:
+        - CMD
+        - /opt/cpython/bin/python3
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health')
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  vessel-mlflow-bridge:
+    build: *vessel-runner-build
+    environment:
+      PYO3_PYTHONPATH: /opt/vessel-python-packages
+      MLFLOW_TRACKING_URI: http://127.0.0.1:5000
+    depends_on:
+      mlflow:
+        condition: service_healthy
+
+volumes:
+  mlflow-data: {}

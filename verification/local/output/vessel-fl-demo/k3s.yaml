@@ -1,0 +1,530 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: et-vessel-fl-demo
+---
+apiVersion: v1
+kind: ConfigMap
+data:
+  RUST_LOG: warn
+  ZO_DATA_DIR: /data
+  ZO_ROOT_USER_EMAIL: root@example.com
+metadata:
+  name: openobserve-config
+  namespace: et-vessel-fl-demo
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openobserve-data
+  namespace: et-vessel-fl-demo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: openobserve
+  name: openobserve
+  namespace: et-vessel-fl-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openobserve
+  template:
+    metadata:
+      labels:
+        app: openobserve
+    spec:
+      containers:
+        - envFrom:
+            - configMapRef:
+                name: openobserve-config
+            - secretRef:
+                name: et-vessel-fl-demo-secrets
+          image: openobserve/openobserve:v0.91.5
+          imagePullPolicy: IfNotPresent
+          name: openobserve
+          ports:
+            - containerPort: 5080
+          readinessProbe:
+            exec:
+              command:
+                - /openobserve
+                - node
+                - status
+            failureThreshold: 20
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /data
+              name: openobserve-data
+            - mountPath: /tmp
+              name: openobserve-tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: openobserve-data
+          persistentVolumeClaim:
+            claimName: openobserve-data
+        - emptyDir: {}
+          name: openobserve-tmp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: openobserve
+  name: openobserve
+  namespace: et-vessel-fl-demo
+spec:
+  ports:
+    - name: http
+      port: 5080
+      targetPort: 5080
+  selector:
+    app: openobserve
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ws-server-storage
+  namespace: et-vessel-fl-demo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ws-server
+  name: ws-server
+  namespace: et-vessel-fl-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ws-server
+  template:
+    metadata:
+      labels:
+        app: ws-server
+    spec:
+      containers:
+        - args:
+            - --agent-registry
+            - /app/runtime/registry.yaml
+          command:
+            - et-ws-server
+          env:
+            - name: MODULES_PATHS
+              value: /app/services/ws-server/static,/app/services/ws-wasm-agent,/app/services/ws-modules/pyo3-mlflow,/app/services/ws-modules/pyo3-vessel-fl-demo,/app/services/ws-modules/vessel-fl-client,/app/services/ws-modules/vessel-fl-coordinator,/app/services/ws-modules/vessel-fl-mlflow
+            - name: OTLP_COLLECTOR_URL
+              value: http://openobserve:5080/api/default/v1
+            - name: STORAGE_URL
+              value: file:///app/storage
+            - name: TLS_CERT_FILE
+              value: /app/runtime/cert.pem
+            - name: TLS_KEY_FILE
+              value: /app/runtime/key.pem
+          envFrom:
+            - secretRef:
+                name: et-vessel-fl-demo-secrets
+          image: et-ws-server-vessel-fl-demo:latest
+          imagePullPolicy: IfNotPresent
+          name: ws-server
+          ports:
+            - containerPort: 8080
+            - containerPort: 8443
+          readinessProbe:
+            failureThreshold: 20
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /app/storage
+              name: ws-server-storage
+            - mountPath: /app/runtime
+              name: ws-server-runtime
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: ws-server-storage
+          persistentVolumeClaim:
+            claimName: ws-server-storage
+        - emptyDir: {}
+          name: ws-server-runtime
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ws-server
+  name: ws-server
+  namespace: et-vessel-fl-demo
+spec:
+  ports:
+    - name: ws
+      port: 8080
+      targetPort: 8080
+    - name: wss
+      port: 8443
+      targetPort: 8443
+  selector:
+    app: ws-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: vessel-1
+  name: vessel-1
+  namespace: et-vessel-fl-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vessel-1
+  template:
+    metadata:
+      labels:
+        app: vessel-1
+    spec:
+      containers:
+        - env:
+            - name: PYO3_AGENT_ID
+              value: vessel-1
+            - name: PYO3_PYTHONPATH
+              value: services/ws-modules/pyo3-vessel-fl-demo/.python-packages
+            - name: VESSEL_FL_CLIENT_ID
+              value: vessel_1
+            - name: VESSEL_FL_ROLE
+              value: client
+            - name: RUNNER_MODULE
+              value: et-ws-pyo3-vessel-fl-demo
+            - name: WS_SERVER_URL
+              value: ws://ws-server:8080/ws
+          image: et-ws-pyo3-runner:latest
+          imagePullPolicy: IfNotPresent
+          name: vessel-1
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: runner-tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - emptyDir: {}
+          name: runner-tmp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: vessel-2
+  name: vessel-2
+  namespace: et-vessel-fl-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vessel-2
+  template:
+    metadata:
+      labels:
+        app: vessel-2
+    spec:
+      containers:
+        - env:
+            - name: PYO3_AGENT_ID
+              value: vessel-2
+            - name: PYO3_PYTHONPATH
+              value: services/ws-modules/pyo3-vessel-fl-demo/.python-packages
+            - name: VESSEL_FL_CLIENT_ID
+              value: vessel_2
+            - name: VESSEL_FL_ROLE
+              value: client
+            - name: RUNNER_MODULE
+              value: et-ws-pyo3-vessel-fl-demo
+            - name: WS_SERVER_URL
+              value: ws://ws-server:8080/ws
+          image: et-ws-pyo3-runner:latest
+          imagePullPolicy: IfNotPresent
+          name: vessel-2
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: runner-tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - emptyDir: {}
+          name: runner-tmp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: vessel-3
+  name: vessel-3
+  namespace: et-vessel-fl-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vessel-3
+  template:
+    metadata:
+      labels:
+        app: vessel-3
+    spec:
+      containers:
+        - env:
+            - name: PYO3_AGENT_ID
+              value: vessel-3
+            - name: PYO3_PYTHONPATH
+              value: services/ws-modules/pyo3-vessel-fl-demo/.python-packages
+            - name: VESSEL_FL_CLIENT_ID
+              value: vessel_3
+            - name: VESSEL_FL_ROLE
+              value: client
+            - name: RUNNER_MODULE
+              value: et-ws-pyo3-vessel-fl-demo
+            - name: WS_SERVER_URL
+              value: ws://ws-server:8080/ws
+          image: et-ws-pyo3-runner:latest
+          imagePullPolicy: IfNotPresent
+          name: vessel-3
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: runner-tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - emptyDir: {}
+          name: runner-tmp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: vessel-coordinator-native
+  name: vessel-coordinator-native
+  namespace: et-vessel-fl-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vessel-coordinator-native
+  template:
+    metadata:
+      labels:
+        app: vessel-coordinator-native
+    spec:
+      containers:
+        - env:
+            - name: PYO3_AGENT_ID
+              value: vessel-coordinator
+            - name: PYO3_PYTHONPATH
+              value: services/ws-modules/pyo3-vessel-fl-demo/.python-packages
+            - name: VESSEL_FL_CLIENTS
+              value: vessel_1,vessel_2,vessel_3
+            - name: VESSEL_FL_ROLE
+              value: coordinator
+            - name: RUNNER_MODULE
+              value: et-ws-pyo3-vessel-fl-demo
+            - name: WS_SERVER_URL
+              value: ws://ws-server:8080/ws
+          image: et-ws-pyo3-runner:latest
+          imagePullPolicy: IfNotPresent
+          name: vessel-coordinator-native
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: runner-tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - emptyDir: {}
+          name: runner-tmp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: vessel-mlflow-bridge
+  name: vessel-mlflow-bridge
+  namespace: et-vessel-fl-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vessel-mlflow-bridge
+  template:
+    metadata:
+      labels:
+        app: vessel-mlflow-bridge
+    spec:
+      containers:
+        - env:
+            - name: MLFLOW_TRACKING_URI
+              value: http://127.0.0.1:5000
+            - name: PYO3_AGENT_ID
+              value: vessel-mlflow
+            - name: PYO3_PYTHONPATH
+              value: services/ws-modules/pyo3-vessel-fl-demo/.python-packages
+            - name: RUNNER_MODULE
+              value: et-ws-pyo3-mlflow
+            - name: WS_SERVER_URL
+              value: ws://ws-server:8080/ws
+          image: et-ws-pyo3-runner:latest
+          imagePullPolicy: IfNotPresent
+          name: vessel-mlflow-bridge
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: runner-tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - emptyDir: {}
+          name: runner-tmp

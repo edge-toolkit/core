@@ -1,0 +1,61 @@
+cluster_name: "vessel-fl-demo"
+deployment_type: "mise"
+
+# Three native agents run the same reusable module. Their scenario environment
+# selects the client role and the dataset partition; no client-specific module
+# package is required.
+agents:
+  - name: "vessel-1"
+    runner: "pyo3"
+    env:
+      PYO3_AGENT_ID: "vessel-1"
+      PYO3_PYTHONPATH: "services/ws-modules/pyo3-vessel-fl-demo/.python-packages"
+      VESSEL_FL_CLIENT_ID: "vessel_1"
+      VESSEL_FL_ROLE: "client"
+    resources:
+      - type: "pyo3-vessel-fl-demo"
+
+  - name: "vessel-2"
+    runner: "pyo3"
+    env:
+      PYO3_AGENT_ID: "vessel-2"
+      PYO3_PYTHONPATH: "services/ws-modules/pyo3-vessel-fl-demo/.python-packages"
+      VESSEL_FL_CLIENT_ID: "vessel_2"
+      VESSEL_FL_ROLE: "client"
+    resources:
+      - type: "pyo3-vessel-fl-demo"
+
+  - name: "vessel-3"
+    runner: "pyo3"
+    env:
+      PYO3_AGENT_ID: "vessel-3"
+      PYO3_PYTHONPATH: "services/ws-modules/pyo3-vessel-fl-demo/.python-packages"
+      VESSEL_FL_CLIENT_ID: "vessel_3"
+      VESSEL_FL_ROLE: "client"
+    resources:
+      - type: "pyo3-vessel-fl-demo"
+
+  - name: "vessel-coordinator-native"
+    runner: "pyo3"
+    env:
+      PYO3_AGENT_ID: "vessel-coordinator"
+      PYO3_PYTHONPATH: "services/ws-modules/pyo3-vessel-fl-demo/.python-packages"
+      VESSEL_FL_CLIENTS: "vessel_1,vessel_2,vessel_3"
+      VESSEL_FL_ROLE: "coordinator"
+    resources:
+      - type: "pyo3-vessel-fl-demo"
+
+  - name: "vessel-mlflow-bridge"
+    runner: "pyo3"
+    env:
+      MLFLOW_TRACKING_URI: "http://127.0.0.1:5000"
+      PYO3_AGENT_ID: "vessel-mlflow"
+      PYO3_PYTHONPATH: "services/ws-modules/pyo3-vessel-fl-demo/.python-packages"
+    resources:
+      - type: "pyo3-mlflow"
+
+  - name: "vessel-browser-modules"
+    resources:
+      - type: "vessel-fl-client"
+      - type: "vessel-fl-coordinator"
+      - type: "vessel-fl-mlflow"

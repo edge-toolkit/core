@@ -535,11 +535,18 @@ fn runner_deployment(namespace: &str, runner: &RunnerInstance) -> Deployment {
     // read-only root needs somewhere writable even though nothing is meant to persist.
     // skipcq: RS-S1003
     let (runtime_mount, runtime_volume) = scratch("runner-tmp", "/tmp");
+    let mut runner_environment = runner
+        .env
+        .iter()
+        .filter(|(key, _value)| key.as_str() != "RUNNER_MODULE" && key.as_str() != "WS_SERVER_URL")
+        .map(|(key, value)| env(key, value.clone()))
+        .collect::<Vec<_>>();
+    runner_environment.extend([
+        env("RUNNER_MODULE", runner.module.clone()),
+        env("WS_SERVER_URL", hub_service_ws_url()),
+    ]);
     let container = Container {
-        env: Some(vec![
-            env("RUNNER_MODULE", runner.module.clone()),
-            env("WS_SERVER_URL", hub_service_ws_url()),
-        ]),
+        env: Some(runner_environment),
         image: Some(format!("et-ws-{}-runner:{IMAGE_TAG}", runner.runner)),
         image_pull_policy: Some(IMAGE_PULL_POLICY.to_string()),
         name: runner.name.clone(),

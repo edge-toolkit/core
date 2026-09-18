@@ -1,0 +1,8 @@
+{
+  "name": "et-ws-pyo3-mlflow",
+  "type": "module",
+  "description": "Native Python MLflow tracking bridge for Edge Toolkit modules",
+  "version": "0.1.0",
+  "license": "Apache-2.0 OR MIT",
+  "main": "et_ws_pyo3_mlflow.py"
+}

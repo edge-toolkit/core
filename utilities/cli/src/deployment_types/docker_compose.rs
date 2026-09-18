@@ -125,6 +125,16 @@ fn runner_services(runners: &[RunnerInstance], context: &str) -> Vec<(String, Co
     runners
         .iter()
         .map(|runner| {
+            let mut environment = runner
+                .env
+                .iter()
+                .map(|(key, value)| (key.clone(), ComposeValue::Plain(value.clone())))
+                .collect::<Vec<_>>();
+            environment.retain(|(key, _value)| key != "RUNNER_MODULE" && key != "WS_SERVER_URL");
+            environment.extend([
+                ("RUNNER_MODULE".to_string(), ComposeValue::Plain(runner.module.clone())),
+                ("WS_SERVER_URL".to_string(), ComposeValue::Plain(hub_ws_url())),
+            ]);
             let service = ComposeService {
                 build: Some(ComposeBuild {
                     context: context.to_string(),
@@ -132,10 +142,7 @@ fn runner_services(runners: &[RunnerInstance], context: &str) -> Vec<(String, Co
                     additional_contexts: Vec::new(),
                 }),
                 network_mode: Some("host".to_string()),
-                environment: vec![
-                    ("RUNNER_MODULE".to_string(), ComposeValue::Plain(runner.module.clone())),
-                    ("WS_SERVER_URL".to_string(), ComposeValue::Plain(hub_ws_url())),
-                ],
+                environment,
                 depends_on: vec![(
                     "ws-server".to_string(),
                     ComposeDependsOnCondition {

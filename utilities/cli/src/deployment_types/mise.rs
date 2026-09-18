@@ -277,6 +277,10 @@ fn runner_run_body(runner: &RunnerInstance) -> String {
 /// if that default ever moves, and it is also what the runner derives its HTTP base from.
 fn runner_env(runner: &RunnerInstance) -> Table {
     let mut env = Table::new();
+    for (key, value) in &runner.env {
+        let _previous: Option<Value> = env.insert(key.clone(), Value::String(value.clone()));
+    }
+    // Deployment-owned routing always wins over scenario environment.
     let _previous: Option<Value> = env.insert("RUNNER_MODULE".to_string(), Value::String(runner.module.clone()));
     let _previous: Option<Value> = env.insert("WS_SERVER_URL".to_string(), Value::String(hub_ws_url()));
     env

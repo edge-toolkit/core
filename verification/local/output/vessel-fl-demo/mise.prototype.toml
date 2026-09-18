@@ -1,0 +1,150 @@
+[tasks.demo]
+description = "Run the prototype three-client vessel FL demo against an already-running ws-server"
+depends = [
+  "mlflow-bridge",
+  "mlflow-server",
+  "vessel-client-1",
+  "vessel-client-2",
+  "vessel-client-3",
+  "vessel-coordinator",
+]
+
+[tasks.setup-python]
+description = "Install pinned vessel demo dependencies for the embedded CPython runtime"
+dir = "../../../../services/ws-modules/pyo3-vessel-fl-demo"
+run = """
+python_bin="$(mise where python)/bin/python3"
+uv pip install --python "$python_bin" --target .python-packages "mlflow==3.15.1" "pillow==12.3.0" "torch==2.12.1"
+"""
+shell = "{{ vars.task_shell }}"
+
+[tasks.ws-server]
+description = "Serve the vessel FL and MLflow WS modules"
+dir = "../../../../services/ws-server"
+run = """
+MODULES_PATHS="static, ../ws-wasm-agent, ../ws-modules/vessel-fl-client,"
+MODULES_PATHS+=" ../ws-modules/vessel-fl-coordinator,"
+MODULES_PATHS+=" ../ws-modules/vessel-fl-mlflow, ../ws-modules/pyo3-vessel-fl-demo,"
+MODULES_PATHS+=" ../ws-modules/pyo3-mlflow"
+export MODULES_PATHS
+cargo run
+"""
+shell = "{{ vars.task_shell }}"
+
+[tasks.mlflow-server]
+description = "Run the loopback-only MLflow tracking server and UI"
+depends = ["setup-python"]
+run = """
+data_root="${VESSEL_FL_DATA_PARENT:-$HOME/Datasets/croatia-postprocessed}"
+mkdir -p "$data_root/mlflow_artifacts"
+python_bin="$(mise where python)/bin/python3"
+python_packages="../../../../services/ws-modules/pyo3-vessel-fl-demo/.python-packages"
+args=(
+  -m mlflow server
+  --host "${VESSEL_FL_MLFLOW_HOST:-127.0.0.1}"
+  --port 5000
+  --backend-store-uri "sqlite:///$data_root/mlflow.db"
+  --artifacts-destination "$data_root/mlflow_artifacts"
+)
+PYTHONPATH="$python_packages${PYTHONPATH:+:$PYTHONPATH}" "$python_bin" "${args[@]}"
+"""
+shell = "{{ vars.task_shell }}"
+
+[tasks.mlflow-bridge]
+description = "Run the generic Edge Toolkit to MLflow bridge"
+depends = ["setup-python"]
+dir = "../../../.."
+run = "cargo run --quiet -p et-ws-pyo3-runner"
+
+[tasks.mlflow-bridge.env]
+MLFLOW_TRACKING_URI = "http://127.0.0.1:5000"
+PYO3_AGENT_ID = "vessel-mlflow"
+PYO3_PYTHONPATH = "services/ws-modules/pyo3-vessel-fl-demo/.python-packages"
+RUNNER_MODULE = "et-ws-pyo3-mlflow"
+WS_SERVER_URL = "ws://127.0.0.1:8080/ws"
+
+[tasks.vessel-coordinator]
+description = "Run the vessel FL coordinator"
+depends = ["setup-python"]
+dir = "../../../.."
+run = "cargo run --quiet -p et-ws-pyo3-runner"
+
+[tasks.vessel-coordinator.env]
+PYO3_AGENT_ID = "vessel-coordinator"
+PYO3_PYTHONPATH = "services/ws-modules/pyo3-vessel-fl-demo/.python-packages"
+RUNNER_MODULE = "et-ws-pyo3-vessel-fl-demo"
+VESSEL_FL_CLIENTS = "vessel_1,vessel_2,vessel_3"
+VESSEL_FL_ROLE = "coordinator"
+WS_SERVER_URL = "ws://127.0.0.1:8080/ws"
+
+[tasks.vessel-client-1]
+description = "Run vessel FL client vessel_1"
+depends = ["setup-python"]
+dir = "../../../.."
+run = "cargo run --quiet -p et-ws-pyo3-runner"
+
+[tasks.vessel-client-1.env]
+PYO3_AGENT_ID = "vessel-1"
+PYO3_PYTHONPATH = "services/ws-modules/pyo3-vessel-fl-demo/.python-packages"
+RUNNER_MODULE = "et-ws-pyo3-vessel-fl-demo"
+VESSEL_FL_CLIENT_ID = "vessel_1"
+VESSEL_FL_ROLE = "client"
+WS_SERVER_URL = "ws://127.0.0.1:8080/ws"
+
+[tasks.vessel-client-2]
+description = "Run vessel FL client vessel_2"
+depends = ["setup-python"]
+dir = "../../../.."
+run = "cargo run --quiet -p et-ws-pyo3-runner"
+
+[tasks.vessel-client-2.env]
+PYO3_AGENT_ID = "vessel-2"
+PYO3_PYTHONPATH = "services/ws-modules/pyo3-vessel-fl-demo/.python-packages"
+RUNNER_MODULE = "et-ws-pyo3-vessel-fl-demo"
+VESSEL_FL_CLIENT_ID = "vessel_2"
+VESSEL_FL_ROLE = "client"
+WS_SERVER_URL = "ws://127.0.0.1:8080/ws"
+
+[tasks.vessel-client-3]
+description = "Run vessel FL client vessel_3"
+depends = ["setup-python"]
+dir = "../../../.."
+run = "cargo run --quiet -p et-ws-pyo3-runner"
+
+[tasks.vessel-client-3.env]
+PYO3_AGENT_ID = "vessel-3"
+PYO3_PYTHONPATH = "services/ws-modules/pyo3-vessel-fl-demo/.python-packages"
+RUNNER_MODULE = "et-ws-pyo3-vessel-fl-demo"
+VESSEL_FL_CLIENT_ID = "vessel_3"
+VESSEL_FL_ROLE = "client"
+WS_SERVER_URL = "ws://127.0.0.1:8080/ws"
+
+[tasks.check-demo]
+description = "Validate demo Python syntax and dataset discovery"
+dir = "../../../.."
+run = """
+sources=(
+  services/ws-modules/pyo3-vessel-fl-demo/pkg/et_ws_pyo3_vessel_fl_demo.py
+  services/ws-modules/pyo3-mlflow/pkg/et_ws_pyo3_mlflow.py
+)
+PYTHONPYCACHEPREFIX=/tmp/vessel-fl-pycache python -m py_compile "${sources[@]}"
+browser_sources=(
+  services/ws-modules/pyo3-vessel-fl-demo/pkg/vessel_fl_ui.js
+  services/ws-modules/vessel-fl-client/pkg/et_ws_vessel_fl_client.js
+  services/ws-modules/vessel-fl-coordinator/pkg/et_ws_vessel_fl_coordinator.js
+  services/ws-modules/vessel-fl-mlflow/pkg/et_ws_vessel_fl_mlflow.js
+)
+for source in "${browser_sources[@]}"; do
+  node --check "$source"
+done
+root="${VESSEL_FL_DATA_ROOT:-$HOME/Datasets/croatia-postprocessed/croatia_1g_logmel_images}"
+for client in vessel_1 vessel_2 vessel_3; do
+  test -f "$root/clients/$client/train_manifest.csv"
+done
+echo "$root"
+"""
+shell = "{{ vars.task_shell }}"
+
+[tasks.open-mlflow]
+description = "Open the local MLflow UI"
+run = "open http://127.0.0.1:5000"

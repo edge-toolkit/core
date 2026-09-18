@@ -1,0 +1,8 @@
+{
+  "name": "et-ws-pyo3-vessel-fl-demo",
+  "type": "module",
+  "description": "Native Python three-client multimodal vessel federated-learning demo",
+  "version": "0.1.0",
+  "license": "Apache-2.0 OR MIT",
+  "main": "et_ws_pyo3_vessel_fl_demo.py"
+}
