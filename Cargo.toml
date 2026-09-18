@@ -141,7 +141,7 @@ log = "0.4"
 # accepts a newer minicov.
 minicov = "=0.3.8"
 # Third-party OTLP mock collector, wrapped by et-test-otlp for the workspace's integration tests.
-# Serves the spec paths (/v1/traces, ...), so a consumer points `collector_url` at `http://host:port/v1`
+# Serves the spec paths (/v1/traces, ...), so a consumer points `collector_url` at the mock's own `/v1` base
 # for `et-otlp`'s `{collector_url}/traces` shape to land on them.
 mock-collector = "0.2"
 onnx-extractor = "0.5"

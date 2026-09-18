@@ -1519,11 +1519,39 @@ description = "Repository-wide checks that need to read git itself (commit hashe
 run = "cargo run -q -p et-repo-check"
 
 [tasks.link-check]
-description = "Check that URLs in .md and .rs files are reachable (network)"
+description = "Check that URLs in prose, source and config files are reachable (network)"
 # The .rs glob is scoped to the source dirs, not a bare `**/*.rs`.
 # A recursive `**/*.rs` walks target/'s churning rustc temp files, and lychee expands globs before applying
 # `exclude_path`, so it aborts with a GlobError when one of those temps vanishes mid-iteration.
-run = "lychee --config config/lychee.toml '**/*.md' 'libs/**/*.rs' 'services/**/*.rs' 'utilities/**/*.rs'"
+#
+# The config, workflow and Dockerfile globs are here because those files carry links nothing else validates.
+# Every commit a workaround comment cites is written as a `/commit/<sha>` URL, and most of them live in a mise
+# config, a workflow or a Dockerfile rather than in prose -- so with only the .md and .rs globs the majority of
+# this repo's commit references were checked by nothing at all.
+run = """
+cfg=config/lychee.toml
+lychee --config "$cfg" '**/*.md' 'libs/**/*.rs' 'services/**/*.rs' 'utilities/**/*.rs'
+# Everything except the commit URLs is excluded on the second pass, by `--exclude .*` with `--include` winning.
+# Those files hold links this repo does not otherwise own -- release-asset bases joined to a filename at run
+# time, doc placeholders, a regex quoted inside a comment -- and none of them is a URL a reader could follow.
+# Checking the whole set reports 21 such fragments as broken. `--scheme https` drops the `file:` and
+# `docker-image:` values for the same reason, and every commit URL is https.
+conf=".mise/config*.toml .mise/*.sh config/*.toml Cargo.toml .deepsource.toml"
+gha=".github/workflows/*.yaml .github/actions/*/*.yaml"
+# k3s.yaml is skipped as a whole because one value in it cannot be filtered any other way.
+# It passes a BuildKit named-context reference to `docker build`, and the `:latest` tag on the end reads as
+# an invalid port number, so lychee fails to parse the token -- which happens before `--scheme` or
+# `--exclude` get a say, and is why neither can reach it. Naming the value here would reproduce the problem
+# in this file. The workflow carries no commit URLs today; one added there would go unchecked, which is the
+# cost of the skip.
+skip="--exclude-path .github/workflows/k3s.yaml"
+# The flag patterns stay quoted while the glob lists are deliberately split and expanded by the shell.
+# `--exclude .*` unquoted is a glob the shell resolves against the working directory, which hands lychee every
+# dotfile as an input -- including its own `.lycheecache`, whose every line then reads as a broken URL.
+# shellcheck disable=SC2086
+lychee --config "$cfg" --scheme https --exclude '.*' --include '/commit/[0-9a-f]{40}' $skip $conf $gha Dockerfile*
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.ryl-check]
 description = "Lint YAML with ryl (a yamllint-compatible Rust linter)"
