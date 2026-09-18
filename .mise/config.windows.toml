@@ -56,10 +56,17 @@
 # verbatim and Windows launches by extension. The name buys nothing beyond that -- mise normalises a task's
 # PATH whatever the shell is called, which is why the tasks route their bodies through a wrapper rather than
 # relying on the name. Checksum-pinned so a silent upstream rebuild fails loudly.
+#
+# Served from our own release rather than frippery.org, which took down five Windows lanes in four days.
+# Every one failed the same way: ten retries, each timing out at 120s, killing `mise install` before any of the
+# repo's own code ran. Retrying is not the lever -- mise already does it ten times -- and this is the shell every
+# Windows surface runs its tasks under, so one slow afternoon at that host reddens the whole Windows matrix. The
+# binary is upstream's own, byte for byte: only the host it is fetched from changed, and the checksum below is
+# the same one that verified it before, so a mirror that ever stopped matching upstream would fail loudly here.
 [tools."http:busybox"]
 bin = "ash.exe"
 checksum = "sha256:6e263d154d8548d1eb936f65d1d8312c80df31c45974e48d6335e4dcc0f4f34c"
-url = "https://frippery.org/files/busybox/busybox64u.exe"
+url = "https://github.com/edge-toolkit/core/releases/download/busybox-w32-v1/busybox64u.exe"
 version = "1.37.0"
 
 # Prebuilt dart-typegen for Windows.
@@ -128,6 +135,7 @@ clang_resource_arg = "-resource-dir {{ vars.a_mise_installs_fwd }}/github-mstors
 # `http:` Windows tool fetches from edge-toolkit/core's *-v<N> release.
 # Each matches a `[asset."<filename>"]` row in config/upstream-cache/data.toml
 # (the checksums.rego policy enforces the bidirectional cross-reference).
+busybox_asset = "busybox64u.exe"
 dart_typegen_asset = "0.1.13-x86_64-pc-windows-msvc.tar.gz"
 gnupg_w32_asset = "2.5.20_20260513-x86_64-pc-windows.tar.gz"
 

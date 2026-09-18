@@ -160,6 +160,7 @@ deny contains msg if {
 allowed_http_forge_url := {
 	# This repo's own upstream-cache mirror releases -- the documented pattern, not migration candidates.
 	"http:augeas",
+	"http:busybox",
 	"http:dart-typegen",
 	"http:et-rp",
 	"http:gnupg-w32",

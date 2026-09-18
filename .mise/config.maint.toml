@@ -680,6 +680,20 @@ gh release create "$tag" --repo "$GH_REPO" --title "$tag" --notes "$notes" --pre
 """
 shell = "{{ vars.task_shell }}"
 
+[tasks.bootstrap-busybox-w32-release]
+description = "Create the busybox-w32-v1 GitHub release if it doesn't exist (idempotent)"
+run = """
+tag=busybox-w32-v1
+if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+  echo "release $tag already exists on $GH_REPO"
+  exit 0
+fi
+notes="https://frippery.org/busybox/
+GPL-2.0-only"
+gh release create "$tag" --repo "$GH_REPO" --title "$tag" --notes "$notes" --prerelease </dev/null
+"""
+shell = "{{ vars.task_shell }}"
+
 [tasks.bootstrap-gnupg-w32-release]
 description = "Create the gnupg-w32-v1 GitHub release if it doesn't exist (idempotent)"
 run = """
