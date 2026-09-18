@@ -878,14 +878,19 @@ a runner-image quirk, a toolchain bug, a CI-only flake -- and you decide to pape
   only way someone hitting the same symptom later finds your workaround is
   by grepping the repo for the error string. This applies equally to
   symptoms first seen locally and to GHA-only flakes. Alongside the error
-  string, **record the commit SHA the failure was observed on** (full
-  40-char hash, so the comment stays unambiguous after force-pushes /
-  rebases) and, when applicable, **the GHA job-run URL**
+  string, **record the commit the failure was observed on as its web URL**
+  -- `https://github.com/<owner>/<repo>/commit/<full-40-char-sha>`, never
+  the bare hash -- and, when applicable, **the GHA job-run URL**
   (`https://github.com/<owner>/<repo>/actions/runs/<run-id>/job/<job-id>`).
-  Both age out (the SHA may stop existing if a branch is deleted; the GHA
-  log expires at 3 months) but together they pin the WHERE and WHEN of the
-  evidence well enough for the next reader to cross-reference your local
-  notes, screenshots, or any persisted artifact.
+  The URL form is not decoration: pull requests here merge by squash, so a
+  commit written down while a branch is in flight stops existing the moment
+  it lands, and a bare hash that resolved when you wrote it resolves for
+  nobody afterwards. GitHub keeps serving the commit at that URL. This is
+  also enforced -- `repo-check` rejects any bare 40-char hash that is not
+  reachable from `origin/main`, which in practice means every one of them.
+  The GHA log still expires at 3 months, but the commit link does not, and
+  together they pin the WHERE and WHEN of the evidence well enough for the
+  next reader to cross-reference notes, screenshots, or any artifact.
 
 ## NEVER disable anything on Windows without explicitly asking the user first
 

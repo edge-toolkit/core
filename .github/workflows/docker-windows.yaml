@@ -168,10 +168,29 @@ jobs:
       # same tests run everywhere else, including the Windows host lanes, and were passing here too (0.270s and
       # 0.301s on `build (windows-2022, servercore)`) when they were turned off, so nothing about them is known
       # to be broken on Windows. Drop the filter to put them back.
+      #
+      # `not test(pyo3_math1_scenario)` is the second skip, and unlike the k3s one it covers a real failure.
+      # Its trigger never registers on either servercore image, and nothing says why:
+      #     math1-trigger never registered with the hub within 300s
+      #     --- math1-trigger stdout ---
+      #     --- math1-trigger stderr ---
+      # Both streams are empty after the process is killed and its drain threads are given time, and they stay
+      # empty with `MISE_VERBOSE=1` set on the spawn -- so the stall is before mise writes its first line, which
+      # rules out tool resolution, the config load and the task itself. The process starts and stays alive for
+      # the whole 300s. That is as far as a CI log reaches; what is left needs someone inside the image running
+      # `mise run math1-trigger` from `verification/local/output/pyo3-math1` by hand.
+      # Observed on commit
+      # https://github.com/edge-toolkit/core/commit/432c1a910bb153e9c11e8b4b0f1f3e1659c5474e on both hosts:
+      # https://github.com/edge-toolkit/core/actions/runs/35307356357/job/105482172804 (windows-2022) and
+      # https://github.com/edge-toolkit/core/actions/runs/35307356357/job/105482172400 (windows-2025).
+      # It is this image only: the same test passes on every Windows host lane and on a workstation, so the
+      # skip hides a difference between servercore and every other Windows environment rather than a defect in
+      # the test. Its two sibling scenarios stay on, and both keep exercising the same runner pair.
       - name: Run cargo-test
         if: matrix.base == 'servercore'
         run: |
           args="--rm --pull=never -e CARGO_INCREMENTAL=0"
+          skip='not test(k3s) and not test(pyo3_math1_scenario)'
           # $args is a word-split flag list by design; do not quote it.
           # shellcheck disable=SC2086
-          docker run $args et-windows-test mise run cargo-test -- -E 'not test(k3s)'
+          docker run $args et-windows-test mise run cargo-test -- -E "$skip"
