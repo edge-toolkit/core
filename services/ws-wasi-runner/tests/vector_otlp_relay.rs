@@ -59,7 +59,12 @@ fn vector_relays_buffered_otlp_after_backend_comes_online() {
     let mut child = Command::new("vector")
         .arg("-c")
         .arg(&config_path)
-        .env("VECTOR_LOG", "warn")
+        // Sink detail, because `warn` left this test's failures undiagnosable.
+        // Every redelivery failure quoted two config-loading warnings and nothing else -- no attempt, no error,
+        // no retry -- which cannot distinguish a sink that retried and was refused from one that never had the
+        // event to send. The filter is narrow rather than a blanket `debug`: the sinks are the subsystem under
+        // test and the rest of Vector's debug output is noise the failure message would have to carry.
+        .env("VECTOR_LOG", "info,vector::sinks=debug")
         // Forward-slash the temp path: Vector interpolates it into a double-quoted YAML scalar, and on
         // Windows the backslashes would be parsed as YAML escapes (CI failed with "did not find expected
         // hexadecimal number"). Forward slashes are accepted on Windows too.

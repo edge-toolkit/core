@@ -112,6 +112,13 @@ fn spawn_runner(scenario: &str, task: &str) -> Runner {
         .arg(task)
         .current_dir(scenario_dir)
         .env("RUNNER_TIMEOUT", RUNNER_TIMEOUT)
+        // Make mise narrate its own startup, so a runner that never reaches its task can still be placed.
+        // On `build (windows-2025, servercore)` a trigger stayed alive for the whole 300s startup budget and
+        // wrote nothing at all -- not even the `$ cargo run ...` line mise echoes before it runs a task -- while
+        // the same commit on `windows-2022` logged normally and registered. Zero bytes says only "stalled before
+        // the task began", which covers tool resolution, the config load and the build lock alike; mise's own
+        // output distinguishes them. It rides on stderr, which is captured either way.
+        .env("MISE_VERBOSE", "1")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn_checked()
@@ -163,27 +170,30 @@ fn captured(buffer: &Arc<Mutex<String>>) -> String {
 /// before it could log from one that started and sat idle, so every failure path quotes both streams. That only
 /// works on a runner that has finished. The drain threads hand their buffer over at EOF, so quoting one still
 /// holding its pipes open reports two empty streams whatever it wrote -- which is how a hung trigger came to look
-/// like a silent one across several CI rounds. Ending it first closes the pipes; the poll then covers the moment
-/// between that and the drain thread storing what it read, and gives up rather than hanging if it stays empty,
-/// since empty is a legitimate answer for a process that really did write nothing.
+/// like a silent one across several CI rounds. Ending it first closes the pipes so there is something to read.
 #[expect(
     clippy::single_call_fn,
     reason = "paired with quoted_now on purpose: inlining it invites a future path to quote a still-running runner"
 )]
 fn quoted(label: &str, runner: &mut Runner) -> String {
     runner.guard.shutdown();
+    quoted_now(label, runner)
+}
+
+/// Quote a runner this path has already ended, waiting for its drain threads to hand over what they read.
+///
+/// Split from [`quoted`] for the paths that waited the runner out themselves, which must not end it a second
+/// time -- but they need the same wait. A runner killed at the end of `wait_for_exit` has its pipes closed only
+/// microseconds before this reads them, so quoting it immediately races the drain thread and prints the blanks
+/// that ending the process was supposed to prevent. The poll gives up rather than hanging, since empty is a
+/// legitimate answer for a process that really did write nothing, and costs nothing once either stream has
+/// anything in it.
+fn quoted_now(label: &str, runner: &Runner) -> String {
     let started = Instant::now();
     while started.elapsed() < DRAIN_SETTLE && captured(&runner.stdout).is_empty() && captured(&runner.stderr).is_empty()
     {
         std::thread::sleep(Duration::from_millis(50));
     }
-    quoted_now(label, runner)
-}
-
-/// Format whatever the buffers hold right now, without touching the process.
-///
-/// Split out for the paths that have already waited the runner out, which must not shut it down a second time.
-fn quoted_now(label: &str, runner: &Runner) -> String {
     format!(
         "--- {label} stdout ---\n{}\n--- {label} stderr ---\n{}",
         captured(&runner.stdout),
