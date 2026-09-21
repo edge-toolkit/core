@@ -679,6 +679,16 @@ for name in $images; do
   # Rebuild the multi-arch tag from whichever per-architecture tags the registry now holds.
   # Every architecture is probed, not just the ones this run built, so a host that can only produce one of
   # them still leaves the tag naming both once the other host has published its half.
+  #
+  # Mixing revisions across architectures is the accepted cost of that, not an oversight. This is the whole
+  # reason the per-architecture tags exist: no machine here can build both halves. Apple silicon cannot
+  # produce the amd64 images at all -- QEMU's x86 emulation cannot run rustc, which dies on `rustc -vV` with
+  # the SIGSEGV quoted above -- so the two halves are published from different hosts, days apart, and each
+  # run can only see what the registry already holds. Revision-qualifying the source tags, or withholding
+  # `latest` until one run has built both, would mean `latest` could never be assembled at all until a single
+  # host can build both architectures. Until that is true, a `latest` whose halves may differ in revision is
+  # strictly better than no `latest`, and the per-architecture tags stay available for pinning an exact pair.
+  # Do not "fix" this by gating on a single revision; that trade has been made deliberately.
   sources=""
   for platform in ${every_platform//,/ }; do
     candidate="$repo:$tag-${platform##*/}"

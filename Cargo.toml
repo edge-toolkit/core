@@ -413,9 +413,17 @@ ignore = [
   # Unmaintained upstream at jethrogb/rust-cexpr.
   # Pulled by bindgen (build-time only via aws-lc-sys / ort-sys).
   "cexpr",
+  # Archived upstream at rust-lang/cfg-if, and the newer release the scanner points at is archived too.
+  # 1.0.4 is current, and the crate is a leaf of most of the graph; there is nothing to move to.
+  "cfg-if",
   # Unmaintained upstream at dajoha/color-print.
   # Pulled by deno_node via color-print.
   "color-print-proc-macro",
+  # Upstream 9999years/command-error has been quiet for a year, which is what trips the age heuristic.
+  # The scanner also notes its `process-wrap ^8` against a current 10. 0.8.0 is the latest release, so there
+  # is no upgrade to take, and this is a direct dependency the repo adopts deliberately -- a lint rule of its
+  # own holds every `Command` to it.
+  "command-error",
   # Archived upstream at matklad/countme.
   "countme",
   # Unmaintained upstream at denoland/deno_native_certs.

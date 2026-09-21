@@ -2,7 +2,7 @@
 
 use et_cli::{
     docker_image_module_paths, generate_deployment, hub_service_ws_url, hub_ws_url, module_package_json,
-    regenerate_verification, scenario_module_paths,
+    regenerate_verification, scenario_dockerfile_path, scenario_module_paths,
 };
 use fs_err as fs;
 use serde::Deserialize as _;
@@ -405,6 +405,23 @@ agents:
     assert!(
         error.contains("WS_SERVER_URL") && error.contains("must own"),
         "expected a reserved-env error, got: {error}"
+    );
+}
+
+#[test]
+fn the_scenario_dockerfile_path_stays_relative_however_shallow_the_output_dir() {
+    use std::path::Path;
+
+    // A single-component directory has a parent, and it is the empty path rather than `None`. Prefixing it
+    // blindly yields `/$scenario/Dockerfile`, an absolute path to a directory nobody has -- and the README
+    // hands that straight to `docker build -f`.
+    assert_eq!(
+        scenario_dockerfile_path(Path::new("my-scenario")),
+        "$scenario/Dockerfile"
+    );
+    assert_eq!(
+        scenario_dockerfile_path(Path::new("verification/local/output/math1")),
+        "verification/local/output/$scenario/Dockerfile"
     );
 }
 

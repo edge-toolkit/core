@@ -360,27 +360,40 @@ fn generate_deployment_outputs(
 
     let readme_path = output_dir.join("README.md");
     let module_names = cluster_module_names(cluster);
-    // The README's build command names this scenario's directory, which is the output path it was handed.
-    // Only the parent is rendered, so the command keeps naming the last segment through the `scenario` shell
-    // variable it already sets rather than repeating the name. Joined from the path's own components rather
-    // than displayed, because the result is committed: a `Display` of the same path writes `\` on Windows and
-    // `/` everywhere else, which would make the file drift by platform and fail the check that holds it
-    // stable. Regeneration passes a repository-relative path, which is what the command needs, since it runs
-    // from the repository root.
-    let output_parent = output_dir
-        .parent()
-        .unwrap_or(output_dir)
-        .iter()
-        .map(|component| component.to_string_lossy())
-        .collect::<Vec<_>>()
-        .join("/");
-    let dockerfile = format!("{output_parent}/$scenario/Dockerfile");
+    let dockerfile = scenario_dockerfile_path(output_dir);
     fs::write(
         &readme_path,
         generated_readme(cluster, &module_names, output_types, &dockerfile),
     )?;
 
     Ok(())
+}
+
+/// The path the generated README tells a reader to build this scenario's image from.
+///
+/// Only the parent is rendered, so the command keeps naming the last segment through the `scenario` shell
+/// variable it already sets rather than repeating the name. Joined from the path's own components rather than
+/// displayed, because the result is committed: a `Display` of the same path writes `\` on Windows and `/`
+/// everywhere else, which would make the file drift by platform and fail the check that holds it stable.
+/// Regeneration passes a repository-relative path, which is what the command needs, since it runs from the
+/// repository root.
+///
+/// A single-component output directory has a parent, and it is the empty path rather than `None` -- so this
+/// cannot lean on `unwrap_or` and has to test the rendered parent. Prefixing an empty one would produce
+/// `/$scenario/Dockerfile`, an absolute path to a directory nobody has.
+#[must_use]
+pub fn scenario_dockerfile_path(output_dir: &Path) -> String {
+    let parent = output_dir
+        .parent()
+        .unwrap_or(output_dir)
+        .iter()
+        .map(|component| component.to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/");
+    if parent.is_empty() {
+        return "$scenario/Dockerfile".to_string();
+    }
+    format!("{parent}/$scenario/Dockerfile")
 }
 
 /// Keep a generated deployment's credential out of whatever repository it was generated into.

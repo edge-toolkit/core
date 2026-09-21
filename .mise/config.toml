@@ -439,6 +439,20 @@ url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x
 # LLVM 22.1.8, which is the profraw-10 format minicov 0.3.8 emits. Bump this and minicov together, never one
 # alone, and check `rustc +<nightly> --version --verbose` reports an LLVM the minicov release names.
 rust_nightly = "nightly-2026-08-05"
+# The rustup host triple for this machine's arch, used as both the toolchain spec and CARGO_BUILD_TARGET.
+# x64 keeps gnullvm: llvm-mingw supplies a full compiler + CRT from mise, so nothing depends on a system MSVC
+# install, which is what lets the Nano Server image build at all. arm64 has no such option -- llvm-mingw
+# publishes ucrt-x86_64 only, and every other native prerequisite the gnullvm lane leans on (conda:m2-make,
+# conda:m2-gnupg, conda:libclang) is x86_64-only in its channel too. The windows-11-arm runner does ship
+# Visual Studio with the arm64 MSVC toolset, so msvc is the one triple that can build there today; it is also
+# rustup's own host default on that arch, so this asks for exactly the toolchain rustup would pick unaided.
+#
+# Defined here rather than beside the Windows tools that read it, and that placement is load-bearing.
+# `lockfile_platforms` makes any lockfile-writing command resolve the `windows-x64` tools from every host, so
+# `config.windows.toml`'s `[tools]` get rendered on macOS and Linux -- where that file is not an active config
+# and its own `[vars]` are therefore absent from the context. Declaring it there failed every `mise upgrade`
+# that had work to do, with `Field win_rust_host is not defined`; this file is active everywhere.
+win_rust_host = "{% if arch() == 'arm64' %}aarch64-pc-windows-msvc{% else %}x86_64-pc-windows-gnullvm{% endif %}"
 # Tier-`a_` prefix marks leaf values referenced by later vars.
 # a_* vars are referenced by later vars (face1_src), and mise renders [vars] in alphabetical order; `a_` sorts
 # before every non-prefixed var name so the reference resolves. Shared GitHub release tag for the HF-asset
