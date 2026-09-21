@@ -146,7 +146,7 @@ const PYODIDE_DOCKER_PATH: &str = "/app/node_modules/pyodide";
 /// secret scanner duly found it. Collecting it into one file keeps the deployment reproducible while leaving
 /// the rest of the generated output free of anything a scanner reads as a credential.
 ///
-/// Whether that one file is committed depends on where it was generated, and [`write_secrets_gitignore`]
+/// Whether that one file is committed depends on where it was generated, and [`write_deployment_gitignore`]
 /// decides: under `verification/` it is a fixture the drift check reads, and anywhere else it is a real
 /// credential that gets an ignore file written beside it.
 pub(crate) const SECRETS_ENV_FILE: &str = "secrets.env";
@@ -339,7 +339,7 @@ fn generate_deployment_outputs(
     // same root credentials the collector was started with.
     let password = scenario_password(seed);
     fs::write(output_dir.join(SECRETS_ENV_FILE), secrets_env(&password))?;
-    write_secrets_gitignore(output_dir)?;
+    write_deployment_gitignore(output_dir)?;
     for output_type in output_types {
         match output_type {
             OutputType::Mise => generate_mise_deployment(cluster, output_dir)?,
@@ -393,7 +393,7 @@ fn generate_deployment_outputs(
 /// purpose is to be diffed when a generator changes -- and the password is derived from an input this
 /// repository also carries, so it is reproducible from what is already public rather than a secret the file
 /// is keeping. An ignore file here would only hide them from the drift check that exists to read them.
-fn write_secrets_gitignore(output_dir: &Path) -> Result<(), CliError> {
+fn write_deployment_gitignore(output_dir: &Path) -> Result<(), CliError> {
     if running_in_this_repository() {
         return Ok(());
     }
@@ -418,11 +418,19 @@ fn write_secrets_gitignore(output_dir: &Path) -> Result<(), CliError> {
 /// each format states it outright, so keeping it in this file would have meant an uncommitted file standing
 /// between a reader and a value there was never any reason to withhold -- and, in the Kubernetes case, a
 /// `Secret` holding something that is not one.
+///
+/// Each value carries a `skipcq` pragma for `DeepSource SCT-A000`: the copies committed under
+/// `verification/` are read as hardcoded credentials, and the path excludes that keep the rest of that tree
+/// out of analysis do not reach a secrets scan. The pragma sits on the line above rather than at the end of
+/// its own, because an env file has no inline comments: every consumer keeps what follows the `=` verbatim,
+/// so a trailing marker would become part of the password.
 fn secrets_env(password: &str) -> String {
     format!(
         concat!(
             "# Generated from the scenario input -- regenerating this deployment rewrites it.\n",
+            "# skipcq: SCT-A000 -- derived from the scenario input, not an independently generated secret\n",
             "ZO_ROOT_USER_PASSWORD={password}\n",
+            "# skipcq: SCT-A000 -- derived from the scenario input, not an independently generated secret\n",
             "OTLP_AUTH_PASSWORD={password}\n",
         ),
         password = password
