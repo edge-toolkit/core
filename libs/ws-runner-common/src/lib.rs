@@ -12,6 +12,7 @@
 use std::time::{Duration, SystemTime};
 
 use edge_toolkit::ws::{ClientMessage, ConnectStatus, ServerMessage};
+use et_rest_client::ClientInfo as _;
 use futures_util::{SinkExt as _, StreamExt as _};
 use retry_policies::policies::ExponentialBackoff;
 use retry_policies::{RetryDecision, RetryPolicy};
@@ -354,6 +355,35 @@ async fn fetch_package_json_bytes(
     reason = "the single attempt fetch_package_json_bytes retries; separate so the retry loop stays readable"
 )]
 async fn try_fetch_package_json(client: &et_rest_client::Client, module_name: &str) -> Result<Vec<u8>, BootstrapError> {
-    let response = client.get_module_file(module_name, "package.json").await?;
-    collect_byte_stream(response.into_inner()).await
+    fetch_module_file(client, module_name, "package.json").await
+}
+
+/// Fetch one file from the directory a module is served out of.
+///
+/// Built on the raw client rather than the typed `get_module_file`, which percent-encodes each argument as a
+/// single path segment. A module is served under the name it publishes under, so the name carries the owner
+/// scope and holds a `/` and an `@`; encoded they become `%2F` and `%40`, and the request then asks for a
+/// module no hub serves -- which the hub answers with a 400 rather than the file. The same reason keeps the
+/// web runner's own module loader off the typed call.
+pub async fn fetch_module_file(
+    client: &et_rest_client::Client,
+    module_name: &str,
+    path: &str,
+) -> Result<Vec<u8>, BootstrapError> {
+    let url = format!("{}/modules/{module_name}/{path}", client.baseurl());
+    let response = client.client().get(url).send().await?.error_for_status()?;
+    Ok(response.bytes().await?.to_vec())
+}
+
+/// Whether a [`fetch_module_file`] failure was the hub saying it serves no such file.
+///
+/// A caller for whom absence is an answer rather than a fault needs to tell the two apart, and going off the
+/// typed client means there is no generated `ErrorResponse` variant to match on -- the status is what is
+/// left. Anything else, including a hub that could not be reached at all, stays an error.
+#[must_use]
+pub fn is_module_file_missing(err: &BootstrapError) -> bool {
+    let BootstrapError::Stream(err) = err else {
+        return false;
+    };
+    err.status().is_some_and(|status| status.as_u16() == 404)
 }

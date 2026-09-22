@@ -395,8 +395,10 @@ def _mnist_inference() -> dict:
     _log("loading mnist-12.onnx")
     # The model file is a sibling static asset, served from pkg/ by
     # et-modules-service. We treat it as a read-only wasi:keyvalue bucket
-    # backed by the module's static-asset directory (`/modules/<name>/`).
-    module_assets = store.open("modules/et-ws-wasi-graphics-info")
+    # backed by the module's static-asset directory (`/modules/<name>/`),
+    # named the way this module's package.json declares it -- owner scope
+    # and all, since that is what the hub serves it under.
+    module_assets = store.open("modules/@edge-toolkit/et-ws-wasi-graphics-info")
     model_value = module_assets.get("mnist-12.onnx")
     if model_value is None:
         raise RuntimeError("mnist-12.onnx not found in modules bucket")

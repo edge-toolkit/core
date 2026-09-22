@@ -24,7 +24,7 @@ mod scenario_password;
 // it; no consumer outside this directory builds on it, and nothing exported is a promise. Everything the
 // generators share among themselves is `pub(crate)`, so what remains below is the whole of the surface anyone
 // could depend on -- short enough to read, which is what makes an accidental addition to it visible.
-pub use self::deployment_types::{docker_image_module_paths, scenario_module_paths};
+pub use self::deployment_types::{ScenarioModules, docker_image_module_paths, scenario_module_paths};
 pub(crate) use self::deployment_types::{
     generate_docker_compose_deployment, generate_k3s_deployment, generate_mise_deployment, generate_scenario_image,
 };
@@ -178,7 +178,7 @@ pub(crate) const COLLECTOR_SETTINGS: [(&str, &str); 2] =
 /// asks for published images names it here and the cluster pulls it, leaving the node with nothing to build or
 /// import. The hub image is published alongside them but no manifest names it: it is the base a scenario image
 /// is layered onto, so it reaches a deployment as a build context rather than as something a pod runs.
-pub(crate) const IMAGE_REGISTRY: &str = "ghcr.io/edge-toolkit/core";
+pub(crate) const IMAGE_REGISTRY: &str = et_org::IMAGE_REGISTRY;
 
 /// Prefix that turns a bare image name into the one a scenario's `artifact_source` asks for.
 ///
@@ -872,12 +872,31 @@ pub(crate) fn module_registry(project_root: &Path, ws_server_dir: &Path) -> BTre
         "/app/generated/python-rest",
     );
 
+    // The two the hub serves whatever the scenario asks for: its own page, and the agent that page loads.
+    // Registered like any other module rather than prepended as bare paths by each generator, so the
+    // dependencies they declare are resolved too. `static` names the runtimes its page pulls at boot, and a
+    // deployment that omits them serves a page whose first import 404s.
+    register_module_at(
+        &mut registry,
+        &project_root.join("services/ws-server/static"),
+        ws_server_dir,
+        "/app/services/ws-server/static",
+    );
+    register_module_at(
+        &mut registry,
+        &project_root.join("services/ws-wasm-agent"),
+        ws_server_dir,
+        "/app/services/ws-wasm-agent",
+    );
+
     register_external_module(
         &mut registry,
         "onnxruntime-web",
         "npm:onnxruntime-web",
         "/app/node_modules/onnxruntime-web",
     );
+    // The GPU utilisation overlay on the hub's page, declared by `static` alongside onnxruntime-web.
+    register_external_module(&mut registry, "stats-gl", "npm:stats-gl", "/app/node_modules/stats-gl");
     // Registered as the full distribution, which `resolve_cluster_modules` narrows to the much smaller npm
     // package for a cluster whose modules never call `micropip.install`. The full one comes from a GitHub
     // release tarball that mise's http backend extracts flat, so its install dir is itself the module directory.
@@ -933,6 +952,9 @@ fn register_module_at(
     register_module(registry, module_path, directory_name, ws_server_dir, docker_path);
 }
 
+/// Registry scope this project's own module packages carry, and which the hub drops when naming a module.
+pub(crate) const MODULE_SCOPE: &str = et_org::NPM_SCOPE;
+
 fn register_module(
     registry: &mut BTreeMap<String, ModuleRegistryEntry>,
     module_path: &Path,
@@ -944,20 +966,40 @@ fn register_module(
     // The docker path is always the repo-relative path under `/app`, which is where the hub image roots its
     // module scan, so stripping that prefix recovers the path to copy out of the build context.
     let repo_path = docker_path.strip_prefix("/app/").unwrap_or(docker_path).to_string();
+    // The name a module is served, resolved and referred to by is the one its published `package.json`
+    // declares, scope and all -- and it has to be that name whether or not `pkg/` has been built, because
+    // the lanes that generate a deployment build no modules. A generated manifest already carries the scope;
+    // the source manifest standing in for it when `pkg/` is absent (`Cargo.toml`, `pyproject.toml`) names the
+    // crate unscoped. So the rule that scopes a dependency scopes the module's own name too, which leaves an
+    // already-scoped one untouched and keeps both sides of a dependency edge spelling the same key.
+    let served_name = package
+        .as_ref()
+        .and_then(|package| package.name.clone())
+        .map(|name| module_package_json::scoped_dependency_name(&name));
     let entry = ModuleRegistryEntry {
         mise_path: relative_path_from(ws_server_dir, module_path),
         docker_path: docker_path.to_string(),
+        // Through the same scoping the generator applies when it writes a `package.json`, because the two
+        // have to name the same module. A source manifest declares a dependency the way it declares its own
+        // crate -- unscoped -- and publishing scopes both; reading one side raw would leave a dependency
+        // naming something the registry has no key for.
         dependencies: package
             .as_ref()
-            .map(|package| package.dependencies.keys().cloned().collect())
+            .map(|package| {
+                package
+                    .dependencies
+                    .keys()
+                    .map(|name| module_package_json::scoped_dependency_name(name))
+                    .collect()
+            })
             .unwrap_or_default(),
         source: ModuleSource::Repo(repo_path),
-        package_name: package.as_ref().and_then(|package| package.name.clone()),
+        package_name: served_name.clone(),
     };
 
     let _previous: Option<ModuleRegistryEntry> = registry.insert(directory_name.to_string(), entry.clone());
-    if let Some(package_name) = package.and_then(|package| package.name) {
-        let _previous: Option<ModuleRegistryEntry> = registry.insert(package_name, entry);
+    if let Some(served_name) = served_name {
+        let _previous: Option<ModuleRegistryEntry> = registry.insert(served_name, entry);
     }
 }
 
@@ -983,6 +1025,11 @@ fn register_external_module(
 /// Separate from registration so the pyodide swap can rebuild an entry for a different tool without restating
 /// how a mise path is spelled.
 fn external_module_entry(package_name: &str, tool: &str, docker_path: &str) -> ModuleRegistryEntry {
+    // Resolved at run time, because where mise's npm backend puts a package varies by backend and platform.
+    // A local deployment names the packages it wants rather than asking the hub to serve everything this
+    // config staged: the repository's own tools table mixes modules with development tooling, so serving all
+    // of it would serve things that are not modules at all. An archive-backed tool
+    // extracts flat, making its install directory the module directory, which `mise where` answers outright.
     let mise_path = if tool.starts_with("npm:") {
         format!("$(cargo run --quiet -p et-cli -- npm-module-path --package {package_name})")
     } else {

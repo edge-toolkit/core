@@ -20,8 +20,8 @@ importers:
 
   services/ws-server/static:
     dependencies:
-      et-ws-wasm-agent:
-        specifier: link:../../ws-wasm-agent/pkg
+      '@edge-toolkit/et-ws-wasm-agent':
+        specifier: workspace:*
         version: link:../../ws-wasm-agent/pkg
       onnxruntime-web:
         specifier: '*'
@@ -29,6 +29,8 @@ importers:
       stats-gl:
         specifier: '*'
         version: 4.2.3
+
+  services/ws-wasm-agent/pkg: {}
 
 packages:
 

@@ -1,8 +1,8 @@
 #![cfg(test)]
 
 use et_cli::{
-    docker_image_module_paths, generate_deployment, hub_service_ws_url, hub_ws_url, module_package_json,
-    regenerate_verification, scenario_dockerfile_path, scenario_module_paths,
+    ScenarioModules, docker_image_module_paths, generate_deployment, hub_service_ws_url, hub_ws_url,
+    module_package_json, regenerate_verification, scenario_dockerfile_path, scenario_module_paths,
 };
 use fs_err as fs;
 use serde::Deserialize as _;
@@ -10,9 +10,9 @@ use tempfile::tempdir;
 
 /// Lay out a `verification/` tree holding one scenario input, and return its root and the output directory.
 ///
-/// Both regeneration tests below need the same four paths in the same shape and differ only in the document
-/// they write, so the scaffolding lives here once. The temp root is returned alongside them because dropping
-/// it deletes the tree, so the caller has to keep it alive for the length of the test.
+/// Both regeneration tests below need the same four paths in the same shape and differ only in the document they write,
+/// so the scaffolding lives here once. The temp root is returned alongside them because dropping it deletes the tree,
+/// so the caller has to keep it alive for the length of the test.
 fn scenario_tree(input: &str) -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
     let test_root = tempdir().unwrap();
     let verification_root = test_root.path().join("verification");
@@ -43,8 +43,8 @@ fn deployment_error_for(input: &str) -> String {
 
 #[test]
 fn generate_deployment_rejects_unsupported_deployment_type() {
-    // Rejected while the input is read rather than by a check further in, which is what makes the error name
-    // the field and the line it is on instead of describing a value the generator could not use.
+    // Rejected while the input is read rather than by a check further in, which is what makes the error name the field
+    // and the line it is on instead of describing a value the generator could not use.
     let error = deployment_error_for(
         r#"cluster_name: "test-cluster"
 deployment_type: yaml
@@ -57,9 +57,9 @@ agents: []
 
 #[test]
 fn generate_deployment_rejects_a_cluster_name_that_is_not_an_rfc_1123_label() {
-    // The name reaches a shell in the generated README (`scenario=<name>`) and a Kubernetes namespace in
-    // `k3s.yaml`, so anything outside the label alphabet is either an injection vector or a manifest the API
-    // server rejects. A `;` is the shell half of that in its shortest form.
+    // The name reaches a shell in the generated README (`scenario=<name>`) and a Kubernetes namespace in `k3s.yaml`, so
+    // anything outside the label alphabet is either an injection vector or a manifest the API server rejects. A `;` is
+    // the shell half of that in its shortest form.
     let error = deployment_error_for(
         r#"cluster_name: "oops; echo pwned"
 deployment_type: "mise"
@@ -96,8 +96,8 @@ agents:
 
 #[test]
 fn generate_deployment_rejects_two_runners_with_the_same_name() {
-    // Two agents sharing a name derive one runner name; mise would keep the last task inserted under it and
-    // compose would emit a duplicate service key, so one of the two runners would silently vanish.
+    // Two agents sharing a name derive one runner name; mise would keep the last task inserted under it and compose
+    // would emit a duplicate service key, so one of the two runners would silently vanish.
     let error = deployment_error_for(
         r#"cluster_name: "name-collision"
 deployment_type: "mise"
@@ -121,7 +121,7 @@ agents:
 
 #[test]
 fn docker_image_module_paths_include_static_root_module() {
-    let paths = docker_image_module_paths(&["face-detection".to_string()]).unwrap();
+    let paths = docker_image_module_paths(&["face-detection".to_string()], true).unwrap();
 
     assert_eq!(paths[0], "/app/services/ws-server/static");
     assert!(paths.contains(&"/app/services/ws-wasm-agent".to_string()));
@@ -132,11 +132,31 @@ fn docker_image_module_paths_include_static_root_module() {
 }
 
 #[test]
+fn a_headless_image_is_given_neither_the_page_nor_what_the_page_imports() {
+    // face-detection's own model still comes, because the module declares it. What goes is the page and the two
+    // packages only its `package.json` names -- a cluster nobody opens loads none of them.
+    let paths = docker_image_module_paths(&["face-detection".to_string()], false).unwrap();
+
+    assert!(
+        !paths.contains(&"/app/services/ws-server/static".to_string()),
+        "{paths:?}"
+    );
+    assert!(!paths.contains(&"/app/node_modules/stats-gl".to_string()), "{paths:?}");
+    assert!(paths.contains(&"/app/services/ws-wasm-agent".to_string()));
+    assert!(paths.contains(&"/app/data/model-modules/model-face1".to_string()));
+    assert!(paths.contains(&"/app/services/ws-modules/face-detection".to_string()));
+}
+
+#[test]
 fn scenario_module_paths_include_selected_modules_and_dependencies() {
     let project_root = edge_toolkit::config::get_project_root();
     let ws_server_dir = project_root.join("services/ws-server");
-    let paths = scenario_module_paths(&ws_server_dir, &["face-detection".to_string(), "har1".to_string()]).unwrap();
+    let modules = ["face-detection".to_string(), "har1".to_string()];
+    let paths = scenario_module_paths(&ScenarioModules::new(&ws_server_dir, &modules, true)).unwrap();
 
+    // onnxruntime-web and stats-gl are here because the hub's own page declares them, not because either scenario
+    // module does -- they arrive in the first resolution wave, ahead of the model modules that face-detection and har1
+    // pull in. A deployment that omitted them served a page whose first import 404d.
     assert_eq!(
         paths,
         vec![
@@ -144,8 +164,9 @@ fn scenario_module_paths_include_selected_modules_and_dependencies() {
             "../ws-wasm-agent".to_string(),
             "../ws-modules/face-detection".to_string(),
             "../ws-modules/har1".to_string(),
-            "../../data/model-modules/model-face1".to_string(),
             "$(cargo run --quiet -p et-cli -- npm-module-path --package onnxruntime-web)".to_string(),
+            "$(cargo run --quiet -p et-cli -- npm-module-path --package stats-gl)".to_string(),
+            "../../data/model-modules/model-face1".to_string(),
             "../../data/model-modules/model-har-motion1".to_string(),
         ],
     );
@@ -154,10 +175,29 @@ fn scenario_module_paths_include_selected_modules_and_dependencies() {
 }
 
 #[test]
+fn the_hub_page_brings_its_own_runtimes_even_when_the_scenario_declares_no_modules() {
+    // The regression this pins: `static` and the agent used to be prepended as bare paths, so the runtimes
+    // `static/package.json` declares were never resolved. `default` declares no modules at all, which makes it the
+    // scenario where nothing else would have pulled them in.
+    let project_root = edge_toolkit::config::get_project_root();
+    let ws_server_dir = project_root.join("services/ws-server");
+    let paths = scenario_module_paths(&ScenarioModules::new(&ws_server_dir, &[], true)).unwrap();
+
+    assert!(paths.contains(&"static".to_string()));
+    assert!(paths.contains(&"../ws-wasm-agent".to_string()));
+    // Resolved when the task runs, because the layout mise's npm backend produces is not knowable here.
+    let onnx = "$(cargo run --quiet -p et-cli -- npm-module-path --package onnxruntime-web)".to_string();
+    let stats = "$(cargo run --quiet -p et-cli -- npm-module-path --package stats-gl)".to_string();
+    assert!(paths.contains(&onnx), "hub page imports onnxruntime-web: {paths:?}");
+    assert!(paths.contains(&stats), "hub page imports stats-gl: {paths:?}");
+}
+
+#[test]
 fn scenario_module_paths_include_pyface1_python_runtime_dependencies() {
     let project_root = edge_toolkit::config::get_project_root();
     let ws_server_dir = project_root.join("services/ws-server");
-    let paths = scenario_module_paths(&ws_server_dir, &["pyface1".to_string()]).unwrap();
+    let modules = ["pyface1".to_string()];
+    let paths = scenario_module_paths(&ScenarioModules::new(&ws_server_dir, &modules, true)).unwrap();
 
     assert!(paths.contains(&"../ws-modules/pyface1".to_string()));
     assert!(paths.contains(&"../../data/model-modules/model-face1".to_string()));
@@ -264,21 +304,21 @@ agents:
 
 /// The generated manifests describe the whole scenario and keep the credential out of the file.
 ///
-/// The credential half is the point of the `envFrom` assertion: the value lives in the uncommitted env file
-/// and reaches the pods through a `Secret` the operator creates, so a regression that inlined it would put a
-/// password into a committed tree. Asserting the literal is absent is what catches that.
-/// Regenerate one k3s scenario and return its output directory.
+/// The credential half is the point of the `envFrom` assertion: the value lives in the uncommitted env file and reaches
+/// the pods through a `Secret` the operator creates, so a regression that inlined it would put a password into a
+/// committed tree. Asserting the literal is absent is what catches that. Regenerate one k3s scenario and return its
+/// output directory.
 ///
-/// The two tests below assert on different halves of the same manifest, so the generation lives here once. The
-/// temp root comes back alongside the directory because dropping it deletes the tree.
+/// The two tests below assert on different halves of the same manifest, so the generation lives here once. The temp
+/// root comes back alongside the directory because dropping it deletes the tree.
 fn k3s_scenario() -> (tempfile::TempDir, std::path::PathBuf) {
     k3s_scenario_with("")
 }
 
 /// Generate the k3s scenario above with `extra` spliced into its input, for the tests that vary one field.
 ///
-/// Split from `k3s_scenario` rather than written out a second time, so the two image sources are generated
-/// from the same scenario and any difference the tests below assert on is the field and nothing else.
+/// Split from `k3s_scenario` rather than written out a second time, so the two image sources are generated from the
+/// same scenario and any difference the tests below assert on is the field and nothing else.
 fn k3s_scenario_with(extra: &str) -> (tempfile::TempDir, std::path::PathBuf) {
     let (test_root, verification_root, output_dir) = scenario_tree(&format!(
         r#"cluster_name: "k3s-cluster"
@@ -297,8 +337,8 @@ deployment_type: "k3s"
 
 /// Generate the k3s scenario with `extra` spliced in and return the two files a rendering is judged by.
 ///
-/// The temp root is dropped here rather than handed back, because both files are read before it goes.
-/// The one input line that switches a scenario from building what it runs to addressing the releases.
+/// The temp root is dropped here rather than handed back, because both files are read before it goes. The one input
+/// line that switches a scenario from building what it runs to addressing the releases.
 const PUBLISHED: &str = "artifact_source: \"published\"\n";
 
 fn k3s_manifest_and_readme(extra: &str) -> (String, String) {
@@ -310,8 +350,8 @@ fn k3s_manifest_and_readme(extra: &str) -> (String, String) {
 
 #[test]
 fn the_artifact_source_decides_whether_runner_images_are_pulled() {
-    // Both renderings in one test, because what matters is the contrast: the same scenario has to come out
-    // naming a runner the node holds under one source and one the cluster fetches under the other.
+    // Both renderings in one test, because what matters is the contrast: the same scenario has to come out naming a
+    // runner the node holds under one source and one the cluster fetches under the other.
     let (local_manifest, local_readme) = k3s_manifest_and_readme("");
     let (published_manifest, published_readme) = k3s_manifest_and_readme(PUBLISHED);
 
@@ -332,8 +372,8 @@ fn the_artifact_source_decides_whether_runner_images_are_pulled() {
         published_manifest.contains("image: ghcr.io/edge-toolkit/core/et-ws-wasi-runner:latest"),
         "the cluster pulls the runner: {published_manifest}"
     );
-    // The scenario image stays unqualified whichever source is asked for: it carries this deployment's own
-    // module set, so there is no published copy of it to name.
+    // The scenario image stays unqualified whichever source is asked for: it carries this deployment's own module set,
+    // so there is no published copy of it to name.
     assert!(
         published_manifest.contains("image: et-ws-server-k3s-cluster:latest"),
         "the scenario image is still local: {published_manifest}"
@@ -362,9 +402,9 @@ agents:
 
 #[test]
 fn an_agents_declared_env_reaches_every_deployment_format() {
-    // One declaration in the input, three renderings. A format that dropped it would leave a runner
-    // configured in two deployments out of three, which only shows up when that deployment is run.
-    // `env:` belongs to the agent, not the cluster, so this is a whole input rather than a spliced line.
+    // One declaration in the input, three renderings. A format that dropped it would leave a runner configured in two
+    // deployments out of three, which only shows up when that deployment is run. `env:` belongs to the agent, not the
+    // cluster, so this is a whole input rather than a spliced line.
     let (_test_root, verification_root, output_dir) = scenario_tree(WITH_RUNNER_ENV);
     let _regenerated = regenerate_verification(&verification_root, None).unwrap();
     let mise = fs::read_to_string(output_dir.join("mise.toml")).unwrap();
@@ -388,8 +428,8 @@ fn an_agents_declared_env_reaches_every_deployment_format() {
 
 #[test]
 fn generate_deployment_rejects_an_agent_overriding_derived_runner_env() {
-    // Letting it win would generate files describing one deployment whose runners join another; letting the
-    // derived value win would silently ignore what the scenario asked for. Neither is worth allowing.
+    // Letting it win would generate files describing one deployment whose runners join another; letting the derived
+    // value win would silently ignore what the scenario asked for. Neither is worth allowing.
     let error = deployment_error_for(
         r#"cluster_name: "derived-env"
 agents:
@@ -412,9 +452,9 @@ agents:
 fn the_scenario_dockerfile_path_stays_relative_however_shallow_the_output_dir() {
     use std::path::Path;
 
-    // A single-component directory has a parent, and it is the empty path rather than `None`. Prefixing it
-    // blindly yields `/$scenario/Dockerfile`, an absolute path to a directory nobody has -- and the README
-    // hands that straight to `docker build -f`.
+    // A single-component directory has a parent, and it is the empty path rather than `None`. Prefixing it blindly
+    // yields `/$scenario/Dockerfile`, an absolute path to a directory nobody has -- and the README hands that straight
+    // to `docker build -f`.
     assert_eq!(
         scenario_dockerfile_path(Path::new("my-scenario")),
         "$scenario/Dockerfile"
@@ -427,9 +467,9 @@ fn the_scenario_dockerfile_path_stays_relative_however_shallow_the_output_dir() 
 
 #[test]
 fn the_wrapped_module_list_folds_back_into_one_comma_separated_value() {
-    // The list is wrapped to stay inside the line limit, and it is wrapped by YAML folding rather than by a
-    // trailing `\`, which the repository bans. Folding is only correct if the breaks come back as separators
-    // the server accepts, so this parses the generated file rather than trusting the spelling.
+    // The list is wrapped to stay inside the line limit, and it is wrapped by YAML folding rather than by a trailing
+    // `\`, which the repository bans. Folding is only correct if the breaks come back as separators the server accepts,
+    // so this parses the generated file rather than trusting the spelling.
     let (_test_root, output_dir) = k3s_scenario_with("");
     let text = fs::read_to_string(output_dir.join("compose.yaml")).unwrap();
 
@@ -442,7 +482,9 @@ fn the_wrapped_module_list_folds_back_into_one_comma_separated_value() {
 
     assert!(!paths.contains('\n'), "folded to a single line: {paths}");
     let segments: Vec<&str> = paths.split(',').map(str::trim).collect();
-    assert_eq!(segments.first().copied(), Some("/app/services/ws-server/static"));
+    // The agent leads, not the page: this fixture's one agent names a runner, so the cluster is headless and was never
+    // given a front page.
+    assert_eq!(segments.first().copied(), Some("/app/services/ws-wasm-agent"));
     assert!(
         segments.iter().all(|segment| segment.starts_with("/app/")),
         "every segment is a path once trimmed: {segments:?}"
@@ -570,9 +612,9 @@ fn regenerate_verification_keeps_the_credential_out_of_the_k3s_manifest() {
         "the Secret is referenced by name"
     );
 
-    // The runners address the hub by its Service, not by the `localhost` the host-networked formats use.
-    // Asserted against the builders rather than two literals, so a port change cannot leave the test passing
-    // against a URL the generator no longer emits.
+    // The runners address the hub by its Service, not by the `localhost` the host-networked formats use. Asserted
+    // against the builders rather than two literals, so a port change cannot leave the test passing against a URL the
+    // generator no longer emits.
     assert!(text.contains(&hub_service_ws_url()));
     assert!(!text.contains(&hub_ws_url()));
 }

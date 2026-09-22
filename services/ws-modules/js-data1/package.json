@@ -1,5 +1,5 @@
 {
-  "name": "et-ws-js-data1",
+  "name": "@edge-toolkit/et-ws-js-data1",
   "version": "0.1.0",
   "description": "JS data1 twin using AWS SDK v3 (S3)",
   "license": "Apache-2.0 OR MIT",

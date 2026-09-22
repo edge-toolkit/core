@@ -6,8 +6,8 @@
 // round-trip (httr2 over the /websockify relay), verification -- happens in module.R. webR is vendored under
 // pkg/webr/ and served at the path below.
 
-const WEBR_BASE_URL = "/modules/et-ws-rdata1/webr/";
-const R_SOURCE_URL = "/modules/et-ws-rdata1/module.R";
+const WEBR_BASE_URL = "/modules/@edge-toolkit/et-ws-rdata1/webr/";
+const R_SOURCE_URL = "/modules/@edge-toolkit/et-ws-rdata1/module.R";
 
 let webR = null;
 
@@ -31,7 +31,7 @@ export async function run() {
 // Expose the agent WebSocket to R on globalThis.__etAgent. R drives it (connect state, agent_id, disconnect)
 // via webr::eval_js; the shim only creates and connects it.
 async function setupAgent() {
-  const wasmAgent = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
+  const wasmAgent = await import("/modules/@edge-toolkit/et-ws-wasm-agent/et_ws_wasm_agent.js");
   await wasmAgent.default();
   const { WsClient, WsClientConfig } = wasmAgent;
   const loc = typeof location !== "undefined" ? location : null;

@@ -17,6 +17,7 @@ test = false
 et-model-llm1 = "*"
 
 [dependencies]
+et-org.workspace = true
 et-web.workspace = true
 et-ws-wasm-agent.workspace = true
 js-sys.workspace = true

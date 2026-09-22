@@ -1,5 +1,5 @@
 {
-  "name": "et-ws-java-math1",
+  "name": "@edge-toolkit/et-ws-java-math1",
   "type": "module",
   "description": "java math1",
   "version": "0.1.0",

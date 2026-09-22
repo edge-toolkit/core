@@ -5,5 +5,8 @@
     .license = "Apache-2.0 or MIT",
     .main = "et_ws_zig_math1.js",
     .fingerprint = 0x50849fc82a52afc5,
+    .dependencies = .{
+        .zig_shared = .{ .path = "../zig-shared" },
+    },
     .paths = .{""},
 }

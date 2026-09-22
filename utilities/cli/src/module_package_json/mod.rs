@@ -10,7 +10,42 @@ use fs_err as fs;
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
+use crate::MODULE_SCOPE;
 use crate::error::{CliError, parse_json, parse_toml, serialize_json_pretty};
+
+/// The name a module publishes under, given the name its crate or project declares.
+///
+/// Every module carries the owner scope, because a registry that would accept an unscoped one does not exist
+/// for this project: GitHub Packages rejects any package not scoped to the repository owner. Carrying it on a
+/// module nobody publishes costs nothing, since the hub takes the scope back off when it names a module --
+/// so a scoped and an unscoped build of the same module are served identically, and a tree part way through
+/// this rename behaves uniformly. Applied here rather than at each call site so one rule covers every module
+/// whose manifest this generator writes.
+fn scoped_package_name(declared: &str) -> String {
+    if declared.starts_with(MODULE_SCOPE) {
+        return declared.to_string();
+    }
+    format!("{MODULE_SCOPE}{declared}")
+}
+
+/// Prefix every module of this project's own carries, and so what marks a dependency as one to scope.
+const OWN_MODULE_PREFIX: &str = et_org::CRATE_PREFIX;
+
+/// The name a declared dependency is written as in the published manifest.
+///
+/// A module's `dependencies` name the other modules the hub has to serve alongside it, and a deployment
+/// resolves them by the served name. Publishing turns that list into something a registry reads too, so a
+/// module of this project's own has to appear under the name the registry knows it by -- installing a
+/// published module otherwise fails on a dependency no registry has. Everything else a module declares
+/// (`onnxruntime-web`, `pyodide`, the `@huggingface` and `@mediapipe` packages) is somebody else's, already
+/// published under exactly that name, and scoping it would point the install at a package that never existed.
+/// The prefix separates the two: every module here carries it, and no third-party dependency does.
+pub(crate) fn scoped_dependency_name(declared: &str) -> String {
+    if declared.starts_with(OWN_MODULE_PREFIX) {
+        return scoped_package_name(declared);
+    }
+    declared.to_string()
+}
 
 #[derive(Deserialize)]
 struct Project {
@@ -138,7 +173,7 @@ fn package_json_from_pyproject(module_dir: &Path) -> Result<Value, CliError> {
     let main = resolve_main(&pkg_dir, &project.name, kind, ws_module.main.as_deref())?;
 
     let mut pkg = Map::from_iter([
-        ("name".to_string(), json!(project.name)),
+        ("name".to_string(), json!(scoped_package_name(&project.name))),
         ("type".to_string(), json!("module")),
         (
             "description".to_string(),
@@ -152,7 +187,12 @@ fn package_json_from_pyproject(module_dir: &Path) -> Result<Value, CliError> {
         pkg.insert("repository".to_string(), repository_json(repo));
     }
     if !ws_module.dependencies.is_empty() {
-        pkg.insert("dependencies".to_string(), json!(ws_module.dependencies));
+        let dependencies: BTreeMap<String, String> = ws_module
+            .dependencies
+            .into_iter()
+            .map(|(name, version)| (scoped_dependency_name(&name), version))
+            .collect();
+        pkg.insert("dependencies".to_string(), json!(dependencies));
     }
     Ok(Value::Object(pkg))
 }
@@ -182,14 +222,20 @@ fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value, 
 
     let mut pkg = read_package_json(out_path)?.unwrap_or_else(|| {
         let mut pkg = Map::new();
-        pkg.insert("name".to_string(), json!(crate_name));
+        pkg.insert("name".to_string(), json!(scoped_package_name(&crate_name)));
         pkg.insert("type".to_string(), json!("module"));
         pkg
     });
 
-    if !pkg.contains_key("name") {
-        pkg.insert("name".to_string(), json!(crate_name));
-    }
+    // Normalise whatever name is already there rather than only filling in a missing one. A `pkg/` written by
+    // wasm-pack arrives carrying its own name, so leaving an existing one alone meant a module built before
+    // the scope existed kept its bare name forever. Scoping what is there preserves a deliberate rename while
+    // still guaranteeing the scope; for a name wasm-pack derived from the crate the result is identical.
+    let declared = pkg
+        .get("name")
+        .and_then(Value::as_str)
+        .map_or_else(|| crate_name.clone(), str::to_string);
+    pkg.insert("name".to_string(), json!(scoped_package_name(&declared)));
     let ws_version = workspace.as_ref().and_then(|ws| ws.version.as_deref());
     let ws_repository = workspace.as_ref().and_then(|ws| ws.repository.as_deref());
     if !pkg.contains_key("version")
@@ -222,8 +268,17 @@ fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value, 
             .as_object_mut()
             .ok_or_else(|| CliError::NonObjectDependencies(out_path.to_path_buf()))?;
         for (name, version) in ws_module.dependencies {
-            dependency_map.insert(name, json!(version));
+            dependency_map.insert(scoped_dependency_name(&name), json!(version));
         }
+        // An entry left by an earlier generation carries whatever name the rule produced then, so the map is
+        // normalised as a whole rather than only where this run inserted. Without it a module that was
+        // generated before the scope existed keeps the bare key and gains the scoped one beside it, and the
+        // hub is handed the same dependency twice under two names.
+        let normalised: Map<String, Value> = dependency_map
+            .iter()
+            .map(|(name, version)| (scoped_dependency_name(name), version.clone()))
+            .collect();
+        *dependency_map = normalised;
     }
 
     Ok(Value::Object(pkg))

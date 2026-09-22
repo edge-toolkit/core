@@ -311,6 +311,53 @@ pub fn mise_where(tool: &str) -> Option<PathBuf> {
     path.is_dir().then_some(path)
 }
 
+/// Module directories for every npm package the mise config active in the current directory declares.
+///
+/// This is what lets a deployment say which modules it serves exactly once, in its `[tools]` table, instead
+/// of repeating the list as paths it cannot know: mise reports where it put each package, and the layout
+/// probing below turns that into the directory holding the `package.json`.
+///
+/// Scoped to `--current`, so it answers with the tools of the config in scope rather than everything ever
+/// installed on the machine -- two deployments on one host each see their own modules. It follows that the
+/// process has to run where that config applies, which for a generated deployment is the directory holding
+/// its `mise.toml`.
+///
+/// An empty list is returned rather than an error for every failure: mise absent, a config that declares no
+/// npm tools, output that will not parse. A deployment that expected modules gets the same outcome as one
+/// that asked for none, which the caller reports as a module that cannot be found.
+#[must_use]
+pub fn mise_staged_module_dirs() -> Vec<PathBuf> {
+    let Some(payload) = mise_current_tools() else {
+        return Vec::new();
+    };
+    staged_module_dirs_from_tool_list(&payload)
+}
+
+/// The module directories named by a `mise ls --current --json` payload.
+///
+/// Split from [`mise_staged_module_dirs`] so the shape of the payload can be exercised without a `mise` to
+/// produce it. Every failure is a silent omission -- output that will not parse, a listing that is not an
+/// object, a tool of some other backend, an entry with no version or no install path, and an install whose
+/// directory holds the package in no layout this knows. A deployment that expected a module gets the same
+/// outcome as one that never asked for it, which the caller reports as a module it cannot find.
+#[must_use]
+pub fn staged_module_dirs_from_tool_list(tool_list_json: &[u8]) -> Vec<PathBuf> {
+    let Ok(listed) = serde_json::from_slice::<serde_json::Value>(tool_list_json) else {
+        return Vec::new();
+    };
+    let Some(tools) = listed.as_object() else {
+        return Vec::new();
+    };
+    tools
+        .iter()
+        .filter_map(|(tool, versions)| {
+            let package = tool.strip_prefix("npm:")?;
+            let install = versions.get(0)?.get("install_path")?.as_str()?;
+            find_npm_modules_path_in(Path::new(install), package).map(|dir| dir.join(package))
+        })
+        .collect()
+}
+
 /// Returns the directory containing `<package>` for an `npm:<package>` mise install.
 ///
 /// I.e. the `node_modules` directory you'd point `MODULES_PATHS` at. Calls
@@ -387,15 +434,23 @@ pub fn mise_python_site_packages() -> Vec<PathBuf> {
     if !mise_is_available() {
         return Vec::new();
     }
-    // `output_checked` errors on both a spawn failure and a non-zero exit, so the `mise ls` best-effort
-    // path collapses to a single fallible call -- no separate `status.success()` filter.
-    let Ok(output) = std::process::Command::new("mise")
-        .args(["ls", "--current", "--json"])
-        .output_checked()
-    else {
+    let Some(listed) = mise_current_tools() else {
         return Vec::new();
     };
-    site_packages_from_tool_list(&output.stdout)
+    site_packages_from_tool_list(&listed)
+}
+
+/// What `mise` reports installed for the config in scope, as the raw `mise ls --current --json` payload.
+///
+/// Shared by the callers that pick different tools out of the same listing, so the subprocess and its
+/// failure handling are written once. `output_checked` errors on both a spawn failure and a non-zero exit,
+/// so a best-effort caller collapses to one fallible call with no separate `status.success()` filter.
+fn mise_current_tools() -> Option<Vec<u8>> {
+    let output = std::process::Command::new("mise")
+        .args(["ls", "--current", "--json"])
+        .output_checked()
+        .ok()?;
+    Some(output.stdout)
 }
 
 /// The `site-packages` directories named by a `mise ls --current --json` payload.

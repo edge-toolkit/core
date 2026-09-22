@@ -41,6 +41,7 @@ pyo3-build-config.workspace = true
 backon = { workspace = true, features = ["tokio-sleep"] }
 base64.workspace = true
 command-error.workspace = true
+et-org.workspace = true
 et-ws-test-server.workspace = true
 rstest.workspace = true
 

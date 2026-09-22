@@ -1,4 +1,5 @@
 [env]
+NPM_CONFIG_USERCONFIG = "{{ config_root }}/npmrc"
 OTLP_AUTH_USERNAME = "root@example.com"
 
 [env._]
@@ -23,13 +24,23 @@ docker run --rm --name openobserve -p 127.0.0.1:5080:5080 $settings -e ZO_ROOT_U
 
 [tasks.ws-server]
 description = "Run the WebSocket server"
-dir = "../../../../services/ws-server"
 run = """
-MODULES_PATHS="static, ../ws-wasm-agent"
-export MODULES_PATHS
 et-ws-server
 """
+
+[tasks.ws-server.env]
+MODULES_ROOT = "@edge-toolkit/et-ws-server-static"
 
 [tools]
 "cargo:et-ws-server" = "latest"
 "cargo:open" = "latest"
+"npm:onnxruntime-web" = "latest"
+"npm:stats-gl" = "latest"
+
+[tools."npm:@edge-toolkit/et-ws-server-static"]
+minimum_release_age = "0"
+version = "latest"
+
+[tools."npm:@edge-toolkit/et-ws-wasm-agent"]
+minimum_release_age = "0"
+version = "latest"

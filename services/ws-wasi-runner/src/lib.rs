@@ -8,7 +8,7 @@
 //!
 //! See `wit/world.wit` for the host/guest contract.
 
-use et_ws_runner_common::{collect_byte_stream, derive_http_base, fetch_main_field};
+use et_ws_runner_common::{derive_http_base, fetch_main_field};
 use tracing::Instrument as _;
 use wasmtime::component::{Component, HasSelf, Linker};
 use wasmtime::{Config, Engine, Store};
@@ -57,11 +57,9 @@ async fn run_module_inner(
     let rest = et_rest_client::Client::new(&http_base);
     let main = fetch_main_field(&rest, module_name).await?;
     tracing::info!(module = module_name, %main, "fetching WASI component");
-    let response = rest
-        .get_module_file(module_name, &main)
+    let wasm_bytes = et_ws_runner_common::fetch_module_file(&rest, module_name, &main)
         .instrument(tracing::info_span!("fetch_component", module = module_name, file = %main))
         .await?;
-    let wasm_bytes = collect_byte_stream(response.into_inner()).await?;
 
     let mut config = Config::new();
     #[expect(

@@ -18,7 +18,7 @@ export async function run() {
   // Dart @JS() interop resolves against globalThis, so expose the wasm-agent
   // classes there for the duration of the call. The REST round-trip uses dio's
   // browser adapter directly and needs no globals.
-  const wasmAgent = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
+  const wasmAgent = await import("/modules/@edge-toolkit/et-ws-wasm-agent/et_ws_wasm_agent.js");
   await wasmAgent.default();
   const { WsClient, WsClientConfig } = wasmAgent;
   globalThis.WsClient = WsClient;

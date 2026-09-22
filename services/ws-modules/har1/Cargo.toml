@@ -16,6 +16,7 @@ et-model-har-motion1 = "*"
 onnxruntime-web = "*"
 
 [dependencies]
+et-org.workspace = true
 et-web.workspace = true
 et-ws-wasm-agent.workspace = true
 js-sys.workspace = true

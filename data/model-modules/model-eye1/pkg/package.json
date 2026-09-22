@@ -1,6 +1,6 @@
 {
   "description": "MediaPipe FaceLandmarker model bundle",
-  "name": "et-model-eye1",
+  "name": "@edge-toolkit/et-model-eye1",
   "version": "0.1.0",
   "files": [
     "face_landmarker.task"

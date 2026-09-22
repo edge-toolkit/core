@@ -1,0 +1,38 @@
+id: org-identity-lives-in-et-org
+language: Rust
+severity: error
+message: |
+  This constant spells out the organisation name or the crate prefix. Both belong to `et-org`, which is the
+  one place either literal is written: take the value from `et_org::ORG`, `et_org::CRATE_PREFIX`,
+  `et_org::NPM_SCOPE`, `et_org::REPOSITORY_URL` or `et_org::IMAGE_REGISTRY`, or build a longer string from
+  them, rather than writing the name out again here.
+
+  These strings are the same fact wearing different clothes -- the npm scope, the container registry, the
+  repository URL and the crate prefix all move together if the project is renamed -- so a copy living outside
+  `et-org` is a copy that gets missed. `et-org` writes the organisation exactly once and assembles the rest
+  from it, which is what makes that rename a one-line change.
+
+  A `concat!` cannot take a constant, so a call site that has to embed the URL at compile time uses
+  `et_org::repository_url!()`; `et_org::org!()` is there for the same reason.
+
+  This does not apply to a specific name that merely starts with the prefix. `et-ws-server` names one crate
+  and `et-path-prefix-probe` names one test fixture; neither is the project's identity, and neither changes
+  because the organisation did. Only the bare prefix `"et-"` and any string carrying the organisation name
+  are covered.
+
+  Tests are deliberately not exempt from the definition rule, but asserting a literal is not defining one: a
+  test that pinned expected output against `et_org::NPM_SCOPE` would keep passing if that constant were
+  wrong, so those assertions stay spelled out.
+rule:
+  all:
+    # Quoted: the `: ` in the pattern would otherwise read as a nested YAML mapping.
+    - pattern: "const $NAME: $TYPE = $VALUE;"
+    - has:
+        kind: string_literal
+        # The organisation anywhere in the value, or the bare crate prefix as the whole of it.
+        # A longer name that merely opens with the prefix is somebody's actual name, not the project's
+        # identity, so it is left alone.
+        regex: 'edge-toolkit|^"et-"$'
+ignores:
+  # The one sanctioned home. Every other file builds on what it exports.
+  - libs/org/src/lib.rs

@@ -78,7 +78,7 @@ fn trace_ids_propagate_between_runner_and_server() {
     // `status_checked` panics on a non-zero exit or spawn failure, with the command line + status baked in --
     // the same assertion the explicit `status.success()` check made, folded into the call.
     let _: std::process::ExitStatus = std::process::Command::new(bin)
-        .env("RUNNER_MODULE", "et-ws-wasi-data1")
+        .env("RUNNER_MODULE", format!("{}et-ws-wasi-data1", et_org::NPM_SCOPE))
         .env("WS_SERVER_URL", &server.ws_url)
         .env("OTLP_COLLECTOR_URL", &server_otlp.collector_url)
         .env("OTLP_PROTOCOL", "JSON")

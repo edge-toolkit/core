@@ -7,6 +7,12 @@
 # Some of their deps are loaded via mise installed tools, which are checked separately.
 packages:
   - services/ws-server/static
+  # The one generated `pkg/` that is a member, because `static` depends on it and is published.
+  # A `link:` specifier ships verbatim and means nothing to whoever installs the published package, so the
+  # dependency is declared `workspace:*` instead -- which pnpm resolves to this directory locally and rewrites
+  # to a real version on publish. Being a member is what makes that specifier resolvable. It adds nothing to
+  # the scanned lockfile: the agent's own `package.json` declares no dependencies.
+  - services/ws-wasm-agent/pkg
   # js-data1 is a real workspace member, not a served pkg/ dir.
   # It declares published npm deps (@aws-sdk/client-s3, esbuild) that must land in the root lockfile for
   # osv-scanner; its bundled output under pkg/ is generated, not a member.

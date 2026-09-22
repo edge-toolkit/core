@@ -523,5 +523,9 @@ FROM precompile AS server
 RUN mise exec -- cargo build --release -p et-ws-server && `
     copy target\x86_64-pc-windows-gnullvm\release\et-ws-server.exe C:\mise\bin\ && `
     if exist target rmdir /s /q target
+
+# The module this image serves at `/`, named as its own package.json declares it.
+ENV MODULES_ROOT="@edge-toolkit/et-ws-server-static"
+
 EXPOSE 8080 8443
 CMD ["et-ws-server"]

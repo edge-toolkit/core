@@ -90,7 +90,9 @@ fn render_dockerfile(
         "# hadolint ignore=DL3006\n",
         "FROM hub\n",
         "\n",
-        "LABEL org.opencontainers.image.source=\"https://github.com/edge-toolkit/core\"\n",
+        "LABEL org.opencontainers.image.source=\"",
+        et_org::repository_url!(),
+        "\"\n",
         "\n",
     ));
 

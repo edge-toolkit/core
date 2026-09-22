@@ -1,6 +1,6 @@
 {
   "description": "edge-toolkit static assets",
-  "name": "et-ws-server-static",
+  "name": "@edge-toolkit/et-ws-server-static",
   "version": "0.1.0",
   "type": "module",
   "files": [
@@ -11,7 +11,7 @@
     "style.css"
   ],
   "dependencies": {
-    "et-ws-wasm-agent": "link:../../ws-wasm-agent/pkg",
+    "@edge-toolkit/et-ws-wasm-agent": "workspace:*",
     "onnxruntime-web": "*",
     "stats-gl": "*"
   }

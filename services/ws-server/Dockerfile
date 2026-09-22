@@ -7,9 +7,9 @@
 
 # The hub image: et-ws-server plus only what the hub UI itself cannot start without.
 # That is the `et-ws-server-static` root module (the page served at `/`) and the `et-ws-wasm-agent` browser client
-# that page imports from `/modules/et-ws-wasm-agent/`. No workflow module, no model weights and no npm runtime
-# dependency is baked in: which of those a deployment serves is a per-cluster decision, so `et-cli` provisions them
-# on top of this image rather than every image carrying every module.
+# that page imports from `/modules/@edge-toolkit/et-ws-wasm-agent/`. No workflow module, no model weights and no
+# npm runtime dependency is baked in: which of those a deployment serves is a per-cluster decision, so `et-cli`
+# provisions them on top of this image rather than every image carrying every module.
 #
 # MODULES_PATHS is deliberately left unset. Unset, the server falls back to `default_modules_folders()`, which
 # resolves each default against the working directory -- `/app` in this image -- so the two bundled paths resolve
@@ -133,6 +133,9 @@ set -euo pipefail
 mkdir -p /app/storage /app/services/ws-server/storage
 chown -R 10001:10001 /app
 EOF
+
+# The module this image serves at `/`, named as its own package.json declares it.
+ENV MODULES_ROOT="@edge-toolkit/et-ws-server-static"
 
 # Numeric uid, matching the useradd above, so a host inspecting the image resolves it without our passwd file.
 USER 10001

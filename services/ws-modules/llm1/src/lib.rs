@@ -35,7 +35,7 @@ const LOCAL_MODEL_PATH: &str = "/modules/";
 /// Weight precision to load. Matches the single `onnx/model_q4f16.onnx` file the fetch task downloads.
 const MODEL_DTYPE: &str = "q4f16";
 /// Directory the module's build task vendors the ORT wasm runtime into, from transformers.js's own pin.
-const ORT_WASM_DIR: &str = "/modules/et-ws-llm1/ort";
+const ORT_WASM_DIR: &str = concat!("/modules/", et_org::npm_scope!(), "et-ws-llm1/ort");
 /// System turn prepended to every request, kept short because a 135M-parameter model follows little else.
 const SYSTEM_PROMPT: &str = "You are a concise, helpful assistant running locally on an edge device.";
 /// Generation cap per reply. Small enough that a CPU-fallback device still answers in a sensible time.

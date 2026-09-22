@@ -1,5 +1,5 @@
 {
-  "name": "et-ws-dotnet-data1",
+  "name": "@edge-toolkit/et-ws-dotnet-data1",
   "type": "module",
   "description": "dotnet data 1",
   "version": "0.1.0",

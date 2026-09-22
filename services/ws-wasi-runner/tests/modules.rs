@@ -9,6 +9,14 @@ use command_error::CommandExt as _;
 use edge_toolkit::config::{Language, mise_env_includes};
 use rstest::rstest;
 
+/// The name the hub serves one of this project's modules under, which is the name it publishes under.
+///
+/// The cases below name modules the way the repository talks about them, so the owner scope goes back on at
+/// the one place it matters -- what `RUNNER_MODULE` is set to.
+fn served(module: &str) -> String {
+    format!("{}{module}", et_org::NPM_SCOPE)
+}
+
 // Skipped on Windows: the wasi runner gets a 404 fetching the module's
 // `pkg/package.json` because `build-modules` likely isn't producing it
 // under mise's cmd.exe default shell. Re-enable once the Windows task-shell
@@ -34,7 +42,7 @@ fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
     // `status_checked` turns a non-zero exit (or a spawn failure) into a panic carrying the command line and
     // status; `unwrap_or_else` adds the `module` name that isn't otherwise on the command line.
     let _: std::process::ExitStatus = std::process::Command::new(bin)
-        .env("RUNNER_MODULE", module)
+        .env("RUNNER_MODULE", served(module))
         .env("WS_SERVER_URL", &server.ws_url)
         .env("ET_TEST_WS_WASI_RUNNER_FAST_EXIT", "1")
         .status_checked()
@@ -59,7 +67,7 @@ async fn wasi_math1_stores_verified_model() {
     let server = et_ws_test_server::start();
     let bin = env!("CARGO_BIN_EXE_et-ws-wasi-runner");
     let mut runner = std::process::Command::new(bin)
-        .env("RUNNER_MODULE", "et-ws-wasi-math1")
+        .env("RUNNER_MODULE", served("et-ws-wasi-math1"))
         .env("WS_SERVER_URL", &server.ws_url)
         .env("ET_TEST_WS_WASI_RUNNER_FAST_EXIT", "1")
         .spawn()

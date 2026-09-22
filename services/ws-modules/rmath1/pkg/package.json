@@ -2,7 +2,7 @@
   "description": "R math 1",
   "license": "Apache-2.0 OR MIT",
   "main": "et_ws_rmath1.js",
-  "name": "et-ws-rmath1",
+  "name": "@edge-toolkit/et-ws-rmath1",
   "type": "module",
   "version": "0.1.0"
 }

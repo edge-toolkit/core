@@ -41,10 +41,10 @@ services:
         hub: docker-image://ghcr.io/edge-toolkit/core/et-ws-server:latest
     network_mode: host
     environment:
-      MODULES_PATHS: "/app/services/ws-server/static,
-        /app/services/ws-wasm-agent,
+      MODULES_PATHS: "/app/services/ws-wasm-agent,
         /app/services/ws-modules/math1,
         /app/services/ws-modules/math1-sender"
+      MODULES_ROOT: ""
       OTLP_AUTH_USERNAME: root@example.com
       OTLP_COLLECTOR_URL: http://127.0.0.1:5080/api/default/v1
       STORAGE_URL: file:///app/storage
@@ -57,7 +57,7 @@ services:
     image: ghcr.io/edge-toolkit/core/et-ws-web-runner:latest
     network_mode: host
     environment:
-      RUNNER_MODULE: et-ws-math1
+      RUNNER_MODULE: "@edge-toolkit/et-ws-math1"
       WS_SERVER_URL: ws://localhost:8080/ws
     depends_on:
       ws-server:
@@ -66,7 +66,7 @@ services:
     image: ghcr.io/edge-toolkit/core/et-ws-web-runner:latest
     network_mode: host
     environment:
-      RUNNER_MODULE: et-ws-math1-sender
+      RUNNER_MODULE: "@edge-toolkit/et-ws-math1-sender"
       WS_SERVER_URL: ws://localhost:8080/ws
     depends_on:
       ws-server:

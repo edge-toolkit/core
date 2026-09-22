@@ -1,4 +1,5 @@
 [env]
+NPM_CONFIG_USERCONFIG = "{{ config_root }}/npmrc"
 OTLP_AUTH_USERNAME = "root@example.com"
 
 [env._]
@@ -9,23 +10,23 @@ depends = ["math1-trigger", "math1-twin", "openobserve", "ws-server"]
 description = "Run generated scenario for math1"
 
 [tasks.math1-trigger]
-description = "Run et-ws-math1-sender in the web runner"
+description = "Run @edge-toolkit/et-ws-math1-sender in the web runner"
 run = """
 et-ws-web-runner
 """
 
 [tasks.math1-trigger.env]
-RUNNER_MODULE = "et-ws-math1-sender"
+RUNNER_MODULE = "@edge-toolkit/et-ws-math1-sender"
 WS_SERVER_URL = "ws://localhost:8080/ws"
 
 [tasks.math1-twin]
-description = "Run et-ws-math1 in the web runner"
+description = "Run @edge-toolkit/et-ws-math1 in the web runner"
 run = """
 et-ws-web-runner
 """
 
 [tasks.math1-twin.env]
-RUNNER_MODULE = "et-ws-math1"
+RUNNER_MODULE = "@edge-toolkit/et-ws-math1"
 WS_SERVER_URL = "ws://localhost:8080/ws"
 
 [tasks.open-o2]
@@ -43,14 +44,25 @@ docker run --rm --name openobserve -p 127.0.0.1:5080:5080 $settings -e ZO_ROOT_U
 
 [tasks.ws-server]
 description = "Run the WebSocket server"
-dir = "../../../../services/ws-server"
 run = """
-MODULES_PATHS="static, ../ws-wasm-agent, ../ws-modules/math1, ../ws-modules/math1-sender"
-export MODULES_PATHS
 et-ws-server
 """
+
+[tasks.ws-server.env]
 
 [tools]
 "cargo:et-ws-server" = "latest"
 "cargo:et-ws-web-runner" = "latest"
 "cargo:open" = "latest"
+
+[tools."npm:@edge-toolkit/et-ws-math1"]
+minimum_release_age = "0"
+version = "latest"
+
+[tools."npm:@edge-toolkit/et-ws-math1-sender"]
+minimum_release_age = "0"
+version = "latest"
+
+[tools."npm:@edge-toolkit/et-ws-wasm-agent"]
+minimum_release_age = "0"
+version = "latest"

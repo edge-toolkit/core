@@ -4305,6 +4305,7 @@ dependencies = [
  "clap-markdown",
  "command-error",
  "edge-toolkit",
+ "et-org",
  "et-path",
  "et-test-helpers",
  "et-ws-test-server",
@@ -4389,6 +4390,10 @@ dependencies = [
  "clap-markdown",
  "onnx-extractor",
 ]
+
+[[package]]
+name = "et-org"
+version = "0.1.0"
 
 [[package]]
 name = "et-otlp"
@@ -4634,6 +4639,7 @@ dependencies = [
 name = "et-ws-face-detection"
 version = "0.1.0"
 dependencies = [
+ "et-org",
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
@@ -4688,6 +4694,7 @@ dependencies = [
 name = "et-ws-har1"
 version = "0.1.0"
 dependencies = [
+ "et-org",
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
@@ -4706,6 +4713,7 @@ dependencies = [
 name = "et-ws-llm1"
 version = "0.1.0"
 dependencies = [
+ "et-org",
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
@@ -4799,6 +4807,7 @@ dependencies = [
  "base64 0.23.1",
  "command-error",
  "edge-toolkit",
+ "et-org",
  "et-otlp",
  "et-rest-client",
  "et-ws-runner-common",
@@ -5024,6 +5033,7 @@ dependencies = [
  "bytemuck",
  "command-error",
  "edge-toolkit",
+ "et-org",
  "et-otlp",
  "et-rest-client",
  "et-test-helpers",
@@ -5088,6 +5098,7 @@ dependencies = [
  "deno_resolver",
  "deno_runtime",
  "edge-toolkit",
+ "et-org",
  "et-otlp",
  "et-rest-client",
  "et-ws-runner-common",

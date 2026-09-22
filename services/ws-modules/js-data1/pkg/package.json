@@ -1,5 +1,5 @@
 {
-  "name": "et-ws-js-data1",
+  "name": "@edge-toolkit/et-ws-js-data1",
   "type": "module",
   "description": "data1 twin using AWS SDK v3 (S3)",
   "version": "0.1.0",

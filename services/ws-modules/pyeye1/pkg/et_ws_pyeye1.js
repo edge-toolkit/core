@@ -47,9 +47,10 @@ export default async function init() {
   };
 
   const pkg = await fetch(new URL("package.json", import.meta.url), { cache: "no-cache" }).then((r) => r.json());
-  await installLocalWheel(`${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`);
-  // et-ws is its own ws-module mounted at /modules/et-ws/; delegate its wheel install to its shim.
-  const { installWheel: installEtWs } = await import("/modules/et-ws/et_ws.js");
+  const distribution = pkg.name.split("/").pop();
+  await installLocalWheel(`${distribution.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`);
+  // et-ws is its own ws-module mounted at /modules/@edge-toolkit/et-ws/; delegate its wheel install to its shim.
+  const { installWheel: installEtWs } = await import("/modules/@edge-toolkit/et-ws/et_ws.js");
   await installEtWs(pyodide);
 
   if (globalThis.__etPyCov) await globalThis.__etPyCov.start(pyodide, "pyeye1");
@@ -81,7 +82,7 @@ export async function run() {
 function platformFor(state) {
   return {
     connect_ws: async () => {
-      const wasmAgent = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
+      const wasmAgent = await import("/modules/@edge-toolkit/et-ws-wasm-agent/et_ws_wasm_agent.js");
       await wasmAgent.default();
       const { WsClient, WsClientConfig } = wasmAgent;
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";

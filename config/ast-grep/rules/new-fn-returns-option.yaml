@@ -1,0 +1,62 @@
+id: new-fn-returns-option
+language: Rust
+severity: error
+message: |
+  This function returns `Option`, and a new one may not. The return type is where the reason a call failed
+  would have gone: `Result` carries it, `Option` discards it at the moment it was known. `None` says "there
+  isn't one" and nothing else -- not which input was wrong, not which file was missing, not which subprocess
+  failed -- so the caller invents an explanation, and a missing tool surfaces three layers up as an empty
+  list rather than as the sentence naming the tool.
+
+  Return `Result` with an error that says what happened. `Option` is for a value that is legitimately absent
+  without anything having gone wrong, which is rarer than it looks.
+
+  The list below is every function that returned `Option` when this rule was written. It is a record of what
+  is already here, not a pattern to copy: a name joins it only with the operator's sign-off, and the point of
+  naming them one by one is that adding to it is a decision somebody makes rather than a default anything
+  falls into. Prefer emptying it -- a function that leaves the list has had its failures given names.
+rule:
+  all:
+    - kind: function_item
+    - has:
+        field: return_type
+        regex: "^Option<"
+    - not:
+        any:
+          - has:
+              field: name
+              regex: ^(agent_id|agent_session|assigned_agent_id|default_connect_ack_timeout)$
+          - has:
+              field: name
+              regex: ^(default_connection_timeout|extract_speech_event_transcript|find_fn)$
+          - has:
+              field: name
+              regex: ^(find_http_pyodide_install|find_npm_modules_path_in|find_site_packages_in)$
+          - has:
+              field: name
+              regex: ^(js_bool_field|js_nested_object|js_number_field|load_stored_agent_id)$
+          - has:
+              field: name
+              regex: ^(mise_current_tools|mise_npm_modules_path|mise_npm_package_path|mise_where)$
+          - has:
+              field: name
+              regex: ^(module_package_json|next_message|optional_duration|optional_string)$
+          - has:
+              field: name
+              regex: ^(origin_slug|otlp|parse_capture_notification|project_repository)$
+          - has:
+              field: name
+              regex: ^(read_cargo_package|read_package_json|read_package_name)$
+          - has:
+              field: name
+              regex: ^(read_pyproject_package|resolve_inherited|stored_model|wait_for_agent_id)$
+          - has:
+              field: name
+              regex: ^(wait_for_marker|wait_for_pointer|wait_for_relayed_span|wait_for_span)$
+          - has:
+              field: name
+              regex: ^(workspace_dir)$
+          # Signatures spread over several lines, which is how they escaped the first sweep for this list.
+          - has:
+              field: name
+              regex: ^(queue_direct|socks5_handshake|wait_for_list_agents_response)$

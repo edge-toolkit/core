@@ -30,8 +30,9 @@ export default async function init() {
   };
 
   const pkg = await fetch(new URL("package.json", import.meta.url)).then((response) => response.json());
-  await installLocalWheel(`${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`);
-  const { installWheel: installEtWs } = await import("/modules/et-ws/et_ws.js");
+  const distribution = pkg.name.split("/").pop();
+  await installLocalWheel(`${distribution.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`);
+  const { installWheel: installEtWs } = await import("/modules/@edge-toolkit/et-ws/et_ws.js");
   await installEtWs(pyodide);
   if (globalThis.__etPyCov) await globalThis.__etPyCov.start(pyodide, "pyspeech1");
   py = pyodide.pyimport("pyspeech1");
@@ -60,7 +61,7 @@ export async function run() {
   runtime = state;
 
   try {
-    const wasmAgent = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
+    const wasmAgent = await import("/modules/@edge-toolkit/et-ws-wasm-agent/et_ws_wasm_agent.js");
     await wasmAgent.default();
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     state.client = new wasmAgent.WsClient(new wasmAgent.WsClientConfig(`${protocol}//${window.location.host}/ws`));

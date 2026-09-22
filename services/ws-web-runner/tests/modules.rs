@@ -62,6 +62,15 @@ use edge_toolkit::config::{Language, mise_env_includes};
 use fs_err as fs;
 use rstest::rstest;
 
+/// The name the hub serves one of this project's modules under, which is the name it publishes under.
+///
+/// The cases below name modules the way the repository talks about them, and this puts the owner scope back
+/// on at the one place it matters -- what `RUNNER_MODULE` is set to. The server reshapes no name, so a runner
+/// asking for the bare one would be asking for a module nothing answers to.
+fn served(module: &str) -> String {
+    format!("{}{module}", et_org::NPM_SCOPE)
+}
+
 #[rstest]
 #[case::data1("et-ws-data1", Language::Rust)]
 #[case::except1("et-ws-except1", Language::Rust)]
@@ -141,7 +150,7 @@ async fn math1_module_stores_verified_model(#[case] module: &str, #[case] langua
     let server = et_ws_test_server::start();
     let bin = env!("CARGO_BIN_EXE_et-ws-web-runner");
     let mut runner = std::process::Command::new(bin)
-        .env("RUNNER_MODULE", module)
+        .env("RUNNER_MODULE", served(module))
         .env("WS_SERVER_URL", &server.ws_url)
         .env("RUNNER_TIMEOUT", "90s")
         .spawn()
@@ -178,7 +187,7 @@ fn math1_sender_triggers_math1() {
     let bin = env!("CARGO_BIN_EXE_et-ws-web-runner");
     let spawn = |module: &str| {
         std::process::Command::new(bin)
-            .env("RUNNER_MODULE", module)
+            .env("RUNNER_MODULE", served(module))
             .env("WS_SERVER_URL", &server.ws_url)
             .env("RUNNER_TIMEOUT", "110s")
             .spawn()
@@ -453,7 +462,7 @@ fn run_runner(module: &str, ws_url: &str, timeout_secs: u32) -> std::process::Ou
     // ET_TEST_COVERAGE, when set by the coverage workflow, is inherited by the child (Command keeps the parent
     // env), so the Pyodide shims collect coverage into ws-server storage -- no explicit forwarding needed.
     std::process::Command::new(bin)
-        .env("RUNNER_MODULE", module)
+        .env("RUNNER_MODULE", served(module))
         .env("WS_SERVER_URL", ws_url)
         .env("RUNNER_TIMEOUT", format!("{timeout_secs}s"))
         .output()

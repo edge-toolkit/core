@@ -6,8 +6,8 @@
 // list (R selects the peer from it) and logs inbound messages. All sequencing and message composition happen in
 // module.R. webR is vendored under pkg/webr/ and served at the path below.
 
-const WEBR_BASE_URL = "/modules/et-ws-rcomm1/webr/";
-const R_SOURCE_URL = "/modules/et-ws-rcomm1/module.R";
+const WEBR_BASE_URL = "/modules/@edge-toolkit/et-ws-rcomm1/webr/";
+const R_SOURCE_URL = "/modules/@edge-toolkit/et-ws-rcomm1/module.R";
 
 let webR = null;
 
@@ -31,7 +31,7 @@ export async function run() {
 // Expose the agent WebSocket to R on globalThis.__etAgent. R drives it (state, agent_id, send, disconnect) via
 // webr::eval_js; the shim creates it, connects, and keeps the latest agent list for R's peer selection.
 async function setupAgent() {
-  const wasmAgent = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
+  const wasmAgent = await import("/modules/@edge-toolkit/et-ws-wasm-agent/et_ws_wasm_agent.js");
   await wasmAgent.default();
   const { WsClient, WsClientConfig } = wasmAgent;
   const loc = typeof location !== "undefined" ? location : null;
