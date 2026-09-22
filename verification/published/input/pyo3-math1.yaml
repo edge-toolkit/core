@@ -1,0 +1,16 @@
+cluster_name: "pyo3-math1"
+deployment_type: "mise"
+
+# The `local` tree's scenario of the same name, rendered against released artifacts rather than built ones.
+artifact_source: "published"
+
+agents:
+  - name: "math1-trigger"
+    runner: "wasi"
+    resources:
+      - type: "wasi-math1-sender"
+
+  - name: "pyo3-math1-twin"
+    runner: "pyo3"
+    resources:
+      - type: "pyo3-math1"

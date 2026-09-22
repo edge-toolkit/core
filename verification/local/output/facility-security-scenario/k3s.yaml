@@ -147,6 +147,8 @@ spec:
           env:
             - name: MODULES_PATHS
               value: /app/services/ws-server/static,/app/services/ws-wasm-agent,/app/services/ws-modules/face-detection,/app/services/ws-modules/har1,/app/services/ws-modules/pyface1,/app/data/model-modules/model-face1,/app/node_modules/onnxruntime-web,/app/data/model-modules/model-har-motion1,/app/generated/python-ws,/app/node_modules/pyodide
+            - name: OTLP_AUTH_USERNAME
+              value: root@example.com
             - name: OTLP_COLLECTOR_URL
               value: http://openobserve:5080/api/default/v1
             - name: STORAGE_URL

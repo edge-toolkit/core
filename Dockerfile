@@ -59,6 +59,8 @@
 ARG BASE_IMAGE=ubuntu:24.04
 FROM ${BASE_IMAGE} AS build-minimal
 
+LABEL org.opencontainers.image.source="https://github.com/edge-toolkit/core"
+
 # Universal prereqs a typical dev box already has; everything else is mise's job.
 # gcc, g++, libc6-dev and make are the C/C++ toolchain rustc links through (`cc`)
 # and that C/C++ `-sys` crates build with (make for build scripts that shell out

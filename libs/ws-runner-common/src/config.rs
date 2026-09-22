@@ -11,6 +11,48 @@ use serde::Deserialize;
 use serde_default::DefaultFromSerde;
 use serde_inline_default::serde_inline_default;
 
+/// Declare a runner's `Config`, with the fields every runner reads supplied and its own added after.
+///
+/// A macro rather than a shared struct the runners nest or flatten. Nesting changes the variable names
+/// serde-env derives, and `#[serde(flatten)]` cannot rebuild these: serde-env buffers a flattened value as a
+/// string, so the inner struct fails with `invalid type: string "", expected struct RunnerConfig`. Expanding
+/// the fields leaves each runner deserialising exactly as it did while declaring them once.
+///
+/// What that buys is the drift: all three runners read the same three groups -- which module, which hub,
+/// where telemetry goes -- and while each spelled them out, two of them silently had no `otlp` at all.
+///
+/// The expansion names `::et_otlp` and `::edge_toolkit`, so a crate invoking this needs both as direct
+/// dependencies even where its own code mentions neither. Dropping one as unused fails at the call site
+/// with `cannot find et_otlp in the crate root`, pointing at the macro rather than at the manifest.
+#[macro_export]
+macro_rules! runner_config {
+    (
+        $(#[$struct_meta:meta])*
+        $vis:vis struct $name:ident { $($(#[$field_meta:meta])* $field_vis:vis $field:ident : $ty:ty),* $(,)? }
+    ) => {
+        $(#[$struct_meta])*
+        #[derive(Clone, Debug, ::serde::Deserialize)]
+        #[non_exhaustive]
+        $vis struct $name {
+            /// `RUNNER_*` settings (`RUNNER_MODULE`, `RUNNER_TIMEOUT`).
+            pub runner: $crate::config::RunnerConfig,
+            /// `WS_*` settings (`WS_SERVER_URL`).
+            #[serde(default)]
+            pub ws: $crate::config::WsConfig,
+            /// `OTLP_*` settings; `None` logs to stderr instead of exporting.
+            #[serde(default)]
+            pub otlp: ::core::option::Option<::edge_toolkit::config::OtlpConfig>,
+            $($(#[$field_meta])* $field_vis $field : $ty,)*
+        }
+
+        impl ::et_otlp::Telemetered for $name {
+            fn otlp(&self) -> ::core::option::Option<&::edge_toolkit::config::OtlpConfig> {
+                self.otlp.as_ref()
+            }
+        }
+    };
+}
+
 /// Shared `RUNNER_*` settings for both native runners.
 #[derive(Clone, Debug, Deserialize)]
 #[non_exhaustive]

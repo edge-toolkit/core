@@ -25,7 +25,6 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use edge_toolkit::input::ClusterInput;
 use edge_toolkit::ports::Services;
 use fs_err as fs;
 use k8s_openapi::api::apps::v1::{Deployment, DeploymentSpec};
@@ -42,15 +41,20 @@ use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use serde::Serialize;
 
 use crate::error::CliError;
+use crate::input::{ArtifactSource, ClusterInput};
 use crate::{
-    HUB_SERVICE, OutputType, RunnerInstance, cluster_module_names, docker_image_module_paths, hub_service_ws_url,
-    module_registry, resolve_cluster_runners,
+    COLLECTOR_SETTINGS, COLLECTOR_USERNAME, HUB_SERVICE, OutputType, RunnerInstance, cluster_module_names,
+    docker_image_module_paths, hub_service_ws_url, image_prefix, module_registry, resolve_cluster_runners,
 };
 
 /// Pull policy that lets an image built from this repository and imported into the node satisfy a manifest.
 ///
-/// `IfNotPresent` rather than the `Always` a `:latest` tag defaults to: the scenario images never reach a
-/// registry, so an `Always` pull would send k3s looking for them in one that does not have them.
+/// `IfNotPresent` rather than the `Always` a `:latest` tag defaults to, and it is the right answer whichever
+/// `artifact_source` a scenario asks for. A locally built image never reaches a registry at all, so an `Always`
+/// pull would send k3s looking for it in one that does not have it. A published image is there to be found,
+/// and `IfNotPresent` is what stops every restart re-pulling a tag the node already holds. It also lets a
+/// published-image scenario be tested against a local build of the same tag, which is how CI checks a change
+/// to an image before it is published.
 const IMAGE_PULL_POLICY: &str = "IfNotPresent";
 
 /// Tag the generated manifests reference, matching what the README's build-and-import step produces.
@@ -107,7 +111,11 @@ pub fn generate_k3s_deployment(cluster: &ClusterInput, output_dir: &Path) -> Res
 
     let mut docs = fixed_documents(&namespace, &cluster.cluster_name, &module_paths)?;
     for runner in &runners {
-        docs.push(document(&runner_deployment(&namespace, runner))?);
+        docs.push(document(&runner_deployment(
+            &namespace,
+            runner,
+            cluster.artifact_source,
+        ))?);
     }
 
     fs::write(output_dir.join(OutputType::K3s.output_file_name()), docs.join("---\n"))?;
@@ -197,12 +205,15 @@ fn namespace_object(namespace: &str) -> Namespace {
 /// Its root password is the other half and is deliberately absent: that value reaches the pod from the
 /// operator-created `Secret`, so nothing here has to be redacted before the file is committed.
 fn collector_config(namespace: &str) -> ConfigMap {
+    let mut data: BTreeMap<String, String> = COLLECTOR_SETTINGS
+        .iter()
+        .map(|(name, value)| ((*name).to_string(), (*value).to_string()))
+        .collect();
+    // The claim this deployment mounts is what makes a data directory worth naming, so it is set here rather
+    // than in the shared list.
+    let _previous: Option<String> = data.insert("ZO_DATA_DIR".to_string(), "/data".to_string());
     ConfigMap {
-        data: Some(BTreeMap::from([
-            ("RUST_LOG".to_string(), "warn".to_string()),
-            ("ZO_DATA_DIR".to_string(), "/data".to_string()),
-            ("ZO_ROOT_USER_EMAIL".to_string(), "root@example.com".to_string()),
-        ])),
+        data: Some(data),
         metadata: plain_meta(namespace, "openobserve-config"),
         ..ConfigMap::default()
     }
@@ -454,6 +465,8 @@ fn collector_service(namespace: &str) -> Service {
 fn hub_env(module_paths: &[String]) -> Vec<EnvVar> {
     vec![
         env("MODULES_PATHS", module_paths.join(",")),
+        // The account, stated here; only the password it presents comes from the `Secret`.
+        env("OTLP_AUTH_USERNAME", COLLECTOR_USERNAME.to_string()),
         env(
             "OTLP_COLLECTOR_URL",
             format!(
@@ -529,18 +542,31 @@ fn hub_service(namespace: &str) -> Service {
     )
 }
 
+/// What wires a runner to its module and its hub, plus whatever the scenario declared for that agent.
+///
+/// The scenario's entries cannot collide with the derived two: the resolver rejects an `env:` naming either.
+fn runner_env(runner: &RunnerInstance) -> Vec<EnvVar> {
+    let mut vars = vec![
+        env("RUNNER_MODULE", runner.module.clone()),
+        env("WS_SERVER_URL", hub_service_ws_url()),
+    ];
+    vars.extend(runner.env.iter().map(|(name, value)| env(name, value.clone())));
+    vars
+}
+
 /// One deployment per runner, each hosting a single module exactly as the other two formats arrange it.
-fn runner_deployment(namespace: &str, runner: &RunnerInstance) -> Deployment {
+fn runner_deployment(namespace: &str, runner: &RunnerInstance, images: ArtifactSource) -> Deployment {
     // A runner fetches its module to a scratch directory and, for the web runner, lets Deno cache there, so a
     // read-only root needs somewhere writable even though nothing is meant to persist.
     // skipcq: RS-S1003
     let (runtime_mount, runtime_volume) = scratch("runner-tmp", "/tmp");
     let container = Container {
-        env: Some(vec![
-            env("RUNNER_MODULE", runner.module.clone()),
-            env("WS_SERVER_URL", hub_service_ws_url()),
-        ]),
-        image: Some(format!("et-ws-{}-runner:{IMAGE_TAG}", runner.runner)),
+        env: Some(runner_env(runner)),
+        image: Some(format!(
+            "{}et-ws-{}-runner:{IMAGE_TAG}",
+            image_prefix(images),
+            runner.runner
+        )),
         image_pull_policy: Some(IMAGE_PULL_POLICY.to_string()),
         name: runner.name.clone(),
         resources: Some(container_resources()),

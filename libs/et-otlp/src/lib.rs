@@ -79,6 +79,84 @@ pub fn service_descriptors(hostname: Option<String>) -> Vec<KeyValue> {
     descriptors
 }
 
+/// Telemetry for the life of a scope, flushed when it ends however it ends.
+///
+/// [`OtelHandles`] has to be shut down explicitly, which every binary holding one has to remember to do on
+/// every exit path -- and the paths that matter most are the failing ones, whose spans are exactly what the
+/// batch exporter is still holding. Tying the flush to a drop makes forgetting impossible and leaves `main`
+/// free to use `?` again.
+pub struct TelemetryGuard(Option<OtelHandles>);
+
+impl Drop for TelemetryGuard {
+    fn drop(&mut self) {
+        if let Some(handles) = self.0.take() {
+            handles.shutdown();
+        }
+    }
+}
+
+/// Initialise telemetry as [`init_or_stderr`] does, flushing it when the returned guard drops.
+///
+/// # Errors
+///
+/// Returns whatever [`init`] does; the fallback path cannot fail.
+pub fn init_guarded(config: Option<&OtlpConfig>) -> Result<TelemetryGuard, Box<dyn std::error::Error + Send + Sync>> {
+    init_or_stderr(config).map(TelemetryGuard)
+}
+
+/// A config that says where its process exports telemetry.
+///
+/// Exists so [`load_telemetered`] can read a config and start its pipeline in one step, whatever the rest of
+/// that config holds.
+pub trait Telemetered {
+    /// Where this process exports telemetry, or `None` to log to stderr.
+    fn otlp(&self) -> Option<&OtlpConfig>;
+}
+
+/// Read a config from the environment and start the telemetry it describes.
+///
+/// The two belong together: the pipeline is configured by what was just read, and its guard has to outlive
+/// the run so the exporter's last batch is flushed. One call is what stops a binary loading a config and
+/// then forgetting the half that makes its spans reach anything -- which is how two of this project's three
+/// runners came to have no telemetry at all.
+///
+/// # Errors
+///
+/// Returns the deserialisation error if the environment does not describe a valid config, or whatever
+/// starting the pipeline reports.
+pub fn load_telemetered<C>() -> Result<(C, TelemetryGuard), Box<dyn std::error::Error + Send + Sync>>
+where
+    C: serde::de::DeserializeOwned + Telemetered,
+{
+    let config = serde_env::from_env::<C>()?;
+    let telemetry = init_guarded(config.otlp())?;
+    Ok((config, telemetry))
+}
+
+/// Initialise telemetry from `config`, falling back to plain stderr logging when there is none.
+///
+/// Every runner faces the same choice -- a deployment that configured `OTLP_*` wants the pipeline, one that
+/// did not still wants its logs somewhere -- and having each binary spell it out is how they drift: two of
+/// the three runners silently had no telemetry at all until this existed, and nothing said so.
+///
+/// Returning the handles rather than installing an exit hook keeps the flush the caller's to place. It has to
+/// happen before the process ends and after the work does, and only the caller knows where that is.
+///
+/// # Errors
+///
+/// Returns whatever [`init`] does; the fallback path cannot fail.
+pub fn init_or_stderr(
+    config: Option<&OtlpConfig>,
+) -> Result<Option<OtelHandles>, Box<dyn std::error::Error + Send + Sync>> {
+    let Some(config) = config else {
+        tracing_subscriber::fmt()
+            .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
+            .init();
+        return Ok(None);
+    };
+    init(config).map(Some)
+}
+
 /// Initialise the global tracing subscriber + `OTel` pipeline against `config`.
 ///
 /// Call exactly once per process; a second call returns an error from

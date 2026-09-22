@@ -1,0 +1,16 @@
+cluster_name: "math1"
+deployment_type: "mise"
+
+# The `local` tree's scenario of the same name, rendered against released artifacts rather than built ones.
+artifact_source: "published"
+
+agents:
+  - name: "math1-twin"
+    runner: "web"
+    resources:
+      - type: "math1"
+
+  - name: "math1-trigger"
+    runner: "web"
+    resources:
+      - type: "math1-sender"

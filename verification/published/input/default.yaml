@@ -1,0 +1,5 @@
+# The `local` tree's `default` scenario, rendered against released artifacts rather than builds of this tree.
+# `artifact_source` is the one field stated, and it has to be: generating here is itself the proof that an
+# unstated one infers `local`, so the released rendering can only be asked for outright.
+cluster_name: "default"
+artifact_source: "published"

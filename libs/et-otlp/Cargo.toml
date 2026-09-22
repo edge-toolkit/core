@@ -18,6 +18,8 @@ opentelemetry.workspace = true
 opentelemetry-appender-tracing.workspace = true
 opentelemetry-otlp.workspace = true
 opentelemetry_sdk.workspace = true
+serde.workspace = true
+serde-env.workspace = true
 tracing.workspace = true
 tracing-log.workspace = true
 tracing-opentelemetry.workspace = true
@@ -25,6 +27,7 @@ tracing-subscriber.workspace = true
 
 [dev-dependencies]
 fs-err.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

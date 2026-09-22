@@ -54,6 +54,8 @@ EOF
 
 FROM debian:bookworm-slim AS runtime
 
+LABEL org.opencontainers.image.source="https://github.com/edge-toolkit/core"
+
 # ca-certificates supplies the trust store for a wss:// hub and for an https OTLP collector.
 # The unprivileged `app` account owns everything the runner writes.
 RUN bash <<'EOF'

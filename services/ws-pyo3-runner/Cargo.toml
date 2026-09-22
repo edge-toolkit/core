@@ -17,6 +17,7 @@ path = "src/main.rs"
 
 [dependencies]
 edge-toolkit.workspace = true
+et-otlp.workspace = true
 # Typed ws-server REST client (storage GET/PUT).
 # `tracing` injects the W3C traceparent on each request, matching the other native runners.
 et-rest-client = { workspace = true, features = ["tracing"] }
@@ -32,7 +33,6 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-tungstenite = { workspace = true, features = ["connect"] }
 tracing.workspace = true
-tracing-subscriber.workspace = true
 
 [build-dependencies]
 pyo3-build-config.workspace = true

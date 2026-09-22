@@ -2,7 +2,7 @@
 
 use et_cli::{
     docker_image_module_paths, generate_deployment, hub_service_ws_url, hub_ws_url, module_package_json,
-    regenerate_verification, scenario_module_paths,
+    regenerate_verification, scenario_dockerfile_path, scenario_module_paths,
 };
 use fs_err as fs;
 use serde::Deserialize as _;
@@ -43,6 +43,8 @@ fn deployment_error_for(input: &str) -> String {
 
 #[test]
 fn generate_deployment_rejects_unsupported_deployment_type() {
+    // Rejected while the input is read rather than by a check further in, which is what makes the error name
+    // the field and the line it is on instead of describing a value the generator could not use.
     let error = deployment_error_for(
         r#"cluster_name: "test-cluster"
 deployment_type: yaml
@@ -50,7 +52,7 @@ agents: []
 "#,
     );
 
-    assert!(error.contains("Unsupported deployment_type"), "got: {error}");
+    assert!(error.contains("yaml") && error.contains("mise"), "got: {error}");
 }
 
 #[test]
@@ -270,19 +272,244 @@ agents:
 /// The two tests below assert on different halves of the same manifest, so the generation lives here once. The
 /// temp root comes back alongside the directory because dropping it deletes the tree.
 fn k3s_scenario() -> (tempfile::TempDir, std::path::PathBuf) {
-    let (test_root, verification_root, output_dir) = scenario_tree(
+    k3s_scenario_with("")
+}
+
+/// Generate the k3s scenario above with `extra` spliced into its input, for the tests that vary one field.
+///
+/// Split from `k3s_scenario` rather than written out a second time, so the two image sources are generated
+/// from the same scenario and any difference the tests below assert on is the field and nothing else.
+fn k3s_scenario_with(extra: &str) -> (tempfile::TempDir, std::path::PathBuf) {
+    let (test_root, verification_root, output_dir) = scenario_tree(&format!(
         r#"cluster_name: "k3s-cluster"
 deployment_type: "k3s"
-agents:
+{extra}agents:
   - name: "math1-twin"
     runner: "wasi"
     resources:
       - type: "wasi-math1"
-"#,
-    );
+"#
+    ));
 
     let _regenerated = regenerate_verification(&verification_root, None).unwrap();
     (test_root, output_dir)
+}
+
+/// Generate the k3s scenario with `extra` spliced in and return the two files a rendering is judged by.
+///
+/// The temp root is dropped here rather than handed back, because both files are read before it goes.
+/// The one input line that switches a scenario from building what it runs to addressing the releases.
+const PUBLISHED: &str = "artifact_source: \"published\"\n";
+
+fn k3s_manifest_and_readme(extra: &str) -> (String, String) {
+    let (_test_root, output_dir) = k3s_scenario_with(extra);
+    let manifest = fs::read_to_string(output_dir.join("k3s.yaml")).unwrap();
+    let readme = fs::read_to_string(output_dir.join("README.md")).unwrap();
+    (manifest, readme)
+}
+
+#[test]
+fn the_artifact_source_decides_whether_runner_images_are_pulled() {
+    // Both renderings in one test, because what matters is the contrast: the same scenario has to come out
+    // naming a runner the node holds under one source and one the cluster fetches under the other.
+    let (local_manifest, local_readme) = k3s_manifest_and_readme("");
+    let (published_manifest, published_readme) = k3s_manifest_and_readme(PUBLISHED);
+
+    assert!(
+        local_manifest.contains("image: et-ws-wasi-runner:latest"),
+        "an unqualified name is what a node resolves from its own images: {local_manifest}"
+    );
+    assert!(
+        !local_manifest.contains("ghcr.io"),
+        "nothing is pulled: {local_manifest}"
+    );
+    assert!(
+        local_readme.contains("docker build -t et-ws-wasi-runner:latest"),
+        "the README has to say how to produce it: {local_readme}"
+    );
+
+    assert!(
+        published_manifest.contains("image: ghcr.io/edge-toolkit/core/et-ws-wasi-runner:latest"),
+        "the cluster pulls the runner: {published_manifest}"
+    );
+    // The scenario image stays unqualified whichever source is asked for: it carries this deployment's own
+    // module set, so there is no published copy of it to name.
+    assert!(
+        published_manifest.contains("image: et-ws-server-k3s-cluster:latest"),
+        "the scenario image is still local: {published_manifest}"
+    );
+    assert!(
+        !published_readme.contains("docker build -t et-ws-wasi-runner:latest"),
+        "nothing is built for a pulled image: {published_readme}"
+    );
+    assert!(
+        published_readme.contains("hub=ghcr.io/edge-toolkit/core/et-ws-server:latest"),
+        "the hub reaches the scenario build from the registry: {published_readme}"
+    );
+}
+
+/// A scenario whose agent declares extra runner environment, which every format has to carry.
+const WITH_RUNNER_ENV: &str = r#"cluster_name: "runner-env"
+agents:
+  - name: "math1-twin"
+    runner: "wasi"
+    env:
+      OTLP_COLLECTOR_URL: "http://host:5080/api/default/v1"
+      RUST_LOG: debug
+    resources:
+      - type: "wasi-math1"
+"#;
+
+#[test]
+fn an_agents_declared_env_reaches_every_deployment_format() {
+    // One declaration in the input, three renderings. A format that dropped it would leave a runner
+    // configured in two deployments out of three, which only shows up when that deployment is run.
+    // `env:` belongs to the agent, not the cluster, so this is a whole input rather than a spliced line.
+    let (_test_root, verification_root, output_dir) = scenario_tree(WITH_RUNNER_ENV);
+    let _regenerated = regenerate_verification(&verification_root, None).unwrap();
+    let mise = fs::read_to_string(output_dir.join("mise.toml")).unwrap();
+    let compose = fs::read_to_string(output_dir.join("compose.yaml")).unwrap();
+    let manifest = fs::read_to_string(output_dir.join("k3s.yaml")).unwrap();
+
+    assert!(mise.contains("RUST_LOG = \"debug\""), "mise task env: {mise}");
+    assert!(compose.contains("RUST_LOG: debug"), "compose service env: {compose}");
+    assert!(manifest.contains("- name: RUST_LOG"), "k3s container env: {manifest}");
+
+    // The derived pair is still there, and still first, so the declared entries add rather than replace.
+    for rendered in [&mise, &compose, &manifest] {
+        assert!(
+            rendered.contains("RUNNER_MODULE"),
+            "still wired to its module: {rendered}"
+        );
+        assert!(rendered.contains("WS_SERVER_URL"), "still wired to its hub: {rendered}");
+        assert!(rendered.contains("http://host:5080/api/default/v1"), "{rendered}");
+    }
+}
+
+#[test]
+fn generate_deployment_rejects_an_agent_overriding_derived_runner_env() {
+    // Letting it win would generate files describing one deployment whose runners join another; letting the
+    // derived value win would silently ignore what the scenario asked for. Neither is worth allowing.
+    let error = deployment_error_for(
+        r#"cluster_name: "derived-env"
+agents:
+  - name: "twin"
+    runner: "web"
+    env:
+      WS_SERVER_URL: "ws://elsewhere:8080/ws"
+    resources:
+      - type: "math1"
+"#,
+    );
+
+    assert!(
+        error.contains("WS_SERVER_URL") && error.contains("must own"),
+        "expected a reserved-env error, got: {error}"
+    );
+}
+
+#[test]
+fn the_scenario_dockerfile_path_stays_relative_however_shallow_the_output_dir() {
+    use std::path::Path;
+
+    // A single-component directory has a parent, and it is the empty path rather than `None`. Prefixing it
+    // blindly yields `/$scenario/Dockerfile`, an absolute path to a directory nobody has -- and the README
+    // hands that straight to `docker build -f`.
+    assert_eq!(
+        scenario_dockerfile_path(Path::new("my-scenario")),
+        "$scenario/Dockerfile"
+    );
+    assert_eq!(
+        scenario_dockerfile_path(Path::new("verification/local/output/math1")),
+        "verification/local/output/$scenario/Dockerfile"
+    );
+}
+
+#[test]
+fn the_wrapped_module_list_folds_back_into_one_comma_separated_value() {
+    // The list is wrapped to stay inside the line limit, and it is wrapped by YAML folding rather than by a
+    // trailing `\`, which the repository bans. Folding is only correct if the breaks come back as separators
+    // the server accepts, so this parses the generated file rather than trusting the spelling.
+    let (_test_root, output_dir) = k3s_scenario_with("");
+    let text = fs::read_to_string(output_dir.join("compose.yaml")).unwrap();
+
+    assert!(!text.contains('\\'), "no line continuations survive: {text}");
+
+    let compose: serde_yaml::Value = serde_yaml::from_str(&text).unwrap();
+    let paths = compose["services"]["ws-server"]["environment"]["MODULES_PATHS"]
+        .as_str()
+        .unwrap();
+
+    assert!(!paths.contains('\n'), "folded to a single line: {paths}");
+    let segments: Vec<&str> = paths.split(',').map(str::trim).collect();
+    assert_eq!(segments.first().copied(), Some("/app/services/ws-server/static"));
+    assert!(
+        segments.iter().all(|segment| segment.starts_with("/app/")),
+        "every segment is a path once trimmed: {segments:?}"
+    );
+}
+
+#[test]
+fn the_artifact_source_decides_what_the_compose_stack_builds() {
+    let (_local_root, local_dir) = k3s_scenario_with("");
+    let (_published_root, published_dir) = k3s_scenario_with(PUBLISHED);
+    let local = fs::read_to_string(local_dir.join("compose.yaml")).unwrap();
+    let published = fs::read_to_string(published_dir.join("compose.yaml")).unwrap();
+
+    // The build-only hub service exists solely to be a named build context, so it goes when nothing is built.
+    assert!(
+        local.contains("ws-server-hub:") && local.contains("hub: service:ws-server-hub"),
+        "a local stack builds the hub it layers onto: {local}"
+    );
+    assert!(
+        local.contains("dockerfile: services/ws-wasi-runner/Dockerfile"),
+        "and builds its runners: {local}"
+    );
+
+    assert!(
+        !published.contains("ws-server-hub"),
+        "a published stack has no hub to build: {published}"
+    );
+    let hub = "hub: docker-image://ghcr.io/edge-toolkit/core/et-ws-server:latest";
+    assert!(published.contains(hub), "it layers onto the released hub: {published}");
+    assert!(
+        published.contains("image: ghcr.io/edge-toolkit/core/et-ws-wasi-runner:latest"),
+        "and pulls its runners: {published}"
+    );
+    // The scenario's own image is the one thing still built, because no release can carry its module set.
+    assert!(
+        published.contains("dockerfile: ") && !published.contains("services/ws-wasi-runner/Dockerfile"),
+        "leaving only the scenario image to build: {published}"
+    );
+}
+
+#[test]
+fn the_artifact_source_decides_whether_the_mise_deployment_builds_what_it_runs() {
+    let (_local_root, local_dir) = k3s_scenario_with("");
+    let (_published_root, published_dir) = k3s_scenario_with(PUBLISHED);
+    let local = fs::read_to_string(local_dir.join("mise.toml")).unwrap();
+    let published = fs::read_to_string(published_dir.join("mise.toml")).unwrap();
+
+    assert!(
+        local.contains("cargo run --quiet -p et-ws-wasi-runner"),
+        "a local deployment compiles the runner from the workspace: {local}"
+    );
+    assert!(
+        !local.contains("cargo:et-ws-wasi-runner"),
+        "and so declares no released binary: {local}"
+    );
+
+    // The released binary is named bare, as a line of its own, so a leftover `cargo run` cannot satisfy this.
+    assert!(
+        published.contains("\net-ws-wasi-runner\n"),
+        "a published deployment runs the released runner: {published}"
+    );
+    assert!(!published.contains("cargo run"), "and builds nothing: {published}");
+    // Each released binary is declared as a tool, which is what puts it on `PATH` for the task above.
+    for crate_name in ["et-ws-server", "et-ws-wasi-runner"] {
+        let declared = format!("\"cargo:{crate_name}\" = \"latest\"");
+        assert!(published.contains(&declared), "expected {declared} in: {published}");
+    }
 }
 
 #[test]

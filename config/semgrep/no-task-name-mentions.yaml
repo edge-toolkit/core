@@ -153,8 +153,8 @@ rules:
       (?ix)(?<![\w-])( _setup-store-tools|bootstrap-[a-z0-9-]+-release|dart-pub-get|dotnet-workload-wasm-tools
       |download-models|fetch-[a-z0-9-]+-rclone|install-all|oci-build-store|prefetch-ci|prefetch:[a-z]+
       |print-all-langs|publish-[a-z0-9-]+-to-(hf-cache|release)|pull-mise-tools|push-mise-tools
-      |push-mise-tools-linux-x64|release-rust-crates|rp-detect-missing|rustpython-investigation|vendor-llm1-ort
-      )(?![\w-])
+      |push-mise-tools-linux-x64|push-service-images|release-rust-crates|rp-detect-missing
+      |rustpython-investigation|vendor-llm1-ort )(?![\w-])
     message: >-
       Do not name an install, prefetch or asset-publishing task outside the jobs, images and asset tables that
       invoke it. These run on a maintainer's machine or a runner, never from the code, so a source file naming
@@ -218,7 +218,7 @@ rules:
     pattern-regex: >-
       (?ix)(?<![\w-])( action-validator-check|actionlint-check|ast-grep-(check|fix)|branch-up-to-date-check
       |cargo-(build|check|doc-check|fmt|fmt-check)|cargo-clippy-(check|check-pkg|fix)|cargo-deny-check
-      |cargo-unmaintained-check|check-all|check-mise-tools-visibility|check:[a-z]+|clang-format-check
+      |cargo-unmaintained-check|check-all|check-ghcr-visibility|check:[a-z]+|clang-format-check
       |clang-tidy-(check|fix)|conftest-check|conftest-check-(dockerfile|generated-trees|jscpd|policy-pairs)
       |conftest-check-(policy-tests|toml|yaml)|cpplint-check|dart-(check|fmt|fmt-check)|dotnet-(check|fmt)
       |dprint-(check|fmt)|fix:[a-z]+|flawfinder-check|fmt-all|fmt:[a-z]+|gitleaks-check|hadolint-check|jq-fmt

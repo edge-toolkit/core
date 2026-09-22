@@ -1,3 +1,6 @@
+[env]
+OTLP_AUTH_USERNAME = "root@example.com"
+
 [env._]
 file = "secrets.env"
 
@@ -33,10 +36,11 @@ run = "open http://localhost:5080/"
 
 [tasks.openobserve]
 alias = "o2"
-dir = "../../../.."
 run = """
 image=openobserve/openobserve:v0.91.5
-docker run --rm --name openobserve -p 127.0.0.1:5080:5080 --env-file config/o2.env -e ZO_ROOT_USER_PASSWORD "$image"
+settings="-e RUST_LOG=warn -e ZO_ROOT_USER_EMAIL=root@example.com"
+# $settings is a word-split flag list by design; do not quote it.
+docker run --rm --name openobserve -p 127.0.0.1:5080:5080 $settings -e ZO_ROOT_USER_PASSWORD "$image"
 """
 
 [tasks.ws-server]

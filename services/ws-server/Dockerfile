@@ -100,6 +100,8 @@ EOF
 
 FROM debian:bookworm-slim AS runtime
 
+LABEL org.opencontainers.image.source="https://github.com/edge-toolkit/core"
+
 # ca-certificates supplies the trust store the OTLP exporter needs for an https collector.
 # curl is here so a deployment can health-check the hub, and for nothing else. The base image ships no HTTP client
 # of any kind, so without it a compose stack has no way to ask whether the hub is serving yet -- and anything that

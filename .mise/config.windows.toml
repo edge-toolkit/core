@@ -101,8 +101,8 @@ url = "https://github.com/edge-toolkit/core/releases/download/gnupg-w32-v1/2.5.2
 #     error: toolchain 'stable-x86_64-pc-windows-gnullvm' may not be able to run on this system
 #     note: add the `--force-non-host` flag to install the toolchain anyway
 #
-# so the x64 spelling cannot simply be reused on arm64 -- see win_rust_host in [vars] for which triple each
-# arch picks and why. CARGO_BUILD_TARGET below tracks the same var, so host and target stay in step.
+# so the x64 spelling cannot simply be reused on arm64, which is why the triple comes from `win_rust_host`
+# rather than a literal. CARGO_BUILD_TARGET below tracks the same var, so host and target stay in step.
 [[tools.rust]]
 components = "clippy,rust-analyzer"
 profile = "minimal"
@@ -206,14 +206,6 @@ gradle_bin = '{{ vars.mise_installs }}\gradle\9.7.0\gradle-9.7.0\bin'
 # conda:libclang's binary dir, for the LIBCLANG_PATH below.
 # Pinned to the [tools] version above -- bump both together (conftest's version_drift enforces).
 win_libclang = '{{ vars.mise_installs }}\conda-libclang\22.1.8\Library\bin'
-# The rustup host triple for this machine's arch, used as both the toolchain spec and CARGO_BUILD_TARGET.
-# x64 keeps gnullvm: llvm-mingw supplies a full compiler + CRT from mise, so nothing depends on a system MSVC
-# install, which is what lets the Nano Server image build at all. arm64 has no such option -- llvm-mingw
-# publishes ucrt-x86_64 only, and every other native prerequisite the gnullvm lane leans on (conda:m2-make,
-# conda:m2-gnupg, conda:libclang) is x86_64-only in its channel too. The windows-11-arm runner does ship
-# Visual Studio with the arm64 MSVC toolset, so msvc is the one triple that can build there today; it is also
-# rustup's own host default on that arch, so this asks for exactly the toolchain rustup would pick unaided.
-win_rust_host = "{% if arch() == 'arm64' %}aarch64-pc-windows-msvc{% else %}x86_64-pc-windows-gnullvm{% endif %}"
 # The flat dependency farm inside npm:oxlint-tsgolint's mise install, for the OXLINT_TSGOLINT_PATH entry below.
 # mise's embedded aube hoists a tool's dependencies rather than nesting them: `<install>\node_modules\<pkg>`
 # is a symlink to `.mise\<pkg>@<version>\node_modules\<pkg>`, and that package dir holds only its own files
@@ -268,7 +260,7 @@ MISE_BASH_PATH = "{{ vars.winsh }}"
 # both because only cmd.exe has the limit and because oxlint hard-fails on a set-but-invalid value, which an
 # off-Windows `{% if %}` empty-string render would be. Inert when js isn't in MISE_ENV; just an unused path.
 OXLINT_TSGOLINT_PATH = '{{ vars.tsgolint_pkg }}\@oxlint-tsgolint\win32-x64\tsgolint.exe'
-# Build for the host's own target -- the LLVM mingw one on x64 (see win_rust_host above for the arm64 case).
+# Build for the host's own target -- the LLVM mingw one on x64, and msvc on arm64, per `win_rust_host`.
 # gnullvm, not gnu: llvm-mingw ships compiler-rt + libunwind, not the GCC runtime (libgcc/libgcc_eh) the gnu
 # target's link line demands. The linker is llvm-mingw's clang and the raw-dylib import tool is its
 # llvm-dlltool, both given as absolute paths (see win_llvm_bin above) so the cargo: source-build subprocess

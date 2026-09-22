@@ -1,16 +1,22 @@
 use std::fmt::Write as _;
 use std::path::Path;
 
-use edge_toolkit::input::ClusterInput;
 use et_path::{absolute_from, relative_path_from};
 use fs_err as fs;
 use toml::{Table, Value};
 
 use crate::error::CliError;
+use crate::input::{ArtifactSource, ClusterInput};
 use crate::{
-    RunnerInstance, cluster_module_names, hub_ws_url, module_registry, resolve_cluster_runners, resolve_module_paths,
-    runner_crate,
+    COLLECTOR_SETTINGS, COLLECTOR_USERNAME, RunnerInstance, cluster_module_names, hub_ws_url, module_registry,
+    resolve_cluster_runners, resolve_module_paths, runner_crate,
 };
+
+/// Crate whose binary serves the hub, which a published deployment installs in place of building it.
+const HUB_CRATE: &str = "et-ws-server";
+
+/// Version every `cargo:` tool the generated deployment declares is requested at.
+const LATEST: &str = "latest";
 
 pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
     let output_path = output_dir.join("mise.toml");
@@ -18,39 +24,45 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
     let output_abs = absolute_from(&workspace_root, output_dir);
     let ws_server_dir = workspace_root.join("services/ws-server");
     let workspace_rel = relative_path_from(&output_abs, &workspace_root);
-    let openobserve_env_file_rel = "config/o2.env";
-    // The image is lifted into a shell variable, not folded with a continuation: inlining it would put the
-    // `docker run` past the editorconfig line length, and a wrapped copy is what once silently dropped `-it`.
-    // `-e ZO_ROOT_USER_PASSWORD` passes the name only, so Docker forwards the value from the task environment
-    // that `[env] _.file` loaded -- and being after `--env-file`, the scenario's password still wins over the
-    // repo-wide one that file carries.
+    // The image and the settings are lifted into shell variables rather than folded with continuations:
+    // inlining them would put the `docker run` past the editorconfig line length, and a wrapped copy is what
+    // once silently dropped `-it`. `-e ZO_ROOT_USER_PASSWORD` passes the name only, so Docker forwards the
+    // value from the task environment that `[env] _.file` loaded; the settings before it carry their values.
+    let collector_flags = COLLECTOR_SETTINGS
+        .iter()
+        .map(|(name, value)| format!("-e {name}={value}"))
+        .collect::<Vec<_>>()
+        .join(" ");
     let openobserve_run = format!(
         concat!(
             "image=openobserve/openobserve:v0.91.5\n",
-            "docker run --rm --name openobserve -p 127.0.0.1:5080:5080 --env-file {} ",
+            "settings=\"{}\"\n",
+            "# $settings is a word-split flag list by design; do not quote it.\n",
+            "docker run --rm --name openobserve -p 127.0.0.1:5080:5080 $settings ",
             "-e ZO_ROOT_USER_PASSWORD \"$image\"\n",
         ),
-        openobserve_env_file_rel
+        collector_flags
     );
     let module_names = cluster_module_names(cluster);
     let module_paths = scenario_module_paths(&ws_server_dir, &module_names)?;
     let module_paths_lines = wrap_module_paths(&module_paths);
-    let ws_server_run = format!("{module_paths_lines}export MODULES_PATHS\ncargo run\n");
+    let artifacts = cluster.artifact_source;
+    let hub_command = if matches!(artifacts, ArtifactSource::Published) {
+        HUB_CRATE
+    } else {
+        "cargo run"
+    };
+    let ws_server_run = format!("{module_paths_lines}export MODULES_PATHS\n{hub_command}\n");
     let ws_server_rel = relative_path_from(&output_abs, &ws_server_dir);
 
     let mut root = Table::new();
     let mut tasks = Table::new();
 
+    // No working directory: the collector is a container started from values this file carries, so unlike the
+    // hub it has nothing to resolve against the repository.
     let _previous: Option<Value> = tasks.insert(
         "openobserve".to_string(),
-        Value::Table(mise_task(
-            Some("o2"),
-            None,
-            Some(&workspace_rel),
-            Some(&openobserve_run),
-            None,
-            None,
-        )),
+        Value::Table(mise_task(Some("o2"), None, None, Some(&openobserve_run), None, None)),
     );
     let _previous: Option<Value> = tasks.insert(
         "ws-server".to_string(),
@@ -74,8 +86,8 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
             Value::Table(mise_task(
                 None,
                 Some(&format!("Run {} in the {} runner", runner.module, runner.runner)),
-                Some(&workspace_rel),
-                Some(&runner_run_body(runner)),
+                workspace_dir(&workspace_rel, artifacts),
+                Some(&runner_run_body(runner, artifacts)),
                 None,
                 Some(runner_env(runner)),
             )),
@@ -110,10 +122,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
     let _previous: Option<Value> = root.insert("env".to_string(), Value::Table(mise_env()));
     let _previous: Option<Value> = root.insert("tasks".to_string(), Value::Table(tasks));
 
-    let mut tools = Table::new();
-    let _previous: Option<Value> = tools.insert("cargo:open".to_string(), Value::String("latest".to_string()));
-    // No extra tools for the runner tasks: `runner_run_body` calls only `cargo`, which the hub task needs anyway.
-    let _previous: Option<Value> = root.insert("tools".to_string(), Value::Table(tools));
+    let _previous: Option<Value> = root.insert("tools".to_string(), Value::Table(mise_tools(&runners, artifacts)));
 
     fs::write(&output_path, toml::to_string(&Value::Table(root))?)?;
 
@@ -231,6 +240,15 @@ fn mise_env() -> Table {
     let _previous: Option<Value> = file.insert("file".to_string(), Value::String(crate::SECRETS_ENV_FILE.to_string()));
     let mut env = Table::new();
     let _previous: Option<Value> = env.insert("_".to_string(), Value::Table(file));
+    // The account beside the password, at the same scope, because whatever reads one has to read the other.
+    // The hub does, and so does the WASI runner -- the only runner carrying an `OtlpConfig`; the web and
+    // pyo3 runners ignore `OTLP_*` entirely. Handed a password with no account to present it as, the WASI
+    // runner fails at startup with `missing field `username``. File scope rather than per task because the
+    // password already arrives there, from the credential file, and splitting the pair is what broke it.
+    let _previous: Option<Value> = env.insert(
+        "OTLP_AUTH_USERNAME".to_string(),
+        Value::String(COLLECTOR_USERNAME.to_string()),
+    );
     env
 }
 
@@ -263,11 +281,48 @@ fn mise_depends(depends: &[String]) -> Table {
 /// off, so nothing installed it and the task silently spun out its whole timeout). Replacing that with
 /// `et-cli wait-for-module` fixed the tool problem but added a second `cargo run` to every runner task, which
 /// under the coverage profile rebuilt the CLI before it could poll.
-fn runner_run_body(runner: &RunnerInstance) -> String {
+fn runner_run_body(runner: &RunnerInstance, artifacts: ArtifactSource) -> String {
     let crate_name = runner_crate(&runner.runner);
     let mut body = String::default();
+    if matches!(artifacts, ArtifactSource::Published) {
+        // The released binary is on `PATH` as a mise shim, so it needs no working directory of its own.
+        let _write_result = writeln!(body, "{crate_name}");
+        return body;
+    }
     let _write_result = writeln!(body, "cargo run --quiet -p {crate_name}");
     body
+}
+
+/// The `[tools]` a generated deployment declares.
+///
+/// A local deployment declares nothing for what it runs, because `runner_run_body` and the hub task call only
+/// `cargo`, which anyone building this repository already has. A published one names each released binary as a
+/// `cargo:` tool, which is what puts it on `PATH`. `task.run_auto_install` is off, so these arrive through the
+/// `mise install` the README asks for rather than on first use.
+fn mise_tools(runners: &[RunnerInstance], artifacts: ArtifactSource) -> Table {
+    let mut tools = Table::new();
+    let _previous: Option<Value> = tools.insert("cargo:open".to_string(), Value::String(LATEST.to_string()));
+    if matches!(artifacts, ArtifactSource::Published) {
+        let latest = Value::String(LATEST.to_string());
+        let _previous: Option<Value> = tools.insert(format!("cargo:{HUB_CRATE}"), latest.clone());
+        for runner in runners {
+            let crate_name = runner_crate(&runner.runner);
+            let _previous: Option<Value> = tools.insert(format!("cargo:{crate_name}"), latest.clone());
+        }
+    }
+    tools
+}
+
+/// Working directory a task needs, or `None` when the command carries no dependence on where it runs.
+///
+/// A local deployment compiles out of the cargo workspace, so every task has to start there. A published one
+/// runs a binary off `PATH` and only the hub still needs a directory, because the module paths it is handed are
+/// relative to the server's own.
+const fn workspace_dir(workspace_rel: &str, artifacts: ArtifactSource) -> Option<&str> {
+    if matches!(artifacts, ArtifactSource::Published) {
+        return None;
+    }
+    Some(workspace_rel)
 }
 
 /// The `RUNNER_*`/`WS_*` environment a runner task needs.
@@ -278,5 +333,10 @@ fn runner_env(runner: &RunnerInstance) -> Table {
     let mut env = Table::new();
     let _previous: Option<Value> = env.insert("RUNNER_MODULE".to_string(), Value::String(runner.module.clone()));
     let _previous: Option<Value> = env.insert("WS_SERVER_URL".to_string(), Value::String(hub_ws_url()));
+    // Whatever the scenario declared for this agent. It cannot collide with the two above: the resolver
+    // rejects an `env:` naming either, so there is nothing here to decide between.
+    for (name, value) in &runner.env {
+        let _previous: Option<Value> = env.insert(name.clone(), Value::String(value.clone()));
+    }
     env
 }

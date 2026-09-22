@@ -13,7 +13,10 @@ pub enum CliError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
-    #[error("Failed to parse cluster input YAML")]
+    // The underlying message carries the whole of what is actionable -- which field, which line, and for a
+    // rejected enum the values that would have been accepted -- and a `source` nobody prints is a message
+    // that stops at "it did not parse".
+    #[error("Failed to parse cluster input YAML: {0}")]
     ParseClusterYaml(#[from] serde_yaml::Error),
 
     #[error("Failed to parse {path}")]
@@ -75,9 +78,6 @@ pub enum CliError {
     #[error("Verification root {0:?} does not contain any scenario files under */input/*.yaml")]
     NoScenarios(PathBuf),
 
-    #[error("Unsupported deployment_type {0:?}. Supported values are currently: mise, docker-compose")]
-    UnsupportedDeploymentType(String),
-
     #[error("No local module or runtime package found for dependency {0:?}")]
     UnknownDependency(String),
 
@@ -99,6 +99,9 @@ pub enum CliError {
 
     #[error("Runner {name:?} is declared more than once; each runner needs its own name")]
     DuplicateRunnerName { name: String },
+
+    #[error("Agent {agent:?} sets {variable}, which the generated deployment derives and must own")]
+    ReservedRunnerEnv { agent: String, variable: String },
 }
 
 /// Parse `src` as TOML into `T`, attaching `path` to the error on failure.

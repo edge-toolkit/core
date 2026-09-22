@@ -23,6 +23,7 @@ deno_error.workspace = true
 deno_resolver.workspace = true
 deno_runtime.workspace = true
 edge-toolkit.workspace = true
+et-otlp.workspace = true
 et-rest-client = { workspace = true, features = ["tracing"] }
 et-ws-runner-common.workspace = true
 futures-util.workspace = true
@@ -36,7 +37,6 @@ sys_traits.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing.workspace = true
-tracing-subscriber.workspace = true
 
 # Depend on winapi with `std` here so cargo feature unification turns it on for the shared winapi.
 # deno_io (pulled via deno_runtime) declares `winapi` without its `std` feature,

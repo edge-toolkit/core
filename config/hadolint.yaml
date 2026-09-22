@@ -1,6 +1,23 @@
 # hadolint config.
 # Each entry below is a best-practice rule we consciously skip, with the reason;
 # drop one once it no longer applies.
+
+# Every Dockerfile has to declare where its image came from.
+# GHCR reads `org.opencontainers.image.source` to attach a pushed package to the repository, and a package that
+# arrives without it stays unlinked until some later push supplies one -- which is a thing nobody notices until
+# they are looking at a package page with no source. Requiring it of every Dockerfile rather than only the ones
+# published today means an image that starts being published later cannot arrive unlabelled. A `LABEL` in the
+# first stage is enough, since a derived image inherits its parent's labels.
+#
+# DL3049 is `info` by severity and hadolint fails on `info` already, so the override buys no strictness today.
+# It is here to say the level is deliberate: a future `failure-threshold` that forgives `info` would otherwise
+# turn this requirement off silently.
+label-schema:
+  org.opencontainers.image.source: url
+override:
+  error:
+    - DL3049
+
 ignored:
   # Pinning apt package versions is brittle.
   # They float with the Ubuntu base image + security updates, so an exact pin breaks on every base bump. We install

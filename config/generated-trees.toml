@@ -81,12 +81,4 @@ required_in = [
   "config/semgrep/no-non-ascii.yaml",
   "config/semgrep/no-task-name-mentions.yaml",
   "config/semgrep/no-todo.yaml",
-  "config/semgrep/no-trailing-backslash.yaml",
 ]
-
-# Configs that deliberately skip only part of a tree, with the exact globs they carry instead.
-# Recorded rather than waved through, so narrowing stays a visible decision: the trailing-backslash ban only has
-# generated output to forgive in the two deployment artifacts regen-verification writes, and keeping the rest of
-# the tree in scope is the point.
-[tree.verification.narrower]
-"config/semgrep/no-trailing-backslash.yaml" = ["/verification/**/compose.yaml", "/verification/**/mise.toml"]
