@@ -17,10 +17,13 @@ covering it, so its credential is not committed by whatever repository it lands 
 
 ## Run With Mise
 
-Fetch the binaries the tasks below name before the first run:
+Fetch the binaries and module packages the tasks below name before the first run.
+`GITHUB_TOKEN` has to be set: GitHub Packages rejects an unauthenticated read even for a public
+package. The registry configuration is exported rather than relied on from `mise.toml`, because
+mise does not apply its own `[env]` to the resolution this command performs:
 
 ```bash
-mise install
+NPM_CONFIG_USERCONFIG="$PWD/npmrc" mise install
 ```
 
 From this directory, start the scenario with:

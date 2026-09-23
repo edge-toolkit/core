@@ -467,6 +467,16 @@ fn module_tool_value(tool: &str, latest: &Value) -> Value {
     if !tool.starts_with(&format!("npm:{MODULE_SCOPE}")) {
         return latest.clone();
     }
+    waived(latest)
+}
+
+/// The same waiver, for a tool named outright rather than resolved from a scenario's module list.
+///
+/// The hub and the runners are this project's own binaries, published by the release that produced the
+/// deployment, so the reasoning above applies to them unchanged: a deployment generated beside a fresh publish
+/// would otherwise install yesterday's binary for a day and give no sign of it, since resolving `latest` to an
+/// older release is what mise does rather than an error. `cargo:open` is somebody else's and keeps the delay.
+fn waived(latest: &Value) -> Value {
     let mut options = Table::new();
     let _previous: Option<Value> = options.insert("version".to_string(), latest.clone());
     let _previous: Option<Value> = options.insert("minimum_release_age".to_string(), Value::String("0".to_string()));
@@ -478,10 +488,10 @@ fn mise_tools(runners: &[RunnerInstance], artifacts: ArtifactSource, staged: &[S
     let _previous: Option<Value> = tools.insert("cargo:open".to_string(), Value::String(LATEST.to_string()));
     if matches!(artifacts, ArtifactSource::Published) {
         let latest = Value::String(LATEST.to_string());
-        let _previous: Option<Value> = tools.insert(format!("cargo:{HUB_CRATE}"), latest.clone());
+        let _previous: Option<Value> = tools.insert(format!("cargo:{HUB_CRATE}"), waived(&latest));
         for runner in runners {
             let crate_name = runner_crate(&runner.runner);
-            let _previous: Option<Value> = tools.insert(format!("cargo:{crate_name}"), latest.clone());
+            let _previous: Option<Value> = tools.insert(format!("cargo:{crate_name}"), waived(&latest));
         }
         for tool in staged {
             let value = module_tool_value(tool, &latest);

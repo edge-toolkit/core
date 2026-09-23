@@ -547,9 +547,12 @@ fn the_artifact_source_decides_whether_the_mise_deployment_builds_what_it_runs()
         "a published deployment runs the released runner: {published}"
     );
     assert!(!published.contains("cargo run"), "and builds nothing: {published}");
-    // Each released binary is declared as a tool, which is what puts it on `PATH` for the task above.
+    // Each released binary is declared as a tool, which is what puts it on `PATH` for the task above, and
+    // each waives the release age. Without the waiver mise hides a release younger than a day and installs
+    // the one before it -- so a deployment generated beside the publish it was made for runs the previous
+    // binary, and says nothing: resolving `latest` to an older release is ordinary behaviour, not an error.
     for crate_name in ["et-ws-server", "et-ws-wasi-runner"] {
-        let declared = format!("\"cargo:{crate_name}\" = \"latest\"");
+        let declared = format!("[tools.\"cargo:{crate_name}\"]\nminimum_release_age = \"0\"\nversion = \"latest\"");
         assert!(published.contains(&declared), "expected {declared} in: {published}");
     }
 }

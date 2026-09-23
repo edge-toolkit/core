@@ -139,6 +139,11 @@ ripgrep = "latest"
 # Its 0.8.0 release has no asset, so it builds from
 # source via cargo: (same 0.8.0 pin, so every platform runs the same version).
 "cargo:findutils" = { version = "0.8.0", os = ["linux/arm64"] }
+# agent-lint: the linter behind agent-lint-check, over this repository's Claude configuration.
+# Scoped to the three targets upstream publishes a binary for -- macOS arm64 and Linux x86_64/aarch64, all
+# three musl or native -- because there is no Windows or macOS x86_64 asset in the release to install. The
+# task skips where the tool cannot be installed rather than failing on a missing binary.
+"github:zhupanov/agent-lint" = { version = "4.0.3", os = ["linux", "macos/arm64"] }
 # goawk: the awk that tasks invoke as `goawk` in place of the host's awk.
 "github:benhoyt/goawk" = "latest"
 "github:caldempsey/parfit" = "latest"
@@ -797,6 +802,7 @@ description = "Run all formatters: fmt:rust + any loaded guest fmt:<lang>"
 depends = [
   "action-validator-check",
   "actionlint-check",
+  "agent-lint-check",
   "ast-grep-check",
   "branch-up-to-date-check",
   "cargo-check",
@@ -859,6 +865,22 @@ description = "Apply all lint-fix passes: fix:rust + any loaded guest fix:<lang>
 [tasks.action-validator-check]
 description = "Validate GitHub Actions workflow + composite-action YAML"
 run = "action-validator .github/workflows/*.yaml .github/actions/*/action.yaml"
+
+[tasks.agent-lint-check]
+description = "Lint this repository's Claude configuration (CLAUDE.md, .claude/) with agent-lint"
+# Skips where upstream ships no binary rather than failing on a missing one.
+# That is the one case this repo treats a missing tool as expected: the `[tools]` entry is os-scoped to the
+# targets the release actually carries, so on any other platform there is nothing to install and nothing this
+# could have run. macOS x86_64 is the case the os scope alone cannot express, since it scopes by OS and arch
+# while a task body is the only place the two can be read together on a host that does have mise.
+run = """
+if [ "$(coreutils uname -s)" = "Darwin" ] && [ "$(coreutils uname -m)" != "arm64" ]; then
+  echo "agent-lint-check: upstream publishes no macOS x86_64 binary; nothing to check on this host"
+  exit 0
+fi
+agent-lint .
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.actionlint-check]
 description = "Lint GitHub Actions workflows (actionlint): local-action input validation, expression syntax, shellcheck"
@@ -1421,6 +1443,94 @@ find verification -name k3s.yaml -print0 |
 """
 shell = "{{ vars.task_shell }}"
 
+# End-to-end check that a published deployment runs against released artifacts and nothing local.
+# The sibling scenario checks all read this working tree: the mise and compose ones build the runners out of the
+# workspace, and k3s-verify imports images the caller built. None of them can tell whether what was published is
+# usable, which is a different question and one only a release can answer. This installs the hub, the runner and
+# the module packages from crates.io and GitHub Packages, runs the math1 exchange on them, and asserts the twin
+# stored the model the other deployments are held to.
+#
+# Expected to fail for a stretch after any change to a published crate, and that is not a defect in this task.
+# What it runs is whatever the registries currently hold, so between a change landing here and the release that
+# carries it, this reports the old artifacts -- correctly. It is therefore deliberately absent from the `check`
+# aggregate and marked continue-on-error in CI: a red result asks "is a release outstanding?", not "is the tree
+# broken?". Run it after publishing, not before.
+#
+# Needs a GITHUB_TOKEN because GitHub Packages requires auth even to read a public package, and Docker for the
+# collector the scenario starts alongside the hub.
+[tasks.published-verify]
+description = "Run the published math1 scenario against released crates and module packages, end to end"
+run = """
+scenario=math1
+out="verification/published/output/$scenario"
+if [ -z "${GITHUB_TOKEN:-}" ]; then
+  echo "published-verify: GITHUB_TOKEN is unset; GitHub Packages rejects an unauthenticated read" >&2
+  exit 1
+fi
+
+# Storage is redirected so the run is self-contained.
+# Unset, the hub resolves its default against the repository root it finds by walking up, so two runs and any
+# stale bucket from ordinary development share one directory and the poll below can read a model this run never
+# produced.
+storage=$(coreutils mktemp -d)
+scenario_pid=""
+cleanup() {
+  status=$?
+  if [ -n "$scenario_pid" ]; then kill "$scenario_pid" 2>/dev/null || true; fi
+  # The collector outlives the task that started it.
+  # mise's child is the docker client, and killing a client leaves the container running, to be adopted by the
+  # next run as a name collision.
+  docker rm -f openobserve >/dev/null 2>&1 || true
+  coreutils rm -rf "$storage"
+  exit "$status"
+}
+trap cleanup EXIT
+
+mise trust "$out/mise.toml" >/dev/null
+
+# The lockfile is removed rather than honoured, which is the opposite of what a deployment usually wants.
+# `lockfile = true` is set repository-wide, so a scenario directory acquires one on its first install and from
+# then on pins whatever was resolved that day -- `specifiers = ["latest"]` alongside a fixed version, so a
+# newer release is not consulted at all. That is precisely the release this task exists to exercise, and the
+# pin is silent: the install succeeds, and only the running binary's version gives it away. The file is
+# gitignored, so nothing downstream depends on it surviving.
+coreutils rm -f "$out/mise.lock"
+
+# The npm registry config is exported here rather than left to the deployment's own `[env]`.
+# mise computes that entry but does not apply it to its own tool resolution, so the embedded npm client reads
+# no `NPM_CONFIG_USERCONFIG`, falls back to registry.npmjs.org, and answers `package not found` for a scoped
+# package that only GitHub Packages holds. Exported into the process, the same file resolves against
+# npm.pkg.github.com and installs. Measured both ways on one cold cache: the deployment's `[env]` alone
+# fetched https://registry.npmjs.org/@edge-toolkit%2Fet-ws-math1 and installed nothing.
+npmrc="$PWD/$out/npmrc"
+(cd "$out" && NPM_CONFIG_USERCONFIG="$npmrc" mise install)
+(cd "$out" && STORAGE_URL="file://$storage" mise run generated-scenario) &
+scenario_pid=$!
+
+# The model is what says the exchange ran, rather than the processes being up.
+# The runners retry until the hub answers, so both being alive proves only that neither has given up yet.
+stored=""
+for _ in $(coreutils seq 1 60); do
+  for bucket in "$storage"/*/math1-output.json; do
+    if [ -f "$bucket" ]; then
+      stored=$(coreutils cat "$bucket")
+      break
+    fi
+  done
+  if [ -n "$stored" ]; then break; fi
+  coreutils sleep 5
+done
+
+if [ -z "$stored" ]; then
+  echo "published-verify: no math1-output.json appeared under $storage" >&2
+  echo "published-verify: check whether the crates and module packages this scenario names are published yet" >&2
+  exit 1
+fi
+
+printf '%s' "$stored" | cargo run -q -p et-ws-test-server --bin verify-math1
+"""
+shell = "{{ vars.task_shell }}"
+
 # End-to-end check that the generated k3s manifests actually run the math1 scenario on a real cluster.
 # `kubeconform-check` proves the manifests are valid and `verification-check` proves they are stable, and
 # neither applies them -- a manifest that is both can still describe a deployment that does not work. This
@@ -1435,12 +1545,24 @@ shell = "{{ vars.task_shell }}"
 description = "Apply the generated math1 k3s manifests to a throwaway cluster and verify the stored model"
 run = """
 scenario=math1
+source="${usage_source:-local}"
 ns="et-$scenario"
 cluster="et-$scenario-verify"
-out="verification/local/output/$scenario"
+out="verification/$source/output/$scenario"
 hub_image="et-ws-server-$scenario:latest"
-runner_image="et-ws-web-runner:latest"
 manifest_wait=300s
+
+# The runner is the one image that differs between the two sources.
+# A published deployment names the released one and so has it pulled here rather than built; the scenario
+# image is built either way, because no release can carry a module set particular to one deployment. Pulling
+# rather than leaving it to the cluster is what keeps the guard below meaningful: `k3d image import` reads the
+# local daemon, so an image only the registry has would fail there instead of at the check.
+if [ "$source" = "published" ]; then
+  runner_image="ghcr.io/edge-toolkit/core/et-ws-web-runner:latest"
+  docker pull "$runner_image"
+else
+  runner_image="et-ws-web-runner:latest"
+fi
 
 for image in "$hub_image" "$runner_image"; do
   if ! docker image inspect "$image" >/dev/null 2>&1; then
@@ -1476,7 +1598,7 @@ trap 'status=$?;
   k3d cluster delete "$cluster" >/dev/null 2>&1 || true
   coreutils rm -rf "$secrets_dir"' EXIT
 
-input="verification/local/input/$scenario.yaml"
+input="verification/$source/input/$scenario.yaml"
 cargo run -q -p et-cli -- generate-deployment --input-file "$input" --output-dir "$secrets_dir"
 k3d cluster delete "$cluster" >/dev/null 2>&1 || true
 k3d cluster create "$cluster" --wait
@@ -1515,6 +1637,9 @@ fi
 printf '%s' "$stored" | cargo run -q -p et-ws-test-server --bin verify-math1
 """
 shell = "{{ vars.task_shell }}"
+usage = """
+arg "[source]" help="Which verification tree to apply: local (default) or published"
+"""
 
 # Hardening checks over the generated Kubernetes manifests, mirroring what Codacy reports on a pushed branch.
 # Codacy's three findings are trivy's KSV-0001 (privilege escalation), KSV-0014 (writable root filesystem) and

@@ -51,9 +51,15 @@ et-ws-server
 [tasks.ws-server.env]
 
 [tools]
-"cargo:et-ws-server" = "latest"
-"cargo:et-ws-web-runner" = "latest"
 "cargo:open" = "latest"
+
+[tools."cargo:et-ws-server"]
+minimum_release_age = "0"
+version = "latest"
+
+[tools."cargo:et-ws-web-runner"]
+minimum_release_age = "0"
+version = "latest"
 
 [tools."npm:@edge-toolkit/et-ws-math1"]
 minimum_release_age = "0"

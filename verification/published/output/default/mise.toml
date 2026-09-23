@@ -32,10 +32,13 @@ et-ws-server
 MODULES_ROOT = "@edge-toolkit/et-ws-server-static"
 
 [tools]
-"cargo:et-ws-server" = "latest"
 "cargo:open" = "latest"
 "npm:onnxruntime-web" = "latest"
 "npm:stats-gl" = "latest"
+
+[tools."cargo:et-ws-server"]
+minimum_release_age = "0"
+version = "latest"
 
 [tools."npm:@edge-toolkit/et-ws-server-static"]
 minimum_release_age = "0"
