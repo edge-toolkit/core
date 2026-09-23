@@ -645,6 +645,14 @@ protects. The bar is therefore the whole of it -- every line and every branch, n
 lets one untested helper hide behind a well-covered neighbour. Services and utilities are held to no such
 number; they are covered on their merits, which is exactly why the shared layer underneath has to be total.
 
+**A new crate under `libs/` joins the checked set in the same change that creates it.** The bar is only
+enforced over the crates named in `.mise/config.coverage.toml`'s `[vars]` -- `native_cov_libs` for everything
+`cargo-llvm-cov` instruments directly, `wasm_cov_libs` for the crates that only ever compile to wasm and whose
+covmaps come out of the wasm-side tasks. A crate belongs to exactly one of the two. Left out of both, it is
+not held to anything: the lane stays green while the newest shared code in the repo is the least covered, and
+nothing reports that, because an unnamed crate is indistinguishable from one that does not exist. Adding the
+directory name is one word, and it belongs beside the `Cargo.toml` that introduces the crate.
+
 Write the tests with the code, not after it. A new function in `libs/` lands in the same change as the tests
 that cover it, and a new branch in an existing one lands with the case that takes it. Finding the gap from a
 red coverage lane instead means the change is already written, reviewed and pushed -- the most expensive moment
@@ -1539,6 +1547,28 @@ Use `#[expect(...)]` rather than `#[allow(...)]` (the workspace denies `unfulfil
 `expect` that stops applying fails the build instead of silently lingering). The same applies to other
 restriction lints whose pattern is intentional in a given spot -- prefer a justified
 `#[expect(..., reason = "...")]` over contorting the code to dodge the lint.
+
+## `Option` needs sign-off, and a function returning one is almost always wrong
+
+**Do not reach for `Option` without asking first.** An `Option` usually marks the spot where an error was
+thrown away. `None` says "there isn't one" and nothing else: not which input was wrong, not which file was
+missing, not which subprocess failed. The caller is then left to invent an explanation, and the one it
+invents is a guess -- which is how a missing tool surfaces three layers up as an empty list rather than as
+the sentence naming the tool.
+
+**A function returning `Option` is the sharpest form of this**, because the return type is where the reason
+would have gone. `Result` carries it; `Option` discards it at exactly the moment it was known. If a function
+can fail, it returns `Result` with an error that says what happened. `Option` is for a value that is
+legitimately absent without anything having gone wrong -- and that case is rarer than it looks, which is why
+`new-fn-returns-option` rejects a new one and holds the existing returns in an explicit list. A name joining
+that list is a decision to record, not a default to fall into.
+
+The same applies to a field. `Option<bool>` for "unset means work it out" is a third state that every reader
+has to resolve; a `#[serde(default = "...")]` naming the function that computes the default says the same
+thing with two states and no `unwrap_or_else` at the use site. `ModulesConfig::mise_discover` was written
+the first way and is now the second.
+
+Where an `Option` is genuinely right, say so at the site: what absence means, and why it is not a failure.
 
 ## Naming conventions
 

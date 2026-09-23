@@ -1,5 +1,5 @@
 {
-  "name": "et-ws-js-math1",
+  "name": "@edge-toolkit/et-ws-js-math1",
   "type": "module",
   "description": "js math1",
   "version": "0.1.0",

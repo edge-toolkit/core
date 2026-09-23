@@ -146,7 +146,9 @@ spec:
             - et-ws-server
           env:
             - name: MODULES_PATHS
-              value: /app/services/ws-server/static,/app/services/ws-wasm-agent,/app/services/ws-modules/math1,/app/services/ws-modules/math1-sender
+              value: /app/services/ws-wasm-agent,/app/services/ws-modules/math1,/app/services/ws-modules/math1-sender
+            - name: MODULES_ROOT
+              value: ""
             - name: OTLP_AUTH_USERNAME
               value: root@example.com
             - name: OTLP_COLLECTOR_URL
@@ -243,7 +245,7 @@ spec:
       containers:
         - env:
             - name: RUNNER_MODULE
-              value: et-ws-math1
+              value: "@edge-toolkit/et-ws-math1"
             - name: WS_SERVER_URL
               value: ws://ws-server:8080/ws
           image: et-ws-web-runner:latest
@@ -297,7 +299,7 @@ spec:
       containers:
         - env:
             - name: RUNNER_MODULE
-              value: et-ws-math1-sender
+              value: "@edge-toolkit/et-ws-math1-sender"
             - name: WS_SERVER_URL
               value: ws://ws-server:8080/ws
           image: et-ws-web-runner:latest

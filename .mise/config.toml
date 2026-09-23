@@ -566,11 +566,25 @@ web_cov_feat = '{% if env?.ET_TEST_COVERAGE == "true" %} -- --features et-web/co
 # Instruments our crates, never dependency cdylibs. Empty unless ET_TEST_COVERAGE is set, so normal builds get
 # no wrapper (no fingerprint churn). The wrapper binary is built by the build-wasm-cov-wrapper task dependency.
 web_cov_wrapper = '{% if env?.ET_TEST_COVERAGE == "true" %}{{ vars.a_web_cov_wrapper_env }}{% endif %}'
+# Owner scope every module package is published under, as wasm-pack's flag for it.
+# GitHub Packages only accepts a package scoped to the repository owner, so an unscoped module cannot be
+# published at all. One var rather than the flag repeated per module, so the scope is stated once and a new
+# module build picks it up by using this like every other. It costs nothing on a module that is never
+# published: the hub drops the scope when it names a module, so a scoped and an unscoped build of the same
+# module are served under one name, at one URL, and are indistinguishable to a deployment. Defined above its
+# consumers because mise resolves `[vars]` in file order -- a var referenced before it is defined is simply
+# absent, which surfaces as `Field ... is not defined` rather than as an empty string.
+wasm_scope = "--scope edge-toolkit "
+# The module this repository's server serves at `/`, named as its own package.json declares it.
+# The server has no default: which module is a deployment's front page is that deployment's business, and a
+# name defaulted there would be one project's carried by every other. Stated once here because all three
+# ws-server tasks need it and a copy per task is a copy that drifts.
+hub_root_module = "@edge-toolkit/et-ws-server-static"
 # Override-free head of a browser module's wasm-pack build: coverage wrapper prefix plus fixed build args.
 # Used by the two modules that also run et-cli module-package-json (har1, face-detection). It excludes no_opt /
 # web_cov_feat -- those are appended inline at the call site because no_opt carries a per-platform override that a
 # nested var would freeze at this file's value.
-web_pack_cov = '{{ vars.web_cov_wrapper }}wasm-pack build . --target web'
+web_pack_cov = '{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.wasm_scope }}'
 # Extra flag for the wasm-pack module builds; empty so wasm-opt runs.
 # config.windows.toml overrides it to --no-opt where wasm-opt can't execute.
 no_opt = ""
@@ -1786,7 +1800,7 @@ dir = "services/ws-wasm-agent"
 # so other globally-loaded tasks -- prefetch-ci's transitive deps via `prefetch:node` -- can reference it
 # without forcing `rust` into MISE_ENV. A bash `shell` for the same base-config PATH-dropout reason
 # `prefetch:rust` carries one.
-run = "wasm-pack build . --target web {{ vars.no_opt }}"
+run = "wasm-pack build . --target web {{ vars.wasm_scope }}{{ vars.no_opt }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks."prefetch:node"]
@@ -1907,10 +1921,12 @@ run = "git diff --exit-code -- generated services/ws-wasi-runner/src/bindings.rs
 # (with `--clear`, the screen simply blanks). The command has no shell features, so program mode is correct
 # on every OS. This is upstream watchexec#918 (open); drop --shell=none once it is fixed. Verified on 2.5.1.
 [tasks.ws-server]
+alias = "hub"
 description = "Run the WebSocket server, restarting on .rs/.toml changes"
 run = "watchexec --restart --clear --exts rs,toml -i '**/tests/**' --shell=none -- cargo run -p et-ws-server"
 
 [tasks.ws-server.env]
+MODULES_ROOT = "{{ vars.hub_root_module }}"
 # Must match ZO_ROOT_USER_PASSWORD in config/o2.env; the server authenticates its OTLP exports as that root user.
 OTLP_AUTH_PASSWORD = "Complexpass#123"  # skipcq: SCT-A000 -- local dev-only credential, committed deliberately
 OTLP_AUTH_USERNAME = "root@example.com"
@@ -1919,6 +1935,7 @@ OTLP_AUTH_USERNAME = "root@example.com"
 description = "Run the WebSocket server without OTLP/o2 observability (OpenTelemetry init is skipped)"
 # Same as ws-server but sets no OTLP_* env, so Config.otlp deserialises to None and et_otlp::init is skipped.
 # Use this when you don't want the o2/OpenObserve stack (`mise run o2`) running alongside the server.
+env = { MODULES_ROOT = "{{ vars.hub_root_module }}" }
 run = "watchexec --restart --clear --exts rs,toml -i '**/tests/**' --shell=none -- cargo run -p et-ws-server"
 
 [tasks.ws-server-offline-demo]
@@ -1926,7 +1943,7 @@ description = "Run the WebSocket server for a hotspot demo: no OTLP, no watchexe
 # Demo the server from a machine that shares its own Wi-Fi hotspot and has no internet uplink.
 # Sets no OTLP_* env, runs cargo directly (no watchexec restart-on-change), and `--offline` makes cargo
 # resolve and build from the crates already in the local cache instead of touching the network.
-env = { NET_LOG_INTERFACE = "bridge100" }
+env = { MODULES_ROOT = "{{ vars.hub_root_module }}", NET_LOG_INTERFACE = "bridge100" }
 run = "cargo run --offline -p et-ws-server"
 
 [tasks.ws-wasi-runner]

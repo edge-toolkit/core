@@ -1,0 +1,6 @@
+.{
+    .name = .et_ws_zig_shared,
+    .version = "0.1.0",
+    .fingerprint = 0x915f9c107afec67f,
+    .paths = .{""},
+}

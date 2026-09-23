@@ -55,8 +55,18 @@ def sync_detailed(
 ) -> Response[Any]:
     """Fetch a file from a module's bundled static assets.
 
-     `path` is resolved relative to the module's bundle root; an unknown
-    module or missing file returns 404.
+     `path` is resolved relative to the module's bundle root; an unknown module or missing file returns
+    404.
+
+    Both path parameters can themselves contain `/`. A module is served under the name its
+    `package.json`
+    declares, which carries an owner scope (`@scope/name`) for anything published to a registry, and
+    `path`
+    addresses sub-directories of the bundle. A client that percent-encodes each parameter as one path
+    segment
+    turns those slashes into `%2F` and asks for something no server serves, so build the request path
+    rather
+    than passing the values through a per-segment encoder.
 
     Args:
         name (str):
@@ -90,8 +100,18 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """Fetch a file from a module's bundled static assets.
 
-     `path` is resolved relative to the module's bundle root; an unknown
-    module or missing file returns 404.
+     `path` is resolved relative to the module's bundle root; an unknown module or missing file returns
+    404.
+
+    Both path parameters can themselves contain `/`. A module is served under the name its
+    `package.json`
+    declares, which carries an owner scope (`@scope/name`) for anything published to a registry, and
+    `path`
+    addresses sub-directories of the bundle. A client that percent-encodes each parameter as one path
+    segment
+    turns those slashes into `%2F` and asks for something no server serves, so build the request path
+    rather
+    than passing the values through a per-segment encoder.
 
     Args:
         name (str):

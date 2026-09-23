@@ -587,8 +587,13 @@ pub fn head_fileRaw(client: *Client, agent_id: []const u8, filename: []const u8)
 // Fetch a file from a module's bundled static assets.
 //
 // Description:
-// `path` is resolved relative to the module's bundle root; an unknown
-// module or missing file returns 404.
+// `path` is resolved relative to the module's bundle root; an unknown module or missing file returns 404.
+//
+// Both path parameters can themselves contain `/`. A module is served under the name its `package.json`
+// declares, which carries an owner scope (`@scope/name`) for anything published to a registry, and `path`
+// addresses sub-directories of the bundle. A client that percent-encodes each parameter as one path segment
+// turns those slashes into `%2F` and asks for something no server serves, so build the request path rather
+// than passing the values through a per-segment encoder.
 //
 pub fn get_module_file(client: *Client, name: []const u8, path: []const u8) !void {
     var raw = try get_module_fileRaw(client, name, path);

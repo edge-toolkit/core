@@ -14,7 +14,7 @@
 
 use std::path::PathBuf;
 
-use et_ws_runner_common::{collect_byte_stream, derive_http_base, fetch_main_field};
+use et_ws_runner_common::{derive_http_base, fetch_main_field};
 use tracing::Instrument as _;
 
 use crate::error::RunnerError;
@@ -66,20 +66,15 @@ pub async fn fetch_if_absent(
     }))
 }
 
-/// Download one of a module's published files.
-///
-/// Returns `BootstrapError` rather than the caller's error type so the REST failure converts through the `From`
-/// impl the shared runner crate already carries, and `?` does the work at both levels.
+/// Download one of a module's published files, inside a span naming the module and the file it fetched.
 async fn fetch_module_file(
     rest: &et_rest_client::Client,
     module_name: &str,
     main: &str,
 ) -> Result<Vec<u8>, et_ws_runner_common::BootstrapError> {
-    let response = rest
-        .get_module_file(module_name, main)
+    et_ws_runner_common::fetch_module_file(rest, module_name, main)
         .instrument(tracing::info_span!("fetch_module", module = module_name, file = %main))
-        .await?;
-    collect_byte_stream(response.into_inner()).await
+        .await
 }
 
 /// Derive the name a fetched file is compiled under from the hub's `main` entry.

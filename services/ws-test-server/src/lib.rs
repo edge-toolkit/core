@@ -47,7 +47,11 @@ pub fn start_on(port: u16) -> TestServer {
     let storage_dir = TempDir::new().unwrap();
 
     let storage_config = StorageConfig::local(storage_dir.path());
-    let modules_config = ModulesConfig::default();
+    // The default search paths, with the page module named outright. The server has no default for which
+    // module it serves at `/` -- that is the deployment's business, and this stand-in is a deployment.
+    let mut modules_config = ModulesConfig::default();
+    modules_config.root = "@edge-toolkit/et-ws-server-static".to_string();
+    let modules_config = modules_config;
     let addr = format!("127.0.0.1:{port}");
 
     let _server_thread = std::thread::spawn(move || {

@@ -1,5 +1,5 @@
 {
-  "name": "et-ws-kotlin-math1",
+  "name": "@edge-toolkit/et-ws-kotlin-math1",
   "type": "module",
   "description": "kotlin math1",
   "version": "0.1.0",

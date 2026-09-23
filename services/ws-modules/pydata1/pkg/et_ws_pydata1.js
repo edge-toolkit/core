@@ -49,7 +49,7 @@ export default async function init() {
   // the generated client; pyodide-http rewires httpx to use the browser's
   // fetch()), plus two local wheels -- pydata1 itself (next to this shim)
   // and the generated et-rest-client wheel served by its own ws-module
-  // mount at /modules/et-rest-client/. Going through micropip for the
+  // mount at /modules/@edge-toolkit/et-rest-client/. Going through micropip for the
   // local wheels would make it look up "et-rest-client" on PyPI, which we
   // deliberately don't publish. Pyodide unvendors `ssl` from the stdlib
   // (loaded on demand via loadPackage) and our generated httpx-based
@@ -60,7 +60,7 @@ export default async function init() {
   await micropip.install("attrs");
   await micropip.install("pyodide-http");
 
-  const { installWheel: installEtRestClient } = await import("/modules/et-rest-client/et_rest_client.js");
+  const { installWheel: installEtRestClient } = await import("/modules/@edge-toolkit/et-rest-client/et_rest_client.js");
   await installEtRestClient(pyodide);
 
   const injectWheel = async (wheelName) => {
@@ -70,7 +70,8 @@ export default async function init() {
   };
   const pkg = await fetch(new URL("package.json", import.meta.url)).then((r) => r.json());
   moduleVersion = pkg.version;
-  const ownWheel = `${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
+  const distribution = pkg.name.split("/").pop();
+  const ownWheel = `${distribution.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
   await injectWheel(ownWheel);
 
   // Start Pyodide coverage before importing so import-time lines count (no-op unless the runner set the gate).
@@ -90,7 +91,7 @@ export async function run() {
   const wsHost = loc?.host ?? "localhost:8080";
   const wsUrl = globalThis.__ET_WS_URL || `${wsProto}//${wsHost}/ws`;
 
-  const wasmAgent = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
+  const wasmAgent = await import("/modules/@edge-toolkit/et-ws-wasm-agent/et_ws_wasm_agent.js");
   await wasmAgent.default();
   const { WsClient, WsClientConfig } = wasmAgent;
   const client = new WsClient(new WsClientConfig(wsUrl));

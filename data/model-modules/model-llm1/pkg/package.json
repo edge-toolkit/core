@@ -1,7 +1,7 @@
 {
   "description": "SmolLM2-135M-Instruct q4f16 ONNX weights and tokenizer for llm1",
   "license": "Apache-2.0",
-  "name": "et-model-llm1",
+  "name": "@edge-toolkit/et-model-llm1",
   "version": "0.1.0",
   "files": [
     "config.json",

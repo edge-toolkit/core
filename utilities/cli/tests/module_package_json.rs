@@ -46,13 +46,44 @@ et-model-face1 = "*"
         &[],
     );
 
-    assert_eq!(package["name"], "et-ws-python-module");
+    // Scoped, because the registry these are published to accepts nothing else. The hub takes the scope back
+    // off when it names the module, so what a deployment refers to is still `et-ws-python-module`.
+    assert_eq!(package["name"], "@edge-toolkit/et-ws-python-module");
     assert_eq!(package["type"], "module");
     assert_eq!(package["description"], "Python module");
     assert_eq!(package["version"], "0.1.0");
     assert_eq!(package["license"], "Apache-2.0");
     assert_eq!(package["main"], "et_ws_python_module.js");
-    assert_eq!(package["dependencies"]["et-model-face1"], "*");
+    // A dependency on one of this project's own modules is scoped alongside the module itself, because
+    // publishing makes the list something a registry resolves rather than only something the hub reads.
+    assert_eq!(package["dependencies"]["@edge-toolkit/et-model-face1"], "*");
+}
+
+#[test]
+fn a_third_party_dependency_is_left_unscoped() {
+    // Scoping one of these would point the install at a package that never existed: `onnxruntime-web` and
+    // `pyodide` are published under exactly those names by somebody else, and the hub serves them from there.
+    let package = generated_package(
+        "pyproject.toml",
+        r#"[project]
+name = "et-ws-python-module"
+version = "0.1.0"
+
+[tool.ws-module.dependencies]
+et-model-face1 = "*"
+onnxruntime-web = "*"
+pyodide = "*"
+"#,
+        "et_ws_python_module.js",
+        &[],
+    );
+
+    let dependencies = &package["dependencies"];
+    assert_eq!(dependencies["onnxruntime-web"], "*");
+    assert_eq!(dependencies["pyodide"], "*");
+    assert_eq!(dependencies["@edge-toolkit/et-model-face1"], "*");
+    assert!(dependencies.get("@edge-toolkit/onnxruntime-web").is_none());
+    assert!(dependencies.get("et-model-face1").is_none());
 }
 
 #[test]
@@ -181,6 +212,59 @@ description = "WASI Python demo"
 }
 
 #[test]
+fn an_existing_bare_name_is_scoped_rather_than_left_alone() {
+    // wasm-pack writes `pkg/package.json` itself, so a module built before the scope existed arrives here
+    // carrying a bare name. Merging into that file while leaving its name untouched is what would strand such
+    // a module unpublishable forever, since the registry rejects an unscoped package outright.
+    let package = generated_package(
+        "Cargo.toml",
+        r#"[package]
+name = "et-ws-rust-module"
+version = "0.1.0"
+edition = "2024"
+"#,
+        "et_ws_rust_module.js",
+        &[(
+            "pkg/package.json",
+            r#"{
+  "name": "et-ws-rust-module",
+  "type": "module",
+  "main": "et_ws_rust_module.js"
+}
+"#,
+        )],
+    );
+
+    assert_eq!(package["name"], "@edge-toolkit/et-ws-rust-module");
+}
+
+#[test]
+fn scoping_an_already_scoped_name_leaves_it_alone() {
+    // The generator runs after wasm-pack on some modules and on its own for others, so it has to be safe to
+    // apply twice. Scoping a scoped name again would yield `@edge-toolkit/@edge-toolkit/...`.
+    let package = generated_package(
+        "Cargo.toml",
+        r#"[package]
+name = "et-ws-rust-module"
+version = "0.1.0"
+edition = "2024"
+"#,
+        "et_ws_rust_module.js",
+        &[(
+            "pkg/package.json",
+            r#"{
+  "name": "@edge-toolkit/et-ws-rust-module",
+  "type": "module",
+  "main": "et_ws_rust_module.js"
+}
+"#,
+        )],
+    );
+
+    assert_eq!(package["name"], "@edge-toolkit/et-ws-rust-module");
+}
+
+#[test]
 fn module_package_json_merges_cargo_ws_module_dependencies() {
     let package = generated_package(
         "Cargo.toml",
@@ -207,11 +291,11 @@ et-model-har-motion1 = "*"
         )],
     );
 
-    assert_eq!(package["name"], "et-ws-rust-module");
+    assert_eq!(package["name"], "@edge-toolkit/et-ws-rust-module");
     assert_eq!(package["type"], "module");
     assert_eq!(package["main"], "et_ws_rust_module.js");
     assert_eq!(package["dependencies"]["existing-package"], "1.0.0");
-    assert_eq!(package["dependencies"]["et-model-har-motion1"], "*");
+    assert_eq!(package["dependencies"]["@edge-toolkit/et-model-har-motion1"], "*");
 }
 
 #[test]

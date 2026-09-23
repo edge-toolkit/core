@@ -376,6 +376,9 @@ EOF
 
 ENV MISE_CACHE_DIR=/tmp/mise-cache
 
+# The module this image serves at `/`, named as its own package.json declares it.
+ENV MODULES_ROOT="@edge-toolkit/et-ws-server-static"
+
 # Numeric uid, matching the useradd above, so a host inspecting the image resolves it without our passwd file.
 USER 10001
 EXPOSE 8080 8443

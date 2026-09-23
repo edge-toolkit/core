@@ -92,8 +92,10 @@ async fn fetch_main_field_gives_up_once_the_wait_window_is_spent() {
         .await
         .unwrap_err();
 
+    // `Stream` rather than `Rest`: the fetch goes through the raw client, because the typed one encodes its
+    // arguments as single path segments and a module name carries the scope it publishes under.
     assert!(
-        matches!(&error, BootstrapError::Rest(_)),
+        matches!(&error, BootstrapError::Stream(_)),
         "expected the last fetch failure to be reported, got: {error:?}"
     );
 }

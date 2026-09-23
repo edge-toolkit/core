@@ -1,5 +1,15 @@
+// The names this page's own modules are served under, which are the names they publish under.
+// The server reshapes nothing, so a module is asked for by the name its `package.json` declares -- scope
+// included. This page belongs to the same project as those modules, so it is entitled to know the scope;
+// the server it runs on is not, and does not.
+const MODULE_SCOPE = "@edge-toolkit/";
+const AGENT_MODULE = `${MODULE_SCOPE}et-ws-wasm-agent`;
+const AGENT_BASE = `/modules/${AGENT_MODULE}`;
+
+// Imported dynamically rather than with a static `import`: the scoped URL pushes that statement past the
+// line limit, and there is no way to break it because a static import specifier cannot be a variable.
 // skipcq: JS-0833 -- committed ES module; the analyzer's script-mode parse is a false positive
-import init, { initTracing, WsClient, WsClientConfig } from "/modules/et-ws-wasm-agent/et_ws_wasm_agent.js";
+const { default: init, initTracing, WsClient, WsClientConfig } = await import(`${AGENT_BASE}/et_ws_wasm_agent.js`);
 
 // Bump this string on every meaningful app.js edit. index.html loads this file via a plain, non-cache-busted
 // <script src="/app.js">, so a client running stale code is otherwise invisible -- this value round-trips to
@@ -48,7 +58,10 @@ const describeError = (error) => (error instanceof Error ? error.message : Strin
 const WORKFLOW_MODULES = new Map();
 let activeWorkflow = null;
 // Preselected in the dropdown when the server's module list includes it; otherwise the first option stays.
-const DEFAULT_MODULE = "et-ws-pydemo1";
+const DEFAULT_MODULE = `${MODULE_SCOPE}et-ws-pydemo1`;
+// The prefixes that mark a served module as a browser workflow module of this project's own.
+const WORKFLOW_PREFIX = `${MODULE_SCOPE}et-ws-`;
+const WASI_PREFIX = `${MODULE_SCOPE}et-ws-wasi-`;
 
 const populateModuleDropdown = async () => {
   append("Discovering modules via /modules...");
@@ -64,15 +77,15 @@ const populateModuleDropdown = async () => {
 
   for (const name of moduleNames) {
     try {
-      if (name === "et-ws-wasm-agent") {
+      if (name === AGENT_MODULE) {
         append(`Skipping ${name}: already loaded as the main WASM agent module`);
         continue;
       }
-      if (!name.startsWith("et-ws-")) {
-        append(`Skipping ${name}: not an et-ws-* workflow module`);
+      if (!name.startsWith(WORKFLOW_PREFIX)) {
+        append(`Skipping ${name}: not a ${WORKFLOW_PREFIX}* workflow module`);
         continue;
       }
-      if (name.startsWith("et-ws-wasi-")) {
+      if (name.startsWith(WASI_PREFIX)) {
         append(`Skipping ${name}: WASI module, runs in et-ws-wasi-runner rather than the browser`);
         continue;
       }
@@ -217,7 +230,7 @@ const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
 const retainedAgentId = readStoredAgentId();
 
-const wasmUrl = "/modules/et-ws-wasm-agent/et_ws_wasm_agent_bg.wasm";
+const wasmUrl = `${AGENT_BASE}/et_ws_wasm_agent_bg.wasm`;
 logEl.textContent = `Initializing WASM from ${wasmUrl}\nWebSocket endpoint: ${wsUrl}`;
 updateAgentCard(
   retainedAgentId

@@ -15,19 +15,19 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
     let workspace_root = edge_toolkit::config::get_project_root();
     let output_abs = absolute_from(&workspace_root, output_dir);
     let workspace_rel = relative_path_from(&output_abs, &workspace_root);
-    // `dockerfile` is resolved against the build context, not against this compose file, so the scenario image
-    // is named by its path down from the repository root rather than as a sibling of the compose file.
+    // `dockerfile` is resolved against the build context, not against this compose file, so the scenario image is named
+    // by its path down from the repository root rather than as a sibling of the compose file.
     let scenario_dockerfile_rel = format!("{}/Dockerfile", relative_path_from(&workspace_root, &output_abs));
     let module_names = cluster_module_names(cluster);
-    let module_paths = docker_image_module_paths(&module_names)?;
+    let serves_a_page = super::serves_a_page(cluster);
+    let module_paths = docker_image_module_paths(&module_names, serves_a_page)?;
     let artifacts = cluster.artifact_source;
     let published = matches!(artifacts, ArtifactSource::Published);
     let mut services = vec![("openobserve".to_string(), openobserve_service())];
-    // A local scenario builds the hub it layers onto; a published one takes the released image instead.
-    // The build-only service exists solely to be that named context, so it is absent when nothing is built.
-    // `scale: 0` is what keeps `docker compose up` from creating a second, module-less container; a
-    // `profiles:` entry would instead hide the service from the build resolver, which fails the `service:`
-    // reference below with "declares unknown service".
+    // A local scenario builds the hub it layers onto; a published one takes the released image instead. The build-only
+    // service exists solely to be that named context, so it is absent when nothing is built. `scale: 0` is what keeps
+    // `docker compose up` from creating a second, module-less container; a `profiles:` entry would instead hide the
+    // service from the build resolver, which fails the `service:` reference below with "declares unknown service".
     let hub_context = if published {
         format!("docker-image://{IMAGE_REGISTRY}/et-ws-server:latest")
     } else {
@@ -54,27 +54,10 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
                 additional_contexts: vec![("hub".to_string(), hub_context)],
             }),
             network_mode: Some("host".to_string()),
-            // Carries `OTLP_AUTH_PASSWORD`: the server authenticates its OTLP exports against the same root
-            // credential the collector above was started with. The account it authenticates as is below.
+            // Carries `OTLP_AUTH_PASSWORD`: the server authenticates its OTLP exports against the same root credential
+            // the collector above was started with. The account it authenticates as is below.
             env_file: vec![SECRETS_ENV_FILE.to_string()],
-            environment: vec![
-                (
-                    "MODULES_PATHS".to_string(),
-                    ComposeValue::WrappedDoubleQuoted(module_paths),
-                ),
-                (
-                    "OTLP_AUTH_USERNAME".to_string(),
-                    ComposeValue::Plain(COLLECTOR_USERNAME.to_string()),
-                ),
-                (
-                    "OTLP_COLLECTOR_URL".to_string(),
-                    ComposeValue::Plain("http://127.0.0.1:5080/api/default/v1".to_string()),
-                ),
-                (
-                    "STORAGE_URL".to_string(),
-                    ComposeValue::Plain("file:///app/storage".to_string()),
-                ),
-            ],
+            environment: hub_environment(module_paths, &workspace_root, serves_a_page),
             volumes: vec!["ws-server-storage:/app/storage".to_string()],
             depends_on: vec![(
                 "openobserve".to_string(),
@@ -82,10 +65,10 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
                     condition: "service_healthy".to_string(),
                 },
             )],
-            // The hub reports its own readiness so the runners have something to gate on.
-            // A runner resolves its module by fetching `/modules/<name>/package.json`, which fails
-            // outright instead of retrying, so "container started" is not a strong enough edge --
-            // `service_started` would let a runner ask before the listener exists.
+            // The hub reports its own readiness so the runners have something to gate on. A runner resolves its module
+            // by fetching `/modules/<name>/package.json`, which fails outright instead of retrying, so "container
+            // started" is not a strong enough edge -- `service_started` would let a runner ask before the listener
+            // exists.
             healthcheck: Some(ComposeHealthcheck {
                 test: vec![
                     "CMD".to_string(),
@@ -126,14 +109,14 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
 ///
 /// `network_mode: host` matches the hub's, and that pairing is what makes the URLs below resolve: the hub puts its
 /// listener on the host rather than on a compose network, so a runner on the default bridge would have no route to
-/// it that is portable across platforms. Sharing the host namespace instead means `localhost` means the same thing
-/// in both containers.
+/// it that is portable across platforms. Sharing the host namespace instead means `localhost` means the same thing in
+/// both containers.
 ///
-/// The dependency is on the hub being HEALTHY, not merely started -- a runner resolves its module over HTTP and
-/// fails outright rather than retrying, so an early start is a lost run rather than a slow one.
+/// The dependency is on the hub being HEALTHY, not merely started -- a runner resolves its module over HTTP and fails
+/// outright rather than retrying, so an early start is a lost run rather than a slow one.
 ///
-/// Nothing about a runner image varies by scenario, so a published one is named rather than built. That is the
-/// same image the Kubernetes manifests name, and the same binary the `mise` deployment installs from crates.io.
+/// Nothing about a runner image varies by scenario, so a published one is named rather than built. That is the same
+/// image the Kubernetes manifests name, and the same binary the `mise` deployment installs from crates.io.
 fn runner_services(
     runners: &[RunnerInstance],
     context: &str,
@@ -209,14 +192,12 @@ fn openobserve_service() -> ComposeService {
             retries: 20,
             start_period: "10s".to_string(),
         }),
-        // Bound to loopback, not every interface.
-        // A collector published on 0.0.0.0 would hand its root login to anyone who can reach the host and read
-        // the scenario's generated env file. Nothing outside the developer's machine needs to talk to it: the
-        // ws-server exports to 127.0.0.1:5080 and the UI is opened locally.
+        // Bound to loopback, not every interface. A collector published on 0.0.0.0 would hand its root login to anyone
+        // who can reach the host and read the scenario's generated env file. Nothing outside the developer's machine
+        // needs to talk to it: the ws-server exports to 127.0.0.1:5080 and the UI is opened locally.
         ports: vec!["127.0.0.1:5080:5080".to_string()],
-        // The scenario's own file is the only one, and it carries only the credential.
-        // Per-scenario credentials mean two stacks running side by side cannot authenticate against each
-        // other's collector.
+        // The scenario's own file is the only one, and it carries only the credential. Per-scenario credentials mean
+        // two stacks running side by side cannot authenticate against each other's collector.
         env_file: vec![SECRETS_ENV_FILE.to_string()],
         environment: collector_environment(),
         volumes: vec!["openobserve-data:/data".to_string()],
@@ -224,11 +205,57 @@ fn openobserve_service() -> ComposeService {
     }
 }
 
-pub fn docker_image_module_paths(module_names: &[String]) -> Result<Vec<String>, CliError> {
+/// The hub service's environment, in the alphabetical order the rest of the file is written in.
+///
+/// `MODULES_ROOT` is stated even when it is empty, which is what a headless cluster needs rather than the entry
+/// being left out. The hub image names the page it bundles, and a container inherits an image's environment for
+/// every variable the compose file does not set -- so omitting it would serve a page this cluster was not given the
+/// modules for, which the hub rejects at startup. Empty is read as unset.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of the hub service; separate so the root's two spellings are not inlined mid-literal"
+)]
+fn hub_environment(
+    module_paths: Vec<String>,
+    workspace_root: &Path,
+    serves_a_page: bool,
+) -> Vec<(String, ComposeValue)> {
+    let root_module = if serves_a_page {
+        super::hub_root_module(&workspace_root.join("services/ws-server"))
+    } else {
+        String::default()
+    };
+    let mut environment = vec![
+        (
+            "MODULES_PATHS".to_string(),
+            ComposeValue::WrappedDoubleQuoted(module_paths),
+        ),
+        ("MODULES_ROOT".to_string(), ComposeValue::Plain(root_module)),
+    ];
+    environment.extend([
+        (
+            "OTLP_AUTH_USERNAME".to_string(),
+            ComposeValue::Plain(COLLECTOR_USERNAME.to_string()),
+        ),
+        (
+            "OTLP_COLLECTOR_URL".to_string(),
+            ComposeValue::Plain("http://127.0.0.1:5080/api/default/v1".to_string()),
+        ),
+        (
+            "STORAGE_URL".to_string(),
+            ComposeValue::Plain("file:///app/storage".to_string()),
+        ),
+    ]);
+    environment
+}
+
+pub fn docker_image_module_paths(module_names: &[String], serves_a_page: bool) -> Result<Vec<String>, CliError> {
     let project_root = edge_toolkit::config::get_project_root();
     let ws_server_dir = project_root.join("services/ws-server");
     let mut paths = Vec::with_capacity(module_names.len().saturating_add(2));
-    paths.push("/app/services/ws-server/static".to_string());
+    if serves_a_page {
+        paths.push("/app/services/ws-server/static".to_string());
+    }
     paths.push("/app/services/ws-wasm-agent".to_string());
     let registry = module_registry(&project_root, &ws_server_dir);
     paths.extend(resolve_module_paths(&registry, module_names, |entry| {
@@ -286,6 +313,15 @@ enum ComposeValue {
     Plain(String),
     WrappedDoubleQuoted(Vec<String>),
 }
+
+/// Characters YAML reserves as indicators, which a plain scalar may not open with.
+///
+/// `@` and a backtick are reserved for future use and are a scanner error outright; the rest introduce anchors, tags,
+/// flow collections, block scalars and the like. A value starting with any of them has to be quoted to be read back as
+/// the string it is.
+const YAML_INDICATORS: [char; 18] = [
+    '@', '`', '-', '?', ':', ',', '[', ']', '{', '}', '#', '&', '*', '!', '|', '>', '\'', '"',
+];
 
 fn render_compose_yaml(compose: &ComposeFile) -> String {
     let mut renderer = ComposeRenderer::default();
@@ -384,12 +420,27 @@ impl ComposeRenderer {
 
     fn render_environment_value(&mut self, key: &str, value: &ComposeValue) {
         match value {
-            ComposeValue::Plain(value) => self.push_line(3, &format!("{key}: {value}")),
-            // Wrapped by YAML's own line folding rather than by escaping the breaks away with a trailing
-            // `\`. Both keep the value one scalar; folding differs only in leaving a space where the break
-            // was, so the list arrives comma-and-space separated -- which is what the `mise` deployment has
-            // always written and what the server's per-segment trim expects. The backslash form is banned
-            // repo-wide, and this was the one generator still emitting it.
+            // Quoted when the value opens with a character YAML reserves as an indicator. A module name carries
+            // its owner scope, so it begins with `@` -- which unquoted is a scanner error rather than a string, and
+            // produced a compose file nothing could parse.
+            //
+            // An empty value is quoted for a different reason: written bare it is YAML's null, and compose reads a
+            // null entry as "take this from the host environment" rather than as a value. The variable would then
+            // be absent from the container and the image's own default would stand -- the opposite of what stating
+            // it empty is for.
+            ComposeValue::Plain(value) => {
+                let rendered = if value.is_empty() || value.starts_with(YAML_INDICATORS) {
+                    format!("\"{value}\"")
+                } else {
+                    value.clone()
+                };
+                self.push_line(3, &format!("{key}: {rendered}"));
+            }
+            // Wrapped by YAML's own line folding rather than by escaping the breaks away with a trailing `\`. Both keep
+            // the value one scalar; folding differs only in leaving a space where the break was, so the list arrives
+            // comma-and-space separated -- which is what the `mise` deployment has always written and what the server's
+            // per-segment trim expects. The backslash form is banned repo-wide, and this was the one generator still
+            // emitting it.
             ComposeValue::WrappedDoubleQuoted(parts) => {
                 if let Some((first, rest)) = parts.split_first() {
                     self.push_line(3, &format!("{key}: \"{first},"));

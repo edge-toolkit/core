@@ -71,12 +71,12 @@ async function initializePythonRuntime() {
   await pyodide.pyimport("micropip").install("pydantic");
   setPreparationStatus("Loading the demo Python modules...");
   await Promise.all([
-    installModuleWheel("/modules/et-ws-pyeye1/"),
-    installModuleWheel("/modules/et-ws-pyspeech1/"),
+    installModuleWheel("/modules/@edge-toolkit/et-ws-pyeye1/"),
+    installModuleWheel("/modules/@edge-toolkit/et-ws-pyspeech1/"),
     installModuleWheel(new URL(".", import.meta.url)),
   ]);
   setPreparationStatus("Installing the WebSocket Python support module...");
-  const { installWheel: installEtWs } = await import("/modules/et-ws/et_ws.js");
+  const { installWheel: installEtWs } = await import("/modules/@edge-toolkit/et-ws/et_ws.js");
   await installEtWs(pyodide);
   if (globalThis.__etPyCov) await globalThis.__etPyCov.start(pyodide, "pydemo1");
   try {
@@ -113,7 +113,8 @@ async function installModuleWheel(baseUrl) {
     if (!response.ok) throw new Error(`Unable to load ${pkgUrl}: HTTP ${response.status}`);
     return response.json();
   });
-  const wheelName = `${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
+  const distribution = pkg.name.split("/").pop();
+  const wheelName = `${distribution.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
   const response = await fetch(new URL(wheelName, resolvedBaseUrl));
   if (!response.ok) throw new Error(`Unable to load ${wheelName}: HTTP ${response.status}`);
   const path = `/tmp/${wheelName}`;
@@ -478,7 +479,7 @@ function createPanelBadge(text) {
 }
 
 async function connectClient(state) {
-  const wasmAgent = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
+  const wasmAgent = await import("/modules/@edge-toolkit/et-ws-wasm-agent/et_ws_wasm_agent.js");
   await wasmAgent.default();
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   state.client = new wasmAgent.WsClient(new wasmAgent.WsClientConfig(`${protocol}//${window.location.host}/ws`));

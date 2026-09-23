@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Compared against rather than merely looked for, because the question it answers is identity: whether the
 /// tree this process resolved is the one that builds these artifacts, not whether some Rust project is nearby.
-const REPOSITORY_URL: &str = "https://github.com/edge-toolkit/core";
+const REPOSITORY_URL: &str = et_org::REPOSITORY_URL;
 
 /// The deployment format a scenario is rendered into.
 ///

@@ -237,7 +237,7 @@ Then start the fetch the ONNX models and run the server
 ```bash
 mise run download-models
 mise run build-modules-all
-mise run ws-server
+mise run hub
 ```
 
 Scan the QR-Code with a smart-phone camera and open the URL.

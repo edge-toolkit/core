@@ -41,6 +41,13 @@
 # gap in one pipeline be answered by the other.
 native_cov_libs = "edge-toolkit et-otlp path test-helpers test-otlp ws-runner-common"
 wasm_cov_libs = "wasi-guest web"
+# The third kind: a crate whose source is `const` and `macro_rules!` only.
+# llvm-cov emits no records at all for one -- there is no executable code to instrument, so its tests can pass
+# while the report stays empty.
+# Naming it here rather than in the native list is what tells the assertion its empty report is expected, and
+# the assertion then holds it to the opposite invariant: records appearing means the crate has grown code, and
+# it has to move to the native list to be held to 100% like everything else.
+const_cov_libs = "org"
 
 # The wasm coverage builds run on nightly (-Zno-profiler-runtime) with the wasm-capable conda clang on PATH.
 # It is set env-wide here because this env loads only under the coverage workflow; per-command RUSTFLAGS and
@@ -198,7 +205,8 @@ if [ ! -f "$report" ]; then
   echo "Run the coverage task that produces it first; a missing report is a failure, not a skip." >&2
   exit 1
 fi
-shortfall="$(jaq -r --arg libs "$usage_libs" -f .mise/cov-branch-assert.jq "$report")"
+nocode="${usage_nocode:-}"
+shortfall="$(jaq -r --arg libs "$usage_libs" --arg nocode "$nocode" -f .mise/cov-branch-assert.jq "$report")"
 if [ -n "$shortfall" ]; then
   echo "cov-branch-assert: libs/ must be at 100% branch coverage, and is not:" >&2
   echo "$shortfall" >&2
@@ -210,6 +218,7 @@ shell = "{{ vars.task_shell }}"
 usage = """
 arg "<report>" help="llvm-cov JSON summary (--format=text) to assert over"
 arg "<libs>" help="Space-separated libs/ directory names that must be at 100% branch coverage"
+arg "[nocode]" help="Space-separated libs/ directory names that must contribute no records at all"
 """
 
 # Reports on the profile data cargo-llvm-cov already wrote; it does not re-run the tests.
@@ -236,7 +245,7 @@ coreutils mkdir -p target/cov
 report=target/cov/native-libs.json
 eval "$(cargo llvm-cov show-env --sh)"
 cargo llvm-cov report --json --summary-only --output-path "$report"
-mise run _cov-branch-assert "$report" "{{ vars.native_cov_libs }}"
+mise run _cov-branch-assert "$report" "{{ vars.native_cov_libs }}" "{{ vars.const_cov_libs }}"
 """
 shell = "{{ vars.task_shell }}"
 

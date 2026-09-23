@@ -31,7 +31,8 @@ export default async function init() {
   pyodide = await globalThis.loadPyodide({ indexURL: PYODIDE_BASE_PATH });
 
   const pkg = await fetch(new URL("package.json", import.meta.url)).then((r) => r.json());
-  const wheelName = `${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
+  const distribution = pkg.name.split("/").pop();
+  const wheelName = `${distribution.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
   const bytes = new Uint8Array(await fetch(new URL(wheelName, import.meta.url)).then((r) => r.arrayBuffer()));
   pyodide.FS.writeFile(`/tmp/${wheelName}`, bytes);
   pyodide.runPython(`import sys\nsys.path.insert(0, "/tmp/${wheelName}")`);
@@ -53,7 +54,7 @@ export async function run() {
   const wsHost = loc?.host ?? "localhost:8080";
   const wsUrl = globalThis.__ET_WS_URL || `${wsProto}//${wsHost}/ws`;
 
-  const wasmAgent = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
+  const wasmAgent = await import("/modules/@edge-toolkit/et-ws-wasm-agent/et_ws_wasm_agent.js");
   await wasmAgent.default();
   const { WsClient, WsClientConfig } = wasmAgent;
   const client = new WsClient(new WsClientConfig(wsUrl));

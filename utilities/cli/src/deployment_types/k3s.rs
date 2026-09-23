@@ -1,16 +1,16 @@
 //! k3s deployment: one multi-document `k3s.yaml` of plain Kubernetes manifests per scenario.
 //!
-//! Plain manifests rather than a Helm chart or a kustomize overlay, because the scenario input already fixes
-//! every value a chart would parameterise -- the cluster name, the module set, the runner list -- so a chart
-//! would add a templating layer over inputs that are known at generation time. It also keeps the output a
-//! single file the drift check can diff, the same way `mise.toml` and `compose.yaml` are.
+//! Plain manifests rather than a Helm chart or a kustomize overlay, because the scenario input already fixes every
+//! value a chart would parameterise -- the cluster name, the module set, the runner list -- so a chart would add a
+//! templating layer over inputs that are known at generation time. It also keeps the output a single file the drift
+//! check can diff, the same way `mise.toml` and `compose.yaml` are.
 //!
-//! The objects are `k8s-openapi`'s, not hand-written structs, so every field name and nesting is the API's own
-//! rather than this file's guess at it -- a mistyped `imagePullPolicy` is a compile error instead of a manifest
-//! the cluster rejects.
+//! The objects are `k8s-openapi`'s, not hand-written structs, so every field name and nesting is the API's own rather
+//! than this file's guess at it -- a mistyped `imagePullPolicy` is a compile error instead of a manifest the cluster
+//! rejects.
 //!
-//! The translation from `compose.yaml` is not line-for-line, because two of compose's mechanisms have no
-//! Kubernetes equivalent and their replacements are better:
+//! The translation from `compose.yaml` is not line-for-line, because two of compose's mechanisms have no Kubernetes
+//! equivalent and their replacements are better:
 //!
 //! * compose runs the hub and every runner on `network_mode: host`, so each addresses the others as
 //!   `localhost`. Here each component gets a `Service`, and the runners reach the hub by its in-namespace DNS
@@ -19,8 +19,8 @@
 //!   edge. The hub and collector carry readiness probes, and a runner that starts early exits and is restarted
 //!   until the hub answers -- `CrashLoopBackOff` on the way up is expected here, not a fault.
 //!
-//! Nothing in this file carries the scenario's credential. The deployment reads it from a `Secret` the operator
-//! creates from the generated env file, so the manifests stay committable.
+//! Nothing in this file carries the scenario's credential. The deployment reads it from a `Secret` the operator creates
+//! from the generated env file, so the manifests stay committable.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -51,10 +51,10 @@ use crate::{
 ///
 /// `IfNotPresent` rather than the `Always` a `:latest` tag defaults to, and it is the right answer whichever
 /// `artifact_source` a scenario asks for. A locally built image never reaches a registry at all, so an `Always`
-/// pull would send k3s looking for it in one that does not have it. A published image is there to be found,
-/// and `IfNotPresent` is what stops every restart re-pulling a tag the node already holds. It also lets a
-/// published-image scenario be tested against a local build of the same tag, which is how CI checks a change
-/// to an image before it is published.
+/// pull would send k3s looking for it in one that does not have it. A published image is there to be found, and
+/// `IfNotPresent` is what stops every restart re-pulling a tag the node already holds. It also lets a published-image
+/// scenario be tested against a local build of the same tag, which is how CI checks a change to an image before it
+/// is published.
 const IMAGE_PULL_POLICY: &str = "IfNotPresent";
 
 /// Tag the generated manifests reference, matching what the README's build-and-import step produces.
@@ -65,9 +65,9 @@ const OPENOBSERVE_IMAGE: &str = "openobserve/openobserve:v0.91.5";
 
 /// Service name of the collector, which is also its Deployment name and the DNS name its in-cluster URL resolves.
 ///
-/// Held as a constant so a URL cannot drift from the `Service` it addresses. Composing the URL from it rather
-/// than writing the host into the literal also keeps link checking from reading an in-cluster DNS name as an
-/// external link it should be able to reach. The hub's equivalent lives beside the URL builder that needs it.
+/// Held as a constant so a URL cannot drift from the `Service` it addresses. Composing the URL from it rather than
+/// writing the host into the literal also keeps link checking from reading an in-cluster DNS name as an external link
+/// it should be able to reach. The hub's equivalent lives beside the URL builder that needs it.
 const COLLECTOR_SERVICE: &str = "openobserve";
 
 /// How long a probe waits, and how many misses it tolerates, mirroring `compose.yaml`'s healthchecks.
@@ -76,24 +76,24 @@ const PROBE_FAILURE_THRESHOLD: i32 = 20;
 
 /// The uid and gid every container runs as, matching the `app` account the repository's images create.
 ///
-/// Above 10000 deliberately: both `services/ws-server/Dockerfile` and `services/ws-web-runner/Dockerfile`
-/// declare `USER 10001`, and a uid in the low range is itself a finding since it can collide with a host
-/// account. The collector's image ships as uid 0, so this is what moves it off root.
+/// Above 10000 deliberately: both `services/ws-server/Dockerfile` and `services/ws-web-runner/Dockerfile` declare `USER
+/// 10001`, and a uid in the low range is itself a finding since it can collide with a host account. The collector's
+/// image ships as uid 0, so this is what moves it off root.
 const RUN_AS_ID: i64 = 10001;
 
 /// Directory the hub's writable runtime files are redirected to, so its root filesystem can stay read-only.
 ///
-/// The server generates a self-signed certificate on first start and saves its agent registry on shutdown,
-/// both into its working directory. With a read-only root that working directory is not writable, so an
-/// `emptyDir` is mounted here and the three paths are pointed at it -- the certificate through the `TLS_*`
-/// environment serde reads `TlsConfig` from, the registry through the binary's own `--agent-registry`.
+/// The server generates a self-signed certificate on first start and saves its agent registry on shutdown, both
+/// into its working directory. With a read-only root that working directory is not writable, so an `emptyDir` is
+/// mounted here and the three paths are pointed at it -- the certificate through the `TLS_*` environment serde reads
+/// `TlsConfig` from, the registry through the binary's own `--agent-registry`.
 const HUB_RUNTIME_DIR: &str = "/app/runtime";
 
 /// Resource floor and ceiling every container declares.
 ///
-/// Kubernetes schedules a container with no request as best-effort and lets one with no limit consume the
-/// node, so both are set. The figures are deliberately generous rather than tuned: a scenario deployment is a
-/// demonstration, and a limit that throttles the runners would turn a passing exchange into a flaky one.
+/// Kubernetes schedules a container with no request as best-effort and lets one with no limit consume the node, so both
+/// are set. The figures are deliberately generous rather than tuned: a scenario deployment is a demonstration, and a
+/// limit that throttles the runners would turn a passing exchange into a flaky one.
 const CPU_REQUEST: &str = "100m";
 const CPU_LIMIT: &str = "2";
 const MEMORY_REQUEST: &str = "128Mi";
@@ -107,9 +107,17 @@ pub fn generate_k3s_deployment(cluster: &ClusterInput, output_dir: &Path) -> Res
         &module_registry(&workspace_root, &workspace_root.join("services/ws-server")),
         cluster,
     )?;
-    let module_paths = docker_image_module_paths(&cluster_module_names(cluster))?;
+    let serves_a_page = super::serves_a_page(cluster);
+    let module_paths = docker_image_module_paths(&cluster_module_names(cluster), serves_a_page)?;
+    // Empty for a headless cluster, which is not given the page: the hub rejects a root it cannot find among the
+    // modules it was given, and serves nothing at `/` when named none.
+    let root_module = if serves_a_page {
+        super::hub_root_module(&workspace_root.join("services/ws-server"))
+    } else {
+        String::default()
+    };
 
-    let mut docs = fixed_documents(&namespace, &cluster.cluster_name, &module_paths)?;
+    let mut docs = fixed_documents(&namespace, &cluster.cluster_name, &module_paths, &root_module)?;
     for runner in &runners {
         docs.push(document(&runner_deployment(
             &namespace,
@@ -125,10 +133,15 @@ pub fn generate_k3s_deployment(cluster: &ClusterInput, output_dir: &Path) -> Res
 
 /// Serialise the documents every scenario emits, in apply order.
 ///
-/// Split from the caller so the per-runner documents append to a finished list: each serialisation is a
-/// fallible step, and eight of them in one function put it past the repo's cyclomatic-complexity ceiling
-/// without saying anything about how the deployment is shaped.
-fn fixed_documents(namespace: &str, cluster_name: &str, module_paths: &[String]) -> Result<Vec<String>, CliError> {
+/// Split from the caller so the per-runner documents append to a finished list: each serialisation is a fallible step,
+/// and eight of them in one function put it past the repo's cyclomatic-complexity ceiling without saying anything about
+/// how the deployment is shaped.
+fn fixed_documents(
+    namespace: &str,
+    cluster_name: &str,
+    module_paths: &[String],
+    root_module: &str,
+) -> Result<Vec<String>, CliError> {
     Ok(vec![
         document(&namespace_object(namespace))?,
         document(&collector_config(namespace))?,
@@ -136,7 +149,7 @@ fn fixed_documents(namespace: &str, cluster_name: &str, module_paths: &[String])
         document(&collector_deployment(namespace))?,
         document(&collector_service(namespace))?,
         document(&claim(namespace, "ws-server-storage"))?,
-        document(&hub_deployment(namespace, cluster_name, module_paths))?,
+        document(&hub_deployment(namespace, cluster_name, module_paths, root_module))?,
         document(&hub_service(namespace))?,
     ])
 }
@@ -202,15 +215,15 @@ fn namespace_object(namespace: &str) -> Namespace {
 
 /// The collector's non-secret settings, which are the committed half of what `config/o2.env` holds.
 ///
-/// Its root password is the other half and is deliberately absent: that value reaches the pod from the
-/// operator-created `Secret`, so nothing here has to be redacted before the file is committed.
+/// Its root password is the other half and is deliberately absent: that value reaches the pod from the operator-created
+/// `Secret`, so nothing here has to be redacted before the file is committed.
 fn collector_config(namespace: &str) -> ConfigMap {
     let mut data: BTreeMap<String, String> = COLLECTOR_SETTINGS
         .iter()
         .map(|(name, value)| ((*name).to_string(), (*value).to_string()))
         .collect();
-    // The claim this deployment mounts is what makes a data directory worth naming, so it is set here rather
-    // than in the shared list.
+    // The claim this deployment mounts is what makes a data directory worth naming, so it is set here rather than in
+    // the shared list.
     let _previous: Option<String> = data.insert("ZO_DATA_DIR".to_string(), "/data".to_string());
     ConfigMap {
         data: Some(data),
@@ -279,9 +292,9 @@ fn probe(exec: Option<ExecAction>, http_get: Option<HTTPGetAction>) -> Probe {
 
 /// The container hardening every container in this file carries.
 ///
-/// Drops every capability, forbids privilege escalation, and takes the root filesystem read-only; anything a
-/// container genuinely has to write gets an explicit volume instead. `runAsNonRoot` is belt-and-braces next to
-/// the pod-level ids -- it makes the kubelet refuse to start a container that would resolve to uid 0 anyway.
+/// Drops every capability, forbids privilege escalation, and takes the root filesystem read-only; anything a container
+/// genuinely has to write gets an explicit volume instead. `runAsNonRoot` is belt-and-braces next to the pod-level ids
+/// -- it makes the kubelet refuse to start a container that would resolve to uid 0 anyway.
 fn hardened_container_context() -> SecurityContext {
     SecurityContext {
         allow_privilege_escalation: Some(false),
@@ -297,8 +310,8 @@ fn hardened_container_context() -> SecurityContext {
 
 /// The pod-level hardening, which is where the ids and the seccomp profile belong.
 ///
-/// `fsGroup` is what makes a mounted claim writable by the non-root user: the volume is chowned to this gid on
-/// mount, without which the collector could not write to the data volume it was just moved off root to use.
+/// `fsGroup` is what makes a mounted claim writable by the non-root user: the volume is chowned to this gid on mount,
+/// without which the collector could not write to the data volume it was just moved off root to use.
 fn hardened_pod_context() -> PodSecurityContext {
     PodSecurityContext {
         fs_group: Some(RUN_AS_ID),
@@ -339,10 +352,10 @@ fn volume_mount(name: &str, path: &str) -> VolumeMount {
 
 /// An in-memory scratch volume, for the paths a read-only root filesystem would otherwise deny.
 ///
-/// `path` is a container mount point in the manifest this generator emits, not a path anything in this process
-/// opens, so a caller passing `/tmp` is naming the containerised program's own temp directory rather than
-/// creating a world-writable file on the host. `DeepSource RS-S1003` reads the literal as the latter, which is
-/// why every call site passing `/tmp` carries a `skipcq` for that one rule.
+/// `path` is a container mount point in the manifest this generator emits, not a path anything in this process opens,
+/// so a caller passing `/tmp` is naming the containerised program's own temp directory rather than creating a world-
+/// writable file on the host. `DeepSource RS-S1003` reads the literal as the latter, which is why every call site
+/// passing `/tmp` carries a `skipcq` for that one rule.
 fn scratch(name: &str, path: &str) -> (VolumeMount, Volume) {
     let volume = Volume {
         empty_dir: Some(EmptyDirVolumeSource::default()),
@@ -460,11 +473,18 @@ fn collector_service(namespace: &str) -> Service {
 
 /// The hub's environment, everything it needs that is not the credential the `Secret` carries.
 ///
-/// The paths under the runtime directory are the writable ones: a read-only root filesystem cannot take the
-/// self-signed certificate the hub generates on first start, so both halves are redirected to the scratch mount.
-fn hub_env(module_paths: &[String]) -> Vec<EnvVar> {
-    vec![
+/// The paths under the runtime directory are the writable ones: a read-only root filesystem cannot take the self-signed
+/// certificate the hub generates on first start, so both halves are redirected to the scratch mount.
+fn hub_env(module_paths: &[String], root_module: &str) -> Vec<EnvVar> {
+    // `MODULES_ROOT` is stated even when it is empty, which is what a headless cluster needs rather than the
+    // entry being left out. The hub image names the page it bundles, and a container inherits an image's
+    // environment for every variable the manifest does not set -- so omitting it would serve a page this
+    // cluster was not given the modules for, which the hub rejects at startup. Empty is read as unset.
+    let mut vars = vec![
         env("MODULES_PATHS", module_paths.join(",")),
+        env("MODULES_ROOT", root_module.to_string()),
+    ];
+    vars.extend([
         // The account, stated here; only the password it presents comes from the `Secret`.
         env("OTLP_AUTH_USERNAME", COLLECTOR_USERNAME.to_string()),
         env(
@@ -478,28 +498,28 @@ fn hub_env(module_paths: &[String]) -> Vec<EnvVar> {
         env("STORAGE_URL", "file:///app/storage".to_string()),
         env("TLS_CERT_FILE", format!("{HUB_RUNTIME_DIR}/cert.pem")),
         env("TLS_KEY_FILE", format!("{HUB_RUNTIME_DIR}/key.pem")),
-    ]
+    ]);
+    vars
 }
 
 /// The hub, running this scenario's image because that is what carries its module set.
-fn hub_deployment(namespace: &str, cluster_name: &str, module_paths: &[String]) -> Deployment {
+fn hub_deployment(namespace: &str, cluster_name: &str, module_paths: &[String], root_module: &str) -> Deployment {
     let insecure = Services::InsecureWebSocketServer.port();
     let (storage_mount, storage_volume) = mount("ws-server-storage", "/app/storage");
     let (runtime_mount, runtime_volume) = scratch("ws-server-runtime", HUB_RUNTIME_DIR);
     let container = Container {
-        // `--agent-registry` is a flag rather than an environment variable, so the registry path is the one
-        // writable location that has to be redirected through `args` instead of `env`.
+        // `--agent-registry` is a flag rather than an environment variable, so the registry path is the one writable
+        // location that has to be redirected through `args` instead of `env`.
         //
-        // `command` has to be restated with it. The image declares its binary as `CMD` with no `ENTRYPOINT`,
-        // and Kubernetes `args` overrides `CMD` outright rather than appending to it -- so args alone left the
-        // kubelet trying to exec the flag as the program:
-        //   exec: "--agent-registry": executable file not found in $PATH
+        // `command` has to be restated with it. The image declares its binary as `CMD` with no `ENTRYPOINT`, and
+        // Kubernetes `args` overrides `CMD` outright rather than appending to it -- so args alone left the kubelet
+        // trying to exec the flag as the program: exec: "--agent-registry": executable file not found in $PATH
         args: Some(vec![
             "--agent-registry".to_string(),
             format!("{HUB_RUNTIME_DIR}/registry.yaml"),
         ]),
         command: Some(vec!["et-ws-server".to_string()]),
-        env: Some(hub_env(module_paths)),
+        env: Some(hub_env(module_paths, root_module)),
         env_from: Some(vec![from_secret(namespace)]),
         image: Some(format!("et-ws-server-{cluster_name}:{IMAGE_TAG}")),
         image_pull_policy: Some(IMAGE_PULL_POLICY.to_string()),
@@ -556,9 +576,8 @@ fn runner_env(runner: &RunnerInstance) -> Vec<EnvVar> {
 
 /// One deployment per runner, each hosting a single module exactly as the other two formats arrange it.
 fn runner_deployment(namespace: &str, runner: &RunnerInstance, images: ArtifactSource) -> Deployment {
-    // A runner fetches its module to a scratch directory and, for the web runner, lets Deno cache there, so a
-    // read-only root needs somewhere writable even though nothing is meant to persist.
-    // skipcq: RS-S1003
+    // A runner fetches its module to a scratch directory and, for the web runner, lets Deno cache there, so a read-only
+    // root needs somewhere writable even though nothing is meant to persist. skipcq: RS-S1003
     let (runtime_mount, runtime_volume) = scratch("runner-tmp", "/tmp");
     let container = Container {
         env: Some(runner_env(runner)),

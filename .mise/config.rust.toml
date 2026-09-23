@@ -22,85 +22,85 @@ run = "cargo build -p int-wasm-cov-wrapper"
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the data1 workflow WASM module"
 dir = "services/ws-modules/data1"
-run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
+run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-math1-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the math1 FedAvg WASM module"
 dir = "services/ws-modules/math1"
-run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
+run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-math1-sender-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the math1-sender trigger WASM module"
 dir = "services/ws-modules/math1-sender"
-run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
+run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-comm1-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the comm1 workflow WASM module"
 dir = "services/ws-modules/comm1"
-run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
+run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-pic-viewer-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the pic-viewer broadcast picture viewer WASM module"
 dir = "services/ws-modules/pic-viewer"
-run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
+run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-except1-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the except1 exception-handling demo WASM module"
 dir = "services/ws-modules/except1"
-run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
+run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-sensor1-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the sensor1 workflow WASM module"
 dir = "services/ws-modules/sensor1"
-run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
+run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-audio1-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the audio1 workflow WASM module"
 dir = "services/ws-modules/audio1"
-run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
+run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-video1-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the video1 workflow WASM module"
 dir = "services/ws-modules/video1"
-run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
+run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-bluetooth-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the bluetooth workflow WASM module"
 dir = "services/ws-modules/bluetooth"
-run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
+run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-geolocation-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the geolocation workflow WASM module"
 dir = "services/ws-modules/geolocation"
-run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
+run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-graphics-info-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the graphics info workflow WASM module"
 dir = "services/ws-modules/graphics-info"
-run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
+run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-speech-recognition-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the speech recognition workflow WASM module"
 dir = "services/ws-modules/speech-recognition"
-run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
+run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-nfc-module]
 depends = ["build-wasm-cov-wrapper"]
 description = "Build the nfc workflow WASM module"
 dir = "services/ws-modules/nfc"
-run = "{{ vars.web_cov_wrapper }}wasm-pack build . --target web {{ vars.no_opt }}{{ vars.web_cov_feat }}"
+run = "{{ vars.web_pack_cov }}{{ vars.no_opt }}{{ vars.web_cov_feat }}"
 
 [tasks.build-ws-wasi-data1-module]
 depends = ["build-et-cli"]

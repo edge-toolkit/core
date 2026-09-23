@@ -79,6 +79,7 @@ wgpu-types.workspace = true
 
 [dev-dependencies]
 command-error.workspace = true
+et-org.workspace = true
 et-test-helpers.workspace = true
 et-test-otlp.workspace = true
 et-ws-test-server.workspace = true

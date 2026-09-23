@@ -14,6 +14,9 @@
 #   asset via the `http:et-rp-wasm` mise tool entry in config.toml.
 # - release-rust-crates: version-bumps, tags and publishes every
 #   publishable workspace crate to crates.io via cargo-release.
+# - publish-module-packages: publishes the owner-scoped module packages to
+#   GitHub Packages, which is where a published deployment stages the
+#   modules the hub serves.
 #
 # Not in ALL_LANGS (maint isn't a language); invoked manually:
 #
@@ -21,6 +24,7 @@
 #   MISE_ENV=maint mise run publish-eye1-to-hf-cache
 #   MISE_ENV=maint mise run publish-rp-wasm-to-release
 #   MISE_ENV=maint mise run release-rust-crates patch
+#   MISE_ENV=maint mise run publish-module-packages
 
 [tools]
 # Rust-native HTTP client replacing the host `curl`.
@@ -818,9 +822,10 @@ description = "Publish one batch of five workspace crates to crates.io (dry run 
 #
 # The crates list is ordered so every crate's workspace dependencies sit in an earlier or the same batch.
 # Only crossing a batch boundary matters: cargo-release topologically orders whatever one invocation selects,
-# so order within a batch is its problem, not this list's. Crates carrying
-# `[package.metadata.release] release = false` (the browser modules) and the `int-` crates are absent because
-# neither is published.
+# so order within a batch is its problem, not this list's. The `int-` crates are absent because they are not
+# published, as are the browser modules carrying `[package.metadata.release] release = false` -- which is not
+# every browser module. A module that a published scenario serves has to be on crates.io, so those carry no
+# such marker and appear here alongside the libraries.
 #
 # Rebuild the order from `cargo metadata` when the workspace graph changes -- NOT from the crate list a
 # `cargo release --workspace` run prints, which is its version-bump order and put a dev-dependency
@@ -837,11 +842,11 @@ description = "Publish one batch of five workspace crates to crates.io (dry run 
 run = """
 crates=(
   et-path edge-toolkit et-test-helpers et-otlp et-test-otlp
-  et-web et-rest-client et-ws-runner-common et-ws-wasm-agent et-ws-comm1
-  et-ws-data1 et-ws-math1 et-ws-wasi-comm1 et-ws-wasi-data1 et-ws-wasi-math1
-  et-modules-service et-storage-service et-websockify-service et-ws-service et-ws-test-server
-  et-ws-pyo3-runner et-ws-server et-ws-wasi-runner et-ws-web-runner et-cli
-  et-onnx
+  et-web et-rest-client et-ws-runner-common et-ws-wasm-agent et-wasi-guest
+  et-ws-comm1 et-ws-data1 et-ws-math1 et-ws-math1-sender et-ws-wasi-comm1
+  et-ws-wasi-data1 et-ws-wasi-math1 et-ws-wasi-math1-sender et-modules-service et-storage-service
+  et-websockify-service et-ws-service et-ws-test-server et-ws-pyo3-runner et-ws-server
+  et-ws-wasi-runner et-ws-web-runner et-cli et-onnx et-repo-check
 )
 per_batch=5
 # `set --` then `$#` counts the array without the `${` + `#` pair, which mise's Tera pass reads as a comment.
@@ -866,4 +871,125 @@ shell = "{{ vars.task_shell }}"
 usage = """
 arg "<batch>" help="Which batch of five to publish, counting from 1"
 flag "--execute" help="Actually publish; omit to print the plan and change nothing"
+"""
+
+[tasks.publish-module-packages]
+description = "Publish the scoped module packages to GitHub Packages (dry run without --execute)"
+# A published deployment stages its modules from an npm registry.
+# That is the only route the hub has to a module it cannot find on disk. GitHub Packages will only accept a
+# package scoped to the repository owner, which is why each `package.json` here is named `@edge-toolkit/...`;
+# the hub drops that scope when it names the module, so nothing a deployment references changes because of it.
+#
+# The registry and credential reach pnpm through a generated npmrc rather than the ambient one, so a
+# maintainer's own npm login is never consulted and `~/.npmrc` is left alone. mise reads user-level npm config
+# and `NPM_CONFIG_*` but deliberately neutralises a project `.npmrc`, so `NPM_CONFIG_USERCONFIG` is the one
+# handle that works for both this publish and the `npm:` installs a generated deployment performs. The file
+# holds `${GITHUB_TOKEN}` by reference -- npm expands it at read time -- so no token is written to disk.
+#
+# An already-published version is skipped rather than retried. The registry rejects re-publishing a version,
+# and a run that stopped halfway has to be safe to repeat.
+run = """
+: "${GITHUB_TOKEN:=$(gh auth token)}"
+export GITHUB_TOKEN
+# Refuse a token that cannot publish, before anything is packed or uploaded.
+# The registry answers a missing scope with `E403 permission_denied: The token provided does not match
+# expected scopes`, from inside pnpm and after the first package is already built -- and on a list that
+# publishes in dependency order, failing midway can leave a dependent uploaded without its dependency. A
+# classic token advertises its scopes in this header; a fine-grained one sends no such header, so only a
+# header that is present and lacks the scope is treated as a definite no.
+if [ "${usage_execute:-}" = "true" ]; then
+  scopes=$(gh api -i /user 2>/dev/null | rg -i '^x-oauth-scopes:' || true)
+  case "$scopes" in
+    *write:packages*) ;;
+    "") echo "token advertises no scopes; letting the registry decide" ;;
+    *)
+      echo "GITHUB_TOKEN lacks the write:packages scope that publishing needs." >&2
+      echo "Grant it with: gh auth refresh -s write:packages" >&2
+      echo "Scopes seen: $scopes" >&2
+      exit 1
+      ;;
+  esac
+fi
+# Directories that may hold a module to publish, discovered rather than listed.
+# A list naming every module by hand goes stale the moment one is added, and the manifest already says
+# whether a directory is publishable: a scoped name means yes, anything else means the registry would reject
+# it. A module whose `pkg/` has not been built is simply absent, so this publishes whatever the tree holds.
+#
+# The order puts what nothing depends on first -- the model bundles and the generated clients, then the agent
+# and the page, then the modules that name those. npm does not check a dependency at publish time, so this is
+# not what makes a publish succeed; it is so that no dependent is ever on the registry without the thing it
+# needs, for anyone installing while a run is part way through.
+candidates=(
+  data/model-modules/*/pkg
+  generated/python-ws/pkg
+  generated/python-rest/pkg
+  services/ws-wasm-agent/pkg
+  services/ws-server/static
+  services/ws-modules/*/pkg
+)
+modules=()
+for dir in "${candidates[@]}"; do
+  [ -f "$dir/package.json" ] || continue
+  name=$(jaq -r '.name // ""' "$dir/package.json")
+  case "$name" in
+    @edge-toolkit/*) ;;
+    *)
+      echo "skipping $dir: name '$name' is not scoped, so the registry would reject it"
+      continue
+      ;;
+  esac
+  # `--only` narrows the run to the named modules, matched on the name without the scope.
+  # Publishing every built module at once is rarely what a maintainer wants: a version cannot be replaced
+  # once it is up, and the set includes the model bundles, one of which is large enough that pushing it by
+  # accident is its own problem. Naming what to publish keeps a run to what was intended.
+  if [ -n "${usage_only:-}" ]; then
+    bare=${name#@edge-toolkit/}
+    case ",${usage_only}," in
+      *",$bare,"*) ;;
+      *) continue ;;
+    esac
+  fi
+  modules+=("$dir")
+done
+# `set --` then `$#` counts the array without the `${` + `#` pair, which mise's Tera pass reads as a comment.
+set -- "${modules[@]}"
+if [ "$#" -eq 0 ]; then
+  echo "no built, scoped modules found -- build the modules first" >&2
+  exit 1
+fi
+npmrc=target/publish-npmrc
+coreutils mkdir -p target
+registry_line='@edge-toolkit:registry=https://npm.pkg.github.com'
+# `${GITHUB_TOKEN}` has to reach the file unexpanded, for npm to resolve when it reads it.
+# Expanding it here would write the credential itself into the npmrc on disk, which is the one thing
+# referencing it by name avoids.
+# shellcheck disable=SC2016
+token_line='//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}'
+printf '%s\\n%s\\n' "$registry_line" "$token_line" >"$npmrc"
+NPM_CONFIG_USERCONFIG="$PWD/$npmrc"
+export NPM_CONFIG_USERCONFIG
+for module in "${modules[@]}"; do
+  if [ ! -f "$module/package.json" ]; then
+    echo "no package.json in $module -- build the module first" >&2
+    exit 1
+  fi
+  name=$(jaq -r .name "$module/package.json")
+  version=$(jaq -r .version "$module/package.json")
+  if pnpm view "$name@$version" version >/dev/null 2>&1; then
+    echo "$name@$version already published; skipping"
+    continue
+  fi
+  if [ "${usage_execute:-}" = "true" ]; then
+    echo "publishing $name@$version from $module"
+    pnpm publish "$module" --no-git-checks
+  else
+    echo "would publish $name@$version from $module"
+    pnpm publish "$module" --no-git-checks --dry-run
+  fi
+done
+"""
+shell = "{{ vars.task_shell }}"
+usage = """
+flag "--execute" help="Actually publish; omit to print the plan and change nothing"
+flag "--only <modules>" help="Comma-separated module names to publish; omit for every built module"
 """

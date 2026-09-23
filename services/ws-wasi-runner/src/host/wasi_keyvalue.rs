@@ -25,6 +25,25 @@ pub enum Bucket {
     Modules { module_name: String },
 }
 
+/// True when `candidate` names one module, rather than addressing a path through one.
+///
+/// A module is served under the name it publishes under, so a scoped name carries exactly one `/`, directly
+/// after a leading `@`. Any other separator is a path, which a bucket identifier may not express -- the key
+/// passed to `get` is what addresses a file inside the bucket.
+#[expect(
+    clippy::single_call_fn,
+    reason = "named predicate; used once by bucket_from_identifier and kept separate so the shape is readable"
+)]
+fn names_one_module(candidate: &str) -> bool {
+    let Some(scoped) = candidate.strip_prefix('@') else {
+        return !candidate.is_empty() && !candidate.contains('/');
+    };
+    match scoped.split_once('/') {
+        Some((scope, name)) => !scope.is_empty() && !name.is_empty() && !name.contains('/'),
+        None => false,
+    }
+}
+
 /// Map a `store.open` identifier to a bucket variant.
 #[expect(
     clippy::single_call_fn,
@@ -32,7 +51,7 @@ pub enum Bucket {
 )]
 fn bucket_from_identifier(identifier: &str) -> Result<Bucket, Error> {
     if let Some(module_name) = identifier.strip_prefix("modules/") {
-        if module_name.is_empty() || module_name.contains('/') {
+        if !names_one_module(module_name) {
             return Err(Error::Other(format!(
                 "invalid module bucket identifier: {identifier:?}"
             )));
@@ -84,16 +103,26 @@ impl Host for HostState {
 impl HostBucket for HostState {
     async fn get(&mut self, self_: Resource<Bucket>, key: String) -> Result<Option<Vec<u8>>, Error> {
         let bucket = self.resource_table.get(&self_)?;
-        let result = match bucket {
-            Bucket::Storage { agent_id } => self.rest.get_file(agent_id, &key).await,
-            Bucket::Modules { module_name } => self.rest.get_module_file(module_name, &key).await,
-        };
-        match result {
-            Ok(response) => Ok(Some(collect_stream(response.into_inner()).await?)),
-            // The OpenAPI spec gives both endpoints a 404 variant, so progenitor surfaces "no such key" as
-            // `Error::ErrorResponse`.
-            Err(et_rest_client::Error::ErrorResponse(_)) => Ok(None),
-            Err(e) => Err(Error::Other(format!("GET {key}: {e}"))),
+        match bucket {
+            Bucket::Storage { agent_id } => match self.rest.get_file(agent_id, &key).await {
+                Ok(response) => Ok(Some(collect_stream(response.into_inner()).await?)),
+                // The OpenAPI spec gives the endpoint a 404 variant, so progenitor surfaces "no such key" as
+                // `Error::ErrorResponse`.
+                Err(et_rest_client::Error::ErrorResponse(_)) => Ok(None),
+                Err(e) => Err(Error::Other(format!("GET {key}: {e}"))),
+            },
+            // Off the typed call, which would percent-encode the module name as one path segment. A module
+            // is served under the name it publishes under, so that name carries the owner scope and holds a
+            // `/` and an `@` -- encoded, the request asks for a module no hub serves.
+            Bucket::Modules { module_name } => {
+                match et_ws_runner_common::fetch_module_file(&self.rest, module_name, &key).await {
+                    Ok(bytes) => Ok(Some(bytes)),
+                    // Same "no such key" as above, told from the status because a request that did not go
+                    // through the generated client has no typed `ErrorResponse` variant to match on.
+                    Err(e) if et_ws_runner_common::is_module_file_missing(&e) => Ok(None),
+                    Err(e) => Err(Error::Other(format!("GET {key}: {e}"))),
+                }
+            }
         }
     }
 

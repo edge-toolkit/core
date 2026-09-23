@@ -1,12 +1,12 @@
 {
   "dependencies": {
-    "et-rest-client": "*",
+    "@edge-toolkit/et-rest-client": "*",
     "pyodide": "*"
   },
   "description": "Python data 1",
   "license": "Apache-2.0 OR MIT",
   "main": "et_ws_pydata1.js",
-  "name": "et-ws-pydata1",
+  "name": "@edge-toolkit/et-ws-pydata1",
   "type": "module",
   "version": "0.1.2"
 }

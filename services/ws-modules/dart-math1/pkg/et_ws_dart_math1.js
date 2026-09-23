@@ -18,7 +18,7 @@ export async function run() {
   // Dart @JS() interop resolves against globalThis, so expose the wasm-agent
   // classes there for the duration of the call. The FedAvg kernel itself is
   // pure local computation and needs no further globals.
-  const wasmAgent = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
+  const wasmAgent = await import("/modules/@edge-toolkit/et-ws-wasm-agent/et_ws_wasm_agent.js");
   await wasmAgent.default();
   const { WsClient, WsClientConfig } = wasmAgent;
   globalThis.WsClient = WsClient;

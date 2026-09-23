@@ -48,13 +48,14 @@ export default async function init() {
   };
 
   const pkg = await fetch(new URL("package.json", import.meta.url)).then((r) => r.json());
-  const pyfaceWheel = `${pkg.name.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
+  const distribution = pkg.name.split("/").pop();
+  const pyfaceWheel = `${distribution.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
   await installLocalWheel(pyfaceWheel);
   // The generated et-ws Pydantic-models wheel is its own ws-module mounted
-  // at /modules/et-ws/. We declare it in [tool.ws-module.dependencies] and
+  // at /modules/@edge-toolkit/et-ws/. We declare it in [tool.ws-module.dependencies] and
   // delegate wheel install to its shim -- version lives in its own
   // package.json so a bump there doesn't require touching this file.
-  const { installWheel: installEtWs } = await import("/modules/et-ws/et_ws.js");
+  const { installWheel: installEtWs } = await import("/modules/@edge-toolkit/et-ws/et_ws.js");
   await installEtWs(pyodide);
   // Start Pyodide coverage before importing so import-time lines count (no-op unless the runner set the gate).
   if (globalThis.__etPyCov) await globalThis.__etPyCov.start(pyodide, "pyface1");
@@ -77,7 +78,7 @@ export async function run() {
   let state = null;
 
   try {
-    const wasmAgent = await import("/modules/et-ws-wasm-agent/et_ws_wasm_agent.js");
+    const wasmAgent = await import("/modules/@edge-toolkit/et-ws-wasm-agent/et_ws_wasm_agent.js");
     await wasmAgent.default();
     const { WsClient, WsClientConfig } = wasmAgent;
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
