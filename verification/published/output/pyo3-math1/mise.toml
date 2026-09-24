@@ -51,10 +51,19 @@ et-ws-server
 [tasks.ws-server.env]
 
 [tools]
-"cargo:et-ws-pyo3-runner" = "latest"
-"cargo:et-ws-server" = "latest"
-"cargo:et-ws-wasi-runner" = "latest"
 "cargo:open" = "latest"
+
+[tools."cargo:et-ws-pyo3-runner"]
+minimum_release_age = "0"
+version = "latest"
+
+[tools."cargo:et-ws-server"]
+minimum_release_age = "0"
+version = "latest"
+
+[tools."cargo:et-ws-wasi-runner"]
+minimum_release_age = "0"
+version = "latest"
 
 [tools."npm:@edge-toolkit/et-ws-pyo3-math1"]
 minimum_release_age = "0"

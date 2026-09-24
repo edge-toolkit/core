@@ -628,12 +628,21 @@ fn runner_kinds(cluster: &ClusterInput) -> Vec<String> {
 /// published one declares its binaries as `cargo:` tools, and `task.run_auto_install` is off, so without this
 /// step the first task dies on a command it cannot find rather than fetching it. Why the binaries are released
 /// rather than built is said once, above the run sections, because it is true of every mode.
+///
+/// `NPM_CONFIG_USERCONFIG` is exported on the command line rather than left to the `[env]` beside it, which
+/// carries the same value. mise computes that entry but does not apply it to its own tool resolution, so the
+/// npm client it embeds reads no user config, falls back to registry.npmjs.org, and reports the scoped module
+/// packages as `package not found` -- they exist only on GitHub Packages. Exported into the process, the same
+/// file resolves against the right registry. The `[env]` entry stays because the tasks do get it.
 const fn mise_install_note(artifacts: ArtifactSource) -> &'static str {
     if matches!(artifacts, ArtifactSource::Published) {
         return concat!(
-            "Fetch the binaries the tasks below name before the first run:\n\n",
+            "Fetch the binaries and module packages the tasks below name before the first run.\n",
+            "`GITHUB_TOKEN` has to be set: GitHub Packages rejects an unauthenticated read even for a public\n",
+            "package. The registry configuration is exported rather than relied on from `mise.toml`, because\n",
+            "mise does not apply its own `[env]` to the resolution this command performs:\n\n",
             "```bash\n",
-            "mise install\n",
+            "NPM_CONFIG_USERCONFIG=\"$PWD/npmrc\" mise install\n",
             "```\n\n"
         );
     }

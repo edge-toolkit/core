@@ -23,8 +23,14 @@ name: k3s
       - services/ws-web-runner/Dockerfile
       - services/ws-test-server/src/bin/verify-math1.rs
       - utilities/cli/src/deployment_types/k3s.rs
+      # The published job's generator and the deployment it runs, for the same reason.
+      - utilities/cli/src/deployment_types/mise.rs
       - verification/local/output/math1/Dockerfile
       - verification/local/output/math1/k3s.yaml
+      - verification/published/output/math1/mise.toml
+      # What the published-k3s job applies and builds, for the same reason as the local pair above.
+      - verification/published/output/math1/Dockerfile
+      - verification/published/output/math1/k3s.yaml
   workflow_dispatch:
 
 permissions:
@@ -105,3 +111,99 @@ jobs:
         env:
           CARGO_NET_RETRY: "5"
         run: mise run k3s-verify
+
+  # Whether what is on crates.io and GitHub Packages actually runs, which no other job asks.
+  # Every sibling check reads this working tree; this one installs the released hub, runner and module packages
+  # and runs the math1 exchange on them, so it is the only signal that a release is usable.
+  #
+  # Allowed to fail, deliberately. What it exercises is whatever the registries currently hold, so between a
+  # change landing here and the release that carries it this job reports the old artifacts -- correctly, and
+  # with nothing the branch can do about it. A red result is a question about outstanding releases, not a
+  # broken tree, so it must never gate a merge.
+  published:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    # `packages: read` is what the scenario's npm installs need.
+    # GitHub Packages rejects an unauthenticated read even for a public package, so the module packages are
+    # unreachable without it.
+    permissions:
+      contents: read
+      packages: read
+    # No image builds, unlike the job above: this installs released binaries rather than building any.
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install mise + tools
+        uses: ./.github/actions/install-mise-tools
+        timeout-minutes: 60
+        with:
+          github-token: ${{ github.token }}
+
+      - name: Run the published math1 scenario
+        timeout-minutes: 30
+        env:
+          CARGO_NET_RETRY: "5"
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run published-verify
+
+  # The same cluster check as `verify`, against released images rather than ones this branch built.
+  # `verify` proves the manifests describe a working deployment when every image comes from this tree. This
+  # proves the released images still satisfy them, which is a different question: the manifests move with the
+  # branch while the images move only when someone publishes, so the two drift apart silently in between.
+  #
+  # Allowed to fail for the same reason the mise job above is. What it pulls is whatever ghcr currently holds,
+  # so between a change landing here and the images being republished this job reports the old ones --
+  # correctly, and with nothing the branch can do about it. Kept a separate job rather than folded into
+  # `published` so a red result says which half is stale: the crates or the images.
+  published-k3s:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    # `packages: read` is what pulling the released hub and runner images needs.
+    permissions:
+      contents: read
+      packages: read
+    # No hub or runner build, unlike `verify`, because both are pulled.
+    # Only the scenario image is built, since no release can carry a module set particular to one deployment.
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install mise + tools
+        uses: ./.github/actions/install-mise-tools
+        timeout-minutes: 60
+        with:
+          github-token: ${{ github.token }}
+
+      # The scenario image stages each module's built `pkg/`, which is gitignored.
+      # A fresh checkout has neither, so the image build fails on its own COPY. Only this scenario's two
+      # modules are built, not the whole glob.
+      - name: Build the math1 modules
+        timeout-minutes: 30
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mise run build-ws-math1-module
+          mise run build-ws-math1-sender-module
+
+      # The hub comes from the registry as a named build context rather than being built.
+      # That is the whole point of this job, and a plain build of the scenario Dockerfile fails on `FROM hub`.
+      - name: Build the math1 scenario image on the released hub
+        run: |
+          dockerfile=verification/published/output/math1/Dockerfile
+          hub=docker-image://ghcr.io/edge-toolkit/core/et-ws-server:latest
+          docker build --build-context "hub=$hub" -t et-ws-server-math1:latest -f "$dockerfile" .
+
+      - name: Apply the published manifests and verify the stored model
+        timeout-minutes: 20
+        env:
+          CARGO_NET_RETRY: "5"
+        run: mise run k3s-verify published

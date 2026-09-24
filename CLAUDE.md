@@ -355,6 +355,12 @@ All tasks run through `mise run <task>`. The aggregates below act on Rust + the 
 **Build a single module:** `MISE_ENV=<lang> mise run build-ws-<module>-module` (e.g.,
 `mise run build-ws-face-detection-module` for the Rust modules, or `MISE_ENV=zig mise run build-ws-zig-data1-module`).
 
+**Maintainer tasks need `-E maint`:** the tasks in `.mise/config.maint.toml` -- `release-rust-crates`,
+`publish-module-packages`, the `bootstrap-*-release` ones -- live in a config that is not loaded by default, so
+the flag goes on `mise` itself and before `run`: `mise -E maint run release-rust-crates 1 --execute`. Without it
+mise answers `no task release-rust-crates found` and prints the tasks it can see, which reads as the task having
+been deleted rather than as an env that was never loaded.
+
 ## Formatters & checks by file type
 
 **Verify the change actually works before running the lint/format battery.** Functional verification comes first:

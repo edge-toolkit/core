@@ -215,6 +215,9 @@ allowed_os_scoped_tool := {
 	"github:christianhelle/openapi2zig",
 	"github:owenlamont/ryl",
 	"github:uutils/findutils",
+	# agent-lint publishes three targets and no more: macOS arm64 and Linux x86_64/aarch64.
+	# There is no Windows or macOS x86_64 asset to install, so agent-lint-check skips on those two.
+	"github:zhupanov/agent-lint",
 	# macmon is an Apple Silicon monitor with no Linux/Windows build, so the o2-macmon task scopes it to macOS.
 	"github:vladkens/macmon",
 	# nvidia_gpu_exporter is the Linux NVIDIA GPU path for o2-nvidia; Windows uses windows_exporter, macOS macmon.

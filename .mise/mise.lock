@@ -1231,6 +1231,25 @@ url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.128/wa
 url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/545035796"
 provenance = "github-attestations"
 
+[[tools."github:zhupanov/agent-lint"]]
+version = "4.0.3"
+backend = "github:zhupanov/agent-lint"
+
+[tools."github:zhupanov/agent-lint"."platforms.linux-arm64"]
+checksum = "sha256:23db5f1a08ccabd5df6cb58d8c0aa7f1949c3b4246e4b90608bea1a369275633"
+url = "https://github.com/zhupanov/agent-lint/releases/download/v4.0.3/agent-lint-v4.0.3-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/zhupanov/agent-lint/releases/assets/487601241"
+
+[tools."github:zhupanov/agent-lint"."platforms.linux-x64"]
+checksum = "sha256:0be0fdea2b90a167bdf9f477289863b69f4df63890507289abdfd72fd2d9fab0"
+url = "https://github.com/zhupanov/agent-lint/releases/download/v4.0.3/agent-lint-v4.0.3-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/zhupanov/agent-lint/releases/assets/487601238"
+
+[tools."github:zhupanov/agent-lint"."platforms.macos-arm64"]
+checksum = "sha256:ba994b6a64fce048df6b90da5d1ed769771238fd3f85c0ab14d1bb6d58987f7a"
+url = "https://github.com/zhupanov/agent-lint/releases/download/v4.0.3/agent-lint-v4.0.3-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/zhupanov/agent-lint/releases/assets/487601239"
+
 [[tools.go]]
 version = "1.26.4"
 backend = "core:go"

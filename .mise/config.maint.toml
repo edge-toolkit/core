@@ -841,12 +841,13 @@ description = "Publish one batch of five workspace crates to crates.io (dry run 
 # numbers stay stable for a part-published release, and re-check with the same pairs afterwards.
 run = """
 crates=(
-  et-path edge-toolkit et-test-helpers et-otlp et-test-otlp
-  et-web et-rest-client et-ws-runner-common et-ws-wasm-agent et-wasi-guest
-  et-ws-comm1 et-ws-data1 et-ws-math1 et-ws-math1-sender et-ws-wasi-comm1
-  et-ws-wasi-data1 et-ws-wasi-math1 et-ws-wasi-math1-sender et-modules-service et-storage-service
-  et-websockify-service et-ws-service et-ws-test-server et-ws-pyo3-runner et-ws-server
-  et-ws-wasi-runner et-ws-web-runner et-cli et-onnx et-repo-check
+  et-org et-path edge-toolkit et-test-helpers et-otlp
+  et-test-otlp et-web et-rest-client et-ws-runner-common et-ws-wasm-agent
+  et-wasi-guest et-ws-comm1 et-ws-data1 et-ws-math1 et-ws-math1-sender
+  et-ws-wasi-comm1 et-ws-wasi-data1 et-ws-wasi-math1 et-ws-wasi-math1-sender et-modules-service
+  et-storage-service et-websockify-service et-ws-service et-ws-test-server et-ws-pyo3-runner
+  et-ws-server et-ws-wasi-runner et-ws-web-runner et-cli et-onnx
+  et-repo-check
 )
 per_batch=5
 # `set --` then `$#` counts the array without the `${` + `#` pair, which mise's Tera pass reads as a comment.

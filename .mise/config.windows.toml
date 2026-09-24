@@ -441,3 +441,9 @@ shell = "{{ vars.task_shell_trace }}"
 [tasks.action-validator-check]
 # Broken by latest mise.
 run = "true"
+
+[tasks.agent-lint-check]
+# Upstream publishes no Windows asset in the v4.0.3 release.
+# The tool is therefore os-scoped away from this platform and there is nothing here to run, so this is
+# overridden rather than left to fail on a binary that was never installed.
+run = "true"
