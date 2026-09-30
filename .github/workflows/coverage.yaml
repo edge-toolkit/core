@@ -7,10 +7,8 @@ name: coverage
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  # Codecov's tokenless upload uses an OIDC id-token instead of a repository upload token.
-  id-token: write
+# Nothing at workflow scope: each job declares its own, so the Pages and OIDC grants stay with the job needing them.
+permissions: {}
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
@@ -27,6 +25,10 @@ jobs:
   coverage:
     runs-on: ${{ matrix.os }}
     timeout-minutes: ${{ matrix.timeout }}
+    permissions:
+      contents: read
+      # Codecov's tokenless upload uses an OIDC id-token instead of a repository upload token.
+      id-token: write
     # Two lanes, with only one of them reporting outward.
     # ubuntu-latest stays the canonical lane: it is the only one that can run the wasm/browser half of the
     # pipeline, and it alone uploads to Codecov and DeepSource, so the published numbers keep meaning exactly
@@ -239,3 +241,45 @@ jobs:
           report_type: test_results
           files: target/nextest/ci/junit.xml
           fail_ci_if_error: true
+
+      - name: Upload Python test results to Codecov (OIDC)
+        if: ${{ !cancelled() && runner.os == 'Linux' && hashFiles('target/pycov/junit-*.xml') != '' }}
+        uses: codecov/codecov-action@v7
+        with:
+          use_oidc: true
+          report_type: test_results
+          # The pytest-cov task writes one junit-<module>.xml per module here, which the CLI's search picks up.
+          directory: target/pycov
+          flags: python
+          fail_ci_if_error: true
+
+      # Only a fully green main run republishes the README's test-count badge.
+      # Deliberately unguarded, unlike the uploads above: a failed run can stop partway through the pytest modules
+      # and would publish a count that silently drops the ones that never ran, so the badge keeps the last good one.
+      - name: Count tests for the README badge
+        if: ${{ runner.os == 'Linux' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: mise run test-count-badge
+
+      - name: Upload the test-count badge as the Pages artifact
+        if: ${{ runner.os == 'Linux' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: target/test-badge
+
+  # Separate from the coverage job so only this one holds the Pages write permissions.
+  # `needs` waits on both matrix lanes, and the artifact exists only when the Linux lane got through the steps above.
+  pages:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    needs: coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy the test-count badge to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v5

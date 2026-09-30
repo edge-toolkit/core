@@ -160,7 +160,12 @@ rules:
         - "/.dockerignore" # The same ignore, generated from it.
         - "/verification/**" # Generator-owned output, carrying whatever the generator wrote.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
-    pattern-regex: "(?i)codecov"
+    patterns:
+      - pattern-regex: "(?i)codecov"
+      # The README's coverage badge and its link, which display the service's output rather than explain code.
+      # Matched as whole reference definitions, so any other mention in the README is still caught.
+      - pattern-not-regex: >-
+          (?m)^\[coverage(-badge)?\]: https://codecov\.io/gh/edge-toolkit/core(/graph/badge\.svg\?branch=main)?$
     message: >-
       Do not name the coverage service outside the jobs that upload to it. A test exists to pin behaviour, and
       saying it was added for a coverage percentage tells the next reader to delete it once the number moves.

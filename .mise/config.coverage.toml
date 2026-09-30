@@ -378,26 +378,24 @@ mise run _cov-branch-assert "$report" "{{ vars.wasm_cov_libs }}"
 shell = "{{ vars.task_shell }}"
 
 [tasks.pytest-cov]
-description = "Combined Python coverage (pytest + web-runner Pyodide runs) -> Cobertura for Codecov/DeepSource"
+description = "Combined Python coverage (pytest + web-runner Pyodide runs) -> Cobertura, plus pytest JUnit results"
 # One Python report is combined from several data sources: the pytest runs plus the web-runner Pyodide runs.
 # The Python workflow pytest runs and the web-runner integration test (which drops the modules' .coverage files
 # into target/pycov/ when ET_TEST_COVERAGE is set) all feed `coverage combine`. The paths in
 # config/coverage.toml remap them into a single Cobertura report.
+# Each pytest run also writes target/pycov/junit-<module>.xml for the Codecov test-results upload. The path is
+# absolute because `uv run --directory` moves pytest into the module dir, and `junit_family=legacy` is the
+# schema that records each test's file, which Codecov's test analytics reads.
 run = """
-pyface=services/ws-modules/pyface1
-pydemo=services/ws-modules/pydemo1
-pyeye=services/ws-modules/pyeye1
-pyspeech=services/ws-modules/pyspeech1
 pycov=target/pycov
 mkdir -p "$pycov"
-uv run --directory "$pyface" pytest --cov=pyface1 --cov-report=
-cp "$pyface/.coverage" "$pycov/.coverage.pyface1_pytest"
-uv run --directory "$pydemo" pytest --cov=pydemo1 --cov-report=
-cp "$pydemo/.coverage" "$pycov/.coverage.pydemo1_pytest"
-uv run --directory "$pyeye" pytest --cov=pyeye1 --cov-report=
-cp "$pyeye/.coverage" "$pycov/.coverage.pyeye1_pytest"
-uv run --directory "$pyspeech" pytest --cov=pyspeech1 --cov-report=
-cp "$pyspeech/.coverage" "$pycov/.coverage.pyspeech1_pytest"
+for module in pyface1 pydemo1 pyeye1 pyspeech1; do
+  dir="services/ws-modules/$module"
+  junit="$PWD/$pycov/junit-$module.xml"
+  uv run --directory "$dir" pytest --cov="$module" --cov-report= --junitxml="$junit" -o junit_family=legacy
+  cp "$dir/.coverage" "$pycov/.coverage.${module}_pytest"
+done
+pyface=services/ws-modules/pyface1
 uv run --project "$pyface" coverage combine "$pycov"
 uv run --project "$pyface" coverage xml -o coverage-python.xml
 """
@@ -406,6 +404,21 @@ shell = "{{ vars.task_shell }}"
 [tasks.pytest-cov.env]
 COVERAGE_RCFILE = "{{ config_root }}/config/coverage.toml"
 UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}"
+
+[tasks.test-count-badge]
+description = "Count the tests in the JUnit reports into a shields.io endpoint badge at target/test-badge/tests.json"
+# Counts the same JUnit reports the coverage workflow uploads, so the badge matches the per-commit test count.
+# A missing report fails the task rather than publishing a count that silently leaves a language out. Matches are
+# counted rather than lines because pytest writes its whole report on a single line.
+run = """
+site=target/test-badge
+coreutils mkdir -p "$site"
+count="$(rg --count-matches --no-filename '<testcase ' target/nextest/ci/junit.xml target/pycov/junit-*.xml |
+  goawk '{ n += $1 } END { print n }')"
+printf '{"schemaVersion":1,"label":"tests","message":"%s","color":"blue"}' "$count" >"$site/tests.json"
+coreutils cat "$site/tests.json"
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.wasm-agent-cov]
 depends = ["build-wasm-cov-wrapper"]
