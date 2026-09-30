@@ -30,6 +30,7 @@ et-ws-server
 
 [tasks.ws-server.env]
 MODULES_ROOT = "@edge-toolkit/et-ws-server-static"
+STORAGE_URL = "file://{{ config_root }}/storage"
 
 [tools]
 "cargo:open" = "latest"

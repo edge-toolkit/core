@@ -27,6 +27,7 @@ et-ws = { workspace = true }
 "@mediapipe/tasks-vision" = "*"
 et-model-eye1 = "*"
 et-ws = "*"
+et-ws-server-static = "*"
 pyodide = "*"
 
 [tool.pytest.ini_options]

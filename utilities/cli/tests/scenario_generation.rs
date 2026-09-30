@@ -121,9 +121,10 @@ agents:
 
 #[test]
 fn docker_image_module_paths_include_static_root_module() {
-    let paths = docker_image_module_paths(&["face-detection".to_string()], true).unwrap();
+    let paths = docker_image_module_paths(&["face-detection".to_string()], true, &[]).unwrap();
 
-    assert_eq!(paths[0], "/app/services/ws-server/static");
+    assert!(paths.is_sorted(), "{paths:?}");
+    assert!(paths.contains(&"/app/services/ws-server/static".to_string()));
     assert!(paths.contains(&"/app/services/ws-wasm-agent".to_string()));
     assert!(paths.contains(&"/app/data/model-modules/model-face1".to_string()));
     assert!(paths.contains(&"/app/node_modules/onnxruntime-web".to_string()));
@@ -133,16 +134,17 @@ fn docker_image_module_paths_include_static_root_module() {
 
 #[test]
 fn a_headless_image_is_given_neither_the_page_nor_what_the_page_imports() {
-    // face-detection's own model still comes, because the module declares it. What goes is the page and the two
-    // packages only its `package.json` names -- a cluster nobody opens loads none of them.
-    let paths = docker_image_module_paths(&["face-detection".to_string()], false).unwrap();
+    // face-detection's own model still comes, because the module declares it. What goes is the page and everything
+    // only its `package.json` names -- the agent included, which face-detection links in rather than loads -- since a
+    // cluster nobody opens loads none of them.
+    let paths = docker_image_module_paths(&["face-detection".to_string()], false, &[]).unwrap();
 
     assert!(
         !paths.contains(&"/app/services/ws-server/static".to_string()),
         "{paths:?}"
     );
     assert!(!paths.contains(&"/app/node_modules/stats-gl".to_string()), "{paths:?}");
-    assert!(paths.contains(&"/app/services/ws-wasm-agent".to_string()));
+    assert!(!paths.contains(&"/app/services/ws-wasm-agent".to_string()), "{paths:?}");
     assert!(paths.contains(&"/app/data/model-modules/model-face1".to_string()));
     assert!(paths.contains(&"/app/services/ws-modules/face-detection".to_string()));
 }
@@ -154,20 +156,20 @@ fn scenario_module_paths_include_selected_modules_and_dependencies() {
     let modules = ["face-detection".to_string(), "har1".to_string()];
     let paths = scenario_module_paths(&ScenarioModules::new(&ws_server_dir, &modules, true)).unwrap();
 
-    // onnxruntime-web and stats-gl are here because the hub's own page declares them, not because either scenario
-    // module does -- they arrive in the first resolution wave, ahead of the model modules that face-detection and har1
-    // pull in. A deployment that omitted them served a page whose first import 404d.
+    // The agent, onnxruntime-web and stats-gl are here because the hub's own page declares them, not because either
+    // scenario module does. A deployment that omitted them served a page whose first import 404d. The list is sorted,
+    // so where each was first reached in resolution does not show.
     assert_eq!(
         paths,
         vec![
-            "static".to_string(),
-            "../ws-wasm-agent".to_string(),
-            "../ws-modules/face-detection".to_string(),
-            "../ws-modules/har1".to_string(),
             "$(cargo run --quiet -p et-cli -- npm-module-path --package onnxruntime-web)".to_string(),
             "$(cargo run --quiet -p et-cli -- npm-module-path --package stats-gl)".to_string(),
             "../../data/model-modules/model-face1".to_string(),
             "../../data/model-modules/model-har-motion1".to_string(),
+            "../ws-modules/face-detection".to_string(),
+            "../ws-modules/har1".to_string(),
+            "../ws-wasm-agent".to_string(),
+            "static".to_string(),
         ],
     );
     assert!(!paths.contains(&"../ws-modules".to_string()));
@@ -465,29 +467,59 @@ fn the_scenario_dockerfile_path_stays_relative_however_shallow_the_output_dir() 
     );
 }
 
+/// The hub's `MODULES_PATHS` in the `compose.yaml` under `output_dir`, as YAML reads it back.
+///
+/// Parsed rather than matched as text, because how the value is spelled -- folded, quoted, or on one line -- is what
+/// these tests are checking, and only a parse says what it spells. A line continuation is refused on the way.
+fn compose_modules_paths(output_dir: &std::path::Path) -> String {
+    let text = fs::read_to_string(output_dir.join("compose.yaml")).unwrap();
+    assert!(!text.contains('\\'), "no line continuations survive: {text}");
+    let compose: serde_yaml::Value = serde_yaml::from_str(&text).unwrap();
+    compose["services"]["ws-server"]["environment"]["MODULES_PATHS"]
+        .as_str()
+        .unwrap()
+        .to_string()
+}
+
 #[test]
 fn the_wrapped_module_list_folds_back_into_one_comma_separated_value() {
     // The list is wrapped to stay inside the line limit, and it is wrapped by YAML folding rather than by a trailing
     // `\`, which the repository bans. Folding is only correct if the breaks come back as separators the server accepts,
-    // so this parses the generated file rather than trusting the spelling.
-    let (_test_root, output_dir) = k3s_scenario_with("");
-    let text = fs::read_to_string(output_dir.join("compose.yaml")).unwrap();
-
-    assert!(!text.contains('\\'), "no line continuations survive: {text}");
-
-    let compose: serde_yaml::Value = serde_yaml::from_str(&text).unwrap();
-    let paths = compose["services"]["ws-server"]["environment"]["MODULES_PATHS"]
-        .as_str()
-        .unwrap();
+    // so this parses the generated file rather than trusting the spelling. Two modules, so there is a break to fold.
+    let (_test_root, verification_root, output_dir) = scenario_tree(
+        r#"cluster_name: "folded"
+agents:
+  - name: "math1-twin"
+    runner: "wasi"
+    resources:
+      - type: "wasi-math1"
+  - name: "math1-trigger"
+    runner: "wasi"
+    resources:
+      - type: "wasi-math1-sender"
+"#,
+    );
+    let _regenerated = regenerate_verification(&verification_root, None).unwrap();
+    let paths = compose_modules_paths(&output_dir);
 
     assert!(!paths.contains('\n'), "folded to a single line: {paths}");
     let segments: Vec<&str> = paths.split(',').map(str::trim).collect();
-    // The agent leads, not the page: this fixture's one agent names a runner, so the cluster is headless and was never
-    // given a front page.
-    assert_eq!(segments.first().copied(), Some("/app/services/ws-wasm-agent"));
-    assert!(
-        segments.iter().all(|segment| segment.starts_with("/app/")),
-        "every segment is a path once trimmed: {segments:?}"
+    assert_eq!(
+        segments,
+        [
+            "/app/services/ws-modules/wasi-math1",
+            "/app/services/ws-modules/wasi-math1-sender"
+        ]
+    );
+}
+
+#[test]
+fn a_single_module_path_is_still_a_closed_quoted_value() {
+    // One path has no break to fold, and was once written as the opening line of a fold with nothing to close it.
+    let (_test_root, output_dir) = k3s_scenario_with("");
+    assert_eq!(
+        compose_modules_paths(&output_dir),
+        "/app/services/ws-modules/wasi-math1"
     );
 }
 
@@ -547,10 +579,10 @@ fn the_artifact_source_decides_whether_the_mise_deployment_builds_what_it_runs()
         "a published deployment runs the released runner: {published}"
     );
     assert!(!published.contains("cargo run"), "and builds nothing: {published}");
-    // Each released binary is declared as a tool, which is what puts it on `PATH` for the task above, and
-    // each waives the release age. Without the waiver mise hides a release younger than a day and installs
-    // the one before it -- so a deployment generated beside the publish it was made for runs the previous
-    // binary, and says nothing: resolving `latest` to an older release is ordinary behaviour, not an error.
+    // Each released binary is declared as a tool, which is what puts it on `PATH` for the task above, and each waives
+    // the release age. Without the waiver mise hides a release younger than a day and installs the one before it -- so
+    // a deployment generated beside the publish it was made for runs the previous binary, and says nothing: resolving
+    // `latest` to an older release is ordinary behaviour, not an error.
     for crate_name in ["et-ws-server", "et-ws-wasi-runner"] {
         let declared = format!("[tools.\"cargo:{crate_name}\"]\nminimum_release_age = \"0\"\nversion = \"latest\"");
         assert!(published.contains(&declared), "expected {declared} in: {published}");
@@ -664,4 +696,135 @@ agents: []
     assert!(local_output_dir.join("compose.yaml").exists());
     assert!(ci_output_dir.join("mise.toml").exists());
     assert!(ci_output_dir.join("compose.yaml").exists());
+}
+
+/// Write a module directory at `dir` declaring `name`, depending on pyodide, with a loader whose source is `loader`.
+fn scenario_module(dir: &std::path::Path, name: &str, loader: &str) {
+    fs::create_dir_all(dir.join("pkg")).unwrap();
+    let package = format!(r#"{{"name": "{name}", "main": "loader.js", "dependencies": {{"pyodide": "*"}}}}"#);
+    fs::write(dir.join("pkg/package.json"), package).unwrap();
+    fs::write(dir.join("pkg/loader.js"), loader).unwrap();
+}
+
+#[test]
+fn module_paths_modules_keep_their_own_identity_and_cannot_inject_shell() {
+    let test_root = tempdir().unwrap();
+    // Two directories of one name under different parents, which resolution used to fold into one module, and a
+    // directory whose name is shell syntax the generated task would otherwise run.
+    scenario_module(&test_root.path().join("a/module"), "@ext/a", "");
+    scenario_module(&test_root.path().join("b/module"), "@ext/b", "");
+    scenario_module(&test_root.path().join("c/mod$(id)"), "@ext/c", "");
+    let module_paths = [
+        test_root.path().join("a/module"),
+        test_root.path().join("b/module"),
+        test_root.path().join("c"),
+    ];
+    let ws_server_dir = edge_toolkit::config::get_project_root().join("services/ws-server");
+    let modules = ["@ext/a".to_string(), "@ext/b".to_string(), "@ext/c".to_string()];
+    let scenario = ScenarioModules::new(&ws_server_dir, &modules, false).with_module_paths(&module_paths);
+    let paths = scenario_module_paths(&scenario).unwrap();
+
+    assert!(paths.iter().any(|path| path.ends_with("a/module")), "{paths:?}");
+    assert!(paths.iter().any(|path| path.ends_with("b/module")), "{paths:?}");
+    assert!(paths.iter().any(|path| path.ends_with(r"c/mod\$(id)")), "{paths:?}");
+    assert!(!paths.iter().any(|path| path.ends_with("c/mod$(id)")), "{paths:?}");
+}
+
+#[test]
+fn a_published_hub_serving_module_paths_modules_keeps_the_full_pyodide() {
+    let test_root = tempdir().unwrap();
+    // The loader shim is what marks a module as needing wheels, which only the full distribution can install.
+    scenario_module(
+        &test_root.path().join("modules/wheels"),
+        "@ext/wheels",
+        "await pyodide.loadPackage('micropip'); await micropip.install('x');",
+    );
+    let input_file = test_root.path().join("cluster.yaml");
+    let input = concat!(
+        "cluster_name: \"external\"\n",
+        "artifact_source: \"published\"\n",
+        "module_paths:\n",
+        "  - \"modules\"\n",
+        "agents:\n",
+        "  - name: \"browser\"\n",
+        "    resources:\n",
+        "      - type: \"wheels\"\n",
+    );
+    fs::write(&input_file, input).unwrap();
+    let output_dir = test_root.path().join("deployment");
+    let _summary = generate_deployment(&input_file, &output_dir, None).unwrap();
+    let mise_toml = fs::read_to_string(output_dir.join("mise.toml")).unwrap();
+
+    // Setting `MODULES_PATHS` replaces the hub's defaults, which is where the full distribution came from.
+    assert!(mise_toml.contains("../modules/wheels"), "{mise_toml}");
+    assert!(mise_toml.contains("$(mise where http:pyodide)"), "{mise_toml}");
+}
+
+/// Generate a `deployment_type` deployment of a scenario naming one module from its own `module_paths:`.
+///
+/// The scenario's one entry is the directory `entry`, holding the module `@ext/mine` in its child `module`. Returns the
+/// temp root with the output directory inside it, since dropping the root deletes the tree.
+fn module_paths_deployment(
+    deployment_type: &str,
+    entry: &str,
+    module: &str,
+) -> (tempfile::TempDir, std::path::PathBuf) {
+    let test_root = tempdir().unwrap();
+    scenario_module(&test_root.path().join(entry).join(module), "@ext/mine", "");
+    let input = format!(
+        concat!(
+            "cluster_name: \"own-modules\"\n",
+            "deployment_type: \"{deployment_type}\"\n",
+            "module_paths:\n",
+            "  - \"{entry}\"\n",
+            "agents:\n",
+            "  - name: \"browser\"\n",
+            "    resources:\n",
+            "      - type: \"@ext/mine\"\n",
+        ),
+        deployment_type = deployment_type,
+        entry = entry,
+    );
+    let input_file = test_root.path().join("cluster.yaml");
+    fs::write(&input_file, input).unwrap();
+    let output_dir = test_root.path().join("deployment");
+    let _summary = generate_deployment(&input_file, &output_dir, None).unwrap();
+    (test_root, output_dir)
+}
+
+#[test]
+fn a_compose_deployment_builds_module_paths_modules_into_its_image() {
+    let (_test_root, output_dir) = module_paths_deployment("docker-compose", "modules", "mine");
+    let compose = fs::read_to_string(output_dir.join("compose.yaml")).unwrap();
+    let dockerfile = fs::read_to_string(output_dir.join("Dockerfile")).unwrap();
+
+    // The entry is handed to the build as its own context, relative to the compose file, and the image copies the
+    // module out of it to the path the hub is told to serve.
+    assert!(compose.contains("module-path-0: ../modules"), "{compose}");
+    assert!(compose.contains("/app/module-paths/0/mine"), "{compose}");
+    let copy = r#"COPY --from=module-path-0 --chown=10001:10001 ["mine", "/app/module-paths/0/mine"]"#;
+    assert!(dockerfile.contains(copy), "{dockerfile}");
+}
+
+#[test]
+fn a_module_paths_directory_name_stays_one_operand_and_one_shell_word() {
+    // A space splits a plain-form `COPY` operand, and a `$` is substitution to both Docker and the shell: the entry
+    // carries the `$`, which the README's build context names, and the module under it the space.
+    let (_test_root, output_dir) = module_paths_deployment("k3s", "mods$HOME", "my mod");
+    let dockerfile = fs::read_to_string(output_dir.join("Dockerfile")).unwrap();
+    let readme = fs::read_to_string(output_dir.join("README.md")).unwrap();
+
+    let copy = r#"COPY --from=module-path-0 --chown=10001:10001 ["my mod", "/app/module-paths/0/my mod"]"#;
+    assert!(dockerfile.contains(copy), "{dockerfile}");
+    assert!(readme.contains(r#"/mods\$HOME""#), "{readme}");
+}
+
+#[test]
+fn a_k3s_deployment_names_the_module_paths_context_its_image_build_needs() {
+    let (_test_root, output_dir) = module_paths_deployment("k3s", "modules", "mine");
+    let manifest = fs::read_to_string(output_dir.join("k3s.yaml")).unwrap();
+    let readme = fs::read_to_string(output_dir.join("README.md")).unwrap();
+
+    assert!(manifest.contains("/app/module-paths/0/mine"), "{manifest}");
+    assert!(readme.contains(" --build-context \"module-path-0="), "{readme}");
 }

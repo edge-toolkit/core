@@ -13,9 +13,9 @@ pub enum CliError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
-    // The underlying message carries the whole of what is actionable -- which field, which line, and for a
-    // rejected enum the values that would have been accepted -- and a `source` nobody prints is a message
-    // that stops at "it did not parse".
+    // The underlying message carries the whole of what is actionable -- which field, which line, and for a rejected
+    // enum the values that would have been accepted -- and a `source` nobody prints is a message that stops at "it did
+    // not parse".
     #[error("Failed to parse cluster input YAML: {0}")]
     ParseClusterYaml(#[from] serde_yaml::Error),
 

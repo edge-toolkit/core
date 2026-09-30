@@ -25,8 +25,9 @@ docker run --rm --name openobserve -p 127.0.0.1:5080:5080 $settings -e ZO_ROOT_U
 description = "Run the WebSocket server"
 dir = "../../../../services/ws-server"
 run = """
-MODULES_PATHS="static, ../ws-wasm-agent, $(cargo run --quiet -p et-cli -- npm-module-path --package onnxruntime-web)"
-MODULES_PATHS="$MODULES_PATHS, $(cargo run --quiet -p et-cli -- npm-module-path --package stats-gl)"
+MODULES_PATHS="$(cargo run --quiet -p et-cli -- npm-module-path --package onnxruntime-web)"
+MODULES_PATHS="$MODULES_PATHS, $(cargo run --quiet -p et-cli -- npm-module-path --package stats-gl), ../ws-wasm-agent"
+MODULES_PATHS="$MODULES_PATHS, static"
 export MODULES_PATHS
 cargo run
 """

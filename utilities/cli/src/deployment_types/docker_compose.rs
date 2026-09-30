@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use et_path::{absolute_from, relative_path_from};
 use fs_err as fs;
@@ -7,7 +7,8 @@ use crate::error::CliError;
 use crate::input::{ArtifactSource, ClusterInput};
 use crate::{
     COLLECTOR_SETTINGS, COLLECTOR_USERNAME, IMAGE_REGISTRY, OutputType, RunnerInstance, SECRETS_ENV_FILE,
-    cluster_module_names, hub_http_base, hub_ws_url, module_registry, resolve_cluster_runners, resolve_module_paths,
+    cluster_module_names, hub_http_base, hub_ws_url, module_path_contexts, module_registry, resolve_cluster_runners,
+    resolve_module_paths,
 };
 
 pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
@@ -20,7 +21,7 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
     let scenario_dockerfile_rel = format!("{}/Dockerfile", relative_path_from(&workspace_root, &output_abs));
     let module_names = cluster_module_names(cluster);
     let serves_a_page = super::serves_a_page(cluster);
-    let module_paths = docker_image_module_paths(&module_names, serves_a_page)?;
+    let module_paths = docker_image_module_paths(&module_names, serves_a_page, &cluster.module_paths)?;
     let artifacts = cluster.artifact_source;
     let published = matches!(artifacts, ArtifactSource::Published);
     let mut services = vec![("openobserve".to_string(), openobserve_service())];
@@ -51,7 +52,10 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
             build: Some(ComposeBuild {
                 context: workspace_rel,
                 dockerfile: scenario_dockerfile_rel,
-                additional_contexts: vec![("hub".to_string(), hub_context)],
+                // Relative to this file, which is what compose resolves a context path against.
+                additional_contexts: std::iter::once(("hub".to_string(), hub_context))
+                    .chain(module_path_contexts(&cluster.module_paths, &output_abs))
+                    .collect(),
             }),
             network_mode: Some("host".to_string()),
             // Carries `OTLP_AUTH_PASSWORD`: the server authenticates its OTLP exports against the same root credential
@@ -86,7 +90,11 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
     ));
     services.extend(runner_services(
         &resolve_cluster_runners(
-            &module_registry(&workspace_root, &workspace_root.join("services/ws-server")),
+            &module_registry(
+                &workspace_root,
+                &workspace_root.join("services/ws-server"),
+                &cluster.module_paths,
+            ),
             cluster,
         )?,
         &relative_path_from(&output_abs, &workspace_root),
@@ -208,9 +216,9 @@ fn openobserve_service() -> ComposeService {
 /// The hub service's environment, in the alphabetical order the rest of the file is written in.
 ///
 /// `MODULES_ROOT` is stated even when it is empty, which is what a headless cluster needs rather than the entry
-/// being left out. The hub image names the page it bundles, and a container inherits an image's environment for
-/// every variable the compose file does not set -- so omitting it would serve a page this cluster was not given the
-/// modules for, which the hub rejects at startup. Empty is read as unset.
+/// being left out. The hub image names the page it bundles, and a container inherits an image's environment for every
+/// variable the compose file does not set -- so omitting it would serve a page this cluster was not given the modules
+/// for, which the hub rejects at startup. Empty is read as unset.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct step of the hub service; separate so the root's two spellings are not inlined mid-literal"
@@ -249,19 +257,21 @@ fn hub_environment(
     environment
 }
 
-pub fn docker_image_module_paths(module_names: &[String], serves_a_page: bool) -> Result<Vec<String>, CliError> {
+pub fn docker_image_module_paths(
+    module_names: &[String],
+    serves_a_page: bool,
+    module_paths: &[PathBuf],
+) -> Result<Vec<String>, CliError> {
     let project_root = edge_toolkit::config::get_project_root();
     let ws_server_dir = project_root.join("services/ws-server");
-    let mut paths = Vec::with_capacity(module_names.len().saturating_add(2));
+    // The page is resolved by name like any other module, so the agent and runtimes it declares come with it.
+    let mut names = Vec::with_capacity(module_names.len().saturating_add(1));
     if serves_a_page {
-        paths.push("/app/services/ws-server/static".to_string());
+        names.push("static".to_string());
     }
-    paths.push("/app/services/ws-wasm-agent".to_string());
-    let registry = module_registry(&project_root, &ws_server_dir);
-    paths.extend(resolve_module_paths(&registry, module_names, |entry| {
-        entry.docker_path.clone()
-    })?);
-    Ok(paths)
+    names.extend(module_names.iter().cloned());
+    let registry = module_registry(&project_root, &ws_server_dir, module_paths);
+    resolve_module_paths(&registry, &names, |entry| entry.docker_path.clone())
 }
 
 #[derive(Debug, Default)]
@@ -424,10 +434,10 @@ impl ComposeRenderer {
             // its owner scope, so it begins with `@` -- which unquoted is a scanner error rather than a string, and
             // produced a compose file nothing could parse.
             //
-            // An empty value is quoted for a different reason: written bare it is YAML's null, and compose reads a
-            // null entry as "take this from the host environment" rather than as a value. The variable would then
-            // be absent from the container and the image's own default would stand -- the opposite of what stating
-            // it empty is for.
+            // An empty value is quoted for a different reason: written bare it is YAML's null, and compose reads a null
+            // entry as "take this from the host environment" rather than as a value. The variable would then be absent
+            // from the container and the image's own default would stand -- the opposite of what stating it empty is
+            // for.
             ComposeValue::Plain(value) => {
                 let rendered = if value.is_empty() || value.starts_with(YAML_INDICATORS) {
                     format!("\"{value}\"")
@@ -442,7 +452,9 @@ impl ComposeRenderer {
             // per-segment trim expects. The backslash form is banned repo-wide, and this was the one generator still
             // emitting it.
             ComposeValue::WrappedDoubleQuoted(parts) => {
-                if let Some((first, rest)) = parts.split_first() {
+                if let [only] = parts.as_slice() {
+                    self.push_line(3, &format!("{key}: \"{only}\""));
+                } else if let Some((first, rest)) = parts.split_first() {
                     self.push_line(3, &format!("{key}: \"{first},"));
                     let last_index = rest.len().saturating_sub(1);
                     for (index, part) in rest.iter().enumerate() {

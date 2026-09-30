@@ -2,6 +2,7 @@
   "dependencies": {
     "@edge-toolkit/et-model-speech1": "*",
     "@edge-toolkit/et-ws": "*",
+    "@edge-toolkit/et-ws-server-static": "*",
     "onnxruntime-web": "*",
     "pyodide": "*"
   },

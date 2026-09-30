@@ -11,33 +11,49 @@ use crate::{ModuleSource, cluster_module_names, module_registry, resolve_module_
 /// Build context path of the hub image's Dockerfile, which the scenario image layers on top of.
 const HUB_DOCKERFILE: &str = "services/ws-server/Dockerfile";
 
+/// Modules the hub image already carries at these paths, which a scenario image layered on it does not copy again.
+///
+/// A module that depends on one of them still resolves it, so what it declares in turn is staged as usual; only the
+/// module's own files are skipped.
+const HUB_IMAGE_MODULES: [&str; 2] = ["/app/services/ws-server/static", "/app/services/ws-wasm-agent"];
+
 /// Guest languages the dependency stage loads so every `[tools]` pin is in scope.
 ///
-/// A mise tool is only installable when the config declaring it is loaded, and the packages modules depend on
-/// are spread across several guest configs (`npm:onnxruntime-web` in js, `http:pyodide` in python). Declaring
-/// the full set costs nothing -- only the tools named on the `mise install` line are actually fetched.
+/// A mise tool is only installable when the config declaring it is loaded, and the packages modules depend on are
+/// spread across several guest configs (`npm:onnxruntime-web` in js, `http:pyodide` in python). Declaring the full set
+/// costs nothing -- only the tools named on the `mise install` line are actually fetched.
 const DEPS_MISE_ENV: &str = "dart,dotnet,java,js,kotlin,python,r,rust,zig";
 
 pub fn generate_scenario_image(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
     let project_root = edge_toolkit::config::get_project_root();
     let ws_server_dir = project_root.join("services/ws-server");
-    let registry = module_registry(&project_root, &ws_server_dir);
+    let registry = module_registry(&project_root, &ws_server_dir, &cluster.module_paths);
     let module_names = cluster_module_names(cluster);
     let sources = resolve_module_sources(&registry, &module_names)?;
 
     let mut repo_paths = Vec::new();
     let mut mise_tools = Vec::new();
+    let mut scenario_dirs = Vec::new();
     for (docker_path, source) in sources {
         match source {
+            ModuleSource::Repo(_) if HUB_IMAGE_MODULES.contains(&docker_path.as_str()) => {}
             ModuleSource::Repo(repo_path) => repo_paths.push((repo_path, docker_path)),
             ModuleSource::MiseTool { tool, package } => mise_tools.push((tool, package, docker_path)),
+            ModuleSource::Scenario {
+                context, context_path, ..
+            } => scenario_dirs.push((context, context_path, docker_path)),
         }
     }
+    // Sorted out of resolution order, which moves a module whenever an unrelated one gains a dependency, so each list
+    // this file is rendered from stays put in a committed image: `SCENARIO_TOOLS`, the staging steps, and the COPYs.
+    repo_paths.sort();
+    mise_tools.sort();
+    scenario_dirs.sort();
 
-    // Trimmed to exactly one trailing newline, because each section appends its own separating blank line
-    // and whichever section ends up last therefore leaves one behind. A scenario with no modules at all has
-    // no `COPY` sections, so the separator after the label is the end of the file.
-    let dockerfile = render_dockerfile(&cluster.cluster_name, &repo_paths, &mise_tools);
+    // Trimmed to exactly one trailing newline, because each section appends its own separating blank line and whichever
+    // section ends up last therefore leaves one behind. A scenario with no modules at all has no `COPY` sections, so
+    // the separator after the label is the end of the file.
+    let dockerfile = render_dockerfile(&cluster.cluster_name, &repo_paths, &mise_tools, &scenario_dirs);
     fs::write(output_dir.join("Dockerfile"), format!("{}\n", dockerfile.trim_end()))?;
     fs::write(
         output_dir.join("Dockerfile.dockerignore"),
@@ -47,11 +63,21 @@ pub fn generate_scenario_image(cluster: &ClusterInput, output_dir: &Path) -> Res
     Ok(())
 }
 
+/// A path as one operand of a JSON-array `COPY`, which it has to be once the path is not this repository's own.
+///
+/// A `module_paths:` directory is named by whoever laid out that tree, so it can hold a space -- which the plain form
+/// splits into two operands -- or a quote or backslash, which JSON escapes. A `$` is escaped for the Dockerfile itself,
+/// since variable substitution still runs on each operand of the JSON form.
+fn dockerfile_word(path: &str) -> String {
+    serde_json::Value::String(path.replace('$', "\\$")).to_string()
+}
+
 /// Render the scenario image, which layers this cluster's modules onto the hub image.
 fn render_dockerfile(
     cluster_name: &str,
     repo_paths: &[(String, String)],
     mise_tools: &[(String, String, String)],
+    scenario_dirs: &[(String, String, String)],
 ) -> String {
     let mut out = String::default();
     out.push_str("# syntax=docker/dockerfile:1\n\n");
@@ -79,8 +105,8 @@ fn render_dockerfile(
         out.push_str(&render_deps_stage(mise_tools));
     }
 
-    // Each section above ends with its own blank line, so none of them start with one.
-    // Doing it the other way round doubles the separator wherever two sections meet.
+    // Each section above ends with its own blank line, so none of them start with one. Doing it the other way round
+    // doubles the separator wherever two sections meet.
     out.push_str(concat!(
         "# `hub` is a named build context, not a stage defined here.\n",
         "# The generated compose file wires it to the hub service with `service:`, so compose builds the hub\n",
@@ -96,13 +122,12 @@ fn render_dockerfile(
         "\n",
     ));
 
-    // `pkg/` unconditionally, never probed for on disk.
-    // Every module serves out of `pkg/`, whether that directory is committed (the JS shims) or produced by a
-    // build (wasm-pack output, wheels). Probing for it makes this file depend on what happens to be built in the
-    // working tree: CI checks out unbuilt Rust modules, found no `services/ws-modules/har1/pkg`, and emitted the
-    // module root instead -- so the committed output and the CI regeneration disagreed, and the drift check
-    // failed. A module that genuinely has no `pkg/` now fails loudly at image build rather than silently
-    // generating a different Dockerfile per machine.
+    // `pkg/` unconditionally, never probed for on disk. Every module serves out of `pkg/`, whether that directory is
+    // committed (the JS shims) or produced by a build (wasm-pack output, wheels). Probing for it makes this file depend
+    // on what happens to be built in the working tree: CI checks out unbuilt Rust modules, found no `services/ws-
+    // modules/har1/pkg`, and emitted the module root instead -- so the committed output and the CI regeneration
+    // disagreed, and the drift check failed. A module that genuinely has no `pkg/` now fails loudly at image build
+    // rather than silently generating a different Dockerfile per machine.
     for (repo_path, docker_path) in repo_paths {
         let _write_result = writeln!(out, "COPY --chown=10001:10001 {repo_path}/pkg {docker_path}/pkg");
     }
@@ -112,14 +137,24 @@ fn render_dockerfile(
             "COPY --from=deps --chown=10001:10001 /staged{docker_path} {docker_path}"
         );
     }
+    // Each from the named build context its `module_paths:` entry is handed to the build as, and whole rather than
+    // its `pkg/`: whether the module serves from `pkg/` or its root is the scenario author's layout, and the hub finds
+    // either once the directory is there. hadolint reads a context name as an undefined stage, as with `hub` above.
+    for (context, context_path, docker_path) in scenario_dirs {
+        let operands = format!("[{}, {}]", dockerfile_word(context_path), dockerfile_word(docker_path));
+        let _write_result = writeln!(
+            out,
+            "# hadolint ignore=DL3022\nCOPY --from={context} --chown=10001:10001 {operands}"
+        );
+    }
 
     out
 }
 
 /// The fixed head of the deps stage: the base image, the packages it installs, and a verified mise.
 ///
-/// Held as a const rather than inlined so the rendering function below stays a short composer of named parts.
-/// Nothing in this block varies with the cluster, so there is nothing here to parameterise.
+/// Held as a const rather than inlined so the rendering function below stays a short composer of named parts. Nothing
+/// in this block varies with the cluster, so there is nothing here to parameterise.
 const DEPS_BASE_STAGE: &str = concat!(
     "# Stage the packages that live outside the repository.\n",
     "# These are published packages the modules load at runtime, provisioned by mise rather than built\n",
@@ -182,14 +217,13 @@ const DEPS_BASE_STAGE: &str = concat!(
 
 /// The per-tool copy step, driven entirely by the `STAGE_*` variables the loop emits ahead of it.
 ///
-/// Locates the package rather than assuming where the backend put it. The npm backend nests it under one of
-/// several layouts (`lib/node_modules/`, `node_modules/`, or an aube virtual store below a content-hashed
-/// directory) that vary by platform, so this searches for the named directory instead. The named directory is
-/// tried FIRST and the install root only as a fallback: the npm backend drops its own wrapper manifest
-/// (`"name": "mise-npm-install"`) at that root, so a root-first probe stages the wrapper and the module is then
-/// served under the wrapper's name. The fallback is what covers an archive-backed `http:` tool, which extracts
-/// flat so the root really is the package. `-L` and `cp -L` resolve the symlinks the aube store is built from,
-/// so real files land in the image.
+/// Locates the package rather than assuming where the backend put it. The npm backend nests it under one of several
+/// layouts (`lib/node_modules/`, `node_modules/`, or an aube virtual store below a content-hashed directory) that vary
+/// by platform, so this searches for the named directory instead. The named directory is tried FIRST and the install
+/// root only as a fallback: the npm backend drops its own wrapper manifest (`"name": "mise-npm-install"`) at that root,
+/// so a root-first probe stages the wrapper and the module is then served under the wrapper's name. The fallback is
+/// what covers an archive-backed `http:` tool, which extracts flat so the root really is the package. `-L` and `cp -L`
+/// resolve the symlinks the aube store is built from, so real files land in the image.
 const DEPS_STAGE_TOOL_COPY: &str = concat!(
     "RUN bash <<'EOF'\n",
     "set -euo pipefail\n",
@@ -211,8 +245,8 @@ const DEPS_STAGE_TOOL_COPY: &str = concat!(
 
 /// Render the stage that installs the mise-staged packages the cluster's modules depend on.
 ///
-/// The repo's own `.mise/` configs and lockfiles are the version source, so nothing here pins a version that
-/// could drift from what a workstation resolves; only the tool ids come from the module registry.
+/// The repo's own `.mise/` configs and lockfiles are the version source, so nothing here pins a version that could
+/// drift from what a workstation resolves; only the tool ids come from the module registry.
 fn render_deps_stage(mise_tools: &[(String, String, String)]) -> String {
     let tools = mise_tools
         .iter()
@@ -223,12 +257,12 @@ fn render_deps_stage(mise_tools: &[(String, String, String)]) -> String {
     stage.push_str(DEPS_BASE_STAGE);
     let _write_result = writeln!(stage, "ENV MISE_ENV={DEPS_MISE_ENV}");
     if mise_tools.iter().any(|(tool, _, _)| tool.starts_with("npm:")) {
-        // mise's npm backend shells out to npm, and refuses an `npm:` tool whose configured `node` dependency
-        // is not installed yet ("requires configured install dependency 'node@22', but its selected version is
-        // not installed"). Its version comes from the repo's own [tools] pin, like every other tool staged here.
-        // The blank line after `EOF` is load-bearing, not formatting.
-        // hadolint's parser reads the next instruction as a continuation of the heredoc without it and fails
-        // with `unexpected 'E' expecting a new line followed by the next instruction`.
+        // mise's npm backend shells out to npm, and refuses an `npm:` tool whose configured `node` dependency is
+        // not installed yet ("requires configured install dependency 'node@22', but its selected version is not
+        // installed"). Its version comes from the repo's own [tools] pin, like every other tool staged here. The
+        // blank line after `EOF` is load-bearing, not formatting. hadolint's parser reads the next instruction as a
+        // continuation of the heredoc without it and fails with `unexpected 'E' expecting a new line followed by the
+        // next instruction`.
         stage.push_str(concat!(
             "RUN bash <<'EOF'\n",
             "set -euo pipefail\n",
@@ -259,9 +293,9 @@ fn render_deps_stage(mise_tools: &[(String, String, String)]) -> String {
 /// Render the ignore file `BuildKit` applies to this Dockerfile in place of the repository root one.
 ///
 /// It is the root file verbatim plus a re-include block, rather than a hand-picked subset, so a rule added to
-/// `.gitignore` reaches this build too. Docker's matcher is last-match-wins and, unlike git's, still descends
-/// into an excluded directory to honour a later negation, so the trailing block is enough to bring back the
-/// built artifacts while every other exclusion keeps applying.
+/// `.gitignore` reaches this build too. Docker's matcher is last-match-wins and, unlike git's, still descends into an
+/// excluded directory to honour a later negation, so the trailing block is enough to bring back the built artifacts
+/// while every other exclusion keeps applying.
 fn render_dockerignore(
     project_root: &Path,
     cluster_name: &str,

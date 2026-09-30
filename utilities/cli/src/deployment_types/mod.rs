@@ -24,9 +24,9 @@ pub(crate) fn serves_a_page(cluster: &ClusterInput) -> bool {
 /// The module the hub serves at `/`, named as its own `package.json` declares it.
 ///
 /// Read from that manifest rather than written out, so a generated deployment carries whatever the page module is
-/// actually called -- including the owner scope publishing puts on it -- without this crate holding a second copy
-/// of the name to drift from it. Every deployment format that serves the page needs it: the hub has no default for
-/// which module is a deployment's front page, so the deployment that knows names it.
+/// actually called -- including the owner scope publishing puts on it -- without this crate holding a second copy of
+/// the name to drift from it. Every deployment format that serves the page needs it: the hub has no default for which
+/// module is a deployment's front page, so the deployment that knows names it.
 pub(crate) fn hub_root_module(ws_server_dir: &Path) -> String {
     crate::module_package_json(&ws_server_dir.join("static"))
         .and_then(|package| package.name)
@@ -35,5 +35,6 @@ pub(crate) fn hub_root_module(ws_server_dir: &Path) -> String {
 
 pub use self::docker_compose::{docker_image_module_paths, generate_docker_compose_deployment};
 pub use self::k3s::generate_k3s_deployment;
+pub(crate) use self::mise::STORAGE_DIR;
 pub use self::mise::{ScenarioModules, generate_mise_deployment, scenario_module_paths};
 pub use self::scenario_image::generate_scenario_image;

@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@edge-toolkit/et-rest-client": "*",
+    "@edge-toolkit/et-ws-server-static": "*",
     "pyodide": "*"
   },
   "description": "Python data 1",

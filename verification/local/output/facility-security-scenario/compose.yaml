@@ -46,16 +46,17 @@ services:
         hub: service:ws-server-hub
     network_mode: host
     environment:
-      MODULES_PATHS: "/app/services/ws-server/static,
-        /app/services/ws-wasm-agent,
+      MODULES_PATHS: "/app/data/model-modules/model-face1,
+        /app/data/model-modules/model-har-motion1,
+        /app/generated/python-ws,
+        /app/node_modules/onnxruntime-web,
+        /app/node_modules/pyodide,
+        /app/node_modules/stats-gl,
         /app/services/ws-modules/face-detection,
         /app/services/ws-modules/har1,
         /app/services/ws-modules/pyface1,
-        /app/data/model-modules/model-face1,
-        /app/node_modules/onnxruntime-web,
-        /app/data/model-modules/model-har-motion1,
-        /app/generated/python-ws,
-        /app/node_modules/pyodide"
+        /app/services/ws-server/static,
+        /app/services/ws-wasm-agent"
       MODULES_ROOT: "@edge-toolkit/et-ws-server-static"
       OTLP_AUTH_USERNAME: root@example.com
       OTLP_COLLECTOR_URL: http://127.0.0.1:5080/api/default/v1

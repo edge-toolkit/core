@@ -27,6 +27,7 @@ et-ws = { workspace = true }
 [tool.ws-module.dependencies]
 et-model-face1 = "*"
 et-ws = "*"
+et-ws-server-static = "*"
 onnxruntime-web = "*"
 pyodide = "*"
 

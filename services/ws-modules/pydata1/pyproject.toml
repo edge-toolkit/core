@@ -26,4 +26,5 @@ et-rest-client = { workspace = true }
 # at generated/python-rest/.
 [tool.ws-module.dependencies]
 et-rest-client = "*"
+et-ws-server-static = "*"
 pyodide = "*"

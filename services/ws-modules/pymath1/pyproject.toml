@@ -16,4 +16,5 @@ module-root = ""
 
 # Browser-side module dependency: the Pyodide runtime served at /modules/pyodide/.
 [tool.ws-module.dependencies]
+et-ws-server-static = "*"
 pyodide = "*"

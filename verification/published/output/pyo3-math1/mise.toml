@@ -49,6 +49,7 @@ et-ws-server
 """
 
 [tasks.ws-server.env]
+STORAGE_URL = "file://{{ config_root }}/storage"
 
 [tools]
 "cargo:open" = "latest"
@@ -70,9 +71,5 @@ minimum_release_age = "0"
 version = "latest"
 
 [tools."npm:@edge-toolkit/et-ws-wasi-math1-sender"]
-minimum_release_age = "0"
-version = "latest"
-
-[tools."npm:@edge-toolkit/et-ws-wasm-agent"]
 minimum_release_age = "0"
 version = "latest"
