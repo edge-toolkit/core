@@ -1,6 +1,11 @@
-# The coverage mise task selects the `ci` profile to emit target/nextest/ci/junit.xml.
-[profile.ci.junit]
-path = "junit.xml"
+# The coverage mise task runs its unit and integration passes under these, one JUnit report per profile dir.
+# A test is an integration test when it is in either group below; every other test is a unit test. The task
+# selects them with `-E`, because nextest does not allow group() in a profile's `default-filter`.
+[profile.ci-unit.junit]
+path = "junit-unit.xml"
+
+[profile.ci-integration.junit]
+path = "junit-integration.xml"
 
 # Serialize et-ws-web-runner's tests (under `default`, so every profile inherits it).
 # Each web-runner test launches a heavy deno_runtime MainWorker, and several at once exhaust fd/port budgets.
@@ -8,9 +13,28 @@ path = "junit.xml"
 # et-cli's scenario_runners test joins the same group for the same reason: it starts two web runners of its own,
 # so run alongside the web-runner tests it multiplies exactly the load this group exists to bound. It also holds
 # the hub's fixed port for its duration, which nothing else may take while it runs.
+#
+# `integration` limits nothing; it exists to name the integration tests for the ci profiles above.
 [test-groups]
+integration = { max-threads = "num-cpus" }
 web-runner = { max-threads = 1 }
 
 [[profile.default.overrides]]
 filter = 'package(et-ws-web-runner) or binary(scenario_runners)'
 test-group = 'web-runner'
+
+# The integration test binaries outside the web-runner group, which already holds only integration tests.
+# A binary belongs here when it spawns a child process, listens on a real socket, or drives a runner end to end.
+# Serving an app through actix's in-process `test::init_service` does neither, so those stay unit tests. A whole
+# package is named only where every one of its test binaries qualifies. Add a new binary here when it qualifies:
+# the unit profile takes everything left out, so a missed entry is misfiled rather than dropped.
+[[profile.default.overrides]]
+filter = '''
+package(et-test-otlp) or package(et-websockify-service) or package(et-ws-test-server)
+or package(et-ws-wasi-runner)
+or binary_id(edge-toolkit::pipx_site_packages)
+or binary_id(et-test-helpers::child_guard) or binary_id(et-test-helpers::path_prefix)
+or binary_id(et-ws-runner-common::fetch_main_field) or binary_id(et-ws-runner-common::module_file_missing)
+or binary_id(et-ws-runner-common::register_frames)
+or binary_id(et-storage-service::s3_backend) or binary_id(et-ws-pyo3-runner::modules)'''
+test-group = 'integration'

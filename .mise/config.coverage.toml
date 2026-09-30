@@ -84,7 +84,7 @@ LD_LIBRARY_PATH = "{{ vars.ort_loc_unix }}/lib"
 _.path = "{{ env.HOME }}/.local/share/mise/installs/conda-clang/latest/bin"
 
 [tasks.cargo-llvm-cov]
-description = "Rust coverage (cargo-llvm-cov) + JUnit test results (nextest); emits lcov.info + junit.xml"
+description = "Rust coverage (cargo-llvm-cov) + JUnit test results (nextest); emits lcov.info + JUnit reports"
 # cargo-llvm-cov is deliberately NOT a mise [tool] (like cargo-unmaintained).
 # The coverage workflow installs it via taiki-e/install-action; cargo-nextest comes from config.toml's mise tool.
 # This task just runs them. cargo-llvm-cov needs the `llvm-tools-preview` rustup component, which it adds on demand
@@ -92,12 +92,11 @@ description = "Rust coverage (cargo-llvm-cov) + JUnit test results (nextest); em
 # `show-env` exports the coverage instrumentation env (rustc wrapper, LLVM_PROFILE_FILE, target dir) so BOTH the
 # nextest run and the mise regen tasks build + run instrumented into one profile set, then a single `report`
 # merges them. The regens -- `gen-specs` (et-int-gen) and `regen-verification` (et-cli) -- exercise the code
-# generators, which otherwise get only their unit-test coverage. nextest (NEXTEST_PROFILE=ci) also writes
-# target/nextest/ci/junit.xml for the Codecov test-results upload, and serializes et-ws-web-runner via the
+# generators, which otherwise get only their unit-test coverage. nextest also writes a JUnit report per pass
+# under target/nextest/ for the Codecov test-results uploads, and serializes et-ws-web-runner via the
 # `web-runner` test-group in config/nextest.toml. No `--doc` pass: the workspace sets `[lib] doctest = false`
 # almost everywhere (doc comments are prose), and cargo-llvm-cov's `--doc` ignores that and chokes on the
 # generated et-rest-client's backtick prose, so coverage stays tests-only.
-env = { NEXTEST_PROFILE = "ci" }
 run = """
 cargo llvm-cov clean --workspace
 # Drop the native build dirs so every native crate rebuilds under cargo-llvm-cov's rustc wrapper.
@@ -164,9 +163,19 @@ export __CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS="$flags"
 # lcov.info is never produced -- the coverage upload steps then have nothing to send and the run reports no
 # coverage at all. A failing run is exactly when the per-test results and the coverage delta matter most, so the
 # profile data nextest has already written gets turned into a report either way.
+# The unit and integration passes run separately so each writes its own JUnit report, and both instrument into
+# the one profile set. The integration pass runs even when the unit pass failed, and the first failure is kept.
+nextest() {
+  local features=et-ws-web-runner/coverage,et-ws-wasi-runner/coverage status=0
+  cargo nextest run --config-file config/nextest.toml --features "$features" --profile "$1" -E "$2" || status=$?
+  if [ "$test_status" -eq 0 ]; then
+    test_status=$status
+  fi
+}
+integration='group(integration) or group(web-runner)'
 test_status=0
-cargo nextest run --config-file config/nextest.toml --features et-ws-web-runner/coverage,et-ws-wasi-runner/coverage ||
-  test_status=$?
+nextest ci-unit "not ($integration)"
+nextest ci-integration "$integration"
 mise run gen-specs
 mise run regen-verification
 # The runner's host bindings are excluded from the report, not just from analysis.
@@ -407,13 +416,15 @@ UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_u
 
 [tasks.test-count-badge]
 description = "Count the tests in the JUnit reports into a shields.io endpoint badge at target/test-badge/tests.json"
-# Counts the same JUnit reports the coverage workflow uploads, so the badge matches the per-commit test count.
+# Counts one lane's JUnit reports, so the badge is the number of tests rather than a per-commit sum across lanes.
 # A missing report fails the task rather than publishing a count that silently leaves a language out. Matches are
 # counted rather than lines because pytest writes its whole report on a single line.
 run = """
 site=target/test-badge
 coreutils mkdir -p "$site"
-count="$(rg --count-matches --no-filename '<testcase ' target/nextest/ci/junit.xml target/pycov/junit-*.xml |
+reports=(target/nextest/ci-unit/junit-unit.xml target/nextest/ci-integration/junit-integration.xml
+  target/pycov/junit-*.xml)
+count="$(rg --count-matches --no-filename '<testcase ' "${reports[@]}" |
   goawk '{ n += $1 } END { print n }')"
 printf '{"schemaVersion":1,"label":"tests","message":"%s","color":"blue"}' "$count" >"$site/tests.json"
 coreutils cat "$site/tests.json"

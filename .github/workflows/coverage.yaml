@@ -29,23 +29,24 @@ jobs:
       contents: read
       # Codecov's tokenless upload uses an OIDC id-token instead of a repository upload token.
       id-token: write
-    # Two lanes, with only one of them reporting outward.
-    # ubuntu-latest stays the canonical lane: it is the only one that can run the wasm/browser half of the
-    # pipeline, and it alone uploads to Codecov and DeepSource, so the published numbers keep meaning exactly
-    # what they did before. macos-latest re-runs the native half as a second platform, which is what catches a
-    # branch reachable only under a different target's cfg. Its report is kept as an artifact rather than
-    # uploaded: both lanes would otherwise land on the same commit under the same `rust` flag / `--key rust`,
-    # and the two partial pictures would fight rather than merge.
+    # Two lanes, both uploading to Codecov and only one to DeepSource.
+    # ubuntu-latest is the canonical lane: it is the only one that can run the wasm/browser half of the pipeline.
+    # macos-latest re-runs the native half as a second platform, which is what catches a branch reachable only
+    # under a different target's cfg. Codecov merges every upload on a commit, so the macOS report adds the paths
+    # only it reaches, and `os_flag` tags each upload with its lane. DeepSource instead keeps one report per
+    # `--key`, where the macOS lane's partial picture would replace the Linux one, so only Linux sends it there.
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
+            os_flag: linux
             timeout: 150
           # Longer than the Linux lane, despite doing less.
           # The macOS runners are slower per-core, and this one still pays the full instrumented rebuild even
           # though it skips the wasm/browser steps.
           - os: macos-latest
+            os_flag: macos
             timeout: 180
     env:
       MISE_ENV: dart,dotnet,java,js,kotlin,python,r,rust,zig,coverage
@@ -199,27 +200,24 @@ jobs:
       # second, misleading failure: when an earlier step (a tool install, say) means nothing was ever produced,
       # these skip instead of erroring on a missing file and burying the real cause.
       #
-      # All four carry `runner.os == 'Linux'` so only the canonical lane reports outward.
-      # Both lanes land on the same commit, so an unguarded upload would send two partial pictures under one
-      # `rust` flag / one `--key rust`: the macOS lcov.info covers the native half only, and whichever arrived
-      # second would read as a coverage collapse rather than as a second platform's result. The macOS numbers
-      # are kept as that lane's artifact instead, and its branch gate fails the job directly when they slip.
+      # Every upload names its language and lane in `flags`, so Codecov can report each on its own. The two
+      # DeepSource uploads carry `runner.os == 'Linux'`, for the one-report-per-key reason given on the job.
       - name: Upload Rust coverage to Codecov (OIDC)
-        if: ${{ !cancelled() && runner.os == 'Linux' && hashFiles('lcov.info') != '' }}
+        if: ${{ !cancelled() && hashFiles('lcov.info') != '' }}
         uses: codecov/codecov-action@v7
         with:
           use_oidc: true
           files: lcov.info
-          flags: rust
+          flags: rust,${{ matrix.os_flag }}
           fail_ci_if_error: true
 
       - name: Upload Python coverage to Codecov (OIDC)
-        if: ${{ !cancelled() && runner.os == 'Linux' && hashFiles('coverage-python.xml') != '' }}
+        if: ${{ !cancelled() && hashFiles('coverage-python.xml') != '' }}
         uses: codecov/codecov-action@v7
         with:
           use_oidc: true
           files: coverage-python.xml
-          flags: python
+          flags: python,${{ matrix.os_flag }}
           fail_ci_if_error: true
 
       - name: Upload Rust coverage to DeepSource (OIDC)
@@ -231,26 +229,39 @@ jobs:
         run: deepsource report --analyzer test-coverage --key python --value-file coverage-python.xml --use-oidc
 
       # Upload test results even when tests failed.
-      # nextest still wrote the JUnit report, and a failing run is exactly when the per-test results on Codecov
-      # matter most; `report_type: test_results` selects the JUnit upload path.
-      - name: Upload test results to Codecov (OIDC)
-        if: ${{ !cancelled() && runner.os == 'Linux' }}
+      # nextest still wrote the JUnit reports, and a failing run is exactly when the per-test results on Codecov
+      # matter most; `report_type: test_results` selects the JUnit upload path. A flag applies to a whole upload,
+      # so each report goes up on its own to say which language, lane and kind of test it holds.
+      - name: Upload Rust unit test results to Codecov (OIDC)
+        if: ${{ !cancelled() && hashFiles('target/nextest/ci-unit/junit-unit.xml') != '' }}
         uses: codecov/codecov-action@v7
         with:
           use_oidc: true
           report_type: test_results
-          files: target/nextest/ci/junit.xml
+          files: target/nextest/ci-unit/junit-unit.xml
+          flags: rust,${{ matrix.os_flag }},unit
+          fail_ci_if_error: true
+
+      - name: Upload Rust integration test results to Codecov (OIDC)
+        if: ${{ !cancelled() && hashFiles('target/nextest/ci-integration/junit-integration.xml') != '' }}
+        uses: codecov/codecov-action@v7
+        with:
+          use_oidc: true
+          report_type: test_results
+          files: target/nextest/ci-integration/junit-integration.xml
+          flags: rust,${{ matrix.os_flag }},integration
           fail_ci_if_error: true
 
       - name: Upload Python test results to Codecov (OIDC)
-        if: ${{ !cancelled() && runner.os == 'Linux' && hashFiles('target/pycov/junit-*.xml') != '' }}
+        if: ${{ !cancelled() && hashFiles('target/pycov/junit-*.xml') != '' }}
         uses: codecov/codecov-action@v7
         with:
           use_oidc: true
           report_type: test_results
           # The pytest-cov task writes one junit-<module>.xml per module here, which the CLI's search picks up.
           directory: target/pycov
-          flags: python
+          # pytest exercises each module's own code in process, with nothing spawned or served.
+          flags: python,${{ matrix.os_flag }},unit
           fail_ci_if_error: true
 
       # Only a fully green main run republishes the README's test-count badge.
