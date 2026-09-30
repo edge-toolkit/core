@@ -1,4 +1,5 @@
 # AUTO-GENERATED from config/deny.toml by `mise run gen:osv-scanner`.
+# The list spans every language, so "has unused ignores" warnings are expected: agents must ignore them.
 IgnoredVulns = [
   { id = "GHSA-3w8q-xq97-5j7x", ignoreUntil = 2026-10-15 },
   { id = "GHSA-f88m-g3jw-g9cj", ignoreUntil = 2026-10-15 },
@@ -15,4 +16,7 @@ IgnoredVulns = [
   { id = "RUSTSEC-2026-0249", ignoreUntil = 2026-10-15 },
   { id = "RUSTSEC-2026-0258", ignoreUntil = 2026-10-15 },
   { id = "RUSTSEC-2026-0285", ignoreUntil = 2026-10-15 },
+  { id = "RUSTSEC-2026-0314", ignoreUntil = 2026-10-15 },
+  { id = "RUSTSEC-2026-0315", ignoreUntil = 2026-10-15 },
+  { id = "RUSTSEC-2026-0316", ignoreUntil = 2026-10-15 },
 ]

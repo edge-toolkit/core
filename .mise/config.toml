@@ -1768,6 +1768,7 @@ run = """
   # backticks in the echoed line are literal markdown, not command substitution.
   # shellcheck disable=SC2016
   echo '# AUTO-GENERATED from config/deny.toml by `mise run gen:osv-scanner`.'
+  echo '# The list spans every language, so "has unused ignores" warnings are expected: agents must ignore them.'
   echo 'IgnoredVulns = ['
   id_re='"(RUSTSEC-[0-9]{4}-[0-9]{4}|GHSA(?:-[0-9a-z]{4}){3})"'
   date_re='reason = "expires ([0-9]{4}-[0-9]{2}-[0-9]{2})"'

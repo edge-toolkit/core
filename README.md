@@ -1,5 +1,14 @@
 # edge-toolkit core
 
+[![Tests][tests-badge]][tests] [![Coverage][coverage-badge]][coverage] [![et-ws-server][crate-badge]][crate]
+
+[tests-badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fedge-toolkit.github.io%2Fcore%2Ftests.json
+[tests]: https://github.com/edge-toolkit/core/actions/workflows/coverage.yaml?query=branch%3Amain
+[coverage-badge]: https://codecov.io/gh/edge-toolkit/core/graph/badge.svg?branch=main
+[coverage]: https://codecov.io/gh/edge-toolkit/core
+[crate-badge]: https://img.shields.io/crates/v/et-ws-server
+[crate]: https://crates.io/crates/et-ws-server
+
 edge-toolkit is a WebSocket-based edge-computing framework that runs AI on hardware you control, so nothing has to leave
 your network. A lightweight server acts as a hub that serves small AI modules -- written in Rust, Python, Dart, C#,
 Java, Kotlin and more, each compiled to WebAssembly or transpiled to JavaScript -- straight to a browser, where they run
