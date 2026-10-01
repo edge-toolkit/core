@@ -99,11 +99,11 @@ conftest = "latest"
 # aqua records `provenance = "github-attestations"` instead, which is what every other pinned tool here uses.
 # This is the compose implementation only -- a docker daemon still has to come from the host.
 "aqua:docker/compose" = "latest"
+dprint = "latest"
+editorconfig-checker = "latest"
 "github:nextest-rs/nextest" = { version = "latest", version_prefix = "cargo-nextest-" }
 taplo = "latest"
 watchexec = "latest"
-dprint = "latest"
-editorconfig-checker = "latest"
 # ripgrep (rg): the Rust grep that tasks use in place of the host's grep.
 ripgrep = "latest"
 # uutils findutils (find + xargs), pinned to 0.8.0 (0.9.0 ships no binaries).
