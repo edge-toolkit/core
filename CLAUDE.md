@@ -840,6 +840,10 @@ only correlate: every sighting was a long job.
 So the remedy is `gh run rerun --job <id>` once the parent run completes, and there is nothing to fix. Do not
 spend a diagnosis on it; check for the empty log first, and if the siblings passed, re-run and move on.
 
+The `ubuntu-24.04-arm` lane of test.yaml is the exception, and it disproves the rotation argument for that lane:
+its sightings kept their logs, and all of them stop at the same compile step. That is memory running out, and
+the lane is now built to stay under it. A shutdown signal there again is a regression to diagnose, not a rerun.
+
 ### Fixed: vector_otlp_relay store-and-forward timing
 
 Root-caused and fixed on 2026-09-11 by capping the retry interval; kept here because the panic line is what a

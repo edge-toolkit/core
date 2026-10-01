@@ -46,6 +46,17 @@ jobs:
       packages: read
     runs-on: ${{ matrix.os }}
     timeout-minutes: ${{ matrix.timeout }}
+    # The test build's peak memory is what killed the ubuntu-24.04-arm lane, so this job trims it four ways.
+    # Line tables keep a panicking test's backtrace pointing at file and line while dropping the rest of the debug
+    # info the linker has to read and write; incremental caches are never reused by a one-shot build; the hosted
+    # Ubuntu runners, whose GCC is new enough, link through mold; and the arm lane alone runs three codegen and link
+    # jobs instead of four. That last one costs wall-clock, so it stays on the lane that needed it -- every other lane
+    # keeps cargo's own default, which is the one value besides a number that the variable accepts.
+    env:
+      CARGO_BUILD_JOBS: ${{ matrix.os == 'ubuntu-24.04-arm' && '3' || 'default' }}
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      ET_LINK_WITH_MOLD: ${{ startsWith(matrix.os, 'ubuntu') }}
     # Override the workflow-level `shell: bash` default for Windows runs.
     # This uses the busybox-w32 ash that mise installs in `_setup_all` (the same shell `MISE_BASH_PATH` already
     # points at for `shell = "bash"` tasks on the Windows Docker images). Avoids Git Bash's MSYS fork-emulation
@@ -118,9 +129,18 @@ jobs:
       # macos-26-intel raises its own ceiling through the matrix, because it is the only lane that source-builds
       # vector and rustfs -- upstream ships no macos/x64 prebuilt for either. Those two overran the flat 60 even
       # while still failing early; completing them needs more. Every other lane falls back to 60 via the `||`.
+      #
+      # Linking through mold is off for this one step, because mold is among the tools it installs. The `cargo:` tools
+      # with no prebuilt for a lane are source-built here, before mold is on PATH, and asking GCC for it then fails each
+      # of those links with
+      #   collect2: fatal error: cannot find 'ld'
+      # on commit https://github.com/edge-toolkit/core/commit/5d7dfaa10c0d10e980aa7a4a785476be059699fb at
+      # https://github.com/edge-toolkit/core/actions/runs/36812561314/job/110210608554.
       - name: Install mise + tools
         uses: ./.github/actions/install-mise-tools
         timeout-minutes: ${{ matrix.install_timeout || 60 }}
+        env:
+          ET_LINK_WITH_MOLD: "false"
 
       # GITHUB_TOKEN raises the rate-limit ceiling on mise's fetch of the rp-v<N> rustpython_wasm tarball.
       # (The fetch is [tools."http:rp-wasm"], via mise's http backend against github.com release assets.)

@@ -4,9 +4,21 @@ description: Reclaim runner disk before the long build and test steps
 runs:
   using: composite
   steps:
+    # Swap is kept rather than reclaimed.
+    # The action's default switches it off and deletes the swapfile, which on a 16 GiB runner leaves the link-heavy
+    # test build nothing to spill into, and the space that would free is not needed.
     - name: Free disk space on Linux
       if: runner.os == 'Linux'
       uses: jlumbroso/free-disk-space@v1.3.1
+      with:
+        swap-storage: false
+
+    # Swap on top of whatever the image ships, which on ubuntu-24.04-arm is a 3 GiB /swapfile.
+    # A test build that outgrows memory then slows down instead of taking the runner with it -- the hosted runner
+    # is killed outright on exhaustion, reporting a shutdown signal rather than any build error. Root has the room:
+    # it shows 119G free on the arm runner once the step above has run.
+    - name: Add swap
+      uses: ./.github/actions/add-swap
 
     - name: Free disk space on Windows
       if: runner.os == 'Windows'

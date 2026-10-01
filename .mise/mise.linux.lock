@@ -844,6 +844,20 @@ checksum = "sha256:731e043390c9457299484d39e427221fc868a9249540a498a5a4f6456c774
 url = "https://conda.anaconda.org/conda-forge/win-64/zstd-1.5.7-h534d264_7.conda"
 checksum = "sha256:ca7daae4f218a11fab82cc2857f0ea518ec3f46acec60490485347a4c22c6b3e"
 
+[[tools."aqua:rui314/mold"]]
+version = "2.42.1"
+backend = "aqua:rui314/mold"
+
+[tools."aqua:rui314/mold"."platforms.linux-arm64"]
+checksum = "sha256:16b025652d3d7456689e6025a77e1903bb2a15e7630877c26cc133f5df95b9c6"
+url = "https://github.com/rui314/mold/releases/download/v2.42.1/mold-2.42.1-aarch64-linux.tar.gz"
+url_api = "https://api.github.com/repos/rui314/mold/releases/assets/557035958"
+
+[tools."aqua:rui314/mold"."platforms.linux-x64"]
+checksum = "sha256:6ff270c9bf07d2bec5c98aa324eb7c4daf6a1a4d815c05ff1708049616047855"
+url = "https://github.com/rui314/mold/releases/download/v2.42.1/mold-2.42.1-x86_64-linux.tar.gz"
+url_api = "https://api.github.com/repos/rui314/mold/releases/assets/557036001"
+
 [[tools."conda:clangxx"]]
 version = "22.1.6"
 backend = "conda:clangxx"
