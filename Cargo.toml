@@ -93,14 +93,14 @@ et-org = { path = "libs/org", version = "0.1.0" }
 et-otlp = { path = "libs/et-otlp", version = "0.2.0" }
 et-path = { path = "libs/path", version = "0.2.0" }
 et-rest-client = { path = "generated/rust-rest", version = "0.1.0", default-features = false }
-et-storage-service = { path = "services/storage", version = "0.1.0" }
+et-storage-service = { path = "services/storage", version = "0.1.1" }
 et-test-helpers = { path = "libs/test-helpers", version = "0.1.0" }
 et-test-otlp = { path = "libs/test-otlp", version = "0.1.0" }
 et-wasi-guest = { path = "libs/wasi-guest", version = "0.1.0" }
 et-web = { path = "libs/web", version = "0.2.0" }
 et-websockify-service = { path = "services/websockify", version = "0.1.0" }
 et-ws-runner-common = { path = "libs/ws-runner-common", version = "0.2.0" }
-et-ws-server = { path = "services/ws-server", version = "0.2.1" }
+et-ws-server = { path = "services/ws-server", version = "0.2.2" }
 et-ws-service = { path = "services/ws", version = "0.1.1" }
 et-ws-test-server = { path = "services/ws-test-server", version = "0.1.0" }
 et-ws-wasm-agent = { path = "services/ws-wasm-agent", version = "0.2.0" }
