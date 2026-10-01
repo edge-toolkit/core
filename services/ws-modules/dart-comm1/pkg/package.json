@@ -4,5 +4,8 @@
   "description": "dart comm1",
   "version": "0.1.0",
   "license": "Apache-2.0 OR MIT",
-  "main": "et_ws_dart_comm1.js"
+  "main": "et_ws_dart_comm1.js",
+  "dependencies": {
+    "@edge-toolkit/et-ws-server-static": "*"
+  }
 }

@@ -9,6 +9,8 @@
 "conda:clangxx" = "latest"
 # gpg for mise's gpg_verify signature checks; _setup_all installs it up front.
 "conda:gnupg" = "latest"
+# mold, the linker a Linux lane that sets ET_LINK_WITH_MOLD links Rust with.
+"aqua:rui314/mold" = "latest"
 
 # System packages `mise bootstrap packages status` verifies and `mise bootstrap packages apply` installs.
 # The same prerequisite set the Dockerfile's COMMON_PACKAGES + APT_PACKAGES / DNF_PACKAGES ARGs install; the
@@ -56,6 +58,19 @@ a_conda_arch = "{% if arch() == 'arm64' %}aarch64{% else %}x86_64{% endif %}"
 a_conda_clangxx = "{{ env.HOME }}/.local/share/mise/installs/conda-clangxx/latest"
 b_clang_resource = "{{ vars.a_conda_clangxx }}/lib/clang/22"
 b_clang_sysroot = "{{ vars.a_conda_clangxx }}/{{ vars.a_conda_arch }}-conda-linux-gnu/sysroot"
+# Link through mold rather than the system linker, for a lane that sets ET_LINK_WITH_MOLD=true.
+# On aarch64 the system linker is GNU ld -- rustc only defaults to its bundled lld on x86_64 -- and linking the
+# deno/V8 test binaries with it while the rest of the workspace still compiles exhausts the runner's memory. The
+# arm lane of test.yaml died that way at the same compile step on 7 of 40 runs, the hosted runner killed rather
+# than any build error:
+#   ##[error]The runner has received a shutdown signal. This can happen when the runner service is stopped, or a
+#   manually started runner is canceled.
+#   [cargo-test] ERROR sh exited with non-zero status: killed by SIGTERM
+# on commit https://github.com/edge-toolkit/core/commit/674ca2bbc30ecb34db9cbf749e5ae3e3d609a01b at
+# https://github.com/edge-toolkit/core/actions/runs/36792810690/job/110199819803.
+# Opt-in rather than the default because `-fuse-ld=mold` needs GCC 12.1, and the opensuse, amazonlinux and
+# ubuntu:22.04 image bases ship an older one.
+mold_flag = '{% if env?.ET_LINK_WITH_MOLD == "true" %}-Clink-arg=-fuse-ld=mold{% endif %}'
 # bindgen loads libclang directly rather than driving the clang binary.
 # So it can't auto-find its resource dir (builtins like stddef.h) or conda's bundled sysroot. Pass `-resource-dir`
 # + `--sysroot` so header resolution is identical on every machine (a bare `-isystem` leaves builtin type
@@ -75,8 +90,8 @@ BINDGEN_EXTRA_CLANG_ARGS = "{{ vars.c_bindgen_args }}"
 # OPENSSL_DIR points openssl-sys at conda's OpenSSL, so anything linking it records conda's libssl soname;
 # without an rpath the loader only finds it when conda's soname matches the system one (it broke when conda
 # bumped to libssl.so.4). pylib_flag does the same for the CPython lib dir.
-CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
-CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }}"
+CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }} {{ vars.mold_flag }}"
+CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS = "{{ vars.rpath_flag }} {{ vars.pylib_flag }} {{ vars.mold_flag }}"
 LIBCLANG_PATH = "{{ vars.a_conda_clangxx }}/lib"
 
 [tasks.preinstall]

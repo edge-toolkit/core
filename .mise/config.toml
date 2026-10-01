@@ -1468,11 +1468,12 @@ if [ -z "${GITHUB_TOKEN:-}" ]; then
   exit 1
 fi
 
-# Storage is redirected so the run is self-contained.
-# Unset, the hub resolves its default against the repository root it finds by walking up, so two runs and any
-# stale bucket from ordinary development share one directory and the poll below can read a model this run never
-# produced.
-storage=$(coreutils mktemp -d)
+# Storage is where the deployment itself keeps it, beside its `mise.toml`, and is emptied first.
+# The deployment's own task env names that directory, which outranks anything exported into this process, so it is
+# read from there rather than redirected. Emptying it keeps a stale model from an earlier run from satisfying the
+# poll below; the directory is gitignored beside the deployment.
+storage="$out/storage"
+coreutils rm -rf "$storage"
 scenario_pid=""
 cleanup() {
   status=$?
@@ -1504,7 +1505,7 @@ coreutils rm -f "$out/mise.lock"
 # fetched https://registry.npmjs.org/@edge-toolkit%2Fet-ws-math1 and installed nothing.
 npmrc="$PWD/$out/npmrc"
 (cd "$out" && NPM_CONFIG_USERCONFIG="$npmrc" mise install)
-(cd "$out" && STORAGE_URL="file://$storage" mise run generated-scenario) &
+(cd "$out" && mise run generated-scenario) &
 scenario_pid=$!
 
 # The model is what says the exchange ran, rather than the processes being up.

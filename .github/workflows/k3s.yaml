@@ -13,6 +13,9 @@ name: k3s
 "on":
   pull_request:
     paths:
+      # install-mise-tools and the two actions it runs on Linux before anything else.
+      - .github/actions/add-swap/**
+      - .github/actions/free-disk-space/**
       - .github/actions/install-mise-tools/**
       - .github/workflows/k3s.yaml
       # The `k3s-verify` task itself lives here.

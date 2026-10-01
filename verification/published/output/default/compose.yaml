@@ -41,7 +41,9 @@ services:
         hub: docker-image://ghcr.io/edge-toolkit/core/et-ws-server:latest
     network_mode: host
     environment:
-      MODULES_PATHS: "/app/services/ws-server/static,
+      MODULES_PATHS: "/app/node_modules/onnxruntime-web,
+        /app/node_modules/stats-gl,
+        /app/services/ws-server/static,
         /app/services/ws-wasm-agent"
       MODULES_ROOT: "@edge-toolkit/et-ws-server-static"
       OTLP_AUTH_USERNAME: root@example.com

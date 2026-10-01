@@ -678,7 +678,9 @@ impl Connection {
 
         ACTIVE_CONNECTIONS.add(-1, &[]);
         if let Some(agent_id) = self.agent_id.as_deref() {
-            self.registry.mark_disconnected(agent_id);
+            // Only this connection's own session: another may have taken the id over since, and is still live.
+            self.registry
+                .mark_disconnected_if(agent_id, &|session| session.same_channel(&self.outbox));
             info!("Agent {} disconnected; last known IP {}", agent_id, self.client_ip);
         } else {
             info!(

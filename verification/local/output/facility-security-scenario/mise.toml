@@ -25,11 +25,12 @@ docker run --rm --name openobserve -p 127.0.0.1:5080:5080 $settings -e ZO_ROOT_U
 description = "Run the WebSocket server"
 dir = "../../../../services/ws-server"
 run = """
-MODULES_PATHS="static, ../ws-wasm-agent, ../ws-modules/face-detection, ../ws-modules/har1, ../ws-modules/pyface1"
-MODULES_PATHS="$MODULES_PATHS, $(cargo run --quiet -p et-cli -- npm-module-path --package onnxruntime-web)"
+MODULES_PATHS="$(cargo run --quiet -p et-cli -- npm-module-path --package onnxruntime-web)"
 MODULES_PATHS="$MODULES_PATHS, $(cargo run --quiet -p et-cli -- npm-module-path --package stats-gl)"
-MODULES_PATHS="$MODULES_PATHS, ../../data/model-modules/model-face1, ../../data/model-modules/model-har-motion1"
-MODULES_PATHS="$MODULES_PATHS, ../../generated/python-ws, $(mise where http:pyodide)"
+MODULES_PATHS="$MODULES_PATHS, $(mise where http:pyodide), ../../data/model-modules/model-face1"
+MODULES_PATHS="$MODULES_PATHS, ../../data/model-modules/model-har-motion1, ../../generated/python-ws"
+MODULES_PATHS="$MODULES_PATHS, ../ws-modules/face-detection, ../ws-modules/har1, ../ws-modules/pyface1"
+MODULES_PATHS="$MODULES_PATHS, ../ws-wasm-agent, static"
 export MODULES_PATHS
 cargo run
 """

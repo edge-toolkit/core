@@ -1,0 +1,32 @@
+name: Add swap
+description: Add a swapfile on Linux, on top of whatever swap the runner image already has.
+
+# Adds to the image's swap rather than replacing it, and fails the job on any error.
+# Carrying on without the swap is the failure to avoid: a build that needed it and ran with none would die the way
+# it did before, with nothing in the log saying the swap was never there.
+inputs:
+  size-gb:
+    description: Size of the swapfile to add, in GiB.
+    required: false
+    default: "8"
+  path:
+    description: Where to create the swapfile. Distinct from the image's own, which stays in use.
+    required: false
+    default: /et-swapfile
+
+runs:
+  using: composite
+  steps:
+    - name: Add swap on Linux
+      if: runner.os == 'Linux'
+      shell: bash --noprofile --norc -euo pipefail {0}
+      env:
+        SWAP_PATH: ${{ inputs.path }}
+        SWAP_SIZE_GB: ${{ inputs.size-gb }}
+      run: |
+        sudo fallocate -l "${SWAP_SIZE_GB}G" "$SWAP_PATH"
+        sudo chmod 600 "$SWAP_PATH"
+        sudo mkswap "$SWAP_PATH"
+        sudo swapon "$SWAP_PATH"
+        swapon --show
+        free -h

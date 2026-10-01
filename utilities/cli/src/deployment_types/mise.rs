@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use et_path::{absolute_from, relative_path_from};
 use fs_err as fs;
@@ -10,8 +10,8 @@ use crate::error::CliError;
 use crate::input::{ArtifactSource, ClusterInput};
 use crate::{
     COLLECTOR_SETTINGS, COLLECTOR_USERNAME, MODULE_SCOPE, ModuleRegistryEntry, ModuleSource, RunnerInstance,
-    cluster_module_names, hub_ws_url, module_registry, resolve_cluster_modules, resolve_cluster_runners,
-    resolve_module_paths, runner_crate,
+    cluster_module_names, escape_for_double_quotes, hub_ws_url, module_registry, resolve_cluster_modules,
+    resolve_cluster_runners, resolve_module_paths, runner_crate,
 };
 
 /// Crate whose binary serves the hub, which a published deployment installs in place of building it.
@@ -33,6 +33,9 @@ const STAGED_PREFIX: &str = "npm:";
 /// reference that npm expands when it reads the file, so the deployment carries no secret.
 const NPMRC_FILE: &str = "npmrc";
 
+/// Directory, beside `mise.toml`, a published deployment's hub keeps agent storage in.
+pub(crate) const STORAGE_DIR: &str = "storage";
+
 /// Version every `cargo:` tool the generated deployment declares is requested at.
 const LATEST: &str = "latest";
 
@@ -45,35 +48,19 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
     let openobserve_run = openobserve_run_body();
     let module_names = cluster_module_names(cluster);
     let artifacts = cluster.artifact_source;
-    let scenario = ScenarioModules::new(&ws_server_dir, &module_names, super::serves_a_page(cluster));
+    let scenario = ScenarioModules::new(&ws_server_dir, &module_names, super::serves_a_page(cluster))
+        .with_module_paths(&cluster.module_paths);
     let staged = if matches!(artifacts, ArtifactSource::Published) {
         staged_modules(&scenario)?
     } else {
         Vec::new()
     };
-    let hub_command = if matches!(artifacts, ArtifactSource::Published) {
-        HUB_CRATE
-    } else {
-        "cargo run"
-    };
-    // A published deployment names its modules once, as the `[tools]` that stage them, and says nothing about where
-    // they land: the hub asks mise, which is on `PATH` because the deployment is a mise config. Listing them again as
-    // paths would be the same set written twice, in a form the generator cannot produce anyway. A local deployment has
-    // no such list to lean on -- its modules are directories in a checkout -- so it still spells them out.
-    let ws_server_run = if matches!(artifacts, ArtifactSource::Published) {
-        format!("{hub_command}\n")
-    } else {
-        let module_paths = scenario_module_paths(&scenario)?;
-        let module_paths_lines = wrap_module_paths(&module_paths);
-        format!("{module_paths_lines}export MODULES_PATHS\n{hub_command}\n")
-    };
+    let ws_server_run = ws_server_run_body(&scenario, artifacts, &output_abs)?;
     let ws_server_rel = relative_path_from(&output_abs, &ws_server_dir);
     // A published hub is handed absolute paths that `mise where` resolves, so it needs no directory of its own; a local
     // one is given paths relative to the server's source dir and has to start there.
     let ws_server_dir_entry = workspace_dir(&ws_server_rel, artifacts);
-    // Which module is the page served at `/`. The hub has no default for it -- that would be one project's module name
-    // carried by every other -- so the deployment that knows the answer states it.
-    let ws_server_env = Some(hub_root_env(&ws_server_dir, scenario.serves_a_page));
+    let ws_server_env = Some(ws_server_env(&scenario, artifacts));
 
     let mut root = Table::new();
     let mut tasks = Table::new();
@@ -99,7 +86,10 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
     // concurrently, which is what a cluster wants -- the hub and every runner are long-running peers, not a pipeline --
     // but it also means a runner starts before the hub is listening. Each runner body therefore waits for the hub's own
     // health endpoint first; see `runner_run_body`.
-    let runners = resolve_cluster_runners(&module_registry(&workspace_root, &ws_server_dir), cluster)?;
+    let runners = resolve_cluster_runners(
+        &module_registry(&workspace_root, &ws_server_dir, &cluster.module_paths),
+        cluster,
+    )?;
     for runner in &runners {
         let _previous: Option<Value> = tasks.insert(
             runner.name.clone(),
@@ -153,6 +143,59 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
     Ok(())
 }
 
+/// The body of the task that starts the hub.
+///
+/// A published deployment names its modules once, as the `[tools]` that stage them, and says nothing about where they
+/// land: the hub asks mise, which is on `PATH` because the deployment is a mise config. Listing them again as paths
+/// would be the same set written twice, in a form the generator cannot produce anyway. A local deployment has no such
+/// list to lean on -- its modules are directories in a checkout -- so it still spells them out. The exception is a
+/// scenario with modules of its own, which [`published_module_paths`] covers.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of generate_mise_deployment, split out to keep it readable"
+)]
+fn ws_server_run_body(
+    scenario: &ScenarioModules<'_>,
+    artifacts: ArtifactSource,
+    output_abs: &Path,
+) -> Result<String, CliError> {
+    let (hub_command, module_paths) = if matches!(artifacts, ArtifactSource::Published) {
+        (HUB_CRATE, published_module_paths(scenario, output_abs)?)
+    } else {
+        ("cargo run", scenario_module_paths(scenario)?)
+    };
+    if module_paths.is_empty() {
+        return Ok(format!("{hub_command}\n"));
+    }
+    let module_paths_lines = wrap_module_paths(&module_paths);
+    Ok(format!("{module_paths_lines}export MODULES_PATHS\n{hub_command}\n"))
+}
+
+/// The hub task's environment.
+///
+/// It names the page served at `/`: the hub has no default for it -- that would be one project's module name carried by
+/// every other -- so the deployment that knows the answer states it.
+///
+/// A published deployment also names the agent store. The hub's own default is a directory of this repository's
+/// layout (`services/ws-server/storage`) under whatever it takes for the project root -- outside this repository,
+/// the directory it was started in. A published hub starts in the deployment directory, so the store is named there
+/// directly, as the compose file does with its `/app/storage` volume. A local hub keeps the default, which is where
+/// this repository's tests read agent output from.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct step of generate_mise_deployment, split out to keep it readable"
+)]
+fn ws_server_env(scenario: &ScenarioModules<'_>, artifacts: ArtifactSource) -> Table {
+    let mut env = hub_root_env(scenario.ws_server_dir, scenario.serves_a_page);
+    if matches!(artifacts, ArtifactSource::Published) {
+        let _previous: Option<Value> = env.insert(
+            "STORAGE_URL".to_string(),
+            Value::String(format!("file://{{{{ config_root }}}}/{STORAGE_DIR}")),
+        );
+    }
+    env
+}
+
 /// The body of the task that starts the collector container.
 ///
 /// The image and the settings are lifted into shell variables rather than folded with continuations: inlining them
@@ -177,26 +220,21 @@ fn openobserve_run_body() -> String {
     )
 }
 
-/// The agent every module talks to the hub through, served whatever the scenario declares.
-///
-/// Named rather than prepended as a path, so it is resolved through the registry like any other module and the
-/// dependencies it declares come with it. It is not conditional the way the page is: a module run by a headless runner
-/// loads it too, and the modules that need it do not all declare it.
-const BASE_MODULES: [&str; 1] = ["ws-wasm-agent"];
-
 /// The page served at `/`, which only a cluster a browser opens has any use for.
 ///
 /// `static` names the runtimes its page imports at boot, so a deployment that serves the page without it serves one
 /// whose first import 404s -- and one that serves neither is a headless cluster that was never going to load either.
 const PAGE_MODULE: &str = "static";
 
-/// The scenario's modules, the base ones first, each named as the hub serves it.
+/// The scenario's modules, the page first when there is one, each named as the hub serves it.
+///
+/// Nothing else is added: whatever a module needs at run time -- the wasm agent included, which it reaches through the
+/// page it declares -- comes in as one of its declared dependencies.
 fn scenario_modules(module_names: &[String], serves_a_page: bool) -> Vec<String> {
     let mut names: Vec<String> = Vec::new();
     if serves_a_page {
         names.push(PAGE_MODULE.to_string());
     }
-    names.extend(BASE_MODULES.iter().map(|name| (*name).to_string()));
     names.extend(module_names.iter().cloned());
     names
 }
@@ -219,26 +257,68 @@ fn hub_root_env(ws_server_dir: &Path, serves_a_page: bool) -> Table {
 /// This is the whole of what a published deployment says about its modules: the tools install them, and the hub serves
 /// what the config staged. Nothing here records where a module lands, because that is decided per backend and platform
 /// when the tool installs and so cannot be written down as the deployment is generated.
+///
+/// A module of this repository is staged as the package its `package.json` declares, which already carries the owner
+/// scope the registry requires. Anything staged by a mise tool keeps the tool it was registered with, which is somebody
+/// else's and must not be rewritten. A module from the scenario's own `module_paths:` is not staged at all: it has no
+/// release, and is served from its directory instead.
 pub(crate) fn staged_modules(scenario: &ScenarioModules<'_>) -> Result<Vec<String>, CliError> {
     let (registry, modules) = registry_and_modules(scenario);
     Ok(resolve_cluster_modules(&registry, &modules)?
-        .iter()
-        .map(staged_module)
+        .into_iter()
+        .filter_map(|entry| match entry.source {
+            ModuleSource::Repo(_) => {
+                let declared = entry.package_name.unwrap_or_default();
+                Some(format!("{STAGED_PREFIX}{declared}"))
+            }
+            ModuleSource::MiseTool { tool, .. } => Some(tool),
+            ModuleSource::Scenario { .. } => None,
+        })
         .collect())
+}
+
+/// The `MODULES_PATHS` a published hub is started with, in resolution order; empty when it needs none.
+///
+/// Needed only once the scenario has a module from its own `module_paths:`, which has no release to stage and so is
+/// handed over as a directory, relative to the deployment because a published hub runs from there. Setting the variable
+/// replaces the hub's default paths, and of what those defaulted to, discovery restores only the `npm:` tools -- so
+/// every other staged tool, `http:pyodide` among them, is named alongside the directories by the same `mise where` a
+/// local deployment uses.
+fn published_module_paths(scenario: &ScenarioModules<'_>, output_abs: &Path) -> Result<Vec<String>, CliError> {
+    let (registry, modules) = registry_and_modules(scenario);
+    let resolved = resolve_cluster_modules(&registry, &modules)?;
+    if !resolved
+        .iter()
+        .any(|entry| matches!(entry.source, ModuleSource::Scenario { .. }))
+    {
+        return Ok(Vec::new());
+    }
+    let mut paths: Vec<String> = resolved
+        .into_iter()
+        .filter_map(|entry| match entry.source {
+            ModuleSource::Scenario { dir, .. } => Some(escape_for_double_quotes(&relative_path_from(output_abs, &dir))),
+            ModuleSource::MiseTool { tool, .. } if !tool.starts_with(STAGED_PREFIX) => Some(entry.mise_path),
+            ModuleSource::Repo(_) | ModuleSource::MiseTool { .. } => None,
+        })
+        .collect();
+    paths.sort();
+    Ok(paths)
 }
 
 /// What a scenario's module resolution starts from, which is the same three answers either way it resolves.
 ///
-/// One struct rather than three parameters because they are never apart: a module list means nothing without
-/// the tree it was read from, and whether the page is among them is a property of the same scenario.
+/// One struct rather than three parameters because they are never apart: a module list means nothing without the tree
+/// it was read from, and whether the page is among them is a property of the same scenario.
 #[non_exhaustive]
 pub struct ScenarioModules<'scenario> {
     /// The hub's directory, which is where the page module and the relative paths are resolved from.
     pub ws_server_dir: &'scenario Path,
-    /// The modules the scenario itself declares, before the base ones are added.
+    /// The modules the scenario itself declares, before their dependencies are resolved.
     pub module_names: &'scenario [String],
     /// Whether a browser opens this cluster, and so whether the page module is one of them.
     pub serves_a_page: bool,
+    /// The scenario's own `module_paths:`, registered on top of this repository's modules.
+    pub module_paths: &'scenario [PathBuf],
 }
 
 impl<'scenario> ScenarioModules<'scenario> {
@@ -249,7 +329,14 @@ impl<'scenario> ScenarioModules<'scenario> {
             ws_server_dir,
             module_names,
             serves_a_page,
+            module_paths: &[],
         }
+    }
+
+    /// The same scenario, also resolving against the module directories it names itself.
+    #[must_use]
+    pub const fn with_module_paths(self, module_paths: &'scenario [PathBuf]) -> Self {
+        Self { module_paths, ..self }
     }
 }
 
@@ -257,24 +344,9 @@ impl<'scenario> ScenarioModules<'scenario> {
 fn registry_and_modules(scenario: &ScenarioModules<'_>) -> (BTreeMap<String, ModuleRegistryEntry>, Vec<String>) {
     let project_root = edge_toolkit::config::get_project_root();
     (
-        module_registry(&project_root, scenario.ws_server_dir),
+        module_registry(&project_root, scenario.ws_server_dir, scenario.module_paths),
         scenario_modules(scenario.module_names, scenario.serves_a_page),
     )
-}
-
-/// The tool that stages one resolved module, which differs by where the module comes from.
-///
-/// A module of this repository is staged as the package its `package.json` declares, which already carries the owner
-/// scope the registry requires. Anything staged by a mise tool keeps the tool it was registered with, which is somebody
-/// else's and must not be rewritten.
-fn staged_module(entry: &ModuleRegistryEntry) -> String {
-    match &entry.source {
-        ModuleSource::Repo(_) => {
-            let declared = entry.package_name.clone().unwrap_or_default();
-            format!("{STAGED_PREFIX}{declared}")
-        }
-        ModuleSource::MiseTool { tool, .. } => tool.clone(),
-    }
 }
 
 pub fn scenario_module_paths(scenario: &ScenarioModules<'_>) -> Result<Vec<String>, CliError> {
@@ -472,10 +544,10 @@ fn module_tool_value(tool: &str, latest: &Value) -> Value {
 
 /// The same waiver, for a tool named outright rather than resolved from a scenario's module list.
 ///
-/// The hub and the runners are this project's own binaries, published by the release that produced the
-/// deployment, so the reasoning above applies to them unchanged: a deployment generated beside a fresh publish
-/// would otherwise install yesterday's binary for a day and give no sign of it, since resolving `latest` to an
-/// older release is what mise does rather than an error. `cargo:open` is somebody else's and keeps the delay.
+/// The hub and the runners are this project's own binaries, published by the release that produced the deployment, so
+/// the reasoning above applies to them unchanged: a deployment generated beside a fresh publish would otherwise install
+/// yesterday's binary for a day and give no sign of it, since resolving `latest` to an older release is what mise does
+/// rather than an error. `cargo:open` is somebody else's and keeps the delay.
 fn waived(latest: &Value) -> Value {
     let mut options = Table::new();
     let _previous: Option<Value> = options.insert("version".to_string(), latest.clone());

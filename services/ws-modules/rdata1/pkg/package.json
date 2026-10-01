@@ -1,4 +1,7 @@
 {
+  "dependencies": {
+    "@edge-toolkit/et-ws-server-static": "*"
+  },
   "description": "R data 1",
   "license": "Apache-2.0 OR MIT",
   "main": "et_ws_rdata1.js",

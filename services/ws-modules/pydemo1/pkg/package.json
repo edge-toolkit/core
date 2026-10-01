@@ -5,6 +5,7 @@
     "@edge-toolkit/et-ws": "*",
     "@edge-toolkit/et-ws-pyeye1": "*",
     "@edge-toolkit/et-ws-pyspeech1": "*",
+    "@edge-toolkit/et-ws-server-static": "*",
     "@mediapipe/tasks-vision": "*",
     "onnxruntime-web": "*",
     "pyodide": "*"

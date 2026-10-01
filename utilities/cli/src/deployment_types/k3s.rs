@@ -104,11 +104,15 @@ pub fn generate_k3s_deployment(cluster: &ClusterInput, output_dir: &Path) -> Res
     let namespace = namespace_name(&cluster.cluster_name);
     let workspace_root = edge_toolkit::config::get_project_root();
     let runners = resolve_cluster_runners(
-        &module_registry(&workspace_root, &workspace_root.join("services/ws-server")),
+        &module_registry(
+            &workspace_root,
+            &workspace_root.join("services/ws-server"),
+            &cluster.module_paths,
+        ),
         cluster,
     )?;
     let serves_a_page = super::serves_a_page(cluster);
-    let module_paths = docker_image_module_paths(&cluster_module_names(cluster), serves_a_page)?;
+    let module_paths = docker_image_module_paths(&cluster_module_names(cluster), serves_a_page, &cluster.module_paths)?;
     // Empty for a headless cluster, which is not given the page: the hub rejects a root it cannot find among the
     // modules it was given, and serves nothing at `/` when named none.
     let root_module = if serves_a_page {
@@ -476,10 +480,10 @@ fn collector_service(namespace: &str) -> Service {
 /// The paths under the runtime directory are the writable ones: a read-only root filesystem cannot take the self-signed
 /// certificate the hub generates on first start, so both halves are redirected to the scratch mount.
 fn hub_env(module_paths: &[String], root_module: &str) -> Vec<EnvVar> {
-    // `MODULES_ROOT` is stated even when it is empty, which is what a headless cluster needs rather than the
-    // entry being left out. The hub image names the page it bundles, and a container inherits an image's
-    // environment for every variable the manifest does not set -- so omitting it would serve a page this
-    // cluster was not given the modules for, which the hub rejects at startup. Empty is read as unset.
+    // `MODULES_ROOT` is stated even when it is empty, which is what a headless cluster needs rather than the entry
+    // being left out. The hub image names the page it bundles, and a container inherits an image's environment for
+    // every variable the manifest does not set -- so omitting it would serve a page this cluster was not given the
+    // modules for, which the hub rejects at startup. Empty is read as unset.
     let mut vars = vec![
         env("MODULES_PATHS", module_paths.join(",")),
         env("MODULES_ROOT", root_module.to_string()),

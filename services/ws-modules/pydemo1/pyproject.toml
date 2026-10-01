@@ -29,6 +29,7 @@ et-model-speech1 = "*"
 et-ws = "*"
 et-ws-pyeye1 = "*"
 et-ws-pyspeech1 = "*"
+et-ws-server-static = "*"
 onnxruntime-web = "*"
 pyodide = "*"
 

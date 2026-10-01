@@ -4164,7 +4164,7 @@ dependencies = [
 
 [[package]]
 name = "edge-toolkit"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "asyncapi-rust",
  "base64 0.23.1",
@@ -4308,7 +4308,7 @@ checksum = "31ae425815400e5ed474178a7a22e275a9687086a12ca63ec793ff292d8fdae8"
 
 [[package]]
 name = "et-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap",
  "clap-markdown",
@@ -4878,7 +4878,7 @@ dependencies = [
 
 [[package]]
 name = "et-ws-server"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "actix-rt",
  "actix-web",
@@ -4917,7 +4917,7 @@ dependencies = [
 
 [[package]]
 name = "et-ws-service"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actix-web",
  "actix-ws",

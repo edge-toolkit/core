@@ -40,15 +40,15 @@ pub fn start() -> TestServer {
 
 /// Start an in-process ws-server bound to a specific `port` with a temporary storage directory.
 ///
-/// Like [`start`], but for callers that must know the port ahead of time (e.g. a fixed-port launcher a separate
-/// process connects to). Panics if the port is already in use.
+/// Like [`start`], but for callers that must know the port ahead of time (e.g. a fixed-port launcher a separate process
+/// connects to). Panics if the port is already in use.
 #[must_use]
 pub fn start_on(port: u16) -> TestServer {
     let storage_dir = TempDir::new().unwrap();
 
     let storage_config = StorageConfig::local(storage_dir.path());
-    // The default search paths, with the page module named outright. The server has no default for which
-    // module it serves at `/` -- that is the deployment's business, and this stand-in is a deployment.
+    // The default search paths, with the page module named outright. The server has no default for which module it
+    // serves at `/` -- that is the deployment's business, and this stand-in is a deployment.
     let mut modules_config = ModulesConfig::default();
     modules_config.root = "@edge-toolkit/et-ws-server-static".to_string();
     let modules_config = modules_config;
@@ -61,9 +61,8 @@ pub fn start_on(port: u16) -> TestServer {
             let modules = modules_config;
             let ws_config = WsConfig::default();
             HttpServer::new(move || {
-                // `TracingLogger` mirrors the real ws-server's pipeline:
-                // extracts `traceparent` from incoming requests so server
-                // spans are children of the caller's trace.
+                // `TracingLogger` mirrors the real ws-server's pipeline: extracts `traceparent` from incoming requests
+                // so server spans are children of the caller's trace.
                 App::new()
                     .wrap(TracingLogger::default())
                     .app_data(registry.clone())
@@ -98,14 +97,14 @@ const ROSTER_POLL_INTERVAL: Duration = Duration::from_millis(250);
 
 /// Block until `count` agents other than the waiter itself are connected to the hub at `ws_url`.
 ///
-/// Returns the connected peer ids from the last roster the hub sent: at least `count` of them once the wait
-/// succeeds, and whoever was present when the budget ran out otherwise, so a caller that gives up can report who
-/// did come up rather than only that someone did not.
+/// Returns the connected peer ids from the last roster the hub sent: at least `count` of them once the wait succeeds,
+/// and whoever was present when the budget ran out otherwise, so a caller that gives up can report who did come up
+/// rather than only that someone did not.
 ///
 /// Reading the roster means being an agent -- `et-list-agents` is a websocket request, not an HTTP route -- so the
-/// waiter registers one of its own and filters itself out of every reply. Entries whose state is `Disconnected`
-/// are filtered out too: the registry keeps listing an agent after its socket drops, so a runner that registered
-/// and then exited would otherwise still read as up.
+/// waiter registers one of its own and filters itself out of every reply. Entries whose state is `Disconnected` are
+/// filtered out too: the registry keeps listing an agent after its socket drops, so a runner that registered and then
+/// exited would otherwise still read as up.
 ///
 /// Synchronous, and owns the runtime it needs, so a plain `#[test]` can gate on hub state without taking a tokio
 /// dependency of its own.
@@ -120,9 +119,9 @@ pub fn wait_for_connected_agents(ws_url: &str, count: usize, budget: Duration) -
 
 /// The async body of [`wait_for_connected_agents`], split out so the public helper can stay synchronous.
 ///
-/// One socket serves the whole wait: re-asking on a fresh connection each round would leave a trail of
-/// disconnected waiter entries in the registry, and a stale one still marked connected would be counted as a peer
-/// by the very filter that exists to exclude it.
+/// One socket serves the whole wait: re-asking on a fresh connection each round would leave a trail of disconnected
+/// waiter entries in the registry, and a stale one still marked connected would be counted as a peer by the very filter
+/// that exists to exclude it.
 #[expect(
     clippy::single_call_fn,
     reason = "async body of wait_for_connected_agents; separate so the public helper stays sync"
@@ -178,20 +177,35 @@ fn connected_peers(agents: Vec<AgentSummary>, self_id: &str) -> Vec<String> {
 
 /// Open a ws connection to `ws_url` and drive `et-connect` through its ack.
 ///
-/// Returns `(stream, agent_id)` once the `et-connect-ack` has been observed. Lets a test drive the
-/// hub as a websocket client.
+/// Returns `(stream, agent_id)` once the `et-connect-ack` has been observed. Lets a test drive the hub as a websocket
+/// client.
 pub async fn connect_agent(
     ws_url: &str,
 ) -> (
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
     String,
 ) {
+    connect_agent_as(ws_url, None).await
+}
+
+/// Open a ws connection to `ws_url` and drive `et-connect` through its ack, asking for `requested_id`.
+///
+/// The same as [`connect_agent`] for an agent that names itself, which is how a test puts two connections on one id.
+/// `None` asks the hub to generate one, exactly as [`connect_agent`] does.
+pub async fn connect_agent_as(
+    ws_url: &str,
+    requested_id: Option<&str>,
+) -> (
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+    String,
+) {
     let (mut stream, _) = connect_async(ws_url).await.unwrap();
-    let connect_msg = serde_json::to_string(&ClientMessage::Connect { agent_id: None }).unwrap();
+    let agent_id = requested_id.map(str::to_string);
+    let connect_msg = serde_json::to_string(&ClientMessage::Connect { agent_id }).unwrap();
     stream.send(Message::text(connect_msg)).await.unwrap();
 
-    // Bound the ack wait: a server that accepts the socket but never sends `et-connect-ack` (and never closes)
-    // must fail the test fast rather than hang. Non-ack frames simply fall through and the loop reads the next.
+    // Bound the ack wait: a server that accepts the socket but never sends `et-connect-ack` (and never closes) must
+    // fail the test fast rather than hang. Non-ack frames simply fall through and the loop reads the next.
     let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
     while let Ok(Some(Ok(msg))) = tokio::time::timeout(
         deadline.saturating_duration_since(tokio::time::Instant::now()),
@@ -210,8 +224,8 @@ pub async fn connect_agent(
 
 /// Pull the next non-ack frame from `stream`.
 ///
-/// Skips known protocol acks (`et-connect-ack`, `et-message-status`, `et-response`) so callers see
-/// the next "real" payload.
+/// Skips known protocol acks (`et-connect-ack`, `et-message-status`, `et-response`) so callers see the next "real"
+/// payload.
 pub async fn next_payload(
     stream: &mut tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
 ) -> Message {
@@ -235,8 +249,8 @@ pub async fn next_payload(
                 return msg;
             }
             Message::Binary(_) => return msg,
-            // Ping/pong and any other control frame: skip until a real payload arrives (or the deadline
-            // elapses / the stream closes, which then surfaces through the `.unwrap()` above).
+            // Ping/pong and any other control frame: skip until a real payload arrives (or the deadline elapses / the
+            // stream closes, which then surfaces through the `.unwrap()` above).
             _ => continue,
         }
     }

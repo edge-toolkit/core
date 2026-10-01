@@ -76,12 +76,30 @@ set -euo pipefail
 mise install node
 EOF
 
-ENV SCENARIO_TOOLS="npm:onnxruntime-web http:pyodide"
+ENV SCENARIO_TOOLS="http:pyodide npm:onnxruntime-web npm:stats-gl"
 RUN bash <<'EOF'
 set -euo pipefail
 # Word-splitting SCENARIO_TOOLS is intentional; it is a space-separated tool list.
 # shellcheck disable=SC2086
 mise install ${SCENARIO_TOOLS}
+EOF
+
+ENV STAGE_TOOL="http:pyodide"
+ENV STAGE_PACKAGE="pyodide"
+ENV STAGE_DEST="/staged/app/node_modules/pyodide"
+RUN bash <<'EOF'
+set -euo pipefail
+root="$(mise where "${STAGE_TOOL}")"
+src="$(find -L "${root}" -type d -name "${STAGE_PACKAGE}" -exec test -f '{}/package.json' ';' -print -quit)"
+if [ -z "${src}" ] && [ -f "${root}/package.json" ]; then
+    src="${root}"
+fi
+if [ -z "${src}" ]; then
+    echo "no ${STAGE_PACKAGE} package dir under the ${STAGE_TOOL} install at ${root}" >&2
+    exit 1
+fi
+mkdir -p "$(dirname "${STAGE_DEST}")"
+cp -rL "${src}" "${STAGE_DEST}"
 EOF
 
 ENV STAGE_TOOL="npm:onnxruntime-web"
@@ -102,9 +120,9 @@ mkdir -p "$(dirname "${STAGE_DEST}")"
 cp -rL "${src}" "${STAGE_DEST}"
 EOF
 
-ENV STAGE_TOOL="http:pyodide"
-ENV STAGE_PACKAGE="pyodide"
-ENV STAGE_DEST="/staged/app/node_modules/pyodide"
+ENV STAGE_TOOL="npm:stats-gl"
+ENV STAGE_PACKAGE="stats-gl"
+ENV STAGE_DEST="/staged/app/node_modules/stats-gl"
 RUN bash <<'EOF'
 set -euo pipefail
 root="$(mise where "${STAGE_TOOL}")"
@@ -130,11 +148,12 @@ FROM hub
 
 LABEL org.opencontainers.image.source="https://github.com/edge-toolkit/core"
 
-COPY --chown=10001:10001 services/ws-modules/face-detection/pkg /app/services/ws-modules/face-detection/pkg
-COPY --chown=10001:10001 services/ws-modules/har1/pkg /app/services/ws-modules/har1/pkg
-COPY --chown=10001:10001 services/ws-modules/pyface1/pkg /app/services/ws-modules/pyface1/pkg
 COPY --chown=10001:10001 data/model-modules/model-face1/pkg /app/data/model-modules/model-face1/pkg
 COPY --chown=10001:10001 data/model-modules/model-har-motion1/pkg /app/data/model-modules/model-har-motion1/pkg
 COPY --chown=10001:10001 generated/python-ws/pkg /app/generated/python-ws/pkg
-COPY --from=deps --chown=10001:10001 /staged/app/node_modules/onnxruntime-web /app/node_modules/onnxruntime-web
+COPY --chown=10001:10001 services/ws-modules/face-detection/pkg /app/services/ws-modules/face-detection/pkg
+COPY --chown=10001:10001 services/ws-modules/har1/pkg /app/services/ws-modules/har1/pkg
+COPY --chown=10001:10001 services/ws-modules/pyface1/pkg /app/services/ws-modules/pyface1/pkg
 COPY --from=deps --chown=10001:10001 /staged/app/node_modules/pyodide /app/node_modules/pyodide
+COPY --from=deps --chown=10001:10001 /staged/app/node_modules/onnxruntime-web /app/node_modules/onnxruntime-web
+COPY --from=deps --chown=10001:10001 /staged/app/node_modules/stats-gl /app/node_modules/stats-gl
