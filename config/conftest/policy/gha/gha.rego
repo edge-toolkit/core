@@ -12,7 +12,7 @@ required_shell := "bash --noprofile --norc -euo pipefail {0}"
 
 deny contains msg if {
 	not input.defaults.run.shell == required_shell
-	msg := sprintf("workflow must set defaults.run.shell: %q (gets -euo pipefail on every step)", [required_shell])
+	msg := $"workflow must set defaults.run.shell: \"{required_shell}\" (gets -euo pipefail on every step)"
 }
 
 # Steps must not override the shell -- rely on the workflow default.
@@ -24,7 +24,7 @@ deny contains msg if {
 	some step in job.steps
 	step.shell
 	not step_shell_allowed(step)
-	msg := sprintf("job %q sets shell: on a step; use the workflow default", [name])
+	msg := $"job \"{name}\" sets shell: on a step; use the workflow default"
 }
 
 step_shell_allowed(step) if {
@@ -71,50 +71,46 @@ buildkit_error_hint := "GHA Windows runners ship without buildx; build aborts"
 deny contains msg if {
 	input.name == "docker-windows"
 	input.env.DOCKER_BUILDKIT
-	msg := sprintf(
-		"docker-windows must not set DOCKER_BUILDKIT at workflow scope (%s)",
-		[buildkit_error_hint],
-	)
+	msg := $"docker-windows must not set DOCKER_BUILDKIT at workflow scope ({buildkit_error_hint})"
 }
 
+# The docker-windows workflow must not set DOCKER_BUILDKIT at job scope either.
 deny contains msg if {
 	input.name == "docker-windows"
 	some name, job in input.jobs
 	job.env.DOCKER_BUILDKIT
-	msg := sprintf(
-		"docker-windows job %q must not set DOCKER_BUILDKIT (%s)",
-		[name, buildkit_error_hint],
-	)
+	msg := $"docker-windows job \"{name}\" must not set DOCKER_BUILDKIT ({buildkit_error_hint})"
 }
 
+# Nor at step scope.
 deny contains msg if {
 	input.name == "docker-windows"
 	some name, job in input.jobs
 	some step in job.steps
 	step.env.DOCKER_BUILDKIT
-	msg := sprintf(
-		"docker-windows job %q must not set DOCKER_BUILDKIT on a step (%s)",
-		[name, buildkit_error_hint],
-	)
+	msg := $"docker-windows job \"{name}\" must not set DOCKER_BUILDKIT on a step ({buildkit_error_hint})"
 }
 
 # A workflow using a local composite action with a paths: trigger filter must list that action's location.
-# This covers a workflow that uses a local composite action (./.github/actions/<name>) and also filters its triggers
+# This covers a workflow that uses a local composite action ($/.github/actions/<name>) and also filters its triggers
 # with a paths: list. Otherwise edits to the composite action won't re-trigger this workflow on a PR that changes it.
 # Workflows without a paths filter already trigger on every PR/push and are skipped by this rule.
 local_actions_used contains action_dir if {
 	some job in input.jobs
 	some step in job.steps
-	startswith(step.uses, "./.github/actions/")
+	startswith(step.uses, "$/.github/actions/")
 
-	# Strip the leading "./" to get the repo-relative dir.
+	# Strip the leading "$/" to get the repo-relative dir.
 	# This matches the gitignore-style path filters in `on.<event>.paths`.
 	action_dir := substring(step.uses, 2, -1)
 }
 
 # Paths array configured for a trigger event, if any.
+# The YAML parser reads a bare `on:` key as the boolean `true` (YAML 1.1), so the trigger table is found under that
+# key; `on` is checked as well for an input that quoted it.
 trigger_paths(event) := paths if {
-	paths := input.on[event].paths
+	some key in ["on", "true"]
+	paths := input[key][event].paths
 	is_array(paths)
 }
 
@@ -125,17 +121,19 @@ paths_cover_dir(paths, action_dir) if {
 	startswith(p, action_dir)
 }
 
+untriggered_hint := "edits won't re-trigger this workflow"
+
+# A workflow's trigger paths must cover every local action it uses, so an edit to one re-runs it.
 deny contains msg if {
 	some action_dir in local_actions_used
 	some event in ["pull_request", "pull_request_target", "push"]
 	paths := trigger_paths(event)
 	not paths_cover_dir(paths, action_dir)
-	msg := sprintf(
-		"workflow uses ./%s but on.%s.paths doesn't include it (e.g. %q) -- edits won't re-trigger this workflow",
-		[action_dir, event, sprintf("%s/**", [action_dir])],
-	)
+	cover := $"{action_dir}/**"
+	msg := $"workflow uses $/{action_dir} but on.{event}.paths doesn't include it (e.g. \"{cover}\") -- {untriggered_hint}"
 }
 
+# A workflow step's `apt-get install` must pass --no-install-recommends on the same line.
 deny contains msg if {
 	some name, job in input.jobs
 	some step in job.steps
@@ -144,9 +142,10 @@ deny contains msg if {
 	not startswith(trim_space(line), "#")
 	regex.match(`\bapt-get\s+install\b`, line)
 	not contains(line, "--no-install-recommends")
-	msg := sprintf("job %q: `apt-get install` must include --no-install-recommends on the same line", [name])
+	msg := $"job \"{name}\": `apt-get install` must include --no-install-recommends on the same line"
 }
 
+# A workflow step must use `apt-get`, never `apt`.
 deny contains msg if {
 	some name, job in input.jobs
 	some step in job.steps
@@ -154,7 +153,7 @@ deny contains msg if {
 	some line in split(step.run, "\n")
 	not startswith(trim_space(line), "#")
 	regex.match(`\bapt(\s|$)`, line)
-	msg := sprintf("job %q: use `apt-get`, not `apt` (apt's UI is not stable across releases)", [name])
+	msg := $"job \"{name}\": use `apt-get`, not `apt` (apt's UI is not stable across releases)"
 }
 
 # Every actions/upload-artifact step must set with.if-no-files-found: error.
@@ -167,7 +166,7 @@ deny contains msg if {
 	some step in job.steps
 	startswith(step.uses, "actions/upload-artifact")
 	object.get(step, ["with", "if-no-files-found"], "warn") != "error"
-	msg := sprintf("job %q: actions/upload-artifact must set with.if-no-files-found: error", [name])
+	msg := $"job \"{name}\": actions/upload-artifact must set with.if-no-files-found: error"
 }
 
 # Every matrix value is spliced into the GitHub job name, so a long one wrecks the Actions UI.

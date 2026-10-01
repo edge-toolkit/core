@@ -147,7 +147,7 @@ impl From<StorageError> for PyErr {
 /// One frame queued on the agent's outbound channel.
 ///
 /// The WS loop in `agent.rs` drains this and writes to the socket.
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub enum OutboundFrame {
     Text(String),

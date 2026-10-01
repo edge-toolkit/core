@@ -12,6 +12,7 @@ entries(file) := items if {
 	items := file.contents[0]
 }
 
+# A RUN heredoc's first body line must be `set -euo pipefail`.
 deny contains msg if {
 	some file in input
 	items := entries(file)

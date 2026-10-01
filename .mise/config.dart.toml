@@ -26,7 +26,8 @@ version_expr = '''
 fromJSON(body).prefixes
 | filter({ # matches "^channels/stable/release/(\\d+\\.\\d+\\.\\d+)/$" })
 | map({split(#, "/")[3]})
-| sortVersions()'''
+| sortVersions()
+'''
 version_list_url = "{{ vars.dart_bucket }}?prefix=channels/stable/release/&delimiter=/"
 
 [tasks.dart-pub-get]
@@ -102,7 +103,7 @@ shell = "{{ vars.task_shell }}"
 depends = ["gen:ws-spec"]
 description = "Emit the Dart sealed-class WS client via dart-typegen (consumes generated/specs/ws.kdl from gen:ws-spec)"
 run = """
-mkdir -p generated/dart-ws/lib
+coreutils mkdir -p generated/dart-ws/lib
 dart-typegen generate -i generated/specs/ws.kdl -o generated/dart-ws/lib/ws_messages.dart
 dart format generated/dart-ws/lib/ws_messages.dart
 """
@@ -130,7 +131,7 @@ dart pub get
 coreutils rm -rf lib
 dart run swagger_parser
 s=../../target/scratch
-mkdir -p "$s"
+coreutils mkdir -p "$s"
 goawk 'BEGIN { q = sprintf("%c", 39) }
 /^import / && /dart:io/ { print "import " q "dart:typed_data" q ";"; io++; next }
 /^  Future<void> getFile\\(\\{$/ {

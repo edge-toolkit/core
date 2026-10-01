@@ -75,6 +75,7 @@ accounted(config, value, name) if {
 	value in allowed(config, name)
 }
 
+# Every config a generated tree requires must carry that tree's exclusion pattern.
 deny contains msg if {
 	some name, tree in trees
 	some config in tree.required_in

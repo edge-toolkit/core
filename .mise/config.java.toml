@@ -36,7 +36,8 @@ java_home = '''{% if os() == "windows" and env?.MISE_INSTALLS_DIR -%}
 {%- else -%}
 {{- env?.MISE_DATA_DIR or (env.HOME ~ "/.local/share/mise") -}}
 /installs/java/26.0.1
-{%- endif %}'''
+{%- endif -%}
+'''
 
 [env]
 # JAVA_HOME must be set in the env because mvn.cmd requires it.
@@ -65,7 +66,8 @@ MVN = '''{% if os() == "windows" -%}
 {{- vars.maven_bin -}}\mvn.cmd
 {%- else -%}
 mvn
-{%- endif %}'''
+{%- endif -%}
+'''
 
 [tasks.build-ws-java-data1-module]
 description = "Build the java-data1 workflow module"

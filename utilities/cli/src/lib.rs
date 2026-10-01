@@ -47,7 +47,7 @@ fn generated_output_files(output_types: &[OutputType]) -> Vec<&'static str> {
     files
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct DeploymentSummary {
     pub cluster_name: String,
@@ -55,7 +55,7 @@ pub struct DeploymentSummary {
     pub module_names: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct RegeneratedScenario {
     pub input_file: PathBuf,
@@ -63,7 +63,7 @@ pub struct RegeneratedScenario {
     pub summary: DeploymentSummary,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 #[non_exhaustive]
 pub struct PackageJson {
     pub name: Option<String>,
@@ -122,7 +122,7 @@ struct CargoWsModule {
 /// The deployment generators need this to tell apart the two provisioning routes: a repo directory can be copied
 /// straight out of the Docker build context, whereas a mise-staged package exists only in the tool's install dir and
 /// has to be installed before it can be staged.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub(crate) enum ModuleSource {
     /// A directory in this repository, as a path relative to the repository root.
@@ -222,7 +222,7 @@ pub(crate) fn image_prefix(images: ArtifactSource) -> String {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub(crate) struct ModuleRegistryEntry {
     pub mise_path: String,
@@ -1416,7 +1416,7 @@ pub fn npm_module_path(package: &str) -> Result<PathBuf, CliError> {
 pub(crate) const DERIVED_RUNNER_ENV: [&str; 2] = ["RUNNER_MODULE", "WS_SERVER_URL"];
 
 /// One runner process the generated deployment starts, resolved from an agent that names a `runner:`.
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub(crate) struct RunnerInstance {
     /// Deployment-unique name for the process: the task name in `mise.toml`, the service name in `compose.yaml`.

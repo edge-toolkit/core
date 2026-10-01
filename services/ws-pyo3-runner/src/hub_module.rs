@@ -21,7 +21,7 @@ use crate::error::RunnerError;
 use crate::python::module_is_importable;
 
 /// A user module fetched from the hub, ready to be compiled.
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct HubModule {
     /// Name the source is compiled under: the stem of the hub's `main` file.

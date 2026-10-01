@@ -4365,6 +4365,7 @@ dependencies = [
  "serde_yaml",
  "syn 3.0.5",
  "thiserror 2.0.20",
+ "toml 1.1.6+spec-1.1.0",
  "tree-sitter",
  "tree-sitter-zig",
  "utoipa",

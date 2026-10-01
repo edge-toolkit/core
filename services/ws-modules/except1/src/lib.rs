@@ -27,7 +27,7 @@ pub fn init() {
 }
 
 /// Failure of [`checked_divide`]: the quotient is unrepresentable (zero divisor, or `i32::MIN / -1`).
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Eq, PartialEq)]
 struct DivideError;
 
 impl fmt::Display for DivideError {

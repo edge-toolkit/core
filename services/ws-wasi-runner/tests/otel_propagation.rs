@@ -22,8 +22,8 @@
 
 #![cfg(test)]
 #![expect(
-    clippy::uninlined_format_args,
     clippy::needless_collect,
+    clippy::uninlined_format_args,
     reason = "test code: assertion-helper format/collect idioms"
 )]
 

@@ -125,6 +125,7 @@ cargo_scoped_to_second_tier(spec) if {
 	}
 }
 
+# A `cargo:` tool must not build from source unless allowlisted or os-scoped to a second-tier platform.
 deny contains msg if {
 	some file in input
 	is_mise(file)
@@ -179,6 +180,7 @@ forge_url(url) if contains(url, "gitlab.com")
 
 http_forge_msg := "%s: tool %q fetches %s over http:; use the github: backend so versions resolve and artifacts verify"
 
+# An `http:` tool must not fetch from a forge URL; use the github: backend instead.
 deny contains msg if {
 	some file in input
 	is_mise(file)
@@ -189,6 +191,7 @@ deny contains msg if {
 	msg := sprintf(http_forge_msg, [file.path, name, tool.url])
 }
 
+# No per-platform URL of an `http:` tool may point at a forge either.
 deny contains msg if {
 	some file in input
 	is_mise(file)
@@ -200,7 +203,7 @@ deny contains msg if {
 	msg := sprintf(http_forge_msg, [file.path, name, platform.url])
 }
 
-# Tools should work on every OS (CLAUDE.md "Tools must work on every OS").
+# Tools should work on every OS (AGENTS.md "Tools must work on every OS").
 # Any os-scoped [tools] entry must be in this list -- a genuinely platform-specific tool, a per-platform backend pair
 # that still covers every OS (findutils, ryl), or an optional tool that self-skips on the omitted platform (pipx:torch).
 allowed_os_scoped_tool := {
@@ -261,6 +264,7 @@ allowed_os_scoped_tool := {
 	"conda:clang",
 }
 
+# A tool must not be os-scoped unless allowlisted, since every tool must work on every OS.
 deny contains msg if {
 	some file in input
 	is_mise(file)
@@ -318,7 +322,7 @@ config_strings contains entry if {
 # (data.mise.version_drift).
 version_drift(value) := {drift |
 	some [dir, _] in tool_versions
-	pattern := sprintf(`(?:^|[\\/}])%s[\\/]([A-Za-z0-9._-]+)`, [dir])
+	pattern := $`(?:^|[\\/}]){dir}[\\/]([A-Za-z0-9._-]+)`
 	some m in regex.find_all_string_submatch_n(pattern, value, -1)
 	seg := m[1]
 	not [dir, seg] in tool_versions
@@ -326,6 +330,7 @@ version_drift(value) := {drift |
 	drift := {"dir": dir, "seg": seg, "pinned": pinned}
 }
 
+# A mise install path that a config string embeds must name the version [tools] pins.
 deny contains msg if {
 	some entry in config_strings
 	contains(entry.value, "installs")
@@ -362,6 +367,7 @@ required_package_args := {
 	".mise/config.macos.toml": {"APT_PACKAGES", "COMMON_PACKAGES"},
 }
 
+# Each OS's preinstall task must read its package lists from the Dockerfile ARGs.
 deny contains msg if {
 	some file in input
 	some required in required_package_args[file.path]
@@ -402,6 +408,7 @@ usage_vars(spec) := vars if {
 	}
 }
 
+# Every usage arg a task declares must be read by its run body.
 deny contains msg if {
 	some file in input
 	is_mise(file)

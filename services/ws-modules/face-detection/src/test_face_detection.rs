@@ -1,7 +1,7 @@
 #![cfg(test)]
 #![expect(
-    clippy::float_cmp,
     clippy::default_numeric_fallback,
+    clippy::float_cmp,
     reason = "test code: exact float comparisons and inline f64 fixtures are intentional"
 )]
 

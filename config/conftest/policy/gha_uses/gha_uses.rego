@@ -1,6 +1,6 @@
 # Cross-file check: every input passed to a LOCAL composite action must be one that the action declares.
 # Run with `--namespace gha_uses` over the workflow YAML plus every .github/actions/*/action.yaml, combined
-# (--combine) so a single evaluation resolves each `uses: ./.github/actions/<name>` against that action's `inputs:`.
+# (--combine) so a single evaluation resolves each `uses: $/.github/actions/<name>` against that action's `inputs:`.
 # GitHub Actions only emits a *warning* -- never an error -- when a caller passes a `with:` key the target action
 # does not declare, so a typo'd input name silently defaults to "" and the intended value is dropped. (Concrete
 # regression: install-mise-tools passed `install-action:` to install-mise, whose input is `install-action-tools`,
@@ -39,11 +39,12 @@ caller_steps contains entry if {
 	entry := {"path": file.path, "step": step}
 }
 
+# A step must not pass an input that the local action it calls does not declare.
 deny contains msg if {
 	some entry in caller_steps
 	step := entry.step
-	startswith(step.uses, "./.github/actions/")
-	name := trim_prefix(step.uses, "./.github/actions/")
+	startswith(step.uses, "$/.github/actions/")
+	name := trim_prefix(step.uses, "$/.github/actions/")
 	declared := declared_inputs[name]
 	some key, _ in step.with
 	not declared[key]
@@ -81,7 +82,7 @@ windows_tool_path contains entry if {
 # Requiring it immediately before the tool dir is the actual invariant either way.
 deny contains msg if {
 	some entry in windows_tool_path
-	not contains(entry.value, sprintf("%s\\http-busybox", [mise_installs_dir]))
+	not contains(entry.value, $"{mise_installs_dir}\\http-busybox")
 	msg := sprintf(
 		"%s: the http-busybox path must sit under the MISE_INSTALLS_DIR install-mise exports (%q)",
 		[entry.path, mise_installs_dir],

@@ -22,7 +22,7 @@ const REPOSITORY_URL: &str = et_org::REPOSITORY_URL;
     clippy::exhaustive_enums,
     reason = "OutputType enumerates the supported deployment formats; downstream code matches exhaustively"
 )]
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, ValueEnum)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum OutputType {
     #[default]
@@ -45,7 +45,7 @@ impl OutputType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[non_exhaustive]
 pub struct ClusterInput {
     pub cluster_name: String,
@@ -111,7 +111,7 @@ impl Default for ClusterInput {
 /// `Published` is the default because it is the only one of the two that always works. Building from the working tree
 /// needs a working tree, so `Local` is an answer available to almost nobody: everyone generating a deployment for their
 /// own cluster has the releases and not this repository.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
 #[serde(rename_all = "lowercase")]
 pub enum ArtifactSource {
@@ -165,7 +165,7 @@ pub fn manifest_declares_this_repository(manifest: &str) -> bool {
         == Some(REPOSITORY_URL)
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[non_exhaustive]
 pub struct Agent {
     pub name: String,
@@ -189,7 +189,7 @@ pub struct Agent {
     pub resources: Vec<Resource>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[non_exhaustive]
 pub struct Resource {
     #[serde(rename = "type")]

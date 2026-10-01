@@ -7,10 +7,11 @@ This document contains the help content for the `et-int-gen` command-line progra
 - [`et-int-gen`↴](#et-int-gen)
 - [`et-int-gen generate`↴](#et-int-gen-generate)
 - [`et-int-gen fetch-deps`↴](#et-int-gen-fetch-deps)
+- [`et-int-gen checks`↴](#et-int-gen-checks)
 
 ## `et-int-gen`
 
-Generate checked-in artifacts under generated/ from in-repo Rust sources of truth
+Generate checked-in artifacts (generated/, CHECKS.md) from in-repo sources of truth
 
 **Usage:** `et-int-gen [COMMAND]`
 
@@ -18,6 +19,7 @@ Generate checked-in artifacts under generated/ from in-repo Rust sources of trut
 
 - `generate` — Emit the generated artifacts for one target (default: all)
 - `fetch-deps` — Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions
+- `checks` — Write CHECKS.md, the catalogue of every check across every `MISE_ENV`
 
 ## `et-int-gen generate`
 
@@ -48,6 +50,16 @@ Emit the generated artifacts for one target (default: all)
 Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions
 
 **Usage:** `et-int-gen fetch-deps`
+
+## `et-int-gen checks`
+
+Write CHECKS.md, the catalogue of every check across every `MISE_ENV`
+
+**Usage:** `et-int-gen checks [OPTIONS]`
+
+###### **Options:**
+
+- `--check` — Compare against the committed CHECKS.md and fail on drift instead of writing it
 
 <hr/>
 

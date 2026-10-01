@@ -365,8 +365,8 @@ fn server_message_to_wit(msg: ServerMessage) -> Result<WitServerMessage, WsError
 // sent through the *guest's* outbound API, which never happens), so the
 // reverse-direction helpers from the pre-split file are gone.
 #[expect(
-    clippy::single_call_fn,
     clippy::needless_pass_by_value,
+    clippy::single_call_fn,
     reason = "WIT/edge-toolkit enum bridge; Copy enum, by value keeps call sites uniform"
 )]
 const fn et_connect_status(value: EtConnectStatus) -> WitConnectStatus {
@@ -377,8 +377,8 @@ const fn et_connect_status(value: EtConnectStatus) -> WitConnectStatus {
 }
 
 #[expect(
-    clippy::single_call_fn,
     clippy::needless_pass_by_value,
+    clippy::single_call_fn,
     reason = "WIT/edge-toolkit enum bridge; Copy enum, by value keeps call sites uniform"
 )]
 const fn et_message_scope(value: EtMessageScope) -> WitMessageScope {
@@ -389,8 +389,8 @@ const fn et_message_scope(value: EtMessageScope) -> WitMessageScope {
 }
 
 #[expect(
-    clippy::single_call_fn,
     clippy::needless_pass_by_value,
+    clippy::single_call_fn,
     reason = "WIT/edge-toolkit enum bridge; Copy enum, by value keeps call sites uniform"
 )]
 const fn et_delivery_status(value: EtMessageDeliveryStatus) -> WitMessageDeliveryStatus {
@@ -403,8 +403,8 @@ const fn et_delivery_status(value: EtMessageDeliveryStatus) -> WitMessageDeliver
 }
 
 #[expect(
-    clippy::single_call_fn,
     clippy::needless_pass_by_value,
+    clippy::single_call_fn,
     reason = "WIT/edge-toolkit enum bridge; Copy enum, by value keeps call sites uniform"
 )]
 const fn et_agent_connection_state(value: EtAgentConnectionState) -> WitAgentConnectionState {

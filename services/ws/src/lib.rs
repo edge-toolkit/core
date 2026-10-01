@@ -103,7 +103,7 @@ const fn default_connection_timeout() -> Option<Duration> {
 ///
 /// `Json` is the normal path for protocol messages. `Text` and `Binary` carry payloads the server forwards verbatim --
 /// used by the hub-style fallback that broadcasts unrecognised frames to every other connected agent.
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub enum SessionMessage {
     Json(ServerMessage),

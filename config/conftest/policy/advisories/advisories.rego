@@ -36,6 +36,7 @@ dated[id] := date if {
 	id := entry.id
 }
 
+# Every advisory ignore must carry a `reason = "expires YYYY-MM-DD"` review date.
 deny contains msg if {
 	some entry in entries
 	id := advisory_id(entry)
@@ -48,7 +49,7 @@ day_ns := 86400000000000
 
 deny contains msg if {
 	some id, date in dated
-	midnight := time.parse_rfc3339_ns(concat("", [date, "T00:00:00Z"]))
+	midnight := time.parse_rfc3339_ns($"{date}T00:00:00Z")
 	time.now_ns() >= midnight + day_ns
 	msg := sprintf(lapsed_msg, [id, date])
 }

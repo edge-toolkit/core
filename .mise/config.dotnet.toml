@@ -48,7 +48,7 @@ fi
 dotnet publish -c Release $$publish_args
 
 PUBLISH=bin/Release/net10.0/publish/wwwroot/_framework
-cp "$$PUBLISH"/*.js "$$PUBLISH"/*.wasm "$$PUBLISH"/*.dat pkg/
+coreutils cp "$$PUBLISH"/*.js "$$PUBLISH"/*.wasm "$$PUBLISH"/*.dat pkg/
 '''
 
 [tasks.dotnet-fmt]

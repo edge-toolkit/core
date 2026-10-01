@@ -59,7 +59,7 @@ jobs:
           persist-credentials: false
 
       - name: Install mise + tools
-        uses: ./.github/actions/install-mise-tools
+        uses: $/.github/actions/install-mise-tools
         timeout-minutes: 60
 
       - name: Prefetch Rust dependencies

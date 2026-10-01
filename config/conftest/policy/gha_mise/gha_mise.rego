@@ -58,6 +58,7 @@ all_langs := value if {
 	value := file.contents.env.ALL_LANGS
 }
 
+# A workflow's env.MISE_ENV must match .mise/config.toml's ALL_LANGS.
 deny contains msg if {
 	some file in input
 	endswith(file.path, ".yaml")

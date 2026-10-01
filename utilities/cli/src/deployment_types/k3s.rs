@@ -160,8 +160,8 @@ fn fixed_documents(
 
 /// Serialise one object, in the YAML style the repo's formatters hold a committed file to.
 #[expect(
-    clippy::unwrap_used,
     clippy::unwrap_in_result,
+    clippy::unwrap_used,
     reason = "pretty_yaml only fails on malformed YAML and serde output is always well-formed"
 )]
 fn document<T>(object: &T) -> Result<String, CliError>

@@ -22,6 +22,7 @@
  * LoadLibraryW ref). Uses GetProcAddress rather than an import lib because ucrtbase's own import-lib members
  * define these same names and would collide. */
 
+// skipcq: CXX-W2030 -- this is C; <cstdlib> exists only in C++
 #include <stdlib.h>
 #include <windows.h>
 

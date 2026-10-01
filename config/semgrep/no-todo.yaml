@@ -12,7 +12,7 @@ rules:
         - "/.mise/config.toml"
         # Quotes a pre-merge cleanup task referenced elsewhere.
         # Tracks the Nano-shim work the maint config still papers around.
-        - "/CLAUDE.md"
+        - "/AGENTS.md"
         - "/Dockerfile.nanoserver"
         # Comment-quotes an upstream reqwest backoff TODO in the generated openapi client hook.
         # Not our TODO to chase.
@@ -26,6 +26,8 @@ rules:
         # This rule file itself contains the word `TODO` in its own docstring and message.
         # Allowlist or the rule trips on itself.
         - "/config/semgrep/no-todo.yaml"
+        # The generated catalogue of every check reproduces this rule's message, so it matches for the same reason.
+        - "/CHECKS.md"
     pattern-regex: '\bTODO\b'
     message: >-
       TODOs are not allowed in this repo.

@@ -23,7 +23,8 @@ GRADLE = '''{% if os() == "windows" -%}
 {{- vars.gradle_bin -}}\gradle.bat
 {%- else -%}
 gradle
-{%- endif %}'''
+{%- endif -%}
+'''
 
 [tasks.build-ws-kotlin-data1-module]
 description = "Build the kotlin-data1 workflow module (Kotlin/Wasm -> WasmGC)"

@@ -16,7 +16,7 @@
 # installs node ahead of any npm: tool, install-mise-tools stops restoring the GHCR store, and every task
 # declares a `shell` that routes its body through a wrapper script. A warm checkout needs `mise install` re-run
 # once -- a tool this mise cannot resolve still reports as installed, so nothing refetches it on its own.
-min_version = "2026.9.0"
+min_version = "2026.9.17"
 
 [settings]
 # Disable mise's two auto-install paths so tasks fail fast on a missing tool.
@@ -109,15 +109,7 @@ watchexec = "latest"
 # confirm the Windows zip layout hasn't reverted before raising the pin.
 coreutils = "0.6.0"
 dprint = "latest"
-# Held at the last release whose assets aqua's registry entry still names.
-# v4.0.0 renamed every asset from `ec-<os>-<arch>` to `editorconfig-checker-<os>-<arch>`, and aqua's manifest
-# was not updated, so `latest` resolves to a version whose download it cannot find:
-#   aqua:editorconfig-checker/editorconfig-checker@latest: no asset found: ec-windows-amd64.zip
-# on commit https://github.com/edge-toolkit/core/commit/02d645a30b89850b5d27711e0dd8f61780dcdcb3 at
-# https://github.com/edge-toolkit/core/actions/runs/33945730231/job/101251329874. The rename is not
-# Windows-specific -- every platform's asset moved -- so this holds every lane, not just that one. Drop the pin
-# once the aqua registry ships a version_overrides entry for 4.x.
-editorconfig-checker = "3.11.3"
+editorconfig-checker = "latest"
 # ripgrep (rg): the Rust grep that tasks use in place of the host's grep.
 ripgrep = "latest"
 # uutils findutils (find + xargs), pinned to 0.8.0 (0.9.0 ships no binaries).
@@ -177,7 +169,12 @@ go = "latest"
 hadolint = "latest"
 ls-lint = "latest"
 lychee = "latest"
-mprocs = "latest"
+# dekit, mprocs under its new name: `dekit mprocs` runs the repo-root mprocs.yaml.
+# The github backend rather than the registry's `aqua:pvolok/dekit`, whose manifest still names the pre-rename
+# assets, so every platform fails with
+#   aqua:pvolok/dekit@0.10.0: no asset found: mprocs-0.10.0-darwin-aarch64.tar.gz, mprocs-0.10.0-darwin-universal.tar.gz
+# on mise 2026.9.18. Return to the registry name once its aqua entry knows the `dekit-<triple>` assets.
+"github:pvolok/dekit" = "latest"
 node = "22"
 osv-scanner = "latest"
 # Aqua has no pipx build for windows/amd64.
@@ -479,7 +476,8 @@ a_home = '''{% if os() == "windows" -%}
 {{- (env?.USERPROFILE or "") | replace(from="\\", to="/") -}}
 {%- else -%}
 {{- env.HOME -}}
-{%- endif %}'''
+{%- endif -%}
+'''
 # augeas asset filenames, one per supported platform.
 # Each matches an `[asset."<filename>"]` row in config/upstream-cache/data.toml so the checksums.rego policy
 # can enforce the cross-reference. All five tarballs are uploaded to the augeas-v1 release by the
@@ -676,6 +674,14 @@ a_rp_wasm_short = "08a1d6f"
 # normalizer (`cp: The system cannot find the path specified. (os error 3)`).
 # Extra actionlint flags for actionlint-check; empty everywhere except the config.windows.toml override.
 actionlint_args = ""
+# The one actionlint error actionlint-check ignores: a local action written in GitHub's self-repository syntax.
+# That syntax (`uses: $/.github/actions/<name>`) arrived in July 2026, and actionlint 1.7.12, the latest release,
+# predates it, so it reports every such ref as
+#   specifying action "$/.github/actions/install-mise" in invalid format because ref is missing.
+#   available formats are "{owner}/{repo}@{ref}" or "{owner}/{repo}/{path}@{ref}" [action]
+# The pattern matches only that message for a `$/.github/actions/` ref, so a malformed remote ref is still caught.
+# Drop it once an actionlint release understands `$/`.
+actionlint_ignore = "-ignore 'specifying action ..[/][.]github/actions/[^ ]+ in invalid format because ref is missing'"
 gh_http = "--http-url https://github.com --progress --ignore-existing"
 # Shared shfmt flags for the shfmt-mise-check / shfmt-mise-fmt pair.
 # `-ln bash` because a split-out body carries no shebang for shfmt to sniff, `-i 2` to match the indent_size
@@ -708,7 +714,8 @@ rp_wasm_dir = '''{% if os() == "windows" and env?.MISE_INSTALLS_DIR -%}
 {{- base -}}/mise/installs/http-rp-wasm/{{- vars.a_rp_wasm_short -}}
 {%- else -%}
 {{- vars.mise_data_dir -}}/installs/http-rp-wasm/{{- vars.a_rp_wasm_short -}}
-{%- endif %}'''
+{%- endif -%}
+'''
 
 [env]
 # Comma-separated list of every language env (one per .mise/config.<lang>.toml).
@@ -756,8 +763,8 @@ ORT_LIB_LOCATION = "{% if os() == 'windows' %}{{ vars.ort_loc_win }}{% else %}{{
 ORT_SKIP_DOWNLOAD = "1"
 
 [tasks]
-ec = "ec"
-editorconfig-check = "ec"
+ec = "editorconfig-checker"
+editorconfig-check = "editorconfig-checker"
 
 [tasks.dprint-check]
 env = { DPRINT_CACHE_DIR = "{{ config_root }}/target/dprint-cache" }
@@ -809,6 +816,7 @@ depends = [
   "cargo-clippy-check",
   "cargo-doc-check",
   "cargo-fmt-check",
+  "checks-md-check",
   "conftest-check",
   "dockerignore-check",
   "dprint-check",
@@ -867,7 +875,7 @@ description = "Validate GitHub Actions workflow + composite-action YAML"
 run = "action-validator .github/workflows/*.yaml .github/actions/*/action.yaml"
 
 [tasks.agent-lint-check]
-description = "Lint this repository's Claude configuration (CLAUDE.md, .claude/) with agent-lint"
+description = "Lint this repository's agent configuration (AGENTS.md, .claude/) with agent-lint"
 # Skips where upstream ships no binary rather than failing on a missing one.
 # That is the one case this repo treats a missing tool as expected: the `[tools]` entry is os-scoped to the
 # targets the release actually carries, so on any other platform there is nothing to install and nothing this
@@ -891,7 +899,7 @@ description = "Lint GitHub Actions workflows (actionlint): local-action input va
 # warns). actionlint lints workflows only, so it does NOT see composite-action -> action calls; the gha_uses
 # conftest rule covers that direction. Intentional word-splitting sites carry an inline
 # `# shellcheck disable=SC2086` directive in the run script, as the mise-task bodies do.
-run = "actionlint {{ vars.actionlint_args }} .github/workflows/*.yaml"
+run = "actionlint {{ vars.actionlint_args }} {{ vars.actionlint_ignore }} .github/workflows/*.yaml"
 
 [tasks.zizmor-check]
 description = "Audit GitHub Actions workflows + composite actions for security issues (zizmor)"
@@ -1283,7 +1291,7 @@ description = "Check that every multi-line bash mise task body is shfmt-formatte
 # The `-d` pass is what makes a failure actionable -- shfmt prints the offending body's own diff -- while the
 # hash compare additionally catches whatever the merge pass would rewrite outside shfmt's view (the TOML
 # escape normalisation .mise/shfmt-mise.awk performs on a `"""` body).
-run = '''
+run = """
 work="{{ vars.config_root_fwd }}/target/scratch/shfmt-mise-check"
 coreutils rm -rf "$work"
 status=0
@@ -1305,7 +1313,7 @@ for cfg in .mise/config*.toml; do
   fi
 done
 exit $status
-'''
+"""
 shell = "{{ vars.task_shell }}"
 
 [tasks.shfmt-mise-fmt]
@@ -1313,7 +1321,7 @@ description = "Format every multi-line bash mise task body with shfmt"
 # Split each config's task bodies into scratch scripts, shfmt them, then merge them back over the config.
 # .mise/shfmt-mise.awk owns both halves of that trip; the two loops here are split around one shfmt call so
 # the glob always has something to match (config.java.toml carries no multi-line body of its own).
-run = '''
+run = """
 work="{{ vars.config_root_fwd }}/target/scratch/shfmt-mise-fmt"
 coreutils rm -rf "$work"
 for cfg in .mise/config*.toml; do
@@ -1327,7 +1335,7 @@ for cfg in .mise/config*.toml; do
   goawk -N raw -v mode=merge -v dir="$d" -f .mise/shfmt-mise.awk "$cfg" >"$d/merged.toml"
   coreutils cp "$d/merged.toml" "$cfg"
 done
-'''
+"""
 shell = "{{ vars.task_shell }}"
 # taplo-fmt rewrites every .mise/config*.toml in full, and so does this task.
 # fmt:rust runs its dependencies as parallel siblings, so with no ordering edge between the two the second
@@ -1619,8 +1627,10 @@ kubectl rollout status deploy/ws-server -n "$ns" --timeout="$manifest_wait"
 # concatenated JSON documents rather than one. The sibling mise and compose test reads the first match for the
 # same reason.
 stored=""
-# The glob and `$1` are for the pod's shell to expand, so they must reach it unexpanded.
+# The glob, `$1` and the `cat` are all for the pod's shell, so they must reach it unexpanded.
+# That shell runs in the hub image, where no mise-managed coreutils exists.
 # shellcheck disable=SC2016
+# nosemgrep: config.semgrep.mise-task-coreutils-prefix
 read_model='set -- /app/storage/*/math1-output.json; cat "$1"'
 for _ in $(coreutils seq 1 60); do
   stored=$(kubectl exec -n "$ns" deploy/ws-server -- sh -c "$read_model" 2>/dev/null || true)
@@ -1836,7 +1846,7 @@ run = '''
   echo "# like .gitignore. Edit .gitignore and regenerate."
   echo
   {
-    cat .gitignore
+    coreutils cat .gitignore
     printf '%s\n' '.git/' 'Dockerfile*' '/README.md'
   } | goawk '
     /^[[:space:]]*#/ { print; next }
@@ -1969,7 +1979,7 @@ depends = ["cargo-check", "cargo-clippy-check", "cargo-doc-check", "regenerate-v
 description = "Regenerate HELP.md for every clap-using utility under utilities/"
 run = """
 s=target/scratch/gen-help
-mkdir -p "$s"
+coreutils mkdir -p "$s"
 for crate in et-cli et-int-gen et-onnx; do
   helpmd="utilities/${crate#et-}/HELP.md"
   echo "[gen-help-all] $crate -> $helpmd"
@@ -1978,6 +1988,14 @@ for crate in et-cli et-int-gen et-onnx; do
 done
 """
 shell = "{{ vars.task_shell }}"
+
+[tasks."gen:checks"]
+description = "Regenerate CHECKS.md, the catalogue of every check across every MISE_ENV"
+run = "cargo run -q -p et-int-gen --bin et-int-gen -- checks"
+
+[tasks.checks-md-check]
+description = "Fail if CHECKS.md is stale vs the mise task tables and rule files (run `mise run gen:checks`)"
+run = "cargo run -q -p et-int-gen --bin et-int-gen -- checks --check"
 
 [tasks.gen-help-check]
 depends = ["gen-help-all"]
@@ -2417,9 +2435,9 @@ otelcol-contrib --config config/otelcol-winperf.yaml
 shell = "{{ vars.task_shell }}"
 
 # Note: bare `yq` / `coreutils` would fail inside the nanoserver docker build.
-# There mise's shims aren't on PATH for busybox-w32 ash (see the CLAUDE.md "Nano Server exception").
+# There mise's shims aren't on PATH for busybox-w32 ash (see the AGENTS.md "Nano Server exception").
 # `mise exec --` is the documented escape hatch; works the same on every host. yq stays bare because it
-# already runs cleanly on every other lane and the nanoserver-shim TODO (CLAUDE.md) plans to put all
+# already runs cleanly on every other lane and the nanoserver-shim TODO (AGENTS.md) plans to put all
 # shims on PATH there too.
 [tasks.fetch-face1-rclone]
 run = """

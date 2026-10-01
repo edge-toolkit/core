@@ -5,5 +5,5 @@ version = "10.0.300"
 backend = "core:dotnet"
 
 [[tools."dotnet:roslynator.dotnet.cli"]]
-version = "0.12.0"
+version = "1.0.0"
 backend = "dotnet:roslynator.dotnet.cli"

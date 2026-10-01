@@ -1,0 +1,20 @@
+id: write-ending-newline
+language: Rust
+severity: error
+message: |
+  A `write!` whose format string ends in `\n` is a `writeln!` written the long way: use `writeln!` and drop the
+  final `\n`. This mirrors `DeepSource RS-C1005`. clippy's `write_with_newline` covers only a single trailing
+  newline and deliberately skips a string ending in `\n\n`, which is the case this rule exists to catch.
+# There is no autofix.
+# The rewrite renames the macro and edits the string literal inside its token tree at once, which a single `fix:`
+# template over the whole invocation cannot express without re-spelling every argument.
+rule:
+  kind: macro_invocation
+  has:
+    field: macro
+    regex: ^write$
+  regex: '(?s)^write!\s*\((?:[^"()]|\([^()]*\))*,\s*"(?:[^"\\]|\\.)*\\n"'
+ignores:
+  - generated/**
+  # Generated; refer to int-gen bindings.rs for details.
+  - services/ws-wasi-runner/src/bindings.rs

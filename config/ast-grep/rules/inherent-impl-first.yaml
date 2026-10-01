@@ -1,0 +1,33 @@
+id: inherent-impl-first
+language: Rust
+severity: error
+message: |
+  Put a type's inherent `impl` block before its trait `impl`s in the same module. A reader then meets the type's
+  own constructors and methods first, and the trait impls that follow read as what they are: the type's
+  conformance to interfaces defined elsewhere.
+# Match a trait impl that has a later inherent impl of the same type among its siblings.
+# `$TY` binds the trait impl's self type and the `precedes` sub-rule requires the inherent impl to carry the same
+# text, so `impl<T> Foo<T>` only pairs with `impl<T> Display for Foo<T>`.
+rule:
+  kind: impl_item
+  all:
+    - has:
+        field: trait
+        regex: .
+    - has:
+        field: type
+        pattern: $TY
+  precedes:
+    kind: impl_item
+    has:
+      field: type
+      pattern: $TY
+    not:
+      has:
+        field: trait
+        regex: .
+    stopBy: end
+ignores:
+  - generated/**
+  # Generated; refer to int-gen bindings.rs for details.
+  - services/ws-wasi-runner/src/bindings.rs

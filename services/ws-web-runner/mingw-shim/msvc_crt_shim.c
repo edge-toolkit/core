@@ -12,7 +12,9 @@
  * every analyzer that reports those, `DeepSource CXX-E2000` (reserved identifier) and `DeepSource CXX-W2009`
  * (non-const) included. */
 
+// skipcq: CXX-W2030 -- this is C; <cstdint> exists only in C++
 #include <stdint.h>
+// skipcq: CXX-W2030 -- this is C; <cstdlib> exists only in C++
 #include <stdlib.h>
 #include <windows.h>
 
@@ -89,6 +91,7 @@ void __dyn_tls_on_demand_init(void) {}
 
 /* Chromium libc++'s verbose abort, which exists only to die loudly.
  * It is referenced from the archive's absl objects but its own definition is not archive-extractable. */
+// skipcq: CXX-W2014 -- the variadic signature is libc++'s ABI for __libcpp_verbose_abort, and C has no packs
 _Noreturn void shim_libcpp_verbose_abort(const char *fmt, ...) {
     (void)fmt;
     abort();

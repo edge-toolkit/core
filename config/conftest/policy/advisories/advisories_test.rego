@@ -16,7 +16,7 @@ day_ns := 86400000000000
 
 deny_file(entries) := [{"path": "config/deny.toml", "contents": {"advisories": {"ignore": entries}}}]
 
-dated(id, date) := {"id": id, "reason": sprintf("expires %s", [date])}
+dated(id, date) := {"id": id, "reason": $"expires {date}"}
 
 names(msgs, fragment) if {
 	some msg in msgs

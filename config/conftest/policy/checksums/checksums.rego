@@ -18,6 +18,10 @@ is_upstream_cache(file) if file.path == "config/upstream-cache/data.toml"
 # Module-scope sprintf templates each live on their own line so the source stays readable.
 missing_sha256_msg := "config/upstream-cache/data.toml: [asset.%q] is missing `sha256` (use `\"\"` while bootstrapping)"
 
+asset_var_hint := "referenced via a `_asset` var in .mise/config*.toml"
+
+unreferenced_msg := "is recorded but no `_asset` var in .mise/config*.toml references it"
+
 # Asset filenames declared in any .mise/config*.toml's [vars].
 mise_assets contains filename if {
 	some file in input
@@ -33,22 +37,18 @@ recorded_assets contains filename if {
 	some filename, _ in file.contents.asset
 }
 
+# Every `_asset` var in the mise configs must have an [asset] table in config/upstream-cache/data.toml.
 deny contains msg if {
 	some asset in mise_assets
 	not asset in recorded_assets
-	msg := sprintf(
-		"config/upstream-cache/data.toml: missing [asset.%q] table (referenced via a `_asset` var in .mise/config*.toml)",
-		[asset],
-	)
+	msg := $"config/upstream-cache/data.toml: missing [asset.\"{asset}\"] table ({asset_var_hint})"
 }
 
+# Every [asset] table in config/upstream-cache/data.toml must be referenced by a mise `_asset` var.
 deny contains msg if {
 	some asset in recorded_assets
 	not asset in mise_assets
-	msg := sprintf(
-		"config/upstream-cache/data.toml: [asset.%q] is recorded but no `_asset` var in .mise/config*.toml references it",
-		[asset],
-	)
+	msg := $"config/upstream-cache/data.toml: [asset.\"{asset}\"] {unreferenced_msg}"
 }
 
 # Per-entry shape check on each asset table.
@@ -58,25 +58,28 @@ deny contains msg if {
 	is_upstream_cache(file)
 	some filename, entry in file.contents.asset
 	not entry.url
-	msg := sprintf("config/upstream-cache/data.toml: [asset.%q] is missing `url` (the download URL)", [filename])
+	msg := $"config/upstream-cache/data.toml: [asset.\"{filename}\"] is missing `url` (the download URL)"
 }
 
+# Every recorded asset must name its `upstream` project URL.
 deny contains msg if {
 	some file in input
 	is_upstream_cache(file)
 	some filename, entry in file.contents.asset
 	not entry.upstream
-	msg := sprintf("config/upstream-cache/data.toml: [asset.%q] is missing `upstream` (the project URL)", [filename])
+	msg := $"config/upstream-cache/data.toml: [asset.\"{filename}\"] is missing `upstream` (the project URL)"
 }
 
+# Every recorded asset must carry its `license` as an SPDX expression.
 deny contains msg if {
 	some file in input
 	is_upstream_cache(file)
 	some filename, entry in file.contents.asset
 	not entry.license
-	msg := sprintf("config/upstream-cache/data.toml: [asset.%q] is missing `license` (SPDX expression)", [filename])
+	msg := $"config/upstream-cache/data.toml: [asset.\"{filename}\"] is missing `license` (SPDX expression)"
 }
 
+# Every recorded asset must carry a `sha256`, left empty only while bootstrapping.
 deny contains msg if {
 	some file in input
 	is_upstream_cache(file)

@@ -41,6 +41,7 @@ deny contains msg if {
 	msg := sprintf(grew_msg, [baseline_clones, declared_clones])
 }
 
+# declared_clones may sit at most max_slack above the baseline, so progress gets banked.
 deny contains msg if {
 	slack := declared_clones - baseline_clones
 	slack > max_slack

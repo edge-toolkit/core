@@ -65,10 +65,10 @@ jobs:
 
       - name: Install Mesa Vulkan drivers (lavapipe)
         if: runner.os == 'Linux'
-        uses: ./.github/actions/install-lavapipe
+        uses: $/.github/actions/install-lavapipe
 
       - name: Install mise + coverage tools
-        uses: ./.github/actions/install-mise-tools
+        uses: $/.github/actions/install-mise-tools
         timeout-minutes: 20
         with:
           install-action-tools: cargo-llvm-cov,deepsource

@@ -76,7 +76,7 @@ pub fn is_valid_agent_id(id: &str) -> bool {
             .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-'))
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[non_exhaustive]
 pub struct PendingDirectMessage {
     pub message_id: String,
@@ -85,7 +85,7 @@ pub struct PendingDirectMessage {
     pub message: serde_json::Value,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[non_exhaustive]
 pub struct AgentRecord<S> {
     pub state: AgentConnectionState,
@@ -128,14 +128,6 @@ impl<S> AgentRegistry<S> {
     pub fn from_agents(agents: BTreeMap<String, AgentRecord<S>>) -> Self {
         Self {
             agents: Arc::new(Mutex::new(agents)),
-        }
-    }
-}
-
-impl<S> Default for AgentRegistry<S> {
-    fn default() -> Self {
-        Self {
-            agents: Arc::new(Mutex::new(BTreeMap::new())),
         }
     }
 }
@@ -339,5 +331,13 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
         let session = agents.get(agent_id).and_then(|record| record.session.clone());
         drop(agents);
         session
+    }
+}
+
+impl<S> Default for AgentRegistry<S> {
+    fn default() -> Self {
+        Self {
+            agents: Arc::new(Mutex::new(BTreeMap::new())),
+        }
     }
 }

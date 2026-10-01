@@ -19,7 +19,7 @@ use tracing::{error, info, warn};
 use tracing_actix_web::TracingLogger;
 use tracing_subscriber::{layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
-#[derive(Parser, Debug)]
+#[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Path to agent registry YAML file.

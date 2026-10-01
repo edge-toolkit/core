@@ -24,6 +24,40 @@ rules:
       before any task on Windows (see preinstall), so even the setup tasks can use it.
     severity: ERROR
 
+  - id: multiline-string-closes-on-own-line
+    languages: [generic]
+    paths:
+      include:
+        - "/.mise/config*.toml"
+    # Match a multi-line `"""` / `'''` string whose closing delimiter trails its last line instead of standing alone.
+    # The opening line and the lines before the last may not contain the delimiter, so a single-line `"""x"""` and a
+    # string that does close on its own line never match, and the scan cannot run on into the next value. No autofix:
+    # moving the delimiter appends a newline to the value, which is harmless in a task body but changes a Tera
+    # `[vars]` / `[env]` value unless its last tag trims with `-%}`, and a template cannot tell the two apart.
+    pattern-regex: '(?m)^[^\n#]*?= ("""|'''''')(?:(?!\1)[^\n])*\n(?:(?![^\n]*\1)[^\n]*\n)*?(?:(?!\1)[^\n])*\S\1'
+    message: >-
+      Close a multi-line `"""` (or `'''`) string with the delimiter alone on its own line, not on the end of its
+      last line. Every multi-line value then ends the same way and appending a line never means editing the one
+      before it. In a Tera value, end the last tag with `-%}` (e.g. `{%- endif -%}`) so the newline before the
+      delimiter is trimmed and the rendered value is unchanged.
+    severity: ERROR
+
+  - id: multiline-literal-string-needs-backslash
+    languages: [generic]
+    paths:
+      include:
+        - "/.mise/config*.toml"
+    # Match a multi-line `'''` literal string that holds no backslash, the one character it exists to keep verbatim.
+    # The lookahead requires a newline before the closing `'''`, so a single-line value is out of scope. A body that
+    # contains `"""` is exempt too, since it cannot be written as a `"""` string at all. Swapping the delimiters is
+    # exactly the fix, but semgrep's `fix-regex` rewrites one pattern and the two ends need it together.
+    pattern-regex: '= ''''''(?=(?:(?!''''''|""")[^\\])*?\n)(?:(?!''''''|""")[^\\])*'''''''
+    message: >-
+      Write a multi-line string without a backslash as `"""..."""`, not `'''...'''`. A TOML literal string exists
+      to keep backslashes verbatim (Windows paths, regex escapes); without one it only makes this value differ from
+      the `"""` bodies around it, and the next reader looks for an escape that is not there.
+    severity: ERROR
+
   - id: task-shell-must-use-task-shell-var
     languages: [generic]
     paths:
@@ -61,3 +95,30 @@ rules:
       Inline it on the parent task as `env = { KEY = "value" }` when the resulting line fits the editorconfig
       line length -- subtable form is reserved for multi-key envs.
     severity: WARNING
+
+  - id: mise-task-coreutils-prefix
+    languages: [generic]
+    paths:
+      include:
+        - "/.mise/config*.toml"
+    # A banned name only counts in command position, so `mise ls`, `docker rm` and prose stay clear of it.
+    # Command position is the start of a line or of a `run = "..."` string, or just after `;`, `|`, `&`, `(`, a
+    # backtick, or `then`/`do`/`else`. The prefix class stops at `#`, so a comment line or a trailing comment
+    # never matches; a name already behind `coreutils` or `"$coreutils"` follows a word, not a separator.
+    # `(?x)` lets the regex wrap: unescaped whitespace is ignored, so literal spaces are written `[ ]`.
+    # The `pattern-not-regex` drops every line that assigns a TOML key other than `run`, so a `description` or
+    # any other value that only mentions a command -- `"Inspect files (ls -la)"` -- is never read as one.
+    patterns:
+      - pattern-regex: >-
+          (?mx) ^( (?: [^#\n]*? (?: [;|&(`] | \bthen | \bdo | \belse | \brun[ ]=[ ]["'] ) )? [ \t]* )
+          (cat|cp|cut|ls|mkdir|mktemp|mv|rm|sort|tr) (?=[ \t]|$)
+      - pattern-not-regex: '(?m)^[ \t]*(?!run[ \t]*=)[A-Za-z_][\w.-]*[ \t]*=[^\n]*$'
+    # Check-only, because the pinned semgrep silently drops a `fix-regex` on a generic `pattern-regex` rule.
+    # Inserting the `coreutils ` prefix is therefore left to the human.
+    message: >-
+      Call POSIX utilities in mise task bodies through the mise-managed uutils multicall, as `coreutils <util>`.
+      A bare `mkdir`/`cp`/`rm`/... runs whatever the host ships -- BSD on macOS, GNU on Linux, busybox or Git
+      Bash on Windows -- so flags and behaviour differ per machine, and the task depends on a tool mise does not
+      pin. A command that is run by another shell (inside a container or pod) is a genuine exception: suppress it
+      on that line with a `nosemgrep` comment saying where it runs.
+    severity: ERROR

@@ -21,11 +21,12 @@ uv_version := v if {
 	v := file.contents.tools.uv
 }
 
+# A pyproject's uv_build requirement must pin the uv version mise installs.
 deny contains msg if {
 	some file in input
 	endswith(file.path, "pyproject.toml")
 	some req in file.contents["build-system"].requires
 	startswith(req, "uv_build")
-	req != sprintf("uv_build==%s", [uv_version])
+	req != $"uv_build=={uv_version}"
 	msg := sprintf("%s: pin uv_build==%s to match mise's uv (found %q)", [file.path, uv_version, req])
 }

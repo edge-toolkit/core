@@ -11,6 +11,8 @@ rules:
         # Naming the banned command is unavoidable in a rule that bans it, so the id, the message and the
         # pattern below would each be a finding.
         - "/config/semgrep/no-wget.yaml"
+        # The generated catalogue of every check reproduces this rule's message, so it matches for the same reason.
+        - "/CHECKS.md"
     pattern-regex: '\bwget\b'
     message: >-
       Use `curl` instead of `wget` for downloads in this repo.

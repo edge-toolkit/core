@@ -104,8 +104,8 @@ pub fn run(project_root: &Path) -> Result<(), Error> {
 }
 
 #[expect(
-    clippy::single_call_fn,
     clippy::print_stdout,
+    clippy::single_call_fn,
     reason = "helper called once by run(); et-int-gen is a CLI, stdout progress lines are intended user-facing output"
 )]
 fn fetch_one(deps_root: &Path, pkg: &UpstreamPackage) -> Result<(), Error> {

@@ -27,7 +27,7 @@ pub enum RunnerError {
 
 /// Maps any `Display` error into a generic `JsErrorBox`.
 ///
-/// Per repo naming convention (see CLAUDE.md), these are `map_*` because they
+/// Per repo naming convention (see AGENTS.md), these are `map_*` because they
 /// are custom-`map_err` wrappers -- the name signals "this calls `map_err`
 /// under the hood, just hiding the closure."
 pub trait JsErrExt<T> {

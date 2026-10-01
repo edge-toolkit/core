@@ -309,8 +309,8 @@ fn create_web_worker_cb(
 /// spawn fresh `WebWorker`s on their own threads sharing a `BackingStore` store for `SharedArrayBuffer` cross-isolate
 /// transfer.
 #[expect(
-    clippy::single_call_fn,
     clippy::future_not_send,
+    clippy::single_call_fn,
     reason = "MainWorker is !Send; called from single-threaded tokio"
 )]
 pub async fn run_js_module(

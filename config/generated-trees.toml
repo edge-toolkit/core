@@ -42,7 +42,9 @@
 regenerated_by = "mise run gen-specs-all"
 required_in = [
   "config/ast-grep/rules/command-requires-command-error.yaml",
+  "config/ast-grep/rules/derive-attribute-order.yaml",
   "config/ast-grep/rules/doc-summary-ends-with-period.yaml",
+  "config/ast-grep/rules/inherent-impl-first.yaml",
   "config/ast-grep/rules/no-allow-attributes.yaml",
   "config/ast-grep/rules/no-concat-raw-strings.yaml",
   "config/ast-grep/rules/no-consecutive-expect.yaml",
@@ -59,6 +61,7 @@ required_in = [
   "config/ast-grep/rules/no-string-new.yaml",
   "config/ast-grep/rules/prefer-self-mod-use.yaml",
   "config/ast-grep/rules/use-mod-order.yaml",
+  "config/ast-grep/rules/write-ending-newline.yaml",
   "config/jscpd.json",
   "config/pyrefly.toml",
   "config/semgrep/anyhow-only-in-error-rs.yaml",
@@ -69,6 +72,7 @@ required_in = [
   "config/semgrep/no-task-name-mentions.yaml",
   "config/semgrep/no-todo.yaml",
   "config/semgrep/no-type-comments.yaml",
+  "config/semgrep/sorted-lists.yaml",
 ]
 
 # Scenario-generator outputs checked in beside their inputs; holds no Rust, so the Rust-only rules are absent.

@@ -153,7 +153,7 @@ jobs:
         if: |-
           steps.rp_check.outputs.work == 'yes'
           && github.event.pull_request.head.repo.fork != true
-        uses: ./.github/actions/install-mise-tools
+        uses: $/.github/actions/install-mise-tools
         with:
           github-token: ${{ github.token }}
 

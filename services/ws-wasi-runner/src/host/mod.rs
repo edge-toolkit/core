@@ -73,8 +73,8 @@ impl HostState {
         #[cfg(feature = "coverage")]
         if coverage {
             #[expect(
-                unused_results,
                 clippy::unwrap_used,
+                unused_results,
                 reason = "preopen setter returns &mut Self; a coverage-preopen failure is a misconfigured test run"
             )]
             {

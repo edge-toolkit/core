@@ -226,7 +226,7 @@ dir = "services/ws-modules/wasi-graphics-info"
 # image, so the guest fetches it via the `wasi:keyvalue/store` host import from the ws-server at runtime.
 # componentize-py 0.23's `bindings` subcommand refuses to overwrite an existing output dir, so we wipe it first.
 run = """
-rm -rf wit_world
+coreutils rm -rf wit_world
 componentize-py -d {{ vars.wit_dir }} -w module bindings .
 componentize-py -d {{ vars.wit_dir }} -w module componentize wasi_graphics_info -o pkg/et_ws_wasi_graphics_info.wasm
 {{ vars.et_cli }} module-package-json
@@ -256,7 +256,7 @@ shell = "{{ vars.task_shell }}"
 depends = ["gen:ws-spec"]
 description = "Emit the typed Python REST client via openapi-python-client (consumes generated/specs/rest.yaml)"
 run = """
-mkdir -p generated/python-rest/et_rest_client
+coreutils mkdir -p generated/python-rest/et_rest_client
 # None of these args move into config/openapi-python-client.yaml.
 # path / meta / overwrite / output-path are CLI-only `generate` options. Build
 # them up in a shell var (split over two lines) so neither line needs a backslash
@@ -268,7 +268,7 @@ args="$args --meta none --overwrite --output-path generated/python-rest/et_rest_
 openapi-python-client generate $args
 # Remove the .ruff_cache that openapi-python-client / our follow-up ruff drop.
 # It lands next to the generated source; we don't want that committed.
-rm -rf generated/python-rest/et_rest_client/.ruff_cache
+coreutils rm -rf generated/python-rest/et_rest_client/.ruff_cache
 # Run both ruff passes ourselves from the workspace's `ruff` install.
 # openapi-python-client's built-in post-hooks (`ruff check --fix-only` + `ruff format`) are disabled via
 # config/openapi-python-client.yaml because they emit "ruff is not in PATH" on Windows where ruff doesn't sit
@@ -287,7 +287,7 @@ description = "Emit Pydantic models for the WS protocol via datamodel-code-gener
 # style flags); only the input/output paths are passed on the CLI.
 dir = "generated/python-ws"
 run = """
-mkdir -p et_ws
+coreutils mkdir -p et_ws
 datamodel-codegen --input ../../target/int-gen/ws.schema.json --output et_ws/messages.py
 # Drop the 2-line header that custom-file-header = "#" emits, so the file starts cleanly.
 # That header is a lone `#` + the blank after it. tail, not sed: datamodel-codegen always emits exactly those

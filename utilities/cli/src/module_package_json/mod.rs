@@ -58,7 +58,7 @@ struct Project {
 }
 
 /// Shared shape of `[tool.ws-module]` (pyproject.toml) and `[package.metadata.ws-module]` (Cargo.toml).
-#[derive(Deserialize, Default)]
+#[derive(Default, Deserialize)]
 struct WsModule {
     /// Override for the resolved entry file (relative to `pkg/`).
     ///
@@ -118,7 +118,7 @@ struct CargoWorkspace {
     package: Option<WorkspacePackage>,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Default, Deserialize)]
 struct WorkspacePackage {
     version: Option<String>,
     repository: Option<String>,

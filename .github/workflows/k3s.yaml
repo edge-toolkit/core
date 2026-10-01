@@ -74,7 +74,7 @@ jobs:
         run: echo "MISE_ENV=$MISE_ENV"
 
       - name: Install mise + tools
-        uses: ./.github/actions/install-mise-tools
+        uses: $/.github/actions/install-mise-tools
         timeout-minutes: 60
         with:
           github-token: ${{ github.token }}
@@ -142,7 +142,7 @@ jobs:
           persist-credentials: false
 
       - name: Install mise + tools
-        uses: ./.github/actions/install-mise-tools
+        uses: $/.github/actions/install-mise-tools
         timeout-minutes: 60
         with:
           github-token: ${{ github.token }}
@@ -181,7 +181,7 @@ jobs:
           persist-credentials: false
 
       - name: Install mise + tools
-        uses: ./.github/actions/install-mise-tools
+        uses: $/.github/actions/install-mise-tools
         timeout-minutes: 60
         with:
           github-token: ${{ github.token }}

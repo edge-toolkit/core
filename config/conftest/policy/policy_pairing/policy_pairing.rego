@@ -45,18 +45,18 @@ untested_policy := {
 	"config/conftest/policy/jscpd/jscpd.rego": "two arithmetic comparisons against one declared number",
 	"config/conftest/policy/pyproject/pyproject.rego": "direct key presence checks over one table",
 	"config/conftest/policy/dockerfile/dockerfile.rego": "pattern-driven; predates the rule, write tests",
-	"config/conftest/policy/gha/gha.rego": "pattern-driven; predates the rule, write tests",
 	"config/conftest/policy/gha_combined/gha_combined.rego": "pattern-driven; predates the rule, write tests",
 	"config/conftest/policy/gha_mise/gha_mise.rego": "pattern-driven; predates the rule, write tests",
 	"config/conftest/policy/gha_uses/gha_uses.rego": "pattern-driven; predates the rule, write tests",
 }
 
+# Every policy must have a test file beside it, or a reasoned untested_policy entry.
 deny contains msg if {
 	some path in policy_files
 	not untested_policy[path]
 	expected := expected_test(path)
 	not expected in paired_tests
-	msg := sprintf("%s: add %s, or record the policy in untested_policy with its reason", [path, expected])
+	msg := $"{path}: add {expected}, or record the policy in untested_policy with its reason"
 }
 
 # The map is a two-way contract, the same way a lint suppression is.
@@ -65,12 +65,12 @@ deny contains msg if {
 deny contains msg if {
 	some path, reason in untested_policy
 	expected_test(path) in paired_tests
-	msg := sprintf("%s: now has a test, so drop its untested_policy entry (%s)", [path, reason])
+	msg := $"{path}: now has a test, so drop its untested_policy entry ({reason})"
 }
 
 # An entry naming a policy that is no longer there has outlived what it described.
 deny contains msg if {
 	some path, reason in untested_policy
 	not path in policy_files
-	msg := sprintf("%s: untested_policy names a policy that no longer exists (%s)", [path, reason])
+	msg := $"{path}: untested_policy names a policy that no longer exists ({reason})"
 }

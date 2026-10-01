@@ -53,11 +53,11 @@ version = "4.3.0"
 backend = "npm:@huggingface/transformers"
 
 [[tools."npm:@mediapipe/tasks-vision"]]
-version = "1.0.0"
+version = "1.0.1"
 backend = "npm:@mediapipe/tasks-vision"
 
 [[tools."npm:onnxruntime-web"]]
-version = "1.27.0"
+version = "1.30.0"
 backend = "npm:onnxruntime-web"
 
 [[tools."npm:oxlint-tsgolint"]]
@@ -65,7 +65,7 @@ version = "0.24.0"
 backend = "npm:oxlint-tsgolint"
 
 [[tools."npm:pnpm"]]
-version = "11.21.0"
+version = "12.8.1"
 backend = "npm:pnpm"
 
 [[tools."npm:stats-gl"]]

@@ -1,0 +1,128 @@
+rules:
+  - id: sorted-lists
+    languages: [generic]
+    paths:
+      include:
+        - "*.rs"
+      exclude:
+        # Generated trees; their contents are not ours to shape.
+        - "/generated/**"
+        - "/services/ws-wasi-runner/src/bindings.rs"
+    # Flag an adjacent pair that is out of ASCII order in a derive list, a lint list, or a cfg feature list.
+    # Each `pattern-either` arm pairs a regex that captures two adjacent keys as `$PAIR` with one that confines it to
+    # its list -- semgrep keeps a match only where every positive pattern covers it -- and the one comparator below
+    # then judges every arm's pairs. The arms live in one rule because a comparator shared through a YAML anchor
+    # fails semgrep-core's rule validation with "Expected a string value for regex".
+    #
+    # Derives: two adjacent derive paths, compared as written, inside a `#[derive(...)]` bare or under `cfg_attr`.
+    # Lints: two adjacent lint paths, so every `clippy::` lint sorts together. The later item must be followed by `,`
+    # or `)`, which keeps `reason` out of the comparison, and the context stops at the first `"` or `=` so words
+    # inside the reason string never form a pair. Features: adjacent `feature = "..."` predicates in one
+    # `any(...)` / `all(...)`, by feature name; the context covers only the list's own level, so a predicate nested
+    # in `not(...)` is never paired with its neighbours.
+    #
+    # The comparator matches when the first key of `$PAIR` sorts AFTER the second. A key is a run of `[-\w:]`, so a
+    # path such as `clippy::unwrap_used` is one key: the first key leads `$PAIR`, the second trails it, and the
+    # separator holds at least one other character. semgrep's `metavariable-comparison` orders only numbers, so the
+    # comparison is spelt out in PCRE: `([-\w:]*)` captures the keys' common prefix, then each branch names the first
+    # character at which the first key differs and requires the second to carry a lower character there via
+    # `\1[...]`. The first branch is the remaining case, a second key that is a proper prefix of the first. The
+    # branch lines are mechanical -- each class is every key character below the branch's own -- which is also why
+    # there is no autofix: semgrep cannot sort a list in a `fix:` template.
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern-regex: |-
+                  (?x) (?<![\w:])
+                  (?= (?P<PAIR> (?:::)? (?:\w+::)* \w+ \s*,\s*+ (?:::)? (?:\w+::)* \w+ ) (?![\w:]) )
+                  (?:::)? \w+
+              - pattern-regex: '#\[\s*(?:cfg_attr\s*\([^\]]*?,\s*)?derive\s*\([^()\]]*'
+          - patterns:
+              - pattern-regex: '(?<![\w:])(?=(?P<PAIR>(?:\w+::)*\w+\s*,\s*+(?:\w+::)*\w+)(?![\w:])\s*[,)])\w+'
+              - pattern-regex: '#!?\[\s*(?:cfg_attr\s*\([^\]]*?,\s*)?(?:allow|expect)\s*\([^"=()\]]*'
+          - patterns:
+              - pattern-regex: 'feature\s*=\s*"(?=(?P<PAIR>[-\w]+"\s*,\s*+feature\s*=\s*"[-\w]+)")[-\w]+'
+              - pattern-regex: '\b(?:all|any)\s*\([^()]*'
+      - metavariable-regex:
+          metavariable: $PAIR
+          regex: |-
+            (?xs)
+            ^ ([-\w:]*)
+            (?:
+                [-\w:]+ [^-\w:] (?:.*[^-\w:])? \1 $
+              | 0 (?&rest) \1 [-] (?&end)
+              | 1 (?&rest) \1 [-0] (?&end)
+              | 2 (?&rest) \1 [-01] (?&end)
+              | 3 (?&rest) \1 [-0-2] (?&end)
+              | 4 (?&rest) \1 [-0-3] (?&end)
+              | 5 (?&rest) \1 [-0-4] (?&end)
+              | 6 (?&rest) \1 [-0-5] (?&end)
+              | 7 (?&rest) \1 [-0-6] (?&end)
+              | 8 (?&rest) \1 [-0-7] (?&end)
+              | 9 (?&rest) \1 [-0-8] (?&end)
+              | : (?&rest) \1 [-0-9] (?&end)
+              | A (?&rest) \1 [-0-9:] (?&end)
+              | B (?&rest) \1 [-0-9:A] (?&end)
+              | C (?&rest) \1 [-0-9:AB] (?&end)
+              | D (?&rest) \1 [-0-9:A-C] (?&end)
+              | E (?&rest) \1 [-0-9:A-D] (?&end)
+              | F (?&rest) \1 [-0-9:A-E] (?&end)
+              | G (?&rest) \1 [-0-9:A-F] (?&end)
+              | H (?&rest) \1 [-0-9:A-G] (?&end)
+              | I (?&rest) \1 [-0-9:A-H] (?&end)
+              | J (?&rest) \1 [-0-9:A-I] (?&end)
+              | K (?&rest) \1 [-0-9:A-J] (?&end)
+              | L (?&rest) \1 [-0-9:A-K] (?&end)
+              | M (?&rest) \1 [-0-9:A-L] (?&end)
+              | N (?&rest) \1 [-0-9:A-M] (?&end)
+              | O (?&rest) \1 [-0-9:A-N] (?&end)
+              | P (?&rest) \1 [-0-9:A-O] (?&end)
+              | Q (?&rest) \1 [-0-9:A-P] (?&end)
+              | R (?&rest) \1 [-0-9:A-Q] (?&end)
+              | S (?&rest) \1 [-0-9:A-R] (?&end)
+              | T (?&rest) \1 [-0-9:A-S] (?&end)
+              | U (?&rest) \1 [-0-9:A-T] (?&end)
+              | V (?&rest) \1 [-0-9:A-U] (?&end)
+              | W (?&rest) \1 [-0-9:A-V] (?&end)
+              | X (?&rest) \1 [-0-9:A-W] (?&end)
+              | Y (?&rest) \1 [-0-9:A-X] (?&end)
+              | Z (?&rest) \1 [-0-9:A-Y] (?&end)
+              | _ (?&rest) \1 [-0-9:A-Z] (?&end)
+              | a (?&rest) \1 [-0-9:A-Z_] (?&end)
+              | b (?&rest) \1 [-0-9:A-Z_a] (?&end)
+              | c (?&rest) \1 [-0-9:A-Z_ab] (?&end)
+              | d (?&rest) \1 [-0-9:A-Z_a-c] (?&end)
+              | e (?&rest) \1 [-0-9:A-Z_a-d] (?&end)
+              | f (?&rest) \1 [-0-9:A-Z_a-e] (?&end)
+              | g (?&rest) \1 [-0-9:A-Z_a-f] (?&end)
+              | h (?&rest) \1 [-0-9:A-Z_a-g] (?&end)
+              | i (?&rest) \1 [-0-9:A-Z_a-h] (?&end)
+              | j (?&rest) \1 [-0-9:A-Z_a-i] (?&end)
+              | k (?&rest) \1 [-0-9:A-Z_a-j] (?&end)
+              | l (?&rest) \1 [-0-9:A-Z_a-k] (?&end)
+              | m (?&rest) \1 [-0-9:A-Z_a-l] (?&end)
+              | n (?&rest) \1 [-0-9:A-Z_a-m] (?&end)
+              | o (?&rest) \1 [-0-9:A-Z_a-n] (?&end)
+              | p (?&rest) \1 [-0-9:A-Z_a-o] (?&end)
+              | q (?&rest) \1 [-0-9:A-Z_a-p] (?&end)
+              | r (?&rest) \1 [-0-9:A-Z_a-q] (?&end)
+              | s (?&rest) \1 [-0-9:A-Z_a-r] (?&end)
+              | t (?&rest) \1 [-0-9:A-Z_a-s] (?&end)
+              | u (?&rest) \1 [-0-9:A-Z_a-t] (?&end)
+              | v (?&rest) \1 [-0-9:A-Z_a-u] (?&end)
+              | w (?&rest) \1 [-0-9:A-Z_a-v] (?&end)
+              | x (?&rest) \1 [-0-9:A-Z_a-w] (?&end)
+              | y (?&rest) \1 [-0-9:A-Z_a-x] (?&end)
+              | z (?&rest) \1 [-0-9:A-Z_a-y] (?&end)
+            )
+            (?(DEFINE)
+              (?<rest> [-\w:]* [^-\w:] (?:.*[^-\w:])? )
+              (?<end> [-\w:]* $ )
+            )
+    message: >-
+      Keep this list in ASCII order of each item as written: the traits in a `#[derive(...)]` (`Clone, Debug,
+      Deserialize, Eq, PartialEq, Serialize`, a qualified `strum::EnumIter` after every bare name), the lints in an
+      `#[expect(...)]` before its `reason` (`clippy::` lints together, rustc lints after them), and adjacent
+      `feature = "..."` predicates in an `any(...)` / `all(...)`. A sorted list reads the same everywhere, makes a
+      missing or duplicated entry easy to spot, and keeps a diff to the one entry that changed.
+    severity: ERROR

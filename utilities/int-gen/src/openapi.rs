@@ -91,8 +91,8 @@ pub fn render_json() -> String {
 /// span end-to-end -- distributed tracing works without each call site repeating the boilerplate the old
 /// `inject_traceparent` helper did. With the feature off the hook is a no-op.
 #[expect(
-    clippy::unwrap_used,
     clippy::unwrap_in_result,
+    clippy::unwrap_used,
     reason = "progenitor's emit feeds straight into syn::parse2; a parse failure means progenitor produced invalid Rust"
 )]
 pub fn render_rust_client() -> Result<String, Error> {

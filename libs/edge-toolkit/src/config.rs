@@ -234,7 +234,7 @@ pub fn mise_is_available() -> bool {
 /// `strum::IntoStaticStr` derives the canonical lowercase name used in
 /// `MISE_ENV` and the config filename; `strum::EnumIter` enumerates all
 /// variants in declaration order.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::IntoStaticStr, strum::EnumIter)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, strum::EnumIter, strum::IntoStaticStr)]
 #[strum(serialize_all = "lowercase")]
 #[non_exhaustive]
 pub enum Language {

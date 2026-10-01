@@ -3,10 +3,13 @@
 
 use clap::{Parser, Subcommand, ValueEnum};
 use edge_toolkit::config::get_project_root;
-use et_int_gen::{generate, generate_bindings, generate_core, generate_rust, generate_zig, wit::upstream};
+use et_int_gen::{
+    check_checks, generate, generate_bindings, generate_checks, generate_core, generate_rust, generate_zig,
+    wit::upstream,
+};
 
 #[derive(Parser)]
-#[command(about = "Generate checked-in artifacts under generated/ from in-repo Rust sources of truth")]
+#[command(about = "Generate checked-in artifacts (generated/, CHECKS.md) from in-repo sources of truth")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
@@ -27,6 +30,12 @@ enum Command {
     },
     /// Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions.
     FetchDeps,
+    /// Write CHECKS.md, the catalogue of every check across every `MISE_ENV`.
+    Checks {
+        /// Compare against the committed CHECKS.md and fail on drift instead of writing it.
+        #[arg(long)]
+        check: bool,
+    },
 }
 
 /// Per-language target selector for the `generate` subcommand.
@@ -64,5 +73,7 @@ fn main() -> Result<(), et_int_gen::Error> {
             Target::All => generate(),
         },
         Command::FetchDeps => upstream::run(&get_project_root()),
+        Command::Checks { check: true } => check_checks(),
+        Command::Checks { check: false } => generate_checks(),
     }
 }

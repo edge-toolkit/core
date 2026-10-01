@@ -37,7 +37,7 @@ pub fn init_tracing() {
     clippy::exhaustive_enums,
     reason = "ConnectionState enumerates the WebSocket client's lifecycle; downstream code matches exhaustively"
 )]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ConnectionState {
     Disconnected,
     Connecting,
@@ -176,8 +176,8 @@ impl WsClient {
     /// Connect to the WebSocket server.
     #[wasm_bindgen]
     #[expect(
-        clippy::too_many_lines,
         clippy::cognitive_complexity,
+        clippy::too_many_lines,
         reason = "single-method connect+wire-up; on_message closure dispatches all ServerMessage variants inline"
     )]
     pub fn connect(&mut self) -> Result<(), JsValue> {

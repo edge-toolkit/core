@@ -41,7 +41,7 @@ runs:
   steps:
     # Reclaim runner disk before anything is installed into it.
     - name: Free disk space
-      uses: ./.github/actions/free-disk-space
+      uses: $/.github/actions/free-disk-space
 
     # No cargo: tool installs on the Windows lane right now -- cargo-binstall fails to execute there (os error 193).
     # open-o2's opener isn't needed in CI, so skip cargo:open rather than let the install fail.
@@ -51,7 +51,7 @@ runs:
       run: echo "MISE_DISABLE_TOOLS=cargo:open" >> "$GITHUB_ENV"
 
     - name: Install mise binary
-      uses: ./.github/actions/install-mise
+      uses: $/.github/actions/install-mise
       with:
         install-action-tools: ${{ inputs.install-action-tools }}
 
@@ -121,7 +121,7 @@ runs:
     # died on a frippery.org (http:busybox) connect timeout.
     - name: Remove mise shim before the retry
       if: steps.install-mise-tools.outcome == 'failure'
-      uses: ./.github/actions/remove-mise-shim
+      uses: $/.github/actions/remove-mise-shim
 
     - name: Install mise tools (retry)
       if: steps.install-mise-tools.outcome == 'failure'
@@ -133,4 +133,4 @@ runs:
         mise install
 
     - name: Remove mise shim
-      uses: ./.github/actions/remove-mise-shim
+      uses: $/.github/actions/remove-mise-shim

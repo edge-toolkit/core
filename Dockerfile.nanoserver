@@ -22,7 +22,7 @@
 # `build` are the CI frontier (see "Known unknowns" at the foot).
 #
 # Base: Nano Server (~120 MB vs Server Core's ~1.25 GB), kept on Nano per the
-# CLAUDE.md non-negotiable. Same MSI/PowerShell-installer-avoidance posture as
+# AGENTS.md non-negotiable. Same MSI/PowerShell-installer-avoidance posture as
 # any minimal Windows image -- nothing is installed the Windows way; mise (a
 # single .exe the workflow stages in the build context) is copied in, and
 # `mise install` pulls the rest.
@@ -85,7 +85,7 @@ RUN curl -fsSL -o vc_redist.exe https://aka.ms/vs/17/release/vc_redist.x64.exe &
 # https://github.com/edge-toolkit/core/commit/1f544590b473887015754f67c3af843f970d8dbc
 # (https://github.com/edge-toolkit/core/actions/runs/31559765225/job/94252377147)
 # while the windows-2025 lane of that same run downloaded it fine. Per the
-# CLAUDE.md fetch-resilience rule, the fix for a blocked upstream is to serve
+# AGENTS.md fetch-resilience rule, the fix for a blocked upstream is to serve
 # the asset from a release we control, never a retry wrapper.
 #
 # SHA256 pin: a republish under the same URL fails the build instead of
@@ -495,7 +495,7 @@ RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `
 # means `mise exec -- coreutils` fails. docker-windows CI only builds
 # the `precompile` target (never the `test` stage, which is what would
 # need the face / har models at runtime), so the lighter prefetch is
-# sufficient. Switch back once the Nano-shim TODO in CLAUDE.md lands.
+# sufficient. Switch back once the Nano-shim TODO in AGENTS.md lands.
 FROM build AS prefetch
 COPY . .
 RUN (if exist C:\token\gh_token set /p GITHUB_TOKEN=<C:\token\gh_token) & `

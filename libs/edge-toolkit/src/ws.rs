@@ -42,7 +42,7 @@ fn byte_array_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
     clippy::exhaustive_enums,
     reason = "wire protocol enum: variants exhaustively describe the JSON shape, downstream matches are exhaustive"
 )]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ConnectStatus {
@@ -54,7 +54,7 @@ pub enum ConnectStatus {
     clippy::exhaustive_enums,
     reason = "wire protocol enum: variants exhaustively describe the JSON shape, downstream matches are exhaustive"
 )]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MessageDeliveryStatus {
@@ -68,7 +68,7 @@ pub enum MessageDeliveryStatus {
     clippy::exhaustive_enums,
     reason = "wire protocol enum: variants exhaustively describe the JSON shape, downstream matches are exhaustive"
 )]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MessageScope {
@@ -80,7 +80,7 @@ pub enum MessageScope {
     clippy::exhaustive_enums,
     reason = "wire protocol enum: variants exhaustively describe the JSON shape, downstream matches are exhaustive"
 )]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AgentConnectionState {
@@ -88,7 +88,7 @@ pub enum AgentConnectionState {
     Disconnected,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
 pub struct AgentSummary {
@@ -129,10 +129,10 @@ fn has_et_prefix(text: &str) -> bool {
     clippy::exhaustive_enums,
     reason = "wire protocol enum: variants exhaustively describe the JSON shape, downstream matches are exhaustive"
 )]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(
     feature = "schema-export",
-    derive(schemars::JsonSchema, asyncapi_rust::ToAsyncApiMessage)
+    derive(asyncapi_rust::ToAsyncApiMessage, schemars::JsonSchema)
 )]
 #[serde(tag = "type")]
 pub enum ClientMessage {
@@ -217,10 +217,10 @@ impl ClientMessage {
     clippy::exhaustive_enums,
     reason = "wire protocol enum: variants exhaustively describe the JSON shape, downstream matches are exhaustive"
 )]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(
     feature = "schema-export",
-    derive(schemars::JsonSchema, asyncapi_rust::ToAsyncApiMessage)
+    derive(asyncapi_rust::ToAsyncApiMessage, schemars::JsonSchema)
 )]
 #[serde(tag = "type")]
 pub enum ServerMessage {

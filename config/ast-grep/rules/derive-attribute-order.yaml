@@ -1,0 +1,29 @@
+id: derive-attribute-order
+language: Rust
+severity: error
+message: |
+  Put `#[derive(...)]` before every inert or helper attribute on the same item -- `#[non_exhaustive]`, `#[repr]`,
+  `#[cfg_attr]`, and derive helpers such as `#[serde]`, `#[command]`, `#[strum]` or `#[asyncapi]`. Only doc
+  comments, `#[cfg]`, `#[expect]` and attribute macros that must see the item before the derive runs
+  (`#[serde_inline_default]`, `#[wasm_bindgen]`) may come first. One order everywhere puts an item's derive list
+  in the same place on every type, and keeps each helper next to the derive that reads it. A new attribute macro
+  that has to precede the derive joins the allow-list in this rule.
+rule:
+  kind: attribute_item
+  not:
+    regex: '^#\[\s*(?:cfg|derive|doc|expect|serde_inline_default|wasm_bindgen)\b'
+  # The search for a later derive stays inside the one attribute run.
+  # `stopBy` halts at the first sibling that is neither an attribute nor a comment, which is the item itself.
+  precedes:
+    kind: attribute_item
+    regex: '^#\[\s*derive\b'
+    stopBy:
+      not:
+        any:
+          - kind: attribute_item
+          - kind: line_comment
+          - kind: block_comment
+ignores:
+  - generated/**
+  # Generated; refer to int-gen bindings.rs for details.
+  - services/ws-wasi-runner/src/bindings.rs
