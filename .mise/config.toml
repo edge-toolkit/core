@@ -273,24 +273,18 @@ version = "tag:1.0.0-beta.12"
 # `build (debian:bookworm)` and `build (ubuntu:22.04)` lanes of
 # https://github.com/edge-toolkit/core/actions/runs/36933521606. mise picks the gnu build for a glibc platform
 # unless told otherwise, and the aqua registry entry offers no way to tell it, hence the github backend.
+#
+# The pattern is one template for every platform rather than a per-platform `asset_pattern`: mise keys a lock
+# entry on its options, so per-platform patterns become separate entries that an install on any other platform
+# prunes, and `mise-lock-check` then reports the lockfile as drifted.
 [tools."github:uutils/coreutils"]
+asset_pattern = "{{ vars.musl_pattern }}"
 version = "0.6.0"
-
-[tools."github:uutils/coreutils".platforms.linux-arm64]
-asset_pattern = "coreutils-{{ version }}-aarch64-unknown-linux-musl.tar.gz"
-
-[tools."github:uutils/coreutils".platforms.linux-x64]
-asset_pattern = "coreutils-{{ version }}-x86_64-unknown-linux-musl.tar.gz"
 
 # lychee takes its musl build on Linux for the same reason as coreutils above: the gnu one needs GLIBC_2.39.
 [tools."github:lycheeverse/lychee"]
+asset_pattern = "{{ vars.musl_pattern }}"
 version = "latest"
-
-[tools."github:lycheeverse/lychee".platforms.linux-arm64]
-asset_pattern = "lychee-aarch64-unknown-linux-musl.tar.gz"
-
-[tools."github:lycheeverse/lychee".platforms.linux-x64]
-asset_pattern = "lychee-x86_64-unknown-linux-musl.tar.gz"
 
 # Native rustpython binary built from upstream RustPython main.
 # Built with `freeze-stdlib` (so the binary embeds the Python stdlib and doesn't need a RUSTPYTHONPATH dance)
@@ -479,6 +473,11 @@ rust_nightly = "nightly-2026-08-05"
 # and its own `[vars]` are therefore absent from the context. Declaring it there failed every `mise upgrade`
 # that had work to do, with `Field win_rust_host is not defined`; this file is active everywhere.
 win_rust_host = "{% if arch() == 'arm64' %}aarch64-pc-windows-msvc{% else %}x86_64-pc-windows-gnullvm{% endif %}"
+# The github-backend `asset_pattern` that takes a Rust-triple release's musl build on Linux.
+# `raw` keeps the config's own render from evaluating it, so the backend renders it per target platform and the
+# lock records the one template rather than a host-specific string. The pattern is anchored and the shortest match
+# wins, which is what the trailing `*` leans on to take `.tar.gz` / `.zip` over their `.sha256` sidecars.
+musl_pattern = '{% raw %}*-{{ x86_64_arch }}-*{{ os(linux="musl.t", macos="darwin.t", windows="msvc.z") }}*{% endraw %}'
 # Tier-`a_` prefix marks leaf values referenced by later vars.
 # a_* vars are referenced by later vars (face1_src), and mise renders [vars] in alphabetical order; `a_` sorts
 # before every non-prefixed var name so the reference resolves. Shared GitHub release tag for the HF-asset
