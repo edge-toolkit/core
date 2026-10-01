@@ -102,12 +102,6 @@ conftest = "latest"
 "github:nextest-rs/nextest" = { version = "latest", version_prefix = "cargo-nextest-" }
 taplo = "latest"
 watchexec = "latest"
-# uutils coreutils: the Rust multicall binary, invoked as `coreutils <util>` in tasks.
-# Pinned to 0.6.0 (NOT the latest 0.9.0) because uutils 0.7.0+ ships the Windows release as 85 per-utility
-# .exes with no multicall coreutils.exe (see uutils/coreutils#11268). 0.6.0 keeps the multicall layout
-# uniform across Linux/macOS/Windows, so tasks can keep using `coreutils <util>` everywhere. Bump cautiously:
-# confirm the Windows zip layout hasn't reverted before raising the pin.
-coreutils = "0.6.0"
 dprint = "latest"
 editorconfig-checker = "latest"
 # ripgrep (rg): the Rust grep that tasks use in place of the host's grep.
@@ -168,7 +162,6 @@ go = "latest"
 "go:github.com/noperator/jqfmt/cmd/jqfmt" = "0.1.0"
 hadolint = "latest"
 ls-lint = "latest"
-lychee = "latest"
 # dekit, mprocs under its new name: `dekit mprocs` runs the repo-root mprocs.yaml.
 # The github backend rather than the registry's `aqua:pvolok/dekit`, whose manifest still names the pre-rename
 # assets, so every platform fails with
@@ -267,6 +260,37 @@ version = "tag:v0.56.0"
 crate = "rustfs"
 os = ["macos/x64"]
 version = "tag:1.0.0-beta.12"
+
+# uutils coreutils: the Rust multicall binary, invoked as `coreutils <util>` in tasks.
+# Pinned to 0.6.0 (NOT the latest 0.9.0) because uutils 0.7.0+ ships the Windows release as 85 per-utility
+# .exes with no multicall coreutils.exe (see uutils/coreutils#11268). 0.6.0 keeps the multicall layout
+# uniform across Linux/macOS/Windows, so tasks can keep using `coreutils <util>` everywhere. Bump cautiously:
+# confirm the Windows zip layout hasn't reverted before raising the pin.
+#
+# On Linux it takes the musl build. The gnu one needs GLIBC_2.39, so on the ubuntu:22.04 (2.35) and
+# debian:bookworm (2.36) image bases it cannot start, and every `coreutils` call there fails -- first the preinstall
+# libicu probe, as `preinstall: missing required build prerequisite: the versioned libicu runtime` on the
+# `build (debian:bookworm)` and `build (ubuntu:22.04)` lanes of
+# https://github.com/edge-toolkit/core/actions/runs/36933521606. mise picks the gnu build for a glibc platform
+# unless told otherwise, and the aqua registry entry offers no way to tell it, hence the github backend.
+[tools."github:uutils/coreutils"]
+version = "0.6.0"
+
+[tools."github:uutils/coreutils".platforms.linux-arm64]
+asset_pattern = "coreutils-{{ version }}-aarch64-unknown-linux-musl.tar.gz"
+
+[tools."github:uutils/coreutils".platforms.linux-x64]
+asset_pattern = "coreutils-{{ version }}-x86_64-unknown-linux-musl.tar.gz"
+
+# lychee takes its musl build on Linux for the same reason as coreutils above: the gnu one needs GLIBC_2.39.
+[tools."github:lycheeverse/lychee"]
+version = "latest"
+
+[tools."github:lycheeverse/lychee".platforms.linux-arm64]
+asset_pattern = "lychee-aarch64-unknown-linux-musl.tar.gz"
+
+[tools."github:lycheeverse/lychee".platforms.linux-x64]
+asset_pattern = "lychee-x86_64-unknown-linux-musl.tar.gz"
 
 # Native rustpython binary built from upstream RustPython main.
 # Built with `freeze-stdlib` (so the binary embeds the Python stdlib and doesn't need a RUSTPYTHONPATH dance)
@@ -1131,14 +1155,14 @@ description = "Run conftest OPA/Rego policies over the TOML config + lock files"
 # namespaces are listed explicitly, so the per-file `gha` (YAML) namespace is never evaluated against this
 # combined TOML input.
 run = """
-ns_list="cross cargo mise pyproject no_trailing_backslash checksums advisories"
+ns_list="cross cargo mise mise_lock pyproject no_trailing_backslash checksums advisories"
 named="Cargo.lock config/upstream-cache/data.toml config/deny.toml"
 # Both lists rely on word-splitting when they expand.
 # $ns expands to repeated `--namespace <n>` pairs; $named is a space-separated path list.
 # shellcheck disable=SC2086
 ns=$(for n in $ns_list; do echo -n " --namespace $n"; done)
 # shellcheck disable=SC2086
-git ls-files '*Cargo.toml' '.mise/config*.toml' '*pyproject.toml' $named |
+git ls-files '*Cargo.toml' '.mise/config*.toml' '.mise/mise*.lock' '*pyproject.toml' $named |
   xargs conftest test --combine --parser toml $ns -p config/conftest/policy
 """
 shell = "{{ vars.task_shell }}"
@@ -1735,7 +1759,7 @@ mise install gh
 mise install cargo-binstall
 mise install node
 mise install conda:openssl
-mise install coreutils
+mise install github:uutils/coreutils
 mise install ripgrep
 # goawk lands here in _setup_all so it's available to every later step.
 # Steps that may need `awk` -- third-party scripts (dotnet-install.sh on Linux, others) hard-code bare
@@ -2140,7 +2164,7 @@ shell = "{{ vars.task_shell }}"
 # https://github.com/edge-toolkit/core/actions/runs/31773896309/job/94685231006.
 [tasks._setup-store-tools]
 description = "Install the tools the mise-tools store tasks depend on (cold-checkout helper)"
-run = "mise install coreutils crane gh aqua:01mf02/jaq"
+run = "mise install github:uutils/coreutils crane gh aqua:01mf02/jaq"
 
 # Build the OCI layout for a mise-tools store, carrying only relocatable tools.
 # Shared by every push-mise-tools* task (native and docker) so all platforms' stores hold the same set of

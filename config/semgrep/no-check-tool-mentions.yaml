@@ -57,6 +57,7 @@ rules:
         - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/.codacy.yaml" # Names the workflow linters Codacy defers to, as its exclusion rationale.
         - "/config/ast-grep/**" # Its own ruleset, where the tool's own syntax is the subject.
+        - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
         - "/config/generated-trees.toml" # Maps each generated tree onto the exclusion key this tool needs.
         - "/config/conftest/policy/generated_trees/generated_trees.rego" # Enforces that mapping.
         - "/config/conftest/policy/generated_trees/generated_trees_test.rego" # Unit tests for it.
@@ -260,6 +261,7 @@ rules:
         - "/config/ast-grep/rules/no-current-dir.yaml" # Names the root-marker file, not the tool.
         - "/libs/path/src/lib.rs" # Holds that marker filename as a constant.
         - "/libs/path/tests/find.rs" # Writes the marker file to build a fixture root.
+        - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/utilities/int-gen/src/checks.rs" # Names the root config stub the tool finds without being told to.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
@@ -428,6 +430,7 @@ rules:
         # Every test here wants one fixed port, and only that config's test group keeps them apart.
         # That is a constraint nothing in the file itself can express, and a silent corruption when bypassed.
         - "/utilities/cli/tests/scenario_runners.rs"
+        - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)nextest"
@@ -462,6 +465,7 @@ rules:
         - "/.mise/**" # Tool pin, lockfile entry, and the format/check tasks.
         - "/AGENTS.md" # Documents how to write JS that both formatters accept.
         - "/config/oxfmtrc.jsonc" # Its own config.
+        - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
         - "/config/dprint.jsonc" # The other formatter, tuned to agree with it.
         - "/config/semgrep/prefer-yaml-toml.yaml" # Allowlists its config, which can only be JSONC.
         - "/config/conftest/policy/mise/mise.rego" # Allowlists it as a tool with no prebuilt at some triple.
@@ -480,6 +484,7 @@ rules:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the lint/fix tasks.
         - "/AGENTS.md" # Documents which checks an agent runs for which file types.
+        - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
         - "/config/oxlintrc.jsonc" # Its own config, including which external code each rule mirrors.
         - "/config/oxfmtrc.jsonc" # Names the shared JSONC configs the formatter must skip.
         - "/config/semgrep/prefer-yaml-toml.yaml" # Allowlists its config, which can only be JSONC.
@@ -546,6 +551,7 @@ rules:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the format/check/fix tasks.
         - "/AGENTS.md" # Documents which checks an agent runs for which file types.
+        - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
         - "/ruff.toml" # Its own config, kept at the root so editors discover it.
         - "/.editorconfig" # Records that the formatter owns docstring and doc-comment reflow.
         - "/config/dprint.jsonc" # Skips the Python files this tool formats instead.
@@ -570,6 +576,7 @@ rules:
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
         - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/config/ryl.yaml" # Its own config.
+        - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
         - "/config/conftest/policy/mise/mise.rego" # Allowlists it as a tool with no prebuilt at some triple.
         - "/config/taplo/mise-cargo-backend-allowlist.schema.json" # The same allowlist, as a TOML schema enum.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
@@ -697,6 +704,7 @@ rules:
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
         - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/config/zizmor.yaml" # Its own config.
+        - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
         - "/.codacy.yaml" # Names the workflow linters Codacy defers to, as its exclusion rationale.
         - "/.github/actions/install-mise/action.yaml" # A `zizmor: ignore[...]` pragma, which only works spelled out.
         - "/.github/workflows/upstream-cache.yaml" # The same pragma.
