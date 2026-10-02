@@ -38,8 +38,8 @@ use k8s_openapi::api::core::v1::{
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::{LabelSelector, ObjectMeta};
 use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
-use serde::Serialize;
 
+use super::document;
 use crate::error::CliError;
 use crate::input::{ArtifactSource, ClusterInput};
 use crate::{
@@ -156,20 +156,6 @@ fn fixed_documents(
         document(&hub_deployment(namespace, cluster_name, module_paths, root_module))?,
         document(&hub_service(namespace))?,
     ])
-}
-
-/// Serialise one object, in the YAML style the repo's formatters hold a committed file to.
-#[expect(
-    clippy::unwrap_in_result,
-    clippy::unwrap_used,
-    reason = "pretty_yaml only fails on malformed YAML and serde output is always well-formed"
-)]
-fn document<T>(object: &T) -> Result<String, CliError>
-where
-    T: Serialize,
-{
-    let yaml = serde_yaml::to_string(object)?;
-    Ok(pretty_yaml::format_text(&yaml, &pretty_yaml::config::FormatOptions::default()).unwrap())
 }
 
 /// Namespace a scenario's objects live in, so two scenarios can be applied to one cluster at once.

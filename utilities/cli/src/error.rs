@@ -94,6 +94,13 @@ pub enum CliError {
         supported: String,
     },
 
+    #[error("Agent {agent:?} would create runner {name:?}, which is not an RFC 1123 label: {reason}")]
+    InvalidRunnerName {
+        agent: String,
+        name: String,
+        reason: String,
+    },
+
     #[error("Agent {agent:?} would create runner {name:?}, a name the generated deployment already uses")]
     ReservedRunnerName { agent: String, name: String },
 

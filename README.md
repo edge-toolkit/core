@@ -388,7 +388,7 @@ to be handled separately from the repository root.
 
 To regenerate all checked-in verification outputs from `verification/*/input`, writing each scenario to the
 matching `verification/*/output/<input-file-stem>` folder. This generates all supported deployment files for each
-scenario, currently `mise.toml`, `compose.yaml` and `k3s.yaml`:
+scenario, currently `mise.toml`, `compose.yaml`, `k3s.yaml` and `dekit.yaml`:
 
 ```bash
 mise run regen-verification

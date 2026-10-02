@@ -53,6 +53,17 @@ void (*pending_dtor)(void *) = nullptr;
 // reserved-identifier checks are suppressed per symbol, as on the mingw-shim's CRT symbols.
 extern "C" {
 
+// The wasm C++ exception tag that __cxa_throw's `__builtin_wasm_throw(0, ...)` throws.
+// clang 21 and older define it in every object that throws; clang 22 (zig 0.17) leaves it to libunwind, which this
+// runtime replaces, so without this the link fails with
+//   error: wasm-ld: .zig-cache/o/<hash>/exceptions.o: undefined symbol: __cpp_exception
+// The older clangs reject a second definition ("symbol '__cpp_exception' is already defined"), hence the guard.
+#if __clang_major__ >= 22
+// A wasm tag has no C++ spelling, so the definition can only be written as assembly.
+// NOLINTNEXTLINE(portability-no-assembler)
+__asm__(".globl __cpp_exception\n.tagtype __cpp_exception i32\n__cpp_exception:\n");
+#endif
+
 // Returns storage for a to-be-thrown exception object of `size` bytes, or null when it cannot fit.
 // The generated throw site does not null-check, so an oversized payload traps -- acceptable for this demo.
 // NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c, cert-dcl51-cpp)

@@ -1,7 +1,7 @@
 # default
 
 This directory contains generated deployment configs for the `default` scenario.
-Files: `mise.toml`, `compose.yaml`, `k3s.yaml`.
+Files: `mise.toml`, `compose.yaml`, `k3s.yaml`, `dekit.yaml`.
 
 No workflow modules were selected in the scenario input.
 
@@ -92,4 +92,27 @@ starts is expected here rather than a fault. Watch it settle with:
 
 ```bash
 kubectl get pods -n "$ns" --watch
+```
+
+## Run With dekit
+
+From this directory, start the scenario and watch each process in its own pane with:
+
+```bash
+dekit up
+dekit attach
+```
+
+Each task runs one task of `mise.toml`, so these are the processes `mise run generated-scenario`
+starts, but in order: `ws-server` waits for OpenObserve to report healthy, and every runner
+waits for `ws-server`. The tasks keep running after the terminal closes; stop them with:
+
+```bash
+dekit down
+```
+
+Open the OpenObserve UI, once it is up, with:
+
+```bash
+dekit start open-o2
 ```

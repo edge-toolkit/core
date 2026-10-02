@@ -61,6 +61,20 @@ const EXTRA_HEADERS_REQUEST_FN: &str = "requestRawWithContentTypeAndExtraHeaders
 /// The replacement body spliced into [`EXTRA_HEADERS_REQUEST_FN`] by [`rewrite`], delegating to [`SHARED_REQUEST_FN`].
 const REQUEST_RAW_EXTRA_HEADERS_BODY: &str = include_str!("zig.in/request_raw_extra_headers_body.zig");
 
+/// The client struct whose `deinit` is rewritten, so it is found by name rather than as the first `deinit` in the file.
+const CLIENT_STRUCT: &str = "Client";
+
+/// The replacement body spliced into the client's `deinit` by [`rewrite`], which no longer touches `std.http.Client`.
+///
+/// Zig 0.17 no longer compiles `std.http.Client`'s connection pool for `wasm32-freestanding`, and `deinit` is the one
+/// call left that reaches it once every request goes through the host import. Calling it fails the build with
+/// `lib/std/posix.zig:154:30: error: struct 'posix.system__struct_77' has no member named 'cmsg_align'`.
+///
+/// Observed building `zig-data1` on the nanoserver lanes at
+/// <https://github.com/edge-toolkit/core/commit/ab68c9bb7e22463898b4921826ba92665934bc45>,
+/// `https://github.com/edge-toolkit/core/actions/runs/37071616360/job/111052129153`.
+const CLIENT_DEINIT_BODY: &str = include_str!("zig.in/client_deinit_body.zig");
+
 /// The `extern fn js_rest_request(...)` declaration appended to the generated client by [`rewrite`].
 const JS_REST_REQUEST_EXTERN: &str = include_str!("zig.in/js_rest_request_extern.zig");
 
@@ -135,6 +149,7 @@ fn run_openapi2zig(rest_json: &Path, raw_out: &Path) -> Result<(), Error> {
 fn rewrite(source: &str) -> Result<String, Error> {
     let out = replace_fn_body(source, SHARED_REQUEST_FN, REQUEST_RAW_BODY)?;
     let out = replace_fn_body(&out, EXTRA_HEADERS_REQUEST_FN, REQUEST_RAW_EXTRA_HEADERS_BODY)?;
+    let out = replace_method_body(&out, CLIENT_STRUCT, "deinit", CLIENT_DEINIT_BODY)?;
     let mut out = reroute_inline_binary_ops(&out)?;
     if out.contains("client.http.fetch") {
         return Err(Error::ZigCodegen(
@@ -156,14 +171,39 @@ fn rewrite(source: &str) -> Result<String, Error> {
 /// The function is found by name with `tree-sitter-zig` rather than by string-matching its body, so an openapi2zig
 /// bump that reshuffles the implementation does not break the splice; a function that is gone is an error.
 fn replace_fn_body(source: &str, name: &str, body: &str) -> Result<String, Error> {
+    splice_fn_body(source, name, body, |root| {
+        find_fn(root, source, name)
+            .ok_or_else(|| Error::ZigCodegen(format!("{name} function not found in openapi2zig output")))
+    })
+}
+
+/// Return `source` with the body of the method `name`, declared inside the top-level `container`, replaced by `body`.
+///
+/// Scoped to the container because method names repeat: every response type in the client has a `deinit` of its own.
+#[expect(
+    clippy::single_call_fn,
+    reason = "named counterpart of replace_fn_body for methods; kept separate for the container lookup it adds"
+)]
+fn replace_method_body(source: &str, container: &str, name: &str, body: &str) -> Result<String, Error> {
+    splice_fn_body(source, name, body, |root| {
+        let declaration = find_top_level_const(root, source, container)?;
+        find_fn(declaration, source, name)
+            .ok_or_else(|| Error::ZigCodegen(format!("{container}.{name} not found in openapi2zig output")))
+    })
+}
+
+/// Parse `source`, locate a function with `locate`, and splice `body` in place of that function's body.
+fn splice_fn_body<F>(source: &str, name: &str, body: &str, locate: F) -> Result<String, Error>
+where
+    F: for<'tree> FnOnce(Node<'tree>) -> Result<Node<'tree>, Error>,
+{
     let mut parser = Parser::new();
     parser.set_language(&tree_sitter_zig::LANGUAGE.into())?;
     let tree = parser
         .parse(source, None)
         .ok_or_else(|| Error::ZigCodegen("tree-sitter parse returned None".into()))?;
 
-    let function = find_fn(tree.root_node(), source, name)
-        .ok_or_else(|| Error::ZigCodegen(format!("{name} function not found in openapi2zig output")))?;
+    let function = locate(tree.root_node())?;
     let old_body = function
         .child_by_field_name("body")
         .ok_or_else(|| Error::ZigCodegen(format!("{name} has no body field")))?;
@@ -215,6 +255,26 @@ fn reroute_inline_binary_ops(source: &str) -> Result<String, Error> {
             )
         })
         .into_owned())
+}
+
+/// Return the top-level `const <wanted> = ...` declaration, `pub` or not.
+#[expect(
+    clippy::single_call_fn,
+    reason = "distinct tree-sitter lookup step, kept beside find_fn so the two searches read alike"
+)]
+fn find_top_level_const<'tree>(root: Node<'tree>, source: &str, wanted: &str) -> Result<Node<'tree>, Error> {
+    let prefix = format!("const {wanted} =");
+    let mut cursor = root.walk();
+    #[expect(
+        clippy::string_slice,
+        reason = "tree-sitter byte spans are UTF-8 boundary-aligned by construction"
+    )]
+    root.children(&mut cursor)
+        .find(|child| {
+            let text = &source[child.start_byte()..child.end_byte()];
+            text.strip_prefix("pub ").unwrap_or(text).starts_with(&prefix)
+        })
+        .ok_or_else(|| Error::ZigCodegen(format!("{wanted} declaration not found in openapi2zig output")))
 }
 
 /// Recursively return the first `function_declaration` whose `name` child matches `wanted`.

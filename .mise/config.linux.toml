@@ -8,7 +8,7 @@
 # has libclang-cpp (the C++ API), not the C one.
 "conda:clangxx" = "latest"
 # gpg for mise's gpg_verify signature checks; _setup_all installs it up front.
-"conda:gnupg" = { version = "latest", os = ["linux"] }
+"conda:gnupg" = "latest"
 # mold, the linker a Linux lane that sets ET_LINK_WITH_MOLD links Rust with.
 "aqua:rui314/mold" = "latest"
 

@@ -490,7 +490,7 @@ Plus, attached to the same Linker but defined by external WIT packages:
   `Store::run_concurrent`.
 - `wasi:nn/{tensor, graph, inference, errors}` -- standardised ML inference. The host wires
   `wasmtime-wasi-nn` with the ONNX Runtime backend (`ort` 2.0.0-rc.10, pinned because rc.11+
-  moved API surface that wasmtime-wasi-nn 47 still uses). Guests load model bytes via
+  moved API surface that wasmtime-wasi-nn 48 still uses). Guests load model bytes via
   `graph.load`, build `Tensor`s, and call `compute` -- the same shape of calls Spin / wasmCloud
   / Fermyon production wasi-nn workloads use. CUDA dispatch is opt-in via the runner's
   `cuda` cargo feature (`cargo build -p et-ws-wasi-runner --features cuda` or
@@ -1085,7 +1085,7 @@ passed via its `extra-tools:` input. When deciding whether install-action can su
 three-tier chain:
 
 1. **install-action's own TOOLS manifest** -- its
-   [`TOOLS.md`](https://github.com/taiki-e/install-action/blob/main/TOOLS.md)
+   [`TOOLS.md`](https://raw.githubusercontent.com/taiki-e/install-action/main/TOOLS.md)
    is the authoritative list of tools it ships hand-curated prebuilt-URL
    manifests for. Fastest path; one HTTP fetch per tool.
 2. **cargo-quickinstall fallback** -- if the tool name isn't in the manifest,

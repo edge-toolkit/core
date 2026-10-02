@@ -36,6 +36,18 @@ const NPMRC_FILE: &str = "npmrc";
 /// Directory, beside `mise.toml`, a published deployment's hub keeps agent storage in.
 pub(crate) const STORAGE_DIR: &str = "storage";
 
+/// The mise task that runs the collector, which the other deployment formats and runner-name checks refer to.
+pub(crate) const COLLECTOR_TASK: &str = "openobserve";
+
+/// The mise task that runs the hub.
+pub(crate) const HUB_TASK: &str = "ws-server";
+
+/// The mise task that opens the collector's UI in a browser.
+pub(crate) const OPENER_TASK: &str = "open-o2";
+
+/// Name the collector task gives its container, so anything stopping the task can stop the container by it.
+pub(crate) const COLLECTOR_CONTAINER: &str = "openobserve";
+
 /// Version every `cargo:` tool the generated deployment declares is requested at.
 const LATEST: &str = "latest";
 
@@ -68,11 +80,11 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
     // No working directory: the collector is a container started from values this file carries, so unlike the hub it
     // has nothing to resolve against the repository.
     let _previous: Option<Value> = tasks.insert(
-        "openobserve".to_string(),
+        COLLECTOR_TASK.to_string(),
         Value::Table(mise_task(Some("o2"), None, None, Some(&openobserve_run), None, None)),
     );
     let _previous: Option<Value> = tasks.insert(
-        "ws-server".to_string(),
+        HUB_TASK.to_string(),
         Value::Table(mise_task(
             None,
             Some("Run the WebSocket server"),
@@ -104,7 +116,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
         );
     }
 
-    let mut scenario_depends = vec!["openobserve".to_string(), "ws-server".to_string()];
+    let mut scenario_depends = vec![COLLECTOR_TASK.to_string(), HUB_TASK.to_string()];
     scenario_depends.extend(runners.iter().map(|runner| runner.name.clone()));
     let _previous: Option<Value> = tasks.insert(
         "generated-scenario".to_string(),
@@ -118,7 +130,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
         )),
     );
     let _previous: Option<Value> = tasks.insert(
-        "open-o2".to_string(),
+        OPENER_TASK.to_string(),
         Value::Table(mise_task(
             None,
             Some("Open the OpenObserve UI"),
@@ -211,12 +223,13 @@ fn openobserve_run_body() -> String {
     format!(
         concat!(
             "image=openobserve/openobserve:v0.91.5\n",
-            "settings=\"{}\"\n",
+            "settings=\"{flags}\"\n",
             "# $settings is a word-split flag list by design; do not quote it.\n",
-            "docker run --rm --name openobserve -p 127.0.0.1:5080:5080 $settings ",
+            "docker run --rm --name {container} -p 127.0.0.1:5080:5080 $settings ",
             "-e ZO_ROOT_USER_PASSWORD \"$image\"\n",
         ),
-        collector_flags
+        container = COLLECTOR_CONTAINER,
+        flags = collector_flags,
     )
 }
 
