@@ -2045,7 +2045,7 @@ run = "cargo run -q -p et-int-gen --bin et-int-gen -- checks"
 [tasks.checks-md-check]
 # Ordered after the workspace builds so its `cargo run` reuses their artifacts.
 # Run beside them it is a fourth concurrent build, which doubled every cargo task's time on the three-core macOS
-# runner and took `check (macos-latest, 45)` past its budget.
+# runner and took the macOS check lane past its budget.
 depends = ["cargo-check", "cargo-clippy-check", "cargo-doc-check", "regenerate-verification"]
 description = "Fail if CHECKS.md is stale vs the mise task tables and rule files (run `mise run gen:checks`)"
 run = "cargo run -q -p et-int-gen --bin et-int-gen -- checks --check"

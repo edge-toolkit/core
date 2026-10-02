@@ -35,7 +35,7 @@ jobs:
           - os: ubuntu-latest
             timeout: 40
           - os: macos-latest
-            timeout: 45
+            timeout: 75
           - os: windows-latest
             timeout: 120
     # Windows runs the checkers under busybox-w32 ash, same as test.yaml's Windows lane.
