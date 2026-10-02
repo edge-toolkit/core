@@ -1,68 +1,16 @@
 //! CLI entrypoint for `et-int-gen`. All real work lives in the library (`et_int_gen`); this file just parses arguments
 //! and dispatches.
 
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::Parser as _;
 use edge_toolkit::config::get_project_root;
+use et_int_gen::cli::{Cli, Command, Target};
 use et_int_gen::{
-    check_checks, generate, generate_bindings, generate_checks, generate_core, generate_rust, generate_zig,
-    wit::upstream,
+    check_checks, check_help, generate, generate_bindings, generate_checks, generate_core, generate_help,
+    generate_rust, generate_zig, wit::upstream,
 };
-
-#[derive(Parser)]
-#[command(about = "Generate checked-in artifacts (generated/, CHECKS.md) from in-repo sources of truth")]
-struct Cli {
-    #[command(subcommand)]
-    command: Option<Command>,
-
-    /// Print the full clap help tree as markdown (used to regenerate HELP.md).
-    #[cfg(feature = "markdown-help")]
-    #[arg(long, hide = true)]
-    markdown_help: bool,
-}
-
-#[derive(Subcommand)]
-enum Command {
-    /// Emit the generated artifacts for one target (default: all).
-    Generate {
-        /// Which artifacts to emit; defaults to `all`.
-        #[arg(value_enum, default_value_t = Target::All)]
-        target: Target,
-    },
-    /// Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions.
-    FetchDeps,
-    /// Write CHECKS.md, the catalogue of every check across every `MISE_ENV`.
-    Checks {
-        /// Compare against the committed CHECKS.md and fail on drift instead of writing it.
-        #[arg(long)]
-        check: bool,
-    },
-}
-
-/// Per-language target selector for the `generate` subcommand.
-///
-/// Mirrors the `MISE_ENV`-scoped `gen:*` tasks: `core` (language-agnostic specs), `rust`, `bindings`, `zig`, or `all`.
-#[derive(Clone, Copy, ValueEnum)]
-enum Target {
-    /// Language-agnostic specs: AsyncAPI/OpenAPI YAML, WIT, KDL, schema JSON.
-    Core,
-    /// The typed Rust REST client.
-    Rust,
-    /// The wasmtime host bindings for the ws-wasi-runner `runner` world.
-    Bindings,
-    /// The Zig REST client (skipped when openapi2zig is absent).
-    Zig,
-    /// Core + Rust + bindings + Zig.
-    All,
-}
 
 fn main() -> Result<(), et_int_gen::Error> {
     let cli = Cli::parse();
-
-    #[cfg(feature = "markdown-help")]
-    if cli.markdown_help {
-        clap_markdown::print_help_markdown::<Cli>();
-        return Ok(());
-    }
 
     match cli.command.unwrap_or(Command::Generate { target: Target::All }) {
         Command::Generate { target } => match target {
@@ -75,5 +23,7 @@ fn main() -> Result<(), et_int_gen::Error> {
         Command::FetchDeps => upstream::run(&get_project_root()),
         Command::Checks { check: true } => check_checks(),
         Command::Checks { check: false } => generate_checks(),
+        Command::HelpMd { check: true } => check_help(),
+        Command::HelpMd { check: false } => generate_help(),
     }
 }

@@ -8,10 +8,11 @@ This document contains the help content for the `et-int-gen` command-line progra
 - [`et-int-gen generate`↴](#et-int-gen-generate)
 - [`et-int-gen fetch-deps`↴](#et-int-gen-fetch-deps)
 - [`et-int-gen checks`↴](#et-int-gen-checks)
+- [`et-int-gen help-md`↴](#et-int-gen-help-md)
 
 ## `et-int-gen`
 
-Generate checked-in artifacts (generated/, CHECKS.md) from in-repo sources of truth
+Generate checked-in artifacts (generated/, CHECKS.md, HELP.md) from in-repo sources of truth
 
 **Usage:** `et-int-gen [COMMAND]`
 
@@ -20,6 +21,7 @@ Generate checked-in artifacts (generated/, CHECKS.md) from in-repo sources of tr
 - `generate` — Emit the generated artifacts for one target (default: all)
 - `fetch-deps` — Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions
 - `checks` — Write CHECKS.md, the catalogue of every check across every `MISE_ENV`
+- `help-md` — Write each utility's HELP.md from its clap command tree
 
 ## `et-int-gen generate`
 
@@ -60,6 +62,16 @@ Write CHECKS.md, the catalogue of every check across every `MISE_ENV`
 ###### **Options:**
 
 - `--check` — Compare against the committed CHECKS.md and fail on drift instead of writing it
+
+## `et-int-gen help-md`
+
+Write each utility's HELP.md from its clap command tree
+
+**Usage:** `et-int-gen help-md [OPTIONS]`
+
+###### **Options:**
+
+- `--check` — Compare against the committed HELP.md files and fail on drift instead of writing them
 
 <hr/>
 

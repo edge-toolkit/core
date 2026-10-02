@@ -264,6 +264,7 @@ rules:
         - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/utilities/int-gen/src/checks.rs" # Names the root config stub the tool finds without being told to.
+        - "/utilities/int-gen/src/help.rs" # Runs it to format the HELP.md files it writes.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)dprint"
     message: >-

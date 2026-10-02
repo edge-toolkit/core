@@ -511,11 +511,11 @@ Plus, attached to the same Linker but defined by external WIT packages:
   sources of truth (AsyncAPI/OpenAPI YAML, WIT, KDL, schema JSON, the typed Rust REST client, the Zig client).
 - **onnx** (`et-onnx`) -- ONNX model utilities.
 
-Each utility has a committed `HELP.md` (under its crate dir) that mirrors the clap-derive tree via the
-`markdown-help` feature + hidden `--markdown-help` flag. **Read `utilities/<name>/HELP.md` to learn what
-the CLI does -- don't run `cargo run -p <name> -- --help`** (much slower: cargo has to build the binary
-first; HELP.md is the same content as a static file). `mise run gen-help-all` regenerates them all; the
-`gen-help-check` task (wired into `check:rust`) fails on drift.
+Each utility has a committed `HELP.md` (under its crate dir) that mirrors its clap-derive tree, written by
+`et-int-gen help-md` from each crate's command tree. **Read `utilities/<name>/HELP.md` to learn what the CLI does --
+don't run `cargo run -p <name> -- --help`** (much slower: cargo has to build the binary first; HELP.md is the same
+content as a static file). `mise run gen-help-all` regenerates them all; the `gen-help-check` task (wired into
+`check:rust`) fails on drift.
 
 ### Verification (`verification/`)
 

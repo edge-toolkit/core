@@ -88,7 +88,9 @@ deno_resolver = "0.85"
 # baking our own startup snapshot we'd otherwise hit the panic on first run.
 deno_runtime = { version = "0.262", features = ["transpile", "hmr"] }
 edge-toolkit = { path = "libs/edge-toolkit", version = "0.3.1" }
+et-cli = { path = "utilities/cli", version = "0.1.1" }
 et-modules-service = { path = "services/modules", version = "0.2.0" }
+et-onnx = { path = "utilities/onnx", version = "0.1.0" }
 et-org = { path = "libs/org", version = "0.1.0" }
 et-otlp = { path = "libs/et-otlp", version = "0.2.0" }
 et-path = { path = "libs/path", version = "0.2.0" }

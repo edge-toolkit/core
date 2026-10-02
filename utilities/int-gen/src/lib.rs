@@ -33,6 +33,7 @@
 //! under `generated/specs/wit/deps/wasi-*/` are pulled via `mise run fetch-wit-deps`, handled by the companion
 //! [`wit::upstream`] module.
 
+use std::io::Write as _;
 use std::path::Path;
 
 use edge_toolkit::config::get_project_root;
@@ -42,7 +43,9 @@ use schemars::schema_for;
 
 pub mod asyncapi;
 pub mod checks;
+pub mod cli;
 pub mod error;
+pub mod help;
 pub mod kdl;
 pub mod openapi;
 pub mod wit;
@@ -78,6 +81,34 @@ pub fn check_checks() -> Result<(), Error> {
         Err(Error::ChecksStale(
             "CHECKS.md is out of date with the mise configs and rule files; run `mise run gen:checks`",
         ))
+    }
+}
+
+/// Write each utility's `HELP.md` from its clap command tree.
+pub fn generate_help() -> Result<(), Error> {
+    let project_root = get_project_root();
+    for (path, rendered) in help::render(&project_root)? {
+        write_if_changed(&project_root.join(path), &rendered)?;
+    }
+    Ok(())
+}
+
+/// Fail when any committed `HELP.md` differs from what [`generate_help`] would write, naming each stale file.
+pub fn check_help() -> Result<(), Error> {
+    let project_root = get_project_root();
+    let mut stale = Vec::new();
+    for (path, rendered) in help::render(&project_root)? {
+        if fs::read_to_string(project_root.join(&path))? != rendered {
+            stale.push(path.display().to_string());
+        }
+    }
+    if stale.is_empty() {
+        Ok(())
+    } else {
+        Err(Error::HelpStale(format!(
+            "{} out of date with the clap command trees; run `mise run gen-help-all`",
+            stale.join(", ")
+        )))
     }
 }
 
@@ -195,19 +226,25 @@ pub fn generate_zig() -> Result<(), Error> {
 }
 
 /// Write only when the contents differ, so a no-op regeneration leaves no diff behind.
+///
+/// The file on disk is read and compared first, and an unchanged file is not touched at all. Changed contents are
+/// staged in a second file beside `path` and renamed over it, so the target is never truncated or written into, and a
+/// run that dies part way leaves the previous file whole.
 #[expect(
     clippy::print_stdout,
     reason = "et-int-gen is a CLI; `wrote <path>` per generated file is intended user-visible progress output"
 )]
 pub(crate) fn write_if_changed(path: &Path, contents: &str) -> Result<(), Error> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let unchanged = fs::read_to_string(path).is_ok_and(|existing| existing == contents);
-    if unchanged {
+    if fs::read(path).is_ok_and(|existing| existing == contents.as_bytes()) {
         return Ok(());
     }
-    fs::write(path, contents)?;
+    let dir = path
+        .parent()
+        .ok_or_else(|| std::io::Error::other(format!("{} has no parent directory", path.display())))?;
+    fs::create_dir_all(dir)?;
+    let mut staged = tempfile::NamedTempFile::new_in(dir)?;
+    staged.write_all(contents.as_bytes())?;
+    staged.persist(path)?.sync_all()?;
     println!("wrote {}", path.display());
     Ok(())
 }

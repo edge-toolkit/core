@@ -12,6 +12,7 @@ use et_path::{absolute_from, relative_path_from};
 use fs_err as fs;
 use serde::Deserialize;
 
+pub mod cli;
 mod deployment_types;
 mod error;
 mod hub_ws_url;
@@ -20,8 +21,9 @@ mod module_package_json;
 mod scenario_password;
 
 // `pub` here means "reachable from the binary or from `tests/`", and nothing else. This crate is a command line tool
-// that happens to be split into a lib target so integration tests can drive it; no consumer outside this directory
-// builds on it, and nothing exported is a promise. Everything the generators share among themselves is `pub(crate)`, so
+// that happens to be split into a lib target so integration tests can drive it; the only consumer outside this
+// directory is et-int-gen, which reads the `cli` tree to write HELP.md, and nothing exported is a promise. Everything
+// the generators share among themselves is `pub(crate)`, so
 // what remains below is the whole of the surface anyone could depend on -- short enough to read, which is what makes an
 // accidental addition to it visible.
 pub use self::deployment_types::{ScenarioModules, docker_image_module_paths, scenario_module_paths};

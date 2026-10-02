@@ -17,7 +17,6 @@ path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
-clap-markdown = { workspace = true, optional = true }
 edge-toolkit.workspace = true
 et-org.workspace = true
 et-path.workspace = true
@@ -40,9 +39,6 @@ command-error.workspace = true
 et-test-helpers.workspace = true
 et-ws-test-server.workspace = true
 tempfile.workspace = true
-
-[features]
-markdown-help = ["dep:clap-markdown"]
 
 [lints]
 workspace = true

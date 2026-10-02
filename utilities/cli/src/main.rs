@@ -1,20 +1,11 @@
 #![expect(clippy::print_stdout, reason = "CLI tool: println! is the intended UX")]
 
 use clap::{CommandFactory as _, Parser as _};
+use et_cli::cli::{Cli, Commands};
 use et_cli::{CliError, generate_deployment, generate_module_package_json, npm_module_path, regenerate_verification};
-
-mod cli;
-
-use crate::cli::{Cli, Commands};
 
 fn main() -> Result<(), CliError> {
     let cli = Cli::parse();
-
-    #[cfg(feature = "markdown-help")]
-    if cli.markdown_help {
-        clap_markdown::print_help_markdown::<Cli>();
-        return Ok(());
-    }
 
     let Some(command) = cli.command.as_ref() else {
         Cli::command().print_help()?;

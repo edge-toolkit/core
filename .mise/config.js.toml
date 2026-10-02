@@ -26,7 +26,7 @@
 # release assets, distributing per-platform binaries via `@oxlint-tsgolint/<triple>` optional deps, so every OS
 # is covered without os-scoping.
 "npm:oxlint-tsgolint" = "0.24.0"
-"npm:pnpm" = { version = "latest", os = ["macos/x64"] }
+"npm:pnpm" = { version = "11", os = ["macos/x64"] }
 
 # oxlint + oxfmt are the Rust-native JS/TS linter + formatter from the oxc-project.
 # They are pulled directly from the shared `apps_v<tag>` GitHub release. Aqua's registry entry trips mise's

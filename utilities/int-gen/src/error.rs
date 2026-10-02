@@ -29,6 +29,8 @@ pub enum Error {
     #[error(transparent)]
     Regex(#[from] regex::Error),
     #[error(transparent)]
+    Persist(#[from] tempfile::PersistError),
+    #[error(transparent)]
     Toml(#[from] toml::de::Error),
 
     // The message is carried as data rather than only in the `#[error]` string because the binary's `main` reports
@@ -39,6 +41,8 @@ pub enum Error {
     UndescribedRule(String),
     #[error("{0}")]
     DuplicateLinkLabel(String),
+    #[error("{0}")]
+    HelpStale(String),
 
     #[error("WS message JSON Schema malformed: {0}")]
     SchemaMalformed(&'static str),

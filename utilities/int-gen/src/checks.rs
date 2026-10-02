@@ -160,7 +160,10 @@ pub fn render(root: &Path) -> Result<String, Error> {
     writeln!(out, "- **Checks:** {check_count}")?;
     writeln!(out, "- **Tools:** {}", sections.len())?;
     writeln!(out, "- **Shell-script checks:** {shell_count}")?;
-    writeln!(out, "- **Rules:** {rule_count}, each written or set in this repo\n")?;
+    writeln!(
+        out,
+        "- **Rules:** {rule_count} custom local rules, or non-default strict linter settings\n"
+    )?;
     let intro = [
         "Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env",
         "whose config declares it, the aggregate that runs it as part of `mise run check`, and the config files",
@@ -758,7 +761,7 @@ fn lint_name(tool: &str, lint: &str) -> String {
 /// `# Opposite of <lint>.` line in the comment block directly above it, naming the other lint the same way.
 #[must_use]
 pub fn lint_opposites(manifest: &str) -> BTreeMap<String, String> {
-    let mut opposites = BTreeMap::new();
+    let mut opposites = Vec::new();
     let mut tool = "";
     let mut opposite = "";
     for line in manifest.lines().map(str::trim) {
@@ -780,13 +783,13 @@ pub fn lint_opposites(manifest: &str) -> BTreeMap<String, String> {
             && !tool.is_empty()
             && !opposite.is_empty()
         {
-            drop(opposites.insert(lint_name(tool, lint.trim()), opposite.to_owned()));
+            opposites.push((lint_name(tool, lint.trim()), opposite.to_owned()));
             opposite = "";
         } else {
             opposite = "";
         }
     }
-    opposites
+    opposites.into_iter().collect()
 }
 
 /// Every lint a manifest's `[workspace.lints]` sets, named by [`lint_name`], with its level.

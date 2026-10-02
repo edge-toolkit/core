@@ -1,20 +1,21 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use et_cli::OutputType;
+
+use crate::OutputType;
 
 #[derive(Parser)]
+#[non_exhaustive]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
-
-    /// Print the full clap help tree as markdown (used to regenerate HELP.md).
-    #[cfg(feature = "markdown-help")]
-    #[arg(long, hide = true)]
-    pub markdown_help: bool,
 }
 
 #[derive(Subcommand)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "the binary matches every subcommand, so adding one has to fail that match rather than fall through"
+)]
 pub enum Commands {
     /// Generate deployment config from a cluster input YAML.
     GenerateDeployment {

@@ -181,8 +181,22 @@ gh = "latest"
 "pipx:cowsay" = "latest"
 "pipx:semgrep" = "latest"
 # Aqua has no pnpm darwin/amd64 prebuilt.
-# The `npm:pnpm` fallback for macos/x64 lives in the `js` env (config.js.toml).
-pnpm = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
+# The `npm:pnpm` fallback for macos/x64 lives in the `js` env (config.js.toml), held to the same major.
+#
+# Held at pnpm 11 because pnpm 12 cannot install on Nano Server. pnpm 12 resolves its store operation lock directory
+# only through `SHGetKnownFolderPath(FOLDERID_LocalAppData)`, with no setting or variable to override it, and Nano's
+# shell32 lacks that entry point, so every install there aborts before resolving a single package:
+#
+#   Error: ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK
+#     x installing dependencies
+#     `-> Failed to open the store operation lock at "pnpm-store-operation-locks":
+#         failed to resolve the local application data directory: HRESULT 0x80004005
+#
+# Seen in `prefetch:node` on the `build (windows-2022, nanoserver)` lane at commit
+# https://github.com/edge-toolkit/core/commit/4daebb043af06dfd3b0f81ef301f5b0ead6d50b0,
+# https://github.com/edge-toolkit/core/actions/runs/36950377535/job/110661783062. pnpm 11 runs on node and never
+# calls the API. Held everywhere rather than on Nano alone so every lane installs the workspace with one pnpm.
+pnpm = { version = "11", os = ["linux", "macos/arm64", "windows"] }
 protoc = "latest"
 # Full version triple, not a minor pin.
 # mise installs python under a per-tool dir named after the request and only symlinks the `3.x` minor alias
@@ -717,6 +731,11 @@ shfmt_args = "-ln bash -i 2 -ci"
 # body does. Double-quoted so a checkout path containing a space still arrives as one operand -- mise splits a
 # `shell` string on whitespace, honouring double quotes but not single.
 task_shell = 'bash -euo pipefail "{{ config_root }}/.mise/task-shell.sh"'
+# The TOML files the taplo tasks act on, NUL-separated: every tracked or new-but-not-ignored `*.toml`.
+# Named explicitly because taplo's own discovery walks the tree following links before it applies `exclude`, and pnpm
+# links an optional package it skips on the host to `../../../../..`, the repo root -- so `taplo lint` and
+# `taplo format --check` recursed through the repo inside node_modules forever instead of failing.
+toml_files = "git ls-files -z --cached --others --exclude-standard '*.toml'"
 # `set -x` variant, for a body whose every command should be traced.
 task_shell_trace = 'bash -xeuo pipefail "{{ config_root }}/.mise/task-shell.sh"'
 # Unguarded variant, for a body that checks its own exit codes and must not abort on the first failure.
@@ -1135,11 +1154,11 @@ run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace 
 
 [tasks.taplo-fmt]
 alias = "toml-fmt"
-run = "taplo format"
+run = "{{ vars.toml_files }} | xargs -0 taplo format"
 
 [tasks.taplo-fmt-check]
 alias = "toml-fmt-check"
-run = "taplo format --check"
+run = "{{ vars.toml_files }} | xargs -0 taplo format --check"
 
 [tasks.conftest-check]
 depends = ["conftest-check-*"]
@@ -1374,7 +1393,7 @@ alias = "toml-check"
 # rule alone). We work around it by applying each schema explicitly with `taplo lint --schema file://...`.
 # conftest-check-toml (config/conftest/policy) intentionally duplicates these lints; running both is fine.
 run = """
-taplo lint
+{{ vars.toml_files }} | xargs -0 taplo lint
 
 # The --schema lints need a file:// URL, built cross-platform as file:///${PWD#/}.
 # taplo rejects a bare path. On Linux $PWD is /abs, so the form yields file:///abs; on Windows $PWD is C:/dir
@@ -1556,6 +1575,17 @@ done
 if [ -z "$stored" ]; then
   echo "published-verify: no math1-output.json appeared under $storage" >&2
   echo "published-verify: check whether the crates and module packages this scenario names are published yet" >&2
+  # Print where the hub was told each module is installed, beside what is actually there.
+  # The hub serves each npm module from the install path `mise ls --current --json` names, and is silent when that
+  # path is missing, so a module it never found shows up only as a runner's 404 -- this makes a listing that names a
+  # directory the install never created visible.
+  listing=$(cd "$out" && mise ls --current --json) || listing="{}"
+  printf '%s' "$listing" |
+    jaq -r 'to_entries[] | select(.key | startswith("npm:@edge-toolkit/")) | "\\(.key) \\(.value[0].install_path)"' |
+    while read -r tool path; do
+      echo "published-verify: $tool is listed at $path" >&2
+      coreutils ls -la "$(coreutils dirname "$path")" >&2 || true
+    done
   exit 1
 fi
 
@@ -1990,40 +2020,27 @@ depends = ["regenerate-verification"]
 description = "Fail if generated scenario output files are stale"
 run = "git diff --exit-code -- verification/"
 
-# HELP.md for each clap-using utility under utilities/.
-# Each crate has an optional `markdown-help` feature that gates a hidden `--markdown-help` flag;
-# `cargo run --features markdown-help -p <name> -- --markdown-help` prints a full clap-tree markdown
-# rendering. gen-help-all regenerates every HELP.md; gen-help-check diffs the committed files against
-# fresh output. The pattern mirrors pep257-rs's HELP.md flow. It must run after regenerate-verification
-# as they use different features, and they can race, invoking the wrong binary, without the required
-# feature.
 [tasks.gen-help-all]
-depends = ["cargo-check", "cargo-clippy-check", "cargo-doc-check", "regenerate-verification"]
 description = "Regenerate HELP.md for every clap-using utility under utilities/"
-run = """
-s=target/scratch/gen-help
-coreutils mkdir -p "$s"
-for crate in et-cli et-int-gen et-onnx; do
-  helpmd="utilities/${crate#et-}/HELP.md"
-  echo "[gen-help-all] $crate -> $helpmd"
-  cargo run --features markdown-help -q -p "$crate" -- --markdown-help | dprint fmt --stdin md >"$s/$crate.md"
-  coreutils mv "$s/$crate.md" "$helpmd"
-done
-"""
-shell = "{{ vars.task_shell }}"
+run = "cargo run -q -p et-int-gen --bin et-int-gen -- help-md"
 
 [tasks."gen:checks"]
 description = "Regenerate CHECKS.md, the catalogue of every check across every MISE_ENV"
 run = "cargo run -q -p et-int-gen --bin et-int-gen -- checks"
 
 [tasks.checks-md-check]
+# Ordered after the workspace builds so its `cargo run` reuses their artifacts.
+# Run beside them it is a fourth concurrent build, which doubled every cargo task's time on the three-core macOS
+# runner and took `check (macos-latest, 45)` past its budget.
+depends = ["cargo-check", "cargo-clippy-check", "cargo-doc-check", "regenerate-verification"]
 description = "Fail if CHECKS.md is stale vs the mise task tables and rule files (run `mise run gen:checks`)"
 run = "cargo run -q -p et-int-gen --bin et-int-gen -- checks --check"
 
 [tasks.gen-help-check]
-depends = ["gen-help-all"]
-description = "Fail if any utility's checked-in HELP.md is stale vs the clap tree"
-run = "git diff --exit-code -- utilities/*/HELP.md"
+# After checks-md-check, whose et-int-gen build it reuses.
+depends = ["checks-md-check"]
+description = "Fail if any utility's checked-in HELP.md is stale vs the clap tree (run `mise run gen-help-all`)"
+run = "cargo run -q -p et-int-gen --bin et-int-gen -- help-md --check"
 
 [tasks.fetch-wit-deps]
 description = "Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions (run by hand on bumps)"

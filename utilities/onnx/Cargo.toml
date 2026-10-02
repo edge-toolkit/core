@@ -7,6 +7,10 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+doctest = false
+test = false
+
 [[bin]]
 doctest = false
 name = "et-onnx"
@@ -15,11 +19,7 @@ test = false
 
 [dependencies]
 clap.workspace = true
-clap-markdown = { workspace = true, optional = true }
 onnx-extractor.workspace = true
-
-[features]
-markdown-help = ["dep:clap-markdown"]
 
 [lints]
 workspace = true
