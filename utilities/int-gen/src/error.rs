@@ -37,6 +37,8 @@ pub enum Error {
     ChecksStale(&'static str),
     #[error("{0}")]
     UndescribedRule(String),
+    #[error("{0}")]
+    DuplicateLinkLabel(String),
 
     #[error("WS message JSON Schema malformed: {0}")]
     SchemaMalformed(&'static str),

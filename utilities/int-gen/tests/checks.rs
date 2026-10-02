@@ -3,9 +3,9 @@
 //! The `run` bodies here use made-up tool names, since what is under test is the shell parsing around them.
 #![cfg(test)]
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
-use et_int_gen::checks::{config_paths, rego_summaries, rule_sources, runner_label, wrap};
+use et_int_gen::checks::{config_paths, link_label, lint_opposites, rego_summaries, rule_sources, runner_label, wrap};
 
 /// The set of paths a path-collecting function is expected to return.
 fn paths(expected: &[&str]) -> BTreeSet<String> {
@@ -129,6 +129,48 @@ fn rego_rule_without_a_summary_comment_is_rejected() {
     assert!(
         error.starts_with("demo.rego:7: rule has no summary comment"),
         "names the file and line: {error}"
+    );
+}
+
+#[test]
+fn lint_opposite_is_read_from_the_comment_block_directly_above_its_entry() {
+    let manifest = [
+        "[workspace.lints.clippy]\n",
+        "# Opposite of clippy::lint_b.\n# Why this side was chosen.\nlint_a = \"allow\"\n",
+        "lint_c = \"allow\"\n",
+        "# Opposite of clippy::lint_e.\n\nlint_d = \"allow\"\n",
+        "[workspace.lints.rust]\n# Opposite of lint_g.\nlint_f = \"allow\"\n",
+        "[workspace.package]\n# Opposite of clippy::lint_i.\nlint_h = \"allow\"\n",
+    ]
+    .concat();
+    let expected = BTreeMap::from([
+        ("clippy::lint_a".to_owned(), "clippy::lint_b".to_owned()),
+        ("lint_f".to_owned(), "lint_g".to_owned()),
+    ]);
+    assert_eq!(lint_opposites(&manifest), expected);
+}
+
+#[test]
+fn link_label_is_the_lint_name_without_its_tool() {
+    assert_eq!(
+        link_label("clippy::unwrap_used", "https://example.test/#unwrap_used"),
+        "unwrap_used"
+    );
+    assert_eq!(
+        link_label("unused_results", "https://example.test/#unused-results"),
+        "unused_results"
+    );
+}
+
+#[test]
+fn link_label_is_shortened_when_its_definition_would_overflow_the_line() {
+    let link = format!(
+        "https://example.test/{}#allow_attributes_without_reason",
+        "x".repeat(36)
+    );
+    assert_eq!(
+        link_label("clippy::allow_attributes_without_reason", &link),
+        "allow_attributes_without"
     );
 }
 

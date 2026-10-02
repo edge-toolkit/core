@@ -12,11 +12,15 @@
 //! * Binary / text bodies (e.g. `application/octet-stream`) *inline* their
 //!   own `client.http.fetch` in the per-operation `*Raw` function rather
 //!   than delegating.
+//! * Since 0.5, operations that declare headers route through
+//!   `requestRawWithContentTypeAndExtraHeaders`, which holds a second copy of
+//!   the shared `client.http.fetch`.
 //!
 //! We funnel everything through one host import. First we swap the body of
 //! the shared `requestRawWithContentType` for one that delegates to a single
 //! `extern fn js_rest_request(...)` (host-implemented via `fetch()` and
-//! `SharedArrayBuffer` in the JS shim). Then we rewrite each inlined binary
+//! `SharedArrayBuffer` in the JS shim), and the extra-headers variant's body
+//! for a call to it. Then we rewrite each inlined binary
 //! operation to delegate to that same shared function instead of calling
 //! `client.http.fetch` directly. Finally we assert no reachable
 //! `client.http.fetch` survived and append the extern declaration.
@@ -48,6 +52,14 @@ const SHARED_REQUEST_FN: &str = "requestRawWithContentType";
 
 /// The replacement body spliced into [`SHARED_REQUEST_FN`] by [`rewrite`].
 const REQUEST_RAW_BODY: &str = include_str!("zig.in/request_raw_body.zig");
+
+/// The shared request function that operations declaring headers call, with a `client.http.fetch` of its own.
+///
+/// openapi2zig 0.5 emits it beside [`SHARED_REQUEST_FN`] rather than delegating to it, so it is rewritten too.
+const EXTRA_HEADERS_REQUEST_FN: &str = "requestRawWithContentTypeAndExtraHeaders";
+
+/// The replacement body spliced into [`EXTRA_HEADERS_REQUEST_FN`] by [`rewrite`], delegating to [`SHARED_REQUEST_FN`].
+const REQUEST_RAW_EXTRA_HEADERS_BODY: &str = include_str!("zig.in/request_raw_extra_headers_body.zig");
 
 /// The `extern fn js_rest_request(...)` declaration appended to the generated client by [`rewrite`].
 const JS_REST_REQUEST_EXTERN: &str = include_str!("zig.in/js_rest_request_extern.zig");
@@ -121,38 +133,9 @@ fn run_openapi2zig(rest_json: &Path, raw_out: &Path) -> Result<(), Error> {
     reason = "named helper; pairs with run_openapi2zig() as the two halves of render()"
 )]
 fn rewrite(source: &str) -> Result<String, Error> {
-    let mut parser = Parser::new();
-    parser.set_language(&tree_sitter_zig::LANGUAGE.into())?;
-    let tree = parser
-        .parse(source, None)
-        .ok_or_else(|| Error::ZigCodegen("tree-sitter parse returned None".into()))?;
-
-    let shared_fn = find_fn(tree.root_node(), source, SHARED_REQUEST_FN)
-        .ok_or_else(|| Error::ZigCodegen(format!("{SHARED_REQUEST_FN} function not found in openapi2zig output")))?;
-    let body = shared_fn
-        .child_by_field_name("body")
-        .ok_or_else(|| Error::ZigCodegen(format!("{SHARED_REQUEST_FN} has no body field")))?;
-
-    let body_start = body.start_byte();
-    let body_end = body.end_byte();
-
-    // 1024 is a comfortable upper bound for the replacement body + extern
-    // declaration we splice in below; if the additions ever exceed it the
-    // worst case is one extra reallocation, not a panic.
-    let mut out = String::with_capacity(source.len().saturating_add(1024));
-    // Indexing into `source` is safe here because tree-sitter byte offsets
-    // sit on UTF-8 boundaries by construction (it tokenises a UTF-8
-    // string and emits byte-aligned spans).
-    #[expect(
-        clippy::string_slice,
-        reason = "tree-sitter byte offsets are UTF-8 boundary-aligned; we round-trip the source by splicing those spans"
-    )]
-    {
-        out.push_str(&source[..body_start]);
-        out.push_str(REQUEST_RAW_BODY.trim_end());
-        out.push_str(&source[body_end..]);
-    }
-    out = reroute_inline_binary_ops(&out)?;
+    let out = replace_fn_body(source, SHARED_REQUEST_FN, REQUEST_RAW_BODY)?;
+    let out = replace_fn_body(&out, EXTRA_HEADERS_REQUEST_FN, REQUEST_RAW_EXTRA_HEADERS_BODY)?;
+    let mut out = reroute_inline_binary_ops(&out)?;
     if out.contains("client.http.fetch") {
         return Err(Error::ZigCodegen(
             concat!(
@@ -165,6 +148,40 @@ fn rewrite(source: &str) -> Result<String, Error> {
     out.push_str(JS_REST_REQUEST_EXTERN);
     // Strip openapi2zig's volatile header timestamp so the committed client stays byte-identical across regens.
     let out = Regex::new(GENERATED_TIMESTAMP_PATTERN)?.replace(&out, "").into_owned();
+    Ok(out)
+}
+
+/// Return `source` with the body of the function named `name` replaced by `body`.
+///
+/// The function is found by name with `tree-sitter-zig` rather than by string-matching its body, so an openapi2zig
+/// bump that reshuffles the implementation does not break the splice; a function that is gone is an error.
+fn replace_fn_body(source: &str, name: &str, body: &str) -> Result<String, Error> {
+    let mut parser = Parser::new();
+    parser.set_language(&tree_sitter_zig::LANGUAGE.into())?;
+    let tree = parser
+        .parse(source, None)
+        .ok_or_else(|| Error::ZigCodegen("tree-sitter parse returned None".into()))?;
+
+    let function = find_fn(tree.root_node(), source, name)
+        .ok_or_else(|| Error::ZigCodegen(format!("{name} function not found in openapi2zig output")))?;
+    let old_body = function
+        .child_by_field_name("body")
+        .ok_or_else(|| Error::ZigCodegen(format!("{name} has no body field")))?;
+
+    // 1024 is a comfortable upper bound for the replacement body + extern declaration the caller splices in; if
+    // the additions ever exceed it the worst case is one extra reallocation, not a panic.
+    let mut out = String::with_capacity(source.len().saturating_add(1024));
+    // Indexing into `source` is safe here because tree-sitter byte offsets sit on UTF-8 boundaries by
+    // construction (it tokenises a UTF-8 string and emits byte-aligned spans).
+    #[expect(
+        clippy::string_slice,
+        reason = "tree-sitter byte offsets are UTF-8 boundary-aligned; we round-trip the source by splicing those spans"
+    )]
+    {
+        out.push_str(&source[..old_body.start_byte()]);
+        out.push_str(body.trim_end());
+        out.push_str(&source[old_body.end_byte()..]);
+    }
     Ok(out)
 }
 

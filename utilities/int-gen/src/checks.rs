@@ -739,27 +739,77 @@ fn declares_lints(path: &Path) -> Result<bool, Error> {
     Ok(!workspace_lints(path)?.is_empty())
 }
 
-/// Every lint a manifest's `[workspace.lints]` sets, named as a `#[expect]` would name it, with its level.
+/// A `[workspace.lints.<tool>]` entry's lint, named as a `#[expect]` would name it.
 ///
 /// A lint of the `rust` table is the compiler's own and goes unprefixed; every other table names its tool, as in
-/// `clippy::unwrap_used`. The description is the level, with the priority when one is set.
+/// `clippy::unwrap_used`.
+fn lint_name(tool: &str, lint: &str) -> String {
+    if tool == "rust" {
+        lint.to_owned()
+    } else {
+        format!("{tool}::{lint}")
+    }
+}
+
+/// The lint each `[workspace.lints]` entry is marked as the opposite of, keyed by the entry's `lint_name`.
+///
+/// Some lints, most of them in clippy's `restriction` group, come in pairs where one demands the spelling the other
+/// rejects, so the workspace can deny at most one of the two. The entry that settles such a pair carries an
+/// `# Opposite of <lint>.` line in the comment block directly above it, naming the other lint the same way.
+#[must_use]
+pub fn lint_opposites(manifest: &str) -> BTreeMap<String, String> {
+    let mut opposites = BTreeMap::new();
+    let mut tool = "";
+    let mut opposite = "";
+    for line in manifest.lines().map(str::trim) {
+        if let Some(header) = line.strip_prefix('[') {
+            tool = header
+                .strip_prefix("workspace.lints.")
+                .and_then(|rest| rest.strip_suffix(']'))
+                .unwrap_or_default();
+            opposite = "";
+        } else if let Some(comment) = line.strip_prefix('#') {
+            if let Some(name) = comment
+                .trim()
+                .strip_prefix("Opposite of ")
+                .and_then(|rest| rest.strip_suffix('.'))
+            {
+                opposite = name;
+            }
+        } else if let Some((lint, _)) = line.split_once('=')
+            && !tool.is_empty()
+            && !opposite.is_empty()
+        {
+            drop(opposites.insert(lint_name(tool, lint.trim()), opposite.to_owned()));
+            opposite = "";
+        } else {
+            opposite = "";
+        }
+    }
+    opposites
+}
+
+/// Every lint a manifest's `[workspace.lints]` sets, named by [`lint_name`], with its level.
+///
+/// The description is the level, with the priority when one is set and the lint it is the opposite of when its entry
+/// is marked as one by [`lint_opposites`].
 fn lint_rules(path: &Path) -> Result<Vec<Rule>, Error> {
     let rustc_levels = rustc_lint_levels()?;
+    let opposites = lint_opposites(&fs::read_to_string(path)?);
     let mut rules = Vec::new();
     for (tool, lints) in workspace_lints(path)? {
         for (lint, setting) in lints.as_table().into_iter().flatten() {
-            let name = if tool == "rust" {
-                lint.clone()
-            } else {
-                format!("{tool}::{lint}")
-            };
+            let name = lint_name(&tool, lint);
             let level = setting
                 .as_str()
                 .or_else(|| setting.get("level").and_then(toml::Value::as_str))
                 .unwrap_or_default();
             described(path, &name, "level", level)?;
             let priority = setting.get("priority").and_then(toml::Value::as_integer);
-            let description = priority.map_or_else(|| level.to_owned(), |rank| format!("{level}, priority {rank}"));
+            let mut description = priority.map_or_else(|| level.to_owned(), |rank| format!("{level}, priority {rank}"));
+            if let Some(opposite) = opposites.get(&name) {
+                write!(description, ", opposite of `{opposite}`")?;
+            }
             let link = lint_link(&tool, lint, &rustc_levels);
             rules.push(Rule {
                 name,
@@ -882,18 +932,24 @@ fn relative_path(root: &Path, path: &Path) -> String {
 
 /// Render a rule list, one bullet per rule, its description flattened onto wrapped lines.
 ///
-/// A rule with a documentation page links to it through a numbered reference, its URL defined after the list, so a
-/// long lint name and its URL never have to share one line.
+/// A rule with a documentation page links to it through a reference labelled by [`link_label`], its URL defined
+/// after the list, so a long lint name and its URL never have to share one line.
 fn render_rules(rules: &[Rule]) -> Result<String, Error> {
     let mut out = String::default();
     let mut references = String::default();
-    let mut count = 0_usize;
+    let mut labels = BTreeSet::new();
     for rule in rules {
         let mut shown = format!("`{}`", rule.name);
         if !rule.link.is_empty() {
-            count = count.saturating_add(1);
-            writeln!(references, "[lint-{count}]: {}", rule.link)?;
-            shown = format!("[{shown}][lint-{count}]");
+            let label = link_label(&rule.name, &rule.link);
+            if !labels.insert(label.clone()) {
+                return Err(Error::DuplicateLinkLabel(format!(
+                    "`{}` would share the link label `{label}` with an earlier rule",
+                    rule.name
+                )));
+            }
+            writeln!(references, "[{label}]: {}", rule.link)?;
+            shown = format!("[{shown}][{label}]");
         }
         out.push_str(&wrap("- ", "  ", &format!("{shown} -- {}", rule.description)));
     }
@@ -902,6 +958,23 @@ fn render_rules(rules: &[Rule]) -> Result<String, Error> {
         out.push_str(&references);
     }
     Ok(out)
+}
+
+/// The reference label a rule's documentation link is defined under, derived from the rule's name alone.
+///
+/// The label is the name without its tool prefix, so adding or removing a rule never relabels any other. Where
+/// `[label]: <link>` would run past `WIDTH`, whole words are dropped from the end of the name until it fits --
+/// `allow_attributes_without_reason` becomes `allow_attributes_without` -- which is just as stable, and leaves only
+/// real words for the spell checker to read.
+#[must_use]
+pub fn link_label(name: &str, link: &str) -> String {
+    let bare = name.rsplit("::").next().unwrap_or(name);
+    let budget = WIDTH.saturating_sub(link.len()).saturating_sub("[]: ".len());
+    let mut words: Vec<&str> = bare.split('_').collect();
+    while words.len() > 1 && words.join("_").len() > budget {
+        let _: Option<&str> = words.pop();
+    }
+    words.join("_")
 }
 
 /// The lint groups, which name a set of lints and have no entry of their own in the lint index.

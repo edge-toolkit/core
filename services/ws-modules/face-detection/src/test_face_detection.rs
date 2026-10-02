@@ -1,8 +1,7 @@
 #![cfg(test)]
 #![expect(
     clippy::default_numeric_fallback,
-    clippy::float_cmp,
-    reason = "test code: exact float comparisons and inline f64 fixtures are intentional"
+    reason = "test code: inline f64 fixtures are intentional"
 )]
 
 use super::*;
@@ -78,7 +77,7 @@ fn nms_keeps_boxes_when_iou_equals_threshold() {
 
 #[test]
 fn softmax_handles_empty_equal_and_large_values() {
-    assert!(softmax(&[]).is_empty());
+    assert_eq!(softmax(&[]), Vec::<f64>::new());
 
     let equal = softmax(&[4.0, 4.0, 4.0, 4.0]);
     assert!(equal.iter().all(|value| (*value - 0.25).abs() < 1e-6));
