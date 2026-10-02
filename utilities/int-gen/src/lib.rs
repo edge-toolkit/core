@@ -234,7 +234,7 @@ pub fn generate_zig() -> Result<(), Error> {
     clippy::print_stdout,
     reason = "et-int-gen is a CLI; `wrote <path>` per generated file is intended user-visible progress output"
 )]
-pub(crate) fn write_if_changed(path: &Path, contents: &str) -> Result<(), Error> {
+pub fn write_if_changed(path: &Path, contents: &str) -> Result<(), Error> {
     if fs::read(path).is_ok_and(|existing| existing == contents.as_bytes()) {
         return Ok(());
     }

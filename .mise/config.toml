@@ -1547,14 +1547,20 @@ mise trust "$out/mise.toml" >/dev/null
 # gitignored, so nothing downstream depends on it surviving.
 coreutils rm -f "$out/mise.lock"
 
-# The npm registry config is exported here rather than left to the deployment's own `[env]`.
+# The npm registry config is exported here, for every mise call below, rather than left to the deployment's `[env]`.
 # mise computes that entry but does not apply it to its own tool resolution, so the embedded npm client reads
 # no `NPM_CONFIG_USERCONFIG`, falls back to registry.npmjs.org, and answers `package not found` for a scoped
 # package that only GitHub Packages holds. Exported into the process, the same file resolves against
 # npm.pkg.github.com and installs. Measured both ways on one cold cache: the deployment's `[env]` alone
 # fetched https://registry.npmjs.org/@edge-toolkit%2Fet-ws-math1 and installed nothing.
-npmrc="$PWD/$out/npmrc"
-(cd "$out" && NPM_CONFIG_USERCONFIG="$npmrc" mise install)
+#
+# It has to cover the scenario run as well as the install. `mise run` resolves the tools again and, with `lockfile`
+# on, rewrites the deployment's `mise.lock`; resolved without the registry it records the npm modules with no
+# dependency graph, and an npm install is filed under a directory named for that graph (`<version>~aube~<digest>`).
+# Listed from such a lock the module points at a bare `<version>` that was never created, so the hub serves nothing and
+# each runner's request for its module's `package.json` is a 404.
+export NPM_CONFIG_USERCONFIG="$PWD/$out/npmrc"
+(cd "$out" && mise install)
 (cd "$out" && mise run generated-scenario) &
 scenario_pid=$!
 
@@ -1586,6 +1592,9 @@ if [ -z "$stored" ]; then
       echo "published-verify: $tool is listed at $path" >&2
       coreutils ls -la "$(coreutils dirname "$path")" >&2 || true
     done
+  # A module whose lock entry has no `aube` graph is listed at the bare version, so show which entries carry one.
+  echo "published-verify: aube graphs recorded in $out/mise.lock:" >&2
+  rg -n -A6 '^\\[\\[tools\\."npm:@edge-toolkit/' "$out/mise.lock" >&2 || true
   exit 1
 fi
 
