@@ -1553,14 +1553,19 @@ coreutils rm -f "$out/mise.lock"
 # package that only GitHub Packages holds. Exported into the process, the same file resolves against
 # npm.pkg.github.com and installs. Measured both ways on one cold cache: the deployment's `[env]` alone
 # fetched https://registry.npmjs.org/@edge-toolkit%2Fet-ws-math1 and installed nothing.
-#
-# It has to cover the scenario run as well as the install. `mise run` resolves the tools again and, with `lockfile`
-# on, rewrites the deployment's `mise.lock`; resolved without the registry it records the npm modules with no
-# dependency graph, and an npm install is filed under a directory named for that graph (`<version>~aube~<digest>`).
-# Listed from such a lock the module points at a bare `<version>` that was never created, so the hub serves nothing and
-# each runner's request for its module's `package.json` is a 404.
 export NPM_CONFIG_USERCONFIG="$PWD/$out/npmrc"
 (cd "$out" && mise install)
+# `mise lock` after the install records each npm module's dependency graph, which the install alone leaves out.
+# mise files an npm install under a directory named for that graph (`<version>~aube~<digest>`), but a fresh
+# `mise install` writes the module's lock entry with no graph, and `mise ls --current` then names the bare
+# `<version>` directory that was never created. The hub finds its modules through that listing, so it served
+# nothing and each runner's request for its module's `package.json` was a 404. Reproduced with any `latest` npm tool
+# on the mise `min_version` names and on its next release: the install lands in `<version>~aube~<digest>` while the
+# listing names `<version>`, until `mise lock` adds the graph. Seen as
+# `GET /modules/@edge-toolkit/et-ws-math1/package.json` 404s at
+# https://github.com/edge-toolkit/core/commit/b19fbf4790a38c77000dd888d513ff27b0f35d16, job
+# https://github.com/edge-toolkit/core/actions/runs/36968983438/job/110718777886.
+(cd "$out" && mise lock)
 (cd "$out" && mise run generated-scenario) &
 scenario_pid=$!
 
