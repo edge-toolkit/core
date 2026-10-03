@@ -9,7 +9,9 @@
  * operator-new symbols resolve the msvc_crt_ops.s jumps in the shim archive. */
 
 #include <malloc.h>
+// skipcq: CXX-W2030 -- this is C; <cstddef> exists only in C++
 #include <stddef.h>
+// skipcq: CXX-W2030 -- this is C; <cstdlib> exists only in C++
 #include <stdlib.h>
 #include <windows.h>
 
@@ -57,19 +59,19 @@ int _dupenv_s(char **buf, size_t *len, const char *name) {
 /* MSVC C++ operator new/delete impls (statically linked in MSVC's CRT), forwarded to the mingw heap.
  * V8 frees what it allocates, so pairing stays within one heap. Throwing-new degrades to abort-on-OOM. */
 void *shim_op_new(size_t n) {
-    void *p = malloc(n ? n : 1U);
-    if (!p) {
+    void *p = malloc((n != 0U) ? n : 1U);
+    if (p == NULL) {
         abort();
     }
     return p;
 }
 void *shim_op_new_nothrow(size_t n, void *tag) {
     (void)tag;
-    return malloc(n ? n : 1U);
+    return malloc((n != 0U) ? n : 1U);
 }
 void *shim_op_new_aligned(size_t n, size_t align) {
-    void *p = _aligned_malloc(n ? n : 1U, align);
-    if (!p) {
+    void *p = _aligned_malloc((n != 0U) ? n : 1U, align);
+    if (p == NULL) {
         abort();
     }
     return p;

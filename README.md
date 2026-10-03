@@ -20,9 +20,13 @@ interfaces, so one toolkit spans on-device and server inference without changing
 The result is AI that protects privacy and data sovereignty: sensitive camera, audio and research data stay on the
 device or your own network, never sent to an external cloud service.
 
+[edge-toolkit/research](https://github.com/edge-toolkit/research) reproduces published research papers and demos on
+edge-toolkit, rerunning each with the hub and runners in place of the original infrastructure and recording what
+changed.
+
 ## mise
 
-Please install [`mise`](https://mise.jdx.dev/) 2026.9.0 or later, including the shell integration. It is needed
+Please install [`mise`](https://mise.jdx.dev/) 2026.9.17 or later, including the shell integration. It is needed
 for all use of this repository.
 
 The `mise` configuration lives under [`.mise/`](.mise/): the always-loaded [`.mise/config.toml`](.mise/config.toml)
@@ -163,7 +167,8 @@ This is the same workaround both Docker builds bake in, so reach for it first if
 
 ## Contributing
 
-Use `mise run fmt-all` and `mise run check-all` to run formatters and checkers.
+Use `mise run fmt-all` and `mise run check-all` to run formatters and checkers. [CHECKS.md](CHECKS.md) lists every
+check across every `MISE_ENV`, the tool and config each one uses, and every rule those tools are configured with.
 
 ## Building and running with Docker
 

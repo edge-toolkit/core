@@ -179,7 +179,7 @@ EOF
 # SHASUMS256.txt covering every asset, so `--ignore-missing` verifies exactly the one archive downloaded here.
 # mise's own apt repository was the obvious alternative and was rejected: it publishes only the newest version,
 # so it cannot honour the pin, and a floating mise is what writes lockfile entries an older CI mise then refuses.
-ARG MISE_VERSION=v2026.9.0
+ARG MISE_VERSION=v2026.9.17
 # TARGETARCH is an automatic BuildKit build ARG; re-declaring it brings it into this stage.
 ARG TARGETARCH
 ENV MISE_VERSION=${MISE_VERSION}

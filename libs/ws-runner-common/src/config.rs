@@ -31,7 +31,7 @@ macro_rules! runner_config {
         $vis:vis struct $name:ident { $($(#[$field_meta:meta])* $field_vis:vis $field:ident : $ty:ty),* $(,)? }
     ) => {
         $(#[$struct_meta])*
-        #[derive(Clone, Debug, ::serde::Deserialize)]
+        #[derive(::serde::Deserialize, Clone, Debug)]
         #[non_exhaustive]
         $vis struct $name {
             /// `RUNNER_*` settings (`RUNNER_MODULE`, `RUNNER_TIMEOUT`).

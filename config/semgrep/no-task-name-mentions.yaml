@@ -23,7 +23,7 @@ rules:
       exclude:
         - "/.mise/**" # Where the tasks are defined and depend on each other.
         - "/.github/**" # Runs them, and fails a PR on drift between their output and what is committed.
-        - "/CLAUDE.md" # Documents which generator to run after changing a source of truth.
+        - "/AGENTS.md" # Documents which generator to run after changing a source of truth.
         - "/README.md" # Same, for a contributor.
         - "**/README.md" # A generated tree's README names the command that rewrites it.
         - "/generated/**" # Generator-owned output, whose headers name the task that wrote it.
@@ -37,11 +37,13 @@ rules:
         - "/config/typos.toml" # A vendored word that cannot be corrected here, only where it is fetched from.
         - "/services/ws-wasi-runner/src/bindings.rs" # Generated; the header is how a reader rebuilds it.
         - "/utilities/int-gen/src/**" # The generator itself, whose entry points are these tasks.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each task by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: >-
       (?ix)(?<![\w-])( dockerignore-check|fetch-wit-deps|gen-help-all|gen-help-check|gen-specs|gen-specs-all
-      |gen-specs-check|gen:dart-rest|gen:dart-ws|gen:dockerignore|gen:osv-scanner|gen:python-rest|gen:python-ws
-      |gen:wasmtime-bindings|gen:ws-spec|gen:zig-rest|regenerate-verification|verification-check )(?![\w-])
+      |gen-specs-check|gen:checks|gen:dart-rest|gen:dart-ws|gen:dockerignore|gen:osv-scanner|gen:python-rest
+      |gen:python-ws|gen:wasmtime-bindings|gen:ws-spec|gen:zig-rest|regenerate-verification
+      |verification-check )(?![\w-])
     message: >-
       Do not name a generator task outside the generator, the files it writes, and the docs that say when to run
       it. A generated file's own header is where the name belongs, because a reader who must not hand-edit the
@@ -55,7 +57,7 @@ rules:
       exclude:
         - "/.mise/**" # Where the tasks are defined and depend on each other.
         - "/.github/**" # Builds the modules on CI.
-        - "/CLAUDE.md" # Documents how to build one module rather than the whole set.
+        - "/AGENTS.md" # Documents how to build one module rather than the whole set.
         - "/README.md" # Tells a contributor how to build a module.
         - "**/README.md" # A module's own README names the command that builds it.
         - "/Dockerfile" # Builds the modules into the image.
@@ -70,6 +72,7 @@ rules:
         - "/services/ws-wasi-runner/tests/modules.rs"
         - "/services/ws-wasi-runner/tests/otel_propagation.rs"
         - "/services/ws-web-runner/tests/modules.rs"
+        - "/CHECKS.md" # The generated catalogue of every check, which names each task by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: >-
       (?ix)(?<![\w-])( build-et-cli|build-et-rest-client-wheel|build-et-ws-wheel|build-modules|build-modules-all
@@ -87,13 +90,14 @@ rules:
       exclude:
         - "/.mise/**" # Where the tasks are defined and depend on each other.
         - "/.github/**" # Runs the coverage pipeline and uploads its reports.
-        - "/CLAUDE.md" # Documents how coverage is collected for each runtime.
+        - "/AGENTS.md" # Documents how coverage is collected for each runtime.
         - "/.codacy.yaml" # Names the task whose trusted argv is why an excluded file is a false positive.
         - "/services/ws-test-server/src/bin/cov-server.rs" # The same rationale, in the excluded file's header.
         - "/utilities/wasm-cov-wrapper/src/main.rs" # Likewise.
         - "/services/ws-wasm-agent/Cargo.toml" # Names the task that turns the instrumentation feature on.
         - "/services/ws-wasm-agent/tests/client.rs" # Names the task that must have a backend listening.
         - "/services/ws-web-runner/tests/modules.rs" # Names where each profile artifact is routed for processing.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each task by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: >-
       (?ix)(?<![\w-])( _cov-branch-assert|build-wasm-cov-wrapper|cargo-llvm-cov-branch-check|pic-viewer-cov
@@ -110,7 +114,7 @@ rules:
       exclude:
         - "/.mise/**" # Where the tasks are defined and depend on each other.
         - "/.github/**" # Skips the opener one of them uses on a lane that cannot install it.
-        - "/CLAUDE.md" # Documents how to bring the local collector up.
+        - "/AGENTS.md" # Documents how to bring the local collector up.
         - "/README.md" # Same, for a contributor.
         - "/Dockerfile" # Skips the runtime services it would otherwise stage.
         - "/Dockerfile.windows" # Notes which opener is unavailable on that lane.
@@ -125,6 +129,7 @@ rules:
         - "/services/ws-wasi-runner/tests/o2_ingest_search.rs" # Its subject is the server those tasks run.
         - "/utilities/cli/src/lib.rs" # Emits those task names into the deployments it generates.
         - "/utilities/cli/src/deployment_types/mise.rs" # Likewise.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each task by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: >-
       (?ix)(?<![\w-])( o2-hostmetrics|o2-macmon|o2-native|o2-native-clean|o2-nvidia|o2-nvidia-native
@@ -141,13 +146,14 @@ rules:
       exclude:
         - "/.mise/**" # Where the tasks are defined and depend on each other.
         - "/.github/**" # Runs the install and asset jobs, and records what only a maintainer may run.
-        - "/CLAUDE.md" # Documents the bootstrap-then-publish sequence for a new cached asset.
+        - "/AGENTS.md" # Documents the bootstrap-then-publish sequence for a new cached asset.
         - "/README.md" # Tells a contributor which install to run first.
         - "/Dockerfile" # Installs the toolchain and prefetches models.
         - "/Dockerfile.nanoserver" # Same, with a narrower prefetch.
         - "/Dockerfile.windows" # Same.
         - "/config/upstream-cache/data.toml" # Names the task that mirrors each asset to our own release.
         - "/data/model-modules/.gitignore" # Names the task that fetches the ignored weights.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each task by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: >-
       (?ix)(?<![\w-])( _setup-store-tools|bootstrap-[a-z0-9-]+-release|dart-pub-get|dotnet-workload-wasm-tools
@@ -167,7 +173,7 @@ rules:
       exclude:
         - "/.mise/**" # Where the tasks are defined and depend on each other.
         - "/.github/**" # Runs the suites on CI.
-        - "/CLAUDE.md" # Documents which suite covers which language.
+        - "/AGENTS.md" # Documents which suite covers which language.
         - "/README.md" # Tells a contributor how to run them.
         - "**/README.md" # A module's own README names the command that exercises it.
         - "/services/ws-modules/pic-viewer/tests/show_image.rs" # Needs a browser harness no plain test run gives.
@@ -175,6 +181,7 @@ rules:
         - "/services/ws-test-server/src/bin/verify-math1.rs" # Names the task that pipes cluster output into it.
         - "/services/ws-wasm-agent/tests/client.rs" # Names the runs that must have a backend on its port.
         - "/utilities/cli/tests/scenario_runners.rs" # Drives the generated tasks, and needs the group config.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each task by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: >-
       (?ix)(?<![\w-])( cargo-test|cargo-test-libs|k3s-verify|test-all|test-pic-viewer-(chrome|firefox)
@@ -192,7 +199,7 @@ rules:
       exclude:
         - "/.mise/**" # Where the tasks are defined and depend on each other.
         - "/.github/**" # Runs the battery on CI.
-        - "/CLAUDE.md" # Documents which check an agent runs for which file type.
+        - "/AGENTS.md" # Documents which check an agent runs for which file type.
         - "/README.md" # Tells a contributor which checks gate a change.
         - "/Dockerfile" # Runs the battery against the in-image source.
         - "/Dockerfile.nanoserver" # Names the tasks a skipped tool would otherwise gate.
@@ -214,11 +221,13 @@ rules:
         - "/config/semgrep/ls-lint-no-glob.yaml" # Its worked example is two checks disagreeing about a path.
         - "/config/semgrep/no-type-comments.yaml" # Names the check whose coverage the rule exists to protect.
         - "/pubspec.yaml" # One root lockfile exists so a single scan has a committed target.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each task by design.
+        - "/utilities/int-gen/src/checks.rs" # Writes that catalogue's header, which names its own drift check.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: >-
       (?ix)(?<![\w-])( action-validator-check|actionlint-check|ast-grep-(check|fix)|branch-up-to-date-check
       |cargo-(build|check|doc-check|fmt|fmt-check)|cargo-clippy-(check|check-pkg|fix)|cargo-deny-check
-      |cargo-unmaintained-check|check-all|check-ghcr-visibility|check:[a-z]+|clang-format-check
+      |cargo-unmaintained-check|check-all|check-ghcr-visibility|check:[a-z]+|checks-md-check|clang-format-check
       |clang-tidy-(check|fix)|conftest-check|conftest-check-(dockerfile|generated-trees|jscpd|policy-pairs)
       |conftest-check-(policy-tests|toml|yaml)|cpplint-check|dart-(check|fmt|fmt-check)|dotnet-(check|fmt)
       |dprint-(check|fmt)|fix:[a-z]+|flawfinder-check|fmt-all|fmt:[a-z]+|gitleaks-check|hadolint-check|jq-fmt

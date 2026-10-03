@@ -21,7 +21,10 @@ fn staged_install(root: &TempDir, install: &str, package: &str) -> std::path::Pa
 fn a_tool_list_that_is_not_json_yields_no_directories() {
     // An older mise, a wrapper that printed a warning first, a truncated pipe. The hub has to come away with nothing
     // rather than fail to start, so it serves what it can and says what is missing.
-    assert!(staged_module_dirs_from_tool_list(b"mise: not a tool list").is_empty());
+    assert_eq!(
+        staged_module_dirs_from_tool_list(b"mise: not a tool list"),
+        Vec::<std::path::PathBuf>::new()
+    );
     assert!(
         staged_module_dirs_from_tool_list(b"").is_empty(),
         "an empty body is not valid JSON either"
@@ -32,8 +35,14 @@ fn a_tool_list_that_is_not_json_yields_no_directories() {
 fn a_listing_that_is_not_an_object_yields_no_directories() {
     // Valid JSON, wrong shape: mise answers with a map of tool id to versions, and anything else is a version of mise
     // this does not know how to read.
-    assert!(staged_module_dirs_from_tool_list(b"[]").is_empty());
-    assert!(staged_module_dirs_from_tool_list(b"\"a string\"").is_empty());
+    assert_eq!(
+        staged_module_dirs_from_tool_list(b"[]"),
+        Vec::<std::path::PathBuf>::new()
+    );
+    assert_eq!(
+        staged_module_dirs_from_tool_list(b"\"a string\""),
+        Vec::<std::path::PathBuf>::new()
+    );
 }
 
 #[test]
@@ -81,7 +90,10 @@ fn an_entry_with_no_version_or_no_install_path_is_skipped() {
         "npm:et-ws-path-not-a-string": [{ "install_path": 42_i32 }],
     });
 
-    assert!(staged_module_dirs_from_tool_list(&serde_json::to_vec(&tool_list).unwrap()).is_empty());
+    assert_eq!(
+        staged_module_dirs_from_tool_list(&serde_json::to_vec(&tool_list).unwrap()),
+        Vec::<std::path::PathBuf>::new()
+    );
 }
 
 #[test]
@@ -89,5 +101,8 @@ fn no_mise_to_ask_contributes_no_directories() {
     // The other half of the lookup: with no `mise` to run there is no listing to interpret, and a deployment that
     // staged nothing has to reach the same empty answer as one whose listing named nothing. An empty PATH hides the
     // binary from the spawn, and `with_empty_path` puts PATH back so sibling tests in this binary still find it.
-    assert!(et_test_helpers::with_empty_path(mise_staged_module_dirs).is_empty());
+    assert_eq!(
+        et_test_helpers::with_empty_path(mise_staged_module_dirs),
+        Vec::<std::path::PathBuf>::new()
+    );
 }

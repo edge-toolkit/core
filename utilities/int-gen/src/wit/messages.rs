@@ -34,8 +34,8 @@ fn to_kebab(input: &str) -> String {
 type EnumSet = HashSet<String>;
 
 #[expect(
-    clippy::unwrap_used,
     clippy::unwrap_in_result,
+    clippy::unwrap_used,
     reason = "the semver literal is a compile-time constant; an Err means the literal was mistyped"
 )]
 pub fn render(client_schema: &Schema, server_schema: &Schema) -> Result<String, Error> {

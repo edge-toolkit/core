@@ -15,7 +15,7 @@ dockerfile(originals) := [{"path": "Dockerfile", "contents": [lines]}] if {
 	lines := [line | some o in originals; line := {"Original": o}]
 }
 
-# The form CLAUDE.md requires and every Dockerfile in this repo uses: bash first, delimiter quoted.
+# The form AGENTS.md requires and every Dockerfile in this repo uses: bash first, delimiter quoted.
 test_quoted_delimiter_accepts_a_correct_body if {
 	msgs := dockerfile_heredoc.deny with input as dockerfile([
 		"RUN bash <<'EOF'",

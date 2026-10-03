@@ -120,7 +120,7 @@ jobs:
 
       - name: Install Mesa Vulkan drivers (lavapipe)
         if: runner.os == 'Linux'
-        uses: ./.github/actions/install-lavapipe
+        uses: $/.github/actions/install-lavapipe
 
       # Windows tools source-build under mise 2026.7.1, so this step runs long (bumped from 20).
       # The per-tool msvc `install_env` override no longer reaches cargo-binstall there, so cargo tools like
@@ -137,7 +137,7 @@ jobs:
       # on commit https://github.com/edge-toolkit/core/commit/5d7dfaa10c0d10e980aa7a4a785476be059699fb at
       # https://github.com/edge-toolkit/core/actions/runs/36812561314/job/110210608554.
       - name: Install mise + tools
-        uses: ./.github/actions/install-mise-tools
+        uses: $/.github/actions/install-mise-tools
         timeout-minutes: ${{ matrix.install_timeout || 60 }}
         env:
           ET_LINK_WITH_MOLD: "false"
@@ -216,7 +216,7 @@ jobs:
           persist-credentials: false
 
       - name: Install mise + tools
-        uses: ./.github/actions/install-mise-tools
+        uses: $/.github/actions/install-mise-tools
         timeout-minutes: 60
 
       - name: Prefetch dependencies
@@ -299,7 +299,7 @@ jobs:
       # reason for one) -- busybox-w32 is an x64 exe, and this job's single task chain is far too short for the
       # Git Bash cygheap pathology that override exists to dodge.
       - name: Install mise
-        uses: ./.github/actions/install-mise
+        uses: $/.github/actions/install-mise
 
       # Both toolchains the Windows [[tools.rust]] entries name, resolved at the arm64 host triple.
       # python is here because a workspace build reaches et-ws-pyo3-runner, whose pyo3-ffi build script runs
@@ -347,7 +347,7 @@ jobs:
 
       # install-mise-tools ends with this, but this job deliberately does not use it, so it clears its own.
       - name: Remove mise shim
-        uses: ./.github/actions/remove-mise-shim
+        uses: $/.github/actions/remove-mise-shim
 
       # A build, not a check: codegen and linking are where a new host triple actually fails.
       # The ceiling allows for the macos-26-intel runners' pace, which swings by more than two to one between

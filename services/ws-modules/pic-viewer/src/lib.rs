@@ -39,7 +39,7 @@ const MAX_RUNTIME_POLLS: u32 = 3_000;
 const CAPTURE_KIND: &str = "pyeye1_capture_stored";
 
 /// One decoded capture announcement: who stored the image and the storage path to fetch it from.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct CaptureNotification {
     pub from_agent_id: String,

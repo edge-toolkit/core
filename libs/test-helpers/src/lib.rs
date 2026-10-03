@@ -1,6 +1,6 @@
 //! Low-dependency helpers shared across the workspace's integration tests.
 //!
-//! Only genuinely reusable, low-dependency utilities belong here (see CLAUDE.md). Heavier or
+//! Only genuinely reusable, low-dependency utilities belong here (see AGENTS.md). Heavier or
 //! domain-specific fixtures live in their own test-support crate instead -- e.g. `et-ws-test-server`
 //! (an in-process ws-server) or `et-test-otlp` (OTLP emit + capture-assertion support).
 #![expect(

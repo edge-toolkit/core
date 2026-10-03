@@ -88,7 +88,9 @@ deno_resolver = "0.85"
 # baking our own startup snapshot we'd otherwise hit the panic on first run.
 deno_runtime = { version = "0.262", features = ["transpile", "hmr"] }
 edge-toolkit = { path = "libs/edge-toolkit", version = "0.3.1" }
+et-cli = { path = "utilities/cli", version = "0.1.1" }
 et-modules-service = { path = "services/modules", version = "0.2.0" }
+et-onnx = { path = "utilities/onnx", version = "0.1.0" }
 et-org = { path = "libs/org", version = "0.1.0" }
 et-otlp = { path = "libs/et-otlp", version = "0.2.0" }
 et-path = { path = "libs/path", version = "0.2.0" }
@@ -311,6 +313,7 @@ private_intra_doc_links = { level = "deny", priority = 8 }
 all = { level = "deny", priority = -1 }
 complexity = { level = "deny", priority = -1 }
 correctness = { level = "deny", priority = -1 }
+# Opposite of clippy::needless_return.
 implicit_return = { level = "allow", priority = 8 }
 nursery = { level = "deny", priority = -1 }
 pedantic = { level = "deny", priority = -1 }
@@ -337,9 +340,11 @@ semicolon_if_nothing_returned = { level = "deny", priority = 4 }
 shadow_reuse = { level = "allow", priority = 4 }
 shadow_same = { level = "allow", priority = 4 }
 shadow_unrelated = { level = "allow", priority = 4 }
+# Opposite of clippy::semicolon_inside_block.
 # Block-scoped statements like `{ *guard = ...; }` use the closing brace to drop borrows.
 # Moving the `;` outside risks extending MutexGuard lifetimes past the intended scope.
 semicolon_outside_block = { level = "allow", priority = 4 }
+# Opposite of clippy::unseparated_literal_suffix.
 # Allowing separated_literal_suffix & unseparated_literal_suffix is an explicit style choice.
 separated_literal_suffix = { level = "allow", priority = 4 }
 unseparated_literal_suffix = { level = "allow", priority = 4 }
@@ -348,6 +353,10 @@ absolute_paths = { level = "allow", priority = 4 }
 # Allowing pub_use is an explicit style choice to streamline coding.
 impl_trait_in_params = { level = "deny", priority = 4 }
 pub_use = { level = "allow", priority = 4 }
+# Opposite of clippy::unneeded_field_pattern.
+# Allowing rest_pattern_accessible_field is an explicit style choice: a struct pattern skips fields with `..`.
+rest_pattern_accessible_field = { level = "allow", priority = 4 }
+# Opposite of clippy::self_named_module_files.
 # Allowing module_name_repetitions & mod_module_files are an explicit code layout choice.
 mod_module_files = { level = "allow", priority = 4 }
 module_name_repetitions = { level = "allow", priority = 4 }
@@ -372,6 +381,7 @@ infinite_loop = "deny"
 too_many_arguments = { level = "deny", priority = 2 }
 # Allowing missing_trait_methods to avoid forcing explicit implementation of default trait methods
 missing_trait_methods = { level = "allow", priority = 4 }
+# Opposite of clippy::pub_without_shorthand.
 pub_with_shorthand = { level = "allow", priority = 4 }
 pub_without_shorthand = { level = "deny", priority = 4 }
 # clippy removing pub(crate) is quite confusing at times

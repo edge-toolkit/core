@@ -35,7 +35,7 @@ jobs:
           - os: ubuntu-latest
             timeout: 40
           - os: macos-latest
-            timeout: 45
+            timeout: 75
           - os: windows-latest
             timeout: 120
     # Windows runs the checkers under busybox-w32 ash, same as test.yaml's Windows lane.
@@ -59,7 +59,7 @@ jobs:
           persist-credentials: false
 
       - name: Install mise + tools
-        uses: ./.github/actions/install-mise-tools
+        uses: $/.github/actions/install-mise-tools
         timeout-minutes: 60
 
       - name: Prefetch Rust dependencies

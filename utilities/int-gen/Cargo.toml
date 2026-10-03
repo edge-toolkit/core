@@ -18,10 +18,12 @@ path = "src/bin/int-gen.rs"
 anyhow.workspace = true
 asyncapi-rust.workspace = true
 clap.workspace = true
-clap-markdown = { workspace = true, optional = true }
+clap-markdown.workspace = true
 command-error.workspace = true
 edge-toolkit = { workspace = true, features = ["schema-export"] }
+et-cli.workspace = true
 et-modules-service = { workspace = true, features = ["openapi-spec"] }
+et-onnx.workspace = true
 et-storage-service = { workspace = true, features = ["openapi-spec"] }
 et-ws-server = { workspace = true, features = ["openapi-spec"] }
 fs-err.workspace = true
@@ -40,16 +42,15 @@ serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
 syn.workspace = true
+tempfile.workspace = true
 thiserror.workspace = true
+toml.workspace = true
 tree-sitter.workspace = true
 tree-sitter-zig.workspace = true
 utoipa.workspace = true
 wasmtime-internal-wit-bindgen.workspace = true
 wit-encoder = { workspace = true, features = ["from-parser"] }
 wit-parser.workspace = true
-
-[features]
-markdown-help = ["dep:clap-markdown"]
 
 [dev-dependencies]
 et-test-helpers.workspace = true

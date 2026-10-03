@@ -42,7 +42,7 @@ EOF
 # checks exactly the archive downloaded here. Pinned rather than installed from mise's apt repository,
 # which carries only the newest version: a floating mise writes lockfile entries an older CI mise
 # then refuses to install.
-ARG MISE_VERSION=v2026.9.0
+ARG MISE_VERSION=v2026.9.17
 ARG TARGETARCH
 ENV MISE_VERSION=${MISE_VERSION}
 ENV TARGETARCH=${TARGETARCH}

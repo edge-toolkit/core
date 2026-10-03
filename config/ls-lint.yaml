@@ -35,6 +35,8 @@ ignore:
   - .git
   - target
   - generated
+  # The npm dependency graphs `mise lock` records beside a scenario's lockfile, named by the package and version.
+  - verification/published/output/math1/.mise
   # Bundled data/model assets -- names are not hand-chosen.
   # This also covers the pnpm symlink farm under data/split-learning-demo, whose nested package dirs are vendored.
   - data

@@ -66,6 +66,8 @@ services/ws-server/storage/
 # whatever the machine that ran it happened to resolve. One rule here rather than a `.gitignore` generated into
 # each scenario, so a scenario added later is covered without anything having to be written into it.
 verification/**/*.lock
+# The npm dependency graphs `mise lock` records beside that lockfile, a by-product for the same reason.
+verification/**/.mise/locks/
 # No rule for the per-scenario credential file, deliberately.
 # Under verification/ it is committed like every other generated artifact: the password is derived from an
 # input this repository already carries, so the file reproduces from public material rather than keeping a

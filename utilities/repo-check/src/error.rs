@@ -3,8 +3,8 @@
 /// Errors raised by `et-repo-check`.
 #[derive(Debug, thiserror::Error)]
 #[expect(
-    clippy::exhaustive_enums,
     clippy::error_impl_error,
+    clippy::exhaustive_enums,
     reason = "one internal binary with no SemVer surface; every check returns this type and adds variants with itself"
 )]
 pub enum Error {

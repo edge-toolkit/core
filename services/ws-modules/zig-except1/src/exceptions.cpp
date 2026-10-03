@@ -91,8 +91,10 @@ struct MinimalTypeInfo {
     const void *vtable;
     const char *name;
 };
-// NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c, cert-dcl51-cpp)
+// The `asm` here is a symbol label naming the libc++abi typeinfo, not inline assembly.
+// NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c, cert-dcl51-cpp, portability-no-assembler)
 extern const MinimalTypeInfo int_type_info asm("_ZTIi");
+// NOLINTNEXTLINE(portability-no-assembler) -- defines the asm-labelled declaration above; no assembly is emitted.
 const MinimalTypeInfo int_type_info = {nullptr, "i"};
 
 }  // extern "C"
@@ -103,6 +105,7 @@ namespace {
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- num/den are named, order-obvious division operands.
 int32_t checked_divide(int32_t num, int32_t den) {
     if (den == 0) {
+        // NOLINTNEXTLINE(bugprone-std-exception-baseclass) -- this runtime only provides typeinfo for `int` (_ZTIi).
         throw den;
     }
     return num / den;

@@ -1,8 +1,7 @@
 #![cfg(test)]
 #![expect(
-    clippy::float_cmp,
     clippy::default_numeric_fallback,
-    reason = "test code: exact float comparisons and inline f64 sensor fixtures are intentional"
+    reason = "test code: inline f64 sensor fixtures are intentional"
 )]
 
 use super::*;
@@ -41,7 +40,7 @@ fn flatten_samples_preserves_sample_order_and_feature_order() {
 fn flatten_samples_handles_empty_buffer() {
     let samples = VecDeque::new();
 
-    assert!(flatten_samples(&samples).is_empty());
+    assert_eq!(flatten_samples(&samples), Vec::<f32>::new());
 }
 
 #[test]

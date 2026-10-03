@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to coding agents working with code in this repository.
 
 ## Check the branch is on top of `origin/main` before starting
 
@@ -222,15 +222,9 @@ pass off an unverified change as a fix.
 
 ## Keep lines <= 120 characters
 
-`editorconfig-checker` (`ec`, wired into `mise run check` via the `editorconfig-check` task) enforces a 120-char
-limit on every file the `[*]` rule in `.editorconfig` covers -- which is almost all of them. A small number of
-files have explicit overrides (`LICENSE-*` and generated trees under `generated/`), but assume every file you
-touch is bound by 120 unless you have specific evidence otherwise.
-
-When writing comments, doc strings, `#[expect(reason = "...")]` reasons, `description = "..."` fields in TOML,
-markdown tables, JSON schemas, etc., keep each line under the limit on the first draft rather than relying on a
-follow-up fix-up pass. The most common offenders are: long `reason = "..."` strings on lint attributes, JSON
-`description` fields, markdown table rows, and CI-task `description` fields.
+Assume every file you touch is bound by the 120-char limit, and keep each line under it on the first draft rather
+than relying on a fix-up pass. The common offenders are long `reason = "..."` strings on lint attributes, JSON
+`description` fields, markdown table rows, and task `description` fields.
 
 Under the limit is the floor, not the target -- write prose and comments to **maximise** use of the 120-char width
 repo-wide. Fill each line close to 120 before wrapping rather than breaking early at 60-80 chars; a paragraph that
@@ -240,62 +234,22 @@ rule messages), markdown, and Rego/policy headers. When you touch a block that w
 the width -- for Rust, run `mise run parfit-fmt <file>` on the files you changed rather than re-wrapping by hand;
 every other surface is still reflowed manually.
 
-## Keep everything ASCII
+## Write ASCII, and never join lines with a trailing backslash
 
-Non-ASCII characters are **banned repo-wide** (enforced by the `no-non-ascii` semgrep rule). Write ASCII on the
-first draft -- never paste a glyph and expect a fix-up pass. Use the ASCII spelling instead: `--` for an em-dash,
-`->` for an arrow, `...` for an ellipsis, `<=`/`>=`/`!=`/`^2` for math glyphs, and straight `'`/`"` quotes for
-curly quotes. ASCII keeps terminals, log scrapers, and `grep` reading the same bytes the editor shows. The only
-exemptions are generator-owned trees (`generated/`, `verification/`, `**/HELP.md`, `**/pkg/`), license texts, and
-binary assets -- everything you hand-write is bound by the ban.
+Both are banned repo-wide, and both are cheaper to get right on the first draft than to fix up: write `--` for an
+em-dash, `->` for an arrow and straight quotes for curly ones. When a logical line would exceed the 120-char limit,
+pick a split that needs no trailing `\`:
 
-## No trailing-backslash line continuations
-
-Trailing-backslash line continuations (a line ending in `\` to join with the next) are **banned everywhere** in
-this repo. The only exceptions are README files and generated trees (e.g. `verification/`). Character escapes
-_inside_ string literals -- `"\n"`, `"\t"`, regex `\d`, a Windows path `C:\Foo\Bar` as a value -- are NOT
-continuations and are fine; the ban is on the end-of-line `\` that joins source lines into one logical statement.
-
-If a logical line would otherwise exceed the 120-char limit, pick a no-backslash split. Some patterns that work in the
-languages this repo uses:
-
-- **mise task `run` bodies**: factor into shell variables / `[vars]`
-  entries / multiple statements. Do this on the first draft (see also the line-limit rule above), not as a fix-up pass.
-- **Dockerfile ENV / ARG**: build the value across multiple `ARG`s and
-  compose the final `ENV` from them via `${VAR}` expansion. Example
-  from `Dockerfile.nanoserver`'s `MISE_DISABLE_TOOLS`:
-
-      ARG MISE_DT_BASE=cargo:dart-typegen,conda:m2-gnupg,...
-      ARG MISE_DT_PY=pipx:componentize-py,pipx:...
-      ENV MISE_DISABLE_TOOLS=${MISE_DT_BASE},${MISE_DT_PY}
-
-- **Dockerfile `RUN` block**: switch to BuildKit's HEREDOC form
-  (`RUN bash <<'EOF'` ... `EOF`) -- each shell command sits on its own line
-  with no continuation needed. Three rules, all enforced by
-  `config/conftest/policy/dockerfile/dockerfile.rego` + the matching semgrep rule
-  under `config/semgrep/`: (1) interpreter is **`bash`, placed BEFORE the
-  `<<TAG`** (default `/bin/sh` on Debian/Ubuntu is dash, which rejects
-  `set -euo pipefail`; the inverse `RUN <<EOF bash` form is silently
-  broken because BuildKit treats trailing tokens as literal); (2) the
-  **delimiter must be quoted (`<<'EOF'`)** -- with an unquoted `<<EOF`,
-  the outer `/bin/sh -c` that wraps the RUN performs `$(...)` command
-  substitution on the body BEFORE bash runs, so `libicu=$(apt-cache ...)`
-  is evaluated against the outer shell at the wrong moment (Fedora
-  aborted with `apt-cache: command not found`; Debian/Ubuntu ran
-  apt-cache before the script's `apt-get update`, getting a stale
-  cache); quoting defers every expansion to bash, and ARG values needed
-  inside the body must be promoted to ENV beforehand (`ARG FOO=...` ->
-  `ENV FOO=${FOO}`); (3) **first body line must be `set -euo pipefail`**
-  -- HEREDOC RUNs go through bash without inheriting strict mode from any
-  outer setting, so the invariant has to be re-declared inside every
-  body. Leave a blank line between the closing `EOF` and the next
-  instruction -- hadolint's parser otherwise errors with `unexpected 'E'
-  expecting a new line...`.
-- **YAML run-bodies**: a `|` block scalar already keeps each shell
-  line natural; no continuations are necessary.
-- **Long flag lists**: drop them into a config file (`.env`, `.cfg`,
-  task `[vars]`) or split into one flag per line inside a HEREDOC /
-  block scalar.
+- **mise task `run` bodies**: factor into shell variables, `[vars]` entries or multiple statements.
+- **Dockerfile ENV / ARG**: build the value across multiple `ARG`s and compose the final `ENV` from them via `${VAR}`
+  expansion, as `Dockerfile.nanoserver`'s `MISE_DISABLE_TOOLS` does.
+- **Dockerfile `RUN` block**: use BuildKit's heredoc form, `RUN bash <<'EOF'` ... `EOF`, so each command sits on its
+  own line. The checks hold its shape (interpreter before the tag, quoted delimiter, `set -euo pipefail` first); an
+  ARG the body needs must be promoted to ENV first, since the quoted delimiter defers every expansion to bash. Leave
+  a blank line between the closing `EOF` and the next instruction.
+- **YAML run-bodies**: a `|` block scalar already keeps each shell line natural.
+- **Long flag lists**: drop them into a config file or task `[vars]`, or one flag per line inside a heredoc or block
+  scalar.
 
 If a split honestly isn't possible without `\`, stop and surface the constraint -- do not reintroduce the
 regression. Existing `\` uses in the repo (Dockerfile RUN-block multi-liners, etc.) are regressions slated for
@@ -398,11 +352,12 @@ results that don't match the canonical pipeline (different excludes, different `
 settings, different file globs). taplo specifically: the only right way to format TOML in this repo is
 `mise run taplo-fmt`.
 
-The `mise run <task>` formatters and checks per file type. The aggregates (`fmt`/`check`/`fmt-all`/`check-all`)
-run every loaded language's row; guest rows need their `MISE_ENV` loaded.
+`CHECKS.md` lists every check task across every `MISE_ENV` -- the tool it runs, the env that declares it, the
+config it reads -- and every rule those tools are configured with, generated from the task tables and rule files
+themselves. Pick the check tasks for the files you touched from there; a guest-language task needs its `MISE_ENV`
+loaded.
 
-Formatter task(s) per file type (a list rather than a table: padded to the same column widths as the check table
-below, the two tables' shared file-type rows read as a clone to jscpd):
+Formatter task(s) per file type:
 
 - `*.rs` -> `cargo-fmt`, `cargo-clippy-fix`, `parfit-fmt`
 - `*.toml` -> `taplo-fmt`
@@ -411,29 +366,12 @@ below, the two tables' shared file-type rows read as a clone to jscpd):
 - `*.zig` -> `fmt:zig`
 - `*.c`, `*.cpp` -> `clang-format`
 - `*.cs` -> `fmt:dotnet`
+- `*.md`, `*.yaml`, `*.json`, `*.ts`/`*.js`, `*.css`, `*.html`, `*.java`, `Dockerfile*` -> `dprint-fmt`
+- multi-line task bodies in `.mise/config*.toml` -> `shfmt-mise-fmt`
 
-| File type      | Check task(s)                                                                                  |
-| -------------- | ---------------------------------------------------------------------------------------------- |
-| `*.rs`         | `cargo-check`, `cargo-clippy`, `cargo-fmt-check`, `cargo-doc-check`, `ast-grep-check`          |
-| `*.toml`       | `taplo-check`, `conftest-check-toml`, `semgrep-check`                                          |
-| `*.yaml`       | `ast-grep-check`, `conftest-check-yaml`, `ryl-check`, `action-validator-check`, `zizmor-check` |
-| `*.json`       | `semgrep-check`                                                                                |
-| `*.py`         | `check:python`                                                                                 |
-| `*.dart`       | `check:dart`                                                                                   |
-| `*.zig`        | `check:zig`                                                                                    |
-| `*.c`, `*.cpp` | `clang-format-check`, `clang-tidy-check`, `cpplint-check`                                      |
-| `*.cs`         | `check:dotnet`                                                                                 |
-| `*.java`       | `check:java`                                                                                   |
-
-`dprint-fmt` / `dprint-check` cover `*.md`, `*.yaml`, `*.json`/`*.jsonc`, `*.ts`/`*.js`, `*.css`, `*.html`,
-`*.java`, and `Dockerfile*`. `*.json`/`*.jsonc` is formatted by **two** tools, so a new config JSON must satisfy
-both: `oxfmt-fmt` / `oxfmt-check` (in the `js` env, alongside `oxlint-check`) also claim it, and they break ties
-differently -- oxfmt collapses a short array onto one line where dprint leaves it expanded, so a file dprint
-accepts can still fail `oxfmt-check` in CI. `hadolint-check` also lints Dockerfiles, and `link-check` scans
-`*.md` + `*.rs`. Every file is covered by `editorconfig-check`, `typos-check` and `gitleaks-check`, file and
-directory names by `ls-lint-check`, and `*.yml` is rejected by `semgrep-check` (use `*.yaml`). A multi-line task
-body inside `.mise/config*.toml` is shell, not TOML, so it carries two more of its own: `shfmt-mise-fmt` /
-`shfmt-mise-check` format it, and `shellcheck-mise-check` lints it.
+`*.json`/`*.jsonc` is formatted by **two** tools, so a new config JSON must satisfy both: `oxfmt-fmt` (in the `js`
+env) breaks ties differently from `dprint-fmt` -- it collapses a short array onto one line where dprint leaves it
+expanded -- so a file dprint accepts can still fail `oxfmt-check` in CI.
 
 For Rust inner-loop iteration on a single crate, use `mise run cargo-clippy-check-pkg <package>` (alias
 `clippy-pkg`) instead of `cargo-clippy-check` -- it runs `cargo clippy --keep-going --tests -p <package>` so you
@@ -510,8 +448,8 @@ Languages:
 - **Zig -> WASM**: zig-data1, zig-except1 (C++ wasm-exception-handling demo), zig-math1
 
 - **Python (componentize-py -> WASI Preview 2 component)**: wasi-graphics-info -- runs in
-  `et-ws-wasi-runner` rather than the browser. The WIT world the component implements is at
-  `services/ws-wasi-runner/wit/world.wit` and is mirrored under the module's own `wit/`.
+  `et-ws-wasi-runner` rather than the browser. The WIT world the component implements is
+  `generated/specs/wit/world.wit`.
   Drives two standardised WASI interfaces end-to-end: (1) `wasi:webgpu/webgpu@0.3.0-rc.2` for a real
   4x4 compute matmul through a host wgpu device, and
   (2) `wasi:nn/{graph, tensor, inference}` for MNIST inference. Bundles `mnist-12.onnx` (served
@@ -531,7 +469,7 @@ browser WASM modules). It fetches the module's `pkg/package.json` from the ws-se
 the `.wasm` named by the `wasi-main` field, instantiates it under `wasmtime` with async support,
 and calls the exported `entry.run` function.
 
-Host imports (defined in `wit/world.wit`, package `et:ws-wasi@0.1.0`):
+Host imports (defined in `generated/specs/wit/world.wit`, package `et:ws-wasi@0.1.0`):
 
 - `log` -- `log` and `set-status` for guest output
 - `clock` -- `sleep-ms`, `now-ms`
@@ -573,11 +511,11 @@ Plus, attached to the same Linker but defined by external WIT packages:
   sources of truth (AsyncAPI/OpenAPI YAML, WIT, KDL, schema JSON, the typed Rust REST client, the Zig client).
 - **onnx** (`et-onnx`) -- ONNX model utilities.
 
-Each utility has a committed `HELP.md` (under its crate dir) that mirrors the clap-derive tree via the
-`markdown-help` feature + hidden `--markdown-help` flag. **Read `utilities/<name>/HELP.md` to learn what
-the CLI does -- don't run `cargo run -p <name> -- --help`** (much slower: cargo has to build the binary
-first; HELP.md is the same content as a static file). `mise run gen-help-all` regenerates them all; the
-`gen-help-check` task (wired into `check:rust`) fails on drift.
+Each utility has a committed `HELP.md` (under its crate dir) that mirrors its clap-derive tree, written by
+`et-int-gen help-md` from each crate's command tree. **Read `utilities/<name>/HELP.md` to learn what the CLI does --
+don't run `cargo run -p <name> -- --help`** (much slower: cargo has to build the binary first; HELP.md is the same
+content as a static file). `mise run gen-help-all` regenerates them all; the `gen-help-check` task (wired into
+`check:rust`) fails on drift.
 
 ### Verification (`verification/`)
 
@@ -1192,39 +1130,15 @@ variadic arg and one with a plain arg, on the mise version the CI lanes install.
 ## Linting
 
 Lint checks must be expressed through one of the repo's linters -- **never** as a bespoke shell script, whether a
-standalone file or a mise task `run`. The available linters:
+standalone file or a mise task `run`. `CHECKS.md` lists every linter, its config and its rules. When writing a new
+rule, pick the home by what it inspects: structural rules over code **and YAML** go to ast-grep; text, including
+TOML, to a semgrep `languages: [generic]` rule; TOML structure to a taplo schema; cross-file checks over the
+combined TOML/YAML config set to a conftest policy. ast-grep has no TOML grammar, so it **cannot** lint TOML. If
+none of them can express a check, propose adding a new mise-installable linter rather than scripting it by hand.
 
-- **ast-grep** (`config/ast-grep/rules/`) -- structural rules for code **and
-  YAML** (e.g. GitHub Actions workflows).
-- **semgrep** (`config/semgrep/`) -- incl. `languages: [generic]`, which works on
-  TOML/text (e.g. `mise-config.yaml` lints `.mise/config*.toml`).
-- **taplo** JSON-schemas (`config/taplo/`) -- TOML structure, applied via
-  `taplo lint --schema` in `taplo-check`.
-- **conftest** (`config/conftest/policy/`) -- Rego policies over the combined
-  TOML/YAML config set, for cross-file checks the schema linters can't express.
-- **regal** (`config/regal.yaml`, via `regal-check`) -- lints the Rego policies
-  themselves (style, idioms, bugs). Carves out conftest-specific patterns
-  (multiple `deny` rules per file, cross-package `data.*` references, no OPA
-  entrypoints) that vanilla regal would flag.
-- **shellcheck on mise task bodies** (`.mise/shellcheck-mise.jq`, via
-  `shellcheck-mise-check`) -- extracts every multi-line bash-shell `run = """ ...
-  """` from `.mise/config*.toml`, masks Tera tokens (`{{ ... }}` -> `MISEVAR`,
-  `{% ... %}` -> empty), and shellchecks the lot. This is how shell-quality
-  lints reach mise task bodies (shellcheck itself doesn't read TOML).
-- **shfmt on mise task bodies** (`.mise/shfmt-mise.awk`, via `shfmt-mise-fmt` and `shfmt-mise-check`) -- splits those
-  same bodies out, shfmt-formats each one, and merges the result back over the config, so a task body is held to the
-  same formatting as any other shell in the repo. The check reports shfmt's own diff and names `shfmt-mise-fmt` as the
-  fix. Its one demand on how a body is written: inside a `"""` block a backslash meant to reach the shell must be
-  doubled, since a lone `\n` / `\r` / `\b` is TOML syntax that folds into a control character rather than the two bytes
-  the shell wants -- the split pass rejects one instead of guessing which was meant. `\\` and `\"` are the two escapes
-  it does decode, so an embedded quote stays written the TOML way.
-- plus hadolint, ls-lint (file/dir naming), zizmor (Actions security), ryl
-  (YAML), lychee (links), clang-format / clang-tidy / cpplint / flawfinder (C, in the zig config),
-  editorconfig-checker, typos, and action-validator for their domains.
-
-ast-grep has no TOML grammar, so it **cannot** lint TOML -- use a taplo schema or
-a semgrep `generic` rule there. If none of the above can express a check,
-propose adding a new mise-installable linter rather than scripting it by hand.
+Inside a `"""` task body a backslash meant to reach the shell must be doubled, since a lone `\n` / `\r` / `\b` is
+TOML syntax that folds into a control character rather than the two bytes the shell wants; the task-body formatter
+rejects one rather than guessing which was meant. `\\` and `\"` are the two escapes it decodes.
 
 ### Maximise linter coverage; suppress only narrowly, with justification
 
@@ -1289,8 +1203,10 @@ of the duplicated text -- not on a file path or line range. So editing any line 
 already-duplicated block re-hashes it, and a clone the baseline has recorded for months is reported as `[NEW]`
 without one line of fresh copy-paste. A repo-wide mechanical edit lights up every duplicated block it touches at
 once, which reads alarmingly and tempts exactly the baseline rewrite this rule forbids. Read a `[NEW]` clone as
-"this duplication is now in front of you", not as "you wrote this duplication": check whether the pair predates
-your change, then remove the duplication on its merits.
+"this duplication is now in front of you", not as "you wrote this duplication", and check whether the pair predates
+your change. If it does, do not refactor it away as a side effect of the unrelated edit, and do not run
+`jscpd-baseline-update` yourself: stop and ask the operator to re-baseline, naming each pre-existing clone pair and
+the edit that re-hashed it. Only duplication your change actually introduced is yours to factor out.
 
 A baseline gets rewritten only for a change that is genuinely not about the finding: a mass rename, a directory
 move, a vendored tree landing wholesale. Even then, say so explicitly, get the operator's sign-off first, and
@@ -1323,7 +1239,7 @@ addresses one occurrence, and the local rule is what stops the next one.
 
 ### When you spot a style or consistency issue, write a rule
 
-If a code-review comment, a fix-up commit, or a CLAUDE.md paragraph would tell the next contributor "don't do X"
+If a code-review comment, a fix-up commit, or an AGENTS.md paragraph would tell the next contributor "don't do X"
 or "always do Y", that's evidence the codebase wants a _rule_, not just a note. Reach for the linter stack first:
 which of the available tools (`ast-grep` / `semgrep` / `taplo` / `conftest` / `regal` / `shellcheck-mise` / ...) can
 express the rule? Code-as-policy stays in sync with the codebase; prose drifts. Documentation has its place when
@@ -1452,16 +1368,11 @@ linter to ignore it. `generated/` trees that we commit (`generated/python-rest/`
 are the canonical case -- see the existing `[generated/python-rest/**]` block in `.editorconfig` for the shape.
 Reach for a config-file exclude only after confirming gitignoring isn't viable.
 
-## No `scripts/` directory
+## Where a script goes
 
-Do not create a `scripts/` directory or drop loose shell/Python scripts in the
-repo. Every script belongs in one of two places:
-
-- **Short and simple** -> an inline `mise` task (`run = """ ... """` in
-  `.mise/config.toml` or a `.mise/config.<lang>.toml`). It stays discoverable
-  via `mise tasks` and runs as `mise run <name>`.
-- **More involved** -> its own tool directory under `utilities/` with its own
-  `README.md` documenting what it does and how to run it.
+A loose shell or Python script has no place in the repo. A short, simple one is an inline `mise` task, which stays
+discoverable via `mise tasks`; anything more involved is its own tool directory under `utilities/`, with a
+`README.md` saying what it does and how to run it.
 
 ## Don't depend on host tools in mise tasks
 
@@ -1542,8 +1453,8 @@ isolated run yet be _required_ by CI. **Validate with the full `mise run check`,
 before touching one of these `#[expect]`s.** (The clean fix -- `[resolver] feature-unification = "workspace"` so
 every build sees the same features -- is still nightly-only via `-Z feature-unification`.)
 
-The workspace denies a broad set of clippy lints (see `[workspace.lints.clippy]` in `Cargo.toml`), including
-restriction lints. One you'll hit often: **`clippy::single_call_fn`** fires on a private function called from
+The workspace denies a broad set of clippy lints, restriction lints included, all listed in `CHECKS.md`. One
+you'll hit often: **`clippy::single_call_fn`** fires on a private function called from
 exactly one site. Do **not** inline the function just to silence it -- a function that is a distinct, named step
 (kept separate for readability, or that will gain more callers) is legitimate. Keep it and annotate with
 `#[expect(...)]` and a real justification:
@@ -1566,12 +1477,8 @@ missing, not which subprocess failed. The caller is then left to invent an expla
 invents is a guess -- which is how a missing tool surfaces three layers up as an empty list rather than as
 the sentence naming the tool.
 
-**A function returning `Option` is the sharpest form of this**, because the return type is where the reason
-would have gone. `Result` carries it; `Option` discards it at exactly the moment it was known. If a function
-can fail, it returns `Result` with an error that says what happened. `Option` is for a value that is
-legitimately absent without anything having gone wrong -- and that case is rarer than it looks, which is why
-`new-fn-returns-option` rejects a new one and holds the existing returns in an explicit list. A name joining
-that list is a decision to record, not a default to fall into.
+**A function returning `Option` is the sharpest form of this**, and `new-fn-returns-option` rejects a new one; a
+name joining its list of existing returns is a decision to record, not a default to fall into.
 
 The same applies to a field. `Option<bool>` for "unset means work it out" is a third state that every reader
 has to resolve; a `#[serde(default = "...")]` naming the function that computes the default says the same

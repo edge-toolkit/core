@@ -26,7 +26,7 @@
 # release assets, distributing per-platform binaries via `@oxlint-tsgolint/<triple>` optional deps, so every OS
 # is covered without os-scoping.
 "npm:oxlint-tsgolint" = "0.24.0"
-"npm:pnpm" = { version = "latest", os = ["macos/x64"] }
+"npm:pnpm" = { version = "11", os = ["macos/x64"] }
 
 # oxlint + oxfmt are the Rust-native JS/TS linter + formatter from the oxc-project.
 # They are pulled directly from the shared `apps_v<tag>` GitHub release. Aqua's registry entry trips mise's
@@ -50,24 +50,25 @@ url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/ox
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxlint-x86_64-pc-windows-msvc.zip"
 
 # oxfmt is pinned independently of oxlint.
-# Both ship from per-version `apps_v` tags but track separate semver. oxfmt stays on apps_v1.69.0 / 0.54.0: its
-# output is tuned against dprint (config/oxfmtrc.jsonc + config/dprint.jsonc) at that version, and a bump risks
-# reformatting churn that fights dprint. oxlint above rode ahead to 1.73.0 for the `--type-aware` engine. Re-pin
-# oxfmt here only after re-validating the oxfmt <-> dprint agreement at the new version.
+# Both ship from per-version `apps_v` tags but track separate semver, and `version` names the tag, as mise holds
+# it to the version in the URL. oxfmt stays on apps_v1.69.0, which ships oxfmt 0.54.0: its output is tuned against
+# dprint (config/oxfmtrc.jsonc + config/dprint.jsonc) at that version, and a bump risks reformatting churn that
+# fights dprint. oxlint above rode ahead to 1.73.0 for the `--type-aware` engine. Re-pin oxfmt here only after
+# re-validating the oxfmt <-> dprint agreement at the new version.
 [tools."http:oxfmt"]
 bin = "oxfmt"
 rename_exe = "oxfmt"
-version = "0.54.0"
+version = "1.69.0"
 [tools."http:oxfmt".platforms.linux-arm64]
-url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-aarch64-unknown-linux-gnu.tar.gz"
+url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxfmt-aarch64-unknown-linux-gnu.tar.gz"
 [tools."http:oxfmt".platforms.linux-x64]
-url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x86_64-unknown-linux-gnu.tar.gz"
+url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxfmt-x86_64-unknown-linux-gnu.tar.gz"
 [tools."http:oxfmt".platforms.macos-arm64]
-url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-aarch64-apple-darwin.tar.gz"
+url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxfmt-aarch64-apple-darwin.tar.gz"
 [tools."http:oxfmt".platforms.macos-x64]
-url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x86_64-apple-darwin.tar.gz"
+url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxfmt-x86_64-apple-darwin.tar.gz"
 [tools."http:oxfmt".platforms.windows-x64]
-url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x86_64-pc-windows-msvc.zip"
+url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxfmt-x86_64-pc-windows-msvc.zip"
 
 [tasks.build-ws-har1-module]
 depends = ["build-et-cli", "build-wasm-cov-wrapper"]

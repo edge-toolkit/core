@@ -15,7 +15,7 @@ fn missing_file_yields_an_empty_registry() {
 
     let registry = load_registry(&path).unwrap();
 
-    assert!(registry.list_agents().is_empty());
+    assert_eq!(registry.list_agents(), Vec::<AgentSummary>::new());
 }
 
 #[test]

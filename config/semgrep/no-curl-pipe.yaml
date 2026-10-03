@@ -14,6 +14,8 @@ rules:
         # rule flags its own definition however the message is worded. Scoped to this one file rather than the
         # whole rules directory, so every other rule here stays covered.
         - "/config/semgrep/no-curl-pipe.yaml"
+        # The generated catalogue of every check reproduces this rule's message, so it matches for the same reason.
+        - "/CHECKS.md"
     # Match a `curl` whose output is piped anywhere at all.
     # `[^|\n]*` keeps the match inside one command rather than reaching a later, unrelated pipe.
     # There is deliberately no exemption for `| tar`. One was tried and removed, because `tar` can be told to

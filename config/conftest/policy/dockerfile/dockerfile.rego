@@ -25,6 +25,7 @@ docker_strings contains entry if {
 	entry := {"path": file.path, "value": value}
 }
 
+# A version a Dockerfile hard-codes must match the [tools] pin for the same tool.
 deny contains msg if {
 	some entry in docker_strings
 	some d in mise.version_drift(entry.value)
@@ -87,7 +88,7 @@ pipx_scope_path contains path if {
 pipx_scope_path contains path if {
 	some file in input
 	some lang in nano_langs
-	endswith(file.path, sprintf(".mise/config.%s.toml", [lang]))
+	endswith(file.path, $".mise/config.{lang}.toml")
 	path := file.path
 }
 
@@ -140,6 +141,7 @@ deny contains msg if {
 	)
 }
 
+# A RUN heredoc must quote its delimiter so bash, not the outer shell, does the expansion.
 deny contains msg if {
 	some file in input
 	is_array(file.contents)
@@ -156,6 +158,7 @@ deny contains msg if {
 	)
 }
 
+# A Dockerfile `apt-get install` must pass --no-install-recommends on the same line.
 deny contains msg if {
 	some file in input
 	is_array(file.contents)
@@ -169,6 +172,7 @@ deny contains msg if {
 	msg := sprintf("%s: `apt-get install` must include --no-install-recommends on the same line", [file.path])
 }
 
+# A Dockerfile must use `apt-get`, never `apt`.
 deny contains msg if {
 	some file in input
 	is_array(file.contents)
@@ -201,7 +205,7 @@ arg_packages[name] := pkgs if {
 	instr.Cmd == "arg"
 	some value in instr.Value
 	some name in package_arg_names
-	startswith(value, concat("", [name, "="]))
+	startswith(value, $"{name}=")
 	raw := trim(substring(value, count(name) + 1, -1), "\"")
 	pkgs := {p | some p in split(raw, " "); p != ""}
 }
@@ -213,7 +217,7 @@ bootstrap_packages[mgr] := pkgs if {
 	some mgr in {"apt", "dnf"}
 	pkgs := {p |
 		some key, _ in file.contents.bootstrap.packages
-		startswith(key, concat("", [mgr, ":"]))
+		startswith(key, $"{mgr}:")
 		p := substring(key, count(mgr) + 1, -1)
 	}
 }
@@ -226,9 +230,10 @@ expected_packages["dnf"] := arg_packages.COMMON_PACKAGES | arg_packages.DNF_PACK
 deny contains msg if {
 	some name in package_arg_names
 	not arg_packages[name]
-	msg := sprintf("Dockerfile: ARG %s not found -- the [bootstrap.packages] cross-check cannot run", [name])
+	msg := $"Dockerfile: ARG {name} not found -- the [bootstrap.packages] cross-check cannot run"
 }
 
+# [bootstrap.packages] must list every package the Dockerfile ARGs install.
 deny contains msg if {
 	some mgr, want in expected_packages
 	missing := want - bootstrap_packages[mgr]
@@ -239,6 +244,7 @@ deny contains msg if {
 	)
 }
 
+# [bootstrap.packages] must not list a package the Dockerfile ARGs do not install.
 deny contains msg if {
 	some mgr, want in expected_packages
 	extra := bootstrap_packages[mgr] - want
@@ -323,6 +329,7 @@ root_common_packages contains pkg if {
 	some pkg in decl.packages
 }
 
+# Every other Dockerfile's COMMON_PACKAGES must be drawn from the root Dockerfile's list.
 deny contains msg if {
 	some decl in common_packages_decls
 	decl.path != "Dockerfile"
@@ -357,6 +364,7 @@ mise_version_args contains entry if {
 	entry := {"path": file.path, "value": substring(value, count("MISE_VERSION="), -1)}
 }
 
+# A Dockerfile's MISE_VERSION must match .mise/config.toml's min_version.
 deny contains msg if {
 	some decl in mise_version_args
 	not startswith(decl.value, "$")

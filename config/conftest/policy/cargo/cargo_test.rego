@@ -14,13 +14,13 @@ manifest(deps) := [{"path": "Cargo.toml", "contents": {"workspace": {"dependenci
 
 flagged(msgs, name) if {
 	some msg in msgs
-	contains(msg, sprintf("%q", [name]))
+	contains(msg, $"\"{name}\"")
 	contains(msg, "to a patch version")
 }
 
 stale(msgs, name) if {
 	some msg in msgs
-	contains(msg, sprintf("patch_pin_exception entry %q is stale", [name]))
+	contains(msg, $"patch_pin_exception entry \"{name}\" is stale")
 }
 
 # The two shapes the rule exists to require, and the one it exists to reject.

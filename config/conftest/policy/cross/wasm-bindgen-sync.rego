@@ -19,10 +19,8 @@ lock_version := ver if {
 	ver := pkg.version
 }
 
+# The mise wasm-bindgen pin must match the wasm-bindgen version Cargo.lock resolves.
 deny contains msg if {
 	mise_pin != lock_version
-	msg := sprintf(
-		"wasm-bindgen: mise pin %q != Cargo.lock %q; bump the pin in .mise/config.toml",
-		[mise_pin, lock_version],
-	)
+	msg := $"wasm-bindgen: mise pin \"{mise_pin}\" != Cargo.lock \"{lock_version}\"; bump the pin in .mise/config.toml"
 }

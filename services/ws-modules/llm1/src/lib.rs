@@ -52,7 +52,7 @@ thread_local! {
 }
 
 /// One chat turn as transformers.js wants it: a role and its content.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct Turn {
     pub role: String,

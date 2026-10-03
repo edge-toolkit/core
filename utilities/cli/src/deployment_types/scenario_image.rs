@@ -185,7 +185,7 @@ const DEPS_BASE_STAGE: &str = concat!(
     "# checks exactly the archive downloaded here. Pinned rather than installed from mise's apt repository,\n",
     "# which carries only the newest version: a floating mise writes lockfile entries an older CI mise\n",
     "# then refuses to install.\n",
-    "ARG MISE_VERSION=v2026.9.0\n",
+    "ARG MISE_VERSION=v2026.9.17\n",
     "ARG TARGETARCH\n",
     "ENV MISE_VERSION=${MISE_VERSION}\n",
     "ENV TARGETARCH=${TARGETARCH}\n",

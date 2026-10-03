@@ -137,7 +137,10 @@ fn a_tool_list_that_is_not_json_yields_no_paths() {
     // `mise ls --current --json` answered with something unparsable -- an older mise, a wrapper that printed
     // a warning first, a truncated pipe. The runner must come away with an empty `sys.path` addition rather
     // than failing to start, so the interpreter still boots and only the mise-managed imports are missing.
-    assert!(edge_toolkit::config::site_packages_from_tool_list(b"mise: not a tool list").is_empty());
+    assert_eq!(
+        edge_toolkit::config::site_packages_from_tool_list(b"mise: not a tool list"),
+        Vec::<std::path::PathBuf>::new()
+    );
     assert!(
         edge_toolkit::config::site_packages_from_tool_list(b"").is_empty(),
         "an empty body is not valid JSON either"

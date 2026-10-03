@@ -44,11 +44,12 @@ banned := {
 	"ureq": "use reqwest::blocking or reqwest -- one HTTPS stack only",
 }
 
+# The root Cargo.toml must not depend on a crate this repo has banned.
 deny contains msg if {
 	some [path, name, _] in dep
 	path == "Cargo.toml"
 	reason := banned[name]
-	msg := sprintf("%s: banned dependency %q -- %s", [path, name, reason])
+	msg := $"{path}: banned dependency \"{name}\" -- {reason}"
 }
 
 # Member crates: no path deps, no wildcard versions, no inline git deps.
@@ -58,22 +59,24 @@ deny contains msg if {
 	path != "Cargo.toml"
 	is_object(spec)
 	spec.path
-	msg := sprintf("%s: dependency %q uses a path dep; use workspace = true instead", [path, name])
+	msg := $"{path}: dependency \"{name}\" uses a path dep; use workspace = true instead"
 }
 
+# A member crate must not take a dependency at a wildcard version.
 deny contains msg if {
 	some [path, name, spec] in dep
 	path != "Cargo.toml"
 	wildcard(spec)
-	msg := sprintf("%s: dependency %q uses a wildcard version; pin via [workspace.dependencies]", [path, name])
+	msg := $"{path}: dependency \"{name}\" uses a wildcard version; pin via [workspace.dependencies]"
 }
 
+# A member crate must not take an inline git dependency.
 deny contains msg if {
 	some [path, name, spec] in dep
 	path != "Cargo.toml"
 	is_object(spec)
 	spec.git
-	msg := sprintf("%s: dependency %q is an inline git dep; pin via [workspace.dependencies]", [path, name])
+	msg := $"{path}: dependency \"{name}\" is an inline git dep; pin via [workspace.dependencies]"
 }
 
 wildcard(spec) if {
@@ -107,6 +110,7 @@ deny contains msg if {
 	msg := sprintf("%s: [lib] must set doctest = false", [file.path])
 }
 
+# A member crate's [lib] must not rename the library away from the package name.
 deny contains msg if {
 	some file in input
 	is_member(file)
@@ -132,6 +136,7 @@ workspace_member contains m if {
 	some m in file.contents.workspace.members
 }
 
+# Every member crate must be registered in the root [workspace].members.
 deny contains msg if {
 	some file in input
 	is_member(file)
@@ -190,6 +195,7 @@ deny contains msg if {
 	msg := sprintf("%s: crate %q carries the int- marker, so it must set publish = false", [file.path, name])
 }
 
+# A crate without the int- marker must set publish = true.
 deny contains msg if {
 	some file in input
 	is_member(file)
@@ -259,6 +265,7 @@ root_dep[name] := spec if {
 	some name, spec in file.contents.workspace.dependencies
 }
 
+# A root workspace dependency must be pinned to major.minor, not a patch version, unless it is excepted.
 deny contains msg if {
 	some name, spec in root_dep
 	not path_dep(spec)
@@ -278,7 +285,7 @@ exception_is_live(name) if patch_pinned(requirement(root_dep[name]))
 deny contains msg if {
 	some name, reason in patch_pin_exception
 	not exception_is_live(name)
-	msg := sprintf("Cargo.toml: patch_pin_exception entry %q is stale (%s); remove it", [name, reason])
+	msg := $"Cargo.toml: patch_pin_exception entry \"{name}\" is stale ({reason}); remove it"
 }
 
 # crates.io rejects an upload whose manifest carries no description, so every publishable crate has one.
@@ -297,7 +304,7 @@ deny contains msg if {
 	some [path, name, spec] in dep
 	is_object(spec)
 	spec.features == []
-	msg := sprintf("%s: dependency %q has an empty features = []; remove it", [path, name])
+	msg := $"{path}: dependency \"{name}\" has an empty features = []; remove it"
 }
 
 # A feature must not share its name with a dependency.
@@ -308,6 +315,7 @@ is_dep_name(file, name) if {
 	file.contents[table][name]
 }
 
+# A member crate's feature must not share its name with one of its dependencies.
 deny contains msg if {
 	some file in input
 	is_member(file)

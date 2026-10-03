@@ -397,12 +397,12 @@ description = "Combined Python coverage (pytest + web-runner Pyodide runs) -> Co
 # schema that records each test's file, which Codecov's test analytics reads.
 run = """
 pycov=target/pycov
-mkdir -p "$pycov"
+coreutils mkdir -p "$pycov"
 for module in pyface1 pydemo1 pyeye1 pyspeech1; do
   dir="services/ws-modules/$module"
   junit="$PWD/$pycov/junit-$module.xml"
   uv run --directory "$dir" pytest --cov="$module" --cov-report= --junitxml="$junit" -o junit_family=legacy
-  cp "$dir/.coverage" "$pycov/.coverage.${module}_pytest"
+  coreutils cp "$dir/.coverage" "$pycov/.coverage.${module}_pytest"
 done
 pyface=services/ws-modules/pyface1
 uv run --project "$pyface" coverage combine "$pycov"

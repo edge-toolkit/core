@@ -28,7 +28,7 @@
 
 [tools]
 # Rust-native HTTP client replacing the host `curl`.
-# See CLAUDE.md "Don't depend on host tools in mise tasks". Behaves like HTTPie on the CLI; `--follow` is
+# See AGENTS.md "Don't depend on host tools in mise tasks". Behaves like HTTPie on the CLI; `--follow` is
 # needed because xh doesn't follow redirects by default like curl -L does.
 "aqua:ducaale/xh" = "latest"
 # 7-zip CLI as a standalone `7zz` binary.

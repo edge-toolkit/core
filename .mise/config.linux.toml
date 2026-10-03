@@ -8,7 +8,7 @@
 # has libclang-cpp (the C++ API), not the C one.
 "conda:clangxx" = "latest"
 # gpg for mise's gpg_verify signature checks; _setup_all installs it up front.
-"conda:gnupg" = "latest"
+"conda:gnupg" = { version = "latest", os = ["linux"] }
 # mold, the linker a Linux lane that sets ET_LINK_WITH_MOLD links Rust with.
 "aqua:rui314/mold" = "latest"
 
@@ -56,7 +56,7 @@
 # mise can't render. a_conda_arch: conda's target-triple dir (x86_64/aarch64 vs mise's x64/arm64).
 a_conda_arch = "{% if arch() == 'arm64' %}aarch64{% else %}x86_64{% endif %}"
 a_conda_clangxx = "{{ env.HOME }}/.local/share/mise/installs/conda-clangxx/latest"
-b_clang_resource = "{{ vars.a_conda_clangxx }}/lib/clang/22"
+b_clang_resource = "{{ vars.a_conda_clangxx }}/lib/clang/23"
 b_clang_sysroot = "{{ vars.a_conda_clangxx }}/{{ vars.a_conda_arch }}-conda-linux-gnu/sysroot"
 # Link through mold rather than the system linker, for a lane that sets ET_LINK_WITH_MOLD=true.
 # On aarch64 the system linker is GNU ld -- rustc only defaults to its bundled lld on x86_64 -- and linking the
@@ -108,7 +108,7 @@ description = "Preinstall: shared base + verify system build prerequisites"
 run = """
 # Some third-party install scripts hard-code bare `awk`.
 # dotnet-install.sh notably, invoked by the `dotnet` mise tool below, does this. Repo policy is goawk-only
-# (CLAUDE.md "Don't depend on host tools"); fedora/ubuntu/debian base images happen to ship awk pre-installed
+# (AGENTS.md "Don't depend on host tools"); fedora/ubuntu/debian base images happen to ship awk pre-installed
 # so this is a no-op there, but Azure Linux's base/core is more minimal and ships without awk. Provide one as
 # a symlink to mise's goawk so policy holds (the only awk binary on the system IS goawk) and the third-party
 # script finds something on PATH. goawk is installed in `_setup_all` (config.toml) before this task body

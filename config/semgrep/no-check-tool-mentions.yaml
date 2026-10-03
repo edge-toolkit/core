@@ -19,13 +19,14 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/.codacy.yaml" # Names the workflow linters Codacy defers to, as its exclusion rationale.
         - "/.github/actions/install-mise-tools/action.yaml" # Stages the tool for CI.
         - "/.github/workflows/test.yaml" # Notes the Windows lane's source-build fallback for it.
         - "/Dockerfile" # Disables the tool for an image whose build does not need it.
         - "/config/conftest/policy/mise/mise.rego" # Allowlists it as a `cargo:` tool with no prebuilt.
         - "/config/taplo/mise-cargo-backend-allowlist.schema.json" # Same allowlist, as a TOML schema enum.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)action-validator"
     message: >-
@@ -40,6 +41,7 @@ rules:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
         - "/.codacy.yaml" # Names the workflow linters Codacy defers to, as its exclusion rationale.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)actionlint"
     message: >-
@@ -52,12 +54,14 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the scan/fix tasks.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/.codacy.yaml" # Names the workflow linters Codacy defers to, as its exclusion rationale.
         - "/config/ast-grep/**" # Its own ruleset, where the tool's own syntax is the subject.
+        - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
         - "/config/generated-trees.toml" # Maps each generated tree onto the exclusion key this tool needs.
         - "/config/conftest/policy/generated_trees/generated_trees.rego" # Enforces that mapping.
         - "/config/conftest/policy/generated_trees/generated_trees_test.rego" # Unit tests for it.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
         - "/libs/test-helpers/src/lib.rs" # Carries a suppression pragma, which only works spelled out.
     pattern-regex: "(?i)ast-grep"
@@ -74,6 +78,7 @@ rules:
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
         - "/.github/workflows/dependencies.yaml" # Runs the audit on CI.
         - "/config/deny.toml" # Its own config, including which scanner honours which advisory id.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)cargo-deny"
     message: >-
@@ -89,6 +94,7 @@ rules:
         - "/.mise/**" # Tool pin and the task that runs it.
         - "/.github/workflows/dependencies.yaml" # Runs the scan on CI.
         - "/Cargo.toml" # Its per-crate ignore list, where each entry's reason is the false positive it hit.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)cargo-unmaintained"
     message: >-
@@ -101,8 +107,9 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the format/check tasks.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/config/clang-format.yaml" # Its own config, including the settings held to agree with the C linters.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)clang-format"
     message: >-
@@ -115,10 +122,11 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the check/fix tasks.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/.github/workflows/codeql.yaml" # Names the check that keeps the coverage an excluded query gave up.
         - "/config/clang-tidy.yaml" # Its own config, including which external code each check mirrors.
         - "/config/conftest/policy/mise/mise.rego" # Allowlists it as a `cargo:` tool with no prebuilt.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)clang-tidy"
     message: >-
@@ -132,7 +140,7 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Names the tool in the task that mirrors its secret scan locally.
-        - "/CLAUDE.md" # Documents how a finding from an external analyzer must reach a local checker.
+        - "/AGENTS.md" # Documents how a finding from an external analyzer must reach a local checker.
         - "/.codacy.yaml" # Its own config, whose path excludes each carry their reason.
         - "/libs/wasi-guest/src/coverage.rs" # Path-excluded there; its header is that exclusion's only home.
         - "/services/ws-test-server/src/bin/cov-server.rs" # Likewise path-excluded, rationale in its header.
@@ -140,6 +148,7 @@ rules:
         - "/services/ws-web-runner/mingw-shim/msvc_crt_locale_cache.c" # Likewise.
         - "/utilities/cli/src/hub_ws_url.rs" # Likewise.
         - "/utilities/wasm-cov-wrapper/src/main.rs" # Likewise.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)codacy"
     message: >-
@@ -153,12 +162,13 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # The coverage tasks that produce and upload its reports.
-        - "/CLAUDE.md" # Records which coverage check on a PR is the one that has to pass.
+        - "/AGENTS.md" # Records which coverage check on a PR is the one that has to pass.
         - "/.deepsource.toml" # Declares the coverage artifact both services read.
         - "/.github/workflows/coverage.yaml" # Uploads to it on CI.
         - "/.gitignore" # Ignores its downloaded uploader binary.
         - "/.dockerignore" # The same ignore, generated from it.
         - "/verification/**" # Generator-owned output, carrying whatever the generator wrote.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     patterns:
       - pattern-regex: "(?i)codecov"
@@ -176,7 +186,7 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entries, and the per-format policy tasks.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/.codacy.yaml" # Names the config linters Codacy defers to, as its exclusion rationale.
         - "/.editorconfig" # `conftest fmt` owns Rego indentation and is not configurable, hence the override.
         - "/Dockerfile" # Stages or disables the tool for the image build.
@@ -184,6 +194,7 @@ rules:
         - "/config/conftest/**" # Its own policy tree, where the tool's input shape is the subject.
         - "/config/generated-trees.toml" # Declares the policy that enforces the linter/tree mapping.
         - "/config/regal.yaml" # Carves out the conftest-specific Rego patterns vanilla regal would flag.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)conftest"
     message: >-
@@ -197,10 +208,11 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/.github/workflows/codeql.yaml" # Names the check that keeps the coverage an excluded query gave up.
         - "/Dockerfile.nanoserver" # Disables the tool for an image whose build does not need it.
         - "/config/clang-format.yaml" # The formatter setting chosen so the two agree on comment spacing.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)cpplint"
     message: >-
@@ -213,10 +225,11 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # The coverage tasks that produce the reports it ingests.
-        - "/CLAUDE.md" # Documents how a finding from an external analyzer must reach a local checker.
+        - "/AGENTS.md" # Documents how a finding from an external analyzer must reach a local checker.
         - "/.deepsource.toml" # Its own config.
         - "/.codacy.yaml" # Names it as the analyzer still covering what Codacy skips.
         - "/.github/workflows/coverage.yaml" # Reports coverage to it on CI.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
         - "/config/semgrep/deepsource-codes-are-qualified.yaml" # Requires the name, so it has to write it.
     # Unlike its siblings, this one permits the name where it qualifies one of the analyzer's codes.
@@ -235,7 +248,7 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the format/check tasks.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/.dprint.jsonc" # The root config, which is also this repo's root-marker file.
         - "/.codacy.yaml" # Names the formatters Codacy defers to, as its exclusion rationale.
         - "/.gitattributes" # Records that the formatters write LF, which the checkout must preserve.
@@ -248,6 +261,10 @@ rules:
         - "/config/ast-grep/rules/no-current-dir.yaml" # Names the root-marker file, not the tool.
         - "/libs/path/src/lib.rs" # Holds that marker filename as a constant.
         - "/libs/path/tests/find.rs" # Writes the marker file to build a fixture root.
+        - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
+        - "/utilities/int-gen/src/checks.rs" # Names the root config stub the tool finds without being told to.
+        - "/utilities/int-gen/src/help.rs" # Runs it to format the HELP.md files it writes.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)dprint"
     message: >-
@@ -261,7 +278,9 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
+        - "/utilities/int-gen/src/checks.rs" # Names the root config the tool finds without being told to.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)editorconfig-check"
     message: >-
@@ -275,9 +294,10 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/Dockerfile.nanoserver" # Disables the tool for an image whose build does not need it.
         - "/services/ws-modules/zig-except1/src/exceptions.cpp" # A `flawfinder: ignore` pragma, spelled out.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)flawfinder"
     message: >-
@@ -290,8 +310,9 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/config/gitleaks.toml" # Its own config, including how far its inline marker reaches.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)gitleaks"
     message: >-
@@ -304,7 +325,7 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/.github/workflows/docker-linux.yaml" # Stages every Dockerfile where the tool can find it.
         - "/Dockerfile" # Carries `# hadolint ignore=` pragmas, which only work spelled out.
         - "/Dockerfile.nanoserver" # Same, plus the tool's own MISE_DISABLE_TOOLS entry.
@@ -313,6 +334,7 @@ rules:
         - "/config/hadolint.yaml" # Its own config, and the shellcheck code it emits from its embedded copy.
         - "/utilities/cli/src/deployment_types/scenario_image.rs" # Emits those pragmas into generated images.
         - "/verification/**" # The generated images holding them.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)hadolint"
     message: >-
@@ -326,7 +348,7 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the tasks that run and report it.
-        - "/CLAUDE.md" # Documents the baseline-is-a-debt-ledger rule, which is where that policy belongs.
+        - "/AGENTS.md" # Documents the baseline-is-a-debt-ledger rule, which is where that policy belongs.
         - "/config/jscpd.json" # Its own config.
         - "/config/jscpd-baseline.json" # The clone-fingerprint baseline it reads.
         - "/config/conftest/policy/jscpd/jscpd.rego" # Ratchets that baseline, and takes the tool as its package.
@@ -337,6 +359,7 @@ rules:
         - "/config/semgrep/prefer-yaml-toml.yaml" # Allowlists its two files, which cannot be YAML or take comments.
         - "/config/typos.toml" # The same carve-out for those two files.
         - "/Dockerfile.nanoserver" # Disables the tool for an image whose verifier cannot install it.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)jscpd"
     message: >-
@@ -354,6 +377,7 @@ rules:
         - "/README.md" # Tells a contributor which checks validate the generated manifests.
         - "/.codacy.yaml" # Names the manifest checks Codacy defers to, as its exclusion rationale.
         - "/.github/workflows/k3s.yaml" # Runs the validation on CI.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)kubeconform"
     message: >-
@@ -366,9 +390,10 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
-        - "/CLAUDE.md" # Documents which checks an agent runs, and keeping its ignores in sync with .gitignore.
+        - "/AGENTS.md" # Documents which checks an agent runs, and keeping its ignores in sync with .gitignore.
         - "/config/ls-lint.yaml" # Its own config.
         - "/config/semgrep/ls-lint-no-glob.yaml" # The rule holding that config to literal paths.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)ls-lint"
     message: >-
@@ -381,12 +406,13 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the link-check task.
-        - "/CLAUDE.md" # Documents which checks an agent runs, and keeping its ignores in sync with .gitignore.
+        - "/AGENTS.md" # Documents which checks an agent runs, and keeping its ignores in sync with .gitignore.
         - "/config/lychee.toml" # Its own config.
         - "/Dockerfile.nanoserver" # Disables the tool for an image whose build does not need it.
         - "/.gitignore" # Ignores its on-disk cache.
         - "/.dockerignore" # The same ignore, generated from it.
         - "/verification/**" # Generator-owned output, carrying whatever the generator wrote.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)lychee"
     message: >-
@@ -405,6 +431,8 @@ rules:
         # Every test here wants one fixed port, and only that config's test group keeps them apart.
         # That is a constraint nothing in the file itself can express, and a silent corruption when bypassed.
         - "/utilities/cli/tests/scenario_runners.rs"
+        - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)nextest"
     message: >-
@@ -423,6 +451,7 @@ rules:
         - "/config/deny.toml" # Records which of the two scanners honours each advisory id.
         - "/pnpm-workspace.yaml" # One root lockfile exists so the npm scan has a single committed target.
         - "/pubspec.yaml" # The same, for the Dart ecosystem.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)osv-scanner"
     message: >-
@@ -435,11 +464,13 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the format/check tasks.
-        - "/CLAUDE.md" # Documents how to write JS that both formatters accept.
+        - "/AGENTS.md" # Documents how to write JS that both formatters accept.
         - "/config/oxfmtrc.jsonc" # Its own config.
+        - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
         - "/config/dprint.jsonc" # The other formatter, tuned to agree with it.
         - "/config/semgrep/prefer-yaml-toml.yaml" # Allowlists its config, which can only be JSONC.
         - "/config/conftest/policy/mise/mise.rego" # Allowlists it as a tool with no prebuilt at some triple.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)oxfmt"
     message: >-
@@ -453,11 +484,13 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the lint/fix tasks.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
+        - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
         - "/config/oxlintrc.jsonc" # Its own config, including which external code each rule mirrors.
         - "/config/oxfmtrc.jsonc" # Names the shared JSONC configs the formatter must skip.
         - "/config/semgrep/prefer-yaml-toml.yaml" # Allowlists its config, which can only be JSONC.
         - "/config/conftest/policy/mise/mise.rego" # Allowlists it as a tool with no prebuilt at some triple.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)oxlint"
     message: >-
@@ -474,6 +507,7 @@ rules:
         - "/config/semgrep/no-type-comments.yaml" # The rule keeping annotations the only form it can check.
         - "/config/generated-trees.toml" # Maps each generated tree onto the exclusion key this tool needs.
         - "/config/conftest/policy/generated_trees/generated_trees.rego" # Enforces that mapping.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)pyrefly"
     message: >-
@@ -487,8 +521,9 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the check/fix tasks.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/config/regal.yaml" # Its own config.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: '(?i)\bregal\b'
     message: >-
@@ -503,6 +538,7 @@ rules:
         - "/.mise/**" # Tool pin, lockfile entry, and the .NET check task.
         - "/Dockerfile.nanoserver" # Disables the tool for an image whose build does not need it.
         - "/Dockerfile.windows" # Same.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)roslynator"
     message: >-
@@ -515,7 +551,8 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the format/check/fix tasks.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
+        - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
         - "/ruff.toml" # Its own config, kept at the root so editors discover it.
         - "/.editorconfig" # Records that the formatter owns docstring and doc-comment reflow.
         - "/config/dprint.jsonc" # Skips the Python files this tool formats instead.
@@ -523,6 +560,8 @@ rules:
         - "/config/semgrep/no-line-length-in-comment.yaml" # Names the configs that hold the line-length value.
         - "/config/openapi-python-client.yaml" # Turns off the generator's own hooks, which a task already runs.
         - "/generated/**" # Generator-owned output, carrying whatever the generator wrote.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
+        - "/utilities/int-gen/src/checks.rs" # Names the root config the tool finds without being told to.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: '(?i)\bruff\b'
     message: >-
@@ -536,10 +575,12 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/config/ryl.yaml" # Its own config.
+        - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
         - "/config/conftest/policy/mise/mise.rego" # Allowlists it as a tool with no prebuilt at some triple.
         - "/config/taplo/mise-cargo-backend-allowlist.schema.json" # The same allowlist, as a TOML schema enum.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: '(?i)\bryl\b'
     message: >-
@@ -552,7 +593,7 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the scan/fix tasks.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/.semgrepignore" # Its own ignore file, whose comments explain what the tool's default skips.
         - "/.codacy.yaml" # Excludes this ruleset, which its own copy of the tool misparses.
         - "/.github/workflows/test.yaml" # Notes the Windows lane's handling of the tool.
@@ -561,6 +602,8 @@ rules:
         - "/config/generated-trees.toml" # Maps each generated tree onto the exclusion key this tool needs.
         - "/config/conftest/policy/generated_trees/generated_trees.rego" # Enforces that mapping.
         - "/config/conftest/policy/generated_trees/generated_trees_test.rego" # Unit tests for it.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
+        - "/utilities/int-gen/src/checks.rs" # Names the ignore file the tool reads without being told to.
     pattern-regex: "(?i)semgrep"
     message: >-
       Do not name this tool outside its own ruleset and the configs that scope it. A `nosemgrep` marker is the
@@ -573,7 +616,7 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, the task-body extractor, and the `# shellcheck disable=` pragmas in task bodies.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/.github/workflows/docker-linux.yaml" # Carries those pragmas in its run bodies.
         - "/.github/workflows/docker-windows.yaml" # Same.
         - "/.github/workflows/upstream-cache.yaml" # Same.
@@ -582,6 +625,7 @@ rules:
         - "/config/hadolint.yaml" # Ignores a code raised by the copy embedded in the Dockerfile linter.
         - "/utilities/cli/src/deployment_types/scenario_image.rs" # Emits those pragmas into generated images.
         - "/verification/**" # The generated images holding them.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)shellcheck"
     message: >-
@@ -595,7 +639,8 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the extractor that formats mise task bodies with it.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)shfmt"
     message: >-
@@ -608,10 +653,12 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the format/check tasks.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/config/taplo.toml" # Its own config.
         - "/config/taplo/**" # The JSON schemas it lints TOML against.
         - "/config/conftest/policy/mise/mise.rego" # Allowlists it as a tool with no prebuilt at some triple.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
+        - "/utilities/int-gen/src/checks.rs" # Names the config an `[env]` variable hands the tool.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)taplo"
     message: >-
@@ -628,6 +675,7 @@ rules:
         - "/README.md" # Tells a contributor which checks validate the generated manifests.
         - "/.codacy.yaml" # Names the manifest checks Codacy defers to, as its exclusion rationale.
         - "/config/trivyignore.yaml" # Its own ignore file, where each entry states why the finding is an artifact.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)trivy"
     message: >-
@@ -640,7 +688,8 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin and the check/fix tasks.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)typos-(check|fix)"
     message: >-
@@ -654,11 +703,13 @@ rules:
     paths:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
-        - "/CLAUDE.md" # Documents which checks an agent runs for which file types.
+        - "/AGENTS.md" # Documents which checks an agent runs for which file types.
         - "/config/zizmor.yaml" # Its own config.
+        - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
         - "/.codacy.yaml" # Names the workflow linters Codacy defers to, as its exclusion rationale.
         - "/.github/actions/install-mise/action.yaml" # A `zizmor: ignore[...]` pragma, which only works spelled out.
         - "/.github/workflows/upstream-cache.yaml" # The same pragma.
+        - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)zizmor"
     message: >-

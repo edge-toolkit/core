@@ -18,8 +18,8 @@ runs:
     # is killed outright on exhaustion, reporting a shutdown signal rather than any build error. Root has the room:
     # it shows 119G free on the arm runner once the step above has run.
     - name: Add swap
-      uses: ./.github/actions/add-swap
+      uses: $/.github/actions/add-swap
 
     - name: Free disk space on Windows
       if: runner.os == 'Windows'
-      uses: ./.github/actions/free-disk-space-windows
+      uses: $/.github/actions/free-disk-space-windows

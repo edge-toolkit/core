@@ -12,8 +12,8 @@
 //! See `python/echo.py` for the contract.
 
 #![expect(
-    clippy::single_call_fn,
     clippy::integer_division_remainder_used,
+    clippy::single_call_fn,
     reason = "register/drive/storage_worker/python_worker single-use; select! uses %; RunnerError: tungstenite::Error"
 )]
 

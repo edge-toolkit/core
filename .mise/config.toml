@@ -16,7 +16,7 @@
 # installs node ahead of any npm: tool, install-mise-tools stops restoring the GHCR store, and every task
 # declares a `shell` that routes its body through a wrapper script. A warm checkout needs `mise install` re-run
 # once -- a tool this mise cannot resolve still reports as installed, so nothing refetches it on its own.
-min_version = "2026.9.0"
+min_version = "2026.9.17"
 
 [settings]
 # Disable mise's two auto-install paths so tasks fail fast on a missing tool.
@@ -99,25 +99,11 @@ conftest = "latest"
 # aqua records `provenance = "github-attestations"` instead, which is what every other pinned tool here uses.
 # This is the compose implementation only -- a docker daemon still has to come from the host.
 "aqua:docker/compose" = "latest"
+dprint = "latest"
+editorconfig-checker = "latest"
 "github:nextest-rs/nextest" = { version = "latest", version_prefix = "cargo-nextest-" }
 taplo = "latest"
 watchexec = "latest"
-# uutils coreutils: the Rust multicall binary, invoked as `coreutils <util>` in tasks.
-# Pinned to 0.6.0 (NOT the latest 0.9.0) because uutils 0.7.0+ ships the Windows release as 85 per-utility
-# .exes with no multicall coreutils.exe (see uutils/coreutils#11268). 0.6.0 keeps the multicall layout
-# uniform across Linux/macOS/Windows, so tasks can keep using `coreutils <util>` everywhere. Bump cautiously:
-# confirm the Windows zip layout hasn't reverted before raising the pin.
-coreutils = "0.6.0"
-dprint = "latest"
-# Held at the last release whose assets aqua's registry entry still names.
-# v4.0.0 renamed every asset from `ec-<os>-<arch>` to `editorconfig-checker-<os>-<arch>`, and aqua's manifest
-# was not updated, so `latest` resolves to a version whose download it cannot find:
-#   aqua:editorconfig-checker/editorconfig-checker@latest: no asset found: ec-windows-amd64.zip
-# on commit https://github.com/edge-toolkit/core/commit/02d645a30b89850b5d27711e0dd8f61780dcdcb3 at
-# https://github.com/edge-toolkit/core/actions/runs/33945730231/job/101251329874. The rename is not
-# Windows-specific -- every platform's asset moved -- so this holds every lane, not just that one. Drop the pin
-# once the aqua registry ships a version_overrides entry for 4.x.
-editorconfig-checker = "3.11.3"
 # ripgrep (rg): the Rust grep that tasks use in place of the host's grep.
 ripgrep = "latest"
 # uutils findutils (find + xargs), pinned to 0.8.0 (0.9.0 ships no binaries).
@@ -176,8 +162,12 @@ go = "latest"
 "go:github.com/noperator/jqfmt/cmd/jqfmt" = "0.1.0"
 hadolint = "latest"
 ls-lint = "latest"
-lychee = "latest"
-mprocs = "latest"
+# dekit, mprocs under its new name: `dekit mprocs` runs the repo-root mprocs.yaml.
+# The github backend rather than the registry's `aqua:pvolok/dekit`, whose manifest still names the pre-rename
+# assets, so every platform fails with
+#   aqua:pvolok/dekit@0.10.0: no asset found: mprocs-0.10.0-darwin-aarch64.tar.gz, mprocs-0.10.0-darwin-universal.tar.gz
+# on mise 2026.9.18. Return to the registry name once its aqua entry knows the `dekit-<triple>` assets.
+"github:pvolok/dekit" = "latest"
 node = "22"
 osv-scanner = "latest"
 # Aqua has no pipx build for windows/amd64.
@@ -191,8 +181,22 @@ gh = "latest"
 "pipx:cowsay" = "latest"
 "pipx:semgrep" = "latest"
 # Aqua has no pnpm darwin/amd64 prebuilt.
-# The `npm:pnpm` fallback for macos/x64 lives in the `js` env (config.js.toml).
-pnpm = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
+# The `npm:pnpm` fallback for macos/x64 lives in the `js` env (config.js.toml), held to the same major.
+#
+# Held at pnpm 11 because pnpm 12 cannot install on Nano Server. pnpm 12 resolves its store operation lock directory
+# only through `SHGetKnownFolderPath(FOLDERID_LocalAppData)`, with no setting or variable to override it, and Nano's
+# shell32 lacks that entry point, so every install there aborts before resolving a single package:
+#
+#   Error: ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK
+#     x installing dependencies
+#     `-> Failed to open the store operation lock at "pnpm-store-operation-locks":
+#         failed to resolve the local application data directory: HRESULT 0x80004005
+#
+# Seen in `prefetch:node` on the `build (windows-2022, nanoserver)` lane at commit
+# https://github.com/edge-toolkit/core/commit/4daebb043af06dfd3b0f81ef301f5b0ead6d50b0,
+# https://github.com/edge-toolkit/core/actions/runs/36950377535/job/110661783062. pnpm 11 runs on node and never
+# calls the API. Held everywhere rather than on Nano alone so every lane installs the workspace with one pnpm.
+pnpm = { version = "11", os = ["linux", "macos/arm64", "windows"] }
 protoc = "latest"
 # Full version triple, not a minor pin.
 # mise installs python under a per-tool dir named after the request and only symlinks the `3.x` minor alias
@@ -270,6 +274,31 @@ version = "tag:v0.56.0"
 crate = "rustfs"
 os = ["macos/x64"]
 version = "tag:1.0.0-beta.12"
+
+# uutils coreutils: the Rust multicall binary, invoked as `coreutils <util>` in tasks.
+# Pinned to 0.6.0 (NOT the latest 0.9.0) because uutils 0.7.0+ ships the Windows release as 85 per-utility
+# .exes with no multicall coreutils.exe (see uutils/coreutils#11268). 0.6.0 keeps the multicall layout
+# uniform across Linux/macOS/Windows, so tasks can keep using `coreutils <util>` everywhere. Bump cautiously:
+# confirm the Windows zip layout hasn't reverted before raising the pin.
+#
+# On Linux it takes the musl build. The gnu one needs GLIBC_2.39, so on the ubuntu:22.04 (2.35) and
+# debian:bookworm (2.36) image bases it cannot start, and every `coreutils` call there fails -- first the preinstall
+# libicu probe, as `preinstall: missing required build prerequisite: the versioned libicu runtime` on the
+# `build (debian:bookworm)` and `build (ubuntu:22.04)` lanes of
+# https://github.com/edge-toolkit/core/actions/runs/36933521606. mise picks the gnu build for a glibc platform
+# unless told otherwise, and the aqua registry entry offers no way to tell it, hence the github backend.
+#
+# The pattern is one template for every platform rather than a per-platform `asset_pattern`: mise keys a lock
+# entry on its options, so per-platform patterns become separate entries that an install on any other platform
+# prunes, and `mise-lock-check` then reports the lockfile as drifted.
+[tools."github:uutils/coreutils"]
+asset_pattern = "{{ vars.musl_pattern }}"
+version = "0.6.0"
+
+# lychee takes its musl build on Linux for the same reason as coreutils above: the gnu one needs GLIBC_2.39.
+[tools."github:lycheeverse/lychee"]
+asset_pattern = "{{ vars.musl_pattern }}"
+version = "latest"
 
 # Native rustpython binary built from upstream RustPython main.
 # Built with `freeze-stdlib` (so the binary embeds the Python stdlib and doesn't need a RUSTPYTHONPATH dance)
@@ -458,6 +487,11 @@ rust_nightly = "nightly-2026-08-05"
 # and its own `[vars]` are therefore absent from the context. Declaring it there failed every `mise upgrade`
 # that had work to do, with `Field win_rust_host is not defined`; this file is active everywhere.
 win_rust_host = "{% if arch() == 'arm64' %}aarch64-pc-windows-msvc{% else %}x86_64-pc-windows-gnullvm{% endif %}"
+# The github-backend `asset_pattern` that takes a Rust-triple release's musl build on Linux.
+# `raw` keeps the config's own render from evaluating it, so the backend renders it per target platform and the
+# lock records the one template rather than a host-specific string. The pattern is anchored and the shortest match
+# wins, which is what the trailing `*` leans on to take `.tar.gz` / `.zip` over their `.sha256` sidecars.
+musl_pattern = '{% raw %}*-{{ x86_64_arch }}-*{{ os(linux="musl.t", macos="darwin.t", windows="msvc.z") }}*{% endraw %}'
 # Tier-`a_` prefix marks leaf values referenced by later vars.
 # a_* vars are referenced by later vars (face1_src), and mise renders [vars] in alphabetical order; `a_` sorts
 # before every non-prefixed var name so the reference resolves. Shared GitHub release tag for the HF-asset
@@ -479,7 +513,8 @@ a_home = '''{% if os() == "windows" -%}
 {{- (env?.USERPROFILE or "") | replace(from="\\", to="/") -}}
 {%- else -%}
 {{- env.HOME -}}
-{%- endif %}'''
+{%- endif -%}
+'''
 # augeas asset filenames, one per supported platform.
 # Each matches an `[asset."<filename>"]` row in config/upstream-cache/data.toml so the checksums.rego policy
 # can enforce the cross-reference. All five tarballs are uploaded to the augeas-v1 release by the
@@ -676,6 +711,14 @@ a_rp_wasm_short = "08a1d6f"
 # normalizer (`cp: The system cannot find the path specified. (os error 3)`).
 # Extra actionlint flags for actionlint-check; empty everywhere except the config.windows.toml override.
 actionlint_args = ""
+# The one actionlint error actionlint-check ignores: a local action written in GitHub's self-repository syntax.
+# That syntax (`uses: $/.github/actions/<name>`) arrived in July 2026, and actionlint 1.7.12, the latest release,
+# predates it, so it reports every such ref as
+#   specifying action "$/.github/actions/install-mise" in invalid format because ref is missing.
+#   available formats are "{owner}/{repo}@{ref}" or "{owner}/{repo}/{path}@{ref}" [action]
+# The pattern matches only that message for a `$/.github/actions/` ref, so a malformed remote ref is still caught.
+# Drop it once an actionlint release understands `$/`.
+actionlint_ignore = "-ignore 'specifying action ..[/][.]github/actions/[^ ]+ in invalid format because ref is missing'"
 gh_http = "--http-url https://github.com --progress --ignore-existing"
 # Shared shfmt flags for the shfmt-mise-check / shfmt-mise-fmt pair.
 # `-ln bash` because a split-out body carries no shebang for shfmt to sniff, `-i 2` to match the indent_size
@@ -688,6 +731,11 @@ shfmt_args = "-ln bash -i 2 -ci"
 # body does. Double-quoted so a checkout path containing a space still arrives as one operand -- mise splits a
 # `shell` string on whitespace, honouring double quotes but not single.
 task_shell = 'bash -euo pipefail "{{ config_root }}/.mise/task-shell.sh"'
+# The TOML files the taplo tasks act on, NUL-separated: every tracked or new-but-not-ignored `*.toml`.
+# Named explicitly because taplo's own discovery walks the tree following links before it applies `exclude`, and pnpm
+# links an optional package it skips on the host to `../../../../..`, the repo root -- so `taplo lint` and
+# `taplo format --check` recursed through the repo inside node_modules forever instead of failing.
+toml_files = "git ls-files -z --cached --others --exclude-standard '*.toml'"
 # `set -x` variant, for a body whose every command should be traced.
 task_shell_trace = 'bash -xeuo pipefail "{{ config_root }}/.mise/task-shell.sh"'
 # Unguarded variant, for a body that checks its own exit codes and must not abort on the first failure.
@@ -708,7 +756,8 @@ rp_wasm_dir = '''{% if os() == "windows" and env?.MISE_INSTALLS_DIR -%}
 {{- base -}}/mise/installs/http-rp-wasm/{{- vars.a_rp_wasm_short -}}
 {%- else -%}
 {{- vars.mise_data_dir -}}/installs/http-rp-wasm/{{- vars.a_rp_wasm_short -}}
-{%- endif %}'''
+{%- endif -%}
+'''
 
 [env]
 # Comma-separated list of every language env (one per .mise/config.<lang>.toml).
@@ -756,8 +805,8 @@ ORT_LIB_LOCATION = "{% if os() == 'windows' %}{{ vars.ort_loc_win }}{% else %}{{
 ORT_SKIP_DOWNLOAD = "1"
 
 [tasks]
-ec = "ec"
-editorconfig-check = "ec"
+ec = "editorconfig-checker"
+editorconfig-check = "editorconfig-checker"
 
 [tasks.dprint-check]
 env = { DPRINT_CACHE_DIR = "{{ config_root }}/target/dprint-cache" }
@@ -809,6 +858,7 @@ depends = [
   "cargo-clippy-check",
   "cargo-doc-check",
   "cargo-fmt-check",
+  "checks-md-check",
   "conftest-check",
   "dockerignore-check",
   "dprint-check",
@@ -867,7 +917,7 @@ description = "Validate GitHub Actions workflow + composite-action YAML"
 run = "action-validator .github/workflows/*.yaml .github/actions/*/action.yaml"
 
 [tasks.agent-lint-check]
-description = "Lint this repository's Claude configuration (CLAUDE.md, .claude/) with agent-lint"
+description = "Lint this repository's agent configuration (AGENTS.md, .claude/) with agent-lint"
 # Skips where upstream ships no binary rather than failing on a missing one.
 # That is the one case this repo treats a missing tool as expected: the `[tools]` entry is os-scoped to the
 # targets the release actually carries, so on any other platform there is nothing to install and nothing this
@@ -891,7 +941,7 @@ description = "Lint GitHub Actions workflows (actionlint): local-action input va
 # warns). actionlint lints workflows only, so it does NOT see composite-action -> action calls; the gha_uses
 # conftest rule covers that direction. Intentional word-splitting sites carry an inline
 # `# shellcheck disable=SC2086` directive in the run script, as the mise-task bodies do.
-run = "actionlint {{ vars.actionlint_args }} .github/workflows/*.yaml"
+run = "actionlint {{ vars.actionlint_args }} {{ vars.actionlint_ignore }} .github/workflows/*.yaml"
 
 [tasks.zizmor-check]
 description = "Audit GitHub Actions workflows + composite actions for security issues (zizmor)"
@@ -1104,11 +1154,11 @@ run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace 
 
 [tasks.taplo-fmt]
 alias = "toml-fmt"
-run = "taplo format"
+run = "{{ vars.toml_files }} | xargs -0 taplo format"
 
 [tasks.taplo-fmt-check]
 alias = "toml-fmt-check"
-run = "taplo format --check"
+run = "{{ vars.toml_files }} | xargs -0 taplo format --check"
 
 [tasks.conftest-check]
 depends = ["conftest-check-*"]
@@ -1123,14 +1173,14 @@ description = "Run conftest OPA/Rego policies over the TOML config + lock files"
 # namespaces are listed explicitly, so the per-file `gha` (YAML) namespace is never evaluated against this
 # combined TOML input.
 run = """
-ns_list="cross cargo mise pyproject no_trailing_backslash checksums advisories"
+ns_list="cross cargo mise mise_lock pyproject no_trailing_backslash checksums advisories"
 named="Cargo.lock config/upstream-cache/data.toml config/deny.toml"
 # Both lists rely on word-splitting when they expand.
 # $ns expands to repeated `--namespace <n>` pairs; $named is a space-separated path list.
 # shellcheck disable=SC2086
 ns=$(for n in $ns_list; do echo -n " --namespace $n"; done)
 # shellcheck disable=SC2086
-git ls-files '*Cargo.toml' '.mise/config*.toml' '*pyproject.toml' $named |
+git ls-files '*Cargo.toml' '.mise/config*.toml' '.mise/mise*.lock' '*pyproject.toml' $named |
   xargs conftest test --combine --parser toml $ns -p config/conftest/policy
 """
 shell = "{{ vars.task_shell }}"
@@ -1283,7 +1333,7 @@ description = "Check that every multi-line bash mise task body is shfmt-formatte
 # The `-d` pass is what makes a failure actionable -- shfmt prints the offending body's own diff -- while the
 # hash compare additionally catches whatever the merge pass would rewrite outside shfmt's view (the TOML
 # escape normalisation .mise/shfmt-mise.awk performs on a `"""` body).
-run = '''
+run = """
 work="{{ vars.config_root_fwd }}/target/scratch/shfmt-mise-check"
 coreutils rm -rf "$work"
 status=0
@@ -1305,7 +1355,7 @@ for cfg in .mise/config*.toml; do
   fi
 done
 exit $status
-'''
+"""
 shell = "{{ vars.task_shell }}"
 
 [tasks.shfmt-mise-fmt]
@@ -1313,7 +1363,7 @@ description = "Format every multi-line bash mise task body with shfmt"
 # Split each config's task bodies into scratch scripts, shfmt them, then merge them back over the config.
 # .mise/shfmt-mise.awk owns both halves of that trip; the two loops here are split around one shfmt call so
 # the glob always has something to match (config.java.toml carries no multi-line body of its own).
-run = '''
+run = """
 work="{{ vars.config_root_fwd }}/target/scratch/shfmt-mise-fmt"
 coreutils rm -rf "$work"
 for cfg in .mise/config*.toml; do
@@ -1327,7 +1377,7 @@ for cfg in .mise/config*.toml; do
   goawk -N raw -v mode=merge -v dir="$d" -f .mise/shfmt-mise.awk "$cfg" >"$d/merged.toml"
   coreutils cp "$d/merged.toml" "$cfg"
 done
-'''
+"""
 shell = "{{ vars.task_shell }}"
 # taplo-fmt rewrites every .mise/config*.toml in full, and so does this task.
 # fmt:rust runs its dependencies as parallel siblings, so with no ordering edge between the two the second
@@ -1343,7 +1393,7 @@ alias = "toml-check"
 # rule alone). We work around it by applying each schema explicitly with `taplo lint --schema file://...`.
 # conftest-check-toml (config/conftest/policy) intentionally duplicates these lints; running both is fine.
 run = """
-taplo lint
+{{ vars.toml_files }} | xargs -0 taplo lint
 
 # The --schema lints need a file:// URL, built cross-platform as file:///${PWD#/}.
 # taplo rejects a bare path. On Linux $PWD is /abs, so the form yields file:///abs; on Windows $PWD is C:/dir
@@ -1497,14 +1547,25 @@ mise trust "$out/mise.toml" >/dev/null
 # gitignored, so nothing downstream depends on it surviving.
 coreutils rm -f "$out/mise.lock"
 
-# The npm registry config is exported here rather than left to the deployment's own `[env]`.
+# The npm registry config is exported here, for every mise call below, rather than left to the deployment's `[env]`.
 # mise computes that entry but does not apply it to its own tool resolution, so the embedded npm client reads
 # no `NPM_CONFIG_USERCONFIG`, falls back to registry.npmjs.org, and answers `package not found` for a scoped
 # package that only GitHub Packages holds. Exported into the process, the same file resolves against
 # npm.pkg.github.com and installs. Measured both ways on one cold cache: the deployment's `[env]` alone
 # fetched https://registry.npmjs.org/@edge-toolkit%2Fet-ws-math1 and installed nothing.
-npmrc="$PWD/$out/npmrc"
-(cd "$out" && NPM_CONFIG_USERCONFIG="$npmrc" mise install)
+export NPM_CONFIG_USERCONFIG="$PWD/$out/npmrc"
+(cd "$out" && mise install)
+# `mise lock` after the install records each npm module's dependency graph, which the install alone leaves out.
+# mise files an npm install under a directory named for that graph (`<version>~aube~<digest>`), but a fresh
+# `mise install` writes the module's lock entry with no graph, and `mise ls --current` then names the bare
+# `<version>` directory that was never created. The hub finds its modules through that listing, so it served
+# nothing and each runner's request for its module's `package.json` was a 404. Reproduced with any `latest` npm tool
+# on the mise `min_version` names and on its next release: the install lands in `<version>~aube~<digest>` while the
+# listing names `<version>`, until `mise lock` adds the graph. Seen as
+# `GET /modules/@edge-toolkit/et-ws-math1/package.json` 404s at
+# https://github.com/edge-toolkit/core/commit/b19fbf4790a38c77000dd888d513ff27b0f35d16, job
+# https://github.com/edge-toolkit/core/actions/runs/36968983438/job/110718777886.
+(cd "$out" && mise lock)
 (cd "$out" && mise run generated-scenario) &
 scenario_pid=$!
 
@@ -1525,6 +1586,20 @@ done
 if [ -z "$stored" ]; then
   echo "published-verify: no math1-output.json appeared under $storage" >&2
   echo "published-verify: check whether the crates and module packages this scenario names are published yet" >&2
+  # Print where the hub was told each module is installed, beside what is actually there.
+  # The hub serves each npm module from the install path `mise ls --current --json` names, and is silent when that
+  # path is missing, so a module it never found shows up only as a runner's 404 -- this makes a listing that names a
+  # directory the install never created visible.
+  listing=$(cd "$out" && mise ls --current --json) || listing="{}"
+  printf '%s' "$listing" |
+    jaq -r 'to_entries[] | select(.key | startswith("npm:@edge-toolkit/")) | "\\(.key) \\(.value[0].install_path)"' |
+    while read -r tool path; do
+      echo "published-verify: $tool is listed at $path" >&2
+      coreutils ls -la "$(coreutils dirname "$path")" >&2 || true
+    done
+  # A module whose lock entry has no `aube` graph is listed at the bare version, so show which entries carry one.
+  echo "published-verify: aube graphs recorded in $out/mise.lock:" >&2
+  rg -n -A6 '^\\[\\[tools\\."npm:@edge-toolkit/' "$out/mise.lock" >&2 || true
   exit 1
 fi
 
@@ -1619,8 +1694,10 @@ kubectl rollout status deploy/ws-server -n "$ns" --timeout="$manifest_wait"
 # concatenated JSON documents rather than one. The sibling mise and compose test reads the first match for the
 # same reason.
 stored=""
-# The glob and `$1` are for the pod's shell to expand, so they must reach it unexpanded.
+# The glob, `$1` and the `cat` are all for the pod's shell, so they must reach it unexpanded.
+# That shell runs in the hub image, where no mise-managed coreutils exists.
 # shellcheck disable=SC2016
+# nosemgrep: config.semgrep.mise-task-coreutils-prefix
 read_model='set -- /app/storage/*/math1-output.json; cat "$1"'
 for _ in $(coreutils seq 1 60); do
   stored=$(kubectl exec -n "$ns" deploy/ws-server -- sh -c "$read_model" 2>/dev/null || true)
@@ -1725,7 +1802,7 @@ mise install gh
 mise install cargo-binstall
 mise install node
 mise install conda:openssl
-mise install coreutils
+mise install github:uutils/coreutils
 mise install ripgrep
 # goawk lands here in _setup_all so it's available to every later step.
 # Steps that may need `awk` -- third-party scripts (dotnet-install.sh on Linux, others) hard-code bare
@@ -1836,7 +1913,7 @@ run = '''
   echo "# like .gitignore. Edit .gitignore and regenerate."
   echo
   {
-    cat .gitignore
+    coreutils cat .gitignore
     printf '%s\n' '.git/' 'Dockerfile*' '/README.md'
   } | goawk '
     /^[[:space:]]*#/ { print; next }
@@ -1957,32 +2034,27 @@ depends = ["regenerate-verification"]
 description = "Fail if generated scenario output files are stale"
 run = "git diff --exit-code -- verification/"
 
-# HELP.md for each clap-using utility under utilities/.
-# Each crate has an optional `markdown-help` feature that gates a hidden `--markdown-help` flag;
-# `cargo run --features markdown-help -p <name> -- --markdown-help` prints a full clap-tree markdown
-# rendering. gen-help-all regenerates every HELP.md; gen-help-check diffs the committed files against
-# fresh output. The pattern mirrors pep257-rs's HELP.md flow. It must run after regenerate-verification
-# as they use different features, and they can race, invoking the wrong binary, without the required
-# feature.
 [tasks.gen-help-all]
-depends = ["cargo-check", "cargo-clippy-check", "cargo-doc-check", "regenerate-verification"]
 description = "Regenerate HELP.md for every clap-using utility under utilities/"
-run = """
-s=target/scratch/gen-help
-mkdir -p "$s"
-for crate in et-cli et-int-gen et-onnx; do
-  helpmd="utilities/${crate#et-}/HELP.md"
-  echo "[gen-help-all] $crate -> $helpmd"
-  cargo run --features markdown-help -q -p "$crate" -- --markdown-help | dprint fmt --stdin md >"$s/$crate.md"
-  coreutils mv "$s/$crate.md" "$helpmd"
-done
-"""
-shell = "{{ vars.task_shell }}"
+run = "cargo run -q -p et-int-gen --bin et-int-gen -- help-md"
+
+[tasks."gen:checks"]
+description = "Regenerate CHECKS.md, the catalogue of every check across every MISE_ENV"
+run = "cargo run -q -p et-int-gen --bin et-int-gen -- checks"
+
+[tasks.checks-md-check]
+# Ordered after the workspace builds so its `cargo run` reuses their artifacts.
+# Run beside them it is a fourth concurrent build, which doubled every cargo task's time on the three-core macOS
+# runner and took the macOS check lane past its budget.
+depends = ["cargo-check", "cargo-clippy-check", "cargo-doc-check", "regenerate-verification"]
+description = "Fail if CHECKS.md is stale vs the mise task tables and rule files (run `mise run gen:checks`)"
+run = "cargo run -q -p et-int-gen --bin et-int-gen -- checks --check"
 
 [tasks.gen-help-check]
-depends = ["gen-help-all"]
-description = "Fail if any utility's checked-in HELP.md is stale vs the clap tree"
-run = "git diff --exit-code -- utilities/*/HELP.md"
+# After checks-md-check, whose et-int-gen build it reuses.
+depends = ["checks-md-check"]
+description = "Fail if any utility's checked-in HELP.md is stale vs the clap tree (run `mise run gen-help-all`)"
+run = "cargo run -q -p et-int-gen --bin et-int-gen -- help-md --check"
 
 [tasks.fetch-wit-deps]
 description = "Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions (run by hand on bumps)"
@@ -2122,7 +2194,7 @@ shell = "{{ vars.task_shell }}"
 # https://github.com/edge-toolkit/core/actions/runs/31773896309/job/94685231006.
 [tasks._setup-store-tools]
 description = "Install the tools the mise-tools store tasks depend on (cold-checkout helper)"
-run = "mise install coreutils crane gh aqua:01mf02/jaq"
+run = "mise install github:uutils/coreutils crane gh aqua:01mf02/jaq"
 
 # Build the OCI layout for a mise-tools store, carrying only relocatable tools.
 # Shared by every push-mise-tools* task (native and docker) so all platforms' stores hold the same set of
@@ -2417,9 +2489,9 @@ otelcol-contrib --config config/otelcol-winperf.yaml
 shell = "{{ vars.task_shell }}"
 
 # Note: bare `yq` / `coreutils` would fail inside the nanoserver docker build.
-# There mise's shims aren't on PATH for busybox-w32 ash (see the CLAUDE.md "Nano Server exception").
+# There mise's shims aren't on PATH for busybox-w32 ash (see the AGENTS.md "Nano Server exception").
 # `mise exec --` is the documented escape hatch; works the same on every host. yq stays bare because it
-# already runs cleanly on every other lane and the nanoserver-shim TODO (CLAUDE.md) plans to put all
+# already runs cleanly on every other lane and the nanoserver-shim TODO (AGENTS.md) plans to put all
 # shims on PATH there too.
 [tasks.fetch-face1-rclone]
 run = """

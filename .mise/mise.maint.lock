@@ -30,65 +30,64 @@ url = "https://github.com/ducaale/xh/releases/download/v0.26.2/xh-v0.26.2-x86_64
 url_api = "https://api.github.com/repos/ducaale/xh/releases/assets/490411898"
 
 [[tools."aqua:ip7z/7zip"]]
-version = "26.02"
+version = "26.03"
 backend = "aqua:ip7z/7zip"
 
 [tools."aqua:ip7z/7zip"."platforms.linux-arm64"]
-checksum = "sha256:70ea6cc737ae1495ea2d7eb20ef3120fe579bd3f1a83a9d2362b62ec5bde2bba"
-url = "https://github.com/ip7z/7zip/releases/download/26.02/7z2602-linux-arm64.tar.xz"
-url_api = "https://api.github.com/repos/ip7z/7zip/releases/assets/458363897"
+checksum = "sha256:2389ba20e4d8295e8709c20b6263b69bd1ec4972fe38a04ad7a1badbf595b996"
+url = "https://github.com/ip7z/7zip/releases/download/26.03/7z2603-linux-arm64.tar.xz"
+url_api = "https://api.github.com/repos/ip7z/7zip/releases/assets/543966135"
 
 [tools."aqua:ip7z/7zip"."platforms.linux-x64"]
-checksum = "sha256:41aaba7b1235304ab5aa0624530c67ae829496cd29e875925271efdccc28c03e"
-url = "https://github.com/ip7z/7zip/releases/download/26.02/7z2602-linux-x64.tar.xz"
-url_api = "https://api.github.com/repos/ip7z/7zip/releases/assets/458363910"
+checksum = "sha256:dc99eff5008f1ab79bd7084c68513701547a808a89502bf4133683535ab3c695"
+url = "https://github.com/ip7z/7zip/releases/download/26.03/7z2603-linux-x64.tar.xz"
+url_api = "https://api.github.com/repos/ip7z/7zip/releases/assets/543966173"
 
 [tools."aqua:ip7z/7zip"."platforms.macos-arm64"]
-checksum = "sha256:1cf6760579502f87e591ff5c73a005ec50b3e4d6f507e8b038382d563c3175b9"
-url = "https://github.com/ip7z/7zip/releases/download/26.02/7z2602-mac.tar.xz"
-url_api = "https://api.github.com/repos/ip7z/7zip/releases/assets/458364002"
+checksum = "sha256:5ca87677072c59f5602e5c49baa27d4694bacd2259b4e507f0094249d4281480"
+url = "https://github.com/ip7z/7zip/releases/download/26.03/7z2603-mac.tar.xz"
+url_api = "https://api.github.com/repos/ip7z/7zip/releases/assets/543966195"
 
 [tools."aqua:ip7z/7zip"."platforms.macos-x64"]
-checksum = "sha256:1cf6760579502f87e591ff5c73a005ec50b3e4d6f507e8b038382d563c3175b9"
-url = "https://github.com/ip7z/7zip/releases/download/26.02/7z2602-mac.tar.xz"
-url_api = "https://api.github.com/repos/ip7z/7zip/releases/assets/458364002"
+checksum = "sha256:5ca87677072c59f5602e5c49baa27d4694bacd2259b4e507f0094249d4281480"
+url = "https://github.com/ip7z/7zip/releases/download/26.03/7z2603-mac.tar.xz"
+url_api = "https://api.github.com/repos/ip7z/7zip/releases/assets/543966195"
 
 [tools."aqua:ip7z/7zip"."platforms.windows-x64"]
-checksum = "sha256:081df9e9311dfd9c9e0e98c1c80180b99bb51e4cb24156b5f3057fe3c259d70a"
-url = "https://github.com/ip7z/7zip/releases/download/26.02/7z2602-extra.7z"
-url_api = "https://api.github.com/repos/ip7z/7zip/releases/assets/458363818"
+checksum = "sha256:191894e6acb3647ffb69ce630479ff318523b2e2b9890aa7f05c1127c2e59b8f"
+url = "https://github.com/ip7z/7zip/releases/download/26.03/7z2603-extra.7z"
+url_api = "https://api.github.com/repos/ip7z/7zip/releases/assets/543966125"
 
 [[tools.cargo-release]]
-version = "1.1.5"
+version = "1.1.6"
 backend = "github:crate-ci/cargo-release"
 
 [tools.cargo-release."platforms.linux-arm64"]
-checksum = "sha256:d21b6b274b5ec369b465af4882cc31ff1f9c589b5569ea6eb4eac61882b27f9e"
-url = "https://github.com/crate-ci/cargo-release/releases/download/v1.1.5/cargo-release-v1.1.5-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/crate-ci/cargo-release/releases/assets/510346210"
+checksum = "sha256:a74a3dc62204ed1c10e3da644fa6b5dc0abead13d1936e1a21f0decfaf26b983"
+url = "https://github.com/crate-ci/cargo-release/releases/download/v1.1.6/cargo-release-v1.1.6-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/crate-ci/cargo-release/releases/assets/568871846"
 provenance = "github-attestations"
 
 [tools.cargo-release."platforms.linux-x64"]
-checksum = "sha256:229b9979a5dce8ea0baa65a8f91c913bac4f3f6e4c6d925fc0674aeebb1370f3"
-url = "https://github.com/crate-ci/cargo-release/releases/download/v1.1.5/cargo-release-v1.1.5-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/crate-ci/cargo-release/releases/assets/510346479"
+checksum = "sha256:d82672b9f26b9a11f1b080eedeb74ffa3dd02d96ae9fb3cbc180e4a10d5417db"
+url = "https://github.com/crate-ci/cargo-release/releases/download/v1.1.6/cargo-release-v1.1.6-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/crate-ci/cargo-release/releases/assets/568873165"
 provenance = "github-attestations"
 
 [tools.cargo-release."platforms.macos-arm64"]
-checksum = "sha256:85bfeffd63a8d8dd260032e6b5088954ac4c9514db8aef3a7afc76082bc89813"
-url = "https://github.com/crate-ci/cargo-release/releases/download/v1.1.5/cargo-release-v1.1.5-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/crate-ci/cargo-release/releases/assets/510347358"
+checksum = "sha256:2f41e0d9f9538108f943f498af9f923cd6efd7e3ecdd69c7f78516bb29f32c53"
+url = "https://github.com/crate-ci/cargo-release/releases/download/v1.1.6/cargo-release-v1.1.6-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/crate-ci/cargo-release/releases/assets/568874942"
 provenance = "github-attestations"
-provenance_verified = true
 
 [tools.cargo-release."platforms.macos-x64"]
-checksum = "sha256:ebfdb4ec6d5aaf625edda0b79c903405e2f1871b490ae772f819d8f4c1386706"
-url = "https://github.com/crate-ci/cargo-release/releases/download/v1.1.5/cargo-release-v1.1.5-x86_64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/crate-ci/cargo-release/releases/assets/510347751"
+checksum = "sha256:f1a5544f7b9464bc308caac45ed0a10d4839b6a38d7f83af27cfb72e68efe501"
+url = "https://github.com/crate-ci/cargo-release/releases/download/v1.1.6/cargo-release-v1.1.6-x86_64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/crate-ci/cargo-release/releases/assets/568875686"
 provenance = "github-attestations"
 
 [tools.cargo-release."platforms.windows-x64"]
-checksum = "sha256:c77962b37da29549cb3f87364930f3f5cc68d625a776359be48e7fa7ce0dfa4c"
-url = "https://github.com/crate-ci/cargo-release/releases/download/v1.1.5/cargo-release-v1.1.5-x86_64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/crate-ci/cargo-release/releases/assets/510347954"
+checksum = "sha256:511ac6eb265f137cf78c74f6488bcdad750e669b5dd63324cc5582ea5a59ab5e"
+url = "https://github.com/crate-ci/cargo-release/releases/download/v1.1.6/cargo-release-v1.1.6-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/crate-ci/cargo-release/releases/assets/568875956"
 provenance = "github-attestations"

@@ -124,7 +124,8 @@ a_mise_installs_fwd = '''{% if env?.MISE_INSTALLS_DIR -%}
 {{- env.MISE_INSTALLS_DIR | replace(from="\\", to="/") -}}
 {%- else -%}
 {{- (env?.LOCALAPPDATA or "") | replace(from="\\", to="/") -}}/mise/installs
-{%- endif %}'''
+{%- endif -%}
+'''
 # clang-tidy's builtin-header resource dir (config.linux.toml solves the same gap with conda's clang).
 # llvm-mingw ships the clang resource headers (stddef.h/stdint.h -- everything the zig-data1 C needs),
 # and conda's clang-tidy is the same LLVM 22 major. The trailing `22` is clang's major version, not the
@@ -149,7 +150,8 @@ mise_installs = '''{% if env?.MISE_INSTALLS_DIR -%}
 {{- env.MISE_INSTALLS_DIR -}}
 {%- else -%}
 {{- env?.LOCALAPPDATA or "" -}}\mise\installs
-{%- endif %}'''
+{%- endif -%}
+'''
 # busybox `ash` install path for MISE_BASH_PATH.
 # Keyed by the pinned http:busybox version above -- keep in sync.
 winsh = '{{ vars.mise_installs }}\http-busybox\1.37.0\ash.exe'
@@ -188,7 +190,8 @@ cargo_bin = '''{% if env?.CARGO_HOME -%}
 {{- env.CARGO_HOME -}}\bin
 {%- else -%}
 {{- env?.USERPROFILE or "" -}}\.cargo\bin
-{%- endif %}'''
+{%- endif -%}
+'''
 # Pinned to the [tools] version so the [env] _.path entry resolves; bump both together.
 m2_gnupg_bin = '{{ vars.mise_installs }}\conda-m2-gnupg\2.2.41.1\Library\usr\bin'
 # msys2's make.exe dir, on the same terms as m2_gnupg_bin above.

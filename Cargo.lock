@@ -4311,7 +4311,6 @@ name = "et-cli"
 version = "0.1.1"
 dependencies = [
  "clap",
- "clap-markdown",
  "command-error",
  "edge-toolkit",
  "et-org",
@@ -4344,7 +4343,9 @@ dependencies = [
  "clap-markdown",
  "command-error",
  "edge-toolkit",
+ "et-cli",
  "et-modules-service",
+ "et-onnx",
  "et-storage-service",
  "et-test-helpers",
  "et-ws-server",
@@ -4364,7 +4365,9 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "syn 3.0.5",
+ "tempfile",
  "thiserror 2.0.20",
+ "toml 1.1.6+spec-1.1.0",
  "tree-sitter",
  "tree-sitter-zig",
  "utoipa",
@@ -4396,7 +4399,6 @@ name = "et-onnx"
 version = "0.1.0"
 dependencies = [
  "clap",
- "clap-markdown",
  "onnx-extractor",
 ]
 
