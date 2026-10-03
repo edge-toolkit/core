@@ -41,6 +41,7 @@ pub use self::input::{
 pub use self::module_package_json::generate_module_package_json;
 pub(crate) use self::scenario_password::{scenario_password, scenario_seed};
 
+/// The files a deployment of `output_types` writes, in the order the README lists them.
 fn generated_output_files(output_types: &[OutputType]) -> Vec<&'static str> {
     let mut files = Vec::new();
     for output_type in output_types {
@@ -381,6 +382,7 @@ const fn deployment_summary(
     }
 }
 
+/// Write every file a deployment of `output_types` needs into `output_dir`, with its credential and README.
 fn generate_deployment_outputs(
     cluster: &ClusterInput,
     output_dir: &Path,
@@ -579,6 +581,7 @@ fn discover_verification_scenarios(verification_root: &Path) -> Result<Vec<(Path
     Ok(scenarios)
 }
 
+/// Render the README a deployment directory carries: what it holds, then how to run each format it was written in.
 fn generated_readme(
     cluster: &ClusterInput,
     module_names: &[String],
@@ -748,6 +751,7 @@ const fn mise_install_note(artifacts: ArtifactSource) -> &'static str {
     ""
 }
 
+/// Render the README section that runs one deployment format.
 fn generated_run_instructions(
     output_type: OutputType,
     cluster_name: &str,
@@ -1370,6 +1374,7 @@ fn resolve_module_entries<'registry>(
     Ok(entries)
 }
 
+/// Resolve `module_names` and their dependencies to the path each is served from, as `path_for` spells it, sorted.
 pub(crate) fn resolve_module_paths<F>(
     registry: &BTreeMap<String, ModuleRegistryEntry>,
     module_names: &[String],

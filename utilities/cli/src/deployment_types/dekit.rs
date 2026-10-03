@@ -6,7 +6,7 @@ use serde::Serialize;
 use serde_yaml::{Mapping, Value};
 
 use super::document;
-use super::mise::{COLLECTOR_CONTAINER, COLLECTOR_TASK, HUB_TASK, OPENER_TASK};
+use super::mise::{COLLECTOR_TASK, HUB_TASK, OPENER_TASK, collector_container};
 use crate::error::CliError;
 use crate::input::ClusterInput;
 use crate::{OutputType, hub_http_base, module_registry, resolve_cluster_runners};
@@ -43,7 +43,8 @@ pub fn generate_dekit_deployment(cluster: &ClusterInput, output_dir: &Path) -> R
     // `docker run` is stopped through Docker rather than by signalling the client: a client that dies before it has
     // passed the signal on leaves the container running and holding the collector's port.
     let mut stop = Mapping::new();
-    insert(&mut stop, "cmd", strings(&["docker", "stop", COLLECTOR_CONTAINER]));
+    let container = collector_container(&cluster.cluster_name);
+    insert(&mut stop, "cmd", strings(&["docker", "stop", &container]));
     insert(&mut stop, "timeout", Value::from(COLLECTOR_STOP_TIMEOUT));
     insert(&mut collector, "stop", Value::Mapping(stop));
     insert(&mut tasks, COLLECTOR_TASK, Value::Mapping(collector));
@@ -104,10 +105,12 @@ fn http_ready(url: &str) -> Value {
     Value::Mapping(ready)
 }
 
+/// A YAML sequence of `items`, the shape of every `cmd` and `deps` list in the file.
 fn strings(items: &[&str]) -> Value {
     Value::Sequence(items.iter().map(|item| Value::from(*item)).collect())
 }
 
+/// Set `key` in `mapping`, which never holds it already: each key is written once, in the order dekit shows them.
 fn insert(mapping: &mut Mapping, key: &str, value: Value) {
     let _previous: Option<Value> = mapping.insert(Value::from(key), value);
 }

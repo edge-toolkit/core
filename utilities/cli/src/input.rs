@@ -36,6 +36,7 @@ pub enum OutputType {
 impl OutputType {
     pub const ALL: &'static [Self] = &[Self::Mise, Self::DockerCompose, Self::K3s, Self::Dekit];
 
+    /// The file this format is written to, beside the others in the deployment directory.
     #[must_use]
     pub const fn output_file_name(self) -> &'static str {
         match self {

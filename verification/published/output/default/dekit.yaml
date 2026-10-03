@@ -13,7 +13,7 @@ tasks:
       cmd:
         - docker
         - stop
-        - openobserve
+        - openobserve-default
       timeout: 30s
   ws-server:
     cmd:

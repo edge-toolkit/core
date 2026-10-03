@@ -13,7 +13,7 @@ tasks:
       cmd:
         - docker
         - stop
-        - openobserve
+        - openobserve-math1
       timeout: 30s
   ws-server:
     cmd:

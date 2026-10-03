@@ -382,7 +382,7 @@ fn every_dekit_task_runs_a_task_of_the_mise_toml_written_beside_it() {
 fn dekit_starts_each_process_once_what_it_talks_to_is_ready() {
     // The point of dekit over a plain process list: a runner that asks the hub for its module before the hub listens
     // is a lost run, so each waits on the health endpoint of what it talks to, the same edges compose gates on.
-    let (_test_root, _output_dir, config) = dekit_deployment(WITH_RUNNER_ENV);
+    let (_test_root, output_dir, config) = dekit_deployment(WITH_RUNNER_ENV);
     let tasks = &config["tasks"];
 
     assert_eq!(task_deps(&tasks["openobserve"]), Vec::<&str>::new());
@@ -403,7 +403,11 @@ fn dekit_starts_each_process_once_what_it_talks_to_is_ready() {
         .iter()
         .map(|arg| arg.as_str().unwrap())
         .collect();
-    assert_eq!(stop, ["docker", "stop", "openobserve"]);
+    // Named after the scenario, so the stop cannot reach another collector on the same Docker daemon, and the same
+    // name the mise task starts the container under.
+    assert_eq!(stop, ["docker", "stop", "openobserve-runner-env"]);
+    let mise = fs::read_to_string(output_dir.join("mise.toml")).unwrap();
+    assert!(mise.contains("container=openobserve-runner-env\n"));
     assert_eq!(config["defaults"]["stop"].as_str(), Some("SIGINT"));
 }
 

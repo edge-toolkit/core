@@ -40,6 +40,9 @@ pub struct HostState {
 }
 
 impl HostState {
+    /// The state one guest store runs with: a WASI context, the REST client and the `wasi:nn`/`wasi:webgpu` hosts.
+    ///
+    /// `coverage` maps `/cov` for an instrumented guest's profile, and is honoured only in a `coverage` build.
     #[must_use]
     #[cfg_attr(
         not(feature = "coverage"),
