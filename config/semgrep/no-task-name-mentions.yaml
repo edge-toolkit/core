@@ -129,6 +129,7 @@ rules:
         - "/services/ws-wasi-runner/tests/o2_ingest_search.rs" # Its subject is the server those tasks run.
         - "/utilities/cli/src/lib.rs" # Emits those task names into the deployments it generates.
         - "/utilities/cli/src/deployment_types/mise.rs" # Likewise.
+        - "/utilities/cli/src/deployment_types/dekit.rs" # Likewise.
         - "/CHECKS.md" # The generated catalogue of every check, which names each task by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: >-

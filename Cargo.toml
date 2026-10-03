@@ -245,24 +245,23 @@ tree-sitter-zig = "1"
 url = "2"
 utoipa = { version = "5", features = ["actix_extras", "yaml"] }
 uuid = { version = "1", features = ["serde", "v4", "v7"] }
-wasi-webgpu-wasmtime = "0.2"
+wasi-webgpu-wasmtime = "0.3"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 wasm-bindgen-test = "0.3"
-# 44.0.3 is the floor for the RUSTSEC-2026-0182 fix (fd_renumber leak in WASIp1).
 # Keep all three on the same major for ABI compat -- wasmtime-wasi-nn tracks wasmtime's version exactly.
-# 47.0.3 is the floor, not a preference: RUSTSEC-2026-0222 (GHSA-hgjw-h833-99q9) is fixed only in
-# >=24.0.12 <25, >=36.0.13 <37, >=46.0.2 <47, or >=47.0.3, so the 44.x line this used to pin has no patched
-# release at all and 47.0.2 is still affected.
-wasmtime = { version = "47.0.3", features = ["async", "component-model"] }
+# 48.0.4 is the floor, not a preference: RUSTSEC-2026-0321 through RUSTSEC-2026-0327 are fixed only in
+# >=48.0.4 <49 or >=49.0.2. The major is held at 48 by wasi-webgpu-wasmtime, whose newest release (0.3.1)
+# requires wasmtime ^48.
+wasmtime = { version = "48.0.4", features = ["async", "component-model"] }
 # The generator behind wasmtime's `bindgen!` macro, driven directly by et-int-gen.
 # Emitting the runner's host bindings as a checked-in source file keeps ws-wasi-runner self-contained: the
 # macro read WIT from `../../generated/specs/wit`, which `cargo package` cannot include, so the crate failed
 # to build from its own tarball. Named `internal` upstream, so treat its API as unstable and pinned to the
 # wasmtime version above; the drift check catches any change in what it emits.
-wasmtime-internal-wit-bindgen = { version = "47.0.4", features = ["async", "component-model-async"] }
-wasmtime-wasi = "47.0.3"
-wasmtime-wasi-nn = { version = "47", default-features = false, features = ["onnx"] }
+wasmtime-internal-wit-bindgen = { version = "48.0.4", features = ["async", "component-model-async"] }
+wasmtime-wasi = "48.0.4"
+wasmtime-wasi-nn = { version = "48", default-features = false, features = ["onnx"] }
 web-sys = "0.3"
 # wgpu-core/wgpu-types come in via wasi-webgpu-wasmtime's re-exports; only the instance handle is ours.
 wgpu-core = { version = "29", default-features = false }
@@ -270,8 +269,10 @@ wgpu-types = "29"
 # Windows-only feature-unification shim: forces `winapi/std` on for deno_io.
 winapi = { version = "0.3", features = ["std"] }
 wit-bindgen = "0.62"
-wit-encoder = "0.252"
-wit-parser = "0.252"
+wit-encoder = "0.254"
+# Held to the release wasmtime-internal-wit-bindgen builds against.
+# et-int-gen hands it a `Resolve` from this crate, and a second wit-parser in the graph makes that a different type.
+wit-parser = "0.254"
 
 [profile.release.package.et-ws-wasm-agent]
 opt-level = "s"
@@ -462,7 +463,7 @@ ignore = [
   "fips205",
   # fs-set-times has a long-stale upstream (bytecodealliance/fs-set-times) that cargo-unmaintained flags.
   # Its 0.20.3 (the latest release) still requires io-lifetimes ^2.0.0 (uses 2.0.4, latest 3.0.1); pulled by
-  # cap-primitives (cap-std / cap-fs-ext) via the version-pinned wasmtime-wasi 47, so it can't be bumped out.
+  # cap-primitives (cap-std / cap-fs-ext) via the version-pinned wasmtime-wasi 48, so it can't be bumped out.
   # io-lifetimes 2.x is not a defect -- its I/O-safety types were upstreamed into std, leaving it frozen.
   "fs-set-times",
   # Unmaintained upstream at HdrHistogram/HdrHistogram_rust.
@@ -510,7 +511,7 @@ ignore = [
   # But cargo-unmaintained looks only at the repo root and reports "not in".
   "rand_chacha",
   # Unmaintained upstream at gitlab redox-os/users; its getrandom (^0.2) and thiserror (^1.0) pins lag latest.
-  # Redox-OS-only code, pulled via the version-pinned wasmtime 47's cache stack (wasmtime-internal-cache ->
+  # Redox-OS-only code, pulled via the version-pinned wasmtime 48's cache stack (wasmtime-internal-cache ->
   # directories-next -> dirs-sys-next, the same family as the dirs-sys-next entry above); never compiled on
   # our target platforms.
   "redox_users",

@@ -23,11 +23,9 @@
 # libgcc/libstdc++ would drag a second CRT into every binary. x86_64-posix-seh matches the thread/exception
 # model of MSYS2's MINGW64, the toolchain upstream Rust documents for windows-gnu. `matching` pins the exact
 # zip asset because the release also carries i686 and .7z assets (mise cannot extract 7z). Pinned so the
-# win_gcc_bin var below stays valid (conftest's version_drift enforces); os-scoped because upstream only
-# ships Windows binaries (allowlisted in config/conftest/policy/mise/mise.rego).
+# win_gcc_bin var below stays valid (conftest's version_drift enforces).
 [tools."github:brechtsanders/winlibs_mingw"]
 matching = "winlibs-x86_64-posix-seh-gcc-16.1.0-mingw-w64msvcrt-14.0.0-r3.zip"
-os = ["windows"]
 version = "16.1.0posix-14.0.0-msvcrt-r3"
 
 # Rust toolchains: config.windows.toml's entries plus the x86_64-pc-windows-gnu target std.
