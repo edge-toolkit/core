@@ -27,3 +27,87 @@ rules:
       that uses it, where the reader is already looking; a note here duplicates that and goes stale the moment the
       test changes. Delete the comment, and put anything genuinely worth saying next to the code that depends on it.
     severity: ERROR
+
+  - id: cargo-feature-needs-doc-comment
+    languages: [generic]
+    paths:
+      include:
+        - "**/Cargo.toml"
+    # Matches a feature entry, other than `default`, whose line above is not a `##` doc comment.
+    # The regex runs from the `[features]` header through any lines that stay inside the table (none starts with
+    # `[`), then one line that is not `##`, then the feature. That last line is mandatory unless the feature sits
+    # directly under the header, so a documented feature can never satisfy the pattern by letting the run swallow
+    # its doc line. One finding per table, since the regex anchors on the header. No autofix: the documentation is
+    # prose the author has to write.
+    pattern-regex: |
+      (?mx)
+      ^\[features\]\n
+      (?:
+        (?: (?: [^\[\n][^\n]* )? \n )*
+        (?: [^\#\[\n][^\n]* | \# (?: [^\#\n][^\n]* )? )? \n
+      )?
+      (?! default [\ \t]* = )
+      (?P<FEATURE> [A-Za-z0-9_-]+ ) [\ \t]* =
+    focus-metavariable: $FEATURE
+    message: >-
+      Document every cargo feature with a `##` comment on the lines directly above it. `document-features` renders
+      those comments as the crate's feature list on docs.rs, which is where users choose features, so an
+      undocumented feature is one they cannot learn about without reading the manifest. A plain `#` comment is not
+      rendered; turn it into `##` user-facing prose, and mark a feature only the repo's own tooling uses with
+      `Internal:`.
+    severity: ERROR
+
+  - id: cargo-table-order
+    languages: [generic]
+    paths:
+      include:
+        - "**/Cargo.toml"
+    # Matches a table header followed, anywhere later in the file, by a header of a kind that has to come earlier.
+    # The DEFINE block names each kind once, in the required order; a `target.<cfg>` dependency table and the
+    # `<table>.<key>` subtables share their plain table's kind. Each branch is one boundary between neighbouring
+    # kinds -- some later kind, then some earlier one -- so the order is stated once and needs no pairwise list.
+    # No autofix: moving a table moves its comments and the blank lines around it, which no template can express.
+    pattern-regex: |
+      (?msx)
+      (?(DEFINE)
+        (?<sub> (?: \.[^\]\n]+ )? )
+        (?<tgt> (?: target\.[^\]\n]+\. )? )
+        (?<pkg> package (?&sub) )
+        (?<lib> lib )
+        (?<bin> bin )
+        (?<exa> example )
+        (?<tst> test )
+        (?<ben> bench )
+        (?<fea> features )
+        (?<dep> (?&tgt) dependencies (?&sub) )
+        (?<dev> (?&tgt) dev-dependencies (?&sub) )
+        (?<bld> (?&tgt) build-dependencies (?&sub) )
+        (?<lnt> lints (?&sub) )
+        (?<a1> (?&lib) | (?&a2) ) (?<b1> (?&pkg) )
+        (?<a2> (?&bin) | (?&a3) ) (?<b2> (?&b1) | (?&lib) )
+        (?<a3> (?&exa) | (?&a4) ) (?<b3> (?&b2) | (?&bin) )
+        (?<a4> (?&tst) | (?&a5) ) (?<b4> (?&b3) | (?&exa) )
+        (?<a5> (?&ben) | (?&a6) ) (?<b5> (?&b4) | (?&tst) )
+        (?<a6> (?&fea) | (?&a7) ) (?<b6> (?&b5) | (?&ben) )
+        (?<a7> (?&dep) | (?&a8) ) (?<b7> (?&b6) | (?&fea) )
+        (?<a8> (?&dev) | (?&a9) ) (?<b8> (?&b7) | (?&dep) )
+        (?<a9> (?&bld) | (?&lnt) ) (?<b9> (?&b8) | (?&dev) )
+        (?<a10> (?&lnt) ) (?<b10> (?&b9) | (?&bld) )
+      )
+      (?: ^\[\[?(?&a1)\]\]?$ .* ^\[\[?(?&b1)\]\]?$
+        | ^\[\[?(?&a2)\]\]?$ .* ^\[\[?(?&b2)\]\]?$
+        | ^\[\[?(?&a3)\]\]?$ .* ^\[\[?(?&b3)\]\]?$
+        | ^\[\[?(?&a4)\]\]?$ .* ^\[\[?(?&b4)\]\]?$
+        | ^\[\[?(?&a5)\]\]?$ .* ^\[\[?(?&b5)\]\]?$
+        | ^\[\[?(?&a6)\]\]?$ .* ^\[\[?(?&b6)\]\]?$
+        | ^\[\[?(?&a7)\]\]?$ .* ^\[\[?(?&b7)\]\]?$
+        | ^\[\[?(?&a8)\]\]?$ .* ^\[\[?(?&b8)\]\]?$
+        | ^\[\[?(?&a9)\]\]?$ .* ^\[\[?(?&b9)\]\]?$
+        | ^\[\[?(?&a10)\]\]?$ .* ^\[\[?(?&b10)\]\]?$ )
+    message: >-
+      Order a crate manifest's tables as every other crate in the workspace does: `[package]` and its
+      `[package.metadata.*]` subtables, `[lib]`, `[[bin]]`, `[[example]]`, `[[test]]`, `[[bench]]`, `[features]`,
+      `[dependencies]`, `[dev-dependencies]`, `[build-dependencies]`, then `[lints]`. A `target.<cfg>` dependency
+      table follows its plain one. One order means a reader finds a table without scanning for it, and a diff that
+      adds one lands in the same place in every crate. Move the reported table to its slot.
+    severity: ERROR

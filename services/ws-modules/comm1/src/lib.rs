@@ -24,6 +24,10 @@ pub fn init() {
 }
 
 #[wasm_bindgen]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one module workflow: connect, exchange, report, sharing the JS handles"
+)]
 pub async fn run() -> Result<(), JsValue> {
     log("comm1: entered run()");
 

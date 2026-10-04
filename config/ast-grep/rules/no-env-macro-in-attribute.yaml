@@ -1,0 +1,19 @@
+id: no-env-macro-in-attribute
+language: Rust
+severity: error
+message: |
+  `env!` / `option_env!` inside an attribute are banned exactly as they are anywhere else, with the same allowlist
+  of cargo-provided constants (`CARGO_BIN_EXE_<name>`, `CARGO_PKG_VERSION`, `CARGO_PKG_NAME`, `ET_WIT_DIR`).
+  Read configuration through a `serde-env` struct instead, and locate repo files from the project root rather
+  than from `CARGO_MANIFEST_DIR`.
+# An attribute's arguments are a raw token tree, so a macro nested in one -- e.g.
+# `#![cfg_attr(doc, doc = include_str!(concat!(env!(...), ...)))]` -- has no `macro_invocation` node for a
+# macro-level rule to match. This rule matches the attribute's own text instead.
+rule:
+  all:
+    - any:
+        - kind: attribute_item
+        - kind: inner_attribute_item
+    - regex: '\b(option_)?env!\s*\('
+    - not:
+        regex: '"(CARGO_BIN_EXE_[A-Za-z0-9_.-]+|CARGO_PKG_VERSION|CARGO_PKG_NAME|ET_WIT_DIR)"'

@@ -7,6 +7,10 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [lib]
 doctest = false
 
@@ -15,46 +19,84 @@ doctest = false
 name = "et-ws-server"
 path = "src/main.rs"
 
+[[test]]
+name = "configure_app"
+required-features = ["modules", "storage"]
+
+[[test]]
+name = "tls"
+required-features = ["tls-self-signed"]
+
 [features]
-# OpenAPI metadata for `et-int-gen` to harvest into generated/specs/rest.yaml.
-# Production binaries don't need it; enable only when generating the spec.
-openapi-spec = ["dep:utoipa", "et-modules-service/openapi-spec", "et-storage-service/openapi-spec"]
+#! Every service the hub can mount beyond `/ws` and `/health` is a feature, all on by default.
+#! A deployment that needs only the hub sets `default-features = false` and opts back into the services it serves.
+
+default = ["modules", "otlp", "qr", "storage", "tls", "tls-self-signed", "tty-image", "websockify"]
+## Serves ws-module packages from disk under `/modules`, and the root module as the browser UI at `/`.
+modules = ["dep:et-modules-service"]
+## Exports traces and logs over OTLP when `OTLP_*` is configured.
+## Each request span is parented on the caller's W3C `traceparent`.
+otlp = ["dep:et-otlp", "tracing-actix-web/opentelemetry_0_32"]
+## Prints the advertised URL as a terminal QR code at startup, for phones joining the hub.
+qr = ["dep:qr2term"]
+## Per-agent file storage under `/storage`, backed by any `object_store` URL.
+storage = ["dep:et-storage-service"]
+## Adds the HTTPS/WSS listener, serving the PEM pair named by `TLS_CERT_FILE` and `TLS_KEY_FILE`.
+## Without it the hub serves plain HTTP only, which browsers refuse for camera, sensors and other secure-context APIs.
+tls = ["actix-web/rustls-0_23", "dep:rustls", "dep:serde-inline-default"]
+## Generates a self-signed `localhost` pair into `TLS_CERT_FILE` and `TLS_KEY_FILE` when they do not exist yet.
+## Without it a missing pair is a startup error, for deployments that provision their own certificates.
+tls-self-signed = ["dep:fs-err", "dep:rcgen", "tls"]
+## Renders each image an agent stores as a thumbnail on the hub's terminal, e.g. what pic-viewer uploads.
+## It implies `storage`, and is what pulls the `image` decoder into the build.
+tty-image = ["et-storage-service/tty-image", "storage"]
+## Relays `/websockify` WebSocket traffic to the hub's own loopback HTTP port.
+## It serves browser runtimes such as webR that cannot open a TCP socket.
+websockify = ["dep:et-websockify-service"]
+## Adds OpenAPI metadata to the REST handlers for `et-int-gen` to harvest into the published spec.
+## Production builds do not need it.
+openapi-spec = ["dep:utoipa", "et-modules-service?/openapi-spec", "et-storage-service?/openapi-spec"]
+## Internal: derives JSON Schema for the hub's environment configuration.
+## et-int-gen enables it to render the hub's environment variables into its HELP.md.
+env-schema = [
+  "dep:schemars",
+  "edge-toolkit/env-schema",
+  "et-modules-service?/env-schema",
+  "et-storage-service?/env-schema",
+  "et-ws-service/env-schema",
+]
+## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
+docs = ["dep:document-features"]
 
 [dependencies]
-actix-rt.workspace = true
 actix-web.workspace = true
-chrono.workspace = true
 clap.workspace = true
+document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
-et-modules-service.workspace = true
-et-otlp.workspace = true
-et-storage-service.workspace = true
-et-websockify-service.workspace = true
+et-modules-service = { workspace = true, optional = true }
+et-otlp = { workspace = true, optional = true }
+et-storage-service = { workspace = true, optional = true }
+et-websockify-service = { workspace = true, optional = true }
 et-ws-service.workspace = true
-fs-err.workspace = true
-futures-util.workspace = true
+fs-err = { workspace = true, optional = true }
 local-ip-address.workspace = true
-log.workspace = true
-qr2term.workspace = true
-rcgen.workspace = true
-regex.workspace = true
-rustls.workspace = true
-secrecy.workspace = true
+qr2term = { workspace = true, optional = true }
+rcgen = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true }
+schemars = { workspace = true, optional = true }
 serde.workspace = true
 serde-env.workspace = true
-serde-inline-default.workspace = true
+serde-inline-default = { workspace = true, optional = true }
 serde_default.workspace = true
-serde_json.workspace = true
-serde_yaml.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["full"] }
+tokio = { workspace = true, features = ["rt", "signal"] }
 tracing.workspace = true
 tracing-actix-web.workspace = true
 tracing-subscriber.workspace = true
 utoipa = { workspace = true, optional = true }
-uuid.workspace = true
 
 [dev-dependencies]
+actix-rt.workspace = true
 tempfile.workspace = true
 
 [lints]

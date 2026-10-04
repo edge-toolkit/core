@@ -8,9 +8,14 @@
 #![cfg(test)]
 #![cfg(target_arch = "wasm32")]
 #![cfg_attr(wasm_bindgen_unstable_test_coverage, feature(coverage_attribute))]
+#![expect(
+    clippy::future_not_send,
+    clippy::single_call_fn,
+    reason = "#[wasm_bindgen_test] calls each test once from its generated wrapper; browser futures are !Send"
+)]
 
 use et_ws_pic_viewer::show_image;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::JsCast as _;
 use wasm_bindgen_test::wasm_bindgen_test;
 
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
@@ -24,14 +29,17 @@ const FAVICON_PNG: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/favicon.png
 const FAVICON_WIDTH: u32 = ihdr_u32(16);
 const FAVICON_HEIGHT: u32 = ihdr_u32(20);
 
-/// Read the big-endian `u32` that the PNG header carries at byte `at`.
-const fn ihdr_u32(at: usize) -> u32 {
-    u32::from_be_bytes([
-        FAVICON_PNG[at],
-        FAVICON_PNG[at + 1],
-        FAVICON_PNG[at + 2],
-        FAVICON_PNG[at + 3],
-    ])
+/// Read the big-endian `u32` that the PNG header carries at byte `offset`.
+#[expect(
+    clippy::big_endian_bytes,
+    reason = "the PNG specification stores every IHDR field big-endian"
+)]
+const fn ihdr_u32(offset: usize) -> u32 {
+    let (_, field) = FAVICON_PNG.split_at(offset);
+    match field {
+        [first, second, third, fourth, ..] => u32::from_be_bytes([*first, *second, *third, *fourth]),
+        _ => panic!("the favicon fixture is shorter than a PNG header"),
+    }
 }
 
 /// Insert the page's shared output canvas (`show_image` looks it up by this id), hidden like the real page.
@@ -81,8 +89,8 @@ async fn shows_the_favicon_on_the_output_canvas() {
         .unwrap()
         .dyn_into::<web_sys::CanvasRenderingContext2d>()
         .unwrap();
-    let center_x = f64::from(FAVICON_WIDTH) / 2.0;
-    let center_y = f64::from(FAVICON_HEIGHT) / 2.0;
+    let center_x = f64::from(FAVICON_WIDTH.checked_div(2).unwrap());
+    let center_y = f64::from(FAVICON_HEIGHT.checked_div(2).unwrap());
     let center = context.get_image_data(center_x, center_y, 1.0, 1.0).unwrap();
     let pixel = center.data();
     assert_eq!(pixel[3], 255, "center pixel should be opaque after drawing the favicon");

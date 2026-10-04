@@ -581,6 +581,21 @@ fn discover_verification_scenarios(verification_root: &Path) -> Result<Vec<(Path
     Ok(scenarios)
 }
 
+/// The README's opening sentence: the one file the directory holds, or the list of them.
+#[expect(clippy::single_call_fn, reason = "the output-summary paragraph of generated_readme")]
+fn output_summary(cluster_name: &str, output_types: &[OutputType]) -> String {
+    let output_files = generated_output_files(output_types);
+    if let [only_file] = output_files.as_slice() {
+        return format!("This directory contains the generated `{only_file}` for the `{cluster_name}` scenario.");
+    }
+    let listed = output_files
+        .iter()
+        .map(|output_file| format!("`{output_file}`"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("This directory contains generated deployment configs for the `{cluster_name}` scenario.\nFiles: {listed}.")
+}
+
 /// Render the README a deployment directory carries: what it holds, then how to run each format it was written in.
 fn generated_readme(
     cluster: &ClusterInput,
@@ -597,26 +612,7 @@ fn generated_readme(
         )
     };
 
-    let output_files = generated_output_files(output_types);
-    let output_summary = if let [only_file] = output_files.as_slice() {
-        format!(
-            "This directory contains the generated `{only_file}` for the `{}` scenario.",
-            cluster.cluster_name
-        )
-    } else {
-        let output_files = output_files
-            .iter()
-            .map(|output_file| format!("`{output_file}`"))
-            .collect::<Vec<_>>()
-            .join(", ");
-        format!(
-            concat!(
-                "This directory contains generated deployment configs for the `{}` scenario.\n",
-                "Files: {}.",
-            ),
-            cluster.cluster_name, output_files
-        )
-    };
+    let output_summary = output_summary(&cluster.cluster_name, output_types);
     // Relative to the repository root, which is where the README's `docker build` runs from, and escaped because each
     // lands inside a double-quoted shell argument.
     let build_contexts = module_path_contexts(&cluster.module_paths, &edge_toolkit::config::get_project_root())

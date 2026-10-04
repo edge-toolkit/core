@@ -133,6 +133,10 @@ pub fn initialize(
 /// Spawns the storage worker and the Python dispatch thread, completes the
 /// `et-connect` handshake, then runs the WS loop. Returns once the socket
 /// closes or `drive` errors.
+#[expect(
+    clippy::cognitive_complexity,
+    reason = "worker start-up, handshake and shutdown, each logged on its own"
+)]
 pub async fn run(agent: InitializedAgent, shutdown: &Notify) -> Result<(), RunnerError> {
     let InitializedAgent {
         config,
@@ -278,6 +282,10 @@ async fn storage_worker(http_base: String, mut rx: mpsc::UnboundedReceiver<Stora
 /// (a non-blocking send, so a slow handler never holds up this loop); outbound
 /// frames the worker or Python's `WsSender` produced come back through
 /// `outbound_rx` and out to the socket.
+#[expect(
+    clippy::cognitive_complexity,
+    reason = "one select! loop over the socket, the outbound queue and shutdown"
+)]
 async fn drive(
     socket: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
     inbound_tx: &mpsc::UnboundedSender<InboundEvent>,

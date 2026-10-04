@@ -157,6 +157,31 @@ pub fn init_or_stderr(
     init(config).map(Some)
 }
 
+/// Build the metrics pipeline and install it as the global meter provider.
+///
+/// Metrics ride the same OTLP/HTTP transport as spans and logs, posting to `<collector_url>/metrics`. The periodic
+/// reader batches on its own interval; `OtelHandles::shutdown` forces a final flush on exit.
+#[expect(clippy::single_call_fn, reason = "the metrics step of init")]
+fn meter_provider(
+    config: &OtlpConfig,
+    protocol: opentelemetry_otlp::Protocol,
+    headers: std::collections::HashMap<String, String>,
+    resource: Resource,
+) -> Result<SdkMeterProvider, Box<dyn std::error::Error + Send + Sync>> {
+    let metric_exporter = MetricExporter::builder()
+        .with_http()
+        .with_protocol(protocol)
+        .with_endpoint(format!("{}/metrics", config.collector_url))
+        .with_headers(headers)
+        .build()?;
+    let meter_provider = SdkMeterProvider::builder()
+        .with_periodic_exporter(metric_exporter)
+        .with_resource(resource)
+        .build();
+    opentelemetry::global::set_meter_provider(meter_provider.clone());
+    Ok(meter_provider)
+}
+
 /// Initialise the global tracing subscriber + `OTel` pipeline against `config`.
 ///
 /// Call exactly once per process; a second call returns an error from
@@ -206,20 +231,7 @@ pub fn init(config: &OtlpConfig) -> Result<OtelHandles, Box<dyn std::error::Erro
 
     let otel_tracing_layer = OpenTelemetryLayer::new(tracer_provider.tracer(config.service_label.clone()));
 
-    // Metrics ride the same OTLP/HTTP transport as spans and logs, posting to `<collector_url>/metrics`.
-    // The periodic reader batches on its own interval; `OtelHandles::shutdown` forces a final flush on exit.
-    let metric_endpoint = format!("{}/metrics", config.collector_url);
-    let metric_exporter = MetricExporter::builder()
-        .with_http()
-        .with_protocol(protocol)
-        .with_endpoint(metric_endpoint)
-        .with_headers(headers.clone())
-        .build()?;
-    let meter_provider = SdkMeterProvider::builder()
-        .with_periodic_exporter(metric_exporter)
-        .with_resource(resource.clone())
-        .build();
-    opentelemetry::global::set_meter_provider(meter_provider.clone());
+    let meter_provider = meter_provider(config, protocol, headers.clone(), resource.clone())?;
 
     let log_directives = std::env::var(RUST_LOG).unwrap_or_else(|_| "info".to_string());
     let env_filter = EnvFilter::try_new(log_directives)?;

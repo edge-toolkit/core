@@ -1,0 +1,15 @@
+id: no-cargo-crates
+language: Rust
+severity: error
+message: |
+  The `cargo_*` crates (`cargo_metadata`, `cargo_toml`, ...) are forbidden. They drive or emulate cargo itself -- most
+  run `cargo metadata`, which takes the workspace lock -- when what Rust code here needs is a manifest, which the
+  `toml` crate reads directly.
+rule:
+  any:
+    - kind: use_declaration
+      regex: '^(pub(\([^)]*\))?\s+)?use\s+(::)?cargo_[A-Za-z0-9_]+'
+    - kind: scoped_identifier
+      regex: "^(::)?cargo_[A-Za-z0-9_]+::"
+    - kind: extern_crate_declaration
+      regex: '\bcargo_[A-Za-z0-9_]+'

@@ -12,32 +12,18 @@ repository.workspace = true
 # markdown backtick prose that Rust's doctest runner tries to compile as code.
 doctest = false
 
-# Every rustc warning here is an error, as it is in every hand-written crate.
-# This was the one workspace member with no [lints] table at all, so its warnings stayed warnings -- which is how
-# six unreachable calls sat in `cargo-doc-check` output instead of failing it. The full `[workspace.lints]` set is
-# deliberately not inherited: its clippy half is written for hand-authored code, and progenitor's output cannot
-# satisfy it (inline modules, `#[allow]` attributes, scoped field visibility). Lints the generated shape cannot
-# avoid are allowed at the top of src/lib.rs by the generator, where the reason for each one lives.
-[lints.rust]
-warnings = "deny"
-
 [features]
 default = ["tracing"]
-# OTel traceparent injection runs in the progenitor pre-hook. The hook body
-# is `#[cfg(feature = "tracing")]`-gated by the generator (see
-# `utilities/int-gen/src/rest.rs`), so without this feature it's a no-op and
-# the heavyweight OTel deps don't get pulled in — required for the browser
-# WASM targets that consume this crate.
+## Injects the W3C `traceparent` of the current span into every request.
+## The injection runs in the client's pre-hook, which compiles to a no-op without this feature so the OpenTelemetry
+## dependencies stay out of browser WASM builds.
 tracing = ["dep:opentelemetry", "dep:opentelemetry-http", "dep:tracing-opentelemetry"]
 
 [dependencies]
-bytes.workspace = true
-futures-core.workspace = true
 opentelemetry = { workspace = true, optional = true }
 opentelemetry-http = { workspace = true, optional = true }
 progenitor-client.workspace = true
 serde.workspace = true
-serde_urlencoded.workspace = true
 tracing.workspace = true
 tracing-opentelemetry = { workspace = true, optional = true }
 
@@ -60,3 +46,12 @@ reqwest = { workspace = true, features = ["json"] }
 # `Client::new("")` and have it match the page origin (and our embedded
 # Deno runtime's stubbed `globalThis.location`).
 web-sys = { workspace = true, features = ["Location", "Window"] }
+
+# Every rustc warning here is an error, as it is in every hand-written crate.
+# This was the one workspace member with no [lints] table at all, so its warnings stayed warnings -- which is how
+# six unreachable calls sat in `cargo-doc-check` output instead of failing it. The full `[workspace.lints]` set is
+# deliberately not inherited: its clippy half is written for hand-authored code, and progenitor's output cannot
+# satisfy it (inline modules, `#[allow]` attributes, scoped field visibility). Lints the generated shape cannot
+# avoid are allowed at the top of src/lib.rs by the generator, where the reason for each one lives.
+[lints.rust]
+warnings = "deny"

@@ -23,7 +23,8 @@ use serde_inline_default::serde_inline_default;
 ///
 /// The expansion names `::et_otlp` and `::edge_toolkit`, so a crate invoking this needs both as direct
 /// dependencies even where its own code mentions neither. Dropping one as unused fails at the call site
-/// with `cannot find et_otlp in the crate root`, pointing at the macro rather than at the manifest.
+/// with `cannot find et_otlp in the crate root`, pointing at the macro rather than at the manifest. Under the
+/// invoking crate's own `env-schema` feature it also derives `::schemars::JsonSchema`, for the HELP.md listing.
 #[macro_export]
 macro_rules! runner_config {
     (
@@ -32,6 +33,7 @@ macro_rules! runner_config {
     ) => {
         $(#[$struct_meta])*
         #[derive(::serde::Deserialize, Clone, Debug)]
+        #[cfg_attr(feature = "env-schema", derive(::schemars::JsonSchema))]
         #[non_exhaustive]
         $vis struct $name {
             /// `RUNNER_*` settings (`RUNNER_MODULE`, `RUNNER_TIMEOUT`).
@@ -55,12 +57,14 @@ macro_rules! runner_config {
 
 /// Shared `RUNNER_*` settings for both native runners.
 #[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(feature = "env-schema", derive(schemars::JsonSchema))]
 #[non_exhaustive]
 pub struct RunnerConfig {
     /// Module to run, from `RUNNER_MODULE` (required).
     pub module: String,
     /// Optional wall-clock timeout, from `RUNNER_TIMEOUT` (e.g. `120s`, `3m`); `None` runs without a timeout.
     #[serde(default, with = "humantime_serde")]
+    #[cfg_attr(feature = "env-schema", schemars(with = "Option<String>"))]
     pub timeout: Option<Duration>,
 }
 
@@ -70,6 +74,7 @@ pub const DEFAULT_CONNECT_ACK_TIMEOUT: Duration = Duration::from_secs(5);
 /// Shared `WS_*` settings for both native runners.
 #[serde_inline_default]
 #[derive(Clone, Debug, DefaultFromSerde, Deserialize)]
+#[cfg_attr(feature = "env-schema", derive(schemars::JsonSchema))]
 #[non_exhaustive]
 pub struct WsConfig {
     /// ws-server URL, from `WS_SERVER_URL`; defaults to the local insecure port.
@@ -84,6 +89,7 @@ pub struct WsConfig {
         default = "default_connect_ack_timeout",
         deserialize_with = "edge_toolkit::config::deserialize_optional_humantime"
     )]
+    #[cfg_attr(feature = "env-schema", schemars(with = "Option<String>", extend("default" = "5s")))]
     pub connect_ack_timeout: Option<Duration>,
 }
 

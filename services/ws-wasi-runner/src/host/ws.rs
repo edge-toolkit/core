@@ -22,6 +22,7 @@ use tokio::net::TcpStream;
 use tokio::sync::{Mutex, mpsc};
 use tokio::task::JoinHandle;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, tungstenite};
+use tracing::warn;
 
 use crate::HostState;
 use crate::bindings::et::ws_messages::messages::{
@@ -58,6 +59,10 @@ impl WsBackend {
     ///
     /// Public so `tests/ws_backend.rs` can drive the reader pump and the heartbeat without standing up a
     /// wasmtime store: both live in tasks this constructor spawns, and nothing else reaches them.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "the handshake and the two tasks it spawns share one socket split"
+    )]
     pub async fn connect(ws_url: &str, ack_timeout: Option<Duration>) -> Result<Self, WsError> {
         // The shared helper opens the socket and completes the et-connect
         // handshake (with bounded retries), so the agent_id is known the moment
@@ -97,7 +102,7 @@ impl WsBackend {
                     tungstenite::Message::Text(text) => match ServerMessage::from_text_frame(text.as_str()) {
                         Ok(msg) => msg,
                         Err(err) => {
-                            tracing::warn!(error = %err, "dropping et-* frame with decode error");
+                            warn!(error = %err, "dropping et-* frame with decode error");
                             continue;
                         }
                     },

@@ -6,6 +6,11 @@ allow-print-in-tests = true
 allow-unwrap-in-tests = true
 allow-useless-vec-in-tests = true
 
+# Function size and complexity ceilings, tightened from clippy's 25 / 100 defaults.
+# Long and branchy functions are then caught locally, before a push, rather than by the external analyzers after it.
+cognitive-complexity-threshold = 15
+too-many-lines-threshold = 60
+
 # Compile-time bans -- a second layer under the structural rules that catch the same shapes at diff time.
 # `.expect()` itself is NOT listed here. `disallowed_methods` has no test exemption and does not skip
 # proc-macro-generated code, so it would flag the `.build().expect("Failed building the Runtime")` that the

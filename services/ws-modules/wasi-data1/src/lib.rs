@@ -20,6 +20,8 @@
 //! empty cdylib for the host target without linker errors.
 
 #![cfg(target_os = "wasi")]
+#![cfg_attr(feature = "docs", doc = "## Feature flags")]
+#![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 
 use et_wasi_guest::et::ws_wasi::ws;
 use et_wasi_guest::exports::et::ws_wasi::entry::{EntryError, Guest};
@@ -32,6 +34,10 @@ const FILENAME: &str = "test_data.txt";
 struct Component;
 
 impl Guest for Component {
+    #[expect(
+        clippy::unused_async_trait_impl,
+        reason = "entry.run is an async export of the WIT world, so the generated trait fixes the signature"
+    )]
     async fn run() -> Result<(), EntryError> {
         let agent_id = start(LOG_CONTEXT)?;
         let bucket = store::open(&agent_id)?;

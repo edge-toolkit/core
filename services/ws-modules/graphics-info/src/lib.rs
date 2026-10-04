@@ -115,6 +115,10 @@ pub struct WebGpuProbeResult {
 #[wasm_bindgen]
 impl WebGpuProbeResult {
     #[wasm_bindgen(js_name = test)]
+    #[expect(
+        clippy::cognitive_complexity,
+        reason = "one probe per graphics API, each logging what it found"
+    )]
     pub async fn test() -> Result<Self, JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
         let navigator = window.navigator();

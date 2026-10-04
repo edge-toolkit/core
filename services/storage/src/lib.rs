@@ -1,10 +1,7 @@
-//! Agent file storage, backed by any `object_store` backend.
-//!
-//! The wire protocol (`PUT`/`GET`/`HEAD /storage/{agent_id}/{filename}`) is stable across backends; only the storage
-//! layer beneath it is pluggable. [`StorageConfig::url`] selects the backend and defaults to a `file://` URL under
-//! [`default_storage_folder`], so nothing needs configuring for research use; an `object_store` URL such as
-//! `s3://bucket` points at a remote instead. Objects are addressed as `<agent_id>/<filename>` under whichever
-//! store is in use, so the local-disk layout is the same as before.
+#![cfg_attr(doc, doc = include_str!("../README.md"))]
+#![cfg_attr(feature = "docs", doc = "## Feature flags")]
+#![cfg_attr(feature = "docs", doc = document_features::document_features!())]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 use std::path::PathBuf;
 use std::sync::{Arc, PoisonError};
@@ -18,6 +15,7 @@ use serde_default::DefaultFromSerde;
 use thiserror::Error;
 
 pub mod routes;
+#[cfg(feature = "tty-image")]
 pub mod tty_image;
 
 pub use self::routes::{get_file, head_file, put_file};
@@ -50,6 +48,7 @@ pub fn file_url(path: &std::path::Path) -> String {
 
 /// Storage config.
 #[derive(Clone, Debug, DefaultFromSerde, Deserialize)]
+#[cfg_attr(feature = "env-schema", derive(schemars::JsonSchema))]
 #[non_exhaustive]
 pub struct StorageConfig {
     /// `object_store` backend URL, defaulting to local disk under [`default_storage_folder`].
@@ -61,6 +60,7 @@ pub struct StorageConfig {
     /// backend's own standard environment variables rather than config keys of our own, so an operator configures
     /// a store exactly as they would for any other client of it.
     #[serde(default = "default_storage_url")]
+    #[cfg_attr(feature = "env-schema", schemars(extend("default" = null)))]
     pub url: String,
 }
 

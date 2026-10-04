@@ -1,3 +1,6 @@
+#![cfg_attr(feature = "docs", doc = "## Feature flags")]
+#![cfg_attr(feature = "docs", doc = document_features::document_features!())]
+
 use wasm_bindgen::prelude::*;
 
 mod error;
@@ -16,11 +19,11 @@ pub fn ignore<T>(_value: T) {}
 
 /// Return this module's raw minicov coverage buffer (a `.profraw`), or empty on failure.
 ///
-/// Present only in the `coverage` build. `wasm-bindgen` collects this export into every dependent browser
+/// Present only in the wasm `coverage` build. `wasm-bindgen` collects this export into every dependent browser
 /// module's JS glue, so the web-runner can pull each module's coverage after running it -- `wasm32-unknown-unknown`
 /// has no filesystem, so the bytes come back through JS rather than a file. The web-runner then routes them
 /// through the same llc + llvm-cov pipeline the WASI guests use.
-#[cfg(feature = "coverage")]
+#[cfg(all(feature = "coverage", target_arch = "wasm32"))]
 #[wasm_bindgen]
 #[expect(
     unsafe_code,

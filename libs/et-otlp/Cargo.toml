@@ -13,7 +13,6 @@ doctest = false
 [dependencies]
 edge-toolkit.workspace = true
 hostname.workspace = true
-log.workspace = true
 opentelemetry.workspace = true
 opentelemetry-appender-tracing.workspace = true
 opentelemetry-otlp.workspace = true

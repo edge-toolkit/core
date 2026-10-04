@@ -95,6 +95,10 @@ pub async fn run() -> Result<(), JsValue> {
 }
 
 /// Connect the WebSocket client and poll announced captures until an idle/runtime limit or `stop()`.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one sequence of DOM and websocket wiring sharing the same JS handles"
+)]
 async fn view_workflow(stop_requested: &Rc<Cell<bool>>) -> Result<(), JsValue> {
     log("entered run()");
     set_module_status("pic-viewer: connecting")?;

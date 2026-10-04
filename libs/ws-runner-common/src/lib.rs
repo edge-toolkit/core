@@ -8,6 +8,8 @@
 //! heartbeat (the server times out idle connections and never pings clients).
 //! These were duplicated across the runner crates; one implementation here
 //! keeps them in sync with the server.
+#![cfg_attr(feature = "docs", doc = "## Feature flags")]
+#![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 
 use std::time::{Duration, SystemTime};
 
@@ -19,8 +21,12 @@ use retry_policies::{RetryDecision, RetryPolicy};
 use thiserror::Error;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite};
+use tracing::{debug, instrument, warn};
 
 pub mod config;
+pub mod pyo3_config;
+pub mod wasi_config;
+pub mod web_config;
 
 /// A live websocket to the ws-server that has completed the et-connect handshake.
 pub type RegisteredSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
@@ -125,7 +131,7 @@ pub async fn connect_and_register(
             Err(err) => match policy.should_retry(started_at, n_past_retries) {
                 RetryDecision::Retry { execute_after } => {
                     let wait = execute_after.duration_since(SystemTime::now()).unwrap_or_default();
-                    tracing::warn!(attempt = n_past_retries.saturating_add(1), error = %err, retry_in = ?wait,
+                    warn!(attempt = n_past_retries.saturating_add(1), error = %err, retry_in = ?wait,
                         "connect/register attempt failed; retrying");
                     tokio::time::sleep(wait).await;
                     n_past_retries = n_past_retries.saturating_add(1);
@@ -199,7 +205,7 @@ async fn register_once(
             match ServerMessage::from_text_frame(&text) {
                 Ok(ServerMessage::ConnectAck { agent_id, status }) => return Ok((socket, agent_id, status)),
                 Ok(_) => {}
-                Err(err) => tracing::warn!(error = %err, "ignoring undecodable et-* frame during handshake"),
+                Err(err) => warn!(error = %err, "ignoring undecodable et-* frame during handshake"),
             }
         }
         Err(ConnectError::ConnectionClosed)
@@ -305,7 +311,7 @@ const MODULE_WAIT: Duration = Duration::from_secs(120);
 /// Gap between attempts, short enough to add no noticeable delay once the module is being served.
 const MODULE_RETRY_INTERVAL: Duration = Duration::from_millis(500);
 
-#[tracing::instrument(name = "fetch_package_json", skip(client), err)]
+#[instrument(name = "fetch_package_json", skip(client), err)]
 pub async fn fetch_main_field(client: &et_rest_client::Client, module_name: &str) -> Result<String, BootstrapError> {
     let bytes = fetch_package_json_bytes(client, module_name).await?;
     let mut deserializer = serde_json::Deserializer::from_slice(&bytes);
@@ -342,7 +348,7 @@ async fn fetch_package_json_bytes(
                 if start.elapsed() >= MODULE_WAIT {
                     return Err(err);
                 }
-                tracing::debug!(module = module_name, %err, "module not served yet; retrying");
+                debug!(module = module_name, %err, "module not served yet; retrying");
                 tokio::time::sleep(MODULE_RETRY_INTERVAL).await;
             }
         }

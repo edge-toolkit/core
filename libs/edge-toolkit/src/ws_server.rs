@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tracing::{info, warn};
 
 use crate::ws::{AgentConnectionState, AgentSummary, ConnectStatus};
 
@@ -135,7 +136,7 @@ impl<S> AgentRegistry<S> {
 impl<S: Clone + Default + Send + 'static> AgentRegistry<S> {
     pub fn load(path: &std::path::Path) -> Result<Self, RegistryError> {
         if !path.exists() {
-            log::warn!(
+            warn!(
                 "Registry file {} does not exist, starting with empty registry",
                 path.display()
             );
@@ -143,7 +144,7 @@ impl<S: Clone + Default + Send + 'static> AgentRegistry<S> {
         }
         let yaml = fs_err::read_to_string(path)?;
         let agents: BTreeMap<String, AgentRecord<S>> = serde_yaml::from_str(&yaml)?;
-        log::info!("Loaded {} agents from registry {}", agents.len(), path.display());
+        info!("Loaded {} agents from registry {}", agents.len(), path.display());
         Ok(Self {
             agents: Arc::new(Mutex::new(agents)),
         })
@@ -156,7 +157,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
         let yaml = serde_yaml::to_string(&*agents)?;
         drop(agents);
         fs_err::write(path, yaml)?;
-        log::info!("Agent registry saved to {}", path.display());
+        info!("Agent registry saved to {}", path.display());
         Ok(())
     }
 

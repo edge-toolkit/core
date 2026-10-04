@@ -7,11 +7,24 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.docs.rs]
+features = ["docs"]
+
 [lib]
 doctest = false
 path = "src/lib.rs"
 
+[features]
+## Derives JSON Schema for every runner's environment configuration.
+## et-int-gen renders each runner's environment variables into its HELP.md from that schema.
+env-schema = ["dep:schemars", "edge-toolkit/env-schema"]
+## Internal: adds the `ET_TEST_COVERAGE` switch to the WASI and web runners' configs, for their coverage builds.
+coverage = []
+## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
+docs = ["dep:document-features"]
+
 [dependencies]
+document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
 et-otlp.workspace = true
 et-rest-client.workspace = true
@@ -19,6 +32,7 @@ futures-util.workspace = true
 humantime-serde.workspace = true
 reqwest.workspace = true
 retry-policies.workspace = true
+schemars = { workspace = true, optional = true }
 serde.workspace = true
 serde-inline-default.workspace = true
 serde_default.workspace = true

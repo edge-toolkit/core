@@ -30,7 +30,7 @@ pub enum Command {
         #[arg(long)]
         check: bool,
     },
-    /// Write each utility's HELP.md from its clap command tree.
+    /// Write each binary crate's HELP.md from its clap command tree and its environment config.
     HelpMd {
         /// Compare against the committed HELP.md files and fail on drift instead of writing them.
         #[arg(long)]

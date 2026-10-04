@@ -27,6 +27,10 @@ impl NfcScanResult {
     }
 
     #[wasm_bindgen(js_name = scanOnceWithTimeout)]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one Web NFC scan: reading and error callbacks raced against a timeout"
+    )]
     pub async fn scan_once_with_timeout(timeout_ms: i32) -> Result<Self, JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
         let ndef_ctor = js_sys::Reflect::get(&window, &JsValue::from_str("NDEFReader"))

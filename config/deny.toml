@@ -63,6 +63,19 @@ ignore = [
   # Encoder side, hit only when we *send* a DNS message. The runner uses the OS resolver via hickory. It
   # never crafts outbound DNS frames with attacker-controlled name lists.
   { id = "RUSTSEC-2026-0119", reason = "expires 2026-10-15" },
+  # hickory-resolver 0.25.2 lookup() / lookup_ip() return Ok for a response DNSSEC validation found bogus.
+  # Pulled by deno_net and deno_fetch for the web runner's resolver. The advisory needs a resolver with DNSSEC
+  # validation enabled, which needs a dnssec-* feature, and our resolution enables none -- cargo tree -i
+  # hickory-resolver -e features reports default,serde,system-config,tokio -- so no response is ever validated and
+  # none can be passed off as valid. The fix is 0.26.2, but deno_net and deno_fetch require ^0.25.2 through their
+  # newest releases (0.251.0 / 0.283.0), so it is out of reach.
+  { id = "GHSA-5j98-2g5x-46v6", reason = "expires 2026-10-15" },
+  # hickory-resolver 0.25.2 follows CNAME records outside the answer's chain, sending queries it does not need.
+  # Same deno_net / deno_fetch path and the same unreachable 0.26.2 fix as the entry above. Unlike that one, no
+  # feature gates it, so the code is live: a response carrying stray CNAMEs costs extra queries. The cost is query
+  # amplification, not a wrong answer, and the runner resolves only the ws-server host it is configured with, so
+  # the responses come from the operator's own DNS rather than one an attacker chooses.
+  { id = "GHSA-6f2x-v7q7-m7m5", reason = "expires 2026-10-15" },
   # rand 0.8.5 unsound ThreadRng reseed when a custom `log` logger calls rand::rng() (UB via aliased &mut).
   # Transitive via deno_crypto / deno_fs / deno_node (web-runner), used for non-cryptographic randomness
   # (jitter, salt scratchpads). The advisory's first precondition is the `log` feature, which our resolution

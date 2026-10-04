@@ -26,24 +26,21 @@ et-rest-client = { workspace = true, features = ["tracing"] }
 et-ws-runner-common.workspace = true
 futures-util.workspace = true
 pyo3.workspace = true
-serde.workspace = true
-serde-env.workspace = true
-serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-tungstenite = { workspace = true, features = ["connect"] }
 tracing.workspace = true
 
-[build-dependencies]
-pyo3-build-config.workspace = true
-
 [dev-dependencies]
 backon = { workspace = true, features = ["tokio-sleep"] }
-base64.workspace = true
 command-error.workspace = true
 et-org.workspace = true
 et-ws-test-server.workspace = true
 rstest.workspace = true
+serde_json.workspace = true
+
+[build-dependencies]
+pyo3-build-config.workspace = true
 
 [lints]
 workspace = true

@@ -325,6 +325,116 @@ deny contains msg if {
 	msg := sprintf("%s: feature %q shares its name with a dependency; rename it", [file.path, feat])
 }
 
+# No manifest may depend on a `cargo_*` / `cargo-*` crate (`cargo_metadata`, `cargo_toml`, ...).
+# They drive or emulate cargo itself -- most run `cargo metadata`, which takes the workspace lock -- when code here
+# needs only a manifest, which the `toml` crate reads directly.
+deny contains msg if {
+	some [path, name, _] in dep
+	regex.match(`^cargo[-_]`, name)
+	msg := $"{path}: dependency \"{name}\" is a cargo-driving crate; read the manifest with `toml` instead"
+}
+
+# Crates log through `tracing`, so none may depend on the `log` facade directly.
+# A `log` record reaches the OTLP pipeline only through the binaries' bridge, flattened to a string with no fields
+# or span. The one exemption is a member whose derive macro expands to `log::` paths it cannot avoid: the storage
+# service's `actix-web-thiserror` `ResponseError` derive emits `log::error!`. The root entry stays for it to inherit.
+log_exempt := {"services/storage/Cargo.toml"}
+
+deny contains msg if {
+	some [path, name, _] in dep
+	name == "log"
+	path != "Cargo.toml"
+	not log_exempt[path]
+	msg := $"{path}: dependency \"log\" is banned; log through `tracing` instead"
+}
+
+# tokio's `full` feature is banned on every dependency spec, the workspace table included.
+# It switches on every tokio module -- process, fs, io-std, the multi-thread scheduler -- whether the crate uses
+# them or not, and through feature unification it forces all of that onto every downstream user as well. Name the
+# features the crate actually calls instead (`rt`, `macros`, `net`, `time`, `sync`, `signal`, ...).
+deny contains msg if {
+	some [path, name, spec] in dep
+	name == "tokio"
+	is_object(spec)
+	"full" in spec.features
+	msg := $"{path}: tokio's \"full\" feature is banned; list the tokio features this crate uses"
+}
+
+# The root `tracing` dependency must enable `log`.
+# That way a package built alone expands the tracing macros as the workspace does. actix-codec turns `log` on in
+# every workspace build; without the root stating it, a crate outside the actix tree built by itself (cargo-hack's
+# per-package clippy, wasm-pack) expands them smaller, and a `#[expect(clippy::cognitive_complexity)]` the workspace
+# build requires goes unfulfilled there. Members inherit the root entry, and inheriting can add features but never
+# drop them, so the root is the one place to hold it.
+tracing_has_log(spec) if "log" in spec.features
+
+deny contains msg if {
+	spec := root_dep.tracing
+	not tracing_has_log(spec)
+	msg := "Cargo.toml: workspace dependency \"tracing\" must enable its \"log\" feature, as every workspace build does"
+}
+
+# Whether a manifest declares a feature anyone picks; `default` and the `docs` switch below are not ones.
+declares_feature(file) if {
+	some feat, _ in file.contents.features
+	not feat in {"default", "docs"}
+}
+
+# The `document-features` dependency spec, outside dev-dependencies.
+# A target-scoped table counts, for a crate whose whole body is gated to one target.
+feature_docs_dep(file) := file.contents.dependencies["document-features"]
+
+feature_docs_dep(file) := spec if {
+	some tgt in file.contents.target
+	spec := tgt.dependencies["document-features"]
+}
+
+# Whether docs.rs builds the crate with its `docs` feature on.
+# The unquoted `[package.metadata.docs.rs]` header parses as nested `docs` then `rs` tables.
+docs_rs_renders(file) if file.contents.package.metadata.docs.rs["all-features"] == true
+
+docs_rs_renders(file) if "docs" in file.contents.package.metadata.docs.rs.features
+
+# The member crates the feature-docs contract applies to.
+# generated/rust-rest is exempt: et-int-gen regenerates its src/lib.rs, which carries no `document_features!` call.
+feature_docs_subject contains file if {
+	some file in input
+	is_member(file)
+	file.path != "generated/rust-rest/Cargo.toml"
+	declares_feature(file)
+}
+
+# Each way a subject crate falls short of the contract, as [path, problem] pairs.
+feature_docs_problem contains [file.path, "it must depend on document-features"] if {
+	some file in feature_docs_subject
+	not feature_docs_dep(file)
+}
+
+feature_docs_problem contains [file.path, "its document-features dependency must be optional"] if {
+	some file in feature_docs_subject
+	spec := feature_docs_dep(file)
+	not spec.optional == true
+}
+
+feature_docs_problem contains [file.path, "it must declare `docs = [\"dep:document-features\"]`"] if {
+	some file in feature_docs_subject
+	not file.contents.features.docs == ["dep:document-features"]
+}
+
+feature_docs_problem contains [file.path, "[package.metadata.docs.rs] must enable its `docs` feature"] if {
+	some file in feature_docs_subject
+	not docs_rs_renders(file)
+}
+
+# A crate that declares a feature must publish the feature list on docs.rs through `document-features`.
+# The crate turns the `##` comment above each feature into that list; without it those comments reach no user, and
+# the only way to learn what a feature does is to read the manifest. The dependency is optional behind a `docs`
+# feature that docs.rs enables, so a downstream build never compiles a proc-macro that only renders documentation.
+deny contains msg if {
+	some [path, problem] in feature_docs_problem
+	msg := $"{path}: declares features, so {problem} to publish their docs"
+}
+
 # Dependency overrides ([patch]/[replace]) belong in the root manifest, not a member crate.
 # There they apply workspace-wide and stay in one place; a member can't override deps.
 deny contains msg if {

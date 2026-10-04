@@ -9,6 +9,7 @@ mod error;
 mod log;
 mod state;
 pub mod wasi_keyvalue;
+#[cfg(feature = "nn")]
 pub mod wasi_nn;
 pub mod ws;
 

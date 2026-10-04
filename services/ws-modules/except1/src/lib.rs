@@ -31,6 +31,10 @@ pub fn init() {
 struct DivideError;
 
 impl fmt::Display for DivideError {
+    #[expect(
+        clippy::renamed_function_params,
+        reason = "the trait names it `f`, which the workspace's min_ident_chars rejects"
+    )]
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("quotient is unrepresentable (zero divisor or i32::MIN / -1)")
     }
@@ -39,7 +43,7 @@ impl fmt::Display for DivideError {
 /// Returns the quotient, or a [`DivideError`] the caller must consume.
 ///
 /// The unignorable `Result` is the compiler-enforced analog of the C++ `throw` in zig-except1's
-/// checked_divide.
+/// `checked_divide`.
 fn checked_divide(num: i32, den: i32) -> Result<i32, DivideError> {
     num.checked_div(den).ok_or(DivideError)
 }
@@ -62,9 +66,9 @@ pub async fn run() -> Result<(), JsValue> {
 
     // Ok path: the value flows out of the Result exactly where the caller consumes it.
     let quotient = checked_divide(84, 4);
-    let msg = match quotient {
+    let msg = match &quotient {
         Ok(value) => format!("except1: checked_divide(84, 4) = {value} (Ok path)"),
-        Err(ref error) => format!("except1: checked_divide(84, 4) failed unexpectedly: {error}"),
+        Err(error) => format!("except1: checked_divide(84, 4) failed unexpectedly: {error}"),
     };
     log(&msg);
     set_module_status(&msg)?;
@@ -72,14 +76,14 @@ pub async fn run() -> Result<(), JsValue> {
     // Recovered Err path: the zero divisor produces an Err the caller handles in place and execution
     // continues -- Rust's analog of zig-except1's throw-caught-in-C++ demo.
     let recovered = checked_divide(1, 0);
-    let msg = match recovered {
+    let msg = match &recovered {
         Ok(value) => format!("except1: checked_divide(1, 0) unexpectedly returned {value}"),
-        Err(ref error) => format!("except1: checked_divide(1, 0) recovered from error: {error}"),
+        Err(error) => format!("except1: checked_divide(1, 0) recovered from error: {error}"),
     };
     log(&msg);
     set_module_status(&msg)?;
 
-    if quotient == Ok(21) && recovered.is_err() {
+    if quotient == Ok(21_i32) && recovered.is_err() {
         let msg = "except1: VERIFICATION SUCCESS - Result handling behaved as expected!";
         log(msg);
         set_module_status(msg)?;

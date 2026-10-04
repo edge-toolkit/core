@@ -65,6 +65,10 @@ fn main() -> ExitCode {
 /// Both gates matter: `--crate-name` skips cargo's `-vV`/`--print` probes, and the wasm32 target skips host
 /// build scripts + proc-macros (whose instrumented binaries would drop stray `.profraw` files at build time).
 /// Handles both `--target wasm32-...` (two args) and `--target=wasm32-...` (one arg) spellings.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the instrument-or-pass-through decision, named so main reads as that one branch"
+)]
 fn is_wasm_crate_compile(rustc_args: &[OsString]) -> bool {
     let is_crate = rustc_args.iter().any(|arg| arg.to_str() == Some("--crate-name"));
     let targets_wasm = rustc_args.iter().enumerate().any(|(index, arg)| {
@@ -72,8 +76,9 @@ fn is_wasm_crate_compile(rustc_args: &[OsString]) -> bool {
         text.strip_prefix("--target=")
             .is_some_and(|value| value.starts_with("wasm32"))
             || (text == "--target"
-                && rustc_args
-                    .get(index + 1)
+                && index
+                    .checked_add(1)
+                    .and_then(|next| rustc_args.get(next))
                     .and_then(|next| next.to_str())
                     .is_some_and(|value| value.starts_with("wasm32")))
     });

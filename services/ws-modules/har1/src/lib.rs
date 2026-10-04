@@ -187,6 +187,10 @@ impl DeviceSensors {
         }
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one sequence of sensor and model wiring sharing JS closures"
+    )]
     pub async fn start(&mut self) -> Result<(), JsValue> {
         if self.active {
             return Ok(());

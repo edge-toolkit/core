@@ -20,6 +20,8 @@
 //! --workspace` from the repo root produces an empty cdylib for the host target without linker errors.
 
 #![cfg(target_os = "wasi")]
+#![cfg_attr(feature = "docs", doc = "## Feature flags")]
+#![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 
 use et_wasi_guest::et::ws_messages::messages::{ClientMessage, RelayTextPayload};
 use et_wasi_guest::et::ws_wasi::ws;
@@ -48,6 +50,10 @@ const BROADCAST_INTERVAL_MS: u64 = 1_000;
 struct Component;
 
 impl Guest for Component {
+    #[expect(
+        clippy::unused_async_trait_impl,
+        reason = "entry.run is an async export of the WIT world, so the generated trait fixes the signature"
+    )]
     async fn run() -> Result<(), EntryError> {
         let agent_id = start(LOG_CONTEXT)?;
         let own_bucket = store::open(&agent_id)?;

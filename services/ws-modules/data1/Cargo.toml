@@ -7,6 +7,10 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+# `#[wasm_bindgen] pub async fn run` expands to `wasm_bindgen_futures` paths, which cargo-shear's scan cannot see.
+[package.metadata.cargo-shear]
+ignored = ["wasm-bindgen-futures"]
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 doctest = false
@@ -21,17 +25,12 @@ et-ws-wasm-agent.workspace = true
 et-rest-client.workspace = true
 futures-util.workspace = true
 js-sys.workspace = true
-serde.workspace = true
-serde-wasm-bindgen.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 tracing-wasm.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
 web-sys = { workspace = true, features = ["Document", "Element", "HtmlTextAreaElement", "Window", "console"] }
-
-[dev-dependencies]
-wasm-bindgen-test.workspace = true
 
 [lints]
 workspace = true

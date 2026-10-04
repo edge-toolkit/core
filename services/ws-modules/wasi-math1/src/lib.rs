@@ -14,6 +14,8 @@
 //! empty cdylib for the host target without linker errors.
 
 #![cfg(target_os = "wasi")]
+#![cfg_attr(feature = "docs", doc = "## Feature flags")]
+#![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 #![expect(clippy::float_arithmetic, reason = "the FedAvg kernel is float math by design")]
 
 use et_wasi_guest::et::ws_messages::messages::ServerMessage;
@@ -43,13 +45,14 @@ struct InputPointer {
 
 /// Sample count as f64, accumulated additively to avoid an integer-to-float cast.
 fn sample_count(samples: &[(f64, f64)]) -> f64 {
-    samples.iter().fold(0.0_f64, |count, _| count + 1.0)
+    samples.iter().fold(0.0_f64, |count, _| count + 1.0_f64)
 }
 
 /// Runs the `FedAvg` simulation on `input` and returns the final global (weight, bias).
 #[expect(
     clippy::single_call_fn,
-    reason = "the kernel is a distinct step, kept separate from the ws workflow"
+    clippy::suboptimal_flops,
+    reason = "a step kept apart from the ws workflow; mul_add's single rounding would break bit-identity with its twins"
 )]
 fn fed_avg(input: &Math1Input) -> (f64, f64) {
     let mut weight = 0.0_f64;
@@ -73,8 +76,8 @@ fn fed_avg(input: &Math1Input) -> (f64, f64) {
                     grad_weight += residual * feature;
                     grad_bias += residual;
                 }
-                client_weight -= input.learning_rate * (2.0 * grad_weight / count);
-                client_bias -= input.learning_rate * (2.0 * grad_bias / count);
+                client_weight -= input.learning_rate * (2.0_f64 * grad_weight / count);
+                client_bias -= input.learning_rate * (2.0_f64 * grad_bias / count);
             }
             merged_weight += client_weight * count;
             merged_bias += client_bias * count;
@@ -88,6 +91,10 @@ fn fed_avg(input: &Math1Input) -> (f64, f64) {
 struct Component;
 
 impl Guest for Component {
+    #[expect(
+        clippy::unused_async_trait_impl,
+        reason = "entry.run is an async export of the WIT world, so the generated trait fixes the signature"
+    )]
     async fn run() -> Result<(), EntryError> {
         let agent_id = start(LOG_CONTEXT)?;
         info("waiting for the math1-input pointer broadcast");
@@ -133,8 +140,12 @@ impl Guest for Component {
 ///
 /// The fake agent re-broadcasts the pointer until the output lands, so each 100ms recv window only
 /// has to catch one of them; foreign frames arrive as `relay-text` envelopes.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the inbox-draining step of run, named for what it waits on"
+)]
 fn wait_for_pointer() -> Option<InputPointer> {
-    for _ in 0..100 {
+    for _ in 0_u32..100 {
         if let Ok(Some(ServerMessage::RelayText(payload))) = ws::recv(100)
             && let Ok(json) = serde_json::from_str::<serde_json::Value>(&payload.content)
             && json.get("type").and_then(serde_json::Value::as_str) == Some("math1-input")

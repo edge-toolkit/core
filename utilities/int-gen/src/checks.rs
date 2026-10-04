@@ -89,6 +89,9 @@ const IMPLICIT_CONFIGS: &[(&str, &[&str])] = &[
 /// For each check, the aggregates that list it in `depends`.
 type Parents = BTreeMap<String, BTreeSet<String>>;
 
+/// For each check, the `fix` and `fmt` passes that repair what it reports.
+pub type Repairs = BTreeMap<String, BTreeSet<String>>;
+
 /// One task as one config file declares it.
 struct Task {
     name: String,
@@ -123,11 +126,54 @@ enum Found {
 /// Render the whole document from the configs and rule files under `root`.
 pub fn render(root: &Path) -> Result<String, Error> {
     let tasks = load_tasks(&root.join(".mise"))?;
-    let (reached, parents) = reachable(&tasks)?;
-    let check_name = Regex::new("(?:^|[-:])check(?:$|[-:])|crosscheck")?;
+    let (reached, parents) = reachable(&tasks, "check")?;
+    let repairs = repairs(&tasks)?;
+    let mut sections = group_checks(&tasks, &reached)?;
+    let shell = sections.remove(SHELL_SECTION);
 
+    let mut body = String::default();
+    let mut rules = 0_usize;
+    for (label, entries) in &sections {
+        writeln!(body, "\n## `{label}`\n")?;
+        rules = rules.saturating_add(render_section(&mut body, root, label, entries, &parents, &repairs)?);
+    }
+    if let Some(entries) = &shell {
+        writeln!(body, "\n## {SHELL_SECTION}\n")?;
+        render_entries(&mut body, SHELL_SECTION, entries, &parents, &repairs)?;
+    }
+
+    let counts = Counts {
+        checks: sections.values().chain(&shell).map(Vec::len).sum(),
+        repairs: repairs.len(),
+        rules,
+        shell: shell.as_ref().map_or(0, Vec::len),
+        tools: sections.len(),
+    };
+    let mut out = header(&counts)?;
+    out.push_str(&body);
+    Ok(out)
+}
+
+/// The totals the document opens with.
+struct Counts {
+    checks: usize,
+    repairs: usize,
+    rules: usize,
+    shell: usize,
+    tools: usize,
+}
+
+/// File every check under the tool its `run` body invokes.
+///
+/// A check is a task the `check` aggregates reach, or one named as a check that nothing reaches. The aggregates
+/// themselves, wrappers that only `mise run` other tasks, and tasks with no body of their own are left out.
+fn group_checks<'tasks>(
+    tasks: &'tasks [Task],
+    reached: &BTreeSet<String>,
+) -> Result<BTreeMap<String, Vec<&'tasks Task>>, Error> {
+    let check_name = Regex::new("(?:^|[-:])check(?:$|[-:])|crosscheck")?;
     let mut sections: BTreeMap<String, Vec<&Task>> = BTreeMap::new();
-    for task in &tasks {
+    for task in tasks {
         let aggregate = task.name == "check" || task.name.starts_with("check:");
         let wrapper = task.body.contains("mise run ");
         let listed = reached.contains(&task.name) || check_name.is_match(&task.name);
@@ -135,44 +181,48 @@ pub fn render(root: &Path) -> Result<String, Error> {
             sections.entry(runner_label(&task.body)?).or_default().push(task);
         }
     }
+    Ok(sections)
+}
 
-    let shell = sections.remove(SHELL_SECTION);
-    let mut body = String::default();
-    let mut rule_count = 0_usize;
-    for (label, entries) in &sections {
-        writeln!(body, "\n## `{label}`\n")?;
-        render_entries(&mut body, label, entries, &parents)?;
-        let rules = section_rules(root, label, entries)?;
-        rule_count = rule_count.saturating_add(rules.count);
-        if !rules.rendered.is_empty() {
-            writeln!(body, "\nRules, from `{}`:\n", rules.location)?;
-            body.push_str(&rules.rendered);
-        }
+/// Write one tool's checks and the rules they are configured with, returning how many rules that is.
+fn render_section(
+    out: &mut String,
+    root: &Path,
+    label: &str,
+    entries: &[&Task],
+    parents: &Parents,
+    repairs: &Repairs,
+) -> Result<usize, Error> {
+    render_entries(out, label, entries, parents, repairs)?;
+    let rules = section_rules(root, label, entries)?;
+    if !rules.rendered.is_empty() {
+        writeln!(out, "\nRules, from `{}`:\n", rules.location)?;
+        out.push_str(&rules.rendered);
     }
-    let check_count = sections.values().chain(&shell).map(Vec::len).sum::<usize>();
-    let shell_count = shell.as_ref().map_or(0, Vec::len);
-    if let Some(entries) = shell {
-        writeln!(body, "\n## {SHELL_SECTION}\n")?;
-        render_entries(&mut body, SHELL_SECTION, &entries, &parents)?;
-    }
+    Ok(rules.count)
+}
 
+/// The document's title, its totals and the paragraph saying what it lists and how it is kept current.
+fn header(counts: &Counts) -> Result<String, Error> {
     let mut out = String::from("# Checks\n\n");
-    writeln!(out, "- **Checks:** {check_count}")?;
-    writeln!(out, "- **Tools:** {}", sections.len())?;
-    writeln!(out, "- **Shell-script checks:** {shell_count}")?;
+    writeln!(out, "- **Checks:** {}", counts.checks)?;
+    writeln!(out, "- **Tools:** {}", counts.tools)?;
+    writeln!(out, "- **Shell-script checks:** {}", counts.shell)?;
+    writeln!(out, "- **Checks with a repair pass:** {}", counts.repairs)?;
     writeln!(
         out,
-        "- **Rules:** {rule_count} custom local rules, or non-default strict linter settings\n"
+        "- **Rules:** {} custom local rules, or non-default strict linter settings\n",
+        counts.rules
     )?;
     let intro = [
         "Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env",
-        "whose config declares it, the aggregate that runs it as part of `mise run check`, and the config files",
-        "it reads. Generated by `mise run gen:checks` from the task tables in `.mise/config*.toml`, the rule",
+        "whose config declares it, the aggregate that runs it as part of `mise run check`, the `fix` or `fmt` pass",
+        "that repairs what it reports, where one does, and the config files it reads. `mise run fix` runs every",
+        "such pass. Generated by `mise run gen:checks` from the task tables in `.mise/config*.toml`, the rule",
         "files under `config/` and the `[workspace.lints]` in `Cargo.toml`; `mise run checks-md-check` fails when",
         "this file drifts from them.",
     ];
     out.push_str(&wrap("", "", &intro.join(" ")));
-    out.push_str(&body);
     Ok(out)
 }
 
@@ -376,11 +426,66 @@ fn strings(value: &toml::Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Every task the `check` aggregates run, and for each one the aggregates that list it in `depends`.
+/// Map each check to the repair passes the `fix` and `fmt` aggregates run for it.
+fn repairs(tasks: &[Task]) -> Result<Repairs, Error> {
+    let names: BTreeSet<&str> = tasks.iter().map(|task| task.name.as_str()).collect();
+    let mut passes: BTreeSet<String> = BTreeSet::new();
+    for root in ["fix", "fmt"] {
+        let (reached, _) = reachable(tasks, root)?;
+        passes.extend(reached.into_iter().filter(|name| {
+            tasks
+                .iter()
+                .any(|task| task.name == *name && !task.body.trim().is_empty())
+        }));
+    }
+    pair_repairs(&names, &passes)
+}
+
+/// Pair each check among `names` with the repair `passes` that fix what it reports, wholly or in part.
 ///
-/// The search descends only through aggregates -- tasks with no `run` of their own, which only group other checks --
+/// The pairing is by name: `<tool>-fmt-check` with `<tool>-fmt`, and `<tool>-check` with `<tool>`, `<tool>-fix` and
+/// `<tool>-fmt` -- the last only while no `<tool>-fmt-check` claims it, so `cargo-check` is not credited to
+/// `cargo-fmt`. A check no pass pairs with is left out, but a pass no check pairs with is an error: its output would
+/// go unverified.
+pub fn pair_repairs(names: &BTreeSet<&str>, passes: &BTreeSet<String>) -> Result<Repairs, Error> {
+    let mut repairs = Repairs::new();
+    for check in names {
+        let Some(stem) = check.strip_suffix("-check") else {
+            continue;
+        };
+        let candidates = if stem.ends_with("-fmt") {
+            vec![stem.to_owned()]
+        } else {
+            let mut own = vec![stem.to_owned(), format!("{stem}-fix")];
+            if !names.contains(format!("{stem}-fmt-check").as_str()) {
+                own.push(format!("{stem}-fmt"));
+            }
+            own
+        };
+        let found: BTreeSet<String> = candidates.into_iter().filter(|pass| passes.contains(pass)).collect();
+        if !found.is_empty() {
+            let _first: Option<BTreeSet<String>> = repairs.insert((*check).to_owned(), found);
+        }
+    }
+    let unchecked: Vec<String> = passes
+        .iter()
+        .filter(|pass| !repairs.values().any(|found| found.contains(*pass)))
+        .map(|pass| format!("`{pass}`"))
+        .collect();
+    if !unchecked.is_empty() {
+        return Err(Error::UncheckedRepair(format!(
+            "`fix` or `fmt` runs {}, which no check pairs with by name: add the check, or take the pass out",
+            unchecked.join(", ")
+        )));
+    }
+    Ok(repairs)
+}
+
+/// Every task the aggregates named `root` or `root:<x>` run, and for each one the aggregates listing it in `depends`.
+///
+/// The search descends only through aggregates -- tasks with no `run` of their own, which only group other tasks --
 /// so a check's own prerequisites (the generator a drift check reruns first) are not mistaken for checks.
-fn reachable(tasks: &[Task]) -> Result<(BTreeSet<String>, Parents), Error> {
+fn reachable(tasks: &[Task], root: &str) -> Result<(BTreeSet<String>, Parents), Error> {
     let names: BTreeSet<&str> = tasks.iter().map(|task| task.name.as_str()).collect();
     let mut depends: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
     for task in tasks.iter().filter(|task| task.body.trim().is_empty()) {
@@ -391,7 +496,7 @@ fn reachable(tasks: &[Task]) -> Result<(BTreeSet<String>, Parents), Error> {
     }
     let mut queue: Vec<String> = names
         .iter()
-        .filter(|name| **name == "check" || name.starts_with("check:"))
+        .filter(|name| **name == root || name.strip_prefix(root).is_some_and(|rest| rest.starts_with(':')))
         .map(|name| (*name).to_owned())
         .collect();
     let mut reached: BTreeSet<String> = queue.iter().cloned().collect();
@@ -585,7 +690,13 @@ fn cargo_label(args: &[String]) -> String {
 }
 
 /// Write one section's checks, each with its env, the aggregate that runs it, its description and its configs.
-fn render_entries(out: &mut String, label: &str, entries: &[&Task], parents: &Parents) -> Result<(), Error> {
+fn render_entries(
+    out: &mut String,
+    label: &str,
+    entries: &[&Task],
+    parents: &Parents,
+    repairs: &Repairs,
+) -> Result<(), Error> {
     let mut sorted = entries.to_vec();
     sorted.sort_by(|left, right| (&left.name, &left.env).cmp(&(&right.name, &right.env)));
     for task in sorted {
@@ -609,6 +720,14 @@ fn render_entries(out: &mut String, label: &str, entries: &[&Task], parents: &Pa
             write!(text, " -- {}", task.description.trim_end_matches('.'))?;
         }
         text.push('.');
+        if let Some(found) = repairs.get(&task.name) {
+            let listed = found
+                .iter()
+                .map(|pass| format!("`{pass}`"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            write!(text, " Repaired by {listed}.")?;
+        }
         if !configs.is_empty() {
             let listed = configs
                 .iter()

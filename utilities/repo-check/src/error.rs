@@ -4,8 +4,7 @@
 #[derive(Debug, thiserror::Error)]
 #[expect(
     clippy::error_impl_error,
-    clippy::exhaustive_enums,
-    reason = "one internal binary with no SemVer surface; every check returns this type and adds variants with itself"
+    reason = "one internal binary with a single error type; every check returns it, so `Error` names it plainly"
 )]
 pub enum Error {
     /// Carries the count so the process exits non-zero once, after every check has had its say.

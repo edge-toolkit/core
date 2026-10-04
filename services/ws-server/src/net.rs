@@ -74,20 +74,22 @@ pub fn candidate_ipv4s(log_interface: Option<&str>) -> Result<Vec<(String, IpAdd
     };
     info!("Enumerated network interfaces (pre-filter): {}", format_ifas(&ifas));
     let ranked = rank_candidates(ifas, log_interface);
-    match log_interface {
-        Some(preferred) => {
-            if !ranked.iter().any(|(name, _)| name == preferred) {
-                return Err(NetError::InterfaceUnusable {
-                    name: preferred.to_string(),
-                    usable: format_ifas(&ranked),
-                });
-            }
-        }
-        None => {
-            if ranked.is_empty() {
-                warn!("Every enumerated address was filtered out (IPv6, loopback, link-local, or unspecified)");
-            }
-        }
-    }
+    require_usable(&ranked, log_interface)?;
     Ok(ranked)
+}
+
+/// Fail when the configured `log_interface` is not among the `ranked` candidates, or warn when nothing survived.
+#[expect(clippy::single_call_fn, reason = "the validation step of candidate_ipv4s")]
+fn require_usable(ranked: &[(String, IpAddr)], log_interface: Option<&str>) -> Result<(), NetError> {
+    match log_interface {
+        Some(preferred) if !ranked.iter().any(|(name, _)| name == preferred) => Err(NetError::InterfaceUnusable {
+            name: preferred.to_string(),
+            usable: format_ifas(ranked),
+        }),
+        None if ranked.is_empty() => {
+            warn!("Every enumerated address was filtered out (IPv6, loopback, link-local, or unspecified)");
+            Ok(())
+        }
+        Some(_) | None => Ok(()),
+    }
 }

@@ -7,6 +7,7 @@ use wasmtime::component::ResourceTable;
 use wasmtime_wasi::FsPerms;
 use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 
+#[cfg(feature = "nn")]
 use super::wasi_nn;
 use super::ws::WsBackend;
 
@@ -27,20 +28,26 @@ pub struct HostState {
     pub ws: Arc<Mutex<Option<WsBackend>>>,
     /// wasi-nn context.
     /// Constructed once at startup so model loads + compute reuse the same `ort` session pool across calls.
+    #[cfg(feature = "nn")]
     pub wasi_nn_ctx: wasmtime_wasi_nn::wit::WasiNnCtx,
 
     /// wgpu instance backing `wasi:webgpu`.
     /// One per store, created eagerly: adapter enumeration is what the guest's first call needs, and
     /// `wasi-webgpu-wasmtime` borrows this handle rather than owning it.
+    #[cfg(feature = "webgpu")]
     pub wgpu_instance: Arc<wgpu_core::global::Global>,
 
     /// Options `wasi-webgpu-wasmtime` applies to every device the guest requests, borrowed like the instance.
     /// Upstream's defaults, so a device gets wgpu's own default memory hints.
+    #[cfg(feature = "webgpu")]
     pub wgpu_options: wasi_webgpu_wasmtime::WasiWebGpuOptions,
 }
 
 impl HostState {
-    /// The state one guest store runs with: a WASI context, the REST client and the `wasi:nn`/`wasi:webgpu` hosts.
+    /// The state one guest store runs with.
+    ///
+    /// It holds a WASI context, the REST client, and whichever of the `wasi:nn` and `wasi:webgpu` hosts the build
+    /// enables.
     ///
     /// `coverage` maps `/cov` for an instrumented guest's profile, and is honoured only in a `coverage` build.
     #[must_use]
@@ -86,7 +93,9 @@ impl HostState {
             connect_ack_timeout,
             rest: et_rest_client::Client::new(http_base),
             ws: Arc::new(Mutex::new(None)),
+            #[cfg(feature = "nn")]
             wasi_nn_ctx: wasi_nn::new_ctx(),
+            #[cfg(feature = "webgpu")]
             wgpu_instance: Arc::new(wgpu_core::global::Global::new(
                 "webgpu",
                 wgpu_types::InstanceDescriptor {
@@ -98,11 +107,13 @@ impl HostState {
                 },
                 None,
             )),
+            #[cfg(feature = "webgpu")]
             wgpu_options: wasi_webgpu_wasmtime::WasiWebGpuOptions::default(),
         }
     }
 }
 
+#[cfg(feature = "webgpu")]
 impl wasi_webgpu_wasmtime::WasiWebGpuCtxView for HostState {
     fn webgpu_ctx(&mut self) -> wasi_webgpu_wasmtime::WasiWebGpuCtx<'_> {
         wasi_webgpu_wasmtime::WasiWebGpuCtx {

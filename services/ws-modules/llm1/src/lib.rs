@@ -177,6 +177,10 @@ struct ChatContext<'session> {
 }
 
 /// Poll the prompt queue, answering each prompt in turn, until stopped or the runtime cap is reached.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one prompt loop: dequeue, generate, stream tokens, report, repeat"
+)]
 async fn serve_prompts(
     context: &ChatContext<'_>,
     prompts: &Rc<RefCell<VecDeque<String>>>,
@@ -216,6 +220,10 @@ async fn serve_prompts(
                 continue;
             }
         };
+        #[expect(
+            clippy::float_arithmetic,
+            reason = "Date::now() is an f64 millisecond timestamp; the reply time is the difference of two"
+        )]
         let elapsed_ms = js_sys::Date::now() - started_ms;
 
         history.push(Turn {

@@ -1,6 +1,11 @@
 #![cfg(test)]
 #![cfg(target_arch = "wasm32")]
 #![cfg_attr(wasm_bindgen_unstable_test_coverage, feature(coverage_attribute))]
+#![expect(
+    clippy::future_not_send,
+    clippy::single_call_fn,
+    reason = "#[wasm_bindgen_test] calls each test once from its generated wrapper; browser futures are !Send"
+)]
 
 use et_web::{
     SENSOR_PERMISSION_GRANTED, describe_js_error, get_media_devices, request_sensor_permission, sleep_ms, sleep_ms_on,
@@ -21,9 +26,7 @@ async fn test_websocket_connection() {
     let result = client.connect();
     assert!(result.is_ok(), "Client should initiate connection without errors");
 
-    wait_for_connected(&client)
-        .await
-        .expect("client should reach the connected state against the live cov-server");
+    wait_for_connected(&client).await.unwrap();
 
     assert_eq!(
         client.get_state(),
@@ -51,13 +54,13 @@ async fn wait_for_connected_times_out_on_a_dead_endpoint() {
 /// `sleep_ms` resolves through `window.setTimeout` rather than hanging or rejecting.
 #[wasm_bindgen_test]
 async fn sleep_ms_resolves() {
-    sleep_ms(10).await.expect("window.setTimeout should resolve the sleep");
+    sleep_ms(10).await.unwrap();
 }
 
 /// The websocket endpoint is derived from the page's own location.
 #[wasm_bindgen_test]
 fn websocket_url_derives_the_endpoint_from_the_page() {
-    let url = websocket_url().expect("a browser page always has window.location");
+    let url = websocket_url().unwrap();
 
     assert!(
         url.starts_with("ws://") || url.starts_with("wss://"),
@@ -78,8 +81,7 @@ fn describe_js_error_uses_the_string_form() {
 #[wasm_bindgen_test]
 fn describe_js_error_falls_back_to_json() {
     let error = Object::new();
-    let _set = Reflect::set(error.as_ref(), &JsValue::from_str("code"), &JsValue::from_f64(7.0))
-        .expect("setting a property on a fresh object cannot fail");
+    let _set = Reflect::set(error.as_ref(), &JsValue::from_str("code"), &JsValue::from_f64(7.0)).unwrap();
 
     let described = describe_js_error(error.as_ref());
 
@@ -97,8 +99,7 @@ fn describe_js_error_falls_back_to_json() {
 #[wasm_bindgen_test]
 fn describe_js_error_falls_back_to_debug_when_json_throws() {
     let error = Object::new();
-    let _set = Reflect::set(error.as_ref(), &JsValue::from_str("self"), error.as_ref())
-        .expect("setting a property on a fresh object cannot fail");
+    let _set = Reflect::set(error.as_ref(), &JsValue::from_str("self"), error.as_ref()).unwrap();
 
     let described = describe_js_error(error.as_ref());
 
@@ -115,28 +116,24 @@ fn describe_js_error_falls_back_to_debug_when_json_throws() {
 /// driven on demand instead of waiting for a browser that happens to lack the feature.
 fn object_with(key: &str, value: &JsValue) -> Object {
     let object = Object::new();
-    let _set = Reflect::set(object.as_ref(), &JsValue::from_str(key), value)
-        .expect("setting a property on a fresh object cannot fail");
+    let _set = Reflect::set(object.as_ref(), &JsValue::from_str(key), value).unwrap();
     object
 }
 
 /// A `location` stand-in with just the two properties `websocket_url_from_location` reads.
 fn location_with(protocol: &str, host: &str) -> JsValue {
     let location = object_with("protocol", &JsValue::from_str(protocol));
-    let _set = Reflect::set(location.as_ref(), &JsValue::from_str("host"), &JsValue::from_str(host))
-        .expect("setting a property on a fresh object cannot fail");
+    let _set = Reflect::set(location.as_ref(), &JsValue::from_str("host"), &JsValue::from_str(host)).unwrap();
     location.into()
 }
 
 /// The endpoint follows the page's scheme: `wss:` behind https, plain `ws:` otherwise.
 #[wasm_bindgen_test]
 fn websocket_url_upgrades_to_wss_only_on_an_https_page() {
-    let secure = websocket_url_from_location(&location_with("https:", "edge.example:8443"))
-        .expect("a location with protocol and host yields a URL");
+    let secure = websocket_url_from_location(&location_with("https:", "edge.example:8443")).unwrap();
     assert_eq!(secure, "wss://edge.example:8443/ws");
 
-    let plain = websocket_url_from_location(&location_with("http:", "localhost:8080"))
-        .expect("a location with protocol and host yields a URL");
+    let plain = websocket_url_from_location(&location_with("http:", "localhost:8080")).unwrap();
     assert_eq!(plain, "ws://localhost:8080/ws");
 }
 
@@ -180,9 +177,9 @@ fn get_media_devices_refuses_a_navigator_without_a_usable_media_devices() {
 /// carries the API object.
 #[wasm_bindgen_test]
 fn get_media_devices_returns_the_real_api_on_a_secure_page() {
-    let navigator = web_sys::window().expect("the test page has a window").navigator();
+    let navigator = web_sys::window().unwrap().navigator();
 
-    let devices = get_media_devices(&navigator).expect("a loopback page is a secure context");
+    let devices = get_media_devices(&navigator).unwrap();
     assert!(devices.is_instance_of::<web_sys::MediaDevices>());
 }
 
@@ -199,9 +196,7 @@ async fn request_sensor_permission_is_granted_wherever_nothing_can_be_asked() {
         object_with("requestPermission", &JsValue::NULL).into(),
     ];
     for target in targets {
-        let outcome = request_sensor_permission(target)
-            .await
-            .expect("an unaskable target must not be an error");
+        let outcome = request_sensor_permission(target).await.unwrap();
         assert_eq!(outcome, SENSOR_PERMISSION_GRANTED);
     }
 }
@@ -216,18 +211,14 @@ async fn request_sensor_permission_asks_a_target_that_can_answer() {
         "requestPermission",
         Function::new_no_args("return Promise.resolve('denied');").as_ref(),
     );
-    let outcome = request_sensor_permission(denies.into())
-        .await
-        .expect("a resolving requestPermission is not an error");
+    let outcome = request_sensor_permission(denies.into()).await.unwrap();
     assert_eq!(outcome, "denied");
 
     let answers_nonsense = object_with(
         "requestPermission",
         Function::new_no_args("return Promise.resolve(42);").as_ref(),
     );
-    let outcome = request_sensor_permission(answers_nonsense.into())
-        .await
-        .expect("a non-string answer falls back to granted rather than failing");
+    let outcome = request_sensor_permission(answers_nonsense.into()).await.unwrap();
     assert_eq!(outcome, SENSOR_PERMISSION_GRANTED);
 
     let not_callable = object_with("requestPermission", &JsValue::from_f64(1.0));

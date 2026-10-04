@@ -7,8 +7,17 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.docs.rs]
+features = ["docs"]
+
 [lib]
 doctest = false
+
+[features]
+## Internal: derives JSON Schema for `WsConfig`, which et-int-gen renders into the hub's HELP.md.
+env-schema = ["dep:schemars"]
+## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
+docs = ["dep:document-features"]
 
 [dependencies]
 actix-web.workspace = true
@@ -16,10 +25,12 @@ actix-ws.workspace = true
 bytes.workspace = true
 bytesize.workspace = true
 chrono.workspace = true
+document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
 fs-err.workspace = true
 futures-util.workspace = true
 opentelemetry.workspace = true
+schemars = { workspace = true, optional = true }
 serde.workspace = true
 serde-inline-default.workspace = true
 serde_default.workspace = true

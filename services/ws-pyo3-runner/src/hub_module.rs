@@ -15,7 +15,7 @@
 use std::path::PathBuf;
 
 use et_ws_runner_common::{derive_http_base, fetch_main_field};
-use tracing::Instrument as _;
+use tracing::{Instrument as _, debug, info, info_span};
 
 use crate::error::RunnerError;
 use crate::python::module_is_importable;
@@ -35,13 +35,17 @@ pub struct HubModule {
 /// Returns `None` when the local import will work, which is the caller's signal to load it the way it always
 /// has. The probe runs first so that no hub request is made at all in that case -- a runner given a local
 /// module keeps working against a hub that has never heard of it.
+#[expect(
+    clippy::cognitive_complexity,
+    reason = "the score is mostly info!/warn! expansion around the probe and fetch"
+)]
 pub async fn fetch_if_absent(
     module_name: &str,
     python_path: &[PathBuf],
     ws_url: &str,
 ) -> Result<Option<HubModule>, RunnerError> {
     if module_is_importable(module_name, python_path)? {
-        tracing::debug!(module = module_name, "module found on sys.path; not fetching");
+        debug!(module = module_name, "module found on sys.path; not fetching");
         return Ok(None);
     }
     let http_base = derive_http_base(ws_url)?;
@@ -49,7 +53,7 @@ pub async fn fetch_if_absent(
     // Retries while the hub is still scanning its module paths, so a runner started alongside the hub is not
     // lost to a 404 for a module that is about to appear.
     let main = fetch_main_field(&rest, module_name).await?;
-    tracing::info!(module = module_name, %main, "fetching Python module from the hub");
+    info!(module = module_name, %main, "fetching Python module from the hub");
     let bytes = fetch_module_file(&rest, module_name, &main).await?;
     let source = match String::from_utf8(bytes) {
         Ok(source) => source,
@@ -73,7 +77,7 @@ async fn fetch_module_file(
     main: &str,
 ) -> Result<Vec<u8>, et_ws_runner_common::BootstrapError> {
     et_ws_runner_common::fetch_module_file(rest, module_name, main)
-        .instrument(tracing::info_span!("fetch_module", module = module_name, file = %main))
+        .instrument(info_span!("fetch_module", module = module_name, file = %main))
         .await
 }
 

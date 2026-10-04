@@ -7,6 +7,14 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+# A dependency no source path names, which cargo-shear's scan therefore reads as unused.
+# `ort` is never called, only depended on to hold the prerelease wasmtime-wasi-nn is built against.
+[package.metadata.cargo-shear]
+ignored = ["ort"]
+
+[package.metadata.docs.rs]
+features = ["docs"]
+
 [lib]
 doctest = false
 path = "src/lib.rs"
@@ -17,26 +25,31 @@ name = "et-ws-wasi-runner"
 path = "src/main.rs"
 
 [features]
-default = []
-# Enable wasmtime-wasi-nn's `onnx-cuda` feature.
-# It flips the cfg in its ONNX backend so `ExecutionTarget::Gpu` dispatches to `CUDAExecutionProvider`
-# instead of warning and falling back to CPU. `onnx-cuda` transitively turns
-# on `ort/cuda` too, so the EP is compiled into ort. Opt-in because
-# `ort/download-binaries` then pulls the CUDA-flavoured ONNX Runtime prebuilt,
-# which only exists for some host triples (Linux x86_64 reliably; Linux
-# aarch64 / macOS are not covered by Pyke's mirror at this version).
-# Build on CUDA hosts with:
-#     cargo build -p et-ws-wasi-runner --features cuda
-cuda = ["wasmtime-wasi-nn/onnx-cuda"]
-# `coverage` (off by default): compiles the guest-coverage preopen into the runner.
-# It maps `/cov` to target/wasi-cov so instrumented WASI guests dump their minicov `.profraw` there for the
-# wasi-cov task. Only the coverage workflow builds with it (and sets ET_TEST_COVERAGE, which still gates the
-# preopen at runtime); every other build omits the code. Mirrors et-ws-web-runner's `coverage` feature.
-coverage = []
+#! Each standardised WASI interface hosted beyond `et:ws-wasi` and WASI Preview 2 is a feature, all on by default.
+#! A guest that imports an interface the build left out fails to instantiate, naming the import.
+
+default = ["nn", "webgpu"]
+## Hosts `wasi:nn` (graph, tensor, inference) on ONNX Runtime through `wasmtime-wasi-nn`.
+## Guests can then load an ONNX model and run inference on it.
+nn = ["dep:ort", "dep:wasmtime-wasi-nn"]
+## Hosts the full upstream `wasi:webgpu` interface through `wasi-webgpu-wasmtime`.
+## A wgpu instance on every native backend gives guests real GPU compute and rendering.
+webgpu = ["dep:wasi-webgpu-wasmtime", "dep:wgpu-core", "dep:wgpu-types"]
+## Dispatches `wasi:nn` inference on `ExecutionTarget::Gpu` to ONNX Runtime's `CUDAExecutionProvider`.
+## Without it such a request warns and falls back to the CPU. It enables wasmtime-wasi-nn's `onnx-cuda`, and
+## through it `ort/cuda`, so `ort/download-binaries` pulls the CUDA-flavoured ONNX Runtime prebuilt -- which only
+## exists for some host triples: Linux x86_64 reliably, while Linux aarch64 and macOS are not covered by Pyke's
+## mirror at this version. wasmtime-wasi-nn knows no other GPU provider, so there is no CoreML equivalent on macOS.
+cuda = ["nn", "wasmtime-wasi-nn/onnx-cuda"]
+## Internal: compiles in the `/cov` preopen for the repo's coverage workflow.
+## Mapped to `target/wasi-cov`, it is where instrumented WASI guests dump their minicov `.profraw`.
+## `ET_TEST_COVERAGE` still gates the preopen at runtime.
+coverage = ["et-ws-runner-common/coverage"]
+## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
+docs = ["dep:document-features"]
 
 [dependencies]
-async-trait.workspace = true
-bytemuck.workspace = true
+document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
 et-otlp.workspace = true
 et-rest-client = { workspace = true, features = ["tracing"] }
@@ -47,35 +60,29 @@ futures-util.workspace = true
 # std::process::exit still runs atexit handlers, which is exactly the path that races libc++ during
 # ORT teardown -- _exit skips them.
 libc.workspace = true
-opentelemetry.workspace = true
-opentelemetry-http.workspace = true
-pollster.workspace = true
 reqwest = { workspace = true, features = ["json", "rustls", "stream"] }
-serde.workspace = true
-serde-env.workspace = true
 serde_json.workspace = true
 serde_path_to_error.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
 tokio-tungstenite = { workspace = true, features = ["connect"] }
 tracing.workspace = true
-tracing-opentelemetry.workspace = true
 wasmtime.workspace = true
 wasmtime-wasi.workspace = true
 # wasi-nn standardised ML inference.
 # The workspace pin drops `openvino` + `winml` (which we don't use) and keeps `onnx`.
-wasmtime-wasi-nn.workspace = true
+wasmtime-wasi-nn = { workspace = true, optional = true }
 # Workspace pins `ort = "=2.0.0-rc.10"` because wasmtime-wasi-nn 48 is still built against it.
 # That is a specific prerelease; rc.11+ moved
 # `ort::session::{Input, Output}` and `ort::tensor`, and the cargo resolver
 # would otherwise pick the latest rc.
-ort.workspace = true
+ort = { workspace = true, optional = true }
 # Upstream host impl of `wasi:webgpu@0.3.0-rc.2`, from the wasi-gfx project.
 # It owns every resource and method in the interface; the runner supplies only the wgpu instance handle and
 # the resource table it stores them in.
-wasi-webgpu-wasmtime.workspace = true
-wgpu-core.workspace = true
-wgpu-types.workspace = true
+wasi-webgpu-wasmtime = { workspace = true, optional = true }
+wgpu-core = { workspace = true, optional = true }
+wgpu-types = { workspace = true, optional = true }
 
 [dev-dependencies]
 command-error.workspace = true

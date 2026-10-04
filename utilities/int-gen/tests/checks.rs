@@ -5,7 +5,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use et_int_gen::checks::{config_paths, link_label, lint_opposites, rego_summaries, rule_sources, runner_label, wrap};
+use et_int_gen::checks::{
+    config_paths, link_label, lint_opposites, pair_repairs, rego_summaries, rule_sources, runner_label, wrap,
+};
 
 /// The set of paths a path-collecting function is expected to return.
 fn paths(expected: &[&str]) -> BTreeSet<String> {
@@ -202,5 +204,41 @@ fn wrap_fills_lines_to_the_width_with_a_continuation_prefix() {
     assert!(
         lines.iter().skip(1).all(|line| line.starts_with("  word")),
         "continuation prefix applied: {wrapped}"
+    );
+}
+
+#[test]
+fn repairs_pair_by_name_and_a_fmt_check_claims_its_formatter() {
+    let checks = [
+        "bare-check",
+        "fmtq-check",
+        "lintx-check",
+        "toolz-check",
+        "toolz-fmt-check",
+    ];
+    let pass_names = ["fmtq", "lintx-fix", "lintx-fmt", "toolz-fix", "toolz-fmt"];
+    let names: BTreeSet<&str> = checks.iter().chain(&pass_names).copied().collect();
+    let passes: BTreeSet<String> = pass_names.iter().map(|pass| (*pass).to_owned()).collect();
+    let expected: BTreeMap<String, BTreeSet<String>> = [
+        ("fmtq-check", vec!["fmtq"]),
+        ("lintx-check", vec!["lintx-fix", "lintx-fmt"]),
+        ("toolz-check", vec!["toolz-fix"]),
+        ("toolz-fmt-check", vec!["toolz-fmt"]),
+    ]
+    .into_iter()
+    .map(|(check, found)| (check.to_owned(), found.into_iter().map(str::to_owned).collect()))
+    .collect();
+    assert_eq!(pair_repairs(&names, &passes).unwrap(), expected);
+}
+
+#[test]
+fn a_pass_no_check_pairs_with_is_named() {
+    let names = BTreeSet::from(["lintx-check", "lintx-fix", "orphan-fmt", "stray-fix"]);
+    let passes = BTreeSet::from(["lintx-fix".to_owned(), "orphan-fmt".to_owned(), "stray-fix".to_owned()]);
+    let message = pair_repairs(&names, &passes).unwrap_err().to_string();
+    let passes_named = "`fix` or `fmt` runs `orphan-fmt`, `stray-fix`";
+    assert_eq!(
+        message,
+        format!("{passes_named}, which no check pairs with by name: add the check, or take the pass out")
     );
 }

@@ -1,3 +1,8 @@
+#![expect(
+    clippy::print_stdout,
+    reason = "CLI tool: the model description on stdout is its whole output"
+)]
+
 use clap::Parser as _;
 use et_onnx::Args;
 

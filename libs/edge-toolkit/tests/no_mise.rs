@@ -9,18 +9,15 @@
 use std::path::PathBuf;
 
 use edge_toolkit::config::default_modules_folders;
+use et_test_otlp::events::capture_events;
 
 #[test]
 fn returns_only_workspace_paths_when_mise_missing() {
-    // Initialise the log capture *before* hiding mise so the recorder
-    // is attached to the global `log` facade for this thread. The
-    // crate uses a thread-local buffer, so this is safe to call from
-    // a parallel test runner.
-    testing_logger::setup();
-
     // Empty PATH for the call, hiding mise (and every other binary) from the spawn in `mise_is_available`.
-    // `with_empty_path` restores PATH after the closure, so we don't poison sibling tests in the same binary.
-    let paths = et_test_helpers::with_empty_path(default_modules_folders);
+    // `with_empty_path` restores PATH after the closure, so we don't poison sibling tests in the same binary. The
+    // capture subscriber is this thread's default only for the call, so parallel tests' events stay out of it.
+    let mut paths = Vec::new();
+    let events = capture_events(|| paths = et_test_helpers::with_empty_path(default_modules_folders));
 
     // Hardcoded workspace paths only, zero mise-resolved paths.
     let expected_suffixes = [
@@ -64,16 +61,7 @@ fn returns_only_workspace_paths_when_mise_missing() {
         );
     }
 
-    // Zero log records emitted. If any warning fires here it'd be
+    // Zero events emitted. If any warning fires here it'd be
     // confusing user-visible noise on a no-mise deployment.
-    testing_logger::validate(|records| {
-        assert!(
-            records.is_empty(),
-            "expected no log records when mise is unavailable, got {:?}",
-            records
-                .iter()
-                .map(|record| (record.level, record.body.as_str()))
-                .collect::<Vec<_>>(),
-        );
-    });
+    assert_eq!(events, []);
 }

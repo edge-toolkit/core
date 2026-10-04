@@ -61,6 +61,7 @@ required_in = [
   "config/ast-grep/rules/no-string-new.yaml",
   "config/ast-grep/rules/prefer-self-mod-use.yaml",
   "config/ast-grep/rules/use-mod-order.yaml",
+  "config/ast-grep/rules/use-tracing-imports.yaml",
   "config/ast-grep/rules/write-ending-newline.yaml",
   "config/jscpd.json",
   "config/pyrefly.toml",

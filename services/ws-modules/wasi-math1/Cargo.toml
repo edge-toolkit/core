@@ -7,21 +7,29 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.docs.rs]
+default-target = "wasm32-wasip2"
+features = ["docs"]
+
 [lib]
 crate-type = ["cdylib"]
 doctest = false
 test = false
 
+[features]
+## Internal: builds the guest with `et-wasi-guest`'s coverage dump, for the repo's coverage workflow.
+coverage = ["et-wasi-guest/coverage"]
+## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
+docs = ["dep:document-features"]
+
 # Scope the wit-bindgen deps to wasi targets so a host `cargo check --workspace` skips them.
 # The lib body is gated the same way (`#![cfg(target_os = "wasi")]` at the top of src/lib.rs),
 # so on the host target the crate compiles to an empty cdylib.
 [target.'cfg(target_os = "wasi")'.dependencies]
+document-features = { workspace = true, optional = true }
 et-wasi-guest.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
-
-[features]
-coverage = ["et-wasi-guest/coverage"]
 
 [lints]
 workspace = true

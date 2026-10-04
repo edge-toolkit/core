@@ -3,9 +3,10 @@ use std::time::Duration;
 
 use command_error::CommandExt as _;
 use fs_err as fs;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_default::DefaultFromSerde;
 use serde_inline_default::serde_inline_default;
+use tracing::{info, warn};
 
 use crate::args::executable_name;
 use crate::auth::BasicAuth;
@@ -113,40 +114,14 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
     if !mise_is_available() {
         return paths;
     }
-    match mise_npm_modules_path("onnxruntime-web") {
-        Some(path) => {
-            log::info!("Resolved npm:onnxruntime-web modules path: {}", path.display());
-            paths.push(path);
-        }
-        None => {
-            log::warn!(
-                "{}",
-                concat!(
-                    "npm:onnxruntime-web install path not found via `mise where` -- ",
-                    "requests to /modules/onnxruntime-web/* will 404. ",
-                    "Run `mise install npm:onnxruntime-web` and verify the package layout.",
-                )
-            );
-        }
-    }
+    push_module(
+        &mut paths,
+        &npm_module("onnxruntime-web"),
+        mise_npm_modules_path("onnxruntime-web"),
+    );
     // stats-gl (the GPU utilisation meter overlay on the ws-server index page). Same
     // npm-package-served-as-a-module pattern as onnxruntime-web above.
-    match mise_npm_modules_path("stats-gl") {
-        Some(path) => {
-            log::info!("Resolved npm:stats-gl modules path: {}", path.display());
-            paths.push(path);
-        }
-        None => {
-            log::warn!(
-                "{}",
-                concat!(
-                    "npm:stats-gl install path not found via `mise where` -- ",
-                    "requests to /modules/stats-gl/* will 404. ",
-                    "Run `mise install npm:stats-gl` and verify the package layout.",
-                )
-            );
-        }
-    }
+    push_module(&mut paths, &npm_module("stats-gl"), mise_npm_modules_path("stats-gl"));
     // Pyodide is installed from its GitHub release tarball (see
     // `.mise/config.python.toml`),
     // not via `npm:pyodide`. mise's http backend extracts the archive flat,
@@ -156,61 +131,71 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
     // distribution isn't available: browser modules that only need pyodide's
     // runtime (no `micropip.install` of non-stdlib wheels) still work, and
     // contributors who don't need the full set can skip the 200 MB download.
-    match mise_where("http:pyodide").or_else(|| mise_npm_modules_path("pyodide")) {
-        Some(path) => {
-            log::info!("Resolved pyodide modules path: {}", path.display());
-            paths.push(path);
-        }
-        None => {
-            log::warn!(
-                "{}",
-                concat!(
-                    "pyodide install path not found via `mise where http:pyodide` or `mise where npm:pyodide` -- ",
-                    "requests to /modules/pyodide/* will 404. Run `mise install` and verify the install.",
-                )
-            );
-        }
-    }
+    let pyodide = ModuleSource {
+        label: "pyodide".to_owned(),
+        route: "pyodide".to_owned(),
+        lookup: "`mise where http:pyodide` or `mise where npm:pyodide`".to_owned(),
+        install: "mise install".to_owned(),
+    };
+    let found = mise_where("http:pyodide").or_else(|| mise_npm_modules_path("pyodide"));
+    push_module(&mut paths, &pyodide, found);
     // transformers.js (llm1's text-generation runtime). Scoped, so serve its own dir as one module at
     // /modules/@huggingface/transformers, the same way tasks-vision is served below.
-    match mise_npm_package_path("@huggingface/transformers") {
-        Some(path) => {
-            log::info!(
-                "Resolved npm:@huggingface/transformers modules path: {}",
-                path.display()
-            );
-            paths.push(path);
-        }
-        None => {
-            log::warn!(
-                "{}",
-                concat!(
-                    "npm:@huggingface/transformers install path not found via `mise where` -- ",
-                    "requests to /modules/@huggingface/transformers/* will 404. ",
-                    "Run `mise install npm:@huggingface/transformers` and verify the package layout.",
-                )
-            );
-        }
-    }
+    let transformers = "@huggingface/transformers";
+    push_module(
+        &mut paths,
+        &npm_module(transformers),
+        mise_npm_package_path(transformers),
+    );
     // MediaPipe tasks-vision (pyeye1's FaceLandmarker runtime). A scoped npm package: serve its own dir as a
     // single module at /modules/@mediapipe/tasks-vision (the modules service reads its package.json name).
-    match mise_npm_package_path("@mediapipe/tasks-vision") {
-        Some(path) => {
-            log::info!("Resolved npm:@mediapipe/tasks-vision modules path: {}", path.display());
-            paths.push(path);
-        }
-        None => {
-            log::warn!(
-                "{}",
-                concat!(
-                    "npm:@mediapipe/tasks-vision install path not found via `mise where` -- ",
-                    "requests to /modules/@mediapipe/tasks-vision/* will 404. ",
-                    "Run `mise install npm:@mediapipe/tasks-vision` and verify the package layout.",
-                )
-            );
-        }
-    }
+    let tasks_vision = "@mediapipe/tasks-vision";
+    push_module(
+        &mut paths,
+        &npm_module(tasks_vision),
+        mise_npm_package_path(tasks_vision),
+    );
     paths
+}
+
+/// A mise-installed module served from `/modules/<route>`, and how to find and install it.
+pub struct ModuleSource {
+    label: String,
+    route: String,
+    lookup: String,
+    install: String,
+}
+
+/// The [`ModuleSource`] for an npm package mise installs as `npm:<package>`.
+#[must_use]
+pub fn npm_module(package: &str) -> ModuleSource {
+    ModuleSource {
+        label: format!("npm:{package}"),
+        route: package.to_owned(),
+        lookup: "`mise where`".to_owned(),
+        install: format!("mise install npm:{package}"),
+    }
+}
+
+/// Add `found` to `paths`, or warn that `source` is not installed and its route will 404.
+#[expect(
+    clippy::cognitive_complexity,
+    reason = "the score is info!/warn! expansion; the body branches once"
+)]
+pub fn push_module(paths: &mut Vec<PathBuf>, source: &ModuleSource, found: Option<PathBuf>) {
+    let ModuleSource {
+        label,
+        route,
+        lookup,
+        install,
+    } = source;
+    if let Some(path) = found {
+        info!("Resolved {label} modules path: {}", path.display());
+        paths.push(path);
+    } else {
+        let effect = format!("requests to /modules/{route}/* will 404");
+        warn!("{label} install path not found via {lookup} -- {effect}. Run `{install}` and verify the install.");
+    }
 }
 
 /// Returns `true` if the `mise` binary is reachable on `PATH`.
@@ -528,7 +513,8 @@ pub fn default_trace_service_label() -> String {
 ///
 /// Binary is more compact and efficient, while JSON is more human-readable and easier to debug.
 #[expect(clippy::exhaustive_enums)]
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[cfg_attr(feature = "env-schema", derive(schemars::JsonSchema))]
 pub enum OtlpProtocol {
     /// Binary messages.
     #[default]
@@ -540,6 +526,7 @@ pub enum OtlpProtocol {
 /// OpenTelemetry service config.
 #[serde_inline_default]
 #[derive(Clone, Debug, DefaultFromSerde, Deserialize)]
+#[cfg_attr(feature = "env-schema", derive(schemars::JsonSchema))]
 #[non_exhaustive]
 pub struct OtlpConfig {
     /// OpenTelemetry collector URL.
@@ -549,7 +536,10 @@ pub struct OtlpConfig {
     #[serde(default)]
     pub protocol: OtlpProtocol,
     /// OpenTelemetry service label.
+    ///
+    /// Defaults to the running executable's name, without any `-server` in it.
     #[serde(default = "default_trace_service_label")]
+    #[cfg_attr(feature = "env-schema", schemars(extend("default" = null)))]
     pub service_label: String,
     /// OpenTelemetry HTTP basic auth.
     pub auth: Option<BasicAuth>,

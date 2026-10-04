@@ -8,6 +8,14 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+# A dependency no source path names, which cargo-shear's scan therefore reads as unused.
+# `winapi` is never called, only depended on to unify its `std` feature for deno_io on Windows.
+[package.metadata.cargo-shear]
+ignored = ["winapi"]
+
+[package.metadata.docs.rs]
+features = ["docs"]
+
 [lib]
 doctest = false
 path = "src/lib.rs"
@@ -17,22 +25,27 @@ doctest = false
 name = "et-ws-web-runner"
 path = "src/main.rs"
 
+[features]
+## Internal: compiles in browser-module coverage capture for the repo's coverage workflow.
+## That is the pycov and ws-agent-id shims, the `__ET_TEST_COVERAGE` prelude, and the wrapper's
+## `__et_capture_coverage` PUT. `ET_TEST_COVERAGE` still gates capture at runtime.
+coverage = ["et-ws-runner-common/coverage"]
+## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
+docs = ["dep:document-features"]
+
 [dependencies]
 deno_core.workspace = true
 deno_error.workspace = true
 deno_resolver.workspace = true
 deno_runtime.workspace = true
-edge-toolkit.workspace = true
+document-features = { workspace = true, optional = true }
 et-otlp.workspace = true
 et-rest-client = { workspace = true, features = ["tracing"] }
 et-ws-runner-common.workspace = true
-futures-util.workspace = true
 # Direct dep so we can configure the REST client's reqwest retry policy.
 # The default `ProtocolNacks` policy doesn't cover the HTTP/1 keep-alive race (see
 # lib.rs `build_rest_client`). Features match et-rest-client's native build.
 reqwest = { workspace = true, features = ["json", "query", "rustls", "stream"] }
-serde.workspace = true
-serde-env.workspace = true
 sys_traits.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
@@ -46,6 +59,15 @@ tracing.workspace = true
 [target.'cfg(windows)'.dependencies]
 winapi.workspace = true
 
+[dev-dependencies]
+edge-toolkit.workspace = true
+et-org.workspace = true
+et-ws-test-server.workspace = true
+fs-err.workspace = true
+rstest.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["macros", "rt", "time"] }
+
 [build-dependencies]
 # Compiles mingw-shim/ for the x86_64-pc-windows-gnu build (see build.rs).
 # Used only in build.rs's `#[cfg(windows)]` branch, so these go unreferenced on non-Windows hosts -- harmless,
@@ -54,21 +76,6 @@ winapi.workspace = true
 cc.workspace = true
 command-error.workspace = true
 fs-err.workspace = true
-
-[dev-dependencies]
-et-org.workspace = true
-et-ws-test-server.workspace = true
-fs-err.workspace = true
-rstest.workspace = true
-serde_json.workspace = true
-tokio = { workspace = true, features = ["macros", "rt", "time"] }
-
-# `coverage` (off by default): compiles the browser-module coverage-capture code into the runner.
-# It adds the pycov + ws-agent-id shims, the __ET_TEST_COVERAGE prelude, and the wrapper's __et_capture_coverage
-# PUT. Only the coverage workflow builds with it (and sets ET_TEST_COVERAGE, which still gates capture at runtime);
-# every other build omits the code entirely. See the collect side in tests/modules.rs.
-[features]
-coverage = []
 
 [lints]
 workspace = true

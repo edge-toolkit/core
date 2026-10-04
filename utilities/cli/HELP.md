@@ -14,7 +14,7 @@ This document contains the help content for the `et-cli` command-line program.
 
 **Usage:** `et-cli [COMMAND]`
 
-###### **Subcommands:**
+### Subcommands
 
 - `generate-deployment` — Generate deployment config from a cluster input YAML
 - `regen-verification` — Regenerate verification outputs using verification input/output naming conventions
@@ -27,7 +27,7 @@ Generate deployment config from a cluster input YAML
 
 **Usage:** `et-cli generate-deployment [OPTIONS] --input-file <INPUT_FILE> --output-dir <OUTPUT_DIR>`
 
-###### **Options:**
+### Options
 
 - `--input-file <INPUT_FILE>`
 - `--output-dir <OUTPUT_DIR>`
@@ -43,7 +43,7 @@ Regenerate verification outputs using verification input/output naming conventio
 
 **Usage:** `et-cli regen-verification [OPTIONS]`
 
-###### **Options:**
+### Options
 
 - `--verification-root <VERIFICATION_ROOT>`
 
@@ -55,7 +55,7 @@ Generate pkg/package.json from module metadata
 
 **Usage:** `et-cli module-package-json [OPTIONS]`
 
-###### **Options:**
+### Options
 
 - `--module-dir <MODULE_DIR>`
 
@@ -67,13 +67,6 @@ Print the directory holding a mise-staged npm package
 
 **Usage:** `et-cli npm-module-path --package <PACKAGE>`
 
-###### **Options:**
+### Options
 
 - `--package <PACKAGE>` — Published package name, as it appears in the mise tool id (e.g. `onnxruntime-web`)
-
-<hr/>
-
-<small><i>
-This document was generated automatically by
-<a href="https://crates.io/crates/clap-markdown"><code>clap-markdown</code></a>.
-</i></small>

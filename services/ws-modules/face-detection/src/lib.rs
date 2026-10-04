@@ -457,6 +457,10 @@ pub fn face_status_lines(
     lines
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "RetinaFace's decode: anchors, boxes, scores and NMS over one tensor set"
+)]
 fn decode_retinaface_outputs(
     outputs: &JsValue,
     output_names: &[String],

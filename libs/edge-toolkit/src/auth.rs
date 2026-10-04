@@ -3,12 +3,14 @@ use secrecy::{ExposeSecret as _, SecretString};
 use serde::Deserialize;
 
 #[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(feature = "env-schema", derive(schemars::JsonSchema))]
 #[non_exhaustive]
 /// Basic Authentication config.
 pub struct BasicAuth {
     /// Username.
     pub username: String,
     /// Password.
+    #[cfg_attr(feature = "env-schema", schemars(with = "String"))]
     pub password: SecretString,
 }
 

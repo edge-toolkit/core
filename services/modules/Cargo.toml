@@ -7,23 +7,32 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [lib]
 doctest = false
 
 [features]
-# See ws-server's openapi-spec feature for the rationale.
+## Adds OpenAPI metadata to the module-discovery handlers for `et-int-gen` to harvest into the published spec.
 openapi-spec = ["dep:utoipa"]
+## Internal: derives JSON Schema for `ModulesConfig`, which et-int-gen renders into the hub's HELP.md.
+env-schema = ["dep:schemars"]
+## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
+docs = ["dep:document-features"]
 
 [dependencies]
 actix-files.workspace = true
 actix-web.workspace = true
+document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
 fs-err.workspace = true
+schemars = { workspace = true, optional = true }
 serde.workspace = true
 serde-inline-default.workspace = true
 serde_default.workspace = true
 serde_json.workspace = true
-tracing.workspace = true
 utoipa = { workspace = true, optional = true }
 
 [dev-dependencies]

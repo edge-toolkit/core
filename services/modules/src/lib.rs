@@ -1,3 +1,8 @@
+#![cfg_attr(doc, doc = include_str!("../README.md"))]
+#![cfg_attr(feature = "docs", doc = "## Feature flags")]
+#![cfg_attr(feature = "docs", doc = document_features::document_features!())]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 use std::path::PathBuf;
 
 use actix_files::Files;
@@ -15,9 +20,15 @@ pub use self::routes::list_modules_handler;
 /// Modules config.
 #[serde_inline_default]
 #[derive(Clone, Debug, DefaultFromSerde, Deserialize)]
+#[cfg_attr(feature = "env-schema", derive(schemars::JsonSchema))]
 #[non_exhaustive]
 pub struct ModulesConfig {
+    /// Directories scanned for ws-module packages, comma-separated in the environment.
+    ///
+    /// Defaults to the workspace's standard module folders, resolved against the working directory; a folder
+    /// that does not exist is skipped.
     #[serde(default = "default_modules_folders")]
+    #[cfg_attr(feature = "env-schema", schemars(extend("default" = null)))]
     pub paths: Vec<PathBuf>,
     /// Name of the module served at `/`, exactly as its `package.json` declares it.
     ///
@@ -40,6 +51,7 @@ pub struct ModulesConfig {
     /// `paths` on a host that does have mise -- a config whose tool set mixes modules with development
     /// tooling wants that, since discovery cannot tell one from the other.
     #[serde(default = "edge_toolkit::config::mise_is_available")]
+    #[cfg_attr(feature = "env-schema", schemars(extend("default" = null)))]
     pub mise_discover: bool,
 }
 
