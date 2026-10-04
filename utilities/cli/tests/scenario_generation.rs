@@ -95,6 +95,23 @@ agents:
 }
 
 #[test]
+fn generate_deployment_rejects_a_runner_name_that_is_not_an_rfc_1123_label() {
+    // The runner name is handed to `mise run` in the dekit deployment, where a leading `-` makes it a flag rather than
+    // a task, and it also names a compose service and Kubernetes objects.
+    let error = deployment_error_for(
+        r#"cluster_name: "flag-name"
+agents:
+  - name: "--help"
+    runner: "web"
+    resources:
+      - type: "math1"
+"#,
+    );
+
+    assert!(error.contains("--help") && error.contains("RFC 1123"));
+}
+
+#[test]
 fn generate_deployment_rejects_two_runners_with_the_same_name() {
     // Two agents sharing a name derive one runner name; mise would keep the last task inserted under it and compose
     // would emit a duplicate service key, so one of the two runners would silently vanish.
@@ -287,6 +304,7 @@ agents:
     assert!(output_dir.join("mise.toml").exists());
     assert!(output_dir.join("compose.yaml").exists());
     assert!(output_dir.join("k3s.yaml").exists());
+    assert!(output_dir.join("dekit.yaml").exists());
     assert!(output_dir.join("README.md").exists());
     let mise = fs::read_to_string(output_dir.join("mise.toml")).unwrap();
     assert!(mise.contains("MODULES_PATHS=\""));
@@ -302,6 +320,105 @@ agents:
     assert!(readme.contains("mise run generated-scenario"));
     assert!(readme.contains("docker compose up"));
     assert!(readme.contains("kubectl apply -f k3s.yaml"));
+    assert!(readme.contains("dekit up"));
+    // Every format's section is written into the one file, so two of them sharing a subheading would repeat it --
+    // markdownlint's MD024, reported against every committed verification README.
+    let headings: Vec<&str> = readme.lines().filter(|line| line.starts_with('#')).collect();
+    let unique: std::collections::BTreeSet<&str> = headings.iter().copied().collect();
+    assert_eq!(headings.len(), unique.len());
+}
+
+/// Generate `input` as a dekit deployment alone, returning the temp root, its output dir and the parsed file.
+fn dekit_deployment(input: &str) -> (tempfile::TempDir, std::path::PathBuf, serde_yaml::Value) {
+    let test_root = tempdir().unwrap();
+    let input_file = test_root.path().join("cluster.yaml");
+    let output_dir = test_root.path().join("output");
+    fs::write(&input_file, input).unwrap();
+    let _summary = generate_deployment(&input_file, &output_dir, Some(et_cli::OutputType::Dekit)).unwrap();
+    let text = fs::read_to_string(output_dir.join("dekit.yaml")).unwrap();
+    let config = serde_yaml::from_str(&text).unwrap();
+    (test_root, output_dir, config)
+}
+
+/// A task's `deps`, empty when it declares none.
+fn task_deps(task: &serde_yaml::Value) -> Vec<&str> {
+    task.get("deps")
+        .and_then(serde_yaml::Value::as_sequence)
+        .map(|deps| deps.iter().map(|dep| dep.as_str().unwrap()).collect())
+        .unwrap_or_default()
+}
+
+#[test]
+fn every_dekit_task_runs_a_task_of_the_mise_toml_written_beside_it() {
+    // The tasks are views onto the mise tasks, so each has to name one that exists -- including when dekit is the only
+    // format asked for, which is why `mise.toml` is written with it.
+    let (_test_root, output_dir, config) = dekit_deployment(WITH_RUNNER_ENV);
+    let mise: toml::Table = toml::from_str(&fs::read_to_string(output_dir.join("mise.toml")).unwrap()).unwrap();
+    let tasks = config["tasks"].as_mapping().unwrap();
+
+    // The collector, the hub and the runner start on `dekit up`; the one listed last, the browser opener, waits to be
+    // asked.
+    let names: Vec<&str> = tasks.keys().map(|name| name.as_str().unwrap()).collect();
+    assert_eq!(names[..3], ["openobserve", "ws-server", "math1-twin"]);
+    assert_eq!(names.len(), 4);
+    for (index, (name, task)) in tasks.iter().enumerate() {
+        let name = name.as_str().unwrap();
+        let cmd: Vec<&str> = task["cmd"]
+            .as_sequence()
+            .unwrap()
+            .iter()
+            .map(|arg| arg.as_str().unwrap())
+            .collect();
+        assert_eq!(cmd, ["mise", "run", name]);
+        assert!(mise["tasks"].get(name).is_some());
+        assert_eq!(
+            task.get("autostart").and_then(serde_yaml::Value::as_bool),
+            (index < 3).then_some(true)
+        );
+    }
+}
+
+#[test]
+fn dekit_starts_each_process_once_what_it_talks_to_is_ready() {
+    // The point of dekit over a plain process list: a runner that asks the hub for its module before the hub listens
+    // is a lost run, so each waits on the health endpoint of what it talks to, the same edges compose gates on.
+    let (_test_root, output_dir, config) = dekit_deployment(WITH_RUNNER_ENV);
+    let tasks = &config["tasks"];
+
+    assert_eq!(task_deps(&tasks["openobserve"]), Vec::<&str>::new());
+    assert_eq!(
+        tasks["openobserve"]["ready"]["http"].as_str(),
+        Some("http://localhost:5080/healthz")
+    );
+    assert_eq!(task_deps(&tasks["ws-server"]), ["openobserve"]);
+    assert_eq!(
+        tasks["ws-server"]["ready"]["http"].as_str(),
+        Some("http://localhost:8080/health")
+    );
+    assert_eq!(task_deps(&tasks["math1-twin"]), ["ws-server"]);
+    // Stopped through Docker, since an interrupt that never reaches the container leaves it holding the port.
+    let stop: Vec<&str> = tasks["openobserve"]["stop"]["cmd"]
+        .as_sequence()
+        .unwrap()
+        .iter()
+        .map(|arg| arg.as_str().unwrap())
+        .collect();
+    // Named after the scenario, so the stop cannot reach another collector on the same Docker daemon, and the same
+    // name the mise task starts the container under.
+    assert_eq!(stop, ["docker", "stop", "openobserve-runner-env"]);
+    let mise = fs::read_to_string(output_dir.join("mise.toml")).unwrap();
+    assert!(mise.contains("container=openobserve-runner-env\n"));
+    assert_eq!(config["defaults"]["stop"].as_str(), Some("SIGINT"));
+}
+
+#[test]
+fn a_dekit_only_readme_still_lists_the_mise_toml_it_runs() {
+    let (_test_root, output_dir, _config) = dekit_deployment(WITH_RUNNER_ENV);
+    let readme = fs::read_to_string(output_dir.join("README.md")).unwrap();
+
+    assert!(readme.contains("Files: `mise.toml`, `dekit.yaml`."));
+    assert!(readme.contains("dekit up"));
+    assert!(!readme.contains("## Run With Mise"));
 }
 
 /// The generated manifests describe the whole scenario and keep the credential out of the file.

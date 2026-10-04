@@ -1,0 +1,35 @@
+defaults:
+  stop: SIGINT
+tasks:
+  openobserve:
+    cmd:
+      - mise
+      - run
+      - openobserve
+    autostart: true
+    ready:
+      http: http://localhost:5080/healthz
+    stop:
+      cmd:
+        - docker
+        - stop
+        - openobserve-facility-security-scenario
+      timeout: 30s
+  ws-server:
+    cmd:
+      - mise
+      - run
+      - ws-server
+    deps:
+      - openobserve
+    autostart: true
+    ready:
+      http: http://localhost:8080/health
+  open-o2:
+    type: job
+    cmd:
+      - mise
+      - run
+      - open-o2
+    deps:
+      - openobserve

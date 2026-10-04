@@ -10,6 +10,30 @@ rules:
       Keep the description short enough to fit on one line.
     severity: ERROR
 
+  - id: no-os-scope-in-platform-mise-config
+    languages: [generic]
+    paths:
+      include:
+        - "/.mise/config.linux.toml"
+        - "/.mise/config.macos.toml"
+        - "/.mise/config.mingw.toml"
+        - "/.mise/config.msvc.toml"
+        - "/.mise/config.windows.toml"
+    # Match every TOML spelling of an `os` key.
+    # Bare or quoted (`"os"`, `'os'`), at the start of a line however indented (a `[tools."..."]` table), after the
+    # `{` / `,` of an inline table, or as the last part of a dotted key (`tool.os`). The prefix steps over each quoted
+    # string whole, so an `os =` inside a value (`run = 'echo "{os = 1}"'`) is not read as a key, and it stops at an
+    # unquoted `#`, so a comment that quotes `os = [...]` never matches. A multi-line `"""` body is the one place it
+    # cannot see the quotes around a line. No autofix: dropping the key from an inline table also means dropping the
+    # separator beside it, which differs by position.
+    pattern-regex: '(?m)^(?:(?:[^#\n"'']|"(?:[^"\\\n]|\\.)*"|''[^''\n]*'')*[{,.])?[ \t]*(?:os|"os"|''os'')[ \t]*='
+    message: >-
+      Do not set `os = [...]` in a platform-specific mise config. The file is only loaded on its own platform, so
+      the key restates what the filename already says, and a value naming a different OS silently disables the
+      entry everywhere. Drop the key; a tool that genuinely needs scoping to a subset of platforms belongs in a
+      cross-platform config instead.
+    severity: ERROR
+
   - id: multiline-task-run-needs-bash-shell
     languages: [generic]
     paths:

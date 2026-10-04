@@ -4,7 +4,7 @@
 
 [tools]
 # gpg for mise's gpg_verify signature checks; _setup_all installs it up front.
-"conda:gnupg" = { version = "latest", os = ["macos"] }
+"conda:gnupg" = "latest"
 
 [vars]
 # Xcode's libclang (the lib dir beside `xcrun`'s clang).

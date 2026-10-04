@@ -17,9 +17,10 @@ run = "open http://localhost:5080/"
 alias = "o2"
 run = """
 image=openobserve/openobserve:v0.91.5
+container=openobserve-default
 settings="-e RUST_LOG=warn -e ZO_ROOT_USER_EMAIL=root@example.com"
 # $settings is a word-split flag list by design; do not quote it.
-docker run --rm --name openobserve -p 127.0.0.1:5080:5080 $settings -e ZO_ROOT_USER_PASSWORD "$image"
+docker run --rm --name "$container" -p 127.0.0.1:5080:5080 $settings -e ZO_ROOT_USER_PASSWORD "$image"
 """
 
 [tasks.ws-server]

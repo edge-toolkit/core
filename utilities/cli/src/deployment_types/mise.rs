@@ -36,16 +36,36 @@ const NPMRC_FILE: &str = "npmrc";
 /// Directory, beside `mise.toml`, a published deployment's hub keeps agent storage in.
 pub(crate) const STORAGE_DIR: &str = "storage";
 
+/// The mise task that runs the collector, which the other deployment formats and runner-name checks refer to.
+pub(crate) const COLLECTOR_TASK: &str = "openobserve";
+
+/// The mise task that runs the hub.
+pub(crate) const HUB_TASK: &str = "ws-server";
+
+/// The mise task that opens the collector's UI in a browser.
+pub(crate) const OPENER_TASK: &str = "open-o2";
+
+/// Name the collector task gives its container, so anything stopping the task can stop the container by it.
+///
+/// Scoped to the scenario so a stop can only ever reach this scenario's collector: a bare `openobserve` is also the
+/// name this repository's own `o2` task runs its collector under, and any other scenario's on the same Docker daemon.
+pub(crate) fn collector_container(cluster_name: &str) -> String {
+    format!("openobserve-{cluster_name}")
+}
+
 /// Version every `cargo:` tool the generated deployment declares is requested at.
 const LATEST: &str = "latest";
 
+/// Write the `mise.toml` that runs the scenario: the collector, the hub and one task per runner.
+///
+/// A published scenario also gets the npm config its module packages resolve against.
 pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
     let output_path = output_dir.join("mise.toml");
     let workspace_root = edge_toolkit::config::get_project_root();
     let output_abs = absolute_from(&workspace_root, output_dir);
     let ws_server_dir = workspace_root.join("services/ws-server");
     let workspace_rel = relative_path_from(&output_abs, &workspace_root);
-    let openobserve_run = openobserve_run_body();
+    let openobserve_run = openobserve_run_body(&cluster.cluster_name);
     let module_names = cluster_module_names(cluster);
     let artifacts = cluster.artifact_source;
     let scenario = ScenarioModules::new(&ws_server_dir, &module_names, super::serves_a_page(cluster))
@@ -68,11 +88,11 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
     // No working directory: the collector is a container started from values this file carries, so unlike the hub it
     // has nothing to resolve against the repository.
     let _previous: Option<Value> = tasks.insert(
-        "openobserve".to_string(),
+        COLLECTOR_TASK.to_string(),
         Value::Table(mise_task(Some("o2"), None, None, Some(&openobserve_run), None, None)),
     );
     let _previous: Option<Value> = tasks.insert(
-        "ws-server".to_string(),
+        HUB_TASK.to_string(),
         Value::Table(mise_task(
             None,
             Some("Run the WebSocket server"),
@@ -104,7 +124,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
         );
     }
 
-    let mut scenario_depends = vec!["openobserve".to_string(), "ws-server".to_string()];
+    let mut scenario_depends = vec![COLLECTOR_TASK.to_string(), HUB_TASK.to_string()];
     scenario_depends.extend(runners.iter().map(|runner| runner.name.clone()));
     let _previous: Option<Value> = tasks.insert(
         "generated-scenario".to_string(),
@@ -118,7 +138,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
         )),
     );
     let _previous: Option<Value> = tasks.insert(
-        "open-o2".to_string(),
+        OPENER_TASK.to_string(),
         Value::Table(mise_task(
             None,
             Some("Open the OpenObserve UI"),
@@ -198,11 +218,11 @@ fn ws_server_env(scenario: &ScenarioModules<'_>, artifacts: ArtifactSource) -> T
 
 /// The body of the task that starts the collector container.
 ///
-/// The image and the settings are lifted into shell variables rather than folded with continuations: inlining them
-/// would put the `docker run` past the editorconfig line length, and a wrapped copy is what once silently dropped
-/// `-it`. `-e ZO_ROOT_USER_PASSWORD` passes the name only, so Docker forwards the value from the task environment that
-/// `[env] _.file` loaded; the settings before it carry their values.
-fn openobserve_run_body() -> String {
+/// The image, the container name and the settings are lifted into shell variables rather than folded with
+/// continuations: inlining them would put the `docker run` past the editorconfig line length, and a wrapped copy is
+/// what once silently dropped `-it`. `-e ZO_ROOT_USER_PASSWORD` passes the name only, so Docker forwards the value
+/// from the task environment that `[env] _.file` loaded; the settings before it carry their values.
+fn openobserve_run_body(cluster_name: &str) -> String {
     let collector_flags = COLLECTOR_SETTINGS
         .iter()
         .map(|(name, value)| format!("-e {name}={value}"))
@@ -211,12 +231,14 @@ fn openobserve_run_body() -> String {
     format!(
         concat!(
             "image=openobserve/openobserve:v0.91.5\n",
-            "settings=\"{}\"\n",
+            "container={container}\n",
+            "settings=\"{flags}\"\n",
             "# $settings is a word-split flag list by design; do not quote it.\n",
-            "docker run --rm --name openobserve -p 127.0.0.1:5080:5080 $settings ",
+            "docker run --rm --name \"$container\" -p 127.0.0.1:5080:5080 $settings ",
             "-e ZO_ROOT_USER_PASSWORD \"$image\"\n",
         ),
-        collector_flags
+        container = collector_container(cluster_name),
+        flags = collector_flags,
     )
 }
 

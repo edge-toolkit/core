@@ -20,15 +20,15 @@ mod input;
 mod module_package_json;
 mod scenario_password;
 
-// `pub` here means "reachable from the binary or from `tests/`", and nothing else. This crate is a command line tool
-// that happens to be split into a lib target so integration tests can drive it; the only consumer outside this
+// `pub` here means "reachable from the binary or from `tests/`", and nothing else. This crate is a command line
+// tool that happens to be split into a lib target so integration tests can drive it; the only consumer outside this
 // directory is et-int-gen, which reads the `cli` tree to write HELP.md, and nothing exported is a promise. Everything
-// the generators share among themselves is `pub(crate)`, so
-// what remains below is the whole of the surface anyone could depend on -- short enough to read, which is what makes an
-// accidental addition to it visible.
+// the generators share among themselves is `pub(crate)`, so what remains below is the whole of the surface anyone could
+// depend on -- short enough to read, which is what makes an accidental addition to it visible.
 pub use self::deployment_types::{ScenarioModules, docker_image_module_paths, scenario_module_paths};
 pub(crate) use self::deployment_types::{
-    generate_docker_compose_deployment, generate_k3s_deployment, generate_mise_deployment, generate_scenario_image,
+    generate_dekit_deployment, generate_docker_compose_deployment, generate_k3s_deployment, generate_mise_deployment,
+    generate_scenario_image,
 };
 pub use self::error::CliError;
 pub(crate) use self::hub_ws_url::HUB_SERVICE;
@@ -41,9 +41,14 @@ pub use self::input::{
 pub use self::module_package_json::generate_module_package_json;
 pub(crate) use self::scenario_password::{scenario_password, scenario_seed};
 
+/// The files a deployment of `output_types` writes, in the order the README lists them.
 fn generated_output_files(output_types: &[OutputType]) -> Vec<&'static str> {
     let mut files = Vec::new();
     for output_type in output_types {
+        // `dekit.yaml` runs the tasks of `mise.toml`, which is written with it whether or not it was asked for.
+        if matches!(output_type, OutputType::Dekit) && !output_types.contains(&OutputType::Mise) {
+            files.push(OutputType::Mise.output_file_name());
+        }
         files.push(output_type.output_file_name());
     }
     files
@@ -286,6 +291,9 @@ pub(crate) fn load_cluster_input(input_file: &Path) -> Result<(ClusterInput, u64
 /// A namespace is an RFC 1123 label, which the API server caps at 63 characters.
 const CLUSTER_NAME_MAX: usize = 60;
 
+/// Longest runner name, which names a Kubernetes `Deployment` as it is: an RFC 1123 label's 63 characters.
+const RUNNER_NAME_MAX: usize = 63;
+
 /// Reject a `cluster_name` that is not an RFC 1123 label.
 ///
 /// The name reaches three renderers that each read it as trusted text: it is interpolated into generated comments,
@@ -298,28 +306,36 @@ const CLUSTER_NAME_MAX: usize = 60;
 /// nothing to escape anywhere, and it turns a name the API server would have rejected at `kubectl apply` into an error
 /// at generation time.
 fn validate_cluster_name(name: &str) -> Result<(), CliError> {
-    let invalid = |reason: &str| {
-        Err(CliError::InvalidClusterName {
-            name: name.to_owned(),
-            reason: reason.to_owned(),
-        })
-    };
-    if name.is_empty() {
-        return invalid("it is empty");
-    }
-    if name.len() > CLUSTER_NAME_MAX {
-        return invalid(&format!("it is longer than {CLUSTER_NAME_MAX} characters"));
-    }
-    if let Some(bad) = name
+    rfc1123_label(name, CLUSTER_NAME_MAX, |reason| CliError::InvalidClusterName {
+        name: name.to_owned(),
+        reason,
+    })
+}
+
+/// Check `name` is an RFC 1123 label no longer than `max`, building the error from the reason it is not.
+///
+/// Lowercase alphanumerics and `-`, starting and ending alphanumeric: the alphabet Kubernetes demands of an object
+/// name, and narrow enough that nothing a generated file interpolates it into needs to escape it. The caller supplies
+/// `invalid` because the same rule guards different names, and each reports which one it was.
+fn rfc1123_label<F>(name: &str, max: usize, invalid: F) -> Result<(), CliError>
+where
+    F: FnOnce(String) -> CliError,
+{
+    let reason = if name.is_empty() {
+        "it is empty".to_owned()
+    } else if name.len() > max {
+        format!("it is longer than {max} characters")
+    } else if let Some(bad) = name
         .chars()
         .find(|found| !(found.is_ascii_lowercase() || found.is_ascii_digit() || *found == '-'))
     {
-        return invalid(&format!("it contains {bad:?}"));
-    }
-    if name.starts_with('-') || name.ends_with('-') {
-        return invalid("it starts or ends with '-'");
-    }
-    Ok(())
+        format!("it contains {bad:?}")
+    } else if name.starts_with('-') || name.ends_with('-') {
+        "it starts or ends with '-'".to_owned()
+    } else {
+        return Ok(());
+    };
+    Err(invalid(reason))
 }
 
 pub fn regenerate_verification(
@@ -366,6 +382,7 @@ const fn deployment_summary(
     }
 }
 
+/// Write every file a deployment of `output_types` needs into `output_dir`, with its credential and README.
 fn generate_deployment_outputs(
     cluster: &ClusterInput,
     output_dir: &Path,
@@ -395,6 +412,12 @@ fn generate_deployment_outputs(
             OutputType::K3s => {
                 generate_k3s_deployment(cluster, output_dir)?;
                 generate_scenario_image(cluster, output_dir)?;
+            }
+            // Every task it starts is a task of `mise.toml`, so that is written here too; generating `dekit.yaml` alone
+            // would hand `dekit up` tasks that each run a file that does not exist.
+            OutputType::Dekit => {
+                generate_mise_deployment(cluster, output_dir)?;
+                generate_dekit_deployment(cluster, output_dir)?;
             }
         }
     }
@@ -558,6 +581,7 @@ fn discover_verification_scenarios(verification_root: &Path) -> Result<Vec<(Path
     Ok(scenarios)
 }
 
+/// Render the README a deployment directory carries: what it holds, then how to run each format it was written in.
 fn generated_readme(
     cluster: &ClusterInput,
     module_names: &[String],
@@ -616,6 +640,15 @@ fn generated_readme(
         })
         .collect::<Vec<_>>()
         .join("\n");
+    // Both ways of running the tasks need what they name installed first, so the step comes once, ahead of either.
+    let runs_mise_tasks = output_types
+        .iter()
+        .any(|output_type| matches!(output_type, OutputType::Mise | OutputType::Dekit));
+    let install_note = if runs_mise_tasks {
+        mise_install_note(cluster.artifact_source)
+    } else {
+        ""
+    };
 
     format!(
         concat!(
@@ -624,10 +657,12 @@ fn generated_readme(
             "{module_summary}\n\n",
             "{artifact_note}",
             "{secrets_note}\n\n",
+            "{install_note}",
             "{run_instructions}",
         ),
         name = cluster.cluster_name,
         artifact_note = artifact_source_note(cluster.artifact_source),
+        install_note = install_note,
         output_summary = output_summary,
         module_summary = module_summary,
         secrets_note = secrets_note(),
@@ -703,7 +738,8 @@ fn runner_kinds(cluster: &ClusterInput) -> Vec<String> {
 const fn mise_install_note(artifacts: ArtifactSource) -> &'static str {
     if matches!(artifacts, ArtifactSource::Published) {
         return concat!(
-            "Fetch the binaries and module packages the tasks below name before the first run.\n",
+            "## Install\n\n",
+            "Fetch the binaries and module packages the `mise.toml` tasks name before the first run.\n",
             "`GITHUB_TOKEN` has to be set: GitHub Packages rejects an unauthenticated read even for a public\n",
             "package. The registry configuration is exported rather than relied on from `mise.toml`, because\n",
             "mise does not apply its own `[env]` to the resolution this command performs:\n\n",
@@ -715,6 +751,7 @@ const fn mise_install_note(artifacts: ArtifactSource) -> &'static str {
     ""
 }
 
+/// Render the README section that runs one deployment format.
 fn generated_run_instructions(
     output_type: OutputType,
     cluster_name: &str,
@@ -724,23 +761,39 @@ fn generated_run_instructions(
     build_contexts: &str,
 ) -> String {
     match output_type {
-        OutputType::Mise => format!(
-            concat!(
-                "## Run With Mise\n\n",
-                "{install}",
-                "From this directory, start the scenario with:\n\n",
-                "```bash\n",
-                "mise run generated-scenario\n",
-                "```\n\n",
-                "That task starts both OpenObserve and `ws-server` for this scenario.\n\n",
-                "### Open The OpenObserve UI\n\n",
-                "From this directory, open the OpenObserve UI with:\n\n",
-                "```bash\n",
-                "mise run open-o2\n",
-                "```\n"
-            ),
-            install = mise_install_note(artifacts)
-        ),
+        OutputType::Mise => concat!(
+            "## Run With Mise\n\n",
+            "From this directory, start the scenario with:\n\n",
+            "```bash\n",
+            "mise run generated-scenario\n",
+            "```\n\n",
+            "That task starts both OpenObserve and `ws-server` for this scenario.\n\n",
+            "### Open The OpenObserve UI\n\n",
+            "From this directory, open the OpenObserve UI with:\n\n",
+            "```bash\n",
+            "mise run open-o2\n",
+            "```\n"
+        )
+        .to_string(),
+        OutputType::Dekit => concat!(
+            "## Run With dekit\n\n",
+            "From this directory, start the scenario and watch each process in its own pane with:\n\n",
+            "```bash\n",
+            "dekit up\n",
+            "dekit attach\n",
+            "```\n\n",
+            "Each task runs one task of `mise.toml`, so these are the processes `mise run generated-scenario`\n",
+            "starts, but in order: `ws-server` waits for OpenObserve to report healthy, and every runner\n",
+            "waits for `ws-server`. The tasks keep running after the terminal closes; stop them with:\n\n",
+            "```bash\n",
+            "dekit down\n",
+            "```\n\n",
+            "Open the OpenObserve UI, once it is up, with:\n\n",
+            "```bash\n",
+            "dekit start open-o2\n",
+            "```\n"
+        )
+        .to_string(),
         OutputType::DockerCompose => format!(
             concat!(
                 "## Run With Docker Compose\n\n",
@@ -1321,6 +1374,7 @@ fn resolve_module_entries<'registry>(
     Ok(entries)
 }
 
+/// Resolve `module_names` and their dependencies to the path each is served from, as `path_for` spells it, sorted.
 pub(crate) fn resolve_module_paths<F>(
     registry: &BTreeMap<String, ModuleRegistryEntry>,
     module_names: &[String],
@@ -1329,9 +1383,9 @@ pub(crate) fn resolve_module_paths<F>(
 where
     F: Fn(&ModuleRegistryEntry) -> String,
 {
-    // Sorted rather than left in resolution order, which is breadth-first from whichever modules the scenario names,
-    // so a dependency lands wherever it was first reached and moves whenever an unrelated module gains one. The hub
-    // serves modules by name, so the order carries nothing, and sorted it stays put in a committed deployment.
+    // Sorted rather than left in resolution order, which is breadth-first from whichever modules the scenario names, so
+    // a dependency lands wherever it was first reached and moves whenever an unrelated module gains one. The hub serves
+    // modules by name, so the order carries nothing, and sorted it stays put in a committed deployment.
     let mut paths: Vec<String> = resolve_cluster_modules(registry, module_names)?
         .iter()
         .map(path_for)
@@ -1452,9 +1506,9 @@ pub(crate) const SUPPORTED_RUNNERS: [(&str, &str); 3] = [
 pub(crate) const RESERVED_RUNNER_NAMES: [&str; 6] = [
     "generated-scenario",
     "o2",
-    "open-o2",
-    "openobserve",
-    "ws-server",
+    deployment_types::OPENER_TASK,
+    deployment_types::COLLECTOR_TASK,
+    deployment_types::HUB_TASK,
     "ws-server-hub",
 ];
 
@@ -1555,6 +1609,13 @@ fn runner_name(
     } else {
         agent_name.to_string()
     };
+    // The name becomes a mise task, a `mise run` argument, a compose service and Kubernetes object names, so it is held
+    // to the alphabet all of them accept: a name such as `--help` would otherwise reach `mise run` as a flag.
+    rfc1123_label(&name, RUNNER_NAME_MAX, |reason| CliError::InvalidRunnerName {
+        agent: agent_name.to_string(),
+        name: name.clone(),
+        reason,
+    })?;
     if RESERVED_RUNNER_NAMES.contains(&name.as_str()) {
         return Err(CliError::ReservedRunnerName {
             agent: agent_name.to_string(),

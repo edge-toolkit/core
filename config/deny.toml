@@ -46,21 +46,6 @@ ignore = [
   # When the expiry below lapses the answer is one of two things: deno_tls has relaxed the pin, so drop this
   # entry; or it has not, so carry a fork of deno_tls rather than extend the date again.
   { id = "RUSTSEC-2026-0285", reason = "expires 2026-10-15" },
-  # wasmtime / wasmtime-wasi 47.0.4 -- three guest-to-host advisories, all fixed in 48.0.3 and absent from 47.
-  # Pulled by et-ws-wasi-runner. No bump reaches the fix: wasi-webgpu-wasmtime 0.2.0, its newest release,
-  # requires `wasmtime ^47` and `wasmtime-wasi ^47`, and the runner is published, so a git dependency on
-  # upstream's unreleased 0.3.0 (already on wasmtime 48) cannot stand in. Real vulnerabilities, so time-boxed:
-  # - 0314, a guest panicking the host through a filesystem datetime overflow. Unreachable in a release build,
-  #   whose WasiCtx grants stdio and env only; the one preopen, /cov, compiles in only under `coverage`.
-  # - 0315, fuel accounting lost across `call_ref` and exception `catch`. The runner configures no fuel, so
-  #   there is no limit for a guest to escape.
-  # - 0316, dynamic record lifting allocating past the hostcall fuel limit. That default cap does apply, so a
-  #   hostile guest can make the host over-allocate; the guests are the modules our own ws-server serves.
-  # When the expiry lapses, wasi-webgpu-wasmtime 0.3.0 is either published, so move to wasmtime 48.0.3 and drop
-  # these, or it is not, and the question is whether the runner can live without wasi:webgpu until it is.
-  { id = "RUSTSEC-2026-0314", reason = "expires 2026-10-15" },
-  { id = "RUSTSEC-2026-0315", reason = "expires 2026-10-15" },
-  { id = "RUSTSEC-2026-0316", reason = "expires 2026-10-15" },
   # smartstring 1.0.1 (unmaintained; repo archived 2026-05-03).
   # Pulled only by the swc stack (swc_ecma_lexer/parser 26/27) under deno_ast -> deno_runtime. Maintenance
   # notice, not a vulnerability. Upstream swc migrated to compact_str at swc_ecma_lexer 41.0.0 and

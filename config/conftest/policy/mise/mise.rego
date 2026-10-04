@@ -242,7 +242,6 @@ allowed_os_scoped_tool := {
 	# http:et-rp is os-scoped to only those platforms whose tarball is already in the rp-v<N> release.
 	# Add a platform by dispatching the upstream-cache.yaml workflow on that host.
 	"http:et-rp",
-	"conda:gnupg",
 	# cargo:cargo-expand: gnullvm source-build fails, so os-scoped off Windows (msvc override in config.windows.toml).
 	"cargo:cargo-expand",
 	# cargo:dart-typegen is os-scoped to non-Windows because the gnullvm rust host fails on Windows source-builds.
@@ -251,9 +250,6 @@ allowed_os_scoped_tool := {
 	"cargo:dart-typegen",
 	# cargo:wasm-opt: gnullvm source-build fails, so os-scoped off Windows (msvc override in config.windows.toml).
 	"cargo:wasm-opt",
-	# winlibs mingw-w64 GCC: the toolchain for the x86_64-pc-windows-gnu target (config.mingw.toml).
-	# Upstream ships Windows-only zips, and the env that installs it is itself Windows-only.
-	"github:brechtsanders/winlibs_mingw",
 	# github:mstorsjo/llvm-mingw: its clang-tidy analyzes the Windows-only mingw-shim C.
 	# config.zig.toml os-scopes it to linux/macos (the check hosts that lack it); on Windows config.windows.toml's
 	# own llvm-mingw is reused via auto_env.

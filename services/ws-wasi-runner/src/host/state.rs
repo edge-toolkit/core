@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use tokio::sync::Mutex;
 use wasmtime::component::ResourceTable;
-// DirPerms/FilePerms are only used by the coverage `/cov` preopen below.
+// FsPerms is only used by the coverage `/cov` preopen below.
 #[cfg(feature = "coverage")]
-use wasmtime_wasi::{DirPerms, FilePerms};
+use wasmtime_wasi::FsPerms;
 use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 
 use super::wasi_nn;
@@ -33,9 +33,16 @@ pub struct HostState {
     /// One per store, created eagerly: adapter enumeration is what the guest's first call needs, and
     /// `wasi-webgpu-wasmtime` borrows this handle rather than owning it.
     pub wgpu_instance: Arc<wgpu_core::global::Global>,
+
+    /// Options `wasi-webgpu-wasmtime` applies to every device the guest requests, borrowed like the instance.
+    /// Upstream's defaults, so a device gets wgpu's own default memory hints.
+    pub wgpu_options: wasi_webgpu_wasmtime::WasiWebGpuOptions,
 }
 
 impl HostState {
+    /// The state one guest store runs with: a WASI context, the REST client and the `wasi:nn`/`wasi:webgpu` hosts.
+    ///
+    /// `coverage` maps `/cov` for an instrumented guest's profile, and is honoured only in a `coverage` build.
     #[must_use]
     #[cfg_attr(
         not(feature = "coverage"),
@@ -67,9 +74,7 @@ impl HostState {
             {
                 let cov_dir = edge_toolkit::config::get_project_root().join("target/wasi-cov");
                 fs_err::create_dir_all(&cov_dir).unwrap();
-                builder
-                    .preopened_dir(&cov_dir, "/cov", DirPerms::all(), FilePerms::all())
-                    .unwrap();
+                builder.preopened_dir(&cov_dir, "/cov", FsPerms::ReadWrite).unwrap();
             }
         }
         let wasi_ctx = builder.build();
@@ -93,6 +98,7 @@ impl HostState {
                 },
                 None,
             )),
+            wgpu_options: wasi_webgpu_wasmtime::WasiWebGpuOptions::default(),
         }
     }
 }
@@ -101,6 +107,7 @@ impl wasi_webgpu_wasmtime::WasiWebGpuCtxView for HostState {
     fn webgpu_ctx(&mut self) -> wasi_webgpu_wasmtime::WasiWebGpuCtx<'_> {
         wasi_webgpu_wasmtime::WasiWebGpuCtx {
             instance: &self.wgpu_instance,
+            options: &self.wgpu_options,
             table: &mut self.resource_table,
         }
     }
