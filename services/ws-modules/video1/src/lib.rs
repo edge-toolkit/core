@@ -1,8 +1,4 @@
-#![expect(
-    clippy::future_not_send,
-    clippy::single_call_fn,
-    reason = "browser WASM module: JsFuture is !Send; module-local helpers like wait_for_* are single-use by design"
-)]
+#![expect(clippy::future_not_send, reason = "browser WASM module: JsFuture is !Send")]
 
 use std::cell::RefCell;
 

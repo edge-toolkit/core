@@ -1,0 +1,14 @@
+id: no-metadata-literal
+language: Rust
+severity: error
+message: |
+  The string literal `"metadata"` is forbidden: it is the argument that runs `cargo metadata`, which takes the
+  workspace lock and so stalls, or is stalled by, every other cargo command running at the same time. Read the
+  workspace from its manifests instead -- the root `Cargo.toml`'s `[workspace].members`, then each member's own
+  `Cargo.toml` -- as et-int-gen's HELP.md discovery does. A `"metadata"` meaning anything else (a Kubernetes
+  object's `metadata` key, say) takes a one-line `ast-grep-ignore` naming why.
+# Matches the literal's content, so `"metadata"` is caught wherever it appears.
+# That covers a `Command` argument, an array of arguments, and a constant one is later passed from.
+rule:
+  kind: string_content
+  regex: "^metadata$"

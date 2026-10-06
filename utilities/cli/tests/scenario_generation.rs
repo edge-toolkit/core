@@ -283,6 +283,10 @@ et-model-har-motion1 = "*"
 }
 
 #[test]
+#[expect(
+    clippy::cognitive_complexity,
+    reason = "one assertion per generated deployment file, checked in sequence"
+)]
 fn regenerate_verification_generates_all_deployment_types() {
     let (_test_root, verification_root, output_dir) = scenario_tree(
         r#"cluster_name: "manifest-cluster"
@@ -736,6 +740,8 @@ fn regenerate_verification_emits_one_k3s_document_per_component() {
 
     // Every namespaced object names the scenario's namespace, so `kubectl apply` needs no `-n`.
     for document in documents.iter().skip(1) {
+        // The Kubernetes object's own `metadata` key, not the cargo subcommand the rule exists to keep out.
+        // ast-grep-ignore: no-metadata-literal
         let namespace = document.get("metadata").and_then(|meta| meta.get("namespace"));
         assert_eq!(
             namespace.and_then(serde_yaml::Value::as_str),

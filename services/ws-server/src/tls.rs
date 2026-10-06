@@ -19,6 +19,7 @@ pub fn load_tls_certs(cert_filename: &Path, key_filename: &Path) -> CertKeyPair 
     (cert_der, key_der)
 }
 
+#[cfg(feature = "tls-self-signed")]
 #[must_use]
 pub fn generate_tls_certs(cert_filename: &Path, key_filename: &Path) -> CertKeyPair {
     let certified = rcgen::generate_simple_self_signed(vec![

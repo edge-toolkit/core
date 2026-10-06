@@ -56,6 +56,45 @@ pub(crate) fn collector_container(cluster_name: &str) -> String {
 /// Version every `cargo:` tool the generated deployment declares is requested at.
 const LATEST: &str = "latest";
 
+/// The task that runs one runner agent, from the checkout root for a local scenario.
+#[expect(clippy::single_call_fn, reason = "the per-runner step of generate_mise_deployment")]
+fn runner_task(runner: &RunnerInstance, workspace_rel: &str, artifacts: ArtifactSource) -> Table {
+    mise_task(
+        None,
+        Some(&format!("Run {} in the {} runner", runner.module, runner.runner)),
+        workspace_dir(workspace_rel, artifacts),
+        Some(&runner_run_body(runner, artifacts)),
+        None,
+        Some(runner_env(runner)),
+    )
+}
+
+/// Add the tasks a person runs: `generated-scenario`, which starts every role together, and the UI opener.
+#[expect(clippy::single_call_fn, reason = "the entry-point step of generate_mise_deployment")]
+fn insert_entry_tasks(tasks: &mut Table, cluster_name: &str, runners: &[RunnerInstance]) {
+    let mut scenario_depends = vec![COLLECTOR_TASK.to_string(), HUB_TASK.to_string()];
+    scenario_depends.extend(runners.iter().map(|runner| runner.name.clone()));
+    let description = format!("Run generated scenario for {cluster_name}");
+    let scenario = mise_task(
+        None,
+        Some(&description),
+        None,
+        None,
+        Some(mise_depends(&scenario_depends)),
+        None,
+    );
+    let _previous: Option<Value> = tasks.insert("generated-scenario".to_string(), Value::Table(scenario));
+    let opener = mise_task(
+        None,
+        Some("Open the OpenObserve UI"),
+        None,
+        Some("open http://localhost:5080/"),
+        None,
+        None,
+    );
+    let _previous: Option<Value> = tasks.insert(OPENER_TASK.to_string(), Value::Table(opener));
+}
+
 /// Write the `mise.toml` that runs the scenario: the collector, the hub and one task per runner.
 ///
 /// A published scenario also gets the npm config its module packages resolve against.
@@ -111,43 +150,11 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
         cluster,
     )?;
     for runner in &runners {
-        let _previous: Option<Value> = tasks.insert(
-            runner.name.clone(),
-            Value::Table(mise_task(
-                None,
-                Some(&format!("Run {} in the {} runner", runner.module, runner.runner)),
-                workspace_dir(&workspace_rel, artifacts),
-                Some(&runner_run_body(runner, artifacts)),
-                None,
-                Some(runner_env(runner)),
-            )),
-        );
+        let task = runner_task(runner, &workspace_rel, artifacts);
+        let _previous: Option<Value> = tasks.insert(runner.name.clone(), Value::Table(task));
     }
 
-    let mut scenario_depends = vec![COLLECTOR_TASK.to_string(), HUB_TASK.to_string()];
-    scenario_depends.extend(runners.iter().map(|runner| runner.name.clone()));
-    let _previous: Option<Value> = tasks.insert(
-        "generated-scenario".to_string(),
-        Value::Table(mise_task(
-            None,
-            Some(&format!("Run generated scenario for {}", cluster.cluster_name)),
-            None,
-            None,
-            Some(mise_depends(&scenario_depends)),
-            None,
-        )),
-    );
-    let _previous: Option<Value> = tasks.insert(
-        OPENER_TASK.to_string(),
-        Value::Table(mise_task(
-            None,
-            Some("Open the OpenObserve UI"),
-            None,
-            Some("open http://localhost:5080/"),
-            None,
-            None,
-        )),
-    );
+    insert_entry_tasks(&mut tasks, &cluster.cluster_name, &runners);
 
     let _previous: Option<Value> = root.insert("env".to_string(), Value::Table(mise_env(artifacts)));
     let _previous: Option<Value> = root.insert("tasks".to_string(), Value::Table(tasks));

@@ -17,24 +17,22 @@
 //! errors -- and matches the gate every guest already carries.
 
 #![cfg(target_os = "wasi")]
-
-wit_bindgen::generate!({
-    // ET_WIT_DIR is the absolute path to generated/specs/wit, emitted by build.rs.
-    path: env!("ET_WIT_DIR"),
-    world: "module",
-    generate_all,
-    // Let a guest crate invoke the generated `export!` and have the expansion resolve its type paths back here
-    // rather than in the guest, which is what makes one binding tree serve every guest.
-    pub_export_macro: true,
-    default_bindings_module: "et_wasi_guest",
-});
+#![cfg_attr(feature = "docs", doc = "## Feature flags")]
+#![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 
 use std::sync::OnceLock;
 
-use et::ws_wasi::ws::WsError;
-use exports::et::ws_wasi::entry::EntryError;
-use wasi::keyvalue::store;
-use wasi::logging::logging::{self, Level};
+pub mod bindings;
+#[cfg(feature = "coverage")]
+mod coverage;
+
+use self::bindings::et::ws_wasi::ws::WsError;
+use self::bindings::exports::et::ws_wasi::entry::EntryError;
+use self::bindings::wasi::keyvalue::store;
+use self::bindings::wasi::logging::logging::{self, Level};
+pub use self::bindings::{et, export, exports, wasi};
+#[cfg(feature = "coverage")]
+pub use self::coverage::dump_coverage;
 
 /// How many times [`wait_for_agent_id`] polls before giving up.
 const AGENT_ID_POLLS: u32 = 100;
@@ -93,8 +91,8 @@ pub fn start(context: &str) -> Result<String, EntryError> {
 /// Block the guest for `ms` milliseconds.
 ///
 /// A WASI guest has no thread to sleep, so this subscribes to the monotonic clock and blocks on the pollable.
-pub fn sleep_ms(ms: u64) {
-    let pollable = wasi::clocks::monotonic_clock::subscribe_duration(ms * NANOS_PER_MILLI);
+pub fn sleep_ms(millis: u64) {
+    let pollable = wasi::clocks::monotonic_clock::subscribe_duration(millis.saturating_mul(NANOS_PER_MILLI));
     let _ready = wasi::io::poll::poll(&[&pollable]);
 }
 
@@ -113,9 +111,3 @@ pub fn wait_for_agent_id() -> Option<String> {
     }
     None
 }
-
-#[cfg(feature = "coverage")]
-mod coverage;
-
-#[cfg(feature = "coverage")]
-pub use self::coverage::dump_coverage;

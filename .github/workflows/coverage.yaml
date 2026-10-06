@@ -202,6 +202,13 @@ jobs:
       #
       # Every upload names its language and lane in `flags`, so Codecov can report each on its own. The two
       # DeepSource uploads carry `runner.os == 'Linux'`, for the one-report-per-key reason given on the job.
+      #
+      # The Codecov uploads set `fail_ci_if_error: false` only while Codecov's own hosts refuse TLS handshakes.
+      # That outage is https://github.com/codecov/codecov-action/issues/1975, open since 2026-10-05: the uploader
+      # cannot even be downloaded, failing with
+      #   curl: (35) OpenSSL/3.0.13: error:0A000410:SSL routines::sslv3 alert handshake failure
+      # on every upload at https://github.com/edge-toolkit/core/actions/runs/37251998843/job/111581371170, so the
+      # lane went red with every test passing. Set all five back to `true` once that issue is resolved.
       - name: Upload Rust coverage to Codecov (OIDC)
         if: ${{ !cancelled() && hashFiles('lcov.info') != '' }}
         uses: codecov/codecov-action@v7
@@ -209,7 +216,7 @@ jobs:
           use_oidc: true
           files: lcov.info
           flags: rust,${{ matrix.os_flag }}
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
       - name: Upload Python coverage to Codecov (OIDC)
         if: ${{ !cancelled() && hashFiles('coverage-python.xml') != '' }}
@@ -218,7 +225,7 @@ jobs:
           use_oidc: true
           files: coverage-python.xml
           flags: python,${{ matrix.os_flag }}
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
       - name: Upload Rust coverage to DeepSource (OIDC)
         if: ${{ !cancelled() && runner.os == 'Linux' && hashFiles('lcov.info') != '' }}
@@ -240,7 +247,7 @@ jobs:
           report_type: test_results
           files: target/nextest/ci-unit/junit-unit.xml
           flags: rust,${{ matrix.os_flag }},unit
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
       - name: Upload Rust integration test results to Codecov (OIDC)
         if: ${{ !cancelled() && hashFiles('target/nextest/ci-integration/junit-integration.xml') != '' }}
@@ -250,7 +257,7 @@ jobs:
           report_type: test_results
           files: target/nextest/ci-integration/junit-integration.xml
           flags: rust,${{ matrix.os_flag }},integration
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
       - name: Upload Python test results to Codecov (OIDC)
         if: ${{ !cancelled() && hashFiles('target/pycov/junit-*.xml') != '' }}
@@ -262,7 +269,7 @@ jobs:
           directory: target/pycov
           # pytest exercises each module's own code in process, with nothing spawned or served.
           flags: python,${{ matrix.os_flag }},unit
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
       # Only a fully green main run republishes the README's test-count badge.
       # Deliberately unguarded, unlike the uploads above: a failed run can stop partway through the pytest modules

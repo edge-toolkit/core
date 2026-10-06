@@ -24,7 +24,11 @@ fn served(module: &str) -> String {
 #[rstest]
 #[case::wasi_comm1("et-ws-wasi-comm1", Language::Rust)]
 #[case::wasi_data1("et-ws-wasi-data1", Language::Rust)]
-#[case::wasi_graphics_info("et-ws-wasi-graphics-info", Language::Python)]
+// The only guest that imports `wasi:nn` and `wasi:webgpu`, so it cannot instantiate in a build hosting neither.
+#[cfg_attr(
+    all(feature = "nn", feature = "webgpu"),
+    case::wasi_graphics_info("et-ws-wasi-graphics-info", Language::Python)
+)]
 #[cfg_attr(windows, ignore = "pkg/package.json 404 on Windows -- see comment above")]
 fn module_runs_successfully(#[case] module: &str, #[case] language: Language) {
     if !mise_env_includes(language) {

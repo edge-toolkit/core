@@ -28,7 +28,9 @@ use actix_web::{HttpRequest, HttpResponse, HttpResponseBuilder, web};
 use edge_toolkit::ws_server::AgentRegistry;
 use futures_util::StreamExt as _;
 use object_store::{ObjectStore, ObjectStoreExt as _, PutPayload};
-use tracing::{info, warn};
+use tracing::info;
+#[cfg(feature = "tty-image")]
+use tracing::warn;
 
 use crate::StorageError;
 
@@ -134,23 +136,32 @@ where
     while let Some(chunk) = payload.next().await {
         body.extend_from_slice(&chunk?);
     }
-    let bytes_written = body.len();
 
     let path = object_path(&agent_id, &filename);
     info!("Agent {} storing file: {}", agent_id, path);
     let put_result = store.put(&path, PutPayload::from(body.clone())).await?;
-
-    // This handler is the only path a file reaches storage through, so it is where every stored file can be
-    // watched exactly once with an accurate byte count and zero extra I/O -- a separate filesystem watcher
-    // would duplicate that work, risk observing a write mid-flight, and could not see a remote backend at all.
     if is_image_filename(&filename) {
-        info!("Agent {} stored image {} ({} bytes)", agent_id, path, bytes_written);
-        show_image_on_tty(&body);
+        note_stored_image(&agent_id, &path, &body);
     }
 
     let mut response = HttpResponse::Ok();
     insert_etag(&mut response, put_result.e_tag.as_deref());
     Ok(response.finish())
+}
+
+/// Log a stored image, and show it on the terminal when the `tty-image` feature is on.
+///
+/// `put_file` is the only path a file reaches storage through, so it is where every stored file can be watched
+/// exactly once with an accurate byte count and zero extra I/O -- a separate filesystem watcher would duplicate
+/// that work, risk observing a write mid-flight, and could not see a remote backend at all.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the stored-image step of put_file, which carries the feature gate"
+)]
+fn note_stored_image(agent_id: &str, path: &object_store::path::Path, body: &[u8]) {
+    info!("Agent {} stored image {} ({} bytes)", agent_id, path, body.len());
+    #[cfg(feature = "tty-image")]
+    show_image_on_tty(body);
 }
 
 /// Render a thumbnail of the just-stored image bytes directly to stdout.
@@ -164,6 +175,7 @@ where
 ///
 /// Takes bytes rather than a path because the object may never exist on the local filesystem -- with a remote
 /// backend there is nothing to re-read.
+#[cfg(feature = "tty-image")]
 #[expect(
     clippy::single_call_fn,
     reason = "distinct step of put_file; kept separate for readability and testing"

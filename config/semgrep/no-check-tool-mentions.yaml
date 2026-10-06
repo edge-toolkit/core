@@ -64,6 +64,8 @@ rules:
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
         - "/libs/test-helpers/src/lib.rs" # Carries a suppression pragma, which only works spelled out.
+        - "/utilities/cli/tests/scenario_generation.rs" # Carries a suppression pragma, which only works spelled out.
+        - "/utilities/cli/tests/scenario_runners.rs" # Carries a suppression pragma, which only works spelled out.
     pattern-regex: "(?i)ast-grep"
     message: >-
       Do not name the structural search tool outside its own ruleset and the configs that scope it. Pointing at

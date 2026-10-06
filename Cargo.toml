@@ -56,21 +56,18 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-actix = "0.13"
 actix-files = "0.7"
 actix-rt = "2"
-actix-web = { version = "4", features = ["rustls-0_23"] }
+actix-web = "4"
 actix-web-thiserror = "0.2"
 actix-ws = "0.4"
 # Only ever named in an `error.rs` `#[from]` variant, which a repo-wide rule enforces.
 # Present because wit-parser and the wasmtime bindgen return `anyhow::Result`, and `?` cannot convert one
 # without a `From<anyhow::Error>` impl, which has to name the type.
 anyhow = "1"
-async-trait = "0.1"
 asyncapi-rust = "0.5"
 backon = { version = "1.6", default-features = false }
 base64 = "0.23"
-bytemuck = { version = "1.16", features = ["derive"] }
 bytes = "1"
 bytesize = { version = "2", features = ["serde"] }
 cc = "1"
@@ -87,6 +84,7 @@ deno_resolver = "0.85"
 # instead of panicking when no SnapshotOptions struct is in OpState -- without
 # baking our own startup snapshot we'd otherwise hit the panic on first run.
 deno_runtime = { version = "0.262", features = ["transpile", "hmr"] }
+document-features = "0.2"
 edge-toolkit = { path = "libs/edge-toolkit", version = "0.3.1" }
 et-cli = { path = "utilities/cli", version = "0.1.1" }
 et-modules-service = { path = "services/modules", version = "0.2.0" }
@@ -95,7 +93,7 @@ et-org = { path = "libs/org", version = "0.1.0" }
 et-otlp = { path = "libs/et-otlp", version = "0.2.0" }
 et-path = { path = "libs/path", version = "0.2.0" }
 et-rest-client = { path = "generated/rust-rest", version = "0.1.0", default-features = false }
-et-storage-service = { path = "services/storage", version = "0.1.1" }
+et-storage-service = { path = "services/storage", version = "0.1.1", default-features = false }
 et-test-helpers = { path = "libs/test-helpers", version = "0.1.0" }
 et-test-otlp = { path = "libs/test-otlp", version = "0.1.0" }
 et-wasi-guest = { path = "libs/wasi-guest", version = "0.1.0" }
@@ -108,7 +106,6 @@ et-ws-test-server = { path = "services/ws-test-server", version = "0.1.0" }
 et-ws-wasm-agent = { path = "services/ws-wasm-agent", version = "0.2.0" }
 fake = "5"
 fs-err = "3"
-futures-core = "0.3"
 futures-util = "0.3"
 heck = "0.5"
 hostname = "0.4"
@@ -175,7 +172,6 @@ opentelemetry-proto = { version = "0.32", default-features = false, features = [
 ] }
 opentelemetry_sdk = "0.32"
 ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dylibs"] }
-pollster = "1.0"
 port_check = "0.3"
 pretty_yaml = "0.6"
 prettyplease = "0.3"
@@ -210,11 +206,9 @@ semver = "1"
 serde = { version = "1.0", features = ["derive"] }
 serde-env = "0.3"
 serde-inline-default = "1.0"
-serde-wasm-bindgen = "0.6"
 serde_default = "0.2"
 serde_json = "1"
 serde_path_to_error = "0.1"
-serde_urlencoded = "0.7"
 serde_yaml = "0.9"
 sha2 = { version = "0.11", default-features = false }
 strum = { version = "0.28", features = ["derive"] }
@@ -222,18 +216,17 @@ syn = "3"
 sys_traits = { version = "0.1", features = ["libc", "real"] }
 temp-env = "0.3"
 tempfile = "3"
-testing_logger = "0.1"
 textwrap = { version = "0.16", default-features = false }
 thiserror = "2"
 tokio = "1"
 tokio-tungstenite = { version = "0.30", default-features = false }
 toml = "1.1"
-tracing = "0.1"
-tracing-actix-web = { version = "0.7", default-features = false, features = [
-  "emit_event_on_error",
-  "opentelemetry_0_32",
-  "uuid_v7",
-] }
+# `log` is stated so a package built alone expands the tracing macros as the whole workspace does.
+# actix-codec enables it, so every workspace build already unifies it on, but a crate outside the actix tree built
+# by itself (cargo-hack's per-package clippy, wasm-pack) otherwise expands them smaller, and its
+# `#[expect(clippy::cognitive_complexity)]` goes unfulfilled there while it is required in the workspace build.
+tracing = { version = "0.1", features = ["log"] }
+tracing-actix-web = { version = "0.7", default-features = false, features = ["emit_event_on_error", "uuid_v7"] }
 tracing-log = "0.2"
 tracing-opentelemetry = "0.33"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -293,6 +286,8 @@ unnameable_types = "allow"
 redundant_imports = "deny"
 redundant_lifetimes = "deny"
 trivial_numeric_casts = "deny"
+# Declares the wasm coverage tasks' RUSTFLAGS cfg, the one cfg cargo does not set itself.
+unexpected_cfgs = { level = "deny", check-cfg = ["cfg(wasm_bindgen_unstable_test_coverage)"] }
 # raises an error on unmet expect statements so they are easily found and fixed
 unfulfilled_lint_expectations = "deny"
 unsafe_attr_outside_unsafe = "deny"

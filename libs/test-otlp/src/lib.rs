@@ -30,6 +30,8 @@ use opentelemetry_proto::tonic::metrics::v1::{metric::Data, number_data_point};
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::trace::SdkTracerProvider;
 
+pub mod events;
+
 /// Emit one span named `span_name` under `service_name` to the OTLP/HTTP traces `endpoint`, then flush.
 ///
 /// `endpoint` is the exact URL to POST to (e.g. `http://host:4318/v1/traces`, or o2's

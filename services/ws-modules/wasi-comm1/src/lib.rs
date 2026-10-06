@@ -20,6 +20,8 @@
 // from the repo root produces an empty cdylib for the host target without
 // linker errors.
 #![cfg(target_os = "wasi")]
+#![cfg_attr(feature = "docs", doc = "## Feature flags")]
+#![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 
 use et_wasi_guest::et::ws_messages::messages::{BroadcastMessagePayload, ClientMessage, ServerMessage};
 use et_wasi_guest::et::ws_wasi::ws;
@@ -34,6 +36,10 @@ const LIST_AGENTS_TIMEOUT_MS: u32 = 2_000;
 struct Component;
 
 impl Guest for Component {
+    #[expect(
+        clippy::unused_async_trait_impl,
+        reason = "entry.run is an async export of the WIT world, so the generated trait fixes the signature"
+    )]
     async fn run() -> Result<(), EntryError> {
         let agent_id = start(LOG_CONTEXT)?;
         ws::send(&ClientMessage::ListAgents)?;
@@ -45,7 +51,7 @@ impl Guest for Component {
             response.agents.len()
         ));
 
-        let self_listed = response.agents.iter().any(|a| a.agent_id == agent_id);
+        let self_listed = response.agents.iter().any(|agent| agent.agent_id == agent_id);
         if !self_listed {
             return Err(EntryError::Runtime(format!(
                 "own agent_id {agent_id} missing from list-agents-response"
@@ -78,16 +84,18 @@ impl Guest for Component {
 /// Drain the recv inbox until we see a `list-agents-response`.
 /// Each `recv` call blocks for the remaining budget; keep going until either the budget is exhausted or we
 /// get the message we want.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the inbox-draining step of run, named for what it waits on"
+)]
 fn wait_for_list_agents_response(
     total_timeout_ms: u32,
 ) -> Option<et_wasi_guest::et::ws_messages::messages::ListAgentsResponsePayload> {
     let mut remaining = total_timeout_ms;
     while remaining > 0 {
         let chunk = remaining.min(200);
-        match ws::recv(chunk).ok()? {
-            Some(ServerMessage::ListAgentsResponse(payload)) => return Some(payload),
-            Some(_) => {}
-            None => {}
+        if let Some(ServerMessage::ListAgentsResponse(payload)) = ws::recv(chunk).ok()? {
+            return Some(payload);
         }
         remaining = remaining.saturating_sub(chunk);
     }

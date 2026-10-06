@@ -7,29 +7,49 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+# Dependencies only a macro expansion names, which cargo-shear's source scan cannot see.
+# actix-web-thiserror's `#[derive(ResponseError)]` expands to `log` and `serde_json` paths.
+[package.metadata.cargo-shear]
+ignored = ["log", "serde_json"]
+
 [lib]
 doctest = false
 
+[[test]]
+name = "tty_render"
+required-features = ["tty-image"]
+
 [features]
-# See ws-server's openapi-spec feature for the rationale.
+default = ["tty-image"]
+## Adds OpenAPI metadata to the `/storage` handlers for `et-int-gen` to harvest into the published spec.
 openapi-spec = ["dep:utoipa"]
+## Renders each stored image as a thumbnail on the server's terminal, e.g. what pic-viewer uploads.
+## Without it a stored image is still logged by name and size, and the `image` decoder stays out of the build.
+tty-image = ["dep:image"]
+## Internal: derives JSON Schema for `StorageConfig`, which et-int-gen renders into the hub's HELP.md.
+env-schema = ["dep:schemars"]
+## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
+docs = ["dep:document-features"]
 
 [dependencies]
-actix-files.workspace = true
 actix-web.workspace = true
 actix-web-thiserror.workspace = true
+document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
 fs-err.workspace = true
 futures-util.workspace = true
-image.workspace = true
+image = { workspace = true, optional = true }
 log.workspace = true
 object_store.workspace = true
+schemars = { workspace = true, optional = true }
 serde.workspace = true
-serde-inline-default.workspace = true
 serde_default.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["full"] }
 tracing.workspace = true
 url.workspace = true
 utoipa = { workspace = true, optional = true }

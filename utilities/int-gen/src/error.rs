@@ -42,7 +42,13 @@ pub enum Error {
     #[error("{0}")]
     DuplicateLinkLabel(String),
     #[error("{0}")]
+    UncheckedRepair(String),
+    #[error("{0}")]
     HelpStale(String),
+    #[error("{0}")]
+    HelpUndocumentable(String),
+    #[error("Cargo.toml malformed: {0}")]
+    ManifestMalformed(&'static str),
 
     #[error("WS message JSON Schema malformed: {0}")]
     SchemaMalformed(&'static str),

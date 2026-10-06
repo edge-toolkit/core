@@ -834,6 +834,43 @@ url = "https://github.com/cli/cli/releases/download/v2.102.0/gh_2.102.0_windows_
 url_api = "https://api.github.com/repos/cli/cli/releases/assets/599854760"
 provenance = "github-attestations"
 
+[[tools."github:Boshen/cargo-shear"]]
+version = "1.14.0"
+backend = "github:Boshen/cargo-shear"
+
+[tools."github:Boshen/cargo-shear".options]
+asset_pattern = '*-{{ x86_64_arch }}-*{{ os(linux="musl.t", macos="darwin.t", windows="msvc.z") }}*'
+
+[tools."github:Boshen/cargo-shear"."platforms.linux-arm64"]
+checksum = "sha256:d83f7c5b02c4c237d0454697c12df041df0bd83ffecc1aba46c6e06315fd47e1"
+url = "https://github.com/Boshen/cargo-shear/releases/download/v1.14.0/cargo-shear-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/Boshen/cargo-shear/releases/assets/580851819"
+provenance = "github-attestations"
+
+[tools."github:Boshen/cargo-shear"."platforms.linux-x64"]
+checksum = "sha256:9004df4eb031a456026c4326ae0d0ce545321527a67be90f4524c1be729dc40e"
+url = "https://github.com/Boshen/cargo-shear/releases/download/v1.14.0/cargo-shear-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/Boshen/cargo-shear/releases/assets/580851857"
+provenance = "github-attestations"
+
+[tools."github:Boshen/cargo-shear"."platforms.macos-arm64"]
+checksum = "sha256:e50b9375b1e93d2293c803819c118337f1e8fce519e4188a93bb0f5e08041ca3"
+url = "https://github.com/Boshen/cargo-shear/releases/download/v1.14.0/cargo-shear-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/Boshen/cargo-shear/releases/assets/580851820"
+provenance = "github-attestations"
+
+[tools."github:Boshen/cargo-shear"."platforms.macos-x64"]
+checksum = "sha256:ea0df899fecd1ae8116d588c97ebdeef8c1ed487ac7df2701ab39d05063a7930"
+url = "https://github.com/Boshen/cargo-shear/releases/download/v1.14.0/cargo-shear-x86_64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/Boshen/cargo-shear/releases/assets/580851834"
+provenance = "github-attestations"
+
+[tools."github:Boshen/cargo-shear"."platforms.windows-x64"]
+checksum = "sha256:1f81bdb905cb2cfbc95cb412ab4c1506136686b8d20b90b9ca1aa1ceded46760"
+url = "https://github.com/Boshen/cargo-shear/releases/download/v1.14.0/cargo-shear-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/Boshen/cargo-shear/releases/assets/580851837"
+provenance = "github-attestations"
+
 [[tools."github:benhoyt/goawk"]]
 version = "1.32.0"
 backend = "github:benhoyt/goawk"
@@ -1153,6 +1190,43 @@ checksum = "sha256:9eb6e86513f5dff7b9712ceb62ff2127b8dba057a61d9b600491572a27a2b
 url = "https://github.com/pvolok/dekit/releases/download/v0.10.0/dekit-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/pvolok/dekit/releases/assets/596466888"
 
+[[tools."github:taiki-e/cargo-hack"]]
+version = "0.6.45"
+backend = "github:taiki-e/cargo-hack"
+
+[tools."github:taiki-e/cargo-hack".options]
+asset_pattern = '*-{{ x86_64_arch }}-*{{ os(linux="musl.t", macos="darwin.t", windows="msvc.z") }}*'
+
+[tools."github:taiki-e/cargo-hack"."platforms.linux-arm64"]
+checksum = "sha256:9ac71756f1da6e8798ac5afbfd222abecb95de9c10e672ed52c179b637d6444b"
+url = "https://github.com/taiki-e/cargo-hack/releases/download/v0.6.45/cargo-hack-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/taiki-e/cargo-hack/releases/assets/433843102"
+provenance = "github-attestations"
+
+[tools."github:taiki-e/cargo-hack"."platforms.linux-x64"]
+checksum = "sha256:b242dffcfd43317ac484dd2dbc3b9fc5f8a7eb3ba252af31b531503f0bad33d1"
+url = "https://github.com/taiki-e/cargo-hack/releases/download/v0.6.45/cargo-hack-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/taiki-e/cargo-hack/releases/assets/433843120"
+provenance = "github-attestations"
+
+[tools."github:taiki-e/cargo-hack"."platforms.macos-arm64"]
+checksum = "sha256:af0ab90e56aa716ae9f545a93e4338d4f36525e187d367b6519da71b60249b50"
+url = "https://github.com/taiki-e/cargo-hack/releases/download/v0.6.45/cargo-hack-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/taiki-e/cargo-hack/releases/assets/433843066"
+provenance = "github-attestations"
+
+[tools."github:taiki-e/cargo-hack"."platforms.macos-x64"]
+checksum = "sha256:b1a65c2daaca37957a288a295cb25f5c3bf3f7945ec60b450ecdbb1159acbff4"
+url = "https://github.com/taiki-e/cargo-hack/releases/download/v0.6.45/cargo-hack-x86_64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/taiki-e/cargo-hack/releases/assets/433843009"
+provenance = "github-attestations"
+
+[tools."github:taiki-e/cargo-hack"."platforms.windows-x64"]
+checksum = "sha256:b05485f03c1620f6481c41c4b03d5f59ca62d5f64a07d79df9ee088a91721b6c"
+url = "https://github.com/taiki-e/cargo-hack/releases/download/v0.6.45/cargo-hack-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/taiki-e/cargo-hack/releases/assets/433843419"
+provenance = "github-attestations"
+
 [[tools."github:utkuozdemir/nvidia_gpu_exporter"]]
 version = "1.10.0"
 backend = "github:utkuozdemir/nvidia_gpu_exporter"
@@ -1409,18 +1483,18 @@ checksum = "sha256:6d97229c53cc0af09635bfd85b15169704ab9c07d5e23090252ac80746260
 url = "https://github.com/edge-toolkit/core/releases/download/augeas-v1/1.14.1-x86_64-pc-windows-mingw.tar.gz"
 
 [[tools."http:chromedriver"]]
-version = "152.0.7977.75"
+version = "154.0.8037.92"
 backend = "http:chromedriver"
 
 [tools."http:chromedriver"."platforms.linux-x64"]
-checksum = "blake3:8b39e7bc80d0aa31a7f0527fdba86721ecfdf7198bf88b9d4a83e5ad005915b4"
-url = "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.75/linux64/chromedriver-linux64.zip"
+url = "https://storage.googleapis.com/chrome-for-testing-public/154.0.8037.92/linux64/chromedriver-linux64.zip"
 
 [tools."http:chromedriver"."platforms.macos-arm64"]
-url = "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.75/mac-arm64/chromedriver-mac-arm64.zip"
+checksum = "blake3:91bfdc3272e909e36191ced647835b4f90415565b66246ff3ca930598f98fe25"
+url = "https://storage.googleapis.com/chrome-for-testing-public/154.0.8037.92/mac-arm64/chromedriver-mac-arm64.zip"
 
 [tools."http:chromedriver"."platforms.macos-x64"]
-url = "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.75/mac-x64/chromedriver-mac-x64.zip"
+url = "https://storage.googleapis.com/chrome-for-testing-public/154.0.8037.92/mac-x64/chromedriver-mac-x64.zip"
 
 [[tools."http:et-rp"]]
 version = "08a1d6f"

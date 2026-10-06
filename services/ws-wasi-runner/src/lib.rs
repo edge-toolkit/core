@@ -1,15 +1,9 @@
-//! Native runner that executes ws-modules compiled to WASI Preview 2 components.
-//!
-//! Counterpart to `et-ws-worker`: that crate runs browser-targeted WASM modules
-//! inside an embedded V8 (rustyscript). This crate runs WASI components inside
-//! `wasmtime`, with host imports for ws-server interaction (websocket, storage,
-//! logging, sleep) and a wgpu-backed trimmed `wasi:webgpu/webgpu` interface
-//! (subset of WebAssembly/wasi-gfx) for real GPU compute access.
-//!
-//! See `wit/world.wit` for the host/guest contract.
+#![cfg_attr(doc, doc = include_str!("../README.md"))]
+#![cfg_attr(feature = "docs", doc = "## Feature flags")]
+#![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 
 use et_ws_runner_common::{derive_http_base, fetch_main_field};
-use tracing::Instrument as _;
+use tracing::{Instrument as _, info, info_span};
 use wasmtime::component::{Component, HasSelf, Linker};
 use wasmtime::{Config, Engine, Store};
 
@@ -36,15 +30,16 @@ pub async fn run_module(
     connect_ack_timeout: Option<std::time::Duration>,
     coverage: bool,
 ) -> Result<(), RunnerError> {
-    let span = tracing::info_span!("run_module", module = module_name);
+    let span = info_span!("run_module", module = module_name);
     run_module_inner(module_name, ws_url, connect_ack_timeout, coverage)
         .instrument(span)
         .await
 }
 
 #[expect(
+    clippy::cognitive_complexity,
     clippy::single_call_fn,
-    reason = "span-instrumented body of run_module; the split is mandatory to scope the tracing span"
+    reason = "span-instrumented body of run_module, split to scope the span; its score is mostly info! expansion"
 )]
 async fn run_module_inner(
     module_name: &str,
@@ -56,9 +51,9 @@ async fn run_module_inner(
 
     let rest = et_rest_client::Client::new(&http_base);
     let main = fetch_main_field(&rest, module_name).await?;
-    tracing::info!(module = module_name, %main, "fetching WASI component");
+    info!(module = module_name, %main, "fetching WASI component");
     let wasm_bytes = et_ws_runner_common::fetch_module_file(&rest, module_name, &main)
-        .instrument(tracing::info_span!("fetch_component", module = module_name, file = %main))
+        .instrument(info_span!("fetch_component", module = module_name, file = %main))
         .await?;
 
     let mut config = Config::new();
@@ -80,7 +75,9 @@ async fn run_module_inner(
     let mut linker: Linker<HostState> = Linker::new(&engine);
     wasmtime_wasi::p2::add_to_linker_async(&mut linker)?;
     bindings::Runner::add_to_linker::<HostState, HasSelf<HostState>>(&mut linker, |state| state)?;
+    #[cfg(feature = "nn")]
     wasmtime_wasi_nn::wit::add_to_linker(&mut linker, host::wasi_nn::view)?;
+    #[cfg(feature = "webgpu")]
     wasi_webgpu_wasmtime::add_to_linker(&mut linker)?;
 
     let host_state = HostState::new(&http_base, ws_url.to_string(), connect_ack_timeout, coverage);

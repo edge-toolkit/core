@@ -7,6 +7,9 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.release]
+release = false
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 doctest = false
@@ -16,7 +19,6 @@ test = false
 edge-toolkit.workspace = true
 et-web.workspace = true
 et-ws-wasm-agent.workspace = true
-js-sys.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 tracing-wasm.workspace = true
@@ -34,6 +36,7 @@ web-sys = { workspace = true, features = [
 ] }
 
 [dev-dependencies]
+js-sys.workspace = true
 wasm-bindgen-test.workspace = true
 web-sys = { workspace = true, features = ["Blob", "ImageData", "Url"] }
 
@@ -44,6 +47,3 @@ fs-err.workspace = true
 
 [lints]
 workspace = true
-
-[package.metadata.release]
-release = false

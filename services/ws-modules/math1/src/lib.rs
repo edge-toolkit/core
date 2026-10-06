@@ -49,10 +49,14 @@ pub fn init() {
 
 /// Sample count as f64, accumulated additively to avoid an integer-to-float cast.
 fn sample_count(samples: &[(f64, f64)]) -> f64 {
-    samples.iter().fold(0.0_f64, |count, _| count + 1.0)
+    samples.iter().fold(0.0_f64, |count, _| count + 1.0_f64)
 }
 
 /// Runs the `FedAvg` simulation on `input` and returns the final global (weight, bias).
+#[expect(
+    clippy::suboptimal_flops,
+    reason = "mul_add rounds once where `a * b + c` rounds twice; the kernel must stay bit-identical to its twins"
+)]
 fn fed_avg(input: &Math1Input) -> (f64, f64) {
     let mut weight = 0.0_f64;
     let mut bias = 0.0_f64;
@@ -75,8 +79,8 @@ fn fed_avg(input: &Math1Input) -> (f64, f64) {
                     grad_weight += residual * feature;
                     grad_bias += residual;
                 }
-                client_weight -= input.learning_rate * (2.0 * grad_weight / count);
-                client_bias -= input.learning_rate * (2.0 * grad_bias / count);
+                client_weight -= input.learning_rate * (2.0_f64 * grad_weight / count);
+                client_bias -= input.learning_rate * (2.0_f64 * grad_bias / count);
             }
             merged_weight += client_weight * count;
             merged_bias += client_bias * count;
@@ -88,6 +92,10 @@ fn fed_avg(input: &Math1Input) -> (f64, f64) {
 }
 
 #[wasm_bindgen]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one module workflow: connect, fetch input, fit, store output, report"
+)]
 pub async fn run() -> Result<(), JsValue> {
     let msg = "math1: entered run()";
     log(msg);

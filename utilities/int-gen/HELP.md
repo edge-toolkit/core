@@ -16,12 +16,12 @@ Generate checked-in artifacts (generated/, CHECKS.md, HELP.md) from in-repo sour
 
 **Usage:** `et-int-gen [COMMAND]`
 
-###### **Subcommands:**
+### Subcommands
 
 - `generate` — Emit the generated artifacts for one target (default: all)
 - `fetch-deps` — Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions
 - `checks` — Write CHECKS.md, the catalogue of every check across every `MISE_ENV`
-- `help-md` — Write each utility's HELP.md from its clap command tree
+- `help-md` — Write each binary crate's HELP.md from its clap command tree and its environment config
 
 ## `et-int-gen generate`
 
@@ -29,7 +29,7 @@ Emit the generated artifacts for one target (default: all)
 
 **Usage:** `et-int-gen generate [TARGET]`
 
-###### **Arguments:**
+### Arguments
 
 - `<TARGET>` — Which artifacts to emit; defaults to `all`
 
@@ -59,23 +59,16 @@ Write CHECKS.md, the catalogue of every check across every `MISE_ENV`
 
 **Usage:** `et-int-gen checks [OPTIONS]`
 
-###### **Options:**
+### Options
 
 - `--check` — Compare against the committed CHECKS.md and fail on drift instead of writing it
 
 ## `et-int-gen help-md`
 
-Write each utility's HELP.md from its clap command tree
+Write each binary crate's HELP.md from its clap command tree and its environment config
 
 **Usage:** `et-int-gen help-md [OPTIONS]`
 
-###### **Options:**
+### Options
 
 - `--check` — Compare against the committed HELP.md files and fail on drift instead of writing them
-
-<hr/>
-
-<small><i>
-This document was generated automatically by
-<a href="https://crates.io/crates/clap-markdown"><code>clap-markdown</code></a>.
-</i></small>

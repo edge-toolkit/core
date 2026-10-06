@@ -1,0 +1,30 @@
+id: use-tracing-imports
+language: Rust
+severity: error
+message: |
+  Import what you use from `tracing` and call it by its bare name: `use tracing::{info, warn};` then `info!(...)`,
+  `use tracing::instrument;` then `#[instrument(...)]`. A `tracing::` path at the use site hides the dependency from
+  the file's imports, and mixing the two spellings in one crate makes the logging calls harder to find and change.
+# Matches the outermost `tracing::` path outside a `use` declaration: a macro call, an attribute, a function or a type.
+# A nested path such as the `tracing::subscriber` in `tracing::subscriber::set_global_default` is skipped so each use
+# is reported once, and `tracing_*` crates do not match because the path must be exactly `tracing`. Paths inside a
+# macro's token tree (code built with `quote!`) are tokens rather than paths, so generated code is not affected.
+# No autofix: the matching `use` has to be added at the top of the file, which a single rewrite cannot express.
+# The generated REST client is skipped: int-gen splices its tracing hook into progenitor's output with `quote!`,
+# which can emit the call but not a `use` at the top of the file it lands in.
+ignores:
+  - "generated/**"
+rule:
+  any:
+    - kind: scoped_identifier
+    - kind: scoped_type_identifier
+  regex: "^(::)?tracing::"
+  not:
+    any:
+      - inside:
+          kind: use_declaration
+          stopBy: end
+      - inside:
+          kind: scoped_identifier
+      - inside:
+          kind: scoped_type_identifier

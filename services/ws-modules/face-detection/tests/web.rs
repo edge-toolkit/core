@@ -1,6 +1,11 @@
 #![cfg(test)]
 #![cfg(target_arch = "wasm32")]
 #![cfg_attr(wasm_bindgen_unstable_test_coverage, feature(coverage_attribute))]
+#![expect(
+    clippy::future_not_send,
+    clippy::single_call_fn,
+    reason = "#[wasm_bindgen_test] calls each test once from its generated wrapper; browser futures are !Send"
+)]
 
 use et_ws_face_detection::{init, is_running, run, stop};
 use wasm_bindgen_test::*;

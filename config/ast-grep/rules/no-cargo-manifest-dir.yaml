@@ -16,5 +16,11 @@ rule:
     # so this one rule covers both the direct and the nested forms.
     - kind: macro_invocation
       regex: 'env!\s*\(\s*"CARGO_MANIFEST_DIR"'
+    # The same ban inside an attribute, whose arguments are a raw token tree.
+    # No `macro_invocation` node exists there, so these two match the attribute's text instead.
+    - kind: attribute_item
+      regex: 'env!\s*\(\s*"CARGO_MANIFEST_DIR"'
+    - kind: inner_attribute_item
+      regex: 'env!\s*\(\s*"CARGO_MANIFEST_DIR"'
 ignores:
   - libs/path/src/lib.rs

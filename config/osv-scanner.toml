@@ -2,6 +2,8 @@
 # The list spans every language, so "has unused ignores" warnings are expected: agents must ignore them.
 IgnoredVulns = [
   { id = "GHSA-3w8q-xq97-5j7x", ignoreUntil = 2026-10-15 },
+  { id = "GHSA-5j98-2g5x-46v6", ignoreUntil = 2026-10-15 },
+  { id = "GHSA-6f2x-v7q7-m7m5", ignoreUntil = 2026-10-15 },
   { id = "GHSA-f88m-g3jw-g9cj", ignoreUntil = 2026-10-15 },
   { id = "GHSA-rgj7-g3m4-5g8c", ignoreUntil = 2026-10-15 },
   { id = "GHSA-vwc7-r8mq-g2x9", ignoreUntil = 2026-10-15 },

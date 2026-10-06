@@ -1,3 +1,6 @@
+#![cfg_attr(doc, doc = include_str!("../README.md"))]
+#![cfg_attr(feature = "docs", doc = "## Feature flags")]
+#![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 #![expect(
     clippy::single_call_fn,
     unused_results,
@@ -14,8 +17,12 @@ use tracing::{error, info, warn};
 use wasm_bindgen::prelude::*;
 use web_sys::{Event, MessageEvent, WebSocket};
 
-const STORED_AGENT_ID_KEY: &str = "ws_wasm_agent.agent_id";
-const STORED_LAST_OFFLINE_AT_KEY: &str = "ws_wasm_agent.last_offline_at";
+mod dom;
+mod session;
+
+pub use self::dom::{append_to_textarea, js_bool_field, js_nested_object, js_number_field, set_textarea_value};
+use self::dom::{load_stored_agent_id, store_agent_id};
+
 const MAX_OFFLINE_QUEUE_LEN: usize = 1000;
 /// Default cadence for client-side app-level `Alive` messages sent to the websocket server.
 /// This should remain comfortably lower than the server's idle connection timeout.
@@ -43,25 +50,6 @@ pub enum ConnectionState {
     Connecting,
     Connected,
     Reconnecting,
-}
-
-#[must_use]
-pub fn js_number_field(value: &JsValue, field: &str) -> Option<f64> {
-    let field_value = js_sys::Reflect::get(value, &JsValue::from_str(field)).ok()?;
-    field_value.as_f64()
-}
-
-#[must_use]
-pub fn js_bool_field(value: &JsValue, field: &str) -> Option<bool> {
-    let field_value = js_sys::Reflect::get(value, &JsValue::from_str(field)).ok()?;
-    field_value.as_bool()
-}
-
-#[must_use]
-pub fn js_nested_object(value: &JsValue, field: &str) -> Option<JsValue> {
-    js_sys::Reflect::get(value, &JsValue::from_str(field))
-        .ok()
-        .filter(|nested| !nested.is_null() && !nested.is_undefined())
 }
 
 // WebSocket client configuration
@@ -381,6 +369,10 @@ impl WsClient {
 
     /// Send a custom message to the server.
     #[wasm_bindgen]
+    #[expect(
+        clippy::cognitive_complexity,
+        reason = "the score is info!/warn! expansion; the body branches twice"
+    )]
     pub fn send(&self, message: &str) -> Result<(), JsValue> {
         let should_queue = {
             let state = self.shared.borrow();
@@ -446,304 +438,6 @@ impl WsClient {
     pub fn set_on_state_change(&mut self, callback: JsValue) {
         self.shared.borrow_mut().on_state_change_callback = Some(callback);
     }
-
-    // Internal methods
-
-    fn start_alive_interval(&self) {
-        self.stop_alive_interval();
-
-        let Some(window) = web_sys::window() else {
-            warn!("No window available to start alive interval");
-            return;
-        };
-        let Ok(interval_ms) = i32::try_from(self.config.alive_interval_ms) else {
-            warn!(
-                "alive_interval_ms ({}) exceeds i32::MAX; skipping interval",
-                self.config.alive_interval_ms
-            );
-            return;
-        };
-
-        let interval_closure = self.build_alive_closure();
-        self.install_alive_interval(&window, interval_ms, interval_closure);
-    }
-
-    fn build_alive_closure(&self) -> Closure<dyn FnMut()> {
-        let cli_ptr = self.clone();
-        let interval_box: Box<dyn FnMut()> = Box::new(move || {
-            if let Err(error) = cli_ptr.send_alive() {
-                warn!("Failed to send alive keepalive: {:?}", error);
-            }
-        });
-        Closure::wrap(interval_box)
-    }
-
-    fn install_alive_interval(
-        &self,
-        window: &web_sys::Window,
-        interval_ms: i32,
-        interval_closure: Closure<dyn FnMut()>,
-    ) {
-        match window.set_interval_with_callback_and_timeout_and_arguments_0(
-            interval_closure.as_ref().unchecked_ref(),
-            interval_ms,
-        ) {
-            Ok(interval_id) => {
-                self.shared.borrow_mut().alive_interval_id = Some(interval_id);
-                info!("Started alive interval at {}ms", self.config.alive_interval_ms);
-                interval_closure.forget();
-            }
-            Err(error) => {
-                warn!("Failed to start alive interval: {:?}", error);
-            }
-        }
-    }
-
-    fn stop_alive_interval(&self) {
-        let mut state = self.shared.borrow_mut();
-        if let Some(interval_id) = state.alive_interval_id.take() {
-            if let Some(window) = web_sys::window() {
-                window.clear_interval_with_handle(interval_id);
-            }
-            info!("Stopped alive interval");
-        }
-    }
-
-    fn handle_disconnect(&self) {
-        self.stop_alive_interval();
-        let manual_disconnect = {
-            let mut state = self.shared.borrow_mut();
-            state.socket = None;
-            state.state = ConnectionState::Disconnected;
-            state.manual_disconnect
-        };
-        self.record_offline();
-        self.notify_state_change();
-
-        if manual_disconnect {
-            info!("Manual websocket disconnect; skipping reconnect");
-            return;
-        }
-
-        // Attempt reconnection with exponential backoff
-        let mut do_reconnect = false;
-        let mut next_delay = 0_u32;
-        let mut curr_attempt = 0_u32;
-        {
-            let mut state = self.shared.borrow_mut();
-            if state.reconnect_attempts < self.config.max_reconnect_attempts {
-                state.state = ConnectionState::Reconnecting;
-                next_delay = state.reconnect_delay_ms;
-                state.reconnect_delay_ms = state.reconnect_delay_ms.saturating_mul(2).min(30_000);
-                state.reconnect_attempts = state.reconnect_attempts.saturating_add(1);
-                curr_attempt = state.reconnect_attempts;
-                do_reconnect = true;
-            }
-        }
-        if do_reconnect {
-            self.notify_state_change();
-            info!("Attempting reconnection {} in {}ms", curr_attempt, next_delay);
-            let delay_i32 = i32::try_from(next_delay).unwrap_or(i32::MAX);
-            self.schedule_reconnect(delay_i32);
-        } else {
-            error!("Max reconnection attempts reached");
-        }
-    }
-
-    fn notify_state_change(&self) {
-        let state_label = self.get_state();
-        let state = self.shared.borrow();
-        if let Some(callback) = &state.on_state_change_callback
-            && let Some(function) = callback.dyn_ref::<js_sys::Function>()
-        {
-            let _called: Result<JsValue, JsValue> = function.call1(&JsValue::NULL, &JsValue::from_str(&state_label));
-        }
-    }
-
-    fn send_connect_message(&self) -> Result<(), JsValue> {
-        let state = self.shared.borrow();
-        let msg = ClientMessage::Connect {
-            agent_id: self.agent_id.borrow().clone(),
-        };
-
-        let json = serde_json::to_string(&msg).js_context("Failed to serialize connect message")?;
-
-        if let Some(socket) = &state.socket {
-            socket
-                .send_with_str(&json)
-                .js_context("Failed to send connect message")?;
-            info!("Connect message sent: {}", json);
-        }
-
-        Ok(())
-    }
-
-    fn enqueue_offline_message(&self, message: &str) {
-        let mut state = self.shared.borrow_mut();
-        if state.offline_queue.len() == MAX_OFFLINE_QUEUE_LEN {
-            let _dropped: Option<String> = state.offline_queue.pop_front();
-            warn!(
-                "Offline websocket queue reached {} messages; dropping oldest entry",
-                MAX_OFFLINE_QUEUE_LEN
-            );
-        }
-        state.offline_queue.push_back(message.to_string());
-        info!(
-            "Queued websocket message while offline (queue_len={}): {}",
-            state.offline_queue.len(),
-            message
-        );
-    }
-
-    fn flush_offline_queue(&self) {
-        loop {
-            let next_message = {
-                let mut state = self.shared.borrow_mut();
-                if state.state != ConnectionState::Connected || state.socket.is_none() {
-                    return;
-                }
-                state.offline_queue.pop_front()
-            };
-
-            let Some(message) = next_message else {
-                return;
-            };
-
-            let send_result: Result<(), JsValue> = {
-                let state = self.shared.borrow();
-                #[expect(
-                    clippy::option_if_let_else,
-                    reason = "map_or_else inverts reading order (None-branch first) for two Result-returning closures"
-                )]
-                match state.socket.as_ref() {
-                    Some(socket) => socket
-                        .send_with_str(&message)
-                        .js_context("Failed to flush queued message"),
-                    None => Err(JsValue::from_str("No websocket available")),
-                }
-            };
-
-            if let Err(error) = send_result {
-                warn!("Failed to flush queued websocket message; re-queueing: {:?}", error);
-                let mut state = self.shared.borrow_mut();
-                state.offline_queue.push_front(message);
-                return;
-            }
-
-            info!("Flushed queued websocket message: {}", message);
-        }
-    }
-
-    #[expect(
-        clippy::unused_self,
-        reason = "kept on &self to mirror the other client lifecycle methods; recorded state lives in localStorage"
-    )]
-    fn record_offline(&self) {
-        let timestamp = chrono::Utc::now().to_rfc3339();
-        match store_last_offline_at(&timestamp) {
-            Ok(()) => info!("Recorded websocket offline transition at {}", timestamp),
-            Err(error) => warn!("Failed to record websocket offline transition: {:?}", error),
-        }
-    }
-
-    fn schedule_reconnect(&self, delay_ms: i32) {
-        self.cancel_reconnect();
-
-        let Some(window) = web_sys::window() else {
-            warn!("No window available to schedule reconnect");
-            return;
-        };
-
-        let mut cli_ptr = self.clone();
-        let reconnect_box: Box<dyn FnOnce()> = Box::new(move || {
-            if let Err(error) = cli_ptr.connect() {
-                error!("Reconnect attempt failed: {:?}", error);
-            }
-        });
-        let reconnect_closure = Closure::once(reconnect_box);
-
-        match window
-            .set_timeout_with_callback_and_timeout_and_arguments_0(reconnect_closure.as_ref().unchecked_ref(), delay_ms)
-        {
-            Ok(timeout_id) => {
-                self.shared.borrow_mut().reconnect_timeout_id = Some(timeout_id);
-                reconnect_closure.forget();
-            }
-            Err(error) => {
-                warn!("Failed to schedule reconnect: {:?}", error);
-            }
-        }
-    }
-
-    fn cancel_reconnect(&self) {
-        let mut state = self.shared.borrow_mut();
-        if let Some(timeout_id) = state.reconnect_timeout_id.take()
-            && let Some(window) = web_sys::window()
-        {
-            window.clear_timeout_with_handle(timeout_id);
-        }
-    }
-}
-
-#[expect(
-    clippy::multiple_inherent_impl,
-    reason = "second block holds methods that wasm_bindgen can't export (generics, serde_json::Value)"
-)]
-impl WsClient {
-    pub fn request_list_agents(&self) -> Result<(), JsValue> {
-        let payload =
-            serde_json::to_string(&ClientMessage::ListAgents).js_context("Failed to serialize list_agents")?;
-        self.send(&payload)
-    }
-
-    pub fn broadcast_message(&self, message: serde_json::Value) -> Result<(), JsValue> {
-        let payload = serde_json::to_string(&ClientMessage::BroadcastMessage { message })
-            .js_context("Failed to serialize broadcast message")?;
-        self.send(&payload)
-    }
-
-    pub fn send_agent_message<T>(&self, to_agent_id: T, message: serde_json::Value) -> Result<(), JsValue>
-    where
-        T: Into<String>,
-    {
-        let payload = serde_json::to_string(&ClientMessage::SendAgentMessage {
-            to_agent_id: to_agent_id.into(),
-            message,
-        })
-        .js_context("Failed to serialize direct message")?;
-        self.send(&payload)
-    }
-
-    pub fn send_client_event<C, A>(&self, capability: C, action: A, details: serde_json::Value) -> Result<(), JsValue>
-    where
-        C: Into<String>,
-        A: Into<String>,
-    {
-        let message = ClientMessage::ClientEvent {
-            capability: capability.into(),
-            action: action.into(),
-            details,
-        };
-        let payload = serde_json::to_string(&message).js_context("Failed to serialize client event")?;
-        self.send(&payload)
-    }
-}
-
-// Implement Clone for WsClient (required for closures)
-impl Clone for WsClient {
-    fn clone(&self) -> Self {
-        Self {
-            config: WsClientConfig {
-                server_url: self.config.server_url.clone(),
-                alive_interval_ms: self.config.alive_interval_ms,
-                max_reconnect_attempts: self.config.max_reconnect_attempts,
-                initial_reconnect_delay_ms: self.config.initial_reconnect_delay_ms,
-                use_retained_agent_id: self.config.use_retained_agent_id,
-            },
-            agent_id: Rc::clone(&self.agent_id),
-            shared: Rc::clone(&self.shared),
-        }
-    }
 }
 
 // Helper function to create a client and connect
@@ -753,76 +447,6 @@ pub fn create_and_connect(server_url: String) -> Result<WsClient, JsValue> {
     let mut client = WsClient::new(config);
     client.connect()?;
     Ok(client)
-}
-
-fn load_stored_agent_id() -> Option<String> {
-    let window = web_sys::window()?;
-    let storage = window.local_storage().ok()??;
-    storage.get_item(STORED_AGENT_ID_KEY).ok()?
-}
-
-fn store_agent_id(agent_id: &str) -> Result<(), JsValue> {
-    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
-    let storage = window
-        .local_storage()?
-        .ok_or_else(|| JsValue::from_str("No localStorage available"))?;
-    storage.set_item(STORED_AGENT_ID_KEY, agent_id)
-}
-
-fn store_last_offline_at(timestamp: &str) -> Result<(), JsValue> {
-    let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
-    let storage = window
-        .local_storage()?
-        .ok_or_else(|| JsValue::from_str("No localStorage available"))?;
-    storage.set_item(STORED_LAST_OFFLINE_AT_KEY, timestamp)
-}
-
-#[wasm_bindgen(js_name = set_textarea_value)]
-pub fn set_textarea_value(element_id: &str, message: &str) -> Result<(), JsValue> {
-    if let Some(window) = web_sys::window()
-        && let Some(document) = window.document()
-        && let Some(output) = document.get_element_by_id(element_id)
-    {
-        js_sys::Reflect::set(
-            output.as_ref(),
-            &JsValue::from_str("value"),
-            &JsValue::from_str(message),
-        )?;
-    }
-
-    Ok(())
-}
-
-#[wasm_bindgen(js_name = append_to_textarea)]
-pub fn append_to_textarea(element_id: &str, message: &str) -> Result<(), JsValue> {
-    if let Some(window) = web_sys::window()
-        && let Some(document) = window.document()
-        && let Some(output) = document.get_element_by_id(element_id)
-    {
-        let current_value = js_sys::Reflect::get(output.as_ref(), &JsValue::from_str("value"))?
-            .as_string()
-            .unwrap_or_default();
-        let next_value = if current_value.is_empty() || current_value.starts_with("Workflow module") {
-            message.to_string()
-        } else {
-            format!("{current_value}\n{message}")
-        };
-
-        js_sys::Reflect::set(
-            output.as_ref(),
-            &JsValue::from_str("value"),
-            &JsValue::from_str(&next_value),
-        )?;
-
-        // Auto-scroll to bottom
-        js_sys::Reflect::set(
-            output.as_ref(),
-            &JsValue::from_str("scrollTop"),
-            &js_sys::Reflect::get(output.as_ref(), &JsValue::from_str("scrollHeight"))?,
-        )?;
-    }
-
-    Ok(())
 }
 
 /// Poll `client` until it reports `connected`, for up to ten seconds.

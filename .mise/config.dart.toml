@@ -43,6 +43,11 @@ run = "dart pub get"
 depends = ["dart-pub-get"]
 run = "dart analyze {{ vars.dart_paths }}"
 
+[tasks.dart-fix]
+depends = ["dart-pub-get"]
+# `dart fix` takes one directory per run, so each path gets its own.
+run = "for path in {{ vars.dart_paths }}; do dart fix --apply \"$path\"; done"
+
 [tasks.dart-fmt]
 depends = ["dart-pub-get"]
 run = "dart format {{ vars.dart_paths }}"
@@ -57,6 +62,10 @@ run = "dart format --output=none --set-exit-if-changed {{ vars.dart_paths }}"
 [tasks."check:dart"]
 depends = ["dart-check", "dart-fmt-check"]
 description = "Run Dart checks (analyze + format-check)"
+
+[tasks."fix:dart"]
+depends = ["dart-fix"]
+description = "Apply Dart lint-fix passes (dart fix)"
 
 [tasks."fmt:dart"]
 depends = ["dart-fmt"]

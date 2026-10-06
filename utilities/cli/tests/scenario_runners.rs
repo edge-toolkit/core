@@ -149,6 +149,8 @@ fn spawn_runner(scenario: &str, task: &str) -> Runner {
 )]
 fn prebuild_runners(trigger_crate: &str, twin_crate: &str) {
     for package in [trigger_crate, twin_crate] {
+        // The runners are other workspace crates' binaries, which cargo builds for no test but their own.
+        // ast-grep-ignore: no-spawn-cargo
         let _status = Command::new("cargo")
             .args(["build", "--quiet", "-p", package])
             .current_dir(edge_toolkit::config::get_project_root())

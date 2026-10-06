@@ -6,11 +6,7 @@ name: check
   workflow_dispatch:
 
 permissions:
-  id-token: write
-  contents: write
-  # Read-only pull of the maintainer-published ghcr.io mise-tools store (install-mise-tools restore step).
-  # Never write: the stores are published only from a maintainer's machine via `mise run push-mise-tools`.
-  packages: read
+  contents: read
 
 # this allows a subsequently queued workflow run to interrupt previous runs in pull requests only
 concurrency:
@@ -25,19 +21,53 @@ env:
   MISE_ENV: dart,dotnet,java,js,kotlin,python,r,rust,zig
 
 jobs:
+  # Each OS runs two lanes: `mise run check`, and the feature powerset (cargo-hack-check) as a lane of its own.
+  # The powerset is several hundred clippy runs, which no shared timeout fits, and as a separate lane it runs in
+  # parallel rather than lengthening the check. Running it as a step after `mise run check` also fails on Windows,
+  # where the next `mise` call dies at once with
+  #     mise: recursive shim invocation detected for mise: C:/Users/runneradmin/AppData/Local/mise/shims/mise
+  # because the check's install-all rewrites mise's own shim, which install-mise-tools had removed. Observed on
+  # commit https://github.com/edge-toolkit/core/commit/aa260c59248d8eb227e310f78d553ddb1b9445a2 at
+  # https://github.com/edge-toolkit/core/actions/runs/37386640989/job/112021398135.
+  # Each lane is named explicitly so the check lanes keep their existing `check (<os>, <timeout>)` names.
   check:
+    name: ${{ matrix.lane }}
+    permissions:
+      id-token: write
+      contents: write
+      # Read-only pull of the maintainer-published ghcr.io mise-tools store (install-mise-tools restore step).
+      # Never write: the stores are published only from a maintainer's machine via `mise run push-mise-tools`.
+      packages: read
     runs-on: ${{ matrix.os }}
     timeout-minutes: ${{ matrix.timeout }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - lane: check (ubuntu-latest, 40)
+            os: ubuntu-latest
+            task: check
             timeout: 40
-          - os: macos-latest
+          - lane: check (macos-latest, 75)
+            os: macos-latest
+            task: check
             timeout: 75
-          - os: windows-latest
+          - lane: check (windows-latest, 120)
+            os: windows-latest
+            task: check
             timeout: 120
+          - lane: features (ubuntu-latest)
+            os: ubuntu-latest
+            task: cargo-hack-check
+            timeout: 60
+          - lane: features (macos-latest)
+            os: macos-latest
+            task: cargo-hack-check
+            timeout: 90
+          - lane: features (windows-latest)
+            os: windows-latest
+            task: cargo-hack-check
+            timeout: 180
     # Windows runs the checkers under busybox-w32 ash, same as test.yaml's Windows lane.
     # That's the shell mise's `shell = "bash"` tasks run on; Git Bash's MSYS fork-emulation cygheap breaks
     # down on long task chains. The path matches the version pin in `.mise/config.windows.toml`'s
@@ -78,5 +108,6 @@ jobs:
         run: echo "MISE_JOBS=1" >> "$GITHUB_ENV"
 
       - name: Run checkers
-        run: |
-          mise run check
+        run: mise run "$TASK"
+        env:
+          TASK: ${{ matrix.task }}

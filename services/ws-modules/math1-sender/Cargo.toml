@@ -7,6 +7,10 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+# `#[wasm_bindgen] pub async fn run` expands to `wasm_bindgen_futures` paths, which cargo-shear's scan cannot see.
+[package.metadata.cargo-shear]
+ignored = ["wasm-bindgen-futures"]
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 doctest = false
@@ -16,7 +20,6 @@ test = false
 et-rest-client.workspace = true
 et-web.workspace = true
 et-ws-wasm-agent.workspace = true
-js-sys.workspace = true
 tracing.workspace = true
 tracing-wasm.workspace = true
 wasm-bindgen.workspace = true
@@ -26,9 +29,6 @@ web-sys = { workspace = true, features = ["Window", "console"] }
 # Build script (runs on the host) locates the repo root to emit ET_MATH1_INPUT_PATH.
 [build-dependencies]
 et-path.workspace = true
-
-[dev-dependencies]
-wasm-bindgen-test.workspace = true
 
 [lints]
 workspace = true

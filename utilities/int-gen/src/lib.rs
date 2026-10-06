@@ -84,7 +84,7 @@ pub fn check_checks() -> Result<(), Error> {
     }
 }
 
-/// Write each utility's `HELP.md` from its clap command tree.
+/// Write each binary crate's `HELP.md` from its clap command tree and its environment config.
 pub fn generate_help() -> Result<(), Error> {
     let project_root = get_project_root();
     for (path, rendered) in help::render(&project_root)? {
@@ -98,17 +98,48 @@ pub fn check_help() -> Result<(), Error> {
     let project_root = get_project_root();
     let mut stale = Vec::new();
     for (path, rendered) in help::render(&project_root)? {
-        if fs::read_to_string(project_root.join(&path))? != rendered {
-            stale.push(path.display().to_string());
+        // A crate detected for the first time has no HELP.md yet, which is stale like any other mismatch.
+        let committed = match fs::read_to_string(project_root.join(&path)) {
+            Ok(committed) => committed,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::default(),
+            Err(error) => return Err(error.into()),
+        };
+        if committed != rendered {
+            stale.push(format!(
+                "{}: {}",
+                path.display(),
+                first_difference(&committed, &rendered)
+            ));
         }
     }
     if stale.is_empty() {
         Ok(())
     } else {
         Err(Error::HelpStale(format!(
-            "{} out of date with the clap command trees; run `mise run gen-help-all`",
-            stale.join(", ")
+            "out of date with the clap command trees and env configs; run `mise run gen-help-all`\n{}",
+            stale.join("\n")
         )))
+    }
+}
+
+/// Name the first line where `committed` and `rendered` part.
+///
+/// A stale file then reports what changed, not only that something did.
+#[must_use]
+pub fn first_difference(committed: &str, rendered: &str) -> String {
+    let mut committed_lines = committed.lines();
+    let mut rendered_lines = rendered.lines();
+    let mut number = 1_usize;
+    loop {
+        match (committed_lines.next(), rendered_lines.next()) {
+            (Some(old), Some(new)) if old == new => number = number.saturating_add(1),
+            (None, None) => return "the lines match, so only a line ending or the final newline differs".to_owned(),
+            (old, new) => {
+                let shown =
+                    |line: Option<&str>| line.map_or_else(|| "end of file".to_owned(), |text| format!("`{text}`"));
+                return format!("line {number} is {} but renders as {}", shown(old), shown(new));
+            }
+        }
     }
 }
 

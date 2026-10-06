@@ -9,6 +9,15 @@ message: |
 rule:
   kind: string_content
   regex: '^\.\.?(/.*)?$'
+  # A crate root's `#![cfg_attr(doc, doc = include_str!("../README.md"))]` is exempt, and nothing else in its file.
+  # include_str! resolves against the source file at compile time rather than the process cwd, so `../README.md`
+  # from `src/lib.rs` is the crate's own README by construction. The attribute's macro is a raw token tree, so the
+  # match is on the attribute text; the regex names that exact include so no other relative path rides along.
+  not:
+    inside:
+      kind: inner_attribute_item
+      stopBy: end
+      regex: '^#!\[cfg_attr\(doc, doc = include_str!\("\.\./README\.md"\)\)\]$'
 ignores:
   # relative_path_from() deliberately emits "." / ".." for generated mise.toml and compose.yaml output.
   - libs/path/src/lib.rs

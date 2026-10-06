@@ -21,6 +21,9 @@ WS_SERVER_URL=ws://127.0.0.1:8080/ws        # where the ws-server is (optional)
 cargo run -p et-ws-pyo3-runner
 ```
 
+[HELP.md](https://github.com/edge-toolkit/core/blob/main/services/ws-pyo3-runner/HELP.md) lists every environment
+variable the runner reads, with its type and default.
+
 On startup the runner embeds a Python interpreter, `import`s the module named by `RUNNER_MODULE`, and from then
 on just calls functions on it as things happen. Your module keeps its own state in ordinary Python globals; the
 runner never looks inside.
@@ -63,4 +66,4 @@ Your module may define any of these top-level functions; the runner calls them a
   ws-server keeps for each agent.
 
 That is the whole interface: a module is "just a Python file with some of those functions." The smallest example
-is [`python/echo.py`](python/echo.py).
+is [`python/echo.py`](https://github.com/edge-toolkit/core/blob/main/services/ws-pyo3-runner/python/echo.py).

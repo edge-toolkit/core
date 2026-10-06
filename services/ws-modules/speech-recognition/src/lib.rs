@@ -306,6 +306,10 @@ pub fn is_running() -> bool {
 }
 
 #[wasm_bindgen]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one module workflow wiring the recognizer's callbacks to the websocket"
+)]
 pub async fn run() -> Result<(), JsValue> {
     if is_running() {
         return Ok(());

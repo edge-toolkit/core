@@ -15,8 +15,8 @@ actix-web.workspace = true
 actix-ws.workspace = true
 bytes.workspace = true
 futures-util.workspace = true
-log.workspace = true
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt"] }
+tracing.workspace = true
 
 [dev-dependencies]
 actix-web.workspace = true

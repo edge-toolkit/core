@@ -27,6 +27,7 @@ use deno_runtime::worker::{MainWorker, WorkerOptions, WorkerServiceOptions};
 use deno_runtime::{BootstrapOptions, WorkerExecutionMode};
 use et_rest_client::ClientInfo as _;
 use sys_traits::impls::RealSys;
+use tracing::error;
 
 use crate::error::JsErrExt as _;
 
@@ -208,6 +209,10 @@ try {{
 /// The closure captures the bits a worker needs (REST client to build its own module loader, the `fs`, the
 /// cross-isolate `SharedArrayBuffer` store) and recurses by handing itself (cloned `Arc`) to each child so workers can
 /// spawn grand-children.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one closure assembling every option a Deno WebWorker is created with"
+)]
 fn create_web_worker_cb(
     rest: et_rest_client::Client,
     fs: FileSystemRc,
@@ -293,7 +298,7 @@ fn create_web_worker_cb(
         let shim = shim_js(&http_base, &ws_url, coverage);
         // No `Result` channel in this callback, so log and continue.
         if let Err(e) = worker.js_runtime.execute_script("<web-runner-worker-shim>", shim) {
-            tracing::error!(
+            error!(
                 error = ?e,
                 "worker environment shim failed unexpectedly (it already succeeded on the main thread)"
             );
@@ -311,7 +316,8 @@ fn create_web_worker_cb(
 #[expect(
     clippy::future_not_send,
     clippy::single_call_fn,
-    reason = "MainWorker is !Send; called from single-threaded tokio"
+    clippy::too_many_lines,
+    reason = "MainWorker is !Send; called from single-threaded tokio; assembles every MainWorker option in one place"
 )]
 pub async fn run_js_module(
     entry_url: &str,

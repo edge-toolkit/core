@@ -1,23 +1,4 @@
-//! `websockify`: a WebSocket-to-TCP relay for reaching the ws-server's own loopback HTTP port from a browser.
-//!
-//! A browser WebAssembly runtime -- notably webR (R in the browser) -- can open a WebSocket but cannot open a
-//! raw TCP socket. libcurl/httr2 compiled under Emscripten work around this by tunnelling their TCP bytes over
-//! a WebSocket and expecting a websockify-style relay on the far end (see
-//! <https://emscripten.org/docs/porting/networking.html>). This service is that relay.
-//!
-//! It recognises two client shapes on the same `/websockify` route, by the first byte:
-//!
-//! - **SOCKS5** (first byte `0x05`): webR's curl is configured to reach a SOCKS5 proxy, so the relay speaks just
-//!   enough SOCKS5 (no-auth, CONNECT) to be that proxy. The requested CONNECT target is honoured only when it is
-//!   loopback; every connection is then bridged to the single server-configured target (its own plain-HTTP
-//!   port). A non-loopback CONNECT (e.g. curl's probe to the public r-universe proxy) is refused with a SOCKS5
-//!   error, so it never reaches the app server.
-//! - **Direct byte stream** (anything else, e.g. a raw HTTP request): bridged straight to the same target.
-//!
-//! Either way the target is fixed by the server (see [`configure`]), never taken from the client, so a browser
-//! cannot point it at an arbitrary host (no SSRF / open proxy). It is a separate route from the agent hub's
-//! `/ws`: Emscripten frames carry raw TCP bytes with no marker of their own, indistinguishable from the hub's
-//! binary-broadcast fallback, so the two must never share one socket -- the separate path is the separation.
+#![cfg_attr(doc, doc = include_str!("../README.md"))]
 
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 
@@ -28,6 +9,7 @@ use bytes::Bytes;
 use futures_util::StreamExt as _;
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::TcpStream;
+use tracing::{debug, info, warn};
 
 /// Loopback TCP endpoint every `/websockify` connection is bridged to.
 ///
@@ -110,8 +92,8 @@ async fn relay_handler(
     let offers_binary = offered
         .as_deref()
         .is_some_and(|protocols| protocols.split(',').any(|protocol| protocol.trim() == "binary"));
-    log::info!(
-        "websockify: upgrade on {} -> target {} (offered subprotocols: {:?}, echoing binary: {offers_binary})",
+    info!(
+        "upgrade on {} -> target {} (offered subprotocols: {:?}, echoing binary: {offers_binary})",
         req.path(),
         target.0,
         offered.as_deref().unwrap_or("<none>"),
@@ -158,9 +140,10 @@ async fn fill(stream: &mut AggregatedMessageStream, session: &mut Session, buf: 
 /// if the socket closed mid-handshake. Only no-auth CONNECT to a loopback address is accepted; the relay then
 /// bridges to its own fixed target, so the requested port is not otherwise used.
 #[expect(
+    clippy::cognitive_complexity,
     clippy::future_not_send,
     clippy::single_call_fn,
-    reason = "!Send actix-ws types; called once from relay"
+    reason = "!Send actix-ws types; one call site; an awaited read per SOCKS5 field, each with an early return"
 )]
 async fn socks5_handshake(
     stream: &mut AggregatedMessageStream,
@@ -232,9 +215,10 @@ async fn socks5_handshake(
 }
 
 #[expect(
+    clippy::cognitive_complexity,
     clippy::future_not_send,
     clippy::single_call_fn,
-    reason = "actix-ws Session/stream are Rc-backed and !Send; called once from relay_handler"
+    reason = "Rc-backed !Send actix-ws types; called once from relay_handler; score is tracing-macro expansion"
 )]
 async fn relay(mut session: Session, stream: MessageStream, target: SocketAddr) {
     let mut stream = stream
@@ -242,39 +226,57 @@ async fn relay(mut session: Session, stream: MessageStream, target: SocketAddr) 
         .aggregate_continuations()
         .max_continuation_size(RELAY_MAX_MESSAGE);
     let mut head: Vec<u8> = Vec::new();
-
-    // Recognise the client from its first byte: SOCKS5 (webR's curl proxy) vs a direct byte stream.
-    if !fill(&mut stream, &mut session, &mut head, 1).await {
+    if !accept_client(&mut stream, &mut session, &mut head, target).await {
         let _closed = session.close(None).await;
         return;
-    }
-    if head.first() == Some(&SOCKS5_VERSION) {
-        match socks5_handshake(&mut stream, &mut session, &mut head).await {
-            Some(true) => log::info!("websockify: SOCKS5 CONNECT to loopback accepted; bridging to {target}"),
-            Some(false) => {
-                log::info!("websockify: refused SOCKS5 CONNECT (non-loopback target or unsupported command)");
-                let _closed = session.close(None).await;
-                return;
-            }
-            None => {
-                let _closed = session.close(None).await;
-                return;
-            }
-        }
-    } else {
-        log::info!("websockify: direct (non-SOCKS5) client; bridging to {target}");
     }
 
     let tcp = match TcpStream::connect(target).await {
         Ok(tcp) => tcp,
         Err(err) => {
-            log::warn!("websockify: cannot reach relay target {target}: {err}");
+            warn!("cannot reach relay target {target}: {err}");
             let _closed = session.close(None).await;
             return;
         }
     };
-    log::info!("websockify: bridged to target {target}");
+    info!("bridged to target {target}");
     bridge(session, stream, tcp, head).await;
+}
+
+/// Recognise the client from its first byte and complete any handshake it needs, reporting whether to bridge it.
+///
+/// A SOCKS5 client (webR's curl proxy) must ask for a loopback CONNECT; anything else is a direct byte stream, whose
+/// first byte stays in `head` to be forwarded. The caller closes the session when this returns `false`.
+#[expect(
+    clippy::cognitive_complexity,
+    clippy::future_not_send,
+    clippy::single_call_fn,
+    reason = "Rc-backed !Send actix-ws types; the client-recognition step of relay; score is tracing-macro expansion"
+)]
+async fn accept_client(
+    stream: &mut AggregatedMessageStream,
+    session: &mut Session,
+    head: &mut Vec<u8>,
+    target: SocketAddr,
+) -> bool {
+    if !fill(stream, session, head, 1).await {
+        return false;
+    }
+    if head.first() != Some(&SOCKS5_VERSION) {
+        info!("direct (non-SOCKS5) client; bridging to {target}");
+        return true;
+    }
+    match socks5_handshake(stream, session, head).await {
+        Some(true) => {
+            info!("SOCKS5 CONNECT to loopback accepted; bridging to {target}");
+            true
+        }
+        Some(false) => {
+            info!("refused SOCKS5 CONNECT (non-loopback target or unsupported command)");
+            false
+        }
+        None => false,
+    }
 }
 
 #[expect(
@@ -282,7 +284,8 @@ async fn relay(mut session: Session, stream: MessageStream, target: SocketAddr) 
     clippy::future_not_send,
     clippy::integer_division_remainder_used,
     clippy::single_call_fn,
-    reason = "actix-ws Session/stream are Rc-backed and !Send; select! uses % internally; one call site"
+    clippy::too_many_lines,
+    reason = "Rc-backed !Send actix-ws types; select! uses % internally; one call site; one select! loop is the bridge"
 )]
 async fn bridge(mut session: Session, mut stream: AggregatedMessageStream, tcp: TcpStream, head: Vec<u8>) {
     let (mut tcp_read, mut tcp_write) = tcp.into_split();
@@ -291,11 +294,7 @@ async fn bridge(mut session: Session, mut stream: AggregatedMessageStream, tcp: 
 
     // Forward any bytes already read during protocol detection (the HTTP request start, or SOCKS5 tunnel data).
     if !head.is_empty() {
-        log::info!(
-            "websockify: first client->target bytes ({} bytes): {}",
-            head.len(),
-            preview(&head)
-        );
+        info!("first client->target bytes ({} bytes): {}", head.len(), preview(&head));
         to_target = head.len();
         if tcp_write.write_all(&head).await.is_err() {
             let _closed = session.close(None).await;
@@ -325,30 +324,30 @@ async fn bridge(mut session: Session, mut stream: AggregatedMessageStream, tcp: 
                 }
                 Some(Ok(AggregatedMessage::Pong(_))) => {}
                 Some(Ok(AggregatedMessage::Close(reason))) => {
-                    log::info!("websockify: client closed the websocket ({reason:?})");
+                    info!("client closed the websocket ({reason:?})");
                     break;
                 }
                 None => break,
                 Some(Err(err)) => {
-                    log::debug!("websockify: websocket receive error: {err}");
+                    debug!("websocket receive error: {err}");
                     break;
                 }
             },
             outbound = tcp_read.read(&mut buf) => match outbound {
                 // TCP -> browser: 0 bytes means the target closed; anything else is a binary frame.
                 Ok(0) => {
-                    log::debug!("websockify: target closed the connection");
+                    debug!("target closed the connection");
                     break;
                 }
                 Err(err) => {
-                    log::debug!("websockify: target read failed: {err}");
+                    debug!("target read failed: {err}");
                     break;
                 }
                 Ok(read) => {
                     // `read` is always <= buf.len() per AsyncReadExt::read, so get(..read) is always Some.
                     let Some(chunk) = buf.get(..read) else { break };
                     if to_client == 0 {
-                        log::info!("websockify: first target->client chunk ({read} bytes): {}", preview(chunk));
+                        info!("first target->client chunk ({read} bytes): {}", preview(chunk));
                     }
                     to_client = to_client.saturating_add(read);
                     if session.binary(Bytes::copy_from_slice(chunk)).await.is_err() {
@@ -361,5 +360,5 @@ async fn bridge(mut session: Session, mut stream: AggregatedMessageStream, tcp: 
 
     let _shutdown = tcp_write.shutdown().await;
     let _closed = session.close(None).await;
-    log::info!("websockify: closed (client->target {to_target} bytes, target->client {to_client} bytes)");
+    info!("closed (client->target {to_target} bytes, target->client {to_client} bytes)");
 }

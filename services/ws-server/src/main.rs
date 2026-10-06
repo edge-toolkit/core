@@ -5,27 +5,18 @@
     reason = "server entry point: bootstrap crashes are intentional; eprintln! + Debug env dump precede tracing setup"
 )]
 
-use std::path::PathBuf;
-
 use actix_web::middleware::{DefaultHeaders, Logger};
 use actix_web::{App, HttpServer, web};
-use clap::Parser;
-use et_modules_service::list_modules;
+use clap::Parser as _;
+use et_ws_server::cli::Args;
 use et_ws_server::config::Config;
 use et_ws_server::configure_app;
+#[cfg(feature = "tls")]
 use et_ws_server::tls;
 use et_ws_service::load_registry;
 use tracing::{error, info, warn};
 use tracing_actix_web::TracingLogger;
 use tracing_subscriber::{layer::SubscriberExt as _, util::SubscriberInitExt as _};
-
-#[derive(Debug, Parser)]
-#[command(author, version, about, long_about = None)]
-struct Args {
-    /// Path to agent registry YAML file.
-    #[arg(short, long, default_value = "registry.yaml")]
-    agent_registry: PathBuf,
-}
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -35,20 +26,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     eprintln!("Starting with env vars {env:#?}");
 
+    #[cfg(feature = "otlp")]
     let otel_handles = if let Some(otlp_config) = &env.otlp {
         info!("OpenTelemetry configuration detected, initializing tracing...");
         Some(et_otlp::init(otlp_config)?)
     } else {
         info!("No OpenTelemetry configuration detected, using default tracing settings...");
-        tracing_subscriber::registry()
-            .with(
-                tracing_subscriber::EnvFilter::try_from_default_env()
-                    .unwrap_or_else(|_| "info,et_ws_server=debug".into()),
-            )
-            .with(tracing_subscriber::fmt::layer())
-            .init();
+        init_console_tracing();
         None
     };
+    #[cfg(not(feature = "otlp"))]
+    init_console_tracing();
 
     let log_interface = env.net.log_interface.as_deref();
     info!(
@@ -63,41 +51,61 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         warn!("No usable IPv4 candidate found; advertising 127.0.0.1 (see the interface lines above)");
     }
 
-    let cert_filename = &env.tls.cert_file;
-    let key_filename = &env.tls.key_file;
-    let (cert_der, key_der) = if cert_filename.exists() && key_filename.exists() {
-        info!("Loading TLS certificate from {:?}", cert_filename);
-        tls::load_tls_certs(cert_filename, key_filename)
-    } else {
-        info!(
-            "Generated self-signed localhost certificate to {:?} and key to {:?}",
-            cert_filename, key_filename
-        );
-        tls::generate_tls_certs(cert_filename, key_filename)
+    #[cfg(feature = "tls")]
+    let rustls_config = {
+        let cert_filename = &env.tls.cert_file;
+        let key_filename = &env.tls.key_file;
+        let (cert_der, key_der) = if cert_filename.exists() && key_filename.exists() {
+            info!("Loading TLS certificate from {:?}", cert_filename);
+            tls::load_tls_certs(cert_filename, key_filename)
+        } else {
+            #[cfg(feature = "tls-self-signed")]
+            {
+                info!(
+                    "Generated self-signed localhost certificate to {:?} and key to {:?}",
+                    cert_filename, key_filename
+                );
+                tls::generate_tls_certs(cert_filename, key_filename)
+            }
+            #[cfg(not(feature = "tls-self-signed"))]
+            return Err(format!(
+                "TLS certificate {} or key {} is missing; this build cannot generate one",
+                cert_filename.display(),
+                key_filename.display()
+            )
+            .into());
+        };
+        tls::build_tls_server_config(cert_der, key_der)
     };
-    let rustls_config = tls::build_tls_server_config(cert_der, key_der);
 
-    let https_port = edge_toolkit::ports::Services::SecureWebSocketServer.port();
-    let https_url = format!("https://{network_ip}:{https_port}");
-    info!(
-        "Starting WebSocket server on http://{}:{}",
-        network_ip,
-        edge_toolkit::ports::Services::InsecureWebSocketServer.port()
-    );
-    info!("Starting WebSocket server on {}", https_url);
+    let http_port = edge_toolkit::ports::Services::InsecureWebSocketServer.port();
+    #[cfg(feature = "tls")]
+    let (scheme, advertised_port) = ("https", edge_toolkit::ports::Services::SecureWebSocketServer.port());
+    #[cfg(not(feature = "tls"))]
+    let (scheme, advertised_port) = ("http", http_port);
+    let advertised_url = format!("{scheme}://{network_ip}:{advertised_port}");
+    info!("Starting WebSocket server on http://{}:{}", network_ip, http_port);
+    info!("Advertising {}", advertised_url);
     for (interface, addr) in &ip_candidates {
-        info!("Reachable via {} at https://{}:{}", interface, addr, https_port);
+        info!(
+            "Reachable via {} at {}://{}:{}",
+            interface, scheme, addr, advertised_port
+        );
     }
-    info!("Scan this QR code to open the browser interface:");
-    if let Err(e) = qr2term::print_qr(&https_url) {
-        error!("Failed to generate QR code: {}", e);
+    #[cfg(feature = "qr")]
+    {
+        info!("Scan this QR code to open the browser interface:");
+        if let Err(e) = qr2term::print_qr(&advertised_url) {
+            error!("Failed to generate QR code: {}", e);
+        }
     }
 
     let agent_registry = web::Data::new(load_registry(&args.agent_registry).unwrap());
     let registry_clone = agent_registry.clone();
     let registry_path = args.agent_registry.clone();
 
-    for (name, pkg_dir) in list_modules(&env.modules) {
+    #[cfg(feature = "modules")]
+    for (name, pkg_dir) in et_modules_service::list_modules(&env.modules) {
         info!("Loading module {name} at {}", pkg_dir.display());
     }
     let server = HttpServer::new(move || {
@@ -125,12 +133,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             )
             .configure(|cfg| configure_app(cfg, registry, &config))
     })
-    .bind(("0.0.0.0", edge_toolkit::ports::Services::InsecureWebSocketServer.port()))?
-    .bind_rustls_0_23(
-        ("0.0.0.0", edge_toolkit::ports::Services::SecureWebSocketServer.port()),
-        rustls_config,
-    )?
-    .run();
+    .bind(("0.0.0.0", http_port))?;
+    #[cfg(feature = "tls")]
+    let server = server.bind_rustls_0_23(("0.0.0.0", advertised_port), rustls_config)?;
+    let server = server.run();
 
     let handle = server.handle();
     let _shutdown_task = tokio::spawn(async move {
@@ -145,9 +151,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let result = server.await;
     // Flush batched spans/logs before exit; otherwise short-lived runs lose
     // the tail of the trace.
+    #[cfg(feature = "otlp")]
     if let Some(handles) = otel_handles {
         handles.shutdown();
     }
     result?;
     Ok(())
+}
+
+#[expect(
+    clippy::single_call_fn,
+    reason = "the console fallback is reached from the `otlp` and non-`otlp` builds alike; one body serves both"
+)]
+fn init_console_tracing() {
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info,et_ws_server=debug".into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 }

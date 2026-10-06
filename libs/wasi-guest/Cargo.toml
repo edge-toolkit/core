@@ -7,19 +7,28 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.docs.rs]
+default-target = "wasm32-wasip2"
+features = ["docs"]
+
 [lib]
 doctest = false
+
+[features]
+## Internal: links minicov for the repo's coverage workflow.
+## The guest then dumps its `.profraw` into the runner's `/cov` preopen.
+coverage = ["dep:fs-err", "dep:minicov"]
+## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
+docs = ["dep:document-features"]
 
 # Same wasi-only target scope as the guests that depend on this.
 # The generated extern declarations only resolve on wasm32-wasip2, and the lib body is gated identically so a
 # host-target `cargo check --workspace` sees an empty crate rather than link errors.
 [target.'cfg(target_os = "wasi")'.dependencies]
+document-features = { workspace = true, optional = true }
 fs-err = { workspace = true, optional = true }
 minicov = { workspace = true, optional = true }
 wit-bindgen.workspace = true
-
-[features]
-coverage = ["dep:fs-err", "dep:minicov"]
 
 # Build script (runs on the host) locates the repo root to emit ET_WIT_DIR.
 [build-dependencies]

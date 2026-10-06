@@ -7,13 +7,23 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.docs.rs]
+features = ["docs"]
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 doctest = false
 
+[features]
+## Internal: links minicov for the coverage build of the browser wasm modules.
+## It exposes `__et_capture_coverage`, which wasm-bindgen collects into every dependent module's glue.
+coverage = ["dep:minicov"]
+## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
+docs = ["dep:document-features"]
+
 [dependencies]
+document-features = { workspace = true, optional = true }
 js-sys.workspace = true
-minicov = { workspace = true, optional = true }
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
 web-sys = { workspace = true, features = [
@@ -26,10 +36,14 @@ web-sys = { workspace = true, features = [
   "Window",
 ] }
 
-# Coverage instrumentation, off by default and enabled only by the coverage build of the browser wasm modules.
-# Pulls minicov and exposes __et_capture_coverage, which wasm-bindgen collects into every dependent module's glue.
-[features]
-coverage = ["dep:minicov"]
+# minicov is a wasm-only dependency, because its C profiler runtime cannot build for a native host.
+# It compiles with `-nostdlibinc`, so a host build fails with
+#   c/InstrProfilingPort.h:65:10: fatal error: 'windows.h' file not found
+# on the `check (windows-latest, 120)` lane, cargo-hack-check's `et-web --features coverage`, at
+# https://github.com/edge-toolkit/core/actions/runs/37251999021/job/111581371888. Coverage capture only ever runs
+# in a browser, so the dependency is scoped to the wasm target and `coverage` adds nothing to a host build.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+minicov = { workspace = true, optional = true }
 
 [lints]
 workspace = true

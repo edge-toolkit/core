@@ -41,6 +41,10 @@ use tokio::runtime::Runtime;
 // the Windows task-shell story is sorted.
 #[test]
 #[cfg_attr(windows, ignore = "pkg/package.json 404 on Windows -- see comment above")]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one end-to-end scenario: build, start collector, run, then match trace ids"
+)]
 fn trace_ids_propagate_between_runner_and_server() {
     // wasi-data1 lives in the rust env; without it, build-ws-wasi-data1-module
     // doesn't run and the runner's package.json fetch 404s.

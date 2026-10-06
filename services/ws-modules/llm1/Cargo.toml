@@ -7,14 +7,17 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
-[lib]
-crate-type = ["cdylib", "rlib"]
-doctest = false
-test = false
+[package.metadata.release]
+release = false
 
 [package.metadata.ws-module.dependencies]
 "@huggingface/transformers" = "*"
 et-model-llm1 = "*"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+doctest = false
+test = false
 
 [dependencies]
 et-org.workspace = true
@@ -37,11 +40,5 @@ web-sys = { workspace = true, features = [
   "console",
 ] }
 
-[dev-dependencies]
-wasm-bindgen-test.workspace = true
-
 [lints]
 workspace = true
-
-[package.metadata.release]
-release = false

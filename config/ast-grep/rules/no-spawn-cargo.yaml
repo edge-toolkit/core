@@ -1,0 +1,19 @@
+id: no-spawn-cargo
+language: Rust
+severity: error
+message: |
+  Rust code must not run cargo or any cargo subcommand binary (`cargo-<subcommand>`) as a subprocess. A
+  nested cargo competes for the same build lock and target directory as whatever invoked it, so it stalls behind or
+  rebuilds over the outer build, and it ties the code to a toolchain being on `PATH`. Read what you need from the
+  manifests, link the crate whose data you want, or run cargo from a mise task instead. A test that genuinely has to
+  build another workspace binary takes a one-line `ast-grep-ignore` naming why.
+# Matches the program name as a whole literal, `cargo` or `cargo-<anything>`.
+# It is caught as the program passed to `Command::new` and as an argument handed to another program (`mise exec --
+# cargo ...`). Generated text that merely contains `cargo run ...` is a longer literal and does not match.
+rule:
+  kind: string_content
+  regex: "^cargo(-[A-Za-z0-9_-]+)?$"
+  inside:
+    kind: call_expression
+    regex: '(::new|\.args?)\s*\('
+    stopBy: end

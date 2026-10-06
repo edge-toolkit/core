@@ -66,6 +66,19 @@ impl From<tokio_tungstenite::tungstenite::Error> for Math1Error {
     }
 }
 
+/// Read the (weight, bias) pair out of the module's `math1-output.json`.
+#[expect(clippy::single_call_fn, reason = "the output-reading step of drive_math1_exchange")]
+fn parse_output(bytes: &[u8]) -> Result<(f64, f64), Math1Error> {
+    let value: serde_json::Value = serde_json::from_slice(bytes)?;
+    let field = |name: &str| {
+        value
+            .get(name)
+            .and_then(serde_json::Value::as_f64)
+            .ok_or_else(|| Math1Error::Protocol(format!("output missing `{name}`")))
+    };
+    Ok((field("weight")?, field("bias")?))
+}
+
 /// Connect the fake agent, inject the input, broadcast the pointer, and await the module's output.
 ///
 /// Returns the (weight, bias) parsed from the module's `math1-output.json`. The input file is
@@ -128,16 +141,7 @@ pub async fn drive_math1_exchange(
         for peer in &peers {
             let output_path = storage_dir.join(peer).join(MATH1_OUTPUT_FILENAME);
             if let Ok(bytes) = fs_err::read(&output_path) {
-                let value: serde_json::Value = serde_json::from_slice(&bytes)?;
-                let weight = value
-                    .get("weight")
-                    .and_then(serde_json::Value::as_f64)
-                    .ok_or_else(|| Math1Error::Protocol("output missing `weight`".to_string()))?;
-                let bias = value
-                    .get("bias")
-                    .and_then(serde_json::Value::as_f64)
-                    .ok_or_else(|| Math1Error::Protocol("output missing `bias`".to_string()))?;
-                return Ok((weight, bias));
+                return parse_output(&bytes);
             }
         }
 

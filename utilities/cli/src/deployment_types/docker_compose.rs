@@ -11,6 +11,55 @@ use crate::{
     resolve_module_paths,
 };
 
+/// The build-only service that builds the hub image a local scenario layers onto, built from `context`.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the hub-build step of generate_docker_compose_deployment"
+)]
+fn hub_build_service(context: String) -> ComposeService {
+    ComposeService {
+        build: Some(ComposeBuild {
+            context,
+            dockerfile: "services/ws-server/Dockerfile".to_string(),
+            additional_contexts: Vec::new(),
+        }),
+        scale: Some(0),
+        ..ComposeService::default()
+    }
+}
+
+/// A `depends_on` entry that waits for `service` to report healthy, not merely to have started.
+fn healthy(service: &str) -> (String, ComposeDependsOnCondition) {
+    let condition = ComposeDependsOnCondition {
+        condition: "service_healthy".to_string(),
+    };
+    (service.to_string(), condition)
+}
+
+/// The hub's own readiness probe, which the runners gate on.
+///
+/// A runner resolves its module by fetching `/modules/<name>/package.json`, which fails outright instead of
+/// retrying, so "container started" is not a strong enough edge -- `service_started` would let a runner ask before
+/// the listener exists.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the healthcheck step of generate_docker_compose_deployment"
+)]
+fn hub_healthcheck() -> ComposeHealthcheck {
+    ComposeHealthcheck {
+        test: vec![
+            "CMD".to_string(),
+            "curl".to_string(),
+            "-fsS".to_string(),
+            format!("{}/health", hub_http_base()),
+        ],
+        interval: "5s".to_string(),
+        timeout: "3s".to_string(),
+        retries: 20,
+        start_period: "10s".to_string(),
+    }
+}
+
 pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
     let output_path = output_dir.join(OutputType::DockerCompose.output_file_name());
     let workspace_root = edge_toolkit::config::get_project_root();
@@ -32,18 +81,7 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
     let hub_context = if published {
         format!("docker-image://{IMAGE_REGISTRY}/et-ws-server:latest")
     } else {
-        services.push((
-            "ws-server-hub".to_string(),
-            ComposeService {
-                build: Some(ComposeBuild {
-                    context: workspace_rel.clone(),
-                    dockerfile: "services/ws-server/Dockerfile".to_string(),
-                    additional_contexts: Vec::new(),
-                }),
-                scale: Some(0),
-                ..ComposeService::default()
-            },
-        ));
+        services.push(("ws-server-hub".to_string(), hub_build_service(workspace_rel.clone())));
         "service:ws-server-hub".to_string()
     };
     services.push((
@@ -63,28 +101,8 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
             env_file: vec![SECRETS_ENV_FILE.to_string()],
             environment: hub_environment(module_paths, &workspace_root, serves_a_page),
             volumes: vec!["ws-server-storage:/app/storage".to_string()],
-            depends_on: vec![(
-                "openobserve".to_string(),
-                ComposeDependsOnCondition {
-                    condition: "service_healthy".to_string(),
-                },
-            )],
-            // The hub reports its own readiness so the runners have something to gate on. A runner resolves its module
-            // by fetching `/modules/<name>/package.json`, which fails outright instead of retrying, so "container
-            // started" is not a strong enough edge -- `service_started` would let a runner ask before the listener
-            // exists.
-            healthcheck: Some(ComposeHealthcheck {
-                test: vec![
-                    "CMD".to_string(),
-                    "curl".to_string(),
-                    "-fsS".to_string(),
-                    format!("{}/health", hub_http_base()),
-                ],
-                interval: "5s".to_string(),
-                timeout: "3s".to_string(),
-                retries: 20,
-                start_period: "10s".to_string(),
-            }),
+            depends_on: vec![healthy("openobserve")],
+            healthcheck: Some(hub_healthcheck()),
             ..ComposeService::default()
         },
     ));
@@ -144,12 +162,7 @@ fn runner_services(
                 image: published.then(|| format!("{IMAGE_REGISTRY}/et-ws-{kind}-runner:latest")),
                 network_mode: Some("host".to_string()),
                 environment: runner_environment(runner),
-                depends_on: vec![(
-                    "ws-server".to_string(),
-                    ComposeDependsOnCondition {
-                        condition: "service_healthy".to_string(),
-                    },
-                )],
+                depends_on: vec![healthy("ws-server")],
                 ..ComposeService::default()
             };
             (runner.name.clone(), service)
@@ -362,44 +375,50 @@ impl ComposeRenderer {
         self.output.push('\n');
     }
 
+    /// Write `key:` and then each of `items` as a `- item` line one level deeper, or nothing when there are none.
+    fn push_list(&mut self, indent: usize, key: &str, items: &[String]) {
+        if items.is_empty() {
+            return;
+        }
+        self.push_line(indent, &format!("{key}:"));
+        for item in items {
+            self.push_line(indent.saturating_add(1), &format!("- {item}"));
+        }
+    }
+
+    fn render_healthcheck(&mut self, healthcheck: &ComposeHealthcheck) {
+        self.push_line(2, "healthcheck:");
+        self.push_list(3, "test", &healthcheck.test);
+        self.push_line(3, &format!("interval: {}", healthcheck.interval));
+        self.push_line(3, &format!("timeout: {}", healthcheck.timeout));
+        self.push_line(3, &format!("retries: {}", healthcheck.retries));
+        self.push_line(3, &format!("start_period: {}", healthcheck.start_period));
+    }
+
+    fn render_build(&mut self, build: &ComposeBuild) {
+        self.push_line(2, "build:");
+        self.push_line(3, &format!("context: {}", build.context));
+        self.push_line(3, &format!("dockerfile: {}", build.dockerfile));
+        if !build.additional_contexts.is_empty() {
+            self.push_line(3, "additional_contexts:");
+            for (name, source) in &build.additional_contexts {
+                self.push_line(4, &format!("{name}: {source}"));
+            }
+        }
+    }
+
     fn render_service(&mut self, name: &str, service: &ComposeService) {
         self.push_line(1, &format!("{name}:"));
         if let Some(image) = &service.image {
             self.push_line(2, &format!("image: {image}"));
         }
         if let Some(healthcheck) = &service.healthcheck {
-            self.push_line(2, "healthcheck:");
-            self.push_line(3, "test:");
-            for item in &healthcheck.test {
-                self.push_line(4, &format!("- {item}"));
-            }
-            self.push_line(3, &format!("interval: {}", healthcheck.interval));
-            self.push_line(3, &format!("timeout: {}", healthcheck.timeout));
-            self.push_line(3, &format!("retries: {}", healthcheck.retries));
-            self.push_line(3, &format!("start_period: {}", healthcheck.start_period));
+            self.render_healthcheck(healthcheck);
         }
-        if !service.ports.is_empty() {
-            self.push_line(2, "ports:");
-            for port in &service.ports {
-                self.push_line(3, &format!("- {port}"));
-            }
-        }
-        if !service.env_file.is_empty() {
-            self.push_line(2, "env_file:");
-            for env_file in &service.env_file {
-                self.push_line(3, &format!("- {env_file}"));
-            }
-        }
+        self.push_list(2, "ports", &service.ports);
+        self.push_list(2, "env_file", &service.env_file);
         if let Some(build) = &service.build {
-            self.push_line(2, "build:");
-            self.push_line(3, &format!("context: {}", build.context));
-            self.push_line(3, &format!("dockerfile: {}", build.dockerfile));
-            if !build.additional_contexts.is_empty() {
-                self.push_line(3, "additional_contexts:");
-                for (name, source) in &build.additional_contexts {
-                    self.push_line(4, &format!("{name}: {source}"));
-                }
-            }
+            self.render_build(build);
         }
         if let Some(scale) = service.scale {
             self.push_line(2, &format!("scale: {scale}"));
@@ -413,12 +432,7 @@ impl ComposeRenderer {
                 self.render_environment_value(key, value);
             }
         }
-        if !service.volumes.is_empty() {
-            self.push_line(2, "volumes:");
-            for volume in &service.volumes {
-                self.push_line(3, &format!("- {volume}"));
-            }
-        }
+        self.push_list(2, "volumes", &service.volumes);
         if !service.depends_on.is_empty() {
             self.push_line(2, "depends_on:");
             for (name, condition) in &service.depends_on {

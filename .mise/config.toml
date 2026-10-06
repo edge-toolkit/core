@@ -300,6 +300,16 @@ version = "0.6.0"
 asset_pattern = "{{ vars.musl_pattern }}"
 version = "latest"
 
+# The feature-powerset driver behind cargo-hack-check; musl on Linux so the older-glibc image bases can run it.
+[tools."github:taiki-e/cargo-hack"]
+asset_pattern = "{{ vars.musl_pattern }}"
+version = "latest"
+
+# The unused-dependency finder behind cargo-shear-check; musl on Linux for the same reason as cargo-hack.
+[tools."github:Boshen/cargo-shear"]
+asset_pattern = "{{ vars.musl_pattern }}"
+version = "latest"
+
 # Native rustpython binary built from upstream RustPython main.
 # Built with `freeze-stdlib` (so the binary embeds the Python stdlib and doesn't need a RUSTPYTHONPATH dance)
 # + the upstream pip audit-hook fix (RustPython#7956). Per-platform url + checksum, os-scoped to only those
@@ -430,18 +440,24 @@ url = "https://github.com/rustfs/rustfs/releases/download/{{version}}/rustfs-win
 # matches both. Immutable per-version URLs mean no checksum -- the same direct-upstream posture as
 # http:openobserve. mise auto-strips the single `chromedriver-<platform>/` archive dir, leaving the `chromedriver`
 # binary at the install root. Consumers: test-ws-wasm-agent-chrome / ws-e2e-chrome and the wasm-agent-cov coverage
-# task (which in CI drives Chrome via the runner's matched CHROMEWEBDRIVER instead). The major version must track
-# the Chrome it drives (a >1-major skew makes chromedriver refuse the session); bump this pin when that moves.
+# task (which in CI drives Chrome via the runner's matched CHROMEWEBDRIVER instead).
+# The version is the current Stable release from Chrome for Testing's channel feed rather than a fixed pin. A
+# chromedriver more than one major away from the browser refuses the session, and a desktop Chrome auto-updates along
+# that same Stable channel, so a pin went stale on its own -- 152.0.7977.75 against Chrome 154 failed with
+#   session not created: This version of ChromeDriver only supports Chrome version 152
+# locally, on commit https://github.com/edge-toolkit/core/commit/e669c188d458a4d1b931fb7268f1131603f4d7b6.
 [tools."http:chromedriver"]
 bin = "chromedriver"
 os = ["linux/x64", "macos"]
-version = "152.0.7977.75"
+version = "latest"
+version_expr = "[fromJSON(body).channels.Stable.version]"
+version_list_url = "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json"
 [tools."http:chromedriver".platforms.linux-x64]
-url = "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.75/linux64/chromedriver-linux64.zip"
+url = "https://storage.googleapis.com/chrome-for-testing-public/{{version}}/linux64/chromedriver-linux64.zip"
 [tools."http:chromedriver".platforms.macos-arm64]
-url = "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.75/mac-arm64/chromedriver-mac-arm64.zip"
+url = "https://storage.googleapis.com/chrome-for-testing-public/{{version}}/mac-arm64/chromedriver-mac-arm64.zip"
 [tools."http:chromedriver".platforms.macos-x64]
-url = "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.75/mac-x64/chromedriver-mac-x64.zip"
+url = "https://storage.googleapis.com/chrome-for-testing-public/{{version}}/mac-x64/chromedriver-mac-x64.zip"
 
 [tools."http:augeas"]
 bin = "augtool"
@@ -632,6 +648,12 @@ no_opt = ""
 # config.windows.toml overrides it to `--exclude et-ws-web-runner` -- that crate pulls deno -> v8, whose
 # rusty_v8 gnullvm prebuilt is broken, so the workspace cargo check/clippy/doc can't build it on Windows.
 cargo_ws_excludes = ""
+# The targets and scope cargo-clippy-check lints and cargo-clippy-fix rewrites, which must be the same set.
+clippy_scope = "--keep-going --workspace --all-targets"
+# Flags for cargo-hack-check's feature powerset.
+# `cuda` is left out because it downloads a CUDA build of ONNX Runtime that exists only for some host triples.
+# `docs` only renders the feature list into rustdoc, which cargo-doc-check builds, so it would double every run.
+cargo_hack_flags = "--all-targets --feature-powerset --exclude-features cuda,docs"
 # Linux/macOS install root for the github:microsoft/onnxruntime tool.
 # The ORT_LIB_LOCATION env below resolves to it via the OS conditional. Version
 # segment must match the [tools] pin (conftest's version_drift enforces this).
@@ -820,8 +842,8 @@ description = "Format every checked-in .jq file with jqfmt (in-place)"
 # jqfmt prints the formatted body to stdout (no -w flag).
 # Pipe it through goawk to strip the trailing space jqfmt's `-op pipe` mode leaves at the
 # end of each broken-pipe line, then rewrite via tmp + rename.
-# NOTE: jqfmt strips leading/trailing `#` comments -- if a .jq file has docstring-style header comments
-# worth keeping, lift them into the calling task / source-of-truth file before running this.
+# NOTE: jqfmt strips every `#` comment, so no aggregate runs this: the tracked .jq files carry documentation
+# comments it would delete. Run it by hand only on a file whose comments have been lifted elsewhere first.
 run = """
 git ls-files '*.jq' | while read -r f; do
   jqfmt -f "$f" -op pipe -ob -ar | goawk '{ sub(/[ \\t]+$/, ""); print }' >"$f.tmp"
@@ -832,7 +854,7 @@ shell = "{{ vars.task_shell }}"
 
 [tasks."fmt:rust"]
 # Rust + universal formatters. Always-loaded, so `fmt`'s glob always matches it.
-depends = ["cargo-clippy-fix", "cargo-fmt", "dprint-fmt", "jq-fmt", "shfmt-mise-fmt", "taplo-fmt"]
+depends = ["cargo-clippy-fix", "cargo-fmt", "dprint-fmt", "shfmt-mise-fmt", "taplo-fmt"]
 description = "Run the Rust + universal repo-wide formatters"
 
 [tasks.fmt]
@@ -856,8 +878,10 @@ depends = [
   "branch-up-to-date-check",
   "cargo-check",
   "cargo-clippy-check",
+  "cargo-clippy-wasm-check",
   "cargo-doc-check",
   "cargo-fmt-check",
+  "cargo-shear-check",
   "checks-md-check",
   "conftest-check",
   "dockerignore-check",
@@ -902,15 +926,16 @@ description = "Run all checks: check:rust + any loaded guest check:<lang>"
 # Rust + universal lint-fix passes.
 # Distinct from fmt:rust (style/whitespace
 # formatters) -- these apply auto-rewrites for actual lint violations.
-depends = ["ast-grep-fix", "cargo-clippy-fix", "regal-fix", "semgrep-fix", "typos-fix"]
+depends = ["ast-grep-fix", "cargo-clippy-fix", "cargo-shear-fix", "regal-fix", "semgrep-fix", "typos-fix"]
 description = "Apply Rust + universal lint-fix passes"
 
 [tasks.fix]
-# Same glob shape as fmt/check.
-# fix:rust is always loaded, so the glob never
-# matches zero; guest fix:<lang> tasks join when their MISE_ENV is loaded.
+# Runs every fix pass, then fmt, since the passes' rewrites need reformatting.
+# Same glob shape as fmt/check: fix:rust is always loaded, so the glob never matches zero, and guest fix:<lang>
+# tasks join when their MISE_ENV is loaded.
 depends = ["fix:*"]
-description = "Apply all lint-fix passes: fix:rust + any loaded guest fix:<lang>"
+depends_post = ["fmt"]
+description = "Apply every lint-fix pass (fix:rust + any loaded guest fix:<lang>), then every formatter (fmt)"
 
 [tasks.action-validator-check]
 description = "Validate GitHub Actions workflow + composite-action YAML"
@@ -1055,6 +1080,7 @@ description = "Detect copy/pasted code across every language (jscpd)"
 run = "jscpd . --config config/jscpd.json --baseline config/jscpd-baseline.json --fail-on-new-clones"
 
 [tasks.jscpd-baseline-update]
+alias = "update-jscpd-baseline"
 description = "Rewrite config/jscpd-baseline.json from the current tree, printing added/removed clone counts"
 run = "jscpd . --config config/jscpd.json --baseline config/jscpd-baseline.json --update-baseline"
 
@@ -1065,6 +1091,26 @@ run = "jscpd . --config config/jscpd.json --reporters html,console --output targ
 
 [tasks.cargo-check]
 run = "cargo check --workspace {{ vars.cargo_ws_excludes }}"
+
+# Lints every crate under every combination of its features with the workspace clippy set.
+# A `#[cfg(feature)]` that only compiles, or only lints clean, alongside some other feature then fails here rather
+# than for the downstream user who picked that combination. cargo-clippy-check covers the default features alone.
+# Only the check workflow runs it, as a lane of its own: no aggregate does, because a clippy build per feature
+# combination of every crate takes far longer than anyone running `mise run check` locally should have to wait.
+[tasks.cargo-hack-check]
+description = "cargo clippy every crate's feature powerset"
+run = "cargo hack clippy --workspace {{ vars.cargo_hack_flags }} {{ vars.cargo_ws_excludes }}"
+
+# Fails on a dependency no source file names, and on one only tests name that is not a dev-dependency.
+# The scan is syntactic, so a crate reached only through a macro expansion reads as unused: such a crate goes in
+# that manifest's `[package.metadata.cargo-shear] ignored`, with the macro named beside it.
+[tasks.cargo-shear-check]
+description = "Find unused and misplaced Cargo dependencies with cargo-shear"
+run = "cargo shear --locked --deny-warnings"
+
+[tasks.cargo-shear-fix]
+description = "Remove the unused Cargo dependencies cargo-shear finds"
+run = "cargo shear --fix"
 
 # A real codegen + link pass, where cargo-check stops after type-checking.
 # That distinction is the whole point on a platform being brought up: the linker, the CRT and the -sys crates'
@@ -1107,7 +1153,29 @@ run = "cargo +{{ vars.rust_nightly }} fmt -- --check"
 
 [tasks.cargo-clippy-check]
 alias = ["cargo-clippy", "clippy", "clippy-check"]
-run = "cargo clippy --keep-going --workspace --tests {{ vars.cargo_ws_excludes }}"
+run = "cargo clippy {{ vars.clippy_scope }} {{ vars.cargo_ws_excludes }}"
+
+# Lints the wasm crates on the targets they actually build for, which cargo-clippy-check's host build never sees.
+# The crate sets come from `cargo metadata`, by what each crate binds to, so a new module joins without an edit:
+# a `wasm-bindgen` dependent is a browser crate, a `wit-bindgen` or `et-wasi-guest` dependent is a WASI guest.
+[tasks.cargo-clippy-wasm-check]
+description = "cargo clippy the browser and WASI crates on their wasm targets"
+run = """
+meta="$(cargo metadata --format-version 1 --no-deps)"
+# `$dep` and `$names` are jaq variables bound inside the filter, so the shell must not expand them.
+# shellcheck disable=SC2016
+pick='.packages[] | select(any(.dependencies[].name; . as $dep | any($names[]; . == $dep))) | "-p", .name'
+browser="$(printf '%s' "$meta" | jaq -r --argjson names '["wasm-bindgen"]' "$pick")"
+wasi="$(printf '%s' "$meta" | jaq -r --argjson names '["wit-bindgen", "et-wasi-guest"]' "$pick")"
+rc=0
+# Both package lists are newline-separated `-p` / `<name>` words, and rely on word-splitting.
+# shellcheck disable=SC2086
+cargo clippy --keep-going --all-targets --target wasm32-unknown-unknown $browser || rc=1
+# shellcheck disable=SC2086
+cargo clippy --keep-going --all-targets --target wasm32-wasip2 $wasi || rc=1
+exit "$rc"
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.cargo-clippy-check-pkg]
 alias = ["clippy-pkg"]
@@ -1115,7 +1183,7 @@ description = "cargo clippy on a single workspace package (narrow inner-loop che
 # Same flags as cargo-clippy-check minus --workspace.
 # Usage-spec captures the package name and exposes it as $usage_package; a missing arg fails up front with
 # mise's auto-generated usage message instead of clippy's generic "--package <SPEC> not found" error.
-run = 'cargo clippy --keep-going --tests -p "$usage_package"'
+run = 'cargo clippy --keep-going --all-targets -p "$usage_package"'
 usage = 'arg "<package>" help="Workspace package name (e.g. edge-toolkit)"'
 
 [tasks.cargo-doc-check]
@@ -1145,12 +1213,15 @@ run = """
 ort_build_dir="${CARGO_TARGET_DIR:-target}${CARGO_BUILD_TARGET:+/$CARGO_BUILD_TARGET}/debug/build"
 coreutils mkdir -p "$ort_build_dir/examples" "$ort_build_dir/deps"
 tc="{{ vars.rust_nightly }}"
-cargo "+$tc" doc --keep-going --workspace --no-deps --document-private-items {{ vars.cargo_ws_excludes }}
+# `docs` is the feature docs.rs builds with, which renders each crate's feature list.
+features="--features docs"
+# shellcheck disable=SC2086
+cargo "+$tc" doc --keep-going --workspace --no-deps --document-private-items $features {{ vars.cargo_ws_excludes }}
 """
 shell = "{{ vars.task_shell }}"
 
 [tasks.cargo-clippy-fix]
-run = "cargo clippy --fix --allow-dirty --allow-staged --keep-going --workspace --tests {{ vars.cargo_ws_excludes }}"
+run = "cargo clippy --fix --allow-dirty --allow-staged {{ vars.clippy_scope }} {{ vars.cargo_ws_excludes }}"
 
 [tasks.taplo-fmt]
 alias = "toml-fmt"
@@ -1761,7 +1832,22 @@ description = "Check that URLs in prose, source and config files are reachable (
 # this repo's commit references were checked by nothing at all.
 run = """
 cfg=config/lychee.toml
-lychee --config "$cfg" '**/*.md' 'libs/**/*.rs' 'services/**/*.rs' 'utilities/**/*.rs'
+# The README's Codecov dashboard link is skipped while Codecov's Cloudflare-fronted hosts refuse TLS handshakes.
+# That outage is https://github.com/codecov/codecov-action/issues/1975, open since 2026-10-05. Every dashboard URL
+# redirects to app.codecov.io, one of those hosts, so the check reports
+#   [ERROR] https://codecov.io/gh/edge-toolkit/core (at 3:32) | Network error: received fatal alert:
+#   HandshakeFailure | Followed 1 redirect.
+# on GitHub's runners at https://github.com/edge-toolkit/core/actions/runs/37251999021/job/111581371873 and
+# locally alike. Drop the skip once that issue is resolved. Only that exact URL is skipped: the badge beside it is
+# served by codecov.io itself and names the same project, so it still fails if the project moves or disappears.
+# It lives here rather than in the lychee config because the service may only be named in the coverage tooling.
+dashboard='^https://codecov\\.io/gh/edge-toolkit/core$'
+# Links to this repo's own files on main are checked against the working tree instead of github.com.
+# A file the branch adds 404s there until it merges, and one the branch deletes still resolves there, so the live
+# check reports the first and misses the second. The file URL takes the same cross-platform form as taplo-check's.
+blob='^https://github\\.com/edge-toolkit/core/blob/main/(.*)$ '"file:///${PWD#/}/\\$1"
+set -- --exclude "$dashboard" --remap "$blob"
+lychee --config "$cfg" "$@" '**/*.md' 'libs/**/*.rs' 'services/**/*.rs' 'utilities/**/*.rs'
 # Everything except the commit URLs is excluded on the second pass, by `--exclude .*` with `--include` winning.
 # Those files hold links this repo does not otherwise own -- release-asset bases joined to a filename at run
 # time, doc placeholders, a regex quoted inside a comment -- and none of them is a URL a reader could follow.
@@ -2035,7 +2121,7 @@ description = "Fail if generated scenario output files are stale"
 run = "git diff --exit-code -- verification/"
 
 [tasks.gen-help-all]
-description = "Regenerate HELP.md for every clap-using utility under utilities/"
+description = "Regenerate HELP.md for every binary crate using clap or reading serde-env config"
 run = "cargo run -q -p et-int-gen --bin et-int-gen -- help-md"
 
 [tasks."gen:checks"]
@@ -2053,7 +2139,7 @@ run = "cargo run -q -p et-int-gen --bin et-int-gen -- checks --check"
 [tasks.gen-help-check]
 # After checks-md-check, whose et-int-gen build it reuses.
 depends = ["checks-md-check"]
-description = "Fail if any utility's checked-in HELP.md is stale vs the clap tree (run `mise run gen-help-all`)"
+description = "Fail if any checked-in HELP.md is stale vs its clap tree or env config (run `mise run gen-help-all`)"
 run = "cargo run -q -p et-int-gen --bin et-int-gen -- help-md --check"
 
 [tasks.fetch-wit-deps]

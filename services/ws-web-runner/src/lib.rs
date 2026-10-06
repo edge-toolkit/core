@@ -1,15 +1,11 @@
-//! Native runner that executes browser-targeted ws-modules under embedded Deno.
-//!
-//! Counterpart to `et-ws-wasi-runner` (which runs WASI components inside wasmtime); this crate runs the JavaScript
-//! entry points (wasm-bindgen glue, Pyodide shims, Dart/Zig/Java shims) that normally load in a real browser.
-//!
-//! The runner fetches `package.json` from the ws-server, downloads the `main` JS file, and evaluates it inside a Deno
-//! `JsRuntime` equipped with the standard web platform extensions (fetch, `WebSocket`, `WebStorage`, timers, crypto,
-//! WebGPU).
+#![cfg_attr(doc, doc = include_str!("../README.md"))]
+#![cfg_attr(feature = "docs", doc = "## Feature flags")]
+#![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 
 use std::time::Duration;
 
 use et_ws_runner_common::{derive_http_base, fetch_main_field};
+use tracing::info;
 
 pub mod config;
 mod error;
@@ -37,7 +33,7 @@ pub async fn run_module(module_name: &str, ws_url: &str, coverage: bool) -> Resu
     let module_base_url = format!("{http_base}/modules/{module_name}");
     let entry_url = format!("{module_base_url}/{main}");
 
-    tracing::info!(%entry_url, "running module JS");
+    info!(%entry_url, "running module JS");
 
     runtime::run_js_module(&entry_url, &http_base, ws_url, rest, coverage).await?;
     Ok(())

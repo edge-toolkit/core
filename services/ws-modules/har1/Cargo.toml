@@ -7,21 +7,22 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
-[lib]
-crate-type = ["cdylib", "rlib"]
-doctest = false
+[package.metadata.release]
+release = false
 
 [package.metadata.ws-module.dependencies]
 et-model-har-motion1 = "*"
 onnxruntime-web = "*"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+doctest = false
 
 [dependencies]
 et-org.workspace = true
 et-web.workspace = true
 et-ws-wasm-agent.workspace = true
 js-sys.workspace = true
-serde.workspace = true
-serde-wasm-bindgen.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 tracing-wasm.workspace = true
@@ -52,6 +53,3 @@ wasm-bindgen-test.workspace = true
 
 [lints]
 workspace = true
-
-[package.metadata.release]
-release = false

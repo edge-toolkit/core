@@ -3,31 +3,6 @@
 version = 4
 
 [[package]]
-name = "actix"
-version = "0.13.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de7fa236829ba0841304542f7614c42b80fca007455315c45c785ccfa873a85b"
-dependencies = [
- "actix-macros",
- "actix-rt",
- "actix_derive",
- "bitflags 2.13.2",
- "bytes",
- "crossbeam-channel",
- "futures-core",
- "futures-sink",
- "futures-task",
- "futures-util",
- "log",
- "once_cell",
- "parking_lot",
- "pin-project-lite",
- "smallvec 1.16.1",
- "tokio",
- "tokio-util",
-]
-
-[[package]]
 name = "actix-codec"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -294,17 +269,6 @@ dependencies = [
  "futures-sink",
  "tokio",
  "tokio-util",
-]
-
-[[package]]
-name = "actix_derive"
-version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6ac1e58cded18cb28ddc17143c4dea5345b3ad575e14f32f66e4054a56eb271"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
 ]
 
 [[package]]
@@ -4145,16 +4109,16 @@ dependencies = [
  "asyncapi-rust",
  "base64 0.23.1",
  "command-error",
+ "document-features",
  "et-path",
  "et-test-helpers",
+ "et-test-otlp",
  "fs-err",
  "humantime-serde",
- "log",
  "rstest",
  "schemars 1.2.2",
  "secrecy",
  "serde",
- "serde-env",
  "serde-inline-default",
  "serde_default",
  "serde_json",
@@ -4162,8 +4126,8 @@ dependencies = [
  "serde_yaml",
  "strum 0.28.0",
  "tempfile",
- "testing_logger",
  "thiserror 2.0.20",
+ "tracing",
 ]
 
 [[package]]
@@ -4324,6 +4288,7 @@ dependencies = [
  "et-onnx",
  "et-storage-service",
  "et-test-helpers",
+ "et-ws-runner-common",
  "et-ws-server",
  "fs-err",
  "heck",
@@ -4359,14 +4324,15 @@ dependencies = [
  "actix-files",
  "actix-rt",
  "actix-web",
+ "document-features",
  "edge-toolkit",
  "fs-err",
+ "schemars 1.2.2",
  "serde",
  "serde-inline-default",
  "serde_default",
  "serde_json",
  "tempfile",
- "tracing",
  "utoipa",
 ]
 
@@ -4389,7 +4355,6 @@ dependencies = [
  "edge-toolkit",
  "fs-err",
  "hostname",
- "log",
  "opentelemetry",
  "opentelemetry-appender-tracing",
  "opentelemetry-otlp",
@@ -4425,15 +4390,12 @@ dependencies = [
 name = "et-rest-client"
 version = "0.1.0"
 dependencies = [
- "bytes",
- "futures-core",
  "opentelemetry",
  "opentelemetry-http",
  "progenitor-client",
  "reqwest",
  "retry-policies",
  "serde",
- "serde_urlencoded",
  "tokio",
  "tracing",
  "tracing-opentelemetry",
@@ -4444,11 +4406,11 @@ dependencies = [
 name = "et-storage-service"
 version = "0.1.1"
 dependencies = [
- "actix-files",
  "actix-rt",
  "actix-web",
  "actix-web-thiserror",
  "command-error",
+ "document-features",
  "edge-toolkit",
  "et-test-helpers",
  "fs-err",
@@ -4456,14 +4418,13 @@ dependencies = [
  "image",
  "log",
  "object_store",
+ "schemars 1.2.2",
  "serde",
- "serde-inline-default",
  "serde_default",
  "serde_json",
  "temp-env",
  "tempfile",
  "thiserror 2.0.20",
- "tokio",
  "tracing",
  "url",
  "utoipa",
@@ -4495,12 +4456,15 @@ dependencies = [
  "reqwest",
  "serde_json",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
 name = "et-wasi-guest"
 version = "0.1.0"
 dependencies = [
+ "document-features",
  "et-path",
  "fs-err",
  "minicov",
@@ -4511,6 +4475,7 @@ dependencies = [
 name = "et-web"
 version = "0.2.0"
 dependencies = [
+ "document-features",
  "js-sys",
  "minicov",
  "wasm-bindgen",
@@ -4526,9 +4491,9 @@ dependencies = [
  "actix-ws",
  "bytes",
  "futures-util",
- "log",
  "tokio",
  "tokio-tungstenite",
+ "tracing",
 ]
 
 [[package]]
@@ -4537,15 +4502,11 @@ version = "0.1.0"
 dependencies = [
  "et-web",
  "et-ws-wasm-agent",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
  "serde_json",
  "tracing",
  "tracing-wasm",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-bindgen-test",
  "web-sys",
 ]
 
@@ -4556,14 +4517,11 @@ dependencies = [
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
- "serde",
- "serde-wasm-bindgen",
  "serde_json",
  "tracing",
  "tracing-wasm",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-bindgen-test",
  "web-sys",
 ]
 
@@ -4574,15 +4532,11 @@ dependencies = [
  "edge-toolkit",
  "et-web",
  "et-ws-wasm-agent",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
  "serde_json",
  "tracing",
  "tracing-wasm",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-bindgen-test",
  "web-sys",
 ]
 
@@ -4596,14 +4550,11 @@ dependencies = [
  "et-ws-wasm-agent",
  "futures-util",
  "js-sys",
- "serde",
- "serde-wasm-bindgen",
  "serde_json",
  "tracing",
  "tracing-wasm",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-bindgen-test",
  "web-sys",
 ]
 
@@ -4613,12 +4564,10 @@ version = "0.1.0"
 dependencies = [
  "et-web",
  "et-ws-wasm-agent",
- "js-sys",
  "tracing",
  "tracing-wasm",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-bindgen-test",
  "web-sys",
 ]
 
@@ -4630,8 +4579,6 @@ dependencies = [
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
- "serde",
- "serde-wasm-bindgen",
  "serde_json",
  "tracing",
  "tracing-wasm",
@@ -4648,14 +4595,11 @@ dependencies = [
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
- "serde",
- "serde-wasm-bindgen",
  "serde_json",
  "tracing",
  "tracing-wasm",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-bindgen-test",
  "web-sys",
 ]
 
@@ -4666,14 +4610,11 @@ dependencies = [
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
- "serde",
- "serde-wasm-bindgen",
  "serde_json",
  "tracing",
  "tracing-wasm",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-bindgen-test",
  "web-sys",
 ]
 
@@ -4685,8 +4626,6 @@ dependencies = [
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
- "serde",
- "serde-wasm-bindgen",
  "serde_json",
  "tracing",
  "tracing-wasm",
@@ -4709,7 +4648,6 @@ dependencies = [
  "tracing-wasm",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-bindgen-test",
  "web-sys",
 ]
 
@@ -4721,14 +4659,12 @@ dependencies = [
  "et-web",
  "et-ws-wasm-agent",
  "futures-util",
- "js-sys",
  "serde",
  "serde_json",
  "tracing",
  "tracing-wasm",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-bindgen-test",
  "web-sys",
 ]
 
@@ -4740,12 +4676,10 @@ dependencies = [
  "et-rest-client",
  "et-web",
  "et-ws-wasm-agent",
- "js-sys",
  "tracing",
  "tracing-wasm",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-bindgen-test",
  "web-sys",
 ]
 
@@ -4756,14 +4690,11 @@ dependencies = [
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
- "serde",
- "serde-wasm-bindgen",
  "serde_json",
  "tracing",
  "tracing-wasm",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-bindgen-test",
  "web-sys",
 ]
 
@@ -4791,7 +4722,6 @@ name = "et-ws-pyo3-runner"
 version = "0.2.0"
 dependencies = [
  "backon",
- "base64 0.23.1",
  "command-error",
  "edge-toolkit",
  "et-org",
@@ -4803,8 +4733,6 @@ dependencies = [
  "pyo3",
  "pyo3-build-config",
  "rstest",
- "serde",
- "serde-env",
  "serde_json",
  "thiserror 2.0.20",
  "tokio",
@@ -4816,6 +4744,7 @@ dependencies = [
 name = "et-ws-runner-common"
 version = "0.2.0"
 dependencies = [
+ "document-features",
  "edge-toolkit",
  "et-otlp",
  "et-rest-client",
@@ -4824,6 +4753,7 @@ dependencies = [
  "humantime-serde",
  "reqwest",
  "retry-policies",
+ "schemars 1.2.2",
  "serde",
  "serde-env",
  "serde-inline-default",
@@ -4843,14 +4773,10 @@ dependencies = [
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
  "tracing",
  "tracing-wasm",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-bindgen-test",
  "web-sys",
 ]
 
@@ -4860,8 +4786,8 @@ version = "0.2.2"
 dependencies = [
  "actix-rt",
  "actix-web",
- "chrono",
  "clap",
+ "document-features",
  "edge-toolkit",
  "et-modules-service",
  "et-otlp",
@@ -4869,20 +4795,15 @@ dependencies = [
  "et-websockify-service",
  "et-ws-service",
  "fs-err",
- "futures-util",
  "local-ip-address",
- "log",
  "qr2term",
  "rcgen",
- "regex",
  "rustls",
- "secrecy",
+ "schemars 1.2.2",
  "serde",
  "serde-env",
  "serde-inline-default",
  "serde_default",
- "serde_json",
- "serde_yaml",
  "tempfile",
  "thiserror 2.0.20",
  "tokio",
@@ -4890,7 +4811,6 @@ dependencies = [
  "tracing-actix-web",
  "tracing-subscriber",
  "utoipa",
- "uuid",
 ]
 
 [[package]]
@@ -4902,11 +4822,13 @@ dependencies = [
  "bytes",
  "bytesize",
  "chrono",
+ "document-features",
  "edge-toolkit",
  "et-test-helpers",
  "fs-err",
  "futures-util",
  "opentelemetry",
+ "schemars 1.2.2",
  "serde",
  "serde-env",
  "serde-inline-default",
@@ -4926,14 +4848,11 @@ dependencies = [
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
- "serde",
- "serde-wasm-bindgen",
  "serde_json",
  "tracing",
  "tracing-wasm",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-bindgen-test",
  "web-sys",
 ]
 
@@ -4941,7 +4860,6 @@ dependencies = [
 name = "et-ws-test-server"
 version = "0.1.0"
 dependencies = [
- "actix",
  "actix-rt",
  "actix-web",
  "edge-toolkit",
@@ -4953,7 +4871,6 @@ dependencies = [
  "et-ws-service",
  "fs-err",
  "futures-util",
- "retry",
  "serde_json",
  "tempfile",
  "thiserror 2.0.20",
@@ -4969,14 +4886,11 @@ dependencies = [
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
- "serde",
- "serde-wasm-bindgen",
  "serde_json",
  "tracing",
  "tracing-wasm",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-bindgen-test",
  "web-sys",
 ]
 
@@ -4984,6 +4898,7 @@ dependencies = [
 name = "et-ws-wasi-comm1"
 version = "0.1.0"
 dependencies = [
+ "document-features",
  "et-wasi-guest",
  "serde_json",
 ]
@@ -4992,6 +4907,7 @@ dependencies = [
 name = "et-ws-wasi-data1"
 version = "0.1.0"
 dependencies = [
+ "document-features",
  "et-wasi-guest",
 ]
 
@@ -4999,6 +4915,7 @@ dependencies = [
 name = "et-ws-wasi-math1"
 version = "0.1.0"
 dependencies = [
+ "document-features",
  "et-wasi-guest",
  "serde",
  "serde_json",
@@ -5008,6 +4925,7 @@ dependencies = [
 name = "et-ws-wasi-math1-sender"
 version = "0.1.0"
 dependencies = [
+ "document-features",
  "et-path",
  "et-wasi-guest",
 ]
@@ -5016,9 +4934,8 @@ dependencies = [
 name = "et-ws-wasi-runner"
 version = "0.2.0"
 dependencies = [
- "async-trait",
- "bytemuck",
  "command-error",
+ "document-features",
  "edge-toolkit",
  "et-org",
  "et-otlp",
@@ -5030,16 +4947,11 @@ dependencies = [
  "fs-err",
  "futures-util",
  "libc",
- "opentelemetry",
- "opentelemetry-http",
  "ort",
- "pollster",
  "reqwest",
  "retry",
  "rstest",
  "secrecy",
- "serde",
- "serde-env",
  "serde_json",
  "serde_path_to_error",
  "tempfile",
@@ -5047,7 +4959,6 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "tracing",
- "tracing-opentelemetry",
  "wasi-webgpu-wasmtime",
  "wasmtime",
  "wasmtime-wasi",
@@ -5061,10 +4972,10 @@ name = "et-ws-wasm-agent"
 version = "0.2.0"
 dependencies = [
  "chrono",
+ "document-features",
  "edge-toolkit",
  "et-web",
  "js-sys",
- "serde",
  "serde_json",
  "tracing",
  "tracing-wasm",
@@ -5084,6 +4995,7 @@ dependencies = [
  "deno_error",
  "deno_resolver",
  "deno_runtime",
+ "document-features",
  "edge-toolkit",
  "et-org",
  "et-otlp",
@@ -5091,11 +5003,8 @@ dependencies = [
  "et-ws-runner-common",
  "et-ws-test-server",
  "fs-err",
- "futures-util",
  "reqwest",
  "rstest",
- "serde",
- "serde-env",
  "serde_json",
  "sys_traits",
  "thiserror 2.0.20",
@@ -8468,12 +8377,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pollster"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc6355899e1c9462875b6757c79f3caa011a1fdae12bbb1a2e72dd1f234f8336"
-
-[[package]]
 name = "polyval"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9984,17 +9887,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde-wasm-bindgen"
-version = "0.6.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8302e169f0eddcc139c70f139d19d6467353af16f9fce27e8c30158036a1e16b"
-dependencies = [
- "js-sys",
- "serde",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "serde_bytes"
 version = "0.11.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11198,15 +11090,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
-]
-
-[[package]]
-name = "testing_logger"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d92b727cb45d33ae956f7f46b966b25f1bc712092aeef9dba5ac798fc89f720"
-dependencies = [
- "log",
 ]
 
 [[package]]

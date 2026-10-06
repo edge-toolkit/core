@@ -1,3 +1,4 @@
+#![cfg_attr(doc, doc = include_str!("../README.md"))]
 #![expect(
     clippy::arithmetic_side_effects,
     clippy::needless_continue,

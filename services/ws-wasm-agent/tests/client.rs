@@ -11,6 +11,11 @@
 // macro emit the attribute keeps cause and gate in step -- the coverage tasks set it in their own RUSTFLAGS,
 // which overrides the target-specific coverage flags, so any cfg of our own would not reach this build.
 #![cfg_attr(wasm_bindgen_unstable_test_coverage, feature(coverage_attribute))]
+#![expect(
+    clippy::future_not_send,
+    clippy::single_call_fn,
+    reason = "#[wasm_bindgen_test] calls each test once from its generated wrapper; browser futures are !Send"
+)]
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -38,11 +43,11 @@ fn new_client(url: &str) -> WsClient {
 /// this port, and `ws-e2e-chrome` runs the real ws-server on it too.
 const SERVER_URL: &str = "ws://127.0.0.1:8080/ws";
 
-async fn sleep(ms: i32) {
+async fn sleep(millis: i32) {
     let promise = Promise::new(&mut |resolve, _reject| {
         let window = web_sys::window().unwrap();
         let _id = window
-            .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ms)
+            .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, millis)
             .unwrap();
     });
     let _resolved = JsFuture::from(promise).await.unwrap();
@@ -84,7 +89,7 @@ fn offline_sends_are_queued() {
     client.send("plain text").unwrap();
     client.request_list_agents().unwrap();
     client.broadcast_message(json!({ "hello": "world" })).unwrap();
-    client.send_agent_message("agent-x", json!({ "k": 1 })).unwrap();
+    client.send_agent_message("agent-x", json!({ "k": 1_i32 })).unwrap();
     client
         .send_client_event("capability", "action", json!({ "detail": true }))
         .unwrap();
@@ -100,8 +105,8 @@ fn send_alive_errors_when_not_connected() {
 fn offline_queue_drops_oldest_past_capacity() {
     let client = new_client("ws://127.0.0.1:8080/ws");
     // MAX_OFFLINE_QUEUE_LEN is 1000; the 1001st enqueue exercises the drop-oldest branch.
-    for i in 0..1_001 {
-        client.send(&format!("message {i}")).unwrap();
+    for index in 0_u32..1_001 {
+        client.send(&format!("message {index}")).unwrap();
     }
 }
 
@@ -109,14 +114,14 @@ fn offline_queue_drops_oldest_past_capacity() {
 fn state_change_callback_receives_transitions() {
     let recorded = Rc::new(RefCell::new(Vec::<String>::new()));
     let sink = Rc::clone(&recorded);
-    let callback = Closure::wrap(Box::new(move |state: JsValue| {
+    let callback: Closure<dyn FnMut(JsValue)> = Closure::new(move |state: JsValue| {
         sink.borrow_mut().push(state.as_string().unwrap_or_default());
-    }) as Box<dyn FnMut(JsValue)>);
+    });
 
     let mut client = new_client("ws://127.0.0.1:8080/ws");
     client.set_on_state_change(callback.as_ref().clone());
     // A message callback is only invoked with a live server; setting it still needs coverage.
-    let noop = Closure::wrap(Box::new(|_msg: JsValue| {}) as Box<dyn FnMut(JsValue)>);
+    let noop: Closure<dyn FnMut(JsValue)> = Closure::new(|_msg: JsValue| {});
     client.set_on_message(noop.as_ref().clone());
 
     client.connect().unwrap();
@@ -125,11 +130,11 @@ fn state_change_callback_receives_transitions() {
 
     let seen = recorded.borrow();
     assert!(
-        seen.iter().any(|s| s == "connecting"),
+        seen.iter().any(|state| state == "connecting"),
         "expected a connecting transition"
     );
     assert!(
-        seen.iter().any(|s| s == "disconnected"),
+        seen.iter().any(|state| state == "disconnected"),
         "expected a disconnected transition"
     );
 
@@ -145,7 +150,7 @@ async fn connection_error_schedules_reconnect() {
     client.connect().unwrap();
 
     let mut saw_reconnecting = false;
-    for _ in 0..40 {
+    for _ in 0_u32..40 {
         if client.get_state() == "reconnecting" {
             saw_reconnecting = true;
             break;
@@ -206,12 +211,12 @@ fn textarea_helpers_set_and_append() {
 #[wasm_bindgen_test]
 fn js_reflection_helpers_read_fields() {
     let obj = Object::new();
-    let _num: bool = Reflect::set(&obj, &JsValue::from_str("num"), &JsValue::from_f64(1.5)).unwrap();
+    let _num: bool = Reflect::set(&obj, &JsValue::from_str("num"), &JsValue::from_f64(1.5_f64)).unwrap();
     let _flag: bool = Reflect::set(&obj, &JsValue::from_str("flag"), &JsValue::TRUE).unwrap();
     let _nested: bool = Reflect::set(&obj, &JsValue::from_str("nested"), Object::new().as_ref()).unwrap();
     let _null: bool = Reflect::set(&obj, &JsValue::from_str("empty"), &JsValue::NULL).unwrap();
 
-    assert_eq!(js_number_field(&obj, "num"), Some(1.5));
+    assert_eq!(js_number_field(&obj, "num"), Some(1.5_f64));
     assert_eq!(js_number_field(&obj, "flag"), None); // present but not a number
     assert_eq!(js_number_field(&obj, "missing"), None);
 
@@ -231,7 +236,7 @@ async fn connects_flushes_queue_and_sends() {
 
     client.connect().unwrap();
     let mut connected = false;
-    for _ in 0..40 {
+    for _ in 0_u32..40 {
         if client.get_state() == "connected" {
             connected = true;
             break;
@@ -250,7 +255,7 @@ async fn connects_flushes_queue_and_sends() {
     // Online success paths: the alive keepalive, a raw send, and each typed message helper.
     client.send_alive().unwrap();
     client.send("online-message").unwrap();
-    client.broadcast_message(json!({ "broadcast": 1 })).unwrap();
+    client.broadcast_message(json!({ "broadcast": 1_i32 })).unwrap();
     client.request_list_agents().unwrap();
     client.send_agent_message(agent_id, json!({ "self": true })).unwrap();
     client

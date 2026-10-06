@@ -7,16 +7,26 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.docs.rs]
+features = ["docs"]
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 doctest = false
 
+[features]
+## Internal: links minicov's profiler runtime (`__llvm_profile_runtime`) through `et-web/coverage`.
+## Only the coverage-instrumented test build of the repo's `wasm-agent-cov` task enables it.
+coverage = ["et-web/coverage"]
+## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
+docs = ["dep:document-features"]
+
 [dependencies]
 chrono.workspace = true
+document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
 et-web.workspace = true
 js-sys.workspace = true
-serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 tracing-wasm.workspace = true
@@ -38,12 +48,6 @@ web-sys = { workspace = true, features = [
 [dev-dependencies]
 wasm-bindgen-futures.workspace = true
 wasm-bindgen-test.workspace = true
-
-# Coverage instrumentation, off by default and enabled only by the `wasm-agent-cov` mise task's test build.
-# Forwards to et-web/coverage, which links minicov's profiler runtime (`__llvm_profile_runtime`) that the
-# instrumented workspace crates reference -- the same mechanism the browser ws-modules use for coverage.
-[features]
-coverage = ["et-web/coverage"]
 
 [lints]
 workspace = true

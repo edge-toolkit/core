@@ -126,6 +126,11 @@ fn origin_slug() -> Option<String> {
 }
 
 /// Reports every unreachable hash and returns how many there were.
+#[expect(
+    clippy::print_stdout,
+    clippy::single_call_fn,
+    reason = "one check of the repo-check CLI, called once by main; its findings on stdout are the tool's output"
+)]
 pub(crate) fn run(files: &[String]) -> Result<usize, Error> {
     let hashes = collect(files)?;
     let Some(known) = permanent_commits()? else {

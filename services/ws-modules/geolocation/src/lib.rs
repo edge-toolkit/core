@@ -1,8 +1,4 @@
-#![expect(
-    clippy::future_not_send,
-    clippy::single_call_fn,
-    reason = "browser WASM module: JsFuture is !Send; module-local helpers like wait_for_* are single-use by design"
-)]
+#![expect(clippy::future_not_send, reason = "browser WASM module: JsFuture is !Send")]
 
 use et_web::{JsFunctionExt as _, describe_js_error, websocket_url};
 use et_ws_wasm_agent::{WsClient, WsClientConfig, set_textarea_value, wait_for_connected};
@@ -25,6 +21,10 @@ pub struct GeolocationReading {
 )]
 impl GeolocationReading {
     #[wasm_bindgen(js_name = request)]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one Geolocation API request: success and error callbacks plus a timeout"
+    )]
     pub async fn request() -> Result<Self, JsValue> {
         let window = web_sys::window().ok_or_else(|| JsValue::from_str("No window available"))?;
         let navigator = window.navigator();

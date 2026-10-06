@@ -1,0 +1,32 @@
+id: no-log-crate
+language: Rust
+severity: error
+message: |
+  Log through `tracing`, not the `log` facade: `use tracing::{info, warn};` then `info!(...)`. A `log` record reaches
+  the OTLP pipeline only through the binaries' bridge, flattened to a string with no structured fields and no span,
+  and mixing the two leaves a crate's logging split between two APIs.
+# Matches every way Rust code can reach the crate.
+# That is a `log::` path (a macro call, a function, a type), a `use log` in any form, and `extern crate log`. A nested
+# path is skipped so each use is reported once, and `log_*` or `*_log` crates (`tracing_log`, `log_derive`) do not
+# match because the first segment must be exactly `log`.
+# No autofix: the replacement `use tracing::...` has to be added at the top of the file, which one rewrite cannot do.
+rule:
+  any:
+    - all:
+        - any:
+            - kind: scoped_identifier
+            - kind: scoped_type_identifier
+        - regex: "^(::)?log::"
+        - not:
+            any:
+              - inside:
+                  kind: use_declaration
+                  stopBy: end
+              - inside:
+                  kind: scoped_identifier
+              - inside:
+                  kind: scoped_type_identifier
+    - kind: use_declaration
+      regex: '^(pub(\([^)]*\))?\s+)?use\s+(::)?log(::|;|\s+as\b)'
+    - kind: extern_crate_declaration
+      regex: '\bcrate\s+log\b'
