@@ -146,7 +146,7 @@ spec:
             - et-ws-server
           env:
             - name: MODULES_PATHS
-              value: /app/data/model-modules/model-face1,/app/data/model-modules/model-har-motion1,/app/generated/python-ws,/app/node_modules/onnxruntime-web,/app/node_modules/pyodide,/app/node_modules/stats-gl,/app/services/ws-modules/face-detection,/app/services/ws-modules/har1,/app/services/ws-modules/pyface1,/app/services/ws-server/static,/app/services/ws-wasm-agent
+              value: /app/data/model-modules/model-face1,/app/data/model-modules/model-har-motion1,/app/generated/python-ws,/app/libs/python-edge-toolkit,/app/libs/python-org,/app/node_modules/onnxruntime-web,/app/node_modules/pyodide,/app/node_modules/stats-gl,/app/services/ws-modules/face-detection,/app/services/ws-modules/har1,/app/services/ws-modules/pyface1,/app/services/ws-server/static,/app/services/ws-wasm-agent
             - name: MODULES_ROOT
               value: "@edge-toolkit/et-ws-server-static"
             - name: OTLP_AUTH_USERNAME

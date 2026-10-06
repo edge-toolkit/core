@@ -1,18 +1,17 @@
 //! Implements `et:ws-wasi/ws` using `tokio-tungstenite`.
 //!
-//! On `connect`, we open a websocket, send `ClientMessage::Connect { agent_id: None }`,
-//! and spawn a task that pumps inbound text messages into a channel. Inbound
-//! `connect_ack` messages capture our assigned `agent_id`.
+//! On `connect`, we open a websocket, send `ClientMessage::Connect { agent_id: None }`, and spawn a task that pumps
+//! inbound text messages into a channel. Inbound `connect_ack` messages capture our assigned `agent_id`.
 //!
-//! Wire messages cross the WIT boundary as typed `et:ws-messages/messages.ws-message`
-//! values. The host converts them to/from `edge_toolkit::ws::{ClientMessage, ServerMessage}` and serialises
-//! to JSON for the actual websocket frame. Guests no longer hand-craft JSON.
+//! Wire messages cross the WIT boundary as typed `et:ws-messages/messages.ws-message` values. The host converts them
+//! to/from `edge_toolkit::ws::{ClientMessage, ServerMessage}` and serialises to JSON for the actual websocket frame.
+//! Guests no longer hand-craft JSON.
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use edge_toolkit::ws::{
-    AgentConnectionState as EtAgentConnectionState, AgentSummary as EtAgentSummary, ClientMessage,
+    AgentConnectionState as EtAgentConnectionState, AgentSummary as EtAgentSummary, ClientMessage, CloudEvent,
     ConnectStatus as EtConnectStatus, MessageDeliveryStatus as EtMessageDeliveryStatus, MessageScope as EtMessageScope,
     ServerMessage,
 };
@@ -33,9 +32,8 @@ use crate::bindings::et::ws_messages::messages::{
 };
 use crate::bindings::et::ws_wasi::ws::{Host, State};
 
-// The `et:ws-messages/messages` interface only declares types -- no functions.
-// wasmtime-bindgen still requires a `Host` impl so the linker has somewhere
-// to anchor the interface. The trait body is empty.
+// The `et:ws-messages/messages` interface only declares types -- no functions. wasmtime-bindgen still requires a `Host`
+// impl so the linker has somewhere to anchor the interface. The trait body is empty.
 impl crate::bindings::et::ws_messages::messages::Host for HostState {}
 
 type WsSink = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, tungstenite::Message>;
@@ -57,25 +55,24 @@ pub struct WsBackend {
 impl WsBackend {
     /// Open the socket and complete the et-connect handshake.
     ///
-    /// Public so `tests/ws_backend.rs` can drive the reader pump and the heartbeat without standing up a
-    /// wasmtime store: both live in tasks this constructor spawns, and nothing else reaches them.
+    /// Public so `tests/ws_backend.rs` can drive the reader pump and the heartbeat without standing up a wasmtime
+    /// store: both live in tasks this constructor spawns, and nothing else reaches them.
     #[expect(
         clippy::too_many_lines,
         reason = "the handshake and the two tasks it spawns share one socket split"
     )]
     pub async fn connect(ws_url: &str, ack_timeout: Option<Duration>) -> Result<Self, WsError> {
-        // The shared helper opens the socket and completes the et-connect
-        // handshake (with bounded retries), so the agent_id is known the moment
-        // it returns -- no polling for ConnectAck afterwards.
-        // `ConnectError` cascades to `WsError` via `From` (see host/error.rs).
+        // The shared helper opens the socket and completes the et-connect handshake (with bounded retries), so the
+        // agent_id is known the moment it returns -- no polling for ConnectAck afterwards. `ConnectError` cascades to
+        // `WsError` via `From` (see host/error.rs).
         let (socket, assigned_id, status) =
             et_ws_runner_common::connect_and_register(ws_url, None, ack_timeout).await?;
         let (sink, mut stream) = socket.split();
 
         let (tx, rx) = mpsc::unbounded_channel::<ServerMessage>();
-        // The handshake consumed the et-connect-ack frame; re-surface it to the
-        // guest's `recv()` so guests that read it still see it as the first message.
-        // Cannot fail: `rx` (created just above) is still alive, so the channel is open.
+        // The handshake consumed the et-connect-ack frame; re-surface it to the guest's `recv()` so guests that read
+        // it still see it as the first message. Cannot fail: `rx` (created just above) is still alive, so the channel
+        // is open.
         let _seeded = tx.send(ServerMessage::ConnectAck {
             agent_id: assigned_id.clone(),
             status,
@@ -84,10 +81,9 @@ impl WsBackend {
         let agent_id = Arc::new(Mutex::new(Some(assigned_id)));
         let connection_state = Arc::new(Mutex::new(State::Connected));
 
-        // Reader pump: convert every subsequent Text/Binary data frame into a
-        // `ServerMessage` via `ServerMessage::from_*_frame` (foreign frames land
-        // in `RelayText`/`RelayBinary`) and forward it to the guest inbox; drop
-        // control frames and et-prefixed-but-malformed text with a warn.
+        // Reader pump: convert every subsequent Text/Binary data frame into a `ServerMessage` via
+        // `ServerMessage::from_*_frame` (foreign frames land in `RelayText`/`RelayBinary`) and forward it to the guest
+        // inbox; drop control frames and et-prefixed-but-malformed text with a warn.
         let state_clone = Arc::clone(&connection_state);
         let reader = tokio::spawn(async move {
             while let Some(msg) = stream.next().await {
@@ -118,15 +114,14 @@ impl WsBackend {
 
         let sink_arc = Arc::new(Mutex::new(sink));
 
-        // Heartbeat: server `last_activity` only bumps on inbound frames, so
-        // a guest that does multi-second compute between `connect()` and
-        // its first send would otherwise trip the 15s idle close. The
-        // server's `handle_inbound` counts Ping as activity.
+        // Heartbeat: server `last_activity` only bumps on inbound frames, so a guest that does multi-second compute
+        // between `connect()` and its first send would otherwise trip the 15s idle close. The server's `handle_inbound`
+        // counts Ping as activity.
         let pinger_sink = Arc::clone(&sink_arc);
         let pinger_state = Arc::clone(&connection_state);
         let pinger = tokio::spawn(async move {
-            // 5s heartbeat (vs the server's 15s idle timeout); first immediate
-            // tick already consumed so we don't ping before the handshake.
+            // 5s heartbeat (vs the server's 15s idle timeout); first immediate tick already consumed so we don't ping
+            // before the handshake.
             let mut interval = et_ws_runner_common::heartbeat_interval().await;
             loop {
                 let _: tokio::time::Instant = interval.tick().await;
@@ -161,8 +156,8 @@ impl WsBackend {
 
     /// Take the next inbound message, or `None` if none arrives within `timeout`.
     ///
-    /// The guest-facing `recv` converts to WIT types on the way out; this is the same drain without that
-    /// step, so a test can assert on the `ServerMessage` the reader pump actually produced.
+    /// The guest-facing `recv` converts to WIT types on the way out; this is the same drain without that step, so a
+    /// test can assert on the `ServerMessage` the reader pump actually produced.
     pub async fn next_message(&self, timeout: Duration) -> Option<ServerMessage> {
         let mut rx = self.inbox.lock().await;
         tokio::time::timeout(timeout, rx.recv()).await.ok().flatten()
@@ -181,9 +176,8 @@ impl Host for HostState {
                 return Err(WsError::AlreadyConnected);
             }
         }
-        // `connect_and_register` already completed the handshake, so the
-        // backend comes back `Connected` with its agent_id set -- guests can
-        // call `agent_id()` immediately, no poll-wait needed.
+        // `connect_and_register` already completed the handshake, so the backend comes back `Connected` with its
+        // agent_id set -- guests can call `agent_id()` immediately, no poll-wait needed.
         let backend = WsBackend::connect(&self.ws_url, self.connect_ack_timeout).await?;
         {
             let mut slot = self.ws.lock().await;
@@ -210,10 +204,8 @@ impl Host for HostState {
 
     async fn send(&mut self, message: WitClientMessage) -> Result<(), WsError> {
         let et_message = wit_to_client_message(message)?;
-        // Relay variants travel as raw text / binary frames (no JSON
-        // envelope) -- that's what the ws-server hub forwards verbatim
-        // to other agents. Typed variants serialise through standard
-        // tagged JSON.
+        // Relay variants travel as raw text / binary frames (no JSON envelope) -- that's what the ws-server hub
+        // forwards verbatim to other agents. Typed variants serialise through standard tagged JSON.
         #[expect(
             clippy::wildcard_enum_match_arm,
             reason = "every non-relay ClientMessage variant takes the standard tagged-JSON path"
@@ -226,9 +218,8 @@ impl Host for HostState {
                 tungstenite::Message::text(payload)
             }
         };
-        // Clone the sink Arc and release the outer lock before awaiting the
-        // inner send -- keeping `self.ws` locked across the await would block
-        // every other ws-method call.
+        // Clone the sink Arc and release the outer lock before awaiting the inner send -- keeping `self.ws` locked
+        // across the await would block every other ws-method call.
         let sink = self
             .ws
             .lock()
@@ -240,8 +231,7 @@ impl Host for HostState {
     }
 
     async fn recv(&mut self, timeout_ms: u32) -> Result<Option<WitServerMessage>, WsError> {
-        // Same lock-handoff pattern as `send`: grab the inbox Arc, drop the
-        // outer lock, then await.
+        // Same lock-handoff pattern as `send`: grab the inbox Arc, drop the outer lock, then await.
         let inbox = self
             .ws
             .lock()
@@ -271,8 +261,8 @@ impl Host for HostState {
 
 /// Convert a guest-emitted WIT `client-message` into the canonical Rust `ClientMessage`.
 ///
-/// Opaque JSON fields (sent as `string` over WIT) are parsed here so the host always works with
-/// `serde_json::Value` payloads.
+/// Opaque JSON fields (sent as `string` over WIT) are parsed here so the host always works with `serde_json::Value`
+/// payloads.
 #[expect(
     clippy::single_call_fn,
     reason = "named converter; used once by <HostState as Host>::send"
@@ -300,11 +290,18 @@ fn wit_to_client_message(msg: WitClientMessage) -> Result<ClientMessage, WsError
         WitClientMessage::MessageAck(payload) => ClientMessage::MessageAck {
             message_id: payload.message_id,
         },
-        WitClientMessage::ClientEvent(payload) => ClientMessage::ClientEvent {
-            capability: payload.capability,
-            action: payload.action,
-            details: parse_value(payload.details)?,
-        },
+        WitClientMessage::ClientEvent(payload) => {
+            let event = payload.event;
+            let mut wire = CloudEvent::new(
+                event.id,
+                event.source,
+                event.type_,
+                event.time,
+                parse_value(event.data)?,
+            );
+            wire.specversion = event.specversion;
+            ClientMessage::ClientEvent { event: wire }
+        }
         WitClientMessage::RelayText(payload) => ClientMessage::RelayText {
             content: payload.content,
         },
@@ -364,11 +361,9 @@ fn server_message_to_wit(msg: ServerMessage) -> Result<WitServerMessage, WsError
     })
 }
 
-// edge-toolkit-to-WIT enum mirrors. Only the `et_*` direction is used:
-// the host never deserialises a WIT-side client message back into an
-// edge-toolkit type (that would mean reading something the *server*
-// sent through the *guest's* outbound API, which never happens), so the
-// reverse-direction helpers from the pre-split file are gone.
+// edge-toolkit-to-WIT enum mirrors. Only the `et_*` direction is used: the host never deserialises a WIT-side client
+// message back into an edge-toolkit type (that would mean reading something the *server* sent through the *guest's*
+// outbound API, which never happens), so the reverse-direction helpers from the pre-split file are gone.
 #[expect(
     clippy::needless_pass_by_value,
     clippy::single_call_fn,

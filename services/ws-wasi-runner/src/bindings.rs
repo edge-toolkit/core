@@ -398,6 +398,45 @@ pub mod et {
             #[derive(wasmtime::component::Lower)]
             #[component(record)]
             #[derive(Clone)]
+            pub struct CloudEvent {
+                #[component(name = "data")]
+                pub data: wasmtime::component::__internal::String,
+                #[component(name = "id")]
+                pub id: wasmtime::component::__internal::String,
+                #[component(name = "source")]
+                pub source: wasmtime::component::__internal::String,
+                #[component(name = "specversion")]
+                pub specversion: wasmtime::component::__internal::String,
+                #[component(name = "time")]
+                pub time: wasmtime::component::__internal::String,
+                #[component(name = "type")]
+                pub type_: wasmtime::component::__internal::String,
+            }
+            impl core::fmt::Debug for CloudEvent {
+                fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                    f.debug_struct("CloudEvent")
+                        .field("data", &self.data)
+                        .field("id", &self.id)
+                        .field("source", &self.source)
+                        .field("specversion", &self.specversion)
+                        .field("time", &self.time)
+                        .field("type", &self.type_)
+                        .finish()
+                }
+            }
+            const _: () = {
+                assert!(
+                    48 == < CloudEvent as wasmtime::component::ComponentType >::SIZE32
+                );
+                assert!(
+                    4 == < CloudEvent as wasmtime::component::ComponentType >::ALIGN32
+                );
+            };
+            #[derive(wasmtime::component::ComponentType)]
+            #[derive(wasmtime::component::Lift)]
+            #[derive(wasmtime::component::Lower)]
+            #[component(record)]
+            #[derive(Clone)]
             pub struct ConnectPayload {
                 #[component(name = "agent-id")]
                 pub agent_id: Option<wasmtime::component::__internal::String>,
@@ -530,25 +569,19 @@ pub mod et {
             #[component(record)]
             #[derive(Clone)]
             pub struct ClientEventPayload {
-                #[component(name = "action")]
-                pub action: wasmtime::component::__internal::String,
-                #[component(name = "capability")]
-                pub capability: wasmtime::component::__internal::String,
-                #[component(name = "details")]
-                pub details: wasmtime::component::__internal::String,
+                #[component(name = "event")]
+                pub event: CloudEvent,
             }
             impl core::fmt::Debug for ClientEventPayload {
                 fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                     f.debug_struct("ClientEventPayload")
-                        .field("action", &self.action)
-                        .field("capability", &self.capability)
-                        .field("details", &self.details)
+                        .field("event", &self.event)
                         .finish()
                 }
             }
             const _: () = {
                 assert!(
-                    24 == < ClientEventPayload as wasmtime::component::ComponentType
+                    48 == < ClientEventPayload as wasmtime::component::ComponentType
                     >::SIZE32
                 );
                 assert!(
@@ -853,7 +886,7 @@ pub mod et {
             }
             const _: () = {
                 assert!(
-                    28 == < ClientMessage as wasmtime::component::ComponentType >::SIZE32
+                    52 == < ClientMessage as wasmtime::component::ComponentType >::SIZE32
                 );
                 assert!(
                     4 == < ClientMessage as wasmtime::component::ComponentType >::ALIGN32
@@ -967,7 +1000,7 @@ pub mod et {
             pub type ClientMessage = super::super::super::et::ws_messages::messages::ClientMessage;
             const _: () = {
                 assert!(
-                    28 == < ClientMessage as wasmtime::component::ComponentType >::SIZE32
+                    52 == < ClientMessage as wasmtime::component::ComponentType >::SIZE32
                 );
                 assert!(
                     4 == < ClientMessage as wasmtime::component::ComponentType >::ALIGN32

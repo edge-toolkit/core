@@ -7,6 +7,7 @@ import time
 from collections import deque
 from typing import Any, TypedDict
 
+from et_org import served_npm_module_path
 from pyeye1.eye_detection import (
     ANALYSIS_INTERVAL_MS,
     ANALYSIS_WINDOW_MS,
@@ -40,6 +41,7 @@ from pyspeech1.speech_detection import (
     event_payload as speech_event_payload,
 )
 
+EVENT_SOURCE = served_npm_module_path("et-ws-pydemo1")
 POLL_INTERVAL_MS = 100
 WS_CONNECT_TIMEOUT_MS = 10_000
 
@@ -129,7 +131,7 @@ class EyeCaptureProcessor:
         if now_s * 1000.0 - self.last_analysis_ms >= ANALYSIS_INTERVAL_MS:
             self.last_analysis_ms = now_s * 1000.0
             self.analysis = analyze_window(list(self.history))
-            event_json = eye_event_json(eye_event_payload(results, self.analysis, width, height))
+            event_json = eye_event_json(eye_event_payload(results, self.analysis, width, height), EVENT_SOURCE)
             indicator_active = self.analysis["misalignment"]["detected"] or self.analysis["oscillation"]["detected"]
             if indicator_active and not self.indicator_was_active:
                 self.captured_for_episode = False
@@ -189,7 +191,7 @@ def reset_eye_capture() -> None:
 
 def eye_capture_error_json(error: str) -> str:
     """Reuse pyeye1's server-visible event for a failed consented image upload."""
-    return eye_capture_error_event_json(error)
+    return eye_capture_error_event_json(error, EVENT_SOURCE)
 
 
 def eye_capture_stored_json(agent_id: str, filename: str) -> str:
@@ -207,5 +209,5 @@ def process_speech_capture(
         "speech_detected": summary["speech_detected"],
         "confidence": summary["confidence"],
         "speech_duration_ms": summary["speech_duration_ms"],
-        "event_json": speech_event_json(details),
+        "event_json": speech_event_json(details, EVENT_SOURCE),
     }

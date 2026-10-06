@@ -8,6 +8,7 @@ rules:
         - "/services/ws-modules/**" # The Python modules, whose source is why the language is here at all.
         - "/services/ws-pyo3-runner/python/**" # Guest programs the runner loads, module payloads in all but name.
         - "/generated/**" # Generated clients, owned by the generator that emits them.
+        - "/libs/python-*/**" # Libraries the Python modules import, each packaged as a module of its own.
     pattern-regex: \A
     message: >-
       Python outside the module trees is banned. It is a guest language in this repo, not a tooling language:

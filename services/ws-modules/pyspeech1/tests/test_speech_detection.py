@@ -41,11 +41,14 @@ class SpeechDetectionTests(unittest.TestCase):
     def test_event_uses_speech_detection_capability(self) -> None:
         summary = summarize_probabilities([0.9] * 10)
         payload = event_payload(summary, 48_000, 5.0)
-        event = json.loads(client_event_json(payload))
-        self.assertEqual(event["capability"], "speech_detection")
-        self.assertEqual(event["action"], "inference")
-        self.assertEqual(event["details"]["label"], "speech")
-        self.assertEqual(event["details"]["model_sample_rate"], SAMPLE_RATE)
+        message = json.loads(client_event_json(payload))
+        self.assertEqual(message["type"], "et-client-event")
+        event = message["event"]
+        self.assertEqual(event["specversion"], "1.0")
+        self.assertEqual(event["type"], "et.speech_detection.inference")
+        self.assertEqual(event["source"], "/modules/@edge-toolkit/et-ws-pyspeech1")
+        self.assertEqual(event["data"]["label"], "speech")
+        self.assertEqual(event["data"]["model_sample_rate"], SAMPLE_RATE)
         self.assertEqual(CHUNK_SIZE, 512)
 
 

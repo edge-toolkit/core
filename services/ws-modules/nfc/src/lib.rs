@@ -246,6 +246,7 @@ pub async fn run() -> Result<(), JsValue> {
         log(&format!("NFC scan captured: serial={serial} summary={summary}"));
 
         client.send_client_event(
+            et_org::served_npm_module_path!(),
             "nfc",
             "scan_captured",
             json!({

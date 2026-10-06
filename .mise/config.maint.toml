@@ -922,8 +922,10 @@ fi
 # needs, for anyone installing while a run is part way through.
 candidates=(
   data/model-modules/*/pkg
+  libs/python-org/pkg
   generated/python-ws/pkg
   generated/python-rest/pkg
+  libs/python-edge-toolkit/pkg
   services/ws-wasm-agent/pkg
   services/ws-server/static
   services/ws-modules/*/pkg

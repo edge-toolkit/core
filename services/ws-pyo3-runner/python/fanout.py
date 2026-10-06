@@ -1,3 +1,4 @@
+# ruff: noqa: INP001 -- et-ws-pyo3-runner compiles this one file on its own; it is not a package
 """Emit multiple outbound frames per inbound frame via the `WsSender` push API.
 
 Used by `tests/fanout.rs` to verify the multi-send path works end to end.

@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use actix_web::{Error, HttpRequest, HttpResponse, web};
 use bytes::Bytes;
-use edge_toolkit::ws::ServerMessage;
+use edge_toolkit::ws::{CloudEvent, ServerMessage, client_event_type};
 use edge_toolkit::ws_server::{AgentRecord, AgentRegistry, PendingDirectMessage, RegistryError};
 use opentelemetry::{
     global,
@@ -163,15 +163,16 @@ pub fn load_registry(path: &std::path::Path) -> Result<WsAgentRegistry, Registry
 
 /// Log an agent's `et-client-event`, the observability frame the hub records and does not answer.
 ///
-/// A `video_cv` `inference` event additionally gets its detected class, confidence and processing time logged
-/// as fields of their own, so the camera modules' results read at a glance.
+/// An `et.video_cv.inference` event additionally gets its detected class, confidence and processing time logged as
+/// fields of their own, so the camera modules' results read at a glance.
 #[expect(
     clippy::cognitive_complexity,
     clippy::single_call_fn,
     reason = "the stateless client-event arm of the inbound dispatcher; its score is info! expansion"
 )]
-fn log_client_event(agent_id: &str, capability: &str, action: &str, details: &serde_json::Value) {
-    if capability == "video_cv" && action == "inference" {
+fn log_client_event(agent_id: &str, event: &CloudEvent) {
+    let details = &event.data;
+    if event.event_type == client_event_type("video_cv", "inference") {
         let detected_class = details
             .get("detected_class")
             .and_then(|value| value.as_str())
@@ -190,8 +191,8 @@ fn log_client_event(agent_id: &str, capability: &str, action: &str, details: &se
         );
     }
     info!(
-        "Client event from {}: capability={} action={} details={}",
-        agent_id, capability, action, details
+        "Client event from {}: type={} source={} id={} time={} data={}",
+        agent_id, event.event_type, event.source, event.id, event.time, details
     );
 }
 

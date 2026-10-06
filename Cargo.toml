@@ -74,6 +74,7 @@ cc = "1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive"] }
 clap-markdown = "0.1"
+cloudevents-sdk = "0.9"
 command-error = "0.8"
 const-hex = "1.19"
 deno_core = "0.407"
@@ -103,7 +104,7 @@ et-ws-runner-common = { path = "libs/ws-runner-common", version = "0.2.0" }
 et-ws-server = { path = "services/ws-server", version = "0.2.2" }
 et-ws-service = { path = "services/ws", version = "0.1.1" }
 et-ws-test-server = { path = "services/ws-test-server", version = "0.1.0" }
-et-ws-wasm-agent = { path = "services/ws-wasm-agent", version = "0.2.0" }
+et-ws-wasm-agent = { path = "services/ws-wasm-agent", version = "0.3.0" }
 fake = "5"
 fs-err = "3"
 futures-util = "0.3"

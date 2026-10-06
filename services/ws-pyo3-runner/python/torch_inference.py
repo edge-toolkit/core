@@ -1,3 +1,4 @@
+# ruff: noqa: INP001 -- et-ws-pyo3-runner compiles this one file on its own; it is not a package
 """PyTorch analogue of the wasi-graphics-info module, for `et-ws-pyo3-runner`.
 
 Where wasi-graphics-info runs a deterministic 4x4 matmul (verifying C[0][0]) and

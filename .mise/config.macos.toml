@@ -50,7 +50,16 @@ SDKROOT = "{{ exec(command='xcrun --show-sdk-path') }}"
 # Prepend Xcode CLT + macOS system bin dirs so they win priority over Homebrew.
 # Otherwise `command -v bash` etc. would resolve to /opt/homebrew/* or /usr/local/bin/* on a brewed Mac. Mise's
 # `_.path` directive prepends to PATH cleanly; brew dirs stay on PATH but lose the race for shared names.
-_.path = ["/Library/Developer/CommandLineTools/usr/bin", "/bin", "/sbin", "/usr/bin", "/usr/sbin"]
+# The pinned CPython leads, because `_.path` lands ahead of every mise tool dir and both CLT and /usr/bin ship an
+# Apple `python3` that would otherwise shadow it.
+_.path = [
+  "{{ vars.py3_bin_unix }}",
+  "/Library/Developer/CommandLineTools/usr/bin",
+  "/bin",
+  "/sbin",
+  "/usr/bin",
+  "/usr/sbin",
+]
 
 [tasks.preinstall]
 # Preinstall verifies Xcode CLT, then the build prerequisites shared with Linux.

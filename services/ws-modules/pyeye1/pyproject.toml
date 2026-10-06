@@ -1,5 +1,5 @@
 [project]
-dependencies = ["et-ws"]
+dependencies = ["edge-toolkit", "et-org", "et-ws"]
 description = "Python eye screening (MediaPipe)"
 license = "Apache-2.0 OR MIT"
 name = "et-ws-pyeye1"
@@ -21,11 +21,15 @@ module-root = ""
 # It is wired as a uv workspace source so `uv run pytest` resolves it locally; the wheel itself is its own
 # ws-module that Pyodide micropip-installs at runtime from its mount (`/modules/et-ws/`).
 [tool.uv.sources]
+edge-toolkit = { workspace = true }
+et-org = { workspace = true }
 et-ws = { workspace = true }
 
 [tool.ws-module.dependencies]
 "@mediapipe/tasks-vision" = "*"
+edge-toolkit = "*"
 et-model-eye1 = "*"
+et-org = "*"
 et-ws = "*"
 et-ws-server-static = "*"
 pyodide = "*"

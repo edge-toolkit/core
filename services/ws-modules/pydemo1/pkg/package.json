@@ -1,7 +1,9 @@
 {
   "dependencies": {
+    "@edge-toolkit/edge-toolkit": "*",
     "@edge-toolkit/et-model-eye1": "*",
     "@edge-toolkit/et-model-speech1": "*",
+    "@edge-toolkit/et-org": "*",
     "@edge-toolkit/et-ws": "*",
     "@edge-toolkit/et-ws-pyeye1": "*",
     "@edge-toolkit/et-ws-pyspeech1": "*",

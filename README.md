@@ -344,7 +344,8 @@ Rust sources of truth by `mise run gen-specs-all`:
 - **WebSocket** (AsyncAPI 3.0): [`generated/specs/ws.yaml`](generated/specs/ws.yaml).
   Source: `ClientMessage` + `ServerMessage` in `libs/edge-toolkit/src/ws.rs`. Generated clients:
   [`generated/dart-ws/`](generated/dart-ws/), [`generated/python-ws/`](generated/python-ws/), and the
-  `et:ws-messages` WIT under `generated/specs/wit/deps/`.
+  `et:ws-messages` WIT under `generated/specs/wit/deps/`. Client events (`et-client-event`) carry their payload in a
+  [CloudEvents 1.0](https://cloudevents.io/) envelope, so they can be forwarded to any CloudEvents consumer as-is.
 - **REST** (OpenAPI 3.0): [`generated/specs/rest.yaml`](generated/specs/rest.yaml).
   Source: `#[utoipa::path]` annotations on the handlers in `services/{ws-server,modules,storage}`. Typed Rust
   client at [`generated/rust-rest/`](generated/rust-rest/) (consumed by `et-ws-wasi-runner` and the browser

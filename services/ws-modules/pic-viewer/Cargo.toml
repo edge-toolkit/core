@@ -17,6 +17,7 @@ test = false
 
 [dependencies]
 edge-toolkit.workspace = true
+et-org.workspace = true
 et-web.workspace = true
 et-ws-wasm-agent.workspace = true
 serde_json.workspace = true

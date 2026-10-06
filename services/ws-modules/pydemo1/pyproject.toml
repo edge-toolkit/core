@@ -1,5 +1,5 @@
 [project]
-dependencies = ["et-ws", "et-ws-pyeye1", "et-ws-pyspeech1"]
+dependencies = ["et-org", "et-ws", "et-ws-pyeye1", "et-ws-pyspeech1"]
 description = "Python eye and speech detection demo"
 license = "Apache-2.0 OR MIT"
 name = "et-ws-pydemo1"
@@ -18,14 +18,17 @@ module-name = "pydemo1"
 module-root = ""
 
 [tool.uv.sources]
+et-org = { workspace = true }
 et-ws = { workspace = true }
 et-ws-pyeye1 = { workspace = true }
 et-ws-pyspeech1 = { workspace = true }
 
 [tool.ws-module.dependencies]
 "@mediapipe/tasks-vision" = "*"
+edge-toolkit = "*"
 et-model-eye1 = "*"
 et-model-speech1 = "*"
+et-org = "*"
 et-ws = "*"
 et-ws-pyeye1 = "*"
 et-ws-pyspeech1 = "*"

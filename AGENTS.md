@@ -225,7 +225,7 @@ bite are environment differences your green local run hides:
   whatever you installed weeks ago. A green local run just means your cached version predates the regression. To
   reproduce, install the _exact_ version CI used (read it from the job log -- e.g. `rustc -Vv`, the `mise ... @X`
   install lines) and run with that.
-- **Stale install artifacts:** old `mise`/package installs leave symlinks (`.../latest`), directories, and even
+- **Stale install artifacts:** old `mise`/package installs leave symlinks (`<install>/latest`), directories, and even
   bundled headers that a **fresh** install no longer creates or ships. A hardcoded path that resolves locally can be
   a dead path on CI. Reproduce by removing the stale artifact (or `mise uninstall <tool> && mise install`) so your
   layout matches a clean runner, then re-run.
@@ -435,7 +435,7 @@ progenitor pre-hook) and off in WASM consumers, which switch reqwest to its `fet
 ### Modules (`services/ws-modules/`)
 
 Node module packages served as static files by `et-modules-service`. Each module has a `package.json`
-with a `main` JS entry point. Built artifacts land in `pkg/`. The browser loads and runs these.
+with a `main` JS entry point. Built artifacts land in `<module>/pkg/`. The browser loads and runs these.
 The server only serves them from disk.
 
 Languages:
@@ -475,15 +475,15 @@ Languages:
 
 ### Utilities (`utilities/`)
 
-- **cli** (`et-cli`) -- Scenario and module tooling. Reads scenario YAML and outputs `mise.toml` or `compose.yaml`;
-  also generates module `pkg/package.json` files with `et-cli module-package-json`.
+- **cli** (`et-cli`) -- Scenario and module tooling. Reads scenario YAML and outputs `<output>/mise.toml` or
+  `<output>/compose.yaml`; also generates `<module>/pkg/package.json` files with `et-cli module-package-json`.
   Deployment-specific generators live under `utilities/cli/src/deployment_types/`.
   Module package JSON generation lives under `utilities/cli/src/module_package_json/`.
 - **int-gen** (`et-int-gen`) -- Internal code generator emitting artifacts under `generated/` from in-repo Rust
   sources of truth (AsyncAPI/OpenAPI YAML, WIT, KDL, schema JSON, the typed Rust REST client, the Zig client).
 - **onnx** (`et-onnx`) -- ONNX model utilities.
 
-Each utility has a committed `HELP.md` (under its crate dir) that mirrors its clap-derive tree, written by
+Each utility has a committed `utilities/<name>/HELP.md` that mirrors its clap-derive tree, written by
 `et-int-gen help-md` from each crate's command tree. **Read `utilities/<name>/HELP.md` to learn what the CLI does --
 don't run `cargo run -p <name> -- --help`** (much slower: cargo has to build the binary first; HELP.md is the same
 content as a static file). `mise run gen-help-all` regenerates them all; the `gen-help-check` task (wired into
@@ -505,7 +505,7 @@ and must stay in sync -- `mise run check` will fail if they drift. Regenerate wi
   `cargo run -p et-cli -- module-package-json`. The `[tool.ws-module] wasi-main` field flows to
   `package.json` so `et-ws-wasi-runner` knows which file to fetch.
 - Rust modules needing dependency injection: `cargo run -p et-cli -- module-package-json`
-  merges `[package.metadata.ws-module.dependencies]` from `Cargo.toml` into `pkg/package.json`
+  merges `[package.metadata.ws-module.dependencies]` from `Cargo.toml` into `<module>/pkg/package.json`
 - `et-cli module-package-json` reads `pyproject.toml` (Python modules, via `[tool.ws-module]`)
   or `Cargo.toml` (Rust modules, via `[package.metadata.ws-module]`).
 - Java: `mvn package` from repo root (uses `pom.xml`)
@@ -525,10 +525,11 @@ scenario deployments do not use this password -- `et-cli` derives a per-scenario
 
 ## Testing
 
-Tests must live in a `tests/` directory or in source files prefixed `test_`. Do not use inline `#[cfg(test)]` modules.
-If a function is private but needs testing, add a `[lib]` target to the crate and export it so `tests/` can reach it.
+Tests must live in a `<crate>/tests/` directory or in source files prefixed `test_`. Do not use inline
+`#[cfg(test)]` modules. If a function is private but needs testing, add a `[lib]` target to the crate and export it
+so `<crate>/tests/` can reach it.
 
-Every file under `tests/` carries `#![cfg(test)]`, and the preamble order is fixed: the `//!` module doc comes
+Every file under `<crate>/tests/` carries `#![cfg(test)]`, and the preamble order is fixed: the `//!` module doc comes
 **first**, then the attribute. Both are inner attributes, so either order compiles -- this is a house style, not
 a language rule, and it exists so the file opens by saying what it covers rather than with a cfg gate. A file
 with no module doc simply opens with the attribute. The two shapes, in full:
@@ -605,7 +606,7 @@ both are false under this repo's design:
 - **"A required tool/binary may not be installed."** The README mandates `mise`; every sanctioned environment (CI,
   Docker images, a contributor workstation) has every `[tools]` binary on `PATH`. A test must never self-skip because
   a tool "might be missing" -- a missing mise tool means a misconfigured environment, which must **fail loudly**, not
-  silently pass. Spawn the binary and let the `.expect(...)` panic surface the misconfiguration.
+  silently pass. Spawn the binary and let the `result.expect(...)` panic surface the misconfiguration.
 
 If you believe a skip is genuinely warranted, stop and ask the user; do not add it pre-emptively.
 
@@ -697,11 +698,11 @@ while `gnu` failed twice with the identical signature -- 644s at
 `https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101938939834`, then 591s on a deliberate
 re-run at `https://github.com/edge-toolkit/core/actions/runs/34187567425/job/101958844541`.
 
-The defect is older than its discovery. Only two tests in `services/ws-wasi-runner/tests/` instantiate the
-runner at all -- `modules.rs` and `otel_propagation.rs`, the other two driving `openobserve` and `vector`
-instead -- and both carry `#[cfg_attr(windows, ignore)]` for an unrelated `pkg/package.json` 404, so the runner
-had never executed on any Windows lane until `utilities/cli/tests/scenario_runners.rs` drove it through a
-generated deployment.
+The defect is older than its discovery. Only two tests in `services/ws-wasi-runner/tests/` instantiate the runner
+at all -- `services/ws-wasi-runner/tests/modules.rs` and `services/ws-wasi-runner/tests/otel_propagation.rs`, the
+other two driving `openobserve` and `vector` instead -- and both carry `#[cfg_attr(windows, ignore)]` for an
+unrelated `<module>/pkg/package.json` 404, so the runner had never executed on any Windows lane until
+`utilities/cli/tests/scenario_runners.rs` drove it through a generated deployment.
 
 Every scenario whose trigger is `wasi-math1-sender` hits it, which is both of them. `pyo3-math1` was left
 ungated on the first pass because fail-fast had cancelled it before it ever ran on `gnu`; it then failed there
@@ -711,10 +712,10 @@ https://github.com/edge-toolkit/core/commit/29dfe80a62ba7a27d8119c5b6332c3dbe2df
 in 472s and `msvc` in 458s. Its pyo3 twin registers and idles cleanly throughout -- what aborts is the wasi
 trigger, so the scenario fails for the reason above and not for anything to do with the pyo3 runner.
 
-### Known intermittent CI failure: mise tool-install `api.github.com` attestation/metadata flake
+### Known intermittent CI failure: mise tool-install `https://api.github.com` attestation/metadata flake
 
 `mise install` (in the install-mise-tools composite action) intermittently fails on the Windows lanes when its
-calls to `api.github.com` -- GitHub artifact-attestation verification and release-metadata lookups -- get
+calls to `https://api.github.com` -- GitHub artifact-attestation verification and release-metadata lookups -- get
 rate-limited or time out. The captured signature is a tool install aborting on the attestation endpoint, e.g.
 
     mise ERROR Failed to install github:uutils/findutils@0.8.0: GitHub artifact attestations verification
@@ -882,25 +883,26 @@ build system anyway (e.g. `cargo-expand`, a dev-only macro-debugging tool).
 
 ## Installing `cargo:` tools on Windows: pin an msvc `install_env`
 
-The Windows Rust target here is `x86_64-pc-windows-gnullvm` (`config.windows.toml`'s `[env] CARGO_BUILD_TARGET`),
-which cargo-binstall reads to decide which prebuilt to fetch. Almost no project -- and neither cargo-quickinstall --
-publishes `*-gnullvm` binaries; they ship `x86_64-pc-windows-msvc`. So a bare `cargo:<tool>` on Windows makes
+The Windows Rust target here is `x86_64-pc-windows-gnullvm` (`.mise/config.windows.toml`'s
+`[env] CARGO_BUILD_TARGET`), which cargo-binstall reads to decide which prebuilt to fetch. Almost no project -- and
+neither cargo-quickinstall -- publishes `*-gnullvm` binaries; they ship `x86_64-pc-windows-msvc`. So a bare
+`cargo:<tool>` on Windows makes
 binstall look for a gnullvm prebuilt, find none, and fall through to a slow `cargo install` source build (which
 often then fails on missing gnullvm `rust-std`). This has been rediscovered repeatedly (cargo-expand, wasm-opt,
 action-validator) -- if a `cargo:` tool source-builds or "not found"s on the Windows lane, this is why.
 
-When adding a `cargo:` tool that must work on Windows, declare it in `config.windows.toml` with a per-tool msvc
-override so binstall fetches the msvc prebuilt (an msvc binary runs fine on the gnullvm host -- the target only
+When adding a `cargo:` tool that must work on Windows, declare it in `.mise/config.windows.toml` with a per-tool
+msvc override so binstall fetches the msvc prebuilt (an msvc binary runs fine on the gnullvm host -- the target only
 affects what the tool links, not what executes it):
 
     "cargo:<name>" = { version = "latest", install_env = { CARGO_BUILD_TARGET = "x86_64-pc-windows-msvc" } }
 
 First confirm an msvc prebuilt actually exists for that `<name>@<version>` -- check cargo-quickinstall's release
-tags for `<name>-<version>-x86_64-pc-windows-msvc.tar.gz` -- then add the tool to `mise.rego`'s
-`allowed_cargo_no_prebuilt`; that conftest allowlist is the gate that forces you to have verified a binary exists.
-If no msvc prebuilt exists either, use a different backend (aqua/github/http, or mirror it via the upstream-cache
-pattern), or os-scope the tool off Windows and provide coverage another way (as `dart-typegen` does via
-`http:dart-typegen`).
+tags for `<name>-<version>-x86_64-pc-windows-msvc.tar.gz` -- then add the tool to
+`config/conftest/policy/mise/mise.rego`'s `allowed_cargo_no_prebuilt`; that conftest allowlist is the gate that
+forces you to have verified a binary exists. If no msvc prebuilt exists either, use a different backend
+(aqua/github/http, or mirror it via the upstream-cache pattern), or os-scope the tool off Windows and provide coverage
+another way (as `dart-typegen` does via `http:dart-typegen`).
 
 As of mise 2026.7.1 the `cargo:` backend is broken on the Windows lane in a further way: `cargo-binstall` itself
 fails to execute, so the source-build fallbacks above never even get a chance. `cargo:open` (a low-dep pure-Rust
@@ -923,8 +925,8 @@ Agents are not allowed to open, read, or modify `.github/workflows/upstream-cach
 explicitly permitted that specific access in the current conversation. This workflow publishes binary artifacts
 to the project's GitHub releases; unsupervised changes to it are a supply-chain risk, so it is maintained by the
 operator only. If a task appears to need a new cached asset or a change to an existing job, describe what is
-needed and stop -- do not touch the file, and do not add the surrounding pieces (bootstrap task, `data.toml`
-entry, tool URL swap) that would depend on it.
+needed and stop -- do not touch the file, and do not add the surrounding pieces (bootstrap task,
+`config/upstream-cache/data.toml` entry, tool URL swap) that would depend on it.
 
 ## Adding a new `upstream-cache` entry
 
@@ -980,8 +982,9 @@ pattern is the same for every cache entry; copy the `rustpython` / `augeas` / `d
    control and publish a sidecar for. A plain `http:` tool that points
    straight at a stable third-party URL (not one of our mirrors) may
    omit `checksum`: mise's http backend treats it as optional, and no
-   policy requires it (`checksums.rego` governs only the `data.toml`
-   mirror assets, not `[tools."http:*"]` entries). `http:openobserve`
+   policy requires it (`config/conftest/policy/checksums/checksums.rego`
+   governs only the `config/upstream-cache/data.toml` mirror assets,
+   not `[tools."http:*"]` entries). `http:openobserve`
    is such a direct-upstream tool and carries no checksum.
 
 5. **Asset metadata source of truth: `config/upstream-cache/data.toml`.**
@@ -1044,7 +1047,7 @@ not as a repo-wide var-prefix.
 ### Cargo HTTP/2 framing layer failures
 
 One transient class that hits the `cargo fetch` path specifically: libcurl's `[16] Error in the HTTP2 framing layer`
-during a `crates.io` download. Captured example:
+during a `https://crates.io` download. Captured example:
 `https://github.com/edge-toolkit/core/actions/runs/27900771461/job/82560594632`
 on commit https://github.com/edge-toolkit/core/commit/6e4c0030a830e4f8e6b15381cb5c2fbf481af704 --
 `asyncapi-rust-codegen` download bailed with `curl failed` ->
@@ -1154,12 +1157,12 @@ holds analyzable code) to silence one un-suppressible construct: first refactor 
 **isolated into its own smallest-possible file**, then exclude only that file. Everything factored out of it stays
 analyzed. The `services/ws-web-runner/mingw-shim/msvc_crt_alloc.c` split is the worked example -- the shim's only
 MISRA-21.3-unavoidable heap-allocation code (operator new/delete + `_dupenv_s`) was pulled out of
-`msvc_crt_shim.c` / `msvc_crt_locale.c` into that one file so Codacy's path exclude covers just it, leaving the rest of
-the shim under full analysis (and even the excluded file stays covered by DeepSource's clang-tidy plus the repo's own
-clang-tidy / cpplint / flawfinder). Record the exclusion rationale once, in the **excluded file's own header comment**
--- that is its canonical home, because more than one analyzer config may exclude the same file and the reasoning must
-not be copied into each. Every config's exclude entry carries at most a one-line pointer back to the file, never a
-second copy of the rationale.
+`services/ws-web-runner/mingw-shim/msvc_crt_shim.c` / `services/ws-web-runner/mingw-shim/msvc_crt_locale.c` into
+that one file so Codacy's path exclude covers just it, leaving the rest of the shim under full analysis (and even
+the excluded file stays covered by DeepSource's clang-tidy plus the repo's own clang-tidy / cpplint / flawfinder).
+Record the exclusion rationale once, in the **excluded file's own header comment** -- that is its canonical home,
+because more than one analyzer config may exclude the same file and the reasoning must not be copied into each. Every
+config's exclude entry carries at most a one-line pointer back to the file, never a second copy of the rationale.
 
 ### NEVER regenerate a lint baseline to make a finding go away
 
@@ -1342,7 +1345,7 @@ The right move when one of these linters flags a generated / vendored / build- o
 
 1. Add the path to `.gitignore` (and run `mise run gen:dockerignore` if it
    also belongs in `.dockerignore`).
-2. Stop. Do not touch `.editorconfig` / `dprint.jsonc` / `typos.toml`.
+2. Stop. Do not touch `.editorconfig` / `config/dprint.jsonc` / `config/typos.toml`.
 
 The narrow exception: a path that **must** stay tracked in git (so cannot go in `.gitignore`) but still needs the
 linter to ignore it. `generated/` trees that we commit (`generated/python-rest/`, `generated/python-ws/`, etc.)
@@ -1386,7 +1389,8 @@ What the Dockerfiles `apt-get install` is therefore only genuine build prerequis
 libraries, the archive tools mise unpacks downloads with) -- never POSIX utilities, which now all come from tools.
 
 One Nano Server exception: `Dockerfile.nanoserver` does not put mise's shims on `PATH` (native busybox-w32 can't
-use the msys-form paths mise injects for POSIX shells -- see the `http:busybox` note in `config.windows.toml`),
+use the msys-form paths mise injects for POSIX shells -- see the `http:busybox` note in
+`.mise/config.windows.toml`),
 so the Windows `preinstall` can't call these tools bare -- it goes through `mise exec --` or a shell builtin
 instead. **TODO (next time we improve `Dockerfile.nanoserver`):** work out a busybox-compatible way to get the
 shims (or tool bins) onto `PATH` so Windows tasks can call `coreutils`/`rg`/`goawk` directly like every other OS,
@@ -1402,7 +1406,7 @@ new deps there, not in individual crate `[dependencies]`.
 Every license `config/deny.toml`'s `[licenses] allow` list currently accepts is permissive (Apache-2.0, MIT,
 BSD, Zlib, ISC, MPL-2.0, etc.) -- none copyleft. Keep it that way: do not add a new direct or transitive
 dependency whose license is GPL (any version) or LGPL (any version), and do not add GPL/LGPL to the
-`deny.toml` allow list, even when the license is individually OSI-approved (LGPL is). Being OSI-approved is
+`config/deny.toml` allow list, even when the license is individually OSI-approved (LGPL is). Being OSI-approved is
 not sufficient on its own here -- copyleft obligations are a different category of concern from a permissive
 license, and accepting one is a project-policy decision, not a mechanical license check.
 
@@ -1470,14 +1474,11 @@ Where an `Option` is genuinely right, say so at the site: what absence means, an
 
 ## Naming conventions
 
-- **`.map_err` wrappers must be named `map_*`.** Extension methods that
-  hide a `.map_err(...)` call (e.g. converting a foreign error to a
-  domain error type) must keep `map_` in the name. The reader can then
-  tell at the call site that this is a _mapping_ over the error, not
-  some unrelated boolean predicate. Example: the `JsErrExt` trait in
-  `services/ws-web-runner/src/error.rs` exposes `.map_js_err()` and
-  `.map_js_err_with_context(...)`, never `.js_err()` / `.to_js_err()` /
-  similar.
+- **`result.map_err(...)` wrappers must be named `map_*`.** Extension methods that hide a `result.map_err(...)`
+  call (e.g. converting a foreign error to a domain error type) must keep `map_` in the name. The reader can then
+  tell at the call site that this is a _mapping_ over the error, not some unrelated boolean predicate. Example: the
+  `JsErrExt` trait in `services/ws-web-runner/src/error.rs` exposes `result.map_js_err()` and
+  `result.map_js_err_with_context(...)`, never `result.js_err()` / `result.to_js_err()` / similar.
 - **A changed signature is not a reason to rename a function.** Adding a
   parameter, returning an extra value, or making a function fallible does not change what it _is_, and its name
   describes that -- not its argument list. Keep the name and update the callers. Renaming `load_cluster_input` to

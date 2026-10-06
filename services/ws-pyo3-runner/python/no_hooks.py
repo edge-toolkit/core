@@ -1,3 +1,4 @@
+# ruff: noqa: INP001 -- et-ws-pyo3-runner compiles this one file on its own; it is not a package
 """Test fixture for et-ws-pyo3-runner's load-time hook sanity check.
 
 Intentionally defines none of the runner hooks (init / on_connect /

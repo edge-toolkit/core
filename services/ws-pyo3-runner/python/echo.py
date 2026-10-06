@@ -1,3 +1,4 @@
+# ruff: noqa: INP001 -- et-ws-pyo3-runner compiles this one file on its own; it is not a package
 """Example Python module for `et-ws-pyo3-runner`.
 
 This file demonstrates the contract the runner expects. Every function is

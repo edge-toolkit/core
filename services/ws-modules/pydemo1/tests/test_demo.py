@@ -76,19 +76,25 @@ class DemoTests(unittest.TestCase):
         result = process_speech_capture([0.9] * 10, 48_000, 30.0)
         self.assertTrue(result["speech_detected"])
         self.assertAlmostEqual(result["confidence"], 0.9)
-        event = json.loads(result["event_json"])
-        self.assertEqual(event["capability"], "speech_detection")
+        event = json.loads(result["event_json"])["event"]
+        self.assertEqual(event["type"], "et.speech_detection.inference")
+        self.assertEqual(event["source"], "/modules/@edge-toolkit/et-ws-pydemo1")
 
     def test_consented_eye_capture_is_requested_on_periodic_interval(self) -> None:
         with patch("pydemo1.demo.time.monotonic", side_effect=[0.0, 5.1]):
             processor = EyeCaptureProcessor()
             result = processor.process({"faces": [], "width": 1280, "height": 720, "upload_consent": True})
         self.assertEqual(result["capture_count"], 1)
+        event_json = result["event_json"]
+        assert event_json is not None
+        event = json.loads(event_json)["event"]
+        self.assertEqual(event["type"], "et.eye_detection.inference")
+        self.assertEqual(event["source"], "/modules/@edge-toolkit/et-ws-pydemo1")
 
     def test_eye_capture_error_reuses_pyeye1_event(self) -> None:
-        event = json.loads(eye_capture_error_json("upload failed"))
-        self.assertEqual(event["capability"], "pyeye1")
-        self.assertEqual(event["action"], "eye_capture_failed")
+        event = json.loads(eye_capture_error_json("upload failed"))["event"]
+        self.assertEqual(event["type"], "et.pyeye1.eye_capture_failed")
+        self.assertEqual(event["source"], "/modules/@edge-toolkit/et-ws-pydemo1")
 
     def test_eye_capture_stored_reuses_pyeye1_broadcast(self) -> None:
         broadcast = json.loads(eye_capture_stored_json("agent-1", "capture.png"))

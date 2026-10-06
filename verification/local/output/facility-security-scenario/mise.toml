@@ -30,8 +30,8 @@ MODULES_PATHS="$(cargo run --quiet -p et-cli -- npm-module-path --package onnxru
 MODULES_PATHS="$MODULES_PATHS, $(cargo run --quiet -p et-cli -- npm-module-path --package stats-gl)"
 MODULES_PATHS="$MODULES_PATHS, $(mise where http:pyodide), ../../data/model-modules/model-face1"
 MODULES_PATHS="$MODULES_PATHS, ../../data/model-modules/model-har-motion1, ../../generated/python-ws"
-MODULES_PATHS="$MODULES_PATHS, ../ws-modules/face-detection, ../ws-modules/har1, ../ws-modules/pyface1"
-MODULES_PATHS="$MODULES_PATHS, ../ws-wasm-agent, static"
+MODULES_PATHS="$MODULES_PATHS, ../../libs/python-edge-toolkit, ../../libs/python-org, ../ws-modules/face-detection"
+MODULES_PATHS="$MODULES_PATHS, ../ws-modules/har1, ../ws-modules/pyface1, ../ws-wasm-agent, static"
 export MODULES_PATHS
 cargo run
 """

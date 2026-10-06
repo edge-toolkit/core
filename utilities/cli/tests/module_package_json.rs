@@ -87,6 +87,28 @@ pyodide = "*"
 }
 
 #[test]
+fn a_dependency_named_after_the_organisation_is_scoped_as_one_of_its_own() {
+    // `edge-toolkit` carries no crate prefix, because it is named like its Rust crate, but it is still a module
+    // of this project's own, published under the scope; left bare, the install would look for a package nobody
+    // published.
+    let package = generated_package(
+        "pyproject.toml",
+        r#"[project]
+name = "et-ws-python-module"
+version = "0.1.0"
+
+[tool.ws-module.dependencies]
+edge-toolkit = "*"
+"#,
+        "et_ws_python_module.js",
+        &[],
+    );
+
+    assert_eq!(package["dependencies"]["@edge-toolkit/edge-toolkit"], "*");
+    assert!(package["dependencies"].get("edge-toolkit").is_none());
+}
+
+#[test]
 fn module_package_json_derives_wasi_main_from_crate_name() {
     let package = generated_package(
         "Cargo.toml",

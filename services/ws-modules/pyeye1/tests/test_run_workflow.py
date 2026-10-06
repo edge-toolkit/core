@@ -186,10 +186,11 @@ class RunWorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any("websocket connected with agent_id=fake-agent" in line for line in platform.logs))
         self.assertTrue(platform.cleaned)
 
-        event = json.loads(platform.events[0])
-        self.assertEqual(event["capability"], "eye_detection")
-        self.assertEqual(event["details"]["eyes"], 2)
-        self.assertIn("analysis", event["details"])
+        event = json.loads(platform.events[0])["event"]
+        self.assertEqual(event["type"], "et.eye_detection.inference")
+        self.assertEqual(event["source"], "/modules/@edge-toolkit/et-ws-pyeye1")
+        self.assertEqual(event["data"]["eyes"], 2)
+        self.assertIn("analysis", event["data"])
 
         rendered = json.loads(platform.rendered[0])
         self.assertEqual(len(rendered["faces"]), 1)
@@ -357,11 +358,10 @@ class RunWorkflowTests(unittest.IsolatedAsyncioTestCase):
         ):
             await run(platform)
 
-        failure_events = [json.loads(event) for event in platform.events if "eye_capture_failed" in event]
+        failure_events = [json.loads(event)["event"] for event in platform.events if "eye_capture_failed" in event]
         self.assertEqual(len(failure_events), 1)
-        self.assertEqual(failure_events[0]["capability"], "pyeye1")
-        self.assertEqual(failure_events[0]["action"], "eye_capture_failed")
-        self.assertEqual(failure_events[0]["details"]["error"], "upload failed")
+        self.assertEqual(failure_events[0]["type"], "et.pyeye1.eye_capture_failed")
+        self.assertEqual(failure_events[0]["data"]["error"], "upload failed")
 
 
 if __name__ == "__main__":

@@ -592,10 +592,13 @@ et_cli = "{{ vars.config_root_fwd }}/{{ vars.a_et_cli_target_dir }}/{{ vars.a_et
 # than any real defect. Raise this to 27.0 once those images ship Xcode 27; a contributor already on 27 keeps
 # passing meanwhile, since the check is a floor and not an equality.
 macos_min_sdk = "26.0"
+# mise-managed CPython's bin dir (Linux/macOS), named to sort ahead of py3_unix, which builds on it.
+# The key order is the formatter's, and a var can only reference one defined above it.
+py3_bin_unix = "{{ vars.a_home }}/.local/share/mise/installs/python/3.13.14/bin"
 # mise-managed CPython (Linux/macOS); the PYO3_PYTHON default below.
 # Windows overrides PYO3_PYTHON with its own py3_win in config.windows.toml. The version
 # segment must equal the `python` [tools] pin (conftest enforces both).
-py3_unix = "{{ vars.a_home }}/.local/share/mise/installs/python/3.13.14/bin/python3"
+py3_unix = "{{ vars.py3_bin_unix }}/python3"
 # RUSTFLAGS fragments shared by the CARGO_TARGET_* env in config.<os>.toml
 rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
 # rpath to the mise CPython lib dir so the runner finds libpython at runtime.
@@ -1238,14 +1241,14 @@ description = "Run all conftest policy checks (one per parsed file format)"
 [tasks.conftest-check-toml]
 description = "Run conftest OPA/Rego policies over the TOML config + lock files"
 # --combine feeds every listed file to one policy evaluation.
-# It arrives as an array of {path, contents}, so a policy can both check each file and compare across
-# files (the mise wasm-bindgen pin vs Cargo.lock; the .mise/config*.toml *_asset vars vs
-# config/upstream-cache/data.toml). --parser toml: Cargo.lock has no .toml suffix. The TOML rule
-# namespaces are listed explicitly, so the per-file `gha` (YAML) namespace is never evaluated against this
+# It arrives as an array of {path, contents}, so a policy can both check each file and compare across files
+# (the mise wasm-bindgen pin vs Cargo.lock; the .mise/config*.toml *_asset vars vs config/upstream-cache/data.toml;
+# the mise python pin vs config/pyrefly.toml's python-version). --parser toml: Cargo.lock has no .toml suffix. The
+# TOML rule namespaces are listed explicitly, so the per-file `gha` (YAML) namespace is never evaluated against this
 # combined TOML input.
 run = """
 ns_list="cross cargo mise mise_lock pyproject no_trailing_backslash checksums advisories"
-named="Cargo.lock config/upstream-cache/data.toml config/deny.toml"
+named="Cargo.lock config/upstream-cache/data.toml config/deny.toml config/pyrefly.toml"
 # Both lists rely on word-splitting when they expand.
 # $ns expands to repeated `--namespace <n>` pairs; $named is a space-separated path list.
 # shellcheck disable=SC2086

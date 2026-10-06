@@ -477,6 +477,7 @@ async fn run_inner(client: &WsClient, sensors: &mut DeviceSensors) -> Result<(),
 
         class_change_count += 1;
         client.send_client_event(
+            et_org::served_npm_module_path!(),
             "har",
             "class_changed",
             json!({

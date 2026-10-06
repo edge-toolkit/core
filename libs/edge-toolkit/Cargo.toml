@@ -45,6 +45,8 @@ thiserror.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+cloudevents-sdk.workspace = true
+et-org.workspace = true
 et-test-helpers.workspace = true
 et-test-otlp.workspace = true
 rstest.workspace = true

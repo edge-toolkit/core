@@ -168,7 +168,11 @@ fn class_node(name: &str, schema: &serde_json::Value, discriminator: Option<&str
         children.nodes_mut().push(tag_node);
     }
     if let Some(props) = props {
-        let mut keys: Vec<&String> = props.keys().filter(|key| key.as_str() != "type").collect();
+        // Only a union member's `type` is the discriminant dart-typegen supplies itself; a support class's is a field.
+        let mut keys: Vec<&String> = props
+            .keys()
+            .filter(|key| discriminator.is_none() || key.as_str() != "type")
+            .collect();
         keys.sort();
         for key in keys {
             let prop_schema = &props[key];

@@ -27,6 +27,8 @@ fn returns_only_workspace_paths_when_mise_missing() {
         "services/ws-modules",
         "generated/python-ws",
         "generated/python-rest",
+        "libs/python-org",
+        "libs/python-edge-toolkit",
     ];
     assert_eq!(
         paths.len(),

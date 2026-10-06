@@ -991,12 +991,15 @@ fn k3s_apply_instructions(cluster_name: &str) -> String {
 const REPO_MODULE_PARENTS: [&str; 2] = ["services/ws-modules", "data/model-modules"];
 
 /// Single module directories of this repository, relative to its root, each registered as it is.
-const REPO_MODULE_DIRS: [&str; 4] = [
+const REPO_MODULE_DIRS: [&str; 6] = [
     // Generated Python ws-modules: each generated/python-{ws,rest}/ holds its own pkg/package.json after `mise run
     // build-et-{ws,rest-client}- wheel`. They're listed individually because the parent `generated/` also contains non-
     // module artifacts (rust-rest, dart-ws, zig-rest, specs, docs).
     "generated/python-ws",
     "generated/python-rest",
+    // The Python libraries, likewise listed one by one because `libs/` otherwise holds Rust crates.
+    "libs/python-org",
+    "libs/python-edge-toolkit",
     // The two the hub serves whatever the scenario asks for: its own page, and the agent that page loads. Registered
     // like any other module rather than prepended as bare paths by each generator, so the dependencies they declare are
     // resolved too. `static` names the runtimes its page pulls at boot, and a deployment that omits them serves a page
@@ -1220,7 +1223,7 @@ fn module_entry(module_path: &Path, ws_server_dir: &Path, docker_path: &str) -> 
     let served_name = package
         .as_ref()
         .and_then(|package| package.name.clone())
-        .map(|name| module_package_json::scoped_dependency_name(&name));
+        .map(|name| module_package_json::scoped_npm_dependency_name(&name));
     ModuleRegistryEntry {
         mise_path: relative_path_from(ws_server_dir, module_path),
         docker_path: docker_path.to_string(),
@@ -1234,7 +1237,7 @@ fn module_entry(module_path: &Path, ws_server_dir: &Path, docker_path: &str) -> 
                 package
                     .dependencies
                     .keys()
-                    .map(|name| module_package_json::scoped_dependency_name(name))
+                    .map(|name| module_package_json::scoped_npm_dependency_name(name))
                     .collect()
             })
             .unwrap_or_default(),

@@ -1,5 +1,5 @@
 [project]
-dependencies = ["et-ws"]
+dependencies = ["edge-toolkit", "et-org", "et-ws"]
 description = "Python face detection"
 license = "Apache-2.0 OR MIT"
 name = "et-ws-pyface1"
@@ -22,10 +22,14 @@ module-root = ""
 # bundled separately into pkg/ by the `build-ws-pyface1-module` mise task
 # (alongside the pyface1 wheel) so Pyodide can micropip-install it at runtime.
 [tool.uv.sources]
+edge-toolkit = { workspace = true }
+et-org = { workspace = true }
 et-ws = { workspace = true }
 
 [tool.ws-module.dependencies]
+edge-toolkit = "*"
 et-model-face1 = "*"
+et-org = "*"
 et-ws = "*"
 et-ws-server-static = "*"
 onnxruntime-web = "*"

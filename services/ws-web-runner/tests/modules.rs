@@ -408,6 +408,11 @@ fn hardware_module_load_fails(#[case] module: &str, #[case] language: Language) 
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr),
     );
+    // A Python module has to fail at the missing API, not before it: a wheel the shim never installed fails the
+    // import instead, and that is a non-zero exit too.
+    for stream in [&output.stdout, &output.stderr] {
+        assert!(!String::from_utf8_lossy(stream).contains("ModuleNotFoundError"));
+    }
 }
 
 /// Load + run each R module and assert it fails under Deno's classic-worker limitation.

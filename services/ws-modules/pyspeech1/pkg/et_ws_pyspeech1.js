@@ -32,8 +32,8 @@ export default async function init() {
   const pkg = await fetch(new URL("package.json", import.meta.url)).then((response) => response.json());
   const distribution = pkg.name.split("/").pop();
   await installLocalWheel(`${distribution.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`);
-  const { installWheel: installEtWs } = await import("/modules/@edge-toolkit/et-ws/et_ws.js");
-  await installEtWs(pyodide);
+  const { installWheel: installEdgeToolkit } = await import("/modules/@edge-toolkit/edge-toolkit/edge_toolkit.js");
+  await installEdgeToolkit(pyodide);
   if (globalThis.__etPyCov) await globalThis.__etPyCov.start(pyodide, "pyspeech1");
   py = pyodide.pyimport("pyspeech1");
   cfg = py.config().toJs({ dict_converter: Object.fromEntries });

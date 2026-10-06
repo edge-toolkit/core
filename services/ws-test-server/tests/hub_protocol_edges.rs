@@ -58,17 +58,49 @@ async fn an_undecodable_frame_and_a_pong_leave_the_connection_working() {
     assert_still_serving(&mut agent).await;
 }
 
+/// An `et-client-event` frame carrying a `CloudEvent` of `event_type` at `specversion`.
+fn client_event(specversion: &str, event_type: &str, data: &serde_json::Value) -> serde_json::Value {
+    serde_json::json!({
+        "type": "et-client-event",
+        "event": {
+            "data": data,
+            "id": "event-1",
+            "source": "/modules/test",
+            "specversion": specversion,
+            "time": "2026-10-06T00:00:00Z",
+            "type": event_type,
+        },
+    })
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_camera_inference_event_is_logged_without_a_reply() {
+async fn client_events_are_logged_without_a_reply() {
     let server = start();
     let (mut agent, _agent_id) = connect_agent(&server.ws_url).await;
 
     let details = serde_json::json!({"detected_class": "person", "confidence": 0.9_f64, "processed_at": "now"});
-    let event = serde_json::json!({
-        "type": "et-client-event", "capability": "video_cv", "action": "inference", "details": details,
-    });
-    send_json(&mut agent, &event).await;
+    send_json(&mut agent, &client_event("1.0", "et.video_cv.inference", &details)).await;
+    let loaded = serde_json::json!({"build": "test"});
+    send_json(&mut agent, &client_event("1.0", "et.app.loaded", &loaded)).await;
     assert_still_serving(&mut agent).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_client_event_at_an_unsupported_specversion_is_answered_invalid() {
+    let server = start();
+    let (mut agent, _agent_id) = connect_agent(&server.ws_url).await;
+
+    send_json(
+        &mut agent,
+        &client_event("0.3", "et.app.loaded", &serde_json::json!({})),
+    )
+    .await;
+    let reply = server_message(&next_payload(&mut agent).await);
+    let ServerMessage::Invalid { message_id, detail } = reply else {
+        panic!("expected an et-invalid reply, got {reply:?}");
+    };
+    assert_eq!(message_id.as_deref(), Some("event-1"));
+    assert_eq!(detail, r#"unsupported CloudEvents specversion "0.3"; expected "1.0""#);
 }
 
 /// Ask for the roster and require the hub to answer it, proving the connection survived what was sent before.

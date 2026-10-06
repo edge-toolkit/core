@@ -91,6 +91,151 @@ final class AgentSummaryBuilder {
   );
 }
 
+final class CloudEvent {
+  final Map<String, dynamic> data;
+  final String id;
+  final String source;
+  final String specversion;
+  final String time;
+  final String type;
+
+  const CloudEvent({
+    required this.data,
+    required this.id,
+    required this.source,
+    required this.specversion,
+    required this.time,
+    required this.type,
+  });
+
+  static CloudEventBuilder builder({
+    required Map<String, dynamic> data,
+    required String id,
+    required String source,
+    required String specversion,
+    required String time,
+    required String type,
+  }) => CloudEventBuilder(
+    data: data.map((key, value) => MapEntry(key, value)),
+    id: id,
+    source: source,
+    specversion: specversion,
+    time: time,
+    type: type,
+  );
+  CloudEventBuilder toBuilder() => CloudEventBuilder(
+    data: data.map((key, value) => MapEntry(key, value)),
+    id: id,
+    source: source,
+    specversion: specversion,
+    time: time,
+    type: type,
+  );
+
+  Map<String, dynamic> toJson() => {
+    "data": data.map((key, value) => MapEntry(key, value)),
+    "id": id,
+    "source": source,
+    "specversion": specversion,
+    "time": time,
+    "type": type,
+  };
+  factory CloudEvent.fromJson(Map<String, dynamic> json) => CloudEvent(
+    data: (json["data"] as Map).map<String, dynamic>(
+      (key, value) => MapEntry(key as String, value as dynamic),
+    ),
+    id: json["id"] as String,
+    source: json["source"] as String,
+    specversion: json["specversion"] as String,
+    time: json["time"] as String,
+    type: json["type"] as String,
+  );
+
+  @override
+  String toString() =>
+      "CloudEvent("
+      "data: $data, "
+      "id: $id, "
+      "source: $source, "
+      "specversion: $specversion, "
+      "time: $time, "
+      "type: $type"
+      ")";
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    if (other is! CloudEvent) {
+      return false;
+    }
+    if (data.length != other.data.length) {
+      return false;
+    }
+    for (final entry in data.entries) {
+      if (entry.value != other.data[entry.key]) {
+        return false;
+      }
+    }
+    if (id != other.id) {
+      return false;
+    }
+    if (source != other.source) {
+      return false;
+    }
+    if (specversion != other.specversion) {
+      return false;
+    }
+    if (time != other.time) {
+      return false;
+    }
+    if (type != other.type) {
+      return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    Object.hashAll(
+      data.entries.expand((entry) => [entry.key, entry.value.hashCode]),
+    ),
+    id.hashCode,
+    source.hashCode,
+    specversion.hashCode,
+    time.hashCode,
+    type.hashCode,
+  ]);
+}
+
+/// Builder class for [CloudEvent]
+final class CloudEventBuilder {
+  Map<String, dynamic> data;
+  String id;
+  String source;
+  String specversion;
+  String time;
+  String type;
+
+  CloudEventBuilder({
+    required this.data,
+    required this.id,
+    required this.source,
+    required this.specversion,
+    required this.time,
+    required this.type,
+  });
+
+  CloudEvent build() => CloudEvent(
+    data: data.map((key, value) => MapEntry(key, value)),
+    id: id,
+    source: source,
+    specversion: specversion,
+    time: time,
+    type: type,
+  );
+}
+
 sealed class WsClientMessage {
   const WsClientMessage();
 
@@ -454,52 +599,28 @@ final class WsMessageAckBuilder extends WsClientMessageBuilder {
 }
 
 final class WsClientEvent extends WsClientMessage {
-  final String action;
-  final String capability;
-  final Map<String, dynamic> details;
+  final CloudEvent event;
 
-  const WsClientEvent({
-    required this.action,
-    required this.capability,
-    required this.details,
-  }) : super();
+  const WsClientEvent({required this.event}) : super();
 
-  static WsClientEventBuilder builder({
-    required String action,
-    required String capability,
-    required Map<String, dynamic> details,
-  }) => WsClientEventBuilder(
-    action: action,
-    capability: capability,
-    details: details.map((key, value) => MapEntry(key, value)),
-  );
-  WsClientEventBuilder toBuilder() => WsClientEventBuilder(
-    action: action,
-    capability: capability,
-    details: details.map((key, value) => MapEntry(key, value)),
-  );
+  static WsClientEventBuilder builder({required CloudEvent event}) =>
+      WsClientEventBuilder(event: event.toBuilder());
+  WsClientEventBuilder toBuilder() =>
+      WsClientEventBuilder(event: event.toBuilder());
 
   @override
   Map<String, dynamic> toJson() => {
-    "action": action,
-    "capability": capability,
-    "details": details.map((key, value) => MapEntry(key, value)),
+    "event": event.toJson(),
     "type": "et-client-event",
   };
   factory WsClientEvent.fromJson(Map<String, dynamic> json) => WsClientEvent(
-    action: json["action"] as String,
-    capability: json["capability"] as String,
-    details: (json["details"] as Map).map<String, dynamic>(
-      (key, value) => MapEntry(key as String, value as dynamic),
-    ),
+    event: CloudEvent.fromJson(json["event"] as Map<String, dynamic>),
   );
 
   @override
   String toString() =>
       "WsClientEvent("
-      "action: $action, "
-      "capability: $capability, "
-      "details: $details"
+      "event: $event"
       ")";
   @override
   bool operator ==(Object other) {
@@ -509,50 +630,23 @@ final class WsClientEvent extends WsClientMessage {
     if (other is! WsClientEvent) {
       return false;
     }
-    if (action != other.action) {
+    if (event != other.event) {
       return false;
-    }
-    if (capability != other.capability) {
-      return false;
-    }
-    if (details.length != other.details.length) {
-      return false;
-    }
-    for (final entry in details.entries) {
-      if (entry.value != other.details[entry.key]) {
-        return false;
-      }
     }
     return true;
   }
 
   @override
-  int get hashCode => Object.hashAll([
-    action.hashCode,
-    capability.hashCode,
-    Object.hashAll(
-      details.entries.expand((entry) => [entry.key, entry.value.hashCode]),
-    ),
-  ]);
+  int get hashCode => Object.hashAll([event.hashCode]);
 }
 
 /// Builder class for [WsClientEvent]
 final class WsClientEventBuilder extends WsClientMessageBuilder {
-  String action;
-  String capability;
-  Map<String, dynamic> details;
+  CloudEventBuilder event;
 
-  WsClientEventBuilder({
-    required this.action,
-    required this.capability,
-    required this.details,
-  }) : super();
+  WsClientEventBuilder({required this.event}) : super();
 
-  WsClientEvent build() => WsClientEvent(
-    action: action,
-    capability: capability,
-    details: details.map((key, value) => MapEntry(key, value)),
-  );
+  WsClientEvent build() => WsClientEvent(event: event.build());
 }
 
 final class WsClientRelayText extends WsClientMessage {

@@ -10,5 +10,8 @@ repository.workspace = true
 [lib]
 doctest = false
 
+[dev-dependencies]
+edge-toolkit.workspace = true
+
 [lints]
 workspace = true

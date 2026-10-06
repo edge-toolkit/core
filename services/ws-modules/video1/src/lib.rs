@@ -116,6 +116,7 @@ pub async fn run() -> Result<(), JsValue> {
         }
 
         client.send_client_event(
+            et_org::served_npm_module_path!(),
             "video",
             "access_granted",
             json!({

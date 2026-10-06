@@ -106,6 +106,8 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
         project_root.join("services/ws-modules"),
         project_root.join("generated/python-ws"),
         project_root.join("generated/python-rest"),
+        project_root.join("libs/python-org"),
+        project_root.join("libs/python-edge-toolkit"),
     ];
     // Skip mise-managed module resolution when mise isn't on PATH: the
     // per-package "run `mise install ...`" warnings would just confuse a
