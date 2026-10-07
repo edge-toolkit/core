@@ -7,8 +7,10 @@ from collections.abc import Iterable
 from datetime import datetime, timezone
 from typing import Any, TypedDict
 
-from et_ws.messages import WsClientEvent
+from edge_toolkit.events import client_event
+from et_org import served_npm_module_path
 
+EVENT_SOURCE = served_npm_module_path("et-ws-pyspeech1")
 SPEECH_MODEL_PATH = "/modules/et-model-speech1/speech1.onnx"
 SAMPLE_RATE = 16_000
 CHUNK_SIZE = 512
@@ -104,14 +106,9 @@ def event_payload(summary: SpeechSummary, source_sample_rate: float, recorded_se
     }
 
 
-def client_event_json(details: dict[str, object]) -> str:
-    """Build the typed et-client-event envelope."""
-    return WsClientEvent(
-        type="et-client-event",
-        capability="speech_detection",
-        action="inference",
-        details=details,
-    ).model_dump_json()
+def client_event_json(details: dict[str, object], source: str = EVENT_SOURCE) -> str:
+    """Build the typed et-client-event envelope, sent by the module at `source`."""
+    return client_event(source, "speech_detection", "inference", details).model_dump_json()
 
 
 async def run(infer_capture, send_event, render_result, log, set_status) -> None:

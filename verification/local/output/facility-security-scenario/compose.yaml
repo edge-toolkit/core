@@ -49,6 +49,8 @@ services:
       MODULES_PATHS: "/app/data/model-modules/model-face1,
         /app/data/model-modules/model-har-motion1,
         /app/generated/python-ws,
+        /app/libs/python-edge-toolkit,
+        /app/libs/python-org,
         /app/node_modules/onnxruntime-web,
         /app/node_modules/pyodide,
         /app/node_modules/stats-gl,

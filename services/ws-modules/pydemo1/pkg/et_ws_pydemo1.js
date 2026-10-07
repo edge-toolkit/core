@@ -76,8 +76,8 @@ async function initializePythonRuntime() {
     installModuleWheel(new URL(".", import.meta.url)),
   ]);
   setPreparationStatus("Installing the WebSocket Python support module...");
-  const { installWheel: installEtWs } = await import("/modules/@edge-toolkit/et-ws/et_ws.js");
-  await installEtWs(pyodide);
+  const { installWheel: installEdgeToolkit } = await import("/modules/@edge-toolkit/edge-toolkit/edge_toolkit.js");
+  await installEdgeToolkit(pyodide);
   if (globalThis.__etPyCov) await globalThis.__etPyCov.start(pyodide, "pydemo1");
   try {
     setPreparationStatus("Importing the combined demo workflow...");

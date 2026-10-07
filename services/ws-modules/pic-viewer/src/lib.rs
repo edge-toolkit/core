@@ -159,6 +159,7 @@ async fn view_workflow(stop_requested: &Rc<Cell<bool>>) -> Result<(), JsValue> {
             notification.filename, notification.from_agent_id
         ))?;
         client.send_client_event(
+            et_org::served_npm_module_path!(),
             "pic_viewer",
             "displayed",
             json!({

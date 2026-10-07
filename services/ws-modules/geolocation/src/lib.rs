@@ -149,6 +149,7 @@ pub async fn run() -> Result<(), JsValue> {
         log(&format!("geolocation acquired: lat={lat} lon={lon} acc={acc}m"));
 
         client.send_client_event(
+            et_org::served_npm_module_path!(),
             "geolocation",
             "reading_acquired",
             json!({

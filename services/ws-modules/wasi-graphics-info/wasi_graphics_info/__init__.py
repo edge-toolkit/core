@@ -20,8 +20,10 @@ Workflow per run():
 """
 
 import array
+import datetime
 import json
 import struct
+import uuid
 
 import wit_world.exports
 from componentize_py_types import Err
@@ -154,6 +156,7 @@ fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
 
 
 LOG_CONTEXT = "wasi-graphics-info"
+EVENT_SOURCE = "/modules/@edge-toolkit/et-ws-wasi-graphics-info"
 
 
 def _log(message: str) -> None:
@@ -163,15 +166,15 @@ def _log(message: str) -> None:
 
 
 def _send_event(category: str, kind: str, body: dict) -> None:
-    ws.send(
-        messages.ClientMessage_ClientEvent(
-            messages.ClientEventPayload(
-                capability=category,
-                action=kind,
-                details=json.dumps(body),
-            )
-        )
+    event = messages.CloudEvent(
+        data=json.dumps(body),
+        id=str(uuid.uuid4()),
+        source=EVENT_SOURCE,
+        specversion="1.0",
+        time=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        type=f"et.{category}.{kind}",
     )
+    ws.send(messages.ClientMessage_ClientEvent(messages.ClientEventPayload(event=event)))
 
 
 def _now_ms() -> int:

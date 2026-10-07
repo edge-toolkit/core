@@ -91,7 +91,7 @@ fn offline_sends_are_queued() {
     client.broadcast_message(json!({ "hello": "world" })).unwrap();
     client.send_agent_message("agent-x", json!({ "k": 1_i32 })).unwrap();
     client
-        .send_client_event("capability", "action", json!({ "detail": true }))
+        .send_client_event("/modules/test", "capability", "action", json!({ "detail": true }))
         .unwrap();
 }
 
@@ -259,7 +259,7 @@ async fn connects_flushes_queue_and_sends() {
     client.request_list_agents().unwrap();
     client.send_agent_message(agent_id, json!({ "self": true })).unwrap();
     client
-        .send_client_event("capability", "action", json!({ "online": true }))
+        .send_client_event("/modules/test", "capability", "action", json!({ "online": true }))
         .unwrap();
 
     // Let the server answer so the onmessage handler dispatches the response frames.

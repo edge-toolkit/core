@@ -374,6 +374,7 @@ async fn infer_once(
     last_has_detection.set(has_detection);
 
     client.send_client_event(
+        et_org::served_npm_module_path!(),
         "face_detection",
         "inference",
         json!({

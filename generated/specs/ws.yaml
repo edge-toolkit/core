@@ -69,20 +69,14 @@ components:
       name: ClientEvent
       payload:
         properties:
-          action:
-            type: string
-          capability:
-            type: string
-          details:
-            description: Arbitrary JSON value (opaque to the protocol)
+          event:
+            $ref: "#/components/schemas/CloudEvent"
           type:
             const: et-client-event
             type: string
         required:
           - type
-          - capability
-          - action
-          - details
+          - event
         title: WsClientEvent
         type: object
       title: ClientEvent
@@ -304,6 +298,39 @@ components:
       required:
         - agent_id
         - state
+      type: object
+    CloudEvent:
+      description: |-
+        A `CloudEvents` 1.0 event in the JSON event format, as `et-client-event` carries it.
+
+        `data` is always JSON, so `datacontenttype` is omitted: JSON events imply `application/json`.
+
+        `time` is optional in the specification but required here: every producer has a clock, and the hub logs it.
+      properties:
+        data:
+          description: The event payload.
+        id:
+          description: Unique among the events of one `source`.
+          type: string
+        source:
+          description: The producing module's served path, `/modules/<package name>`.
+          type: string
+        specversion:
+          description: The `CloudEvents` specification version, `1.0`.
+          type: string
+        time:
+          description: When the event happened, as an RFC 3339 timestamp.
+          type: string
+        type:
+          description: "`et.<capability>.<action>`."
+          type: string
+      required:
+        - data
+        - type
+        - id
+        - source
+        - specversion
+        - time
       type: object
     ConnectStatus:
       enum:

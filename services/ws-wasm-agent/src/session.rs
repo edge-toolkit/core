@@ -1,11 +1,12 @@
 //! The client's session lifecycle that JavaScript never calls directly: heartbeats, reconnects, the offline queue.
 //!
-//! These live in `WsClient`'s second, non-exported `impl` block, beside the typed message helpers `wasm_bindgen`
-//! cannot export, so the exported block in the crate root holds only the API a page sees.
+//! These live in `WsClient`'s second, non-exported `impl` block, beside the typed message helpers `wasm_bindgen` cannot
+//! export, so the exported block in the crate root holds only the API a page sees.
 
+use std::fmt::Write as _;
 use std::rc::Rc;
 
-use edge_toolkit::ws::ClientMessage;
+use edge_toolkit::ws::{ClientMessage, CloudEvent, client_event_type};
 use et_web::JsResultExt as _;
 use tracing::{error, info, warn};
 use wasm_bindgen::prelude::*;
@@ -42,16 +43,34 @@ impl WsClient {
         self.send(&payload)
     }
 
-    pub fn send_client_event<C, A>(&self, capability: C, action: A, details: serde_json::Value) -> Result<(), JsValue>
-    where
-        C: Into<String>,
-        A: Into<String>,
-    {
-        let message = ClientMessage::ClientEvent {
-            capability: capability.into(),
-            action: action.into(),
+    /// Send a client event as a `CloudEvent` of type `et.<capability>.<action>`.
+    ///
+    /// `source` is the producing module's served path, which `et_org::served_npm_module_path!()` gives.
+    pub fn send_client_event(
+        &self,
+        source: &str,
+        capability: &str,
+        action: &str,
+        details: serde_json::Value,
+    ) -> Result<(), JsValue> {
+        // 128 random bits rather than `crypto.randomUUID()`, which a page served over plain http does not have.
+        let mut random_bytes = [0_u8; 16];
+        let _filled = web_sys::window()
+            .ok_or_else(|| JsValue::from_str("No window available to mint a client event id"))?
+            .crypto()?
+            .get_random_values_with_u8_array(&mut random_bytes)?;
+        let id = random_bytes.iter().fold(String::with_capacity(32), |mut hex, byte| {
+            let _infallible: std::fmt::Result = write!(hex, "{byte:02x}");
+            hex
+        });
+        let event = CloudEvent::new(
+            id,
+            source.to_owned(),
+            client_event_type(capability, action),
+            chrono::Utc::now().to_rfc3339(),
             details,
-        };
+        );
+        let message = ClientMessage::ClientEvent { event };
         let payload = serde_json::to_string(&message).js_context("Failed to serialize client event")?;
         self.send(&payload)
     }

@@ -1,3 +1,4 @@
+# ruff: noqa: INP001 -- et-ws-pyo3-runner compiles this one file on its own; it is not a package
 """Prove a mise-preinstalled pipx package imports under the embedded interpreter.
 
 `cowsay` is declared as `pipx:cowsay` in the always-loaded mise config, and the

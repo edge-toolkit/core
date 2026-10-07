@@ -21,15 +21,17 @@ use crate::error::{CliError, parse_json, parse_toml, serialize_json_pretty};
 /// so a scoped and an unscoped build of the same module are served identically, and a tree part way through
 /// this rename behaves uniformly. Applied here rather than at each call site so one rule covers every module
 /// whose manifest this generator writes.
-fn scoped_package_name(declared: &str) -> String {
+fn scoped_npm_package_name(declared: &str) -> String {
     if declared.starts_with(MODULE_SCOPE) {
         return declared.to_string();
     }
     format!("{MODULE_SCOPE}{declared}")
 }
 
-/// Prefix every module of this project's own carries, and so what marks a dependency as one to scope.
-const OWN_MODULE_PREFIX: &str = et_org::CRATE_PREFIX;
+/// Prefixes that mark a dependency as a module of this project's own, and so as one to scope.
+///
+/// The crate prefix, or the organisation name itself, as `edge-toolkit` is named like its Rust crate.
+const OWN_MODULE_PREFIXES: [&str; 2] = [et_org::CRATE_PREFIX, et_org::ORG];
 
 /// The name a declared dependency is written as in the published manifest.
 ///
@@ -39,10 +41,10 @@ const OWN_MODULE_PREFIX: &str = et_org::CRATE_PREFIX;
 /// published module otherwise fails on a dependency no registry has. Everything else a module declares
 /// (`onnxruntime-web`, `pyodide`, the `@huggingface` and `@mediapipe` packages) is somebody else's, already
 /// published under exactly that name, and scoping it would point the install at a package that never existed.
-/// The prefix separates the two: every module here carries it, and no third-party dependency does.
-pub(crate) fn scoped_dependency_name(declared: &str) -> String {
-    if declared.starts_with(OWN_MODULE_PREFIX) {
-        return scoped_package_name(declared);
+/// The prefixes separate the two: every module here carries one, and no third-party dependency does.
+pub(crate) fn scoped_npm_dependency_name(declared: &str) -> String {
+    if OWN_MODULE_PREFIXES.iter().any(|prefix| declared.starts_with(prefix)) {
+        return scoped_npm_package_name(declared);
     }
     declared.to_string()
 }
@@ -173,7 +175,7 @@ fn package_json_from_pyproject(module_dir: &Path) -> Result<Value, CliError> {
     let main = resolve_main(&pkg_dir, &project.name, kind, ws_module.main.as_deref())?;
 
     let mut pkg = Map::from_iter([
-        ("name".to_string(), json!(scoped_package_name(&project.name))),
+        ("name".to_string(), json!(scoped_npm_package_name(&project.name))),
         ("type".to_string(), json!("module")),
         (
             "description".to_string(),
@@ -190,7 +192,7 @@ fn package_json_from_pyproject(module_dir: &Path) -> Result<Value, CliError> {
         let dependencies: BTreeMap<String, String> = ws_module
             .dependencies
             .into_iter()
-            .map(|(name, version)| (scoped_dependency_name(&name), version))
+            .map(|(name, version)| (scoped_npm_dependency_name(&name), version))
             .collect();
         pkg.insert("dependencies".to_string(), json!(dependencies));
     }
@@ -222,7 +224,7 @@ fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value, 
 
     let mut pkg = read_package_json(out_path)?.unwrap_or_else(|| {
         let mut pkg = Map::new();
-        pkg.insert("name".to_string(), json!(scoped_package_name(&crate_name)));
+        pkg.insert("name".to_string(), json!(scoped_npm_package_name(&crate_name)));
         pkg.insert("type".to_string(), json!("module"));
         pkg
     });
@@ -235,7 +237,7 @@ fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value, 
         .get("name")
         .and_then(Value::as_str)
         .map_or_else(|| crate_name.clone(), str::to_string);
-    pkg.insert("name".to_string(), json!(scoped_package_name(&declared)));
+    pkg.insert("name".to_string(), json!(scoped_npm_package_name(&declared)));
     let ws_version = workspace.as_ref().and_then(|ws| ws.version.as_deref());
     let ws_repository = workspace.as_ref().and_then(|ws| ws.repository.as_deref());
     if !pkg.contains_key("version")
@@ -268,7 +270,7 @@ fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value, 
             .as_object_mut()
             .ok_or_else(|| CliError::NonObjectDependencies(out_path.to_path_buf()))?;
         for (name, version) in ws_module.dependencies {
-            dependency_map.insert(scoped_dependency_name(&name), json!(version));
+            dependency_map.insert(scoped_npm_dependency_name(&name), json!(version));
         }
         // An entry left by an earlier generation carries whatever name the rule produced then, so the map is
         // normalised as a whole rather than only where this run inserted. Without it a module that was
@@ -276,7 +278,7 @@ fn package_json_from_cargo(module_dir: &Path, out_path: &Path) -> Result<Value, 
         // hub is handed the same dependency twice under two names.
         let normalised: Map<String, Value> = dependency_map
             .iter()
-            .map(|(name, version)| (scoped_dependency_name(name), version.clone()))
+            .map(|(name, version)| (scoped_npm_dependency_name(name), version.clone()))
             .collect();
         *dependency_map = normalised;
     }

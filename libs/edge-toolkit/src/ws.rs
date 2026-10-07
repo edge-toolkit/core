@@ -108,6 +108,55 @@ impl AgentSummary {
     }
 }
 
+/// The `CloudEvents` specification version every [`CloudEvent`] this protocol carries conforms to.
+pub const CLOUDEVENTS_SPEC_VERSION: &str = "1.0";
+
+/// A `CloudEvents` 1.0 event in the JSON event format, as `et-client-event` carries it.
+///
+/// `data` is always JSON, so `datacontenttype` is omitted: JSON events imply `application/json`.
+///
+/// `time` is optional in the specification but required here: every producer has a clock, and the hub logs it.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[non_exhaustive]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+pub struct CloudEvent {
+    /// The event payload.
+    #[cfg_attr(feature = "schema-export", schemars(schema_with = "any_json_schema"))]
+    pub data: serde_json::Value,
+    /// `et.<capability>.<action>`.
+    #[serde(rename = "type")]
+    pub event_type: String,
+    /// Unique among the events of one `source`.
+    pub id: String,
+    /// The producing module's served path, `/modules/<package name>`.
+    pub source: String,
+    /// The `CloudEvents` specification version, `1.0`.
+    pub specversion: String,
+    /// When the event happened, as an RFC 3339 timestamp.
+    pub time: String,
+}
+
+impl CloudEvent {
+    /// Build an event at [`CLOUDEVENTS_SPEC_VERSION`].
+    #[must_use]
+    pub fn new(id: String, source: String, event_type: String, time: String, data: serde_json::Value) -> Self {
+        Self {
+            data,
+            event_type,
+            id,
+            source,
+            time,
+            specversion: CLOUDEVENTS_SPEC_VERSION.to_owned(),
+        }
+    }
+}
+
+/// The `CloudEvents` `type` of a client event: `et.<capability>.<action>`.
+#[must_use]
+pub fn client_event_type(capability: &str, action: &str) -> String {
+    format!("et.{capability}.{action}")
+}
+
 /// Returns `true` if `text` decodes as a JSON object whose `type` field is a string starting with `et-`.
 ///
 /// The shared gate used by [`ClientMessage::from_text_frame`] and [`ServerMessage::from_text_frame`] to decide whether
@@ -163,12 +212,7 @@ pub enum ClientMessage {
     MessageAck { message_id: String },
     #[serde(rename = "et-client-event")]
     #[cfg_attr(feature = "schema-export", schemars(title = "WsClientEvent"))]
-    ClientEvent {
-        capability: String,
-        action: String,
-        #[cfg_attr(feature = "schema-export", schemars(schema_with = "any_json_schema"))]
-        details: serde_json::Value,
-    },
+    ClientEvent { event: CloudEvent },
     // Foreign frames the server forwards verbatim via its hub-relay path. Allowed in both directions: a client can also
     // explicitly send a relay frame for a peer to receive (the server passes it through unchanged). Wire convention:
     // the JSON envelope is bypassed -- `from_text_frame` constructs this when no et- tag matches, and the host's `send`

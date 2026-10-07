@@ -29,6 +29,13 @@ formatting = { reorder_arrays = false }
 include = ["**/coverage.toml"]
 keys = ["tool.coverage.paths"]
 
+# Do not reorder the macOS PATH prepend -- its order is semantic.
+# Earlier entries win the lookup, so the pinned CPython has to lead the system dirs that also ship a `python3`.
+[[rule]]
+formatting = { reorder_arrays = false }
+include = ["**/config.macos.toml"]
+keys = ["env._"]
+
 # Forbid `path = "..."` dependencies in non-root Cargo.toml files.
 # The root Cargo.toml's `[workspace.dependencies]` is the only legitimate place for path deps; member crates
 # reference them via `dep.workspace = true`.

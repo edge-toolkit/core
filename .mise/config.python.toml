@@ -98,8 +98,18 @@ depends = ["ruff-fix"]
 description = "Apply Python lint-fix passes"
 
 [tasks."test:python"]
-depends = ["test-pydemo1", "test-pyeye1", "test-pyface1", "test-pyspeech1"]
+depends = ["test-edge-toolkit", "test-et-org", "test-pydemo1", "test-pyeye1", "test-pyface1", "test-pyspeech1"]
 description = "Run Python tests"
+
+[tasks.test-edge-toolkit]
+dir = "libs/python-edge-toolkit"
+env = { UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}" }
+run = "uv run pytest"
+
+[tasks.test-et-org]
+dir = "libs/python-org"
+env = { UV_PYTHON = "{% if os() == 'windows' %}{{ vars.py3_win }}{% else %}{{ vars.py3_unix }}{% endif %}" }
+run = "uv run pytest"
 
 [tasks.test-pyeye1]
 dir = "services/ws-modules/pyeye1"
@@ -130,6 +140,27 @@ dir = "generated/python-ws"
 # Wheel goes straight into pkg/ alongside the committed et_ws.js shim.
 # The whole dir is what et-modules-service mounts at /modules/et-ws/. Delete
 # stale wheels first -- uv build leaves prior versions in place.
+run = """
+{{ vars.py_wheel_sh }}
+{{ vars.et_cli }} module-package-json
+"""
+shell = "{{ vars.task_shell }}"
+
+[tasks.build-et-org-wheel]
+depends = ["build-et-cli"]
+description = "Build the et-org Python package as a wheel + ws-module pkg/"
+dir = "libs/python-org"
+run = """
+{{ vars.py_wheel_sh }}
+{{ vars.et_cli }} module-package-json
+"""
+shell = "{{ vars.task_shell }}"
+
+[tasks.build-edge-toolkit-wheel]
+# The wheels it installs beside its own at runtime: its shim borrows et-org's installer, and it imports et-ws.
+depends = ["build-et-org-wheel", "build-et-ws-wheel"]
+description = "Build the edge-toolkit Python package as a wheel + ws-module pkg/"
+dir = "libs/python-edge-toolkit"
 run = """
 {{ vars.py_wheel_sh }}
 {{ vars.et_cli }} module-package-json
@@ -170,7 +201,7 @@ run = """
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pyface1-module]
-depends = ["build-et-ws-wheel"]
+depends = ["build-edge-toolkit-wheel"]
 description = "Build the pyface1 Python face detection workflow module"
 dir = "services/ws-modules/pyface1"
 # et-ws is its own ws-module mounted at /modules/et-ws/.
@@ -183,7 +214,7 @@ run = """
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pyeye1-module]
-depends = ["build-et-ws-wheel"]
+depends = ["build-edge-toolkit-wheel"]
 description = "Build the pyeye1 Python MediaPipe eye detection workflow module"
 dir = "services/ws-modules/pyeye1"
 # et-ws is its own ws-module mounted at /modules/et-ws/, loaded at runtime, so only pyeye1's wheel builds here.
@@ -196,7 +227,7 @@ run = """
 shell = "{{ vars.task_shell }}"
 
 [tasks.build-ws-pyspeech1-module]
-depends = ["build-et-ws-wheel"]
+depends = ["build-edge-toolkit-wheel"]
 description = "Build the pyspeech1 Python Silero VAD workflow module"
 dir = "services/ws-modules/pyspeech1"
 run = """

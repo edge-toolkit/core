@@ -51,12 +51,11 @@ export default async function init() {
   const distribution = pkg.name.split("/").pop();
   const pyfaceWheel = `${distribution.replace(/-/g, "_")}-${pkg.version}-py3-none-any.whl`;
   await installLocalWheel(pyfaceWheel);
-  // The generated et-ws Pydantic-models wheel is its own ws-module mounted
-  // at /modules/@edge-toolkit/et-ws/. We declare it in [tool.ws-module.dependencies] and
-  // delegate wheel install to its shim -- version lives in its own
+  // The edge-toolkit wheel, and the et-org and et-ws wheels it imports, are their own ws-modules, declared in
+  // [tool.ws-module.dependencies]; edge-toolkit's shim installs all three, each version read from its own
   // package.json so a bump there doesn't require touching this file.
-  const { installWheel: installEtWs } = await import("/modules/@edge-toolkit/et-ws/et_ws.js");
-  await installEtWs(pyodide);
+  const { installWheel: installEdgeToolkit } = await import("/modules/@edge-toolkit/edge-toolkit/edge_toolkit.js");
+  await installEdgeToolkit(pyodide);
   // Start Pyodide coverage before importing so import-time lines count (no-op unless the runner set the gate).
   if (globalThis.__etPyCov) await globalThis.__etPyCov.start(pyodide, "pyface1");
   py = pyodide.pyimport("pyface1");

@@ -83,6 +83,8 @@ README.md
 !data/model-modules/model-face1/pkg/**
 !data/model-modules/model-har-motion1/pkg/**
 !generated/python-ws/pkg/**
+!libs/python-edge-toolkit/pkg/**
+!libs/python-org/pkg/**
 !services/ws-modules/face-detection/pkg/**
 !services/ws-modules/har1/pkg/**
 !services/ws-modules/pyface1/pkg/**

@@ -4,6 +4,8 @@ requires-python = ">=3.10"
 
 [manifest]
 members = [
+    "edge-toolkit",
+    "et-org",
     "et-rest-client",
     "et-ws",
     "et-ws-pydata1",
@@ -169,6 +171,48 @@ toml = [
 ]
 
 [[package]]
+name = "edge-toolkit"
+version = "0.1.0"
+source = { editable = "libs/python-edge-toolkit" }
+dependencies = [
+    { name = "et-ws" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "et-ws", editable = "generated/python-ws" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+
+[[package]]
+name = "et-org"
+version = "0.1.0"
+source = { editable = "libs/python-org" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+
+[[package]]
 name = "et-rest-client"
 version = "0.1.0"
 source = { editable = "generated/python-rest" }
@@ -214,6 +258,7 @@ name = "et-ws-pydemo1"
 version = "0.1.0"
 source = { editable = "services/ws-modules/pydemo1" }
 dependencies = [
+    { name = "et-org" },
     { name = "et-ws" },
     { name = "et-ws-pyeye1" },
     { name = "et-ws-pyspeech1" },
@@ -227,6 +272,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "et-org", editable = "libs/python-org" },
     { name = "et-ws", editable = "generated/python-ws" },
     { name = "et-ws-pyeye1", editable = "services/ws-modules/pyeye1" },
     { name = "et-ws-pyspeech1", editable = "services/ws-modules/pyspeech1" },
@@ -243,6 +289,8 @@ name = "et-ws-pyeye1"
 version = "0.1.1"
 source = { editable = "services/ws-modules/pyeye1" }
 dependencies = [
+    { name = "edge-toolkit" },
+    { name = "et-org" },
     { name = "et-ws" },
 ]
 
@@ -253,7 +301,11 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "et-ws", editable = "generated/python-ws" }]
+requires-dist = [
+    { name = "edge-toolkit", editable = "libs/python-edge-toolkit" },
+    { name = "et-org", editable = "libs/python-org" },
+    { name = "et-ws", editable = "generated/python-ws" },
+]
 
 [package.metadata.requires-dev]
 dev = [
@@ -266,6 +318,8 @@ name = "et-ws-pyface1"
 version = "0.1.0"
 source = { editable = "services/ws-modules/pyface1" }
 dependencies = [
+    { name = "edge-toolkit" },
+    { name = "et-org" },
     { name = "et-ws" },
 ]
 
@@ -276,7 +330,11 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "et-ws", editable = "generated/python-ws" }]
+requires-dist = [
+    { name = "edge-toolkit", editable = "libs/python-edge-toolkit" },
+    { name = "et-org", editable = "libs/python-org" },
+    { name = "et-ws", editable = "generated/python-ws" },
+]
 
 [package.metadata.requires-dev]
 dev = [
@@ -294,6 +352,8 @@ name = "et-ws-pyspeech1"
 version = "0.1.0"
 source = { editable = "services/ws-modules/pyspeech1" }
 dependencies = [
+    { name = "edge-toolkit" },
+    { name = "et-org" },
     { name = "et-ws" },
 ]
 
@@ -304,7 +364,11 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "et-ws", editable = "generated/python-ws" }]
+requires-dist = [
+    { name = "edge-toolkit", editable = "libs/python-edge-toolkit" },
+    { name = "et-org", editable = "libs/python-org" },
+    { name = "et-ws", editable = "generated/python-ws" },
+]
 
 [package.metadata.requires-dev]
 dev = [

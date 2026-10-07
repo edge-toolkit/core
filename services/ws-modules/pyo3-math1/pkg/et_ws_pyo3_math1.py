@@ -1,3 +1,4 @@
+# ruff: noqa: INP001 -- et-ws-pyo3-runner compiles this one file on its own; it is not a package
 """FedAvg math1 twin for `et-ws-pyo3-runner`: storage-driven, on native CPython.
 
 A fake agent injects the canonical input JSON (client datasets + hyperparameters) into ws-server

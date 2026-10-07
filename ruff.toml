@@ -30,6 +30,8 @@ line-ending = "lf"
 #   "B" -- flake8-bugbear: likely bugs (mutable defaults, `zip` without `strict=`, loop-variable shadowing, ...).
 #   "C4" -- flake8-comprehensions: unnecessary or unpythonic comprehensions and generator calls.
 #   "D" -- pydocstyle (PEP 257) docstring checks; see [lint.pydocstyle].
+#   "INP" -- flake8-no-pep420: a `.py` file in a directory without `__init__.py`. Every Python package here is a
+#   regular package directory, never a single top-level module or an implicit namespace package.
 #   "I" -- isort import sorting. `ruff format` only handles whitespace; the "I" rules give deterministic
 #   grouping. datamodel-codegen's ruff formatter doesn't sort imports, so without this the generated
 #   messages.py drifts between regens.
@@ -43,7 +45,7 @@ line-ending = "lf"
 # Use `extend-select`, not `select`, so we keep the default F401 (unused-import)
 # rule that openapi-python-client relies on internally -- it generates
 # speculative imports and trims them by re-running ruff with the default rules.
-extend-select = ["ARG", "B", "C4", "D", "I", "N", "PIE", "PLC", "PLE", "PLW", "RUF", "SIM", "UP"]
+extend-select = ["ARG", "B", "C4", "D", "I", "INP", "N", "PIE", "PLC", "PLE", "PLW", "RUF", "SIM", "UP"]
 
 [lint.pydocstyle]
 convention = "pep257"

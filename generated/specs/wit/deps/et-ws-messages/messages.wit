@@ -25,6 +25,14 @@ interface messages {
     last-known-ip: option<string>,
     state: agent-connection-state,
   }
+  record cloud-event {
+    data: string,
+    id: string,
+    source: string,
+    specversion: string,
+    time: string,
+    %type: string,
+  }
   record connect-payload {
     agent-id: option<string>,
   }
@@ -42,9 +50,7 @@ interface messages {
     message-id: string,
   }
   record client-event-payload {
-    action: string,
-    capability: string,
-    details: string,
+    event: cloud-event,
   }
   record relay-text-payload {
     content: string,

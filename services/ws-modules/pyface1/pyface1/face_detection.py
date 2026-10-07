@@ -10,8 +10,10 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, TypedDict
 
-from et_ws.messages import WsClientEvent
+from edge_toolkit.events import client_event
+from et_org import served_npm_module_path
 
+EVENT_SOURCE = served_npm_module_path("et-ws-pyface1")
 FACE_MODEL_PATH = "/modules/et-model-face1/video_cv.onnx"
 FACE_INPUT_WIDTH = 640
 FACE_INPUT_HEIGHT = 608
@@ -203,12 +205,7 @@ def detections_json(detections: list[Detection]) -> str:
 
 def client_event_json(details: dict[str, object]) -> str:
     """Build the et-client-event JSON envelope for a face-detection inference."""
-    return WsClientEvent(
-        type="et-client-event",
-        capability="face_detection",
-        action="inference",
-        details=details,
-    ).model_dump_json()
+    return client_event(EVENT_SOURCE, "face_detection", "inference", details).model_dump_json()
 
 
 def decode_outputs(

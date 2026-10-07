@@ -2,7 +2,8 @@
 //! ws-server and the ws-wasi-runner host respectively. Per the protocol design: a frame whose JSON has `type` starting
 //! with `et-` is ours and must deserialise; anything else (non-JSON, JSON without a `type`, JSON with a non-et `type`)
 //! is foreign and surfaces as `RelayText` so the hub-relay path through the ws-server is lossless. These tests assert
-//! that every plausible "deserialisation problem" relays cleanly on both sides rather than failing.
+//! that every plausible "deserialisation problem" relays cleanly on both sides rather than failing. The
+//! `et-client-event` envelope is also checked against the official `CloudEvents` SDK, in both directions.
 
 #![cfg(test)]
 #![expect(
@@ -10,7 +11,10 @@
     reason = "test code: wildcard enum match arms are intentional"
 )]
 
-use edge_toolkit::ws::{ClientMessage, ServerMessage};
+use cloudevents::event::SpecVersion;
+use cloudevents::{AttributesReader as _, Data, Event, EventBuilder as _, EventBuilderV10};
+use edge_toolkit::ws::{ClientMessage, CloudEvent, ServerMessage, client_event_type};
+use serde_json::json;
 
 /// Pull the `content` out of `ClientMessage::RelayText`, panicking if the decoder routed the input elsewhere.
 ///
@@ -115,6 +119,102 @@ fn client_typed_for_valid_et_message() {
         matches!(msg, ClientMessage::ListAgents),
         "expected ClientMessage::ListAgents, got {msg:?}"
     );
+}
+
+/// A `CloudEvent` with fixed `id` and `time`, so the wire form it serialises to can be written out in full.
+fn sample_event(source: &str, capability: &str, action: &str, data: serde_json::Value) -> CloudEvent {
+    CloudEvent::new(
+        "event-1".to_owned(),
+        source.to_owned(),
+        client_event_type(capability, action),
+        "2026-10-06T00:00:00Z".to_owned(),
+        data,
+    )
+}
+
+/// Decode `event`'s wire form as the official `CloudEvents` SDK reads it.
+fn decoded_by_sdk(event: &CloudEvent) -> Event {
+    serde_json::from_value(serde_json::to_value(event).unwrap()).unwrap()
+}
+
+#[test]
+fn a_client_event_carries_its_cloudevent_nested_under_event() {
+    let event = sample_event("/modules/test", "app", "loaded", json!({ "build": "test" }));
+    let frame = serde_json::to_value(ClientMessage::ClientEvent { event: event.clone() }).unwrap();
+    assert_eq!(
+        frame,
+        json!({
+            "type": "et-client-event",
+            "event": {
+                "data": { "build": "test" },
+                "id": "event-1",
+                "source": "/modules/test",
+                "specversion": "1.0",
+                "time": "2026-10-06T00:00:00Z",
+                "type": "et.app.loaded",
+            },
+        })
+    );
+    match ClientMessage::from_text_frame(&frame.to_string()).unwrap() {
+        ClientMessage::ClientEvent { event: decoded } => assert_eq!(decoded, event),
+        other => panic!("expected ClientMessage::ClientEvent, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_client_event_without_its_cloudevent_time_is_a_decode_error() {
+    let frame = json!({
+        "type": "et-client-event",
+        "event": { "data": {}, "id": "event-1", "source": "/modules/test", "specversion": "1.0", "type": "et.a.b" },
+    });
+    let _err = ClientMessage::from_text_frame(&frame.to_string()).unwrap_err();
+}
+
+#[test]
+fn an_envelope_this_protocol_sends_is_a_cloudevent_to_the_sdk() {
+    let decoded = decoded_by_sdk(&sample_event(
+        "/modules/test",
+        "app",
+        "loaded",
+        json!({ "build": "test" }),
+    ));
+
+    assert_eq!(decoded.specversion(), SpecVersion::V10);
+    assert_eq!(decoded.id(), "event-1");
+    assert_eq!(decoded.source(), "/modules/test");
+    assert_eq!(decoded.ty(), "et.app.loaded");
+    assert_eq!(decoded.time().unwrap().to_rfc3339(), "2026-10-06T00:00:00+00:00");
+    assert_eq!(decoded.data(), Some(&Data::Json(json!({ "build": "test" }))));
+}
+
+#[test]
+fn a_served_npm_module_path_source_names_the_invoking_crate_rather_than_et_org() {
+    let source = et_org::served_npm_module_path!();
+    assert_eq!(source, "/modules/@edge-toolkit/edge-toolkit");
+
+    let decoded = decoded_by_sdk(&sample_event(source, "app", "loaded", json!({})));
+    assert_eq!(decoded.source(), "/modules/@edge-toolkit/edge-toolkit");
+}
+
+#[test]
+fn an_event_the_sdk_builds_decodes_as_this_protocols_envelope() {
+    let built = EventBuilderV10::new()
+        .id("event-1")
+        .source("/modules/test")
+        .ty("et.consent.upload_consent_changed")
+        .time("2026-10-06T00:00:00Z")
+        .data("application/json", json!({ "checked": true }))
+        .build()
+        .unwrap();
+    let decoded: CloudEvent = serde_json::from_value(serde_json::to_value(&built).unwrap()).unwrap();
+
+    let expected = sample_event(
+        "/modules/test",
+        "consent",
+        "upload_consent_changed",
+        json!({ "checked": true }),
+    );
+    assert_eq!(decoded, expected);
 }
 
 #[test]

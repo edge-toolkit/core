@@ -1425,6 +1425,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloudevents-sdk"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47598c8e3f47e1cfb787750e1bef5de56cb288d757b7b753ace8b5f5b6a1c7f8"
+dependencies = [
+ "base64 0.22.1",
+ "bitflags 2.13.2",
+ "chrono",
+ "delegate-attr",
+ "hostname",
+ "serde",
+ "serde_json",
+ "snafu",
+ "url",
+ "uuid",
+ "web-sys",
+]
+
+[[package]]
 name = "cmake"
 version = "0.1.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2269,6 +2288,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10d60334b3b2e7c9d91ef8150abfb6fa4c1c39ebbcf4a81c2e346aad939fee3e"
 dependencies = [
  "thiserror 2.0.20",
+]
+
+[[package]]
+name = "delegate-attr"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a84c9a9c129b98e707ac9a31e204c10c064dd9f949b7da362310ff1a8b137d79"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.5",
 ]
 
 [[package]]
@@ -4108,8 +4138,10 @@ version = "0.3.1"
 dependencies = [
  "asyncapi-rust",
  "base64 0.23.1",
+ "cloudevents-sdk",
  "command-error",
  "document-features",
+ "et-org",
  "et-path",
  "et-test-helpers",
  "et-test-otlp",
@@ -4347,6 +4379,9 @@ dependencies = [
 [[package]]
 name = "et-org"
 version = "0.1.0"
+dependencies = [
+ "edge-toolkit",
+]
 
 [[package]]
 name = "et-otlp"
@@ -4500,6 +4535,7 @@ dependencies = [
 name = "et-ws-audio1"
 version = "0.1.0"
 dependencies = [
+ "et-org",
  "et-web",
  "et-ws-wasm-agent",
  "serde_json",
@@ -4514,6 +4550,7 @@ dependencies = [
 name = "et-ws-bluetooth"
 version = "0.1.0"
 dependencies = [
+ "et-org",
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
@@ -4592,6 +4629,7 @@ dependencies = [
 name = "et-ws-geolocation"
 version = "0.1.0"
 dependencies = [
+ "et-org",
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
@@ -4607,6 +4645,7 @@ dependencies = [
 name = "et-ws-graphics-info"
 version = "0.1.0"
 dependencies = [
+ "et-org",
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
@@ -4687,6 +4726,7 @@ dependencies = [
 name = "et-ws-nfc"
 version = "0.1.0"
 dependencies = [
+ "et-org",
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
@@ -4703,6 +4743,7 @@ name = "et-ws-pic-viewer"
 version = "0.1.0"
 dependencies = [
  "edge-toolkit",
+ "et-org",
  "et-path",
  "et-web",
  "et-ws-wasm-agent",
@@ -4845,6 +4886,7 @@ dependencies = [
 name = "et-ws-speech-recognition"
 version = "0.1.0"
 dependencies = [
+ "et-org",
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
@@ -4883,6 +4925,7 @@ dependencies = [
 name = "et-ws-video1"
 version = "0.1.0"
 dependencies = [
+ "et-org",
  "et-web",
  "et-ws-wasm-agent",
  "js-sys",
@@ -4969,7 +5012,7 @@ dependencies = [
 
 [[package]]
 name = "et-ws-wasm-agent"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "document-features",
@@ -10282,6 +10325,27 @@ dependencies = [
  "autocfg",
  "static_assertions",
  "version_check",
+]
+
+[[package]]
+name = "snafu"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e84b3f4eacbf3a1ce05eac6763b4d629d60cbc94d632e4092c54ade71f1e1a2"
+dependencies = [
+ "snafu-derive",
+]
+
+[[package]]
+name = "snafu-derive"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1c97747dbf44bb1ca44a561ece23508e99cb592e862f22222dcf42f51d1e451"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]

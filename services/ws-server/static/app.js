@@ -15,7 +15,23 @@ const { default: init, initTracing, WsClient, WsClientConfig } = await import(`$
 // <script src="/app.js">, so a client running stale code is otherwise invisible -- this value round-trips to
 // the server tty (via the et-client-event sent below) so a stale load is diagnosable from server-side logs
 // alone, without trusting what the client claims to be running.
-const APP_JS_BUILD = "llm1-loader-v1";
+const APP_JS_BUILD = "cloudevents-v1";
+
+// An et-client-event frame carrying a CloudEvent of type `et.<capability>.<action>`. The source is the path this
+// page is served at, the root module's. The id is 128 random bits rather than crypto.randomUUID(), which a page
+// served over plain http does not have.
+function clientEventJson(capability, action, data) {
+  const randomBytes = crypto.getRandomValues(new Uint8Array(16));
+  const event = {
+    data,
+    id: Array.from(randomBytes, (byte) => byte.toString(16).padStart(2, "0")).join(""),
+    source: "/",
+    specversion: "1.0",
+    time: new Date().toISOString(),
+    type: `et.${capability}.${action}`,
+  };
+  return JSON.stringify({ type: "et-client-event", event });
+}
 
 console.log(`app.js: module loading started (build ${APP_JS_BUILD})`);
 
@@ -271,14 +287,7 @@ try {
       );
       // Sent on every (re)connect, not just once: a reconnect after the server restarts is exactly when a
       // stale client would otherwise go unnoticed, since app.js itself never reloads on a WebSocket bounce.
-      client.send(
-        JSON.stringify({
-          type: "et-client-event",
-          capability: "app",
-          action: "loaded",
-          details: { build: APP_JS_BUILD },
-        }),
-      );
+      client.send(clientEventJson("app", "loaded", { build: APP_JS_BUILD }));
     } else if (state === "reconnecting") {
       if (uploadConsentCheckbox) uploadConsentCheckbox.disabled = true;
       updateAgentCard(
@@ -337,14 +346,7 @@ try {
   uploadConsentCheckbox?.addEventListener("change", () => {
     const checked = uploadConsentCheckbox.checked;
     append(`upload consent checkbox: ${checked ? "checked" : "unchecked"}`);
-    client.send(
-      JSON.stringify({
-        type: "et-client-event",
-        capability: "consent",
-        action: "upload_consent_changed",
-        details: { checked },
-      }),
-    );
+    client.send(clientEventJson("consent", "upload_consent_changed", { checked }));
   });
 
   window.client = client;

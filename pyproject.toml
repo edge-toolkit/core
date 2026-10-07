@@ -2,6 +2,8 @@
 members = [
   "generated/python-rest",
   "generated/python-ws",
+  "libs/python-edge-toolkit",
+  "libs/python-org",
   "services/ws-modules/pydata1",
   "services/ws-modules/pydemo1",
   "services/ws-modules/pyeye1",

@@ -32,6 +32,14 @@ class "AgentSummary" {
     }
     field "state" type="AgentConnectionState"
 }
+class "CloudEvent" {
+    field "data" type="Map<String, dynamic>"
+    field "id" type="String"
+    field "source" type="String"
+    field "specversion" type="String"
+    field "time" type="String"
+    field "type" type="String"
+}
 union "WsClientMessage" {
     class "WsConnect" {
         json-discriminant-value "et-connect"
@@ -61,9 +69,7 @@ union "WsClientMessage" {
     }
     class "WsClientEvent" {
         json-discriminant-value "et-client-event"
-        field "action" type="String"
-        field "capability" type="String"
-        field "details" type="Map<String, dynamic>"
+        field "event" type="CloudEvent"
     }
     class "WsClientRelayText" {
         json-discriminant-value "et-relay-text"

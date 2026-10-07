@@ -1,3 +1,4 @@
+# ruff: noqa: INP001 -- et-ws-pyo3-runner compiles this one file on its own; it is not a package
 """Module that exercises `WsStorage.get` / `WsStorage.put`.
 
 On the first inbound binary frame, the module reads `key` (the first

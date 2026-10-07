@@ -4,7 +4,17 @@
 # parse legacy `# type:` comments -- a rule of our own bans those, so the annotation form Pyrefly does check is
 # the only one in the tree.
 
-project-includes = ["../services/**/*.py"]
+project-includes = ["../libs/python-*/**/*.py", "../services/**/*.py"]
+
+# The Python the code is checked against, rather than whichever interpreter the host's PATH yields first.
+# Must equal the mise `python` pin.
+python-version = "3.13.14"
+
+# Resolve imports from `search-path` alone, never from an interpreter's site-packages.
+# A workstation's workspace `.venv` installs every package here editable, so its interpreter would resolve imports
+# that a fresh CI runner, which has no `.venv`, cannot -- and a missing `search-path` entry would pass locally
+# while failing in CI.
+skip-interpreter-query = true
 
 # Generated / vendored trees we neither own nor hand-write.
 # Paths are anchored with `../` so the recursive globs match from the repo root, not from config/: the
@@ -20,6 +30,8 @@ project-excludes = [
 
 # Package roots so intra-package imports (`pyface1.face_detection`) resolve as real modules, not `__unknown__.*`.
 search-path = [
+  "../libs/python-edge-toolkit",
+  "../libs/python-org",
   "../services/ws-modules/pydata1",
   "../services/ws-modules/pydemo1",
   "../services/ws-modules/pyeye1",

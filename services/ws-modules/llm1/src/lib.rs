@@ -236,6 +236,7 @@ async fn serve_prompts(
             "llm1\nmodel: {MODEL_ID} ({MODEL_DTYPE})\nreplies: {answered}\nlast reply: {elapsed_ms:.0} ms"
         ))?;
         context.client.send_client_event(
+            et_org::served_npm_module_path!(),
             "llm1",
             "replied",
             json!({

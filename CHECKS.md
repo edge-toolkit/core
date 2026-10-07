@@ -4,7 +4,7 @@
 - **Tools:** 47
 - **Shell-script checks:** 9
 - **Checks with a repair pass:** 21
-- **Rules:** 318 custom local rules, or non-default strict linter settings
+- **Rules:** 320 custom local rules, or non-default strict linter settings
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
 declares it, the aggregate that runs it as part of `mise run check`, the `fix` or `fmt` pass that repairs what it
@@ -475,7 +475,8 @@ Rules, from `Cargo.toml`:
 - `conftest-check-policy-tests` (`default` env; run by `conftest-check`) -- Run the Rego unit tests beside the conftest
   policies (conftest verify). Config: `config/conftest/policy`.
 - `conftest-check-toml` (`default` env; run by `conftest-check`) -- Run conftest OPA/Rego policies over the TOML
-  config + lock files. Config: `config/conftest/policy`, `config/deny.toml`, `config/upstream-cache/data.toml`.
+  config + lock files. Config: `config/conftest/policy`, `config/deny.toml`, `config/pyrefly.toml`,
+  `config/upstream-cache/data.toml`.
 - `conftest-check-yaml` (`default` env; run by `conftest-check`) -- Run conftest OPA/Rego policies over the GitHub
   Actions workflow + action YAML. Config: `config/conftest/policy`.
 
@@ -518,6 +519,9 @@ Rules, from `config/conftest/policy`:
   - Every recorded asset must name its `upstream` project URL.
   - Every recorded asset must carry its `license` as an SPDX expression.
   - Every recorded asset must carry a `sha256`, left empty only while bootstrapping.
+- `pyrefly_python_sync` (`config/conftest/policy/cross/pyrefly_python_sync.rego`):
+  - pyrefly must pin the Python version it type-checks against.
+  - pyrefly's pinned Python version must equal the mise `python` pin, the version every lane installs.
 - `wasm-bindgen-sync` (`config/conftest/policy/cross/wasm-bindgen-sync.rego`):
   - The mise wasm-bindgen pin must match the wasm-bindgen version Cargo.lock resolves.
 - `dockerfile` (`config/conftest/policy/dockerfile/dockerfile.rego`):

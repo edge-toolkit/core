@@ -104,6 +104,7 @@ pub async fn run() -> Result<(), JsValue> {
         log(&format!("microphone access granted: {tracks} tracks"));
 
         client.send_client_event(
+            et_org::served_npm_module_path!(),
             "audio",
             "access_granted",
             json!({

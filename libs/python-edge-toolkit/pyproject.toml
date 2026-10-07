@@ -1,0 +1,30 @@
+[project]
+dependencies = ["et-ws"]
+description = "A collection of utilities and common code for Edge Toolkit Python modules"
+license = "Apache-2.0 OR MIT"
+name = "edge-toolkit"
+requires-python = ">=3.10"
+version = "0.1.0"
+
+[dependency-groups]
+dev = ["pytest", "pytest-cov"]
+
+[build-system]
+build-backend = "uv_build"
+requires = ["uv_build==0.11.8"]
+
+[tool.uv.build-backend]
+module-name = "edge_toolkit"
+module-root = ""
+
+[tool.uv.sources]
+et-ws = { workspace = true }
+
+# The shim imports et-org's install routine, and the Python package imports the et-ws models.
+[tool.ws-module.dependencies]
+et-org = "*"
+et-ws = "*"
+
+[tool.pytest.ini_options]
+addopts = ["--import-mode=importlib"]
+pythonpath = ["."]

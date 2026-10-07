@@ -20,7 +20,9 @@ from datetime import datetime, timezone
 from statistics import fmean
 from typing import Any, TypedDict
 
-from et_ws.messages import WsBroadcastMessage, WsClientEvent
+from edge_toolkit.events import client_event
+from et_org import served_npm_module_path
+from et_ws.messages import WsBroadcastMessage
 
 from .gaze_analysis import (
     LEFT_IRIS_CENTER,
@@ -34,6 +36,7 @@ from .gaze_analysis import (
     gaze_sample,
 )
 
+EVENT_SOURCE = served_npm_module_path("et-ws-pyeye1")
 # Served by the MediaPipe tasks-vision runtime module and the model module (see config()).
 EYE_MODEL_PATH = "/modules/et-model-eye1/face_landmarker.task"
 VISION_BUNDLE_PATH = "/modules/@mediapipe/tasks-vision/vision_bundle.mjs"
@@ -377,14 +380,9 @@ def results_json(results: Sequence[FaceEyes], analysis: WindowAnalysis | None, c
     return json.dumps({"faces": list(results), "analysis": analysis, "crop": crop})
 
 
-def client_event_json(details: dict[str, object]) -> str:
-    """Build the et-client-event JSON envelope for an eye-screening analysis pass."""
-    return WsClientEvent(
-        type="et-client-event",
-        capability="eye_detection",
-        action="inference",
-        details=details,
-    ).model_dump_json()
+def client_event_json(details: dict[str, object], source: str = EVENT_SOURCE) -> str:
+    """Build the et-client-event JSON envelope for an eye-screening analysis pass, sent by the module at `source`."""
+    return client_event(source, "eye_detection", "inference", details).model_dump_json()
 
 
 def capture_broadcast_json(agent_id: str, filename: str) -> str:
@@ -405,19 +403,14 @@ def capture_broadcast_json(agent_id: str, filename: str) -> str:
     ).model_dump_json()
 
 
-def eye_capture_error_event_json(error: str) -> str:
-    """Build the et-client-event JSON envelope for a failed eye-capture upload.
+def eye_capture_error_event_json(error: str, source: str = EVENT_SOURCE) -> str:
+    """Build the et-client-event JSON envelope for a failed eye-capture upload, sent by the module at `source`.
 
     `platform.log(...)` alone only reaches the browser's own on-page log, invisible to anyone watching the
     server tty; this event puts the failure where it can actually be seen server-side, same as a successful
     capture already is (via the storage service's own "stored image" log line).
     """
-    return WsClientEvent(
-        type="et-client-event",
-        capability="pyeye1",
-        action="eye_capture_failed",
-        details={"error": error},
-    ).model_dump_json()
+    return client_event(source, "pyeye1", "eye_capture_failed", {"error": error}).model_dump_json()
 
 
 def status_text(results: Sequence[FaceEyes], analysis: WindowAnalysis | None) -> str:

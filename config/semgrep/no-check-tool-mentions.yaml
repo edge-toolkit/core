@@ -509,6 +509,8 @@ rules:
         - "/config/semgrep/no-type-comments.yaml" # The rule keeping annotations the only form it can check.
         - "/config/generated-trees.toml" # Maps each generated tree onto the exclusion key this tool needs.
         - "/config/conftest/policy/generated_trees/generated_trees.rego" # Enforces that mapping.
+        - "/config/conftest/policy/cross/pyrefly_python_sync.rego" # Holds its target version to the mise pin.
+        - "/config/conftest/policy/cross/pyrefly_python_sync_test.rego" # Feeds that policy a drifted config.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
     pattern-regex: "(?i)pyrefly"
@@ -565,6 +567,9 @@ rules:
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/utilities/int-gen/src/checks.rs" # Names the root config the tool finds without being told to.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
+        - "/services/ws-pyo3-runner/python/*.py" # Single-file runner payloads, each exempt from the package rule.
+        - "/services/ws-modules/pyo3-math1/pkg/et_ws_pyo3_math1.py" # A single-file payload, the same exemption.
+        - "/services/ws-modules/pywasm1/main.py" # A single file the browser runs verbatim, the same exemption.
     pattern-regex: '(?i)\bruff\b'
     message: >-
       Do not name the Python linter/formatter outside its config and the configs that defer to it. A `# noqa`

@@ -124,6 +124,7 @@ pub async fn run() -> Result<(), JsValue> {
         log(&format!("bluetooth device selected: {name} ({id})"));
 
         client.send_client_event(
+            et_org::served_npm_module_path!(),
             "bluetooth",
             "device_selected",
             json!({
