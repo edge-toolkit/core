@@ -33,6 +33,7 @@ kdl.workspace = true
 openapiv3.workspace = true
 pretty_yaml.workspace = true
 prettyplease.workspace = true
+proc-macro2.workspace = true
 progenitor.workspace = true
 quote.workspace = true
 regex = { workspace = true, features = ["std"] }

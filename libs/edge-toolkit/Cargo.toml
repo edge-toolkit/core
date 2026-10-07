@@ -17,7 +17,7 @@ doctest = false
 ## Derives JSON Schema and AsyncAPI descriptions for the WebSocket protocol types.
 ## The published specs are generated from them. Off by default, so wasm and runtime crates do not pull in schemars
 ## and asyncapi-rust.
-schema-export = ["dep:asyncapi-rust", "dep:schemars"]
+schema-export = ["dep:asyncapi-rust", "dep:schemars", "schemars/chrono04"]
 ## Derives JSON Schema for the configuration types the binaries read from the environment.
 ## et-int-gen renders each binary's environment variables into its HELP.md from that schema.
 env-schema = ["dep:schemars"]
@@ -27,6 +27,7 @@ docs = ["dep:document-features"]
 [dependencies]
 asyncapi-rust = { workspace = true, optional = true }
 base64.workspace = true
+chrono.workspace = true
 command-error.workspace = true
 document-features = { workspace = true, optional = true }
 et-path.workspace = true

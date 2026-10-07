@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Schema for `serde_json::Value`-typed fields.
@@ -108,8 +109,20 @@ impl AgentSummary {
     }
 }
 
-/// The `CloudEvents` specification version every [`CloudEvent`] this protocol carries conforms to.
-pub const CLOUDEVENTS_SPEC_VERSION: &str = "1.0";
+/// The `CloudEvents` specification versions a `CloudEvent` in this protocol may declare.
+///
+/// An event declaring any other version fails to decode.
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "wire protocol enum: variants exhaustively describe the JSON shape, downstream matches are exhaustive"
+)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+pub enum SpecVersion {
+    #[default]
+    #[serde(rename = "1.0")]
+    V1_0,
+}
 
 /// A `CloudEvents` 1.0 event in the JSON event format, as `et-client-event` carries it.
 ///
@@ -130,23 +143,23 @@ pub struct CloudEvent {
     pub id: String,
     /// The producing module's served path, `/modules/<package name>`.
     pub source: String,
-    /// The `CloudEvents` specification version, `1.0`.
-    pub specversion: String,
-    /// When the event happened, as an RFC 3339 timestamp.
-    pub time: String,
+    /// The `CloudEvents` specification version.
+    pub specversion: SpecVersion,
+    /// When the event happened; an RFC 3339 timestamp on the wire.
+    pub time: DateTime<Utc>,
 }
 
 impl CloudEvent {
-    /// Build an event at [`CLOUDEVENTS_SPEC_VERSION`].
+    /// Build an event at the default [`SpecVersion`].
     #[must_use]
-    pub fn new(id: String, source: String, event_type: String, time: String, data: serde_json::Value) -> Self {
+    pub fn new(id: String, source: String, event_type: String, time: DateTime<Utc>, data: serde_json::Value) -> Self {
         Self {
             data,
             event_type,
             id,
             source,
             time,
-            specversion: CLOUDEVENTS_SPEC_VERSION.to_owned(),
+            specversion: SpecVersion::default(),
         }
     }
 }

@@ -20,6 +20,7 @@ interface messages {
     direct,
     broadcast,
   }
+  type spec-version = string;
   record agent-summary {
     agent-id: string,
     last-known-ip: option<string>,
@@ -29,7 +30,7 @@ interface messages {
     data: string,
     id: string,
     source: string,
-    specversion: string,
+    specversion: spec-version,
     time: string,
     %type: string,
   }

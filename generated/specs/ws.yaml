@@ -316,10 +316,10 @@ components:
           description: The producing module's served path, `/modules/<package name>`.
           type: string
         specversion:
-          description: The `CloudEvents` specification version, `1.0`.
-          type: string
+          $ref: "#/components/schemas/SpecVersion"
         time:
-          description: When the event happened, as an RFC 3339 timestamp.
+          description: When the event happened; an RFC 3339 timestamp on the wire.
+          format: date-time
           type: string
         type:
           description: "`et.<capability>.<action>`."
@@ -348,6 +348,14 @@ components:
       enum:
         - direct
         - broadcast
+      type: string
+    SpecVersion:
+      description: |-
+        The `CloudEvents` specification versions a `CloudEvent` in this protocol may declare.
+
+        An event declaring any other version fails to decode.
+      enum:
+        - "1.0"
       type: string
 info:
   description: Edge Toolkit WS protocol -- typed et-* messages plus relay envelopes for foreign frames.

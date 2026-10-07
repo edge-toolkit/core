@@ -67,6 +67,13 @@ impl From<serde_path_to_error::Error<serde_json::Error>> for WsError {
     }
 }
 
+/// A guest event `time` that is not an RFC 3339 timestamp cannot be encoded onto the wire.
+impl From<chrono::ParseError> for WsError {
+    fn from(err: chrono::ParseError) -> Self {
+        Self::Decode(err.to_string())
+    }
+}
+
 impl From<et_ws_runner_common::ConnectError> for WsError {
     fn from(err: et_ws_runner_common::ConnectError) -> Self {
         Self::Transport(err.to_string())

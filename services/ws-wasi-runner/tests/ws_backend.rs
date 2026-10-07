@@ -14,8 +14,10 @@ use std::time::Duration;
 
 use edge_toolkit::ws::{ClientMessage, ServerMessage};
 use et_ws_wasi_runner::HostState;
-use et_ws_wasi_runner::bindings::et::ws_messages::messages::{ClientMessage as WitClientMessage, RelayBinaryPayload};
-use et_ws_wasi_runner::bindings::et::ws_wasi::ws::{Host as _, State};
+use et_ws_wasi_runner::bindings::et::ws_messages::messages::{
+    ClientEventPayload, ClientMessage as WitClientMessage, CloudEvent as WitCloudEvent, RelayBinaryPayload,
+};
+use et_ws_wasi_runner::bindings::et::ws_wasi::ws::{Host as _, State, WsError};
 use et_ws_wasi_runner::host::ws::WsBackend;
 use futures_util::{SinkExt as _, StreamExt as _};
 use tokio_tungstenite::{connect_async, tungstenite};
@@ -142,4 +144,36 @@ async fn relay_binary_leaves_as_a_raw_binary_frame() {
         }
     }
     panic!("the peer never received the relayed binary frame");
+}
+
+/// Send a guest client event written with `time` and `specversion` through a host that has no connection.
+///
+/// The WIT-to-wire conversion runs ahead of the connection check, so no server is needed to reach it.
+async fn send_guest_event(time: &str, specversion: &str) -> Result<(), WsError> {
+    let mut state = HostState::new("http://127.0.0.1:9", "ws://127.0.0.1:9/ws".to_owned(), None, false);
+    let event = WitCloudEvent {
+        data: "{}".to_owned(),
+        id: "event-1".to_owned(),
+        source: "/modules/test".to_owned(),
+        specversion: specversion.to_owned(),
+        time: time.to_owned(),
+        type_: "et.app.loaded".to_owned(),
+    };
+    state
+        .send(WitClientMessage::ClientEvent(ClientEventPayload { event }))
+        .await
+}
+
+/// A guest event whose `time` is not an RFC 3339 timestamp is refused as undecodable before anything is sent.
+#[tokio::test(flavor = "current_thread")]
+async fn a_client_event_with_an_unparsable_time_is_refused() {
+    let sent = send_guest_event("yesterday", "1.0").await;
+    assert!(matches!(sent, Err(WsError::Decode(_))));
+}
+
+/// A guest event declaring a `specversion` the protocol does not support is refused the same way.
+#[tokio::test(flavor = "current_thread")]
+async fn a_client_event_at_an_unsupported_specversion_is_refused() {
+    let sent = send_guest_event("2026-10-06T00:00:00Z", "0.3").await;
+    assert!(matches!(sent, Err(WsError::Decode(_))));
 }

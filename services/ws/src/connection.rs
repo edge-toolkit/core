@@ -5,9 +5,7 @@ use std::time::{Duration, Instant};
 use actix_ws::{AggregatedMessage, AggregatedMessageStream, CloseCode, CloseReason, Session};
 use bytes::Bytes;
 use chrono::Utc;
-use edge_toolkit::ws::{
-    CLOUDEVENTS_SPEC_VERSION, ClientMessage, ConnectStatus, MessageDeliveryStatus, MessageScope, ServerMessage,
-};
+use edge_toolkit::ws::{ClientMessage, ConnectStatus, MessageDeliveryStatus, MessageScope, ServerMessage};
 use futures_util::StreamExt as _;
 use opentelemetry::global;
 use opentelemetry::trace::{Span, Tracer as _};
@@ -426,17 +424,7 @@ impl Connection {
                                 }
                             }
                         }
-                        ClientMessage::ClientEvent { event } => {
-                            if event.specversion == CLOUDEVENTS_SPEC_VERSION {
-                                log_client_event(self.current_agent_id(), &event);
-                            } else {
-                                let detail = format!(
-                                    "unsupported CloudEvents specversion {:?}; expected {CLOUDEVENTS_SPEC_VERSION:?}",
-                                    event.specversion
-                                );
-                                self.send_invalid(Some(event.id), detail).await;
-                            }
-                        }
+                        ClientMessage::ClientEvent { event } => log_client_event(self.current_agent_id(), &event),
                         ClientMessage::RelayText { content } => {
                             let from_agent_id = self.ensure_assigned_agent();
                             self.broadcast_raw_text(&from_agent_id, &content);

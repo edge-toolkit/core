@@ -56,6 +56,8 @@ pub enum Error {
     UnsupportedSchemaType(String),
     #[error("enum value not a string in `{0}`")]
     EnumValueNotString(String),
+    #[error("{0}")]
+    EnumNameCollision(String),
     #[error("progenitor codegen: {0}")]
     Progenitor(#[from] progenitor::Error),
     #[error(transparent)]

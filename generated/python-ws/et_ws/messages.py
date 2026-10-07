@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, RootModel
+from pydantic import AwareDatetime, BaseModel, Field, RootModel
 
 
 class WsConnect(BaseModel):
@@ -105,6 +106,16 @@ class WsClientRelayBinary(BaseModel):
     type: Literal["et-relay-binary"]
 
 
+class SpecVersion(Enum):
+    """
+    The `CloudEvents` specification versions a `CloudEvent` in this protocol may declare.
+
+    An event declaring any other version fails to decode.
+    """
+
+    field_1_0 = "1.0"
+
+
 class CloudEvent(BaseModel):
     """
     A `CloudEvents` 1.0 event in the JSON event format, as `et-client-event` carries it.
@@ -117,8 +128,8 @@ class CloudEvent(BaseModel):
     data: Any = Field(..., description="The event payload.")
     id: str = Field(..., description="Unique among the events of one `source`.")
     source: str = Field(..., description="The producing module's served path, `/modules/<package name>`.")
-    specversion: str = Field(..., description="The `CloudEvents` specification version, `1.0`.")
-    time: str = Field(..., description="When the event happened, as an RFC 3339 timestamp.")
+    specversion: SpecVersion = Field(..., description="The `CloudEvents` specification version.")
+    time: AwareDatetime = Field(..., description="When the event happened; an RFC 3339 timestamp on the wire.")
     type: str = Field(..., description="`et.<capability>.<action>`.")
 
 

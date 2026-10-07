@@ -133,17 +133,81 @@ fn enum_node(name: &str, def: &serde_json::Value) -> Result<KdlNode, Error> {
         .ok_or(Error::SchemaMalformed("enum def missing `enum` array"))?;
     let mut node = KdlNode::new("enum");
     node.push(quoted_string_entry(name));
+    let raws: Vec<&str> = values
+        .iter()
+        .map(|value| {
+            value
+                .as_str()
+                .ok_or_else(|| Error::EnumValueNotString(name.to_string()))
+        })
+        .collect::<Result<_, Error>>()?;
     let mut children = KdlDocument::new();
-    for value in values {
-        let raw = value
-            .as_str()
-            .ok_or_else(|| Error::EnumValueNotString(name.to_string()))?;
+    for (raw, member) in raws.iter().copied().zip(dart_variant_names(name, &raws)?) {
         let mut variant = KdlNode::new("variant");
-        variant.push(quoted_string_entry(raw));
+        variant.push(quoted_string_entry(&member));
+        // A value that cannot name a Dart enum member, such as `1.0`, keeps its wire form as an explicit JSON value.
+        if !is_dart_identifier(raw) {
+            let mut json_value = KdlNode::new("json-value");
+            json_value.push(quoted_string_entry(raw));
+            let mut variant_children = KdlDocument::new();
+            variant_children.nodes_mut().push(json_value);
+            variant.set_children(variant_children);
+        }
         children.nodes_mut().push(variant);
     }
     node.set_children(children);
     Ok(node)
+}
+
+/// The Dart enum member each of `enum_name`'s JSON values is emitted as, in order.
+///
+/// Fails when two distinct values would name the same member -- `1.0` and `1-0` both become `v1_0` -- since Dart has
+/// no way to keep both.
+pub fn dart_variant_names(enum_name: &str, values: &[&str]) -> Result<Vec<String>, Error> {
+    let mut named: std::collections::BTreeMap<String, &str> = std::collections::BTreeMap::new();
+    let mut members = Vec::with_capacity(values.len());
+    for &value in values {
+        let member = dart_variant_name(value);
+        if let Some(earlier) = named.insert(member.clone(), value) {
+            return Err(Error::EnumNameCollision(format!(
+                "enum `{enum_name}`: values `{earlier}` and `{value}` both name the Dart member `{member}`"
+            )));
+        }
+        members.push(member);
+    }
+    Ok(members)
+}
+
+/// Whether `ident` can name a Dart enum member as it stands: a letter or `_`, then letters, digits or `_`.
+#[must_use]
+pub fn is_dart_identifier(ident: &str) -> bool {
+    let mut chars = ident.chars();
+    chars
+        .next()
+        .is_some_and(|first| first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|rest| rest.is_ascii_alphanumeric() || rest == '_')
+}
+
+/// The Dart enum member a JSON enum value is emitted as.
+///
+/// The value itself when it can be one, otherwise `v` followed by the value with every character that is not a letter
+/// or digit turned into `_`, so `1.0` becomes `v1_0`.
+#[must_use]
+pub fn dart_variant_name(value: &str) -> String {
+    if is_dart_identifier(value) {
+        return value.to_owned();
+    }
+    let sanitized: String = value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    format!("v{sanitized}")
 }
 
 /// Build the KDL `class` node for one schema.

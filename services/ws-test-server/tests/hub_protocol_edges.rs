@@ -85,8 +85,11 @@ async fn client_events_are_logged_without_a_reply() {
     assert_still_serving(&mut agent).await;
 }
 
+/// An unsupported `specversion` fails to decode, which the hub logs like any other malformed frame: no reply.
+///
+/// The roster is the next payload only if nothing was sent back for the event first.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_client_event_at_an_unsupported_specversion_is_answered_invalid() {
+async fn a_client_event_at_an_unsupported_specversion_is_dropped_without_a_reply() {
     let server = start();
     let (mut agent, _agent_id) = connect_agent(&server.ws_url).await;
 
@@ -95,12 +98,7 @@ async fn a_client_event_at_an_unsupported_specversion_is_answered_invalid() {
         &client_event("0.3", "et.app.loaded", &serde_json::json!({})),
     )
     .await;
-    let reply = server_message(&next_payload(&mut agent).await);
-    let ServerMessage::Invalid { message_id, detail } = reply else {
-        panic!("expected an et-invalid reply, got {reply:?}");
-    };
-    assert_eq!(message_id.as_deref(), Some("event-1"));
-    assert_eq!(detail, r#"unsupported CloudEvents specversion "0.3"; expected "1.0""#);
+    assert_still_serving(&mut agent).await;
 }
 
 /// Ask for the roster and require the hub to answer it, proving the connection survived what was sent before.

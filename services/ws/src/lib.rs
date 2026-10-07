@@ -192,7 +192,12 @@ fn log_client_event(agent_id: &str, event: &CloudEvent) {
     }
     info!(
         "Client event from {}: type={} source={} id={} time={} data={}",
-        agent_id, event.event_type, event.source, event.id, event.time, details
+        agent_id,
+        event.event_type,
+        event.source,
+        event.id,
+        event.time.to_rfc3339(),
+        details
     );
 }
 

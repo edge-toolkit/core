@@ -119,17 +119,38 @@ fn emit_enum_defs(root: &serde_json::Value, interface: &mut Interface) -> Result
         let Some(values) = def.get("enum").and_then(|val| val.as_array()) else {
             continue;
         };
-        let cases: Vec<EnumCase> = values
+        let raws: Vec<&str> = values
             .iter()
-            .map(|val| {
-                val.as_str()
-                    .ok_or_else(|| Error::EnumValueNotString(name.clone()))
-                    .map(|raw| EnumCase::new(to_kebab(raw)))
-            })
+            .map(|val| val.as_str().ok_or_else(|| Error::EnumValueNotString(name.clone())))
             .collect::<Result<_, Error>>()?;
-        interface.type_def(TypeDef::enum_(to_kebab(name), cases));
+        let cases: Vec<String> = raws.iter().map(|raw| to_kebab(raw)).collect();
+        // Values the cases cannot name faithfully -- `1.0`, or `foo_bar` beside `foo-bar` -- make the whole enum a
+        // string alias: the host validates the string when it converts the message, so nothing is lost but the
+        // static case list.
+        if are_faithful_wit_cases(&cases) {
+            interface.type_def(TypeDef::enum_(to_kebab(name), cases.into_iter().map(EnumCase::new)));
+        } else {
+            interface.type_def(TypeDef::type_(to_kebab(name), Type::String));
+        }
     }
     Ok(())
+}
+
+/// Whether `cases` can stand for an enum's values one to one: each a valid WIT identifier, and no two the same.
+#[must_use]
+pub fn are_faithful_wit_cases(cases: &[String]) -> bool {
+    let distinct: HashSet<&String> = cases.iter().collect();
+    distinct.len() == cases.len() && cases.iter().all(|case| is_wit_identifier(case))
+}
+
+/// Whether `ident` is a valid WIT identifier: `-`-separated words, each a letter then lowercase letters or digits.
+#[must_use]
+pub fn is_wit_identifier(ident: &str) -> bool {
+    ident.split('-').all(|word| {
+        let mut chars = word.chars();
+        chars.next().is_some_and(|first| first.is_ascii_lowercase())
+            && chars.all(|rest| rest.is_ascii_lowercase() || rest.is_ascii_digit())
+    })
 }
 
 #[expect(

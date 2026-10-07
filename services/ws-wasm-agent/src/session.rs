@@ -67,7 +67,7 @@ impl WsClient {
             id,
             source.to_owned(),
             client_event_type(capability, action),
-            chrono::Utc::now().to_rfc3339(),
+            chrono::Utc::now(),
             details,
         );
         let message = ClientMessage::ClientEvent { event };
