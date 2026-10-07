@@ -9,8 +9,13 @@ All notable changes to this project are recorded here, one section per version t
 
 - `et-client-event` carries a CloudEvents 1.0 envelope under `event`, with `type` `et.<capability>.<action>`,
   `source` the producing module's served path, and `data` the former `details`. The flat `capability`, `action` and
-  `details` fields are gone, so senders and hubs from before this change cannot exchange client events. The hub
-  answers `et-invalid` for any `specversion` other than `1.0`.
+  `details` fields are gone, so senders and hubs from before this change cannot exchange client events.
+- The envelope's `time` is a typed timestamp: `CloudEvent::new` takes a `DateTime<Utc>`, and the schema declares
+  `format: date-time`.
+- The envelope's `specversion` is the `SpecVersion` enum. WIT carries it as a `spec-version` string alias, Dart as
+  `SpecVersion.v1_0`, Python as `SpecVersion.field_1_0`.
+- An event whose `time` is not an RFC 3339 timestamp, or whose `specversion` is not `1.0`, fails to decode, and
+  the hub drops it with a logged warning and no reply, as it does any malformed frame.
 - `et-ws-wasm-agent` 0.3.0: `send_client_event` takes the module's `source` as its first argument, which
   `et_org::served_npm_module_path!()` supplies.
 

@@ -10,6 +10,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use chrono::{DateTime, Utc};
 use edge_toolkit::ws::{
     AgentConnectionState as EtAgentConnectionState, AgentSummary as EtAgentSummary, ClientMessage, CloudEvent,
     ConnectStatus as EtConnectStatus, MessageDeliveryStatus as EtMessageDeliveryStatus, MessageScope as EtMessageScope,
@@ -296,10 +297,10 @@ fn wit_to_client_message(msg: WitClientMessage) -> Result<ClientMessage, WsError
                 event.id,
                 event.source,
                 event.type_,
-                event.time,
+                DateTime::parse_from_rfc3339(&event.time)?.with_timezone(&Utc),
                 parse_value(event.data)?,
             );
-            wire.specversion = event.specversion;
+            wire.specversion = serde_json::from_value(serde_json::Value::String(event.specversion))?;
             ClientMessage::ClientEvent { event: wire }
         }
         WitClientMessage::RelayText(payload) => ClientMessage::RelayText {

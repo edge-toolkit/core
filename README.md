@@ -1,6 +1,7 @@
 # edge-toolkit core
 
 [![Tests][tests-badge]][tests] [![Coverage][coverage-badge]][coverage] [![et-ws-server][crate-badge]][crate]
+[![Checks][checks-badge]][checks]
 
 [tests-badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fedge-toolkit.github.io%2Fcore%2Ftests.json
 [tests]: https://github.com/edge-toolkit/core/actions/workflows/coverage.yaml?query=branch%3Amain
@@ -8,6 +9,8 @@
 [coverage]: https://codecov.io/gh/edge-toolkit/core
 [crate-badge]: https://img.shields.io/crates/v/et-ws-server
 [crate]: https://crates.io/crates/et-ws-server
+[checks-badge]: https://img.shields.io/badge/checks-%3E%3D320-blue
+[checks]: CHECKS.md
 
 edge-toolkit is a WebSocket-based edge-computing framework that runs AI on hardware you control, so nothing has to leave
 your network. A lightweight server acts as a hub that serves small AI modules -- written in Rust, Python, Dart, C#,
@@ -179,8 +182,9 @@ tools from GitHub releases, so build with a GitHub token to avoid the anonymous 
 [GitHub rate limits](#github-rate-limits)), passed as a BuildKit secret so it never lands in an image layer:
 
 ```bash
-GITHUB_TOKEN="$(gh auth token)" DOCKER_BUILDKIT=1 \
-  docker build --target server --secret id=gh_token,env=GITHUB_TOKEN -t et-ws-server .
+GITHUB_TOKEN="$(gh auth token)"
+export GITHUB_TOKEN DOCKER_BUILDKIT=1
+docker build --target server --secret id=gh_token,env=GITHUB_TOKEN -t et-ws-server .
 docker run --rm -p 8080:8080 et-ws-server
 ```
 
@@ -194,8 +198,9 @@ time. The `test` stage bundles `mesa-vulkan-drivers`, so passing the host DRI no
 (and a software fallback if you pass nothing):
 
 ```bash
-GITHUB_TOKEN="$(gh auth token)" DOCKER_BUILDKIT=1 \
-  docker build --target test --secret id=gh_token,env=GITHUB_TOKEN -t et-test .
+GITHUB_TOKEN="$(gh auth token)"
+export GITHUB_TOKEN DOCKER_BUILDKIT=1
+docker build --target test --secret id=gh_token,env=GITHUB_TOKEN -t et-test .
 
 docker run --rm --device /dev/dri et-test   # Intel/AMD GPU
 ```
@@ -360,9 +365,9 @@ Run an example demo scenario using et-cli
 
 ```bash
 cargo install --path utilities/cli --force
-et-cli generate-deployment \
-  --input-file verification/local/input/facility-security-scenario.yaml \
-  --output-dir verification/local/output/facility-security-scenario
+input=verification/local/input/facility-security-scenario.yaml
+output=verification/local/output/facility-security-scenario
+et-cli generate-deployment --input-file "$input" --output-dir "$output"
 ```
 
 This will generate a `mise.toml` file under `verification/local/output/facility-security-scenario`. Run the following
@@ -373,14 +378,12 @@ mise run generated-scenario
 ```
 
 To generate a Docker Compose deployment instead, pass `--output-type docker-compose` or set
-`deployment_type: docker-compose` in the scenario input YAML. This writes `compose.yaml` to the output directory:
+`deployment_type: docker-compose` in the scenario input YAML. This writes `compose.yaml` to the output directory,
+reusing `input` and `output` from above:
 
 ```bash
-et-cli generate-deployment \
-  --input-file verification/local/input/facility-security-scenario.yaml \
-  --output-dir verification/local/output/facility-security-scenario \
-  --output-type docker-compose
-cd verification/local/output/facility-security-scenario
+et-cli generate-deployment --input-file "$input" --output-dir "$output" --output-type docker-compose
+cd "$output"
 docker compose up --build
 ```
 
@@ -403,10 +406,9 @@ scenario input YAML, and the output directory gains a `k3s.yaml` holding one doc
 collector and the hub, and then one `Deployment` per runner:
 
 ```bash
-et-cli generate-deployment \
-  --input-file verification/local/input/math1.yaml \
-  --output-dir verification/local/output/math1 \
-  --output-type k3s
+input=verification/local/input/math1.yaml
+output=verification/local/output/math1
+et-cli generate-deployment --input-file "$input" --output-dir "$output" --output-type k3s
 ```
 
 Two things separate it from the other two formats. The manifests reference images by name and never build them, so

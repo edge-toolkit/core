@@ -176,6 +176,7 @@ ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dy
 port_check = "0.3"
 pretty_yaml = "0.6"
 prettyplease = "0.3"
+proc-macro2 = "1"
 progenitor = "0.15"
 progenitor-client = "0.15"
 prost = "0.14"

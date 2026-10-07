@@ -95,7 +95,7 @@ final class CloudEvent {
   final Map<String, dynamic> data;
   final String id;
   final String source;
-  final String specversion;
+  final SpecVersion specversion;
   final String time;
   final String type;
 
@@ -112,7 +112,7 @@ final class CloudEvent {
     required Map<String, dynamic> data,
     required String id,
     required String source,
-    required String specversion,
+    required SpecVersion specversion,
     required String time,
     required String type,
   }) => CloudEventBuilder(
@@ -136,7 +136,7 @@ final class CloudEvent {
     "data": data.map((key, value) => MapEntry(key, value)),
     "id": id,
     "source": source,
-    "specversion": specversion,
+    "specversion": specversion.toJson(),
     "time": time,
     "type": type,
   };
@@ -146,7 +146,7 @@ final class CloudEvent {
     ),
     id: json["id"] as String,
     source: json["source"] as String,
-    specversion: json["specversion"] as String,
+    specversion: SpecVersion.fromJson(json["specversion"]),
     time: json["time"] as String,
     type: json["type"] as String,
   );
@@ -213,7 +213,7 @@ final class CloudEventBuilder {
   Map<String, dynamic> data;
   String id;
   String source;
-  String specversion;
+  SpecVersion specversion;
   String time;
   String type;
 
@@ -1458,5 +1458,22 @@ enum MessageScope {
   String toString() => switch (this) {
     MessageScope.direct => "direct",
     MessageScope.broadcast => "broadcast",
+  };
+}
+
+enum SpecVersion {
+  v1_0;
+
+  factory SpecVersion.fromJson(dynamic json) => switch (json) {
+    "1.0" => SpecVersion.v1_0,
+    final other => throw ArgumentError("Unknown variant: $other"),
+  };
+
+  dynamic toJson() => switch (this) {
+    SpecVersion.v1_0 => "1.0",
+  };
+  @override
+  String toString() => switch (this) {
+    SpecVersion.v1_0 => "v1_0",
   };
 }

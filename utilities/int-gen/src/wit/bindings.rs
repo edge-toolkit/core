@@ -22,6 +22,8 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use proc_macro2::{Group, Literal, TokenStream, TokenTree};
+use quote::ToTokens as _;
 use wasmtime_internal_wit_bindgen::{FunctionConfig, FunctionFilter, FunctionFlags, Opts};
 use wit_parser::Resolve;
 
@@ -90,6 +92,47 @@ pub fn render(wit_dir: &Path) -> Result<String, Error> {
         ..Opts::default()
     };
     let generated = opts.generate(&mut resolve, world)?;
-    let ast = syn::parse_file(&generated)?;
+    let parsed = syn::parse_file(&generated)?;
+    let ast = syn::parse2::<syn::File>(join_string_continuations(parsed.into_token_stream()))?;
     Ok(format!("{HEADER}{}", prettyplease::unparse(&ast)))
+}
+
+/// Rewrite every string literal written with a trailing-backslash continuation as the same value on one line.
+///
+/// wasmtime's templates wrap some message strings that way, inside `format_err!` among other macros, and
+/// prettyplease reprints a literal's source text verbatim, so the continuation would otherwise reach the emitted
+/// file. Walking the token stream rather than the syntax tree is what reaches the arguments of a macro call, which
+/// stay unparsed tokens.
+#[must_use]
+pub fn join_string_continuations(tokens: TokenStream) -> TokenStream {
+    tokens
+        .into_iter()
+        .map(|tree| match tree {
+            TokenTree::Group(group) => {
+                let mut joined = Group::new(group.delimiter(), join_string_continuations(group.stream()));
+                joined.set_span(group.span());
+                TokenTree::Group(joined)
+            }
+            TokenTree::Literal(literal) => TokenTree::Literal(join_literal(literal)),
+            other @ (TokenTree::Ident(_) | TokenTree::Punct(_)) => other,
+        })
+        .collect()
+}
+
+/// The same string value as `literal`, without the continuation, or `literal` untouched when it has none.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the literal case of join_string_continuations' walk; kept separate so the walk reads as a match"
+)]
+fn join_literal(literal: Literal) -> Literal {
+    if !literal.to_string().contains("\\\n") {
+        return literal;
+    }
+    // Only a plain string literal is rewritten; a byte or C string keeps its continuation.
+    let syn::Lit::Str(string) = syn::Lit::new(literal.clone()) else {
+        return literal;
+    };
+    let mut joined = Literal::string(&string.value());
+    joined.set_span(literal.span());
+    joined
 }

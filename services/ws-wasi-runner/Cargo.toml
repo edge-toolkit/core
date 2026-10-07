@@ -49,6 +49,7 @@ coverage = ["et-ws-runner-common/coverage"]
 docs = ["dep:document-features"]
 
 [dependencies]
+chrono.workspace = true
 document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
 et-otlp.workspace = true

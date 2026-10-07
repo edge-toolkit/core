@@ -1,10 +1,10 @@
 # Checks
 
-- **Checks:** 69
+- **Checks:** 70
 - **Tools:** 47
 - **Shell-script checks:** 9
 - **Checks with a repair pass:** 21
-- **Rules:** 320 custom local rules, or non-default strict linter settings
+- **Rules:** 323 custom local rules, or non-default strict linter settings
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
 declares it, the aggregate that runs it as part of `mise run check`, the `fix` or `fmt` pass that repairs what it
@@ -463,6 +463,8 @@ Rules, from `Cargo.toml`:
 
 ## `conftest`
 
+- `conftest-check-checks-badge` (`default` env; run by `conftest-check`) -- Check the README checks badge keeps step
+  with CHECKS.md's rules count (conftest). Config: `config/conftest/policy`.
 - `conftest-check-dockerfile` (`default` env; run by `conftest-check`) -- Cross-check Dockerfiles against mise [tools]
   pins + heredoc body-first-line invariants. Config: `config/conftest/policy`.
 - `conftest-check-generated-trees` (`default` env; run by `conftest-check`) -- Cross-check config/generated-trees.toml
@@ -512,6 +514,10 @@ Rules, from `config/conftest/policy`:
   - The root `tracing` dependency must enable `log`.
   - A crate that declares a feature must publish the feature list on docs.rs through `document-features`.
   - Dependency overrides ([patch]/[replace]) belong in the root manifest, not a member crate.
+- `checks_badge` (`config/conftest/policy/checks_badge/checks_badge.rego`):
+  - CHECKS.md must record its rules count, which the badge is held to.
+  - README.md must define the checks badge.
+  - The checks badge records the rules count rounded down to a multiple of 20, so it moves with every 20 rules added.
 - `checksums` (`config/conftest/policy/checksums/checksums.rego`):
   - Every `_asset` var in the mise configs must have an [asset] table in config/upstream-cache/data.toml.
   - Every [asset] table in config/upstream-cache/data.toml must be referenced by a mise `_asset` var.

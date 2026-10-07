@@ -1259,6 +1259,12 @@ git ls-files '*Cargo.toml' '.mise/config*.toml' '.mise/mise*.lock' '*pyproject.t
 """
 shell = "{{ vars.task_shell }}"
 
+# Hold the README's checks badge to the rules count CHECKS.md records.
+# `--parser ignore` because Markdown has no parser; it hands each file over as its lines, which is all this reads.
+[tasks.conftest-check-checks-badge]
+description = "Check the README checks badge keeps step with CHECKS.md's rules count (conftest)"
+run = "conftest test --combine --parser ignore --namespace checks_badge -p config/conftest/policy CHECKS.md README.md"
+
 # Ratchet the jscpd duplication baseline against the count declared in the policy.
 # One file, no --combine, so the policy reads the parsed baseline as `input` directly.
 [tasks.conftest-check-jscpd]

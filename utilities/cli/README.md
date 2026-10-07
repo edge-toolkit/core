@@ -26,10 +26,9 @@ Run `generate-deployment` with `--output-type mise` to generate a
 follows:
 
 ```bash
-et-cli generate-deployment \
-  --input-file verification/local/input/<some-scenario>.yaml \
-  --output-dir verification/local/output/<some-scenario> \
-  --output-type mise
+input=verification/local/input/<some-scenario>.yaml
+output=verification/local/output/<some-scenario>
+et-cli generate-deployment --input-file "$input" --output-dir "$output" --output-type mise
 ```
 
 Then, to run the deployment:
@@ -46,13 +45,10 @@ not build modules; it assumes builds are handled externally.
 ## Generate a Docker Compose Deployment
 
 Run `generate-deployment` with `--output-type docker-compose` to generate a
-`compose.yaml` file:
+`compose.yaml` file, with `input` and `output` set as above:
 
 ```bash
-et-cli generate-deployment \
-  --input-file verification/local/input/<some-scenario>.yaml \
-  --output-dir verification/local/output/<some-scenario> \
-  --output-type docker-compose
+et-cli generate-deployment --input-file "$input" --output-dir "$output" --output-type docker-compose
 ```
 
 Then, to run the deployment from the output directory:
@@ -140,10 +136,9 @@ If both are present, the command-line `--output-type` value wins over
 You can also run the CLI through Cargo from the repository root:
 
 ```bash
-cargo run -p et-cli -- generate-deployment \
-  --input-file verification/local/input/<some-file>.yaml \
-  --output-dir verification/local/output/<some-folder> \
-  --output-type docker-compose
+input=verification/local/input/<some-file>.yaml
+output=verification/local/output/<some-folder>
+cargo run -p et-cli -- generate-deployment --input-file "$input" --output-dir "$output" --output-type docker-compose
 ```
 
 To regenerate all convention-defined verification outputs through Cargo:

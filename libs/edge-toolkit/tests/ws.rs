@@ -127,7 +127,7 @@ fn sample_event(source: &str, capability: &str, action: &str, data: serde_json::
         "event-1".to_owned(),
         source.to_owned(),
         client_event_type(capability, action),
-        "2026-10-06T00:00:00Z".to_owned(),
+        "2026-10-06T00:00:00Z".parse().unwrap(),
         data,
     )
 }
@@ -168,6 +168,34 @@ fn a_client_event_without_its_cloudevent_time_is_a_decode_error() {
         "event": { "data": {}, "id": "event-1", "source": "/modules/test", "specversion": "1.0", "type": "et.a.b" },
     });
     let _err = ClientMessage::from_text_frame(&frame.to_string()).unwrap_err();
+}
+
+/// The text of a sample `et-client-event` frame whose event attribute `field` is written as `value`.
+fn frame_with(field: &str, value: &str) -> String {
+    let mut frame = serde_json::to_value(ClientMessage::ClientEvent {
+        event: sample_event("/modules/test", "app", "loaded", json!({})),
+    })
+    .unwrap();
+    frame["event"][field] = json!(value);
+    frame.to_string()
+}
+
+#[test]
+fn a_client_event_whose_time_is_not_a_timestamp_is_a_decode_error() {
+    let _err = ClientMessage::from_text_frame(&frame_with("time", "yesterday")).unwrap_err();
+}
+
+#[test]
+fn a_client_event_at_an_unsupported_specversion_is_a_decode_error() {
+    let _err = ClientMessage::from_text_frame(&frame_with("specversion", "0.3")).unwrap_err();
+}
+
+#[test]
+fn a_client_event_time_in_another_offset_decodes_to_the_same_instant() {
+    match ClientMessage::from_text_frame(&frame_with("time", "2026-10-06T10:00:00+10:00")).unwrap() {
+        ClientMessage::ClientEvent { event } => assert_eq!(event.time, sample_event("", "", "", json!({})).time),
+        other => panic!("expected ClientMessage::ClientEvent, got {other:?}"),
+    }
 }
 
 #[test]

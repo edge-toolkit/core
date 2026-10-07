@@ -363,6 +363,15 @@ pub mod et {
                     1 == < MessageScope as wasmtime::component::ComponentType >::ALIGN32
                 );
             };
+            pub type SpecVersion = wasmtime::component::__internal::String;
+            const _: () = {
+                assert!(
+                    8 == < SpecVersion as wasmtime::component::ComponentType >::SIZE32
+                );
+                assert!(
+                    4 == < SpecVersion as wasmtime::component::ComponentType >::ALIGN32
+                );
+            };
             #[derive(wasmtime::component::ComponentType)]
             #[derive(wasmtime::component::Lift)]
             #[derive(wasmtime::component::Lower)]
@@ -406,7 +415,7 @@ pub mod et {
                 #[component(name = "source")]
                 pub source: wasmtime::component::__internal::String,
                 #[component(name = "specversion")]
-                pub specversion: wasmtime::component::__internal::String,
+                pub specversion: SpecVersion,
                 #[component(name = "time")]
                 pub time: wasmtime::component::__internal::String,
                 #[component(name = "type")]
@@ -2171,8 +2180,7 @@ pub mod exports {
                                 .get_export_index(Some(&instance), name)
                                 .ok_or_else(|| {
                                     wasmtime::format_err!(
-                                        "instance export `et:ws-wasi/entry@0.1.0` does \
-                                            not have export `{name}`"
+                                        "instance export `et:ws-wasi/entry@0.1.0` does not have export `{name}`"
                                     )
                                 })
                         };

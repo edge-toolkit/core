@@ -25,6 +25,11 @@ enum "MessageScope" {
     variant "direct"
     variant "broadcast"
 }
+enum "SpecVersion" {
+    variant "v1_0" {
+        json-value "1.0"
+    }
+}
 class "AgentSummary" {
     field "agentId" type="String"
     field "lastKnownIp" type="String?" {
@@ -36,7 +41,7 @@ class "CloudEvent" {
     field "data" type="Map<String, dynamic>"
     field "id" type="String"
     field "source" type="String"
-    field "specversion" type="String"
+    field "specversion" type="SpecVersion"
     field "time" type="String"
     field "type" type="String"
 }
