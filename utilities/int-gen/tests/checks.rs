@@ -30,7 +30,7 @@ fn single_command_names_its_tool() {
 fn cargo_is_labelled_by_subcommand_or_package() {
     assert_tool("cargo clippy --keep-going --workspace --tests", "cargo clippy");
     assert_tool("cargo +{{ vars.rust_nightly }} fmt -- --check", "cargo fmt");
-    assert_tool("cargo run -q -p et-repo-check", "et-repo-check");
+    assert_tool("cargo run -q -p et-int-repo-check", "et-int-repo-check");
     assert_tool(
         "cargo run --features markdown-help -q -p \"$crate\" -- --markdown-help",
         "cargo run",

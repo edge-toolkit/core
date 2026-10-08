@@ -7,7 +7,7 @@
 //! * [`upstream`] -- pulls upstream WASI WIT packages into
 //!   `generated/specs/wit/deps/<pkg>/` at pinned tags/SHAs.
 //!
-//! The top-level `et:ws-wasi@0.1.0` package (`generated/specs/wit/world.wit`)
+//! The top-level `et:ws-wasi` package (`generated/specs/wit/world.wit`)
 //! is **not** generated -- it's hand-maintained. See `generated/README.md`.
 
 pub mod bindings;

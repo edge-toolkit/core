@@ -41,7 +41,7 @@ directly:
   exempts this Cargo.toml. The deps-inheritance schema does not.
 - `zig-rest/build.zig.zon` — Zig package manifest (name, version,
   fingerprint). Regen writes only `src/et_rest_client.zig`.
-- `specs/wit/world.wit` — The top-level `et:ws-wasi@0.1.0` package
+- `specs/wit/world.wit` — The top-level `et:ws-wasi` package
   (the `ws` and `entry` interfaces plus the `runner`/`module` worlds).
   Static content with no Rust-derived parts; edit directly. The companion
   `specs/wit/deps/et-ws-messages/messages.wit` _is_ generated from the

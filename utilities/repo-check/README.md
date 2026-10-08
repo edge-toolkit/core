@@ -1,4 +1,4 @@
-# et-repo-check
+# et-int-repo-check
 
 Repository-wide checks that need to read git itself, rather than judge a file on its own. Anything one of the
 repo's linters can express belongs there instead; this is for the questions they cannot answer, because the

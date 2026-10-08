@@ -1,10 +1,33 @@
 [project]
+authors = [{ email = "john.vandenberg@curtin.edu.au", name = "John Vandenberg" }]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Framework :: Pydantic :: 2",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Internet",
+  "Topic :: System :: Distributed Computing",
+  "Typing :: Typed",
+]
 dependencies = ["pydantic>=2"]
 description = "Generated Pydantic models for the Edge Toolkit WS protocol"
+keywords = ["asyncapi", "edge-computing", "edge-toolkit", "pydantic", "websocket"]
 license = "Apache-2.0 OR MIT"
 name = "et-ws"
+readme = "README.md"
 requires-python = ">=3.10"
 version = "0.1.0"
+
+[project.urls]
+Changelog = "https://github.com/edge-toolkit/core/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/edge-toolkit/core"
+Issues = "https://github.com/edge-toolkit/core/issues"
+Source = "https://github.com/edge-toolkit/core/tree/main/generated/python-ws"
 
 [build-system]
 build-backend = "uv_build"

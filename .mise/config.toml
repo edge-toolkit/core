@@ -1827,7 +1827,7 @@ shell = "{{ vars.task_shell }}"
 
 [tasks.repo-check]
 description = "Repository-wide checks that need to read git itself (commit hashes, ...)"
-run = "cargo run -q -p et-repo-check"
+run = "cargo run -q -p et-int-repo-check"
 
 [tasks.link-check]
 description = "Check that URLs in prose, source and config files are reachable (network)"

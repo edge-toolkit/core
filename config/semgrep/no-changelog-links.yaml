@@ -1,0 +1,17 @@
+rules:
+  - id: no-changelog-links
+    languages: [generic]
+    paths:
+      include:
+        - "/CHANGELOG.md"
+    # Matches a bare URL, an inline link target, and a reference-link definition.
+    # Check-only: the three shapes need three different rewrites, and turning a link into the right plain text --
+    # keeping its label, dropping it, or writing the PR number out -- depends on the sentence around it.
+    pattern-regex: '(?m)https?://|\]\(|^\[[^\]\n]+\]:'
+    message: >-
+      CHANGELOG.md must not contain links.
+      What an entry would link to does not exist when it is written: the version tag a compare or release link
+      names is only created after the release merges, so the link 404s -- and fails the link check -- in exactly
+      the change that adds it. Write references as plain text instead: a pull request as `#123`, a version as
+      the bare `[0.3.0]` heading, and a project by its name.
+    severity: ERROR

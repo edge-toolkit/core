@@ -42,4 +42,14 @@ exclude_path = ["data", "generated", "node_modules", "target"]
 # value; it names a path inside the ws-server image, so it is never resolvable from the host doing the check.
 # Scoped to that exact URL rather than the whole `file:` scheme, because relative links in markdown resolve to
 # `file:` URIs too and those are real links worth checking.
-exclude = ['\{|%7B', '^file:///app/storage$', '^https://github\.com/[^/]+/[^/]+/actions/runs/', '^https?://host[:/]']
+#
+# The README's Open Hub badge and project page are skipped because openhub.net puts every request behind a
+# Cloudflare bot check, answering anything but an interactive browser with `HTTP 403 Forbidden` -- the page
+# exists, but no non-browser client can ever see it. Scoped to this project's pages, not the whole host.
+exclude = [
+  '\{|%7B',
+  '^file:///app/storage$',
+  '^https://github\.com/[^/]+/[^/]+/actions/runs/',
+  '^https://openhub\.net/p/edge-toolkit(/|$)',
+  '^https?://host[:/]',
+]

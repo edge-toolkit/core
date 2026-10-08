@@ -1,7 +1,9 @@
 # edge-toolkit core
 
 [![Tests][tests-badge]][tests] [![Coverage][coverage-badge]][coverage] [![et-ws-server][crate-badge]][crate]
-[![Checks][checks-badge]][checks]
+[![Checks][checks-badge]][checks] [![License][license-badge]][license] [![Open Hub][openhub-badge]][openhub]
+
+[![Open Hub project statistics][openhub-stats]][openhub]
 
 [tests-badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fedge-toolkit.github.io%2Fcore%2Ftests.json
 [tests]: https://github.com/edge-toolkit/core/actions/workflows/coverage.yaml?query=branch%3Amain
@@ -11,6 +13,11 @@
 [crate]: https://crates.io/crates/et-ws-server
 [checks-badge]: https://img.shields.io/badge/checks-%3E%3D320-blue
 [checks]: CHECKS.md
+[license-badge]: https://img.shields.io/badge/license-MIT%2BApache--2.0-blue
+[license]: #licence
+[openhub-badge]: https://openhub.net/p/edge-toolkit/widgets/project_thin_badge.gif
+[openhub]: https://openhub.net/p/edge-toolkit
+[openhub-stats]: https://openhub.net/p/edge-toolkit/widgets/project_partner_badge.gif
 
 edge-toolkit is a WebSocket-based edge-computing framework that runs AI on hardware you control, so nothing has to leave
 your network. A lightweight server acts as a hub that serves small AI modules -- written in Rust, Python, Dart, C#,
@@ -440,3 +447,10 @@ CRICOS Provider Code 00301J.
 
 TEQSA PRV12158
 ```
+
+## Licence
+
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT) at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as
+defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.

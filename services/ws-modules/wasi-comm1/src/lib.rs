@@ -11,7 +11,7 @@
 //!   4. Disconnect cleanly.
 //!
 //! Messages cross the WIT boundary as typed `ws-message` variants from the
-//! generated `et:ws-messages@0.1.0` package; opaque JSON payloads (the
+//! generated `et:ws-messages` package; opaque JSON payloads (the
 //! `message` field on broadcast/direct messages) round-trip as strings.
 
 // Crate-level cfg gate: wit-bindgen's generated extern declarations only

@@ -14,7 +14,7 @@ variable the runner reads, with its type and default.
 
 ## Host imports
 
-Defined in `generated/specs/wit/world.wit` of the edge-toolkit repository, package `et:ws-wasi@0.1.0`:
+Defined in `generated/specs/wit/world.wit` of the edge-toolkit repository, package `et:ws-wasi`:
 
 - `log` -- `log` and `set-status` for guest output
 - `clock` -- `sleep-ms`, `now-ms`

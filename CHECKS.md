@@ -4,7 +4,7 @@
 - **Tools:** 47
 - **Shell-script checks:** 9
 - **Checks with a repair pass:** 21
-- **Rules:** 323 custom local rules, or non-default strict linter settings
+- **Rules:** 324 custom local rules, or non-default strict linter settings
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
 declares it, the aggregate that runs it as part of `mise run check`, the `fix` or `fmt` pass that repairs what it
@@ -641,7 +641,7 @@ Rules, from `config/conftest/policy`:
 - `gen-help-check` (`default` env; run by `check:rust`) -- Fail if any checked-in HELP.md is stale vs its clap tree or
   env config (run `mise run gen-help-all`).
 
-## `et-repo-check`
+## `et-int-repo-check`
 
 - `repo-check` (`default` env; run by `check:rust`) -- Repository-wide checks that need to read git itself (commit
   hashes, ...).
@@ -813,6 +813,10 @@ Rules, from `config/semgrep`:
   satisfied before its first byte reaches the interpreter. Put the content in its own file beside whatever runs it --
   `.mise/` for a mise task body -- named with the extension of whatever reads it (`.awk`, `.jq`, `.sh`), and point the
   tool at that path instead. It then reads as the program it is, and a path is all the caller needs.
+- `no-changelog-links` -- CHANGELOG.md must not contain links. What an entry would link to does not exist when it is
+  written: the version tag a compare or release link names is only created after the release merges, so the link 404s --
+  and fails the link check -- in exactly the change that adds it. Write references as plain text instead: a pull request
+  as `#123`, a version as the bare `[0.3.0]` heading, and a project by its name.
 - `no-check-task-name-mentions` -- Do not name a check or formatter task outside its own config, the images and jobs
   that run it, and the docs that say when to. Saying code is written a certain way because one of these would object
   describes the check rather than the code, and it is the first thing to rot: the task gets renamed, folded into an

@@ -1,6 +1,6 @@
 [package]
-name = "et-repo-check"
-publish = true
+name = "et-int-repo-check"
+publish = false
 description = "Repository-wide checks that need to read git itself"
 version = "0.1.0"
 edition.workspace = true
@@ -9,7 +9,7 @@ repository.workspace = true
 
 [[bin]]
 doctest = false
-name = "et-repo-check"
+name = "et-int-repo-check"
 path = "src/main.rs"
 test = false
 
