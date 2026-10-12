@@ -243,6 +243,9 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
     ///
     /// Returns `None` when `to_agent_id` is not in the registry. The inner `Option<S>` is the recipient's live session
     /// -- `Some` when connected, `None` when the message was queued for a disconnected agent.
+    ///
+    /// Entries are keyed by message id, so a second message queued from the same sender waits alongside the
+    /// first instead of replacing it. Message ids are UUIDv7, which keeps the map in arrival order.
     #[must_use]
     pub fn queue_direct(
         &self,
@@ -262,9 +265,11 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
             message,
         };
         let session = recipient.session.clone();
+        // Keyed by message id: keying by sender let a second queued message from
+        // one sender silently replace the first, losing it forever.
         let _previous: Option<PendingDirectMessage> = recipient
             .pending_direct_messages
-            .insert(from_agent_id.to_string(), pending.clone());
+            .insert(pending.message_id.clone(), pending.clone());
         drop(agents);
 
         Some((pending, session))
@@ -294,18 +299,20 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
             .get_mut(recipient_agent_id)
             .ok_or_else(|| AcknowledgeError::UnknownAgent(recipient_agent_id.to_string()))?;
 
-        let sender_agent_id = recipient
+        // Looked up by the id carried on the message rather than by map key: the key has been the message id
+        // since queued messages stopped being keyed by sender, and entries persisted before that change are
+        // still keyed by sender id. Matching the value acknowledges either shape.
+        let key = recipient
             .pending_direct_messages
             .iter()
-            .find_map(|(id, pending)| (pending.message_id == message_id).then(|| id.clone()))
+            .find(|(_, pending)| pending.message_id == message_id)
+            .map(|(key, _)| key.clone())
             .ok_or(AcknowledgeError::NoPendingMessage)?;
-        // The `find_map` above drops its iterator before we re-borrow `pending_direct_messages` mutably for the
-        // removal. The double lookup costs O(log n) but lets us share the `NoPendingMessage` error with the find-side
-        // case instead of asserting an invariant.
         let pending = recipient
             .pending_direct_messages
-            .remove(&sender_agent_id)
+            .remove(&key)
             .ok_or(AcknowledgeError::NoPendingMessage)?;
+        let sender_agent_id = pending.from_agent_id.clone();
         let sender_session = agents.get(&sender_agent_id).and_then(|record| record.session.clone());
         drop(agents);
 

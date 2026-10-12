@@ -20,12 +20,12 @@ use edge_toolkit::ws_server::{AgentRecord, AgentRegistry};
 use et_storage_service::{StorageConfig, StorageError, build_store, configure, put_file};
 use tempfile::TempDir;
 
-/// Build a registry with a single connected agent.
+/// Build a registry with a single connected agent registered from `10.0.0.7`.
 fn registry_with_agent(agent_id: &str) -> AgentRegistry<()> {
     let mut agents = BTreeMap::new();
     let _previous: Option<AgentRecord<()>> = agents.insert(
         agent_id.to_string(),
-        AgentRecord::new(AgentConnectionState::Connected, None, Some(())),
+        AgentRecord::new(AgentConnectionState::Connected, Some("10.0.0.7".to_string()), Some(())),
     );
     AgentRegistry::from_agents(agents)
 }
@@ -99,6 +99,7 @@ async fn writes_file_for_registered_agent() {
     let body = b"hello from agent-1".as_ref();
     let req = test::TestRequest::put()
         .uri("/storage/agent-1/payload.txt")
+        .peer_addr("10.0.0.7:40123".parse().unwrap())
         .set_payload(body)
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -129,6 +130,7 @@ async fn stores_an_image_and_returns_200_even_though_tty_rendering_cannot_succee
     let body = b"\x89PNG\r\n\x1a\nnot a real png, just image-extension-shaped bytes".as_ref();
     let req = test::TestRequest::put()
         .uri("/storage/agent-1/capture.png")
+        .peer_addr("10.0.0.7:40123".parse().unwrap())
         .set_payload(body)
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -160,6 +162,7 @@ async fn get_and_head_expose_etag_and_head_reports_size() {
     let body = b"etag round-trip payload".as_ref();
     let put = test::TestRequest::put()
         .uri("/storage/agent-1/payload.txt")
+        .peer_addr("10.0.0.7:40123".parse().unwrap())
         .set_payload(body)
         .to_request();
     let put_resp = test::call_service(&app, put).await;
@@ -243,9 +246,122 @@ async fn surfaces_io_failure_as_500() {
 
     let req = test::TestRequest::put()
         .uri("/storage/agent-1/payload.txt")
+        .peer_addr("10.0.0.7:40123".parse().unwrap())
         .set_payload(b"hello".as_ref())
         .to_request();
     let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+}
+
+/// A PUT from another host is refused: the agent id's existence is not proof of ownership.
+#[actix_rt::test]
+async fn rejects_foreign_peer_with_403() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = storage_config(&tmp);
+    let registry = registry_with_agent("agent-1");
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(registry))
+            .app_data(web::Data::new(config.clone()))
+            .configure(|cfg| configure::<()>(cfg, &config)),
+    )
+    .await;
+
+    let req = test::TestRequest::put()
+        .uri("/storage/agent-1/payload.txt")
+        .peer_addr("198.51.100.9:40123".parse().unwrap())
+        .set_payload(b"not mine".as_ref())
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    assert!(
+        !tmp.path().join("agent-1").join("payload.txt").exists(),
+        "the refused write must not reach the store"
+    );
+}
+
+/// The address the agent registered from may write: that pair is the ownership check.
+#[actix_rt::test]
+async fn accepts_peer_matching_the_registered_address() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = storage_config(&tmp);
+    let registry = registry_with_agent("agent-1");
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(registry))
+            .app_data(web::Data::new(config.clone()))
+            .configure(|cfg| configure::<()>(cfg, &config)),
+    )
+    .await;
+
+    let body = b"hello from the agent's own address";
+    let req = test::TestRequest::put()
+        .uri("/storage/agent-1/payload.txt")
+        .peer_addr("10.0.0.7:40123".parse().unwrap())
+        .set_payload(body.as_ref())
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    let written = fs_err::read(tmp.path().join("agent-1").join("payload.txt")).unwrap();
+    assert_eq!(written, body);
+}
+
+/// An agent that never registered a usable address (persisted as "unknown") has no identity to match,
+/// so a non-loopback writer is refused rather than trusted.
+#[actix_rt::test]
+async fn rejects_unverifiable_agent_address_with_403() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = storage_config(&tmp);
+    let mut agents = BTreeMap::new();
+    let _previous: Option<AgentRecord<()>> = agents.insert(
+        "agent-1".to_string(),
+        AgentRecord::new(AgentConnectionState::Connected, None, Some(())),
+    );
+    let registry = AgentRegistry::from_agents(agents);
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(registry))
+            .app_data(web::Data::new(config.clone()))
+            .configure(|cfg| configure::<()>(cfg, &config)),
+    )
+    .await;
+
+    let req = test::TestRequest::put()
+        .uri("/storage/agent-1/payload.txt")
+        .peer_addr("10.0.0.9:40123".parse().unwrap())
+        .set_payload(b"unverifiable".as_ref())
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+}
+
+/// The runners and modules write from this machine on an agent's behalf: loopback stays accepted.
+#[actix_rt::test]
+async fn accepts_loopback_peer_for_runner_writes() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = storage_config(&tmp);
+    let registry = registry_with_agent("agent-1");
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(registry))
+            .app_data(web::Data::new(config.clone()))
+            .configure(|cfg| configure::<()>(cfg, &config)),
+    )
+    .await;
+
+    let body = b"module output";
+    let req = test::TestRequest::put()
+        .uri("/storage/agent-1/module.txt")
+        .peer_addr("127.0.0.1:40123".parse().unwrap())
+        .set_payload(body.as_ref())
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    let written = fs_err::read(tmp.path().join("agent-1").join("module.txt")).unwrap();
+    assert_eq!(written, body);
 }

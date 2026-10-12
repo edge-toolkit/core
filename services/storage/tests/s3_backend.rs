@@ -53,7 +53,7 @@ fn registry_with_agent(agent_id: &str) -> AgentRegistry<()> {
     let mut agents = BTreeMap::new();
     let _inserted = agents.insert(
         agent_id.to_string(),
-        AgentRecord::new(AgentConnectionState::Connected, None, Some(())),
+        AgentRecord::new(AgentConnectionState::Connected, Some("10.0.0.7".to_string()), Some(())),
     );
     AgentRegistry::from_agents(agents)
 }
@@ -161,6 +161,7 @@ async fn round_trips_put_and_get_through_the_s3_backend() {
 
         let put = test::TestRequest::put()
             .uri(&format!("/storage/{AGENT}/{FILENAME}"))
+            .peer_addr("10.0.0.7:40123".parse().unwrap())
             .set_payload(BODY)
             .to_request();
         let put_status = test::call_service(&app, put).await.status();

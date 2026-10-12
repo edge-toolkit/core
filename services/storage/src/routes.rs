@@ -123,9 +123,18 @@ where
 {
     let (agent_id, filename) = agent_and_filename(&req)?;
 
-    if !registry.agents.lock()?.contains_key(&agent_id) {
+    let agents = registry.agents.lock()?;
+    let Some(record) = agents.get(&agent_id) else {
         return Err(StorageError::AgentNotFound);
+    };
+    // An id's existence is not ownership: the listener is reachable from every
+    // interface, so a PUT is accepted only from the address the agent
+    // registered from, or from loopback where the server's own runners and
+    // modules write on an agent's behalf.
+    if !requester_owns_bucket(record.last_known_ip.as_deref(), req.peer_addr()) {
+        return Err(StorageError::RequesterNotBucketOwner);
     }
+    drop(agents);
 
     // The body is buffered rather than streamed to the store.
     // `ObjectStore::put` takes a whole payload, and the alternative (`put_multipart`) buys streaming at the
@@ -147,6 +156,22 @@ where
     let mut response = HttpResponse::Ok();
     insert_etag(&mut response, put_result.e_tag.as_deref());
     Ok(response.finish())
+}
+
+/// Whether the request peer may write to the bucket of the agent whose registered address is `registered_ip`.
+///
+/// The registered address is the identity: `connect_agent` records the IP the agent's WebSocket arrived from,
+/// and a module or runner writing on an agent's behalf does so from this machine. Loopback is therefore
+/// accepted as well. Anything else -- including an agent that never registered a usable address (recorded as
+/// "unknown") or a request with no peer at all -- is a stranger and is refused.
+fn requester_owns_bucket(registered_ip: Option<&str>, peer: Option<std::net::SocketAddr>) -> bool {
+    let Some(peer) = peer else {
+        return false;
+    };
+    if peer.ip().is_loopback() {
+        return true;
+    }
+    registered_ip.is_some_and(|registered| registered.parse::<std::net::IpAddr>().is_ok_and(|ip| ip == peer.ip()))
 }
 
 /// Log a stored image, and show it on the terminal when the `tty-image` feature is on.

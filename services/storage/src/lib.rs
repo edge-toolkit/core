@@ -92,6 +92,10 @@ pub enum StorageError {
     #[response(status = 404, reason = "NOT_FOUND")]
     AgentNotFound,
 
+    #[error("requester does not own this bucket")]
+    #[response(status = 403, reason = "FORBIDDEN")]
+    RequesterNotBucketOwner,
+
     #[error("no such object")]
     #[response(status = 404, reason = "NOT_FOUND")]
     ObjectNotFound,

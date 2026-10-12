@@ -169,3 +169,85 @@ fn agent_record_with_pending_builder_replaces_the_map() {
         .with_pending_direct_messages(BTreeMap::new());
     assert!(record.pending_direct_messages.is_empty());
 }
+
+#[test]
+fn queued_direct_messages_from_one_sender_do_not_replace_each_other() {
+    let registry = AgentRegistry::<String>::default();
+    let (_recipient, _status) = registry.connect_agent(None, "recipient".to_string(), "10.0.0.1", "sess-r".to_string());
+    let (_sender, _status) = registry.connect_agent(None, "sender".to_string(), "10.0.0.2", "sess-s".to_string());
+
+    let (first, recipient_session) = registry
+        .queue_direct(
+            "msg-1".to_string(),
+            "sender",
+            "recipient",
+            "t1".to_string(),
+            serde_json::json!({"n": 1}),
+        )
+        .expect("first message queues");
+    assert_eq!(first.message_id, "msg-1");
+    assert!(recipient_session.is_some(), "recipient is connected");
+
+    let (_second, _session) = registry
+        .queue_direct(
+            "msg-2".to_string(),
+            "sender",
+            "recipient",
+            "t2".to_string(),
+            serde_json::json!({"n": 2}),
+        )
+        .expect("second message queues");
+
+    // Both messages wait: the second must not have replaced the first.
+    let pending = registry.pending_messages_for("recipient");
+    let ids = pending.iter().map(|p| p.message_id.as_str()).collect::<Vec<_>>();
+    assert_eq!(ids, vec!["msg-1", "msg-2"], "both queued, in arrival order");
+
+    // Acknowledging the first leaves the second queued for the recipient.
+    let (acked, _session, sender) = registry
+        .acknowledge_message("recipient", "msg-1")
+        .expect("acknowledged");
+    assert_eq!(acked, "msg-1");
+    assert_eq!(sender, "sender");
+
+    let pending = registry.pending_messages_for("recipient");
+    assert_eq!(pending.len(), 1, "only the acknowledged message was removed");
+    assert_eq!(pending[0].message_id, "msg-2");
+    assert_eq!(pending[0].from_agent_id, "sender");
+}
+
+#[test]
+fn entries_persisted_with_the_legacy_sender_key_still_acknowledge() {
+    use edge_toolkit::ws_server::PendingDirectMessage;
+
+    let registry = AgentRegistry::<String>::default();
+    let (_recipient, _status) = registry.connect_agent(None, "recipient".to_string(), "10.0.0.1", "sess-r".to_string());
+    let (_sender, _status) = registry.connect_agent(None, "sender".to_string(), "10.0.0.2", "sess-s".to_string());
+
+    // A registry saved before queued messages were keyed by message id holds
+    // sender-keyed entries; acknowledging one must still work.
+    // Deserialised rather than built: the type is #[non_exhaustive] outside
+    // the crate, and the persisted shape is exactly what load() hands back.
+    let legacy_entry: PendingDirectMessage = serde_json::from_value(serde_json::json!({
+        "message_id": "legacy-msg",
+        "from_agent_id": "sender",
+        "server_received_at": "t0",
+        "message": {"n": 0},
+    }))
+    .expect("the persisted shape deserialises");
+    let legacy = BTreeMap::from([("sender".to_string(), legacy_entry)]);
+    let record = edge_toolkit::ws_server::AgentRecord::<String>::new(
+        AgentConnectionState::Connected,
+        Some("10.0.0.1".to_string()),
+        None,
+    )
+    .with_pending_direct_messages(legacy);
+    let registry = AgentRegistry::from_agents(BTreeMap::from([("recipient".to_string(), record)]));
+
+    let (acked, _session, sender) = registry
+        .acknowledge_message("recipient", "legacy-msg")
+        .expect("legacy entry acknowledges");
+    assert_eq!(acked, "legacy-msg");
+    assert_eq!(sender, "sender");
+    assert!(registry.pending_messages_for("recipient").is_empty());
+}

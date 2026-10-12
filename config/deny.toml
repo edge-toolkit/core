@@ -141,6 +141,14 @@ ignore = [
   # for one is not a plan. All four are npm-ecosystem ids that cargo-deny reports unknown; osv-scanner honours
   # them.
   { id = "GHSA-rgj7-g3m4-5g8c", reason = "expires 2026-10-15" },
+  # unsafe-libyaml 0.2.11 (unmaintained; repository archived 2024-03-25).
+  # The c2rust-translated libyaml that serde_yaml (itself deprecated) parses with, reached from this workspace
+  # in two places: the agent registry's save/load in ws_server, and operator-supplied cluster YAML in the CLI.
+  # Both read local files from a trusted machine, never attacker-controlled network input. INFO-unmaintained,
+  # not a vulnerability, and no patched version exists because there is nothing to patch -- it is already
+  # listed in the workspace unmaintained metadata; this is its cargo-deny counterpart. Cleared only by
+  # dropping serde_yaml workspace-wide for a safe-Rust parser (saphyr / serde-saphyr).
+  { id = "RUSTSEC-2024-0449", reason = "expires 2026-10-15" },
 ]
 
 [licenses]
