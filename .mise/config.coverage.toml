@@ -405,6 +405,10 @@ for module in pyface1 pydemo1 pyeye1 pyspeech1; do
   coreutils cp "$dir/.coverage" "$pycov/.coverage.${module}_pytest"
 done
 pyface=services/ws-modules/pyface1
+bridge=services/ws-modules/pyo3-mlflow
+junit="$PWD/$pycov/junit-pyo3-mlflow.xml"
+uv run --project "$pyface" pytest "$bridge" --cov="$bridge/pkg" --cov-report= --junitxml="$junit" -o junit_family=legacy
+coreutils cp .coverage "$pycov/.coverage.pyo3-mlflow_pytest"
 uv run --project "$pyface" coverage combine "$pycov"
 uv run --project "$pyface" coverage xml -o coverage-python.xml
 """

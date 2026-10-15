@@ -1,0 +1,135 @@
+id: python-process-control-except
+valid:
+  - |
+    try:
+        work()
+    except OSError as error:
+        log(error)
+  - |
+    try:
+        work()
+    except Exception as error:
+        log(error)
+  - |
+    try:
+        work()
+    except BaseException:
+        cleanup()
+        raise
+  - |
+    try:
+        work()
+    except BaseException:
+        pass
+        raise
+  - |
+    try:
+        work()
+    except:
+        cleanup()
+        raise
+  - |
+    try:
+        work()
+    except KeyboardInterrupt:
+        shutdown()
+  - |
+    description = 'except BaseException: pass'
+  - |
+    try:
+        work()
+    except BaseException:
+        released = cleanup()
+        log(released)
+        raise
+        # Preserve the original exception after cleanup.
+invalid:
+  - |
+    try:
+        work()
+    except:
+        pass
+  - |
+    try:
+        work()
+    except BaseException as error:
+        log(error)
+  - |
+    try:
+        work()
+    except (OSError, BaseException):
+        fallback()
+  - |
+    try:
+        work()
+    except BaseException:
+        def unrelated():
+            raise ValueError()
+        fallback()
+  - |
+    try:
+        work()
+    except BaseException:
+        raise RuntimeError('Original termination signal lost')
+  - |
+    try:
+        work()
+    except (
+        BaseException,
+        OSError,
+    ):
+        fallback()
+  - |
+    def run():
+        try:
+            work()
+        except BaseException:
+            if use_fallback:
+                return fallback
+            raise
+  - |
+    def run():
+        try:
+            work()
+        except:
+            return fallback
+            raise
+  - |
+    for item in items:
+        try:
+            work(item)
+        except BaseException:
+            if skip:
+                continue
+            raise
+  - |
+    for item in items:
+        try:
+            work(item)
+        except BaseException:
+            if finished:
+                break
+            raise
+  - |
+    def run():
+        try:
+            work()
+        except BaseException:
+            try:
+                raise
+            finally:
+                return fallback
+  - |
+    def run():
+        try:
+            work()
+        except BaseException:
+            yield fallback
+            raise
+  - |
+    try:
+        work()
+    except BaseException:
+        if ready:
+            cleanup()
+        raise

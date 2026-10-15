@@ -1021,17 +1021,30 @@ echo "macos-sdk-check: SDK $sdk (minimum $min)"
 shell = "{{ vars.task_shell }}"
 
 [tasks.ast-grep-check]
+depends = ["python-safety-rules-test"]
 # --no-ignore hidden so the gha-* YAML rules reach .github/workflows.
 # ast-grep skips dot-dirs by default; gitignored paths like target/ stay skipped.
 description = "Run ast-grep structural-search rules"
 run = "ast-grep scan --error --no-ignore hidden -c config/ast-grep/sgconfig.yaml"
+
+[tasks.python-safety-rules-test]
+description = "Test Python exception safety rules against unsafe and intentional recovery handlers"
+run = """
+ast-grep test -c config/ast-grep/sgconfig.yaml --skip-snapshot-tests
+work=target/scratch/python-safety-rules
+coreutils mkdir -p "$work"
+yq -r '.code' config/semgrep-tests/python-exception-safety.yaml >"$work/python-exception-safety.py"
+semgrep --test --metrics=off --config config/semgrep/python-exception-safety.yaml "$work/python-exception-safety.py"
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.ast-grep-fix]
 description = "Apply autofix for ast-grep rules that define a `fix:` field"
 run = "ast-grep scan --update-all --no-ignore hidden -c config/ast-grep/sgconfig.yaml"
 
 [tasks.semgrep-check]
-description = "Run Semgrep generic-mode rules (e.g. Cargo.toml style)"
+depends = ["python-safety-rules-test"]
+description = "Run Semgrep code and configuration rules"
 run = "semgrep scan --config config/semgrep --error --metrics=off ."
 
 [tasks.semgrep-fix]

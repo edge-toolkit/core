@@ -60,6 +60,7 @@ required_in = [
   "config/ast-grep/rules/no-string-literal-line-continuation.yaml",
   "config/ast-grep/rules/no-string-new.yaml",
   "config/ast-grep/rules/prefer-self-mod-use.yaml",
+  "config/ast-grep/rules/python-process-control-except.yaml",
   "config/ast-grep/rules/use-mod-order.yaml",
   "config/ast-grep/rules/use-tracing-imports.yaml",
   "config/ast-grep/rules/write-ending-newline.yaml",
@@ -73,6 +74,7 @@ required_in = [
   "config/semgrep/no-task-name-mentions.yaml",
   "config/semgrep/no-todo.yaml",
   "config/semgrep/no-type-comments.yaml",
+  "config/semgrep/python-exception-safety.yaml",
   "config/semgrep/sorted-lists.yaml",
 ]
 

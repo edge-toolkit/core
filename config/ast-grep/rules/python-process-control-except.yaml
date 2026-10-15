@@ -1,0 +1,41 @@
+id: python-process-control-except
+language: Python
+severity: error
+message: |
+  A bare handler or BaseException catch can intercept shutdown and cancellation signals, including KeyboardInterrupt
+  and SystemExit. Catch specific operational exceptions instead, or use straight-line cleanup ending in a bare raise.
+  Check-only: choosing the correct exception types requires knowledge of the operation being protected.
+rule:
+  kind: except_clause
+  regex: '^except\s*(?::|BaseException\b|\([^)]*\bBaseException\b)'
+  not:
+    has:
+      kind: block
+      # Conservatively exempt only straight-line cleanup, not arbitrary control flow containing a raise.
+      all:
+        - has:
+            kind: raise_statement
+            regex: "^raise$"
+            not:
+              precedes:
+                not:
+                  kind: comment
+                stopBy: end
+        - not:
+            has:
+              not:
+                any:
+                  - kind: expression_statement
+                    not:
+                      has:
+                        kind: yield
+                        stopBy: end
+                  - kind: pass_statement
+                  - kind: delete_statement
+                  - kind: comment
+                  - kind: raise_statement
+                    regex: "^raise$"
+ignores:
+  - generated/**
+  - "**/componentize_py_async_support/**"
+  - "**/wit_world/**"
