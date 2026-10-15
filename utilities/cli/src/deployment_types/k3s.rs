@@ -42,6 +42,7 @@ use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use super::document;
 use crate::error::CliError;
 use crate::input::{ArtifactSource, ClusterInput};
+use crate::placement::{MACHINE_LABEL, Site, hub_site};
 use crate::{
     COLLECTOR_SETTINGS, COLLECTOR_USERNAME, HUB_SERVICE, OutputType, RunnerInstance, cluster_module_names,
     docker_image_module_paths, hub_service_ws_url, image_prefix, module_registry, resolve_cluster_runners,
@@ -121,7 +122,13 @@ pub fn generate_k3s_deployment(cluster: &ClusterInput, output_dir: &Path) -> Res
         String::default()
     };
 
-    let mut docs = fixed_documents(&namespace, &cluster.cluster_name, &module_paths, &root_module)?;
+    let mut docs = fixed_documents(
+        &namespace,
+        &cluster.cluster_name,
+        &module_paths,
+        &root_module,
+        &hub_site(cluster),
+    )?;
     for runner in &runners {
         docs.push(document(&runner_deployment(
             &namespace,
@@ -140,20 +147,30 @@ pub fn generate_k3s_deployment(cluster: &ClusterInput, output_dir: &Path) -> Res
 /// Split from the caller so the per-runner documents append to a finished list: each serialisation is a fallible step,
 /// and eight of them in one function put it past the repo's cyclomatic-complexity ceiling without saying anything about
 /// how the deployment is shaped.
+///
+/// `site` places both the collector and the hub. Each mounts a claim, and k3s provisions a claim on the node that first
+/// mounts it, so the two stay on the server machine rather than going wherever the scheduler finds room.
 fn fixed_documents(
     namespace: &str,
     cluster_name: &str,
     module_paths: &[String],
     root_module: &str,
+    site: &Site,
 ) -> Result<Vec<String>, CliError> {
     Ok(vec![
         document(&namespace_object(namespace))?,
         document(&collector_config(namespace))?,
         document(&claim(namespace, "openobserve-data"))?,
-        document(&collector_deployment(namespace))?,
+        document(&collector_deployment(namespace, site))?,
         document(&collector_service(namespace))?,
         document(&claim(namespace, "ws-server-storage"))?,
-        document(&hub_deployment(namespace, cluster_name, module_paths, root_module))?,
+        document(&hub_deployment(
+            namespace,
+            cluster_name,
+            module_paths,
+            root_module,
+            site,
+        ))?,
         document(&hub_service(namespace))?,
     ])
 }
@@ -368,8 +385,15 @@ fn mount(name: &str, path: &str) -> (VolumeMount, Volume) {
     (volume_mount(name, path), volume)
 }
 
-/// Wrap a container in the single-replica Deployment every component here uses.
-fn deployment(namespace: &str, name: &str, container: Container, volumes: Vec<Volume>) -> Deployment {
+/// Wrap a container in the single-replica Deployment every component here uses, pinned to the machine at `site`.
+///
+/// A single-host scenario pins nothing and leaves placement to the scheduler, which on one node has no choice to make.
+fn deployment(namespace: &str, name: &str, container: Container, volumes: Vec<Volume>, site: &Site) -> Deployment {
+    let node_selector: BTreeMap<String, String> = site
+        .machine_names()
+        .into_iter()
+        .map(|machine| (MACHINE_LABEL.to_string(), machine))
+        .collect();
     Deployment {
         metadata: meta(namespace, name),
         spec: Some(DeploymentSpec {
@@ -385,6 +409,7 @@ fn deployment(namespace: &str, name: &str, container: Container, volumes: Vec<Vo
                 }),
                 spec: Some(PodSpec {
                     containers: vec![container],
+                    node_selector: (!node_selector.is_empty()).then_some(node_selector),
                     security_context: Some(hardened_pod_context()),
                     volumes: (!volumes.is_empty()).then_some(volumes),
                     ..PodSpec::default()
@@ -409,6 +434,14 @@ fn service(namespace: &str, name: &str, ports: Vec<ServicePort>) -> Service {
     }
 }
 
+/// A port the container listens on, the half of a [`port`] pair the pod spec declares.
+fn container_port(number: u16) -> ContainerPort {
+    ContainerPort {
+        container_port: i32::from(number),
+        ..ContainerPort::default()
+    }
+}
+
 /// One named port, published on the same number the container listens on.
 fn port(name: &str, number: u16) -> ServicePort {
     ServicePort {
@@ -420,7 +453,7 @@ fn port(name: &str, number: u16) -> ServicePort {
 }
 
 /// The collector, reading its password from the operator-created secret and everything else from the `ConfigMap`.
-fn collector_deployment(namespace: &str) -> Deployment {
+fn collector_deployment(namespace: &str, site: &Site) -> Deployment {
     let (data_mount, data_volume) = mount("openobserve-data", "/data");
     // The collector writes transient state outside its data directory, which a read-only root would refuse.
     // skipcq: RS-S1003
@@ -432,10 +465,7 @@ fn collector_deployment(namespace: &str) -> Deployment {
         image: Some(OPENOBSERVE_IMAGE.to_string()),
         image_pull_policy: Some(IMAGE_PULL_POLICY.to_string()),
         name: COLLECTOR_SERVICE.to_string(),
-        ports: Some(vec![ContainerPort {
-            container_port: i32::from(Services::OtlpCollector.port()),
-            ..ContainerPort::default()
-        }]),
+        ports: Some(vec![container_port(Services::OtlpCollector.port())]),
         readiness_probe: Some(probe(
             Some(ExecAction {
                 command: Some(vec![
@@ -449,7 +479,13 @@ fn collector_deployment(namespace: &str) -> Deployment {
         volume_mounts: Some(vec![data_mount, tmp_mount]),
         ..Container::default()
     };
-    deployment(namespace, COLLECTOR_SERVICE, container, vec![data_volume, tmp_volume])
+    deployment(
+        namespace,
+        COLLECTOR_SERVICE,
+        container,
+        vec![data_volume, tmp_volume],
+        site,
+    )
 }
 
 /// Collector service, on the same port `compose.yaml` publishes to loopback.
@@ -493,7 +529,13 @@ fn hub_env(module_paths: &[String], root_module: &str) -> Vec<EnvVar> {
 }
 
 /// The hub, running this scenario's image because that is what carries its module set.
-fn hub_deployment(namespace: &str, cluster_name: &str, module_paths: &[String], root_module: &str) -> Deployment {
+fn hub_deployment(
+    namespace: &str,
+    cluster_name: &str,
+    module_paths: &[String],
+    root_module: &str,
+    site: &Site,
+) -> Deployment {
     let insecure = Services::InsecureWebSocketServer.port();
     let (storage_mount, storage_volume) = mount("ws-server-storage", "/app/storage");
     let (runtime_mount, runtime_volume) = scratch("ws-server-runtime", HUB_RUNTIME_DIR);
@@ -515,14 +557,8 @@ fn hub_deployment(namespace: &str, cluster_name: &str, module_paths: &[String], 
         image_pull_policy: Some(IMAGE_PULL_POLICY.to_string()),
         name: HUB_SERVICE.to_string(),
         ports: Some(vec![
-            ContainerPort {
-                container_port: i32::from(insecure),
-                ..ContainerPort::default()
-            },
-            ContainerPort {
-                container_port: i32::from(Services::SecureWebSocketServer.port()),
-                ..ContainerPort::default()
-            },
+            container_port(insecure),
+            container_port(Services::SecureWebSocketServer.port()),
         ]),
         readiness_probe: Some(probe(
             None,
@@ -537,7 +573,13 @@ fn hub_deployment(namespace: &str, cluster_name: &str, module_paths: &[String], 
         volume_mounts: Some(vec![storage_mount, runtime_mount]),
         ..Container::default()
     };
-    deployment(namespace, HUB_SERVICE, container, vec![storage_volume, runtime_volume])
+    deployment(
+        namespace,
+        HUB_SERVICE,
+        container,
+        vec![storage_volume, runtime_volume],
+        site,
+    )
 }
 
 /// Hub service, carrying both the insecure and secure ports the server listens on.
@@ -583,5 +625,5 @@ fn runner_deployment(namespace: &str, runner: &RunnerInstance, images: ArtifactS
         volume_mounts: Some(vec![runtime_mount]),
         ..Container::default()
     };
-    deployment(namespace, &runner.name, container, vec![runtime_volume])
+    deployment(namespace, &runner.name, container, vec![runtime_volume], &runner.site)
 }

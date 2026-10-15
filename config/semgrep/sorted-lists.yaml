@@ -3,7 +3,7 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "*.rs"
+        - "/**/*.rs"
       exclude:
         # Generated trees; their contents are not ours to shape.
         - "/generated/**"

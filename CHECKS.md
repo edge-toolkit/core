@@ -1,10 +1,10 @@
 # Checks
 
-- **Checks:** 70
+- **Checks:** 71
 - **Tools:** 47
 - **Shell-script checks:** 9
 - **Checks with a repair pass:** 21
-- **Rules:** 324 custom local rules, or non-default strict linter settings
+- **Rules:** 330 custom local rules, or non-default strict linter settings
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
 declares it, the aggregate that runs it as part of `mise run check`, the `fix` or `fmt` pass that repairs what it
@@ -108,6 +108,12 @@ Rules, from `config/ast-grep/rules`:
   suppression is removed automatically when the underlying issue is fixed upstream -- `#[allow]` can sit silently
   forever. This rule complements the workspace's `clippy::allow_attributes` lint, which doesn't fire on inner attributes
   (`#![allow(...)]`) -- see <https://github.com/rust-lang/rust-clippy/issues/13900>.
+- `no-assert-eq-bool-literal` -- `assert_eq!`/`assert_ne!` with a `true` or `false` literal as either operand is an
+  `assert!` written the long way. Assert on the boolean itself -- `assert!(x)`, `assert!(!x)` -- and when the value is
+  not a `bool` (a parsed `serde_yaml::Value` field, say), convert it first: `assert_eq!(value.as_bool(), Some(true))`
+  keeps a failure message that shows what the value actually was. This mirrors `DeepSource RS-W1024`. clippy's
+  `bool_assert_comparison` covers only operands whose type is `bool`, so a literal compared against any other type gets
+  past it.
 - `no-cargo-crates` -- The `cargo_*` crates (`cargo_metadata`, `cargo_toml`, ...) are forbidden. They drive or emulate
   cargo itself -- most run `cargo metadata`, which takes the workspace lock -- when what Rust code here needs is a
   manifest, which the `toml` crate reads directly.
@@ -248,6 +254,17 @@ Rules, from `config/ast-grep/rules`:
   Write `pub(super) use self::$X::...` to make the local reference explicit.
 - `prefer-self-mod-use-pubsuper-group` -- This file declares `mod $X;` and re-exports it via `pub(super) use $X::{...}`.
   Write `pub(super) use self::$X::{...}` to make the local reference explicit.
+- `semgrep-path-anchored` -- Every semgrep `paths.include` / `paths.exclude` entry starts with `/`, anchoring it at the
+  repository root. A pattern without one is easy to get wrong in either direction -- an exclusion that lost its slash
+  silently matches nothing, while a bare `*.rs` matches at any depth only because of a rule nobody reading the config
+  has to remember -- so the anchor is written out every time: `/**/*.rs` for any depth, `/verification/**` for one tree.
+  This rule takes the patterns that match at any depth -- a bare name, or one opening with `**/` -- and its autofix
+  rewrites each to the same match written from the root, `/**/<name>`. A pattern with a `/` further in is already
+  anchored at the root, and `semgrep-path-rooted` takes those.
+- `semgrep-path-rooted` -- A semgrep `paths.include` / `paths.exclude` entry with a `/` partway through matches from the
+  repository root already, so it is written with the leading `/` that says so: `/verification/published/**`, not
+  `verification/published/**`. The rule's autofix adds it. The patterns that match at any depth are
+  `semgrep-path-anchored`'s, which writes them as `/**/<name>`.
 - `use-mod-order` -- Order top-level items: external `use` (std / third-party) first, then `mod` / `pub mod`
   declarations, then local `use self::` / `crate::` / `super::`. So an external `use` must not appear after a `mod`, and
   a `self`/`crate`/`super` `use` must not appear before a `mod`.
@@ -472,6 +489,8 @@ Rules, from `Cargo.toml`:
   `config/generated-trees.toml`, `config/jscpd.json`, `config/pyrefly.toml`, `config/semgrep`.
 - `conftest-check-jscpd` (`default` env; run by `conftest-check`) -- Check the jscpd baseline has not grown (conftest).
   Config: `config/conftest/policy`, `config/jscpd-baseline.json`.
+- `conftest-check-mise-templates` (`default` env; run by `conftest-check`) -- Check no mise config value contains Tera's
+  comment opener (conftest). Config: `config/conftest/policy`.
 - `conftest-check-policy-pairs` (`default` env; run by `conftest-check`) -- Check every conftest policy has a test file
   beside it (conftest). Config: `config/conftest/policy`.
 - `conftest-check-policy-tests` (`default` env; run by `conftest-check`) -- Run the Rego unit tests beside the conftest
@@ -609,6 +628,8 @@ Rules, from `config/conftest/policy`:
 - `pyproject` (`config/conftest/policy/pyproject/pyproject.rego`):
   - A `path = ".."` uv source points at the parent directory, which isn't a package -- almost always a mistake.
   - A pyproject's uv_build requirement must pin the uv version mise installs.
+- `tera_comment` (`config/conftest/policy/tera_comment/tera_comment.rego`):
+  - A mise config value must not contain `{#`, which Tera reads as the start of a comment.
 
 ## `cpplint`
 
@@ -998,6 +1019,17 @@ Rules, from `config/semgrep`:
 - `prefer-yaml-toml-over-json` -- Prefer YAML or TOML over JSON/JSONC/JSONL for config. If the tool requires a
   JSON-family format, prefer .jsonc over .json so the config can carry inline comments, and add the file to this rule's
   paths.exclude allowlist.
+- `published-no-relative-path` -- A published deployment names no relative path, so neither `..` nor `./` has a place in
+  one. These are the deployments generated against released artifacts, for someone who has the releases and not this
+  repository. A path climbing out of the deployment directory is a path into a checkout they do not have -- a compose
+  build context of `../../../..` reads this repository's tree, which only works by accident from inside it -- and a `./`
+  path is relative to wherever a command happens to run rather than to anything the deployment fixes. Fetch what the
+  deployment needs from its releases, and let each tool's own default stand for "this directory", so the deployment
+  builds and runs from its directory alone.
+- `rego-rule-summary` -- This Rego rule has no summary comment. The generated catalogue of every check lists each policy
+  rule by the first line of the comment above it, and refuses to build without one, so describe what the rule enforces
+  in a comment opening at column 0 between the previous rule's closing brace and this rule. The file's header comment
+  does not count: it sits above the `package` line and describes the policy, not any one rule in it.
 - `single-key-env-subtable-should-be-inline` -- `[tasks.X.env]` subtable has a single `KEY = "value"` assignment. Inline
   it on the parent task as `env = { KEY = "value" }` when the resulting line fits the editorconfig line length --
   subtable form is reserved for multi-key envs.

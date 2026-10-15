@@ -8,10 +8,43 @@
 # stages exactly the modules this cluster's agents declare, plus the packages those modules depend on,
 # into the `/app` paths the hub already scans.
 #
-# The sibling `Dockerfile.dockerignore` is what makes the COPYs below possible. The repository's root
-# `.dockerignore` drops every `*.wasm` and `*.onnx` so the CI images built from `./Dockerfile` stay
-# small; BuildKit uses this Dockerfile's own ignore file instead, which re-admits the built `pkg/`
-# directories and nothing else.
+# This scenario consumes the project's releases, so its modules are fetched from the registry they are
+# published to rather than copied from a checkout, and the image builds from the deployment directory
+# alone.
+
+# Fetch the released modules this scenario serves.
+# GitHub Packages refuses an anonymous read even of a public package, so the build takes a `gh_token`
+# secret, which is only ever mounted into the step that needs it.
+FROM node:22-bookworm-slim AS released
+
+ENV NPM_CONFIG_USERCONFIG=/released.npmrc
+RUN bash <<'EOF'
+set -euo pipefail
+printf '%s\n' '@edge-toolkit:registry=https://npm.pkg.github.com' >> /released.npmrc
+printf '%s\n' '//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}' >> /released.npmrc
+EOF
+
+ENV STAGE_PACKAGE="@edge-toolkit/et-ws-wasi-math1"
+ENV STAGE_DEST="/staged/app/services/ws-modules/wasi-math1/pkg"
+RUN --mount=type=secret,id=gh_token,env=GITHUB_TOKEN bash <<'EOF'
+set -euo pipefail
+cd /tmp
+tarball="$(npm pack --silent "${STAGE_PACKAGE}@latest")"
+mkdir -p "${STAGE_DEST}"
+tar -xzf "${tarball}" -C "${STAGE_DEST}" --strip-components=1
+rm "${tarball}"
+EOF
+
+ENV STAGE_PACKAGE="@edge-toolkit/et-ws-wasi-math1-sender"
+ENV STAGE_DEST="/staged/app/services/ws-modules/wasi-math1-sender/pkg"
+RUN --mount=type=secret,id=gh_token,env=GITHUB_TOKEN bash <<'EOF'
+set -euo pipefail
+cd /tmp
+tarball="$(npm pack --silent "${STAGE_PACKAGE}@latest")"
+mkdir -p "${STAGE_DEST}"
+tar -xzf "${tarball}" -C "${STAGE_DEST}" --strip-components=1
+rm "${tarball}"
+EOF
 
 # `hub` is a named build context, not a stage defined here.
 # The generated compose file wires it to the hub service with `service:`, so compose builds the hub
@@ -23,5 +56,4 @@ FROM hub
 
 LABEL org.opencontainers.image.source="https://github.com/edge-toolkit/core"
 
-COPY --chown=10001:10001 services/ws-modules/wasi-math1/pkg /app/services/ws-modules/wasi-math1/pkg
-COPY --chown=10001:10001 services/ws-modules/wasi-math1-sender/pkg /app/services/ws-modules/wasi-math1-sender/pkg
+COPY --from=released --chown=10001:10001 /staged/app /app

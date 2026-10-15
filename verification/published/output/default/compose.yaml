@@ -35,8 +35,6 @@ services:
     env_file:
       - secrets.env
     build:
-      context: ../../../..
-      dockerfile: verification/published/output/default/Dockerfile
       additional_contexts:
         hub: docker-image://ghcr.io/edge-toolkit/core/et-ws-server:latest
     network_mode: host

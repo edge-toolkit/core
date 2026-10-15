@@ -109,6 +109,29 @@ pub enum CliError {
 
     #[error("Agent {agent:?} sets {variable}, which the generated deployment derives and must own")]
     ReservedRunnerEnv { agent: String, variable: String },
+
+    #[error("Machine {name:?} is not an RFC 1123 label: {reason}")]
+    InvalidMachineName { name: String, reason: String },
+
+    #[error("Machine {machine:?} has address {address:?}, which is not a host name or IPv4 address: {reason}")]
+    InvalidMachineAddress {
+        machine: String,
+        address: String,
+        reason: String,
+    },
+
+    #[error("Machine {name:?} is declared more than once; each machine needs its own name")]
+    DuplicateMachineName { name: String },
+
+    #[error("Machine {machine:?} lists agent {agent:?}, which the scenario does not declare")]
+    UnknownMachineAgent { machine: String, agent: String },
+
+    #[error("Agent {agent:?} is listed on both machine {first:?} and machine {second:?}; an agent runs on one")]
+    AgentOnTwoMachines {
+        agent: String,
+        first: String,
+        second: String,
+    },
 }
 
 /// Parse `src` as TOML into `T`, attaching `path` to the error on failure.

@@ -3,7 +3,7 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "*.sh"
+        - "/**/*.sh"
       exclude:
         - "/.mise/**" # A task body split out of its TOML string, which is the one shell this repo asks for.
     pattern-regex: \A
@@ -20,10 +20,10 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "*.bat"
-        - "*.ps1"
+        - "/**/*.bat"
+        - "/**/*.ps1"
       exclude:
-        - "**/.venv/**" # Where `activate.bat` / `activate.ps1` are written by the venv tool, not by us.
+        - "/**/.venv/**" # Where `activate.bat` / `activate.ps1` are written by the venv tool, not by us.
     pattern-regex: \A
     message: >-
       A `.bat` or `.ps1` file is banned. Windows is a first-tier platform here, which is precisely why its
@@ -40,7 +40,7 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "*.cmd"
+        - "/**/*.cmd"
     pattern-regex: \A
     message: >-
       A `.cmd` file is banned everywhere in this tree, with no exemption at all -- not in `.mise/`, and not

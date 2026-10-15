@@ -1,0 +1,41 @@
+id: semgrep-path-rooted
+language: yaml
+severity: error
+message: |
+  A semgrep `paths.include` / `paths.exclude` entry with a `/` partway through matches from the repository root
+  already, so it is written with the leading `/` that says so: `/verification/published/**`, not
+  `verification/published/**`. The rule's autofix adds it. The patterns that match at any depth are
+  `semgrep-path-anchored`'s, which writes them as `/**/<name>`.
+files:
+  - config/semgrep/*.yaml
+# The same entry shape as semgrep-path-anchored: a scalar in an `include` or `exclude` sequence under `paths`.
+rule:
+  kind: flow_node
+  # The single-metavariable pattern is deliberate, because this is an ast-grep rule rather than a semgrep one.
+  # `$PATH` binds the matched scalar for the fix's transform, and `kind` above already narrows the search.
+  # nosemgrep: yaml.semgrep.slow-pattern-single-metavariable
+  pattern: $PATH
+  regex: '^"?[^"/][^"]*/'
+  not:
+    regex: '^"?\*\*/'
+  inside:
+    kind: block_sequence_item
+    inside:
+      kind: block_mapping_pair
+      stopBy: end
+      has:
+        field: key
+        regex: "^(include|exclude)$"
+      inside:
+        kind: block_mapping_pair
+        stopBy: end
+        has:
+          field: key
+          regex: "^paths$"
+transform:
+  ROOTED:
+    replace:
+      source: $PATH
+      replace: '^("?)'
+      by: "$1/"
+fix: $ROOTED

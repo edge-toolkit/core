@@ -80,6 +80,32 @@ pub struct ClusterInput {
     /// scenario, so there is no release of them for a published deployment to stage instead.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub module_paths: Vec<PathBuf>,
+    /// The machines the cluster spans, from `machines:`.
+    ///
+    /// Empty is a single-host cluster, which is every deployment's shape when the field is left out: everything runs
+    /// on the one machine the deployment is started on and reaches the hub at `localhost`. Listed, the first machine
+    /// is the server -- it runs the hub and the collector, whose storage is local to it -- and every agent runs on
+    /// the machine that lists it, or on the server when none does. Each format splits along the same line: a k3s node
+    /// label, a compose profile, a `machine-<name>` mise task and a dekit tag per machine, with a runner off the server
+    /// reaching the hub at the server's `address`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub machines: Vec<Machine>,
+}
+
+/// One machine of a multi-machine cluster, and the agents that run on it.
+///
+/// The agents are listed here rather than each agent naming its machine, so that an agent that names none has no third
+/// state to resolve: it runs on the server, which is what an unlisted agent means.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[non_exhaustive]
+pub struct Machine {
+    /// What the generated deployment calls the machine: its k3s node label, compose profile, mise task and dekit tag.
+    pub name: String,
+    /// The host name or IPv4 address the other machines reach this one at.
+    pub address: String,
+    /// Names of the agents that run on this machine.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub agents: Vec<String>,
 }
 
 /// The name a cluster takes when its input does not choose one.
@@ -99,6 +125,7 @@ impl Default for ClusterInput {
             artifact_source: ArtifactSource::default(),
             agents: Vec::new(),
             module_paths: Vec::new(),
+            machines: Vec::new(),
         }
     }
 }
@@ -109,7 +136,8 @@ impl Default for ClusterInput {
 /// has to produce and import into the node, and a `mise` deployment runs its binaries out of the cargo workspace.
 /// `Published` addresses what has been released instead -- container images from the project's registry, binaries from
 /// the crates.io releases -- so a deployment consumes the project rather than rebuilding it. What a scenario cannot get
-/// either way is its own module set, which is built from the tree because it is particular to that deployment.
+/// either way is an image of its own module set, which no release can hold because the set is particular to that
+/// deployment: it is built for the deployment, from the tree's modules or from their releases.
 ///
 /// `Published` is the default because it is the only one of the two that always works. Building from the working tree
 /// needs a working tree, so `Local` is an answer available to almost nobody: everyone generating a deployment for their

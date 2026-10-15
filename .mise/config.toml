@@ -1259,6 +1259,19 @@ git ls-files '*Cargo.toml' '.mise/config*.toml' '.mise/mise*.lock' '*pyproject.t
 """
 shell = "{{ vars.task_shell }}"
 
+# Hold every value mise renders free of the Tera comment opener, over each config mise loads.
+# The generated scenario `mise.toml` files are rendered by mise too, which is why they are listed here and not in
+# `conftest-check-toml`, whose other namespaces are written for the repository's own configs.
+[tasks.conftest-check-mise-templates]
+description = "Check no mise config value contains Tera's comment opener (conftest)"
+run = """
+files=$(git ls-files '.mise/config*.toml' '*mise.toml')
+# $files is a newline-separated path list, split into one argument per path by design.
+# shellcheck disable=SC2086
+conftest test --combine --parser toml --namespace tera_comment -p config/conftest/policy $files
+"""
+shell = "{{ vars.task_shell }}"
+
 # Hold the README's checks badge to the rules count CHECKS.md records.
 # `--parser ignore` because Markdown has no parser; it hands each file over as its lines, which is all this reads.
 [tasks.conftest-check-checks-badge]
@@ -1697,16 +1710,26 @@ shell = "{{ vars.task_shell }}"
 # them dwarfs the run itself, so a missing one fails immediately rather than starting a deployment whose pods
 # can only sit in ErrImagePull. Deliberately not part of the `check` aggregate -- it needs Docker and those
 # images, which no other check does.
+#
+# `--scenario` picks another math1-shaped scenario. One that names machines gets a k3d node per machine, the
+# first as the server and the rest as agents, each carrying the node label the manifests pin its pods to, and
+# the run then checks every pod landed on its own machine's node. k3d's nodes are full k3s nodes joined to the
+# server by token, so the scheduling and the cross-node traffic are real even though one host runs them all.
 [tasks.k3s-verify]
-description = "Apply the generated math1 k3s manifests to a throwaway cluster and verify the stored model"
+description = "Apply a generated math1 scenario's k3s manifests to a throwaway cluster and verify the stored model"
 run = """
-scenario=math1
+scenario="${usage_scenario:-math1}"
 source="${usage_source:-local}"
 ns="et-$scenario"
 cluster="et-$scenario-verify"
 out="verification/$source/output/$scenario"
+input="verification/$source/input/$scenario.yaml"
 hub_image="et-ws-server-$scenario:latest"
 manifest_wait=300s
+machine_label=edge-toolkit/machine
+# One name per line; each is an RFC 1123 label, so the unquoted word-splitting loops over it below are safe.
+machines=$(yq '(.machines // [])[].name' "$input")
+server_machine=$(yq '.machines[0].name // ""' "$input")
 
 # The runner is the one image that differs between the two sources.
 # A published deployment names the released one and so has it pulled here rather than built; the scenario
@@ -1745,6 +1768,13 @@ dump_state() {
   kubectl describe pods -n "$ns" >&2 || true
   # A label selector, because `kubectl logs` needs a resource and every pod here carries an `app` label.
   kubectl logs -n "$ns" --all-containers --tail=40 --prefix --selector app >&2 || true
+  # Each k3d node's own log, which is the only record of a node that never joined the cluster.
+  # kubectl cannot see such a node at all. Container ids rather than a `--format` template, because a Go template's
+  # braces would reach Tera, which renders this body first.
+  for node in $(docker ps --all --quiet --filter "label=k3d.cluster=$cluster"); do
+    echo "k3s-verify: log of k3d node container $node" >&2
+    docker logs --tail 60 "$node" >&2 || true
+  done
 }
 # Installed before the credential is generated, not after.
 # The trap is what removes the directory holding it, so generating first would leave the password on disk for
@@ -1754,10 +1784,31 @@ trap 'status=$?;
   k3d cluster delete "$cluster" >/dev/null 2>&1 || true
   coreutils rm -rf "$secrets_dir"' EXIT
 
-input="verification/$source/input/$scenario.yaml"
 cargo run -q -p et-cli -- generate-deployment --input-file "$input" --output-dir "$secrets_dir"
+
+# The first machine is the server node and every other one an agent.
+# Each is labelled as the README's join commands label them. A scenario naming no machines gets no flags, which
+# is the single-node cluster it always had.
+# The flags are collected as positional parameters, the one list every task shell has.
+set --
+agents=0
+node="server:0"
+for machine in $machines; do
+  set -- "$@" --k3s-node-label "$machine_label=$machine@$node"
+  if [ "$node" != "server:0" ]; then
+    agents=$((agents + 1))
+  fi
+  node="agent:$agents"
+done
 k3d cluster delete "$cluster" >/dev/null 2>&1 || true
-k3d cluster create "$cluster" --wait
+# Bounded, so a node that never comes up fails the task with its log dumped rather than running out the CI step.
+# Unbounded, an agent hung at `Starting node 'k3d-et-math1-multi-verify-agent-0'` until the step's 20-minute limit
+# on commit https://github.com/edge-toolkit/core/commit/e569b7f337314b70c60b76f9bfd668c8cf094417 at
+# https://github.com/edge-toolkit/core/actions/runs/38818439394/job/116708831502, with nothing logged to say why.
+# `--no-rollback` keeps the node containers when the timeout fires: k3d's own rollback would otherwise delete them
+# before the exit trap reads their logs, and the trap deletes the cluster itself once it has.
+k3d cluster create "$cluster" --wait --timeout 300s --no-rollback --agents "$agents" "$@"
+# `k3d image import` loads every node, so a pod finds its image whichever machine it is pinned to.
 k3d image import -c "$cluster" "$hub_image" "$runner_image"
 
 # --save-config so the `kubectl apply` below does not warn about adopting a namespace it did not create.
@@ -1793,10 +1844,107 @@ if [ -z "$stored" ]; then
 fi
 
 printf '%s' "$stored" | cargo run -q -p et-ws-test-server --bin verify-math1
+
+# Every pod has to be on the node labelled as its machine.
+# The collector and the hub belong on the server, and each listed agent's runner on the machine listing it.
+# Checked after the exchange, when every pod is scheduled.
+listed='.machines[] | select(.name == strenv(machine)) | .agents[]'
+for machine in $machines; do
+  apps=$(machine="$machine" yq "$listed" "$input")
+  if [ "$machine" = "$server_machine" ]; then
+    apps="openobserve ws-server $apps"
+  fi
+  expected=$(kubectl get nodes -l "$machine_label=$machine" -o jsonpath='{.items[0].metadata.name}')
+  for app in $apps; do
+    placed=$(kubectl get pods -n "$ns" -l "app=$app" -o jsonpath='{.items[0].spec.nodeName}')
+    if [ "$placed" != "$expected" ]; then
+      echo "k3s-verify: $app runs on $placed, not on $expected, the node of machine $machine" >&2
+      exit 1
+    fi
+  done
+done
 """
 shell = "{{ vars.task_shell }}"
 usage = """
 arg "[source]" help="Which verification tree to apply: local (default) or published"
+flag "--scenario <scenario>" help="Which math1-shaped scenario to apply" default="math1"
+"""
+
+# End-to-end check that a generated compose deployment runs the math1 exchange, one machine at a time.
+# Each machine's profile is brought up by its own `docker compose up`, the server's first, which is what the
+# README tells each machine to run -- so the runners off the server take the paths only a multi-machine stack
+# has: the server's address instead of `localhost`, no healthy-hub gate, and a restart until the hub answers. The
+# scenario's machines are all at loopback, which is what lets one host play every one of them. A scenario naming
+# no machines comes up in one `up`. Not part of `check`, for the reasons `k3s-verify` gives.
+[tasks.compose-verify]
+description = "Start a generated math1 compose scenario one machine at a time and verify the stored model"
+run = """
+scenario="${usage_scenario:-math1-multi}"
+out="verification/local/output/$scenario"
+input="verification/local/input/$scenario.yaml"
+# One name per line; each is an RFC 1123 label, so the unquoted word-splitting loops over it below are safe.
+machines=$(yq '(.machines // [])[].name' "$input")
+secrets_dir=$(coreutils mktemp -d)
+
+compose() {
+  docker compose --project-name "et-$scenario-verify" -f "$out/compose.yaml" "$@"
+}
+# Every machine's profile ahead of the given arguments, for the commands that address the whole stack.
+# `down` needs them too, since a service in an inactive profile is otherwise left running.
+compose_all() {
+  for machine in $machines; do
+    set -- --profile "$machine" "$@"
+  done
+  compose "$@"
+}
+dump_state() {
+  echo "compose-verify: stack state at failure" >&2
+  compose_all ps --all >&2 || true
+  compose_all logs --tail=40 >&2 || true
+}
+trap 'status=$?;
+  if [ "$status" -ne 0 ]; then dump_state; fi
+  compose_all down --volumes >/dev/null 2>&1 || true
+  coreutils rm -rf "$secrets_dir"' EXIT
+
+# The stack reads its credential from `secrets.env` beside the compose file, which is uncommitted.
+# It is generated in a throwaway directory and copied in, for the reason `k3s-verify` generates its own. It is
+# left there afterwards: it is the same derived value `regen-verification` writes into that directory, and
+# gitignored there.
+cargo run -q -p et-cli -- generate-deployment --input-file "$input" --output-dir "$secrets_dir"
+coreutils cp "$secrets_dir/secrets.env" "$out/secrets.env"
+
+if [ -z "$machines" ]; then
+  compose up --detach --build
+fi
+for machine in $machines; do
+  compose --profile "$machine" up --detach --build
+done
+
+stored=""
+# The glob, `$1` and the `cat` are all for the container's shell, so they must reach it unexpanded.
+# That shell runs in the hub image, where no mise-managed coreutils exists.
+# shellcheck disable=SC2016
+# nosemgrep: config.semgrep.mise-task-coreutils-prefix
+read_model='set -- /app/storage/*/math1-output.json; cat "$1"'
+for _ in $(coreutils seq 1 60); do
+  stored=$(compose_all exec -T ws-server sh -c "$read_model" 2>/dev/null || true)
+  if [ -n "$stored" ]; then
+    break
+  fi
+  coreutils sleep 5
+done
+
+if [ -z "$stored" ]; then
+  echo "compose-verify: no math1-output.json appeared under /app/storage" >&2
+  exit 1
+fi
+
+printf '%s' "$stored" | cargo run -q -p et-ws-test-server --bin verify-math1
+"""
+shell = "{{ vars.task_shell }}"
+usage = """
+flag "--scenario <scenario>" help="Which math1-shaped local scenario to start" default="math1-multi"
 """
 
 # Hardening checks over the generated Kubernetes manifests, mirroring what Codacy reports on a pushed branch.

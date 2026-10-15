@@ -25,7 +25,13 @@ pub const HUB_SERVICE: &str = "ws-server";
 /// WebSocket URL for a runner sharing a host with the hub, which is how mise and compose arrange it.
 #[must_use]
 pub fn hub_ws_url() -> String {
-    format!("ws://localhost:{}/ws", Services::InsecureWebSocketServer.port())
+    hub_ws_url_at("localhost")
+}
+
+/// WebSocket URL for a runner on another machine, reaching the hub at the server machine's `host`.
+#[must_use]
+pub fn hub_ws_url_at(host: &str) -> String {
+    format!("ws://{host}:{}/ws", Services::InsecureWebSocketServer.port())
 }
 
 /// WebSocket URL for a runner reaching the hub across a cluster, where `localhost` is the runner's own pod.

@@ -673,9 +673,88 @@ fn the_artifact_source_decides_what_the_compose_stack_builds() {
     );
     // The scenario's own image is the one thing still built, because no release can carry its module set.
     assert!(
-        published.contains("dockerfile: ") && !published.contains("services/ws-wasi-runner/Dockerfile"),
+        published.matches("    build:\n").count() == 1 && !published.contains("services/ws-wasi-runner/Dockerfile"),
         "leaving only the scenario image to build: {published}"
     );
+}
+
+/// Generate `input` as a published scenario, returning its root and each generated file's text by name.
+fn published_files(input: &str) -> (tempfile::TempDir, std::collections::BTreeMap<String, String>) {
+    let (test_root, verification_root, output_dir) = scenario_tree(&format!("{input}{PUBLISHED}"));
+    let _regenerated = regenerate_verification(&verification_root, None).unwrap();
+    let files = fs::read_dir(&output_dir)
+        .unwrap()
+        .map(|entry| {
+            let path = entry.unwrap().path();
+            let name = path.file_name().unwrap().to_string_lossy().into_owned();
+            (name, fs::read_to_string(&path).unwrap())
+        })
+        .collect();
+    (test_root, files)
+}
+
+#[test]
+fn a_published_scenario_image_fetches_its_modules_and_builds_from_its_own_directory() {
+    let (_root, files) = published_files(
+        r#"cluster_name: "released"
+agents:
+  - name: "twin"
+    runner: "wasi"
+    resources:
+      - type: "wasi-math1"
+"#,
+    );
+
+    let dockerfile = &files["Dockerfile"];
+    assert!(dockerfile.contains("FROM node:22-bookworm-slim AS released\n"));
+    assert!(dockerfile.contains("ENV STAGE_PACKAGE=\"@edge-toolkit/et-ws-wasi-math1\"\n"));
+    assert!(dockerfile.contains("RUN --mount=type=secret,id=gh_token,env=GITHUB_TOKEN bash <<'EOF'\n"));
+    assert!(dockerfile.contains("COPY --from=released --chown=10001:10001 /staged/app /app\n"));
+    assert!(!dockerfile.contains("COPY --chown=10001:10001 services/"));
+
+    // No context or Dockerfile is named, so compose's defaults stand: this directory, and the Dockerfile in it.
+    let compose = &files["compose.yaml"];
+    assert!(compose.contains("    build:\n      additional_contexts:\n"));
+    assert!(compose.contains("      secrets:\n        - gh_token\n"));
+    assert_eq!(files["Dockerfile.dockerignore"].lines().last(), Some("*"));
+    assert!(compose.ends_with("secrets:\n  gh_token:\n    environment: GITHUB_TOKEN\n"));
+
+    let readme = &files["README.md"];
+    // Built from this directory, so docker's own default names the Dockerfile.
+    assert!(!readme.contains("dockerfile="));
+    assert!(readme.contains(" --secret id=gh_token,env=GITHUB_TOKEN -t \"$image\" .\n"));
+
+    // No path is relative, so nothing reaches out of the deployment directory someone with only the releases has.
+    for (name, text) in &files {
+        assert!(
+            !text.contains("..") && !text.contains("./"),
+            "{name} names a relative path"
+        );
+    }
+}
+
+#[test]
+fn a_published_scenario_with_no_modules_of_its_own_needs_no_token() {
+    let (_root, files) = published_files("cluster_name: \"bare\"\n");
+
+    assert!(!files["Dockerfile"].contains("AS released"));
+    assert!(!files["compose.yaml"].contains("context:"));
+    assert!(!files["compose.yaml"].contains("secrets:"));
+    assert!(files["README.md"].contains("From this directory:\n\n```bash\nscenario=bare\n"));
+}
+
+#[test]
+fn a_published_scenario_staging_a_mise_tool_still_builds_from_the_repository() {
+    // A mise-provisioned package is staged from the repository's own pins, which only a checkout has.
+    let (_root, files) = published_files(
+        "cluster_name: \"pinned\"\nagents:\n  - name: \"face\"\n    resources:\n      - type: \"pyface1\"\n",
+    );
+
+    assert!(files["Dockerfile"].contains("FROM debian:bookworm-slim AS deps\n"));
+    assert!(files["compose.yaml"].contains("      context: ../"));
+    // Its own module is still a release, so the token is needed even though the build runs from the checkout.
+    assert!(files["README.md"].contains("supplies it. From the repository root,\nwith `GITHUB_TOKEN` set to"));
+    assert!(files["README.md"].contains(" --secret id=gh_token,env=GITHUB_TOKEN"));
 }
 
 #[test]

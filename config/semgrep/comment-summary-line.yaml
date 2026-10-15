@@ -3,20 +3,20 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "*.awk"
-        - "*.env"
-        - "*.ini"
-        - "*.jq"
-        - "*.rc"
-        - "*.rego"
-        - "*.s"
-        - "*.sh"
-        - "*.toml"
-        - "*.yaml"
-        - ".dockerignore"
-        - ".gitignore"
-        - ".semgrepignore"
-        - "Dockerfile*"
+        - "/**/*.awk"
+        - "/**/*.env"
+        - "/**/*.ini"
+        - "/**/*.jq"
+        - "/**/*.rc"
+        - "/**/*.rego"
+        - "/**/*.s"
+        - "/**/*.sh"
+        - "/**/*.toml"
+        - "/**/*.yaml"
+        - "/**/.dockerignore"
+        - "/**/.gitignore"
+        - "/**/.semgrepignore"
+        - "/**/Dockerfile*"
       exclude:
         # Skip machine-emitted TOML/YAML (int-gen / regen output).
         # Hand-edits would drift on the next regeneration, so the comment style there is the generator's job, not ours.
@@ -44,10 +44,10 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "*.c"
-        - "*.cpp"
-        - "*.h"
-        - "*.jsonc"
+        - "/**/*.c"
+        - "/**/*.cpp"
+        - "/**/*.h"
+        - "/**/*.jsonc"
     # The C-style twin of comment-summary-line above, covering `//` and `/* */` comments (so it also covers .jsonc).
     # No dedicated C linter has this check -- their comment rules stop at namespace-closing markers, task-tag
     # formatting and whitespace -- so the generic-mode regexes carry it. Two alternatives,

@@ -11,14 +11,14 @@ rules:
         # hand-written source the ban must cover -- a blanket pkg/ exclude once hid shim em-dashes for months.
         - "/generated/**"
         - "/verification/**"
-        - "**/HELP.md"
+        - "/**/HELP.md"
         # License texts carry non-ASCII legal glyphs and are not ours to edit.
-        - "LICENSE*"
+        - "/**/LICENSE*"
         # Binary assets.
-        - "*.png"
-        - "*.ico"
-        - "*.wasm"
-        - "*.onnx"
+        - "/**/*.png"
+        - "/**/*.ico"
+        - "/**/*.wasm"
+        - "/**/*.onnx"
     pattern-regex: '[^\x00-\x7F]'
     message: >-
       Non-ASCII character.

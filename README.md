@@ -436,6 +436,28 @@ non-root user, with `emptyDir` mounts for the paths that still have to be writab
 plaintext -- `ws://` to the hub, `http://` to the collector -- because the hub's self-signed certificate is issued
 for `localhost` only and the runners have no way to be told to trust it.
 
+### Multiple machines
+
+A scenario runs on one host unless it lists `machines:`. Listing them is opt-in: the first machine is the server,
+which runs the hub and the collector, and each agent runs on the machine that lists it, or on the server when none
+does. Every output type renders the split, and the generated `README.md` gives each machine its own commands:
+
+```yaml
+machines:
+  - name: "server"
+    address: "10.0.0.1"
+    agents: ["math1-trigger"]
+  - name: "edge"
+    address: "10.0.0.2"
+    agents: ["math1-twin"]
+```
+
+`verification/local/input/math1-multi.yaml` is that split with both machines at loopback, so one host can play every
+machine; its `verification/published/` twin renders the same split against the released artifacts, which need
+nothing new to run it. `mise run k3s-verify --scenario math1-multi` applies it to a k3d cluster with one node per
+machine and checks each pod landed on its own machine's node. `mise run compose-verify` brings it up one machine
+profile at a time.
+
 ## Grant
 
 This repository is part of a grant managed by the School of EECMS, Curtin University.

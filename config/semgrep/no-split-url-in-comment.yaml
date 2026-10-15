@@ -3,17 +3,17 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "*.rs"
-        - "*.toml"
-        - "*.yaml"
-        - "*.rego"
-        - "*.py"
-        - "*.zig"
-        - "*.c"
-        - "*.h"
-        - "*.cs"
-        - "*.java"
-        - "Dockerfile*"
+        - "/**/*.rs"
+        - "/**/*.toml"
+        - "/**/*.yaml"
+        - "/**/*.rego"
+        - "/**/*.py"
+        - "/**/*.zig"
+        - "/**/*.c"
+        - "/**/*.h"
+        - "/**/*.cs"
+        - "/**/*.java"
+        - "/**/Dockerfile*"
       exclude:
         # This rule's own pattern-regex and message necessarily contain the banned shape, so it can't scan itself.
         - "/config/semgrep/no-split-url-in-comment.yaml"

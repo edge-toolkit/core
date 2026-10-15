@@ -1,0 +1,16 @@
+rules:
+  - id: published-no-relative-path
+    languages: [generic]
+    paths:
+      include:
+        - "/verification/published/**"
+    pattern-regex: '\.\.|\./'
+    message: >-
+      A published deployment names no relative path, so neither `..` nor `./` has a place in one. These are the
+      deployments generated against released artifacts, for someone who has the releases and not this repository.
+      A path climbing out of the deployment directory is a path into a checkout they do not have -- a compose build
+      context of `../../../..` reads this repository's tree, which only works by accident from inside it -- and a
+      `./` path is relative to wherever a command happens to run rather than to anything the deployment fixes. Fetch
+      what the deployment needs from its releases, and let each tool's own default stand for "this directory", so
+      the deployment builds and runs from its directory alone.
+    severity: ERROR

@@ -5,8 +5,8 @@ use std::path::Path;
 use fs_err as fs;
 
 use crate::error::CliError;
-use crate::input::ClusterInput;
-use crate::{ModuleSource, cluster_module_names, module_registry, resolve_module_sources};
+use crate::input::{ArtifactSource, ClusterInput};
+use crate::{ModuleSource, cluster_module_names, module_registry, resolve_cluster_modules};
 
 /// Build context path of the hub image's Dockerfile, which the scenario image layers on top of.
 const HUB_DOCKERFILE: &str = "services/ws-server/Dockerfile";
@@ -24,41 +24,117 @@ const HUB_IMAGE_MODULES: [&str; 2] = ["/app/services/ws-server/static", "/app/se
 /// costs nothing -- only the tools named on the `mise install` line are actually fetched.
 const DEPS_MISE_ENV: &str = "dart,dotnet,java,js,kotlin,python,r,rust,zig";
 
-pub fn generate_scenario_image(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
+/// Where the scenario image's modules come from, split by what each source needs from the build.
+///
+/// Each list is sorted out of resolution order, which moves a module whenever an unrelated one gains a dependency, so
+/// every list the image is rendered from stays put in a committed file: `SCENARIO_TOOLS`, the staging steps, the COPYs.
+#[derive(Default)]
+struct ImageSources {
+    /// This repository's modules, copied from the checkout: `(repo path, served path)`.
+    repo_paths: Vec<(String, String)>,
+    /// This repository's modules, fetched as the releases a published scenario consumes: `(package, served path)`.
+    released: Vec<(String, String)>,
+    /// Packages a mise tool provisions, staged from the repository's own pins: `(tool, package, served path)`.
+    mise_tools: Vec<(String, String, String)>,
+    /// The scenario's own `module_paths:` directories: `(build context, path in it, served path)`.
+    scenario_dirs: Vec<(String, String, String)>,
+}
+
+/// What building a scenario's image asks of whoever runs the build.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+pub(crate) struct ImageNeeds {
+    /// Whether the build context has to be this repository's checkout rather than the deployment directory.
+    pub repository: bool,
+    /// Whether the build fetches released modules, and so needs the `gh_token` secret GitHub Packages demands.
+    pub registry_token: bool,
+}
+
+/// Sort the cluster's modules by where the scenario image gets each one.
+///
+/// A published scenario takes this repository's modules from their releases, the way every other artifact it names is
+/// a release, so its image can be built from the deployment directory alone. A local one copies the modules it was
+/// built against out of the checkout.
+fn image_sources(cluster: &ClusterInput) -> Result<ImageSources, CliError> {
     let project_root = edge_toolkit::config::get_project_root();
     let ws_server_dir = project_root.join("services/ws-server");
     let registry = module_registry(&project_root, &ws_server_dir, &cluster.module_paths);
-    let module_names = cluster_module_names(cluster);
-    let sources = resolve_module_sources(&registry, &module_names)?;
+    let published = matches!(cluster.artifact_source, ArtifactSource::Published);
 
-    let mut repo_paths = Vec::new();
-    let mut mise_tools = Vec::new();
-    let mut scenario_dirs = Vec::new();
-    for (docker_path, source) in sources {
-        match source {
+    let mut sources = ImageSources::default();
+    for entry in resolve_cluster_modules(&registry, &cluster_module_names(cluster))? {
+        let docker_path = entry.docker_path;
+        match entry.source {
             ModuleSource::Repo(_) if HUB_IMAGE_MODULES.contains(&docker_path.as_str()) => {}
-            ModuleSource::Repo(repo_path) => repo_paths.push((repo_path, docker_path)),
-            ModuleSource::MiseTool { tool, package } => mise_tools.push((tool, package, docker_path)),
+            ModuleSource::Repo(_) if published => sources
+                .released
+                .push((entry.package_name.unwrap_or_default(), docker_path)),
+            ModuleSource::Repo(repo_path) => sources.repo_paths.push((repo_path, docker_path)),
+            ModuleSource::MiseTool { tool, package } => sources.mise_tools.push((tool, package, docker_path)),
             ModuleSource::Scenario {
                 context, context_path, ..
-            } => scenario_dirs.push((context, context_path, docker_path)),
+            } => sources.scenario_dirs.push((context, context_path, docker_path)),
         }
     }
-    // Sorted out of resolution order, which moves a module whenever an unrelated one gains a dependency, so each list
-    // this file is rendered from stays put in a committed image: `SCENARIO_TOOLS`, the staging steps, and the COPYs.
-    repo_paths.sort();
-    mise_tools.sort();
-    scenario_dirs.sort();
+    sources.repo_paths.sort();
+    sources.released.sort();
+    sources.mise_tools.sort();
+    sources.scenario_dirs.sort();
+    Ok(sources)
+}
+
+/// What building this cluster's scenario image needs: the repository as its context, a registry token, or neither.
+///
+/// A local scenario is built from the checkout it was generated in, whatever its modules. A published one needs the
+/// repository only for a mise-provisioned package, which is staged from the repository's own `.mise/` pins -- so a
+/// published scenario whose modules pull in such a package still builds from a checkout.
+pub(crate) fn scenario_image_needs(cluster: &ClusterInput) -> Result<ImageNeeds, CliError> {
+    Ok(needs_of(cluster, &image_sources(cluster)?))
+}
+
+/// [`scenario_image_needs`] for sources already resolved.
+const fn needs_of(cluster: &ClusterInput, sources: &ImageSources) -> ImageNeeds {
+    ImageNeeds {
+        repository: matches!(cluster.artifact_source, ArtifactSource::Local) || !sources.mise_tools.is_empty(),
+        registry_token: !sources.released.is_empty(),
+    }
+}
+
+/// The ignore file for an image built from its own deployment directory, which copies nothing out of its context.
+///
+/// Everything is excluded, so the build is sent nothing at all -- the directory's `secrets.env` included.
+fn render_empty_context_dockerignore(cluster_name: &str) -> String {
+    format!(
+        concat!(
+            "# AUTO-GENERATED by `et-cli` for the `{name}` scenario -- do not edit.\n",
+            "# Regenerate with `mise run regen-verification`.\n",
+            "#\n",
+            "# The Dockerfile beside this file copies nothing from its build context, so the context is empty.\n",
+            "*\n",
+        ),
+        name = cluster_name,
+    )
+}
+
+pub fn generate_scenario_image(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
+    let project_root = edge_toolkit::config::get_project_root();
+    let sources = image_sources(cluster)?;
 
     // Trimmed to exactly one trailing newline, because each section appends its own separating blank line and whichever
     // section ends up last therefore leaves one behind. A scenario with no modules at all has no `COPY` sections, so
     // the separator after the label is the end of the file.
-    let dockerfile = render_dockerfile(&cluster.cluster_name, &repo_paths, &mise_tools, &scenario_dirs);
+    let dockerfile = render_dockerfile(
+        &cluster.cluster_name,
+        matches!(cluster.artifact_source, ArtifactSource::Published),
+        &sources,
+    );
     fs::write(output_dir.join("Dockerfile"), format!("{}\n", dockerfile.trim_end()))?;
-    fs::write(
-        output_dir.join("Dockerfile.dockerignore"),
-        render_dockerignore(&project_root, &cluster.cluster_name, &repo_paths)?,
-    )?;
+    let dockerignore = if needs_of(cluster, &sources).repository {
+        render_dockerignore(&project_root, &cluster.cluster_name, &sources.repo_paths)?
+    } else {
+        render_empty_context_dockerignore(&cluster.cluster_name)
+    };
+    fs::write(output_dir.join("Dockerfile.dockerignore"), dockerignore)?;
 
     Ok(())
 }
@@ -72,15 +148,27 @@ fn dockerfile_word(path: &str) -> String {
     serde_json::Value::String(path.replace('$', "\\$")).to_string()
 }
 
-/// Render the scenario image, which layers this cluster's modules onto the hub image.
-fn render_dockerfile(
-    cluster_name: &str,
-    repo_paths: &[(String, String)],
-    mise_tools: &[(String, String, String)],
-    scenario_dirs: &[(String, String, String)],
-) -> String {
+/// Render the scenario Dockerfile's opening comment, which says what the image is and where its modules come from.
+///
+/// A published image copies nothing out of a checkout, so the ignore file that re-admits built artifacts has no part in
+/// it; what it says instead is where its modules come from.
+fn render_dockerfile_header(cluster_name: &str, published: bool) -> String {
     let mut out = String::default();
     out.push_str("# syntax=docker/dockerfile:1\n\n");
+    let sourcing = if published {
+        concat!(
+            "# This scenario consumes the project's releases, so its modules are fetched from the registry they are\n",
+            "# published to rather than copied from a checkout, and the image builds from the deployment directory\n",
+            "# alone.\n",
+        )
+    } else {
+        concat!(
+            "# The sibling `Dockerfile.dockerignore` is what makes the COPYs below possible. The repository's root\n",
+            "# `.dockerignore` drops every `*.wasm` and `*.onnx` so the CI images built from `./Dockerfile` stay\n",
+            "# small; BuildKit uses this Dockerfile's own ignore file instead, which re-admits the built `pkg/`\n",
+            "# directories and nothing else.\n",
+        )
+    };
     let _write_result = writeln!(
         out,
         concat!(
@@ -92,17 +180,24 @@ fn render_dockerfile(
             "# stages exactly the modules this cluster's agents declare, plus the packages those modules depend on,\n",
             "# into the `/app` paths the hub already scans.\n",
             "#\n",
-            "# The sibling `Dockerfile.dockerignore` is what makes the COPYs below possible. The repository's root\n",
-            "# `.dockerignore` drops every `*.wasm` and `*.onnx` so the CI images built from `./Dockerfile` stay\n",
-            "# small; BuildKit uses this Dockerfile's own ignore file instead, which re-admits the built `pkg/`\n",
-            "# directories and nothing else.\n",
+            "{sourcing}",
         ),
         name = cluster_name,
         hub = HUB_DOCKERFILE,
+        sourcing = sourcing,
     );
+    out
+}
 
-    if !mise_tools.is_empty() {
-        out.push_str(&render_deps_stage(mise_tools));
+/// Render the scenario image, which layers this cluster's modules onto the hub image.
+fn render_dockerfile(cluster_name: &str, published: bool, sources: &ImageSources) -> String {
+    let mut out = render_dockerfile_header(cluster_name, published);
+
+    if !sources.mise_tools.is_empty() {
+        out.push_str(&render_deps_stage(&sources.mise_tools));
+    }
+    if !sources.released.is_empty() {
+        out.push_str(&render_released_stage(&sources.released));
     }
 
     // Each section above ends with its own blank line, so none of them start with one. Doing it the other way round
@@ -128,10 +223,14 @@ fn render_dockerfile(
     // modules/har1/pkg`, and emitted the module root instead -- so the committed output and the CI regeneration
     // disagreed, and the drift check failed. A module that genuinely has no `pkg/` now fails loudly at image build
     // rather than silently generating a different Dockerfile per machine.
-    for (repo_path, docker_path) in repo_paths {
+    for (repo_path, docker_path) in &sources.repo_paths {
         let _write_result = writeln!(out, "COPY --chown=10001:10001 {repo_path}/pkg {docker_path}/pkg");
     }
-    for (_, _, docker_path) in mise_tools {
+    // One copy of the whole staged tree, which mirrors `/app` path for path.
+    if !sources.released.is_empty() {
+        out.push_str("COPY --from=released --chown=10001:10001 /staged/app /app\n");
+    }
+    for (_, _, docker_path) in &sources.mise_tools {
         let _write_result = writeln!(
             out,
             "COPY --from=deps --chown=10001:10001 /staged{docker_path} {docker_path}"
@@ -140,7 +239,7 @@ fn render_dockerfile(
     // Each from the named build context its `module_paths:` entry is handed to the build as, and whole rather than
     // its `pkg/`: whether the module serves from `pkg/` or its root is the scenario author's layout, and the hub finds
     // either once the directory is there. hadolint reads a context name as an undefined stage, as with `hub` above.
-    for (context, context_path, docker_path) in scenario_dirs {
+    for (context, context_path, docker_path) in &sources.scenario_dirs {
         let operands = format!("[{}, {}]", dockerfile_word(context_path), dockerfile_word(docker_path));
         let _write_result = writeln!(
             out,
@@ -242,6 +341,67 @@ const DEPS_STAGE_TOOL_COPY: &str = concat!(
     "EOF\n",
     "\n",
 );
+
+/// Image the released-modules stage runs `npm` from, on the Node major the repository's own `node` tool is pinned to.
+const NODE_IMAGE: &str = "node:22-bookworm-slim";
+
+/// Build secret carrying the token GitHub Packages reads are made with, the id the repo-root Dockerfile uses too.
+pub(crate) const REGISTRY_TOKEN_SECRET: &str = "gh_token";
+
+/// Environment variable the registry token is read from on the host and exposed as inside the fetching step.
+pub(crate) const REGISTRY_TOKEN_ENV: &str = "GITHUB_TOKEN";
+
+/// Render the stage that fetches this repository's modules from the registry a published scenario consumes them from.
+///
+/// `npm pack` rather than a download by URL, because it checks each tarball against the integrity the registry records
+/// for it before writing it. The tarball holds the module's `pkg/` exactly as it was published, under npm's `package/`
+/// prefix, which the extraction strips. The token reaches the step as a secret mount, never as a build argument or a
+/// file in a layer, and the npm config only names it: npm expands `${GITHUB_TOKEN}` when it reads the file.
+fn render_released_stage(released: &[(String, String)]) -> String {
+    // One `printf` per line, appending, so no line of the step outgrows the file's width.
+    let npmrc = super::mise::npmrc_contents()
+        .lines()
+        .fold(String::default(), |mut steps, line| {
+            let _write_result = writeln!(steps, "printf '%s\\n' '{line}' >> /released.npmrc");
+            steps
+        });
+    let mut stage = format!(
+        concat!(
+            "# Fetch the released modules this scenario serves.\n",
+            "# GitHub Packages refuses an anonymous read even of a public package, so the build takes a `gh_token`\n",
+            "# secret, which is only ever mounted into the step that needs it.\n",
+            "FROM {image} AS released\n",
+            "\n",
+            "ENV NPM_CONFIG_USERCONFIG=/released.npmrc\n",
+            "RUN bash <<'EOF'\n",
+            "set -euo pipefail\n",
+            "{npmrc}",
+            "EOF\n",
+            "\n",
+        ),
+        image = NODE_IMAGE,
+        npmrc = npmrc,
+    );
+    for (package, docker_path) in released {
+        let _write_result = writeln!(stage, "ENV STAGE_PACKAGE=\"{package}\"");
+        let _write_result = writeln!(stage, "ENV STAGE_DEST=\"/staged{docker_path}/pkg\"");
+        let _write_result = writeln!(
+            stage,
+            "RUN --mount=type=secret,id={REGISTRY_TOKEN_SECRET},env={REGISTRY_TOKEN_ENV} bash <<'EOF'"
+        );
+        stage.push_str(concat!(
+            "set -euo pipefail\n",
+            "cd /tmp\n",
+            "tarball=\"$(npm pack --silent \"${STAGE_PACKAGE}@latest\")\"\n",
+            "mkdir -p \"${STAGE_DEST}\"\n",
+            "tar -xzf \"${tarball}\" -C \"${STAGE_DEST}\" --strip-components=1\n",
+            "rm \"${tarball}\"\n",
+            "EOF\n",
+            "\n",
+        ));
+    }
+    stage
+}
 
 /// Render the stage that installs the mise-staged packages the cluster's modules depend on.
 ///

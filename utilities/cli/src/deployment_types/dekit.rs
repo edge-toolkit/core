@@ -9,6 +9,7 @@ use super::document;
 use super::mise::{COLLECTOR_TASK, HUB_TASK, OPENER_TASK, collector_container};
 use crate::error::CliError;
 use crate::input::ClusterInput;
+use crate::placement::{Site, hub_site};
 use crate::{OutputType, hub_http_base, module_registry, resolve_cluster_runners};
 
 /// How long the collector gets to exit once stopped.
@@ -36,9 +37,14 @@ pub fn generate_dekit_deployment(cluster: &ClusterInput, output_dir: &Path) -> R
         cluster,
     )?;
     let collector_url = format!("http://localhost:{}", Services::OtlpCollector.port());
+    // A multi-machine cluster tags each task with its machine and starts none on `dekit up`, since every machine runs
+    // the same file and `up` would otherwise start the whole cluster on each of them; `dekit start +<machine>` starts
+    // one machine's share instead.
+    let autostart = cluster.machines.is_empty();
+    let server = hub_site(cluster);
 
     let mut tasks = Mapping::new();
-    let mut collector = task(COLLECTOR_TASK, &[], true);
+    let mut collector = task(COLLECTOR_TASK, &[], autostart, &server);
     insert(&mut collector, "ready", http_ready(&format!("{collector_url}/healthz")));
     // `docker run` is stopped through Docker rather than by signalling the client: a client that dies before it has
     // passed the signal on leaves the container running and holding the collector's port.
@@ -49,23 +55,27 @@ pub fn generate_dekit_deployment(cluster: &ClusterInput, output_dir: &Path) -> R
     insert(&mut collector, "stop", Value::Mapping(stop));
     insert(&mut tasks, COLLECTOR_TASK, Value::Mapping(collector));
 
-    let mut hub = task(HUB_TASK, &[COLLECTOR_TASK], true);
+    let mut hub = task(HUB_TASK, &[COLLECTOR_TASK], autostart, &server);
     insert(&mut hub, "ready", http_ready(&format!("{}/health", hub_http_base())));
     insert(&mut tasks, HUB_TASK, Value::Mapping(hub));
 
     for runner in runners {
-        insert(
-            &mut tasks,
-            &runner.name,
-            Value::Mapping(task(&runner.name, &[HUB_TASK], true)),
-        );
+        // A runner on another machine cannot wait on a hub task this runner does not hold, so it restarts until the
+        // hub on the server answers instead.
+        let remote = runner.site.is_remote();
+        let deps: &[&str] = if remote { &[] } else { &[HUB_TASK] };
+        let mut runner_task = task(&runner.name, deps, autostart, &runner.site);
+        if remote {
+            insert(&mut runner_task, "autorestart", Value::from("on-failure"));
+        }
+        insert(&mut tasks, &runner.name, Value::Mapping(runner_task));
     }
 
     // A job, since it opens the browser and exits, and not started on `dekit up`: it is there to be run once the
     // collector is up, which its dependency then waits for.
     let mut opener = Mapping::new();
     insert(&mut opener, "type", Value::from("job"));
-    opener.extend(task(OPENER_TASK, &[COLLECTOR_TASK], false));
+    opener.extend(task(OPENER_TASK, &[COLLECTOR_TASK], false, &server));
     insert(&mut tasks, OPENER_TASK, Value::Mapping(opener));
 
     let config = DekitConfig {
@@ -86,11 +96,21 @@ pub fn generate_dekit_deployment(cluster: &ClusterInput, output_dir: &Path) -> R
 /// A task left out of `autostart` still starts when another that depends on it does, so only what nothing else pulls in
 /// strictly needs it. Every long-running process is marked anyway, because which of them a scenario's runners pull in
 /// varies, and one with no runners would otherwise start nothing at all.
-fn task(name: &str, deps: &[&str], autostart: bool) -> Mapping {
+///
+/// Tagged with the machine at `site`, so `dekit start +<machine>` selects it; a single-host task carries no tags.
+fn task(name: &str, deps: &[&str], autostart: bool, site: &Site) -> Mapping {
     let mut task = Mapping::new();
     insert(&mut task, "cmd", strings(&["mise", "run", name]));
     if !deps.is_empty() {
         insert(&mut task, "deps", strings(deps));
+    }
+    let tags = site.machine_names();
+    if !tags.is_empty() {
+        insert(
+            &mut task,
+            "tags",
+            Value::Sequence(tags.into_iter().map(Value::from).collect()),
+        );
     }
     if autostart {
         insert(&mut task, "autostart", Value::Bool(true));

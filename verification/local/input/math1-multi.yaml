@@ -1,0 +1,27 @@
+cluster_name: "math1-multi"
+deployment_type: "mise"
+
+# The math1 pair split across two machines, so the exchange crosses from one to the other.
+# The trigger shares the server with the hub and the collector; the twin runs on `edge` and reaches the hub at
+# the server's address. Both addresses are loopback, which keeps every format's per-machine slices runnable side
+# by side on one host while still taking the remote-runner paths: the edge twin is given the server's address
+# rather than `localhost`, and nothing on it waits on the hub's readiness.
+agents:
+  - name: "math1-twin"
+    runner: "web"
+    resources:
+      - type: "math1"
+
+  - name: "math1-trigger"
+    runner: "web"
+    resources:
+      - type: "math1-sender"
+
+machines:
+  - name: "server"
+    address: "127.0.0.1"
+    agents: ["math1-trigger"]
+
+  - name: "edge"
+    address: "127.0.0.1"
+    agents: ["math1-twin"]

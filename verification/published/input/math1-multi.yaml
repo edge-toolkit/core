@@ -1,0 +1,26 @@
+cluster_name: "math1-multi"
+deployment_type: "mise"
+
+# The `local` tree's scenario of the same name, rendered against released artifacts rather than built ones.
+# Placement is entirely the generator's: a released runner already reaches whatever hub its `WS_SERVER_URL` names.
+artifact_source: "published"
+
+agents:
+  - name: "math1-twin"
+    runner: "web"
+    resources:
+      - type: "math1"
+
+  - name: "math1-trigger"
+    runner: "web"
+    resources:
+      - type: "math1-sender"
+
+machines:
+  - name: "server"
+    address: "127.0.0.1"
+    agents: ["math1-trigger"]
+
+  - name: "edge"
+    address: "127.0.0.1"
+    agents: ["math1-twin"]

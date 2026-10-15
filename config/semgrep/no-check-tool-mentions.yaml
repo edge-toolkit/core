@@ -606,6 +606,8 @@ rules:
         - "/.github/workflows/test.yaml" # Notes the Windows lane's handling of the tool.
         - "/Dockerfile.nanoserver" # Disables the tool for an image whose build does not need it.
         - "/config/semgrep/**" # This ruleset, where the tool's own rule syntax is the subject.
+        - "/config/ast-grep/rules/semgrep-path-anchored.yaml" # Lints this ruleset's own path filters.
+        - "/config/ast-grep/rules/semgrep-path-rooted.yaml" # Lints this ruleset's own path filters.
         - "/config/generated-trees.toml" # Maps each generated tree onto the exclusion key this tool needs.
         - "/config/conftest/policy/generated_trees/generated_trees.rego" # Enforces that mapping.
         - "/config/conftest/policy/generated_trees/generated_trees_test.rego" # Unit tests for it.

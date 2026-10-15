@@ -8,10 +8,9 @@
 # stages exactly the modules this cluster's agents declare, plus the packages those modules depend on,
 # into the `/app` paths the hub already scans.
 #
-# The sibling `Dockerfile.dockerignore` is what makes the COPYs below possible. The repository's root
-# `.dockerignore` drops every `*.wasm` and `*.onnx` so the CI images built from `./Dockerfile` stay
-# small; BuildKit uses this Dockerfile's own ignore file instead, which re-admits the built `pkg/`
-# directories and nothing else.
+# This scenario consumes the project's releases, so its modules are fetched from the registry they are
+# published to rather than copied from a checkout, and the image builds from the deployment directory
+# alone.
 
 # `hub` is a named build context, not a stage defined here.
 # The generated compose file wires it to the hub service with `service:`, so compose builds the hub

@@ -3,7 +3,7 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "*.py"
+        - "/**/*.py"
       exclude:
         - "/services/ws-modules/**" # The Python modules, whose source is why the language is here at all.
         - "/services/ws-pyo3-runner/python/**" # Guest programs the runner loads, module payloads in all but name.
