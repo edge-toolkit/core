@@ -1,6 +1,6 @@
 //! The crate's error type and its foreign-error conversions.
 
-/// Errors raised by `et-repo-check`.
+/// Errors raised by `et-int-repo-check`.
 #[derive(Debug, thiserror::Error)]
 #[expect(
     clippy::error_impl_error,

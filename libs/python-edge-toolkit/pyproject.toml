@@ -1,10 +1,33 @@
 [project]
-dependencies = ["et-ws"]
+authors = [{ email = "john.vandenberg@curtin.edu.au", name = "John Vandenberg" }]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Framework :: Pydantic :: 2",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: System :: Distributed Computing",
+  "Typing :: Typed",
+]
+dependencies = ["et-ws>=0.1.0"]
 description = "A collection of utilities and common code for Edge Toolkit Python modules"
+keywords = ["cloudevents", "edge-computing", "edge-toolkit", "pyodide", "websocket"]
 license = "Apache-2.0 OR MIT"
 name = "edge-toolkit"
+readme = "README.md"
 requires-python = ">=3.10"
 version = "0.1.0"
+
+[project.urls]
+Changelog = "https://github.com/edge-toolkit/core/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/edge-toolkit/core"
+Issues = "https://github.com/edge-toolkit/core/issues"
+Source = "https://github.com/edge-toolkit/core/tree/main/libs/python-edge-toolkit"
 
 [dependency-groups]
 dev = ["pytest", "pytest-cov"]

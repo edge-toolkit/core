@@ -86,24 +86,24 @@ deno_resolver = "0.85"
 # baking our own startup snapshot we'd otherwise hit the panic on first run.
 deno_runtime = { version = "0.262", features = ["transpile", "hmr"] }
 document-features = "0.2"
-edge-toolkit = { path = "libs/edge-toolkit", version = "0.3.1" }
-et-cli = { path = "utilities/cli", version = "0.1.1" }
-et-modules-service = { path = "services/modules", version = "0.2.0" }
-et-onnx = { path = "utilities/onnx", version = "0.1.0" }
-et-org = { path = "libs/org", version = "0.1.0" }
-et-otlp = { path = "libs/et-otlp", version = "0.2.0" }
-et-path = { path = "libs/path", version = "0.2.0" }
-et-rest-client = { path = "generated/rust-rest", version = "0.1.0", default-features = false }
-et-storage-service = { path = "services/storage", version = "0.1.1", default-features = false }
-et-test-helpers = { path = "libs/test-helpers", version = "0.1.0" }
-et-test-otlp = { path = "libs/test-otlp", version = "0.1.0" }
-et-wasi-guest = { path = "libs/wasi-guest", version = "0.1.0" }
-et-web = { path = "libs/web", version = "0.2.0" }
-et-websockify-service = { path = "services/websockify", version = "0.1.0" }
-et-ws-runner-common = { path = "libs/ws-runner-common", version = "0.2.0" }
-et-ws-server = { path = "services/ws-server", version = "0.2.2" }
-et-ws-service = { path = "services/ws", version = "0.1.1" }
-et-ws-test-server = { path = "services/ws-test-server", version = "0.1.0" }
+edge-toolkit = { path = "libs/edge-toolkit", version = "0.4.0" }
+et-cli = { path = "utilities/cli", version = "0.2.0" }
+et-modules-service = { path = "services/modules", version = "0.3.0" }
+et-onnx = { path = "utilities/onnx", version = "0.2.0" }
+et-org = { path = "libs/org", version = "0.2.0" }
+et-otlp = { path = "libs/et-otlp", version = "0.3.0" }
+et-path = { path = "libs/path", version = "0.3.0" }
+et-rest-client = { path = "generated/rust-rest", version = "0.2.0", default-features = false }
+et-storage-service = { path = "services/storage", version = "0.2.0", default-features = false }
+et-test-helpers = { path = "libs/test-helpers", version = "0.2.0" }
+et-test-otlp = { path = "libs/test-otlp", version = "0.2.0" }
+et-wasi-guest = { path = "libs/wasi-guest", version = "0.2.0" }
+et-web = { path = "libs/web", version = "0.3.0" }
+et-websockify-service = { path = "services/websockify", version = "0.2.0" }
+et-ws-runner-common = { path = "libs/ws-runner-common", version = "0.3.0" }
+et-ws-server = { path = "services/ws-server", version = "0.3.0" }
+et-ws-service = { path = "services/ws", version = "0.2.0" }
+et-ws-test-server = { path = "services/ws-test-server", version = "0.2.0" }
 et-ws-wasm-agent = { path = "services/ws-wasm-agent", version = "0.3.0" }
 fake = "5"
 fs-err = "3"
@@ -240,23 +240,22 @@ tree-sitter-zig = "1"
 url = "2"
 utoipa = { version = "5", features = ["actix_extras", "yaml"] }
 uuid = { version = "1", features = ["serde", "v4", "v7"] }
-wasi-webgpu-wasmtime = "0.3"
+wasi-webgpu-wasmtime = "0.4"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 wasm-bindgen-test = "0.3"
 # Keep all three on the same major for ABI compat -- wasmtime-wasi-nn tracks wasmtime's version exactly.
-# 48.0.4 is the floor, not a preference: RUSTSEC-2026-0321 through RUSTSEC-2026-0327 are fixed only in
-# >=48.0.4 <49 or >=49.0.2. The major is held at 48 by wasi-webgpu-wasmtime, whose newest release (0.3.1)
-# requires wasmtime ^48.
-wasmtime = { version = "48.0.4", features = ["async", "component-model"] }
+# 49.0.3 is the floor, not a preference: RUSTSEC-2026-0352 through RUSTSEC-2026-0364 are fixed only from 49.0.3
+# on the 49 line. The major is held at 49 by wasi-webgpu-wasmtime, whose 0.4 line requires wasmtime ^49.
+wasmtime = { version = "49.0.3", features = ["async", "component-model"] }
 # The generator behind wasmtime's `bindgen!` macro, driven directly by et-int-gen.
 # Emitting the runner's host bindings as a checked-in source file keeps ws-wasi-runner self-contained: the
 # macro read WIT from `../../generated/specs/wit`, which `cargo package` cannot include, so the crate failed
 # to build from its own tarball. Named `internal` upstream, so treat its API as unstable and pinned to the
 # wasmtime version above; the drift check catches any change in what it emits.
-wasmtime-internal-wit-bindgen = { version = "48.0.4", features = ["async", "component-model-async"] }
-wasmtime-wasi = "48.0.4"
-wasmtime-wasi-nn = { version = "48", default-features = false, features = ["onnx"] }
+wasmtime-internal-wit-bindgen = { version = "49.0.3", features = ["async", "component-model-async"] }
+wasmtime-wasi = "49.0.3"
+wasmtime-wasi-nn = { version = "49", default-features = false, features = ["onnx"] }
 web-sys = "0.3"
 # wgpu-core/wgpu-types come in via wasi-webgpu-wasmtime's re-exports; only the instance handle is ours.
 wgpu-core = { version = "29", default-features = false }
@@ -264,10 +263,10 @@ wgpu-types = "29"
 # Windows-only feature-unification shim: forces `winapi/std` on for deno_io.
 winapi = { version = "0.3", features = ["std"] }
 wit-bindgen = "0.62"
-wit-encoder = "0.254"
+wit-encoder = "0.258"
 # Held to the release wasmtime-internal-wit-bindgen builds against.
 # et-int-gen hands it a `Resolve` from this crate, and a second wit-parser in the graph makes that a different type.
-wit-parser = "0.254"
+wit-parser = "0.258"
 
 [profile.release.package.et-ws-wasm-agent]
 opt-level = "s"
@@ -508,7 +507,7 @@ ignore = [
   # But cargo-unmaintained looks only at the repo root and reports "not in".
   "rand_chacha",
   # Unmaintained upstream at gitlab redox-os/users; its getrandom (^0.2) and thiserror (^1.0) pins lag latest.
-  # Redox-OS-only code, pulled via the version-pinned wasmtime 48's cache stack (wasmtime-internal-cache ->
+  # Redox-OS-only code, pulled via the version-pinned wasmtime's cache stack (wasmtime-internal-cache ->
   # directories-next -> dirs-sys-next, the same family as the dirs-sys-next entry above); never compiled on
   # our target platforms.
   "redox_users",

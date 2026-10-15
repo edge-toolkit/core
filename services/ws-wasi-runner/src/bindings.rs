@@ -996,7 +996,7 @@ pub mod et {
                 for<'a> D::Data<'a>: Host,
                 T: 'static,
             {
-                let mut inst = linker.instance("et:ws-messages/messages@0.1.0")?;
+                let mut inst = linker.instance("et:ws-messages/messages@0.2.0")?;
                 add_to_linker_instance::<T, D>(&mut inst, host_getter)
             }
         }
@@ -1272,7 +1272,7 @@ pub mod et {
                 for<'a> D::Data<'a>: Host,
                 T: 'static + Send,
             {
-                let mut inst = linker.instance("et:ws-wasi/ws@0.1.0")?;
+                let mut inst = linker.instance("et:ws-wasi/ws@0.2.0")?;
                 add_to_linker_instance::<T, D>(&mut inst, host_getter)
             }
         }
@@ -2168,10 +2168,10 @@ pub mod exports {
                     ) -> wasmtime::Result<GuestIndices> {
                         let instance = _instance_pre
                             .component()
-                            .get_export_index(None, "et:ws-wasi/entry@0.1.0")
+                            .get_export_index(None, "et:ws-wasi/entry@0.2.0")
                             .ok_or_else(|| {
                                 wasmtime::format_err!(
-                                    "no exported instance named `et:ws-wasi/entry@0.1.0`"
+                                    "no exported instance named `et:ws-wasi/entry@0.2.0`"
                                 )
                             })?;
                         let mut lookup = move |name: &str| {
@@ -2180,7 +2180,7 @@ pub mod exports {
                                 .get_export_index(Some(&instance), name)
                                 .ok_or_else(|| {
                                     wasmtime::format_err!(
-                                        "instance export `et:ws-wasi/entry@0.1.0` does not have export `{name}`"
+                                        "instance export `et:ws-wasi/entry@0.2.0` does not have export `{name}`"
                                     )
                                 })
                         };

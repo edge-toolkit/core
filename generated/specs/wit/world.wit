@@ -1,7 +1,7 @@
-package et:ws-wasi@0.1.0;
+package et:ws-wasi@0.2.0;
 
 interface ws {
-  use et:ws-messages/messages@0.1.0.{ client-message, server-message };
+  use et:ws-messages/messages@0.2.0.{ client-message, server-message };
   variant ws-error {
     // Connection-level failure: TCP/TLS, URL parse, HTTP upgrade, frame
     // I/O, write-buffer-full, and tungstenite's wire-protocol violations

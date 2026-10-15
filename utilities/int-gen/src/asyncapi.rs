@@ -17,7 +17,7 @@ use crate::Error;
 ///
 /// Mirrors the `version = ...` literal on `WsApiClient`'s `#[asyncapi(...)]` derive below; if you bump one, bump the
 /// other (and the runtime check in [`build_spec`] will catch you if you don't).
-pub const WS_VERSION: &str = "0.1.0";
+pub const WS_VERSION: &str = "0.2.0";
 
 /// Wire-protocol description.
 ///
@@ -32,7 +32,7 @@ pub const WS_DESCRIPTION: &str =
 #[derive(AsyncApi)]
 #[asyncapi(
     title = "Edge Toolkit WebSocket Protocol",
-    version = "0.1.0",
+    version = "0.2.0",
     description = "Edge Toolkit WS protocol -- typed et-* messages plus relay envelopes for foreign frames."
 )]
 #[asyncapi_server(
@@ -49,7 +49,7 @@ struct WsApiClient;
 #[derive(AsyncApi)]
 #[asyncapi(
     title = "Edge Toolkit WebSocket Protocol",
-    version = "0.1.0",
+    version = "0.2.0",
     description = "Server-side half -- merged into the client-side spec by int-gen."
 )]
 #[asyncapi_server(

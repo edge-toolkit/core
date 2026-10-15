@@ -2,7 +2,7 @@
 description = "math 1"
 name = "et-ws-math1"
 publish = true
-version = "0.1.0"
+version = "0.2.0"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

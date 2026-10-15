@@ -1,4 +1,4 @@
-//! Translates `schemars` JSON Schemas for `ClientMessage` and `ServerMessage` into the `et:ws-messages@0.1.0` WIT
+//! Translates `schemars` JSON Schemas for `ClientMessage` and `ServerMessage` into the `et:ws-messages` WIT
 //! package.
 //!
 //! Built with `wit-encoder` so the output format is canonical and the construction is type-checked -- we never produce

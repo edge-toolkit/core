@@ -17,6 +17,8 @@
 # - publish-module-packages: publishes the owner-scoped module packages to
 #   GitHub Packages, which is where a published deployment stages the
 #   modules the hub serves.
+# - publish-python-packages: publishes the edge-toolkit Python package, and
+#   the et-ws package it depends on, to TestPyPI and then PyPI.
 #
 # Not in ALL_LANGS (maint isn't a language); invoked manually:
 #
@@ -25,6 +27,7 @@
 #   MISE_ENV=maint mise run publish-rp-wasm-to-release
 #   MISE_ENV=maint mise run release-rust-crates patch
 #   MISE_ENV=maint mise run publish-module-packages
+#   MISE_ENV=maint mise run publish-python-packages
 
 [tools]
 # Rust-native HTTP client replacing the host `curl`.
@@ -841,13 +844,12 @@ description = "Publish one batch of five workspace crates to crates.io (dry run 
 # numbers stay stable for a part-published release, and re-check with the same pairs afterwards.
 run = """
 crates=(
-  et-org et-path edge-toolkit et-test-helpers et-otlp
-  et-test-otlp et-web et-rest-client et-ws-runner-common et-ws-wasm-agent
+  et-org et-path et-test-otlp edge-toolkit et-test-helpers
+  et-otlp et-web et-rest-client et-ws-runner-common et-ws-wasm-agent
   et-wasi-guest et-ws-comm1 et-ws-data1 et-ws-math1 et-ws-math1-sender
   et-ws-wasi-comm1 et-ws-wasi-data1 et-ws-wasi-math1 et-ws-wasi-math1-sender et-modules-service
   et-storage-service et-websockify-service et-ws-service et-ws-test-server et-ws-pyo3-runner
   et-ws-server et-ws-wasi-runner et-ws-web-runner et-cli et-onnx
-  et-repo-check
 )
 per_batch=5
 # `set --` then `$#` counts the array without the `${` + `#` pair, which mise's Tera pass reads as a comment.
@@ -995,4 +997,60 @@ shell = "{{ vars.task_shell }}"
 usage = """
 flag "--execute" help="Actually publish; omit to print the plan and change nothing"
 flag "--only <modules>" help="Comma-separated module names to publish; omit for every built module"
+"""
+
+[tasks.publish-python-packages]
+description = "Publish the edge-toolkit and et-ws Python packages to (Test)PyPI (dry run without --execute)"
+# Fresh sdists and wheels go to a scratch dir rather than reusing the ws-module `pkg/` dirs.
+# Those hold only the wheel et-modules-service serves, and PyPI wants the sdist beside it. et-ws goes first
+# because edge-toolkit depends on it, so nobody installing part way through a run gets an unresolvable package.
+#
+# TestPyPI is the default index, and PyPI refuses any version TestPyPI does not already hold. A PyPI upload can
+# never be replaced, only yanked, so each release's project page and metadata are seen on TestPyPI first.
+# `--skip-testpypi-check` lifts that for when TestPyPI itself is the obstacle -- down, or holding a squatted name.
+#
+# `--check-url` has uv skip a file the index already holds rather than fail on it, so a run that stopped halfway
+# is safe to repeat. The token comes from `UV_PUBLISH_TOKEN` in the maintainer's own environment, and must be
+# one issued by the chosen index -- the two do not share accounts. Without it uv falls back to prompting for a
+# username and password, which neither index accepts. Trusted publishing is off because it needs a CI OIDC
+# token, and CI is deliberately never given write access to a package index.
+run = """
+packages=(et-ws edge-toolkit)
+case "$usage_index" in
+  testpypi) host=test.pypi.org upload=https://test.pypi.org/legacy/ ;;
+  pypi) host=pypi.org upload=https://upload.pypi.org/legacy/ ;;
+esac
+if [ "${usage_execute:-}" = "true" ] && [ -z "${UV_PUBLISH_TOKEN:-}" ]; then
+  echo "UV_PUBLISH_TOKEN is unset -- export an API token issued by $host first" >&2
+  exit 1
+fi
+if [ "$usage_index" = "pypi" ] && [ "${usage_skip_testpypi_check:-}" = "true" ]; then
+  echo "warning: not checking that these versions are on TestPyPI first" >&2
+elif [ "$usage_index" = "pypi" ]; then
+  for package in "${packages[@]}"; do
+    version=$(uv version --package "$package" --short)
+    if ! xh --quiet --check-status GET "https://test.pypi.org/pypi/$package/$version/json"; then
+      echo "$package $version is not on TestPyPI -- publish it there and check its page first" >&2
+      exit 1
+    fi
+  done
+fi
+dist=target/scratch/pypi
+coreutils rm -rf "$dist"
+publish_args=(--publish-url "$upload" --check-url "https://$host/simple/" --trusted-publishing never)
+if [ "${usage_execute:-}" != "true" ]; then
+  publish_args+=(--dry-run)
+fi
+for package in "${packages[@]}"; do
+  uv build --package "$package" --out-dir "$dist/$package"
+  uv publish "${publish_args[@]}" "$dist/$package"/*
+done
+"""
+shell = "{{ vars.task_shell }}"
+usage = """
+flag "--execute" help="Actually publish; omit to build and validate the uploads and change nothing"
+flag "--index <index>" help="Which index to publish to; pypi needs the same versions on testpypi" default="testpypi" {
+  choices "testpypi" "pypi"
+}
+flag "--skip-testpypi-check" help="With --index pypi, publish even if TestPyPI does not hold these versions"
 """

@@ -2,7 +2,7 @@
 name = "et-test-helpers"
 publish = true
 description = "Low-dependency helpers for edge-toolkit tests"
-version = "0.1.0"
+version = "0.2.0"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
