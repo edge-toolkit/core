@@ -108,6 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     for (name, pkg_dir) in et_modules_service::list_modules(&env.modules) {
         info!("Loading module {name} at {}", pkg_dir.display());
     }
+    let http_config = env.http.clone();
     let server = HttpServer::new(move || {
         let registry = agent_registry.clone();
         let config = env.clone();
@@ -132,8 +133,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     .add(("Cross-Origin-Embedder-Policy", "require-corp")),
             )
             .configure(|cfg| configure_app(cfg, registry, &config))
-    })
-    .bind(("0.0.0.0", http_port))?;
+    });
+    let server = http_config.apply(server).bind(("0.0.0.0", http_port))?;
     #[cfg(feature = "tls")]
     let server = server.bind_rustls_0_23(("0.0.0.0", advertised_port), rustls_config)?;
     let server = server.run();

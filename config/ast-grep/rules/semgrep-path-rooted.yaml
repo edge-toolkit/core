@@ -10,14 +10,13 @@ files:
   - config/semgrep/*.yaml
 # The same entry shape as semgrep-path-anchored: a scalar in an `include` or `exclude` sequence under `paths`.
 rule:
-  kind: flow_node
-  # The single-metavariable pattern is deliberate, because this is an ast-grep rule rather than a semgrep one.
-  # `$PATH` binds the matched scalar for the fix's transform, and `kind` above already narrows the search.
-  # nosemgrep: yaml.semgrep.slow-pattern-single-metavariable
-  pattern: $PATH
-  regex: '^"?[^"/][^"]*/'
+  # `$PATH` binds the matched scalar for the fix's transform; the selector is what restricts it to a scalar.
+  pattern:
+    context: "- $PATH"
+    selector: flow_node
+  regex: '^["'']?[^"''/][^"'']*/'
   not:
-    regex: '^"?\*\*/'
+    regex: '^["'']?\*\*/'
   inside:
     kind: block_sequence_item
     inside:
@@ -36,6 +35,6 @@ transform:
   ROOTED:
     replace:
       source: $PATH
-      replace: '^("?)'
+      replace: '^(["'']?)'
       by: "$1/"
 fix: $ROOTED

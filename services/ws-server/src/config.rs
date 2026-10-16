@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 #[cfg(feature = "otlp")]
 use edge_toolkit::config::OtlpConfig;
+pub use et_actix_web_config::HttpServerConfig;
 #[cfg(feature = "modules")]
 pub use et_modules_service::ModulesConfig;
 #[cfg(feature = "storage")]
@@ -47,6 +48,10 @@ pub struct NetConfig {
 #[cfg_attr(feature = "env-schema", derive(schemars::JsonSchema))]
 #[non_exhaustive]
 pub struct Config {
+    /// actix `HttpServer` tuning: workers, connection limits, keep-alive and timeouts.
+    /// `serde-env` maps the inner fields as `HTTP_*`, e.g. `HTTP_WORKERS`.
+    #[serde(default)]
+    pub http: HttpServerConfig,
     /// OpenTelemetry config.
     #[cfg(feature = "otlp")]
     #[serde(default)]

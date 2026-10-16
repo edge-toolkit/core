@@ -43,7 +43,7 @@ qr = ["dep:qr2term"]
 storage = ["dep:et-storage-service"]
 ## Adds the HTTPS/WSS listener, serving the PEM pair named by `TLS_CERT_FILE` and `TLS_KEY_FILE`.
 ## Without it the hub serves plain HTTP only, which browsers refuse for camera, sensors and other secure-context APIs.
-tls = ["actix-web/rustls-0_23", "dep:rustls", "dep:serde-inline-default"]
+tls = ["actix-web/rustls-0_23", "dep:rustls", "dep:serde-inline-default", "et-actix-web-config/rustls-0_23"]
 ## Generates a self-signed `localhost` pair into `TLS_CERT_FILE` and `TLS_KEY_FILE` when they do not exist yet.
 ## Without it a missing pair is a startup error, for deployments that provision their own certificates.
 tls-self-signed = ["dep:fs-err", "dep:rcgen", "tls"]
@@ -61,6 +61,7 @@ openapi-spec = ["dep:utoipa", "et-modules-service?/openapi-spec", "et-storage-se
 env-schema = [
   "dep:schemars",
   "edge-toolkit/env-schema",
+  "et-actix-web-config/env-schema",
   "et-modules-service?/env-schema",
   "et-storage-service?/env-schema",
   "et-ws-service/env-schema",
@@ -73,6 +74,7 @@ actix-web.workspace = true
 clap.workspace = true
 document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
+et-actix-web-config.workspace = true
 et-modules-service = { workspace = true, optional = true }
 et-otlp = { workspace = true, optional = true }
 et-storage-service = { workspace = true, optional = true }
