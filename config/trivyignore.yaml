@@ -48,27 +48,62 @@ misconfigurations:
       The ConfigMap holds the collector's dev-only account name, not a secret; the password is held in an
       operator-created Secret and never written to a committed file.
 
-  # Trivy cannot resolve the generated Dockerfiles' base, so three findings about it are all artifacts.
-  # Each scenario image opens `FROM hub`, a named build context the compose file wires to the hub service and
-  # a plain `docker build` supplies with `--build-context`. Trivy reads that as an image reference it cannot
-  # fetch, and so reports it as untagged (DS-0001), as running whatever user it cannot see (DS-0002), and as
-  # lacking the healthcheck it cannot read (DS-0026). The hub Dockerfile actually declares `USER 10001`, and a
-  # build context has no tag to give.
+  # The container runtime plugins have to reach the node's NRI socket, which only root can connect to.
+  # `/var/run/nri/nri.sock` is root's, mode 0755, and connecting to a Unix socket needs write permission on it, so
+  # the plugin containers run as uid 0 with the socket mounted from the host. That is all they keep: every capability
+  # is dropped, privilege escalation is off and the root filesystem is read-only. Scoped to the scenarios whose limits
+  # need the plugins, so a root container or a host mount anywhere else in a generated manifest is still reported.
+  - id: KSV-0012
+    paths:
+      - "verification/local/output/math1-limits/k3s.yaml"
+    statement: >-
+      The NRI plugins must run as root to connect to the root-only NRI socket; they drop every capability.
+  - id: KSV-0020
+    paths:
+      - "verification/local/output/math1-limits/k3s.yaml"
+    statement: >-
+      The NRI plugins run as uid 0, the only user that can connect to the NRI socket.
+  - id: KSV-0021
+    paths:
+      - "verification/local/output/math1-limits/k3s.yaml"
+    statement: >-
+      The NRI plugins run as root's group alongside uid 0, the only user that can connect to the NRI socket.
+  - id: KSV-0105
+    paths:
+      - "verification/local/output/math1-limits/k3s.yaml"
+    statement: >-
+      The NRI plugins run as uid 0, the only user that can connect to the NRI socket.
+  - id: KSV-0023
+    paths:
+      - "verification/local/output/math1-limits/k3s.yaml"
+    statement: >-
+      The NRI plugins mount the node's NRI socket, a single host socket, which is how a runtime plugin attaches.
+
+  # A local scenario image is built on a hub of its own, which has no tag to give.
+  # Its final stage is `FROM hub`, a named build context the compose file wires to the hub service it builds and a
+  # plain `docker build` supplies with `--build-context`; trivy reads that as an image reference with no tag. A
+  # published scenario names the released hub image instead, so the rule still applies there.
   - id: DS-0001
     paths:
-      - "verification/*/output/*/Dockerfile"
+      - "verification/local/output/*/Dockerfile"
     statement: >-
       `FROM hub` is a named build context, not a registry reference; a build context cannot carry a tag.
-  - id: DS-0002
+
+  # A published scenario image is built on the released hub, which is only ever published as `latest`.
+  # The maintainer's image publishing assembles that one tag from each architecture's build, so it is the only one a
+  # node of either architecture resolves; there is no versioned tag yet for the Dockerfile to pin instead.
+  - id: DS-0001
     paths:
-      - "verification/*/output/*/Dockerfile"
+      - "verification/published/output/*/Dockerfile"
     statement: >-
-      The base this inherits from declares USER 10001; trivy cannot resolve a named build context to see it.
+      The released hub is published only as `latest`, assembled across architectures; no versioned tag exists.
+
+  # Scenario images serve the hub, whose health is checked by the deployment rather than the image.
   - id: DS-0026
     paths:
       - "verification/*/output/*/Dockerfile"
     statement: >-
-      Any healthcheck is inherited from the hub base, which trivy cannot resolve to read.
+      Every generated deployment declares its own /health check on the hub, as for services/ws-server.
 
   # The runners exit when their module finishes, so there is no steady state for a healthcheck to report.
   # A HEALTHCHECK describes a long-running service. These images run one module to completion and stop, which

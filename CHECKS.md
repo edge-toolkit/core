@@ -4,7 +4,7 @@
 - **Tools:** 47
 - **Shell-script checks:** 9
 - **Checks with a repair pass:** 21
-- **Rules:** 334 custom local rules, or non-default strict linter settings
+- **Rules:** 337 custom local rules, or non-default strict linter settings
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
 declares it, the aggregate that runs it as part of `mise run check`, the `fix` or `fmt` pass that repairs what it
@@ -1026,6 +1026,22 @@ Rules, from `config/semgrep`:
 - `prefer-yaml-toml-over-json` -- Prefer YAML or TOML over JSON/JSONC/JSONL for config. If the tool requires a
   JSON-family format, prefer .jsonc over .json so the config can carry inline comments, and add the file to this rule's
   paths.exclude allowlist.
+- `published-from-registry` -- A published scenario image may be built only on an image from docker.io or ghcr.io, and
+  has to name that registry. These are the deployments generated against released artifacts, so every base they build on
+  is something the operator pulls on trust; holding each `FROM` to the two registries this project publishes to and
+  draws its upstream images from, spelled out rather than left to the daemon's default, keeps an image from anywhere
+  else -- or a build context standing in for one -- from becoming part of a deployment unseen. A flag such as
+  `--platform` is refused the same way, since it is not a registry.
+- `published-from-stage-only` -- In a published scenario image, `--from=` may name only one of the Dockerfile's own
+  stages, `released` or `deps`. `COPY --from=` and `RUN --mount=...,from=` both take an image reference as readily as a
+  stage name, and a bare name that matches no stage is pulled from a registry -- so either is a way to bring an image
+  into the build that no `FROM` line declares and the rule holding every `FROM` to docker.io and ghcr.io never sees. The
+  stage names are the ones et-cli generates.
+- `published-no-additional-contexts` -- A published deployment hands its image build no additional context, neither a
+  compose `additional_contexts:` nor a `docker build --build-context`. A named context substitutes whatever it points at
+  -- a local image, a directory, another service's build -- for the name a `FROM` or `COPY --from=` uses, so it is a way
+  round the rules holding a published Dockerfile to registry images it declares itself. A published scenario image names
+  the released hub directly and fetches its modules from their releases, so it has nothing to be handed.
 - `published-no-relative-path` -- A published deployment names no relative path, so neither `..` nor `./` has a place in
   one. These are the deployments generated against released artifacts, for someone who has the releases and not this
   repository. A path climbing out of the deployment directory is a path into a checkout they do not have -- a compose

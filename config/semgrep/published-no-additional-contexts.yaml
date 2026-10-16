@@ -1,0 +1,14 @@
+rules:
+  - id: published-no-additional-contexts
+    languages: [generic]
+    paths:
+      include:
+        - "/verification/published/**"
+    pattern-regex: '\badditional_contexts\b|--build-context\b'
+    message: >-
+      A published deployment hands its image build no additional context, neither a compose `additional_contexts:`
+      nor a `docker build --build-context`. A named context substitutes whatever it points at -- a local image, a
+      directory, another service's build -- for the name a `FROM` or `COPY --from=` uses, so it is a way round the
+      rules holding a published Dockerfile to registry images it declares itself. A published scenario image names
+      the released hub directly and fetches its modules from their releases, so it has nothing to be handed.
+    severity: ERROR

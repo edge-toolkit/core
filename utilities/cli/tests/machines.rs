@@ -195,7 +195,7 @@ fn compose_gives_each_machine_a_profile() {
     let services = &yaml(&dir, "compose.yaml")["services"];
     for server_side in [
         "openobserve",
-        "ws-server-hub",
+        "hub-image-build",
         "ws-server",
         "math1-trigger",
         "wasi-twin",

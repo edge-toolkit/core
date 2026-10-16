@@ -21,6 +21,12 @@ services:
       ZO_DATA_DIR: /data
     volumes:
       - openobserve-data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
   ws-server:
     healthcheck:
       test:
@@ -35,8 +41,6 @@ services:
     env_file:
       - secrets.env
     build:
-      additional_contexts:
-        hub: docker-image://ghcr.io/edge-toolkit/core/et-ws-server:latest
     network_mode: host
     environment:
       MODULES_PATHS: "/app/node_modules/onnxruntime-web,
@@ -52,6 +56,12 @@ services:
     depends_on:
       openobserve:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
 volumes:
   openobserve-data: {}
   ws-server-storage: {}

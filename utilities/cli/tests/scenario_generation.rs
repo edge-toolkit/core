@@ -505,8 +505,9 @@ fn the_artifact_source_decides_whether_runner_images_are_pulled() {
         !published_readme.contains("docker build -t et-ws-wasi-runner:latest"),
         "nothing is built for a pulled image: {published_readme}"
     );
+    // The scenario Dockerfile names the released hub, so the build is handed no hub of its own.
     assert!(
-        published_readme.contains("hub=ghcr.io/edge-toolkit/core/et-ws-server:latest"),
+        !published_readme.contains("hub=") && published_readme.contains("onto the released hub image"),
         "the hub reaches the scenario build from the registry: {published_readme}"
     );
 }
@@ -651,9 +652,8 @@ fn the_artifact_source_decides_what_the_compose_stack_builds() {
     let local = fs::read_to_string(local_dir.join("compose.yaml")).unwrap();
     let published = fs::read_to_string(published_dir.join("compose.yaml")).unwrap();
 
-    // The build-only hub service exists solely to be a named build context, so it goes when nothing is built.
     assert!(
-        local.contains("ws-server-hub:") && local.contains("hub: service:ws-server-hub"),
+        local.contains("hub-image-build:") && local.contains("hub: service:hub-image-build"),
         "a local stack builds the hub it layers onto: {local}"
     );
     assert!(
@@ -662,11 +662,23 @@ fn the_artifact_source_decides_what_the_compose_stack_builds() {
     );
 
     assert!(
-        !published.contains("ws-server-hub"),
+        !published.contains("hub-image-build"),
         "a published stack has no hub to build: {published}"
     );
-    let hub = "hub: docker-image://ghcr.io/edge-toolkit/core/et-ws-server:latest";
-    assert!(published.contains(hub), "it layers onto the released hub: {published}");
+    // The scenario Dockerfile names the released hub itself, so there is no hub context to hand it.
+    assert!(!published.contains("hub: "), "and hands its build no hub: {published}");
+    let dockerfile = fs::read_to_string(published_dir.join("Dockerfile")).unwrap();
+    assert!(
+        dockerfile.contains("\nFROM ghcr.io/edge-toolkit/core/et-ws-server:latest\n")
+            && !dockerfile.contains("FROM hub"),
+        "it layers onto the released hub: {dockerfile}"
+    );
+    let local_dockerfile = fs::read_to_string(local_dir.join("Dockerfile")).unwrap();
+    assert!(
+        local_dockerfile.contains("\nFROM hub\n"),
+        "a local one onto its own: {local_dockerfile}"
+    );
+    assert!(dockerfile.ends_with("\nUSER 10001\n") && local_dockerfile.ends_with("\nUSER 10001\n"));
     assert!(
         published.contains("image: ghcr.io/edge-toolkit/core/et-ws-wasi-runner:latest"),
         "and pulls its runners: {published}"
@@ -706,7 +718,7 @@ agents:
     );
 
     let dockerfile = &files["Dockerfile"];
-    assert!(dockerfile.contains("FROM node:22-bookworm-slim AS released\n"));
+    assert!(dockerfile.contains("FROM docker.io/library/node:22-bookworm-slim AS released\n"));
     assert!(dockerfile.contains("ENV STAGE_PACKAGE=\"@edge-toolkit/et-ws-wasi-math1\"\n"));
     assert!(dockerfile.contains("RUN --mount=type=secret,id=gh_token,env=GITHUB_TOKEN bash <<'EOF'\n"));
     assert!(dockerfile.contains("COPY --from=released --chown=10001:10001 /staged/app /app\n"));
@@ -714,7 +726,7 @@ agents:
 
     // No context or Dockerfile is named, so compose's defaults stand: this directory, and the Dockerfile in it.
     let compose = &files["compose.yaml"];
-    assert!(compose.contains("    build:\n      additional_contexts:\n"));
+    assert!(compose.contains("    build:\n      secrets:\n"));
     assert!(compose.contains("      secrets:\n        - gh_token\n"));
     assert_eq!(files["Dockerfile.dockerignore"].lines().last(), Some("*"));
     assert!(compose.ends_with("secrets:\n  gh_token:\n    environment: GITHUB_TOKEN\n"));
@@ -750,10 +762,10 @@ fn a_published_scenario_staging_a_mise_tool_still_builds_from_the_repository() {
         "cluster_name: \"pinned\"\nagents:\n  - name: \"face\"\n    resources:\n      - type: \"pyface1\"\n",
     );
 
-    assert!(files["Dockerfile"].contains("FROM debian:bookworm-slim AS deps\n"));
+    assert!(files["Dockerfile"].contains("FROM docker.io/library/debian:bookworm-slim AS deps\n"));
     assert!(files["compose.yaml"].contains("      context: ../"));
     // Its own module is still a release, so the token is needed even though the build runs from the checkout.
-    assert!(files["README.md"].contains("supplies it. From the repository root,\nwith `GITHUB_TOKEN` set to"));
+    assert!(files["README.md"].contains("the build pulls. From the repository root,\nwith `GITHUB_TOKEN` set to"));
     assert!(files["README.md"].contains(" --secret id=gh_token,env=GITHUB_TOKEN"));
 }
 

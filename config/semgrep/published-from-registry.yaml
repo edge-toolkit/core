@@ -1,0 +1,15 @@
+rules:
+  - id: published-from-registry
+    languages: [generic]
+    paths:
+      include:
+        - "/verification/published/**/Dockerfile"
+    pattern-regex: '(?mi)^[ \t]*FROM[ \t]+(?!(?:docker\.io|ghcr\.io)/)\S+'
+    message: >-
+      A published scenario image may be built only on an image from docker.io or ghcr.io, and has to name that
+      registry. These are the deployments generated against released artifacts, so every base they build on is
+      something the operator pulls on trust; holding each `FROM` to the two registries this project publishes to and
+      draws its upstream images from, spelled out rather than left to the daemon's default, keeps an image from
+      anywhere else -- or a build context standing in for one -- from becoming part of a deployment unseen. A flag
+      such as `--platform` is refused the same way, since it is not a registry.
+    severity: ERROR

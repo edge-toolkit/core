@@ -72,7 +72,7 @@ docker compose up --build
 ```
 
 The compose stack starts OpenObserve and builds one image: the `Dockerfile` in this directory,
-which stages this scenario's modules onto the released hub image it names as a build context.
+which stages this scenario's modules onto the released hub image it names.
 `ws-server` runs with host networking so it advertises the same LAN IP as the `mise` deployment.
 
 ### Open The UIs
@@ -108,18 +108,15 @@ docker compose --profile edge up --build
 ## Run With k3s
 
 The manifests reference images by name and never build them, so this scenario's own image has
-to reach the node first. It layers its modules onto the module-less hub image and takes that
-hub as a _named build context_ rather than building it, so a plain `docker build` of the
-scenario Dockerfile fails on `FROM hub` -- pointing the context at the published hub is what
-supplies it. From this directory,
+to reach the node first. It layers its modules onto the released hub image, which its Dockerfile
+names and the build pulls. From this directory,
 with `GITHUB_TOKEN` set to a token that can read the GitHub Packages the build fetches this
 scenario's released modules from:
 
 ```bash
 scenario=math1-multi
-hub=ghcr.io/edge-toolkit/core/et-ws-server:latest
 image="et-ws-server-$scenario:latest"
-docker build --build-context "hub=docker-image://$hub" --secret id=gh_token,env=GITHUB_TOKEN -t "$image" .
+docker build --secret id=gh_token,env=GITHUB_TOKEN -t "$image" .
 docker save "$image" | sudo k3s ctr images import -
 ```
 

@@ -1,0 +1,486 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: et-math1-limits
+---
+apiVersion: v1
+kind: ConfigMap
+data:
+  RUST_LOG: warn
+  ZO_DATA_DIR: /data
+  ZO_ROOT_USER_EMAIL: root@example.com
+metadata:
+  name: openobserve-config
+  namespace: et-math1-limits
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openobserve-data
+  namespace: et-math1-limits
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: openobserve
+  name: openobserve
+  namespace: et-math1-limits
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openobserve
+  template:
+    metadata:
+      labels:
+        app: openobserve
+    spec:
+      containers:
+        - envFrom:
+            - configMapRef:
+                name: openobserve-config
+            - secretRef:
+                name: et-math1-limits-secrets
+          image: openobserve/openobserve:v0.91.5
+          imagePullPolicy: IfNotPresent
+          name: openobserve
+          ports:
+            - containerPort: 5080
+          readinessProbe:
+            exec:
+              command:
+                - /openobserve
+                - node
+                - status
+            failureThreshold: 20
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /data
+              name: openobserve-data
+            - mountPath: /tmp
+              name: openobserve-tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: openobserve-data
+          persistentVolumeClaim:
+            claimName: openobserve-data
+        - emptyDir: {}
+          name: openobserve-tmp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: openobserve
+  name: openobserve
+  namespace: et-math1-limits
+spec:
+  ports:
+    - name: http
+      port: 5080
+      targetPort: 5080
+  selector:
+    app: openobserve
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ws-server-storage
+  namespace: et-math1-limits
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ws-server
+  name: ws-server
+  namespace: et-math1-limits
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ws-server
+  template:
+    metadata:
+      annotations:
+        cpu.weight.memory-qos.nri.io/ws-server: "59"
+        memory.low.memory-qos.nri.io/ws-server: "268435456"
+        required-plugins.noderesource.dev/container.ws-server: '["nri-memory-qos"]'
+      labels:
+        app: ws-server
+    spec:
+      containers:
+        - args:
+            - --agent-registry
+            - /app/runtime/registry.yaml
+          command:
+            - et-ws-server
+          env:
+            - name: MODULES_PATHS
+              value: /app/services/ws-modules/math1,/app/services/ws-modules/math1-sender
+            - name: MODULES_ROOT
+              value: ""
+            - name: OTLP_AUTH_USERNAME
+              value: root@example.com
+            - name: OTLP_COLLECTOR_URL
+              value: http://openobserve:5080/api/default/v1
+            - name: STORAGE_URL
+              value: file:///app/storage
+            - name: TLS_CERT_FILE
+              value: /app/runtime/cert.pem
+            - name: TLS_KEY_FILE
+              value: /app/runtime/key.pem
+          envFrom:
+            - secretRef:
+                name: et-math1-limits-secrets
+          image: et-ws-server-math1-limits:latest
+          imagePullPolicy: IfNotPresent
+          name: ws-server
+          ports:
+            - containerPort: 8080
+            - containerPort: 8443
+          readinessProbe:
+            failureThreshold: 20
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: "2"
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /app/storage
+              name: ws-server-storage
+            - mountPath: /app/runtime
+              name: ws-server-runtime
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: ws-server-storage
+          persistentVolumeClaim:
+            claimName: ws-server-storage
+        - emptyDir: {}
+          name: ws-server-runtime
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ws-server
+  name: ws-server
+  namespace: et-math1-limits
+spec:
+  ports:
+    - name: ws
+      port: 8080
+      targetPort: 8080
+    - name: wss
+      port: 8443
+      targetPort: 8443
+  selector:
+    app: ws-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: math1-twin
+  name: math1-twin
+  namespace: et-math1-limits
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: math1-twin
+  template:
+    metadata:
+      annotations:
+        cpu.max.memory-qos.nri.io/math1-twin: 150000 100000
+        cpuset.cpus.memory-qos.nri.io/math1-twin: "0"
+        memory.swap.max.memory-qos.nri.io/math1-twin: "536870912"
+        pids.max.memory-qos.nri.io/math1-twin: "512"
+        required-plugins.noderesource.dev/container.math1-twin: '["nri-memory-qos","ulimit-adjuster"]'
+        ulimits.noderesource.dev/container.math1-twin: |
+          - type: RLIMIT_NOFILE
+            soft: 4096
+            hard: 8192
+      labels:
+        app: math1-twin
+    spec:
+      containers:
+        - env:
+            - name: RUNNER_MODULE
+              value: "@edge-toolkit/et-ws-math1"
+            - name: WS_SERVER_URL
+              value: ws://ws-server:8080/ws
+          image: et-ws-web-runner:latest
+          imagePullPolicy: IfNotPresent
+          name: math1-twin
+          resources:
+            limits:
+              cpu: 1500m
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: runner-tmp
+            - mountPath: /dev/shm
+              name: shm
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - emptyDir: {}
+          name: runner-tmp
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 128Mi
+          name: shm
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: math1-trigger
+  name: math1-trigger
+  namespace: et-math1-limits
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: math1-trigger
+  template:
+    metadata:
+      labels:
+        app: math1-trigger
+    spec:
+      containers:
+        - env:
+            - name: RUNNER_MODULE
+              value: "@edge-toolkit/et-ws-math1-sender"
+            - name: WS_SERVER_URL
+              value: ws://ws-server:8080/ws
+          image: et-ws-web-runner:latest
+          imagePullPolicy: IfNotPresent
+          name: math1-trigger
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: runner-tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - emptyDir: {}
+          name: runner-tmp
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: et-nri-plugins
+---
+apiVersion: v1
+kind: ConfigMap
+data:
+  config.yaml: |
+    unifiedannotations:
+    - cpu.max
+    - cpu.weight
+    - cpuset.cpus
+    - io.bfq.weight
+    - memory.low
+    - memory.swap.max
+    - pids.max
+metadata:
+  name: nri-memory-qos-config
+  namespace: et-nri-plugins
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: nri-memory-qos
+  name: nri-memory-qos
+  namespace: et-nri-plugins
+spec:
+  selector:
+    matchLabels:
+      app: nri-memory-qos
+  template:
+    metadata:
+      labels:
+        app: nri-memory-qos
+    spec:
+      containers:
+        - args:
+            - --idx
+            - "90"
+            - --config
+            - /etc/nri/memory-qos/config.yaml
+          command:
+            - nri-memory-qos
+          image: ghcr.io/containers/nri-plugins/nri-memory-qos:v0.14.0
+          imagePullPolicy: IfNotPresent
+          name: nri-memory-qos
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: false
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: /var/run/nri/nri.sock
+              name: nri-socket
+            - mountPath: /etc/nri/memory-qos
+              name: nri-memory-qos-config
+      priorityClassName: system-node-critical
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - hostPath:
+            path: /var/run/nri/nri.sock
+            type: Socket
+          name: nri-socket
+        - configMap:
+            name: nri-memory-qos-config
+          name: nri-memory-qos-config
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: nri-plugin-ulimit-adjuster
+  name: nri-plugin-ulimit-adjuster
+  namespace: et-nri-plugins
+spec:
+  selector:
+    matchLabels:
+      app: nri-plugin-ulimit-adjuster
+  template:
+    metadata:
+      labels:
+        app: nri-plugin-ulimit-adjuster
+    spec:
+      containers:
+        - args:
+            - -idx
+            - "10"
+          image: ghcr.io/containerd/nri/plugins/ulimit-adjuster:v0.10.0
+          imagePullPolicy: IfNotPresent
+          name: nri-plugin-ulimit-adjuster
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: false
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: /var/run/nri/nri.sock
+              name: nri-socket
+      priorityClassName: system-node-critical
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - hostPath:
+            path: /var/run/nri/nri.sock
+            type: Socket
+          name: nri-socket

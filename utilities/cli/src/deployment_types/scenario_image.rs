@@ -6,7 +6,7 @@ use fs_err as fs;
 
 use crate::error::CliError;
 use crate::input::{ArtifactSource, ClusterInput};
-use crate::{ModuleSource, cluster_module_names, module_registry, resolve_cluster_modules};
+use crate::{IMAGE_REGISTRY, ModuleSource, cluster_module_names, module_registry, resolve_cluster_modules};
 
 /// Build context path of the hub image's Dockerfile, which the scenario image layers on top of.
 const HUB_DOCKERFILE: &str = "services/ws-server/Dockerfile";
@@ -189,6 +189,41 @@ fn render_dockerfile_header(cluster_name: &str, published: bool) -> String {
     out
 }
 
+/// Render the stage the scenario image is built on: the released hub when published, the one built beside it otherwise.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the base half of render_dockerfile, split out to keep it within its length budget"
+)]
+fn render_hub_base(published: bool) -> String {
+    if published {
+        return format!(
+            concat!(
+                "# The released hub image, which this scenario layers its modules onto.\n",
+                "# `latest` because that is the one tag the hub is published under: it is assembled from each\n",
+                "# architecture's build, so a node of either architecture resolves it. That is why the rule against\n",
+                "# a `latest` base is suppressed on the next line.\n",
+                "# hadolint ignore=DL3007\n",
+                "FROM {registry}/et-ws-server:latest\n",
+                "\n",
+            ),
+            registry = IMAGE_REGISTRY,
+        );
+    }
+    format!(
+        concat!(
+            "# `hub` is a named build context, not a stage defined here.\n",
+            "# The generated compose file wires it to its `{service}` service, so compose builds the hub image\n",
+            "# first and hands the result over under this name. That is also why the version-tag rule is\n",
+            "# suppressed on the next line: hadolint reads `hub` as an untagged image, but there is no tag to give a\n",
+            "# build context, and the image it resolves to is pinned by the hub Dockerfile rather than here.\n",
+            "# hadolint ignore=DL3006\n",
+            "FROM hub\n",
+            "\n",
+        ),
+        service = super::HUB_IMAGE_BUILD,
+    )
+}
+
 /// Render the scenario image, which layers this cluster's modules onto the hub image.
 fn render_dockerfile(cluster_name: &str, published: bool, sources: &ImageSources) -> String {
     let mut out = render_dockerfile_header(cluster_name, published);
@@ -202,15 +237,8 @@ fn render_dockerfile(cluster_name: &str, published: bool, sources: &ImageSources
 
     // Each section above ends with its own blank line, so none of them start with one. Doing it the other way round
     // doubles the separator wherever two sections meet.
+    out.push_str(&render_hub_base(published));
     out.push_str(concat!(
-        "# `hub` is a named build context, not a stage defined here.\n",
-        "# The generated compose file wires it to the hub service with `service:`, so compose builds the hub\n",
-        "# image first and hands the result over under this name. That is also why the version-tag rule is\n",
-        "# suppressed on the next line: hadolint reads `hub` as an untagged image, but there is no tag to give a\n",
-        "# build context, and the image it resolves to is pinned by the hub Dockerfile rather than here.\n",
-        "# hadolint ignore=DL3006\n",
-        "FROM hub\n",
-        "\n",
         "LABEL org.opencontainers.image.source=\"",
         et_org::repository_url!(),
         "\"\n",
@@ -246,6 +274,13 @@ fn render_dockerfile(cluster_name: &str, published: bool, sources: &ImageSources
             "# hadolint ignore=DL3022\nCOPY --from={context} --chown=10001:10001 {operands}"
         );
     }
+    // The user the hub image already runs as, restated so the image says so itself rather than only through a base
+    // a scanner cannot see into; every COPY above hands its files to the same id. An image with no COPY already ends
+    // in the blank line that closes its LABEL.
+    if !out.ends_with("\n\n") {
+        out.push('\n');
+    }
+    out.push_str("USER 10001\n");
 
     out
 }
@@ -259,7 +294,7 @@ const DEPS_BASE_STAGE: &str = concat!(
     "# These are published packages the modules load at runtime, provisioned by mise rather than built\n",
     "# here, so this stage installs them from the repo's own pins and copies each one to the `/app` path\n",
     "# the hub serves it from.\n",
-    "FROM debian:bookworm-slim AS deps\n",
+    "FROM docker.io/library/debian:bookworm-slim AS deps\n",
     "\n",
     "# The package list is named rather than inlined so a policy can hold it against the repo-root Dockerfile.\n",
     "# Every name here is drawn from that file's own COMMON_PACKAGES: the shell, the archive tools mise unpacks\n",
@@ -343,7 +378,7 @@ const DEPS_STAGE_TOOL_COPY: &str = concat!(
 );
 
 /// Image the released-modules stage runs `npm` from, on the Node major the repository's own `node` tool is pinned to.
-const NODE_IMAGE: &str = "node:22-bookworm-slim";
+const NODE_IMAGE: &str = "docker.io/library/node:22-bookworm-slim";
 
 /// Build secret carrying the token GitHub Packages reads are made with, the id the repo-root Dockerfile uses too.
 pub(crate) const REGISTRY_TOKEN_SECRET: &str = "gh_token";

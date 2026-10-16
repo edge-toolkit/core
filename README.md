@@ -458,6 +458,38 @@ nothing new to run it. `mise run k3s-verify --scenario math1-multi` applies it t
 machine and checks each pod landed on its own machine's node. `mise run compose-verify` brings it up one machine
 profile at a time.
 
+### Resource limits
+
+Each agent with a runner can set `limits:` for its runner processes, and `services.hub.limits:` and
+`services.collector.limits:` set them for the hub and the collector. The fields are `cpus` or `cpu_quota` with
+`cpu_period`, `cpu_reservation` or `cpu_shares`, `cpuset`, `memory`, `memory_reservation`, `memswap_limit`, `pids`,
+`shm_size`, `ulimits` and `blkio_weight`:
+
+```yaml
+services:
+  hub:
+    limits:
+      cpus: 2
+      memory: "1 GiB"
+agents:
+  - name: "math1-twin"
+    runner: "web"
+    limits:
+      cpus: 1.5
+      memory: "1 GiB"
+      pids: 512
+    resources:
+      - type: "math1"
+```
+
+Compose and k3s apply every field, and each lands in the same cgroup value under both; an unset CPU or memory limit
+takes a default both share. k3s carries what the Pod API cannot through two upstream container runtime plugins,
+containerd's `ulimit-adjuster` and nri-plugins' `nri-memory-qos`, and refuses a limited pod on a node without them, so
+the generated `README.md` has every machine prepared first. The mise and dekit deployments run each process directly
+on the host and apply none. `verification/local/input/math1-limits.yaml` sets a sample, which
+`mise run k3s-verify local --scenario math1-limits` and `mise run compose-verify --scenario math1-limits` check in the
+running containers.
+
 ## Grant
 
 This repository is part of a grant managed by the School of EECMS, Curtin University.

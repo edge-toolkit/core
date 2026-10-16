@@ -1,0 +1,14 @@
+rules:
+  - id: published-from-stage-only
+    languages: [generic]
+    paths:
+      include:
+        - "/verification/published/**/Dockerfile"
+    pattern-regex: '(?mi)\bfrom=(?!(?:released|deps)(?:[\s,]|$))\S*'
+    message: >-
+      In a published scenario image, `--from=` may name only one of the Dockerfile's own stages, `released` or `deps`.
+      `COPY --from=` and `RUN --mount=...,from=` both take an image reference as readily as a stage name, and a bare
+      name that matches no stage is pulled from a registry -- so either is a way to bring an image into the build
+      that no `FROM` line declares and the rule holding every `FROM` to docker.io and ghcr.io never sees. The stage
+      names are the ones et-cli generates.
+    severity: ERROR

@@ -6,6 +6,8 @@ use edge_toolkit::config::get_project_root;
 use fs_err as fs;
 use serde::{Deserialize, Serialize};
 
+use crate::limits::Limits;
+
 /// This repository, as its own workspace manifest states it.
 ///
 /// Compared against rather than merely looked for, because the question it answers is identity: whether the tree this
@@ -90,6 +92,51 @@ pub struct ClusterInput {
     /// reaching the hub at the server's `address`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub machines: Vec<Machine>,
+    /// Settings for the processes every deployment runs whatever its agents, from `services:`.
+    #[serde(default, skip_serializing_if = "Services::is_unset")]
+    pub services: Services,
+}
+
+/// The processes every deployment runs alongside the agents' runners, each with its own settings.
+///
+/// A table of its own, and each process a table within it, so a setting a later version adds has a place to go
+/// without a new top-level key per process and per setting.
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+#[non_exhaustive]
+pub struct Services {
+    /// The telemetry collector, from `services.collector:`.
+    #[serde(default, skip_serializing_if = "Service::is_unset")]
+    pub collector: Service,
+    /// The hub, from `services.hub:`.
+    #[serde(default, skip_serializing_if = "Service::is_unset")]
+    pub hub: Service,
+}
+
+impl Services {
+    /// Whether neither service sets anything, which is how a scenario that predates `services:` reads.
+    #[must_use]
+    pub fn is_unset(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+/// One of the deployment's own processes and the settings the scenario gives it.
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+#[non_exhaustive]
+pub struct Service {
+    /// Resource limits for the process, from `limits:`; the same fields an agent's `limits:` takes.
+    #[serde(default, skip_serializing_if = "Limits::is_unset")]
+    pub limits: Limits,
+}
+
+impl Service {
+    /// Whether the scenario sets nothing for this service.
+    #[must_use]
+    pub fn is_unset(&self) -> bool {
+        *self == Self::default()
+    }
 }
 
 /// One machine of a multi-machine cluster, and the agents that run on it.
@@ -126,6 +173,7 @@ impl Default for ClusterInput {
             agents: Vec::new(),
             module_paths: Vec::new(),
             machines: Vec::new(),
+            services: Services::default(),
         }
     }
 }
@@ -217,6 +265,9 @@ pub struct Agent {
     /// them between runs for no reason anyone could act on.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub env: BTreeMap<String, String>,
+    /// Resource limits each of this agent's runner processes runs under, from `limits:`.
+    #[serde(default, skip_serializing_if = "Limits::is_unset")]
+    pub limits: Limits,
     pub resources: Vec<Resource>,
 }
 

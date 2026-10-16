@@ -21,6 +21,12 @@ services:
       ZO_DATA_DIR: /data
     volumes:
       - openobserve-data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
   ws-server:
     healthcheck:
       test:
@@ -35,8 +41,6 @@ services:
     env_file:
       - secrets.env
     build:
-      additional_contexts:
-        hub: docker-image://ghcr.io/edge-toolkit/core/et-ws-server:latest
       secrets:
         - gh_token
     network_mode: host
@@ -52,6 +56,12 @@ services:
     depends_on:
       openobserve:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
   math1-trigger:
     image: ghcr.io/edge-toolkit/core/et-ws-wasi-runner:latest
     network_mode: host
@@ -61,6 +71,12 @@ services:
     depends_on:
       ws-server:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
   wasi-math1-twin:
     image: ghcr.io/edge-toolkit/core/et-ws-wasi-runner:latest
     network_mode: host
@@ -70,6 +86,12 @@ services:
     depends_on:
       ws-server:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
 volumes:
   openobserve-data: {}
   ws-server-storage: {}

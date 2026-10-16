@@ -14,11 +14,13 @@
 # directories and nothing else.
 
 # `hub` is a named build context, not a stage defined here.
-# The generated compose file wires it to the hub service with `service:`, so compose builds the hub
-# image first and hands the result over under this name. That is also why the version-tag rule is
+# The generated compose file wires it to its `hub-image-build` service, so compose builds the hub image
+# first and hands the result over under this name. That is also why the version-tag rule is
 # suppressed on the next line: hadolint reads `hub` as an untagged image, but there is no tag to give a
 # build context, and the image it resolves to is pinned by the hub Dockerfile rather than here.
 # hadolint ignore=DL3006
 FROM hub
 
 LABEL org.opencontainers.image.source="https://github.com/edge-toolkit/core"
+
+USER 10001
