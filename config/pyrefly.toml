@@ -54,6 +54,7 @@ replace-imports-with-any = [
   "et_ws",
   "et_ws.*",
   "pyodide_http",
+  "pytest",
   "torch",
   "wit_world",
   "wit_world.*",

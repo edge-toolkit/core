@@ -1,0 +1,21 @@
+agent_id = "recovery-supervisor"
+command_timeout_seconds = 10
+context = "k3d-example"
+job_id = "example-job"
+mode = "observe-only"
+namespace = "example"
+poll_seconds = 2
+state_file = "target/recovery-state.json"
+ws_url = "ws://127.0.0.1:8080/ws"
+
+[policy]
+deadline_seconds = 240
+detection_grace_seconds = 3
+max_restarts = 2
+restart_after_seconds = 20
+stall_seconds = 180
+
+[[workloads]]
+agent_id = "example-worker"
+deployment = "example-worker"
+source = "/modules/example-worker"

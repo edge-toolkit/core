@@ -12,6 +12,7 @@ branch = true
 relative_files = true
 
 [tool.coverage.paths]
+edge_toolkit = ["libs/python-edge-toolkit/edge_toolkit", "edge_toolkit", "**/edge_toolkit"]
 pydata1 = ["services/ws-modules/pydata1/pydata1", "pydata1", "**/pydata1"]
 pydemo1 = ["services/ws-modules/pydemo1/pydemo1", "pydemo1", "**/pydemo1"]
 pyeye1 = ["services/ws-modules/pyeye1/pyeye1", "pyeye1", "**/pyeye1"]

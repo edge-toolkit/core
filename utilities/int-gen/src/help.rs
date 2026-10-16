@@ -61,6 +61,7 @@ pub fn clap_commands() -> BTreeMap<&'static str, clap::Command> {
         ("et-cli", et_cli::cli::Cli::command()),
         ("et-int-gen", crate::cli::Cli::command()),
         ("et-onnx", et_onnx::Args::command()),
+        ("et-recovery-supervisor", et_recovery_supervisor::cli::Args::command()),
         ("et-ws-server", et_ws_server::cli::Args::command()),
     ])
 }

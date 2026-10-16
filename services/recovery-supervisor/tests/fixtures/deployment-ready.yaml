@@ -1,0 +1,8 @@
+metadata:
+  generation: 2
+spec:
+  replicas: 1
+status:
+  observedGeneration: 2
+  availableReplicas: 1
+  updatedReplicas: 1

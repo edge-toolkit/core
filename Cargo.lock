@@ -4418,6 +4418,7 @@ dependencies = [
  "et-cli",
  "et-modules-service",
  "et-onnx",
+ "et-recovery-supervisor",
  "et-storage-service",
  "et-test-helpers",
  "et-ws-runner-common",
@@ -4520,6 +4521,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "et-recovery-supervisor"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "edge-toolkit",
+ "et-otlp",
+ "et-test-recovery",
+ "et-ws-runner-common",
+ "et-ws-test-server",
+ "futures-util",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tokio",
+ "tokio-tungstenite",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "et-rest-client"
 version = "0.2.0"
 dependencies = [
@@ -4591,6 +4615,17 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "et-test-recovery"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "edge-toolkit",
+ "et-recovery-supervisor",
+ "serde_json",
+ "toml",
 ]
 
 [[package]]

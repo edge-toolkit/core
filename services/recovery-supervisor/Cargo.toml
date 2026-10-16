@@ -1,0 +1,35 @@
+[package]
+name = "et-recovery-supervisor"
+publish = true
+description = "Application-neutral workload recovery supervision for Edge Toolkit"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+clap.workspace = true
+edge-toolkit.workspace = true
+et-ws-runner-common.workspace = true
+futures-util.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["macros", "process", "rt-multi-thread", "signal", "time"] }
+tokio-tungstenite.workspace = true
+toml.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+et-otlp.workspace = true
+et-test-recovery.workspace = true
+et-ws-test-server.workspace = true
+serde_yaml.workspace = true
+
+[lints]
+workspace = true

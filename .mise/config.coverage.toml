@@ -3,8 +3,7 @@
 # and the *-all tasks never touch it. Selected only by the coverage workflow, stacked on the language envs it also
 # loads (rust + the guest langs whose ws-modules the coverage build exercises, so the module-loading tests run
 # rather than self-skip). Houses the cargo-llvm-cov task so it stays out of the always-loaded config.toml.
-# cargo-llvm-cov is not a mise [tool] -- the workflow co-installs it via taiki-e/install-action. (cargo-nextest IS
-# a mise tool, from config.toml's `github:nextest-rs/nextest` entry.)
+# The focused recovery task also runs locally, so its prebuilt cargo-llvm-cov is available through mise.
 
 # conda-forge clang is a full LLVM clang with the wasm32 backend that the host clang (Apple's) lacks.
 # The wasm coverage builds need it: minicov's build.rs hardcodes bare `clang` to compile its C profiler runtime
@@ -31,6 +30,10 @@
 "aqua:hhatto/gocloc" = "latest"
 "conda:clang" = { version = "latest", os = ["linux", "macos"] }
 
+[tools."github:taiki-e/cargo-llvm-cov"]
+asset_pattern = "{{ vars.musl_pattern }}"
+version = "0.9.1"
+
 [vars]
 # The libs/ crates each branch-coverage check is answerable for, as directory names under libs/.
 # The split is which pipeline carries the crate's coverage, not a judgement about how well tested it is.
@@ -39,7 +42,7 @@
 # tasks share (wasm-cov for the guests, wasm-agent-cov and pic-viewer-cov for the browser tests) and so can
 # only be asserted where that path runs. A crate belongs to exactly one list: naming it in both would let a
 # gap in one pipeline be answered by the other.
-native_cov_libs = "actix-web-config edge-toolkit et-otlp path test-helpers test-otlp ws-runner-common"
+native_cov_libs = "actix-web-config edge-toolkit et-otlp path test-helpers test-otlp test-recovery ws-runner-common"
 wasm_cov_libs = "wasi-guest web"
 # The third kind: a crate whose source is `const` and `macro_rules!` only.
 # llvm-cov emits no records at all for one -- there is no executable code to instrument, so its tests can pass
@@ -85,10 +88,7 @@ _.path = "{{ env.HOME }}/.local/share/mise/installs/conda-clang/latest/bin"
 
 [tasks.cargo-llvm-cov]
 description = "Rust coverage (cargo-llvm-cov) + JUnit test results (nextest); emits lcov.info + JUnit reports"
-# cargo-llvm-cov is deliberately NOT a mise [tool] (like cargo-unmaintained).
-# The coverage workflow installs it via taiki-e/install-action; cargo-nextest comes from config.toml's mise tool.
-# This task just runs them. cargo-llvm-cov needs the `llvm-tools-preview` rustup component, which it adds on demand
-# against the mise-managed toolchain.
+# cargo-llvm-cov installs `llvm-tools-preview` on demand for the mise-managed toolchain.
 # `show-env` exports the coverage instrumentation env (rustc wrapper, LLVM_PROFILE_FILE, target dir) so BOTH the
 # nextest run and the mise regen tasks build + run instrumented into one profile set, then a single `report`
 # merges them. The regens -- `gen-specs` (et-int-gen) and `regen-verification` (et-cli) -- exercise the code
@@ -386,6 +386,14 @@ mise run _cov-branch-assert "$report" "{{ vars.wasm_cov_libs }}"
 """
 shell = "{{ vars.task_shell }}"
 
+[tasks.recovery-cov]
+description = "Check recovery service coverage and require complete coverage of its shared test fixtures"
+run = """
+cargo llvm-cov -p et-recovery-supervisor -p et-test-recovery --summary-only --fail-under-lines 90
+cargo llvm-cov report -p et-test-recovery --summary-only --fail-under-lines 100
+"""
+shell = "{{ vars.task_shell }}"
+
 [tasks.pytest-cov]
 description = "Combined Python coverage (pytest + web-runner Pyodide runs) -> Cobertura, plus pytest JUnit results"
 # One Python report is combined from several data sources: the pytest runs plus the web-runner Pyodide runs.
@@ -405,6 +413,12 @@ for module in pyface1 pydemo1 pyeye1 pyspeech1; do
   coreutils cp "$dir/.coverage" "$pycov/.coverage.${module}_pytest"
 done
 pyface=services/ws-modules/pyface1
+sdk=libs/python-edge-toolkit
+junit="$PWD/$pycov/junit-edge-toolkit.xml"
+cov_args="--cov=edge_toolkit --cov-report=term-missing --cov-fail-under=100"
+# shellcheck disable=SC2086
+uv run --directory "$sdk" pytest $cov_args --junitxml="$junit" -o junit_family=legacy
+coreutils cp "$sdk/.coverage" "$pycov/.coverage.edge_toolkit_pytest"
 uv run --project "$pyface" coverage combine "$pycov"
 uv run --project "$pyface" coverage xml -o coverage-python.xml
 """

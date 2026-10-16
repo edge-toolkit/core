@@ -7,6 +7,8 @@ Changelog 1.1.0.
 
 ### Added
 
+- An opt-in `et-recovery-supervisor` service observes application progress and coordinates bounded Kubernetes recovery.
+- The Python SDK provides recovery lifecycle messages and integrity-checked checkpoint storage helpers.
 - A scenario can list `machines:` to span several hosts. The first is the server, running the hub and the collector,
   and each agent runs on the machine that lists it. k3s pins each `Deployment` with a node selector on
   `edge-toolkit/machine`, compose gives each machine a profile, mise adds a `machine-<name>` task per machine, and
