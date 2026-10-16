@@ -18,6 +18,7 @@ mod error;
 mod hub_ws_url;
 mod input;
 mod module_package_json;
+mod placement;
 mod scenario_password;
 
 // `pub` here means "reachable from the binary or from `tests/`", and nothing else. This crate is a command line
@@ -32,7 +33,7 @@ pub(crate) use self::deployment_types::{
 };
 pub use self::error::CliError;
 pub(crate) use self::hub_ws_url::HUB_SERVICE;
-pub use self::hub_ws_url::{hub_service_ws_url, hub_ws_url};
+pub use self::hub_ws_url::{hub_service_ws_url, hub_ws_url, hub_ws_url_at};
 pub(crate) use self::input::running_in_this_repository;
 pub use self::input::{
     ArtifactSource, ClusterInput, DEFAULT_CLUSTER_NAME, OutputType, infer_artifact_source,
@@ -271,6 +272,7 @@ pub(crate) fn load_cluster_input(input_file: &Path) -> Result<(ClusterInput, u64
     let content = fs::read(input_file)?;
     let mut cluster: ClusterInput = serde_yaml::from_slice(&content)?;
     validate_cluster_name(&cluster.cluster_name)?;
+    placement::validate_machines(&cluster)?;
     // Relative to the input file, which is the one place a scenario can name its own modules from without knowing where
     // the CLI is run. The input itself is resolved the way `fs::read` just resolved it, against the working directory,
     // so the two cannot disagree when the CLI runs from a subdirectory of a repository. A path with no parent is a
@@ -317,7 +319,7 @@ fn validate_cluster_name(name: &str) -> Result<(), CliError> {
 /// Lowercase alphanumerics and `-`, starting and ending alphanumeric: the alphabet Kubernetes demands of an object
 /// name, and narrow enough that nothing a generated file interpolates it into needs to escape it. The caller supplies
 /// `invalid` because the same rule guards different names, and each reports which one it was.
-fn rfc1123_label<F>(name: &str, max: usize, invalid: F) -> Result<(), CliError>
+pub(crate) fn rfc1123_label<F>(name: &str, max: usize, invalid: F) -> Result<(), CliError>
 where
     F: FnOnce(String) -> CliError,
 {
@@ -424,10 +426,23 @@ fn generate_deployment_outputs(
 
     let readme_path = output_dir.join("README.md");
     let module_names = cluster_module_names(cluster);
-    let dockerfile = scenario_dockerfile_path(output_dir);
+    let needs = deployment_types::scenario_image_needs(cluster)?;
+    let image_build = ImageBuild {
+        needs,
+        dockerfile: if needs.repository {
+            scenario_dockerfile_path(output_dir)
+        } else {
+            "Dockerfile".to_string()
+        },
+        context_root: if needs.repository {
+            edge_toolkit::config::get_project_root()
+        } else {
+            std::path::absolute(output_dir)?
+        },
+    };
     fs::write(
         &readme_path,
-        generated_readme(cluster, &module_names, output_types, &dockerfile),
+        generated_readme(cluster, &module_names, output_types, &image_build),
     )?;
 
     Ok(())
@@ -597,11 +612,20 @@ fn output_summary(cluster_name: &str, output_types: &[OutputType]) -> String {
 }
 
 /// Render the README a deployment directory carries: what it holds, then how to run each format it was written in.
+/// How the README's `docker build` of the scenario image runs: what it needs, and the paths it names.
+struct ImageBuild {
+    needs: deployment_types::ImageNeeds,
+    /// The scenario Dockerfile, relative to where the build runs.
+    dockerfile: String,
+    /// Where the build runs, which the scenario's own module directories are named relative to.
+    context_root: PathBuf,
+}
+
 fn generated_readme(
     cluster: &ClusterInput,
     module_names: &[String],
     output_types: &[OutputType],
-    dockerfile: &str,
+    image_build: &ImageBuild,
 ) -> String {
     let module_summary = if module_names.is_empty() {
         "No workflow modules were selected in the scenario input.".to_string()
@@ -613,9 +637,9 @@ fn generated_readme(
     };
 
     let output_summary = output_summary(&cluster.cluster_name, output_types);
-    // Relative to the repository root, which is where the README's `docker build` runs from, and escaped because each
-    // lands inside a double-quoted shell argument.
-    let build_contexts = module_path_contexts(&cluster.module_paths, &edge_toolkit::config::get_project_root())
+    // Relative to where the README's `docker build` runs from, and escaped because each lands inside a double-quoted
+    // shell argument.
+    let build_contexts = module_path_contexts(&cluster.module_paths, &image_build.context_root)
         .iter()
         .fold(String::default(), |mut flags, (name, path)| {
             let path = escape_for_double_quotes(path);
@@ -625,14 +649,16 @@ fn generated_readme(
     let run_instructions = output_types
         .iter()
         .map(|output_type| {
-            generated_run_instructions(
+            let mut section = generated_run_instructions(
                 *output_type,
                 &cluster.cluster_name,
-                dockerfile,
+                image_build,
                 &runner_kinds(cluster),
                 cluster.artifact_source,
                 &build_contexts,
-            )
+            );
+            section.push_str(&machine_instructions(*output_type, cluster));
+            section
         })
         .collect::<Vec<_>>()
         .join("\n");
@@ -707,8 +733,16 @@ fn secrets_note() -> String {
 /// Deduplicated because a scenario with two agents on the same runner needs its image built once, and ordered by first
 /// appearance rather than sorted so the generated instructions read in the order the input declares.
 fn runner_kinds(cluster: &ClusterInput) -> Vec<String> {
+    runner_kinds_where(cluster, |_agent| true)
+}
+
+/// The distinct runner kinds of the agents `include` accepts, in the order they first appear.
+fn runner_kinds_where<F>(cluster: &ClusterInput, include: F) -> Vec<String>
+where
+    F: Fn(&input::Agent) -> bool,
+{
     let mut kinds: Vec<String> = Vec::new();
-    for agent in &cluster.agents {
+    for agent in cluster.agents.iter().filter(|agent| include(agent)) {
         let Some(kind) = agent.runner.as_deref().map(str::trim).filter(|kind| !kind.is_empty()) else {
             continue;
         };
@@ -751,7 +785,7 @@ const fn mise_install_note(artifacts: ArtifactSource) -> &'static str {
 fn generated_run_instructions(
     output_type: OutputType,
     cluster_name: &str,
-    dockerfile: &str,
+    image_build: &ImageBuild,
     runners: &[String],
     artifacts: ArtifactSource,
     build_contexts: &str,
@@ -809,8 +843,154 @@ fn generated_run_instructions(
             ),
             hub = compose_hub_note(artifacts)
         ),
-        OutputType::K3s => k3s_run_instructions(cluster_name, dockerfile, runners, artifacts, build_contexts),
+        OutputType::K3s => k3s_run_instructions(cluster_name, image_build, runners, artifacts, build_contexts),
     }
+}
+
+/// Render how one format runs across the machines a scenario names, or nothing for a single-host scenario.
+///
+/// A subsection after the single-host instructions rather than a rewrite of them, because most of what those say --
+/// building the images, loading the credential, opening the UIs -- holds on the server machine unchanged. What differs
+/// is which machine starts what, and for k3s how the machines become one cluster and which of them hold which image.
+fn machine_instructions(output_type: OutputType, cluster: &ClusterInput) -> String {
+    let Some(server) = cluster.machines.first() else {
+        return String::default();
+    };
+    // Named per format, because every format's section lands in the one README and markdownlint rejects a repeated
+    // heading.
+    let (format_name, intro, command): (&str, &str, fn(&str) -> String) = match output_type {
+        OutputType::Mise => (
+            "Mise",
+            concat!(
+                "Copy this directory to each machine -- for a scenario built from the repository, into a checkout\n",
+                "of it at the same path -- and start that machine's share of the scenario there.\n"
+            ),
+            |machine| format!("mise run {}", deployment_types::machine_task(machine)),
+        ),
+        OutputType::Dekit => (
+            "dekit",
+            concat!(
+                "Copy this directory to each machine and start that machine's share there. Every task is tagged\n",
+                "with its machine and none starts on `dekit up` alone, so `dekit up` on any machine starts nothing\n",
+                "until its tag is started.\n"
+            ),
+            |machine| format!("dekit up\ndekit start +{machine}"),
+        ),
+        OutputType::DockerCompose => (
+            "Docker Compose",
+            concat!(
+                "Copy this directory to each machine -- for a scenario built from the repository, into a checkout\n",
+                "of it at the same path -- and start only that machine's profile there.\n"
+            ),
+            |machine| format!("docker compose --profile {machine} up --build"),
+        ),
+        OutputType::K3s => return k3s_machine_instructions(cluster, server),
+    };
+    let mut text = format!(
+        concat!(
+            "\n### Run Across Machines With {format_name}\n\n",
+            "{intro}`{server}` runs OpenObserve and `ws-server`, and the runners on every other machine reach\n",
+            "the hub at `{address}`.\n\n"
+        ),
+        address = server.address,
+        format_name = format_name,
+        intro = intro,
+        server = server.name,
+    );
+    for machine in &cluster.machines {
+        let _write_result = writeln!(
+            text,
+            "On `{}`:\n\n```bash\n{}\n```\n",
+            machine.name,
+            command(&machine.name)
+        );
+    }
+    text.truncate(text.len().saturating_sub(1));
+    text
+}
+
+/// Render how the machines of a k3s scenario become one cluster and receive the images their pods run.
+///
+/// Each machine is labelled as it joins rather than afterwards, so the manifests' node selectors have something to
+/// match the moment the node exists.
+fn k3s_machine_instructions(cluster: &ClusterInput, server: &input::Machine) -> String {
+    let mut joins = String::default();
+    for machine in &cluster.machines {
+        if machine.name != server.name {
+            let _write_result = write!(
+                joins,
+                concat!(
+                    "sudo k3s agent --server \"https://${{server}}:6443\" --token \"$token\"",
+                    " --node-label {label}={name}\n"
+                ),
+                label = placement::MACHINE_LABEL,
+                name = machine.name,
+            );
+        }
+    }
+    let imports = k3s_machine_imports(cluster, server);
+    format!(
+        concat!(
+            "\n### Run Across Machines With k3s\n\n",
+            "The machines have to form one k3s cluster first, each labelled with the machine name the manifests\n",
+            "pin pods to. With `k3s` installed on every machine, start the server on `{server}`. It stays in\n",
+            "the foreground, so read the token the others join with from a second shell once it is up:\n\n",
+            "```bash\n",
+            "sudo k3s server --node-label {label}={server}\n",
+            "```\n\n",
+            "```bash\n",
+            "sudo cat /var/lib/rancher/k3s/server/node-token\n",
+            "```\n\n",
+            "Then join each other machine, with that token in `token`:\n\n",
+            "```bash\n",
+            "server={address}\n",
+            "{joins}",
+            "```\n\n",
+            "Each image goes to the machines that run it rather than to one node, so the import steps above\n",
+            "become these, with each machine reachable over `ssh` by its address:\n\n",
+            "```bash\n",
+            "{imports}",
+            "```\n"
+        ),
+        address = server.address,
+        imports = imports,
+        joins = joins,
+        label = placement::MACHINE_LABEL,
+        server = server.name,
+    )
+}
+
+/// The image imports of a k3s scenario spread across machines.
+///
+/// The scenario image goes to the server, and each locally built runner image to each machine with a runner of that
+/// kind. A published scenario's runner images are pulled by the cluster, so only the scenario image is imported for it.
+fn k3s_machine_imports(cluster: &ClusterInput, server: &input::Machine) -> String {
+    let mut imports = format!(
+        "image=\"et-ws-server-{}:latest\"\ndocker save \"$image\" | ssh {} sudo k3s ctr images import -\n",
+        cluster.cluster_name, server.address
+    );
+    if matches!(cluster.artifact_source, ArtifactSource::Local) {
+        for machine in &cluster.machines {
+            for kind in machine_runner_kinds(cluster, &machine.name) {
+                let _write_result = writeln!(
+                    imports,
+                    "docker save et-ws-{kind}-runner:latest | ssh {} sudo k3s ctr images import -",
+                    machine.address
+                );
+            }
+        }
+    }
+    imports
+}
+
+/// The distinct runner kinds of the agents placed on `machine`, in the order they first appear.
+fn machine_runner_kinds(cluster: &ClusterInput, machine: &str) -> Vec<String> {
+    runner_kinds_where(cluster, |agent| {
+        placement::agent_site(cluster, &agent.name)
+            .machine_names()
+            .iter()
+            .any(|name| name == machine)
+    })
 }
 
 /// Explain where the module-less hub image the scenario layers onto comes from.
@@ -894,7 +1074,7 @@ fn k3s_image_preamble(images: ArtifactSource) -> (&'static str, String, &'static
                 "to reach the node first. It layers its modules onto the module-less hub image and takes that\n",
                 "hub as a _named build context_ rather than building it, so a plain `docker build` of the\n",
                 "scenario Dockerfile fails on `FROM hub` -- pointing the context at the published hub is what\n",
-                "supplies it. From the repository root:\n\n"
+                "supplies it. "
             ),
             format!("{IMAGE_REGISTRY}/et-ws-server:latest"),
             "",
@@ -905,7 +1085,7 @@ fn k3s_image_preamble(images: ArtifactSource) -> (&'static str, String, &'static
             "The manifests reference images by name and never build them, so build and import each one first.\n",
             "This scenario's image layers its modules onto the module-less hub image and takes that hub as a\n",
             "_named build context_ rather than building it, so the hub has to exist first -- a plain\n",
-            "`docker build` of the scenario Dockerfile fails on `FROM hub`. From the repository root:\n\n"
+            "`docker build` of the scenario Dockerfile fails on `FROM hub`. "
         ),
         "et-ws-server-hub:latest".to_string(),
         "docker build -t \"$hub\" -f services/ws-server/Dockerfile .\n",
@@ -920,24 +1100,60 @@ fn k3s_image_preamble(images: ArtifactSource) -> (&'static str, String, &'static
 /// not carry.
 fn k3s_run_instructions(
     cluster_name: &str,
-    dockerfile: &str,
+    image_build: &ImageBuild,
     runners: &[String],
     images: ArtifactSource,
     build_contexts: &str,
 ) -> String {
     let (preamble, hub, hub_build) = k3s_image_preamble(images);
+    // Where the build runs is the one thing that follows from what the image reads: a checkout when it copies
+    // anything out of one, and otherwise this directory, plus the token when it fetches released modules.
+    // A build from this directory names no Dockerfile, since `Dockerfile` is docker's own default; one from the
+    // repository root has to name the scenario's.
+    let (place, dockerfile_var, dockerfile_flag) = if image_build.needs.repository {
+        (
+            "From the repository root",
+            format!("dockerfile=\"{}\"\n", image_build.dockerfile),
+            " -f \"$dockerfile\"",
+        )
+    } else {
+        ("From this directory", String::default(), "")
+    };
+    // Said wherever the build runs: a scenario staging a mise-provisioned package builds from the repository root
+    // and can still fetch released modules, and then needs the token just the same.
+    let token_clause = if image_build.needs.registry_token {
+        concat!(
+            ",\n",
+            "with `GITHUB_TOKEN` set to a token that can read the GitHub Packages the build fetches this\n",
+            "scenario's released modules from"
+        )
+    } else {
+        ""
+    };
+    let location = format!("{place}{token_clause}:\n\n");
+    // The secret's id and the variable it is read from, passed straight to the flag. Held in a shell variable of
+    // its own, the pair reads to a secret scanner as a credential assigned in the clear.
+    let secret = if image_build.needs.registry_token {
+        format!(
+            " --secret id={},env={}",
+            deployment_types::REGISTRY_TOKEN_SECRET,
+            deployment_types::REGISTRY_TOKEN_ENV
+        )
+    } else {
+        String::default()
+    };
     format!(
         concat!(
             "## Run With k3s\n\n",
-            "{preamble}",
+            "{preamble}{location}",
             "```bash\n",
             "scenario={name}\n",
             "hub={hub}\n",
             "image=\"et-ws-server-$scenario:latest\"\n",
-            "dockerfile=\"{dockerfile}\"\n",
+            "{dockerfile_var}",
             "{hub_build}",
-            "docker build --build-context \"hub=docker-image://$hub\"{build_contexts}",
-            " -t \"$image\" -f \"$dockerfile\" .\n",
+            "docker build --build-context \"hub=docker-image://$hub\"{build_contexts}{secret}",
+            " -t \"$image\"{dockerfile_flag} .\n",
             "docker save \"$image\" | sudo k3s ctr images import -\n",
             "```\n\n",
             "{runner_note}",
@@ -945,11 +1161,14 @@ fn k3s_run_instructions(
         ),
         apply = k3s_apply_instructions(cluster_name),
         build_contexts = build_contexts,
-        dockerfile = dockerfile,
+        dockerfile_flag = dockerfile_flag,
+        dockerfile_var = dockerfile_var,
         hub = hub,
         hub_build = hub_build,
+        location = location,
         name = cluster_name,
         preamble = preamble,
+        secret = secret,
         runner_note = runner_image_note(runners, images)
     )
 }
@@ -1393,17 +1612,6 @@ where
     Ok(paths)
 }
 
-/// Resolve the cluster's modules to the docker path each is served from and how it is provisioned.
-pub(crate) fn resolve_module_sources(
-    registry: &BTreeMap<String, ModuleRegistryEntry>,
-    module_names: &[String],
-) -> Result<Vec<(String, ModuleSource)>, CliError> {
-    Ok(resolve_cluster_modules(registry, module_names)?
-        .into_iter()
-        .map(|entry| (entry.docker_path, entry.source))
-        .collect())
-}
-
 /// Resolve a cluster's modules, sized to what those modules actually need.
 ///
 /// Everything is taken from the registry as-is except pyodide, whose distribution depends on the cluster: the registry
@@ -1482,6 +1690,8 @@ pub(crate) struct RunnerInstance {
     pub module: String,
     /// Extra environment the scenario declared for this agent, rendered by every deployment format.
     pub env: BTreeMap<String, String>,
+    /// The machine the runner's agent is placed on.
+    pub site: placement::Site,
 }
 
 /// Runner kinds a scenario may name, mapped to the crate that runs them.
@@ -1562,6 +1772,17 @@ pub(crate) fn resolve_cluster_runners(
             // The hub serves a module under its package name, so that is what the runner has to ask for.
             let module = entry.package_name.clone().unwrap_or_else(|| module_name.to_string());
             let name = runner_name(&agent.name, module_name, multi_resource, &runners)?;
+            // A machine is a mise task of its own as well, so a runner taking that task's name would replace it.
+            if cluster
+                .machines
+                .iter()
+                .any(|machine| name == deployment_types::machine_task(&machine.name))
+            {
+                return Err(CliError::ReservedRunnerName {
+                    agent: agent.name.clone(),
+                    name,
+                });
+            }
             runners.push(RunnerInstance {
                 name,
                 runner: runner.to_string(),
@@ -1569,6 +1790,7 @@ pub(crate) fn resolve_cluster_runners(
                 // Every resource of a multi-resource agent gets its own runner process, and the agent's environment
                 // describes the agent, so each of them carries it.
                 env: agent.env.clone(),
+                site: placement::agent_site(cluster, &agent.name),
             });
         }
     }

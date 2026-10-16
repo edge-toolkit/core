@@ -1,0 +1,216 @@
+# math1-multi
+
+This directory contains generated deployment configs for the `math1-multi` scenario.
+Files: `mise.toml`, `compose.yaml`, `k3s.yaml`, `dekit.yaml`.
+
+The scenario exposes these workflow modules: math1, math1-sender.
+
+`secrets.env` holds the scenario's derived OpenObserve and OTLP credentials. It is derived from the
+scenario input, so regenerating this deployment rewrites it; if it is missing, regenerate before
+starting the stack. A deployment generated outside the repository is written with a `.gitignore`
+covering it, so its credential is not committed by whatever repository it lands in.
+
+## Run With Mise
+
+From this directory, start the scenario with:
+
+```bash
+mise run generated-scenario
+```
+
+That task starts both OpenObserve and `ws-server` for this scenario.
+
+### Open The OpenObserve UI
+
+From this directory, open the OpenObserve UI with:
+
+```bash
+mise run open-o2
+```
+
+### Run Across Machines With Mise
+
+Copy this directory to each machine -- for a scenario built from the repository, into a checkout
+of it at the same path -- and start that machine's share of the scenario there.
+`server` runs OpenObserve and `ws-server`, and the runners on every other machine reach
+the hub at `127.0.0.1`.
+
+On `server`:
+
+```bash
+mise run machine-server
+```
+
+On `edge`:
+
+```bash
+mise run machine-edge
+```
+
+## Run With Docker Compose
+
+From this directory, start the scenario with:
+
+```bash
+docker compose up --build
+```
+
+The compose stack starts OpenObserve and builds `ws-server` in two layers: the module-less hub
+image from the repository's `services/ws-server/Dockerfile`, then the `Dockerfile` in this
+directory, which stages this scenario's modules onto it. The hub is build-only and never runs as a
+container of its own.
+`ws-server` runs with host networking so it advertises the same LAN IP as the `mise` deployment.
+
+### Open The UIs
+
+OpenObserve is available at <http://localhost:5080/>.
+`ws-server` is available at <http://localhost:8080/> and <https://localhost:8443/>.
+
+Stop the scenario with:
+
+```bash
+docker compose down
+```
+
+### Run Across Machines With Docker Compose
+
+Copy this directory to each machine -- for a scenario built from the repository, into a checkout
+of it at the same path -- and start only that machine's profile there.
+`server` runs OpenObserve and `ws-server`, and the runners on every other machine reach
+the hub at `127.0.0.1`.
+
+On `server`:
+
+```bash
+docker compose --profile server up --build
+```
+
+On `edge`:
+
+```bash
+docker compose --profile edge up --build
+```
+
+## Run With k3s
+
+The manifests reference images by name and never build them, so build and import each one first.
+This scenario's image layers its modules onto the module-less hub image and takes that hub as a
+_named build context_ rather than building it, so the hub has to exist first -- a plain
+`docker build` of the scenario Dockerfile fails on `FROM hub`. From the repository root:
+
+```bash
+scenario=math1-multi
+hub=et-ws-server-hub:latest
+image="et-ws-server-$scenario:latest"
+dockerfile="verification/local/output/$scenario/Dockerfile"
+docker build -t "$hub" -f services/ws-server/Dockerfile .
+docker build --build-context "hub=docker-image://$hub" -t "$image" -f "$dockerfile" .
+docker save "$image" | sudo k3s ctr images import -
+```
+
+Then this scenario's runner images, which need no build context of their own:
+
+```bash
+docker build -t et-ws-web-runner:latest -f services/ws-web-runner/Dockerfile .
+docker save et-ws-web-runner:latest | sudo k3s ctr images import -
+```
+
+### Load The Credential
+
+The credential reaches the pods as a `Secret` created from `secrets.env`, rather than written into
+`k3s.yaml` where it would be committed alongside the manifests. From this directory:
+
+```bash
+ns=et-math1-multi
+kubectl create namespace "$ns" --save-config
+kubectl create secret generic "$ns-secrets" --from-env-file=secrets.env -n "$ns"
+```
+
+### Apply
+
+```bash
+kubectl apply -f k3s.yaml
+```
+
+The runners exit and restart until the hub reports ready, so `CrashLoopBackOff` while the hub
+starts is expected here rather than a fault. Watch it settle with:
+
+```bash
+kubectl get pods -n "$ns" --watch
+```
+
+### Run Across Machines With k3s
+
+The machines have to form one k3s cluster first, each labelled with the machine name the manifests
+pin pods to. With `k3s` installed on every machine, start the server on `server`. It stays in
+the foreground, so read the token the others join with from a second shell once it is up:
+
+```bash
+sudo k3s server --node-label edge-toolkit/machine=server
+```
+
+```bash
+sudo cat /var/lib/rancher/k3s/server/node-token
+```
+
+Then join each other machine, with that token in `token`:
+
+```bash
+server=127.0.0.1
+sudo k3s agent --server "https://${server}:6443" --token "$token" --node-label edge-toolkit/machine=edge
+```
+
+Each image goes to the machines that run it rather than to one node, so the import steps above
+become these, with each machine reachable over `ssh` by its address:
+
+```bash
+image="et-ws-server-math1-multi:latest"
+docker save "$image" | ssh 127.0.0.1 sudo k3s ctr images import -
+docker save et-ws-web-runner:latest | ssh 127.0.0.1 sudo k3s ctr images import -
+docker save et-ws-web-runner:latest | ssh 127.0.0.1 sudo k3s ctr images import -
+```
+
+## Run With dekit
+
+From this directory, start the scenario and watch each process in its own pane with:
+
+```bash
+dekit up
+dekit attach
+```
+
+Each task runs one task of `mise.toml`, so these are the processes `mise run generated-scenario`
+starts, but in order: `ws-server` waits for OpenObserve to report healthy, and every runner
+waits for `ws-server`. The tasks keep running after the terminal closes; stop them with:
+
+```bash
+dekit down
+```
+
+Open the OpenObserve UI, once it is up, with:
+
+```bash
+dekit start open-o2
+```
+
+### Run Across Machines With dekit
+
+Copy this directory to each machine and start that machine's share there. Every task is tagged
+with its machine and none starts on `dekit up` alone, so `dekit up` on any machine starts nothing
+until its tag is started.
+`server` runs OpenObserve and `ws-server`, and the runners on every other machine reach
+the hub at `127.0.0.1`.
+
+On `server`:
+
+```bash
+dekit up
+dekit start +server
+```
+
+On `edge`:
+
+```bash
+dekit up
+dekit start +edge
+```

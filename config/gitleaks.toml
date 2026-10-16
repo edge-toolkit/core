@@ -13,6 +13,16 @@
 [extend]
 useDefault = true
 
+# A literal assigned to a variable named for a secret, mirroring `DeepSource SCT-A000`.
+# Upstream's rules look for the shapes real tokens take, so a value with no such shape -- even one only naming where
+# a secret comes from, like a build secret's `id=...,env=...` -- passes them while the external audit flags it. Pass
+# such a value straight to the flag that takes it rather than through a variable whose name says it is a secret.
+[[rules]]
+description = "Literal value assigned to a variable named for a secret"
+id = "secret-variable-literal"
+keywords = ["secret"]
+regex = '''(?i)\b[a-z0-9_]*secret[a-z0-9_]*\s*=\s*["']([^"'$\s]+)["']'''
+
 [[allowlists]]
 description = "Untracked build, tool and cache trees; gitleaks has no .gitignore support of its own."
 paths = [

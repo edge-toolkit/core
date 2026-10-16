@@ -1,0 +1,21 @@
+id: no-assert-eq-bool-literal
+language: Rust
+severity: error
+message: |
+  `assert_eq!`/`assert_ne!` with a `true` or `false` literal as either operand is an `assert!` written the long
+  way. Assert on the boolean itself -- `assert!(x)`, `assert!(!x)` -- and when the value is not a `bool` (a parsed
+  `serde_yaml::Value` field, say), convert it first: `assert_eq!(value.as_bool(), Some(true))` keeps a failure
+  message that shows what the value actually was. This mirrors `DeepSource RS-W1024`. clippy's
+  `bool_assert_comparison` covers only operands whose type is `bool`, so a literal compared against any other type
+  gets past it.
+# The literal is matched in the invocation's text, because a macro's arguments are a raw token tree.
+# Either operand counts: the first, when the literal opens the argument list, or the second, when it directly
+# follows the first comma and is itself followed by the closing parenthesis or by the message arguments. A regex
+# cannot follow bracket nesting, so the second form is anchored to the first comma -- a literal deeper in, inside a
+# tuple or a call such as `assert_eq!(f(x, true), y)`, is not an operand and matches neither. The cost is a first
+# operand that itself contains a comma, which the second form does not reach.
+rule:
+  kind: macro_invocation
+  any:
+    - regex: '^assert_(eq|ne)!\s*\(\s*(true|false)\s*,'
+    - regex: '^assert_(eq|ne)!\s*\([^,]*,\s*(true|false)\s*(,[\s\S]*)?\)$'

@@ -73,14 +73,13 @@ The manifests reference images by name and never build them, so this scenario's 
 to reach the node first. It layers its modules onto the module-less hub image and takes that
 hub as a _named build context_ rather than building it, so a plain `docker build` of the
 scenario Dockerfile fails on `FROM hub` -- pointing the context at the published hub is what
-supplies it. From the repository root:
+supplies it. From this directory:
 
 ```bash
 scenario=default
 hub=ghcr.io/edge-toolkit/core/et-ws-server:latest
 image="et-ws-server-$scenario:latest"
-dockerfile="verification/published/output/$scenario/Dockerfile"
-docker build --build-context "hub=docker-image://$hub" -t "$image" -f "$dockerfile" .
+docker build --build-context "hub=docker-image://$hub" -t "$image" .
 docker save "$image" | sudo k3s ctr images import -
 ```
 

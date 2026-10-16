@@ -53,11 +53,21 @@ expected(config, tree) := pattern if {
 # Every string value anywhere in a governed config's parsed contents, paired with the file it came from.
 # A plain walk keeps the policy free of per-tool schema knowledge -- semgrep nests exclusions under
 # `rules[].paths.exclude`, ast-grep under `files`, jscpd under `ignore`, pyrefly under `project-excludes`.
+# The one value it skips is a semgrep `paths.include`, which names the only files a rule scans: a rule held to a
+# generated tree is aimed into it on purpose, the opposite of a skip.
 config_strings contains [normalised(file.path), value] if {
 	some file in input
 	not is_source(file)
-	walk(file.contents, [_, value])
+	walk(file.contents, [path, value])
 	is_string(value)
+	not scope_path(path)
+}
+
+# Whether a walked value sits in a semgrep `paths.include` list.
+scope_path(path) if {
+	some i
+	path[i] == "paths"
+	path[i + 1] == "include"
 }
 
 # The patterns `config` is expected to carry for `tree`: the narrower set when one is declared, else the whole tree.

@@ -5,6 +5,14 @@ Changelog 1.1.0.
 
 ## [Unreleased]
 
+### Added
+
+- A scenario can list `machines:` to span several hosts. The first is the server, running the hub and the collector,
+  and each agent runs on the machine that lists it. k3s pins each `Deployment` with a node selector on
+  `edge-toolkit/machine`, compose gives each machine a profile, mise adds a `machine-<name>` task per machine, and
+  dekit tags each task with its machine. A runner off the server reaches the hub at the server's `address`. A
+  scenario without `machines:` renders as before.
+
 ## [0.3.0] - 2026-10-15
 
 ### Changed

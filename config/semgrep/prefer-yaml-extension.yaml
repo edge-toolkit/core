@@ -3,7 +3,7 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "*.yml"
+        - "/**/*.yml"
       exclude:
         # External upstream clones + generated trees are not our prose.
         - "/data"

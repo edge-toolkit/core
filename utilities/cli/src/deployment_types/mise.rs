@@ -7,11 +7,11 @@ use fs_err as fs;
 use toml::{Table, Value};
 
 use crate::error::CliError;
-use crate::input::{ArtifactSource, ClusterInput};
+use crate::input::{ArtifactSource, ClusterInput, Machine};
 use crate::{
     COLLECTOR_SETTINGS, COLLECTOR_USERNAME, MODULE_SCOPE, ModuleRegistryEntry, ModuleSource, RunnerInstance,
-    cluster_module_names, escape_for_double_quotes, hub_ws_url, module_registry, resolve_cluster_modules,
-    resolve_cluster_runners, resolve_module_paths, runner_crate,
+    cluster_module_names, escape_for_double_quotes, module_registry, resolve_cluster_modules, resolve_cluster_runners,
+    resolve_module_paths, runner_crate,
 };
 
 /// Crate whose binary serves the hub, which a published deployment installs in place of building it.
@@ -45,6 +45,11 @@ pub(crate) const HUB_TASK: &str = "ws-server";
 /// The mise task that opens the collector's UI in a browser.
 pub(crate) const OPENER_TASK: &str = "open-o2";
 
+/// The mise task that starts everything one machine of a multi-machine cluster runs.
+pub(crate) fn machine_task(machine: &str) -> String {
+    format!("machine-{machine}")
+}
+
 /// Name the collector task gives its container, so anything stopping the task can stop the container by it.
 ///
 /// Scoped to the scenario so a stop can only ever reach this scenario's collector: a bare `openobserve` is also the
@@ -71,7 +76,7 @@ fn runner_task(runner: &RunnerInstance, workspace_rel: &str, artifacts: Artifact
 
 /// Add the tasks a person runs: `generated-scenario`, which starts every role together, and the UI opener.
 #[expect(clippy::single_call_fn, reason = "the entry-point step of generate_mise_deployment")]
-fn insert_entry_tasks(tasks: &mut Table, cluster_name: &str, runners: &[RunnerInstance]) {
+fn insert_entry_tasks(tasks: &mut Table, cluster_name: &str, machines: &[Machine], runners: &[RunnerInstance]) {
     let mut scenario_depends = vec![COLLECTOR_TASK.to_string(), HUB_TASK.to_string()];
     scenario_depends.extend(runners.iter().map(|runner| runner.name.clone()));
     let description = format!("Run generated scenario for {cluster_name}");
@@ -84,6 +89,7 @@ fn insert_entry_tasks(tasks: &mut Table, cluster_name: &str, runners: &[RunnerIn
         None,
     );
     let _previous: Option<Value> = tasks.insert("generated-scenario".to_string(), Value::Table(scenario));
+    insert_machine_tasks(tasks, machines, runners);
     let opener = mise_task(
         None,
         Some("Open the OpenObserve UI"),
@@ -93,6 +99,30 @@ fn insert_entry_tasks(tasks: &mut Table, cluster_name: &str, runners: &[RunnerIn
         None,
     );
     let _previous: Option<Value> = tasks.insert(OPENER_TASK.to_string(), Value::Table(opener));
+}
+
+/// Add one `machine-<name>` task per machine, each starting what that machine runs and nothing else.
+///
+/// The server's also starts the collector and the hub. `generated-scenario` stays alongside them, still starting
+/// everything, because the whole cluster on one host remains the quickest way to run it.
+#[expect(clippy::single_call_fn, reason = "the per-machine step of insert_entry_tasks")]
+fn insert_machine_tasks(tasks: &mut Table, machines: &[Machine], runners: &[RunnerInstance]) {
+    for (index, machine) in machines.iter().enumerate() {
+        let mut depends = if index == 0 {
+            vec![COLLECTOR_TASK.to_string(), HUB_TASK.to_string()]
+        } else {
+            Vec::new()
+        };
+        depends.extend(
+            runners
+                .iter()
+                .filter(|runner| runner.site.machine_names().contains(&machine.name))
+                .map(|runner| runner.name.clone()),
+        );
+        let description = format!("Run what machine {} runs", machine.name);
+        let task = mise_task(None, Some(&description), None, None, Some(mise_depends(&depends)), None);
+        let _previous: Option<Value> = tasks.insert(machine_task(&machine.name), Value::Table(task));
+    }
 }
 
 /// Write the `mise.toml` that runs the scenario: the collector, the hub and one task per runner.
@@ -154,7 +184,7 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
         let _previous: Option<Value> = tasks.insert(runner.name.clone(), Value::Table(task));
     }
 
-    insert_entry_tasks(&mut tasks, &cluster.cluster_name, &runners);
+    insert_entry_tasks(&mut tasks, &cluster.cluster_name, &cluster.machines, &runners);
 
     let _previous: Option<Value> = root.insert("env".to_string(), Value::Table(mise_env(artifacts)));
     let _previous: Option<Value> = root.insert("tasks".to_string(), Value::Table(tasks));
@@ -502,7 +532,7 @@ fn mise_env(artifacts: ArtifactSource) -> Table {
 }
 
 /// The npm config a published deployment carries, pointing the owner scope at GitHub Packages.
-fn npmrc_contents() -> String {
+pub(crate) fn npmrc_contents() -> String {
     format!(
         "{scope}:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=${{GITHUB_TOKEN}}\n",
         scope = MODULE_SCOPE.trim_end_matches('/'),
@@ -621,7 +651,7 @@ const fn workspace_dir(workspace_rel: &str, artifacts: ArtifactSource) -> Option
 fn runner_env(runner: &RunnerInstance) -> Table {
     let mut env = Table::new();
     let _previous: Option<Value> = env.insert("RUNNER_MODULE".to_string(), Value::String(runner.module.clone()));
-    let _previous: Option<Value> = env.insert("WS_SERVER_URL".to_string(), Value::String(hub_ws_url()));
+    let _previous: Option<Value> = env.insert("WS_SERVER_URL".to_string(), Value::String(runner.site.hub_ws_url()));
     // Whatever the scenario declared for this agent. It cannot collide with the two above: the resolver rejects an
     // `env:` naming either, so there is nothing here to decide between.
     for (name, value) in &runner.env {

@@ -26,6 +26,13 @@ name: k3s
       - services/ws-web-runner/Dockerfile
       - services/ws-test-server/src/bin/verify-math1.rs
       - utilities/cli/src/deployment_types/k3s.rs
+      # What decides which machine runs what, and the compose stack `compose-verify` starts from it.
+      - utilities/cli/src/deployment_types/docker_compose.rs
+      - utilities/cli/src/placement.rs
+      - verification/local/input/math1-multi.yaml
+      - verification/local/output/math1-multi/Dockerfile
+      - verification/local/output/math1-multi/compose.yaml
+      - verification/local/output/math1-multi/k3s.yaml
       # The published job's generator and the deployment it runs, for the same reason.
       - utilities/cli/src/deployment_types/mise.rs
       - verification/local/output/math1/Dockerfile
@@ -34,6 +41,9 @@ name: k3s
       # What the published-k3s job applies and builds, for the same reason as the local pair above.
       - verification/published/output/math1/Dockerfile
       - verification/published/output/math1/k3s.yaml
+      - verification/published/input/math1-multi.yaml
+      - verification/published/output/math1-multi/Dockerfile
+      - verification/published/output/math1-multi/k3s.yaml
   workflow_dispatch:
 
 permissions:
@@ -61,8 +71,9 @@ jobs:
     # Two release image builds plus a cluster run, on a generous bound.
     # Neither Dockerfile is built by any other workflow, so this figure has no prior measurement to lean on;
     # the root-image builds in docker-linux.yaml take 39-47m for a comparable amount of work, and this leaves
-    # room for the cluster on top.
-    timeout-minutes: 120
+    # room for the cluster on top. The multi-machine k3s and compose runs that follow reuse those builds from
+    # the BuildKit cache, so they add the two runs and little else.
+    timeout-minutes: 150
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -114,6 +125,27 @@ jobs:
         env:
           CARGO_NET_RETRY: "5"
         run: mise run k3s-verify
+
+      # The same pair split across two machines needs its own scenario image.
+      # The hub image names the scenario it was built for.
+      - name: Build the math1-multi scenario image
+        run: |
+          dockerfile=verification/local/output/math1-multi/Dockerfile
+          hub=docker-image://et-ws-server-hub:latest
+          docker build --build-context "hub=$hub" -t et-ws-server-math1-multi:latest -f "$dockerfile" .
+
+      - name: Apply the multi-machine manifests to a multi-node cluster and verify the stored model
+        timeout-minutes: 20
+        env:
+          CARGO_NET_RETRY: "5"
+        run: mise run k3s-verify --scenario math1-multi
+
+      # Compose has no cluster to join, so each machine's profile is brought up by its own `docker compose up`.
+      - name: Start the multi-machine compose stack one machine at a time and verify the stored model
+        timeout-minutes: 30
+        env:
+          CARGO_NET_RETRY: "5"
+        run: mise run compose-verify
 
   # Whether what is on crates.io and GitHub Packages actually runs, which no other job asks.
   # Every sibling check reads this working tree; this one installs the released hub, runner and module packages
@@ -170,7 +202,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    # No hub or runner build, unlike `verify`, because both are pulled.
+    # No hub, runner or module build, unlike `verify`, because all of them are released.
     # Only the scenario image is built, since no release can carry a module set particular to one deployment.
     timeout-minutes: 60
     steps:
@@ -186,27 +218,35 @@ jobs:
         with:
           github-token: ${{ github.token }}
 
-      # The scenario image stages each module's built `pkg/`, which is gitignored.
-      # A fresh checkout has neither, so the image build fails on its own COPY. Only this scenario's two
-      # modules are built, not the whole glob.
-      - name: Build the math1 modules
-        timeout-minutes: 30
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          mise run build-ws-math1-module
-          mise run build-ws-math1-sender-module
-
       # The hub comes from the registry as a named build context rather than being built.
       # That is the whole point of this job, and a plain build of the scenario Dockerfile fails on `FROM hub`.
+      # The modules come from their releases too, fetched with the token, so the image builds from the
+      # deployment directory alone and nothing in this checkout is built for it.
       - name: Build the math1 scenario image on the released hub
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        working-directory: verification/published/output/math1
         run: |
-          dockerfile=verification/published/output/math1/Dockerfile
           hub=docker-image://ghcr.io/edge-toolkit/core/et-ws-server:latest
-          docker build --build-context "hub=$hub" -t et-ws-server-math1:latest -f "$dockerfile" .
+          docker build --build-context "hub=$hub" --secret id=gh_token,env=GITHUB_TOKEN -t et-ws-server-math1:latest .
 
       - name: Apply the published manifests and verify the stored model
         timeout-minutes: 20
         env:
           CARGO_NET_RETRY: "5"
         run: mise run k3s-verify published
+
+      - name: Build the math1-multi scenario image on the released hub
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        working-directory: verification/published/output/math1-multi
+        run: |
+          hub=docker-image://ghcr.io/edge-toolkit/core/et-ws-server:latest
+          image=et-ws-server-math1-multi:latest
+          docker build --build-context "hub=$hub" --secret id=gh_token,env=GITHUB_TOKEN -t "$image" .
+
+      - name: Apply the published multi-machine manifests to a multi-node cluster and verify the stored model
+        timeout-minutes: 20
+        env:
+          CARGO_NET_RETRY: "5"
+        run: mise run k3s-verify published --scenario math1-multi

@@ -66,6 +66,31 @@ test_windows_paths_still_catch_a_missing_exclusion if {
 	contains(messages[_], "config/semgrep/no-todo.yaml")
 }
 
+# A rule scoped to a generated tree is not skipping it, so its `paths.include` needs no declaration.
+test_an_include_scope_is_not_an_exclusion if {
+	scoped := array.concat(posix_input, [{
+		"path": "config/semgrep/published-only.yaml",
+		"contents": {"rules": [{"paths": {"include": ["/generated/published/**"]}}]},
+	}])
+
+	count(generated_trees.deny) == 0 with input as scoped
+}
+
+# The same string under `paths.exclude` in that rule is still an undeclared skip.
+test_an_exclude_beside_an_include_is_still_caught if {
+	scoped := array.concat(posix_input, [{
+		"path": "config/semgrep/published-only.yaml",
+		"contents": {"rules": [{"paths": {
+			"include": ["/generated/published/**"],
+			"exclude": ["/generated/published/**"],
+		}}]},
+	}])
+
+	messages := generated_trees.deny with input as scoped
+	count(messages) == 1
+	contains(messages[_], "config/semgrep/published-only.yaml")
+}
+
 # An undeclared exclusion must still be caught through a backslash path.
 test_windows_paths_still_catch_an_undeclared_exclusion if {
 	extra := [

@@ -274,6 +274,24 @@ fn math1_scenario_generated_runner_tasks_compute_the_model() {
     run_scenario("math1", "math1-twin", "et-ws-web-runner", "et-ws-web-runner");
 }
 
+/// The math1 pair split across two machines, both at loopback so one host can play both.
+///
+/// The twin is started through its machine's `machine-edge` task, so what is checked is that a machine's share starts
+/// its runners and that the twin reaches the hub at the server's address rather than its own `localhost`. A test of
+/// its own rather than a second scenario in the one above, because the in-process hub keeps its port for the life of
+/// the process: a second `start_on` in the same test fails to bind, and its readiness check then answers from the
+/// first hub, whose storage the poll is not reading.
+///
+/// Not run on Windows for the reason the math1 test above gives: it drives the same `et-ws-web-runner` crate.
+#[test]
+#[cfg_attr(
+    windows,
+    ignore = "Windows CI excludes et-ws-web-runner, the crate the generated runner task builds"
+)]
+fn math1_multi_scenario_machine_tasks_compute_the_model() {
+    run_scenario("math1-multi", "machine-edge", "et-ws-web-runner", "et-ws-web-runner");
+}
+
 // Neither of the two tests below runs on the mingw lane, with the operator's sign-off, because
 // `et-ws-wasi-runner` does not work on `x86_64-pc-windows-gnu`, and it is the trigger for both of them. The
 // evidence is shared rather than repeated per test: the signature is the same one, and writing it out twice

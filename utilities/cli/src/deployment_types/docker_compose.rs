@@ -3,11 +3,13 @@ use std::path::{Path, PathBuf};
 use et_path::{absolute_from, relative_path_from};
 use fs_err as fs;
 
+use super::{REGISTRY_TOKEN_ENV, REGISTRY_TOKEN_SECRET, scenario_image_needs};
 use crate::error::CliError;
 use crate::input::{ArtifactSource, ClusterInput};
+use crate::placement::hub_site;
 use crate::{
     COLLECTOR_SETTINGS, COLLECTOR_USERNAME, IMAGE_REGISTRY, OutputType, RunnerInstance, SECRETS_ENV_FILE,
-    cluster_module_names, hub_http_base, hub_ws_url, module_path_contexts, module_registry, resolve_cluster_runners,
+    cluster_module_names, hub_http_base, module_path_contexts, module_registry, resolve_cluster_runners,
     resolve_module_paths,
 };
 
@@ -19,9 +21,12 @@ use crate::{
 fn hub_build_service(context: String) -> ComposeService {
     ComposeService {
         build: Some(ComposeBuild {
-            context,
-            dockerfile: "services/ws-server/Dockerfile".to_string(),
+            source: BuildSource::Within {
+                context,
+                dockerfile: "services/ws-server/Dockerfile".to_string(),
+            },
             additional_contexts: Vec::new(),
+            secrets: Vec::new(),
         }),
         scale: Some(0),
         ..ComposeService::default()
@@ -32,6 +37,7 @@ fn hub_build_service(context: String) -> ComposeService {
 fn healthy(service: &str) -> (String, ComposeDependsOnCondition) {
     let condition = ComposeDependsOnCondition {
         condition: "service_healthy".to_string(),
+        required: true,
     };
     (service.to_string(), condition)
 }
@@ -60,20 +66,79 @@ fn hub_healthcheck() -> ComposeHealthcheck {
     }
 }
 
+/// The hub service running this scenario's own image, and the top-level secrets its build reads.
+///
+/// The image builds from this directory unless it copies something out of the repository, which a published
+/// scenario's modules never are: they come from their releases, read with the token the secret carries.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the scenario-image step of generate_docker_compose_deployment"
+)]
+fn scenario_hub_service(
+    cluster: &ClusterInput,
+    output_abs: &Path,
+    hub_context: String,
+    profiles: Vec<String>,
+) -> Result<(ComposeService, Vec<String>), CliError> {
+    let workspace_root = edge_toolkit::config::get_project_root();
+    let serves_a_page = super::serves_a_page(cluster);
+    let module_paths = docker_image_module_paths(&cluster_module_names(cluster), serves_a_page, &cluster.module_paths)?;
+    let needs = scenario_image_needs(cluster)?;
+    let source = if needs.repository {
+        // `dockerfile` is resolved against the build context, not against this compose file, so the scenario image is
+        // named by its path down from the repository root rather than as a sibling of the compose file.
+        BuildSource::Within {
+            context: relative_path_from(output_abs, &workspace_root),
+            dockerfile: format!("{}/Dockerfile", relative_path_from(&workspace_root, output_abs)),
+        }
+    } else {
+        BuildSource::Here
+    };
+    let secrets = if needs.registry_token {
+        vec![REGISTRY_TOKEN_SECRET.to_string()]
+    } else {
+        Vec::new()
+    };
+    let service = ComposeService {
+        profiles,
+        build: Some(ComposeBuild {
+            source,
+            // Relative to this file, which is what compose resolves a context path against.
+            additional_contexts: std::iter::once(("hub".to_string(), hub_context))
+                .chain(module_path_contexts(&cluster.module_paths, output_abs))
+                .collect(),
+            secrets: secrets.clone(),
+        }),
+        network_mode: Some("host".to_string()),
+        // Carries `OTLP_AUTH_PASSWORD`: the server authenticates its OTLP exports against the same root credential the
+        // collector was started with. The account it authenticates as is in the environment.
+        env_file: vec![SECRETS_ENV_FILE.to_string()],
+        environment: hub_environment(module_paths, &workspace_root, serves_a_page),
+        volumes: vec!["ws-server-storage:/app/storage".to_string()],
+        depends_on: vec![healthy("openobserve")],
+        healthcheck: Some(hub_healthcheck()),
+        ..ComposeService::default()
+    };
+    Ok((service, secrets))
+}
+
 pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
     let output_path = output_dir.join(OutputType::DockerCompose.output_file_name());
     let workspace_root = edge_toolkit::config::get_project_root();
     let output_abs = absolute_from(&workspace_root, output_dir);
     let workspace_rel = relative_path_from(&output_abs, &workspace_root);
-    // `dockerfile` is resolved against the build context, not against this compose file, so the scenario image is named
-    // by its path down from the repository root rather than as a sibling of the compose file.
-    let scenario_dockerfile_rel = format!("{}/Dockerfile", relative_path_from(&workspace_root, &output_abs));
-    let module_names = cluster_module_names(cluster);
-    let serves_a_page = super::serves_a_page(cluster);
-    let module_paths = docker_image_module_paths(&module_names, serves_a_page, &cluster.module_paths)?;
     let artifacts = cluster.artifact_source;
     let published = matches!(artifacts, ArtifactSource::Published);
-    let mut services = vec![("openobserve".to_string(), openobserve_service())];
+    // Everything but the runners runs on the server machine. The build-only hub shares that profile too, so it is
+    // built where the image layered onto it is and nowhere else, and is never left out while `ws-server` is active.
+    let server_profiles = hub_site(cluster).machine_names();
+    let mut services = vec![(
+        "openobserve".to_string(),
+        ComposeService {
+            profiles: server_profiles.clone(),
+            ..openobserve_service()
+        },
+    )];
     // A local scenario builds the hub it layers onto; a published one takes the released image instead. The build-only
     // service exists solely to be that named context, so it is absent when nothing is built. `scale: 0` is what keeps
     // `docker compose up` from creating a second, module-less container; a `profiles:` entry would instead hide the
@@ -81,31 +146,17 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
     let hub_context = if published {
         format!("docker-image://{IMAGE_REGISTRY}/et-ws-server:latest")
     } else {
-        services.push(("ws-server-hub".to_string(), hub_build_service(workspace_rel.clone())));
+        services.push((
+            "ws-server-hub".to_string(),
+            ComposeService {
+                profiles: server_profiles.clone(),
+                ..hub_build_service(workspace_rel)
+            },
+        ));
         "service:ws-server-hub".to_string()
     };
-    services.push((
-        "ws-server".to_string(),
-        ComposeService {
-            build: Some(ComposeBuild {
-                context: workspace_rel,
-                dockerfile: scenario_dockerfile_rel,
-                // Relative to this file, which is what compose resolves a context path against.
-                additional_contexts: std::iter::once(("hub".to_string(), hub_context))
-                    .chain(module_path_contexts(&cluster.module_paths, &output_abs))
-                    .collect(),
-            }),
-            network_mode: Some("host".to_string()),
-            // Carries `OTLP_AUTH_PASSWORD`: the server authenticates its OTLP exports against the same root credential
-            // the collector above was started with. The account it authenticates as is below.
-            env_file: vec![SECRETS_ENV_FILE.to_string()],
-            environment: hub_environment(module_paths, &workspace_root, serves_a_page),
-            volumes: vec!["ws-server-storage:/app/storage".to_string()],
-            depends_on: vec![healthy("openobserve")],
-            healthcheck: Some(hub_healthcheck()),
-            ..ComposeService::default()
-        },
-    ));
+    let (hub, secrets) = scenario_hub_service(cluster, &output_abs, hub_context, server_profiles)?;
+    services.push(("ws-server".to_string(), hub));
     services.extend(runner_services(
         &resolve_cluster_runners(
             &module_registry(
@@ -124,6 +175,7 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
             ("openobserve-data".to_string(), ComposeVolume),
             ("ws-server-storage".to_string(), ComposeVolume),
         ],
+        secrets,
     };
     let content = render_compose_yaml(&compose);
     fs::write(&output_path, content)?;
@@ -153,16 +205,26 @@ fn runner_services(
         .iter()
         .map(|runner| {
             let kind = &runner.runner;
+            // A runner on another machine cannot be gated on a hub its own compose project does not start, so the
+            // edge is kept but waived, and the runner is restarted until the hub answers instead.
+            let remote = runner.site.is_remote();
+            let (name, mut hub) = healthy("ws-server");
+            hub.required = !remote;
             let service = ComposeService {
+                profiles: runner.site.machine_names(),
                 build: (!published).then(|| ComposeBuild {
-                    context: context.to_string(),
-                    dockerfile: format!("services/ws-{kind}-runner/Dockerfile"),
+                    source: BuildSource::Within {
+                        context: context.to_string(),
+                        dockerfile: format!("services/ws-{kind}-runner/Dockerfile"),
+                    },
                     additional_contexts: Vec::new(),
+                    secrets: Vec::new(),
                 }),
+                restart: remote.then(|| "on-failure".to_string()),
                 image: published.then(|| format!("{IMAGE_REGISTRY}/et-ws-{kind}-runner:latest")),
                 network_mode: Some("host".to_string()),
                 environment: runner_environment(runner),
-                depends_on: vec![healthy("ws-server")],
+                depends_on: vec![(name, hub)],
                 ..ComposeService::default()
             };
             (runner.name.clone(), service)
@@ -176,7 +238,10 @@ fn runner_services(
 fn runner_environment(runner: &RunnerInstance) -> Vec<(String, ComposeValue)> {
     let mut environment = vec![
         ("RUNNER_MODULE".to_string(), ComposeValue::Plain(runner.module.clone())),
-        ("WS_SERVER_URL".to_string(), ComposeValue::Plain(hub_ws_url())),
+        (
+            "WS_SERVER_URL".to_string(),
+            ComposeValue::Plain(runner.site.hub_ws_url()),
+        ),
     ];
     environment.extend(
         runner
@@ -291,11 +356,15 @@ pub fn docker_image_module_paths(
 struct ComposeFile {
     services: Vec<(String, ComposeService)>,
     volumes: Vec<(String, ComposeVolume)>,
+    /// Build secrets, by name; each is the registry token, read from the host's environment.
+    secrets: Vec<String>,
 }
 
 #[derive(Debug, Default)]
 struct ComposeService {
+    profiles: Vec<String>,
     build: Option<ComposeBuild>,
+    restart: Option<String>,
     image: Option<String>,
     healthcheck: Option<ComposeHealthcheck>,
     network_mode: Option<String>,
@@ -309,9 +378,21 @@ struct ComposeService {
 
 #[derive(Debug)]
 struct ComposeBuild {
-    context: String,
-    dockerfile: String,
+    source: BuildSource,
     additional_contexts: Vec<(String, String)>,
+    /// Top-level `secrets:` the build mounts, by name.
+    secrets: Vec<String>,
+}
+
+/// Where a service's image is built from.
+#[derive(Debug)]
+enum BuildSource {
+    /// The `Dockerfile` beside the compose file, with that directory as the context.
+    ///
+    /// Both are compose's defaults, so neither is written out.
+    Here,
+    /// A context and the Dockerfile within it, each relative to the compose file.
+    Within { context: String, dockerfile: String },
 }
 
 #[derive(Debug)]
@@ -326,6 +407,8 @@ struct ComposeHealthcheck {
 #[derive(Debug)]
 struct ComposeDependsOnCondition {
     condition: String,
+    /// Whether compose refuses to start without the dependency; written out only when it does not.
+    required: bool,
 }
 
 #[derive(Debug, Default)]
@@ -355,6 +438,13 @@ fn render_compose_yaml(compose: &ComposeFile) -> String {
     renderer.push_line(0, "volumes:");
     for (name, _) in &compose.volumes {
         renderer.push_line(1, &format!("{name}: {{}}"));
+    }
+    if !compose.secrets.is_empty() {
+        renderer.push_line(0, "secrets:");
+        for name in &compose.secrets {
+            renderer.push_line(1, &format!("{name}:"));
+            renderer.push_line(2, &format!("environment: {REGISTRY_TOKEN_ENV}"));
+        }
     }
     renderer.finish()
 }
@@ -397,18 +487,22 @@ impl ComposeRenderer {
 
     fn render_build(&mut self, build: &ComposeBuild) {
         self.push_line(2, "build:");
-        self.push_line(3, &format!("context: {}", build.context));
-        self.push_line(3, &format!("dockerfile: {}", build.dockerfile));
+        if let BuildSource::Within { context, dockerfile } = &build.source {
+            self.push_line(3, &format!("context: {context}"));
+            self.push_line(3, &format!("dockerfile: {dockerfile}"));
+        }
         if !build.additional_contexts.is_empty() {
             self.push_line(3, "additional_contexts:");
             for (name, source) in &build.additional_contexts {
                 self.push_line(4, &format!("{name}: {source}"));
             }
         }
+        self.push_list(3, "secrets", &build.secrets);
     }
 
     fn render_service(&mut self, name: &str, service: &ComposeService) {
         self.push_line(1, &format!("{name}:"));
+        self.push_list(2, "profiles", &service.profiles);
         if let Some(image) = &service.image {
             self.push_line(2, &format!("image: {image}"));
         }
@@ -426,6 +520,9 @@ impl ComposeRenderer {
         if let Some(network_mode) = &service.network_mode {
             self.push_line(2, &format!("network_mode: {network_mode}"));
         }
+        if let Some(restart) = &service.restart {
+            self.push_line(2, &format!("restart: {restart}"));
+        }
         if !service.environment.is_empty() {
             self.push_line(2, "environment:");
             for (key, value) in &service.environment {
@@ -438,6 +535,9 @@ impl ComposeRenderer {
             for (name, condition) in &service.depends_on {
                 self.push_line(3, &format!("{name}:"));
                 self.push_line(4, &format!("condition: {}", condition.condition));
+                if !condition.required {
+                    self.push_line(4, "required: false");
+                }
             }
         }
     }

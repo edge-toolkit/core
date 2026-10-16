@@ -35,10 +35,10 @@
 # - utilities/cli/src/hub_ws_url.rs: the only `ws://` scheme et-cli writes, which Codacy's "Insecure WebSocket
 #   Detected" rule flags and cannot suppress per line. Isolated into that two-function file so this exclude stays
 #   minimal; rationale in its header. Every other line of the generators stays analyzed.
-# - verification/local/output/*/k3s.yaml: the same finding in the manifests that file's output reaches, which are
-#   generated rather than hand-authored so they can hold no marker of their own. Only these four are excluded, not
-#   the scenario trees around them, and the Kubernetes security rules Codacy would otherwise apply to them are
-#   covered before push by trivy-check (the same KSV ruleset) plus kubeconform-check.
+# - verification/{local,published}/output/*/k3s.yaml: the same finding in the manifests that file's output reaches,
+#   which are generated rather than hand-authored so they can hold no marker of their own. Only these manifests are
+#   excluded, not the scenario trees around them, and the Kubernetes security rules Codacy would otherwise apply to
+#   them are covered before push by trivy-check (the same KSV ruleset) plus kubeconform-check.
 exclude_paths:
   - ".github/actions/**"
   - ".github/workflows/**"
@@ -53,3 +53,4 @@ exclude_paths:
   - "utilities/wasm-cov-wrapper/src/main.rs"
   - "uv.lock"
   - "verification/local/output/*/k3s.yaml"
+  - "verification/published/output/*/k3s.yaml"

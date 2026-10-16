@@ -3,7 +3,7 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "Dockerfile*"
+        - "/**/Dockerfile*"
     # Match a full-line comment framed by dash runs on BOTH sides.
     # The `# --- text ---` decorative "banner" divider style. The two-sided `-{2,} ... -{2,}` requirement is what
     # distinguishes a banner from an ordinary wrapped comment line that merely opens with an em-dash separator

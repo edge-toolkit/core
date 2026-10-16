@@ -1,0 +1,7 @@
+# Written by `et-cli`.
+# What the hub writes into the directory it runs from: its self-signed TLS pair (the key is a
+# credential too), the agent registry it saves on shutdown, and agent storage.
+cert.pem
+key.pem
+registry.yaml
+storage/

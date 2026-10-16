@@ -1,0 +1,19 @@
+rules:
+  - id: rego-rule-summary
+    languages: [generic]
+    paths:
+      include:
+        - "/**/*.rego"
+      exclude:
+        - "/**/*_test.rego"
+    # The same test the check catalogue's generator applies, so it fails here first rather than at the end.
+    # A rule head is a line opening with `deny` or `warn`, and its summary is any comment opening at column 0
+    # between it and the closest `}` or `package` line above it -- so a blank line or a helper between the comment
+    # and the rule is fine, and a comment indented inside a body, or one above the `package` line, is not one.
+    pattern-regex: '(?m)^(?:\}|package\b[^\n]*)\n(?:(?!#)[^\n]*\n)*?(?:deny|warn)'
+    message: >-
+      This Rego rule has no summary comment. The generated catalogue of every check lists each policy rule by the
+      first line of the comment above it, and refuses to build without one, so describe what the rule enforces in a
+      comment opening at column 0 between the previous rule's closing brace and this rule. The file's header comment
+      does not count: it sits above the `package` line and describes the policy, not any one rule in it.
+    severity: ERROR

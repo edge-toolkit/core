@@ -35,10 +35,10 @@ services:
     env_file:
       - secrets.env
     build:
-      context: ../../../..
-      dockerfile: verification/published/output/pyo3-math1/Dockerfile
       additional_contexts:
         hub: docker-image://ghcr.io/edge-toolkit/core/et-ws-server:latest
+      secrets:
+        - gh_token
     network_mode: host
     environment:
       MODULES_PATHS: "/app/services/ws-modules/pyo3-math1,
@@ -73,3 +73,6 @@ services:
 volumes:
   openobserve-data: {}
   ws-server-storage: {}
+secrets:
+  gh_token:
+    environment: GITHUB_TOKEN

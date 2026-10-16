@@ -3,15 +3,15 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "*.py"
+        - "/**/*.py"
       exclude:
         # Generated / vendored Python is emitted by its tools, not hand-edited.
         # The int-gen clients, the componentize-py bindings, and built pkg/ trees may carry generator-authored
         # type comments we don't control.
         - "/generated/**"
-        - "**/componentize_py_async_support/**"
-        - "**/pkg/**"
-        - "**/wit_world/**"
+        - "/**/componentize_py_async_support/**"
+        - "/**/pkg/**"
+        - "/**/wit_world/**"
     patterns:
       - pattern-regex: '#\s*type:[^\n]*'
       - pattern-not-regex: '#\s*type:\s*ignore'

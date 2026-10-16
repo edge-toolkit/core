@@ -25,7 +25,7 @@ rules:
         - "/.github/**" # Runs them, and fails a PR on drift between their output and what is committed.
         - "/AGENTS.md" # Documents which generator to run after changing a source of truth.
         - "/README.md" # Same, for a contributor.
-        - "**/README.md" # A generated tree's README names the command that rewrites it.
+        - "/**/README.md" # A generated tree's README names the command that rewrites it.
         - "/generated/**" # Generator-owned output, whose headers name the task that wrote it.
         - "/verification/**" # The same, for the scenario outputs.
         - "/.gitignore" # Half of a generated pair, naming the task that derives the other half.
@@ -59,7 +59,7 @@ rules:
         - "/.github/**" # Builds the modules on CI.
         - "/AGENTS.md" # Documents how to build one module rather than the whole set.
         - "/README.md" # Tells a contributor how to build a module.
-        - "**/README.md" # A module's own README names the command that builds it.
+        - "/**/README.md" # A module's own README names the command that builds it.
         - "/Dockerfile" # Builds the modules into the image.
         - "/Dockerfile.nanoserver" # Same, for the Nano Server image.
         - "/Dockerfile.windows" # Same, for the Windows image.
@@ -176,7 +176,7 @@ rules:
         - "/.github/**" # Runs the suites on CI.
         - "/AGENTS.md" # Documents which suite covers which language.
         - "/README.md" # Tells a contributor how to run them.
-        - "**/README.md" # A module's own README names the command that exercises it.
+        - "/**/README.md" # A module's own README names the command that exercises it.
         - "/services/ws-modules/pic-viewer/tests/show_image.rs" # Needs a browser harness no plain test run gives.
         - "/services/ws-test-server/src/bin/cov-server.rs" # Names the end-to-end run sharing its fixed port.
         - "/services/ws-test-server/src/bin/verify-math1.rs" # Names the task that pipes cluster output into it.

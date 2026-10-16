@@ -3,7 +3,7 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "**/Cargo.toml"
+        - "/**/Cargo.toml"
     pattern: "$DEP = { workspace = true }"
     fix: "$DEP.workspace = true"
     message: >-
@@ -15,7 +15,7 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "**/Cargo.toml"
+        - "/**/Cargo.toml"
     # Matches a dev-dependencies header followed by a comment line, with only dependency entries in between.
     # The header spelling covers `[target.'cfg(...)'.dev-dependencies]` and `[dev-dependencies.<name>]` too.
     # Blank lines are not crossed: a comment sitting after one heads the block that follows it, which is the
@@ -32,7 +32,7 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "**/Cargo.toml"
+        - "/**/Cargo.toml"
     # Matches a feature entry, other than `default`, whose line above is not a `##` doc comment.
     # The regex runs from the `[features]` header through any lines that stay inside the table (none starts with
     # `[`), then one line that is not `##`, then the feature. That last line is mandatory unless the feature sits
@@ -61,7 +61,7 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "**/Cargo.toml"
+        - "/**/Cargo.toml"
     # Matches a table header followed, anywhere later in the file, by a header of a kind that has to come earlier.
     # The DEFINE block names each kind once, in the required order; a `target.<cfg>` dependency table and the
     # `<table>.<key>` subtables share their plain table's kind. Each branch is one boundary between neighbouring

@@ -3,7 +3,7 @@ rules:
     languages: [generic]
     paths:
       include:
-        - "**/scripts/**"
+        - "/**/scripts/**"
     pattern-regex: \A
     message: >-
       A `scripts/` directory is banned in this repo. Every script belongs in one of exactly two places, and

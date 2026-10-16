@@ -1,0 +1,56 @@
+defaults:
+  stop: SIGINT
+tasks:
+  openobserve:
+    cmd:
+      - mise
+      - run
+      - openobserve
+    tags:
+      - server
+    ready:
+      http: http://localhost:5080/healthz
+    stop:
+      cmd:
+        - docker
+        - stop
+        - openobserve-math1-multi
+      timeout: 30s
+  ws-server:
+    cmd:
+      - mise
+      - run
+      - ws-server
+    deps:
+      - openobserve
+    tags:
+      - server
+    ready:
+      http: http://localhost:8080/health
+  math1-twin:
+    cmd:
+      - mise
+      - run
+      - math1-twin
+    tags:
+      - edge
+    autorestart: on-failure
+  math1-trigger:
+    cmd:
+      - mise
+      - run
+      - math1-trigger
+    deps:
+      - ws-server
+    tags:
+      - server
+  open-o2:
+    type: job
+    cmd:
+      - mise
+      - run
+      - open-o2
+    deps:
+      - openobserve
+    tags:
+      - server
