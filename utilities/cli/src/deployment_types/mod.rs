@@ -2,6 +2,7 @@ mod dekit;
 mod docker_compose;
 mod hub;
 mod k3s;
+mod k3s_recovery;
 mod mise;
 mod process_compose;
 mod scenario_image;

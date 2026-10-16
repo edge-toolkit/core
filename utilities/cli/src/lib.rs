@@ -21,6 +21,7 @@ mod input;
 mod limits;
 mod module_package_json;
 mod placement;
+mod recovery;
 mod scenario_password;
 mod schedule;
 
@@ -44,6 +45,7 @@ pub use self::input::{
 };
 pub use self::limits::{Cpus, Limits, LimitsError, Ulimit};
 pub use self::module_package_json::generate_module_package_json;
+pub use self::recovery::{Recovery, RecoverySettings};
 pub(crate) use self::scenario_password::{scenario_password, scenario_seed};
 pub use self::schedule::Schedule;
 
@@ -502,6 +504,7 @@ pub fn regenerate_verification(
             .iter()
             .copied()
             .filter(|output_type| !scheduled || output_type.runs_schedules())
+            .filter(|output_type| cluster.recovery.is_unset() || *output_type == OutputType::K3s)
             .collect();
         if output_types.is_empty() {
             continue;
@@ -531,6 +534,13 @@ const fn deployment_summary(
     }
 }
 
+/// Validate the requested formats and recovery bindings before writing or removing any deployment files.
+fn validate_deployment_outputs(cluster: &ClusterInput, output_types: &[OutputType]) -> Result<(), CliError> {
+    refuse_unschedulable_formats(cluster, output_types)?;
+    recovery::validate_formats(cluster, output_types)?;
+    recovery::validate(cluster, &scenario_runners(cluster)?)
+}
+
 /// Write every file a deployment of `output_types` needs into `output_dir`, with its credential and README.
 fn generate_deployment_outputs(
     cluster: &ClusterInput,
@@ -538,7 +548,7 @@ fn generate_deployment_outputs(
     output_types: &[OutputType],
     seed: u64,
 ) -> Result<(), CliError> {
-    refuse_unschedulable_formats(cluster, output_types)?;
+    validate_deployment_outputs(cluster, output_types)?;
     if !output_dir.exists() {
         fs::create_dir_all(output_dir)?;
     }
@@ -552,7 +562,8 @@ fn generate_deployment_outputs(
     for output_type in output_types {
         generate_format(cluster, output_dir, *output_type, with_process_compose)?;
     }
-    write_readme(cluster, output_dir, output_types)
+    write_readme(cluster, output_dir, output_types)?;
+    recovery::remove_unsupported_outputs(cluster, output_dir)
 }
 
 /// Refuse a scheduled scenario in a format that cannot schedule it.
@@ -1209,6 +1220,13 @@ fn k3s_machine_imports(cluster: &ClusterInput, server: &input::Machine) -> Strin
         cluster.cluster_name, server.address
     );
     if matches!(cluster.artifact_source, ArtifactSource::Local) {
+        if !cluster.recovery.is_unset() {
+            let _write_result = writeln!(
+                imports,
+                "docker save et-recovery-supervisor:latest | ssh {} sudo k3s ctr images import -",
+                server.address
+            );
+        }
         for machine in &cluster.machines {
             for kind in machine_runner_kinds(cluster, &machine.name) {
                 let _write_result = writeln!(
@@ -1414,6 +1432,7 @@ fn k3s_run_instructions(
             "docker save \"$image\" | sudo k3s ctr images import -\n",
             "```\n\n",
             "{runner_note}",
+            "{recovery_note}",
             "{prepare}",
             "{apply}",
         ),
@@ -1429,7 +1448,8 @@ fn k3s_run_instructions(
         name = cluster.cluster_name,
         preamble = hub.preamble,
         secret = secret,
-        runner_note = runner_image_note(runners, images)
+        runner_note = runner_image_note(runners, images),
+        recovery_note = recovery::image_note(cluster)
     )
 }
 

@@ -1,0 +1,25 @@
+cluster_name: "pyo3-math1-recovery"
+deployment_type: "k3s"
+
+# Wiring example only: math1 has no recovery lifecycle reporting or checkpoint/resume implementation.
+agents:
+  - name: "example-worker"
+    runner: "pyo3"
+    resources:
+      - type: "pyo3-math1"
+
+recovery:
+  job_id: "example-job"
+  mode: "observe-only"
+  poll_seconds: 2
+  command_timeout_seconds: 10
+  policy:
+    detection_grace_seconds: 3
+    restart_after_seconds: 20
+    stall_seconds: 180
+    deadline_seconds: 240
+    max_restarts: 2
+  workloads:
+    - deployment: "example-worker"
+      agent_id: "example-worker"
+      source: "/modules/@edge-toolkit/et-ws-pyo3-math1"

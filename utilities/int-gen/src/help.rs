@@ -1,12 +1,12 @@
 //! Render each binary crate's `HELP.md`: its clap command tree, and the environment variables its config reads.
 //!
-//! The crates are found from the workspace manifests rather than listed by hand. A crate with a binary target that
-//! depends on `clap` gets the clap section, which clap-markdown writes from the command tree linked in
-//! [`clap_commands`]. One that loads its config with serde-env -- directly, or through `et-otlp`'s
-//! `load_telemetered` -- gets the environment section, rendered here from the config's JSON Schema linked in
-//! [`env_schemas`], with every nested field named the way serde-env reads it: `ws.max_frame_size` is
-//! `WS_MAX_FRAME_SIZE`. A crate this finds but has no tree or schema for fails the run, naming what is missing, so a
-//! new binary cannot quietly go without a `HELP.md`; so does an entry left behind for a crate that no longer needs one.
+//! The crates are found from the workspace manifests rather than listed by hand. A crate with a binary target
+//! that depends on `clap` gets the clap section, which clap-markdown writes from the command tree linked in
+//! [`clap_commands`]. One that loads its config with serde-env -- directly, or through `et-otlp`'s `load_telemetered`
+//! -- gets the environment section, rendered here from the config's JSON Schema linked in [`env_schemas`], with every
+//! nested field named the way serde-env reads it: `ws.max_frame_size` is `WS_MAX_FRAME_SIZE`. A crate this finds
+//! but has no tree or schema for fails the run, naming what is missing, so a new binary cannot quietly go without a
+//! `HELP.md`; so does an entry left behind for a crate that no longer needs one.
 //!
 //! The result goes through the repo's markdown formatter, so each file is byte-identical to what that formatter would
 //! leave on disk.
@@ -70,6 +70,10 @@ pub fn env_schemas() -> Result<BTreeMap<&'static str, Value>, Error> {
     use schemars::schema_for;
     Ok(BTreeMap::from([
         (
+            "et-recovery-supervisor",
+            serde_json::to_value(schema_for!(et_recovery_supervisor::config::EnvConfig))?,
+        ),
+        (
             "et-ws-pyo3-runner",
             serde_json::to_value(schema_for!(pyo3_config::Config))?,
         ),
@@ -88,7 +92,7 @@ pub fn env_schemas() -> Result<BTreeMap<&'static str, Value>, Error> {
     ]))
 }
 
-/// Every workspace member with a binary target, read from the manifests and sorted by name.
+/// Every workspace member with a documented binary target, read from the manifests and sorted by name.
 ///
 /// The manifests are read directly rather than through `cargo metadata`, which takes the workspace lock. Only normal
 /// dependencies count, target-specific ones included, so a crate using clap or serde-env in its tests alone is left
@@ -138,33 +142,65 @@ fn read_manifest(path: &Path) -> Result<toml::Table, Error> {
     Ok(toml::from_str(&fs_err::read_to_string(path)?)?)
 }
 
-/// The names of a crate's binary targets, in the order cargo lists them.
+/// The names of a crate's documented binary targets, in the order cargo lists them.
 ///
-/// Explicit `[[bin]]` tables come first; otherwise cargo's auto-discovery applies, which names `src/main.rs` after the
-/// package and each `src/bin/*.rs` after its file stem.
+/// Explicit `[[bin]]` tables honour `doc = false` and override matching discovered targets. Modern editions also
+/// discover conventional binary paths unless `autobins = false` disables discovery.
 fn binary_names(manifest: &toml::Table, dir: &Path, package: &str) -> Result<Vec<String>, Error> {
-    let explicit: Vec<String> = manifest
+    let binaries = manifest
         .get("bin")
         .and_then(toml::Value::as_array)
-        .into_iter()
-        .flatten()
+        .map_or(&[][..], Vec::as_slice);
+    let mut names: Vec<String> = binaries
+        .iter()
+        .filter(|bin| bin.get("doc").and_then(toml::Value::as_bool) != Some(false))
         .filter_map(|bin| bin.get("name").and_then(toml::Value::as_str))
         .map(str::to_owned)
         .collect();
-    if !explicit.is_empty() {
-        return Ok(explicit);
+    let settings = &manifest["package"];
+    let legacy = settings
+        .get("edition")
+        .is_none_or(|edition| edition.as_str() == Some("2015"));
+    let default_autobins = !legacy || binaries.is_empty();
+    let discover = settings
+        .get("autobins")
+        .and_then(toml::Value::as_bool)
+        .unwrap_or(default_autobins);
+    if discover {
+        names.extend(
+            discovered_binaries(dir, package)?
+                .into_iter()
+                .filter_map(|(name, path)| {
+                    let overridden = binaries.iter().any(|bin| {
+                        bin.get("name").and_then(toml::Value::as_str) == Some(name.as_str())
+                            || bin
+                                .get("path")
+                                .and_then(toml::Value::as_str)
+                                .is_some_and(|explicit| Path::new(explicit) == path)
+                    });
+                    (!overridden).then_some(name)
+                }),
+        );
     }
+    Ok(names)
+}
+
+/// Discover conventional binary names and their package-relative paths for explicit-target overrides.
+fn discovered_binaries(dir: &Path, package: &str) -> Result<Vec<(String, PathBuf)>, Error> {
     let mut discovered = Vec::new();
     if dir.join("src/main.rs").is_file() {
-        discovered.push(package.to_owned());
+        discovered.push((package.to_owned(), PathBuf::from("src/main.rs")));
     }
     let bin_dir = dir.join("src/bin");
     if bin_dir.is_dir() {
-        let mut stems: Vec<String> = fs_err::read_dir(&bin_dir)?
+        let mut stems: Vec<(String, PathBuf)> = fs_err::read_dir(&bin_dir)?
             .filter_map(Result::ok)
             .map(|entry| entry.path())
             .filter(|path| path.extension().is_some_and(|extension| extension == "rs"))
-            .filter_map(|path| path.file_stem().and_then(|stem| stem.to_str()).map(str::to_owned))
+            .filter_map(|path| {
+                let name = path.file_stem()?.to_str()?.to_owned();
+                Some((name, path.strip_prefix(dir).ok()?.to_path_buf()))
+            })
             .collect();
         stems.sort();
         discovered.extend(stems);
@@ -246,8 +282,8 @@ fn describe(krate: &BinaryCrate, command: Option<clap::Command>, schema: Option<
 /// The clap-markdown rendering of `command`, reshaped into markdown that needs no inline HTML.
 ///
 /// The footer crediting clap-markdown is dropped, since it is the document's only HTML. Each `###### **Options:**`
-/// style label becomes a `### Options` heading one level under its command's `##`, where clap-markdown otherwise
-/// jumps straight from the second level to the sixth.
+/// style label becomes a `### Options` heading one level under its command's `##`, where clap-markdown otherwise jumps
+/// straight from the second level to the sixth.
 #[must_use]
 pub fn clap_tree(command: &clap::Command) -> String {
     let options = clap_markdown::MarkdownOptions::new().show_footer(false);

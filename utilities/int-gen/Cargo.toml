@@ -24,6 +24,7 @@ edge-toolkit = { workspace = true, features = ["schema-export"] }
 et-cli.workspace = true
 et-modules-service = { workspace = true, features = ["openapi-spec"] }
 et-onnx.workspace = true
+et-recovery-supervisor = { workspace = true, features = ["env-schema"] }
 et-storage-service = { workspace = true, features = ["openapi-spec"] }
 et-ws-runner-common = { workspace = true, features = ["env-schema"] }
 et-ws-server = { workspace = true, features = ["env-schema", "openapi-spec"] }

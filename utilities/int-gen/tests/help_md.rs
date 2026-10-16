@@ -4,6 +4,7 @@
 use edge_toolkit::config::get_project_root;
 use et_int_gen::first_difference;
 use et_int_gen::help::{binary_crates, clap_tree, render_env_section};
+use fs_err as fs;
 use serde_json::json;
 
 #[test]
@@ -52,12 +53,52 @@ fn detects_every_binary_using_clap_or_serde_env() {
             ("et-cli", true, false),
             ("et-int-gen", true, false),
             ("et-onnx", true, false),
+            ("et-recovery-supervisor", false, true),
             ("et-ws-pyo3-runner", false, true),
             ("et-ws-server", false, true),
             ("et-ws-wasi-runner", false, true),
             ("et-ws-web-runner", false, true),
         ]
     );
+}
+
+/// Merge modern auto-discovery with explicit targets without rediscovering undocumented or overridden binaries.
+#[test]
+fn undocumented_fixture_binaries_do_not_enter_the_help_inventory() {
+    let root = tempfile::tempdir().unwrap();
+    let fixture = root.path().join("fixture");
+    fs::create_dir_all(fixture.join("src/bin")).unwrap();
+    fs::write(root.path().join("Cargo.toml"), "[workspace]\nmembers = ['fixture']\n").unwrap();
+    fs::write(fixture.join("src/main.rs"), "fn main() {}\n").unwrap();
+    fs::write(fixture.join("src/bin/probe.rs"), "fn main() {}\n").unwrap();
+    for (settings, extra, expected) in [
+        ("edition = '2024'\n", "", vec!["fixture"]),
+        ("edition = '2024'\nautobins = false\n", "", vec![]),
+        ("", "", vec![]),
+        ("edition = '2024'\n", "[[bin]]\nname = 'visible'\n", vec!["visible"]),
+        ("edition = '2024'\n", "[[bin]]\nname = 'fixture'\ndoc = false\n", vec![]),
+        (
+            "edition = '2024'\n",
+            "[[bin]]\nname = 'hidden-main'\npath = 'src/main.rs'\ndoc = false\n",
+            vec![],
+        ),
+    ] {
+        let manifest = [
+            "[package]\nname = 'fixture'\n",
+            settings,
+            "[dependencies]\nclap = '4'\n",
+            "[[bin]]\nname = 'probe'\ndoc = false\n",
+            extra,
+        ]
+        .concat();
+        fs::write(fixture.join("Cargo.toml"), manifest).unwrap();
+        let names: Vec<_> = binary_crates(root.path())
+            .unwrap()
+            .into_iter()
+            .map(|krate| krate.bin)
+            .collect();
+        assert_eq!(names, expected);
+    }
 }
 
 #[test]

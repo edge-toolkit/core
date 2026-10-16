@@ -1,0 +1,59 @@
+[package]
+name = "et-recovery-supervisor"
+default-run = "et-recovery-supervisor"
+publish = true
+description = "Application-neutral workload recovery supervision for Edge Toolkit"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+doctest = false
+
+[[bin]]
+name = "et-recovery-supervisor"
+path = "src/main.rs"
+
+[[bin]]
+name = "et-recovery-healthcheck"
+path = "src/healthcheck.rs"
+
+[features]
+## Internal: derives the environment configuration schema for generated help.
+env-schema = ["dep:schemars"]
+## Internal: renders this feature list into the crate documentation.
+docs = ["dep:document-features"]
+
+[dependencies]
+document-features = { workspace = true, optional = true }
+edge-toolkit.workspace = true
+et-ws-runner-common.workspace = true
+fs-err.workspace = true
+futures-util.workspace = true
+schemars = { workspace = true, optional = true }
+serde.workspace = true
+serde-env.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["io-util", "macros", "process", "rt-multi-thread", "signal", "time"] }
+tokio-tungstenite = { workspace = true, features = ["rustls-tls-native-roots"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+url.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+et-otlp.workspace = true
+et-test-helpers.workspace = true
+et-test-recovery.workspace = true
+et-ws-test-server.workspace = true
+k8s-openapi.workspace = true
+serde_yaml.workspace = true
+
+[lints]
+workspace = true

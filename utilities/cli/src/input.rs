@@ -139,6 +139,9 @@ pub struct ClusterInput {
     /// Settings for the processes every deployment runs whatever its agents, from `services:`.
     #[serde(default, skip_serializing_if = "Services::is_unset")]
     pub services: Services,
+    /// Optional Kubernetes recovery supervision, from `recovery:`; absent leaves deployment behavior unchanged.
+    #[serde(default, skip_serializing_if = "crate::recovery::Recovery::is_unset")]
+    pub recovery: crate::recovery::Recovery,
 }
 
 /// The processes every deployment runs alongside the agents' runners, each with its own settings.
@@ -215,6 +218,7 @@ impl Default for ClusterInput {
             module_paths: Vec::new(),
             machines: Vec::new(),
             services: Services::default(),
+            recovery: crate::recovery::Recovery::default(),
         }
     }
 }

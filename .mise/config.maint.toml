@@ -618,7 +618,7 @@ docker run --rm --platform linux/amd64 -v "$mnt" et-mise-linux mise run oci-buil
 """
 shell = "{{ vars.task_shell }}"
 
-# Publish the hub and runner images to GHCR as multi-arch manifests (maintainer-only).
+# Publish the hub, runner and recovery images to GHCR as multi-arch manifests (maintainer-only).
 # A generated k3s deployment names these images rather than building them, so the cluster pulls
 # ghcr.io/edge-toolkit/core/et-<service>:latest and only the scenario image -- the one carrying that
 # deployment's module set -- is still built by whoever deploys it. Written ONLY from a maintainer's machine,
@@ -637,7 +637,7 @@ shell = "{{ vars.task_shell }}"
 # needs a `docker-container` builder -- the default `docker` driver builds a single platform and fails the
 # moment two are asked for -- and binfmt registered for the foreign architecture. The foreign leg is emulated,
 # and ws-web-runner links V8, so expect that one to take hours rather than minutes; pass image names to publish
-# a subset rather than rebuilding all four.
+# a subset rather than rebuilding every service.
 #
 # `IMAGE_PLATFORMS` narrows that list for a host that cannot emulate the other architecture. On Apple silicon
 # the emulator decides whether it can at all: under Rosetta the x86 build works, while plain QEMU cannot run
@@ -657,10 +657,10 @@ shell = "{{ vars.task_shell }}"
 # run, so it picks up an architecture a different machine published months earlier. The cost is one extra tag
 # per architecture, which shares every blob with the image it points at.
 [tasks.push-service-images]
-description = "Build and push the hub and runner images to GHCR for linux/amd64 + linux/arm64 (maintainer-only)"
+description = "Build and push service images to GHCR for linux/amd64 + linux/arm64 (maintainer-only)"
 # docker is a host daemon rather than a mise tool, and these images install nothing through mise.
 run = """
-images="${usage_image:-ws-server ws-web-runner ws-wasi-runner ws-pyo3-runner}"
+images="${usage_image:-ws-server ws-web-runner ws-wasi-runner ws-pyo3-runner recovery-supervisor}"
 every_platform="linux/amd64,linux/arm64"
 platforms="${IMAGE_PLATFORMS:-$every_platform}"
 tag=latest
@@ -710,7 +710,7 @@ for name in $images; do
 done
 """
 shell = "{{ vars.task_shell }}"
-usage = 'arg "[image]..." var=#true help="Service directory names to publish (default: the hub and every runner)"'
+usage = 'arg "[image]..." var=#true help="Service directory names to publish (default: all service images)"'
 
 # Verify every GHCR package is public, so unauthenticated users can pull a tool store or a service image.
 # GHCR has NO API to change package visibility -- the packages REST surface is read/delete/restore only,

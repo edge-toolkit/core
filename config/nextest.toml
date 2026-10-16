@@ -36,5 +36,8 @@ or binary_id(edge-toolkit::pipx_site_packages)
 or binary_id(et-test-helpers::child_guard) or binary_id(et-test-helpers::path_prefix)
 or binary_id(et-ws-runner-common::fetch_main_field) or binary_id(et-ws-runner-common::module_file_missing)
 or binary_id(et-ws-runner-common::register_frames)
-or binary_id(et-storage-service::s3_backend) or binary_id(et-ws-pyo3-runner::modules)'''
+or binary_id(et-storage-service::s3_backend) or binary_id(et-ws-pyo3-runner::modules)
+or binary_id(et-test-recovery::command) or binary_id(et-recovery-supervisor::runtime)
+or binary_id(et-recovery-supervisor::hub_frames) or binary_id(et-recovery-supervisor::kubernetes)
+or binary_id(et-recovery-supervisor::shutdown)'''
 test-group = 'integration'
