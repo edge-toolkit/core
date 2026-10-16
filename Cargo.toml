@@ -6,6 +6,7 @@ rust-version = "1.91.1"
 
 [workspace]
 members = [
+  "libs/actix-web-config",
   "libs/edge-toolkit",
   "libs/et-otlp",
   "libs/org",
@@ -57,8 +58,10 @@ resolver = "2"
 
 [workspace.dependencies]
 actix-files = "0.7"
+actix-http = "3.19"
 actix-rt = "2"
-actix-web = "4"
+actix-service = "2"
+actix-web = "4.17"
 actix-web-thiserror = "0.2"
 actix-ws = "0.4"
 # Only ever named in an `error.rs` `#[from]` variant, which a repo-wide rule enforces.
@@ -87,6 +90,7 @@ deno_resolver = "0.85"
 deno_runtime = { version = "0.262", features = ["transpile", "hmr"] }
 document-features = "0.2"
 edge-toolkit = { path = "libs/edge-toolkit", version = "0.4.0" }
+et-actix-web-config = { path = "libs/actix-web-config", version = "0.1.0" }
 et-cli = { path = "utilities/cli", version = "0.2.0" }
 et-modules-service = { path = "services/modules", version = "0.3.0" }
 et-onnx = { path = "utilities/onnx", version = "0.2.0" }
@@ -110,6 +114,7 @@ fs-err = "3"
 futures-util = "0.3"
 heck = "0.5"
 hostname = "0.4"
+humantime = "2"
 humantime-serde = "1"
 # Already a workspace dependency via deno_image/ws-web-runner, so this adds no new crate or license to review.
 # Explicit format features only (no avif/dds/exr/hdr/ico/pnm/qoi/tga/tiff): et-storage-service only decodes
@@ -146,6 +151,7 @@ minicov = "=0.3.8"
 # Serves the spec paths (/v1/traces, ...), so a consumer points `collector_url` at the mock's own `/v1` base
 # for `et-otlp`'s `{collector_url}/traces` shape to land on them.
 mock-collector = "0.2"
+nutype = { version = "0.8", features = ["serde"] }
 onnx-extractor = "0.5"
 # Storage backend abstraction: local disk by default, any object_store backend via a URL.
 # `aws` pulls the S3 client (which also covers S3-compatible servers such as the rustfs mise tool the backend
@@ -211,6 +217,7 @@ serde-inline-default = "1.0"
 serde_default = "0.2"
 serde_json = "1"
 serde_path_to_error = "0.1"
+serde_with = { version = "3.24", default-features = false, features = ["macros"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.11", default-features = false }
 strum = { version = "0.28", features = ["derive"] }

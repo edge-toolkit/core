@@ -12,6 +12,15 @@ Changelog 1.1.0.
   `edge-toolkit/machine`, compose gives each machine a profile, mise adds a `machine-<name>` task per machine, and
   dekit tags each task with its machine. A runner off the server reaches the hub at the server's `address`. A
   scenario without `machines:` renders as before.
+- `et-actix-web-config` 0.1.0: actix-web's `HttpServer` settings as a serde struct, for reading them from environment
+  variables. Each unset setting keeps actix's own default, and a value actix would panic on is rejected while it is
+  read. It depends on no other crate of this project, so it can be used on its own.
+- `et-ws-server` reads its `HttpServer` settings from `HTTP_*` variables, such as `HTTP_WORKERS`,
+  `HTTP_KEEP_ALIVE` and `HTTP_SHUTDOWN_TIMEOUT`.
+
+### Changed
+
+- The workspace requires actix-web 4.17.
 
 ## [0.3.0] - 2026-10-15
 

@@ -4,7 +4,7 @@
 - **Tools:** 47
 - **Shell-script checks:** 9
 - **Checks with a repair pass:** 21
-- **Rules:** 330 custom local rules, or non-default strict linter settings
+- **Rules:** 332 custom local rules, or non-default strict linter settings
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
 declares it, the aggregate that runs it as part of `mise run check`, the `fix` or `fmt` pass that repairs what it
@@ -43,9 +43,9 @@ Rules, from `config/ast-grep/rules`:
 - `derive-attribute-order` -- Put `#[derive(...)]` before every inert or helper attribute on the same item --
   `#[non_exhaustive]`, `#[repr]`, `#[cfg_attr]`, and derive helpers such as `#[serde]`, `#[command]`, `#[strum]` or
   `#[asyncapi]`. Only doc comments, `#[cfg]`, `#[expect]` and attribute macros that must see the item before the derive
-  runs (`#[serde_inline_default]`, `#[wasm_bindgen]`) may come first. One order everywhere puts an item's derive list in
-  the same place on every type, and keeps each helper next to the derive that reads it. A new attribute macro that has
-  to precede the derive joins the allow-list in this rule.
+  runs (`#[serde_inline_default]`, `#[serde_as]`, `#[wasm_bindgen]`) may come first. One order everywhere puts an item's
+  derive list in the same place on every type, and keeps each helper next to the derive that reads it. A new attribute
+  macro that has to precede the derive joins the allow-list in this rule.
 - `doc-summary-ends-with-period` -- A doc comment's first line must be a complete one-line summary ending in terminal
   punctuation (`.`, `!`, or `?`). Put any elaboration in a following paragraph after a blank `///` line so the summary
   stays a single line -- rustdoc and readers treat that first line as the item's summary.
@@ -533,6 +533,9 @@ Rules, from `config/conftest/policy`:
   - The root `tracing` dependency must enable `log`.
   - A crate that declares a feature must publish the feature list on docs.rs through `document-features`.
   - Dependency overrides ([patch]/[replace]) belong in the root manifest, not a member crate.
+- `dependencies` (`config/conftest/policy/cargo/dependencies.rego`):
+  - No crate may depend on an internal one.
+  - A standalone crate must not depend on any of this repo's `et-` crates.
 - `checks_badge` (`config/conftest/policy/checks_badge/checks_badge.rego`):
   - CHECKS.md must record its rules count, which the badge is held to.
   - README.md must define the checks badge.

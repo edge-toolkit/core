@@ -20,6 +20,102 @@ Actix-web entry point wiring the ws hub, storage and modules services together
 
 ## Environment variables
 
+### `HTTP_BACKLOG`
+
+Type: integer.
+
+Pending connections the listening socket queues before refusing more.
+
+### `HTTP_CLIENT_DISCONNECT_TIMEOUT`
+
+Type: string.
+
+Time a client gets to close a connection before it is dropped, as a humantime duration; `0s` waits forever.
+
+### `HTTP_CLIENT_REQUEST_TIMEOUT`
+
+Type: string.
+
+Time a client gets to send a request's head, as a humantime duration; `0s` waits forever.
+
+### `HTTP_H1_ALLOW_HALF_CLOSED`
+
+Type: boolean.
+
+Whether an HTTP/1 connection stays open after the client half-closes it.
+
+### `HTTP_H1_WRITE_BUFFER_SIZE`
+
+Type: integer.
+
+Size, in bytes, an HTTP/1 response buffer reaches before it is flushed to the connection.
+
+### `HTTP_H2_INITIAL_CONNECTION_WINDOW_SIZE`
+
+Type: integer.
+
+Initial connection-level HTTP/2 flow-control window, in bytes.
+
+### `HTTP_H2_INITIAL_WINDOW_SIZE`
+
+Type: integer.
+
+Initial stream-level HTTP/2 flow-control window, in bytes.
+
+### `HTTP_KEEP_ALIVE`
+
+Type: string.
+
+HTTP keep-alive: `os`, `off`/`disabled`, or a humantime duration such as `5s`.
+
+### `HTTP_MAX_CONNECTIONS`
+
+Type: integer.
+
+Concurrent connections each worker serves.
+
+### `HTTP_MAX_CONNECTION_RATE`
+
+Type: integer.
+
+Concurrent TLS connections each worker handles; its listeners stop accepting new ones at the limit.
+
+### `HTTP_SERVER_HOSTNAME`
+
+Type: string.
+
+Host name the application router uses when it generates URLs.
+
+### `HTTP_SHUTDOWN_TIMEOUT`
+
+Type: integer.
+
+Seconds running connections get to finish once a graceful shutdown starts.
+
+### `HTTP_TCP_NODELAY`
+
+Type: boolean.
+
+Whether `TCP_NODELAY` is set on accepted connections.
+
+### `HTTP_TLS_HANDSHAKE_TIMEOUT`
+
+Type: string.
+
+Time a client gets to complete the TLS handshake, as a humantime duration.
+
+### `HTTP_WORKERS`
+
+Type: integer.
+
+Worker threads per bind address, from 1 to 512.
+
+### `HTTP_WORKER_MAX_BLOCKING_THREADS`
+
+Type: integer.
+
+Size of each worker's pool of threads for blocking work.
+
 ### `MODULES_MISE_DISCOVER`
 
 Type: boolean.
