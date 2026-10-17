@@ -1,0 +1,57 @@
+version: "0.5"
+processes:
+  openobserve:
+    command: mise run openobserve
+    namespace: server
+    shutdown:
+      signal: 2
+      command: docker stop openobserve-math1-multi
+      timeout_seconds: 30
+    readiness_probe:
+      http_get:
+        host: localhost
+        scheme: http
+        path: /healthz
+        port: 5080
+      period_seconds: 2
+      failure_threshold: 1800
+  ws-server:
+    command: mise run ws-server
+    depends_on:
+      openobserve:
+        condition: process_healthy
+    namespace: server
+    shutdown:
+      signal: 2
+    readiness_probe:
+      http_get:
+        host: localhost
+        scheme: http
+        path: /health
+        port: 8080
+      period_seconds: 2
+      failure_threshold: 1800
+  math1-twin:
+    command: mise run math1-twin
+    namespace: edge
+    shutdown:
+      signal: 2
+    availability:
+      restart: on_failure
+  math1-trigger:
+    command: mise run math1-trigger
+    depends_on:
+      ws-server:
+        condition: process_healthy
+    namespace: server
+    shutdown:
+      signal: 2
+  open-o2:
+    command: mise run open-o2
+    depends_on:
+      openobserve:
+        condition: process_healthy
+    namespace: server
+    shutdown:
+      signal: 2
+    disabled: true

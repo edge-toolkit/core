@@ -34,6 +34,7 @@ MODULES_ROOT = "@edge-toolkit/et-ws-server-static"
 STORAGE_URL = "file://{{ config_root }}/storage"
 
 [tools]
+"aqua:F1bonacc1/process-compose" = "1.122.0"
 "cargo:open" = "latest"
 "npm:onnxruntime-web" = "latest"
 "npm:stats-gl" = "latest"

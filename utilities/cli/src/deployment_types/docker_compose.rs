@@ -21,6 +21,35 @@ use crate::{
 /// cannot do that instead, since a service hidden by a profile is unknown to the build that references it.
 pub(crate) const HUB_IMAGE_BUILD: &str = "hub-image-build";
 
+/// The compose service that starts scheduled runners on their schedules, on a single-host cluster.
+pub(crate) const SCHEDULER_SERVICE: &str = "scheduler";
+
+/// The Ofelia image the scheduler runs: netresearch's maintained fork, whose tags carry no `v`.
+const OFELIA_IMAGE: &str = "ghcr.io/netresearch/ofelia:1.0.1";
+
+/// The label naming the scenario a container belongs to, which the scheduler reads job definitions through.
+///
+/// Ofelia reads labels off every container on the daemon unless filtered, so without it two scenarios sharing a Docker
+/// host would each schedule the other's jobs.
+const SCENARIO_LABEL: &str = concat!(et_org::org!(), "/scenario");
+
+/// The scheduler service for the machine `machines` names, or for the single host when it names none.
+///
+/// One per machine with a scheduled runner, since Ofelia can only start a container on the Docker daemon it runs on.
+pub(crate) fn scheduler_service(machines: &[String]) -> String {
+    match machines {
+        [machine] => format!("{SCHEDULER_SERVICE}-{machine}"),
+        _ => SCHEDULER_SERVICE.to_string(),
+    }
+}
+
+/// The container a scheduled runner's service runs as, named so the scheduler can start it again on each tick.
+///
+/// Scoped to the scenario, because a container name is unique across the whole Docker daemon.
+fn scheduled_container(cluster_name: &str, runner: &str) -> String {
+    format!("et-{cluster_name}-{runner}")
+}
+
 /// The [`HUB_IMAGE_BUILD`] service, building the hub from `context`.
 #[expect(
     clippy::single_call_fn,
@@ -52,9 +81,9 @@ fn healthy(service: &str) -> (String, ComposeDependsOnCondition) {
 
 /// The hub's own readiness probe, which the runners gate on.
 ///
-/// A runner resolves its module by fetching `/modules/<name>/package.json`, which fails outright instead of
-/// retrying, so "container started" is not a strong enough edge -- `service_started` would let a runner ask before
-/// the listener exists.
+/// A runner resolves its module by fetching `/modules/<name>/package.json`, which fails outright instead of retrying,
+/// so "container started" is not a strong enough edge -- `service_started` would let a runner ask before the listener
+/// exists.
 #[expect(
     clippy::single_call_fn,
     reason = "the healthcheck step of generate_docker_compose_deployment"
@@ -76,8 +105,8 @@ fn hub_healthcheck() -> ComposeHealthcheck {
 
 /// The hub service running this scenario's own image, and the top-level secrets its build reads.
 ///
-/// The image builds from this directory unless it copies something out of the repository, which a published
-/// scenario's modules never are: they come from their releases, read with the token the secret carries.
+/// The image builds from this directory unless it copies something out of the repository, which a published scenario's
+/// modules never are: they come from their releases, read with the token the secret carries.
 #[expect(
     clippy::single_call_fn,
     reason = "the scenario-image step of generate_docker_compose_deployment"
@@ -165,18 +194,21 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
     };
     let (hub, secrets) = scenario_hub_service(cluster, &output_abs, hub_contexts, server_profiles)?;
     services.push(("ws-server".to_string(), hub));
+    let runners = resolve_cluster_runners(
+        &module_registry(
+            &workspace_root,
+            &workspace_root.join("services/ws-server"),
+            &cluster.module_paths,
+        ),
+        cluster,
+    )?;
     services.extend(runner_services(
-        &resolve_cluster_runners(
-            &module_registry(
-                &workspace_root,
-                &workspace_root.join("services/ws-server"),
-                &cluster.module_paths,
-            ),
-            cluster,
-        )?,
+        &runners,
+        &cluster.cluster_name,
         &relative_path_from(&output_abs, &workspace_root),
         artifacts,
     ));
+    services.extend(scheduler_services(&runners, &cluster.cluster_name));
     let compose = ComposeFile {
         services,
         volumes: vec![
@@ -203,8 +235,13 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
 ///
 /// Nothing about a runner image varies by scenario, so a published one is named rather than built. That is the same
 /// image the Kubernetes manifests name, and the same binary the `mise` deployment installs from crates.io.
+///
+/// A scheduled runner's service is started once by `up` like any other, and then again by the scheduler on each tick;
+/// its container is named, labelled with the scenario, and never restarted by compose, since its next tick is its
+/// retry.
 fn runner_services(
     runners: &[RunnerInstance],
+    cluster_name: &str,
     context: &str,
     artifacts: ArtifactSource,
 ) -> Vec<(String, ComposeService)> {
@@ -213,12 +250,19 @@ fn runner_services(
         .iter()
         .map(|runner| {
             let kind = &runner.runner;
-            // A runner on another machine cannot be gated on a hub its own compose project does not start, so the
-            // edge is kept but waived, and the runner is restarted until the hub answers instead.
+            // A runner on another machine cannot be gated on a hub its own compose project does not start, so the edge
+            // is kept but waived, and the runner is restarted until the hub answers instead.
             let remote = runner.site.is_remote();
+            let scheduled = !runner.schedule.is_unset();
             let (name, mut hub) = healthy("ws-server");
             hub.required = !remote;
             let service = ComposeService {
+                container_name: scheduled.then(|| scheduled_container(cluster_name, &runner.name)),
+                labels: if scheduled {
+                    vec![(SCENARIO_LABEL.to_string(), cluster_name.to_string())]
+                } else {
+                    Vec::new()
+                },
                 profiles: runner.site.machine_names(),
                 build: (!published).then(|| ComposeBuild {
                     source: BuildSource::Within {
@@ -228,7 +272,7 @@ fn runner_services(
                     additional_contexts: Vec::new(),
                     secrets: Vec::new(),
                 }),
-                restart: remote.then(|| "on-failure".to_string()),
+                restart: (remote && !scheduled).then(|| "on-failure".to_string()),
                 image: published.then(|| format!("{IMAGE_REGISTRY}/et-ws-{kind}-runner:latest")),
                 network_mode: Some("host".to_string()),
                 environment: runner_environment(runner),
@@ -237,6 +281,70 @@ fn runner_services(
                 ..ComposeService::default()
             };
             (runner.name.clone(), service)
+        })
+        .collect()
+}
+
+/// One Ofelia service per machine with a scheduled runner, starting each runner's container on its schedule.
+///
+/// Every job is declared as labels on the scheduler itself, which is where Ofelia reads a `job-run` from, and the
+/// scheduler reads only containers carrying this scenario's label -- its own included. A job names its runner's
+/// container rather than an image, so a tick runs the very container compose created, with its environment, network,
+/// limits and image intact; `docker start` is all Ofelia adds. `no-overlap` skips a tick that finds the previous run
+/// still going. A time zone is given in robfig's `CRON_TZ=` prefix, the only way its parser takes one.
+///
+/// The Docker socket is mounted because starting a container is a Docker API call; read-only on the mount does not
+/// limit what that API allows, so the scheduler is as privileged as the daemon. Only a scenario with a schedule gets
+/// one. `--config=/dev/null` stands in for the config file Ofelia otherwise looks for, since every job is a label.
+fn scheduler_services(runners: &[RunnerInstance], cluster_name: &str) -> Vec<(String, ComposeService)> {
+    let mut sites: Vec<Vec<String>> = Vec::new();
+    for runner in runners.iter().filter(|runner| !runner.schedule.is_unset()) {
+        let machines = runner.site.machine_names();
+        if !sites.contains(&machines) {
+            sites.push(machines);
+        }
+    }
+    sites
+        .into_iter()
+        .map(|machines| {
+            let mut labels = vec![
+                (SCENARIO_LABEL.to_string(), cluster_name.to_string()),
+                ("ofelia.enabled".to_string(), "true".to_string()),
+            ];
+            for runner in runners
+                .iter()
+                .filter(|runner| !runner.schedule.is_unset() && runner.site.machine_names() == machines)
+            {
+                let job = format!("ofelia.job-run.{}", runner.name);
+                let cron = runner.schedule.cron.trim();
+                let schedule = if runner.schedule.time_zone.is_empty() {
+                    cron.to_string()
+                } else {
+                    format!("CRON_TZ={} {cron}", runner.schedule.time_zone)
+                };
+                labels.extend([
+                    (format!("{job}.schedule"), schedule),
+                    (
+                        format!("{job}.container"),
+                        scheduled_container(cluster_name, &runner.name),
+                    ),
+                    (format!("{job}.no-overlap"), "true".to_string()),
+                ]);
+            }
+            let service = ComposeService {
+                image: Some(OFELIA_IMAGE.to_string()),
+                command: vec![
+                    "daemon".to_string(),
+                    "--config=/dev/null".to_string(),
+                    "--docker-filter".to_string(),
+                    format!("label={SCENARIO_LABEL}={cluster_name}"),
+                ],
+                volumes: vec!["/var/run/docker.sock:/var/run/docker.sock:ro".to_string()],
+                labels,
+                profiles: machines.clone(),
+                ..ComposeService::default()
+            };
+            (scheduler_service(&machines), service)
         })
         .collect()
 }
@@ -375,6 +483,12 @@ struct ComposeService {
     build: Option<ComposeBuild>,
     restart: Option<String>,
     image: Option<String>,
+    /// A fixed container name, for a container something outside compose has to find by name.
+    container_name: Option<String>,
+    /// Arguments replacing the image's `CMD`.
+    command: Vec<String>,
+    /// Container labels, in the order they are written; every value is quoted.
+    labels: Vec<(String, String)>,
     healthcheck: Option<ComposeHealthcheck>,
     network_mode: Option<String>,
     scale: Option<u32>,
@@ -516,6 +630,16 @@ impl ComposeRenderer {
         self.push_list(2, "profiles", &service.profiles);
         if let Some(image) = &service.image {
             self.push_line(2, &format!("image: {image}"));
+        }
+        if let Some(container_name) = &service.container_name {
+            self.push_line(2, &format!("container_name: {container_name}"));
+        }
+        self.push_list(2, "command", &service.command);
+        if !service.labels.is_empty() {
+            self.push_line(2, "labels:");
+            for (key, value) in &service.labels {
+                self.push_line(3, &format!("{key}: \"{value}\""));
+            }
         }
         if let Some(healthcheck) = &service.healthcheck {
             self.render_healthcheck(healthcheck);

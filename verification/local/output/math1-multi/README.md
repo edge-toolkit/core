@@ -1,7 +1,7 @@
 # math1-multi
 
 This directory contains generated deployment configs for the `math1-multi` scenario.
-Files: `mise.toml`, `compose.yaml`, `k3s.yaml`, `dekit.yaml`.
+Files: `mise.toml`, `compose.yaml`, `k3s.yaml`, `dekit.yaml`, `process-compose.yaml`.
 
 The scenario exposes these workflow modules: math1, math1-sender.
 
@@ -212,4 +212,40 @@ On `edge`:
 ```bash
 dekit up
 dekit start +edge
+```
+
+## Run With process-compose
+
+From this directory, install the process-compose release `mise.toml` pins, then start the scenario
+and watch each process with:
+
+```bash
+mise install
+process-compose up --no-server -f process-compose.yaml
+```
+
+Each process runs one task of `mise.toml`, in order: `ws-server` waits for OpenObserve to report
+healthy, and every runner waits for `ws-server`. A scheduled agent's runner is started on each
+tick of its schedule and runs its module once; a tick that finds the previous run still going is
+skipped. `--no-server` keeps process-compose's own API off port 8080, where `ws-server` listens.
+Quitting the TUI stops every process. Open the OpenObserve UI, once it is up, by starting the
+`open-o2` process from the TUI.
+
+### Run Across Machines With process-compose
+
+Copy this directory to each machine -- for a scenario built from the repository, into a checkout
+of it at the same path -- and start only that machine's namespace there.
+`server` runs OpenObserve and `ws-server`, and the runners on every other machine reach
+the hub at `127.0.0.1`.
+
+On `server`:
+
+```bash
+process-compose up --no-server -f process-compose.yaml -n server
+```
+
+On `edge`:
+
+```bash
+process-compose up --no-server -f process-compose.yaml -n edge
 ```

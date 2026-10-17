@@ -1,10 +1,10 @@
 # Checks
 
-- **Checks:** 71
+- **Checks:** 72
 - **Tools:** 47
 - **Shell-script checks:** 9
 - **Checks with a repair pass:** 21
-- **Rules:** 337 custom local rules, or non-default strict linter settings
+- **Rules:** 339 custom local rules, or non-default strict linter settings
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
 declares it, the aggregate that runs it as part of `mise run check`, the `fix` or `fmt` pass that repairs what it
@@ -147,6 +147,12 @@ Rules, from `config/ast-grep/rules`:
   else, with the same allowlist of cargo-provided constants (`CARGO_BIN_EXE_<name>`, `CARGO_PKG_VERSION`,
   `CARGO_PKG_NAME`, `ET_WIT_DIR`). Read configuration through a `serde-env` struct instead, and locate repo files from
   the project root rather than from `CARGO_MANIFEST_DIR`.
+- `no-eq-bool-literal` -- `==`/`!=` with a `true` or `false` literal as either operand is a boolean written the long
+  way. Use the boolean itself -- `x`, `!x` -- and when the value is not a `bool` (a parsed `serde_yaml::Value` field,
+  say), convert it and keep the operator: `value == true` becomes `value.as_bool() == Some(true)`, and `value != false`
+  becomes `value.as_bool() != Some(false)`. Reach for `value.as_bool().unwrap_or_default()` only where a value that is
+  not a boolean is meant to read as `false`. This mirrors `DeepSource RS-W1001`. clippy's `bool_comparison` covers only
+  operands whose type is `bool`, so a literal compared against any other type gets past it.
 - `no-expect-used-suppression` -- Suppressing `clippy::expect_used` is forbidden -- `.expect("...")` messages are not
   wanted in this codebase, so the workspace-denied lint must stay in force everywhere. Use `.unwrap()` instead: tests
   get it for free (clippy.toml's `allow-unwrap-in-tests`), and non-test code that genuinely must panic suppresses
@@ -471,6 +477,8 @@ Rules, from `Cargo.toml`:
 
 - `cargo-unmaintained-check` (`default` env; not run by `mise run check`) -- Flag dependencies whose upstream repo is
   archived or unmaintained.
+- `cargo-unmaintained-check-pkg` (`default` env; not run by `mise run check`) -- Check one dependency with
+  cargo-unmaintained (cheap re-check of a single finding).
 
 ## `clang-format`
 
@@ -571,6 +579,8 @@ Rules, from `config/conftest/policy`:
   - A Dockerfile's MISE_VERSION must match .mise/config.toml's min_version.
 - `dockerfile_heredoc` (`config/conftest/policy/dockerfile_heredoc/dockerfile_heredoc.rego`):
   - A RUN heredoc's first body line must be `set -euo pipefail`.
+- `dockerfile_stages` (`config/conftest/policy/dockerfile_stages/dockerfile_stages.rego`):
+  - A `--from=` naming no stage declared before it would pull an image of that name.
 - `generated_trees` (`config/conftest/policy/generated_trees/generated_trees.rego`):
   - Every config a generated tree requires must carry that tree's exclusion pattern.
   - Reverse direction, matched on the tree prefix rather than on the exact pattern.

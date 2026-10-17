@@ -107,13 +107,20 @@ fn every_deployment_type_spelling_deserializes_to_its_own_output_file() {
         ("docker_compose", OutputType::DockerCompose, "compose.yaml"),
         ("k3s", OutputType::K3s, "k3s.yaml"),
         ("dekit", OutputType::Dekit, "dekit.yaml"),
+        ("process-compose", OutputType::ProcessCompose, "process-compose.yaml"),
+        ("process_compose", OutputType::ProcessCompose, "process-compose.yaml"),
     ] {
         let cluster = parse(&format!("{ONLY_A_NAME}deployment_type: {spelling}\n"));
 
         assert_eq!(cluster.deployment_type, expected, "for {spelling}");
         assert_eq!(cluster.deployment_type.output_file_name(), file);
+        assert_eq!(cluster.deployment_type.name(), spelling.replace('_', "-"));
+        assert_eq!(
+            cluster.deployment_type.runs_mise_tasks(),
+            !matches!(expected, OutputType::DockerCompose | OutputType::K3s)
+        );
     }
-    assert_eq!(OutputType::ALL.len(), 4, "and the list of them is complete");
+    assert_eq!(OutputType::ALL.len(), 5, "and the list of them is complete");
 }
 
 #[test]

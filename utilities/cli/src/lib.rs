@@ -6,6 +6,7 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
+use std::slice;
 
 use edge_toolkit::ports::Services as Ports;
 use et_path::{absolute_from, relative_path_from};
@@ -21,6 +22,7 @@ mod limits;
 mod module_package_json;
 mod placement;
 mod scenario_password;
+mod schedule;
 
 // `pub` here means "reachable from the binary or from `tests/`", and nothing else. This crate is a command line
 // tool that happens to be split into a lib target so integration tests can drive it; the only consumer outside this
@@ -30,7 +32,7 @@ mod scenario_password;
 pub use self::deployment_types::{ScenarioModules, docker_image_module_paths, scenario_module_paths};
 pub(crate) use self::deployment_types::{
     generate_dekit_deployment, generate_docker_compose_deployment, generate_k3s_deployment, generate_mise_deployment,
-    generate_scenario_image,
+    generate_process_compose_deployment, generate_scenario_image,
 };
 pub use self::error::CliError;
 pub(crate) use self::hub_ws_url::HUB_SERVICE;
@@ -43,17 +45,21 @@ pub use self::input::{
 pub use self::limits::{Cpus, Limits, LimitsError, Ulimit};
 pub use self::module_package_json::generate_module_package_json;
 pub(crate) use self::scenario_password::{scenario_password, scenario_seed};
+pub use self::schedule::Schedule;
 
 /// The files a deployment of `output_types` writes, in the order the README lists them.
 fn generated_output_files(output_types: &[OutputType]) -> Vec<&'static str> {
     let mut files = Vec::new();
     for output_type in output_types {
-        // `dekit.yaml` runs the tasks of `mise.toml`, which is written with it whether or not it was asked for.
-        if matches!(output_type, OutputType::Dekit) && !output_types.contains(&OutputType::Mise) {
+        // `dekit.yaml` and `process-compose.yaml` run the tasks of `mise.toml`, which is written with either whether or
+        // not it was asked for -- and listed once, however many formats wrote it.
+        if matches!(output_type, OutputType::Dekit | OutputType::ProcessCompose) {
             files.push(OutputType::Mise.output_file_name());
         }
         files.push(output_type.output_file_name());
     }
+    let mut listed = BTreeSet::new();
+    files.retain(|file| listed.insert(*file));
     files
 }
 
@@ -286,6 +292,14 @@ pub(crate) fn load_cluster_input(input_file: &Path) -> Result<(ClusterInput, u64
             });
         }
         limits::validate_limits(&agent.name, &agent.limits)?;
+        if !agent.schedule.is_unset() {
+            if agent.runner.is_none() {
+                return Err(CliError::ScheduleWithoutRunner {
+                    agent: agent.name.clone(),
+                });
+            }
+            schedule::validate_schedule(&agent.name, &agent.schedule)?;
+        }
     }
     // Relative to the input file, which is the one place a scenario can name its own modules from without knowing where
     // the CLI is run. The input itself is resolved the way `fs::read` just resolved it, against the working directory,
@@ -380,9 +394,21 @@ pub fn regenerate_verification(
 
         let (cluster, seed) = load_cluster_input(&input_file)?;
         let module_names = cluster_module_names(&cluster);
-        let output_types = output_type.as_ref().map_or(OutputType::ALL, std::slice::from_ref);
+        // A scheduled scenario is rendered only in the formats that can schedule it, rather than failing the whole run
+        // on the ones that cannot; asked for one of those alone, it is left out.
+        let scheduled = cluster.agents.iter().any(|agent| !agent.schedule.is_unset());
+        let output_types: Vec<OutputType> = output_type
+            .as_ref()
+            .map_or(OutputType::ALL, std::slice::from_ref)
+            .iter()
+            .copied()
+            .filter(|output_type| !scheduled || output_type.runs_schedules())
+            .collect();
+        if output_types.is_empty() {
+            continue;
+        }
 
-        generate_deployment_outputs(&cluster, &output_dir, output_types, seed)?;
+        generate_deployment_outputs(&cluster, &output_dir, &output_types, seed)?;
         let summary = deployment_summary(cluster.cluster_name, cluster.agents.len(), module_names);
         regenerated.push(RegeneratedScenario {
             input_file,
@@ -413,9 +439,11 @@ fn generate_deployment_outputs(
     output_types: &[OutputType],
     seed: u64,
 ) -> Result<(), CliError> {
+    refuse_unschedulable_formats(cluster, output_types)?;
     if !output_dir.exists() {
         fs::create_dir_all(output_dir)?;
     }
+    let with_process_compose = output_types.contains(&OutputType::ProcessCompose);
 
     // One password per scenario, shared by both deployment formats. OpenObserve and the ws-server have to agree on it:
     // the server authenticates its OTLP exports against the same root credentials the collector was started with.
@@ -423,29 +451,66 @@ fn generate_deployment_outputs(
     fs::write(output_dir.join(SECRETS_ENV_FILE), secrets_env(&password))?;
     write_deployment_gitignore(output_dir)?;
     for output_type in output_types {
-        match output_type {
-            OutputType::Mise => generate_mise_deployment(cluster, output_dir)?,
-            OutputType::DockerCompose => {
-                generate_docker_compose_deployment(cluster, output_dir)?;
-                generate_scenario_image(cluster, output_dir)?;
-            }
-            // The scenario image is emitted here too, not just for compose. Both formats reference it: compose builds
-            // it as a service, and the manifests name it as the hub's image with the README giving the `docker build`
-            // for it. Generating k3s alone without it produced a README pointing at a Dockerfile that was never
-            // written.
-            OutputType::K3s => {
-                generate_k3s_deployment(cluster, output_dir)?;
-                generate_scenario_image(cluster, output_dir)?;
-            }
-            // Every task it starts is a task of `mise.toml`, so that is written here too; generating `dekit.yaml` alone
-            // would hand `dekit up` tasks that each run a file that does not exist.
-            OutputType::Dekit => {
-                generate_mise_deployment(cluster, output_dir)?;
-                generate_dekit_deployment(cluster, output_dir)?;
-            }
+        generate_format(cluster, output_dir, *output_type, with_process_compose)?;
+    }
+    write_readme(cluster, output_dir, output_types)
+}
+
+/// Refuse a scheduled scenario in a format that cannot schedule it.
+///
+/// Checked before anything is written, so a scenario no requested format can schedule leaves no partial deployment.
+fn refuse_unschedulable_formats(cluster: &ClusterInput, output_types: &[OutputType]) -> Result<(), CliError> {
+    if let Some(output_type) = output_types.iter().find(|output_type| !output_type.runs_schedules())
+        && let Some(agent) = cluster.agents.iter().find(|agent| !agent.schedule.is_unset())
+    {
+        return Err(CliError::ScheduleUnsupported {
+            agent: agent.name.clone(),
+            output_type: output_type.name().to_owned(),
+        });
+    }
+    Ok(())
+}
+
+/// Write the files one deployment format consists of into `output_dir`.
+///
+/// `with_process_compose` is whether a `process-compose.yaml` is among the formats requested, which every `mise.toml`
+/// written alongside has to declare the tool for, whichever format wrote it.
+fn generate_format(
+    cluster: &ClusterInput,
+    output_dir: &Path,
+    output_type: OutputType,
+    with_process_compose: bool,
+) -> Result<(), CliError> {
+    match output_type {
+        OutputType::Mise => generate_mise_deployment(cluster, output_dir, with_process_compose),
+        OutputType::DockerCompose => {
+            generate_docker_compose_deployment(cluster, output_dir)?;
+            generate_scenario_image(cluster, output_dir)
+        }
+        // The scenario image is emitted here too, not just for compose. Both formats reference it: compose builds it as
+        // a service, and the manifests name it as the hub's image with the README giving the `docker build` for it.
+        // Generating k3s alone without it produced a README pointing at a Dockerfile that was never written.
+        OutputType::K3s => {
+            generate_k3s_deployment(cluster, output_dir)?;
+            generate_scenario_image(cluster, output_dir)
+        }
+        // Every task it starts is a task of `mise.toml`, so that is written here too; generating `dekit.yaml` alone
+        // would hand `dekit up` tasks that each run a file that does not exist.
+        OutputType::Dekit => {
+            generate_mise_deployment(cluster, output_dir, with_process_compose)?;
+            generate_dekit_deployment(cluster, output_dir)
+        }
+        // The same, for the same reason: every process runs a `mise.toml` task. Written as a companion rather than a
+        // deployment of its own, which is why a scheduled scenario still gets it here though `mise` alone refuses.
+        OutputType::ProcessCompose => {
+            generate_mise_deployment(cluster, output_dir, with_process_compose)?;
+            generate_process_compose_deployment(cluster, output_dir)
         }
     }
+}
 
+/// Write the README for a deployment of `output_types`: what the directory holds and how to run each format.
+fn write_readme(cluster: &ClusterInput, output_dir: &Path, output_types: &[OutputType]) -> Result<(), CliError> {
     let readme_path = output_dir.join("README.md");
     let module_names = cluster_module_names(cluster);
     let needs = deployment_types::scenario_image_needs(cluster)?;
@@ -466,7 +531,6 @@ fn generate_deployment_outputs(
         &readme_path,
         generated_readme(cluster, &module_names, output_types, &image_build),
     )?;
-
     Ok(())
 }
 
@@ -633,7 +697,6 @@ fn output_summary(cluster_name: &str, output_types: &[OutputType]) -> String {
     format!("This directory contains generated deployment configs for the `{cluster_name}` scenario.\nFiles: {listed}.")
 }
 
-/// Render the README a deployment directory carries: what it holds, then how to run each format it was written in.
 /// How the README's `docker build` of the scenario image runs: what it needs, and the paths it names.
 struct ImageBuild {
     needs: deployment_types::ImageNeeds,
@@ -643,6 +706,7 @@ struct ImageBuild {
     context_root: PathBuf,
 }
 
+/// Render the README a deployment directory carries: what it holds, then how to run each format it was written in.
 fn generated_readme(
     cluster: &ClusterInput,
     module_names: &[String],
@@ -681,15 +745,13 @@ fn generated_readme(
             );
             section.push_str(&machine_instructions(*output_type, cluster));
             section.push_str(&limits::limits_note(*output_type, cluster));
+            section.push_str(schedule::schedule_note(*output_type, cluster));
             section
         })
         .collect::<Vec<_>>()
         .join("\n");
-    // Both ways of running the tasks need what they name installed first, so the step comes once, ahead of either.
-    let runs_mise_tasks = output_types
-        .iter()
-        .any(|output_type| matches!(output_type, OutputType::Mise | OutputType::Dekit));
-    let install_note = if runs_mise_tasks {
+    // Every way of running the tasks needs what they name installed first, so the step comes once, ahead of them all.
+    let install_note = if output_types.iter().any(|output_type| output_type.runs_mise_tasks()) {
         mise_install_note(cluster.artifact_source)
     } else {
         ""
@@ -804,6 +866,62 @@ const fn mise_install_note(artifacts: ArtifactSource) -> &'static str {
     ""
 }
 
+/// The command that starts a process-compose deployment, naming its file outright.
+///
+/// process-compose looks for `compose.yaml` among its default names and takes it first, so in a directory that also
+/// holds the Docker Compose file it would load that one instead. Macros rather than `const`s here and below, because
+/// `concat!` takes only literals and each README section is one literal.
+macro_rules! process_compose_up {
+    () => {
+        "process-compose up --no-server -f process-compose.yaml"
+    };
+}
+
+/// What the process-compose README section says after its commands, whichever way the deployment's artifacts come.
+macro_rules! process_compose_run_notes {
+    () => {
+        concat!(
+            "Each process runs one task of `mise.toml`, in order: `ws-server` waits for OpenObserve to report\n",
+            "healthy, and every runner waits for `ws-server`. A scheduled agent's runner is started on each\n",
+            "tick of its schedule and runs its module once; a tick that finds the previous run still going is\n",
+            "skipped. `--no-server` keeps process-compose's own API off port 8080, where `ws-server` listens.\n",
+            "Quitting the TUI stops every process. Open the OpenObserve UI, once it is up, by starting the\n",
+            "`open-o2` process from the TUI.\n"
+        )
+    };
+}
+
+/// Render the README section that runs the scenario with process-compose.
+///
+/// A local deployment installs process-compose here, since the README's own install step is only written for a
+/// published one; a published deployment's install step already fetches it with everything else `mise.toml` names.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the process-compose arm of generated_run_instructions"
+)]
+const fn process_compose_run_instructions(artifacts: ArtifactSource) -> &'static str {
+    if matches!(artifacts, ArtifactSource::Published) {
+        return concat!(
+            "## Run With process-compose\n\n",
+            "From this directory, start the scenario and watch each process with:\n\n",
+            "```bash\n",
+            process_compose_up!(),
+            "\n```\n\n",
+            process_compose_run_notes!(),
+        );
+    }
+    concat!(
+        "## Run With process-compose\n\n",
+        "From this directory, install the process-compose release `mise.toml` pins, then start the scenario\n",
+        "and watch each process with:\n\n",
+        "```bash\n",
+        "mise install\n",
+        process_compose_up!(),
+        "\n```\n\n",
+        process_compose_run_notes!(),
+    )
+}
+
 /// Render the README section that runs one deployment format.
 fn generated_run_instructions(
     output_type: OutputType,
@@ -847,6 +965,7 @@ fn generated_run_instructions(
             "```\n"
         )
         .to_string(),
+        OutputType::ProcessCompose => process_compose_run_instructions(artifacts).to_string(),
         OutputType::DockerCompose => format!(
             concat!(
                 "## Run With Docker Compose\n\n",
@@ -898,6 +1017,14 @@ fn machine_instructions(output_type: OutputType, cluster: &ClusterInput) -> Stri
                 "until its tag is started.\n"
             ),
             |machine| format!("dekit up\ndekit start +{machine}"),
+        ),
+        OutputType::ProcessCompose => (
+            "process-compose",
+            concat!(
+                "Copy this directory to each machine -- for a scenario built from the repository, into a checkout\n",
+                "of it at the same path -- and start only that machine's namespace there.\n"
+            ),
+            |machine| format!(concat!(process_compose_up!(), " -n {}"), machine),
         ),
         OutputType::DockerCompose => (
             "Docker Compose",
@@ -1157,10 +1284,10 @@ fn k3s_run_instructions(
     build_contexts: &str,
 ) -> String {
     let hub = k3s_hub(images);
-    // Where the build runs is the one thing that follows from what the image reads: a checkout when it copies
-    // anything out of one, and otherwise this directory, plus the token when it fetches released modules.
-    // A build from this directory names no Dockerfile, since `Dockerfile` is docker's own default; one from the
-    // repository root has to name the scenario's.
+    // Where the build runs is the one thing that follows from what the image reads: a checkout when it copies anything
+    // out of one, and otherwise this directory, plus the token when it fetches released modules. A build from this
+    // directory names no Dockerfile, since `Dockerfile` is docker's own default; one from the repository root has to
+    // name the scenario's.
     let (place, dockerfile_var, dockerfile_flag) = if image_build.needs.repository {
         (
             "From the repository root",
@@ -1170,8 +1297,8 @@ fn k3s_run_instructions(
     } else {
         ("From this directory", String::default(), "")
     };
-    // Said wherever the build runs: a scenario staging a mise-provisioned package builds from the repository root
-    // and can still fetch released modules, and then needs the token just the same.
+    // Said wherever the build runs: a scenario staging a mise-provisioned package builds from the repository root and
+    // can still fetch released modules, and then needs the token just the same.
     let token_clause = if image_build.needs.registry_token {
         concat!(
             ",\n",
@@ -1738,6 +1865,8 @@ pub(crate) struct RunnerInstance {
     pub site: placement::Site,
     /// Resource limits the scenario set for this runner's agent.
     pub limits: Limits,
+    /// When the runner is started; unset runs it continuously.
+    pub schedule: Schedule,
 }
 
 /// Runner kinds a scenario may name, mapped to the crate that runs them.
@@ -1758,13 +1887,14 @@ pub(crate) const SUPPORTED_RUNNERS: [(&str, &str); 3] = [
 /// into a table and compose writes each service as a mapping key. Either way a collision replaces rather than reports
 /// -- an agent called `ws-server` would quietly take the hub's place, and the deployment would come up missing the
 /// thing it was meant to talk to. Rejecting the name is the only way that surfaces.
-pub(crate) const RESERVED_RUNNER_NAMES: [&str; 6] = [
+pub(crate) const RESERVED_RUNNER_NAMES: [&str; 7] = [
     "generated-scenario",
     "o2",
     deployment_types::OPENER_TASK,
     deployment_types::COLLECTOR_TASK,
     deployment_types::HUB_TASK,
     deployment_types::HUB_IMAGE_BUILD,
+    deployment_types::SCHEDULER_SERVICE,
 ];
 
 /// Resolve every agent that names a `runner:` into the processes the deployment has to start.
@@ -1818,12 +1948,12 @@ pub(crate) fn resolve_cluster_runners(
             // The hub serves a module under its package name, so that is what the runner has to ask for.
             let module = entry.package_name.clone().unwrap_or_else(|| module_name.to_string());
             let name = runner_name(&agent.name, module_name, multi_resource, &runners)?;
-            // A machine is a mise task of its own as well, so a runner taking that task's name would replace it.
-            if cluster
-                .machines
-                .iter()
-                .any(|machine| name == deployment_types::machine_task(&machine.name))
-            {
+            // A machine is a mise task of its own as well, and has a compose scheduler service, so a runner taking
+            // either name would replace it.
+            if cluster.machines.iter().any(|machine| {
+                name == deployment_types::machine_task(&machine.name)
+                    || name == deployment_types::scheduler_service(slice::from_ref(&machine.name))
+            }) {
                 return Err(CliError::ReservedRunnerName {
                     agent: agent.name.clone(),
                     name,
@@ -1838,10 +1968,21 @@ pub(crate) fn resolve_cluster_runners(
                 env: agent.env.clone(),
                 site: placement::agent_site(cluster, &agent.name),
                 limits: agent.limits.clone(),
+                schedule: agent.schedule.clone(),
             });
         }
     }
     Ok(runners)
+}
+
+/// Every runner `cluster` declares, resolved against the modules this tree and the scenario's own paths hold.
+pub(crate) fn scenario_runners(cluster: &ClusterInput) -> Result<Vec<RunnerInstance>, CliError> {
+    let workspace_root = edge_toolkit::config::get_project_root();
+    let ws_server_dir = workspace_root.join("services/ws-server");
+    resolve_cluster_runners(
+        &module_registry(&workspace_root, &ws_server_dir, &cluster.module_paths),
+        cluster,
+    )
 }
 
 /// Base HTTP URL a generated deployment reaches the hub on.

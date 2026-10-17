@@ -364,6 +364,11 @@ present in the same file -- a de-duplicating change that adds a clone. When it f
 so the shared part exists once (often by routing the older code through the new helper); never reach for
 `jscpd-baseline-update`, which the rules further down forbid.
 
+**Re-check a `cargo-unmaintained` finding with `mise run cargo-unmaintained-check-pkg <crate>`, never by running
+`cargo-unmaintained-check` across the repo.** The whole-repo task makes a GitHub lookup for every crate in the lockfile
+and is very expensive; the per-package task queries only the named crate and its dependencies, so it settles whether
+one flagged dependency is fixed -- or confirms its replacement is clean -- in about a minute.
+
 **Agents must not invoke formatter/linter binaries directly** (e.g. `mise exec -- taplo format`, raw
 `taplo`/`dprint`/`oxfmt`/`cargo fmt` calls). Always use the corresponding mise task (`mise run taplo-fmt`,
 `mise run taplo-check`, `mise run dprint-fmt`, etc.). The tasks carry the project's config-file paths
