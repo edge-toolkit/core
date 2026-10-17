@@ -28,6 +28,7 @@ line-ending = "lf"
 #   kept only to satisfy a fixed callback signature (the pyo3-runner `init`/`on_text_frame` hooks) is silenced by
 #   renaming it `_send` / `_text` rather than deleting it.
 #   "B" -- flake8-bugbear: likely bugs (mutable defaults, `zip` without `strict=`, loop-variable shadowing, ...).
+#   "BLE001" -- broad catches can hide programming errors; narrow operational failures or report/re-raise them.
 #   "C4" -- flake8-comprehensions: unnecessary or unpythonic comprehensions and generator calls.
 #   "D" -- pydocstyle (PEP 257) docstring checks; see [lint.pydocstyle].
 #   "INP" -- flake8-no-pep420: a `.py` file in a directory without `__init__.py`. Every Python package here is a
@@ -45,7 +46,7 @@ line-ending = "lf"
 # Use `extend-select`, not `select`, so we keep the default F401 (unused-import)
 # rule that openapi-python-client relies on internally -- it generates
 # speculative imports and trims them by re-running ruff with the default rules.
-extend-select = ["ARG", "B", "C4", "D", "I", "INP", "N", "PIE", "PLC", "PLE", "PLW", "RUF", "SIM", "UP"]
+extend-select = ["ARG", "B", "BLE001", "C4", "D", "I", "INP", "N", "PIE", "PLC", "PLE", "PLW", "RUF", "SIM", "UP"]
 
 [lint.pydocstyle]
 convention = "pep257"
@@ -58,6 +59,6 @@ convention = "pep257"
 # already dropped because the docstrings come verbatim from the OpenAPI/JSON-schema spec. "PYI" covers the
 # generated client's `__enter__`/`__exit__` annotations (return `Client` rather than `Self`, star-args typed as
 # `Any`), which come from openapi-python-client's templates.
-"generated/**" = ["ARG", "B", "C4", "D", "N", "PIE", "PLC", "PLE", "PLW", "PYI", "RUF", "SIM", "UP"]
+"generated/**" = ["ARG", "B", "BLE001", "C4", "D", "N", "PIE", "PLC", "PLE", "PLW", "PYI", "RUF", "SIM", "UP"]
 # Test modules: docstrings on test classes/methods are noise, not API surface.
 "**/tests/**" = ["D"]

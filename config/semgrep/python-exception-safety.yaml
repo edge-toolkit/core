@@ -1,0 +1,54 @@
+rules:
+  - id: python-silent-broad-except
+    languages: [python]
+    paths:
+      exclude:
+        - "/generated/**"
+        - "/**/componentize_py_async_support/**"
+        - "/**/wit_world/**"
+    pattern-either:
+      - pattern: |
+          try:
+              ...
+          except Exception:
+              pass
+      - pattern: |
+          try:
+              ...
+          except Exception as $ERROR:
+              pass
+      - pattern: |
+          try:
+              ...
+          except Exception:
+              continue
+      - pattern: |
+          try:
+              ...
+          except Exception as $ERROR:
+              continue
+      - pattern: |
+          try:
+              ...
+          except Exception:
+              return
+      - pattern: |
+          try:
+              ...
+          except Exception as $ERROR:
+              return
+      - pattern: |
+          try:
+              ...
+          except Exception:
+              return $VALUE
+      - pattern: |
+          try:
+              ...
+          except Exception as $ERROR:
+              return $VALUE
+    message: >-
+      Silently discarding every ordinary exception can conceal programming errors and lost work. Catch the expected
+      exception types and explicitly report, recover from, or propagate the failure. Check-only: a safe recovery policy
+      cannot be inferred from the handler alone.
+    severity: ERROR

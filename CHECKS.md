@@ -4,7 +4,7 @@
 - **Tools:** 47
 - **Shell-script checks:** 9
 - **Checks with a repair pass:** 21
-- **Rules:** 332 custom local rules, or non-default strict linter settings
+- **Rules:** 334 custom local rules, or non-default strict linter settings
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
 declares it, the aggregate that runs it as part of `mise run check`, the `fix` or `fmt` pass that repairs what it
@@ -254,6 +254,10 @@ Rules, from `config/ast-grep/rules`:
   Write `pub(super) use self::$X::...` to make the local reference explicit.
 - `prefer-self-mod-use-pubsuper-group` -- This file declares `mod $X;` and re-exports it via `pub(super) use $X::{...}`.
   Write `pub(super) use self::$X::{...}` to make the local reference explicit.
+- `python-process-control-except` -- A bare handler or BaseException catch can intercept shutdown and cancellation
+  signals, including KeyboardInterrupt and SystemExit. Catch specific operational exceptions instead, or use
+  straight-line cleanup ending in a bare raise. Check-only: choosing the correct exception types requires knowledge of
+  the operation being protected.
 - `semgrep-path-anchored` -- Every semgrep `paths.include` / `paths.exclude` entry starts with `/`, anchoring it at the
   repository root. A pattern without one is easy to get wrong in either direction -- an exclusion that lost its slash
   silently matches nothing, while a bare `*.rs` matches at any depth only because of a rule nobody reading the config
@@ -749,8 +753,8 @@ Rules, from `config/conftest/policy`:
 
 ## `semgrep`
 
-- `semgrep-check` (`default` env; run by `check:rust`) -- Run Semgrep generic-mode rules (e.g. Cargo.toml style).
-  Repaired by `semgrep-fix`. Config: `.semgrepignore`, `config/semgrep`.
+- `semgrep-check` (`default` env; run by `check:rust`) -- Run Semgrep code and configuration rules. Repaired by
+  `semgrep-fix`. Config: `.semgrepignore`, `config/semgrep`.
 
 Rules, from `config/semgrep`:
 
@@ -1029,6 +1033,9 @@ Rules, from `config/semgrep`:
   path is relative to wherever a command happens to run rather than to anything the deployment fixes. Fetch what the
   deployment needs from its releases, and let each tool's own default stand for "this directory", so the deployment
   builds and runs from its directory alone.
+- `python-silent-broad-except` -- Silently discarding every ordinary exception can conceal programming errors and lost
+  work. Catch the expected exception types and explicitly report, recover from, or propagate the failure. Check-only: a
+  safe recovery policy cannot be inferred from the handler alone.
 - `rego-rule-summary` -- This Rego rule has no summary comment. The generated catalogue of every check lists each policy
   rule by the first line of the comment above it, and refuses to build without one, so describe what the rule enforces
   in a comment opening at column 0 between the previous rule's closing brace and this rule. The file's header comment

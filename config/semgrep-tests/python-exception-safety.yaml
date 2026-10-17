@@ -1,0 +1,88 @@
+code: |
+  def examples():
+      # ruleid: python-silent-broad-except
+      try:
+          work()
+      except Exception:
+          pass
+
+      # ruleid: python-silent-broad-except
+      try:
+          work()
+      except Exception as error:
+          pass
+
+      # ruleid: python-silent-broad-except
+      try:
+          work()
+      except Exception:
+          return
+
+      # ruleid: python-silent-broad-except
+      try:
+          work()
+      except Exception as error:
+          return
+
+      # ruleid: python-silent-broad-except
+      try:
+          work()
+      except Exception:
+          return fallback
+
+      # ruleid: python-silent-broad-except
+      try:
+          work()
+      except Exception as error:
+          return None
+
+      for item in items:
+          # ruleid: python-silent-broad-except
+          try:
+              work(item)
+          except Exception:
+              continue
+
+      for item in items:
+          # ruleid: python-silent-broad-except
+          try:
+              work(item)
+          except Exception as error:
+              continue
+
+      # ok: python-silent-broad-except
+      try:
+          work()
+      except FileNotFoundError:
+          pass
+
+      # ok: python-silent-broad-except
+      try:
+          work()
+      except Exception:
+          raise
+
+      # ok: python-silent-broad-except
+      try:
+          work()
+      except Exception:
+          logger.exception('Worker boundary failed')
+
+      # ok: python-silent-broad-except
+      try:
+          work()
+      except OSError:
+          logger.exception('Storage unavailable')
+
+      # ok: python-silent-broad-except
+      try:
+          work()
+      except Exception:
+          logger.exception('Worker boundary failed')
+          return fallback
+
+      # ok: python-silent-broad-except
+      try:
+          work()
+      except FileNotFoundError:
+          return None

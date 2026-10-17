@@ -98,8 +98,20 @@ depends = ["ruff-fix"]
 description = "Apply Python lint-fix passes"
 
 [tasks."test:python"]
-depends = ["test-edge-toolkit", "test-et-org", "test-pydemo1", "test-pyeye1", "test-pyface1", "test-pyspeech1"]
+depends = [
+  "test-edge-toolkit",
+  "test-et-org",
+  "test-pydemo1",
+  "test-pyeye1",
+  "test-pyface1",
+  "test-pyo3-mlflow",
+  "test-pyspeech1",
+]
 description = "Run Python tests"
+
+[tasks.test-pyo3-mlflow]
+dir = "services/ws-modules/pyo3-mlflow"
+run = "python -m unittest discover -p 'test_*.py'"
 
 [tasks.test-edge-toolkit]
 dir = "libs/python-edge-toolkit"
