@@ -16,6 +16,7 @@ name = "et-cli"
 path = "src/main.rs"
 
 [dependencies]
+bytesize.workspace = true
 clap.workspace = true
 edge-toolkit.workspace = true
 et-org.workspace = true

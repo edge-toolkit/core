@@ -1,0 +1,127 @@
+services:
+  openobserve:
+    image: openobserve/openobserve:v0.91.5
+    healthcheck:
+      test:
+        - CMD
+        - /openobserve
+        - node
+        - status
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    ports:
+      - 127.0.0.1:5080:5080
+    env_file:
+      - secrets.env
+    environment:
+      RUST_LOG: warn
+      ZO_ROOT_USER_EMAIL: root@example.com
+      ZO_DATA_DIR: /data
+    volumes:
+      - openobserve-data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1g
+    cpu_shares: 102
+  hub-image-build:
+    build:
+      context: ../../../..
+      dockerfile: services/ws-server/Dockerfile
+    scale: 0
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1g
+        reservations:
+          memory: 256m
+    cpu_shares: 512
+  ws-server:
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -fsS
+        - http://localhost:8080/health
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    env_file:
+      - secrets.env
+    build:
+      context: ../../../..
+      dockerfile: verification/local/output/math1-limits/Dockerfile
+      additional_contexts:
+        hub: service:hub-image-build
+    network_mode: host
+    environment:
+      MODULES_PATHS: "/app/services/ws-modules/math1,
+        /app/services/ws-modules/math1-sender"
+      MODULES_ROOT: ""
+      OTLP_AUTH_USERNAME: root@example.com
+      OTLP_COLLECTOR_URL: http://127.0.0.1:5080/api/default/v1
+      STORAGE_URL: file:///app/storage
+    volumes:
+      - ws-server-storage:/app/storage
+    depends_on:
+      openobserve:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1g
+        reservations:
+          memory: 256m
+    cpu_shares: 512
+  math1-twin:
+    build:
+      context: ../../../..
+      dockerfile: services/ws-web-runner/Dockerfile
+    network_mode: host
+    environment:
+      RUNNER_MODULE: "@edge-toolkit/et-ws-math1"
+      WS_SERVER_URL: ws://localhost:8080/ws
+    depends_on:
+      ws-server:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          pids: 512
+    cpu_period: 100000
+    cpu_quota: 150000
+    cpu_shares: 102
+    cpuset: "0"
+    memswap_limit: 1536m
+    shm_size: 128m
+    ulimits:
+      nofile:
+        soft: 4096
+        hard: 8192
+  math1-trigger:
+    build:
+      context: ../../../..
+      dockerfile: services/ws-web-runner/Dockerfile
+    network_mode: host
+    environment:
+      RUNNER_MODULE: "@edge-toolkit/et-ws-math1-sender"
+      WS_SERVER_URL: ws://localhost:8080/ws
+    depends_on:
+      ws-server:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
+volumes:
+  openobserve-data: {}
+  ws-server-storage: {}

@@ -1,0 +1,44 @@
+cluster_name: "math1-limits"
+deployment_type: "mise"
+
+# The math1 pair with resource limits on the hub, the collector and the twin, and none on the trigger.
+# The figures stay well above what each process needs, so the exchange runs unchanged under any of them; what this
+# scenario pins is that each format renders every limit to the same cgroup value. The hub weights its CPU by shares,
+# and the twin caps it by quota and sets the limits only the k3s runtime plugins can apply there. The collector sets
+# only what the Pod API carries itself, because its image has no shell to read a cgroup file back from inside it.
+# `blkio_weight` is left out because writing it needs the BFQ I/O scheduler on the node, which CI's kernel lacks.
+services:
+  hub:
+    limits:
+      cpus: 2
+      cpu_shares: 512
+      memory: "1 GiB"
+      memory_reservation: "256 MiB"
+
+  collector:
+    limits:
+      cpus: 1
+      memory: "1 GiB"
+
+agents:
+  - name: "math1-twin"
+    runner: "web"
+    limits:
+      cpu_quota: 150000
+      cpu_period: 100000
+      cpuset: "0"
+      memory: "1 GiB"
+      memswap_limit: "1536 MiB"
+      pids: 512
+      shm_size: "128 MiB"
+      ulimits:
+        nofile:
+          soft: 4096
+          hard: 8192
+    resources:
+      - type: "math1"
+
+  - name: "math1-trigger"
+    runner: "web"
+    resources:
+      - type: "math1-sender"

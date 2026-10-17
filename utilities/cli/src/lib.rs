@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
-use edge_toolkit::ports::Services;
+use edge_toolkit::ports::Services as Ports;
 use et_path::{absolute_from, relative_path_from};
 use fs_err as fs;
 use serde::Deserialize;
@@ -17,6 +17,7 @@ mod deployment_types;
 mod error;
 mod hub_ws_url;
 mod input;
+mod limits;
 mod module_package_json;
 mod placement;
 mod scenario_password;
@@ -36,9 +37,10 @@ pub(crate) use self::hub_ws_url::HUB_SERVICE;
 pub use self::hub_ws_url::{hub_service_ws_url, hub_ws_url, hub_ws_url_at};
 pub(crate) use self::input::running_in_this_repository;
 pub use self::input::{
-    ArtifactSource, ClusterInput, DEFAULT_CLUSTER_NAME, OutputType, infer_artifact_source,
+    ArtifactSource, ClusterInput, DEFAULT_CLUSTER_NAME, OutputType, Service, Services, infer_artifact_source,
     manifest_declares_this_repository,
 };
+pub use self::limits::{Cpus, Limits, LimitsError, Ulimit};
 pub use self::module_package_json::generate_module_package_json;
 pub(crate) use self::scenario_password::{scenario_password, scenario_seed};
 
@@ -273,6 +275,18 @@ pub(crate) fn load_cluster_input(input_file: &Path) -> Result<(ClusterInput, u64
     let mut cluster: ClusterInput = serde_yaml::from_slice(&content)?;
     validate_cluster_name(&cluster.cluster_name)?;
     placement::validate_machines(&cluster)?;
+    limits::validate_limits(deployment_types::HUB_TASK, &cluster.services.hub.limits)?;
+    limits::validate_limits(deployment_types::COLLECTOR_TASK, &cluster.services.collector.limits)?;
+    for agent in &cluster.agents {
+        // An agent's limits govern its runner processes; with no runner its modules run in a browser, which no
+        // deployment format starts, so there would be nothing for them to apply to.
+        if agent.runner.is_none() && !agent.limits.is_unset() {
+            return Err(CliError::LimitsWithoutRunner {
+                agent: agent.name.clone(),
+            });
+        }
+        limits::validate_limits(&agent.name, &agent.limits)?;
+    }
     // Relative to the input file, which is the one place a scenario can name its own modules from without knowing where
     // the CLI is run. The input itself is resolved the way `fs::read` just resolved it, against the working directory,
     // so the two cannot disagree when the CLI runs from a subdirectory of a repository. A path with no parent is a
@@ -311,7 +325,15 @@ fn validate_cluster_name(name: &str) -> Result<(), CliError> {
     rfc1123_label(name, CLUSTER_NAME_MAX, |reason| CliError::InvalidClusterName {
         name: name.to_owned(),
         reason,
-    })
+    })?;
+    // The scenario's namespace is `et-<name>`, and one is already spoken for by the container runtime plugins.
+    if format!("et-{name}") == deployment_types::K3S_PLUGIN_NAMESPACE {
+        return Err(CliError::InvalidClusterName {
+            name: name.to_owned(),
+            reason: "its namespace is the one the container runtime plugins run in".to_owned(),
+        });
+    }
+    Ok(())
 }
 
 /// Check `name` is an RFC 1123 label no longer than `max`, building the error from the reason it is not.
@@ -651,13 +673,14 @@ fn generated_readme(
         .map(|output_type| {
             let mut section = generated_run_instructions(
                 *output_type,
-                &cluster.cluster_name,
+                cluster,
                 image_build,
                 &runner_kinds(cluster),
                 cluster.artifact_source,
                 &build_contexts,
             );
             section.push_str(&machine_instructions(*output_type, cluster));
+            section.push_str(&limits::limits_note(*output_type, cluster));
             section
         })
         .collect::<Vec<_>>()
@@ -784,7 +807,7 @@ const fn mise_install_note(artifacts: ArtifactSource) -> &'static str {
 /// Render the README section that runs one deployment format.
 fn generated_run_instructions(
     output_type: OutputType,
-    cluster_name: &str,
+    cluster: &ClusterInput,
     image_build: &ImageBuild,
     runners: &[String],
     artifacts: ArtifactSource,
@@ -843,7 +866,7 @@ fn generated_run_instructions(
             ),
             hub = compose_hub_note(artifacts)
         ),
-        OutputType::K3s => k3s_run_instructions(cluster_name, image_build, runners, artifacts, build_contexts),
+        OutputType::K3s => k3s_run_instructions(cluster, image_build, runners, artifacts, build_contexts),
     }
 }
 
@@ -995,23 +1018,19 @@ fn machine_runner_kinds(cluster: &ClusterInput, machine: &str) -> Vec<String> {
 
 /// Explain where the module-less hub image the scenario layers onto comes from.
 ///
-/// The two answers are structurally different rather than differently worded: a local scenario declares a build-only
-/// service for the hub and takes that service as the named build context, so `docker compose up` builds two images;
-/// a published one points the context straight at the released image and builds one. A reader who does not know which
-/// shape they have is reading a `compose.yaml` with a service in it they cannot account for, or missing one the other
-/// scenarios have.
+/// The two answers are structurally different rather than differently worded: a local scenario builds the hub too, so
+/// `docker compose up` builds two images; a published one's Dockerfile names the released image and builds one.
 const fn compose_hub_note(artifacts: ArtifactSource) -> &'static str {
     if matches!(artifacts, ArtifactSource::Published) {
         return concat!(
             "The compose stack starts OpenObserve and builds one image: the `Dockerfile` in this directory,\n",
-            "which stages this scenario's modules onto the released hub image it names as a build context.\n"
+            "which stages this scenario's modules onto the released hub image it names.\n"
         );
     }
     concat!(
         "The compose stack starts OpenObserve and builds `ws-server` in two layers: the module-less hub\n",
         "image from the repository's `services/ws-server/Dockerfile`, then the `Dockerfile` in this\n",
-        "directory, which stages this scenario's modules onto it. The hub is build-only and never runs as a\n",
-        "container of its own.\n"
+        "directory, which stages this scenario's modules onto it.\n"
     )
 }
 
@@ -1061,35 +1080,67 @@ fn runner_image_note(runners: &[String], images: ArtifactSource) -> String {
     )
 }
 
-/// Render the paragraph and the hub reference that differ between the two image sources.
+/// The paragraph, and the hub lines of the build commands, that differ between the two image sources.
 ///
 /// Kept apart from the shell below rather than templating two whole sections, because everything else about producing
-/// the scenario image is the same either way: only what supplies `FROM hub`, and whether that hub is a build of its
-/// own, actually change.
-fn k3s_image_preamble(images: ArtifactSource) -> (&'static str, String, &'static str) {
+/// the scenario image is the same either way: only where the hub comes from changes. A published scenario's Dockerfile
+/// names the released hub image itself, so its build needs no hub of its own and no context to hand one over in.
+struct K3sHub {
+    /// The paragraph that opens the section.
+    preamble: &'static str,
+    /// The `hub=` assignment, or nothing when the Dockerfile names its hub itself.
+    variable: &'static str,
+    /// The command that builds the hub, or nothing when it is a released image.
+    build: &'static str,
+    /// The flag that hands the hub to the scenario build as a named context, or nothing when none is needed.
+    context: &'static str,
+}
+
+/// The hub half of the k3s image steps for `images`.
+const fn k3s_hub(images: ArtifactSource) -> K3sHub {
     if matches!(images, ArtifactSource::Published) {
-        return (
-            concat!(
+        return K3sHub {
+            preamble: concat!(
                 "The manifests reference images by name and never build them, so this scenario's own image has\n",
-                "to reach the node first. It layers its modules onto the module-less hub image and takes that\n",
-                "hub as a _named build context_ rather than building it, so a plain `docker build` of the\n",
-                "scenario Dockerfile fails on `FROM hub` -- pointing the context at the published hub is what\n",
-                "supplies it. "
+                "to reach the node first. It layers its modules onto the released hub image, which its Dockerfile\n",
+                "names and the build pulls. "
             ),
-            format!("{IMAGE_REGISTRY}/et-ws-server:latest"),
-            "",
-        );
+            variable: "",
+            build: "",
+            context: "",
+        };
     }
-    (
-        concat!(
+    K3sHub {
+        preamble: concat!(
             "The manifests reference images by name and never build them, so build and import each one first.\n",
             "This scenario's image layers its modules onto the module-less hub image and takes that hub as a\n",
             "_named build context_ rather than building it, so the hub has to exist first -- a plain\n",
             "`docker build` of the scenario Dockerfile fails on `FROM hub`. "
         ),
-        "et-ws-server-hub:latest".to_string(),
-        "docker build -t \"$hub\" -f services/ws-server/Dockerfile .\n",
-    )
+        variable: "hub=et-ws-server-hub:latest\n",
+        build: "docker build -t \"$hub\" -f services/ws-server/Dockerfile .\n",
+        context: " --build-context \"hub=docker-image://$hub\"",
+    }
+}
+
+/// The flag that mounts the registry token into the scenario build, or nothing when the build fetches no release.
+///
+/// The secret's id and the variable it is read from, passed straight to the flag. Held in a shell variable of its own,
+/// the pair reads to a secret scanner as a credential assigned in the clear.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the token half of k3s_run_instructions, split out to keep it within its length budget"
+)]
+fn registry_secret_flag(needs_token: bool) -> String {
+    if needs_token {
+        format!(
+            " --secret id={},env={}",
+            deployment_types::REGISTRY_TOKEN_SECRET,
+            deployment_types::REGISTRY_TOKEN_ENV
+        )
+    } else {
+        String::default()
+    }
 }
 
 /// Render the k3s half of the generated README.
@@ -1099,13 +1150,13 @@ fn k3s_image_preamble(images: ArtifactSource) -> (&'static str, String, &'static
 /// them, and the credential has to be loaded as a `Secret`, since it is the one generated file the repository does
 /// not carry.
 fn k3s_run_instructions(
-    cluster_name: &str,
+    cluster: &ClusterInput,
     image_build: &ImageBuild,
     runners: &[String],
     images: ArtifactSource,
     build_contexts: &str,
 ) -> String {
-    let (preamble, hub, hub_build) = k3s_image_preamble(images);
+    let hub = k3s_hub(images);
     // Where the build runs is the one thing that follows from what the image reads: a checkout when it copies
     // anything out of one, and otherwise this directory, plus the token when it fetches released modules.
     // A build from this directory names no Dockerfile, since `Dockerfile` is docker's own default; one from the
@@ -1131,43 +1182,36 @@ fn k3s_run_instructions(
         ""
     };
     let location = format!("{place}{token_clause}:\n\n");
-    // The secret's id and the variable it is read from, passed straight to the flag. Held in a shell variable of
-    // its own, the pair reads to a secret scanner as a credential assigned in the clear.
-    let secret = if image_build.needs.registry_token {
-        format!(
-            " --secret id={},env={}",
-            deployment_types::REGISTRY_TOKEN_SECRET,
-            deployment_types::REGISTRY_TOKEN_ENV
-        )
-    } else {
-        String::default()
-    };
+    let secret = registry_secret_flag(image_build.needs.registry_token);
     format!(
         concat!(
             "## Run With k3s\n\n",
             "{preamble}{location}",
             "```bash\n",
             "scenario={name}\n",
-            "hub={hub}\n",
+            "{hub_variable}",
             "image=\"et-ws-server-$scenario:latest\"\n",
             "{dockerfile_var}",
             "{hub_build}",
-            "docker build --build-context \"hub=docker-image://$hub\"{build_contexts}{secret}",
+            "docker build{hub_context}{build_contexts}{secret}",
             " -t \"$image\"{dockerfile_flag} .\n",
             "docker save \"$image\" | sudo k3s ctr images import -\n",
             "```\n\n",
             "{runner_note}",
+            "{prepare}",
             "{apply}",
         ),
-        apply = k3s_apply_instructions(cluster_name),
+        apply = k3s_apply_instructions(&cluster.cluster_name),
+        prepare = deployment_types::k3s_node_preparation_note(cluster),
         build_contexts = build_contexts,
         dockerfile_flag = dockerfile_flag,
         dockerfile_var = dockerfile_var,
-        hub = hub,
-        hub_build = hub_build,
+        hub_build = hub.build,
+        hub_context = hub.context,
+        hub_variable = hub.variable,
         location = location,
-        name = cluster_name,
-        preamble = preamble,
+        name = cluster.cluster_name,
+        preamble = hub.preamble,
         secret = secret,
         runner_note = runner_image_note(runners, images)
     )
@@ -1692,6 +1736,8 @@ pub(crate) struct RunnerInstance {
     pub env: BTreeMap<String, String>,
     /// The machine the runner's agent is placed on.
     pub site: placement::Site,
+    /// Resource limits the scenario set for this runner's agent.
+    pub limits: Limits,
 }
 
 /// Runner kinds a scenario may name, mapped to the crate that runs them.
@@ -1718,7 +1764,7 @@ pub(crate) const RESERVED_RUNNER_NAMES: [&str; 6] = [
     deployment_types::OPENER_TASK,
     deployment_types::COLLECTOR_TASK,
     deployment_types::HUB_TASK,
-    "ws-server-hub",
+    deployment_types::HUB_IMAGE_BUILD,
 ];
 
 /// Resolve every agent that names a `runner:` into the processes the deployment has to start.
@@ -1791,6 +1837,7 @@ pub(crate) fn resolve_cluster_runners(
                 // describes the agent, so each of them carries it.
                 env: agent.env.clone(),
                 site: placement::agent_site(cluster, &agent.name),
+                limits: agent.limits.clone(),
             });
         }
     }
@@ -1804,7 +1851,7 @@ pub(crate) fn resolve_cluster_runners(
 /// whatever is added next, and it is the only place that has to change if the port moves.
 #[must_use]
 pub(crate) fn hub_http_base() -> String {
-    format!("http://localhost:{}", Services::InsecureWebSocketServer.port())
+    format!("http://localhost:{}", Ports::InsecureWebSocketServer.port())
 }
 
 /// Derive one runner's deployment-unique name, rejecting the two ways it can collide.

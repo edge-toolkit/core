@@ -33,6 +33,13 @@ name: k3s
       - verification/local/output/math1-multi/Dockerfile
       - verification/local/output/math1-multi/compose.yaml
       - verification/local/output/math1-multi/k3s.yaml
+      # What the limits are and how each format renders them, and the scenario both formats are held to.
+      - utilities/cli/src/limits.rs
+      - verification/local/input/math1-limits.yaml
+      - verification/local/output/math1-limits/Dockerfile
+      - verification/local/output/math1-limits/compose.yaml
+      - verification/local/output/math1-limits/containerd-config-v3.toml.tmpl
+      - verification/local/output/math1-limits/k3s.yaml
       # The published job's generator and the deployment it runs, for the same reason.
       - utilities/cli/src/deployment_types/mise.rs
       - verification/local/output/math1/Dockerfile
@@ -147,6 +154,27 @@ jobs:
           CARGO_NET_RETRY: "5"
         run: mise run compose-verify
 
+      # The pair again with resource limits on the hub, the collector and the twin.
+      # Both formats are held to the same cgroup values and rlimits, read back from inside the containers; the k3s
+      # half also runs the two container runtime plugins its limits need, with the node set to refuse a pod they miss.
+      - name: Build the math1-limits scenario image
+        run: |
+          dockerfile=verification/local/output/math1-limits/Dockerfile
+          hub=docker-image://et-ws-server-hub:latest
+          docker build --build-context "hub=$hub" -t et-ws-server-math1-limits:latest -f "$dockerfile" .
+
+      - name: Apply the limited manifests and check every limit holds in the pods
+        timeout-minutes: 20
+        env:
+          CARGO_NET_RETRY: "5"
+        run: mise run k3s-verify --scenario math1-limits
+
+      - name: Start the limited compose stack and check every limit holds in the containers
+        timeout-minutes: 30
+        env:
+          CARGO_NET_RETRY: "5"
+        run: mise run compose-verify --scenario math1-limits
+
   # Whether what is on crates.io and GitHub Packages actually runs, which no other job asks.
   # Every sibling check reads this working tree; this one installs the released hub, runner and module packages
   # and runs the math1 exchange on them, so it is the only signal that a release is usable.
@@ -218,17 +246,14 @@ jobs:
         with:
           github-token: ${{ github.token }}
 
-      # The hub comes from the registry as a named build context rather than being built.
-      # That is the whole point of this job, and a plain build of the scenario Dockerfile fails on `FROM hub`.
-      # The modules come from their releases too, fetched with the token, so the image builds from the
-      # deployment directory alone and nothing in this checkout is built for it.
+      # The scenario Dockerfile names the released hub image, so the build pulls it rather than building one.
+      # That is the whole point of this job. The modules come from their releases too, fetched with the token, so
+      # the image builds from the deployment directory alone and nothing in this checkout is built for it.
       - name: Build the math1 scenario image on the released hub
         env:
           GITHUB_TOKEN: ${{ github.token }}
         working-directory: verification/published/output/math1
-        run: |
-          hub=docker-image://ghcr.io/edge-toolkit/core/et-ws-server:latest
-          docker build --build-context "hub=$hub" --secret id=gh_token,env=GITHUB_TOKEN -t et-ws-server-math1:latest .
+        run: docker build --secret id=gh_token,env=GITHUB_TOKEN -t et-ws-server-math1:latest .
 
       - name: Apply the published manifests and verify the stored model
         timeout-minutes: 20
@@ -240,10 +265,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         working-directory: verification/published/output/math1-multi
-        run: |
-          hub=docker-image://ghcr.io/edge-toolkit/core/et-ws-server:latest
-          image=et-ws-server-math1-multi:latest
-          docker build --build-context "hub=$hub" --secret id=gh_token,env=GITHUB_TOKEN -t "$image" .
+        run: docker build --secret id=gh_token,env=GITHUB_TOKEN -t et-ws-server-math1-multi:latest .
 
       - name: Apply the published multi-machine manifests to a multi-node cluster and verify the stored model
         timeout-minutes: 20

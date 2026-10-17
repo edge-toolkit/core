@@ -23,17 +23,18 @@
 //! from the generated env file, so the manifests stay committable.
 
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::path::Path;
 
 use edge_toolkit::ports::Services;
 use fs_err as fs;
-use k8s_openapi::api::apps::v1::{Deployment, DeploymentSpec};
+use k8s_openapi::api::apps::v1::{DaemonSet, DaemonSetSpec, Deployment, DeploymentSpec};
 use k8s_openapi::api::core::v1::{
-    Capabilities, ConfigMap, ConfigMapEnvSource, Container, ContainerPort, EmptyDirVolumeSource, EnvFromSource, EnvVar,
-    ExecAction, HTTPGetAction, Namespace, PersistentVolumeClaim, PersistentVolumeClaimSpec,
-    PersistentVolumeClaimVolumeSource, PodSecurityContext, PodSpec, PodTemplateSpec, Probe, ResourceRequirements,
-    SeccompProfile, SecretEnvSource, SecurityContext, Service, ServicePort, ServiceSpec, Volume, VolumeMount,
-    VolumeResourceRequirements,
+    Capabilities, ConfigMap, ConfigMapEnvSource, ConfigMapVolumeSource, Container, ContainerPort, EmptyDirVolumeSource,
+    EnvFromSource, EnvVar, ExecAction, HTTPGetAction, HostPathVolumeSource, Namespace, PersistentVolumeClaim,
+    PersistentVolumeClaimSpec, PersistentVolumeClaimVolumeSource, PodSecurityContext, PodSpec, PodTemplateSpec, Probe,
+    ResourceRequirements, SeccompProfile, SecretEnvSource, SecurityContext, Service, ServicePort, ServiceSpec, Volume,
+    VolumeMount, VolumeResourceRequirements,
 };
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::{LabelSelector, ObjectMeta};
@@ -42,6 +43,7 @@ use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use super::document;
 use crate::error::CliError;
 use crate::input::{ArtifactSource, ClusterInput};
+use crate::limits::{CpuCap, Limits, MAX_CPU_SHARES, ResolvedLimits, k8s_bytes, k8s_cpus};
 use crate::placement::{MACHINE_LABEL, Site, hub_site};
 use crate::{
     COLLECTOR_SETTINGS, COLLECTOR_USERNAME, HUB_SERVICE, OutputType, RunnerInstance, cluster_module_names,
@@ -90,15 +92,96 @@ const RUN_AS_ID: i64 = 10001;
 /// `TlsConfig` from, the registry through the binary's own `--agent-registry`.
 const HUB_RUNTIME_DIR: &str = "/app/runtime";
 
-/// Resource floor and ceiling every container declares.
+/// The volume a container's sized `/dev/shm` is mounted from.
+const SHM_VOLUME: &str = "shm";
+
+/// Where the container runtime plugins run: they serve every pod on a node, whichever scenario it belongs to.
 ///
-/// Kubernetes schedules a container with no request as best-effort and lets one with no limit consume the node, so both
-/// are set. The figures are deliberately generous rather than tuned: a scenario deployment is a demonstration, and a
-/// limit that throttles the runners would turn a passing exchange into a flaky one.
-const CPU_REQUEST: &str = "100m";
-const CPU_LIMIT: &str = "2";
-const MEMORY_REQUEST: &str = "128Mi";
-const MEMORY_LIMIT: &str = "2Gi";
+/// Two scenarios applied to one cluster both declare the plugins, and declaring them in one namespace of their own
+/// under fixed names makes the second apply a no-op rather than a second copy of each plugin on every node. Not
+/// `kube-system`, which is the cluster's own and has no business holding workloads this project brings.
+pub(crate) const PLUGIN_NAMESPACE: &str = "et-nri-plugins";
+
+/// containerd's own NRI plugin that sets a container's rlimits from the annotation [`ULIMITS_ANNOTATION`] names.
+static ULIMIT_ADJUSTER: RuntimePlugin = RuntimePlugin {
+    args: &["-idx", "10"],
+    command: &[],
+    config: None,
+    image: "ghcr.io/containerd/nri/plugins/ulimit-adjuster:v0.10.0",
+    name: "ulimit-adjuster",
+    workload: "nri-plugin-ulimit-adjuster",
+};
+
+/// The nri-plugins project's plugin that writes a cgroup v2 file from each `<file>.memory-qos.nri.io/<container>`.
+///
+/// Despite its name it writes any file its configuration lists, which [`MEMORY_QOS_FILES`] makes the set of cgroup
+/// files the Pod API has no field for.
+static MEMORY_QOS: RuntimePlugin = RuntimePlugin {
+    args: &["--idx", "90", "--config", "/etc/nri/memory-qos/config.yaml"],
+    command: &["nri-memory-qos"],
+    config: Some(("nri-memory-qos-config", "/etc/nri/memory-qos")),
+    image: "ghcr.io/containers/nri-plugins/nri-memory-qos:v0.14.0",
+    name: "nri-memory-qos",
+    workload: "nri-memory-qos",
+};
+
+/// The cgroup v2 files memory-qos is allowed to write, one per scenario limit the Pod API cannot express.
+const MEMORY_QOS_FILES: [&str; 7] = [
+    "cpu.max",
+    "cpu.weight",
+    "cpuset.cpus",
+    "io.bfq.weight",
+    "memory.low",
+    "memory.swap.max",
+    "pids.max",
+];
+
+/// The annotation, suffixed with a container name, that ulimit-adjuster reads that container's rlimits from.
+const ULIMITS_ANNOTATION: &str = "ulimits.noderesource.dev/container";
+
+/// The annotation, suffixed with a container name, that has the runtime refuse a container its plugins did not adjust.
+///
+/// NRI's default validator, enabled by the node preparation the README describes, rejects the container when any
+/// plugin named here has not processed it. That is what turns a node without the plugins into a pod that does not
+/// start, rather than one that starts without its limits.
+const REQUIRED_PLUGINS_ANNOTATION: &str = "required-plugins.noderesource.dev/container";
+
+/// The file each machine's containerd configuration is extended from, written beside `k3s.yaml` for any plugin.
+const CONTAINERD_TEMPLATE_FILE: &str = "containerd-config-v3.toml.tmpl";
+
+/// Where k3s reads a containerd configuration template from, on every machine of the cluster.
+const CONTAINERD_TEMPLATE_PATH: &str = "/var/lib/rancher/k3s/agent/etc/containerd/config-v3.toml.tmpl";
+
+/// k3s's own containerd configuration with NRI's default validator turned on.
+///
+/// The validator is what reads the required-plugins annotations; k3s ships it off, so without this a container whose
+/// plugin is missing would start without its limits instead of being refused. `base` is the configuration k3s would
+/// otherwise write, which carries no NRI table of its own, so the section below adds to it rather than redefining one.
+const CONTAINERD_TEMPLATE: &str = concat!(
+    "{{ template \"base\" . }}\n",
+    "\n",
+    "[plugins.\"io.containerd.nri.v1.nri\".default_validator]\n",
+    "  enable = true\n"
+);
+
+/// The socket containerd's NRI listens on, which each plugin connects to.
+const NRI_SOCKET: &str = "/var/run/nri/nri.sock";
+
+/// One upstream container runtime plugin, run unmodified as a `DaemonSet`.
+struct RuntimePlugin {
+    /// The arguments the plugin starts with; `-idx` orders it among the node's plugins, as its upstream manifest does.
+    args: &'static [&'static str],
+    /// The program to run, or empty for the image's own entrypoint.
+    command: &'static [&'static str],
+    /// The `ConfigMap` holding the plugin's configuration and where it is mounted; absent, the plugin reads none.
+    config: Option<(&'static str, &'static str)>,
+    /// The pinned image the plugin is published as.
+    image: &'static str,
+    /// The name the plugin registers with the runtime, which is what a required-plugins annotation names.
+    name: &'static str,
+    /// The `DaemonSet` and the label its pods carry.
+    workload: &'static str,
+}
 
 /// Write `k3s.yaml` for one scenario.
 pub fn generate_k3s_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
@@ -122,13 +205,7 @@ pub fn generate_k3s_deployment(cluster: &ClusterInput, output_dir: &Path) -> Res
         String::default()
     };
 
-    let mut docs = fixed_documents(
-        &namespace,
-        &cluster.cluster_name,
-        &module_paths,
-        &root_module,
-        &hub_site(cluster),
-    )?;
+    let mut docs = fixed_documents(&namespace, cluster, &module_paths, &root_module, &hub_site(cluster))?;
     for runner in &runners {
         docs.push(document(&runner_deployment(
             &namespace,
@@ -136,8 +213,13 @@ pub fn generate_k3s_deployment(cluster: &ClusterInput, output_dir: &Path) -> Res
             cluster.artifact_source,
         ))?);
     }
+    let plugins = cluster_plugins(cluster);
+    docs.extend(runtime_plugin_documents(&plugins)?);
 
     fs::write(output_dir.join(OutputType::K3s.output_file_name()), docs.join("---\n"))?;
+    if !plugins.is_empty() {
+        fs::write(output_dir.join(CONTAINERD_TEMPLATE_FILE), CONTAINERD_TEMPLATE)?;
+    }
 
     Ok(())
 }
@@ -152,7 +234,7 @@ pub fn generate_k3s_deployment(cluster: &ClusterInput, output_dir: &Path) -> Res
 /// mounts it, so the two stay on the server machine rather than going wherever the scheduler finds room.
 fn fixed_documents(
     namespace: &str,
-    cluster_name: &str,
+    cluster: &ClusterInput,
     module_paths: &[String],
     root_module: &str,
     site: &Site,
@@ -161,15 +243,20 @@ fn fixed_documents(
         document(&namespace_object(namespace))?,
         document(&collector_config(namespace))?,
         document(&claim(namespace, "openobserve-data"))?,
-        document(&collector_deployment(namespace, site))?,
+        document(&collector_deployment(
+            namespace,
+            site,
+            &cluster.services.collector.limits,
+        ))?,
         document(&collector_service(namespace))?,
         document(&claim(namespace, "ws-server-storage"))?,
         document(&hub_deployment(
             namespace,
-            cluster_name,
+            &cluster.cluster_name,
             module_paths,
             root_module,
             site,
+            &cluster.services.hub.limits,
         ))?,
         document(&hub_service(namespace))?,
     ])
@@ -333,19 +420,322 @@ fn hardened_pod_context() -> PodSecurityContext {
     }
 }
 
-/// The request/limit pair every container declares.
-fn container_resources() -> ResourceRequirements {
+/// The request/limit pair a container declares, from the limits both formats resolve the same way.
+///
+/// A quota cap is stated here in whole millicores, rounded up, which is as close as the Pod API gets; the exact quota
+/// and period reach the cgroup through [`runtime_annotations`].
+fn container_resources(limits: &ResolvedLimits) -> ResourceRequirements {
+    let pair = |cpu, memory| {
+        BTreeMap::from([
+            ("cpu".to_string(), Quantity(k8s_cpus(cpu))),
+            ("memory".to_string(), Quantity(k8s_bytes(memory))),
+        ])
+    };
     ResourceRequirements {
-        limits: Some(BTreeMap::from([
-            ("cpu".to_string(), Quantity(CPU_LIMIT.to_string())),
-            ("memory".to_string(), Quantity(MEMORY_LIMIT.to_string())),
-        ])),
-        requests: Some(BTreeMap::from([
-            ("cpu".to_string(), Quantity(CPU_REQUEST.to_string())),
-            ("memory".to_string(), Quantity(MEMORY_REQUEST.to_string())),
-        ])),
+        limits: Some(pair(limits.cpu_cap.millicores(), limits.memory)),
+        requests: Some(pair(limits.cpu_request, limits.memory_request)),
         ..ResourceRequirements::default()
     }
+}
+
+/// The cgroup v2 `cpu.weight` the kernel gets for `shares`, by the conversion runc applies to Docker's `--cpu-shares`.
+///
+/// Reproduced rather than approximated, so a container given its weight this way under k3s ends up with the value
+/// compose's `cpu_shares` gives the same container: runc maps 2 to 1, 1024 to 100 and 262144 to 10000 along a quadratic
+/// in log space, and rounds up.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::float_arithmetic,
+    reason = "runc's conversion is defined in floating point; its result is in 1..=10000, so the cast back is exact"
+)]
+fn cpu_weight(shares: u64) -> u64 {
+    if shares <= 2 {
+        return 1;
+    }
+    if shares >= MAX_CPU_SHARES {
+        return 10_000;
+    }
+    let log = f64::from(u32::try_from(shares).unwrap_or(u32::MAX)).log2();
+    let exponent = log.mul_add(log, 125.0_f64 * log) / 612.0_f64 - 7.0_f64 / 34.0_f64;
+    10.0_f64.powf(exponent).ceil() as u64
+}
+
+/// The cgroup files and rlimits a container's limits set beyond what the Pod API carries, as plugin annotations.
+///
+/// Empty when the Pod API carries every limit the process sets, which is every process of a scenario that sets none of
+/// these, so that scenario's manifests name no plugin at all. Otherwise the container also names each plugin it relies
+/// on as required, so it is refused on a node where one is missing.
+fn runtime_annotations(container: &str, limits: &ResolvedLimits) -> BTreeMap<String, String> {
+    let mut annotations: BTreeMap<String, String> = cgroup_files(limits)
+        .into_iter()
+        .map(|(file, value)| (format!("{file}.memory-qos.nri.io/{container}"), value))
+        .collect();
+    if !limits.rest.ulimits.is_empty() {
+        let entries = limits
+            .rest
+            .ulimits
+            .iter()
+            .fold(String::default(), |mut entries, (name, ulimit)| {
+                let (soft, hard) = ulimit.soft_hard();
+                let kind = name.to_ascii_uppercase();
+                let _write_result = writeln!(entries, "- type: RLIMIT_{kind}\n  soft: {soft}\n  hard: {hard}");
+                entries
+            });
+        let _previous = annotations.insert(format!("{ULIMITS_ANNOTATION}.{container}"), entries);
+    }
+    let required = required_plugins(limits);
+    if !required.is_empty() {
+        let names = required
+            .iter()
+            .map(|plugin| format!("\"{}\"", plugin.name))
+            .collect::<Vec<_>>()
+            .join(",");
+        let _previous = annotations.insert(
+            format!("{REQUIRED_PLUGINS_ANNOTATION}.{container}"),
+            format!("[{names}]"),
+        );
+    }
+    annotations
+}
+
+/// The cgroup v2 files memory-qos writes for a container, with their values, in [`MEMORY_QOS_FILES`] order.
+fn cgroup_files(limits: &ResolvedLimits) -> Vec<(&'static str, String)> {
+    let rest = &limits.rest;
+    let cpu_max = match limits.cpu_cap {
+        CpuCap::Quota { quota, period } => Some(format!("{quota} {period}")),
+        CpuCap::Cpus(_) => None,
+    };
+    // Docker's swap limit counts memory and swap together, where the cgroup file counts the swap alone.
+    let swap = rest
+        .memswap_limit
+        .map(|swap| swap.as_u64().saturating_sub(limits.memory.as_u64()).to_string());
+    let shares = limits
+        .explicit_shares
+        .then(|| cpu_weight(limits.cpu_shares).to_string());
+    let values = [
+        cpu_max,
+        shares,
+        rest.cpuset.clone(),
+        rest.blkio_weight.map(|weight| format!("default {weight}")),
+        limits.memory_low.map(|low| low.as_u64().to_string()),
+        swap,
+        rest.pids.map(|pids| pids.to_string()),
+    ];
+    MEMORY_QOS_FILES
+        .into_iter()
+        .zip(values)
+        .filter_map(|(file, value)| value.map(|value| (file, value)))
+        .collect()
+}
+
+/// The plugins a container's limits rely on, in the order a required-plugins annotation lists them.
+fn required_plugins(limits: &ResolvedLimits) -> Vec<&'static RuntimePlugin> {
+    let mut required = Vec::new();
+    if !cgroup_files(limits).is_empty() {
+        required.push(&MEMORY_QOS);
+    }
+    if !limits.rest.ulimits.is_empty() {
+        required.push(&ULIMIT_ADJUSTER);
+    }
+    required
+}
+
+/// Every plugin some process of the scenario relies on, each once, in name order.
+///
+/// An agent's limits apply to its runner processes, so an agent with no runner -- whose modules a browser runs --
+/// contributes nothing; the scenario is rejected for setting limits on one.
+fn cluster_plugins(cluster: &ClusterInput) -> Vec<&'static RuntimePlugin> {
+    let agents = cluster
+        .agents
+        .iter()
+        .filter(|agent| agent.runner.is_some())
+        .map(|agent| &agent.limits);
+    let services = &cluster.services;
+    let mut needed: Vec<&RuntimePlugin> = [&services.collector.limits, &services.hub.limits]
+        .into_iter()
+        .chain(agents)
+        .flat_map(|limits| required_plugins(&limits.resolve()))
+        .collect();
+    needed.sort_unstable_by_key(|plugin| plugin.name);
+    needed.dedup_by_key(|plugin| plugin.name);
+    needed
+}
+
+/// Render the README step that readies every machine for the plugins, or nothing when the scenario needs none.
+pub(crate) fn node_preparation_note(cluster: &ClusterInput) -> String {
+    let plugins = cluster_plugins(cluster);
+    if plugins.is_empty() {
+        return String::default();
+    }
+    let names = plugins
+        .iter()
+        .map(|plugin| format!("`{}`", plugin.name))
+        .collect::<Vec<_>>()
+        .join(" and ");
+    format!(
+        concat!(
+            "### Prepare The Nodes\n\n",
+            "Some of this scenario's limits have no field in the Pod API, so `k3s.yaml` runs these container\n",
+            "runtime plugins on every node to write them into each container's cgroup:\n",
+            "{names}.\n\n",
+            "Each limited pod names the plugins it needs, and containerd refuses it on a node where one of them\n",
+            "did not adjust it -- once NRI's validator is on, which k3s leaves off. Before applying `k3s.yaml`,\n",
+            "copy the template below from this directory to every machine of the cluster and restart k3s there\n",
+            "(`k3s-agent` on a machine that joined as an agent):\n\n",
+            "```bash\n",
+            "sudo install -D -m 0644 {file} {path}\n",
+            "sudo systemctl restart k3s\n",
+            "```\n\n"
+        ),
+        file = CONTAINERD_TEMPLATE_FILE,
+        names = names,
+        path = CONTAINERD_TEMPLATE_PATH,
+    )
+}
+
+/// The documents that run each plugin any process of the scenario relies on, or none when no process relies on one.
+fn runtime_plugin_documents(plugins: &[&RuntimePlugin]) -> Result<Vec<String>, CliError> {
+    let mut docs = Vec::new();
+    if !plugins.is_empty() {
+        docs.push(document(&namespace_object(PLUGIN_NAMESPACE))?);
+    }
+    for plugin in plugins {
+        if let Some((config, _)) = plugin.config {
+            docs.push(document(&memory_qos_config(config))?);
+        }
+        docs.push(document(&plugin_daemon_set(plugin))?);
+    }
+    Ok(docs)
+}
+
+/// memory-qos's configuration, as the `ConfigMap` called `name`: the cgroup files it may write, and nothing else.
+fn memory_qos_config(name: &str) -> ConfigMap {
+    let files = MEMORY_QOS_FILES.iter().fold(String::default(), |mut files, file| {
+        let _write_result = writeln!(files, "- {file}");
+        files
+    });
+    ConfigMap {
+        data: Some(BTreeMap::from([(
+            "config.yaml".to_string(),
+            format!("unifiedannotations:\n{files}"),
+        )])),
+        metadata: plain_meta(PLUGIN_NAMESPACE, name),
+        ..ConfigMap::default()
+    }
+}
+
+/// The plugin's container: its own image, command and arguments, with the NRI socket and any configuration mounted.
+///
+/// It runs as root because the socket is root's alone, and that is the only privilege it keeps: every capability is
+/// dropped and the root filesystem is read-only, so the socket is the one thing it can reach that an ordinary
+/// container cannot.
+fn plugin_container(plugin: &RuntimePlugin) -> (Container, Vec<Volume>) {
+    let owned = |items: &[&str]| items.iter().map(|item| (*item).to_string()).collect::<Vec<_>>();
+    let (socket_mount, socket_volume) = host_socket("nri-socket", NRI_SOCKET);
+    let mut mounts = vec![socket_mount];
+    let mut volumes = vec![socket_volume];
+    if let Some((config, path)) = plugin.config {
+        mounts.push(volume_mount(config, path));
+        volumes.push(Volume {
+            config_map: Some(ConfigMapVolumeSource {
+                name: config.to_string(),
+                ..ConfigMapVolumeSource::default()
+            }),
+            name: config.to_string(),
+            ..Volume::default()
+        });
+    }
+    let container = Container {
+        args: Some(owned(plugin.args)),
+        command: (!plugin.command.is_empty()).then(|| owned(plugin.command)),
+        image: Some(plugin.image.to_string()),
+        image_pull_policy: Some(IMAGE_PULL_POLICY.to_string()),
+        name: plugin.workload.to_string(),
+        resources: Some(container_resources(&ResolvedLimits::default())),
+        security_context: Some(SecurityContext {
+            run_as_non_root: Some(false),
+            run_as_user: Some(0),
+            ..hardened_container_context()
+        }),
+        volume_mounts: Some(mounts),
+        ..Container::default()
+    };
+    (container, volumes)
+}
+
+/// One plugin, on every node, connected to the node's NRI socket.
+///
+/// Node-critical priority keeps the scheduler from evicting it under load, which would leave every limited container
+/// on the node refused until it returned.
+fn plugin_daemon_set(plugin: &RuntimePlugin) -> DaemonSet {
+    let (container, volumes) = plugin_container(plugin);
+    DaemonSet {
+        metadata: meta(PLUGIN_NAMESPACE, plugin.workload),
+        spec: Some(DaemonSetSpec {
+            selector: LabelSelector {
+                match_labels: Some(labels(plugin.workload)),
+                ..LabelSelector::default()
+            },
+            template: PodTemplateSpec {
+                metadata: Some(ObjectMeta {
+                    labels: Some(labels(plugin.workload)),
+                    ..ObjectMeta::default()
+                }),
+                spec: Some(PodSpec {
+                    containers: vec![container],
+                    priority_class_name: Some("system-node-critical".to_string()),
+                    security_context: Some(PodSecurityContext {
+                        seccomp_profile: Some(SeccompProfile {
+                            type_: "RuntimeDefault".to_string(),
+                            ..SeccompProfile::default()
+                        }),
+                        ..PodSecurityContext::default()
+                    }),
+                    volumes: Some(volumes),
+                    ..PodSpec::default()
+                }),
+            },
+            ..DaemonSetSpec::default()
+        }),
+        ..DaemonSet::default()
+    }
+}
+
+/// Mount a socket of the node's at the same path in the container.
+fn host_socket(name: &str, path: &str) -> (VolumeMount, Volume) {
+    let volume = Volume {
+        host_path: Some(HostPathVolumeSource {
+            path: path.to_string(),
+            type_: Some("Socket".to_string()),
+        }),
+        name: name.to_string(),
+        ..Volume::default()
+    };
+    (volume_mount(name, path), volume)
+}
+
+/// Size the container's `/dev/shm` as the scenario asked, with a memory-backed volume of that size over it.
+///
+/// Kubernetes has no shared-memory setting of its own: the runtime's default is a fixed 64MiB, and a memory-medium
+/// `emptyDir` mounted over the path is how a pod gets any other size.
+fn mount_shm(container: &mut Container, volumes: &mut Vec<Volume>, limits: &Limits) {
+    let Some(size) = limits.shm_size else {
+        return;
+    };
+    volumes.push(Volume {
+        empty_dir: Some(EmptyDirVolumeSource {
+            medium: Some("Memory".to_string()),
+            size_limit: Some(Quantity(k8s_bytes(size))),
+        }),
+        name: SHM_VOLUME.to_string(),
+        ..Volume::default()
+    });
+    container
+        .volume_mounts
+        .get_or_insert_with(Vec::new)
+        .push(volume_mount(SHM_VOLUME, "/dev/shm"));
 }
 
 /// The container half of a volume pair, which is the same whatever the volume is backed by.
@@ -388,7 +778,19 @@ fn mount(name: &str, path: &str) -> (VolumeMount, Volume) {
 /// Wrap a container in the single-replica Deployment every component here uses, pinned to the machine at `site`.
 ///
 /// A single-host scenario pins nothing and leaves placement to the scheduler, which on one node has no choice to make.
-fn deployment(namespace: &str, name: &str, container: Container, volumes: Vec<Volume>, site: &Site) -> Deployment {
+/// `limits` are applied here rather than by each caller, so no component can be built without them.
+fn deployment(
+    namespace: &str,
+    name: &str,
+    mut container: Container,
+    mut volumes: Vec<Volume>,
+    site: &Site,
+    limits: &Limits,
+) -> Deployment {
+    let resolved = limits.resolve();
+    container.resources = Some(container_resources(&resolved));
+    mount_shm(&mut container, &mut volumes, limits);
+    let annotations = runtime_annotations(&container.name, &resolved);
     let node_selector: BTreeMap<String, String> = site
         .machine_names()
         .into_iter()
@@ -404,6 +806,7 @@ fn deployment(namespace: &str, name: &str, container: Container, volumes: Vec<Vo
             },
             template: PodTemplateSpec {
                 metadata: Some(ObjectMeta {
+                    annotations: (!annotations.is_empty()).then_some(annotations),
                     labels: Some(labels(name)),
                     ..ObjectMeta::default()
                 }),
@@ -453,13 +856,12 @@ fn port(name: &str, number: u16) -> ServicePort {
 }
 
 /// The collector, reading its password from the operator-created secret and everything else from the `ConfigMap`.
-fn collector_deployment(namespace: &str, site: &Site) -> Deployment {
+fn collector_deployment(namespace: &str, site: &Site, limits: &Limits) -> Deployment {
     let (data_mount, data_volume) = mount("openobserve-data", "/data");
     // The collector writes transient state outside its data directory, which a read-only root would refuse.
     // skipcq: RS-S1003
     let (tmp_mount, tmp_volume) = scratch("openobserve-tmp", "/tmp");
     let container = Container {
-        resources: Some(container_resources()),
         security_context: Some(hardened_container_context()),
         env_from: Some(vec![from_config_map("openobserve-config"), from_secret(namespace)]),
         image: Some(OPENOBSERVE_IMAGE.to_string()),
@@ -485,6 +887,7 @@ fn collector_deployment(namespace: &str, site: &Site) -> Deployment {
         container,
         vec![data_volume, tmp_volume],
         site,
+        limits,
     )
 }
 
@@ -535,6 +938,7 @@ fn hub_deployment(
     module_paths: &[String],
     root_module: &str,
     site: &Site,
+    limits: &Limits,
 ) -> Deployment {
     let insecure = Services::InsecureWebSocketServer.port();
     let (storage_mount, storage_volume) = mount("ws-server-storage", "/app/storage");
@@ -568,7 +972,6 @@ fn hub_deployment(
                 ..HTTPGetAction::default()
             }),
         )),
-        resources: Some(container_resources()),
         security_context: Some(hardened_container_context()),
         volume_mounts: Some(vec![storage_mount, runtime_mount]),
         ..Container::default()
@@ -579,6 +982,7 @@ fn hub_deployment(
         container,
         vec![storage_volume, runtime_volume],
         site,
+        limits,
     )
 }
 
@@ -620,10 +1024,16 @@ fn runner_deployment(namespace: &str, runner: &RunnerInstance, images: ArtifactS
         )),
         image_pull_policy: Some(IMAGE_PULL_POLICY.to_string()),
         name: runner.name.clone(),
-        resources: Some(container_resources()),
         security_context: Some(hardened_container_context()),
         volume_mounts: Some(vec![runtime_mount]),
         ..Container::default()
     };
-    deployment(namespace, &runner.name, container, vec![runtime_volume], &runner.site)
+    deployment(
+        namespace,
+        &runner.name,
+        container,
+        vec![runtime_volume],
+        &runner.site,
+        &runner.limits,
+    )
 }

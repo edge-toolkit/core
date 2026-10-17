@@ -4382,6 +4382,7 @@ dependencies = [
 name = "et-cli"
 version = "0.2.0"
 dependencies = [
+ "bytesize",
  "clap",
  "command-error",
  "edge-toolkit",

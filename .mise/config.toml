@@ -1813,6 +1813,13 @@ for machine in $machines; do
   fi
   node="agent:$agents"
 done
+# Every node gets the containerd template a scenario ships when its limits need the container runtime plugins.
+# The template turns on the check refusing a container they did not adjust, and the generated README has every
+# machine install it.
+template="$out/containerd-config-v3.toml.tmpl"
+if [ -f "$template" ]; then
+  set -- "$@" --volume "$PWD/$template:/var/lib/rancher/k3s/agent/etc/containerd/config-v3.toml.tmpl@all"
+fi
 k3d cluster delete "$cluster" >/dev/null 2>&1 || true
 # Bounded, so a node that never comes up fails the task with its log dumped rather than running out the CI step.
 # Unbounded, an agent hung at `Starting node 'k3d-et-math1-multi-verify-agent-0'` until the step's 20-minute limit
@@ -1821,6 +1828,21 @@ k3d cluster delete "$cluster" >/dev/null 2>&1 || true
 # `--no-rollback` keeps the node containers when the timeout fires: k3d's own rollback would otherwise delete them
 # before the exit trap reads their logs, and the trap deletes the cluster itself once it has.
 k3d cluster create "$cluster" --wait --timeout 300s --no-rollback --agents "$agents" "$@"
+# `--wait` returns once k3s logs that it started, which can be before its containerd and API server serve.
+# Imported then, the image never lands -- k3d logs the failure and still reports success -- and the next kubectl
+# call is refused, as on commit https://github.com/edge-toolkit/core/commit/9d140c69a519d2221d41848e09a303311d72205b
+# at https://github.com/edge-toolkit/core/actions/runs/38880115734/job/116904536884:
+#   ctr: cannot access socket /run/k3s/containerd/containerd.sock: stat /run/k3s/containerd/containerd.sock: no
+#   such file or directory
+#   Error from server (ServiceUnavailable): apiserver not ready
+# A node reports Ready only once its kubelet is running against containerd, so both are up after this.
+for _ in $(coreutils seq 1 60); do
+  if kubectl get --raw=/readyz >/dev/null 2>&1; then
+    break
+  fi
+  coreutils sleep 5
+done
+kubectl wait --for=condition=Ready node --all --timeout="$manifest_wait"
 # `k3d image import` loads every node, so a pod finds its image whichever machine it is pinned to.
 k3d image import -c "$cluster" "$hub_image" "$runner_image"
 
@@ -1857,6 +1879,10 @@ if [ -z "$stored" ]; then
 fi
 
 printf '%s' "$stored" | cargo run -q -p et-ws-test-server --bin verify-math1
+
+if [ -f "$template" ]; then
+  mise run verify-limits "$scenario" k3s
+fi
 
 # Every pod has to be on the node labelled as its machine.
 # The collector and the hub belong on the server, and each listed agent's runner on the machine listing it.
@@ -1954,10 +1980,128 @@ if [ -z "$stored" ]; then
 fi
 
 printf '%s' "$stored" | cargo run -q -p et-ws-test-server --bin verify-math1
+
+# Hold the running containers to the limits the k3s runtime plugins would write, when the scenario sets any.
+# The template is written exactly when it does, which is when there is something for compose to be held to.
+if [ -f "$out/containerd-config-v3.toml.tmpl" ]; then
+  mise run verify-limits "$scenario" compose
+fi
 """
 shell = "{{ vars.task_shell }}"
 usage = """
 flag "--scenario <scenario>" help="Which math1-shaped local scenario to start" default="math1-multi"
+"""
+
+# Assert a running scenario's containers hold every limit its k3s manifest has the runtime plugins write.
+# The manifest's plugin annotations are the expectation for both formats. They are exactly what k3s writes into each
+# container's cgroup and rlimits, so a compose container reading back the same values is the parity check itself, made
+# on a live kernel rather than in generated text. `k3s-verify` and `compose-verify` run it against their own stack
+# while it is still up; on its own it has nothing to read. A manifest naming no plugin fails it, since a check that
+# compares nothing would pass for a scenario whose limits had silently stopped rendering.
+[tasks.verify-limits]
+description = "Check a running scenario's containers hold the cgroup values and rlimits its k3s manifest declares"
+run = """
+scenario="$usage_scenario"
+format="$usage_format"
+out="verification/local/output/$scenario"
+manifest="$out/k3s.yaml"
+ns="et-$scenario"
+project="et-$scenario-verify"
+
+# The values are read from a probe of each limited process rather than from the process itself.
+# A runner exits once its module has run, so by the time the exchange is verified there may be no container left to
+# read; the probe is the same service definition -- the same limits and, under k3s, the same plugin annotations --
+# with its command replaced by a sleep, and so lives as long as the check needs it. Under k3s it is a bare Pod cut from
+# the Deployment's template, relabelled so the Deployment's ReplicaSet does not adopt it as a surplus replica.
+probe_pod='select(.kind == "Deployment" and .metadata.name == strenv(app)) | .spec.template
+  | .apiVersion = "v1" | .kind = "Pod" | .metadata.name = strenv(app) + "-limits-probe"
+  | .metadata.labels.app = strenv(app) + "-limits-probe" | .spec.restartPolicy = "Never"
+  | .spec.containers[0].command = ["sleep", "600"] | del(.spec.containers[0].args)
+  | del(.spec.containers[0].readinessProbe)'
+limited='select(.kind == "Deployment")
+  | select((.spec.template.metadata.annotations // {}) | keys | any_c(test("memory-qos|ulimits")))
+  | .metadata.name'
+# `--no-doc` throughout, because yq otherwise separates each document's lines with a `---` of its own.
+apps=$(yq --no-doc "$limited" "$manifest")
+cleanup() {
+  for app in $apps; do
+    if [ "$format" = "k3s" ]; then
+      kubectl delete pod -n "$ns" "$app-limits-probe" --wait=false >/dev/null 2>&1 || true
+    else
+      docker rm --force "$project-$app-limits-probe" >/dev/null 2>&1 || true
+    fi
+  done
+}
+trap cleanup EXIT
+for app in $apps; do
+  if [ "$format" = "k3s" ]; then
+    app="$app" yq --no-doc "$probe_pod" "$manifest" | kubectl apply -n "$ns" -f - >/dev/null
+    kubectl wait -n "$ns" --for=condition=Ready "pod/$app-limits-probe" --timeout=120s >/dev/null
+  else
+    set -- run --detach --no-deps --name "$project-$app-limits-probe" --entrypoint sleep "$app" 600
+    docker compose --project-name "$project" -f "$out/compose.yaml" "$@" >/dev/null
+  fi
+done
+
+# Run a command in the probe of the named process.
+# Stdin is closed so the command cannot drain the loop feeding this function its expectations.
+in_container() {
+  app="$1"
+  shift
+  if [ "$format" = "k3s" ]; then
+    kubectl exec -n "$ns" "$app-limits-probe" -- "$@" </dev/null
+  else
+    docker exec "$project-$app-limits-probe" "$@" </dev/null
+  fi
+}
+
+# One `<app> <key> <value>` line per plugin annotation, from every Deployment of the manifest.
+# `$app` is yq's own variable, bound by `as`, so it must reach yq unexpanded.
+# shellcheck disable=SC2016
+annotations='select(.kind == "Deployment") | .metadata.name as $app
+  | (.spec.template.metadata.annotations // {}) | to_entries[] | $app + " " + .key + " " + .value'
+# The same for each rlimit, its value the soft and hard limits the ulimits annotation lists.
+# shellcheck disable=SC2016
+rlimits='select(.kind == "Deployment") | .metadata.name as $app
+  | (.spec.template.metadata.annotations // {}) | to_entries[]
+  | select(.key | contains("ulimits.noderesource.dev/")) | .value | from_yaml | .[]
+  | $app + " " + (.type | downcase | sub("rlimit_"; "")) + " " + (.soft | tostring) + " " + (.hard | tostring)'
+
+checked=0
+while read -r app key expected; do
+  case "$key" in
+    *.memory-qos.nri.io/*) ;;
+    *) continue ;;
+  esac
+  file="${key%%.memory-qos.nri.io/*}"
+  actual=$(in_container "$app" cat "/sys/fs/cgroup/$file")
+  if [ "$actual" != "$expected" ]; then
+    echo "verify-limits: $app has $file '$actual' under $format, not the '$expected' its manifest declares" >&2
+    exit 1
+  fi
+  checked=$((checked + 1))
+done < <(yq --no-doc "$annotations" "$manifest")
+
+while read -r app resource soft hard; do
+  actual=$(in_container "$app" prlimit --pid 1 "--$resource" --output SOFT,HARD --noheadings | coreutils tr -s ' ')
+  actual="${actual# }"
+  if [ "$actual" != "$soft $hard" ]; then
+    echo "verify-limits: $app has $resource '$actual' under $format, not the '$soft $hard' its manifest declares" >&2
+    exit 1
+  fi
+  checked=$((checked + 1))
+done < <(yq --no-doc "$rlimits" "$manifest")
+
+if [ "$checked" -eq 0 ]; then
+  echo "verify-limits: $manifest names no limit for the runtime plugins to write, so there was nothing to check" >&2
+  exit 1
+fi
+echo "verify-limits: $checked limits hold under $format"
+"""
+shell = "{{ vars.task_shell }}"
+usage = """
+arg "<scenario>" help="The local scenario whose running containers to check"
+arg "<format>" help="Which deployment is running it: k3s or compose"
 """
 
 # Hardening checks over the generated Kubernetes manifests, mirroring what Codacy reports on a pushed branch.

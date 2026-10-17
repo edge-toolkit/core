@@ -21,11 +21,23 @@ services:
       ZO_DATA_DIR: /data
     volumes:
       - openobserve-data:/data
-  ws-server-hub:
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
+  hub-image-build:
     build:
       context: ../../../..
       dockerfile: services/ws-server/Dockerfile
     scale: 0
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
   ws-server:
     healthcheck:
       test:
@@ -43,7 +55,7 @@ services:
       context: ../../../..
       dockerfile: verification/local/output/math1/Dockerfile
       additional_contexts:
-        hub: service:ws-server-hub
+        hub: service:hub-image-build
     network_mode: host
     environment:
       MODULES_PATHS: "/app/services/ws-modules/math1,
@@ -57,6 +69,12 @@ services:
     depends_on:
       openobserve:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
   math1-twin:
     build:
       context: ../../../..
@@ -68,6 +86,12 @@ services:
     depends_on:
       ws-server:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
   math1-trigger:
     build:
       context: ../../../..
@@ -79,6 +103,12 @@ services:
     depends_on:
       ws-server:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
 volumes:
   openobserve-data: {}
   ws-server-storage: {}

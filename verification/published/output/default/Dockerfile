@@ -12,12 +12,13 @@
 # published to rather than copied from a checkout, and the image builds from the deployment directory
 # alone.
 
-# `hub` is a named build context, not a stage defined here.
-# The generated compose file wires it to the hub service with `service:`, so compose builds the hub
-# image first and hands the result over under this name. That is also why the version-tag rule is
-# suppressed on the next line: hadolint reads `hub` as an untagged image, but there is no tag to give a
-# build context, and the image it resolves to is pinned by the hub Dockerfile rather than here.
-# hadolint ignore=DL3006
-FROM hub
+# The released hub image, which this scenario layers its modules onto.
+# `latest` because that is the one tag the hub is published under: it is assembled from each
+# architecture's build, so a node of either architecture resolves it. That is why the rule against
+# a `latest` base is suppressed on the next line.
+# hadolint ignore=DL3007
+FROM ghcr.io/edge-toolkit/core/et-ws-server:latest
 
 LABEL org.opencontainers.image.source="https://github.com/edge-toolkit/core"
+
+USER 10001

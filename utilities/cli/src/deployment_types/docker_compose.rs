@@ -6,6 +6,7 @@ use fs_err as fs;
 use super::{REGISTRY_TOKEN_ENV, REGISTRY_TOKEN_SECRET, scenario_image_needs};
 use crate::error::CliError;
 use crate::input::{ArtifactSource, ClusterInput};
+use crate::limits::{CpuCap, ResolvedLimits, compose_bytes};
 use crate::placement::hub_site;
 use crate::{
     COLLECTOR_SETTINGS, COLLECTOR_USERNAME, IMAGE_REGISTRY, OutputType, RunnerInstance, SECRETS_ENV_FILE,
@@ -13,7 +14,14 @@ use crate::{
     resolve_module_paths,
 };
 
-/// The build-only service that builds the hub image a local scenario layers onto, built from `context`.
+/// The compose service that only builds the hub image a local scenario's `FROM hub` layers onto.
+///
+/// Compose orders one build after another only through `additional_contexts: <name>: service:<service>`, so the hub
+/// build has to be a service to be referenced at all. `scale: 0` keeps compose from also running it, and `profiles:`
+/// cannot do that instead, since a service hidden by a profile is unknown to the build that references it.
+pub(crate) const HUB_IMAGE_BUILD: &str = "hub-image-build";
+
+/// The [`HUB_IMAGE_BUILD`] service, building the hub from `context`.
 #[expect(
     clippy::single_call_fn,
     reason = "the hub-build step of generate_docker_compose_deployment"
@@ -77,7 +85,7 @@ fn hub_healthcheck() -> ComposeHealthcheck {
 fn scenario_hub_service(
     cluster: &ClusterInput,
     output_abs: &Path,
-    hub_context: String,
+    hub_contexts: Vec<(String, String)>,
     profiles: Vec<String>,
 ) -> Result<(ComposeService, Vec<String>), CliError> {
     let workspace_root = edge_toolkit::config::get_project_root();
@@ -104,7 +112,8 @@ fn scenario_hub_service(
         build: Some(ComposeBuild {
             source,
             // Relative to this file, which is what compose resolves a context path against.
-            additional_contexts: std::iter::once(("hub".to_string(), hub_context))
+            additional_contexts: hub_contexts
+                .into_iter()
                 .chain(module_path_contexts(&cluster.module_paths, output_abs))
                 .collect(),
             secrets: secrets.clone(),
@@ -117,6 +126,7 @@ fn scenario_hub_service(
         volumes: vec!["ws-server-storage:/app/storage".to_string()],
         depends_on: vec![healthy("openobserve")],
         healthcheck: Some(hub_healthcheck()),
+        limits: cluster.services.hub.limits.resolve(),
         ..ComposeService::default()
     };
     Ok((service, secrets))
@@ -129,33 +139,31 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
     let workspace_rel = relative_path_from(&output_abs, &workspace_root);
     let artifacts = cluster.artifact_source;
     let published = matches!(artifacts, ArtifactSource::Published);
-    // Everything but the runners runs on the server machine. The build-only hub shares that profile too, so it is
-    // built where the image layered onto it is and nowhere else, and is never left out while `ws-server` is active.
+    // Everything but the runners runs on the server machine.
     let server_profiles = hub_site(cluster).machine_names();
     let mut services = vec![(
         "openobserve".to_string(),
         ComposeService {
             profiles: server_profiles.clone(),
+            limits: cluster.services.collector.limits.resolve(),
             ..openobserve_service()
         },
     )];
-    // A local scenario builds the hub it layers onto; a published one takes the released image instead. The build-only
-    // service exists solely to be that named context, so it is absent when nothing is built. `scale: 0` is what keeps
-    // `docker compose up` from creating a second, module-less container; a `profiles:` entry would instead hide the
-    // service from the build resolver, which fails the `service:` reference below with "declares unknown service".
-    let hub_context = if published {
-        format!("docker-image://{IMAGE_REGISTRY}/et-ws-server:latest")
+    // A local scenario builds the hub it layers onto; a published one's Dockerfile names the released image itself.
+    let hub_contexts = if published {
+        Vec::new()
     } else {
         services.push((
-            "ws-server-hub".to_string(),
+            HUB_IMAGE_BUILD.to_string(),
             ComposeService {
+                limits: cluster.services.hub.limits.resolve(),
                 profiles: server_profiles.clone(),
                 ..hub_build_service(workspace_rel)
             },
         ));
-        "service:ws-server-hub".to_string()
+        vec![("hub".to_string(), format!("service:{HUB_IMAGE_BUILD}"))]
     };
-    let (hub, secrets) = scenario_hub_service(cluster, &output_abs, hub_context, server_profiles)?;
+    let (hub, secrets) = scenario_hub_service(cluster, &output_abs, hub_contexts, server_profiles)?;
     services.push(("ws-server".to_string(), hub));
     services.extend(runner_services(
         &resolve_cluster_runners(
@@ -225,6 +233,7 @@ fn runner_services(
                 network_mode: Some("host".to_string()),
                 environment: runner_environment(runner),
                 depends_on: vec![(name, hub)],
+                limits: runner.limits.resolve(),
                 ..ComposeService::default()
             };
             (runner.name.clone(), service)
@@ -374,6 +383,8 @@ struct ComposeService {
     environment: Vec<(String, ComposeValue)>,
     volumes: Vec<String>,
     depends_on: Vec<(String, ComposeDependsOnCondition)>,
+    /// The resource limits the service runs under.
+    limits: ResolvedLimits,
 }
 
 #[derive(Debug)]
@@ -538,6 +549,61 @@ impl ComposeRenderer {
                 if !condition.required {
                     self.push_line(4, "required: false");
                 }
+            }
+        }
+        self.render_limits(&service.limits);
+    }
+
+    /// Write a service's resource limits, every default applied, so it runs as the same process does under k3s.
+    ///
+    /// The CPU weight is written as `cpu_shares` even when it comes from the reservation, because compose outside swarm
+    /// ignores `deploy.resources.reservations.cpus`: a container started from it keeps the default weight, where a
+    /// Kubernetes container requesting the same CPUs is weighted by that request. The memory reservation, by contrast,
+    /// compose does apply, as the cgroup's `memory.low`.
+    fn render_limits(&mut self, limits: &ResolvedLimits) {
+        let rest = &limits.rest;
+        self.push_line(2, "deploy:");
+        self.push_line(3, "resources:");
+        self.push_line(4, "limits:");
+        if let CpuCap::Cpus(cpus) = limits.cpu_cap {
+            self.push_line(5, &format!("cpus: \"{cpus}\""));
+        }
+        self.push_line(5, &format!("memory: {}", compose_bytes(limits.memory)));
+        if let Some(pids) = rest.pids {
+            self.push_line(5, &format!("pids: {pids}"));
+        }
+        if let Some(reservation) = limits.memory_low {
+            self.push_line(4, "reservations:");
+            self.push_line(5, &format!("memory: {}", compose_bytes(reservation)));
+        }
+        if let Some(weight) = rest.blkio_weight {
+            self.push_line(2, "blkio_config:");
+            self.push_line(3, &format!("weight: {weight}"));
+        }
+        let (cpu_quota, cpu_period) = match limits.cpu_cap {
+            CpuCap::Quota { quota, period } => (Some(quota.to_string()), Some(period.to_string())),
+            CpuCap::Cpus(_) => (None, None),
+        };
+        let scalars = [
+            ("cpu_period", cpu_period),
+            ("cpu_quota", cpu_quota),
+            ("cpu_shares", Some(limits.cpu_shares.to_string())),
+            ("cpuset", rest.cpuset.as_ref().map(|cpuset| format!("\"{cpuset}\""))),
+            ("memswap_limit", rest.memswap_limit.map(compose_bytes)),
+            ("shm_size", rest.shm_size.map(compose_bytes)),
+        ];
+        for (key, value) in scalars {
+            if let Some(value) = value {
+                self.push_line(2, &format!("{key}: {value}"));
+            }
+        }
+        if !rest.ulimits.is_empty() {
+            self.push_line(2, "ulimits:");
+            for (name, ulimit) in &rest.ulimits {
+                let (soft, hard) = ulimit.soft_hard();
+                self.push_line(3, &format!("{name}:"));
+                self.push_line(4, &format!("soft: {soft}"));
+                self.push_line(4, &format!("hard: {hard}"));
             }
         }
     }

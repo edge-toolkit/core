@@ -126,6 +126,15 @@ pub enum CliError {
     #[error("Machine {machine:?} lists agent {agent:?}, which the scenario does not declare")]
     UnknownMachineAgent { machine: String, agent: String },
 
+    #[error("Limits for {process:?} are invalid: {reason}")]
+    InvalidLimits {
+        process: String,
+        reason: crate::limits::LimitsError,
+    },
+
+    #[error("Agent {agent:?} sets limits but names no runner, so no deployment starts a process for them to govern")]
+    LimitsWithoutRunner { agent: String },
+
     #[error("Agent {agent:?} is listed on both machine {first:?} and machine {second:?}; an agent runs on one")]
     AgentOnTwoMachines {
         agent: String,

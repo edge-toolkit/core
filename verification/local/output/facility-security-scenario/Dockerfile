@@ -17,7 +17,7 @@
 # These are published packages the modules load at runtime, provisioned by mise rather than built
 # here, so this stage installs them from the repo's own pins and copies each one to the `/app` path
 # the hub serves it from.
-FROM debian:bookworm-slim AS deps
+FROM docker.io/library/debian:bookworm-slim AS deps
 
 # The package list is named rather than inlined so a policy can hold it against the repo-root Dockerfile.
 # Every name here is drawn from that file's own COMMON_PACKAGES: the shell, the archive tools mise unpacks
@@ -139,8 +139,8 @@ cp -rL "${src}" "${STAGE_DEST}"
 EOF
 
 # `hub` is a named build context, not a stage defined here.
-# The generated compose file wires it to the hub service with `service:`, so compose builds the hub
-# image first and hands the result over under this name. That is also why the version-tag rule is
+# The generated compose file wires it to its `hub-image-build` service, so compose builds the hub image
+# first and hands the result over under this name. That is also why the version-tag rule is
 # suppressed on the next line: hadolint reads `hub` as an untagged image, but there is no tag to give a
 # build context, and the image it resolves to is pinned by the hub Dockerfile rather than here.
 # hadolint ignore=DL3006
@@ -159,3 +159,5 @@ COPY --chown=10001:10001 services/ws-modules/pyface1/pkg /app/services/ws-module
 COPY --from=deps --chown=10001:10001 /staged/app/node_modules/pyodide /app/node_modules/pyodide
 COPY --from=deps --chown=10001:10001 /staged/app/node_modules/onnxruntime-web /app/node_modules/onnxruntime-web
 COPY --from=deps --chown=10001:10001 /staged/app/node_modules/stats-gl /app/node_modules/stats-gl
+
+USER 10001
