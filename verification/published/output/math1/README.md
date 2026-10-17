@@ -1,7 +1,7 @@
 # math1
 
 This directory contains generated deployment configs for the `math1` scenario.
-Files: `mise.toml`, `compose.yaml`, `k3s.yaml`, `dekit.yaml`.
+Files: `mise.toml`, `dekit.yaml`, `process-compose.yaml`, `compose.yaml`, `k3s.yaml`.
 
 The scenario exposes these workflow modules: math1, math1-sender.
 
@@ -17,14 +17,26 @@ covering it, so its credential is not committed by whatever repository it lands 
 
 ## Install
 
-Fetch the binaries and module packages the `mise.toml` tasks name before the first run.
+Lock and fetch the binaries and module packages the `mise.toml` tasks name before the first run.
 `GITHUB_TOKEN` has to be set: GitHub Packages rejects an unauthenticated read even for a public
 package. The registry configuration is exported rather than relied on from `mise.toml`, because
-mise does not apply its own `[env]` to the resolution this command performs:
+mise does not apply its own `[env]` to the resolution these commands perform:
 
 ```bash
-NPM_CONFIG_USERCONFIG="$PWD/npmrc" mise install
+export NPM_CONFIG_USERCONFIG="$PWD/npmrc"
+mise lock
+mise install --locked
 ```
+
+`--locked` installs exactly what the lockfile records, and fails rather than resolving anew
+when it is missing an entry.
+
+Commit `mise.lock` alongside the deployment, together with the `.mise/locks/` directory when
+mise writes one -- it holds the dependency graph of each npm tool, which `mise.lock` refers to.
+The two record the version and checksum every `latest` in `mise.toml` resolved to, for each of
+mise's common platforms, so every later install -- on any machine -- fetches the same binaries
+rather than whatever is newest that day. Move to newer releases deliberately, with
+`mise lock --bump`, and commit the result.
 
 ## Run With Mise
 
@@ -43,6 +55,44 @@ From this directory, open the OpenObserve UI with:
 ```bash
 mise run open-o2
 ```
+
+## Run With dekit
+
+From this directory, start the scenario and watch each process in its own pane with:
+
+```bash
+dekit up
+dekit attach
+```
+
+Each task runs one task of `mise.toml`, so these are the processes `mise run generated-scenario`
+starts, but in order: `ws-server` waits for OpenObserve to report healthy, and every runner
+waits for `ws-server`. The tasks keep running after the terminal closes; stop them with:
+
+```bash
+dekit down
+```
+
+Open the OpenObserve UI, once it is up, with:
+
+```bash
+dekit start open-o2
+```
+
+## Run With process-compose
+
+From this directory, start the scenario and watch each process with:
+
+```bash
+process-compose up --no-server -f process-compose.yaml
+```
+
+Each process runs one task of `mise.toml`, in order: `ws-server` waits for OpenObserve to report
+healthy, and every runner waits for `ws-server`. A scheduled agent's runner is started on each
+tick of its schedule and runs its module once; a tick that finds the previous run still going is
+skipped. `--no-server` keeps process-compose's own API off port 8080, where `ws-server` listens.
+Quitting the TUI stops every process. Open the OpenObserve UI, once it is up, by starting the
+`open-o2` process from the TUI.
 
 ## Run With Docker Compose
 
@@ -109,27 +159,4 @@ starts is expected here rather than a fault. Watch it settle with:
 
 ```bash
 kubectl get pods -n "$ns" --watch
-```
-
-## Run With dekit
-
-From this directory, start the scenario and watch each process in its own pane with:
-
-```bash
-dekit up
-dekit attach
-```
-
-Each task runs one task of `mise.toml`, so these are the processes `mise run generated-scenario`
-starts, but in order: `ws-server` waits for OpenObserve to report healthy, and every runner
-waits for `ws-server`. The tasks keep running after the terminal closes; stop them with:
-
-```bash
-dekit down
-```
-
-Open the OpenObserve UI, once it is up, with:
-
-```bash
-dekit start open-o2
 ```

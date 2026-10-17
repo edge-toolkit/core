@@ -2046,6 +2046,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 
 [[package]]
+name = "croner"
+version = "4.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b5b023fc2978536bbb2a3b71237964fc4630bec1eb31077b4977127f4cdb9c0"
+dependencies = [
+ "chrono",
+ "derive_builder",
+ "strum 0.27.2",
+]
+
+[[package]]
 name = "crossbeam-channel"
 version = "0.5.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4385,6 +4396,7 @@ dependencies = [
  "bytesize",
  "clap",
  "command-error",
+ "croner",
  "edge-toolkit",
  "et-org",
  "et-path",
@@ -4392,6 +4404,7 @@ dependencies = [
  "et-ws-test-server",
  "fake",
  "fs-err",
+ "jiff",
  "k8s-openapi",
  "pretty_yaml",
  "rand 0.10.2",
@@ -6717,6 +6730,8 @@ dependencies = [
  "defmt 1.1.1",
  "jiff-core",
  "jiff-static",
+ "jiff-tzdb",
+ "log",
  "portable-atomic",
  "portable-atomic-util",
  "serde_core",
@@ -6743,6 +6758,12 @@ dependencies = [
  "quote",
  "syn 2.0.119",
 ]
+
+[[package]]
+name = "jiff-tzdb"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa8377070c6bae868759445e5a77f66d84f0b72f3a054bfb00e6d038b8282da7"
 
 [[package]]
 name = "jni"

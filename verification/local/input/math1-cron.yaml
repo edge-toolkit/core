@@ -1,0 +1,20 @@
+cluster_name: "math1-cron"
+deployment_type: "process-compose"
+
+# The math1 pair with the trigger run as a scheduled job rather than once at startup.
+# The twin stays a long-running peer; the trigger is started every minute, sends its input, and exits, so each tick
+# drives one more exchange through the hub. A schedule renders as a k3s `CronJob`, an Ofelia job beside the compose
+# stack and a process-compose `schedule:`, and is refused by mise and dekit, so this scenario has neither file.
+agents:
+  - name: "math1-twin"
+    runner: "web"
+    resources:
+      - type: "math1"
+
+  - name: "math1-trigger"
+    runner: "web"
+    schedule:
+      cron: "* * * * *"
+      time_zone: "UTC"
+    resources:
+      - type: "math1-sender"

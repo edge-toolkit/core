@@ -403,10 +403,7 @@ fn check_limits(limits: &Limits) -> Result<(), LimitsError> {
         return Err(LimitsError::SwapBelowMemory { swap, memory });
     }
     if let Some(cpuset) = &limits.cpuset
-        && (cpuset.is_empty()
-            || !cpuset
-                .chars()
-                .all(|part| part.is_ascii_digit() || part == ',' || part == '-'))
+        && !cpuset.split(',').all(cpuset_item_is_valid)
     {
         return Err(LimitsError::InvalidCpuset(cpuset.clone()));
     }
@@ -471,6 +468,19 @@ fn check_ulimit(name: &str, ulimit: Ulimit) -> Result<(), LimitsError> {
     Ok(())
 }
 
+/// Whether one comma-separated `cpuset` item is a CPU number or an ascending inclusive range of them.
+///
+/// The grammar both Docker's `--cpuset-cpus` and the kernel's `cpuset.cpus` accept, so an item either would refuse at
+/// start -- empty, a dangling `-`, a descending range -- is caught while the scenario is read.
+fn cpuset_item_is_valid(item: &str) -> bool {
+    // A single CPU is the range from itself to itself.
+    let (first, last) = item.split_once('-').unwrap_or((item, item));
+    let digits = |number: &str| !number.is_empty() && number.bytes().all(|digit| digit.is_ascii_digit());
+    digits(first)
+        && digits(last)
+        && matches!((first.parse::<u32>(), last.parse::<u32>()), (Ok(first), Ok(last)) if first <= last)
+}
+
 /// A byte size as compose writes one: the largest binary unit that divides it, `512m` or `2g`.
 #[must_use]
 pub(crate) fn compose_bytes(size: ByteSize) -> String {
@@ -531,6 +541,7 @@ pub(crate) fn limits_note(output_type: OutputType, cluster: &ClusterInput) -> St
         OutputType::DockerCompose | OutputType::K3s => return String::default(),
         OutputType::Mise => "Mise",
         OutputType::Dekit => "dekit",
+        OutputType::ProcessCompose => "process-compose",
     };
     let processes = limited_processes(cluster);
     if processes.is_empty() {

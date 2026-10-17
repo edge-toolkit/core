@@ -56,4 +56,5 @@ cargo run
 [tasks.ws-server.env]
 
 [tools]
+"aqua:F1bonacc1/process-compose" = "latest"
 "cargo:open" = "latest"

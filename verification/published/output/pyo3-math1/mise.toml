@@ -53,6 +53,7 @@ et-ws-server
 STORAGE_URL = "file://{{ config_root }}/storage"
 
 [tools]
+"aqua:F1bonacc1/process-compose" = "latest"
 "cargo:open" = "latest"
 
 [tools."cargo:et-ws-pyo3-runner"]

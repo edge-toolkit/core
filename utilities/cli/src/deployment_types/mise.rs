@@ -6,6 +6,7 @@ use et_path::{absolute_from, relative_path_from};
 use fs_err as fs;
 use toml::{Table, Value};
 
+use super::process_compose::PROCESS_COMPOSE_TOOL;
 use crate::error::CliError;
 use crate::input::{ArtifactSource, ClusterInput, Machine};
 use crate::{
@@ -127,8 +128,13 @@ fn insert_machine_tasks(tasks: &mut Table, machines: &[Machine], runners: &[Runn
 
 /// Write the `mise.toml` that runs the scenario: the collector, the hub and one task per runner.
 ///
-/// A published scenario also gets the npm config its module packages resolve against.
-pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
+/// A published scenario also gets the npm config its module packages resolve against. `with_process_compose` declares
+/// process-compose among the tools, for a `process-compose.yaml` written alongside that runs these tasks.
+pub fn generate_mise_deployment(
+    cluster: &ClusterInput,
+    output_dir: &Path,
+    with_process_compose: bool,
+) -> Result<(), CliError> {
     let output_path = output_dir.join("mise.toml");
     let workspace_root = edge_toolkit::config::get_project_root();
     let output_abs = absolute_from(&workspace_root, output_dir);
@@ -189,7 +195,12 @@ pub fn generate_mise_deployment(cluster: &ClusterInput, output_dir: &Path) -> Re
     let _previous: Option<Value> = root.insert("env".to_string(), Value::Table(mise_env(artifacts)));
     let _previous: Option<Value> = root.insert("tasks".to_string(), Value::Table(tasks));
 
-    let tools = mise_tools(&runners, artifacts, &staged);
+    let mut tools = mise_tools(&runners, artifacts, &staged);
+    // Somebody else's tool, so like `cargo:open` it keeps mise's release-age delay rather than taking a waiver.
+    if with_process_compose {
+        let _previous: Option<Value> =
+            tools.insert(PROCESS_COMPOSE_TOOL.to_string(), Value::String(LATEST.to_string()));
+    }
     let _previous: Option<Value> = root.insert("tools".to_string(), Value::Table(tools));
 
     fs::write(&output_path, toml::to_string(&Value::Table(root))?)?;
@@ -257,8 +268,8 @@ fn ws_server_env(scenario: &ScenarioModules<'_>, artifacts: ArtifactSource) -> T
 ///
 /// The image, the container name and the settings are lifted into shell variables rather than folded with
 /// continuations: inlining them would put the `docker run` past the editorconfig line length, and a wrapped copy is
-/// what once silently dropped `-it`. `-e ZO_ROOT_USER_PASSWORD` passes the name only, so Docker forwards the value
-/// from the task environment that `[env] _.file` loaded; the settings before it carry their values.
+/// what once silently dropped `-it`. `-e ZO_ROOT_USER_PASSWORD` passes the name only, so Docker forwards the value from
+/// the task environment that `[env] _.file` loaded; the settings before it carry their values.
 fn openobserve_run_body(cluster_name: &str) -> String {
     let collector_flags = COLLECTOR_SETTINGS
         .iter()
