@@ -1,0 +1,23 @@
+id: no-eq-bool-literal
+language: Rust
+severity: error
+message: |
+  `==`/`!=` with a `true` or `false` literal as either operand is a boolean written the long way. Use the boolean
+  itself -- `x`, `!x` -- and when the value is not a `bool` (a parsed `serde_yaml::Value` field, say), convert it
+  and keep the operator: `value == true` becomes `value.as_bool() == Some(true)`, and `value != false` becomes
+  `value.as_bool() != Some(false)`. Reach for `value.as_bool().unwrap_or_default()` only where a value that is not
+  a boolean is meant to read as `false`. This mirrors `DeepSource RS-W1001`. clippy's `bool_comparison` covers only
+  operands whose type is `bool`, so a literal compared against any other type gets past it.
+# Check-only, because the rewrite depends on the other operand's type.
+# A syntax tree does not carry that type: a `bool` drops the comparison, while anything else needs a conversion this
+# rule cannot choose.
+rule:
+  any:
+    - pattern: $A == true
+    - pattern: $A == false
+    - pattern: true == $A
+    - pattern: false == $A
+    - pattern: $A != true
+    - pattern: $A != false
+    - pattern: true != $A
+    - pattern: false != $A

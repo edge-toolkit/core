@@ -95,6 +95,7 @@ rules:
       exclude:
         - "/.mise/**" # Tool pin and the task that runs it.
         - "/.github/workflows/dependencies.yaml" # Runs the scan on CI.
+        - "/AGENTS.md" # Tells an agent which of its two tasks to run to re-check a finding.
         - "/Cargo.toml" # Its per-crate ignore list, where each entry's reason is the false positive it hit.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.

@@ -399,7 +399,7 @@ to be handled separately from the repository root.
 
 To regenerate all checked-in verification outputs from `verification/*/input`, writing each scenario to the
 matching `verification/*/output/<input-file-stem>` folder. This generates all supported deployment files for each
-scenario, currently `mise.toml`, `compose.yaml`, `k3s.yaml` and `dekit.yaml`:
+scenario, currently `mise.toml`, `compose.yaml`, `k3s.yaml`, `dekit.yaml` and `process-compose.yaml`:
 
 ```bash
 mise run regen-verification
@@ -410,7 +410,7 @@ mise run regen-verification
 The third output type writes Kubernetes manifests. Pass `--output-type k3s`, or set `deployment_type: k3s` in the
 scenario input YAML, and the output directory gains a `k3s.yaml` holding one document per component -- a
 `Namespace`, the collector's `ConfigMap`, a `PersistentVolumeClaim` plus `Deployment` plus `Service` for both the
-collector and the hub, and then one `Deployment` per runner:
+collector and the hub, and then one `Deployment` per runner, or a `CronJob` for a scheduled one:
 
 ```bash
 input=verification/local/input/math1.yaml
@@ -485,10 +485,34 @@ agents:
 Compose and k3s apply every field, and each lands in the same cgroup value under both; an unset CPU or memory limit
 takes a default both share. k3s carries what the Pod API cannot through two upstream container runtime plugins,
 containerd's `ulimit-adjuster` and nri-plugins' `nri-memory-qos`, and refuses a limited pod on a node without them, so
-the generated `README.md` has every machine prepared first. The mise and dekit deployments run each process directly
-on the host and apply none. `verification/local/input/math1-limits.yaml` sets a sample, which
+the generated `README.md` has every machine prepared first. The mise, dekit and process-compose deployments run each
+process directly on the host and apply none. `verification/local/input/math1-limits.yaml` sets a sample, which
 `mise run k3s-verify local --scenario math1-limits` and `mise run compose-verify --scenario math1-limits` check in the
 running containers.
+
+### Scheduled agents
+
+An agent with a runner can set `schedule:` to run as a job rather than a long-running peer: its runner is started on
+each tick and runs its module once, and a tick that finds the previous run still going is skipped. `cron` is a
+standard five-field expression or a shorthand such as `@hourly`, and `time_zone` an IANA name, defaulting to the
+host's own zone:
+
+```yaml
+agents:
+  - name: "math1-trigger"
+    runner: "web"
+    schedule:
+      cron: "*/5 * * * *"
+      time_zone: "UTC"
+    resources:
+      - type: "math1-sender"
+```
+
+k3s runs it as a `CronJob`. Compose adds a `scheduler` service, [Ofelia](https://github.com/netresearch/ofelia), which
+starts the runner's container again on each tick and mounts the Docker socket to do so. process-compose, whose
+`process-compose.yaml` runs the `mise.toml` tasks as `dekit.yaml` does, schedules the task itself. mise and dekit have
+no scheduler, so generating either for a scheduled scenario is an error, and `regen-verification` leaves both out of
+such a scenario. `verification/local/input/math1-cron.yaml` runs the trigger every minute.
 
 ## Grant
 

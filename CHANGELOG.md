@@ -18,6 +18,12 @@ Changelog 1.1.0.
   to the same cgroup value. k3s does so for the fields the Pod API lacks through the upstream `ulimit-adjuster` and
   `nri-memory-qos` NRI plugins, refusing a limited pod on a node without them. Every compose service now runs
   under the CPU and memory defaults the k3s manifests have always set.
+- A new output type, `process-compose`, writes a `process-compose.yaml` that runs the `mise.toml` tasks under
+  process-compose, each waiting on what it talks to being ready, as `dekit.yaml` does.
+- An agent with a runner can set `schedule:` -- a five-field `cron` expression and an optional IANA `time_zone` -- to
+  run as a job, started on each tick and skipped while the previous run is still going. k3s renders it as a
+  `CronJob`, compose adds an Ofelia `scheduler` service that restarts the runner's container on each tick, and
+  process-compose schedules the task itself. Generating mise or dekit for a scheduled scenario is an error.
 - `et-actix-web-config` 0.1.0: actix-web's `HttpServer` settings as a serde struct, for reading them from environment
   variables. Each unset setting keeps actix's own default, and a value actix would panic on is rejected while it is
   read. It depends on no other crate of this project, so it can be used on its own.

@@ -35,7 +35,7 @@ Generate deployment config from a cluster input YAML
 
   Default value: `mise`
 
-  Possible values: `mise`, `docker-compose`, `k3s`, `dekit`
+  Possible values: `mise`, `docker-compose`, `k3s`, `dekit`, `process-compose`
 
 ## `et-cli regen-verification`
 

@@ -7,10 +7,11 @@ use serde_yaml::{Mapping, Value};
 
 use super::document;
 use super::mise::{COLLECTOR_TASK, HUB_TASK, OPENER_TASK, collector_container};
+use super::yaml::{insert, strings};
 use crate::error::CliError;
 use crate::input::ClusterInput;
 use crate::placement::{Site, hub_site};
-use crate::{OutputType, hub_http_base, module_registry, resolve_cluster_runners};
+use crate::{OutputType, hub_http_base, scenario_runners};
 
 /// How long the collector gets to exit once stopped.
 ///
@@ -30,12 +31,7 @@ const COLLECTOR_STOP_TIMEOUT: &str = "30s";
 /// of their own, because the file is its own project root: dekit takes the nearest `dekit.yaml` as the root, and
 /// starts every task there, which is where mise finds the `mise.toml`.
 pub fn generate_dekit_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
-    let workspace_root = edge_toolkit::config::get_project_root();
-    let ws_server_dir = workspace_root.join("services/ws-server");
-    let runners = resolve_cluster_runners(
-        &module_registry(&workspace_root, &ws_server_dir, &cluster.module_paths),
-        cluster,
-    )?;
+    let runners = scenario_runners(cluster)?;
     let collector_url = format!("http://localhost:{}", Services::OtlpCollector.port());
     // A multi-machine cluster tags each task with its machine and starts none on `dekit up`, since every machine runs
     // the same file and `up` would otherwise start the whole cluster on each of them; `dekit start +<machine>` starts
@@ -123,16 +119,6 @@ fn http_ready(url: &str) -> Value {
     let mut ready = Mapping::new();
     insert(&mut ready, "http", Value::from(url));
     Value::Mapping(ready)
-}
-
-/// A YAML sequence of `items`, the shape of every `cmd` and `deps` list in the file.
-fn strings(items: &[&str]) -> Value {
-    Value::Sequence(items.iter().map(|item| Value::from(*item)).collect())
-}
-
-/// Set `key` in `mapping`, which never holds it already: each key is written once, in the order dekit shows them.
-fn insert(mapping: &mut Mapping, key: &str, value: Value) {
-    let _previous: Option<Value> = mapping.insert(Value::from(key), value);
 }
 
 /// The whole of a `dekit.yaml`: settings every task shares, then the tasks in the order the TUI lists them.

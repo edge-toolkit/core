@@ -135,6 +135,24 @@ pub enum CliError {
     #[error("Agent {agent:?} sets limits but names no runner, so no deployment starts a process for them to govern")]
     LimitsWithoutRunner { agent: String },
 
+    #[error("Agent {agent:?} has schedule {value:?}, which is not a standard cron expression: {reason}")]
+    InvalidSchedule {
+        agent: String,
+        value: String,
+        reason: String,
+    },
+
+    #[error("Agent {agent:?} has schedule time zone {time_zone:?}, which is not an IANA time zone name")]
+    InvalidScheduleTimeZone { agent: String, time_zone: String },
+
+    #[error("Agent {agent:?} sets a schedule but names no runner, so no deployment has a process to start on it")]
+    ScheduleWithoutRunner { agent: String },
+
+    #[error(
+        "Agent {agent:?} sets a schedule, which {output_type} cannot run; use k3s, docker-compose or process-compose"
+    )]
+    ScheduleUnsupported { agent: String, output_type: String },
+
     #[error("Agent {agent:?} is listed on both machine {first:?} and machine {second:?}; an agent runs on one")]
     AgentOnTwoMachines {
         agent: String,

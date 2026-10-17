@@ -1,7 +1,7 @@
 # wasi-math1
 
 This directory contains generated deployment configs for the `wasi-math1` scenario.
-Files: `mise.toml`, `compose.yaml`, `k3s.yaml`, `dekit.yaml`.
+Files: `mise.toml`, `compose.yaml`, `k3s.yaml`, `dekit.yaml`, `process-compose.yaml`.
 
 The scenario exposes these workflow modules: wasi-math1, wasi-math1-sender.
 
@@ -133,3 +133,18 @@ Open the OpenObserve UI, once it is up, with:
 ```bash
 dekit start open-o2
 ```
+
+## Run With process-compose
+
+From this directory, start the scenario and watch each process with:
+
+```bash
+process-compose up --no-server -f process-compose.yaml
+```
+
+Each process runs one task of `mise.toml`, in order: `ws-server` waits for OpenObserve to report
+healthy, and every runner waits for `ws-server`. A scheduled agent's runner is started on each
+tick of its schedule and runs its module once; a tick that finds the previous run still going is
+skipped. `--no-server` keeps process-compose's own API off port 8080, where `ws-server` listens.
+Quitting the TUI stops every process. Open the OpenObserve UI, once it is up, by starting the
+`open-o2` process from the TUI.

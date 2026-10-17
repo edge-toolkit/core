@@ -1369,6 +1369,10 @@ files=$(git ls-files '*Dockerfile' '*Dockerfile.*' | rg -v '\\.dockerignore$')
 # $files is a newline-separated path list; word-splitting is intentional (no spaces in paths).
 # shellcheck disable=SC2086
 conftest test --combine --namespace dockerfile -p config/conftest/policy $files .mise
+# A published scenario's `--from=` names must be stages the same file declared, one file per input.
+published=$(git ls-files 'verification/published/**/Dockerfile')
+# shellcheck disable=SC2086
+conftest test --namespace dockerfile_stages -p config/conftest/policy $published
 # Filter to Dockerfiles that actually use heredocs before the `ignore` parser.
 for f in $files; do
   if rg -q '^RUN[^\\n]*<<' "$f"; then
@@ -2292,6 +2296,17 @@ export GITHUB_TOKEN
 cargo unmaintained
 """
 shell = "{{ vars.task_shell }}"
+
+[tasks.cargo-unmaintained-check-pkg]
+description = "Check one dependency with cargo-unmaintained (cheap re-check of a single finding)"
+# Only the named package's upstream is queried, rather than one GitHub lookup per crate in the lockfile.
+run = """
+: "${GITHUB_TOKEN:=$(gh auth token)}"
+export GITHUB_TOKEN
+cargo unmaintained -p "$usage_package"
+"""
+shell = "{{ vars.task_shell }}"
+usage = 'arg "<package>" help="Dependency package name as it appears in Cargo.lock (e.g. chrono-tz)"'
 
 [tasks."gen:dockerignore"]
 description = "Regenerate .dockerignore from .gitignore + Docker-only excludes"

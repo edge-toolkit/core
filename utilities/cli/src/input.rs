@@ -7,6 +7,7 @@ use fs_err as fs;
 use serde::{Deserialize, Serialize};
 
 use crate::limits::Limits;
+use crate::schedule::Schedule;
 
 /// This repository, as its own workspace manifest states it.
 ///
@@ -33,10 +34,18 @@ pub enum OutputType {
     DockerCompose,
     K3s,
     Dekit,
+    #[serde(rename = "process-compose", alias = "process_compose")]
+    ProcessCompose,
 }
 
 impl OutputType {
-    pub const ALL: &'static [Self] = &[Self::Mise, Self::DockerCompose, Self::K3s, Self::Dekit];
+    pub const ALL: &'static [Self] = &[
+        Self::Mise,
+        Self::DockerCompose,
+        Self::K3s,
+        Self::Dekit,
+        Self::ProcessCompose,
+    ];
 
     /// The file this format is written to, beside the others in the deployment directory.
     #[must_use]
@@ -46,7 +55,34 @@ impl OutputType {
             Self::DockerCompose => "compose.yaml",
             Self::K3s => "k3s.yaml",
             Self::Dekit => "dekit.yaml",
+            Self::ProcessCompose => "process-compose.yaml",
         }
+    }
+
+    /// The format as a scenario's `deployment_type:` and `--output-type` spell it.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Mise => "mise",
+            Self::DockerCompose => "docker-compose",
+            Self::K3s => "k3s",
+            Self::Dekit => "dekit",
+            Self::ProcessCompose => "process-compose",
+        }
+    }
+
+    /// Whether this format can start an agent on its `schedule:`.
+    ///
+    /// mise and dekit have no scheduler of their own, so a scheduled agent is refused rather than run continuously.
+    #[must_use]
+    pub const fn runs_schedules(self) -> bool {
+        !matches!(self, Self::Mise | Self::Dekit)
+    }
+
+    /// Whether this format runs the tasks of a `mise.toml`, so needs what that file names installed first.
+    #[must_use]
+    pub const fn runs_mise_tasks(self) -> bool {
+        matches!(self, Self::Mise | Self::Dekit | Self::ProcessCompose)
     }
 }
 
@@ -99,8 +135,8 @@ pub struct ClusterInput {
 
 /// The processes every deployment runs alongside the agents' runners, each with its own settings.
 ///
-/// A table of its own, and each process a table within it, so a setting a later version adds has a place to go
-/// without a new top-level key per process and per setting.
+/// A table of its own, and each process a table within it, so a setting a later version adds has a place to go without
+/// a new top-level key per process and per setting.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
@@ -183,8 +219,8 @@ impl Default for ClusterInput {
 /// `Local` builds everything from the working tree: a Kubernetes manifest names image tags the deploying machine
 /// has to produce and import into the node, and a `mise` deployment runs its binaries out of the cargo workspace.
 /// `Published` addresses what has been released instead -- container images from the project's registry, binaries from
-/// the crates.io releases -- so a deployment consumes the project rather than rebuilding it. What a scenario cannot get
-/// either way is an image of its own module set, which no release can hold because the set is particular to that
+/// the crates.io releases -- so a deployment consumes the project rather than rebuilding it. What a scenario cannot
+/// get either way is an image of its own module set, which no release can hold because the set is particular to that
 /// deployment: it is built for the deployment, from the tree's modules or from their releases.
 ///
 /// `Published` is the default because it is the only one of the two that always works. Building from the working tree
@@ -268,6 +304,9 @@ pub struct Agent {
     /// Resource limits each of this agent's runner processes runs under, from `limits:`.
     #[serde(default, skip_serializing_if = "Limits::is_unset")]
     pub limits: Limits,
+    /// When this agent's runners are started, from `schedule:`; unset runs them continuously.
+    #[serde(default, skip_serializing_if = "Schedule::is_unset")]
+    pub schedule: Schedule,
     pub resources: Vec<Resource>,
 }
 
