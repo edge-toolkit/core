@@ -11,8 +11,8 @@ use crate::error::CliError;
 use crate::input::{ArtifactSource, ClusterInput, Machine};
 use crate::{
     COLLECTOR_SETTINGS, COLLECTOR_USERNAME, MODULE_SCOPE, ModuleRegistryEntry, ModuleSource, RunnerInstance,
-    cluster_module_names, escape_for_double_quotes, module_registry, resolve_cluster_modules, resolve_cluster_runners,
-    resolve_module_paths, runner_crate,
+    cluster_module_names, escape_for_double_quotes, module_registry, resolve_cluster_modules, resolve_module_paths,
+    runner_crate, scenario_runners,
 };
 
 /// Crate whose binary serves the hub, which a published deployment installs in place of building it.
@@ -140,7 +140,6 @@ pub fn generate_mise_deployment(
     let output_abs = absolute_from(&workspace_root, output_dir);
     let ws_server_dir = workspace_root.join("services/ws-server");
     let workspace_rel = relative_path_from(&output_abs, &workspace_root);
-    let openobserve_run = openobserve_run_body(&cluster.cluster_name);
     let module_names = cluster_module_names(cluster);
     let artifacts = cluster.artifact_source;
     let scenario = ScenarioModules::new(&ws_server_dir, &module_names, super::serves_a_page(cluster))
@@ -150,41 +149,14 @@ pub fn generate_mise_deployment(
     } else {
         Vec::new()
     };
-    let ws_server_run = ws_server_run_body(&scenario, artifacts, &output_abs)?;
-    let ws_server_rel = relative_path_from(&output_abs, &ws_server_dir);
-    // A published hub is handed absolute paths that `mise where` resolves, so it needs no directory of its own; a local
-    // one is given paths relative to the server's source dir and has to start there.
-    let ws_server_dir_entry = workspace_dir(&ws_server_rel, artifacts);
-    let ws_server_env = Some(ws_server_env(&scenario, artifacts));
 
     let mut root = Table::new();
-    let mut tasks = Table::new();
-
-    // No working directory: the collector is a container started from values this file carries, so unlike the hub it
-    // has nothing to resolve against the repository.
-    let _previous: Option<Value> = tasks.insert(
-        COLLECTOR_TASK.to_string(),
-        Value::Table(mise_task(Some("o2"), None, None, Some(&openobserve_run), None, None)),
-    );
-    let _previous: Option<Value> = tasks.insert(
-        HUB_TASK.to_string(),
-        Value::Table(mise_task(
-            None,
-            Some("Run the WebSocket server"),
-            ws_server_dir_entry,
-            Some(&ws_server_run),
-            None,
-            ws_server_env,
-        )),
-    );
+    let mut tasks = service_tasks(cluster, &scenario, &output_abs, &ws_server_dir)?;
     // Each runner agent becomes its own task, and `generated-scenario` depends on all of them. mise runs `depends`
     // concurrently, which is what a cluster wants -- the hub and every runner are long-running peers, not a pipeline --
     // but it also means a runner starts before the hub is listening. Each runner body therefore waits for the hub's own
     // health endpoint first; see `runner_run_body`.
-    let runners = resolve_cluster_runners(
-        &module_registry(&workspace_root, &ws_server_dir, &cluster.module_paths),
-        cluster,
-    )?;
+    let runners = scenario_runners(cluster)?;
     for runner in &runners {
         let task = runner_task(runner, &workspace_rel, artifacts);
         let _previous: Option<Value> = tasks.insert(runner.name.clone(), Value::Table(task));
@@ -194,13 +166,7 @@ pub fn generate_mise_deployment(
 
     let _previous: Option<Value> = root.insert("env".to_string(), Value::Table(mise_env(artifacts)));
     let _previous: Option<Value> = root.insert("tasks".to_string(), Value::Table(tasks));
-
-    let mut tools = mise_tools(&runners, artifacts, &staged);
-    // Somebody else's tool, so like `cargo:open` it keeps mise's release-age delay rather than taking a waiver.
-    if with_process_compose {
-        let _previous: Option<Value> =
-            tools.insert(PROCESS_COMPOSE_TOOL.to_string(), Value::String(LATEST.to_string()));
-    }
+    let tools = mise_tools(&runners, artifacts, &staged, with_process_compose);
     let _previous: Option<Value> = root.insert("tools".to_string(), Value::Table(tools));
 
     fs::write(&output_path, toml::to_string(&Value::Table(root))?)?;
@@ -209,6 +175,44 @@ pub fn generate_mise_deployment(
     }
 
     Ok(())
+}
+
+/// The tasks every deployment has whatever its agents: the collector and the hub.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the fixed-services step of generate_mise_deployment"
+)]
+fn service_tasks(
+    cluster: &ClusterInput,
+    scenario: &ScenarioModules,
+    output_abs: &Path,
+    ws_server_dir: &Path,
+) -> Result<Table, CliError> {
+    let artifacts = cluster.artifact_source;
+    let ws_server_run = ws_server_run_body(scenario, artifacts, output_abs)?;
+    let ws_server_rel = relative_path_from(output_abs, ws_server_dir);
+    let mut tasks = Table::new();
+    // No working directory: the collector is a container started from values this file carries, so unlike the hub it
+    // has nothing to resolve against the repository.
+    let openobserve_run = openobserve_run_body(&cluster.cluster_name);
+    let _previous: Option<Value> = tasks.insert(
+        COLLECTOR_TASK.to_string(),
+        Value::Table(mise_task(Some("o2"), None, None, Some(&openobserve_run), None, None)),
+    );
+    // A published hub is handed absolute paths that `mise where` resolves, so it needs no directory of its own; a local
+    // one is given paths relative to the server's source dir and has to start there.
+    let _previous: Option<Value> = tasks.insert(
+        HUB_TASK.to_string(),
+        Value::Table(mise_task(
+            None,
+            Some("Run the WebSocket server"),
+            workspace_dir(&ws_server_rel, artifacts),
+            Some(&ws_server_run),
+            None,
+            Some(ws_server_env(scenario, artifacts)),
+        )),
+    );
+    Ok(tasks)
 }
 
 /// The body of the task that starts the hub.
@@ -278,7 +282,7 @@ fn openobserve_run_body(cluster_name: &str) -> String {
         .join(" ");
     format!(
         concat!(
-            "image=openobserve/openobserve:v0.91.5\n",
+            "image=openobserve/openobserve:v1.1.1\n",
             "container={container}\n",
             "settings=\"{flags}\"\n",
             "# $settings is a word-split flag list by design; do not quote it.\n",
@@ -625,9 +629,19 @@ fn waived(latest: &Value) -> Value {
     Value::Table(options)
 }
 
-fn mise_tools(runners: &[RunnerInstance], artifacts: ArtifactSource, staged: &[String]) -> Table {
+fn mise_tools(
+    runners: &[RunnerInstance],
+    artifacts: ArtifactSource,
+    staged: &[String],
+    with_process_compose: bool,
+) -> Table {
     let mut tools = Table::new();
     let _previous: Option<Value> = tools.insert("cargo:open".to_string(), Value::String(LATEST.to_string()));
+    // Somebody else's tool, so like `cargo:open` it keeps mise's release-age delay rather than taking a waiver.
+    if with_process_compose {
+        let _previous: Option<Value> =
+            tools.insert(PROCESS_COMPOSE_TOOL.to_string(), Value::String(LATEST.to_string()));
+    }
     if matches!(artifacts, ArtifactSource::Published) {
         let latest = Value::String(LATEST.to_string());
         let _previous: Option<Value> = tools.insert(format!("cargo:{HUB_CRATE}"), waived(&latest));

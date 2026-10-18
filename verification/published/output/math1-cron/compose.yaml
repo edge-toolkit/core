@@ -1,6 +1,6 @@
 services:
   openobserve:
-    image: openobserve/openobserve:v0.91.5
+    image: openobserve/openobserve:v1.1.1
     healthcheck:
       test:
         - CMD

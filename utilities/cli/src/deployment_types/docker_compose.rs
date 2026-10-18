@@ -311,26 +311,12 @@ fn scheduler_services(runners: &[RunnerInstance], cluster_name: &str) -> Vec<(St
                 (SCENARIO_LABEL.to_string(), cluster_name.to_string()),
                 ("ofelia.enabled".to_string(), "true".to_string()),
             ];
-            for runner in runners
-                .iter()
-                .filter(|runner| !runner.schedule.is_unset() && runner.site.machine_names() == machines)
-            {
-                let job = format!("ofelia.job-run.{}", runner.name);
-                let cron = runner.schedule.cron.trim();
-                let schedule = if runner.schedule.time_zone.is_empty() {
-                    cron.to_string()
-                } else {
-                    format!("CRON_TZ={} {cron}", runner.schedule.time_zone)
-                };
-                labels.extend([
-                    (format!("{job}.schedule"), schedule),
-                    (
-                        format!("{job}.container"),
-                        scheduled_container(cluster_name, &runner.name),
-                    ),
-                    (format!("{job}.no-overlap"), "true".to_string()),
-                ]);
-            }
+            labels.extend(
+                runners
+                    .iter()
+                    .filter(|runner| !runner.schedule.is_unset() && runner.site.machine_names() == machines)
+                    .flat_map(|runner| job_labels(runner, cluster_name)),
+            );
             let service = ComposeService {
                 image: Some(OFELIA_IMAGE.to_string()),
                 command: vec![
@@ -347,6 +333,25 @@ fn scheduler_services(runners: &[RunnerInstance], cluster_name: &str) -> Vec<(St
             (scheduler_service(&machines), service)
         })
         .collect()
+}
+
+/// The scheduler labels that declare one scheduled runner's job: when, which container, and that runs never overlap.
+fn job_labels(runner: &RunnerInstance, cluster_name: &str) -> [(String, String); 3] {
+    let job = format!("ofelia.job-run.{}", runner.name);
+    let cron = runner.schedule.cron.trim();
+    let schedule = if runner.schedule.time_zone.is_empty() {
+        cron.to_string()
+    } else {
+        format!("CRON_TZ={} {cron}", runner.schedule.time_zone)
+    };
+    [
+        (format!("{job}.schedule"), schedule),
+        (
+            format!("{job}.container"),
+            scheduled_container(cluster_name, &runner.name),
+        ),
+        (format!("{job}.no-overlap"), "true".to_string()),
+    ]
 }
 
 /// What wires a runner to its module and its hub, plus whatever the scenario declared for that agent.
@@ -382,7 +387,7 @@ fn collector_environment() -> Vec<(String, ComposeValue)> {
 /// Build the `OpenObserve` collector service the scenario's traces are exported to.
 fn openobserve_service() -> ComposeService {
     ComposeService {
-        image: Some("openobserve/openobserve:v0.91.5".to_string()),
+        image: Some("openobserve/openobserve:v1.1.1".to_string()),
         healthcheck: Some(ComposeHealthcheck {
             test: vec![
                 "CMD".to_string(),

@@ -160,6 +160,13 @@ allow = [
 # of an SPDX `license` expression. Each entry below has been verified against the on-disk LICENSE in
 # ~/.cargo/registry. The mise `cargo-deny` task escalates `no-license-field` to a hard error so a new
 # transitive dep without an SPDX expression must land here intentionally, not silently.
+
+# MIT for the crate and libuv; BSD-2-Clause for the bundled `uv/tree.h`, which the LICENSE also names.
+[[licenses.clarify]]
+crate = "libuv-sys-lite"
+expression = "MIT AND BSD-2-Clause"
+license-files = [{ path = "LICENSE", hash = 0xc2efc575 }]
+
 [[licenses.clarify]]
 crate = "saffron"
 expression = "BSD-3-Clause"

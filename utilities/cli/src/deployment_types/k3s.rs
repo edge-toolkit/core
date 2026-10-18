@@ -66,7 +66,7 @@ const IMAGE_PULL_POLICY: &str = "IfNotPresent";
 const IMAGE_TAG: &str = "latest";
 
 /// Collector image, matching the one `compose.yaml` runs.
-const OPENOBSERVE_IMAGE: &str = "openobserve/openobserve:v0.91.5";
+const OPENOBSERVE_IMAGE: &str = "openobserve/openobserve:v1.1.1";
 
 /// Service name of the collector, which is also its Deployment name and the DNS name its in-cluster URL resolves.
 ///

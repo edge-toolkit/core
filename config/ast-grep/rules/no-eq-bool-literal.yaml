@@ -11,13 +11,12 @@ message: |
 # Check-only, because the rewrite depends on the other operand's type.
 # A syntax tree does not carry that type: a `bool` drops the comparison, while anything else needs a conversion this
 # rule cannot choose.
+# Matched by node kind: an equality whose direct operand, on either side, is the literal itself.
 rule:
-  any:
-    - pattern: $A == true
-    - pattern: $A == false
-    - pattern: true == $A
-    - pattern: false == $A
-    - pattern: $A != true
-    - pattern: $A != false
-    - pattern: true != $A
-    - pattern: false != $A
+  kind: binary_expression
+  all:
+    - has:
+        field: operator
+        regex: "^[=!]=$"
+    - has:
+        kind: boolean_literal
