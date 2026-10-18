@@ -1,0 +1,39 @@
+version: "0.5"
+processes:
+  openobserve:
+    command: mise run openobserve
+    shutdown:
+      signal: 2
+      command: docker stop openobserve-facility-security-scenario
+      timeout_seconds: 30
+    readiness_probe:
+      http_get:
+        host: localhost
+        scheme: http
+        path: /healthz
+        port: 5080
+      period_seconds: 2
+      failure_threshold: 1800
+  ws-server:
+    command: mise run ws-server
+    depends_on:
+      openobserve:
+        condition: process_healthy
+    shutdown:
+      signal: 2
+    readiness_probe:
+      http_get:
+        host: localhost
+        scheme: http
+        path: /health
+        port: 8080
+      period_seconds: 2
+      failure_threshold: 1800
+  open-o2:
+    command: mise run open-o2
+    depends_on:
+      openobserve:
+        condition: process_healthy
+    shutdown:
+      signal: 2
+    disabled: true

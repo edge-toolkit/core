@@ -218,7 +218,18 @@ fn cpus_are_a_positive_decimal_of_at_most_three_places() {
             Some(Cpus::from_millicores(millicores))
         );
     }
-    for raw in ["0", "0.0", "1.2345", "-1", "\"abc\"", "\".5\"", "\"1e3\"", "5000000"] {
+    let rejected = [
+        "0",
+        "0.0",
+        "1.2345",
+        "-1",
+        "\"abc\"",
+        "\".5\"",
+        "\"1e3\"",
+        "5000000",
+        "\"4294967296\"",
+    ];
+    for raw in rejected {
         let _rejected = limits(&format!("cpus: {raw}")).unwrap_err();
     }
     assert_eq!(Cpus::from_millicores(1250).to_string(), "1.25");
@@ -268,6 +279,13 @@ fn limits_docker_would_refuse_fail_generation_naming_the_process() {
         ("blkio_weight: 1001", "blkio_weight must be from 10 to 1000"),
         ("cpuset: \"a\"", "cpuset \"a\""),
         ("cpuset: \"\"", "cpuset \"\""),
+        ("cpuset: \"-\"", "cpuset \"-\""),
+        ("cpuset: \"0-\"", "cpuset \"0-\""),
+        ("cpuset: \"0,,1\"", "cpuset \"0,,1\""),
+        ("cpuset: \"3-1\"", "cpuset \"3-1\""),
+        ("cpuset: \"0-1-2\"", "cpuset \"0-1-2\""),
+        ("cpuset: \"+1\"", "cpuset \"+1\""),
+        ("cpuset: \"99999999999\"", "cpuset \"99999999999\""),
         ("ulimits:\n  NOFILE: 1", "ulimit name \"NOFILE\""),
         ("ulimits:\n  \"\": 1", "ulimit name \"\""),
         (
@@ -282,6 +300,12 @@ fn limits_docker_would_refuse_fail_generation_naming_the_process() {
     let bad = "cpu_shares: 1";
     assert!(error_for("", &service_limits("hub", bad)).starts_with("Limits for \"ws-server\""));
     assert!(error_for("", &service_limits("collector", bad)).starts_with("Limits for \"openobserve\""));
+}
+
+#[test]
+fn a_cpuset_takes_a_list_of_cpus_and_ascending_ranges() {
+    let (_root, dir) = generated(&scenario(&twin_limits("cpuset: \"0,2-3,5-5\""), ""));
+    assert_eq!(compose_service(&dir, "math1-twin")["cpuset"], "0,2-3,5-5");
 }
 
 #[test]
@@ -515,6 +539,22 @@ fn k3s_runs_the_plugins_and_readies_the_nodes_only_when_a_process_needs_them() {
     assert_eq!(documents::<DaemonSet>(&dir, "DaemonSet"), Vec::<DaemonSet>::new());
     assert!(!dir.join("containerd-config-v3.toml.tmpl").exists());
     assert!(!read(&dir, "README.md").contains("Prepare The Nodes"));
+}
+
+#[test]
+fn the_readme_lists_the_containerd_template_with_k3s_only_when_it_is_written() {
+    let (_root, dir) = generated(&scenario(&twin_limits(EVERY_LIMIT), ""));
+    let readme = read(&dir, "README.md");
+    assert!(readme.contains(concat!(
+        "Files: `mise.toml`, `dekit.yaml`, `process-compose.yaml`, `compose.yaml`, `k3s.yaml`, ",
+        "`containerd-config-v3.toml.tmpl`."
+    )));
+    let sections = ["Mise", "dekit", "process-compose", "Docker Compose", "k3s"]
+        .map(|format| readme.find(&format!("\n## Run With {format}\n")).unwrap());
+    assert!(sections.is_sorted());
+
+    let (_root, dir) = generated(&scenario(&twin_limits("cpus: 1"), ""));
+    assert!(read(&dir, "README.md").contains("`compose.yaml`, `k3s.yaml`.\n"));
 }
 
 #[test]

@@ -40,4 +40,5 @@ cargo run
 MODULES_ROOT = "@edge-toolkit/et-ws-server-static"
 
 [tools]
+"aqua:F1bonacc1/process-compose" = "latest"
 "cargo:open" = "latest"

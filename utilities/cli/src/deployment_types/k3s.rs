@@ -29,6 +29,7 @@ use std::path::Path;
 use edge_toolkit::ports::Services;
 use fs_err as fs;
 use k8s_openapi::api::apps::v1::{DaemonSet, DaemonSetSpec, Deployment, DeploymentSpec};
+use k8s_openapi::api::batch::v1::{CronJob, CronJobSpec, JobSpec, JobTemplateSpec};
 use k8s_openapi::api::core::v1::{
     Capabilities, ConfigMap, ConfigMapEnvSource, ConfigMapVolumeSource, Container, ContainerPort, EmptyDirVolumeSource,
     EnvFromSource, EnvVar, ExecAction, HTTPGetAction, HostPathVolumeSource, Namespace, PersistentVolumeClaim,
@@ -45,6 +46,7 @@ use crate::error::CliError;
 use crate::input::{ArtifactSource, ClusterInput};
 use crate::limits::{CpuCap, Limits, MAX_CPU_SHARES, ResolvedLimits, k8s_bytes, k8s_cpus};
 use crate::placement::{MACHINE_LABEL, Site, hub_site};
+use crate::schedule::Schedule;
 use crate::{
     COLLECTOR_SETTINGS, COLLECTOR_USERNAME, HUB_SERVICE, OutputType, RunnerInstance, cluster_module_names,
     docker_image_module_paths, hub_service_ws_url, image_prefix, module_registry, resolve_cluster_runners,
@@ -98,8 +100,8 @@ const SHM_VOLUME: &str = "shm";
 /// Where the container runtime plugins run: they serve every pod on a node, whichever scenario it belongs to.
 ///
 /// Two scenarios applied to one cluster both declare the plugins, and declaring them in one namespace of their own
-/// under fixed names makes the second apply a no-op rather than a second copy of each plugin on every node. Not
-/// `kube-system`, which is the cluster's own and has no business holding workloads this project brings.
+/// under fixed names makes the second apply a no-op rather than a second copy of each plugin on every node. Not `kube-
+/// system`, which is the cluster's own and has no business holding workloads this project brings.
 pub(crate) const PLUGIN_NAMESPACE: &str = "et-nri-plugins";
 
 /// containerd's own NRI plugin that sets a container's rlimits from the annotation [`ULIMITS_ANNOTATION`] names.
@@ -141,13 +143,13 @@ const ULIMITS_ANNOTATION: &str = "ulimits.noderesource.dev/container";
 
 /// The annotation, suffixed with a container name, that has the runtime refuse a container its plugins did not adjust.
 ///
-/// NRI's default validator, enabled by the node preparation the README describes, rejects the container when any
-/// plugin named here has not processed it. That is what turns a node without the plugins into a pod that does not
-/// start, rather than one that starts without its limits.
+/// NRI's default validator, enabled by the node preparation the README describes, rejects the container when any plugin
+/// named here has not processed it. That is what turns a node without the plugins into a pod that does not start,
+/// rather than one that starts without its limits.
 const REQUIRED_PLUGINS_ANNOTATION: &str = "required-plugins.noderesource.dev/container";
 
 /// The file each machine's containerd configuration is extended from, written beside `k3s.yaml` for any plugin.
-const CONTAINERD_TEMPLATE_FILE: &str = "containerd-config-v3.toml.tmpl";
+pub(crate) const CONTAINERD_TEMPLATE_FILE: &str = "containerd-config-v3.toml.tmpl";
 
 /// Where k3s reads a containerd configuration template from, on every machine of the cluster.
 const CONTAINERD_TEMPLATE_PATH: &str = "/var/lib/rancher/k3s/agent/etc/containerd/config-v3.toml.tmpl";
@@ -207,11 +209,7 @@ pub fn generate_k3s_deployment(cluster: &ClusterInput, output_dir: &Path) -> Res
 
     let mut docs = fixed_documents(&namespace, cluster, &module_paths, &root_module, &hub_site(cluster))?;
     for runner in &runners {
-        docs.push(document(&runner_deployment(
-            &namespace,
-            runner,
-            cluster.artifact_source,
-        ))?);
+        docs.push(runner_document(&namespace, runner, cluster.artifact_source)?);
     }
     let plugins = cluster_plugins(cluster);
     docs.extend(runtime_plugin_documents(&plugins)?);
@@ -542,6 +540,11 @@ fn required_plugins(limits: &ResolvedLimits) -> Vec<&'static RuntimePlugin> {
     required
 }
 
+/// Whether the scenario's limits need a runtime plugin, which is when [`CONTAINERD_TEMPLATE_FILE`] is written.
+pub(crate) fn needs_containerd_template(cluster: &ClusterInput) -> bool {
+    !cluster_plugins(cluster).is_empty()
+}
+
 /// Every plugin some process of the scenario relies on, each once, in name order.
 ///
 /// An agent's limits apply to its runner processes, so an agent with no runner -- whose modules a browser runs --
@@ -629,8 +632,8 @@ fn memory_qos_config(name: &str) -> ConfigMap {
 /// The plugin's container: its own image, command and arguments, with the NRI socket and any configuration mounted.
 ///
 /// It runs as root because the socket is root's alone, and that is the only privilege it keeps: every capability is
-/// dropped and the root filesystem is read-only, so the socket is the one thing it can reach that an ordinary
-/// container cannot.
+/// dropped and the root filesystem is read-only, so the socket is the one thing it can reach that an ordinary container
+/// cannot.
 fn plugin_container(plugin: &RuntimePlugin) -> (Container, Vec<Volume>) {
     let owned = |items: &[&str]| items.iter().map(|item| (*item).to_string()).collect::<Vec<_>>();
     let (socket_mount, socket_volume) = host_socket("nri-socket", NRI_SOCKET);
@@ -667,8 +670,8 @@ fn plugin_container(plugin: &RuntimePlugin) -> (Container, Vec<Volume>) {
 
 /// One plugin, on every node, connected to the node's NRI socket.
 ///
-/// Node-critical priority keeps the scheduler from evicting it under load, which would leave every limited container
-/// on the node refused until it returned.
+/// Node-critical priority keeps the scheduler from evicting it under load, which would leave every limited container on
+/// the node refused until it returned.
 fn plugin_daemon_set(plugin: &RuntimePlugin) -> DaemonSet {
     let (container, volumes) = plugin_container(plugin);
     DaemonSet {
@@ -782,11 +785,34 @@ fn mount(name: &str, path: &str) -> (VolumeMount, Volume) {
 fn deployment(
     namespace: &str,
     name: &str,
+    container: Container,
+    volumes: Vec<Volume>,
+    site: &Site,
+    limits: &Limits,
+) -> Deployment {
+    Deployment {
+        metadata: meta(namespace, name),
+        spec: Some(DeploymentSpec {
+            replicas: Some(1),
+            selector: LabelSelector {
+                match_labels: Some(labels(name)),
+                ..LabelSelector::default()
+            },
+            template: pod_template(name, container, volumes, site, limits),
+            ..DeploymentSpec::default()
+        }),
+        ..Deployment::default()
+    }
+}
+
+/// The pod every workload here runs: one container under `limits`, pinned to the machine at `site`.
+fn pod_template(
+    name: &str,
     mut container: Container,
     mut volumes: Vec<Volume>,
     site: &Site,
     limits: &Limits,
-) -> Deployment {
+) -> PodTemplateSpec {
     let resolved = limits.resolve();
     container.resources = Some(container_resources(&resolved));
     mount_shm(&mut container, &mut volumes, limits);
@@ -796,31 +822,51 @@ fn deployment(
         .into_iter()
         .map(|machine| (MACHINE_LABEL.to_string(), machine))
         .collect();
-    Deployment {
+    PodTemplateSpec {
+        metadata: Some(ObjectMeta {
+            annotations: (!annotations.is_empty()).then_some(annotations),
+            labels: Some(labels(name)),
+            ..ObjectMeta::default()
+        }),
+        spec: Some(PodSpec {
+            containers: vec![container],
+            node_selector: (!node_selector.is_empty()).then_some(node_selector),
+            security_context: Some(hardened_pod_context()),
+            volumes: (!volumes.is_empty()).then_some(volumes),
+            ..PodSpec::default()
+        }),
+    }
+}
+
+/// The `CronJob` a scheduled runner runs as: a pod per tick, each running its module once.
+///
+/// Each pod runs under the same limits and placement a continuous runner's `Deployment` gives it. `Forbid` skips a tick
+/// that finds the previous run still going, the one concurrency policy every format that schedules a runner can honour.
+/// The pod is never restarted in place: a failed run is retried as a new pod, up to the Job's default backoff limit.
+fn cron_job(namespace: &str, name: &str, template: PodTemplateSpec, schedule: &Schedule) -> CronJob {
+    let mut template = template;
+    if let Some(spec) = template.spec.as_mut() {
+        spec.restart_policy = Some("Never".to_string());
+    }
+    CronJob {
         metadata: meta(namespace, name),
-        spec: Some(DeploymentSpec {
-            replicas: Some(1),
-            selector: LabelSelector {
-                match_labels: Some(labels(name)),
-                ..LabelSelector::default()
-            },
-            template: PodTemplateSpec {
+        spec: Some(CronJobSpec {
+            concurrency_policy: Some("Forbid".to_string()),
+            job_template: JobTemplateSpec {
                 metadata: Some(ObjectMeta {
-                    annotations: (!annotations.is_empty()).then_some(annotations),
                     labels: Some(labels(name)),
                     ..ObjectMeta::default()
                 }),
-                spec: Some(PodSpec {
-                    containers: vec![container],
-                    node_selector: (!node_selector.is_empty()).then_some(node_selector),
-                    security_context: Some(hardened_pod_context()),
-                    volumes: (!volumes.is_empty()).then_some(volumes),
-                    ..PodSpec::default()
+                spec: Some(JobSpec {
+                    template,
+                    ..JobSpec::default()
                 }),
             },
-            ..DeploymentSpec::default()
+            schedule: schedule.cron.trim().to_string(),
+            time_zone: (!schedule.time_zone.is_empty()).then(|| schedule.time_zone.clone()),
+            ..CronJobSpec::default()
         }),
-        ..Deployment::default()
+        ..CronJob::default()
     }
 }
 
@@ -1010,8 +1056,10 @@ fn runner_env(runner: &RunnerInstance) -> Vec<EnvVar> {
     vars
 }
 
-/// One deployment per runner, each hosting a single module exactly as the other two formats arrange it.
-fn runner_deployment(namespace: &str, runner: &RunnerInstance, images: ArtifactSource) -> Deployment {
+/// One workload per runner, each hosting a single module exactly as the other formats arrange it.
+///
+/// A `Deployment` for a runner that runs continuously, a `CronJob` for a scheduled one.
+fn runner_document(namespace: &str, runner: &RunnerInstance, images: ArtifactSource) -> Result<String, CliError> {
     // A runner fetches its module to a scratch directory and, for the web runner, lets Deno cache there, so a read-only
     // root needs somewhere writable even though nothing is meant to persist. skipcq: RS-S1003
     let (runtime_mount, runtime_volume) = scratch("runner-tmp", "/tmp");
@@ -1028,12 +1076,17 @@ fn runner_deployment(namespace: &str, runner: &RunnerInstance, images: ArtifactS
         volume_mounts: Some(vec![runtime_mount]),
         ..Container::default()
     };
-    deployment(
-        namespace,
-        &runner.name,
-        container,
-        vec![runtime_volume],
-        &runner.site,
-        &runner.limits,
-    )
+    let volumes = vec![runtime_volume];
+    if runner.schedule.is_unset() {
+        return document(&deployment(
+            namespace,
+            &runner.name,
+            container,
+            volumes,
+            &runner.site,
+            &runner.limits,
+        ));
+    }
+    let template = pod_template(&runner.name, container, volumes, &runner.site, &runner.limits);
+    document(&cron_job(namespace, &runner.name, template, &runner.schedule))
 }
