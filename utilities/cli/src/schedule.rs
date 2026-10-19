@@ -117,8 +117,8 @@ pub(crate) fn validate_schedule(agent: &str, schedule: &Schedule) -> Result<(), 
     if schedule.time_zone.is_empty() {
         return Ok(());
     }
-    // The zone database matches names without regard to case, but the schedulers handed the name read it as a file
-    // path -- Kubernetes among them -- so a name spelled any other way than the database's own is refused too.
+    // The zone database matches names without regard to case, but the schedulers handed the name read it as a file path
+    // -- Kubernetes among them -- so a name spelled any other way than the database's own is refused too.
     let Ok(zone) = jiff::tz::TimeZone::get(&schedule.time_zone) else {
         return Err(CliError::InvalidScheduleTimeZone {
             agent: agent.to_owned(),
@@ -159,31 +159,41 @@ pub(crate) fn schedule_note(output_type: OutputType, cluster: &ClusterInput) -> 
 /// them would generate a `CronJob` the API server rejects. It also reads a day of week of `7` as Sunday, where robfig's
 /// days run `0` to `6`; a step after `/` is a count rather than a day, so `*/7` is left alone.
 fn standard_field(agent: &str, schedule: &Schedule, index: usize, field: &str) -> Result<(), CliError> {
+    for item in field.split(',') {
+        // An item without a step steps by one, which needs no checking.
+        let (range, step) = item.split_once('/').unwrap_or((item, "1"));
+        for part in range.split('-') {
+            range_endpoint(agent, schedule, index, part)?;
+        }
+        if !is_number(step) {
+            let reason = format!("{step:?} is not a number, which a step has to be");
+            return Err(invalid_schedule(agent, schedule, reason));
+        }
+    }
+    Ok(())
+}
+
+/// Check one value or range endpoint of field `index`: a number in range, `*`, or a name that field accepts.
+fn range_endpoint(agent: &str, schedule: &Schedule, index: usize, part: &str) -> Result<(), CliError> {
     let names: &[&str] = match index {
         MONTH_FIELD => &MONTH_NAMES,
         WEEKDAY_FIELD => &WEEKDAY_NAMES,
         _ => &[],
     };
-    let digits = |text: &str| !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit());
-    for item in field.split(',') {
-        // An item without a step steps by one, which needs no checking.
-        let (range, step) = item.split_once('/').unwrap_or((item, "1"));
-        let mut segments: Vec<&str> = range.split('-').collect();
-        segments.push(step);
-        for (position, part) in segments.iter().enumerate() {
-            let is_step = position == segments.len().saturating_sub(1);
-            let is_name = !is_step && names.contains(&part.to_ascii_uppercase().as_str());
-            if !(digits(part) || is_name || (*part == "*" && !is_step)) {
-                let reason = format!("{part:?} is not a number, `*` or a name this field accepts");
-                return Err(invalid_schedule(agent, schedule, reason));
-            }
-            if index == WEEKDAY_FIELD && !is_step && part.parse::<u8>().is_ok_and(|day| day > MAX_WEEKDAY) {
-                let reason = format!("day of week {part} is past {MAX_WEEKDAY}; Sunday is 0");
-                return Err(invalid_schedule(agent, schedule, reason));
-            }
-        }
+    if !(is_number(part) || part == "*" || names.contains(&part.to_ascii_uppercase().as_str())) {
+        let reason = format!("{part:?} is not a number, `*` or a name this field accepts");
+        return Err(invalid_schedule(agent, schedule, reason));
+    }
+    if index == WEEKDAY_FIELD && part.parse::<u8>().is_ok_and(|day| day > MAX_WEEKDAY) {
+        let reason = format!("day of week {part} is past {MAX_WEEKDAY}; Sunday is 0");
+        return Err(invalid_schedule(agent, schedule, reason));
     }
     Ok(())
+}
+
+/// Whether `text` is an unsigned decimal number: at least one digit and nothing else.
+fn is_number(text: &str) -> bool {
+    !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit())
 }
 
 /// The error rejecting `agent`'s `schedule` for `reason`.

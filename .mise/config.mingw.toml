@@ -58,7 +58,7 @@ et_cli = "{{ vars.config_root_fwd }}/target/x86_64-pc-windows-gnu/debug/et-cli.e
 rusty_v8_binding = "src_binding_simdutf_release_x86_64-pc-windows-msvc.rs"
 rusty_v8_dir = "{{ vars.config_root_fwd }}/target/mingw/rusty-v8"
 rusty_v8_lib_gz = "rusty_v8_simdutf_release_x86_64-pc-windows-msvc.lib.gz"
-rusty_v8_src = ":http:denoland/rusty_v8/releases/download/v149.4.0"
+rusty_v8_src = ":http:denoland/rusty_v8/releases/download/v150.4.0"
 # Where rustc must find the archive when bundling the v8 rlib.
 # The v8 build script decompresses the archive to `rusty_v8.lib` under its deterministic gn_out dir, but
 # rustc on windows-gnu only accepts the `librusty_v8.a` spelling -- prefetch:mingw stages that copy.

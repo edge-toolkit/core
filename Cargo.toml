@@ -81,14 +81,14 @@ cloudevents-sdk = "0.9"
 command-error = "0.8"
 const-hex = "1.19"
 croner = "4"
-deno_core = "0.407"
+deno_core = "0.412"
 deno_error = "=0.7.1"
-deno_resolver = "0.85"
+deno_resolver = "0.90"
 # `transpile` enables on-the-fly TS transpilation (deno_node ships its own TS).
 # `hmr` makes `op_snapshot_options` use `state.try_take(...).unwrap_or_default()`
 # instead of panicking when no SnapshotOptions struct is in OpState -- without
 # baking our own startup snapshot we'd otherwise hit the panic on first run.
-deno_runtime = { version = "0.262", features = ["transpile", "hmr"] }
+deno_runtime = { version = "0.267", features = ["transpile", "hmr"] }
 document-features = "0.2"
 edge-toolkit = { path = "libs/edge-toolkit", version = "0.4.0" }
 et-actix-web-config = { path = "libs/actix-web-config", version = "0.1.0" }
@@ -457,17 +457,14 @@ ignore = [
   # Unmaintained upstream at faradayio/exec-rs.
   # Pulled by Deno's `node_shim` (process re-exec on Node compatibility shim).
   "exec",
-  # cargo-unmaintained can't find a crate of this name in the denoland/deno monorepo its `repository` field names.
-  # It is a workspace member there, so the "not in <repo>" heuristic misfires. Pulled by the Deno registry stack.
-  "fast-registry-json",
   # Upstream integritychain/fips203 has been quiet for a year, with dependency bounds left behind.
   # Its rand_core ^0.6.4 / sha3 ^0.10.2 requirements now trail the current releases. Pulled by deno_crypto for
   # the ML-KEM WebCrypto algorithms. Nothing to upgrade to on either side: 0.4.3 is the newest published
-  # fips203, and every deno_crypto through 0.272.0 requires exactly ^0.4.3, so neither bumping deno nor the
+  # fips203, and every deno_crypto through 0.273.0 requires exactly ^0.4.3, so neither bumping deno nor the
   # crate itself clears this.
   "fips203",
   # Same upstream, same story as fips203, for SLH-DSA: quiet a year, stale rand_core / sha2 / sha3 bounds.
-  # 0.4.1 is the newest published, and every deno_crypto through 0.272.0 pins ^0.4.1.
+  # 0.4.1 is the newest published, and every deno_crypto through 0.273.0 pins ^0.4.1.
   "fips205",
   # fs-set-times has a long-stale upstream (bytecodealliance/fs-set-times) that cargo-unmaintained flags.
   # Its 0.20.3 (the latest release) still requires io-lifetimes ^2.0.0 (uses 2.0.4, latest 3.0.1); pulled by

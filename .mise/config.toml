@@ -377,17 +377,17 @@ version = "08a1d6f"
 # old-glibc lanes of that run), while every glibc >= 2.39 lane passed. The musl build has no glibc floor.
 [tools."http:openobserve"]
 bin = "openobserve"
-version = "0.91.5"
+version = "1.1.1"
 [tools."http:openobserve".platforms.linux-arm64]
-url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-linux-arm64-musl.tar.gz"
+url = "https://downloads.openobserve.ai/releases/openobserve/v1.1.1/openobserve-v1.1.1-linux-arm64-musl.tar.gz"
 [tools."http:openobserve".platforms.linux-x64]
-url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-linux-amd64-musl.tar.gz"
+url = "https://downloads.openobserve.ai/releases/openobserve/v1.1.1/openobserve-v1.1.1-linux-amd64-musl.tar.gz"
 [tools."http:openobserve".platforms.macos-arm64]
-url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-darwin-arm64.tar.gz"
+url = "https://downloads.openobserve.ai/releases/openobserve/v1.1.1/openobserve-v1.1.1-darwin-arm64.tar.gz"
 [tools."http:openobserve".platforms.macos-x64]
-url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-darwin-amd64.tar.gz"
+url = "https://downloads.openobserve.ai/releases/openobserve/v1.1.1/openobserve-v1.1.1-darwin-amd64.tar.gz"
 [tools."http:openobserve".platforms.windows-x64]
-url = "https://downloads.openobserve.ai/releases/openobserve/v0.91.5/openobserve-v0.91.5-windows-amd64.zip"
+url = "https://downloads.openobserve.ai/releases/openobserve/v1.1.1/openobserve-v1.1.1-windows-amd64.zip"
 
 # rustfs is the S3-compatible server the et-storage-service S3-backend test runs against.
 # Version-pinned rather than `latest` because upstream has published only prereleases so far, which mise's
@@ -766,7 +766,7 @@ task_shell_trace = 'bash -xeuo pipefail "{{ config_root }}/.mise/task-shell.sh"'
 # Unguarded variant, for a body that checks its own exit codes and must not abort on the first failure.
 task_shell_plain = 'bash "{{ config_root }}/.mise/task-shell.sh"'
 # OpenObserve docker image for the openobserve/o2 dev-observability task.
-o2_image = "openobserve/openobserve:v0.91.5"
+o2_image = "openobserve/openobserve:v1.1.1"
 # Port publish spec for that task, bound to loopback rather than every interface.
 # config/o2.env's credential is committed, so the collector must not be reachable off the machine. It lives here
 # as a var because the mise policy rejects an `X.Y.Z` literal inside a task `run` body, and an IPv4 address trips
