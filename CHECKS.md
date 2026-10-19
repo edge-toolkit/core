@@ -1,10 +1,10 @@
 # Checks
 
-- **Checks:** 72
+- **Checks:** 74
 - **Tools:** 47
 - **Shell-script checks:** 9
 - **Checks with a repair pass:** 21
-- **Rules:** 339 custom local rules, or non-default strict linter settings
+- **Rules:** 340 custom local rules, or non-default strict linter settings
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
 declares it, the aggregate that runs it as part of `mise run check`, the `fix` or `fmt` pass that repairs what it
@@ -31,6 +31,8 @@ gen:checks` from the task tables in `.mise/config*.toml`, the rule files under `
 
 - `ast-grep-check` (`default` env; run by `check:rust`) -- Run ast-grep structural-search rules. Repaired by
   `ast-grep-fix`. Config: `config/ast-grep/sgconfig.yaml`.
+- `ast-grep-check-rule-tests` (`default` env; run by `check:rust`) -- Run the ast-grep rule tests against their valid
+  and invalid cases (ast-grep test). Config: `config/ast-grep/sgconfig.yaml`.
 
 Rules, from `config/ast-grep/rules`:
 
@@ -230,6 +232,9 @@ Rules, from `config/ast-grep/rules`:
 - `no-string-new` -- `String::new()` is banned (`DeepSource RS-W1079`): construct empty strings with `String::default()`
   instead, so the zero value routes through the `Default` impl like every other default-constructed value in the
   codebase.
+- `no-uds-listener` -- HTTP servers here listen on TCP only. A Unix-domain-socket listener gives requests no peer
+  address, and the handlers take the client address from the socket peer rather than from client-supplied `Forwarded` /
+  `X-Forwarded-For` headers -- so `ws_handler` refuses every request arriving on one. Bind a TCP address instead.
 - `org-identity-lives-in-et-org` -- This constant spells out the organisation name or the crate prefix. Both belong to
   `et-org`, which is the one place either literal is written: take the value from `et_org::ORG`, `et_org::CRATE_PREFIX`,
   `et_org::NPM_SCOPE`, `et_org::REPOSITORY_URL` or `et_org::IMAGE_REGISTRY`, or build a longer string from them, rather
@@ -765,6 +770,8 @@ Rules, from `config/conftest/policy`:
 
 - `semgrep-check` (`default` env; run by `check:rust`) -- Run Semgrep code and configuration rules. Repaired by
   `semgrep-fix`. Config: `.semgrepignore`, `config/semgrep`.
+- `semgrep-check-rule-tests` (`default` env; run by `check:rust`) -- Run the Semgrep rule tests against their annotated
+  cases (semgrep --test). Config: `.semgrepignore`, `config/semgrep`, `config/semgrep-tests`.
 
 Rules, from `config/semgrep`:
 

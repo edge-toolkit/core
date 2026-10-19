@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::net::IpAddr;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use serde::{Deserialize, Serialize};
@@ -90,7 +91,7 @@ pub struct PendingDirectMessage {
 #[non_exhaustive]
 pub struct AgentRecord<S> {
     pub state: AgentConnectionState,
-    pub last_known_ip: Option<String>,
+    pub last_known_ip: IpAddr,
     #[serde(skip)]
     pub session: Option<S>,
     #[serde(default)]
@@ -100,7 +101,7 @@ pub struct AgentRecord<S> {
 impl<S> AgentRecord<S> {
     /// Construct a record with no pending direct messages.
     #[must_use]
-    pub const fn new(state: AgentConnectionState, last_known_ip: Option<String>, session: Option<S>) -> Self {
+    pub const fn new(state: AgentConnectionState, last_known_ip: IpAddr, session: Option<S>) -> Self {
         Self {
             state,
             last_known_ip,
@@ -165,7 +166,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
         &self,
         requested_id: Option<String>,
         new_id: String,
-        client_ip: &str,
+        client_ip: IpAddr,
         session: S,
     ) -> (String, ConnectStatus) {
         let mut agents = lock_agents(&self.agents);
@@ -174,7 +175,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
             && let Some(record) = agents.get_mut(requested)
         {
             record.state = AgentConnectionState::Connected;
-            record.last_known_ip = Some(client_ip.to_string());
+            record.last_known_ip = client_ip;
             record.session = Some(session);
             return (requested.to_string(), ConnectStatus::Reconnected);
         }
@@ -187,7 +188,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
             assigned_id.clone(),
             AgentRecord {
                 state: AgentConnectionState::Connected,
-                last_known_ip: Some(client_ip.to_string()),
+                last_known_ip: client_ip,
                 session: Some(session),
                 pending_direct_messages: BTreeMap::new(),
             },
@@ -231,7 +232,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
             .map(|(agent_id, record)| AgentSummary {
                 agent_id: agent_id.clone(),
                 state: record.state.clone(),
-                last_known_ip: record.last_known_ip.clone(),
+                last_known_ip: record.last_known_ip,
             })
             .collect::<Vec<_>>();
         drop(agents);

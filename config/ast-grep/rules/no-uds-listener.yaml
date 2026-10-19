@@ -1,0 +1,12 @@
+id: no-uds-listener
+language: Rust
+severity: error
+message: |
+  HTTP servers here listen on TCP only. A Unix-domain-socket listener gives requests no peer address, and the
+  handlers take the client address from the socket peer rather than from client-supplied `Forwarded` /
+  `X-Forwarded-For` headers -- so `ws_handler` refuses every request arriving on one. Bind a TCP address instead.
+rule:
+  pattern: $SERVER.$METHOD($$$ARGS)
+constraints:
+  METHOD:
+    regex: ^(bind_uds|listen_uds)$

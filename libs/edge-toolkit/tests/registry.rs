@@ -5,21 +5,25 @@
 #![cfg(test)]
 
 use std::collections::BTreeMap;
+use std::net::{IpAddr, Ipv4Addr};
 
 use edge_toolkit::ws::{AgentConnectionState, ConnectStatus};
 use edge_toolkit::ws_server::{AgentRecord, AgentRegistry, MAX_AGENT_ID_LEN, is_valid_agent_id};
 use tempfile::tempdir;
+
+const FIRST_IP: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
+const SECOND_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 2));
 
 #[test]
 fn save_load_roundtrip_and_session_lookup() {
     let registry = AgentRegistry::<String>::default();
 
     // Fresh connection (Assigned), then a reconnect for the same id which swaps in a new session.
-    let (agent_id, _assigned) = registry.connect_agent(None, "agent-1".to_string(), "127.0.0.1", "sess-a".to_string());
+    let (agent_id, _assigned) = registry.connect_agent(None, "agent-1".to_string(), FIRST_IP, "sess-a".to_string());
     let (_same_id, _reconnected) = registry.connect_agent(
         Some(agent_id.clone()),
         "agent-x".to_string(),
-        "127.0.0.2",
+        SECOND_IP,
         "sess-b".to_string(),
     );
 
@@ -36,6 +40,7 @@ fn save_load_roundtrip_and_session_lookup() {
     registry.save(&path).unwrap();
     let reloaded = AgentRegistry::<String>::load(&path).unwrap();
     assert_eq!(reloaded.agent_session(&agent_id), None, "sessions are not persisted");
+    assert_eq!(reloaded.list_agents()[0].last_known_ip, SECOND_IP);
 
     // load() on a missing file yields an empty registry rather than erroring.
     let empty = AgentRegistry::<String>::load(&dir.path().join("absent.yaml")).unwrap();
@@ -51,7 +56,7 @@ fn an_unsafe_id_is_replaced_and_an_unknown_disconnect_is_a_no_op() {
     let (agent_id, status) = registry.connect_agent(
         Some("peer/escape".to_string()),
         "agent-fresh".to_string(),
-        "127.0.0.1",
+        FIRST_IP,
         "sess-a".to_string(),
     );
     assert_eq!(agent_id, "agent-fresh");
@@ -96,7 +101,7 @@ fn an_unknown_valid_id_is_adopted_as_the_agents_own() {
     let (agent_id, status) = registry.connect_agent(
         Some("sensor-7".to_string()),
         "agent-generated".to_string(),
-        "127.0.0.1",
+        FIRST_IP,
         "sess-a".to_string(),
     );
     assert_eq!(agent_id, "sensor-7");
@@ -111,14 +116,14 @@ fn a_displaced_session_cannot_disconnect_the_one_that_replaced_it() {
     let (agent_id, _assigned) = registry.connect_agent(
         Some("shared".to_string()),
         "unused".to_string(),
-        "127.0.0.1",
+        FIRST_IP,
         "sess-a".to_string(),
     );
     // A second connection claims the same id while the first still holds it, and takes it over.
     let (_same_id, status) = registry.connect_agent(
         Some(agent_id.clone()),
         "unused".to_string(),
-        "127.0.0.2",
+        SECOND_IP,
         "sess-b".to_string(),
     );
     assert_eq!(status, ConnectStatus::Reconnected);
@@ -140,7 +145,7 @@ fn a_record_with_no_session_is_disconnected_whatever_the_test_says() {
     let dir = tempdir().unwrap();
     let path = dir.path().join("registry.yaml");
     let registry = AgentRegistry::<String>::default();
-    let (agent_id, _assigned) = registry.connect_agent(None, "agent-1".to_string(), "127.0.0.1", "sess-a".to_string());
+    let (agent_id, _assigned) = registry.connect_agent(None, "agent-1".to_string(), FIRST_IP, "sess-a".to_string());
     registry.save(&path).unwrap();
     let reloaded = AgentRegistry::<String>::load(&path).unwrap();
 
@@ -165,7 +170,7 @@ fn agent_ids_are_held_to_a_single_safe_path_segment() {
 
 #[test]
 fn agent_record_with_pending_builder_replaces_the_map() {
-    let record = AgentRecord::<String>::new(AgentConnectionState::Disconnected, None, None)
+    let record = AgentRecord::<String>::new(AgentConnectionState::Disconnected, FIRST_IP, None)
         .with_pending_direct_messages(BTreeMap::new());
     assert!(record.pending_direct_messages.is_empty());
 }

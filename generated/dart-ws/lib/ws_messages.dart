@@ -1,27 +1,27 @@
 // ignore_for_file: unnecessary_cast
 final class AgentSummary {
   final String agentId;
-  final String? lastKnownIp;
+  final String lastKnownIp;
   final AgentConnectionState state;
 
   const AgentSummary({
     required this.agentId,
-    this.lastKnownIp,
+    required this.lastKnownIp,
     required this.state,
   });
 
   static AgentSummaryBuilder builder({
     required String agentId,
-    String? lastKnownIp,
+    required String lastKnownIp,
     required AgentConnectionState state,
   }) => AgentSummaryBuilder(
     agentId: agentId,
-    lastKnownIp: lastKnownIp == null ? null : (lastKnownIp as String),
+    lastKnownIp: lastKnownIp,
     state: state,
   );
   AgentSummaryBuilder toBuilder() => AgentSummaryBuilder(
     agentId: agentId,
-    lastKnownIp: lastKnownIp == null ? null : (lastKnownIp as String),
+    lastKnownIp: lastKnownIp,
     state: state,
   );
 
@@ -32,11 +32,7 @@ final class AgentSummary {
   };
   factory AgentSummary.fromJson(Map<String, dynamic> json) => AgentSummary(
     agentId: json["agent_id"] as String,
-    lastKnownIp: json["last_known_ip"] == null
-        ? null
-        : json["last_known_ip"] == null
-        ? null
-        : json["last_known_ip"] as String,
+    lastKnownIp: json["last_known_ip"] as String,
     state: AgentConnectionState.fromJson(json["state"]),
   );
 
@@ -69,13 +65,13 @@ final class AgentSummary {
 
   @override
   int get hashCode =>
-      Object.hashAll([agentId.hashCode, lastKnownIp?.hashCode, state.hashCode]);
+      Object.hashAll([agentId.hashCode, lastKnownIp.hashCode, state.hashCode]);
 }
 
 /// Builder class for [AgentSummary]
 final class AgentSummaryBuilder {
   String agentId;
-  String? lastKnownIp;
+  String lastKnownIp;
   AgentConnectionState state;
 
   AgentSummaryBuilder({
@@ -84,11 +80,8 @@ final class AgentSummaryBuilder {
     required this.state,
   });
 
-  AgentSummary build() => AgentSummary(
-    agentId: agentId,
-    lastKnownIp: lastKnownIp == null ? null : (lastKnownIp as String),
-    state: state,
-  );
+  AgentSummary build() =>
+      AgentSummary(agentId: agentId, lastKnownIp: lastKnownIp, state: state);
 }
 
 final class CloudEvent {

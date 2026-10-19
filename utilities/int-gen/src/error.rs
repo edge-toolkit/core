@@ -58,6 +58,8 @@ pub enum Error {
     EnumValueNotString(String),
     #[error("{0}")]
     EnumNameCollision(String),
+    #[error("conflicting schema definitions for `$defs/{0}` between client and server schemas")]
+    ConflictingDefs(String),
     #[error("progenitor codegen: {0}")]
     Progenitor(#[from] progenitor::Error),
     #[error(transparent)]

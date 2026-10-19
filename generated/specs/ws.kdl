@@ -32,9 +32,7 @@ enum "SpecVersion" {
 }
 class "AgentSummary" {
     field "agentId" type="String"
-    field "lastKnownIp" type="String?" {
-        defaults-to null
-    }
+    field "lastKnownIp" type="String"
     field "state" type="AgentConnectionState"
 }
 class "CloudEvent" {

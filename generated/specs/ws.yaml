@@ -290,14 +290,14 @@ components:
         agent_id:
           type: string
         last_known_ip:
-          type:
-            - string
-            - "null"
+          format: ip
+          type: string
         state:
           $ref: "#/components/schemas/AgentConnectionState"
       required:
         - agent_id
         - state
+        - last_known_ip
       type: object
     CloudEvent:
       description: |-

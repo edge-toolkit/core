@@ -131,7 +131,7 @@ pub type WsAgentRegistry = AgentRegistry<AgentSession>;
 #[derive(serde::Deserialize)]
 struct BareRecord {
     state: edge_toolkit::ws::AgentConnectionState,
-    last_known_ip: Option<String>,
+    last_known_ip: std::net::IpAddr,
     #[serde(default)]
     pending_direct_messages: BTreeMap<String, PendingDirectMessage>,
 }
@@ -214,15 +214,12 @@ pub async fn ws_handler(
     let tracer = global::tracer("ws-server");
     let mut span = tracer.start("ws.connect");
 
+    // The socket peer only, never `Forwarded` / `X-Forwarded-For`: those are client-supplied text that would reach
+    // the logs unvalidated. Every listener is TCP, so a request without a peer means the server was bound wrongly.
     let client_ip = req
         .peer_addr()
-        .map(|addr| addr.ip().to_string())
-        .or_else(|| {
-            req.connection_info()
-                .realip_remote_addr()
-                .and_then(|addr| addr.split(':').next().map(str::to_string))
-        })
-        .unwrap_or_else(|| "unknown".to_string());
+        .ok_or_else(|| actix_web::error::ErrorInternalServerError("websocket request has no peer address"))?
+        .ip();
 
     let (response, session, msg_stream) = actix_ws::handle(&req, body)?;
     let stream = msg_stream
