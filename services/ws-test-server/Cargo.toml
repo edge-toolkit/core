@@ -31,7 +31,9 @@ tracing-actix-web = { workspace = true, features = ["opentelemetry_0_32"] }
 
 [dev-dependencies]
 et-otlp.workspace = true
+et-test-nats.workspace = true
 et-test-otlp.workspace = true
+reqwest.workspace = true
 
 [lints]
 workspace = true

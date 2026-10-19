@@ -99,6 +99,10 @@ pub enum StorageError {
     #[error("agent registry lock poisoned")]
     AgentRegistryPoisoned,
 
+    #[error("hub backplane unavailable")]
+    #[response(status = 503, reason = "SERVICE_UNAVAILABLE")]
+    Backplane(#[from] et_hub_backplane::BackplaneError),
+
     #[error(transparent)]
     Io(#[from] std::io::Error),
 

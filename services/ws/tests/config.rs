@@ -1,7 +1,6 @@
-//! `WS_MAX_FRAME_SIZE` deserialization, through the real `serde_env::from_env`
-//! path the ws-server uses, with the process env set via `temp-env`. Verifies
-//! the human-byte-size parsing (`64MiB`, plain byte counts) and the 64 MiB
-//! default when the variable is absent.
+//! `WS_*` deserialization, through the real `serde_env::from_env` path the ws-server uses, with the process env set
+//! via `temp-env`. Verifies the human-byte-size parsing (`64MiB`, plain byte counts), the idle timeout, the backplane
+//! choice, and each default when its variable is absent.
 #![cfg(test)]
 #![expect(
     clippy::decimal_literal_representation,
@@ -9,7 +8,7 @@
 )]
 
 use et_test_helpers::temp_env;
-use et_ws_service::WsConfig;
+use et_ws_service::{BackplaneConfig, WsConfig};
 use serde::Deserialize;
 
 // Mirror the ws-server's nesting so the env key is `WS_MAX_FRAME_SIZE`.
@@ -62,5 +61,26 @@ fn connection_timeout_parses_humantime() {
 fn connection_timeout_none_sentinel_disables() {
     temp_env::with_var("WS_CONNECTION_TIMEOUT", Some("none"), || {
         assert_eq!(load().connection_timeout, None);
+    });
+}
+
+#[test]
+fn backplane_absent_defaults_to_local() {
+    temp_env::with_var_unset("WS_BACKPLANE", || {
+        assert_eq!(load().backplane, BackplaneConfig::Local);
+    });
+}
+
+#[test]
+fn backplane_parses_a_nats_url() {
+    temp_env::with_var("WS_BACKPLANE", Some("nats://broker:4222"), || {
+        assert_eq!(load().backplane, BackplaneConfig::Nats("nats://broker:4222".to_owned()));
+    });
+}
+
+#[test]
+fn backplane_rejects_an_unknown_scheme() {
+    temp_env::with_var("WS_BACKPLANE", Some("redis://broker"), || {
+        let _rejected = serde_env::from_env::<Wrapper>().unwrap_err();
     });
 }

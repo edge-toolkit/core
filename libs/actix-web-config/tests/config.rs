@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use actix_http::KeepAlive;
 use actix_web::{App, HttpServer, web};
-use et_actix_web_config::{HttpServerConfig, KeepAliveSetting, Workers, WorkersError};
+use et_actix_web_config::{HttpServerConfig, KeepAliveSetting, MAX_WORKERS, Workers, WorkersError};
 
 /// Every setting, each at a value other than actix's default.
 ///
@@ -50,7 +50,7 @@ fn every_count_and_size_is_read_from_its_http_variable() {
     assert_eq!(config.max_connection_rate.map(usize::from), Some(10));
     assert_eq!(config.max_connections.map(usize::from), Some(100));
     assert_eq!(config.worker_max_blocking_threads.map(usize::from), Some(4));
-    assert_eq!(config.workers.map(Workers::into_inner), Some(2));
+    assert_eq!(config.workers.into_inner(), 2);
 }
 
 #[test]
@@ -72,7 +72,6 @@ fn every_timeout_and_flag_is_read_from_its_http_variable() {
 fn an_unset_setting_is_left_to_actix() {
     let config = HttpServerConfig::default();
 
-    assert!(config.workers.is_none());
     assert!(config.keep_alive.is_none());
     assert!(config.client_request_timeout.is_none());
     assert!(config.shutdown_timeout.is_none());
@@ -100,9 +99,32 @@ fn a_value_actix_would_panic_on_is_rejected_while_reading() {
 
 #[test]
 fn the_worker_count_is_bounded_by_what_actix_accepts() {
-    assert_eq!(Workers::try_new(512).map(Workers::into_inner), Ok(512));
+    assert_eq!(Workers::try_new(MAX_WORKERS).map(Workers::into_inner), Ok(512));
     assert_eq!(Workers::try_new(0), Err(WorkersError::GreaterOrEqualViolated));
     assert_eq!(Workers::try_new(513), Err(WorkersError::LessOrEqualViolated));
+}
+
+#[test]
+fn an_unset_worker_count_is_the_machines_available_parallelism() {
+    let parallelism = std::thread::available_parallelism().map_or(2, std::num::NonZeroUsize::get);
+
+    assert_eq!(
+        HttpServerConfig::default().workers.into_inner(),
+        parallelism.min(MAX_WORKERS)
+    );
+    let config: HttpServerConfig = serde_env::from_iter_with_prefix([("HTTP_BACKLOG", "8")], "HTTP").unwrap();
+    assert_eq!(config.workers, Workers::default());
+}
+
+#[test]
+fn actix_accepts_the_most_workers_the_config_allows() {
+    let _server = HttpServer::new(App::new).workers(MAX_WORKERS);
+}
+
+#[test]
+#[should_panic(expected = "workers must not exceed 512")]
+fn actix_refuses_one_worker_more_than_the_config_allows() {
+    let _server = HttpServer::new(App::new).workers(MAX_WORKERS + 1);
 }
 
 #[test]

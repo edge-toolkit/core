@@ -6,11 +6,11 @@
 //! field named `http` in a larger `serde-env` config; either way the variables are `HTTP_WORKERS`, `HTTP_KEEP_ALIVE`
 //! and so on.
 //!
-//! Every field is optional, and an unset one keeps actix's own default rather than a default restated here. Those
-//! defaults live in three crates -- the worker count comes from `available_parallelism()` in actix-server, the
-//! connection limits from actix-server's worker config, the timeouts from actix-web and actix-http -- and a copy of
-//! them here would drift on the next upgrade. A value actix itself rejects by panicking is rejected while the
-//! settings are read instead.
+//! Every field but `workers` is optional, and an unset one keeps actix's own default rather than a default restated
+//! here. Those defaults live in two crates -- the connection limits in actix-server's worker config, the timeouts in
+//! actix-web and actix-http -- and a copy of them here would drift on the next upgrade. The worker count always holds
+//! a value, the machine's available parallelism unless set, so the config says how many workers the server runs. A
+//! value actix itself rejects by panicking is rejected while the settings are read instead.
 //!
 //! Values are strings, as environment variables are: counts and sizes are plain integers, `shutdown_timeout` is whole
 //! seconds because that is all actix takes, and the other timeouts are humantime durations such as `500ms` or `1m30s`.
@@ -31,7 +31,7 @@ use serde_with::{DurationSeconds, serde_as};
 
 mod workers;
 
-pub use self::workers::{Workers, WorkersError};
+pub use self::workers::{MAX_WORKERS, Workers, WorkersError};
 
 /// HTTP keep-alive, as actix's own [`KeepAlive`], read from a string.
 ///
@@ -135,10 +135,10 @@ pub struct HttpServerConfig {
     #[serde(default)]
     pub worker_max_blocking_threads: Option<NonZeroUsize>,
 
-    /// Worker threads per bind address, from 1 to 512.
+    /// Worker threads per bind address, from 1 to 512; unset, the machine's available parallelism.
     #[serde(default)]
-    #[cfg_attr(feature = "env-schema", schemars(with = "Option<usize>"))]
-    pub workers: Option<Workers>,
+    #[cfg_attr(feature = "env-schema", schemars(with = "usize"))]
+    pub workers: Workers,
 }
 
 /// Read a set field as a humantime duration (e.g. `500ms`, `1m30s`).
@@ -163,7 +163,7 @@ impl HttpServerConfig {
         S::Service: 'static,
         B: MessageBody + 'static,
     {
-        let srv = set(server, self.workers, |srv, num| srv.workers(num.into_inner()));
+        let srv = server.workers(self.workers.into_inner());
         let srv = set(srv, self.worker_max_blocking_threads, |srv, num| {
             srv.worker_max_blocking_threads(num.get())
         });

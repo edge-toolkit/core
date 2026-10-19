@@ -90,8 +90,8 @@ const RUN_AS_ID: i64 = 10001;
 ///
 /// The server generates a self-signed certificate on first start and saves its agent registry on shutdown, both
 /// into its working directory. With a read-only root that working directory is not writable, so an `emptyDir` is
-/// mounted here and the three paths are pointed at it -- the certificate through the `TLS_*` environment serde reads
-/// `TlsConfig` from, the registry through the binary's own `--agent-registry`.
+/// mounted here and the three paths are pointed at it through the environment serde reads: the certificate through
+/// `TLS_*`, the registry through `WS_AGENT_REGISTRY`.
 const HUB_RUNTIME_DIR: &str = "/app/runtime";
 
 /// The volume a container's sized `/dev/shm` is mounted from.
@@ -105,10 +105,12 @@ const SHM_VOLUME: &str = "shm";
 pub(crate) const PLUGIN_NAMESPACE: &str = "et-nri-plugins";
 
 /// containerd's own NRI plugin that sets a container's rlimits from the annotation [`ULIMITS_ANNOTATION`] names.
+///
+/// Its image starts it with no arguments, and the NRI stub it is built on reads its index from `NRI_PLUGIN_IDX` when no
+/// `-idx` flag sets one, which places it ahead of [`MEMORY_QOS`] among the node's plugins.
 static ULIMIT_ADJUSTER: RuntimePlugin = RuntimePlugin {
-    args: &["-idx", "10"],
-    command: &[],
     config: None,
+    env: &[("NRI_PLUGIN_IDX", "10")],
     image: "ghcr.io/containerd/nri/plugins/ulimit-adjuster:v0.10.0",
     name: "ulimit-adjuster",
     workload: "nri-plugin-ulimit-adjuster",
@@ -118,10 +120,13 @@ static ULIMIT_ADJUSTER: RuntimePlugin = RuntimePlugin {
 ///
 /// Despite its name it writes any file its configuration lists, which [`MEMORY_QOS_FILES`] makes the set of cgroup
 /// files the Pod API has no field for.
+///
+/// It runs its image's own entrypoint, which passes `-idx 40` and reads `/etc/nri/memory-qos/config.yaml` -- where its
+/// `ConfigMap` is mounted. No environment can change that index: the stub rejects an `NRI_PLUGIN_IDX` alongside a
+/// `-idx` with "plugin ID already set".
 static MEMORY_QOS: RuntimePlugin = RuntimePlugin {
-    args: &["--idx", "90", "--config", "/etc/nri/memory-qos/config.yaml"],
-    command: &["nri-memory-qos"],
     config: Some(("nri-memory-qos-config", "/etc/nri/memory-qos")),
+    env: &[],
     image: "ghcr.io/containers/nri-plugins/nri-memory-qos:v0.14.0",
     name: "nri-memory-qos",
     workload: "nri-memory-qos",
@@ -170,13 +175,13 @@ const CONTAINERD_TEMPLATE: &str = concat!(
 const NRI_SOCKET: &str = "/var/run/nri/nri.sock";
 
 /// One upstream container runtime plugin, run unmodified as a `DaemonSet`.
+///
+/// It always runs its image's own entrypoint and arguments: anything it is configured with goes in `env`.
 struct RuntimePlugin {
-    /// The arguments the plugin starts with; `-idx` orders it among the node's plugins, as its upstream manifest does.
-    args: &'static [&'static str],
-    /// The program to run, or empty for the image's own entrypoint.
-    command: &'static [&'static str],
     /// The `ConfigMap` holding the plugin's configuration and where it is mounted; absent, the plugin reads none.
     config: Option<(&'static str, &'static str)>,
+    /// The environment the plugin starts with, as name and value pairs.
+    env: &'static [(&'static str, &'static str)],
     /// The pinned image the plugin is published as.
     image: &'static str,
     /// The name the plugin registers with the runtime, which is what a required-plugins annotation names.
@@ -629,13 +634,13 @@ fn memory_qos_config(name: &str) -> ConfigMap {
     }
 }
 
-/// The plugin's container: its own image, command and arguments, with the NRI socket and any configuration mounted.
+/// The plugin's container: its own image and entrypoint, with its environment, the NRI socket and any configuration.
 ///
 /// It runs as root because the socket is root's alone, and that is the only privilege it keeps: every capability is
 /// dropped and the root filesystem is read-only, so the socket is the one thing it can reach that an ordinary container
 /// cannot.
 fn plugin_container(plugin: &RuntimePlugin) -> (Container, Vec<Volume>) {
-    let owned = |items: &[&str]| items.iter().map(|item| (*item).to_string()).collect::<Vec<_>>();
+    let vars = plugin.env.iter().map(|(name, value)| env(name, (*value).to_string()));
     let (socket_mount, socket_volume) = host_socket("nri-socket", NRI_SOCKET);
     let mut mounts = vec![socket_mount];
     let mut volumes = vec![socket_volume];
@@ -651,8 +656,7 @@ fn plugin_container(plugin: &RuntimePlugin) -> (Container, Vec<Volume>) {
         });
     }
     let container = Container {
-        args: Some(owned(plugin.args)),
-        command: (!plugin.command.is_empty()).then(|| owned(plugin.command)),
+        env: (!plugin.env.is_empty()).then(|| vars.collect()),
         image: Some(plugin.image.to_string()),
         image_pull_policy: Some(IMAGE_PULL_POLICY.to_string()),
         name: plugin.workload.to_string(),
@@ -973,6 +977,7 @@ fn hub_env(module_paths: &[String], root_module: &str) -> Vec<EnvVar> {
         env("STORAGE_URL", "file:///app/storage".to_string()),
         env("TLS_CERT_FILE", format!("{HUB_RUNTIME_DIR}/cert.pem")),
         env("TLS_KEY_FILE", format!("{HUB_RUNTIME_DIR}/key.pem")),
+        env("WS_AGENT_REGISTRY", format!("{HUB_RUNTIME_DIR}/registry.yaml")),
     ]);
     vars
 }
@@ -990,17 +995,6 @@ fn hub_deployment(
     let (storage_mount, storage_volume) = mount("ws-server-storage", "/app/storage");
     let (runtime_mount, runtime_volume) = scratch("ws-server-runtime", HUB_RUNTIME_DIR);
     let container = Container {
-        // `--agent-registry` is a flag rather than an environment variable, so the registry path is the one writable
-        // location that has to be redirected through `args` instead of `env`.
-        //
-        // `command` has to be restated with it. The image declares its binary as `CMD` with no `ENTRYPOINT`, and
-        // Kubernetes `args` overrides `CMD` outright rather than appending to it -- so args alone left the kubelet
-        // trying to exec the flag as the program: exec: "--agent-registry": executable file not found in $PATH
-        args: Some(vec![
-            "--agent-registry".to_string(),
-            format!("{HUB_RUNTIME_DIR}/registry.yaml"),
-        ]),
-        command: Some(vec!["et-ws-server".to_string()]),
         env: Some(hub_env(module_paths, root_module)),
         env_from: Some(vec![from_secret(namespace)]),
         image: Some(format!("et-ws-server-{cluster_name}:{IMAGE_TAG}")),

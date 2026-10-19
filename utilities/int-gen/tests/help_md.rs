@@ -53,7 +53,7 @@ fn detects_every_binary_using_clap_or_serde_env() {
             ("et-int-gen", true, false),
             ("et-onnx", true, false),
             ("et-ws-pyo3-runner", false, true),
-            ("et-ws-server", true, true),
+            ("et-ws-server", false, true),
             ("et-ws-wasi-runner", false, true),
             ("et-ws-web-runner", false, true),
         ]

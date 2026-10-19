@@ -29,10 +29,27 @@ Changelog 1.1.0.
   read. It depends on no other crate of this project, so it can be used on its own.
 - `et-ws-server` reads its `HttpServer` settings from `HTTP_*` variables, such as `HTTP_WORKERS`,
   `HTTP_KEEP_ALIVE` and `HTTP_SHUTDOWN_TIMEOUT`.
+- Hubs scale out. `WS_BACKPLANE=nats://<host>:<port>` points several `et-ws-server` instances at one NATS server
+  with JetStream, and they then share one agent directory, one mailbox of unacknowledged direct messages and
+  delivery between them. An agent on any hub lists, messages, broadcasts to and acknowledges agents on every other,
+  uploads to storage through any hub, and can reconnect to a different hub without losing what was queued for it.
+  The default, `local`, behaves as before. In NATS mode the `WS_AGENT_REGISTRY` file is neither read nor written. The
+  new `et-hub-backplane` crate holds the NATS side, and `et-test-nats` starts a throwaway broker for tests.
 
 ### Changed
 
 - The workspace requires actix-web 4.17.
+- **Breaking:** an agent's IP address is always known. `AgentSummary::last_known_ip` and
+  `AgentRecord::last_known_ip` are `IpAddr` rather than `Option<String>`, and `AgentRegistry::connect_agent` takes
+  an `IpAddr`. On the wire, `last_known_ip` in an `et-list-agents-response` is a required IP string, never null,
+  and the generated Dart and WIT bindings follow suit. A `registry.yaml` holding a null or non-IP
+  `last_known_ip` no longer loads.
+- **Breaking:** the hub takes a client's IP from the socket peer only, ignoring `Forwarded` and `X-Forwarded-For`,
+  so behind a reverse proxy every agent reports the proxy's address. A request with no peer address, such as one
+  over a Unix domain socket, is refused, and `et-ws-server` listens on TCP only.
+- **Breaking:** `et-ws-server` takes no command-line arguments. Its one flag, `-a` / `--agent-registry`, is now the
+  `WS_AGENT_REGISTRY` environment variable, still defaulting to `registry.yaml`, and `et_ws_server::cli` is gone.
+  Generated k3s manifests set the variable instead of overriding the container's `command` and `args`.
 
 ## [0.3.0] - 2026-10-15
 

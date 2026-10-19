@@ -7,21 +7,17 @@
 
 use actix_web::middleware::{DefaultHeaders, Logger};
 use actix_web::{App, HttpServer, web};
-use clap::Parser as _;
-use et_ws_server::cli::Args;
 use et_ws_server::config::Config;
 use et_ws_server::configure_app;
 #[cfg(feature = "tls")]
 use et_ws_server::tls;
-use et_ws_service::load_registry;
+use et_ws_service::{Backplane, WsAgentRegistry, load_registry, start_backplane, withdraw_local_agents};
 use tracing::{error, info, warn};
 use tracing_actix_web::TracingLogger;
 use tracing_subscriber::{layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let args = Args::parse();
-
     let env = serde_env::from_env::<Config>().unwrap();
 
     eprintln!("Starting with env vars {env:#?}");
@@ -100,9 +96,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     }
 
-    let agent_registry = web::Data::new(load_registry(&args.agent_registry).unwrap());
+    let backplane = Backplane::connect(&env.ws.backplane).await?;
+    let agent_registry = web::Data::new(match backplane {
+        Backplane::Local => load_registry(&env.ws.agent_registry).unwrap(),
+        Backplane::Nats(_) => {
+            info!(
+                "Sharing agents over the NATS backplane; {} is neither read nor written",
+                env.ws.agent_registry.display()
+            );
+            WsAgentRegistry::default()
+        }
+    });
+    let delivery = start_backplane(&backplane, &agent_registry, env.ws.max_frame_size).await?;
+    let backplane_data = web::Data::new(backplane.clone());
     let registry_clone = agent_registry.clone();
-    let registry_path = args.agent_registry.clone();
+    let registry_path = env.ws.agent_registry.clone();
 
     #[cfg(feature = "modules")]
     for (name, pkg_dir) in et_modules_service::list_modules(&env.modules) {
@@ -111,6 +119,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let http_config = env.http.clone();
     let server = HttpServer::new(move || {
         let registry = agent_registry.clone();
+        let backplane = backplane_data.clone();
         let config = env.clone();
         // `TracingLogger` extracts the W3C `traceparent` header from
         // incoming requests (via the `opentelemetry_0_31` feature) and uses
@@ -132,6 +141,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     .add(("Cross-Origin-Opener-Policy", "same-origin"))
                     .add(("Cross-Origin-Embedder-Policy", "require-corp")),
             )
+            .app_data(backplane)
             .configure(|cfg| configure_app(cfg, registry, &config))
     });
     let server = http_config.apply(server).bind(("0.0.0.0", http_port))?;
@@ -139,17 +149,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let server = server.bind_rustls_0_23(("0.0.0.0", advertised_port), rustls_config)?;
     let server = server.run();
 
-    let handle = server.handle();
-    let _shutdown_task = tokio::spawn(async move {
-        tokio::signal::ctrl_c().await.unwrap();
-        info!("Shutdown signal received, saving registry...");
+    let result = server.await;
+    // actix stops the server itself on SIGINT, SIGTERM and SIGQUIT, so whichever one arrived -- Kubernetes sends
+    // SIGTERM -- the hub's state is handed off here, once no connection can arrive to change it.
+    if matches!(backplane, Backplane::Local) {
+        info!("Server stopped, saving registry...");
         if let Err(e) = registry_clone.save(&registry_path) {
             error!("Failed to save registry on shutdown: {}", e);
         }
-        handle.stop(true).await;
-    });
-
-    let result = server.await;
+    } else {
+        info!("Server stopped, withdrawing this hub's agents from the backplane...");
+        withdraw_local_agents(&backplane, &registry_clone).await;
+    }
+    delivery.stop().await;
     // Flush batched spans/logs before exit; otherwise short-lived runs lose
     // the tail of the trace.
     #[cfg(feature = "otlp")]

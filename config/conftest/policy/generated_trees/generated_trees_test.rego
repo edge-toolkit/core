@@ -91,6 +91,28 @@ test_an_exclude_beside_an_include_is_still_caught if {
 	contains(messages[_], "config/semgrep/published-only.yaml")
 }
 
+# An ast-grep rule's `files` is its scope in the same way, so a rule aimed only at a generated tree needs none.
+test_an_ast_grep_files_scope_is_not_an_exclusion if {
+	scoped := array.concat(posix_input, [{
+		"path": "config/ast-grep/rules/generated-only.yaml",
+		"contents": {"files": ["generated/**/*.yaml"]},
+	}])
+
+	count(generated_trees.deny) == 0 with input as scoped
+}
+
+# Its `ignores` is still a skip, so the same string there must be declared.
+test_an_ast_grep_ignores_beside_files_is_still_caught if {
+	scoped := array.concat(posix_input, [{
+		"path": "config/ast-grep/rules/generated-only.yaml",
+		"contents": {"files": ["generated/**/*.yaml"], "ignores": ["generated/**"]},
+	}])
+
+	messages := generated_trees.deny with input as scoped
+	count(messages) == 1
+	contains(messages[_], "config/ast-grep/rules/generated-only.yaml")
+}
+
 # An undeclared exclusion must still be caught through a backslash path.
 test_windows_paths_still_catch_an_undeclared_exclusion if {
 	extra := [

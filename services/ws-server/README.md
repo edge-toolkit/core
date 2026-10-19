@@ -10,16 +10,15 @@ a `/websockify` relay for in-browser runtimes. Each is a cargo feature, all on b
 
 ```sh
 cargo install et-ws-server
-et-ws-server --agent-registry registry.yaml
+et-ws-server
 ```
 
 It listens for HTTP on port 8080 and, with the `tls` feature, for HTTPS/WSS on 8443, logging every reachable
-address and a QR code of the one phones on the same network should open. The registry is loaded from the given
-YAML file at startup and written back on shutdown.
+address and a QR code of the one phones on the same network should open.
 
-All other configuration is read from the environment.
-[HELP.md](https://github.com/edge-toolkit/core/blob/main/services/ws-server/HELP.md) lists the command-line flags
-and every environment variable, with its type and default.
+It takes no command-line arguments: all configuration is read from the environment.
+[HELP.md](https://github.com/edge-toolkit/core/blob/main/services/ws-server/HELP.md) lists every environment
+variable, with its type and default.
 
 ## Choosing services
 

@@ -1,0 +1,22 @@
+id: verification-no-args
+valid:
+  - |
+    containers:
+      - env:
+          - name: NRI_PLUGIN_IDX
+            value: "10"
+        image: ghcr.io/containerd/nri/plugins/ulimit-adjuster:v0.10.0
+  - |
+    labels:
+      app: args
+      arguments: none
+invalid:
+  - |
+    containers:
+      - args:
+          - -idx
+          - "10"
+        image: ghcr.io/containerd/nri/plugins/ulimit-adjuster:v0.10.0
+  - |
+    containers:
+      - {args: ["--agent-registry", "/app/runtime/registry.yaml"], image: et-ws-server}

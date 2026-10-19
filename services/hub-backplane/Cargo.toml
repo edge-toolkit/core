@@ -1,0 +1,31 @@
+[package]
+name = "et-hub-backplane"
+publish = true
+description = "NATS backplane that lets several hub instances share one agent directory, mailbox and delivery fabric"
+version = "0.2.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+async-nats.workspace = true
+bytes.workspace = true
+const-hex.workspace = true
+edge-toolkit.workspace = true
+futures-util.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+et-test-helpers.workspace = true
+et-test-nats.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+
+[lints]
+workspace = true

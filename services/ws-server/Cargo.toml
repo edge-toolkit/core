@@ -71,7 +71,6 @@ docs = ["dep:document-features"]
 
 [dependencies]
 actix-web.workspace = true
-clap.workspace = true
 document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
 et-actix-web-config.workspace = true
@@ -91,7 +90,6 @@ serde-env.workspace = true
 serde-inline-default = { workspace = true, optional = true }
 serde_default.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["rt", "signal"] }
 tracing.workspace = true
 tracing-actix-web.workspace = true
 tracing-subscriber.workspace = true

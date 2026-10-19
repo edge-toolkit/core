@@ -1,10 +1,10 @@
 # Checks
 
-- **Checks:** 74
+- **Checks:** 75
 - **Tools:** 47
-- **Shell-script checks:** 9
+- **Shell-script checks:** 10
 - **Checks with a repair pass:** 21
-- **Rules:** 340 custom local rules, or non-default strict linter settings
+- **Rules:** 342 custom local rules, or non-default strict linter settings
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
 declares it, the aggregate that runs it as part of `mise run check`, the `fix` or `fmt` pass that repairs what it
@@ -287,6 +287,10 @@ Rules, from `config/ast-grep/rules`:
   then `info!(...)`, `use tracing::instrument;` then `#[instrument(...)]`. A `tracing::` path at the use site hides the
   dependency from the file's imports, and mixing the two spellings in one crate makes the logging calls harder to find
   and change.
+- `verification-no-args` -- A generated deployment must not set a container's `args`. Configure the program through its
+  environment instead -- every service here reads its settings through serde-env -- or, for an upstream image, run its
+  own entrypoint and set whatever it reads from the environment. Kubernetes `args` replaces the image's `CMD` outright,
+  so an `args` entry also silently discards the arguments the image was built to start with.
 - `write-ending-newline` -- A `write!` whose format string ends in `\n` is a `writeln!` written the long way: use
   `writeln!` and drop the final `\n`. This mirrors `DeepSource RS-C1005`. clippy's `write_with_newline` covers only a
   single trailing newline and deliberately skips a string ending in `\n\n`, which is the case this rule exists to catch.
@@ -553,6 +557,7 @@ Rules, from `config/conftest/policy`:
 - `dependencies` (`config/conftest/policy/cargo/dependencies.rego`):
   - No crate may depend on an internal one.
   - A standalone crate must not depend on any of this repo's `et-` crates.
+  - No crate under services/ may depend on clap.
 - `checks_badge` (`config/conftest/policy/checks_badge/checks_badge.rego`):
   - CHECKS.md must record its rules count, which the badge is held to.
   - README.md must define the checks badge.
@@ -1159,6 +1164,8 @@ Rules, from `config/taplo`:
   origin/main (rebase needed).
 - `check-ghcr-visibility` (`maint` env; not run by `mise run check`) -- Verify every GHCR package is public; print
   settings URLs for any still private.
+- `code-scanning-check` (`default` env; not run by `mise run check`) -- Fail if the GitHub repository has any open
+  code-scanning alert.
 - `dockerignore-check` (`default` env; run by `check:rust`) -- Fail if .dockerignore is stale vs .gitignore (run `mise
   run gen:dockerignore`).
 - `gen-specs-check` (`default` env; run by `check:rust`) -- Fail if any checked-in et-int-gen artifact is stale.

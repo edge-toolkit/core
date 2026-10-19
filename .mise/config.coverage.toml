@@ -39,7 +39,7 @@
 # tasks share (wasm-cov for the guests, wasm-agent-cov and pic-viewer-cov for the browser tests) and so can
 # only be asserted where that path runs. A crate belongs to exactly one list: naming it in both would let a
 # gap in one pipeline be answered by the other.
-native_cov_libs = "actix-web-config edge-toolkit et-otlp path test-helpers test-otlp ws-runner-common"
+native_cov_libs = "actix-web-config edge-toolkit et-otlp path test-helpers test-nats test-otlp ws-runner-common"
 wasm_cov_libs = "wasi-guest web"
 # The third kind: a crate whose source is `const` and `macro_rules!` only.
 # llvm-cov emits no records at all for one -- there is no executable code to instrument, so its tests can pass

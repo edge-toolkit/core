@@ -9,7 +9,6 @@ use std::net::{Ipv4Addr, SocketAddr};
 use actix_web::{HttpResponse, web};
 pub use et_ws_service::{AgentSession, WsAgentRegistry};
 
-pub mod cli;
 pub mod config;
 pub mod net;
 pub mod routes;

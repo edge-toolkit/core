@@ -129,12 +129,12 @@ fn a_displaced_session_cannot_disconnect_the_one_that_replaced_it() {
     assert_eq!(status, ConnectStatus::Reconnected);
 
     // The displaced connection closing leaves the id with its replacement.
-    registry.mark_disconnected_if(&agent_id, &|session| session == "sess-a");
+    assert!(!registry.mark_disconnected_if(&agent_id, &|session| session == "sess-a"));
     assert_eq!(registry.agent_session(&agent_id).as_deref(), Some("sess-b"));
     assert_eq!(registry.list_agents()[0].state, AgentConnectionState::Connected);
 
     // The replacement closing does take it offline.
-    registry.mark_disconnected_if(&agent_id, &|session| session == "sess-b");
+    assert!(registry.mark_disconnected_if(&agent_id, &|session| session == "sess-b"));
     assert_eq!(registry.agent_session(&agent_id), None);
     assert_eq!(registry.list_agents()[0].state, AgentConnectionState::Disconnected);
 }
@@ -149,7 +149,7 @@ fn a_record_with_no_session_is_disconnected_whatever_the_test_says() {
     registry.save(&path).unwrap();
     let reloaded = AgentRegistry::<String>::load(&path).unwrap();
 
-    reloaded.mark_disconnected_if(&agent_id, &|_session| false);
+    assert!(reloaded.mark_disconnected_if(&agent_id, &|_session| false));
     assert_eq!(reloaded.list_agents()[0].state, AgentConnectionState::Disconnected);
 }
 
