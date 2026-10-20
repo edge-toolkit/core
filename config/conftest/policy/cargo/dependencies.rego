@@ -72,3 +72,14 @@ deny contains msg if {
 	startswith(pkg, "et-")
 	msg := $"{path}: standalone crate \"{crate}\" must not depend on this repo's \"{pkg}\""
 }
+
+# No crate under services/ may depend on clap.
+# A service reads all of its configuration from the environment through serde-env: that is the one interface every
+# way it is deployed here -- compose, k3s, process-compose, mise -- sets the same way, where a flag has to be threaded
+# through each one's command line separately, and it keeps the whole surface in one generated list in `HELP.md`.
+deny contains msg if {
+	some [path, name, spec] in dep
+	startswith(path, "services/")
+	dep_package(name, spec) == "clap"
+	msg := $"{path}: services take no command-line arguments; read the setting from the environment through serde-env"
+}

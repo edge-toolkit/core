@@ -1,0 +1,18 @@
+id: verification-no-args
+language: yaml
+severity: error
+message: |
+  A generated deployment must not set a container's `args`. Configure the program through its environment instead --
+  every service here reads its settings through serde-env -- or, for an upstream image, run its own entrypoint and
+  set whatever it reads from the environment. Kubernetes `args` replaces the image's `CMD` outright, so an `args`
+  entry also silently discards the arguments the image was built to start with.
+# Check-only: the rewrite depends on what the program reads from its environment, which no template can know.
+files:
+  - verification/**/*.yaml
+rule:
+  any:
+    - kind: block_mapping_pair
+    - kind: flow_pair
+  has:
+    field: key
+    regex: "^args$"

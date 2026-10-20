@@ -7,6 +7,8 @@ use actix_ws::{AggregatedMessage, AggregatedMessageStream, CloseCode, CloseReaso
 use bytes::Bytes;
 use chrono::Utc;
 use edge_toolkit::ws::{ClientMessage, ConnectStatus, MessageDeliveryStatus, MessageScope, ServerMessage};
+use edge_toolkit::ws_server::PendingDirectMessage;
+use et_hub_backplane::{Backplane, BackplaneError, Frame, NatsBackplane, Presence};
 use futures_util::StreamExt as _;
 use opentelemetry::global;
 use opentelemetry::trace::{Span, Tracer as _};
@@ -24,6 +26,8 @@ pub(crate) struct Connection {
     last_activity: Instant,
     client_ip: IpAddr,
     registry: WsAgentRegistry,
+    /// Where agents on other hubs are found; in NATS mode it, not `registry`, decides where a message goes.
+    backplane: Backplane,
     session: Session,
     outbox: AgentSession,
     /// Idle timeout for this connection, or `None` to never time out.
@@ -34,6 +38,7 @@ impl Connection {
     #[expect(clippy::single_call_fn, reason = "inherent constructor; used once by ws_handler")]
     pub(crate) fn new(
         registry: WsAgentRegistry,
+        backplane: Backplane,
         client_ip: IpAddr,
         session: Session,
         outbox: AgentSession,
@@ -45,6 +50,7 @@ impl Connection {
             last_activity: Instant::now(),
             client_ip,
             registry,
+            backplane,
             session,
             outbox,
             idle_timeout,
@@ -78,13 +84,239 @@ impl Connection {
     /// hub relay: its first unrecognised frame implicitly registers the session, so the frame is broadcast to the other
     /// agents and this client then receives the relayed replies. et-protocol agents send `et-connect` first, so they
     /// are already assigned by the time they relay and this is a no-op.
-    fn ensure_assigned_agent(&mut self) -> String {
+    async fn ensure_assigned_agent(&mut self) -> String {
         if let Some(id) = self.assigned_agent_id() {
             return id.to_string();
         }
         let (id, _status) = self.assign_or_reconnect_agent(None);
+        self.announce(&id).await;
         info!("Auto-registered relay client {} as agent {id}", self.client_ip);
         id
+    }
+
+    /// Place `agent_id` on this hub in the shared directory, taking it over from any hub that held it before.
+    ///
+    /// A failure is logged rather than refused: the agent is still served by this hub, only unreachable from others.
+    async fn announce(&self, agent_id: &str) {
+        if let Backplane::Nats(nats) = &self.backplane
+            && let Err(error) = nats.announce(agent_id, self.client_ip).await
+        {
+            error!("Failed to announce agent {agent_id} on the backplane: {error}");
+        }
+    }
+
+    /// Everything waiting for `agent_id`: in this process's registry, or in the shared mailbox in NATS mode.
+    async fn pending_messages(&self, agent_id: &str) -> Vec<PendingDirectMessage> {
+        match &self.backplane {
+            Backplane::Local => self.registry.pending_messages_for(agent_id),
+            Backplane::Nats(nats) => nats.pending_for(agent_id).await.unwrap_or_else(|error| {
+                error!("Failed to read the backplane mailbox of {agent_id}: {error}");
+                Vec::new()
+            }),
+        }
+    }
+
+    /// Hand `message` to `to_agent_id`, whose socket the directory places on hub `hub_id`.
+    ///
+    /// The local session is written directly when that hub is this one; anything else crosses the backplane.
+    async fn deliver_via_backplane(
+        &self,
+        nats: &NatsBackplane,
+        hub_id: &str,
+        to_agent_id: &str,
+        message: ServerMessage,
+    ) -> Result<(), BackplaneError> {
+        if hub_id == nats.hub_id() {
+            if let Some(session) = self.registry.agent_session(to_agent_id) {
+                let _sent = session.send(SessionMessage::Json(message));
+            }
+            return Ok(());
+        }
+        let text = serde_json::to_string(&message)?;
+        nats.send_to_hub(hub_id, to_agent_id, Frame::Text(text)).await
+    }
+
+    /// Send `frame` from `from_agent_id` to the agents of every other hub; a no-op for a local hub.
+    async fn broadcast_to_other_hubs(&self, from_agent_id: &str, frame: Frame) {
+        if let Backplane::Nats(nats) = &self.backplane
+            && let Err(error) = nats.broadcast(from_agent_id, frame).await
+        {
+            warn!("Failed to broadcast from {from_agent_id} to the other hubs: {error}");
+        }
+    }
+
+    /// The direct-message path when a NATS backplane decides where the recipient is.
+    ///
+    /// Every message lands in the shared mailbox first, so it survives the recipient reconnecting to another hub before
+    /// it acknowledges, whichever hub it is delivered through.
+    #[expect(
+        clippy::cognitive_complexity,
+        reason = "the same three status replies as the local path, plus the backplane failure reply"
+    )]
+    async fn send_direct_via_backplane(
+        &mut self,
+        nats: &NatsBackplane,
+        from_agent_id: String,
+        to_agent_id: String,
+        message: serde_json::Value,
+    ) {
+        let destination = match nats.presence(&to_agent_id).await {
+            Ok(Presence::Unknown) => {
+                warn!("direct message target {to_agent_id} is not a known agent");
+                self.send_invalid(None, format!("unknown target agent {to_agent_id}"))
+                    .await;
+                return;
+            }
+            Ok(presence) => presence,
+            Err(error) => {
+                error!("Backplane lookup of {to_agent_id} failed: {error}");
+                self.send_backplane_unavailable(&error).await;
+                return;
+            }
+        };
+        let pending = PendingDirectMessage::new(
+            Uuid::now_v7().to_string(),
+            from_agent_id,
+            Utc::now().to_rfc3339(),
+            message,
+        );
+        if let Err(error) = nats.queue(&to_agent_id, pending.clone()).await {
+            error!("Backplane mailbox write for {to_agent_id} failed: {error}");
+            self.send_backplane_unavailable(&error).await;
+            return;
+        }
+        // A recipient that connected between the first lookup and the write has already read its mailbox, so look
+        // again. It announces before it reads, so a second look that still says disconnected means its read is yet to
+        // come and will find this message.
+        let destination = match destination {
+            Presence::Connected { .. } => destination,
+            Presence::Disconnected | Presence::Unknown => match nats.presence(&to_agent_id).await {
+                Ok(presence) => presence,
+                Err(error) => {
+                    warn!("Backplane re-check of {to_agent_id} failed, leaving the message queued: {error}");
+                    destination
+                }
+            },
+        };
+
+        if let Presence::Connected { hub_id } = destination {
+            self.deliver_live(nats, &hub_id, &to_agent_id, pending).await;
+            return;
+        }
+        info!(
+            "Direct message {} queued for disconnected agent {to_agent_id}",
+            pending.message_id
+        );
+        self.send_status(
+            Some(pending.message_id),
+            MessageDeliveryStatus::Queued,
+            format!("message queued for agent {to_agent_id}"),
+        )
+        .await;
+    }
+
+    /// Tell the client its request failed because the backplane could not be reached.
+    async fn send_backplane_unavailable(&mut self, error: &BackplaneError) {
+        self.send_invalid(None, format!("hub backplane unavailable: {error}"))
+            .await;
+    }
+
+    /// Deliver `pending`, already in the mailbox, to `to_agent_id` on hub `hub_id`, and report it delivered.
+    #[expect(
+        clippy::cognitive_complexity,
+        reason = "the score is info!/warn! expansion; the body branches once"
+    )]
+    async fn deliver_live(
+        &mut self,
+        nats: &NatsBackplane,
+        hub_id: &str,
+        to_agent_id: &str,
+        pending: PendingDirectMessage,
+    ) {
+        let message_id = pending.message_id.clone();
+        let agent_message = ServerMessage::AgentMessage {
+            message_id: message_id.clone(),
+            from_agent_id: pending.from_agent_id,
+            scope: MessageScope::Direct,
+            server_received_at: pending.server_received_at,
+            message: pending.message,
+        };
+        let (status, detail) = match self
+            .deliver_via_backplane(nats, hub_id, to_agent_id, agent_message)
+            .await
+        {
+            Ok(()) => {
+                info!("Direct message {message_id} delivered to {to_agent_id} on hub {hub_id}");
+                (MessageDeliveryStatus::Delivered, "delivered to")
+            }
+            // Already in the mailbox, so queued is the truth: the recipient gets it on its next connect.
+            Err(error) => {
+                warn!("Live delivery of {message_id} to {to_agent_id} on hub {hub_id} failed: {error}");
+                (MessageDeliveryStatus::Queued, "queued for")
+            }
+        };
+        self.send_status(
+            Some(message_id),
+            status,
+            format!("message {detail} agent {to_agent_id}"),
+        )
+        .await;
+    }
+
+    /// The ack path when the message sits in the shared mailbox, telling its sender wherever that sender is now.
+    #[expect(
+        clippy::cognitive_complexity,
+        reason = "the score is info!/warn! expansion; the body branches once"
+    )]
+    async fn acknowledge_via_backplane(
+        &mut self,
+        nats: &NatsBackplane,
+        recipient_agent_id: String,
+        message_id: String,
+    ) {
+        let sender_agent_id = match nats.acknowledge(&recipient_agent_id, &message_id).await {
+            Ok(sender_agent_id) => sender_agent_id,
+            Err(error) => {
+                warn!("Invalid ack from {recipient_agent_id} for {message_id}: {error}");
+                self.send_invalid(Some(message_id), error.to_string()).await;
+                return;
+            }
+        };
+        info!("Agent {recipient_agent_id} acknowledged direct message {message_id} from {sender_agent_id}");
+        self.send_status(
+            Some(message_id.clone()),
+            MessageDeliveryStatus::Acknowledged,
+            "message acknowledged",
+        )
+        .await;
+        self.send_receipt_via_backplane(nats, &recipient_agent_id, &sender_agent_id, message_id)
+            .await;
+    }
+
+    /// Tell `sender_agent_id`, on whichever hub holds it, that `recipient_agent_id` acknowledged `message_id`.
+    async fn send_receipt_via_backplane(
+        &self,
+        nats: &NatsBackplane,
+        recipient_agent_id: &str,
+        sender_agent_id: &str,
+        message_id: String,
+    ) {
+        let receipt = ServerMessage::MessageStatus {
+            message_id: Some(message_id),
+            status: MessageDeliveryStatus::Acknowledged,
+            detail: format!("agent {recipient_agent_id} acknowledged receipt"),
+        };
+        let delivered = match nats.presence(sender_agent_id).await {
+            Ok(Presence::Connected { hub_id }) => {
+                self.deliver_via_backplane(nats, &hub_id, sender_agent_id, receipt)
+                    .await
+            }
+            Ok(Presence::Disconnected | Presence::Unknown) => Ok(()),
+            Err(error) => Err(error),
+        };
+        if let Err(error) = delivered {
+            warn!("Failed to tell {sender_agent_id} its message was acknowledged: {error}");
+        }
     }
 
     #[expect(
@@ -146,7 +378,7 @@ impl Connection {
         let Some(agent_id) = self.assigned_agent_id().map(str::to_string) else {
             return;
         };
-        for pending in self.registry.pending_messages_for(&agent_id) {
+        for pending in self.pending_messages(&agent_id).await {
             info!(
                 "Delivering pending message {} to agent {} from {}",
                 pending.message_id, agent_id, pending.from_agent_id
@@ -173,6 +405,13 @@ impl Connection {
         to_agent_id: String,
         message: serde_json::Value,
     ) {
+        if let Backplane::Nats(nats) = &self.backplane {
+            let nats = nats.clone();
+            self.send_direct_via_backplane(&nats, from_agent_id, to_agent_id, message)
+                .await;
+            span.end();
+            return;
+        }
         let server_received_at = Utc::now().to_rfc3339();
         let Some((pending, recipient_session)) = self.registry.queue_direct(
             Uuid::now_v7().to_string(),
@@ -271,8 +510,9 @@ impl Connection {
             }
             AggregatedMessage::Binary(bytes) => {
                 self.mark_activity();
-                let from_agent_id = self.ensure_assigned_agent();
+                let from_agent_id = self.ensure_assigned_agent().await;
                 self.broadcast_raw_binary(&from_agent_id, &bytes);
+                self.broadcast_to_other_hubs(&from_agent_id, Frame::Binary(bytes)).await;
             }
             AggregatedMessage::Close(reason) => {
                 self.mark_activity();
@@ -305,6 +545,8 @@ impl Connection {
                                 requested_id, self.client_ip
                             );
                             let (assigned_id, status) = self.assign_or_reconnect_agent(agent_id);
+                            // Before the ack, so an agent that has been acked is already reachable from every hub.
+                            self.announce(&assigned_id).await;
                             info!(
                                 "Agent {} status {:?}connected from IP {}",
                                 assigned_id, status, self.client_ip
@@ -329,7 +571,18 @@ impl Connection {
                             .await;
                         }
                         ClientMessage::ListAgents => {
-                            let agents = self.registry.list_agents();
+                            let agents = match &self.backplane {
+                                Backplane::Local => self.registry.list_agents(),
+                                Backplane::Nats(nats) => match nats.list_agents().await {
+                                    Ok(agents) => agents,
+                                    Err(error) => {
+                                        error!("Backplane directory listing failed: {error}");
+                                        self.send_backplane_unavailable(&error).await;
+                                        span.end();
+                                        return true;
+                                    }
+                                },
+                            };
                             info!(
                                 "Agent {} requested list_agents; returning {} agents",
                                 self.current_agent_id(),
@@ -375,14 +628,19 @@ impl Connection {
                                 from_agent_id,
                                 recipients.len()
                             );
+                            let broadcast = ServerMessage::AgentMessage {
+                                message_id: message_id.clone(),
+                                from_agent_id: from_agent_id.clone(),
+                                scope: MessageScope::Broadcast,
+                                server_received_at,
+                                message,
+                            };
                             for (_, recipient) in &recipients {
-                                let _sent = recipient.send(SessionMessage::Json(ServerMessage::AgentMessage {
-                                    message_id: message_id.clone(),
-                                    from_agent_id: from_agent_id.clone(),
-                                    scope: MessageScope::Broadcast,
-                                    server_received_at: server_received_at.clone(),
-                                    message: message.clone(),
-                                }));
+                                let _sent = recipient.send(SessionMessage::Json(broadcast.clone()));
+                            }
+                            match serde_json::to_string(&broadcast) {
+                                Ok(text) => self.broadcast_to_other_hubs(&from_agent_id, Frame::Text(text)).await,
+                                Err(error) => error!("Failed to serialize broadcast {message_id}: {error}"),
                             }
                             self.send_status(
                                 Some(message_id),
@@ -399,6 +657,13 @@ impl Connection {
                                 return true;
                             };
 
+                            if let Backplane::Nats(nats) = &self.backplane {
+                                let nats = nats.clone();
+                                self.acknowledge_via_backplane(&nats, recipient_agent_id, message_id)
+                                    .await;
+                                span.end();
+                                return true;
+                            }
                             match self.registry.acknowledge_message(&recipient_agent_id, &message_id) {
                                 Ok((message_id, sender_session, sender_agent_id)) => {
                                     info!(
@@ -427,15 +692,18 @@ impl Connection {
                         }
                         ClientMessage::ClientEvent { event } => log_client_event(self.current_agent_id(), &event),
                         ClientMessage::RelayText { content } => {
-                            let from_agent_id = self.ensure_assigned_agent();
+                            let from_agent_id = self.ensure_assigned_agent().await;
                             self.broadcast_raw_text(&from_agent_id, &content);
+                            self.broadcast_to_other_hubs(&from_agent_id, Frame::Text(content)).await;
                         }
                         ClientMessage::RelayBinary { content } => {
                             // A binary tungstenite frame is dispatched by the outer `AggregatedMessage::Binary` arm. If
                             // a client explicitly sends `{"type":"et-relay-binary",...}` as a text frame, honour it by
                             // relaying the payload as a binary frame.
-                            let from_agent_id = self.ensure_assigned_agent();
-                            self.broadcast_raw_binary(&from_agent_id, &Bytes::from(content));
+                            let from_agent_id = self.ensure_assigned_agent().await;
+                            let bytes = Bytes::from(content);
+                            self.broadcast_raw_binary(&from_agent_id, &bytes);
+                            self.broadcast_to_other_hubs(&from_agent_id, Frame::Binary(bytes)).await;
                         }
                     },
                 }
@@ -525,16 +793,32 @@ impl Connection {
         }
 
         ACTIVE_CONNECTIONS.add(-1, &[]);
-        if let Some(agent_id) = self.agent_id.as_deref() {
-            // Only this connection's own session: another may have taken the id over since, and is still live.
-            self.registry
-                .mark_disconnected_if(agent_id, &|session| session.same_channel(&self.outbox));
-            info!("Agent {} disconnected; last known IP {}", agent_id, self.client_ip);
-        } else {
+        self.release_identity().await;
+    }
+
+    /// Mark this connection's agent disconnected, here and in the shared directory, unless it has been taken over.
+    #[expect(
+        clippy::cognitive_complexity,
+        reason = "the score is info!/warn! expansion; the body branches three times"
+    )]
+    async fn release_identity(&self) {
+        let Some(agent_id) = self.agent_id.as_deref() else {
             info!(
                 "WebSocket connection closed before agent assignment for client IP {}",
                 self.client_ip
             );
+            return;
+        };
+        // Only this connection's own session: another may have taken the id over since, and is still live.
+        let was_current = self
+            .registry
+            .mark_disconnected_if(agent_id, &|session| session.same_channel(&self.outbox));
+        if was_current
+            && let Backplane::Nats(nats) = &self.backplane
+            && let Err(error) = nats.withdraw(agent_id).await
+        {
+            warn!("Failed to withdraw agent {agent_id} from the backplane: {error}");
         }
+        info!("Agent {} disconnected; last known IP {}", agent_id, self.client_ip);
     }
 }

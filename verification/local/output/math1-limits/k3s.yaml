@@ -143,12 +143,7 @@ spec:
         app: ws-server
     spec:
       containers:
-        - args:
-            - --agent-registry
-            - /app/runtime/registry.yaml
-          command:
-            - et-ws-server
-          env:
+        - env:
             - name: MODULES_PATHS
               value: /app/services/ws-modules/math1,/app/services/ws-modules/math1-sender
             - name: MODULES_ROOT
@@ -163,6 +158,8 @@ spec:
               value: /app/runtime/cert.pem
             - name: TLS_KEY_FILE
               value: /app/runtime/key.pem
+            - name: WS_AGENT_REGISTRY
+              value: /app/runtime/registry.yaml
           envFrom:
             - secretRef:
                 name: et-math1-limits-secrets
@@ -391,14 +388,7 @@ spec:
         app: nri-memory-qos
     spec:
       containers:
-        - args:
-            - --idx
-            - "90"
-            - --config
-            - /etc/nri/memory-qos/config.yaml
-          command:
-            - nri-memory-qos
-          image: ghcr.io/containers/nri-plugins/nri-memory-qos:v0.14.0
+        - image: ghcr.io/containers/nri-plugins/nri-memory-qos:v0.14.0
           imagePullPolicy: IfNotPresent
           name: nri-memory-qos
           resources:
@@ -451,9 +441,9 @@ spec:
         app: nri-plugin-ulimit-adjuster
     spec:
       containers:
-        - args:
-            - -idx
-            - "10"
+        - env:
+            - name: NRI_PLUGIN_IDX
+              value: "10"
           image: ghcr.io/containerd/nri/plugins/ulimit-adjuster:v0.10.0
           imagePullPolicy: IfNotPresent
           name: nri-plugin-ulimit-adjuster

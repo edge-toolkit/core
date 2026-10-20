@@ -27,6 +27,7 @@ bytesize.workspace = true
 chrono.workspace = true
 document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
+et-hub-backplane.workspace = true
 fs-err.workspace = true
 futures-util.workspace = true
 opentelemetry.workspace = true

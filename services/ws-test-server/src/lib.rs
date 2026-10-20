@@ -8,13 +8,18 @@
     reason = "in-process test ws-server + ws client helpers; setup/protocol failures should fail the test fast"
 )]
 
+use std::path::Path;
 use std::time::Duration;
 
+use actix_web::dev::ServerHandle;
 use actix_web::{App, HttpServer, web};
 use edge_toolkit::ws::{AgentConnectionState, AgentSummary, ClientMessage, ServerMessage};
 use et_modules_service::{ModulesConfig, configure as configure_modules};
 use et_storage_service::{StorageConfig, configure as configure_storage};
-use et_ws_service::{AgentSession, WsAgentRegistry, WsConfig, configure as configure_ws};
+use et_ws_service::{
+    AgentSession, Backplane, BackplaneConfig, WsAgentRegistry, WsConfig, configure as configure_ws, start_backplane,
+    withdraw_local_agents,
+};
 use futures_util::{SinkExt as _, StreamExt as _};
 use tempfile::TempDir;
 use tokio_tungstenite::connect_async;
@@ -28,7 +33,29 @@ pub mod math1;
 pub struct TestServer {
     pub base_url: String,
     pub ws_url: String,
+    /// The hub's own storage root; unused by a [`start_clustered`] hub, whose root the caller shares between hubs.
     pub storage_dir: TempDir,
+    /// What it takes to stop the hub.
+    pub control: HubControl,
+}
+
+impl TestServer {
+    /// Stop this hub as `et-ws-server` does on Ctrl-C: hand its agents back to the backplane, then shut down.
+    ///
+    /// Unlike the server, it does not drain: open agent sockets would hold a graceful stop for actix's whole 30s
+    /// shutdown timeout, and the agents have already been withdrawn by then.
+    pub async fn stop(&self) {
+        withdraw_local_agents(&self.control.backplane, &self.control.registry).await;
+        self.control.handle.stop(false).await;
+    }
+}
+
+/// The running hub's server handle and the state its shutdown hands back to the backplane.
+#[non_exhaustive]
+pub struct HubControl {
+    handle: ServerHandle,
+    backplane: Backplane,
+    registry: WsAgentRegistry,
 }
 
 /// Start an in-process ws-server on a free port with a temporary storage directory.
@@ -46,51 +73,90 @@ pub fn start() -> TestServer {
 #[must_use]
 pub fn start_on(port: u16) -> TestServer {
     let storage_dir = TempDir::new().unwrap();
-
     let storage_config = StorageConfig::local(storage_dir.path());
+    spawn_hub(port, storage_dir, storage_config, WsConfig::default())
+}
+
+/// Start an in-process hub that shares its agents with every other hub on the NATS server at `nats_url`.
+///
+/// `storage_root` is the storage directory, and is meant to be handed to every hub of the cluster: it stands in for
+/// the one object store (S3, say) a real scaled-out deployment points all its hubs at.
+///
+/// The idle timeout is off: a cluster test holds many agents that sit quiet while it services the others, and nothing
+/// in a test client sends the heartbeats a real agent would.
+#[must_use]
+pub fn start_clustered(nats_url: &str, storage_root: &Path) -> TestServer {
+    let mut ws_config = WsConfig::default();
+    ws_config.backplane = BackplaneConfig::Nats(nats_url.to_owned());
+    ws_config.connection_timeout = None;
+    spawn_hub(
+        et_test_helpers::reserve_port(),
+        TempDir::new().unwrap(),
+        StorageConfig::local(storage_root),
+        ws_config,
+    )
+}
+
+/// Actix workers per test hub; test traffic never needs more, and each worker repeats the module scan at startup.
+const TEST_HUB_WORKERS: usize = 2;
+
+/// Run one hub on `port` on its own thread and actix system, returning once it is bound and on its backplane.
+fn spawn_hub(port: u16, storage_dir: TempDir, storage_config: StorageConfig, ws_config: WsConfig) -> TestServer {
     // The default search paths, with the page module named outright. The server has no default for which module it
     // serves at `/` -- that is the deployment's business, and this stand-in is a deployment.
     let mut modules_config = ModulesConfig::default();
     modules_config.root = "@edge-toolkit/et-ws-server-static".to_string();
     let modules_config = modules_config;
     let addr = format!("127.0.0.1:{port}");
+    let registry = WsAgentRegistry::default();
+    let server_registry = registry.clone();
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel();
 
     let _server_thread = std::thread::spawn(move || {
         actix_rt::System::new().block_on(async move {
-            let registry = web::Data::new(WsAgentRegistry::default());
+            // Connected inside this system, so the NATS client's own tasks live exactly as long as the hub does.
+            let backplane = Backplane::connect(&ws_config.backplane).await.unwrap();
+            let delivery = start_backplane(&backplane, &server_registry, ws_config.max_frame_size)
+                .await
+                .unwrap();
+            let backplane_data = web::Data::new(backplane.clone());
+            let registry = web::Data::new(server_registry);
             let storage = web::Data::new(storage_config);
             let modules = modules_config;
-            let ws_config = WsConfig::default();
-            HttpServer::new(move || {
+            let server = HttpServer::new(move || {
                 // `TracingLogger` mirrors the real ws-server's pipeline: extracts `traceparent` from incoming requests
                 // so server spans are children of the caller's trace.
                 App::new()
                     .wrap(TracingLogger::default())
                     .app_data(registry.clone())
+                    .app_data(backplane_data.clone())
                     .app_data(storage.clone())
                     .configure(|cfg| configure_ws(cfg, &ws_config))
                     .configure(|cfg| configure_storage::<AgentSession>(cfg, &storage))
                     .configure(|cfg| configure_modules(cfg, &modules))
             })
+            .workers(TEST_HUB_WORKERS)
             .bind(&addr)
             .unwrap()
-            .run()
-            .await
-            .unwrap();
+            .run();
+            ready_tx.send((server.handle(), backplane)).unwrap();
+            server.await.unwrap();
+            delivery.stop().await;
         });
     });
 
-    for _ in 0_u32..50 {
-        if std::net::TcpStream::connect(format!("127.0.0.1:{port}")).is_ok() {
-            return TestServer {
-                base_url: format!("http://127.0.0.1:{port}"),
-                ws_url: format!("ws://127.0.0.1:{port}/ws"),
-                storage_dir,
-            };
-        }
-        std::thread::sleep(Duration::from_millis(100));
+    // Bound before the handle is sent, so the listener already queues connections by the time this returns.
+    let (handle, backplane) = ready_rx.recv_timeout(Duration::from_secs(20)).unwrap();
+    TestServer {
+        base_url: format!("http://127.0.0.1:{port}"),
+        ws_url: format!("ws://127.0.0.1:{port}/ws"),
+        storage_dir,
+        control: HubControl {
+            handle,
+            backplane,
+            registry,
+        },
     }
-    panic!("test ws-server did not start within 5 seconds on port {port}");
 }
 
 /// How long one [`wait_for_connected_agents`] round reads replies before asking the hub again.

@@ -139,12 +139,7 @@ spec:
         app: ws-server
     spec:
       containers:
-        - args:
-            - --agent-registry
-            - /app/runtime/registry.yaml
-          command:
-            - et-ws-server
-          env:
+        - env:
             - name: MODULES_PATHS
               value: /app/services/ws-modules/wasi-math1,/app/services/ws-modules/wasi-math1-sender
             - name: MODULES_ROOT
@@ -159,6 +154,8 @@ spec:
               value: /app/runtime/cert.pem
             - name: TLS_KEY_FILE
               value: /app/runtime/key.pem
+            - name: WS_AGENT_REGISTRY
+              value: /app/runtime/registry.yaml
           envFrom:
             - secretRef:
                 name: et-wasi-math1-secrets

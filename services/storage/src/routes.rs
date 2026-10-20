@@ -26,6 +26,7 @@ use std::path::PathBuf;
 use actix_web::http::header;
 use actix_web::{HttpRequest, HttpResponse, HttpResponseBuilder, web};
 use edge_toolkit::ws_server::AgentRegistry;
+use et_hub_backplane::Backplane;
 use futures_util::StreamExt as _;
 use object_store::{ObjectStore, ObjectStoreExt as _, PutPayload};
 use tracing::info;
@@ -123,7 +124,14 @@ where
 {
     let (agent_id, filename) = agent_and_filename(&req)?;
 
-    if !registry.agents.lock()?.contains_key(&agent_id) {
+    // An agent this hub has never seen may be registered on another hub sharing its backplane, and uploading here.
+    let registered_here = registry.agents.lock()?.contains_key(&agent_id);
+    let registered = registered_here
+        || match req.app_data::<web::Data<Backplane>>() {
+            Some(backplane) => backplane.knows(&agent_id).await?,
+            None => false,
+        };
+    if !registered {
         return Err(StorageError::AgentNotFound);
     }
 

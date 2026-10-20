@@ -121,6 +121,10 @@ ripgrep = "latest"
 # The releases repo ships several distros in one tag; matching=contrib selects the contrib archive -- the only one
 # carrying the prometheus/hostmetrics/windowsperfcounters receivers + basicauth extension those configs use.
 "github:open-telemetry/opentelemetry-collector-releases[matching=contrib]" = { version = "0.156.0" }
+# NATS server with JetStream, the broker several hub instances share as their backplane.
+# A hub routes through it when `WS_BACKPLANE` names it, and the horizontal-scaling tests start one of their own.
+# Upstream ships prebuilt archives for all five platforms.
+"github:nats-io/nats-server" = { version = "2.15.1" }
 # aarch64-linux is the exception, building findutils from source instead.
 # Its 0.8.0 release has no asset, so it builds from
 # source via cargo: (same 0.8.0 pin, so every platform runs the same version).
@@ -2385,6 +2389,24 @@ fi
 behind="$(git rev-list --count HEAD..origin/main)"
 echo "branch-up-to-date-check: HEAD is behind origin/main by $behind commit(s)."
 echo "Other checks may fail in files this branch never touched. Rebase first: git pull --rebase origin main"
+exit 1
+"""
+shell = "{{ vars.task_shell }}"
+
+# The repository's GitHub code-scanning list must be empty; every open alert, listed one per line, fails this.
+# `{owner}/{repo}` is filled in by gh from the checkout's remote.
+[tasks.code-scanning-check]
+description = "Fail if the GitHub repository has any open code-scanning alert"
+run = """
+url='repos/{owner}/{repo}/code-scanning/alerts?state=open&per_page=100'
+where='.most_recent_instance.location | "\\(.path):\\(.start_line)"'
+line='.[] | "#\\(.number) \\(.rule.id) " + ('"$where"')'
+alerts="$(gh api --paginate "$url" --jq "$line")"
+if [ -z "$alerts" ]; then
+  exit 0
+fi
+echo "code-scanning-check: open alerts, from gh api '$url':"
+echo "$alerts"
 exit 1
 """
 shell = "{{ vars.task_shell }}"

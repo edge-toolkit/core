@@ -1058,6 +1058,35 @@ url_api = "https://api.github.com/repos/microsoft/onnxruntime/releases/assets/25
 url = "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-win-x64-1.22.0.zip"
 url_api = "https://api.github.com/repos/microsoft/onnxruntime/releases/assets/253300435"
 
+[[tools."github:nats-io/nats-server"]]
+version = "2.15.1"
+backend = "github:nats-io/nats-server"
+
+[tools."github:nats-io/nats-server"."platforms.linux-arm64"]
+checksum = "sha256:e2fbab4cad7d3c76e3052eb959570393c9d73ba756b70bf8e9eea61e9ae6d49c"
+url = "https://github.com/nats-io/nats-server/releases/download/v2.15.1/nats-server-v2.15.1-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/nats-io/nats-server/releases/assets/624386630"
+
+[tools."github:nats-io/nats-server"."platforms.linux-x64"]
+checksum = "sha256:bf5edc7b1ce98e885c368cb43a886eb148dc5d0551d99f3cf6141fb5e1954c70"
+url = "https://github.com/nats-io/nats-server/releases/download/v2.15.1/nats-server-v2.15.1-linux-amd64.tar.gz"
+url_api = "https://api.github.com/repos/nats-io/nats-server/releases/assets/624386524"
+
+[tools."github:nats-io/nats-server"."platforms.macos-arm64"]
+checksum = "sha256:ed0fe39222ec2e317c4d0e1a9cdc16c63ec523d94f9355d24a902a4db2655ffd"
+url = "https://github.com/nats-io/nats-server/releases/download/v2.15.1/nats-server-v2.15.1-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/nats-io/nats-server/releases/assets/624386583"
+
+[tools."github:nats-io/nats-server"."platforms.macos-x64"]
+checksum = "sha256:3cba5976a4fbd022669d3401cab4147faeb2b4c079712c882edb9ae4e52feb06"
+url = "https://github.com/nats-io/nats-server/releases/download/v2.15.1/nats-server-v2.15.1-darwin-amd64.tar.gz"
+url_api = "https://api.github.com/repos/nats-io/nats-server/releases/assets/624386590"
+
+[tools."github:nats-io/nats-server"."platforms.windows-x64"]
+checksum = "sha256:4f7edfa376750b2720463bd22766ed469a5f13f378a643097866fcd953cbf7e3"
+url = "https://github.com/nats-io/nats-server/releases/download/v2.15.1/nats-server-v2.15.1-windows-amd64.zip"
+url_api = "https://api.github.com/repos/nats-io/nats-server/releases/assets/624386633"
+
 [[tools."github:nextest-rs/nextest"]]
 version = "0.9.146"
 backend = "github:nextest-rs/nextest"

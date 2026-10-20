@@ -12,6 +12,36 @@ depends_on_internal(msgs, name) if {
 	contains(msg, $"depends on internal crate \"{name}\"")
 }
 
+clap_flagged(msgs, path) if {
+	some msg in msgs
+	contains(msg, $"{path}: services take no command-line arguments")
+}
+
+test_a_service_may_not_depend_on_clap_in_any_table if {
+	normal := member("services/a/Cargo.toml", {"dependencies": {"clap": {"workspace": true}}})
+	dev := member("services/b/Cargo.toml", {"dev-dependencies": {"clap": {"workspace": true}}})
+	normal_msgs := cargo.deny with input as normal
+	clap_flagged(normal_msgs, "services/a/Cargo.toml")
+	dev_msgs := cargo.deny with input as dev
+	clap_flagged(dev_msgs, "services/b/Cargo.toml")
+}
+
+test_a_renamed_clap_is_still_clap if {
+	contents := {"dependencies": {"args": {"package": "clap", "version": "4"}}}
+	msgs := cargo.deny with input as member("services/a/Cargo.toml", contents)
+	clap_flagged(msgs, "services/a/Cargo.toml")
+}
+
+# A utility is a command-line tool, so clap stays its to use, as does any non-clap crate in a service.
+test_clap_is_allowed_outside_services if {
+	utility := member("utilities/cli/Cargo.toml", {"dependencies": {"clap": {"workspace": true}}})
+	service := member("services/a/Cargo.toml", {"dependencies": {"clap-sys": {"workspace": true}}})
+	utility_msgs := cargo.deny with input as utility
+	not clap_flagged(utility_msgs, "utilities/cli/Cargo.toml")
+	service_msgs := cargo.deny with input as service
+	not clap_flagged(service_msgs, "services/a/Cargo.toml")
+}
+
 standalone_flagged(msgs, name) if {
 	some msg in msgs
 	contains(msg, $"must not depend on this repo's \"{name}\"")

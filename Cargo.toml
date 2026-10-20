@@ -12,6 +12,7 @@ members = [
   "libs/org",
   "libs/path",
   "libs/test-helpers",
+  "libs/test-nats",
   "libs/test-otlp",
   "libs/wasi-guest",
   "libs/web",
@@ -37,6 +38,7 @@ members = [
   "services/ws-modules/wasi-data1",
   "services/ws-modules/wasi-math1",
   "services/ws-modules/wasi-math1-sender",
+  "services/hub-backplane",
   "services/modules",
   "services/storage",
   "services/websockify",
@@ -68,6 +70,8 @@ actix-ws = "0.4"
 # Present because wit-parser and the wasmtime bindgen return `anyhow::Result`, and `?` cannot convert one
 # without a `From<anyhow::Error>` impl, which has to name the type.
 anyhow = "1"
+# JetStream KV plus core pub/sub only, on aws-lc-rs: config/deny.toml bans `ring`.
+async-nats = { version = "0.50", default-features = false, features = ["aws-lc-rs", "kv"] }
 asyncapi-rust = "0.5"
 backon = { version = "1.6", default-features = false }
 base64 = "0.23"
@@ -93,6 +97,7 @@ document-features = "0.2"
 edge-toolkit = { path = "libs/edge-toolkit", version = "0.4.0" }
 et-actix-web-config = { path = "libs/actix-web-config", version = "0.1.0" }
 et-cli = { path = "utilities/cli", version = "0.2.0" }
+et-hub-backplane = { path = "services/hub-backplane", version = "0.2.0" }
 et-modules-service = { path = "services/modules", version = "0.3.0" }
 et-onnx = { path = "utilities/onnx", version = "0.2.0" }
 et-org = { path = "libs/org", version = "0.2.0" }
@@ -101,6 +106,7 @@ et-path = { path = "libs/path", version = "0.3.0" }
 et-rest-client = { path = "generated/rust-rest", version = "0.2.0", default-features = false }
 et-storage-service = { path = "services/storage", version = "0.2.0", default-features = false }
 et-test-helpers = { path = "libs/test-helpers", version = "0.2.0" }
+et-test-nats = { path = "libs/test-nats", version = "0.2.0" }
 et-test-otlp = { path = "libs/test-otlp", version = "0.2.0" }
 et-wasi-guest = { path = "libs/wasi-guest", version = "0.2.0" }
 et-web = { path = "libs/web", version = "0.3.0" }

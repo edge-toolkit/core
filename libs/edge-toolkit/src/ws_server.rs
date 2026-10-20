@@ -87,6 +87,24 @@ pub struct PendingDirectMessage {
     pub message: serde_json::Value,
 }
 
+impl PendingDirectMessage {
+    /// A direct message `from_agent_id` sent, stamped with the hub's id and receipt time.
+    #[must_use]
+    pub const fn new(
+        message_id: String,
+        from_agent_id: String,
+        server_received_at: String,
+        message: serde_json::Value,
+    ) -> Self {
+        Self {
+            message_id,
+            from_agent_id,
+            server_received_at,
+            message,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[non_exhaustive]
 pub struct AgentRecord<S> {
@@ -198,7 +216,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
     }
 
     pub fn mark_disconnected(&self, agent_id: &str) {
-        self.mark_disconnected_if(agent_id, &|_session| true);
+        let _marked = self.mark_disconnected_if(agent_id, &|_session| true);
     }
 
     /// Mark `agent_id` disconnected only if `is_current` accepts the session the registry holds for it.
@@ -214,14 +232,20 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
     /// `libs/edge-toolkit/src/ws_server.rs 19/20 branches` on commit
     /// <https://github.com/edge-toolkit/core/commit/1782e4517b8c16d714d5c5e6e83d0078f2a869a9> at
     /// <https://github.com/edge-toolkit/core/actions/runs/36699637919/job/109835793913>.
-    pub fn mark_disconnected_if(&self, agent_id: &str, is_current: &dyn Fn(&S) -> bool) {
+    ///
+    /// Returns whether the record was marked, so a caller mirroring the registry elsewhere skips the same writes.
+    pub fn mark_disconnected_if(&self, agent_id: &str, is_current: &dyn Fn(&S) -> bool) -> bool {
         let mut agents = lock_agents(&self.agents);
-        if let Some(record) = agents.get_mut(agent_id)
-            && record.session.as_ref().is_none_or(is_current)
-        {
-            record.state = AgentConnectionState::Disconnected;
-            record.session = None;
-        }
+        let marked = agents
+            .get_mut(agent_id)
+            .filter(|record| record.session.as_ref().is_none_or(is_current))
+            .map(|record| {
+                record.state = AgentConnectionState::Disconnected;
+                record.session = None;
+            })
+            .is_some();
+        drop(agents);
+        marked
     }
 
     #[must_use]
@@ -256,12 +280,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
         let mut agents = lock_agents(&self.agents);
         let recipient = agents.get_mut(to_agent_id)?;
 
-        let pending = PendingDirectMessage {
-            message_id,
-            from_agent_id: from_agent_id.to_string(),
-            server_received_at,
-            message,
-        };
+        let pending = PendingDirectMessage::new(message_id, from_agent_id.to_string(), server_received_at, message);
         let session = recipient.session.clone();
         let _previous: Option<PendingDirectMessage> = recipient
             .pending_direct_messages

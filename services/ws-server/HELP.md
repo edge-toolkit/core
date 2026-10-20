@@ -1,22 +1,6 @@
-# Command-Line Help for `et-ws-server`
+# Help for `et-ws-server`
 
-This document contains the help content for the `et-ws-server` command-line program.
-
-**Command Overview:**
-
-- [`et-ws-server`↴](#et-ws-server)
-
-## `et-ws-server`
-
-Actix-web entry point wiring the ws hub, storage and modules services together
-
-**Usage:** `et-ws-server [OPTIONS]`
-
-### Options
-
-- `-a`, `--agent-registry <AGENT_REGISTRY>` — Path to agent registry YAML file
-
-  Default value: `registry.yaml`
+`et-ws-server` takes no command-line arguments; it reads its configuration from the environment.
 
 ## Environment variables
 
@@ -108,7 +92,7 @@ Time a client gets to complete the TLS handshake, as a humantime duration.
 
 Type: integer.
 
-Worker threads per bind address, from 1 to 512.
+Worker threads per bind address, from 1 to 512; unset, the machine's available parallelism.
 
 ### `HTTP_WORKER_MAX_BLOCKING_THREADS`
 
@@ -213,6 +197,24 @@ Type: string. Default: `cert.pem`.
 ### `TLS_KEY_FILE`
 
 Type: string. Default: `key.pem`.
+
+### `WS_AGENT_REGISTRY`
+
+Type: string. Default: `registry.yaml`.
+
+The YAML file a local hub loads its agent registry from at startup and saves it to on shutdown.
+
+### `WS_BACKPLANE`
+
+Type: string. Default: `local`.
+
+What the hub shares its agents through: `local` (the default) or a `nats://` / `tls://` URL.
+
+`local` keeps every agent in this process, persisted to the `WS_AGENT_REGISTRY` file. A NATS URL names a server with
+`JetStream`, and every hub pointed at it shares one agent directory, one mailbox of unacknowledged direct messages, and
+delivery between them, so hubs scale out behind a load balancer: an agent on one hub lists, messages, broadcasts to and
+acknowledges agents on any other, and may reconnect to a different hub without losing what was queued for it. The
+directory and mailbox live in `JetStream`, so the registry file is neither read nor written in this mode.
 
 ### `WS_CONNECTION_TIMEOUT`
 
