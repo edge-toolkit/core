@@ -11,30 +11,6 @@ use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::TcpStream;
 use tracing::{debug, info, warn};
 
-/// Loopback TCP endpoint every `/websockify` connection is bridged to.
-///
-/// Set by the server in [`configure`], never by the client -- this is what keeps the relay from being an open
-/// proxy: a browser chooses neither the host nor the port.
-#[derive(Clone, Copy)]
-struct RelayTarget(SocketAddr);
-
-/// Register the `/websockify` relay route, bridging every connection to `target`.
-///
-/// `target` is expected to be a loopback address -- the ws-server passes its own plain-HTTP port. Register this
-/// before any catch-all `Files::new("/")` mount so the explicit route wins.
-#[expect(
-    clippy::literal_string_with_formatting_args,
-    reason = "`{tail:.*}` is an actix-web route path pattern, not a format string"
-)]
-pub fn configure(cfg: &mut web::ServiceConfig, target: SocketAddr) {
-    // Match a trailing path too: Emscripten may append the connect target to the configured WebSocket URL
-    // (e.g. `/websockify/127.0.0.1:8080`). The suffix is ignored -- the relay always bridges to the fixed
-    // server-configured target -- so it stays SSRF-safe regardless of what the client puts there.
-    let _routed = cfg
-        .app_data(web::Data::new(RelayTarget(target)))
-        .route("/websockify{tail:.*}", web::get().to(relay_handler));
-}
-
 /// Bytes copied per TCP->WebSocket read. 16 KiB is a typical socket read; large reads just loop.
 const RELAY_BUF: usize = 16 * 1024;
 
@@ -60,6 +36,30 @@ const SOCKS5_NO_AUTH: [u8; 2] = [SOCKS5_VERSION, 0x00];
 const SOCKS5_REPLY_OK: [u8; 10] = [SOCKS5_VERSION, 0x00, 0x00, SOCKS5_ATYP_IPV4, 0, 0, 0, 0, 0, 0];
 /// CONNECT reply, connection not allowed by ruleset (REP=2).
 const SOCKS5_REPLY_REFUSED: [u8; 10] = [SOCKS5_VERSION, 0x02, 0x00, SOCKS5_ATYP_IPV4, 0, 0, 0, 0, 0, 0];
+
+/// Loopback TCP endpoint every `/websockify` connection is bridged to.
+///
+/// Set by the server in [`configure`], never by the client -- this is what keeps the relay from being an open
+/// proxy: a browser chooses neither the host nor the port.
+#[derive(Clone, Copy)]
+struct RelayTarget(SocketAddr);
+
+/// Register the `/websockify` relay route, bridging every connection to `target`.
+///
+/// `target` is expected to be a loopback address -- the ws-server passes its own plain-HTTP port. Register this
+/// before any catch-all `Files::new("/")` mount so the explicit route wins.
+#[expect(
+    clippy::literal_string_with_formatting_args,
+    reason = "`{tail:.*}` is an actix-web route path pattern, not a format string"
+)]
+pub fn configure(cfg: &mut web::ServiceConfig, target: SocketAddr) {
+    // Match a trailing path too: Emscripten may append the connect target to the configured WebSocket URL
+    // (e.g. `/websockify/127.0.0.1:8080`). The suffix is ignored -- the relay always bridges to the fixed
+    // server-configured target -- so it stays SSRF-safe regardless of what the client puts there.
+    let _routed = cfg
+        .app_data(web::Data::new(RelayTarget(target)))
+        .route("/websockify{tail:.*}", web::get().to(relay_handler));
+}
 
 /// Render the first [`PREVIEW_BYTES`] of a relayed chunk as an escaped string for logging.
 ///

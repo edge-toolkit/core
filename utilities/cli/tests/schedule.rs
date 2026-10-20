@@ -13,6 +13,16 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use serde::Deserialize;
 use tempfile::{TempDir, tempdir};
 
+/// Two machines, with the scheduled trigger on `edge` and the twin on the server.
+const MACHINES: &str = r#"machines:
+  - name: "server"
+    address: "10.0.0.1"
+    agents: ["math1-twin"]
+  - name: "edge"
+    address: "10.0.0.2"
+    agents: ["math1-trigger"]
+"#;
+
 /// The math1 pair, with `{schedule}` spliced into the trigger.
 fn scenario(schedule: &str) -> String {
     format!(
@@ -34,16 +44,6 @@ agents:
 fn every(cron: &str, time_zone: &str) -> String {
     format!("    schedule:\n      cron: \"{cron}\"\n      time_zone: \"{time_zone}\"\n")
 }
-
-/// Two machines, with the scheduled trigger on `edge` and the twin on the server.
-const MACHINES: &str = r#"machines:
-  - name: "server"
-    address: "10.0.0.1"
-    agents: ["math1-twin"]
-  - name: "edge"
-    address: "10.0.0.2"
-    agents: ["math1-trigger"]
-"#;
 
 /// What generating `input` as `output_type` into a fresh directory returns, and that directory.
 fn generate(input: &str, output_type: OutputType) -> (TempDir, PathBuf, String) {

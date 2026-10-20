@@ -16,6 +16,23 @@ use k8s_openapi::api::core::v1::{ConfigMap, PodSpec};
 use serde::Deserialize as _;
 use tempfile::{TempDir, tempdir};
 
+/// Every limit that can be set together: the quota cap and the share weight rather than their alternatives.
+const EVERY_LIMIT: &str = "blkio_weight: 300
+cpu_period: 50000
+cpu_quota: 75000
+cpu_shares: 512
+cpuset: \"0-3\"
+memory: \"1.5 GiB\"
+memory_reservation: \"256 MiB\"
+memswap_limit: \"2 GiB\"
+pids: 256
+shm_size: \"128 MiB\"
+ulimits:
+  core: 0
+  nofile:
+    soft: 1024
+    hard: 4096";
+
 /// The math1 pair, with `{twin}` spliced in as the twin's `limits:` block and `{rest}` appended at the top level.
 fn scenario(twin: &str, rest: &str) -> String {
     format!(
@@ -45,23 +62,6 @@ fn twin_limits(fields: &str) -> String {
         block
     })
 }
-
-/// Every limit that can be set together: the quota cap and the share weight rather than their alternatives.
-const EVERY_LIMIT: &str = "blkio_weight: 300
-cpu_period: 50000
-cpu_quota: 75000
-cpu_shares: 512
-cpuset: \"0-3\"
-memory: \"1.5 GiB\"
-memory_reservation: \"256 MiB\"
-memswap_limit: \"2 GiB\"
-pids: 256
-shm_size: \"128 MiB\"
-ulimits:
-  core: 0
-  nofile:
-    soft: 1024
-    hard: 4096";
 
 /// Every format generated from `input` into a fresh `verification/` tree, with the root kept alive.
 fn generated(input: &str) -> (TempDir, PathBuf) {

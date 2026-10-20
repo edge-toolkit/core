@@ -33,15 +33,13 @@ use crate::bindings::et::ws_messages::messages::{
     MessageScope as WitMessageScope, MessageStatusPayload, RelayBinaryPayload, RelayTextPayload, ResponsePayload,
     ServerMessage as WitServerMessage,
 };
-use crate::bindings::et::ws_wasi::ws::{Host, State};
+use crate::bindings::et::ws_wasi::ws::{Host, State, WsError};
 
 // The `et:ws-messages/messages` interface only declares types -- no functions. wasmtime-bindgen still requires a `Host`
 // impl so the linker has somewhere to anchor the interface. The trait body is empty.
 impl crate::bindings::et::ws_messages::messages::Host for HostState {}
 
 type WsSink = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, tungstenite::Message>;
-
-use crate::bindings::et::ws_wasi::ws::WsError;
 
 /// Live state for an open websocket connection.
 ///

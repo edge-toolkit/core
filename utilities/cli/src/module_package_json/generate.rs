@@ -13,6 +13,14 @@ use serde_json::{Map, Value, json};
 use crate::MODULE_SCOPE;
 use crate::error::{CliError, parse_json, parse_toml, serialize_json_pretty};
 
+/// Prefixes that mark a dependency as a module of this project's own, and so as one to scope.
+///
+/// The crate prefix, or the organisation name itself, as `edge-toolkit` is named like its Rust crate.
+const OWN_MODULE_PREFIXES: [&str; 2] = [et_org::CRATE_PREFIX, et_org::ORG];
+
+/// The runtime dependency names that identify a WASI component guest.
+const WASI_GUEST_MARKERS: [&str; 2] = ["et-wasi-guest", "wit-bindgen"];
+
 /// The name a module publishes under, given the name its crate or project declares.
 ///
 /// Every module carries the owner scope, because a registry that would accept an unscoped one does not exist
@@ -27,11 +35,6 @@ fn scoped_npm_package_name(declared: &str) -> String {
     }
     format!("{MODULE_SCOPE}{declared}")
 }
-
-/// Prefixes that mark a dependency as a module of this project's own, and so as one to scope.
-///
-/// The crate prefix, or the organisation name itself, as `edge-toolkit` is named like its Rust crate.
-const OWN_MODULE_PREFIXES: [&str; 2] = [et_org::CRATE_PREFIX, et_org::ORG];
 
 /// The name a declared dependency is written as in the published manifest.
 ///
@@ -348,9 +351,6 @@ fn detect_python_kind(module_dir: &Path) -> ModuleKind {
         ModuleKind::Js
     }
 }
-
-/// The runtime dependency names that identify a WASI component guest.
-const WASI_GUEST_MARKERS: [&str; 2] = ["et-wasi-guest", "wit-bindgen"];
 
 /// WASI Rust modules reach the component bindings one of two ways; wasm-pack browser modules do neither.
 ///

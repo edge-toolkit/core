@@ -10,7 +10,7 @@
 
 # Browser wasm-pack builds are coverage-instrumented when ET_TEST_COVERAGE is set.
 # The web_cov_wrapper RUSTC_WORKSPACE_WRAPPER (built by build-wasm-cov-wrapper) instruments only workspace
-# crates -- never the dependency cdylibs (tracing-wasm, wasm-streams) that don't link minicov's
+# crates -- never dependency cdylibs such as wasm-streams that don't link minicov's
 # __llvm_profile_runtime -- while web_cov_feat enables et-web/coverage to supply minicov's runtime. et-web's
 # __et_capture_coverage export (folded by wasm-bindgen into every module's glue) lets the web-runner pull each
 # module's .profraw for wasm-cov.

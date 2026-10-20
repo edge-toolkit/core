@@ -39,6 +39,7 @@ Changelog 1.1.0.
 ### Changed
 
 - The workspace requires actix-web 4.17.
+- **Breaking:** the minimum supported Rust version is 1.99.0, up from 1.91.1, for every published crate.
 - **Breaking:** an agent's IP address is always known. `AgentSummary::last_known_ip` and
   `AgentRecord::last_known_ip` are `IpAddr` rather than `Option<String>`, and `AgentRegistry::connect_agent` takes
   an `IpAddr`. On the wire, `last_known_ip` in an `et-list-agents-response` is a required IP string, never null,

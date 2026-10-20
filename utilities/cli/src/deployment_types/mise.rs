@@ -46,6 +46,15 @@ pub(crate) const HUB_TASK: &str = "ws-server";
 /// The mise task that opens the collector's UI in a browser.
 pub(crate) const OPENER_TASK: &str = "open-o2";
 
+/// Version every `cargo:` tool the generated deployment declares is requested at.
+const LATEST: &str = "latest";
+
+/// The page served at `/`, which only a cluster a browser opens has any use for.
+///
+/// `static` names the runtimes its page imports at boot, so a deployment that serves the page without it serves one
+/// whose first import 404s -- and one that serves neither is a headless cluster that was never going to load either.
+const PAGE_MODULE: &str = "static";
+
 /// The mise task that starts everything one machine of a multi-machine cluster runs.
 pub(crate) fn machine_task(machine: &str) -> String {
     format!("machine-{machine}")
@@ -58,9 +67,6 @@ pub(crate) fn machine_task(machine: &str) -> String {
 pub(crate) fn collector_container(cluster_name: &str) -> String {
     format!("openobserve-{cluster_name}")
 }
-
-/// Version every `cargo:` tool the generated deployment declares is requested at.
-const LATEST: &str = "latest";
 
 /// The task that runs one runner agent, from the checkout root for a local scenario.
 #[expect(clippy::single_call_fn, reason = "the per-runner step of generate_mise_deployment")]
@@ -293,12 +299,6 @@ fn openobserve_run_body(cluster_name: &str) -> String {
         flags = collector_flags,
     )
 }
-
-/// The page served at `/`, which only a cluster a browser opens has any use for.
-///
-/// `static` names the runtimes its page imports at boot, so a deployment that serves the page without it serves one
-/// whose first import 404s -- and one that serves neither is a headless cluster that was never going to load either.
-const PAGE_MODULE: &str = "static";
 
 /// The scenario's modules, the page first when there is one, each named as the hub serves it.
 ///

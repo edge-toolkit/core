@@ -1,5 +1,7 @@
 //! Port allocation.
 
+use Services::{InsecureWebSocketServer, OtlpCollector, SecureWebSocketServer};
+
 /// Define each services port.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[non_exhaustive]
@@ -12,8 +14,6 @@ pub enum Services {
     /// Secure WebSocket server.
     SecureWebSocketServer,
 }
-
-use Services::{InsecureWebSocketServer, OtlpCollector, SecureWebSocketServer};
 
 impl Services {
     /// Get the allocation port for the service.

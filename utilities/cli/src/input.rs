@@ -15,6 +15,9 @@ use crate::schedule::Schedule;
 /// process resolved is the one that builds these artifacts, not whether some Rust project is nearby.
 const REPOSITORY_URL: &str = et_org::REPOSITORY_URL;
 
+/// The name a cluster takes when its input does not choose one.
+pub const DEFAULT_CLUSTER_NAME: &str = "default";
+
 /// The deployment format a scenario is rendered into.
 ///
 /// An enum rather than the string it is written as, because the set is closed and every consumer switches on it: as
@@ -195,9 +198,6 @@ pub struct Machine {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub agents: Vec<String>,
 }
-
-/// The name a cluster takes when its input does not choose one.
-pub const DEFAULT_CLUSTER_NAME: &str = "default";
 
 impl Default for ClusterInput {
     /// The smallest cluster that is still valid: named, no agents, rendered the way an unstated input is.

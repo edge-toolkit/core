@@ -202,12 +202,22 @@ jobs:
       #
       # Every upload names its language and lane in `flags`, so Codecov can report each on its own. The two
       # DeepSource uploads carry `runner.os == 'Linux'`, for the one-report-per-key reason given on the job.
+      #
+      # `disable_search` keeps each upload to the one report it names. With search on, the action also sends every
+      # coverage-looking file in the workspace, including the unfiltered intermediates the coverage tasks leave
+      # under target/ (`agent-cov/all.lcov`, `agent-cov/cov-server.lcov`, `pic-viewer-cov/all.lcov`,
+      # `wasi-cov/wasi.lcov`). Their records for files the tasks deliberately drop land on the real sources, which
+      # showed as hits and misses on blank and doc-comment lines of services/ws-web-runner/src/runtime.rs at commit
+      # https://github.com/edge-toolkit/core/commit/e2f650920e0179f4ff877fc2faf704e0b7a02684, upload log
+      # `Found 10 coverage files to report` at
+      # https://github.com/edge-toolkit/core/actions/runs/39376279480/job/118475035669.
       - name: Upload Rust coverage to Codecov (OIDC)
         if: ${{ !cancelled() && hashFiles('lcov.info') != '' }}
         uses: codecov/codecov-action@v7
         with:
           use_oidc: true
           files: lcov.info
+          disable_search: true
           flags: rust,${{ matrix.os_flag }}
           fail_ci_if_error: true
 
@@ -217,6 +227,7 @@ jobs:
         with:
           use_oidc: true
           files: coverage-python.xml
+          disable_search: true
           flags: python,${{ matrix.os_flag }}
           fail_ci_if_error: true
 

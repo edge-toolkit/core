@@ -1,0 +1,36 @@
+id: const-at-top
+language: Rust
+severity: error
+message: |
+  Declare module-level `const` and `static` items at the top of the file, after the `use` lines and before any
+  type, trait, `impl` or function. A reader then meets the module's fixed values before the code that uses them.
+# Match a top-level const/static with a `use` below it, or a type, trait, impl or fn above it, among its siblings.
+# `mod` is deliberately not placed: a trailing `#[cfg(test)] mod test_x;` legitimately follows every const. The
+# anonymous `const _: () = { ... };` is exempt: it is an item-level assertion and belongs beside the item it checks.
+rule:
+  all:
+    - any:
+        - kind: const_item
+        - kind: static_item
+    - inside:
+        kind: source_file
+    - not:
+        regex: '^(pub(\([^)]*\))?\s+)?const\s+_\s*:'
+    - any:
+        - precedes:
+            kind: use_declaration
+            stopBy: end
+        - follows:
+            any:
+              - kind: enum_item
+              - kind: function_item
+              - kind: impl_item
+              - kind: struct_item
+              - kind: trait_item
+              - kind: type_item
+              - kind: union_item
+            stopBy: end
+ignores:
+  - generated/**
+  # Generated; refer to int-gen bindings.rs for details.
+  - services/ws-wasi-runner/src/bindings.rs

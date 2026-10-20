@@ -47,6 +47,154 @@ pub use self::module_package_json::generate_module_package_json;
 pub(crate) use self::scenario_password::{scenario_password, scenario_seed};
 pub use self::schedule::Schedule;
 
+/// Where the hub serves pyodide from, whichever distribution was selected.
+const PYODIDE_DOCKER_PATH: &str = "/app/node_modules/pyodide";
+
+/// Name of the generated env file that carries the scenario's derived credential.
+///
+/// The password is derived from the scenario input so a deployment is reproducible from it, which used to mean writing
+/// the literal into `mise.toml` and `compose.yaml` -- both committed under `verification/`, where every secret scanner
+/// duly found it. Collecting it into one file keeps the deployment reproducible while leaving the rest of the generated
+/// output free of anything a scanner reads as a credential.
+///
+/// Whether that one file is committed depends on where it was generated, and [`write_deployment_gitignore`] decides:
+/// under `verification/` it is a fixture the drift check reads, and anywhere else it is a real credential that the
+/// ignore file written beside it lists.
+pub(crate) const SECRETS_ENV_FILE: &str = "secrets.env";
+
+/// Account the collector is created with, and the one the hub authenticates its OTLP exports as.
+///
+/// One constant because the two are the same account seen from either end: the collector is created with it as
+/// `ZO_ROOT_USER_EMAIL` and the hub presents it as `OTLP_AUTH_USERNAME`, so a deployment where they disagree comes up
+/// healthy and then rejects every export. Written in two files before this existed, with nothing checking that they
+/// matched.
+pub const COLLECTOR_USERNAME: &str = "root@example.com";
+
+/// The collector's non-secret settings, which every generated deployment carries rather than sourcing.
+///
+/// Three formats render this -- a `ConfigMap`, a compose `environment:` block, a `docker run` flag list -- so it is
+/// one list and a setting cannot reach some deployments and not others. Reading it from a file in this repository
+/// instead is what made a generated deployment unable to leave the tree, for the sake of two values neither secret nor
+/// scenario-specific.
+///
+/// Two things are deliberately absent. The root password is derived per scenario and reaches each format from the
+/// generated env file. `ZO_DATA_DIR` is per format rather than shared, because it only means anything alongside the
+/// storage that format declares -- a named volume, a claim, or nothing at all.
+pub(crate) const COLLECTOR_SETTINGS: [(&str, &str); 2] =
+    [("RUST_LOG", "warn"), ("ZO_ROOT_USER_EMAIL", COLLECTOR_USERNAME)];
+
+/// Registry path the repository's own images are published under.
+///
+/// A runner image is the same for every deployment -- nothing in one varies by scenario -- so a scenario that asks for
+/// published images names it here and the cluster pulls it, leaving the node with nothing to build or import. The hub
+/// image is published alongside them but no manifest names it: it is the base a scenario image is layered onto, so it
+/// reaches a deployment as a build context rather than as something a pod runs.
+pub(crate) const IMAGE_REGISTRY: &str = et_org::IMAGE_REGISTRY;
+
+/// Longest `cluster_name` that still leaves a valid Kubernetes namespace after the `et-` prefix.
+///
+/// A namespace is an RFC 1123 label, which the API server caps at 63 characters.
+const CLUSTER_NAME_MAX: usize = 60;
+
+/// Longest runner name, which names a Kubernetes `Deployment` as it is: an RFC 1123 label's 63 characters.
+const RUNNER_NAME_MAX: usize = 63;
+
+/// Directories of this repository whose every child holding a module is registered, relative to its root.
+const REPO_MODULE_PARENTS: [&str; 2] = ["services/ws-modules", "data/model-modules"];
+
+/// Single module directories of this repository, relative to its root, each registered as it is.
+const REPO_MODULE_DIRS: [&str; 6] = [
+    // Generated Python ws-modules: each generated/python-{ws,rest}/ holds its own pkg/package.json after `mise run
+    // build-et-{ws,rest-client}- wheel`. They're listed individually because the parent `generated/` also contains non-
+    // module artifacts (rust-rest, dart-ws, zig-rest, specs, docs).
+    "generated/python-ws",
+    "generated/python-rest",
+    // The Python libraries, likewise listed one by one because `libs/` otherwise holds Rust crates.
+    "libs/python-org",
+    "libs/python-edge-toolkit",
+    // The two the hub serves whatever the scenario asks for: its own page, and the agent that page loads. Registered
+    // like any other module rather than prepended as bare paths by each generator, so the dependencies they declare are
+    // resolved too. `static` names the runtimes its page pulls at boot, and a deployment that omits them serves a page
+    // whose first import 404s.
+    "services/ws-server/static",
+    "services/ws-wasm-agent",
+];
+
+/// Registry scope this project's own module packages carry, and which the hub drops when naming a module.
+pub(crate) const MODULE_SCOPE: &str = et_org::NPM_SCOPE;
+
+/// Environment a runner gets from the deployment rather than from the scenario, and so cannot be overridden.
+pub(crate) const DERIVED_RUNNER_ENV: [&str; 2] = ["RUNNER_MODULE", "WS_SERVER_URL"];
+
+/// Runner kinds a scenario may name, mapped to the crate that runs them.
+///
+/// All three share one deployment shape, which is what lets one generator serve them: each takes the module's
+/// published name in `RUNNER_MODULE`, fetches it from the hub named by `WS_SERVER_URL`, and builds from
+/// `services/ws-<kind>-runner/Dockerfile`. Nothing else distinguishes a runner here, so a fourth is this line plus an
+/// image. Rejecting a kind by name is what stops a scenario from asking for one and silently getting nothing.
+pub(crate) const SUPPORTED_RUNNERS: [(&str, &str); 3] = [
+    ("pyo3", "et-ws-pyo3-runner"),
+    ("wasi", "et-ws-wasi-runner"),
+    ("web", "et-ws-web-runner"),
+];
+
+/// Names the generated deployment already uses for its own tasks, services and aliases.
+///
+/// A runner is named after the agent that declares it, and both generators key on that name: mise inserts each task
+/// into a table and compose writes each service as a mapping key. Either way a collision replaces rather than reports
+/// -- an agent called `ws-server` would quietly take the hub's place, and the deployment would come up missing the
+/// thing it was meant to talk to. Rejecting the name is the only way that surfaces.
+pub(crate) const RESERVED_RUNNER_NAMES: [&str; 7] = [
+    "generated-scenario",
+    "o2",
+    deployment_types::OPENER_TASK,
+    deployment_types::COLLECTOR_TASK,
+    deployment_types::HUB_TASK,
+    deployment_types::HUB_IMAGE_BUILD,
+    deployment_types::SCHEDULER_SERVICE,
+];
+
+/// What the README says about committing the lockfile, whichever way the deployment's artifacts come.
+///
+/// A macro rather than a `const`, because `concat!` takes only literals and each section is one literal.
+macro_rules! mise_lock_commit_note {
+    () => {
+        concat!(
+            "Commit `mise.lock` alongside the deployment, together with the `.mise/locks/` directory when\n",
+            "mise writes one -- it holds the dependency graph of each npm tool, which `mise.lock` refers to.\n",
+            "The two record the version and checksum every `latest` in `mise.toml` resolved to, for each of\n",
+            "mise's common platforms, so every later install -- on any machine -- fetches the same binaries\n",
+            "rather than whatever is newest that day. Move to newer releases deliberately, with\n",
+            "`mise lock --bump`, and commit the result.\n\n"
+        )
+    };
+}
+
+/// The command that starts a process-compose deployment, naming its file outright.
+///
+/// process-compose looks for `compose.yaml` among its default names and takes it first, so in a directory that also
+/// holds the Docker Compose file it would load that one instead. Macros rather than `const`s here and below, because
+/// `concat!` takes only literals and each README section is one literal.
+macro_rules! process_compose_up {
+    () => {
+        "process-compose up --no-server -f process-compose.yaml"
+    };
+}
+
+/// What the process-compose README section says after its commands, whichever way the deployment's artifacts come.
+macro_rules! process_compose_run_notes {
+    () => {
+        concat!(
+            "Each process runs one task of `mise.toml`, in order: `ws-server` waits for OpenObserve to report\n",
+            "healthy, and every runner waits for `ws-server`. A scheduled agent's runner is started on each\n",
+            "tick of its schedule and runs its module once; a tick that finds the previous run still going is\n",
+            "skipped. `--no-server` keeps process-compose's own API off port 8080, where `ws-server` listens.\n",
+            "Quitting the TUI stops every process. Open the OpenObserve UI, once it is up, by starting the\n",
+            "`open-o2` process from the TUI.\n"
+        )
+    };
+}
+
 /// The files a deployment of `output_types` writes for `cluster`, in the order the README lists them.
 fn generated_output_files(cluster: &ClusterInput, output_types: &[OutputType]) -> Vec<&'static str> {
     let mut files = Vec::new();
@@ -184,50 +332,6 @@ pub(crate) fn module_path_contexts(module_paths: &[PathBuf], base: &Path) -> Vec
         .collect()
 }
 
-/// Where the hub serves pyodide from, whichever distribution was selected.
-const PYODIDE_DOCKER_PATH: &str = "/app/node_modules/pyodide";
-
-/// Name of the generated env file that carries the scenario's derived credential.
-///
-/// The password is derived from the scenario input so a deployment is reproducible from it, which used to mean writing
-/// the literal into `mise.toml` and `compose.yaml` -- both committed under `verification/`, where every secret scanner
-/// duly found it. Collecting it into one file keeps the deployment reproducible while leaving the rest of the generated
-/// output free of anything a scanner reads as a credential.
-///
-/// Whether that one file is committed depends on where it was generated, and [`write_deployment_gitignore`] decides:
-/// under `verification/` it is a fixture the drift check reads, and anywhere else it is a real credential that the
-/// ignore file written beside it lists.
-pub(crate) const SECRETS_ENV_FILE: &str = "secrets.env";
-
-/// Account the collector is created with, and the one the hub authenticates its OTLP exports as.
-///
-/// One constant because the two are the same account seen from either end: the collector is created with it as
-/// `ZO_ROOT_USER_EMAIL` and the hub presents it as `OTLP_AUTH_USERNAME`, so a deployment where they disagree comes up
-/// healthy and then rejects every export. Written in two files before this existed, with nothing checking that they
-/// matched.
-pub const COLLECTOR_USERNAME: &str = "root@example.com";
-
-/// The collector's non-secret settings, which every generated deployment carries rather than sourcing.
-///
-/// Three formats render this -- a `ConfigMap`, a compose `environment:` block, a `docker run` flag list -- so it is
-/// one list and a setting cannot reach some deployments and not others. Reading it from a file in this repository
-/// instead is what made a generated deployment unable to leave the tree, for the sake of two values neither secret nor
-/// scenario-specific.
-///
-/// Two things are deliberately absent. The root password is derived per scenario and reaches each format from the
-/// generated env file. `ZO_DATA_DIR` is per format rather than shared, because it only means anything alongside the
-/// storage that format declares -- a named volume, a claim, or nothing at all.
-pub(crate) const COLLECTOR_SETTINGS: [(&str, &str); 2] =
-    [("RUST_LOG", "warn"), ("ZO_ROOT_USER_EMAIL", COLLECTOR_USERNAME)];
-
-/// Registry path the repository's own images are published under.
-///
-/// A runner image is the same for every deployment -- nothing in one varies by scenario -- so a scenario that asks for
-/// published images names it here and the cluster pulls it, leaving the node with nothing to build or import. The hub
-/// image is published alongside them but no manifest names it: it is the base a scenario image is layered onto, so it
-/// reaches a deployment as a build context rather than as something a pod runs.
-pub(crate) const IMAGE_REGISTRY: &str = et_org::IMAGE_REGISTRY;
-
 /// Prefix that turns a bare image name into the one a scenario's `artifact_source` asks for.
 ///
 /// A prefix rather than two parallel name builders, because that is the whole of the difference: the tags are
@@ -318,14 +422,6 @@ pub(crate) fn load_cluster_input(input_file: &Path) -> Result<(ClusterInput, u64
 
     Ok((cluster, scenario_seed(&content)))
 }
-
-/// Longest `cluster_name` that still leaves a valid Kubernetes namespace after the `et-` prefix.
-///
-/// A namespace is an RFC 1123 label, which the API server caps at 63 characters.
-const CLUSTER_NAME_MAX: usize = 60;
-
-/// Longest runner name, which names a Kubernetes `Deployment` as it is: an RFC 1123 label's 63 characters.
-const RUNNER_NAME_MAX: usize = 63;
 
 /// Reject a `cluster_name` that is not an RFC 1123 label.
 ///
@@ -842,22 +938,6 @@ where
     kinds
 }
 
-/// What the README says about committing the lockfile, whichever way the deployment's artifacts come.
-///
-/// A macro rather than a `const`, because `concat!` takes only literals and each section is one literal.
-macro_rules! mise_lock_commit_note {
-    () => {
-        concat!(
-            "Commit `mise.lock` alongside the deployment, together with the `.mise/locks/` directory when\n",
-            "mise writes one -- it holds the dependency graph of each npm tool, which `mise.lock` refers to.\n",
-            "The two record the version and checksum every `latest` in `mise.toml` resolved to, for each of\n",
-            "mise's common platforms, so every later install -- on any machine -- fetches the same binaries\n",
-            "rather than whatever is newest that day. Move to newer releases deliberately, with\n",
-            "`mise lock --bump`, and commit the result.\n\n"
-        )
-    };
-}
-
 /// Render the step that locks the tools `mise.toml` names, and for a published deployment installs them.
 ///
 /// Every deployment that runs the tasks declares tools there -- at least the UI opener, and a published one its
@@ -898,31 +978,6 @@ const fn mise_install_note(artifacts: ArtifactSource) -> &'static str {
         "```\n\n",
         mise_lock_commit_note!(),
     )
-}
-
-/// The command that starts a process-compose deployment, naming its file outright.
-///
-/// process-compose looks for `compose.yaml` among its default names and takes it first, so in a directory that also
-/// holds the Docker Compose file it would load that one instead. Macros rather than `const`s here and below, because
-/// `concat!` takes only literals and each README section is one literal.
-macro_rules! process_compose_up {
-    () => {
-        "process-compose up --no-server -f process-compose.yaml"
-    };
-}
-
-/// What the process-compose README section says after its commands, whichever way the deployment's artifacts come.
-macro_rules! process_compose_run_notes {
-    () => {
-        concat!(
-            "Each process runs one task of `mise.toml`, in order: `ws-server` waits for OpenObserve to report\n",
-            "healthy, and every runner waits for `ws-server`. A scheduled agent's runner is started on each\n",
-            "tick of its schedule and runs its module once; a tick that finds the previous run still going is\n",
-            "skipped. `--no-server` keeps process-compose's own API off port 8080, where `ws-server` listens.\n",
-            "Quitting the TUI stops every process. Open the OpenObserve UI, once it is up, by starting the\n",
-            "`open-o2` process from the TUI.\n"
-        )
-    };
 }
 
 /// Render the README section that runs the scenario with process-compose.
@@ -1411,27 +1466,6 @@ fn k3s_apply_instructions(cluster_name: &str) -> String {
     )
 }
 
-/// Directories of this repository whose every child holding a module is registered, relative to its root.
-const REPO_MODULE_PARENTS: [&str; 2] = ["services/ws-modules", "data/model-modules"];
-
-/// Single module directories of this repository, relative to its root, each registered as it is.
-const REPO_MODULE_DIRS: [&str; 6] = [
-    // Generated Python ws-modules: each generated/python-{ws,rest}/ holds its own pkg/package.json after `mise run
-    // build-et-{ws,rest-client}- wheel`. They're listed individually because the parent `generated/` also contains non-
-    // module artifacts (rust-rest, dart-ws, zig-rest, specs, docs).
-    "generated/python-ws",
-    "generated/python-rest",
-    // The Python libraries, likewise listed one by one because `libs/` otherwise holds Rust crates.
-    "libs/python-org",
-    "libs/python-edge-toolkit",
-    // The two the hub serves whatever the scenario asks for: its own page, and the agent that page loads. Registered
-    // like any other module rather than prepended as bare paths by each generator, so the dependencies they declare are
-    // resolved too. `static` names the runtimes its page pulls at boot, and a deployment that omits them serves a page
-    // whose first import 404s.
-    "services/ws-server/static",
-    "services/ws-wasm-agent",
-];
-
 #[must_use]
 pub(crate) fn module_registry(
     project_root: &Path,
@@ -1602,9 +1636,6 @@ fn register_module_at(
     };
     register_module(registry, module_path, directory_name, ws_server_dir, docker_path);
 }
-
-/// Registry scope this project's own module packages carry, and which the hub drops when naming a module.
-pub(crate) const MODULE_SCOPE: &str = et_org::NPM_SCOPE;
 
 fn register_module(
     registry: &mut BTreeMap<String, ModuleRegistryEntry>,
@@ -1880,9 +1911,6 @@ pub fn npm_module_path(package: &str) -> Result<PathBuf, CliError> {
         .ok_or_else(|| CliError::UnresolvedNpmModule(package.to_string()))
 }
 
-/// Environment a runner gets from the deployment rather than from the scenario, and so cannot be overridden.
-pub(crate) const DERIVED_RUNNER_ENV: [&str; 2] = ["RUNNER_MODULE", "WS_SERVER_URL"];
-
 /// One runner process the generated deployment starts, resolved from an agent that names a `runner:`.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
@@ -1902,34 +1930,6 @@ pub(crate) struct RunnerInstance {
     /// When the runner is started; unset runs it continuously.
     pub schedule: Schedule,
 }
-
-/// Runner kinds a scenario may name, mapped to the crate that runs them.
-///
-/// All three share one deployment shape, which is what lets one generator serve them: each takes the module's
-/// published name in `RUNNER_MODULE`, fetches it from the hub named by `WS_SERVER_URL`, and builds from
-/// `services/ws-<kind>-runner/Dockerfile`. Nothing else distinguishes a runner here, so a fourth is this line plus an
-/// image. Rejecting a kind by name is what stops a scenario from asking for one and silently getting nothing.
-pub(crate) const SUPPORTED_RUNNERS: [(&str, &str); 3] = [
-    ("pyo3", "et-ws-pyo3-runner"),
-    ("wasi", "et-ws-wasi-runner"),
-    ("web", "et-ws-web-runner"),
-];
-
-/// Names the generated deployment already uses for its own tasks, services and aliases.
-///
-/// A runner is named after the agent that declares it, and both generators key on that name: mise inserts each task
-/// into a table and compose writes each service as a mapping key. Either way a collision replaces rather than reports
-/// -- an agent called `ws-server` would quietly take the hub's place, and the deployment would come up missing the
-/// thing it was meant to talk to. Rejecting the name is the only way that surfaces.
-pub(crate) const RESERVED_RUNNER_NAMES: [&str; 7] = [
-    "generated-scenario",
-    "o2",
-    deployment_types::OPENER_TASK,
-    deployment_types::COLLECTOR_TASK,
-    deployment_types::HUB_TASK,
-    deployment_types::HUB_IMAGE_BUILD,
-    deployment_types::SCHEDULER_SERVICE,
-];
 
 /// Resolve every agent that names a `runner:` into the processes the deployment has to start.
 ///

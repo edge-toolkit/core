@@ -8,6 +8,21 @@ use fs_err as fs;
 use serde::Deserialize as _;
 use tempfile::tempdir;
 
+/// The one input line that switches a scenario from building what it runs to addressing the releases.
+const PUBLISHED: &str = "artifact_source: \"published\"\n";
+
+/// A scenario whose agent declares extra runner environment, which every format has to carry.
+const WITH_RUNNER_ENV: &str = r#"cluster_name: "runner-env"
+agents:
+  - name: "math1-twin"
+    runner: "wasi"
+    env:
+      OTLP_COLLECTOR_URL: "http://host:5080/api/default/v1"
+      RUST_LOG: debug
+    resources:
+      - type: "wasi-math1"
+"#;
+
 /// Lay out a `verification/` tree holding one scenario input, and return its root and the output directory.
 ///
 /// Both regeneration tests below need the same four paths in the same shape and differ only in the document they write,
@@ -460,10 +475,7 @@ deployment_type: "k3s"
 
 /// Generate the k3s scenario with `extra` spliced in and return the two files a rendering is judged by.
 ///
-/// The temp root is dropped here rather than handed back, because both files are read before it goes. The one input
-/// line that switches a scenario from building what it runs to addressing the releases.
-const PUBLISHED: &str = "artifact_source: \"published\"\n";
-
+/// The temp root is dropped here rather than handed back, because both files are read before it goes.
 fn k3s_manifest_and_readme(extra: &str) -> (String, String) {
     let (_test_root, output_dir) = k3s_scenario_with(extra);
     let manifest = fs::read_to_string(output_dir.join("k3s.yaml")).unwrap();
@@ -511,18 +523,6 @@ fn the_artifact_source_decides_whether_runner_images_are_pulled() {
         "the hub reaches the scenario build from the registry: {published_readme}"
     );
 }
-
-/// A scenario whose agent declares extra runner environment, which every format has to carry.
-const WITH_RUNNER_ENV: &str = r#"cluster_name: "runner-env"
-agents:
-  - name: "math1-twin"
-    runner: "wasi"
-    env:
-      OTLP_COLLECTOR_URL: "http://host:5080/api/default/v1"
-      RUST_LOG: debug
-    resources:
-      - type: "wasi-math1"
-"#;
 
 #[test]
 fn an_agents_declared_env_reaches_every_deployment_format() {

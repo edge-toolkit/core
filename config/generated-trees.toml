@@ -42,6 +42,7 @@
 regenerated_by = "mise run gen-specs-all"
 required_in = [
   "config/ast-grep/rules/command-requires-command-error.yaml",
+  "config/ast-grep/rules/const-at-top.yaml",
   "config/ast-grep/rules/derive-attribute-order.yaml",
   "config/ast-grep/rules/doc-summary-ends-with-period.yaml",
   "config/ast-grep/rules/inherent-impl-first.yaml",
