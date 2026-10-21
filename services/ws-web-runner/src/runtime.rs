@@ -31,6 +31,24 @@ use tracing::error;
 
 use crate::error::JsErrExt as _;
 
+/// Browser-environment shim fragments, concatenated in order ahead of the module.
+///
+/// Split by concern under `shims/`; each fragment documents itself.
+const SHIMS: &[&str] = &[
+    include_str!("shims/main.js"),
+    include_str!("shims/document.js"),
+    include_str!("shims/events.js"),
+    include_str!("shims/wasm_streaming.js"),
+    include_str!("shims/xhr.js"),
+];
+
+/// Coverage-capture shim fragments, compiled in only under the `coverage` feature.
+///
+/// `ws_agent_id` sniffs the module's server-assigned `agent_id` (its storage bucket); `pycov` defines the Pyodide
+/// coverage.py helper. Both are inert until `globalThis.__ET_TEST_COVERAGE` is set (see `shim_js`).
+#[cfg(feature = "coverage")]
+const COVERAGE_SHIMS: &[&str] = &[include_str!("shims/ws_agent_id.js"), include_str!("shims/pycov.js")];
+
 /// Module loader that fetches JavaScript from the ws-server over HTTP.
 ///
 /// Uses the typed REST client's inner `reqwest::Client` so the loader can fetch arbitrary module sub-paths (ES
@@ -94,24 +112,6 @@ impl deno_core::ModuleLoader for ServerModuleLoader {
         )
     }
 }
-
-/// Browser-environment shim fragments, concatenated in order ahead of the module.
-///
-/// Split by concern under `shims/`; each fragment documents itself.
-const SHIMS: &[&str] = &[
-    include_str!("shims/main.js"),
-    include_str!("shims/document.js"),
-    include_str!("shims/events.js"),
-    include_str!("shims/wasm_streaming.js"),
-    include_str!("shims/xhr.js"),
-];
-
-/// Coverage-capture shim fragments, compiled in only under the `coverage` feature.
-///
-/// `ws_agent_id` sniffs the module's server-assigned `agent_id` (its storage bucket); `pycov` defines the Pyodide
-/// coverage.py helper. Both are inert until `globalThis.__ET_TEST_COVERAGE` is set (see `shim_js`).
-#[cfg(feature = "coverage")]
-const COVERAGE_SHIMS: &[&str] = &[include_str!("shims/ws_agent_id.js"), include_str!("shims/pycov.js")];
 
 /// Render the full shim for a run.
 ///

@@ -28,6 +28,12 @@ use tracing_actix_web::TracingLogger;
 
 pub mod math1;
 
+/// Actix workers per test hub; test traffic never needs more, and each worker repeats the module scan at startup.
+const TEST_HUB_WORKERS: usize = 2;
+
+/// How long one [`wait_for_connected_agents`] round reads replies before asking the hub again.
+const ROSTER_POLL_INTERVAL: Duration = Duration::from_millis(250);
+
 /// A running test server. The temporary storage directory is cleaned up on drop.
 #[non_exhaustive]
 pub struct TestServer {
@@ -97,9 +103,6 @@ pub fn start_clustered(nats_url: &str, storage_root: &Path) -> TestServer {
     )
 }
 
-/// Actix workers per test hub; test traffic never needs more, and each worker repeats the module scan at startup.
-const TEST_HUB_WORKERS: usize = 2;
-
 /// Run one hub on `port` on its own thread and actix system, returning once it is bound and on its backplane.
 fn spawn_hub(port: u16, storage_dir: TempDir, storage_config: StorageConfig, ws_config: WsConfig) -> TestServer {
     // The default search paths, with the page module named outright. The server has no default for which module it
@@ -158,9 +161,6 @@ fn spawn_hub(port: u16, storage_dir: TempDir, storage_config: StorageConfig, ws_
         },
     }
 }
-
-/// How long one [`wait_for_connected_agents`] round reads replies before asking the hub again.
-const ROSTER_POLL_INTERVAL: Duration = Duration::from_millis(250);
 
 /// Block until `count` agents other than the waiter itself are connected to the hub at `ws_url`.
 ///

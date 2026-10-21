@@ -86,6 +86,20 @@ const IMPLICIT_CONFIGS: &[(&str, &[&str])] = &[
     ("taplo", &["config/taplo.toml"]),
 ];
 
+/// The lint groups, which name a set of lints and have no entry of their own in the lint index.
+const CLIPPY_GROUPS: &[&str] = &[
+    "all",
+    "cargo",
+    "complexity",
+    "correctness",
+    "nursery",
+    "pedantic",
+    "perf",
+    "restriction",
+    "style",
+    "suspicious",
+];
+
 /// For each check, the aggregates that list it in `depends`.
 type Parents = BTreeMap<String, BTreeSet<String>>;
 
@@ -1098,20 +1112,6 @@ pub fn link_label(name: &str, link: &str) -> String {
     }
     words.join("_")
 }
-
-/// The lint groups, which name a set of lints and have no entry of their own in the lint index.
-const CLIPPY_GROUPS: &[&str] = &[
-    "all",
-    "cargo",
-    "complexity",
-    "correctness",
-    "nursery",
-    "pedantic",
-    "perf",
-    "restriction",
-    "style",
-    "suspicious",
-];
 
 /// The documentation page for one lint of a `[workspace.lints.<tool>]` table, or empty when it has none.
 ///

@@ -28,9 +28,6 @@ pub mod pyo3_config;
 pub mod wasi_config;
 pub mod web_config;
 
-/// A live websocket to the ws-server that has completed the et-connect handshake.
-pub type RegisteredSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
-
 /// Lower bound on the connect-ack retry interval.
 ///
 /// Stops a small configured timeout from collapsing the backoff to near-zero
@@ -51,6 +48,24 @@ const MAX_RETRY_INTERVAL: Duration = Duration::from_secs(5);
 /// never pings clients itself, so an agent that only waits for inbound frames
 /// must ping well inside that window.
 pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
+
+/// How long [`fetch_main_field`] keeps retrying a module that the hub is not serving yet.
+///
+/// A deployment starts the hub and its runners together, and the hub binds its port before it has finished
+/// scanning the module paths -- so a runner can arrive to a connection refused, or to a 404 that becomes a 200 a
+/// moment later. Retrying here fixes that race for every deployment shape at once, which a wait bolted onto one
+/// generator's tasks cannot: a compose stack gates its runners on the hub's healthcheck, and `/health` answers
+/// before the module scan finishes.
+///
+/// The cost is that a genuinely missing module now takes this long to report. That is the right trade for a
+/// runner whose whole job is to wait for work, and the error names the module either way.
+const MODULE_WAIT: Duration = Duration::from_secs(120);
+
+/// Gap between attempts, short enough to add no noticeable delay once the module is being served.
+const MODULE_RETRY_INTERVAL: Duration = Duration::from_millis(500);
+
+/// A live websocket to the ws-server that has completed the et-connect handshake.
+pub type RegisteredSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 /// Build a heartbeat ticker firing every [`HEARTBEAT_INTERVAL`].
 ///
@@ -296,21 +311,6 @@ pub async fn collect_byte_stream(mut stream: et_rest_client::ByteStream) -> Resu
 /// Returns [`BootstrapError::Rest`] / [`BootstrapError::Stream`] if the fetch
 /// fails, [`BootstrapError::PackageJsonInvalid`] if the body is not valid JSON,
 /// or [`BootstrapError::PackageJsonMissingMain`] if it has no `main` field.
-/// How long [`fetch_main_field`] keeps retrying a module that the hub is not serving yet.
-///
-/// A deployment starts the hub and its runners together, and the hub binds its port before it has finished
-/// scanning the module paths -- so a runner can arrive to a connection refused, or to a 404 that becomes a 200 a
-/// moment later. Retrying here fixes that race for every deployment shape at once, which a wait bolted onto one
-/// generator's tasks cannot: a compose stack gates its runners on the hub's healthcheck, and `/health` answers
-/// before the module scan finishes.
-///
-/// The cost is that a genuinely missing module now takes this long to report. That is the right trade for a
-/// runner whose whole job is to wait for work, and the error names the module either way.
-const MODULE_WAIT: Duration = Duration::from_secs(120);
-
-/// Gap between attempts, short enough to add no noticeable delay once the module is being served.
-const MODULE_RETRY_INTERVAL: Duration = Duration::from_millis(500);
-
 #[instrument(name = "fetch_package_json", skip(client), err)]
 pub async fn fetch_main_field(client: &et_rest_client::Client, module_name: &str) -> Result<String, BootstrapError> {
     let bytes = fetch_package_json_bytes(client, module_name).await?;

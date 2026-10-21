@@ -24,6 +24,9 @@ use wit_encoder::{EnumCase, Field, Ident, Interface, Package, PackageName, Type,
 use crate::Error;
 use crate::asyncapi::{WS_DESCRIPTION, WS_VERSION};
 
+/// The WIT type a `string` field with the schema `format: ip` (a Rust `IpAddr`) maps to.
+const IP_ADDRESS: &str = "ip-address";
+
 /// Convert a wire identifier (`WsConnectAck`, `agent_id`, `et-connect-ack`, ...) to canonical WIT kebab-case.
 ///
 /// The results are `ws-connect-ack`, `agent-id`, `connect-ack`. The `et-` prefix is dropped because the
@@ -33,9 +36,6 @@ fn to_kebab(input: &str) -> String {
 }
 
 type EnumSet = HashSet<String>;
-
-/// The WIT type a `string` field with the schema `format: ip` (a Rust `IpAddr`) maps to.
-const IP_ADDRESS: &str = "ip-address";
 
 /// Define [`IP_ADDRESS`] in the shape `wasi:sockets/network` gives its own: four octets or eight hextets.
 ///

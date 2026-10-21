@@ -1047,6 +1047,7 @@ url = "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxru
 url_api = "https://api.github.com/repos/microsoft/onnxruntime/releases/assets/253300385"
 
 [tools."github:microsoft/onnxruntime"."platforms.macos-arm64"]
+checksum = "blake3:31837329e25a47978b9c7e68f17b71d117ae208c3da65302925796f04245436b"
 url = "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-osx-arm64-1.22.0.tgz"
 url_api = "https://api.github.com/repos/microsoft/onnxruntime/releases/assets/253300410"
 

@@ -43,6 +43,12 @@ const AGENT_ID_POLL_INTERVAL_MS: u64 = 50;
 /// Nanoseconds per millisecond, for the monotonic clock's duration argument.
 const NANOS_PER_MILLI: u64 = 1_000_000;
 
+/// The calling guest's log context, set once by [`start`].
+///
+/// Held here rather than passed to every [`info`] call so a guest's logging reads as `info("...")` with no
+/// per-guest wrapper function to define -- which is what stops four guests from each carrying an identical one.
+static LOG_CONTEXT: OnceLock<String> = OnceLock::new();
+
 // Lets `?` lift a `ws-error` into `entry-error.ws(...)` so a guest's `run` body stays free of explicit
 // `.map_err`s, which the workspace bans outside the error.rs files it names anyway.
 impl From<WsError> for EntryError {
@@ -58,12 +64,6 @@ impl From<store::Error> for EntryError {
         Self::Store(err)
     }
 }
-
-/// The calling guest's log context, set once by [`start`].
-///
-/// Held here rather than passed to every [`info`] call so a guest's logging reads as `info("...")` with no
-/// per-guest wrapper function to define -- which is what stops four guests from each carrying an identical one.
-static LOG_CONTEXT: OnceLock<String> = OnceLock::new();
 
 /// Log at info level under the context [`start`] recorded.
 ///

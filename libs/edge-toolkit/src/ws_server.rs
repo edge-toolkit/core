@@ -8,6 +8,9 @@ use tracing::{info, warn};
 
 use crate::ws::{AgentConnectionState, AgentSummary, ConnectStatus};
 
+/// Longest agent id an agent may choose for itself; a generated UUID is 36 characters.
+pub const MAX_AGENT_ID_LEN: usize = 64;
+
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum RegistryError {
@@ -59,9 +62,6 @@ fn lock_agents<S>(
 ) -> MutexGuard<'_, BTreeMap<String, AgentRecord<S>>> {
     agents.lock().unwrap_or_else(PoisonError::into_inner)
 }
-
-/// Longest agent id an agent may choose for itself; a generated UUID is 36 characters.
-pub const MAX_AGENT_ID_LEN: usize = 64;
 
 /// Whether `id` is acceptable as an agent id the agent chose itself rather than one the hub generated.
 ///

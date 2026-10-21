@@ -219,6 +219,19 @@ jobs:
         uses: $/.github/actions/install-mise-tools
         timeout-minutes: 60
 
+      # Restore the portable MSVC + Windows SDK that prefetch:msvc stages, so a hit never reaches Microsoft.
+      # The stage is a pure function of config.msvc.toml -- the pinned script and its version flags live there --
+      # so that file's hash is the key and any edit to it restages. Only target/msvc/msvc is cached: the task
+      # renders msvc.env and the two junctions on every run. actions/cache saves only from a successful job, so a
+      # partial stage is never stored. The licence does not allow republishing these files, which is why this is
+      # a runner cache and not an upstream-cache mirror.
+      - name: Cache portable MSVC
+        if: matrix.compiler == 'msvc'
+        uses: actions/cache@v6
+        with:
+          path: target/msvc/msvc
+          key: portable-msvc-${{ hashFiles('.mise/config.msvc.toml') }}
+
       - name: Prefetch dependencies
         timeout-minutes: 20
         env:

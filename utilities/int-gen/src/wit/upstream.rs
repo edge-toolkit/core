@@ -14,23 +14,6 @@ use fs_err as fs;
 
 use crate::Error;
 
-/// One file within an upstream package.
-struct File {
-    name: &'static str,
-}
-
-/// An upstream WASI WIT package pinned to a tag or commit SHA.
-struct UpstreamPackage {
-    /// Directory name under `generated/specs/wit/deps/`.
-    local_dir: &'static str,
-    /// `WebAssembly/<repo>` (always under the WebAssembly org).
-    repo: &'static str,
-    /// Tag (e.g. `v0.2.6`) or commit SHA.
-    /// wasi-logging has no releases, so it pins by SHA; everything else by release tag.
-    git_ref: &'static str,
-    files: &'static [File],
-}
-
 const PACKAGES: &[UpstreamPackage] = &[
     UpstreamPackage {
         local_dir: "wasi-clocks",
@@ -92,6 +75,23 @@ const PACKAGES: &[UpstreamPackage] = &[
         files: &[File { name: "imports.wit" }, File { name: "webgpu.wit" }],
     },
 ];
+
+/// One file within an upstream package.
+struct File {
+    name: &'static str,
+}
+
+/// An upstream WASI WIT package pinned to a tag or commit SHA.
+struct UpstreamPackage {
+    /// Directory name under `generated/specs/wit/deps/`.
+    local_dir: &'static str,
+    /// `WebAssembly/<repo>` (always under the WebAssembly org).
+    repo: &'static str,
+    /// Tag (e.g. `v0.2.6`) or commit SHA.
+    /// wasi-logging has no releases, so it pins by SHA; everything else by release tag.
+    git_ref: &'static str,
+    files: &'static [File],
+}
 
 /// Refresh every upstream WIT package and write them all under `generated/specs/wit/deps/<pkg>/`.
 /// Triggered by `mise run fetch-wit-deps`.

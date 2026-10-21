@@ -1,0 +1,89 @@
+id: const-at-top
+valid:
+  - |
+    use std::time::Duration;
+
+    mod inner;
+
+    const LIMIT: usize = 4;
+    pub static NAME: &str = "et";
+
+    fn run() -> usize {
+        LIMIT
+    }
+  - |
+    fn run() -> usize {
+        const LOCAL: usize = 4;
+        LOCAL
+    }
+  - |
+    struct Runner;
+
+    impl Runner {
+        const STEP: usize = 1;
+    }
+  - |
+    struct Runner;
+
+    const _: () = assert!(size_of::<Runner>() == 0);
+  - |
+    const fn limit() -> usize {
+        4
+    }
+
+    fn run() -> usize {
+        limit()
+    }
+  - |
+    use std::time::Duration;
+
+    const LIMIT: usize = 4;
+
+    fn run() -> usize {
+        LIMIT
+    }
+
+    #[cfg(test)]
+    mod test_run;
+  - |
+    const LIMIT: usize = 4;
+
+    fn run() -> usize {
+        use std::cmp::min;
+        min(LIMIT, 2)
+    }
+invalid:
+  - |
+    const LIMIT: usize = 4;
+
+    use std::time::Duration;
+  - |
+    pub static NAME: &str = "et";
+
+    pub use crate::inner::Runner;
+  - |
+    fn run() -> usize {
+        LIMIT
+    }
+
+    const LIMIT: usize = 4;
+  - |
+    struct Runner;
+
+    pub(crate) static NAME: &str = "et";
+  - |
+    enum Mode {
+        Fast,
+    }
+
+    /// Documented.
+    #[cfg(test)]
+    const LIMIT: usize = 4;
+  - |
+    impl Default for Runner {
+        fn default() -> Self {
+            Self
+        }
+    }
+
+    pub const LIMIT: usize = 4;

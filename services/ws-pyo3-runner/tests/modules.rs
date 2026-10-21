@@ -30,8 +30,6 @@ use futures_util::{SinkExt as _, StreamExt as _};
 use rstest::rstest;
 use tokio_tungstenite::{connect_async, tungstenite};
 
-type ControlSocket = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
-
 /// Overall `run_exchange` budget for the torch case.
 ///
 /// Covers the whole exchange, the peer wait included -- and the peer wait is the long part, because the case's
@@ -53,6 +51,8 @@ const POLL_BACKOFF_MAX: Duration = Duration::from_millis(500);
 /// How long each poll round drains inbound frames looking for the peer before backing off.
 const POLL_DRAIN_WINDOW: Duration = Duration::from_millis(250);
 const RUST_LOG: &str = "RUST_LOG";
+
+type ControlSocket = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
 /// When a case may not be runnable, the condition under which it self-skips.
 enum Gate {

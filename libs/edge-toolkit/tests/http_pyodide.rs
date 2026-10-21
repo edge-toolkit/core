@@ -14,6 +14,17 @@ use std::path::PathBuf;
 
 use edge_toolkit::config::{Language, default_modules_folders, mise_env_includes, mise_where};
 
+/// Lower bound -- the official 0.29.x release ships well over 300 wheels.
+///
+/// 100 is conservative enough to survive minor releases dropping a few rarely-used packages without flapping in CI.
+const MIN_WHEEL_COUNT: usize = 100;
+
+/// Wheels we always expect in the full distribution.
+///
+/// Each entry is a `<package>-` prefix; the test passes if at least one filename in the install starts with it. These
+/// three are the "is this the full release?" canaries: none of them ship with `npm:pyodide`.
+const REQUIRED_WHEEL_PREFIXES: &[&str] = &["numpy-", "scipy-", "pandas-"];
+
 /// Shared resolver -- every test in this file wants the install path.
 ///
 /// Returns `Some(path)` when found; `None` (and logs a skip line) when `http:pyodide` is intentionally not installed
@@ -35,17 +46,6 @@ fn find_http_pyodide_install() -> Option<PathBuf> {
         )
     )
 }
-
-/// Lower bound -- the official 0.29.x release ships well over 300 wheels.
-///
-/// 100 is conservative enough to survive minor releases dropping a few rarely-used packages without flapping in CI.
-const MIN_WHEEL_COUNT: usize = 100;
-
-/// Wheels we always expect in the full distribution.
-///
-/// Each entry is a `<package>-` prefix; the test passes if at least one filename in the install starts with it. These
-/// three are the "is this the full release?" canaries: none of them ship with `npm:pyodide`.
-const REQUIRED_WHEEL_PREFIXES: &[&str] = &["numpy-", "scipy-", "pandas-"];
 
 #[test]
 fn http_pyodide_install_contains_full_wheel_set() {

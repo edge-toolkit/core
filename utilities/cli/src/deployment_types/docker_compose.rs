@@ -33,6 +33,15 @@ const OFELIA_IMAGE: &str = "ghcr.io/netresearch/ofelia:1.0.1";
 /// host would each schedule the other's jobs.
 const SCENARIO_LABEL: &str = concat!(et_org::org!(), "/scenario");
 
+/// Characters YAML reserves as indicators, which a plain scalar may not open with.
+///
+/// `@` and a backtick are reserved for future use and are a scanner error outright; the rest introduce anchors, tags,
+/// flow collections, block scalars and the like. A value starting with any of them has to be quoted to be read back as
+/// the string it is.
+const YAML_INDICATORS: [char; 18] = [
+    '@', '`', '-', '?', ':', ',', '[', ']', '{', '}', '#', '&', '*', '!', '|', '>', '\'', '"',
+];
+
 /// The scheduler service for the machine `machines` names, or for the single host when it names none.
 ///
 /// One per machine with a scheduled runner, since Ofelia can only start a container on the Docker daemon it runs on.
@@ -549,15 +558,6 @@ enum ComposeValue {
     Plain(String),
     WrappedDoubleQuoted(Vec<String>),
 }
-
-/// Characters YAML reserves as indicators, which a plain scalar may not open with.
-///
-/// `@` and a backtick are reserved for future use and are a scanner error outright; the rest introduce anchors, tags,
-/// flow collections, block scalars and the like. A value starting with any of them has to be quoted to be read back as
-/// the string it is.
-const YAML_INDICATORS: [char; 18] = [
-    '@', '`', '-', '?', ':', ',', '[', ']', '{', '}', '#', '&', '*', '!', '|', '>', '\'', '"',
-];
 
 fn render_compose_yaml(compose: &ComposeFile) -> String {
     let mut renderer = ComposeRenderer::default();

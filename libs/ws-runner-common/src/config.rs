@@ -11,6 +11,9 @@ use serde::Deserialize;
 use serde_default::DefaultFromSerde;
 use serde_inline_default::serde_inline_default;
 
+/// Default time [`crate::connect_and_register`] waits for `et-connect-ack`.
+pub const DEFAULT_CONNECT_ACK_TIMEOUT: Duration = Duration::from_secs(5);
+
 /// Declare a runner's `Config`, with the fields every runner reads supplied and its own added after.
 ///
 /// A macro rather than a shared struct the runners nest or flatten. Nesting changes the variable names
@@ -67,9 +70,6 @@ pub struct RunnerConfig {
     #[cfg_attr(feature = "env-schema", schemars(with = "Option<String>"))]
     pub timeout: Option<Duration>,
 }
-
-/// Default time [`crate::connect_and_register`] waits for `et-connect-ack`.
-pub const DEFAULT_CONNECT_ACK_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Shared `WS_*` settings for both native runners.
 #[serde_inline_default]

@@ -4,7 +4,7 @@
 - **Tools:** 47
 - **Shell-script checks:** 10
 - **Checks with a repair pass:** 21
-- **Rules:** 342 custom local rules, or non-default strict linter settings
+- **Rules:** 343 custom local rules, or non-default strict linter settings
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
 declares it, the aggregate that runs it as part of `mise run check`, the `fix` or `fmt` pass that repairs what it
@@ -42,6 +42,9 @@ Rules, from `config/ast-grep/rules`:
   status -- a raw `std` `Command`'s `.status()` / `.output()` / `.spawn()` errors carry none of that. If a call
   genuinely needs the raw outcome (e.g. a test that asserts a non-zero exit, or an exit-code proxy), fully-qualify
   `std::process::Command` at the call site instead of importing it, so this rule does not apply.
+- `const-at-top` -- Declare module-level `const` and `static` items at the top of the file, after the `use` lines and
+  before any type, trait, `impl` or function. A reader then meets the module's fixed values before the code that uses
+  them.
 - `derive-attribute-order` -- Put `#[derive(...)]` before every inert or helper attribute on the same item --
   `#[non_exhaustive]`, `#[repr]`, `#[cfg_attr]`, and derive helpers such as `#[serde]`, `#[command]`, `#[strum]` or
   `#[asyncapi]`. Only doc comments, `#[cfg]`, `#[expect]` and attribute macros that must see the item before the derive

@@ -31,17 +31,17 @@ use wasm_bindgen::prelude::Closure;
 use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen_test::*;
 
-wasm_bindgen_test_configure!(run_in_browser);
-
-fn new_client(url: &str) -> WsClient {
-    WsClient::new(WsClientConfig::new(url.to_string()))
-}
-
 /// The live ws-server URL for the connected-path tests.
 ///
 /// A backend must be listening here: the `wasm-agent-cov` mise task starts the in-process et-ws-test-server on
 /// this port, and `ws-e2e-chrome` runs the real ws-server on it too.
 const SERVER_URL: &str = "ws://127.0.0.1:8080/ws";
+
+wasm_bindgen_test_configure!(run_in_browser);
+
+fn new_client(url: &str) -> WsClient {
+    WsClient::new(WsClientConfig::new(url.to_string()))
+}
 
 async fn sleep(millis: i32) {
     let promise = Promise::new(&mut |resolve, _reject| {

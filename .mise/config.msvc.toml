@@ -31,9 +31,18 @@ version = "{{ vars.rust_nightly }}-x86_64-pc-windows-gnullvm"
 [vars]
 # portable-msvc script pin: gist id + revision (immutable content address) + sha256 of that revision.
 # Bump all three together after reviewing a new upstream revision.
+# The floor is the revision that matches SDK payload names with either path separator. The Visual Studio
+# manifest moved them from `Installers\\` to `Installers/`, so older revisions find no SDK package, download
+# none, and die at their `versions` step:
+#
+#     sdkv = first((OUTPUT / "Windows Kits/10/bin").glob("*")).name
+#     AttributeError: 'NoneType' object has no attribute 'name'
+#
+# Seen on commit https://github.com/edge-toolkit/core/commit/fc2e5639cb63d541269501663973a94d3138ea5f at
+# https://github.com/edge-toolkit/core/actions/runs/39527031634/job/118983994353.
 a_pmsvc_gist = "7f3162ec2988e81e56d5c4e22cde9977"
-a_pmsvc_rev = "ba48b0a3d9ea05c6caa5e583eda60fa7510da4bc"
-a_pmsvc_sha = "295a6d7e3e6a7132199ec51224216b07c54af29df9c8ba9bf01166ce12451c0a"
+a_pmsvc_rev = "49b58850aa5e5c1e65f090d4651ee76607883e11"
+a_pmsvc_sha = "1791cccca594ff083ce8d3e0a139e6156d2c312e24332a909e608010f0230a51"
 # Clear config.windows.toml's et-ws-web-runner exclusion.
 cargo_ws_excludes = ""
 # et-cli lands under the msvc target dir once CARGO_BUILD_TARGET below is flipped.
@@ -65,11 +74,13 @@ run = """
 base="{{ vars.msvc_base }}"
 coreutils mkdir -p "$base"
 script="$base/portable-msvc.py"
-if [ ! -f "$script" ]; then
+sha() { coreutils sha256sum -b "$script" | coreutils cut -c1-64; }
+# Fetched when absent or left over from a previous pin, so a bump takes effect on an existing checkout.
+if [ ! -f "$script" ] || [ "$(sha)" != "{{ vars.a_pmsvc_sha }}" ]; then
   src=":http:mmozeiko/{{ vars.a_pmsvc_gist }}/raw/{{ vars.a_pmsvc_rev }}/portable-msvc.py"
   rclone copyto "$src" "$script" --http-url https://gist.githubusercontent.com --progress
 fi
-actual=$(coreutils sha256sum -b "$script" | coreutils cut -c1-64)
+actual=$(sha)
 [ "$actual" = "{{ vars.a_pmsvc_sha }}" ] || {
   echo "portable-msvc.py checksum mismatch: $actual" >&2
   exit 1
@@ -78,7 +89,10 @@ actual=$(coreutils sha256sum -b "$script" | coreutils cut -c1-64)
 # The rendered msvc.env tracks whatever is installed, so a bump only needs these two flags changed and a
 # re-run after deleting target/msvc/msvc.
 py="{{ vars.py3_win_fwd }}"
-if [ ! -d "$base/msvc/VC" ]; then
+# A stage counts as complete only with both halves, so one missing its SDK is wiped and staged again.
+# The script writes the MSVC half before it unpacks the SDK, so a run that fails in between leaves `VC` behind.
+if [ ! -d "$base/msvc/VC" ] || [ ! -d "$base/msvc/Windows Kits/10/bin" ]; then
+  coreutils rm -rf "$base/msvc"
   (cd "$base" && "$py" portable-msvc.py --accept-license --msvc-version 14.51 --sdk-version 26100)
 fi
 "$py" - "$base/msvc" "$base/msvc.env" <<'PY'

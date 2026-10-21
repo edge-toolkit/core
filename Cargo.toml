@@ -2,7 +2,7 @@
 edition = "2024"
 license = "Apache-2.0 or MIT"
 repository = "https://github.com/edge-toolkit/core"
-rust-version = "1.91.1"
+rust-version = "1.99.0"
 
 [workspace]
 members = [
@@ -250,7 +250,8 @@ tracing-actix-web = { version = "0.7", default-features = false, features = ["em
 tracing-log = "0.2"
 tracing-opentelemetry = "0.33"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tracing-wasm = "0.2"
+# Maintained fork; keep the dependency name so browser modules retain the same setup API.
+tracing-wasm = { package = "wasm-tracing", version = "2.1" }
 tree-sitter = "0.27"
 tree-sitter-zig = "1"
 # Already resolved transitively (object_store, reqwest, ...), so this adds no new crate or license to review.
@@ -263,16 +264,17 @@ wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 wasm-bindgen-test = "0.3"
 # Keep all three on the same major for ABI compat -- wasmtime-wasi-nn tracks wasmtime's version exactly.
-# 49.0.3 is the floor, not a preference: RUSTSEC-2026-0352 through RUSTSEC-2026-0364 are fixed only from 49.0.3
-# on the 49 line. The major is held at 49 by wasi-webgpu-wasmtime, whose 0.4 line requires wasmtime ^49.
-wasmtime = { version = "49.0.3", features = ["async", "component-model"] }
+# 49.0.4 is the floor, not a preference: RUSTSEC-2026-0352 through RUSTSEC-2026-0364 are fixed only from 49.0.3,
+# and RUSTSEC-2026-0378 / RUSTSEC-2026-0379 only from 49.0.4, on the 49 line. The major is held at 49 by
+# wasi-webgpu-wasmtime, whose 0.4 line requires wasmtime ^49.
+wasmtime = { version = "49.0.4", features = ["async", "component-model"] }
 # The generator behind wasmtime's `bindgen!` macro, driven directly by et-int-gen.
 # Emitting the runner's host bindings as a checked-in source file keeps ws-wasi-runner self-contained: the
 # macro read WIT from `../../generated/specs/wit`, which `cargo package` cannot include, so the crate failed
 # to build from its own tarball. Named `internal` upstream, so treat its API as unstable and pinned to the
 # wasmtime version above; the drift check catches any change in what it emits.
-wasmtime-internal-wit-bindgen = { version = "49.0.3", features = ["async", "component-model-async"] }
-wasmtime-wasi = "49.0.3"
+wasmtime-internal-wit-bindgen = { version = "49.0.4", features = ["async", "component-model-async"] }
+wasmtime-wasi = "49.0.4"
 wasmtime-wasi-nn = { version = "49", default-features = false, features = ["onnx"] }
 web-sys = "0.3"
 # wgpu-core/wgpu-types come in via wasi-webgpu-wasmtime's re-exports; only the instance handle is ours.
