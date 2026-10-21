@@ -1,1 +1,4 @@
-# This file exists to switch the scanner's built-in ignore list off, not to add anything to it.
+# This file exists to switch the scanner's built-in ignore list off; the one entry it adds is a speed fix.
+# Semgrep walks every directory under the project root to load ignore files, and .gitignore does not prune that
+# walk, so without this entry a large local cargo target/ costs minutes per scan before any rule runs.
+/target/

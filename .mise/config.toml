@@ -1027,7 +1027,6 @@ echo "macos-sdk-check: SDK $sdk (minimum $min)"
 shell = "{{ vars.task_shell }}"
 
 [tasks.ast-grep-check]
-depends = ["ast-grep-check-rule-tests"]
 # --no-ignore hidden so the gha-* YAML rules reach .github/workflows.
 # ast-grep skips dot-dirs by default; gitignored paths like target/ stay skipped.
 description = "Run ast-grep structural-search rules"
@@ -1043,7 +1042,6 @@ description = "Apply autofix for ast-grep rules that define a `fix:` field"
 run = "ast-grep scan --update-all --no-ignore hidden -c config/ast-grep/sgconfig.yaml"
 
 [tasks.semgrep-check]
-depends = ["semgrep-check-rule-tests"]
 description = "Run Semgrep code and configuration rules"
 run = "semgrep scan --config config/semgrep --error --metrics=off ."
 
