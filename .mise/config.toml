@@ -16,7 +16,7 @@
 # installs node ahead of any npm: tool, install-mise-tools stops restoring the GHCR store, and every task
 # declares a `shell` that routes its body through a wrapper script. A warm checkout needs `mise install` re-run
 # once -- a tool this mise cannot resolve still reports as installed, so nothing refetches it on its own.
-min_version = "2026.9.17"
+min_version = "2026.10.15"
 
 [settings]
 # Disable mise's two auto-install paths so tasks fail fast on a missing tool.
@@ -37,6 +37,10 @@ http_timeout = "2m"
 # This disables idiomatic-version-file detection for every tool. We declare versions in `.mise/config*.toml`;
 # no need to parse `.tool-versions`/`.node-version`/etc. on top of that.
 idiomatic_version_file_enable_tools = []
+# Resolve a bare `java = "X.Y.Z"` to the OpenJDK build that java_home in config.java.toml is written against.
+# mise's own default vendor is Temurin, and leaving it implicit writes a second `java` entry per vendor into the
+# lockfiles.
+java.shorthand_vendor = "openjdk"
 # Lock every tool resolution to the committed .mise/mise.lock.
 # Reading the lockfile is mise's default; `lockfile = true` additionally keeps it updated on installs and
 # upgrades. The lock pins each `latest` to a concrete version + checksum, so composing a task/exec env
@@ -72,7 +76,7 @@ action-validator = { version = "latest", os = ["linux", "macos"] }
 "aqua:rustwasm/wasm-pack" = "latest"
 # Vector ships no darwin/amd64 prebuilt, so second-tier macos/x64 builds the same pin from source below.
 # The aqua error was: `unsupported env: darwin/amd64 (supported: ["linux", "darwin/arm64", "windows/amd64"])`.
-"aqua:vectordotdev/vector" = { version = "0.56.0", os = ["linux", "macos/arm64", "windows"] }
+"aqua:vectordotdev/vector" = { version = "0.60.0", os = ["linux", "macos/arm64", "windows"] }
 # Validates the generated Kubernetes manifests against the API schemas, which the drift check cannot do.
 "aqua:yannh/kubeconform" = "latest"
 # k3d runs a real k3s cluster in Docker, paired with kubectl to drive it.
@@ -106,10 +110,6 @@ taplo = "latest"
 watchexec = "latest"
 # ripgrep (rg): the Rust grep that tasks use in place of the host's grep.
 ripgrep = "latest"
-# uutils findutils (find + xargs), pinned to 0.8.0 (0.9.0 ships no binaries).
-# Separate binaries, not a multicall, so the mise shims shadow the host's find /
-# xargs in tasks. Every platform uses the 0.8.0 prebuilt via github: ...
-"github:uutils/findutils" = { version = "0.8.0", os = ["linux/x64", "macos", "windows"] }
 # Apple Silicon resource monitor (CPU/GPU/ANE/power) for the o2-macmon task; macOS-only, so os-scoped.
 "github:vladkens/macmon" = { version = "0.7.2", os = ["macos"] }
 # NVIDIA GPU Prometheus exporter (nvidia-smi) for the o2-nvidia task; Linux-only, so os-scoped.
@@ -120,15 +120,15 @@ ripgrep = "latest"
 # OpenTelemetry Collector (contrib distro) binary for the native, non-Docker o2-winmetrics-native / o2-winperf tasks.
 # The releases repo ships several distros in one tag; matching=contrib selects the contrib archive -- the only one
 # carrying the prometheus/hostmetrics/windowsperfcounters receivers + basicauth extension those configs use.
-"github:open-telemetry/opentelemetry-collector-releases[matching=contrib]" = { version = "0.156.0" }
+"github:open-telemetry/opentelemetry-collector-releases[matching=contrib]" = { version = "0.163.1" }
 # NATS server with JetStream, the broker several hub instances share as their backplane.
 # A hub routes through it when `WS_BACKPLANE` names it, and the horizontal-scaling tests start one of their own.
 # Upstream ships prebuilt archives for all five platforms.
 "github:nats-io/nats-server" = { version = "2.15.1" }
-# aarch64-linux is the exception, building findutils from source instead.
-# Its 0.8.0 release has no asset, so it builds from
-# source via cargo: (same 0.8.0 pin, so every platform runs the same version).
-"cargo:findutils" = { version = "0.8.0", os = ["linux/arm64"] }
+# uutils findutils on aarch64-linux, built from source rather than taken from the github: entry further down.
+# Its 0.8.0 release had no asset for that platform, so it builds via cargo: on the same pin as the github: entry,
+# so every platform runs the same version.
+"cargo:findutils" = { version = "0.10.0", os = ["linux/arm64"] }
 # agent-lint: the linter behind agent-lint-check, over this repository's Claude configuration.
 # Scoped to the three targets upstream publishes a binary for -- macOS arm64 and Linux x86_64/aarch64, all
 # three musl or native -- because there is no Windows or macOS x86_64 asset in the release to install. The
@@ -140,15 +140,15 @@ ripgrep = "latest"
 "github:grok-rs/waitup" = "latest"
 # jscpd: the cross-language copy/paste detector behind jscpd-check.
 # Upstream ships prebuilt tarballs for every tier-1 and tier-2 triple, so the github (ubi) backend covers all five
-# platforms with no os-scoping. Pinned rather than "latest" because clone fingerprints are tokenizer-derived: a
-# jscpd bump can rewrite them and redden an unrelated PR against config/jscpd-baseline.json. Bump the pin and
-# regenerate the baseline together.
-"github:kucherenko/jscpd" = "5.1.1"
+# platforms with no os-scoping. Clone fingerprints are tokenizer-derived, so a new jscpd release can rewrite them
+# and redden config/jscpd-baseline.json; the lockfile holds the version until a refresh moves it. When it moves,
+# regenerate the baseline and set `declared_clones` in the jscpd conftest policy to its new count in the same change.
+"github:kucherenko/jscpd" = "latest"
 # ONNX Runtime prebuilt -- ort-sys 2.0.0-rc.10 binds to ORT 1.22.x.
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
 "github:microsoft/onnxruntime" = "1.22.0"
 "github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
-"github:wasm-bindgen/wasm-bindgen" = "0.2.128"
+"github:wasm-bindgen/wasm-bindgen" = "0.2.129"
 # go-containerregistry's crane fetches the per-platform ghcr.io mise-tools stores.
 # Its `crane export` rootfs-flatten is what the pull-mise-tools task and CI's install-mise-tools restore
 # step extract tool trees with.
@@ -206,10 +206,10 @@ protoc = "latest"
 # mise installs python under a per-tool dir named after the request and only symlinks the `3.x` minor alias
 # -- and that symlink isn't created on the Windows runner, so the py3_* interpreter paths must resolve to the
 # exact `3.x.y` dir. Bump in lockstep with py3_unix/py3_win/pylib.
-python = "3.13.14"
+python = "3.13.16"
 rclone = "latest"
 typos = "latest"
-uv = "0.11.8"
+uv = "0.13.3"
 wasm-tools = "latest"
 yq = "latest"
 zizmor = "latest"
@@ -246,7 +246,7 @@ version = "{{ vars.rust_nightly }}"
 
 # The macos/x64 half of vector (see the aqua:vectordotdev/vector note above).
 # A git `tag:` spec rather than the crates.io crate so this platform builds the exact source the other
-# platforms' 0.56.0 prebuilts are cut from -- bump it with the aqua entry. A source build is acceptable here
+# platforms' 0.60.0 prebuilts are cut from -- bump it with the aqua entry. A source build is acceptable here
 # because macos/x64 is second-tier. `crate` names the package to build, and is required rather than tidy: a
 # git install searches the whole repo, so cargo refuses with `error: multiple packages with binaries found`
 # on any workspace carrying more than one binary rather than choosing between them.
@@ -267,7 +267,7 @@ version = "{{ vars.rust_nightly }}"
 crate = "vector"
 install_env = { RUSTFLAGS = "--cap-lints=warn" }
 os = ["macos/x64"]
-version = "tag:v0.56.0"
+version = "tag:v0.60.0"
 
 # The macos/x64 half of rustfs, the one platform upstream ships no prebuilt for.
 # A git spec rather than a bare `cargo:rustfs`: the crates.io crate is a stale 0.0.2 placeholder while real
@@ -280,8 +280,9 @@ os = ["macos/x64"]
 version = "tag:1.0.0-beta.12"
 
 # uutils coreutils: the Rust multicall binary, invoked as `coreutils <util>` in tasks.
-# Pinned to 0.6.0 (NOT the latest 0.9.0) because uutils 0.7.0+ ships the Windows release as 85 per-utility
-# .exes with no multicall coreutils.exe (see uutils/coreutils#11268). 0.6.0 keeps the multicall layout
+# Pinned to 0.6.0 because uutils 0.7.0+ ships the Windows release as per-utility .exes (see
+# uutils/coreutils#11268). 0.12.0 restores a multicall coreutils.exe but still ships ~90 per-utility .exes beside
+# it, all of which would land on PATH -- `link.exe` among them, shadowing MSVC's linker. 0.6.0 keeps the layout
 # uniform across Linux/macOS/Windows, so tasks can keep using `coreutils <util>` everywhere. Bump cautiously:
 # confirm the Windows zip layout hasn't reverted before raising the pin.
 #
@@ -298,6 +299,15 @@ version = "tag:1.0.0-beta.12"
 [tools."github:uutils/coreutils"]
 asset_pattern = "{{ vars.musl_pattern }}"
 version = "0.6.0"
+
+# uutils findutils (find + xargs), pinned rather than "latest" because 0.9.0 shipped no binaries.
+# Separate binaries, not a multicall, so the mise shims shadow the host's find / xargs in tasks. Its musl build on
+# Linux for the same reason as coreutils above: from 0.10.0 the gnu one needs GLIBC_2.39, and `find` failing on the
+# older image bases took down dotnet-install, which calls it.
+[tools."github:uutils/findutils"]
+asset_pattern = "{{ vars.musl_pattern }}"
+os = ["linux/x64", "macos", "windows"]
+version = "0.10.0"
 
 # lychee takes its musl build on Linux for the same reason as coreutils above: the gnu one needs GLIBC_2.39.
 [tools."github:lycheeverse/lychee"]
@@ -598,7 +608,7 @@ et_cli = "{{ vars.config_root_fwd }}/{{ vars.a_et_cli_target_dir }}/{{ vars.a_et
 macos_min_sdk = "26.0"
 # mise-managed CPython's bin dir (Linux/macOS), named to sort ahead of py3_unix, which builds on it.
 # The key order is the formatter's, and a var can only reference one defined above it.
-py3_bin_unix = "{{ vars.a_home }}/.local/share/mise/installs/python/3.13.14/bin"
+py3_bin_unix = "{{ vars.a_home }}/.local/share/mise/installs/python/3.13.16/bin"
 # mise-managed CPython (Linux/macOS); the PYO3_PYTHON default below.
 # Windows overrides PYO3_PYTHON with its own py3_win in config.windows.toml. The version
 # segment must equal the `python` [tools] pin (conftest enforces both).
@@ -609,7 +619,7 @@ rpath_flag = "-C link-arg=-Wl,-rpath,{{ vars.conda_openssl }}/lib"
 # This lets the et-ws-pyo3-runner binary find libpython at runtime (libpython3.13.so on Linux,
 # libpython3.13.dylib on macOS via its @rpath install name). Points at the exact `3.x.y` install dir (the
 # `python` pin), since the minor-version alias dir isn't created everywhere.
-pylib_flag = "-C link-arg=-Wl,-rpath,{{ vars.a_home }}/.local/share/mise/installs/python/3.13.14/lib"
+pylib_flag = "-C link-arg=-Wl,-rpath,{{ vars.a_home }}/.local/share/mise/installs/python/3.13.16/lib"
 wasm_rustflags = "-C target-cpu=mvp -C target-feature=+mutable-globals,+sign-ext,+nontrapping-fptoint,+reference-types"
 # Instrumentation flags (leaf var) shared by the wasm coverage builds.
 # The nightly -Z flag adds branch regions to the covmap so the lcov exports carry BRDA records. `a_` prefix so
@@ -777,7 +787,7 @@ o2_image = "openobserve/openobserve:v1.1.1"
 # that check the same way a version would.
 o2_publish = "127.0.0.1:5080:5080"
 # OpenTelemetry Collector image for the o2-hostmetrics / o2-macmon / o2-nvidia / o2-winmetrics tasks.
-otelcol_image = "otel/opentelemetry-collector-contrib:0.156.0"
+otelcol_image = "otel/opentelemetry-collector-contrib:0.163.1"
 rp_wasm_dir = '''{% if os() == "windows" and env?.MISE_INSTALLS_DIR -%}
 {{- env.MISE_INSTALLS_DIR | replace(from="\\", to="/") -}}/http-rp-wasm/{{- vars.a_rp_wasm_short -}}
 {%- elif os() == "windows" -%}
@@ -1105,9 +1115,30 @@ shell = "{{ vars.task_shell }}"
 # narrower than excluding the workflow files: everything else in them -- job bodies, step sequences, run blocks
 # -- is still compared. Delete this the day a checkout can be shared, and expect the clone count to rise by the
 # handful of pairs it is currently hiding.
+#
+# Skipped on Windows, with the operator's sign-off; the Linux and macOS lanes still enforce it. Under mise
+# 2026.10.15, jscpd (5.1.1 and 5.4.2 alike) dies on its first write of the report to stdout there:
+#
+#     thread 'main' panicked at /rustc/.../library\std\src\io\stdio.rs:1166:9:
+#     failed printing to stdout: failed to write the buffered data
+#     sh: C:/i\jscpd-vk6ezlee/jscpd.exe: The system detected an overrun of a stack-based buffer in this
+#     application. This overrun could potentially allow a malicious user to gain control of this application.
+#     Error 0xc0000409
+#
+# on commit https://github.com/edge-toolkit/core/commit/c91d332c72d0c94f9fd4aa915c1d485fee251fd0 at
+# https://github.com/edge-toolkit/core/actions/runs/39857810525/job/120100470709 (check windows-latest lane). The
+# same jscpd 5.1.1 printed its report there under mise 2026.9.17, so the pipe mise now hands a task's stdout on
+# Windows is the suspect. Lift the skip once a Windows run gets through.
 [tasks.jscpd-check]
 description = "Detect copy/pasted code across every language (jscpd)"
-run = "jscpd . --config config/jscpd.json --baseline config/jscpd-baseline.json --fail-on-new-clones"
+run = """
+{% if os() == "windows" -%}
+echo "jscpd-check: skipped on Windows, where jscpd crashes writing its report; Linux and macOS enforce it"
+{%- else -%}
+jscpd . --config config/jscpd.json --baseline config/jscpd-baseline.json --fail-on-new-clones
+{%- endif -%}
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.jscpd-baseline-update]
 alias = "update-jscpd-baseline"
@@ -1303,7 +1334,14 @@ shell = "{{ vars.task_shell }}"
 # `--parser ignore` because Markdown has no parser; it hands each file over as its lines, which is all this reads.
 [tasks.conftest-check-checks-badge]
 description = "Check the README checks badge keeps step with CHECKS.md's rules count (conftest)"
-run = "conftest test --combine --parser ignore --namespace checks_badge -p config/conftest/policy CHECKS.md README.md"
+run = """
+if [ ! -f README.md ]; then
+  echo "conftest-check-checks-badge: README.md absent (docker build context); skipping -- native lanes enforce it"
+  exit 0
+fi
+conftest test --combine --parser ignore --namespace checks_badge -p config/conftest/policy CHECKS.md README.md
+"""
+shell = "{{ vars.task_shell }}"
 
 # Ratchet the jscpd duplication baseline against the count declared in the policy.
 # One file, no --combine, so the policy reads the parsed baseline as `input` directly.
@@ -3150,17 +3188,26 @@ shell = "{{ vars.task_shell_plain }}"
 # or bumped without regenerating the lockfiles is caught, while a lane recording its own checksums is not.
 # install-all rather than a bare install, so guest-language tools reach their lockfiles too -- MISE_ENV only
 # loads a subset, and a partial install leaves every unloaded config's lockfile unexamined.
+#
+# The .mise/locks/ sidecars -- the npm and PyPI tools' dependency graphs, which the lockfiles reference by path and
+# digest -- carry no per-platform rows, so they are compared whole: any change, or a graph directory git does not
+# track yet, is drift.
 [tasks.mise-lock-check]
 depends = ["install-all"]
-description = "Fail if .mise/mise*.lock records a different tool set or version than a full install resolves"
+description = "Fail if .mise/mise*.lock or .mise/locks/ differ from what a full install resolves"
 # `|| true` because rg exits 1 on no matches, which under pipefail would abort the whole task on the clean path.
 # `^[-+][-+]` drops git's `+++`/`---` file headers; `@@` hunk headers never match the leading `[-+]`.
 run = """
 drift=$(git diff -U0 -- .mise/mise*.lock | rg "^[-+]" | rg -v "^[-+][-+]" |
   rg "^[-+](version|backend) = |^[-+]\\[\\[tools\\." || true)
-if [ -n "$drift" ]; then
-  echo "$drift"
-  echo "Lockfile tool set/versions differ from install-all; commit the regenerated .mise/mise*.lock" >&2
+sidecars=$(
+  git diff --name-only -- .mise/locks
+  git ls-files --others --exclude-standard -- .mise/locks
+)
+if [ -n "$drift" ] || [ -n "$sidecars" ]; then
+  [ -z "$drift" ] || echo "$drift"
+  [ -z "$sidecars" ] || echo "$sidecars"
+  echo "Lockfiles differ from install-all; commit the regenerated .mise/mise*.lock and .mise/locks/" >&2
   exit 1
 fi
 """

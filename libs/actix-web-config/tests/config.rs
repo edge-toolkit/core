@@ -122,7 +122,7 @@ fn actix_accepts_the_most_workers_the_config_allows() {
 }
 
 #[test]
-#[should_panic(expected = "workers must not exceed 512")]
+#[should_panic(expected = "Workers must not exceed 512")]
 fn actix_refuses_one_worker_more_than_the_config_allows() {
     let _server = HttpServer::new(App::new).workers(MAX_WORKERS + 1);
 }

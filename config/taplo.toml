@@ -3,8 +3,9 @@
 # scratch + build artifacts (and auto-associates any stray `Cargo.toml` with the SchemaStore Cargo schema),
 # and `data/` holds external upstream repo clones whose TOML files we must never reformat. target/ is also
 # AGENTS.md's scratch area, so scratch TOML is skipped here too -- to lint or test a scratch TOML, pipe it
-# through `taplo format -` / `taplo lint -` (stdin has no path to exclude).
-exclude = ["**/node_modules/**", "data/**", "target/**"]
+# through `taplo format -` / `taplo lint -` (stdin has no path to exclude). `.mise/locks/` is tracked but written by
+# mise, which owns the layout of its sidecar manifests the same way it owns the lockfiles beside them.
+exclude = ["**/node_modules/**", ".mise/locks/**", "data/**", "target/**"]
 
 [formatting]
 column_width = 120

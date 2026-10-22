@@ -70,6 +70,34 @@ url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/ox
 [tools."http:oxfmt".platforms.windows-x64]
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v{{version}}/oxfmt-x86_64-pc-windows-msvc.zip"
 
+[vars]
+# On Windows, point oxlint straight at tsgolint's real exe, skipping the npm cmd-shim on PATH.
+# Without this, `oxlint --type-aware` finds the npm-generated `tsgolint.cmd`, whose fallback line runs a bare `"node"`
+# under cmd.exe -- and cmd.exe silently fails to search a PATH longer than 8191 chars (its per-variable limit;
+# verified: resolves at 8172, fails at 8300), which the mise task PATH exceeds. The task then dies with:
+#     '"node"' is not recognized as an internal or external command,
+#     operable program or batch file.
+#     Error running tsgolint: "exit status: exit code: 1"
+# Observed on commit https://github.com/edge-toolkit/core/commit/8cac021c75ebb69e8100a1ddb8d9b670e197fee4 at
+# https://github.com/edge-toolkit/core/actions/runs/28857668889/job/85588159468 (check windows-latest lane).
+# oxlint consults OXLINT_TSGOLINT_PATH before its node_modules/.bin and PATH walks, and hard-fails on a set but invalid
+# value, so it is exported only on Windows and renders to nothing elsewhere.
+#
+# The install dir is read from `mise where` at run time rather than spelled out. With a dependency graph recorded
+# under .mise/locks, mise installs an npm tool as `<version>~aube~<hash>`, and a path built from the bare version
+# stopped resolving:
+#     Failed to find tsgolint executable: OXLINT_TSGOLINT_PATH points to
+#     'C:/i\npm-oxlint-tsgolint\0.24.0\node_modules\.mise\node_modules\@oxlint-tsgolint\win32-x64\tsgolint.exe'
+#     which does not exist
+# on commit https://github.com/edge-toolkit/core/commit/01a91eb959de4f050289124a6b448c6a372ecfdd at
+# https://github.com/edge-toolkit/core/actions/runs/39880984044/job/120178425913 (check windows-latest lane).
+# Inside the install, aube hoists the platform package into the flat `node_modules/.mise/node_modules` farm.
+tsgolint_env = """{% if os() == "windows" -%}
+tsgolint="$(mise where npm:oxlint-tsgolint)/node_modules/.mise/node_modules/@oxlint-tsgolint/win32-x64"
+export OXLINT_TSGOLINT_PATH="$tsgolint/tsgolint.exe"
+{%- endif -%}
+"""
+
 [tasks.build-ws-har1-module]
 depends = ["build-et-cli", "build-wasm-cov-wrapper"]
 description = "Build the har1 workflow WASM module"
@@ -156,11 +184,19 @@ description = "Lint JavaScript/TypeScript sources (oxlint)"
 # with `--deny-warnings` once those are cleaned up. `--type-aware` (backed by the oxlint-tsgolint tool +
 # config/tsconfig.json) enables the type-aware rule set; without it typescript/prefer-optional-chain silently
 # no-ops.
-run = "oxlint --config config/oxlintrc.jsonc --type-aware --tsconfig config/tsconfig.json"
+run = """
+{{ vars.tsgolint_env }}
+oxlint --config config/oxlintrc.jsonc --type-aware --tsconfig config/tsconfig.json
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.oxlint-fix]
 description = "Auto-fix oxlint violations that have a machine-applicable suggestion"
-run = "oxlint --config config/oxlintrc.jsonc --type-aware --tsconfig config/tsconfig.json --fix"
+run = """
+{{ vars.tsgolint_env }}
+oxlint --config config/oxlintrc.jsonc --type-aware --tsconfig config/tsconfig.json --fix
+"""
+shell = "{{ vars.task_shell }}"
 
 [tasks.oxfmt-check]
 description = "Check JS/TS formatting (oxfmt)"

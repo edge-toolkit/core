@@ -1225,6 +1225,13 @@ A baseline gets rewritten only for a change that is genuinely not about the find
 move, a vendored tree landing wholesale. Even then, say so explicitly, get the operator's sign-off first, and
 report the added/removed counts the update task prints so the delta is reviewable rather than opaque.
 
+Upgrading jscpd itself is the one rewrite an agent may make without asking. A new release re-tokenizes the same
+code -- new languages, a changed tokenizer, different line counting -- so its fingerprints move although no
+duplication was added. In the change that bumps the jscpd pin, run `jscpd-baseline-update`, set `declared_clones`
+in `config/conftest/policy/jscpd/jscpd.rego` to the regenerated baseline's fingerprint count, and report the
+added/removed counts. The bump must be the only thing that moves the baseline: duplication the same change
+introduces is still yours to factor out.
+
 ### A finding from an external analyzer must end up in a local checker
 
 DeepSource, Codacy and Codecov run only after a push, so a rule that lives solely in one of them is a rule the

@@ -1,0 +1,7 @@
+{
+  "name": "mise-npm-install",
+  "private": true,
+  "dependencies": {
+    "oxlint-tsgolint": "0.24.0"
+  }
+}

@@ -29,8 +29,9 @@
   },
   "yaml": {},
   // Package-manager lockfiles are excluded because their generator owns the formatting.
-  // Any reformatting dprint applied would be rewritten wholesale by the next `install` and surface as drift.
-  "excludes": ["**/node_modules", "**/*-lock.json", "**/*-lock.yaml", "data/"],
+  // Any reformatting dprint applied would be rewritten wholesale by the next `install` and surface as drift. mise's
+  // .mise/locks/ dependency graphs are the same case, manifests included.
+  "excludes": ["**/node_modules", "**/*-lock.json", "**/*-lock.yaml", ".mise/locks/", "data/"],
   "plugins": [
     "https://github.com/speakeasy-api/dprint-plugin-java/releases/latest/download/dprint_plugin_java.wasm",
     "https://plugins.dprint.dev/g-plane/malva-v0.15.2.wasm",

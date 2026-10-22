@@ -5,7 +5,7 @@
 # The Kotlin Gradle plugin bundles the compiler, resolved from the Gradle Plugin Portal on first build, the
 # same way the java env's Maven pulls TeaVM from Central. Gradle finds its JVM via the `java` tool on PATH --
 # unlike mvn.cmd it does not require JAVA_HOME on any platform.
-gradle = "9.7.0"
+gradle = "9.8.2"
 # Same JDK pin as config.java.toml carries for Maven; bump the two in lockstep.
 java = "26.0.1"
 

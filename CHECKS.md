@@ -1172,8 +1172,8 @@ Rules, from `config/taplo`:
 - `dockerignore-check` (`default` env; run by `check:rust`) -- Fail if .dockerignore is stale vs .gitignore (run `mise
   run gen:dockerignore`).
 - `gen-specs-check` (`default` env; run by `check:rust`) -- Fail if any checked-in et-int-gen artifact is stale.
-- `mise-lock-check` (`default` env; run by `check:rust`) -- Fail if .mise/mise*.lock records a different tool set or
-  version than a full install resolves.
+- `mise-lock-check` (`default` env; run by `check:rust`) -- Fail if .mise/mise*.lock or .mise/locks/ differ from what a
+  full install resolves.
 - `readme-mise-version-check` (`default` env; run by `check:rust`) -- Fail if README.md's mise version differs from
   min_version in .mise/config.toml.
 - `verification-check` (`default` env; run by `check:rust`) -- Fail if generated scenario output files are stale.

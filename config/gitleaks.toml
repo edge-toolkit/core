@@ -31,9 +31,9 @@ paths = [
   '''(^|/)\.git/''',
   '''(^|/)\.gradle/''',
   '''(^|/)\.kotlin/''',
-  '''(^|/)\.mise/locks/''',
   '''(^|/)\.pytest_cache/''',
   '''(^|/)\.ruff_cache/''',
+  '''(^|/)\.ryl_cache/''',
   '''(^|/)\.venv/''',
   '''(^|/)\.zig-cache/''',
   '''(^|/)__pycache__/''',
@@ -51,6 +51,7 @@ paths = [
   '''^services/ws-server/storage/''',
   '''^services/ws-wasm-agent/pkg/''',
   '''^target/''',
+  '''^verification/.*/\.mise/locks/''',
   '''^zig-out/''',
 ]
 
