@@ -10,6 +10,15 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum CliError {
+    /// Recovery settings cannot safely supervise the declared scenario.
+    #[error("Invalid recovery scenario: {0}")]
+    Recovery(String),
+    /// The supervisor's configuration validation rejected the generated policy or bindings.
+    #[error(transparent)]
+    RecoveryConfig(#[from] et_recovery_supervisor::RecoveryError),
+    /// Recovery runtime settings could not be encoded.
+    #[error("Recovery configuration encoding failed: {0}")]
+    RecoveryEncoding(#[from] serde_json::Error),
     #[error(transparent)]
     Io(#[from] std::io::Error),
 

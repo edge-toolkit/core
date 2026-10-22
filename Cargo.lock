@@ -4460,6 +4460,7 @@ dependencies = [
  "edge-toolkit",
  "et-org",
  "et-path",
+ "et-recovery-supervisor",
  "et-test-helpers",
  "et-ws-test-server",
  "fake",
@@ -4470,6 +4471,7 @@ dependencies = [
  "rand 0.10.2",
  "rand_chacha 0.10.0",
  "serde",
+ "serde-env",
  "serde_json",
  "serde_yaml",
  "sha2 0.11.0",
@@ -4511,6 +4513,7 @@ dependencies = [
  "et-cli",
  "et-modules-service",
  "et-onnx",
+ "et-recovery-supervisor",
  "et-storage-service",
  "et-test-helpers",
  "et-ws-runner-common",
@@ -4613,6 +4616,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "et-recovery-supervisor"
+version = "0.1.0"
+dependencies = [
+ "document-features",
+ "edge-toolkit",
+ "et-otlp",
+ "et-test-helpers",
+ "et-test-recovery",
+ "et-ws-runner-common",
+ "et-ws-test-server",
+ "fs-err",
+ "futures-util",
+ "k8s-openapi",
+ "schemars 1.2.2",
+ "serde",
+ "serde-env",
+ "serde_json",
+ "serde_yaml",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tokio",
+ "tokio-tungstenite",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "uuid",
+]
+
+[[package]]
 name = "et-rest-client"
 version = "0.2.0"
 dependencies = [
@@ -4690,6 +4722,22 @@ dependencies = [
  "opentelemetry_sdk",
  "prost",
  "reqwest",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "et-test-recovery"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "clap",
+ "edge-toolkit",
+ "et-recovery-supervisor",
+ "futures-util",
+ "serde-env",
  "serde_json",
  "tokio",
  "tracing",
@@ -11700,7 +11748,11 @@ checksum = "17a073bfed563fa236697a068031408a93cd9522e08abf9933ead3e73411bd71"
 dependencies = [
  "futures-util",
  "log",
+ "rustls",
+ "rustls-native-certs 0.8.4",
+ "rustls-pki-types",
  "tokio",
+ "tokio-rustls",
  "tungstenite",
 ]
 
@@ -12090,6 +12142,8 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.10.2",
+ "rustls",
+ "rustls-pki-types",
  "sha1 0.11.0",
  "thiserror 2.0.20",
 ]

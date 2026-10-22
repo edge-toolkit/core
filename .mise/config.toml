@@ -3045,6 +3045,15 @@ alias = "cargo-nextest"
 description = "Run every Rust test via nextest (web-runner excluded on gnullvm)"
 run = "cargo nextest run --workspace {{ vars.cargo_ws_excludes }} --config-file config/nextest.toml"
 
+[tasks.test-recovery-supervisor]
+description = "Test recovery policy, Kubernetes observations, persistence, and hub lifecycle transport"
+run = "cargo test -p et-recovery-supervisor"
+tools = { "aqua:kubernetes/kubernetes/kubectl" = "latest" }
+
+[tasks.recovery-supervisor]
+description = "Run the opt-in Core workload recovery supervisor"
+run = "cargo run -p et-recovery-supervisor"
+
 # The self-contained slice of the suite, for platforms still being brought up.
 # These three crates' tests need nothing the host has to provide: no built WASM module, no ws-server, no
 # docker, no network. That is what makes them meaningful on a lane whose job is to prove the toolchain

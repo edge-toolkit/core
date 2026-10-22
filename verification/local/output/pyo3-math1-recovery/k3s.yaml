@@ -1,0 +1,477 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: et-pyo3-math1-recovery
+---
+apiVersion: v1
+kind: ConfigMap
+data:
+  RUST_LOG: warn
+  ZO_DATA_DIR: /data
+  ZO_ROOT_USER_EMAIL: root@example.com
+metadata:
+  name: openobserve-config
+  namespace: et-pyo3-math1-recovery
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openobserve-data
+  namespace: et-pyo3-math1-recovery
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: openobserve
+  name: openobserve
+  namespace: et-pyo3-math1-recovery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openobserve
+  template:
+    metadata:
+      labels:
+        app: openobserve
+    spec:
+      containers:
+        - envFrom:
+            - configMapRef:
+                name: openobserve-config
+            - secretRef:
+                name: et-pyo3-math1-recovery-secrets
+          image: openobserve/openobserve:v1.1.1
+          imagePullPolicy: IfNotPresent
+          name: openobserve
+          ports:
+            - containerPort: 5080
+          readinessProbe:
+            exec:
+              command:
+                - /openobserve
+                - node
+                - status
+            failureThreshold: 20
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /data
+              name: openobserve-data
+            - mountPath: /tmp
+              name: openobserve-tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: openobserve-data
+          persistentVolumeClaim:
+            claimName: openobserve-data
+        - emptyDir: {}
+          name: openobserve-tmp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: openobserve
+  name: openobserve
+  namespace: et-pyo3-math1-recovery
+spec:
+  ports:
+    - name: http
+      port: 5080
+      targetPort: 5080
+  selector:
+    app: openobserve
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ws-server-storage
+  namespace: et-pyo3-math1-recovery
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ws-server
+  name: ws-server
+  namespace: et-pyo3-math1-recovery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ws-server
+  template:
+    metadata:
+      labels:
+        app: ws-server
+    spec:
+      containers:
+        - env:
+            - name: MODULES_PATHS
+              value: /app/services/ws-modules/pyo3-math1
+            - name: MODULES_ROOT
+              value: ""
+            - name: OTLP_AUTH_USERNAME
+              value: root@example.com
+            - name: OTLP_COLLECTOR_URL
+              value: http://openobserve:5080/api/default/v1
+            - name: STORAGE_URL
+              value: file:///app/storage
+            - name: TLS_CERT_FILE
+              value: /app/runtime/cert.pem
+            - name: TLS_KEY_FILE
+              value: /app/runtime/key.pem
+            - name: WS_AGENT_REGISTRY
+              value: /app/runtime/registry.yaml
+          envFrom:
+            - secretRef:
+                name: et-pyo3-math1-recovery-secrets
+          image: et-ws-server-pyo3-math1-recovery:latest
+          imagePullPolicy: IfNotPresent
+          name: ws-server
+          ports:
+            - containerPort: 8080
+            - containerPort: 8443
+          readinessProbe:
+            failureThreshold: 20
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /app/storage
+              name: ws-server-storage
+            - mountPath: /app/runtime
+              name: ws-server-runtime
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: ws-server-storage
+          persistentVolumeClaim:
+            claimName: ws-server-storage
+        - emptyDir: {}
+          name: ws-server-runtime
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ws-server
+  name: ws-server
+  namespace: et-pyo3-math1-recovery
+spec:
+  ports:
+    - name: ws
+      port: 8080
+      targetPort: 8080
+    - name: wss
+      port: 8443
+      targetPort: 8443
+  selector:
+    app: ws-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: example-worker
+  name: example-worker
+  namespace: et-pyo3-math1-recovery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: example-worker
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: example-worker
+    spec:
+      containers:
+        - env:
+            - name: RUNNER_MODULE
+              value: "@edge-toolkit/et-ws-pyo3-math1"
+            - name: WS_SERVER_URL
+              value: ws://ws-server:8080/ws
+            - name: PYO3_AGENT_ID
+              value: example-worker
+            - name: RECOVERY_JOB_ID
+              value: example-job
+            - name: RECOVERY_SUPERVISOR_AGENT_ID
+              value: recovery-supervisor
+          image: et-ws-pyo3-runner:latest
+          imagePullPolicy: IfNotPresent
+          name: example-worker
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: runner-tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - emptyDir: {}
+          name: runner-tmp
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: recovery-supervisor
+  namespace: et-pyo3-math1-recovery
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: recovery-supervisor
+  namespace: et-pyo3-math1-recovery
+rules:
+  - apiGroups:
+      - apps
+    resourceNames:
+      - example-worker
+    resources:
+      - deployments
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: recovery-supervisor
+  namespace: et-pyo3-math1-recovery
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: recovery-supervisor
+subjects:
+  - kind: ServiceAccount
+    name: recovery-supervisor
+    namespace: et-pyo3-math1-recovery
+---
+apiVersion: v1
+kind: ConfigMap
+data:
+  kubeconfig: |
+    apiVersion: v1
+    clusters:
+    - cluster:
+        certificate-authority: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        server: https://kubernetes.default.svc
+      name: cluster
+    contexts:
+    - context:
+        cluster: cluster
+        namespace: et-pyo3-math1-recovery
+        user: supervisor
+      name: in-cluster
+    current-context: in-cluster
+    kind: Config
+    users:
+    - name: supervisor
+      user:
+        tokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+metadata:
+  name: recovery-credentials
+  namespace: et-pyo3-math1-recovery
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: recovery-state
+  namespace: et-pyo3-math1-recovery
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: recovery-supervisor
+  name: recovery-supervisor
+  namespace: et-pyo3-math1-recovery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: recovery-supervisor
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: recovery-supervisor
+    spec:
+      automountServiceAccountToken: true
+      containers:
+        - env:
+            - name: KUBECONFIG
+              value: /app/credentials/kubeconfig
+            - name: RECOVERY_AGENT_ID
+              value: recovery-supervisor
+            - name: RECOVERY_COMMAND_TIMEOUT_SECONDS
+              value: "10"
+            - name: RECOVERY_CONTEXT
+              value: in-cluster
+            - name: RECOVERY_JOB_ID
+              value: example-job
+            - name: RECOVERY_MODE
+              value: observe-only
+            - name: RECOVERY_NAMESPACE
+              value: et-pyo3-math1-recovery
+            - name: RECOVERY_POLICY_DEADLINE_SECONDS
+              value: "240"
+            - name: RECOVERY_POLICY_DETECTION_GRACE_SECONDS
+              value: "3"
+            - name: RECOVERY_POLICY_MAX_RESTARTS
+              value: "2"
+            - name: RECOVERY_POLICY_RESTART_AFTER_SECONDS
+              value: "20"
+            - name: RECOVERY_POLICY_STALL_SECONDS
+              value: "180"
+            - name: RECOVERY_POLL_SECONDS
+              value: "2"
+            - name: RECOVERY_STATE_FILE
+              value: /app/state/recovery.json
+            - name: RECOVERY_WORKLOADS
+              value: '[{"agent_id":"example-worker","deployment":"example-worker","source":"/modules/@edge-toolkit/et-ws-pyo3-math1"}]'
+            - name: RECOVERY_WS_URL
+              value: ws://ws-server:8080/ws
+            - name: RUST_LOG
+              value: info
+          image: et-recovery-supervisor:latest
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            exec:
+              command:
+                - et-recovery-healthcheck
+            failureThreshold: 3
+            periodSeconds: 10
+            timeoutSeconds: 3
+          name: recovery-supervisor
+          readinessProbe:
+            exec:
+              command:
+                - et-recovery-healthcheck
+            failureThreshold: 3
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          startupProbe:
+            exec:
+              command:
+                - et-recovery-healthcheck
+            failureThreshold: 62
+            periodSeconds: 1
+            timeoutSeconds: 3
+          volumeMounts:
+            - mountPath: /app/state
+              name: recovery-state
+            - mountPath: /app/runtime
+              name: recovery-runtime
+            - mountPath: /app/credentials
+              name: recovery-credentials
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: recovery-supervisor
+      volumes:
+        - name: recovery-state
+          persistentVolumeClaim:
+            claimName: recovery-state
+        - emptyDir: {}
+          name: recovery-runtime
+        - configMap:
+            name: recovery-credentials
+          name: recovery-credentials

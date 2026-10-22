@@ -26,6 +26,7 @@ name: k3s
       - services/ws-web-runner/Dockerfile
       - services/ws-test-server/src/bin/verify-math1.rs
       - utilities/cli/src/deployment_types/k3s.rs
+      - utilities/cli/src/deployment_types/k3s_recovery.rs
       # What decides which machine runs what, and the compose stack `compose-verify` starts from it.
       - utilities/cli/src/deployment_types/docker_compose.rs
       - utilities/cli/src/placement.rs

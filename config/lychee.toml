@@ -50,6 +50,8 @@ exclude = [
   '\{|%7B',
   '^file:///app/storage$',
   '^https://github\.com/[^/]+/[^/]+/actions/runs/',
+  # Kubernetes API address; reachable only from inside the cluster.
+  '^https://kubernetes\.default\.svc/?$',
   '^https://openhub\.net/p/edge-toolkit(/|$)',
   '^https?://host[:/]',
 ]

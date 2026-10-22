@@ -14,6 +14,7 @@ members = [
   "libs/test-helpers",
   "libs/test-nats",
   "libs/test-otlp",
+  "libs/test-recovery",
   "libs/wasi-guest",
   "libs/web",
   "libs/ws-runner-common",
@@ -41,6 +42,7 @@ members = [
   "services/hub-backplane",
   "services/modules",
   "services/storage",
+  "services/recovery-supervisor",
   "services/websockify",
   "services/ws",
   "services/ws-pyo3-runner",
@@ -103,11 +105,13 @@ et-onnx = { path = "utilities/onnx", version = "0.2.0" }
 et-org = { path = "libs/org", version = "0.2.0" }
 et-otlp = { path = "libs/et-otlp", version = "0.3.0" }
 et-path = { path = "libs/path", version = "0.3.0" }
+et-recovery-supervisor = { path = "services/recovery-supervisor", version = "0.1.0" }
 et-rest-client = { path = "generated/rust-rest", version = "0.2.0", default-features = false }
 et-storage-service = { path = "services/storage", version = "0.2.0", default-features = false }
 et-test-helpers = { path = "libs/test-helpers", version = "0.2.0" }
 et-test-nats = { path = "libs/test-nats", version = "0.2.0" }
 et-test-otlp = { path = "libs/test-otlp", version = "0.2.0" }
+et-test-recovery = { path = "libs/test-recovery", version = "0.1.0" }
 et-wasi-guest = { path = "libs/wasi-guest", version = "0.2.0" }
 et-web = { path = "libs/web", version = "0.3.0" }
 et-websockify-service = { path = "services/websockify", version = "0.2.0" }

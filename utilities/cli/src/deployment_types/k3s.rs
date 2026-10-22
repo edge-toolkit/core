@@ -42,6 +42,7 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1::{LabelSelector, ObjectMeta};
 use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 
 use super::document;
+use super::k3s_recovery;
 use crate::error::CliError;
 use crate::input::{ArtifactSource, ClusterInput};
 use crate::limits::{CpuCap, Limits, MAX_CPU_SHARES, ResolvedLimits, k8s_bytes, k8s_cpus};
@@ -60,10 +61,10 @@ use crate::{
 /// `IfNotPresent` is what stops every restart re-pulling a tag the node already holds. It also lets a published-image
 /// scenario be tested against a local build of the same tag, which is how CI checks a change to an image before it
 /// is published.
-const IMAGE_PULL_POLICY: &str = "IfNotPresent";
+pub(super) const IMAGE_PULL_POLICY: &str = "IfNotPresent";
 
 /// Tag the generated manifests reference, matching what the README's build-and-import step produces.
-const IMAGE_TAG: &str = "latest";
+pub(super) const IMAGE_TAG: &str = "latest";
 
 /// Collector image, matching the one `compose.yaml` runs.
 const OPENOBSERVE_IMAGE: &str = "openobserve/openobserve:v1.1.1";
@@ -202,6 +203,7 @@ pub fn generate_k3s_deployment(cluster: &ClusterInput, output_dir: &Path) -> Res
         ),
         cluster,
     )?;
+    crate::recovery::validate(cluster, &runners)?;
     let serves_a_page = super::serves_a_page(cluster);
     let module_paths = docker_image_module_paths(&cluster_module_names(cluster), serves_a_page, &cluster.module_paths)?;
     // Empty for a headless cluster, which is not given the page: the hub rejects a root it cannot find among the
@@ -213,9 +215,16 @@ pub fn generate_k3s_deployment(cluster: &ClusterInput, output_dir: &Path) -> Res
     };
 
     let mut docs = fixed_documents(&namespace, cluster, &module_paths, &root_module, &hub_site(cluster))?;
-    for runner in &runners {
-        docs.push(runner_document(&namespace, runner, cluster.artifact_source)?);
+    for mut runner in runners {
+        let supervised = k3s_recovery::configure_runner(cluster, &mut runner);
+        docs.push(runner_document(
+            &namespace,
+            &runner,
+            cluster.artifact_source,
+            supervised,
+        )?);
     }
+    docs.extend(k3s_recovery::documents(cluster, &namespace)?);
     let plugins = cluster_plugins(cluster);
     docs.extend(runtime_plugin_documents(&plugins)?);
 
@@ -281,7 +290,7 @@ fn labels(name: &str) -> BTreeMap<String, String> {
 }
 
 /// Metadata for a namespaced object, labelled so its Service can select it.
-fn meta(namespace: &str, name: &str) -> ObjectMeta {
+pub(super) fn meta(namespace: &str, name: &str) -> ObjectMeta {
     ObjectMeta {
         labels: Some(labels(name)),
         name: Some(name.to_string()),
@@ -291,7 +300,7 @@ fn meta(namespace: &str, name: &str) -> ObjectMeta {
 }
 
 /// Metadata for an object that holds no pods, so nothing ever selects it by label.
-fn plain_meta(namespace: &str, name: &str) -> ObjectMeta {
+pub(super) fn plain_meta(namespace: &str, name: &str) -> ObjectMeta {
     ObjectMeta {
         name: Some(name.to_string()),
         namespace: Some(namespace.to_string()),
@@ -330,7 +339,7 @@ fn collector_config(namespace: &str) -> ConfigMap {
 }
 
 /// A one-gigabyte `ReadWriteOnce` claim, standing in for the named volumes `compose.yaml` declares.
-fn claim(namespace: &str, name: &str) -> PersistentVolumeClaim {
+pub(super) fn claim(namespace: &str, name: &str) -> PersistentVolumeClaim {
     PersistentVolumeClaim {
         metadata: plain_meta(namespace, name),
         spec: Some(PersistentVolumeClaimSpec {
@@ -368,7 +377,7 @@ fn from_secret(namespace: &str) -> EnvFromSource {
 }
 
 /// One literal environment entry.
-fn env(name: &str, value: String) -> EnvVar {
+pub(super) fn env(name: &str, value: String) -> EnvVar {
     EnvVar {
         name: name.to_string(),
         value: Some(value),
@@ -392,7 +401,7 @@ fn probe(exec: Option<ExecAction>, http_get: Option<HTTPGetAction>) -> Probe {
 /// Drops every capability, forbids privilege escalation, and takes the root filesystem read-only; anything a container
 /// genuinely has to write gets an explicit volume instead. `runAsNonRoot` is belt-and-braces next to the pod-level ids
 /// -- it makes the kubelet refuse to start a container that would resolve to uid 0 anyway.
-fn hardened_container_context() -> SecurityContext {
+pub(super) fn hardened_container_context() -> SecurityContext {
     SecurityContext {
         allow_privilege_escalation: Some(false),
         capabilities: Some(Capabilities {
@@ -561,9 +570,14 @@ fn cluster_plugins(cluster: &ClusterInput) -> Vec<&'static RuntimePlugin> {
         .filter(|agent| agent.runner.is_some())
         .map(|agent| &agent.limits);
     let services = &cluster.services;
+    let recovery_limits = match &cluster.recovery {
+        crate::recovery::Recovery::Configured(settings) => vec![&settings.limits],
+        crate::recovery::Recovery::Disabled => Vec::new(),
+    };
     let mut needed: Vec<&RuntimePlugin> = [&services.collector.limits, &services.hub.limits]
         .into_iter()
         .chain(agents)
+        .chain(recovery_limits)
         .flat_map(|limits| required_plugins(&limits.resolve()))
         .collect();
     needed.sort_unstable_by_key(|plugin| plugin.name);
@@ -746,7 +760,7 @@ fn mount_shm(container: &mut Container, volumes: &mut Vec<Volume>, limits: &Limi
 }
 
 /// The container half of a volume pair, which is the same whatever the volume is backed by.
-fn volume_mount(name: &str, path: &str) -> VolumeMount {
+pub(super) fn volume_mount(name: &str, path: &str) -> VolumeMount {
     VolumeMount {
         mount_path: path.to_string(),
         name: name.to_string(),
@@ -760,7 +774,7 @@ fn volume_mount(name: &str, path: &str) -> VolumeMount {
 /// so a caller passing `/tmp` is naming the containerised program's own temp directory rather than creating a world-
 /// writable file on the host. `DeepSource RS-S1003` reads the literal as the latter, which is why every call site
 /// passing `/tmp` carries a `skipcq` for that one rule.
-fn scratch(name: &str, path: &str) -> (VolumeMount, Volume) {
+pub(super) fn scratch(name: &str, path: &str) -> (VolumeMount, Volume) {
     let volume = Volume {
         empty_dir: Some(EmptyDirVolumeSource::default()),
         name: name.to_string(),
@@ -770,7 +784,7 @@ fn scratch(name: &str, path: &str) -> (VolumeMount, Volume) {
 }
 
 /// Mount a claim of the same name at `path`.
-fn mount(name: &str, path: &str) -> (VolumeMount, Volume) {
+pub(super) fn mount(name: &str, path: &str) -> (VolumeMount, Volume) {
     let volume = Volume {
         name: name.to_string(),
         persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
@@ -786,7 +800,7 @@ fn mount(name: &str, path: &str) -> (VolumeMount, Volume) {
 ///
 /// A single-host scenario pins nothing and leaves placement to the scheduler, which on one node has no choice to make.
 /// `limits` are applied here rather than by each caller, so no component can be built without them.
-fn deployment(
+pub(super) fn deployment(
     namespace: &str,
     name: &str,
     container: Container,
@@ -1053,7 +1067,12 @@ fn runner_env(runner: &RunnerInstance) -> Vec<EnvVar> {
 /// One workload per runner, each hosting a single module exactly as the other formats arrange it.
 ///
 /// A `Deployment` for a runner that runs continuously, a `CronJob` for a scheduled one.
-fn runner_document(namespace: &str, runner: &RunnerInstance, images: ArtifactSource) -> Result<String, CliError> {
+fn runner_document(
+    namespace: &str,
+    runner: &RunnerInstance,
+    images: ArtifactSource,
+    supervised: bool,
+) -> Result<String, CliError> {
     // A runner fetches its module to a scratch directory and, for the web runner, lets Deno cache there, so a read-only
     // root needs somewhere writable even though nothing is meant to persist. skipcq: RS-S1003
     let (runtime_mount, runtime_volume) = scratch("runner-tmp", "/tmp");
@@ -1072,14 +1091,18 @@ fn runner_document(namespace: &str, runner: &RunnerInstance, images: ArtifactSou
     };
     let volumes = vec![runtime_volume];
     if runner.schedule.is_unset() {
-        return document(&deployment(
+        let mut object = deployment(
             namespace,
             &runner.name,
             container,
             volumes,
             &runner.site,
             &runner.limits,
-        ));
+        );
+        if supervised {
+            k3s_recovery::recreate(&mut object);
+        }
+        return document(&object);
     }
     let template = pod_template(&runner.name, container, volumes, &runner.site, &runner.limits);
     document(&cron_job(namespace, &runner.name, template, &runner.schedule))
