@@ -5,7 +5,7 @@
 [tools]
 "pipx:componentize-py" = "latest"
 "pipx:datamodel-code-generator" = { version = "latest", extras = "ruff" }
-"pipx:openapi-python-client" = "0.29.0"
+"pipx:openapi-python-client" = "0.29.1"
 "pipx:pyrefly" = "latest"
 "pipx:pytest" = "latest"
 # PyTorch, for the et-ws-pyo3-runner `torch_inference` test.

@@ -4,6 +4,7 @@
   "mode": "mild",
   "ignorePattern": ["- name: Checkout[\\s\\S]*?persist-credentials: false"],
   "ignore": [
+    ".mise/locks/**",
     "generated/**",
     "verification/**",
     "**/HELP.md",

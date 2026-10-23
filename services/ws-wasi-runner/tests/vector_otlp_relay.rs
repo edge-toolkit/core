@@ -14,7 +14,7 @@
 //!   5. Assert the buffered span is forwarded to the mock, intact -- same span name and service.
 //!
 //! The Vector config is the static, checked-in `config/vector-otlp-relay.yaml`; per-run ports and the
-//! buffer's `data_dir` are passed as `RELAY_*` env vars, which Vector interpolates.
+//! buffer's `data_dir` are passed as `RELAY_*` env vars, which Vector is told to interpolate.
 
 #![cfg(test)]
 #![expect(clippy::single_call_fn, reason = "test code: named single-use step helpers")]
@@ -59,6 +59,9 @@ fn vector_relays_buffered_otlp_after_backend_comes_online() {
     let mut child = Command::new("vector")
         .arg("-c")
         .arg(&config_path)
+        // Vector interpolates `${VAR}` only on request. Every value it would substitute is one this test sets
+        // below -- reserved ports and its own tempdir -- so no ambient variable can reach the config.
+        .arg("--dangerously-allow-env-var-interpolation")
         // Sink detail, because `warn` left this test's failures undiagnosable.
         // Every redelivery failure quoted two config-loading warnings and nothing else -- no attempt, no error,
         // no retry -- which cannot distinguish a sink that retried and was refused from one that never had the

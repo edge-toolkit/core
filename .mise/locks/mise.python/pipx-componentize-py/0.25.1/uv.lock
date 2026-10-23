@@ -1,0 +1,30 @@
+version = 1
+revision = 5
+requires-python = ">=3.8"
+
+[options]
+exclude-newer = "2026-10-20T11:35:38.362078Z"
+
+[[package]]
+name = "componentize-py"
+version = "0.25.1"
+source = { registry = "https://pypi.org/simple/" }
+sdist = { url = "https://files.pythonhosted.org/packages/77/3d/c769bac866429f36a6d52451fb2980d5e8784efb1d265fb85eaaceb3c285/componentize_py-0.25.1.tar.gz", hash = "sha256:e4087e916b06171303f803c8ffdd5f177e2422e87d9bed6ffe55cc41b2248aa8", size = 192179, upload-time = "2026-09-12T00:46:39.345Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a1/fc/ea8ac30a3de452626e32c051a38f548e9f7863cd10c35705396e257ac029/componentize_py-0.25.1-cp39-abi3-macosx_10_12_x86_64.whl", hash = "sha256:65fbc4a94df1de8acf7da50a1f5ed1711230188844e53e6332d99029be4e0afa", size = 16115332, upload-time = "2026-09-12T00:46:05.55Z" },
+    { url = "https://files.pythonhosted.org/packages/4b/9c/f444240899a9b43c60b808d0ece5dff8f3dc6831aa119a1d8eb28d952bad/componentize_py-0.25.1-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:a556991534cc496207a9d2ca733c4b0f17ed38ef56a8d6b5f1847fdf1225dd1b", size = 15379697, upload-time = "2026-09-12T00:46:15.278Z" },
+    { url = "https://files.pythonhosted.org/packages/56/66/24a9671f1d9c608e53a8d5ae4873d1fc480f0603488a2f46132e70cc6839/componentize_py-0.25.1-cp39-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:7b6a87c520358166843af0daa86d2312d7af4cbcbbf1e598951085cf7f2991ca", size = 17143402, upload-time = "2026-09-12T00:46:22.865Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/c6/ad1431751ff1969a132323f6e2797ec38ccdf9d0a53aabb45d79221092a4/componentize_py-0.25.1-cp39-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:8623cd8cab8453cb0cd8bf03f3c7103420d06f2f3d360186a280a70a1ca5e89f", size = 17122694, upload-time = "2026-09-12T00:46:30.3Z" },
+    { url = "https://files.pythonhosted.org/packages/4b/60/5b08715534795d84feec8ec8ae50599681ea1199ee7b300ad072fdcd24af/componentize_py-0.25.1-cp39-abi3-win_amd64.whl", hash = "sha256:c7fd552fb0849858b0c1e8981543ed5dff4b0cc1597a8ea0bc26a495786dc0c6", size = 15285843, upload-time = "2026-09-12T00:46:37.399Z" },
+]
+
+[[package]]
+name = "mise-pypi-tool-environment"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "componentize-py" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "componentize-py", specifier = "==0.25.1" }]

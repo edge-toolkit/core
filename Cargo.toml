@@ -146,8 +146,8 @@ libc = "0.2"
 local-ip-address = "0.6"
 log = "0.4"
 # minicov's profiler runtime must match the LLVM of the toolchain that instruments the guests.
-# Held at exactly 0.3.8 (profraw format 10, LLVM 22) because wasm-bindgen-test 0.3.78 -- the only release that
-# pairs with wasm-bindgen 0.2.128 -- pins `minicov = "=0.3.8"` under its coverage cfg (wasm-bindgen PR 5283),
+# Held at exactly 0.3.8 (profraw format 10, LLVM 22) because wasm-bindgen-test 0.3.79 -- the only release that
+# pairs with wasm-bindgen 0.2.129 -- pins `minicov = "=0.3.8"` under its coverage cfg (wasm-bindgen PR 5283),
 # and cargo unifies every 0.3.x onto one copy. As a caret range the resolver satisfied that pin the other way
 # round: it kept 0.3.9 for us and dropped wasm-bindgen-test to 0.3.45, whose test exports the 0.2.128 runner
 # cannot see, so every browser coverage build reported `no tests to run!` and then failed on its missing
@@ -165,7 +165,9 @@ minicov = "=0.3.8"
 # Third-party OTLP mock collector, wrapped by et-test-otlp for the workspace's integration tests.
 # Serves the spec paths (/v1/traces, ...), so a consumer points `collector_url` at the mock's own `/v1` base
 # for `et-otlp`'s `{collector_url}/traces` shape to land on them.
-mock-collector = "0.2"
+# Held at 0.2.14, the last release on opentelemetry 0.32: 0.2.15 moved to 0.33 within the same 0.2 line, and the
+# workspace stays on 0.32 until tracing-actix-web offers an `opentelemetry_0_33` feature for ws-server's propagation.
+mock-collector = "=0.2.14"
 nutype = { version = "0.8", features = ["serde"] }
 onnx-extractor = "0.5"
 # Storage backend abstraction: local disk by default, any object_store backend via a URL.
@@ -203,9 +205,9 @@ progenitor-client = "0.15"
 prost = "0.14"
 # `auto-initialize` starts the embedded CPython interpreter on first use.
 # The pyo3 runner never calls `Py_Initialize` itself.
-pyo3 = { version = "0.29", features = ["auto-initialize"] }
+pyo3 = { version = "0.30", features = ["auto-initialize"] }
 # Build-script half of pyo3. Kept on the same release so both resolve the interpreter identically.
-pyo3-build-config = "0.29"
+pyo3-build-config = "0.30"
 qr2term = "0.3"
 quote = "1"
 # Kept in lockstep with whichever rand major `fake` builds against.
@@ -221,7 +223,7 @@ regex = { version = "1.12", default-features = false }
 reqwest = { version = "0.13", default-features = false }
 retry = { version = "2", default-features = false }
 retry-policies = "0.5"
-rstest = "0.27"
+rstest = "0.28"
 rustls = "0.23"
 schemars = { version = "1.2", features = ["derive"] }
 secrecy = { version = "0.10", features = ["serde"] }
@@ -261,7 +263,7 @@ tree-sitter-zig = "1"
 # Already resolved transitively (object_store, reqwest, ...), so this adds no new crate or license to review.
 # object_store's parse_url_opts takes a `&Url` and does not re-export the type, so a backend-URL config needs it.
 url = "2"
-utoipa = { version = "5", features = ["actix_extras", "yaml"] }
+utoipa = { version = "6", features = ["actix_extras", "yaml"] }
 uuid = { version = "1", features = ["serde", "v4", "v7"] }
 wasi-webgpu-wasmtime = "0.4"
 wasm-bindgen = "0.2"
@@ -286,7 +288,7 @@ wgpu-core = { version = "29", default-features = false }
 wgpu-types = "29"
 # Windows-only feature-unification shim: forces `winapi/std` on for deno_io.
 winapi = { version = "0.3", features = ["std"] }
-wit-bindgen = "0.62"
+wit-bindgen = "0.63"
 wit-encoder = "0.258"
 # Held to the release wasmtime-internal-wit-bindgen builds against.
 # et-int-gen hands it a `Resolve` from this crate, and a second wit-parser in the graph makes that a different type.

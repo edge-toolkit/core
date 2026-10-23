@@ -1,0 +1,25 @@
+version = 1
+revision = 5
+requires-python = ">=3.8"
+
+[options]
+exclude-newer = "2026-10-21T02:06:17.619584Z"
+
+[[package]]
+name = "flawfinder"
+version = "2.0.20"
+source = { registry = "https://pypi.org/simple/" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ce/2f/4ebfd9c48136f1475b07fab36899d4cb63eccb9086be78b97d7032d871c6/flawfinder-2.0.20-py2.py3-none-any.whl", hash = "sha256:4388670f27574cc42fed6bdb3c2dee42d1c383404240f3f56c8c079cc3fee321", size = 64757, upload-time = "2026-05-17T20:27:01.044Z" },
+]
+
+[[package]]
+name = "mise-pypi-tool-environment"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "flawfinder" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "flawfinder", specifier = "==2.0.20" }]

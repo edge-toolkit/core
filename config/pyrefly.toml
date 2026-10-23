@@ -8,7 +8,7 @@ project-includes = ["../libs/python-*/**/*.py", "../services/**/*.py"]
 
 # The Python the code is checked against, rather than whichever interpreter the host's PATH yields first.
 # Must equal the mise `python` pin.
-python-version = "3.13.14"
+python-version = "3.13.16"
 
 # Resolve imports from `search-path` alone, never from an interpreter's site-packages.
 # A workstation's workspace `.venv` installs every package here editable, so its interpreter would resolve imports

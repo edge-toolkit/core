@@ -59,6 +59,11 @@ max_line_length = unset
 [.mise/mise*.lock]
 max_line_length = unset
 
+# The npm/PyPI dependency graphs those lockfiles reference, in aube's and uv's own formats. mise writes them, and
+# their integrity and tarball URLs run past the line length the same way.
+[.mise/locks/**]
+max_line_length = unset
+
 # openapi-python-client emits framework-boilerplate docstrings (e.g. the
 # "errors.UnexpectedStatus: If the server returns an undocumented status code ..." line in every operation) that exceed
 # the line length, and continuation lines inside the generated function signatures use 3-space indentation that

@@ -79,6 +79,13 @@ required_in = [
   "config/semgrep/sorted-lists.yaml",
 ]
 
+# mise's npm/PyPI dependency graphs beside the .mise/mise*.lock files that reference them.
+# Package-manager lockfiles repeat the same resolution blocks across tools and against pnpm-lock.yaml by
+# construction, so only the duplication check needs to skip them.
+[tree.".mise/locks"]
+regenerated_by = "mise lock --bump"
+required_in = ["config/jscpd.json"]
+
 # Scenario-generator outputs checked in beside their inputs; holds no Rust, so the Rust-only rules are absent.
 [tree.verification]
 regenerated_by = "mise run regen-verification"

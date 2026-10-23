@@ -10,7 +10,8 @@
  * therefore carries an inline `// NOLINT` for bugprone-reserved-identifier / cert-dcl37-c (plus
  * cppcoreguidelines-avoid-non-const-global-variables on the globals) -- the narrowest scope, and honored by
  * every analyzer that reports those, `DeepSource CXX-E2000` (reserved identifier) and `DeepSource CXX-W2009`
- * (non-const) included. */
+ * (non-const) included. The naked stubs also carry portability-no-assembler: each is a bare jump or return that
+ * must not touch the stack or registers, which only inline assembly can express. */
 
 // skipcq: CXX-W2030 -- this is C; <cstdint> exists only in C++
 #include <stdint.h>
@@ -27,23 +28,25 @@ int _fltused = 0x9875;
 /* winlibs' libucrtbase.a import lib lacks _strtold_l.
  * MSVC long double IS double (both return in xmm0 with identical argument registers), so forward to the
  * _strtod_l import untouched. */
-// NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c)
+// NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c, portability-no-assembler)
 __attribute__((naked)) void _strtold_l(void) { __asm__("jmp _strtod_l"); }
 
 /* /GS stack cookie (libvcruntime static). Fixed default cookie; the check is a no-op. */
 // NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c, cppcoreguidelines-avoid-non-const-global-variables)
 uintptr_t __security_cookie = 0x00002B992DDFA232ULL;
-// NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c)
+// NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c, portability-no-assembler)
 __attribute__((naked)) void __security_check_cookie(void) { __asm__("ret"); }
 
 /* MSVC stack probe: same contract as libgcc's ___chkstk_ms (rax = frame size, all regs preserved). */
-// NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c)
+// NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c, portability-no-assembler)
 __attribute__((naked)) void __chkstk(void) { __asm__("jmp ___chkstk_ms"); }
 
 /* Control Flow Guard dispatch/check pointers, with the non-CFG default behaviour.
  * Guarded code does `call *__guard_dispatch_icall_fptr` with the target in rax; the defaults are dispatch
  * jumps to rax, check returns. */
+// NOLINTNEXTLINE(portability-no-assembler)
 __attribute__((naked)) static void guard_dispatch_impl(void) { __asm__("jmp *%rax"); }
+// NOLINTNEXTLINE(portability-no-assembler)
 __attribute__((naked)) static void guard_check_impl(void) { __asm__("ret"); }
 // NOLINTNEXTLINE(bugprone-reserved-identifier, cert-dcl37-c, cppcoreguidelines-avoid-non-const-global-variables)
 void (*__guard_dispatch_icall_fptr)(void) = guard_dispatch_impl;

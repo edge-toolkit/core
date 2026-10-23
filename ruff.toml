@@ -8,6 +8,12 @@
 # that ruff considered "already formatted" could still sit over the limit.
 line-length = 120
 
+# The oldest Python every package here declares in `requires-python`.
+# This root config is what ruff reads, so it never sees those per-package floors and falls back to its own default
+# target, which from 0.17 is newer than 3.10 -- and then proposes 3.11-only APIs such as `datetime.UTC` (UP017)
+# that would break the 3.10 support the packages advertise. Raise it together with those floors.
+target-version = "py310"
+
 # Exclude componentize-py's generated bindings, which we don't own and don't ship.
 # componentize-py regenerates `wit_world` and `componentize_py_async_support`
 # under services/ws-modules/wasi-graphics-info/ on every build. Exclude them here

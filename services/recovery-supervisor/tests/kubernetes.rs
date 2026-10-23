@@ -11,6 +11,7 @@ use et_test_helpers::temp_env;
 use fs_err as fs;
 use k8s_openapi::api::apps::v1::{Deployment, DeploymentSpec, DeploymentStatus};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
+use k8s_openapi::apimachinery::pkg::version::Info;
 use serde_json::{Value, json};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::{TcpListener, TcpStream};
@@ -63,6 +64,14 @@ fn response(path: &str) -> Value {
                 "kind":"Deployment", "verbs":["get","patch"]}]
         }),
         "/apis/apps/v1/namespaces/example/deployments/example-worker" => deployment(),
+        // kubectl 1.37 reads the server version before discovery, to warn about client/server skew.
+        "/version" => serde_json::to_value(Info {
+            git_version: "v1.37.0".into(),
+            major: "1".into(),
+            minor: "37".into(),
+            ..Info::default()
+        })
+        .unwrap(),
         _ => panic!("unexpected Kubernetes API path: {path}"),
     }
 }

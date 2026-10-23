@@ -261,6 +261,19 @@ async fn concurrent_senders_all_land_in_one_mailbox() {
     assert_eq!(hubs[0].pending_for("busy").await.unwrap().len(), 40);
 }
 
+// Known intermittent failure, not yet fixed: on slow runners (the `override (mingw)` lane of test.yaml) this times
+// out in `next_inbound` with
+//
+//     panicked at services\hub-backplane\tests\backplane.rs:30:10:
+//     called `Result::unwrap()` on an `Err` value: Elapsed(())
+//
+// on commit https://github.com/edge-toolkit/core/commit/c91d332c72d0c94f9fd4aa915c1d485fee251fd0 at
+// https://github.com/edge-toolkit/core/actions/runs/39857810014/job/120100468951. The cause is in
+// `NatsBackplane::subscribe`, not here: its `flush()` is meant to wait until the server has registered the
+// subscriptions, but async-nats 0.50's `Client::flush` resolves once the write buffer reaches the socket, with no
+// server round trip. A frame the other hub publishes on its own connection can then reach the server before the
+// SUB does, and core NATS drops it. The fix is a real round trip in `subscribe` (say, publish to a fresh inbox and
+// await its echo), not a longer timeout here.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn frames_reach_the_named_hub_and_broadcasts_reach_the_others() {
     let server = NatsServer::start();

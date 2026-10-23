@@ -19,9 +19,9 @@ pub const LOCALHOST: &str = "127.0.0.1";
 ///
 /// Matched case-insensitively, ignoring surrounding whitespace.
 ///
-/// These sentinels let an `Option<_>` env-var field be set to `None`. A blank
-/// value can't serve that role -- `serde-env` drops empty-valued vars, so a
-/// blank var is indistinguishable from unset (both fall back to the default).
+/// These sentinels let an `Option<_>` env-var field be set to `None`. A blank value can't serve that role --
+/// `serde-env` drops empty-valued vars, so a blank var is indistinguishable from unset (both fall back to the
+/// default).
 #[must_use]
 pub fn is_disabled_sentinel(value: &str) -> bool {
     let trimmed = value.trim();
@@ -32,12 +32,10 @@ pub fn is_disabled_sentinel(value: &str) -> bool {
 
 /// Deserialize `Option<T>`, mapping a disable sentinel ([`is_disabled_sentinel`]) to `None`, else `Some(T)`.
 ///
-/// Generic over the inner type, for fields read from env vars via `serde-env`:
-/// the value arrives as a string, so this works for any `T` whose `Deserialize`
-/// accepts a string scalar (e.g. `bytesize::ByteSize`, `String`). `Duration`
-/// is the exception -- its `Deserialize` isn't humantime -- so use
-/// [`deserialize_optional_humantime`] for duration fields. Pair either with
-/// `#[serde(default = "...")]` for the unset case.
+/// Generic over the inner type, for fields read from env vars via `serde-env`: the value arrives as a string, so this
+/// works for any `T` whose `Deserialize` accepts a string scalar (e.g. `bytesize::ByteSize`, `String`). `Duration` is
+/// the exception -- its `Deserialize` isn't humantime -- so use [`deserialize_optional_humantime`] for duration fields.
+/// Pair either with `#[serde(default = "...")]` for the unset case.
 ///
 /// # Errors
 /// Returns the deserializer's error if the value is neither a sentinel nor a
@@ -59,8 +57,8 @@ where
 
 /// [`deserialize_optional`] for `Option<Duration>` fields, parsing a humantime duration (e.g. `15s`, `1m30s`).
 ///
-/// Separate from the generic [`deserialize_optional`] because `Duration`'s own
-/// `Deserialize` expects a `{secs, nanos}` struct, not a humantime string.
+/// Separate from the generic [`deserialize_optional`] because `Duration`'s own `Deserialize` expects a `{secs, nanos}`
+/// struct, not a humantime string.
 ///
 /// # Errors
 /// Returns the deserializer's error if the value is neither a sentinel nor a
@@ -109,10 +107,8 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
         project_root.join("libs/python-org"),
         project_root.join("libs/python-edge-toolkit"),
     ];
-    // Skip mise-managed module resolution when mise isn't on PATH: the
-    // per-package "run `mise install ...`" warnings would just confuse a
-    // deployment that has provisioned those modules some other way (or
-    // doesn't serve them at all).
+    // Skip mise-managed module resolution when mise isn't on PATH: the per-package "run `mise install ...`" warnings
+    // would just confuse a deployment that has provisioned those modules some other way (or doesn't serve them at all).
     if !mise_is_available() {
         return paths;
     }
@@ -121,18 +117,15 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
         &npm_module("onnxruntime-web"),
         mise_npm_modules_path("onnxruntime-web"),
     );
-    // stats-gl (the GPU utilisation meter overlay on the ws-server index page). Same
-    // npm-package-served-as-a-module pattern as onnxruntime-web above.
+    // stats-gl (the GPU utilisation meter overlay on the ws-server index page). Same npm-package-served-as-a-module
+    // pattern as onnxruntime-web above.
     push_module(&mut paths, &npm_module("stats-gl"), mise_npm_modules_path("stats-gl"));
-    // Pyodide is installed from its GitHub release tarball (see
-    // `.mise/config.python.toml`),
-    // not via `npm:pyodide`. mise's http backend extracts the archive flat,
-    // so the install dir itself holds `package.json` + every wheel -- the
-    // modules service treats the dir as a single module named "pyodide".
-    // Fall back to the much smaller `npm:pyodide` install if the full
-    // distribution isn't available: browser modules that only need pyodide's
-    // runtime (no `micropip.install` of non-stdlib wheels) still work, and
-    // contributors who don't need the full set can skip the 200 MB download.
+    // Pyodide is installed from its GitHub release tarball (see `.mise/config.python.toml`), not via `npm:pyodide`.
+    // mise's http backend extracts the archive flat, so the install dir itself holds `package.json` + every wheel
+    // -- the modules service treats the dir as a single module named "pyodide". Fall back to the much smaller
+    // `npm:pyodide` install if the full distribution isn't available: browser modules that only need pyodide's runtime
+    // (no `micropip.install` of non-stdlib wheels) still work, and contributors who don't need the full set can skip
+    // the 200 MB download.
     let pyodide = ModuleSource {
         label: "pyodide".to_owned(),
         route: "pyodide".to_owned(),
@@ -149,8 +142,8 @@ pub fn default_modules_folders() -> Vec<PathBuf> {
         &npm_module(transformers),
         mise_npm_package_path(transformers),
     );
-    // MediaPipe tasks-vision (pyeye1's FaceLandmarker runtime). A scoped npm package: serve its own dir as a
-    // single module at /modules/@mediapipe/tasks-vision (the modules service reads its package.json name).
+    // MediaPipe tasks-vision (pyeye1's FaceLandmarker runtime). A scoped npm package: serve its own dir as a single
+    // module at /modules/@mediapipe/tasks-vision (the modules service reads its package.json name).
     let tasks_vision = "@mediapipe/tasks-vision";
     push_module(
         &mut paths,
@@ -213,14 +206,12 @@ pub fn mise_is_available() -> bool {
 
 /// Guest languages mise loads via `MISE_ENV`.
 ///
-/// Each variant maps to a `.mise/config.<env>.toml` file
-/// (e.g. `Self::Python` -> `config.python.toml`) that adds that language's
-/// toolchain on top of the always-loaded base `.mise/config.toml`. Mirrors
-/// `ALL_LANGS` in `.mise/config.toml`; keep the two in sync.
+/// Each variant maps to a `.mise/config.<env>.toml` file (e.g. `Self::Python` -> `config.python.toml`) that
+/// adds that language's toolchain on top of the always-loaded base `.mise/config.toml`. Mirrors `ALL_LANGS` in
+/// `.mise/config.toml`; keep the two in sync.
 ///
-/// `strum::IntoStaticStr` derives the canonical lowercase name used in
-/// `MISE_ENV` and the config filename; `strum::EnumIter` enumerates all
-/// variants in declaration order.
+/// `strum::IntoStaticStr` derives the canonical lowercase name used in `MISE_ENV` and the config filename;
+/// `strum::EnumIter` enumerates all variants in declaration order.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, strum::EnumIter, strum::IntoStaticStr)]
 #[strum(serialize_all = "lowercase")]
 #[non_exhaustive]
@@ -246,9 +237,8 @@ impl Language {
 
 /// Whether `MISE_ENV` loads the named language config.
 ///
-/// `MISE_ENV` is a comma-separated list of guest-language envs (each adds a
-/// `config.<env>.toml`). The unset and explicitly-empty cases mean different
-/// things:
+/// `MISE_ENV` is a comma-separated list of guest-language envs (each adds a `config.<env>.toml`). The unset and
+/// explicitly-empty cases mean different things:
 ///
 /// - **`MISE_ENV` unset** (no env var at all): typical local-dev state where
 ///   the developer's `mise install` covered everything; treat every language
@@ -257,14 +247,12 @@ impl Language {
 ///   to "no guest languages". Every language returns false; tests that
 ///   depend on a guest-env tool skip cleanly.
 ///
-/// Used to gate live-installed-tool tests: when CI narrows `MISE_ENV` for
-/// faster feedback (e.g. `dotnet,rust`), tests that depend on a tool in a
-/// dropped env (e.g. `http:pyodide` from the `python` env) can skip cleanly
-/// instead of panicking.
+/// Used to gate live-installed-tool tests: when CI narrows `MISE_ENV` for faster feedback (e.g. `dotnet,rust`), tests
+/// that depend on a tool in a dropped env (e.g. `http:pyodide` from the `python` env) can skip cleanly instead of
+/// panicking.
 ///
-/// When the language is absent (`MISE_ENV=""` or a list that omits it), a
-/// skip line naming the language is emitted to stderr, so callers only need
-/// to branch on the returned bool -- they don't repeat the message themselves.
+/// When the language is absent (`MISE_ENV=""` or a list that omits it), a skip line naming the language is emitted to
+/// stderr, so callers only need to branch on the returned bool -- they don't repeat the message themselves.
 #[must_use]
 pub fn mise_env_includes(language: Language) -> bool {
     const MISE_ENV: &str = "MISE_ENV";
@@ -287,8 +275,8 @@ pub fn mise_env_includes(language: Language) -> bool {
 /// Returns the install path for a `mise` tool, e.g. `mise where npm:onnxruntime-web`.
 #[must_use]
 pub fn mise_where(tool: &str) -> Option<PathBuf> {
-    // `output_checked` folds the spawn check and the non-zero-exit check together, so a missing tool or a
-    // failed `mise where` both short-circuit to `None` without a manual `status.success()` guard.
+    // `output_checked` folds the spawn check and the non-zero-exit check together, so a missing tool or a failed `mise
+    // where` both short-circuit to `None` without a manual `status.success()` guard.
     let output = std::process::Command::new("mise")
         .args(["where", tool])
         .output_checked()
@@ -300,18 +288,17 @@ pub fn mise_where(tool: &str) -> Option<PathBuf> {
 
 /// Module directories for every npm package the mise config active in the current directory declares.
 ///
-/// This is what lets a deployment say which modules it serves exactly once, in its `[tools]` table, instead
-/// of repeating the list as paths it cannot know: mise reports where it put each package, and the layout
-/// probing below turns that into the directory holding the `package.json`.
+/// This is what lets a deployment say which modules it serves exactly once, in its `[tools]` table, instead of
+/// repeating the list as paths it cannot know: mise reports where it put each package, and the layout probing below
+/// turns that into the directory holding the `package.json`.
 ///
-/// Scoped to `--current`, so it answers with the tools of the config in scope rather than everything ever
-/// installed on the machine -- two deployments on one host each see their own modules. It follows that the
-/// process has to run where that config applies, which for a generated deployment is the directory holding
-/// its `mise.toml`.
+/// Scoped to `--current`, so it answers with the tools of the config in scope rather than everything ever installed on
+/// the machine -- two deployments on one host each see their own modules. It follows that the process has to run where
+/// that config applies, which for a generated deployment is the directory holding its `mise.toml`.
 ///
-/// An empty list is returned rather than an error for every failure: mise absent, a config that declares no
-/// npm tools, output that will not parse. A deployment that expected modules gets the same outcome as one
-/// that asked for none, which the caller reports as a module that cannot be found.
+/// An empty list is returned rather than an error for every failure: mise absent, a config that declares no npm tools,
+/// output that will not parse. A deployment that expected modules gets the same outcome as one that asked for none,
+/// which the caller reports as a module that cannot be found.
 #[must_use]
 pub fn mise_staged_module_dirs() -> Vec<PathBuf> {
     let Some(payload) = mise_current_tools() else {
@@ -322,11 +309,11 @@ pub fn mise_staged_module_dirs() -> Vec<PathBuf> {
 
 /// The module directories named by a `mise ls --current --json` payload.
 ///
-/// Split from [`mise_staged_module_dirs`] so the shape of the payload can be exercised without a `mise` to
-/// produce it. Every failure is a silent omission -- output that will not parse, a listing that is not an
-/// object, a tool of some other backend, an entry with no version or no install path, and an install whose
-/// directory holds the package in no layout this knows. A deployment that expected a module gets the same
-/// outcome as one that never asked for it, which the caller reports as a module it cannot find.
+/// Split from [`mise_staged_module_dirs`] so the shape of the payload can be exercised without a `mise` to produce it.
+/// Every failure is a silent omission -- output that will not parse, a listing that is not an object, a tool of some
+/// other backend, an entry with no version or no install path, and an install whose directory holds the package in no
+/// layout this knows. A deployment that expected a module gets the same outcome as one that never asked for it, which
+/// the caller reports as a module it cannot find.
 #[must_use]
 pub fn staged_module_dirs_from_tool_list(tool_list_json: &[u8]) -> Vec<PathBuf> {
     let Ok(listed) = serde_json::from_slice::<serde_json::Value>(tool_list_json) else {
@@ -347,11 +334,9 @@ pub fn staged_module_dirs_from_tool_list(tool_list_json: &[u8]) -> Vec<PathBuf> 
 
 /// Returns the directory containing `<package>` for an `npm:<package>` mise install.
 ///
-/// I.e. the `node_modules` directory you'd point `MODULES_PATHS` at. Calls
-/// `mise where npm:<package>` to find the install root, then delegates to
-/// [`find_npm_modules_path_in`] to handle the per-backend layout differences.
-/// Returns `None` if `mise where` fails or the package isn't present in any
-/// supported layout.
+/// I.e. the `node_modules` directory you'd point `MODULES_PATHS` at. Calls `mise where npm:<package>` to find the
+/// install root, then delegates to [`find_npm_modules_path_in`] to handle the per-backend layout differences. Returns
+/// `None` if `mise where` fails or the package isn't present in any supported layout.
 #[must_use]
 pub fn mise_npm_modules_path(package: &str) -> Option<PathBuf> {
     let install = mise_where(&format!("npm:{package}"))?;
@@ -361,8 +346,8 @@ pub fn mise_npm_modules_path(package: &str) -> Option<PathBuf> {
 /// The package's own directory (`<node_modules>/<package>`) rather than its parent `node_modules`.
 ///
 /// Use this to serve a single scoped npm package (e.g. `@mediapipe/tasks-vision`) as one module at
-/// `/modules/<package-name>`: pointing the modules service at the whole `node_modules` tree wouldn't find a
-/// nested `@scope/pkg` (the scope dir has no `package.json`), so we push the package dir directly.
+/// `/modules/<package-name>`: pointing the modules service at the whole `node_modules` tree wouldn't find a nested
+/// `@scope/pkg` (the scope dir has no `package.json`), so we push the package dir directly.
 #[must_use]
 pub fn mise_npm_package_path(package: &str) -> Option<PathBuf> {
     mise_npm_modules_path(package).map(|node_modules| node_modules.join(package))
@@ -370,8 +355,8 @@ pub fn mise_npm_package_path(package: &str) -> Option<PathBuf> {
 
 /// Pure-filesystem version of [`mise_npm_modules_path`], resolving a package's `node_modules` directory.
 ///
-/// Given an `<install>` root and a `<package>` name, return the `node_modules` directory that contains
-/// `<package>`. Supports the mise npm backends:
+/// Given an `<install>` root and a `<package>` name, return the `node_modules` directory that contains `<package>`.
+/// Supports the mise npm backends:
 ///
 /// 1. Classical npm/mise (Unix): `<install>/lib/node_modules/<package>`
 /// 2. `<install>/node_modules/<package>`, covering both npm on Windows (whose global prefix omits the `lib/`
@@ -410,12 +395,10 @@ pub fn find_npm_modules_path_in(install: &Path, package: &str) -> Option<PathBuf
 
 /// `site-packages` directories of every `pipx:` python package `mise` has installed for the current config.
 ///
-/// Intended for pre-populating an embedded interpreter's `sys.path` so the
-/// `et-ws-pyo3-runner` can `import` mise-managed packages without the operator
-/// wiring `PYTHONPATH` by hand. Runs `mise ls --current --json` once and, for
-/// each `pipx:<pkg>` tool, locates its venv `site-packages` via
-/// [`find_site_packages_in`]. Best-effort: returns an empty vec if `mise` is
-/// unavailable, exits non-zero, or emits output we can't parse.
+/// Intended for pre-populating an embedded interpreter's `sys.path` so the `et-ws-pyo3-runner` can `import`
+/// mise-managed packages without the operator wiring `PYTHONPATH` by hand. Runs `mise ls --current --json` once and,
+/// for each `pipx:<pkg>` tool, locates its venv `site-packages` via [`find_site_packages_in`]. Best-effort: returns
+/// an empty vec if `mise` is unavailable, exits non-zero, or emits output we can't parse.
 #[must_use]
 pub fn mise_python_site_packages() -> Vec<PathBuf> {
     if !mise_is_available() {
@@ -429,9 +412,9 @@ pub fn mise_python_site_packages() -> Vec<PathBuf> {
 
 /// What `mise` reports installed for the config in scope, as the raw `mise ls --current --json` payload.
 ///
-/// Shared by the callers that pick different tools out of the same listing, so the subprocess and its
-/// failure handling are written once. `output_checked` errors on both a spawn failure and a non-zero exit,
-/// so a best-effort caller collapses to one fallible call with no separate `status.success()` filter.
+/// Shared by the callers that pick different tools out of the same listing, so the subprocess and its failure handling
+/// are written once. `output_checked` errors on both a spawn failure and a non-zero exit, so a best-effort caller
+/// collapses to one fallible call with no separate `status.success()` filter.
 fn mise_current_tools() -> Option<Vec<u8>> {
     let output = std::process::Command::new("mise")
         .args(["ls", "--current", "--json"])
@@ -442,11 +425,11 @@ fn mise_current_tools() -> Option<Vec<u8>> {
 
 /// The `site-packages` directories named by a `mise ls --current --json` payload.
 ///
-/// Split from [`mise_python_site_packages`] so the shape of the payload can be exercised without a `mise` to
-/// produce it. Every failure here is a silent empty list -- an embedded interpreter simply starts with a bare
-/// `sys.path` and the first `import` of a mise-managed package fails far from the cause -- so the payload
-/// shapes that yield nothing are worth pinning: a body that is not JSON at all, a tool that is not a `pipx:`
-/// one, and an install whose directory carries no venv.
+/// Split from [`mise_python_site_packages`] so the shape of the payload can be exercised without a `mise` to produce
+/// it. Every failure here is a silent empty list -- an embedded interpreter simply starts with a bare `sys.path` and
+/// the first `import` of a mise-managed package fails far from the cause -- so the payload shapes that yield nothing
+/// are worth pinning: a body that is not JSON at all, a tool that is not a `pipx:` one, and an install whose directory
+/// carries no venv.
 #[must_use]
 pub fn site_packages_from_tool_list(tool_list_json: &[u8]) -> Vec<PathBuf> {
     let Ok(tools) = serde_json::from_slice::<serde_json::Map<String, serde_json::Value>>(tool_list_json) else {
@@ -456,8 +439,8 @@ pub fn site_packages_from_tool_list(tool_list_json: &[u8]) -> Vec<PathBuf> {
         .iter()
         .filter(|(name, _)| name.starts_with("pipx:"))
         .filter_map(|(_, installs)| {
-            // Each tool maps to an array of installs; take the active one (or
-            // the first, if none is flagged) and read its `install_path`.
+            // Each tool maps to an array of installs; take the active one (or the first, if none is flagged) and read
+            // its `install_path`.
             let array = installs.as_array()?;
             let entry = array
                 .iter()
@@ -472,40 +455,40 @@ pub fn site_packages_from_tool_list(tool_list_json: &[u8]) -> Vec<PathBuf> {
 
 /// Pure-filesystem helper returning the venv `site-packages` directory for a mise `pipx:` `<install>` root.
 ///
-/// pipx lays each tool out as `<install>/<pkg>/<venv-libdir>/site-packages`,
-/// where `<venv-libdir>` is `lib/python<X.Y>` on POSIX and `Lib` (no Python
-/// version subdir) on Windows. The `<pkg>` directory name (and the Python
-/// version on POSIX) varies, so the variable segments are scanned rather than
-/// assumed. Returns the first match, or `None` if nothing under `<install>`
-/// has that shape.
+/// The venv sits one level down, at `<install>/<pkg>`, for a tool pipx lays out itself, and two levels down, at
+/// `<install>/.mise-uv/.venv`, for one mise replays from a recorded uv dependency graph. The `<pkg>` directory name
+/// varies, so it is scanned rather than assumed. Returns the first match, or `None` if nothing under `<install>` has
+/// either shape.
 #[must_use]
 pub fn find_site_packages_in(install: &Path) -> Option<PathBuf> {
-    for pkg in fs::read_dir(install).ok()?.flatten() {
+    fs::read_dir(install).ok()?.flatten().find_map(|pkg| {
         let pkg_path = pkg.path();
-        let windows_layout = pkg_path.join("Lib").join("site-packages");
-        if windows_layout.is_dir() {
-            return Some(windows_layout);
-        }
-        let Ok(lib_entries) = fs::read_dir(pkg_path.join("lib")) else {
-            continue;
-        };
-        for py in lib_entries.flatten() {
-            if !py.file_name().to_string_lossy().starts_with("python") {
-                continue;
-            }
-            let site_packages = py.path().join("site-packages");
-            if site_packages.is_dir() {
-                return Some(site_packages);
-            }
-        }
-    }
-    None
+        let mut found = venv_site_packages(&pkg_path);
+        found.extend(venv_site_packages(&pkg_path.join(".venv")));
+        found.into_iter().next()
+    })
+}
+
+/// The `site-packages` directories present in the venv rooted at `venv`, Windows layout first.
+///
+/// The venv's library dir is `lib/python<X.Y>` on POSIX and `Lib` (no Python version subdir) on Windows; the Python
+/// version varies, so it is scanned rather than assumed. A directory that is not a venv yields none.
+fn venv_site_packages(venv: &Path) -> Vec<PathBuf> {
+    let posix_layouts = fs::read_dir(venv.join("lib"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|py| py.file_name().to_string_lossy().starts_with("python"))
+        .map(|py| py.path().join("site-packages"));
+    std::iter::once(venv.join("Lib").join("site-packages"))
+        .chain(posix_layouts)
+        .filter(|site_packages| site_packages.is_dir())
+        .collect()
 }
 
 /// Default service label name for use in OpenTelemetry.
 ///
-/// Removes "-server" suffix from the invoked executable name if present,
-/// such as binary name `et-ws-server`.
+/// Removes "-server" suffix from the invoked executable name if present, such as binary name `et-ws-server`.
 #[must_use]
 pub fn default_trace_service_label() -> String {
     executable_name().replace("-server", "")

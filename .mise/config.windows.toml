@@ -25,7 +25,7 @@
 # the [vars] m2_gnupg_bin + [env] `_.path` below prepend that dir so subprocess PATH actually finds it.
 # Version pinned so the m2_gnupg_bin path stays in sync (conftest's version_drift enforces).
 "conda:m2-gnupg" = "2.2.41.1"
-"github:mstorsjo/llvm-mingw" = { version = "20260602", matching = "ucrt-x86_64" }
+"github:mstorsjo/llvm-mingw" = { version = "20261006", matching = "ucrt-x86_64" }
 # conda-forge's libclang: the libclang.dll bindgen loads.
 # The web-runner tree runs bindgen (libsqlite3-sys via deno) under the mingw and msvc target envs;
 # llvm-mingw ships only libclang-cpp.dll (the C++ API), not the C API DLL clang-sys looks for, and a
@@ -128,9 +128,9 @@ a_mise_installs_fwd = '''{% if env?.MISE_INSTALLS_DIR -%}
 '''
 # clang-tidy's builtin-header resource dir (config.linux.toml solves the same gap with conda's clang).
 # llvm-mingw ships the clang resource headers (stddef.h/stdint.h -- everything the zig-data1 C needs),
-# and conda's clang-tidy is the same LLVM 22 major. The trailing `22` is clang's major version, not the
+# and conda's clang-tidy is the same LLVM 23 major. The trailing `23` is clang's major version, not the
 # tool version -- move it together with the llvm-mingw pin when its clang major changes.
-clang_resource_arg = "-resource-dir {{ vars.a_mise_installs_fwd }}/github-mstorsjo-llvm-mingw/20260602/lib/clang/22"
+clang_resource_arg = "-resource-dir {{ vars.a_mise_installs_fwd }}/github-mstorsjo-llvm-mingw/20261006/lib/clang/23"
 # Upstream-cache `_asset` vars.
 # These pin the exact tarball filename each
 # `http:` Windows tool fetches from edge-toolkit/core's *-v<N> release.
@@ -157,9 +157,9 @@ mise_installs = '''{% if env?.MISE_INSTALLS_DIR -%}
 winsh = '{{ vars.mise_installs }}\http-busybox\1.37.0\ash.exe'
 # mise-managed CPython, pinned to the exact `3.x.y` dir (the python [tools] pin).
 # This is needed since mise's minor-version alias symlink isn't created on the Windows runner.
-py3_win = '{{ vars.mise_installs }}\python\3.13.14\python.exe'
+py3_win = '{{ vars.mise_installs }}\python\3.13.16\python.exe'
 # Forward-slashed py3_win for bash task bodies (backslash-form paths mangle in busybox ash).
-py3_win_fwd = "{{ vars.a_mise_installs_fwd }}/python/3.13.14/python.exe"
+py3_win_fwd = "{{ vars.a_mise_installs_fwd }}/python/3.13.16/python.exe"
 # Windows install root for the github:microsoft/onnxruntime tool.
 # ORT_LIB_LOCATION in config.toml [env] picks this on Windows. Version segment must match the
 # [tools] pin (conftest's version_drift enforces this).
@@ -177,7 +177,7 @@ ort_bin_win = '{{ vars.ort_loc_win }}\lib'
 # The linker/dlltool [env] vars below point at absolute exes in here rather than bare names because mise's
 # cargo backend doesn't activate llvm-mingw onto the cargo: source-build subprocess's PATH: a bare `clang`
 # would resolve to a runner's system LLVM, which defaults to the MSVC target and can't link gnullvm objects.
-win_llvm_bin = '{{ vars.mise_installs }}\github-mstorsjo-llvm-mingw\20260602\bin'
+win_llvm_bin = '{{ vars.mise_installs }}\github-mstorsjo-llvm-mingw\20261006\bin'
 # conda:m2-gnupg's msys2 binary dir.
 # Cargo's own bin dir, prepended by the [env] `_.path` below so `cargo` resolves inside a task body.
 # mise's rust runtime never materialises a tool tree: it points installs/rust/<ver> at $CARGO_HOME/bin as an
@@ -199,29 +199,16 @@ m2_make_bin = '{{ vars.mise_installs }}\conda-m2-make\4.4.1.2\Library\usr\bin'
 # Maven's bin dir lives nested at `apache-maven-X.Y.Z/bin/` inside its install.
 # mise's bin auto-discovery walks into this subdir on Linux/macOS but not on Windows, so `mvn` isn't on PATH
 # without an explicit entry. Pinned to the config.java.toml [tools] maven version -- bump both together.
-maven_bin = '{{ vars.mise_installs }}\maven\3.9.16\apache-maven-3.9.16\bin'
+maven_bin = '{{ vars.mise_installs }}\maven\3.10.0\apache-maven-3.10.0\bin'
 # Gradle's bin dir lives nested at `gradle-X.Y.Z/bin/` inside its install, the same shape as maven above.
 # mise's Windows bin discovery misses it (it also expects a `gradle.exe` that Gradle doesn't ship). Pinned to
 # the config.kotlin.toml [tools] gradle version -- bump both together. Consumed by the kotlin env's GRADLE env
 # var only; deliberately NOT added to `_.path`, because the dir holds the extensionless Unix `gradle` script
 # side-by-side with `gradle.bat`, and busybox bash would resolve the Unix script first (the mvn pathology).
-gradle_bin = '{{ vars.mise_installs }}\gradle\9.7.0\gradle-9.7.0\bin'
+gradle_bin = '{{ vars.mise_installs }}\gradle\9.8.2\gradle-9.8.2\bin'
 # conda:libclang's binary dir, for the LIBCLANG_PATH below.
 # Pinned to the [tools] version above -- bump both together (conftest's version_drift enforces).
 win_libclang = '{{ vars.mise_installs }}\conda-libclang\22.1.8\Library\bin'
-# The flat dependency farm inside npm:oxlint-tsgolint's mise install, for the OXLINT_TSGOLINT_PATH entry below.
-# mise's embedded aube hoists a tool's dependencies rather than nesting them: `<install>\node_modules\<pkg>`
-# is a symlink to `.mise\<pkg>@<version>\node_modules\<pkg>`, and that package dir holds only its own files
-# (bin, package.json, ...) with NO nested `node_modules`. Its `@oxlint-tsgolint\<triple>` platform dep lives in
-# the flat farm instead, so the pre-aube
-# `...\node_modules\oxlint-tsgolint\node_modules\@oxlint-tsgolint\<triple>` path this used to build no longer
-# resolves and oxlint aborted with
-#   Failed to find tsgolint executable: OXLINT_TSGOLINT_PATH points to '...' which does not exist
-# on commit 12bfe419 at https://github.com/edge-toolkit/core/actions/runs/30797697407/job/91634929181.
-# The flat farm is preferred over the equivalent `.mise\oxlint-tsgolint@<version>\node_modules\...` path
-# because it carries no second copy of the version to keep in sync. Pinned to the config.js.toml [tools]
-# version -- bump both together (conftest's version_drift enforces).
-tsgolint_pkg = '{{ vars.mise_installs }}\npm-oxlint-tsgolint\0.24.0\node_modules\.mise\node_modules'
 # wasm-pack's wasm-opt (binaryen) can't execute on Nano Server (os error 3).
 # So the module + wasm-agent builds pass --no-opt; they reference {{ vars.no_opt }}.
 no_opt = "--no-opt"
@@ -247,22 +234,6 @@ actionlint_args = "-shellcheck="
 # (mise can't auto-find an http-backend shell.) busybox ash accepts the
 # `-euo pipefail -c` the shell string passes; the task bodies are POSIX.
 MISE_BASH_PATH = "{{ vars.winsh }}"
-# Point oxlint straight at tsgolint's real exe, skipping the npm cmd-shim on PATH.
-# Without this, `oxlint --type-aware` (config.js.toml's oxlint-check/-fix) finds the npm-generated
-# `tsgolint.cmd`, whose fallback line runs a bare `"node"` under cmd.exe -- and cmd.exe silently fails to
-# search a PATH longer than 8191 chars (its per-variable limit; verified: resolves at 8172, fails at 8300),
-# which the mise task PATH (~78 tool install dirs on top of the GHA runner's ~4-5k-char base) exceeds. The
-# task then dies with:
-#     '"node"' is not recognized as an internal or external command,
-#     operable program or batch file.
-#     Error running tsgolint: "exit status: exit code: 1"
-# Observed on commit https://github.com/edge-toolkit/core/commit/8cac021c75ebb69e8100a1ddb8d9b670e197fee4 at
-# https://github.com/edge-toolkit/core/actions/runs/28857668889/job/85588159468 (check windows-latest lane).
-# oxlint consults this env var before its node_modules/.bin and PATH walks, and pointing it at the
-# per-platform exe nested in the npm package sidesteps node and cmd.exe entirely. Windows-only (this file)
-# both because only cmd.exe has the limit and because oxlint hard-fails on a set-but-invalid value, which an
-# off-Windows `{% if %}` empty-string render would be. Inert when js isn't in MISE_ENV; just an unused path.
-OXLINT_TSGOLINT_PATH = '{{ vars.tsgolint_pkg }}\@oxlint-tsgolint\win32-x64\tsgolint.exe'
 # Build for the host's own target -- the LLVM mingw one on x64, and msvc on arm64, per `win_rust_host`.
 # gnullvm, not gnu: llvm-mingw ships compiler-rt + libunwind, not the GCC runtime (libgcc/libgcc_eh) the gnu
 # target's link line demands. The linker is llvm-mingw's clang and the raw-dylib import tool is its
