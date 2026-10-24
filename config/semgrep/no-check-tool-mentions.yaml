@@ -258,7 +258,7 @@ rules:
         - "/Cargo.lock" # Carries its plugin crates as dependency names.
         - "/config/dprint.jsonc" # Its own config, including the settings held to agree with the JS formatter.
         - "/config/oxfmtrc.jsonc" # The other half of that agreement.
-        - "/config/ryl.yaml" # Defers to it on inline-comment spacing so the two cannot fight.
+        - "/config/ryl.toml" # Defers to it on inline-comment spacing so the two cannot fight.
         - "/config/semgrep/no-line-length-in-comment.yaml" # Names the configs that hold the line-length value.
         - "/config/semgrep/prefer-yaml-toml.yaml" # Allowlists its config, which can only be JSONC.
         - "/config/ast-grep/rules/no-current-dir.yaml" # Names the root-marker file, not the tool.
@@ -584,7 +584,7 @@ rules:
       exclude:
         - "/.mise/**" # Tool pin, lockfile entry, and the task that runs it.
         - "/AGENTS.md" # Documents which checks an agent runs for which file types.
-        - "/config/ryl.yaml" # Its own config.
+        - "/config/ryl.toml" # Its own config.
         - "/config/conftest/policy/mise_lock/mise_lock.rego" # Allowlists it as a tool locking a glibc build.
         - "/config/conftest/policy/mise/mise.rego" # Allowlists it as a tool with no prebuilt at some triple.
         - "/config/taplo/mise-cargo-backend-allowlist.schema.json" # The same allowlist, as a TOML schema enum.

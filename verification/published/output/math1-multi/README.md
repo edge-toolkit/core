@@ -63,6 +63,9 @@ of it at the same path -- and start that machine's share of the scenario there.
 `server` runs OpenObserve and `ws-server`, and the runners on every other machine reach
 the hub at `127.0.0.1`.
 
+The machines' addresses are loopback, which plays every machine on this one host. To run them on
+separate machines, give each its reachable address in the scenario input and regenerate first.
+
 On `server`:
 
 ```bash
@@ -106,6 +109,9 @@ until its tag is started.
 `server` runs OpenObserve and `ws-server`, and the runners on every other machine reach
 the hub at `127.0.0.1`.
 
+The machines' addresses are loopback, which plays every machine on this one host. To run them on
+separate machines, give each its reachable address in the scenario input and regenerate first.
+
 On `server`:
 
 ```bash
@@ -142,6 +148,9 @@ of it at the same path -- and start only that machine's namespace there.
 `server` runs OpenObserve and `ws-server`, and the runners on every other machine reach
 the hub at `127.0.0.1`.
 
+The machines' addresses are loopback, which plays every machine on this one host. To run them on
+separate machines, give each its reachable address in the scenario input and regenerate first.
+
 On `server`:
 
 ```bash
@@ -159,7 +168,7 @@ process-compose up --no-server -f process-compose.yaml -n edge
 From this directory, start the scenario with:
 
 ```bash
-docker compose up --build
+docker compose --profile server --profile edge up --build
 ```
 
 The compose stack starts OpenObserve and builds one image: the `Dockerfile` in this directory,
@@ -174,7 +183,7 @@ OpenObserve is available at <http://localhost:5080/>.
 Stop the scenario with:
 
 ```bash
-docker compose down
+docker compose --profile server --profile edge down
 ```
 
 ### Run Across Machines With Docker Compose
@@ -183,6 +192,9 @@ Copy this directory to each machine -- for a scenario built from the repository,
 of it at the same path -- and start only that machine's profile there.
 `server` runs OpenObserve and `ws-server`, and the runners on every other machine reach
 the hub at `127.0.0.1`.
+
+The machines' addresses are loopback, which plays every machine on this one host. To run them on
+separate machines, give each its reachable address in the scenario input and regenerate first.
 
 On `server`:
 
@@ -241,6 +253,9 @@ kubectl get pods -n "$ns" --watch
 ```
 
 ### Run Across Machines With k3s
+
+The machines' addresses are loopback, which plays every machine on this one host. To run them on
+separate machines, give each its reachable address in the scenario input and regenerate first.
 
 The machines have to form one k3s cluster first, each labelled with the machine name the manifests
 pin pods to. With `k3s` installed on every machine, start the server on `server`. It stays in

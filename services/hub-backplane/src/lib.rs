@@ -16,6 +16,7 @@
 use std::collections::BTreeMap;
 use std::future::ready;
 use std::net::IpAddr;
+use std::time::Duration;
 
 use async_nats::jetstream::kv::{self, CreateErrorKind, Operation, Store, UpdateErrorKind};
 use async_nats::{Client, HeaderMap, Message};
@@ -41,6 +42,9 @@ const TO_HEADER: &str = "Et-To";
 const FROM_HEADER: &str = "Et-From";
 const ORIGIN_HEADER: &str = "Et-Origin-Hub";
 const KIND_HEADER: &str = "Et-Kind";
+
+/// How long `subscribe` waits for the server to confirm its subscriptions; a healthy server takes one round trip.
+const CONFIRM_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// The backplane a hub routes through: nothing beyond this process, or a shared NATS server.
 #[derive(Clone, Debug)]
@@ -357,6 +361,38 @@ impl NatsBackplane {
             .map_nats_err("broadcast to the other hubs")
     }
 
+    /// Wait until the server has registered every subscription this connection has sent.
+    ///
+    /// The server registers a subscription only once it reads the SUB, and a frame another hub publishes before then
+    /// is dropped, since core NATS keeps nothing for a subject with no subscriber. A flush does not wait for that: it
+    /// resolves once the bytes leave this process. So a message is sent to a fresh inbox this connection subscribes
+    /// to, and awaited: the server handles a connection's commands in order, so the echo arriving means every SUB
+    /// before it has been read.
+    ///
+    /// The wait is bounded, because an echo can be lost rather than late: a reconnect between the publish and its
+    /// delivery drops it, and an account not allowed to publish to its inboxes never sends it. Either way the caller
+    /// gets an error to act on, rather than a hub that never finishes starting.
+    async fn confirm_subscriptions(&self) -> Result<(), BackplaneError> {
+        let inbox = self.client.new_inbox();
+        let mut echo = self
+            .client
+            .subscribe(inbox.clone())
+            .await
+            .map_nats_err("subscribe to the confirmation inbox")?;
+        self.client
+            .publish(inbox, Bytes::new())
+            .await
+            .map_nats_err("publish to the confirmation inbox")?;
+        let echoed = tokio::time::timeout(CONFIRM_TIMEOUT, echo.next()).await;
+        let _echoed: Message = echoed
+            .ok()
+            .flatten()
+            .ok_or(BackplaneError::SubscriptionsUnconfirmed(CONFIRM_TIMEOUT))?;
+        echo.unsubscribe()
+            .await
+            .map_nats_err("unsubscribe from the confirmation inbox")
+    }
+
     /// The frames other hubs send this hub's agents, from the moment this returns.
     ///
     /// This hub's own broadcasts are left out, since it has already fanned them out locally. A message that does not
@@ -372,9 +408,7 @@ impl NatsBackplane {
             .subscribe(BROADCAST_SUBJECT)
             .await
             .map_nats_err("subscribe to broadcasts")?;
-        // The server registers a subscription only once it reads the SUB; flushing waits for that, so nothing
-        // published after this returns can miss it.
-        self.client.flush().await.map_nats_err("flush subscriptions")?;
+        self.confirm_subscriptions().await?;
 
         let own_hub = self.hub_id.clone();
         let direct = direct.map(|message| Inbound::decode_direct(&message));

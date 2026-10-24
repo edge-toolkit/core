@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::deployment_types::HUB_TASK;
 use crate::error::CliError;
 use crate::hub_ws_url::{hub_ws_url, hub_ws_url_at};
 use crate::input::{ClusterInput, Machine};
@@ -24,9 +25,11 @@ pub(crate) const MACHINE_LABEL: &str = concat!(et_org::org!(), "/machine");
 pub(crate) enum Site {
     /// The scenario names no machines, so everything shares the host the deployment is started on.
     SingleHost,
-    /// The server machine, the first listed, which also runs the hub and the collector.
-    Server { machine: String },
-    /// Any other machine, which reaches the hub across the network at the server's address.
+    /// A machine running a hub of its own, which everything there reaches at `localhost`.
+    ///
+    /// The server, which also runs the collector, or another machine `services.hub.machines` lists.
+    Local { machine: String },
+    /// A machine with no hub, which reaches the server's across the network at the server's address.
     Remote { machine: String, server_address: String },
 }
 
@@ -36,7 +39,7 @@ impl Site {
     pub(crate) fn hub_ws_url(&self) -> String {
         match self {
             Self::Remote { server_address, .. } => hub_ws_url_at(server_address),
-            Self::SingleHost | Self::Server { .. } => hub_ws_url(),
+            Self::SingleHost | Self::Local { .. } => hub_ws_url(),
         }
     }
 
@@ -47,7 +50,7 @@ impl Site {
     pub(crate) fn machine_names(&self) -> Vec<String> {
         match self {
             Self::SingleHost => Vec::new(),
-            Self::Server { machine } | Self::Remote { machine, .. } => vec![machine.clone()],
+            Self::Local { machine } | Self::Remote { machine, .. } => vec![machine.clone()],
         }
     }
 
@@ -56,17 +59,95 @@ impl Site {
     pub(crate) const fn is_remote(&self) -> bool {
         matches!(self, Self::Remote { .. })
     }
+
+    /// The hub a runner here connects to: its own machine's, or the server's when its machine runs none.
+    #[must_use]
+    pub(crate) fn hub_name(&self, cluster: &ClusterInput) -> String {
+        match self {
+            Self::Local { machine } => hub_name_on(cluster, machine),
+            Self::SingleHost | Self::Remote { .. } => HUB_TASK.to_string(),
+        }
+    }
 }
 
-/// The site of the hub and the collector: the server machine, or the single host.
+/// One hub of the cluster and where it runs.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub(crate) struct Hub {
+    /// Its mise task, compose service and Kubernetes `Deployment`: [`HUB_TASK`] on the server, suffixed elsewhere.
+    pub name: String,
+    /// The machine it runs on.
+    pub site: Site,
+    /// What it reaches the server's services at: `localhost` on the server, the server's address on any other machine.
+    pub server_host: String,
+}
+
+impl Hub {
+    /// Whether this hub runs on the server, beside the collector and what the hubs share.
+    #[must_use]
+    pub(crate) fn on_server(&self) -> bool {
+        self.name == HUB_TASK
+    }
+}
+
+/// The site of the collector, and of NATS and the object store when the hubs share them: the server, or the one host.
 #[must_use]
 pub(crate) fn hub_site(cluster: &ClusterInput) -> Site {
-    cluster
-        .machines
-        .first()
-        .map_or(Site::SingleHost, |server| Site::Server {
-            machine: server.name.clone(),
+    cluster.machines.first().map_or(Site::SingleHost, |server| Site::Local {
+        machine: server.name.clone(),
+    })
+}
+
+/// Every hub the cluster runs, the server's first and the rest in the order `services.hub.machines` lists them.
+///
+/// One, on the server, unless that list names more.
+#[must_use]
+pub(crate) fn hubs(cluster: &ClusterInput) -> Vec<Hub> {
+    let Some(server) = cluster.machines.first() else {
+        return vec![Hub {
+            name: HUB_TASK.to_string(),
+            site: Site::SingleHost,
+            server_host: "localhost".to_string(),
+        }];
+    };
+    let mut machines = vec![server.name.as_str()];
+    machines.extend(
+        cluster
+            .services
+            .hub
+            .machines
+            .iter()
+            .map(String::as_str)
+            .filter(|machine| *machine != server.name),
+    );
+    machines
+        .into_iter()
+        .map(|machine| Hub {
+            name: hub_name_on(cluster, machine),
+            site: Site::Local {
+                machine: machine.to_string(),
+            },
+            server_host: if machine == server.name {
+                "localhost".to_string()
+            } else {
+                server.address.clone()
+            },
         })
+        .collect()
+}
+
+/// Whether the cluster runs more than one hub, and so the backplane and the object store they share.
+#[must_use]
+pub(crate) fn shares_hubs(cluster: &ClusterInput) -> bool {
+    hubs(cluster).len() > 1
+}
+
+/// The name of the hub on `machine`: [`HUB_TASK`] on the server, so a one-hub cluster's names stay what they were.
+fn hub_name_on(cluster: &ClusterInput, machine: &str) -> String {
+    if cluster.machines.first().is_none_or(|server| server.name == machine) {
+        return HUB_TASK.to_string();
+    }
+    format!("{HUB_TASK}-{machine}")
 }
 
 /// The site of `agent`: the machine that lists it, or the server when none does.
@@ -80,8 +161,8 @@ pub(crate) fn agent_site(cluster: &ClusterInput, agent: &str) -> Site {
         .iter()
         .find(|machine| machine.agents.iter().any(|listed| listed == agent))
         .unwrap_or(server);
-    if machine.name == server.name {
-        return Site::Server {
+    if machine.name == server.name || cluster.services.hub.machines.contains(&machine.name) {
+        return Site::Local {
             machine: machine.name.clone(),
         };
     }
@@ -91,7 +172,7 @@ pub(crate) fn agent_site(cluster: &ClusterInput, agent: &str) -> Site {
     }
 }
 
-/// Reject a `machines:` list that does not describe one placement for every agent.
+/// Reject a `machines:` list that does not describe one placement for every agent and every hub.
 ///
 /// The names and addresses are held to narrow alphabets for the reason `cluster_name` is: both reach the generated
 /// README's shell commands, and a name also becomes a Kubernetes label value, a compose profile and a mise task. An
@@ -130,6 +211,47 @@ pub(crate) fn validate_machines(cluster: &ClusterInput) -> Result<(), CliError> 
                 });
             }
         }
+    }
+    validate_hub_machines(cluster)
+}
+
+/// Reject a `services.hub.machines` that does not name each hub's machine once, the server among them.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the hub step of validate_machines, separate for readability"
+)]
+fn validate_hub_machines(cluster: &ClusterInput) -> Result<(), CliError> {
+    let listed = &cluster.services.hub.machines;
+    let Some(server) = cluster.machines.first() else {
+        return listed.first().map_or(Ok(()), |machine| {
+            Err(CliError::HubMachinesWithoutMachines {
+                machine: machine.clone(),
+            })
+        });
+    };
+    for (index, machine) in listed.iter().enumerate() {
+        if !cluster.machines.iter().any(|declared| declared.name == *machine) {
+            return Err(CliError::UnknownHubMachine {
+                machine: machine.clone(),
+            });
+        }
+        if listed.iter().take(index).any(|earlier| earlier == machine) {
+            return Err(CliError::DuplicateHubMachine {
+                machine: machine.clone(),
+            });
+        }
+        // The hub is named after its machine, and that name is a Kubernetes object name too.
+        let hub = hub_name_on(cluster, machine);
+        rfc1123_label(&hub, MACHINE_NAME_MAX, |reason| CliError::InvalidHubName {
+            machine: machine.clone(),
+            hub: hub.clone(),
+            reason,
+        })?;
+    }
+    if !listed.is_empty() && !listed.contains(&server.name) {
+        return Err(CliError::HubMachinesWithoutServer {
+            server: server.name.clone(),
+        });
     }
     Ok(())
 }

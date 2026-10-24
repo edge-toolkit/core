@@ -1,0 +1,46 @@
+# Starts from yamllint's standard ruleset, every rule of it stated.
+# Then aligns the cosmetic rules with the repo's other tools so they never disagree.
+[files]
+yaml = ["*.yaml", "*.yml", ".yamllint"]
+
+[lint.rules]
+anchors = "enable"
+braces = "enable"
+brackets = "enable"
+colons = "enable"
+commas = "enable"
+document-end = "disable"
+# The repo's workflows and configs don't use a `---` document-start marker.
+document-start = "disable"
+empty-lines = "enable"
+empty-values = "disable"
+float-values = "disable"
+hyphens = "enable"
+indentation = "enable"
+key-duplicates = "enable"
+key-ordering = "disable"
+new-line-at-end-of-file = "enable"
+new-lines = "enable"
+octal-values = "disable"
+quoted-strings = "disable"
+trailing-spaces = "enable"
+
+# dprint (the YAML formatter) writes one space before an inline `#`.
+# yamllint defaults to two. Defer to dprint so the two can't fight.
+[lint.rules.comments]
+level = "warning"
+min-spaces-from-content = 1
+
+# A misindented comment reads as attached to the wrong block, so treat it as an error, not a warning.
+[lint.rules.comments-indentation]
+level = "error"
+
+# Match the editorconfig line length (yamllint defaults to 80).
+[lint.rules.line-length]
+max = 120
+
+[lint.rules.truthy]
+level = "warning"
+
+[format]
+quote-style = "preserve"

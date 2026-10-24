@@ -1,0 +1,99 @@
+defaults:
+  stop: SIGINT
+tasks:
+  openobserve:
+    cmd:
+      - mise
+      - run
+      - openobserve
+    tags:
+      - server
+    ready:
+      http: http://localhost:5080/healthz
+    stop:
+      cmd:
+        - docker
+        - stop
+        - openobserve-math1-multi-hub
+      timeout: 30s
+  nats:
+    cmd:
+      - mise
+      - run
+      - nats
+    tags:
+      - server
+    ready:
+      http: http://localhost:8222/healthz?js-enabled-only=true
+    stop:
+      cmd:
+        - docker
+        - stop
+        - nats-math1-multi-hub
+      timeout: 30s
+  rustfs:
+    cmd:
+      - mise
+      - run
+      - rustfs
+    tags:
+      - server
+    ready:
+      http: http://localhost:9000/health
+    stop:
+      cmd:
+        - docker
+        - stop
+        - rustfs-math1-multi-hub
+      timeout: 30s
+  ws-server:
+    cmd:
+      - mise
+      - run
+      - ws-server
+    deps:
+      - openobserve
+      - nats
+      - rustfs
+    tags:
+      - server
+    ready:
+      http: http://localhost:8080/health
+  ws-server-edge:
+    cmd:
+      - mise
+      - run
+      - ws-server-edge
+    tags:
+      - edge
+    ready:
+      http: http://localhost:8080/health
+    autorestart: on-failure
+  math1-twin:
+    cmd:
+      - mise
+      - run
+      - math1-twin
+    deps:
+      - ws-server-edge
+    tags:
+      - edge
+  math1-trigger:
+    cmd:
+      - mise
+      - run
+      - math1-trigger
+    deps:
+      - ws-server
+    tags:
+      - server
+  open-o2:
+    type: job
+    cmd:
+      - mise
+      - run
+      - open-o2
+    deps:
+      - openobserve
+    tags:
+      - server

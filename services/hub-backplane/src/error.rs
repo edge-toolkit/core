@@ -44,6 +44,9 @@ pub enum BackplaneError {
 
     #[error("no pending message {0} to acknowledge")]
     NoPendingMessage(String),
+
+    #[error("the NATS server did not confirm this hub's subscriptions within {0:?}")]
+    SubscriptionsUnconfirmed(std::time::Duration),
 }
 
 /// Convert any NATS client error into [`BackplaneError::Nats`], naming what was being attempted.

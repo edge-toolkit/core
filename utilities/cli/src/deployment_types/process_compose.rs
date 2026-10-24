@@ -4,12 +4,13 @@ use edge_toolkit::ports::Services;
 use fs_err as fs;
 use serde_yaml::{Mapping, Value};
 
-use super::mise::collector_container;
+use super::hub_sharing::server_containers;
+use super::mise::container;
 use super::yaml::{document, insert};
-use super::{COLLECTOR_TASK, HUB_TASK, OPENER_TASK};
+use super::{COLLECTOR_TASK, OPENER_TASK};
 use crate::error::CliError;
 use crate::input::ClusterInput;
-use crate::placement::{Site, hub_site};
+use crate::placement::{Site, hub_site, hubs, shares_hubs};
 use crate::schedule::Schedule;
 use crate::{OutputType, scenario_runners};
 
@@ -22,8 +23,8 @@ const SCHEMA_VERSION: &str = "0.5";
 /// SIGINT, the interrupt a mise task is written to stop on, as process-compose's numeric `signal:` takes it.
 const SIGINT: u8 = 2;
 
-/// How long the collector gets to exit once stopped, matching the dekit deployment's allowance for `docker stop`.
-const COLLECTOR_STOP_TIMEOUT_SECONDS: u16 = 30;
+/// How long a container the deployment runs gets to exit once stopped, matching dekit's allowance for `docker stop`.
+const CONTAINER_STOP_TIMEOUT_SECONDS: u16 = 30;
 
 /// Seconds between readiness checks.
 const READINESS_PERIOD_SECONDS: u16 = 2;
@@ -49,33 +50,28 @@ pub fn generate_process_compose_deployment(cluster: &ClusterInput, output_dir: &
     let server = hub_site(cluster);
 
     let mut processes = Mapping::new();
-    let mut collector = process(COLLECTOR_TASK, &[], &server);
-    insert(
-        &mut collector,
-        "readiness_probe",
-        http_ready(Services::OtlpCollector.port(), "/healthz"),
-    );
-    // `docker run` is stopped through Docker rather than by signalling the client, for the reason dekit's stop gives.
-    if let Some(Value::Mapping(shutdown)) = collector.get_mut("shutdown") {
-        let container = collector_container(&cluster.cluster_name);
-        insert(shutdown, "command", Value::from(format!("docker stop {container}")));
-        insert(shutdown, "timeout_seconds", Value::from(COLLECTOR_STOP_TIMEOUT_SECONDS));
+    let containers = server_containers(shares_hubs(cluster));
+    let server_hub_deps: Vec<&str> = containers.iter().map(|(name, ..)| *name).collect();
+    for (name, port, path) in containers {
+        let mut service = process(name, &[], &server);
+        insert(&mut service, "readiness_probe", http_ready(port, path));
+        // `docker run` is stopped through Docker rather than by signalling the client, for the reason dekit's stop
+        // gives.
+        if let Some(Value::Mapping(shutdown)) = service.get_mut("shutdown") {
+            let container = container(name, &cluster.cluster_name);
+            insert(shutdown, "command", Value::from(format!("docker stop {container}")));
+            insert(shutdown, "timeout_seconds", Value::from(CONTAINER_STOP_TIMEOUT_SECONDS));
+        }
+        insert(&mut processes, name, Value::Mapping(service));
     }
-    insert(&mut processes, COLLECTOR_TASK, Value::Mapping(collector));
-
-    let mut hub = process(HUB_TASK, &[COLLECTOR_TASK], &server);
-    insert(
-        &mut hub,
-        "readiness_probe",
-        http_ready(Services::InsecureWebSocketServer.port(), "/health"),
-    );
-    insert(&mut processes, HUB_TASK, Value::Mapping(hub));
+    insert_hub_processes(&mut processes, cluster, &server_hub_deps);
 
     for runner in runners {
-        // A runner on another machine cannot wait on a hub process this one does not hold, so it restarts until the hub
-        // on the server answers instead. A scheduled one is not restarted: its next tick is its retry.
+        // A runner on a machine without a hub cannot wait on a hub process this one does not hold, so it restarts until
+        // the hub on the server answers instead. A scheduled one is not restarted: its next tick is its retry.
         let remote = runner.site.is_remote();
-        let deps: &[&str] = if remote { &[] } else { &[HUB_TASK] };
+        let hub = runner.site.hub_name(cluster);
+        let deps: &[&str] = if remote { &[] } else { &[&hub] };
         let mut runner_process = process(&runner.name, deps, &runner.site);
         if runner.schedule.is_unset() {
             if remote {
@@ -101,6 +97,29 @@ pub fn generate_process_compose_deployment(cluster: &ClusterInput, output_dir: &
         document(&config)?,
     )?;
     Ok(())
+}
+
+/// Add a process per hub, the server's waiting on `server_deps`.
+///
+/// A hub off the server cannot wait on the services it shares there, so it restarts until they answer instead.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the per-hub step of generate_process_compose_deployment"
+)]
+fn insert_hub_processes(processes: &mut Mapping, cluster: &ClusterInput, server_deps: &[&str]) {
+    for hub in hubs(cluster) {
+        let deps: &[&str] = if hub.on_server() { server_deps } else { &[] };
+        let mut hub_process = process(&hub.name, deps, &hub.site);
+        insert(
+            &mut hub_process,
+            "readiness_probe",
+            http_ready(Services::InsecureWebSocketServer.port(), "/health"),
+        );
+        if !hub.on_server() {
+            insert(&mut hub_process, "availability", restart("on_failure"));
+        }
+        insert(processes, &hub.name, Value::Mapping(hub_process));
+    }
 }
 
 /// The process that runs the mise task `name` once each of `deps` reports healthy, in the namespace of `site`.

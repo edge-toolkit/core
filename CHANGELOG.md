@@ -37,6 +37,12 @@ Changelog 1.1.0.
   uploads to storage through any hub, and can reconnect to a different hub without losing what was queued for it.
   The default, `local`, behaves as before. In NATS mode the `WS_AGENT_REGISTRY` file is neither read nor written. The
   new `et-hub-backplane` crate holds the NATS side, and `et-test-nats` starts a throwaway broker for tests.
+- A scenario can run a hub on more than one machine: `services.hub.machines` lists them, the server among them. Each
+  runner joins the hub on its own machine, or the server's when its machine runs none. Every format then also runs a
+  NATS server and a rustfs object store on the server, which the hubs share as their backplane and their agent
+  storage, so an upload through one hub reads back through any other. `services.backplane` and `services.storage`
+  take `limits:` for the two. `secrets.env` carries the store's secret as `AWS_SECRET_ACCESS_KEY` and
+  `RUSTFS_SECRET_KEY`. A scenario without `services.hub.machines` renders as before.
 
 ### Changed
 

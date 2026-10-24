@@ -36,8 +36,7 @@ pub(crate) use self::deployment_types::{
     generate_process_compose_deployment, generate_scenario_image,
 };
 pub use self::error::CliError;
-pub(crate) use self::hub_ws_url::HUB_SERVICE;
-pub use self::hub_ws_url::{hub_service_ws_url, hub_ws_url, hub_ws_url_at};
+pub use self::hub_ws_url::{hub_service_ws_url, hub_service_ws_url_named, hub_ws_url, hub_ws_url_at};
 pub(crate) use self::input::running_in_this_repository;
 pub use self::input::{
     ArtifactSource, ClusterInput, DEFAULT_CLUSTER_NAME, OutputType, Service, Services, infer_artifact_source,
@@ -146,7 +145,7 @@ pub(crate) const SUPPORTED_RUNNERS: [(&str, &str); 3] = [
 /// into a table and compose writes each service as a mapping key. Either way a collision replaces rather than reports
 /// -- an agent called `ws-server` would quietly take the hub's place, and the deployment would come up missing the
 /// thing it was meant to talk to. Rejecting the name is the only way that surfaces.
-pub(crate) const RESERVED_RUNNER_NAMES: [&str; 7] = [
+pub(crate) const RESERVED_RUNNER_NAMES: [&str; 9] = [
     "generated-scenario",
     "o2",
     deployment_types::OPENER_TASK,
@@ -154,6 +153,8 @@ pub(crate) const RESERVED_RUNNER_NAMES: [&str; 7] = [
     deployment_types::HUB_TASK,
     deployment_types::HUB_IMAGE_BUILD,
     deployment_types::SCHEDULER_SERVICE,
+    deployment_types::BACKPLANE_TASK,
+    deployment_types::SHARED_STORAGE_TASK,
 ];
 
 /// What the README says about committing the lockfile, whichever way the deployment's artifacts come.
@@ -392,6 +393,18 @@ pub(crate) fn load_cluster_input(input_file: &Path) -> Result<(ClusterInput, u64
     placement::validate_machines(&cluster)?;
     limits::validate_limits(deployment_types::HUB_TASK, &cluster.services.hub.limits)?;
     limits::validate_limits(deployment_types::COLLECTOR_TASK, &cluster.services.collector.limits)?;
+    for (service, settings) in [
+        ("backplane", &cluster.services.backplane),
+        ("storage", &cluster.services.storage),
+    ] {
+        if !settings.is_unset() && !placement::shares_hubs(&cluster) {
+            return Err(CliError::SharedServiceWithoutHubs {
+                service: service.to_owned(),
+            });
+        }
+    }
+    limits::validate_limits(deployment_types::BACKPLANE_TASK, &cluster.services.backplane.limits)?;
+    limits::validate_limits(deployment_types::SHARED_STORAGE_TASK, &cluster.services.storage.limits)?;
     for agent in &cluster.agents {
         // An agent's limits govern its runner processes; with no runner its modules run in a browser, which no
         // deployment format starts, so there would be nothing for them to apply to.
@@ -557,7 +570,10 @@ fn generate_deployment_outputs(
     // One password per scenario, shared by both deployment formats. OpenObserve and the ws-server have to agree on it:
     // the server authenticates its OTLP exports against the same root credentials the collector was started with.
     let password = scenario_password(seed);
-    fs::write(output_dir.join(SECRETS_ENV_FILE), secrets_env(&password))?;
+    fs::write(
+        output_dir.join(SECRETS_ENV_FILE),
+        secrets_env(&password, placement::shares_hubs(cluster)),
+    )?;
     write_deployment_gitignore(output_dir)?;
     for output_type in output_types {
         generate_format(cluster, output_dir, *output_type, with_process_compose)?;
@@ -717,7 +733,9 @@ fn write_deployment_gitignore(output_dir: &Path) -> Result<(), CliError> {
 ///
 /// Two names for the one password because the services that share it read different variables: `OpenObserve`
 /// takes `ZO_ROOT_USER_PASSWORD` as its root credential, and the ws-server authenticates its OTLP exports with
-/// `OTLP_AUTH_PASSWORD`. Nothing else belongs here. The account those two authenticate as is not a secret and each
+/// `OTLP_AUTH_PASSWORD`. A cluster of several hubs adds the secret of the object store they share, under the name the
+/// hubs' S3 client reads and the one rustfs reads. Nothing else belongs here. The accounts these authenticate as are
+/// not secrets and each
 /// format states it outright, so keeping it in this file would have meant an uncommitted file standing between a reader
 /// and a value there was never any reason to withhold -- and, in the Kubernetes case, a `Secret` holding something that
 /// is not one.
@@ -727,8 +745,8 @@ fn write_deployment_gitignore(output_dir: &Path) -> Result<(), CliError> {
 /// a secrets scan. The pragma sits on the line above rather than at the end of its own, because an env file has no
 /// inline comments: every consumer keeps what follows the `=` verbatim, so a trailing marker would become part of the
 /// password.
-fn secrets_env(password: &str) -> String {
-    format!(
+fn secrets_env(password: &str, shares_hubs: bool) -> String {
+    let mut body = format!(
         concat!(
             "# Generated from the scenario input -- regenerating this deployment rewrites it.\n",
             "# skipcq: SCT-A000 -- derived from the scenario input, not an independently generated secret\n",
@@ -737,7 +755,21 @@ fn secrets_env(password: &str) -> String {
             "OTLP_AUTH_PASSWORD={password}\n",
         ),
         password = password
-    )
+    );
+    if shares_hubs {
+        for name in deployment_types::STORAGE_SECRET_ENVS {
+            let _write_result = writeln!(
+                body,
+                concat!(
+                    "# skipcq: SCT-A000 -- derived from the scenario input, not an independently generated secret\n",
+                    "{name}={password}",
+                ),
+                name = name,
+                password = password,
+            );
+        }
+    }
+    body
 }
 
 fn discover_verification_scenarios(verification_root: &Path) -> Result<Vec<(PathBuf, PathBuf)>, CliError> {
@@ -883,7 +915,7 @@ fn generated_readme(
         install_note = install_note,
         output_summary = output_summary,
         module_summary = module_summary,
-        secrets_note = secrets_note(),
+        secrets_note = secrets_note(placement::shares_hubs(cluster)),
         run_instructions = run_instructions,
     )
 }
@@ -912,14 +944,20 @@ const fn artifact_source_note(artifacts: ArtifactSource) -> &'static str {
 /// Worth saying out loud because its absence is silent: `mise` skips an `_.file` it cannot find without a warning,
 /// and Docker Compose treats a missing `env_file` the same way, so a copy without it starts a collector with no root
 /// password rather than failing.
-fn secrets_note() -> String {
+fn secrets_note(shares_hubs: bool) -> String {
+    let credentials = if shares_hubs {
+        "OpenObserve, OTLP and object store credentials"
+    } else {
+        "OpenObserve and OTLP credentials"
+    };
     format!(
         concat!(
-            "`{file}` holds the scenario's derived OpenObserve and OTLP credentials. It is derived from the\n",
+            "`{file}` holds the scenario's derived {credentials}. It is derived from the\n",
             "scenario input, so regenerating this deployment rewrites it; if it is missing, regenerate before\n",
             "starting the stack. A deployment generated outside the repository is written with a `.gitignore`\n",
             "covering it, so its credential is not committed by whatever repository it lands in.",
         ),
+        credentials = credentials,
         file = SECRETS_ENV_FILE
     )
 }
@@ -1066,27 +1104,47 @@ fn generated_run_instructions(
         )
         .to_string(),
         OutputType::ProcessCompose => process_compose_run_instructions(artifacts).to_string(),
-        OutputType::DockerCompose => format!(
-            concat!(
-                "## Run With Docker Compose\n\n",
-                "From this directory, start the scenario with:\n\n",
-                "```bash\n",
-                "docker compose up --build\n",
-                "```\n\n",
-                "{hub}",
-                "`ws-server` runs with host networking so it advertises the same LAN IP as the `mise` deployment.\n\n",
-                "### Open The UIs\n\n",
-                "OpenObserve is available at <http://localhost:5080/>.\n",
-                "`ws-server` is available at <http://localhost:8080/> and <https://localhost:8443/>.\n\n",
-                "Stop the scenario with:\n\n",
-                "```bash\n",
-                "docker compose down\n",
-                "```\n"
-            ),
-            hub = compose_hub_note(artifacts)
-        ),
+        OutputType::DockerCompose => docker_compose_run_instructions(cluster, artifacts),
         OutputType::K3s => k3s_run_instructions(cluster, image_build, runners, artifacts, build_contexts),
     }
+}
+
+/// Render the README section that runs the Docker Compose deployment on one host.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the Docker Compose step of generated_run_instructions"
+)]
+fn docker_compose_run_instructions(cluster: &ClusterInput, artifacts: ArtifactSource) -> String {
+    let other_hubs = if placement::shares_hubs(cluster) {
+        concat!(
+            "Every hub listens on the same ports, so on one host only the server's starts: this leaves out\n",
+            "each other machine running a hub, which runs its share on its own machine instead.\n\n"
+        )
+    } else {
+        ""
+    };
+    format!(
+        concat!(
+            "## Run With Docker Compose\n\n",
+            "From this directory, start the scenario with:\n\n",
+            "```bash\n",
+            "docker compose{profiles} up --build\n",
+            "```\n\n",
+            "{other_hubs}",
+            "{hub}",
+            "`ws-server` runs with host networking so it advertises the same LAN IP as the `mise` deployment.\n\n",
+            "### Open The UIs\n\n",
+            "OpenObserve is available at <http://localhost:5080/>.\n",
+            "`ws-server` is available at <http://localhost:8080/> and <https://localhost:8443/>.\n\n",
+            "Stop the scenario with:\n\n",
+            "```bash\n",
+            "docker compose{profiles} down\n",
+            "```\n"
+        ),
+        hub = compose_hub_note(artifacts),
+        other_hubs = other_hubs,
+        profiles = compose_single_host_profiles(cluster),
+    )
 }
 
 /// Render how one format runs across the machines a scenario names, or nothing for a single-host scenario.
@@ -1136,17 +1194,9 @@ fn machine_instructions(output_type: OutputType, cluster: &ClusterInput) -> Stri
         ),
         OutputType::K3s => return k3s_machine_instructions(cluster, server),
     };
-    let mut text = format!(
-        concat!(
-            "\n### Run Across Machines With {format_name}\n\n",
-            "{intro}`{server}` runs OpenObserve and `ws-server`, and the runners on every other machine reach\n",
-            "the hub at `{address}`.\n\n"
-        ),
-        address = server.address,
-        format_name = format_name,
-        intro = intro,
-        server = server.name,
-    );
+    let roles = machine_roles(cluster, server);
+    let loopback = loopback_note(cluster);
+    let mut text = format!("\n### Run Across Machines With {format_name}\n\n{intro}{roles}{loopback}");
     for machine in &cluster.machines {
         let _write_result = writeln!(
             text,
@@ -1159,6 +1209,71 @@ fn machine_instructions(output_type: OutputType, cluster: &ClusterInput) -> Stri
     text
 }
 
+/// Say that the scenario's machine addresses are loopback, when any is, or nothing.
+///
+/// Loopback addresses run every machine's share on one host, which is what a verification scenario wants, and none of
+/// them reaches another machine. The commands that follow use the addresses as written, so they have to change in the
+/// input, and the deployment regenerated, before it runs across machines.
+fn loopback_note(cluster: &ClusterInput) -> &'static str {
+    let loopback = cluster
+        .machines
+        .iter()
+        .any(|machine| machine.address == "localhost" || machine.address.starts_with("127."));
+    if !loopback {
+        return "";
+    }
+    concat!(
+        "The machines' addresses are loopback, which plays every machine on this one host. To run them on\n",
+        "separate machines, give each its reachable address in the scenario input and regenerate first.\n\n"
+    )
+}
+
+/// The `--profile` flags that start the scenario on one host, or nothing for a scenario naming no machines.
+///
+/// Every machine's profile, but that of a machine running a hub besides the server: every hub listens on the same
+/// ports, so on one host the server's is the only one that can start, and each runner reaches it at `localhost`.
+fn compose_single_host_profiles(cluster: &ClusterInput) -> String {
+    let hubs = placement::hubs(cluster);
+    cluster
+        .machines
+        .iter()
+        .filter(|machine| {
+            !hubs
+                .iter()
+                .any(|hub| !hub.on_server() && hub.site.machine_names().contains(&machine.name))
+        })
+        .fold(String::default(), |mut flags, machine| {
+            let _write_result = write!(flags, " --profile {}", machine.name);
+            flags
+        })
+}
+
+/// Render what the server runs and where each runner finds its hub.
+///
+/// The paragraph every format's machine section opens with.
+#[expect(clippy::single_call_fn, reason = "the roles step of machine_instructions")]
+fn machine_roles(cluster: &ClusterInput, server: &input::Machine) -> String {
+    if placement::shares_hubs(cluster) {
+        return format!(
+            concat!(
+                "`{server}` runs OpenObserve, `ws-server`, and the NATS server and object store the hubs share,\n",
+                "which the other machines' hubs reach at `{address}`. Each runner joins the hub on its own\n",
+                "machine, or the one on `{server}` when its machine runs none.\n\n"
+            ),
+            address = server.address,
+            server = server.name,
+        );
+    }
+    format!(
+        concat!(
+            "`{server}` runs OpenObserve and `ws-server`, and the runners on every other machine reach\n",
+            "the hub at `{address}`.\n\n"
+        ),
+        address = server.address,
+        server = server.name,
+    )
+}
+
 /// Render how the machines of a k3s scenario become one cluster and receive the images their pods run.
 ///
 /// Each machine is labelled as it joins rather than afterwards, so the manifests' node selectors have something to
@@ -1167,11 +1282,11 @@ fn k3s_machine_instructions(cluster: &ClusterInput, server: &input::Machine) -> 
     let mut joins = String::default();
     for machine in &cluster.machines {
         if machine.name != server.name {
-            let _write_result = write!(
+            let _write_result = writeln!(
                 joins,
                 concat!(
                     "sudo k3s agent --server \"https://${{server}}:6443\" --token \"$token\"",
-                    " --node-label {label}={name}\n"
+                    " --node-label {label}={name}"
                 ),
                 label = placement::MACHINE_LABEL,
                 name = machine.name,
@@ -1182,6 +1297,7 @@ fn k3s_machine_instructions(cluster: &ClusterInput, server: &input::Machine) -> 
     format!(
         concat!(
             "\n### Run Across Machines With k3s\n\n",
+            "{loopback}",
             "The machines have to form one k3s cluster first, each labelled with the machine name the manifests\n",
             "pin pods to. With `k3s` installed on every machine, start the server on `{server}`. It stays in\n",
             "the foreground, so read the token the others join with from a second shell once it is up:\n\n",
@@ -1206,19 +1322,31 @@ fn k3s_machine_instructions(cluster: &ClusterInput, server: &input::Machine) -> 
         imports = imports,
         joins = joins,
         label = placement::MACHINE_LABEL,
+        loopback = loopback_note(cluster),
         server = server.name,
     )
 }
 
 /// The image imports of a k3s scenario spread across machines.
 ///
-/// The scenario image goes to the server, and each locally built runner image to each machine with a runner of that
-/// kind. A published scenario's runner images are pulled by the cluster, so only the scenario image is imported for it.
+/// The scenario image goes to each machine running a hub, and each locally built runner image to each machine with a
+/// runner of that kind. A published scenario's runner images are pulled by the cluster, so only the scenario image is
+/// imported for it.
 fn k3s_machine_imports(cluster: &ClusterInput, server: &input::Machine) -> String {
-    let mut imports = format!(
-        "image=\"et-ws-server-{}:latest\"\ndocker save \"$image\" | ssh {} sudo k3s ctr images import -\n",
-        cluster.cluster_name, server.address
-    );
+    let mut imports = format!("image=\"et-ws-server-{}:latest\"\n", cluster.cluster_name);
+    for hub in placement::hubs(cluster) {
+        for machine in cluster
+            .machines
+            .iter()
+            .filter(|machine| hub.site.machine_names().contains(&machine.name))
+        {
+            let _write_result = writeln!(
+                imports,
+                "docker save \"$image\" | ssh {} sudo k3s ctr images import -",
+                machine.address
+            );
+        }
+    }
     if matches!(cluster.artifact_source, ArtifactSource::Local) {
         if !cluster.recovery.is_unset() {
             let _write_result = writeln!(
@@ -2002,12 +2130,13 @@ pub(crate) fn resolve_cluster_runners(
             // The hub serves a module under its package name, so that is what the runner has to ask for.
             let module = entry.package_name.clone().unwrap_or_else(|| module_name.to_string());
             let name = runner_name(&agent.name, module_name, multi_resource, &runners)?;
-            // A machine is a mise task of its own as well, and has a compose scheduler service, so a runner taking
-            // either name would replace it.
+            // A machine is a mise task of its own as well, has a compose scheduler service and may run a hub, so a
+            // runner taking any of those names would replace it.
             if cluster.machines.iter().any(|machine| {
                 name == deployment_types::machine_task(&machine.name)
                     || name == deployment_types::scheduler_service(slice::from_ref(&machine.name))
-            }) {
+            }) || placement::hubs(cluster).iter().any(|hub| hub.name == name)
+            {
                 return Err(CliError::ReservedRunnerName {
                     agent: agent.name.clone(),
                     name,
