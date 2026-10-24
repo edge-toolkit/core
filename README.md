@@ -397,15 +397,6 @@ docker compose up --build
 The generated scenario config only selects which prebuilt modules `ws-server` serves. Module builds are expected
 to be handled separately from the repository root.
 
-To regenerate all checked-in verification outputs from `verification/*/input`, writing each scenario to the
-matching `verification/*/output/<input-file-stem>` folder. This renders each scenario for every supported deployment
-tool -- mise, dekit, process-compose, Docker Compose and k3s -- and each scenario's own `README.md` names the files
-it holds and how to run them:
-
-```bash
-mise run regen-verification
-```
-
 ### k3s
 
 The third output type writes Kubernetes manifests. Pass `--output-type k3s`, or set `deployment_type: k3s` in the
@@ -425,12 +416,9 @@ every image has to exist on the node before `kubectl apply`. And the scenario's 
 the scenario also writes a `README.md` beside the manifests carrying that scenario's own build, import and
 secret-loading commands.
 
-Applying them to a live cluster is Linux-only, because k3s is a Linux Kubernetes distribution. `mise run k3s-verify`
-does the whole round trip for the `math1` scenario against a disposable k3d cluster -- create, import, apply, wait
-for both rollouts, then read back the model the two runners exchanged -- and deletes the cluster on the way out. It
-expects the images to have been built already and says so if they have not. Generating and checking the manifests
-is not Linux-only: `verification-check` fails on drift, `kubeconform-check` validates them against the Kubernetes
-schemas, and `trivy-check` applies its Kubernetes security rules, all on every platform.
+Applying them to a live cluster is Linux-only, because k3s is a Linux Kubernetes distribution. Generating and
+checking the manifests is not: `kubeconform-check` validates them against the Kubernetes schemas, and `trivy-check`
+applies its Kubernetes security rules, both on every platform.
 
 The containers run hardened: a read-only root filesystem, no privilege escalation, every capability dropped, and a
 non-root user, with `emptyDir` mounts for the paths that still have to be writable. Traffic between them is
@@ -453,11 +441,31 @@ machines:
     agents: ["math1-twin"]
 ```
 
-`verification/local/input/math1-multi.yaml` is that split with both machines at loopback, so one host can play every
-machine; its `verification/published/` twin renders the same split against the released artifacts, which need
-nothing new to run it. `mise run k3s-verify --scenario math1-multi` applies it to a k3d cluster with one node per
-machine and checks each pod landed on its own machine's node. `mise run compose-verify` brings it up one machine
-profile at a time.
+### Several hubs
+
+`services.hub.machines:` runs a hub on each machine it lists, the server among them. The hubs join into one through
+a NATS server, the backplane carrying the agent directory, the mailbox and delivery between hubs, and point their
+agent storage at one rustfs object store, so an upload through one hub reads back through any other. Both run on the
+server beside the collector, and `services.backplane.limits:` and `services.storage.limits:` set their limits. Each
+runner joins the hub on its own machine, or the server's when its machine runs none:
+
+```yaml
+machines:
+  - name: "server"
+    address: "10.0.0.1"
+    agents: ["math1-trigger"]
+  - name: "edge"
+    address: "10.0.0.2"
+    agents: ["math1-twin"]
+services:
+  hub:
+    machines: ["server", "edge"]
+```
+
+NATS takes no credential, the same trust the hubs' plaintext WebSocket listeners already place in the network between
+the machines; the object store's secret is in `secrets.env`. In every format but k3s a hub off the server exports no
+telemetry, because the collector listens on the server's loopback only. Every hub listens on the same ports, so only
+k3s, where each pod has a network of its own, runs several on one host.
 
 ### Resource limits
 
@@ -487,9 +495,7 @@ Compose and k3s apply every field, and each lands in the same cgroup value under
 takes a default both share. k3s carries what the Pod API cannot through two upstream container runtime plugins,
 containerd's `ulimit-adjuster` and nri-plugins' `nri-memory-qos`, and refuses a limited pod on a node without them, so
 the generated `README.md` has every machine prepared first. The mise, dekit and process-compose deployments run each
-process directly on the host and apply none. `verification/local/input/math1-limits.yaml` sets a sample, which
-`mise run k3s-verify local --scenario math1-limits` and `mise run compose-verify --scenario math1-limits` check in the
-running containers.
+process directly on the host and apply none.
 
 ### Scheduled agents
 
@@ -512,8 +518,7 @@ agents:
 k3s runs it as a `CronJob`. Compose adds a `scheduler` service, [Ofelia](https://github.com/netresearch/ofelia), which
 starts the runner's container again on each tick and mounts the Docker socket to do so. process-compose, whose
 `process-compose.yaml` runs the `mise.toml` tasks as `dekit.yaml` does, schedules the task itself. mise and dekit have
-no scheduler, so generating either for a scheduled scenario is an error, and `regen-verification` leaves both out of
-such a scenario. `verification/local/input/math1-cron.yaml` runs the trigger every minute.
+no scheduler, so generating either for a scheduled scenario is an error.
 
 ## Grant
 

@@ -772,7 +772,7 @@ Rules, from `config/conftest/policy`:
 ## `ryl`
 
 - `ryl-check` (`default` env; run by `check:rust`) -- Lint YAML with ryl (a yamllint-compatible Rust linter). Config:
-  `config/ryl.yaml`.
+  `config/ryl.toml`.
 
 ## `semgrep`
 
