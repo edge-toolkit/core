@@ -1,6 +1,8 @@
 //! Port allocation.
 
-use Services::{InsecureWebSocketServer, OtlpCollector, SecureWebSocketServer};
+use Services::{
+    Backplane, BackplaneMonitor, InsecureWebSocketServer, OtlpCollector, SecureWebSocketServer, SharedStorage,
+};
 
 /// Define each services port.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -13,6 +15,13 @@ pub enum Services {
     InsecureWebSocketServer,
     /// Secure WebSocket server.
     SecureWebSocketServer,
+
+    /// NATS client port of the backplane several hubs share.
+    Backplane,
+    /// NATS monitoring port of the backplane, which serves its health check.
+    BackplaneMonitor,
+    /// S3 endpoint of the object store several hubs share.
+    SharedStorage,
 }
 
 impl Services {
@@ -25,6 +34,11 @@ impl Services {
 
             InsecureWebSocketServer => 8080,
             SecureWebSocketServer => 8443,
+
+            // NATS's and rustfs's own defaults
+            Backplane => 4222,
+            BackplaneMonitor => 8222,
+            SharedStorage => 9000,
         }
     }
 }

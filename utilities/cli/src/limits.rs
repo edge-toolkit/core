@@ -20,7 +20,7 @@ use bytesize::ByteSize;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::deployment_types::{COLLECTOR_TASK, HUB_TASK};
+use crate::deployment_types::{BACKPLANE_TASK, COLLECTOR_TASK, HUB_TASK, SHARED_STORAGE_TASK};
 use crate::error::CliError;
 use crate::input::{ClusterInput, OutputType};
 
@@ -518,8 +518,10 @@ pub(crate) fn k8s_cpus(cpus: Cpus) -> String {
 /// Every process the scenario sets limits for, by the name each deployment format gives it.
 fn limited_processes(cluster: &ClusterInput) -> Vec<&str> {
     let fixed = [
+        (BACKPLANE_TASK, &cluster.services.backplane.limits),
         (COLLECTOR_TASK, &cluster.services.collector.limits),
         (HUB_TASK, &cluster.services.hub.limits),
+        (SHARED_STORAGE_TASK, &cluster.services.storage.limits),
     ];
     let agents = cluster.agents.iter().map(|agent| (agent.name.as_str(), &agent.limits));
     fixed

@@ -1,13 +1,18 @@
 use std::path::{Path, PathBuf};
 
+use edge_toolkit::ports::Services;
 use et_path::{absolute_from, relative_path_from};
 use fs_err as fs;
 
-use super::{REGISTRY_TOKEN_ENV, REGISTRY_TOKEN_SECRET, scenario_image_needs};
+use super::hub_sharing::{
+    BACKPLANE_HEALTH_PATH, BACKPLANE_IMAGE, BACKPLANE_TASK, DATA_DIR, SHARED_STORAGE_HEALTH_PATH, SHARED_STORAGE_IMAGE,
+    SHARED_STORAGE_TASK, backplane_args, shared_hub_env, shared_storage_env, shared_storage_start,
+};
+use super::{COLLECTOR_TASK, REGISTRY_TOKEN_ENV, REGISTRY_TOKEN_SECRET, scenario_image_needs};
 use crate::error::CliError;
 use crate::input::{ArtifactSource, ClusterInput};
 use crate::limits::{CpuCap, ResolvedLimits, compose_bytes};
-use crate::placement::hub_site;
+use crate::placement::{Hub, hub_site, hubs, shares_hubs};
 use crate::{
     COLLECTOR_SETTINGS, COLLECTOR_USERNAME, IMAGE_REGISTRY, OutputType, RunnerInstance, SECRETS_ENV_FILE,
     cluster_module_names, hub_http_base, module_path_contexts, module_registry, resolve_cluster_runners,
@@ -41,6 +46,14 @@ const SCENARIO_LABEL: &str = concat!(et_org::org!(), "/scenario");
 const YAML_INDICATORS: [char; 18] = [
     '@', '`', '-', '?', ':', ',', '[', ']', '{', '}', '#', '&', '*', '!', '|', '>', '\'', '"',
 ];
+
+/// Whether YAML reads `value`, written bare, as a boolean, a null or a number rather than the string it is.
+///
+/// The YAML 1.1 spellings are included, since compose's parser still honours `yes`, `no`, `on` and `off`.
+fn reads_as_non_string(value: &str) -> bool {
+    const RESERVED: [&str; 10] = ["true", "false", "yes", "no", "on", "off", "y", "n", "null", "~"];
+    RESERVED.iter().any(|reserved| value.eq_ignore_ascii_case(reserved)) || value.parse::<f64>().is_ok()
+}
 
 /// The scheduler service for the machine `machines` names, or for the single host when it names none.
 ///
@@ -98,13 +111,18 @@ fn healthy(service: &str) -> (String, ComposeDependsOnCondition) {
     reason = "the healthcheck step of generate_docker_compose_deployment"
 )]
 fn hub_healthcheck() -> ComposeHealthcheck {
+    curl_healthcheck(&format!("{}/health", hub_http_base()))
+}
+
+/// A healthcheck that passes once `url` answers with a success status, asked with the image's own `curl`.
+fn curl_healthcheck(url: &str) -> ComposeHealthcheck {
+    healthcheck(&["CMD", "curl", "-fsS", url])
+}
+
+/// A healthcheck running `test`, on the cadence every service here shares.
+fn healthcheck(test: &[&str]) -> ComposeHealthcheck {
     ComposeHealthcheck {
-        test: vec![
-            "CMD".to_string(),
-            "curl".to_string(),
-            "-fsS".to_string(),
-            format!("{}/health", hub_http_base()),
-        ],
+        test: test.iter().map(|word| (*word).to_string()).collect(),
         interval: "5s".to_string(),
         timeout: "3s".to_string(),
         retries: 20,
@@ -124,7 +142,7 @@ fn scenario_hub_service(
     cluster: &ClusterInput,
     output_abs: &Path,
     hub_contexts: Vec<(String, String)>,
-    profiles: Vec<String>,
+    hub: &Hub,
 ) -> Result<(ComposeService, Vec<String>), CliError> {
     let workspace_root = edge_toolkit::config::get_project_root();
     let serves_a_page = super::serves_a_page(cluster);
@@ -145,8 +163,27 @@ fn scenario_hub_service(
     } else {
         Vec::new()
     };
+    let shared = shares_hubs(cluster);
+    let mut environment = hub_environment(module_paths, &workspace_root, serves_a_page, shared);
+    let mut depends_on = vec![healthy(COLLECTOR_TASK)];
+    if shared {
+        environment.extend(
+            shared_hub_env(&hub.server_host, &hub.server_host)
+                .into_iter()
+                .map(|(name, value)| (name.to_string(), ComposeValue::Plain(value))),
+        );
+        environment.sort_by(|(left, _), (right, _)| left.cmp(right));
+        depends_on.extend([healthy(BACKPLANE_TASK), healthy(SHARED_STORAGE_TASK)]);
+    }
+    // A hub off the server cannot be gated on services its own compose project does not start, so the edges are kept
+    // but waived, and the hub is restarted until they answer instead, as a runner off the server is.
+    if !hub.on_server() {
+        for (_, condition) in &mut depends_on {
+            condition.required = false;
+        }
+    }
     let service = ComposeService {
-        profiles,
+        profiles: hub.site.machine_names(),
         build: Some(ComposeBuild {
             source,
             // Relative to this file, which is what compose resolves a context path against.
@@ -156,18 +193,121 @@ fn scenario_hub_service(
                 .collect(),
             secrets: secrets.clone(),
         }),
+        restart: (!hub.on_server()).then(|| "on-failure".to_string()),
         network_mode: Some("host".to_string()),
         // Carries `OTLP_AUTH_PASSWORD`: the server authenticates its OTLP exports against the same root credential the
         // collector was started with. The account it authenticates as is in the environment.
         env_file: vec![SECRETS_ENV_FILE.to_string()],
-        environment: hub_environment(module_paths, &workspace_root, serves_a_page),
-        volumes: vec!["ws-server-storage:/app/storage".to_string()],
-        depends_on: vec![healthy("openobserve")],
+        environment,
+        volumes: if shared {
+            Vec::new()
+        } else {
+            vec!["ws-server-storage:/app/storage".to_string()]
+        },
+        depends_on,
         healthcheck: Some(hub_healthcheck()),
         limits: cluster.services.hub.limits.resolve(),
         ..ComposeService::default()
     };
     Ok((service, secrets))
+}
+
+/// The NATS and rustfs services the hubs share, on the server's host network so the other machines' hubs reach them.
+///
+/// Host networking rather than published ports, for the reason the hub has it: everything the hubs share is addressed
+/// as `localhost` from the server and by the server's address from anywhere else.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the shared-services step of generate_docker_compose_deployment"
+)]
+fn shared_services(cluster: &ClusterInput, profiles: &[String]) -> [(String, ComposeService); 2] {
+    let backplane = ComposeService {
+        profiles: profiles.to_vec(),
+        image: Some(BACKPLANE_IMAGE.to_string()),
+        command: backplane_args(),
+        healthcheck: Some(backplane_healthcheck()),
+        network_mode: Some("host".to_string()),
+        volumes: vec![format!("{BACKPLANE_TASK}-data:{DATA_DIR}")],
+        limits: cluster.services.backplane.limits.resolve(),
+        ..ComposeService::default()
+    };
+    let storage = ComposeService {
+        profiles: profiles.to_vec(),
+        image: Some(SHARED_STORAGE_IMAGE.to_string()),
+        entrypoint: vec!["sh".to_string(), "-c".to_string()],
+        command: vec![shared_storage_start()],
+        healthcheck: Some(curl_healthcheck(&format!(
+            "http://localhost:{}{SHARED_STORAGE_HEALTH_PATH}",
+            Services::SharedStorage.port()
+        ))),
+        network_mode: Some("host".to_string()),
+        // Carries `RUSTFS_SECRET_KEY`, the secret the hubs present as `AWS_SECRET_ACCESS_KEY`.
+        env_file: vec![SECRETS_ENV_FILE.to_string()],
+        environment: shared_storage_env()
+            .into_iter()
+            .map(|(name, value)| (name.to_string(), ComposeValue::Plain(value)))
+            .collect(),
+        volumes: vec![format!("{SHARED_STORAGE_TASK}-data:{DATA_DIR}")],
+        limits: cluster.services.storage.limits.resolve(),
+        ..ComposeService::default()
+    };
+    [
+        (BACKPLANE_TASK.to_string(), backplane),
+        (SHARED_STORAGE_TASK.to_string(), storage),
+    ]
+}
+
+/// The NATS server's healthcheck, which passes once its health endpoint answers `200` with `JetStream` up.
+///
+/// The image ships no `curl`, so the request is written by hand and sent with its `nc`, and the status line read back.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the NATS step of shared_services, separate to keep the request out of the literal"
+)]
+fn backplane_healthcheck() -> ComposeHealthcheck {
+    let probe = format!(
+        "printf 'GET {BACKPLANE_HEALTH_PATH} HTTP/1.0\\r\\n\\r\\n' | nc localhost {} | head -1 | grep -q ' 200 '",
+        Services::BackplaneMonitor.port()
+    );
+    healthcheck(&["CMD-SHELL", &probe])
+}
+
+/// One service per hub, and the top-level secrets their builds read.
+///
+/// A local scenario also gets the service building the hub image it layers onto, on every machine with a hub; a
+/// published scenario's Dockerfile names the released image itself.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the hub step of generate_docker_compose_deployment"
+)]
+fn hub_services(
+    cluster: &ClusterInput,
+    output_abs: &Path,
+    workspace_rel: String,
+    published: bool,
+) -> Result<(Vec<NamedService>, Vec<String>), CliError> {
+    let hubs = hubs(cluster);
+    let mut services = Vec::new();
+    let hub_contexts = if published {
+        Vec::new()
+    } else {
+        services.push((
+            HUB_IMAGE_BUILD.to_string(),
+            ComposeService {
+                limits: cluster.services.hub.limits.resolve(),
+                profiles: hubs.iter().flat_map(|hub| hub.site.machine_names()).collect(),
+                ..hub_build_service(workspace_rel)
+            },
+        ));
+        vec![("hub".to_string(), format!("service:{HUB_IMAGE_BUILD}"))]
+    };
+    let mut secrets = Vec::new();
+    for hub in &hubs {
+        let (service, hub_secrets) = scenario_hub_service(cluster, output_abs, hub_contexts.clone(), hub)?;
+        services.push((hub.name.clone(), service));
+        secrets = hub_secrets;
+    }
+    Ok((services, secrets))
 }
 
 pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
@@ -177,32 +317,22 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
     let workspace_rel = relative_path_from(&output_abs, &workspace_root);
     let artifacts = cluster.artifact_source;
     let published = matches!(artifacts, ArtifactSource::Published);
-    // Everything but the runners runs on the server machine.
+    // Everything but the runners and the other machines' hubs runs on the server machine.
     let server_profiles = hub_site(cluster).machine_names();
+    let shared = shares_hubs(cluster);
     let mut services = vec![(
-        "openobserve".to_string(),
+        COLLECTOR_TASK.to_string(),
         ComposeService {
             profiles: server_profiles.clone(),
             limits: cluster.services.collector.limits.resolve(),
             ..openobserve_service()
         },
     )];
-    // A local scenario builds the hub it layers onto; a published one's Dockerfile names the released image itself.
-    let hub_contexts = if published {
-        Vec::new()
-    } else {
-        services.push((
-            HUB_IMAGE_BUILD.to_string(),
-            ComposeService {
-                limits: cluster.services.hub.limits.resolve(),
-                profiles: server_profiles.clone(),
-                ..hub_build_service(workspace_rel)
-            },
-        ));
-        vec![("hub".to_string(), format!("service:{HUB_IMAGE_BUILD}"))]
-    };
-    let (hub, secrets) = scenario_hub_service(cluster, &output_abs, hub_contexts, server_profiles)?;
-    services.push(("ws-server".to_string(), hub));
+    if shared {
+        services.extend(shared_services(cluster, &server_profiles));
+    }
+    let (hub_services, secrets) = hub_services(cluster, &output_abs, workspace_rel, published)?;
+    services.extend(hub_services);
     let runners = resolve_cluster_runners(
         &module_registry(
             &workspace_root,
@@ -212,18 +342,24 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
         cluster,
     )?;
     services.extend(runner_services(
+        cluster,
         &runners,
-        &cluster.cluster_name,
         &relative_path_from(&output_abs, &workspace_root),
         artifacts,
     ));
     services.extend(scheduler_services(&runners, &cluster.cluster_name));
+    let volumes = if shared {
+        vec![
+            format!("{BACKPLANE_TASK}-data"),
+            "openobserve-data".to_string(),
+            format!("{SHARED_STORAGE_TASK}-data"),
+        ]
+    } else {
+        vec!["openobserve-data".to_string(), "ws-server-storage".to_string()]
+    };
     let compose = ComposeFile {
         services,
-        volumes: vec![
-            ("openobserve-data".to_string(), ComposeVolume),
-            ("ws-server-storage".to_string(), ComposeVolume),
-        ],
+        volumes: volumes.into_iter().map(|name| (name, ComposeVolume)).collect(),
         secrets,
     };
     let content = render_compose_yaml(&compose);
@@ -249,21 +385,22 @@ pub fn generate_docker_compose_deployment(cluster: &ClusterInput, output_dir: &P
 /// its container is named, labelled with the scenario, and never restarted by compose, since its next tick is its
 /// retry.
 fn runner_services(
+    cluster: &ClusterInput,
     runners: &[RunnerInstance],
-    cluster_name: &str,
     context: &str,
     artifacts: ArtifactSource,
 ) -> Vec<(String, ComposeService)> {
     let published = matches!(artifacts, ArtifactSource::Published);
+    let cluster_name = cluster.cluster_name.as_str();
     runners
         .iter()
         .map(|runner| {
             let kind = &runner.runner;
-            // A runner on another machine cannot be gated on a hub its own compose project does not start, so the edge
-            // is kept but waived, and the runner is restarted until the hub answers instead.
+            // A runner on a machine without a hub cannot be gated on a hub its own compose project does not start, so
+            // the edge is kept but waived, and the runner is restarted until the hub answers instead.
             let remote = runner.site.is_remote();
             let scheduled = !runner.schedule.is_unset();
-            let (name, mut hub) = healthy("ws-server");
+            let (name, mut hub) = healthy(&runner.site.hub_name(cluster));
             hub.required = !remote;
             let service = ComposeService {
                 container_name: scheduled.then(|| scheduled_container(cluster_name, &runner.name)),
@@ -397,18 +534,7 @@ fn collector_environment() -> Vec<(String, ComposeValue)> {
 fn openobserve_service() -> ComposeService {
     ComposeService {
         image: Some("openobserve/openobserve:v1.1.1".to_string()),
-        healthcheck: Some(ComposeHealthcheck {
-            test: vec![
-                "CMD".to_string(),
-                "/openobserve".to_string(),
-                "node".to_string(),
-                "status".to_string(),
-            ],
-            interval: "5s".to_string(),
-            timeout: "3s".to_string(),
-            retries: 20,
-            start_period: "10s".to_string(),
-        }),
+        healthcheck: Some(healthcheck(&["CMD", "/openobserve", "node", "status"])),
         // Bound to loopback, not every interface. A collector published on 0.0.0.0 would hand its root login to anyone
         // who can reach the host and read the scenario's generated env file. Nothing outside the developer's machine
         // needs to talk to it: the ws-server exports to 127.0.0.1:5080 and the UI is opened locally.
@@ -436,6 +562,7 @@ fn hub_environment(
     module_paths: Vec<String>,
     workspace_root: &Path,
     serves_a_page: bool,
+    shared: bool,
 ) -> Vec<(String, ComposeValue)> {
     let root_module = if serves_a_page {
         super::hub_root_module(&workspace_root.join("services/ws-server"))
@@ -458,11 +585,14 @@ fn hub_environment(
             "OTLP_COLLECTOR_URL".to_string(),
             ComposeValue::Plain("http://127.0.0.1:5080/api/default/v1".to_string()),
         ),
-        (
+    ]);
+    // Hubs that share storage are pointed at it by the caller instead.
+    if !shared {
+        environment.push((
             "STORAGE_URL".to_string(),
             ComposeValue::Plain("file:///app/storage".to_string()),
-        ),
-    ]);
+        ));
+    }
     environment
 }
 
@@ -483,9 +613,12 @@ pub fn docker_image_module_paths(
     resolve_module_paths(&registry, &names, |entry| entry.docker_path.clone())
 }
 
+/// One service of the file, under the name it is written as.
+type NamedService = (String, ComposeService);
+
 #[derive(Debug, Default)]
 struct ComposeFile {
-    services: Vec<(String, ComposeService)>,
+    services: Vec<NamedService>,
     volumes: Vec<(String, ComposeVolume)>,
     /// Build secrets, by name; each is the registry token, read from the host's environment.
     secrets: Vec<String>,
@@ -499,6 +632,8 @@ struct ComposeService {
     image: Option<String>,
     /// A fixed container name, for a container something outside compose has to find by name.
     container_name: Option<String>,
+    /// The command replacing the image's `ENTRYPOINT`.
+    entrypoint: Vec<String>,
     /// Arguments replacing the image's `CMD`.
     command: Vec<String>,
     /// Container labels, in the order they are written; every value is quoted.
@@ -596,13 +731,20 @@ impl ComposeRenderer {
     }
 
     /// Write `key:` and then each of `items` as a `- item` line one level deeper, or nothing when there are none.
+    ///
+    /// An item YAML would read as something other than a string is quoted, since compose wants strings here.
     fn push_list(&mut self, indent: usize, key: &str, items: &[String]) {
         if items.is_empty() {
             return;
         }
         self.push_line(indent, &format!("{key}:"));
         for item in items {
-            self.push_line(indent.saturating_add(1), &format!("- {item}"));
+            let rendered = if reads_as_non_string(item) {
+                format!("\"{item}\"")
+            } else {
+                item.clone()
+            };
+            self.push_line(indent.saturating_add(1), &format!("- {rendered}"));
         }
     }
 
@@ -639,6 +781,7 @@ impl ComposeRenderer {
         if let Some(container_name) = &service.container_name {
             self.push_line(2, &format!("container_name: {container_name}"));
         }
+        self.push_list(2, "entrypoint", &service.entrypoint);
         self.push_list(2, "command", &service.command);
         if !service.labels.is_empty() {
             self.push_line(2, "labels:");
@@ -747,8 +890,10 @@ impl ComposeRenderer {
             // entry as "take this from the host environment" rather than as a value. The variable would then be absent
             // from the container and the image's own default would stand -- the opposite of what stating it empty is
             // for.
+            //
+            // So is one YAML would read as a boolean or a number, which compose rejects as an environment value.
             ComposeValue::Plain(value) => {
-                let rendered = if value.is_empty() || value.starts_with(YAML_INDICATORS) {
+                let rendered = if value.is_empty() || value.starts_with(YAML_INDICATORS) || reads_as_non_string(value) {
                     format!("\"{value}\"")
                 } else {
                     value.clone()

@@ -42,15 +42,20 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1::{LabelSelector, ObjectMeta};
 use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 
 use super::document;
+use super::hub_sharing::{
+    BACKPLANE_CONFIG_DIR, BACKPLANE_CONFIG_FILE, BACKPLANE_HEALTH_PATH, BACKPLANE_IMAGE, BACKPLANE_TASK, DATA_DIR,
+    SHARED_STORAGE_HEALTH_PATH, SHARED_STORAGE_IMAGE, SHARED_STORAGE_TASK, backplane_config, shared_hub_env,
+    shared_storage_env, shared_storage_start,
+};
 use super::k3s_recovery;
 use crate::error::CliError;
 use crate::input::{ArtifactSource, ClusterInput};
 use crate::limits::{CpuCap, Limits, MAX_CPU_SHARES, ResolvedLimits, k8s_bytes, k8s_cpus};
-use crate::placement::{MACHINE_LABEL, Site, hub_site};
+use crate::placement::{Hub, MACHINE_LABEL, Site, hub_site, hubs, shares_hubs};
 use crate::schedule::Schedule;
 use crate::{
-    COLLECTOR_SETTINGS, COLLECTOR_USERNAME, HUB_SERVICE, OutputType, RunnerInstance, cluster_module_names,
-    docker_image_module_paths, hub_service_ws_url, image_prefix, module_registry, resolve_cluster_runners,
+    COLLECTOR_SETTINGS, COLLECTOR_USERNAME, OutputType, RunnerInstance, cluster_module_names,
+    docker_image_module_paths, hub_service_ws_url_named, image_prefix, module_registry, resolve_cluster_runners,
 };
 
 /// Pull policy that lets an image built from this repository and imported into the node satisfy a manifest.
@@ -75,6 +80,9 @@ const OPENOBSERVE_IMAGE: &str = "openobserve/openobserve:v1.1.1";
 /// writing the host into the literal also keeps link checking from reading an in-cluster DNS name as an external link
 /// it should be able to reach. The hub's equivalent lives beside the URL builder that needs it.
 const COLLECTOR_SERVICE: &str = "openobserve";
+
+/// The `ConfigMap` holding the NATS server's configuration file, and the volume it is mounted from.
+const BACKPLANE_CONFIG_MAP: &str = "nats-config";
 
 /// How long a probe waits, and how many misses it tolerates, mirroring `compose.yaml`'s healthchecks.
 const PROBE_PERIOD_SECONDS: i32 = 5;
@@ -217,9 +225,11 @@ pub fn generate_k3s_deployment(cluster: &ClusterInput, output_dir: &Path) -> Res
     let mut docs = fixed_documents(&namespace, cluster, &module_paths, &root_module, &hub_site(cluster))?;
     for mut runner in runners {
         let supervised = k3s_recovery::configure_runner(cluster, &mut runner);
+        let hub = runner.site.hub_name(cluster);
         docs.push(runner_document(
             &namespace,
             &runner,
+            &hub,
             cluster.artifact_source,
             supervised,
         )?);
@@ -242,8 +252,10 @@ pub fn generate_k3s_deployment(cluster: &ClusterInput, output_dir: &Path) -> Res
 /// and eight of them in one function put it past the repo's cyclomatic-complexity ceiling without saying anything about
 /// how the deployment is shaped.
 ///
-/// `site` places both the collector and the hub. Each mounts a claim, and k3s provisions a claim on the node that first
-/// mounts it, so the two stay on the server machine rather than going wherever the scheduler finds room.
+/// `site` places the collector, the one hub of a cluster that has one, and what several hubs share. Each mounts a
+/// claim, and k3s provisions a claim on the node that first mounts it, so they stay on the server machine rather than
+/// going wherever the scheduler finds room. Hubs that share storage mount no claim of their own, so each runs on its
+/// machine.
 fn fixed_documents(
     namespace: &str,
     cluster: &ClusterInput,
@@ -251,7 +263,8 @@ fn fixed_documents(
     root_module: &str,
     site: &Site,
 ) -> Result<Vec<String>, CliError> {
-    Ok(vec![
+    let shared = shares_hubs(cluster);
+    let mut docs = vec![
         document(&namespace_object(namespace))?,
         document(&collector_config(namespace))?,
         document(&claim(namespace, "openobserve-data"))?,
@@ -261,17 +274,158 @@ fn fixed_documents(
             &cluster.services.collector.limits,
         ))?,
         document(&collector_service(namespace))?,
-        document(&claim(namespace, "ws-server-storage"))?,
-        document(&hub_deployment(
+    ];
+    if shared {
+        docs.extend(shared_documents(namespace, cluster, site)?);
+    } else {
+        docs.push(document(&claim(namespace, "ws-server-storage"))?);
+    }
+    let hub_image = HubImage {
+        cluster_name: &cluster.cluster_name,
+        module_paths,
+        root_module,
+        shared,
+    };
+    for hub in hubs(cluster) {
+        docs.push(document(&hub_deployment(
             namespace,
-            &cluster.cluster_name,
-            module_paths,
-            root_module,
-            site,
+            &hub_image,
+            &hub,
             &cluster.services.hub.limits,
+        ))?);
+        docs.push(document(&hub_service(namespace, &hub.name))?);
+    }
+    Ok(docs)
+}
+
+/// The NATS and rustfs workloads several hubs share, each with its claim and its `Service`, at `site`.
+#[expect(clippy::single_call_fn, reason = "the shared-services step of fixed_documents")]
+fn shared_documents(namespace: &str, cluster: &ClusterInput, site: &Site) -> Result<Vec<String>, CliError> {
+    let backplane_data = format!("{BACKPLANE_TASK}-data");
+    let storage_data = format!("{SHARED_STORAGE_TASK}-data");
+    Ok(vec![
+        document(&ConfigMap {
+            data: Some(BTreeMap::from([(
+                BACKPLANE_CONFIG_FILE.to_string(),
+                backplane_config(),
+            )])),
+            metadata: plain_meta(namespace, BACKPLANE_CONFIG_MAP),
+            ..ConfigMap::default()
+        })?,
+        document(&claim(namespace, &backplane_data))?,
+        document(&backplane_deployment(
+            namespace,
+            &backplane_data,
+            site,
+            &cluster.services.backplane.limits,
         ))?,
-        document(&hub_service(namespace))?,
+        document(&service(
+            namespace,
+            BACKPLANE_TASK,
+            vec![
+                port("client", Services::Backplane.port()),
+                port("monitor", Services::BackplaneMonitor.port()),
+            ],
+        ))?,
+        document(&claim(namespace, &storage_data))?,
+        document(&shared_storage_deployment(
+            namespace,
+            &storage_data,
+            site,
+            &cluster.services.storage.limits,
+        ))?,
+        document(&service(
+            namespace,
+            SHARED_STORAGE_TASK,
+            vec![port("s3", Services::SharedStorage.port())],
+        ))?,
     ])
+}
+
+/// A readiness probe asking `path` on `port` over HTTP.
+fn http_probe(port: u16, path: &str) -> Probe {
+    probe(
+        None,
+        Some(HTTPGetAction {
+            path: Some(path.to_string()),
+            port: IntOrString::Int(i32::from(port)),
+            ..HTTPGetAction::default()
+        }),
+    )
+}
+
+/// The NATS server the hubs share, keeping its `JetStream` store on the claim `data`.
+///
+/// It runs the image's own entrypoint and `CMD`, which read the configuration file the `ConfigMap` puts where the
+/// image looks for it, since NATS reads nothing it needs from its environment.
+fn backplane_deployment(namespace: &str, data: &str, site: &Site, limits: &Limits) -> Deployment {
+    let (data_mount, data_volume) = mount(data, DATA_DIR);
+    let config_volume = Volume {
+        config_map: Some(ConfigMapVolumeSource {
+            name: BACKPLANE_CONFIG_MAP.to_string(),
+            ..ConfigMapVolumeSource::default()
+        }),
+        name: BACKPLANE_CONFIG_MAP.to_string(),
+        ..Volume::default()
+    };
+    let config_mount = volume_mount(BACKPLANE_CONFIG_MAP, BACKPLANE_CONFIG_DIR);
+    let container = Container {
+        image: Some(BACKPLANE_IMAGE.to_string()),
+        image_pull_policy: Some(IMAGE_PULL_POLICY.to_string()),
+        name: BACKPLANE_TASK.to_string(),
+        ports: Some(vec![
+            container_port(Services::Backplane.port()),
+            container_port(Services::BackplaneMonitor.port()),
+        ]),
+        readiness_probe: Some(http_probe(Services::BackplaneMonitor.port(), BACKPLANE_HEALTH_PATH)),
+        security_context: Some(hardened_container_context()),
+        volume_mounts: Some(vec![data_mount, config_mount]),
+        ..Container::default()
+    };
+    deployment(
+        namespace,
+        BACKPLANE_TASK,
+        container,
+        vec![data_volume, config_volume],
+        site,
+        limits,
+    )
+}
+
+/// The object store the hubs share, keeping its objects on the claim `data` and reading its secret from the `Secret`.
+///
+/// It also writes logs and temporary files, which a read-only root would refuse, so both get a scratch directory.
+fn shared_storage_deployment(namespace: &str, data: &str, site: &Site, limits: &Limits) -> Deployment {
+    let (data_mount, data_volume) = mount(data, DATA_DIR);
+    let (logs_mount, logs_volume) = scratch("rustfs-logs", "/logs");
+    // skipcq: RS-S1003
+    let (tmp_mount, tmp_volume) = scratch("rustfs-tmp", "/tmp");
+    let container = Container {
+        command: Some(vec!["sh".to_string(), "-c".to_string(), shared_storage_start()]),
+        env: Some(
+            shared_storage_env()
+                .into_iter()
+                .map(|(name, value)| env(name, value))
+                .collect(),
+        ),
+        env_from: Some(vec![from_secret(namespace)]),
+        image: Some(SHARED_STORAGE_IMAGE.to_string()),
+        image_pull_policy: Some(IMAGE_PULL_POLICY.to_string()),
+        name: SHARED_STORAGE_TASK.to_string(),
+        ports: Some(vec![container_port(Services::SharedStorage.port())]),
+        readiness_probe: Some(http_probe(Services::SharedStorage.port(), SHARED_STORAGE_HEALTH_PATH)),
+        security_context: Some(hardened_container_context()),
+        volume_mounts: Some(vec![data_mount, logs_mount, tmp_mount]),
+        ..Container::default()
+    };
+    deployment(
+        namespace,
+        SHARED_STORAGE_TASK,
+        container,
+        vec![data_volume, logs_volume, tmp_volume],
+        site,
+        limits,
+    )
 }
 
 /// Namespace a scenario's objects live in, so two scenarios can be applied to one cluster at once.
@@ -574,12 +728,17 @@ fn cluster_plugins(cluster: &ClusterInput) -> Vec<&'static RuntimePlugin> {
         crate::recovery::Recovery::Configured(settings) => vec![&settings.limits],
         crate::recovery::Recovery::Disabled => Vec::new(),
     };
-    let mut needed: Vec<&RuntimePlugin> = [&services.collector.limits, &services.hub.limits]
-        .into_iter()
-        .chain(agents)
-        .chain(recovery_limits)
-        .flat_map(|limits| required_plugins(&limits.resolve()))
-        .collect();
+    let mut needed: Vec<&RuntimePlugin> = [
+        &services.backplane.limits,
+        &services.collector.limits,
+        &services.hub.limits,
+        &services.storage.limits,
+    ]
+    .into_iter()
+    .chain(agents)
+    .chain(recovery_limits)
+    .flat_map(|limits| required_plugins(&limits.resolve()))
+    .collect();
     needed.sort_unstable_by_key(|plugin| plugin.name);
     needed.dedup_by_key(|plugin| plugin.name);
     needed
@@ -964,11 +1123,30 @@ fn collector_service(namespace: &str) -> Service {
     )
 }
 
+/// What every hub of a scenario runs alike: its image and module set, and whether it shares storage with others.
+struct HubImage<'scenario> {
+    /// The scenario, which names the image every hub runs.
+    cluster_name: &'scenario str,
+    /// The modules the image serves, as `MODULES_PATHS` lists them.
+    module_paths: &'scenario [String],
+    /// The module served at `/`, empty for a headless cluster.
+    root_module: &'scenario str,
+    /// Whether the hubs share NATS and the object store, which replaces each one's own storage claim.
+    shared: bool,
+}
+
 /// The hub's environment, everything it needs that is not the credential the `Secret` carries.
 ///
 /// The paths under the runtime directory are the writable ones: a read-only root filesystem cannot take the self-signed
-/// certificate the hub generates on first start, so both halves are redirected to the scratch mount.
-fn hub_env(module_paths: &[String], root_module: &str) -> Vec<EnvVar> {
+/// certificate the hub generates on first start, so both halves are redirected to the scratch mount. Hubs that share
+/// storage reach NATS and the object store by their `Service` names, instead of keeping a store of their own.
+fn hub_env(image: &HubImage<'_>) -> Vec<EnvVar> {
+    let HubImage {
+        module_paths,
+        root_module,
+        shared,
+        ..
+    } = *image;
     // `MODULES_ROOT` is stated even when it is empty, which is what a headless cluster needs rather than the entry
     // being left out. The hub image names the page it bundles, and a container inherits an image's environment for
     // every variable the manifest does not set -- so omitting it would serve a page this cluster was not given the
@@ -988,63 +1166,59 @@ fn hub_env(module_paths: &[String], root_module: &str) -> Vec<EnvVar> {
                 Services::OtlpCollector.port()
             ),
         ),
-        env("STORAGE_URL", "file:///app/storage".to_string()),
         env("TLS_CERT_FILE", format!("{HUB_RUNTIME_DIR}/cert.pem")),
         env("TLS_KEY_FILE", format!("{HUB_RUNTIME_DIR}/key.pem")),
         env("WS_AGENT_REGISTRY", format!("{HUB_RUNTIME_DIR}/registry.yaml")),
     ]);
+    if shared {
+        vars.extend(
+            shared_hub_env(BACKPLANE_TASK, SHARED_STORAGE_TASK)
+                .into_iter()
+                .map(|(name, value)| env(name, value)),
+        );
+    } else {
+        vars.push(env("STORAGE_URL", "file:///app/storage".to_string()));
+    }
+    vars.sort_by(|left, right| left.name.cmp(&right.name));
     vars
 }
 
-/// The hub, running this scenario's image because that is what carries its module set.
-fn hub_deployment(
-    namespace: &str,
-    cluster_name: &str,
-    module_paths: &[String],
-    root_module: &str,
-    site: &Site,
-    limits: &Limits,
-) -> Deployment {
+/// One hub, running this scenario's image because that is what carries its module set.
+fn hub_deployment(namespace: &str, image: &HubImage<'_>, hub: &Hub, limits: &Limits) -> Deployment {
     let insecure = Services::InsecureWebSocketServer.port();
-    let (storage_mount, storage_volume) = mount("ws-server-storage", "/app/storage");
     let (runtime_mount, runtime_volume) = scratch("ws-server-runtime", HUB_RUNTIME_DIR);
+    let mut mounts = Vec::new();
+    let mut volumes = Vec::new();
+    if !image.shared {
+        let (storage_mount, storage_volume) = mount("ws-server-storage", "/app/storage");
+        mounts.push(storage_mount);
+        volumes.push(storage_volume);
+    }
+    mounts.push(runtime_mount);
+    volumes.push(runtime_volume);
     let container = Container {
-        env: Some(hub_env(module_paths, root_module)),
+        env: Some(hub_env(image)),
         env_from: Some(vec![from_secret(namespace)]),
-        image: Some(format!("et-ws-server-{cluster_name}:{IMAGE_TAG}")),
+        image: Some(format!("et-ws-server-{}:{IMAGE_TAG}", image.cluster_name)),
         image_pull_policy: Some(IMAGE_PULL_POLICY.to_string()),
-        name: HUB_SERVICE.to_string(),
+        name: hub.name.clone(),
         ports: Some(vec![
             container_port(insecure),
             container_port(Services::SecureWebSocketServer.port()),
         ]),
-        readiness_probe: Some(probe(
-            None,
-            Some(HTTPGetAction {
-                path: Some("/health".to_string()),
-                port: IntOrString::Int(i32::from(insecure)),
-                ..HTTPGetAction::default()
-            }),
-        )),
+        readiness_probe: Some(http_probe(insecure, "/health")),
         security_context: Some(hardened_container_context()),
-        volume_mounts: Some(vec![storage_mount, runtime_mount]),
+        volume_mounts: Some(mounts),
         ..Container::default()
     };
-    deployment(
-        namespace,
-        HUB_SERVICE,
-        container,
-        vec![storage_volume, runtime_volume],
-        site,
-        limits,
-    )
+    deployment(namespace, &hub.name, container, volumes, &hub.site, limits)
 }
 
-/// Hub service, carrying both the insecure and secure ports the server listens on.
-fn hub_service(namespace: &str) -> Service {
+/// The service fronting the hub `name`, carrying both the insecure and secure ports the server listens on.
+fn hub_service(namespace: &str, name: &str) -> Service {
     service(
         namespace,
-        HUB_SERVICE,
+        name,
         vec![
             port("ws", Services::InsecureWebSocketServer.port()),
             port("wss", Services::SecureWebSocketServer.port()),
@@ -1052,13 +1226,13 @@ fn hub_service(namespace: &str) -> Service {
     )
 }
 
-/// What wires a runner to its module and its hub, plus whatever the scenario declared for that agent.
+/// What wires a runner to its module and to `hub`, plus whatever the scenario declared for that agent.
 ///
 /// The scenario's entries cannot collide with the derived two: the resolver rejects an `env:` naming either.
-fn runner_env(runner: &RunnerInstance) -> Vec<EnvVar> {
+fn runner_env(runner: &RunnerInstance, hub: &str) -> Vec<EnvVar> {
     let mut vars = vec![
         env("RUNNER_MODULE", runner.module.clone()),
-        env("WS_SERVER_URL", hub_service_ws_url()),
+        env("WS_SERVER_URL", hub_service_ws_url_named(hub)),
     ];
     vars.extend(runner.env.iter().map(|(name, value)| env(name, value.clone())));
     vars
@@ -1070,6 +1244,7 @@ fn runner_env(runner: &RunnerInstance) -> Vec<EnvVar> {
 fn runner_document(
     namespace: &str,
     runner: &RunnerInstance,
+    hub: &str,
     images: ArtifactSource,
     supervised: bool,
 ) -> Result<String, CliError> {
@@ -1077,7 +1252,7 @@ fn runner_document(
     // root needs somewhere writable even though nothing is meant to persist. skipcq: RS-S1003
     let (runtime_mount, runtime_volume) = scratch("runner-tmp", "/tmp");
     let container = Container {
-        env: Some(runner_env(runner)),
+        env: Some(runner_env(runner, hub)),
         image: Some(format!(
             "{}et-ws-{}-runner:{IMAGE_TAG}",
             image_prefix(images),

@@ -1,0 +1,31 @@
+cluster_name: "math1-multi-hub"
+deployment_type: "k3s"
+
+# The math1 pair split across two machines that each run a hub, so the exchange crosses from one hub to the other.
+# The trigger joins the server's hub and the twin the edge machine's own, and the two hubs relay between them over
+# the NATS backplane on the server. The twin stores its model through the edge hub into the shared object store,
+# where the server's hub reads it back. Each hub listens on the same ports, so only k3s, where every pod has a
+# network of its own, runs both on one host; the addresses are loopback as in math1-multi.
+agents:
+  - name: "math1-twin"
+    runner: "web"
+    resources:
+      - type: "math1"
+
+  - name: "math1-trigger"
+    runner: "web"
+    resources:
+      - type: "math1-sender"
+
+machines:
+  - name: "server"
+    address: "127.0.0.1"
+    agents: ["math1-trigger"]
+
+  - name: "edge"
+    address: "127.0.0.1"
+    agents: ["math1-twin"]
+
+services:
+  hub:
+    machines: ["server", "edge"]

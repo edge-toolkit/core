@@ -1,23 +1,23 @@
 use std::path::Path;
 
-use edge_toolkit::ports::Services;
 use fs_err as fs;
 use serde::Serialize;
 use serde_yaml::{Mapping, Value};
 
 use super::document;
-use super::mise::{COLLECTOR_TASK, HUB_TASK, OPENER_TASK, collector_container};
+use super::hub_sharing::server_containers;
+use super::mise::{COLLECTOR_TASK, OPENER_TASK, container};
 use super::yaml::{insert, strings};
 use crate::error::CliError;
 use crate::input::ClusterInput;
-use crate::placement::{Site, hub_site};
+use crate::placement::{Site, hub_site, hubs, shares_hubs};
 use crate::{OutputType, hub_http_base, scenario_runners};
 
-/// How long the collector gets to exit once stopped.
+/// How long the collector, or any other container the deployment runs, gets to exit once stopped.
 ///
 /// `docker stop` itself waits up to ten seconds before it kills the container, which is dekit's whole default, so the
 /// default would kill the task while Docker was still stopping it.
-const COLLECTOR_STOP_TIMEOUT: &str = "30s";
+const CONTAINER_STOP_TIMEOUT: &str = "30s";
 
 /// Write the `dekit.yaml` that runs the scenario with `dekit up`, one task per process.
 ///
@@ -27,12 +27,11 @@ const COLLECTOR_STOP_TIMEOUT: &str = "30s";
 ///
 /// What it adds is order. mise starts the hub, the collector and the runners together, so a runner can ask the hub for
 /// its module before the hub is listening. Here each waits on what it talks to being ready, the same edges the compose
-/// stack gates on: the hub on the collector's health endpoint, every runner on the hub's. The task names need no path
-/// of their own, because the file is its own project root: dekit takes the nearest `dekit.yaml` as the root, and
-/// starts every task there, which is where mise finds the `mise.toml`.
+/// stack gates on: the server's hub on the collector's health endpoint and on those of what the hubs share, every
+/// runner on its hub's. The task names need no path of their own, because the file is its own project root: dekit
+/// takes the nearest `dekit.yaml` as the root, and starts every task there, which is where mise finds the `mise.toml`.
 pub fn generate_dekit_deployment(cluster: &ClusterInput, output_dir: &Path) -> Result<(), CliError> {
     let runners = scenario_runners(cluster)?;
-    let collector_url = format!("http://localhost:{}", Services::OtlpCollector.port());
     // A multi-machine cluster tags each task with its machine and starts none on `dekit up`, since every machine runs
     // the same file and `up` would otherwise start the whole cluster on each of them; `dekit start +<machine>` starts
     // one machine's share instead.
@@ -40,26 +39,28 @@ pub fn generate_dekit_deployment(cluster: &ClusterInput, output_dir: &Path) -> R
     let server = hub_site(cluster);
 
     let mut tasks = Mapping::new();
-    let mut collector = task(COLLECTOR_TASK, &[], autostart, &server);
-    insert(&mut collector, "ready", http_ready(&format!("{collector_url}/healthz")));
-    // `docker run` is stopped through Docker rather than by signalling the client: a client that dies before it has
-    // passed the signal on leaves the container running and holding the collector's port.
-    let mut stop = Mapping::new();
-    let container = collector_container(&cluster.cluster_name);
-    insert(&mut stop, "cmd", strings(&["docker", "stop", &container]));
-    insert(&mut stop, "timeout", Value::from(COLLECTOR_STOP_TIMEOUT));
-    insert(&mut collector, "stop", Value::Mapping(stop));
-    insert(&mut tasks, COLLECTOR_TASK, Value::Mapping(collector));
-
-    let mut hub = task(HUB_TASK, &[COLLECTOR_TASK], autostart, &server);
-    insert(&mut hub, "ready", http_ready(&format!("{}/health", hub_http_base())));
-    insert(&mut tasks, HUB_TASK, Value::Mapping(hub));
+    let containers = server_containers(shares_hubs(cluster));
+    let server_hub_deps: Vec<&str> = containers.iter().map(|(name, ..)| *name).collect();
+    for (name, port, path) in containers {
+        let mut service = task(name, &[], autostart, &server);
+        insert(&mut service, "ready", http_ready(&format!("http://localhost:{port}{path}")));
+        // `docker run` is stopped through Docker rather than by signalling the client: a client that dies before it
+        // has passed the signal on leaves the container running and holding the service's port.
+        let mut stop = Mapping::new();
+        let container = container(name, &cluster.cluster_name);
+        insert(&mut stop, "cmd", strings(&["docker", "stop", &container]));
+        insert(&mut stop, "timeout", Value::from(CONTAINER_STOP_TIMEOUT));
+        insert(&mut service, "stop", Value::Mapping(stop));
+        insert(&mut tasks, name, Value::Mapping(service));
+    }
+    insert_hub_tasks(&mut tasks, cluster, &server_hub_deps, autostart);
 
     for runner in runners {
-        // A runner on another machine cannot wait on a hub task this runner does not hold, so it restarts until the
-        // hub on the server answers instead.
+        // A runner on a machine without a hub cannot wait on a hub task this machine does not hold, so it restarts
+        // until the hub on the server answers instead.
         let remote = runner.site.is_remote();
-        let deps: &[&str] = if remote { &[] } else { &[HUB_TASK] };
+        let hub = runner.site.hub_name(cluster);
+        let deps: &[&str] = if remote { &[] } else { &[&hub] };
         let mut runner_task = task(&runner.name, deps, autostart, &runner.site);
         if remote {
             insert(&mut runner_task, "autorestart", Value::from("on-failure"));
@@ -85,6 +86,22 @@ pub fn generate_dekit_deployment(cluster: &ClusterInput, output_dir: &Path) -> R
         document(&config)?,
     )?;
     Ok(())
+}
+
+/// Add a task per hub, the server's waiting on `server_deps`.
+///
+/// A hub off the server cannot wait on the services it shares there, so it restarts until they answer instead.
+#[expect(clippy::single_call_fn, reason = "the per-hub step of generate_dekit_deployment")]
+fn insert_hub_tasks(tasks: &mut Mapping, cluster: &ClusterInput, server_deps: &[&str], autostart: bool) {
+    for hub in hubs(cluster) {
+        let deps: &[&str] = if hub.on_server() { server_deps } else { &[] };
+        let mut hub_task = task(&hub.name, deps, autostart, &hub.site);
+        insert(&mut hub_task, "ready", http_ready(&format!("{}/health", hub_http_base())));
+        if !hub.on_server() {
+            insert(&mut hub_task, "autorestart", Value::from("on-failure"));
+        }
+        insert(tasks, &hub.name, Value::Mapping(hub_task));
+    }
 }
 
 /// The task that runs the mise task `name`, after `deps`, started by `dekit up` when `autostart` is set.

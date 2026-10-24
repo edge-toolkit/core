@@ -4,7 +4,8 @@ severity: error
 message: |
   A `write!` whose format string ends in `\n` is a `writeln!` written the long way: use `writeln!` and drop the
   final `\n`. This mirrors `DeepSource RS-C1005`. clippy's `write_with_newline` covers only a single trailing
-  newline and deliberately skips a string ending in `\n\n`, which is the case this rule exists to catch.
+  newline in a plain literal: it skips a string ending in `\n\n`, and one assembled with `concat!`, which are the
+  cases this rule exists to catch.
 # There is no autofix.
 # The rewrite renames the macro and edits the string literal inside its token tree at once, which a single `fix:`
 # template over the whole invocation cannot express without re-spelling every argument.
@@ -13,7 +14,12 @@ rule:
   has:
     field: macro
     regex: ^write$
-  regex: '(?s)^write!\s*\((?:[^"()]|\([^()]*\))*,\s*"(?:[^"\\]|\\.)*\\n"'
+  # The format string is either a literal ending in `\n`, or a `concat!` whose last literal does.
+  # Verbose mode, so the pattern can span lines: its whitespace is all `\s`, which verbose mode leaves alone.
+  regex: |-
+    (?sx)^write!\s*\((?:[^"()]|\([^()]*\))*,\s*
+    (?:"(?:[^"\\]|\\.)*\\n"
+    |concat!\s*\((?:\s*"(?:[^"\\]|\\.)*"\s*,)*\s*"(?:[^"\\]|\\.)*\\n"\s*,?\s*\))
 ignores:
   - generated/**
   # Generated; refer to int-gen bindings.rs for details.

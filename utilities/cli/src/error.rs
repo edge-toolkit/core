@@ -175,6 +175,21 @@ pub enum CliError {
         first: String,
         second: String,
     },
+
+    #[error("services.hub.machines lists {machine:?}, but the scenario has no machines: list them under `machines:`")]
+    HubMachinesWithoutMachines { machine: String },
+
+    #[error("services.hub.machines lists {machine:?}, which is not one of the scenario's machines")]
+    UnknownHubMachine { machine: String },
+
+    #[error("services.hub.machines lists {machine:?} more than once; a machine runs one hub")]
+    DuplicateHubMachine { machine: String },
+
+    #[error("services.hub.machines leaves out the server {server:?}, which runs the collector and what the hubs share")]
+    HubMachinesWithoutServer { server: String },
+
+    #[error("services.{service} is set, but only several hubs run it: list them in services.hub.machines")]
+    SharedServiceWithoutHubs { service: String },
 }
 
 /// Parse `src` as TOML into `T`, attaching `path` to the error on failure.

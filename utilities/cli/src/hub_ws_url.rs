@@ -16,11 +16,8 @@
 
 use edge_toolkit::ports::Services;
 
-/// Name the in-cluster `Service` that fronts the hub.
-///
-/// Duplicated from the k3s generator's own constant would be one definition too many, so the URL builder that
-/// needs it owns the name and the generator names its objects from here.
-pub const HUB_SERVICE: &str = "ws-server";
+/// Name the in-cluster `Service` that fronts the server's hub, which every hub's objects are named from.
+const HUB_SERVICE: &str = crate::deployment_types::HUB_TASK;
 
 /// WebSocket URL for a runner sharing a host with the hub, which is how mise and compose arrange it.
 #[must_use]
@@ -37,5 +34,11 @@ pub fn hub_ws_url_at(host: &str) -> String {
 /// WebSocket URL for a runner reaching the hub across a cluster, where `localhost` is the runner's own pod.
 #[must_use]
 pub fn hub_service_ws_url() -> String {
-    format!("ws://{HUB_SERVICE}:{}/ws", Services::InsecureWebSocketServer.port())
+    hub_service_ws_url_named(HUB_SERVICE)
+}
+
+/// WebSocket URL for a runner reaching the hub that `service` fronts, one of several in a cluster.
+#[must_use]
+pub fn hub_service_ws_url_named(service: &str) -> String {
+    format!("ws://{service}:{}/ws", Services::InsecureWebSocketServer.port())
 }

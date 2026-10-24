@@ -2,13 +2,19 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
+use edge_toolkit::ports::Services;
 use et_path::{absolute_from, relative_path_from};
 use fs_err as fs;
 use toml::{Table, Value};
 
+use super::hub_sharing::{
+    BACKPLANE_IMAGE, BACKPLANE_TASK, DATA_DIR, SHARED_STORAGE_IMAGE, SHARED_STORAGE_TASK, backplane_args,
+    shared_hub_env, shared_storage_env, shared_storage_start,
+};
 use super::process_compose::PROCESS_COMPOSE_TOOL;
 use crate::error::CliError;
-use crate::input::{ArtifactSource, ClusterInput, Machine};
+use crate::input::{ArtifactSource, ClusterInput};
+use crate::placement::{hubs, shares_hubs};
 use crate::{
     COLLECTOR_SETTINGS, COLLECTOR_USERNAME, MODULE_SCOPE, ModuleRegistryEntry, ModuleSource, RunnerInstance,
     cluster_module_names, escape_for_double_quotes, module_registry, resolve_cluster_modules, resolve_module_paths,
@@ -65,7 +71,21 @@ pub(crate) fn machine_task(machine: &str) -> String {
 /// Scoped to the scenario so a stop can only ever reach this scenario's collector: a bare `openobserve` is also the
 /// name this repository's own `o2` task runs its collector under, and any other scenario's on the same Docker daemon.
 pub(crate) fn collector_container(cluster_name: &str) -> String {
-    format!("openobserve-{cluster_name}")
+    container(COLLECTOR_TASK, cluster_name)
+}
+
+/// Name the task `task` gives the container it runs, scoped to the scenario as [`collector_container`] explains.
+pub(crate) fn container(task: &str, cluster_name: &str) -> String {
+    format!("{task}-{cluster_name}")
+}
+
+/// The tasks the server runs besides its runners: the collector, its hub, and what the hubs share when there are more.
+fn server_tasks(cluster: &ClusterInput) -> Vec<String> {
+    let mut tasks = vec![COLLECTOR_TASK.to_string(), HUB_TASK.to_string()];
+    if shares_hubs(cluster) {
+        tasks.extend([BACKPLANE_TASK.to_string(), SHARED_STORAGE_TASK.to_string()]);
+    }
+    tasks
 }
 
 /// The task that runs one runner agent, from the checkout root for a local scenario.
@@ -82,11 +102,14 @@ fn runner_task(runner: &RunnerInstance, workspace_rel: &str, artifacts: Artifact
 }
 
 /// Add the tasks a person runs: `generated-scenario`, which starts every role together, and the UI opener.
+///
+/// `generated-scenario` starts the server's hub alone, never another machine's: every hub listens on the same ports, so
+/// on one host a second could not start, and each runner reaches the one there is at `localhost` anyway.
 #[expect(clippy::single_call_fn, reason = "the entry-point step of generate_mise_deployment")]
-fn insert_entry_tasks(tasks: &mut Table, cluster_name: &str, machines: &[Machine], runners: &[RunnerInstance]) {
-    let mut scenario_depends = vec![COLLECTOR_TASK.to_string(), HUB_TASK.to_string()];
+fn insert_entry_tasks(tasks: &mut Table, cluster: &ClusterInput, runners: &[RunnerInstance]) {
+    let mut scenario_depends = server_tasks(cluster);
     scenario_depends.extend(runners.iter().map(|runner| runner.name.clone()));
-    let description = format!("Run generated scenario for {cluster_name}");
+    let description = format!("Run generated scenario for {}", cluster.cluster_name);
     let scenario = mise_task(
         None,
         Some(&description),
@@ -96,7 +119,7 @@ fn insert_entry_tasks(tasks: &mut Table, cluster_name: &str, machines: &[Machine
         None,
     );
     let _previous: Option<Value> = tasks.insert("generated-scenario".to_string(), Value::Table(scenario));
-    insert_machine_tasks(tasks, machines, runners);
+    insert_machine_tasks(tasks, cluster, runners);
     let opener = mise_task(
         None,
         Some("Open the OpenObserve UI"),
@@ -110,15 +133,20 @@ fn insert_entry_tasks(tasks: &mut Table, cluster_name: &str, machines: &[Machine
 
 /// Add one `machine-<name>` task per machine, each starting what that machine runs and nothing else.
 ///
-/// The server's also starts the collector and the hub. `generated-scenario` stays alongside them, still starting
-/// everything, because the whole cluster on one host remains the quickest way to run it.
+/// The server's also starts the collector and the hub, and any other machine running a hub starts its own.
+/// `generated-scenario` stays alongside them, still starting everything, because the whole cluster on one host remains
+/// the quickest way to run it.
 #[expect(clippy::single_call_fn, reason = "the per-machine step of insert_entry_tasks")]
-fn insert_machine_tasks(tasks: &mut Table, machines: &[Machine], runners: &[RunnerInstance]) {
-    for (index, machine) in machines.iter().enumerate() {
+fn insert_machine_tasks(tasks: &mut Table, cluster: &ClusterInput, runners: &[RunnerInstance]) {
+    let hubs = hubs(cluster);
+    for (index, machine) in cluster.machines.iter().enumerate() {
         let mut depends = if index == 0 {
-            vec![COLLECTOR_TASK.to_string(), HUB_TASK.to_string()]
+            server_tasks(cluster)
         } else {
-            Vec::new()
+            hubs.iter()
+                .filter(|hub| hub.site.machine_names().contains(&machine.name))
+                .map(|hub| hub.name.clone())
+                .collect()
         };
         depends.extend(
             runners
@@ -168,7 +196,7 @@ pub fn generate_mise_deployment(
         let _previous: Option<Value> = tasks.insert(runner.name.clone(), Value::Table(task));
     }
 
-    insert_entry_tasks(&mut tasks, &cluster.cluster_name, &cluster.machines, &runners);
+    insert_entry_tasks(&mut tasks, cluster, &runners);
 
     let _previous: Option<Value> = root.insert("env".to_string(), Value::Table(mise_env(artifacts)));
     let _previous: Option<Value> = root.insert("tasks".to_string(), Value::Table(tasks));
@@ -207,18 +235,93 @@ fn service_tasks(
     );
     // A published hub is handed absolute paths that `mise where` resolves, so it needs no directory of its own; a local
     // one is given paths relative to the server's source dir and has to start there.
-    let _previous: Option<Value> = tasks.insert(
-        HUB_TASK.to_string(),
-        Value::Table(mise_task(
+    let shared = shares_hubs(cluster);
+    for hub in hubs(cluster) {
+        let description = match hub.site.machine_names().as_slice() {
+            [machine] if !hub.on_server() => format!("Run the WebSocket server on {machine}"),
+            _ => "Run the WebSocket server".to_string(),
+        };
+        let mut env = ws_server_env(scenario, artifacts, shared);
+        if shared {
+            for (name, value) in shared_hub_env(&hub.server_host, &hub.server_host) {
+                let _previous: Option<Value> = env.insert(name.to_string(), Value::String(value));
+            }
+        }
+        let task = mise_task(
             None,
-            Some("Run the WebSocket server"),
+            Some(&description),
             workspace_dir(&ws_server_rel, artifacts),
             Some(&ws_server_run),
             None,
-            Some(ws_server_env(scenario, artifacts)),
-        )),
-    );
+            Some(env),
+        );
+        let _previous: Option<Value> = tasks.insert(hub.name, Value::Table(task));
+    }
+    if shared {
+        let backplane = backplane_run_body(&cluster.cluster_name);
+        let storage = shared_storage_run_body(&cluster.cluster_name);
+        for (name, description, run) in [
+            (BACKPLANE_TASK, "Run the NATS server the hubs share", backplane),
+            (SHARED_STORAGE_TASK, "Run the object store the hubs share", storage),
+        ] {
+            let task = mise_task(None, Some(description), None, Some(&run), None, None);
+            let _previous: Option<Value> = tasks.insert(name.to_string(), Value::Table(task));
+        }
+    }
     Ok(tasks)
+}
+
+/// The body of the task that starts the NATS container, its client port open to the other machines' hubs.
+///
+/// The monitoring port stays on loopback, since only this machine's readiness checks read it. The store is a named
+/// volume, so what is queued for an agent outlives a restart.
+fn backplane_run_body(cluster_name: &str) -> String {
+    let client = Services::Backplane.port();
+    let monitor = Services::BackplaneMonitor.port();
+    format!(
+        concat!(
+            "image={image}\n",
+            "container={container}\n",
+            "ports=\"-p {client}:{client} -p 127.0.0.1:{monitor}:{monitor}\"\n",
+            "# $ports is a word-split flag list by design; do not quote it.\n",
+            "docker run --rm --name \"$container\" $ports -v \"$container:{data}\" \"$image\" {args}\n",
+        ),
+        args = backplane_args().join(" "),
+        client = client,
+        container = container(BACKPLANE_TASK, cluster_name),
+        data = DATA_DIR,
+        image = BACKPLANE_IMAGE,
+        monitor = monitor,
+    )
+}
+
+/// The body of the task that starts the rustfs container, its S3 port open to the other machines' hubs.
+///
+/// `-e RUSTFS_SECRET_KEY` passes the name only, so Docker forwards the value the `[env] _.file` loaded, as the
+/// collector task does with its password.
+fn shared_storage_run_body(cluster_name: &str) -> String {
+    let settings = shared_storage_env()
+        .into_iter()
+        .map(|(name, value)| format!("-e {name}={value}"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    format!(
+        concat!(
+            "image={image}\n",
+            "container={container}\n",
+            "settings=\"{settings} -e RUSTFS_SECRET_KEY\"\n",
+            "start='{start}'\n",
+            "# $settings is a word-split flag list by design; do not quote it.\n",
+            "docker run --rm --name \"$container\" -p {port}:{port} -v \"$container:{data}\" $settings ",
+            "--entrypoint sh \"$image\" -c \"$start\"\n",
+        ),
+        container = container(SHARED_STORAGE_TASK, cluster_name),
+        data = DATA_DIR,
+        image = SHARED_STORAGE_IMAGE,
+        port = Services::SharedStorage.port(),
+        settings = settings,
+        start = shared_storage_start(),
+    )
 }
 
 /// The body of the task that starts the hub.
@@ -258,14 +361,14 @@ fn ws_server_run_body(
 /// layout (`services/ws-server/storage`) under whatever it takes for the project root -- outside this repository,
 /// the directory it was started in. A published hub starts in the deployment directory, so the store is named there
 /// directly, as the compose file does with its `/app/storage` volume. A local hub keeps the default, which is where
-/// this repository's tests read agent output from.
+/// this repository's tests read agent output from. Hubs that `shared` storage are pointed at it by the caller instead.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct step of generate_mise_deployment, split out to keep it readable"
 )]
-fn ws_server_env(scenario: &ScenarioModules<'_>, artifacts: ArtifactSource) -> Table {
+fn ws_server_env(scenario: &ScenarioModules<'_>, artifacts: ArtifactSource, shared: bool) -> Table {
     let mut env = hub_root_env(scenario.ws_server_dir, scenario.serves_a_page);
-    if matches!(artifacts, ArtifactSource::Published) {
+    if !shared && matches!(artifacts, ArtifactSource::Published) {
         let _previous: Option<Value> = env.insert(
             "STORAGE_URL".to_string(),
             Value::String(format!("file://{{{{ config_root }}}}/{STORAGE_DIR}")),

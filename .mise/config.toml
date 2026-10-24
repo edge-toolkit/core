@@ -1799,6 +1799,9 @@ machine_label=edge-toolkit/machine
 # One name per line; each is an RFC 1123 label, so the unquoted word-splitting loops over it below are safe.
 machines=$(yq '(.machines // [])[].name' "$input")
 server_machine=$(yq '.machines[0].name // ""' "$input")
+# The machines running a hub besides the server, each of which runs `ws-server-<machine>`.
+# Any at all means the hubs share NATS and an object store, which run on the server.
+other_hubs=$(server="$server_machine" yq '(.services.hub.machines // [])[] | select(. != strenv(server))' "$input")
 
 # The runner is the one image that differs between the two sources.
 # A published deployment names the released one and so has it pulled here rather than built; the scenario
@@ -1906,8 +1909,16 @@ k3d image import -c "$cluster" "$hub_image" "$runner_image"
 kubectl create namespace "$ns" --save-config
 kubectl create secret generic "$ns-secrets" --from-env-file="$secrets_dir/secrets.env" -n "$ns"
 kubectl apply -f "$out/k3s.yaml"
-kubectl rollout status deploy/openobserve -n "$ns" --timeout="$manifest_wait"
-kubectl rollout status deploy/ws-server -n "$ns" --timeout="$manifest_wait"
+deployments="openobserve ws-server"
+if [ -n "$other_hubs" ]; then
+  deployments="$deployments nats rustfs"
+  for machine in $other_hubs; do
+    deployments="$deployments ws-server-$machine"
+  done
+fi
+for deployment in $deployments; do
+  kubectl rollout status "deploy/$deployment" -n "$ns" --timeout="$manifest_wait"
+done
 
 # The runners restart until the hub answers, so the model is what says the exchange ran -- not pod readiness.
 #
@@ -1921,6 +1932,22 @@ stored=""
 # shellcheck disable=SC2016
 # nosemgrep: config.semgrep.mise-task-coreutils-prefix
 read_model='set -- /app/storage/*/math1-output.json; cat "$1"'
+if [ -n "$other_hubs" ]; then
+  # Hubs that share storage keep it in the object store, so the server's hub reads the model back through S3.
+  # It uses the credentials it was given, listing the bucket for the first key that holds one.
+  # The twin stored it through the other hub, so reading it here is what shows the store is shared.
+  # rustfs refuses a request without `x-amz-content-sha256`, which the image's curl does not send on its own:
+  #   <Error><Code>InvalidRequest</Code><Message>missing header: x-amz-content-sha256</Message></Error>
+  # shellcheck disable=SC2016
+  # nosemgrep: config.semgrep.mise-task-coreutils-prefix
+  read_model='s3() {
+    login="$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY"
+    unsigned="x-amz-content-sha256: UNSIGNED-PAYLOAD"
+    curl -fsS --aws-sigv4 "aws:amz:$AWS_DEFAULT_REGION:s3" --user "$login" -H "$unsigned" "$AWS_ENDPOINT/et-storage/$1"
+  }
+  key=$(s3 "?list-type=2" | grep -o "[^>]*/math1-output[.]json" | head -n 1)
+  [ -n "$key" ] && s3 "$key"'
+fi
 for _ in $(coreutils seq 1 60); do
   stored=$(kubectl exec -n "$ns" deploy/ws-server -- sh -c "$read_model" 2>/dev/null || true)
   if [ -n "$stored" ]; then
@@ -1930,7 +1957,7 @@ for _ in $(coreutils seq 1 60); do
 done
 
 if [ -z "$stored" ]; then
-  echo "k3s-verify: no math1-output.json appeared under /app/storage" >&2
+  echo "k3s-verify: no math1-output.json appeared in the hub's storage" >&2
   exit 1
 fi
 
@@ -1941,14 +1968,23 @@ if [ -f "$template" ]; then
 fi
 
 # Every pod has to be on the node labelled as its machine.
-# The collector and the hub belong on the server, and each listed agent's runner on the machine listing it.
+# The collector, the server's hub and what several hubs share belong on the server, any other machine's hub on
+# that machine, and each listed agent's runner on the machine listing it.
 # Checked after the exchange, when every pod is scheduled.
 listed='.machines[] | select(.name == strenv(machine)) | .agents[]'
 for machine in $machines; do
   apps=$(machine="$machine" yq "$listed" "$input")
   if [ "$machine" = "$server_machine" ]; then
     apps="openobserve ws-server $apps"
+    if [ -n "$other_hubs" ]; then
+      apps="nats rustfs $apps"
+    fi
   fi
+  for hub_machine in $other_hubs; do
+    if [ "$machine" = "$hub_machine" ]; then
+      apps="ws-server-$machine $apps"
+    fi
+  done
   expected=$(kubectl get nodes -l "$machine_label=$machine" -o jsonpath='{.items[0].metadata.name}')
   for app in $apps; do
     placed=$(kubectl get pods -n "$ns" -l "app=$app" -o jsonpath='{.items[0].spec.nodeName}')
@@ -2242,7 +2278,7 @@ shell = "{{ vars.task_shell }}"
 
 [tasks.ryl-check]
 description = "Lint YAML with ryl (a yamllint-compatible Rust linter)"
-run = "ryl -c config/ryl.yaml .github config"
+run = "ryl check -c config/ryl.toml .github config"
 
 [tasks._setup_all]
 description = "Private shared cross-platform preinstall"

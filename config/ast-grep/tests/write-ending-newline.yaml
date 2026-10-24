@@ -1,0 +1,50 @@
+id: write-ending-newline
+valid:
+  - |
+    fn run(out: &mut String) {
+        let _result = writeln!(out, "done");
+    }
+  - |
+    fn run(out: &mut String) {
+        let _result = write!(out, "no newline");
+    }
+  - |
+    fn run(out: &mut String) {
+        let _result = write!(out, "a newline\nin the middle");
+    }
+  - |
+    fn run(out: &mut String) {
+        let _result = writeln!(out, concat!("first ", "second"));
+    }
+  - |
+    fn run(out: &mut String) {
+        let _result = write!(out, concat!("first line\n", "then no newline"));
+    }
+invalid:
+  - |
+    fn run(out: &mut String) {
+        let _result = write!(out, "done\n");
+    }
+  - |
+    fn run(out: &mut String) {
+        let _result = write!(out, "a blank line after\n\n");
+    }
+  - |
+    fn run(out: &mut String, name: &str) {
+        let _result = write!(out, "{name}\n", name = name);
+    }
+  - |
+    fn run(out: &mut String) {
+        let _result = write!(out, concat!("first ", "second\n"));
+    }
+  - |
+    fn run(out: &mut String, name: &str) {
+        let _result = write!(
+            out,
+            concat!(
+                "first\n",
+                "{name}\n",
+            ),
+            name = name,
+        );
+    }
