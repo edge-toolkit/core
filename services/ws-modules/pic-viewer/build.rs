@@ -1,6 +1,6 @@
-//! Stage the browser tests' image fixture (the ws-server page favicon) into `OUT_DIR`.
+//! Stage the `show_image` harness's sample image (the ws-server page favicon) into `OUT_DIR`.
 //!
-//! The `show_image` browser tests embed a real PNG via `include_bytes!`, and the repo's
+//! The `show_image` harness embeds a real PNG via `include_bytes!`, and the repo's
 //! `no-relative-path-literal` rule (rightly) forbids reaching it through a `../..` literal. Copying it here,
 //! anchored on `et_path::find_project_root_from_manifest()`, keeps the checked-in favicon as the single
 //! source of truth while giving the macro a stable `OUT_DIR` path to include.

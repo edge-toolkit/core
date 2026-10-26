@@ -1,6 +1,6 @@
 //! `WS_*` deserialization, through the real `serde_env::from_env` path the ws-server uses, with the process env set
 //! via `temp-env`. Verifies the human-byte-size parsing (`64MiB`, plain byte counts), the idle timeout, the backplane
-//! choice, and each default when its variable is absent.
+//! and message-retention choices, and each default when its variable is absent.
 #![cfg(test)]
 #![expect(
     clippy::decimal_literal_representation,
@@ -8,7 +8,7 @@
 )]
 
 use et_test_helpers::temp_env;
-use et_ws_service::{BackplaneConfig, WsConfig};
+use et_ws_service::{BackplaneConfig, MessageRetention, WsConfig};
 use serde::Deserialize;
 
 // Mirror the ws-server's nesting so the env key is `WS_MAX_FRAME_SIZE`.
@@ -68,6 +68,20 @@ fn connection_timeout_none_sentinel_disables() {
 fn backplane_absent_defaults_to_local() {
     temp_env::with_var_unset("WS_BACKPLANE", || {
         assert_eq!(load().backplane, BackplaneConfig::Local);
+    });
+}
+
+#[test]
+fn message_retention_absent_defaults_to_latest_per_sender() {
+    temp_env::with_var_unset("WS_MESSAGE_RETENTION", || {
+        assert_eq!(load().message_retention, MessageRetention::LatestPerSender);
+    });
+}
+
+#[test]
+fn message_retention_parses_all() {
+    temp_env::with_var("WS_MESSAGE_RETENTION", Some("all"), || {
+        assert_eq!(load().message_retention, MessageRetention::All);
     });
 }
 

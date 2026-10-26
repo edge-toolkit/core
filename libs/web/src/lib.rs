@@ -116,8 +116,8 @@ pub fn websocket_url() -> Result<String, JsValue> {
 
 /// The `/ws` endpoint URL for a page at `location`, upgrading to `wss:` when its protocol is `https:`.
 ///
-/// Takes the location rather than reading `window.location`: a test page is only ever served over plain
-/// http, so the `wss:` upgrade can be asserted only against a location handed in. `location` needs just the
+/// Takes the location rather than reading `window.location`, so the `wss:` upgrade can be asserted against a
+/// location handed in, whatever protocol served the page. `location` needs just the
 /// `protocol` and `host` properties, which is what makes a plain object stand in for the real one.
 pub fn websocket_url_from_location(location: &JsValue) -> Result<String, JsValue> {
     let protocol = js_sys::Reflect::get(location, &JsValue::from_str("protocol"))?

@@ -1,0 +1,32 @@
+id: no-test-in-rust-docs
+valid:
+  - |
+    /// Wrap a populated agent map.
+    fn from_agents() {}
+  - |
+    /// The latest attested contest result.
+    fn latest() {}
+  - |
+    /// A healthcheck running `test`, on the shared cadence.
+    fn healthcheck() {}
+  - |
+    //! Embeds the input from ws-test-server's data, read under ET_TEST_COVERAGE.
+  - |
+    fn run() {
+        // A plain comment may say why a test needs this.
+    }
+invalid:
+  - |
+    /// Wrap a populated agent map; useful for tests building fixtures.
+    fn from_agents() {}
+  - |
+    //! Stores the model where the test harness reads it.
+  - |
+    /// Independently testable with an in-memory backend.
+    trait Backend {}
+  - |
+    /// Public so a Test can drive the reader pump.
+    fn pump() {}
+  - |
+    /// Delegate to Client::test() and return its exit status.
+    fn run() {}

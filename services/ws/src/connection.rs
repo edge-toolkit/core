@@ -7,7 +7,7 @@ use actix_ws::{AggregatedMessage, AggregatedMessageStream, CloseCode, CloseReaso
 use bytes::Bytes;
 use chrono::Utc;
 use edge_toolkit::ws::{ClientMessage, ConnectStatus, MessageDeliveryStatus, MessageScope, ServerMessage};
-use edge_toolkit::ws_server::PendingDirectMessage;
+use edge_toolkit::ws_server::{MessageRetention, PendingDirectMessage};
 use et_hub_backplane::{Backplane, BackplaneError, Frame, NatsBackplane, Presence};
 use futures_util::StreamExt as _;
 use opentelemetry::global;
@@ -32,6 +32,8 @@ pub(crate) struct Connection {
     outbox: AgentSession,
     /// Idle timeout for this connection, or `None` to never time out.
     idle_timeout: Option<Duration>,
+    /// Whether a direct message this agent sends replaces its earlier unacknowledged one to the same recipient.
+    retention: MessageRetention,
 }
 
 impl Connection {
@@ -43,6 +45,7 @@ impl Connection {
         session: Session,
         outbox: AgentSession,
         idle_timeout: Option<Duration>,
+        retention: MessageRetention,
     ) -> Self {
         info!("New WebSocket connection for client IP {}", client_ip);
         Self {
@@ -54,6 +57,7 @@ impl Connection {
             session,
             outbox,
             idle_timeout,
+            retention,
         }
     }
 
@@ -180,7 +184,7 @@ impl Connection {
             Utc::now().to_rfc3339(),
             message,
         );
-        if let Err(error) = nats.queue(&to_agent_id, pending.clone()).await {
+        if let Err(error) = nats.queue(&to_agent_id, pending.clone(), self.retention).await {
             error!("Backplane mailbox write for {to_agent_id} failed: {error}");
             self.send_backplane_unavailable(&error).await;
             return;
@@ -199,7 +203,7 @@ impl Connection {
             },
         };
 
-        if let Presence::Connected { hub_id } = destination {
+        if let Presence::Connected { hub_id, .. } = destination {
             self.deliver_live(nats, &hub_id, &to_agent_id, pending).await;
             return;
         }
@@ -307,7 +311,7 @@ impl Connection {
             detail: format!("agent {recipient_agent_id} acknowledged receipt"),
         };
         let delivered = match nats.presence(sender_agent_id).await {
-            Ok(Presence::Connected { hub_id }) => {
+            Ok(Presence::Connected { hub_id, .. }) => {
                 self.deliver_via_backplane(nats, &hub_id, sender_agent_id, receipt)
                     .await
             }
@@ -419,6 +423,7 @@ impl Connection {
             &to_agent_id,
             server_received_at,
             message,
+            self.retention,
         ) else {
             warn!("direct message target {to_agent_id} is not a connected agent");
             self.send_invalid(None, format!("unknown target agent {to_agent_id}"))

@@ -64,7 +64,7 @@ use crate::{
 /// `artifact_source` a scenario asks for. A locally built image never reaches a registry at all, so an `Always`
 /// pull would send k3s looking for it in one that does not have it. A published image is there to be found, and
 /// `IfNotPresent` is what stops every restart re-pulling a tag the node already holds. It also lets a published-image
-/// scenario be tested against a local build of the same tag, which is how CI checks a change to an image before it
+/// scenario run against a local build of the same tag, which is how CI checks a change to an image before it
 /// is published.
 pub(super) const IMAGE_PULL_POLICY: &str = "IfNotPresent";
 

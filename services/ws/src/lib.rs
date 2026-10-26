@@ -11,6 +11,7 @@ use std::time::Duration;
 use actix_web::{Error, HttpRequest, HttpResponse, web};
 use bytes::Bytes;
 use edge_toolkit::ws::{CloudEvent, ServerMessage, client_event_type};
+pub use edge_toolkit::ws_server::MessageRetention;
 use edge_toolkit::ws_server::{AgentRecord, AgentRegistry, PendingDirectMessage, RegistryError};
 pub use et_hub_backplane::{Backplane, BackplaneConfig, BackplaneError};
 use et_hub_backplane::{Frame, Inbound};
@@ -97,6 +98,18 @@ pub struct WsConfig {
     #[serde(default)]
     #[cfg_attr(feature = "env-schema", schemars(with = "String", extend("default" = "local")))]
     pub backplane: BackplaneConfig,
+
+    /// Which unacknowledged direct messages a recipient holds: `latest-per-sender` (the default) or `all`.
+    ///
+    /// `latest-per-sender` keeps only the newest message from each sender, replacing the earlier one, so a recipient
+    /// holds at most one message per sender and the hub's memory for them is bounded. `all` keeps every message until
+    /// it is acknowledged, with no bound on how many pile up for a recipient that stays away.
+    #[serde(default)]
+    #[cfg_attr(
+        feature = "env-schema",
+        schemars(with = "String", extend("default" = "latest-per-sender"))
+    )]
+    pub message_retention: MessageRetention,
 
     /// The YAML file a local hub loads its agent registry from at startup and saves it to on shutdown.
     #[serde_inline_default(PathBuf::from("registry.yaml"))]
@@ -259,10 +272,10 @@ pub async fn ws_handler(
         .max_frame_size(config.max_frame_size)
         .aggregate_continuations();
 
-    // An app that never joined a backplane -- most tests, and any embedding that predates them -- is a local hub.
     let backplane = req
         .app_data::<web::Data<Backplane>>()
-        .map_or(Backplane::Local, |backplane| backplane.get_ref().clone());
+        .map(|data| data.get_ref().clone())
+        .unwrap_or_default();
 
     let (tx, rx) = mpsc::unbounded_channel::<SessionMessage>();
     let conn = Connection::new(
@@ -272,6 +285,7 @@ pub async fn ws_handler(
         session,
         tx,
         config.connection_timeout,
+        config.message_retention,
     );
 
     let _join = actix_web::rt::spawn(async move {

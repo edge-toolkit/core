@@ -513,8 +513,8 @@ async fn run_inner(client: &WsClient, sensors: &mut DeviceSensors) -> Result<(),
 
 /// Append a blank-line-separated section header to the status-panel lines.
 ///
-/// Pure (no DOM/interop calls), so the host-side test can cover the separator formatting the
-/// sensor display builds its orientation/motion sections through.
+/// Pure (no DOM/interop calls), so the separator formatting the sensor display builds its orientation/motion
+/// sections through runs off the browser too.
 pub fn push_section(lines: &mut Vec<String>, title: &str) {
     lines.push(String::default());
     lines.push(String::from(title));

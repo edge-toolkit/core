@@ -382,9 +382,8 @@ impl Client {
     }
     /**Upload a file to an agent's storage bucket
 
-    Only the agent that owns the bucket may write to it (the agent must
-    currently be connected); the path component must be a single
-    filename, not a nested path.
+    Only the agent that owns the bucket may write to it: the agent must be connected, and the request must come from
+    the address it is connected from. The path component must be a single filename, not a nested path.
 
     Sends a `PUT` request to `/storage/{agent_id}/{filename}`
 
@@ -450,6 +449,7 @@ impl Client {
         match response.status().as_u16() {
             200u16 => Ok(ResponseValue::empty(response)),
             400u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
+            403u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
             404u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
             _ => Err(Error::UnexpectedResponse(response)),
         }

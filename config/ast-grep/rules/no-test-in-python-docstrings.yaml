@@ -1,0 +1,21 @@
+id: no-test-in-python-docstrings
+language: Python
+severity: error
+message: |
+  Docstring in non-test code mentions tests. Document what the code does for every caller; why a test needs it
+  belongs in the test that relies on it. A name containing it (`test`, `ws-test-server`, `ET_TEST_X`) is allowed.
+rule:
+  kind: string
+  regex: "(?i)(^|[^`\\w-])test(s|ed|ing|able)?([^`\\w-]|$)"
+  inside:
+    kind: expression_statement
+    nthChild: 1
+    inside:
+      any:
+        - kind: module
+        - kind: block
+ignores:
+  - generated/**
+  - "**/tests/**"
+  - "**/*_tests/**"
+  - "**/test_*.py"

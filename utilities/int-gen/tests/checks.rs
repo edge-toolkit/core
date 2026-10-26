@@ -6,7 +6,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use et_int_gen::checks::{
-    config_paths, link_label, lint_opposites, pair_repairs, rego_summaries, rule_sources, runner_label, wrap,
+    config_paths, generated_stamp, link_label, lint_opposites, pair_repairs, rego_summaries, rule_sources,
+    runner_label, wrap,
 };
 
 /// The set of paths a path-collecting function is expected to return.
@@ -241,4 +242,10 @@ fn a_pass_no_check_pairs_with_is_named() {
         message,
         format!("{passes_named}, which no check pairs with by name: add the check, or take the pass out")
     );
+}
+
+#[test]
+fn generated_stamp_writes_a_zero_padded_iso_date() {
+    let date = jiff::civil::date(2026, 3, 7);
+    assert_eq!(generated_stamp(date), "- **Generated:** 2026-03-07");
 }

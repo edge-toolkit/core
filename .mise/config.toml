@@ -1240,12 +1240,23 @@ shell = "{{ vars.task_shell }}"
 
 [tasks.cargo-clippy-check-pkg]
 alias = ["clippy-pkg"]
-description = "cargo clippy on a single workspace package (narrow inner-loop check)"
-# Same flags as cargo-clippy-check minus --workspace.
-# Usage-spec captures the package name and exposes it as $usage_package; a missing arg fails up front with
-# mise's auto-generated usage message instead of clippy's generic "--package <SPEC> not found" error.
-run = 'cargo clippy --keep-going --all-targets -p "$usage_package"'
-usage = 'arg "<package>" help="Workspace package name (e.g. edge-toolkit)"'
+description = "cargo clippy on one or more workspace packages (narrow inner-loop check)"
+# Same flags as cargo-clippy-check minus --workspace, plus --no-deps.
+# Only the named packages are linted, not the workspace crates they depend on. Those still build, but their lints
+# are cargo-clippy-check's to report.
+# Usage-spec captures the package names and exposes them space-joined in $usage_package, split here into one `-p`
+# each; a missing arg fails up front with mise's auto-generated usage message instead of clippy's generic
+# "--package <SPEC> not found" error.
+run = """
+set --
+# shellcheck disable=SC2086 # $usage_package is a space-joined package list, split by design.
+for package in $usage_package; do
+  set -- "$@" -p "$package"
+done
+cargo clippy --keep-going --all-targets --no-deps "$@"
+"""
+shell = "{{ vars.task_shell }}"
+usage = 'arg "<package>..." var=#true help="Workspace package names (e.g. edge-toolkit et-ws-service)"'
 
 [tasks.cargo-doc-check]
 description = "Type-check rustdoc with -D warnings to fail on any doc issues"
@@ -2569,20 +2580,20 @@ description = "Regenerate HELP.md for every binary crate using clap or reading s
 run = "cargo run -q -p et-int-gen --bin et-int-gen -- help-md"
 
 [tasks."gen:checks"]
-description = "Regenerate CHECKS.md, the catalogue of every check across every MISE_ENV"
+description = "Regenerate CHECKS.md, the catalogue of every check across every MISE_ENV, stamped with today's date"
 run = "cargo run -q -p et-int-gen --bin et-int-gen -- checks"
 
+# Holds CHECKS.md to its generation date rather than re-rendering it, so it costs no build on any lane.
+# `--parser ignore` because Markdown has no parser; it hands the file over as its lines, which is all this reads.
 [tasks.checks-md-check]
+description = "Fail if CHECKS.md was last generated more than 7 days ago (run `mise run gen:checks`) (conftest)"
+run = "conftest test --combine --parser ignore --namespace checks_md -p config/conftest/policy CHECKS.md"
+
+[tasks.gen-help-check]
 # Ordered after the workspace builds so its `cargo run` reuses their artifacts.
 # Run beside them it is a fourth concurrent build, which doubled every cargo task's time on the three-core macOS
 # runner and took the macOS check lane past its budget.
 depends = ["cargo-check", "cargo-clippy-check", "cargo-doc-check", "regenerate-verification"]
-description = "Fail if CHECKS.md is stale vs the mise task tables and rule files (run `mise run gen:checks`)"
-run = "cargo run -q -p et-int-gen --bin et-int-gen -- checks --check"
-
-[tasks.gen-help-check]
-# After checks-md-check, whose et-int-gen build it reuses.
-depends = ["checks-md-check"]
 description = "Fail if any checked-in HELP.md is stale vs its clap tree or env config (run `mise run gen-help-all`)"
 run = "cargo run -q -p et-int-gen --bin et-int-gen -- help-md --check"
 

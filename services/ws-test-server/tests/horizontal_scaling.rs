@@ -350,6 +350,18 @@ async fn storage_accepts_an_upload_through_a_hub_the_agent_never_joined() {
     assert_eq!(stranger.status(), reqwest::StatusCode::NOT_FOUND);
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn storage_refuses_an_upload_for_an_agent_that_left_another_hub() {
+    let cluster = cluster(2);
+    let [(alice, alice_id), (mut bob, _bob_id)] = <[_; 2]>::try_from(one_agent_per_hub(&cluster).await).unwrap();
+    drop(alice);
+    wait_for_state(&mut bob, &alice_id, &AgentConnectionState::Disconnected).await;
+
+    let put_url = format!("{}/storage/{alice_id}/result.txt", cluster.hubs[1].base_url);
+    let put = reqwest::Client::new().put(put_url).body("42").send().await.unwrap();
+    assert_eq!(put.status(), reqwest::StatusCode::FORBIDDEN);
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn thirty_agents_spread_over_three_hubs_all_reach_each_other() {
     const AGENTS: usize = 30;

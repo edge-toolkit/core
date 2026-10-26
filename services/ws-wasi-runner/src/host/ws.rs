@@ -158,7 +158,7 @@ impl WsBackend {
     /// Take the next inbound message, or `None` if none arrives within `timeout`.
     ///
     /// The guest-facing `recv` converts to WIT types on the way out; this is the same drain without that step, so a
-    /// test can assert on the `ServerMessage` the reader pump actually produced.
+    /// caller sees the `ServerMessage` the reader pump actually produced.
     pub async fn next_message(&self, timeout: Duration) -> Option<ServerMessage> {
         let mut rx = self.inbox.lock().await;
         tokio::time::timeout(timeout, rx.recv()).await.ok().flatten()

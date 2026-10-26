@@ -92,6 +92,18 @@ pub enum StorageError {
     #[response(status = 404, reason = "NOT_FOUND")]
     AgentNotFound,
 
+    #[error("agent is not connected")]
+    #[response(status = 403, reason = "FORBIDDEN")]
+    AgentNotConnected,
+
+    #[error("requester is not the agent that owns this bucket")]
+    #[response(status = 403, reason = "FORBIDDEN")]
+    RequesterNotBucketOwner,
+
+    /// Every listener is TCP, so a request without a peer means the server was bound wrongly.
+    #[error("request has no peer address")]
+    NoPeerAddress,
+
     #[error("no such object")]
     #[response(status = 404, reason = "NOT_FOUND")]
     ObjectNotFound,

@@ -9,7 +9,7 @@ use crate::RecoveryError;
 use crate::config::{Config, Workload};
 use crate::policy::Health;
 
-/// Deployment-specific operations consumed by the supervisor, independently testable with an in-memory backend.
+/// Deployment-specific operations consumed by the supervisor, which an in-memory backend can stand in for.
 pub trait Backend: Send {
     /// Observe readiness; failures must remain errors, not be interpreted as application failure.
     fn health(&mut self, workload: &Workload) -> impl Future<Output = Result<Health, RecoveryError>> + Send;

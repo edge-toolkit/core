@@ -20,7 +20,7 @@ Generate checked-in artifacts (generated/, CHECKS.md, HELP.md) from in-repo sour
 
 - `generate` — Emit the generated artifacts for one target (default: all)
 - `fetch-deps` — Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions
-- `checks` — Write CHECKS.md, the catalogue of every check across every `MISE_ENV`
+- `checks` — Write CHECKS.md, the catalogue of every check across every `MISE_ENV`, stamped with today's UTC date
 - `help-md` — Write each binary crate's HELP.md from its clap command tree and its environment config
 
 ## `et-int-gen generate`
@@ -55,13 +55,9 @@ Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions
 
 ## `et-int-gen checks`
 
-Write CHECKS.md, the catalogue of every check across every `MISE_ENV`
+Write CHECKS.md, the catalogue of every check across every `MISE_ENV`, stamped with today's UTC date
 
-**Usage:** `et-int-gen checks [OPTIONS]`
-
-### Options
-
-- `--check` — Compare against the committed CHECKS.md and fail on drift instead of writing it
+**Usage:** `et-int-gen checks`
 
 ## `et-int-gen help-md`
 

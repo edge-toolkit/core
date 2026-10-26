@@ -36,8 +36,6 @@ pub enum Error {
     // The message is carried as data rather than only in the `#[error]` string because the binary's `main` reports
     // errors through `Debug`, which would otherwise print the bare variant name.
     #[error("{0}")]
-    ChecksStale(&'static str),
-    #[error("{0}")]
     UndescribedRule(String),
     #[error("{0}")]
     DuplicateLinkLabel(String),

@@ -24,12 +24,8 @@ pub enum Command {
     },
     /// Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions.
     FetchDeps,
-    /// Write CHECKS.md, the catalogue of every check across every `MISE_ENV`.
-    Checks {
-        /// Compare against the committed CHECKS.md and fail on drift instead of writing it.
-        #[arg(long)]
-        check: bool,
-    },
+    /// Write CHECKS.md, the catalogue of every check across every `MISE_ENV`, stamped with today's UTC date.
+    Checks,
     /// Write each binary crate's HELP.md from its clap command tree and its environment config.
     HelpMd {
         /// Compare against the committed HELP.md files and fail on drift instead of writing them.

@@ -252,6 +252,17 @@ confirm you see the identical failure -> fix -> confirm the fix turns that same 
 push. If you genuinely cannot reproduce locally (e.g. a lane you have no access to), say so explicitly and do not
 pass off an unverified change as a fix.
 
+That loop is for a failure whose cause the output does not settle. When you have been given the failing check's
+output and it already names the problem -- a lint at a file and line, a compile error, a failed assertion -- fix it
+first, and only then run the check, once, to confirm the fix. Running the check beforehand just to watch it fail
+again buys nothing: the checks are expensive and slow, and that run reproduces what the output already said.
+
+Once a lint fix to code is in, decide whether it could have changed what the tests see before running any. Renaming
+a constructor call, adding a justified `#[expect]` or reflowing a comment cannot fail a test; changing a signature,
+a branch or a lookup can. Run the tests only when the answer is yes, and then as a step of their own rather than
+chained onto the lint and check commands, so a slow test run never holds up the check results and a failure is
+never lost in their output.
+
 ## Keep lines <= 120 characters
 
 Assume every file you touch is bound by the 120-char limit, and keep each line under it on the first draft rather
@@ -419,11 +430,12 @@ Formatter task(s) per file type:
 env) breaks ties differently from `dprint-fmt` -- it collapses a short array onto one line where dprint leaves it
 expanded -- so a file dprint accepts can still fail `oxfmt-check` in CI.
 
-For Rust inner-loop iteration on a single crate, use `mise run cargo-clippy-check-pkg <package>` (alias
-`clippy-pkg`) instead of `cargo-clippy-check` -- it runs `cargo clippy --keep-going --tests -p <package>` so you
-only compile that crate plus its deps, not the whole workspace. Same lint config; just narrower scope. Switch back
-to `cargo-clippy-check` for the final verification pass before declaring done, since cross-crate
-`feature-unification` differences can fire workspace-wide lints that don't fire on a single `-p` build.
+For Rust inner-loop iteration, use `mise run cargo-clippy-check-pkg <package>...` (alias `clippy-pkg`) instead of
+`cargo-clippy-check`, naming the workspace package of every crate you changed in one call -- it compiles only those
+packages plus their deps, not the whole workspace, and lints only the named packages, not the workspace packages
+they depend on. Same lint config; just narrower scope. Switch back to `cargo-clippy-check` for the final
+verification pass before declaring done: it is the pass that lints a package you edited but did not name, and
+cross-crate `feature-unification` differences can fire workspace-wide lints that don't fire on a narrower `-p` build.
 
 ## Architecture
 

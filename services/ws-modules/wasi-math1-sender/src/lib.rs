@@ -1,7 +1,7 @@
 //! WASI Preview 2 trigger for the math1 family: the native counterpart of the browser `math1-sender`.
 //!
 //! Plays the fake-agent side of the math1 storage exchange under wasmtime: uploads the canonical input JSON
-//! (embedded at build time from ws-test-server's `data/math1-input.json`, the same bytes every test harness
+//! (embedded at build time from ws-test-server's `data/math1-input.json`, the same bytes every harness
 //! injects) into this agent's own storage bucket, then broadcasts the `math1-input` pointer once a second so
 //! math1 twins pick it up, compute, and store their models. This module only sends; each twin's stored
 //! `math1-output.json` is the harness's (or the operator's) to inspect.
@@ -34,7 +34,7 @@ const LOG_CONTEXT: &str = env!("CARGO_PKG_NAME");
 /// The canonical input bytes, embedded from the committed file so there is one source of truth.
 const MATH1_INPUT_JSON: &str = include_str!(env!("ET_MATH1_INPUT_PATH"));
 
-/// Storage object name the twins' broadcast pointer names, matching the test harnesses.
+/// Storage object name the twins' broadcast pointer names, matching the harnesses.
 const INPUT_FILENAME: &str = "math1-input.json";
 
 /// How many one-second-spaced pointer broadcasts to send before completing.

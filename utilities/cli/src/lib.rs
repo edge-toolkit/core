@@ -613,8 +613,8 @@ fn generate_format(
             generate_docker_compose_deployment(cluster, output_dir)?;
             generate_scenario_image(cluster, output_dir)
         }
-        // The scenario image is emitted here too, not just for compose. Both formats reference it: compose builds it as
-        // a service, and the manifests name it as the hub's image with the README giving the `docker build` for it.
+        // The scenario image is emitted here too, not just for compose. Both formats reference it: compose builds it
+        // as a service, and the manifests name it as the hub's image with the README giving the `docker build` for it.
         // Generating k3s alone without it produced a README pointing at a Dockerfile that was never written.
         OutputType::K3s => {
             generate_k3s_deployment(cluster, output_dir)?;
@@ -669,8 +669,8 @@ fn write_readme(cluster: &ClusterInput, output_dir: &Path, output_types: &[Outpu
 /// path, which is what the command needs, since it runs from the repository root.
 ///
 /// A single-component output directory has a parent, and it is the empty path rather than `None` -- so this cannot lean
-/// on `unwrap_or` and has to test the rendered parent. Prefixing an empty one would produce `/$scenario/Dockerfile`, an
-/// absolute path to a directory nobody has.
+/// on `unwrap_or` and has to check the rendered parent. Prefixing an empty one would produce `/$scenario/Dockerfile`,
+/// an absolute path to a directory nobody has.
 #[must_use]
 pub fn scenario_dockerfile_path(output_dir: &Path) -> String {
     let parent = output_dir
@@ -735,10 +735,9 @@ fn write_deployment_gitignore(output_dir: &Path) -> Result<(), CliError> {
 /// takes `ZO_ROOT_USER_PASSWORD` as its root credential, and the ws-server authenticates its OTLP exports with
 /// `OTLP_AUTH_PASSWORD`. A cluster of several hubs adds the secret of the object store they share, under the name the
 /// hubs' S3 client reads and the one rustfs reads. Nothing else belongs here. The accounts these authenticate as are
-/// not secrets and each
-/// format states it outright, so keeping it in this file would have meant an uncommitted file standing between a reader
-/// and a value there was never any reason to withhold -- and, in the Kubernetes case, a `Secret` holding something that
-/// is not one.
+/// not secrets and each format states it outright, so keeping it in this file would have meant an uncommitted file
+/// standing between a reader and a value there was never any reason to withhold -- and, in the Kubernetes case, a
+/// `Secret` holding something that is not one.
 ///
 /// Each value carries a `skipcq` pragma for `DeepSource SCT-A000`: the copies committed under `verification/` are
 /// read as hardcoded credentials, and the path excludes that keep the rest of that tree out of analysis do not reach
@@ -999,8 +998,8 @@ where
 /// `NPM_CONFIG_USERCONFIG` is exported rather than left to the `[env]` beside it, which carries the same value. mise
 /// computes that entry but does not apply it to its own tool resolution, so the npm client it embeds reads no user
 /// config, falls back to registry.npmjs.org, and reports the scoped module packages as `package not found` -- they
-/// exist only on GitHub Packages. Exported into the process, the same file resolves against the right registry, for
-/// the lock and the install alike. The `[env]` entry stays because the tasks do get it.
+/// exist only on GitHub Packages. Exported into the process, the same file resolves against the right registry, for the
+/// lock and the install alike. The `[env]` entry stays because the tasks do get it.
 const fn mise_install_note(artifacts: ArtifactSource) -> &'static str {
     if matches!(artifacts, ArtifactSource::Published) {
         return concat!(

@@ -1,0 +1,18 @@
+id: no-test-in-rust-docs
+language: Rust
+severity: error
+message: |
+  Doc comment in non-test code mentions tests. Document what the item does for every caller; why a test needs it
+  belongs in the test that relies on it. A name containing it (`test`, `ws-test-server`, `ET_TEST_X`) is allowed.
+rule:
+  all:
+    - kind: line_comment
+      regex: "^//[/!]"
+    - kind: line_comment
+      regex: "(?i)(^|[^`\\w-])test(s|ed|ing|able)?([^`\\w-]|$)"
+ignores:
+  - generated/**
+  - "**/tests/**"
+  - "**/test_*.rs"
+  - libs/test-*/**
+  - services/ws-test-server/**

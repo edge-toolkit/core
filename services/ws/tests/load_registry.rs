@@ -6,7 +6,7 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use edge_toolkit::ws::{AgentConnectionState, AgentSummary, ConnectStatus};
-use edge_toolkit::ws_server::RegistryError;
+use edge_toolkit::ws_server::{MessageRetention, RegistryError};
 use et_ws_service::{WsAgentRegistry, load_registry};
 use tempfile::tempdir;
 
@@ -47,6 +47,7 @@ fn round_trips_state_ip_and_pending_messages_but_not_sessions() {
         "agent-2",
         "2026-07-22T00:00:00Z".to_string(),
         serde_json::json!({"hello": "world"}),
+        MessageRetention::default(),
     );
     assert!(queued.is_some(), "agent-2 must exist to receive the queued message");
     registry.mark_disconnected("agent-2");

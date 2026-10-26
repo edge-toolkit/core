@@ -244,12 +244,12 @@ impl Language {
 ///   the developer's `mise install` covered everything; treat every language
 ///   as available.
 /// - **`MISE_ENV=""`** (set, empty): CI/Docker explicitly narrowed the env
-///   to "no guest languages". Every language returns false; tests that
-///   depend on a guest-env tool skip cleanly.
+///   to "no guest languages". Every language returns false; work that
+///   depends on a guest-env tool skips cleanly.
 ///
-/// Used to gate live-installed-tool tests: when CI narrows `MISE_ENV` for faster feedback (e.g. `dotnet,rust`), tests
-/// that depend on a tool in a dropped env (e.g. `http:pyodide` from the `python` env) can skip cleanly instead of
-/// panicking.
+/// Used to gate work on live-installed tools: when CI narrows `MISE_ENV` for faster feedback (e.g. `dotnet,rust`),
+/// work that depends on a tool in a dropped env (e.g. `http:pyodide` from the `python` env) can skip cleanly instead
+/// of panicking.
 ///
 /// When the language is absent (`MISE_ENV=""` or a list that omits it), a skip line naming the language is emitted to
 /// stderr, so callers only need to branch on the returned bool -- they don't repeat the message themselves.

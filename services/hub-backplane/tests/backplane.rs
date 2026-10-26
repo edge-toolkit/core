@@ -7,12 +7,13 @@ use std::time::Duration;
 use async_nats::HeaderMap;
 use bytes::Bytes;
 use edge_toolkit::ws::AgentConnectionState;
-use edge_toolkit::ws_server::PendingDirectMessage;
+use edge_toolkit::ws_server::{MessageRetention, PendingDirectMessage};
 use et_hub_backplane::{Backplane, BackplaneConfig, BackplaneError, Frame, Inbound, NatsBackplane, Presence};
 use et_test_nats::NatsServer;
 use futures_util::{Stream, StreamExt as _};
 
 const LOOPBACK: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
+const NEWEST: MessageRetention = MessageRetention::LatestPerSender;
 
 fn pending(message_id: &str, from: &str) -> PendingDirectMessage {
     PendingDirectMessage::new(
@@ -21,6 +22,10 @@ fn pending(message_id: &str, from: &str) -> PendingDirectMessage {
         "2026-10-19T00:00:00Z".to_owned(),
         serde_json::json!({"n": message_id}),
     )
+}
+
+fn ids(messages: Vec<PendingDirectMessage>) -> Vec<String> {
+    messages.into_iter().map(|message| message.message_id).collect()
 }
 
 /// The next inbound frame, failing the test if none arrives within five seconds.
@@ -64,7 +69,7 @@ fn config_names_local_or_a_nats_url() {
 async fn a_local_backplane_knows_nobody() {
     let backplane = Backplane::connect(&BackplaneConfig::Local).await.unwrap();
     assert!(matches!(backplane, Backplane::Local));
-    assert!(!backplane.knows("anyone").await.unwrap());
+    assert_eq!(backplane.presence("anyone").await.unwrap(), Presence::Unknown);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -125,6 +130,7 @@ async fn the_directory_follows_an_agent_across_hubs() {
     first.announce("a.b", LOOPBACK).await.unwrap();
     let on_first = Presence::Connected {
         hub_id: first.hub_id().to_owned(),
+        last_known_ip: LOOPBACK,
     };
     assert_eq!(second.presence("a.b").await.unwrap(), on_first);
 
@@ -133,6 +139,7 @@ async fn the_directory_follows_an_agent_across_hubs() {
     first.withdraw("a.b").await.unwrap();
     let on_second = Presence::Connected {
         hub_id: second.hub_id().to_owned(),
+        last_known_ip: LOOPBACK,
     };
     assert_eq!(first.presence("a.b").await.unwrap(), on_second);
 
@@ -150,9 +157,13 @@ async fn the_directory_follows_an_agent_across_hubs() {
     assert_eq!(listed[0].state, AgentConnectionState::Disconnected);
     assert_eq!(listed[1].state, AgentConnectionState::Connected);
 
+    let z_on_first = Presence::Connected {
+        hub_id: first.hub_id().to_owned(),
+        last_known_ip: LOOPBACK,
+    };
     let backplane = Backplane::Nats(Box::new(first));
-    assert!(backplane.knows("z").await.unwrap());
-    assert!(!backplane.knows("ghost").await.unwrap());
+    assert_eq!(backplane.presence("z").await.unwrap(), z_on_first);
+    assert_eq!(backplane.presence("ghost").await.unwrap(), Presence::Unknown);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -198,7 +209,7 @@ async fn corrupt_records_are_reported_not_ignored() {
         .unwrap();
     assert!(matches!(hub.pending_for("bad").await, Err(BackplaneError::Codec(_))));
     assert!(matches!(
-        hub.queue("bad", pending("m", "x")).await,
+        hub.queue("bad", pending("m", "x"), NEWEST).await,
         Err(BackplaneError::Codec(_))
     ));
 }
@@ -210,15 +221,9 @@ async fn the_mailbox_keeps_the_newest_message_per_sender_until_acknowledged() {
     let second = NatsBackplane::connect(&server.url()).await.unwrap();
 
     assert!(first.pending_for("r").await.unwrap().is_empty());
-    first.queue("r", pending("m1", "alice")).await.unwrap();
-    first.queue("r", pending("m2", "alice")).await.unwrap();
-    second.queue("r", pending("m3", "bob")).await.unwrap();
-    let ids = |messages: Vec<PendingDirectMessage>| {
-        messages
-            .into_iter()
-            .map(|message| message.message_id)
-            .collect::<Vec<_>>()
-    };
+    first.queue("r", pending("m1", "alice"), NEWEST).await.unwrap();
+    first.queue("r", pending("m2", "alice"), NEWEST).await.unwrap();
+    second.queue("r", pending("m3", "bob"), NEWEST).await.unwrap();
     assert_eq!(ids(second.pending_for("r").await.unwrap()), ["m2", "m3"]);
 
     assert_eq!(second.acknowledge("r", "m2").await.unwrap(), "alice");
@@ -235,8 +240,25 @@ async fn the_mailbox_keeps_the_newest_message_per_sender_until_acknowledged() {
         .await
         .unwrap();
     assert!(first.pending_for("r").await.unwrap().is_empty());
-    first.queue("r", pending("m4", "carol")).await.unwrap();
+    first.queue("r", pending("m4", "carol"), NEWEST).await.unwrap();
     assert_eq!(ids(first.pending_for("r").await.unwrap()), ["m4"]);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_mailbox_keeps_every_message_under_all_retention() {
+    let server = NatsServer::start();
+    let hub = NatsBackplane::connect(&server.url()).await.unwrap();
+
+    hub.queue("r", pending("m1", "alice"), MessageRetention::All)
+        .await
+        .unwrap();
+    hub.queue("r", pending("m2", "alice"), MessageRetention::All)
+        .await
+        .unwrap();
+    assert_eq!(ids(hub.pending_for("r").await.unwrap()), ["m1", "m2"]);
+
+    assert_eq!(hub.acknowledge("r", "m1").await.unwrap(), "alice");
+    assert_eq!(ids(hub.pending_for("r").await.unwrap()), ["m2"]);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -251,8 +273,12 @@ async fn concurrent_senders_all_land_in_one_mailbox() {
     for (index, hub) in (0..40_u32).zip(hubs.iter().cycle()) {
         let hub = hub.clone();
         writers.push(tokio::spawn(async move {
-            hub.queue("busy", pending(&format!("m{index:02}"), &format!("s{index:02}")))
-                .await
+            hub.queue(
+                "busy",
+                pending(&format!("m{index:02}"), &format!("s{index:02}")),
+                NEWEST,
+            )
+            .await
         }));
     }
     for writer in writers {

@@ -5,8 +5,8 @@ use clap::Parser as _;
 use edge_toolkit::config::get_project_root;
 use et_int_gen::cli::{Cli, Command, Target};
 use et_int_gen::{
-    check_checks, check_help, generate, generate_bindings, generate_checks, generate_core, generate_help,
-    generate_rust, generate_zig, wit::upstream,
+    check_help, generate, generate_bindings, generate_checks, generate_core, generate_help, generate_rust,
+    generate_zig, wit::upstream,
 };
 
 fn main() -> Result<(), et_int_gen::Error> {
@@ -21,8 +21,7 @@ fn main() -> Result<(), et_int_gen::Error> {
             Target::All => generate(),
         },
         Command::FetchDeps => upstream::run(&get_project_root()),
-        Command::Checks { check: true } => check_checks(),
-        Command::Checks { check: false } => generate_checks(),
+        Command::Checks => generate_checks(),
         Command::HelpMd { check: true } => check_help(),
         Command::HelpMd { check: false } => generate_help(),
     }
