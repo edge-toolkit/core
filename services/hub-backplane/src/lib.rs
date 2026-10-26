@@ -1,19 +1,22 @@
 //! A NATS backplane that lets several hub instances act as one.
 //!
-//! Every hub pointed at the same NATS server shares three things:
+//! Every hub pointed at the same NATS server shares four things:
 //!
 //! - an **agent directory** (`JetStream` KV bucket `et-agents`) recording, per agent, its connection state, its last
 //!   known IP and the hub currently holding its socket;
 //! - a **mailbox** (KV bucket `et-pending`) of unacknowledged direct messages per recipient, filed by the hub's
 //!   [`MessageRetention`], so a message survives its recipient reconnecting to a different hub;
+//! - a **blocklist** (KV bucket `et-blocked`) of the client addresses every hub refuses, one key per address, which
+//!   each hub reads when it joins and then watches;
 //! - a **delivery fabric** over core NATS subjects: `et.hub.<hub_id>` carries frames for one hub's agents and
 //!   `et.broadcast` carries fan-out to every hub. The target agent and payload kind travel as headers and the frame
 //!   bytes as the body, so binary relay needs no re-encoding.
 //!
-//! KV keys are the hex encoding of the agent id, because an id may contain dots, which NATS reads as token separators.
-//! Every read-modify-write is a compare-and-set on the entry's revision, retried on conflict.
+//! KV keys are the hex encoding of the agent id or address, because an id may contain dots and an address contains
+//! dots or colons, which NATS reads as token separators. Every read-modify-write is a compare-and-set on the entry's
+//! revision, retried on conflict.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::future::ready;
 use std::net::IpAddr;
 use std::time::Duration;
@@ -37,6 +40,7 @@ use self::error::{MapConnectErr as _, MapNatsErr as _};
 
 const AGENTS_BUCKET: &str = "et-agents";
 const PENDING_BUCKET: &str = "et-pending";
+const BLOCKED_BUCKET: &str = "et-blocked";
 const BROADCAST_SUBJECT: &str = "et.broadcast";
 const TO_HEADER: &str = "Et-To";
 const FROM_HEADER: &str = "Et-From";
@@ -140,6 +144,8 @@ pub enum Inbound {
     Direct { to_agent_id: String, frame: Frame },
     /// For every local agent except `from_agent_id`.
     Broadcast { from_agent_id: String, frame: Frame },
+    /// Not a frame: a hub has added `ip` to the shared blocklist.
+    Blocked { ip: IpAddr },
 }
 
 impl Inbound {
@@ -164,6 +170,22 @@ impl Inbound {
             frame: Frame::decode(message)?,
         })
     }
+
+    #[expect(
+        clippy::single_call_fn,
+        reason = "the decoder for the blocklist watch; named beside the frame decoders"
+    )]
+    fn decode_blocked(entry: Result<kv::Entry, kv::WatcherError>) -> Result<Self, BackplaneError> {
+        let entry = entry.map_nats_err("watch the blocklist")?;
+        Ok(Self::Blocked {
+            ip: blocked_ip(&entry.key)?,
+        })
+    }
+}
+
+/// The address a blocklist key encodes.
+fn blocked_ip(encoded: &str) -> Result<IpAddr, BackplaneError> {
+    Ok(String::from_utf8(const_hex::decode(encoded)?)?.parse()?)
 }
 
 fn header<'message>(message: &'message Message, name: &'static str) -> Result<&'message str, BackplaneError> {
@@ -194,11 +216,12 @@ pub struct NatsBackplane {
     client: Client,
     agents: Store,
     pending: Store,
+    blocked: Store,
     hub_id: String,
 }
 
 impl NatsBackplane {
-    /// Connect to the NATS server at `url`, creating the two KV buckets if this is the first hub to arrive.
+    /// Connect to the NATS server at `url`, creating the three KV buckets if this is the first hub to arrive.
     pub async fn connect(url: &str) -> Result<Self, BackplaneError> {
         let client = async_nats::connect(url).await.map_connect_err(url)?;
         let jetstream = async_nats::jetstream::new(client.clone());
@@ -216,10 +239,18 @@ impl NatsBackplane {
             })
             .await
             .map_nats_err("open the mailbox")?;
+        let blocked = jetstream
+            .create_or_update_key_value(kv::Config {
+                bucket: BLOCKED_BUCKET.to_owned(),
+                ..kv::Config::default()
+            })
+            .await
+            .map_nats_err("open the blocklist")?;
         Ok(Self {
             client,
             agents,
             pending,
+            blocked,
             hub_id: Uuid::now_v7().to_string(),
         })
     }
@@ -311,6 +342,47 @@ impl NatsBackplane {
         Ok(agents)
     }
 
+    /// The address `agent_id` last connected from, on whichever hub.
+    pub async fn agent_ip(&self, agent_id: &str) -> Result<IpAddr, BackplaneError> {
+        match self.directory_entry(agent_id).await? {
+            Some((record, _revision)) => Ok(record.last_known_ip),
+            None => Err(BackplaneError::UnknownAgent(agent_id.to_owned())),
+        }
+    }
+
+    /// Add `ip` to the blocklist every hub on this backplane refuses.
+    pub async fn block_ip(&self, ip: IpAddr) -> Result<(), BackplaneError> {
+        let _revision = self
+            .blocked
+            .put(key(&ip.to_string()), Bytes::new())
+            .await
+            .map_nats_err("block an address")?;
+        Ok(())
+    }
+
+    /// Every address on the shared blocklist.
+    ///
+    /// A key that is not an encoded address blocks nothing, so it is logged and skipped rather than failing the call:
+    /// a hub reads this list as it joins, and one junk key must not keep every hub from starting.
+    pub async fn blocked_ips(&self) -> Result<BTreeSet<IpAddr>, BackplaneError> {
+        let keys: Vec<String> = self
+            .blocked
+            .keys()
+            .await
+            .map_nats_err("list the blocklist")?
+            .try_collect()
+            .await
+            .map_nats_err("read the blocklist")?;
+        Ok(keys
+            .iter()
+            .filter_map(|encoded| {
+                blocked_ip(encoded)
+                    .inspect_err(|error| warn!("Skipping blocklist key {encoded:?}: {error}"))
+                    .ok()
+            })
+            .collect())
+    }
+
     /// Put `message` in `to_agent_id`'s mailbox, replacing an earlier one from the same sender if `retention` says to.
     pub async fn queue(
         &self,
@@ -318,7 +390,7 @@ impl NatsBackplane {
         message: PendingDirectMessage,
         retention: MessageRetention,
     ) -> Result<(), BackplaneError> {
-        self.modify_mailbox(to_agent_id, |mailbox| {
+        self.modify_mailbox(&key(to_agent_id), |mailbox| {
             let _previous = mailbox.insert(retention.key(&message), message.clone());
             Ok(())
         })
@@ -335,7 +407,7 @@ impl NatsBackplane {
 
     /// Take message `message_id` out of `recipient_agent_id`'s mailbox, returning the id of the agent that sent it.
     pub async fn acknowledge(&self, recipient_agent_id: &str, message_id: &str) -> Result<String, BackplaneError> {
-        self.modify_mailbox(recipient_agent_id, |mailbox| {
+        self.modify_mailbox(&key(recipient_agent_id), |mailbox| {
             let (key, sender) = mailbox
                 .iter()
                 .find_map(|(key, pending)| {
@@ -346,6 +418,35 @@ impl NatsBackplane {
             Ok(sender)
         })
         .await
+    }
+
+    /// Drop every message `from_agent_id` sent from every mailbox, returning how many were dropped.
+    ///
+    /// A mailbox holding nothing from that sender is only read, so the sweep does not rewrite every recipient's.
+    pub async fn forget_messages_from(&self, from_agent_id: &str) -> Result<usize, BackplaneError> {
+        let keys: Vec<String> = self
+            .pending
+            .keys()
+            .await
+            .map_nats_err("list the mailboxes")?
+            .try_collect()
+            .await
+            .map_nats_err("read the mailboxes")?;
+        let mut dropped: usize = 0;
+        for mailbox_key in keys {
+            let (stored, _revision) = self.read_mailbox(&mailbox_key).await?;
+            if stored.values().any(|pending| pending.from_agent_id == from_agent_id) {
+                let from_mailbox = self
+                    .modify_mailbox(&mailbox_key, |mailbox| {
+                        let before = mailbox.len();
+                        mailbox.retain(|_key, pending| pending.from_agent_id != from_agent_id);
+                        Ok(before.saturating_sub(mailbox.len()))
+                    })
+                    .await?;
+                dropped = dropped.saturating_add(from_mailbox);
+            }
+        }
+        Ok(dropped)
     }
 
     /// Send `frame` to `to_agent_id` through the hub with id `hub_id`.
@@ -403,10 +504,13 @@ impl NatsBackplane {
             .map_nats_err("unsubscribe from the confirmation inbox")
     }
 
-    /// The frames other hubs send this hub's agents, from the moment this returns.
+    /// The frames other hubs send this hub's agents, and the addresses any hub blocks, from the moment this returns.
     ///
-    /// This hub's own broadcasts are left out, since it has already fanned them out locally. A message that does not
-    /// decode is logged and skipped rather than ending the stream, so one bad publisher cannot cut a hub off.
+    /// This hub's own broadcasts are left out, since it has already fanned them out locally; its own blocks are not,
+    /// since applying one twice is harmless. Only blocks made after this returns arrive here, so a hub reads
+    /// [`NatsBackplane::blocked_ips`] once it has subscribed. A removed blocklist key is not an unblock: hubs keep
+    /// refusing the address until they restart. A message that does not decode is logged and skipped rather than
+    /// ending the stream, so one bad publisher cannot cut a hub off.
     pub async fn subscribe(&self) -> Result<impl Stream<Item = Inbound> + Send + 'static, BackplaneError> {
         let direct = self
             .client
@@ -418,6 +522,7 @@ impl NatsBackplane {
             .subscribe(BROADCAST_SUBJECT)
             .await
             .map_nats_err("subscribe to broadcasts")?;
+        let blocked = self.blocked.watch_all().await.map_nats_err("watch the blocklist")?;
         self.confirm_subscriptions().await?;
 
         let own_hub = self.hub_id.clone();
@@ -425,7 +530,11 @@ impl NatsBackplane {
         let broadcast = broadcast
             .filter(move |message| ready(header(message, ORIGIN_HEADER).ok() != Some(own_hub.as_str())))
             .map(|message| Inbound::decode_broadcast(&message));
-        Ok(futures_util::stream::select(direct, broadcast).filter_map(|decoded| {
+        let blocked = blocked
+            .filter(|entry| ready(!matches!(entry, Ok(entry) if entry.operation != Operation::Put)))
+            .map(Inbound::decode_blocked);
+        let frames = futures_util::stream::select(direct, broadcast);
+        Ok(futures_util::stream::select(frames, blocked).filter_map(|decoded| {
             ready(
                 decoded
                     .inspect_err(|error| warn!("Dropping undecodable backplane message: {error}"))
@@ -449,17 +558,16 @@ impl NatsBackplane {
         }
     }
 
-    /// Apply `change` to `agent_id`'s mailbox as one compare-and-set, re-reading and re-applying on conflict.
+    /// Apply `change` to the mailbox stored under `key` as one compare-and-set, re-reading and re-applying on conflict.
     async fn modify_mailbox<R>(
         &self,
-        agent_id: &str,
+        key: &str,
         mut change: impl FnMut(&mut Mailbox) -> Result<R, BackplaneError>,
     ) -> Result<R, BackplaneError> {
-        let key = key(agent_id);
         loop {
-            let (mut mailbox, revision) = self.read_mailbox(&key).await?;
+            let (mut mailbox, revision) = self.read_mailbox(key).await?;
             let result = change(&mut mailbox)?;
-            if self.write_mailbox(&key, &mailbox, revision).await? {
+            if self.write_mailbox(key, &mailbox, revision).await? {
                 return Ok(result);
             }
         }

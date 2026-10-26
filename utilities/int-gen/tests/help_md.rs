@@ -8,14 +8,19 @@ use fs_err as fs;
 use serde_json::json;
 
 #[test]
-fn clap_trees_carry_no_html_and_no_skipped_heading_levels() {
-    let command = clap::Command::new("demo").arg(clap::Arg::new("verbose").long("verbose").help("Talk more"));
+fn clap_trees_carry_no_html_no_skipped_heading_levels_and_only_ascii() {
+    let command = clap::Command::new("demo")
+        .arg(clap::Arg::new("verbose").long("verbose").help("Talk more"))
+        .subcommand(clap::Command::new("sub"));
     let markdown = clap_tree(&command);
     assert!(markdown.contains("\n## `demo`\n"));
     assert!(markdown.contains("\n### Options\n"));
     assert!(!markdown.contains("######"));
     assert!(!markdown.contains("<hr/>"));
     assert!(!markdown.contains("<small>"));
+    assert!(markdown.contains("* [`demo`](#demo)\n"));
+    assert!(markdown.contains("` -- Talk more\n"));
+    assert!(markdown.is_ascii());
 }
 
 #[test]

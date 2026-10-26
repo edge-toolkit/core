@@ -88,6 +88,10 @@ pub enum StorageError {
     #[response(status = 400, reason = "BAD_REQUEST")]
     InvalidFilename,
 
+    #[error("client address blocked")]
+    #[response(status = 403, reason = "FORBIDDEN")]
+    Blocked,
+
     #[error("agent not found")]
     #[response(status = 404, reason = "NOT_FOUND")]
     AgentNotFound,
@@ -190,6 +194,6 @@ where
     let _configured = cfg
         .app_data(web::Data::<dyn ObjectStore>::from(store))
         .route("/storage/{agent_id}/{filename}", web::put().to(put_file::<S>))
-        .route("/storage/{agent_id}/{filename}", web::get().to(get_file))
-        .route("/storage/{agent_id}/{filename}", web::head().to(head_file));
+        .route("/storage/{agent_id}/{filename}", web::get().to(get_file::<S>))
+        .route("/storage/{agent_id}/{filename}", web::head().to(head_file::<S>));
 }

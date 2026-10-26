@@ -27,7 +27,7 @@ serde.workspace = true
 tracing.workspace = true
 tracing-opentelemetry = { workspace = true, optional = true }
 
-# `rustls` and `stream` are native-only — WASM reqwest dispatches via the
+# `rustls` and `stream` are native-only -- WASM reqwest dispatches via the
 # browser's `fetch()` and has no notion of a TLS stack.
 #
 # `retry-policies` + `tokio` back the generator-injected `ClientHooks::exec`

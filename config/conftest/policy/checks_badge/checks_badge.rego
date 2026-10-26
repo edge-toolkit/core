@@ -1,6 +1,10 @@
 # The README's checks badge, held to the rules count CHECKS.md records.
 # Run with `--namespace checks_badge` over CHECKS.md and README.md, `--combine`d and parsed with `ignore`, which
 # hands each file over as its lines; the `Original` field of each is the line's text.
+
+# METADATA
+# custom:
+#   meta: true
 package checks_badge
 
 # How far the rules count moves before the badge has to follow: the badge records it rounded down to this.

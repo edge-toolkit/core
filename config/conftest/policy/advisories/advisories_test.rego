@@ -1,4 +1,4 @@
-# Unit tests for the advisory review-date rule, run by `conftest verify`.
+# Unit tests for the advisory review-date rules, run by `conftest verify`.
 #
 # The lapse rule reads the wall clock, which makes it the one policy here whose result changes on its own: a
 # real run passes today and fails after the date without anything in the repo changing. So every case pins
@@ -67,6 +67,20 @@ test_each_lapsed_entry_is_reported_separately if {
 	msgs := advisories.deny with input as deny_file(entries) with time.now_ns as review_day + day_ns
 	names(msgs, "RUSTSEC-2026-0285")
 	names(msgs, "GHSA-3w8q-xq97-5j7x")
+}
+
+test_entries_sharing_one_date_pass if {
+	entries := [dated("RUSTSEC-2026-0285", "2026-10-15"), dated("GHSA-3w8q-xq97-5j7x", "2026-10-15")]
+	msgs := advisories.deny with input as deny_file(entries) with time.now_ns as review_day
+	count(msgs) == 0
+}
+
+# A second date is flagged even while both are still in the future.
+test_entries_with_different_dates_are_flagged if {
+	entries := [dated("RUSTSEC-2026-0285", "2026-10-15"), dated("GHSA-3w8q-xq97-5j7x", "2026-11-30")]
+	msgs := advisories.deny with input as deny_file(entries) with time.now_ns as review_day
+	count(msgs) == 1
+	names(msgs, "expire on 2 dates")
 }
 
 # Only deny.toml carries this table; another TOML file in the combined input is none of this rule's business.

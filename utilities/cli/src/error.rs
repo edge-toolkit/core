@@ -50,6 +50,9 @@ pub enum CliError {
     #[error("Failed to serialize mise TOML")]
     SerializeToml(#[from] toml::ser::Error),
 
+    #[error("The hub refused or failed the request: {0}")]
+    HubRequest(#[from] reqwest::Error),
+
     #[error("Expected pyproject.toml or Cargo.toml in module directory {0:?}")]
     MissingManifest(PathBuf),
 

@@ -4,12 +4,13 @@
 //! `#[serde(skip)]`, so it is never persisted).
 #![cfg(test)]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::net::{IpAddr, Ipv4Addr};
 
 use edge_toolkit::ws::{AgentConnectionState, ConnectStatus};
 use edge_toolkit::ws_server::{
-    AcknowledgeError, AgentRecord, AgentRegistry, MAX_AGENT_ID_LEN, MessageRetention, is_valid_agent_id,
+    AcknowledgeError, AgentRecord, AgentRegistry, IpBlocklist, MAX_AGENT_ID_LEN, MessageRetention, RegistryError,
+    is_valid_agent_id, read_registry_file,
 };
 use tempfile::tempdir;
 
@@ -171,6 +172,86 @@ fn agent_ids_are_held_to_a_single_safe_path_segment() {
 }
 
 #[test]
+fn a_blocklist_refuses_what_it_was_given_and_what_is_added() {
+    let blocklist = IpBlocklist::from_ips(BTreeSet::from([FIRST_IP]));
+    assert!(blocklist.is_blocked(FIRST_IP));
+    assert!(!blocklist.is_blocked(SECOND_IP));
+
+    // A clone shares the list, so a block through it is seen by the original and cannot be repeated there.
+    let shared = blocklist.clone();
+    assert!(shared.block(SECOND_IP));
+    assert!(!blocklist.block(SECOND_IP));
+    assert!(blocklist.is_blocked(SECOND_IP));
+    assert_eq!(blocklist.ips(), BTreeSet::from([FIRST_IP, SECOND_IP]));
+}
+
+#[test]
+fn a_mapped_ipv6_address_and_its_ipv4_address_are_one_entry() {
+    let mapped = IpAddr::V6(Ipv4Addr::new(192, 0, 2, 7).to_ipv6_mapped());
+    let plain = IpAddr::V4(Ipv4Addr::new(192, 0, 2, 7));
+
+    let blocklist = IpBlocklist::from_ips(BTreeSet::from([mapped]));
+    assert!(blocklist.is_blocked(plain));
+    assert!(!blocklist.block(plain));
+    assert_eq!(blocklist.ips(), BTreeSet::from([plain]));
+
+    let blocklist = IpBlocklist::default();
+    assert!(blocklist.block(mapped));
+    assert!(blocklist.is_blocked(plain));
+    assert!(blocklist.is_blocked(mapped));
+}
+
+#[test]
+fn an_agents_address_is_its_last_known_ip() {
+    let registry = AgentRegistry::<String>::default();
+    let (agent_id, _assigned) = registry.connect_agent(None, "agent-1".to_string(), FIRST_IP, "sess-a".to_string());
+
+    assert_eq!(registry.agent_ip(&agent_id).unwrap(), FIRST_IP);
+    assert!(matches!(
+        registry.agent_ip("nobody"),
+        Err(RegistryError::UnknownAgent(agent_id)) if agent_id == "nobody"
+    ));
+}
+
+#[test]
+fn the_blocklist_is_saved_and_loaded_with_the_agents() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("registry.yaml");
+    let registry = AgentRegistry::<String>::default();
+    let (agent_id, _assigned) = registry.connect_agent(None, "agent-1".to_string(), FIRST_IP, "sess-a".to_string());
+    assert!(registry.blocklist.block(SECOND_IP));
+    registry.save(&path).unwrap();
+
+    let reloaded = AgentRegistry::<String>::load(&path).unwrap();
+    assert_eq!(reloaded.blocklist.ips(), BTreeSet::from([SECOND_IP]));
+    assert_eq!(reloaded.agent_ip(&agent_id).unwrap(), FIRST_IP);
+}
+
+#[test]
+fn a_registry_saved_before_the_blocklist_still_loads() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("registry.yaml");
+    fs_err::write(&path, "agent-1:\n  state: disconnected\n  last_known_ip: 127.0.0.1\n").unwrap();
+
+    let file = read_registry_file::<AgentRecord<String>>(&path).unwrap();
+    assert_eq!(file.agents["agent-1"].last_known_ip, FIRST_IP);
+    assert!(file.blocked_ips.is_empty());
+    assert_eq!(AgentRegistry::<String>::load(&path).unwrap().list_agents().len(), 1);
+}
+
+#[test]
+fn a_registry_that_is_neither_layout_is_an_error() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("registry.yaml");
+    fs_err::write(&path, "- a list, not a registry\n").unwrap();
+
+    assert!(matches!(
+        AgentRegistry::<String>::load(&path),
+        Err(RegistryError::Yaml(_))
+    ));
+}
+
+#[test]
 fn agent_record_with_pending_builder_replaces_the_map() {
     let record = AgentRecord::<String>::new(AgentConnectionState::Disconnected, FIRST_IP, None)
         .with_pending_direct_messages(BTreeMap::new());
@@ -261,6 +342,27 @@ fn messages_queued_under_one_retention_acknowledge_under_the_other() {
         assert_eq!(sender, "sender");
     }
     assert!(registry.pending_messages_for("recipient").is_empty());
+}
+
+#[test]
+fn forgetting_a_sender_drops_only_the_messages_it_sent() {
+    let registry = sender_and_recipient();
+    let _kept = queue_two(&registry, MessageRetention::All);
+    let _reply = registry.queue_direct(
+        "m3".to_string(),
+        "recipient",
+        "sender",
+        "2026-10-26T00:00:01Z".to_string(),
+        serde_json::Value::Null,
+        MessageRetention::All,
+    );
+
+    assert_eq!(registry.forget_messages_from("sender"), 2);
+    assert!(registry.pending_messages_for("recipient").is_empty());
+    let left = registry.pending_messages_for("sender");
+    assert_eq!(left.len(), 1);
+    assert_eq!(left[0].message_id, "m3");
+    assert_eq!(registry.forget_messages_from("sender"), 0);
 }
 
 #[test]

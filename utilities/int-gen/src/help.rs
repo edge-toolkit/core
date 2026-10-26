@@ -279,15 +279,18 @@ fn describe(krate: &BinaryCrate, command: Option<clap::Command>, schema: Option<
     Ok(markdown)
 }
 
-/// The clap-markdown rendering of `command`, reshaped into markdown that needs no inline HTML.
+/// The clap-markdown rendering of `command`, reshaped into ASCII markdown that needs no inline HTML.
 ///
 /// The footer crediting clap-markdown is dropped, since it is the document's only HTML. Each `###### **Options:**`
 /// style label becomes a `### Options` heading one level under its command's `##`, where clap-markdown otherwise jumps
-/// straight from the second level to the sixth.
+/// straight from the second level to the sixth. The two non-ASCII glyphs it decorates with go too: the em-dash between
+/// an option and its description becomes `--`, and the arrow after each contents link is dropped.
 #[must_use]
 pub fn clap_tree(command: &clap::Command) -> String {
     let options = clap_markdown::MarkdownOptions::new().show_footer(false);
-    let markdown = clap_markdown::help_markdown_command_custom(command, &options);
+    let markdown = clap_markdown::help_markdown_command_custom(command, &options)
+        .replace(" \u{2014} ", " -- ")
+        .replace('\u{21b4}', "");
     let mut out = String::with_capacity(markdown.len());
     for line in markdown.split_inclusive('\n') {
         let label = line

@@ -1,7 +1,8 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{info, warn};
@@ -22,6 +23,9 @@ pub enum RegistryError {
 
     #[error("agent registry lock poisoned")]
     LockPoisoned,
+
+    #[error("unknown agent {0}")]
+    UnknownAgent(String),
 }
 
 impl<T> From<PoisonError<T>> for RegistryError {
@@ -167,10 +171,120 @@ impl<S> AgentRecord<S> {
     }
 }
 
+/// The client addresses a hub refuses, shared by every clone that holds it.
+///
+/// Every address is held and compared in its canonical form, so an IPv4-mapped IPv6 address (`::ffff:192.0.2.7`)
+/// and the IPv4 address it maps (`192.0.2.7`) are one entry, whichever spelling blocked it or connects with it.
+///
+/// Not generic over the session type, unlike the registry carrying it, so each method here is one copy that the
+/// branch-coverage gate scores once rather than once per session type.
+#[derive(Clone, Debug, Default)]
+#[non_exhaustive]
+pub struct IpBlocklist(Arc<Mutex<BTreeSet<IpAddr>>>);
+
+impl IpBlocklist {
+    /// A blocklist refusing exactly `ips`.
+    #[must_use]
+    pub fn from_ips(ips: BTreeSet<IpAddr>) -> Self {
+        Self(Arc::new(Mutex::new(
+            ips.into_iter().map(|ip| ip.to_canonical()).collect(),
+        )))
+    }
+
+    /// Refuse `ip` from now on, returning whether it was not refused already.
+    pub fn block(&self, ip: IpAddr) -> bool {
+        self.0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(ip.to_canonical())
+    }
+
+    /// Whether `ip` is refused.
+    #[must_use]
+    pub fn is_blocked(&self, ip: IpAddr) -> bool {
+        self.0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .contains(&ip.to_canonical())
+    }
+
+    /// Every refused address, in order.
+    #[must_use]
+    pub fn ips(&self) -> BTreeSet<IpAddr> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner).clone()
+    }
+}
+
+/// A registry as it is laid out on disk: its agents keyed by id, and the client addresses it refuses.
+///
+/// `A` is the agent map, owned when read and borrowed when written.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+#[non_exhaustive]
+pub struct RegistryFile<A> {
+    pub agents: A,
+    #[serde(default)]
+    pub blocked_ips: BTreeSet<IpAddr>,
+}
+
+/// Either registry layout: the current one, or the bare agent map written before the hub kept a blocklist.
+///
+/// `deny_unknown_fields` on [`RegistryFile`] is what tells them apart, since a bare map is keyed by agent ids.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum StoredRegistry<R> {
+    Current(RegistryFile<BTreeMap<String, R>>),
+    Bare(BTreeMap<String, R>),
+}
+
+/// Read the registry file at `path`, whose agents are records of type `R`; a missing file is an empty registry.
+pub fn read_registry_file<R>(path: &std::path::Path) -> Result<RegistryFile<BTreeMap<String, R>>, RegistryError>
+where
+    R: DeserializeOwned,
+{
+    if !path.exists() {
+        warn!(
+            "Registry file {} does not exist, starting with empty registry",
+            path.display()
+        );
+        return Ok(RegistryFile {
+            agents: BTreeMap::new(),
+            blocked_ips: BTreeSet::new(),
+        });
+    }
+    let file = parse_registry(&fs_err::read_to_string(path)?)?;
+    info!(
+        "Loaded {} agents and {} blocked IPs from registry {}",
+        file.agents.len(),
+        file.blocked_ips.len(),
+        path.display()
+    );
+    Ok(file)
+}
+
+/// Parse a registry file's YAML in either layout, giving a bare agent map an empty blocklist.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the parsing step of read_registry_file, kept apart from its file handling and logging"
+)]
+fn parse_registry<R>(yaml: &str) -> Result<RegistryFile<BTreeMap<String, R>>, RegistryError>
+where
+    R: DeserializeOwned,
+{
+    Ok(match serde_yaml::from_str(yaml)? {
+        StoredRegistry::Current(file) => file,
+        StoredRegistry::Bare(agents) => RegistryFile {
+            agents,
+            blocked_ips: BTreeSet::new(),
+        },
+    })
+}
+
 #[derive(Clone)]
 #[non_exhaustive]
 pub struct AgentRegistry<S> {
     pub agents: Arc<Mutex<BTreeMap<String, AgentRecord<S>>>>,
+    pub blocklist: IpBlocklist,
 }
 
 impl<S> AgentRegistry<S> {
@@ -179,36 +293,44 @@ impl<S> AgentRegistry<S> {
     pub fn from_agents(agents: BTreeMap<String, AgentRecord<S>>) -> Self {
         Self {
             agents: Arc::new(Mutex::new(agents)),
+            blocklist: IpBlocklist::default(),
         }
+    }
+
+    /// Replace the blocklist (chainable; used by persistence reloaders).
+    #[must_use]
+    pub fn with_blocklist(mut self, blocklist: IpBlocklist) -> Self {
+        self.blocklist = blocklist;
+        self
     }
 }
 
 impl<S: Clone + Default + Send + 'static> AgentRegistry<S> {
     pub fn load(path: &std::path::Path) -> Result<Self, RegistryError> {
-        if !path.exists() {
-            warn!(
-                "Registry file {} does not exist, starting with empty registry",
-                path.display()
-            );
-            return Ok(Self::default());
-        }
-        let yaml = fs_err::read_to_string(path)?;
-        let agents: BTreeMap<String, AgentRecord<S>> = serde_yaml::from_str(&yaml)?;
-        info!("Loaded {} agents from registry {}", agents.len(), path.display());
-        Ok(Self {
-            agents: Arc::new(Mutex::new(agents)),
-        })
+        let file = read_registry_file::<AgentRecord<S>>(path)?;
+        Ok(Self::from_agents(file.agents).with_blocklist(IpBlocklist::from_ips(file.blocked_ips)))
     }
 }
 
 impl<S: Clone + Send + 'static> AgentRegistry<S> {
     pub fn save(&self, path: &std::path::Path) -> Result<(), RegistryError> {
         let agents = self.agents.lock()?;
-        let yaml = serde_yaml::to_string(&*agents)?;
+        let yaml = serde_yaml::to_string(&RegistryFile {
+            agents: &*agents,
+            blocked_ips: self.blocklist.ips(),
+        })?;
         drop(agents);
         fs_err::write(path, yaml)?;
         info!("Agent registry saved to {}", path.display());
         Ok(())
+    }
+
+    /// The address `agent_id` last connected from.
+    pub fn agent_ip(&self, agent_id: &str) -> Result<IpAddr, RegistryError> {
+        lock_agents(&self.agents)
+            .get(agent_id)
+            .map(|record| record.last_known_ip)
+            .ok_or_else(|| RegistryError::UnknownAgent(agent_id.to_string()))
     }
 
     pub fn connect_agent(
@@ -324,6 +446,24 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
         Some((pending, session))
     }
 
+    /// Drop every queued message `from_agent_id` sent, from every recipient's queue, returning how many were dropped.
+    #[must_use]
+    pub fn forget_messages_from(&self, from_agent_id: &str) -> usize {
+        let mut agents = lock_agents(&self.agents);
+        let dropped = agents
+            .values_mut()
+            .map(|record| {
+                let before = record.pending_direct_messages.len();
+                record
+                    .pending_direct_messages
+                    .retain(|_key, pending| pending.from_agent_id != from_agent_id);
+                before.saturating_sub(record.pending_direct_messages.len())
+            })
+            .sum();
+        drop(agents);
+        dropped
+    }
+
     #[must_use]
     pub fn pending_messages_for(&self, agent_id: &str) -> Vec<PendingDirectMessage> {
         let agents = lock_agents(&self.agents);
@@ -394,6 +534,7 @@ impl<S> Default for AgentRegistry<S> {
     fn default() -> Self {
         Self {
             agents: Arc::new(Mutex::new(BTreeMap::new())),
+            blocklist: IpBlocklist::default(),
         }
     }
 }

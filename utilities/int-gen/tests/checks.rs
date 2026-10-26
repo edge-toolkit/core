@@ -1,13 +1,15 @@
-//! Covers the pieces `CHECKS.md` is assembled from: tool detection, config paths, Rego summaries and wrapping.
+//! Covers the pieces `CHECKS.md` is assembled from: tool detection, config paths, Rego summaries, meta policies and
+//! wrapping.
 //!
 //! The `run` bodies here use made-up tool names, since what is under test is the shell parsing around them.
 #![cfg(test)]
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use et_int_gen::Error;
 use et_int_gen::checks::{
-    config_paths, generated_stamp, link_label, lint_opposites, pair_repairs, rego_summaries, rule_sources,
-    runner_label, wrap,
+    config_paths, generated_stamp, link_label, lint_opposites, pair_repairs, rego_is_meta, rego_summaries,
+    rule_sources, runner_label, wrap,
 };
 
 /// The set of paths a path-collecting function is expected to return.
@@ -123,6 +125,28 @@ fn rego_summary_is_the_last_comment_block_before_each_rule() {
         rego_summaries("demo.rego", &source).unwrap(),
         ["First rule.", "Second rule."]
     );
+}
+
+#[test]
+fn a_policy_is_meta_only_when_its_metadata_annotation_says_so() {
+    let annotated = "# Header.\n\n# METADATA\n# custom:\n#   meta: true\npackage demo\n";
+    assert!(rego_is_meta(annotated).unwrap());
+    assert!(rego_is_meta(&annotated.replace("# Header.\n\n", "")).unwrap());
+    assert!(rego_is_meta("# METADATA\n# custom: {meta: true}\npackage demo\n").unwrap());
+    assert!(!rego_is_meta(&annotated.replace("meta: true", "meta: false")).unwrap());
+    assert!(!rego_is_meta(&annotated.replace("  meta: true", "  other:\n#     meta: true")).unwrap());
+    assert!(!rego_is_meta("# Header naming meta: true outside any annotation.\npackage demo\n").unwrap());
+    assert!(!rego_is_meta("# METADATA\n# custom: {}\npackage demo\n# meta: true\n").unwrap());
+    let rule_level = "package demo\n\n# METADATA\n# custom:\n#   meta: true\ndeny contains msg if {\n}\n";
+    assert!(!rego_is_meta(rule_level).unwrap());
+    assert!(rego_is_meta("# METADATA\n# custom:\n#   meta: true\n\npackage demo\n").unwrap());
+    assert!(rego_is_meta("# METADATA\n# custom:\n#   meta: true\n\n# Header.\npackage demo\n").unwrap());
+}
+
+#[test]
+fn a_malformed_package_annotation_is_an_error() {
+    let error = rego_is_meta("# METADATA\n# custom: [\npackage demo\n").unwrap_err();
+    assert!(matches!(error, Error::Yaml(_)));
 }
 
 #[test]

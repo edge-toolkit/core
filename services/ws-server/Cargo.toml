@@ -55,7 +55,12 @@ tty-image = ["et-storage-service/tty-image", "storage"]
 websockify = ["dep:et-websockify-service"]
 ## Adds OpenAPI metadata to the REST handlers for `et-int-gen` to harvest into the published spec.
 ## Production builds do not need it.
-openapi-spec = ["dep:utoipa", "et-modules-service?/openapi-spec", "et-storage-service?/openapi-spec"]
+openapi-spec = [
+  "dep:utoipa",
+  "et-modules-service?/openapi-spec",
+  "et-storage-service?/openapi-spec",
+  "et-ws-service/openapi-spec",
+]
 ## Internal: derives JSON Schema for the hub's environment configuration.
 ## et-int-gen enables it to render the hub's environment variables into its HELP.md.
 env-schema = [

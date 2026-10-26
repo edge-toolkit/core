@@ -198,6 +198,14 @@ Type: string. Default: `cert.pem`.
 
 Type: string. Default: `key.pem`.
 
+### `WS_ADMIN_TOKEN`
+
+Type: string.
+
+Bearer token authorizing the admin API: `PUT /blocked-ips/{ip}` and `DELETE /agents/{agent_id}`.
+
+Unset disables the admin API, which then refuses every request with 403; an empty value is rejected.
+
 ### `WS_AGENT_REGISTRY`
 
 Type: string. Default: `registry.yaml`.

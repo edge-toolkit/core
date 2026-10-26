@@ -56,6 +56,7 @@ url.workspace = true
 utoipa = { workspace = true, optional = true }
 
 [dev-dependencies]
+actix-http.workspace = true
 actix-rt.workspace = true
 command-error.workspace = true
 et-test-helpers.workspace = true

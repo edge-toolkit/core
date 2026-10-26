@@ -107,7 +107,9 @@ jobs:
         if: runner.os == 'Windows'
         run: echo "MISE_JOBS=1" >> "$GITHUB_ENV"
 
+      # --continue-on-error lets every checker finish and report, so one red check does not hide the others.
+      # The step still fails if any of them did.
       - name: Run checkers
-        run: mise run "$TASK"
+        run: mise run --continue-on-error "$TASK"
         env:
           TASK: ${{ matrix.task }}

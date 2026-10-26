@@ -1,7 +1,9 @@
-//! The NATS backplane against a real broker: directory, mailbox, delivery fabric, config parsing and failure reports.
+//! The NATS backplane against a real broker: directory, mailbox, blocklist, delivery fabric, config parsing and
+//! failure reports.
 #![cfg(test)]
 
-use std::net::{IpAddr, Ipv4Addr};
+use std::collections::BTreeSet;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::time::Duration;
 
 use async_nats::HeaderMap;
@@ -261,6 +263,24 @@ async fn the_mailbox_keeps_every_message_under_all_retention() {
     assert_eq!(ids(hub.pending_for("r").await.unwrap()), ["m2"]);
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn forgetting_a_sender_empties_its_messages_from_every_mailbox() {
+    let server = NatsServer::start();
+    let hub = NatsBackplane::connect(&server.url()).await.unwrap();
+    let all = MessageRetention::All;
+
+    assert_eq!(hub.forget_messages_from("alice").await.unwrap(), 0);
+    hub.queue("r", pending("m1", "alice"), all).await.unwrap();
+    hub.queue("r", pending("m2", "bob"), all).await.unwrap();
+    hub.queue("s", pending("m3", "alice"), all).await.unwrap();
+    hub.queue("t", pending("m4", "bob"), all).await.unwrap();
+
+    assert_eq!(hub.forget_messages_from("alice").await.unwrap(), 2);
+    assert_eq!(ids(hub.pending_for("r").await.unwrap()), ["m2"]);
+    assert!(hub.pending_for("s").await.unwrap().is_empty());
+    assert_eq!(ids(hub.pending_for("t").await.unwrap()), ["m4"]);
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn concurrent_senders_all_land_in_one_mailbox() {
     let server = NatsServer::start();
@@ -391,4 +411,73 @@ async fn a_lost_broker_surfaces_as_an_error_naming_the_action() {
         }
     ));
     assert_eq!(error.to_string(), "NATS failed to announce an agent");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_block_on_one_hub_reaches_every_hub() {
+    let server = NatsServer::start();
+    let first = NatsBackplane::connect(&server.url()).await.unwrap();
+    let second = NatsBackplane::connect(&server.url()).await.unwrap();
+    let mut second_inbox = Box::pin(second.subscribe().await.unwrap());
+    let ipv6 = IpAddr::V6(Ipv6Addr::LOCALHOST);
+
+    first.announce("a", LOOPBACK).await.unwrap();
+    let ip = second.agent_ip("a").await.unwrap();
+    first.block_ip(ip).await.unwrap();
+    first.block_ip(ipv6).await.unwrap();
+
+    assert_eq!(next_inbound(&mut second_inbox).await, Inbound::Blocked { ip: LOOPBACK });
+    assert_eq!(next_inbound(&mut second_inbox).await, Inbound::Blocked { ip: ipv6 });
+    assert_eq!(second.blocked_ips().await.unwrap(), BTreeSet::from([LOOPBACK, ipv6]));
+    assert!(matches!(
+        second.agent_ip("ghost").await,
+        Err(BackplaneError::UnknownAgent(agent_id)) if agent_id == "ghost"
+    ));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn corrupt_blocklist_keys_are_skipped_by_the_watch_and_the_listing() {
+    let server = NatsServer::start();
+    let hub = NatsBackplane::connect(&server.url()).await.unwrap();
+    let mut inbox = Box::pin(hub.subscribe().await.unwrap());
+    let raw = raw_bucket(&server, "et-blocked").await;
+
+    for corrupt in [const_hex::encode("not-an-ip"), "ff".to_owned(), "not-hex".to_owned()] {
+        let _revision = raw.put(corrupt, Bytes::new()).await.unwrap();
+    }
+    // Removing a key is not an unblock, so the watch passes over it.
+    raw.delete(const_hex::encode("not-an-ip")).await.unwrap();
+    hub.block_ip(LOOPBACK).await.unwrap();
+    assert_eq!(next_inbound(&mut inbox).await, Inbound::Blocked { ip: LOOPBACK });
+
+    // One key of each corrupt kind -- not hex, not UTF-8, not an address -- and the listing keeps only the address.
+    let _revision = raw
+        .put(const_hex::encode("still-not-an-ip"), Bytes::new())
+        .await
+        .unwrap();
+    assert_eq!(hub.blocked_ips().await.unwrap(), BTreeSet::from([LOOPBACK]));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_lost_broker_fails_a_block_naming_the_action() {
+    let server = NatsServer::start();
+    let hub = NatsBackplane::connect(&server.url()).await.unwrap();
+    drop(server);
+
+    let error = hub.block_ip(LOOPBACK).await.unwrap_err();
+    assert!(matches!(
+        &error,
+        BackplaneError::Nats {
+            action: "block an address",
+            ..
+        }
+    ));
+    let error = hub.blocked_ips().await.unwrap_err();
+    assert!(matches!(
+        &error,
+        BackplaneError::Nats {
+            action: "list the blocklist",
+            ..
+        }
+    ));
 }

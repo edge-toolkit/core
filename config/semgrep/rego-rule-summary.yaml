@@ -1,6 +1,8 @@
 rules:
   - id: rego-rule-summary
     languages: [generic]
+    metadata:
+      meta: true
     paths:
       include:
         - "/**/*.rego"

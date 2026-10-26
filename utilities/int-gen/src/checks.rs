@@ -121,6 +121,8 @@ struct Rule {
     description: String,
     /// The rule's documentation page, or empty for a rule whose description is all there is.
     link: String,
+    /// Whether the rule is a meta rule, one that checks the lint configuration rather than the code.
+    meta: bool,
 }
 
 /// The rules one section's checks are configured with.
@@ -129,6 +131,8 @@ struct SectionRules {
     location: String,
     rendered: String,
     count: usize,
+    /// How many of `count` are meta rules.
+    meta: usize,
 }
 
 /// What a single shell command contributed to the search for a check's tool.
@@ -147,9 +151,12 @@ pub fn render(root: &Path) -> Result<String, Error> {
 
     let mut body = String::default();
     let mut rules = 0_usize;
+    let mut meta = 0_usize;
     for (label, entries) in &sections {
         writeln!(body, "\n## `{label}`\n")?;
-        rules = rules.saturating_add(render_section(&mut body, root, label, entries, &parents, &repairs)?);
+        let (count, section_meta) = render_section(&mut body, root, label, entries, &parents, &repairs)?;
+        rules = rules.saturating_add(count);
+        meta = meta.saturating_add(section_meta);
     }
     if let Some(entries) = &shell {
         writeln!(body, "\n## {SHELL_SECTION}\n")?;
@@ -158,6 +165,7 @@ pub fn render(root: &Path) -> Result<String, Error> {
 
     let counts = Counts {
         checks: sections.values().chain(&shell).map(Vec::len).sum(),
+        meta,
         repairs: repairs.len(),
         rules,
         shell: shell.as_ref().map_or(0, Vec::len),
@@ -178,6 +186,7 @@ pub fn generated_stamp(date: jiff::civil::Date) -> String {
 /// The totals the document opens with.
 struct Counts {
     checks: usize,
+    meta: usize,
     repairs: usize,
     rules: usize,
     shell: usize,
@@ -205,7 +214,7 @@ fn group_checks<'tasks>(
     Ok(sections)
 }
 
-/// Write one tool's checks and the rules they are configured with, returning how many rules that is.
+/// Write one tool's checks and the rules they are configured with, returning how many rules and meta rules that is.
 fn render_section(
     out: &mut String,
     root: &Path,
@@ -213,14 +222,14 @@ fn render_section(
     entries: &[&Task],
     parents: &Parents,
     repairs: &Repairs,
-) -> Result<usize, Error> {
+) -> Result<(usize, usize), Error> {
     render_entries(out, label, entries, parents, repairs)?;
     let rules = section_rules(root, label, entries)?;
     if !rules.rendered.is_empty() {
         writeln!(out, "\nRules, from `{}`:\n", rules.location)?;
         out.push_str(&rules.rendered);
     }
-    Ok(rules.count)
+    Ok((rules.count, rules.meta))
 }
 
 /// The document's title, its totals and the paragraph saying what it lists and how it is kept current.
@@ -233,8 +242,13 @@ fn header(counts: &Counts, generated: jiff::civil::Date) -> Result<String, Error
     writeln!(out, "- **Checks with a repair pass:** {}", counts.repairs)?;
     writeln!(
         out,
-        "- **Rules:** {} custom local rules, or non-default strict linter settings\n",
+        "- **Rules:** {} custom local rules, or non-default strict linter settings",
         counts.rules
+    )?;
+    writeln!(
+        out,
+        "- **Meta rules:** {} of those rules are rules about rules\n",
+        counts.meta
     )?;
     let intro = [
         "Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env",
@@ -245,7 +259,54 @@ fn header(counts: &Counts, generated: jiff::civil::Date) -> Result<String, Error
         "change: `mise run checks-md-check` fails only once the generation date above is more than 7 days old.",
     ];
     out.push_str(&wrap("", "", &intro.join(" ")));
+    let meta = [
+        "This repository even has rules about rules. A meta rule, marked `(meta)` below, checks the checks rather",
+        "than the code: that a rule held to every file carries no exemption, in its config or in a suppression",
+        "comment; that every policy is tested; that a rule's path filters say what they mean; that the duplication",
+        "baseline only shrinks. Without them a check could be weakened quietly and still pass. A YAML rule is one",
+        "when its `metadata` sets `meta: true`, and a Rego policy, with every rule in it, when its `METADATA`",
+        "annotation does.",
+    ];
+    out.push('\n');
+    out.push_str(&wrap("", "", &meta.join(" ")));
     Ok(out)
+}
+
+/// Whether a Rego policy is a meta policy: its package carries a `METADATA` annotation setting `meta: true`.
+///
+/// The annotation is OPA's own, a comment block opening with `# METADATA` whose remaining lines are YAML, so the
+/// marker sits where OPA tooling already looks for a policy's metadata. Only a block above the `package` line
+/// annotates the package: OPA lets a rule carry one too, and a rule-level `meta: true` must not mark every rule in
+/// the file. OPA attaches the block across any blank lines before `package`, so they end the block without dropping
+/// it. The block is parsed as YAML and read at `custom.meta`, so any YAML spelling of it counts.
+pub fn rego_is_meta(source: &str) -> Result<bool, Error> {
+    let mut annotated = false;
+    let mut collecting = false;
+    let mut annotation = Vec::new();
+    for line in source.lines() {
+        if line.starts_with("package ") {
+            if !annotated {
+                return Ok(false);
+            }
+            let yaml: serde_yaml::Value = serde_yaml::from_str(&annotation.join("\n"))?;
+            let meta = yaml.get("custom").and_then(|custom| custom.get("meta"));
+            return Ok(meta.and_then(serde_yaml::Value::as_bool).unwrap_or_default());
+        }
+        let Some(comment) = line.strip_prefix('#') else {
+            collecting = false;
+            continue;
+        };
+        if comment.trim() == "METADATA" {
+            annotated = true;
+            collecting = true;
+            annotation.clear();
+        } else if collecting {
+            annotation.push(comment.strip_prefix(' ').unwrap_or(comment));
+        } else {
+            // A comment outside an annotation says nothing about meta.
+        }
+    }
+    Ok(false)
 }
 
 /// Name the tool a `run` body invokes, or the shell-script section when it invokes none.
@@ -798,12 +859,18 @@ fn section_rules(root: &Path, label: &str, entries: &[&Task]) -> Result<SectionR
     let mut listed = Vec::new();
     let mut policies = String::default();
     let mut policy_rules = 0_usize;
+    let mut meta_policy_rules = 0_usize;
     for file in &files {
         let name = file.file_name().and_then(|found| found.to_str()).unwrap_or_default();
         if let Some(stem) = name.strip_suffix(".rego") {
-            let summaries = rego_summaries(&relative_path(root, file), &fs::read_to_string(file)?)?;
+            let source = fs::read_to_string(file)?;
+            let summaries = rego_summaries(&relative_path(root, file), &source)?;
+            let meta = rego_is_meta(&source)?;
             policy_rules = policy_rules.saturating_add(summaries.len());
-            policies.push_str(&render_policy(root, file, stem, &summaries));
+            if meta {
+                meta_policy_rules = meta_policy_rules.saturating_add(summaries.len());
+            }
+            policies.push_str(&render_policy(root, file, stem, &summaries, meta));
         } else if let Some(stem) = name.strip_suffix(".schema.json") {
             listed.push(schema_rule(file, stem)?);
         } else if has_extension(file, "toml") {
@@ -819,10 +886,12 @@ fn section_rules(root: &Path, label: &str, entries: &[&Task]) -> Result<SectionR
         [single] => relative_path(root, single),
         _ => common_dir(root, &files),
     };
+    let meta_listed = listed.iter().filter(|rule| rule.meta).count();
     Ok(SectionRules {
         location,
         rendered,
         count: listed.len().saturating_add(policy_rules),
+        meta: meta_listed.saturating_add(meta_policy_rules),
     })
 }
 
@@ -959,6 +1028,7 @@ fn lint_rules(path: &Path) -> Result<Vec<Rule>, Error> {
                 name,
                 description,
                 link,
+                meta: false,
             });
         }
     }
@@ -1005,10 +1075,18 @@ fn yaml_rules(path: &Path) -> Result<Vec<Rule>, Error> {
                     .unwrap_or_default()
                     .to_owned()
             };
+            // A rule file's own `metadata` key, not the cargo subcommand the rule exists to keep out.
+            // ast-grep-ignore: no-metadata-literal
+            let metadata = entry.get("metadata");
+            let meta = metadata
+                .and_then(|metadata| metadata.get("meta"))
+                .and_then(serde_yaml::Value::as_bool)
+                .unwrap_or_default();
             let rule = Rule {
                 name: field("id"),
                 description: field("message"),
                 link: String::default(),
+                meta,
             };
             described(path, &rule.name, "message", &rule.description)?;
             rules.push(rule);
@@ -1033,16 +1111,18 @@ fn schema_rule(path: &Path, stem: &str) -> Result<Rule, Error> {
         name: stem.to_owned(),
         description: format!("{}: {}", field("title"), field("description")),
         link: String::default(),
+        meta: false,
     })
 }
 
 /// One policy file, followed by the summary of each of its rules; nothing for a file with no rules.
-fn render_policy(root: &Path, path: &Path, stem: &str, summaries: &[String]) -> String {
+fn render_policy(root: &Path, path: &Path, stem: &str, summaries: &[String], meta: bool) -> String {
     if summaries.is_empty() {
         return String::default();
     }
     let relative = relative_path(root, path);
-    let mut out = wrap("- ", "  ", &format!("`{stem}` (`{relative}`):"));
+    let marker = if meta { " (meta)" } else { "" };
+    let mut out = wrap("- ", "  ", &format!("`{stem}`{marker} (`{relative}`):"));
     for summary in summaries {
         out.push_str(&wrap("  - ", "    ", summary));
     }
@@ -1094,6 +1174,9 @@ fn render_rules(rules: &[Rule]) -> Result<String, Error> {
             }
             writeln!(references, "[{label}]: {}", rule.link)?;
             shown = format!("[{shown}][{label}]");
+        }
+        if rule.meta {
+            shown.push_str(" (meta)");
         }
         out.push_str(&wrap("- ", "  ", &format!("{shown} -- {}", rule.description)));
     }

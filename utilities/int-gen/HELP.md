@@ -4,11 +4,11 @@ This document contains the help content for the `et-int-gen` command-line progra
 
 **Command Overview:**
 
-- [`et-int-gen`↴](#et-int-gen)
-- [`et-int-gen generate`↴](#et-int-gen-generate)
-- [`et-int-gen fetch-deps`↴](#et-int-gen-fetch-deps)
-- [`et-int-gen checks`↴](#et-int-gen-checks)
-- [`et-int-gen help-md`↴](#et-int-gen-help-md)
+- [`et-int-gen`](#et-int-gen)
+- [`et-int-gen generate`](#et-int-gen-generate)
+- [`et-int-gen fetch-deps`](#et-int-gen-fetch-deps)
+- [`et-int-gen checks`](#et-int-gen-checks)
+- [`et-int-gen help-md`](#et-int-gen-help-md)
 
 ## `et-int-gen`
 
@@ -18,10 +18,10 @@ Generate checked-in artifacts (generated/, CHECKS.md, HELP.md) from in-repo sour
 
 ### Subcommands
 
-- `generate` — Emit the generated artifacts for one target (default: all)
-- `fetch-deps` — Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions
-- `checks` — Write CHECKS.md, the catalogue of every check across every `MISE_ENV`, stamped with today's UTC date
-- `help-md` — Write each binary crate's HELP.md from its clap command tree and its environment config
+- `generate` -- Emit the generated artifacts for one target (default: all)
+- `fetch-deps` -- Fetch upstream WASI WIT packages into generated/specs/wit/ at pinned versions
+- `checks` -- Write CHECKS.md, the catalogue of every check across every `MISE_ENV`, stamped with today's UTC date
+- `help-md` -- Write each binary crate's HELP.md from its clap command tree and its environment config
 
 ## `et-int-gen generate`
 
@@ -31,7 +31,7 @@ Emit the generated artifacts for one target (default: all)
 
 ### Arguments
 
-- `<TARGET>` — Which artifacts to emit; defaults to `all`
+- `<TARGET>` -- Which artifacts to emit; defaults to `all`
 
   Default value: `all`
 
@@ -67,4 +67,4 @@ Write each binary crate's HELP.md from its clap command tree and its environment
 
 ### Options
 
-- `--check` — Compare against the committed HELP.md files and fail on drift instead of writing them
+- `--check` -- Compare against the committed HELP.md files and fail on drift instead of writing them

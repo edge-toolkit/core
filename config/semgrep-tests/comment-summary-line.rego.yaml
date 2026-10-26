@@ -1,0 +1,17 @@
+code: |
+  # ruleid: comment-summary-line
+  package demo
+  # A summary line missing its full stop
+  # with a continuation line.
+
+  # ok: comment-summary-line
+  allowed := 1
+  # A summary line ending in a full stop.
+  # with a continuation line.
+
+  # ok: comment-summary-line
+  denied := 1
+  # METADATA
+  # custom:
+  #   meta: true
+  package other

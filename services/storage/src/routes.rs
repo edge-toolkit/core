@@ -27,13 +27,11 @@ use std::path::PathBuf;
 use actix_web::http::header;
 use actix_web::{HttpRequest, HttpResponse, HttpResponseBuilder, web};
 use edge_toolkit::ws::AgentConnectionState;
-use edge_toolkit::ws_server::AgentRegistry;
+use edge_toolkit::ws_server::{AgentRegistry, IpBlocklist};
 use et_hub_backplane::{Backplane, Presence};
 use futures_util::StreamExt as _;
 use object_store::{ObjectStore, ObjectStoreExt as _, PutPayload};
-use tracing::info;
-#[cfg(feature = "tty-image")]
-use tracing::warn;
+use tracing::{info, warn};
 
 use crate::StorageError;
 
@@ -45,11 +43,20 @@ fn object_path(agent_id: &str, filename: &std::path::Path) -> object_store::path
     object_store::path::Path::from(format!("{agent_id}/{}", filename.display()))
 }
 
-/// Extract and validate the `{agent_id}`/`{filename}` pair from the request path.
+/// Extract and validate the `{agent_id}`/`{filename}` pair from the request path, refusing a blocked client.
+///
+/// Every storage route starts here, so a client the hub has blocked loses its storage at the same moment it loses its
+/// WebSocket. A request with no socket peer has no address to block.
 ///
 /// The filename must be a single path component: a nested or absolute path would let a caller address objects
 /// outside its own bucket.
-fn agent_and_filename(req: &HttpRequest) -> Result<(String, PathBuf), StorageError> {
+fn agent_and_filename(req: &HttpRequest, blocklist: &IpBlocklist) -> Result<(String, PathBuf), StorageError> {
+    if let Some(peer) = req.peer_addr()
+        && blocklist.is_blocked(peer.ip())
+    {
+        warn!("Refused a storage request from blocked IP {}", peer.ip());
+        return Err(StorageError::Blocked);
+    }
     let agent_id = req.match_info().query("agent_id").to_string();
     let filename = req
         .match_info()
@@ -106,7 +113,7 @@ pub struct BinaryBlob(#[expect(dead_code)] Vec<u8>);
                 ("ETag" = String, description = "Entity tag of the stored object")
             )),
             (status = 400, description = "Invalid filename"),
-            (status = 403, description = "Agent not connected, or request not from its address"),
+            (status = 403, description = "Address blocked, agent not connected, or request not from its address"),
             (status = 404, description = "Agent not found")
         )
     )
@@ -124,7 +131,7 @@ pub async fn put_file<S>(
 where
     S: Clone + Send + 'static,
 {
-    let (agent_id, filename) = agent_and_filename(&req)?;
+    let (agent_id, filename) = agent_and_filename(&req, &registry.blocklist)?;
 
     // The socket peer, as the hub takes an agent's address from when it connects, so the two compare like for like.
     let peer_ip = req.peer_addr().ok_or(StorageError::NoPeerAddress)?.ip();
@@ -140,7 +147,7 @@ where
     while let Some(chunk) = payload.next().await {
         body.extend_from_slice(&chunk?);
     }
-    // Asked again now the body is in, since the agent may have disconnected or moved while it streamed.
+    // Asked again now the body is in, since the agent may have disconnected, moved or been blocked while it streamed.
     require_bucket_owner(&backplane, &registry, &agent_id, peer_ip).await?;
 
     let path = object_path(&agent_id, &filename);
@@ -155,7 +162,10 @@ where
     Ok(response.finish())
 }
 
-/// Fail unless `peer_ip` is the address `agent_id` is connected from, the one its bucket accepts writes from.
+/// Fail unless `peer_ip` is unblocked and is the address `agent_id` is connected from.
+///
+/// That address is the one its bucket accepts writes from. The blocklist is asked here too, since an eviction can
+/// land while an upload's body is still streaming in.
 async fn require_bucket_owner<S>(
     backplane: &Backplane,
     registry: &AgentRegistry<S>,
@@ -165,6 +175,9 @@ async fn require_bucket_owner<S>(
 where
     S: Send,
 {
+    if registry.blocklist.is_blocked(peer_ip) {
+        return Err(StorageError::Blocked);
+    }
     let owner_ip = connected_owner_ip(backplane, registry, agent_id).await?;
     if peer_ip.to_canonical() == owner_ip.to_canonical() {
         Ok(())
@@ -272,6 +285,7 @@ pub fn is_image_filename(filename: &std::path::Path) -> bool {
             (status = 200, description = "Stored file contents", content_type = "application/octet-stream", headers(
                 ("ETag" = String, description = "Entity tag of the stored object")
             )),
+            (status = 403, description = "Client address blocked"),
             (status = 404, description = "No such file")
         )
     )
@@ -280,8 +294,12 @@ pub fn is_image_filename(filename: &std::path::Path) -> bool {
     clippy::future_not_send,
     reason = "actix-web HttpRequest is !Send by design; handler runs on actix's single-threaded runtime"
 )]
-pub async fn get_file(req: HttpRequest, store: web::Data<dyn ObjectStore>) -> Result<HttpResponse, StorageError> {
-    let (agent_id, filename) = agent_and_filename(&req)?;
+pub async fn get_file<S>(
+    req: HttpRequest,
+    registry: web::Data<AgentRegistry<S>>,
+    store: web::Data<dyn ObjectStore>,
+) -> Result<HttpResponse, StorageError> {
+    let (agent_id, filename) = agent_and_filename(&req, &registry.blocklist)?;
     let path = object_path(&agent_id, &filename);
 
     // A missing object is a 404, not a 500, and it is the one store error worth distinguishing. Matched rather
@@ -321,6 +339,7 @@ pub async fn get_file(req: HttpRequest, store: web::Data<dyn ObjectStore>) -> Re
                 ("ETag" = String, description = "Entity tag of the stored object"),
                 ("Content-Length" = i64, description = "Size of the stored object in bytes")
             )),
+            (status = 403, description = "Client address blocked"),
             (status = 404, description = "No such file")
         )
     )
@@ -329,8 +348,12 @@ pub async fn get_file(req: HttpRequest, store: web::Data<dyn ObjectStore>) -> Re
     clippy::future_not_send,
     reason = "actix-web HttpRequest is !Send by design; handler runs on actix's single-threaded runtime"
 )]
-pub async fn head_file(req: HttpRequest, store: web::Data<dyn ObjectStore>) -> Result<HttpResponse, StorageError> {
-    let (agent_id, filename) = agent_and_filename(&req)?;
+pub async fn head_file<S>(
+    req: HttpRequest,
+    registry: web::Data<AgentRegistry<S>>,
+    store: web::Data<dyn ObjectStore>,
+) -> Result<HttpResponse, StorageError> {
+    let (agent_id, filename) = agent_and_filename(&req, &registry.blocklist)?;
     let path = object_path(&agent_id, &filename);
 
     let meta = match store.head(&path).await {

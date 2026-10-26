@@ -16,6 +16,7 @@ use actix_web::{App, HttpServer, web};
 use edge_toolkit::ws::{AgentConnectionState, AgentSummary, ClientMessage, ServerMessage};
 use et_modules_service::{ModulesConfig, configure as configure_modules};
 use et_storage_service::{StorageConfig, configure as configure_storage};
+use et_ws_service::admin::AdminToken;
 use et_ws_service::{
     AgentSession, Backplane, BackplaneConfig, WsAgentRegistry, WsConfig, configure as configure_ws, start_backplane,
     withdraw_local_agents,
@@ -30,6 +31,9 @@ pub mod math1;
 
 /// Actix workers per test hub; test traffic never needs more, and each worker repeats the module scan at startup.
 const TEST_HUB_WORKERS: usize = 2;
+
+/// The admin bearer token every test hub accepts, so a test can drive the admin API.
+pub const ADMIN_TOKEN: &str = "test-admin-token";
 
 /// How long one [`wait_for_connected_agents`] round reads replies before asking the hub again.
 const ROSTER_POLL_INTERVAL: Duration = Duration::from_millis(250);
@@ -104,7 +108,8 @@ pub fn start_clustered(nats_url: &str, storage_root: &Path) -> TestServer {
 }
 
 /// Run one hub on `port` on its own thread and actix system, returning once it is bound and on its backplane.
-fn spawn_hub(port: u16, storage_dir: TempDir, storage_config: StorageConfig, ws_config: WsConfig) -> TestServer {
+fn spawn_hub(port: u16, storage_dir: TempDir, storage_config: StorageConfig, mut ws_config: WsConfig) -> TestServer {
+    ws_config.admin_token = AdminToken::try_from(ADMIN_TOKEN.to_owned()).unwrap();
     // The default search paths, with the page module named outright. The server has no default for which module it
     // serves at `/` -- that is the deployment's business, and this stand-in is a deployment.
     let mut modules_config = ModulesConfig::default();

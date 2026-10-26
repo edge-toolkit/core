@@ -18,6 +18,8 @@ undated_msg := "config/deny.toml: advisory ignore %q has no `reason = \"expires 
 
 lapsed_msg := "config/deny.toml: advisory ignore %q lapsed on %s -- drop it, fix the finding, or re-date it"
 
+mixed_msg := "config/deny.toml: advisory ignores expire on %d dates, %v; a new entry takes the date the others carry"
+
 entries contains entry if {
 	some file in input
 	file.path == "config/deny.toml"
@@ -52,4 +54,11 @@ deny contains msg if {
 	midnight := time.parse_rfc3339_ns($"{date}T00:00:00Z")
 	time.now_ns() >= midnight + day_ns
 	msg := sprintf(lapsed_msg, [id, date])
+}
+
+# Every advisory ignore expires on one date, the next milestone review, which the operator sets.
+deny contains msg if {
+	dates := {date | some date in dated}
+	count(dates) > 1
+	msg := sprintf(mixed_msg, [count(dates), sort(dates)])
 }

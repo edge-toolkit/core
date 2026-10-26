@@ -2,8 +2,9 @@
 #
 # These exclusion lists cannot be made identical across linters, and must not be: a rule scoped to one language
 # has no reason to skip a tree holding none of it, which is why the ast-grep Rust rules skip generated/ but not
-# verification/ (scenario YAML and TOML output, no Rust). no-non-ascii goes further and deliberately does NOT
-# skip module pkg/, because a blanket pkg/ exclude once hid hand-written shim glyphs for months.
+# verification/ (scenario YAML and TOML output, no Rust). The no-non-ascii rules skip nothing at all, these trees
+# included: a generator emitting a non-ASCII character is fixed at the source, and a blanket exclude once hid
+# hand-written shim glyphs for months.
 #
 # What must stay in sync is narrower: every config that ought to skip a given tree does, written against the base
 # its own tool resolves paths from. Declaring that here once -- instead of trusting two dozen configs to stay
@@ -54,7 +55,6 @@ required_in = [
   "config/ast-grep/rules/no-inline-mod.yaml",
   "config/ast-grep/rules/no-map-err.yaml",
   "config/ast-grep/rules/no-mixed-doc-line-comments.yaml",
-  "config/ast-grep/rules/no-non-ascii.yaml",
   "config/ast-grep/rules/no-result-alias.yaml",
   "config/ast-grep/rules/no-result-string-err.yaml",
   "config/ast-grep/rules/no-shadow-result.yaml",
@@ -72,7 +72,6 @@ required_in = [
   "config/semgrep/anyhow-only-in-error-rs.yaml",
   "config/semgrep/comment-summary-line.yaml",
   "config/semgrep/no-check-tool-mentions.yaml",
-  "config/semgrep/no-non-ascii.yaml",
   "config/semgrep/no-python-outside-modules.yaml",
   "config/semgrep/no-task-name-mentions.yaml",
   "config/semgrep/no-todo.yaml",
@@ -95,7 +94,6 @@ required_in = [
   "config/jscpd.json",
   "config/semgrep/comment-summary-line.yaml",
   "config/semgrep/no-check-tool-mentions.yaml",
-  "config/semgrep/no-non-ascii.yaml",
   "config/semgrep/no-task-name-mentions.yaml",
   "config/semgrep/no-todo.yaml",
 ]

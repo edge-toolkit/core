@@ -1,4 +1,4 @@
-// et_ws.js — helper exposed to Pyodide-based ws-modules that need the
+// et_ws.js -- helper exposed to Pyodide-based ws-modules that need the
 // generated Pydantic models. Mounted at /modules/@edge-toolkit/et-ws/ by et-modules-service
 // (each consumer declares `et-ws = "*"` in `[tool.ws-module.dependencies]`).
 //

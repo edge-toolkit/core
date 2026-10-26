@@ -45,6 +45,12 @@ pub enum BackplaneError {
     #[error("no pending message {0} to acknowledge")]
     NoPendingMessage(String),
 
+    #[error("no hub has registered agent {0}")]
+    UnknownAgent(String),
+
+    #[error("a blocklist key is not an IP address")]
+    InvalidIp(#[from] std::net::AddrParseError),
+
     #[error("the NATS server did not confirm this hub's subscriptions within {0:?}")]
     SubscriptionsUnconfirmed(std::time::Duration),
 }

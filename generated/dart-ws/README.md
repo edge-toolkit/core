@@ -1,11 +1,11 @@
-# et_ws — Dart client for the Edge Toolkit WS protocol
+# et_ws -- Dart client for the Edge Toolkit WS protocol
 
 `lib/ws_messages.dart` is regenerated from `edge_toolkit::ws::{ClientMessage, ServerMessage}` via
 `mise run gen-ws-spec`. `pubspec.yaml` and this README are checked in by hand.
 
 ## Usage
 
-Plain Dart 3 sealed classes — no `build_runner`, no extra dependencies. Add
+Plain Dart 3 sealed classes -- no `build_runner`, no extra dependencies. Add
 this package as a path dependency in your consumer's `pubspec.yaml`:
 
 ```yaml

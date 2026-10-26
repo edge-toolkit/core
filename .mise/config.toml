@@ -1391,6 +1391,87 @@ conftest test --combine --namespace generated_trees -p config/conftest/policy $f
 """
 shell = "{{ vars.task_shell }}"
 
+[tasks.conftest-check-branch-size]
+description = "Fail when the branch modifies more files than CodeRabbit reviews in one pull request (conftest)"
+# The list is every file changed since the merge base with origin/main, the pull request's base.
+# Locally that includes uncommitted edits and new untracked files, so a branch learns it is too big before it is
+# committed. In CI (`CI` set) it is the commits alone: the checkout holds nothing uncommitted of the PR's own, and a
+# task in the same job can rewrite tracked files -- a fresh `mise install` fills in lockfile fields a warm machine
+# never writes back -- which are no part of what CodeRabbit reviews. A clone with no origin/main has nothing to
+# compare against, and skips as branch-up-to-date-check does.
+run = """
+if ! git rev-parse --verify --quiet origin/main >/dev/null; then
+  echo "conftest-check-branch-size: origin/main not available (shallow clone?); skipping"
+  exit 0
+fi
+base="$(git merge-base origin/main HEAD)"
+if [ -n "${CI:-}" ]; then
+  counted="$(git diff --name-only "$base" HEAD)"
+else
+  counted="$(
+    {
+      git diff --name-only "$base"
+      git ls-files --others --exclude-standard
+    } | coreutils sort -u
+  )"
+fi
+branch_size() {
+  conftest test --combine --parser ignore --namespace branch_size -p config/conftest/policy -
+}
+# A local failure lists the uncommitted part of the count, which is the part a commit has not settled yet.
+if ! printf '%s\\n' "$counted" | branch_size; then
+  if [ -z "${CI:-}" ]; then
+    echo "conftest-check-branch-size: the count includes these working-tree changes:" >&2
+    git status --short >&2
+  fi
+  exit 1
+fi
+"""
+shell = "{{ vars.task_shell }}"
+
+[tasks.conftest-check-ast-grep-rules]
+description = "Check every ast-grep rule declares severity error (conftest)"
+run = "conftest test --combine --namespace ast_grep_rules -p config/conftest/policy config/ast-grep/rules"
+
+[tasks.ci-job-log]
+description = "Save a GitHub Actions job's log as plain text under target/ci-logs, and print where it went"
+usage = 'arg "<job_id>" help="The job id: the last number in the job URL, after /job/"'
+# The log is the raw API download with each line's timestamp and colour codes taken out.
+# It then reads and searches like the console output a task printed locally.
+run = """
+dir=target/ci-logs
+coreutils mkdir -p "$dir"
+out="$dir/$usage_job_id.log"
+gh api --allow-escape-sequences "repos/{owner}/{repo}/actions/jobs/$usage_job_id/logs" |
+  coreutils tr -d '\\033' |
+  goawk '{ sub(/^[0-9T:.Z-]+ /, ""); gsub(/\\[[0-9;]*m/, ""); print }' >"$out"
+echo "$out"
+"""
+shell = "{{ vars.task_shell }}"
+
+[tasks.ci-job-tasks]
+description = "List the mise tasks a GitHub Actions job started, in the order it started them"
+usage = 'arg "<job_id>" help="The job id: the last number in the job URL, after /job/"'
+# The order is what a parallel run like `check` hides.
+# Comparing two jobs' lists up to a failing task shows what was running alongside it on one OS and not the other.
+# The log is fetched with ci-job-log unless already saved.
+run = """
+log="target/ci-logs/$usage_job_id.log"
+[ -f "$log" ] || mise run ci-job-log "$usage_job_id" >/dev/null
+rg -o '^\\[([A-Za-z0-9:_.-]+)\\] \\$ ' -r '$1' "$log" | goawk '!seen[$0]++'
+"""
+shell = "{{ vars.task_shell }}"
+
+[tasks.conftest-check-no-exemptions]
+description = "Check the rules held to every file carry no path exemption, and their inline guard (conftest)"
+# --combine over every rule file, so the policy can hold the inline guard to the same list as the rules it guards.
+run = """
+files="config/ast-grep/rules config/semgrep"
+# shellcheck disable=SC2086 # $files is a word-split path list by design; do not quote it.
+conftest test --combine --namespace no_exemptions -p config/conftest/policy $files
+"""
+shell = "{{ vars.task_shell }}"
+
 [tasks.conftest-check-yaml]
 description = "Run conftest OPA/Rego policies over the GitHub Actions YAML, and the backslash ban over all YAML"
 # Five passes over the workflow + action YAML, then one over every YAML file.

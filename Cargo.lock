@@ -4457,6 +4457,7 @@ dependencies = [
  "pretty_yaml",
  "rand 0.10.3",
  "rand_chacha 0.10.0",
+ "reqwest",
  "serde",
  "serde-env",
  "serde_json",
@@ -4465,6 +4466,7 @@ dependencies = [
  "tempfile",
  "textwrap",
  "thiserror 2.0.21",
+ "tokio",
  "toml",
 ]
 
@@ -4505,6 +4507,7 @@ dependencies = [
  "et-test-helpers",
  "et-ws-runner-common",
  "et-ws-server",
+ "et-ws-service",
  "fs-err",
  "heck",
  "jiff",
@@ -4652,6 +4655,7 @@ dependencies = [
 name = "et-storage-service"
 version = "0.2.0"
 dependencies = [
+ "actix-http",
  "actix-rt",
  "actix-web",
  "actix-web-thiserror",
@@ -5094,6 +5098,7 @@ dependencies = [
 name = "et-ws-service"
 version = "0.2.0"
 dependencies = [
+ "actix-http",
  "actix-rt",
  "actix-web",
  "actix-ws",
@@ -5108,15 +5113,18 @@ dependencies = [
  "futures-util",
  "opentelemetry",
  "schemars 1.2.3",
+ "secrecy",
  "serde",
  "serde-env",
  "serde-inline-default",
  "serde_default",
  "serde_json",
- "serde_yaml",
+ "subtle",
  "tempfile",
+ "thiserror 2.0.21",
  "tokio",
  "tracing",
+ "utoipa",
  "uuid",
 ]
 

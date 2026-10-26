@@ -1,7 +1,7 @@
 //! Emit `generated/specs/rest.yaml` and the typed Rust REST client at `generated/rust-rest/src/lib.rs`.
 //!
-//! Paths and schemas are collected from the actual handlers in `et-ws-server`, `et-storage-service`, and
-//! `et-modules-service` via `utoipa`; the client is generated from the resulting `OpenAPI` document via
+//! Paths and schemas are collected from the actual handlers in `et-ws-server`, `et-ws-service`, `et-storage-service`,
+//! and `et-modules-service` via `utoipa`; the client is generated from the resulting `OpenAPI` document via
 //! `progenitor::Generator`.
 //! Driving both steps from one Rust call keeps the spec and the client guaranteed in sync -- no external CLI hop.
 
@@ -18,10 +18,11 @@ use crate::Error;
     info(
         title = "Edge Toolkit REST API",
         version = "0.1.0",
-        description = "ws-server HTTP surface: health probe, module discovery, module assets, and per-agent storage.
-The storage routes are an anonymous S3-compatible interface, addressed path-style as
-/storage/{agent_id}/{filename} (bucket = agent_id, key = filename), they answer PUT/GET/HEAD with an ETag, so a
-standard S3 client can read and write objects without credentials."
+        description = "ws-server HTTP surface: health probe, module discovery, module assets, per-agent storage, and
+the admin routes that block client addresses and evict agents. The storage routes are an anonymous S3-compatible
+interface, addressed path-style as /storage/{agent_id}/{filename} (bucket = agent_id, key = filename), they answer
+PUT/GET/HEAD with an ETag, so a standard S3 client can read and write objects without credentials. A client address
+the hub has blocked is refused by them with 403. The admin routes take the hub's WS_ADMIN_TOKEN as a bearer token."
     ),
     servers(
         (url = "http://localhost:8080", description = "Default ws-server bind address")
@@ -30,13 +31,30 @@ standard S3 client can read and write objects without credentials."
         et_ws_server::routes::health,
         et_modules_service::routes::list_modules_handler,
         et_modules_service::routes::get_module_file,
-        et_storage_service::routes::get_file,
-        et_storage_service::routes::head_file,
+        et_storage_service::routes::get_file::<et_ws_server::AgentSession>,
+        et_storage_service::routes::head_file::<et_ws_server::AgentSession>,
         et_storage_service::routes::put_file::<et_ws_server::AgentSession>,
+        et_ws_service::admin::block_ip,
+        et_ws_service::admin::evict_agent,
     ),
-    components(schemas(et_ws_server::routes::HealthResponse))
+    components(schemas(et_ws_server::routes::HealthResponse, et_ws_service::admin::EvictedAgent)),
+    modifiers(&AdminTokenScheme)
 )]
 struct ApiDoc;
+
+/// Declares the `admin_token` bearer scheme the admin routes name in their `security` lists.
+struct AdminTokenScheme;
+
+impl utoipa::Modify for AdminTokenScheme {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        use utoipa::openapi::security::{Http, HttpAuthScheme, SecurityScheme};
+
+        openapi
+            .components
+            .get_or_insert_default()
+            .add_security_scheme("admin_token", SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)));
+    }
+}
 
 /// Build the `openapiv3::OpenAPI` value once.
 ///

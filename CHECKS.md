@@ -1,11 +1,12 @@
 # Checks
 
-- **Generated:** 2026-10-27
-- **Checks:** 75
+- **Generated:** 2026-10-28
+- **Checks:** 78
 - **Tools:** 47
 - **Shell-script checks:** 10
 - **Checks with a repair pass:** 21
-- **Rules:** 349 custom local rules, or non-default strict linter settings
+- **Rules:** 359 custom local rules, or non-default strict linter settings
+- **Meta rules:** 20 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
 declares it, the aggregate that runs it as part of `mise run check`, the `fix` or `fmt` pass that repairs what it
@@ -13,6 +14,12 @@ reports, where one does, and the config files it reads. `mise run fix` runs ever
 gen:checks` from the task tables in `.mise/config*.toml`, the rule files under `config/` and the `[workspace.lints]` in
 `Cargo.toml`. It is not held to them on every change: `mise run checks-md-check` fails only once the generation date
 above is more than 7 days old.
+
+This repository even has rules about rules. A meta rule, marked `(meta)` below, checks the checks rather than the code:
+that a rule held to every file carries no exemption, in its config or in a suppression comment; that every policy is
+tested; that a rule's path filters say what they mean; that the duplication baseline only shrinks. Without them a check
+could be weakened quietly and still pass. A YAML rule is one when its `metadata` sets `meta: true`, and a Rego policy,
+with every rule in it, when its `METADATA` annotation does.
 
 ## `action-validator`
 
@@ -205,6 +212,11 @@ Rules, from `config/ast-grep/rules`:
 - `no-result-string-err` -- `Result<_, String>` flattens any typed error to a free-form string at the point of failure
   -- losing the source variant, the ability to branch on it, and the chain of causes. Define a `thiserror` enum (or
   reuse one of the workspace's `*Error` types) and return that instead.
+- `no-self-call-in-default` -- A `Default::default` body may not delegate to another constructor of `Self`
+  (`Self::new()`, `Self::from_parts(..)`) (`DeepSource RS-A1008`). Whenever that constructor is, or later becomes,
+  written in terms of `Self::default()` -- the usual shape for a builder or a `new` that fills in the rest -- the two
+  call each other until the stack overflows, and nothing at compile time says so. Build the value directly in
+  `default()`, and let the other constructors call it rather than the reverse.
 - `no-shadow-result` -- Don't shadow `std::result::Result` at file scope -- every bare `Result<T>` then becomes
   ambiguous to readers. Either spell the error type at each call site (`Result<T, my::Error>`), reference the local
   alias by its qualified path (`crate::Result<T>`, `et_int_gen::Result<T>`), or alias the import (`use foo::Result as
@@ -280,16 +292,16 @@ Rules, from `config/ast-grep/rules`:
   signals, including KeyboardInterrupt and SystemExit. Catch specific operational exceptions instead, or use
   straight-line cleanup ending in a bare raise. Check-only: choosing the correct exception types requires knowledge of
   the operation being protected.
-- `semgrep-path-anchored` -- Every semgrep `paths.include` / `paths.exclude` entry starts with `/`, anchoring it at the
-  repository root. A pattern without one is easy to get wrong in either direction -- an exclusion that lost its slash
-  silently matches nothing, while a bare `*.rs` matches at any depth only because of a rule nobody reading the config
-  has to remember -- so the anchor is written out every time: `/**/*.rs` for any depth, `/verification/**` for one tree.
-  This rule takes the patterns that match at any depth -- a bare name, or one opening with `**/` -- and its autofix
-  rewrites each to the same match written from the root, `/**/<name>`. A pattern with a `/` further in is already
-  anchored at the root, and `semgrep-path-rooted` takes those.
-- `semgrep-path-rooted` -- A semgrep `paths.include` / `paths.exclude` entry with a `/` partway through matches from the
-  repository root already, so it is written with the leading `/` that says so: `/verification/published/**`, not
-  `verification/published/**`. The rule's autofix adds it. The patterns that match at any depth are
+- `semgrep-path-anchored` (meta) -- Every semgrep `paths.include` / `paths.exclude` entry starts with `/`, anchoring it
+  at the repository root. A pattern without one is easy to get wrong in either direction -- an exclusion that lost its
+  slash silently matches nothing, while a bare `*.rs` matches at any depth only because of a rule nobody reading the
+  config has to remember -- so the anchor is written out every time: `/**/*.rs` for any depth, `/verification/**` for
+  one tree. This rule takes the patterns that match at any depth -- a bare name, or one opening with `**/` -- and its
+  autofix rewrites each to the same match written from the root, `/**/<name>`. A pattern with a `/` further in is
+  already anchored at the root, and `semgrep-path-rooted` takes those.
+- `semgrep-path-rooted` (meta) -- A semgrep `paths.include` / `paths.exclude` entry with a `/` partway through matches
+  from the repository root already, so it is written with the leading `/` that says so: `/verification/published/**`,
+  not `verification/published/**`. The rule's autofix adds it. The patterns that match at any depth are
   `semgrep-path-anchored`'s, which writes them as `/**/<name>`.
 - `use-mod-order` -- Order top-level items: external `use` (std / third-party) first, then `mod` / `pub mod`
   declarations, then local `use self::` / `crate::` / `super::`. So an external `use` must not appear after a `mod`, and
@@ -515,6 +527,10 @@ Rules, from `Cargo.toml`:
 
 - `checks-md-check` (`default` env; run by `check:rust`) -- Fail if CHECKS.md was last generated more than 7 days ago
   (run `mise run gen:checks`) (conftest). Config: `config/conftest/policy`.
+- `conftest-check-ast-grep-rules` (`default` env; run by `conftest-check`) -- Check every ast-grep rule declares
+  severity error (conftest). Config: `config/ast-grep/rules`, `config/conftest/policy`.
+- `conftest-check-branch-size` (`default` env; run by `conftest-check`) -- Fail when the branch modifies more files than
+  CodeRabbit reviews in one pull request (conftest). Config: `config/conftest/policy`.
 - `conftest-check-checks-badge` (`default` env; run by `conftest-check`) -- Check the README checks badge keeps step
   with CHECKS.md's rules count (conftest). Config: `config/conftest/policy`.
 - `conftest-check-dockerfile` (`default` env; run by `conftest-check`) -- Cross-check Dockerfiles against mise [tools]
@@ -526,6 +542,9 @@ Rules, from `Cargo.toml`:
   Config: `config/conftest/policy`, `config/jscpd-baseline.json`.
 - `conftest-check-mise-templates` (`default` env; run by `conftest-check`) -- Check no mise config value contains Tera's
   comment opener (conftest). Config: `config/conftest/policy`.
+- `conftest-check-no-exemptions` (`default` env; run by `conftest-check`) -- Check the rules held to every file carry no
+  path exemption, and their inline guard (conftest). Config: `config/ast-grep/rules`, `config/conftest/policy`,
+  `config/semgrep`.
 - `conftest-check-policy-pairs` (`default` env; run by `conftest-check`) -- Check every conftest policy has a test file
   beside it (conftest). Config: `config/conftest/policy`.
 - `conftest-check-policy-tests` (`default` env; run by `conftest-check`) -- Run the Rego unit tests beside the conftest
@@ -541,6 +560,11 @@ Rules, from `config/conftest/policy`:
 - `advisories` (`config/conftest/policy/advisories/advisories.rego`):
   - Every advisory ignore must carry a `reason = "expires YYYY-MM-DD"` review date.
   - Nanoseconds in a day, added to the parsed midnight so an entry survives the whole of its review date.
+  - Every advisory ignore expires on one date, the next milestone review, which the operator sets.
+- `ast_grep_rules` (meta) (`config/conftest/policy/ast_grep_rules/ast_grep_rules.rego`):
+  - A rule whose severity is anything but `error`, or is missing, is not a gate.
+- `branch_size` (`config/conftest/policy/branch_size/branch_size.rego`):
+  - A branch may modify at most `max_files` files, or CodeRabbit skips its pull request's review.
 - `cargo` (`config/conftest/policy/cargo/cargo.rego`):
   - The root Cargo.toml must not depend on a crate this repo has banned.
   - Member crates: no path deps, no wildcard versions, no inline git deps.
@@ -572,13 +596,14 @@ Rules, from `config/conftest/policy`:
   - No crate may depend on an internal one.
   - A standalone crate must not depend on any of this repo's `et-` crates.
   - No crate under services/ may depend on clap.
-- `checks_badge` (`config/conftest/policy/checks_badge/checks_badge.rego`):
+- `checks_badge` (meta) (`config/conftest/policy/checks_badge/checks_badge.rego`):
   - CHECKS.md must record its rules count, which the badge is held to.
   - README.md must define the checks badge.
   - The checks badge records the rules count rounded down to a multiple of 20, so it moves with every 20 rules added.
 - `checks_md` (`config/conftest/policy/checks_md/checks_md.rego`):
   - CHECKS.md must say when it was generated, which only the generator writes.
   - A document stamped more than once was not written by the generator, which stamps it exactly once.
+  - A stamp the shape allows but the calendar does not, such as 2026-02-30, was written by hand and has no age.
   - The document is regenerated at least once every `max_age_days` days.
   - The generator stamps today's UTC date, so a later one was written by hand.
 - `checksums` (`config/conftest/policy/checksums/checksums.rego`):
@@ -610,7 +635,7 @@ Rules, from `config/conftest/policy`:
   - A RUN heredoc's first body line must be `set -euo pipefail`.
 - `dockerfile_stages` (`config/conftest/policy/dockerfile_stages/dockerfile_stages.rego`):
   - A `--from=` naming no stage declared before it would pull an image of that name.
-- `generated_trees` (`config/conftest/policy/generated_trees/generated_trees.rego`):
+- `generated_trees` (meta) (`config/conftest/policy/generated_trees/generated_trees.rego`):
   - Every config a generated tree requires must carry that tree's exclusion pattern.
   - Reverse direction, matched on the tree prefix rather than on the exact pattern.
   - A `required_in` entry that no [anchor] key covers would make the forward rule above vacuous.
@@ -643,7 +668,7 @@ Rules, from `config/conftest/policy`:
 - `gha_uses` (`config/conftest/policy/gha_uses/gha_uses.rego`):
   - A step must not pass an input that the local action it calls does not declare.
   - Matched with `contains` rather than `startswith`, since the root need not begin the string.
-- `jscpd` (`config/conftest/policy/jscpd/jscpd.rego`):
+- `jscpd` (meta) (`config/conftest/policy/jscpd/jscpd.rego`):
   - Module-scope sprintf templates, each on its own line so the source stays inside the line limit.
   - declared_clones may sit at most max_slack above the baseline, so progress gets banked.
 - `mise` (`config/conftest/policy/mise/mise.rego`):
@@ -665,9 +690,14 @@ Rules, from `config/conftest/policy`:
 - `mise_lock` (`config/conftest/policy/mise_lock/mise_lock.rego`):
   - A tool locks a glibc Linux build without an allowlist entry.
   - An allowlist entry names a tool that no longer locks a glibc build anywhere.
+- `no_exemptions` (meta) (`config/conftest/policy/no_exemptions/no_exemptions.rego`):
+  - An unexemptable semgrep rule may not set `paths`, which is how semgrep narrows the files a rule scans.
+  - An unexemptable ast-grep rule may not set `files` or `ignores`, the two ways ast-grep narrows a rule.
+  - The inline guard must name every unexemptable rule, or suppressing one added later would go unflagged.
+  - The inline guard must exist, since without it a suppression comment is an exemption nothing reports.
 - `no_trailing_backslash` (`config/conftest/policy/no_trailing_backslash/no_trailing_backslash.rego`):
   - Flag any string leaf containing `\` followed by `\n` (LF), reporting its path key in the message.
-- `policy_pairing` (`config/conftest/policy/policy_pairing/policy_pairing.rego`):
+- `policy_pairing` (meta) (`config/conftest/policy/policy_pairing/policy_pairing.rego`):
   - Every policy must have a test file beside it, or a reasoned untested_policy entry.
   - The map is a two-way contract, the same way a lint suppression is.
   - An entry naming a policy that is no longer there has outlived what it described.
@@ -963,10 +993,10 @@ Rules, from `config/semgrep`:
 - `no-nextest-mentions` -- Do not name the test runner outside its config and the jobs that invoke it. A test asserts
   what the code must do, and how it happens to be scheduled is the runner's business rather than the test's -- unless
   the schedule is load-bearing, which is a constraint worth stating and worth allowlisting for.
-- `no-non-ascii` -- Non-ASCII character. Keep source, config, and docs ASCII-only: use `--` for an em-dash, `->` for an
-  arrow, `...` for an ellipsis, `<=`/`!=`/`^2` for math glyphs, and straight quotes for curly quotes. ASCII keeps
-  terminals, log scrapers, and `grep` reading the same bytes the editor shows. Generated trees (generated/,
-  verification/, HELP.md) are exempt because their generator owns the output.
+- `no-non-ascii` -- Non-ASCII character. Keep source, config, docs and generated output ASCII-only: use `--` for an
+  em-dash, `->` for an arrow, `...` for an ellipsis, `<=`/`!=`/`^2` for math glyphs, and straight quotes for curly
+  quotes. ASCII keeps terminals, log scrapers, and `grep` reading the same bytes the editor shows. Nothing is exempt:
+  when a generator emits the character, fix the generator or the task that runs it.
 - `no-observability-task-name-mentions` -- Do not name an observability task outside the configs it loads and the things
   that launch it. A collector config naming the task that reads it is how a reader finds its way in; a comment elsewhere
   saying some value exists for one of these tasks is not.
@@ -1023,6 +1053,10 @@ Rules, from `config/semgrep`:
 - `no-split-url-in-comment` -- A URL is broken across two comment lines, which leaves a dead link. Rejoin it onto one
   line, even if that line then runs past the usual width, and re-wrap the surrounding prose around it. A comment reflow
   that split it cannot be told to keep a URL whole, so the repair is always by hand.
+- `no-suppressing-unexemptable-rules` (meta) -- This suppression comment exempts the line from a rule the repository
+  holds to every file without exception, either by naming that rule or by naming no rule at all and so silencing every
+  one. Fix the line instead; when a generator wrote it, fix the generator or the task that runs it. A marker that has to
+  stay names the single rule it silences and the reason beside it.
 - `no-taplo-mentions` -- Do not name the TOML formatter and schema linter outside its config and schemas. Where a
   generator has to emit TOML the formatter will accept unchanged, say which shape the output must have -- sorted arrays,
   aligned comments -- rather than naming the tool that would otherwise rewrite it.
@@ -1091,10 +1125,10 @@ Rules, from `config/semgrep`:
 - `python-silent-broad-except` -- Silently discarding every ordinary exception can conceal programming errors and lost
   work. Catch the expected exception types and explicitly report, recover from, or propagate the failure. Check-only: a
   safe recovery policy cannot be inferred from the handler alone.
-- `rego-rule-summary` -- This Rego rule has no summary comment. The generated catalogue of every check lists each policy
-  rule by the first line of the comment above it, and refuses to build without one, so describe what the rule enforces
-  in a comment opening at column 0 between the previous rule's closing brace and this rule. The file's header comment
-  does not count: it sits above the `package` line and describes the policy, not any one rule in it.
+- `rego-rule-summary` (meta) -- This Rego rule has no summary comment. The generated catalogue of every check lists each
+  policy rule by the first line of the comment above it, and refuses to build without one, so describe what the rule
+  enforces in a comment opening at column 0 between the previous rule's closing brace and this rule. The file's header
+  comment does not count: it sits above the `package` line and describes the policy, not any one rule in it.
 - `single-key-env-subtable-should-be-inline` -- `[tasks.X.env]` subtable has a single `KEY = "value"` assignment. Inline
   it on the parent task as `env = { KEY = "value" }` when the resulting line fits the editorconfig line length --
   subtable form is reserved for multi-key envs.

@@ -1,0 +1,33 @@
+id: no-self-call-in-default
+language: Rust
+severity: error
+message: |
+  A `Default::default` body may not delegate to another constructor of `Self` (`Self::new()`,
+  `Self::from_parts(..)`) (`DeepSource RS-A1008`). Whenever that constructor is, or later becomes, written in terms
+  of `Self::default()` -- the usual shape for a builder or a `new` that fills in the rest -- the two call each other
+  until the stack overflows, and nothing at compile time says so. Build the value directly in `default()`, and let
+  the other constructors call it rather than the reverse.
+# A call through a `Self::` path, anywhere in the body of a `fn default` inside an `impl ... Default for` block.
+# `Self { .. }` literals and `Default::default()` calls on the fields are untouched, as is any other trait's impl.
+# The lowercase first letter keeps a tuple variant built directly, `Self::Value(0)`, out of it.
+rule:
+  kind: call_expression
+  has:
+    field: function
+    regex: "^Self::[a-z_]"
+    # `Self::from_parts::<T>(..)` parses as a generic_function wrapping the path.
+    any:
+      - kind: scoped_identifier
+      - kind: generic_function
+  inside:
+    kind: function_item
+    stopBy: end
+    has:
+      field: name
+      regex: "^default$"
+    inside:
+      kind: impl_item
+      stopBy: end
+      has:
+        field: trait
+        regex: "(^|::)Default$"

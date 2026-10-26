@@ -1,6 +1,8 @@
 id: semgrep-path-rooted
 language: yaml
 severity: error
+metadata:
+  meta: true
 message: |
   A semgrep `paths.include` / `paths.exclude` entry with a `/` partway through matches from the repository root
   already, so it is written with the leading `/` that says so: `/verification/published/**`, not
