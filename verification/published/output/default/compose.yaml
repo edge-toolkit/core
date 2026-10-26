@@ -40,7 +40,7 @@ services:
       start_period: 10s
     env_file:
       - secrets.env
-    build:
+    build: .
     network_mode: host
     environment:
       MODULES_PATHS: "/app/node_modules/onnxruntime-web,

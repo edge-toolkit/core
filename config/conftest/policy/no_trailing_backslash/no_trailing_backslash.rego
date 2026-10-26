@@ -3,10 +3,12 @@
 # anywhere in the combined input and flagging any literal `\` immediately followed by a newline.
 #
 # Scope:
-# - TOML (`--namespace no_trailing_backslash` on conftest-check-toml): catches continuations embedded in multi-line
-#   `"""..."""` task `run` bodies, which the TOML parser preserves verbatim in the parsed string.
-# - YAML (`--namespace no_trailing_backslash` on conftest-check-yaml): catches continuations inside `|`/`>`
-#   block-scalar values, similarly preserved by the YAML parser.
+# - TOML (every tracked file, in conftest-check-toml): catches continuations inside multi-line `'''...'''` literal
+#   strings, which the TOML parser preserves verbatim. A `"""..."""` basic string is not covered: TOML itself folds a
+#   line-ending `\` and its newline away before Rego sees the value, so only the raw-text rule can reach those.
+# - YAML (every tracked file, in conftest-check-yaml): catches continuations inside `|`/`>` block-scalar values,
+#   similarly preserved by the YAML parser.
+# The rule walks `input` as a list of files, so it only ever sees anything when run with `--combine`.
 # - Dockerfile: NOT covered here -- conftest's dockerfile parser already consumes line-continuation backslashes when
 #   it joins each instruction's value, so by the time Rego sees the parsed input the backslashes are gone. The
 #   raw-text rule is the source of truth for Dockerfile coverage, and allowlists `Dockerfile*` there because

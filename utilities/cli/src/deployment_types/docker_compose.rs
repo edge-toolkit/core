@@ -764,7 +764,15 @@ impl ComposeRenderer {
         self.push_line(3, &format!("start_period: {}", healthcheck.start_period));
     }
 
+    /// Write a service's `build:` key, as the shorthand `build: .` when nothing would sit beneath it.
+    ///
+    /// A bare `build:` parses as null rather than as compose's defaults of this directory and its Dockerfile.
     fn render_build(&mut self, build: &ComposeBuild) {
+        if matches!(build.source, BuildSource::Here) && build.additional_contexts.is_empty() && build.secrets.is_empty()
+        {
+            self.push_line(2, "build: .");
+            return;
+        }
         self.push_line(2, "build:");
         if let BuildSource::Within { context, dockerfile } = &build.source {
             self.push_line(3, &format!("context: {context}"));

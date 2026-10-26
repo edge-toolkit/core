@@ -1305,7 +1305,7 @@ description = "Run conftest OPA/Rego policies over the TOML config + lock files"
 # TOML rule namespaces are listed explicitly, so the per-file `gha` (YAML) namespace is never evaluated against this
 # combined TOML input.
 run = """
-ns_list="cross cargo mise mise_lock pyproject no_trailing_backslash checksums advisories"
+ns_list="cross cargo mise mise_lock pyproject checksums advisories"
 named="Cargo.lock config/upstream-cache/data.toml config/deny.toml config/pyrefly.toml"
 # Both lists rely on word-splitting when they expand.
 # $ns expands to repeated `--namespace <n>` pairs; $named is a space-separated path list.
@@ -1314,6 +1314,9 @@ ns=$(for n in $ns_list; do echo -n " --namespace $n"; done)
 # shellcheck disable=SC2086
 git ls-files '*Cargo.toml' '.mise/config*.toml' '.mise/mise*.lock' '*pyproject.toml' $named |
   xargs conftest test --combine --parser toml $ns -p config/conftest/policy
+# The trailing-backslash ban holds for every TOML file, not only the ones the namespaces above are written for.
+{{ vars.toml_files }} |
+  xargs -0 conftest test --combine --parser toml --namespace no_trailing_backslash -p config/conftest/policy
 """
 shell = "{{ vars.task_shell }}"
 
@@ -1378,9 +1381,9 @@ conftest test --combine --namespace generated_trees -p config/conftest/policy $f
 shell = "{{ vars.task_shell }}"
 
 [tasks.conftest-check-yaml]
-description = "Run conftest OPA/Rego policies over the GitHub Actions workflow + action YAML"
-# Three passes over the workflow + action YAML.
-# per-file rules (gha, no_trailing_backslash) over workflow YAML; --combine rules (gha_combined) over
+description = "Run conftest OPA/Rego policies over the GitHub Actions YAML, and the backslash ban over all YAML"
+# Five passes over the workflow + action YAML, then one over every YAML file.
+# per-file rules (gha) over workflow YAML; --combine rules (gha_combined) over
 # workflow YAML for cross-cutting invariants where the rule has to compare each workflow's parsed body
 # against its own filename (the `paths:` self-reference check; conftest's per-file mode has no `input.path`);
 # gha_action over the composite actions under .github/actions/*/action.yaml (different schema, so its
@@ -1388,16 +1391,16 @@ description = "Run conftest OPA/Rego policies over the GitHub Actions workflow +
 # cross-check a hard-coded action-input version against the matching mise [tools] pin (setup-dotnet's
 # dotnet-version vs the `dotnet` pin); and gha_uses over the workflow YAML combined with the composite actions so a
 # rule can resolve each `uses: ./.github/actions/<name>` against that action's declared `inputs:` (GHA only warns on
-# an undeclared input key, silently dropping the value).
+# an undeclared input key, silently dropping the value). no_trailing_backslash reads `input` as a file list, so it needs
+# --combine like the TOML pass in conftest-check-toml.
 run = """
-ns="--namespace gha --namespace no_trailing_backslash"
-# $ns expands to repeated `--namespace <n>` pairs; word-splitting is intentional.
-# shellcheck disable=SC2086
-conftest test --parser yaml $ns -p config/conftest/policy .github/workflows
+conftest test --parser yaml --namespace gha -p config/conftest/policy .github/workflows
 conftest test --parser yaml --combine --namespace gha_combined -p config/conftest/policy .github/workflows
 conftest test --parser yaml --namespace gha_action -p config/conftest/policy .github/actions/*/action.yaml
 conftest test --combine --namespace gha_mise -p config/conftest/policy .github/workflows .mise
 conftest test --parser yaml --combine --namespace gha_uses -p config/conftest/policy .github/workflows .github/actions
+git ls-files -z '*.yaml' '*.yml' |
+  xargs -0 conftest test --parser yaml --combine --namespace no_trailing_backslash -p config/conftest/policy
 """
 shell = "{{ vars.task_shell }}"
 
@@ -2254,12 +2257,18 @@ dashboard='^https://codecov\\.io/gh/edge-toolkit/core$'
 blob='^https://github\\.com/edge-toolkit/core/blob/main/(.*)$ '"file:///${PWD#/}/\\$1"
 set -- --exclude "$dashboard" --remap "$blob"
 lychee --config "$cfg" "$@" '**/*.md' 'libs/**/*.rs' 'services/**/*.rs' 'utilities/**/*.rs'
+# The other languages' sources are named by git rather than globbed, which keeps their build output out as well.
+src=$(git ls-files -- libs services utilities | rg '\\.(py|js|mjs|ts|dart|kt|cs|java|zig|c|cpp|h)$')
+# $src is a newline-separated path list, split into one argument per path by design.
+# shellcheck disable=SC2086
+lychee --config "$cfg" "$@" $src
 # Everything except the commit URLs is excluded on the second pass, by `--exclude .*` with `--include` winning.
 # Those files hold links this repo does not otherwise own -- release-asset bases joined to a filename at run
 # time, doc placeholders, a regex quoted inside a comment -- and none of them is a URL a reader could follow.
 # Checking the whole set reports 21 such fragments as broken. `--scheme https` drops the `file:` and
 # `docker-image:` values for the same reason, and every commit URL is https.
 conf=".mise/config*.toml .mise/*.sh config/*.toml Cargo.toml .deepsource.toml"
+conf="$conf $(git ls-files 'config/*.yaml' 'config/*.rego' | coreutils tr '\\n' ' ')"
 gha=".github/workflows/*.yaml .github/actions/*/*.yaml"
 # k3s.yaml is skipped as a whole because one value in it cannot be filtered any other way.
 # It passes a BuildKit named-context reference to `docker build`, and the `:latest` tag on the end reads as
@@ -2278,7 +2287,7 @@ shell = "{{ vars.task_shell }}"
 
 [tasks.ryl-check]
 description = "Lint YAML with ryl (a yamllint-compatible Rust linter)"
-run = "ryl check -c config/ryl.toml .github config"
+run = "ryl check -c config/ryl.toml ."
 
 [tasks._setup_all]
 description = "Private shared cross-platform preinstall"

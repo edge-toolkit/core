@@ -524,7 +524,7 @@ Rules, from `Cargo.toml`:
   config + lock files. Config: `config/conftest/policy`, `config/deny.toml`, `config/pyrefly.toml`,
   `config/upstream-cache/data.toml`.
 - `conftest-check-yaml` (`default` env; run by `conftest-check`) -- Run conftest OPA/Rego policies over the GitHub
-  Actions workflow + action YAML. Config: `config/conftest/policy`.
+  Actions YAML, and the backslash ban over all YAML. Config: `config/conftest/policy`.
 
 Rules, from `config/conftest/policy`:
 
