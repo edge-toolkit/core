@@ -1,0 +1,245 @@
+services:
+  openobserve:
+    profiles:
+      - server
+    image: openobserve/openobserve:v1.1.1
+    healthcheck:
+      test:
+        - CMD
+        - /openobserve
+        - node
+        - status
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    ports:
+      - 127.0.0.1:5080:5080
+    env_file:
+      - secrets.env
+    environment:
+      RUST_LOG: warn
+      ZO_ROOT_USER_EMAIL: root@example.com
+      ZO_DATA_DIR: /data
+    volumes:
+      - openobserve-data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
+  nats:
+    profiles:
+      - server
+    image: nats:2.15.1-alpine
+    command:
+      - --jetstream
+      - --store_dir
+      - /data
+      - --http_port
+      - "8222"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - printf 'GET /healthz?js-enabled-only=true HTTP/1.0\r\n\r\n' | nc localhost 8222 | head -1 | grep -q ' 200 '
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    ports:
+      - 4222:4222
+      - 127.0.0.1:8222:8222
+    volumes:
+      - nats-data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
+  rustfs:
+    profiles:
+      - server
+    image: rustfs/rustfs:1.0.0-beta.12
+    entrypoint:
+      - sh
+      - -c
+    command:
+      - mkdir -p /data/et-storage && exec /entrypoint.sh rustfs
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -fsS
+        - http://localhost:9000/health
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    env_file:
+      - secrets.env
+    network_mode: host
+    environment:
+      RUSTFS_ACCESS_KEY: et-storage
+      RUSTFS_VOLUMES: /data
+    volumes:
+      - rustfs-data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
+  hub-image-build:
+    profiles:
+      - server
+      - edge
+    build:
+      context: ../../../..
+      dockerfile: services/ws-server/Dockerfile
+    scale: 0
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
+  ws-server:
+    profiles:
+      - server
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -fsS
+        - http://localhost:8080/health
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    env_file:
+      - secrets.env
+    build:
+      context: ../../../..
+      dockerfile: verification/local/output/math1-multi-hub/Dockerfile
+      additional_contexts:
+        hub: service:hub-image-build
+    network_mode: host
+    environment:
+      AWS_ACCESS_KEY_ID: et-storage
+      AWS_ALLOW_HTTP: "true"
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ENDPOINT: http://localhost:9000
+      MODULES_PATHS: "/app/services/ws-modules/math1,
+        /app/services/ws-modules/math1-sender"
+      MODULES_ROOT: ""
+      OTLP_AUTH_USERNAME: root@example.com
+      OTLP_COLLECTOR_URL: http://127.0.0.1:5080/api/default/v1
+      STORAGE_URL: s3://et-storage
+      WS_BACKPLANE: nats://localhost:4222
+    depends_on:
+      openobserve:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
+  ws-server-edge:
+    profiles:
+      - edge
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -fsS
+        - http://localhost:8080/health
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    env_file:
+      - secrets.env
+    build:
+      context: ../../../..
+      dockerfile: verification/local/output/math1-multi-hub/Dockerfile
+      additional_contexts:
+        hub: service:hub-image-build
+    network_mode: host
+    restart: on-failure
+    environment:
+      AWS_ACCESS_KEY_ID: et-storage
+      AWS_ALLOW_HTTP: "true"
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ENDPOINT: http://127.0.0.1:9000
+      MODULES_PATHS: "/app/services/ws-modules/math1,
+        /app/services/ws-modules/math1-sender"
+      MODULES_ROOT: ""
+      OTLP_AUTH_USERNAME: root@example.com
+      OTLP_COLLECTOR_URL: http://127.0.0.1:5080/api/default/v1
+      STORAGE_URL: s3://et-storage
+      WS_BACKPLANE: nats://127.0.0.1:4222
+    depends_on:
+      openobserve:
+        condition: service_healthy
+        required: false
+      nats:
+        condition: service_healthy
+        required: false
+      rustfs:
+        condition: service_healthy
+        required: false
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
+  math1-twin:
+    profiles:
+      - edge
+    build:
+      context: ../../../..
+      dockerfile: services/ws-web-runner/Dockerfile
+    network_mode: host
+    environment:
+      RUNNER_MODULE: "@edge-toolkit/et-ws-math1"
+      WS_SERVER_URL: ws://localhost:8080/ws
+    depends_on:
+      ws-server-edge:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
+  math1-trigger:
+    profiles:
+      - server
+    build:
+      context: ../../../..
+      dockerfile: services/ws-web-runner/Dockerfile
+    network_mode: host
+    environment:
+      RUNNER_MODULE: "@edge-toolkit/et-ws-math1-sender"
+      WS_SERVER_URL: ws://localhost:8080/ws
+    depends_on:
+      ws-server:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    cpu_shares: 102
+volumes:
+  nats-data: {}
+  openobserve-data: {}
+  rustfs-data: {}

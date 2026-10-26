@@ -113,6 +113,15 @@ ignore = [
   # decryption. Not reachable unless guest JS explicitly imports crypto.subtle and performs RSA-OAEP decrypt
   # with a private key. Our modules don't.
   { id = "RUSTSEC-2023-0071", reason = "expires 2026-10-31" },
+  # crypto-bigint 0.5.5 secret-dependent branches in operations meant to be constant-time (timing side channel).
+  # The arithmetic under elliptic-curve 0.13, which deno_crypto and deno_node_crypto use for P-256/384/521 and
+  # secp256k1 in WebCrypto and node:crypto. The fix is only in 0.7.6 and later, and deno_crypto requires
+  # elliptic-curve ^0.13 through its newest release, 0.274.0, so no bump reaches it. Live code, but reached only when
+  # guest JS in the web runner signs or derives with an EC private key, and leaking it takes an attacker able to time
+  # those operations on the same host. Our modules do neither; the hub's TLS uses rustls and aws-lc, not this. Drop
+  # when deno_crypto moves to elliptic-curve 0.14. cargo-deny ignores by id only, so this also mutes the 0.7 copy
+  # elliptic-curve 0.14 pulls -- Cargo.lock pins the patched 0.7.8 there, so re-check that copy when touching this.
+  { id = "RUSTSEC-2026-0387", reason = "expires 2026-10-31" },
   # h2 0.3.27 unbounded empty DATA frames (low-severity HTTP/2 DoS: undrained streams grow memory).
   # Accepted for the 0.3 copy only. hyperium patched the 0.4 line (>= 0.4.16, which Cargo.lock now pins for the
   # hyper/reqwest path) and shipped no 0.3 backport, so 0.3.27 is the last release of a dead line. It arrives

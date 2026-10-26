@@ -296,7 +296,8 @@ Rules, from `config/ast-grep/rules`:
   so an `args` entry also silently discards the arguments the image was built to start with.
 - `write-ending-newline` -- A `write!` whose format string ends in `\n` is a `writeln!` written the long way: use
   `writeln!` and drop the final `\n`. This mirrors `DeepSource RS-C1005`. clippy's `write_with_newline` covers only a
-  single trailing newline and deliberately skips a string ending in `\n\n`, which is the case this rule exists to catch.
+  single trailing newline in a plain literal: it skips a string ending in `\n\n`, and one assembled with `concat!`,
+  which are the cases this rule exists to catch.
 
 ## `cargo check`
 
@@ -772,7 +773,7 @@ Rules, from `config/conftest/policy`:
 ## `ryl`
 
 - `ryl-check` (`default` env; run by `check:rust`) -- Lint YAML with ryl (a yamllint-compatible Rust linter). Config:
-  `config/ryl.yaml`.
+  `config/ryl.toml`.
 
 ## `semgrep`
 

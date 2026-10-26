@@ -152,12 +152,18 @@ pub struct ClusterInput {
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct Services {
+    /// The NATS server several hubs share, from `services.backplane:`; run only when there is more than one hub.
+    #[serde(default, skip_serializing_if = "Service::is_unset")]
+    pub backplane: Service,
     /// The telemetry collector, from `services.collector:`.
     #[serde(default, skip_serializing_if = "Service::is_unset")]
     pub collector: Service,
     /// The hub, from `services.hub:`.
+    #[serde(default, skip_serializing_if = "HubService::is_unset")]
+    pub hub: HubService,
+    /// The S3 object store several hubs share, from `services.storage:`; run only when there is more than one hub.
     #[serde(default, skip_serializing_if = "Service::is_unset")]
-    pub hub: Service,
+    pub storage: Service,
 }
 
 impl Services {
@@ -180,6 +186,29 @@ pub struct Service {
 
 impl Service {
     /// Whether the scenario sets nothing for this service.
+    #[must_use]
+    pub fn is_unset(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+/// The hub's settings: the limits every service takes, and the machines it runs on.
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+#[non_exhaustive]
+pub struct HubService {
+    /// Resource limits for each hub process, from `limits:`; the same fields an agent's `limits:` takes.
+    #[serde(default, skip_serializing_if = "Limits::is_unset")]
+    pub limits: Limits,
+    /// The machines that each run a hub of their own, from `machines:`; empty runs one hub, on the server.
+    ///
+    /// Listed, the server has to be among them, since it also runs the collector and what the hubs share.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub machines: Vec<String>,
+}
+
+impl HubService {
+    /// Whether the scenario sets nothing for the hub.
     #[must_use]
     pub fn is_unset(&self) -> bool {
         *self == Self::default()
