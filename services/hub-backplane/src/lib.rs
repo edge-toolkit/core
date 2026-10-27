@@ -4,8 +4,8 @@
 //!
 //! - an **agent directory** (`JetStream` KV bucket `et-agents`) recording, per agent, its connection state, its last
 //!   known IP and the hub currently holding its socket;
-//! - a **mailbox** (KV bucket `et-pending`) of unacknowledged direct messages per recipient, keeping the hub's "newest
-//!   message per sender wins" rule, so a message survives its recipient reconnecting to a different hub;
+//! - a **mailbox** (KV bucket `et-pending`) of unacknowledged direct messages per recipient, filed by the hub's
+//!   [`MessageRetention`], so a message survives its recipient reconnecting to a different hub;
 //! - a **delivery fabric** over core NATS subjects: `et.hub.<hub_id>` carries frames for one hub's agents and
 //!   `et.broadcast` carries fan-out to every hub. The target agent and payload kind travel as headers and the frame
 //!   bytes as the body, so binary relay needs no re-encoding.
@@ -22,7 +22,7 @@ use async_nats::jetstream::kv::{self, CreateErrorKind, Operation, Store, UpdateE
 use async_nats::{Client, HeaderMap, Message};
 use bytes::Bytes;
 use edge_toolkit::ws::{AgentConnectionState, AgentSummary};
-use edge_toolkit::ws_server::PendingDirectMessage;
+use edge_toolkit::ws_server::{MessageRetention, PendingDirectMessage};
 use futures_util::{Stream, StreamExt as _, TryStreamExt as _};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
@@ -47,12 +47,14 @@ const KIND_HEADER: &str = "Et-Kind";
 const CONFIRM_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// The backplane a hub routes through: nothing beyond this process, or a shared NATS server.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 #[expect(
     clippy::exhaustive_enums,
     reason = "the hub routes on each mode; a new one must make it say how"
 )]
 pub enum Backplane {
+    /// Also what an app that never joined a backplane -- any embedding that predates them -- runs as.
+    #[default]
     Local,
     Nats(Box<NatsBackplane>),
 }
@@ -66,13 +68,13 @@ impl Backplane {
         }
     }
 
-    /// Whether any hub on this backplane has registered `agent_id`.
+    /// Where the hubs on this backplane place `agent_id`.
     ///
-    /// Always false for `Local`, whose only registry is the caller's own.
-    pub async fn knows(&self, agent_id: &str) -> Result<bool, BackplaneError> {
+    /// Always `Unknown` for `Local`, whose only registry is the caller's own.
+    pub async fn presence(&self, agent_id: &str) -> Result<Presence, BackplaneError> {
         match self {
-            Self::Local => Ok(false),
-            Self::Nats(nats) => Ok(!matches!(nats.presence(agent_id).await?, Presence::Unknown)),
+            Self::Local => Ok(Presence::Unknown),
+            Self::Nats(nats) => nats.presence(agent_id).await,
         }
     }
 }
@@ -86,8 +88,8 @@ impl Backplane {
 pub enum Presence {
     /// No hub has ever registered it.
     Unknown,
-    /// Its socket is open on the hub with this id.
-    Connected { hub_id: String },
+    /// Its socket is open on the hub with id `hub_id`, from `last_known_ip`.
+    Connected { hub_id: String, last_known_ip: IpAddr },
     /// It registered once and has since gone.
     Disconnected,
 }
@@ -182,7 +184,7 @@ struct DirectoryRecord {
     hub_id: String,
 }
 
-/// One recipient's mailbox: its newest unacknowledged message from each sender, keyed by sender.
+/// One recipient's unacknowledged messages, keyed by [`MessageRetention::key`].
 type Mailbox = BTreeMap<String, PendingDirectMessage>;
 
 /// A hub's connection to a shared NATS backplane.
@@ -280,9 +282,10 @@ impl NatsBackplane {
     pub async fn presence(&self, agent_id: &str) -> Result<Presence, BackplaneError> {
         Ok(match self.directory_entry(agent_id).await? {
             None => Presence::Unknown,
-            Some((record, _revision)) if record.state == AgentConnectionState::Connected => {
-                Presence::Connected { hub_id: record.hub_id }
-            }
+            Some((record, _revision)) if record.state == AgentConnectionState::Connected => Presence::Connected {
+                hub_id: record.hub_id,
+                last_known_ip: record.last_known_ip,
+            },
             Some(_disconnected) => Presence::Disconnected,
         })
     }
@@ -308,10 +311,15 @@ impl NatsBackplane {
         Ok(agents)
     }
 
-    /// Put `message` in `to_agent_id`'s mailbox, replacing any earlier one from the same sender.
-    pub async fn queue(&self, to_agent_id: &str, message: PendingDirectMessage) -> Result<(), BackplaneError> {
+    /// Put `message` in `to_agent_id`'s mailbox, replacing an earlier one from the same sender if `retention` says to.
+    pub async fn queue(
+        &self,
+        to_agent_id: &str,
+        message: PendingDirectMessage,
+        retention: MessageRetention,
+    ) -> Result<(), BackplaneError> {
         self.modify_mailbox(to_agent_id, |mailbox| {
-            let _previous = mailbox.insert(message.from_agent_id.clone(), message.clone());
+            let _previous = mailbox.insert(retention.key(&message), message.clone());
             Ok(())
         })
         .await
@@ -328,11 +336,13 @@ impl NatsBackplane {
     /// Take message `message_id` out of `recipient_agent_id`'s mailbox, returning the id of the agent that sent it.
     pub async fn acknowledge(&self, recipient_agent_id: &str, message_id: &str) -> Result<String, BackplaneError> {
         self.modify_mailbox(recipient_agent_id, |mailbox| {
-            let sender = mailbox
+            let (key, sender) = mailbox
                 .iter()
-                .find_map(|(sender, pending)| (pending.message_id == message_id).then(|| sender.clone()))
+                .find_map(|(key, pending)| {
+                    (pending.message_id == message_id).then(|| (key.clone(), pending.from_agent_id.clone()))
+                })
                 .ok_or_else(|| BackplaneError::NoPendingMessage(message_id.to_owned()))?;
-            let _acknowledged = mailbox.remove(&sender);
+            let _acknowledged = mailbox.remove(&key);
             Ok(sender)
         })
         .await

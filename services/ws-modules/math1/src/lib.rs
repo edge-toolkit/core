@@ -5,7 +5,7 @@
 //! This module waits for that pointer, reads the input from storage, runs the `FedAvg` kernel --
 //! rounds of local full-batch gradient-descent epochs per client merged with a sample-count-weighted
 //! average, only `+ - * /` on f64 so the result is bit-identical on every IEEE-754 runtime -- and
-//! stores the global model to `math1-output.json` in its own bucket, where the test harness reads
+//! stores the global model to `math1-output.json` in its own bucket, where the harness reads
 //! and verifies it. The math1 twins in the other guest languages run the same protocol and kernel.
 
 #![expect(

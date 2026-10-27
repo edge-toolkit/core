@@ -1,0 +1,23 @@
+id: no-test-in-python-docstrings
+valid:
+  - |
+    """Organisation helpers, at their latest attested versions."""
+  - |
+    def run():
+        """Run the healthcheck's `test` command against ws-test-server."""
+  - |
+    def run():
+        x = 1
+        "a test string that is not a docstring"
+invalid:
+  - |
+    """Helpers shared with the tests."""
+  - |
+    def run():
+        """Return the sum, as the test harness expects."""
+  - |
+    class Model:
+        """Kept small so it stays testable."""
+  - |
+    def run():
+        """Delegate to client.test() and return its exit status."""

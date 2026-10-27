@@ -133,9 +133,9 @@ fn insert_entry_tasks(tasks: &mut Table, cluster: &ClusterInput, runners: &[Runn
 
 /// Add one `machine-<name>` task per machine, each starting what that machine runs and nothing else.
 ///
-/// The server's also starts the collector and the hub, and any other machine running a hub starts its own.
-/// `generated-scenario` stays alongside them, still starting everything, because the whole cluster on one host remains
-/// the quickest way to run it.
+/// The server's also starts the collector and the hub, and any other machine running a hub starts its own. `generated-
+/// scenario` stays alongside them, still starting everything, because the whole cluster on one host remains the
+/// quickest way to run it.
 #[expect(clippy::single_call_fn, reason = "the per-machine step of insert_entry_tasks")]
 fn insert_machine_tasks(tasks: &mut Table, cluster: &ClusterInput, runners: &[RunnerInstance]) {
     let hubs = hubs(cluster);
@@ -361,7 +361,8 @@ fn ws_server_run_body(
 /// layout (`services/ws-server/storage`) under whatever it takes for the project root -- outside this repository,
 /// the directory it was started in. A published hub starts in the deployment directory, so the store is named there
 /// directly, as the compose file does with its `/app/storage` volume. A local hub keeps the default, which is where
-/// this repository's tests read agent output from. Hubs that `shared` storage are pointed at it by the caller instead.
+/// this repository's harnesses read agent output from. Hubs that `shared` storage are pointed at it by the caller
+/// instead.
 #[expect(
     clippy::single_call_fn,
     reason = "distinct step of generate_mise_deployment, split out to keep it readable"

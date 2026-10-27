@@ -105,6 +105,33 @@ impl PendingDirectMessage {
     }
 }
 
+/// How many unacknowledged direct messages a recipient holds from each sender.
+///
+/// The default keeps one: a recipient's pending messages then number at most its senders, so the memory they take is
+/// bounded and known in advance. Agents that must not lose a message wait for the acknowledgement of one before sending
+/// the next; that discipline is theirs, not the hub's.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+#[non_exhaustive]
+pub enum MessageRetention {
+    /// Only the newest message from each sender; a second one replaces the first, which is never delivered.
+    #[default]
+    LatestPerSender,
+    /// Every message until it is acknowledged. Nothing bounds how many a recipient holds.
+    All,
+}
+
+impl MessageRetention {
+    /// The key `pending` is filed under in its recipient's pending messages.
+    #[must_use]
+    pub fn key(self, pending: &PendingDirectMessage) -> String {
+        match self {
+            Self::LatestPerSender => pending.from_agent_id.clone(),
+            Self::All => pending.message_id.clone(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[non_exhaustive]
 pub struct AgentRecord<S> {
@@ -112,6 +139,10 @@ pub struct AgentRecord<S> {
     pub last_known_ip: IpAddr,
     #[serde(skip)]
     pub session: Option<S>,
+    /// Unacknowledged direct messages, keyed by [`MessageRetention::key`].
+    ///
+    /// Entries are found by the message id they carry rather than by key, so a registry saved under one retention mode
+    /// still acknowledges after a restart under the other.
     #[serde(default)]
     pub pending_direct_messages: BTreeMap<String, PendingDirectMessage>,
 }
@@ -143,7 +174,7 @@ pub struct AgentRegistry<S> {
 }
 
 impl<S> AgentRegistry<S> {
-    /// Wrap a populated agent map; useful for tests building fixtures.
+    /// Wrap a populated agent map.
     #[must_use]
     pub fn from_agents(agents: BTreeMap<String, AgentRecord<S>>) -> Self {
         Self {
@@ -223,13 +254,13 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
     ///
     /// A connection that takes over an id another connection still holds -- the newest claim wins, so a reconnect whose
     /// old socket has not closed yet keeps its identity -- replaces that session. When the displaced connection later
-    /// closes, it must not disconnect its replacement, so a closing connection passes a test for its own session. A
-    /// record whose session is already gone is disconnected whatever the test says, since nothing live holds it.
+    /// closes, it must not disconnect its replacement, so a closing connection passes a predicate for its own session.
+    /// A record whose session is already gone is disconnected whatever the predicate says, since nothing live holds it.
     ///
-    /// The test is a trait object rather than a generic so there is one copy of this per session type. Every closure is
-    /// its own type, and a generic would give each caller its own copy with only that caller's branches taken -- which
-    /// the branch-coverage gate scores copy by copy, so no single copy would ever read as fully covered:
-    /// `libs/edge-toolkit/src/ws_server.rs 19/20 branches` on commit
+    /// The predicate is a trait object rather than a generic so there is one copy of this per session type.
+    /// Every closure is its own type, and a generic would give each caller its own copy with only that caller's
+    /// branches taken -- which the branch-coverage gate scores copy by copy, so no single copy would ever read
+    /// as fully covered: `libs/edge-toolkit/src/ws_server.rs 19/20 branches` on commit
     /// <https://github.com/edge-toolkit/core/commit/1782e4517b8c16d714d5c5e6e83d0078f2a869a9> at
     /// <https://github.com/edge-toolkit/core/actions/runs/36699637919/job/109835793913>.
     ///
@@ -266,6 +297,8 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
 
     /// Queue a direct message for `to_agent_id`, returning the stored message and the recipient's session.
     ///
+    /// `retention` decides whether an earlier unacknowledged message from the same sender is replaced or kept.
+    ///
     /// Returns `None` when `to_agent_id` is not in the registry. The inner `Option<S>` is the recipient's live session
     /// -- `Some` when connected, `None` when the message was queued for a disconnected agent.
     #[must_use]
@@ -276,6 +309,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
         to_agent_id: &str,
         server_received_at: String,
         message: serde_json::Value,
+        retention: MessageRetention,
     ) -> Option<(PendingDirectMessage, Option<S>)> {
         let mut agents = lock_agents(&self.agents);
         let recipient = agents.get_mut(to_agent_id)?;
@@ -284,7 +318,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
         let session = recipient.session.clone();
         let _previous: Option<PendingDirectMessage> = recipient
             .pending_direct_messages
-            .insert(from_agent_id.to_string(), pending.clone());
+            .insert(retention.key(&pending), pending.clone());
         drop(agents);
 
         Some((pending, session))
@@ -314,18 +348,19 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
             .get_mut(recipient_agent_id)
             .ok_or_else(|| AcknowledgeError::UnknownAgent(recipient_agent_id.to_string()))?;
 
-        let sender_agent_id = recipient
+        let key = recipient
             .pending_direct_messages
             .iter()
-            .find_map(|(id, pending)| (pending.message_id == message_id).then(|| id.clone()))
+            .find_map(|(key, pending)| (pending.message_id == message_id).then(|| key.clone()))
             .ok_or(AcknowledgeError::NoPendingMessage)?;
         // The `find_map` above drops its iterator before we re-borrow `pending_direct_messages` mutably for the
         // removal. The double lookup costs O(log n) but lets us share the `NoPendingMessage` error with the find-side
         // case instead of asserting an invariant.
         let pending = recipient
             .pending_direct_messages
-            .remove(&sender_agent_id)
+            .remove(&key)
             .ok_or(AcknowledgeError::NoPendingMessage)?;
+        let sender_agent_id = pending.from_agent_id;
         let sender_session = agents.get(&sender_agent_id).and_then(|record| record.session.clone());
         drop(agents);
 

@@ -2,7 +2,7 @@
 //!
 //! Browser comm1 (`services/ws-modules/comm1`) waits for a second agent to
 //! be connected, then exchanges broadcast and direct messages with it. The
-//! integration test only spins up a single runner, so the WASI port instead
+//! runner it is exercised under is alone on its hub, so the WASI port instead
 //! exercises the message round-trip with the server itself:
 //!   1. Connect and capture our `agent_id`.
 //!   2. Send `list-agents`, recv a `list-agents-response`, assert the list

@@ -95,8 +95,8 @@ pub fn env_schemas() -> Result<BTreeMap<&'static str, Value>, Error> {
 /// Every workspace member with a documented binary target, read from the manifests and sorted by name.
 ///
 /// The manifests are read directly rather than through `cargo metadata`, which takes the workspace lock. Only normal
-/// dependencies count, target-specific ones included, so a crate using clap or serde-env in its tests alone is left
-/// out.
+/// dependencies count, target-specific ones included, so a crate using clap or serde-env in its dev-dependencies alone
+/// is left out.
 pub fn binary_crates(root: &Path) -> Result<Vec<BinaryCrate>, Error> {
     let workspace = read_manifest(&root.join("Cargo.toml"))?;
     let members = workspace

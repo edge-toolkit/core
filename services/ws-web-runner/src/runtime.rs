@@ -152,7 +152,7 @@ fn shim_js(http_base: &str, ws_url: &str, coverage: bool) -> String {
 /// that awaits the module's `default`/`run` export. Under the `coverage` feature the `finally` also captures the
 /// module's minicov `.profraw` via et-web's `__et_capture_coverage` export (browser wasm has no filesystem) and PUTs it
 /// to the module's own agent bucket -- a registered agent (its id sniffed from et-connect-ack by the ws-agent-id shim),
-/// so `put_file`'s agent check passes; the web-runner test then scans every bucket for the .profraw. The `finally`
+/// so `put_file`'s agent check passes; coverage collection then scans every bucket for the .profraw. The `finally`
 /// means fail-fast modules still dump what they exercised. Without the feature the capture is empty, leaving a bare
 /// `finally {}`.
 #[expect(

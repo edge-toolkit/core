@@ -51,9 +51,9 @@ impl OtelHandles {
 
 /// The HTTP headers every OTLP exporter is built with, carrying basic auth when the config supplies it.
 ///
-/// Split out of [`init`] so both shapes are reachable from a test. `init` installs a process-global
+/// Split out of [`init`] so both shapes can be exercised. `init` installs a process-global
 /// subscriber and can therefore run at most once per process, which leaves anything decided inside it
-/// testable only in whichever configuration that single call happens to use -- and a collector reached
+/// reachable only in whichever configuration that single call happens to use -- and a collector reached
 /// without its credentials rejects every export, silently, for the life of the process.
 #[must_use]
 pub fn exporter_headers(auth: Option<&edge_toolkit::auth::BasicAuth>) -> std::collections::HashMap<String, String> {
@@ -67,8 +67,8 @@ pub fn exporter_headers(auth: Option<&edge_toolkit::auth::BasicAuth>) -> std::co
 /// The resource attributes describing this service, given whatever the host's name resolved to.
 ///
 /// Takes the hostname rather than reading it, for the same reason as [`exporter_headers`] and one more:
-/// the `None` case is a host whose name does not resolve or is not UTF-8, which no test can bring about
-/// by asking the real machine. Passing it in is what makes the attribute's absence an asserted behaviour
+/// the `None` case is a host whose name does not resolve or is not UTF-8, which nothing can bring about on
+/// demand by asking the real machine. Passing it in is what makes the attribute's absence an asserted behaviour
 /// instead of an assumption -- the resource must still carry the version, and simply omit the instance.
 #[must_use]
 pub fn service_descriptors(hostname: Option<String>) -> Vec<KeyValue> {

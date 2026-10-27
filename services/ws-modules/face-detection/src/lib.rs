@@ -426,8 +426,8 @@ fn update_face_status(input_name: &str, output_names: &[String], summary: &Detec
 
 /// Build the status-panel lines for a detection summary.
 ///
-/// Pure (no DOM/interop calls) and parameterised on plain values, so the host-side test can cover
-/// the formatting -- including the blank separator ahead of the best-box section.
+/// Pure (no DOM/interop calls) and parameterised on plain values, so the formatting -- including the blank
+/// separator ahead of the best-box section -- runs off the browser too.
 #[must_use]
 pub fn face_status_lines(
     input_name: &str,

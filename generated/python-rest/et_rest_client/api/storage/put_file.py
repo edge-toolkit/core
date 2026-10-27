@@ -39,6 +39,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
     if response.status_code == 400:
         return None
 
+    if response.status_code == 403:
+        return None
+
     if response.status_code == 404:
         return None
 
@@ -66,9 +69,9 @@ def sync_detailed(
 ) -> Response[Any]:
     """Upload a file to an agent's storage bucket.
 
-     Only the agent that owns the bucket may write to it (the agent must
-    currently be connected); the path component must be a single
-    filename, not a nested path.
+     Only the agent that owns the bucket may write to it: the agent must be connected, and the request
+    must come from
+    the address it is connected from. The path component must be a single filename, not a nested path.
 
     Args:
         agent_id (str):
@@ -109,9 +112,9 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """Upload a file to an agent's storage bucket.
 
-     Only the agent that owns the bucket may write to it (the agent must
-    currently be connected); the path component must be a single
-    filename, not a nested path.
+     Only the agent that owns the bucket may write to it: the agent must be connected, and the request
+    must come from
+    the address it is connected from. The path component must be a single filename, not a nested path.
 
     Args:
         agent_id (str):

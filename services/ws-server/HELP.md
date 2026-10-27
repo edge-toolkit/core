@@ -234,3 +234,13 @@ Largest single WebSocket frame the hub will accept.
 Frames above this are dropped by actix-ws before they reach the handler, so callers shipping big tensors / blobs need to
 raise it above their payload size. `WS_MAX_FRAME_SIZE` takes a human byte size (e.g. `64MiB`, `64MB`, `512KiB`) or a
 plain byte count; unset defaults to 64 MiB.
+
+### `WS_MESSAGE_RETENTION`
+
+Type: string. Default: `latest-per-sender`.
+
+Which unacknowledged direct messages a recipient holds: `latest-per-sender` (the default) or `all`.
+
+`latest-per-sender` keeps only the newest message from each sender, replacing the earlier one, so a recipient holds at
+most one message per sender and the hub's memory for them is bounded. `all` keeps every message until it is
+acknowledged, with no bound on how many pile up for a recipient that stays away.

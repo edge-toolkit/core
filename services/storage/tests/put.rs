@@ -1,6 +1,6 @@
 //! Integration tests for the `PUT /storage/{agent_id}/{filename}` route,
 //! focused on the `StorageError` paths (`InvalidFilename` -> 400,
-//! `AgentNotFound` -> 404, `Io` -> 500) plus the happy path.
+//! `AgentNotFound` -> 404, ownership -> 403, `Io` -> 500) plus the happy path.
 //!
 //! Each test brings up a fresh `App` with a tempdir-backed `StorageConfig`
 //! and an `AgentRegistry` it controls explicitly, then hits the route via
@@ -10,50 +10,164 @@
 #![cfg(test)]
 
 use std::collections::BTreeMap;
-use std::net::Ipv4Addr;
+use std::net::{Ipv4Addr, SocketAddr};
+use std::pin::Pin;
 
-use actix_web::dev::Payload as DevPayload;
-use actix_web::error::ResponseError as _;
+use actix_web::dev::{Payload as DevPayload, ServiceResponse};
+use actix_web::error::{PayloadError, ResponseError as _};
 use actix_web::http::{Method, StatusCode, header};
 use actix_web::{App, FromRequest as _, test, web};
 use edge_toolkit::ws::AgentConnectionState;
 use edge_toolkit::ws_server::{AgentRecord, AgentRegistry};
 use et_storage_service::{StorageConfig, StorageError, build_store, configure, put_file};
+use futures_util::Stream;
 use tempfile::TempDir;
 
-/// Build a registry with a single connected agent.
-fn registry_with_agent(agent_id: &str) -> AgentRegistry<()> {
+/// Build a registry holding only `agent_id`, in `state` at the loopback address, with `session` behind it.
+fn registry_with_record(agent_id: &str, state: AgentConnectionState, session: Option<()>) -> AgentRegistry<()> {
     let mut agents = BTreeMap::new();
     let _previous: Option<AgentRecord<()>> = agents.insert(
         agent_id.to_string(),
-        AgentRecord::new(AgentConnectionState::Connected, Ipv4Addr::LOCALHOST.into(), Some(())),
+        AgentRecord::new(state, Ipv4Addr::LOCALHOST.into(), session),
     );
     AgentRegistry::from_agents(agents)
+}
+
+/// Build a registry with a single connected agent.
+fn registry_with_agent(agent_id: &str) -> AgentRegistry<()> {
+    registry_with_record(agent_id, AgentConnectionState::Connected, Some(()))
 }
 
 fn storage_config(tmp: &TempDir) -> StorageConfig {
     StorageConfig::local(tmp.path())
 }
 
-#[actix_rt::test]
-async fn rejects_unknown_agent_with_404() {
-    let tmp = tempfile::tempdir().unwrap();
-    let config = storage_config(&tmp);
+/// A PUT of `uri` arriving from the address [`registry_with_agent`] registers its agent at.
+fn put_from_agent(uri: &str) -> test::TestRequest {
+    test::TestRequest::put()
+        .uri(uri)
+        .peer_addr(SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 40123))
+}
+
+/// Send `reqs` in turn to a fresh app over `registry` that stores under `tmp`, returning their responses.
+#[expect(
+    clippy::future_not_send,
+    reason = "actix test requests and services are Rc-backed and !Send; they run on actix's single-threaded runtime"
+)]
+async fn send<const N: usize>(
+    registry: AgentRegistry<()>,
+    tmp: &TempDir,
+    reqs: [test::TestRequest; N],
+) -> [ServiceResponse; N] {
+    let config = storage_config(tmp);
     let app = test::init_service(
         App::new()
-            .app_data(web::Data::new(AgentRegistry::<()>::default()))
+            .app_data(web::Data::new(registry))
             .app_data(web::Data::new(config.clone()))
             .configure(|cfg| configure::<()>(cfg, &config)),
     )
     .await;
+    let mut responses = Vec::with_capacity(N);
+    for req in reqs {
+        responses.push(test::call_service(&app, req.to_request()).await);
+    }
+    responses.try_into().unwrap()
+}
 
+/// Send `req` with a small body to a fresh app over `registry`, returning its status and the storage root.
+#[expect(clippy::future_not_send, reason = "awaits `send`, whose future is not Send")]
+async fn put_into(registry: AgentRegistry<()>, req: test::TestRequest) -> (StatusCode, TempDir) {
+    let tmp = tempfile::tempdir().unwrap();
+    let [resp] = send(registry, &tmp, [req.set_payload(b"hello".as_ref())]).await;
+    (resp.status(), tmp)
+}
+
+#[actix_rt::test]
+async fn rejects_unknown_agent_with_404() {
+    let (status, _tmp) = put_into(
+        AgentRegistry::default(),
+        put_from_agent("/storage/missing-agent/file.txt"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+/// An agent's id is not enough to write to its bucket: the request must come from where the agent is connected.
+#[actix_rt::test]
+async fn rejects_a_peer_other_than_the_agents_address_with_403() {
     let req = test::TestRequest::put()
-        .uri("/storage/missing-agent/file.txt")
-        .set_payload(b"hello".as_ref())
-        .to_request();
-    let resp = test::call_service(&app, req).await;
+        .uri("/storage/agent-1/payload.txt")
+        .peer_addr(SocketAddr::new(Ipv4Addr::new(192, 0, 2, 9).into(), 40123));
+    let (status, tmp) = put_into(registry_with_agent("agent-1"), req).await;
 
-    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert!(!tmp.path().join("agent-1").exists());
+}
+
+#[actix_rt::test]
+async fn rejects_a_disconnected_agent_with_403() {
+    let registry = registry_with_record("agent-1", AgentConnectionState::Disconnected, None);
+    let (status, tmp) = put_into(registry, put_from_agent("/storage/agent-1/payload.txt")).await;
+
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert!(!tmp.path().join("agent-1").exists());
+}
+
+/// A record restored from a saved registry says connected but has no socket behind it, so it owns nothing.
+#[actix_rt::test]
+async fn rejects_a_connected_record_without_a_session_with_403() {
+    let registry = registry_with_record("agent-1", AgentConnectionState::Connected, None);
+    let (status, tmp) = put_into(registry, put_from_agent("/storage/agent-1/payload.txt")).await;
+
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert!(!tmp.path().join("agent-1").exists());
+}
+
+/// Ownership is asked again once the body is in, so an agent that disconnects while its upload streams loses it.
+#[actix_rt::test]
+async fn rejects_an_upload_whose_agent_disconnects_mid_body() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = storage_config(&tmp);
+    let registry = web::Data::new(registry_with_agent("agent-1"));
+    let http_req = put_from_agent("/storage/agent-1/payload.txt")
+        .param("agent_id", "agent-1")
+        .param("filename", "payload.txt")
+        .to_http_request();
+
+    let disconnecting = registry.clone();
+    let body = futures_util::stream::once(async move {
+        disconnecting.mark_disconnected("agent-1");
+        Ok(web::Bytes::from_static(b"hello"))
+    });
+    let body: Pin<Box<dyn Stream<Item = Result<web::Bytes, PayloadError>>>> = Box::pin(body);
+    let mut payload = DevPayload::from(body);
+    let payload = web::Payload::from_request(&http_req, &mut payload).await.unwrap();
+
+    let store = web::Data::<dyn object_store::ObjectStore>::from(build_store(&config).unwrap());
+    let err = put_file::<()>(http_req, payload, registry, store).await.unwrap_err();
+
+    assert!(matches!(err, StorageError::AgentNotConnected));
+    assert!(!tmp.path().join("agent-1").exists());
+}
+
+/// A dual-stack listener reports an IPv4 client as `::ffff:a.b.c.d`; it is still the same address.
+#[actix_rt::test]
+async fn accepts_the_agents_address_written_as_ipv4_mapped_ipv6() {
+    let mapped = Ipv4Addr::LOCALHOST.to_ipv6_mapped();
+    let req = test::TestRequest::put()
+        .uri("/storage/agent-1/payload.txt")
+        .peer_addr(SocketAddr::new(mapped.into(), 40123));
+    let (status, tmp) = put_into(registry_with_agent("agent-1"), req).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert!(tmp.path().join("agent-1").join("payload.txt").exists());
+}
+
+#[actix_rt::test]
+async fn refuses_a_request_without_a_peer_address_with_500() {
+    let req = test::TestRequest::put().uri("/storage/agent-1/payload.txt");
+    let (status, _tmp) = put_into(registry_with_agent("agent-1"), req).await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
 }
 
 /// Invokes the handler directly, since a multi-component filename can't otherwise reach it.
@@ -86,27 +200,12 @@ async fn rejects_multi_component_filename_with_400() {
 
 #[actix_rt::test]
 async fn writes_file_for_registered_agent() {
-    let tmp = tempfile::tempdir().unwrap();
-    let config = storage_config(&tmp);
-    let registry = registry_with_agent("agent-1");
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(registry))
-            .app_data(web::Data::new(config.clone()))
-            .configure(|cfg| configure::<()>(cfg, &config)),
-    )
-    .await;
+    let req = put_from_agent("/storage/agent-1/payload.txt");
+    let (status, tmp) = put_into(registry_with_agent("agent-1"), req).await;
 
-    let body = b"hello from agent-1".as_ref();
-    let req = test::TestRequest::put()
-        .uri("/storage/agent-1/payload.txt")
-        .set_payload(body)
-        .to_request();
-    let resp = test::call_service(&app, req).await;
-
-    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(status, StatusCode::OK);
     let written = fs_err::read(tmp.path().join("agent-1").join("payload.txt")).unwrap();
-    assert_eq!(written, body);
+    assert_eq!(written, b"hello");
 }
 
 /// Storing an image must succeed even though tty rendering cannot, since it is a best-effort side effect.
@@ -117,22 +216,9 @@ async fn writes_file_for_registered_agent() {
 #[actix_rt::test]
 async fn stores_an_image_and_returns_200_even_though_tty_rendering_cannot_succeed_in_tests() {
     let tmp = tempfile::tempdir().unwrap();
-    let config = storage_config(&tmp);
-    let registry = registry_with_agent("agent-1");
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(registry))
-            .app_data(web::Data::new(config.clone()))
-            .configure(|cfg| configure::<()>(cfg, &config)),
-    )
-    .await;
-
     let body = b"\x89PNG\r\n\x1a\nnot a real png, just image-extension-shaped bytes".as_ref();
-    let req = test::TestRequest::put()
-        .uri("/storage/agent-1/capture.png")
-        .set_payload(body)
-        .to_request();
-    let resp = test::call_service(&app, req).await;
+    let req = put_from_agent("/storage/agent-1/capture.png").set_payload(body);
+    let [resp] = send(registry_with_agent("agent-1"), &tmp, [req]).await;
 
     assert_eq!(resp.status(), StatusCode::OK);
     let written = fs_err::read(tmp.path().join("agent-1").join("capture.png")).unwrap();
@@ -148,41 +234,24 @@ async fn stores_an_image_and_returns_200_even_though_tty_rendering_cannot_succee
 #[actix_rt::test]
 async fn get_and_head_expose_etag_and_head_reports_size() {
     let tmp = tempfile::tempdir().unwrap();
-    let config = storage_config(&tmp);
-    let registry = registry_with_agent("agent-1");
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(registry))
-            .app_data(web::Data::new(config.clone()))
-            .configure(|cfg| configure::<()>(cfg, &config)),
-    )
-    .await;
-
     let body = b"etag round-trip payload".as_ref();
-    let put = test::TestRequest::put()
-        .uri("/storage/agent-1/payload.txt")
-        .set_payload(body)
-        .to_request();
-    let put_resp = test::call_service(&app, put).await;
+    let put = put_from_agent("/storage/agent-1/payload.txt").set_payload(body);
+    let get = test::TestRequest::get().uri("/storage/agent-1/payload.txt");
+    let head = test::TestRequest::default()
+        .method(Method::HEAD)
+        .uri("/storage/agent-1/payload.txt");
+    let [put_resp, get_resp, head_resp] = send(registry_with_agent("agent-1"), &tmp, [put, get, head]).await;
+
     assert_eq!(put_resp.status(), StatusCode::OK);
     assert!(
         put_resp.headers().contains_key(header::ETAG),
         "PUT should return an ETag"
     );
 
-    let get = test::TestRequest::get()
-        .uri("/storage/agent-1/payload.txt")
-        .to_request();
-    let get_resp = test::call_service(&app, get).await;
     assert_eq!(get_resp.status(), StatusCode::OK);
     let get_etag = get_resp.headers().get(header::ETAG).cloned();
     assert!(get_etag.is_some(), "GET should return an ETag");
 
-    let head = test::TestRequest::default()
-        .method(Method::HEAD)
-        .uri("/storage/agent-1/payload.txt")
-        .to_request();
-    let head_resp = test::call_service(&app, head).await;
     assert_eq!(head_resp.status(), StatusCode::OK);
     assert_eq!(
         head_resp.headers().get(header::ETAG).cloned(),
@@ -203,21 +272,10 @@ async fn get_and_head_expose_etag_and_head_reports_size() {
 #[actix_rt::test]
 async fn head_missing_object_returns_404() {
     let tmp = tempfile::tempdir().unwrap();
-    let config = storage_config(&tmp);
-    let registry = registry_with_agent("agent-1");
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(registry))
-            .app_data(web::Data::new(config.clone()))
-            .configure(|cfg| configure::<()>(cfg, &config)),
-    )
-    .await;
-
     let head = test::TestRequest::default()
         .method(Method::HEAD)
-        .uri("/storage/agent-1/absent.txt")
-        .to_request();
-    let resp = test::call_service(&app, head).await;
+        .uri("/storage/agent-1/absent.txt");
+    let [resp] = send(registry_with_agent("agent-1"), &tmp, [head]).await;
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
@@ -232,21 +290,8 @@ async fn surfaces_io_failure_as_500() {
     // Blocking one level down keeps the test on the request path it is actually about.
     let tmp = tempfile::tempdir().unwrap();
     fs_err::write(tmp.path().join("agent-1"), b"i am a file, not a directory").unwrap();
-    let config = StorageConfig::local(tmp.path());
-    let registry = registry_with_agent("agent-1");
-    let app = test::init_service(
-        App::new()
-            .app_data(web::Data::new(registry))
-            .app_data(web::Data::new(config.clone()))
-            .configure(|cfg| configure::<()>(cfg, &config)),
-    )
-    .await;
-
-    let req = test::TestRequest::put()
-        .uri("/storage/agent-1/payload.txt")
-        .set_payload(b"hello".as_ref())
-        .to_request();
-    let resp = test::call_service(&app, req).await;
+    let req = put_from_agent("/storage/agent-1/payload.txt").set_payload(b"hello".as_ref());
+    let [resp] = send(registry_with_agent("agent-1"), &tmp, [req]).await;
 
     assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
 }

@@ -21,7 +21,7 @@
 #![cfg(test)]
 
 use std::collections::BTreeMap;
-use std::net::Ipv4Addr;
+use std::net::{Ipv4Addr, SocketAddr};
 use std::path::Path;
 use std::process::{Command, Stdio};
 
@@ -162,6 +162,7 @@ async fn round_trips_put_and_get_through_the_s3_backend() {
 
         let put = test::TestRequest::put()
             .uri(&format!("/storage/{AGENT}/{FILENAME}"))
+            .peer_addr(SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 40123))
             .set_payload(BODY)
             .to_request();
         let put_status = test::call_service(&app, put).await.status();

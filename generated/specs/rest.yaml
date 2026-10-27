@@ -117,9 +117,8 @@ paths:
         - storage
       summary: Upload a file to an agent's storage bucket.
       description: |-
-        Only the agent that owns the bucket may write to it (the agent must
-        currently be connected); the path component must be a single
-        filename, not a nested path.
+        Only the agent that owns the bucket may write to it: the agent must be connected, and the request must come from
+        the address it is connected from. The path component must be a single filename, not a nested path.
       operationId: put_file
       parameters:
         - in: path
@@ -160,6 +159,8 @@ paths:
                 type: string
         "400":
           description: Invalid filename
+        "403":
+          description: Agent not connected, or request not from its address
         "404":
           description: Agent not found
     head:

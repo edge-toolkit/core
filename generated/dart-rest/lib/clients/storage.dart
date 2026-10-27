@@ -27,9 +27,8 @@ abstract class Storage {
 
   /// Upload a file to an agent's storage bucket.
   ///
-  /// Only the agent that owns the bucket may write to it (the agent must.
-  /// currently be connected); the path component must be a single.
-  /// filename, not a nested path.
+  /// Only the agent that owns the bucket may write to it: the agent must be connected, and the request must come from.
+  /// the address it is connected from. The path component must be a single filename, not a nested path.
   ///
   /// [agentId] - Agent identifier (must be a connected agent).
   ///

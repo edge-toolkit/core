@@ -30,6 +30,7 @@ et-ws-runner-common = { workspace = true, features = ["env-schema"] }
 et-ws-server = { workspace = true, features = ["env-schema", "openapi-spec"] }
 fs-err.workspace = true
 heck.workspace = true
+jiff.workspace = true
 kdl.workspace = true
 openapiv3.workspace = true
 pretty_yaml.workspace = true

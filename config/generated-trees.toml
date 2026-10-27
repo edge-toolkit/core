@@ -60,6 +60,8 @@ required_in = [
   "config/ast-grep/rules/no-shadow-result.yaml",
   "config/ast-grep/rules/no-string-literal-line-continuation.yaml",
   "config/ast-grep/rules/no-string-new.yaml",
+  "config/ast-grep/rules/no-test-in-python-docstrings.yaml",
+  "config/ast-grep/rules/no-test-in-rust-docs.yaml",
   "config/ast-grep/rules/prefer-self-mod-use.yaml",
   "config/ast-grep/rules/python-process-control-except.yaml",
   "config/ast-grep/rules/use-mod-order.yaml",

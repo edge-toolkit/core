@@ -21,12 +21,14 @@
     )
 )]
 
+use std::net::IpAddr;
 use std::path::PathBuf;
 
 use actix_web::http::header;
 use actix_web::{HttpRequest, HttpResponse, HttpResponseBuilder, web};
+use edge_toolkit::ws::AgentConnectionState;
 use edge_toolkit::ws_server::AgentRegistry;
-use et_hub_backplane::Backplane;
+use et_hub_backplane::{Backplane, Presence};
 use futures_util::StreamExt as _;
 use object_store::{ObjectStore, ObjectStoreExt as _, PutPayload};
 use tracing::info;
@@ -82,9 +84,8 @@ pub struct BinaryBlob(#[expect(dead_code)] Vec<u8>);
 
 /// Upload a file to an agent's storage bucket.
 ///
-/// Only the agent that owns the bucket may write to it (the agent must
-/// currently be connected); the path component must be a single
-/// filename, not a nested path.
+/// Only the agent that owns the bucket may write to it: the agent must be connected, and the request must come from
+/// the address it is connected from. The path component must be a single filename, not a nested path.
 #[cfg_attr(
     feature = "openapi-spec",
     utoipa::path(
@@ -105,6 +106,7 @@ pub struct BinaryBlob(#[expect(dead_code)] Vec<u8>);
                 ("ETag" = String, description = "Entity tag of the stored object")
             )),
             (status = 400, description = "Invalid filename"),
+            (status = 403, description = "Agent not connected, or request not from its address"),
             (status = 404, description = "Agent not found")
         )
     )
@@ -124,16 +126,10 @@ where
 {
     let (agent_id, filename) = agent_and_filename(&req)?;
 
-    // An agent this hub has never seen may be registered on another hub sharing its backplane, and uploading here.
-    let registered_here = registry.agents.lock()?.contains_key(&agent_id);
-    let registered = registered_here
-        || match req.app_data::<web::Data<Backplane>>() {
-            Some(backplane) => backplane.knows(&agent_id).await?,
-            None => false,
-        };
-    if !registered {
-        return Err(StorageError::AgentNotFound);
-    }
+    // The socket peer, as the hub takes an agent's address from when it connects, so the two compare like for like.
+    let peer_ip = req.peer_addr().ok_or(StorageError::NoPeerAddress)?.ip();
+    let backplane = req.app_data::<web::Data<Backplane>>().cloned().unwrap_or_default();
+    require_bucket_owner(&backplane, &registry, &agent_id, peer_ip).await?;
 
     // The body is buffered rather than streamed to the store.
     // `ObjectStore::put` takes a whole payload, and the alternative (`put_multipart`) buys streaming at the
@@ -144,6 +140,8 @@ where
     while let Some(chunk) = payload.next().await {
         body.extend_from_slice(&chunk?);
     }
+    // Asked again now the body is in, since the agent may have disconnected or moved while it streamed.
+    require_bucket_owner(&backplane, &registry, &agent_id, peer_ip).await?;
 
     let path = object_path(&agent_id, &filename);
     info!("Agent {} storing file: {}", agent_id, path);
@@ -155,6 +153,58 @@ where
     let mut response = HttpResponse::Ok();
     insert_etag(&mut response, put_result.e_tag.as_deref());
     Ok(response.finish())
+}
+
+/// Fail unless `peer_ip` is the address `agent_id` is connected from, the one its bucket accepts writes from.
+async fn require_bucket_owner<S>(
+    backplane: &Backplane,
+    registry: &AgentRegistry<S>,
+    agent_id: &str,
+    peer_ip: IpAddr,
+) -> Result<(), StorageError>
+where
+    S: Send,
+{
+    let owner_ip = connected_owner_ip(backplane, registry, agent_id).await?;
+    if peer_ip.to_canonical() == owner_ip.to_canonical() {
+        Ok(())
+    } else {
+        Err(StorageError::RequesterNotBucketOwner)
+    }
+}
+
+/// The address `agent_id` is connected from.
+///
+/// A socket open on this hub is current by definition, so a local record holding a live session answers first.
+/// Otherwise the shared directory decides, since the agent may be connected through another hub, or may have moved to
+/// one since its record here was written. A local record that says connected with no session behind it -- one
+/// restored from a saved registry -- is not proof of a connection, and a hub with no backplane treats it as offline.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the ownership lookup of require_bucket_owner, kept apart from the address comparison"
+)]
+async fn connected_owner_ip<S>(
+    backplane: &Backplane,
+    registry: &AgentRegistry<S>,
+    agent_id: &str,
+) -> Result<IpAddr, StorageError>
+where
+    S: Send,
+{
+    let local = registry
+        .agents
+        .lock()?
+        .get(agent_id)
+        .map(|record| (record.state.clone(), record.last_known_ip, record.session.is_some()));
+    if let Some((AgentConnectionState::Connected, ip, true)) = local {
+        return Ok(ip);
+    }
+    match backplane.presence(agent_id).await? {
+        Presence::Connected { last_known_ip, .. } => Ok(last_known_ip),
+        Presence::Disconnected => Err(StorageError::AgentNotConnected),
+        Presence::Unknown if local.is_some() => Err(StorageError::AgentNotConnected),
+        Presence::Unknown => Err(StorageError::AgentNotFound),
+    }
 }
 
 /// Log a stored image, and show it on the terminal when the `tty-image` feature is on.

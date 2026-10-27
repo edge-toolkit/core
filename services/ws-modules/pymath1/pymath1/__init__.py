@@ -1,7 +1,7 @@
 """math1 twin in Python (Pyodide): a storage-driven FedAvg simulation.
 
 The JS shim hands this module the raw input JSON it fetched from ws-server storage (client
-datasets + hyperparameters, injected by the test harness's fake agent). fed_avg() runs rounds of
+datasets + hyperparameters, injected by the harness's fake agent). fed_avg() runs rounds of
 local full-batch gradient-descent epochs per client and merges the local models with a
 sample-count-weighted average. Only + - * / on floats (no math-module calls), so the result is
 bit-identical to the other math1 language twins. run() returns the output JSON the shim stores to

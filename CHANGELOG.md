@@ -43,6 +43,8 @@ Changelog 1.1.0.
   storage, so an upload through one hub reads back through any other. `services.backplane` and `services.storage`
   take `limits:` for the two. `secrets.env` carries the store's secret as `AWS_SECRET_ACCESS_KEY` and
   `RUSTFS_SECRET_KEY`. A scenario without `services.hub.machines` renders as before.
+- `WS_MESSAGE_RETENTION=all` makes the hub keep every unacknowledged direct message a recipient has from a sender,
+  rather than only the newest. The default, `latest-per-sender`, behaves as before.
 
 ### Changed
 
@@ -59,6 +61,12 @@ Changelog 1.1.0.
 - **Breaking:** `et-ws-server` takes no command-line arguments. Its one flag, `-a` / `--agent-registry`, is now the
   `WS_AGENT_REGISTRY` environment variable, still defaulting to `registry.yaml`, and `et_ws_server::cli` is gone.
   Generated k3s manifests set the variable instead of overriding the container's `command` and `args`.
+- **Breaking:** `PUT /storage/{agent_id}/{filename}` accepts a write only while the agent is connected, and only
+  from the address it is connected from; anything else is answered `403`. An upload made on an agent's behalf must
+  now come from the agent's own host while it is connected.
+- **Breaking:** `AgentRegistry::queue_direct` and `NatsBackplane::queue` take a `MessageRetention`.
+  `Backplane::knows` is replaced by `Backplane::presence`, and `Presence::Connected` carries the agent's
+  `last_known_ip`.
 
 ## [0.3.0] - 2026-10-15
 

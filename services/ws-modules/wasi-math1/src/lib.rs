@@ -4,7 +4,7 @@
 //! broadcast `math1-input` pointer (relayed to the guest through `ws.recv`), reads the input JSON
 //! (client datasets + hyperparameters) from storage via `wasi:keyvalue/store`, runs the kernel --
 //! only `+ - * /` on f64 in a fixed evaluation order, bit-identical to the browser twins -- and
-//! stores the global model to `math1-output.json` in its own bucket, where the test harness reads
+//! stores the global model to `math1-output.json` in its own bucket, where the harness reads
 //! and verifies it.
 //!
 //! Crate-level cfg gate: the wit-bindgen-generated extern declarations

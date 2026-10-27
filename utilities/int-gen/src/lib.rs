@@ -71,19 +71,6 @@ pub fn generate_checks() -> Result<(), Error> {
     write_if_changed(&project_root.join("CHECKS.md"), &checks::render(&project_root)?)
 }
 
-/// Fail when the committed `CHECKS.md` differs from what [`generate_checks`] would write.
-pub fn check_checks() -> Result<(), Error> {
-    let project_root = get_project_root();
-    let committed = fs::read_to_string(project_root.join("CHECKS.md"))?;
-    if committed == checks::render(&project_root)? {
-        Ok(())
-    } else {
-        Err(Error::ChecksStale(
-            "CHECKS.md is out of date with the mise configs and rule files; run `mise run gen:checks`",
-        ))
-    }
-}
-
 /// Write each binary crate's `HELP.md` from its clap command tree and its environment config.
 pub fn generate_help() -> Result<(), Error> {
     let project_root = get_project_root();

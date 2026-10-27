@@ -139,6 +139,61 @@ ignore = [
   # (serde-saphyr is the advisory's suggestion) is in our hands, but progenitor-macro would still carry it, so
   # drop this only once both have moved.
   { id = "RUSTSEC-2024-0449", reason = "expires 2026-10-31" },
+  # zstd 0.13.2 / zstd-safe 7.3.0 -- the zstd entries below share one blocker, so it is described once, here.
+  # The fixes are only in zstd 0.14.3 and zstd-safe 8.2.0, and Cargo.lock pins those for every consumer that
+  # accepts them (actix-http, compression-codecs, tonic). Two cannot: deno_node pins `zstd = "=0.13.2"` by equality
+  # through its newest release, 0.198.0, and wasmtime-internal-cache requires ^0.13 through 50.0.0. cargo-deny
+  # ignores by id only, so these also mute the patched 0.14 copy -- re-check it when touching them. All of them go
+  # when both move to zstd 0.14. Our resolution enables zstd-safe's arrays,legacy,std,zdict_builder features only
+  # (`cargo tree -i zstd-safe@7.3.0 -e features`); `experimental`, `seekable` and `zstdmt` are all off.
+  #
+  # Leftover input from an abandoned stream leaks into the next one on a reused context, fixed in zstd 0.14.3.
+  # Reached only through the `with_context` stream constructors. deno_node's node:zlib ops build their raw
+  # encoders and decoders with `new`, and wasmtime-internal-cache calls only `encode_all` / `decode_all`.
+  { id = "RUSTSEC-2026-0391", reason = "expires 2026-10-31" },
+  # Three memory-safety flaws in `Seekable`, all fixed in 8.2.0 and all in the `seekable` feature, which is off.
+  # `decompress` sets a `Vec` length past its capacity for an offset past the end, an uninitialized or failed
+  # `Seekable` reads a NULL seek table, and `seekable_compressStream` reads past an `InBuffer` whose `pos` is out
+  # of range.
+  { id = "RUSTSEC-2026-0396", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0398", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0405", reason = "expires 2026-10-31" },
+  # Three memory-safety flaws in `experimental` APIs, all fixed in 8.2.0; that feature is off, so none is compiled in.
+  # `CParameter::StableInBuffer` compresses freed input, `init_using_cdict` / `init_using_ddict` outlive their
+  # dictionary, and `DCtx::try_clone` double-frees one.
+  { id = "RUSTSEC-2026-0395", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0399", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0404", reason = "expires 2026-10-31" },
+  # Two memory-safety flaws in multithreaded compression, both fixed in 8.2.0 and both needing `zstdmt` (off).
+  # `CCtx::try_clone` overflows the heap after a multithreaded frame, and an unfinished one lets a reset free a
+  # dictionary or job table a worker still uses. deno_node does pass guest JS's `NbWorkers` through, but without
+  # `zstdmt` the bundled library has no worker threads, so no multithreaded frame is ever started.
+  { id = "RUSTSEC-2026-0402", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0406", reason = "expires 2026-10-31" },
+  # `OutBuffer::around_pos` marks a `Vec` initialized up to a position past its length, fixed in 8.2.0.
+  # deno_node wraps plain slices with `OutBuffer::around`, and wasmtime-internal-cache calls only
+  # `encode_all` / `decode_all`, so neither consumer ever builds an `OutBuffer` over a `Vec` with a position.
+  { id = "RUSTSEC-2026-0397", reason = "expires 2026-10-31" },
+  # A one-shot call on a context with an unfinished stream leaves it pointing at a freed dictionary, fixed in 8.2.0.
+  # Needs one context used for both streaming and one-shot calls. deno_node's node:zlib ops only stream, on a
+  # context per JS stream, and wasmtime-internal-cache only makes one-shot calls, each on a context of its own.
+  { id = "RUSTSEC-2026-0400", reason = "expires 2026-10-31" },
+  # `train_from_buffer` reads past its samples buffer when the sample sizes overflow, fixed in 8.2.0.
+  # `zdict_builder` is on, but neither consumer trains a dictionary, so the trainer is compiled in and never called.
+  { id = "RUSTSEC-2026-0401", reason = "expires 2026-10-31" },
+  # A failed streaming decompression of a legacy (v0.4 to v0.7) frame exposes uninitialized memory, fixed in 8.2.0.
+  # Live: `legacy` is on, and deno_node's raw decoder runs `decompress_stream`. It is reached only when guest JS in
+  # the web runner decompresses zstd through node:zlib, which our modules never do. wasmtime-internal-cache
+  # decompresses only its own compilation cache, and ws-wasi-runner configures none, so that path never runs.
+  { id = "RUSTSEC-2026-0403", reason = "expires 2026-10-31" },
+  # block-buffer 0.10.4: a panic caught inside the compress callback leaves the buffer's cursor corrupted.
+  # Fixed only in 0.12.1, and the 0.10 line is pulled by digest 0.10, which the RustCrypto hashes under deno_crypto,
+  # deno_node_crypto and curve25519-dalek require through their newest releases, so no bump reaches it; Cargo.lock
+  # already pins 0.12.1 for the consumers that accept it, and since cargo-deny ignores by id only this also mutes
+  # that copy. Exploiting it needs the callback to panic, the panic to be caught, and the same buffer to be used
+  # again. The callbacks are the hashes' fixed-size block functions, which do not panic, and nothing here catches
+  # a panic mid-hash and keeps the hasher. Drop this when digest 0.10 leaves the tree.
+  { id = "GHSA-qwgh-2vcv-g2f7", reason = "expires 2026-10-31" },
 ]
 
 [licenses]
