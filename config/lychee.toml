@@ -24,7 +24,9 @@ exclude_private = true
 # It is gitignored, but lychee's gitignore-respect doesn't cross the pnpm symlink farm (pnpm hangs each
 # package off a `.pnpm/` symlink, and `git check-ignore` itself refuses with "beyond a symbolic link" on
 # those paths).
-exclude_path = ["data", "generated", "node_modules", "target"]
+# Each entry is an unanchored regex over the path, so it is anchored to a whole directory name: a bare "data" also
+# dropped every file under the `*-data1` modules.
+exclude_path = ['(^|/)node_modules/', '(^|/)target/', '^(\./)?data/', '^(\./)?generated/']
 
 # URL patterns (regex) to skip, none of which are real links.
 # doc/test placeholder hosts (e.g. http://host:8080/) and `{...}` format-string templates
