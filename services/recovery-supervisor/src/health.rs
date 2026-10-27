@@ -25,10 +25,11 @@ struct Evidence {
 #[derive(Debug)]
 pub struct Session {
     // This guard holds the exclusive budget lock until the supervisor exits, including cancelled futures.
-    _lease: fs::File,
+    lease: std::sync::Arc<fs::File>,
     store: StateStore,
     job_id: String,
     identity: String,
+    observed: std::sync::atomic::AtomicBool,
 }
 
 impl Session {
@@ -42,16 +43,24 @@ impl Session {
             .write(true)
             .open(config.state_file.with_extension("lock"))?;
         lease.try_lock()?;
+        let lease = std::sync::Arc::new(lease);
         let identity = uuid::Uuid::new_v4().to_string();
         // Windows mandatory locks reject reads through another handle with "os error 33". Keep the identity outside the
         // locked file, and replace it only after acquiring ownership.
         fs::write(identity_path(config), identity.as_bytes())?;
         Ok(Self {
-            _lease: lease,
-            store: StateStore::new(evidence_path(config)),
+            store: StateStore::owned(evidence_path(config), std::sync::Arc::clone(&lease)),
+            lease,
             job_id: config.job_id.clone(),
             identity,
+            observed: std::sync::atomic::AtomicBool::new(false),
         })
+    }
+
+    /// Bind a context writer to this session so a replacement cannot overtake an unfinished committed save.
+    #[must_use]
+    pub fn state_store(&self, path: PathBuf) -> StateStore {
+        StateStore::owned(path, std::sync::Arc::clone(&self.lease))
     }
 
     /// Refresh evidence only when the policy loop has finished observing, acting, and persisting its report.
@@ -63,7 +72,17 @@ impl Session {
                 session: self.identity.clone(),
                 completed_at: SystemTime::now(),
             })
-            .await
+            .await?;
+        self.observed.store(true, std::sync::atomic::Ordering::Release);
+        Ok(())
+    }
+
+    /// Keep an established observer alive during reconnection without making registration alone pass startup health.
+    pub async fn maintain(&self) -> Result<(), RecoveryError> {
+        if self.observed.load(std::sync::atomic::Ordering::Acquire) {
+            self.advance().await?;
+        }
+        Ok(())
     }
 }
 
@@ -72,9 +91,14 @@ impl Session {
 /// Includes polling, one observation and potential restart per workload, and ten seconds for persistence.
 #[must_use]
 pub fn silence_limit(config: &Config) -> Duration {
-    let commands = config.workloads.iter().fold(0_u64, |budget, _workload| {
+    let mut commands = config.workloads.iter().fold(0_u64, |budget, _workload| {
         budget.saturating_add(config.command_timeout_seconds.saturating_mul(2))
     });
+    for name in config.resilience.dependency_names() {
+        if !config.workloads.iter().any(|workload| workload.deployment == name) {
+            commands = commands.saturating_add(config.command_timeout_seconds);
+        }
+    }
     Duration::from_secs(config.poll_seconds.saturating_add(commands).saturating_add(10))
 }
 

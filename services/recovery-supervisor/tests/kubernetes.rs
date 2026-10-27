@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use et_recovery_supervisor::RecoveryError;
+use et_recovery_supervisor::config::Workload;
 use et_recovery_supervisor::kubernetes::{Backend as _, Kubernetes};
 use et_recovery_supervisor::policy::Health;
 use et_test_helpers::temp_env;
@@ -16,6 +17,17 @@ use serde_json::{Value, json};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::{TcpListener, TcpStream};
 use tracing::subscriber::set_default;
+
+const DEPENDENCY_HEALTH: [(&str, Health); 8] = [
+    ("storage", Health::Ready),
+    ("storage-empty", Health::Unready),
+    ("storage-stale", Health::Unready),
+    ("storage-insufficient", Health::Unready),
+    ("storage-updating", Health::Unready),
+    ("storage-rolling", Health::Unready),
+    ("storage-unavailable", Health::Unready),
+    ("storage-missing", Health::Unready),
+];
 
 /// Timestamp fixture activity without changing the command or request deadlines under investigation.
 #[derive(Clone, Copy)]
@@ -63,7 +75,14 @@ fn response(path: &str) -> Value {
             "resources":[{"name":"deployments", "singularName":"deployment", "namespaced":true,
                 "kind":"Deployment", "verbs":["get","patch"]}]
         }),
-        "/apis/apps/v1/namespaces/example/deployments/example-worker" => deployment(),
+        "/apis/apps/v1/namespaces/example/deployments/example-worker" => deployment("example-worker", 1),
+        "/apis/apps/v1/namespaces/example/deployments/storage-forbidden" => json!({
+            "kind": "Status", "apiVersion": "v1", "status": "Failure", "reason": "Forbidden", "code": 403_u32,
+            "message": "fixture permission denied"
+        }),
+        path if path.starts_with("/apis/apps/v1/namespaces/example/deployments/storage") => {
+            dependency_deployment(path.rsplit('/').next().unwrap())
+        }
         // kubectl 1.37 reads the server version before discovery, to warn about client/server skew.
         "/version" => serde_json::to_value(Info {
             git_version: "v1.37.0".into(),
@@ -77,31 +96,50 @@ fn response(path: &str) -> Value {
 }
 
 /// Serialize an actual Kubernetes Deployment so discovery and restart tests use the API's real wire schema.
-#[expect(
-    clippy::single_call_fn,
-    reason = "typed deployment data is separate from API discovery routing"
-)]
-fn deployment() -> Value {
+fn deployment(name: &str, replicas: i32) -> Value {
     serde_json::to_value(Deployment {
         metadata: ObjectMeta {
-            name: Some("example-worker".into()),
+            name: Some(name.into()),
             namespace: Some("example".into()),
             generation: Some(1),
             ..ObjectMeta::default()
         },
         spec: Some(DeploymentSpec {
-            replicas: Some(1),
+            replicas: Some(replicas),
             ..DeploymentSpec::default()
         }),
         status: Some(DeploymentStatus {
             observed_generation: Some(1),
-            replicas: Some(1),
-            available_replicas: Some(1),
-            updated_replicas: Some(1),
+            replicas: Some(replicas),
+            available_replicas: Some(replicas),
+            updated_replicas: Some(replicas),
             ..DeploymentStatus::default()
         }),
     })
     .unwrap()
+}
+
+/// Supply multi-replica dependency health without weakening the application's single-writer requirement.
+#[expect(
+    clippy::single_call_fn,
+    reason = "dependency fixtures are distinct from HTTP discovery routing"
+)]
+fn dependency_deployment(name: &str) -> Value {
+    let replicas = if name == "storage-empty" { 0_i32 } else { 3_i32 };
+    let mut value = deployment(name, replicas);
+    match name {
+        "storage" | "storage-empty" => {}
+        "storage-stale" => value["status"]["observedGeneration"] = json!(0_u32),
+        "storage-insufficient" => value["status"]["availableReplicas"] = json!(2_u32),
+        "storage-updating" => value["status"]["updatedReplicas"] = json!(2_u32),
+        "storage-rolling" => value["status"]["replicas"] = json!(4_u32),
+        "storage-unavailable" => value["status"]["unavailableReplicas"] = json!(1_u32),
+        "storage-missing" => {
+            let _status = value.as_object_mut().unwrap().remove("status");
+        }
+        _ => panic!("unexpected dependency fixture: {name}"),
+    }
+    value
 }
 
 /// Read a complete request, including the rollout patch body, before returning a close-delimited response.
@@ -153,8 +191,13 @@ async fn serve(listener: TcpListener, seen: tokio::sync::mpsc::UnboundedSender<S
         let path = target.split('?').next().unwrap();
         diagnostics.record(format_args!("request complete: {}", text.lines().next().unwrap()));
         let body = response(path).to_string();
+        let status = if path.ends_with("/storage-forbidden") {
+            "403 Forbidden"
+        } else {
+            "200 OK"
+        };
         let headers = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n",
+            "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n",
             body.len()
         );
         let reply = format!("{headers}Connection: close\r\n\r\n{body}");
@@ -196,11 +239,20 @@ fn kubectl_queries_and_restarts_only_the_configured_namespace_and_deployment() {
                     config.command_timeout_seconds
                 ));
                 let workload = config.workloads[0].clone();
+                let _previous = config.resilience.dependencies.insert(
+                    workload.deployment.clone(),
+                    DEPENDENCY_HEALTH
+                        .iter()
+                        .map(|(name, _)| (*name).into())
+                        .chain(std::iter::once("storage-forbidden".into()))
+                        .collect(),
+                );
                 let mut backend = Kubernetes::new(config).unwrap();
                 assert_eq!(
                     diagnostics.command("health", backend.health(&workload).await, &task),
                     Health::Ready
                 );
+                assert_dependency_access(&mut backend, &workload, &DEPENDENCY_HEALTH, diagnostics, &task).await;
                 diagnostics.record("starting kubectl restart command");
                 diagnostics.command("restart", backend.restart(&workload).await, &task);
                 assert_restart_request(received);
@@ -214,20 +266,54 @@ fn kubectl_queries_and_restarts_only_the_configured_namespace_and_deployment() {
     );
 }
 
+/// Dependency observations use readiness queries only; deployment mutation remains limited to supervised targets.
+#[expect(
+    clippy::single_call_fn,
+    reason = "dependency authorization assertions are separate from fixture setup"
+)]
+async fn assert_dependency_access(
+    backend: &mut Kubernetes,
+    workload: &Workload,
+    dependencies: &[(&str, Health)],
+    diagnostics: Diagnostics,
+    task: &tokio::task::JoinHandle<()>,
+) {
+    for &(name, expected) in dependencies {
+        let mut dependency = workload.clone();
+        dependency.deployment = name.into();
+        dependency.agent_id.clear();
+        dependency.source.clear();
+        assert_eq!(
+            diagnostics.command(name, backend.health(&dependency).await, task),
+            expected
+        );
+        let restart = backend.restart(&dependency).await.unwrap_err();
+        let other_read = backend.execute(&dependency, &["get", "-o", "yaml"]).await.unwrap_err();
+        for error in [restart, other_read] {
+            assert!(error.to_string().contains("not allowlisted"));
+        }
+    }
+    let mut denied = workload.clone();
+    denied.deployment = "storage-forbidden".into();
+    let error = backend.health(&denied).await.unwrap_err();
+    assert!(error.to_string().contains("fixture permission denied"));
+}
+
 /// Verify that the recorded restart patch targets only the configured namespaced deployment.
 #[expect(
     clippy::single_call_fn,
     reason = "request assertions are distinct from command execution and fixture setup"
 )]
 fn assert_restart_request(mut received: tokio::sync::mpsc::UnboundedReceiver<String>) {
-    let mut patch = String::default();
+    let mut patches = Vec::new();
     while let Ok(text) = received.try_recv() {
         if text.starts_with("PATCH ") {
-            patch = text;
+            patches.push(text);
         }
     }
-    assert!(patch.starts_with("PATCH /apis/apps/v1/namespaces/example/deployments/example-worker"));
-    assert!(patch.contains("kubectl.kubernetes.io/restartedAt"));
+    assert_eq!(patches.len(), 1);
+    assert!(patches[0].starts_with("PATCH /apis/apps/v1/namespaces/example/deployments/example-worker"));
+    assert!(patches[0].contains("kubectl.kubernetes.io/restartedAt"));
 }
 
 /// Keep credentials isolated while making kubeconfig preparation distinct from the timed command exchange.

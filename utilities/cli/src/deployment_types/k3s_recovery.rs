@@ -85,21 +85,31 @@ fn role(settings: &RecoverySettings, namespace: &str) -> Role {
     } else {
         vec!["get"]
     };
-    Role {
-        metadata: plain_meta(namespace, NAME),
-        rules: Some(vec![PolicyRule {
+    let mut rules = vec![PolicyRule {
+        api_groups: Some(vec!["apps".into()]),
+        resources: Some(vec!["deployments".into()]),
+        resource_names: Some(settings.workloads.iter().map(|item| item.deployment.clone()).collect()),
+        verbs: verbs.into_iter().map(str::to_owned).collect(),
+        ..PolicyRule::default()
+    }];
+    let dependencies: Vec<_> = settings
+        .resilience
+        .dependency_names()
+        .into_iter()
+        .filter(|name| !settings.workloads.iter().any(|item| &item.deployment == name))
+        .collect();
+    if !dependencies.is_empty() {
+        rules.push(PolicyRule {
             api_groups: Some(vec!["apps".into()]),
             resources: Some(vec!["deployments".into()]),
-            resource_names: Some(
-                settings
-                    .workloads
-                    .iter()
-                    .map(|workload| workload.deployment.clone())
-                    .collect(),
-            ),
-            verbs: verbs.into_iter().map(str::to_owned).collect(),
+            resource_names: Some(dependencies),
+            verbs: vec!["get".into()],
             ..PolicyRule::default()
-        }]),
+        });
+    }
+    Role {
+        metadata: plain_meta(namespace, NAME),
+        rules: Some(rules),
     }
 }
 
@@ -220,7 +230,7 @@ fn health_probes(config: &et_recovery_supervisor::config::Config) -> Result<(Pro
     };
     let startup_seconds = et_recovery_supervisor::health::silence_limit(config)
         .as_secs()
-        .saturating_add(30);
+        .saturating_add(config.resilience.connect_timeout_seconds);
     let failure_threshold = match i32::try_from(startup_seconds) {
         Ok(seconds) => seconds,
         Err(error) => {

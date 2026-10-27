@@ -10,6 +10,7 @@ pub mod health;
 pub mod kubernetes;
 pub mod persistence;
 pub mod policy;
+pub mod resilience;
 pub mod runtime;
 
 /// Errors preserve the failed operation instead of treating missing observations as healthy workloads.

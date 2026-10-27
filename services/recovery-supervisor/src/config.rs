@@ -83,6 +83,10 @@ pub struct Config {
     #[serde(deserialize_with = "deserialize_workloads")]
     #[cfg_attr(feature = "env-schema", schemars(with = "String"))]
     pub workloads: Vec<Workload>,
+    /// Optional connection, dependency, coordination and stability safeguards.
+    #[serde(default, deserialize_with = "crate::resilience::deserialize")]
+    #[cfg_attr(feature = "env-schema", schemars(with = "String", extend("default" = "{}")))]
+    pub resilience: crate::resilience::Settings,
 }
 
 /// Environment configuration grouped under the `RECOVERY_*` prefix.
@@ -150,6 +154,7 @@ impl Config {
             state_file: PathBuf::from("/app/state/recovery.json"),
             policy,
             workloads,
+            resilience: crate::resilience::Settings::default(),
         }
     }
 
@@ -157,6 +162,7 @@ impl Config {
     pub fn validate(&self) -> Result<(), RecoveryError> {
         self.validate_identity()?;
         self.policy.validate()?;
+        self.resilience.validate(self)?;
         if self.poll_seconds == 0 || self.command_timeout_seconds == 0 || self.workloads.is_empty() {
             return Err(RecoveryError::Invalid(
                 "positive polling and command deadlines and at least one workload are required".into(),
