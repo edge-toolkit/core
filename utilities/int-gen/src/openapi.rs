@@ -209,19 +209,10 @@ fn inject_wasm_baseurl_fallback(body: &str) -> String {
     body.replacen(needle, replacement, 1)
 }
 
-/// Give the generated client's `ClientHooks::exec` an exponential-backoff retry loop (native targets only).
+/// Route native request execution through the hand-maintained retry policy without duplicating it in generation.
 ///
-/// progenitor's per-call flow is `pre()` -> `exec()` -> `post()`, and `exec`'s default just calls
-/// `self.client().execute(request)` once. We override it so every REST call (module discovery, asset fetch, per-agent
-/// storage) tolerates a transient failure -- in particular a ws-server that isn't up yet at startup -- by retrying
-/// with backoff. Only requests that `try_clone()` (no streaming body) are retried; any other request runs once.
-///
-/// NOTE: we hand-inject this only because reqwest's own retry support (`ClientBuilder::retries`, shipped in
-/// 0.12.23) has **no backoff yet** -- its `tower::retry::Policy::retry` returns `std::future::Ready<()>` (retries
-/// fire immediately) and the upstream `backoff` field is commented out behind a `// TODO? backoff futures...`.
-/// When reqwest ships backoff, delete this hook and configure `.retries()` on the `reqwest::Client` instead (see
-/// <https://github.com/seanmonstar/reqwest/pull/2763>). The hook is `#[cfg(not(wasm32))]` because `tokio::time::sleep`
-/// + `SystemTime` don't work under `wasm32-unknown-unknown`; WASM consumers keep the default `exec`.
+/// The policy covers replayable idempotent requests, transient HTTP responses and transport errors. Browser WASM
+/// retains progenitor's default execution because the native policy uses Tokio time.
 #[expect(
     clippy::single_call_fn,
     reason = "post-process step kept separate for readability; the named function documents intent"
@@ -230,44 +221,16 @@ fn inject_retry_exec(body: &str) -> String {
     // progenitor emits an empty `impl ClientHooks` that takes the trait defaults; we swap it for one carrying a custom
     // `exec`.
     let needle = "impl ClientHooks<()> for &Client {}";
-    let replacement = r#"impl ClientHooks<()> for &Client {
-    // Injected by `utilities/int-gen` (inject_retry_exec): retry request execution with exponential backoff. reqwest's
-    // native retry has no backoff yet -- remove this and use `ClientBuilder::retries` once it does.
+    let replacement = r#"#[cfg(not(target_arch = "wasm32"))]
+mod retry;
+impl ClientHooks<()> for &Client {
     #[cfg(not(target_arch = "wasm32"))]
     async fn exec(
         &self,
         request: ::reqwest::Request,
         _info: &OperationInfo,
     ) -> ::reqwest::Result<::reqwest::Response> {
-        use ::retry_policies::policies::ExponentialBackoff;
-        use ::retry_policies::{RetryDecision, RetryPolicy as _};
-        let policy = ExponentialBackoff::builder()
-            .retry_bounds(
-                ::core::time::Duration::from_millis(250),
-                ::core::time::Duration::from_secs(5),
-            )
-            .build_with_total_retry_duration(::core::time::Duration::from_secs(30));
-        let started = ::std::time::SystemTime::now();
-        let mut n_past_retries: u32 = 0;
-        loop {
-            // Retry only when the request can be replayed (no streaming body).
-            let Some(attempt) = request.try_clone() else {
-                return self.client().execute(request).await;
-            };
-            match self.client().execute(attempt).await {
-                Ok(response) => return Ok(response),
-                Err(err) => match policy.should_retry(started, n_past_retries) {
-                    RetryDecision::Retry { execute_after } => {
-                        let wait = execute_after
-                            .duration_since(::std::time::SystemTime::now())
-                            .unwrap_or_default();
-                        ::tokio::time::sleep(wait).await;
-                        n_past_retries = n_past_retries.saturating_add(1);
-                    }
-                    RetryDecision::DoNotRetry => return Err(err),
-                },
-            }
-        }
+        crate::retry::execute(self.client(), request).await
     }
 }"#;
     assert!(

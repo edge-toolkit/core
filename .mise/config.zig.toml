@@ -40,7 +40,7 @@ zig = "latest"
 # which took down every Windows job on commit
 # https://github.com/edge-toolkit/core/commit/60b631d4dea8d19f50386f1568bf6128c956795c at
 # https://github.com/edge-toolkit/core/actions/runs/28995222108/job/86043285466 (check windows-latest lane).
-# The windows-x64 asset the pattern names is the one config.windows.toml's `matching` selects -- keep them in step.
+# Share the asset pattern with config.windows.toml so both declarations resolve the same binaries.
 [tools."github:mstorsjo/llvm-mingw"]
 asset_pattern = "{{ vars.llvm_mingw_pattern }}"
 version = "20261006"
@@ -81,17 +81,6 @@ conda_exe() {
   echo "$$exe"
 }
 """
-# The llvm-mingw release asset for each platform: the ucrt build, as Ubuntu 22.04, macOS universal or Windows.
-# One template rather than per-platform `asset_pattern`s, because mise keys a lock entry on the options, and per-
-# platform values become separate entries that an install on any other platform prunes. `raw` keeps the config's
-# own render from evaluating it, so the backend renders it per target platform.
-llvm_mingw_pattern = """{% raw %}llvm-mingw-*-ucrt-
-{%- if os() == "linux" %}ubuntu-22.04-{{ arch(x64="x86_64", arm64="aarch64") }}.tar.xz
-{%- elif os() == "macos" %}macos-universal.tar.xz
-{%- else %}x86_64.zip
-{%- endif %}{% endraw -%}
-"""
-
 [tasks.zig-check]
 run = "zig fmt --check services/ws-modules/ generated/zig-rest/"
 

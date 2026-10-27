@@ -1,9 +1,97 @@
 //! Recovery policy verifies useful work, enforces action bounds, and rejects stale or foreign evidence.
 #![cfg(test)]
 
-use et_recovery_supervisor::config::Mode;
+use et_recovery_supervisor::config::{Mode, Workload};
 use et_recovery_supervisor::policy::{Action, Decision, Health, ObservationTime, Status, Supervisor};
+use et_recovery_supervisor::resilience::{Classification, Reason};
 use et_test_recovery::{config, event, report, supervisor};
+
+/// Start two detected workloads with one failed restart and a single fleet recovery slot.
+fn policy_after_failed_restart() -> (Supervisor, Workload, Workload) {
+    let mut settings = config();
+    settings.mode = Mode::ControllerAssisted;
+    settings.policy.max_restarts = 3;
+    settings.resilience.max_concurrent_recoveries = 1;
+    settings.resilience.backoff_multiplier = 2;
+    let first = settings.workloads[0].clone();
+    let mut second = first.clone();
+    second.deployment = "second-worker".into();
+    second.agent_id = "second-worker".into();
+    settings.workloads.push(second.clone());
+    let budget = et_recovery_supervisor::policy::Budget::new(settings.job_id.clone());
+    let mut policy = Supervisor::new(settings, budget).unwrap();
+    for worker in [&first, &second] {
+        for now in [0, 3] {
+            let _observed = policy.observe(worker, Health::Unready, now).unwrap();
+        }
+    }
+    policy.reserve_restart(&first, 23).unwrap();
+    let failed = Action::RestartFailed {
+        error: "API request failed".into(),
+    };
+    policy.action_result(&first, failed).unwrap();
+    (policy, first, second)
+}
+
+/// Failed restart commands release fleet capacity while retaining the original cooldown and consumed budget.
+#[test]
+fn failed_restart_releases_the_slot_without_bypassing_retry_limits() {
+    let (mut policy, first, second) = policy_after_failed_restart();
+    assert_eq!(policy.observe(&first, Health::Unready, 24).unwrap(), Decision::Observe);
+    assert_eq!(policy.report().assessments[&first.deployment].reason, Reason::Cooldown);
+    assert_eq!(
+        policy.report().assessments[&first.deployment].next_action_at,
+        ObservationTime::Recorded(43)
+    );
+    assert_eq!(policy.observe(&second, Health::Unready, 24).unwrap(), Decision::Restart);
+    policy.reserve_restart(&second, 24).unwrap();
+    assert_eq!(policy.observe(&first, Health::Unready, 43).unwrap(), Decision::Observe);
+    assert_eq!(
+        policy.report().assessments[&first.deployment].reason,
+        Reason::ConcurrencyLimit
+    );
+    assert!(policy.reserve_restart(&first, 43).is_err());
+    assert_eq!(policy.budget().restarts[&first.deployment], 1);
+    policy
+        .action_result(
+            &second,
+            Action::RestartFailed {
+                error: "API request failed".into(),
+            },
+        )
+        .unwrap();
+    policy.reserve_restart(&first, 43).unwrap();
+    assert_eq!(policy.budget().restarts[&first.deployment], 2);
+}
+
+/// A failed retry retains its longer backoff and cannot reset the lifetime restart allowance.
+#[test]
+fn failed_retry_preserves_backoff_and_eventual_budget_exhaustion() {
+    let (mut policy, first, _second) = policy_after_failed_restart();
+    policy.reserve_restart(&first, 43).unwrap();
+    policy
+        .action_result(
+            &first,
+            Action::RestartFailed {
+                error: "API request failed".into(),
+            },
+        )
+        .unwrap();
+    assert_eq!(policy.observe(&first, Health::Unready, 82).unwrap(), Decision::Observe);
+    assert_eq!(policy.report().assessments[&first.deployment].reason, Reason::Cooldown);
+    assert_eq!(
+        policy.report().assessments[&first.deployment].next_action_at,
+        ObservationTime::Recorded(83)
+    );
+    assert_eq!(policy.observe(&first, Health::Unready, 83).unwrap(), Decision::Restart);
+    policy.reserve_restart(&first, 83).unwrap();
+    assert_eq!(policy.observe(&first, Health::Unready, 84).unwrap(), Decision::Observe);
+    assert_eq!(
+        policy.report().assessments[&first.deployment].reason,
+        Reason::BudgetExhausted
+    );
+    assert_eq!(policy.budget().restarts[&first.deployment], 3);
+}
 
 /// Require renewed useful progress rather than deployment readiness alone to close an incident.
 #[test]
@@ -332,4 +420,32 @@ fn report_preserves_typed_checkpoint_measurements_and_distinguishes_pending_time
         let serialized = serde_json::to_value(time).unwrap();
         assert_eq!(serde_json::from_value::<ObservationTime>(serialized).unwrap(), time);
     }
+}
+
+/// Classification reports observed conditions without asserting an unsupported root cause.
+#[test]
+fn classification_distinguishes_explicit_failure_stall_and_missing_observations() {
+    let worker = config().workloads[0].clone();
+    let mut policy = supervisor(Mode::ObserveOnly);
+    policy
+        .event(&worker.agent_id, &event("started", 0, 1, "one"), 0)
+        .unwrap();
+    let _stalled = policy.observe(&worker, Health::Ready, 180).unwrap();
+    assert_eq!(
+        policy.report().assessments[&worker.deployment].classification,
+        Classification::ProgressStalled
+    );
+    policy
+        .event(&worker.agent_id, &event("failed", 0, 2, "one"), 181)
+        .unwrap();
+    let _failed = policy.observe(&worker, Health::Ready, 182).unwrap();
+    assert_eq!(
+        policy.report().assessments[&worker.deployment].classification,
+        Classification::ApplicationFailure
+    );
+    let _unknown = policy.observe(&worker, Health::Unknown, 183).unwrap();
+    assert_eq!(
+        policy.report().assessments[&worker.deployment].classification,
+        Classification::ObservationUnknown
+    );
 }

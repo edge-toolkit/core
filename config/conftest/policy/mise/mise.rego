@@ -9,6 +9,15 @@ package mise
 # derived from this predicate there; CI's Linux runs were unaffected.
 is_mise(file) if startswith(replace(file.path, "\\", "/"), ".mise/config")
 
+# Incremental lock writes are a compatibility exception for the Windows ARM bring-up environment only.
+deny contains msg if {
+	some file in input
+	is_mise(file)
+	file.contents.settings.lockfile_mode == "merge"
+	replace(file.path, "\\", "/") != ".mise/config.windows-arm64.toml"
+	msg := sprintf("%s: merge lockfile mode is limited to Windows ARM bring-up", [file.path])
+}
+
 # A task `run` must be a string, not an array.
 # taplo's reorder_arrays would re-sort the commands of an array form and scramble the sequence.
 deny contains msg if {
@@ -207,6 +216,9 @@ deny contains msg if {
 # Any os-scoped [tools] entry must be in this list -- a genuinely platform-specific tool, a per-platform backend pair
 # that still covers every OS (findutils, ryl), or an optional tool that self-skips on the omitted platform (pipx:torch).
 allowed_os_scoped_tool := {
+	# conda-forge gnupg has Unix builds only; config.windows.toml supplies conda:m2-gnupg on Windows.
+	# Keep the explicit Unix filter so cross-platform locking never asks conda-forge for a win-64 build.
+	"conda:gnupg",
 	# action-validator (aqua) has no Windows build, so it is os-scoped off Windows.
 	# config.windows.toml installs cargo:action-validator there instead (cargo-quickinstall msvc prebuilt).
 	"action-validator",
@@ -260,6 +272,39 @@ allowed_os_scoped_tool := {
 	"conda:clang",
 }
 
+# Windows build prerequisites must not be resolved for Unix during cross-platform lock generation.
+windows_prerequisites := {
+	".mise/config.mingw.toml": {
+		"conda:m2-coreutils",
+		"conda:m2-diffutils",
+		"conda:m2-gawk",
+		"conda:m2-grep",
+		"conda:m2-sed",
+		"github:brechtsanders/winlibs_mingw",
+	},
+}
+
+windows_x64_prerequisites := {
+	".mise/config.toml": {"conda:m2-make", "conda:m2-gnupg"},
+	".mise/config.windows.toml": {"conda:libclang"},
+}
+
+windows_prerequisite_filter(file, name, spec) if {
+	name in windows_prerequisites[replace(file.path, "\\", "/")]
+	spec.os == ["windows"]
+}
+
+windows_prerequisite_filter(file, name, spec) if {
+	name in windows_x64_prerequisites[replace(file.path, "\\", "/")]
+	spec.os == ["windows/x64"]
+}
+
+openssl_platform_filter(file, name, spec) if {
+	replace(file.path, "\\", "/") == ".mise/config.toml"
+	name == "conda:openssl"
+	spec.os == ["linux", "macos", "windows/x64"]
+}
+
 # A tool must not be os-scoped unless allowlisted, since every tool must work on every OS.
 deny contains msg if {
 	some file in input
@@ -268,6 +313,8 @@ deny contains msg if {
 	is_object(spec)
 	spec.os
 	not allowed_os_scoped_tool[name]
+	not windows_prerequisite_filter(file, name, spec)
+	not openssl_platform_filter(file, name, spec)
 	msg := sprintf("%s: tool %q is os-scoped; tools must work on every OS (or allowlist it)", [file.path, name])
 }
 

@@ -28,6 +28,14 @@ recovery:
     stall_seconds: 180
     deadline_seconds: 240
     max_restarts: 2
+  resilience:
+    max_concurrent_recoveries: 1
+    action_interval_seconds: 5
+    backoff_multiplier: 2
+    jitter_seconds: 2
+    stability_seconds: 10
+    dependencies:
+      example-worker: [ws-server]
   workloads:
     - deployment: example-worker
       agent_id: example-worker
@@ -52,7 +60,7 @@ need the SDK installed in their runner image; scenario generation does not insta
 Supervisor and supervised Deployments use `Recreate` replacement. The supervisor has one replica and persistent budget
 state; it is not a highly available controller. A different job cannot reuse an old job's state: archive the old report
 and deliberately provision fresh state before changing the job. Do not run a second recovery controller over the same
-workloads. Hub or physical-node loss is not covered by this deployment integration.
+workloads. The supervisor reconnects when a hub becomes available again; it does not repair hubs or physical nodes.
 
 ## Supervisor health
 
@@ -75,8 +83,7 @@ Docker runs the probe every ten seconds, with a sixty-second startup grace and t
 unhealthy container. Adjust the container's startup grace for unusually large workload sets. Generated k3s deployments
 use the same executable for startup, readiness and liveness. Their startup budget includes registration and a bounded
 cycle; after startup, three failed liveness probes can restart the supervisor. Kubernetes does not inherit Docker's
-health check. Such a restart preserves the durable action budget but begins a new observer session, not a continuation
-of its incident history.
+health check. A replacement restores recovery context, retaining an explicit gap in observations.
 
 ## Standalone example
 
@@ -176,7 +183,7 @@ operations: training rounds, completed batches, or completed inference tasks, fo
 
 The exact configured sender, module source, and job must match. The first observed instance can be adopted mid-run,
 with its existing counter establishing a baseline rather than proving recovery. Replacement instances announce
-`started` first; replayed sequence numbers and retired instances are rejected within the observer session. These
+`started` first; replayed sequence numbers and retired instances are rejected across restored observer sessions. These
 bindings reduce accidental cross-talk, but hub agent IDs and CloudEvent sources are not authenticated identities. Use
 controller-assisted mode only on a trusted hub/network. This is not malicious-node detection or a security boundary
 against another hub participant claiming an allowlisted agent ID. Kubernetes credentials belong to the supervisor,
@@ -220,10 +227,57 @@ Incident detection and recovery timestamps are null until observed, rather than 
 Action records contain a `kind` (`restart-reserved`, `restart-requested`, or `restart-failed`); failed actions also
 contain an `error` description. Checkpoint records retain their operation kind, instance, progress, size and duration.
 
-Budget counters survive supervisor restarts. Lifecycle sequence tracking and incident histories belong to one observer
-session and are not restored; archive reports before restarting if historical measurements are needed. A lost hub
-connection stops the service and its actions rather than continuing to act on stale application evidence. Restart the
-service using the same state file after connectivity returns; this first version does not reconnect its live session.
+## Resilient supervision
+
+`resilience` is optional. Standalone deployments supply it as a JSON object in `RECOVERY_RESILIENCE`.
+By default, lost hub connections are retried using Core's existing bounded connect/register backoff. Recovery actions
+are suspended during disconnection. After an initial completed observation cycle, the local health check remains current
+while reconnection is progressing; it does not claim the applications are healthy. Registration alone does not pass
+startup health. Setting `reconnect: false` restores exit-on-disconnection behaviour.
+
+Reports retain incident baselines, application instance and sequence checks, consumed budgets, cooldowns and outstanding
+recovery requests across supervisor replacement. State is bound to the complete configuration and job identity;
+changing either requires deliberately provisioning new state. Legacy state retains its budget and archives its report
+without mixing its observer clock into new measurements. Invalid or mismatched state fails closed.
+
+Within a process, time uses a monotonic clock. Across process replacement, elapsed time includes the wall-clock interval
+since the last saved context. If `saved_at` is ahead of the system clock, startup fails closed and identifies that
+timestamp. Correct the system clock before retrying; the state file is retained, and downtime is never replaced with
+zero to bypass the check. Reports identify that clock basis and record gaps explicitly.
+Active workloads must supply renewed lifecycle evidence after reconnection or restoration before further
+interventions or verified recovery. Queued events still pass instance and sequence checks; their arrival does not
+establish continuous health during the gap. Pending stability assessments become incomplete when observations are
+unavailable.
+
+Dependencies are named Deployments in the same namespace. They receive read-only permissions and are not automatically
+restarted. A required dependency that is unavailable or unknown withholds consumer interventions, including transitively
+through the configured acyclic graph. This waiting consumes the original recovery deadline. No application event can
+add a dependency or authorize a new target.
+
+Fleet coordination counts outstanding useful-recovery requests until recovery or deadline expiry.
+`max_concurrent_recoveries: 0` and `action_interval_seconds: 0` disable the extra fleet limits. An existing recovery may
+retry within its own slot; all attempts still consume its durable budget. Failed commands retain their slot because a
+lost response does not prove the API rejected the request. Limits are checked again when an action is reserved.
+
+The first intervention retains the configured detection delay. Subsequent cooldowns use `backoff_multiplier`,
+bounded by `backoff_max_seconds`, with up to `jitter_seconds` added variation. The original cooldown is never shortened.
+Defaults of multiplier one and zero jitter preserve fixed spacing. Delays are not subtracted from recovery durations
+and cannot extend the recovery deadline or reset consumed attempts.
+
+With `stability_seconds` enabled, first useful recovery is followed by a separate healthy observation window and renewed
+progress, or a completed-work indication. Recurrent failure or instance replacement makes the assessment unstable;
+missing observations make it incomplete. Completed work is not required to run again. Stability never changes the
+first-recovery timestamp or MTTR. Zero disables this additional assessment.
+
+`assessments` reports observed failure conditions and the policy reason for acting or waiting, including unavailable
+dependencies, insufficient evidence, cooldown, fleet limits and exhausted budgets or deadlines. These are evidence-based
+categories, not hardware root-cause diagnoses. No operator confirmation, external incident service or rollback is used.
+
+Recovery evidence uses the existing direct-message retention policy. With `latest-per-sender`, producers needing every
+transition must wait for acknowledgements; a later unacknowledged event can otherwise replace an earlier one. The SDK's
+`Lifecycle.emit` does not implement a durable outbox. `WS_MESSAGE_RETENTION=all` retains all unacknowledged transitions,
+but has no backlog bound. Configure delivery and producer rate deliberately; reconnection cannot reconstruct discarded
+events or promote missing evidence into verified recovery.
 
 ## Permissions and verification
 

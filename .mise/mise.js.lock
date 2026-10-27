@@ -23,9 +23,11 @@ checksum = "blake3:2f2414bd00332f5fbe3b50ef84e3dde7f3ee35c9fa29ad3ca449710e4b171
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-aarch64-apple-darwin.tar.gz"
 
 [tools."http:oxfmt"."platforms.macos-x64"]
+checksum = "sha256:80bf2c7e48f1d02dfe0cdbf510fc8c786df533448e8175fea58c4a6173e1752b"
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x86_64-apple-darwin.tar.gz"
 
 [tools."http:oxfmt"."platforms.windows-x64"]
+checksum = "sha256:70381a422464bf13abd8d8210e0e0cdc2aedc96dfe0a4d76a732de547a3ea7a6"
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.69.0/oxfmt-x86_64-pc-windows-msvc.zip"
 
 [[tools."http:oxlint"]]
@@ -45,12 +47,15 @@ checksum = "blake3:974e8e6b96e5e21882977efdf829ae4043e5424351f27a245ce22da93670f
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.73.0/oxlint-x86_64-unknown-linux-gnu.tar.gz"
 
 [tools."http:oxlint"."platforms.macos-arm64"]
+checksum = "sha256:f27b2959685ae13694a83a7d420154b440d6b4f62fd2942c136666e2ab3cc2cc"
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.73.0/oxlint-aarch64-apple-darwin.tar.gz"
 
 [tools."http:oxlint"."platforms.macos-x64"]
+checksum = "sha256:bddfbbdd38cfc7b22def9b6698b9d87e4477730763ce1fa2605afcdcea08ba73"
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.73.0/oxlint-x86_64-apple-darwin.tar.gz"
 
 [tools."http:oxlint"."platforms.windows-x64"]
+checksum = "sha256:4705fa429bc730cd4663ab5ca227d2bc73bace2a87e6c7d0882012fb4b947619"
 url = "https://github.com/oxc-project/oxc/releases/download/apps_v1.73.0/oxlint-x86_64-pc-windows-msvc.zip"
 
 [[tools."npm:@huggingface/transformers"]]

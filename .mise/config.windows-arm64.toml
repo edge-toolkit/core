@@ -1,0 +1,11 @@
+# Windows ARM runs a selected-tool bring-up build, not a full toolchain installation.
+# The default generate mode refreshes unrelated tools after `mise install rust python ...`, failing on
+# "No matching asset found for pattern: *-aarch64-*msvc.z*" for findutils and other unavailable ARM assets.
+# Reproduced against https://github.com/edge-toolkit/core/commit/b1be2870bc80a2d9f44bb719ad31825ae5dca9cf.
+# Merge mode retains lockfile reads and updates installed tools without resolving the entire toolchain.
+# Other platforms retain the default generate mode. This compatibility mode is supported by mise 2026.10.20;
+# upstream plans to remove it in 2027.10, so revisit this setting when raising the mise version floor.
+# See https://mise.jdx.dev/configuration/settings.html#lockfile-mode.
+
+[settings]
+lockfile_mode = "merge"
