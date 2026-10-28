@@ -92,7 +92,7 @@ class Client:
         return self._client
 
     def __enter__(self) -> Self:
-        """Enter a context manager for self.client—you cannot enter twice (see httpx docs)"""
+        """Enter a context manager for self.client--you cannot enter twice (see httpx docs)"""
         self.get_httpx_client().__enter__()
         return self
 
@@ -123,7 +123,7 @@ class Client:
         return self._async_client
 
     async def __aenter__(self) -> Self:
-        """Enter a context manager for underlying httpx.AsyncClient—you cannot enter twice (see httpx docs)"""
+        """Enter a context manager for underlying httpx.AsyncClient--you cannot enter twice (see httpx docs)"""
         await self.get_async_httpx_client().__aenter__()
         return self
 
@@ -227,7 +227,7 @@ class AuthenticatedClient:
         return self._client
 
     def __enter__(self) -> Self:
-        """Enter a context manager for self.client—you cannot enter twice (see httpx docs)"""
+        """Enter a context manager for self.client--you cannot enter twice (see httpx docs)"""
         self.get_httpx_client().__enter__()
         return self
 
@@ -259,7 +259,7 @@ class AuthenticatedClient:
         return self._async_client
 
     async def __aenter__(self) -> Self:
-        """Enter a context manager for underlying httpx.AsyncClient—you cannot enter twice (see httpx docs)"""
+        """Enter a context manager for underlying httpx.AsyncClient--you cannot enter twice (see httpx docs)"""
         await self.get_async_httpx_client().__aenter__()
         return self
 

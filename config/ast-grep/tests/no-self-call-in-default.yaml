@@ -1,0 +1,62 @@
+id: no-self-call-in-default
+valid:
+  - |
+    impl Default for Registry {
+        fn default() -> Self {
+            Self {
+                agents: Vec::default(),
+            }
+        }
+    }
+  - |
+    impl Registry {
+        fn new() -> Self {
+            Self::default()
+        }
+    }
+  - |
+    impl Clone for Registry {
+        fn clone(&self) -> Self {
+            Self::from_parts(self.agents.clone())
+        }
+    }
+  - |
+    impl Default for Registry {
+        fn default() -> Self {
+            Self {
+                agents: Agents::from_parts(Vec::default()),
+            }
+        }
+    }
+  - |
+    impl Default for Level {
+        fn default() -> Self {
+            Self::Value(0)
+        }
+    }
+invalid:
+  - |
+    impl Default for Registry {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+  - |
+    impl<S> Default for Registry<S> {
+        fn default() -> Self {
+            Self::from_agents(BTreeMap::new())
+        }
+    }
+  - |
+    impl std::default::Default for Registry {
+        fn default() -> Self {
+            let agents = Vec::default();
+            Self::from_parts(agents)
+        }
+    }
+  - |
+    impl<S> Default for Registry<S> {
+        fn default() -> Self {
+            Self::from_parts::<S>(Vec::default())
+        }
+    }

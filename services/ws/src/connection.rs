@@ -740,6 +740,24 @@ impl Connection {
         true
     }
 
+    /// Close the session when its client address has been blocked since it connected, reporting whether it did.
+    async fn close_if_blocked(&self) -> bool {
+        if !self.registry.blocklist.is_blocked(self.client_ip) {
+            return false;
+        }
+        warn!(
+            "Closing WebSocket connection for client {} from blocked IP {}",
+            self.current_agent_id(),
+            self.client_ip
+        );
+        let reason = CloseReason {
+            code: CloseCode::Policy,
+            description: Some("client address blocked".to_owned()),
+        };
+        let _closed: Result<(), actix_ws::Closed> = self.session.clone().close(Some(reason)).await;
+        true
+    }
+
     #[expect(
         clippy::cognitive_complexity,
         clippy::future_not_send,
@@ -768,8 +786,10 @@ impl Connection {
             tokio::select! {
                 msg = stream.next() => {
                     match msg {
+                        // A frame is refused once its address is blocked, not only at the next heartbeat, so nothing
+                        // an evicted agent sends lands after the eviction dropped what it had queued.
                         Some(Ok(msg)) => {
-                            if !self.handle_inbound(msg).await {
+                            if self.close_if_blocked().await || !self.handle_inbound(msg).await {
                                 break;
                             }
                         }
@@ -790,7 +810,7 @@ impl Connection {
                     }
                 }
                 _ = heartbeat.tick() => {
-                    if self.close_if_idle().await {
+                    if self.close_if_blocked().await || self.close_if_idle().await {
                         break;
                     }
                 }

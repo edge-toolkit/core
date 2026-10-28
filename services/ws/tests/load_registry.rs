@@ -75,6 +75,21 @@ fn round_trips_state_ip_and_pending_messages_but_not_sessions() {
 }
 
 #[test]
+fn the_blocklist_round_trips_and_an_older_bare_registry_still_loads() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("registry.yaml");
+    let registry = WsAgentRegistry::default();
+    assert!(registry.blocklist.block(AGENT_2_IP));
+    registry.save(&path).unwrap();
+    assert!(load_registry(&path).unwrap().blocklist.is_blocked(AGENT_2_IP));
+
+    fs_err::write(&path, "agent-1:\n  state: connected\n  last_known_ip: 10.0.0.5\n").unwrap();
+    let bare = load_registry(&path).unwrap();
+    assert_eq!(bare.agent_ip("agent-1").unwrap(), AGENT_1_IP);
+    assert!(bare.blocklist.ips().is_empty());
+}
+
+#[test]
 fn malformed_yaml_is_a_registry_error() {
     let dir = tempdir().unwrap();
     let path = dir.path().join("registry.yaml");

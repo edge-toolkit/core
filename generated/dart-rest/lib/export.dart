@@ -3,10 +3,12 @@
 // ignore_for_file: type=lint, unused_import, invalid_annotation_target, unnecessary_import
 
 // Clients
+export 'clients/admin.dart';
 export 'clients/health.dart';
 export 'clients/modules.dart';
 export 'clients/storage.dart';
 // Data classes
+export 'models/evicted_agent.dart';
 export 'models/health_response.dart';
 // Root client
 export 'rest_client.dart';

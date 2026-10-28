@@ -16,10 +16,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/modules/{name}/{path}".format(
-            name=quote(str(name), safe=""),
-            path=quote(str(path), safe=""),
-        ),
+        "url": f"/modules/{quote(str(name), safe='')}/{quote(str(path), safe='')}",
     }
 
     return _kwargs

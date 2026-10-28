@@ -8,6 +8,12 @@ use progenitor_client::{ClientHooks, OperationInfo, RequestBuilderExt, encode_pa
 /// Types used as operation parameters and responses.
 #[allow(clippy::all)]
 pub mod types {
+    ///An agent the hub has evicted, and the address now refused because of it.
+    #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+    pub struct EvictedAgent {
+        pub agent_id: ::std::string::String,
+        pub blocked_ip: ::std::string::String,
+    }
     /**Server liveness probe response.
 
     Returned by `GET /health`.*/
@@ -46,10 +52,11 @@ pub mod types {
 #[derive(Clone, Debug)]
 /**Client for Edge Toolkit REST API
 
-ws-server HTTP surface: health probe, module discovery, module assets, and per-agent storage.
-The storage routes are an anonymous S3-compatible interface, addressed path-style as
-/storage/{agent_id}/{filename} (bucket = agent_id, key = filename), they answer PUT/GET/HEAD with an ETag, so a
-standard S3 client can read and write objects without credentials.
+ws-server HTTP surface: health probe, module discovery, module assets, per-agent storage, and
+the admin routes that block client addresses and evict agents. The storage routes are an anonymous S3-compatible
+interface, addressed path-style as /storage/{agent_id}/{filename} (bucket = agent_id, key = filename), they answer
+PUT/GET/HEAD with an ETag, so a standard S3 client can read and write objects without credentials. A client address
+the hub has blocked is refused by them with 403. The admin routes take the hub's WS_ADMIN_TOKEN as a bearer token.
 
 Version: 0.1.0*/
 pub struct Client {
@@ -147,6 +154,123 @@ impl ClientHooks<()> for &Client {
 }
 #[allow(clippy::all)]
 impl Client {
+    /**Evict an agent: block the address it last connected from, and drop the messages it queued
+
+    The block is the one [`block_ip`] makes, so it takes every agent on that address with it. The direct messages
+    the agent sent that are still waiting for their recipients are dropped, so nothing it queued is delivered after
+    it is gone.
+
+    Sends a `DELETE` request to `/agents/{agent_id}`
+
+    Arguments:
+    - `agent_id`: Agent to evict
+    */
+    pub async fn evict_agent<'a>(&'a self, agent_id: &'a str) -> Result<ResponseValue<types::EvictedAgent>, Error<()>> {
+        let url = format!("{}/agents/{}", self.baseurl, encode_path(&agent_id.to_string()),);
+        let mut header_map = ::reqwest::header::HeaderMap::with_capacity(1usize);
+        header_map.append(
+            ::reqwest::header::HeaderName::from_static("api-version"),
+            ::reqwest::header::HeaderValue::from_static(Self::api_version()),
+        );
+        #[allow(unused_mut)]
+        let mut request = self
+            .client
+            .delete(url)
+            .header(
+                ::reqwest::header::ACCEPT,
+                ::reqwest::header::HeaderValue::from_static("application/json"),
+            )
+            .headers(header_map)
+            .build()?;
+        let info = OperationInfo {
+            operation_id: "evict_agent",
+        };
+        match (|request: &mut ::reqwest::Request| {
+            #[cfg(feature = "tracing")]
+            {
+                let cx = <::tracing::Span as ::tracing_opentelemetry::OpenTelemetrySpanExt>::context(
+                    &::tracing::Span::current(),
+                );
+                ::opentelemetry::global::get_text_map_propagator(|propagator| {
+                    propagator.inject_context(&cx, &mut ::opentelemetry_http::HeaderInjector(request.headers_mut()));
+                });
+            }
+            #[cfg(not(feature = "tracing"))]
+            let _ = request;
+            async { Ok::<(), ::std::convert::Infallible>(()) }
+        })(&mut request)
+        .await
+        {
+            Ok(_) => {}
+            Err(e) => return Err(Error::Custom(e.to_string())),
+        }
+        self.pre(&mut request, &info).await?;
+        let result = self.exec(request, &info).await;
+        self.post(&result, &info).await?;
+        let response = result?;
+        match response.status().as_u16() {
+            200u16 => ResponseValue::from_response(response).await,
+            401u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
+            403u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
+            404u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
+            503u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
+            _ => Err(Error::UnexpectedResponse(response)),
+        }
+    }
+    /**Block an address: refuse it on every hub of the backplane
+
+    Blocking an address already blocked succeeds again, so the request can be repeated safely. A path segment that
+    is not an IPv4 or IPv6 address matches no route and is answered 404.
+
+    Sends a `PUT` request to `/blocked-ips/{ip}`
+
+    Arguments:
+    - `ip`: IPv4 or IPv6 address to block
+    */
+    pub async fn block_ip<'a>(&'a self, ip: &'a str) -> Result<ResponseValue<()>, Error<()>> {
+        let url = format!("{}/blocked-ips/{}", self.baseurl, encode_path(&ip.to_string()),);
+        let mut header_map = ::reqwest::header::HeaderMap::with_capacity(1usize);
+        header_map.append(
+            ::reqwest::header::HeaderName::from_static("api-version"),
+            ::reqwest::header::HeaderValue::from_static(Self::api_version()),
+        );
+        #[allow(unused_mut)]
+        let mut request = self.client.put(url).headers(header_map).build()?;
+        let info = OperationInfo {
+            operation_id: "block_ip",
+        };
+        match (|request: &mut ::reqwest::Request| {
+            #[cfg(feature = "tracing")]
+            {
+                let cx = <::tracing::Span as ::tracing_opentelemetry::OpenTelemetrySpanExt>::context(
+                    &::tracing::Span::current(),
+                );
+                ::opentelemetry::global::get_text_map_propagator(|propagator| {
+                    propagator.inject_context(&cx, &mut ::opentelemetry_http::HeaderInjector(request.headers_mut()));
+                });
+            }
+            #[cfg(not(feature = "tracing"))]
+            let _ = request;
+            async { Ok::<(), ::std::convert::Infallible>(()) }
+        })(&mut request)
+        .await
+        {
+            Ok(_) => {}
+            Err(e) => return Err(Error::Custom(e.to_string())),
+        }
+        self.pre(&mut request, &info).await?;
+        let result = self.exec(request, &info).await;
+        self.post(&result, &info).await?;
+        let response = result?;
+        match response.status().as_u16() {
+            204u16 => Ok(ResponseValue::empty(response)),
+            401u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
+            403u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
+            404u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
+            503u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
+            _ => Err(Error::UnexpectedResponse(response)),
+        }
+    }
     /**Liveness probe
 
     Returns a small JSON document identifying the service so external
@@ -376,6 +500,7 @@ impl Client {
         let response = result?;
         match response.status().as_u16() {
             200u16 => Ok(ResponseValue::stream(response)),
+            403u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
             404u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
             _ => Err(Error::UnexpectedResponse(response)),
         }
@@ -508,6 +633,7 @@ impl Client {
         let response = result?;
         match response.status().as_u16() {
             200u16 => Ok(ResponseValue::empty(response)),
+            403u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
             404u16 => Err(Error::ErrorResponse(ResponseValue::empty(response))),
             _ => Err(Error::UnexpectedResponse(response)),
         }

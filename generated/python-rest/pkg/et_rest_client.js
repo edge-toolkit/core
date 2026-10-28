@@ -1,4 +1,4 @@
-// et_rest_client.js — helper exposed to Pyodide-based ws-modules that need
+// et_rest_client.js -- helper exposed to Pyodide-based ws-modules that need
 // the generated REST client. Mounted at /modules/@edge-toolkit/et-rest-client/ by
 // et-modules-service (each consumer declares `et-rest-client = "*"` in
 // `[tool.ws-module.dependencies]`).

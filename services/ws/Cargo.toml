@@ -14,6 +14,8 @@ features = ["docs"]
 doctest = false
 
 [features]
+## Adds OpenAPI metadata to the admin handlers for `et-int-gen` to harvest into the published spec.
+openapi-spec = ["dep:utoipa"]
 ## Internal: derives JSON Schema for `WsConfig`, which et-int-gen renders into the hub's HELP.md.
 env-schema = ["dep:schemars"]
 ## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
@@ -28,22 +30,26 @@ chrono.workspace = true
 document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
 et-hub-backplane.workspace = true
-fs-err.workspace = true
 futures-util.workspace = true
 opentelemetry.workspace = true
 schemars = { workspace = true, optional = true }
+secrecy.workspace = true
 serde.workspace = true
 serde-inline-default.workspace = true
 serde_default.workspace = true
 serde_json.workspace = true
-serde_yaml.workspace = true
+subtle.workspace = true
+thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
 tracing.workspace = true
+utoipa = { workspace = true, optional = true }
 uuid.workspace = true
 
 [dev-dependencies]
+actix-http.workspace = true
 actix-rt.workspace = true
 et-test-helpers.workspace = true
+fs-err.workspace = true
 serde-env.workspace = true
 tempfile.workspace = true
 

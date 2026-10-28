@@ -9,6 +9,10 @@
 # Exclusions are matched as exact strings rather than by substring, because a wrong path base is the failure this
 # policy exists to catch: semgrep silently matches nothing when a `paths.exclude` entry loses its leading slash,
 # and the mistake is invisible until generator output shows up in a report.
+
+# METADATA
+# custom:
+#   meta: true
 package generated_trees
 
 source_path := "config/generated-trees.toml"

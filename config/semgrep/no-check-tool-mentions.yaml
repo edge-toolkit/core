@@ -61,11 +61,18 @@ rules:
         - "/config/generated-trees.toml" # Maps each generated tree onto the exclusion key this tool needs.
         - "/config/conftest/policy/generated_trees/generated_trees.rego" # Enforces that mapping.
         - "/config/conftest/policy/generated_trees/generated_trees_test.rego" # Unit tests for it.
+        - "/config/conftest/policy/no_exemptions/no_exemptions.rego" # Names this tool's two ways to scope a rule.
+        - "/config/conftest/policy/no_exemptions/no_exemptions_test.rego" # Unit tests for it.
+        - "/config/conftest/policy/ast_grep_rules/ast_grep_rules.rego" # Holds every rule of this tool to `error`.
+        - "/config/conftest/policy/ast_grep_rules/ast_grep_rules_test.rego" # Unit tests for it.
+        - "/config/semgrep/no-suppressing-unexemptable-rules.yaml" # Flags this tool's suppression pragma.
+        - "/config/semgrep-tests/no-suppressing-unexemptable-rules.rs.yaml" # Spells that pragma out to test it.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/config/semgrep/no-*-mentions.yaml" # The mention bans, which cannot help but name what they ban.
         - "/libs/test-helpers/src/lib.rs" # Carries a suppression pragma, which only works spelled out.
         - "/utilities/cli/tests/scenario_generation.rs" # Carries a suppression pragma, which only works spelled out.
         - "/utilities/cli/tests/scenario_runners.rs" # Carries a suppression pragma, which only works spelled out.
+        - "/utilities/int-gen/src/checks.rs" # Carries a suppression pragma, which only works spelled out.
     pattern-regex: "(?i)ast-grep"
     message: >-
       Do not name the structural search tool outside its own ruleset and the configs that scope it. Pointing at
@@ -612,6 +619,9 @@ rules:
         - "/config/generated-trees.toml" # Maps each generated tree onto the exclusion key this tool needs.
         - "/config/conftest/policy/generated_trees/generated_trees.rego" # Enforces that mapping.
         - "/config/conftest/policy/generated_trees/generated_trees_test.rego" # Unit tests for it.
+        - "/config/conftest/policy/no_exemptions/no_exemptions.rego" # Names the rule that guards its list inline.
+        - "/config/conftest/policy/no_exemptions/no_exemptions_test.rego" # Unit tests for it.
+        - "/config/semgrep-tests/no-suppressing-unexemptable-rules.rs.yaml" # Spells this tool's pragma out to test it.
         - "/CHECKS.md" # The generated catalogue of every check, which names each tool by design.
         - "/utilities/int-gen/src/checks.rs" # Names the ignore file the tool reads without being told to.
     pattern-regex: "(?i)semgrep"

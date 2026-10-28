@@ -312,6 +312,22 @@ openapi-python-client generate $args
 # Remove the .ruff_cache that openapi-python-client / our follow-up ruff drop.
 # It lands next to the generated source; we don't want that committed.
 coreutils rm -rf generated/python-rest/et_rest_client/.ruff_cache
+# Each rewrite below stages its output under target/, which git ignores.
+# A check counting untracked files while this runs therefore never sees a half-written copy beside the source.
+coreutils mkdir -p target/scratch
+staged=target/scratch/python-rest-rewrite.py
+# Rewrite the em-dashes openapi-python-client's templates put in docstrings, since the repo is ASCII-only.
+# `rg -l` exits 1 when nothing matches, which is the outcome to hope for, hence the `|| true`.
+dashed=$(rg -l '\\x{2014}' generated/python-rest/et_rest_client || true)
+for file in $dashed; do
+  rg --passthru --no-line-number --replace=-- '\\x{2014}' "$file" >"$staged"
+  coreutils mv "$staged" "$file"
+done
+formatted=$(rg -l '"url": "[^"]*"\\.format\\(' generated/python-rest/et_rest_client || true)
+for file in $formatted; do
+  goawk -f .mise/python-rest-fstring-url.awk "$file" >"$staged"
+  coreutils mv "$staged" "$file"
+done
 # Run both ruff passes ourselves from the workspace's `ruff` install.
 # openapi-python-client's built-in post-hooks (`ruff check --fix-only` + `ruff format`) are disabled via
 # config/openapi-python-client.yaml because they emit "ruff is not in PATH" on Windows where ruff doesn't sit

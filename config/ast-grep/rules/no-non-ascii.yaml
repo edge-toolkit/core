@@ -15,5 +15,3 @@ rule:
       regex: '^(///|//!).*[^\x00-\x7F]'
     - kind: block_comment
       regex: '^/\*[*!][\s\S]*[^\x00-\x7F]'
-ignores:
-  - generated/**

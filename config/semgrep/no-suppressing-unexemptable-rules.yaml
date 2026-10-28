@@ -1,0 +1,30 @@
+rules:
+  - id: no-suppressing-unexemptable-rules
+    languages: [generic]
+    metadata:
+      meta: true
+    paths:
+      exclude:
+        # Its own test case, which has to spell out every suppression the rule flags.
+        - "/config/semgrep-tests/no-suppressing-unexemptable-rules.rs.yaml"
+    # Each pattern opens at the newline ending the line above the marker, so the finding is reported on that line.
+    # A blanket marker silences findings on its own line, so a pattern starting there would let it hide itself.
+    # A marker on a file's first line has no line above, so it is matched from the start of the file instead; a
+    # blanket one there still hides itself, which no pattern can avoid.
+    # A rule id is matched whole, so a longer id that merely starts or ends with it is left alone.
+    # The bracketed letters keep the patterns from matching their own spelling in this file.
+    pattern-either:
+      # A semgrep marker naming an unexemptable rule.
+      - pattern-regex: '(?:\A|\n)[^\n]*(?:#|//|/\*|--)\s*nose[m](?:grep)?\s*:[^\n]*(?<![\w-])no-non-ascii(?![\w-])'
+      # A structural-search marker naming an unexemptable rule.
+      - pattern-regex: '(?:\A|\n)[^\n]*(?:#|//)\s*ast-grep[-]ignore\s*:[^\n]*(?<![\w-])no-non-ascii(?![\w-])'
+      # A semgrep marker naming no rule, which silences every rule on its line.
+      - pattern-regex: '(?:\A|\n)[^\n]*(?:#|//|/\*|--)\s*nose[m](?:grep)?\b(?!\s*:)'
+      # A structural-search marker naming no rule, which silences every rule on the line below.
+      - pattern-regex: '(?:\A|\n)[^\n]*(?:#|//)\s*ast-grep[-]ignore\b(?!\s*:)'
+    message: >-
+      This suppression comment exempts the line from a rule the repository holds to every file without exception,
+      either by naming that rule or by naming no rule at all and so silencing every one. Fix the line instead; when a
+      generator wrote it, fix the generator or the task that runs it. A marker that has to stay names the single
+      rule it silences and the reason beside it.
+    severity: ERROR

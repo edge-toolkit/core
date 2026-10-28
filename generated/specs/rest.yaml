@@ -2,15 +2,81 @@ openapi: 3.0.3
 info:
   title: Edge Toolkit REST API
   description: |-
-    ws-server HTTP surface: health probe, module discovery, module assets, and per-agent storage.
-    The storage routes are an anonymous S3-compatible interface, addressed path-style as
-    /storage/{agent_id}/{filename} (bucket = agent_id, key = filename), they answer PUT/GET/HEAD with an ETag, so a
-    standard S3 client can read and write objects without credentials.
+    ws-server HTTP surface: health probe, module discovery, module assets, per-agent storage, and
+    the admin routes that block client addresses and evict agents. The storage routes are an anonymous S3-compatible
+    interface, addressed path-style as /storage/{agent_id}/{filename} (bucket = agent_id, key = filename), they answer
+    PUT/GET/HEAD with an ETag, so a standard S3 client can read and write objects without credentials. A client address
+    the hub has blocked is refused by them with 403. The admin routes take the hub's WS_ADMIN_TOKEN as a bearer token.
   version: 0.1.0
 servers:
   - url: http://localhost:8080
     description: Default ws-server bind address
 paths:
+  /agents/{agent_id}:
+    delete:
+      tags:
+        - admin
+      summary: "Evict an agent: block the address it last connected from, and drop the messages it queued."
+      description: |-
+        The block is the one [`block_ip`] makes, so it takes every agent on that address with it. The direct messages
+        the agent sent that are still waiting for their recipients are dropped, so nothing it queued is delivered after
+        it is gone.
+      operationId: evict_agent
+      parameters:
+        - in: path
+          name: agent_id
+          description: Agent to evict
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        "200":
+          description: Agent evicted and its address blocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvictedAgent"
+        "401":
+          description: Missing or wrong admin bearer token
+        "403":
+          description: Admin API disabled
+        "404":
+          description: Agent not found
+        "503":
+          description: Hub backplane unavailable
+      security:
+        - admin_token: []
+  /blocked-ips/{ip}:
+    put:
+      tags:
+        - admin
+      summary: "Block an address: refuse it on every hub of the backplane."
+      description: |-
+        Blocking an address already blocked succeeds again, so the request can be repeated safely. A path segment that
+        is not an IPv4 or IPv6 address matches no route and is answered 404.
+      operationId: block_ip
+      parameters:
+        - in: path
+          name: ip
+          description: IPv4 or IPv6 address to block
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        "204":
+          description: Address blocked
+        "401":
+          description: Missing or wrong admin bearer token
+        "403":
+          description: Admin API disabled
+        "404":
+          description: Not an IP address
+        "503":
+          description: Hub backplane unavailable
+      security:
+        - admin_token: []
   /health:
     get:
       tags:
@@ -110,6 +176,8 @@ paths:
                 type: string
           content:
             application/octet-stream: {}
+        "403":
+          description: Client address blocked
         "404":
           description: No such file
     put:
@@ -160,7 +228,7 @@ paths:
         "400":
           description: Invalid filename
         "403":
-          description: Agent not connected, or request not from its address
+          description: Address blocked, agent not connected, or request not from its address
         "404":
           description: Agent not found
     head:
@@ -202,10 +270,23 @@ paths:
               style: simple
               schema:
                 type: string
+        "403":
+          description: Client address blocked
         "404":
           description: No such file
 components:
   schemas:
+    EvictedAgent:
+      description: An agent the hub has evicted, and the address now refused because of it.
+      type: object
+      properties:
+        agent_id:
+          type: string
+        blocked_ip:
+          type: string
+      required:
+        - agent_id
+        - blocked_ip
     HealthResponse:
       description: |-
         Server liveness probe response.
@@ -220,3 +301,7 @@ components:
       required:
         - status
         - service
+  securitySchemes:
+    admin_token:
+      type: http
+      scheme: bearer

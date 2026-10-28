@@ -19,10 +19,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "put",
-        "url": "/storage/{agent_id}/{filename}".format(
-            agent_id=quote(str(agent_id), safe=""),
-            filename=quote(str(filename), safe=""),
-        ),
+        "url": f"/storage/{quote(str(agent_id), safe='')}/{quote(str(filename), safe='')}",
     }
 
     _kwargs["content"] = body.payload

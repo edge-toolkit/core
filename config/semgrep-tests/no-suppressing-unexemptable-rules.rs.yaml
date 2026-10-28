@@ -1,0 +1,32 @@
+code: |
+  fn examples() {
+      // ruleid: no-suppressing-unexemptable-rules
+      let named_semgrep = 1;
+      // nosemgrep: config.semgrep.no-non-ascii -- naming the rule exempts the line
+      // ruleid: no-suppressing-unexemptable-rules
+      let named_ast_grep = 2;
+      // ast-grep-ignore: no-non-ascii
+      // ruleid: no-suppressing-unexemptable-rules
+      let blanket_semgrep = 3;
+      // nosemgrep
+      // ruleid: no-suppressing-unexemptable-rules
+      let blanket_ast_grep = 4;
+      // ast-grep-ignore
+      // ok: no-suppressing-unexemptable-rules
+      let other_semgrep = 5;
+      // nosemgrep: config.semgrep.no-todo -- a rule that may be suppressed
+      // ok: no-suppressing-unexemptable-rules
+      let other_ast_grep = 6;
+      // ast-grep-ignore: no-std-env-var
+      // ok: no-suppressing-unexemptable-rules
+      let prose = "a `nosemgrep` marker named in text";
+      // ok: no-suppressing-unexemptable-rules
+      let longer_id = 7;
+      // nosemgrep: config.semgrep.no-non-ascii-extra -- a different rule that starts with the same id
+      // ok: no-suppressing-unexemptable-rules
+      let prefixed_id = 8;
+      // ast-grep-ignore: legacy-no-non-ascii
+      // ok: no-suppressing-unexemptable-rules
+      let named_prose = 9;
+      let text = "use nosemgrep: no-non-ascii or ast-grep-ignore: no-non-ascii only with approval";
+  }

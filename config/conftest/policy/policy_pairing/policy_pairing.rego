@@ -6,6 +6,10 @@
 # a clean repo. The real `conftest-check-*` tasks only ever run over files that already comply, so they cannot
 # tell those two apart, and a rule can sit dead for months looking like a passing check. Feeding a known-bad
 # input is the only thing that distinguishes them, and a test file is where that input lives.
+
+# METADATA
+# custom:
+#   meta: true
 package policy_pairing
 
 # conftest reports native separators when it walks a directory, so a Windows lane sees backslashes.

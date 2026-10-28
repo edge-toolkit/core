@@ -1,3 +1,4 @@
+use std::net::IpAddr;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
@@ -35,6 +36,30 @@ pub enum Commands {
     ModulePackageJson {
         #[arg(long, default_value = ".")]
         module_dir: PathBuf,
+    },
+    /// Block an IP address on a running hub and every hub sharing its backplane.
+    BlockIp {
+        /// Base URL of the hub, e.g. `http://localhost:8080`.
+        #[arg(long)]
+        hub_url: String,
+        /// IPv4 or IPv6 address to block.
+        #[arg(long)]
+        ip: IpAddr,
+        /// The hub's admin bearer token; set `WS_ADMIN_TOKEN` to keep it out of the process list.
+        #[arg(long, env = "WS_ADMIN_TOKEN", hide_env_values = true)]
+        admin_token: String,
+    },
+    /// Evict an agent from a running hub, blocking the IP address it last connected from on every hub.
+    EvictAgent {
+        /// Base URL of the hub, e.g. `http://localhost:8080`.
+        #[arg(long)]
+        hub_url: String,
+        /// Id of the agent to evict.
+        #[arg(long)]
+        agent_id: String,
+        /// The hub's admin bearer token; set `WS_ADMIN_TOKEN` to keep it out of the process list.
+        #[arg(long, env = "WS_ADMIN_TOKEN", hide_env_values = true)]
+        admin_token: String,
     },
     /// Print the directory holding a mise-staged npm package.
     NpmModulePath {

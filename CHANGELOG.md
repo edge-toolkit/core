@@ -45,6 +45,15 @@ Changelog 1.1.0.
   `RUSTFS_SECRET_KEY`. A scenario without `services.hub.machines` renders as before.
 - `WS_MESSAGE_RETENTION=all` makes the hub keep every unacknowledged direct message a recipient has from a sender,
   rather than only the newest. The default, `latest-per-sender`, behaves as before.
+- An operator can block an IP address, or evict a misbehaving agent. `PUT /blocked-ips/{ip}` blocks an address: the
+  hub closes every socket from it within a second, refuses its WebSocket upgrades, and refuses its `/storage`
+  requests with 403. `DELETE /agents/{agent_id}` blocks the address the agent last connected from the same way, and
+  drops the direct messages it sent that no recipient has acknowledged yet. With a NATS backplane a block reaches
+  every hub through the new `et-blocked` KV bucket, including hubs that join later. A local hub saves it in
+  `registry.yaml`. Both routes need `WS_ADMIN_TOKEN` set on the hub and presented as an `Authorization: Bearer`
+  token. While the variable is unset, the admin API answers 403. `et-cli block-ip --hub-url <url> --ip <address>` and
+  `et-cli evict-agent --hub-url <url> --agent-id <id>` send the requests, reading the token from `WS_ADMIN_TOKEN`.
+  There is no unblock yet; remove the address from `registry.yaml` or the KV bucket and restart the hubs.
 
 ### Changed
 
@@ -67,6 +76,10 @@ Changelog 1.1.0.
 - **Breaking:** `AgentRegistry::queue_direct` and `NatsBackplane::queue` take a `MessageRetention`.
   `Backplane::knows` is replaced by `Backplane::presence`, and `Presence::Connected` carries the agent's
   `last_known_ip`.
+- **Breaking:** `registry.yaml` is now a map with `agents` (the former top-level map of agent records) and
+  `blocked_ips`. A file in the old layout still loads, and is written back in the new one. The `/storage` `GET`
+  and `HEAD` handlers, like `PUT`, now take the agent registry and are generic over its session type, so an app
+  serving them must register an `AgentRegistry`.
 
 ## [0.3.0] - 2026-10-15
 

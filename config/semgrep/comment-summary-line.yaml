@@ -22,6 +22,8 @@ rules:
         # Hand-edits would drift on the next regeneration, so the comment style there is the generator's job, not ours.
         - "/generated/**"
         - "/verification/**"
+        # Its own test case, which has to break the rule to show it fires.
+        - "/config/semgrep-tests/comment-summary-line.rego.yaml"
     # Flag the first line of a multi-line `#` comment block when its final character is not a full stop.
     # The block-start anchor is the preceding line, consumed into the match: start-of-file (`\A`), a shebang --
     # an interpreter directive rather than a comment, so it anchors a block instead of opening one, and only at
@@ -32,8 +34,9 @@ rules:
     # char -- not the first raw char -- is what stops an INDENTED comment line (whose leading whitespace would
     # otherwise read as a non-comment line) from anchoring a spurious match: interior continuation lines, which need
     # not end in a period, stay unflagged regardless of indentation. The trailing `[^.\n]` matches any final char
-    # except `.`, so the summary line must end in a full stop -- a trailing `:` is not accepted.
-    pattern-regex: '(?m)(?:\A(?!#!)|\A#![^\n]*\n|^[ \t]*(?:[^#\s][^\n]*)?\n)[ \t]*#[^\n]*[^.\n]\n[ \t]*#'
+    # except `.`, so the summary line must end in a full stop -- a trailing `:` is not accepted. A block opening
+    # with exactly `# METADATA` is OPA's annotation, read by machine as YAML, so the lookahead lets it through.
+    pattern-regex: '(?m)(?:\A(?!#!)|\A#![^\n]*\n|^[ \t]*(?:[^#\s][^\n]*)?\n)[ \t]*#(?! METADATA\n)[^\n]*[^.\n]\n[ \t]*#'
     message: >-
       A multi-line `#` comment block must open with a single summary line ending in a full stop (PEP 257 style).
       The summary describes the whole block in one sentence; continuation lines follow. End the first comment line

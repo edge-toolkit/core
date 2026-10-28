@@ -13,6 +13,7 @@ use et_path::{absolute_from, relative_path_from};
 use fs_err as fs;
 use serde::Deserialize;
 
+mod admin;
 pub mod cli;
 mod deployment_types;
 mod error;
@@ -30,6 +31,7 @@ mod schedule;
 // directory is et-int-gen, which reads the `cli` tree to write HELP.md, and nothing exported is a promise. Everything
 // the generators share among themselves is `pub(crate)`, so what remains below is the whole of the surface anyone could
 // depend on -- short enough to read, which is what makes an accidental addition to it visible.
+pub use self::admin::{EvictedAgent, block_ip, evict_agent};
 pub use self::deployment_types::{ScenarioModules, docker_image_module_paths, scenario_module_paths};
 pub(crate) use self::deployment_types::{
     generate_dekit_deployment, generate_docker_compose_deployment, generate_k3s_deployment, generate_mise_deployment,

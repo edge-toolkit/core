@@ -1,6 +1,8 @@
 id: semgrep-path-anchored
 language: yaml
 severity: error
+metadata:
+  meta: true
 message: |
   Every semgrep `paths.include` / `paths.exclude` entry starts with `/`, anchoring it at the repository root. A pattern
   without one is easy to get wrong in either direction -- an exclusion that lost its slash silently matches nothing,

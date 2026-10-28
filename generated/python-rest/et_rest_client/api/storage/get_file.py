@@ -16,10 +16,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/storage/{agent_id}/{filename}".format(
-            agent_id=quote(str(agent_id), safe=""),
-            filename=quote(str(filename), safe=""),
-        ),
+        "url": f"/storage/{quote(str(agent_id), safe='')}/{quote(str(filename), safe='')}",
     }
 
     return _kwargs
@@ -27,6 +24,9 @@ def _get_kwargs(
 
 def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | None:
     if response.status_code == 200:
+        return None
+
+    if response.status_code == 403:
         return None
 
     if response.status_code == 404:

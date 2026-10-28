@@ -1,29 +1,11 @@
 rules:
   - id: no-non-ascii
     languages: [generic]
-    paths:
-      exclude:
-        # Generated / build-output trees regenerate non-ASCII from their tools.
-        # The source of truth there is the generator, not a hand edit: clap's HELP.md carries a jump glyph and the
-        # AsyncAPI/OpenAPI/WIT output under generated/ plus the regen-verification output under verification/ all
-        # reintroduce it. Module pkg/ dirs are NOT excluded: their generated contents (wasm-pack bundles, wheels,
-        # compiled JS) are gitignored and semgrep scans only tracked files, while the committed shims in pkg/ are
-        # hand-written source the ban must cover -- a blanket pkg/ exclude once hid shim em-dashes for months.
-        - "/generated/**"
-        - "/verification/**"
-        - "/**/HELP.md"
-        # License texts carry non-ASCII legal glyphs and are not ours to edit.
-        - "/**/LICENSE*"
-        # Binary assets.
-        - "/**/*.png"
-        - "/**/*.ico"
-        - "/**/*.wasm"
-        - "/**/*.onnx"
     pattern-regex: '[^\x00-\x7F]'
     message: >-
       Non-ASCII character.
-      Keep source, config, and docs ASCII-only: use `--` for an em-dash, `->` for an arrow, `...` for an
-      ellipsis, `<=`/`!=`/`^2` for math glyphs, and straight quotes for curly quotes. ASCII keeps terminals, log
-      scrapers, and `grep` reading the same bytes the editor shows. Generated trees (generated/, verification/,
-      HELP.md) are exempt because their generator owns the output.
+      Keep source, config, docs and generated output ASCII-only: use `--` for an em-dash, `->` for an arrow, `...`
+      for an ellipsis, `<=`/`!=`/`^2` for math glyphs, and straight quotes for curly quotes. ASCII keeps terminals,
+      log scrapers, and `grep` reading the same bytes the editor shows. Nothing is exempt: when a generator emits
+      the character, fix the generator or the task that runs it.
     severity: ERROR

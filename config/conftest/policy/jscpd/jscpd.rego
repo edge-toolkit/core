@@ -20,6 +20,10 @@
 # Lowering this number is ordinary work -- remove duplication, then bring it down. RAISING it is not: it means
 # duplication was accepted rather than fixed, so it needs the operator's explicit sign-off, exactly as deleting a
 # lint rule does.
+
+# METADATA
+# custom:
+#   meta: true
 package jscpd
 
 # Ceiling on the clone fingerprints recorded in config/jscpd-baseline.json.

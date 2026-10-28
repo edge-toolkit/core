@@ -12,7 +12,9 @@ use actix_web::{Error, HttpRequest, HttpResponse, web};
 use bytes::Bytes;
 use edge_toolkit::ws::{CloudEvent, ServerMessage, client_event_type};
 pub use edge_toolkit::ws_server::MessageRetention;
-use edge_toolkit::ws_server::{AgentRecord, AgentRegistry, PendingDirectMessage, RegistryError};
+use edge_toolkit::ws_server::{
+    AgentRecord, AgentRegistry, IpBlocklist, PendingDirectMessage, RegistryError, read_registry_file,
+};
 pub use et_hub_backplane::{Backplane, BackplaneConfig, BackplaneError};
 use et_hub_backplane::{Frame, Inbound};
 use futures_util::{Stream, StreamExt as _};
@@ -29,8 +31,10 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tracing::{info, warn};
 
+pub mod admin;
 mod connection;
 
+use self::admin::AdminToken;
 use self::connection::Connection;
 
 /// Default idle timeout before the hub closes a quiet connection.
@@ -115,6 +119,13 @@ pub struct WsConfig {
     #[serde_inline_default(PathBuf::from("registry.yaml"))]
     #[cfg_attr(feature = "env-schema", schemars(extend("default" = "registry.yaml")))]
     pub agent_registry: PathBuf,
+
+    /// Bearer token authorizing the admin API: `PUT /blocked-ips/{ip}` and `DELETE /agents/{agent_id}`.
+    ///
+    /// Unset disables the admin API, which then refuses every request with 403; an empty value is rejected.
+    #[serde(default)]
+    #[cfg_attr(feature = "env-schema", schemars(with = "Option<String>"))]
+    pub admin_token: AdminToken,
 }
 
 const fn default_max_frame_size() -> usize {
@@ -184,16 +195,9 @@ struct BareRecord {
 
 /// Load a registry from disk. Sessions are not persisted, so they are initialised to `None`.
 pub fn load_registry(path: &std::path::Path) -> Result<WsAgentRegistry, RegistryError> {
-    if !path.exists() {
-        warn!(
-            "Registry file {} does not exist, starting with empty registry",
-            path.display()
-        );
-        return Ok(WsAgentRegistry::default());
-    }
-    let yaml = fs_err::read_to_string(path)?;
-    let bare: BTreeMap<String, BareRecord> = serde_yaml::from_str(&yaml)?;
-    let agents = bare
+    let file = read_registry_file::<BareRecord>(path)?;
+    let agents = file
+        .agents
         .into_iter()
         .map(|(id, record)| {
             (
@@ -203,8 +207,7 @@ pub fn load_registry(path: &std::path::Path) -> Result<WsAgentRegistry, Registry
             )
         })
         .collect();
-    info!("Loaded registry from {}", path.display());
-    Ok(WsAgentRegistry::from_agents(agents))
+    Ok(WsAgentRegistry::from_agents(agents).with_blocklist(IpBlocklist::from_ips(file.blocked_ips)))
 }
 
 /// Log an agent's `et-client-event`, the observability frame the hub records and does not answer.
@@ -247,6 +250,14 @@ fn log_client_event(agent_id: &str, event: &CloudEvent) {
     );
 }
 
+/// The backplane the app serving `req` joined.
+///
+/// An app that never joined one is a local hub.
+fn backplane_of(req: &HttpRequest) -> Backplane {
+    req.app_data::<web::Data<Backplane>>()
+        .map_or(Backplane::Local, |backplane| backplane.get_ref().clone())
+}
+
 #[expect(
     clippy::future_not_send,
     reason = "actix-web HttpRequest and Payload are Rc-backed and !Send; handler runs on actix's single thread"
@@ -266,21 +277,21 @@ pub async fn ws_handler(
         .peer_addr()
         .ok_or_else(|| actix_web::error::ErrorInternalServerError("websocket request has no peer address"))?
         .ip();
+    if registry.blocklist.is_blocked(client_ip) {
+        warn!("Refused a WebSocket connection from blocked IP {client_ip}");
+        span.end();
+        return Ok(HttpResponse::Forbidden().finish());
+    }
 
     let (response, session, msg_stream) = actix_ws::handle(&req, body)?;
     let stream = msg_stream
         .max_frame_size(config.max_frame_size)
         .aggregate_continuations();
 
-    let backplane = req
-        .app_data::<web::Data<Backplane>>()
-        .map(|data| data.get_ref().clone())
-        .unwrap_or_default();
-
     let (tx, rx) = mpsc::unbounded_channel::<SessionMessage>();
     let conn = Connection::new(
         registry.get_ref().clone(),
-        backplane,
+        backplane_of(&req),
         client_ip,
         session,
         tx,
@@ -298,8 +309,9 @@ pub async fn ws_handler(
 
 /// Start delivering what other hubs send this hub's agents; a no-op for a `Local` backplane.
 ///
-/// Returns once the subscription is live, so nothing another hub sends afterwards can be missed. Delivery then runs
-/// on a task of the current actix runtime until the [`BackplaneDelivery`] returned is stopped.
+/// Returns once the subscription is live and the shared blocklist is in `registry`, so nothing another hub sends or
+/// blocks afterwards can be missed. Delivery then runs on a task of the current actix runtime until the
+/// [`BackplaneDelivery`] returned is stopped.
 ///
 /// `max_frame_size` is the largest frame this hub accepts. A broker whose `max_payload` is smaller cannot carry such a
 /// frame to another hub, so that mismatch is warned about here, once, rather than left to surface as a failed relay.
@@ -313,6 +325,9 @@ pub async fn start_backplane(
     };
     warn_if_broker_payload_too_small(nats.max_payload(), max_frame_size);
     let inbox = Box::pin(nats.subscribe().await?);
+    for ip in nats.blocked_ips().await? {
+        let _newly = registry.blocklist.block(ip);
+    }
     let (stop, stopped) = oneshot::channel::<()>();
     let task = actix_web::rt::spawn(deliver_until_stopped(inbox, stopped, registry.clone()));
     info!("Hub {} joined the NATS backplane", nats.hub_id());
@@ -368,6 +383,11 @@ fn deliver_inbound(registry: &WsAgentRegistry, inbound: Inbound) {
         Inbound::Broadcast { from_agent_id, frame } => {
             for (_, session) in registry.connected_sessions(&from_agent_id) {
                 let _sent = session.send(frame.clone().into());
+            }
+        }
+        Inbound::Blocked { ip } => {
+            if registry.blocklist.block(ip) {
+                info!("Blocked IP {ip} on the backplane's word");
             }
         }
     }
@@ -428,5 +448,7 @@ pub async fn withdraw_local_agents(backplane: &Backplane, registry: &WsAgentRegi
 pub fn configure(cfg: &mut web::ServiceConfig, config: &WsConfig) {
     let _routed = cfg
         .app_data(web::Data::new(config.clone()))
-        .route("/ws", web::get().to(ws_handler));
+        .route("/ws", web::get().to(ws_handler))
+        .route("/agents/{agent_id}", web::delete().to(admin::evict_agent))
+        .route("/blocked-ips/{ip}", web::put().to(admin::block_ip));
 }

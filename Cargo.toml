@@ -238,6 +238,7 @@ serde_with = { version = "3.24", default-features = false, features = ["macros"]
 serde_yaml = "0.9"
 sha2 = { version = "0.11", default-features = false }
 strum = { version = "0.28", features = ["derive"] }
+subtle = "2.6"
 syn = "3"
 sys_traits = { version = "0.1", features = ["libc", "real"] }
 temp-env = "0.3"
