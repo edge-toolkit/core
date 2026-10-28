@@ -48,7 +48,7 @@ spec:
                 name: openobserve-config
             - secretRef:
                 name: et-facility-security-scenario-secrets
-          image: openobserve/openobserve:v1.1.1
+          image: openobserve/openobserve:v1.1.2
           imagePullPolicy: IfNotPresent
           name: openobserve
           ports:

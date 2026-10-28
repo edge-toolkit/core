@@ -540,7 +540,7 @@ fn collector_environment() -> Vec<(String, ComposeValue)> {
 /// Build the `OpenObserve` collector service the scenario's traces are exported to.
 fn openobserve_service() -> ComposeService {
     ComposeService {
-        image: Some("openobserve/openobserve:v1.1.1".to_string()),
+        image: Some("openobserve/openobserve:v1.1.2".to_string()),
         healthcheck: Some(healthcheck(&["CMD", "/openobserve", "node", "status"])),
         // Bound to loopback, not every interface. A collector published on 0.0.0.0 would hand its root login to anyone
         // who can reach the host and read the scenario's generated env file. Nothing outside the developer's machine
