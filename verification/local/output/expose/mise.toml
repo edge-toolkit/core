@@ -1,0 +1,54 @@
+[env]
+OTLP_AUTH_USERNAME = "root@example.com"
+
+[env._]
+file = "secrets.env"
+
+[tasks.generated-scenario]
+depends = ["openobserve", "pyo3-math1-twin", "ws-server"]
+description = "Run generated scenario for expose"
+
+[tasks.open-o2]
+description = "Open the OpenObserve UI"
+run = "open http://localhost:5080/"
+
+[tasks.openobserve]
+alias = "o2"
+run = """
+image=openobserve/openobserve:v1.1.1
+container=openobserve-expose
+settings="-e RUST_LOG=warn -e ZO_ROOT_USER_EMAIL=root@example.com"
+# $settings is a word-split flag list by design; do not quote it.
+docker run --rm --name "$container" -p 127.0.0.1:5080:5080 $settings -e ZO_ROOT_USER_PASSWORD "$image"
+"""
+
+[tasks.pyo3-math1-twin]
+description = "Run @edge-toolkit/et-ws-pyo3-math1 in the pyo3 runner"
+dir = "../../../.."
+run = """
+cargo run --quiet -p et-ws-pyo3-runner
+"""
+
+[tasks.pyo3-math1-twin.env]
+HTTP_PORT = "8000"
+RUNNER_MODULE = "@edge-toolkit/et-ws-pyo3-math1"
+WS_SERVER_URL = "ws://localhost:8080/ws"
+
+[tasks.ws-server]
+description = "Run the WebSocket server"
+dir = "../../../../services/ws-server"
+run = """
+MODULES_PATHS="$(cargo run --quiet -p et-cli -- npm-module-path --package onnxruntime-web)"
+MODULES_PATHS="$MODULES_PATHS, $(cargo run --quiet -p et-cli -- npm-module-path --package stats-gl)"
+MODULES_PATHS="$MODULES_PATHS, ../../data/model-modules/model-har-motion1, ../ws-modules/har1, ../ws-modules/pyo3-math1"
+MODULES_PATHS="$MODULES_PATHS, ../ws-wasm-agent, static"
+export MODULES_PATHS
+cargo run
+"""
+
+[tasks.ws-server.env]
+MODULES_ROOT = "@edge-toolkit/et-ws-server-static"
+
+[tools]
+"aqua:F1bonacc1/process-compose" = "latest"
+"cargo:open" = "latest"

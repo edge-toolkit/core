@@ -1,0 +1,43 @@
+defaults:
+  stop: SIGINT
+tasks:
+  openobserve:
+    cmd:
+      - mise
+      - run
+      - openobserve
+    autostart: true
+    ready:
+      http: http://localhost:5080/healthz
+    stop:
+      cmd:
+        - docker
+        - stop
+        - openobserve-expose
+      timeout: 30s
+  ws-server:
+    cmd:
+      - mise
+      - run
+      - ws-server
+    deps:
+      - openobserve
+    autostart: true
+    ready:
+      http: http://localhost:8080/health
+  pyo3-math1-twin:
+    cmd:
+      - mise
+      - run
+      - pyo3-math1-twin
+    deps:
+      - ws-server
+    autostart: true
+  open-o2:
+    type: job
+    cmd:
+      - mise
+      - run
+      - open-o2
+    deps:
+      - openobserve

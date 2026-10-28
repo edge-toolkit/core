@@ -14,7 +14,8 @@
 //!
 //! * compose runs the hub and every runner on `network_mode: host`, so each addresses the others as
 //!   `localhost`. Here each component gets a `Service`, and the runners reach the hub by its in-namespace DNS
-//!   name. Nothing binds a host port, so two scenarios can run side by side.
+//!   name. Only the ports a scenario's `expose:` lists bind one on a node, so two scenarios that expose nothing
+//!   can run side by side.
 //! * compose expresses start-up order with `depends_on: condition: service_healthy`. Kubernetes has no such
 //!   edge. The hub and collector carry readiness probes, and a runner that starts early exits and is restarted
 //!   until the hub answers -- `CrashLoopBackOff` on the way up is expected here, not a fault.
@@ -49,7 +50,8 @@ use super::hub_sharing::{
 };
 use super::k3s_recovery;
 use crate::error::CliError;
-use crate::input::{ArtifactSource, ClusterInput};
+use crate::expose::{external_hub_service, hub_ports};
+use crate::input::{ArtifactSource, ClusterInput, ExposedPort};
 use crate::limits::{CpuCap, Limits, MAX_CPU_SHARES, ResolvedLimits, k8s_bytes, k8s_cpus};
 use crate::placement::{Hub, MACHINE_LABEL, Site, hub_site, hubs, shares_hubs};
 use crate::schedule::Schedule;
@@ -80,6 +82,13 @@ const OPENOBSERVE_IMAGE: &str = "openobserve/openobserve:v1.1.1";
 /// writing the host into the literal also keeps link checking from reading an in-cluster DNS name as an external link
 /// it should be able to reach. The hub's equivalent lives beside the URL builder that needs it.
 const COLLECTOR_SERVICE: &str = "openobserve";
+
+/// The node and `Service` label `ServiceLB` pools load balancers by, so a `Service` binds ports on its machine only.
+///
+/// k3s's `ServiceLB` answers a `LoadBalancer` `Service` by binding its ports on every node it may use, and a
+/// `Service` carrying this label may use only the nodes labelled with the same value. Each exposed `Service` names its
+/// own machine, so two hubs listening on the same port on different machines do not contend for one node's port.
+pub(crate) const LB_POOL_LABEL: &str = "svccontroller.k3s.cattle.io/lbpool";
 
 /// The `ConfigMap` holding the NATS server's configuration file, and the volume it is mounted from.
 const BACKPLANE_CONFIG_MAP: &str = "nats-config";
@@ -233,6 +242,15 @@ pub fn generate_k3s_deployment(cluster: &ClusterInput, output_dir: &Path) -> Res
             cluster.artifact_source,
             supervised,
         )?);
+        if !runner.expose.is_empty() {
+            docs.push(document(&exposed_service(
+                &namespace,
+                &runner.name,
+                &runner.name,
+                &runner.expose,
+                &runner.site,
+            ))?);
+        }
     }
     docs.extend(k3s_recovery::documents(cluster, &namespace)?);
     let plugins = cluster_plugins(cluster);
@@ -286,6 +304,7 @@ fn fixed_documents(
         root_module,
         shared,
     };
+    let exposed = hub_ports(cluster);
     for hub in hubs(cluster) {
         docs.push(document(&hub_deployment(
             namespace,
@@ -294,6 +313,15 @@ fn fixed_documents(
             &cluster.services.hub.limits,
         ))?);
         docs.push(document(&hub_service(namespace, &hub.name))?);
+        if !exposed.is_empty() {
+            docs.push(document(&exposed_service(
+                namespace,
+                &external_hub_service(&hub.name),
+                &hub.name,
+                &exposed,
+                &hub.site,
+            ))?);
+        }
     }
     Ok(docs)
 }
@@ -1060,6 +1088,40 @@ fn service(namespace: &str, name: &str, ports: Vec<ServicePort>) -> Service {
     }
 }
 
+/// A `LoadBalancer` service named `name` publishing `ports` of the pods labelled `app`, on the machine at `site`.
+///
+/// k3s's `ServiceLB` binds each port on the node's own address, which is also what Rancher Desktop forwards to the
+/// host's `localhost`. `Local` routes a connection only to a pod on the node it arrived at, and on a scenario naming
+/// machines [`LB_POOL_LABEL`] keeps the node to the one `site` names, so the port is open where the process runs and
+/// nowhere else -- the address the host-network formats give it too.
+fn exposed_service(namespace: &str, name: &str, app: &str, ports: &[ExposedPort], site: &Site) -> Service {
+    let mut metadata = meta(namespace, name);
+    if let Some(machine) = site.machine_names().first() {
+        let _previous = metadata
+            .labels
+            .get_or_insert_with(BTreeMap::new)
+            .insert(LB_POOL_LABEL.to_string(), machine.clone());
+    }
+    let ports = ports
+        .iter()
+        .map(|exposed| ServicePort {
+            protocol: Some(exposed.protocol.k8s_name().to_string()),
+            ..port(&exposed.name, exposed.port)
+        })
+        .collect();
+    Service {
+        metadata,
+        spec: Some(ServiceSpec {
+            external_traffic_policy: Some("Local".to_string()),
+            ports: Some(ports),
+            selector: Some(labels(app)),
+            type_: Some("LoadBalancer".to_string()),
+            ..ServiceSpec::default()
+        }),
+        ..Service::default()
+    }
+}
+
 /// A port the container listens on, the half of a [`port`] pair the pod spec declares.
 fn container_port(number: u16) -> ContainerPort {
     ContainerPort {
@@ -1260,6 +1322,17 @@ fn runner_document(
         )),
         image_pull_policy: Some(IMAGE_PULL_POLICY.to_string()),
         name: runner.name.clone(),
+        ports: (!runner.expose.is_empty()).then(|| {
+            runner
+                .expose
+                .iter()
+                .map(|exposed| ContainerPort {
+                    name: Some(exposed.name.clone()),
+                    protocol: Some(exposed.protocol.k8s_name().to_string()),
+                    ..container_port(exposed.port)
+                })
+                .collect()
+        }),
         security_context: Some(hardened_container_context()),
         volume_mounts: Some(vec![runtime_mount]),
         ..Container::default()

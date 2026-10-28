@@ -20,6 +20,11 @@ Changelog 1.1.0.
   to the same cgroup value. k3s does so for the fields the Pod API lacks through the upstream `ulimit-adjuster` and
   `nri-memory-qos` NRI plugins, refusing a limited pod on a node without them. Every compose service now runs
   under the CPU and memory defaults the k3s manifests have always set.
+- A scenario can publish ports outside a k3s cluster with `expose:`: `services.hub.expose` lists the hub's `ws`
+  and `wss`, so a browser can open a k3s deployment's hub, and an agent with a web or pyo3 runner lists the ports
+  its module listens on. Each becomes a `LoadBalancer` `Service` that k3s's ServiceLB binds on the machine running
+  the process, and the README lists their addresses. A scenario is now rejected, in every format, when two
+  processes on one machine would use the same port, including an agent port that is the hub's or the collector's.
 - A new output type, `process-compose`, writes a `process-compose.yaml` that runs the `mise.toml` tasks under
   process-compose, each waiting on what it talks to being ready, as `dekit.yaml` does.
 - An agent with a runner can set `schedule:` -- a five-field `cron` expression and an optional IANA `time_zone` -- to
