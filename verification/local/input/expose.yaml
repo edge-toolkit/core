@@ -1,0 +1,25 @@
+cluster_name: "expose"
+deployment_type: "k3s"
+
+# A hub a browser can open from outside the cluster, beside a runner publishing a port of its own. The har1 agent
+# names no runner, so its module runs in whichever browser opens the hub's page, which k3s otherwise leaves reachable
+# only from inside the cluster. The pyo3 twin publishes the port it is told to listen on, the way a runner module
+# serving HTTP would, so the manifests show a runner's load balancer as well as the hub's.
+agents:
+  - name: "har"
+    resources:
+      - type: "har1"
+
+  - name: "pyo3-math1-twin"
+    runner: "pyo3"
+    env:
+      HTTP_PORT: "8000"
+    expose:
+      - name: "http"
+        port: 8000
+    resources:
+      - type: "pyo3-math1"
+
+services:
+  hub:
+    expose: ["ws", "wss"]

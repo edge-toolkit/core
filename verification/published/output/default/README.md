@@ -153,3 +153,8 @@ starts is expected here rather than a fault. Watch it settle with:
 ```bash
 kubectl get pods -n "$ns" --watch
 ```
+
+### Open From Outside The Cluster
+
+Nothing outside the cluster can reach `ws-server`, so no browser can open its page. List `ws`
+and `wss` under `services.hub.expose` in the scenario input and regenerate to publish them.

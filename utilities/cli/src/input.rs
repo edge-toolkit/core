@@ -205,6 +205,69 @@ pub struct HubService {
     /// Listed, the server has to be among them, since it also runs the collector and what the hubs share.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub machines: Vec<String>,
+    /// The hub's ports to publish outside the cluster, by name: `ws` (8080) and `wss` (8443), from `expose:`.
+    ///
+    /// What lets a browser open a k3s deployment's hub, which is otherwise reachable only from inside the cluster.
+    /// Every other format runs the hub on its host's network, where both ports are already open, so there this only
+    /// reserves them against an agent exposing the same port on that machine.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub expose: Vec<String>,
+}
+
+/// One port a process listens on that the deployment publishes outside the cluster.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+#[non_exhaustive]
+pub struct ExposedPort {
+    /// The port's name: a Kubernetes port name, so at most 15 lowercase alphanumerics and `-`.
+    ///
+    /// `http`, `https`, `ws` and `wss` also name the scheme the generated README's link to it takes.
+    pub name: String,
+    /// The number the process listens on, which is also the one published.
+    pub port: u16,
+    /// The transport, from `protocol:`; TCP unless stated.
+    #[serde(default, skip_serializing_if = "Protocol::is_tcp")]
+    pub protocol: Protocol,
+}
+
+/// The transport an [`ExposedPort`] carries.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[non_exhaustive]
+#[serde(rename_all = "lowercase")]
+pub enum Protocol {
+    #[default]
+    Tcp,
+    Udp,
+}
+
+impl Protocol {
+    /// Whether this is TCP, the default a scenario need not state.
+    #[must_use]
+    #[expect(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "serde's skip_serializing_if passes the field by reference"
+    )]
+    pub const fn is_tcp(&self) -> bool {
+        matches!(self, Self::Tcp)
+    }
+
+    /// The name Kubernetes spells the transport with.
+    #[must_use]
+    pub const fn k8s_name(self) -> &'static str {
+        match self {
+            Self::Tcp => "TCP",
+            Self::Udp => "UDP",
+        }
+    }
+
+    /// The name the scenario input spells the transport with.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Tcp => "tcp",
+            Self::Udp => "udp",
+        }
+    }
 }
 
 impl HubService {
@@ -339,6 +402,14 @@ pub struct Agent {
     /// them between runs for no reason anyone could act on.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub env: BTreeMap<String, String>,
+    /// The ports this agent's runner listens on and publishes outside the cluster, from `expose:`.
+    ///
+    /// The module has to bind every address (`0.0.0.0`) to be reachable, and learns its port from `env:`, which is
+    /// where the scenario says it. Only a k3s deployment needs this to publish anything: every other format runs the
+    /// runner on its host's network, where a port it opens is already open, so there it reserves the port against
+    /// anything else exposing it on that machine.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub expose: Vec<ExposedPort>,
     /// Resource limits each of this agent's runner processes runs under, from `limits:`.
     #[serde(default, skip_serializing_if = "Limits::is_unset")]
     pub limits: Limits,

@@ -16,8 +16,8 @@ pub(crate) use self::hub::{hub_root_module, serves_a_page};
 pub(crate) use self::hub_sharing::{BACKPLANE_TASK, SHARED_STORAGE_TASK, STORAGE_SECRET_ENVS};
 pub use self::k3s::generate_k3s_deployment;
 pub(crate) use self::k3s::{
-    CONTAINERD_TEMPLATE_FILE, PLUGIN_NAMESPACE as K3S_PLUGIN_NAMESPACE, needs_containerd_template,
-    node_preparation_note as k3s_node_preparation_note,
+    CONTAINERD_TEMPLATE_FILE, LB_POOL_LABEL as K3S_LB_POOL_LABEL, PLUGIN_NAMESPACE as K3S_PLUGIN_NAMESPACE,
+    needs_containerd_template, node_preparation_note as k3s_node_preparation_note,
 };
 pub(crate) use self::mise::{COLLECTOR_TASK, HUB_TASK, OPENER_TASK, STORAGE_DIR, machine_task};
 pub use self::mise::{ScenarioModules, generate_mise_deployment, scenario_module_paths};

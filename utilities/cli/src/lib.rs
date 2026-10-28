@@ -17,6 +17,7 @@ mod admin;
 pub mod cli;
 mod deployment_types;
 mod error;
+mod expose;
 mod hub_ws_url;
 mod input;
 mod limits;
@@ -425,6 +426,7 @@ pub(crate) fn load_cluster_input(input_file: &Path) -> Result<(ClusterInput, u64
             schedule::validate_schedule(&agent.name, &agent.schedule)?;
         }
     }
+    expose::validate(&cluster)?;
     // Relative to the input file, which is the one place a scenario can name its own modules from without knowing where
     // the CLI is run. The input itself is resolved the way `fs::read` just resolved it, against the working directory,
     // so the two cannot disagree when the CLI runs from a subdirectory of a repository. A path with no parent is a
@@ -1137,15 +1139,32 @@ fn docker_compose_run_instructions(cluster: &ClusterInput, artifacts: ArtifactSo
             "### Open The UIs\n\n",
             "OpenObserve is available at <http://localhost:5080/>.\n",
             "`ws-server` is available at <http://localhost:8080/> and <https://localhost:8443/>.\n\n",
+            "{runner_ports}",
             "Stop the scenario with:\n\n",
             "```bash\n",
             "docker compose{profiles} down\n",
             "```\n"
         ),
         hub = compose_hub_note(artifacts),
+        runner_ports = compose_runner_ports(cluster),
         other_hubs = other_hubs,
         profiles = compose_single_host_profiles(cluster),
     )
+}
+
+/// Render where the runners' exposed ports are reached, or nothing when no runner exposes one.
+///
+/// The runners share their host's network like the hub, so a port one listens on is open on that host already.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the runner-port step of docker_compose_run_instructions"
+)]
+fn compose_runner_ports(cluster: &ClusterInput) -> String {
+    let addresses = expose::address_list(cluster, false);
+    if addresses.is_empty() {
+        return String::default();
+    }
+    format!("The runners listen on their host's network too, at:\n\n{addresses}\n")
 }
 
 /// Render how one format runs across the machines a scenario names, or nothing for a single-host scenario.
@@ -1285,12 +1304,8 @@ fn k3s_machine_instructions(cluster: &ClusterInput, server: &input::Machine) -> 
         if machine.name != server.name {
             let _write_result = writeln!(
                 joins,
-                concat!(
-                    "sudo k3s agent --server \"https://${{server}}:6443\" --token \"$token\"",
-                    " --node-label {label}={name}"
-                ),
-                label = placement::MACHINE_LABEL,
-                name = machine.name,
+                "sudo k3s agent --server \"https://${{server}}:6443\" --token \"$token\"{labels}",
+                labels = k3s_node_labels(cluster, &machine.name),
             );
         }
     }
@@ -1303,7 +1318,7 @@ fn k3s_machine_instructions(cluster: &ClusterInput, server: &input::Machine) -> 
             "pin pods to. With `k3s` installed on every machine, start the server on `{server}`. It stays in\n",
             "the foreground, so read the token the others join with from a second shell once it is up:\n\n",
             "```bash\n",
-            "sudo k3s server --node-label {label}={server}\n",
+            "sudo k3s server{server_labels}\n",
             "```\n\n",
             "```bash\n",
             "sudo cat /var/lib/rancher/k3s/server/node-token\n",
@@ -1322,10 +1337,22 @@ fn k3s_machine_instructions(cluster: &ClusterInput, server: &input::Machine) -> 
         address = server.address,
         imports = imports,
         joins = joins,
-        label = placement::MACHINE_LABEL,
         loopback = loopback_note(cluster),
         server = server.name,
+        server_labels = k3s_node_labels(cluster, &server.name),
     )
+}
+
+/// The `--node-label` flags `machine` joins the k3s cluster with.
+///
+/// The machine label the manifests pin pods with, and for a scenario that exposes a port, the load-balancer pool that
+/// keeps each exposed `Service` to the machine it names.
+fn k3s_node_labels(cluster: &ClusterInput, machine: &str) -> String {
+    let mut flags = format!(" --node-label {}={machine}", placement::MACHINE_LABEL);
+    if expose::any_exposed(cluster) {
+        let _write_result = write!(flags, " --node-label {}={machine}", deployment_types::K3S_LB_POOL_LABEL);
+    }
+    flags
 }
 
 /// The image imports of a k3s scenario spread across machines.
@@ -1564,8 +1591,10 @@ fn k3s_run_instructions(
             "{recovery_note}",
             "{prepare}",
             "{apply}",
+            "{expose}",
         ),
         apply = k3s_apply_instructions(&cluster.cluster_name),
+        expose = k3s_expose_instructions(cluster),
         prepare = deployment_types::k3s_node_preparation_note(cluster),
         build_contexts = build_contexts,
         dockerfile_flag = dockerfile_flag,
@@ -1613,6 +1642,45 @@ fn k3s_apply_instructions(cluster_name: &str) -> String {
         file = SECRETS_ENV_FILE,
         name = cluster_name,
     )
+}
+
+/// Render where a k3s scenario is reached from outside the cluster, or nothing for one nobody outside needs.
+///
+/// A scenario whose hub serves a page but is not exposed is still told so, since without it no browser can load the
+/// page the deployment exists to serve.
+#[expect(clippy::single_call_fn, reason = "the exposure step of k3s_run_instructions")]
+fn k3s_expose_instructions(cluster: &ClusterInput) -> String {
+    let addresses = expose::address_list(cluster, true);
+    let hidden_page = if deployment_types::serves_a_page(cluster) && cluster.services.hub.expose.is_empty() {
+        concat!(
+            "Nothing outside the cluster can reach `ws-server`, so no browser can open its page. List `ws`\n",
+            "and `wss` under `services.hub.expose` in the scenario input and regenerate to publish them.\n"
+        )
+    } else {
+        ""
+    };
+    if addresses.is_empty() && hidden_page.is_empty() {
+        return String::default();
+    }
+    let published = if addresses.is_empty() {
+        String::default()
+    } else {
+        format!(
+            concat!(
+                "Each exposed port is published on the machine its process runs on:\n\n",
+                "{addresses}\n",
+                "Each binds its port on that node, so another scenario on this cluster exposing the same port\n",
+                "cannot publish it until this one is deleted.\n"
+            ),
+            addresses = addresses,
+        )
+    };
+    let gap = if published.is_empty() || hidden_page.is_empty() {
+        ""
+    } else {
+        "\n"
+    };
+    format!("\n### Open From Outside The Cluster\n\n{hidden_page}{gap}{published}")
 }
 
 #[must_use]
@@ -2078,6 +2146,8 @@ pub(crate) struct RunnerInstance {
     pub limits: Limits,
     /// When the runner is started; unset runs it continuously.
     pub schedule: Schedule,
+    /// The ports the runner's agent publishes outside the cluster.
+    pub expose: Vec<input::ExposedPort>,
 }
 
 /// Resolve every agent that names a `runner:` into the processes the deployment has to start.
@@ -2153,6 +2223,7 @@ pub(crate) fn resolve_cluster_runners(
                 site: placement::agent_site(cluster, &agent.name),
                 limits: agent.limits.clone(),
                 schedule: agent.schedule.clone(),
+                expose: agent.expose.clone(),
             });
         }
     }

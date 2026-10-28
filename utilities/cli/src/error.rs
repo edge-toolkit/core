@@ -185,6 +185,36 @@ pub enum CliError {
     #[error("services.hub.machines lists {machine:?}, which is not one of the scenario's machines")]
     UnknownHubMachine { machine: String },
 
+    #[error("services.hub.expose lists {name:?}; the hub's ports are {known}")]
+    UnknownHubPort { name: String, known: String },
+
+    #[error("{owner} exposes a port named {name:?} more than once")]
+    DuplicateExposedPortName { owner: String, name: String },
+
+    #[error("Agent {agent:?} exposes a port named {name:?}, which is not a Kubernetes port name: {reason}")]
+    InvalidExposedPortName {
+        agent: String,
+        name: String,
+        reason: String,
+    },
+
+    #[error("Agent {agent:?} exposes port {name:?} as 0, which no process can listen on")]
+    ZeroExposedPort { agent: String, name: String },
+
+    #[error("Agent {agent:?} exposes ports but {reason}")]
+    ExposeUnsupported { agent: String, reason: String },
+
+    #[error(
+        "{second} exposes {port}/{protocol} on {machine}, where {first} already uses it; one machine has one of each"
+    )]
+    ExposedPortCollision {
+        port: u16,
+        protocol: String,
+        machine: String,
+        first: String,
+        second: String,
+    },
+
     #[error("services.hub.machines lists {machine:?} more than once; a machine runs one hub")]
     DuplicateHubMachine { machine: String },
 
