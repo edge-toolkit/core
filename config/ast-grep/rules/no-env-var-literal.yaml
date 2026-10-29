@@ -1,0 +1,14 @@
+id: no-env-var-literal
+language: Rust
+severity: error
+message: |
+  `env::var` takes a named constant, never a string literal: a mistyped literal is a lookup that silently fails,
+  while a mistyped constant does not compile. Declare `const NAME: &str = "NAME";` beside the read.
+  It is the local twin of DeepSource RS-W1015.
+rule:
+  any:
+    - pattern: std::env::var($ARG)
+    - pattern: env::var($ARG)
+constraints:
+  ARG:
+    kind: string_literal

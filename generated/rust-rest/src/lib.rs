@@ -219,6 +219,10 @@ impl Client {
     }
     /**Block an address: refuse it on every hub of the backplane
 
+    Every open socket from that address is closed within a heartbeat, whichever agent it carries, and every later
+    connection from it is refused. The block outlives a hub restart: a local hub saves it with its registry, and a
+    NATS-backed hub keeps it in the shared blocklist.
+
     Blocking an address already blocked succeeds again, so the request can be repeated safely. A path segment that
     is not an IPv4 or IPv6 address matches no route and is answered 404.
 

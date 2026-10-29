@@ -2,26 +2,40 @@
 #![cfg_attr(feature = "docs", doc = "## Feature flags")]
 #![cfg_attr(feature = "docs", doc = document_features::document_features!())]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
 
 #[cfg(feature = "websockify")]
 use std::net::{Ipv4Addr, SocketAddr};
 
+#[cfg(feature = "std")]
 use actix_web::{HttpResponse, web};
+#[cfg(feature = "std")]
 pub use et_ws_service::{AgentSession, WsAgentRegistry};
 
+#[cfg(feature = "std")]
 pub mod config;
+#[cfg(feature = "std")]
 pub mod net;
+#[cfg(feature = "picoserve-server")]
+pub mod picoserve_server;
 pub mod routes;
 #[cfg(feature = "tls")]
 pub mod tls;
 
+#[cfg(feature = "std")]
+use self::config::Config;
+#[cfg(feature = "std")]
 pub use self::routes::health;
-use crate::config::Config;
 
+#[cfg(feature = "std")]
 pub async fn no_content() -> HttpResponse {
     HttpResponse::NoContent().finish()
 }
 
+#[cfg(feature = "std")]
 pub fn configure_app(cfg: &mut web::ServiceConfig, agent_registry: web::Data<WsAgentRegistry>, config: &Config) {
     let _configured = cfg
         .app_data(agent_registry)

@@ -1,10 +1,21 @@
-use std::collections::{BTreeMap, BTreeSet};
-use std::net::IpAddr;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::sync::Arc;
+#[cfg(not(feature = "std"))]
+use alloc::{
+    string::{String, ToString as _},
+    vec::Vec,
+};
+use core::net::IpAddr;
+#[cfg(feature = "std")]
+use std::sync::{Mutex as LockImpl, MutexGuard as Guard, PoisonError};
 
+#[cfg(feature = "std")]
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+#[cfg(not(feature = "std"))]
+use spin::{Mutex as LockImpl, MutexGuard as Guard};
 use thiserror::Error;
+#[cfg(feature = "std")]
 use tracing::{info, warn};
 
 use crate::ws::{AgentConnectionState, AgentSummary, ConnectStatus};
@@ -12,12 +23,20 @@ use crate::ws::{AgentConnectionState, AgentSummary, ConnectStatus};
 /// Longest agent id an agent may choose for itself; a generated UUID is 36 characters.
 pub const MAX_AGENT_ID_LEN: usize = 64;
 
+/// The lock the registry's shared state sits behind.
+///
+/// `std::sync::Mutex` wherever there is one, so a `std` caller's `lock()` reports poisoning as it always has; a spin
+/// lock without `std`, where nothing can poison it.
+pub type Lock<T> = LockImpl<T>;
+
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum RegistryError {
+    #[cfg(feature = "std")]
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
+    #[cfg(feature = "std")]
     #[error("failed to (de)serialize registry YAML")]
     Yaml(#[from] serde_yaml::Error),
 
@@ -28,6 +47,7 @@ pub enum RegistryError {
     UnknownAgent(String),
 }
 
+#[cfg(feature = "std")]
 impl<T> From<PoisonError<T>> for RegistryError {
     fn from(_source: PoisonError<T>) -> Self {
         Self::LockPoisoned
@@ -51,6 +71,7 @@ pub enum AcknowledgeError {
     LockPoisoned,
 }
 
+#[cfg(feature = "std")]
 impl<T> From<PoisonError<T>> for AcknowledgeError {
     fn from(_source: PoisonError<T>) -> Self {
         Self::LockPoisoned
@@ -61,10 +82,12 @@ impl<T> From<PoisonError<T>> for AcknowledgeError {
 ///
 /// We never observe poisoned state in the wild -- every panic-prone path holds the lock briefly around infallible map
 /// ops. Recovering keeps the registry usable if a future change introduces a panic under the lock.
-fn lock_agents<S>(
-    agents: &Mutex<BTreeMap<String, AgentRecord<S>>>,
-) -> MutexGuard<'_, BTreeMap<String, AgentRecord<S>>> {
-    agents.lock().unwrap_or_else(PoisonError::into_inner)
+fn lock_recovering<T>(lock: &Lock<T>) -> Guard<'_, T> {
+    #[cfg(feature = "std")]
+    let guard = lock.lock().unwrap_or_else(PoisonError::into_inner);
+    #[cfg(not(feature = "std"))]
+    let guard = lock.lock();
+    guard
 }
 
 /// Whether `id` is acceptable as an agent id the agent chose itself rather than one the hub generated.
@@ -180,38 +203,33 @@ impl<S> AgentRecord<S> {
 /// branch-coverage gate scores once rather than once per session type.
 #[derive(Clone, Debug, Default)]
 #[non_exhaustive]
-pub struct IpBlocklist(Arc<Mutex<BTreeSet<IpAddr>>>);
+pub struct IpBlocklist(Arc<Lock<BTreeSet<IpAddr>>>);
 
 impl IpBlocklist {
     /// A blocklist refusing exactly `ips`.
     #[must_use]
     pub fn from_ips(ips: BTreeSet<IpAddr>) -> Self {
-        Self(Arc::new(Mutex::new(
+        Self(Arc::new(Lock::new(
             ips.into_iter().map(|ip| ip.to_canonical()).collect(),
         )))
     }
 
     /// Refuse `ip` from now on, returning whether it was not refused already.
+    #[must_use]
     pub fn block(&self, ip: IpAddr) -> bool {
-        self.0
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .insert(ip.to_canonical())
+        lock_recovering(&self.0).insert(ip.to_canonical())
     }
 
     /// Whether `ip` is refused.
     #[must_use]
     pub fn is_blocked(&self, ip: IpAddr) -> bool {
-        self.0
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .contains(&ip.to_canonical())
+        lock_recovering(&self.0).contains(&ip.to_canonical())
     }
 
     /// Every refused address, in order.
     #[must_use]
     pub fn ips(&self) -> BTreeSet<IpAddr> {
-        self.0.lock().unwrap_or_else(PoisonError::into_inner).clone()
+        lock_recovering(&self.0).clone()
     }
 }
 
@@ -230,6 +248,7 @@ pub struct RegistryFile<A> {
 /// Either registry layout: the current one, or the bare agent map written before the hub kept a blocklist.
 ///
 /// `deny_unknown_fields` on [`RegistryFile`] is what tells them apart, since a bare map is keyed by agent ids.
+#[cfg(feature = "std")]
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum StoredRegistry<R> {
@@ -238,6 +257,7 @@ enum StoredRegistry<R> {
 }
 
 /// Read the registry file at `path`, whose agents are records of type `R`; a missing file is an empty registry.
+#[cfg(feature = "std")]
 pub fn read_registry_file<R>(path: &std::path::Path) -> Result<RegistryFile<BTreeMap<String, R>>, RegistryError>
 where
     R: DeserializeOwned,
@@ -263,6 +283,7 @@ where
 }
 
 /// Parse a registry file's YAML in either layout, giving a bare agent map an empty blocklist.
+#[cfg(feature = "std")]
 #[expect(
     clippy::single_call_fn,
     reason = "the parsing step of read_registry_file, kept apart from its file handling and logging"
@@ -283,7 +304,7 @@ where
 #[derive(Clone)]
 #[non_exhaustive]
 pub struct AgentRegistry<S> {
-    pub agents: Arc<Mutex<BTreeMap<String, AgentRecord<S>>>>,
+    pub agents: Arc<Lock<BTreeMap<String, AgentRecord<S>>>>,
     pub blocklist: IpBlocklist,
 }
 
@@ -292,7 +313,7 @@ impl<S> AgentRegistry<S> {
     #[must_use]
     pub fn from_agents(agents: BTreeMap<String, AgentRecord<S>>) -> Self {
         Self {
-            agents: Arc::new(Mutex::new(agents)),
+            agents: Arc::new(Lock::new(agents)),
             blocklist: IpBlocklist::default(),
         }
     }
@@ -305,6 +326,7 @@ impl<S> AgentRegistry<S> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<S: Clone + Default + Send + 'static> AgentRegistry<S> {
     pub fn load(path: &std::path::Path) -> Result<Self, RegistryError> {
         let file = read_registry_file::<AgentRecord<S>>(path)?;
@@ -313,6 +335,7 @@ impl<S: Clone + Default + Send + 'static> AgentRegistry<S> {
 }
 
 impl<S: Clone + Send + 'static> AgentRegistry<S> {
+    #[cfg(feature = "std")]
     pub fn save(&self, path: &std::path::Path) -> Result<(), RegistryError> {
         let agents = self.agents.lock()?;
         let yaml = serde_yaml::to_string(&RegistryFile {
@@ -327,7 +350,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
 
     /// The address `agent_id` last connected from.
     pub fn agent_ip(&self, agent_id: &str) -> Result<IpAddr, RegistryError> {
-        lock_agents(&self.agents)
+        lock_recovering(&self.agents)
             .get(agent_id)
             .map(|record| record.last_known_ip)
             .ok_or_else(|| RegistryError::UnknownAgent(agent_id.to_string()))
@@ -340,7 +363,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
         client_ip: IpAddr,
         session: S,
     ) -> (String, ConnectStatus) {
-        let mut agents = lock_agents(&self.agents);
+        let mut agents = lock_recovering(&self.agents);
 
         if let Some(requested) = requested_id.as_deref()
             && let Some(record) = agents.get_mut(requested)
@@ -388,7 +411,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
     ///
     /// Returns whether the record was marked, so a caller mirroring the registry elsewhere skips the same writes.
     pub fn mark_disconnected_if(&self, agent_id: &str, is_current: &dyn Fn(&S) -> bool) -> bool {
-        let mut agents = lock_agents(&self.agents);
+        let mut agents = lock_recovering(&self.agents);
         let marked = agents
             .get_mut(agent_id)
             .filter(|record| record.session.as_ref().is_none_or(is_current))
@@ -403,7 +426,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
 
     #[must_use]
     pub fn list_agents(&self) -> Vec<AgentSummary> {
-        let agents = lock_agents(&self.agents);
+        let agents = lock_recovering(&self.agents);
         let mut summaries = agents
             .iter()
             .map(|(agent_id, record)| AgentSummary {
@@ -433,7 +456,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
         message: serde_json::Value,
         retention: MessageRetention,
     ) -> Option<(PendingDirectMessage, Option<S>)> {
-        let mut agents = lock_agents(&self.agents);
+        let mut agents = lock_recovering(&self.agents);
         let recipient = agents.get_mut(to_agent_id)?;
 
         let pending = PendingDirectMessage::new(message_id, from_agent_id.to_string(), server_received_at, message);
@@ -449,7 +472,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
     /// Drop every queued message `from_agent_id` sent, from every recipient's queue, returning how many were dropped.
     #[must_use]
     pub fn forget_messages_from(&self, from_agent_id: &str) -> usize {
-        let mut agents = lock_agents(&self.agents);
+        let mut agents = lock_recovering(&self.agents);
         let dropped = agents
             .values_mut()
             .map(|record| {
@@ -466,7 +489,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
 
     #[must_use]
     pub fn pending_messages_for(&self, agent_id: &str) -> Vec<PendingDirectMessage> {
-        let agents = lock_agents(&self.agents);
+        let agents = lock_recovering(&self.agents);
         agents
             .get(agent_id)
             .map(|record| {
@@ -483,7 +506,10 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
         recipient_agent_id: &str,
         message_id: &str,
     ) -> Result<(String, Option<S>, String), AcknowledgeError> {
+        #[cfg(feature = "std")]
         let mut agents = self.agents.lock()?;
+        #[cfg(not(feature = "std"))]
+        let mut agents = self.agents.lock();
         let recipient = agents
             .get_mut(recipient_agent_id)
             .ok_or_else(|| AcknowledgeError::UnknownAgent(recipient_agent_id.to_string()))?;
@@ -509,7 +535,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
 
     #[must_use]
     pub fn connected_sessions(&self, excluding_agent_id: &str) -> Vec<(String, S)> {
-        let agents = lock_agents(&self.agents);
+        let agents = lock_recovering(&self.agents);
         agents
             .iter()
             .filter_map(|(agent_id, record)| {
@@ -523,7 +549,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
 
     #[must_use]
     pub fn agent_session(&self, agent_id: &str) -> Option<S> {
-        let agents = lock_agents(&self.agents);
+        let agents = lock_recovering(&self.agents);
         let session = agents.get(agent_id).and_then(|record| record.session.clone());
         drop(agents);
         session
@@ -533,7 +559,7 @@ impl<S: Clone + Send + 'static> AgentRegistry<S> {
 impl<S> Default for AgentRegistry<S> {
     fn default() -> Self {
         Self {
-            agents: Arc::new(Mutex::new(BTreeMap::new())),
+            agents: Arc::new(Lock::new(BTreeMap::new())),
             blocklist: IpBlocklist::default(),
         }
     }

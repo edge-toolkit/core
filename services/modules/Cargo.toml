@@ -26,13 +26,13 @@ docs = ["dep:document-features"]
 actix-files.workspace = true
 actix-web.workspace = true
 document-features = { workspace = true, optional = true }
-edge-toolkit.workspace = true
+edge-toolkit = { workspace = true, features = ["std"] }
 fs-err.workspace = true
 schemars = { workspace = true, optional = true }
-serde.workspace = true
+serde = { workspace = true, features = ["std"] }
 serde-inline-default.workspace = true
 serde_default.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["std"] }
 utoipa = { workspace = true, optional = true }
 
 [dev-dependencies]

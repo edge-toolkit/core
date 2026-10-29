@@ -15,6 +15,10 @@
     )
 )]
 
+#[cfg(not(feature = "std"))]
+use alloc::string::{String, ToString as _};
+
+#[cfg(feature = "std")]
 use actix_web::HttpResponse;
 use serde::{Deserialize, Serialize};
 
@@ -27,6 +31,17 @@ use serde::{Deserialize, Serialize};
 pub struct HealthResponse {
     pub status: String,
     pub service: String,
+}
+
+impl HealthResponse {
+    /// What a server that is up answers, whichever server it is.
+    #[must_use]
+    pub fn healthy() -> Self {
+        Self {
+            status: "healthy".to_string(),
+            service: "ws-server".to_string(),
+        }
+    }
 }
 
 /// Liveness probe.
@@ -42,9 +57,7 @@ pub struct HealthResponse {
         responses((status = 200, description = "Server is up", body = HealthResponse))
     )
 )]
+#[cfg(feature = "std")]
 pub async fn health() -> HttpResponse {
-    HttpResponse::Ok().json(HealthResponse {
-        status: "healthy".to_string(),
-        service: "ws-server".to_string(),
-    })
+    HttpResponse::Ok().json(HealthResponse::healthy())
 }

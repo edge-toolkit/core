@@ -18,10 +18,27 @@ doctest = false
 doctest = false
 name = "et-ws-server"
 path = "src/main.rs"
+required-features = ["std"]
 
 [[test]]
 name = "configure_app"
 required-features = ["modules", "storage"]
+
+[[test]]
+name = "health"
+required-features = ["std"]
+
+[[test]]
+name = "http_config"
+required-features = ["std"]
+
+[[test]]
+name = "net"
+required-features = ["std"]
+
+[[test]]
+name = "picoserve_server"
+required-features = ["picoserve-server"]
 
 [[test]]
 name = "tls"
@@ -29,21 +46,52 @@ required-features = ["tls-self-signed"]
 
 [features]
 #! Every service the hub can mount beyond `/ws` and `/health` is a feature, all on by default.
-#! A deployment that needs only the hub sets `default-features = false` and opts back into the services it serves.
+#! A deployment that needs only the hub sets `default-features = false` and opts back into `std` and the services it
+#! serves.
 
-default = ["modules", "otlp", "qr", "storage", "tls", "tls-self-signed", "tty-image", "websockify"]
+default = [
+  "modules",
+  "otlp",
+  "picoserve-server",
+  "qr",
+  "std",
+  "storage",
+  "tls",
+  "tls-self-signed",
+  "tty-image",
+  "websockify",
+]
+## The actix-web server and its binary, configured from the environment, with the NATS backplane.
+## Without it the crate is `no_std` + `alloc`, and serves through picoserve under `picoserve-server`.
+std = [
+  "dep:actix-web",
+  "dep:et-actix-web-config",
+  "dep:local-ip-address",
+  "dep:serde-env",
+  "dep:serde_default",
+  "dep:thiserror",
+  "dep:tracing-actix-web",
+  "dep:tracing-subscriber",
+  "edge-toolkit/std",
+  "et-ws-service/nats",
+  "et-ws-service/std",
+  "serde/std",
+  "tracing/std",
+]
+## A `no_std` server for `/ws`, `/health` and `/favicon.ico` through picoserve, on any socket the embedder accepts.
+picoserve-server = ["dep:picoserve", "et-ws-service/picoserve-hub"]
 ## Serves ws-module packages from disk under `/modules`, and the root module as the browser UI at `/`.
-modules = ["dep:et-modules-service"]
+modules = ["dep:et-modules-service", "std"]
 ## Exports traces and logs over OTLP when `OTLP_*` is configured.
 ## Each request span is parented on the caller's W3C `traceparent`.
-otlp = ["dep:et-otlp", "tracing-actix-web/opentelemetry_0_32"]
+otlp = ["dep:et-otlp", "et-ws-service/otel", "std", "tracing-actix-web/opentelemetry_0_32"]
 ## Prints the advertised URL as a terminal QR code at startup, for phones joining the hub.
-qr = ["dep:qr2term"]
+qr = ["dep:qr2term", "std"]
 ## Per-agent file storage under `/storage`, backed by any `object_store` URL.
-storage = ["dep:et-storage-service"]
+storage = ["dep:et-storage-service", "std"]
 ## Adds the HTTPS/WSS listener, serving the PEM pair named by `TLS_CERT_FILE` and `TLS_KEY_FILE`.
 ## Without it the hub serves plain HTTP only, which browsers refuse for camera, sensors and other secure-context APIs.
-tls = ["actix-web/rustls-0_23", "dep:rustls", "dep:serde-inline-default", "et-actix-web-config/rustls-0_23"]
+tls = ["actix-web/rustls-0_23", "dep:rustls", "dep:serde-inline-default", "et-actix-web-config/rustls-0_23", "std"]
 ## Generates a self-signed `localhost` pair into `TLS_CERT_FILE` and `TLS_KEY_FILE` when they do not exist yet.
 ## Without it a missing pair is a startup error, for deployments that provision their own certificates.
 tls-self-signed = ["dep:fs-err", "dep:rcgen", "tls"]
@@ -52,7 +100,7 @@ tls-self-signed = ["dep:fs-err", "dep:rcgen", "tls"]
 tty-image = ["et-storage-service/tty-image", "storage"]
 ## Relays `/websockify` WebSocket traffic to the hub's own loopback HTTP port.
 ## It serves browser runtimes such as webR that cannot open a TCP socket.
-websockify = ["dep:et-websockify-service"]
+websockify = ["dep:et-websockify-service", "std"]
 ## Adds OpenAPI metadata to the REST handlers for `et-int-gen` to harvest into the published spec.
 ## Production builds do not need it.
 openapi-spec = [
@@ -60,6 +108,7 @@ openapi-spec = [
   "et-modules-service?/openapi-spec",
   "et-storage-service?/openapi-spec",
   "et-ws-service/openapi-spec",
+  "std",
 ]
 ## Internal: derives JSON Schema for the hub's environment configuration.
 ## et-int-gen enables it to render the hub's environment variables into its HELP.md.
@@ -70,39 +119,46 @@ env-schema = [
   "et-modules-service?/env-schema",
   "et-storage-service?/env-schema",
   "et-ws-service/env-schema",
+  "std",
 ]
 ## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
 docs = ["dep:document-features"]
 
 [dependencies]
-actix-web.workspace = true
+actix-web = { workspace = true, optional = true }
 document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
-et-actix-web-config.workspace = true
+et-actix-web-config = { workspace = true, optional = true }
 et-modules-service = { workspace = true, optional = true }
 et-otlp = { workspace = true, optional = true }
 et-storage-service = { workspace = true, optional = true }
 et-websockify-service = { workspace = true, optional = true }
 et-ws-service.workspace = true
 fs-err = { workspace = true, optional = true }
-local-ip-address.workspace = true
+local-ip-address = { workspace = true, optional = true }
+picoserve = { workspace = true, features = ["json"], optional = true }
 qr2term = { workspace = true, optional = true }
 rcgen = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
-serde.workspace = true
-serde-env.workspace = true
+serde = { workspace = true, features = ["alloc"] }
+serde-env = { workspace = true, optional = true }
 serde-inline-default = { workspace = true, optional = true }
-serde_default.workspace = true
-thiserror.workspace = true
+serde_default = { workspace = true, optional = true }
+thiserror = { workspace = true, features = ["std"], optional = true }
 tracing.workspace = true
-tracing-actix-web.workspace = true
-tracing-subscriber.workspace = true
+tracing-actix-web = { workspace = true, optional = true }
+tracing-subscriber = { workspace = true, optional = true }
 utoipa = { workspace = true, optional = true }
 
 [dev-dependencies]
 actix-rt.workspace = true
+futures-util.workspace = true
+picoserve = { workspace = true, features = ["tokio"] }
+serde_json = { workspace = true, features = ["std"] }
 tempfile.workspace = true
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "time"] }
+tokio-tungstenite = { workspace = true, features = ["connect"] }
 
 [lints]
 workspace = true

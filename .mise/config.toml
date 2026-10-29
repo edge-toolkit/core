@@ -227,7 +227,7 @@ zizmor = "latest"
 components = "clippy,rust-analyzer"
 os = ["linux", "macos"]
 profile = "minimal"
-targets = "wasm32-unknown-unknown,wasm32-wasip2"
+targets = "thumbv8m.main-none-eabihf,wasm32-unknown-unknown,wasm32-wasip2"
 # Use `stable`, not `latest`, so every lane resolves through the same rustup channel.
 # mise's `latest` picks the max of rust-lang/rust's GitHub Releases, which are published by separate
 # automation that lags the `stable` rustup channel the Windows [[tools.rust]] entries resolve through. That

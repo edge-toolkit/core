@@ -1,0 +1,17 @@
+id: no-env-macro
+valid:
+  - |
+    const NAME: &str = env!("CARGO_PKG_NAME");
+  - |
+    include!(concat!(env!("OUT_DIR"), "/board.rs"));
+  - |
+    fn wit() -> &'static str {
+        env!("ET_WIT_DIR")
+    }
+invalid:
+  - |
+    const WIFI_NETWORK: &str = env!("WIFI_NETWORK");
+  - |
+    const ROOT: Option<&str> = option_env!("CARGO_MANIFEST_DIR");
+  - |
+    const OUTPUT: &str = env!("OUT_DIR_SUFFIX");

@@ -1,4 +1,6 @@
-use std::net::IpAddr;
+#[cfg(not(feature = "std"))]
+use alloc::{borrow::ToOwned as _, format, string::String, vec::Vec};
+use core::net::IpAddr;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

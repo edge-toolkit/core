@@ -47,6 +47,7 @@ members = [
   "services/ws",
   "services/ws-pyo3-runner",
   "services/ws-server",
+  "services/ws-server-pico2w",
   "services/ws-wasm-agent",
   "services/ws-wasi-runner",
   "services/ws-web-runner",
@@ -76,17 +77,22 @@ anyhow = "1"
 async-nats = { version = "0.50", default-features = false, features = ["aws-lc-rs", "kv"] }
 asyncapi-rust = "0.5"
 backon = { version = "1.6", default-features = false }
-base64 = "0.23"
-bytes = "1"
+base64 = { version = "0.23", default-features = false }
+bytes = { version = "1", default-features = false }
 bytesize = { version = "2", features = ["serde"] }
 cc = "1"
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4.4", features = ["derive"] }
 clap-markdown = "0.1"
 cloudevents-sdk = "0.9"
 command-error = "0.8"
 const-hex = "1.19"
+cortex-m-rt = "0.7"
 croner = "4"
+cyw43 = "0.7"
+cyw43-pio = "0.10"
+defmt = "1"
+defmt-rtt = "1"
 deno_core = "0.412"
 deno_error = "=0.7.1"
 deno_resolver = "0.90"
@@ -96,7 +102,12 @@ deno_resolver = "0.90"
 # baking our own startup snapshot we'd otherwise hit the panic on first run.
 deno_runtime = { version = "0.267", features = ["transpile", "hmr"] }
 document-features = "0.2"
-edge-toolkit = { path = "libs/edge-toolkit", version = "0.4.0" }
+edge-toolkit = { path = "libs/edge-toolkit", version = "0.4.0", default-features = false }
+embassy-executor = "0.10"
+embassy-net = "0.9"
+embassy-rp = "0.10"
+embassy-time = "0.5"
+embedded-alloc = { version = "0.7", default-features = false, features = ["llff"] }
 et-actix-web-config = { path = "libs/actix-web-config", version = "0.1.0" }
 et-cli = { path = "utilities/cli", version = "0.2.0" }
 et-hub-backplane = { path = "services/hub-backplane", version = "0.2.0" }
@@ -116,8 +127,8 @@ et-wasi-guest = { path = "libs/wasi-guest", version = "0.2.0" }
 et-web = { path = "libs/web", version = "0.3.0" }
 et-websockify-service = { path = "services/websockify", version = "0.2.0" }
 et-ws-runner-common = { path = "libs/ws-runner-common", version = "0.3.0" }
-et-ws-server = { path = "services/ws-server", version = "0.3.0" }
-et-ws-service = { path = "services/ws", version = "0.2.0" }
+et-ws-server = { path = "services/ws-server", version = "0.3.0", default-features = false }
+et-ws-service = { path = "services/ws", version = "0.2.0", default-features = false }
 et-ws-test-server = { path = "services/ws-test-server", version = "0.2.0" }
 et-ws-wasm-agent = { path = "services/ws-wasm-agent", version = "0.3.0" }
 fake = "5"
@@ -196,6 +207,8 @@ opentelemetry-proto = { version = "0.32", default-features = false, features = [
 ] }
 opentelemetry_sdk = "0.32"
 ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dylibs"] }
+panic-probe = "1"
+picoserve = { version = "0.20", default-features = false, features = ["ws"] }
 port_check = "0.3"
 pretty_yaml = "0.6"
 prettyplease = "0.3"
@@ -228,15 +241,17 @@ rustls = "0.23"
 schemars = { version = "1.2", features = ["derive"] }
 secrecy = { version = "0.10", features = ["serde"] }
 semver = "1"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde-env = "0.3"
 serde-inline-default = "1.0"
 serde_default = "0.2"
-serde_json = "1"
+serde_json = { version = "1", default-features = false }
 serde_path_to_error = "0.1"
 serde_with = { version = "3.24", default-features = false, features = ["macros"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.11", default-features = false }
+spin = { version = "0.10", default-features = false, features = ["spin_mutex"] }
+static_cell = "2"
 strum = { version = "0.28", features = ["derive"] }
 subtle = "2.6"
 syn = "3"
@@ -244,7 +259,7 @@ sys_traits = { version = "0.1", features = ["libc", "real"] }
 temp-env = "0.3"
 tempfile = "3"
 textwrap = { version = "0.16", default-features = false }
-thiserror = "2"
+thiserror = { version = "2", default-features = false }
 tokio = "1"
 tokio-tungstenite = { version = "0.30", default-features = false }
 toml = "1.1"
@@ -252,7 +267,7 @@ toml = "1.1"
 # actix-codec enables it, so every workspace build already unifies it on, but a crate outside the actix tree built
 # by itself (cargo-hack's per-package clippy, wasm-pack) otherwise expands them smaller, and its
 # `#[expect(clippy::cognitive_complexity)]` goes unfulfilled there while it is required in the workspace build.
-tracing = { version = "0.1", features = ["log"] }
+tracing = { version = "0.1", default-features = false, features = ["log"] }
 tracing-actix-web = { version = "0.7", default-features = false, features = ["emit_event_on_error", "uuid_v7"] }
 tracing-log = "0.2"
 tracing-opentelemetry = "0.33"
@@ -469,6 +484,11 @@ ignore = [
   "deno_whoami",
   # Unmaintained upstream at xdg-rs/dirs.
   "dirs-sys-next",
+  # Deleted upstream from embassy-rs/embassy on 2026-08-28, so the "package in repo" heuristic reports "not in".
+  # That commit, "net: port to new xarxa", has no release yet: 0.2.0 is still what every released embassy-net
+  # (0.9.1, used by the Pico 2 W firmware and picoserve) and embassy-net-driver-channel (via cyw43) require.
+  # Delete this entry once a released embassy-net built on xarxa lets the lock drop it.
+  "embassy-net-driver",
   # Unmaintained upstream at faradayio/exec-rs.
   # Pulled by Deno's `node_shim` (process re-exec on Node compatibility shim).
   "exec",

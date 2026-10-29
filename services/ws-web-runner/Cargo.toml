@@ -47,9 +47,9 @@ et-ws-runner-common.workspace = true
 # lib.rs `build_rest_client`). Features match et-rest-client's native build.
 reqwest = { workspace = true, features = ["json", "query", "rustls", "stream"] }
 sys_traits.workspace = true
-thiserror.workspace = true
+thiserror = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-tracing.workspace = true
+tracing = { workspace = true, features = ["std"] }
 
 # Depend on winapi with `std` here so cargo feature unification turns it on for the shared winapi.
 # deno_io (pulled via deno_runtime) declares `winapi` without its `std` feature,
@@ -60,12 +60,12 @@ tracing.workspace = true
 winapi.workspace = true
 
 [dev-dependencies]
-edge-toolkit.workspace = true
+edge-toolkit = { workspace = true, features = ["std"] }
 et-org.workspace = true
 et-ws-test-server.workspace = true
 fs-err.workspace = true
 rstest.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "rt", "time"] }
 
 [build-dependencies]

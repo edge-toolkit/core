@@ -25,7 +25,7 @@ docs = ["dep:document-features"]
 
 [dependencies]
 document-features = { workspace = true, optional = true }
-edge-toolkit.workspace = true
+edge-toolkit = { workspace = true, features = ["std"] }
 et-otlp.workspace = true
 et-rest-client.workspace = true
 futures-util.workspace = true
@@ -33,15 +33,15 @@ humantime-serde.workspace = true
 reqwest.workspace = true
 retry-policies.workspace = true
 schemars = { workspace = true, optional = true }
-serde.workspace = true
+serde = { workspace = true, features = ["std"] }
 serde-inline-default.workspace = true
 serde_default.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["std"] }
 serde_path_to_error.workspace = true
-thiserror.workspace = true
+thiserror = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["time"] }
 tokio-tungstenite = { workspace = true, features = ["connect"] }
-tracing.workspace = true
+tracing = { workspace = true, features = ["attributes", "std"] }
 
 [dev-dependencies]
 et-rest-client.workspace = true

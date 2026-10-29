@@ -7,6 +7,22 @@ Changelog 1.1.0.
 
 ### Added
 
+- `edge-toolkit` builds as `no_std` + `alloc` with `default-features = false`, keeping the WebSocket protocol types
+  in `ws`, `ports`, the `BasicAuth` struct and the in-memory agent registry of `ws_server`. The new default `std`
+  feature restores everything else, the registry file included. `et-org` is `no_std` unconditionally.
+- `et-ws-service` builds as a `no_std` + `alloc` hub with `default-features = false`: `hub::Link` routes each agent's
+  frames through the registry and hands back what to send where, leaving the transport, ids and clock to the
+  embedder. Its features `std` (the actix-web hub), `nats` (the backplane) and `otel` (spans and metrics) are
+  separate. Without `nats`, `WsConfig` has no `backplane`.
+- `et-ws-service`'s `picoserve-hub` feature, on by default, adds `picoserve_hub::Hub`: a `no_std` hub serving
+  `GET /ws` over HTTP and WebSocket through picoserve on any socket the embedder accepts, such as an `embassy-net`
+  `TcpSocket`. It is a local hub, with no backplane, admin API, idle timeout or registry file. A crate awaiting
+  `Hub::serve` needs `#![recursion_limit = "256"]`.
+- `et-ws-server` builds as `no_std` + `alloc` without its new `std` feature. Its `picoserve-server` feature, on by
+  default, adds `picoserve_server::serve`: the hub's `/ws` with `/health` and `/favicon.ico` beside it, over picoserve.
+- The `et-ws-server-pico2w` firmware runs et-ws-server on a Raspberry Pi Pico 2 W, over the board's Wi-Fi.
+  `MISE_ENV=rust mise run build-firmware-pico2w` builds it from `WIFI_NETWORK`, `WIFI_PASSWORD` and a
+  `CYW43_FIRMWARE_DIR` holding the radio's firmware blobs.
 - An opt-in `et-recovery-supervisor` service observes application progress and coordinates bounded Kubernetes recovery.
 - The Python SDK provides recovery lifecycle messages and integrity-checked checkpoint storage helpers.
 - A scenario can list `machines:` to span several hosts. The first is the server, running the hub and the collector,
@@ -61,6 +77,10 @@ Changelog 1.1.0.
   There is no unblock yet; remove the address from `registry.yaml` or the KV bucket and restart the hubs.
 
 ### Changed
+
+- **Breaking:** `et-ws-server`'s actix server, its binary and its environment config are behind the new default `std`
+  feature. A build with `default-features = false` and none of the features that imply `std` -- `modules`, `otlp`,
+  `qr`, `storage`, `tls`, `websockify` -- now gets the `no_std` library and no binary; add `std` to keep the server.
 
 - The workspace requires actix-web 4.17.
 - **Breaking:** the minimum supported Rust version is 1.99.0, up from 1.91.1, for every published crate.

@@ -19,6 +19,7 @@ use actix_web::dev::Payload;
 use actix_web::http::{StatusCode, header};
 use actix_web::{FromRequest, HttpRequest, HttpResponse, ResponseError, web};
 use edge_toolkit::ws_server::RegistryError;
+#[cfg(feature = "nats")]
 use et_hub_backplane::{Backplane, BackplaneError};
 use secrecy::{ExposeSecret as _, SecretString};
 use serde::{Deserialize, Serialize};
@@ -26,7 +27,9 @@ use subtle::ConstantTimeEq as _;
 use thiserror::Error;
 use tracing::{info, warn};
 
-use crate::{WsAgentRegistry, WsConfig, backplane_of};
+#[cfg(feature = "nats")]
+use crate::backplane::backplane_of;
+use crate::server::{WsAgentRegistry, WsConfig};
 
 /// Who may use the admin API, read from the `WS_ADMIN_TOKEN` string.
 ///
@@ -85,6 +88,7 @@ pub enum AdminError {
     #[error("unknown agent {0}")]
     UnknownAgent(String),
 
+    #[cfg(feature = "nats")]
     #[error("hub backplane unavailable")]
     Backplane(#[source] BackplaneError),
 
@@ -102,6 +106,7 @@ impl From<RegistryError> for AdminError {
     }
 }
 
+#[cfg(feature = "nats")]
 impl From<BackplaneError> for AdminError {
     fn from(error: BackplaneError) -> Self {
         if let BackplaneError::UnknownAgent(agent_id) = error {
@@ -118,6 +123,7 @@ impl ResponseError for AdminError {
             Self::Disabled => StatusCode::FORBIDDEN,
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::UnknownAgent(_) => StatusCode::NOT_FOUND,
+            #[cfg(feature = "nats")]
             Self::Backplane(_) => StatusCode::SERVICE_UNAVAILABLE,
             Self::Registry(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -137,8 +143,21 @@ impl ResponseError for AdminError {
 /// Taking one as a handler argument is what puts a route behind the admin token: actix refuses the request with the
 /// [`AdminError`] before the handler runs.
 #[derive(Debug)]
+#[cfg_attr(not(feature = "nats"), non_exhaustive)]
 pub struct AdminRequest {
+    #[cfg(feature = "nats")]
     backplane: Backplane,
+}
+
+#[cfg(feature = "nats")]
+impl AdminRequest {
+    /// Refuse `ip` on every other hub of the backplane, through the shared blocklist; a no-op for a local hub.
+    async fn block_on_other_hubs(&self, ip: IpAddr) -> Result<(), AdminError> {
+        if let Backplane::Nats(nats) = &self.backplane {
+            nats.block_ip(ip).await?;
+        }
+        Ok(())
+    }
 }
 
 impl FromRequest for AdminRequest {
@@ -151,6 +170,7 @@ impl FromRequest for AdminRequest {
             .map(|config| config.admin_token.clone())
             .unwrap_or_default();
         ready(authorize(req, &token).map(|()| Self {
+            #[cfg(feature = "nats")]
             backplane: backplane_of(req),
         }))
     }
@@ -182,20 +202,11 @@ fn authorize(req: &HttpRequest, token: &AdminToken) -> Result<(), AdminError> {
     }
 }
 
-/// Refuse `ip` on this hub and, through the shared blocklist, on every other hub of `backplane`.
+/// Block an address: refuse it on every hub of the backplane.
 ///
 /// Every open socket from that address is closed within a heartbeat, whichever agent it carries, and every later
 /// connection from it is refused. The block outlives a hub restart: a local hub saves it with its registry, and a
 /// NATS-backed hub keeps it in the shared blocklist.
-async fn block_everywhere(backplane: &Backplane, registry: &WsAgentRegistry, ip: IpAddr) -> Result<(), AdminError> {
-    if let Backplane::Nats(nats) = backplane {
-        nats.block_ip(ip).await?;
-    }
-    let _newly = registry.blocklist.block(ip);
-    Ok(())
-}
-
-/// Block an address: refuse it on every hub of the backplane.
 ///
 /// Blocking an address already blocked succeeds again, so the request can be repeated safely. A path segment that
 /// is not an IPv4 or IPv6 address matches no route and is answered 404.
@@ -216,13 +227,22 @@ async fn block_everywhere(backplane: &Backplane, registry: &WsAgentRegistry, ip:
         )
     )
 )]
+#[cfg_attr(
+    not(feature = "nats"),
+    expect(
+        unused_variables,
+        reason = "the admin token is all a request carries without a backplane"
+    )
+)]
 pub async fn block_ip(
     admin: AdminRequest,
     ip: web::Path<IpAddr>,
     registry: web::Data<WsAgentRegistry>,
 ) -> Result<HttpResponse, AdminError> {
     let ip = ip.into_inner();
-    block_everywhere(&admin.backplane, &registry, ip).await?;
+    #[cfg(feature = "nats")]
+    admin.block_on_other_hubs(ip).await?;
+    let _newly = registry.blocklist.block(ip);
     info!("Blocked IP {ip}");
     Ok(HttpResponse::NoContent().finish())
 }
@@ -249,22 +269,42 @@ pub async fn block_ip(
         )
     )
 )]
+#[cfg_attr(
+    not(feature = "nats"),
+    expect(
+        unused_variables,
+        reason = "the admin token is all a request carries without a backplane"
+    )
+)]
 pub async fn evict_agent(
     admin: AdminRequest,
     agent_id: web::Path<String>,
     registry: web::Data<WsAgentRegistry>,
 ) -> Result<HttpResponse, AdminError> {
     let agent_id = agent_id.into_inner();
-    let backplane = admin.backplane;
-    let blocked_ip = match &backplane {
-        Backplane::Local => registry.agent_ip(&agent_id)?,
-        Backplane::Nats(nats) => nats.agent_ip(&agent_id).await?,
-    };
-    block_everywhere(&backplane, &registry, blocked_ip).await?;
-    let dropped = match &backplane {
-        Backplane::Local => registry.forget_messages_from(&agent_id),
-        Backplane::Nats(nats) => nats.forget_messages_from(&agent_id).await?,
-    };
+    #[cfg(feature = "nats")]
+    if let Backplane::Nats(nats) = &admin.backplane {
+        let blocked_ip = nats.agent_ip(&agent_id).await?;
+        admin.block_on_other_hubs(blocked_ip).await?;
+        let _newly = registry.blocklist.block(blocked_ip);
+        let dropped = nats.forget_messages_from(&agent_id).await?;
+        return Ok(evicted(agent_id, blocked_ip, dropped));
+    }
+    let blocked_ip = registry.agent_ip(&agent_id)?;
+    let _newly = registry.blocklist.block(blocked_ip);
+    let dropped = registry.forget_messages_from(&agent_id);
+    Ok(evicted(agent_id, blocked_ip, dropped))
+}
+
+/// The answer to an eviction of `agent_id` that blocked `blocked_ip` and dropped `dropped` of its queued messages.
+#[cfg_attr(
+    not(feature = "nats"),
+    expect(
+        clippy::single_call_fn,
+        reason = "shared by the local and backplane evictions, which are one without nats"
+    )
+)]
+fn evicted(agent_id: String, blocked_ip: IpAddr, dropped: usize) -> HttpResponse {
     info!("Evicted agent {agent_id}; blocked IP {blocked_ip}; dropped {dropped} queued messages it sent");
-    Ok(HttpResponse::Ok().json(EvictedAgent { agent_id, blocked_ip }))
+    HttpResponse::Ok().json(EvictedAgent { agent_id, blocked_ip })
 }

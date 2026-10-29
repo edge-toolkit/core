@@ -13,10 +13,10 @@ doctest = false
 [dependencies]
 actix-web.workspace = true
 actix-ws.workspace = true
-bytes.workspace = true
+bytes = { workspace = true, features = ["std"] }
 futures-util.workspace = true
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt"] }
-tracing.workspace = true
+tracing = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 actix-web.workspace = true

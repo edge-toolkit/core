@@ -1,0 +1,13 @@
+id: no-env-macro-in-attribute
+valid:
+  - |
+    #![cfg_attr(doc, doc = include_str!(concat!(env!("OUT_DIR"), "/README.md")))]
+  - |
+    #[doc = concat!("version ", env!("CARGO_PKG_VERSION"))]
+    fn version() {}
+invalid:
+  - |
+    #![cfg_attr(doc, doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md")))]
+  - |
+    #[doc = env!("WIFI_NETWORK")]
+    fn network() {}

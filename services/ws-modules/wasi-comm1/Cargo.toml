@@ -27,7 +27,7 @@ docs = ["dep:document-features"]
 [target.'cfg(target_os = "wasi")'.dependencies]
 document-features = { workspace = true, optional = true }
 et-wasi-guest.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true

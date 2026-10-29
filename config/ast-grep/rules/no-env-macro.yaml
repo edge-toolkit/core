@@ -9,6 +9,8 @@ message: |
   - `CARGO_BIN_EXE_<name>` -- the built binary's path, injected by cargo for an integration test.
   - `CARGO_PKG_VERSION` / `CARGO_PKG_NAME` -- crate identity baked into the binary.
   - `ET_WIT_DIR` -- the WIT directory injected at build time for wit-bindgen.
+  - `OUT_DIR` -- the build script's output directory, for `include!`-ing what it generated. Configuration a
+    bare-metal binary bakes in is read there, by its `build.rs`, and generated as typed constants.
   `CARGO_MANIFEST_DIR` is deliberately NOT exempt -- use `edge_toolkit::config::get_project_root()` at runtime
   (see the `no-cargo-manifest-dir` rule).
 rule:
@@ -19,6 +21,6 @@ rule:
         regex: "^(env|option_env)$"
     # Exempt a call only when its argument is one of the allowlisted names above.
     # `not` matches against this `macro_invocation`'s own text (the whole `env!("...")`); everything else
-    # (CARGO_MANIFEST_DIR, OUT_DIR, ad-hoc vars) fires.
+    # (CARGO_MANIFEST_DIR, ad-hoc vars) fires.
     - not:
-        regex: '"(CARGO_BIN_EXE_[A-Za-z0-9_.-]+|CARGO_PKG_VERSION|CARGO_PKG_NAME|ET_WIT_DIR)"'
+        regex: '"(CARGO_BIN_EXE_[A-Za-z0-9_.-]+|CARGO_PKG_VERSION|CARGO_PKG_NAME|ET_WIT_DIR|OUT_DIR)"'

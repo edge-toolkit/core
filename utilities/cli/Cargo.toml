@@ -19,7 +19,7 @@ path = "src/main.rs"
 bytesize.workspace = true
 clap = { workspace = true, features = ["env"] }
 croner.workspace = true
-edge-toolkit.workspace = true
+edge-toolkit = { workspace = true, features = ["std"] }
 et-org.workspace = true
 et-path.workspace = true
 et-recovery-supervisor.workspace = true
@@ -31,12 +31,12 @@ pretty_yaml.workspace = true
 rand.workspace = true
 rand_chacha.workspace = true
 reqwest = { workspace = true, features = ["json", "rustls"] }
-serde.workspace = true
-serde_json.workspace = true
+serde = { workspace = true, features = ["std"] }
+serde_json = { workspace = true, features = ["std"] }
 serde_yaml.workspace = true
 sha2.workspace = true
 textwrap.workspace = true
-thiserror.workspace = true
+thiserror = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["rt"] }
 toml.workspace = true
 

@@ -17,7 +17,7 @@ test = false
 command-error.workspace = true
 fs-err.workspace = true
 regex = { workspace = true, features = ["perf", "std", "unicode-perl"] }
-thiserror.workspace = true
+thiserror = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true

@@ -106,7 +106,7 @@ url = "https://github.com/edge-toolkit/core/releases/download/gnupg-w32-v1/2.5.2
 [[tools.rust]]
 components = "clippy,rust-analyzer"
 profile = "minimal"
-targets = "wasm32-unknown-unknown,wasm32-wasip2"
+targets = "thumbv8m.main-none-eabihf,wasm32-unknown-unknown,wasm32-wasip2"
 version = "stable-{{ vars.win_rust_host }}"
 
 [[tools.rust]]

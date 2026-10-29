@@ -12,15 +12,15 @@ doctest = false
 
 [dependencies]
 async-nats.workspace = true
-bytes.workspace = true
+bytes = { workspace = true, features = ["std"] }
 const-hex.workspace = true
-edge-toolkit.workspace = true
+edge-toolkit = { workspace = true, features = ["std"] }
 futures-util.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-thiserror.workspace = true
+serde = { workspace = true, features = ["std"] }
+serde_json = { workspace = true, features = ["std"] }
+thiserror = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["time"] }
-tracing.workspace = true
+tracing = { workspace = true, features = ["std"] }
 uuid.workspace = true
 
 [dev-dependencies]

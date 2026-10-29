@@ -23,7 +23,7 @@ test = false
 et-web.workspace = true
 et-ws-wasm-agent.workspace = true
 js-sys.workspace = true
-tracing.workspace = true
+tracing = { workspace = true, features = ["std"] }
 tracing-wasm.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true

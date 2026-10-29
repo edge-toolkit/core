@@ -73,6 +73,27 @@ sha256 = "7ed49c2c170aefe81e7e91b472a761d922ef3c064b6051068c2dc0ccc98bd53b"
 upstream = "https://huggingface.co/onnx-community/silero-vad"
 url = "https://huggingface.co/onnx-community/silero-vad/resolve/84f0d86/onnx/model_fp16.onnx"
 
+# The Pico 2 W's CYW43439 radio: its firmware, country locale matrix and the NVRAM for the board's module.
+# Fetched straight from embassy's cyw43-firmware directory at a pinned commit, for CI to build the firmware with;
+# nothing republishes them. Infineon's Permissive Binary License 1.0 has no SPDX id, hence the LicenseRef.
+[asset."cyw43-75f40b3-43439A0.bin"]
+license = "LicenseRef-Permissive-Binary-License-1.0"
+sha256 = "5555e0261da2610a500d68c18d895cace0152bbefbf76f4aa683ebce77e3d7eb"
+upstream = "https://github.com/embassy-rs/embassy/tree/main/cyw43-firmware"
+url = "https://github.com/embassy-rs/embassy/raw/75f40b383a14/cyw43-firmware/43439A0.bin"
+
+[asset."cyw43-75f40b3-43439A0_clm.bin"]
+license = "LicenseRef-Permissive-Binary-License-1.0"
+sha256 = "e712b3d218e8b1e2747b092e03b8b0afcb8c8c8e355d2a4a0d47b493800f3f89"
+upstream = "https://github.com/embassy-rs/embassy/tree/main/cyw43-firmware"
+url = "https://github.com/embassy-rs/embassy/raw/75f40b383a14/cyw43-firmware/43439A0_clm.bin"
+
+[asset."cyw43-75f40b3-nvram_rp2040.bin"]
+license = "LicenseRef-Permissive-Binary-License-1.0"
+sha256 = "4904bdbb0c937bd0ac2eb2a1d62f2da4dd90e32082384e02874e8d671b0f330d"
+upstream = "https://github.com/embassy-rs/embassy/tree/main/cyw43-firmware"
+url = "https://github.com/embassy-rs/embassy/raw/75f40b383a14/cyw43-firmware/nvram_rp2040.bin"
+
 [asset."rustpython-wasm-08a1d6f.tar.gz"]
 license = "MIT"
 sha256 = "7b81d53f5b3a63c60fc2bc1717e87466026d796ec522b925f009532c7b0291f3"

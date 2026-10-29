@@ -13,16 +13,16 @@ doctest = false
 [dependencies]
 actix-rt.workspace = true
 actix-web.workspace = true
-edge-toolkit.workspace = true
+edge-toolkit = { workspace = true, features = ["std"] }
 et-modules-service.workspace = true
 et-storage-service.workspace = true
 et-test-helpers.workspace = true
-et-ws-service.workspace = true
+et-ws-service = { workspace = true, features = ["nats", "otel"] }
 fs-err.workspace = true
 futures-util.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["std"] }
 tempfile.workspace = true
-thiserror.workspace = true
+thiserror = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "net", "rt", "time"] }
 tokio-tungstenite = { workspace = true, features = ["connect"] }
 # Same TracingLogger setup as the real ws-server.

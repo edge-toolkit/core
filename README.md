@@ -11,7 +11,7 @@
 [coverage]: https://codecov.io/gh/edge-toolkit/core
 [crate-badge]: https://img.shields.io/crates/v/et-ws-server
 [crate]: https://crates.io/crates/et-ws-server
-[checks-badge]: https://img.shields.io/badge/checks-%3E%3D340-blue
+[checks-badge]: https://img.shields.io/badge/checks-%3E%3D360-blue
 [checks]: CHECKS.md
 [license-badge]: https://img.shields.io/badge/license-MIT%2BApache--2.0-blue
 [license]: #licence

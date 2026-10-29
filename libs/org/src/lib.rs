@@ -9,6 +9,7 @@
 //!
 //! The organisation name itself is written exactly once, in [`ORG`]'s macro, and every longer string is assembled from
 //! it. That is what makes the rule enforceable rather than aspirational: there is a single literal to protect.
+#![no_std]
 
 /// The organisation name as a literal, for the constants below to build on.
 ///
