@@ -1610,25 +1610,25 @@ checksum = "sha256:30b96e2d50ec15f7da5563b5bbce4170ee23f5fbf8565a8973889d8f25c62
 url = "https://github.com/edge-toolkit/core/releases/download/rp-v1/rustpython-08a1d6f-x86_64-pc-windows-msvc.tar.gz"
 
 [[tools."http:openobserve"]]
-version = "1.1.1"
+version = "1.1.2"
 backend = "http:openobserve"
-specifiers = ["1.1.1"]
+specifiers = ["1.1.2"]
 
 [tools."http:openobserve"."platforms.linux-arm64"]
-url = "https://downloads.openobserve.ai/releases/openobserve/v1.1.1/openobserve-v1.1.1-linux-arm64-musl.tar.gz"
+url = "https://downloads.openobserve.ai/releases/openobserve/v1.1.2/openobserve-v1.1.2-linux-arm64-musl.tar.gz"
 
 [tools."http:openobserve"."platforms.linux-x64"]
-url = "https://downloads.openobserve.ai/releases/openobserve/v1.1.1/openobserve-v1.1.1-linux-amd64-musl.tar.gz"
+url = "https://downloads.openobserve.ai/releases/openobserve/v1.1.2/openobserve-v1.1.2-linux-amd64-musl.tar.gz"
 
 [tools."http:openobserve"."platforms.macos-arm64"]
-checksum = "blake3:efe45b6bbdf941dd275f92cb20598339020fb96de68d2ee2646fb88777c9e363"
-url = "https://downloads.openobserve.ai/releases/openobserve/v1.1.1/openobserve-v1.1.1-darwin-arm64.tar.gz"
+checksum = "blake3:b05adaf54df5b4012e6e69a6d339584128f7b5da97cba2b2bc7874035289e61a"
+url = "https://downloads.openobserve.ai/releases/openobserve/v1.1.2/openobserve-v1.1.2-darwin-arm64.tar.gz"
 
 [tools."http:openobserve"."platforms.macos-x64"]
-url = "https://downloads.openobserve.ai/releases/openobserve/v1.1.1/openobserve-v1.1.1-darwin-amd64.tar.gz"
+url = "https://downloads.openobserve.ai/releases/openobserve/v1.1.2/openobserve-v1.1.2-darwin-amd64.tar.gz"
 
 [tools."http:openobserve"."platforms.windows-x64"]
-url = "https://downloads.openobserve.ai/releases/openobserve/v1.1.1/openobserve-v1.1.1-windows-amd64.zip"
+url = "https://downloads.openobserve.ai/releases/openobserve/v1.1.2/openobserve-v1.1.2-windows-amd64.zip"
 
 [[tools."http:rp-wasm"]]
 version = "08a1d6f"

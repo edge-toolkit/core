@@ -2,7 +2,7 @@ services:
   openobserve:
     profiles:
       - server
-    image: openobserve/openobserve:v1.1.1
+    image: openobserve/openobserve:v1.1.2
     healthcheck:
       test:
         - CMD

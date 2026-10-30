@@ -392,7 +392,7 @@ fn openobserve_run_body(cluster_name: &str) -> String {
         .join(" ");
     format!(
         concat!(
-            "image=openobserve/openobserve:v1.1.1\n",
+            "image=openobserve/openobserve:v1.1.2\n",
             "container={container}\n",
             "settings=\"{flags}\"\n",
             "# $settings is a word-split flag list by design; do not quote it.\n",
