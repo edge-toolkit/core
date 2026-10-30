@@ -27,8 +27,8 @@ et-onnx.workspace = true
 et-recovery-supervisor = { workspace = true, features = ["env-schema"] }
 et-storage-service = { workspace = true, features = ["openapi-spec"] }
 et-ws-runner-common = { workspace = true, features = ["env-schema"] }
-et-ws-server = { workspace = true, features = ["env-schema", "openapi-spec"] }
-et-ws-service = { workspace = true, features = ["openapi-spec"] }
+et-ws-server = { workspace = true, features = ["default", "env-schema", "openapi-spec"] }
+et-ws-service = { workspace = true, features = ["nats", "openapi-spec", "otel"] }
 fs-err.workspace = true
 heck.workspace = true
 jiff.workspace = true
@@ -43,12 +43,12 @@ regex = { workspace = true, features = ["std"] }
 reqwest = { workspace = true, features = ["blocking", "rustls"] }
 schemars.workspace = true
 semver.workspace = true
-serde.workspace = true
-serde_json.workspace = true
+serde = { workspace = true, features = ["std"] }
+serde_json = { workspace = true, features = ["std"] }
 serde_yaml.workspace = true
 syn.workspace = true
 tempfile.workspace = true
-thiserror.workspace = true
+thiserror = { workspace = true, features = ["std"] }
 toml.workspace = true
 tree-sitter.workspace = true
 tree-sitter-zig.workspace = true

@@ -17,7 +17,7 @@ doctest = false
 test = false
 
 [dependencies]
-edge-toolkit.workspace = true
+edge-toolkit = { workspace = true, features = ["std"] }
 et-web.workspace = true
 et-ws-wasm-agent.workspace = true
 # Disable the `tracing` default feature for this browser WASM target.
@@ -25,8 +25,8 @@ et-ws-wasm-agent.workspace = true
 et-rest-client.workspace = true
 futures-util.workspace = true
 js-sys.workspace = true
-serde_json.workspace = true
-tracing.workspace = true
+serde_json = { workspace = true, features = ["std"] }
+tracing = { workspace = true, features = ["std"] }
 tracing-wasm.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true

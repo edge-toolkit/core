@@ -49,9 +49,9 @@ coverage = ["et-ws-runner-common/coverage"]
 docs = ["dep:document-features"]
 
 [dependencies]
-chrono.workspace = true
+chrono = { workspace = true, features = ["std"] }
 document-features = { workspace = true, optional = true }
-edge-toolkit.workspace = true
+edge-toolkit = { workspace = true, features = ["std"] }
 et-otlp.workspace = true
 et-rest-client = { workspace = true, features = ["tracing"] }
 et-ws-runner-common.workspace = true
@@ -62,12 +62,12 @@ futures-util.workspace = true
 # ORT teardown -- _exit skips them.
 libc.workspace = true
 reqwest = { workspace = true, features = ["json", "rustls", "stream"] }
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["std"] }
 serde_path_to_error.workspace = true
-thiserror.workspace = true
+thiserror = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
 tokio-tungstenite = { workspace = true, features = ["connect"] }
-tracing.workspace = true
+tracing = { workspace = true, features = ["std"] }
 wasmtime.workspace = true
 wasmtime-wasi.workspace = true
 # wasi-nn standardised ML inference.
@@ -95,7 +95,7 @@ reqwest = { workspace = true, features = ["blocking"] }
 retry.workspace = true
 rstest.workspace = true
 secrecy.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["std"] }
 tempfile.workspace = true
 
 [lints]

@@ -8,6 +8,65 @@
 # The rest of the Rust toolchain + tasks (the `rust` tool itself, cargo-*, the universal repo-wide checks,
 # ws-server, the e2e tests) still live in the default config; moving those out is a later pass.
 
+# et-ws-server as Raspberry Pi Pico 2 W firmware: an ELF that picotool or probe-rs loads onto the board.
+# Its build reads the radio's blobs from CYW43_FIRMWARE_DIR, and the network to join from WIFI_NETWORK and
+# WIFI_PASSWORD; its name stays outside `build-modules`'s `build-ws-*` glob, since that has none of them.
+[tasks.build-firmware-pico2w]
+description = "Build et-ws-server as Raspberry Pi Pico 2 W firmware"
+run = "cargo build --release -p et-int-ws-server-pico2w --target thumbv8m.main-none-eabihf"
+
+# The firmware's body compiles only for the board, so the workspace's host clippy never reaches it; this does.
+# It needs what build-firmware-pico2w needs.
+[tasks.cargo-clippy-check-pico2w]
+description = "Lint the Raspberry Pi Pico 2 W firmware for its own target"
+run = "cargo clippy --release -p et-int-ws-server-pico2w --target thumbv8m.main-none-eabihf"
+
+# The Pico 2 W radio's firmware, CLM and NVRAM, from embassy's cyw43-firmware directory at the pinned commit.
+# They land in the gitignored target/cyw43-firmware, for build-firmware-pico2w to read as CYW43_FIRMWARE_DIR, and
+# each is checked against the SHA256 config/upstream-cache/data.toml records for it.
+[tasks.fetch-cyw43-firmware-rclone]
+description = "Fetch the Pico 2 W radio's firmware blobs into target/cyw43-firmware"
+run = """
+set -- 43439A0.bin '{{ vars.cyw43_firmware_asset }}' 43439A0_clm.bin '{{ vars.cyw43_clm_asset }}'
+set -- "$@" nvram_rp2040.bin '{{ vars.cyw43_nvram_asset }}'
+while [ "$#" -gt 0 ]; do
+  file=$1
+  export asset=$2
+  shift 2
+  dst="{{ vars.cyw43_dir }}/$file"
+  # shellcheck disable=SC2086
+  rclone copyto "{{ vars.cyw43_repo }}/$file" "$dst" {{ vars.gh_http }}
+  sha=$(mise exec -- yq -p toml -oy '.asset[strenv(asset)].sha256' config/upstream-cache/data.toml)
+  actual=$(mise exec -- coreutils sha256sum -b "$dst" | mise exec -- coreutils cut -c1-64)
+  [ "$actual" = "$sha" ] || {
+    echo "cyw43 checksum mismatch for $file: expected=$sha actual=$actual" >&2
+    exit 1
+  }
+done
+"""
+shell = "{{ vars.task_shell }}"
+
+# The crates that build without std, built for the Pico 2 W's bare-metal target, which has no std to fall back on.
+# A host build of the same features can still link std through a dependency without anyone noticing; this cannot.
+[tasks.build-no-std]
+description = "Build the no_std crates for a bare-metal target"
+run = """
+features=et-ws-service/picoserve-hub,et-ws-server/picoserve-server
+set -- -p et-org -p edge-toolkit -p et-ws-service -p et-ws-server
+cargo build --lib --target thumbv8m.main-none-eabihf --no-default-features --features "$features" "$@"
+"""
+shell = "{{ vars.task_shell }}"
+
+# The tests of the no_std crates as they build without std, which runs only the test files that need none.
+[tasks.test-no-std]
+description = "Test the no_std crates built without std"
+run = """
+features=et-ws-service/picoserve-hub,et-ws-server/picoserve-server
+set -- -p edge-toolkit -p et-ws-service -p et-ws-server
+cargo nextest run --config-file config/nextest.toml --no-default-features --features "$features" "$@"
+"""
+shell = "{{ vars.task_shell }}"
+
 # Browser wasm-pack builds are coverage-instrumented when ET_TEST_COVERAGE is set.
 # The web_cov_wrapper RUSTC_WORKSPACE_WRAPPER (built by build-wasm-cov-wrapper) instruments only workspace
 # crates -- never dependency cdylibs such as wasm-streams that don't link minicov's
@@ -155,3 +214,13 @@ coreutils cp "target/wasm32-wasip2/release/$wasm" "services/ws-modules/wasi-comm
 {{ vars.et_cli }} module-package-json --module-dir services/ws-modules/wasi-comm1
 """
 shell = "{{ vars.task_shell }}"
+
+[vars]
+# The Pico 2 W radio's blobs, as fetch-cyw43-firmware-rclone fetches them.
+# Each asset name carries embassy's short commit; config/upstream-cache/data.toml records the matching SHA256s, and
+# checksums.rego cross-checks both sides.
+cyw43_clm_asset = "cyw43-75f40b3-43439A0_clm.bin"
+cyw43_dir = "target/cyw43-firmware"
+cyw43_firmware_asset = "cyw43-75f40b3-43439A0.bin"
+cyw43_nvram_asset = "cyw43-75f40b3-nvram_rp2040.bin"
+cyw43_repo = ":http:embassy-rs/embassy/raw/75f40b383a14/cyw43-firmware"

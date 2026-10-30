@@ -1965,7 +1965,7 @@ specifiers = ["stable"]
 [tools.rust.options]
 components = "clippy,rust-analyzer"
 profile = "minimal"
-targets = "wasm32-unknown-unknown,wasm32-wasip2"
+targets = "thumbv8m.main-none-eabihf,wasm32-unknown-unknown,wasm32-wasip2"
 
 [[tools.taplo]]
 version = "0.10.0"

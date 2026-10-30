@@ -23,8 +23,8 @@ tracing = ["dep:opentelemetry", "dep:opentelemetry-http", "dep:tracing-opentelem
 opentelemetry = { workspace = true, optional = true }
 opentelemetry-http = { workspace = true, optional = true }
 progenitor-client.workspace = true
-serde.workspace = true
-tracing.workspace = true
+serde = { workspace = true, features = ["std"] }
+tracing = { workspace = true, features = ["std"] }
 tracing-opentelemetry = { workspace = true, optional = true }
 
 # `rustls` and `stream` are native-only -- WASM reqwest dispatches via the

@@ -8,7 +8,9 @@
 )]
 
 use et_test_helpers::temp_env;
-use et_ws_service::{BackplaneConfig, MessageRetention, WsConfig};
+#[cfg(feature = "nats")]
+use et_ws_service::BackplaneConfig;
+use et_ws_service::{MessageRetention, WsConfig};
 use serde::Deserialize;
 
 // Mirror the ws-server's nesting so the env key is `WS_MAX_FRAME_SIZE`.
@@ -64,6 +66,7 @@ fn connection_timeout_none_sentinel_disables() {
     });
 }
 
+#[cfg(feature = "nats")]
 #[test]
 fn backplane_absent_defaults_to_local() {
     temp_env::with_var_unset("WS_BACKPLANE", || {
@@ -85,6 +88,7 @@ fn message_retention_parses_all() {
     });
 }
 
+#[cfg(feature = "nats")]
 #[test]
 fn backplane_parses_a_nats_url() {
     temp_env::with_var("WS_BACKPLANE", Some("nats://broker:4222"), || {
@@ -92,6 +96,7 @@ fn backplane_parses_a_nats_url() {
     });
 }
 
+#[cfg(feature = "nats")]
 #[test]
 fn backplane_rejects_an_unknown_scheme() {
     temp_env::with_var("WS_BACKPLANE", Some("redis://broker"), || {

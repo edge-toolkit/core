@@ -30,7 +30,7 @@ humantime.workspace = true
 humantime-serde.workspace = true
 nutype.workspace = true
 schemars = { workspace = true, optional = true }
-serde.workspace = true
+serde = { workspace = true, features = ["std"] }
 serde_default.workspace = true
 serde_with.workspace = true
 

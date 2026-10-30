@@ -1,0 +1,74 @@
+---
+name: no-std
+
+# The crates that build without std, built where there is none, and et-ws-server as Raspberry Pi Pico 2 W firmware.
+# One Linux job: a bare-metal target compiles the same on every host, so another platform would only repeat it. The
+# board is not here, so the firmware is built and linted, not run; nothing is uploaded or published.
+#
+# Not path-gated: what breaks a no_std build is a dependency or a feature gaining std somewhere in the tree, which a
+# path list would have to name every crate to catch.
+"on":
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+env:
+  MISE_ENV: dart,dotnet,java,js,kotlin,python,r,rust,zig
+
+jobs:
+  no-std:
+    runs-on: ubuntu-latest
+    # Read-only pull of the maintainer-published ghcr.io mise-tools store (install-mise-tools restore step).
+    # Never write: the stores are published only from a maintainer's machine via `mise run push-mise-tools`.
+    permissions:
+      contents: read
+      packages: read
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Show MISE_ENV
+        run: echo "MISE_ENV=$MISE_ENV"
+
+      - name: Install mise + tools
+        uses: $/.github/actions/install-mise-tools
+        timeout-minutes: 60
+        with:
+          github-token: ${{ github.token }}
+
+      - name: Build the no_std crates for a bare-metal target
+        timeout-minutes: 20
+        run: mise run build-no-std
+
+      - name: Test the no_std crates built without std
+        timeout-minutes: 20
+        run: mise run test-no-std
+
+      - name: Fetch the Pico 2 W radio's firmware blobs
+        timeout-minutes: 5
+        run: mise run fetch-cyw43-firmware-rclone
+
+      # The firmware bakes in the network it joins, so CI builds it for one that does not exist.
+      - name: Build and lint the Pico 2 W firmware
+        timeout-minutes: 30
+        env:
+          CYW43_FIRMWARE_DIR: ${{ github.workspace }}/target/cyw43-firmware
+          WIFI_NETWORK: edge-toolkit-ci
+          WIFI_PASSWORD: not-a-real-passphrase
+        run: |
+          mise run build-firmware-pico2w
+          mise run cargo-clippy-check-pico2w

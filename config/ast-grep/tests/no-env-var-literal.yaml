@@ -1,0 +1,14 @@
+id: no-env-var-literal
+valid:
+  - |
+    const OUT_DIR: &str = "OUT_DIR";
+    let out_dir = env::var(OUT_DIR);
+  - |
+    let path = std::env::var_os("PATH");
+  - |
+    let value = env::var(name);
+invalid:
+  - |
+    let out_dir = env::var("OUT_DIR");
+  - |
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS");

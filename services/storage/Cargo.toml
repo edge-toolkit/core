@@ -39,7 +39,7 @@ docs = ["dep:document-features"]
 actix-web.workspace = true
 actix-web-thiserror.workspace = true
 document-features = { workspace = true, optional = true }
-edge-toolkit.workspace = true
+edge-toolkit = { workspace = true, features = ["std"] }
 et-hub-backplane.workspace = true
 fs-err.workspace = true
 futures-util.workspace = true
@@ -47,11 +47,11 @@ image = { workspace = true, optional = true }
 log.workspace = true
 object_store.workspace = true
 schemars = { workspace = true, optional = true }
-serde.workspace = true
+serde = { workspace = true, features = ["std"] }
 serde_default.workspace = true
-serde_json.workspace = true
-thiserror.workspace = true
-tracing.workspace = true
+serde_json = { workspace = true, features = ["std"] }
+thiserror = { workspace = true, features = ["std"] }
+tracing = { workspace = true, features = ["std"] }
 url.workspace = true
 utoipa = { workspace = true, optional = true }
 

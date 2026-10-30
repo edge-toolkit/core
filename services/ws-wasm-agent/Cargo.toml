@@ -22,13 +22,13 @@ coverage = ["et-web/coverage"]
 docs = ["dep:document-features"]
 
 [dependencies]
-chrono.workspace = true
+chrono = { workspace = true, features = ["clock", "wasmbind"] }
 document-features = { workspace = true, optional = true }
-edge-toolkit.workspace = true
+edge-toolkit = { workspace = true, features = ["std"] }
 et-web.workspace = true
 js-sys.workspace = true
-serde_json.workspace = true
-tracing.workspace = true
+serde_json = { workspace = true, features = ["std"] }
+tracing = { workspace = true, features = ["std"] }
 tracing-wasm.workspace = true
 wasm-bindgen.workspace = true
 web-sys = { workspace = true, features = [

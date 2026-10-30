@@ -1,11 +1,11 @@
 # Checks
 
-- **Generated:** 2026-10-28
-- **Checks:** 78
+- **Generated:** 2026-10-30
+- **Checks:** 79
 - **Tools:** 47
 - **Shell-script checks:** 10
 - **Checks with a repair pass:** 21
-- **Rules:** 359 custom local rules, or non-default strict linter settings
+- **Rules:** 360 custom local rules, or non-default strict linter settings
 - **Meta rules:** 20 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
@@ -155,12 +155,17 @@ Rules, from `config/ast-grep/rules`:
   `et-ws-runner-common::config`) so every variable is declared in one typed place. Only these cargo-provided constants,
   which have no serde-env equivalent, are exempt: - `CARGO_BIN_EXE_<name>` -- the built binary's path, injected by cargo
   for an integration test. - `CARGO_PKG_VERSION` / `CARGO_PKG_NAME` -- crate identity baked into the binary. -
-  `ET_WIT_DIR` -- the WIT directory injected at build time for wit-bindgen. `CARGO_MANIFEST_DIR` is deliberately NOT
-  exempt -- use `edge_toolkit::config::get_project_root()` at runtime (see the `no-cargo-manifest-dir` rule).
+  `ET_WIT_DIR` -- the WIT directory injected at build time for wit-bindgen. - `OUT_DIR` -- the build script's output
+  directory, for `include!`-ing what it generated. Configuration a bare-metal binary bakes in is read there, by its
+  `build.rs`, and generated as typed constants. `CARGO_MANIFEST_DIR` is deliberately NOT exempt -- use
+  `edge_toolkit::config::get_project_root()` at runtime (see the `no-cargo-manifest-dir` rule).
 - `no-env-macro-in-attribute` -- `env!` / `option_env!` inside an attribute are banned exactly as they are anywhere
   else, with the same allowlist of cargo-provided constants (`CARGO_BIN_EXE_<name>`, `CARGO_PKG_VERSION`,
-  `CARGO_PKG_NAME`, `ET_WIT_DIR`). Read configuration through a `serde-env` struct instead, and locate repo files from
-  the project root rather than from `CARGO_MANIFEST_DIR`.
+  `CARGO_PKG_NAME`, `ET_WIT_DIR`, `OUT_DIR`). Read configuration through a `serde-env` struct instead, and locate repo
+  files from the project root rather than from `CARGO_MANIFEST_DIR`.
+- `no-env-var-literal` -- `env::var` takes a named constant, never a string literal: a mistyped literal is a lookup that
+  silently fails, while a mistyped constant does not compile. Declare `const NAME: &str = "NAME";` beside the read. It
+  is the local twin of DeepSource RS-W1015.
 - `no-eq-bool-literal` -- `==`/`!=` with a `true` or `false` literal as either operand is a boolean written the long
   way. Use the boolean itself -- `x`, `!x` -- and when the value is not a `bool` (a parsed `serde_yaml::Value` field,
   say), convert it and keep the operator: `value == true` becomes `value.as_bool() == Some(true)`, and `value != false`
@@ -327,6 +332,8 @@ Rules, from `config/ast-grep/rules`:
 
 - `cargo-clippy-check` (`default` env; run by `check:rust`). Repaired by `cargo-clippy-fix`. Config: `Cargo.toml`,
   `config/clippy.toml`.
+- `cargo-clippy-check-pico2w` (`rust` env; not run by `mise run check`) -- Lint the Raspberry Pi Pico 2 W firmware for
+  its own target. Config: `Cargo.toml`, `config/clippy.toml`.
 - `cargo-clippy-check-pkg` (`default` env; not run by `mise run check`) -- cargo clippy on one or more workspace
   packages (narrow inner-loop check). Config: `Cargo.toml`, `config/clippy.toml`.
 

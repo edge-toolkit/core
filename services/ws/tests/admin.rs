@@ -9,8 +9,10 @@ use actix_web::dev::{Service, ServiceResponse};
 use actix_web::http::{StatusCode, header};
 use actix_web::{App, ResponseError as _, test, web};
 use edge_toolkit::ws_server::{MessageRetention, RegistryError};
+#[cfg(feature = "nats")]
+use et_ws_service::BackplaneError;
 use et_ws_service::admin::{AdminError, AdminToken, EvictedAgent};
-use et_ws_service::{BackplaneError, WsAgentRegistry, WsConfig, configure};
+use et_ws_service::{WsAgentRegistry, WsConfig, configure};
 
 const TOKEN: &str = "s3cret";
 const AGENT_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(192, 0, 2, 7));
@@ -199,9 +201,14 @@ async fn an_eviction_drops_the_messages_the_agent_queued() {
 }
 
 #[actix_rt::test]
-async fn each_failure_maps_to_its_status() {
+async fn a_registry_failure_maps_to_its_status() {
     let from_registry = AdminError::from(RegistryError::LockPoisoned);
     assert_eq!(from_registry.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
+}
+
+#[cfg(feature = "nats")]
+#[actix_rt::test]
+async fn each_backplane_failure_maps_to_its_status() {
     let from_backplane = AdminError::from(BackplaneError::NoPendingMessage("m".to_owned()));
     assert_eq!(from_backplane.status_code(), StatusCode::SERVICE_UNAVAILABLE);
     let unknown = AdminError::from(BackplaneError::UnknownAgent("a".to_owned()));

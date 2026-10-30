@@ -1,5 +1,11 @@
+#[cfg(not(feature = "std"))]
+use alloc::string::String;
+
+#[cfg(feature = "std")]
 use base64::{Engine as _, engine::general_purpose::STANDARD as b64standard};
-use secrecy::{ExposeSecret as _, SecretString};
+#[cfg(feature = "std")]
+use secrecy::ExposeSecret as _;
+use secrecy::SecretString;
 use serde::Deserialize;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -22,6 +28,7 @@ impl BasicAuth {
     }
 
     /// Add authorisation header to `HashMap`.
+    #[cfg(feature = "std")]
     pub fn add_basic_auth_header(&self, headers: &mut std::collections::HashMap<String, String>) {
         let mut buf = String::default();
         b64standard.encode_string(

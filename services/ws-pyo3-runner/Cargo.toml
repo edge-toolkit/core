@@ -16,7 +16,7 @@ name = "et-ws-pyo3-runner"
 path = "src/main.rs"
 
 [dependencies]
-edge-toolkit.workspace = true
+edge-toolkit = { workspace = true, features = ["std"] }
 et-otlp.workspace = true
 # Typed ws-server REST client (storage GET/PUT).
 # `tracing` injects the W3C traceparent on each request, matching the other native runners.
@@ -26,10 +26,10 @@ et-rest-client = { workspace = true, features = ["tracing"] }
 et-ws-runner-common.workspace = true
 futures-util.workspace = true
 pyo3.workspace = true
-thiserror.workspace = true
+thiserror = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-tungstenite = { workspace = true, features = ["connect"] }
-tracing.workspace = true
+tracing = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 backon = { workspace = true, features = ["tokio-sleep"] }
@@ -37,7 +37,7 @@ command-error.workspace = true
 et-org.workspace = true
 et-ws-test-server.workspace = true
 rstest.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["std"] }
 
 [build-dependencies]
 pyo3-build-config.workspace = true

@@ -201,6 +201,17 @@ ignore = [
   # again. The callbacks are the hashes' fixed-size block functions, which do not panic, and nothing here catches
   # a panic mid-hash and keeps the hasher. Drop this when digest 0.10 leaves the tree.
   { id = "GHSA-qwgh-2vcv-g2f7", reason = "expires 2026-10-31" },
+  # bare-metal 0.2.5 (deprecated and archived, so no version is patched).
+  # Pulled only by the Pico 2 W firmware, through cortex-m 0.7, which cyw43 0.7 and embassy-rp 0.10 require through
+  # their newest releases. Deprecated != vulnerable: cortex-m uses it for its single-core `Mutex` and
+  # `CriticalSection` types, and the firmware takes its critical sections from embassy-rp's `critical-section`
+  # implementation. Drop this when cortex-m 0.8 reaches them.
+  { id = "RUSTSEC-2026-0110", reason = "expires 2026-10-31" },
+  # proc-macro-error2 2.0.1 (unmaintained, so no version is patched).
+  # Pulled only by the Pico 2 W firmware, through the pio-proc assembler macro embassy-rp 0.10 requires through its
+  # newest release. It runs at compile time inside that macro and reports its errors; none of it is in the firmware.
+  # Drop this when pio-proc leaves it.
+  { id = "RUSTSEC-2026-0173", reason = "expires 2026-10-31" },
 ]
 
 [licenses]
@@ -208,6 +219,9 @@ version = 2
 # Compatible with our own `Apache-2.0 OR MIT` workspace license.
 # Add a new entry only when a transitive dep introduces a new SPDX expression we've reviewed.
 allow = [
+  # smoltcp + managed (transitive via embassy-net, the Pico 2 W firmware's TCP/IP stack).
+  # BSD Zero Clause -- MIT without even the attribution clause; permissive, OSI-approved.
+  "0BSD",
   "Apache-2.0",
   # cranelift / wasmtime stack -- LLVM-derived code carries the Apache 2.0 text plus an extra patent grant for LLVM.
   # Still permissive.

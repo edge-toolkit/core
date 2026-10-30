@@ -13,37 +13,107 @@ features = ["docs"]
 [lib]
 doctest = false
 
+# The tests of what only `std` provides.
+# Every other test file covers the `no_std` part of the crate, and runs with `--no-default-features` as well.
+[[test]]
+name = "args"
+required-features = ["std"]
+
+[[test]]
+name = "config"
+required-features = ["std"]
+
+[[test]]
+name = "et_org_python_twin"
+required-features = ["std"]
+
+[[test]]
+name = "http_pyodide"
+required-features = ["std"]
+
+[[test]]
+name = "mise_env"
+required-features = ["std"]
+
+[[test]]
+name = "module_source"
+required-features = ["std"]
+
+[[test]]
+name = "no_mise"
+required-features = ["std"]
+
+[[test]]
+name = "npm_mod"
+required-features = ["std"]
+
+[[test]]
+name = "pipx_site_packages"
+required-features = ["std"]
+
+[[test]]
+name = "registry_file"
+required-features = ["std"]
+
+[[test]]
+name = "staged_module_dirs"
+required-features = ["std"]
+
 [features]
+default = ["std"]
+## Everything that needs an operating system.
+## Configuration loading, the registry file, process arguments and the mise lookups. Without it the crate is
+## `no_std` + `alloc`: the WebSocket protocol types, the port allocation, the `BasicAuth` config, and the hub's agent
+## registry held in memory only.
+std = [
+  "base64/std",
+  "chrono/std",
+  "dep:base64",
+  "dep:command-error",
+  "dep:et-path",
+  "dep:fs-err",
+  "dep:humantime-serde",
+  "dep:serde-inline-default",
+  "dep:serde_default",
+  "dep:serde_yaml",
+  "dep:strum",
+  "dep:tracing",
+  "serde/std",
+  "serde_json/std",
+  "thiserror/std",
+]
 ## Derives JSON Schema and AsyncAPI descriptions for the WebSocket protocol types.
 ## The published specs are generated from them. Off by default, so wasm and runtime crates do not pull in schemars
 ## and asyncapi-rust.
-schema-export = ["dep:asyncapi-rust", "dep:schemars", "schemars/chrono04"]
+schema-export = ["dep:asyncapi-rust", "dep:schemars", "schemars/chrono04", "std"]
 ## Derives JSON Schema for the configuration types the binaries read from the environment.
 ## et-int-gen renders each binary's environment variables into its HELP.md from that schema.
-env-schema = ["dep:schemars"]
+env-schema = ["dep:schemars", "std"]
 ## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
 docs = ["dep:document-features"]
 
 [dependencies]
 asyncapi-rust = { workspace = true, optional = true }
-base64.workspace = true
-chrono.workspace = true
-command-error.workspace = true
+base64 = { workspace = true, optional = true }
+chrono = { workspace = true, features = ["alloc"] }
+command-error = { workspace = true, optional = true }
 document-features = { workspace = true, optional = true }
-et-path.workspace = true
-fs-err.workspace = true
-humantime-serde.workspace = true
+et-path = { workspace = true, optional = true }
+fs-err = { workspace = true, optional = true }
+humantime-serde = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
 secrecy.workspace = true
-serde.workspace = true
-serde-inline-default.workspace = true
-serde_default.workspace = true
-serde_json.workspace = true
+serde = { workspace = true, features = ["alloc"] }
+serde-inline-default = { workspace = true, optional = true }
+serde_default = { workspace = true, optional = true }
+serde_json = { workspace = true, features = ["alloc"] }
 serde_path_to_error.workspace = true
-serde_yaml.workspace = true
-strum.workspace = true
+serde_yaml = { workspace = true, optional = true }
+# The registry's lock when there is no `std::sync::Mutex`.
+spin.workspace = true
+strum = { workspace = true, optional = true }
 thiserror.workspace = true
-tracing.workspace = true
+tracing = { workspace = true, features = ["std"], optional = true }
 
 [dev-dependencies]
 cloudevents-sdk.workspace = true

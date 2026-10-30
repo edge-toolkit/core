@@ -13,45 +13,102 @@ features = ["docs"]
 [lib]
 doctest = false
 
+# The tests of the actix-web hub. `hub`, the test of the routing core, runs with `--no-default-features` as well.
+[[test]]
+name = "admin"
+required-features = ["std"]
+
+[[test]]
+name = "config"
+required-features = ["std"]
+
+[[test]]
+name = "load_registry"
+required-features = ["std"]
+
+[[test]]
+name = "ws_handler"
+required-features = ["std"]
+
+[[test]]
+name = "picoserve_hub"
+required-features = ["picoserve-hub"]
+
 [features]
+default = ["nats", "otel", "picoserve-hub"]
+## The actix-web hub: the `/ws` endpoint, the admin API, idle timeouts and the registry file.
+## Without it the crate is `no_std` + `alloc` and holds only `hub`, the routing an embedder drives over its own
+## transport.
+std = [
+  "bytes/std",
+  "dep:actix-web",
+  "dep:actix-ws",
+  "dep:bytesize",
+  "dep:chrono",
+  "dep:futures-util",
+  "dep:secrecy",
+  "dep:serde",
+  "dep:serde-inline-default",
+  "dep:serde_default",
+  "dep:subtle",
+  "dep:thiserror",
+  "dep:tokio",
+  "dep:uuid",
+  "edge-toolkit/std",
+  "serde_json/std",
+  "tracing/std",
+]
+## A `no_std` hub serving `/ws` over HTTP and WebSocket through picoserve, on any socket the embedder accepts.
+picoserve-hub = ["dep:picoserve", "dep:spin"]
+## Shares agents between hubs through the NATS JetStream backplane `WS_BACKPLANE` names.
+## Without it every hub is local, keeping its agents in its own registry.
+nats = ["dep:et-hub-backplane", "std"]
+## Records the hub's spans and metrics through the global OpenTelemetry tracer and meter.
+otel = ["dep:opentelemetry", "std"]
 ## Adds OpenAPI metadata to the admin handlers for `et-int-gen` to harvest into the published spec.
-openapi-spec = ["dep:utoipa"]
+openapi-spec = ["dep:utoipa", "std"]
 ## Internal: derives JSON Schema for `WsConfig`, which et-int-gen renders into the hub's HELP.md.
-env-schema = ["dep:schemars"]
+env-schema = ["dep:schemars", "std"]
 ## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
 docs = ["dep:document-features"]
 
 [dependencies]
-actix-web.workspace = true
-actix-ws.workspace = true
+actix-web = { workspace = true, optional = true }
+actix-ws = { workspace = true, optional = true }
 bytes.workspace = true
-bytesize.workspace = true
-chrono.workspace = true
+bytesize = { workspace = true, optional = true }
+chrono = { workspace = true, features = ["clock"], optional = true }
 document-features = { workspace = true, optional = true }
 edge-toolkit.workspace = true
-et-hub-backplane.workspace = true
-futures-util.workspace = true
-opentelemetry.workspace = true
+et-hub-backplane = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
+opentelemetry = { workspace = true, optional = true }
+picoserve = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
-secrecy.workspace = true
-serde.workspace = true
-serde-inline-default.workspace = true
-serde_default.workspace = true
-serde_json.workspace = true
-subtle.workspace = true
-thiserror.workspace = true
-tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
+secrecy = { workspace = true, optional = true }
+serde = { workspace = true, features = ["std"], optional = true }
+serde-inline-default = { workspace = true, optional = true }
+serde_default = { workspace = true, optional = true }
+serde_json = { workspace = true, features = ["alloc"] }
+spin = { workspace = true, optional = true }
+subtle = { workspace = true, optional = true }
+thiserror = { workspace = true, features = ["std"], optional = true }
+tokio = { workspace = true, features = ["macros", "rt", "sync", "time"], optional = true }
 tracing.workspace = true
 utoipa = { workspace = true, optional = true }
-uuid.workspace = true
+uuid = { workspace = true, optional = true }
 
 [dev-dependencies]
 actix-http.workspace = true
 actix-rt.workspace = true
 et-test-helpers.workspace = true
 fs-err.workspace = true
+futures-util.workspace = true
+picoserve = { workspace = true, features = ["tokio"] }
 serde-env.workspace = true
 tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "net", "rt", "time"] }
+tokio-tungstenite = { workspace = true, features = ["connect"] }
 
 [lints]
 workspace = true
