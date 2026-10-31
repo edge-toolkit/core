@@ -148,7 +148,7 @@ ripgrep = "latest"
 "cargo:ryl" = { version = "latest", os = ["macos/x64"] }
 "github:microsoft/onnxruntime" = "1.22.0"
 "github:owenlamont/ryl" = { version = "latest", os = ["linux", "macos/arm64", "windows"] }
-"github:wasm-bindgen/wasm-bindgen" = "0.2.129"
+"github:wasm-bindgen/wasm-bindgen" = "0.2.130"
 # go-containerregistry's crane fetches the per-platform ghcr.io mise-tools stores.
 # Its `crane export` rootfs-flatten is what the pull-mise-tools task and CI's install-mise-tools restore
 # step extract tool trees with.
@@ -183,7 +183,10 @@ pipx = { version = "latest", os = ["linux", "macos"] }
 # sys.path (see `edge_toolkit::config::mise_python_site_packages`).
 gh = "latest"
 "pipx:cowsay" = "latest"
-"pipx:semgrep" = "latest"
+# semgrep 1.182.0 is the last release with a macOS x86_64 wheel, so second-tier macos/x64 stays on it.
+# Upstream's 1.183.0 notes: "Semgrep no longer ships binaries for Intel Macs; 1.182 is the last release that
+# supports them."
+"pipx:semgrep" = "{% if os() == 'macos' and arch() == 'x64' %}1.182.0{% else %}latest{% endif %}"
 # Aqua has no pnpm darwin/amd64 prebuilt.
 # The `npm:pnpm` fallback for macos/x64 lives in the `js` env (config.js.toml), held to the same major.
 #

@@ -65,10 +65,10 @@ specifiers = ["latest"]
 uv = { path = "locks/mise.python/pipx-pytest/9.1.1", digest = "sha256:b734c01d076b35dd7600a714157694720068982726900219de2d7ae3859551d1" }
 
 [[tools."pipx:torch"]]
-version = "2.14.1"
+version = "2.15.0"
 backend = "pipx:torch"
 specifiers = ["latest"]
-uv = { path = "locks/mise.python/pipx-torch/2.14.1", digest = "sha256:eecc4d14e81a629f67b69de46fe82a5eb811d904d90f4448e74a2a546eb37c48" }
+uv = { path = "locks/mise.python/pipx-torch/2.15.0", digest = "sha256:83b2bb2dd5c0615c98629da107b6a5d1c0be3c4d7ad0d0232bddcd8390018d02" }
 
 [[tools.ruff]]
 version = "0.17.1"
