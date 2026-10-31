@@ -18,28 +18,42 @@ name = "et-ws-server-pico2w"
 path = "src/main.rs"
 test = false
 
-# The firmware's dependencies are scoped to bare-metal Arm, and its body is gated the same way.
-# On any other target -- the workspace's host builds, lints and tests -- the binary compiles to an empty `main`.
-[target.'cfg(all(target_arch = "arm", target_os = "none"))'.dependencies]
+# The hub, its settings and the modules built in are the same wherever the binary is built for.
+[dependencies]
 chrono = { workspace = true, features = ["alloc"] }
+edge-toolkit.workspace = true
+et-ws-server = { workspace = true, features = ["picoserve-server"] }
+et-ws-service = { workspace = true, features = ["picoserve-hub"] }
+picoserve.workspace = true
+
+# The board's network stack and executor, scoped to bare-metal Arm as the firmware body is.
+[target.'cfg(all(target_arch = "arm", target_os = "none"))'.dependencies]
 cortex-m-rt.workspace = true
 cyw43 = { workspace = true, features = ["defmt"] }
 cyw43-pio = { workspace = true, features = ["defmt"] }
 defmt.workspace = true
 defmt-rtt.workspace = true
-edge-toolkit.workspace = true
 embassy-executor = { workspace = true, features = ["defmt", "executor-thread", "platform-cortex-m"] }
 embassy-net = { workspace = true, features = ["defmt", "dhcpv4", "medium-ethernet", "proto-ipv4", "tcp"] }
 embassy-rp = { workspace = true, features = ["critical-section-impl", "defmt", "rp235xa", "time-driver"] }
 embassy-time = { workspace = true, features = ["defmt"] }
 embedded-alloc.workspace = true
-et-ws-server = { workspace = true, features = ["picoserve-server"] }
-et-ws-service = { workspace = true, features = ["picoserve-hub"] }
 panic-probe = { workspace = true, features = ["defmt"] }
 picoserve = { workspace = true, features = ["embassy"] }
 static_cell.workspace = true
 
+# Anywhere else, the host's: tokio, and a clock that knows the date.
+[target.'cfg(not(all(target_arch = "arm", target_os = "none")))'.dependencies]
+chrono = { workspace = true, features = ["std"] }
+picoserve = { workspace = true, features = ["tokio"] }
+tokio = { workspace = true, features = ["net", "rt", "time"] }
+
+[dev-dependencies]
+serde_json = { workspace = true, features = ["std"] }
+tungstenite.workspace = true
+
 [build-dependencies]
+et-firmware-modules.workspace = true
 fs-err.workspace = true
 
 [lints]

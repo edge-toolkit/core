@@ -38,6 +38,13 @@ fn verification_generation_limits_recovery_scenarios_to_supported_formats() {
     assert!(readme.contains("services/recovery-supervisor/Dockerfile"));
 }
 
+/// Every format a scenario with runners renders: all but the board's, which runs none.
+fn runner_formats() -> impl Iterator<Item = &'static OutputType> {
+    OutputType::ALL
+        .iter()
+        .filter(|kind| **kind != OutputType::FirmwarePico2)
+}
+
 /// Start with actual outputs from every generator, rather than fabricated files that may not match their layout.
 fn verification_without_recovery() -> (tempfile::TempDir, PathBuf) {
     let root = tempfile::tempdir().unwrap();
@@ -48,7 +55,7 @@ fn verification_without_recovery() -> (tempfile::TempDir, PathBuf) {
     let _file = write_input(&input_dir, &input);
     let generated = regenerate_verification(root.path(), None).unwrap();
     let output = generated.first().unwrap().output_dir.clone();
-    for kind in OutputType::ALL {
+    for kind in runner_formats() {
         assert!(output.join(kind.output_file_name()).is_file());
     }
     (root, output)
@@ -56,8 +63,7 @@ fn verification_without_recovery() -> (tempfile::TempDir, PathBuf) {
 
 /// Snapshot the launcher files that a recovery-free K3s-only regeneration must leave untouched.
 fn non_k3s_snapshot(output: &Path) -> Vec<(PathBuf, Vec<u8>)> {
-    OutputType::ALL
-        .iter()
+    runner_formats()
         .filter(|kind| **kind != OutputType::K3s)
         .map(|kind| {
             let path = output.join(kind.output_file_name());

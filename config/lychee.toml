@@ -52,6 +52,8 @@ exclude = [
   '\{|%7B',
   '^file:///app/storage$',
   '^https://github\.com/[^/]+/[^/]+/actions/runs/',
+  # The base the Pico 2 W firmware appends a package path to; alone it names no package, and jsDelivr answers 400.
+  '^https://cdn\.jsdelivr\.net/npm/?$',
   # Kubernetes API address; reachable only from inside the cluster.
   '^https://kubernetes\.default\.svc/?$',
   '^https://openhub\.net/p/edge-toolkit(/|$)',

@@ -19,10 +19,21 @@ Changelog 1.1.0.
   `TcpSocket`. It is a local hub, with no backplane, admin API, idle timeout or registry file. A crate awaiting
   `Hub::serve` needs `#![recursion_limit = "256"]`.
 - `et-ws-server` builds as `no_std` + `alloc` without its new `std` feature. Its `picoserve-server` feature, on by
-  default, adds `picoserve_server::serve`: the hub's `/ws` with `/health` and `/favicon.ico` beside it, over picoserve.
+  default, adds `picoserve_server::serve`: the hub's `/ws` with `/health` and `/favicon.ico` beside it, over picoserve,
+  and the modules a `picoserve_modules::Modules` builds into the binary under `/modules` and `/`, as the `std` server
+  serves them from disk. A module listed as served elsewhere is redirected to a base URL instead.
 - The `et-ws-server-pico2w` firmware runs et-ws-server on a Raspberry Pi Pico 2 W, over the board's Wi-Fi.
-  `MISE_ENV=rust mise run build-firmware-pico2w` builds it from `WIFI_NETWORK`, `WIFI_PASSWORD` and a
-  `CYW43_FIRMWARE_DIR` holding the radio's firmware blobs.
+  `MISE_ENV=rust mise run build-firmware-pico2w` fetches the radio's firmware blobs and builds it for the network
+  `WIFI_NETWORK` and `WIFI_PASSWORD` name, embedding the modules `MODULES_PATHS` names and serving `MODULES_ROOT` at
+  `/`.
+- `et-cli generate-deployment --output-type firmware-pico2` writes a `mise.firmware-pico2.toml` whose
+  `firmware-flash` task builds that firmware with the scenario's modules in it and loads it onto a board. The npm
+  packages the modules use, such as onnxruntime-web, are redirected to jsDelivr rather than built in. A scenario with
+  a runner, `machines:` or published artifacts is refused, since the board runs one hub and nothing else. Its
+  `firmware-host-test` task serves the same modules from the host, as the firmware's host build does, and fetches
+  every module it lists, with no board needed.
+- `et-firmware-modules` generates the source a firmware's build script writes to build ws-modules into its image,
+  from the same `MODULES_*` variables, so every board's firmware embeds modules the same way.
 - An opt-in `et-recovery-supervisor` service observes application progress and coordinates bounded Kubernetes recovery.
 - The Python SDK provides recovery lifecycle messages and integrity-checked checkpoint storage helpers.
 - A scenario can list `machines:` to span several hosts. The first is the server, running the hub and the collector,
@@ -81,6 +92,11 @@ Changelog 1.1.0.
 - **Breaking:** `et-ws-server`'s actix server, its binary and its environment config are behind the new default `std`
   feature. A build with `default-features = false` and none of the features that imply `std` -- `modules`, `otlp`,
   `qr`, `storage`, `tls`, `websockify` -- now gets the `no_std` library and no binary; add `std` to keep the server.
+
+- **Breaking:** `et-cli` refuses a scenario whose `module_paths:` entry, or a module directory found under one, has a
+  name a shell would need quoted or that some filesystem could not hold, such as `my mod`, `mod$(id)` or `con`; rename
+  the directory. Generated deployments no longer escape these paths. The check is the new `et-sanitise` crate, which
+  accepts a name only when both sanitize-filename, with its Windows rules, and shlex leave it unchanged.
 
 - The workspace requires actix-web 4.17.
 - **Breaking:** the minimum supported Rust version is 1.99.0, up from 1.91.1, for every published crate.

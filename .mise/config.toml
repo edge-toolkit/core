@@ -3220,6 +3220,12 @@ alias = "cargo-nextest"
 description = "Run every Rust test via nextest (web-runner excluded on gnullvm)"
 run = "cargo nextest run --workspace {{ vars.cargo_ws_excludes }} --config-file config/nextest.toml"
 
+# One package's tests, under the same runner config as the whole suite, for a caller that needs only that package's.
+[tasks.cargo-test-pkg]
+description = "Run one workspace package's Rust tests via nextest"
+run = 'cargo nextest run --config-file config/nextest.toml -p "$usage_package"'
+usage = 'arg "<package>" help="Workspace package name (e.g. et-int-ws-server-pico2w)"'
+
 [tasks.test-recovery-supervisor]
 description = "Test recovery policy, Kubernetes observations, persistence, and hub lifecycle transport"
 run = "cargo test -p et-recovery-supervisor"

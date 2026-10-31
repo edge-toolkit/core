@@ -39,6 +39,65 @@ pub enum OutputType {
     #[serde(rename = "docker-compose", alias = "docker_compose")]
     DockerCompose,
     K3s,
+    /// The hub alone, as firmware for a Raspberry Pi Pico 2 W.
+    #[serde(rename = "firmware-pico2", alias = "firmware_pico2")]
+    FirmwarePico2,
+}
+
+/// A board a `firmware-*` format builds the hub for, each the board of exactly one format.
+///
+/// Only boards with a network of their own are supported, so a board's name leaves out the suffix its vendor gives
+/// the networked variant: `pico2` is the Pico 2 W.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum Board {
+    /// The Raspberry Pi Pico 2 W, over its own Wi-Fi.
+    Pico2,
+}
+
+/// What building, loading and describing one board's firmware takes.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct BoardSpec {
+    /// The format that builds firmware for the board.
+    pub output_type: OutputType,
+    /// What a person calls the board.
+    pub title: &'static str,
+    /// The repository task that builds the firmware, reading the modules from `MODULES_*`.
+    pub build_task: &'static str,
+    /// The firmware's package, whose build for the host serves the same modules from there instead of the board.
+    pub package: &'static str,
+    /// The firmware image that task leaves, relative to the repository root.
+    pub image: &'static str,
+    /// The command that loads `image` onto the board, followed by its path.
+    pub load_command: &'static str,
+    /// How the board is made ready for `load_command`.
+    pub load_preparation: &'static str,
+    /// What the build needs told about the network the board joins, as a sentence.
+    pub network_setup: &'static str,
+    /// How big the board's flash is, which bounds what can be built in.
+    pub flash: &'static str,
+}
+
+impl Board {
+    /// Every board, each with a `firmware-*` format of its own.
+    pub(crate) const ALL: &'static [Self] = &[Self::Pico2];
+
+    /// What building, loading and describing this board's firmware takes.
+    #[must_use]
+    pub(crate) const fn spec(self) -> BoardSpec {
+        match self {
+            Self::Pico2 => BoardSpec {
+                output_type: OutputType::FirmwarePico2,
+                title: "Raspberry Pi Pico 2 W",
+                build_task: "build-firmware-pico2w",
+                package: "et-int-ws-server-pico2w",
+                image: "target/thumbv8m.main-none-eabihf/release/et-ws-server-pico2w",
+                load_command: "picotool load -x -t elf",
+                load_preparation: "hold the board's BOOTSEL button while plugging it in",
+                network_setup: "Set `WIFI_NETWORK` and `WIFI_PASSWORD` to the Wi-Fi network the board joins.",
+                flash: "4 MiB",
+            },
+        }
+    }
 }
 
 impl OutputType {
@@ -46,13 +105,15 @@ impl OutputType {
     ///
     /// The order is what running each takes and what it offers. The three that need no container runtime come first:
     /// mise, a plain CLI; dekit, a TUI; then process-compose, a TUI that can also schedule. Compose follows because it
-    /// needs Docker, and k3s comes last because it needs a Kubernetes cluster such as Rancher Desktop's.
+    /// needs Docker, and k3s because it needs a Kubernetes cluster such as Rancher Desktop's. The firmware is last,
+    /// because it needs a board, and because it deploys only the hub.
     pub const ALL: &'static [Self] = &[
         Self::Mise,
         Self::Dekit,
         Self::ProcessCompose,
         Self::DockerCompose,
         Self::K3s,
+        Self::FirmwarePico2,
     ];
 
     /// The file this format is written to, beside the others in the deployment directory.
@@ -64,6 +125,7 @@ impl OutputType {
             Self::K3s => "k3s.yaml",
             Self::Dekit => "dekit.yaml",
             Self::ProcessCompose => "process-compose.yaml",
+            Self::FirmwarePico2 => "mise.firmware-pico2.toml",
         }
     }
 
@@ -76,15 +138,17 @@ impl OutputType {
             Self::K3s => "k3s",
             Self::Dekit => "dekit",
             Self::ProcessCompose => "process-compose",
+            Self::FirmwarePico2 => "firmware-pico2",
         }
     }
 
     /// Whether this format can start an agent on its `schedule:`.
     ///
-    /// mise and dekit have no scheduler of their own, so a scheduled agent is refused rather than run continuously.
+    /// mise and dekit have no scheduler of their own, so a scheduled agent is refused rather than run continuously, and
+    /// the board runs no agents at all.
     #[must_use]
     pub const fn runs_schedules(self) -> bool {
-        !matches!(self, Self::Mise | Self::Dekit)
+        !matches!(self, Self::Mise | Self::Dekit | Self::FirmwarePico2)
     }
 
     /// Whether this format runs the tasks of a `mise.toml`, so needs what that file names installed first.

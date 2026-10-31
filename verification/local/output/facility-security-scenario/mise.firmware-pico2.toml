@@ -1,0 +1,41 @@
+[tasks.firmware-build]
+description = "Build the Raspberry Pi Pico 2 W firmware serving facility-security-scenario"
+dir = "../../../.."
+run = """
+MODULES_PATHS="$PWD/data/model-modules/model-face1, $PWD/data/model-modules/model-har-motion1, $PWD/generated/python-ws"
+MODULES_PATHS="$MODULES_PATHS, $PWD/libs/python-edge-toolkit, $PWD/libs/python-org"
+MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-modules/face-detection, $PWD/services/ws-modules/har1"
+MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-modules/pyface1, $PWD/services/ws-server/static"
+MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-wasm-agent"
+export MODULES_PATHS
+mise -E rust run build-firmware-pico2w
+"""
+
+[tasks.firmware-build.env]
+MODULES_ELSEWHERE = "onnxruntime-web, pyodide, stats-gl"
+MODULES_ELSEWHERE_URL = "https://cdn.jsdelivr.net/npm"
+MODULES_ROOT = "@edge-toolkit/et-ws-server-static"
+
+[tasks.firmware-flash]
+depends = ["firmware-build"]
+description = "Load the firmware onto a Raspberry Pi Pico 2 W, and start it"
+dir = "../../../.."
+run = "picotool load -x -t elf target/thumbv8m.main-none-eabihf/release/et-ws-server-pico2w"
+
+[tasks.firmware-host-test]
+description = "Serve facility-security-scenario's modules from this host as the board would, and fetch each"
+dir = "../../../.."
+run = """
+MODULES_PATHS="$PWD/data/model-modules/model-face1, $PWD/data/model-modules/model-har-motion1, $PWD/generated/python-ws"
+MODULES_PATHS="$MODULES_PATHS, $PWD/libs/python-edge-toolkit, $PWD/libs/python-org"
+MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-modules/face-detection, $PWD/services/ws-modules/har1"
+MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-modules/pyface1, $PWD/services/ws-server/static"
+MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-wasm-agent"
+export MODULES_PATHS
+mise run cargo-test-pkg et-int-ws-server-pico2w
+"""
+
+[tasks.firmware-host-test.env]
+MODULES_ELSEWHERE = "onnxruntime-web, pyodide, stats-gl"
+MODULES_ELSEWHERE_URL = "https://cdn.jsdelivr.net/npm"
+MODULES_ROOT = "@edge-toolkit/et-ws-server-static"

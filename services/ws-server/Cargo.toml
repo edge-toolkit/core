@@ -78,7 +78,7 @@ std = [
   "serde/std",
   "tracing/std",
 ]
-## A `no_std` server for `/ws`, `/health` and `/favicon.ico` through picoserve, on any socket the embedder accepts.
+## A `no_std` server for `/ws`, `/health`, `/favicon.ico` and built-in modules over picoserve, on any socket.
 picoserve-server = ["dep:picoserve", "et-ws-service/picoserve-hub"]
 ## Serves ws-module packages from disk under `/modules`, and the root module as the browser UI at `/`.
 modules = ["dep:et-modules-service", "std"]

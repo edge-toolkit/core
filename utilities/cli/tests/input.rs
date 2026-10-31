@@ -1,9 +1,9 @@
 //! Covers how a scenario input deserializes, and what each field answers when the input leaves it out.
 //!
-//! Every default here is load-bearing, because `verification/*/input/default.yaml` is an input that states
-//! nothing but its name and whose committed output is whatever these produce. The one that most repays a
-//! test is `artifact_source`, which is not a fixed default at all: it is settled against the tree the
-//! process is running in, so the same input means "build it" in this repository and "pull it" anywhere else.
+//! Every default here is load-bearing, because `verification/*/input/default.yaml` is an input that states nothing but
+//! its name and whose committed output is whatever these produce. The one that most repays a test is `artifact_source`,
+//! which is not a fixed default at all: it is settled against the tree the process is running in, so the same input
+//! means "build it" in this repository and "pull it" anywhere else.
 #![cfg(test)]
 
 use et_cli::{
@@ -39,8 +39,8 @@ fn an_input_stating_only_a_name_takes_every_other_field_from_its_default() {
 
 #[test]
 fn the_default_cluster_input_is_one_that_could_be_generated_from() {
-    // A derived `Default` would give it the empty name that scenario validation rejects, so the value would
-    // exist only to be invalid. This is the same cluster `ONLY_A_NAME` parses to, apart from the source.
+    // A derived `Default` would give it the empty name that scenario validation rejects, so the value would exist only
+    // to be invalid. This is the same cluster `ONLY_A_NAME` parses to, apart from the source.
     let cluster = ClusterInput::default();
 
     assert_eq!(cluster.cluster_name, DEFAULT_CLUSTER_NAME);
@@ -57,16 +57,16 @@ fn published_is_the_artifact_source_with_nothing_to_infer_from() {
 
 #[test]
 fn an_unstated_artifact_source_infers_local_inside_this_repository() {
-    // These tests run from a checkout, which is the proof the inference looks for. Were this to answer
-    // `Published`, every scenario under `verification/local` would quietly start naming the registry.
+    // These tests run from a checkout, which is the proof the inference looks for. Were this to answer `Published`,
+    // every scenario under `verification/local` would quietly start naming the registry.
     assert_eq!(infer_artifact_source(), ArtifactSource::Local);
     assert_eq!(parse(ONLY_A_NAME).artifact_source, ArtifactSource::Local);
 }
 
 #[test]
 fn a_stated_artifact_source_is_honoured_over_what_the_tree_would_infer() {
-    // In both directions, including a `published` stated here, where the tree could have supplied
-    // everything: that input describes a deployment somewhere else.
+    // In both directions, including a `published` stated here, where the tree could have supplied everything: that
+    // input describes a deployment somewhere else.
     let local = parse(&format!("{ONLY_A_NAME}artifact_source: local\n"));
     let published = parse(&format!("{ONLY_A_NAME}artifact_source: published\n"));
 
@@ -109,6 +109,8 @@ fn every_deployment_type_spelling_deserializes_to_its_own_output_file() {
         ("dekit", OutputType::Dekit, "dekit.yaml"),
         ("process-compose", OutputType::ProcessCompose, "process-compose.yaml"),
         ("process_compose", OutputType::ProcessCompose, "process-compose.yaml"),
+        ("firmware-pico2", OutputType::FirmwarePico2, "mise.firmware-pico2.toml"),
+        ("firmware_pico2", OutputType::FirmwarePico2, "mise.firmware-pico2.toml"),
     ] {
         let cluster = parse(&format!("{ONLY_A_NAME}deployment_type: {spelling}\n"));
 
@@ -117,10 +119,13 @@ fn every_deployment_type_spelling_deserializes_to_its_own_output_file() {
         assert_eq!(cluster.deployment_type.name(), spelling.replace('_', "-"));
         assert_eq!(
             cluster.deployment_type.runs_mise_tasks(),
-            !matches!(expected, OutputType::DockerCompose | OutputType::K3s)
+            !matches!(
+                expected,
+                OutputType::DockerCompose | OutputType::K3s | OutputType::FirmwarePico2
+            )
         );
     }
-    assert_eq!(OutputType::ALL.len(), 5, "and the list of them is complete");
+    assert_eq!(OutputType::ALL.len(), 6, "and the list of them is complete");
 }
 
 #[test]
@@ -136,8 +141,8 @@ fn an_unknown_deployment_type_is_rejected() {
 
 #[test]
 fn an_unknown_artifact_source_is_rejected() {
-    // Rather than falling back to a default, which would turn a typo into a deployment addressing the wrong
-    // artifacts and report nothing at generation time.
+    // Rather than falling back to a default, which would turn a typo into a deployment addressing the wrong artifacts
+    // and report nothing at generation time.
     let parsed: Result<ClusterInput, _> = serde_yaml::from_str(&format!("{ONLY_A_NAME}artifact_source: registry\n"));
 
     let _rejected = parsed.unwrap_err();
@@ -160,8 +165,8 @@ fn an_agent_keeps_its_runner_and_resources() {
 
 #[test]
 fn a_cluster_input_round_trips_through_yaml() {
-    // Serialization is a public surface of its own: `et-cli` writes a scenario back out, and a `skip`
-    // attribute on the wrong field would drop it silently rather than failing to compile.
+    // Serialization is a public surface of its own: `et-cli` writes a scenario back out, and a `skip` attribute on the
+    // wrong field would drop it silently rather than failing to compile.
     let cluster = parse(&format!("{WITH_AN_AGENT}artifact_source: published\n"));
 
     let rendered = serde_yaml::to_string(&cluster).unwrap();

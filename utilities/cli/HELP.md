@@ -39,7 +39,14 @@ Generate deployment config from a cluster input YAML
 
   Default value: `mise`
 
-  Possible values: `mise`, `dekit`, `process-compose`, `docker-compose`, `k3s`
+  Possible values:
+  - `mise`
+  - `dekit`
+  - `process-compose`
+  - `docker-compose`
+  - `k3s`
+  - `firmware-pico2`:
+    The hub alone, as firmware for a Raspberry Pi Pico 2 W
 
 ## `et-cli regen-verification`
 

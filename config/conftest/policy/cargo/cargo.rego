@@ -236,20 +236,24 @@ deny contains msg if {
 #
 # Path deps are exempt by construction rather than by entry: cargo wants their `version` to equal the member
 # crate's own `package.version` -- the rule above enforces exactly that -- which is always a full triple.
+# A prerelease is exempt the same way: cargo matches a prerelease only through a requirement that names its whole
+# version, `0.8.0-beta` included, so there is no major.minor form for it to be trimmed back to.
 patch_pin_exception := {
 	"deno_error": "exact pin: JsErrorBox must be the type deno_core holds, so a 0.7.2 would be a second copy",
 	"minicov": "exact pin: wasm-bindgen-test 0.3.79 requires =0.3.8, and cargo holds one 0.3.x copy for both",
 	"mock-collector": "exact pin: 0.2.15 moved to opentelemetry 0.33, which tracing-actix-web cannot follow yet",
-	"ort": "exact pin on a prerelease, which has no two-part form; rc.11+ moved API wasmtime-wasi-nn calls",
-	"wasmtime": "49.0.3 is the security floor; RUSTSEC-2026-0352..0364 have no fix below it in the 49 line",
-	"wasmtime-internal-wit-bindgen": "49.0.3 tracks the wasmtime release; the crate is internal and its API can move",
-	"wasmtime-wasi": "49.0.3 carries the same security floor as the wasmtime entry it ships beside",
+	"wasmtime": "49.0.5 is the security floor; RUSTSEC-2026-0424 and others have no fix below it in the 49 line",
+	"wasmtime-internal-wit-bindgen": "49.0.5 tracks the wasmtime release; the crate is internal and its API can move",
+	"wasmtime-wasi": "49.0.5 carries the same security floor as the wasmtime entry it ships beside",
 }
 
 # Matches the requirement's leading version token rather than splitting the whole string on dots.
-# That keeps a comparator (`=`, `>=`, `~`) and a prerelease suffix (`-rc.10`, whose dot is its own) out of the
-# component count, so only the version core decides.
-patch_pinned(req) if regex.match(`^[^0-9]*[0-9]+\.[0-9]+\.[0-9]+`, req)
+# That keeps a comparator (`=`, `>=`, `~`) out of the component count, so only the version core decides, and a
+# prerelease suffix (`-rc.10`) marks the exempt case rather than adding dots of its own.
+patch_pinned(req) if {
+	regex.match(`^[^0-9]*[0-9]+\.[0-9]+\.[0-9]+`, req)
+	not regex.match(`^[^0-9]*[0-9]+\.[0-9]+\.[0-9]+-`, req)
+}
 
 requirement(spec) := spec if is_string(spec)
 
