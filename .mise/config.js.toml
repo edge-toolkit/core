@@ -105,13 +105,13 @@ dir = "services/ws-modules/har1"
 # Chain with `&&` on one line rather than a multi-line `bash` block.
 # wasm-pack shells out to `cargo metadata`, which can't find `cargo` under Git Bash on Windows; the default
 # shell (cmd there) resolves it. web_pack_cov folds in the coverage wrapper prefix so this line stays under 120.
-run = "{{ vars.web_pack_cov }} {{ vars.no_opt }}{{ vars.web_cov_feat }} && {{ vars.et_cli }} module-package-json"
+run = "{{ vars.web_pack_cov }} {{ vars.no_opt }}{{ vars.web_cargo_args }} && {{ vars.et_cli }} module-package-json"
 
 [tasks.build-ws-face-detection-module]
 depends = ["build-et-cli", "build-wasm-cov-wrapper"]
 description = "Build the face detection workflow WASM module"
 dir = "services/ws-modules/face-detection"
-run = "{{ vars.web_pack_cov }} {{ vars.no_opt }}{{ vars.web_cov_feat }} && {{ vars.et_cli }} module-package-json"
+run = "{{ vars.web_pack_cov }} {{ vars.no_opt }}{{ vars.web_cargo_args }} && {{ vars.et_cli }} module-package-json"
 
 [tasks.vendor-llm1-ort]
 description = "Stage transformers.js's pinned ORT wasm runtime into llm1's pkg/ort/"
@@ -163,7 +163,7 @@ shell = "{{ vars.task_shell }}"
 depends = ["build-et-cli", "build-wasm-cov-wrapper", "vendor-llm1-ort"]
 description = "Build the llm1 chat WASM module"
 dir = "services/ws-modules/llm1"
-run = "{{ vars.web_pack_cov }} {{ vars.no_opt }}{{ vars.web_cov_feat }} && {{ vars.et_cli }} module-package-json"
+run = "{{ vars.web_pack_cov }} {{ vars.no_opt }}{{ vars.web_cargo_args }} && {{ vars.et_cli }} module-package-json"
 
 [tasks.build-ws-js-data1-module]
 description = "Bundle the js-data1 module (AWS SDK for JS v3) into pkg/ with esbuild"

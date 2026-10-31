@@ -34,6 +34,12 @@ Changelog 1.1.0.
   every module it lists, with no board needed.
 - `et-firmware-modules` generates the source a firmware's build script writes to build ws-modules into its image,
   from the same `MODULES_*` variables, so every board's firmware embeds modules the same way.
+- Native REST requests retry transient HTTP 408/429/500/502/503/504 responses as well as transport failures, using a
+  bounded backoff policy for replayable idempotent operations. Permission errors, non-idempotent methods and streaming
+  request bodies are not retried. Storage-call timings include the retry/backoff interval; retry attempts are logged.
+- Recovery supervision reconnects after hub interruptions and restores incident context with explicit observation gaps.
+  Optional dependency checks, fleet action limits, bounded backoff with jitter and sustained-recovery assessment extend
+  the existing restart policy. Reports distinguish observed failure conditions from reasons for withholding actions.
 - An opt-in `et-recovery-supervisor` service observes application progress and coordinates bounded Kubernetes recovery.
 - The Python SDK provides recovery lifecycle messages and integrity-checked checkpoint storage helpers.
 - A scenario can list `machines:` to span several hosts. The first is the server, running the hub and the collector,
@@ -87,6 +93,10 @@ Changelog 1.1.0.
   `et-cli evict-agent --hub-url <url> --agent-id <id>` send the requests, reading the token from `WS_ADMIN_TOKEN`.
   There is no unblock yet; remove the address from `registry.yaml` or the KV bucket and restart the hubs.
 
+### Fixed
+
+- Cross-platform tool installation excludes Unix gnupg from Windows resolution and requires mise 2026.10.20 or later.
+
 ### Changed
 
 - **Breaking:** `et-ws-server`'s actix server, its binary and its environment config are behind the new default `std`
@@ -97,7 +107,9 @@ Changelog 1.1.0.
   name a shell would need quoted or that some filesystem could not hold, such as `my mod`, `mod$(id)` or `con`; rename
   the directory. Generated deployments no longer escape these paths. The check is the new `et-sanitise` crate, which
   accepts a name only when both sanitize-filename, with its Windows rules, and shlex leave it unchanged.
-
+- **Breaking:** Recovery state is bound to its complete configuration. Changing configuration requires a new state
+  location or an explicitly provisioned new job. Legacy reports retain their restart budget and are archived in the
+  new context.
 - The workspace requires actix-web 4.17.
 - **Breaking:** the minimum supported Rust version is 1.99.0, up from 1.91.1, for every published crate.
 - **Breaking:** an agent's IP address is always known. `AgentSummary::last_known_ip` and

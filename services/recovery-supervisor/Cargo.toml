@@ -8,6 +8,12 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+# The compiler links this private unit-test module through src/policy.rs's #[path] attribute.
+# cargo-shear reports it as unlinked even though cargo test --lib executes its tests; keep the exception limited
+# to that exact file.
+[package.metadata.cargo-shear]
+ignored-paths = ["tests/unit/policy_guards.rs"]
+
 [package.metadata.docs.rs]
 all-features = true
 

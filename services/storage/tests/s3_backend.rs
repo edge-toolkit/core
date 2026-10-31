@@ -24,6 +24,7 @@ use std::collections::BTreeMap;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::time::Duration;
 
 use actix_web::http::StatusCode;
 use actix_web::{App, test, web};
@@ -78,6 +79,8 @@ fn start_rustfs(volume: &Path, port: u16, log_path: &Path) -> ChildGuard {
     let stdout = log_file.file().try_clone().unwrap();
     let stderr = log_file.file().try_clone().unwrap();
     let child = Command::new("rustfs")
+        // The readiness probe is required by this fixture, regardless of the parent's RustFS settings.
+        .env("RUSTFS_HEALTH_ENDPOINT_ENABLE", "true")
         .arg("server")
         .arg(volume)
         .arg("--address")
@@ -98,6 +101,40 @@ fn start_rustfs(volume: &Path, port: u16, log_path: &Path) -> ChildGuard {
         fs_err::read_to_string(log_path).unwrap_or_default()
     );
     guard
+}
+
+/// Wait for storage and IAM initialization, which can finish after the HTTP listener opens.
+#[expect(
+    clippy::single_call_fn,
+    reason = "server readiness is distinct from accepting a TCP connection"
+)]
+async fn wait_for_ready(port: u16, log_path: &Path) {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(1))
+        .build()
+        .unwrap();
+    let endpoint = format!("http://127.0.0.1:{port}/health/ready");
+    let mut last_response = String::default();
+    let ready = actix_rt::time::timeout(Duration::from_secs(30), async {
+        loop {
+            match client.get(&endpoint).send().await {
+                Ok(response) if response.status().is_success() => break,
+                Ok(response) => {
+                    let status = response.status();
+                    let body = response.text().await.unwrap_or_else(|error| error.to_string());
+                    last_response = format!("{status}: {body}");
+                }
+                Err(error) => last_response = error.to_string(),
+            }
+            actix_rt::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await;
+    assert!(
+        ready.is_ok(),
+        "rustfs storage did not become ready: {last_response}\n--- rustfs output ---\n{}",
+        fs_err::read_to_string(log_path).unwrap_or_default()
+    );
 }
 
 /// The `AWS_*` pairs `object_store`'s S3 builder consumes, pointing it at the local rustfs.
@@ -149,10 +186,11 @@ async fn round_trips_put_and_get_through_the_s3_backend() {
     let log_path = log_dir.path().join("rustfs.log");
     let port = reserve_port();
     let mut rustfs = start_rustfs(volume.path(), port, &log_path);
+    wait_for_ready(port, &log_path).await;
 
     let config = StorageConfig::new(format!("s3://{BUCKET}"));
 
-    let (put_status, get_status, body) = temp_env::async_with_vars(aws_env(port), async {
+    let (put_status, put_body, get_status, body) = temp_env::async_with_vars(aws_env(port), async {
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(registry_with_agent(AGENT)))
@@ -165,7 +203,9 @@ async fn round_trips_put_and_get_through_the_s3_backend() {
             .peer_addr(SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 40123))
             .set_payload(BODY)
             .to_request();
-        let put_status = test::call_service(&app, put).await.status();
+        let put_response = test::call_service(&app, put).await;
+        let put_status = put_response.status();
+        let put_body = test::read_body(put_response).await;
 
         let get = test::TestRequest::get()
             .uri(&format!("/storage/{AGENT}/{FILENAME}"))
@@ -174,7 +214,7 @@ async fn round_trips_put_and_get_through_the_s3_backend() {
         let get_status = get_resp.status();
         let body = test::read_body(get_resp).await;
 
-        (put_status, get_status, body)
+        (put_status, put_body, get_status, body)
     })
     .await;
 
@@ -185,7 +225,8 @@ async fn round_trips_put_and_get_through_the_s3_backend() {
     assert_eq!(
         put_status,
         StatusCode::OK,
-        "PUT through the S3 backend should succeed\n--- rustfs output ---\n{}",
+        "PUT through the S3 backend should succeed\n--- PUT response ---\n{}\n--- rustfs output ---\n{}",
+        String::from_utf8_lossy(&put_body),
         rustfs_log()
     );
     assert_eq!(

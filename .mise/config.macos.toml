@@ -2,10 +2,6 @@
 # Shared vars (rpath_flag, pylib_flag, py3_unix, ...) come from config.toml, which
 # loads first; PYO3_PYTHON keeps its config.toml default (py3_unix).
 
-[tools]
-# gpg for mise's gpg_verify signature checks; _setup_all installs it up front.
-"conda:gnupg" = "latest"
-
 [vars]
 # Xcode's libclang (the lib dir beside `xcrun`'s clang).
 # clang-sys doesn't always auto-find it on CI. The system libclang knows the SDK, so no bindgen args.

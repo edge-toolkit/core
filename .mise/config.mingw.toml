@@ -12,11 +12,18 @@
 # otherwise -- configure dies with exit 127 ("could not change to default builddir"). Same msys2 conda
 # mirror as m2-make/m2-gnupg; pinned because the [env] _.path entries below embed the versions
 # (conftest's version_drift enforces).
-"conda:m2-coreutils" = "8.32.5"
-"conda:m2-diffutils" = "3.12.1"
-"conda:m2-gawk" = "5.3.2.1"
-"conda:m2-grep" = "2.22"
-"conda:m2-sed" = "4.9.1"
+# Explicit Windows filters also apply when mise locks this environment for other platforms.
+# Without them, cross-platform locking fails with "failed to resolve conda:m2-sed for linux-arm64".
+# nosemgrep: no-os-scope-in-platform-mise-config -- Cross-platform locks need this Windows-only filter.
+"conda:m2-coreutils" = { version = "8.32.5", os = ["windows"] }
+# nosemgrep: no-os-scope-in-platform-mise-config -- Cross-platform locks need this Windows-only filter.
+"conda:m2-diffutils" = { version = "3.12.1", os = ["windows"] }
+# nosemgrep: no-os-scope-in-platform-mise-config -- Cross-platform locks need this Windows-only filter.
+"conda:m2-gawk" = { version = "5.3.2.1", os = ["windows"] }
+# nosemgrep: no-os-scope-in-platform-mise-config -- Cross-platform locks need this Windows-only filter.
+"conda:m2-grep" = { version = "2.22", os = ["windows"] }
+# nosemgrep: no-os-scope-in-platform-mise-config -- Cross-platform locks need this Windows-only filter.
+"conda:m2-sed" = { version = "4.9.1", os = ["windows"] }
 
 # winlibs standalone mingw-w64 GCC, prebuilt zip from the brechtsanders/winlibs_mingw GitHub releases.
 # The MSVCRT variant, not UCRT: Rust's x86_64-pc-windows-gnu std links msvcrt, and a ucrt-linked
@@ -26,6 +33,8 @@
 # win_gcc_bin var below stays valid (conftest's version_drift enforces).
 [tools."github:brechtsanders/winlibs_mingw"]
 matching = "winlibs-x86_64-posix-seh-gcc-16.1.0-mingw-w64msvcrt-14.0.0-r3.zip"
+# nosemgrep: no-os-scope-in-platform-mise-config -- Cross-platform locks need this Windows-only filter.
+os = ["windows"]
 version = "16.1.0posix-14.0.0-msvcrt-r3"
 
 # Rust toolchains: config.windows.toml's entries plus the x86_64-pc-windows-gnu target std.

@@ -5,7 +5,7 @@
 - **Tools:** 47
 - **Shell-script checks:** 10
 - **Checks with a repair pass:** 21
-- **Rules:** 360 custom local rules, or non-default strict linter settings
+- **Rules:** 361 custom local rules, or non-default strict linter settings
 - **Meta rules:** 20 of those rules are rules about rules
 
 Every check is listed across every `MISE_ENV`, filed under the tool it runs. Each entry names the env whose config
@@ -679,6 +679,7 @@ Rules, from `config/conftest/policy`:
   - Module-scope sprintf templates, each on its own line so the source stays inside the line limit.
   - declared_clones may sit at most max_slack above the baseline, so progress gets banked.
 - `mise` (`config/conftest/policy/mise/mise.rego`):
+  - Incremental lock writes are a compatibility exception for the Windows ARM bring-up environment only.
   - A task `run` must be a string, not an array.
   - A multiline `run` must use `shell = "{{ vars.task_shell }}"`.
   - Task descriptions must be single-line.

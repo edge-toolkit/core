@@ -2,15 +2,24 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
+use std::time::SystemTime;
 
 use edge_toolkit::ws::CloudEvent;
 use serde::{Deserialize, Serialize};
 
+#[cfg(test)]
+// Compile-time inclusion keeps private guard tests under tests/ without exposing policy internals.
+// nosemgrep: no-semgrep-mentions, no-ast-grep-mentions -- Required compile-time path annotation.
+// ast-grep-ignore: no-relative-path-literal
+#[path = "../tests/unit/policy_guards.rs"]
+mod guard_tests;
+
 use crate::RecoveryError;
 use crate::config::{Config, Mode, Workload};
+use crate::resilience::{Assessment, Classification, ObservationGap, Reason, Stability};
 
 /// Infrastructure observations distinguish API failure from an unhealthy deployment.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
 pub enum Health {
     /// The desired single replica is available at its current generation.
@@ -111,7 +120,7 @@ pub struct CheckpointMeasurement {
 }
 
 /// An unavailable measurement must not be interpreted as a zero-duration success.
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[non_exhaustive]
 #[serde(untagged)]
 pub enum MeanSeconds {
@@ -122,7 +131,7 @@ pub enum MeanSeconds {
 }
 
 /// Owned report snapshot, safe to serialize off the async control task.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[non_exhaustive]
 pub struct Report {
     /// Persisted report format version.
@@ -132,7 +141,7 @@ pub struct Report {
     /// Whether external recovery actions are permitted.
     pub mode: Mode,
     /// Time coordinate used for incident observations.
-    pub clock_basis: &'static str,
+    pub clock_basis: String,
     /// Incidents recorded during this observer session.
     pub incidents: Vec<Incident>,
     /// Failed infrastructure observations, distinct from workload failures.
@@ -153,6 +162,12 @@ pub struct Report {
     pub detected_incidents: usize,
     /// Application-reported checkpoint operations.
     pub checkpoint_measurements: Vec<CheckpointMeasurement>,
+    /// Latest condition and policy disposition per configured workload.
+    pub assessments: BTreeMap<String, Assessment>,
+    /// Periods without supervision, excluded from claims of continuous healthy observation.
+    pub observation_gaps: Vec<ObservationGap>,
+    /// Versioned restoration context owned by this supervisor, not an application checkpoint.
+    pub context: Snapshot,
 }
 
 /// Incident times are elapsed observer seconds within one supervisor process, not producer timestamps.
@@ -173,16 +188,19 @@ pub struct Incident {
     pub status: Status,
     /// Executed action outcomes, distinct from Kubernetes' own process recovery.
     pub actions: Vec<Action>,
+    /// Sustained health after first useful recovery; does not change the recovery timestamp.
+    #[serde(default)]
+    pub stability: Stability,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 enum Phase {
     #[default]
     Healthy,
     Incident(usize),
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 struct State {
     active: bool,
     failed: bool,
@@ -194,6 +212,24 @@ struct State {
     sequence: u64,
     phase: Phase,
     last_action: u64,
+    fresh: bool,
+    in_flight: bool,
+}
+
+/// Durable context is validated against the exact operator configuration before it can authorize actions.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+#[non_exhaustive]
+pub struct Snapshot {
+    schema_version: u32,
+    configuration: Config,
+    states: BTreeMap<String, State>,
+    elapsed_seconds: u64,
+    saved_at: SystemTime,
+    last_reservation: ObservationTime,
+    jitter_seed: u64,
+    restored_sessions: u64,
+    archived_reports: Vec<serde_json::Value>,
 }
 
 /// Durable action budget. An attempted restart consumes budget even if the backend fails or the process exits.
@@ -233,6 +269,16 @@ pub struct Supervisor {
     /// API failures counted separately from workload failures.
     unknown_observations: u64,
     checkpoints: Vec<CheckpointMeasurement>,
+    assessments: BTreeMap<String, Assessment>,
+    dependency_health: BTreeMap<String, Health>,
+    gaps: Vec<ObservationGap>,
+    observed_at: u64,
+    time_offset: u64,
+    last_reservation: ObservationTime,
+    jitter_seed: u64,
+    restored_sessions: u64,
+    archived_reports: Vec<serde_json::Value>,
+    connected: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -291,7 +337,146 @@ impl Supervisor {
             budget,
             unknown_observations: 0,
             checkpoints: Vec::new(),
+            assessments: BTreeMap::new(),
+            dependency_health: BTreeMap::new(),
+            gaps: Vec::new(),
+            observed_at: 0,
+            time_offset: 0,
+            last_reservation: ObservationTime::Pending,
+            jitter_seed: uuid::Uuid::now_v7().as_u64_pair().1,
+            restored_sessions: 0,
+            archived_reports: Vec::new(),
+            connected: true,
         })
+    }
+
+    /// Restore committed policy state; legacy reports retain their budget and are archived without mixing clocks.
+    pub fn restore(config: Config, value: serde_json::Value) -> Result<Self, RecoveryError> {
+        let budget = serde_json::from_value(
+            value
+                .get("restart_budget")
+                .cloned()
+                .ok_or_else(|| RecoveryError::Invalid("state document has no restart budget".into()))?,
+        )?;
+        let mut supervisor = Self::new(config, budget)?;
+        if value.get("context").is_none() {
+            supervisor.archived_reports.push(value);
+            return Ok(supervisor);
+        }
+        let report: Report = serde_json::from_value(value)?;
+        supervisor.validate_context(&report)?;
+        let snapshot = report.context;
+        let Ok(downtime) = SystemTime::now().duration_since(snapshot.saved_at) else {
+            return Err(RecoveryError::Invalid(format!(
+                "future recovery saved_at {:?}; correct the system clock before retrying",
+                snapshot.saved_at
+            )));
+        };
+        let downtime = downtime.as_secs();
+        supervisor.states = snapshot.states;
+        supervisor.incidents = report.incidents;
+        supervisor.checkpoints = report.checkpoint_measurements;
+        supervisor.unknown_observations = report.unknown_observations;
+        supervisor.assessments = report.assessments;
+        supervisor.gaps = report.observation_gaps;
+        supervisor.time_offset = snapshot.elapsed_seconds.saturating_add(downtime);
+        supervisor.observed_at = supervisor.time_offset;
+        supervisor.last_reservation = snapshot.last_reservation;
+        supervisor.jitter_seed = snapshot.jitter_seed;
+        supervisor.restored_sessions = snapshot.restored_sessions.saturating_add(1);
+        supervisor.archived_reports = snapshot.archived_reports;
+        supervisor.transport_lost(snapshot.elapsed_seconds, "supervisor restart");
+        supervisor.transport_connected(supervisor.time_offset);
+        Ok(supervisor)
+    }
+
+    /// Reject saved state from a different configuration before restoring any live policy state.
+    fn validate_context(&self, report: &Report) -> Result<(), RecoveryError> {
+        let snapshot = &report.context;
+        if report.schema_version != 1
+            || snapshot.schema_version != 1
+            || report.job_id != self.config.job_id
+            || report.mode != self.config.mode
+            || serde_json::to_value(&snapshot.configuration)? != serde_json::to_value(&self.config)?
+            || snapshot.states.keys().ne(self.states.keys())
+        {
+            return Err(RecoveryError::Invalid(
+                "saved recovery context does not match configuration".into(),
+            ));
+        }
+        Self::validate_saved_incidents(report)
+    }
+
+    /// Verify that each restored workload phase refers to its own recorded incident.
+    #[expect(
+        clippy::single_call_fn,
+        reason = "incident references are a distinct persisted-state invariant"
+    )]
+    fn validate_saved_incidents(report: &Report) -> Result<(), RecoveryError> {
+        for (name, state) in &report.context.states {
+            if let Phase::Incident(index) = state.phase {
+                let incident = report
+                    .incidents
+                    .get(index)
+                    .ok_or_else(|| RecoveryError::Invalid("saved incident index is invalid".into()))?;
+                if &incident.workload != name {
+                    return Err(RecoveryError::Invalid("saved incident workload is inconsistent".into()));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Advance the job clock monotonically within a process, retaining measured downtime across replacement.
+    #[must_use]
+    pub const fn elapsed(&self, session_seconds: u64) -> u64 {
+        self.time_offset.saturating_add(session_seconds)
+    }
+
+    /// Suspend actions while retaining budgets, incident baselines and accepted sequence numbers.
+    pub fn transport_lost(&mut self, now: u64, reason: &str) {
+        self.observed_at = self.observed_at.max(now);
+        self.connected = false;
+        if self
+            .gaps
+            .last()
+            .is_none_or(|gap| gap.ended_at != ObservationTime::Pending)
+        {
+            self.gaps.push(ObservationGap {
+                started_at: now,
+                ended_at: ObservationTime::Pending,
+                reason: reason.into(),
+            });
+        }
+        for state in self.states.values_mut() {
+            state.fresh = false;
+        }
+        for incident in &mut self.incidents {
+            if matches!(incident.stability, Stability::Pending { .. }) {
+                incident.stability = Stability::Incomplete;
+            }
+        }
+        self.dependency_health.clear();
+    }
+
+    /// Resume observation after registration; active workloads must supply renewed lifecycle evidence before action.
+    pub fn transport_connected(&mut self, now: u64) {
+        self.observed_at = self.observed_at.max(now);
+        self.connected = true;
+        if let Some(gap) = self.gaps.last_mut() {
+            gap.ended_at = ObservationTime::Recorded(now);
+        }
+    }
+
+    /// Refresh the read-only dependency snapshot before evaluating any workload in an observation cycle.
+    pub fn dependency_observation(&mut self, name: &str, health: Health) -> Result<(), RecoveryError> {
+        if !self.config.resilience.dependency_names().contains(name) {
+            return Err(RecoveryError::Invalid(
+                "dependency observation is not configured".into(),
+            ));
+        }
+        let _previous = self.dependency_health.insert(name.into(), health);
+        Ok(())
     }
 
     /// Consume an allowlisted sender's lifecycle `CloudEvent`, rejecting invalid, replayed, or foreign evidence.
@@ -308,6 +493,8 @@ impl Supervisor {
             .get_mut(&workload.deployment)
             .ok_or_else(|| RecoveryError::Invalid("workload state is absent".into()))?;
         state.accept_evidence(kind, &evidence, &mut self.incidents, now)?;
+        state.fresh = true;
+        self.observed_at = self.observed_at.max(now);
         if let EventKind::Checkpoint(kind) = kind {
             self.checkpoints.push(CheckpointMeasurement {
                 workload: workload.deployment.clone(),
@@ -324,30 +511,33 @@ impl Supervisor {
 
     /// Observe one workload at monotonic elapsed seconds. Readiness alone never closes a detected incident.
     pub fn observe(&mut self, workload: &Workload, health: Health, now: u64) -> Result<Decision, RecoveryError> {
+        self.observed_at = self.observed_at.max(now);
+        self.update_stability(workload, health, now)?;
         let state = self
             .states
             .get_mut(&workload.deployment)
             .ok_or_else(|| RecoveryError::Invalid("workload is not configured".into()))?;
         if health == Health::Unknown {
             self.unknown_observations = self.unknown_observations.saturating_add(1);
+            self.assess(
+                workload,
+                Classification::ObservationUnknown,
+                Reason::ObservationUnknown,
+                now,
+            );
             return Ok(Decision::Observe);
         }
         // An idle module is not stalled, and completing a job does not create another work obligation.
         let unhealthy = state.unhealthy(health, &self.config.policy, now);
+        let classification = state.classify(health, unhealthy);
         if matches!(state.phase, Phase::Healthy) && unhealthy {
             let index = self.incidents.len();
-            self.incidents.push(Incident {
-                workload: workload.deployment.clone(),
-                onset: now,
-                detected: ObservationTime::Pending,
-                recovered: ObservationTime::Pending,
-                baseline: state.progress,
-                status: Status::Suspected,
-                actions: Vec::new(),
-            });
+            self.incidents
+                .push(Incident::new(workload.deployment.clone(), now, state.progress));
             state.phase = Phase::Incident(index);
         }
         let Phase::Incident(index) = state.phase else {
+            self.assess(workload, classification, Reason::Healthy, now);
             return Ok(Decision::Observe);
         };
         let incident = self
@@ -355,17 +545,68 @@ impl Supervisor {
             .get_mut(index)
             .ok_or_else(|| RecoveryError::Invalid("incident state is absent".into()))?;
         state.advance(incident, health, unhealthy, &self.config.policy, now);
-        let attempts = self
-            .budget
-            .restarts
+        if matches!(
+            incident.status,
+            Status::Recovered | Status::Transient | Status::Unrecovered
+        ) {
+            state.in_flight = false;
+        }
+        if incident.status == Status::Recovered && self.config.resilience.stability_seconds > 0 {
+            incident.stability = Stability::Pending {
+                since: now,
+                progress: state.progress,
+                instance: state.instance.clone(),
+            };
+        }
+        let reason = self.eligibility(workload, now)?;
+        self.assess(workload, classification, reason, now);
+        Ok(if reason == Reason::RestartEligible {
+            Decision::Restart
+        } else {
+            Decision::Observe
+        })
+    }
+
+    /// Update sustained recovery independently of incident detection and intervention eligibility.
+    fn update_stability(&mut self, workload: &Workload, health: Health, now: u64) -> Result<(), RecoveryError> {
+        let state = self
+            .states
             .get(&workload.deployment)
-            .copied()
-            .unwrap_or_default();
-        Ok(state.decision(incident, &self.config, attempts, now))
+            .ok_or_else(|| RecoveryError::Invalid("workload is not configured".into()))?;
+        let incident = self
+            .incidents
+            .iter_mut()
+            .rev()
+            .find(|item| item.workload == workload.deployment && item.status == Status::Recovered);
+        if let Some(incident) = incident {
+            if health == Health::Unknown && matches!(incident.stability, Stability::Pending { .. }) {
+                incident.stability = Stability::Incomplete;
+            } else {
+                state.verify_stability(
+                    incident,
+                    state.unhealthy(health, &self.config.policy, now),
+                    now,
+                    self.config.resilience.stability_seconds,
+                );
+            }
+        }
+        Ok(())
     }
 
     /// Reserve an action before persisting the budget and executing the backend operation.
     pub fn reserve_restart(&mut self, workload: &Workload, now: u64) -> Result<(), RecoveryError> {
+        if self.eligibility(workload, now)? != Reason::RestartEligible {
+            return Err(RecoveryError::Invalid(
+                "restart is not eligible under the configured policy".into(),
+            ));
+        }
+        self.reserve_eligible_restart(workload, now)
+    }
+
+    /// Commit an admitted action while defending against missing or inconsistent reservation state.
+    fn reserve_eligible_restart(&mut self, workload: &Workload, now: u64) -> Result<(), RecoveryError> {
+        // Eligibility validated the target, phase and limits under this exclusive borrow. The following checks
+        // remain fail-closed invariant guards if that validation or the reservation sequence changes later.
         let state = self
             .states
             .get_mut(&workload.deployment)
@@ -378,18 +619,40 @@ impl Supervisor {
             .incidents
             .get_mut(index)
             .ok_or_else(|| RecoveryError::Invalid("incident state is absent".into()))?;
-        if self.config.mode != Mode::ControllerAssisted
-            || *count >= self.config.policy.max_restarts
-            || now.saturating_sub(state.last_action) < self.config.policy.restart_after_seconds
+        Self::validate_reservation(&self.config, state, incident, *count, now)?;
+        *count = count.saturating_add(1);
+        state.last_action = now;
+        self.observed_at = self.observed_at.max(now);
+        state.in_flight = true;
+        self.last_reservation = ObservationTime::Recorded(now);
+        incident.actions.push(Action::RestartReserved);
+        Ok(())
+    }
+
+    /// Recheck reservation invariants before consuming budget or changing the incident's action history.
+    #[cfg_attr(
+        not(test),
+        expect(
+            clippy::single_call_fn,
+            reason = "independently tested fail-closed boundary before a restart reservation mutates state"
+        )
+    )]
+    fn validate_reservation(
+        config: &Config,
+        state: &State,
+        incident: &Incident,
+        attempts: u32,
+        now: u64,
+    ) -> Result<(), RecoveryError> {
+        if config.mode != Mode::ControllerAssisted
+            || attempts >= config.policy.max_restarts
+            || now.saturating_sub(state.last_action) < config.policy.restart_after_seconds
             || incident.status != Status::Detected
         {
             return Err(RecoveryError::Invalid(
                 "restart is not eligible under the configured policy".into(),
             ));
         }
-        *count = count.saturating_add(1);
-        state.last_action = now;
-        incident.actions.push(Action::RestartReserved);
         Ok(())
     }
 
@@ -397,17 +660,216 @@ impl Supervisor {
     pub fn action_result(&mut self, workload: &Workload, outcome: Action) -> Result<(), RecoveryError> {
         let state = self
             .states
-            .get(&workload.deployment)
+            .get_mut(&workload.deployment)
             .ok_or_else(|| RecoveryError::Invalid("action target is not configured".into()))?;
         let Phase::Incident(index) = state.phase else {
             return Err(RecoveryError::Invalid("action has no incident".into()));
         };
-        self.incidents
+        let incident = self
+            .incidents
             .get_mut(index)
-            .ok_or_else(|| RecoveryError::Invalid("incident state is absent".into()))?
-            .actions
-            .push(outcome);
+            .ok_or_else(|| RecoveryError::Invalid("incident state is absent".into()))?;
+        if matches!(outcome, Action::RestartFailed { .. }) {
+            state.in_flight = false;
+        }
+        incident.actions.push(outcome);
         Ok(())
+    }
+
+    /// Evaluate safeguards again at reservation so a decision cannot bypass a newly consumed fleet limit.
+    fn eligibility(&self, workload: &Workload, now: u64) -> Result<Reason, RecoveryError> {
+        let state = self
+            .states
+            .get(&workload.deployment)
+            .ok_or_else(|| RecoveryError::Invalid("restart target is not configured".into()))?;
+        let Phase::Incident(index) = state.phase else {
+            return Ok(Reason::Healthy);
+        };
+        let incident = self
+            .incidents
+            .get(index)
+            .ok_or_else(|| RecoveryError::Invalid("incident state is absent".into()))?;
+        let reason = self.incident_eligibility(state, incident, now);
+        if reason != Reason::Healthy {
+            return Ok(reason);
+        }
+        let dependency = self.dependency_reason(workload);
+        if dependency != Reason::Healthy {
+            return Ok(dependency);
+        }
+        Ok(self.restart_eligibility(workload, state, incident, now))
+    }
+
+    /// Require a detected incident with current evidence and time left for recovery.
+    fn incident_eligibility(&self, state: &State, incident: &Incident, now: u64) -> Reason {
+        if incident.status == Status::Unrecovered
+            || now.saturating_sub(incident.onset) >= self.config.policy.deadline_seconds
+        {
+            return Reason::DeadlineExceeded;
+        }
+        if incident.status != Status::Detected {
+            return Reason::DetectionGrace;
+        }
+        if !self.connected || (state.active && !state.completed && !state.fresh) {
+            return Reason::EvidenceRequired;
+        }
+        Reason::Healthy
+    }
+
+    /// Apply intervention mode, per-workload limits and fleet coordination after evidence checks pass.
+    fn restart_eligibility(&self, workload: &Workload, state: &State, incident: &Incident, now: u64) -> Reason {
+        if self.config.mode != Mode::ControllerAssisted {
+            return Reason::ObserveOnly;
+        }
+        let attempts = self
+            .budget
+            .restarts
+            .get(&workload.deployment)
+            .copied()
+            .unwrap_or_default();
+        if attempts >= self.config.policy.max_restarts {
+            return Reason::BudgetExhausted;
+        }
+        let cooldown = self.cooldown(incident);
+        if now.saturating_sub(state.last_action) < cooldown {
+            return if state.in_flight {
+                Reason::RecoveryInProgress
+            } else {
+                Reason::Cooldown
+            };
+        }
+        self.fleet_eligibility(state, now)
+    }
+
+    /// Count outstanding useful-recovery requests, not merely concurrent kubectl child processes.
+    fn fleet_eligibility(&self, state: &State, now: u64) -> Reason {
+        let active = self
+            .states
+            .values()
+            .filter(|candidate| {
+                let Phase::Incident(index) = candidate.phase else {
+                    return false;
+                };
+                candidate.in_flight
+                    && self.incidents.get(index).is_some_and(|incident| {
+                        // A restored terminal incident can retain a stale in-flight marker.
+                        incident.status == Status::Detected
+                            && now.saturating_sub(incident.onset) < self.config.policy.deadline_seconds
+                    })
+            })
+            .count();
+        if !state.in_flight
+            && self.config.resilience.max_concurrent_recoveries > 0
+            && u32::try_from(active).unwrap_or(u32::MAX) >= self.config.resilience.max_concurrent_recoveries
+        {
+            return Reason::ConcurrencyLimit;
+        }
+        if let ObservationTime::Recorded(previous) = self.last_reservation
+            && now.saturating_sub(previous) < self.config.resilience.action_interval_seconds
+        {
+            return Reason::ActionInterval;
+        }
+        Reason::RestartEligible
+    }
+
+    /// Unknown dependencies suppress interventions without being labelled as confirmed failures.
+    fn dependency_reason(&self, workload: &Workload) -> Reason {
+        self.dependency_condition(&workload.deployment)
+    }
+
+    /// Evaluate the validated dependency graph transitively, using only this cycle's read-only observations.
+    fn dependency_condition(&self, name: &str) -> Reason {
+        let Some(dependencies) = self.config.resilience.dependencies.get(name) else {
+            return Reason::Healthy;
+        };
+        let mut reason = Reason::Healthy;
+        for dependency in dependencies {
+            match self.dependency_health.get(dependency) {
+                Some(Health::Ready) => {
+                    let nested = self.dependency_condition(dependency);
+                    if nested == Reason::DependencyUnavailable {
+                        return nested;
+                    }
+                    if nested == Reason::DependencyUnknown {
+                        reason = nested;
+                    }
+                    if self
+                        .states
+                        .get(dependency)
+                        .is_some_and(|state| state.unhealthy(Health::Ready, &self.config.policy, self.observed_at))
+                    {
+                        return Reason::DependencyUnavailable;
+                    }
+                }
+                Some(Health::Unready) => return Reason::DependencyUnavailable,
+                Some(Health::Unknown) | None => reason = Reason::DependencyUnknown,
+            }
+        }
+        reason
+    }
+
+    /// Publish a bounded latest assessment without changing incident or first-recovery measurements.
+    fn assess(&mut self, workload: &Workload, mut classification: Classification, reason: Reason, now: u64) {
+        if reason == Reason::DependencyUnavailable {
+            classification = Classification::DependencyUnavailable;
+        }
+        let next_action_at = self.next_action_time(workload, reason);
+        let _previous = self.assessments.insert(
+            workload.deployment.clone(),
+            Assessment {
+                classification,
+                reason,
+                observed_at: now,
+                next_action_at,
+                dependencies: self
+                    .config
+                    .resilience
+                    .dependencies
+                    .get(&workload.deployment)
+                    .cloned()
+                    .unwrap_or_default(),
+            },
+        );
+    }
+
+    /// Report a scheduled retry only when evidence permits it; dependency and capacity waits have no promised time.
+    fn next_action_time(&self, workload: &Workload, reason: Reason) -> ObservationTime {
+        if !matches!(
+            reason,
+            Reason::Cooldown | Reason::RecoveryInProgress | Reason::ActionInterval | Reason::RestartEligible
+        ) {
+            return ObservationTime::Pending;
+        }
+        // These reasons follow successful incident validation. Retain defensive fallbacks for future call-site
+        // changes rather than promising a retry time for inconsistent state.
+        let Some(state) = self.states.get(&workload.deployment) else {
+            return ObservationTime::Pending;
+        };
+        let Phase::Incident(index) = state.phase else {
+            return ObservationTime::Pending;
+        };
+        let Some(incident) = self.incidents.get(index) else {
+            return ObservationTime::Pending;
+        };
+        let cooldown = self.cooldown(incident);
+        let mut next = state.last_action.saturating_add(cooldown);
+        if let ObservationTime::Recorded(previous) = self.last_reservation {
+            next = next.max(previous.saturating_add(self.config.resilience.action_interval_seconds));
+        }
+        if next >= incident.onset.saturating_add(self.config.policy.deadline_seconds) {
+            return ObservationTime::Pending;
+        }
+        ObservationTime::Recorded(next)
+    }
+
+    /// Use the same persisted jitter sample for eligibility and the reported retry schedule.
+    fn cooldown(&self, incident: &Incident) -> u64 {
+        self.config.resilience.cooldown(
+            self.config.policy.restart_after_seconds,
+            incident.attempts(),
+            &incident.workload,
+            self.jitter_seed ^ incident.onset,
+        )
     }
 
     /// Serialize evidence with explicit unavailable measurements rather than zero-duration successful recoveries.
@@ -433,7 +895,11 @@ impl Supervisor {
             schema_version: 1,
             job_id: self.config.job_id.clone(),
             mode: self.config.mode,
-            clock_basis: "observer-monotonic-seconds",
+            clock_basis: if self.restored_sessions == 0 {
+                "observer-monotonic-seconds".into()
+            } else {
+                "observer-elapsed-seconds-with-restart-gaps".into()
+            },
             incidents: self.incidents.clone(),
             unknown_observations: self.unknown_observations,
             recovered_incidents: durations.len(),
@@ -444,6 +910,19 @@ impl Supervisor {
             failure_detection_seconds: detection,
             recovery_seconds: durations,
             checkpoint_measurements: self.checkpoints.clone(),
+            assessments: self.assessments.clone(),
+            observation_gaps: self.gaps.clone(),
+            context: Snapshot {
+                schema_version: 1,
+                configuration: self.config.clone(),
+                states: self.states.clone(),
+                elapsed_seconds: self.observed_at,
+                saved_at: SystemTime::now(),
+                last_reservation: self.last_reservation,
+                jitter_seed: self.jitter_seed,
+                restored_sessions: self.restored_sessions,
+                archived_reports: self.archived_reports.clone(),
+            },
         }
     }
 }
@@ -507,6 +986,37 @@ impl EventKind {
 }
 
 impl State {
+    /// Describe only conditions supported by the current deployment and application observations.
+    fn classify(&self, health: Health, unhealthy: bool) -> Classification {
+        if self.failed {
+            Classification::ApplicationFailure
+        } else if health == Health::Unready {
+            Classification::DeploymentUnavailable
+        } else if unhealthy {
+            Classification::ProgressStalled
+        } else {
+            Classification::Healthy
+        }
+    }
+
+    /// A quiet active workload needs additional progress; completed work needs only continued healthy observations.
+    fn verify_stability(&self, incident: &mut Incident, unhealthy: bool, now: u64, window: u64) {
+        let Stability::Pending {
+            since,
+            progress,
+            instance,
+        } = &incident.stability
+        else {
+            return;
+        };
+        if unhealthy || instance != &self.instance {
+            incident.stability = Stability::Unstable { observed_at: now };
+            return;
+        }
+        if now.saturating_sub(*since) >= window && (self.completed || self.progress > *progress) {
+            incident.stability = Stability::Stable { verified_at: now };
+        }
+    }
     /// Adopt a first instance's baseline only after validating its sequence and identity.
     fn accept_evidence(
         &mut self,
@@ -574,19 +1084,6 @@ impl State {
             || (self.active && !self.completed && now.saturating_sub(self.progress_at) >= policy.stall_seconds)
     }
 
-    /// Permit a restart only within the configured mode, action budget and cooldown.
-    fn decision(&self, incident: &Incident, config: &Config, attempts: u32, now: u64) -> Decision {
-        if incident.status == Status::Detected
-            && config.mode == Mode::ControllerAssisted
-            && attempts < config.policy.max_restarts
-            && now.saturating_sub(self.last_action) >= config.policy.restart_after_seconds
-        {
-            Decision::Restart
-        } else {
-            Decision::Observe
-        }
-    }
-
     /// Advance an incident through detection, useful recovery or deadline expiry using observer time.
     fn advance(
         &mut self,
@@ -612,7 +1109,7 @@ impl State {
         if now.saturating_sub(incident.onset) >= policy.deadline_seconds {
             incident.status = Status::Unrecovered;
         }
-        if health == Health::Ready && !unhealthy && self.progress > incident.baseline {
+        if self.fresh && health == Health::Ready && !unhealthy && self.progress > incident.baseline {
             // Late progress closes the active phase without rewriting a missed recovery deadline as success.
             if incident.status != Status::Unrecovered {
                 incident.recovered = ObservationTime::Recorded(now);
@@ -620,5 +1117,36 @@ impl State {
             }
             self.phase = Phase::Healthy;
         }
+    }
+}
+
+impl Incident {
+    /// Capture an incident baseline once, before detection and interventions can advance.
+    #[expect(
+        clippy::single_call_fn,
+        reason = "incident creation captures its immutable initial measurements"
+    )]
+    const fn new(workload: String, onset: u64, baseline: u64) -> Self {
+        Self {
+            workload,
+            onset,
+            baseline,
+            detected: ObservationTime::Pending,
+            recovered: ObservationTime::Pending,
+            status: Status::Suspected,
+            actions: Vec::new(),
+            stability: Stability::Disabled,
+        }
+    }
+
+    /// Backoff counts attempts for this incident while the durable budget remains job-wide.
+    fn attempts(&self) -> u32 {
+        u32::try_from(
+            self.actions
+                .iter()
+                .filter(|action| matches!(action, Action::RestartReserved))
+                .count(),
+        )
+        .unwrap_or(u32::MAX)
     }
 }

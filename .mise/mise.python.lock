@@ -11,18 +11,23 @@ specifiers = ["0.29.3"]
 strip_components = "1"
 
 [tools."http:pyodide"."platforms.linux-arm64"]
+checksum = "sha256:458e8ddbcbb6e21037d3237cd5c5146c451765bc738dfa2249ff34c5140331e4"
 url = "https://github.com/pyodide/pyodide/releases/download/0.29.3/pyodide-0.29.3.tar.bz2"
 
 [tools."http:pyodide"."platforms.linux-x64"]
+checksum = "sha256:458e8ddbcbb6e21037d3237cd5c5146c451765bc738dfa2249ff34c5140331e4"
 url = "https://github.com/pyodide/pyodide/releases/download/0.29.3/pyodide-0.29.3.tar.bz2"
 
 [tools."http:pyodide"."platforms.macos-arm64"]
+checksum = "sha256:458e8ddbcbb6e21037d3237cd5c5146c451765bc738dfa2249ff34c5140331e4"
 url = "https://github.com/pyodide/pyodide/releases/download/0.29.3/pyodide-0.29.3.tar.bz2"
 
 [tools."http:pyodide"."platforms.macos-x64"]
+checksum = "sha256:458e8ddbcbb6e21037d3237cd5c5146c451765bc738dfa2249ff34c5140331e4"
 url = "https://github.com/pyodide/pyodide/releases/download/0.29.3/pyodide-0.29.3.tar.bz2"
 
 [tools."http:pyodide"."platforms.windows-x64"]
+checksum = "sha256:458e8ddbcbb6e21037d3237cd5c5146c451765bc738dfa2249ff34c5140331e4"
 url = "https://github.com/pyodide/pyodide/releases/download/0.29.3/pyodide-0.29.3.tar.bz2"
 
 [[tools."npm:pyodide"]]

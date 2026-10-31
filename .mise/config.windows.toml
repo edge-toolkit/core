@@ -1,7 +1,7 @@
 # Windows-only mise config.
-# Everything here is Windows-scoped, so it needs no per-entry `os = ["windows"]` guards or `{% if os() == 'windows' %}`
-# conditionals; values here override the cross-platform defaults in config.toml. Shared vars (rpath_flag,
-# py3_*, ...) come from config.toml, which loads first.
+# Values here override the cross-platform defaults on Windows. Windows-only MSYS2 tool declarations live in
+# config.toml with explicit OS filters for cross-platform locking. Shared vars (rpath_flag, py3_*, ...)
+# come from config.toml, which loads first.
 
 [tools]
 # msys2 mirror package: make, which some -sys crates' build scripts shell out to.
@@ -19,19 +19,20 @@
 # target below); llvm-mingw bundles clang + lld + the mingw-w64 runtime/headers/libs + the libclang.dll
 # bindgen loads. Pinned so its install dir is deterministic: the version segment is repeated in the
 # win_llvm_bin var below -- bump together (conftest's version_drift enforces).
-"conda:m2-make" = "4.4.1.2"
 # gpg for mise's node-verify path, replacing the global `conda:gnupg`.
 # (conda-forge doesn't build that for win-64.) msys2 layout puts gpg.exe at the nested `Library\usr\bin\` --
 # the [vars] m2_gnupg_bin + [env] `_.path` below prepend that dir so subprocess PATH actually finds it.
 # Version pinned so the m2_gnupg_bin path stays in sync (conftest's version_drift enforces).
-"conda:m2-gnupg" = "2.2.41.1"
-"github:mstorsjo/llvm-mingw" = { version = "20261006", matching = "ucrt-x86_64" }
+"github:mstorsjo/llvm-mingw" = { version = "20261006", asset_pattern = "{{ vars.llvm_mingw_pattern }}" }
 # conda-forge's libclang: the libclang.dll bindgen loads.
 # The web-runner tree runs bindgen (libsqlite3-sys via deno) under the mingw and msvc target envs;
 # llvm-mingw ships only libclang-cpp.dll (the C++ API), not the C API DLL clang-sys looks for, and a
 # workstation can't be assumed to have a system LLVM. Pinned so the win_libclang var below stays valid
 # (conftest's version_drift enforces).
-"conda:libclang" = "22.1.8"
+# This package is available only for Windows x64; ARM's minimal build does not use it. The architecture filter
+# prevents "failed to resolve conda:libclang for windows-arm64" during automatic cross-platform lock refreshes.
+# nosemgrep: no-os-scope-in-platform-mise-config -- The filename scopes the OS, but not the architecture.
+"conda:libclang" = { version = "22.1.8", os = ["windows/x64"] }
 
 # Windows cargo: builds pin a per-tool msvc install_env so cargo-binstall fetches the msvc prebuilt.
 # (cargo:dart-typegen has no quickinstall release at all -- not just no gnullvm one -- so it can't use this

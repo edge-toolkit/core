@@ -405,6 +405,8 @@ spec:
               value: "180"
             - name: RECOVERY_POLL_SECONDS
               value: "2"
+            - name: RECOVERY_RESILIENCE
+              value: '{"action_interval_seconds":0,"backoff_max_seconds":300,"backoff_multiplier":1,"connect_timeout_seconds":30,"dependencies":{},"jitter_seconds":0,"max_concurrent_recoveries":0,"reconnect":true,"stability_seconds":0}'
             - name: RECOVERY_STATE_FILE
               value: /app/state/recovery.json
             - name: RECOVERY_WORKLOADS

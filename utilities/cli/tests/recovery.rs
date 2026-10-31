@@ -125,6 +125,30 @@ fn generates_valid_supervisor_settings_and_scoped_in_cluster_credentials() {
     );
 }
 
+/// Supporting dependencies receive read-only permissions independently of workload restart permissions.
+#[test]
+fn dependency_observation_permissions_do_not_authorize_dependency_restarts() {
+    let mut input = scenario();
+    input["recovery"]["mode"] = json!("controller-assisted");
+    input["recovery"]["resilience"] = json!({
+        "dependencies": {"example-worker": ["ws-server"]},
+        "max_concurrent_recoveries": 1_u32,
+        "stability_seconds": 10_u64,
+    });
+    let (_root, objects) = generate(&input);
+    let role = object(&objects, "Role", "recovery-supervisor");
+    assert_eq!(role["rules"][0]["verbs"], json!(["get", "patch"]));
+    assert_eq!(role["rules"][1]["resourceNames"], json!(["ws-server"]));
+    assert_eq!(role["rules"][1]["verbs"], json!(["get"]));
+    let settings: EnvConfig =
+        serde_env::from_iter(environment(object(&objects, "Deployment", "recovery-supervisor"))).unwrap();
+    assert_eq!(
+        settings.recovery.resilience.dependencies["example-worker"],
+        vec!["ws-server"]
+    );
+    assert_eq!(settings.recovery.resilience.max_concurrent_recoveries, 1);
+}
+
 /// Preserve recovery state and prevent overlapping supervisor or checkpoint-writer replacements.
 #[test]
 fn budgets_persist_and_replacements_do_not_overlap_during_rollouts() {

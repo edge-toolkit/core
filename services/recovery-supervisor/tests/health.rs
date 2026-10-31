@@ -41,8 +41,15 @@ fn probe(config: &Config) -> std::process::Output {
         .unwrap()
 }
 
-/// Require both the library and executable health checks to reject a stopped owner.
-fn assert_stopped(config: &Config) {
+/// Allow an in-flight blocking save to release its lease, then require both health checks to reject the owner.
+async fn assert_stopped(config: &Config) {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !check(config).is_err_and(|error| error.to_string().contains("not running")) {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
     assert!(check(config).unwrap_err().to_string().contains("not running"));
     assert!(!probe(config).status.success());
 }
@@ -66,14 +73,16 @@ async fn startup_waits_for_a_completed_cycle_and_a_read_only_probe_cannot_spend_
     let _missing = check(&config).unwrap_err();
     assert!(!config.state_file.with_extension("lock").exists());
     let session = Session::acquire(&config).unwrap();
+    session.maintain().await.unwrap();
     let _starting = check(&config).unwrap_err();
     assert!(!probe(&config).status.success());
     session.advance().await.unwrap();
+    session.maintain().await.unwrap();
     check(&config).unwrap();
     assert!(probe(&config).status.success());
     assert!(!config.state_file.exists());
     drop(session);
-    assert_stopped(&config);
+    assert_stopped(&config).await;
 }
 
 /// Prevent a replacement supervisor from inheriting another process's healthy status.
@@ -88,6 +97,7 @@ async fn a_new_owner_cannot_reuse_a_previous_sessions_fresh_heartbeat() {
     assert_eq!(fs::read(config.state_file.with_extension("session")).unwrap(), identity);
     check(&config).unwrap();
     drop(first);
+    assert_stopped(&config).await;
     let second = Session::acquire(&config).unwrap();
     assert_ne!(fs::read(config.state_file.with_extension("session")).unwrap(), identity);
     assert!(
@@ -120,14 +130,14 @@ async fn session_identity_remains_readable_without_reading_the_locked_lease() {
 }
 
 /// Release ownership if readable session metadata cannot be published, without advertising old evidence as healthy.
-#[test]
-fn unavailable_session_storage_releases_the_budget_lease() {
+#[tokio::test]
+async fn unavailable_session_storage_releases_the_budget_lease() {
     let directory = tempfile::tempdir().unwrap();
     let config = configured(directory.path());
     let path = config.state_file.with_extension("session");
     fs::create_dir(&path).unwrap();
     let _unavailable = Session::acquire(&config).unwrap_err();
-    assert_stopped(&config);
+    assert_stopped(&config).await;
     fs::remove_dir(path).unwrap();
     let _owner = Session::acquire(&config).unwrap();
 }
@@ -271,8 +281,8 @@ async fn a_blocked_loop_cannot_refresh_health_and_api_failure_is_not_a_superviso
     release.notify_one();
     wait_for_health(&config).await;
     task.abort();
-    let _cancelled = task.await;
-    assert!(check(&config).is_err());
+    assert!(task.await.unwrap_err().is_cancelled());
+    assert_stopped(&config).await;
 }
 
 /// Release health ownership on transport loss instead of trusting a recently written heartbeat.
@@ -293,6 +303,7 @@ async fn assert_transport_failure(graceful: bool) {
     let mut config = configured(directory.path());
     let (url, close, server) = fake_hub("recovery-supervisor", graceful).await;
     config.ws_url = url;
+    config.resilience.reconnect = false;
     let backend = PausedBackend::default();
     let task = tokio::spawn(et_recovery_supervisor::runtime::run(config.clone(), backend));
     wait_for_health(&config).await;
@@ -304,7 +315,7 @@ async fn assert_transport_failure(graceful: bool) {
         .unwrap_err();
     assert!(error.to_string().contains("hub connection"));
     server.await.unwrap();
-    assert_stopped(&config);
+    assert_stopped(&config).await;
 }
 
 /// Serve a loopback protocol peer with controllable registration and shutdown behavior.
@@ -365,6 +376,7 @@ async fn registration_and_heartbeat_persistence_failures_never_leave_a_healthy_o
         };
         let (url, close, server) = fake_hub(identity, false).await;
         config.ws_url = url;
+        config.resilience.reconnect = bad_identity;
         if !bad_identity {
             fs::create_dir_all(config.state_file.with_extension("health.json")).unwrap();
         }
@@ -384,7 +396,7 @@ async fn registration_and_heartbeat_persistence_failures_never_leave_a_healthy_o
         assert!(error.to_string().contains(expected), "{error}");
         close.notify_one();
         server.await.unwrap();
-        assert_stopped(&config);
+        assert_stopped(&config).await;
     }
 }
 

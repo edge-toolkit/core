@@ -13,6 +13,134 @@ config(path, contents) := [{"path": path, "contents": contents}]
 
 task(name, body) := {"tasks": {name: body}}
 
+test_merge_lock_mode_is_allowed_for_windows_arm_bring_up if {
+	msgs := mise.deny with input as config(".mise/config.windows-arm64.toml", {
+		"settings": {"lockfile_mode": "merge"},
+	})
+	count(msgs) == 0
+}
+
+test_merge_lock_mode_cannot_leak_to_other_platforms if {
+	every path in [".mise/config.toml", ".mise/config.windows.toml", ".mise/config.windows-x64.toml"] {
+		msgs := mise.deny with input as config(path, {"settings": {"lockfile_mode": "merge"}})
+		reports(msgs, "limited to Windows ARM bring-up")
+	}
+}
+
+test_normal_lock_generation_is_allowed if {
+	msgs := mise.deny with input as config(".mise/config.toml", {"settings": {"lockfile_mode": "generate"}})
+	count(msgs) == 0
+}
+
+# The platform-specific GnuPG packages cover all hosts without requesting a nonexistent Windows conda-forge build.
+test_unix_gnupg_may_use_its_explicit_platform_filter if {
+	msgs := mise.deny with input as config(".mise/config.toml", {"tools": {
+		"conda:gnupg": {"version": "latest", "os": ["linux", "macos"]},
+	}})
+	count(msgs) == 0
+}
+
+test_windows_prerequisites_may_use_their_explicit_platform_filter if {
+	every name in ["conda:m2-make", "conda:m2-gnupg"] {
+		msgs := mise.deny with input as config(".mise/config.toml", {"tools": {
+			name: {"version": "1", "os": ["windows/x64"]},
+		}})
+		count(msgs) == 0
+	}
+}
+
+test_windows_prerequisite_exception_does_not_allow_other_platform_filters if {
+	every sample in [
+		{"path": ".mise/config.windows.toml", "os": ["windows/x64"]},
+		{"path": ".mise/config.toml", "os": ["linux"]},
+		{"path": ".mise/config.toml", "os": ["windows"]},
+		{"path": ".mise/config.toml", "os": ["windows/arm64"]},
+	] {
+		every name in ["conda:m2-make", "conda:m2-gnupg"] {
+			msgs := mise.deny with input as config(sample.path, {"tools": {
+				name: {"version": "1", "os": sample.os},
+			}})
+			reports(msgs, "is os-scoped")
+		}
+	}
+}
+
+test_mingw_prerequisites_may_use_their_windows_filter if {
+	every name in [
+		"conda:m2-coreutils",
+		"conda:m2-diffutils",
+		"conda:m2-gawk",
+		"conda:m2-grep",
+		"conda:m2-sed",
+		"github:brechtsanders/winlibs_mingw",
+	] {
+		msgs := mise.deny with input as config(".mise/config.mingw.toml", {"tools": {
+			name: {"version": "1", "os": ["windows"]},
+		}})
+		count(msgs) == 0
+	}
+}
+
+test_mingw_exception_is_limited_to_its_config_and_windows if {
+	every sample in [
+		{"path": ".mise/config.toml", "os": ["windows"]},
+		{"path": ".mise/config.mingw.toml", "os": ["linux"]},
+	] {
+		msgs := mise.deny with input as config(sample.path, {"tools": {
+			"conda:m2-sed": {"version": "1", "os": sample.os},
+		}})
+		reports(msgs, "is os-scoped")
+	}
+}
+
+test_unrelated_tools_still_cannot_skip_platforms if {
+	msgs := mise.deny with input as config(".mise/config.toml", {"tools": {
+		"example-tool": {"version": "latest", "os": ["macos"]},
+	}})
+	reports(msgs, "is os-scoped")
+}
+
+test_windows_libclang_may_use_its_published_architecture if {
+	msgs := mise.deny with input as config(".mise/config.windows.toml", {"tools": {
+		"conda:libclang": {"version": "22.1.8", "os": ["windows/x64"]},
+	}})
+	count(msgs) == 0
+}
+
+test_windows_libclang_exception_does_not_allow_other_scopes if {
+	every sample in [
+		{"path": ".mise/config.toml", "os": ["windows/x64"]},
+		{"path": ".mise/config.windows.toml", "os": ["windows"]},
+		{"path": ".mise/config.windows.toml", "os": ["windows/arm64"]},
+	] {
+		msgs := mise.deny with input as config(sample.path, {"tools": {
+			"conda:libclang": {"version": "22.1.8", "os": sample.os},
+		}})
+		reports(msgs, "is os-scoped")
+	}
+}
+
+test_openssl_filter_preserves_all_published_platforms if {
+	msgs := mise.deny with input as config(".mise/config.toml", {"tools": {
+		"conda:openssl": {"version": "3", "os": ["linux", "macos", "windows/x64"]},
+	}})
+	count(msgs) == 0
+}
+
+test_openssl_exception_does_not_allow_other_scopes if {
+	every sample in [
+		{"path": ".mise/config.windows.toml", "os": ["linux", "macos", "windows/x64"]},
+		{"path": ".mise/config.toml", "os": ["linux", "macos", "windows"]},
+		{"path": ".mise/config.toml", "os": ["windows/arm64"]},
+		{"path": ".mise/config.toml", "os": ["linux", "macos"]},
+	] {
+		msgs := mise.deny with input as config(sample.path, {"tools": {
+			"conda:openssl": {"version": "3", "os": sample.os},
+		}})
+		reports(msgs, "is os-scoped")
+	}
+}
+
 reports(msgs, fragment) if {
 	some msg in msgs
 	contains(msg, fragment)
