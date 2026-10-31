@@ -275,6 +275,19 @@ jobs:
           flags: python,${{ matrix.os_flag }},unit
           fail_ci_if_error: true
 
+      # The same reports go to flakiness.io, under a lane name kept apart from the uninstrumented test workflow's.
+      - name: Upload Rust test results to flakiness.io (OIDC)
+        if: ${{ !cancelled() && hashFiles('target/nextest/ci-*/junit-*.xml') != '' }}
+        env:
+          LANE: coverage-${{ matrix.os_flag }}
+        run: mise run flakiness-upload rust "$LANE" target/nextest
+
+      - name: Upload Python test results to flakiness.io (OIDC)
+        if: ${{ !cancelled() && hashFiles('target/pycov/junit-*.xml') != '' }}
+        env:
+          LANE: coverage-${{ matrix.os_flag }}
+        run: mise run flakiness-upload python "$LANE" target/pycov
+
       # Only a fully green main run republishes the README's test-count badge.
       # Deliberately unguarded, unlike the uploads above: a failed run can stop partway through the pytest modules
       # and would publish a count that silently drops the ones that never ran, so the badge keeps the last good one.

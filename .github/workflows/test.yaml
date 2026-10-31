@@ -44,6 +44,8 @@ jobs:
     permissions:
       contents: read
       packages: read
+      # flakiness.io's upload authenticates with an OIDC id-token instead of an access token.
+      id-token: write
     runs-on: ${{ matrix.os }}
     timeout-minutes: ${{ matrix.timeout }}
     # The test build's peak memory is what killed the ubuntu-24.04-arm lane, so this job trims it four ways.
@@ -57,6 +59,7 @@ jobs:
       CARGO_INCREMENTAL: "0"
       CARGO_PROFILE_DEV_DEBUG: line-tables-only
       ET_LINK_WITH_MOLD: ${{ startsWith(matrix.os, 'ubuntu') }}
+      NEXTEST_PROFILE: ci
     # Override the workflow-level `shell: bash` default for Windows runs.
     # This uses the busybox-w32 ash that mise installs in `_setup_all` (the same shell `MISE_BASH_PATH` already
     # points at for `shell = "bash"` tasks on the Windows Docker images). Avoids Git Bash's MSYS fork-emulation
@@ -172,6 +175,13 @@ jobs:
         timeout-minutes: 50
         run: mise run test
 
+      # A failed run still wrote its JUnit report, and that is the run whose results flakiness.io most needs.
+      - name: Upload Rust test results to flakiness.io (OIDC)
+        if: ${{ !cancelled() && hashFiles('target/nextest/ci/junit.xml') != '' }}
+        env:
+          LANE: ${{ matrix.os }}
+        run: mise run flakiness-upload rust "$LANE" target/nextest/ci/junit.xml
+
   # Alternate-compiler Windows lanes, one per mise target env (.mise/config.<compiler>.toml).
   # `msvc` builds et-ws-web-runner against the native rusty_v8 prebuilt with the portable MSVC toolchain;
   # `mingw` links that msvc archive into an x86_64-pc-windows-gnu binary with winlibs GCC. Separate from
@@ -187,6 +197,7 @@ jobs:
     permissions:
       contents: read
       packages: read
+      id-token: write
     runs-on: windows-latest
     # Covers the step ceilings this job declares, which now sum past the old 120.
     # Install 60 + prefetch 20 + build-modules 25 + tests 55 is 160, so at 120 a slow setup could have the
@@ -204,6 +215,7 @@ jobs:
     # already-installed toolchain.
     env:
       MISE_ENV: "dart,dotnet,java,js,kotlin,python,r,rust,zig,${{ matrix.compiler }}"
+      NEXTEST_PROFILE: ci
     # Static busybox-w32 ash default (this job is always windows-latest, so no per-OS ternary).
     defaults:
       run:
@@ -255,6 +267,12 @@ jobs:
       - name: Run tests
         timeout-minutes: 55
         run: mise run test
+
+      - name: Upload Rust test results to flakiness.io (OIDC)
+        if: ${{ !cancelled() && hashFiles('target/nextest/ci/junit.xml') != '' }}
+        env:
+          LANE: windows-${{ matrix.compiler }}
+        run: mise run flakiness-upload rust "$LANE" target/nextest/ci/junit.xml
 
   # Windows-on-arm bring-up lane: proves the Rust toolchain alone works there, and nothing more.
   # windows-arm64 is not one of the five supported platforms, and the `default` matrix's dispatch-only
