@@ -16,7 +16,6 @@ use chrono::DateTime;
 use cyw43::JoinOptions;
 use cyw43_pio::{DEFAULT_CLOCK_DIVIDER, PioSpi};
 use defmt::{Debug2Format, info, warn};
-use edge_toolkit::ports::Services;
 use edge_toolkit::ws_server::MessageRetention;
 use embassy_executor::Spawner;
 use embassy_net::tcp::TcpSocket;
@@ -35,18 +34,12 @@ use picoserve::time::EmbassyTimer;
 use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
 
-/// The port the hub serves on, as the `std` server's plain-HTTP listener does.
-const PORT: u16 = Services::InsecureWebSocketServer.port();
+use crate::{HTTP_BUFFER, MAX_FRAME_SIZE, MAX_QUEUED, MODULES, PORT};
+
 /// How many connections the hub serves at once: one task, and one socket's buffers, each.
 const CONNECTIONS: usize = 4;
-/// The largest WebSocket frame the hub reads; each connection holds a buffer this size on the heap.
-const MAX_FRAME_SIZE: usize = 8 * 1024;
-/// How many messages for one connection the hub holds while it writes earlier ones, each up to `MAX_FRAME_SIZE`.
-const MAX_QUEUED: usize = 2;
 /// Each connection's TCP receive and transmit buffer.
 const TCP_BUFFER: usize = 4 * 1024;
-/// Each connection's buffer for the HTTP request head.
-const HTTP_BUFFER: usize = 2048;
 /// The heap the hub's registry, routing and frame buffers allocate from.
 const HEAP_SIZE: usize = 160 * 1024;
 
@@ -109,7 +102,16 @@ async fn connection_task(stack: Stack<'static>, hub: &'static Hub<BoardStamps>) 
         let client_ip = socket
             .remote_endpoint()
             .map_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED), |remote| remote.addr.into());
-        if let Err(error) = serve(hub, socket, client_ip, EmbassyTimer, &config, &mut http_buffer).await {
+        let served = serve(
+            hub,
+            &MODULES,
+            socket,
+            client_ip,
+            EmbassyTimer,
+            &config,
+            &mut http_buffer,
+        );
+        if let Err(error) = served.await {
             warn!(
                 "Connection from {} ended: {}",
                 Debug2Format(&client_ip),

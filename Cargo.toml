@@ -11,6 +11,7 @@ members = [
   "libs/et-otlp",
   "libs/org",
   "libs/path",
+  "libs/sanitise",
   "libs/test-helpers",
   "libs/test-nats",
   "libs/test-otlp",
@@ -39,6 +40,7 @@ members = [
   "services/ws-modules/wasi-data1",
   "services/ws-modules/wasi-math1",
   "services/ws-modules/wasi-math1-sender",
+  "services/firmware-modules",
   "services/hub-backplane",
   "services/modules",
   "services/storage",
@@ -110,6 +112,7 @@ embassy-time = "0.5"
 embedded-alloc = { version = "0.7", default-features = false, features = ["llff"] }
 et-actix-web-config = { path = "libs/actix-web-config", version = "0.1.0" }
 et-cli = { path = "utilities/cli", version = "0.2.0" }
+et-firmware-modules = { path = "services/firmware-modules", version = "0.1.0" }
 et-hub-backplane = { path = "services/hub-backplane", version = "0.2.0" }
 et-modules-service = { path = "services/modules", version = "0.3.0" }
 et-onnx = { path = "utilities/onnx", version = "0.2.0" }
@@ -118,6 +121,7 @@ et-otlp = { path = "libs/et-otlp", version = "0.3.0" }
 et-path = { path = "libs/path", version = "0.3.0" }
 et-recovery-supervisor = { path = "services/recovery-supervisor", version = "0.1.0" }
 et-rest-client = { path = "generated/rust-rest", version = "0.2.0", default-features = false }
+et-sanitise = { path = "libs/sanitise", version = "0.1.0" }
 et-storage-service = { path = "services/storage", version = "0.2.0", default-features = false }
 et-test-helpers = { path = "libs/test-helpers", version = "0.2.0" }
 et-test-nats = { path = "libs/test-nats", version = "0.2.0" }
@@ -206,6 +210,7 @@ opentelemetry-proto = { version = "0.32", default-features = false, features = [
   "with-serde",
 ] }
 opentelemetry_sdk = "0.32"
+# Pinned exactly, because rc.11 and later moved API that wasmtime-wasi-nn calls.
 ort = { version = "=2.0.0-rc.10", default-features = false, features = ["copy-dylibs"] }
 panic-probe = "1"
 picoserve = { version = "0.20", default-features = false, features = ["ws"] }
@@ -238,6 +243,7 @@ retry = { version = "2", default-features = false }
 retry-policies = "0.5"
 rstest = "0.28"
 rustls = "0.23"
+sanitize-filename = "0.8.0-beta"
 schemars = { version = "1.2", features = ["derive"] }
 secrecy = { version = "0.10", features = ["serde"] }
 semver = "1"
@@ -250,6 +256,7 @@ serde_path_to_error = "0.1"
 serde_with = { version = "3.24", default-features = false, features = ["macros"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.11", default-features = false }
+shlex = "2"
 spin = { version = "0.10", default-features = false, features = ["spin_mutex"] }
 static_cell = "2"
 strum = { version = "0.28", features = ["derive"] }
@@ -276,6 +283,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-wasm = { package = "wasm-tracing", version = "2.1" }
 tree-sitter = "0.27"
 tree-sitter-zig = "1"
+tungstenite = { version = "0.30", default-features = false, features = ["handshake"] }
 # Already resolved transitively (object_store, reqwest, ...), so this adds no new crate or license to review.
 # object_store's parse_url_opts takes a `&Url` and does not re-export the type, so a backend-URL config needs it.
 url = "2"
@@ -286,17 +294,18 @@ wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 wasm-bindgen-test = "0.3"
 # Keep all three on the same major for ABI compat -- wasmtime-wasi-nn tracks wasmtime's version exactly.
-# 49.0.4 is the floor, not a preference: RUSTSEC-2026-0352 through RUSTSEC-2026-0364 are fixed only from 49.0.3,
-# and RUSTSEC-2026-0378 / RUSTSEC-2026-0379 only from 49.0.4, on the 49 line. The major is held at 49 by
-# wasi-webgpu-wasmtime, whose 0.4 line requires wasmtime ^49.
-wasmtime = { version = "49.0.4", features = ["async", "component-model"] }
+# 49.0.5 is the floor, not a preference: RUSTSEC-2026-0352 through RUSTSEC-2026-0364 are fixed only from 49.0.3,
+# RUSTSEC-2026-0378 / RUSTSEC-2026-0379 only from 49.0.4, and RUSTSEC-2026-0420 and RUSTSEC-2026-0422 through
+# RUSTSEC-2026-0424 only from 49.0.5, on the 49 line. The major is held at 49 by wasi-webgpu-wasmtime, whose 0.4
+# line requires wasmtime ^49.
+wasmtime = { version = "49.0.5", features = ["async", "component-model"] }
 # The generator behind wasmtime's `bindgen!` macro, driven directly by et-int-gen.
 # Emitting the runner's host bindings as a checked-in source file keeps ws-wasi-runner self-contained: the
 # macro read WIT from `../../generated/specs/wit`, which `cargo package` cannot include, so the crate failed
 # to build from its own tarball. Named `internal` upstream, so treat its API as unstable and pinned to the
 # wasmtime version above; the drift check catches any change in what it emits.
-wasmtime-internal-wit-bindgen = { version = "49.0.4", features = ["async", "component-model-async"] }
-wasmtime-wasi = "49.0.4"
+wasmtime-internal-wit-bindgen = { version = "49.0.5", features = ["async", "component-model-async"] }
+wasmtime-wasi = "49.0.5"
 wasmtime-wasi-nn = { version = "49", default-features = false, features = ["onnx"] }
 web-sys = "0.3"
 # wgpu-core/wgpu-types come in via wasi-webgpu-wasmtime's re-exports; only the instance handle is ours.

@@ -2,8 +2,10 @@
 name: no-std
 
 # The crates that build without std, built where there is none, and et-ws-server as Raspberry Pi Pico 2 W firmware.
-# One Linux job: a bare-metal target compiles the same on every host, so another platform would only repeat it. The
-# board is not here, so the firmware is built and linted, not run; nothing is uploaded or published.
+# The firmware is linted bare, and built as a generated scenario's, whose modules its host build then serves to a
+# test that fetches each. One Linux job: a bare-metal target compiles the same on every host, so another platform
+# would only repeat it. The board is not here, so the firmware itself is built and linted, not run; nothing is
+# uploaded or published.
 #
 # Not path-gated: what breaks a no_std build is a dependency or a feature gaining std somewhere in the tree, which a
 # path list would have to name every crate to catch.
@@ -58,17 +60,22 @@ jobs:
         timeout-minutes: 20
         run: mise run test-no-std
 
-      - name: Fetch the Pico 2 W radio's firmware blobs
-        timeout-minutes: 5
-        run: mise run fetch-cyw43-firmware-rclone
-
       # The firmware bakes in the network it joins, so CI builds it for one that does not exist.
-      - name: Build and lint the Pico 2 W firmware
-        timeout-minutes: 30
+      # The lint covers the firmware with no modules in it, and the build the default scenario's, as et-cli generates
+      # a deployment of it: the page and the wasm agent built in, which the agent's package has to be built for first.
+      # The same modules are then served from this host by the firmware's host build, and every one it lists fetched.
+      - name: Lint the Pico 2 W firmware, then build and serve a generated scenario's
+        timeout-minutes: 45
         env:
-          CYW43_FIRMWARE_DIR: ${{ github.workspace }}/target/cyw43-firmware
           WIFI_NETWORK: edge-toolkit-ci
           WIFI_PASSWORD: not-a-real-passphrase
         run: |
-          mise run build-firmware-pico2w
           mise run cargo-clippy-check-pico2w
+          mise run build-ws-wasm-agent
+          src=verification/local/input/default.yaml
+          dst=target/firmware-default
+          fmt=firmware-pico2
+          cargo run -q -p et-cli -- generate-deployment --input-file "$src" --output-dir "$dst" --output-type "$fmt"
+          cd "$dst"
+          MISE_ENV="$fmt" mise run firmware-build
+          MISE_ENV="$fmt" mise run firmware-host-test

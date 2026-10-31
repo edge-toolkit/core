@@ -10,6 +10,7 @@ use std::slice;
 
 use edge_toolkit::ports::Services as Ports;
 use et_path::{absolute_from, relative_path_from};
+use et_sanitise::{is_plain_path, is_quotable_path};
 use fs_err as fs;
 use serde::Deserialize;
 
@@ -35,16 +36,16 @@ mod schedule;
 pub use self::admin::{EvictedAgent, block_ip, evict_agent};
 pub use self::deployment_types::{ScenarioModules, docker_image_module_paths, scenario_module_paths};
 pub(crate) use self::deployment_types::{
-    generate_dekit_deployment, generate_docker_compose_deployment, generate_k3s_deployment, generate_mise_deployment,
-    generate_process_compose_deployment, generate_scenario_image,
+    generate_dekit_deployment, generate_docker_compose_deployment, generate_firmware_deployment,
+    generate_k3s_deployment, generate_mise_deployment, generate_process_compose_deployment, generate_scenario_image,
 };
 pub use self::error::CliError;
 pub use self::hub_ws_url::{hub_service_ws_url, hub_service_ws_url_named, hub_ws_url, hub_ws_url_at};
-pub(crate) use self::input::running_in_this_repository;
 pub use self::input::{
     ArtifactSource, ClusterInput, DEFAULT_CLUSTER_NAME, OutputType, Service, Services, infer_artifact_source,
     manifest_declares_this_repository,
 };
+pub(crate) use self::input::{Board, BoardSpec, running_in_this_repository};
 pub use self::limits::{Cpus, Limits, LimitsError, Ulimit};
 pub use self::module_package_json::generate_module_package_json;
 pub use self::recovery::{Recovery, RecoverySettings};
@@ -433,11 +434,13 @@ pub(crate) fn load_cluster_input(input_file: &Path) -> Result<(ClusterInput, u64
     // filesystem root, which is its own directory.
     let input_abs = std::path::absolute(input_file)?;
     let input_dir = input_abs.parent().unwrap_or(&input_abs);
-    cluster.module_paths = cluster
+    let resolved: Vec<PathBuf> = cluster
         .module_paths
         .iter()
         .map(|path| absolute_from(input_dir, path))
         .collect();
+    validate_module_paths(&cluster.module_paths, &resolved)?;
+    cluster.module_paths = resolved;
 
     Ok((cluster, scenario_seed(&content)))
 }
@@ -522,6 +525,12 @@ pub fn regenerate_verification(
             .copied()
             .filter(|output_type| !scheduled || output_type.runs_schedules())
             .filter(|output_type| cluster.recovery.is_unset() || *output_type == OutputType::K3s)
+            .filter(|output_type| {
+                Board::ALL.iter().all(|board| {
+                    board.spec().output_type != *output_type
+                        || deployment_types::validate_firmware(&cluster, *board).is_ok()
+                })
+            })
             .collect();
         if output_types.is_empty() {
             continue;
@@ -555,7 +564,15 @@ const fn deployment_summary(
 fn validate_deployment_outputs(cluster: &ClusterInput, output_types: &[OutputType]) -> Result<(), CliError> {
     refuse_unschedulable_formats(cluster, output_types)?;
     recovery::validate_formats(cluster, output_types)?;
-    recovery::validate(cluster, &scenario_runners(cluster)?)
+    recovery::validate(cluster, &scenario_runners(cluster)?)?;
+    // After the runners resolve, so a scenario naming a runner that does not exist is told that rather than only that
+    // the board runs none.
+    for board in Board::ALL {
+        if output_types.contains(&board.spec().output_type) {
+            deployment_types::validate_firmware(cluster, *board)?;
+        }
+    }
+    Ok(())
 }
 
 /// Write every file a deployment of `output_types` needs into `output_dir`, with its credential and README.
@@ -636,6 +653,7 @@ fn generate_format(
             generate_mise_deployment(cluster, output_dir, with_process_compose)?;
             generate_process_compose_deployment(cluster, output_dir)
         }
+        OutputType::FirmwarePico2 => generate_firmware_deployment(cluster, output_dir, Board::Pico2),
     }
 }
 
@@ -869,12 +887,10 @@ fn generated_readme(
     };
 
     let output_summary = output_summary(cluster, output_types);
-    // Relative to where the README's `docker build` runs from, and escaped because each lands inside a double-quoted
-    // shell argument.
+    // Relative to where the README's `docker build` runs from.
     let build_contexts = module_path_contexts(&cluster.module_paths, &image_build.context_root)
         .iter()
         .fold(String::default(), |mut flags, (name, path)| {
-            let path = escape_for_double_quotes(path);
             let _write_result = write!(flags, " --build-context \"{name}={path}\"");
             flags
         });
@@ -1109,7 +1125,43 @@ fn generated_run_instructions(
         OutputType::ProcessCompose => process_compose_run_instructions(artifacts).to_string(),
         OutputType::DockerCompose => docker_compose_run_instructions(cluster, artifacts),
         OutputType::K3s => k3s_run_instructions(cluster, image_build, runners, artifacts, build_contexts),
+        OutputType::FirmwarePico2 => firmware_run_instructions(Board::Pico2.spec()),
     }
+}
+
+/// Render the README section that builds the hub as firmware for `board` and loads it onto one.
+#[expect(clippy::single_call_fn, reason = "the firmware step of generated_run_instructions")]
+fn firmware_run_instructions(board: BoardSpec) -> String {
+    format!(
+        concat!(
+            "## Run As Firmware On A {title}\n\n",
+            "The board runs the hub alone and serves this scenario's modules from its {flash} of flash.\n",
+            "Build those modules first, since the firmware takes each one's built package.\n",
+            "{network}\n",
+            "Then {preparation}.\n",
+            "From this directory, build the firmware and load it with:\n\n",
+            "```bash\n",
+            "MISE_ENV={env} mise run {task}\n",
+            "```\n\n",
+            "To check what the board will serve without one, serve the same modules from this host and fetch\n",
+            "each, as a page would:\n\n",
+            "```bash\n",
+            "MISE_ENV={env} mise run {host_test}\n",
+            "```\n\n",
+            "The board takes an address over DHCP and serves the page at port 8080 of it. npm packages the\n",
+            "modules use that are too big for its flash, such as onnxruntime-web, are not built in: the board\n",
+            "redirects a request for one to the same path under `{elsewhere}`, which the browser has to be\n",
+            "able to reach.\n"
+        ),
+        title = board.title,
+        flash = board.flash,
+        network = board.network_setup,
+        preparation = board.load_preparation,
+        env = board.output_type.name(),
+        task = deployment_types::FIRMWARE_FLASH_TASK,
+        host_test = deployment_types::FIRMWARE_HOST_TEST_TASK,
+        elsewhere = deployment_types::FIRMWARE_ELSEWHERE_URL,
+    )
 }
 
 /// Render the README section that runs the Docker Compose deployment on one host.
@@ -1213,6 +1265,8 @@ fn machine_instructions(output_type: OutputType, cluster: &ClusterInput) -> Stri
             |machine| format!("docker compose --profile {machine} up --build"),
         ),
         OutputType::K3s => return k3s_machine_instructions(cluster, server),
+        // Refused before anything is written: the board is one machine.
+        OutputType::FirmwarePico2 => return String::default(),
     };
     let roles = machine_roles(cluster, server);
     let loopback = loopback_note(cluster);
@@ -1738,20 +1792,56 @@ fn is_module_dir(path: &Path) -> bool {
         || path.join("pyproject.toml").is_file()
 }
 
-/// A literal path spelled so a shell reads it back unchanged inside double quotes, as a generated command puts it.
+/// Refuse a `module_paths:` directory whose name a generated deployment could not use as written.
 ///
-/// Applied to a `module_paths:` module's path only. Every other entry is this repository's own path or a command
-/// substitution the generator writes on purpose, whereas a `module_paths:` directory is named by whoever laid out the
-/// tree the scenario points at, and a `$(...)` in that name would otherwise run when the deployment starts.
-pub(crate) fn escape_for_double_quotes(text: &str) -> String {
-    let mut escaped = String::with_capacity(text.len());
-    for character in text.chars() {
-        if matches!(character, '\\' | '"' | '$' | '`') {
-            escaped.push('\\');
+/// Every generator puts these paths into shell commands, so a directory called `$(id)` would otherwise run `id` when
+/// the deployment starts. Rather than escape the path for each generator, a name that is not plain is refused while
+/// the scenario is read. What the scenario's author chose has to be plain: each entry as `written`, and each module
+/// directory found under an entry, by its name. The directory the input sits in is wherever the scenario happens to
+/// be, such as a Windows temporary directory under `RUNNER~1`, so the whole `resolved` path is held only to what the
+/// generated commands need of it: that it reads back unchanged inside the double quotes and lists they put it in.
+fn validate_module_paths(written: &[PathBuf], resolved: &[PathBuf]) -> Result<(), CliError> {
+    for (index, (entry, path)) in written.iter().zip(resolved).enumerate() {
+        if !is_plain_path(entry) {
+            return Err(CliError::UnsafeModulePath(entry.clone()));
         }
-        escaped.push(character);
+        if !is_quotable_path(path) {
+            return Err(CliError::UnsafeModulePath(path.clone()));
+        }
+        for (dir, ..) in scenario_module_dirs(index, path) {
+            if dir != *path && !is_plain_path(Path::new(dir.file_name().unwrap_or_default())) {
+                return Err(CliError::UnsafeModulePath(dir));
+            }
+        }
     }
-    escaped
+    Ok(())
+}
+
+/// The module directories the `module_paths:` entry `path`, at `index`, names.
+///
+/// Each comes with its build-context path and the path an image holds it at. The entry is a module directory itself, or
+/// a parent of several; a path that is neither names none.
+fn scenario_module_dirs(index: usize, path: &Path) -> Vec<(PathBuf, String, String)> {
+    let context_root = format!("/app/module-paths/{index}");
+    if is_module_dir(path) {
+        // The context is the module itself, so the whole of it is copied: its root, spelled as the one-character path.
+        return vec![(path.to_path_buf(), '.'.to_string(), context_root)];
+    }
+    let Ok(entries) = fs::read_dir(path) else {
+        return Vec::new();
+    };
+    let mut dirs: Vec<(PathBuf, String, String)> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|child| child.is_dir() && is_module_dir(child))
+        .filter_map(|child| {
+            let name = child.file_name()?.to_str()?.to_string();
+            let docker_path = format!("{context_root}/{name}");
+            Some((child, name, docker_path))
+        })
+        .collect();
+    dirs.sort();
+    dirs
 }
 
 /// Register the `module_paths:` entry at `index`, which is a module directory or a parent of several.
@@ -1765,33 +1855,11 @@ fn register_scenario_paths(
     path: &Path,
     ws_server_dir: &Path,
 ) {
-    let context_root = format!("/app/module-paths/{index}");
-    let module_dirs: Vec<(PathBuf, String, String)> = if is_module_dir(path) {
-        // The context is the module itself, so the whole of it is copied: its root, spelled as the one-character path.
-        vec![(path.to_path_buf(), '.'.to_string(), context_root)]
-    } else {
-        let Ok(entries) = fs::read_dir(path) else {
-            return;
-        };
-        let mut dirs: Vec<(PathBuf, String, String)> = entries
-            .flatten()
-            .map(|entry| entry.path())
-            .filter(|child| child.is_dir() && is_module_dir(child))
-            .filter_map(|child| {
-                let name = child.file_name()?.to_str()?.to_string();
-                let docker_path = format!("{context_root}/{name}");
-                Some((child, name, docker_path))
-            })
-            .collect();
-        dirs.sort();
-        dirs
-    };
-    for (module_path, context_path, docker_path) in module_dirs {
+    for (module_path, context_path, docker_path) in scenario_module_dirs(index, path) {
         let Some(directory_name) = module_path.file_name().and_then(|name| name.to_str()) else {
             continue;
         };
         let mut entry = module_entry(&module_path, ws_server_dir, &docker_path);
-        entry.mise_path = escape_for_double_quotes(&entry.mise_path);
         entry.source = ModuleSource::Scenario {
             dir: module_path.clone(),
             context: module_path_context(index),

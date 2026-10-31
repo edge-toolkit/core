@@ -17,8 +17,8 @@ use crate::input::{ArtifactSource, ClusterInput};
 use crate::placement::{hubs, shares_hubs};
 use crate::{
     COLLECTOR_SETTINGS, COLLECTOR_USERNAME, MODULE_SCOPE, ModuleRegistryEntry, ModuleSource, RunnerInstance,
-    cluster_module_names, escape_for_double_quotes, module_registry, resolve_cluster_modules, resolve_module_paths,
-    runner_crate, scenario_runners,
+    cluster_module_names, module_registry, resolve_cluster_modules, resolve_module_paths, runner_crate,
+    scenario_runners,
 };
 
 /// Crate whose binary serves the hub, which a published deployment installs in place of building it.
@@ -474,7 +474,7 @@ fn published_module_paths(scenario: &ScenarioModules<'_>, output_abs: &Path) -> 
     let mut paths: Vec<String> = resolved
         .into_iter()
         .filter_map(|entry| match entry.source {
-            ModuleSource::Scenario { dir, .. } => Some(escape_for_double_quotes(&relative_path_from(output_abs, &dir))),
+            ModuleSource::Scenario { dir, .. } => Some(relative_path_from(output_abs, &dir)),
             ModuleSource::MiseTool { tool, .. } if !tool.starts_with(STAGED_PREFIX) => Some(entry.mise_path),
             ModuleSource::Repo(_) | ModuleSource::MiseTool { .. } => None,
         })
@@ -519,7 +519,9 @@ impl<'scenario> ScenarioModules<'scenario> {
 }
 
 /// The registry to resolve against, and the module list to resolve -- what both resolutions here start from.
-fn registry_and_modules(scenario: &ScenarioModules<'_>) -> (BTreeMap<String, ModuleRegistryEntry>, Vec<String>) {
+pub(super) fn registry_and_modules(
+    scenario: &ScenarioModules<'_>,
+) -> (BTreeMap<String, ModuleRegistryEntry>, Vec<String>) {
     let project_root = edge_toolkit::config::get_project_root();
     (
         module_registry(&project_root, scenario.ws_server_dir, scenario.module_paths),
@@ -540,7 +542,7 @@ pub fn scenario_module_paths(scenario: &ScenarioModules<'_>) -> Result<Vec<Strin
 // silently ends the statement early, and the repo bans the form outside README files. The two fit budgets are
 // the line length minus each form's fixed prefix and its closing quote: `MODULES_PATHS="` for the opening line,
 // `MODULES_PATHS="$MODULES_PATHS, ` for every later one.
-fn wrap_module_paths(paths: &[String]) -> String {
+pub(super) fn wrap_module_paths(paths: &[String]) -> String {
     #[derive(Debug)]
     struct PathFragment<'path> {
         path: &'path str,
@@ -585,7 +587,7 @@ fn wrap_module_paths(paths: &[String]) -> String {
     out
 }
 
-fn mise_task(
+pub(super) fn mise_task(
     alias: Option<&str>,
     description: Option<&str>,
     dir: Option<&str>,

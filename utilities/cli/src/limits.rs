@@ -4,13 +4,13 @@
 //! k3s runs on. Compose also accepts `mem_swappiness`, `oom_kill_disable` and the `cpu_rt_*` pair, but Docker discards
 //! the first two there with a warning and refuses the third outright, so they are not features a scenario could rely
 //! on. Per-device block I/O limits and device reservations name host devices, which a scenario written once for every
-//! machine cannot know. `oom_score_adj` is a property of the process rather than of its cgroup, and the kubelet sets
-//! it from each pod's `QoS` class, so no container runtime plugin can hold it to a scenario's value.
+//! machine cannot know. `oom_score_adj` is a property of the process rather than of its cgroup, and the kubelet sets it
+//! from each pod's `QoS` class, so no container runtime plugin can hold it to a scenario's value.
 //!
 //! Each field resolves to the same cgroup value in both formats, even where they spell it differently. k3s applies the
-//! ones the Pod API carries natively and has two container runtime plugins write the rest straight into the
-//! container's cgroup, so a field never means one thing under compose and another under k3s. The mise and dekit
-//! deployments run each process directly on the host, outside any container, and apply none of them.
+//! ones the Pod API carries natively and has two container runtime plugins write the rest straight into the container's
+//! cgroup, so a field never means one thing under compose and another under k3s. The mise and dekit deployments run
+//! each process directly on the host, outside any container, and apply none of them.
 
 use std::collections::BTreeMap;
 use std::fmt::{self, Write as _};
@@ -103,8 +103,8 @@ impl Cpus {
 
     /// The CPU weight this amount reserves, in the shares the kernel's cgroup v1 interface and Docker speak.
     ///
-    /// The kubelet's own conversion of a request, `millicores * 1024 / 1000` with a floor of two shares, so a
-    /// compose process reserving this amount gets the weight a Kubernetes container requesting it does.
+    /// The kubelet's own conversion of a request, `millicores * 1024 / 1000` with a floor of two shares, so a compose
+    /// process reserving this amount gets the weight a Kubernetes container requesting it does.
     #[must_use]
     pub fn shares(self) -> u64 {
         (u64::from(self.0).saturating_mul(1024).div_euclid(1000)).max(2)
@@ -540,7 +540,8 @@ pub(crate) fn limits_note(output_type: OutputType, cluster: &ClusterInput) -> St
     // Named per format, because every format's section lands in the one README and markdownlint rejects a repeated
     // heading.
     let heading = match output_type {
-        OutputType::DockerCompose | OutputType::K3s => return String::default(),
+        // The board runs no agent, and only the one hub, which has nothing else to be limited against.
+        OutputType::DockerCompose | OutputType::K3s | OutputType::FirmwarePico2 => return String::default(),
         OutputType::Mise => "Mise",
         OutputType::Dekit => "dekit",
         OutputType::ProcessCompose => "process-compose",

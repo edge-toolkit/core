@@ -20,6 +20,8 @@ pub mod config;
 #[cfg(feature = "std")]
 pub mod net;
 #[cfg(feature = "picoserve-server")]
+pub mod picoserve_modules;
+#[cfg(feature = "picoserve-server")]
 pub mod picoserve_server;
 pub mod routes;
 #[cfg(feature = "tls")]

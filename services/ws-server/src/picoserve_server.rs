@@ -1,8 +1,10 @@
-//! The `no_std` ws-server: the hub's `/ws`, with `/health` and `/favicon.ico` beside it, served through picoserve.
+//! The `no_std` ws-server: the hub's `/ws`, with `/health`, `/favicon.ico` and the modules beside it, served through
+//! picoserve.
 //!
 //! As with [`Hub::serve`], the embedder owns the network stack and the executor, accepts each connection, and runs
-//! [`serve`] for it with the one [`Hub`] every connection shares. The services the `std` server mounts besides the hub
-//! -- storage, modules, websockify -- need a filesystem or an OS, and are not served here.
+//! [`serve`] for it with the one [`Hub`] every connection shares. The modules are those built into the binary, as
+//! [`Modules`] describes. The other services the `std` server mounts besides the hub -- storage, websockify -- need a
+//! filesystem or an OS, and are not served here.
 
 use core::net::IpAddr;
 
@@ -13,12 +15,13 @@ use picoserve::response::{Json, StatusCode};
 use picoserve::routing::get;
 use picoserve::{Config, Router, Server, Timer};
 
+use crate::picoserve_modules::{ModuleRoutes, Modules};
 use crate::routes::HealthResponse;
 
 /// Serve one accepted connection from `client_ip` until it closes.
 ///
-/// `GET /health` answers what the `std` server's does, `GET /favicon.ico` answers 204, and `GET /ws` is `hub`'s, as
-/// [`Hub::routes`] describes; every other request is answered 404. `config` is usually
+/// `GET /health` answers what the `std` server's does, `GET /favicon.ico` answers 204, and `GET /ws` is `hub`'s,
+/// as [`Hub::routes`] describes. Every other request is one of `modules`', or answered 404. `config` is usually
 /// [`et_ws_service::picoserve_hub::config`], and `http_buffer` holds the request head.
 ///
 /// As for [`Hub::serve`], the crate awaiting this one needs `#![recursion_limit = "256"]`.
@@ -28,6 +31,7 @@ use crate::routes::HealthResponse;
 )]
 pub async fn serve<T, R, M, S>(
     hub: &Hub<T>,
+    modules: &Modules,
     socket: S,
     client_ip: IpAddr,
     timer: M,
@@ -40,7 +44,7 @@ where
     S: Socket<R>,
 {
     let app = hub.routes(
-        Router::new()
+        Router::from_service(ModuleRoutes::new(modules))
             .route("/favicon.ico", get(async || StatusCode::NO_CONTENT))
             .route("/health", get(async || Json(HealthResponse::healthy()))),
         client_ip,

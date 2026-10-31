@@ -56,10 +56,11 @@ test_comparator_on_major_minor_is_accepted if {
 	not flagged(msgs, "crate-a")
 }
 
-# A prerelease tail contributes dots of its own, which belong to the tail rather than to the version core.
-test_prerelease_counts_only_the_version_core if {
-	msgs := cargo.deny with input as manifest({"crate-a": "=2.0.0-rc.10"})
-	flagged(msgs, "crate-a")
+# A prerelease has no two-part form, so it keeps its full version without needing an exception entry.
+test_prerelease_keeps_its_full_version if {
+	msgs := cargo.deny with input as manifest({"crate-a": "=2.0.0-rc.10", "crate-b": "0.8.0-beta"})
+	not flagged(msgs, "crate-a")
+	not flagged(msgs, "crate-b")
 }
 
 # A path dep has no two-part form available to it, so it is exempt without needing an exception entry.
@@ -70,31 +71,37 @@ test_path_dep_keeps_its_full_triple if {
 
 # An excepted dep keeps its pin, and the entry that permits it is what stops the denial.
 test_excepted_dep_keeps_its_patch_pin if {
-	msgs := cargo.deny with input as manifest({"deno_error": "=0.7.1", "ort": "=2.0.0-rc.10"})
+	msgs := cargo.deny with input as manifest({"deno_error": "=0.7.1", "minicov": "=0.3.8"})
 	not flagged(msgs, "deno_error")
 }
 
 test_exception_only_covers_the_dep_it_names if {
-	deps := {"deno_error": "=0.7.1", "ort": "=2.0.0-rc.10", "other": "1.2.3"}
+	deps := {"deno_error": "=0.7.1", "minicov": "=0.3.8", "other": "1.2.3"}
 	msgs := cargo.deny with input as manifest(deps)
 	flagged(msgs, "other")
 }
 
-# The map is only honest while every entry still describes the manifest, so both ways of going stale report.
+# The map is only honest while every entry still describes the manifest, so every way of going stale reports.
 test_trimmed_dep_reports_its_stale_exception if {
-	msgs := cargo.deny with input as manifest({"deno_error": "=0.7.1", "ort": "2.0"})
-	stale(msgs, "ort")
+	msgs := cargo.deny with input as manifest({"deno_error": "=0.7.1", "minicov": "0.3"})
+	stale(msgs, "minicov")
 }
 
 test_dropped_dep_reports_its_stale_exception if {
 	msgs := cargo.deny with input as manifest({"deno_error": "=0.7.1"})
-	stale(msgs, "ort")
+	stale(msgs, "minicov")
+}
+
+# A prerelease needs no entry, so one written for it describes nothing the rule would deny.
+test_prerelease_dep_reports_its_stale_exception if {
+	msgs := cargo.deny with input as manifest({"deno_error": "=0.7.1", "minicov": "=0.3.8-rc.1"})
+	stale(msgs, "minicov")
 }
 
 test_live_exceptions_report_nothing if {
-	msgs := cargo.deny with input as manifest({"deno_error": "=0.7.1", "ort": "=2.0.0-rc.10"})
+	msgs := cargo.deny with input as manifest({"deno_error": "=0.7.1", "minicov": "=0.3.8"})
 	not stale(msgs, "deno_error")
-	not stale(msgs, "ort")
+	not stale(msgs, "minicov")
 }
 
 tracing_log_drift(msgs) if {

@@ -1,7 +1,7 @@
 # facility-security-scenario
 
 This directory contains generated deployment configs for the `facility-security-scenario` scenario.
-Files: `mise.toml`, `dekit.yaml`, `process-compose.yaml`, `compose.yaml`, `k3s.yaml`.
+Files: `mise.toml`, `dekit.yaml`, `process-compose.yaml`, `compose.yaml`, `k3s.yaml`, `mise.firmware-pico2.toml`.
 
 The scenario exposes these workflow modules: face-detection, har1, pyface1.
 
@@ -152,3 +152,27 @@ kubectl get pods -n "$ns" --watch
 
 Nothing outside the cluster can reach `ws-server`, so no browser can open its page. List `ws`
 and `wss` under `services.hub.expose` in the scenario input and regenerate to publish them.
+
+## Run As Firmware On A Raspberry Pi Pico 2 W
+
+The board runs the hub alone and serves this scenario's modules from its 4 MiB of flash.
+Build those modules first, since the firmware takes each one's built package.
+Set `WIFI_NETWORK` and `WIFI_PASSWORD` to the Wi-Fi network the board joins.
+Then hold the board's BOOTSEL button while plugging it in.
+From this directory, build the firmware and load it with:
+
+```bash
+MISE_ENV=firmware-pico2 mise run firmware-flash
+```
+
+To check what the board will serve without one, serve the same modules from this host and fetch
+each, as a page would:
+
+```bash
+MISE_ENV=firmware-pico2 mise run firmware-host-test
+```
+
+The board takes an address over DHCP and serves the page at port 8080 of it. npm packages the
+modules use that are too big for its flash, such as onnxruntime-web, are not built in: the board
+redirects a request for one to the same path under `https://cdn.jsdelivr.net/npm`, which the browser has to be
+able to reach.

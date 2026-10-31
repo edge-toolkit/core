@@ -425,6 +425,26 @@ non-root user, with `emptyDir` mounts for the paths that still have to be writab
 plaintext -- `ws://` to the hub, `http://` to the collector -- because the hub's self-signed certificate is issued
 for `localhost` only and the runners have no way to be told to trust it.
 
+### Firmware
+
+The `firmware-<board>` output types deploy the hub alone, as firmware for a networked microcontroller board that
+serves the scenario's modules itself. Each board has one: `firmware-pico2` builds for the Raspberry Pi Pico 2 W, over
+its own Wi-Fi. It writes a `mise.firmware-pico2.toml` beside the other formats, and its `firmware-flash` task builds
+the firmware and loads it onto a board in BOOTSEL mode:
+
+```bash
+input=verification/local/input/facility-security-scenario.yaml
+output=verification/local/output/facility-security-scenario
+et-cli generate-deployment --input-file "$input" --output-dir "$output" --output-type firmware-pico2
+cd "$output"
+MISE_ENV=firmware-pico2 mise run firmware-flash
+```
+
+A board has no filesystem, so each module from this repository, or from the scenario's `module_paths:`, is built
+into the firmware from its built package, and the modules have to be built first. The npm packages they use, such as
+onnxruntime-web, are bigger than a board's flash: those are redirected to jsDelivr instead. A scenario with a runner,
+more than one machine or published artifacts is refused, since the board runs nothing but the hub.
+
 ### Multiple machines
 
 A scenario runs on one host unless it lists `machines:`. Listing them is opt-in: the first machine is the server,

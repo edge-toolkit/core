@@ -23,6 +23,7 @@ edge-toolkit = { workspace = true, features = ["std"] }
 et-org.workspace = true
 et-path.workspace = true
 et-recovery-supervisor.workspace = true
+et-sanitise.workspace = true
 fake.workspace = true
 fs-err.workspace = true
 jiff.workspace = true

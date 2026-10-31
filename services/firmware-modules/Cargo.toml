@@ -1,0 +1,22 @@
+[package]
+name = "et-firmware-modules"
+publish = true
+description = "The source a firmware's build script writes to build ws-modules into its image"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+fs-err.workspace = true
+serde_json = { workspace = true, features = ["std"] }
+thiserror = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

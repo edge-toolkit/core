@@ -9,16 +9,21 @@
 # ws-server, the e2e tests) still live in the default config; moving those out is a later pass.
 
 # et-ws-server as Raspberry Pi Pico 2 W firmware: an ELF that picotool or probe-rs loads onto the board.
-# Its build reads the radio's blobs from CYW43_FIRMWARE_DIR, and the network to join from WIFI_NETWORK and
-# WIFI_PASSWORD; its name stays outside `build-modules`'s `build-ws-*` glob, since that has none of them.
+# Its build reads the radio's blobs from CYW43_FIRMWARE_DIR, which it fetches first, and the network to join from
+# WIFI_NETWORK and WIFI_PASSWORD; its name stays outside `build-modules`'s `build-ws-*` glob, since that has none of
+# them.
 [tasks.build-firmware-pico2w]
+depends = ["fetch-cyw43-firmware-rclone"]
 description = "Build et-ws-server as Raspberry Pi Pico 2 W firmware"
+env = { CYW43_FIRMWARE_DIR = "{{ config_root }}/{{ vars.cyw43_dir }}" }
 run = "cargo build --release -p et-int-ws-server-pico2w --target thumbv8m.main-none-eabihf"
 
 # The firmware's body compiles only for the board, so the workspace's host clippy never reaches it; this does.
 # It needs what build-firmware-pico2w needs.
 [tasks.cargo-clippy-check-pico2w]
+depends = ["fetch-cyw43-firmware-rclone"]
 description = "Lint the Raspberry Pi Pico 2 W firmware for its own target"
+env = { CYW43_FIRMWARE_DIR = "{{ config_root }}/{{ vars.cyw43_dir }}" }
 run = "cargo clippy --release -p et-int-ws-server-pico2w --target thumbv8m.main-none-eabihf"
 
 # The Pico 2 W radio's firmware, CLM and NVRAM, from embassy's cyw43-firmware directory at the pinned commit.

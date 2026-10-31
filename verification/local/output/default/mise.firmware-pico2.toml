@@ -1,0 +1,33 @@
+[tasks.firmware-build]
+description = "Build the Raspberry Pi Pico 2 W firmware serving default"
+dir = "../../../.."
+run = """
+MODULES_PATHS="$PWD/services/ws-server/static, $PWD/services/ws-wasm-agent"
+export MODULES_PATHS
+mise -E rust run build-firmware-pico2w
+"""
+
+[tasks.firmware-build.env]
+MODULES_ELSEWHERE = "onnxruntime-web, stats-gl"
+MODULES_ELSEWHERE_URL = "https://cdn.jsdelivr.net/npm"
+MODULES_ROOT = "@edge-toolkit/et-ws-server-static"
+
+[tasks.firmware-flash]
+depends = ["firmware-build"]
+description = "Load the firmware onto a Raspberry Pi Pico 2 W, and start it"
+dir = "../../../.."
+run = "picotool load -x -t elf target/thumbv8m.main-none-eabihf/release/et-ws-server-pico2w"
+
+[tasks.firmware-host-test]
+description = "Serve default's modules from this host as the board would, and fetch each"
+dir = "../../../.."
+run = """
+MODULES_PATHS="$PWD/services/ws-server/static, $PWD/services/ws-wasm-agent"
+export MODULES_PATHS
+mise run cargo-test-pkg et-int-ws-server-pico2w
+"""
+
+[tasks.firmware-host-test.env]
+MODULES_ELSEWHERE = "onnxruntime-web, stats-gl"
+MODULES_ELSEWHERE_URL = "https://cdn.jsdelivr.net/npm"
+MODULES_ROOT = "@edge-toolkit/et-ws-server-static"

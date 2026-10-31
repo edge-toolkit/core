@@ -922,27 +922,92 @@ fn scenario_module(dir: &std::path::Path, name: &str, loader: &str) {
 }
 
 #[test]
-fn module_paths_modules_keep_their_own_identity_and_cannot_inject_shell() {
+fn a_module_paths_entry_holding_no_module_adds_none() {
+    // One entry that is not there at all, and a parent whose only other child is a file rather than a module.
     let test_root = tempdir().unwrap();
-    // Two directories of one name under different parents, which resolution used to fold into one module, and a
-    // directory whose name is shell syntax the generated task would otherwise run.
+    scenario_module(&test_root.path().join("parent/module"), "@ext/only", "");
+    fs::write(test_root.path().join("parent/notes.txt"), "not a module").unwrap();
+    let input_file = test_root.path().join("cluster.yaml");
+    let input = "cluster_name: \"external\"\nmodule_paths: [\"absent\", \"parent\"]\n";
+    fs::write(&input_file, input).unwrap();
+
+    let _summary = generate_deployment(&input_file, &test_root.path().join("output"), None).unwrap();
+    let ws_server_dir = edge_toolkit::config::get_project_root().join("services/ws-server");
+    let module_paths = [test_root.path().join("absent"), test_root.path().join("parent")];
+    let modules = ["@ext/only".to_string()];
+    let scenario = ScenarioModules::new(&ws_server_dir, &modules, false).with_module_paths(&module_paths);
+    let paths = scenario_module_paths(&scenario).unwrap();
+    // The module, and the pyodide it depends on; nothing from the absent entry or the file.
+    assert!(paths.iter().any(|path| path.ends_with("parent/module")), "{paths:?}");
+    assert!(
+        !paths
+            .iter()
+            .any(|path| path.contains("absent") || path.contains("notes")),
+        "{paths:?}"
+    );
+}
+
+#[test]
+fn module_paths_modules_keep_their_own_identity() {
+    let test_root = tempdir().unwrap();
+    // Two directories of one name under different parents, which resolution used to fold into one module.
     scenario_module(&test_root.path().join("a/module"), "@ext/a", "");
     scenario_module(&test_root.path().join("b/module"), "@ext/b", "");
-    scenario_module(&test_root.path().join("c/mod$(id)"), "@ext/c", "");
-    let module_paths = [
-        test_root.path().join("a/module"),
-        test_root.path().join("b/module"),
-        test_root.path().join("c"),
-    ];
+    let module_paths = [test_root.path().join("a/module"), test_root.path().join("b/module")];
     let ws_server_dir = edge_toolkit::config::get_project_root().join("services/ws-server");
-    let modules = ["@ext/a".to_string(), "@ext/b".to_string(), "@ext/c".to_string()];
+    let modules = ["@ext/a".to_string(), "@ext/b".to_string()];
     let scenario = ScenarioModules::new(&ws_server_dir, &modules, false).with_module_paths(&module_paths);
     let paths = scenario_module_paths(&scenario).unwrap();
 
     assert!(paths.iter().any(|path| path.ends_with("a/module")), "{paths:?}");
     assert!(paths.iter().any(|path| path.ends_with("b/module")), "{paths:?}");
-    assert!(paths.iter().any(|path| path.ends_with(r"c/mod\$(id)")), "{paths:?}");
-    assert!(!paths.iter().any(|path| path.ends_with("c/mod$(id)")), "{paths:?}");
+}
+
+#[test]
+fn a_module_path_that_is_not_plain_is_refused() {
+    // Named outright, reported as written, and found under a parent the scenario names, reported where it was found.
+    for (module_dir, entry, reported_under_root) in [("c/mod$(id)", "c/mod$(id)", false), ("d/my mod", "d", true)] {
+        let test_root = tempdir().unwrap();
+        scenario_module(&test_root.path().join(module_dir), "@ext/c", "");
+        let input_file = test_root.path().join("cluster.yaml");
+        let input = format!("cluster_name: \"external\"\nmodule_paths: [{entry:?}]\n");
+        fs::write(&input_file, input).unwrap();
+
+        let refused = generate_deployment(&input_file, &test_root.path().join("output"), None).unwrap_err();
+        // Joined a name at a time, as the directory listing it was found by spells it.
+        let reported = if reported_under_root {
+            module_dir
+                .split('/')
+                .fold(test_root.path().to_path_buf(), |path, name| path.join(name))
+        } else {
+            module_dir.into()
+        };
+        assert_eq!(
+            refused.to_string(),
+            format!(
+                "Module path {reported:?} has a name a shell would interpret or a filesystem would not hold; rename it"
+            )
+        );
+    }
+}
+
+#[test]
+fn a_plain_module_path_under_a_directory_a_shell_would_expand_is_refused() {
+    // The entry is a plain name, but the scenario sits where it happens to, and that lands in the generated commands.
+    let test_root = tempdir().unwrap();
+    let scenario_dir = test_root.path().join("case$HOME");
+    scenario_module(&scenario_dir.join("modules"), "@ext/c", "");
+    let input_file = scenario_dir.join("cluster.yaml");
+    fs::write(&input_file, "cluster_name: \"external\"\nmodule_paths: [\"modules\"]\n").unwrap();
+
+    let refused = generate_deployment(&input_file, &test_root.path().join("output"), None).unwrap_err();
+    let reported = scenario_dir.join("modules");
+    assert_eq!(
+        refused.to_string(),
+        format!(
+            "Module path {reported:?} has a name a shell would interpret or a filesystem would not hold; rename it"
+        )
+    );
 }
 
 #[test]
@@ -1019,19 +1084,6 @@ fn a_compose_deployment_builds_module_paths_modules_into_its_image() {
     assert!(compose.contains("/app/module-paths/0/mine"), "{compose}");
     let copy = r#"COPY --from=module-path-0 --chown=10001:10001 ["mine", "/app/module-paths/0/mine"]"#;
     assert!(dockerfile.contains(copy), "{dockerfile}");
-}
-
-#[test]
-fn a_module_paths_directory_name_stays_one_operand_and_one_shell_word() {
-    // A space splits a plain-form `COPY` operand, and a `$` is substitution to both Docker and the shell: the entry
-    // carries the `$`, which the README's build context names, and the module under it the space.
-    let (_test_root, output_dir) = module_paths_deployment("k3s", "mods$HOME", "my mod");
-    let dockerfile = fs::read_to_string(output_dir.join("Dockerfile")).unwrap();
-    let readme = fs::read_to_string(output_dir.join("README.md")).unwrap();
-
-    let copy = r#"COPY --from=module-path-0 --chown=10001:10001 ["my mod", "/app/module-paths/0/my mod"]"#;
-    assert!(dockerfile.contains(copy), "{dockerfile}");
-    assert!(readme.contains(r#"/mods\$HOME""#), "{readme}");
 }
 
 #[test]

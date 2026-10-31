@@ -30,17 +30,17 @@ ignore = [
   # newest release. Unmaintained != vulnerable. The advisory covers every version of the crate, 2.x and 3.0.0
   # included, so only dropping bincode clears it -- which deno_core did at 0.411.0. deno_runtime 0.267.0 is the
   # first release built on it (deno_core ^0.412.0); drop this entry with the deno_runtime bump that reaches it.
-  { id = "RUSTSEC-2025-0141", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2025-0141", reason = "expires 2026-11-13" },
   # paste 1.0.15 (unmaintained).
   # Proc-macro pulled by v8 (rusty_v8) via deno_core / serde_v8; expands at compile time only, so there is no
   # runtime exposure. Every published v8 release through 152.2.0 declares it as a non-optional dependency, so no
   # upgrade clears this -- only a rusty_v8 move to the maintained pastey fork. Awaiting that migration.
-  { id = "RUSTSEC-2024-0436", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2024-0436", reason = "expires 2026-11-13" },
   # rustls-pemfile 2.2.0 (unmaintained; final release -- parsing moved into rustls-pki-types).
   # PEM cert parser for loading the system CA bundle. Unmaintained, not vulnerable. Pulled directly by both
   # deno_native_certs and deno_tls, each at its newest release, so no bump drops it. rustls-native-certs
   # migrated at 0.8.1 and our 0.8.4 copy is clean; the affected 0.7.3 copy is pinned by deno_native_certs.
-  { id = "RUSTSEC-2025-0134", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2025-0134", reason = "expires 2026-11-13" },
   # rustls 0.23.40 -- the four rustls entries below share one blocker, so it is described once, here.
   # deno_tls pins `rustls = "=0.23.40"` by equality through 0.246.0, its newest release, and because a lockfile
   # holds one rustls 0.23.x that pin also holds ws-server's own TLS listener and every reqwest client at
@@ -53,57 +53,57 @@ ignore = [
   # for example a plaintext `EncryptedExtensions` packed into the same record as the `ServerHello`. The transcript
   # is still authenticated, so an attacker cannot alter or complete a handshake with it. CVSS 5.3, client and
   # server roles alike, and live code here.
-  { id = "RUSTSEC-2026-0285", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0285", reason = "expires 2026-11-13" },
   # `Debug` on client session values prints the TLS 1.2 master secret or TLS 1.3 resumption PSK, fixed 0.23.46.
   # Reached only through a custom `ClientSessionStore` that formats those values; nothing here implements one, and
   # the built-in session cache's `Debug` output is redacted.
-  { id = "RUSTSEC-2026-0346", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0346", reason = "expires 2026-11-13" },
   # Brotli certificate decompression can allocate 1 GiB before authentication, fixed in 0.23.46.
   # Needs rustls's non-default `brotli` feature, which our resolution does not enable -- `cargo tree -i rustls -e
   # features` reports aws-lc-rs,default,log,logging,prefer-post-quantum,std,tls12 -- so the decompressor is absent.
-  { id = "RUSTSEC-2026-0348", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0348", reason = "expires 2026-11-13" },
   # An unauthenticated ServerHello can steer later client connections to classical-only key exchange, fixed 0.23.46.
   # Client role, and live here: `prefer-post-quantum` is on, so the downgrade is possible. The cost is losing
   # post-quantum confidentiality on the affected connections, not a key compromise or an authentication bypass,
   # and it needs a network attacker who can answer one connection attempt to the same server name.
-  { id = "RUSTSEC-2026-0349", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0349", reason = "expires 2026-11-13" },
   # webpki-roots / webpki-root-certs 0.26.11 bundle the distrusted emSign ECC Root CA - G3, fixed only in 1.0.10.
   # Both 0.26.11 releases are thin re-export shims over `^1` of the same crate, and the lockfile resolves that to
   # 1.0.10, so the roots they hand out are the patched set; the advisories match on the shim's own version
   # number. deno_tls (`webpki-roots = "^0.26"`) and deno_node (`webpki-root-certs = "^0.26.5"`) require the shims
   # through their newest releases, 0.246.0 and 0.197.0, so no bump drops them. Drop both when Deno moves to ^1.
-  { id = "RUSTSEC-2026-0381", reason = "expires 2026-10-31" },
-  { id = "RUSTSEC-2026-0383", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0381", reason = "expires 2026-11-13" },
+  { id = "RUSTSEC-2026-0383", reason = "expires 2026-11-13" },
   # smartstring 1.0.1 (unmaintained; repo archived 2026-05-03).
   # Pulled only by the swc stack (swc_ecma_lexer/parser 26/27) under deno_ast -> deno_runtime. Maintenance
   # notice, not a vulnerability. Upstream swc migrated to compact_str at swc_ecma_lexer 41.0.0 and
   # swc_ecma_parser 42.0.0, but deno_ast pins both by equality (=26.0.0 / =27.0.7) through its newest release,
   # so no bump on our side reaches them. Drop when a deno_runtime/deno_ast bump pulls the migrated swc.
-  { id = "RUSTSEC-2026-0249", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0249", reason = "expires 2026-11-13" },
   # hickory-proto 0.25.2 NSEC3 closest-encloser proof unbounded loop (DoS on DNSSEC validation).
   # Pulled by deno_net for resolver. The advisory scopes reachability to builds carrying dnssec-ring or
   # dnssec-aws-lc-rs, and our resolution enables neither -- cargo tree -i hickory-proto -f "{p} [{f}]" reports
   # default,futures-io,serde,std,tokio -- so DnssecDnsHandle is never compiled in. (Cargo.lock listing ring
   # under hickory-proto is not evidence otherwise; it records optional deps regardless of activation.) The fix
   # landed in 0.26.0-beta.1, but deno_net requires ^0.25.2 through its newest release, so it is out of reach.
-  { id = "RUSTSEC-2026-0118", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0118", reason = "expires 2026-11-13" },
   # hickory-proto 0.25.2 O(n^2) name compression during message encode.
   # Encoder side, hit only when we *send* a DNS message. The runner uses the OS resolver via hickory. It
   # never crafts outbound DNS frames with attacker-controlled name lists.
-  { id = "RUSTSEC-2026-0119", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0119", reason = "expires 2026-11-13" },
   # hickory-resolver 0.25.2 lookup() / lookup_ip() return Ok for a response DNSSEC validation found bogus.
   # Pulled by deno_net and deno_fetch for the web runner's resolver. The advisory needs a resolver with DNSSEC
   # validation enabled, which needs a dnssec-* feature, and our resolution enables none -- cargo tree -i
   # hickory-resolver -e features reports default,serde,system-config,tokio -- so no response is ever validated and
   # none can be passed off as valid. The fix is 0.26.2, but deno_net and deno_fetch require ^0.25.2 through their
   # newest releases (0.251.0 / 0.283.0), so it is out of reach.
-  { id = "GHSA-5j98-2g5x-46v6", reason = "expires 2026-10-31" },
+  { id = "GHSA-5j98-2g5x-46v6", reason = "expires 2026-11-13" },
   # hickory-resolver 0.25.2 follows CNAME records outside the answer's chain, sending queries it does not need.
   # Same deno_net / deno_fetch path and the same unreachable 0.26.2 fix as the entry above. Unlike that one, no
   # feature gates it, so the code is live: a response carrying stray CNAMEs costs extra queries. The cost is query
   # amplification, not a wrong answer, and the runner resolves only the ws-server host it is configured with, so
   # the responses come from the operator's own DNS rather than one an attacker chooses.
-  { id = "GHSA-6f2x-v7q7-m7m5", reason = "expires 2026-10-31" },
+  { id = "GHSA-6f2x-v7q7-m7m5", reason = "expires 2026-11-13" },
   # rand 0.8.5 unsound ThreadRng reseed when a custom `log` logger calls rand::rng() (UB via aliased &mut).
   # Transitive via deno_crypto / deno_fs / deno_node (web-runner), used for non-cryptographic randomness
   # (jitter, salt scratchpads). The advisory's first precondition is the `log` feature, which our resolution
@@ -111,7 +111,7 @@ ignore = [
   # Fixed in the 0.8 line at 0.8.6, which deleted the log optional dep -- but deno_crypto pins rand "=0.8.5"
   # by equality through its newest release, so neither a lockfile bump nor a deno bump moves it. cargo-deny
   # does not match this id and warns advisory-not-detected; the entry stays because osv-scanner does flag it.
-  { id = "RUSTSEC-2026-0097", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0097", reason = "expires 2026-11-13" },
   # rsa 0.9.10 Marvin Attack timing sidechannel on RSA decryption.
   # No patched version exists -- the advisory lists none, upstream is still migrating to a constant-time
   # implementation, and 0.9.10 is the newest stable (the 0.10 line is release candidates, equally affected),
@@ -119,7 +119,7 @@ ignore = [
   # RSA keys or decrypt RSA payloads. Only TLS server cert verification, which uses *signature* checks, no
   # decryption. Not reachable unless guest JS explicitly imports crypto.subtle and performs RSA-OAEP decrypt
   # with a private key. Our modules don't.
-  { id = "RUSTSEC-2023-0071", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2023-0071", reason = "expires 2026-11-13" },
   # crypto-bigint 0.5.5 secret-dependent branches in operations meant to be constant-time (timing side channel).
   # The arithmetic under elliptic-curve 0.13, which deno_crypto and deno_node_crypto use for P-256/384/521 and
   # secp256k1 in WebCrypto and node:crypto. The fix is only in 0.7.6 and later, and deno_crypto requires
@@ -128,7 +128,7 @@ ignore = [
   # those operations on the same host. Our modules do neither; the hub's TLS uses rustls and aws-lc, not this. Drop
   # when deno_crypto moves to elliptic-curve 0.14. cargo-deny ignores by id only, so this also mutes the 0.7 copy
   # elliptic-curve 0.14 pulls -- Cargo.lock pins the patched 0.7.10 there, so re-check that copy when touching this.
-  { id = "RUSTSEC-2026-0387", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0387", reason = "expires 2026-11-13" },
   # h2 0.3.27 unbounded empty DATA frames (low-severity HTTP/2 DoS: undrained streams grow memory).
   # Accepted for the 0.3 copy only. hyperium patched the 0.4 line (>= 0.4.16, which Cargo.lock now pins for the
   # hyper/reqwest path) and shipped no 0.3 backport, so 0.3.27 is the last release of a dead line. It arrives
@@ -138,14 +138,14 @@ ignore = [
   # this when it ships one built on h2 0.4. cargo-deny 0.20 ignores by id only (no version scoping), so this
   # also mutes the 0.4 line -- Cargo.lock pins 0.4.16 there, and a bump below that would have to come back
   # through this entry, so re-check both copies when touching it.
-  { id = "RUSTSEC-2026-0258", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0258", reason = "expires 2026-11-13" },
   # unsafe-libyaml 0.2.11 (unmaintained; repository archived 2024-03-25, so no version is patched).
   # A c2rust translation of libyaml, reached through serde_yaml, itself deprecated. Two things pull serde_yaml:
   # our own crates, for registry, scenario and generated-deployment YAML, and progenitor-macro, which parses the
   # OpenAPI document at compile time. Unmaintained, not vulnerable. Moving our crates to a safe-Rust parser
   # (serde-saphyr is the advisory's suggestion) is in our hands, but progenitor-macro would still carry it, so
   # drop this only once both have moved.
-  { id = "RUSTSEC-2024-0449", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2024-0449", reason = "expires 2026-11-13" },
   # zstd 0.13.2 / zstd-safe 7.3.0 -- the zstd entries below share one blocker, so it is described once, here.
   # The fixes are only in zstd 0.14.3 and zstd-safe 8.2.0, and Cargo.lock pins those for every consumer that
   # accepts them (actix-http, compression-codecs, tonic). Two cannot: deno_node pins `zstd = "=0.13.2"` by equality
@@ -157,42 +157,42 @@ ignore = [
   # Leftover input from an abandoned stream leaks into the next one on a reused context, fixed in zstd 0.14.3.
   # Reached only through the `with_context` stream constructors. deno_node's node:zlib ops build their raw
   # encoders and decoders with `new`, and wasmtime-internal-cache calls only `encode_all` / `decode_all`.
-  { id = "RUSTSEC-2026-0391", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0391", reason = "expires 2026-11-13" },
   # Three memory-safety flaws in `Seekable`, all fixed in 8.2.0 and all in the `seekable` feature, which is off.
   # `decompress` sets a `Vec` length past its capacity for an offset past the end, an uninitialized or failed
   # `Seekable` reads a NULL seek table, and `seekable_compressStream` reads past an `InBuffer` whose `pos` is out
   # of range.
-  { id = "RUSTSEC-2026-0396", reason = "expires 2026-10-31" },
-  { id = "RUSTSEC-2026-0398", reason = "expires 2026-10-31" },
-  { id = "RUSTSEC-2026-0405", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0396", reason = "expires 2026-11-13" },
+  { id = "RUSTSEC-2026-0398", reason = "expires 2026-11-13" },
+  { id = "RUSTSEC-2026-0405", reason = "expires 2026-11-13" },
   # Three memory-safety flaws in `experimental` APIs, all fixed in 8.2.0; that feature is off, so none is compiled in.
   # `CParameter::StableInBuffer` compresses freed input, `init_using_cdict` / `init_using_ddict` outlive their
   # dictionary, and `DCtx::try_clone` double-frees one.
-  { id = "RUSTSEC-2026-0395", reason = "expires 2026-10-31" },
-  { id = "RUSTSEC-2026-0399", reason = "expires 2026-10-31" },
-  { id = "RUSTSEC-2026-0404", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0395", reason = "expires 2026-11-13" },
+  { id = "RUSTSEC-2026-0399", reason = "expires 2026-11-13" },
+  { id = "RUSTSEC-2026-0404", reason = "expires 2026-11-13" },
   # Two memory-safety flaws in multithreaded compression, both fixed in 8.2.0 and both needing `zstdmt` (off).
   # `CCtx::try_clone` overflows the heap after a multithreaded frame, and an unfinished one lets a reset free a
   # dictionary or job table a worker still uses. deno_node does pass guest JS's `NbWorkers` through, but without
   # `zstdmt` the bundled library has no worker threads, so no multithreaded frame is ever started.
-  { id = "RUSTSEC-2026-0402", reason = "expires 2026-10-31" },
-  { id = "RUSTSEC-2026-0406", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0402", reason = "expires 2026-11-13" },
+  { id = "RUSTSEC-2026-0406", reason = "expires 2026-11-13" },
   # `OutBuffer::around_pos` marks a `Vec` initialized up to a position past its length, fixed in 8.2.0.
   # deno_node wraps plain slices with `OutBuffer::around`, and wasmtime-internal-cache calls only
   # `encode_all` / `decode_all`, so neither consumer ever builds an `OutBuffer` over a `Vec` with a position.
-  { id = "RUSTSEC-2026-0397", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0397", reason = "expires 2026-11-13" },
   # A one-shot call on a context with an unfinished stream leaves it pointing at a freed dictionary, fixed in 8.2.0.
   # Needs one context used for both streaming and one-shot calls. deno_node's node:zlib ops only stream, on a
   # context per JS stream, and wasmtime-internal-cache only makes one-shot calls, each on a context of its own.
-  { id = "RUSTSEC-2026-0400", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0400", reason = "expires 2026-11-13" },
   # `train_from_buffer` reads past its samples buffer when the sample sizes overflow, fixed in 8.2.0.
   # `zdict_builder` is on, but neither consumer trains a dictionary, so the trainer is compiled in and never called.
-  { id = "RUSTSEC-2026-0401", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0401", reason = "expires 2026-11-13" },
   # A failed streaming decompression of a legacy (v0.4 to v0.7) frame exposes uninitialized memory, fixed in 8.2.0.
   # Live: `legacy` is on, and deno_node's raw decoder runs `decompress_stream`. It is reached only when guest JS in
   # the web runner decompresses zstd through node:zlib, which our modules never do. wasmtime-internal-cache
   # decompresses only its own compilation cache, and ws-wasi-runner configures none, so that path never runs.
-  { id = "RUSTSEC-2026-0403", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0403", reason = "expires 2026-11-13" },
   # block-buffer 0.10.4: a panic caught inside the compress callback leaves the buffer's cursor corrupted.
   # Fixed only in 0.12.1, and the 0.10 line is pulled by digest 0.10, which the RustCrypto hashes under deno_crypto,
   # deno_node_crypto and curve25519-dalek require through their newest releases, so no bump reaches it; Cargo.lock
@@ -200,18 +200,18 @@ ignore = [
   # that copy. Exploiting it needs the callback to panic, the panic to be caught, and the same buffer to be used
   # again. The callbacks are the hashes' fixed-size block functions, which do not panic, and nothing here catches
   # a panic mid-hash and keeps the hasher. Drop this when digest 0.10 leaves the tree.
-  { id = "GHSA-qwgh-2vcv-g2f7", reason = "expires 2026-10-31" },
+  { id = "GHSA-qwgh-2vcv-g2f7", reason = "expires 2026-11-13" },
   # bare-metal 0.2.5 (deprecated and archived, so no version is patched).
   # Pulled only by the Pico 2 W firmware, through cortex-m 0.7, which cyw43 0.7 and embassy-rp 0.10 require through
   # their newest releases. Deprecated != vulnerable: cortex-m uses it for its single-core `Mutex` and
   # `CriticalSection` types, and the firmware takes its critical sections from embassy-rp's `critical-section`
   # implementation. Drop this when cortex-m 0.8 reaches them.
-  { id = "RUSTSEC-2026-0110", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0110", reason = "expires 2026-11-13" },
   # proc-macro-error2 2.0.1 (unmaintained, so no version is patched).
   # Pulled only by the Pico 2 W firmware, through the pio-proc assembler macro embassy-rp 0.10 requires through its
   # newest release. It runs at compile time inside that macro and reports its errors; none of it is in the firmware.
   # Drop this when pio-proc leaves it.
-  { id = "RUSTSEC-2026-0173", reason = "expires 2026-10-31" },
+  { id = "RUSTSEC-2026-0173", reason = "expires 2026-11-13" },
 ]
 
 [licenses]
