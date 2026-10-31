@@ -1,0 +1,7 @@
+{
+  "name": "mise-npm-install",
+  "private": true,
+  "dependencies": {
+    "@flakiness/junit-xml": "1.4.0"
+  }
+}
