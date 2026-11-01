@@ -22,18 +22,21 @@ Changelog 1.1.0.
   default, adds `picoserve_server::serve`: the hub's `/ws` with `/health` and `/favicon.ico` beside it, over picoserve,
   and the modules a `picoserve_modules::Modules` builds into the binary under `/modules` and `/`, as the `std` server
   serves them from disk. A module listed as served elsewhere is redirected to a base URL instead.
-- The `et-ws-server-pico2w` firmware runs et-ws-server on a Raspberry Pi Pico 2 W, over the board's Wi-Fi.
-  `MISE_ENV=rust mise run build-firmware-pico2w` fetches the radio's firmware blobs and builds it for the network
-  `WIFI_NETWORK` and `WIFI_PASSWORD` name, embedding the modules `MODULES_PATHS` names and serving `MODULES_ROOT` at
-  `/`.
-- `et-cli generate-deployment --output-type firmware-pico2` writes a `mise.firmware-pico2.toml` whose
-  `firmware-flash` task builds that firmware with the scenario's modules in it and loads it onto a board. The npm
+- The `et-ws-server-firmware` firmware runs et-ws-server on a Raspberry Pi Pico 2 W or an ESP32-C6, over the board's
+  Wi-Fi. `MISE_ENV=rust mise run build-firmware-pico2w` fetches the Pico's radio blobs and builds it for the Pico, and
+  `build-firmware-esp32c6` for the ESP32-C6, each for the network `WIFI_NETWORK` and `WIFI_PASSWORD` name, embedding
+  the modules `MODULES_PATHS` names and serving `MODULES_ROOT` at `/`.
+- `et-cli generate-deployment --output-type firmware-pico2` writes a `mise.firmware-pico2.toml`, and
+  `firmware-esp32c6` a `mise.firmware-esp32c6.toml`, whose `firmware-flash` task builds that firmware with the
+  scenario's modules in it and loads it onto a board, with picotool or espflash. The npm
   packages the modules use, such as onnxruntime-web, are redirected to jsDelivr rather than built in. A scenario with
   a runner, `machines:` or published artifacts is refused, since the board runs one hub and nothing else. Its
   `firmware-host-test` task serves the same modules from the host, as the firmware's host build does, and fetches
   every module it lists, with no board needed.
 - `et-firmware-modules` generates the source a firmware's build script writes to build ws-modules into its image,
-  from the same `MODULES_*` variables, so every board's firmware embeds modules the same way.
+  from the same `MODULES_*` variables, so every board's firmware embeds modules the same way. Its `board` writes what
+  the board a target picks bakes in -- the Wi-Fi network, and the Pico 2 W's radio blobs and memory layout -- and
+  returns the directives that link it.
 - An opt-in `et-recovery-supervisor` service observes application progress and coordinates bounded Kubernetes recovery.
 - The Python SDK provides recovery lifecycle messages and integrity-checked checkpoint storage helpers.
 - A scenario can list `machines:` to span several hosts. The first is the server, running the hub and the collector,

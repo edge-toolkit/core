@@ -168,6 +168,11 @@ its failing step with `gh api repos/<owner>/<repo>/actions/jobs/<job-id>/logs` -
 even while the parent run is still `in_progress` (whereas `gh run view --log-failed` refuses until the whole run
 finishes). Only after `gh pr checks` is clean is the PR actually green.
 
+**Restart a failed job only once every job in its workflow run has finished.** A failure is reported as soon as its job
+ends, but `gh run rerun --job <id>` is refused while any other job in the same run is still going, and a rerun of the
+whole run would throw away the jobs still in flight. So wait for the run to complete, read every failure it produced,
+and only then restart the failed jobs, together.
+
 **Ignore `DeepSource: Test coverage`; `codecov/patch` is the coverage check that has to pass.** The repo's line
 coverage sits under the threshold set in the DeepSource dashboard, so that one check reports `failure` on every PR
 and on every `main` commit alike -- it carries no information about the change under review, and no diff can turn it
@@ -822,7 +827,7 @@ fedora and ubuntu:24.04 both passed in the run that killed bookworm -- and the s
 and workload go green in the same run. A ceiling would hit the same heaviest lanes every time. Duration is the
 only correlate: every sighting was a long job.
 
-So the remedy is `gh run rerun --job <id>` once the parent run completes, and there is nothing to fix. Do not
+So the remedy is `gh run rerun --job <id>`, and there is nothing to fix. Do not
 spend a diagnosis on it; check for the empty log first, and if the siblings passed, re-run and move on.
 
 The `ubuntu-24.04-arm` lane of test.yaml is the exception, and it disproves the rotation argument for that lane:

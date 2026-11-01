@@ -47,6 +47,8 @@ Generate deployment config from a cluster input YAML
   - `k3s`
   - `firmware-pico2`:
     The hub alone, as firmware for a Raspberry Pi Pico 2 W
+  - `firmware-esp32c6`:
+    The hub alone, as firmware for an ESP32-C6
 
 ## `et-cli regen-verification`
 

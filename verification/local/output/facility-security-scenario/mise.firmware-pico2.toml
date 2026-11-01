@@ -18,9 +18,9 @@ MODULES_ROOT = "@edge-toolkit/et-ws-server-static"
 
 [tasks.firmware-flash]
 depends = ["firmware-build"]
-description = "Load the firmware onto a Raspberry Pi Pico 2 W, and start it"
+description = "Load the Raspberry Pi Pico 2 W firmware onto the board, and start it"
 dir = "../../../.."
-run = "picotool load -x -t elf target/thumbv8m.main-none-eabihf/release/et-ws-server-pico2w"
+run = "picotool load -x -t elf target/thumbv8m.main-none-eabihf/release/et-ws-server-firmware"
 
 [tasks.firmware-host-test]
 description = "Serve facility-security-scenario's modules from this host as the board would, and fetch each"
@@ -32,7 +32,7 @@ MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-modules/face-detection, $PWD/ser
 MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-modules/pyface1, $PWD/services/ws-server/static"
 MODULES_PATHS="$MODULES_PATHS, $PWD/services/ws-wasm-agent"
 export MODULES_PATHS
-mise run cargo-test-pkg et-int-ws-server-pico2w
+mise run cargo-test-pkg et-int-ws-server-firmware
 """
 
 [tasks.firmware-host-test.env]

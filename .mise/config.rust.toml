@@ -16,7 +16,7 @@
 depends = ["fetch-cyw43-firmware-rclone"]
 description = "Build et-ws-server as Raspberry Pi Pico 2 W firmware"
 env = { CYW43_FIRMWARE_DIR = "{{ config_root }}/{{ vars.cyw43_dir }}" }
-run = "cargo build --release -p et-int-ws-server-pico2w --target thumbv8m.main-none-eabihf"
+run = "cargo build --release -p et-int-ws-server-firmware --target thumbv8m.main-none-eabihf"
 
 # The firmware's body compiles only for the board, so the workspace's host clippy never reaches it; this does.
 # It needs what build-firmware-pico2w needs.
@@ -24,7 +24,19 @@ run = "cargo build --release -p et-int-ws-server-pico2w --target thumbv8m.main-n
 depends = ["fetch-cyw43-firmware-rclone"]
 description = "Lint the Raspberry Pi Pico 2 W firmware for its own target"
 env = { CYW43_FIRMWARE_DIR = "{{ config_root }}/{{ vars.cyw43_dir }}" }
-run = "cargo clippy --release -p et-int-ws-server-pico2w --target thumbv8m.main-none-eabihf"
+run = "cargo clippy --release -p et-int-ws-server-firmware --target thumbv8m.main-none-eabihf"
+
+# et-ws-server as ESP32-C6 firmware: an ELF that espflash writes to the board, with esp-hal's bootloader before it.
+# Its radio's blobs come with esp-radio, so the build needs only the network to join, from WIFI_NETWORK and
+# WIFI_PASSWORD.
+[tasks.build-firmware-esp32c6]
+description = "Build et-ws-server as ESP32-C6 firmware"
+run = "cargo build --release -p et-int-ws-server-firmware --target riscv32imac-unknown-none-elf"
+
+# As cargo-clippy-check-pico2w, for the ESP32-C6's body.
+[tasks.cargo-clippy-check-esp32c6]
+description = "Lint the ESP32-C6 firmware for its own target"
+run = "cargo clippy --release -p et-int-ws-server-firmware --target riscv32imac-unknown-none-elf"
 
 # The Pico 2 W radio's firmware, CLM and NVRAM, from embassy's cyw43-firmware directory at the pinned commit.
 # They land in the gitignored target/cyw43-firmware, for build-firmware-pico2w to read as CYW43_FIRMWARE_DIR, and

@@ -111,6 +111,16 @@ fn every_deployment_type_spelling_deserializes_to_its_own_output_file() {
         ("process_compose", OutputType::ProcessCompose, "process-compose.yaml"),
         ("firmware-pico2", OutputType::FirmwarePico2, "mise.firmware-pico2.toml"),
         ("firmware_pico2", OutputType::FirmwarePico2, "mise.firmware-pico2.toml"),
+        (
+            "firmware-esp32c6",
+            OutputType::FirmwareEsp32c6,
+            "mise.firmware-esp32c6.toml",
+        ),
+        (
+            "firmware_esp32c6",
+            OutputType::FirmwareEsp32c6,
+            "mise.firmware-esp32c6.toml",
+        ),
     ] {
         let cluster = parse(&format!("{ONLY_A_NAME}deployment_type: {spelling}\n"));
 
@@ -121,11 +131,11 @@ fn every_deployment_type_spelling_deserializes_to_its_own_output_file() {
             cluster.deployment_type.runs_mise_tasks(),
             !matches!(
                 expected,
-                OutputType::DockerCompose | OutputType::K3s | OutputType::FirmwarePico2
+                OutputType::DockerCompose | OutputType::K3s | OutputType::FirmwarePico2 | OutputType::FirmwareEsp32c6
             )
         );
     }
-    assert_eq!(OutputType::ALL.len(), 6, "and the list of them is complete");
+    assert_eq!(OutputType::ALL.len(), 7, "and the list of them is complete");
 }
 
 #[test]

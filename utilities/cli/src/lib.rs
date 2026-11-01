@@ -654,6 +654,7 @@ fn generate_format(
             generate_process_compose_deployment(cluster, output_dir)
         }
         OutputType::FirmwarePico2 => generate_firmware_deployment(cluster, output_dir, Board::Pico2),
+        OutputType::FirmwareEsp32c6 => generate_firmware_deployment(cluster, output_dir, Board::Esp32c6),
     }
 }
 
@@ -858,7 +859,13 @@ fn output_summary(cluster: &ClusterInput, output_types: &[OutputType]) -> String
         .map(|output_file| format!("`{output_file}`"))
         .collect::<Vec<_>>()
         .join(", ");
-    format!("This directory contains generated deployment configs for the `{cluster_name}` scenario.\nFiles: {listed}.")
+    // Broken only between names, so the list fits the line length however many formats it holds.
+    let files = textwrap::Options::new(120)
+        .break_words(false)
+        .word_separator(textwrap::WordSeparator::AsciiSpace)
+        .word_splitter(textwrap::WordSplitter::NoHyphenation);
+    let files = textwrap::fill(&format!("Files: {listed}."), files);
+    format!("This directory contains generated deployment configs for the `{cluster_name}` scenario.\n{files}")
 }
 
 /// How the README's `docker build` of the scenario image runs: what it needs, and the paths it names.
@@ -1126,15 +1133,15 @@ fn generated_run_instructions(
         OutputType::DockerCompose => docker_compose_run_instructions(cluster, artifacts),
         OutputType::K3s => k3s_run_instructions(cluster, image_build, runners, artifacts, build_contexts),
         OutputType::FirmwarePico2 => firmware_run_instructions(Board::Pico2.spec()),
+        OutputType::FirmwareEsp32c6 => firmware_run_instructions(Board::Esp32c6.spec()),
     }
 }
 
 /// Render the README section that builds the hub as firmware for `board` and loads it onto one.
-#[expect(clippy::single_call_fn, reason = "the firmware step of generated_run_instructions")]
 fn firmware_run_instructions(board: BoardSpec) -> String {
     format!(
         concat!(
-            "## Run As Firmware On A {title}\n\n",
+            "## Run As {title} Firmware\n\n",
             "The board runs the hub alone and serves this scenario's modules from its {flash} of flash.\n",
             "Build those modules first, since the firmware takes each one's built package.\n",
             "{network}\n",
@@ -1266,7 +1273,7 @@ fn machine_instructions(output_type: OutputType, cluster: &ClusterInput) -> Stri
         ),
         OutputType::K3s => return k3s_machine_instructions(cluster, server),
         // Refused before anything is written: the board is one machine.
-        OutputType::FirmwarePico2 => return String::default(),
+        OutputType::FirmwarePico2 | OutputType::FirmwareEsp32c6 => return String::default(),
     };
     let roles = machine_roles(cluster, server);
     let loopback = loopback_note(cluster);

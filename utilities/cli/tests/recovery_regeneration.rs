@@ -38,11 +38,11 @@ fn verification_generation_limits_recovery_scenarios_to_supported_formats() {
     assert!(readme.contains("services/recovery-supervisor/Dockerfile"));
 }
 
-/// Every format a scenario with runners renders: all but the board's, which runs none.
+/// Every format a scenario with runners renders: all but the boards', which run none.
 fn runner_formats() -> impl Iterator<Item = &'static OutputType> {
     OutputType::ALL
         .iter()
-        .filter(|kind| **kind != OutputType::FirmwarePico2)
+        .filter(|kind| !matches!(kind, OutputType::FirmwarePico2 | OutputType::FirmwareEsp32c6))
 }
 
 /// Start with actual outputs from every generator, rather than fabricated files that may not match their layout.

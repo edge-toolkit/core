@@ -973,6 +973,39 @@ url = "https://github.com/caldempsey/parfit/releases/download/v0.4.4/parfit-x86_
 url_api = "https://api.github.com/repos/caldempsey/parfit/releases/assets/404472615"
 provenance = "github-attestations"
 
+[[tools."github:esp-rs/espflash"]]
+version = "4.7.0"
+backend = "github:esp-rs/espflash"
+specifiers = ["latest"]
+
+[tools."github:esp-rs/espflash".options]
+asset_pattern = 'espflash-{{ x86_64_arch }}*{{ os(linux="musl", macos="apple", windows="pc") }}*'
+
+[tools."github:esp-rs/espflash"."platforms.linux-arm64"]
+checksum = "sha256:a2081c002f6050a287007a93ba01cdd4c9d111181b69d5ddf7bdb71d33841c65"
+url = "https://github.com/esp-rs/espflash/releases/download/v4.7.0/espflash-aarch64-unknown-linux-musl.zip"
+url_api = "https://api.github.com/repos/esp-rs/espflash/releases/assets/688829879"
+
+[tools."github:esp-rs/espflash"."platforms.linux-x64"]
+checksum = "sha256:a9bf20c76ab42d0d4330bbc33707c4424d5541f5129149d889dbfa8dab476910"
+url = "https://github.com/esp-rs/espflash/releases/download/v4.7.0/espflash-x86_64-unknown-linux-musl.zip"
+url_api = "https://api.github.com/repos/esp-rs/espflash/releases/assets/688825584"
+
+[tools."github:esp-rs/espflash"."platforms.macos-arm64"]
+checksum = "sha256:4313a4cf3e05036d4e1d8edeef938a11661eb5b9ba5759cabbf48ad4f6fbc180"
+url = "https://github.com/esp-rs/espflash/releases/download/v4.7.0/espflash-aarch64-apple-darwin.zip"
+url_api = "https://api.github.com/repos/esp-rs/espflash/releases/assets/688815679"
+
+[tools."github:esp-rs/espflash"."platforms.macos-x64"]
+checksum = "sha256:3e3ca415f15f58000d351ca8dd22137c2d04384a8153f65b831553074601ee03"
+url = "https://github.com/esp-rs/espflash/releases/download/v4.7.0/espflash-x86_64-apple-darwin.zip"
+url_api = "https://api.github.com/repos/esp-rs/espflash/releases/assets/688906558"
+
+[tools."github:esp-rs/espflash"."platforms.windows-x64"]
+checksum = "sha256:2b10333e4f4f1a26024259b0cc1942ba17f27b3c530621c6111f4c10ac70213e"
+url = "https://github.com/esp-rs/espflash/releases/download/v4.7.0/espflash-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/esp-rs/espflash/releases/assets/688833427"
+
 [[tools."github:grok-rs/waitup"]]
 version = "2.0.0"
 backend = "github:grok-rs/waitup"
@@ -1965,7 +1998,7 @@ specifiers = ["stable"]
 [tools.rust.options]
 components = "clippy,rust-analyzer"
 profile = "minimal"
-targets = "thumbv8m.main-none-eabihf,wasm32-unknown-unknown,wasm32-wasip2"
+targets = "riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,wasm32-unknown-unknown,wasm32-wasip2"
 
 [[tools.taplo]]
 version = "0.10.0"

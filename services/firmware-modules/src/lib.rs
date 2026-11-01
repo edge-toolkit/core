@@ -1,16 +1,27 @@
-//! The source of a firmware's `modules.rs`: every ws-module package it serves, built in with `include_bytes!`.
+//! What a firmware's build script generates: `modules.rs`, every ws-module package it serves, built in with
+//! `include_bytes!`, and what the board it is built for bakes in and links with.
 //!
 //! A firmware's build script reads the variables the `std` server's modules service reads -- the module directories,
 //! the one served at `/`, and the packages served from elsewhere -- and writes what [`generate`] returns. Each
 //! directory is a module the way that service finds one: its `pkg/` when it has one, otherwise the directory itself,
 //! named by the `package.json` there. Its files are the ones npm would publish, each served as its extension says and
-//! tagged with a hash of its contents.
+//! tagged with a hash of its contents. Built for a board, it also hands [`board`] the board's variables.
 
+use std::env::VarError;
 use std::fmt::Write as _;
 use std::hash::{DefaultHasher, Hash as _, Hasher as _};
 use std::path::{Component, Path, PathBuf};
 
 use fs_err as fs;
+
+/// The variables [`board`] reads, which a build script has to rerun when one changes.
+pub const BOARD_VARIABLES: [&str; 3] = [CYW43_FIRMWARE_DIR, WIFI_NETWORK, WIFI_PASSWORD];
+/// The directory holding the Pico 2 W radio's blobs.
+const CYW43_FIRMWARE_DIR: &str = "CYW43_FIRMWARE_DIR";
+/// The network a board joins.
+const WIFI_NETWORK: &str = "WIFI_NETWORK";
+/// The network's passphrase.
+const WIFI_PASSWORD: &str = "WIFI_PASSWORD";
 
 /// The directory a module's build leaves its package in, when the module's own directory is its source.
 const PACKAGE_DIR: &str = "pkg";
@@ -21,7 +32,7 @@ const MODULES_API: &str = "et_ws_server::picoserve_modules";
 /// The variable the module directories come from, which errors about them name.
 const MODULES_PATHS: &str = "MODULES_PATHS";
 
-/// Why a firmware's modules cannot be built in.
+/// Why a firmware's modules cannot be built in, or its board's build cannot be generated.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum ModulesError {
@@ -49,6 +60,12 @@ pub enum ModulesError {
     UnknownRoot { root: String, names: Vec<String> },
     #[error("MODULES_ELSEWHERE needs MODULES_ELSEWHERE_URL to say where they are")]
     ElsewhereWithoutUrl,
+    #[error("a board's firmware needs {0} set when it is built")]
+    Unset(String),
+    #[error("{variable} holds no {file}")]
+    MissingBlob { variable: String, file: String },
+    #[error("no board is built for {0}")]
+    NoBoard(String),
 }
 
 /// The source of `modules.rs`, and every file it builds in, which the build has to rerun when one changes.
@@ -155,6 +172,85 @@ pub fn include_path(variable: &str, path: &Path) -> Result<String, ModulesError>
         variable: variable.to_owned(),
     })?;
     Ok(format!("{path:?}"))
+}
+
+/// Write what a firmware for the board `arch` picks bakes in to `out_dir`, and return the directives that link it.
+///
+/// Every board gets `wifi.rs`, the network `WIFI_NETWORK` and `WIFI_PASSWORD` name, each read through `var` as from
+/// the environment. Bare-metal Arm is the Raspberry Pi Pico 2 W, which also gets its `memory_x` layout and `cyw43.rs`,
+/// its radio's blobs from `CYW43_FIRMWARE_DIR`, and links with cortex-m-rt's script; bare-metal RISC-V is the
+/// ESP32-C6, which links with esp-hal's. Both link defmt's too.
+///
+/// # Errors
+///
+/// When `arch` is no board's, a variable the board needs is unset, `CYW43_FIRMWARE_DIR` lacks a blob or is not an
+/// absolute UTF-8 path, or a file cannot be written.
+pub fn board<V>(arch: &str, out_dir: &Path, memory_x: &[u8], var: V) -> Result<Vec<String>, ModulesError>
+where
+    V: Fn(&str) -> Result<String, VarError>,
+{
+    let required = |name: &str| {
+        let Ok(value) = var(name) else {
+            return Err(ModulesError::Unset(name.to_owned()));
+        };
+        Ok(value)
+    };
+    let mut directives = Vec::new();
+    let script = match arch {
+        "arm" => {
+            fs::write(out_dir.join("memory.x"), memory_x)?;
+            let blobs = cyw43(Path::new(&required(CYW43_FIRMWARE_DIR)?))?;
+            fs::write(out_dir.join("cyw43.rs"), blobs)?;
+            directives.push(format!("cargo:rustc-link-search={}", out_dir.display()));
+            directives.push("cargo:rustc-link-arg-bins=--nmagic".to_owned());
+            "link.x"
+        }
+        "riscv32" => "linkall.x",
+        _ => return Err(ModulesError::NoBoard(arch.to_owned())),
+    };
+    let network = required(WIFI_NETWORK)?;
+    let password = required(WIFI_PASSWORD)?;
+    let wifi = format!(
+        "/// The network the board joins.
+const WIFI_NETWORK: &str = {network:?};
+/// The network's passphrase.
+const WIFI_PASSWORD: &str = {password:?};
+"
+    );
+    fs::write(out_dir.join("wifi.rs"), wifi)?;
+    directives.push(format!("cargo:rustc-link-arg-bins=-T{script}"));
+    directives.push("cargo:rustc-link-arg-bins=-Tdefmt.x".to_owned());
+    Ok(directives)
+}
+
+/// The source of `cyw43.rs`: the Pico 2 W radio's blobs, from `dir`.
+#[expect(
+    clippy::single_call_fn,
+    reason = "the radio step of board, the one board with blobs of its own"
+)]
+fn cyw43(dir: &Path) -> Result<String, ModulesError> {
+    let blob = |file: &str| {
+        let path = dir.join(file);
+        if !path.is_file() {
+            return Err(ModulesError::MissingBlob {
+                variable: CYW43_FIRMWARE_DIR.to_owned(),
+                file: file.to_owned(),
+            });
+        }
+        Ok(format!("include_bytes!({})", include_path(CYW43_FIRMWARE_DIR, &path)?))
+    };
+    let firmware = blob("43439A0.bin")?;
+    let clm = blob("43439A0_clm.bin")?;
+    let nvram = blob("nvram_rp2040.bin")?;
+    Ok(format!(
+        "/// The CYW43439's firmware.
+static RADIO_FIRMWARE: &cyw43::Aligned<cyw43::A4, [u8]> = &cyw43::Aligned(*{firmware});
+/// The CYW43439's country locale matrix.
+static RADIO_CLM: &[u8] = {clm};
+/// The CYW43439's configuration for the Pico 2 W's module.
+static RADIO_NVRAM: &cyw43::Aligned<cyw43::A4, [u8]> = &cyw43::Aligned(*{nvram});
+"
+    ))
 }
 
 /// The comma-separated items of `list`, trimmed, with empty ones dropped.
