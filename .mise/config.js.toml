@@ -27,6 +27,8 @@
 # is covered without os-scoping.
 "npm:oxlint-tsgolint" = "0.24.0"
 "npm:pnpm" = { version = "11", os = ["macos/x64"] }
+# flakiness-junit-xml uploads CI test results to flakiness.io, which tracks each test's flakiness across runs.
+"npm:@flakiness/junit-xml" = "latest"
 
 # oxlint + oxfmt are the Rust-native JS/TS linter + formatter from the oxc-project.
 # They are pulled directly from the shared `apps_v<tag>` GitHub release. Aqua's registry entry trips mise's
@@ -219,6 +221,21 @@ run = "oxfmt --config config/oxfmtrc.jsonc --check . '!.mise/config*.toml'"
 [tasks.oxfmt-fmt]
 description = "Format JS/TS sources in place (oxfmt)"
 run = "oxfmt --config config/oxfmtrc.jsonc --write . '!.mise/config*.toml'"
+
+[tasks.flakiness-upload]
+description = "Upload JUnit test results to flakiness.io"
+# Authenticates with the job's GitHub OIDC token, so the calling job needs `id-token: write` and no secret.
+# The converted report is written under target/ rather than the default ./flakiness-report in the repo root.
+run = """
+set -- --flakiness-project edge-toolkit/core --category "$usage_category" --env-name "$usage_env"
+flakiness-junit-xml "$@" --output-dir "target/flakiness-report/$usage_env-$usage_category" "$usage_path"
+"""
+shell = "{{ vars.task_shell }}"
+usage = """
+arg "<category>" help="Test category, e.g. rust or python"
+arg "<env>" help="Name of the CI lane the results came from"
+arg "<path>" help="JUnit XML file, or a directory scanned recursively for them"
+"""
 
 [tasks.osv-scanner-npm]
 description = "Scan the npm: tools' aube lockfiles for known vulnerabilities"

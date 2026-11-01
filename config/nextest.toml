@@ -7,6 +7,10 @@ path = "junit-unit.xml"
 [profile.ci-integration.junit]
 path = "junit-integration.xml"
 
+# The test workflow selects this through NEXTEST_PROFILE, so its lanes report every test run to flakiness.io.
+[profile.ci.junit]
+path = "junit.xml"
+
 # Serialize et-ws-web-runner's tests (under `default`, so every profile inherits it).
 # Each web-runner test launches a heavy deno_runtime MainWorker, and several at once exhaust fd/port budgets.
 #

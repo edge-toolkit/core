@@ -1,0 +1,24 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@flakiness/junit-xml':
+        specifier: 1.4.0
+        version: 1.4.0
+
+packages:
+
+  '@flakiness/junit-xml@1.4.0':
+    resolution: {integrity: sha512-cnL3cjcosJwcpEBRfXQCVAxCIKf6AnFxGxysqgd4XX7rjVrfxghNlX6+r2VVNsnjxh3ZCOU+kTs4qn8mxarxwg==}
+    engines: {node: ^20.17.0 || >=22.9.0}
+    hasBin: true
+
+snapshots:
+
+  '@flakiness/junit-xml@1.4.0': {}
