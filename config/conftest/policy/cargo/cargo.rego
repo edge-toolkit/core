@@ -240,7 +240,7 @@ deny contains msg if {
 # version, `0.8.0-beta` included, so there is no major.minor form for it to be trimmed back to.
 patch_pin_exception := {
 	"deno_error": "exact pin: JsErrorBox must be the type deno_core holds, so a 0.7.2 would be a second copy",
-	"minicov": "exact pin: wasm-bindgen-test 0.3.79 requires =0.3.8, and cargo holds one 0.3.x copy for both",
+	"minicov": "exact pin: wasm-bindgen-test 0.3.80 requires =0.3.8, and cargo holds one 0.3.x copy for both",
 	"mock-collector": "exact pin: 0.2.15 moved to opentelemetry 0.33, which tracing-actix-web cannot follow yet",
 	"wasmtime": "49.0.5 is the security floor; RUSTSEC-2026-0424 and others have no fix below it in the 49 line",
 	"wasmtime-internal-wit-bindgen": "49.0.5 tracks the wasmtime release; the crate is internal and its API can move",
