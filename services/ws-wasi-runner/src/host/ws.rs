@@ -1,22 +1,13 @@
 //! Implements `et:ws-wasi/ws` using `tokio-tungstenite`.
 //!
 //! On `connect`, we open a websocket, send `ClientMessage::Connect { agent_id: None }`, and spawn a task that pumps
-//! inbound text messages into a channel. Inbound `connect_ack` messages capture our assigned `agent_id`.
-//!
-//! Wire messages cross the WIT boundary as typed `et:ws-messages/messages.ws-message` values. The host converts them
-//! to/from `edge_toolkit::ws::{ClientMessage, ServerMessage}` and serialises to JSON for the actual websocket frame.
-//! Guests no longer hand-craft JSON.
+//! inbound text messages into a channel. Inbound `connect_ack` messages capture our assigned `agent_id`. Messages
+//! cross the WIT boundary as [`crate::convert`] converts them.
 
-use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
-use edge_toolkit::ws::{
-    AgentConnectionState as EtAgentConnectionState, AgentSummary as EtAgentSummary, ClientMessage, CloudEvent,
-    ConnectStatus as EtConnectStatus, MessageDeliveryStatus as EtMessageDeliveryStatus, MessageScope as EtMessageScope,
-    ServerMessage,
-};
+use edge_toolkit::ws::ServerMessage;
 use futures_util::SinkExt as _;
 use futures_util::stream::{SplitSink, StreamExt as _};
 use tokio::net::TcpStream;
@@ -27,13 +18,10 @@ use tracing::warn;
 
 use crate::HostState;
 use crate::bindings::et::ws_messages::messages::{
-    AgentConnectionState as WitAgentConnectionState, AgentSummary as WitAgentSummary,
-    ClientMessage as WitClientMessage, ConnectAckPayload, ConnectStatus as WitConnectStatus, InvalidPayload,
-    IpAddress as WitIpAddress, ListAgentsResponsePayload, MessageDeliveryStatus as WitMessageDeliveryStatus,
-    MessageScope as WitMessageScope, MessageStatusPayload, RelayBinaryPayload, RelayTextPayload, ResponsePayload,
-    ServerMessage as WitServerMessage,
+    ClientMessage as WitClientMessage, ServerMessage as WitServerMessage,
 };
 use crate::bindings::et::ws_wasi::ws::{Host, State, WsError};
+use crate::convert::{Frame, client_frame, server_message, server_message_to_wit};
 
 // The `et:ws-messages/messages` interface only declares types -- no functions. wasmtime-bindgen still requires a `Host`
 // impl so the linker has somewhere to anchor the interface. The trait body is empty.
@@ -82,9 +70,9 @@ impl WsBackend {
         let agent_id = Arc::new(Mutex::new(Some(assigned_id)));
         let connection_state = Arc::new(Mutex::new(State::Connected));
 
-        // Reader pump: convert every subsequent Text/Binary data frame into a `ServerMessage` via
-        // `ServerMessage::from_*_frame` (foreign frames land in `RelayText`/`RelayBinary`) and forward it to the guest
-        // inbox; drop control frames and et-prefixed-but-malformed text with a warn.
+        // Reader pump: convert every subsequent Text/Binary data frame into a `ServerMessage` (foreign frames land in
+        // `RelayText`/`RelayBinary`) and forward it to the guest inbox; drop control frames and
+        // et-prefixed-but-malformed text with a warn.
         let state_clone = Arc::clone(&connection_state);
         let reader = tokio::spawn(async move {
             while let Some(msg) = stream.next().await {
@@ -95,16 +83,17 @@ impl WsBackend {
                     clippy::wildcard_enum_match_arm,
                     reason = "control frames (Ping/Pong/Close/Frame) and any future variants are dropped"
                 )]
-                let parsed = match msg {
-                    tungstenite::Message::Text(text) => match ServerMessage::from_text_frame(text.as_str()) {
-                        Ok(msg) => msg,
-                        Err(err) => {
-                            warn!(error = %err, "dropping et-* frame with decode error");
-                            continue;
-                        }
-                    },
-                    tungstenite::Message::Binary(bytes) => ServerMessage::from_binary_frame(bytes.to_vec()),
+                let frame = match msg {
+                    tungstenite::Message::Text(text) => Frame::Text(text.as_str().to_owned()),
+                    tungstenite::Message::Binary(bytes) => Frame::Binary(bytes.to_vec()),
                     _ => continue,
+                };
+                let parsed = match server_message(frame) {
+                    Ok(msg) => msg,
+                    Err(err) => {
+                        warn!(error = %err, "dropping et-* frame with decode error");
+                        continue;
+                    }
                 };
                 if tx.send(parsed).is_err() {
                     break;
@@ -204,20 +193,9 @@ impl Host for HostState {
     }
 
     async fn send(&mut self, message: WitClientMessage) -> Result<(), WsError> {
-        let et_message = wit_to_client_message(message)?;
-        // Relay variants travel as raw text / binary frames (no JSON envelope) -- that's what the ws-server hub
-        // forwards verbatim to other agents. Typed variants serialise through standard tagged JSON.
-        #[expect(
-            clippy::wildcard_enum_match_arm,
-            reason = "every non-relay ClientMessage variant takes the standard tagged-JSON path"
-        )]
-        let outgoing = match et_message {
-            ClientMessage::RelayText { content } => tungstenite::Message::text(content),
-            ClientMessage::RelayBinary { content } => tungstenite::Message::binary(content),
-            typed => {
-                let payload = serde_json::to_string(&typed)?;
-                tungstenite::Message::text(payload)
-            }
+        let outgoing = match client_frame(message)? {
+            Frame::Text(text) => tungstenite::Message::text(text),
+            Frame::Binary(bytes) => tungstenite::Message::binary(bytes),
         };
         // Clone the sink Arc and release the outer lock before awaiting the inner send -- keeping `self.ws` locked
         // across the await would block every other ws-method call.
@@ -257,183 +235,5 @@ impl Host for HostState {
             let _closed: Result<(), _> = backend.sink.lock().await.close().await;
         }
         *slot = None;
-    }
-}
-
-/// Convert a guest-emitted WIT `client-message` into the canonical Rust `ClientMessage`.
-///
-/// Opaque JSON fields (sent as `string` over WIT) are parsed here so the host always works with `serde_json::Value`
-/// payloads.
-#[expect(
-    clippy::single_call_fn,
-    reason = "named converter; used once by <HostState as Host>::send"
-)]
-fn wit_to_client_message(msg: WitClientMessage) -> Result<ClientMessage, WsError> {
-    let parse_value = |raw: String| -> Result<serde_json::Value, WsError> {
-        let mut deserializer = serde_json::Deserializer::from_str(&raw);
-        Ok(serde_path_to_error::deserialize(&mut deserializer)?)
-    };
-    Ok(match msg {
-        WitClientMessage::Connect(payload) => ClientMessage::Connect {
-            agent_id: payload.agent_id,
-        },
-        WitClientMessage::Alive(payload) => ClientMessage::Alive {
-            timestamp: payload.timestamp,
-        },
-        WitClientMessage::ListAgents => ClientMessage::ListAgents,
-        WitClientMessage::SendAgentMessage(payload) => ClientMessage::SendAgentMessage {
-            to_agent_id: payload.to_agent_id,
-            message: parse_value(payload.message)?,
-        },
-        WitClientMessage::BroadcastMessage(payload) => ClientMessage::BroadcastMessage {
-            message: parse_value(payload.message)?,
-        },
-        WitClientMessage::MessageAck(payload) => ClientMessage::MessageAck {
-            message_id: payload.message_id,
-        },
-        WitClientMessage::ClientEvent(payload) => {
-            let event = payload.event;
-            let mut wire = CloudEvent::new(
-                event.id,
-                event.source,
-                event.type_,
-                DateTime::parse_from_rfc3339(&event.time)?.with_timezone(&Utc),
-                parse_value(event.data)?,
-            );
-            wire.specversion = serde_json::from_value(serde_json::Value::String(event.specversion))?;
-            ClientMessage::ClientEvent { event: wire }
-        }
-        WitClientMessage::RelayText(payload) => ClientMessage::RelayText {
-            content: payload.content,
-        },
-        WitClientMessage::RelayBinary(payload) => ClientMessage::RelayBinary {
-            content: payload.content,
-        },
-    })
-}
-
-/// Convert a wire `ServerMessage` (inbound) into the WIT `server-message` the guest sees on `recv`.
-///
-/// Re-serialises opaque JSON payloads so they cross the WIT boundary as strings.
-///
-/// # Errors
-///
-/// Fails when an agent message's opaque JSON payload cannot be re-serialised.
-pub fn server_message_to_wit(msg: ServerMessage) -> Result<WitServerMessage, WsError> {
-    let serialize = |value: serde_json::Value| serde_json::to_string(&value);
-    Ok(match msg {
-        ServerMessage::ConnectAck { agent_id, status } => WitServerMessage::ConnectAck(ConnectAckPayload {
-            agent_id,
-            status: et_connect_status(status),
-        }),
-        ServerMessage::ListAgentsResponse { agents } => {
-            WitServerMessage::ListAgentsResponse(ListAgentsResponsePayload {
-                agents: agents.into_iter().map(et_agent_summary).collect(),
-            })
-        }
-        ServerMessage::AgentMessage {
-            message_id,
-            from_agent_id,
-            scope,
-            server_received_at,
-            message,
-        } => WitServerMessage::AgentMessage(crate::bindings::et::ws_messages::messages::AgentMessagePayload {
-            message_id,
-            from_agent_id,
-            scope: et_message_scope(scope),
-            server_received_at,
-            message: serialize(message)?,
-        }),
-        ServerMessage::MessageStatus {
-            message_id,
-            status,
-            detail,
-        } => WitServerMessage::MessageStatus(MessageStatusPayload {
-            message_id,
-            status: et_delivery_status(status),
-            detail,
-        }),
-        ServerMessage::Invalid { message_id, detail } => {
-            WitServerMessage::Invalid(InvalidPayload { detail, message_id })
-        }
-        ServerMessage::Response { message } => WitServerMessage::Response(ResponsePayload { message }),
-        ServerMessage::RelayText { content } => WitServerMessage::RelayText(RelayTextPayload { content }),
-        ServerMessage::RelayBinary { content } => WitServerMessage::RelayBinary(RelayBinaryPayload { content }),
-    })
-}
-
-// edge-toolkit-to-WIT enum mirrors. Only the `et_*` direction is used: the host never deserialises a WIT-side client
-// message back into an edge-toolkit type (that would mean reading something the *server* sent through the *guest's*
-// outbound API, which never happens), so the reverse-direction helpers from the pre-split file are gone.
-#[expect(
-    clippy::needless_pass_by_value,
-    clippy::single_call_fn,
-    reason = "WIT/edge-toolkit enum bridge; Copy enum, by value keeps call sites uniform"
-)]
-const fn et_connect_status(value: EtConnectStatus) -> WitConnectStatus {
-    match value {
-        EtConnectStatus::Assigned => WitConnectStatus::Assigned,
-        EtConnectStatus::Reconnected => WitConnectStatus::Reconnected,
-    }
-}
-
-#[expect(
-    clippy::needless_pass_by_value,
-    clippy::single_call_fn,
-    reason = "WIT/edge-toolkit enum bridge; Copy enum, by value keeps call sites uniform"
-)]
-const fn et_message_scope(value: EtMessageScope) -> WitMessageScope {
-    match value {
-        EtMessageScope::Direct => WitMessageScope::Direct,
-        EtMessageScope::Broadcast => WitMessageScope::Broadcast,
-    }
-}
-
-#[expect(
-    clippy::needless_pass_by_value,
-    clippy::single_call_fn,
-    reason = "WIT/edge-toolkit enum bridge; Copy enum, by value keeps call sites uniform"
-)]
-const fn et_delivery_status(value: EtMessageDeliveryStatus) -> WitMessageDeliveryStatus {
-    match value {
-        EtMessageDeliveryStatus::Delivered => WitMessageDeliveryStatus::Delivered,
-        EtMessageDeliveryStatus::Queued => WitMessageDeliveryStatus::Queued,
-        EtMessageDeliveryStatus::Acknowledged => WitMessageDeliveryStatus::Acknowledged,
-        EtMessageDeliveryStatus::Broadcast => WitMessageDeliveryStatus::Broadcast,
-    }
-}
-
-#[expect(
-    clippy::needless_pass_by_value,
-    clippy::single_call_fn,
-    reason = "WIT/edge-toolkit enum bridge; Copy enum, by value keeps call sites uniform"
-)]
-const fn et_agent_connection_state(value: EtAgentConnectionState) -> WitAgentConnectionState {
-    match value {
-        EtAgentConnectionState::Connected => WitAgentConnectionState::Connected,
-        EtAgentConnectionState::Disconnected => WitAgentConnectionState::Disconnected,
-    }
-}
-
-#[expect(
-    clippy::single_call_fn,
-    reason = "summary converter; one call site in server_message_to_wit"
-)]
-fn et_agent_summary(value: EtAgentSummary) -> WitAgentSummary {
-    WitAgentSummary {
-        agent_id: value.agent_id,
-        state: et_agent_connection_state(value.state),
-        last_known_ip: et_ip_address(value.last_known_ip),
-    }
-}
-
-#[expect(
-    clippy::single_call_fn,
-    reason = "address converter; one call site in et_agent_summary"
-)]
-fn et_ip_address(value: IpAddr) -> WitIpAddress {
-    match value {
-        IpAddr::V4(addr) => WitIpAddress::Ipv4(addr.octets().into()),
-        IpAddr::V6(addr) => WitIpAddress::Ipv6(addr.segments().into()),
     }
 }

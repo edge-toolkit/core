@@ -37,6 +37,9 @@ Changelog 1.1.0.
   from the same `MODULES_*` variables, so every board's firmware embeds modules the same way. Its `board` writes what
   the board a target picks bakes in -- the Wi-Fi network, and the Pico 2 W's radio blobs and memory layout -- and
   returns the directives that link it.
+- `et-ws-wasi-runner` builds as `no_std` + `alloc` without its new default `std` feature, and its `board` module
+  runs a guest on a microcontroller: compiled ahead of time with `engine::precompile` for the board's Pulley target,
+  and hosted through the firmware's `board::Platform` and `board::Transport`.
 - An opt-in `et-recovery-supervisor` service observes application progress and coordinates bounded Kubernetes recovery.
 - The Python SDK provides recovery lifecycle messages and integrity-checked checkpoint storage helpers.
 - A scenario can list `machines:` to span several hosts. The first is the server, running the hub and the collector,
@@ -95,6 +98,11 @@ Changelog 1.1.0.
 - **Breaking:** `et-ws-server`'s actix server, its binary and its environment config are behind the new default `std`
   feature. A build with `default-features = false` and none of the features that imply `std` -- `modules`, `otlp`,
   `qr`, `storage`, `tls`, `websockify` -- now gets the `no_std` library and no binary; add `std` to keep the server.
+- **Breaking:** `et-ws-wasi-runner`'s host runner, its binary and `run_module` are behind the new default `std`
+  feature, which `nn`, `webgpu` and `coverage` imply. A build with `default-features = false` and none of them now
+  gets the `no_std` board runner and no binary; add `std` to keep the host runner. `server_message_to_wit` moved from
+  `host::ws` to `convert`, and `Bucket` from `host::wasi_keyvalue` and `kv_not_implemented` from `host` to
+  `keyvalue`.
 
 - **Breaking:** `et-cli` refuses a scenario whose `module_paths:` entry, or a module directory found under one, has a
   name a shell would need quoted or that some filesystem could not hold, such as `my mod`, `mod$(id)` or `con`; rename

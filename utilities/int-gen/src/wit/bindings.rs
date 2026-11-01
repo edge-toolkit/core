@@ -36,7 +36,7 @@ const WORLD: &str = "runner";
 ///
 /// Mirrors the `with:` block the `bindgen!` invocation carried, and must stay in step with the runner's
 /// host module: a key here names a WIT item, the value the Rust path that replaces its generated form.
-const WITH: [(&str, &str); 1] = [("wasi:keyvalue/store.bucket", "super::host::wasi_keyvalue::Bucket")];
+const WITH: [(&str, &str); 1] = [("wasi:keyvalue/store.bucket", "super::keyvalue::Bucket")];
 
 /// Header prepended to the emitted file.
 ///
