@@ -1,22 +1,23 @@
-//! et-ws-server as firmware for the Raspberry Pi Pico 2 W: the hub's `/ws`, `/health`, `/favicon.ico` and the modules
-//! built into it, on port 8080, over the board's own Wi-Fi.
+//! et-ws-server as firmware: the hub's `/ws`, `/health`, `/favicon.ico` and the modules built into it, on port 8080,
+//! over a board's own Wi-Fi.
 //!
-//! Built for any other target, the same hub serves the same modules from the host, over tokio, so what the board would
-//! serve can be explored without one.
-#![cfg_attr(all(target_arch = "arm", target_os = "none"), no_std, no_main)]
+//! The target picks the board: bare-metal Arm is the Raspberry Pi Pico 2 W, and bare-metal RISC-V the ESP32-C6. Built
+//! for any target with an operating system, the same hub serves the same modules from the host, over tokio, so what a
+//! board would serve can be explored without one.
+#![cfg_attr(target_os = "none", no_std, no_main)]
 #![recursion_limit = "256"]
 
-#[cfg(all(target_arch = "arm", target_os = "none"))]
+#[cfg(target_os = "none")]
 extern crate alloc;
 
 use edge_toolkit::ports::Services;
 
-#[cfg(all(target_arch = "arm", target_os = "none"))]
-mod firmware;
-#[cfg(not(all(target_arch = "arm", target_os = "none")))]
+#[cfg(target_os = "none")]
+mod board;
+#[cfg(not(target_os = "none"))]
 mod host;
 
-#[cfg(not(all(target_arch = "arm", target_os = "none")))]
+#[cfg(not(target_os = "none"))]
 use self::host::main;
 
 /// The port the hub serves on, as the `std` server's plain-HTTP listener does.

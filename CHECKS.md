@@ -1,7 +1,7 @@
 # Checks
 
-- **Generated:** 2026-10-31
-- **Checks:** 79
+- **Generated:** 2026-11-01
+- **Checks:** 80
 - **Tools:** 47
 - **Shell-script checks:** 10
 - **Checks with a repair pass:** 21
@@ -332,6 +332,8 @@ Rules, from `config/ast-grep/rules`:
 
 - `cargo-clippy-check` (`default` env; run by `check:rust`). Repaired by `cargo-clippy-fix`. Config: `Cargo.toml`,
   `config/clippy.toml`.
+- `cargo-clippy-check-esp32c6` (`rust` env; not run by `mise run check`) -- Lint the ESP32-C6 firmware for its own
+  target. Config: `Cargo.toml`, `config/clippy.toml`.
 - `cargo-clippy-check-pico2w` (`rust` env; not run by `mise run check`) -- Lint the Raspberry Pi Pico 2 W firmware for
   its own target. Config: `Cargo.toml`, `config/clippy.toml`.
 - `cargo-clippy-check-pkg` (`default` env; not run by `mise run check`) -- cargo clippy on one or more workspace

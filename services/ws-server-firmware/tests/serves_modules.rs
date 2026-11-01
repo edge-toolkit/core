@@ -23,7 +23,7 @@ impl Server {
     /// The binary, started on a free loopback port, once it has said which.
     fn start() -> Self {
         // The raw child, since the server is killed rather than left to exit with a status to check.
-        let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_et-ws-server-pico2w"))
+        let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_et-ws-server-firmware"))
             .arg("127.0.0.1:0")
             .stdout(Stdio::piped())
             .spawn()

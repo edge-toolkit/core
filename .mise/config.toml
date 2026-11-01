@@ -230,7 +230,7 @@ zizmor = "latest"
 components = "clippy,rust-analyzer"
 os = ["linux", "macos"]
 profile = "minimal"
-targets = "thumbv8m.main-none-eabihf,wasm32-unknown-unknown,wasm32-wasip2"
+targets = "riscv32imac-unknown-none-elf,thumbv8m.main-none-eabihf,wasm32-unknown-unknown,wasm32-wasip2"
 # Use `stable`, not `latest`, so every lane resolves through the same rustup channel.
 # mise's `latest` picks the max of rust-lang/rust's GitHub Releases, which are published by separate
 # automation that lags the `stable` rustup channel the Windows [[tools.rust]] entries resolve through. That
@@ -315,6 +315,13 @@ version = "0.10.0"
 # lychee takes its musl build on Linux for the same reason as coreutils above: the gnu one needs GLIBC_2.39.
 [tools."github:lycheeverse/lychee"]
 asset_pattern = "{{ vars.musl_pattern }}"
+version = "latest"
+
+# espflash writes ESP32 firmware to a board over USB and shows its defmt log, for a firmware-esp32c6 deployment.
+# Its release holds cargo-espflash beside it, so the pattern names espflash's own assets; on Linux its musl build, for
+# the same reason as coreutils above.
+[tools."github:esp-rs/espflash"]
+asset_pattern = "{{ vars.espflash_glob }}"
 version = "latest"
 
 # The feature-powerset driver behind cargo-hack-check; musl on Linux so the older-glibc image bases can run it.
@@ -524,6 +531,7 @@ win_rust_host = "{% if arch() == 'arm64' %}aarch64-pc-windows-msvc{% else %}x86_
 # `raw` keeps the config's own render from evaluating it, so the backend renders it per target platform and the
 # lock records the one template rather than a host-specific string. The pattern is anchored and the shortest match
 # wins, which is what the trailing `*` leans on to take `.tar.gz` / `.zip` over their `.sha256` sidecars.
+espflash_glob = '{% raw %}espflash-{{ x86_64_arch }}*{{ os(linux="musl", macos="apple", windows="pc") }}*{% endraw %}'
 musl_pattern = '{% raw %}*-{{ x86_64_arch }}-*{{ os(linux="musl.t", macos="darwin.t", windows="msvc.z") }}*{% endraw %}'
 # Tier-`a_` prefix marks leaf values referenced by later vars.
 # a_* vars are referenced by later vars (face1_src), and mise renders [vars] in alphabetical order; `a_` sorts
@@ -1909,6 +1917,14 @@ other_hubs=$(server="$server_machine" yq '(.services.hub.machines // [])[] | sel
 if [ "$source" = "published" ]; then
   runner_image="ghcr.io/edge-toolkit/core/et-ws-web-runner:latest"
   docker pull "$runner_image"
+  # The released runner is rebuilt as an image of this platform alone, under the same name, before it is imported.
+  # Pulled into docker's containerd image store, it keeps its multi-platform index while holding only this
+  # platform's content, so the saved tarball names the arm64 manifest without carrying it. containerd then refuses
+  # the whole import, the hub image included, while k3d reports success:
+  #   ctr: content digest sha256:91389a84eedc9f98e62417d64d2cc7146be16b1e2027bca33919040740ec1a5b: not found
+  # on https://github.com/edge-toolkit/core/commit/bf8e71a0565e58c8fabb4d53640970eb181c5726 at
+  # https://github.com/edge-toolkit/core/actions/runs/41288288633/job/124794004602, the first ubuntu-26.04 runners.
+  printf 'FROM %s\\n' "$runner_image" | docker build --provenance=false -t "$runner_image" -
 else
   runner_image="et-ws-web-runner:latest"
 fi
@@ -2002,6 +2018,22 @@ done
 kubectl wait --for=condition=Ready node --all --timeout="$manifest_wait"
 # `k3d image import` loads every node, so a pod finds its image whichever machine it is pinned to.
 k3d image import -c "$cluster" "$hub_image" "$runner_image"
+# Every node is checked for both, since the import reports success even when a node's containerd drops an image.
+# k3d names each node's container as Kubernetes names the node, and a bare image name is docker.io's library one.
+for node in $(kubectl get nodes -o name); do
+  node=${node#node/}
+  held=$(docker exec "$node" ctr -n k8s.io images ls -q)
+  for image in "$hub_image" "$runner_image"; do
+    case "$image" in
+      */*) ref=$image ;;
+      *) ref="docker.io/library/$image" ;;
+    esac
+    if ! printf '%s\\n' "$held" | rg -qxF "$ref"; then
+      echo "k3s-verify: node $node holds no $ref after the import" >&2
+      exit 1
+    fi
+  done
+done
 
 # --save-config so the `kubectl apply` below does not warn about adopting a namespace it did not create.
 kubectl create namespace "$ns" --save-config
@@ -3227,7 +3259,7 @@ run = "cargo nextest run --workspace {{ vars.cargo_ws_excludes }} --config-file 
 [tasks.cargo-test-pkg]
 description = "Run one workspace package's Rust tests via nextest"
 run = 'cargo nextest run --config-file config/nextest.toml -p "$usage_package"'
-usage = 'arg "<package>" help="Workspace package name (e.g. et-int-ws-server-pico2w)"'
+usage = 'arg "<package>" help="Workspace package name (e.g. et-int-ws-server-firmware)"'
 
 [tasks.test-recovery-supervisor]
 description = "Test recovery policy, Kubernetes observations, persistence, and hub lifecycle transport"

@@ -1,5 +1,6 @@
-//! Covers the firmware formats through `firmware-pico2`: which modules a firmware build embeds and which it
-//! redirects, and the scenarios it refuses because a board runs one hub and nothing else.
+//! Covers the firmware formats, mostly through `firmware-pico2`: which modules a firmware build embeds and which it
+//! redirects, the scenarios it refuses because a board runs one hub and nothing else, and what `firmware-esp32c6`
+//! builds and loads differently.
 #![cfg(test)]
 
 use std::path::PathBuf;
@@ -44,29 +45,28 @@ struct Task {
     run: String,
 }
 
-/// What generating `input` in `test_root` as `firmware-pico2` returns, the error's text or empty, and its directory.
-fn generate_in(test_root: TempDir, input: &str) -> (TempDir, PathBuf, String) {
+/// What generating `input` in `test_root` as `format` returns, the error's text or empty, and its directory.
+fn generate_in(test_root: TempDir, input: &str, format: OutputType) -> (TempDir, PathBuf, String) {
     let input_file = test_root.path().join("board.yaml");
     fs::write(&input_file, input).unwrap();
     let output_dir = test_root.path().join("output");
-    let outcome = generate_deployment(&input_file, &output_dir, Some(OutputType::FirmwarePico2))
+    let outcome = generate_deployment(&input_file, &output_dir, Some(format))
         .map_or_else(|error| error.to_string(), |_summary| String::default());
     (test_root, output_dir, outcome)
 }
 
-/// The deployment `input` generates, which has to succeed.
+/// The `firmware-pico2` deployment `input` generates, which has to succeed.
 fn generated(input: &str) -> (TempDir, FirmwareConfig, String) {
-    generated_in(tempdir().unwrap(), input)
+    generated_in(tempdir().unwrap(), input, OutputType::FirmwarePico2)
 }
 
-/// The deployment `input`, written to a scenario in `test_root`, generates, which has to succeed.
-fn generated_in(test_root: TempDir, input: &str) -> (TempDir, FirmwareConfig, String) {
-    let (test_root, output_dir, outcome) = generate_in(test_root, input);
+/// The deployment `input`, written to a scenario in `test_root`, generates as `format`, which has to succeed.
+fn generated_in(test_root: TempDir, input: &str, format: OutputType) -> (TempDir, FirmwareConfig, String) {
+    let (test_root, output_dir, outcome) = generate_in(test_root, input, format);
     assert_eq!(outcome, "");
-    assert_eq!(OutputType::FirmwarePico2.output_file_name(), CONFIG_FILE);
-    let config = toml::from_str(&fs::read_to_string(output_dir.join(CONFIG_FILE)).unwrap()).unwrap();
+    let config = fs::read_to_string(output_dir.join(format.output_file_name())).unwrap();
     let readme = fs::read_to_string(output_dir.join("README.md")).unwrap();
-    (test_root, config, readme)
+    (test_root, toml::from_str(&config).unwrap(), readme)
 }
 
 #[test]
@@ -89,8 +89,24 @@ fn it_embeds_the_repository_modules_and_redirects_the_npm_packages() {
     assert_eq!(config.tasks.flash.depends, ["firmware-build"]);
     assert_eq!(config.tasks.flash.dir, build.dir);
     assert!(config.tasks.flash.run.starts_with("picotool load"));
-    assert!(readme.contains("## Run As Firmware On A Raspberry Pi Pico 2 W"));
+    assert!(readme.contains("## Run As Raspberry Pi Pico 2 W Firmware"));
     assert!(readme.contains("MISE_ENV=firmware-pico2 mise run firmware-flash"));
+}
+
+#[test]
+fn an_esp32c6_is_built_from_the_same_package_and_loaded_with_espflash() {
+    let (_root, pico, _readme) = generated(BROWSER);
+    let (_root, esp, readme) = generated_in(tempdir().unwrap(), BROWSER, OutputType::FirmwareEsp32c6);
+    assert_eq!(esp.tasks.build.env, pico.tasks.build.env);
+    assert!(esp.tasks.build.run.contains("mise -E rust run build-firmware-esp32c6"));
+    assert_eq!(esp.tasks.host_test.run, pico.tasks.host_test.run);
+    let image = "target/riscv32imac-unknown-none-elf/release/et-ws-server-firmware";
+    assert_eq!(
+        esp.tasks.flash.run,
+        format!("espflash flash --monitor --log-format defmt {image}")
+    );
+    assert!(readme.contains("## Run As ESP32-C6 Firmware"));
+    assert!(readme.contains("MISE_ENV=firmware-esp32c6 mise run firmware-flash"));
 }
 
 #[test]
@@ -102,7 +118,7 @@ fn its_host_test_serves_the_modules_the_build_embeds() {
     let (paths, _) = build.run.split_once("mise -E rust").unwrap();
     let (host_paths, command) = host_test.run.split_once("mise run").unwrap();
     assert_eq!(host_paths, paths);
-    assert_eq!(command, " cargo-test-pkg et-int-ws-server-pico2w\n");
+    assert_eq!(command, " cargo-test-pkg et-int-ws-server-firmware\n");
     assert!(readme.contains("MISE_ENV=firmware-pico2 mise run firmware-host-test"));
 }
 
@@ -121,7 +137,7 @@ fn it_embeds_a_module_the_scenario_keeps_beside_it() {
     let input = format!("{BROWSER}module_paths: [\"mine\"]\n").replace(r#"type: "math1""#, r#"type: "mine""#);
 
     let module_path = module_dir.display().to_string();
-    let (_root, config, _readme) = generated_in(test_root, &input);
+    let (_root, config, _readme) = generated_in(test_root, &input, OutputType::FirmwarePico2);
     assert!(config.tasks.build.run.contains(&module_path));
 }
 
@@ -135,7 +151,7 @@ fn it_refuses_what_the_board_cannot_run() {
         (machines, "spans several machines"),
         (published, "uses published artifacts"),
     ] {
-        let (_root, output_dir, outcome) = generate_in(tempdir().unwrap(), &input);
+        let (_root, output_dir, outcome) = generate_in(tempdir().unwrap(), &input, OutputType::FirmwarePico2);
         assert!(outcome.starts_with("The Raspberry Pi Pico 2 W firmware runs one hub and nothing else"));
         assert!(outcome.contains(reason));
         assert!(!output_dir.join(CONFIG_FILE).exists());
@@ -154,8 +170,11 @@ fn verification_renders_it_only_for_a_scenario_the_board_can_run() {
 
     let _regenerated = regenerate_verification(&verification_root, None).unwrap();
     let output = verification_root.join("local/output");
+    let esp_file = OutputType::FirmwareEsp32c6.output_file_name();
     assert!(output.join("browser").join(CONFIG_FILE).is_file());
+    assert!(output.join("browser").join(esp_file).is_file());
     assert!(output.join("browser/mise.toml").is_file());
     assert!(!output.join("headless").join(CONFIG_FILE).exists());
+    assert!(!output.join("headless").join(esp_file).exists());
     assert!(output.join("headless/mise.toml").is_file());
 }

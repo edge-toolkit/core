@@ -287,12 +287,15 @@ fn the_readme_says_how_to_run_each_machine_share() {
     let (_root, dir) = generated(&format!("{AGENTS}{MACHINES}"));
     let readme = read(&dir, "README.md");
 
-    // Every format but the board's, which refuses a scenario spanning machines.
+    // Every format but the boards', which refuse a scenario spanning machines.
+    let boards = [OutputType::FirmwarePico2, OutputType::FirmwareEsp32c6];
     assert_eq!(
         readme.matches("### Run Across Machines With").count(),
-        OutputType::ALL.len() - 1
+        OutputType::ALL.len() - boards.len()
     );
-    assert!(!dir.join(OutputType::FirmwarePico2.output_file_name()).exists());
+    for board in boards {
+        assert!(!dir.join(board.output_file_name()).exists());
+    }
     assert!(readme.contains("mise run machine-edge"));
     assert!(readme.contains("docker compose --profile edge up --build"));
     assert!(readme.contains("dekit start +edge"));

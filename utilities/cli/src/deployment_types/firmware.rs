@@ -86,7 +86,7 @@ pub(crate) fn generate_firmware_deployment(
         Value::Array(vec![Value::String(BUILD_TASK.to_owned())]),
     );
     let flash_run = format!("{} {}", board.load_command, board.image);
-    let flash_description = format!("Load the firmware onto a {}, and start it", board.title);
+    let flash_description = format!("Load the {} firmware onto the board, and start it", board.title);
     let flash = mise_task(
         None,
         Some(&flash_description),

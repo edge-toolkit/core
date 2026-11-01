@@ -541,7 +541,9 @@ pub(crate) fn limits_note(output_type: OutputType, cluster: &ClusterInput) -> St
     // heading.
     let heading = match output_type {
         // The board runs no agent, and only the one hub, which has nothing else to be limited against.
-        OutputType::DockerCompose | OutputType::K3s | OutputType::FirmwarePico2 => return String::default(),
+        OutputType::DockerCompose | OutputType::K3s | OutputType::FirmwarePico2 | OutputType::FirmwareEsp32c6 => {
+            return String::default();
+        }
         OutputType::Mise => "Mise",
         OutputType::Dekit => "dekit",
         OutputType::ProcessCompose => "process-compose",

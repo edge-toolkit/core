@@ -18,6 +18,11 @@ const REPOSITORY_URL: &str = et_org::REPOSITORY_URL;
 /// The name a cluster takes when its input does not choose one.
 pub const DEFAULT_CLUSTER_NAME: &str = "default";
 
+/// The package every board's firmware is built from, its target picking the board.
+const FIRMWARE_PACKAGE: &str = "et-int-ws-server-firmware";
+/// What every board's build needs told about the network it joins.
+const WIFI_SETUP: &str = "Set `WIFI_NETWORK` and `WIFI_PASSWORD` to the Wi-Fi network the board joins.";
+
 /// The deployment format a scenario is rendered into.
 ///
 /// An enum rather than the string it is written as, because the set is closed and every consumer switches on it: as
@@ -42,6 +47,9 @@ pub enum OutputType {
     /// The hub alone, as firmware for a Raspberry Pi Pico 2 W.
     #[serde(rename = "firmware-pico2", alias = "firmware_pico2")]
     FirmwarePico2,
+    /// The hub alone, as firmware for an ESP32-C6.
+    #[serde(rename = "firmware-esp32c6", alias = "firmware_esp32c6")]
+    FirmwareEsp32c6,
 }
 
 /// A board a `firmware-*` format builds the hub for, each the board of exactly one format.
@@ -52,6 +60,8 @@ pub enum OutputType {
 pub(crate) enum Board {
     /// The Raspberry Pi Pico 2 W, over its own Wi-Fi.
     Pico2,
+    /// Any ESP32-C6 board, over the chip's own Wi-Fi.
+    Esp32c6,
 }
 
 /// What building, loading and describing one board's firmware takes.
@@ -79,7 +89,7 @@ pub(crate) struct BoardSpec {
 
 impl Board {
     /// Every board, each with a `firmware-*` format of its own.
-    pub(crate) const ALL: &'static [Self] = &[Self::Pico2];
+    pub(crate) const ALL: &'static [Self] = &[Self::Pico2, Self::Esp32c6];
 
     /// What building, loading and describing this board's firmware takes.
     #[must_use]
@@ -89,11 +99,22 @@ impl Board {
                 output_type: OutputType::FirmwarePico2,
                 title: "Raspberry Pi Pico 2 W",
                 build_task: "build-firmware-pico2w",
-                package: "et-int-ws-server-pico2w",
-                image: "target/thumbv8m.main-none-eabihf/release/et-ws-server-pico2w",
+                package: FIRMWARE_PACKAGE,
+                image: "target/thumbv8m.main-none-eabihf/release/et-ws-server-firmware",
                 load_command: "picotool load -x -t elf",
                 load_preparation: "hold the board's BOOTSEL button while plugging it in",
-                network_setup: "Set `WIFI_NETWORK` and `WIFI_PASSWORD` to the Wi-Fi network the board joins.",
+                network_setup: WIFI_SETUP,
+                flash: "4 MiB",
+            },
+            Self::Esp32c6 => BoardSpec {
+                output_type: OutputType::FirmwareEsp32c6,
+                title: "ESP32-C6",
+                build_task: "build-firmware-esp32c6",
+                package: FIRMWARE_PACKAGE,
+                image: "target/riscv32imac-unknown-none-elf/release/et-ws-server-firmware",
+                load_command: "espflash flash --monitor --log-format defmt",
+                load_preparation: "plug the board in over USB, where espflash finds it",
+                network_setup: WIFI_SETUP,
                 flash: "4 MiB",
             },
         }
@@ -114,6 +135,7 @@ impl OutputType {
         Self::DockerCompose,
         Self::K3s,
         Self::FirmwarePico2,
+        Self::FirmwareEsp32c6,
     ];
 
     /// The file this format is written to, beside the others in the deployment directory.
@@ -126,6 +148,7 @@ impl OutputType {
             Self::Dekit => "dekit.yaml",
             Self::ProcessCompose => "process-compose.yaml",
             Self::FirmwarePico2 => "mise.firmware-pico2.toml",
+            Self::FirmwareEsp32c6 => "mise.firmware-esp32c6.toml",
         }
     }
 
@@ -139,6 +162,7 @@ impl OutputType {
             Self::Dekit => "dekit",
             Self::ProcessCompose => "process-compose",
             Self::FirmwarePico2 => "firmware-pico2",
+            Self::FirmwareEsp32c6 => "firmware-esp32c6",
         }
     }
 
@@ -148,7 +172,10 @@ impl OutputType {
     /// the board runs no agents at all.
     #[must_use]
     pub const fn runs_schedules(self) -> bool {
-        !matches!(self, Self::Mise | Self::Dekit | Self::FirmwarePico2)
+        !matches!(
+            self,
+            Self::Mise | Self::Dekit | Self::FirmwarePico2 | Self::FirmwareEsp32c6
+        )
     }
 
     /// Whether this format runs the tasks of a `mise.toml`, so needs what that file names installed first.

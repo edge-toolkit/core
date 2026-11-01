@@ -49,7 +49,7 @@ members = [
   "services/ws",
   "services/ws-pyo3-runner",
   "services/ws-server",
-  "services/ws-server-pico2w",
+  "services/ws-server-firmware",
   "services/ws-wasm-agent",
   "services/ws-wasi-runner",
   "services/ws-web-runner",
@@ -110,6 +110,14 @@ embassy-net = "0.9"
 embassy-rp = "0.10"
 embassy-time = "0.5"
 embedded-alloc = { version = "0.7", default-features = false, features = ["llff"] }
+esp-alloc = "0.11"
+esp-backtrace = "0.20"
+esp-bootloader-esp-idf = "0.6"
+esp-hal = "1.2"
+esp-println = "0.18"
+# The 1.0 beta, as the only esp-radio built against the esp-hal 1.2 that esp-rtos 0.4 needs.
+esp-radio = "1.0.0-beta.1"
+esp-rtos = "0.4"
 et-actix-web-config = { path = "libs/actix-web-config", version = "0.1.0" }
 et-cli = { path = "utilities/cli", version = "0.2.0" }
 et-firmware-modules = { path = "services/firmware-modules", version = "0.1.0" }

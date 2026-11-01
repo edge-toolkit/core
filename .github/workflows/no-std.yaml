@@ -1,10 +1,10 @@
 ---
 name: no-std
 
-# The crates that build without std, built where there is none, and et-ws-server as Raspberry Pi Pico 2 W firmware.
-# The firmware is linted bare, and built as a generated scenario's, whose modules its host build then serves to a
-# test that fetches each. One Linux job: a bare-metal target compiles the same on every host, so another platform
-# would only repeat it. The board is not here, so the firmware itself is built and linted, not run; nothing is
+# The crates that build without std, built where there is none, and et-ws-server as firmware for every board.
+# Each board's firmware is linted bare, and built as a generated scenario's, whose modules the shared host build then
+# serves to a test that fetches each. One Linux job: a bare-metal target compiles the same on every host, so another
+# platform would only repeat it. No board is here, so the firmware itself is built and linted, not run; nothing is
 # uploaded or published.
 #
 # Not path-gated: what breaks a no_std build is a dependency or a feature gaining std somewhere in the tree, which a
@@ -79,3 +79,18 @@ jobs:
           cd "$dst"
           MISE_ENV="$fmt" mise run firmware-build
           MISE_ENV="$fmt" mise run firmware-host-test
+
+      # The host build the step above tested is the one both boards share, so only the board's own build is left.
+      - name: Lint the ESP32-C6 firmware, then build a generated scenario's
+        timeout-minutes: 30
+        env:
+          WIFI_NETWORK: edge-toolkit-ci
+          WIFI_PASSWORD: not-a-real-passphrase
+        run: |
+          mise run cargo-clippy-check-esp32c6
+          src=verification/local/input/default.yaml
+          dst=target/firmware-default
+          fmt=firmware-esp32c6
+          cargo run -q -p et-cli -- generate-deployment --input-file "$src" --output-dir "$dst" --output-type "$fmt"
+          cd "$dst"
+          MISE_ENV="$fmt" mise run firmware-build
