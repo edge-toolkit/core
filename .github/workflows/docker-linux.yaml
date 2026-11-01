@@ -73,8 +73,23 @@ jobs:
           build-mount-path: /var/lib/docker
           build-mount-path-ownership: "root:root"
 
-      - name: Restart Docker on the maximized volume
-        run: sudo systemctl restart docker
+      # Keep image layers and container writes on the enlarged /var/lib/docker filesystem.
+      # The containerd image store writes to /var/lib/containerd instead, filling the reserved root space
+      # with "No space left on device" even while the build volume has room.
+      - name: Configure Docker storage on the maximized volume
+        run: |
+          daemon_config='{}'
+          if [ -f /etc/docker/daemon.json ]; then
+            daemon_config=$(cat /etc/docker/daemon.json)
+          fi
+          storage_filter='.features |= ((. // {}) + {"containerd-snapshotter": false}) | ."storage-driver" = "overlay2"'
+          printf '%s\n' "$daemon_config" | jq "$storage_filter" > "$RUNNER_TEMP/docker-daemon.json"
+          sudo install -m 0644 "$RUNNER_TEMP/docker-daemon.json" /etc/docker/daemon.json
+          sudo systemctl restart docker
+          storage=$(docker info --format '{{.Driver}} {{.DockerRootDir}}')
+          echo "Docker storage: $storage"
+          test "$storage" = 'overlay2 /var/lib/docker'
+          df -h / /var/lib/docker
 
       - name: Resolve BASE_IMAGE
         env:
@@ -135,8 +150,12 @@ jobs:
           echo "::group::docker system df -v"
           docker system df -v
           echo "::endgroup::"
-          echo "::group::df -h /var/lib/docker"
-          df -h /var/lib/docker || true
+          echo "::group::Docker and root filesystem usage"
+          df -h / /var/lib/docker || true
+          if [ -d /var/lib/containerd ]; then
+            df -h /var/lib/containerd || true
+            sudo du -sh /var/lib/containerd || true
+          fi
           echo "::endgroup::"
           # Report which paths inside the et-test image are eating space.
           # `du --threshold=10M --max-depth=2` for a top-level subtree map (catches install dirs, tool caches,
