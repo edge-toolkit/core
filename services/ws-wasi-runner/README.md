@@ -37,3 +37,19 @@ Plus, attached to the same `Linker` but defined by external WIT packages, each b
   wasmtime-wasi-nn 48 still uses). Guests load model bytes via `graph.load`, build `Tensor`s, and call `compute` --
   the same shape of calls Spin / wasmCloud / Fermyon production wasi-nn workloads use. Inference runs on the CPU
   unless the `cuda` feature is on.
+
+## On a board
+
+Without its default `std` feature the crate is `no_std` + `alloc`, and its `board` module runs a guest on a
+microcontroller with no operating system. A board cannot compile WebAssembly, so its engine runs Pulley bytecode
+instead: a firmware's build script compiles the guest ahead of time with `engine::precompile` (the `precompile`
+feature) for the board's Pulley target, `pulley32` on a 32-bit board, and builds the result in.
+
+`board::run` hosts the `runner` world on what the firmware provides through two traits: a `Platform`, the board's
+clock and log, and a `Transport`, its websocket to the hub. Guest buckets live in the board's memory. Of WASI
+Preview 2 it hosts only what the ws-module guests import -- their standard streams, an empty environment, the
+monotonic clock and polling -- since `wasmtime-wasi` needs `std`; `wasi:nn` and `wasi:webgpu` are host-only.
+
+wasmtime asks the firmware for one thing more, a thread-local pointer through `wasmtime_tls_get` and
+`wasmtime_tls_set`, which on a single core is a static. A guest's linear memory is its declared size, about 1 MiB
+for the Rust guests, so a board needs external RAM such as PSRAM to hold it.

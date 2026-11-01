@@ -7,12 +7,13 @@
 
 mod error;
 mod log;
+mod run;
 mod state;
 pub mod wasi_keyvalue;
 #[cfg(feature = "nn")]
 pub mod wasi_nn;
 pub mod ws;
 
-pub use self::error::kv_not_implemented;
+pub use self::run::run_module;
 pub use self::state::HostState;
 pub use self::ws::WsBackend;

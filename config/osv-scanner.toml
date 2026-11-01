@@ -1,9 +1,20 @@
 # AUTO-GENERATED from config/deny.toml by `mise run gen:osv-scanner`.
 # The list spans every language, so "has unused ignores" warnings are expected: agents must ignore them.
 IgnoredVulns = [
+  { id = "GHSA-2g4f-4pwh-qvx6", ignoreUntil = 2026-11-13 },
+  { id = "GHSA-3g3m-2fjr-6pw4", ignoreUntil = 2026-11-13 },
+  { id = "GHSA-4x5r-pxfx-6jf8", ignoreUntil = 2026-11-13 },
   { id = "GHSA-5j98-2g5x-46v6", ignoreUntil = 2026-11-13 },
   { id = "GHSA-6f2x-v7q7-m7m5", ignoreUntil = 2026-11-13 },
+  { id = "GHSA-858h-whjf-mvg5", ignoreUntil = 2026-11-13 },
+  { id = "GHSA-g3hv-75wg-m249", ignoreUntil = 2026-11-13 },
+  { id = "GHSA-g4wm-2vf7-vfgr", ignoreUntil = 2026-11-13 },
+  { id = "GHSA-hw8r-x6gr-5gjp", ignoreUntil = 2026-11-13 },
+  { id = "GHSA-pppg-cpfq-h7wr", ignoreUntil = 2026-11-13 },
   { id = "GHSA-qwgh-2vcv-g2f7", ignoreUntil = 2026-11-13 },
+  { id = "GHSA-v5rq-49vh-5v5c", ignoreUntil = 2026-11-13 },
+  { id = "GHSA-v88g-cgmw-v5xw", ignoreUntil = 2026-11-13 },
+  { id = "GHSA-x6jw-m9v5-85vh", ignoreUntil = 2026-11-13 },
   { id = "RUSTSEC-2023-0071", ignoreUntil = 2026-11-13 },
   { id = "RUSTSEC-2024-0436", ignoreUntil = 2026-11-13 },
   { id = "RUSTSEC-2024-0449", ignoreUntil = 2026-11-13 },

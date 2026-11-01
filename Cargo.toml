@@ -306,7 +306,14 @@ wasm-bindgen-test = "0.3"
 # RUSTSEC-2026-0378 / RUSTSEC-2026-0379 only from 49.0.4, and RUSTSEC-2026-0420 and RUSTSEC-2026-0422 through
 # RUSTSEC-2026-0424 only from 49.0.5, on the 49 line. The major is held at 49 by wasi-webgpu-wasmtime, whose 0.4
 # line requires wasmtime ^49.
-wasmtime = { version = "49.0.5", features = ["async", "component-model"] }
+# Without its default features, which need std, so a board's runner can depend on it; a host build turns them on.
+wasmtime = { version = "49.0.5", default-features = false, features = [
+  "async",
+  "component-model",
+  "component-model-async",
+  "pulley",
+  "runtime",
+] }
 # The generator behind wasmtime's `bindgen!` macro, driven directly by et-int-gen.
 # Emitting the runner's host bindings as a checked-in source file keeps ws-wasi-runner self-contained: the
 # macro read WIT from `../../generated/specs/wit`, which `cargo package` cannot include, so the crate failed

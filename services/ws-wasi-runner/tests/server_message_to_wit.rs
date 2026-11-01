@@ -6,7 +6,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use edge_toolkit::ws::{AgentConnectionState, AgentSummary, ServerMessage};
 use et_ws_wasi_runner::bindings::et::ws_messages::messages::{IpAddress, ServerMessage as WitServerMessage};
-use et_ws_wasi_runner::host::ws::server_message_to_wit;
+use et_ws_wasi_runner::convert::server_message_to_wit;
 
 #[test]
 fn list_agents_carries_each_address_family_as_its_own_case() {

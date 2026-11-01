@@ -23,18 +23,69 @@ path = "src/lib.rs"
 doctest = false
 name = "et-ws-wasi-runner"
 path = "src/main.rs"
+required-features = ["std"]
+
+# The tests of the `std` runner, and of the board's, which compiles its guests as only a host can.
+# `server_message_to_wit`, the test of the conversions a board shares, runs with `--no-default-features` as well.
+[[test]]
+name = "board"
+required-features = ["std"]
+
+[[test]]
+name = "modules"
+required-features = ["std"]
+
+[[test]]
+name = "o2_ingest_search"
+required-features = ["std"]
+
+[[test]]
+name = "otel_propagation"
+required-features = ["std"]
+
+[[test]]
+name = "vector_otlp_relay"
+required-features = ["std"]
+
+[[test]]
+name = "ws_backend"
+required-features = ["std"]
 
 [features]
 #! Each standardised WASI interface hosted beyond `et:ws-wasi` and WASI Preview 2 is a feature, all on by default.
 #! A guest that imports an interface the build left out fails to instantiate, naming the import.
 
-default = ["nn", "webgpu"]
+default = ["nn", "std", "webgpu"]
+## The runner for a host with an operating system.
+## It fetches a component from the hub, compiles it, and hosts WASI Preview 2 through `wasmtime-wasi`. Without it the
+## crate is `no_std`, and runs a component compiled ahead of time for a board through its `board` module.
+std = [
+  "chrono/std",
+  "dep:et-otlp",
+  "dep:et-rest-client",
+  "dep:et-ws-runner-common",
+  "dep:fs-err",
+  "dep:futures-util",
+  "dep:libc",
+  "dep:reqwest",
+  "dep:tokio",
+  "dep:tokio-tungstenite",
+  "dep:tracing",
+  "dep:wasmtime-wasi",
+  "edge-toolkit/std",
+  "precompile",
+  "serde_json/std",
+  "thiserror/std",
+  "wasmtime/default",
+]
+## Compiles a component ahead of time for a board's engine, as a firmware's build script does.
+precompile = ["wasmtime/cranelift", "wasmtime/std"]
 ## Hosts `wasi:nn` (graph, tensor, inference) on ONNX Runtime through `wasmtime-wasi-nn`.
 ## Guests can then load an ONNX model and run inference on it.
-nn = ["dep:ort", "dep:wasmtime-wasi-nn"]
+nn = ["dep:ort", "dep:wasmtime-wasi-nn", "std"]
 ## Hosts the full upstream `wasi:webgpu` interface through `wasi-webgpu-wasmtime`.
 ## A wgpu instance on every native backend gives guests real GPU compute and rendering.
-webgpu = ["dep:wasi-webgpu-wasmtime", "dep:wgpu-core", "dep:wgpu-types"]
+webgpu = ["dep:wasi-webgpu-wasmtime", "dep:wgpu-core", "dep:wgpu-types", "std"]
 ## Dispatches `wasi:nn` inference on `ExecutionTarget::Gpu` to ONNX Runtime's `CUDAExecutionProvider`.
 ## Without it such a request warns and falls back to the CPU. It enables wasmtime-wasi-nn's `onnx-cuda`, and
 ## through it `ort/cuda`, so `ort/download-binaries` pulls the CUDA-flavoured ONNX Runtime prebuilt -- which only
@@ -44,32 +95,34 @@ cuda = ["nn", "wasmtime-wasi-nn/onnx-cuda"]
 ## Internal: compiles in the `/cov` preopen for the repo's coverage workflow.
 ## Mapped to `target/wasi-cov`, it is where instrumented WASI guests dump their minicov `.profraw`.
 ## `ET_TEST_COVERAGE` still gates the preopen at runtime.
-coverage = ["et-ws-runner-common/coverage"]
+coverage = ["et-ws-runner-common?/coverage", "std"]
 ## Internal: renders this feature list into the crate documentation, as docs.rs builds it.
 docs = ["dep:document-features"]
 
+# What a board's `no_std` runner needs as much as the host's: the engine, and the message types and their JSON.
 [dependencies]
-chrono = { workspace = true, features = ["std"] }
+chrono = { workspace = true, features = ["alloc"] }
 document-features = { workspace = true, optional = true }
-edge-toolkit = { workspace = true, features = ["std"] }
-et-otlp.workspace = true
-et-rest-client = { workspace = true, features = ["tracing"] }
-et-ws-runner-common.workspace = true
-fs-err.workspace = true
-futures-util.workspace = true
+edge-toolkit.workspace = true
+serde_json = { workspace = true, features = ["alloc"] }
+serde_path_to_error.workspace = true
+thiserror.workspace = true
+wasmtime.workspace = true
+# The rest is the `std` runner's.
+et-otlp = { workspace = true, optional = true }
+et-rest-client = { workspace = true, features = ["tracing"], optional = true }
+et-ws-runner-common = { workspace = true, optional = true }
+fs-err = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
 # libc::_exit for the macOS test-only fast exit (see main.rs).
 # std::process::exit still runs atexit handlers, which is exactly the path that races libc++ during
 # ORT teardown -- _exit skips them.
-libc.workspace = true
-reqwest = { workspace = true, features = ["json", "rustls", "stream"] }
-serde_json = { workspace = true, features = ["std"] }
-serde_path_to_error.workspace = true
-thiserror = { workspace = true, features = ["std"] }
-tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
-tokio-tungstenite = { workspace = true, features = ["connect"] }
-tracing = { workspace = true, features = ["std"] }
-wasmtime.workspace = true
-wasmtime-wasi.workspace = true
+libc = { workspace = true, optional = true }
+reqwest = { workspace = true, features = ["json", "rustls", "stream"], optional = true }
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync", "time"], optional = true }
+tokio-tungstenite = { workspace = true, features = ["connect"], optional = true }
+tracing = { workspace = true, features = ["std"], optional = true }
+wasmtime-wasi = { workspace = true, optional = true }
 # wasi-nn standardised ML inference.
 # The workspace pin drops `openvino` + `winml` (which we don't use) and keeps `onnx`.
 wasmtime-wasi-nn = { workspace = true, optional = true }

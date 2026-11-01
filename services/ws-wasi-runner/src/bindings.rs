@@ -18,7 +18,7 @@
     A wasmtime bump that emits a fifth fails clippy until this list grows, which is the loud direction."
 )]
 #[doc(hidden)]
-pub use super::host::wasi_keyvalue::Bucket as __with_name0;
+pub use super::keyvalue::Bucket as __with_name0;
 /// Auto-generated bindings for a pre-instantiated version of a
 /// component which implements the world `runner`.
 ///
